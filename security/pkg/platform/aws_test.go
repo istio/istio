@@ -23,7 +23,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
+	awsAPI "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/awstesting/unit"
 	"github.com/stretchr/testify/assert"
@@ -68,7 +68,7 @@ func TestIsProperPlatform(t *testing.T) {
 		},
 	)
 
-	c := ec2metadata.New(unit.Session, &aws.Config{Endpoint: aws.String(server.URL + "/latest")})
+	c := ec2metadata.New(unit.Session, &awsAPI.Config{Endpoint: awsAPI.String(server.URL + "/latest")})
 	na := &AwsClientImpl{client: c}
 	if !na.IsProperPlatform() {
 		t.Errorf("On Proper Platform: expected true")
@@ -123,7 +123,7 @@ func TestAwsGetInstanceIdentityDocument(t *testing.T) {
 		defer server.Close()
 
 		awsc := &AwsClientImpl{
-			client: ec2metadata.New(unit.Session, &aws.Config{Endpoint: aws.String(server.URL + "/latest")}),
+			client: ec2metadata.New(unit.Session, &awsAPI.Config{Endpoint: awsAPI.String(server.URL + "/latest")}),
 		}
 
 		docBytes, err := awsc.getInstanceIdentityDocument()
@@ -183,7 +183,7 @@ func TestAwsGetServiceIdentity(t *testing.T) {
 		defer server.Close()
 
 		awsc := &AwsClientImpl{
-			client: ec2metadata.New(unit.Session, &aws.Config{Endpoint: aws.String(server.URL + "/latest")}),
+			client: ec2metadata.New(unit.Session, &awsAPI.Config{Endpoint: awsAPI.String(server.URL + "/latest")}),
 		}
 
 		serviceIdentity, err := awsc.GetServiceIdentity()
@@ -230,7 +230,7 @@ func TestGetGetAgentCredential(t *testing.T) {
 		defer server.Close()
 
 		awsc := &AwsClientImpl{
-			client: ec2metadata.New(unit.Session, &aws.Config{Endpoint: aws.String(server.URL + "/latest")}),
+			client: ec2metadata.New(unit.Session, &awsAPI.Config{Endpoint: awsAPI.String(server.URL + "/latest")}),
 		}
 
 		credential, err := awsc.GetAgentCredential()
@@ -279,7 +279,7 @@ func TestAwsGetDialOptions(t *testing.T) {
 	for id, c := range testCases {
 		awsc := &AwsClientImpl{
 			rootCertFile: c.rootCertFile,
-			client:       ec2metadata.New(unit.Session, &aws.Config{}),
+			client:       ec2metadata.New(unit.Session, &awsAPI.Config{}),
 		}
 
 		options, err := awsc.GetDialOptions()
@@ -306,13 +306,13 @@ func TestAwsGetCredentialTypes(t *testing.T) {
 		expectedType string
 	}{
 		"Good CredentialTypes": {
-			expectedType: "aws",
+			expectedType: AwsVM,
 		},
 	}
 
 	for id, c := range testCases {
 		awsc := &AwsClientImpl{
-			client: ec2metadata.New(unit.Session, &aws.Config{}),
+			client: ec2metadata.New(unit.Session, &awsAPI.Config{}),
 		}
 
 		credentialType := awsc.GetCredentialType()

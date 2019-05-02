@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ import (
 	// [TODO](myidpt): enable when the Citadel authz can work correctly.
 	// "cloud.google.com/go/compute/metadata"
 	"google.golang.org/grpc"
+
+	cred "istio.io/istio/security/pkg/credential"
 )
 
 // Client is the interface for implementing the client to access platform metadata.
@@ -37,20 +39,28 @@ type Client interface {
 	GetCredentialType() string
 }
 
+const (
+	OnPremVM    = "OnPremVM"
+	GcpVM       = "GcpVM"
+	AwsVM       = "AwsVM"
+	Unspecified = "Unspecified"
+)
+
 // NewClient is the function to create implementations of the platform metadata client.
-func NewClient(platform, rootCertFile, keyFile, certChainFile string) (Client, error) {
+func NewClient(platform, rootCertFile, keyFile, certChainFile, caProvider, aud string) (Client, error) {
 	switch platform {
-	case "onprem":
+	case OnPremVM:
 		return NewOnPremClientImpl(rootCertFile, keyFile, certChainFile)
-	case "gcp":
+	case GcpVM:
 		// Temporarily disable ID token authentication on CSR API.
 		// [TODO](myidpt): enable when the Citadel authz can work correctly.
-		return nil, fmt.Errorf("GCP credential authentication in CSR API is disabled")
-	case "aws":
+		//return nil, fmt.Errorf("GCP credential authentication in CSR API is disabled")
+		return NewGcpClientImpl(caProvider, &cred.GcpTokenFetcher{Aud: aud})
+	case AwsVM:
 		// Temporarily disable ID token authentication on CSR API.
 		// [TODO](myidpt): enable when the Citadel authz can work correctly.
 		return nil, fmt.Errorf("AWS credential authentication in CSR API is disabled")
-	case "unspecified":
+	case Unspecified:
 		// Temporarily disable ID token authentication on CSR API.
 		// [TODO](myidpt): enable when the Citadel authz can work correctly.
 		// if metadata.OnGCE() {

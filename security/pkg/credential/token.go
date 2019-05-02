@@ -33,7 +33,7 @@ type GcpTokenFetcher struct {
 
 func (fetcher *GcpTokenFetcher) getTokenURI() string {
 	// The GCE metadata service URI to get identity token of current (i.e., default) service account.
-	return "instance/service-accounts/default/identity?audience=" + fetcher.Aud
+	return "instance/service-accounts/default/identity?audience=" + fetcher.Aud + "&format=full"
 }
 
 // FetchToken fetches the GCE VM identity jwt token from its metadata server.
@@ -42,7 +42,7 @@ func (fetcher *GcpTokenFetcher) FetchToken() (string, error) {
 	return metadata.Get(fetcher.getTokenURI())
 }
 
-// FetchServiceAccount fetches the GCE VM identity jwt token from its metadata server.
+// FetchServiceAccount fetches the GCE VM service account.
 // Note: this function only works in a GCE VM environment.
 func (fetcher *GcpTokenFetcher) FetchServiceAccount() (string, error) {
 	return metadata.Get("instance/service-accounts/default/email")

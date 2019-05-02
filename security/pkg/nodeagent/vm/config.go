@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,15 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient"
+)
+
+const (
+	VMPlatform  = "vm"
+	K8sPlatform = "k8s"
+
+	// Istio CA gRPC services.
+	IstioCAService          = "IstioCAService"
+	IstioCertificateService = "IstioCertificateService"
 )
 
 const (
@@ -43,6 +52,9 @@ type Config struct {
 
 	// DualUse defines whether the generated CSRs are for dual-use mode (SAN+CN).
 	DualUse bool
+
+	// FSA mapper audience.
+	MapperAudience string
 }
 
 // NewConfig creates a new Config instance with default values.

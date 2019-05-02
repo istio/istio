@@ -247,7 +247,7 @@ func TestGcpGetAgentCredentials(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		gcp := GcpClientImpl{"", "", &mockTokenFetcher{c.token, c.tokenFetchErr, "", ""}}
+		gcp := GcpClientImpl{"", &mockTokenFetcher{c.token, c.tokenFetchErr, "", ""}}
 
 		credential, err := gcp.GetAgentCredential()
 		if len(c.expectedErr) > 0 {
@@ -278,7 +278,7 @@ func TestGcpGetCredentialTypes(t *testing.T) {
 	}{
 		"Good Identity": {
 			rootCertFile: "",
-			expectedType: "gcp",
+			expectedType: GcpVM,
 		},
 	}
 

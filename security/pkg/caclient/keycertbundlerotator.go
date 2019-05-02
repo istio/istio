@@ -31,7 +31,9 @@ func NewKeyCertBundleRotator(cfg *Config, keyCertBundle pkiutil.KeyCertBundle) (
 	if cfg == nil {
 		return nil, fmt.Errorf("nil configuration passed")
 	}
-	pc, err := platform.NewClient(cfg.Env, cfg.RootCertFile, cfg.KeyFile, cfg.CertChainFile)
+	// Set caProvider to empty since in most use cases, this field won't be needed. (It didn't need this before or now)
+	// Only needed for VM node agent for now.
+	pc, err := platform.NewClient(cfg.Env, cfg.RootCertFile, cfg.KeyFile, cfg.CertChainFile, "" /*caProvider*/, "" /*aud*/)
 	if err != nil {
 		return nil, err
 	}

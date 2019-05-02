@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/security/pkg/platform"
+
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	pkimock "istio.io/istio/security/pkg/pki/util/mock"
 	"istio.io/istio/security/pkg/util"
@@ -54,7 +56,7 @@ func TestNewKeyCertBundleRotator(t *testing.T) {
 				RootCertFile:  "../platform/testdata/cert-root-good.pem",
 				KeyFile:       "../platform/testdata/key-from-root-good.pem",
 				CertChainFile: "../platform/testdata/cert-from-root-good.pem",
-				Env:           "onprem",
+				Env:           platform.OnPremVM,
 				CAAddress:     "",
 			},
 			expectedErr: "istio CA address is empty",
@@ -64,7 +66,7 @@ func TestNewKeyCertBundleRotator(t *testing.T) {
 				RootCertFile:             "../platform/testdata/cert-root-good.pem",
 				KeyFile:                  "../platform/testdata/key-from-root-good.pem",
 				CertChainFile:            "../platform/testdata/cert-from-root-good.pem",
-				Env:                      "onprem",
+				Env:                      platform.OnPremVM,
 				CAAddress:                "0.0.0.0:8060",
 				CSRGracePeriodPercentage: 50,
 			},
@@ -75,7 +77,7 @@ func TestNewKeyCertBundleRotator(t *testing.T) {
 				RootCertFile:             "../platform/testdata/cert-root-good.pem",
 				KeyFile:                  "../platform/testdata/key-from-root-good.pem",
 				CertChainFile:            "../platform/testdata/cert-from-root-good.pem",
-				Env:                      "unspecified",
+				Env:                      platform.Unspecified,
 				CAAddress:                "0.0.0.0:8060",
 				CSRGracePeriodPercentage: 50,
 			},

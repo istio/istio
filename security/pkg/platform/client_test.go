@@ -31,7 +31,7 @@ func TestNewClient(t *testing.T) {
 		expectedErr   string
 	}{
 		"onprem test": {
-			platform:      "onprem",
+			platform:      OnPremVM,
 			rootCertFile:  "testdata/cert-root-good.pem",
 			keyFile:       "testdata/key-from-root-good.pem",
 			certChainFile: "testdata/cert-from-root-good.pem",
@@ -39,23 +39,23 @@ func TestNewClient(t *testing.T) {
 			expectedErr:   "",
 		},
 		"gcp test": {
-			platform:      "gcp",
+			platform:      GcpVM,
 			rootCertFile:  "testdata/cert-root-good.pem",
 			keyFile:       "testdata/key-from-root-good.pem",
 			certChainFile: "testdata/cert-chain-good.pem",
 			caAddr:        "localhost",
-			expectedErr:   "GCP credential authentication in CSR API is disabled", // No error when ID token auth is enabled.
+			expectedErr:   "GCP credential authentication in CSR API is disabled for ", // No error when ID token auth is enabled.
 		},
 		"aws test": {
-			platform:      "aws",
+			platform:      AwsVM,
 			rootCertFile:  "testdata/cert-root-good.pem",
 			keyFile:       "testdata/key-from-root-good.pem",
 			certChainFile: "testdata/cert-chain-good.pem",
 			caAddr:        "localhost",
 			expectedErr:   "AWS credential authentication in CSR API is disabled", // No error when ID token auth is enabled.
 		},
-		"unspecified test": {
-			platform:      "unspecified",
+		"Unspecified test": {
+			platform:      Unspecified,
 			rootCertFile:  "testdata/cert-root-good.pem",
 			keyFile:       "testdata/key-from-root-good.pem",
 			certChainFile: "testdata/cert-chain-good.pem",
@@ -70,7 +70,7 @@ func TestNewClient(t *testing.T) {
 
 	for id, tc := range testCases {
 		client, err := NewClient(
-			tc.platform, tc.rootCertFile, tc.keyFile, tc.certChainFile)
+			tc.platform, tc.rootCertFile, tc.keyFile, tc.certChainFile, "", "")
 		if len(tc.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
@@ -85,7 +85,7 @@ func TestNewClient(t *testing.T) {
 
 		credentialType := client.GetCredentialType()
 		expectedType := tc.platform
-		if expectedType == "unspecified" {
+		if expectedType == "Unspecified" {
 			// Temporarily disable ID token authentication on CSR API.
 			// [TODO](myidpt): enable when the Citadel authz can work correctly.
 			// if metadata.OnGCE() {
@@ -93,7 +93,7 @@ func TestNewClient(t *testing.T) {
 			// } else {
 			//   expectedType = "onprem"
 			// }
-			expectedType = "onprem"
+			expectedType = OnPremVM
 		}
 		if credentialType != expectedType {
 			t.Errorf("%s: Wrong Credential Type. Expected %v, Actual %v", id,

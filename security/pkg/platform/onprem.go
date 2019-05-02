@@ -113,7 +113,7 @@ func (ci *OnPremClientImpl) GetAgentCredential() ([]byte, error) {
 
 // GetCredentialType returns "onprem".
 func (ci *OnPremClientImpl) GetCredentialType() string {
-	return "onprem"
+	return OnPremVM
 }
 
 // getTLSCredentials creates transport credentials that are common to
