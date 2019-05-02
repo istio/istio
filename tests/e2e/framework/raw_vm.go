@@ -15,6 +15,7 @@
 package framework
 
 import (
+	"flag"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -33,6 +34,8 @@ type RawVM interface {
 }
 
 var (
+	// TODO(incfly): delete once we remove from prow scripts.
+	masonInfoFile = flag.String("mason_info", "", "File created by Mason Client that provides information about the SUT")
 	// paths
 	setupMeshExScript  = ""
 	setupIstioVMScript = ""

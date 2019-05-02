@@ -100,8 +100,8 @@ type Config struct {
 	// Overrides for the Helm values file.
 	Values map[string]string
 
-	// VMConfig is a string for mesh expansion config. The type is opaque, each CI/Environment
-	// should implement their own config type.
+	// MeshExpansionConfig is a string for mesh expansion config.
+	// The type is opaque, each CI/Environment should implement their own config type.
 	MeshExpansionConfig string
 
 	// MeshExpansionDebianURL is the url where VM instance can download debian package.

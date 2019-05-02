@@ -19,9 +19,7 @@ MASON_CLIENT_PID=-1
 function mason_cleanup() {
   if [[ ${MASON_CLIENT_PID} != -1 ]]; then
     kill -SIGINT ${MASON_CLIENT_PID} || echo "failed to kill mason client"
-    echo "jianfeih debug change wait to sleep..."
-    sleep 30
-    # wait
+    wait
   fi
 }
 
