@@ -81,6 +81,7 @@ dind-env-ipv6: &dind-env-ipv6
   DOCKER_VERSION: "17.03.0-ce"
   CNI_PLUGIN: bridge
   IP_MODE: ipv6
+  DIND_ALLOW_AAAA_USE: 'true'
 
 # dind default setup
 dind-defaults: &dind-defaults
@@ -171,10 +172,17 @@ e2e-dind-test: &e2e-dind-test
               docker exec -t $node sh -c "docker load -i /images.tar"
               docker exec -t $node sh -c "docker images"
             done
+            # put istioctl in kube-master
+            docker cp /go/out/linux_amd64/release/istioctl kube-master:/usr/bin/istioctl
     - run:
         name: Run e2e test
         command: |
           docker run --name=istio-e2e --network=container:kube-master -t -e CNI_TAG=${CNI_TAG:-nightly-master} -e CNI_HUB=${CNI_HUB:-istiocni} -e HUB='istio' -e TAG=${CIRCLE_SHA1} -e ISTIO_REMOTE=${ISTIO_REMOTE} -e ISTIO_REMOTE_BRANCH=${ISTIO_REMOTE_BRANCH} -e CNI_ENABLE=${CNI_ENABLE:-true} -e SKIP_CLEAN='1' e2e-runner:latest /go/run_e2e.sh
+    - run:
+        name: Display Istio status
+        when: always
+        command: |
+          docker exec -t kube-master sh -c "istioctl proxy-status"
     - run:
         name: Display cluster status (2)
         when: always
