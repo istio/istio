@@ -24,7 +24,6 @@ spec:
         istio: sidecar-injector
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
         checksum/config-volume: {{ print $.Template.BasePath "/sidecar-injector-configmap.yaml" | sha256sum }}
     spec:
       serviceAccountName: istio-sidecar-injector-service-account
@@ -33,7 +32,11 @@ spec:
 {{- end }}
       containers:
         - name: sidecar-injector-webhook
-          image: "{{ .Values.global.hub }}/sidecar_injector:{{ .Values.global.tag }}"
+{{- if contains "/" .Values.sidecarInjectorWebhook.image }}
+          image: "{{ .Values.sidecarInjectorWebhook.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.sidecarInjectorWebhook.image | default "sidecar_injector" }}:{{ .Values.global.tag }}"
+{{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
             - --caCertFile=/etc/istio/certs/root-cert.pem

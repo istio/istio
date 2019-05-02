@@ -4,52 +4,19 @@ sidecarInjectorWebhook:
   # retry.
   replicaCount: 1
 
+  image: sidecar_injector
+
   # This enables injection of sidecar in all namespaces,
   # with the exception of namespaces with "istio-injection:disabled" annotation
   # Only one environment should have this enabled.
   enableNamespacesByDefault: false
 
-
-
-telemetry:
-  # Will not define mixerCheckServer and mixerReportServer
-  enabled: true
-
-policy:
-  # Will not define mixerCheckServer and mixerReportServer
-  enabled: true
-
+  # If true, webhook or istioctl injector will rewrite PodSpec for liveness
+  # health check to redirect request to sidecar. This makes liveness check work
+  # even when mTLS is enabled.
+  rewriteAppHTTPProbe: false
 
 # If set, no iptable init will be added. It assumes CNI is installed.
 # TODO: rename to 'enableIptables' or add 'interceptionMode: CNI'
 istio_cni:
   enabled: false
-
-# Debug level for envoy and pilot-agent. Can be set to 'debug' for very verbose
-# messages.
-debug: info
-
-# Mesh config values affecting injection. See the api - this is just the subset
-# needed for injection.
-mesh:
-
-  # TCP connection timeout when connecting to pilot
-  connectTimeout: 10s
-
-  # These settings that determine how long an old Envoy
-  # process should be kept alive after an occasional reload.
-  drainDuration: 45s
-  parentShutdownDuration: 1m0s
-
-  #
-  # Set concurrency to a specific number to control the number of Proxy worker threads.
-  # If not set (default), then start worker thread for each CPU thread/core.
-  #concurrency:
-
-  interceptionMode: REDIRECT
-
-
-## Backward compat
-
-mixer:
-  policy:

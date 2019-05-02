@@ -2,7 +2,6 @@ apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
   name: istio-sidecar-injector-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
   labels:
     app: sidecar-injector
     release: {{ .Release.Name }}
@@ -23,6 +22,10 @@ webhooks:
     namespaceSelector:
 {{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
       matchExpressions:
+      - key: name
+        operator: NotIn
+        values:
+        - {{ .Release.Namespace }}
       - key: istio-injection
         operator: NotIn
         values:
