@@ -207,7 +207,7 @@ func (ug *Upgrader) getAndAddRoleNameToWorkloadLabelMapping(roleName, namespace 
 		// If RoleNameToWorkloadLabels does not have roleName key yet, try fetching from Kubernetes apiserver.
 		serviceRole := ug.IstioConfigStore.Get(model.ServiceRole.Type, roleName, namespace)
 		if serviceRole == nil {
-			return nil, fmt.Errorf("cannot find ServiceRole %s in namespace %s", roleName, namespace)
+			return nil, fmt.Errorf("cannot find ServiceRole %q in namespace %q", roleName, namespace)
 		}
 		err := ug.addRoleNameToWorkloadLabelMapping(*serviceRole)
 		if err != nil {
@@ -260,7 +260,7 @@ func (ug *Upgrader) mapRoleNameToWorkloadLabels(roleName, namespace, fullService
 		ug.RoleNameToWorkloadLabels[roleName][serviceName] = make(WorkloadLabels)
 	}
 	if k8sService.Spec.Selector == nil {
-		return fmt.Errorf("failed because service %s does not specify pod selector", serviceName)
+		return fmt.Errorf("failed because service %q does not specify pod selector", serviceName)
 	}
 	ug.RoleNameToWorkloadLabels[roleName][serviceName] = k8sService.Spec.Selector
 	return nil
