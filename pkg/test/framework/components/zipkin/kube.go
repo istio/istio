@@ -91,7 +91,7 @@ func (c *kubeComponent) ID() resource.ID {
 func (c *kubeComponent) QueryTraces() ([]Trace, error) {
 	// Get all traces
 	client := http.Client{
-		Timeout: time.Duration(5 * time.Second),
+		Timeout: 5 * time.Second,
 	}
 	resp, err := client.Get(c.address + tracesAPI)
 	if err != nil {
