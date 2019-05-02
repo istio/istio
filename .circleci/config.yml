@@ -159,9 +159,22 @@ e2e-dind-test: &e2e-dind-test
         when: always
         <<: *dind-dump_cluster
     - run:
+          name: Build/copy docker images into DinD nodes
+          working_directory: /go/src/istio.io/istio
+          command: |
+            TAG=${CIRCLE_SHA1} GOOS=linux make build docker.all
+            images=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep ${CIRCLE_SHA1})
+            mkdir -p _save
+            docker save ${images} >_save/images.tar
+            for node in kube-node-1 kube-node-2; do
+              docker cp _save/images.tar $node:/images.tar
+              docker exec -t $node sh -c "docker load -i /images.tar"
+              docker exec -t $node sh -c "docker images"
+            done
+    - run:
         name: Run e2e test
         command: |
-          docker run --name=istio-e2e --network=container:kube-master -t -e CNI_TAG=${CIRCLE_SHA1} -e CNI_HUB='docker.io/istio' -e HUB=${ISTIO_HUB:-gcr.io/istio-release} -e TAG=${ISTIO_TAG:-master-latest-daily} -e ISTIO_REMOTE=${ISTIO_REMOTE} -e ISTIO_REMOTE_BRANCH=${ISTIO_REMOTE_BRANCH} -e CNI_ENABLE=${CNI_ENABLE:-true} -e SKIP_CLEAN='1' e2e-runner:latest /go/run_e2e.sh
+          docker run --name=istio-e2e --network=container:kube-master -t -e CNI_TAG=${CNI_TAG:-nightly-master} -e CNI_HUB=${CNI_HUB:-istiocni} -e HUB='istio' -e TAG=${CIRCLE_SHA1} -e ISTIO_REMOTE=${ISTIO_REMOTE} -e ISTIO_REMOTE_BRANCH=${ISTIO_REMOTE_BRANCH} -e CNI_ENABLE=${CNI_ENABLE:-true} -e SKIP_CLEAN='1' e2e-runner:latest /go/run_e2e.sh
     - run:
         name: Display cluster status (2)
         when: always
@@ -739,11 +752,8 @@ jobs:
     <<: *dind-defaults
     environment:
       <<: *dind-env-ipv6
-      ISTIO_BRANCH: master
-      ISTIO_HUB: docker.io/tiswanso
-      ISTIO_TAG: ipv6-13563
-      ISTIO_REMOTE: https://github.com/tiswanso/istio.git
-      ISTIO_REMOTE_BRANCH: simpletest_ipv6
+      CNI_HUB: docker.io/istiocni
+      CNI_TAG: nightly-master
       CNI_ENABLE: false
     <<: *e2e-dind-test
 

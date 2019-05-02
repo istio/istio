@@ -34,6 +34,6 @@ kubectl get pods --all-namespaces -o wide
 HUB=${HUB:-gcr.io/istio-release}
 TAG=${TAG:-master-latest-daily}
 
-HUB=${HUB} TAG=${TAG} make build docker.all
+HUB=${HUB} TAG=${TAG} make istioctl
 
 HUB=${HUB} TAG=${TAG} ENABLE_ISTIO_CNI=${CNI_ENABLE} E2E_ARGS="--kube_inject_configmap=istio-sidecar-injector ${SKIP_CLEAN:+ --skip_cleanup}" make test/local/auth/e2e_simple
