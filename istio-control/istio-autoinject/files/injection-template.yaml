@@ -14,7 +14,7 @@ template: |
     command:
     - "/usr/local/bin/istio-iptables.sh"
     - "-p"
-    - 15001
+    - "{{ .MeshConfig.ProxyListenPort }}"
     - "-u"
     - 1337
     - "-m"
@@ -41,6 +41,7 @@ template: |
         memory: 50Mi
     securityContext:
       runAsUser: 0
+      runAsNonRoot: false
       capabilities:
         add:
         - NET_ADMIN
@@ -65,6 +66,8 @@ template: |
     imagePullPolicy: IfNotPresent
     resources: {}
     securityContext:
+      runAsUser: 0
+      runAsNonRoot: false
       privileged: true
   {{ end }}
   {{- end }}
@@ -115,10 +118,8 @@ template: |
     - --datadogAgentAddress
     - "{{ .ProxyConfig.GetTracing.GetDatadog.GetAddress }}"
   {{- end }}
-    - --proxyLogLevel
-    - "{{ annotation .ObjectMeta `sidecar.istio.io/debug` .Values.global.proxy.logLevel}}"
-    - --log_output_level
-    - '{{ .Values.debug }}'
+    - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel}}
+    - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel}}
     - --connectTimeout
     - "{{ formatDuration .ProxyConfig.ConnectTimeout }}"
   {{- if .Values.global.proxy.envoyStatsd.enabled }}

@@ -92,9 +92,13 @@ global:
     # Configure the access log for sidecar to JSON or TEXT.
     accessLogEncoding: TEXT
 
-    # Log level for proxy, applies to gateways and sidecars.  If left empty, "warning" is used.
+    # Log level for proxy, applies to gateways and sidecars.
     # Expected values are: trace|debug|info|warning|error|critical|off
-    logLevel: ""
+    logLevel: warning
+
+    # Per Component log level for proxy, applies to gateways and sidecars. If a component level is
+    # not set, then the global "logLevel" will be used.
+    componentLogLevel: "misc:error"
 
     # Configure the DNS refresh rate for Envoy cluster of type STRICT_DNS
     # 5 seconds is the default refresh rate used by Envoy
@@ -402,3 +406,4 @@ global:
   # This field is set to false by default, so 'helm template ...'
   # will ignore the helm test yaml files when generating the template
   enableHelmTest: false
+
