@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/connection"
 	"istio.io/istio/pkg/test/util/policy"
 	"istio.io/istio/pkg/test/util/retry"
@@ -99,6 +100,7 @@ func TestMain(m *testing.M) {
 	// with the certificates issued by the SDS Citadel CA flow.
 	framework.
 		NewSuite("sds_citadel_flow_test", m).
+		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		Run()
 

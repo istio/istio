@@ -20,8 +20,12 @@ const (
 
 	// Postsubmit indicates that the test should be run as part of a postsubmit run.
 	Postsubmit Instance = "postsubmit"
+
+	// CustomSetup indicates that the test requires a custom Istio installation.
+	CustomSetup Instance = "customsetup"
 )
 
 var all = NewSet(
 	Presubmit,
-	Postsubmit)
+	Postsubmit,
+	CustomSetup)

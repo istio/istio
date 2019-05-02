@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/tests/integration/pilot/outboundtrafficpolicy"
 )
 
@@ -28,6 +29,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("outbound_traffic_policy_allow_any", m).
 		RequireEnvironment(environment.Kube).
+		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
 		Run()
 }
