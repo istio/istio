@@ -31,10 +31,9 @@ import (
 )
 
 const (
-	serviceName = "zipkin"
-	appName     = "zipkin"
-	tracesAPI   = "/api/v2/traces"
-	zipkinPort  = 9411
+	appName    = "zipkin"
+	tracesAPI  = "/api/v2/traces"
+	zipkinPort = 9411
 )
 
 var (
@@ -122,7 +121,7 @@ func extractTraces(resp []byte) ([]Trace, error) {
 	var ret []Trace
 	for _, t := range traceObjs {
 		spanObjs, ok := t.([]interface{})
-		if !ok && len(spanObjs) <= 0 {
+		if !ok && len(spanObjs) == 0 {
 			continue
 		}
 		var spans []Span
@@ -138,10 +137,7 @@ func extractTraces(resp []byte) ([]Trace, error) {
 			}
 			// make order of child spans deterministic
 			sort.Slice(spans[p].ChildSpans, func(i, j int) bool {
-				if spans[p].ChildSpans[i].Name > spans[p].ChildSpans[j].Name {
-					return false
-				}
-				return true
+				return spans[p].ChildSpans[i].Name < spans[p].ChildSpans[j].Name
 			})
 		}
 		ret = append(ret, Trace{Spans: spans})

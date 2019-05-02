@@ -25,7 +25,7 @@ import (
 type Instance interface {
 	resource.Resource
 
-	// QueryTraces returns all avaiable traces via zipkin query api
+	// QueryTraces returns all available traces via zipkin query api
 	QueryTraces() ([]Trace, error)
 }
 
