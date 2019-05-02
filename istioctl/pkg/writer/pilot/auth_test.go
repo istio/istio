@@ -27,19 +27,14 @@ import (
 
 func TestTLSCheckWriter_PrintAll(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   []v2.AuthenticationDebug
-		want    string
-		wantErr bool
+		name  string
+		input []v2.AuthenticationDebug
+		want  string
 	}{
 		{
 			name:  "prints full auth debug output",
 			input: authInput(),
 			want:  "testdata/multiAuth.txt",
-		},
-		{
-			name:    "error if given non-auth info",
-			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -47,11 +42,7 @@ func TestTLSCheckWriter_PrintAll(t *testing.T) {
 			got := &bytes.Buffer{}
 			tcw := TLSCheckWriter{Writer: got}
 			err := tcw.PrintAll(tt.input)
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			assert.NoError(t, err)
 			want, _ := ioutil.ReadFile(tt.want)
 			if err := util.Compare(got.Bytes(), want); err != nil {
 				t.Errorf(err.Error())
@@ -66,7 +57,6 @@ func TestTLSCheckWriter_PrintSingle(t *testing.T) {
 		input         []v2.AuthenticationDebug
 		filterService string
 		want          string
-		wantErr       bool
 	}{
 		{
 			name:          "prints filtered auth debug output",
@@ -74,21 +64,13 @@ func TestTLSCheckWriter_PrintSingle(t *testing.T) {
 			input:         authInput(),
 			want:          "testdata/singleAuth.txt",
 		},
-		{
-			name:    "error if given non-auth info",
-			wantErr: true,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := &bytes.Buffer{}
 			tcw := TLSCheckWriter{Writer: got}
 			err := tcw.PrintSingle(tt.input, tt.filterService)
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			assert.NoError(t, err)
 			want, _ := ioutil.ReadFile(tt.want)
 			if err := util.Compare(got.Bytes(), want); err != nil {
 				t.Errorf(err.Error())
