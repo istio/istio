@@ -1,18 +1,18 @@
-//  Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-package conversion
+package galley
 
 import (
 	"fmt"
@@ -44,37 +44,43 @@ func TestConversion(t *testing.T) {
 				return
 			}
 
-			framework.Run(t, func(ctx framework.TestContext) {
+			// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
+			// component
 
-				var gal galley.Instance
-				var cfg galley.Config
+			framework.NewTest(t).
+				Label(label.Presubmit).
+				RequiresEnvironment(environment.Native).
+				Run(func(ctx framework.TestContext) {
 
-				for i, fset := range d.FileSets() {
-					// Do init for the first set. Use Meshconfig file in this set.
-					if i == 0 {
-						if fset.HasMeshConfigFile() {
-							mc, err := fset.LoadMeshConfigFile()
-							if err != nil {
-								t.Fatalf("Error loading Mesh config file: %v", err)
+					var gal galley.Instance
+					var cfg galley.Config
+
+					for i, fset := range d.FileSets() {
+						// Do init for the first set. Use Meshconfig file in this set.
+						if i == 0 {
+							if fset.HasMeshConfigFile() {
+								mc, err := fset.LoadMeshConfigFile()
+								if err != nil {
+									t.Fatalf("Error loading Mesh config file: %v", err)
+								}
+
+								cfg.MeshConfig = string(mc)
 							}
 
-							cfg.MeshConfig = string(mc)
+							gal = galley.NewOrFail(t, ctx, cfg)
 						}
 
-						gal = galley.NewOrFail(t, ctx, cfg)
-					}
-
-					t.Logf("==== Running iter: %d\n", i)
-					if len(d.FileSets()) == 1 {
-						runTest(t, ctx, fset, gal)
-					} else {
-						testName := fmt.Sprintf("%d", i)
-						t.Run(testName, func(t *testing.T) {
+						t.Logf("==== Running iter: %d\n", i)
+						if len(d.FileSets()) == 1 {
 							runTest(t, ctx, fset, gal)
-						})
+						} else {
+							testName := fmt.Sprintf("%d", i)
+							t.Run(testName, func(t *testing.T) {
+								runTest(t, ctx, fset, gal)
+							})
+						}
 					}
-				}
-			})
+				})
 		})
 	}
 }
@@ -194,14 +200,4 @@ func syntheticServiceEntryValidator(ns string) galley.SnapshotValidatorFunc {
 
 		return nil
 	})
-}
-
-func TestMain(m *testing.M) {
-	// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
-	// component
-	framework.
-		NewSuite("galley_conversion", m).
-		Label(label.Presubmit).
-		RequireEnvironment(environment.Native).
-		Run()
 }

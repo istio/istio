@@ -26,7 +26,7 @@
 // testdata/rbac-v1alpha1-ServiceRoleBinding-valid.yaml
 // DO NOT EDIT!
 
-package validation
+package galley
 
 import (
 	"fmt"
