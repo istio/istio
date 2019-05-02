@@ -612,6 +612,10 @@ const (
 	// NodeMetadataPolicyCheckMaxRetryWaitTime for max time to wait between retries
 	// In duration format. If not set, this will be 1000ms.
 	NodeMetadataPolicyCheckMaxRetryWaitTime = "policy.istio.io/checkMaxRetryWaitTime"
+
+	// NodeMetadataIdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
+	// If not set, no timeout is set.
+	NodeMetadataIdleTimeout = "IDLE_TIMEOUT"
 )
 
 var (

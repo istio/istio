@@ -375,6 +375,72 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	g.Expect(cluster.TlsContext.GetSni()).To(Equal("outbound_.8080_.foobar_.foo.example.org"))
 }
 
+func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T) {
+	expectedClientKeyPath := "/clientKeyFromNodeMetadata.pem"
+	expectedClientCertPath := "/clientCertFromNodeMetadata.pem"
+	expectedRootCertPath := "/clientRootCertFromNodeMetadata.pem"
+
+	g := NewGomegaWithT(t)
+
+	envoyMetadata := map[string]string{
+		model.NodeMetadataTLSClientCertChain: expectedClientCertPath,
+		model.NodeMetadataTLSClientKey:       expectedClientKeyPath,
+		model.NodeMetadataTLSClientRootCert:  expectedRootCertPath,
+	}
+
+	destRule := &networking.DestinationRule{
+		Host: "*.example.org",
+		TrafficPolicy: &networking.TrafficPolicy{
+			Tls: &networking.TLSSettings{
+				Mode:              networking.TLSSettings_MUTUAL,
+				ClientCertificate: "/defaultCert.pem",
+				PrivateKey:        "/defaultPrivateKey.pem",
+				CaCertificates:    "/defaultCaCert.pem",
+			},
+		},
+		Subsets: []*networking.Subset{
+			{
+				Name:   "foobar",
+				Labels: map[string]string{"foo": "bar"},
+				TrafficPolicy: &networking.TrafficPolicy{
+					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+						{
+							Port: &networking.PortSelector{
+								Port: &networking.PortSelector_Number{Number: 8080},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	clusters, err := buildTestClustersWithProxyMetadata("foo.example.org", model.ClientSideLB, model.SidecarProxy,
+		nil, testMesh, destRule, envoyMetadata)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	g.Expect(clusters).To(HaveLen(5))
+
+	expectedOutboundClusterCount := 2
+	actualOutboundClusterCount := 0
+
+	for _, c := range clusters {
+		if strings.Contains(c.Name, "outbound") {
+			actualOutboundClusterCount++
+			tlsContext := c.TlsContext.CommonTlsContext
+			g.Expect(tlsContext).NotTo(BeNil())
+
+			tlsCerts := tlsContext.TlsCertificates
+			g.Expect(tlsCerts).To(HaveLen(1))
+
+			g.Expect(tlsCerts[0].PrivateKey.GetFilename()).To(Equal(expectedClientKeyPath))
+			g.Expect(tlsCerts[0].CertificateChain.GetFilename()).To(Equal(expectedClientCertPath))
+			g.Expect(tlsContext.GetValidationContext().TrustedCa.GetFilename()).To(Equal(expectedRootCertPath))
+		}
+	}
+	g.Expect(actualOutboundClusterCount).To(Equal(expectedOutboundClusterCount))
+}
+
 func buildSniTestClusters(sniValue string) ([]*apiv2.Cluster, error) {
 	return buildSniTestClustersWithMetadata(sniValue, make(map[string]string))
 }

@@ -892,7 +892,7 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 	if len(tls.CaCertificates) != 0 {
 		trustedCa = &core.DataSource{
 			Specifier: &core.DataSource_Filename{
-				Filename: tls.CaCertificates,
+				Filename: model.GetOrDefaultFromMap(metadata, model.NodeMetadataTLSClientRootCert, tls.CaCertificates),
 			},
 		}
 	}
@@ -942,12 +942,12 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 				{
 					CertificateChain: &core.DataSource{
 						Specifier: &core.DataSource_Filename{
-							Filename: tls.ClientCertificate,
+							Filename: model.GetOrDefaultFromMap(metadata, model.NodeMetadataTLSClientCertChain, tls.ClientCertificate),
 						},
 					},
 					PrivateKey: &core.DataSource{
 						Specifier: &core.DataSource_Filename{
-							Filename: tls.PrivateKey,
+							Filename: model.GetOrDefaultFromMap(metadata, model.NodeMetadataTLSClientKey, tls.PrivateKey),
 						},
 					},
 				},

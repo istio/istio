@@ -228,3 +228,58 @@ func TestDedupeStrings(t *testing.T) {
 
 	g.Expect(actual).To(gomega.ConsistOf(expected))
 }
+
+func TestGetEnvVarOrDefault(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	testCases := []struct {
+		name          string
+		key           string
+		envVarValue   *string
+		defaultValue  string
+		expectedValue string
+	}{
+		{
+			name:          "env var with value set",
+			key:           "ENV_VAR_WITH_VALUE",
+			envVarValue:   strPtr("non-default value"),
+			defaultValue:  "default",
+			expectedValue: "non-default value",
+		},
+		{
+			name:          "env var with blank value",
+			key:           "ENV_VAR_WITH_BLANK_VALUE",
+			envVarValue:   strPtr(""),
+			defaultValue:  "default",
+			expectedValue: "default",
+		},
+		{
+			name:          "env var with unset value",
+			key:           "ENV_VAR_WITH_UNSET_VALUE",
+			envVarValue:   nil,
+			defaultValue:  "default",
+			expectedValue: "default",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.envVarValue != nil {
+				os.Setenv(tc.key, *tc.envVarValue)
+			} else {
+				os.Unsetenv(tc.key)
+			}
+
+			actual := getEnvVarOrDefault(tc.key, tc.defaultValue)
+			g.Expect(actual).To(gomega.Equal(tc.expectedValue))
+
+			if tc.envVarValue != nil {
+				os.Unsetenv(tc.key)
+			}
+		})
+	}
+}
+
+func strPtr(s string) *string {
+	return &s
+}
