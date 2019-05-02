@@ -5,7 +5,6 @@ global:
   configNamespace: istio-system
   telemetryNamespace: istio-system
   policyNamespace: istio-system
-
   proxy:
     concurrency: 0
     resources:
@@ -15,7 +14,6 @@ global:
 
     accessLogFile: "/dev/stdout"
     enableCoreDump: true
-
   controlPlaneSecurityEnabled: true
   disablePolicyChecks: false
   outboundTrafficPolicy:
@@ -23,6 +21,10 @@ global:
 
 policy:
   enabled: true
+
+pilot:
+  policy:
+    enabled: true
 
 scrapeInterval: 5s
 
