@@ -286,9 +286,16 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 
 	// Pass unmodified config.DiscoveryAddress for Google gRPC Envoy client target_uri parameter
 	opts["discovery_address"] = config.DiscoveryAddress
+
+	// Setting default to ipv4 local host, wildcard and dns policy
+	opts["localhost"] = "127.0.0.1"
+	opts["wildcard"] = "0.0.0.0"
+	opts["dns_lookup_family"] = "V4_ONLY"
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
-	if isIPv6Addr(nodeIPs[0]) {
-		opts["ipv6_proxy"] = "true"
+	if isIPv6Proxy(nodeIPs) {
+		opts["localhost"] = "::1"
+		opts["wildcard"] = "::"
+		opts["dns_lookup_family"] = "AUTO"
 	}
 
 	if config.Tracing != nil {
@@ -354,18 +361,23 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	return fname, err
 }
 
-// isIPv6Addr check the string and returns true for a valid IPv6 address
+// isIPv6Proxy check the addresses slice and returns true for a valid IPv6 address
 // for all other cases it returns false
-func isIPv6Addr(proxyAddr string) bool {
-	addr := net.ParseIP(proxyAddr)
-	if addr != nil && addr.To4() != nil {
-		// Valid IPv4 address
-		return false
-	} else if addr != nil && addr.To4() == nil {
-		// Valid IPv6 address
-		return true
-	} else {
-		// In any other cases return as it were IPv4
-		return false
+func isIPv6Proxy(ipAddrs []string) bool {
+	for i := 0; i < len(ipAddrs); i++ {
+		addr := net.ParseIP(ipAddrs[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if addr.To4() != nil {
+			// Valid ipv4 address, check if it is not 127.0.0.1
+			if !addr.Equal(net.ParseIP("127.0.0.1")) {
+				// Found a valid non loopback ipv4 address, stopping search
+				return false
+			}
+		}
 	}
+	return true
 }

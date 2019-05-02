@@ -67,11 +67,7 @@
     "access_log_path": "/dev/null",
     "address": {
       "socket_address": {
-{{- if .ipv6_proxy }}
-        "address": "::1",
-{{- else }}
-        "address": "127.0.0.1",
-{{- end}}
+        "address": "{{ .localhost }}",
         "port_value": {{ .config.ProxyAdminPort }}
       }
     }
@@ -105,11 +101,7 @@
           {
             "socket_address": {
               "protocol": "TCP",
-{{- if .ipv6_proxy }}
-              "address": "::1",
-{{- else }}
-              "address": "127.0.0.1",
-{{- end}}              
+              "address": "{{ .localhost }}",
               "port_value": {{ .config.ProxyAdminPort }}
             }
           }
@@ -118,11 +110,7 @@
       {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
-{{- if .ipv6_proxy }}
-        "dns_lookup_family": "AUTO",
-{{- else }}
-        "dns_lookup_family": "V4_ONLY",
-{{- end}} 
+        "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "{{ .connect_timeout }}",
         "lb_policy": "ROUND_ROBIN",
         {{ if eq .config.ControlPlaneAuthPolicy 1 }}
@@ -187,11 +175,7 @@
       {
         "name": "zipkin",
         "type": "STRICT_DNS",
-{{- if .ipv6_proxy }}
-        "dns_lookup_family": "AUTO",
-{{- else }}
-        "dns_lookup_family": "V4_ONLY",
-{{- end}} 
+        "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
@@ -247,11 +231,7 @@
       {
         "name": "envoy_metrics_service",
         "type": "STRICT_DNS",
-{{- if .ipv6_proxy }}
-        "dns_lookup_family": "AUTO",
-{{- else }}
-        "dns_lookup_family": "V4_ONLY",
-{{- end}} 
+        "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
@@ -267,11 +247,7 @@
         "address": {
           "socket_address": {
             "protocol": "TCP",
-{{- if .ipv6_proxy }}
-            "address": "::",
-{{- else }}
-            "address": "0.0.0.0",
-{{- end}}
+            "address": "{{ .wildcard }}",
             "port_value": 15090
           }
         },
