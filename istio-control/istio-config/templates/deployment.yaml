@@ -144,7 +144,7 @@ spec:
 {{- end }}
 
       volumes:
-  {{- if .Values.global.controlPlaneSecurityEnabled}}
+  {{- if or .Values.global.controlPlaneSecurityEnabled .Values.global.configValidation }}
       - name: istio-certs
         secret:
           secretName: istio.istio-galley-service-account

@@ -4,7 +4,7 @@
 #
 # make docker.istio-builder
 
-FROM  kindest/node:v1.14.0
+FROM  kindest/node:v1.14.1
 
 # Environment variables used in the build.
 ENV     GOROOT=/usr/local/go

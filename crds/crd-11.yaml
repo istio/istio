@@ -18,3 +18,4 @@ spec:
     - networking-istio-io
   scope: Namespaced
   version: v1alpha3
+---
