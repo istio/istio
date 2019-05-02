@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/tests/integration/security/rbac/util"
 
 	"istio.io/istio/pkg/test/framework"
@@ -47,6 +48,7 @@ func TestMain(m *testing.M) {
 		NewSuite("rbac_v2", m).
 		// TODO(pitlv2109: Turn on the presubmit label once the test is stable.
 		RequireEnvironment(environment.Kube).
+		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		Run()
 }

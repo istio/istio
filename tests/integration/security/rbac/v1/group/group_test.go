@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/label"
 
 	"istio.io/istio/tests/integration/security/rbac/util"
 
@@ -76,6 +77,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("rbac_group_list", m).
 		RequireEnvironment(environment.Kube).
+		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		Run()
 }
