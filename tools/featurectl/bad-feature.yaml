@@ -1,0 +1,8 @@
+features:
+- name:           Multicluster.Kubernetes.SingleVPC
+  description:    Ingest endpoints from another K8S cluster on same VPC using MCP
+  testTypes:     
+  - integration
+  - stability
+  targetLayers:   xds
+  priority: wrong type
