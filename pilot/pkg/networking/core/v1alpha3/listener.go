@@ -1691,11 +1691,7 @@ func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
 			continue
 		}
 		if addr.To4() != nil {
-			// Valid ipv4 address, check if it is not 127.0.0.1
-			if !addr.Equal(net.ParseIP("127.0.0.1")) {
-				// Found a valid non loopback ipv4 address, stopping search
-				return WildcardAddress, LocalhostAddress
-			}
+			return WildcardAddress, LocalhostAddress
 		}
 	}
 	return WildcardIPv6Address, LocalhostIPv6Address

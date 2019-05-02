@@ -653,11 +653,7 @@ func isIPv6Proxy(ipAddrs []string) bool {
 			continue
 		}
 		if addr.To4() != nil {
-			// Valid ipv4 address, check if it is not 127.0.0.1
-			if !addr.Equal(net.ParseIP("127.0.0.1")) {
-				// Found a valid non loopback ipv4 address, stopping search
-				return false
-			}
+			return false
 		}
 	}
 	return true
