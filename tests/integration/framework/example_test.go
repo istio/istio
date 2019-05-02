@@ -12,53 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package examples
+package framework
 
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/tests/integration/examples/mycomponent"
+	"istio.io/istio/tests/integration/framework/mycomponent"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
-	i  istio.Instance
 	mc mycomponent.Instance
 )
-
-// TestMain needs to be implemented and tests should be executed through framework.TestSuite
-func TestMain(m *testing.M) {
-	// Start your call with framework.NewSuite, which creates a new framework.Suite instance that you can configure
-	// before starting tests.
-	framework.
-		NewSuite("galley_conversion", m).
-
-		// Labels that apply to the whole suite can be specified here.
-		Label(label.Presubmit).
-
-		// You can restrict the execution of the whole suite to a particular environment. This restricts execution
-		// to the native environment.
-		RequireEnvironment(environment.Native).
-
-		// You can specify multiple setup functions that will be run as part of suite setup. setupFn will always be called.
-		Setup(mysetup).
-
-		// The following two setup methods will run conditionally, depending on the environment.
-		SetupOnEnv(environment.Native, setupNative).
-		SetupOnEnv(environment.Kube, setupKube).
-
-		// The following is an example of how to deploy Istio on Kubernetes, as part of the suite setup.
-		// (Since this is an example, this will not execute as the RequireEnvironment call above will stop execution on Kube.)
-		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
-
-		// Finally execute the test suite
-		Run()
-}
 
 func mysetup(c resource.Context) error {
 	// this function will be called as part of suite setup. You can do one-time setup here.

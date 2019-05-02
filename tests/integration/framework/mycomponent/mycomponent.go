@@ -43,6 +43,9 @@ func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 	case environment.Native:
 		i, err = newNative(ctx, cfg)
 
+	case environment.Kube:
+		i, err = newKube(ctx, cfg)
+
 	default:
 		err = resource.UnsupportedEnvironment(ctx.Environment())
 	}

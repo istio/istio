@@ -32,14 +32,29 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	// Start your call with framework.NewSuite, which creates a new framework.Suite instance that you can configure
+	// before starting tests.
 	framework.
 		NewSuite("framework_test", m).
+
+		// Labels that apply to the whole suite can be specified here.
 		Label(label.Presubmit).
+
+		// You can specify multiple setup functions that will be run as part of suite setup. setupFn will always be called.
+		Setup(mysetup).
+
+		// The following two setup methods will run conditionally, depending on the environment.
+		SetupOnEnv(environment.Native, setupNative).
+		SetupOnEnv(environment.Kube, setupKube).
+
+		// The following is how to deploy Istio on Kubernetes, as part of the suite setup.
 		// The deployment must work. If you're breaking this, you'll break many integration tests.
 		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
 		SetupOnEnv(environment.Kube, func(ctx resource.Context) error {
 			env = ctx.Environment().(*kube.Environment)
 			return nil
 		}).
+
+		// Finally execute the test suite
 		Run()
 }
