@@ -54,11 +54,19 @@ func newProtocol(cfg Config) (protocol, error) {
 	var wsDialContext func(network, addr string) (net.Conn, error)
 	if len(cfg.UDS) > 0 {
 		httpDialContext = func(_ context.Context, _, _ string) (net.Conn, error) {
-			return net.Dial("unix", cfg.UDS)
+			return net.DialTimeout("unix", cfg.UDS, common.ConnectionTimeout)
 		}
 
 		wsDialContext = func(_, _ string) (net.Conn, error) {
-			return net.Dial("unix", cfg.UDS)
+			return net.DialTimeout("unix", cfg.UDS, common.ConnectionTimeout)
+		}
+	} else {
+		httpDialContext = func(_ context.Context, network, address string) (net.Conn, error) {
+			return net.DialTimeout(network, address, common.ConnectionTimeout)
+		}
+
+		wsDialContext = func(network, address string) (net.Conn, error) {
+			return net.DialTimeout(network, address, common.ConnectionTimeout)
 		}
 	}
 
