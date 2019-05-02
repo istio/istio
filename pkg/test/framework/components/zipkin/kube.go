@@ -126,6 +126,7 @@ func extractTraces(resp []byte) ([]Trace, error) {
 	for _, t := range traceObjs {
 		spanObjs, ok := t.([]interface{})
 		if !ok || len(spanObjs) == 0 {
+			scopes.Framework.Debugf("cannot parse or cannot find spans in trace object %+v", t)
 			continue
 		}
 		var spans []Span
