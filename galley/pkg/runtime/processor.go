@@ -134,11 +134,10 @@ func (p *Processor) Start() error {
 		scope.Info("Starting processor...")
 		defer func() {
 			scope.Debugf("Process.process: Exiting worker thread")
+			p.source.Stop()
 			close(p.eventCh)
 			p.stateStrategy.Close()
 		}()
-
-		defer p.source.Stop()
 
 		scope.Debug("Starting process loop")
 
