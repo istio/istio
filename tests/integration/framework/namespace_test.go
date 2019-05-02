@@ -21,14 +21,15 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/core"
 )
 
 func TestNamespace(t *testing.T) {
 	var namespaceName string
+	var noCleanup bool
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
+			noCleanup = ctx.Settings().NoCleanup
 			ns := namespace.NewOrFail(t, ctx, "testns", true)
 			namespaceName = ns.Name()
 
@@ -48,11 +49,7 @@ func TestNamespace(t *testing.T) {
 			}
 		})
 
-	settings, err := core.SettingsFromCommandLine("framework_test")
-	if err != nil {
-		t.Fatalf("Failed to get settings: %v", err)
-	}
-	if !settings.NoCleanup {
+	if !noCleanup {
 		// Check after run to see that the namespace is gone.
 		if err := env.WaitForNamespaceDeletion(namespaceName); err != nil {
 			t.Fatalf("WaitiForNamespaceDeletion failed: %v", err)
