@@ -1,0 +1,11 @@
+approvers:
+- lavalamp
+- wojtek-t
+- sttts
+reviewers:
+- lavalamp
+- wojtek-t
+- sttts
+labels:
+- sig/api-machinery
+- area/code-generation
