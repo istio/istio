@@ -2,11 +2,7 @@ admin:
   access_log_path: /dev/null
   address:
     socket_address:
-{{- if .IPv6Proxy }} 
-      address: "::1"
-{{- else }}
-      address: 127.0.0.1
-{{- end }}
+      address: "{{ .localhost }}"
       port_value: 15000
 stats_config:
   use_all_default_tags: false
@@ -34,11 +30,7 @@ static_resources:
     hosts:
     - socket_address:
         protocol: TCP
-{{- if .IPv6Proxy }} 
-        address: "::1"
-{{- else }}
-        address: 127.0.0.1
-{{- end }}
+        address: "{{ .localhost }}"
         port_value: 15000
   - circuit_breakers:
       thresholds:
@@ -80,16 +72,12 @@ static_resources:
           - {{ .MixerSubjectAltName }}
 {{- end }}
     type: STRICT_DNS
-    dns_lookup_family: V4_ONLY
+    dns_lookup_family: "{{ .dns_lookup_family }}"
   listeners:
   - address:
       socket_address:
         protocol: TCP
-{{- if .IPv6Proxy }} 
-        address: "::"
-{{- else }}
-        address: 0.0.0.0
-{{- end }}
+        address: "{{ .wildcard }}"
         port_value: 15090
     filter_chains:
     - filters:
@@ -111,11 +99,7 @@ static_resources:
           - name: envoy.router
   - address:
       socket_address:
-{{- if .IPv6Proxy }} 
-        address: "::"
-{{- else }}
-        address: 0.0.0.0
-{{- end }}
+        address: "{{ .wildcard }}"
         port_value: 15004
     filter_chains:
     - filters:
@@ -198,11 +182,7 @@ static_resources:
     name: "15004"
   - address:
       socket_address:
-{{- if .IPv6Proxy }} 
-        address: "::"
-{{- else }}
-        address: 0.0.0.0
-{{- end }}
+        address: "{{ .wildcard }}"
         port_value: 9091
     filter_chains:
     - filters:
