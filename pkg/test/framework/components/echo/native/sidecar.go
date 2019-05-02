@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net"
 	"strings"
+	"testing"
 	"text/template"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
@@ -174,7 +175,7 @@ func newSidecar(cfg sidecarConfig) (*sidecar, error) {
 	e := &envoy.Envoy{
 		YamlFile:       yamlFile,
 		LogLevel:       cfg.envoyLogLevel,
-		LogEntryPrefix: fmt.Sprintf("[ENVOY-%s]", nodeID),
+		LogEntryPrefix: fmt.Sprintf("[ENVOY-%s.%s.%s]", cfg.service, cfg.namespace, cfg.domain),
 	}
 	if err = e.Start(); err != nil {
 		return nil, err
@@ -217,16 +218,42 @@ func (s *sidecar) FindFirstPortForProtocol(protocol model.Protocol) (echo.Port, 
 	return echo.Port{}, fmt.Errorf("no port found matching protocol %v", protocol)
 }
 
+func (s *sidecar) NodeID() string {
+	return s.nodeID
+}
+
 func (s *sidecar) Info() (*envoyAdmin.ServerInfo, error) {
 	return envoy.GetServerInfo(s.adminPort)
+}
+
+func (s *sidecar) InfoOrFail(t testing.TB) *envoyAdmin.ServerInfo {
+	info, err := s.Info()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return info
 }
 
 func (s *sidecar) Config() (*envoyAdmin.ConfigDump, error) {
 	return envoy.GetConfigDump(s.adminPort)
 }
 
+func (s *sidecar) ConfigOrFail(t testing.TB) *envoyAdmin.ConfigDump {
+	cfg, err := s.Config()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cfg
+}
+
 func (s *sidecar) WaitForConfig(accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option) error {
 	return common.WaitForConfig(s.Config, accept, options...)
+}
+
+func (s *sidecar) WaitForConfigOrFail(t testing.TB, accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option) {
+	if err := s.WaitForConfig(accept, options...); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func (s *sidecar) Stop() {

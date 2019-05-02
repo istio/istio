@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"reflect"
 	"strconv"
@@ -106,7 +107,7 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 		// Check the specified port for a match against the Target Instance
 		found := false
 		for _, port := range targetPorts {
-			if reflect.DeepEqual(port, opts.Port) {
+			if reflect.DeepEqual(port, *opts.Port) {
 				found = true
 				break
 			}
@@ -135,6 +136,10 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 		if opts.Scheme, err = schemeForPort(opts.Port); err != nil {
 			return err
 		}
+	}
+
+	if opts.Headers == nil {
+		opts.Headers = make(http.Header)
 	}
 
 	if opts.Host == "" {

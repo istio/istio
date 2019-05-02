@@ -30,13 +30,16 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	kubeEnv "istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
-	testKube "istio.io/istio/pkg/test/kube"
+
+	kubeCore "k8s.io/api/core/v1"
 )
 
 const (
 	tcpHealthPort     = 3333
 	httpReadinessPort = 8080
 	defaultDomain     = "svc.cluster.local"
+	appLabel          = "app"
+	versionLabel      = "version"
 )
 
 var (
@@ -47,6 +50,7 @@ var (
 type instance struct {
 	id        resource.ID
 	cfg       echo.Config
+	clusterIP string
 	env       *kubeEnv.Environment
 	workloads []*workload
 	grpcPort  uint16
@@ -89,6 +93,24 @@ func New(ctx resource.Context, cfg echo.Config) (out echo.Instance, err error) {
 	// Deploy the YAML.
 	if err = env.ApplyContents(cfg.Namespace.Name(), generatedYAML); err != nil {
 		return nil, err
+	}
+
+	// Now retrieve the service information to find the ClusterIP
+	s, err := env.GetService(cfg.Namespace.Name(), cfg.Service)
+	if err != nil {
+		return nil, err
+	}
+
+	c.clusterIP = s.Spec.ClusterIP
+	switch c.clusterIP {
+	case kubeCore.ClusterIPNone, "":
+		if !cfg.Headless {
+			return nil, fmt.Errorf("invalid ClusterIP %s for non-headless service %s/%s",
+				c.clusterIP,
+				c.cfg.Namespace.Name(),
+				c.cfg.Service)
+		}
+		c.clusterIP = ""
 	}
 
 	return c, nil
@@ -145,11 +167,12 @@ func (c *instance) ID() resource.ID {
 	return c.id
 }
 
-func (c *instance) Workloads() ([]echo.Workload, error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+func (c *instance) Address() string {
+	return c.clusterIP
+}
 
-	if err := c.initWorkloads(); err != nil {
+func (c *instance) Workloads() ([]echo.Workload, error) {
+	if err := c.WaitUntilReady(); err != nil {
 		return nil, err
 	}
 
@@ -168,9 +191,85 @@ func (c *instance) WorkloadsOrFail(t testing.TB) []echo.Workload {
 	return out
 }
 
+func initAllWorkloads(instances []echo.Instance) error {
+	needInit := make([]*instance, 0, len(instances))
+	namespaceToServices := make(map[string][]string)
+	for _, outbound := range instances {
+		inst := outbound.(*instance)
+
+		inst.mutex.Lock()
+		isInitialized := inst.workloads != nil
+		inst.mutex.Unlock()
+
+		if isInitialized {
+			// Already initialized.
+			continue
+		}
+
+		// Otherwise, unlock before returning.
+		needInit = append(needInit, inst)
+
+		ns := inst.cfg.Namespace.Name()
+		services := namespaceToServices[ns]
+		services = append(services, inst.cfg.Service)
+		namespaceToServices[ns] = services
+	}
+
+	if len(needInit) == 0 {
+		// Everything is already initialized.
+		return nil
+	}
+
+	allPodsMux := &sync.Mutex{}
+	allPods := make([]kubeCore.Pod, 0)
+	var allPodsErr error
+	wg := sync.WaitGroup{}
+
+	// Accumulate the pods across all namespaces.
+	for ns, services := range namespaceToServices {
+		wg.Add(1)
+
+		// Create a selector for all pods for all instances.
+		podNamespace := ns
+		podSelector := appLabel + " in (" + strings.Join(services, ",") + ")"
+
+		go func() {
+			defer wg.Done()
+
+			// Wait until all the pods are ready
+			accessor := needInit[0].env.Accessor
+			pods, err := accessor.WaitUntilPodsAreReady(accessor.NewPodFetch(podNamespace, podSelector))
+
+			allPodsMux.Lock()
+			defer allPodsMux.Unlock()
+
+			if err != nil {
+				allPodsErr = multierror.Append(allPodsErr, err)
+				return
+			}
+			allPods = append(allPods, pods...)
+		}()
+	}
+
+	wg.Wait()
+
+	if allPodsErr != nil {
+		return allPodsErr
+	}
+
+	// Initialize the workloads for each instance.
+	for _, inst := range needInit {
+		if err := inst.initWorkloads(allPods); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (c *instance) WaitUntilReady(outboundInstances ...echo.Instance) error {
-	// Initialize if we haven't already.
-	if err := c.initWorkloads(); err != nil {
+
+	// Initialize the workloads for all instances.
+	if err := initAllWorkloads(append([]echo.Instance{c}, outboundInstances...)); err != nil {
 		return err
 	}
 
@@ -192,7 +291,11 @@ func (c *instance) WaitUntilReadyOrFail(t testing.TB, outboundInstances ...echo.
 	}
 }
 
-func (c *instance) initWorkloads() error {
+func (c *instance) isServicePod(pod kubeCore.Pod) bool {
+	return pod.Namespace == c.cfg.Namespace.Name() && pod.Labels[appLabel] == c.cfg.Service && pod.Labels[versionLabel] == c.cfg.Version
+}
+
+func (c *instance) initWorkloads(pods []kubeCore.Pod) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -201,20 +304,20 @@ func (c *instance) initWorkloads() error {
 		return nil
 	}
 
-	// Wait until the pods for this service have been assigned IP Addresses.
-	pods, err := c.env.WaitUntilPodsAreReady(c.newPodFetch())
-	if err != nil {
-		return err
-	}
-
 	workloads := make([]*workload, 0, len(pods))
 	for _, pod := range pods {
-		workload, err := newWorkload(pod, c.cfg.Sidecar, c.grpcPort, c.env.Accessor)
-		if err != nil {
-			return err
-		}
+		if c.isServicePod(pod) {
+			workload, err := newWorkload(pod, c.cfg.Sidecar, c.grpcPort, c.env.Accessor)
+			if err != nil {
+				return err
+			}
 
-		workloads = append(workloads, workload)
+			workloads = append(workloads, workload)
+		}
+	}
+
+	if len(workloads) == 0 {
+		return fmt.Errorf("no pods found for service %s/%s/%s", c.cfg.Namespace.Name(), c.cfg.Service, c.cfg.Version)
 	}
 
 	c.workloads = workloads
@@ -238,19 +341,22 @@ func (c *instance) Config() echo.Config {
 
 func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) {
 	// If we haven't already initialized the client, do so now.
-	if err := c.initWorkloads(); err != nil {
+	if err := c.WaitUntilReady(); err != nil {
 		return nil, err
 	}
 
 	out, err := common.CallEcho(c.workloads[0].Instance, &opts, common.IdentityOutboundPortSelector)
 	if err != nil {
-		return nil, fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
-			c.Config().Service,
-			strings.ToLower(string(opts.Port.Protocol)),
-			opts.Target.Config().Service,
-			opts.Port.ServicePort,
-			opts.Path,
-			err)
+		if opts.Port != nil {
+			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
+				c.Config().Service,
+				strings.ToLower(string(opts.Port.Protocol)),
+				opts.Target.Config().Service,
+				opts.Port.ServicePort,
+				opts.Path,
+				err)
+		}
+		return nil, err
 	}
 	return out, nil
 }
@@ -261,16 +367,4 @@ func (c *instance) CallOrFail(t testing.TB, opts echo.CallOptions) appEcho.Parse
 		t.Fatal(err)
 	}
 	return r
-}
-
-func (c *instance) newPodFetch() testKube.PodFetchFunc {
-	// TODO: change this once we support multiple replicas.
-	return c.env.NewSinglePodFetch(c.cfg.Namespace.Name(), c.selectors()...)
-}
-
-func (c *instance) selectors() []string {
-	return []string{
-		fmt.Sprintf("app=%s", c.cfg.Service),
-		fmt.Sprintf("version=%s", c.cfg.Version),
-	}
 }
