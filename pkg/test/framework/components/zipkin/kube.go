@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"sort"
+	"time"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -32,7 +33,7 @@ import (
 
 const (
 	appName    = "zipkin"
-	tracesAPI  = "/api/v2/traces"
+	tracesAPI  = "/api/v2/traces?limit=100"
 	zipkinPort = 9411
 )
 
@@ -89,7 +90,10 @@ func (c *kubeComponent) ID() resource.ID {
 
 func (c *kubeComponent) QueryTraces() ([]Trace, error) {
 	// Get all traces
-	resp, err := http.Get(c.address + tracesAPI)
+	client := http.Client{
+		Timeout: time.Duration(5 * time.Second),
+	}
+	resp, err := client.Get(c.address + tracesAPI)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +125,7 @@ func extractTraces(resp []byte) ([]Trace, error) {
 	var ret []Trace
 	for _, t := range traceObjs {
 		spanObjs, ok := t.([]interface{})
-		if !ok && len(spanObjs) == 0 {
+		if !ok || len(spanObjs) == 0 {
 			continue
 		}
 		var spans []Span

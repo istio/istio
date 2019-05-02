@@ -32,7 +32,8 @@ func TestProxyTracing(t *testing.T) {
 	defer ctx.Done(t)
 
 	ctx.RequireOrSkip(t, environment.Kube)
-	// deploy bookinfo app, also deploy
+	// deploy bookinfo app, also deploy a virtualservice which forces all traffic to go to review v1,
+	// which does not get ratings, so that exactly six spans will be included in the wanted trace.
 	galInst.ApplyConfigOrFail(t,
 		bookinfoNsInst,
 		bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNsInst.Name()),
