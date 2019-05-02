@@ -192,7 +192,7 @@ jobs:
       - run: 
           command: |
             export PATH=/go/bin:$PATH
-            WAIT_TIMEOUT=10m bin/install.sh
+            WAIT_TIMEOUT=10m make demo-install
       - run:
           command: make info dep
       - run:
