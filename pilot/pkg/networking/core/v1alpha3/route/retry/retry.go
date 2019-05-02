@@ -39,6 +39,7 @@ func DefaultPolicy() *route.RetryPolicy {
 				Name: "envoy.retry_host_predicates.previous_hosts",
 			},
 		},
+		// TODO: allow this to be configured via API.
 		HostSelectionRetryMaxAttempts: 5,
 	}
 	return &policy
