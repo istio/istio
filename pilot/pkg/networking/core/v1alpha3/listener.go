@@ -1679,17 +1679,24 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 }
 
 // getActualWildcardAndLocalHost will return corresponding Wildcard and LocalHost
-// depending on value of proxy's IPAddresses first element
+// depending on value of proxy's IPAddresses. This function checks each element
+// and if there is at least one ipv4 address other than 127.0.0.1, it will use ipv4 address,
+// if all addresses are ipv6  addresses then ipv6 address will be used to get wildcard and local host address.
 func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
-	// Check only first ip address in IPAddresses slice
-	addr := net.ParseIP(node.IPAddresses[0])
-
-	switch {
-	case addr != nil && addr.To4() != nil:
-		return WildcardAddress, LocalhostAddress
-	case addr != nil && addr.To4() == nil:
-		return WildcardIPv6Address, LocalhostIPv6Address
-	default:
-		return WildcardAddress, LocalhostAddress
+	for i := 0; i < len(node.IPAddresses); i++ {
+		addr := net.ParseIP(node.IPAddresses[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if addr.To4() != nil {
+			// Valid ipv4 address, check if it is not 127.0.0.1
+			if !addr.Equal(net.ParseIP("127.0.0.1")) {
+				// Found a valid non loopback ipv4 address, stopping search
+				return WildcardAddress, LocalhostAddress
+			}
+		}
 	}
+	return WildcardIPv6Address, LocalhostIPv6Address
 }
