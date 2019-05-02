@@ -52,7 +52,11 @@ var (
 )
 
 const (
+	batchSize = 100
+
 	errorBand = 10.0
+
+	testDuration = 10 * time.Second
 
 	virtualService = `
 apiVersion: networking.istio.io/v1alpha3
@@ -145,7 +149,7 @@ func TestTrafficShifting(t *testing.T) {
 
 					from := instance.GetAppOrFail(hosts[0], t).(apps.KubeApp)
 
-					sendTraffic(t, 100, from, hosts[0], hosts, v, errorBand)
+					sendTraffic(t, testDuration, batchSize, from, from, hosts, v, errorBand)
 				})
 			}
 		})

@@ -17,71 +17,96 @@ package trafficshifting
 import (
 	"fmt"
 	"math"
-	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/framework/components/apps"
 )
 
-func sendTraffic(t *testing.T, batchSize int, from apps.KubeApp, to string, hosts []string, weight []int32, errorBand float64) {
+func sendTraffic(t *testing.T, duration time.Duration, batchSize int, from apps.KubeApp, to apps.KubeApp, hosts []string, weight []int32, errorBand float64) {
+	const totalThreads = 10
+	var hitCount [totalThreads]map[string]int
+	var errorFailures [totalThreads]map[string]int
 
-	stop := make(chan bool, 1)
-	totalRequests := 0
-	hostnameHitCount := map[string]int{}
-	errorFailures := map[string]int{}
+	for i := 0; i < totalThreads; i++ {
+		hitCount[i] = map[string]int{}
+		errorFailures[i] = map[string]int{}
 
-	go func() {
-		for totalRequests < batchSize {
-			headers := http.Header{}
-			headers.Add("Host", to)
-			// This is a hack to remain infrastructure agnostic when running these tests
-			// We actually call the host set above not the endpoint we pass
-			resp, err := from.Call(from.EndpointForPort(80), apps.AppCallOptions{
-				Protocol: apps.AppProtocolHTTP,
-				Headers:  headers,
-			})
-			totalRequests++
-			for _, r := range resp {
-				for _, h := range hosts {
-					if strings.HasPrefix(r.Hostname, h+"-") {
-						hostnameHitCount[h]++
-						break
+		go func(id int) {
+			for {
+				resp, err := from.Call(to.EndpointForPort(80), apps.AppCallOptions{})
+
+				for _, r := range resp {
+					for _, h := range hosts {
+						if strings.HasPrefix(r.Hostname, h+"-") {
+							hitCount[id][h]++
+							break
+						}
 					}
 				}
+				if err != nil {
+					errorFailures[id][fmt.Sprintf("send to %v failed: %v", to, err)]++
+				}
 			}
-			if err != nil {
-				errorFailures[fmt.Sprintf("send to %v failed: %v", to, err)]++
-			}
-		}
-
-		stop <- true
-	}()
-
-	<-stop
-	if totalRequests < 1 {
-		t.Error("No requests made.")
-	}
-	if len(errorFailures) > 0 {
-		t.Errorf("Total requests: %v, requests failed: %v.", totalRequests, errorFailures)
+		}(i)
 	}
 
-	for i, v := range hosts {
-		var actual = float64(hostnameHitCount[v] * 100 / totalRequests)
-		if errorBand-math.Abs(float64(weight[i])-actual) < 0 {
-			t.Errorf(
-				"Traffic weight doesn't match. Total request: %v, expected: %d%%, actually: %.2f%%, error band: %.2f%%",
-				totalRequests,
-				weight[i],
-				actual,
-				errorBand)
-		}
+	checkTimeout := time.NewTicker(time.Second)
+	timeout := time.After(duration)
 
-		t.Logf(
-			"Traffic weight matches. Total request: %v, expected: %d%%, actually: %.2f%%, error band: %.2f%%",
-			totalRequests,
-			weight[i],
-			actual,
-			errorBand)
+	for {
+		select {
+		case <-timeout:
+			t.Error("Failed to hit the weight ratio.")
+			return
+		case <-checkTimeout.C:
+			hit := true
+			log := "\n"
+
+			hCount := map[string]int{}
+			eFailures := map[string]int{}
+			totalRequests := 0
+
+			for i := 0; i < totalThreads; i++ {
+				for k, v := range errorFailures[i] {
+					eFailures[k] += v
+				}
+
+				for k, v := range hitCount[i] {
+					totalRequests += v
+					hCount[k] += v
+				}
+			}
+
+			if totalRequests < batchSize {
+				continue
+			}
+
+			if len(eFailures) > 0 {
+				t.Errorf("Total requests: %v, requests failed: %v.", totalRequests, eFailures)
+			}
+
+			for i, v := range hosts {
+				var actual = float64(hCount[v] * 100 / totalRequests)
+				if errorBand-math.Abs(float64(weight[i])-actual) < 0 {
+					hit = false
+					break
+				}
+
+				log = fmt.Sprintf(
+					"%sTraffic weight matches. Total request: %v, expected: %d%%, actually: %.2f%%, error band: %.2f%%\n",
+					log,
+					totalRequests,
+					weight[i],
+					actual,
+					errorBand)
+			}
+
+			if hit {
+				t.Log(log)
+				return
+			}
+		}
 	}
 }
