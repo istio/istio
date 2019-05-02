@@ -18,18 +18,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
-	"net/http"
-	"net/url"
-	"reflect"
-	"strconv"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"net"
+	"net/http"
+	"net/url"
+	"reflect"
+	"strconv"
 )
 
 var (
@@ -43,7 +42,7 @@ var (
 // requests to a target service.
 type OutboundPortSelectorFunc func(servicePort int) (int, error)
 
-func CallEcho(c *client.Instance, opts *echo.CallOptions, outboundPortSelector OutboundPortSelectorFunc) (client.ParsedResponses, error) {
+func CallEcho(c *client.Instance, opts *echo.CallOptions, outboundPortSelector OutboundPortSelectorFunc) (out client.ParsedResponses, err error) {
 	if err := fillInCallOptions(opts); err != nil {
 		return nil, err
 	}

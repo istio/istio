@@ -115,13 +115,16 @@ func (c *instance) WorkloadsOrFail(t testing.TB) []echo.Workload {
 func (c *instance) Call(opts echo.CallOptions) (client.ParsedResponses, error) {
 	out, err := c.workload.Call(&opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
-			c.Config().Service,
-			strings.ToLower(string(opts.Port.Protocol)),
-			opts.Target.Config().Service,
-			opts.Port.ServicePort,
-			opts.Path,
-			err)
+		if opts.Port != nil {
+			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
+				c.Config().Service,
+				strings.ToLower(string(opts.Port.Protocol)),
+				opts.Target.Config().Service,
+				opts.Port.ServicePort,
+				opts.Path,
+				err)
+		}
+		return nil, err
 	}
 	return out, nil
 }

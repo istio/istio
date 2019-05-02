@@ -139,9 +139,12 @@ func TestEcho(t *testing.T) {
 						}
 						t.Run(testName, func(t *testing.T) {
 							ctx.Environment().Case(environment.Native, func() {
-								if config.testName != "NoSidecar" && (opts.Scheme == scheme.GRPC || opts.Scheme == scheme.WebSocket) {
-									// TODO(https://github.com/istio/istio/issues/13754)
-									t.Skipf("https://github.com/istio/istio/issues/13754")
+								if config.testName != "NoSidecar" {
+									switch opts.Scheme {
+									case scheme.WebSocket, scheme.GRPC:
+										// TODO(https://github.com/istio/istio/issues/13754)
+										t.Skipf("https://github.com/istio/istio/issues/13754")
+									}
 								}
 							})
 							a.CallOrFail(t, opts).
