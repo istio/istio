@@ -4,7 +4,7 @@ version: 2
 integrationDefaults: &integrationDefaults
   machine:
     image: ubuntu-1604:201903-01
-  working_directory: /go/src/istio.io/istio-installer
+  working_directory: /go/src/istio.io/installer
   environment:
     - CHANGE_MINIKUBE_NONE_USER: true
     - SKIP_CLEANUP: true
@@ -14,7 +14,7 @@ integrationDefaults: &integrationDefaults
 
 # remote docker environment. Appears to be faster
 integrationRemote: &integrationRemote
-  working_directory: /go/src/istio.io/istio-installer
+  working_directory: /go/src/istio.io/installer
   docker:
     - image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
       environment:
@@ -43,7 +43,7 @@ jobs:
 
   # Build all the templates, verify the templates work.
   build:
-    working_directory: /go/src/istio.io/istio-installer
+    working_directory: /go/src/istio.io/installer
     docker:
       # Image with KIND installed, based on Istio Kind node-image
       # Should have all tools we need, recreated when we rev the tool versions.
@@ -87,8 +87,15 @@ jobs:
       - run:
           command: make sync
       - run:
-          command: make docker-run-test TEST_TARGET="install-crds install-base install-ingress"
+          command: make docker-run-test TEST_TARGET="install-crds install-base"
       - run:
+          command: make docker-run-test TEST_TARGET="install-ingress"
+      - run:
+          command: make docker-run-test TEST_TARGET="install-telemetry"
+      - run:
+          command: make docker-run-test TEST_TARGET="install-policy"
+      - run:
+          no_output_timeout: 20m
           command: make docker-run-test TEST_TARGET="run-test.integration.kube.presubmit"
           # simple is currently failing
       - run:
@@ -196,6 +203,7 @@ jobs:
       - run:
           command: make info dep
       - run:
+          no_output_timeout: 20m
           command: make git.dep run-test.integration.kube.presubmit
       - store_artifacts:
           path: /home/circleci/logs

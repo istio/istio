@@ -67,3 +67,4 @@ spec:
     kind: Challenge
     plural: challenges
   scope: Namespaced
+---

@@ -11,5 +11,5 @@ roleRef:
   name: istio-policy
 subjects:
   - kind: ServiceAccount
-    name: istio-mixer-service-account
+    name: istio-policy-service-account
     namespace: {{ .Release.Namespace }}
