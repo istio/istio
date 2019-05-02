@@ -201,6 +201,9 @@ ifeq ($(SKIP_CLEANUP), 0)
 	$(MAKE) clean
 endif
 
+demo-install:
+	bin/install.sh
+
 .PHONY: ${GOPATH}/out/yaml/crds
 # Install CRDS
 install-crds: crds
