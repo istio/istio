@@ -13,6 +13,8 @@
 # Will create a KIND cluster and run the tests in the docker image running KIND
 # You can also run the targets directly, against a real cluster: make run-test-noauth-full
 
+INSTALL_OPTS="--set global.istioNamespace=${ISTIO_NS} --set global.configNamespace=${ISTIO_NS} --set global.telemetryNamespace=${ISTIO_NS} --set global.policyNamespace=${ISTIO_NS}"
+
 test-noauth:
 	$(MAKE) KIND_CLUSTER=${KIND_CLUSTER}-noauth maybe-clean maybe-prepare sync
 	$(MAKE) KIND_CLUSTER=${KIND_CLUSTER}-noauth kind-run TARGET="run-test-noauth-micro"
@@ -47,20 +49,20 @@ run-test-noauth-micro: install-crds
 # Galley, Pilot, Ingress, Telemetry (separate ns)
 run-test-noauth-full: install-crds
 	bin/iop ${ISTIO_NS} istio-config ${BASE}/istio-control/istio-config ${IOP_OPTS} \
-		--set global.controlPlaneSecurityEnabled=false --set global.configValidation=false
+		--set global.controlPlaneSecurityEnabled=false --set global.configValidation=false ${INSTALL_OPTS}
 
 	bin/iop ${ISTIO_NS} istio-discovery ${BASE}/istio-control/istio-discovery ${IOP_OPTS} \
-    	--set global.controlPlaneSecurityEnabled=false --set pilot.plugins="health"
+		--set global.controlPlaneSecurityEnabled=false --set pilot.plugins="health" ${INSTALL_OPTS}
 	kubectl wait deployments istio-pilot istio-galley -n ${ISTIO_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
-	bin/iop ${ISTIO_NS} istio-ingress ${BASE}/gateways/istio-ingress --set global.istioNamespace=${ISTIO_NS} ${IOP_OPTS} \
+	bin/iop ${ISTIO_NS} istio-ingress ${BASE}/gateways/istio-ingress ${INSTALL_OPTS} ${IOP_OPTS} \
 		 --set global.controlPlaneSecurityEnabled=false
 	kubectl wait deployments ingressgateway -n ${ISTIO_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
 	bin/iop ${ISTIO_NS} istio-telemetry ${BASE}/istio-telemetry/mixer-telemetry ${IOP_OPTS} \
-         --set global.controlPlaneSecurityEnabled=false
+         --set global.controlPlaneSecurityEnabled=false ${INSTALL_OPTS}
 	bin/iop ${ISTIO_NS} istio-prometheus ${BASE}/istio-telemetry/prometheus/ --set global.istioNamespace=${ISTIO_NS} ${IOP_OPTS} \
-		 --set global.controlPlaneSecurityEnabled=false
+		 --set global.controlPlaneSecurityEnabled=false ${INSTALL_OPTS}
 	bin/iop ${ISTIO_NS} istio-mixer ${BASE}/istio-telemetry/mixer-telemetry/ --set global.istioNamespace=${ISTIO_NS} ${IOP_OPTS} \
-		--set global.controlPlaneSecurityEnabled=false
+		--set global.controlPlaneSecurityEnabled=false ${INSTALL_OPTS}
 
 	kubectl wait deployments istio-telemetry prometheus -n ${ISTIO_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
 
