@@ -134,7 +134,7 @@ data:
         {{- if .Values.global.tracer.zipkin.address }}
           address: {{ .Values.global.tracer.zipkin.address }}
         {{- else }}
-          address: zipkin.{{ .Release.Namespace }}:9411
+          address: zipkin.{{ .Values.global.telemetryNamespace }}:9411
         {{- end }}
       {{- end }}
 
