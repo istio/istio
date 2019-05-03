@@ -1,0 +1,5 @@
+resources:
+  - namespace.yaml
+  - bookinfo.yaml
+
+namespace: bookinfo
