@@ -1628,7 +1628,7 @@
 
 [[projects]]
   branch = "release-1.1"
-  digest = "1:c6426c88987c197072a9f1f64b446e19f18f0afc4c4099ac1648daaa5c032101"
+  digest = "1:2968eff78979e438a55321c61e5683fba1539395e323d29332a33074a7ba825f"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1644,7 +1644,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "e9ab8d6a54a613b7a5877fdca1c033d5a8fbe86a"
+  revision = "4a9a2a12a70047350bf30dbb4a15f2a0cb683dc9"
 
 [[projects]]
   branch = "release-1.11"

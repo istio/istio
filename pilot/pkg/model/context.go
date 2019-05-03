@@ -600,6 +600,10 @@ const (
 
 	// NodeMetadataTLSClientRootCert is the absolute path to client root cert file
 	NodeMetadataTLSClientRootCert = "TLS_CLIENT_ROOT_CERT"
+
+	// NodeMetadataIdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
+	// If not set, no timeout is set.
+	NodeMetadataIdleTimeout = "IDLE_TIMEOUT"
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and
