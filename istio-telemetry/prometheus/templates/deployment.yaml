@@ -1,27 +1,24 @@
 # TODO: the original template has service account, roles, etc
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheus
   namespace: {{ .Release.Namespace }}
   labels:
     app: prometheus
-    chart: {{ template "prometheus.chart" . }}
-    heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.prometheus.replicaCount }}
+  selector:
+    matchLabels:
+      app: prometheus
   template:
     metadata:
       labels:
         app: prometheus
-        chart: {{ template "prometheus.chart" . }}
-        heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
-        version: {{ .Chart.Version }}
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: prometheus
 {{- if .Values.global.priorityClassName }}
@@ -63,7 +60,9 @@ spec:
       - name: istio-certs
         secret:
           defaultMode: 420
+{{- if not .Values.prometheus.security.enabled }}
           optional: true
+{{- end }}
           secretName: istio.default
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

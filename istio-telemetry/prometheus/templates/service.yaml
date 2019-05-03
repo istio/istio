@@ -12,8 +12,6 @@ metadata:
     {{- end }}
   labels:
     app: prometheus
-    chart: {{ template "prometheus.chart" . }}
-    heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
   selector:
@@ -33,8 +31,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: prometheus
-    chart: {{ template "prometheus.chart" . }}
-    heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
   type: NodePort
