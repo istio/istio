@@ -54,6 +54,7 @@ spec:
     - charge: 1
       quota: requestcountquota
 ---
+# Note: change the default namespace to the namespace of the bookinfo app
 apiVersion: config.istio.io/v1alpha2
 kind: QuotaSpecBinding
 metadata:
@@ -65,9 +66,13 @@ spec:
     namespace: istio-system
   services:
   - name: ratings
+    namespace: default
   - name: reviews
+    namespace: default
   - name: details
+    namespace: default
   - name: productpage
+    namespace: default
 ---
 apiVersion: config.istio.io/v1alpha2
 kind: rule

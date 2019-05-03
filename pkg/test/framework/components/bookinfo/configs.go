@@ -50,6 +50,12 @@ const (
 
 	// NetworkingReviewsV3Rule uses "networking/virtual-service-reviews-v3"
 	NetworkingReviewsV3Rule ConfigFile = "networking/virtual-service-reviews-v3.yaml"
+
+	// RatingsRedisRateLimitFixed uses Mixer configs
+	RatingsRedisRateLimitFixed ConfigFile = "policy/mixer-rule-ratings-redis-quota-fixed-window.yaml"
+
+	// RatingsRedisRateLimitRolling uses Mixer configs
+	RatingsRedisRateLimitRolling ConfigFile = "policy/mixer-rule-ratings-redis-quota-rolling-window.yaml"
 )
 
 // LoadGatewayFileWithNamespaceOrFail loads a Book Info Gateway configuration file from the system, changes it to be fit

@@ -1665,6 +1665,7 @@ func doMixerRule(ruleName string, do kubeDo) error {
 		return fmt.Errorf("%s must contain %s so the it can replaced", rule, templateNamespace)
 	}
 	contents = strings.Replace(contents, templateNamespace, tc.Kube.Namespace, -1)
+	contents = strings.Replace(contents, "namespace: default", "namespace: "+tc.Kube.Namespace, -1)
 	return do(tc.Kube.Namespace, contents, tc.Kube.KubeConfig)
 }
 
