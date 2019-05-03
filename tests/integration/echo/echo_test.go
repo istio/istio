@@ -39,8 +39,6 @@ var (
 func TestEcho(t *testing.T) {
 	framework.
 		NewTest(t).
-		// TODO(https://github.com/istio/istio/issues/13810)
-		Label(label.Flaky).
 		Run(func(ctx framework.TestContext) {
 			g := galley.NewOrFail(t, ctx, galley.Config{})
 			p := pilot.NewOrFail(t, ctx, pilot.Config{
@@ -72,6 +70,7 @@ func TestEcho(t *testing.T) {
 			configs := []struct {
 				testName string
 				apply    func(name string, ns namespace.Instance) echo.Config
+				flaky    bool
 			}{
 				{
 					testName: "Headless",
@@ -95,6 +94,8 @@ func TestEcho(t *testing.T) {
 					},
 				},
 				{
+					// TODO(https://github.com/istio/istio/issues/13810)
+					flaky:    true,
 					testName: "NoSidecar",
 					apply: func(name string, ns namespace.Instance) echo.Config {
 						cfg := baseCfg
@@ -127,7 +128,11 @@ func TestEcho(t *testing.T) {
 
 			for _, config := range configs {
 				t.Run(config.testName, func(t *testing.T) {
-					framework.Run(t, func(ctx framework.TestContext) {
+					tst := framework.NewTest(t)
+					if config.flaky {
+						tst.Label(label.Flaky)
+					}
+					tst.Run(func(ctx framework.TestContext) {
 						ns := namespace.NewOrFail(t, ctx, "echo", true)
 
 						a := echoboot.NewOrFail(t, ctx, config.apply("a", ns))
