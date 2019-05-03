@@ -68,7 +68,6 @@ HELM_VER ?= v2.13.1
 # Will be used by tests. In CI 'machine' or some other cases needs to be built locally, we can't
 # customize base image
 export ISTIOCTL_BIN ?= /usr/local/bin/istioctl
-JUNIT_REPORT ?= /usr/local/bin/go-junit-report
 
 # Namespace and environment running the control plane.
 # A cluster must support multiple control plane versions.
@@ -81,7 +80,7 @@ ISTIO_NS ?= istio-control
 TEST_TARGET ?= run-all-tests
 
 # Required, tests in docker may not execute in /tmp
-export TMPDIR = ${GOPATH}/out/tmp
+export TMPDIR=${GOPATH}/out/tmp
 
 # Setting MOUNT to 1 will mount the current GOPATH into the kind cluster, and run the tests as the
 # current user. The default value for kind cluster will be 'local' instead of test.
@@ -234,7 +233,7 @@ kind-logs:
 
 # Build the Kind+build tools image that will be useed in CI/CD or local testing
 # This replaces the istio-builder.
-docker.istio-builder: test/docker/Dockerfile ${GOPATH}/bin/istioctl ${GOPATH}/bin/ci2gubernator ${GOPATH}/bin/go-junit-report ${GOPATH}/bin/kind ${GOPATH}/bin/helm ${GOPATH}/bin/go-junit-report ${GOPATH}/bin/repo
+docker.istio-builder: test/docker/Dockerfile ${TMPDIR}/bin/istioctl
 	mkdir -p ${GOPATH}/out/istio-builder
 	curl -Lo - https://github.com/istio/istio/releases/download/${STABLE_TAG}/istio-${STABLE_TAG}-linux.tar.gz | \
     		(cd ${GOPATH}/out/istio-builder;  tar --strip-components=1 -xzf - )
@@ -244,15 +243,13 @@ docker.istio-builder: test/docker/Dockerfile ${GOPATH}/bin/istioctl ${GOPATH}/bi
 push.docker.istio-builder:
 	docker push $(BUILD_IMAGE)
 
-docker.buildkite: test/buildkite/Dockerfile ${GOPATH}/bin/kind ${GOPATH}/bin/helm ${GOPATH}/bin/go-junit-report ${GOPATH}/bin/repo
+docker.buildkite: test/buildkite/Dockerfile
 	mkdir -p ${GOPATH}/out/istio-buildkite
 	cp $^ ${GOPATH}/out/istio-buildkite
 	docker build -t istionightly/buildkite ${GOPATH}/out/istio-buildkite
 
 # Build or get the dependencies.
 dep:
-
-#${GOPATH}/bin/kind ${GOPATH}/bin/helm
 
 GITBASE ?= "https://github.com"
 
@@ -267,21 +264,11 @@ ${GOPATH}/src/istio.io/tools:
 #
 git.dep: ${GOPATH}/src/istio.io/istio ${GOPATH}/src/istio.io/tools
 
-${GOPATH}/bin/repo:
-	curl https://storage.googleapis.com/git-repo-downloads/repo > $@
-	chmod +x $@
-
-${GOPATH}/bin/helm:
-	mkdir -p ${TMPDIR}
-    curl -Lo - https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-linux-amd64.tar.gz | (cd ${GOPATH}/out; tar -zxvf -)
-	chmod +x ${GOPATH}/out/linux-amd64/helm
-	mv ${GOPATH}/out/linux-amd64/helm ${GOPATH}/bin/helm
-
 # Istio releases: deb and charts on https://storage.googleapis.com/istio-release
 #
 
-${GOPATH}/bin/istioctl:
-	(cd ${GOPATH}/src/istio.io/istio; make istioctl)
+${TMPDIR}/bin/istioctl:
+	(cd ${GOPATH}/src/istio.io/istio; GOOS=linux make istioctl)
 	cp ${GOPATH}/out/linux_amd64/release/istioctl $@
 
 ${GOPATH}/bin/kind:
@@ -291,12 +278,6 @@ ${GOPATH}/bin/kind:
 
 ${GOPATH}/bin/dep:
 	go get -u github.com/golang/dep/cmd/dep
-
-${GOPATH}/bin/go-junit-report:
-	go get github.com/jstemmer/go-junit-report
-
-${GOPATH}/bin/ci2gubernator:
-	go get -u istio.io/test-infra/toolbox/ci2gubernator
 
 lint:
 	$(MAKE) kind-run TARGET="run-lint"
