@@ -5,9 +5,9 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-sidecar-injector
-  namespace: istio-system
+  namespace: istio-testing
   labels:
-    release: istio-system-istio-autoinject
+    release: istio-testing-istio-autoinject
     app: sidecar-injector
     istio: sidecar-injector
 data:
@@ -368,10 +368,10 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-sidecar-injector-service-account
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: sidecar-injector
-    release: istio-system-istio-autoinject
+    release: istio-testing-istio-autoinject
     istio: sidecar-injector
 
 ---
@@ -379,10 +379,10 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-sidecar-injector-istio-system
+  name: istio-sidecar-injector-istio-testing
   labels:
     app: sidecar-injector
-    release: istio-system-istio-autoinject
+    release: istio-testing-istio-autoinject
     istio: sidecar-injector
 rules:
 - apiGroups: [""]
@@ -397,19 +397,19 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-sidecar-injector-admin-role-binding-istio-system
+  name: istio-sidecar-injector-admin-role-binding-istio-testing
   labels:
     app: sidecar-injector
-    release: istio-system-istio-autoinject
+    release: istio-testing-istio-autoinject
     istio: sidecar-injector
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-sidecar-injector-istio-system
+  name: istio-sidecar-injector-istio-testing
 subjects:
   - kind: ServiceAccount
     name: istio-sidecar-injector-service-account
-    namespace: istio-system
+    namespace: istio-testing
 
 ---
 # Source: istio-autoinject/templates/service.yaml
@@ -417,10 +417,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-sidecar-injector
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: sidecar-injector
-    release: istio-system-istio-autoinject
+    release: istio-testing-istio-autoinject
     istio: sidecar-injector
 spec:
   ports:
@@ -434,10 +434,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-sidecar-injector
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: sidecar-injector
-    release: istio-system-istio-autoinject
+    release: istio-testing-istio-autoinject
     istio: sidecar-injector
 spec:
   replicas: 1
@@ -452,7 +452,7 @@ spec:
     metadata:
       labels:
         app: sidecar-injector
-        release: istio-system-istio-autoinject
+        release: istio-testing-istio-autoinject
         istio: sidecar-injector
       annotations:
         sidecar.istio.io/inject: "false"
@@ -471,7 +471,7 @@ spec:
             - --meshConfig=/etc/istio/config/mesh
             - --healthCheckInterval=2s
             - --healthCheckFile=/health
-            - --webhookConfigName=istio-sidecar-injector-istio-system
+            - --webhookConfigName=istio-sidecar-injector-istio-testing
             - --log_output_level=debug
           volumeMounts:
           - name: config-volume
@@ -559,16 +559,16 @@ spec:
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: istio-sidecar-injector-istio-system
+  name: istio-sidecar-injector-istio-testing
   labels:
     app: sidecar-injector
-    release: istio-system-istio-autoinject
+    release: istio-testing-istio-autoinject
 webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
       service:
         name: istio-sidecar-injector
-        namespace: istio-system
+        namespace: istio-testing
         path: "/inject"
       caBundle: ""
     rules:
@@ -579,7 +579,7 @@ webhooks:
     failurePolicy: Fail
     namespaceSelector:
       matchLabels:
-        istio-env: istio-system
+        istio-env: istio-testing
 
 
 ---
@@ -587,12 +587,12 @@ webhooks:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  namespace: istio-system
+  namespace: istio-testing
   name: galley-envoy-config
   labels:
     app: istio-galley
     istio: galley
-    release: istio-system-istio-config
+    release: istio-testing-istio-config
 data:
   envoy.yaml.tmpl: |-
     admin:
@@ -681,9 +681,9 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-mesh-galley
-  namespace: istio-system
+  namespace: istio-testing
   labels:
-    release: istio-system-istio-config
+    release: istio-testing-istio-config
 data:
 
 
@@ -697,24 +697,24 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-galley-configuration
-  namespace: istio-system
+  namespace: istio-testing
   labels:
-    release: istio-system-istio-config
+    release: istio-testing-istio-config
 data:
   validatingwebhookconfiguration.yaml: |-    
     apiVersion: admissionregistration.k8s.io/v1beta1
     kind: ValidatingWebhookConfiguration
     metadata:
-      name: istio-galley-istio-system
-      namespace: istio-system
+      name: istio-galley-istio-testing
+      namespace: istio-testing
       labels:
-        release: istio-system-istio-config
+        release: istio-testing-istio-config
     webhooks:
       - name: pilot.validation.istio.io
         clientConfig:
           service:
             name: istio-galley
-            namespace: istio-system
+            namespace: istio-testing
             path: "/admitpilot"
           caBundle: ""
         rules:
@@ -766,7 +766,7 @@ data:
         clientConfig:
           service:
             name: istio-galley
-            namespace: istio-system
+            namespace: istio-testing
             path: "/admitmixer"
           caBundle: ""
         rules:
@@ -815,19 +815,19 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-galley-service-account
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: galley
-    release: istio-system-istio-config
+    release: istio-testing-istio-config
 
 ---
 # Source: istio-config/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
-  name: istio-galley-istio-system
+  name: istio-galley-istio-testing
   labels:
-    release: istio-system-istio-config
+    release: istio-testing-istio-config
 rules:
 - apiGroups: ["admissionregistration.k8s.io"]
   resources: ["validatingwebhookconfigurations"]
@@ -860,17 +860,17 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-galley-admin-role-binding-istio-system
+  name: istio-galley-admin-role-binding-istio-testing
   labels:
-    release: istio-system-istio-config
+    release: istio-testing-istio-config
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-galley-istio-system
+  name: istio-galley-istio-testing
 subjects:
   - kind: ServiceAccount
     name: istio-galley-service-account
-    namespace: istio-system
+    namespace: istio-testing
 
 ---
 # Source: istio-config/templates/service.yaml
@@ -878,11 +878,11 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-galley
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: galley
     istio: galley
-    release: istio-system-istio-config
+    release: istio-testing-istio-config
 spec:
   ports:
   - port: 443
@@ -902,11 +902,11 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-galley
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: galley
     istio: galley
-    release: istio-system-istio-config
+    release: istio-testing-istio-config
 spec:
   replicas: 1
   strategy:
@@ -942,7 +942,7 @@ spec:
           - --insecure=true
           - --enable-validation=true
           - --enable-server=true
-          - --deployment-namespace=istio-system
+          - --deployment-namespace=istio-testing
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml
           - --monitoringPort=15014
@@ -1082,10 +1082,10 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  namespace: istio-system
+  namespace: istio-testing
   name: pilot-envoy-config
   labels:
-    release: istio-system-istio-discovery
+    release: istio-testing-istio-discovery
 data:
   envoy.yaml.tmpl: |-
     admin:
@@ -1284,9 +1284,9 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio
-  namespace: istio-system
+  namespace: istio-testing
   labels:
-    release: istio-system-istio-discovery
+    release: istio-testing-istio-discovery
 data:
 
   meshNetworks: |-
@@ -1381,13 +1381,13 @@ data:
       tracing:
         zipkin:
           # Address of the Zipkin collector
-          address: zipkin.istio-system:9411
+          address: zipkin.istio-testing:9411
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: MUTUAL_TLS
       #
       # Address where istio Pilot service is running
-      discoveryAddress: istio-pilot.istio-system:15011
+      discoveryAddress: istio-pilot.istio-testing:15011
 
 ---
 # Source: istio-discovery/templates/serviceaccount.yaml
@@ -1395,20 +1395,20 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-pilot-service-account
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: pilot
-    release: istio-system-istio-discovery
+    release: istio-testing-istio-discovery
 
 ---
 # Source: istio-discovery/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-pilot-istio-system
+  name: istio-pilot-istio-testing
   labels:
     app: pilot
-    release: istio-system-istio-discovery
+    release: istio-testing-istio-discovery
 rules:
 - apiGroups: ["config.istio.io"]
   resources: ["*"]
@@ -1440,18 +1440,18 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-pilot-istio-system
+  name: istio-pilot-istio-testing
   labels:
     app: pilot
-    release: istio-system-istio-discovery
+    release: istio-testing-istio-discovery
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-pilot-istio-system
+  name: istio-pilot-istio-testing
 subjects:
   - kind: ServiceAccount
     name: istio-pilot-service-account
-    namespace: istio-system
+    namespace: istio-testing
 
 ---
 # Source: istio-discovery/templates/service.yaml
@@ -1459,10 +1459,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-pilot
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: pilot
-    release: istio-system-istio-discovery
+    release: istio-testing-istio-discovery
     istio: pilot
 spec:
   ports:
@@ -1483,14 +1483,14 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-pilot
-  namespace: istio-system
+  namespace: istio-testing
   # TODO: default template doesn't have this, which one is right ?
   labels:
     app: pilot
-    release: istio-system-istio-discovery
+    release: istio-testing-istio-discovery
     istio: pilot
   annotations:
-    checksum/config-volume:  f450dfd8e2ac937bc225ca82b1816b971fac650c03535355df6d7d0cffce52df
+    checksum/config-volume:  b601bdaa3418a3afe9cd4a276600e4cbe91bd897aed1308501e1aae37c4ad31c
 spec:
   strategy:
     rollingUpdate:
@@ -1503,7 +1503,7 @@ spec:
     metadata:
       labels:
         app: pilot
-        release: istio-system-istio-discovery
+        release: istio-testing-istio-discovery
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
@@ -1660,9 +1660,9 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: "api-server"
-  namespace: istio-system
+  namespace: istio-testing
   labels:
-    release: istio-system-istio-discovery
+    release: istio-testing-istio-discovery
 spec:
   host: "kubernetes.default.svc.cluster.local"
   trafficPolicy:
@@ -1677,9 +1677,9 @@ apiVersion: "authentication.istio.io/v1alpha1"
 kind: "MeshPolicy"
 metadata:
   name: "default"
-  namespace: istio-system
+  namespace: istio-testing
   labels:
-    release: istio-system-istio-discovery
+    release: istio-testing-istio-discovery
 spec:
   peers:
   - mtls:
@@ -1689,9 +1689,9 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: "default"
-  namespace: istio-system
+  namespace: istio-testing
   labels:
-    release: istio-system-istio-discovery
+    release: istio-testing-istio-discovery
 spec:
   host: "*.local"
   trafficPolicy:
@@ -1707,10 +1707,10 @@ apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-pilot
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: pilot
-    release: istio-system-istio-discovery
+    release: istio-testing-istio-discovery
 spec:
   maxReplicas: 5
   minReplicas: 1
@@ -1736,13 +1736,13 @@ apiVersion: v1
 kind: Service
 metadata:
   name: egressgateway
-  namespace: istio-system
+  namespace: istio-testing
   annotations:
   labels:
     app: egressgateway
     chart: egressgateway
     heritage: Tiller
-    release: istio-system-istio-egress
+    release: istio-testing-istio-egress
 spec:
   type: ClusterIP
   selector:
@@ -1767,13 +1767,13 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: egressgateway
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: egressgateway
     chart: egressgateway
     heritage: Tiller
-    release: istio-system-istio-egress
-    istio: istio-system
+    release: istio-testing-istio-egress
+    istio: istio-testing
 spec:
   replicas: 1
   template:
@@ -1781,10 +1781,10 @@ spec:
       labels:
         chart: egressgateway
         heritage: Tiller
-        release: istio-system-istio-egress
+        release: istio-testing-istio-egress
         version: 1.1.0
         app: egressgateway
-        istio: istio-system
+        istio: istio-testing
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
@@ -1903,15 +1903,15 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: istio-multicluster-egressgateway
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: egressgateway
     chart: egressgateway
     heritage: Tiller
-    release: istio-system-istio-egress
+    release: istio-testing-istio-egress
 spec:
   selector:
-    istio: istio-system-istio-egress
+    istio: istio-testing-istio-egress
   servers:
   - hosts:
     - "*.global"
@@ -1925,12 +1925,12 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: istio-multicluster-egressgateway
-  namespace: istio-system 
+  namespace: istio-testing 
   labels:
     app: egressgateway
     chart: egressgateway
     heritage: Tiller
-    release: istio-system-istio-egress
+    release: istio-testing-istio-egress
 spec:
   gateways:
   - istio-multicluster-egressgateway
@@ -1952,15 +1952,15 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: istio-multicluster-egressgateway
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-egress
     chart: istio-egress
     heritage: Tiller
-    release: istio-system-istio-egress
+    release: istio-testing-istio-egress
 spec:
    workloadLabels:
-     istio: istio-system
+     istio: istio-testing
    filters:
    - listenerMatch:
        portNumber: 15443
@@ -1974,12 +1974,12 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: istio-multicluster-destinationrule
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-egress
     chart: istio-egress
     heritage: Tiller
-    release: istio-system-istio-egress
+    release: istio-testing-istio-egress
 spec:
   host: "*.global"
   trafficPolicy:
@@ -1994,12 +1994,12 @@ apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
   name: egressgateway
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: egressgateway
     chart: egressgateway
     heritage: Tiller
-    release: istio-system-istio-egress
+    release: istio-testing-istio-egress
 spec:
   maxReplicas: 5
   minReplicas: 1
@@ -2021,12 +2021,12 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-grafana-configuration-dashboards
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: grafana
     chart: grafana
     heritage: Tiller
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
     istio: grafana
 data:
   
@@ -12754,12 +12754,12 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-grafana
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: grafana
     chart: grafana
     heritage: Tiller
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
     istio: grafana
 data:
   datasources.yaml: |-
@@ -12791,13 +12791,13 @@ apiVersion: v1
 kind: Service
 metadata:
   name: grafana
-  namespace: istio-system
+  namespace: istio-testing
   annotations:
   labels:
     app: grafana
     chart: grafana
     heritage: Tiller
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   type: ClusterIP
   ports:
@@ -12814,12 +12814,12 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: grafana
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: grafana
     chart: grafana
     heritage: Tiller
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   replicas: 1
   template:
@@ -12828,7 +12828,7 @@ spec:
         app: grafana
         chart: grafana
         heritage: Tiller
-        release: istio-system-istio-telemetry
+        release: istio-testing-istio-telemetry
         version: 1.1.0
       annotations:
         sidecar.istio.io/inject: "false"
@@ -12922,9 +12922,9 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: grafana
-  namespace: istio-system
+  namespace: istio-testing
 spec:
-  host: grafana.istio-system
+  host: grafana.istio-testing
   trafficPolicy:
     tls:
       mode: DISABLE
@@ -12935,12 +12935,12 @@ apiVersion: authentication.istio.io/v1alpha1
 kind: Policy
 metadata:
   name: grafana-ports-mtls-disabled
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: grafana
     chart: grafana
     heritage: Tiller
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   targets:
   - name: grafana
@@ -12958,11 +12958,11 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: istio-testing
   annotations:
   labels:
     app: ingressgateway
-    release: istio-system-istio-ingress
+    release: istio-testing-istio-ingress
 spec:
   type: LoadBalancer
   selector:
@@ -12990,11 +12990,11 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: ingressgateway
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: ingressgateway
     istio: ingressgateway
-    release: istio-system-istio-ingress
+    release: istio-testing-istio-ingress
 spec:
   replicas: 1
   template:
@@ -13156,9 +13156,9 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: ingressgateway
-  namespace: istio-system
+  namespace: istio-testing
   labels:
-    release: istio-system-istio-ingress
+    release: istio-testing-istio-ingress
 spec:
   selector:
     istio: ingressgateway
@@ -13179,12 +13179,12 @@ apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
   name: ingressgateway
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: ingressgateway
     chart: ingressgateway
     heritage: Tiller
-    release: istio-system-istio-ingress
+    release: istio-testing-istio-ingress
 spec:
   maxReplicas: 5
   minReplicas: 1
@@ -13205,9 +13205,9 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
   name: default
-  namespace: istio-system
+  namespace: istio-testing
   labels:
-    release: istio-system-istio-ingress
+    release: istio-testing-istio-ingress
 spec:
   egress:
     - hosts:
@@ -13255,12 +13255,12 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: prometheus
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: prometheus
     chart: prometheus
     heritage: Tiller
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 data:
   prometheus.yml: |-
     global:
@@ -13274,7 +13274,7 @@ data:
       - role: endpoints
         namespaces:
           names:
-          - istio-system
+          - istio-testing
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
@@ -13354,7 +13354,7 @@ data:
       - role: endpoints
         namespaces:
           names:
-          - istio-system
+          - istio-testing
 
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
@@ -13556,24 +13556,24 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: prometheus
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: prometheus
     chart: prometheus
     heritage: Tiller
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 
 ---
 # Source: prometheus/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
-  name: prometheus-istio-system
+  name: prometheus-istio-testing
   labels:
     app: prometheus
     chart: prometheus
     heritage: Tiller
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 rules:
 - apiGroups: [""]
   resources:
@@ -13595,20 +13595,20 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: prometheus-istio-system
+  name: prometheus-istio-testing
   labels:
     app: prometheus
     chart: prometheus
     heritage: Tiller
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: prometheus-istio-system
+  name: prometheus-istio-testing
 subjects:
 - kind: ServiceAccount
   name: prometheus
-  namespace: istio-system
+  namespace: istio-testing
 
 ---
 # Source: prometheus/templates/service.yaml
@@ -13616,14 +13616,14 @@ apiVersion: v1
 kind: Service
 metadata:
   name: prometheus
-  namespace: istio-system
+  namespace: istio-testing
   annotations:
     prometheus.io/scrape: 'true'
   labels:
     app: prometheus
     chart: prometheus
     heritage: Tiller
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   selector:
     app: prometheus
@@ -13639,12 +13639,12 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: prometheus
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: prometheus
     chart: prometheus
     heritage: Tiller
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   replicas: 1
   template:
@@ -13653,7 +13653,7 @@ spec:
         app: prometheus
         chart: prometheus
         heritage: Tiller
-        release: istio-system-istio-telemetry
+        release: istio-testing-istio-telemetry
         version: 1.1.0
       annotations:
         sidecar.istio.io/inject: "false"
@@ -13736,9 +13736,9 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: prometheys
-  namespace: istio-system
+  namespace: istio-testing
 spec:
-  host: prometheus.istio-system
+  host: prometheus.istio-testing
   trafficPolicy:
     tls:
       mode: DISABLE
@@ -13747,9 +13747,9 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: prometheus-full
-  namespace: istio-system
+  namespace: istio-testing
 spec:
-  host: prometheus.istio-system.svc.cluster.local
+  host: prometheus.istio-testing.svc.cluster.local
   trafficPolicy:
     tls:
       mode: DISABLE
@@ -13760,20 +13760,20 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-mixer-service-account
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 
 ---
 # Source: mixer-telemetry/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
-  name: istio-mixer-istio-system
+  name: istio-mixer-istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 rules:
 - apiGroups: ["config.istio.io"] # istio CRD watcher
   resources: ["*"]
@@ -13796,18 +13796,18 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-mixer-admin-role-binding-istio-system
+  name: istio-mixer-admin-role-binding-istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-mixer-istio-system
+  name: istio-mixer-istio-testing
 subjects:
   - kind: ServiceAccount
     name: istio-mixer-service-account
-    namespace: istio-system
+    namespace: istio-testing
 
 ---
 # Source: mixer-telemetry/templates/service.yaml
@@ -13815,10 +13815,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-telemetry
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   ports:
   - name: grpc-mixer
@@ -13838,11 +13838,11 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-telemetry
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
     istio: mixer
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   replicas: 1
   strategy:
@@ -13886,7 +13886,7 @@ spec:
           - --certFile=/etc/certs/cert-chain.pem
           - --keyFile=/etc/certs/key.pem
           - --caCertFile=/etc/certs/root-cert.pem
-          - --configDefaultNamespace=istio-system
+          - --configDefaultNamespace=istio-testing
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
         env:
         - name: GODEBUG
@@ -13963,9 +13963,9 @@ apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-telemetry
-  namespace: istio-system
+  namespace: istio-testing
   labels:
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
     app: istio-telemetry
 spec:
     maxReplicas: 5
@@ -13987,10 +13987,10 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
 metadata:
   name: istioproxy
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   attributes:
     origin.ip:
@@ -14126,10 +14126,10 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
 metadata:
   name: kubernetes
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   attributes:
     source.ip:
@@ -14190,10 +14190,10 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
   name: requestcount
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   compiledTemplate: metric
   params:
@@ -14225,10 +14225,10 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
   name: requestduration
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   compiledTemplate: metric
   params:
@@ -14260,10 +14260,10 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
   name: requestsize
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   compiledTemplate: metric
   params:
@@ -14295,10 +14295,10 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
   name: responsesize
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   compiledTemplate: metric
   params:
@@ -14330,10 +14330,10 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
   name: tcpbytesent
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   compiledTemplate: metric
   params:
@@ -14361,10 +14361,10 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
   name: tcpbytereceived
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   compiledTemplate: metric
   params:
@@ -14392,10 +14392,10 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
   name: tcpconnectionsopened
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   compiledTemplate: metric
   params:
@@ -14423,10 +14423,10 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
   name: tcpconnectionsclosed
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   compiledTemplate: metric
   params:
@@ -14454,10 +14454,10 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
   name: prometheus
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   compiledAdapter: prometheus
   params:
@@ -14465,7 +14465,7 @@ spec:
       metricsExpiryDuration: "10m"
     metrics:
     - name: requests_total
-      instance_name: requestcount.instance.istio-system
+      instance_name: requestcount.instance.istio-testing
       kind: COUNTER
       label_names:
       - reporter
@@ -14489,7 +14489,7 @@ spec:
       - permissive_response_policyid
       - connection_security_policy
     - name: request_duration_seconds
-      instance_name: requestduration.instance.istio-system
+      instance_name: requestduration.instance.istio-testing
       kind: DISTRIBUTION
       label_names:
       - reporter
@@ -14516,7 +14516,7 @@ spec:
         explicit_buckets:
           bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
     - name: request_bytes
-      instance_name: requestsize.instance.istio-system
+      instance_name: requestsize.instance.istio-testing
       kind: DISTRIBUTION
       label_names:
       - reporter
@@ -14545,7 +14545,7 @@ spec:
           scale: 1
           growthFactor: 10
     - name: response_bytes
-      instance_name: responsesize.instance.istio-system
+      instance_name: responsesize.instance.istio-testing
       kind: DISTRIBUTION
       label_names:
       - reporter
@@ -14574,7 +14574,7 @@ spec:
           scale: 1
           growthFactor: 10
     - name: tcp_sent_bytes_total
-      instance_name: tcpbytesent.instance.istio-system
+      instance_name: tcpbytesent.instance.istio-testing
       kind: COUNTER
       label_names:
       - reporter
@@ -14594,7 +14594,7 @@ spec:
       - connection_security_policy
       - response_flags
     - name: tcp_received_bytes_total
-      instance_name: tcpbytereceived.instance.istio-system
+      instance_name: tcpbytereceived.instance.istio-testing
       kind: COUNTER
       label_names:
       - reporter
@@ -14614,7 +14614,7 @@ spec:
       - connection_security_policy
       - response_flags
     - name: tcp_connections_opened_total
-      instance_name: tcpconnectionsopened.instance.istio-system
+      instance_name: tcpconnectionsopened.instance.istio-testing
       kind: COUNTER
       label_names:
       - reporter
@@ -14634,7 +14634,7 @@ spec:
       - connection_security_policy
       - response_flags
     - name: tcp_connections_closed_total
-      instance_name: tcpconnectionsclosed.instance.istio-system
+      instance_name: tcpconnectionsclosed.instance.istio-testing
       kind: COUNTER
       label_names:
       - reporter
@@ -14658,10 +14658,10 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: promhttp
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   match: (context.protocol == "http" || context.protocol == "grpc") && (match((request.useragent | "-"), "kube-probe*") == false) && (match((request.useragent | "-"), "Prometheus*") == false)
   actions:
@@ -14676,10 +14676,10 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: promtcp
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   match: context.protocol == "tcp"
   actions:
@@ -14692,10 +14692,10 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: promtcpconnectionopen
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   match: context.protocol == "tcp" && ((connection.event | "na") == "open")
   actions:
@@ -14707,10 +14707,10 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: promtcpconnectionclosed
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   match: context.protocol == "tcp" && ((connection.event | "na") == "close")
   actions:
@@ -14722,10 +14722,10 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
   name: kubernetesenv
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   compiledAdapter: kubernetesenv
   params:
@@ -14741,10 +14741,10 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: kubeattrgenrulerule
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   actions:
   - handler: kubernetesenv
@@ -14755,10 +14755,10 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: tcpkubeattrgenrulerule
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   match: context.protocol == "tcp"
   actions:
@@ -14770,10 +14770,10 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
   name: attributes
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
   compiledTemplate: kubernetes
   params:
@@ -14811,12 +14811,12 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: istio-telemetry
-  namespace: istio-system
+  namespace: istio-testing
   labels:
     app: istio-telemetry
-    release: istio-system-istio-telemetry
+    release: istio-testing-istio-telemetry
 spec:
-  host: istio-telemetry.istio-system.svc.cluster.local
+  host: istio-telemetry.istio-testing.svc.cluster.local
   trafficPolicy:
     portLevelSettings:
     - port:

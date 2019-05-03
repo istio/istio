@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - files/crd-10.yaml
+  - files/crd-11.yaml
+  - files/crd-12.yaml
+  - files/crd-certmanager-10.yaml
+  - files/crd-certmanager-11.yaml

@@ -1,0 +1,26 @@
+# Example is installing in multiple namespaces and advanced customization
+#
+# Will install the CRDs, citadel in istio-system, rest in istio-testing
+# Will create a custom config file with citadel DNS overrides and replace the CITADEL_DNS
+
+bases:
+  - ../../../crds
+  # Goes to istio-system
+  - ../../../kustomize/citadel
+  # The istio-testing is setting the namespace to istio-testing
+  - ../istio-testing
+
+# Added for quick removal
+commonLabels:
+  istio-profile: demo-testing
+
+# Citadel customization
+# - trustDomain
+# - dnsCerts
+#
+configMapGenerator:
+  - name: citadeldns
+    behavior: replace
+    literals:
+      - CITADEL_DNS=istio-galley-service-account.istio-testing:istio-galley.istio-testing.svc,istio-sidecar-injector-service-account.istio-testing:istio-sidecar-injector.istio-testing.svc,
+

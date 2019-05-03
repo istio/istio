@@ -1,0 +1,298 @@
+---
+# Source: istio-ingress/templates/service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingressgateway
+  namespace: istio-ingress
+  annotations:
+  labels:
+    app: ingressgateway
+    release: istio-ingress-istio-ingress
+spec:
+  type: LoadBalancer
+  selector:
+    app: ingressgateway
+  ports:
+    -
+      name: http2
+      port: 80
+      targetPort: 80
+    -
+      name: https
+      port: 443
+    -
+      name: tls
+      port: 15443
+      targetPort: 15443
+  
+---
+
+
+---
+# Source: istio-ingress/templates/deployment.yaml
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: ingressgateway
+  namespace: istio-ingress
+  labels:
+    app: ingressgateway
+    istio: ingressgateway
+    release: istio-ingress-istio-ingress
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ingressgateway
+        istio: ingressgateway
+      annotations:
+        sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+    spec:
+      containers:
+        - name: istio-proxy
+          image: "istionightly/proxyv2:nightly-master"
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+            - containerPort: 443
+            - containerPort: 15443
+            - containerPort: 15011
+            - containerPort: 8060
+            - containerPort: 853
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+          args:
+          - proxy
+          - router
+          - --domain
+          - $(POD_NAMESPACE).svc.cluster.local
+          - --log_output_level
+          - 'info'
+          - --proxyLogLevel
+          - 'info'
+          - --drainDuration
+          - '45s'
+          - --parentShutdownDuration
+          - '1m0s' #parentShutdownDuration
+          - --connectTimeout
+          - '10s'
+          - --serviceCluster
+          - ingressgateway
+          - --zipkinAddress
+          - zipkin.istio-control:9411
+          - --proxyAdminPort
+          - "15000"
+          - --statusPort
+          - "15020"
+          - --controlPlaneAuthPolicy
+          - MUTUAL_TLS
+          - --discoveryAddress
+          - istio-pilot.istio-control:15011
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15020
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            requests:
+              cpu: 10m
+            
+          env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: INSTANCE_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          - name: ISTIO_META_POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: ISTIO_META_CONFIG_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: ISTIO_META_ROUTER_MODE
+            value: sni-dnat
+          volumeMounts:
+          
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+          - name: ingressgateway-certs
+            mountPath: "/etc/istio/ingressgateway-certs"
+            readOnly: true
+          - name: ingressgateway-ca-certs
+            mountPath: "/etc/istio/ingressgateway-ca-certs"
+            readOnly: true
+      volumes:
+      
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+          optional: true
+      - name: ingressgateway-certs
+        secret:
+          secretName: "istio-ingressgateway-certs"
+          optional: true
+      - name: ingressgateway-ca-certs
+        secret:
+          secretName: "istio-ingressgateway-ca-certs"
+          optional: true
+      affinity:      
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x
+---
+
+---
+# Source: istio-ingress/templates/gateway.yaml
+
+# Main Gatewaay. Apps must bind to NAMESPACE/ingressgateway
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: ingressgateway
+  namespace: istio-ingress
+  labels:
+    release: istio-ingress-istio-ingress
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+      - "*"
+    # Additional ports in gateaway for the ingressPorts - apps using dedicated port instead of hostname
+
+
+---
+# Source: istio-ingress/templates/autoscale.yaml
+
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ingressgateway
+  namespace: istio-ingress
+  labels:
+    app: ingressgateway
+    chart: ingressgateway
+    heritage: Tiller
+    release: istio-ingress-istio-ingress
+spec:
+  maxReplicas: 5
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1beta1
+    kind: Deployment
+    name: ingressgateway
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: 80
+---
+
+---
+# Source: istio-ingress/templates/sidecar.yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: default
+  namespace: istio-ingress
+  labels:
+    release: istio-ingress-istio-ingress
+spec:
+  egress:
+    - hosts:
+        - "*/*"
+
+---
+# Source: istio-ingress/templates/certificate.yaml
+
+
+
+---
+# Source: istio-ingress/templates/hosts.yaml
+
+
+# TODO: range TCP ports, add ports
+# 
+
+
+
+
+---
+# Source: istio-ingress/templates/meshexpansion.yaml
+
+
+
+---
+# Source: istio-ingress/templates/poddisruptionbudget.yaml
+
+
+---
+# Source: istio-ingress/templates/preconfigured.yaml
+
+
+---
+# Source: istio-ingress/templates/role.yaml
+
+
+---
+# Source: istio-ingress/templates/rolebindings.yaml
+
+
