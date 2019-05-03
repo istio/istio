@@ -13,14 +13,14 @@
 //  limitations under the License.
 //
 // How to run this test suite locally:
-// vmconfig="{
-// 	'vm_namespace': 'default',
-// 	'project_number': '895429144602',
-// 	'project_id': 'jianfeih-test',
-// 	'gcp_vm_zone': 'us-central1-a',
-// 	'gke_cluster_name': 'istio-dev'
-// }"
-// go test -v ./tests/integration/meshexp
+// vmconfig='{
+// 	"vm_namespace": "default",
+// 	"project_number": "895429144602",
+// 	"project_id": "jianfeih-test",
+// 	"gcp_vm_zone": "us-central1-a",
+// 	"gke_cluster_name": "istio-dev"
+// }'
+// go test -v ./tests/integration/meshexp \
 // -istio.test.env  kube -istio.test.hub "gcr.io/istio-release" \
 // -istio.test.tag "master-latest-daily" \
 // --log_output_level=tf:debug,CI:debug \
