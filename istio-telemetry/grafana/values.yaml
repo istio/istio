@@ -3,7 +3,7 @@ grafana:
   replicaCount: 1
   image:
     repository: grafana/grafana
-    tag: 5.2.3
+    tag: 6.0.2
   persist: false
   storageClassName: ""
   accessMode: ReadWriteMany
@@ -12,6 +12,8 @@ grafana:
     secretName: grafana
     usernameKey: username
     passphraseKey: passphrase
+
+  contextPath: /grafana
   service:
     annotations: {}
     name: http
@@ -20,20 +22,37 @@ grafana:
     loadBalancerIP:
     loadBalancerSourceRanges:
 
+  ingress:
+    enabled: false
+    ## Used to create an Ingress record.
+    hosts:
+      - grafana.local
+    annotations:
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    tls:
+      # Secrets must be manually created in the namespace.
+      # - secretName: grafana-tls
+      #   hosts:
+      #     - grafana.local
+
   # Optional: prometheus may be deployed in a different namespace
   # prometheusNamespace: istio-telemetry
 
   # Additional datasources. Prometheus included in the config map.
-  #datasources:
-  #      - name: Prometheus2
-  #        type: prometheus2
-  #        orgId: 2
-  #        url: http://prometheus:9090
-  #        access: proxy
-  #        isDefault: false
-  #        jsonData:
-  #          timeInterval: 5s
-  #        editable: true
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+      # - name: Prometheus2
+      #   type: prometheus2
+      #   orgId: 2
+      #   url: http://prometheus:9090
+      #   access: proxy
+      #   isDefault: false
+      #   jsonData:
+      #     timeInterval: 5s
+      #   editable: true
 
   dashboardProviders:
     dashboardproviders.yaml:

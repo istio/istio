@@ -1,12 +1,11 @@
+{{ $datasources := index .Values.grafana.datasources "datasources.yaml" }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-grafana
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "grafana.name" . }}
-    chart: {{ template "grafana.chart" . }}
-    heritage: {{ .Release.Service }}
+    app: grafana
     release: {{ .Release.Name }}
     istio: grafana
 data:
@@ -27,9 +26,9 @@ data:
         timeInterval: 5s
       editable: true
 
-{{- if .Values.grafana.datasources }}
+{{- if $datasources.datasources }}
     -
-  {{- range $key, $value := .Values.grafana.datasources }}
+  {{- range $key, $value := $datasources.datasources }}
 {{ toYaml $value | indent 6 }}
   {{- end -}}
 {{- end }}
