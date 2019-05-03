@@ -111,7 +111,7 @@ func TestRouteDirective(t *testing.T) {
 		}
 		headers = result["headers"].(map[string]interface{})
 		for key, val := range headers {
-			if strings.ToLower(key) == "user-group" && strings.ToLower(val.(string)) == "admin" {
+			if strings.EqualFold(key, "user-group") && strings.EqualFold(val.(string), "admin") {
 				return nil
 			}
 		}

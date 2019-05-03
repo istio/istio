@@ -149,10 +149,8 @@ func (c *kubeComponent) CallWithHeaders(path string, headers map[string]string) 
 	if err != nil {
 		return CallResponse{}, err
 	}
-	if headers != nil {
-		for k, v := range headers {
-			req.Header.Add(k, v)
-		}
+	for k, v := range headers {
+		req.Header.Add(k, v)
 	}
 
 	resp, err := client.Do(req)
