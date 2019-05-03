@@ -69,7 +69,7 @@ func (n *kubeComponent) Reset() error {
 	return nil
 }
 
-func newKube(ctx resource.Context, _ Config) (Instance, error) {
+func newKube(ctx resource.Context, _ Config) Instance {
 	i := &kubeComponent{}
 	// After creating your resource, immediately register it with the context for tracking
 	ctx.TrackResource(i)
@@ -78,5 +78,5 @@ func newKube(ctx resource.Context, _ Config) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
 	_ = env
 
-	return i, nil
+	return i
 }
