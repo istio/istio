@@ -54,6 +54,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 	mergedGateway := model.MergeGateways(gatewaysForWorkload...)
 	log.Debugf("buildGatewayListeners: gateways after merging: %v", mergedGateway)
 
+	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	errs := &multierror.Error{}
 	listeners := make([]*xdsapi.Listener, 0, len(mergedGateway.Servers))
 	for portNumber, servers := range mergedGateway.Servers {
@@ -62,7 +63,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		opts := buildListenerOpts{
 			env:        env,
 			proxy:      node,
-			bind:       WildcardAddress,
+			bind:       actualWildcard,
 			port:       int(portNumber),
 			bindToPort: true,
 		}
