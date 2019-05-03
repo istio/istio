@@ -46,6 +46,19 @@ func TestUpgradeLocalFile(t *testing.T) {
 			},
 			expected: "./testdata/rbac-policies-v2.golden.yaml",
 		},
+		{
+			input: "./testdata/rbac-policies-with-methods-and-paths.yaml",
+			// Data from the BookExample. ratings.svc.cluster.local is the service with pod label
+			// app: ratings.
+			workloadLabelMapping: map[string]ServiceToWorkloadLabels{
+				"service-viewer": {
+					"ratings": map[string]string{
+						"app": "ratings",
+					},
+				},
+			},
+			expected: "./testdata/rbac-policies-with-methods-and-paths-v2.golden.yaml",
+		},
 	}
 
 	for _, tc := range cases {
