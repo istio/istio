@@ -137,6 +137,42 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 	testOutboundListenerConfigWithSidecarWithCaptureModeNone(t, services...)
 }
 
+func TestGetActualWildcardAndLocalHost(t *testing.T) {
+	tests := []struct {
+		name     string
+		proxy    *model.Proxy
+		expected [2]string
+	}{
+		{
+			name: "ipv4 only",
+			proxy: &model.Proxy{
+				IPAddresses: []string{"1.1.1.1", "127.0.0.1", "2.2.2.2"},
+			},
+			expected: [2]string{WildcardAddress, LocalhostAddress},
+		},
+		{
+			name: "ipv6 only",
+			proxy: &model.Proxy{
+				IPAddresses: []string{"1111:2222::1", "::1", "2222:3333::1"},
+			},
+			expected: [2]string{WildcardIPv6Address, LocalhostIPv6Address},
+		},
+		{
+			name: "mixed ipv4 and ipv6",
+			proxy: &model.Proxy{
+				IPAddresses: []string{"1111:2222::1", "::1", "127.0.0.1", "2.2.2.2", "2222:3333::1"},
+			},
+			expected: [2]string{WildcardAddress, LocalhostAddress},
+		},
+	}
+	for _, tt := range tests {
+		wm, lh := getActualWildcardAndLocalHost(tt.proxy)
+		if wm != tt.expected[0] && lh != tt.expected[1] {
+			t.Errorf("Test %s failed, expected: %s / %s got: %s / %s", tt.name, tt.expected[0], tt.expected[1], wm, lh)
+		}
+	}
+}
+
 func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	t.Helper()
 
