@@ -69,7 +69,7 @@ func (n *nativeComponent) Reset() error {
 	return nil
 }
 
-func newNative(ctx resource.Context, _ Config) (Instance, error) {
+func newNative(ctx resource.Context, _ Config) Instance {
 	i := &nativeComponent{}
 	// After creating your resource, immediately register it with the context for tracking
 	ctx.TrackResource(i)
@@ -78,5 +78,5 @@ func newNative(ctx resource.Context, _ Config) (Instance, error) {
 	env := ctx.Environment().(*native.Environment)
 	_ = env
 
-	return i, nil
+	return i
 }
