@@ -108,8 +108,8 @@ spec:
           - --zipkinAddress
         {{- if .Values.global.tracer.zipkin.address }}
           - {{ .Values.global.tracer.zipkin.address }}
-        {{- else if .Values.global.istioNamespace }}
-          - zipkin.{{ .Values.global.istioNamespace }}:9411
+        {{- else if .Values.global.telemetryNamespace }}
+          - zipkin.{{ .Values.global.telemetryNamespace }}:9411
         {{- else }}
           - zipkin:9411
         {{- end }}
