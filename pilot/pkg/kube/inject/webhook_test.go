@@ -972,13 +972,6 @@ func mergeParamsIntoHelmValues(params *Params, vals string, t testing.TB) string
 	return chartutil.ToYaml(valMap)
 }
 
-func escapeHelmValue(val string) string {
-	val = strings.Replace(val, ",", "\\,", -1)
-	val = strings.Replace(val, ".", "\\.", -1)
-	val = strings.Replace(val, "=", "\\=", -1)
-	return val
-}
-
 func splitYamlFile(yamlFile string, t *testing.T) [][]byte {
 	t.Helper()
 	yamlBytes := util.ReadFile(yamlFile, t)
