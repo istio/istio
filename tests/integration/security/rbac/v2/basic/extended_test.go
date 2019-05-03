@@ -52,26 +52,26 @@ func TestRBACV2Extended(t *testing.T) {
 		// Port 80 is where HTTP is served, 90 is where TCP is served. When an HTTP request is at port
 		// 90, this means it is a TCP request. The test framework uses HTTP to mimic TCP calls in this case.
 		{Request: connection.Connection{To: appA, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/any-path"},
-			ExpectedRespCode: respCodeFromMtls[isMtlsEnabled]},
+			ExpectAllowed: isMtlsEnabled},
 		{Request: connection.Connection{To: appA, From: appB, Port: 90, Protocol: apps.AppProtocolHTTP},
-			ExpectedRespCode: respCodeFromMtls[isMtlsEnabled]},
+			ExpectAllowed: isMtlsEnabled},
 		{Request: connection.Connection{To: appA, From: appC, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"},
-			ExpectedRespCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 		{Request: connection.Connection{To: appA, From: appC, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/good-path"},
-			ExpectedRespCode: respCodeFromMtls[isMtlsEnabled]},
+			ExpectAllowed: isMtlsEnabled},
 		{Request: connection.Connection{To: appA, From: appC, Port: 90, Protocol: apps.AppProtocolHTTP},
-			ExpectedRespCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 
 		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"},
-			ExpectedRespCode: connection.AllowHTTPRespCode},
+			ExpectAllowed: true},
 		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/secret"},
-			ExpectedRespCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 		{Request: connection.Connection{To: appB, From: appA, Port: 90, Protocol: apps.AppProtocolHTTP},
-			ExpectedRespCode: connection.AllowHTTPRespCode},
+			ExpectAllowed: true},
 		{Request: connection.Connection{To: appB, From: appC, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"},
-			ExpectedRespCode: connection.AllowHTTPRespCode},
+			ExpectAllowed: true},
 		{Request: connection.Connection{To: appB, From: appC, Port: 90, Protocol: apps.AppProtocolHTTP},
-			ExpectedRespCode: connection.AllowHTTPRespCode},
+			ExpectAllowed: true},
 	}
 
 	testDir := ctx.WorkDir()

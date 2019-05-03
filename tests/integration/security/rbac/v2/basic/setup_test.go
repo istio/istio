@@ -20,7 +20,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/util/connection"
 )
 
 const (
@@ -30,12 +29,8 @@ const (
 )
 
 var (
-	inst             istio.Instance
-	isMtlsEnabled    bool
-	respCodeFromMtls = map[bool]string{
-		true:  connection.AllowHTTPRespCode,
-		false: connection.DenyHTTPRespCode,
-	}
+	inst          istio.Instance
+	isMtlsEnabled bool
 )
 
 func TestMain(m *testing.M) {
