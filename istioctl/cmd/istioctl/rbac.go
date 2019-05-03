@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,11 +17,17 @@ package main
 import (
 	"fmt"
 
+	"istio.io/istio/pkg/kube"
+
 	"github.com/spf13/cobra"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/istioctl/pkg/rbac"
 	"istio.io/istio/pilot/pkg/model"
+)
+
+var (
+	rbacUpgradeInputFile string
 )
 
 // can allows user to query Istio RBAC effect for a specific request.
@@ -84,6 +90,37 @@ istioctl experimental rbac can -s source.namespace=foo POST rating /data -a dest
 	return cmd
 }
 
+func upgrade() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "upgrade <rbac-file>",
+		Short: "Upgrade Istio Authorization policy file to use the newest API",
+		Long: `
+This command automatically converts Istio Authorization v1 policy files to v2. It requires the operator 
+to have READ access to the Kubernetes cluster where the services specified in ServiceRole definitions exist. 
+`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if rbacUpgradeInputFile == "" {
+				return fmt.Errorf("no input file provided")
+			}
+			upgrader, err := newUpgrader()
+			if err != nil {
+				return err
+			}
+			convertedPolicies, err := upgrader.UpgradeCRDs()
+			if err != nil {
+				return err
+			}
+			writer := cmd.OutOrStdout()
+			_, err = writer.Write([]byte(convertedPolicies))
+			if err != nil {
+				return fmt.Errorf("failed writing config with error %v", err)
+			}
+			return nil
+		},
+	}
+	return cmd
+}
+
 // Rbac provides a command named rbac that allows user to interact with Istio RBAC policies.
 func Rbac() *cobra.Command {
 	cmd := &cobra.Command{
@@ -97,6 +134,8 @@ istioctl experimental rbac can -u test GET rating /v1/health`,
 	}
 
 	cmd.AddCommand(can())
+	rbacUpgradeCmd := setUpRbacUpradeFlagsAndGetCmd()
+	cmd.AddCommand(rbacUpgradeCmd)
 	return cmd
 }
 
@@ -133,4 +172,24 @@ func newRbacStore() (*rbac.ConfigStore, error) {
 		}
 	}
 	return &rbac.ConfigStore{Roles: rolesMap}, nil
+}
+
+func newUpgrader() (*rbac.Upgrader, error) {
+	istioClient, err := newClient()
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to Istio Config Store with error %v", err)
+	}
+	k8sClient, err := kube.CreateClientset("", "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to Kubernetes with error %v", err)
+	}
+	upgrader := &rbac.Upgrader{IstioConfigStore: istioClient, K8sClient: k8sClient,
+		RoleNameToWorkloadLabels: map[string]rbac.ServiceToWorkloadLabels{}, RbacFile: rbacUpgradeInputFile}
+	return upgrader, nil
+}
+
+func setUpRbacUpradeFlagsAndGetCmd() *cobra.Command {
+	rbacUpgradeCmd := upgrade()
+	rbacUpgradeCmd.PersistentFlags().StringVarP(&rbacUpgradeInputFile, "filename", "f", "", "Authorization policy file")
+	return rbacUpgradeCmd
 }
