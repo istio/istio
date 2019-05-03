@@ -15,13 +15,12 @@
 package kube
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"text/template"
 
 	"istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/util/tmpl"
 )
 
 const (
@@ -172,13 +171,5 @@ func generateYAML(cfg echo.Config) (string, error) {
 	}
 
 	// Generate the YAML content.
-	var filled bytes.Buffer
-	w := bufio.NewWriter(&filled)
-	if err := deploymentTemplate.Execute(w, params); err != nil {
-		return "", err
-	}
-	if err := w.Flush(); err != nil {
-		return "", err
-	}
-	return filled.String(), nil
+	return tmpl.Execute(deploymentTemplate, params)
 }

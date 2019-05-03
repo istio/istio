@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/mitchellh/go-homedir"
@@ -164,6 +165,15 @@ func DefaultConfig(ctx resource.Context) (Config, error) {
 	}
 
 	return s, nil
+}
+
+// DefaultConfigOrFail calls DefaultConfig and fails t if an error occurs.
+func DefaultConfigOrFail(t testing.TB, ctx resource.Context) Config {
+	cfg, err := DefaultConfig(ctx)
+	if err != nil {
+		t.Fatalf("Get istio config: %v", err)
+	}
+	return cfg
 }
 
 func normalizeFile(path *string) error {

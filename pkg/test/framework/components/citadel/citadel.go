@@ -29,7 +29,9 @@ type Instance interface {
 	resource.Resource
 
 	WaitForSecretToExist() (*corev1.Secret, error)
+	WaitForSecretToExistOrFail(t testing.TB) *corev1.Secret
 	DeleteSecret() error
+	DeleteSecretOrFail(t testing.TB)
 }
 
 type Config struct {
