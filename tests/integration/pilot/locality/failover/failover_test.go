@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/pilot/locality"
 )
@@ -93,23 +94,27 @@ type ServiceConfig struct {
 }
 
 func TestLocalityFailover(t *testing.T) {
-	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
+	framework.
+		NewTest(t).
+		// TODO(https://github.com/istio/istio/issues/13812)
+		Label(label.Flaky).
+		Run(func(ctx framework.TestContext) {
 
-	ctx.RequireOrSkip(t, environment.Kube)
+			ctx.RequireOrSkip(t, environment.Kube)
 
-	// Share Istio Control Plane
-	g := galley.NewOrFail(t, ctx, galley.Config{})
-	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
+			// Share Istio Control Plane
+			g := galley.NewOrFail(t, ctx, galley.Config{})
+			p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 
-	rand.Seed(time.Now().UnixNano())
-	framework.Run(t, func(ctx framework.TestContext) {
-		testCDS(t, ctx, g, p)
-	})
+			rand.Seed(time.Now().UnixNano())
+			framework.Run(t, func(ctx framework.TestContext) {
+				testCDS(t, ctx, g, p)
+			})
 
-	framework.Run(t, func(ctx framework.TestContext) {
-		testEDS(t, ctx, g, p)
-	})
+			framework.Run(t, func(ctx framework.TestContext) {
+				testEDS(t, ctx, g, p)
+			})
+		})
 }
 
 func testCDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
@@ -129,7 +134,10 @@ func testCDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Inst
 
 	tmpl, _ := template.New("CDSServiceConfig").Parse(fakeExternalServiceConfig)
 	var buf bytes.Buffer
-	tmpl.Execute(&buf, se)
+	err := tmpl.Execute(&buf, se)
+	if err != nil {
+		t.Fatalf("Error executing tempalate: %v", err)
+	}
 	g.ApplyConfigOrFail(t, instance.Namespace(), buf.String())
 
 	// TODO: find a better way to do this!
@@ -160,7 +168,10 @@ func testEDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Inst
 
 	tmpl, _ := template.New("EDSServiceConfig").Parse(fakeExternalServiceConfig)
 	var buf bytes.Buffer
-	tmpl.Execute(&buf, se)
+	err := tmpl.Execute(&buf, se)
+	if err != nil {
+		t.Fatalf("Error executing template: %v", err)
+	}
 	g.ApplyConfigOrFail(t, instance.Namespace(), buf.String())
 
 	// TODO: find a better way to do this!
