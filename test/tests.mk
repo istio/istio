@@ -5,7 +5,7 @@
 # This should run inside a container and using KIND, to reduce dependency on host or k8s environment.
 # It can also be used directly on the host against a real k8s cluster.
 run-all-tests: install-full \
-	run-test.integration.kube.presubmit run-simple run-simple-strict run-bookinfo
+	run-test.integration.kube.presubmit run-simple run-simple-strict run-bookinfo run-prometheus-operator-config-test
 
 # Tests running against 'micro' environment - just citadel + pilot + ingress
 # TODO: also add 'nano' - pilot + ingress without citadel, some users are using this a-la-carte option
@@ -118,3 +118,11 @@ run-stability:
 run-mysql:
 	 ISTIO_ENV=${ISTIO_NS} bin/iop mysql mysql ${BASE}/test/mysql ${IOP_OPTS}
 	 ISTIO_ENV=${ISTIO_NS} bin/iop mysqlplain mysqlplain ${BASE}/test/mysql ${IOP_OPTS} --set mtls=false --set Name=plain
+
+# This test currently only validates the correct config generation and install in API server.
+# When prom operator config moves out of alpha, this should be incorporated in the other tests
+# and removed.
+run-prometheus-operator-config-test: PROM_OPTS="--set prometheus.createPrometheusResource=true"
+run-prometheus-operator-config-test: install-prometheus-operator install-prometheus-operator-config
+	if [ "$$(kubectl -n ${ISTIO_NS} get servicemonitors -o name | wc -l)" -ne "7" ]; then echo "Failure to find ServiceMonitor resouces!"; return 1; fi
+	kubectl -n ${ISTIO_NS} wait pod/prometheus-prometheus-0 --for=condition=Ready --timeout=${WAIT_TIMEOUT}
