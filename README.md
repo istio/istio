@@ -123,7 +123,7 @@ with the commands above.
 
 TODO: replicas, cpu allocs, etc.
 
-## Install CRDs
+## Install Istio CRDs
 
 This is the first step of the install. Please do not remove or edit any CRD - config currently requires 
 all CRDs to be present. On each upgrade it is recommended to reapply the file, to make sure 
@@ -133,7 +133,13 @@ Istio has strong integration with certmanager.  Some operators may want to keep 
 CRDs in place and not have Istio modify them.  In this case, it is necessary to apply CRD files individually.
 
 ```bash
- kubectl apply -f crds/
+ kubectl apply -k github.com/istio/install/crds
+```
+
+or 
+
+```bash
+ kubectl apply -f crds/files
 ```
 
 ## Install Security

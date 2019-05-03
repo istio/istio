@@ -42,7 +42,11 @@ spec:
             - --grpc-host-identities=citadel
           {{- end}}
             - --citadel-storage-namespace={{ .Release.Namespace }}
+          {{- if .Values.kustomize }}
+            - --custom-dns-names=$(CITADEL_DNS)
+          {{- else }}
             - --custom-dns-names={{ range $k,$v := .Values.security.dnsCerts }}{{ $k }}:{{ $v }},{{ end }}
+          {{- end }}
           {{- if .Values.security.selfSigned }}
             - --self-signed-ca=true
           {{- else }}

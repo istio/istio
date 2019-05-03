@@ -1,0 +1,22 @@
+# Installs istio-demo profile in istio-testing environment
+# This is used to show and demo having 2 control plane versions
+# It should be used for new demos - leaving istio-system clean.
+
+# Note that it will still install citadel in istio-system
+
+# TODO: override as much as possible
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - k8s.yaml
+  - namespace.yaml
+
+namespace: istio-testing
+
+commonLabels:
+  istio-profile: demo-testing
+
+
+
+

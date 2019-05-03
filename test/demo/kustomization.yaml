@@ -1,5 +1,16 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+bases:
+  - ../../crds
+  - ../../kustomize/citadel
+
 resources:
   - k8s.yaml
+  - namespace.yaml
+
+# Everything will be forced to istio-system - demo is single-namespace
+namespace: istio-system
+
+commonLabels:
+  istio-profile: demo
