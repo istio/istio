@@ -40,7 +40,6 @@ import (
 	"k8s.io/helm/pkg/engine"
 	"k8s.io/helm/pkg/proto/hapi/chart"
 	tversion "k8s.io/helm/pkg/proto/hapi/version"
-	"k8s.io/helm/pkg/strvals"
 	"k8s.io/helm/pkg/timeconv"
 	"k8s.io/kubernetes/pkg/apis/core"
 
@@ -957,10 +956,18 @@ func mergeParamsIntoHelmValues(params *Params, vals string, t testing.TB) string
 	valMap := chartutil.FromYaml(vals)
 	paramsVals := params.intoHelmValues()
 	for path, value := range paramsVals {
-		setStr := fmt.Sprintf("%s=%s", path, escapeHelmValue(value))
-		if err := strvals.ParseIntoString(setStr, valMap); err != nil {
-			t.Fatal(err)
+		segs := strings.Split(path, ".")
+		cur := valMap
+		for i := 0; i < len(segs)-1; i++ {
+			_, ok := cur[segs[i]]
+			if !ok {
+				cur[segs[i]] = map[string]interface{}{}
+			}
+
+			cur = cur[segs[i]].(map[string]interface{})
 		}
+
+		cur[segs[len(segs)-1]] = value
 	}
 	return chartutil.ToYaml(valMap)
 }

@@ -212,6 +212,7 @@ type Params struct {
 	Privileged                   bool                   `json:"privileged"`
 	SDSEnabled                   bool                   `json:"sdsEnabled"`
 	EnableSdsTokenMount          bool                   `json:"enableSdsTokenMount"`
+	PodDNSSearchNamespaces       []string               `json:"podDNSSearchNamespaces"`
 }
 
 // Validate validates the parameters and returns an error if there is configuration issue.
@@ -229,25 +230,26 @@ func (p *Params) Validate() error {
 }
 
 // intoHelmValues returns a map of the traversed path in helm values YAML to the param value.
-func (p *Params) intoHelmValues() map[string]string {
-	vals := map[string]string{
+func (p *Params) intoHelmValues() map[string]interface{} {
+	vals := map[string]interface{}{
 		"global.proxy_init.image":                    p.InitImage,
 		"global.proxy.image":                         p.ProxyImage,
-		"global.proxy.enableCoreDump":                strconv.FormatBool(p.EnableCoreDump),
-		"global.proxy.privileged":                    strconv.FormatBool(p.Privileged),
+		"global.proxy.enableCoreDump":                p.EnableCoreDump,
+		"global.proxy.privileged":                    p.Privileged,
 		"global.imagePullPolicy":                     p.ImagePullPolicy,
-		"global.proxy.statusPort":                    strconv.Itoa(p.StatusPort),
+		"global.proxy.statusPort":                    p.StatusPort,
 		"global.proxy.tracer":                        p.Tracer,
-		"global.proxy.readinessInitialDelaySeconds":  strconv.Itoa(int(p.ReadinessInitialDelaySeconds)),
-		"global.proxy.readinessPeriodSeconds":        strconv.Itoa(int(p.ReadinessPeriodSeconds)),
-		"global.proxy.readinessFailureThreshold":     strconv.Itoa(int(p.ReadinessFailureThreshold)),
-		"global.sds.enabled":                         strconv.FormatBool(p.SDSEnabled),
-		"global.sds.useTrustworthyJwt":               strconv.FormatBool(p.EnableSdsTokenMount),
+		"global.proxy.readinessInitialDelaySeconds":  p.ReadinessInitialDelaySeconds,
+		"global.proxy.readinessPeriodSeconds":        p.ReadinessPeriodSeconds,
+		"global.proxy.readinessFailureThreshold":     p.ReadinessFailureThreshold,
+		"global.sds.enabled":                         p.SDSEnabled,
+		"global.sds.useTrustworthyJwt":               p.EnableSdsTokenMount,
 		"global.proxy.includeIPRanges":               p.IncludeIPRanges,
 		"global.proxy.excludeIPRanges":               p.ExcludeIPRanges,
 		"global.proxy.includeInboundPorts":           p.IncludeInboundPorts,
 		"global.proxy.excludeInboundPorts":           p.ExcludeInboundPorts,
-		"sidecarInjectorWebhook.rewriteAppHTTPProbe": strconv.FormatBool(p.RewriteAppHTTPProbe),
+		"sidecarInjectorWebhook.rewriteAppHTTPProbe": p.RewriteAppHTTPProbe,
+		"global.podDNSSearchNamespaces":              p.PodDNSSearchNamespaces,
 	}
 	return vals
 }
@@ -522,6 +524,9 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 		return nil, "", err
 	}
 
+	// Parse values config first. In the values config, we might have something like
+	// "{{ valueOrDefault .DeploymentMeta.Namespace `default` }}.global"
+	// We need to parse these values first.
 	values := map[string]interface{}{}
 	if err := yaml.Unmarshal([]byte(valuesConfig), &values); err != nil {
 		log.Infof("Failed to parse values config: %v [%v]\n", err, valuesConfig)
@@ -555,21 +560,28 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 		"contains":            flippedContains,
 	}
 
-	var tmpl bytes.Buffer
-	temp := template.New("inject")
-	t, err := temp.Funcs(funcMap).Parse(sidecarTemplate)
+	bbuf, err := parseTemplate(valuesConfig, funcMap, data)
 	if err != nil {
-		log.Infof("Failed to parse template: %v %v\n", err, sidecarTemplate)
 		return nil, "", err
 	}
-	if err := t.Execute(&tmpl, &data); err != nil {
-		log.Infof("Invalid template: %v %v\n", err, sidecarTemplate)
+
+	values = map[string]interface{}{}
+	if err := yaml.Unmarshal(bbuf.Bytes(), &values); err != nil {
+		log.Infof("Failed to parse values config: %v [%v]\n", err, bbuf.String())
+		return nil, "", err
+	}
+
+	// Update values in template data
+	data.Values = values
+
+	bbuf, err = parseTemplate(sidecarTemplate, funcMap, data)
+	if err != nil {
 		return nil, "", err
 	}
 
 	var sic SidecarInjectionSpec
-	if err := yaml.Unmarshal(tmpl.Bytes(), &sic); err != nil {
-		log.Warnf("Failed to unmarshall template %v %s", err, tmpl.String())
+	if err := yaml.Unmarshal(bbuf.Bytes(), &sic); err != nil {
+		log.Warnf("Failed to unmarshall template %v %s", err, bbuf.String())
 		return nil, "", err
 	}
 
@@ -594,6 +606,22 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 		return nil, "", fmt.Errorf("error encoded injection status: %v", err)
 	}
 	return &sic, string(statusAnnotationValue), nil
+}
+
+func parseTemplate(tmplStr string, funcMap map[string]interface{}, data SidecarTemplateData) (bytes.Buffer, error) {
+	var tmpl bytes.Buffer
+	temp := template.New("inject")
+	t, err := temp.Funcs(funcMap).Parse(tmplStr)
+	if err != nil {
+		log.Infof("Failed to parse template: %v %v\n", err, tmplStr)
+		return bytes.Buffer{}, err
+	}
+	if err := t.Execute(&tmpl, &data); err != nil {
+		log.Infof("Invalid template: %v %v\n", err, tmplStr)
+		return bytes.Buffer{}, err
+	}
+
+	return tmpl, nil
 }
 
 // IntoResourceFile injects the istio proxy into the specified
