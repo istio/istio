@@ -29,7 +29,7 @@ var (
 
 // TestProxyTracing exercises the trace generation features of Istio, based on the Envoy Trace driver for zipkin.
 // The test verifies that all expected spans (a client span and a server span for each service call in the sample bookinfo app)
-// are generated and that they are all a part of the same distributed trace with correct hierachy and name.
+// are generated and that they are all a part of the same distributed trace with correct hierarchy and name.
 //
 // More information on distributed tracing can be found here: https://istio.io/docs/tasks/telemetry/distributed-tracing/zipkin/
 func TestProxyTracing(t *testing.T) {
