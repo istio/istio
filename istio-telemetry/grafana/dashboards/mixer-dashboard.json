@@ -14,7 +14,7 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "5.2.2"
+      "version": "5.2.3"
     },
     {
       "type": "panel",
@@ -43,7 +43,9 @@
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
+        "limit": 100,
         "name": "Annotations & Alerts",
+        "showIn": 0,
         "type": "dashboard"
       }
     ]
@@ -52,16 +54,116 @@
   "gnetId": null,
   "graphTooltip": 1,
   "id": null,
-  "iteration": 1535646398209,
+  "iteration": 1543881232533,
   "links": [],
   "panels": [
+    {
+      "content": "<center><h2>Deployed Versions</h2></center>",
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "height": "40",
+      "id": 62,
+      "links": [],
+      "mode": "html",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fill": 1,
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 3
+      },
+      "id": 64,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "sum(istio_build{component=\"mixer\"}) by (tag)",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "{{ tag }}",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Mixer Versions",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
     {
       "content": "<center><h2>Resource Usage</h2></center>",
       "gridPos": {
         "h": 3,
         "w": 24,
         "x": 0,
-        "y": 0
+        "y": 8
       },
       "height": "40",
       "id": 29,
@@ -82,7 +184,7 @@
         "h": 7,
         "w": 6,
         "x": 0,
-        "y": 3
+        "y": 11
       },
       "id": 5,
       "legend": {
@@ -228,7 +330,7 @@
         "h": 7,
         "w": 6,
         "x": 6,
-        "y": 3
+        "y": 11
       },
       "id": 6,
       "legend": {
@@ -329,7 +431,7 @@
         "h": 7,
         "w": 6,
         "x": 12,
-        "y": 3
+        "y": 11
       },
       "id": 7,
       "legend": {
@@ -424,7 +526,7 @@
         "h": 7,
         "w": 6,
         "x": 18,
-        "y": 3
+        "y": 11
       },
       "id": 4,
       "legend": {
@@ -503,7 +605,7 @@
         "h": 3,
         "w": 24,
         "x": 0,
-        "y": 10
+        "y": 18
       },
       "height": "40px",
       "id": 30,
@@ -524,7 +626,7 @@
         "h": 6,
         "w": 6,
         "x": 0,
-        "y": 13
+        "y": 21
       },
       "id": 9,
       "legend": {
@@ -616,7 +718,7 @@
         "h": 6,
         "w": 6,
         "x": 6,
-        "y": 13
+        "y": 21
       },
       "id": 8,
       "legend": {
@@ -719,7 +821,7 @@
         "h": 6,
         "w": 6,
         "x": 12,
-        "y": 13
+        "y": 21
       },
       "id": 11,
       "legend": {
@@ -803,7 +905,7 @@
         "h": 6,
         "w": 6,
         "x": 18,
-        "y": 13
+        "y": 21
       },
       "id": 12,
       "legend": {
@@ -882,7 +984,7 @@
         "h": 3,
         "w": 24,
         "x": 0,
-        "y": 19
+        "y": 27
       },
       "id": 28,
       "links": [],
@@ -902,7 +1004,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 22
+        "y": 30
       },
       "id": 13,
       "legend": {
@@ -986,7 +1088,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 22
+        "y": 30
       },
       "id": 14,
       "legend": {
@@ -1084,7 +1186,7 @@
         "h": 7,
         "w": 6,
         "x": 0,
-        "y": 29
+        "y": 37
       },
       "id": 60,
       "legend": {
@@ -1189,7 +1291,7 @@
         "h": 7,
         "w": 6,
         "x": 6,
-        "y": 29
+        "y": 37
       },
       "id": 56,
       "legend": {
@@ -1273,7 +1375,7 @@
         "h": 7,
         "w": 6,
         "x": 12,
-        "y": 29
+        "y": 37
       },
       "id": 54,
       "legend": {
@@ -1357,7 +1459,7 @@
         "h": 7,
         "w": 6,
         "x": 18,
-        "y": 29
+        "y": 37
       },
       "id": 58,
       "legend": {
@@ -1437,7 +1539,7 @@
         "h": 3,
         "w": 24,
         "x": 0,
-        "y": 36
+        "y": 44
       },
       "id": 23,
       "links": [],
@@ -1452,7 +1554,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 39
+        "y": 47
       },
       "id": 46,
       "panels": [],
@@ -1471,7 +1573,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 40
+        "y": 48
       },
       "id": 17,
       "legend": {
@@ -1555,7 +1657,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 40
+        "y": 48
       },
       "id": 18,
       "legend": {
@@ -1701,7 +1803,6 @@
     ]
   },
   "timezone": "",
-  "title": "Mixer Dashboard",
-  "uid": "2",
-  "version": 2
+  "title": "Istio Mixer Dashboard",
+  "version": 4
 }
