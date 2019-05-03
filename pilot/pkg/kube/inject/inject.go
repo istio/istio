@@ -230,28 +230,36 @@ func (p *Params) Validate() error {
 }
 
 // intoHelmValues returns a map of the traversed path in helm values YAML to the param value.
-func (p *Params) intoHelmValues() map[string]interface{} {
-	vals := map[string]interface{}{
+func (p *Params) intoHelmValues() map[string]string {
+	vals := map[string]string{
 		"global.proxy_init.image":                    p.InitImage,
 		"global.proxy.image":                         p.ProxyImage,
-		"global.proxy.enableCoreDump":                p.EnableCoreDump,
-		"global.proxy.privileged":                    p.Privileged,
+		"global.proxy.enableCoreDump":                strconv.FormatBool(p.EnableCoreDump),
+		"global.proxy.privileged":                    strconv.FormatBool(p.Privileged),
 		"global.imagePullPolicy":                     p.ImagePullPolicy,
-		"global.proxy.statusPort":                    p.StatusPort,
+		"global.proxy.statusPort":                    strconv.Itoa(p.StatusPort),
 		"global.proxy.tracer":                        p.Tracer,
-		"global.proxy.readinessInitialDelaySeconds":  p.ReadinessInitialDelaySeconds,
-		"global.proxy.readinessPeriodSeconds":        p.ReadinessPeriodSeconds,
-		"global.proxy.readinessFailureThreshold":     p.ReadinessFailureThreshold,
-		"global.sds.enabled":                         p.SDSEnabled,
-		"global.sds.useTrustworthyJwt":               p.EnableSdsTokenMount,
+		"global.proxy.readinessInitialDelaySeconds":  strconv.Itoa(int(p.ReadinessInitialDelaySeconds)),
+		"global.proxy.readinessPeriodSeconds":        strconv.Itoa(int(p.ReadinessPeriodSeconds)),
+		"global.proxy.readinessFailureThreshold":     strconv.Itoa(int(p.ReadinessFailureThreshold)),
+		"global.sds.enabled":                         strconv.FormatBool(p.SDSEnabled),
+		"global.sds.useTrustworthyJwt":               strconv.FormatBool(p.EnableSdsTokenMount),
 		"global.proxy.includeIPRanges":               p.IncludeIPRanges,
 		"global.proxy.excludeIPRanges":               p.ExcludeIPRanges,
 		"global.proxy.includeInboundPorts":           p.IncludeInboundPorts,
 		"global.proxy.excludeInboundPorts":           p.ExcludeInboundPorts,
-		"sidecarInjectorWebhook.rewriteAppHTTPProbe": p.RewriteAppHTTPProbe,
-		"global.podDNSSearchNamespaces":              p.PodDNSSearchNamespaces,
+		"sidecarInjectorWebhook.rewriteAppHTTPProbe": strconv.FormatBool(p.RewriteAppHTTPProbe),
+		"global.podDNSSearchNamespaces":              getHelmValue(p.PodDNSSearchNamespaces),
 	}
 	return vals
+}
+
+func getHelmValue(namespace []string) string {
+	if len(namespace) == 0 {
+		return ""
+	}
+
+	return "{" + strings.Join(namespace, ",") + "}"
 }
 
 // Config specifies the sidecar injection configuration This includes
@@ -525,9 +533,6 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 		return nil, "", err
 	}
 
-	// Parse values config first. In the values config, we might have something like
-	// "{{ valueOrDefault .DeploymentMeta.Namespace `default` }}.global"
-	// We need to parse these values first.
 	values := map[string]interface{}{}
 	if err := yaml.Unmarshal([]byte(valuesConfig), &values); err != nil {
 		log.Infof("Failed to parse values config: %v [%v]\n", err, valuesConfig)

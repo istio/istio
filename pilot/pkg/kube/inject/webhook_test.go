@@ -27,6 +27,8 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/helm/pkg/strvals"
+
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
@@ -956,20 +958,33 @@ func mergeParamsIntoHelmValues(params *Params, vals string, t testing.TB) string
 	valMap := chartutil.FromYaml(vals)
 	paramsVals := params.intoHelmValues()
 	for path, value := range paramsVals {
-		segs := strings.Split(path, ".")
-		cur := valMap
-		for i := 0; i < len(segs)-1; i++ {
-			_, ok := cur[segs[i]]
-			if !ok {
-				cur[segs[i]] = map[string]interface{}{}
-			}
-
-			cur = cur[segs[i]].(map[string]interface{})
+		setStr := fmt.Sprintf("%s=%s", path, escapeHelmValue(value))
+		if err := strvals.ParseIntoString(setStr, valMap); err != nil {
+			t.Fatal(err)
 		}
-
-		cur[segs[len(segs)-1]] = value
 	}
 	return chartutil.ToYaml(valMap)
+}
+
+func escapeHelmValue(val string) string {
+	if len(val) == 0 {
+		return val
+	}
+
+	if val[0] == '{' && val[len(val)-1] == '}' {
+		val := val[1 : len(val)-1]
+		val = strings.Replace(val, "{", "\\{", -1)
+		val = strings.Replace(val, "}", "\\}", -1)
+		val = strings.Replace(val, ".", "\\.", -1)
+		val = strings.Replace(val, "=", "\\=", -1)
+
+		return "{" + val + "}"
+	}
+
+	val = strings.Replace(val, ",", "\\,", -1)
+	val = strings.Replace(val, ".", "\\.", -1)
+	val = strings.Replace(val, "=", "\\=", -1)
+	return val
 }
 
 func splitYamlFile(yamlFile string, t *testing.T) [][]byte {
