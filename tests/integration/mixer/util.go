@@ -150,7 +150,7 @@ func SendTraffic(ingress ingress.Instance, t *testing.T, msg, url string, calls 
 	return res
 }
 
-func SendTrafficOrFailTillRequestedReturnStatus(ingress ingress.Instance, t *testing.T, msg, url string, calls int64,
+func SendTrafficAndWaitForExpectedStatus(ingress ingress.Instance, t *testing.T, msg, url string, calls int64,
 	httpStatusCode int) {
 	retry := util.Retrier{
 		BaseDelay: 15 * time.Second,

@@ -53,13 +53,13 @@ func TestWhiteListing(t *testing.T) {
 
 		ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
 		// Verify you can access productpage right now.
-		util.SendTrafficOrFailTillRequestedReturnStatus(ing, t, "Sending traffic...", "", 2, http.StatusOK)
+		util.SendTrafficAndWaitForExpectedStatus(ing, t, "Sending traffic...", "", 2, http.StatusOK)
 
 		g.ApplyConfigOrFail(
 			t,
 			d.Namespace(),
 			bookinfo.PolicyDenyIPRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
 		// Verify you can't access productpage now.
-		util.SendTrafficOrFailTillRequestedReturnStatus(ing, t, "Sending traffic...", "", 30, http.StatusForbidden)
+		util.SendTrafficAndWaitForExpectedStatus(ing, t, "Sending traffic...", "", 30, http.StatusForbidden)
 	})
 }
