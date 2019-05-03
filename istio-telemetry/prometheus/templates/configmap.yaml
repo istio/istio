@@ -5,8 +5,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: prometheus
-    chart: {{ template "prometheus.chart" . }}
-    heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 data:
   prometheus.yml: |-
@@ -134,6 +132,18 @@ data:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
         regex: istio-galley;http-monitoring
+
+    - job_name: 'citadel'
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - {{ .Release.Namespace }}
+
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: istio-citadel;http-monitoring
 
     # scrape config for API servers
     - job_name: 'kubernetes-apiservers'

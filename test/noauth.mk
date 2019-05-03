@@ -60,7 +60,7 @@ run-test-noauth-full: install-crds
 	bin/iop ${ISTIO_NS} istio-telemetry ${BASE}/istio-telemetry/mixer-telemetry ${IOP_OPTS} \
          --set global.controlPlaneSecurityEnabled=false ${INSTALL_OPTS}
 	bin/iop ${ISTIO_NS} istio-prometheus ${BASE}/istio-telemetry/prometheus/ --set global.istioNamespace=${ISTIO_NS} ${IOP_OPTS} \
-		 --set global.controlPlaneSecurityEnabled=false ${INSTALL_OPTS}
+		 --set global.controlPlaneSecurityEnabled=false --set prometheus.security.enabled=false ${INSTALL_OPTS}
 	bin/iop ${ISTIO_NS} istio-mixer ${BASE}/istio-telemetry/mixer-telemetry/ --set global.istioNamespace=${ISTIO_NS} ${IOP_OPTS} \
 		--set global.controlPlaneSecurityEnabled=false ${INSTALL_OPTS}
 
