@@ -561,21 +561,17 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 		"contains":            flippedContains,
 	}
 
-	bbuf, err := parseTemplate(valuesConfig, funcMap, data)
-	if err != nil {
-		return nil, "", err
+	// Need to use FuncMap and SidecarTemplateData context
+	funcMap["render"] = func(template string) string {
+		bbuf, err := parseTemplate(template, funcMap, data)
+		if err != nil {
+			return ""
+		}
+
+		return bbuf.String()
 	}
 
-	values = map[string]interface{}{}
-	if err := yaml.Unmarshal(bbuf.Bytes(), &values); err != nil {
-		log.Infof("Failed to parse values config: %v [%v]\n", err, bbuf.String())
-		return nil, "", err
-	}
-
-	// Update values in template data
-	data.Values = values
-
-	bbuf, err = parseTemplate(sidecarTemplate, funcMap, data)
+	bbuf, err := parseTemplate(sidecarTemplate, funcMap, data)
 	if err != nil {
 		return nil, "", err
 	}
