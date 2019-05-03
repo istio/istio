@@ -17,8 +17,6 @@ package config
 import (
 	"context"
 
-	"go.opencensus.io/tag"
-
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/gogo/protobuf/types"
@@ -29,9 +27,7 @@ import (
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
 	"istio.io/istio/mixer/pkg/runtime/lang"
-	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/pkg/log"
 )
 
 type (
@@ -216,17 +212,10 @@ type (
 
 // Empty returns a new, empty configuration snapshot.
 func Empty() *Snapshot {
-
-	var err error
-	ctx := context.Background()
-	if ctx, err = tag.New(ctx, tag.Insert(monitoring.ConfigIDTag, "-1")); err != nil {
-		log.Errorf("error establishing monitoring context config ID: %v", err)
-	}
-
 	return &Snapshot{
 		ID:                -1,
 		Rules:             []*Rule{},
-		MonitoringContext: ctx,
+		MonitoringContext: context.Background(),
 	}
 }
 
