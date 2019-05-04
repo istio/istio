@@ -56,7 +56,7 @@ spec:
       {{- end }}
       {{- if .Values.podDnsConfig }}
       dnsConfig:
-      {{ toYaml .Values.podDnsConfig | indent 8 }}
+{{ toYaml .Values.podDnsConfig | indent 8 }}
       {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
