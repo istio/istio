@@ -61,21 +61,45 @@ var (
 	helmValues string
 
 	settingsFromCommandline = &Config{
-		ChartRepo:       DefaultIstioChartRepo,
-		SystemNamespace: DefaultSystemNamespace,
-		DeployIstio:     true,
-		DeployTimeout:   0,
-		UndeployTimeout: 0,
-		ChartDir:        env.IstioChartDir,
-		CrdsFilesDir:    env.CrdsFilesDir,
-		ValuesFile:      E2EValuesFile,
+		ChartRepo:          DefaultIstioChartRepo,
+		SystemNamespace:    DefaultSystemNamespace,
+		IstioNamespace:     DefaultSystemNamespace,
+		ConfigNamespace:    DefaultSystemNamespace,
+		TelemetryNamespace: DefaultSystemNamespace,
+		PolicyNamespace:    DefaultSystemNamespace,
+		IngressNamespace:   DefaultSystemNamespace,
+		EgressNamespace:    DefaultSystemNamespace,
+		DeployIstio:        true,
+		DeployTimeout:      0,
+		UndeployTimeout:    0,
+		ChartDir:           env.IstioChartDir,
+		CrdsFilesDir:       env.CrdsFilesDir,
+		ValuesFile:         E2EValuesFile,
 	}
 )
 
 // Config provide kube-specific Config from flags.
 type Config struct {
-	// The namespace where the Istio components reside in a typical deployment (default: "istio-system").
+	// Depreciated, the namespace where the Istio components (<=1.1) reside in a typical deployment (default: "istio-system").
 	SystemNamespace string
+
+	// The namespace in which istio ca and cert provisioning components are deployed.
+	IstioNamespace string
+
+	// The namespace in which config, discovery and auto-injector are deployed.
+	ConfigNamespace string
+
+	// The namespace in which mixer, kiali, tracing providers, graphana, prometheus are deployed.
+	TelemetryNamespace string
+
+	// The namespace in which istio policy checker is deployed.
+	PolicyNamespace string
+
+	// The namespace in which istio ingressgateway is deployed
+	IngressNamespace string
+
+	// The namespace in which istio egressgateway is deployed
+	EgressNamespace string
 
 	// Indicates that the test should deploy Istio into the target Kubernetes cluster before running tests.
 	DeployIstio bool
@@ -231,11 +255,17 @@ func parseHelmValues() (map[string]string, error) {
 func (c *Config) String() string {
 	result := ""
 
-	result += fmt.Sprintf("SystemNamespace: %s\n", c.SystemNamespace)
-	result += fmt.Sprintf("DeployIstio:     %v\n", c.DeployIstio)
-	result += fmt.Sprintf("DeployTimeout:   %s\n", c.DeployTimeout.String())
-	result += fmt.Sprintf("UndeployTimeout: %s\n", c.UndeployTimeout.String())
-	result += fmt.Sprintf("Values:          %v\n", c.Values)
+	result += fmt.Sprintf("SystemNamespace:    %s\n", c.SystemNamespace)
+	result += fmt.Sprintf("IstioNamespace:     %s\n", c.IstioNamespace)
+	result += fmt.Sprintf("ConfigNamespace:    %s\n", c.ConfigNamespace)
+	result += fmt.Sprintf("TelemetryNamespace: %s\n", c.TelemetryNamespace)
+	result += fmt.Sprintf("PolicyNamespace:    %s\n", c.PolicyNamespace)
+	result += fmt.Sprintf("IngressNamespace:   %s\n", c.IngressNamespace)
+	result += fmt.Sprintf("EgressNamespace:    %s\n", c.EgressNamespace)
+	result += fmt.Sprintf("DeployIstio:        %v\n", c.DeployIstio)
+	result += fmt.Sprintf("DeployTimeout:      %s\n", c.DeployTimeout.String())
+	result += fmt.Sprintf("UndeployTimeout:    %s\n", c.UndeployTimeout.String())
+	result += fmt.Sprintf("Values:             %v\n", c.Values)
 
 	return result
 }
