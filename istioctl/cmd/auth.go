@@ -19,18 +19,19 @@ import (
 	"io/ioutil"
 	"os"
 
-	"istio.io/istio/pkg/log"
-
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/auth"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 )
 
 var (
-	printAll       bool
-	configDumpFile string
+	printAll             bool
+	configDumpFile       string
+	rbacUpgradeInputFile string
 
 	checkCmd = &cobra.Command{
 		Use:   "check <pod-name>[.<pod-namespace>]",
@@ -85,6 +86,35 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			return nil
 		},
 	}
+
+	upgradeCmd = &cobra.Command{
+		Use:   "upgrade <yaml-file>",
+		Short: "Upgrade Istio Authorization Policy from version v1 to v2",
+		Long: `
+Upgrade automatically converts Istio Authorization policy from version v1 to v2. It requires read access to
+a Kubernetes cluster where the v1 policy had been applied to. This is because it needs to read the Kubernetes
+Service resources in order to convert the services field in ServiceRole to corresponding label selectors in
+AuthorizationPolicy.
+
+THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
+`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			upgrader, err := newUpgrader(rbacUpgradeInputFile)
+			if err != nil {
+				return err
+			}
+			convertedPolicies, err := upgrader.UpgradeCRDs()
+			if err != nil {
+				return err
+			}
+			writer := cmd.OutOrStdout()
+			_, err = writer.Write([]byte(convertedPolicies))
+			if err != nil {
+				return fmt.Errorf("failed writing config with error %v", err)
+			}
+			return nil
+		},
+	}
 )
 
 func getConfigDumpFromFile(filename string) (*configdump.Wrapper, error) {
@@ -136,6 +166,27 @@ func getConfigDumpFromPod(podName, podNamespace string) (*configdump.Wrapper, er
 	return envoyConfig, nil
 }
 
+func newUpgrader(rbacFile string) (*auth.Upgrader, error) {
+	if rbacFile == "" {
+		return nil, fmt.Errorf("no input file provided")
+	}
+	istioClient, err := newClient()
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to Istio Config Store with error %v", err)
+	}
+	k8sClient, err := kube.CreateClientset("", "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to Kubernetes with error %v", err)
+	}
+	upgrader := &auth.Upgrader{
+		IstioConfigStore:         istioClient,
+		K8sClient:                k8sClient,
+		RoleNameToWorkloadLabels: map[string]auth.ServiceToWorkloadLabels{},
+		RbacFile:                 rbacFile,
+	}
+	return upgrader, nil
+}
+
 // Auth groups commands used for checking the authentication and authorization policy status.
 // Note: this is still under active development and is not ready for real use.
 func Auth() *cobra.Command {
@@ -144,12 +195,14 @@ func Auth() *cobra.Command {
 		Short: "Inspect and interact with authentication and authorization policies in the mesh",
 		Long: `Commands to inspect and interact with the authentication (TLS, JWT) and authorization (RBAC) policies in the mesh
   check - check the TLS/JWT/RBAC settings based on the Envoy config
+  upgrade - upgrade the authorization policy from version v1 to v2
 `,
 		Example: `  # Check the TLS/JWT/RBAC settings for pod httpbin-88ddbcfdd-nt5jb:
   istioctl experimental auth check httpbin-88ddbcfdd-nt5jb`,
 	}
 
 	cmd.AddCommand(checkCmd)
+	cmd.AddCommand(upgradeCmd)
 	return cmd
 }
 
@@ -158,4 +211,6 @@ func init() {
 		"Show additional information (e.g. SNI and ALPN)")
 	checkCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Check the TLS/JWT/RBAC setting from the config dump file")
+	upgradeCmd.PersistentFlags().StringVarP(&rbacUpgradeInputFile, "file", "f", "",
+		"Authorization policy file")
 }
