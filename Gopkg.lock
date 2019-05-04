@@ -57,17 +57,18 @@
   version = "v1.3.0"
 
 [[projects]]
-  digest = "1:3aff45e2d22fc5851ec596b06612ac7319b78904880ec9311dfa67b173515906"
+  digest = "1:ad5f07e4402f1474ad126162496b0a0354b1d45e3f01778a101d1276a562e9d1"
   name = "github.com/Azure/go-autorest"
   packages = [
     "autorest",
     "autorest/adal",
     "autorest/azure",
     "autorest/date",
+    "logger",
     "version",
   ]
   pruneopts = "NUT"
-  revision = "bca49d5b51a50dc5bb17bbf6204c711c6dbded06"
+  revision = "ea233b6412b0421a65dc6160e16c893364664a95"
 
 [[projects]]
   digest = "1:5d72bbcc9c8667b11c3dc3cbe681c5a6f71e5096744c0bf7726ab5c6425d5dc4"
@@ -827,11 +828,11 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:8f5fa95e43ab4a43056b7b65ec1614b4440f33bbfef2fa0a4d4707aedcb1a023"
+  digest = "1:65300ccc4bcb38b107b868155c303312978981e56bca707c81efec57575b5e06"
   name = "github.com/imdario/mergo"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "6633656539c1639d9d78127b7d47c622b5d7b6dc"
+  revision = "9316a62528ac99aaecb4e47eadd6dc8aa6533d58"
 
 [[projects]]
   digest = "1:406338ad39ab2e37b7f4452906442a3dbf0eb3379dd1f06aafb5c07e769a5fbb"
@@ -1331,7 +1332,7 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:27bbf2729fe0b7056e51038163fba3aa443de7a5cf7dbba7467f11124887af9c"
+  digest = "1:cb65d15dcf60c2729636ea04b10d108c8dda94396669badaac88dd2d0f55e9c8"
   name = "go.uber.org/zap"
   packages = [
     ".",
@@ -1343,8 +1344,8 @@
     "zapgrpc",
   ]
   pruneopts = "NUT"
-  revision = "35aad584952c3e7020db7b839f6b102de6271f89"
-  version = "v1.7.1"
+  revision = "ff33455a0e382e8a81d14dd7c922020b6b5e7982"
+  version = "v1.9.1"
 
 [[projects]]
   branch = "master"
@@ -1667,8 +1668,8 @@
   revision = "3340c26d80d34bb4aa32709ac3253745a6117e4a"
 
 [[projects]]
-  branch = "release-1.11"
-  digest = "1:6dd53537a34d9b612e66acd39859953cf7ad70e5b5953937bed5ea998355e7b8"
+  branch = "release-1.13"
+  digest = "1:50c54ca27ed4d58993d9f104f7c00478a210c3f3deccddee43ef8ff22f9072d7"
   name = "k8s.io/api"
   packages = [
     "admission/v1beta1",
@@ -1677,16 +1678,19 @@
     "apps/v1",
     "apps/v1beta1",
     "apps/v1beta2",
+    "auditregistration/v1alpha1",
     "authentication/v1",
     "authentication/v1beta1",
     "authorization/v1",
     "authorization/v1beta1",
     "autoscaling/v1",
     "autoscaling/v2beta1",
+    "autoscaling/v2beta2",
     "batch/v1",
     "batch/v1beta1",
     "batch/v2alpha1",
     "certificates/v1beta1",
+    "coordination/v1beta1",
     "core/v1",
     "events/v1beta1",
     "extensions/v1beta1",
@@ -1703,11 +1707,11 @@
     "storage/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "4e7be11eab3ffcfc1876898b8272df53785a9504"
+  revision = "5cb15d34447165a97c76ed5a60e4e99c8a01ecfe"
 
 [[projects]]
-  branch = "release-1.11"
-  digest = "1:8f056844c24e352ab3ca334083109523d5c7c33e11a1fbd827392c115eda4a2d"
+  branch = "release-1.13"
+  digest = "1:ce4f4c04370ce656304facd4e774df3e7adcf45b7d716e75ecad437204cfa250"
   name = "k8s.io/apiextensions-apiserver"
   packages = [
     "pkg/apis/apiextensions",
@@ -1720,11 +1724,11 @@
     "pkg/features",
   ]
   pruneopts = "NUT"
-  revision = "16750353bf974758fbed9f44c39b81dfe6decb71"
+  revision = "bfb440be4b874c001bc64ea4b3324d37ab3c98dd"
 
 [[projects]]
-  branch = "release-1.11"
-  digest = "1:aff465c0cc0720c27ba0c9017db5380ab3634dccd6b0a368f683bbb2ffa3d376"
+  branch = "release-1.13"
+  digest = "1:80cdb25b241b64ca72563bddaf6b279b8af79cecfef8ff483f2b8f6eb5f11364"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/errors",
@@ -1759,6 +1763,7 @@
     "pkg/util/intstr",
     "pkg/util/json",
     "pkg/util/mergepatch",
+    "pkg/util/naming",
     "pkg/util/net",
     "pkg/util/remotecommand",
     "pkg/util/runtime",
@@ -1776,7 +1781,7 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "NUT"
-  revision = "def12e63c512da17043b4f0293f52d1006603d9f"
+  revision = "86fb29eff6288413d76bd8506874fddd9fccdff0"
 
 [[projects]]
   branch = "master"
@@ -1790,8 +1795,20 @@
   revision = "7ec69625ace05fbf94f1d12c51a69774cca2ecb3"
 
 [[projects]]
-  branch = "release-8.0"
-  digest = "1:4787de3b2e060e89a22cf9a12590c5aa8f882aec1400334998f22f5dff36f15b"
+  branch = "release-1.12"
+  digest = "1:7991e5074de01462e0cf6ef77060895b50e9026d16152a6e925cb99b67a1f8ae"
+  name = "k8s.io/cli-runtime"
+  packages = [
+    "pkg/genericclioptions",
+    "pkg/genericclioptions/printers",
+    "pkg/genericclioptions/resource",
+  ]
+  pruneopts = "NUT"
+  revision = "11047e25a94a7eaa541b92a8bbfd3e1243607219"
+
+[[projects]]
+  branch = "release-10.0"
+  digest = "1:43dc01156e154945ea7785b5381d340ba437fed0c65081e0567cbd3ec59b39ac"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1806,15 +1823,20 @@
     "informers/apps/v1",
     "informers/apps/v1beta1",
     "informers/apps/v1beta2",
+    "informers/auditregistration",
+    "informers/auditregistration/v1alpha1",
     "informers/autoscaling",
     "informers/autoscaling/v1",
     "informers/autoscaling/v2beta1",
+    "informers/autoscaling/v2beta2",
     "informers/batch",
     "informers/batch/v1",
     "informers/batch/v1beta1",
     "informers/batch/v2alpha1",
     "informers/certificates",
     "informers/certificates/v1beta1",
+    "informers/coordination",
+    "informers/coordination/v1beta1",
     "informers/core",
     "informers/core/v1",
     "informers/events",
@@ -1852,6 +1874,8 @@
     "kubernetes/typed/apps/v1beta1/fake",
     "kubernetes/typed/apps/v1beta2",
     "kubernetes/typed/apps/v1beta2/fake",
+    "kubernetes/typed/auditregistration/v1alpha1",
+    "kubernetes/typed/auditregistration/v1alpha1/fake",
     "kubernetes/typed/authentication/v1",
     "kubernetes/typed/authentication/v1/fake",
     "kubernetes/typed/authentication/v1beta1",
@@ -1864,6 +1888,8 @@
     "kubernetes/typed/autoscaling/v1/fake",
     "kubernetes/typed/autoscaling/v2beta1",
     "kubernetes/typed/autoscaling/v2beta1/fake",
+    "kubernetes/typed/autoscaling/v2beta2",
+    "kubernetes/typed/autoscaling/v2beta2/fake",
     "kubernetes/typed/batch/v1",
     "kubernetes/typed/batch/v1/fake",
     "kubernetes/typed/batch/v1beta1",
@@ -1872,6 +1898,8 @@
     "kubernetes/typed/batch/v2alpha1/fake",
     "kubernetes/typed/certificates/v1beta1",
     "kubernetes/typed/certificates/v1beta1/fake",
+    "kubernetes/typed/coordination/v1beta1",
+    "kubernetes/typed/coordination/v1beta1/fake",
     "kubernetes/typed/core/v1",
     "kubernetes/typed/core/v1/fake",
     "kubernetes/typed/events/v1beta1",
@@ -1905,12 +1933,15 @@
     "listers/apps/v1",
     "listers/apps/v1beta1",
     "listers/apps/v1beta2",
+    "listers/auditregistration/v1alpha1",
     "listers/autoscaling/v1",
     "listers/autoscaling/v2beta1",
+    "listers/autoscaling/v2beta2",
     "listers/batch/v1",
     "listers/batch/v1beta1",
     "listers/batch/v2alpha1",
     "listers/certificates/v1beta1",
+    "listers/coordination/v1beta1",
     "listers/core/v1",
     "listers/events/v1beta1",
     "listers/extensions/v1beta1",
@@ -1969,7 +2000,7 @@
     "util/workqueue",
   ]
   pruneopts = "NUT"
-  revision = "56e7a63b5e38b614bb7cb8c49ed26dc991b324c4"
+  revision = "b9d8bc3e502ac76dce2aa3bb553977021963d755"
 
 [[projects]]
   digest = "1:97703d78f59b1906eee5cc024d06f57053995123c3628bb8fdf16f1d090b5cae"
@@ -1990,12 +2021,13 @@
   version = "v2.9.1"
 
 [[projects]]
-  digest = "1:c263611800c3a97991dbcf9d3bc4de390f6224aaa8ca0a7226a9d734f65a416a"
+  branch = "master"
+  digest = "1:5e76fd3778193b9ab161c8bbfa501c33b831138f55f7c650b3647b175df72ff1"
   name = "k8s.io/klog"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "71442cd4037d612096940ceb0f3fec3f7fff66e0"
-  version = "v0.2.0"
+  revision = "fb7481ea8bcf1368bbaefc4e63e989d835ef0a17"
+  source = "github.com/istio/klog"
 
 [[projects]]
   branch = "master"
@@ -2006,19 +2038,24 @@
   revision = "50ae88d24ede7b8bad68e23c805b5d3da5c8abaf"
 
 [[projects]]
-  branch = "release-1.11"
-  digest = "1:b4062d7c0692d570a12532a247c01712536006b4f7c1a310038c5d023233930a"
+  branch = "release-1.13"
+  digest = "1:b423156cb03fc85749136b4b9fec37c34d11f997ada654596ce20daae47c57d5"
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/apis/core",
     "pkg/features",
-    "pkg/kubectl/genericclioptions",
-    "pkg/kubectl/genericclioptions/printers",
-    "pkg/kubectl/genericclioptions/resource",
     "pkg/kubelet/apis",
   ]
   pruneopts = "NUT"
-  revision = "cf59a14accee7082ac6dce932a1ec15e181a5e4f"
+  revision = "75128f94589837baf76ad7ac125c05717aa19ced"
+
+[[projects]]
+  digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
+  name = "sigs.k8s.io/yaml"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "fd68e9863619f6ec2fdd8625fe1f02e7c877e480"
+  version = "v1.1.0"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -2262,6 +2299,8 @@
     "k8s.io/apimachinery/pkg/util/yaml",
     "k8s.io/apimachinery/pkg/version",
     "k8s.io/apimachinery/pkg/watch",
+    "k8s.io/cli-runtime/pkg/genericclioptions",
+    "k8s.io/cli-runtime/pkg/genericclioptions/resource",
     "k8s.io/client-go/discovery",
     "k8s.io/client-go/discovery/fake",
     "k8s.io/client-go/dynamic",
@@ -2276,16 +2315,19 @@
     "k8s.io/client-go/kubernetes/typed/apps/v1",
     "k8s.io/client-go/kubernetes/typed/apps/v1beta1",
     "k8s.io/client-go/kubernetes/typed/apps/v1beta2",
+    "k8s.io/client-go/kubernetes/typed/auditregistration/v1alpha1",
     "k8s.io/client-go/kubernetes/typed/authentication/v1",
     "k8s.io/client-go/kubernetes/typed/authentication/v1beta1",
     "k8s.io/client-go/kubernetes/typed/authorization/v1",
     "k8s.io/client-go/kubernetes/typed/authorization/v1beta1",
     "k8s.io/client-go/kubernetes/typed/autoscaling/v1",
     "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta1",
+    "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta2",
     "k8s.io/client-go/kubernetes/typed/batch/v1",
     "k8s.io/client-go/kubernetes/typed/batch/v1beta1",
     "k8s.io/client-go/kubernetes/typed/batch/v2alpha1",
     "k8s.io/client-go/kubernetes/typed/certificates/v1beta1",
+    "k8s.io/client-go/kubernetes/typed/coordination/v1beta1",
     "k8s.io/client-go/kubernetes/typed/core/v1",
     "k8s.io/client-go/kubernetes/typed/events/v1beta1",
     "k8s.io/client-go/kubernetes/typed/extensions/v1beta1",
@@ -2325,8 +2367,6 @@
     "k8s.io/helm/pkg/strvals",
     "k8s.io/helm/pkg/timeconv",
     "k8s.io/kubernetes/pkg/apis/core",
-    "k8s.io/kubernetes/pkg/kubectl/genericclioptions",
-    "k8s.io/kubernetes/pkg/kubectl/genericclioptions/resource",
     "k8s.io/kubernetes/pkg/kubelet/apis",
   ]
   solver-name = "gps-cdcl"
