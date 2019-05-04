@@ -2426,6 +2426,16 @@
                 "id": 8,
                 "name": "attributes_for_mixer_proxy",
                 "type": "Attributes"
+              },
+              {
+                "id": 9,
+                "name": "report_batch_max_entries",
+                "type": "uint32"
+              },
+              {
+                "id": 10,
+                "name": "report_batch_max_time",
+                "type": "google.protobuf.Duration"
               }
             ]
           },
