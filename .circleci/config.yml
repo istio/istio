@@ -196,10 +196,14 @@ jobs:
       - checkout
       - run: bin/testEnvRootMinikube.sh start
       - run: bin/testEnvRootMinikube.sh wait
-      - run: 
-          command: |
-            export PATH=/go/bin:$PATH
-            WAIT_TIMEOUT=10m make demo-install
+      - run:
+          command: make install-crds install-base
+      - run:
+          command: make install-ingress
+      - run:
+          command: make install-telemetry
+      - run:
+          command: make install-policy
       - run:
           command: make info dep
       - run:
