@@ -216,6 +216,9 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		appReq.Header[header.Name] = []string{header.Value}
 	}
 
+	// Pass the user agent from the original request
+	appReq.Header["User-Agent"] = []string{req.UserAgent()}
+
 	// Send the request.
 	response, err := httpClient.Do(appReq)
 	if err != nil {
