@@ -113,7 +113,7 @@ Several flags are available to customize the behavior, such as:
 | istio.test.ci | `false` | Enable CI Mode. Additional logging and state dumping will be enabled. |
 | istio.test.kube.config | `~/.kube/config` | Location of the kube config file to be used. |
 | istio.test.kube.minikube | `false` | If `true` access to the ingress will be via nodeport. Should be set to `true` if running on Minikube. |
-| istio.test.kube.systemNamespace | `istio-system` | Depreciated, namespace for Istio deployment. If '', the namespace is generated with the prefix "istio-system-". |
+| istio.test.kube.systemNamespace | `istio-system` | Deprecated, namespace for Istio deployment. If '', the namespace is generated with the prefix "istio-system-". |
 | istio.test.kube.istioNamespace | `istio-system` | Namespace in which Istio ca and cert provisioning components are deployed. |
 | istio.test.kube.configNamespace | `istio-system` | Namespace in which config, discovery and auto-injector are deployed. |
 | istio.test.kube.telemetryNamespace | `istio-system` | Namespace in which mixer, kiali, tracing providers, graphana, prometheus are deployed. |

@@ -21,7 +21,7 @@ import (
 // init registers the command-line flags that we can exposed for "go test".
 func init() {
 	flag.StringVar(&settingsFromCommandline.SystemNamespace, "istio.test.kube.systemNamespace", settingsFromCommandline.SystemNamespace,
-		"Depreciated, specifies the namespace where the Istio components (<=1.1) reside in a typical deployment.")
+		"Deprecated, specifies the namespace where the Istio components (<=1.1) reside in a typical deployment.")
 	flag.StringVar(&settingsFromCommandline.IstioNamespace, "istio.test.kube.istioNamespace", settingsFromCommandline.IstioNamespace,
 		"Specifies the namespace in which istio ca and cert provisioning components are deployed.")
 	flag.StringVar(&settingsFromCommandline.ConfigNamespace, "istio.test.kube.configNamespace", settingsFromCommandline.ConfigNamespace,

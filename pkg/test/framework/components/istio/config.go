@@ -80,7 +80,7 @@ var (
 
 // Config provide kube-specific Config from flags.
 type Config struct {
-	// Depreciated, the namespace where the Istio components (<=1.1) reside in a typical deployment (default: "istio-system").
+	// Deprecated, the namespace where the Istio components (<=1.1) reside in a typical deployment (default: "istio-system").
 	SystemNamespace string
 
 	// The namespace in which istio ca and cert provisioning components are deployed.
