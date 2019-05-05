@@ -150,6 +150,27 @@ func SendTraffic(ingress ingress.Instance, t *testing.T, msg, url string, calls 
 	return res
 }
 
+func SendTrafficAndWaitForExpectedStatus(ingress ingress.Instance, t *testing.T, msg, url string, calls int64,
+	httpStatusCode int) {
+	retry := util.Retrier{
+		BaseDelay: 15 * time.Second,
+		Retries:   3,
+	}
+
+	retryFn := func(_ context.Context, i int) error {
+		res := SendTraffic(ingress, t, msg, url, calls)
+		// Verify you get specified http return code.
+		if float64(res.RetCodes[httpStatusCode]) == 0 {
+			return fmt.Errorf("could not get %v status", httpStatusCode)
+		}
+		return nil
+	}
+
+	if _, err := retry.Retry(context.Background(), retryFn); err != nil {
+		t.Fatalf("Failed with err: %v", err)
+	}
+}
+
 func FetchRequestCount(t *testing.T, prometheus prometheus.Instance, service, additionalLabels, namespace string,
 	totalReqExpected float64) (prior429s float64, prior200s float64) {
 	var err error
