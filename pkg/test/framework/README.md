@@ -113,13 +113,13 @@ Several flags are available to customize the behavior, such as:
 | istio.test.ci | `false` | Enable CI Mode. Additional logging and state dumping will be enabled. |
 | istio.test.kube.config | `~/.kube/config` | Location of the kube config file to be used. |
 | istio.test.kube.minikube | `false` | If `true` access to the ingress will be via nodeport. Should be set to `true` if running on Minikube. |
-| istio.test.kube.systemNamespace | `istio-system` | Namespace for Istio deployment. If '', the namespace is generated with the prefix "istio-system-". |
-| istio.test.kube.IstioNamespace | `istio-system` | Namespace in which Istio ca and cert provisioning components are deployed. |
-| istio.test.kube.ConfigNamespace | `istio-system` | Namespace in which config, discovery and auto-injector are deployed. |
-| istio.test.kube.TelemetryNamespace | `istio-system` | Namespace in which mixer, kiali, tracing providers, graphana, prometheus are deployed. |
-| istio.test.kube.PolicyNamespace | `istio-system` | Namespace in which istio policy checker is deployed. |
-| istio.test.kube.IngressNamespace | `istio-system` | Namespace in which istio ingressgateway is deployed. |
-| istio.test.kube.EgressNamespace | `istio-system` | Namespace in which istio ingressgateway is deployed. |
+| istio.test.kube.systemNamespace | `istio-system` | Depreciated, namespace for Istio deployment. If '', the namespace is generated with the prefix "istio-system-". |
+| istio.test.kube.istioNamespace | `istio-system` | Namespace in which Istio ca and cert provisioning components are deployed. |
+| istio.test.kube.configNamespace | `istio-system` | Namespace in which config, discovery and auto-injector are deployed. |
+| istio.test.kube.telemetryNamespace | `istio-system` | Namespace in which mixer, kiali, tracing providers, graphana, prometheus are deployed. |
+| istio.test.kube.policyNamespace | `istio-system` | Namespace in which istio policy checker is deployed. |
+| istio.test.kube.ingressNamespace | `istio-system` | Namespace in which istio ingressgateway is deployed. |
+| istio.test.kube.egressNamespace | `istio-system` | Namespace in which istio ingressgateway is deployed. |
 | istio.test.kube.deploy | `true` | If `true`, the components should be deployed to the cluster. Otherwise, it is assumed that the components have already deployed. |
 | istio.test.kube.helm.chartDir | `$(ISTIO)/install/kubernetes/helm/istio` | |
 | istio.test.kube.helm.valuesFile | `values-e2e.yaml` | The name of a file (relative to `istio.test.kube.helm.chartDir`) to provide Helm values. |
