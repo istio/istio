@@ -15,7 +15,9 @@
 package kube
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -69,7 +71,7 @@ func convertPort(port v1.ServicePort) *model.Port {
 	}
 }
 
-func convertService(svc v1.Service, domainSuffix string) *model.Service {
+func convertService(svc v1.Service, domainSuffix string, clusterID string) *model.Service {
 	addr, external := model.UnspecifiedIP, ""
 	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != v1.ClusterIPNone {
 		addr = svc.Spec.ClusterIP
@@ -113,19 +115,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 	}
 	sort.Strings(serviceaccounts)
 
-	var lbAddrs []string
-	if svc.Spec.Type == v1.ServiceTypeLoadBalancer && len(svc.Status.LoadBalancer.Ingress) > 0 {
-		lbAddrs = make([]string, len(svc.Status.LoadBalancer.Ingress))
-		for i, ingress := range svc.Status.LoadBalancer.Ingress {
-			if len(ingress.IP) > 0 {
-				lbAddrs[i] = ingress.IP
-			} else if len(ingress.Hostname) > 0 {
-				lbAddrs[i] = ingress.Hostname
-			}
-		}
-	}
-
-	return &model.Service{
+	istioService := &model.Service{
 		Hostname:        serviceHostname(svc.Name, svc.Namespace, domainSuffix),
 		Ports:           ports,
 		Address:         addr,
@@ -134,13 +124,31 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		Resolution:      resolution,
 		CreationTime:    svc.CreationTimestamp.Time,
 		Attributes: model.ServiceAttributes{
-			Name:              svc.Name,
-			Namespace:         svc.Namespace,
-			UID:               fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
-			ExportTo:          exportTo,
-			ExternalAddresses: lbAddrs,
+			Name:      svc.Name,
+			Namespace: svc.Namespace,
+			UID:       fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
+			ExportTo:  exportTo,
 		},
 	}
+
+	if svc.Spec.Type == v1.ServiceTypeLoadBalancer && len(svc.Status.LoadBalancer.Ingress) > 0 {
+		var lbAddrs []string
+		for _, ingress := range svc.Status.LoadBalancer.Ingress {
+			if len(ingress.IP) > 0 {
+				lbAddrs = append(lbAddrs, ingress.IP)
+			} else if len(ingress.Hostname) > 0 {
+				addrs, err := net.DefaultResolver.LookupHost(context.TODO(), ingress.Hostname)
+				if err != nil {
+					lbAddrs = append(lbAddrs, addrs...)
+				}
+			}
+		}
+		if len(lbAddrs) > 0 {
+			istioService.Attributes.ClusterExternalAddresses = map[string][]string{clusterID: lbAddrs}
+		}
+	}
+
+	return istioService
 }
 
 func externalNameServiceInstances(k8sSvc v1.Service, svc *model.Service) []*model.ServiceInstance {

@@ -208,8 +208,10 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 	serviceDiscovery := NewMemServiceDiscovery(map[model.Hostname]*model.Service{
 		gwSvcName: {
 			Hostname: gwSvcName,
-			ExternalAddresses: map[string][]string{
-				"cluster2": {"2.2.2.2"},
+			Attributes: model.ServiceAttributes{
+				ClusterExternalAddresses: map[string][]string{
+					"cluster2": {"2.2.2.2"},
+				},
 			},
 		},
 	}, 0)

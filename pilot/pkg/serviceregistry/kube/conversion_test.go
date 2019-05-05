@@ -31,6 +31,7 @@ import (
 
 var (
 	domainSuffix = "company.com"
+	clusterID    = "test-cluster"
 )
 
 func TestConvertProtocol(t *testing.T) {
@@ -155,7 +156,7 @@ func TestServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := convertService(localSvc, domainSuffix)
+	service := convertService(localSvc, domainSuffix, clusterID)
 	if service == nil {
 		t.Errorf("could not convert service")
 	}
@@ -225,7 +226,7 @@ func TestServiceConversionWithEmptyServiceAccountsAnnotation(t *testing.T) {
 		},
 	}
 
-	service := convertService(localSvc, domainSuffix)
+	service := convertService(localSvc, domainSuffix, clusterID)
 	if service == nil {
 		t.Errorf("could not convert service")
 	}
@@ -258,7 +259,7 @@ func TestExternalServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := convertService(extSvc, domainSuffix)
+	service := convertService(extSvc, domainSuffix, clusterID)
 	if service == nil {
 		t.Errorf("could not convert external service")
 	}
@@ -302,7 +303,7 @@ func TestExternalClusterLocalServiceConversion(t *testing.T) {
 
 	domainSuffix := "cluster.local"
 
-	service := convertService(extSvc, domainSuffix)
+	service := convertService(extSvc, domainSuffix, clusterID)
 	if service == nil {
 		t.Errorf("could not convert external service")
 	}
@@ -333,9 +334,6 @@ func TestLBServiceConversion(t *testing.T) {
 		{
 			IP: "127.68.32.113",
 		},
-		{
-			Hostname: "service.world.com",
-		},
 	}
 
 	extSvc := v1.Service{
@@ -360,12 +358,12 @@ func TestLBServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := convertService(extSvc, domainSuffix)
+	service := convertService(extSvc, domainSuffix, clusterID)
 	if service == nil {
 		t.Errorf("could not convert external service")
 	}
 
-	if len(service.Attributes.ExternalAddresses) == 0 {
+	if len(service.Attributes.ClusterExternalAddresses[clusterID]) == 0 {
 		t.Errorf("no load balancer addresses found")
 	}
 
@@ -376,9 +374,9 @@ func TestLBServiceConversion(t *testing.T) {
 		} else {
 			want = addr.Hostname
 		}
-		got := service.Attributes.ExternalAddresses[i]
+		got := service.Attributes.ClusterExternalAddresses[clusterID][i]
 		if got != want {
-			t.Errorf("Expected address %s but got %s", want, service.Attributes.ExternalAddresses[i])
+			t.Errorf("Expected address %s but got %s", want, got)
 		}
 	}
 }

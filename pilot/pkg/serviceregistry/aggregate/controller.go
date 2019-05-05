@@ -149,13 +149,12 @@ func (c *Controller) Services() ([]*model.Service, error) {
 				}
 				sp.ClusterVIPs[r.ClusterID] = s.Address
 
-				if len(s.Attributes.ExternalAddresses) > 0 {
-					if sp.ExternalAddresses == nil {
-						sp.ExternalAddresses = make(map[string][]string)
+				if s.Attributes.ClusterExternalAddresses != nil && len(s.Attributes.ClusterExternalAddresses[r.ClusterID]) > 0 {
+					if sp.Attributes.ClusterExternalAddresses == nil {
+						sp.Attributes.ClusterExternalAddresses = make(map[string][]string)
 					}
-					sp.ExternalAddresses[r.ClusterID] = s.Attributes.ExternalAddresses
+					sp.Attributes.ClusterExternalAddresses[r.ClusterID] = s.Attributes.ClusterExternalAddresses[r.ClusterID]
 				}
-
 				sp.Mutex.Unlock()
 			}
 		}
