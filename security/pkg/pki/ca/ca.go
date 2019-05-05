@@ -16,9 +16,11 @@ package ca
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
+	"io/ioutil"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -161,7 +163,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCer
 		}
 	}
 
-	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle); err != nil {
+	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle.GetRootCertPem()); err != nil {
 		log.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
 	}
 	return caOpts, nil
@@ -179,7 +181,30 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 		signingCertFile, signingKeyFile, certChainFile, rootCertFile); err != nil {
 		return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 	}
-	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle); err != nil {
+	// Validate that the passed in signing cert can be used as CA.
+	// The check can't be done inside `KeyCertBundle`, since bundle could also be used to
+	// validate workload certificates (i.e., where the leaf certificate is not a CA).
+	b, err := ioutil.ReadFile(signingCertFile)
+	if err != nil {
+		return nil, err
+	}
+	block, _ := pem.Decode(b)
+	if block == nil {
+		return nil, fmt.Errorf("invalid PEM encoded certificate")
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse X.509 certificate")
+	}
+	if !cert.IsCA {
+		return nil, fmt.Errorf("certificate is not authorized to sign other certificates")
+	}
+
+	crt := caOpts.KeyCertBundle.GetCertChainPem()
+	if len(crt) == 0 {
+		crt = caOpts.KeyCertBundle.GetRootCertPem()
+	}
+	if err = updateCertInConfigmap(namespace, client, crt); err != nil {
 		log.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
 	}
 	return caOpts, nil
@@ -266,8 +291,7 @@ func BuildSecret(saName, scrtName, namespace string, certChain, privateKey, root
 	}
 }
 
-func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, keyCertBundle util.KeyCertBundle) error {
-	_, _, _, cert := keyCertBundle.GetAllPem()
+func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert []byte) error {
 	certEncoded := base64.StdEncoding.EncodeToString(cert)
 	cmc := configmap.NewController(namespace, client)
 	return cmc.InsertCATLSRootCert(certEncoded)
