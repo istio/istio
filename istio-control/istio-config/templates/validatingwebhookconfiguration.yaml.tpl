@@ -5,9 +5,11 @@ metadata:
   name: istio-galley-{{ .Release.Namespace }}
   namespace: {{ .Release.Namespace }}
   labels:
+    app: galley
     release: {{ .Release.Name }}
+    istio: galley
 webhooks:
-{{- if .Values.galley.configValidation }}
+{{- if .Values.global.configValidation }}
   - name: pilot.validation.istio.io
     clientConfig:
       service:
@@ -58,8 +60,10 @@ webhooks:
         - envoyfilters
         - gateways
         - serviceentries
+        - sidecars
         - virtualservices
     failurePolicy: Fail
+    sideEffects: None
   - name: mixer.validation.istio.io
     clientConfig:
       service:
@@ -105,5 +109,6 @@ webhooks:
         - reportnothings
         - tracespans
     failurePolicy: Fail
+    sideEffects: None
 {{- end }}
 {{- end }}

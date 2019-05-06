@@ -1,4 +1,4 @@
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: istio-galley-{{ .Release.Namespace }}
@@ -20,13 +20,18 @@ rules:
 - apiGroups: ["rbac.istio.io"]
   resources: ["*"]
   verbs: ["get", "list", "watch"]
-- apiGroups: ["*"]
+- apiGroups: ["extensions","apps"]
   resources: ["deployments"]
   resourceNames: ["istio-galley"]
   verbs: ["get"]
-- apiGroups: ["*"]
-  resources: ["endpoints"]
+- apiGroups: [""]
+  resources: ["pods", "nodes", "services", "endpoints"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["extensions"]
   resources: ["ingresses"]
   verbs: ["get", "list", "watch"]
+- apiGroups: ["extensions"]
+  resources: ["deployments/finalizers"]
+  resourceNames: ["istio-galley"]
+  verbs: ["update"]
+

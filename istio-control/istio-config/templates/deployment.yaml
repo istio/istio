@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-galley
@@ -9,6 +9,10 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.galley.replicaCount }}
+  selector:
+    matchLabels:
+      app: galley
+      istio: galley
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -20,7 +24,6 @@ spec:
         istio: galley
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-galley-service-account
 {{- if .Values.global.priorityClassName }}
@@ -28,12 +31,17 @@ spec:
 {{- end }}
       containers:
         - name: galley
-          image: "{{ .Values.global.hub | default "gcr.io/istio-release"}}/{{ .Values.galley.image | default "galley" }}:{{ .Values.global.tag }}"
+{{- if contains "/" .Values.galley.image }}
+          image: "{{ .Values.galley.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.galley.image | default "galley" }}:{{ .Values.global.tag }}"
+{{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           ports:
           - containerPort: 443
-          - containerPort: {{ .Values.global.monitoringPort | default "15014" }}
+          - containerPort: {{ .Values.global.monitoringPort }}
           - containerPort: 15019
+          - containerPort: 9901
           command:
           - /usr/local/bin/galley
           - server
@@ -52,7 +60,10 @@ spec:
           - --deployment-namespace={{ .Release.Namespace }}
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml
-          - --monitoringPort={{ .Values.global.monitoringPort | default "15014" }}
+          - --monitoringPort={{ .Values.global.monitoringPort }}
+{{- if $.Values.global.logging.level }}
+          - --log_output_level={{ $.Values.global.logging.level }}
+{{- end}}
           volumeMounts:
   {{- if .Values.global.configValidation }}
           - name: istio-certs
