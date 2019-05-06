@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-policy
-  namespace: {{ $.Release.Namespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app: istio-policy
     istio: mixer
@@ -17,5 +17,8 @@ spec:
     port: 15014
   selector:
     app: istio-policy
+{{- if .Values.mixer.policy.sessionAffinityEnabled }}
+  sessionAffinity: ClientIP
+{{- end }}
 ---
 

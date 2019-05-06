@@ -26,7 +26,6 @@ spec:
         istio-mixer-type: policy
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
 {{- with .Values.mixer.policy.podAnnotations }}
 {{ toYaml . | indent 8 }}
 {{- end }}
@@ -40,8 +39,27 @@ spec:
         secret:
           secretName: istio.istio-policy-service-account
           optional: true
+      {{- if .Values.global.sds.enabled }}
+      - hostPath:
+          path: /var/run/sds/uds_path
+          type: Socket
+        name: sds-uds-path
+      {{- if .Values.global.sds.useTrustworthyJwt }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: {{ .Values.global.trustDomain }}
+              expirationSeconds: 43200
+              path: istio-token
+      {{- end }}
+      {{- end }}
       - name: uds-socket
         emptyDir: {}
+      - name: policy-adapter-secret
+        secret:
+          secretName: policy-adapter-secret
+          optional: true
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       containers:
@@ -56,29 +74,36 @@ spec:
         - containerPort: 15014
         - containerPort: 42422
         args:
+          - --monitoringPort=15014
           - --address
           - unix:///sock/mixer.socket
+{{- if .Values.global.logging.level }}
+          - --log_output_level={{ .Values.global.logging.level }}
+{{- end}}
 {{- if .Values.global.useMCP }}
     {{- if .Values.global.controlPlaneSecurityEnabled}}
-          - --configStoreURL=mcps://istio-galley.{{ .Values.global.istioNamespace }}.svc:15019
-          - --certFile=/etc/certs/cert-chain.pem
-          - --keyFile=/etc/certs/key.pem
-          - --caCertFile=/etc/certs/root-cert.pem
+          - --configStoreURL=mcps://istio-galley.{{ .Values.global.configNamespace }}.svc:15019
     {{- else }}
-          - --configStoreURL=mcp://istio-galley.{{ .Values.global.istioNamespace }}.svc:9901
+          - --configStoreURL=mcp://istio-galley.{{ .Values.global.configNamespace }}.svc:9901
     {{- end }}
 {{- else }}
           - --configStoreURL=k8s://
 {{- end }}
-          - --configDefaultNamespace={{ .Release.Namespace }}
+          - --configDefaultNamespace={{ .Values.global.configNamespace }}
+          {{- if .Values.mixer.adapters.useAdapterCRDs }}
+          - --useAdapterCRDs=true
+          {{- else }}
+          - --useAdapterCRDs=false
+          {{- end }}
+          - --useTemplateCRDs=false
           {{- if .Values.global.tracer.zipkin.address }}
           - --trace_zipkin_url=http://{{- .Values.global.tracer.zipkin.address }}/api/v1/spans
           {{- else }}
-          - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+          - --trace_zipkin_url=http://zipkin.{{ .Values.global.telemetryNamespace }}:9411/api/v1/spans
           {{- end }}
-        {{- if .Values.mixer.policy.env }}
+        {{- if .Values.mixer.env }}
         env:
-        {{- range $key, $val := .Values.mixer.policy.env }}
+        {{- range $key, $val := .Values.mixer.env }}
         - name: {{ $key }}
           value: "{{ $val }}"
         {{- end }}
@@ -118,6 +143,8 @@ spec:
           name: http-envoy-prom
         args:
         - proxy
+        - --domain
+        - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
         - --serviceCluster
         - istio-policy
         - --templateFile
@@ -128,6 +155,9 @@ spec:
       {{- else }}
         - --controlPlaneAuthPolicy
         - NONE
+      {{- end }}
+      {{- if .Values.global.trustDomain }}
+        - --trust-domain={{ .Values.global.trustDomain }}
       {{- end }}
         env:
         - name: POD_NAME
@@ -155,6 +185,18 @@ spec:
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
+        {{- if .Values.global.sds.enabled }}
+        - name: sds-uds-path
+          mountPath: /var/run/sds/uds_path
+          readOnly: true
+        {{- if .Values.global.sds.useTrustworthyJwt }}
+        - name: istio-token
+          mountPath: /var/run/secrets/tokens
+        {{- end }}
+        {{- end }}
         - name: uds-socket
           mountPath: /sock
+        - name: policy-adapter-secret
+          mountPath: /var/run/secrets/istio.io/policy/adapter
+          readOnly: true
 
