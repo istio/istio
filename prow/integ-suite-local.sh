@@ -14,6 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+ROOT=$(dirname "$WD")
+
 # Exit immediately for non zero status
 set -e
 # Check unset variables
@@ -21,8 +25,14 @@ set -u
 # Print commands
 set -x
 
-WD=$(dirname "$0")
-WD=$(cd "$WD"; pwd)
-ROOT=$(dirname "$WD")
+# shellcheck source=prow/lib.sh
+source "${ROOT}/prow/lib.sh"
+setup_and_export_git_sha
 
-${ROOT}/prow/integ-suite-k8s.sh test.integration.galley.local.presubmit
+cd "${ROOT}"
+
+make sync
+
+JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml" \
+T="-v" \
+make ${*}
