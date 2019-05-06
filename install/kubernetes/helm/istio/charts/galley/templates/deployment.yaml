@@ -46,6 +46,7 @@ spec:
           - --livenessProbePath=/healthliveness
           - --readinessProbePath=/healthready
           - --readinessProbeInterval=1s
+          - --deployment-namespace={{ .Release.Namespace }}
 {{- if $.Values.global.controlPlaneSecurityEnabled}}
           - --insecure=false
 {{- else }}
