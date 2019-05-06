@@ -68,12 +68,6 @@ EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 e2e_simple: istioctl generate_e2e_yaml e2e_simple_run
 e2e_kiali: istioctl generate_e2e_yaml e2e_kiali_run
 
-e2e_simple_cni: istioctl
-e2e_simple_cni: export ENABLE_ISTIO_CNI=true
-#TODO need to create the CNI helm charts and install the CNI
-e2e_simple_cni: export E2E_ARGS+=--kube_inject_configmap=istio-sidecar-injector
-e2e_simple_cni: generate_e2e_yaml e2e_simple_run
-
 e2e_simple_noauth: istioctl generate_e2e_yaml e2e_simple_noauth_run
 
 e2e_mixer: istioctl generate_e2e_yaml e2e_mixer_run
