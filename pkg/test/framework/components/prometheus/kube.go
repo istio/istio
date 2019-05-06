@@ -67,14 +67,14 @@ func newKube(ctx resource.Context) (Instance, error) {
 		return nil, err
 	}
 
-	fetchFn := env.Accessor.NewSinglePodFetch(cfg.SystemNamespace, fmt.Sprintf("app=%s", appName))
+	fetchFn := env.Accessor.NewSinglePodFetch(cfg.TelemetryNamespace, fmt.Sprintf("app=%s", appName))
 	pods, err := env.Accessor.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
 	}
 	pod := pods[0]
 
-	svc, err := env.Accessor.GetService(cfg.SystemNamespace, serviceName)
+	svc, err := env.Accessor.GetService(cfg.TelemetryNamespace, serviceName)
 	if err != nil {
 		return nil, err
 	}
