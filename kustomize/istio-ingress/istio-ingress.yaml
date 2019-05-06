@@ -85,7 +85,7 @@ spec:
           - --serviceCluster
           - ingressgateway
           - --zipkinAddress
-          - zipkin.istio-control:9411
+          - zipkin.istio-telemetry:9411
           - --proxyAdminPort
           - "15000"
           - --statusPort

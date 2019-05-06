@@ -39,10 +39,15 @@ spec:
           optional: true
       - name: uds-socket
         emptyDir: {}
+      - name: telemetry-envoy-config
+        configMap:
+          name: telemetry-envoy-config
+
     {{- if .Values.mixer.telemetry.nodeSelector }}
       nodeSelector:
 {{ toYaml .Values.mixer.telemetry.nodeSelector | indent 8 }}
     {{- end }}
+
       containers:
       - name: mixer
 {{- if contains "/" .Values.mixer.telemetry.image }}
@@ -59,10 +64,7 @@ spec:
           - unix:///sock/mixer.socket
 {{- if .Values.global.useMCP }}
     {{- if .Values.global.controlPlaneSecurityEnabled}}
-          - --configStoreURL=mcps://istio-galley.{{ .Values.global.istioNamespace }}.svc:15019
-          - --certFile=/etc/certs/cert-chain.pem
-          - --keyFile=/etc/certs/key.pem
-          - --caCertFile=/etc/certs/root-cert.pem
+          - --configStoreURL=mcp://localhost:15019
     {{- else }}
           - --configStoreURL=mcp://istio-galley.{{ .Values.global.istioNamespace }}.svc:9901
     {{- end }}
@@ -102,6 +104,7 @@ spec:
             port: 15014
           initialDelaySeconds: 5
           periodSeconds: 5
+
       - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
         image: "{{ .Values.global.proxy.image }}"
@@ -124,7 +127,7 @@ spec:
         - --serviceCluster
         - istio-telemetry
         - --templateFile
-        - /etc/istio/proxy/envoy_telemetry.yaml.tmpl
+        - /var/lib/envoy/envoy.yaml.tmpl
       {{- if .Values.global.controlPlaneSecurityEnabled }}
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS
@@ -155,6 +158,8 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
+        - name: telemetry-envoy-config
+          mountPath: /var/lib/envoy
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true

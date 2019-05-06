@@ -10,7 +10,7 @@ spec:
   replicas: {{ .Values.grafana.replicaCount }}
   selector:
     matchLabels:
-    app: grafan
+      app: grafana
   template:
     metadata:
       labels:
