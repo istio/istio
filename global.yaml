@@ -44,9 +44,6 @@ global:
   logging:
     level: "default:info"
 
-  # monitoring port used by mixer, pilot, galley
-  monitoringPort: 15014
-
   k8sIngress:
     enabled: false
     # Gateway used for k8s Ingress resources. By default it is
