@@ -394,6 +394,8 @@ const (
 
 	// IstioIngressNamespace is the namespace where Istio ingress controller is deployed
 	IstioIngressNamespace = "istio-system"
+
+	IstioInboundCaptureAllPort = "INBOUND_CAPTURE_ALL_PORT"
 )
 
 // IstioIngressWorkloadLabels is the label assigned to Istio ingress pods
@@ -658,4 +660,13 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 	}
 
 	return InterceptionRedirect
+}
+
+// Inbound capture listener capture all port mode only supports iptables REDIRECT
+func (node *Proxy) IsInboundCaptureAllPorts() bool {
+	if node.GetInterceptionMode() != InterceptionRedirect {
+		return false
+	}
+	_, ok := node.Metadata[IstioInboundCaptureAllPort]
+	return ok
 }

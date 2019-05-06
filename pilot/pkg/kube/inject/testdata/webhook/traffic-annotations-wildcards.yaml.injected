@@ -84,6 +84,8 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
+        - name: ISTIO_META_INBOUND_CAPTURE_ALL_PORT
+          value: "true"
         image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -130,6 +132,9 @@ spec:
         - '*'
         - -d
         - 4,5,6,15020
+        env:
+        - name: INBOUND_CAPTURE_PORT
+          value: "15006"
         image: gcr.io/istio-release/proxy_init:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init
