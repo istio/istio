@@ -882,7 +882,6 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 				adsLog.Infof("PushAll abort %s, push with newer version %s in progress %v", version, currentVersion, time.Since(tstart))
 				return
 			}
-			adsLog.Warnf("Pushing an event to ADS")
 			timer := time.NewTimer(PushTimeout)
 
 			select {
@@ -914,10 +913,8 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 					pushTimeoutFailures.Add(1)
 					return
 				}
-				adsLog.Warnf("Done pushing an event in ADS- Retry")
 				goto Retry
 			}
-			adsLog.Warnf("Done pushing an event in ADS")
 		}()
 	}
 
