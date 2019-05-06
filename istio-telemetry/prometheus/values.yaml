@@ -24,11 +24,13 @@ prometheus:
       #   hosts:
       #     - prometheus.local
 
-  service:
-    annotations: {}
-    nodePort:
-      enabled: false
-      port: 32090
+  # 1.2 it is disabled by default - it can be enabled for special cases, but would create port
+  # conflicts. In general it is not recommended to use node ports for services, but use gateways instead.
+#  service:
+#    annotations: {}
+#    nodePort:
+#      enabled: false
+#      port: 32090
 
   security:
     enabled: true

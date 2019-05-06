@@ -90,35 +90,6 @@ data:
                   path: /dev/stdout
 
               http_filters:
-    #          - config:
-    #              default_destination_service: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
-    #              service_configs:
-    #                istio-pilot.{{ .PodNamespace }}.svc.cluster.local:
-    #                  disable_check_calls: true
-    #                  mixer_attributes:
-    #                    attributes:
-    #                      destination.service.host:
-    #                        string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
-    #                      destination.uid:
-    #                        string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
-    #                      destination.namespace:
-    #                        string_value: {{.PodNamespace }}
-    #                      destination.ip:
-    #                        bytes_value: {{ .PodIP }}
-    #                      destination.port:
-    #                        int64_value: 15011
-    #                      context.reporter.kind:
-    #                        string_value: inbound
-    #                      context.reporter.uid:
-    #                        string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
-    #              transport:
-    #                check_cluster: mixer_check_server
-    #                report_cluster: mixer_report_server
-    #                attributes_for_mixer_proxy:
-    #                  attributes:
-    #                    source.uid:
-    #                      string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
-    #            name: mixer
               - name: envoy.router
 
               route_config:

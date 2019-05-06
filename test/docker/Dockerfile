@@ -1,15 +1,23 @@
 # Image for building and running Kind
-# Kind will be used in a CI/CD system
+#
+# Kind will be used in a CI/CD system or for local testing.
+#
 # Already present: kubectl, kubeadm, ubuntu
 #
 # make docker.istio-builder
 
+############################################
 # Image to pull docker binary
 FROM docker:latest as docker
 
 # Image to create go binaries
 FROM golang:1.11.5 as golang
+
+# IMPORTANT: kind releases may or may not work with the 1.14.1 kindes/node tag.
+# We want to create images with multiple k8s versions.
 RUN go get -u sigs.k8s.io/kind
+
+# Used to upload test results to test grid
 RUN go get -u istio.io/test-infra/toolbox/ci2gubernator
 RUN go get -u github.com/jstemmer/go-junit-report
 
@@ -21,7 +29,8 @@ RUN curl -Lo - https://storage.googleapis.com/kubernetes-helm/helm-v2.13.1-linux
 RUN curl https://storage.googleapis.com/git-repo-downloads/repo > /usr/local/bin/repo
 RUN chmod +x /usr/local/bin/repo
 
-#Main image
+#############################################
+#Main image -
 FROM  kindest/node:v1.14.1
 
 # Environment variables used in the build.

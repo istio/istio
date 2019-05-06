@@ -30,7 +30,8 @@ run-build: dep run-build-demo run-build-kustom run-build-demo-testing
 	# Short term: will be checked in - for testing apply -k
 
 
-DEMO_OPTS="--set global.istioNamespace=istio-system --set global.defaultPodDisruptionBudget.enabled=false"
+DEMO_OPTS="--set global.istioNamespace=istio-system --set global.configNamespace=istio-system --set global.telemetryNamespace=istio-system --set global.defaultPodDisruptionBudget.enabled=false"
+
 # Demo updates the demo profile. After testing it can be checked in - allowing reviewers to see any changes.
 # For backward compat, demo profile uses istio-system.
 run-build-demo: dep
@@ -47,7 +48,8 @@ run-build-demo: dep
 	#bin/iop ${ISTIO_NS} istio-policy ${BASE}/istio-policy -t > ${OUT}/release/demo/istio-policy.yaml
 	cat ${OUT}/release/demo/*.yaml > test/demo/k8s.yaml
 
-DEMO_TEST_OPTS="--set global.istioNamespace=istio-testing --set global.defaultPodDisruptionBudget.enabled=false"
+# Validation is singleton, can only be installed in istio-system or istio-control currently (like citadel)
+DEMO_TEST_OPTS="--set global.configValidation=false --set global.istioNamespace=istio-testing --set global.configNamespace=istio-testing --set global.policyNamespace=istio-testing --set global.telemetryNamespace=istio-testing --set global.defaultPodDisruptionBudget.enabled=false"
 
 run-build-demo-testing: dep
 	mkdir -p ${OUT}/release/demo-testing
