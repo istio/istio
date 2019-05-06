@@ -76,16 +76,17 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	clusters := make([]*apiv2.Cluster, 0)
 	instances := proxy.ServiceInstances
 
+	clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
+
 	// compute the proxy's locality. See if we have a CDS cache for that locality.
 	// If not, compute one.
 	locality := proxy.Locality
+	if locality != nil {
+		applyLocalityLBSetting(locality, clusters, env.Mesh.LocalityLbSetting, false)
+	}
+
 	switch proxy.Type {
 	case model.SidecarProxy:
-		clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
-		if locality != nil {
-			applyLocalityLBSetting(locality, clusters, env.Mesh.LocalityLbSetting, false)
-		}
-
 		// Let ServiceDiscovery decide which IP and Port are used for management if
 		// there are multiple IPs
 		managementPorts := make([]*model.Port, 0)
@@ -95,11 +96,6 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, push, instances, managementPorts)...)
 
 	default: // Gateways
-		clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
-		if locality != nil {
-			applyLocalityLBSetting(locality, clusters, env.Mesh.LocalityLbSetting, false)
-		}
-
 		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
 			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
 		}
