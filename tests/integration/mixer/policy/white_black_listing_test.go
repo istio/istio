@@ -43,6 +43,17 @@ func TestWhiteListing(t *testing.T) {
 			bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 			bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		)
+		defer g.DeleteConfigOrFail(
+			t,
+			bookinfoNs,
+			bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()),
+		)
+		defer g.DeleteConfigOrFail(
+			t,
+			bookinfoNs,
+			bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+			bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+		)
 
 		if ingInst == nil {
 			t.Fatalf("ingress not setup")
@@ -52,6 +63,10 @@ func TestWhiteListing(t *testing.T) {
 		util.SendTrafficAndWaitForExpectedStatus(ing, t, "Sending traffic...", "", 2, http.StatusOK)
 
 		g.ApplyConfigOrFail(
+			t,
+			bookinfoNs,
+			bookinfo.PolicyDenyIPRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
+		defer g.DeleteConfigOrFail(
 			t,
 			bookinfoNs,
 			bookinfo.PolicyDenyIPRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
