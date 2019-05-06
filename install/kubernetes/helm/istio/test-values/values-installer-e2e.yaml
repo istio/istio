@@ -14,7 +14,7 @@ global:
 
     accessLogFile: "/dev/stdout"
     enableCoreDump: true
-  controlPlaneSecurityEnabled: true
+  controlPlaneSecurityEnabled: false
   disablePolicyChecks: false
   outboundTrafficPolicy:
     mode: REGISTRY_ONLY
