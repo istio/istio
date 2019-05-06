@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test/application/echo"
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -55,8 +55,8 @@ type App interface {
 	Name() string
 	Endpoints() []AppEndpoint
 	EndpointsForProtocol(protocol model.Protocol) []AppEndpoint
-	Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error)
-	CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse
+	Call(e AppEndpoint, opts AppCallOptions) ([]*client.ParsedResponse, error)
+	CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*client.ParsedResponse
 }
 
 // AppParam specifies the parameter for a single app.

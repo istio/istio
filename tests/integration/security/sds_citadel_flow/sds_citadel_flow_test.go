@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/connection"
 	"istio.io/istio/pkg/test/util/policy"
 	"istio.io/istio/pkg/test/util/retry"
@@ -97,5 +98,10 @@ func setupConfig(cfg *istio.Config) {
 func TestMain(m *testing.M) {
 	// Integration test for the SDS Citadel CA flow, as well as mutual TLS
 	// with the certificates issued by the SDS Citadel CA flow.
-	framework.Main("sds_citadel_flow_test", m, istio.SetupOnKube(&inst, setupConfig))
+	framework.
+		NewSuite("sds_citadel_flow_test", m).
+		Label(label.CustomSetup).
+		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
+		Run()
+
 }

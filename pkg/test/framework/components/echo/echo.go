@@ -20,7 +20,7 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test/application/echo"
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -31,6 +31,9 @@ type Instance interface {
 
 	// Config returns the configuration of the Echo instance.
 	Config() Config
+
+	// Address of the service (e.g. Kubernetes cluster IP). May be "" if headless.
+	Address() string
 
 	// WaitUntilReady waits until this instance is up and ready to receive traffic. If
 	// outbound are specified, the wait also includes readiness for each
@@ -46,8 +49,8 @@ type Instance interface {
 	WorkloadsOrFail(t testing.TB) []Workload
 
 	// Call makes a call from this Instance to a target Instance.
-	Call(options CallOptions) (echo.ParsedResponses, error)
-	CallOrFail(t testing.TB, options CallOptions) echo.ParsedResponses
+	Call(options CallOptions) (client.ParsedResponses, error)
+	CallOrFail(t testing.TB, options CallOptions) client.ParsedResponses
 }
 
 // Port exposed by an Echo Instance
@@ -79,14 +82,20 @@ type Workload interface {
 
 // Sidecar provides an interface to execute queries against a single Envoy sidecar.
 type Sidecar interface {
+	// NodeID returns the node ID used for uniquely identifying this sidecar to Pilot.
+	NodeID() string
+
 	// Info about the Envoy instance.
 	Info() (*envoyAdmin.ServerInfo, error)
+	InfoOrFail(t testing.TB) *envoyAdmin.ServerInfo
 
 	// Config of the Envoy instance.
 	Config() (*envoyAdmin.ConfigDump, error)
+	ConfigOrFail(t testing.TB) *envoyAdmin.ConfigDump
 
 	// WaitForConfig queries the Envoy configuration an executes the given accept handler. If the
 	// response is not accepted, the request will be retried until either a timeout or a response
 	// has been accepted.
 	WaitForConfig(accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option) error
+	WaitForConfigOrFail(t testing.TB, accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option)
 }

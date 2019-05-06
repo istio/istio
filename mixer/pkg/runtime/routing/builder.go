@@ -54,6 +54,7 @@ import (
 	"strings"
 
 	"go.opencensus.io/stats"
+	"go.opencensus.io/tag"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	descriptor "istio.io/api/policy/v1beta1"
@@ -154,6 +155,8 @@ func (b *builder) nextID() uint32 {
 
 func (b *builder) build(snapshot *config.Snapshot) {
 
+	var unsatActions, matchErrs int64
+
 	for _, rule := range snapshot.Rules {
 
 		// Create a compiled expression for the rule condition first.
@@ -161,7 +164,7 @@ func (b *builder) build(snapshot *config.Snapshot) {
 		if err != nil {
 			log.Warnf("Unable to compile match condition expression: '%v', rule='%s', expression='%s'",
 				err, rule.Name, rule.Match)
-			stats.Record(snapshot.MonitoringContext, monitoring.MatchErrors.M(1))
+			matchErrs++
 			// Skip the rule
 			continue
 		}
@@ -177,7 +180,7 @@ func (b *builder) build(snapshot *config.Snapshot) {
 				log.Warnf("Unable to find a handler for action. rule[action]='%s[%d]', handler='%s'",
 					rule.Name, i, handlerName)
 
-				stats.Record(snapshot.MonitoringContext, monitoring.UnsatisfiedActionHandlers.M(1))
+				unsatActions++
 				// Skip the rule
 				continue
 			}
@@ -207,7 +210,7 @@ func (b *builder) build(snapshot *config.Snapshot) {
 				log.Warnf("Unable to find a handler for action. rule[action]='%s[%d]', handler='%s'",
 					rule.Name, i, handlerName)
 
-				stats.Record(snapshot.MonitoringContext, monitoring.UnsatisfiedActionHandlers.M(1))
+				unsatActions++
 				// Skip the rule
 				continue
 			}
@@ -258,6 +261,24 @@ func (b *builder) build(snapshot *config.Snapshot) {
 			}
 		}
 	}
+
+	for variety, vTable := range b.table.entries {
+		totalDests := 0
+		for _, nsTable := range vTable.entries {
+			totalDests += nsTable.Count()
+		}
+		ctx := context.Background()
+		var err error
+		if ctx, err = tag.New(ctx, tag.Insert(monitoring.VarietyTag, variety.String())); err != nil {
+			log.Errorf("error establishing monitoring context for variety type: %v", err)
+		}
+		stats.Record(ctx, monitoring.DestinationsPerVarietyTotal.M(int64(totalDests)))
+	}
+
+	stats.Record(snapshot.MonitoringContext,
+		monitoring.UnsatisfiedActionHandlers.M(unsatActions),
+		monitoring.MatchErrors.M(matchErrs),
+	)
 }
 
 func (b *builder) compiler(mode lang.LanguageRuntime) lang.Compiler {

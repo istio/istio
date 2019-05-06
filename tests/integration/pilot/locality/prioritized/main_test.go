@@ -18,7 +18,9 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/label"
 )
 
 var (
@@ -26,7 +28,10 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	framework.Main("locality_prioritized_loadbalancing", m, istio.SetupOnKube(&ist, setupConfig))
+	framework.NewSuite("locality_prioritized_loadbalancing", m).
+		Label(label.CustomSetup).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
+		Run()
 }
 
 func setupConfig(cfg *istio.Config) {

@@ -22,16 +22,19 @@ import (
 	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	appsv1beta1 "k8s.io/client-go/kubernetes/typed/apps/v1beta1"
 	appsv1beta2 "k8s.io/client-go/kubernetes/typed/apps/v1beta2"
+	auditregistrationv1alpha1 "k8s.io/client-go/kubernetes/typed/auditregistration/v1alpha1"
 	authenticationv1 "k8s.io/client-go/kubernetes/typed/authentication/v1"
 	authenticationv1beta1 "k8s.io/client-go/kubernetes/typed/authentication/v1beta1"
 	authorizationv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	authorizationv1beta1 "k8s.io/client-go/kubernetes/typed/authorization/v1beta1"
 	autoscalingv1 "k8s.io/client-go/kubernetes/typed/autoscaling/v1"
 	autoscalingv2beta1 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta1"
+	autoscalingv2beta2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta2"
 	batchv1 "k8s.io/client-go/kubernetes/typed/batch/v1"
 	batchv1beta1 "k8s.io/client-go/kubernetes/typed/batch/v1beta1"
 	batchv2alpha1 "k8s.io/client-go/kubernetes/typed/batch/v2alpha1"
 	certificatesv1beta1 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
+	coordinationv1beta1 "k8s.io/client-go/kubernetes/typed/coordination/v1beta1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	eventsv1beta1 "k8s.io/client-go/kubernetes/typed/events/v1beta1"
 	extensionsv1beta1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
@@ -74,6 +77,26 @@ func (c *kubeInterface) CoreV1() corev1.CoreV1Interface {
 }
 
 func (c *kubeInterface) Discovery() discovery.DiscoveryInterface {
+	panic("not implemented")
+}
+
+func (c *kubeInterface) AuditregistrationV1alpha1() auditregistrationv1alpha1.AuditregistrationV1alpha1Interface {
+	panic("not implemented")
+}
+
+func (c *kubeInterface) Auditregistration() auditregistrationv1alpha1.AuditregistrationV1alpha1Interface {
+	panic("not implemented")
+}
+
+func (c *kubeInterface) AutoscalingV2beta2() autoscalingv2beta2.AutoscalingV2beta2Interface {
+	panic("not implemented")
+}
+
+func (c *kubeInterface) CoordinationV1beta1() coordinationv1beta1.CoordinationV1beta1Interface {
+	panic("not implemented")
+}
+
+func (c *kubeInterface) Coordination() coordinationv1beta1.CoordinationV1beta1Interface {
 	panic("not implemented")
 }
 

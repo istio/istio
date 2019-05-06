@@ -15,6 +15,7 @@
 package apps
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -28,9 +29,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	serviceRegistryKube "istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/test/application/echo"
-	"istio.io/istio/pkg/test/application/echo/proto"
 	"istio.io/istio/pkg/test/deployment"
+	"istio.io/istio/pkg/test/echo/client"
+	"istio.io/istio/pkg/test/echo/proto"
 	deployment2 "istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -345,11 +346,11 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed waiting for deployment %s: %v", d.deployment, err)
 			}
-			client, err := newKubeApp(d.service, c.namespace.Name(), pod, env)
+			app, err := newKubeApp(d.service, c.namespace.Name(), pod, env)
 			if err != nil {
 				return nil, fmt.Errorf("failed creating client for deployment %s: %v", d.deployment, err)
 			}
-			c.apps = append(c.apps, client)
+			c.apps = append(c.apps, app)
 		}
 		return c, nil
 	}
@@ -383,11 +384,11 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed waiting for deployment %s: %v", d.deployment, err)
 		}
-		client, err := newKubeApp(d.service, c.namespace.Name(), pod, env)
+		app, err := newKubeApp(d.service, c.namespace.Name(), pod, env)
 		if err != nil {
 			return nil, fmt.Errorf("failed creating client for deployment %s: %v", d.deployment, err)
 		}
-		c.apps = append(c.apps, client)
+		c.apps = append(c.apps, app)
 	}
 
 	return c, nil
@@ -497,7 +498,7 @@ type kubeApp struct {
 	appName     string
 	endpoints   []*endpoint
 	forwarder   testKube.PortForwarder
-	client      *echo.Client
+	client      *client.Instance
 }
 
 var _ App = &kubeApp{}
@@ -547,7 +548,7 @@ func newKubeApp(serviceName, namespace string, pod kubeApiCore.Pod, e *kube.Envi
 		return nil, err
 	}
 
-	a.client, err = echo.NewClient(a.forwarder.Address())
+	a.client, err = client.New(a.forwarder.Address())
 	out = a
 	return
 }
@@ -625,7 +626,7 @@ func (a *kubeApp) EndpointForPort(port int) AppEndpoint {
 }
 
 // Call implements the environment.DeployedApp interface
-func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error) {
+func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*client.ParsedResponse, error) {
 	dst, ok := e.(*endpoint)
 	if !ok {
 		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
@@ -654,7 +655,7 @@ func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedRespon
 		protoHeaders = append(protoHeaders, &proto.Header{Key: k, Value: opts.Headers.Get(k)})
 	}
 
-	resp, err := a.client.ForwardEcho(&proto.ForwardEchoRequest{
+	resp, err := a.client.ForwardEcho(context.Background(), &proto.ForwardEchoRequest{
 		Url:     dstURL.String(),
 		Count:   int32(opts.Count),
 		Headers: protoHeaders,
@@ -670,7 +671,7 @@ func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedRespon
 	return resp, nil
 }
 
-func (a *kubeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse {
+func (a *kubeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*client.ParsedResponse {
 	r, err := a.Call(e, opts)
 	if err != nil {
 		t.Fatal(err)

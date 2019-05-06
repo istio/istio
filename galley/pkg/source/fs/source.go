@@ -214,14 +214,18 @@ func (s *source) Start(handler resource.EventHandler) error {
 		s.initialCheck()
 		c := make(chan appsignals.Signal)
 		appsignals.Watch(c)
-		go func() {
-			for trigger := range c {
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case trigger := <-c:
 				if trigger.Signal == syscall.SIGUSR1 {
 					log.Scope.Infof("Triggering reload in response to: %v", trigger.Source)
 					s.reload()
 				}
 			}
-		}()
+		}
 	})
 }
 

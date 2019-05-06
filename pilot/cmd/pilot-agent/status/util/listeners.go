@@ -28,8 +28,8 @@ var (
 )
 
 // GetInboundListeningPorts returns a map of inbound ports for which Envoy has active listeners.
-func GetInboundListeningPorts(adminPort uint16) (map[uint16]bool, string, error) {
-	buf, err := doHTTPGet(fmt.Sprintf("http://127.0.0.1:%d/listeners", adminPort))
+func GetInboundListeningPorts(localHostAddr string, adminPort uint16) (map[uint16]bool, string, error) {
+	buf, err := doHTTPGet(fmt.Sprintf("http://%s:%d/listeners", localHostAddr, adminPort))
 	if err != nil {
 		return nil, "", multierror.Prefix(err, "failed retrieving Envoy listeners:")
 	}

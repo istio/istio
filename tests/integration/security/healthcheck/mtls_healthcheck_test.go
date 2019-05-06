@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components/galley"
+	"istio.io/istio/pkg/test/framework/label"
 
 	"istio.io/istio/pkg/test/framework/components/apps"
 	"istio.io/istio/pkg/test/framework/components/deployment"
@@ -38,7 +39,8 @@ var (
 func TestMain(m *testing.M) {
 	framework.NewSuite("mtls_healthcheck", m).
 		RequireEnvironment(environment.Kube).
-		Setup(istio.SetupOnKube(&ist, setupConfig)).
+		Label(label.CustomSetup).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
 		Run()
 }
 

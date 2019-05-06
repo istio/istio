@@ -22,7 +22,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	appEcho "istio.io/istio/pkg/test/application/echo"
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
@@ -76,6 +76,13 @@ func (c *instance) WaitUntilReady(outboundInstances ...echo.Instance) error {
 		return nil
 	}
 
+	// Wait until all of the outbound instances are ready.
+	for _, outbound := range outboundInstances {
+		if err := outbound.WaitUntilReady(); err != nil {
+			return err
+		}
+	}
+
 	return c.workload.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(outboundInstances...))
 }
 
@@ -83,6 +90,10 @@ func (c *instance) WaitUntilReadyOrFail(t testing.TB, outboundInstances ...echo.
 	if err := c.WaitUntilReady(outboundInstances...); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func (c *instance) Address() string {
+	return localhost
 }
 
 func (c *instance) Config() echo.Config {
@@ -101,21 +112,24 @@ func (c *instance) WorkloadsOrFail(t testing.TB) []echo.Workload {
 	return out
 }
 
-func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) {
+func (c *instance) Call(opts echo.CallOptions) (client.ParsedResponses, error) {
 	out, err := c.workload.Call(&opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
-			c.Config().Service,
-			strings.ToLower(string(opts.Port.Protocol)),
-			opts.Target.Config().Service,
-			opts.Port.ServicePort,
-			opts.Path,
-			err)
+		if opts.Port != nil {
+			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
+				c.Config().Service,
+				strings.ToLower(string(opts.Port.Protocol)),
+				opts.Target.Config().Service,
+				opts.Port.ServicePort,
+				opts.Path,
+				err)
+		}
+		return nil, err
 	}
 	return out, nil
 }
 
-func (c *instance) CallOrFail(t testing.TB, opts echo.CallOptions) appEcho.ParsedResponses {
+func (c *instance) CallOrFail(t testing.TB, opts echo.CallOptions) client.ParsedResponses {
 	r, err := c.Call(opts)
 	if err != nil {
 		t.Fatal(err)

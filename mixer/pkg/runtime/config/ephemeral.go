@@ -25,7 +25,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"sync"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -34,7 +33,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 	"go.opencensus.io/stats"
-	"go.opencensus.io/tag"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	config "istio.io/api/policy/v1beta1"
@@ -152,28 +150,33 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 
 	// Allocate new monitoring context to use with the new snapshot.
 	monitoringCtx := context.Background()
-	var err error
-	if monitoringCtx, err = tag.New(monitoringCtx, tag.Insert(monitoring.ConfigIDTag, strconv.FormatInt(id, 10))); err != nil {
-		log.Errorf("could not establish snapshot id in monitoring context: %v", err)
-	}
 
 	e.lock.RLock()
 
 	attributes := e.processAttributeManifests(monitoringCtx)
 
-	shandlers := e.processStaticAdapterHandlerConfigs(monitoringCtx)
+	shandlers := e.processStaticAdapterHandlerConfigs()
 
 	af := ast.NewFinder(attributes)
 	e.attributes = af
-	instances := e.processInstanceConfigs(monitoringCtx, errs)
+	instances, instErrs := e.processInstanceConfigs(errs)
 
 	// New dynamic configurations
 	dTemplates := e.processDynamicTemplateConfigs(monitoringCtx, errs)
 	dAdapters := e.processDynamicAdapterConfigs(monitoringCtx, dTemplates, errs)
 	dhandlers := e.processDynamicHandlerConfigs(monitoringCtx, dAdapters, errs)
-	dInstances := e.processDynamicInstanceConfigs(monitoringCtx, dTemplates, errs)
+	dInstances, dInstErrs := e.processDynamicInstanceConfigs(dTemplates, errs)
 
 	rules := e.processRuleConfigs(monitoringCtx, shandlers, instances, dhandlers, dInstances, errs)
+
+	stats.Record(monitoringCtx,
+		monitoring.HandlersTotal.M(int64(len(shandlers)+len(dhandlers))),
+		monitoring.InstancesTotal.M(int64(len(instances)+len(dInstances))),
+		monitoring.RulesTotal.M(int64(len(rules))),
+		monitoring.AdapterInfosTotal.M(int64(len(dAdapters))),
+		monitoring.TemplatesTotal.M(int64(len(dTemplates))),
+		monitoring.InstanceErrs.M(instErrs+dInstErrs),
+	)
 
 	s := &Snapshot{
 		ID:                id,
@@ -209,7 +212,6 @@ func (e *Ephemeral) processAttributeManifests(ctx context.Context) map[string]*c
 		cfg := obj.Spec
 		for an, at := range cfg.(*config.AttributeManifest).Attributes {
 			attrs[an] = at
-			stats.Record(ctx, monitoring.AttributesTotal.M(1))
 			log.Debugf("Attribute '%s': '%s'.", an, at.ValueType)
 		}
 	}
@@ -229,13 +231,13 @@ func (e *Ephemeral) processAttributeManifests(ctx context.Context) map[string]*c
 		for _, v := range info.AttributeManifests {
 			for an, at := range v.Attributes {
 				attrs[an] = at
-				stats.Record(ctx, monitoring.AttributesTotal.M(1))
 				log.Debugf("Attribute '%s': '%s'", an, at.ValueType)
 			}
 		}
 	}
 
 	log.Debug("Completed processing attributes.")
+	stats.Record(ctx, monitoring.AttributesTotal.M(int64(len(attrs))))
 	return attrs
 }
 
@@ -251,7 +253,7 @@ func convert(spec map[string]interface{}, target proto.Message) error {
 	return err
 }
 
-func (e *Ephemeral) processStaticAdapterHandlerConfigs(ctx context.Context) map[string]*HandlerStatic {
+func (e *Ephemeral) processStaticAdapterHandlerConfigs() map[string]*HandlerStatic {
 	handlers := make(map[string]*HandlerStatic, len(e.adapters))
 
 	for key, resource := range e.entries {
@@ -284,7 +286,6 @@ func (e *Ephemeral) processStaticAdapterHandlerConfigs(ctx context.Context) map[
 				staticConfig.Params = c
 			}
 			handlers[key.String()] = staticConfig
-			stats.Record(ctx, monitoring.HandlersTotal.M(1))
 			continue
 		}
 
@@ -304,7 +305,6 @@ func (e *Ephemeral) processStaticAdapterHandlerConfigs(ctx context.Context) map[
 		}
 
 		handlers[cfg.Name] = cfg
-		stats.Record(ctx, monitoring.HandlersTotal.M(1))
 	}
 
 	return handlers
@@ -322,6 +322,7 @@ func getCanonicalRef(n, kind, ns string, lookup func(string) interface{}) (inter
 
 func (e *Ephemeral) processDynamicHandlerConfigs(ctx context.Context, adapters map[string]*Adapter, errs *multierror.Error) map[string]*HandlerDynamic {
 	handlers := make(map[string]*HandlerDynamic, len(e.adapters))
+	var validationErrs int64
 
 	for key, resource := range e.entries {
 		if key.Kind != constant.HandlerKind {
@@ -343,7 +344,8 @@ func (e *Ephemeral) processDynamicHandlerConfigs(ctx context.Context, adapters m
 		})
 
 		if adpt == nil {
-			appendErr(ctx, errs, fmt.Sprintf("handler='%s'.adapter", handlerName), monitoring.HandlerValidationErrors, "adapter '%s' not found", hdl.Adapter)
+			validationErrs++
+			appendErr(errs, fmt.Sprintf("handler='%s'.adapter", handlerName), "adapter '%s' not found", hdl.Adapter)
 			continue
 		}
 		adapter := adpt.(*Adapter)
@@ -353,7 +355,8 @@ func (e *Ephemeral) processDynamicHandlerConfigs(ctx context.Context, adapters m
 			// validate if the param is valid
 			bytes, err := validateEncodeBytes(hdl.Params, adapter.ConfigDescSet, getParamsMsgFullName(adapter.PackageName))
 			if err != nil {
-				appendErr(ctx, errs, fmt.Sprintf("handler='%s'.params", handlerName), monitoring.HandlerValidationErrors, err.Error())
+				validationErrs++
+				appendErr(errs, fmt.Sprintf("handler='%s'.params", handlerName), err.Error())
 				continue
 			}
 			typeFQN := adapter.PackageName + ".Params"
@@ -368,8 +371,9 @@ func (e *Ephemeral) processDynamicHandlerConfigs(ctx context.Context, adapters m
 		}
 
 		handlers[cfg.Name] = cfg
-		stats.Record(ctx, monitoring.HandlersTotal.M(1))
 	}
+
+	stats.Record(ctx, monitoring.HandlerValidationErrors.M(validationErrs))
 
 	return handlers
 }
@@ -383,9 +387,9 @@ func asAny(msgFQN string, bytes []byte) *types.Any {
 	}
 }
 
-func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates map[string]*Template,
-	errs *multierror.Error) map[string]*InstanceDynamic {
+func (e *Ephemeral) processDynamicInstanceConfigs(templates map[string]*Template, errs *multierror.Error) (map[string]*InstanceDynamic, int64) {
 	instances := make(map[string]*InstanceDynamic, len(e.templates))
+	var instErrs int64
 
 	for key, resource := range e.entries {
 		if key.Kind != constant.InstanceKind {
@@ -410,7 +414,8 @@ func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates
 		})
 
 		if tmpl == nil {
-			appendErr(ctx, errs, fmt.Sprintf("instance='%s'.template", instanceName), monitoring.InstanceErrs, "template '%s' not found", inst.Template)
+			instErrs++
+			appendErr(errs, fmt.Sprintf("instance='%s'.template", instanceName), "template '%s' not found", inst.Template)
 			continue
 		}
 
@@ -428,8 +433,8 @@ func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates
 		var err error
 		if inst.Params != nil {
 			if params, err = toDictionary(inst.Params); err != nil {
-				appendErr(ctx, errs, fmt.Sprintf("instance='%s'.params", instanceName),
-					monitoring.InstanceErrs, "invalid params block.")
+				instErrs++
+				appendErr(errs, fmt.Sprintf("instance='%s'.params", instanceName), "invalid params block.")
 				continue
 			}
 
@@ -438,9 +443,9 @@ func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates
 			params["name"] = fmt.Sprintf("\"%s\"", instanceName)
 			enc, err = b.Build(getTemplatesMsgFullName(template.PackageName), params)
 			if err != nil {
-				appendErr(ctx, errs, fmt.Sprintf("instance='%s'.params", instanceName),
-					monitoring.InstanceErrs, "config does not conform to schema of template '%s': %v",
-					inst.Template, err.Error())
+				instErrs++
+				appendErr(errs, fmt.Sprintf("instance='%s'.params", instanceName),
+					"config does not conform to schema of template '%s': %v", inst.Template, err.Error())
 				continue
 			}
 		}
@@ -455,10 +460,9 @@ func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates
 		}
 
 		instances[cfg.Name] = cfg
-		stats.Record(ctx, monitoring.InstancesTotal.M(1))
 	}
 
-	return instances
+	return instances, instErrs
 }
 
 func getTemplatesMsgFullName(pkgName string) string {
@@ -480,8 +484,9 @@ func validateEncodeBytes(params *types.Struct, fds *descriptor.FileDescriptorSet
 	return yaml.NewEncoder(fds).EncodeBytes(d, msgName, false)
 }
 
-func (e *Ephemeral) processInstanceConfigs(ctx context.Context, errs *multierror.Error) map[string]*InstanceStatic {
+func (e *Ephemeral) processInstanceConfigs(errs *multierror.Error) (map[string]*InstanceStatic, int64) {
 	instances := make(map[string]*InstanceStatic, len(e.templates))
+	var instErrs int64
 
 	for key, resource := range e.entries {
 		var info *template.Info
@@ -497,7 +502,8 @@ func (e *Ephemeral) processInstanceConfigs(ctx context.Context, errs *multierror
 			}
 			info, found = e.templates[inst.CompiledTemplate]
 			if !found {
-				appendErr(ctx, errs, fmt.Sprintf("instance='%s'", instanceName), monitoring.InstanceErrs, "missing compiled template")
+				instErrs++
+				appendErr(errs, fmt.Sprintf("instance='%s'", instanceName), "missing compiled template")
 				continue
 			}
 
@@ -519,11 +525,13 @@ func (e *Ephemeral) processInstanceConfigs(ctx context.Context, errs *multierror
 				}
 			}
 			if err := (&jsonpb.Marshaler{}).Marshal(buf, inst.Params); err != nil {
-				appendErr(ctx, errs, fmt.Sprintf("instance='%s'", instanceName), monitoring.InstanceErrs, err.Error())
+				instErrs++
+				appendErr(errs, fmt.Sprintf("instance='%s'", instanceName), err.Error())
 				continue
 			}
 			if err := (&jsonpb.Unmarshaler{AllowUnknownFields: false}).Unmarshal(buf, params); err != nil {
-				appendErr(ctx, errs, fmt.Sprintf("instance='%s'", instanceName), monitoring.InstanceErrs, err.Error())
+				instErrs++
+				appendErr(errs, fmt.Sprintf("instance='%s'", instanceName), err.Error())
 				continue
 			}
 		} else {
@@ -543,7 +551,8 @@ func (e *Ephemeral) processInstanceConfigs(ctx context.Context, errs *multierror
 		})
 
 		if err != nil {
-			appendErr(ctx, errs, fmt.Sprintf("instance='%s'", instanceName), monitoring.InstanceErrs, err.Error())
+			instErrs++
+			appendErr(errs, fmt.Sprintf("instance='%s'", instanceName), err.Error())
 			continue
 		}
 		cfg := &InstanceStatic{
@@ -555,15 +564,15 @@ func (e *Ephemeral) processInstanceConfigs(ctx context.Context, errs *multierror
 		}
 
 		instances[cfg.Name] = cfg
-		stats.Record(ctx, monitoring.InstancesTotal.M(1))
 	}
 
-	return instances
+	return instances, instErrs
 }
 
 func (e *Ephemeral) processDynamicAdapterConfigs(ctx context.Context, availableTmpls map[string]*Template, errs *multierror.Error) map[string]*Adapter {
 	result := map[string]*Adapter{}
 	log.Debug("Begin processing adapter info configurations.")
+	var adapterErrs int64
 	for adapterInfoKey, resource := range e.entries {
 		if adapterInfoKey.Kind != constant.AdapterKind {
 			continue
@@ -571,15 +580,14 @@ func (e *Ephemeral) processDynamicAdapterConfigs(ctx context.Context, availableT
 
 		adapterName := adapterInfoKey.String()
 
-		stats.Record(ctx, monitoring.AdapterInfosTotal.M(1))
 		cfg := resource.Spec.(*v1beta1.Info)
 
 		log.Debugf("Processing incoming adapter info: name='%s'\n%v", adapterName, cfg)
 
 		fds, desc, err := GetAdapterCfgDescriptor(cfg.Config)
 		if err != nil {
-			appendErr(ctx, errs, fmt.Sprintf("adapter='%s'", adapterName), monitoring.AdapterErrs,
-				"unable to parse adapter configuration: %v", err)
+			adapterErrs++
+			appendErr(errs, fmt.Sprintf("adapter='%s'", adapterName), "unable to parse adapter configuration: %v", err)
 			continue
 		}
 		supportedTmpls := make([]*Template, 0, len(cfg.Templates))
@@ -592,8 +600,8 @@ func (e *Ephemeral) processDynamicAdapterConfigs(ctx context.Context, availableT
 				return nil
 			})
 			if template == nil {
-				appendErr(ctx, errs, fmt.Sprintf("adapter='%s'", adapterName), monitoring.AdapterErrs,
-					"unable to find template '%s'", tmplN)
+				adapterErrs++
+				appendErr(errs, fmt.Sprintf("adapter='%s'", adapterName), "unable to find template '%s'", tmplN)
 				continue
 			}
 			supportedTmpls = append(supportedTmpls, availableTmpls[tmplFullName])
@@ -610,6 +618,8 @@ func (e *Ephemeral) processDynamicAdapterConfigs(ctx context.Context, availableT
 			}
 		}
 	}
+
+	stats.Record(ctx, monitoring.AdapterErrs.M(adapterErrs))
 	return result
 }
 
@@ -631,14 +641,13 @@ func (e *Ephemeral) processRuleConfigs(
 	errs *multierror.Error) []*Rule {
 
 	log.Debug("Begin processing rule configurations.")
-
+	var ruleErrs int64
 	var rules []*Rule
 
 	for ruleKey, resource := range e.entries {
 		if ruleKey.Kind != constant.RulesKind {
 			continue
 		}
-		stats.Record(ctx, monitoring.RulesTotal.M(1))
 
 		ruleName := ruleKey.String()
 
@@ -649,7 +658,8 @@ func (e *Ephemeral) processRuleConfigs(
 
 		if cfg.Match != "" {
 			if err := assertType(e.checker(mode), cfg.Match, config.BOOL); err != nil {
-				appendErr(ctx, errs, fmt.Sprintf("rule='%s'.Match", ruleName), monitoring.RuleErrs, err.Error())
+				ruleErrs++
+				appendErr(errs, fmt.Sprintf("rule='%s'.Match", ruleName), err.Error())
 			}
 		}
 
@@ -688,8 +698,8 @@ func (e *Ephemeral) processRuleConfigs(
 			}
 
 			if !processStaticHandler && !processDynamicHandler {
-				appendErr(ctx, errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), monitoring.RuleErrs,
-					"Handler not found: handler='%s'", a.Handler)
+				ruleErrs++
+				appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), "Handler not found: handler='%s'", a.Handler)
 				continue
 			}
 
@@ -708,22 +718,24 @@ func (e *Ephemeral) processRuleConfigs(
 					})
 
 					if inst == nil {
-						appendErr(ctx, errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), monitoring.RuleErrs,
-							"Instance not found: instance='%s'", instanceNameRef)
+						ruleErrs++
+						appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), "Instance not found: instance='%s'", instanceNameRef)
 						continue
 					}
 
 					instance := inst.(*InstanceStatic)
 
 					if _, ok := uniqueInstances[instName]; ok {
-						appendErr(ctx, errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), monitoring.RuleErrs,
+						ruleErrs++
+						appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i),
 							"action specified the same instance multiple times: instance='%s',", instName)
 						continue
 					}
 					uniqueInstances[instName] = true
 
 					if !contains(sahandler.Adapter.SupportedTemplates, instance.Template.Name) {
-						appendErr(ctx, errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), monitoring.RuleErrs,
+						ruleErrs++
+						appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i),
 							"instance '%s' is of template '%s' which is not supported by handler '%s'",
 							instName, instance.Template.Name, handlerName)
 						continue
@@ -734,7 +746,8 @@ func (e *Ephemeral) processRuleConfigs(
 
 				// If there are no valid instances found for this action, then elide the action.
 				if len(actionInstances) == 0 {
-					appendErr(ctx, errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), monitoring.RuleErrs, "No valid instances found")
+					ruleErrs++
+					appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), "No valid instances found")
 					continue
 				}
 
@@ -760,14 +773,15 @@ func (e *Ephemeral) processRuleConfigs(
 					})
 
 					if inst == nil {
-						appendErr(ctx, errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), monitoring.RuleErrs,
-							"Instance not found: instance='%s'", instanceNameRef)
+						ruleErrs++
+						appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), "Instance not found: instance='%s'", instanceNameRef)
 						continue
 					}
 
 					instance := inst.(*InstanceDynamic)
 					if _, ok := uniqueInstances[instName]; ok {
-						appendErr(ctx, errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), monitoring.RuleErrs,
+						ruleErrs++
+						appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i),
 							"action specified the same instance multiple times: instance='%s',", instName)
 						continue
 					}
@@ -782,7 +796,8 @@ func (e *Ephemeral) processRuleConfigs(
 					}
 
 					if !found {
-						appendErr(ctx, errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), monitoring.RuleErrs,
+						ruleErrs++
+						appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i),
 							"instance '%s' is of template '%s' which is not supported by handler '%s'",
 							instName, instance.Template.Name, handlerName)
 						continue
@@ -793,7 +808,8 @@ func (e *Ephemeral) processRuleConfigs(
 
 				// If there are no valid instances found for this action, then elide the action.
 				if len(actionInstances) == 0 {
-					appendErr(ctx, errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), monitoring.RuleErrs, "No valid instances found")
+					ruleErrs++
+					appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), "No valid instances found")
 					continue
 				}
 
@@ -810,7 +826,8 @@ func (e *Ephemeral) processRuleConfigs(
 		// If there are no valid actions found for this rule, then elide the rule.
 		if len(actionsStat) == 0 && len(actionsDynamic) == 0 &&
 			len(cfg.RequestHeaderOperations) == 0 && len(cfg.ResponseHeaderOperations) == 0 {
-			appendErr(ctx, errs, fmt.Sprintf("rule=%s", ruleName), monitoring.RuleErrs, "No valid actions found in rule")
+			ruleErrs++
+			appendErr(errs, fmt.Sprintf("rule=%s", ruleName), "No valid actions found in rule")
 			continue
 		}
 
@@ -828,6 +845,8 @@ func (e *Ephemeral) processRuleConfigs(
 		rules = append(rules, rule)
 	}
 
+	stats.Record(ctx, monitoring.RuleErrs.M(ruleErrs))
+
 	return rules
 }
 
@@ -843,11 +862,11 @@ func contains(strs []string, w string) bool {
 func (e *Ephemeral) processDynamicTemplateConfigs(ctx context.Context, errs *multierror.Error) map[string]*Template {
 	result := map[string]*Template{}
 	log.Debug("Begin processing templates.")
+	var templateErrs int64
 	for templateKey, resource := range e.entries {
 		if templateKey.Kind != constant.TemplateKind {
 			continue
 		}
-		stats.Record(ctx, monitoring.TemplatesTotal.M(1))
 
 		templateName := templateKey.String()
 		cfg := resource.Spec.(*v1beta1.Template)
@@ -855,7 +874,8 @@ func (e *Ephemeral) processDynamicTemplateConfigs(ctx context.Context, errs *mul
 
 		fds, desc, name, variety, err := GetTmplDescriptor(cfg.Descriptor_)
 		if err != nil {
-			appendErr(ctx, errs, fmt.Sprintf("template='%s'", templateName), monitoring.TemplateErrs, "unable to parse descriptor: %v", err)
+			templateErrs++
+			appendErr(errs, fmt.Sprintf("template='%s'", templateName), "unable to parse descriptor: %v", err)
 			continue
 		}
 
@@ -887,13 +907,13 @@ func (e *Ephemeral) processDynamicTemplateConfigs(ctx context.Context, errs *mul
 			result[templateName].AttributeManifest = attributes
 		}
 	}
+	stats.Record(ctx, monitoring.TemplateErrs.M(templateErrs))
 	return result
 }
 
-func appendErr(ctx context.Context, errs *multierror.Error, field string, measure *stats.Int64Measure, format string, a ...interface{}) {
+func appendErr(errs *multierror.Error, field string, format string, a ...interface{}) {
 	err := fmt.Errorf(format, a...)
 	log.Debug(err.Error())
-	stats.Record(ctx, measure.M(1))
 	_ = multierror.Append(errs, adapter.ConfigError{Field: field, Underlying: err})
 }
 

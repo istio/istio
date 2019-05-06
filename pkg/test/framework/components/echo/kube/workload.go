@@ -19,7 +19,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	appEcho "istio.io/istio/pkg/test/application/echo"
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/kube"
 
@@ -31,7 +31,7 @@ var (
 )
 
 type workload struct {
-	*appEcho.Client
+	*client.Instance
 
 	pod       coreV1.Pod
 	forwarder kube.PortForwarder
@@ -53,7 +53,7 @@ func newWorkload(pod coreV1.Pod, useSidecar bool, grpcPort uint16, accessor *kub
 	}
 
 	// Create a gRPC client to this workload.
-	client, err := appEcho.NewClient(forwarder.Address())
+	c, err := client.New(forwarder.Address())
 	if err != nil {
 		_ = forwarder.Close()
 		return nil, err
@@ -61,24 +61,22 @@ func newWorkload(pod coreV1.Pod, useSidecar bool, grpcPort uint16, accessor *kub
 
 	var s *sidecar
 	if useSidecar {
-		s = &sidecar{
-			podNamespace: pod.Namespace,
-			podName:      pod.Name,
-			accessor:     accessor,
+		if s, err = newSidecar(pod, accessor); err != nil {
+			return nil, err
 		}
 	}
 
 	return &workload{
 		pod:       pod,
 		forwarder: forwarder,
-		Client:    client,
+		Instance:  c,
 		sidecar:   s,
 	}, nil
 }
 
 func (w *workload) Close() (err error) {
-	if w.Client != nil {
-		err = multierror.Append(err, w.Client.Close()).ErrorOrNil()
+	if w.Instance != nil {
+		err = multierror.Append(err, w.Instance.Close()).ErrorOrNil()
 	}
 	if w.forwarder != nil {
 		err = multierror.Append(err, w.forwarder.Close()).ErrorOrNil()

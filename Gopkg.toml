@@ -43,17 +43,21 @@ ignored = [
 # https://github.com/kubernetes/client-go#compatibility-matrix
 [[override]]
   name = "k8s.io/client-go"
-  branch = "release-8.0" # kubernetes-1.11
+  branch = "release-10.0" # kubernetes-1.13
 
-# matching client-go kubernetes-1.11.3's
 [[override]]
   name = "github.com/Azure/go-autorest"
-  revision = "bca49d5b51a50dc5bb17bbf6204c711c6dbded06"
+  revision = "ea233b6412b0421a65dc6160e16c893364664a95"
 
 # our mock glog:
 [[override]]
   name = "github.com/golang/glog"
   source = "github.com/istio/glog"
+
+# our mock klog
+[[override]]
+  name = "k8s.io/klog"
+  source = "github.com/istio/klog"
 
 [[constraint]]
   name = "cloud.google.com/go"
@@ -292,15 +296,15 @@ ignored = [
 
 [[constraint]]
   name = "k8s.io/api"
-  branch = "release-1.11"
+  branch = "release-1.13"
 
 [[constraint]]
   name = "k8s.io/apimachinery"
-  branch = "release-1.11"
+  branch = "release-1.13"
 
 [[constraint]]
   name = "k8s.io/apiextensions-apiserver"
-  branch = "release-1.11"
+  branch = "release-1.13"
 
 [[constraint]]
   name = "k8s.io/helm"
@@ -308,7 +312,7 @@ ignored = [
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  branch = "release-1.11"
+  branch = "release-1.13"
 
 [prune]
   go-tests = true
@@ -352,7 +356,7 @@ ignored = [
 
 [[override]]
   name = "github.com/imdario/mergo"
-  revision = "6633656539c1639d9d78127b7d47c622b5d7b6dc"
+  revision = "9316a62528ac99aaecb4e47eadd6dc8aa6533d58"
 
 [[constraint]]
   name = "github.com/google/go-cmp"
