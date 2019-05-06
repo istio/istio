@@ -151,7 +151,6 @@ prepare:
 	cat test/kind/kind.yaml | sed s,GOPATH,$(GOPATH), > ${GOPATH}/kind.yaml
 	# Kind version and node image need to be in sync - that's not ideal, working on a fix.
 	docker run --privileged \
-		-v /usr/bin/docker:/usr/bin/docker \
 		-v /var/run/docker.sock:/var/run/docker.sock  \
 		-it --entrypoint /bin/bash --rm \
 		istionightly/kind:v1.14.1-1 -c \
@@ -169,7 +168,6 @@ endif
 
 clean:
 	docker run --privileged \
-		-v /usr/bin/docker:/usr/bin/docker \
 		-v /var/run/docker.sock:/var/run/docker.sock  \
 		-it --entrypoint /bin/bash --rm \
 		istionightly/kind:v1.14.1-1 -c \
