@@ -82,6 +82,7 @@ func (c *kubeComponent) WaitForSecretToExist() (*v1.Secret, error) {
 }
 
 func (c *kubeComponent) WaitForSecretToExistOrFail(t testing.TB) *v1.Secret {
+	t.Helper()
 	s, err := c.WaitForSecretToExist()
 	if err != nil {
 		t.Fatal(err)
@@ -95,6 +96,7 @@ func (c *kubeComponent) DeleteSecret() error {
 }
 
 func (c *kubeComponent) DeleteSecretOrFail(t testing.TB) {
+	t.Helper()
 	if err := c.DeleteSecret(); err != nil {
 		t.Fatal(err)
 	}
