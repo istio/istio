@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
 	"bytes"
@@ -37,10 +37,10 @@ func TestAuthCheck(t *testing.T) {
 
 	for _, c := range testCases {
 		var out bytes.Buffer
-		rootCmd.SetOutput(&out)
 
 		command := fmt.Sprintf("experimental auth check -f %s", c.in)
-		rootCmd.SetArgs(strings.Split(command, " "))
+		rootCmd := GetRootCmd(strings.Split(command, " "))
+		rootCmd.SetOutput(&out)
 
 		err := rootCmd.Execute()
 		if err != nil {

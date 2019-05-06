@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
 	"github.com/spf13/cobra"
@@ -42,7 +42,3 @@ istioctl deregister my-svc 172.17.0.2`,
 		},
 	}
 )
-
-func init() {
-	rootCmd.AddCommand(deregisterCmd)
-}

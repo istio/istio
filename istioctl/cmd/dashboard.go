@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
 	"errors"
@@ -29,36 +29,8 @@ import (
 )
 
 var (
-	dashboardCmd = &cobra.Command{
-		Use:     "dashboard",
-		Aliases: []string{"dash", "d"},
-		Short:   "Access to Istio web UIs",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.HelpFunc()(cmd, args)
-			if len(args) != 0 {
-				return fmt.Errorf("unknown dashboard %q", args[0])
-			}
-
-			return nil
-		},
-	}
-
 	controlZport = 0
 )
-
-func init() {
-	dashboardCmd.AddCommand(kialiDashCmd())
-	dashboardCmd.AddCommand(promDashCmd())
-	dashboardCmd.AddCommand(grafanaDashCmd())
-	dashboardCmd.AddCommand(jaegerDashCmd())
-	dashboardCmd.AddCommand(zipkinDashCmd())
-
-	dashboardCmd.AddCommand(envoyDashCmd())
-	controlz := controlZDashCmd()
-	controlz.PersistentFlags().IntVar(&controlZport, "ctrlz_port", 9876, "ControlZ port")
-	dashboardCmd.AddCommand(controlz)
-	experimentalCmd.AddCommand(dashboardCmd)
-}
 
 // port-forward to Istio System Prometheus; open browser
 func promDashCmd() *cobra.Command {
@@ -378,4 +350,33 @@ func openBrowser(url string, writer io.Writer) {
 		fmt.Fprintf(writer, "Failed to open browser; open %s in your browser.\n", url)
 	}
 
+}
+
+func dashboard() *cobra.Command {
+	dashboardCmd := &cobra.Command{
+		Use:     "dashboard",
+		Aliases: []string{"dash", "d"},
+		Short:   "Access to Istio web UIs",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.HelpFunc()(cmd, args)
+			if len(args) != 0 {
+				return fmt.Errorf("unknown dashboard %q", args[0])
+			}
+
+			return nil
+		},
+	}
+
+	dashboardCmd.AddCommand(kialiDashCmd())
+	dashboardCmd.AddCommand(promDashCmd())
+	dashboardCmd.AddCommand(grafanaDashCmd())
+	dashboardCmd.AddCommand(jaegerDashCmd())
+	dashboardCmd.AddCommand(zipkinDashCmd())
+
+	dashboardCmd.AddCommand(envoyDashCmd())
+	controlz := controlZDashCmd()
+	controlz.PersistentFlags().IntVar(&controlZport, "ctrlz_port", 9876, "ControlZ port")
+	dashboardCmd.AddCommand(controlz)
+
+	return dashboardCmd
 }
