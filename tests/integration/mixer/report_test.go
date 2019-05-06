@@ -84,7 +84,7 @@ func TestMixer_Report_Direct(t *testing.T) {
 				}
 
 				return nil
-			})
+			}, retry.Delay(30*time.Second), retry.Timeout(180*time.Second))
 		})
 }
 
