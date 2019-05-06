@@ -121,6 +121,8 @@ containers:
 {{- if .Values.global.proxy.componentLogLevel }}
   - --proxyComponentLogLevel={{ .Values.global.proxy.componentLogLevel }}
 {{- end}}
+  - --dnsRefreshRate
+  - {{ .Values.global.proxy.dnsRefreshRate }}
   - --connectTimeout
   - "{{ formatDuration .ProxyConfig.ConnectTimeout }}"
 {{- if .Values.global.proxy.envoyStatsd.enabled }}

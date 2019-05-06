@@ -110,6 +110,7 @@
       {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
+        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "{{ .connect_timeout }}",
         "lb_policy": "ROUND_ROBIN",
@@ -175,6 +176,7 @@
       {
         "name": "zipkin",
         "type": "STRICT_DNS",
+        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -203,7 +205,9 @@
           }
         },
         {{ end }}
-        "type": "LOGICAL_DNS",
+        "type": "STRICT_DNS",
+        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
@@ -218,6 +222,8 @@
         "name": "datadog_agent",
         "connect_timeout": "1s",
         "type": "STRICT_DNS",
+        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "dns_lookup_family": "{{ .dns_lookup_family }}",
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
           {
@@ -231,6 +237,7 @@
       {
         "name": "envoy_metrics_service",
         "type": "STRICT_DNS",
+        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
