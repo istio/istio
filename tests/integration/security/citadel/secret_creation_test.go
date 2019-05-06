@@ -17,61 +17,31 @@ package citadel
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/util/secret"
-
-	"istio.io/istio/pkg/test/framework/label"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/citadel"
-	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/istio"
-)
-
-var (
-	ist istio.Instance
+	"istio.io/istio/tests/integration/security/util/secret"
 )
 
 // TestSecretCreationKubernetes verifies that Citadel creates secret and stores as Kubernetes secrets,
 // and that when secrets are deleted, new secrets will be created.
 func TestSecretCreationKubernetes(t *testing.T) {
-	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
+	framework.NewTest(t).Run(func(ctx framework.TestContext) {
+		c := citadel.NewOrFail(t, ctx, citadel.Config{Istio: ist})
 
-	c := citadel.NewOrFail(t, ctx, citadel.Config{Istio: ist})
+		// Test the existence of istio.default secret.
+		s := c.WaitForSecretToExistOrFail(t)
 
-	// Test the existence of istio.default secret.
-	s, err := c.WaitForSecretToExist()
-	if err != nil {
-		t.Fatal(err)
-	}
+		t.Log(`checking secret "istio.default" is correctly created`)
+		secret.ExamineOrFail(t, s)
 
-	t.Log(`checking secret "istio.default" is correctly created`)
-	if err := secret.ExamineSecret(s); err != nil {
-		t.Error(err)
-	}
+		// Delete the istio.default secret immediately
+		c.DeleteSecretOrFail(t)
 
-	// Delete the istio.default secret immediately
-	if err := c.DeleteSecret(); err != nil {
-		t.Error(err)
-	}
+		t.Log(`secret "istio.default" has been deleted`)
 
-	t.Log(`secret "istio.default" has been deleted`)
-
-	// Test that the deleted secret is re-created properly.
-	if _, err := c.WaitForSecretToExist(); err != nil {
-		t.Error(err)
-	}
-	t.Log(`checking secret "istio.default" is correctly re-created`)
-	if err := secret.ExamineSecret(s); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestMain(m *testing.M) {
-	framework.
-		NewSuite("citadel_test", m).
-		Label(label.Presubmit).
-		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
-		Run()
+		// Test that the deleted secret is re-created properly.
+		c.WaitForSecretToExistOrFail(t)
+		t.Log(`checking secret "istio.default" is correctly re-created`)
+		secret.ExamineOrFail(t, s)
+	})
 }

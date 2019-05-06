@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package reachability
+package healthcheck
 
 import (
 	"testing"
@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -32,10 +33,10 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	framework.
-		NewSuite("reachability_test", m).
+	framework.NewSuite("mtls_healthcheck", m).
 		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		Label(label.CustomSetup).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
 				return err
@@ -48,4 +49,11 @@ func TestMain(m *testing.M) {
 			return nil
 		}).
 		Run()
+}
+
+func setupConfig(cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	cfg.Values["sidecarInjectorWebhook.rewriteAppHTTPProbe"] = "true"
 }
