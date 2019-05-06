@@ -17,19 +17,19 @@ package secret
 import (
 	"crypto/x509"
 	"fmt"
+	"testing"
 
 	"istio.io/istio/pkg/spiffe"
-
-	v1 "k8s.io/api/core/v1"
-
 	"istio.io/istio/security/pkg/k8s/controller"
 	"istio.io/istio/security/pkg/pki/util"
+
+	v1 "k8s.io/api/core/v1"
 )
 
-// ExamineSecret examines the content of an Istio secret to make sure that
+// Examine examines the content of an Istio secret to make sure that
 // * Secret type is correctly set;
 // * Key, certificate and CA root are correctly saved in the data section;
-func ExamineSecret(secret *v1.Secret) error {
+func Examine(secret *v1.Secret) error {
 	if secret.Type != controller.IstioSecretType {
 		return fmt.Errorf(`unexpected value for the "type" annotation: expecting %v but got %v`,
 			controller.IstioSecretType, secret.Type)
@@ -59,4 +59,11 @@ func ExamineSecret(secret *v1.Secret) error {
 	}
 
 	return nil
+}
+
+// ExamineOrFail calls Examine and fails t if an error occurs.
+func ExamineOrFail(t testing.TB, secret *v1.Secret) {
+	if err := Examine(secret); err != nil {
+		t.Fatal(err)
+	}
 }

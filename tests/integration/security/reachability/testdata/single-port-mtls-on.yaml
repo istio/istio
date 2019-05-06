@@ -6,7 +6,7 @@ spec:
   targets:
   - name: "b"
     ports:
-    - number: 80
+    - name: http
   peers:
   - mtls: {}
 ---
