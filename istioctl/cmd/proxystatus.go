@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
 	"fmt"
@@ -71,10 +71,6 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 		},
 	}
 )
-
-func init() {
-	rootCmd.AddCommand(statusCmd)
-}
 
 func newExecClient(kubeconfig, configContext string) (kubernetes.ExecClient, error) {
 	return kubernetes.NewClient(kubeconfig, configContext)

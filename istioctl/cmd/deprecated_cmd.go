@@ -14,7 +14,7 @@
 
 // DEPRECATED - These commands are deprecated and will be removed in future releases.
 
-package main
+package cmd
 
 import (
 	"errors"
@@ -886,4 +886,21 @@ func init() {
 	getCmd.PersistentFlags().BoolVar(&getAllNamespaces, "all-namespaces", false,
 		"If present, list the requested object(s) across all namespaces. Namespace in current "+
 			"context is ignored even if specified with --namespace.")
+}
+
+func handleNamespaces(objectNamespace string) (string, error) {
+	if objectNamespace != "" && namespace != "" && namespace != objectNamespace {
+		return "", fmt.Errorf(`the namespace from the provided object "%s" does `+
+			`not match the namespace "%s". You must pass '--namespace=%s' to perform `+
+			`this operation`, objectNamespace, namespace, objectNamespace)
+	}
+
+	if namespace != "" {
+		return namespace, nil
+	}
+
+	if objectNamespace != "" {
+		return objectNamespace, nil
+	}
+	return defaultNamespace, nil
 }

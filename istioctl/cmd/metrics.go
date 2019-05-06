@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
 	"context"
@@ -72,10 +72,6 @@ const (
 	reqTot   = "istio_requests_total"
 	reqDur   = "istio_request_duration_seconds"
 )
-
-func init() {
-	experimentalCmd.AddCommand(metricsCmd)
-}
 
 type workloadMetrics struct {
 	workload                           string
