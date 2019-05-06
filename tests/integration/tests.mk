@@ -42,10 +42,6 @@ ifneq ($(KUBECONFIG),)
     INTEGRATION_TEST_KUBECONFIG = $(KUBECONFIG)
 endif
 
-# This is a useful debugging target for testing everything.
-#.PHONY: test.integration.all
-test.integration.all: test.integration test.integration.kube test.integration.race.native
-
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube:
 	$(GO) test -p 1 ${T} ./tests/integration/$*/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
@@ -65,6 +61,28 @@ JUNIT_REPORT = $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/
 
 # TODO: Exclude examples and qualification since they are very flaky.
 TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples)
+
+# Generate presubmit integration test targets for each component in kubernetes environment
+test.integration.%.kube.presubmit: | $(JUNIT_REPORT)
+	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
+	set -o pipefail; \
+	$(GO) test -p 1 ${T} ./tests/integration/$*/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
+    --istio.test.select -postsubmit,-flaky \
+	--istio.test.env kube \
+	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
+	--istio.test.hub=${HUB} \
+	--istio.test.tag=${TAG} \
+	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
+	${_INTEGRATION_TEST_INGRESS_FLAG} \
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
+
+# Generate presubmit integration test targets for each component in local environment.
+test.integration.%.local.presubmit: | $(JUNIT_REPORT)
+	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
+	set -o pipefail; \
+	$(GO) test -p 1 ${T} ./tests/integration/$*/... \
+	--istio.test.env native --istio.test.select -postsubmit,-flaky \
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 # All integration tests targeting local environment.
 .PHONY: test.integration.local
