@@ -1,0 +1,20 @@
+{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istio-galley
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: galley
+    release: {{ .Release.Name }}
+    istio: galley
+spec:
+{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+{{ include "podDisruptionBudget.spec" .Values.global.defaultPodDisruptionBudget }}
+{{- end }}
+  selector:
+    matchLabels:
+      app: galley
+      release: {{ .Release.Name }}
+      istio: galley
+{{- end }}

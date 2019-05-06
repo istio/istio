@@ -13,4 +13,3 @@ galley:
   # TODO: Galley appears to use the mesh config - need to find which fields are used and need to be configured.
   mesh: {}
 
-  configValidation: true
