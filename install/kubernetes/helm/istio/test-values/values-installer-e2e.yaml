@@ -11,13 +11,13 @@ global:
       requests:
         cpu: 10m
         memory: 40Mi
-
     accessLogFile: "/dev/stdout"
     enableCoreDump: true
   controlPlaneSecurityEnabled: false
   disablePolicyChecks: false
   outboundTrafficPolicy:
     mode: REGISTRY_ONLY
+  imagePullPolicy: IfNotPresent
 
 policy:
   enabled: true
