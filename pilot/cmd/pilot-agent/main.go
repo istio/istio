@@ -137,6 +137,8 @@ var (
 				role.IPAddresses = append(role.IPAddresses, "127.0.0.1")
 			}
 
+			role.IPAddresses = uniq(role.IPAddresses)
+
 			if len(role.ID) == 0 {
 				if registry == serviceregistry.KubernetesRegistry {
 					role.ID = os.Getenv("POD_NAME") + "." + os.Getenv("POD_NAMESPACE")
@@ -562,6 +564,18 @@ func waitForCerts(fname string, maxWait time.Duration) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
+}
+
+func uniq(strings []string) []string {
+	m := make(map[string]bool)
+	for _, s := range strings {
+		m[s] = true
+	}
+	ret := make([]string, 0, len(m))
+	for s := range m {
+		ret = append(ret, s)
+	}
+	return ret
 }
 
 func main() {

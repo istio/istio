@@ -254,7 +254,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	}
 
 	// Support multiple network interfaces
-	meta["ISTIO_META_INSTANCE_IPS"] = strings.Join(nodeIPs, ",")
+	meta["INSTANCE_IPS"] = strings.Join(nodeIPs, ",")
 
 	ba, err := json.Marshal(meta)
 	if err != nil {

@@ -561,7 +561,7 @@ const (
 	NodeMetadataRouterMode = "ROUTER_MODE"
 
 	// NodeMetadataInstanceIPs is the set of IPs attached to this proxy
-	NodeMetadataInstanceIPs = "ISTIO_META_INSTANCE_IPS"
+	NodeMetadataInstanceIPs = "INSTANCE_IPS"
 
 	// NodeMetadataSdsTokenPath specifies the path of the SDS token used by the Enovy proxy.
 	// If not set, Pilot uses the default SDS token path.
