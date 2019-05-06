@@ -1,9 +1,9 @@
+
+
 mixer:
   policy:
     image: mixer
 
-    env:
-      GODEBUG: gctrace=2
 
     replicaCount: 1
     autoscaleEnabled: true
@@ -14,6 +14,9 @@ mixer:
 
     podAnnotations: {}
 
-adapters:
-  kubernetesenv:
-    enabled: true
+  env:
+    GODEBUG: gctrace=1
+
+  adapters:
+    kubernetesenv:
+      enabled: true

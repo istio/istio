@@ -199,7 +199,7 @@ spec:
     destination.workload.namespace:
       valueType: STRING
 ---
-{{- if .Values.adapters.kubernetesenv.enabled }}
+{{- if .Values.mixer.adapters.kubernetesenv.enabled }}
 apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
@@ -299,12 +299,14 @@ metadata:
   name: istio-policy
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
+    app: istio-policy
     release: {{ .Release.Name }}
 spec:
-  host: istio-policy.{{ .Release.Namespace }}.svc.cluster.local
+  host: istio-policy.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  {{- if .Values.global.defaultConfigVisibilitySettings }}
+  exportTo:
+  - '*'
+  {{- end }}
   trafficPolicy:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     portLevelSettings:
