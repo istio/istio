@@ -39,7 +39,7 @@ spec:
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           ports:
           - containerPort: 443
-          - containerPort: {{ .Values.global.monitoringPort }}
+          - containerPort: 15014
           - containerPort: 15019
           - containerPort: 9901
           command:
@@ -60,7 +60,7 @@ spec:
           - --deployment-namespace={{ .Release.Namespace }}
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml
-          - --monitoringPort={{ .Values.global.monitoringPort }}
+          - --monitoringPort=15014
 {{- if $.Values.global.logging.level }}
           - --log_output_level={{ $.Values.global.logging.level }}
 {{- end}}

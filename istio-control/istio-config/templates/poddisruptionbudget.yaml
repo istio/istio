@@ -10,7 +10,12 @@ metadata:
     istio: galley
 spec:
 {{- if .Values.global.defaultPodDisruptionBudget.enabled }}
-{{ include "podDisruptionBudget.spec" .Values.global.defaultPodDisruptionBudget }}
+{{- if .Values.global.defaultPodDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.global.defaultPodDisruptionBudget.minAvailable }}
+{{- end }}
+{{- if .Values.global.defaultPodDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ .Values.global.defaultPodDisruptionBudget.maxUnavailable }}
+{{- end }}
 {{- end }}
   selector:
     matchLabels:
