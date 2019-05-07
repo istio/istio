@@ -15,7 +15,8 @@ FROM docker:latest as docker
 FROM golang:1.11.5 as golang
 # IMPORTANT: kind releases may or may not work with the 1.14.1 kindest/node tag.
 # We want to create images with multiple k8s versions.
-RUN go get -u sigs.k8s.io/kind  // Use latest since there is not a specific release to match the current kindest/node:v1.14.1 image
+# Use latest since there is not a specific release to match the current kindest/node:v1.14.1 image
+RUN go get -u sigs.k8s.io/kind   
 
 # Used to upload test results to test grid
 RUN go get -u istio.io/test-infra/toolbox/ci2gubernator
@@ -30,7 +31,8 @@ RUN curl https://storage.googleapis.com/git-repo-downloads/repo > /usr/local/bin
 RUN chmod +x /usr/local/bin/repo
 
 # create istioctl from `master`, assuming that's what the builder had locally
-RUN go get -d istio.io/istio || true   // ignores `The command '/bin/sh -c go get -d istio.io/istio' returned a non-zero code: 1`
+# ignores `The command '/bin/sh -c go get -d istio.io/istio' returned a non-zero code: 1`
+RUN go get -d istio.io/istio || true   
 RUN cd /go/src/istio.io/istio && make istioctl
 
 ############################################
