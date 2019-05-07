@@ -212,12 +212,13 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	for _, header := range prober.HTTPHeaders {
-		appReq.Header[header.Name] = []string{header.Value}
-	}
 
-	// Pass the user agent from the original request
-	appReq.Header["User-Agent"] = []string{req.UserAgent()}
+	// Forward incoming headers to the application.
+	for name, values := range req.Header {
+		newValues := make([]string, len(values))
+		copy(newValues, values)
+		appReq.Header[name] = newValues
+	}
 
 	// Send the request.
 	response, err := httpClient.Do(appReq)
