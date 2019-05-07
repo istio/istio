@@ -25,7 +25,7 @@ import (
 type Instance interface {
 	resource.Resource
 
-	// QueryTraces returns all available traces via zipkin query api
+	// QueryTraces gets at most 100 most recent available traces from zipkin
 	QueryTraces() ([]Trace, error)
 }
 

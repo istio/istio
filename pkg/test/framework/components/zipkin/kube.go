@@ -89,7 +89,7 @@ func (c *kubeComponent) ID() resource.ID {
 }
 
 func (c *kubeComponent) QueryTraces() ([]Trace, error) {
-	// Get all traces
+	// Get 100 most recent traces
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
