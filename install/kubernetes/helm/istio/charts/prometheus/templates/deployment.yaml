@@ -88,7 +88,7 @@ spec:
             claimName: {{ if .Values.persistentVolume.existingClaim }}{{ .Values.persistentVolume.existingClaim }}{{- else }}{{ template "prometheus.fullname" . }}{{- end }}
         {{- else }}
           emptyDir: {}
-        {{- end -}}
+        {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
