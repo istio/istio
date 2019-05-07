@@ -57,7 +57,6 @@ func TestRateLimiting_RedisQuotaRollingWindow(t *testing.T) {
 }
 
 func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
-	t.Skip("testing")
 	framework.
 		NewTest(t).
 		// TODO(https://github.com/istio/istio/issues/12750)
