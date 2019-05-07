@@ -39,14 +39,14 @@ func getError(req connection.Checker, expect, actual string) error {
 		actual)
 }
 
-// Check checks if a request is successful under RBAC policies.
+// CheckRBACRequest checks if a request is successful under RBAC policies.
 // Under RBAC policies, a request is consider successful if:
-// * If the policy is deny:
-// *** For HTTP: response code is same as the tc.RejectionCode.
-// *** For TCP: EOF error
 // * If the policy is allow:
 // *** Response code is 200
-func (tc TestCase) Check() error {
+// * If the policy is deny:
+// *** For HTTP: response code is 403.
+// *** For TCP: EOF error
+func (tc TestCase) CheckRBACRequest() error {
 	req := tc.Request
 
 	headers := make(http.Header)

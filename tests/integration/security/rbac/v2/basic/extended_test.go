@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package group
+package basic
 
 import (
 	"fmt"
@@ -33,51 +33,32 @@ import (
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
-const (
-	rbacClusterConfigTmpl  = "testdata/istio-clusterrbacconfig.yaml.tmpl"
-	rbacGroupListRulesTmpl = "testdata/istio-group-list-rbac-v2-rules.yaml.tmpl"
-	// groupsScopeJwt contains the claims:
-	// "groups": ["group1", "group2"],
-	// "scope": ["scope1", "scope2"].
-	groupsScopeJwt = "eyJhbGciOiJSUzI1NiIsImtpZCI6IkRIRmJwb0lVcXJZOHQyenBBMnFYZkNtcj" +
-		"VWTzVaRXI0UnpIVV8tZW52dlEiLCJ0eXAiOiJKV1QifQ.eyJleHAiOjM1MzczOTExMDQsImdyb3VwcyI6WyJncm91cD" +
-		"EiLCJncm91cDIiXSwiaWF0IjoxNTM3MzkxMTA0LCJpc3MiOiJ0ZXN0aW5nQHNlY3VyZS5pc3Rpby5pbyIsInNjb3BlI" +
-		"jpbInNjb3BlMSIsInNjb3BlMiJdLCJzdWIiOiJ0ZXN0aW5nQHNlY3VyZS5pc3Rpby5pbyJ9.EdJnEZSH6X8hcyEii7c" +
-		"8H5lnhgjB5dwo07M5oheC8Xz8mOllyg--AHCFWHybM48reunF--oGaG6IXVngCEpVF0_P5DwsUoBgpPmK1JOaKN6_pe" +
-		"9sh0ZwTtdgK_RP01PuI7kUdbOTlkuUi2AO-qUyOm7Art2POzo36DLQlUXv8Ad7NBOqfQaKjE9ndaPWT7aexUsBHxmgi" +
-		"Gbz1SyLH879f7uHYPbPKlpHU6P9S-DaKnGLaEchnoKnov7ajhrEhGXAQRukhDPKUHO9L30oPIr5IJllEQfHYtt6IZvl" +
-		"NUGeLUcif3wpry1R5tBXRicx2sXMQ7LyuDremDbcNy_iE76Upg"
-	// noGroupScopeJwt contains no groups and scope claims.
-	noGroupScopeJwt = "eyJhbGciOiJSUzI1NiIsImtpZCI6IkRIRmJwb0lVcXJZOHQyenBBMnFYZkNtcj" +
-		"VWTzVaRXI0UnpIVV8tZW52dlEiLCJ0eXAiOiJKV1QifQ.eyJleHAiOjQ2ODU5ODk3MDAsImZvbyI6ImJhciIsImlhdC" +
-		"I6MTUzMjM4OTcwMCwiaXNzIjoidGVzdGluZ0BzZWN1cmUuaXN0aW8uaW8iLCJzdWIiOiJ0ZXN0aW5nQHNlY3VyZS5pc" +
-		"3Rpby5pbyJ9.CfNnxWP2tcnR9q0vxyxweaF3ovQYHYZl82hAUsn21bwQd9zP7c-LS9qd_vpdLG4Tn1A15NxfCjp5f7Q" +
-		"NBUo-KC9PJqYpgGbaXhaGx7bEdFWjcwv3nZzvc7M__ZpaCERdwU7igUmJqYGBYQ51vr2njU9ZimyKkfDe3axcyiBZde" +
-		"7G6dabliUosJvvKOPcKIWPccCgefSj_GNfwIip3-SsFdlR7BtbVUcqR-yv-XOxJ3Uc1MI0tz3uMiiZcyPV7sNCU4KRn" +
-		"emRIMHVOfuvHsU60_GhGbiSFzgPTAa9WTltbnarTbxudb_YEOx12JiwYToeX0DCPb43W1tzIBxgm8NxUg"
-)
-
-func TestRBACV2Group(t *testing.T) {
+// TestRBACV2Extended tests extended features of RBAC v2 such as global namespace and inline role def.
+func TestRBACV2Extended(t *testing.T) {
 	framework.NewTest(t).
-		// TODO(lei-tang): add the test to the native environment
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-
-			ns := namespace.NewOrFail(t, ctx, "rbacv2-group-test", true)
+			ns := namespace.NewOrFail(t, ctx, "rbacv2-extended-test", true)
 			ports := []echo.Port{
 				{
 					Name:        "http",
 					Protocol:    model.ProtocolHTTP,
 					ServicePort: 80,
 				},
+				{
+					Name:        "tcp",
+					Protocol:    model.ProtocolTCP,
+					ServicePort: 90,
+				},
 			}
 			a := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:   "a",
-				Namespace: ns,
-				Sidecar:   true,
-				Ports:     ports,
-				Galley:    g,
-				Pilot:     p,
+				Service:        "a",
+				Namespace:      ns,
+				Sidecar:        true,
+				ServiceAccount: true,
+				Ports:          ports,
+				Galley:         g,
+				Pilot:          p,
 			})
 			b := echoboot.NewOrFail(t, ctx, echo.Config{
 				Service:        "b",
@@ -99,22 +80,67 @@ func TestRBACV2Group(t *testing.T) {
 			})
 
 			cases := []util.TestCase{
-				// Port 80 is where HTTP is served
 				{
 					Request: connection.Checker{
-						From: a,
+						From: b,
 						Options: echo.CallOptions{
-							Target:   b,
+							Target:   a,
 							PortName: "http",
 							Scheme:   scheme.HTTP,
-							Path:     "/xyz",
+							Path:     "/any-path",
 						},
 					},
-					Jwt:           noGroupScopeJwt,
+					ExpectAllowed: isMtlsEnabled,
+				},
+				{
+					Request: connection.Checker{
+						From: b,
+						Options: echo.CallOptions{
+							Target:   a,
+							PortName: "tcp",
+							Scheme:   scheme.HTTP,
+						},
+					},
+					ExpectAllowed: isMtlsEnabled,
+				},
+				{
+					Request: connection.Checker{
+						From: c,
+						Options: echo.CallOptions{
+							Target:   a,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/",
+						},
+					},
 					ExpectAllowed: false,
 				},
 				{
 					Request: connection.Checker{
+						From: c,
+						Options: echo.CallOptions{
+							Target:   a,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/good-path",
+						},
+					},
+					ExpectAllowed: isMtlsEnabled,
+				},
+				{
+					Request: connection.Checker{
+						From: c,
+						Options: echo.CallOptions{
+							Target:   a,
+							PortName: "tcp",
+							Scheme:   scheme.HTTP,
+						},
+					},
+					ExpectAllowed: false,
+				},
+
+				{
+					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
 							Target:   b,
@@ -123,49 +149,73 @@ func TestRBACV2Group(t *testing.T) {
 							Path:     "/xyz",
 						},
 					},
-					Jwt:           groupsScopeJwt,
 					ExpectAllowed: true,
 				},
 				{
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
-							Target:   c,
+							Target:   b,
 							PortName: "http",
 							Scheme:   scheme.HTTP,
-							Path:     "/xyz",
+							Path:     "/secret",
 						},
 					},
-					Jwt:           noGroupScopeJwt,
 					ExpectAllowed: false,
 				},
 				{
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
-							Target:   c,
-							PortName: "http",
+							Target:   b,
+							PortName: "tcp",
 							Scheme:   scheme.HTTP,
-							Path:     "/xyz",
 						},
 					},
-					Jwt:           groupsScopeJwt,
+					ExpectAllowed: true,
+				},
+				{
+					Request: connection.Checker{
+						From: c,
+						Options: echo.CallOptions{
+							Target:   b,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/",
+						},
+					},
+					ExpectAllowed: true,
+				},
+				{
+					Request: connection.Checker{
+						From: c,
+						Options: echo.CallOptions{
+							Target:   b,
+							PortName: "tcp",
+							Scheme:   scheme.HTTP,
+						},
+					},
 					ExpectAllowed: true,
 				},
 			}
 
-			args := map[string]string{
-				"Namespace": ns.Name(),
+			rootNamespace := model.DefaultMeshConfig().RootNamespace
+			namespaceTmpl := map[string]string{
+				"Namespace":     ns.Name(),
+				"RootNamespace": rootNamespace,
 			}
-			policies := tmpl.EvaluateAllOrFail(t, args,
+			policies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
 				file.AsString(t, rbacClusterConfigTmpl),
-				file.AsString(t, rbacGroupListRulesTmpl))
+				file.AsString(t, extendedRbacV2RulesTmpl))
 
-			g.ApplyConfigOrFail(t, ns, policies...)
-			defer g.DeleteConfigOrFail(t, ns, policies...)
+			// Pass in nil for namespace to apply the policies for all namespaces.
+			g.ApplyConfigOrFail(t, nil, policies...)
+			rootNs := namespace.ClaimOrFail(t, ctx, rootNamespace)
+			defer g.DeleteConfig(ns, policies...)
+			defer g.DeleteConfig(rootNs, policies...)
 
 			// Sleep 60 seconds for the policy to take effect.
-			// TODO(lei-tang): programmatically check that policies have taken effect instead.
+			// TODO(pitlv2109): Check to make sure policies have been created instead.
 			time.Sleep(60 * time.Second)
 
 			for _, tc := range cases {
@@ -176,7 +226,7 @@ func TestRBACV2Group(t *testing.T) {
 					tc.Request.Options.Path,
 					tc.ExpectAllowed)
 				t.Run(testName, func(t *testing.T) {
-					retry.UntilSuccessOrFail(t, tc.CheckRBACRequest, retry.Delay(10*time.Second), retry.Timeout(120*time.Second))
+					retry.UntilSuccessOrFail(t, tc.CheckRBACRequest, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 				})
 			}
 		})
