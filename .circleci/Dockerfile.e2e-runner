@@ -1,9 +1,0 @@
-FROM  istio/ci:go1.10-k8s1.10.4-helm2.7.2-minikube0.25
-
-USER circleci
-
-ADD  --chown=circleci:circleci istio /go/src/istio.io/istio
-
-ADD  run_e2e.sh /go/
-
-ADD  helm /go/helm
