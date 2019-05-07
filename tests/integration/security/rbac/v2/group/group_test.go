@@ -15,24 +15,22 @@
 package group
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/label"
-
-	"istio.io/istio/tests/integration/security/rbac/util"
-
-	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/components/pilot"
-
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/apps"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/util/connection"
-	"istio.io/istio/pkg/test/util/policy"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/tests/integration/security/rbac/util"
+	"istio.io/istio/tests/integration/security/util/connection"
 )
 
 const (
@@ -60,70 +58,130 @@ const (
 	rbacTestRejectionCode = "403"
 )
 
-var (
-	inst          istio.Instance
-	isMtlsEnabled bool
-)
-
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	isMtlsEnabled = cfg.IsMtlsEnabled()
-	cfg.Values["sidecarInjectorWebhook.rewriteAppHTTPProbe"] = "true"
-}
-
-func TestMain(m *testing.M) {
-	framework.
-		NewSuite("rbac_v2_group_list", m).
-		RequireEnvironment(environment.Kube).
-		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
-		Run()
-}
-
 func TestGroupV2RBAC(t *testing.T) {
-	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
-	// TODO(lei-tang): add the test to the native environment
-	ctx.RequireOrSkip(t, environment.Kube)
+	framework.NewTest(t).
+		// TODO(lei-tang): add the test to the native environment
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
 
-	env := ctx.Environment().(*kube.Environment)
-	g := galley.NewOrFail(t, ctx, galley.Config{})
-	p := pilot.NewOrFail(t, ctx, pilot.Config{
-		Galley: g,
-	})
-	appInst := apps.NewOrFail(t, ctx, apps.Config{Pilot: p, Galley: g})
+			ns := namespace.NewOrFail(t, ctx, "rbacv1", true)
+			ports := []echo.Port{
+				{
+					Name:        "http",
+					Protocol:    model.ProtocolHTTP,
+					ServicePort: 80,
+				},
+			}
+			a := echoboot.NewOrFail(t, ctx, echo.Config{
+				Service:   "a",
+				Namespace: ns,
+				Sidecar:   true,
+				Ports:     ports,
+				Galley:    g,
+				Pilot:     p,
+			})
+			b := echoboot.NewOrFail(t, ctx, echo.Config{
+				Service:        "b",
+				Namespace:      ns,
+				Ports:          ports,
+				Sidecar:        true,
+				ServiceAccount: true,
+				Galley:         g,
+				Pilot:          p,
+			})
+			c := echoboot.NewOrFail(t, ctx, echo.Config{
+				Service:        "c",
+				Namespace:      ns,
+				Ports:          ports,
+				Sidecar:        true,
+				ServiceAccount: true,
+				Galley:         g,
+				Pilot:          p,
+			})
 
-	appA, _ := appInst.GetAppOrFail("a", t).(apps.KubeApp)
-	appB, _ := appInst.GetAppOrFail("b", t).(apps.KubeApp)
-	appC, _ := appInst.GetAppOrFail("c", t).(apps.KubeApp)
+			cases := []util.TestCase{
+				// Port 80 is where HTTP is served
+				{
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   b,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/xyz",
+						},
+					},
+					Jwt:           noGroupScopeJwt,
+					ExpectAllowed: false,
+					RejectionCode: rbacTestRejectionCode,
+				},
+				{
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   b,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/xyz",
+						},
+					},
+					Jwt:           groupsScopeJwt,
+					ExpectAllowed: true,
+					RejectionCode: rbacTestRejectionCode,
+				},
+				{
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   c,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/xyz",
+						},
+					},
+					Jwt:           noGroupScopeJwt,
+					ExpectAllowed: false,
+					RejectionCode: rbacTestRejectionCode,
+				},
+				{
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   c,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/xyz",
+						},
+					},
+					Jwt:           groupsScopeJwt,
+					ExpectAllowed: true,
+					RejectionCode: rbacTestRejectionCode,
+				},
+			}
 
-	cases := []util.TestCase{
-		// Port 80 is where HTTP is served
-		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: noGroupScopeJwt,
-			ExpectAllowed: false, RejectionCode: rbacTestRejectionCode},
-		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: groupsScopeJwt,
-			ExpectAllowed: true, RejectionCode: rbacTestRejectionCode},
-		{Request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: noGroupScopeJwt,
-			ExpectAllowed: false, RejectionCode: rbacTestRejectionCode},
-		{Request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: groupsScopeJwt,
-			ExpectAllowed: true, RejectionCode: rbacTestRejectionCode},
-	}
+			args := map[string]string{
+				"Namespace": ns.Name(),
+			}
+			policies := tmpl.EvaluateAllOrFail(t, args,
+				file.AsString(t, rbacClusterConfigTmpl),
+				file.AsString(t, rbacGroupListRulesTmpl))
 
-	testDir := ctx.WorkDir()
-	testNameSpace := appInst.Namespace().Name()
-	rbacTmplFiles := []string{rbacClusterConfigTmpl, rbacGroupListRulesTmpl}
-	rbacYamlFiles := util.GetRbacYamlFiles(t, testDir, testNameSpace, rbacTmplFiles)
+			g.ApplyConfigOrFail(t, ns, policies...)
+			defer g.DeleteConfigOrFail(t, ns, policies...)
 
-	policy.ApplyPolicyFiles(t, env, testNameSpace, rbacYamlFiles)
+			// Sleep 60 seconds for the policy to take effect.
+			// TODO(lei-tang): programmatically check that policies have taken effect instead.
+			time.Sleep(60 * time.Second)
 
-	// Sleep 60 seconds for the policy to take effect.
-	// TODO(lei-tang): programmatically check that policies have taken effect instead.
-	time.Sleep(60 * time.Second)
-	for _, tc := range cases {
-		retry.UntilSuccessOrFail(t, func() error {
-			return util.CheckRBACRequest(tc)
-		}, retry.Delay(10*time.Second), retry.Timeout(120*time.Second))
-	}
+			for _, tc := range cases {
+				testName := fmt.Sprintf("%s->%s:%s/%s",
+					tc.Request.From.Config().Service,
+					tc.Request.Options.Target.Config().Service,
+					tc.Request.Options.PortName,
+					tc.Request.Options.Path)
+				t.Run(testName, func(t *testing.T) {
+					retry.UntilSuccessOrFail(t, tc.Check, retry.Delay(10*time.Second), retry.Timeout(120*time.Second))
+				})
+			}
+		})
 }

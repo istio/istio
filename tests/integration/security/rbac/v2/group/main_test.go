@@ -12,33 +12,49 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package failover
+package group
 
 import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
-	ist istio.Instance
+	inst istio.Instance
+	g    galley.Instance
+	p    pilot.Instance
 )
-
-func TestMain(m *testing.M) {
-	framework.NewSuite("locality_prioritized_failover_loadbalancing", m).
-		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
-		Run()
-}
 
 func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.Values["pilot.env.PILOT_ENABLE_LOCALITY_LOAD_BALANCING"] = "true"
-	cfg.Values["global.localityLbSetting.failover[0].from"] = "region"
-	cfg.Values["global.localityLbSetting.failover[0].to"] = "closeregion"
+	cfg.Values["sidecarInjectorWebhook.rewriteAppHTTPProbe"] = "true"
+}
+
+func TestMain(m *testing.M) {
+	framework.
+		NewSuite("rbac_v2_group_list", m).
+		RequireEnvironment(environment.Kube).
+		Label(label.CustomSetup).
+		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
+		Setup(func(ctx resource.Context) (err error) {
+			if g, err = galley.New(ctx, galley.Config{}); err != nil {
+				return err
+			}
+			if p, err = pilot.New(ctx, pilot.Config{
+				Galley: g,
+			}); err != nil {
+				return err
+			}
+			return nil
+		}).
+		Run()
 }

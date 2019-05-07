@@ -12,31 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package prioritized
+package tmpl
 
 import (
 	"testing"
-
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/label"
+	"text/template"
 )
 
-var (
-	ist istio.Instance
-)
-
-func TestMain(m *testing.M) {
-	framework.NewSuite("locality_prioritized_loadbalancing", m).
-		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
-		Run()
+// Parse the given template content.
+func Parse(tpl string) (*template.Template, error) {
+	t := template.New("test template")
+	return t.Parse(tpl)
 }
 
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
+// ParseOrFail calls Parse and fails tests if it returns error.
+func ParseOrFail(t testing.TB, tpl string) *template.Template {
+	t.Helper()
+	tpl2, err := Parse(tpl)
+	if err != nil {
+		t.Fatalf("tmpl.ParseOrFail: %v", err)
 	}
-	cfg.Values["pilot.env.PILOT_ENABLE_LOCALITY_LOAD_BALANCING"] = "true"
+	return tpl2
 }

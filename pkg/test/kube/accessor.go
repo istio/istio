@@ -264,8 +264,9 @@ func (a *Accessor) WaitUntilDaemonSetIsReady(ns string, name string, opts ...ret
 
 // WaitUntilServiceEndpointsAreReady will wait until the service with the given name/namespace is present, and have at least
 // one usable endpoint.
-func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string, opts ...retry.Option) (*kubeApiCore.Service, error) {
+func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string, opts ...retry.Option) (*kubeApiCore.Service, *kubeApiCore.Endpoints, error) {
 	var service *kubeApiCore.Service
+	var endpoints *kubeApiCore.Endpoints
 	err := retry.UntilSuccess(func() error {
 
 		s, err := a.GetService(ns, name)
@@ -273,17 +274,18 @@ func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string, opt
 			return err
 		}
 
-		endpoints, err := a.GetEndpoints(ns, name, kubeApiMeta.GetOptions{})
+		eps, err := a.GetEndpoints(ns, name, kubeApiMeta.GetOptions{})
 		if err != nil {
 			return err
 		}
-		if len(endpoints.Subsets) == 0 {
+		if len(eps.Subsets) == 0 {
 			return fmt.Errorf("%s/%v endpoint not ready: no subsets", ns, name)
 		}
 
-		for _, subset := range endpoints.Subsets {
+		for _, subset := range eps.Subsets {
 			if len(subset.Addresses) > 0 && len(subset.NotReadyAddresses) == 0 {
 				service = s
+				endpoints = eps
 				return nil
 			}
 		}
@@ -291,10 +293,10 @@ func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string, opt
 	}, opts...)
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return service, nil
+	return service, endpoints, nil
 }
 
 // DeleteValidatingWebhook deletes the validating webhook with the given name.

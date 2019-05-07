@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package reachability
+package sds_citadel_test
 
 import (
 	"testing"
@@ -22,20 +22,23 @@ import (
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
-	ist istio.Instance
-	g   galley.Instance
-	p   pilot.Instance
+	inst istio.Instance
+	g    galley.Instance
+	p    pilot.Instance
 )
 
 func TestMain(m *testing.M) {
+	// Integration test for the SDS Citadel CA flow, as well as mutual TLS
+	// with the certificates issued by the SDS Citadel CA flow.
 	framework.
-		NewSuite("reachability_test", m).
-		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		NewSuite("sds_citadel_flow_test", m).
+		Label(label.CustomSetup).
+		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
 				return err
@@ -48,4 +51,22 @@ func TestMain(m *testing.M) {
 			return nil
 		}).
 		Run()
+
+}
+
+func setupConfig(cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	cfg.Values["sidecarInjectorWebhook.rewriteAppHTTPProbe"] = "true"
+	cfg.Values["global.controlPlaneSecurityEnabled"] = "false"
+	cfg.Values["global.mtls.enabled"] = "true"
+	cfg.Values["global.sds.enabled"] = "true"
+	cfg.Values["global.sds.udsPath"] = "unix:/var/run/sds/uds_path"
+	cfg.Values["global.sds.useNormalJwt"] = "true"
+	cfg.Values["nodeagent.enabled"] = "true"
+	cfg.Values["nodeagent.image"] = "node-agent-k8s"
+	cfg.Values["nodeagent.env.CA_PROVIDER"] = "Citadel"
+	cfg.Values["nodeagent.env.CA_ADDR"] = "istio-citadel:8060"
+	cfg.Values["nodeagent.env.VALID_TOKEN"] = "true"
 }

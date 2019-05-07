@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
 
-	v1 "k8s.io/api/core/v1"
+	kubeCore "k8s.io/api/core/v1"
 )
 
 const (
@@ -47,7 +47,7 @@ type sidecar struct {
 	accessor     *kube.Accessor
 }
 
-func newSidecar(pod v1.Pod, accessor *kube.Accessor) (*sidecar, error) {
+func newSidecar(pod kubeCore.Pod, accessor *kube.Accessor) (*sidecar, error) {
 	sidecar := &sidecar{
 		podNamespace: pod.Namespace,
 		podName:      pod.Name,
