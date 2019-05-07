@@ -38,7 +38,6 @@ var scope = log.RegisterScope("mcp", "mcp debugging", 0)
 // be used with the mcp.MeshConfigRequest and mcp.RequestResources. It can
 // be removed once we fully cutover to mcp.RequestResources.
 type Request struct {
-	PeerAddr   string
 	Collection string
 
 	// Most recent version was that ACK/NACK'd by the sink
@@ -83,7 +82,7 @@ type Watcher interface {
 	//
 	// Cancel is an optional function to release resources in the
 	// producer. It can be called idempotently to cancel and release resources.
-	Watch(*Request, PushResponseFunc) CancelWatchFunc
+	Watch(*Request, PushResponseFunc, string) CancelWatchFunc
 }
 
 // CollectionOptions configures the per-collection updates.
@@ -442,13 +441,12 @@ func (con *connection) processClientRequest(req *mcp.RequestResources) error {
 		}
 
 		sr := &Request{
-			PeerAddr:    con.peerAddr,
 			SinkNode:    req.SinkNode,
 			Collection:  collection,
 			VersionInfo: versionInfo,
 			incremental: req.Incremental,
 		}
-		w.cancel = con.watcher.Watch(sr, con.queueResponse)
+		w.cancel = con.watcher.Watch(sr, con.queueResponse, con.peerAddr)
 	} else {
 		// This error path should not happen! Skip any requests that don't match the
 		// latest watch's nonce. These could be dup requests or out-of-order

@@ -88,6 +88,7 @@ type StatusInfo struct {
 	node                 *mcp.SinkNode
 	lastWatchRequestTime time.Time // informational
 	watches              map[int64]*responseWatch
+	// the synced structure is {Collection: {peerAddress: synced|nosynced}}.
 	synced               map[string]map[string]bool
 }
 
@@ -107,13 +108,13 @@ func (si *StatusInfo) LastWatchRequestTime() time.Time {
 }
 
 // Watch returns a watch for an MCP request.
-func (c *Cache) Watch(request *source.Request, pushResponse source.PushResponseFunc) source.CancelWatchFunc { // nolint: lll
+func (c *Cache) Watch(request *source.Request, pushResponse source.PushResponseFunc, peerAddr string) source.CancelWatchFunc { // nolint: lll
 	group := c.groupIndex(request.Collection, request.SinkNode)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	info := c.fillStatus(group, request)
+	info := c.fillStatus(group, request, peerAddr)
 
 	collection := request.Collection
 
@@ -136,7 +137,7 @@ func (c *Cache) Watch(request *source.Request, pushResponse source.PushResponseF
 			pushResponse(response)
 			return nil
 		}
-		info.synced[request.Collection][request.PeerAddr] = true
+		info.synced[request.Collection][peerAddr] = true
 	}
 
 	// Otherwise, open a watch if no snapshot was available or the requested version is up-to-date.
@@ -162,7 +163,7 @@ func (c *Cache) Watch(request *source.Request, pushResponse source.PushResponseF
 	return cancel
 }
 
-func (c *Cache) fillStatus(group string, request *source.Request) *StatusInfo {
+func (c *Cache) fillStatus(group string, request *source.Request, peerAddr string) *StatusInfo {
 
 	info, ok := c.status[group]
 	if !ok {
@@ -172,7 +173,7 @@ func (c *Cache) fillStatus(group string, request *source.Request) *StatusInfo {
 			synced:  make(map[string]map[string]bool),
 		}
 		peerStatus := make(map[string]bool)
-		peerStatus[request.PeerAddr] = false
+		peerStatus[peerAddr] = false
 		info.synced[request.Collection] = peerStatus
 		c.status[group] = info
 	} else {
@@ -182,7 +183,7 @@ func (c *Cache) fillStatus(group string, request *source.Request) *StatusInfo {
 			if collection == request.Collection {
 				collectionExists = true
 				for addr := range synced {
-					if addr == request.PeerAddr {
+					if addr == peerAddr {
 						peerExists = true
 						break
 					}
@@ -192,11 +193,11 @@ func (c *Cache) fillStatus(group string, request *source.Request) *StatusInfo {
 		if !collectionExists {
 			//initiate the synced map
 			peerStatus := make(map[string]bool)
-			peerStatus[request.PeerAddr] = false
+			peerStatus[peerAddr] = false
 			info.synced[request.Collection] = peerStatus
 		}
 		if !peerExists {
-			info.synced[request.Collection][request.PeerAddr] = false
+			info.synced[request.Collection][peerAddr] = false
 		}
 	}
 
