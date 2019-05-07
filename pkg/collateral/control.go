@@ -113,9 +113,9 @@ func EmitCollateral(root *cobra.Command, c *Control) error {
 	if c.EmitZshCompletion {
 
 		// Constants used in zsh completion file
-		zshInitialization := `#compdef istioctl
+		zshInitialization := `#compdef ` + root.Name() + `
 
-__istioctl_bash_source() {
+__istio_bash_source() {
 	alias shopt=':'
 	alias _expand=_bash_expand
 	alias _complete=_bash_comp
@@ -123,7 +123,7 @@ __istioctl_bash_source() {
 	setopt kshglob noshglob braceexpand
 	source "$@"
 }
-__istioctl_type() {
+__istio_type() {
 	# -t is not supported by zsh
 	if [ "$1" == "-t" ]; then
 		shift
@@ -131,14 +131,14 @@ __istioctl_type() {
 		# "compopt +-o nospace" is used in the code to toggle trailing
 		# spaces. We don't support that, but leave trailing spaces on
 		# all the time
-		if [ "$1" = "__istioctl_compopt" ]; then
+		if [ "$1" = "__istio_compopt" ]; then
 			echo builtin
 			return 0
 		fi
 	fi
 	type "$@"
 }
-__istioctl_compgen() {
+__istio_compgen() {
 	local completions w
 	completions=( $(compgen "$@") ) || return $?
 	# filter by given word as prefix
@@ -155,10 +155,10 @@ __istioctl_compgen() {
 		fi
 	done
 }
-__istioctl_compopt() {
+__istio_compopt() {
 	true # don't do anything. Not supported by bashcompinit in zsh
 }
-__istioctl_ltrim_colon_completions()
+__istio_ltrim_colon_completions()
 {
 	if [[ "$1" == *:* && "$COMP_WORDBREAKS" == *:* ]]; then
 		# Remove colon-word prefix from COMPREPLY items
@@ -169,15 +169,15 @@ __istioctl_ltrim_colon_completions()
 		done
 	fi
 }
-__istioctl_get_comp_words_by_ref() {
+__istio_get_comp_words_by_ref() {
 	cur="${COMP_WORDS[COMP_CWORD]}"
 	prev="${COMP_WORDS[${COMP_CWORD}-1]}"
 	words=("${COMP_WORDS[@]}")
 	cword=("${COMP_CWORD[@]}")
 }
-__istioctl_filedir() {
+__istio_filedir() {
 	local RET OLD_IFS w qw
-	__istioctl_debug "_filedir $@ cur=$cur"
+	__istio_debug "_filedir $@ cur=$cur"
 	if [[ "$1" = \~* ]]; then
 		# somehow does not work. Maybe, zsh does not call this at all
 		eval echo "$1"
@@ -192,13 +192,13 @@ __istioctl_filedir() {
 		RET=( $(compgen -f) )
 	fi
 	IFS="$OLD_IFS"
-	IFS="," __istioctl_debug "RET=${RET[@]} len=${#RET[@]}"
+	IFS="," __istio_debug "RET=${RET[@]} len=${#RET[@]}"
 	for w in ${RET[@]}; do
 		if [[ ! "${w}" = "${cur}"* ]]; then
 			continue
 		fi
 		if eval "[[ \"\${w}\" = *.$1 || -d \"\${w}\" ]]"; then
-			qw="$(__istioctl_quote "${w}")"
+			qw="$(__istio_quote "${w}")"
 			if [ -d "${w}" ]; then
 				COMPREPLY+=("${qw}/")
 			else
@@ -207,7 +207,7 @@ __istioctl_filedir() {
 		fi
 	done
 }
-__istioctl_quote() {
+__istio_quote() {
 	if [[ $1 == \'* || $1 == \"* ]]; then
 		# Leave out first character
 		printf %q "${1:1}"
@@ -223,20 +223,20 @@ if sed --help 2>&1 | grep -q GNU; then
 	LWORD='\<'
 	RWORD='\>'
 fi
-__istioctl_convert_bash_to_zsh() {
+__istio_convert_bash_to_zsh() {
 	sed \
 	-e 's/declare -F/whence -w/' \
 	-e 's/_get_comp_words_by_ref "\$@"/_get_comp_words_by_ref "\$*"/' \
 	-e 's/local \([a-zA-Z0-9_]*\)=/local \1; \1=/' \
 	-e 's/flags+=("\(--.*\)=")/flags+=("\1"); two_word_flags+=("\1")/' \
 	-e 's/must_have_one_flag+=("\(--.*\)=")/must_have_one_flag+=("\1")/' \
-	-e "s/${LWORD}_filedir${RWORD}/__istioctl_filedir/g" \
-	-e "s/${LWORD}_get_comp_words_by_ref${RWORD}/__istioctl_get_comp_words_by_ref/g" \
-	-e "s/${LWORD}__ltrim_colon_completions${RWORD}/__istioctl_ltrim_colon_completions/g" \
-	-e "s/${LWORD}compgen${RWORD}/__istioctl_compgen/g" \
-	-e "s/${LWORD}compopt${RWORD}/__istioctl_compopt/g" \
+	-e "s/${LWORD}_filedir${RWORD}/__istio_filedir/g" \
+	-e "s/${LWORD}_get_comp_words_by_ref${RWORD}/__istio_get_comp_words_by_ref/g" \
+	-e "s/${LWORD}__ltrim_colon_completions${RWORD}/__istio_ltrim_colon_completions/g" \
+	-e "s/${LWORD}compgen${RWORD}/__istio_compgen/g" \
+	-e "s/${LWORD}compopt${RWORD}/__istio_compopt/g" \
 	-e "s/${LWORD}declare${RWORD}/builtin declare/g" \
-	-e "s/\\\$(type${RWORD}/\$(__istioctl_type/g" \
+	-e "s/\\\$(type${RWORD}/\$(__istio_type/g" \
 	<<'BASH_COMPLETION_EOF'
 `
 
@@ -244,8 +244,8 @@ __istioctl_convert_bash_to_zsh() {
 BASH_COMPLETION_EOF
 }
 
-__istioctl_bash_source <(__istioctl_convert_bash_to_zsh)
-_complete istioctl 2>/dev/null
+__istio_bash_source <(__istio_convert_bash_to_zsh)
+_complete istio 2>/dev/null
 `
 
 		// Create the output file.
