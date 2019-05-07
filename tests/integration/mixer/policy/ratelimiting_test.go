@@ -274,7 +274,7 @@ func setupConfigOrFail(t *testing.T, config bookinfo.ConfigFile, bookInfoNameSpa
 	g.ApplyConfigOrFail(
 		t,
 		ns,
-		string(con))
+		con)
 }
 
 func TestMain(m *testing.M) {
