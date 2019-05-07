@@ -16,6 +16,11 @@ sidecarInjectorWebhook:
   # even when mTLS is enabled.
   rewriteAppHTTPProbe: false
 
+  # If true, a self-signed CA will created in order to issue a certificate that
+  # will be used to authenticate the workload respondible for handling
+  # the sidecar-injector webhook.
+  selfSigned: false
+
 # If set, no iptable init will be added. It assumes CNI is installed.
 # TODO: rename to 'enableIptables' or add 'interceptionMode: CNI'
 istio_cni:
