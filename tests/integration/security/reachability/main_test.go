@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 )
 
@@ -26,5 +27,8 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	framework.Main("reachability_test", m, istio.SetupOnKube(&ist, nil))
+	framework.
+		NewSuite("reachability_test", m).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		Run()
 }

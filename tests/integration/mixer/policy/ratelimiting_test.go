@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/components/redis"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	util "istio.io/istio/tests/integration/mixer"
 )
@@ -55,60 +56,63 @@ func TestRateLimiting_RedisQuotaRollingWindow(t *testing.T) {
 	testRedisQuota(t, bookinfo.RatingsRedisRateLimitRolling, "ratings")
 }
 
-/*
 func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 	t.Skip("testing")
-	framework.Run(t, func(ctx framework.TestContext) {
-		destinationService := "productpage"
+	framework.
+		NewTest(t).
+		// TODO(https://github.com/istio/istio/issues/12750)
+		Label(label.Flaky).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			destinationService := "productpage"
 
-		bookinfoNs, g, red, ing, prom := setupComponentsOrFail(t, ctx)
-		bookInfoNameSpaceStr := bookinfoNs.Name()
-		setupConfigOrFail(t, defaultAmountLessThanOverride, bookInfoNameSpaceStr, destinationService,
-			defaultQuotaSpecConfig, red, g, ctx)
-		util.AllowRuleSync(t)
+			bookinfoNs, g, red, ing, prom := setupComponentsOrFail(t, ctx)
+			bookInfoNameSpaceStr := bookinfoNs.Name()
+			setupConfigOrFail(t, defaultAmountLessThanOverride, bookInfoNameSpaceStr, destinationService,
+				defaultQuotaSpecConfig, red, g, ctx)
+			util.AllowRuleSync(t)
 
-		res := util.SendTraffic(ing, t, "Sending traffic...", "", 300)
-		totalReqs := float64(res.DurationHistogram.Count)
-		succReqs := float64(res.RetCodes[http.StatusOK])
-		got429s := float64(res.RetCodes[http.StatusTooManyRequests])
-		actualDuration := res.ActualDuration.Seconds() // can be a bit more than requested
+			res := util.SendTraffic(ing, t, "Sending traffic...", "", 300)
+			totalReqs := float64(res.DurationHistogram.Count)
+			succReqs := float64(res.RetCodes[http.StatusOK])
+			got429s := float64(res.RetCodes[http.StatusTooManyRequests])
+			actualDuration := res.ActualDuration.Seconds() // can be a bit more than requested
 
-		// Sending 600 requests at 10qps, and limit allowed is 50 for 30s, so we should see approx 100 requests go
-		// through.
-		want200s := 50.0
-		// everything in excess of 200s should be 429s (ideally)
-		want429s := totalReqs - want200s
-		t.Logf("Expected Totals: 200s: %f (%f rps), 429s: %f (%f rps)", want200s, want200s/actualDuration,
-			want429s, want429s/actualDuration)
+			// Sending 600 requests at 10qps, and limit allowed is 50 for 30s, so we should see approx 100 requests go
+			// through.
+			want200s := 50.0
+			// everything in excess of 200s should be 429s (ideally)
+			want429s := totalReqs - want200s
+			t.Logf("Expected Totals: 200s: %f (%f rps), 429s: %f (%f rps)", want200s, want200s/actualDuration,
+				want429s, want429s/actualDuration)
 
-		// As rate limit is applied at ingressgateway itself, fortio should see the limits too.
-		want := math.Floor(want200s * 0.90)
-		if succReqs < want {
-			attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
-				util.Fqdn(destinationService, bookInfoNameSpaceStr)),
-				fmt.Sprintf("%s=\"%d\"", util.GetResponseCodeLabel(), 200),
-				fmt.Sprintf("%s=\"%s\"", util.GetReporterCodeLabel(), "destination")}
-			t.Logf("prometheus values for istio_requests_total for 200's:\n%s",
-				util.PromDumpWithAttributes(prom, "istio_requests_total", attributes))
-			t.Errorf("Bad metric value for successful requests (200s): got %f, want at least %f", succReqs, want)
-		}
+			// As rate limit is applied at ingressgateway itself, fortio should see the limits too.
+			want := math.Floor(want200s * 0.90)
+			if succReqs < want {
+				attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
+					util.Fqdn(destinationService, bookInfoNameSpaceStr)),
+					fmt.Sprintf("%s=\"%d\"", util.GetResponseCodeLabel(), 200),
+					fmt.Sprintf("%s=\"%s\"", util.GetReporterCodeLabel(), "destination")}
+				t.Logf("prometheus values for istio_requests_total for 200's:\n%s",
+					util.PromDumpWithAttributes(prom, "istio_requests_total", attributes))
+				t.Errorf("Bad metric value for successful requests (200s): got %f, want at least %f", succReqs, want)
+			}
 
-		// check resource exhausted
-		// TODO: until https://github.com/istio/istio/issues/3028 is fixed, use 50% - should be only 5% or so
-		want429s = math.Floor(want429s * 0.50)
-		if got429s < want429s {
-			attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
-				util.Fqdn(destinationService, bookInfoNameSpaceStr)),
-				fmt.Sprintf("%s=\"%d\"", util.GetResponseCodeLabel(), 429),
-				fmt.Sprintf("%s=\"%s\"", util.GetReporterCodeLabel(), "destination")}
-			t.Logf("prometheus values for istio_requests_total for 429's:\n%s",
-				util.PromDumpWithAttributes(prom, "istio_requests_total", attributes))
-			t.Errorf("Bad metric value for rate-limited requests (429s): got %f, want at least %f", got429s,
-				want429s)
-		}
-	})
+			// check resource exhausted
+			// TODO: until https://github.com/istio/istio/issues/3028 is fixed, use 50% - should be only 5% or so
+			want429s = math.Floor(want429s * 0.50)
+			if got429s < want429s {
+				attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
+					util.Fqdn(destinationService, bookInfoNameSpaceStr)),
+					fmt.Sprintf("%s=\"%d\"", util.GetResponseCodeLabel(), 429),
+					fmt.Sprintf("%s=\"%s\"", util.GetReporterCodeLabel(), "destination")}
+				t.Logf("prometheus values for istio_requests_total for 429's:\n%s",
+					util.PromDumpWithAttributes(prom, "istio_requests_total", attributes))
+				t.Errorf("Bad metric value for rate-limited requests (429s): got %f, want at least %f", got429s,
+					want429s)
+			}
+		})
 }
-*/
 
 func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService string) {
 	framework.Run(t, func(ctx framework.TestContext) {
@@ -262,12 +266,11 @@ func setupConfigOrFail(t *testing.T, config bookinfo.ConfigFile, bookInfoNameSpa
 		t.Fatal(err)
 	}
 
-	con = strings.ReplaceAll(con, "redisServerUrl: redis-release-master:6379",
-		"redisServerUrl: redis-release-master."+red.GetRedisNamespace()+":6379")
-	con = strings.ReplaceAll(con, "namespace: default",
-		"namespace: "+bookInfoNameSpaceStr)
+	con = strings.Replace(con, "redisServerUrl: redis-release-master:6379",
+		"redisServerUrl: redis-release-master."+red.GetRedisNamespace()+":6379", -1)
+	con = strings.Replace(con, "namespace: default",
+		"namespace: "+bookInfoNameSpaceStr, -1)
 
-	fmt.Println(con)
 	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
 	g.ApplyConfigOrFail(
 		t,
@@ -279,7 +282,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("mixer_policy_ratelimit", m).
 		RequireEnvironment(environment.Kube).
-		Setup(istio.SetupOnKube(&ist, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
 		Setup(testsetup).
 		Run()
 }
@@ -319,53 +322,3 @@ func testsetup(ctx resource.Context) error {
 
 	return nil
 }
-
-var defaultAmountLessThanOverride = `
-apiVersion: "config.istio.io/v1alpha2"
-kind: handler
-metadata:
-  name: redis
-  namespace: istio-system
-spec:
-  compiledAdapter: redisquota
-  params:
-    quotas:
-    - name: requestquotacount.instance.istio-system
-      maxAmount: 1
-      validDuration: 30s
-      rateLimitAlgorithm: FIXED_WINDOW
-      # The first matching override is applied.
-      # A requestquotacount instance is checked against override dimensions.
-      overrides:
-      # The following override applies to 'productpage' when
-      # the source is 'istio-ingressgateway'.
-      - dimensions:
-          destination: productpage
-          source: istio-ingressgateway
-        maxAmount: 50
-    redisServerUrl: "redis-release-master.<redis_namespace>.svc.cluster.local:6379"
-    connectionPoolSize: 10
-`
-
-var defaultQuotaSpecConfig = `
-apiVersion: config.istio.io/v1alpha2
-kind: QuotaSpecBinding
-metadata:
-  name: request-count
-  namespace: istio-system
-spec:
-  quotaSpecs:
-  - name: request-count
-    namespace: istio-system
-  services:
-  - name: ratings
-    namespace: <bookinfo_namespace>
-  - name: reviews
-    namespace: <bookinfo_namespace>
-  - name: details
-    namespace: <bookinfo_namespace>
-  - name: productpage
-    namespace: <bookinfo_namespace>
-  - name: istio-ingressgateway
-    namespace: istio-system
-`

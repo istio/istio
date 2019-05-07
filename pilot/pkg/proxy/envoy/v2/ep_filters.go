@@ -88,12 +88,12 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 		for n, w := range remoteEps {
 			networkConf, found := env.MeshNetworks.Networks[n]
 			if !found {
-				adsLog.Infof("the endpoints within network %s will be ignored for no network configured", n)
+				adsLog.Debugf("the endpoints within network %s will be ignored for no network configured", n)
 				continue
 			}
 			gws := networkConf.Gateways
 			if len(gws) == 0 {
-				adsLog.Infof("the endpoints within network %s will be ignored for no gateways configured", n)
+				adsLog.Debugf("the endpoints within network %s will be ignored for no gateways configured", n)
 				continue
 			}
 

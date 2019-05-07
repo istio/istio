@@ -33,30 +33,21 @@ func TestApplyJSON(t *testing.T) {
 	cases := []struct {
 		in      string
 		want    *meshconfig.MeshConfig
-		strict  bool
 		wantErr bool
 	}{
 		{
-			in:     `{"enableTracing": true}`,
-			want:   &meshconfig.MeshConfig{EnableTracing: true},
-			strict: true,
+			in:   `{"enableTracing": true}`,
+			want: &meshconfig.MeshConfig{EnableTracing: true},
 		},
 		{
-			in:      `{"enableTracing": true, "unknownField": "unknownValue"}`,
-			want:    &meshconfig.MeshConfig{EnableTracing: true},
-			strict:  true,
-			wantErr: true,
-		},
-		{
-			in:     `{"enableTracing": true, "unknownField": "unknownValue"}`,
-			want:   &meshconfig.MeshConfig{EnableTracing: true},
-			strict: false,
+			in:   `{"enableTracing": true, "unknownField": "unknownValue"}`,
+			want: &meshconfig.MeshConfig{EnableTracing: true},
 		},
 	}
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v]", i), func(tt *testing.T) {
 			var got meshconfig.MeshConfig
-			err := model.ApplyJSON(c.in, &got, c.strict)
+			err := model.ApplyJSON(c.in, &got)
 			if err != nil {
 				if !c.wantErr {
 					tt.Fatalf("got unexpected error: %v", err)

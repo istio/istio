@@ -22,10 +22,22 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
 	meshConfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/resource"
+)
+
+// TypeURL for making discovery requests.
+type TypeURL string
+
+const (
+	typeURLPrefix                 = "type.googleapis.com/envoy.api.v2."
+	Listener              TypeURL = typeURLPrefix + "Listener"
+	Cluster               TypeURL = typeURLPrefix + "Cluster"
+	ClusterLoadAssignment TypeURL = typeURLPrefix + "ClusterLoadAssignment"
+	Route                 TypeURL = typeURLPrefix + "RouteConfiguration"
 )
 
 // Instance of Pilot
@@ -33,8 +45,12 @@ type Instance interface {
 	resource.Resource
 
 	CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error)
+	CallDiscoveryOrFail(t testing.TB, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryResponse
+
 	StartDiscovery(req *xdsapi.DiscoveryRequest) error
+	StartDiscoveryOrFail(t testing.TB, req *xdsapi.DiscoveryRequest)
 	WatchDiscovery(duration time.Duration, accept func(*xdsapi.DiscoveryResponse) (bool, error)) error
+	WatchDiscoveryOrFail(t testing.TB, duration time.Duration, accept func(*xdsapi.DiscoveryResponse) (bool, error))
 }
 
 // Structured config for the Pilot component
@@ -67,4 +83,14 @@ func NewOrFail(t *testing.T, c resource.Context, config Config) Instance {
 		t.Fatalf("pilot.NewOrFail: %v", err)
 	}
 	return i
+}
+
+// NewDiscoveryRequest is a utility method for creating a new request for the given node and type.
+func NewDiscoveryRequest(nodeID string, typeURL TypeURL) *xdsapi.DiscoveryRequest {
+	return &xdsapi.DiscoveryRequest{
+		Node: &xdscore.Node{
+			Id: nodeID,
+		},
+		TypeUrl: string(typeURL),
+	}
 }

@@ -13,6 +13,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/label"
 )
 
 const (
@@ -84,6 +85,8 @@ func createSidecarScope(t *testing.T, appsNamespace namespace.Instance, serviceN
 func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 	framework.
 		NewTest(t).
+		// TODO(https://github.com/istio/istio/issues/13813)
+		Label(label.Flaky).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := galley.NewOrFail(t, ctx, galley.Config{})
