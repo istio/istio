@@ -39,7 +39,7 @@ func getError(req connection.Checker, expect, actual string) error {
 		actual)
 }
 
-// CheckRBACRequest checks if a request is successful under RBAC policies.
+// Check checks if a request is successful under RBAC policies.
 // Under RBAC policies, a request is consider successful if:
 // * If the policy is deny:
 // *** For HTTP: response code is same as the tc.RejectionCode.
