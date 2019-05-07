@@ -47,6 +47,7 @@ configValidation: false
 gateways:
   istio-ingressgateway:
     autoscaleMax: 1
+    type: LoadBalancer
     resources:
       requests:
         cpu: 10m
