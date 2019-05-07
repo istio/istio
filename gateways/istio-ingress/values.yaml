@@ -5,6 +5,9 @@ gateways:
   istio-ingressgateway:
     ports:
     ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
+    - port: 15020
+      targetPort: 15020
+      name: status-port
     - port: 80
       targetPort: 80
       name: http2
