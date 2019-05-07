@@ -57,7 +57,8 @@ func TestEds(t *testing.T) {
 
 	// enable locality load balancing and add relevant endpoints in order to test
 	os.Setenv("PILOT_ENABLE_LOCALITY_LOAD_BALANCING", "ON")
-	addLocalityEndpoints(server)
+	addLocalityEndpoints(server, "locality.cluster.local")
+	addLocalityEndpoints(server, "locality-no-outlier-detection.cluster.local")
 
 	// Add the test ads clients to list of service instances in order to test the context dependent locality coloring.
 	addTestClientEndpoints(server)
@@ -211,6 +212,10 @@ func testEndpoints(expected string, cluster string, adsc *adsc.ADSC, t *testing.
 func testLocalityPrioritizedEndpoints(adsc *adsc.ADSC, adsc2 *adsc.ADSC, t *testing.T) {
 	verifyLocalityPriorities(asdcLocality, adsc.EDS["outbound|80||locality.cluster.local"].GetEndpoints(), t)
 	verifyLocalityPriorities(asdc2Locality, adsc2.EDS["outbound|80||locality.cluster.local"].GetEndpoints(), t)
+
+	// No outlier detection specified for this cluster, so we shouldn't apply priority.
+	verifyNoLocalityPriorities(adsc.EDS["outbound|80||locality-no-outlier-detection.cluster.local"].GetEndpoints(), t)
+	verifyNoLocalityPriorities(adsc2.EDS["outbound|80||locality-no-outlier-detection.cluster.local"].GetEndpoints(), t)
 }
 
 // Tests that Services with multiple ports sharing the same port number are properly sent endpoints.
@@ -226,6 +231,14 @@ func testOverlappingPorts(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.
 
 	// After the incremental push, we should still see the endpoint
 	testEndpoints("10.0.0.53", "outbound|53||overlapping.cluster.local", adsc, t)
+}
+
+func verifyNoLocalityPriorities(eps []endpoint.LocalityLbEndpoints, t *testing.T) {
+	for _, ep := range eps {
+		if ep.GetPriority() != 0 {
+			t.Errorf("expected no locality priorities to apply, got priority %v.", ep.GetPriority())
+		}
+	}
 }
 
 func verifyLocalityPriorities(proxyLocality string, eps []endpoint.LocalityLbEndpoints, t *testing.T) {
@@ -536,9 +549,9 @@ func addUdsEndpoint(server *bootstrap.Server) {
 	server.EnvoyXdsServer.Push(true, nil)
 }
 
-func addLocalityEndpoints(server *bootstrap.Server) {
-	server.EnvoyXdsServer.MemRegistry.AddService("locality.cluster.local", &model.Service{
-		Hostname: "locality.cluster.local",
+func addLocalityEndpoints(server *bootstrap.Server, hostname model.Hostname) {
+	server.EnvoyXdsServer.MemRegistry.AddService(hostname, &model.Service{
+		Hostname: hostname,
 		Ports: model.PortList{
 			{
 				Name:     "http",
@@ -557,7 +570,7 @@ func addLocalityEndpoints(server *bootstrap.Server) {
 		"region2/zone2/subzone2",
 	}
 	for i, locality := range localities {
-		server.EnvoyXdsServer.MemRegistry.AddInstance("locality.cluster.local", &model.ServiceInstance{
+		server.EnvoyXdsServer.MemRegistry.AddInstance(hostname, &model.ServiceInstance{
 			Endpoint: model.NetworkEndpoint{
 				Address: fmt.Sprintf("10.0.0.%v", i),
 				Port:    80,
