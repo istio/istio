@@ -31,7 +31,7 @@ type Options struct {
 func DefaultOptions() *Options {
 	return &Options{
 		Port:    9876,
-		Address: "127.0.0.1",
+		Address: "localhost",
 	}
 }
 
