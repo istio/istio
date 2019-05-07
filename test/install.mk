@@ -30,7 +30,7 @@ run-build: dep run-build-demo run-build-kustom run-build-demo-testing
 	# Short term: will be checked in - for testing apply -k
 
 
-DEMO_OPTS="--set global.istioNamespace=istio-system --set global.configNamespace=istio-system --set global.telemetryNamespace=istio-system --set global.defaultPodDisruptionBudget.enabled=false"
+DEMO_OPTS="-f test/demo/values.yaml --set global.istioNamespace=istio-system --set global.configNamespace=istio-system --set global.telemetryNamespace=istio-system --set global.defaultPodDisruptionBudget.enabled=false"
 
 # Demo updates the demo profile. After testing it can be checked in - allowing reviewers to see any changes.
 # For backward compat, demo profile uses istio-system.

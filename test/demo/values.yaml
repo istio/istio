@@ -1,57 +1,85 @@
-# Minimal values.yaml for istioctl inject
-
-istio_cni:
-  enabled: false
-
-debug: INFO
-
+# This is used to generate minimal demo mode. It is included from demo and demo-auth values.
+# It is shipped with the release, used for bookinfo or quick installation of istio.
+# Includes components used in the demo, defaults to alpha3 rules.
+# Note: please only put common configuration for the demo profiles here.
 global:
-  hub: gcr.io/istio-release
-  tag: master-latest-daily
-
-  imagePullPolicy: Always
-
-  controlPlaneSecurityEnabled: false
-
-  istioNamespace: istio-control
-  trustDomain: ""
-
-  #network: default
-  # podDNSSearchNamespaces:
-
-  sds:
-    enabled: false
-    # customTokenDirectory
-    #useTrustworthyJwt: true
-
-
   proxy:
-    privileged: true
-    enableCoreDump: false
-    image: proxyv2
-    clusterDomain: "cluster.local"
+    accessLogFile: "/dev/stdout"
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
 
-    excludeInboundPorts: ""
-    includeIPRanges: "*"
-    excludeIPRanges: ""
-    statusPort: 15020
-    logLevel: ""
-    readinessInitialDelaySeconds: 1
-    readinessPeriodSeconds: 2
-    readinessFailureThreshold: 10
+  disablePolicyChecks: false
 
-    # resources
+  sidecarInjectorWebhook:
+    enabled: true
+    # If true, webhook or istioctl injector will rewrite PodSpec for liveness
+    # health check to redirect request to sidecar. This makes liveness check work
+    # even when mTLS is enabled.
+    rewriteAppHTTPProbe: false
 
+pilot:
+  traceSampling: 100.0
+  resources:
+    requests:
+      cpu: 10m
+      memory: 100Mi
+    limits:
+      cpu: 100m
+      memory: 200Mi
 
-    tracer: "none"
+mixer:
+  policy:
+    enabled: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 100Mi
+      limits:
+        cpu: 100m
+        memory: 100Mi
 
-    envoyStatsd:
-      enabled: false
-    envoyMetricsService:
-      enabled: false
+  telemetry:
+    enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 100Mi
+      limits:
+        cpu: 100m
+        memory: 100Mi
 
+  adapters:
+    stdio:
+      enabled: true
 
+grafana:
+  enabled: true
 
-  proxy_init:
-    image: proxy_init
+tracing:
+  enabled: true
 
+kiali:
+  enabled: true
+  createDemoSecret: true
+
+gateways:
+  istio-ingressgateway:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+  istio-egressgateway:
+    enabled: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
