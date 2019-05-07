@@ -231,7 +231,7 @@ kind-logs:
 
 # Build the Kind+build tools image that will be useed in CI/CD or local testing
 # This replaces the istio-builder.
-docker.istio-builder: test/docker/Dockerfile ${TMPDIR}/bin/istioctl
+docker.istio-builder: test/docker/Dockerfile
 	mkdir -p ${GOPATH}/out/istio-builder
 	curl -Lo - https://github.com/istio/istio/releases/download/${STABLE_TAG}/istio-${STABLE_TAG}-linux.tar.gz | \
     		(cd ${GOPATH}/out/istio-builder;  tar --strip-components=1 -xzf - )
@@ -270,12 +270,6 @@ git.dep: ${GOPATH}/src/istio.io/istio ${GOPATH}/src/istio.io/tools
 
 # Istio releases: deb and charts on https://storage.googleapis.com/istio-release
 #
-
-${TMPDIR}/bin/istioctl:
-	mkdir ${TMPDIR}/bin
-	(cd ${GOPATH}/src/istio.io/istio; GOOS=linux make istioctl)
-	cp ${GOPATH}/out/linux_amd64/release/istioctl $@
-
 ${GOPATH}/bin/kind:
 	echo ${GOPATH}
 	mkdir -p ${TMPDIR}
