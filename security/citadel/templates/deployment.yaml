@@ -59,6 +59,12 @@ spec:
           {{- if .Values.security.trustDomain }}
             - --trust-domain={{ .Values.security.trustDomain }}
           {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /version
+              port: 15014
+            initialDelaySeconds: 5
+            periodSeconds: 5
           resources:
 {{- if .Values.security.resources }}
 {{ toYaml .Values.security.resources | indent 12 }}
