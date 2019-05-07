@@ -493,7 +493,7 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 
 func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) listener.Filter {
 	config := &mccpb.TcpClientConfig{
-		DisableCheckCalls: disablePolicyChecks(outbound, mesh, node),
+		DisableCheckCalls: disablePolicyChecks(inbound, mesh, node),
 		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 		Transport:         buildTransport(mesh, node),
 	}
