@@ -76,7 +76,7 @@ metadata:
   name: quota
   namespace: istio-system
 spec:
-  match: (destination.labels["app"]|"unknown") == "ratings"
+  match: (destination.labels["app"]|"unknown") == "productpage"
   actions:
   - handler: redishandler
     instances:
