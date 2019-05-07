@@ -28,6 +28,9 @@ webhooks:
         operator: NotIn
         values:
         - {{ .Release.Namespace }}
+{{- range .Values.enableNamespacesBlacklist }}
+        - {{ . }}
+{{- end }}
       - key: istio-injection
         operator: NotIn
         values:

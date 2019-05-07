@@ -5,6 +5,9 @@ enabled: true
 replicaCount: 1
 image: sidecar_injector
 enableNamespacesByDefault: false
+# These namespaces are excluded from default injection when
+# enableNamespacesByDefault is true.
+enableNamespacesBlacklist: []
 nodeSelector: {}
 
 # Specify the pod anti-affinity that allows you to constrain which nodes
