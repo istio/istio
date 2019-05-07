@@ -239,16 +239,19 @@ workflows:
   nightly:
     triggers:
        - schedule:
-           cron: "0 0 * * *"
+           cron: "0 0,4,8,12,16,20 * * *"
            filters:
              branches:
                only:
                  - master
                  - dev
     jobs:
+      - build
       - integration-presubmit-kind
       - integration-old-kind
       - install-minikube
+      - install-demo
+      - noauth
 
   all:
     jobs:
