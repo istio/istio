@@ -105,7 +105,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: false,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -117,7 +116,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: false,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -130,7 +128,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: false,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -142,7 +139,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: false,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -155,7 +151,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: false,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -167,7 +162,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: false,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 
 				{
@@ -181,7 +175,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: isMtlsEnabled,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -194,7 +187,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: false,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -206,7 +198,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: isMtlsEnabled,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -219,7 +210,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: isMtlsEnabled,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -231,7 +221,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: isMtlsEnabled,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -244,7 +233,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: isMtlsEnabled,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -256,7 +244,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: isMtlsEnabled,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 
 				{
@@ -270,7 +257,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: false,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -283,7 +269,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: false,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -295,7 +280,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: false,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -308,7 +292,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: false,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -321,7 +304,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: false,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -333,7 +315,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: false,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -346,7 +327,7 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: isMtlsEnabled,
-					RejectionCode: util.DenyHTTPRespCode},
+				},
 				{
 					Request: connection.Checker{
 						From: d,
@@ -358,7 +339,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: false,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -370,7 +350,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: false,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -383,7 +362,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: true,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -395,7 +373,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: false,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -408,7 +385,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: true,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -420,7 +396,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: false,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -433,7 +408,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: true,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 				{
 					Request: connection.Checker{
@@ -445,7 +419,6 @@ func TestRBACV2(t *testing.T) {
 						},
 					},
 					ExpectAllowed: false,
-					RejectionCode: util.DenyHTTPRespCode,
 				},
 			}
 
@@ -464,11 +437,12 @@ func TestRBACV2(t *testing.T) {
 			time.Sleep(60 * time.Second)
 
 			for _, tc := range cases {
-				testName := fmt.Sprintf("%s->%s:%s/%s",
+				testName := fmt.Sprintf("%s->%s:%s%s[%v]",
 					tc.Request.From.Config().Service,
 					tc.Request.Options.Target.Config().Service,
 					tc.Request.Options.PortName,
-					tc.Request.Options.Path)
+					tc.Request.Options.Path,
+					tc.ExpectAllowed)
 				t.Run(testName, func(t *testing.T) {
 					retry.UntilSuccessOrFail(t, tc.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 				})

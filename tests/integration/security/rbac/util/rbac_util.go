@@ -19,18 +19,24 @@ import (
 	"net/http"
 	"strings"
 
+	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/tests/integration/security/util/connection"
-)
-
-const (
-	DenyHTTPRespCode = "403"
 )
 
 type TestCase struct {
 	Request       connection.Checker
 	ExpectAllowed bool
 	Jwt           string
-	RejectionCode string
+}
+
+func getError(req connection.Checker, expect, actual string) error {
+	return fmt.Errorf("%s to %s:%s%s: expect %s, got: %s",
+		req.From.Config().Service,
+		req.Options.Target.Config().Service,
+		req.Options.PortName,
+		req.Options.Path,
+		expect,
+		actual)
 }
 
 // CheckRBACRequest checks if a request is successful under RBAC policies.
@@ -56,40 +62,21 @@ func (tc TestCase) Check() error {
 			err = resp.CheckOK()
 		}
 		if err != nil {
-			return fmt.Errorf("%s to %s:%s%s using %s: expected allow but was denied: %v",
-				req.From.Config().Service,
-				req.Options.Target.Config().Service,
-				req.Options.PortName,
-				req.Options.Path,
-				req.Options.Scheme,
-				err)
+			return getError(req, "allow with code 200", fmt.Sprintf("error: %v", err))
 		}
 	} else {
-		if err != nil && !strings.Contains(err.Error(), "EOF") {
-			return fmt.Errorf("connection error with %v", err)
-		}
-
 		if req.Options.PortName == "tcp" {
-			if err != nil && !strings.Contains(err.Error(), "EOF") {
-				return fmt.Errorf("%s to %s:%s%s using %s: expected deny with EOF error, actually %v",
-					req.From.Config().Service,
-					req.Options.Target.Config().Service,
-					req.Options.PortName,
-					req.Options.Path,
-					req.Options.Scheme,
-					err)
+			if err == nil || !strings.Contains(err.Error(), "EOF") {
+				return getError(req, "deny with EOF error", fmt.Sprintf("error: %v", err))
 			}
 		} else {
-			if !(len(resp) > 0 && resp[0].Code == tc.RejectionCode) {
-				return fmt.Errorf("%s to %s:%s%s using %s: expected deny, actually allow",
-					req.From.Config().Service,
-					req.Options.Target.Config().Service,
-					req.Options.PortName,
-					req.Options.Path,
-					req.Options.Scheme)
+			if err != nil {
+				return getError(req, "deny with code 403", fmt.Sprintf("error: %v", err))
+			}
+			if len(resp) == 0 || resp[0].Code != response.StatusCodeForbidden {
+				return getError(req, "deny with code 403", fmt.Sprintf("resp: %v", resp))
 			}
 		}
 	}
-	// Success
 	return nil
 }
