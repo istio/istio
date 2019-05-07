@@ -65,6 +65,7 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 			destinationService := "productpage"
 
 			bookinfoNs, g, red, ing, prom := setupComponentsOrFail(t, ctx)
+			defer deleteComponentsOrFail(t, ctx, g, bookinfoNs)
 			bookInfoNameSpaceStr := bookinfoNs.Name()
 			con := defaultAmountLessThanOverride
 			quotaSpecCon := defaultQuotaSpecConfig
@@ -119,6 +120,7 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 func testRedisQuota(t *testing.T, config, destinationService string) {
 	framework.Run(t, func(ctx framework.TestContext) {
 		bookinfoNs, g, red, ing, prom := setupComponentsOrFail(t, ctx)
+		defer deleteComponentsOrFail(t, ctx, g, bookinfoNs)
 		g.ApplyConfigOrFail(
 			t,
 			bookinfoNs,
@@ -264,6 +266,11 @@ func setupComponentsOrFail(t *testing.T, ctx resource.Context) (bookinfoNs names
 		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 	)
+
+	return
+}
+
+func deleteComponentsOrFail(t *testing.T, ctx resource.Context, g galley.Instance, bookinfoNs namespace.Instance) {
 	defer g.DeleteConfigOrFail(t, bookinfoNs,
 		bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
 	defer g.DeleteConfigOrFail(
@@ -271,7 +278,6 @@ func setupComponentsOrFail(t *testing.T, ctx resource.Context) (bookinfoNs names
 		bookinfoNs,
 		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
-	return
 }
 
 func setupConfigOrFail(t *testing.T, con, bookInfoNameSpaceStr, destinationService, quotaSpecCon, quotaRuleCon string,
