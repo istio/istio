@@ -15,9 +15,14 @@
 package auth
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"strings"
+
+	v1 "k8s.io/api/core/v1"
+	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/ghodss/yaml"
 
@@ -41,12 +46,13 @@ type WorkloadLabels map[string]string
 type Upgrader struct {
 	IstioConfigStore model.ConfigStore
 	K8sClient        *kubernetes.Clientset
+	ServiceFiles     []string
 	// RoleNameToWorkloadLabels maps the ServiceRole name to the map of service name to the workload labels
 	// that the service pointing to.
 	// We could have remove the `service` key layer to make it ServiceRole name maps to workload labels.
 	// However, this is needed for unit tests.
 	RoleNameToWorkloadLabels map[string]ServiceToWorkloadLabels
-	RbacFile                 string
+	V1PolicyFile             string
 	serviceRoles             []model.Config
 	serviceRoleBindings      []model.Config
 }
@@ -67,7 +73,7 @@ var (
 
 // UpgradeCRDs is the main function that converts RBAC v1 to v2 for local policy files.
 func (ug *Upgrader) UpgradeCRDs() (string, error) {
-	err := ug.createRoleAndBindingLists(ug.RbacFile)
+	err := ug.createRoleAndBindingLists(ug.V1PolicyFile)
 	var convertedPolicies strings.Builder
 	if err != nil {
 		return "", err
@@ -249,9 +255,44 @@ func (ug *Upgrader) mapRoleNameToWorkloadLabels(roleName, namespace, fullService
 	if _, found := ug.RoleNameToWorkloadLabels[roleName][serviceName]; found {
 		return nil
 	}
-	k8sService, err := ug.K8sClient.CoreV1().Services(namespace).Get(serviceName, metav1.GetOptions{})
-	if err != nil {
-		return err
+
+	// TODO: cache the Service.
+	var service *v1.Service
+	if len(ug.ServiceFiles) != 0 {
+		svc := v1.Service{}
+		for _, filename := range ug.ServiceFiles {
+			fileBuf, err := ioutil.ReadFile(filename)
+			if err != nil {
+				return err
+			}
+			reader := bytes.NewReader(fileBuf)
+			yamlDecoder := kubeyaml.NewYAMLOrJSONDecoder(reader, 512*1024)
+			for {
+				err = yamlDecoder.Decode(&svc)
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					return fmt.Errorf("failed to parse k8s Service file: %s", err)
+				}
+				if svc.Name == serviceName && svc.Namespace == namespace {
+					service = &svc
+					break
+				}
+			}
+		}
+	} else {
+		var err error
+		service, err = ug.K8sClient.CoreV1().Services(namespace).Get(serviceName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	if service == nil {
+		return fmt.Errorf("no service found for role %s in namespace %s", roleName, namespace)
+	}
+	if service.Spec.Selector == nil {
+		return fmt.Errorf("failed because service %q does not have selector", serviceName)
 	}
 	if _, found := ug.RoleNameToWorkloadLabels[roleName]; !found {
 		ug.RoleNameToWorkloadLabels[roleName] = make(ServiceToWorkloadLabels)
@@ -259,9 +300,6 @@ func (ug *Upgrader) mapRoleNameToWorkloadLabels(roleName, namespace, fullService
 	if _, found := ug.RoleNameToWorkloadLabels[roleName][serviceName]; !found {
 		ug.RoleNameToWorkloadLabels[roleName][serviceName] = make(WorkloadLabels)
 	}
-	if k8sService.Spec.Selector == nil {
-		return fmt.Errorf("failed because service %q does not specify pod selector", serviceName)
-	}
-	ug.RoleNameToWorkloadLabels[roleName][serviceName] = k8sService.Spec.Selector
+	ug.RoleNameToWorkloadLabels[roleName][serviceName] = service.Spec.Selector
 	return nil
 }

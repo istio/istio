@@ -20,6 +20,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	k8s "k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/istioctl/pkg/auth"
 	"istio.io/istio/istioctl/pkg/kubernetes"
@@ -29,9 +30,10 @@ import (
 )
 
 var (
-	printAll             bool
-	configDumpFile       string
-	rbacUpgradeInputFile string
+	printAll       bool
+	configDumpFile string
+	v1PolicyFile   string
+	serviceSpecs   []string
 
 	checkCmd = &cobra.Command{
 		Use:   "check <pod-name>[.<pod-namespace>]",
@@ -88,18 +90,22 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 	}
 
 	upgradeCmd = &cobra.Command{
-		Use:   "upgrade <yaml-file>",
+		Use:   "upgrade -f <yaml-file>",
 		Short: "Upgrade Istio Authorization Policy from version v1 to v2",
-		Long: `
-Upgrade automatically converts Istio Authorization policy from version v1 to v2. It requires read access to
-a Kubernetes cluster where the v1 policy had been applied to. This is because it needs to read the Kubernetes
-Service resources in order to convert the services field in ServiceRole to corresponding label selectors in
-AuthorizationPolicy.
+		Long: `Upgrade converts Istio authorization policy from version v1 to v2. It requires access to Kubernetes
+service definition in order to translate the service name specified in the ServiceRole to the corresponding
+workload labels in the AuthorizationPolicy. The service definition could be provided either from the current
+Kubernetes cluster or from a yaml file specified from command line.
 
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
+		Example: `  # Upgrade the Istio authorization policy with service definition from the current k8s cluster:
+  istioctl experimental auth upgrade -f istio-authz-v1-policy.yaml
+
+  # Upgrade the Istio authorization policy with service definition from 2 yaml files specified in the command line:
+  istioctl experimental auth upgrade -f istio-authz-v1-policy.yaml --service svc-a.yaml,svc-b.yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			upgrader, err := newUpgrader(rbacUpgradeInputFile)
+			upgrader, err := newUpgrader(v1PolicyFile, serviceSpecs)
 			if err != nil {
 				return err
 			}
@@ -166,23 +172,29 @@ func getConfigDumpFromPod(podName, podNamespace string) (*configdump.Wrapper, er
 	return envoyConfig, nil
 }
 
-func newUpgrader(rbacFile string) (*auth.Upgrader, error) {
-	if rbacFile == "" {
+func newUpgrader(v1PolicyFile string, serviceFiles []string) (*auth.Upgrader, error) {
+	if v1PolicyFile == "" {
 		return nil, fmt.Errorf("no input file provided")
 	}
 	istioClient, err := newClient()
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Istio Config Store with error %v", err)
 	}
-	k8sClient, err := kube.CreateClientset("", "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to Kubernetes with error %v", err)
+
+	var k8sClient *k8s.Clientset
+	if len(serviceFiles) == 0 {
+		k8sClient, err = kube.CreateClientset("", "")
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect to Kubernetes with error %v", err)
+		}
 	}
+
 	upgrader := &auth.Upgrader{
 		IstioConfigStore:         istioClient,
 		K8sClient:                k8sClient,
+		ServiceFiles:             serviceFiles,
 		RoleNameToWorkloadLabels: map[string]auth.ServiceToWorkloadLabels{},
-		RbacFile:                 rbacFile,
+		V1PolicyFile:             v1PolicyFile,
 	}
 	return upgrader, nil
 }
@@ -211,6 +223,8 @@ func init() {
 		"Show additional information (e.g. SNI and ALPN)")
 	checkCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Check the TLS/JWT/RBAC setting from the config dump file")
-	upgradeCmd.PersistentFlags().StringVarP(&rbacUpgradeInputFile, "file", "f", "",
+	upgradeCmd.PersistentFlags().StringVarP(&v1PolicyFile, "file", "f", "",
 		"Authorization policy file")
+	upgradeCmd.PersistentFlags().StringSliceVarP(&serviceSpecs, "service", "s", []string{},
+		"Service specification that provides the mapping relationship between service name and workload labels")
 }
