@@ -89,7 +89,7 @@ type StatusInfo struct {
 	lastWatchRequestTime time.Time // informational
 	watches              map[int64]*responseWatch
 	// the synced structure is {Collection: {peerAddress: synced|nosynced}}.
-	synced               map[string]map[string]bool
+	synced map[string]map[string]bool
 }
 
 // Watches returns the number of open watches.
