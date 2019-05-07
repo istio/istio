@@ -17,6 +17,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -54,13 +55,16 @@ func GetRootCmd(args []string) *cobra.Command {
 	var cfgFile string
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Config file containing args")
 
-	if len(cfgFile) > 0 {
-		viper.SetConfigName(cfgFile)
-		err := viper.ReadInConfig() // Find and read the config file
-		if err != nil {             // Handle errors reading the config file
-			panic(fmt.Errorf("fatal error config file: %s", err))
+	cobra.OnInitialize(func() {
+		if len(cfgFile) > 0 {
+			viper.SetConfigFile(cfgFile)
+			err := viper.ReadInConfig() // Find and read the config file
+			if err != nil {             // Handle errors reading the config file
+				os.Stderr.WriteString(fmt.Errorf("fatal error in config file: %s", err).Error())
+				os.Exit(1)
+			}
 		}
-	}
+	})
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 
