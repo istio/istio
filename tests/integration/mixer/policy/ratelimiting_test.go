@@ -68,8 +68,8 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 
 			bookinfoNs, g, red, ing, prom := setupComponentsOrFail(t, ctx)
 			bookInfoNameSpaceStr := bookinfoNs.Name()
-			setupConfigOrFail(t, defaultAmountLessThanOverride, bookInfoNameSpaceStr, destinationService,
-				defaultQuotaSpecConfig, red, g, ctx)
+			setupConfigOrFail(t, bookinfo.ProductPageRedisRateLimit, bookInfoNameSpaceStr,
+				red, g, ctx)
 			util.AllowRuleSync(t)
 
 			res := util.SendTraffic(ing, t, "Sending traffic...", "", 300)

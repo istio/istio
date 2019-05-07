@@ -48,18 +48,6 @@ spec:
     - charge: 1
       quota: requestcountquota
 ---
-apiVersion: config.istio.io/v1alpha2
-kind: rule
-metadata:
-  name: quota
-  namespace: istio-system
-spec:
-  match: (destination.labels["app"]|"unknown") == "ratings"
-  actions:
-  - handler: redishandler
-    instances:
-    - requestcountquota
----
 # Note: change the default namespace to the namespace of the bookinfo app
 apiVersion: config.istio.io/v1alpha2
 kind: QuotaSpecBinding
@@ -81,3 +69,15 @@ spec:
     namespace: default
   - name: istio-ingressgateway
     namespace: istio-system
+---
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: quota
+  namespace: istio-system
+spec:
+  match: (destination.labels["app"]|"unknown") == "ratings"
+  actions:
+  - handler: redishandler
+    instances:
+    - requestcountquota
