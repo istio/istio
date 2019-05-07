@@ -76,9 +76,44 @@ type Control struct {
 	ManPageInfo doc.GenManHeader
 }
 
-// Constants used in zsh completion file
-const (
-	zsh_initialization = `#compdef istioctl
+// EmitCollateral produces a set of collateral files for a CLI command. You can
+// select to emit markdown to describe a command's function, man pages, YAML
+// descriptions, and bash completion files.
+func EmitCollateral(root *cobra.Command, c *Control) error {
+	if c.EmitManPages {
+		if err := doc.GenManTree(root, &c.ManPageInfo, c.OutputDir); err != nil {
+			return fmt.Errorf("unable to output manpage tree: %v", err)
+		}
+	}
+
+	if c.EmitMarkdown {
+		if err := doc.GenMarkdownTree(root, c.OutputDir); err != nil {
+			return fmt.Errorf("unable to output markdown tree: %v", err)
+		}
+	}
+
+	if c.EmitHTMLFragmentWithFrontMatter {
+		if err := genHTMLFragment(root, c.OutputDir+"/"+root.Name()+".html"); err != nil {
+			return fmt.Errorf("unable to output HTML fragment file: %v", err)
+		}
+	}
+
+	if c.EmitYAML {
+		if err := doc.GenYamlTree(root, c.OutputDir); err != nil {
+			return fmt.Errorf("unable to output YAML tree: %v", err)
+		}
+	}
+
+	if c.EmitBashCompletion {
+		if err := root.GenBashCompletionFile(c.OutputDir + "/" + root.Name() + ".bash"); err != nil {
+			return fmt.Errorf("unable to output bash completion file: %v", err)
+		}
+	}
+
+	if c.EmitZshCompletion {
+
+		// Constants used in zsh completion file
+		zshInitialization := `#compdef istioctl
 
 __istioctl_bash_source() {
 	alias shopt=':'
@@ -205,50 +240,14 @@ __istioctl_convert_bash_to_zsh() {
 	<<'BASH_COMPLETION_EOF'
 `
 
-	zsh_tail = `
+		zshTail := `
 BASH_COMPLETION_EOF
 }
 
 __istioctl_bash_source <(__istioctl_convert_bash_to_zsh)
 _complete istioctl 2>/dev/null
 `
-)
 
-// EmitCollateral produces a set of collateral files for a CLI command. You can
-// select to emit markdown to describe a command's function, man pages, YAML
-// descriptions, and bash completion files.
-func EmitCollateral(root *cobra.Command, c *Control) error {
-	if c.EmitManPages {
-		if err := doc.GenManTree(root, &c.ManPageInfo, c.OutputDir); err != nil {
-			return fmt.Errorf("unable to output manpage tree: %v", err)
-		}
-	}
-
-	if c.EmitMarkdown {
-		if err := doc.GenMarkdownTree(root, c.OutputDir); err != nil {
-			return fmt.Errorf("unable to output markdown tree: %v", err)
-		}
-	}
-
-	if c.EmitHTMLFragmentWithFrontMatter {
-		if err := genHTMLFragment(root, c.OutputDir+"/"+root.Name()+".html"); err != nil {
-			return fmt.Errorf("unable to output HTML fragment file: %v", err)
-		}
-	}
-
-	if c.EmitYAML {
-		if err := doc.GenYamlTree(root, c.OutputDir); err != nil {
-			return fmt.Errorf("unable to output YAML tree: %v", err)
-		}
-	}
-
-	if c.EmitBashCompletion {
-		if err := root.GenBashCompletionFile(c.OutputDir + "/" + root.Name() + ".bash"); err != nil {
-			return fmt.Errorf("unable to output bash completion file: %v", err)
-		}
-	}
-
-	if c.EmitZshCompletion {
 		// Create the output file.
 		outFile, err := os.Create(c.OutputDir + "/_" + root.Name())
 		if err != nil {
@@ -257,11 +256,15 @@ func EmitCollateral(root *cobra.Command, c *Control) error {
 		defer outFile.Close()
 
 		// Concatenate the head, initialization, generated bash, and tail to the file
-		outFile.Write([]byte(zsh_initialization))
+		if _, err = outFile.Write([]byte(zshInitialization)); err != nil {
+			return fmt.Errorf("unable to output zsh initialization: %v", err)
+		}
 		if err := root.GenBashCompletion(outFile); err != nil {
 			return fmt.Errorf("unable to output zsh completion file: %v", err)
 		}
-		outFile.Write([]byte(zsh_tail))
+		if _, err = outFile.Write([]byte(zshTail)); err != nil {
+			return fmt.Errorf("unable to output zsh tail: %v", err)
+		}
 	}
 
 	return nil
