@@ -76,9 +76,27 @@ run-mixer:
 	(cd ${GOPATH}/src/istio.io/istio; make e2e_mixer_run ${TEST_FLAGS} \
 		E2E_ARGS="${E2E_ARGS} --namespace=mixertest")
 
-INT_FLAGS ?= -istio.test.hub ${HUB} -istio.test.tag ${TAG} -istio.test.pullpolicy IfNotPresent \
- -p 1 -istio.test.env kube --istio.test.kube.config ${KUBECONFIG} --istio.test.ci --istio.test.nocleanup \
- --istio.test.kube.deploy=false -istio.test.kube.systemNamespace ${ISTIO_NS} -istio.test.kube.minikube
+# Test targets to run. Exclude tests that are broken for now
+INT_TARGETS = $(shell GOPATH=${GOPATH} go list ../istio/tests/integration/... | grep -v /mixer/policy)
+
+INT_FLAGS ?= \
+	--istio.test.hub ${HUB} \
+	--istio.test.tag ${TAG} \
+	--istio.test.pullpolicy IfNotPresent \
+	--istio.test.env kube \
+	--istio.test.kube.config ${KUBECONFIG} \
+	--istio.test.ci \
+	--istio.test.nocleanup \
+	--istio.test.kube.deploy=false \
+	--istio.test.kube.systemNamespace ${ISTIO_NS} \
+	--istio.test.kube.istioNamespace ${ISTIO_NS} \
+	--istio.test.kube.configNamespace ${ISTIO_NS} \
+	--istio.test.kube.telemetryNamespace ${ISTIO_NS} \
+	--istio.test.kube.policyNamespace ${ISTIO_NS} \
+	--istio.test.kube.ingressNamespace ${ISTIO_NS} \
+	--istio.test.kube.egressNamespace ${ISTIO_NS} \
+	--istio.test.kube.minikube \
+	--istio.test.ci -timeout 30m
 
 # Integration tests create and delete istio-system
 # Need to be fixed to use new installer
@@ -86,37 +104,21 @@ INT_FLAGS ?= -istio.test.hub ${HUB} -istio.test.tag ${TAG} -istio.test.pullpolic
 run-test.integration.kube:
 	export TMPDIR=${GOPATH}/out/tmp
 	mkdir -p ${GOPATH}/out/tmp
-	#(cd ${GOPATH}/src/istio.io/istio; \
-	#	$(GO) test -v ${T} ./tests/integration/... ${INT_FLAGS})
+
 	kubectl -n default apply -f test/k8s/mtls_permissive.yaml
 	kubectl -n default apply -f test/k8s/sidecar-local.yaml
-	# Test uses autoinject
-	#kubectl label namespace default istio-env=${ISTIO_NS} --overwrite
-	(cd ${GOPATH}/src/istio.io/istio; TAG=${TAG} make test.integration.kube \
-		CI=1 T="-v" K8S_TEST_FLAGS="--istio.test.kube.minikube --istio.test.kube.systemNamespace ${ISTIO_NS} \
-		 --istio.test.nocleanup --istio.test.kube.deploy=false ")
+
+	set -o pipefail; \
+	cd ${GOPATH}/src/istio.io/istio; \
+	${GO} test -v ${INT_TARGETS} --istio.test.select -customsetup ${INT_FLAGS} 2>&1 | tee ${GOPATH}/out/logs/$@.log
 
 run-test.integration.kube.presubmit:
 	export TMPDIR=${GOPATH}/out/tmp
 	mkdir -p ${GOPATH}/out/tmp ${GOPATH}/out/linux_amd64/release/ ${GOPATH}/out/logs/
+
 	set -o pipefail; \
 	cd ${GOPATH}/src/istio.io/istio; \
-		${GO} test -p 1 -v \
-			istio.io/istio/tests/integration/echo istio.io/istio/tests/integration/... \
-	--istio.test.kube.deploy=false --istio.test.kube.minikube  --istio.test.nocleanup \
-	--istio.test.kube.istioNamespace ${ISTIO_NS} \
-	--istio.test.kube.configNamespace ${ISTIO_NS} \
-	--istio.test.kube.telemetryNamespace ${ISTIO_NS} \
-	--istio.test.kube.policyNamespace ${ISTIO_NS} \
-	--istio.test.kube.ingressNamespace ${ISTIO_NS} \
-	--istio.test.kube.egressNamespace ${ISTIO_NS} \
-	--istio.test.ci -timeout 30m \
-    --istio.test.select +presubmit \
- 	--istio.test.env kube \
-	--istio.test.kube.config ${KUBECONFIG} \
-	--istio.test.hub=${HUB} \
-	--istio.test.tag=${TAG} \
-	--istio.test.pullpolicy=IfNotPresent  2>&1 | tee ${GOPATH}/out/logs/$@.log
+	${GO} test -v ${INT_TARGETS} --istio.test.select -customsetup,+presubmit ${INT_FLAGS} 2>&1 | tee ${GOPATH}/out/logs/$@.log
 
 run-stability:
 	 ISTIO_ENV=${ISTIO_NS} bin/iop test stability ${GOPATH}/src/istio.io/tools/perf/stability/allconfig ${IOP_OPTS}
