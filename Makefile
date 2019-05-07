@@ -44,7 +44,7 @@
 SHELL := /bin/bash
 
 BASE := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-GOPATH ?= $(shell cd ${BASE}/../..; pwd)
+GOPATH ?= $(shell cd ${BASE}/../../..; pwd)
 TOP ?= $(GOPATH)
 export GOPATH
 # TAG of the last stable release of istio. Used for upgrade testing and to verify istioctl.
@@ -111,6 +111,8 @@ else
 	KIND_CONFIG =
 endif
 
+KUBECONFIG ?= ~/.kube/config
+
 # Run the tests, creating a clean test KIND cluster
 # Test can also run in a CI/CD system capable of Docker priv execution.
 # All tests are run in a container - not on local machine.
@@ -130,6 +132,7 @@ test: info dep maybe-clean maybe-prepare sync docker-run-test maybe-clean
 # Build all templates inside the hermetic docker image. Tools are installed.
 build:
 	docker run -it --rm -v ${GOPATH}:${GOPATH} --entrypoint /bin/bash $(BUILD_IMAGE) \
+		-e GOPATH=${GOPATH} \
 		-c "cd ${GOPATH}/src/istio.io/installer; ls; make run-build"
 
 # Run a command in the docker image running kind. Command passed as "TARGET" env.
@@ -152,6 +155,7 @@ prepare:
 	# Kind version and node image need to be in sync - that's not ideal, working on a fix.
 	docker run --privileged \
 		-v /var/run/docker.sock:/var/run/docker.sock  \
+		-e GOPATH=${GOPATH} \
 		-it --entrypoint /bin/bash --rm \
 		istionightly/kind:v1.14.1-1 -c \
 		"/usr/local/bin/kind create cluster --loglevel debug --name ${KIND_CLUSTER} --wait 60s ${KIND_CONFIG} --image $(BUILD_IMAGE)"
@@ -169,6 +173,7 @@ endif
 clean:
 	docker run --privileged \
 		-v /var/run/docker.sock:/var/run/docker.sock  \
+		-e GOPATH=${GOPATH} \
 		-it --entrypoint /bin/bash --rm \
 		istionightly/kind:v1.14.1-1 -c \
 		"/usr/local/bin/kind delete cluster --name ${KIND_CLUSTER}" 2>&1 || true
