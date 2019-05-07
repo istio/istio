@@ -79,15 +79,7 @@ test.integration.local: | $(JUNIT_REPORT)
 test.integration.local.presubmit: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
-	$(GO) test -p 1 ${T} ${TEST_PACKAGES} --istio.test.env native --istio.test.select +presubmit \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
-
-# Unstable/flaky/new integration tests targeting local environment.
-.PHONY: test.integration.local.unstable
-test.integration.local.unstable: | $(JUNIT_REPORT)
-	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	set -o pipefail; \
-	$(GO) test -p 1 ${T} ${TEST_PACKAGES} --istio.test.env native --istio.test.select -presubmit,-postsubmit \
+	$(GO) test -p 1 ${T} ${TEST_PACKAGES} --istio.test.env native --istio.test.select -postsubmit,-flaky \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 # All integration tests targeting Kubernetes environment.
@@ -105,6 +97,22 @@ test.integration.kube: | $(JUNIT_REPORT)
 	${_INTEGRATION_TEST_WORK_DIR_FLAG} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
+# Presubmit integration tests targeting Kubernetes environment.
+.PHONY: test.integration.kube.presubmit
+test.integration.kube.presubmit: | $(JUNIT_REPORT)
+	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
+	set -o pipefail; \
+	$(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
+    --istio.test.select -postsubmit,-flaky \
+ 	--istio.test.env kube \
+	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
+	--istio.test.hub=${HUB} \
+	--istio.test.tag=${TAG} \
+	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
+	${_INTEGRATION_TEST_INGRESS_FLAG} \
+	${_INTEGRATION_TEST_WORK_DIR_FLAG} \
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
+
 # Integration tests that detect race condition for native environment.
 .PHONY: test.integration.race.native
 test.integration.race.native: | $(JUNIT_REPORT)
@@ -112,36 +120,4 @@ test.integration.race.native: | $(JUNIT_REPORT)
 	set -o pipefail; \
 	$(GO) test -race -p 1 ${T} ${TEST_PACKAGES} -timeout 120m \
 	--istio.test.env native \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
-
-# Presubmit integration tests targeting Kubernetes environment.
-.PHONY: test.integration.kube.presubmit
-test.integration.kube.presubmit: | $(JUNIT_REPORT)
-	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	set -o pipefail; \
-	$(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
-    --istio.test.select +presubmit \
- 	--istio.test.env kube \
-	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
-	--istio.test.hub=${HUB} \
-	--istio.test.tag=${TAG} \
-	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
-	${_INTEGRATION_TEST_INGRESS_FLAG} \
-	${_INTEGRATION_TEST_WORK_DIR_FLAG} \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
-
-# Unstable/flaky/new integration tests targeting Kubernetes environment.
-.PHONY: test.integration.kube.unstable
-test.integration.kube.unstable: | $(JUNIT_REPORT)
-	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	set -o pipefail; \
-	$(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
-    --istio.test.select -presubmit,-postsubmit \
- 	--istio.test.env kube \
-	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
-	--istio.test.hub=${HUB} \
-	--istio.test.tag=${TAG} \
-	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
-	${_INTEGRATION_TEST_INGRESS_FLAG} \
-	${_INTEGRATION_TEST_WORK_DIR_FLAG} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
