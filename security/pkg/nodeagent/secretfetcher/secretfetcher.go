@@ -38,8 +38,6 @@ import (
 )
 
 const (
-	secretResyncPeriod = 15 * time.Second
-
 	// The ID/name for the certificate chain in kubernetes generic secret.
 	genericScrtCert = "cert"
 	// The ID/name for the private key in kubernetes generic secret.
@@ -144,7 +142,7 @@ func (sf *SecretFetcher) Init(core corev1.CoreV1Interface) { // nolint:interface
 		},
 	}
 	sf.scrtStore, sf.scrtController =
-		cache.NewInformer(scrtLW, &v1.Secret{}, secretResyncPeriod, cache.ResourceEventHandlerFuncs{
+		cache.NewInformer(scrtLW, &v1.Secret{}, 0, cache.ResourceEventHandlerFuncs{
 			AddFunc:    sf.scrtAdded,
 			DeleteFunc: sf.scrtDeleted,
 			UpdateFunc: sf.scrtUpdated,
