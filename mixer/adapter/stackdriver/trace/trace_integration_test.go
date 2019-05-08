@@ -161,11 +161,16 @@ func TestReport(t *testing.T) {
            "principal": "unknown",
            "source.version": "v1"
           },
+          "ChildSpanCount": 0,
           "Code": 0,
+          "DroppedAnnotationCount": 0,
+          "DroppedAttributeCount": 0,
+          "DroppedLinkCount": 0,
+          "DroppedMessageEventCount": 0,
           "EndTime": "2006-01-02T22:04:05Z",
           "HasRemoteParent": true,
           "Links": null,
-          "Message": "\"OK\"",
+          "Message": "OK",
           "MessageEvents": [
            {
             "CompressedByteSize": 128,
@@ -223,7 +228,8 @@ func TestReport(t *testing.T) {
            97,
            36
           ],
-          "TraceOptions": 1
+          "TraceOptions": 1,
+          "Tracestate": null
          }
         ],
         "Returns": [
