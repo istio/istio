@@ -66,3 +66,4 @@ spec:
           secretName: istio.default
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}

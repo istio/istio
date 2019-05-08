@@ -34,3 +34,53 @@
     {{- end }}
   {{- end }}
 {{- end }}
+
+{{- define "podAntiAffinity" }}
+{{- if or .Values.grafana.podAntiAffinityLabelSelector .Values.grafana.podAntiAffinityTermLabelSelector}}
+  podAntiAffinity:
+    {{- if .Values.grafana.podAntiAffinityLabelSelector }}
+    requiredDuringSchedulingIgnoredDuringExecution:
+    {{- include "podAntiAffinityRequiredDuringScheduling" . }}
+    {{- end }}
+    {{- if or .Values.grafana.podAntiAffinityTermLabelSelector}}
+    preferredDuringSchedulingIgnoredDuringExecution:
+    {{- include "podAntiAffinityPreferredDuringScheduling" . }}
+    {{- end }}
+{{- end }}
+{{- end }}
+
+{{- define "podAntiAffinityRequiredDuringScheduling" }}
+    {{- range $index, $item := .Values.grafana.podAntiAffinityLabelSelector }}
+    - labelSelector:
+        matchExpressions:
+        - key: {{ $item.key }}
+          operator: {{ $item.operator }}
+          {{- if $item.values }}
+          values:
+          {{- $vals := split "," $item.values }}
+          {{- range $i, $v := $vals }}
+          - {{ $v }}
+          {{- end }}
+          {{- end }}
+      topologyKey: {{ $item.topologyKey }}
+    {{- end }}
+{{- end }}
+
+{{- define "podAntiAffinityPreferredDuringScheduling" }}
+    {{- range $index, $item := .Values.grafana.podAntiAffinityTermLabelSelector }}
+    - podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: {{ $item.key }}
+            operator: {{ $item.operator }}
+            {{- if $item.values }}
+            values:
+            {{- $vals := split "," $item.values }}
+            {{- range $i, $v := $vals }}
+            - {{ $v }}
+            {{- end }}
+            {{- end }}
+        topologyKey: {{ $item.topologyKey }}
+      weight: 100
+    {{- end }}
+{{- end }}

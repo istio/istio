@@ -36,13 +36,13 @@
 {{- end }}
 
 {{- define "podAntiAffinity" }}
-{{- if or .podAntiAffinityLabelSelector .podAntiAffinityTermLabelSelector}}
+{{- if or .Values.pilot.podAntiAffinityLabelSelector .Values.pilot.podAntiAffinityTermLabelSelector}}
   podAntiAffinity:
-    {{- if .podAntiAffinityLabelSelector }}
+    {{- if .Values.pilot.podAntiAffinityLabelSelector }}
     requiredDuringSchedulingIgnoredDuringExecution:
     {{- include "podAntiAffinityRequiredDuringScheduling" . }}
     {{- end }}
-    {{- if or .podAntiAffinityTermLabelSelector}}
+    {{- if or .Values.pilot.podAntiAffinityTermLabelSelector}}
     preferredDuringSchedulingIgnoredDuringExecution:
     {{- include "podAntiAffinityPreferredDuringScheduling" . }}
     {{- end }}
@@ -50,7 +50,7 @@
 {{- end }}
 
 {{- define "podAntiAffinityRequiredDuringScheduling" }}
-    {{- range $index, $item := .podAntiAffinityLabelSelector }}
+    {{- range $index, $item := .Values.pilot.podAntiAffinityLabelSelector }}
     - labelSelector:
         matchExpressions:
         - key: {{ $item.key }}
@@ -67,7 +67,7 @@
 {{- end }}
 
 {{- define "podAntiAffinityPreferredDuringScheduling" }}
-    {{- range $index, $item := .podAntiAffinityTermLabelSelector }}
+    {{- range $index, $item := .Values.pilot.podAntiAffinityTermLabelSelector }}
     - podAffinityTerm:
         labelSelector:
           matchExpressions:

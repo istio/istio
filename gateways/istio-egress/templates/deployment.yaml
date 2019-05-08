@@ -184,8 +184,9 @@ spec:
           name: {{ .configMapName | quote }}
           optional: true
       {{- end }}
-{{- if .Values.global.arch }}
       affinity:
+{{- if .Values.global.arch }}
       {{- include "nodeaffinity" $ | indent 6 }}
 {{- end }}
+      {{- include "podAntiAffinity" $gateway | indent 6 }}
 ---

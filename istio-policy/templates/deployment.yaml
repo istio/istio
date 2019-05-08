@@ -62,6 +62,7 @@ spec:
           optional: true
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.mixer.policy.image }}
