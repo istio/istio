@@ -33,6 +33,10 @@ import (
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
+const (
+	extendedRbacV2RulesTmpl = "testdata/istio-extended-rbac-v2-rules.yaml.tmpl"
+)
+
 // TestRBACV2Extended tests extended features of RBAC v2 such as global namespace and inline role def.
 func TestRBACV2Extended(t *testing.T) {
 	framework.NewTest(t).
@@ -87,10 +91,22 @@ func TestRBACV2Extended(t *testing.T) {
 							Target:   a,
 							PortName: "http",
 							Scheme:   scheme.HTTP,
-							Path:     "/any-path",
+							Path:     "/some-path",
 						},
 					},
 					ExpectAllowed: isMtlsEnabled,
+				},
+				{
+					Request: connection.Checker{
+						From: b,
+						Options: echo.CallOptions{
+							Target:   a,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/bad-path/black-hole",
+						},
+					},
+					ExpectAllowed: false,
 				},
 				{
 					Request: connection.Checker{

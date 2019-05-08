@@ -33,6 +33,10 @@ var (
 	isMtlsEnabled bool
 )
 
+const (
+	rbacClusterConfigTmpl = "testdata/istio-clusterrbacconfig.yaml.tmpl"
+)
+
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("rbac_v2", m).

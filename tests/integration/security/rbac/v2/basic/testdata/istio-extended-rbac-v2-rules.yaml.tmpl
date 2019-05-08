@@ -1,7 +1,7 @@
 # istio-extended-rbac-v2-rules.yaml to enforce access control for both http and tcp services using Istio RBAC v2 rules
 # such as root namespace, inline role ref, using role instead of roleRef.
 
-# For service a, authenticated service account b is allowed have both HTTP and TCP access.
+# For service a, authenticated service account b is allowed have both HTTP (except path with prefix "bad-path") and TCP access.
 # For service a, authenticated service account c is allowed to have HTTP access at paths with prefix "good" only.
 # Two ServiceRole with the same name will be created in the root namespace and local namespace,
 # then one AuthorizationPolicy will use role with / to indicate the root namespace, and without /
@@ -15,6 +15,7 @@ metadata:
 spec:
   rules:
     - methods: ["GET"]
+      not_paths: ["/bad-path*"]
     - constraints:
       - key: "destination.port"
         values: ["90"]
@@ -27,7 +28,7 @@ metadata:
 spec:
   rules:
     - methods: ["GET"]
-      paths: ["good*"]
+      paths: ["/good*"]
     - constraints:
       - key: "destination.port"
         values: ["90"]

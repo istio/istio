@@ -34,12 +34,11 @@ import (
 )
 
 const (
-	rbacClusterConfigTmpl   = "testdata/istio-clusterrbacconfig.yaml.tmpl"
-	rbacV2RulesTmpl         = "testdata/istio-rbac-v2-rules.yaml.tmpl"
-	extendedRbacV2RulesTmpl = "testdata/istio-extended-rbac-v2-rules.yaml.tmpl"
+	rbacV2RulesTmpl = "testdata/istio-rbac-v2-rules.yaml.tmpl"
 )
 
-func TestRBACV2(t *testing.T) {
+// TestRBACV2Basic tests basic features of RBAC V2 such as AuthorizationPolicy policy and exclusion.
+func TestRBACV2Basic(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
