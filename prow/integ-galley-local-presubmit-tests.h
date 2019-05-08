@@ -25,4 +25,4 @@ WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
 ROOT=$(dirname "$WD")
 
-${ROOT}/prow/integ-suite-k8s.sh test.integration.galley.local.presubmit
+"${ROOT}/prow/integ-suite-k8s.sh" test.integration.galley.local.presubmit

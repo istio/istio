@@ -74,5 +74,5 @@ setup_cluster
 
 JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml" \
 T="-v" \
-make ${*}
+make "$@"
 
