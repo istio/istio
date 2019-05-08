@@ -14,15 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+ROOT=$(dirname "$WD")
+
 # Exit immediately for non zero status
 set -e
 # Check unset variables
 set -u
 # Print commands
 set -x
-
-WD=$(dirname "$0")
-WD=$(cd "$WD"; pwd)
-ROOT=$(dirname "$WD")
 
 "${ROOT}/prow/integ-suite-k8s.sh" test.integration.local
