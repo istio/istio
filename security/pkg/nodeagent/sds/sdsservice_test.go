@@ -420,8 +420,8 @@ func sdsRequestFetch(socket string, req *api.DiscoveryRequest) (*api.DiscoveryRe
 func setupConnection(socket string) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 
-	opts = append(opts, grpc.WithInsecure(), grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-		return net.DialTimeout("unix", socket, timeout)
+	opts = append(opts, grpc.WithInsecure(), grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+		return net.DialContext(ctx, socket, timeout)
 	}))
 
 	conn, err := grpc.Dial(socket, opts...)
