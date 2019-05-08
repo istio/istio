@@ -83,6 +83,9 @@ const (
 	vaultTLSRootCert     = "VAULT_TLS_ROOT_CERT"
 	vaultTLSRootCertFlag = "vaultTLSRootCert"
 
+	// The environmental variable name for Spire TLS bootstrap certificate.
+	spireTLSBootstrapCert = "SPIRE_TLS_BOOTSTRAP_CERT"
+
 	// The environmental variable name for the flag which is used to indicate the token passed
 	// from envoy is always valid(ex, normal 8ks JWT).
 	alwaysValidTokenFlag     = "VALID_TOKEN"
@@ -172,10 +175,17 @@ var (
 // Although currently not used, Citadel Agent can serve both workload and gateway secrets at the same time.
 func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecretCache *cache.SecretCache) {
 	if serverOptions.EnableWorkloadSDS {
+		var tlsRootCert []byte
+		if len(serverOptions.VaultTLSRootCert) > 0 {
+			tlsRootCert = []byte(serverOptions.VaultTLSRootCert)
+		} else {
+			tlsRootCert = []byte(serverOptions.SpireTLSBootstrapCert)
+		}
+
 		wSecretFetcher, err := secretfetcher.NewSecretFetcher(false, serverOptions.CAEndpoint,
-			serverOptions.CAProviderName, true, []byte(serverOptions.VaultTLSRootCert),
+			serverOptions.CAProviderName, true, tlsRootCert,
 			serverOptions.VaultAddress, serverOptions.VaultRole, serverOptions.VaultAuthPath,
-			serverOptions.VaultSignCsrPath)
+			serverOptions.VaultSignCsrPath, serverOptions.TrustDomain)
 		if err != nil {
 			log.Errorf("failed to create secretFetcher for workload proxy: %v", err)
 			os.Exit(1)
@@ -188,7 +198,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 	}
 
 	if serverOptions.EnableIngressGatewaySDS {
-		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, "", "", false, nil, "", "", "", "")
+		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, "", "", false, nil, "", "", "", "", "")
 		if err != nil {
 			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
 			os.Exit(1)
@@ -352,6 +362,9 @@ func main() {
 		"Vault sign CSR path")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultTLSRootCert, vaultTLSRootCertFlag, "",
 		"Vault TLS root certificate")
+
+	rootCmd.PersistentFlags().StringVar(&serverOptions.SpireTLSBootstrapCert, "spireTLSBootstrapCert", os.Getenv(spireTLSBootstrapCert),
+		"Spire TLS bootstrap certificate")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
