@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package runtime
+package framework
 
 import (
 	"io"
@@ -54,6 +54,7 @@ func (s *scope) add(r resource.Resource, id *resourceID) {
 }
 
 func (s *scope) done(nocleanup bool) error {
+	scopes.Framework.Debugf("Begin cleaning up scope: %v", s.id)
 	var err error
 	if !nocleanup {
 
@@ -76,6 +77,7 @@ func (s *scope) done(nocleanup bool) error {
 		err = multierror.Append(err, e)
 	}
 
+	scopes.Framework.Debugf("Done cleaning up scope: %v", s.id)
 	return err
 }
 
@@ -88,12 +90,6 @@ func (s *scope) reset() error {
 				scopes.Framework.Debugf("Error resetting resource %s: %v", r.ID(), e)
 				err = multierror.Append(e, err)
 			}
-		}
-	}
-
-	if s.parent != nil {
-		if e := s.parent.reset(); e != nil {
-			err = multierror.Append(e, err)
 		}
 	}
 

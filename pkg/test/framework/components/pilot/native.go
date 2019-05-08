@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 var _ Instance = &nativeComponent{}
@@ -125,12 +126,16 @@ func (c *nativeComponent) ID() resource.ID {
 
 func (c *nativeComponent) Close() (err error) {
 	if c.client != nil {
+		scopes.Framework.Debugf("%s closing client", c.id)
 		err = multierror.Append(err, c.client.Close()).ErrorOrNil()
 	}
 
 	if c.stopChan != nil {
+		scopes.Framework.Debugf("%s stopping Pilot server", c.id)
 		close(c.stopChan)
 	}
+
+	scopes.Framework.Debugf("%s close complete (err:%v)", c.id, err)
 	return
 }
 

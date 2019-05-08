@@ -56,9 +56,9 @@ const (
 // --istio.test.kube.config=<path>
 func TestIngressLoadBalancing(t *testing.T) {
 	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
+	defer ctx.Done()
 
-	ctx.RequireOrSkip(t, environment.Kube)
+	ctx.RequireOrSkip(environment.Kube)
 
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 
