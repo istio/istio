@@ -221,7 +221,7 @@ func Verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error
 
 	if len(chains) == 0 || err != nil {
 		return fmt.Errorf(
-			"cannot verify the cert with the provided root chain and cert " +
+			"cannot verify the cert with the provided root chain and cert "+
 				"pool with error: %v", err)
 	}
 
