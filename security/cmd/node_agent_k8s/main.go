@@ -167,7 +167,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 			os.Exit(1)
 		}
 		gatewaySecretChan = make(chan struct{})
-		gSecretFetcher.Run(gatewaySecretChan)
+		gSecretFetcher.Run()
 		gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, gatewaySdsCacheOptions)
 	} else {
 		gatewaySecretCache = nil

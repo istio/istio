@@ -17,6 +17,9 @@ package secretfetcher
 import (
 	"bytes"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/workqueue"
 	"os"
 	"strings"
 	"sync"
@@ -27,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -39,6 +43,7 @@ import (
 
 const (
 	secretResyncPeriod = 15 * time.Second
+	maxRetries = 5
 
 	// The ID/name for the certificate chain in kubernetes generic secret.
 	genericScrtCert = "cert"
@@ -73,10 +78,8 @@ type SecretFetcher struct {
 	UseCaClient bool
 	CaClient    caClientInterface.Client
 
-	// Controller and store for secret objects.
-	scrtController cache.Controller
-	scrtStore      cache.Store
-
+	// SecretController that watches API for events on secrets.
+	scrtController *SecretController
 	// secrets maps k8sKey to secrets
 	secrets sync.Map
 
@@ -108,7 +111,7 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 		if err != nil {
 			fatalf("Could not create k8s clientset: %v", err)
 		}
-		ret.Init(cs.CoreV1())
+		ret.scrtController = NewSecretController(cs, ret)
 	} else {
 		caClient, err := ca.NewCAClient(endpoint, CAProviderName, tlsFlag, tlsRootCert,
 			vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath)
@@ -125,30 +128,9 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 
 // Run starts the SecretFetcher until a value is sent to ch.
 // Only used when watching kubernetes gateway secrets.
-func (sf *SecretFetcher) Run(ch chan struct{}) {
-	go sf.scrtController.Run(ch)
-}
-
-// Init initializes SecretFetcher to watch kubernetes secrets.
-func (sf *SecretFetcher) Init(core corev1.CoreV1Interface) { // nolint:interfacer
-	namespace := os.Getenv(ingressSecretNameSpace)
-	istioSecretSelector := fields.SelectorFromSet(nil).String()
-	scrtLW := &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			options.FieldSelector = istioSecretSelector
-			return core.Secrets(namespace).List(options)
-		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			options.FieldSelector = istioSecretSelector
-			return core.Secrets(namespace).Watch(options)
-		},
-	}
-	sf.scrtStore, sf.scrtController =
-		cache.NewInformer(scrtLW, &v1.Secret{}, secretResyncPeriod, cache.ResourceEventHandlerFuncs{
-			AddFunc:    sf.scrtAdded,
-			DeleteFunc: sf.scrtDeleted,
-			UpdateFunc: sf.scrtUpdated,
-		})
+func (sf *SecretFetcher) Run() {
+	stopCh := make(chan struct{})
+	go sf.scrtController.Run(stopCh)
 }
 
 // isIngressGatewaySecret checks secret and decides whether this is a secret generated for ingress
@@ -187,7 +169,7 @@ func extractCertAndKey(scrt *v1.Secret) (cert, key, root []byte, valid bool) {
 	return cert, key, root, certAndKeyExist
 }
 
-func (sf *SecretFetcher) scrtAdded(obj interface{}) {
+func (sf *SecretFetcher) scrtAdded(secretName string, s *v1.Secret) {
 	scrt, ok := obj.(*v1.Secret)
 	if !ok {
 		log.Warnf("Failed to convert to secret object: %v", obj)
@@ -239,7 +221,7 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 	}
 }
 
-func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
+func (sf *SecretFetcher) scrtDeleted(secretName string, s *v1.Secret) {
 	scrt, ok := obj.(*v1.Secret)
 	if !ok {
 		log.Warnf("Failed to convert to secret object: %v", obj)
@@ -264,7 +246,7 @@ func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 	}
 }
 
-func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
+func (sf *SecretFetcher) scrtUpdated(oldObj, newObj *v1.Secret) {
 	oscrt, ok := oldObj.(*v1.Secret)
 	if !ok {
 		log.Warnf("Failed to convert to old secret object: %v", oldObj)
@@ -345,5 +327,208 @@ func (sf *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.Secr
 
 // AddSecret adds obj into local store. Only used for testing.
 func (sf *SecretFetcher) AddSecret(obj interface{}) {
-	sf.scrtAdded(obj)
+	sf.scrtControllerscrtAdded(obj)
+}
+
+// SecretController is the controller implementation for Secret resources
+type SecretController struct {
+	namespace      string
+	// secrets maps k8sKey to secrets
+	secretsStore	 *sync.Map
+	queue          workqueue.RateLimitingInterface
+	informer       cache.SharedIndexInformer
+	// Add all entries containing secretName in SecretCache. Called when K8S secret is added.
+	AddSecretToCache func(secretName string, ns model.SecretItem)
+	// Delete all entries containing secretName in SecretCache. Called when K8S secret is deleted.
+	DeleteSecretFromCache func(secretName string)
+}
+
+// NewSecretController returns a new secret controller
+func NewSecretController(
+		kubeclientset kubernetes.Interface,
+		secretFetcher *SecretFetcher) *SecretController {
+
+	namespace := os.Getenv(ingressSecretNameSpace)
+	istioSecretSelector := fields.SelectorFromSet(nil).String()
+	secretsInformer := cache.NewSharedIndexInformer(
+		&cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				options.FieldSelector = istioSecretSelector
+				return kubeclientset.CoreV1().Secrets(namespace).List(options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				options.FieldSelector = istioSecretSelector
+				return kubeclientset.CoreV1().Secrets(namespace).Watch(options)
+			},
+		},
+		&v1.Secret{}, 0, cache.Indexers{},
+	)
+
+	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+
+	controller := &SecretController{
+		namespace:      namespace,
+		secretsStore:   &secretFetcher.secrets,
+		informer:       secretsInformer,
+		queue:          queue,
+		AddSecretToCache:    secretFetcher.AddCache,
+		DeleteSecretFromCache: secretFetcher.DeleteCache,
+	}
+
+	log.Info("Setting up event handlers for secret controller")
+	secretsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			key, err := cache.MetaNamespaceKeyFunc(obj)
+			log.Infof("Processing add secret: %s", key)
+			if err == nil {
+				queue.Add(key)
+			}
+		},
+		DeleteFunc: func(obj interface{}) {
+			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+			log.Infof("Processing delete secret: %s", key)
+			if err == nil {
+				queue.Add(key)
+			}
+		},
+	})
+
+	return controller
+}
+
+// Run starts the secret controller until it receives a message over stopCh
+func (c *SecretController) Run(stopCh <-chan struct{}) {
+	defer utilruntime.HandleCrash()
+	defer c.queue.ShutDown()
+
+	log.Info("Starting Secrets controller")
+
+	go c.informer.Run(stopCh)
+
+	// Wait for the caches to be synced before starting workers
+	log.Info("Waiting for informer caches to sync")
+	if !cache.WaitForCacheSync(stopCh, c.informer.HasSynced) {
+		utilruntime.HandleError(fmt.Errorf("timed out waiting for caches to sync"))
+		return
+	}
+	wait.Until(c.runWorker, 5*time.Second, stopCh)
+}
+
+func (c *SecretController) runWorker() {
+	for c.processNextItem() {
+		// continue looping
+	}
+}
+
+func (c *SecretController) processNextItem() bool {
+	secretName, quit := c.queue.Get()
+
+	if quit {
+		return false
+	}
+	defer c.queue.Done(secretName)
+
+	err := c.processItem(secretName.(string))
+	if err == nil {
+		// No error, reset the ratelimit counters
+		c.queue.Forget(secretName)
+	} else if c.queue.NumRequeues(secretName) < maxRetries {
+		log.Errorf("Error processing %s (will retry): %v", secretName, err)
+		c.queue.AddRateLimited(secretName)
+	} else {
+		log.Errorf("Error processing %s (giving up): %v", secretName, err)
+		c.queue.Forget(secretName)
+		utilruntime.HandleError(err)
+	}
+
+	return true
+}
+
+func (c *SecretController) processItem(secretName string) error {
+	obj, exists, err := c.informer.GetIndexer().GetByKey(secretName)
+	if err != nil {
+		return fmt.Errorf("error fetching object %s error: %v", secretName, err)
+	}
+
+	scrt, ok := obj.(*v1.Secret)
+	if !ok {
+		return fmt.Errorf("Failed to convert secret %s to secret object: %v", secretName, obj)
+	}
+	if secretName != scrt.GetName() {
+		return fmt.Errorf("Secret name does not match secret in informer. Expected %s, but got %s",
+			secretName, scrt.GetName())
+	}
+
+	if exists {
+		c.addSecret(scrt)
+	} else {
+		c.deleteSecret(scrt)
+	}
+
+	return nil
+}
+
+func (c *SecretController) addSecret(scrt *v1.Secret) {
+	resourceName := scrt.GetName()
+	if !isIngressGatewaySecret(scrt) {
+		log.Debugf("secret %s is not an ingress gateway secret, skip adding secret", resourceName)
+		return
+	}
+
+	t := time.Now()
+	newCert, newKey, newRoot, valid := extractCertAndKey(scrt)
+	if !valid {
+		log.Warnf("Secret object: %v has empty field, skip adding secret", resourceName)
+		return
+	}
+	// If there is secret with the same resource name, delete that secret now.
+	c.secretsStore.Delete(resourceName)
+	ns := &model.SecretItem{
+		ResourceName:     resourceName,
+		CertificateChain: newCert,
+		PrivateKey:       newKey,
+		CreatedTime:      t,
+		Version:          t.String(),
+	}
+	c.secretsStore.Store(resourceName, *ns)
+	log.Debugf("secret %s is added", resourceName)
+	if c.AddSecretToCache != nil {
+		c.AddSecretToCache(resourceName, *ns)
+	}
+
+	rootCertResourceName := resourceName + IngressGatewaySdsCaSuffix
+	// If there is root cert secret with the same resource name, delete that secret now.
+	c.secretsStore.Delete(rootCertResourceName)
+	if len(newRoot) > 0 {
+		nsRoot := &model.SecretItem{
+			ResourceName: rootCertResourceName,
+			RootCert:     newRoot,
+			CreatedTime:  t,
+			Version:      t.String(),
+		}
+		c.secretsStore.Store(rootCertResourceName, *nsRoot)
+		log.Debugf("secret %s is added", rootCertResourceName)
+		if c.AddSecretToCache != nil {
+			c.AddSecretToCache(rootCertResourceName, *nsRoot)
+		}
+	}
+}
+
+func (c *SecretController) deleteSecret(scrt *v1.Secret) {
+	key := scrt.GetName()
+	c.secretsStore.Delete(key)
+	log.Debugf("secret %s is deleted", key)
+	// Delete all cache entries that match the deleted key.
+	if c.DeleteSecretFromCache != nil {
+		c.DeleteSecretFromCache(key)
+	}
+
+	rootCertResourceName := key + IngressGatewaySdsCaSuffix
+	// If there is root cert secret with the same resource name, delete that secret now.
+	c.secretsStore.Delete(rootCertResourceName)
+	log.Debugf("secret %s is deleted", rootCertResourceName)
+	// Delete all cache entries that match the deleted key.
+	if c.DeleteSecretFromCache != nil {
+		c.DeleteSecretFromCache(rootCertResourceName)
+	}
 }

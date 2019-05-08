@@ -117,8 +117,7 @@ func TestSecretFetcher(t *testing.T) {
 	if gSecretFetcher.UseCaClient {
 		t.Error("secretFetcher should not use ca client")
 	}
-	ch := make(chan struct{})
-	gSecretFetcher.Run(ch)
+	gSecretFetcher.Run()
 
 	// Searching a non-existing secret should return false.
 	if _, ok := gSecretFetcher.FindIngressGatewaySecret("non-existing-secret"); ok {
@@ -203,8 +202,7 @@ func TestSecretFetcherInvalidSecret(t *testing.T) {
 	if gSecretFetcher.UseCaClient {
 		t.Error("secretFetcher should not use ca client")
 	}
-	ch := make(chan struct{})
-	gSecretFetcher.Run(ch)
+	gSecretFetcher.Run()
 
 	gSecretFetcher.scrtAdded(k8sInvalidTestGenericSecretA)
 	if _, ok := gSecretFetcher.FindIngressGatewaySecret(k8sInvalidTestGenericSecretA.GetName()); ok {
@@ -265,8 +263,7 @@ func TestSecretFetcherSkipSecret(t *testing.T) {
 	if gSecretFetcher.UseCaClient {
 		t.Error("secretFetcher should not use ca client")
 	}
-	ch := make(chan struct{})
-	gSecretFetcher.Run(ch)
+	gSecretFetcher.Run()
 
 	istioPrefixSecret := &v1.Secret{
 		Data: map[string][]byte{
@@ -371,8 +368,7 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 	if gSecretFetcher.UseCaClient {
 		t.Error("secretFetcher should not use ca client")
 	}
-	ch := make(chan struct{})
-	gSecretFetcher.Run(ch)
+	gSecretFetcher.Run()
 
 	// Searching a non-existing secret should return false.
 	if _, ok := gSecretFetcher.FindIngressGatewaySecret("non-existing-secret"); ok {
