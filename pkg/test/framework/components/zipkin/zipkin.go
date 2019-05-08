@@ -25,11 +25,13 @@ import (
 type Instance interface {
 	resource.Resource
 
-	// QueryTraces gets at most 100 most recent available traces from zipkin
-	QueryTraces() ([]Trace, error)
+	// QueryTraces gets at most number of limit most recent available traces from zipkin.
+	// spanName filters that only trace with the given span name will be included.
+	QueryTraces(limit int, spanName string) ([]Trace, error)
 }
 
 // Span represents a single span, which includes span attributes for verification
+// TODO(bianpengyuan) consider using zipkin proto api https://github.com/istio/istio/issues/13926
 type Span struct {
 	SpanID       string
 	ParentSpanID string

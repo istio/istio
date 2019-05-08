@@ -49,7 +49,8 @@ func TestProxyTracing(t *testing.T) {
 	retry.UntilSuccessOrFail(t, func() error {
 		// Send test traffic
 		util.SendTraffic(ingInst, t, "Sending traffic", "", 10)
-		traces, err := zipkinInst.QueryTraces()
+		traces, err := zipkinInst.QueryTraces(100,
+			fmt.Sprintf("productpage.%s.svc.cluster.local:9080/productpage", bookinfoNsInst.Name()))
 		if err != nil {
 			return fmt.Errorf("cannot get traces from zipkin: %v", err)
 		}
