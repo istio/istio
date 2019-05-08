@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package framework
+package istioctl
 
 import (
 	"bytes"
@@ -25,7 +25,9 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -40,34 +42,36 @@ func TestMain(m *testing.M) {
 		NewSuite("istioctl_integration_test", m).
 		Label(label.Presubmit).
 
-		// The following is how to deploy Istio on Kubernetes, as part of the suite setup.
-		// The deployment must work. If you're breaking this, you'll break many integration tests.
+		// Deploy Istio
 		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
 		SetupOnEnv(environment.Kube, func(ctx resource.Context) error {
 			env = ctx.Environment().(*kube.Environment)
 			return nil
 		}).
-
-		// Finally execute the test suite
 		Run()
 }
 
 // TestVersion does "istioctl version --remote=true" to verify the CLI understands the data plane version data
 func TestVersion(t *testing.T) {
-	framework.Run(t, func(ctx framework.TestContext) {
-		args := []string{"version", "--remote=true"}
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			g := galley.NewOrFail(t, ctx, galley.Config{})
+			_ = pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 
-		var out bytes.Buffer
-		rootCmd := cmd.GetRootCmd(args)
-		rootCmd.SetOutput(&out)
-		fErr := rootCmd.Execute()
-		output := out.String()
+			args := []string{"version", "--remote=true"}
 
-		if fErr != nil {
-			t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(args, " "), fErr)
-		}
+			var out bytes.Buffer
+			rootCmd := cmd.GetRootCmd(args)
+			rootCmd.SetOutput(&out)
+			fErr := rootCmd.Execute()
+			output := out.String()
 
-		expectedRegexp := regexp.MustCompile(`client version: [a-z0-9\-]*
+			if fErr != nil {
+				t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(args, " "), fErr)
+			}
+
+			expectedRegexp := regexp.MustCompile(`client version: [a-z0-9\-]*
 citadel version: [a-z0-9\-]*
 galley version: [a-z0-9\-]*
 ingressgateway version: [a-z0-9\-]*
@@ -75,9 +79,9 @@ pilot version: [a-z0-9\-]*
 policy version: [a-z0-9\-]*
 sidecar-injector version: [a-z0-9\-]*
 telemetry version: [a-z0-9\-]*`)
-		if expectedRegexp != nil && !expectedRegexp.MatchString(output) {
-			t.Fatalf("Output didn't match for 'istioctl %s'\n got %v\nwant: %v",
-				strings.Join(args, " "), output, expectedRegexp)
-		}
-	})
+			if expectedRegexp != nil && !expectedRegexp.MatchString(output) {
+				t.Fatalf("Output didn't match for 'istioctl %s'\n got %v\nwant: %v",
+					strings.Join(args, " "), output, expectedRegexp)
+			}
+		})
 }
