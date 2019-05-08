@@ -192,7 +192,7 @@ github.com/gogo/protobuf/sortkeys
 github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 # github.com/gogo/status v1.0.3
 github.com/gogo/status
-# github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
+# github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b => github.com/istio/glog v0.0.0-20190424172949-d7cfb6fa2ccd
 github.com/golang/glog
 # github.com/golang/groupcache v0.0.0-20180203143532-66deaeb636df
 github.com/golang/groupcache/lru
@@ -978,7 +978,7 @@ k8s.io/helm/pkg/proto/hapi/version
 k8s.io/helm/pkg/sympath
 k8s.io/helm/pkg/version
 k8s.io/helm/pkg/strvals
-# k8s.io/klog v0.3.0
+# k8s.io/klog v0.3.0 => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
 k8s.io/klog
 # k8s.io/kube-openapi v0.0.0-20180216212618-50ae88d24ede
 k8s.io/kube-openapi/pkg/util/proto

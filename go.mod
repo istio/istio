@@ -8,6 +8,10 @@ replace google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1 => ./m
 
 replace google.golang.org/genproto/googleapis/graphservice => ./mixer/adapter/stackdriver/vendor/google.golang.org/genproto/googleapis/graphservice
 
+replace github.com/golang/glog => github.com/istio/glog v0.0.0-20190424172949-d7cfb6fa2ccd
+
+replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
+
 require (
 	cloud.google.com/go v0.37.4
 	cloud.google.com/go/contextgraph/apiv1alpha1 v0.0.0
@@ -84,6 +88,7 @@ require (
 	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf // indirect
 	github.com/google/uuid v0.0.0-20161128191214-064e2069ce9c
 	github.com/googleapis/gax-go v2.0.0+incompatible
+	github.com/googleapis/gax-go/v2 v2.0.4
 	github.com/googleapis/gnostic v0.1.0 // indirect
 	github.com/gophercloud/gophercloud v0.0.0-20180327194212-2daf3049f2a9 // indirect
 	github.com/gorilla/mux v1.6.2
