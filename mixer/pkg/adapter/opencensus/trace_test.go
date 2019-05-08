@@ -137,7 +137,7 @@ func TestHandleTraceSpan(t *testing.T) {
 							EventType: trace.MessageEventTypeSent,
 						},
 					},
-					Status:          trace.Status{Code: 2, Message: `"UNKNOWN"`},
+					Status:          trace.Status{Code: 2, Message: "UNKNOWN"},
 					Links:           nil,
 					HasRemoteParent: true,
 				},
@@ -247,7 +247,7 @@ func TestHandleTraceSpan(t *testing.T) {
 						},
 					},
 					Status: trace.Status{
-						Message: `"OK"`,
+						Message: "OK",
 					},
 					Links:           nil,
 					HasRemoteParent: true,
@@ -314,7 +314,7 @@ func TestHandleTraceSpan(t *testing.T) {
 						},
 					},
 					Status: trace.Status{
-						Message: `"OK"`,
+						Message: "OK",
 					},
 					Links:           nil,
 					HasRemoteParent: false,
@@ -379,7 +379,7 @@ func TestHandleTraceSpan(t *testing.T) {
 						},
 					},
 					Status: trace.Status{
-						Message: `"UNKNOWN"`,
+						Message: "UNKNOWN",
 						Code:    2,
 					},
 					Links:           nil,

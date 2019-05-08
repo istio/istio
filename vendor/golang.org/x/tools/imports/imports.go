@@ -13,11 +13,13 @@ import (
 	"bytes"
 	"fmt"
 	"go/ast"
+	"go/build"
 	"go/format"
 	"go/parser"
 	"go/printer"
 	"go/token"
 	"io"
+	"io/ioutil"
 	"regexp"
 	"strconv"
 	"strings"
@@ -44,8 +46,20 @@ type Options struct {
 // so it is important that filename be accurate.
 // To process data ``as if'' it were in filename, pass the data as a non-nil src.
 func Process(filename string, src []byte, opt *Options) ([]byte, error) {
+	env := &fixEnv{GOPATH: build.Default.GOPATH, GOROOT: build.Default.GOROOT}
+	return process(filename, src, opt, env)
+}
+
+func process(filename string, src []byte, opt *Options, env *fixEnv) ([]byte, error) {
 	if opt == nil {
 		opt = &Options{Comments: true, TabIndent: true, TabWidth: 8}
+	}
+	if src == nil {
+		b, err := ioutil.ReadFile(filename)
+		if err != nil {
+			return nil, err
+		}
+		src = b
 	}
 
 	fileSet := token.NewFileSet()
@@ -55,8 +69,7 @@ func Process(filename string, src []byte, opt *Options) ([]byte, error) {
 	}
 
 	if !opt.FormatOnly {
-		_, err = fixImports(fileSet, file, filename)
-		if err != nil {
+		if err := fixImports(fileSet, file, filename, env); err != nil {
 			return nil, err
 		}
 	}

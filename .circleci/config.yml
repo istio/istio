@@ -699,12 +699,6 @@ jobs:
 #      - run:
 #          name: Check Scripts
 #          command: /go/src/istio.io/istio/bin/check_shell_scripts.sh
-      # Make sure that any modification to vendor is correct. Always use the latest version of dep.
-      - run:
-          name: Creating vendor diff
-          command: make depend.diff ISTIO_OUT=/go/out
-      - store_artifacts:
-          path: /go/out/dep.diff
 
   nightly:
     <<: *defaults

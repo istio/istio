@@ -56,6 +56,10 @@ type Handler struct {
 	// for spans started by this transport.
 	StartOptions trace.StartOptions
 
+	// GetStartOptions allows to set start options per request. If set,
+	// StartOptions is going to be ignored.
+	GetStartOptions func(*http.Request) trace.StartOptions
+
 	// IsPublicEndpoint should be set to true for publicly accessible HTTP(S)
 	// servers. If true, any trace metadata set on the incoming request will
 	// be added as a linked trace instead of being added as a parent of the
@@ -69,15 +73,16 @@ type Handler struct {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var traceEnd, statsEnd func()
-	r, traceEnd = h.startTrace(w, r)
+	var tags addedTags
+	r, traceEnd := h.startTrace(w, r)
 	defer traceEnd()
-	w, statsEnd = h.startStats(w, r)
-	defer statsEnd()
+	w, statsEnd := h.startStats(w, r)
+	defer statsEnd(&tags)
 	handler := h.Handler
 	if handler == nil {
 		handler = http.DefaultServeMux
 	}
+	r = r.WithContext(context.WithValue(r.Context(), addedTagsKey{}, &tags))
 	handler.ServeHTTP(w, r)
 }
 
@@ -92,22 +97,28 @@ func (h *Handler) startTrace(w http.ResponseWriter, r *http.Request) (*http.Requ
 		name = h.FormatSpanName(r)
 	}
 	ctx := r.Context()
+
+	startOpts := h.StartOptions
+	if h.GetStartOptions != nil {
+		startOpts = h.GetStartOptions(r)
+	}
+
 	var span *trace.Span
 	sc, ok := h.extractSpanContext(r)
 	if ok && !h.IsPublicEndpoint {
 		ctx, span = trace.StartSpanWithRemoteParent(ctx, name, sc,
-			trace.WithSampler(h.StartOptions.Sampler),
+			trace.WithSampler(startOpts.Sampler),
 			trace.WithSpanKind(trace.SpanKindServer))
 	} else {
 		ctx, span = trace.StartSpan(ctx, name,
-			trace.WithSampler(h.StartOptions.Sampler),
+			trace.WithSampler(startOpts.Sampler),
 			trace.WithSpanKind(trace.SpanKindServer),
 		)
 		if ok {
 			span.AddLink(trace.Link{
 				TraceID:    sc.TraceID,
 				SpanID:     sc.SpanID,
-				Type:       trace.LinkTypeChild,
+				Type:       trace.LinkTypeParent,
 				Attributes: nil,
 			})
 		}
@@ -123,9 +134,9 @@ func (h *Handler) extractSpanContext(r *http.Request) (trace.SpanContext, bool) 
 	return h.Propagation.SpanContextFromRequest(r)
 }
 
-func (h *Handler) startStats(w http.ResponseWriter, r *http.Request) (http.ResponseWriter, func()) {
+func (h *Handler) startStats(w http.ResponseWriter, r *http.Request) (http.ResponseWriter, func(tags *addedTags)) {
 	ctx, _ := tag.New(r.Context(),
-		tag.Upsert(Host, r.URL.Host),
+		tag.Upsert(Host, r.Host),
 		tag.Upsert(Path, r.URL.Path),
 		tag.Upsert(Method, r.Method))
 	track := &trackingResponseWriter{
@@ -157,7 +168,9 @@ type trackingResponseWriter struct {
 // Compile time assertion for ResponseWriter interface
 var _ http.ResponseWriter = (*trackingResponseWriter)(nil)
 
-func (t *trackingResponseWriter) end() {
+var logTagsErrorOnce sync.Once
+
+func (t *trackingResponseWriter) end(tags *addedTags) {
 	t.endOnce.Do(func() {
 		if t.statusCode == 0 {
 			t.statusCode = 200
@@ -165,6 +178,7 @@ func (t *trackingResponseWriter) end() {
 
 		span := trace.FromContext(t.ctx)
 		span.SetStatus(TraceStatus(t.statusCode, t.statusLine))
+		span.AddAttributes(trace.Int64Attribute(StatusCodeAttribute, int64(t.statusCode)))
 
 		m := []stats.Measurement{
 			ServerLatency.M(float64(time.Since(t.start)) / float64(time.Millisecond)),
@@ -173,8 +187,10 @@ func (t *trackingResponseWriter) end() {
 		if t.reqSize >= 0 {
 			m = append(m, ServerRequestBytes.M(t.reqSize))
 		}
-		ctx, _ := tag.New(t.ctx, tag.Upsert(StatusCode, strconv.Itoa(t.statusCode)))
-		stats.Record(ctx, m...)
+		allTags := make([]tag.Mutator, len(tags.t)+1)
+		allTags[0] = tag.Upsert(StatusCode, strconv.Itoa(t.statusCode))
+		copy(allTags[1:], tags.t)
+		stats.RecordWithTags(t.ctx, allTags, m...)
 	})
 }
 

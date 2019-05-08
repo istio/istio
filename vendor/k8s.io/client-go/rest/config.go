@@ -70,11 +70,6 @@ type Config struct {
 	// TODO: demonstrate an OAuth2 compatible client.
 	BearerToken string
 
-	// Path to a file containing a BearerToken.
-	// If set, the contents are periodically read.
-	// The last successfully read value takes precedence over BearerToken.
-	BearerTokenFile string
-
 	// Impersonate is the configuration that RESTClient will use for impersonation.
 	Impersonate ImpersonationConfig
 
@@ -327,8 +322,9 @@ func InClusterConfig() (*Config, error) {
 		return nil, ErrNotInCluster
 	}
 
-	token, err := ioutil.ReadFile(tokenFile)
-	if err != nil {
+	ts := NewCachedFileTokenSource(tokenFile)
+
+	if _, err := ts.Token(); err != nil {
 		return nil, err
 	}
 
@@ -344,8 +340,7 @@ func InClusterConfig() (*Config, error) {
 		// TODO: switch to using cluster DNS.
 		Host:            "https://" + net.JoinHostPort(host, port),
 		TLSClientConfig: tlsClientConfig,
-		BearerToken:     string(token),
-		BearerTokenFile: tokenFile,
+		WrapTransport:   TokenSourceWrapTransport(ts),
 	}, nil
 }
 
@@ -435,13 +430,12 @@ func AnonymousClientConfig(config *Config) *Config {
 // CopyConfig returns a copy of the given config
 func CopyConfig(config *Config) *Config {
 	return &Config{
-		Host:            config.Host,
-		APIPath:         config.APIPath,
-		ContentConfig:   config.ContentConfig,
-		Username:        config.Username,
-		Password:        config.Password,
-		BearerToken:     config.BearerToken,
-		BearerTokenFile: config.BearerTokenFile,
+		Host:          config.Host,
+		APIPath:       config.APIPath,
+		ContentConfig: config.ContentConfig,
+		Username:      config.Username,
+		Password:      config.Password,
+		BearerToken:   config.BearerToken,
 		Impersonate: ImpersonationConfig{
 			Groups:   config.Impersonate.Groups,
 			Extra:    config.Impersonate.Extra,
