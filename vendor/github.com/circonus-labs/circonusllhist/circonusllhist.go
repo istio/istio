@@ -8,12 +8,17 @@ package circonusllhist
 
 import (
 	"bytes"
+	"encoding/base64"
+	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
@@ -238,6 +243,161 @@ type Histogram struct {
 	useLocks bool
 }
 
+const (
+	BVL1, BVL1MASK uint64 = iota, 0xff << (8 * iota)
+	BVL2, BVL2MASK
+	BVL3, BVL3MASK
+	BVL4, BVL4MASK
+	BVL5, BVL5MASK
+	BVL6, BVL6MASK
+	BVL7, BVL7MASK
+	BVL8, BVL8MASK
+)
+
+func getBytesRequired(val uint64) (len int8) {
+	if 0 != (BVL8MASK|BVL7MASK|BVL6MASK|BVL5MASK)&val {
+		if 0 != BVL8MASK&val {
+			return int8(BVL8)
+		}
+		if 0 != BVL7MASK&val {
+			return int8(BVL7)
+		}
+		if 0 != BVL6MASK&val {
+			return int8(BVL6)
+		}
+		if 0 != BVL5MASK&val {
+			return int8(BVL5)
+		}
+	} else {
+		if 0 != BVL4MASK&val {
+			return int8(BVL4)
+		}
+		if 0 != BVL3MASK&val {
+			return int8(BVL3)
+		}
+		if 0 != BVL2MASK&val {
+			return int8(BVL2)
+		}
+	}
+	return int8(BVL1)
+}
+
+func writeBin(out io.Writer, in bin, idx int) (err error) {
+
+	err = binary.Write(out, binary.BigEndian, in.val)
+	if err != nil {
+		return
+	}
+
+	err = binary.Write(out, binary.BigEndian, in.exp)
+	if err != nil {
+		return
+	}
+
+	var tgtType int8 = getBytesRequired(in.count)
+
+	err = binary.Write(out, binary.BigEndian, tgtType)
+	if err != nil {
+		return
+	}
+
+	var bcount = make([]uint8, 8)
+	b := bcount[0 : tgtType+1]
+	for i := tgtType; i >= 0; i-- {
+		b[i] = uint8(uint64(in.count>>(uint8(i)*8)) & 0xff)
+	}
+
+	err = binary.Write(out, binary.BigEndian, b)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func readBin(in io.Reader) (out bin, err error) {
+	err = binary.Read(in, binary.BigEndian, &out.val)
+	if err != nil {
+		return
+	}
+
+	err = binary.Read(in, binary.BigEndian, &out.exp)
+	if err != nil {
+		return
+	}
+	var bvl uint8
+	err = binary.Read(in, binary.BigEndian, &bvl)
+	if err != nil {
+		return
+	}
+	if bvl > uint8(BVL8) {
+		return out, errors.New("encoding error: bvl value is greater than max allowable")
+	}
+
+	bcount := make([]byte, 8)
+	b := bcount[0 : bvl+1]
+	err = binary.Read(in, binary.BigEndian, b)
+	if err != nil {
+		return
+	}
+
+	var count uint64 = 0
+	for i := int(bvl + 1); i >= 0; i-- {
+		count |= (uint64(bcount[i]) << (uint8(i) * 8))
+	}
+
+	out.count = count
+	return
+}
+
+func Deserialize(in io.Reader) (h *Histogram, err error) {
+	h = New()
+	if h.bvs == nil {
+		h.bvs = make([]bin, 0, defaultHistSize)
+	}
+
+	var nbin int16
+	err = binary.Read(in, binary.BigEndian, &nbin)
+	if err != nil {
+		return
+	}
+
+	for ii := int16(0); ii < nbin; ii++ {
+		bb, err := readBin(in)
+		if err != nil {
+			return h, err
+		}
+		h.insertBin(&bb, int64(bb.count))
+	}
+	return h, nil
+}
+
+func (h *Histogram) Serialize(w io.Writer) error {
+
+	var nbin int16 = int16(len(h.bvs))
+	if err := binary.Write(w, binary.BigEndian, nbin); err != nil {
+		return err
+	}
+
+	for i := 0; i < len(h.bvs); i++ {
+		if err := writeBin(w, h.bvs[i], i); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (h *Histogram) SerializeB64(w io.Writer) error {
+	buf := bytes.NewBuffer([]byte{})
+	h.Serialize(buf)
+
+	encoder := base64.NewEncoder(base64.StdEncoding, w)
+	if _, err := encoder.Write(buf.Bytes()); err != nil {
+		return err
+	}
+	encoder.Close()
+	return nil
+}
+
 // New returns a new Histogram
 func New() *Histogram {
 	return &Histogram{
@@ -312,7 +472,7 @@ func (h *Histogram) Reset() {
 
 // RecordIntScale records an integer scaler value, returning an error if the
 // value is out of range.
-func (h *Histogram) RecordIntScale(val, scale int) error {
+func (h *Histogram) RecordIntScale(val int64, scale int) error {
 	return h.RecordIntScales(val, scale, 1)
 }
 
@@ -320,6 +480,12 @@ func (h *Histogram) RecordIntScale(val, scale int) error {
 // of range.
 func (h *Histogram) RecordValue(v float64) error {
 	return h.RecordValues(v, 1)
+}
+
+// RecordDuration records the given time.Duration in seconds, returning an error
+// if the value is out of range.
+func (h *Histogram) RecordDuration(v time.Duration) error {
+	return h.RecordIntScale(int64(v), -9)
 }
 
 // RecordCorrectedValue records the given value, correcting for stalls in the
@@ -437,11 +603,12 @@ func (h *Histogram) insertBin(hb *bin, count int64) uint64 {
 
 // RecordIntScales records n occurrences of the given value, returning an error if
 // the value is out of range.
-func (h *Histogram) RecordIntScales(val, scale int, n int64) error {
-	sign := 1
+func (h *Histogram) RecordIntScales(val int64, scale int, n int64) error {
+	sign := int64(1)
 	if val == 0 {
 		scale = 0
 	} else {
+		scale++
 		if val < 0 {
 			val = 0 - val
 			sign = -1
@@ -450,7 +617,7 @@ func (h *Histogram) RecordIntScales(val, scale int, n int64) error {
 			val *= 10
 			scale -= 1
 		}
-		for val > 100 {
+		for val >= 100 {
 			val /= 10
 			scale++
 		}
@@ -628,28 +795,53 @@ func (h *Histogram) Equals(other *Histogram) bool {
 	return true
 }
 
-func (h *Histogram) CopyAndReset() *Histogram {
+// Copy creates and returns an exact copy of a histogram.
+func (h *Histogram) Copy() *Histogram {
 	if h.useLocks {
 		h.mutex.Lock()
 		defer h.mutex.Unlock()
 	}
-	newhist := &Histogram{
-		allocd: h.allocd,
-		used:   h.used,
-		bvs:    h.bvs,
+
+	newhist := New()
+	newhist.allocd = h.allocd
+	newhist.used = h.used
+	newhist.useLocks = h.useLocks
+
+	newhist.bvs = []bin{}
+	for _, v := range h.bvs {
+		newhist.bvs = append(newhist.bvs, v)
 	}
+
+	for i, u := range h.lookup {
+		for _, v := range u {
+			newhist.lookup[i] = append(newhist.lookup[i], v)
+		}
+	}
+
+	return newhist
+}
+
+// FullReset resets a histogram to default empty values.
+func (h *Histogram) FullReset() {
+	if h.useLocks {
+		h.mutex.Lock()
+		defer h.mutex.Unlock()
+	}
+
 	h.allocd = defaultHistSize
 	h.bvs = make([]bin, defaultHistSize)
 	h.used = 0
-	for i := 0; i < 256; i++ {
-		if h.lookup[i] != nil {
-			for j := range h.lookup[i] {
-				h.lookup[i][j] = 0
-			}
-		}
-	}
+	h.lookup = [256][]uint16{}
+}
+
+// CopyAndReset creates and returns an exact copy of a histogram,
+// and resets it to default empty values.
+func (h *Histogram) CopyAndReset() *Histogram {
+	newhist := h.Copy()
+	h.FullReset()
 	return newhist
 }
+
 func (h *Histogram) DecStrings() []string {
 	if h.useLocks {
 		h.mutex.Lock()
@@ -699,4 +891,27 @@ func stringsToBin(strs []string) ([]bin, error) {
 	}
 
 	return bins, nil
+}
+
+// UnmarshalJSON - histogram will come in a base64 encoded serialized form
+func (h *Histogram) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	data, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return err
+	}
+	h, err = Deserialize(bytes.NewBuffer(data))
+	return err
+}
+
+func (h *Histogram) MarshalJSON() ([]byte, error) {
+	buf := bytes.NewBuffer([]byte{})
+	err := h.SerializeB64(buf)
+	if err != nil {
+		return buf.Bytes(), err
+	}
+	return json.Marshal(buf.String())
 }

@@ -145,7 +145,6 @@ func (r *azureRoundTripper) WrappedRoundTripper() http.RoundTripper { return r.r
 
 type azureToken struct {
 	token       adal.Token
-	environment string
 	clientID    string
 	tenantID    string
 	apiserverID string
@@ -220,10 +219,6 @@ func (ts *azureTokenSource) retrieveTokenFromCfg() (*azureToken, error) {
 	if refreshToken == "" {
 		return nil, fmt.Errorf("no refresh token in cfg: %s", cfgRefreshToken)
 	}
-	environment := ts.cfg[cfgEnvironment]
-	if environment == "" {
-		return nil, fmt.Errorf("no environment in cfg: %s", cfgEnvironment)
-	}
 	clientID := ts.cfg[cfgClientID]
 	if clientID == "" {
 		return nil, fmt.Errorf("no client ID in cfg: %s", cfgClientID)
@@ -255,7 +250,6 @@ func (ts *azureTokenSource) retrieveTokenFromCfg() (*azureToken, error) {
 			Resource:     fmt.Sprintf("spn:%s", apiserverID),
 			Type:         tokenType,
 		},
-		environment: environment,
 		clientID:    clientID,
 		tenantID:    tenantID,
 		apiserverID: apiserverID,
@@ -266,7 +260,6 @@ func (ts *azureTokenSource) storeTokenInCfg(token *azureToken) error {
 	newCfg := make(map[string]string)
 	newCfg[cfgAccessToken] = token.token.AccessToken
 	newCfg[cfgRefreshToken] = token.token.RefreshToken
-	newCfg[cfgEnvironment] = token.environment
 	newCfg[cfgClientID] = token.clientID
 	newCfg[cfgTenantID] = token.tenantID
 	newCfg[cfgApiserverID] = token.apiserverID
@@ -282,12 +275,7 @@ func (ts *azureTokenSource) storeTokenInCfg(token *azureToken) error {
 }
 
 func (ts *azureTokenSource) refreshToken(token *azureToken) (*azureToken, error) {
-	env, err := azure.EnvironmentFromName(token.environment)
-	if err != nil {
-		return nil, err
-	}
-
-	oauthConfig, err := adal.NewOAuthConfig(env.ActiveDirectoryEndpoint, token.tenantID)
+	oauthConfig, err := adal.NewOAuthConfig(azure.PublicCloud.ActiveDirectoryEndpoint, token.tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("building the OAuth configuration for token refresh: %v", err)
 	}
@@ -311,7 +299,6 @@ func (ts *azureTokenSource) refreshToken(token *azureToken) (*azureToken, error)
 
 	return &azureToken{
 		token:       spt.Token(),
-		environment: token.environment,
 		clientID:    token.clientID,
 		tenantID:    token.tenantID,
 		apiserverID: token.apiserverID,
@@ -366,7 +353,6 @@ func (ts *azureTokenSourceDeviceCode) Token() (*azureToken, error) {
 
 	return &azureToken{
 		token:       *token,
-		environment: ts.environment.Name,
 		clientID:    ts.clientID,
 		tenantID:    ts.tenantID,
 		apiserverID: ts.apiserverID,
