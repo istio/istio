@@ -156,8 +156,6 @@ github.com/gogo/protobuf v1.2.0 h1:xU6/SpYbvkNYiptHJYEDRseDLvYE7wSqhYYNy0QSUzI=
 github.com/gogo/protobuf v1.2.0/go.mod h1:r8qH/GZQm5c6nD/R0oafs1akxWv10x8SbQlK7atdtwQ=
 github.com/gogo/status v1.0.3 h1:WkVBY59mw7qUNTr/bLwO7J2vesJ0rQ2C3tMXrTd3w5M=
 github.com/gogo/status v1.0.3/go.mod h1:SavQ51ycCLnc7dGyJxp8YAmudx8xqiVrRf+6IXRsugc=
-github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b h1:VKtxabqXZkF25pY9ekfRL6a582T4P37/31XEstQ5p58=
-github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=
 github.com/golang/groupcache v0.0.0-20180203143532-66deaeb636df h1:Sf/EWTqecLGj5mn9KFu3L4Cc4O/6kGnbtbDtXrjzv5A=
 github.com/golang/groupcache v0.0.0-20180203143532-66deaeb636df/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
 github.com/golang/mock v1.1.1/go.mod h1:oTYuIxOrZwtPieC+H1uAHpcLFnEyAGVDL/k47Jfbm0A=
@@ -569,8 +567,6 @@ k8s.io/client-go v0.0.0-20190404034449-b9d8bc3e502a h1:wdqH0Wolibcbsh8frDvAN8xAs
 k8s.io/client-go v0.0.0-20190404034449-b9d8bc3e502a/go.mod h1:7vJpHMYJwNQCWgzmNV+VYUl1zCObLyodBc8nIyt8L5s=
 k8s.io/helm v2.9.1+incompatible h1:IafoSdCxLzN1yqabsnwwAMSyjuplWVO/jy+MTyHMLIE=
 k8s.io/helm v2.9.1+incompatible/go.mod h1:LZzlS4LQBHfciFOurYBFkCMTaZ0D1l+p0teMg7TSULI=
-k8s.io/klog v0.3.0 h1:0VPpR+sizsiivjIfIAQH/rl8tan6jvWkS7lU+0di3lE=
-k8s.io/klog v0.3.0/go.mod h1:Gq+BEi5rUBO/HRz0bTSXDUcqjScdoY3a9IHpCEIOOfk=
 k8s.io/kube-openapi v0.0.0-20180216212618-50ae88d24ede h1:YOWlONzJUq456SnNYPcK/org5asA+LU6AzNBm+l/04o=
 k8s.io/kube-openapi v0.0.0-20180216212618-50ae88d24ede/go.mod h1:BXM9ceUBTj2QnfH2MK1odQs778ajze1RxcmP6S8RVVc=
 k8s.io/kubernetes v0.0.0-20190413114802-75128f945898 h1:CupC/twmK1gBH0DXA79XYTnotB2WBdNRFjzT3cTWMqI=
