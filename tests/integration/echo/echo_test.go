@@ -24,15 +24,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
-)
-
-var (
-	ist istio.Instance
 )
 
 // TODO(sven): Add additional testing of the echo component, this is just the basics.
@@ -40,11 +33,6 @@ func TestEcho(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			g := galley.NewOrFail(t, ctx, galley.Config{})
-			p := pilot.NewOrFail(t, ctx, pilot.Config{
-				Galley: g,
-			})
-
 			baseCfg := echo.Config{
 				Pilot:  p,
 				Galley: g,
@@ -127,51 +115,49 @@ func TestEcho(t *testing.T) {
 			}
 
 			for _, config := range configs {
-				t.Run(config.testName, func(t *testing.T) {
-					tst := framework.NewTest(t)
-					if config.flaky {
-						tst.Label(label.Flaky)
-					}
-					tst.Run(func(ctx framework.TestContext) {
-						ns := namespace.NewOrFail(t, ctx, "echo", true)
 
-						a := echoboot.NewOrFail(t, ctx, config.apply("a", ns))
-						b := echoboot.NewOrFail(t, ctx, config.apply("b", ns))
+				configTest := ctx.NewSubTest(config.testName)
+				if config.flaky {
+					configTest.Label(label.Flaky)
+				}
+				configTest.Run(func(ctx framework.TestContext) {
+					t := ctx.GoTest()
 
-						a.WaitUntilReadyOrFail(t, b)
+					ns := namespace.NewOrFail(t, ctx, "echo", true)
 
-						for _, opts := range callOptions {
-							opts.Target = b
+					a := echoboot.NewOrFail(t, ctx, config.apply("a", ns))
+					b := echoboot.NewOrFail(t, ctx, config.apply("b", ns))
 
-							testName := opts.PortName
-							if opts.PortName != string(opts.Scheme) {
-								testName = fmt.Sprintf("%s over %s", opts.Scheme, opts.PortName)
-							}
-							t.Run(testName, func(t *testing.T) {
-								ctx.Environment().Case(environment.Native, func() {
-									if config.testName != "NoSidecar" {
-										switch opts.Scheme {
-										case scheme.WebSocket, scheme.GRPC:
-											// TODO(https://github.com/istio/istio/issues/13754)
-											t.Skipf("https://github.com/istio/istio/issues/13754")
-										}
-									}
-								})
-								a.CallOrFail(t, opts).
-									CheckOKOrFail(t).
-									CheckHostOrFail(t, "b")
-							})
+					a.WaitUntilReadyOrFail(t, b)
+
+					for _, o := range callOptions {
+						// Make a copy of the options for the test.
+						opts := o
+						opts.Target = b
+
+						testName := opts.PortName
+						if opts.PortName != string(opts.Scheme) {
+							testName = fmt.Sprintf("%s over %s", opts.Scheme, opts.PortName)
 						}
-					})
+
+						ctx.NewSubTest(testName).Run(func(ctx framework.TestContext) {
+							t := ctx.GoTest()
+
+							ctx.Environment().Case(environment.Native, func() {
+								if config.testName != "NoSidecar" {
+									switch opts.Scheme {
+									case scheme.WebSocket, scheme.GRPC:
+										// TODO(https://github.com/istio/istio/issues/13754)
+										ctx.Skipf("https://github.com/istio/istio/issues/13754")
+									}
+								}
+							})
+							a.CallOrFail(t, opts).
+								CheckOKOrFail(t).
+								CheckHostOrFail(t, "b")
+						})
+					}
 				})
 			}
 		})
-}
-
-func TestMain(m *testing.M) {
-	framework.
-		NewSuite("echo_test", m).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
-		Run()
-
 }

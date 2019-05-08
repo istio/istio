@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package runtime
+package framework
 
 import (
 	"fmt"
@@ -23,14 +23,19 @@ import (
 	"strings"
 	"sync"
 
-	"istio.io/istio/pkg/test/framework/label"
-
 	"istio.io/istio/pkg/test/framework/components/environment/api"
-	"istio.io/istio/pkg/test/framework/resource"
-
 	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
+
+// suiteContext contains suite-level items used during runtime.
+type SuiteContext interface {
+	resource.Context
+}
+
+var _ SuiteContext = &suiteContext{}
 
 // suiteContext contains suite-level items used during runtime.
 type suiteContext struct {
