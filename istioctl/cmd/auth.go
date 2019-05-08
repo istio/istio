@@ -33,7 +33,7 @@ var (
 	printAll       bool
 	configDumpFile string
 	v1PolicyFile   string
-	serviceSpecs   []string
+	serviceFiles   []string
 
 	checkCmd = &cobra.Command{
 		Use:   "check <pod-name>[.<pod-namespace>]",
@@ -105,7 +105,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
   # Upgrade the Istio authorization policy with service definition from 2 yaml files specified in the command line:
   istioctl experimental auth upgrade -f istio-authz-v1-policy.yaml --service svc-a.yaml,svc-b.yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			upgrader, err := newUpgrader(v1PolicyFile, serviceSpecs)
+			upgrader, err := newUpgrader(v1PolicyFile, serviceFiles)
 			if err != nil {
 				return err
 			}
@@ -225,6 +225,6 @@ func init() {
 		"Check the TLS/JWT/RBAC setting from the config dump file")
 	upgradeCmd.PersistentFlags().StringVarP(&v1PolicyFile, "file", "f", "",
 		"Authorization policy file")
-	upgradeCmd.PersistentFlags().StringSliceVarP(&serviceSpecs, "service", "s", []string{},
-		"Service specification that provides the mapping relationship between service name and workload labels")
+	upgradeCmd.PersistentFlags().StringSliceVarP(&serviceFiles, "service", "s", []string{},
+		"Kubernetes Service resource that provides the mapping relationship between service name and pod labels")
 }
