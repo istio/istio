@@ -1,0 +1,51 @@
+// Copyright 2018 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package istio.mixer.adapter.model.v1beta1;
+
+option go_package="istio.io/api/mixer/adapter/model/v1beta1";
+
+import "google/protobuf/descriptor.proto";
+
+
+// The available varieties of templates, controlling the semantics of what an adapter does with each instance.
+enum TemplateVariety {
+    // Makes the template applicable for Mixer's check calls. Instances of such template are created during
+    // check calls in Mixer and passed to the handlers based on the rule configurations.
+    TEMPLATE_VARIETY_CHECK = 0;
+    // Makes the template applicable for Mixer's report calls. Instances of such template are created during
+    // report calls in Mixer and passed to the handlers based on the rule configurations.
+    TEMPLATE_VARIETY_REPORT = 1;
+    // Makes the template applicable for Mixer's quota calls. Instances of such template are created during
+    // quota check calls in Mixer and passed to the handlers based on the rule configurations.
+    TEMPLATE_VARIETY_QUOTA = 2;
+    // Makes the template applicable for Mixer's attribute generation phase. Instances of such template are created during
+    // pre-processing attribute generation phase and passed to the handlers based on the rule configurations.
+    TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR = 3;
+    // Makes the template applicable for Mixer's check calls. Instances of such template are created during
+    // check calls in Mixer and passed to the handlers that produce values.
+    TEMPLATE_VARIETY_CHECK_WITH_OUTPUT = 4;
+}
+
+// File level options for the template.
+extend google.protobuf.FileOptions {
+    // Required: option for the TemplateVariety.
+    TemplateVariety template_variety = 72295727;
+    // Optional: option for the template name.
+    // If not specified, the last segment of the template proto's package name is used to
+    // derive the template name.
+    string template_name = 72295888;
+}

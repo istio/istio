@@ -1,0 +1,1097 @@
+---
+title: Mixer Client
+description: Configuration state for the Mixer client library.
+location: https://istio.io/docs/reference/config/policy-and-telemetry/istio.mixer.v1.config.client
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+number_of_entries: 20
+---
+<p>Describes the configuration state for the Mixer client library that&rsquo;s built into Envoy.</p>
+
+<h2 id="APIKey">APIKey</h2>
+<section>
+<p>APIKey defines the explicit configuration for generating the
+<code>request.api_key</code> attribute from HTTP requests.</p>
+
+<p>See <a href="https://swagger.io/docs/specification/authentication/api-keys">API Keys</a>
+for a general overview of API keys as defined by OpenAPI.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="APIKey-query" class="oneof oneof-start">
+<td><code>query</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>API Key is sent as a query parameter. <code>query</code> represents the
+query string parameter name.</p>
+
+<p>For example, <code>query=api_key</code> should be used with the
+following request:</p>
+
+<pre><code>GET /something?api_key=abcdef12345
+</code></pre>
+
+</td>
+</tr>
+<tr id="APIKey-header" class="oneof">
+<td><code>header</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>API key is sent in a request header. <code>header</code> represents the
+header name.</p>
+
+<p>For example, <code>header=X-API-KEY</code> should be used with the
+following request:</p>
+
+<pre><code>GET /something HTTP/1.1
+X-API-Key: abcdef12345
+</code></pre>
+
+</td>
+</tr>
+<tr id="APIKey-cookie" class="oneof">
+<td><code>cookie</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>API key is sent in a
+<a href="https://swagger.io/docs/specification/authentication/cookie-authentication">cookie</a>,</p>
+
+<p>For example, <code>cookie=X-API-KEY</code> should be used for the
+following request:</p>
+
+<pre><code>GET /something HTTP/1.1
+Cookie: X-API-KEY=abcdef12345
+</code></pre>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="AttributeMatch">AttributeMatch</h2>
+<section>
+<p>Specifies a match clause to match Istio attributes</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="AttributeMatch-clause">
+<td><code>clause</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#StringMatch">StringMatch</a>&gt;</code></td>
+<td>
+<p>Map of attribute names to StringMatch type.
+Each map element specifies one condition to match.</p>
+
+<p>Example:</p>
+
+<p>clause:
+    source.uid:
+      exact: SOURCE<em>UID
+    request.http</em>method:
+      exact: POST</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="HTTPAPISpec">HTTPAPISpec</h2>
+<section>
+<p>HTTPAPISpec defines the canonical configuration for generating
+API-related attributes from HTTP requests based on the method and
+uri templated path matches. It is sufficient for defining the API
+surface of a service for the purposes of API attribute
+generation. It is not intended to represent auth, quota,
+documentation, or other information commonly found in other API
+specifications, e.g. OpenAPI.</p>
+
+<p>Existing standards that define operations (or methods) in terms of
+HTTP methods and paths can be normalized to this format for use in
+Istio. For example, a simple petstore API described by OpenAPIv2
+<a href="https://github.com/googleapis/gnostic/blob/master/examples/v2.0/yaml/petstore-simple.yaml">here</a>
+can be represented with the following HTTPAPISpec.</p>
+
+<pre><code class="language-yaml">apiVersion: config.istio.io/v1alpha2
+kind: HTTPAPISpec
+metadata:
+  name: petstore
+  namespace: default
+spec:
+  attributes:
+    attributes:
+      api.service:
+        stringValue: petstore.swagger.io
+      api.version:
+        stringValue: 1.0.0
+  patterns:
+  - attributes:
+      attributes:
+        api.operation:
+          stringValue: findPets
+    httpMethod: GET
+    uriTemplate: /api/pets
+  - attributes:
+      attributes:
+        api.operation:
+          stringValue: addPet
+    httpMethod: POST
+    uriTemplate: /api/pets
+  - attributes:
+      attributes:
+        api.operation:
+          stringValue: findPetById
+    httpMethod: GET
+    uriTemplate: /api/pets/&lbrace;id}
+  - attributes:
+      attributes:
+        api.operation:
+          stringValue: deletePet
+    httpMethod: DELETE
+    uriTemplate: /api/pets/&lbrace;id}
+  api_keys:
+  - query: api-key
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HTTPAPISpec-attributes">
+<td><code>attributes</code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td>
+<p>List of attributes that are generated when <em>any</em> of the HTTP
+patterns match. This list typically includes the &ldquo;api.service&rdquo;
+and &ldquo;api.version&rdquo; attributes.</p>
+
+</td>
+</tr>
+<tr id="HTTPAPISpec-patterns">
+<td><code>patterns</code></td>
+<td><code><a href="#HTTPAPISpecPattern">HTTPAPISpecPattern[]</a></code></td>
+<td>
+<p>List of HTTP patterns to match.</p>
+
+</td>
+</tr>
+<tr id="HTTPAPISpec-api_keys">
+<td><code>apiKeys</code></td>
+<td><code><a href="#APIKey">APIKey[]</a></code></td>
+<td>
+<p>List of APIKey that describes how to extract an API-KEY from an
+HTTP request. The first API-Key match found in the list is used,
+i.e. &lsquo;OR&rsquo; semantics.</p>
+
+<p>The following default policies are used to generate the
+<code>request.api_key</code> attribute if no explicit APIKey is defined.</p>
+
+<pre><code>`query: key, `query: api_key`, and then `header: x-api-key`
+</code></pre>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="HTTPAPISpecBinding">HTTPAPISpecBinding</h2>
+<section>
+<p>HTTPAPISpecBinding defines the binding between HTTPAPISpecs and one or more
+IstioService. For example, the following establishes a binding
+between the HTTPAPISpec <code>petstore</code> and service <code>foo</code> in namespace <code>bar</code>.</p>
+
+<pre><code class="language-yaml">apiVersion: config.istio.io/v1alpha2
+kind: HTTPAPISpecBinding
+metadata:
+  name: my-binding
+  namespace: default
+spec:
+  services:
+  - name: foo
+    namespace: bar
+  api_specs:
+  - name: petstore
+    namespace: default
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HTTPAPISpecBinding-services">
+<td><code>services</code></td>
+<td><code><a href="#IstioService">IstioService[]</a></code></td>
+<td>
+<p>REQUIRED. One or more services to map the listed HTTPAPISpec onto.</p>
+
+</td>
+</tr>
+<tr id="HTTPAPISpecBinding-api_specs">
+<td><code>apiSpecs</code></td>
+<td><code><a href="#HTTPAPISpecReference">HTTPAPISpecReference[]</a></code></td>
+<td>
+<p>REQUIRED. One or more HTTPAPISpec references that should be mapped to
+the specified service(s). The aggregate collection of match
+conditions defined in the HTTPAPISpecs should not overlap.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="HTTPAPISpecPattern">HTTPAPISpecPattern</h2>
+<section>
+<p>HTTPAPISpecPattern defines a single pattern to match against
+incoming HTTP requests. The per-pattern list of attributes is
+generated if both the http<em>method and uri</em>template match. In
+addition, the top-level list of attributes in the HTTPAPISpec is also
+generated.</p>
+
+<pre><code class="language-yaml">pattern:
+- attributes
+    api.operation: doFooBar
+  httpMethod: GET
+  uriTemplate: /foo/bar
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HTTPAPISpecPattern-attributes">
+<td><code>attributes</code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td>
+<p>List of attributes that are generated if the HTTP request matches
+the specified http<em>method and uri</em>template. This typically
+includes the &ldquo;api.operation&rdquo; attribute.</p>
+
+</td>
+</tr>
+<tr id="HTTPAPISpecPattern-http_method">
+<td><code>httpMethod</code></td>
+<td><code>string</code></td>
+<td>
+<p>HTTP request method to match against as defined by
+<a href="https://tools.ietf.org/html/rfc7231#page-21">rfc7231</a>. For
+example: GET, HEAD, POST, PUT, DELETE.</p>
+
+</td>
+</tr>
+<tr id="HTTPAPISpecPattern-uri_template" class="oneof oneof-start">
+<td><code>uriTemplate</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>URI template to match against as defined by
+<a href="https://tools.ietf.org/html/rfc6570">rfc6570</a>. For example, the
+following are valid URI templates:</p>
+
+<pre><code>/pets
+/pets/&lbrace;id}
+/dictionary/&lbrace;term:1}/&lbrace;term}
+/search&lbrace;?q*,lang}
+</code></pre>
+
+</td>
+</tr>
+<tr id="HTTPAPISpecPattern-regex" class="oneof">
+<td><code>regex</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>EXPERIMENTAL:</p>
+
+<p>ecmascript style regex-based match as defined by
+<a href="http://en.cppreference.com/w/cpp/regex/ecmascript">EDCA-262</a>. For
+example,</p>
+
+<pre><code>&quot;^/pets/(.*?)?&quot;
+</code></pre>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="HTTPAPISpecReference">HTTPAPISpecReference</h2>
+<section>
+<p>HTTPAPISpecReference defines a reference to an HTTPAPISpec. This is
+typically used for establishing bindings between an HTTPAPISpec and an
+IstioService. For example, the following defines an
+HTTPAPISpecReference for service <code>foo</code> in namespace <code>bar</code>.</p>
+
+<pre><code class="language-yaml">- name: foo
+  namespace: bar
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HTTPAPISpecReference-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>REQUIRED. The short name of the HTTPAPISpec. This is the resource
+name defined by the metadata name field.</p>
+
+</td>
+</tr>
+<tr id="HTTPAPISpecReference-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Optional namespace of the HTTPAPISpec. Defaults to the encompassing
+HTTPAPISpecBinding&rsquo;s metadata namespace field.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="HttpClientConfig">HttpClientConfig</h2>
+<section>
+<p>Defines the client config for HTTP.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HttpClientConfig-transport">
+<td><code>transport</code></td>
+<td><code><a href="#TransportConfig">TransportConfig</a></code></td>
+<td>
+<p>The transport config.</p>
+
+</td>
+</tr>
+<tr id="HttpClientConfig-service_configs">
+<td><code>serviceConfigs</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#ServiceConfig">ServiceConfig</a>&gt;</code></td>
+<td>
+<p>Map of control configuration indexed by destination.service. This
+is used to support per-service configuration for cases where a
+mixerclient serves multiple services.</p>
+
+</td>
+</tr>
+<tr id="HttpClientConfig-default_destination_service">
+<td><code>defaultDestinationService</code></td>
+<td><code>string</code></td>
+<td>
+<p>Default destination service name if none was specified in the
+client request.</p>
+
+</td>
+</tr>
+<tr id="HttpClientConfig-mixer_attributes">
+<td><code>mixerAttributes</code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td>
+<p>Default attributes to send to Mixer in both Check and
+Report. This typically includes &ldquo;destination.ip&rdquo; and
+&ldquo;destination.uid&rdquo; attributes.</p>
+
+</td>
+</tr>
+<tr id="HttpClientConfig-forward_attributes">
+<td><code>forwardAttributes</code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td>
+<p>Default attributes to forward to upstream. This typically
+includes the &ldquo;source.ip&rdquo; and &ldquo;source.uid&rdquo; attributes.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="IstioService">IstioService</h2>
+<section>
+<p>IstioService identifies a service and optionally service version.
+The FQDN of the service is composed from the name, namespace, and implementation-specific domain suffix
+(e.g. on Kubernetes, &ldquo;reviews&rdquo; + &ldquo;default&rdquo; + &ldquo;svc.cluster.local&rdquo; -&gt; &ldquo;reviews.default.svc.cluster.local&rdquo;).</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IstioService-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>The short name of the service such as &ldquo;foo&rdquo;.</p>
+
+</td>
+</tr>
+<tr id="IstioService-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Optional namespace of the service. Defaults to value of metadata namespace field.</p>
+
+</td>
+</tr>
+<tr id="IstioService-domain">
+<td><code>domain</code></td>
+<td><code>string</code></td>
+<td>
+<p>Domain suffix used to construct the service FQDN in implementations that support such specification.</p>
+
+</td>
+</tr>
+<tr id="IstioService-service">
+<td><code>service</code></td>
+<td><code>string</code></td>
+<td>
+<p>The service FQDN.</p>
+
+</td>
+</tr>
+<tr id="IstioService-labels">
+<td><code>labels</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Optional one or more labels that uniquely identify the service version.</p>
+
+<p><em>Note:</em> When used for a VirtualService destination, labels MUST be empty.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="NetworkFailPolicy">NetworkFailPolicy</h2>
+<section>
+<p>Specifies the behavior when the client is unable to connect to Mixer.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="NetworkFailPolicy-policy">
+<td><code>policy</code></td>
+<td><code><a href="#NetworkFailPolicy-FailPolicy">NetworkFailPolicy.FailPolicy</a></code></td>
+<td>
+<p>Specifies the behavior when the client is unable to connect to Mixer.</p>
+
+</td>
+</tr>
+<tr id="NetworkFailPolicy-max_retry">
+<td><code>maxRetry</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>Max retries on transport error.</p>
+
+</td>
+</tr>
+<tr id="NetworkFailPolicy-base_retry_wait">
+<td><code>baseRetryWait</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Base time to wait between retries.  Will be adjusted by exponential
+backoff and jitter.</p>
+
+</td>
+</tr>
+<tr id="NetworkFailPolicy-max_retry_wait">
+<td><code>maxRetryWait</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Max time to wait between retries.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="NetworkFailPolicy-FailPolicy">NetworkFailPolicy.FailPolicy</h2>
+<section>
+<p>Describes the policy.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="NetworkFailPolicy-FailPolicy-FAIL_OPEN">
+<td><code>FAIL_OPEN</code></td>
+<td>
+<p>If network connection fails, request is allowed and delivered to the
+service.</p>
+
+</td>
+</tr>
+<tr id="NetworkFailPolicy-FailPolicy-FAIL_CLOSE">
+<td><code>FAIL_CLOSE</code></td>
+<td>
+<p>If network connection fails, request is rejected.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Quota">Quota</h2>
+<section>
+<p>Specifies a quota to use with quota name and amount.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Quota-quota">
+<td><code>quota</code></td>
+<td><code>string</code></td>
+<td>
+<p>The quota name to charge</p>
+
+</td>
+</tr>
+<tr id="Quota-charge">
+<td><code>charge</code></td>
+<td><code>int64</code></td>
+<td>
+<p>The quota amount to charge</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="QuotaRule">QuotaRule</h2>
+<section>
+<p>Specifies a rule with list of matches and list of quotas.
+If any clause matched, the list of quotas will be used.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="QuotaRule-match">
+<td><code>match</code></td>
+<td><code><a href="#AttributeMatch">AttributeMatch[]</a></code></td>
+<td>
+<p>If empty, match all request.
+If any of match is true, it is matched.</p>
+
+</td>
+</tr>
+<tr id="QuotaRule-quotas">
+<td><code>quotas</code></td>
+<td><code><a href="#Quota">Quota[]</a></code></td>
+<td>
+<p>The list of quotas to charge.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="QuotaSpec">QuotaSpec</h2>
+<section>
+<p>Determines the quotas used for individual requests.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="QuotaSpec-rules">
+<td><code>rules</code></td>
+<td><code><a href="#QuotaRule">QuotaRule[]</a></code></td>
+<td>
+<p>A list of Quota rules.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="QuotaSpecBinding">QuotaSpecBinding</h2>
+<section>
+<p>QuotaSpecBinding defines the binding between QuotaSpecs and one or more
+IstioService.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="QuotaSpecBinding-services">
+<td><code>services</code></td>
+<td><code><a href="#IstioService">IstioService[]</a></code></td>
+<td>
+<p>REQUIRED. One or more services to map the listed QuotaSpec onto.</p>
+
+</td>
+</tr>
+<tr id="QuotaSpecBinding-quota_specs">
+<td><code>quotaSpecs</code></td>
+<td><code><a href="#QuotaSpecBinding-QuotaSpecReference">QuotaSpecBinding.QuotaSpecReference[]</a></code></td>
+<td>
+<p>REQUIRED. One or more QuotaSpec references that should be mapped to
+the specified service(s). The aggregate collection of match
+conditions defined in the QuotaSpecs should not overlap.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="QuotaSpecBinding-QuotaSpecReference">QuotaSpecBinding.QuotaSpecReference</h2>
+<section>
+<p>QuotaSpecReference uniquely identifies the QuotaSpec used in the
+Binding.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="QuotaSpecBinding-QuotaSpecReference-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>REQUIRED. The short name of the QuotaSpec. This is the resource
+name defined by the metadata name field.</p>
+
+</td>
+</tr>
+<tr id="QuotaSpecBinding-QuotaSpecReference-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Optional namespace of the QuotaSpec. Defaults to the value of the
+metadata namespace field.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ServiceConfig">ServiceConfig</h2>
+<section>
+<p>Defines the per-service client configuration.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ServiceConfig-disable_check_calls">
+<td><code>disableCheckCalls</code></td>
+<td><code>bool</code></td>
+<td>
+<p>If true, do not call Mixer Check.</p>
+
+</td>
+</tr>
+<tr id="ServiceConfig-disable_report_calls">
+<td><code>disableReportCalls</code></td>
+<td><code>bool</code></td>
+<td>
+<p>If true, do not call Mixer Report.</p>
+
+</td>
+</tr>
+<tr id="ServiceConfig-mixer_attributes">
+<td><code>mixerAttributes</code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td>
+<p>Send these attributes to Mixer in both Check and Report. This
+typically includes the &ldquo;destination.service&rdquo; attribute.
+In case of a per-route override, per-route attributes take precedence
+over the attributes supplied in the client configuration.</p>
+
+</td>
+</tr>
+<tr id="ServiceConfig-http_api_spec">
+<td><code>httpApiSpec</code></td>
+<td><code><a href="#HTTPAPISpec">HTTPAPISpec[]</a></code></td>
+<td>
+<p>HTTP API specifications to generate API attributes.</p>
+
+</td>
+</tr>
+<tr id="ServiceConfig-quota_spec">
+<td><code>quotaSpec</code></td>
+<td><code><a href="#QuotaSpec">QuotaSpec[]</a></code></td>
+<td>
+<p>Quota specifications to generate quota requirements.</p>
+
+</td>
+</tr>
+<tr id="ServiceConfig-network_fail_policy">
+<td><code>networkFailPolicy</code></td>
+<td><code><a href="#NetworkFailPolicy">NetworkFailPolicy</a></code></td>
+<td>
+<p>Specifies the behavior when the client is unable to connect to Mixer.
+This is the service-level policy. It overrides
+[mesh-level
+policy][istio.mixer.v1.config.client.TransportConfig.network<em>fail</em>policy].</p>
+
+</td>
+</tr>
+<tr id="ServiceConfig-forward_attributes">
+<td><code>forwardAttributes</code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td>
+<p>Default attributes to forward to upstream. This typically
+includes the &ldquo;source.ip&rdquo; and &ldquo;source.uid&rdquo; attributes.
+In case of a per-route override, per-route attributes take precedence
+over the attributes supplied in the client configuration.</p>
+
+<p>Forwarded attributes take precedence over the static Mixer attributes.
+The full order of application is as follows:
+1. static Mixer attributes from the filter config;
+2. static Mixer attributes from the route config;
+3. forwarded attributes from the source filter config (if any);
+4. forwarded attributes from the source route config (if any);
+5. derived attributes from the request metadata.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="StringMatch">StringMatch</h2>
+<section>
+<p>Describes how to match a given string in HTTP headers. Match is
+case-sensitive.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="StringMatch-exact" class="oneof oneof-start">
+<td><code>exact</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>exact string match</p>
+
+</td>
+</tr>
+<tr id="StringMatch-prefix" class="oneof">
+<td><code>prefix</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>prefix-based match</p>
+
+</td>
+</tr>
+<tr id="StringMatch-regex" class="oneof">
+<td><code>regex</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>ECMAscript style regex-based match</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TcpClientConfig">TcpClientConfig</h2>
+<section>
+<p>Defines the client config for TCP.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TcpClientConfig-transport">
+<td><code>transport</code></td>
+<td><code><a href="#TransportConfig">TransportConfig</a></code></td>
+<td>
+<p>The transport config.</p>
+
+</td>
+</tr>
+<tr id="TcpClientConfig-mixer_attributes">
+<td><code>mixerAttributes</code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td>
+<p>Default attributes to send to Mixer in both Check and
+Report. This typically includes &ldquo;destination.ip&rdquo; and
+&ldquo;destination.uid&rdquo; attributes.</p>
+
+</td>
+</tr>
+<tr id="TcpClientConfig-disable_check_calls">
+<td><code>disableCheckCalls</code></td>
+<td><code>bool</code></td>
+<td>
+<p>If set to true, disables Mixer check calls.</p>
+
+</td>
+</tr>
+<tr id="TcpClientConfig-disable_report_calls">
+<td><code>disableReportCalls</code></td>
+<td><code>bool</code></td>
+<td>
+<p>If set to true, disables Mixer check calls.</p>
+
+</td>
+</tr>
+<tr id="TcpClientConfig-connection_quota_spec">
+<td><code>connectionQuotaSpec</code></td>
+<td><code><a href="#QuotaSpec">QuotaSpec</a></code></td>
+<td>
+<p>Quota specifications to generate quota requirements.
+It applies on the new TCP connections.</p>
+
+</td>
+</tr>
+<tr id="TcpClientConfig-report_interval">
+<td><code>reportInterval</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Specify report interval to send periodical reports for long TCP
+connections. If not specified, the interval is 10 seconds. This interval
+should not be less than 1 second, otherwise it will be reset to 1 second.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TransportConfig">TransportConfig</h2>
+<section>
+<p>Defines the transport config on how to call Mixer.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TransportConfig-disable_check_cache">
+<td><code>disableCheckCache</code></td>
+<td><code>bool</code></td>
+<td>
+<p>The flag to disable check cache.</p>
+
+</td>
+</tr>
+<tr id="TransportConfig-disable_quota_cache">
+<td><code>disableQuotaCache</code></td>
+<td><code>bool</code></td>
+<td>
+<p>The flag to disable quota cache.</p>
+
+</td>
+</tr>
+<tr id="TransportConfig-disable_report_batch">
+<td><code>disableReportBatch</code></td>
+<td><code>bool</code></td>
+<td>
+<p>The flag to disable report batch.</p>
+
+</td>
+</tr>
+<tr id="TransportConfig-network_fail_policy">
+<td><code>networkFailPolicy</code></td>
+<td><code><a href="#NetworkFailPolicy">NetworkFailPolicy</a></code></td>
+<td>
+<p>Specifies the behavior when the client is unable to connect to Mixer.
+This is the mesh level policy. The default value for policy is FAIL_OPEN.</p>
+
+</td>
+</tr>
+<tr id="TransportConfig-stats_update_interval">
+<td><code>statsUpdateInterval</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Specify refresh interval to write Mixer client statistics to Envoy share
+memory. If not specified, the interval is 10 seconds.</p>
+
+</td>
+</tr>
+<tr id="TransportConfig-check_cluster">
+<td><code>checkCluster</code></td>
+<td><code>string</code></td>
+<td>
+<p>Name of the cluster that will forward check calls to a pool of mixer
+servers. Defaults to &ldquo;mixer_server&rdquo;. By using different names for
+checkCluster and reportCluster, it is possible to have one set of
+Mixer servers handle check calls, while another set of Mixer servers
+handle report calls.</p>
+
+<p>NOTE: Any value other than the default &ldquo;mixer_server&rdquo; will require the
+Istio Grafana dashboards to be reconfigured to use the new name.</p>
+
+</td>
+</tr>
+<tr id="TransportConfig-report_cluster">
+<td><code>reportCluster</code></td>
+<td><code>string</code></td>
+<td>
+<p>Name of the cluster that will forward report calls to a pool of mixer
+servers. Defaults to &ldquo;mixer_server&rdquo;. By using different names for
+checkCluster and reportCluster, it is possible to have one set of
+Mixer servers handle check calls, while another set of Mixer servers
+handle report calls.</p>
+
+<p>NOTE: Any value other than the default &ldquo;mixer_server&rdquo; will require the
+Istio Grafana dashboards to be reconfigured to use the new name.</p>
+
+</td>
+</tr>
+<tr id="TransportConfig-attributes_for_mixer_proxy">
+<td><code>attributesForMixerProxy</code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td>
+<p>Default attributes to forward to Mixer upstream. This typically
+includes the &ldquo;source.ip&rdquo; and &ldquo;source.uid&rdquo; attributes. These
+attributes are consumed by the proxy in front of mixer.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</h2>
+<section>
+<p>Attributes represents a set of typed name/value pairs. Many of Mixer&rsquo;s
+API either consume and/or return attributes.</p>
+
+<p>Istio uses attributes to control the runtime behavior of services running in the service mesh.
+Attributes are named and typed pieces of metadata describing ingress and egress traffic and the
+environment this traffic occurs in. An Istio attribute carries a specific piece
+of information such as the error code of an API request, the latency of an API request, or the
+original IP address of a TCP connection. For example:</p>
+
+<pre><code class="language-yaml">request.path: xyz/abc
+request.size: 234
+request.time: 12:34:56.789 04/17/2017
+source.ip: 192.168.0.1
+target.service: example
+</code></pre>
+
+<p>A given Istio deployment has a fixed vocabulary of attributes that it understands.
+The specific vocabulary is determined by the set of attribute producers being used
+in the deployment. The primary attribute producer in Istio is Envoy, although
+specialized Mixer adapters and services can also generate attributes.</p>
+
+<p>The common baseline set of attributes available in most Istio deployments is defined
+<a href="https://istio.io/docs/reference/config/policy-and-telemetry/attribute-vocabulary/">here</a>.</p>
+
+<p>Attributes are strongly typed. The supported attribute types are defined by
+<a href="https://github.com/istio/api/blob/master/policy/v1beta1/value_type.proto">ValueType</a>.
+Each type of value is encoded into one of the so-called transport types present
+in this message.</p>
+
+<p>Defines a map of attributes in uncompressed format.
+Following places may use this message:
+1) Configure Istio/Proxy with static per-proxy attributes, such as source.uid.
+2) Service IDL definition to extract api attributes for active requests.
+3) Forward attributes from client proxy to server proxy for HTTP requests.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="istio-mixer-v1-Attributes-attributes">
+<td><code>attributes</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio-mixer-v1-Attributes-AttributeValue">istio.mixer.v1.Attributes.AttributeValue</a>&gt;</code></td>
+<td>
+<p>A map of attribute name to its value.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>

@@ -1,0 +1,1205 @@
+---
+title: Service Mesh
+description: Configuration affecting the service mesh as a whole.
+location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+number_of_entries: 21
+---
+<p>Configuration affecting the service mesh as a whole.</p>
+
+<h2 id="AuthenticationPolicy">AuthenticationPolicy</h2>
+<section>
+<p>AuthenticationPolicy defines authentication policy. It can be set for
+different scopes (mesh, service …), and the most narrow scope with
+non-INHERIT value will be used.
+Mesh policy cannot be INHERIT.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="AuthenticationPolicy-NONE">
+<td><code>NONE</code></td>
+<td>
+<p>Do not encrypt Envoy to Envoy traffic.</p>
+
+</td>
+</tr>
+<tr id="AuthenticationPolicy-MUTUAL_TLS">
+<td><code>MUTUAL_TLS</code></td>
+<td>
+<p>Envoy to Envoy traffic is wrapped into mutual TLS connections.</p>
+
+</td>
+</tr>
+<tr id="AuthenticationPolicy-INHERIT">
+<td><code>INHERIT</code></td>
+<td>
+<p>Use the policy defined by the parent scope. Should not be used for mesh
+policy.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ConfigSource">ConfigSource</h2>
+<section>
+<p>ConfigSource describes information about a configuration store inside a
+mesh. A single control plane instance can interact with one or more data
+sources.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ConfigSource-address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the server implementing the Istio Mesh Configuration
+protocol (MCP). Can be IP address or a fully qualified DNS name.
+Use fs:/// to specify a file-based backend with absolute path to the directory.</p>
+
+</td>
+</tr>
+<tr id="ConfigSource-tls_settings">
+<td><code>tlsSettings</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/networking/v1alpha3/destination-rule.html#TLSSettings">istio.networking.v1alpha3.TLSSettings</a></code></td>
+<td>
+<p>Use the tls_settings to specify the tls mode to use. If the MCP server
+uses Istio mutual TLS and shares the root CA with Pilot, specify the TLS
+mode as <code>ISTIO_MUTUAL</code>.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="LocalityLoadBalancerSetting">LocalityLoadBalancerSetting</h2>
+<section>
+<p>Locality-weighted load balancing allows administrators to control the
+distribution of traffic to endpoints based on the localities of where the
+traffic originates and where it will terminate. These localities are
+specified using arbitrary labels that designate a hierarchy of localities in
+&lbrace;region}/&lbrace;zone}/&lbrace;sub-zone} form. For additional detail refer to
+<a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight">Locality Weight</a>
+The following example shows how to setup locality weights mesh-wide.</p>
+
+<p>Given a mesh with workloads and their service deployed to &ldquo;us-west/zone1/<em>&rdquo;
+and &ldquo;us-west/zone2/</em>&rdquo;. This example specifies that when traffic accessing a
+service originates from workloads in &ldquo;us-west/zone1/<em>&rdquo;, 80% of the traffic
+will be sent to endpoints in &ldquo;us-west/zone1/</em>&rdquo;, i.e the same zone, and the
+remaining 20% will go to endpoints in &ldquo;us-west/zone2/<em>&rdquo;. This setup is
+intended to favor routing traffic to endpoints in the same locality.
+A similar setting is specified for traffic originating in &ldquo;us-west/zone2/</em>&rdquo;.</p>
+
+<pre><code class="language-yaml">  distribute:
+    - from: us-west/zone1/*
+      to:
+        &quot;us-west/zone1/*&quot;: 80
+        &quot;us-west/zone2/*&quot;: 20
+    - from: us-west/zone2/*
+      to:
+        &quot;us-west/zone1/*&quot;: 20
+        &quot;us-west/zone2/*&quot;: 80
+</code></pre>
+
+<p>If the goal of the operator is not to distribute load across zones and
+regions but rather to restrict the regionality of failover to meet other
+operational requirements an operator can set a &lsquo;failover&rsquo; policy instead of
+a &lsquo;distribute&rsquo; policy.</p>
+
+<p>The following example sets up a locality failover policy for regions.
+Assume a service resides in zones within us-east, us-west &amp; eu-west
+this example specifies that when endpoints within us-east become unhealthy
+traffic should failover to endpoints in any zone or sub-zone within eu-west
+and similarly us-west should failover to us-east.</p>
+
+<pre><code class="language-yaml"> failover:
+   - from: us-east
+     to: eu-west
+   - from: us-west
+     to: us-east
+</code></pre>
+
+<p>Locality load balancing settings.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="LocalityLoadBalancerSetting-distribute">
+<td><code>distribute</code></td>
+<td><code><a href="#LocalityLoadBalancerSetting-Distribute">LocalityLoadBalancerSetting.Distribute[]</a></code></td>
+<td>
+<p>Optional: only one of distribute or failover can be set.
+Explicitly specify loadbalancing weight across different zones and geographical locations.
+Refer to <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight">Locality weighted load balancing</a>
+If empty, the locality weight is set according to the endpoints number within it.</p>
+
+</td>
+</tr>
+<tr id="LocalityLoadBalancerSetting-failover">
+<td><code>failover</code></td>
+<td><code><a href="#LocalityLoadBalancerSetting-Failover">LocalityLoadBalancerSetting.Failover[]</a></code></td>
+<td>
+<p>Optional: only failover or distribute can be set.
+Explicitly specify the region traffic will land on when endpoints in local region becomes unhealthy.
+Should be used together with OutlierDetection to detect unhealthy endpoints.
+Note: if no OutlierDetection specified, this will not take effect.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="LocalityLoadBalancerSetting-Distribute">LocalityLoadBalancerSetting.Distribute</h2>
+<section>
+<p>Describes how traffic originating in the &lsquo;from&rsquo; zone or sub-zone is
+distributed over a set of &lsquo;to&rsquo; zones. Syntax for specifying a zone is
+&lbrace;region}/&lbrace;zone}/&lbrace;sub-zone} and terminal wildcards are allowed on any
+segment of the specification. Examples:
+* - matches all localities
+us-west/* - all zones and sub-zones within the us-west region
+us-west/zone-1/* - all sub-zones within us-west/zone-1</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="LocalityLoadBalancerSetting-Distribute-from">
+<td><code>from</code></td>
+<td><code>string</code></td>
+<td>
+<p>Originating locality, &lsquo;/&rsquo; separated, e.g. &lsquo;region/zone/sub_zone&rsquo;.</p>
+
+</td>
+</tr>
+<tr id="LocalityLoadBalancerSetting-Distribute-to">
+<td><code>to</code></td>
+<td><code>map&lt;string,&nbsp;uint32&gt;</code></td>
+<td>
+<p>Map of upstream localities to traffic distribution weights. The sum of
+all weights should be == 100. Any locality not assigned a weight will
+receive no traffic.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="LocalityLoadBalancerSetting-Failover">LocalityLoadBalancerSetting.Failover</h2>
+<section>
+<p>Specify the traffic failover policy across regions. Since zone and sub-zone
+failover is supported by default this only needs to be specified for
+regions when the operator needs to constrain traffic failover so that
+the default behavior of failing over to any endpoint globally does not
+apply. This is useful when failing over traffic across regions would not
+improve service health or may need to be restricted for other reasons
+like regulatory controls.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="LocalityLoadBalancerSetting-Failover-from">
+<td><code>from</code></td>
+<td><code>string</code></td>
+<td>
+<p>Originating region.</p>
+
+</td>
+</tr>
+<tr id="LocalityLoadBalancerSetting-Failover-to">
+<td><code>to</code></td>
+<td><code>string</code></td>
+<td>
+<p>Destination region the traffic will fail over to when endpoints in
+the &lsquo;from&rsquo; region becomes unhealthy.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MeshConfig">MeshConfig</h2>
+<section>
+<p>MeshConfig defines mesh-wide variables shared by all Envoy instances in the
+Istio service mesh.</p>
+
+<p>NOTE: This configuration type should be used for the low-level global
+configuration, such as component addresses and port numbers. It should not
+be used for the features of the mesh that can be scoped by service or by
+namespace. Some of the fields in the mesh config are going to be deprecated
+and replaced with several individual configuration types (for example,
+tracing configuration).</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MeshConfig-mixer_check_server">
+<td><code>mixerCheckServer</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the server that will be used by the proxies for policy
+check calls. By using different names for mixerCheckServer and
+mixerReportServer, it is possible to have one set of Mixer servers handle
+policy check calls while another set of Mixer servers handle telemetry
+calls.</p>
+
+<p>NOTE: Omitting mixerCheckServer while specifying mixerReportServer is
+equivalent to setting disablePolicyChecks to true.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-mixer_report_server">
+<td><code>mixerReportServer</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the server that will be used by the proxies for policy report
+calls.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-disable_policy_checks">
+<td><code>disablePolicyChecks</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Disable policy checks by the Mixer service. Default
+is false, i.e. Mixer policy check is enabled by default.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-policy_check_fail_open">
+<td><code>policyCheckFailOpen</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Allow all traffic in cases when the Mixer policy service cannot be reached.
+Default is false which means the traffic is denied when the client is unable
+to connect to Mixer.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-sidecar_to_telemetry_session_affinity">
+<td><code>sidecarToTelemetrySessionAffinity</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Enable session affinity for Envoy Mixer reports so that calls from a proxy will
+always target the same Mixer instance.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-proxy_listen_port">
+<td><code>proxyListenPort</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Port on which Envoy should listen for incoming connections from
+other services.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-proxy_http_port">
+<td><code>proxyHttpPort</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Port on which Envoy should listen for HTTP PROXY requests if set.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-connect_timeout">
+<td><code>connectTimeout</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Connection timeout used by Envoy. (MUST BE &gt;=1ms)</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-tcp_keepalive">
+<td><code>tcpKeepalive</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/networking/v1alpha3/destination-rule.html#ConnectionPoolSettings-TCPSettings-TcpKeepalive">istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive</a></code></td>
+<td>
+<p>If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-ingress_class">
+<td><code>ingressClass</code></td>
+<td><code>string</code></td>
+<td>
+<p>Class of ingress resources to be processed by Istio ingress
+controller.  This corresponds to the value of
+&ldquo;kubernetes.io/ingress.class&rdquo; annotation.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-ingress_service">
+<td><code>ingressService</code></td>
+<td><code>string</code></td>
+<td>
+<p>Name of theKubernetes service used for the istio ingress controller.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-ingress_controller_mode">
+<td><code>ingressControllerMode</code></td>
+<td><code><a href="#MeshConfig-IngressControllerMode">MeshConfig.IngressControllerMode</a></code></td>
+<td>
+<p>Defines whether to use Istio ingress controller for annotated or all ingress resources.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-enable_tracing">
+<td><code>enableTracing</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Flag to control generation of trace spans and request IDs.
+Requires a trace span collector defined in the proxy configuration.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-access_log_file">
+<td><code>accessLogFile</code></td>
+<td><code>string</code></td>
+<td>
+<p>File address for the proxy access log (e.g. /dev/stdout).
+Empty value disables access logging.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-access_log_format">
+<td><code>accessLogFormat</code></td>
+<td><code>string</code></td>
+<td>
+<p>Format for the proxy access log
+Empty value results in proxy&rsquo;s default access log format</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-access_log_encoding">
+<td><code>accessLogEncoding</code></td>
+<td><code><a href="#MeshConfig-AccessLogEncoding">MeshConfig.AccessLogEncoding</a></code></td>
+<td>
+<p>Encoding for the proxy access log (text or json).
+Default value is text.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-default_config">
+<td><code>defaultConfig</code></td>
+<td><code><a href="#ProxyConfig">ProxyConfig</a></code></td>
+<td>
+<p>Default proxy config used by the proxy injection mechanism operating in the mesh
+(e.g. Kubernetes admission controller)
+In case of Kubernetes, the proxy config is applied once during the injection process,
+and remain constant for the duration of the pod. The rest of the mesh config can be changed
+at runtime and config gets distributed dynamically.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-outbound_traffic_policy">
+<td><code>outboundTrafficPolicy</code></td>
+<td><code><a href="#MeshConfig-OutboundTrafficPolicy">MeshConfig.OutboundTrafficPolicy</a></code></td>
+<td>
+<p>Set the default behavior of the sidecar for handling outbound traffic
+from the application.  If your application uses one or more external
+services that are not known apriori, setting the policy to ALLOW<em>ANY
+will cause the sidecars to route any unknown traffic originating from
+the application to its requested destination.  Users are strongly
+encouraged to use ServiceEntries to explicitly declare any external
+dependencies, instead of using allow</em>any, so that traffic to these
+services can be monitored.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-enable_client_side_policy_check">
+<td><code>enableClientSidePolicyCheck</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Enables clide side policy checks.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-sds_uds_path">
+<td><code>sdsUdsPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.
+Use secret-mount files instead of SDS if set to empty.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-config_sources">
+<td><code>configSources</code></td>
+<td><code><a href="#ConfigSource">ConfigSource[]</a></code></td>
+<td>
+<p>ConfigSource describes a source of configuration data for networking
+rules, and other Istio configuration artifacts. Multiple data sources
+can be configured for a single control plane.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-trust_domain">
+<td><code>trustDomain</code></td>
+<td><code>string</code></td>
+<td>
+<p>The trust domain corresponds to the trust root of a system.
+Refer to <a href="https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain">SPIFEE-ID</a>
+Fallback to old identity format(without trust domain) if not set.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-locality_lb_setting">
+<td><code>localityLbSetting</code></td>
+<td><code><a href="#LocalityLoadBalancerSetting">LocalityLoadBalancerSetting</a></code></td>
+<td>
+<p>Locality based load balancing distribution or failover settings.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-dns_refresh_rate">
+<td><code>dnsRefreshRate</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Configures DNS refresh rate for Envoy clusters of type STRICT_DNS</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MeshConfig-AccessLogEncoding">MeshConfig.AccessLogEncoding</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MeshConfig-AccessLogEncoding-TEXT">
+<td><code>TEXT</code></td>
+<td>
+</td>
+</tr>
+<tr id="MeshConfig-AccessLogEncoding-JSON">
+<td><code>JSON</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MeshConfig-IngressControllerMode">MeshConfig.IngressControllerMode</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MeshConfig-IngressControllerMode-OFF">
+<td><code>OFF</code></td>
+<td>
+<p>Disables Istio ingress controller.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-IngressControllerMode-DEFAULT">
+<td><code>DEFAULT</code></td>
+<td>
+<p>Istio ingress controller will act on ingress resources that do not
+contain any annotation or whose annotations match the value
+specified in the ingress_class parameter described earlier. Use this
+mode if Istio ingress controller will be the default ingress
+controller for the entireKubernetes cluster.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-IngressControllerMode-STRICT">
+<td><code>STRICT</code></td>
+<td>
+<p>Istio ingress controller will only act on ingress resources whose
+annotations match the value specified in the ingress_class parameter
+described earlier. Use this mode if Istio ingress controller will be
+a secondary ingress controller (e.g., in addition to a
+cloud-provided ingress controller).</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MeshConfig-OutboundTrafficPolicy">MeshConfig.OutboundTrafficPolicy</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MeshConfig-OutboundTrafficPolicy-mode">
+<td><code>mode</code></td>
+<td><code><a href="#MeshConfig-OutboundTrafficPolicy-Mode">MeshConfig.OutboundTrafficPolicy.Mode</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MeshConfig-OutboundTrafficPolicy-Mode">MeshConfig.OutboundTrafficPolicy.Mode</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MeshConfig-OutboundTrafficPolicy-Mode-REGISTRY_ONLY">
+<td><code>REGISTRY_ONLY</code></td>
+<td>
+<p>outbound traffic will be restricted to services defined in the
+service registry as well as those defined through ServiceEntries</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-OutboundTrafficPolicy-Mode-ALLOW_ANY">
+<td><code>ALLOW_ANY</code></td>
+<td>
+<p>outbound traffic to unknown destinations will be allowed, in case
+there are no services or ServiceEntries for the destination port</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MeshNetworks">MeshNetworks</h2>
+<section>
+<p>MeshNetworks (config map) provides information about the set of networks
+inside a mesh and how to route to endpoints in each network. For example</p>
+
+<p>MeshNetworks(file/config map):
+networks:
+  network1:
+  - endpoints:
+    - fromRegistry: registry1 #must match secret name in Kubernetes
+    - fromCidr: 192.168.100.0/22 #a VM network for example
+    gateways:
+    - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
+      port: 15443
+      locality: us-east-1a
+    - address: 192.168.100.1
+      port: 15443
+      locality: us-east-1a</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MeshNetworks-networks">
+<td><code>networks</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Network">Network</a>&gt;</code></td>
+<td>
+<p>REQUIRED: The set of networks inside this mesh. Each network should
+have a unique name and information about how to infer the endpoints in
+the network as well as the gateways associated with the network.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Network">Network</h2>
+<section>
+<p>Network provides information about the endpoints in a routable L3
+network. A single routable L3 network can have one or more service
+registries. Note that the network has no relation to the locality of the
+endpoint. The endpoint locality will be obtained from the service
+registry.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Network-endpoints">
+<td><code>endpoints</code></td>
+<td><code><a href="#Network-NetworkEndpoints">Network.NetworkEndpoints[]</a></code></td>
+<td>
+<p>REQUIRED: The list of endpoints in the network (obtained through the
+constituent service registries or from CIDR ranges). All endpoints in
+the network are directly accessible to one another.</p>
+
+</td>
+</tr>
+<tr id="Network-gateways">
+<td><code>gateways</code></td>
+<td><code><a href="#Network-IstioNetworkGateway">Network.IstioNetworkGateway[]</a></code></td>
+<td>
+<p>REQUIRED: Set of gateways associated with the network.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Network-IstioNetworkGateway">Network.IstioNetworkGateway</h2>
+<section>
+<p>The gateway associated with this network. Traffic from remote networks
+will arrive at the specified gateway:port. All incoming traffic must
+use mTLS.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Network-IstioNetworkGateway-registry_service_name" class="oneof oneof-start">
+<td><code>registryServiceName</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>A fully qualified domain name of the gateway service.  Pilot will
+lookup the service from the service registries in the network and
+obtain the endpoint IPs of the gateway from the service
+registry. Note that while the service name is a fully qualified
+domain name, it need not be resolvable outside the orchestration
+platform for the registry. e.g., this could be
+istio-ingressgateway.istio-system.svc.cluster.local.</p>
+
+</td>
+</tr>
+<tr id="Network-IstioNetworkGateway-address" class="oneof">
+<td><code>address</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>IP address or externally resolvable DNS address associated with the gateway.</p>
+
+</td>
+</tr>
+<tr id="Network-IstioNetworkGateway-port">
+<td><code>port</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>REQUIRED: The port associated with the gateway.</p>
+
+</td>
+</tr>
+<tr id="Network-IstioNetworkGateway-locality">
+<td><code>locality</code></td>
+<td><code>string</code></td>
+<td>
+<p>The locality associated with an explicitly specified gateway (i.e. ip)</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Network-NetworkEndpoints">Network.NetworkEndpoints</h2>
+<section>
+<p>NetworkEndpoints describes how the network associated with an endpoint
+should be inferred. An endpoint will be assigned to a network based on
+the following rules:</p>
+
+<ol>
+<li><p>Implicitly: If the registry explicitly provides information about
+the network to which the endpoint belongs to. In some cases, its
+possible to indicate the network associated with the endpoint by
+adding the <code>ISTIO_META_NETWORK</code> environment variable to the sidecar.</p></li>
+
+<li><p>Explicitly:</p></li>
+</ol>
+
+<p>a. By matching the registry name with one of the &ldquo;fromRegistry&rdquo;
+   in the mesh config. A &ldquo;from_registry&rdquo; can only be assigned to a
+   single network.</p>
+
+<p>b. By matching the IP against one of the CIDR ranges in a mesh
+   config network. The CIDR ranges must not overlap and be assigned to
+   a single network.</p>
+
+<p>(2) will override (1) if both are present.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Network-NetworkEndpoints-from_cidr" class="oneof oneof-start">
+<td><code>fromCidr</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>A CIDR range for the set of endpoints in this network. The CIDR
+ranges for endpoints from different networks must not overlap.</p>
+
+</td>
+</tr>
+<tr id="Network-NetworkEndpoints-from_registry" class="oneof">
+<td><code>fromRegistry</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>Add all endpoints from the specified registry into this network.
+The names of the registries should correspond to the secret name
+that was used to configure the registry (Kubernetes multicluster) or
+supplied by MCP server.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ProxyConfig">ProxyConfig</h2>
+<section>
+<p>ProxyConfig defines variables for individual Envoy instances.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ProxyConfig-config_path">
+<td><code>configPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>Path to the generated configuration file directory.
+Proxy agent generates the actual configuration and stores it in this directory.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-binary_path">
+<td><code>binaryPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>Path to the proxy binary</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-service_cluster">
+<td><code>serviceCluster</code></td>
+<td><code>string</code></td>
+<td>
+<p>Service cluster defines the name for the service_cluster that is
+shared by all Envoy instances. This setting corresponds to
+<em>&ndash;service-cluster</em> flag in Envoy.  In a typical Envoy deployment, the
+<em>service-cluster</em> flag is used to identify the caller, for
+source-based routing scenarios.</p>
+
+<p>Since Istio does not assign a local service/service version to each
+Envoy instance, the name is same for all of them.  However, the
+source/caller&rsquo;s identity (e.g., IP address) is encoded in the
+<em>&ndash;service-node</em> flag when launching Envoy.  When the RDS service
+receives API calls from Envoy, it uses the value of the <em>service-node</em>
+flag to compute routes that are relative to the service instances
+located at that IP address.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-drain_duration">
+<td><code>drainDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>The time in seconds that Envoy will drain connections during a hot
+restart. MUST be &gt;=1s (e.g., <em>1s/1m/1h</em>)</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-parent_shutdown_duration">
+<td><code>parentShutdownDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>The time in seconds that Envoy will wait before shutting down the
+parent process during a hot restart. MUST be &gt;=1s (e.g., <em>1s/1m/1h</em>).
+MUST BE greater than <em>drain</em>duration_ parameter.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-discovery_address">
+<td><code>discoveryAddress</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the discovery service exposing xDS with mTLS connection.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-zipkin_address" class="deprecated ">
+<td><code>zipkinAddress</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the Zipkin service (e.g. <em>zipkin:9411</em>).
+DEPRECATED: Use <a href="#ProxyConfig-tracing">tracing</a> instead.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-connect_timeout">
+<td><code>connectTimeout</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Connection timeout used by Envoy for supporting services. (MUST BE &gt;=1ms)</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-statsd_udp_address">
+<td><code>statsdUdpAddress</code></td>
+<td><code>string</code></td>
+<td>
+<p>IP Address and Port of a statsd UDP listener (e.g. <em>10.75.241.127:9125</em>).</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-envoy_metrics_service_address">
+<td><code>envoyMetricsServiceAddress</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the Envoy Metrics Service implementation (e.g. metrics-service:15000).
+See <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto">Metric Service</a>
+for details about Envoy&rsquo;s Metrics Service API.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-proxy_admin_port">
+<td><code>proxyAdminPort</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Port on which Envoy should listen for administrative commands.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-control_plane_auth_policy">
+<td><code>controlPlaneAuthPolicy</code></td>
+<td><code><a href="#AuthenticationPolicy">AuthenticationPolicy</a></code></td>
+<td>
+<p>Authentication policy defines the global switch to control authentication
+for Envoy-to-Envoy communication for istio components Mixer and Pilot.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-custom_config_file">
+<td><code>customConfigFile</code></td>
+<td><code>string</code></td>
+<td>
+<p>File path of custom proxy configuration, currently used by proxies
+in front of Mixer and Pilot.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-stat_name_length">
+<td><code>statNameLength</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Maximum length of name field in Envoy&rsquo;s metrics. The length of the name field
+is determined by the length of a name field in a service and the set of labels that
+comprise a particular version of the service. The default value is set to 189 characters.
+Envoy&rsquo;s internal metrics take up 67 characters, for a total of 256 character name per metric.
+Increase the value of this field if you find that the metrics from Envoys are truncated.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-concurrency">
+<td><code>concurrency</code></td>
+<td><code>int32</code></td>
+<td>
+<p>The number of worker threads to run. Default value is number of cores on the machine.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-proxy_bootstrap_template_path">
+<td><code>proxyBootstrapTemplatePath</code></td>
+<td><code>string</code></td>
+<td>
+<p>Path to the proxy bootstrap template file</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-interception_mode">
+<td><code>interceptionMode</code></td>
+<td><code><a href="#ProxyConfig-InboundInterceptionMode">ProxyConfig.InboundInterceptionMode</a></code></td>
+<td>
+<p>The mode used to redirect inbound traffic to Envoy.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-tracing">
+<td><code>tracing</code></td>
+<td><code><a href="#Tracing">Tracing</a></code></td>
+<td>
+<p>Tracing configuration to be used by the proxy.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-sds">
+<td><code>sds</code></td>
+<td><code><a href="#SDS">SDS</a></code></td>
+<td>
+<p>secret discovery service(SDS) configuration to be used by the proxy.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ProxyConfig-InboundInterceptionMode">ProxyConfig.InboundInterceptionMode</h2>
+<section>
+<p>The mode used to redirect inbound traffic to Envoy.
+This setting has no effect on outbound traffic: iptables REDIRECT is always used for
+outbound connections.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ProxyConfig-InboundInterceptionMode-REDIRECT">
+<td><code>REDIRECT</code></td>
+<td>
+<p>The REDIRECT mode uses iptables REDIRECT to NAT and redirect to Envoy. This mode loses
+source IP addresses during redirection.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-InboundInterceptionMode-TPROXY">
+<td><code>TPROXY</code></td>
+<td>
+<p>The TPROXY mode uses iptables TPROXY to redirect to Envoy. This mode preserves both the
+source and destination IP addresses and ports, so that they can be used for advanced
+filtering and manipulation. This mode also configures the sidecar to run with the
+CAP<em>NET</em>ADMIN capability, which is required to use TPROXY.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="SDS">SDS</h2>
+<section>
+<p>SDS defines secret discovery service(SDS) configuration to be used by the proxy.
+For workload, its values are set in sidecar injector(passed as arguments to istio-proxy container).
+For pilot/mixer, it&rsquo;s passed as arguments to istio-proxy container in pilot/mixer deployment yaml files directly.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="SDS-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+<p>True if SDS is enabled.</p>
+
+</td>
+</tr>
+<tr id="SDS-k8s_sa_jwt_path">
+<td><code>k8sSaJwtPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>Path of k8s service account JWT path.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Tracing">Tracing</h2>
+<section>
+<p>Tracing defines configuration for the tracing performed by Envoy instances.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Tracing-zipkin" class="oneof oneof-start">
+<td><code>zipkin</code></td>
+<td><code><a href="#Tracing-Zipkin">Tracing.Zipkin (oneof)</a></code></td>
+<td>
+<p>Use a Zipkin tracer.</p>
+
+</td>
+</tr>
+<tr id="Tracing-lightstep" class="oneof">
+<td><code>lightstep</code></td>
+<td><code><a href="#Tracing-Lightstep">Tracing.Lightstep (oneof)</a></code></td>
+<td>
+<p>Use a LightStep tracer.</p>
+
+</td>
+</tr>
+<tr id="Tracing-datadog" class="oneof">
+<td><code>datadog</code></td>
+<td><code><a href="#Tracing-Datadog">Tracing.Datadog (oneof)</a></code></td>
+<td>
+<p>Use a Datadog tracer.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Tracing-Datadog">Tracing.Datadog</h2>
+<section>
+<p>Datadog defines configuration for a Datadog tracer.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Tracing-Datadog-address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the Datadog Agent.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Tracing-Lightstep">Tracing.Lightstep</h2>
+<section>
+<p>Defines configuration for a LightStep tracer.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Tracing-Lightstep-address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the LightStep Satellite pool.</p>
+
+</td>
+</tr>
+<tr id="Tracing-Lightstep-access_token">
+<td><code>accessToken</code></td>
+<td><code>string</code></td>
+<td>
+<p>The LightStep access token.</p>
+
+</td>
+</tr>
+<tr id="Tracing-Lightstep-secure">
+<td><code>secure</code></td>
+<td><code>bool</code></td>
+<td>
+<p>True if a secure connection should be used when communicating with the pool.</p>
+
+</td>
+</tr>
+<tr id="Tracing-Lightstep-cacert_path">
+<td><code>cacertPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>Path to the trusted cacert used to authenticate the pool.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Tracing-Zipkin">Tracing.Zipkin</h2>
+<section>
+<p>Zipkin defines configuration for a Zipkin tracer.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Tracing-Zipkin-address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the Zipkin service (e.g. <em>zipkin:9411</em>).</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>

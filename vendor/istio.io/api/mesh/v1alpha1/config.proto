@@ -1,0 +1,397 @@
+// Copyright 2017 Istio Authors
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+
+syntax = "proto3";
+
+import "google/protobuf/duration.proto";
+import "mesh/v1alpha1/proxy.proto";
+import "networking/v1alpha3/destination_rule.proto";
+
+// $title: Service Mesh
+// $description: Configuration affecting the service mesh as a whole.
+// $location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
+
+// Configuration affecting the service mesh as a whole.
+package istio.mesh.v1alpha1;
+
+option go_package="istio.io/api/mesh/v1alpha1";
+
+// MeshConfig defines mesh-wide variables shared by all Envoy instances in the
+// Istio service mesh.
+//
+// NOTE: This configuration type should be used for the low-level global
+// configuration, such as component addresses and port numbers. It should not
+// be used for the features of the mesh that can be scoped by service or by
+// namespace. Some of the fields in the mesh config are going to be deprecated
+// and replaced with several individual configuration types (for example,
+// tracing configuration).
+message MeshConfig {
+  // Address of the server that will be used by the proxies for policy
+  // check calls. By using different names for mixerCheckServer and
+  // mixerReportServer, it is possible to have one set of Mixer servers handle
+  // policy check calls while another set of Mixer servers handle telemetry
+  // calls.
+  //
+  // NOTE: Omitting mixerCheckServer while specifying mixerReportServer is
+  // equivalent to setting disablePolicyChecks to true.
+  string mixer_check_server = 1;
+
+  // Address of the server that will be used by the proxies for policy report
+  // calls.
+  string mixer_report_server = 2;
+
+  // Disable policy checks by the Mixer service. Default
+  // is false, i.e. Mixer policy check is enabled by default.
+  bool disable_policy_checks = 3;
+
+  // Allow all traffic in cases when the Mixer policy service cannot be reached.
+  // Default is false which means the traffic is denied when the client is unable
+  // to connect to Mixer.
+  bool policy_check_fail_open = 25;
+
+  // Enable session affinity for Envoy Mixer reports so that calls from a proxy will
+  // always target the same Mixer instance.
+  bool sidecar_to_telemetry_session_affinity = 30;
+
+  // Port on which Envoy should listen for incoming connections from
+  // other services.
+  int32 proxy_listen_port = 4;
+
+  // Port on which Envoy should listen for HTTP PROXY requests if set.
+  int32 proxy_http_port = 5;
+
+  // Connection timeout used by Envoy. (MUST BE >=1ms)
+  google.protobuf.Duration connect_timeout = 6;
+
+  // If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.
+  istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive tcp_keepalive = 28;
+
+  // Class of ingress resources to be processed by Istio ingress
+  // controller.  This corresponds to the value of
+  // "kubernetes.io/ingress.class" annotation.
+  string ingress_class = 7;
+
+  // Name of theKubernetes service used for the istio ingress controller.
+  string ingress_service = 8;
+
+  enum IngressControllerMode {
+    // Disables Istio ingress controller.
+    OFF = 0;
+
+    // Istio ingress controller will act on ingress resources that do not
+    // contain any annotation or whose annotations match the value
+    // specified in the ingress_class parameter described earlier. Use this
+    // mode if Istio ingress controller will be the default ingress
+    // controller for the entireKubernetes cluster.
+    DEFAULT = 1;
+
+    // Istio ingress controller will only act on ingress resources whose
+    // annotations match the value specified in the ingress_class parameter
+    // described earlier. Use this mode if Istio ingress controller will be
+    // a secondary ingress controller (e.g., in addition to a
+    // cloud-provided ingress controller).
+    STRICT = 2;
+  }
+
+  // Defines whether to use Istio ingress controller for annotated or all ingress resources.
+  IngressControllerMode ingress_controller_mode = 9;
+
+  // $hide_from_docs
+  enum AuthPolicy {
+    NONE = 0;
+    MUTUAL_TLS = 1;
+  }
+
+  // $hide_from_docs
+  AuthPolicy auth_policy = 10 [deprecated=true];
+
+  // $hide_from_docs
+  google.protobuf.Duration rds_refresh_delay = 11 [deprecated=true];
+
+  // Flag to control generation of trace spans and request IDs.
+  // Requires a trace span collector defined in the proxy configuration.
+  bool enable_tracing = 12;
+
+  // File address for the proxy access log (e.g. /dev/stdout).
+  // Empty value disables access logging.
+  string access_log_file = 13;
+
+  // Format for the proxy access log
+  // Empty value results in proxy's default access log format
+  string access_log_format = 24;
+
+  enum AccessLogEncoding {
+    TEXT = 0;
+    JSON = 1;
+  }
+
+  // Encoding for the proxy access log (text or json).
+  // Default value is text.
+  AccessLogEncoding access_log_encoding = 27;
+
+  // Default proxy config used by the proxy injection mechanism operating in the mesh
+  // (e.g. Kubernetes admission controller)
+  // In case of Kubernetes, the proxy config is applied once during the injection process,
+  // and remain constant for the duration of the pod. The rest of the mesh config can be changed
+  // at runtime and config gets distributed dynamically.
+  ProxyConfig default_config = 14;
+
+  reserved 15;
+
+  // $hide_from_docs
+  string mixer_address = 16 [deprecated=true];
+
+  message OutboundTrafficPolicy {
+    enum Mode {
+      // outbound traffic will be restricted to services defined in the
+      // service registry as well as those defined through ServiceEntries
+      REGISTRY_ONLY = 0;
+      // outbound traffic to unknown destinations will be allowed, in case
+      // there are no services or ServiceEntries for the destination port
+      ALLOW_ANY = 1;
+
+      reserved 2;
+      reserved "VIRTUAL_SERVICE_ONLY";
+    }
+    Mode mode = 1;
+  }
+
+  // Set the default behavior of the sidecar for handling outbound traffic
+  // from the application.  If your application uses one or more external
+  // services that are not known apriori, setting the policy to ALLOW_ANY
+  // will cause the sidecars to route any unknown traffic originating from
+  // the application to its requested destination.  Users are strongly
+  // encouraged to use ServiceEntries to explicitly declare any external
+  // dependencies, instead of using allow_any, so that traffic to these
+  // services can be monitored.
+  OutboundTrafficPolicy outbound_traffic_policy = 17;
+
+  reserved 18;
+
+  // Enables clide side policy checks.
+  bool enable_client_side_policy_check = 19;
+
+  // Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.
+  // Use secret-mount files instead of SDS if set to empty.
+  string sds_uds_path = 20;
+
+  // $hide_from_docs
+  google.protobuf.Duration sds_refresh_delay = 21 [deprecated=true];
+
+  // ConfigSource describes a source of configuration data for networking
+  // rules, and other Istio configuration artifacts. Multiple data sources
+  // can be configured for a single control plane.
+  repeated ConfigSource config_sources = 22;
+
+  // $hide_from_docs
+  // This flag is used by secret discovery service(SDS).
+  // If set to true ([prerequisite](https://kubernetes.io/docs/concepts/storage/volumes/#projected)), Istio will inject volumes mount
+  // for Kubernetes service account trustworthy JWT(which is available with Kubernetes 1.12 or higher), so that the Kubernetes API server
+  // mounts Kubernetes service account trustworthy JWT to the Envoy container, which will be used to request key/cert eventually.
+  // This isn't supported for non-Kubernetes cases.
+  bool enable_sds_token_mount = 23;
+
+  // $hide_from_docs
+  // This flag is used by secret discovery service(SDS).
+  // If set to true, Envoy will fetch a normal Kubernetes service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token'
+  // (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod)
+  // and pass to sds server, which will be used to request key/cert eventually.
+  // If both enable_sds_token_mount and sds_use_k8s_sa_jwt are set to true, enable_sds_token_mount(trustworthy jwt) takes precedence.
+  // This isn't supported for non-k8s case.
+  bool sds_use_k8s_sa_jwt = 29;
+
+  // The trust domain corresponds to the trust root of a system.
+  // Refer to [SPIFEE-ID](https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain)
+  // Fallback to old identity format(without trust domain) if not set.
+  string trust_domain = 26;
+
+  // $hide_from_docs
+  // The default value for the ServiceEntry.export_to field and services
+  // imported through container registry integrations, e.g. this applies to
+  // Kubernetes Service resources. The value is a list of namespace names and
+  // reserved namespace aliases. The allowed namespace aliases are:
+  //
+  // * - All Namespaces
+  // . - Current Namespace
+  // ~ - No Namespace
+  //
+  // If not set the system will use "*" as the default value which implies that
+  // services are exported to all namespaces.
+  //
+  // 'All namespaces' is a reasonable default for implementations that don't
+  // need to restrict access or visibility of services across namespace
+  // boundaries. If that requirement is present it is generally good practice to
+  // make the default 'Current namespace' so that services are only visible
+  // within their own namespaces by default. Operators can then expand the
+  // visibility of services to other namespaces as needed. Use of 'No Namespace'
+  // is expected to be rare but can have utility for deployments where
+  // dependency management needs to be precise even within the scope of a single
+  // namespace.
+  //
+  // For further discussion see the reference documentation for ServiceEntry,
+  // Sidecar, and Gateway.
+  repeated string default_service_export_to = 31;
+
+  // $hide_from_docs
+  // The default value for the VirtualService.export_to field. Has the same
+  // syntax as 'default_service_export_to'.
+  //
+  // If not set the system will use "*" as the default value which implies that
+  // virtual services are exported to all namespaces
+  repeated string default_virtual_service_export_to = 32;
+
+  // $hide_from_docs
+  // The default value for the DestinationRule.export_to field. Has the same
+  // syntax as 'default_service_export_to'.
+  //
+  // If not set the system will use "*" as the default value which implies that
+  // destination rules are exported to all namespaces
+  repeated string default_destination_rule_export_to = 33;
+
+  // $hide_from_docs
+  // The namespace to treat as the administrative root namespace for
+  // Istio configuration. When processing a leaf namespace Istio will search for
+  // declarations in that namespace first and if none are found it will
+  // search in the root namespace. Any matching declaration found in the root
+  // namespace is processed as if it were declared in the leaf namespace.
+  //
+  // The precise semantics of this processing are documented on each resource
+  // type.
+  //
+  // There is no default value for this flag in 1.1 but in later releases it
+  // is expected to default to a new namespace, `istio-config`, which is
+  // maintained separately from the `istio-system` namespace where an instance
+  // of the control plane runtime is deployed. This separates the concerns of
+  // configuring the control-plane runtime from configuration of the mesh.
+  string root_namespace = 34;
+
+  // Locality based load balancing distribution or failover settings.
+  LocalityLoadBalancerSetting locality_lb_setting = 35;
+
+  // Configures DNS refresh rate for Envoy clusters of type STRICT_DNS
+  google.protobuf.Duration dns_refresh_rate = 36;
+
+  // $hide_from_docs
+  // Next available field number: 37
+}
+
+// ConfigSource describes information about a configuration store inside a
+// mesh. A single control plane instance can interact with one or more data
+// sources.
+message ConfigSource {
+  // Address of the server implementing the Istio Mesh Configuration
+  // protocol (MCP). Can be IP address or a fully qualified DNS name.
+  // Use fs:/// to specify a file-based backend with absolute path to the directory.
+  string address = 1;
+
+  // Use the tls_settings to specify the tls mode to use. If the MCP server
+  // uses Istio mutual TLS and shares the root CA with Pilot, specify the TLS
+  // mode as `ISTIO_MUTUAL`.
+  istio.networking.v1alpha3.TLSSettings tls_settings = 2;
+}
+
+
+// Locality-weighted load balancing allows administrators to control the
+// distribution of traffic to endpoints based on the localities of where the
+// traffic originates and where it will terminate. These localities are
+// specified using arbitrary labels that designate a hierarchy of localities in
+// {region}/{zone}/{sub-zone} form. For additional detail refer to
+// [Locality Weight](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight)
+// The following example shows how to setup locality weights mesh-wide.
+//
+// Given a mesh with workloads and their service deployed to "us-west/zone1/*"
+// and "us-west/zone2/*". This example specifies that when traffic accessing a
+// service originates from workloads in "us-west/zone1/*", 80% of the traffic
+// will be sent to endpoints in "us-west/zone1/*", i.e the same zone, and the
+// remaining 20% will go to endpoints in "us-west/zone2/*". This setup is
+// intended to favor routing traffic to endpoints in the same locality.
+// A similar setting is specified for traffic originating in "us-west/zone2/*".
+//
+// ```yaml
+//   distribute:
+//     - from: us-west/zone1/*
+//       to:
+//         "us-west/zone1/*": 80
+//         "us-west/zone2/*": 20
+//     - from: us-west/zone2/*
+//       to:
+//         "us-west/zone1/*": 20
+//         "us-west/zone2/*": 80
+// ```
+//
+// If the goal of the operator is not to distribute load across zones and
+// regions but rather to restrict the regionality of failover to meet other
+// operational requirements an operator can set a 'failover' policy instead of
+// a 'distribute' policy.
+//
+// The following example sets up a locality failover policy for regions.
+// Assume a service resides in zones within us-east, us-west & eu-west
+// this example specifies that when endpoints within us-east become unhealthy
+// traffic should failover to endpoints in any zone or sub-zone within eu-west
+// and similarly us-west should failover to us-east.
+//
+// ```yaml
+//  failover:
+//    - from: us-east
+//      to: eu-west
+//    - from: us-west
+//      to: us-east
+// ```
+// Locality load balancing settings.
+message LocalityLoadBalancerSetting{
+  // Describes how traffic originating in the 'from' zone or sub-zone is
+  // distributed over a set of 'to' zones. Syntax for specifying a zone is
+  // {region}/{zone}/{sub-zone} and terminal wildcards are allowed on any
+  // segment of the specification. Examples:
+  // * - matches all localities
+  // us-west/* - all zones and sub-zones within the us-west region
+  // us-west/zone-1/* - all sub-zones within us-west/zone-1
+  message Distribute{
+      // Originating locality, '/' separated, e.g. 'region/zone/sub_zone'.
+      string from = 1;
+
+      // Map of upstream localities to traffic distribution weights. The sum of
+      // all weights should be == 100. Any locality not assigned a weight will
+      // receive no traffic.
+      map<string, uint32> to = 2;
+  };
+
+  // Specify the traffic failover policy across regions. Since zone and sub-zone
+  // failover is supported by default this only needs to be specified for
+  // regions when the operator needs to constrain traffic failover so that
+  // the default behavior of failing over to any endpoint globally does not
+  // apply. This is useful when failing over traffic across regions would not
+  // improve service health or may need to be restricted for other reasons
+  // like regulatory controls.
+  message Failover{
+      // Originating region.
+      string from = 1;
+
+      // Destination region the traffic will fail over to when endpoints in
+      // the 'from' region becomes unhealthy.
+      string to = 2;
+  };
+
+  // Optional: only one of distribute or failover can be set.
+  // Explicitly specify loadbalancing weight across different zones and geographical locations.
+  // Refer to [Locality weighted load balancing](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight)
+  // If empty, the locality weight is set according to the endpoints number within it.
+  repeated Distribute distribute = 1;
+
+  // Optional: only failover or distribute can be set.
+  // Explicitly specify the region traffic will land on when endpoints in local region becomes unhealthy.
+  // Should be used together with OutlierDetection to detect unhealthy endpoints.
+  // Note: if no OutlierDetection specified, this will not take effect.
+  repeated Failover failover = 2;
+}

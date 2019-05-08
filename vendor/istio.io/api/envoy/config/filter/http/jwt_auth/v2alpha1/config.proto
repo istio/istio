@@ -1,0 +1,251 @@
+// Copyright 2018 Istio Authors
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+
+syntax = "proto3";
+
+import "google/protobuf/duration.proto";
+
+package istio.envoy.config.filter.http.jwt_auth.v2alpha1;
+
+option go_package = "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1";
+
+// Copied from @envoy/api/envoy/api/v2/core/http_uri.proto
+// Envoy external URI descriptor
+message HttpUri {
+  // The HTTP server URI. It should be a full FQDN with protocol, host and path.
+  //
+  // Example:
+  //
+  // .. code-block:: yaml
+  //
+  //    uri: https://www.googleapis.com/oauth2/v1/certs
+  //
+  string uri = 1;
+
+  // Specify how `uri` is to be fetched. Today, this requires an explicit
+  // cluster, but in the future we may support dynamic cluster creation or
+  // inline DNS resolution. See `issue
+  // <https://github.com/envoyproxy/envoy/issues/1606>`_.
+  oneof http_upstream_type {
+    // A cluster is created in the Envoy "cluster_manager" config
+    // section. This field specifies the cluster name.
+    //
+    // Example:
+    //
+    // .. code-block:: yaml
+    //
+    //    cluster: jwks_cluster
+    //
+    string cluster = 2;
+  }
+
+  // Sets the maximum duration in milliseconds that a response can take to arrive upon request.
+  google.protobuf.Duration timeout = 3;
+}
+
+// Copied from @envoy/api/envoy/api/v2/core/base.proto
+// Data source consisting of either a file or an inline value.
+message DataSource {
+  oneof specifier {
+    // Local filesystem data source.
+    string filename = 1;
+
+    // Bytes inlined in the configuration.
+    bytes inline_bytes = 2;
+
+    // String inlined in the configuration.
+    string inline_string = 3;
+  }
+}
+
+// This message specifies how a JSON Web Token (JWT) can be verified. See the [JWT format definition](https://tools.ietf.org/html/rfc7519)
+// for details. Please see [OAuth2.0](https://tools.ietf.org/html/rfc6749) and
+// [OIDC1.0](http://openid.net/connect) for
+// the authentication flow.
+//
+// Example:
+//
+// ```yaml
+//     issuer: https://example.com
+//     audiences:
+//     - bookstore_android.apps.googleusercontent.com
+//       bookstore_web.apps.googleusercontent.com
+//     remote_jwks:
+//     - http_uri:
+//       - uri: https://example.com/.well-known/jwks.json
+//         cluster: example_jwks_cluster
+//       cache_duration:
+//       - seconds: 300
+// ```
+message JwtRule {
+  // Identifies the principal that issued the JWT. See `here
+  //  <https://tools.ietf.org/html/rfc7519#section-4.1.1>`_. Usually a URL or an email address.
+  //
+  // Example: https://securetoken.google.com
+  // Example: 1234567-compute@developer.gserviceaccount.com
+  //
+  string issuer = 1;
+
+  // The list of JWT `audiences <https://tools.ietf.org/html/rfc7519#section-4.1.3>`_. that are
+  // allowed to access. A JWT containing any of these audiences will be accepted. If not specified,
+  // will not check audiences in the token.
+  //
+  // Example:
+  //
+  // .. code-block:: yaml
+  //
+  //     audiences:
+  //     - bookstore_android.apps.googleusercontent.com
+  //       bookstore_web.apps.googleusercontent.com
+  //
+  repeated string audiences = 2;
+
+  // `JSON Web Key Set <https://tools.ietf.org/html/rfc7517#appendix-A>`_ is needed. to validate
+  // signature of the JWT. This field specifies where to fetch JWKS.
+  oneof jwks_source_specifier {
+    // JWKS can be fetched from remote server via HTTP/HTTPS. This field specifies the remote HTTP
+    // URI and how the fetched JWKS should be cached.
+    //
+    // Example:
+    //
+    // .. code-block:: yaml
+    //
+    //    remote_jwks:
+    //    - http_uri:
+    //      - uri: https://www.googleapis.com/oauth2/v1/certs
+    //        cluster: jwt.www.googleapis.com|443
+    //      cache_duration:
+    //      - seconds: 300
+    //
+    RemoteJwks remote_jwks = 3;
+
+    // JWKS is in local data source. It could be either in a local file or embedded in the
+    // inline_string.
+    //
+    // Example: local file
+    //
+    // .. code-block:: yaml
+    //
+    //    local_jwks:
+    //    - filename: /etc/envoy/jwks/jwks1.txt
+    //
+    // Example: inline_string
+    //
+    // .. code-block:: yaml
+    //
+    //    local_jwks:
+    //    - inline_string: "ACADADADADA"
+    //
+    DataSource local_jwks = 4;
+  }
+
+  // If false, the JWT is removed in the request after a success verification. If true, the JWT is
+  // not removed in the request. Default value is false.
+  bool forward = 5;
+
+  // Two fields below define where to extract the JWT from an HTTP request.
+  //
+  // If no explicit location is specified, the following default locations are tried in order:
+  //
+  // 1. The Authorization header using the Bearer schema. See `here
+  //     <https://tools.ietf.org/html/rfc6750#section-2.1>`_. Example:
+  //
+  //       Authorization: Bearer <token>.
+  //
+  // 2. `access_token` query parameter. See `this
+  // <https://tools.ietf.org/html/rfc6750#section-2.3>`_
+  //
+
+  // Multiple JWTs can be verified for a request. Each JWT has to be extracted from the locations
+  // its issuer specified or from the default locations.
+
+  // Specify the HTTP headers to extract JWT token. For examples, following config:
+  //
+  // .. code-block:: yaml
+  //
+  //   from_headers:
+  //   - name: x-goog-iap-jwt-assertion
+  //
+  // can be used to extract token from header::
+  //
+  //   x-goog-iap-jwt-assertion: <JWT>.
+  //
+  repeated JwtHeader from_headers = 6;
+
+  // JWT is sent in a query parameter. `jwt_params` represents the query parameter names.
+  //
+  // For example, if config is:
+  //
+  // .. code-block:: yaml
+  //
+  //   from_params:
+  //   - jwt_token
+  //
+  // The JWT format in query parameter is::
+  //
+  //    /path?jwt_token=<JWT>
+  //
+  repeated string from_params = 7;
+
+  // This field specifies the header name to forward a successfully verified JWT payload to the
+  // backend. The forwarded data is::
+  //
+  //    base64_encoded(jwt_payload_in_JSON)
+  //
+  // If it is not specified, the payload will not be forwarded.
+  // Multiple JWTs in a request from different issuers will be supported. Multiple JWTs from the
+  // same issuer will not be supported. Each issuer can config this `forward_payload_header`. If
+  // multiple JWTs from different issuers want to forward their payloads, their
+  // `forward_payload_header` should be different.
+  string forward_payload_header = 8;
+}
+
+// This message specifies how to fetch JWKS from remote and how to cache it.
+message RemoteJwks {
+  // The HTTP URI to fetch the JWKS. For example:
+  //
+  // .. code-block:: yaml
+  //
+  //    http_uri:
+  //    - uri: https://www.googleapis.com/oauth2/v1/certs
+  //      cluster: jwt.www.googleapis.com|443
+  //
+  HttpUri http_uri = 1;
+
+  // Duration after which the cached JWKS should be expired. If not specified, default cache
+  // duration is 5 minutes.
+  google.protobuf.Duration cache_duration = 2;
+}
+
+// This message specifies a header location to extract JWT token.
+message JwtHeader {
+  // The HTTP header name.
+  string name = 1;
+
+  // The value prefix. The value format is "value_prefix<token>"
+  // For example, for "Authorization: Bearer <token>", value_prefix="Bearer " with a space at the
+  // end.
+  string value_prefix = 2;
+}
+
+// This is the Envoy HTTP filter config for JWT authentication.
+// [#not-implemented-hide:]
+message JwtAuthentication {
+  // List of JWT rules to valide.
+  repeated JwtRule rules = 1;
+
+  // If true, the request is allowed if JWT is missing or JWT verification fails.
+  // Default is false, a request without JWT or failed JWT verification is not allowed.
+  bool allow_missing_or_failed = 2;
+}

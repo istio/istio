@@ -1,0 +1,55 @@
+// Copyright 2018 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package istio.mixer.adapter.model.v1beta1;
+
+option go_package="istio.io/api/mixer/adapter/model/v1beta1";
+
+// Info describes an adapter or a backend that wants to provide telemetry and policy functionality to Mixer as an
+// out of process adapter.
+message Info {
+    // Name of the adapter. It must be an RFC 1035 compatible DNS label
+    // matching the `^[a-z]([-a-z0-9]*[a-z0-9])?$` regular expression.
+    // Name is used in Istio configuration, therefore it should be descriptive but short.
+    // example: denier
+    // Vendor adapters should use a vendor prefix.
+    // example: mycompany-denier
+    string name = 1;
+
+    // User-friendly description of the adapter.
+    string description = 2;
+
+    // Names of the templates the adapter supports.
+    repeated string templates = 3;
+
+    // Base64 encoded proto descriptor of the adapter configuration.
+    string config = 4;
+
+    // True if backend has implemented the
+    // [InfrastructureBackend](https://github.com/istio/api/blob/master/mixer/adapter/model/v1beta1/infrastructure_backend.proto)
+    // service; false otherwise.
+    //
+    // If true, during configuration time, Mixer calls the `InfrastructureBackend`' rpcs
+    // to validate and pass the handler configuration. And during request-time, Mixer does not pass the handler
+    // configuration, and only passes the template-specific Instance payload using the template-specific handle service (Example
+    // [HandlerMetricService](https://github.com/istio/istio/blob/master/mixer/template/metric/template_handler_service.proto),
+    // [HandlerListEntryService](https://github.com/istio/istio/blob/master/mixer/template/logentry/template_handler_service.proto),
+    // [HandleQuotaService](https://github.com/istio/istio/blob/master/mixer/template/quota/template_handler_service.proto) and more).
+    // If `session_based` is false, Mixer does not expect backend to implement `InfrastructureBackend` service, and
+    // only communicates with the backends during request-time through the template-specific handle service. Without
+    // `InfrastructureBackend` service, Mixer passes the handler configuration on each call during request-time.
+    bool session_based = 5;
+}

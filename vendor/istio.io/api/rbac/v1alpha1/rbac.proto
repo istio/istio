@@ -1,0 +1,404 @@
+// Copyright 2019 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// $title: RBAC
+// $description: Configuration for Role Based Access Control.
+// $location: https://istio.io/docs/reference/config/authorization/istio.rbac.v1alpha1.html
+
+// Istio RBAC (Role Based Access Control) defines ServiceRole and ServiceRoleBinding
+// objects.
+//
+// A ServiceRole specification includes a list of rules (permissions). Each rule has
+// the following standard fields:
+//
+//   * services: a list of services.
+//   * methods: HTTP methods. In the case of gRPC, this field is ignored because the value is always "POST".
+//   * paths: HTTP paths or gRPC methods. Note that gRPC methods should be
+//     presented in the form of "/packageName.serviceName/methodName" and are case sensitive.
+//
+// In addition to the standard fields, operators can also use custom keys in the `constraints` field,
+// the supported keys are listed in the "constraints and properties" page.
+//
+// Below is an example of ServiceRole object "product-viewer", which has "read" ("GET" and "HEAD")
+// access to "products.svc.cluster.local" service at versions "v1" and "v2". "path" is not specified,
+// so it applies to any path in the service.
+//
+// ```yaml
+// apiVersion: "rbac.istio.io/v1alpha1"
+// kind: ServiceRole
+// metadata:
+//   name: products-viewer
+//   namespace: default
+// spec:
+//   rules:
+//   - services: ["products.svc.cluster.local"]
+//     methods: ["GET", "HEAD"]
+//     constraints:
+//     - key: "destination.labels[version]"
+//       values: ["v1", "v2"]
+// ```
+//
+// A ServiceRoleBinding specification includes two parts:
+//
+//  * The `roleRef` field that refers to a ServiceRole object in the same namespace.
+//  * A list of `subjects` that are assigned the roles.
+//
+// In addition to a simple `user` field, operators can also use custom keys in the `properties` field,
+// the supported keys are listed in the "constraints and properties" page.
+//
+// Below is an example of ServiceRoleBinding object "test-binding-products", which binds two subjects
+// to ServiceRole "product-viewer":
+//
+//   * User "alice@yahoo.com"
+//   * Services in "abc" namespace.
+//
+// ```yaml
+// apiVersion: "rbac.istio.io/v1alpha1"
+// kind: ServiceRoleBinding
+// metadata:
+//   name: test-binding-products
+//   namespace: default
+// spec:
+//   subjects:
+//   - user: alice@yahoo.com
+//   - properties:
+//       source.namespace: "abc"
+//   roleRef:
+//     kind: ServiceRole
+//     name: "products-viewer"
+// ```
+package istio.rbac.v1alpha1;
+
+option go_package="istio.io/api/rbac/v1alpha1";
+
+// $hide_from_docs
+// This is forked from the networking/v1alpha3/sidecar.proto to avoid a direct
+// dependency from the rbac API on networking API.
+// TODO: Move the WorkloadSelector to a common place to be shared by other packages.
+// WorkloadSelector specifies the criteria used to determine if the Gateway
+// or Sidecar resource can be applied to a proxy. The matching criteria
+// includes the metadata associated with a proxy, workload instance info such as
+// labels attached to the pod/VM, or any other info that the proxy provides
+// to Istio during the initial handshake. If multiple conditions are
+// specified, all conditions need to match in order for the workload instance to be
+// selected. Currently, only label based selection mechanism is supported.
+message WorkloadSelector {
+  // One or more labels that indicate a specific set of pods/VMs on which
+  // this sidecar configuration should be applied. The scope of label
+  // search is restricted to the configuration namespace in which the the
+  // resource is present.
+  map<string, string> labels = 1;
+}
+
+// $hide_from_docs
+// AuthorizationPolicy to enforce access control on a selected workload instance.
+message AuthorizationPolicy {
+  // $hide_from_docs
+  // Optional. One or more labels that indicate a specific set of pods/VMs
+  // on which this authorization policy should be applied. Leave this empty to
+  // select all pods/VMs.
+  // The scope of label search is platform dependent. On Kubernetes, for example,
+  // the scope includes pods running in the same namespace as the authorization policy itself.
+  WorkloadSelector workload_selector = 1;
+
+  // $hide_from_docs
+  // A list of bindings that specify the subjects and permissions to the selected workload instance.
+  repeated ServiceRoleBinding allow = 2;
+}
+
+// ServiceRole specification contains a list of access rules (permissions).
+message ServiceRole {
+  // Required. The set of access rules (permissions) that the role has.
+  repeated AccessRule rules = 1;
+}
+
+// AccessRule defines a permission to access a list of services.
+message AccessRule {
+  // Required. A list of service names.
+  // Exact match, prefix match, and suffix match are supported for service names.
+  // For example, the service name "bookstore.mtv.cluster.local" matches
+  // "bookstore.mtv.cluster.local" (exact match), or "bookstore*" (prefix match),
+  // or "*.mtv.cluster.local" (suffix match).
+  // If set to ["*"], it refers to all services in the namespace.
+  repeated string services = 1;
+
+  // $hide_from_docs
+  // Optional. A list of HTTP hosts. This is matched against the HOST header in
+  // a HTTP request. Exact match, prefix match and suffix match are supported.
+  // For example, the host "test.abc.com" matches "test.abc.com" (exact match),
+  // or "*.abc.com" (prefix match), or "test.abc.*" (suffix match).
+  // If not specified, it matches to any host.
+  repeated string hosts = 5;
+
+  // $hide_from_docs
+  // Optional. A list of HTTP hosts that must not be matched.
+  repeated string not_hosts = 6;
+
+  // Optional. A list of HTTP paths or gRPC methods.
+  // gRPC methods must be presented as fully-qualified name in the form of
+  // "/packageName.serviceName/methodName" and are case sensitive.
+  // Exact match, prefix match, and suffix match are supported. For example,
+  // the path "/books/review" matches "/books/review" (exact match),
+  // or "/books/*" (prefix match), or "*/review" (suffix match).
+  // If not specified, it matches to any path.
+  repeated string paths = 2;
+
+  // $hide_from_docs
+  // Optional. A list of HTTP paths or gRPC methods that must not be matched.
+  repeated string not_paths = 7;
+
+  // Optional. A list of HTTP methods (e.g., "GET", "POST").
+  // It is ignored in gRPC case because the value is always "POST".
+  // If not specified, it matches to any methods.
+  repeated string methods = 3;
+
+  // $hide_from_docs
+  // Optional. A list of HTTP methods that must not be matched.
+  // Note: It's an error to set methods and not_methods at the same time.
+  repeated string not_methods = 8;
+
+  // $hide_from_docs
+  // Optional. A list of port numbers of the request. If not specified, it matches
+  // to any port number.
+  // Note: It's an error to set ports and not_ports at the same time.
+  repeated int32 ports = 9;
+
+  // $hide_from_docs
+  // Optional.  A list of port numbers that must not be matched.
+  // Note: It's an error to set ports and not_ports at the same time.
+  repeated int32 not_ports = 10;
+
+  // Definition of a custom constraint. The supported keys are listed in the "constraint and properties" page.
+  message Constraint {
+    // Key of the constraint.
+    string key = 1;
+
+    // List of valid values for the constraint.
+    // Exact match, prefix match, and suffix match are supported.
+    // For example, the value "v1alpha2" matches "v1alpha2" (exact match),
+    // or "v1*" (prefix match), or "*alpha2" (suffix match).
+    repeated string values = 2;
+  }
+
+  // Optional. Extra constraints in the ServiceRole specification.
+  repeated Constraint constraints = 4;
+
+  // $hide_from_docs
+  // Next available field number: 11
+}
+
+// $hide_from_docs
+// RBAC ServiceRoleBinding enforcement mode, used to verify new ServiceRoleBinding
+// configs work as expected before rolling to production. RBAC engine only logs results
+// from configs that are in permissive mode, and discards result before returning
+// to the user.
+enum EnforcementMode {
+  // Policy in ENFORCED mode has impact on user experience.
+  // Policy is in ENFORCED mode by default.
+  ENFORCED = 0;
+
+  // Policy in PERMISSIVE mode isn't enforced and has no impact on users.
+  // RBAC engine run policies in PERMISSIVE mode and logs stats.
+  PERMISSIVE = 1;
+}
+
+// ServiceRoleBinding assigns a ServiceRole to a list of subjects.
+message ServiceRoleBinding {
+  // Required. List of subjects that are assigned the ServiceRole object.
+  repeated Subject subjects = 1;
+
+  // Required. Reference to the ServiceRole object.
+  RoleRef roleRef = 2;
+
+  // $hide_from_docs
+  // Indicates enforcement mode of the ServiceRoleBinding.
+  EnforcementMode mode = 3;
+
+  // $hide_from_docs
+  // Inline role definition. An inline role is a role that is defined inside an
+  // authorization policy, instead of explicitly defined in a ServiceRole object.
+  // Inline roles can be used for the role definitions that are not intended to
+  // be reused in other bindings, while explicit roles are reusable. Both inline
+  // roles (defined in "actions" field) and explicit roles (defined in ServiceRole)
+  // are supported. Users should use only one of them in a single binding.
+  // For example, the following “product-frontend” AuthorizationPolicy allows “frontend”
+  // service to view “product” service on “/info” path.
+  // ```yaml
+  // apiVersion: "rbac.istio.io/v1alpha1"
+  // kind: AuthorizationPolicy
+  // metadata:
+  //  name: product-frontend
+  //  namespace: ns1
+  // spec:
+  //  selector:
+  //    labels:
+  //      app: product
+  //  allow:
+  //  - subjects:
+  //    - names: ["cluster.local/ns/default/sa/frontend"]
+  //    actions:
+  //    - paths: ["/info"]
+  //      methods: ["GET"]
+  // Required. The set of access rules (permissions) that the role has.
+  repeated AccessRule actions = 4;
+
+  // $hide_from_docs
+  // A `role` inside a ServiceRoleBinding refers to the ServiceRole that this
+  // ServiceRoleBinding binds to. A ServiceRoleBinding can bind to a ServiceRole
+  // in the same namespace or the root namespace. A ServiceRole in the root namespace
+  // represents a mesh global ServiceRole.
+  // The value of `role` is the name of the ServiceRole, and it can start with or without a forward slash ("/").
+  // When a `role` starts with "/", e.g. "/service-viewer", it means that this ServiceRoleBinding
+  // refers to the ServiceRole in the configurable Istio root namespace.
+  // When a `role` starts without "/", this ServiceRoleBinding refers to the ServiceRole in the
+  // same namespace as the AuthorizationPolicy's, which contains said ServiceRoleBinding.
+  string role = 5;
+}
+
+// Subject defines an identity. The identity is either a user or identified by a set of `properties`.
+// The supported keys in `properties` are listed in "constraint and properties" page.
+message Subject {
+  // Optional. The user name/ID that the subject represents.
+  string user = 1;
+
+  // $hide_from_docs
+  // Optional. A list of subject names. This is matched to the
+  // `source.principal` attribute. If one of subject names is "*", it matches to a subject with any name.
+  // Prefix and suffix matches are supported.
+  repeated string names = 4;
+
+  // $hide_from_docs
+  // Optional. A list of subject names that must not be matched.
+  repeated string not_names = 5;
+
+  // $hide_from_docs
+  // Optional. The group that the subject belongs to.
+  // Deprecated. Use groups and not_groups instead.
+  string group = 2 [deprecated = true];
+
+  // $hide_from_docs
+  // Optional. A list of groups that the subject represents. This is matched to the
+  // `request.auth.claims[groups]` attribute. If not specified, it applies to any groups.
+  repeated string groups = 6;
+
+  // $hide_from_docs
+  // Optional. A list of groups that must not be matched.
+  repeated string not_groups = 7;
+
+  // $hide_from_docs
+  // Optional. A list of namespaces that the subject represents. This is matched to
+  // the `source.namespace` attribute. If not specified, it applies to any namespaces.
+  repeated string namespaces = 8;
+
+  // $hide_from_docs
+  // Optional. A list of namespaces that must not be matched.
+  repeated string not_namespaces = 9;
+
+  // $hide_from_docs
+  // Optional. A list of IP address or CIDR ranges that the subject represents.
+  // E.g. 192.168.100.2 or 10.1.0.0/16. If not specified, it applies to any IP addresses.
+  repeated string ips = 10;
+
+  // $hide_from_docs
+  // Optional. A list of IP addresses or CIDR ranges that must not be matched.
+  repeated string not_ips = 11;
+
+  // Optional. The set of properties that identify the subject.
+  map<string, string> properties = 3;
+
+  // $hide_from_docs
+  // Next available field number: 12
+}
+
+// RoleRef refers to a role object.
+message RoleRef {
+  // Required. The type of the role being referenced.
+  // Currently, "ServiceRole" is the only supported value for "kind".
+  string kind = 1;
+
+  // Required. The name of the ServiceRole object being referenced.
+  // The ServiceRole object must be in the same namespace as the ServiceRoleBinding object.
+  string name = 2;
+}
+
+// $hide_from_docs
+// RbacConfig is deprecated.  RbacConfig defined the global config to control Istio RBAC behavior.
+// This Custom Resource is a singleton where only one Custom Resource should be created globally in
+// the mesh and the namespace should be the same to other Istio components, which usually is `istio-system`.
+// Note: This is enforced in both `istioctl` and server side, new Custom Resource will be rejected if found any
+// existing one, the user should either delete the existing one or change the existing one directly.
+//
+// Below is an example of an `RbacConfig` resource called `istio-rbac-config` which enables Istio RBAC for all
+// services in the default namespace.
+//
+// ```yaml
+// apiVersion: "rbac.istio.io/v1alpha1"
+// kind: RbacConfig
+// metadata:
+//   name: default
+//   namespace: istio-system
+// spec:
+//   mode: ON_WITH_INCLUSION
+//   inclusion:
+//     namespaces: [ "default" ]
+// ```
+message RbacConfig {
+  enum Mode {
+    // Disable Istio RBAC completely, any other config in RbacConfig will be ignored and Istio RBAC policies
+    // will not be enforced.
+    OFF = 0;
+    // Enable Istio RBAC for all services and namespaces.
+    ON = 1;
+    // Enable Istio RBAC only for services and namespaces specified in the inclusion field. Any other
+    // services and namespaces not in the inclusion field will not be enforced by Istio RBAC policies.
+    ON_WITH_INCLUSION = 2;
+    // Enable Istio RBAC for all services and namespaces except those specified in the exclusion field. Any other
+    // services and namespaces not in the exclusion field will be enforced by Istio RBAC policies.
+    ON_WITH_EXCLUSION = 3;
+  }
+
+  // Istio RBAC mode.
+  Mode mode = 1;
+
+  // Target defines a list of services or namespaces.
+  message Target {
+    // A list of services.
+    repeated string services = 1;
+
+    // $hide_from_docs
+    // A list of workload instances.
+    repeated WorkloadSelector workload_selectors = 3;
+
+    // A list of namespaces.
+    repeated string namespaces = 2;
+  }
+
+  // A list of services or namespaces that should be enforced by Istio RBAC policies. Note: This field have
+  // effect only when mode is ON_WITH_INCLUSION and will be ignored for any other modes.
+  Target inclusion = 2;
+
+  // A list of services or namespaces that should not be enforced by Istio RBAC policies. Note: This field have
+  // effect only when mode is ON_WITH_EXCLUSION and will be ignored for any other modes.
+  Target exclusion = 3;
+
+  // $hide_from_docs
+  // Indicates enforcement mode of the RbacConfig, in ENFORCED mode by default.
+  // It's used to verify new RbacConfig work as expected before rolling to production.
+  // When setting as PERMISSIVE, RBAC isn't enforced and has no impact on users.
+  // RBAC engine run RbacConfig in PERMISSIVE mode and logs stats.
+  // Invalid to set RbacConfig in PERMISSIVE and ServiceRoleBinding in ENFORCED mode.
+  EnforcementMode enforcement_mode = 4;
+}

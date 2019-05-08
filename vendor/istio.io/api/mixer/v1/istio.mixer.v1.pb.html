@@ -1,0 +1,1004 @@
+---
+title: istio.mixer.v1
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+number_of_entries: 21
+---
+<p>This package defines the Mixer API that the sidecar proxy uses to perform
+precondition checks, manage quotas, and report telemetry.</p>
+
+<h2 id="Services">Services</h2>
+<h3 id="Mixer">Mixer</h3>
+<section>
+<p>Mixer provides three core features:</p>
+
+<ul>
+<li><p><em>Precondition Checking</em>. Enables callers to verify a number of preconditions
+before responding to an incoming request from a service consumer.
+Preconditions can include whether the service consumer is properly
+authenticated, is on the service’s whitelist, passes ACL checks, and more.</p></li>
+
+<li><p><em>Quota Management</em>. Enables services to allocate and free quota on a number
+of dimensions, Quotas are used as a relatively simple resource management tool
+to provide some fairness between service consumers when contending for limited
+resources. Rate limits are examples of quotas.</p></li>
+
+<li><p><em>Telemetry Reporting</em>. Enables services to report logging and monitoring.
+In the future, it will also enable tracing and billing streams intended for
+both the service operator as well as for service consumers.</p></li>
+</ul>
+
+<pre id="Mixer-Check"><code class="language-proto">rpc Check(CheckRequest) returns (CheckResponse)
+</code></pre>
+<p>Checks preconditions and allocate quota before performing an operation.
+The preconditions enforced depend on the set of supplied attributes and
+the active configuration.</p>
+
+<pre id="Mixer-Report"><code class="language-proto">rpc Report(ReportRequest) returns (ReportResponse)
+</code></pre>
+<p>Reports telemetry, such as logs and metrics.
+The reported information depends on the set of supplied attributes and the
+active configuration.</p>
+
+</section>
+<h2 id="Types">Types</h2>
+<h3 id="Attributes">Attributes</h3>
+<section>
+<p>Attributes represents a set of typed name/value pairs. Many of Mixer&rsquo;s
+API either consume and/or return attributes.</p>
+
+<p>Istio uses attributes to control the runtime behavior of services running in the service mesh.
+Attributes are named and typed pieces of metadata describing ingress and egress traffic and the
+environment this traffic occurs in. An Istio attribute carries a specific piece
+of information such as the error code of an API request, the latency of an API request, or the
+original IP address of a TCP connection. For example:</p>
+
+<pre><code class="language-yaml">request.path: xyz/abc
+request.size: 234
+request.time: 12:34:56.789 04/17/2017
+source.ip: 192.168.0.1
+target.service: example
+</code></pre>
+
+<p>A given Istio deployment has a fixed vocabulary of attributes that it understands.
+The specific vocabulary is determined by the set of attribute producers being used
+in the deployment. The primary attribute producer in Istio is Envoy, although
+specialized Mixer adapters and services can also generate attributes.</p>
+
+<p>The common baseline set of attributes available in most Istio deployments is defined
+<a href="https://istio.io/docs/reference/config/policy-and-telemetry/attribute-vocabulary/">here</a>.</p>
+
+<p>Attributes are strongly typed. The supported attribute types are defined by
+<a href="https://github.com/istio/api/blob/master/policy/v1beta1/value_type.proto">ValueType</a>.
+Each type of value is encoded into one of the so-called transport types present
+in this message.</p>
+
+<p>Defines a map of attributes in uncompressed format.
+Following places may use this message:
+1) Configure Istio/Proxy with static per-proxy attributes, such as source.uid.
+2) Service IDL definition to extract api attributes for active requests.
+3) Forward attributes from client proxy to server proxy for HTTP requests.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Attributes-attributes">
+<td><code>attributes</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Attributes-AttributeValue">Attributes.AttributeValue</a>&gt;</code></td>
+<td>
+<p>A map of attribute name to its value.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="Attributes-AttributeValue">Attributes.AttributeValue</h3>
+<section>
+<p>Specifies one attribute value with different type.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Attributes-AttributeValue-string_value" class="oneof oneof-start">
+<td><code>stringValue</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>Used for values of type STRING, DNS<em>NAME, EMAIL</em>ADDRESS, and URI</p>
+
+</td>
+</tr>
+<tr id="Attributes-AttributeValue-int64_value" class="oneof">
+<td><code>int64Value</code></td>
+<td><code>int64 (oneof)</code></td>
+<td>
+<p>Used for values of type INT64</p>
+
+</td>
+</tr>
+<tr id="Attributes-AttributeValue-double_value" class="oneof">
+<td><code>doubleValue</code></td>
+<td><code>double (oneof)</code></td>
+<td>
+<p>Used for values of type DOUBLE</p>
+
+</td>
+</tr>
+<tr id="Attributes-AttributeValue-bool_value" class="oneof">
+<td><code>boolValue</code></td>
+<td><code>bool (oneof)</code></td>
+<td>
+<p>Used for values of type BOOL</p>
+
+</td>
+</tr>
+<tr id="Attributes-AttributeValue-bytes_value" class="oneof">
+<td><code>bytesValue</code></td>
+<td><code>bytes (oneof)</code></td>
+<td>
+<p>Used for values of type BYTES</p>
+
+</td>
+</tr>
+<tr id="Attributes-AttributeValue-timestamp_value" class="oneof">
+<td><code>timestampValue</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp (oneof)</a></code></td>
+<td>
+<p>Used for values of type TIMESTAMP</p>
+
+</td>
+</tr>
+<tr id="Attributes-AttributeValue-duration_value" class="oneof">
+<td><code>durationValue</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration (oneof)</a></code></td>
+<td>
+<p>Used for values of type DURATION</p>
+
+</td>
+</tr>
+<tr id="Attributes-AttributeValue-string_map_value" class="oneof">
+<td><code>stringMapValue</code></td>
+<td><code><a href="#Attributes-StringMap">Attributes.StringMap (oneof)</a></code></td>
+<td>
+<p>Used for values of type STRING_MAP</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="Attributes-StringMap">Attributes.StringMap</h3>
+<section>
+<p>Defines a string map.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Attributes-StringMap-entries">
+<td><code>entries</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Holds a set of name/value pairs.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="CheckRequest">CheckRequest</h3>
+<section>
+<p>Used to get a thumbs-up/thumbs-down before performing an action.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CheckRequest-attributes">
+<td><code>attributes</code></td>
+<td><code><a href="#CompressedAttributes">CompressedAttributes</a></code></td>
+<td>
+<p>The attributes to use for this request.</p>
+
+<p>Mixer&rsquo;s configuration determines how these attributes are used to
+establish the result returned in the response.</p>
+
+</td>
+</tr>
+<tr id="CheckRequest-global_word_count">
+<td><code>globalWordCount</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>The number of words in the global dictionary, used with to populate the attributes.
+This value is used as a quick way to determine whether the client is using a dictionary that
+the server understands.</p>
+
+</td>
+</tr>
+<tr id="CheckRequest-deduplication_id">
+<td><code>deduplicationId</code></td>
+<td><code>string</code></td>
+<td>
+<p>Used for deduplicating <code>Check</code> calls in the case of failed RPCs and retries. This should be a UUID
+per call, where the same UUID is used for retries of the same call.</p>
+
+</td>
+</tr>
+<tr id="CheckRequest-quotas">
+<td><code>quotas</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#CheckRequest-QuotaParams">CheckRequest.QuotaParams</a>&gt;</code></td>
+<td>
+<p>The individual quotas to allocate</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="CheckRequest-QuotaParams">CheckRequest.QuotaParams</h3>
+<section>
+<p>parameters for a quota allocation</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CheckRequest-QuotaParams-amount">
+<td><code>amount</code></td>
+<td><code>int64</code></td>
+<td>
+<p>Amount of quota to allocate</p>
+
+</td>
+</tr>
+<tr id="CheckRequest-QuotaParams-best_effort">
+<td><code>bestEffort</code></td>
+<td><code>bool</code></td>
+<td>
+<p>When true, supports returning less quota than what was requested.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="CheckResponse">CheckResponse</h3>
+<section>
+<p>The response generated by the Check method.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CheckResponse-precondition">
+<td><code>precondition</code></td>
+<td><code><a href="#CheckResponse-PreconditionResult">CheckResponse.PreconditionResult</a></code></td>
+<td>
+<p>The precondition check results.</p>
+
+</td>
+</tr>
+<tr id="CheckResponse-quotas">
+<td><code>quotas</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#CheckResponse-QuotaResult">CheckResponse.QuotaResult</a>&gt;</code></td>
+<td>
+<p>The resulting quota, one entry per requested quota.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="CheckResponse-PreconditionResult">CheckResponse.PreconditionResult</h3>
+<section>
+<p>Expresses the result of a precondition check.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CheckResponse-PreconditionResult-status">
+<td><code>status</code></td>
+<td><code><a href="#google-rpc-Status">google.rpc.Status</a></code></td>
+<td>
+<p>A status code of OK indicates all preconditions were satisfied. Any other code indicates not
+all preconditions were satisfied and details describe why.</p>
+
+</td>
+</tr>
+<tr id="CheckResponse-PreconditionResult-valid_duration">
+<td><code>validDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>The amount of time for which this result can be considered valid.</p>
+
+</td>
+</tr>
+<tr id="CheckResponse-PreconditionResult-valid_use_count">
+<td><code>validUseCount</code></td>
+<td><code>int32</code></td>
+<td>
+<p>The number of uses for which this result can be considered valid.</p>
+
+</td>
+</tr>
+<tr id="CheckResponse-PreconditionResult-referenced_attributes">
+<td><code>referencedAttributes</code></td>
+<td><code><a href="#ReferencedAttributes">ReferencedAttributes</a></code></td>
+<td>
+<p>The total set of attributes that were used in producing the result
+along with matching conditions.</p>
+
+</td>
+</tr>
+<tr id="CheckResponse-PreconditionResult-route_directive">
+<td><code>routeDirective</code></td>
+<td><code><a href="#RouteDirective">RouteDirective</a></code></td>
+<td>
+<p>An optional routing directive, used to manipulate the traffic metadata
+whenever all preconditions are satisfied.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="CheckResponse-QuotaResult">CheckResponse.QuotaResult</h3>
+<section>
+<p>Expresses the result of a quota allocation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CheckResponse-QuotaResult-valid_duration">
+<td><code>validDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>The amount of time for which this result can be considered valid.</p>
+
+</td>
+</tr>
+<tr id="CheckResponse-QuotaResult-granted_amount">
+<td><code>grantedAmount</code></td>
+<td><code>int64</code></td>
+<td>
+<p>The amount of granted quota. When <code>QuotaParams.best_effort</code> is true, this will be &gt;= 0.
+If <code>QuotaParams.best_effort</code> is false, this will be either 0 or &gt;= <code>QuotaParams.amount</code>.</p>
+
+</td>
+</tr>
+<tr id="CheckResponse-QuotaResult-referenced_attributes">
+<td><code>referencedAttributes</code></td>
+<td><code><a href="#ReferencedAttributes">ReferencedAttributes</a></code></td>
+<td>
+<p>The total set of attributes that were used in producing the result
+along with matching conditions.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="CompressedAttributes">CompressedAttributes</h3>
+<section>
+<p>Defines a list of attributes in compressed format optimized for transport.
+Within this message, strings are referenced using integer indices into
+one of two string dictionaries. Positive integers index into the global
+deployment-wide dictionary, whereas negative integers index into the message-level
+dictionary instead. The message-level dictionary is carried by the
+<code>words</code> field of this message, the deployment-wide dictionary is determined via
+configuration.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CompressedAttributes-words">
+<td><code>words</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>The message-level dictionary.</p>
+
+</td>
+</tr>
+<tr id="CompressedAttributes-strings">
+<td><code>strings</code></td>
+<td><code>map&lt;int32,&nbsp;int32&gt;</code></td>
+<td>
+<p>Holds attributes of type STRING, DNS<em>NAME, EMAIL</em>ADDRESS, URI</p>
+
+</td>
+</tr>
+<tr id="CompressedAttributes-int64s">
+<td><code>int64s</code></td>
+<td><code>map&lt;int32,&nbsp;int64&gt;</code></td>
+<td>
+<p>Holds attributes of type INT64</p>
+
+</td>
+</tr>
+<tr id="CompressedAttributes-doubles">
+<td><code>doubles</code></td>
+<td><code>map&lt;int32,&nbsp;double&gt;</code></td>
+<td>
+<p>Holds attributes of type DOUBLE</p>
+
+</td>
+</tr>
+<tr id="CompressedAttributes-bools">
+<td><code>bools</code></td>
+<td><code>map&lt;int32,&nbsp;bool&gt;</code></td>
+<td>
+<p>Holds attributes of type BOOL</p>
+
+</td>
+</tr>
+<tr id="CompressedAttributes-timestamps">
+<td><code>timestamps</code></td>
+<td><code>map&lt;int32,&nbsp;<a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp</a>&gt;</code></td>
+<td>
+<p>Holds attributes of type TIMESTAMP</p>
+
+</td>
+</tr>
+<tr id="CompressedAttributes-durations">
+<td><code>durations</code></td>
+<td><code>map&lt;int32,&nbsp;<a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a>&gt;</code></td>
+<td>
+<p>Holds attributes of type DURATION</p>
+
+</td>
+</tr>
+<tr id="CompressedAttributes-bytes">
+<td><code>bytes</code></td>
+<td><code>map&lt;int32,&nbsp;bytes&gt;</code></td>
+<td>
+<p>Holds attributes of type BYTES</p>
+
+</td>
+</tr>
+<tr id="CompressedAttributes-string_maps">
+<td><code>stringMaps</code></td>
+<td><code>map&lt;int32,&nbsp;<a href="#StringMap">StringMap</a>&gt;</code></td>
+<td>
+<p>Holds attributes of type STRING_MAP</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="HeaderOperation">HeaderOperation</h3>
+<section>
+<p>Operation on HTTP headers to replace, append, or remove a header. Header
+names are normalized to lower-case with dashes, e.g.  &ldquo;x-request-id&rdquo;.
+Pseudo-headers &ldquo;:path&rdquo;, &ldquo;:authority&rdquo;, and &ldquo;:method&rdquo; are supported to modify
+the request headers.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HeaderOperation-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Header name.</p>
+
+</td>
+</tr>
+<tr id="HeaderOperation-value">
+<td><code>value</code></td>
+<td><code>string</code></td>
+<td>
+<p>Header value.</p>
+
+</td>
+</tr>
+<tr id="HeaderOperation-operation">
+<td><code>operation</code></td>
+<td><code><a href="#HeaderOperation-Operation">HeaderOperation.Operation</a></code></td>
+<td>
+<p>Header operation.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="HeaderOperation-Operation">HeaderOperation.Operation</h3>
+<section>
+<p>Operation type.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HeaderOperation-Operation-REPLACE">
+<td><code>REPLACE</code></td>
+<td>
+<p>replaces the header with the given name</p>
+
+</td>
+</tr>
+<tr id="HeaderOperation-Operation-REMOVE">
+<td><code>REMOVE</code></td>
+<td>
+<p>removes the header with the given name (the value is ignored)</p>
+
+</td>
+</tr>
+<tr id="HeaderOperation-Operation-APPEND">
+<td><code>APPEND</code></td>
+<td>
+<p>appends the value to the header value, or sets it if not present</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="ReferencedAttributes">ReferencedAttributes</h3>
+<section>
+<p>Describes the attributes that were used to determine the response.
+This can be used to construct a response cache.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ReferencedAttributes-words">
+<td><code>words</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>The message-level dictionary. Refer to <a href="#CompressedAttributes">CompressedAttributes</a> for information
+on using dictionaries.</p>
+
+</td>
+</tr>
+<tr id="ReferencedAttributes-attribute_matches">
+<td><code>attributeMatches</code></td>
+<td><code><a href="#ReferencedAttributes-AttributeMatch">ReferencedAttributes.AttributeMatch[]</a></code></td>
+<td>
+<p>Describes a set of attributes.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="ReferencedAttributes-AttributeMatch">ReferencedAttributes.AttributeMatch</h3>
+<section>
+<p>Describes a single attribute match.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ReferencedAttributes-AttributeMatch-name">
+<td><code>name</code></td>
+<td><code>int32</code></td>
+<td>
+<p>The name of the attribute. This is a dictionary index encoded in a manner identical
+to all strings in the <a href="#CompressedAttributes">CompressedAttributes</a> message.</p>
+
+</td>
+</tr>
+<tr id="ReferencedAttributes-AttributeMatch-condition">
+<td><code>condition</code></td>
+<td><code><a href="#ReferencedAttributes-Condition">ReferencedAttributes.Condition</a></code></td>
+<td>
+<p>The kind of match against the attribute value.</p>
+
+</td>
+</tr>
+<tr id="ReferencedAttributes-AttributeMatch-regex">
+<td><code>regex</code></td>
+<td><code>string</code></td>
+<td>
+<p>If a REGEX condition is provided for a STRING_MAP attribute,
+clients should use the regex value to match against map keys.</p>
+
+</td>
+</tr>
+<tr id="ReferencedAttributes-AttributeMatch-map_key">
+<td><code>mapKey</code></td>
+<td><code>int32</code></td>
+<td>
+<p>A key in a STRING<em>MAP. When multiple keys from a STRING</em>MAP
+attribute were referenced, there will be multiple AttributeMatch
+messages with different map<em>key values. Values for map</em>key SHOULD
+be ignored for attributes that are not STRING_MAP.</p>
+
+<p>Indices for the keys are used (taken either from the
+message dictionary from the <code>words</code> field or the global dictionary).</p>
+
+<p>If no map<em>key value is provided for a STRING</em>MAP attribute, the
+entire STRING_MAP will be used.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="ReferencedAttributes-Condition">ReferencedAttributes.Condition</h3>
+<section>
+<p>How an attribute&rsquo;s value was matched</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ReferencedAttributes-Condition-CONDITION_UNSPECIFIED">
+<td><code>CONDITION_UNSPECIFIED</code></td>
+<td>
+<p>should not occur</p>
+
+</td>
+</tr>
+<tr id="ReferencedAttributes-Condition-ABSENCE">
+<td><code>ABSENCE</code></td>
+<td>
+<p>match when attribute doesn&rsquo;t exist</p>
+
+</td>
+</tr>
+<tr id="ReferencedAttributes-Condition-EXACT">
+<td><code>EXACT</code></td>
+<td>
+<p>match when attribute value is an exact byte-for-byte match</p>
+
+</td>
+</tr>
+<tr id="ReferencedAttributes-Condition-REGEX">
+<td><code>REGEX</code></td>
+<td>
+<p>match when attribute value matches the included regex</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="ReportRequest">ReportRequest</h3>
+<section>
+<p>Used to report telemetry after performing one or more actions.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ReportRequest-attributes">
+<td><code>attributes</code></td>
+<td><code><a href="#CompressedAttributes">CompressedAttributes[]</a></code></td>
+<td>
+<p>The attributes to use for this request.</p>
+
+<p>Each <code>Attributes</code> element represents the state of a single action. Multiple actions
+can be provided in a single message in order to improve communication efficiency. The
+client can accumulate a set of actions and send them all in one single message.</p>
+
+</td>
+</tr>
+<tr id="ReportRequest-repeated_attributes_semantics">
+<td><code>repeatedAttributesSemantics</code></td>
+<td><code><a href="#ReportRequest-RepeatedAttributesSemantics">ReportRequest.RepeatedAttributesSemantics</a></code></td>
+<td>
+<p>Indicates how to decode the attributes sets in this request.</p>
+
+</td>
+</tr>
+<tr id="ReportRequest-default_words">
+<td><code>defaultWords</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>The default message-level dictionary for all the attributes.
+Individual attribute messages can have their own dictionaries, but if they don&rsquo;t
+then this set of words, if it is provided, is used instead.</p>
+
+<p>This makes it possible to share the same dictionary for all attributes in this
+request, which can substantially reduce the overall request size.</p>
+
+</td>
+</tr>
+<tr id="ReportRequest-global_word_count">
+<td><code>globalWordCount</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>The number of words in the global dictionary.
+To detect global dictionary out of sync between client and server.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="ReportRequest-RepeatedAttributesSemantics">ReportRequest.RepeatedAttributesSemantics</h3>
+<section>
+<p>Used to signal how the sets of compressed attributes should be reconstitued server-side.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ReportRequest-RepeatedAttributesSemantics-DELTA_ENCODING">
+<td><code>DELTA_ENCODING</code></td>
+<td>
+<p>Use delta encoding between sets of compressed attributes to reduce the overall on-wire
+request size. Each individual set of attributes is used to modify the previous set.
+NOTE: There is no way with this encoding to specify attribute value deletion. This
+option should be used with extreme caution.</p>
+
+</td>
+</tr>
+<tr id="ReportRequest-RepeatedAttributesSemantics-INDEPENDENT_ENCODING">
+<td><code>INDEPENDENT_ENCODING</code></td>
+<td>
+<p>Treat each set of compressed attributes as complete - independent from other sets
+in this request. This will result in on-wire duplication of attributes and values, but
+will allow for proper accounting of absent values in overall encoding.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="ReportResponse">ReportResponse</h3>
+<section>
+<p>Used to carry responses to telemetry reports</p>
+
+</section>
+<h3 id="RouteDirective">RouteDirective</h3>
+<section>
+<p>Expresses the routing manipulation actions to be performed on behalf of
+Mixer in response to a precondition check.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="RouteDirective-request_header_operations">
+<td><code>requestHeaderOperations</code></td>
+<td><code><a href="#HeaderOperation">HeaderOperation[]</a></code></td>
+<td>
+<p>Operations on the request headers.</p>
+
+</td>
+</tr>
+<tr id="RouteDirective-response_header_operations">
+<td><code>responseHeaderOperations</code></td>
+<td><code><a href="#HeaderOperation">HeaderOperation[]</a></code></td>
+<td>
+<p>Operations on the response headers.</p>
+
+</td>
+</tr>
+<tr id="RouteDirective-direct_response_code">
+<td><code>directResponseCode</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>If set, enables a direct response without proxying the request to the routing
+destination. Required to be a value in the 2xx or 3xx range.</p>
+
+</td>
+</tr>
+<tr id="RouteDirective-direct_response_body">
+<td><code>directResponseBody</code></td>
+<td><code>string</code></td>
+<td>
+<p>Supplies the response body for the direct response.
+If this setting is omitted, no body is included in the generated response.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="StringMap">StringMap</h3>
+<section>
+<p>A map of string to string. The keys and values in this map are dictionary
+indices (see the <a href="#CompressedAttributes">Attributes</a> message for an explanation)</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="StringMap-entries">
+<td><code>entries</code></td>
+<td><code>map&lt;int32,&nbsp;int32&gt;</code></td>
+<td>
+<p>Holds a set of name/value pairs.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="google-rpc-Status">google.rpc.Status</h3>
+<section>
+<p>The <code>Status</code> type defines a logical error model that is suitable for different
+programming environments, including REST APIs and RPC APIs. It is used by
+<a href="https://github.com/grpc">gRPC</a>. The error model is designed to be:</p>
+
+<ul>
+<li>Simple to use and understand for most users</li>
+<li>Flexible enough to meet unexpected needs</li>
+</ul>
+
+<h4 id="overview">Overview</h4>
+
+<p>The <code>Status</code> message contains three pieces of data: error code, error message,
+and error details. The error code should be an enum value of
+<em>google.rpc.Code</em>, but it may accept additional error codes if needed.  The
+error message should be a developer-facing English message that helps
+developers <em>understand</em> and <em>resolve</em> the error. If a localized user-facing
+error message is needed, put the localized message in the error details or
+localize it in the client. The optional error details may contain arbitrary
+information about the error. There is a predefined set of error detail types
+in the package <code>google.rpc</code> that can be used for common error conditions.</p>
+
+<h4 id="language-mapping">Language mapping</h4>
+
+<p>The <code>Status</code> message is the logical representation of the error model, but it
+is not necessarily the actual wire format. When the <code>Status</code> message is
+exposed in different client libraries and different wire protocols, it can be
+mapped differently. For example, it will likely be mapped to some exceptions
+in Java, but more likely mapped to some error codes in C.</p>
+
+<h4 id="other-uses">Other uses</h4>
+
+<p>The error model and the <code>Status</code> message can be used in a variety of
+environments, either with or without APIs, to provide a
+consistent developer experience across different environments.</p>
+
+<p>Example uses of this error model include:</p>
+
+<ul>
+<li><p>Partial errors. If a service needs to return partial errors to the client,
+it may embed the <code>Status</code> in the normal response to indicate the partial
+errors.</p></li>
+
+<li><p>Workflow errors. A typical workflow has multiple steps. Each step may
+have a <code>Status</code> message for error reporting.</p></li>
+
+<li><p>Batch operations. If a client uses batch request and batch response, the
+<code>Status</code> message should be used directly inside batch response, one for
+each error sub-response.</p></li>
+
+<li><p>Asynchronous operations. If an API call embeds asynchronous operation
+results in its response, the status of those operations should be
+represented directly using the <code>Status</code> message.</p></li>
+
+<li><p>Logging. If some API errors are stored in logs, the message <code>Status</code> could
+be used directly after any stripping needed for security/privacy reasons.</p></li>
+</ul>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="google-rpc-Status-code">
+<td><code>code</code></td>
+<td><code>int32</code></td>
+<td>
+<p>The status code, which should be an enum value of <em>google.rpc.Code</em>.</p>
+
+</td>
+</tr>
+<tr id="google-rpc-Status-message">
+<td><code>message</code></td>
+<td><code>string</code></td>
+<td>
+<p>A developer-facing error message, which should be in English. Any
+user-facing error message should be localized and sent in the
+<a href="#google-rpc-Status-details">google.rpc.Status.details</a> field, or localized by the client.</p>
+
+</td>
+</tr>
+<tr id="google-rpc-Status-details">
+<td><code>details</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any[]</a></code></td>
+<td>
+<p>A list of messages that carry the error details.  There is a common set of
+message types for APIs to use.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>

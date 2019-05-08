@@ -1,0 +1,193 @@
+// Copyright 2017 Istio Authors
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+
+syntax = "proto3";
+
+import "google/protobuf/duration.proto";
+
+package istio.mesh.v1alpha1;
+
+option go_package="istio.io/api/mesh/v1alpha1";
+
+// AuthenticationPolicy defines authentication policy. It can be set for
+// different scopes (mesh, service …), and the most narrow scope with
+// non-INHERIT value will be used.
+// Mesh policy cannot be INHERIT.
+enum AuthenticationPolicy {
+  // Do not encrypt Envoy to Envoy traffic.
+  NONE = 0;
+
+  // Envoy to Envoy traffic is wrapped into mutual TLS connections.
+  MUTUAL_TLS = 1;
+
+  // Use the policy defined by the parent scope. Should not be used for mesh
+  // policy.
+  INHERIT = 1000;
+}
+
+// Tracing defines configuration for the tracing performed by Envoy instances.
+message Tracing {
+
+  // Zipkin defines configuration for a Zipkin tracer.
+  message Zipkin {
+    // Address of the Zipkin service (e.g. _zipkin:9411_).
+    string address = 1;
+  }
+
+  // Defines configuration for a LightStep tracer.
+  message Lightstep {
+    // Address of the LightStep Satellite pool.
+    string address = 1;
+
+    // The LightStep access token.
+    string access_token = 2;
+
+    // True if a secure connection should be used when communicating with the pool.
+    bool secure = 3;
+
+    // Path to the trusted cacert used to authenticate the pool.
+    string cacert_path = 4;
+  }
+
+  // Datadog defines configuration for a Datadog tracer.
+  message Datadog {
+    // Address of the Datadog Agent.
+    string address = 1;
+  }
+
+  // The tracer implementation to be used by Envoy.
+  oneof tracer {
+    // Use a Zipkin tracer.
+    Zipkin zipkin = 1;
+    // Use a LightStep tracer.
+    Lightstep lightstep = 2;
+    // Use a Datadog tracer.
+    Datadog datadog = 3;
+  }
+}
+
+// SDS defines secret discovery service(SDS) configuration to be used by the proxy.
+// For workload, its values are set in sidecar injector(passed as arguments to istio-proxy container).
+// For pilot/mixer, it's passed as arguments to istio-proxy container in pilot/mixer deployment yaml files directly.
+message SDS {
+  // True if SDS is enabled.
+  bool enabled = 1;
+
+  // Path of k8s service account JWT path.
+  string k8s_sa_jwt_path = 2;
+}
+
+// ProxyConfig defines variables for individual Envoy instances.
+message ProxyConfig {
+  // Path to the generated configuration file directory.
+  // Proxy agent generates the actual configuration and stores it in this directory.
+  string config_path = 1;
+
+  // Path to the proxy binary
+  string binary_path = 2;
+
+  // Service cluster defines the name for the service_cluster that is
+  // shared by all Envoy instances. This setting corresponds to
+  // _--service-cluster_ flag in Envoy.  In a typical Envoy deployment, the
+  // _service-cluster_ flag is used to identify the caller, for
+  // source-based routing scenarios.
+  //
+  // Since Istio does not assign a local service/service version to each
+  // Envoy instance, the name is same for all of them.  However, the
+  // source/caller's identity (e.g., IP address) is encoded in the
+  // _--service-node_ flag when launching Envoy.  When the RDS service
+  // receives API calls from Envoy, it uses the value of the _service-node_
+  // flag to compute routes that are relative to the service instances
+  // located at that IP address.
+  string service_cluster = 3;
+
+  // The time in seconds that Envoy will drain connections during a hot
+  // restart. MUST be >=1s (e.g., _1s/1m/1h_)
+  google.protobuf.Duration drain_duration = 4;
+
+  // The time in seconds that Envoy will wait before shutting down the
+  // parent process during a hot restart. MUST be >=1s (e.g., _1s/1m/1h_).
+  // MUST BE greater than _drain_duration_ parameter.
+  google.protobuf.Duration parent_shutdown_duration = 5;
+
+  // Address of the discovery service exposing xDS with mTLS connection.
+  string discovery_address = 6;
+
+  // $hide_from_docs
+  google.protobuf.Duration discovery_refresh_delay = 7 [deprecated=true];
+
+  // Address of the Zipkin service (e.g. _zipkin:9411_).
+  // DEPRECATED: Use [tracing][istio.mesh.v1alpha1.ProxyConfig.tracing] instead.
+  string zipkin_address = 8 [deprecated=true];
+
+  // Connection timeout used by Envoy for supporting services. (MUST BE >=1ms)
+  google.protobuf.Duration connect_timeout = 9;
+
+  // IP Address and Port of a statsd UDP listener (e.g. _10.75.241.127:9125_).
+  string statsd_udp_address = 10;
+
+  // Address of the Envoy Metrics Service implementation (e.g. metrics-service:15000).
+  // See [Metric Service](https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto)
+  // for details about Envoy's Metrics Service API.
+  string envoy_metrics_service_address = 20;
+
+  // Port on which Envoy should listen for administrative commands.
+  int32 proxy_admin_port = 11;
+
+  // $hide_from_docs
+  string availability_zone = 12 [deprecated=true];
+
+  // Authentication policy defines the global switch to control authentication
+  // for Envoy-to-Envoy communication for istio components Mixer and Pilot.
+  AuthenticationPolicy control_plane_auth_policy = 13;
+  // File path of custom proxy configuration, currently used by proxies
+  // in front of Mixer and Pilot.
+  string custom_config_file = 14;
+
+  // Maximum length of name field in Envoy's metrics. The length of the name field
+  // is determined by the length of a name field in a service and the set of labels that
+  // comprise a particular version of the service. The default value is set to 189 characters.
+  // Envoy's internal metrics take up 67 characters, for a total of 256 character name per metric.
+  // Increase the value of this field if you find that the metrics from Envoys are truncated.
+  int32 stat_name_length = 15;
+
+  // The number of worker threads to run. Default value is number of cores on the machine.
+  int32 concurrency = 16;
+
+  // Path to the proxy bootstrap template file
+  string proxy_bootstrap_template_path = 17;
+
+  // The mode used to redirect inbound traffic to Envoy.
+  // This setting has no effect on outbound traffic: iptables REDIRECT is always used for
+  // outbound connections.
+  enum InboundInterceptionMode {
+    // The REDIRECT mode uses iptables REDIRECT to NAT and redirect to Envoy. This mode loses
+    // source IP addresses during redirection.
+    REDIRECT = 0;
+    // The TPROXY mode uses iptables TPROXY to redirect to Envoy. This mode preserves both the
+    // source and destination IP addresses and ports, so that they can be used for advanced
+    // filtering and manipulation. This mode also configures the sidecar to run with the
+    // CAP_NET_ADMIN capability, which is required to use TPROXY.
+    TPROXY = 1;
+  }
+
+  // The mode used to redirect inbound traffic to Envoy.
+  InboundInterceptionMode interception_mode = 18;
+
+  // Tracing configuration to be used by the proxy.
+  Tracing tracing = 19;
+
+  // secret discovery service(SDS) configuration to be used by the proxy.
+  SDS sds = 21;
+}

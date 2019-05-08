@@ -1,0 +1,1779 @@
+---
+title: Virtual Service
+description: Configuration affecting label/content routing, sni routing, etc.
+location: https://istio.io/docs/reference/config/networking/v1alpha3/virtual-service.html
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+number_of_entries: 22
+---
+<p>Configuration affecting traffic routing. Here are a few terms useful to define
+in the context of traffic routing.</p>
+
+<p><code>Service</code> a unit of application behavior bound to a unique name in a
+service registry. Services consist of multiple network <em>endpoints</em>
+implemented by workload instances running on pods, containers, VMs etc.</p>
+
+<p><code>Service versions (a.k.a. subsets)</code> - In a continuous deployment
+scenario, for a given service, there can be distinct subsets of
+instances running different variants of the application binary. These
+variants are not necessarily different API versions. They could be
+iterative changes to the same service, deployed in different
+environments (prod, staging, dev, etc.). Common scenarios where this
+occurs include A/B testing, canary rollouts, etc. The choice of a
+particular version can be decided based on various criterion (headers,
+url, etc.) and/or by weights assigned to each version. Each service has
+a default version consisting of all its instances.</p>
+
+<p><code>Source</code> - A downstream client calling a service.</p>
+
+<p><code>Host</code> - The address used by a client when attempting to connect to a
+service.</p>
+
+<p><code>Access model</code> - Applications address only the destination service
+(Host) without knowledge of individual service versions (subsets). The
+actual choice of the version is determined by the proxy/sidecar, enabling the
+application code to decouple itself from the evolution of dependent
+services.</p>
+
+<p>A <code>VirtualService</code> defines a set of traffic routing rules to apply when a host is
+addressed. Each routing rule defines matching criteria for traffic of a specific
+protocol. If the traffic is matched, then it is sent to a named destination service
+(or subset/version of it) defined in the registry.</p>
+
+<p>The source of traffic can also be matched in a routing rule. This allows routing
+to be customized for specific client contexts.</p>
+
+<p>The following example on Kubernetes, routes all HTTP traffic by default to
+pods of the reviews service with label &ldquo;version: v1&rdquo;. In addition,
+HTTP requests with path starting with /wpcatalog/ or /consumercatalog/ will
+be rewritten to /newcatalog and sent to pods with label &ldquo;version: v2&rdquo;.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-route
+spec:
+  hosts:
+  - reviews.prod.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: &quot;/wpcatalog&quot;
+    - uri:
+        prefix: &quot;/consumercatalog&quot;
+    rewrite:
+      uri: &quot;/newcatalog&quot;
+    route:
+    - destination:
+        host: reviews.prod.svc.cluster.local
+        subset: v2
+  - route:
+    - destination:
+        host: reviews.prod.svc.cluster.local
+        subset: v1
+</code></pre>
+
+<p>A subset/version of a route destination is identified with a reference
+to a named service subset which must be declared in a corresponding
+<code>DestinationRule</code>.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: reviews-destination
+spec:
+  host: reviews.prod.svc.cluster.local
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+</code></pre>
+
+<h2 id="CorsPolicy">CorsPolicy</h2>
+<section>
+<p>Describes the Cross-Origin Resource Sharing (CORS) policy, for a given
+service. Refer to <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS">CORS</a>
+for further details about cross origin resource sharing. For example,
+the following rule restricts cross origin requests to those originating
+from example.com domain using HTTP POST/GET, and sets the
+<code>Access-Control-Allow-Credentials</code> header to false. In addition, it only
+exposes <code>X-Foo-bar</code> header and sets an expiry period of 1 day.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ratings-route
+spec:
+  hosts:
+  - ratings.prod.svc.cluster.local
+  http:
+  - route:
+    - destination:
+        host: ratings.prod.svc.cluster.local
+        subset: v1
+    corsPolicy:
+      allowOrigin:
+      - example.com
+      allowMethods:
+      - POST
+      - GET
+      allowCredentials: false
+      allowHeaders:
+      - X-Foo-Bar
+      maxAge: &quot;24h&quot;
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CorsPolicy-allow_origin">
+<td><code>allowOrigin</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>The list of origins that are allowed to perform CORS requests. The
+content will be serialized into the Access-Control-Allow-Origin
+header. Wildcard * will allow all origins.</p>
+
+</td>
+</tr>
+<tr id="CorsPolicy-allow_methods">
+<td><code>allowMethods</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>List of HTTP methods allowed to access the resource. The content will
+be serialized into the Access-Control-Allow-Methods header.</p>
+
+</td>
+</tr>
+<tr id="CorsPolicy-allow_headers">
+<td><code>allowHeaders</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>List of HTTP headers that can be used when requesting the
+resource. Serialized to Access-Control-Allow-Headers header.</p>
+
+</td>
+</tr>
+<tr id="CorsPolicy-expose_headers">
+<td><code>exposeHeaders</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>A white list of HTTP headers that the browsers are allowed to
+access. Serialized into Access-Control-Expose-Headers header.</p>
+
+</td>
+</tr>
+<tr id="CorsPolicy-max_age">
+<td><code>maxAge</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Specifies how long the results of a preflight request can be
+cached. Translates to the <code>Access-Control-Max-Age</code> header.</p>
+
+</td>
+</tr>
+<tr id="CorsPolicy-allow_credentials">
+<td><code>allowCredentials</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+<p>Indicates whether the caller is allowed to send the actual request
+(not the preflight) using credentials. Translates to
+<code>Access-Control-Allow-Credentials</code> header.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Destination">Destination</h2>
+<section>
+<p>Destination indicates the network addressable service to which the
+request/connection will be sent after processing a routing rule. The
+destination.host should unambiguously refer to a service in the service
+registry. Istio&rsquo;s service registry is composed of all the services found
+in the platform&rsquo;s service registry (e.g., Kubernetes services, Consul
+services), as well as services declared through the
+<a href="/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry">ServiceEntry</a> resource.</p>
+
+<p><em>Note for Kubernetes users</em>: When short names are used (e.g. &ldquo;reviews&rdquo;
+instead of &ldquo;reviews.default.svc.cluster.local&rdquo;), Istio will interpret
+the short name based on the namespace of the rule, not the service. A
+rule in the &ldquo;default&rdquo; namespace containing a host &ldquo;reviews will be
+interpreted as &ldquo;reviews.default.svc.cluster.local&rdquo;, irrespective of the
+actual namespace associated with the reviews service. <em>To avoid potential
+misconfigurations, it is recommended to always use fully qualified
+domain names over short names.</em></p>
+
+<p>The following Kubernetes example routes all traffic by default to pods
+of the reviews service with label &ldquo;version: v1&rdquo; (i.e., subset v1), and
+some to subset v2, in a Kubernetes environment.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-route
+  namespace: foo
+spec:
+  hosts:
+  - reviews # interpreted as reviews.foo.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: &quot;/wpcatalog&quot;
+    - uri:
+        prefix: &quot;/consumercatalog&quot;
+    rewrite:
+      uri: &quot;/newcatalog&quot;
+    route:
+    - destination:
+        host: reviews # interpreted as reviews.foo.svc.cluster.local
+        subset: v2
+  - route:
+    - destination:
+        host: reviews # interpreted as reviews.foo.svc.cluster.local
+        subset: v1
+</code></pre>
+
+<p>And the associated DestinationRule</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: reviews-destination
+  namespace: foo
+spec:
+  host: reviews # interpreted as reviews.foo.svc.cluster.local
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+</code></pre>
+
+<p>The following VirtualService sets a timeout of 5s for all calls to
+productpage.prod.svc.cluster.local service in Kubernetes. Notice that
+there are no subsets defined in this rule. Istio will fetch all
+instances of productpage.prod.svc.cluster.local service from the service
+registry and populate the sidecar&rsquo;s load balancing pool. Also, notice
+that this rule is set in the istio-system namespace but uses the fully
+qualified domain name of the productpage service,
+productpage.prod.svc.cluster.local. Therefore the rule&rsquo;s namespace does
+not have an impact in resolving the name of the productpage service.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: my-productpage-rule
+  namespace: istio-system
+spec:
+  hosts:
+  - productpage.prod.svc.cluster.local # ignores rule namespace
+  http:
+  - timeout: 5s
+    route:
+    - destination:
+        host: productpage.prod.svc.cluster.local
+</code></pre>
+
+<p>To control routing for traffic bound to services outside the mesh, external
+services must first be added to Istio&rsquo;s internal service registry using the
+ServiceEntry resource. VirtualServices can then be defined to control traffic
+bound to these external services. For example, the following rules define a
+Service for wikipedia.org and set a timeout of 5s for http requests.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-svc-wikipedia
+spec:
+  hosts:
+  - wikipedia.org
+  location: MESH_EXTERNAL
+  ports:
+  - number: 80
+    name: example-http
+    protocol: HTTP
+  resolution: DNS
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: my-wiki-rule
+spec:
+  hosts:
+  - wikipedia.org
+  http:
+  - timeout: 5s
+    route:
+    - destination:
+        host: wikipedia.org
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Destination-host">
+<td><code>host</code></td>
+<td><code>string</code></td>
+<td>
+<p>REQUIRED. The name of a service from the service registry. Service
+names are looked up from the platform&rsquo;s service registry (e.g.,
+Kubernetes services, Consul services, etc.) and from the hosts
+declared by <a href="/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry">ServiceEntry</a>. Traffic forwarded to
+destinations that are not found in either of the two, will be dropped.</p>
+
+<p><em>Note for Kubernetes users</em>: When short names are used (e.g. &ldquo;reviews&rdquo;
+instead of &ldquo;reviews.default.svc.cluster.local&rdquo;), Istio will interpret
+the short name based on the namespace of the rule, not the service. A
+rule in the &ldquo;default&rdquo; namespace containing a host &ldquo;reviews will be
+interpreted as &ldquo;reviews.default.svc.cluster.local&rdquo;, irrespective of
+the actual namespace associated with the reviews service. <em>To avoid
+potential misconfigurations, it is recommended to always use fully
+qualified domain names over short names.</em></p>
+
+</td>
+</tr>
+<tr id="Destination-subset">
+<td><code>subset</code></td>
+<td><code>string</code></td>
+<td>
+<p>The name of a subset within the service. Applicable only to services
+within the mesh. The subset must be defined in a corresponding
+DestinationRule.</p>
+
+</td>
+</tr>
+<tr id="Destination-port">
+<td><code>port</code></td>
+<td><code><a href="#PortSelector">PortSelector</a></code></td>
+<td>
+<p>Specifies the port on the host that is being addressed. If a service
+exposes only a single port it is not required to explicitly select the
+port.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="HTTPFaultInjection">HTTPFaultInjection</h2>
+<section>
+<p>HTTPFaultInjection can be used to specify one or more faults to inject
+while forwarding http requests to the destination specified in a route.
+Fault specification is part of a VirtualService rule. Faults include
+aborting the Http request from downstream service, and/or delaying
+proxying of requests. A fault rule MUST HAVE delay or abort or both.</p>
+
+<p><em>Note:</em> Delay and abort faults are independent of one another, even if
+both are specified simultaneously.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HTTPFaultInjection-delay">
+<td><code>delay</code></td>
+<td><code><a href="#HTTPFaultInjection-Delay">HTTPFaultInjection.Delay</a></code></td>
+<td>
+<p>Delay requests before forwarding, emulating various failures such as
+network issues, overloaded upstream service, etc.</p>
+
+</td>
+</tr>
+<tr id="HTTPFaultInjection-abort">
+<td><code>abort</code></td>
+<td><code><a href="#HTTPFaultInjection-Abort">HTTPFaultInjection.Abort</a></code></td>
+<td>
+<p>Abort Http request attempts and return error codes back to downstream
+service, giving the impression that the upstream service is faulty.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="HTTPFaultInjection-Abort">HTTPFaultInjection.Abort</h2>
+<section>
+<p>Abort specification is used to prematurely abort a request with a
+pre-specified error code. The following example will return an HTTP 400
+error code for 1 out of every 1000 requests to the &ldquo;ratings&rdquo; service &ldquo;v1&rdquo;.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ratings-route
+spec:
+  hosts:
+  - ratings.prod.svc.cluster.local
+  http:
+  - route:
+    - destination:
+        host: ratings.prod.svc.cluster.local
+        subset: v1
+    fault:
+      abort:
+        percentage:
+          value: 0.001
+        httpStatus: 400
+</code></pre>
+
+<p>The <em>httpStatus</em> field is used to indicate the HTTP status code to
+return to the caller. The optional <em>percentage</em> field can be used to only
+abort a certain percentage of requests. If not specified, all requests are
+aborted.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HTTPFaultInjection-Abort-percent" class="deprecated ">
+<td><code>percent</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Percentage of requests to be aborted with the error code provided (0-100).
+Use of integer <code>percent</code> value is deprecated. Use the double <code>percentage</code>
+field instead.</p>
+
+</td>
+</tr>
+<tr id="HTTPFaultInjection-Abort-http_status" class="oneof oneof-start">
+<td><code>httpStatus</code></td>
+<td><code>int32 (oneof)</code></td>
+<td>
+<p>REQUIRED. HTTP status code to use to abort the Http request.</p>
+
+</td>
+</tr>
+<tr id="HTTPFaultInjection-Abort-percentage">
+<td><code>percentage</code></td>
+<td><code><a href="#Percent">Percent</a></code></td>
+<td>
+<p>Percentage of requests to be aborted with the error code provided.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="HTTPFaultInjection-Delay">HTTPFaultInjection.Delay</h2>
+<section>
+<p>Delay specification is used to inject latency into the request
+forwarding path. The following example will introduce a 5 second delay
+in 1 out of every 1000 requests to the &ldquo;v1&rdquo; version of the &ldquo;reviews&rdquo;
+service from all pods with label env: prod</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-route
+spec:
+  hosts:
+  - reviews.prod.svc.cluster.local
+  http:
+  - match:
+    - sourceLabels:
+        env: prod
+    route:
+    - destination:
+        host: reviews.prod.svc.cluster.local
+        subset: v1
+    fault:
+      delay:
+        percentage:
+          value: 0.001
+        fixedDelay: 5s
+</code></pre>
+
+<p>The <em>fixedDelay</em> field is used to indicate the amount of delay in seconds.
+The optional <em>percentage</em> field can be used to only delay a certain
+percentage of requests. If left unspecified, all request will be delayed.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HTTPFaultInjection-Delay-percent" class="deprecated ">
+<td><code>percent</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Percentage of requests on which the delay will be injected (0-100).
+Use of integer <code>percent</code> value is deprecated. Use the double <code>percentage</code>
+field instead.</p>
+
+</td>
+</tr>
+<tr id="HTTPFaultInjection-Delay-fixed_delay" class="oneof oneof-start">
+<td><code>fixedDelay</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration (oneof)</a></code></td>
+<td>
+<p>REQUIRED. Add a fixed delay before forwarding the request. Format:
+1h/1m/1s/1ms. MUST be &gt;=1ms.</p>
+
+</td>
+</tr>
+<tr id="HTTPFaultInjection-Delay-percentage">
+<td><code>percentage</code></td>
+<td><code><a href="#Percent">Percent</a></code></td>
+<td>
+<p>Percentage of requests on which the delay will be injected.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="HTTPMatchRequest">HTTPMatchRequest</h2>
+<section>
+<p>HttpMatchRequest specifies a set of criterion to be met in order for the
+rule to be applied to the HTTP request. For example, the following
+restricts the rule to match only requests where the URL path
+starts with /ratings/v2/ and the request contains a custom <code>end-user</code> header
+with value <code>jason</code>.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ratings-route
+spec:
+  hosts:
+  - ratings.prod.svc.cluster.local
+  http:
+  - match:
+    - headers:
+        end-user:
+          exact: jason
+      uri:
+        prefix: &quot;/ratings/v2/&quot;
+    route:
+    - destination:
+        host: ratings.prod.svc.cluster.local
+</code></pre>
+
+<p>HTTPMatchRequest CANNOT be empty.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HTTPMatchRequest-uri">
+<td><code>uri</code></td>
+<td><code><a href="#StringMatch">StringMatch</a></code></td>
+<td>
+<p>URI to match
+values are case-sensitive and formatted as follows:</p>
+
+<ul>
+<li><p><code>exact: &quot;value&quot;</code> for exact string match</p></li>
+
+<li><p><code>prefix: &quot;value&quot;</code> for prefix-based match</p></li>
+
+<li><p><code>regex: &quot;value&quot;</code> for ECMAscript style regex-based match</p></li>
+</ul>
+
+</td>
+</tr>
+<tr id="HTTPMatchRequest-scheme">
+<td><code>scheme</code></td>
+<td><code><a href="#StringMatch">StringMatch</a></code></td>
+<td>
+<p>URI Scheme
+values are case-sensitive and formatted as follows:</p>
+
+<ul>
+<li><p><code>exact: &quot;value&quot;</code> for exact string match</p></li>
+
+<li><p><code>prefix: &quot;value&quot;</code> for prefix-based match</p></li>
+
+<li><p><code>regex: &quot;value&quot;</code> for ECMAscript style regex-based match</p></li>
+</ul>
+
+</td>
+</tr>
+<tr id="HTTPMatchRequest-method">
+<td><code>method</code></td>
+<td><code><a href="#StringMatch">StringMatch</a></code></td>
+<td>
+<p>HTTP Method
+values are case-sensitive and formatted as follows:</p>
+
+<ul>
+<li><p><code>exact: &quot;value&quot;</code> for exact string match</p></li>
+
+<li><p><code>prefix: &quot;value&quot;</code> for prefix-based match</p></li>
+
+<li><p><code>regex: &quot;value&quot;</code> for ECMAscript style regex-based match</p></li>
+</ul>
+
+</td>
+</tr>
+<tr id="HTTPMatchRequest-authority">
+<td><code>authority</code></td>
+<td><code><a href="#StringMatch">StringMatch</a></code></td>
+<td>
+<p>HTTP Authority
+values are case-sensitive and formatted as follows:</p>
+
+<ul>
+<li><p><code>exact: &quot;value&quot;</code> for exact string match</p></li>
+
+<li><p><code>prefix: &quot;value&quot;</code> for prefix-based match</p></li>
+
+<li><p><code>regex: &quot;value&quot;</code> for ECMAscript style regex-based match</p></li>
+</ul>
+
+</td>
+</tr>
+<tr id="HTTPMatchRequest-headers">
+<td><code>headers</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#StringMatch">StringMatch</a>&gt;</code></td>
+<td>
+<p>The header keys must be lowercase and use hyphen as the separator,
+e.g. <em>x-request-id</em>.</p>
+
+<p>Header values are case-sensitive and formatted as follows:</p>
+
+<ul>
+<li><p><code>exact: &quot;value&quot;</code> for exact string match</p></li>
+
+<li><p><code>prefix: &quot;value&quot;</code> for prefix-based match</p></li>
+
+<li><p><code>regex: &quot;value&quot;</code> for ECMAscript style regex-based match</p></li>
+</ul>
+
+<p><strong>Note:</strong> The keys <code>uri</code>, <code>scheme</code>, <code>method</code>, and <code>authority</code> will be ignored.</p>
+
+</td>
+</tr>
+<tr id="HTTPMatchRequest-port">
+<td><code>port</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>Specifies the ports on the host that is being addressed. Many services
+only expose a single port or label ports with the protocols they support,
+in these cases it is not required to explicitly select the port.</p>
+
+</td>
+</tr>
+<tr id="HTTPMatchRequest-source_labels">
+<td><code>sourceLabels</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>One or more labels that constrain the applicability of a rule to
+workloads with the given labels. If the VirtualService has a list of
+gateways specified at the top, it should include the reserved gateway
+<code>mesh</code> in order for this field to be applicable.</p>
+
+</td>
+</tr>
+<tr id="HTTPMatchRequest-gateways">
+<td><code>gateways</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Names of gateways where the rule should be applied to. Gateway names
+at the top of the VirtualService (if any) are overridden. The gateway match is
+independent of sourceLabels.</p>
+
+</td>
+</tr>
+<tr id="HTTPMatchRequest-query_params">
+<td><code>queryParams</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#StringMatch">StringMatch</a>&gt;</code></td>
+<td>
+<p>Query parameters for matching.</p>
+
+<p>Ex:
+- For a query parameter like &ldquo;?key=true&rdquo;, the map key would be &ldquo;key&rdquo; and
+  the string match could be defined as <code>exact: &quot;true&quot;</code>.
+- For a query parameter like &ldquo;?key&rdquo;, the map key would be &ldquo;key&rdquo; and the
+  string match could be defined as <code>exact: &quot;&quot;</code>.
+- For a query parameter like &ldquo;?key=123&rdquo;, the map key would be &ldquo;key&rdquo; and the
+  string match could be defined as <code>regex: &quot;\d+$&quot;</code>. Note that this
+  configuration will only match values like &ldquo;123&rdquo; but not &ldquo;a123&rdquo; or &ldquo;123a&rdquo;.</p>
+
+<p><strong>Note:</strong> <code>prefix</code> matching is currently not supported.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="HTTPRedirect">HTTPRedirect</h2>
+<section>
+<p>HTTPRedirect can be used to send a 301 redirect response to the caller,
+where the Authority/Host and the URI in the response can be swapped with
+the specified values. For example, the following rule redirects
+requests for /v1/getProductRatings API on the ratings service to
+/v1/bookRatings provided by the bookratings service.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ratings-route
+spec:
+  hosts:
+  - ratings.prod.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        exact: /v1/getProductRatings
+    redirect:
+      uri: /v1/bookRatings
+      authority: newratings.default.svc.cluster.local
+  ...
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HTTPRedirect-uri">
+<td><code>uri</code></td>
+<td><code>string</code></td>
+<td>
+<p>On a redirect, overwrite the Path portion of the URL with this
+value. Note that the entire path will be replaced, irrespective of the
+request URI being matched as an exact path or prefix.</p>
+
+</td>
+</tr>
+<tr id="HTTPRedirect-authority">
+<td><code>authority</code></td>
+<td><code>string</code></td>
+<td>
+<p>On a redirect, overwrite the Authority/Host portion of the URL with
+this value.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="HTTPRetry">HTTPRetry</h2>
+<section>
+<p>Describes the retry policy to use when a HTTP request fails. For
+example, the following rule sets the maximum number of retries to 3 when
+calling ratings:v1 service, with a 2s timeout per retry attempt.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ratings-route
+spec:
+  hosts:
+  - ratings.prod.svc.cluster.local
+  http:
+  - route:
+    - destination:
+        host: ratings.prod.svc.cluster.local
+        subset: v1
+    retries:
+      attempts: 3
+      perTryTimeout: 2s
+      retryOn: gateway-error,connect-failure,refused-stream
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HTTPRetry-attempts">
+<td><code>attempts</code></td>
+<td><code>int32</code></td>
+<td>
+<p>REQUIRED. Number of retries for a given request. The interval
+between retries will be determined automatically (25ms+). Actual
+number of retries attempted depends on the httpReqTimeout.</p>
+
+</td>
+</tr>
+<tr id="HTTPRetry-per_try_timeout">
+<td><code>perTryTimeout</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Timeout per retry attempt for a given request. format: 1h/1m/1s/1ms. MUST BE &gt;=1ms.</p>
+
+</td>
+</tr>
+<tr id="HTTPRetry-retry_on">
+<td><code>retryOn</code></td>
+<td><code>string</code></td>
+<td>
+<p>Specifies the conditions under which retry takes place.
+One or more policies can be specified using a ‘,’ delimited list.
+See the <a href="https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on">supported policies</a>
+and <a href="https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on">here</a> for more details.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="HTTPRewrite">HTTPRewrite</h2>
+<section>
+<p>HTTPRewrite can be used to rewrite specific parts of a HTTP request
+before forwarding the request to the destination. Rewrite primitive can
+be used only with HTTPRouteDestination. The following example
+demonstrates how to rewrite the URL prefix for api call (/ratings) to
+ratings service before making the actual API call.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ratings-route
+spec:
+  hosts:
+  - ratings.prod.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: /ratings
+    rewrite:
+      uri: /v1/bookRatings
+    route:
+    - destination:
+        host: ratings.prod.svc.cluster.local
+        subset: v1
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HTTPRewrite-uri">
+<td><code>uri</code></td>
+<td><code>string</code></td>
+<td>
+<p>rewrite the path (or the prefix) portion of the URI with this
+value. If the original URI was matched based on prefix, the value
+provided in this field will replace the corresponding matched prefix.</p>
+
+</td>
+</tr>
+<tr id="HTTPRewrite-authority">
+<td><code>authority</code></td>
+<td><code>string</code></td>
+<td>
+<p>rewrite the Authority/Host header with this value.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="HTTPRoute">HTTPRoute</h2>
+<section>
+<p>Describes match conditions and actions for routing HTTP/1.1, HTTP2, and
+gRPC traffic. See VirtualService for usage examples.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HTTPRoute-match">
+<td><code>match</code></td>
+<td><code><a href="#HTTPMatchRequest">HTTPMatchRequest[]</a></code></td>
+<td>
+<p>Match conditions to be satisfied for the rule to be
+activated. All conditions inside a single match block have AND
+semantics, while the list of match blocks have OR semantics. The rule
+is matched if any one of the match blocks succeed.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute-route">
+<td><code>route</code></td>
+<td><code><a href="#HTTPRouteDestination">HTTPRouteDestination[]</a></code></td>
+<td>
+<p>A http rule can either redirect or forward (default) traffic. The
+forwarding target can be one of several versions of a service (see
+glossary in beginning of document). Weights associated with the
+service version determine the proportion of traffic it receives.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute-redirect">
+<td><code>redirect</code></td>
+<td><code><a href="#HTTPRedirect">HTTPRedirect</a></code></td>
+<td>
+<p>A http rule can either redirect or forward (default) traffic. If
+traffic passthrough option is specified in the rule,
+route/redirect will be ignored. The redirect primitive can be used to
+send a HTTP 301 redirect to a different URI or Authority.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute-rewrite">
+<td><code>rewrite</code></td>
+<td><code><a href="#HTTPRewrite">HTTPRewrite</a></code></td>
+<td>
+<p>Rewrite HTTP URIs and Authority headers. Rewrite cannot be used with
+Redirect primitive. Rewrite will be performed before forwarding.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute-timeout">
+<td><code>timeout</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Timeout for HTTP requests.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute-retries">
+<td><code>retries</code></td>
+<td><code><a href="#HTTPRetry">HTTPRetry</a></code></td>
+<td>
+<p>Retry policy for HTTP requests.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute-fault">
+<td><code>fault</code></td>
+<td><code><a href="#HTTPFaultInjection">HTTPFaultInjection</a></code></td>
+<td>
+<p>Fault injection policy to apply on HTTP traffic at the client side.
+Note that timeouts or retries will not be enabled when faults are
+enabled on the client side.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute-mirror">
+<td><code>mirror</code></td>
+<td><code><a href="#Destination">Destination</a></code></td>
+<td>
+<p>Mirror HTTP traffic to a another destination in addition to forwarding
+the requests to the intended destination. Mirrored traffic is on a
+best effort basis where the sidecar/gateway will not wait for the
+mirrored cluster to respond before returning the response from the
+original destination.  Statistics will be generated for the mirrored
+destination.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute-cors_policy">
+<td><code>corsPolicy</code></td>
+<td><code><a href="#CorsPolicy">CorsPolicy</a></code></td>
+<td>
+<p>Cross-Origin Resource Sharing policy (CORS). Refer to
+<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS">CORS</a>
+for further details about cross origin resource sharing.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute-append_headers" class="deprecated ">
+<td><code>appendHeaders</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Use of <code>append_headers</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute-remove_response_headers" class="deprecated ">
+<td><code>removeResponseHeaders</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Use of <code>remove_response_header</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute-append_response_headers" class="deprecated ">
+<td><code>appendResponseHeaders</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Use of <code>append_response_headers</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute-remove_request_headers" class="deprecated ">
+<td><code>removeRequestHeaders</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Use of <code>remove_request_headers</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute-append_request_headers" class="deprecated ">
+<td><code>appendRequestHeaders</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Use of <code>append_request_headers</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute-headers">
+<td><code>headers</code></td>
+<td><code><a href="#Headers">Headers</a></code></td>
+<td>
+<p>Header manipulation rules</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="HTTPRouteDestination">HTTPRouteDestination</h2>
+<section>
+<p>Each routing rule is associated with one or more service versions (see
+glossary in beginning of document). Weights associated with the version
+determine the proportion of traffic it receives. For example, the
+following rule will route 25% of traffic for the &ldquo;reviews&rdquo; service to
+instances with the &ldquo;v2&rdquo; tag and the remaining traffic (i.e., 75%) to
+&ldquo;v1&rdquo;.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-route
+spec:
+  hosts:
+  - reviews.prod.svc.cluster.local
+  http:
+  - route:
+    - destination:
+        host: reviews.prod.svc.cluster.local
+        subset: v2
+      weight: 25
+    - destination:
+        host: reviews.prod.svc.cluster.local
+        subset: v1
+      weight: 75
+</code></pre>
+
+<p>And the associated DestinationRule</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: reviews-destination
+spec:
+  host: reviews.prod.svc.cluster.local
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+</code></pre>
+
+<p>Traffic can also be split across two entirely different services without
+having to define new subsets. For example, the following rule forwards 25% of
+traffic to reviews.com to dev.reviews.com</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-route-two-domains
+spec:
+  hosts:
+  - reviews.com
+  http:
+  - route:
+    - destination:
+        host: dev.reviews.com
+      weight: 25
+    - destination:
+        host: reviews.com
+      weight: 75
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HTTPRouteDestination-destination">
+<td><code>destination</code></td>
+<td><code><a href="#Destination">Destination</a></code></td>
+<td>
+<p>REQUIRED. Destination uniquely identifies the instances of a service
+to which the request/connection should be forwarded to.</p>
+
+</td>
+</tr>
+<tr id="HTTPRouteDestination-weight">
+<td><code>weight</code></td>
+<td><code>int32</code></td>
+<td>
+<p>REQUIRED. The proportion of traffic to be forwarded to the service
+version. (0-100). Sum of weights across destinations SHOULD BE == 100.
+If there is only one destination in a rule, the weight value is assumed to
+be 100.</p>
+
+</td>
+</tr>
+<tr id="HTTPRouteDestination-remove_response_headers" class="deprecated ">
+<td><code>removeResponseHeaders</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Use of <code>remove_response_header</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
+
+</td>
+</tr>
+<tr id="HTTPRouteDestination-append_response_headers" class="deprecated ">
+<td><code>appendResponseHeaders</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Use of <code>append_response_headers</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
+
+</td>
+</tr>
+<tr id="HTTPRouteDestination-remove_request_headers" class="deprecated ">
+<td><code>removeRequestHeaders</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Use of <code>remove_request_headers</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
+
+</td>
+</tr>
+<tr id="HTTPRouteDestination-append_request_headers" class="deprecated ">
+<td><code>appendRequestHeaders</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Use of <code>append_request_headers</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
+
+</td>
+</tr>
+<tr id="HTTPRouteDestination-headers">
+<td><code>headers</code></td>
+<td><code><a href="#Headers">Headers</a></code></td>
+<td>
+<p>Header manipulation rules</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Headers">Headers</h2>
+<section>
+<p>Header manipulation rules</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Headers-request">
+<td><code>request</code></td>
+<td><code><a href="#Headers-HeaderOperations">Headers.HeaderOperations</a></code></td>
+<td>
+<p>Header manipulation rules to apply before forwarding a request
+to the destination service</p>
+
+</td>
+</tr>
+<tr id="Headers-response">
+<td><code>response</code></td>
+<td><code><a href="#Headers-HeaderOperations">Headers.HeaderOperations</a></code></td>
+<td>
+<p>Header manipulation rules to apply before returning a response
+to the caller</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Headers-HeaderOperations">Headers.HeaderOperations</h2>
+<section>
+<p>HeaderOperations Describes the header manipulations to apply</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Headers-HeaderOperations-set">
+<td><code>set</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Overwrite the headers specified by key with the given values</p>
+
+</td>
+</tr>
+<tr id="Headers-HeaderOperations-add">
+<td><code>add</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Append the given values to the headers specified by keys
+(will create a comma-separated list of values)</p>
+
+</td>
+</tr>
+<tr id="Headers-HeaderOperations-remove">
+<td><code>remove</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Remove a the specified headers</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="L4MatchAttributes">L4MatchAttributes</h2>
+<section>
+<p>L4 connection match attributes. Note that L4 connection matching support
+is incomplete.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="L4MatchAttributes-destination_subnets">
+<td><code>destinationSubnets</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
+a.b.c.d/xx form or just a.b.c.d.</p>
+
+</td>
+</tr>
+<tr id="L4MatchAttributes-port">
+<td><code>port</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>Specifies the port on the host that is being addressed. Many services
+only expose a single port or label ports with the protocols they support,
+in these cases it is not required to explicitly select the port.</p>
+
+</td>
+</tr>
+<tr id="L4MatchAttributes-source_labels">
+<td><code>sourceLabels</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>One or more labels that constrain the applicability of a rule to
+workloads with the given labels. If the VirtualService has a list of
+gateways specified at the top, it should include the reserved gateway
+<code>mesh</code> in order for this field to be applicable.</p>
+
+</td>
+</tr>
+<tr id="L4MatchAttributes-gateways">
+<td><code>gateways</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Names of gateways where the rule should be applied to. Gateway names
+at the top of the VirtualService (if any) are overridden. The gateway
+match is independent of sourceLabels.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Percent">Percent</h2>
+<section>
+<p>Percent specifies a percentage in the range of [0.0, 100.0].</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Percent-value">
+<td><code>value</code></td>
+<td><code>double</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="PortSelector">PortSelector</h2>
+<section>
+<p>PortSelector specifies the number of a port to be used for
+matching or selection for final routing.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PortSelector-number" class="oneof oneof-start">
+<td><code>number</code></td>
+<td><code>uint32 (oneof)</code></td>
+<td>
+<p>Valid port number</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="RouteDestination">RouteDestination</h2>
+<section>
+<p>L4 routing rule weighted destination.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="RouteDestination-destination">
+<td><code>destination</code></td>
+<td><code><a href="#Destination">Destination</a></code></td>
+<td>
+<p>REQUIRED. Destination uniquely identifies the instances of a service
+to which the request/connection should be forwarded to.</p>
+
+</td>
+</tr>
+<tr id="RouteDestination-weight">
+<td><code>weight</code></td>
+<td><code>int32</code></td>
+<td>
+<p>REQUIRED. The proportion of traffic to be forwarded to the service
+version. If there is only one destination in a rule, all traffic will be
+routed to it irrespective of the weight.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="StringMatch">StringMatch</h2>
+<section>
+<p>Describes how to match a given string in HTTP headers. Match is
+case-sensitive.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="StringMatch-exact" class="oneof oneof-start">
+<td><code>exact</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>exact string match</p>
+
+</td>
+</tr>
+<tr id="StringMatch-prefix" class="oneof">
+<td><code>prefix</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>prefix-based match</p>
+
+</td>
+</tr>
+<tr id="StringMatch-regex" class="oneof">
+<td><code>regex</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>ECMAscript style regex-based match</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TCPRoute">TCPRoute</h2>
+<section>
+<p>Describes match conditions and actions for routing TCP traffic. The
+following routing rule forwards traffic arriving at port 27017 for
+mongo.prod.svc.cluster.local to another Mongo server on port 5555.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: bookinfo-Mongo
+spec:
+  hosts:
+  - mongo.prod.svc.cluster.local
+  tcp:
+  - match:
+    - port: 27017
+    route:
+    - destination:
+        host: mongo.backup.svc.cluster.local
+        port:
+          number: 5555
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TCPRoute-match">
+<td><code>match</code></td>
+<td><code><a href="#L4MatchAttributes">L4MatchAttributes[]</a></code></td>
+<td>
+<p>Match conditions to be satisfied for the rule to be
+activated. All conditions inside a single match block have AND
+semantics, while the list of match blocks have OR semantics. The rule
+is matched if any one of the match blocks succeed.</p>
+
+</td>
+</tr>
+<tr id="TCPRoute-route">
+<td><code>route</code></td>
+<td><code><a href="#RouteDestination">RouteDestination[]</a></code></td>
+<td>
+<p>The destination to which the connection should be forwarded to.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TLSMatchAttributes">TLSMatchAttributes</h2>
+<section>
+<p>TLS connection match attributes.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TLSMatchAttributes-sni_hosts">
+<td><code>sniHosts</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>REQUIRED. SNI (server name indicator) to match on. Wildcard prefixes
+can be used in the SNI value, e.g., *.com will match foo.example.com
+as well as example.com. An SNI value must be a subset (i.e., fall
+within the domain) of the corresponding virtual serivce&rsquo;s hosts.</p>
+
+</td>
+</tr>
+<tr id="TLSMatchAttributes-destination_subnets">
+<td><code>destinationSubnets</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
+a.b.c.d/xx form or just a.b.c.d.</p>
+
+</td>
+</tr>
+<tr id="TLSMatchAttributes-port">
+<td><code>port</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>Specifies the port on the host that is being addressed. Many services
+only expose a single port or label ports with the protocols they
+support, in these cases it is not required to explicitly select the
+port.</p>
+
+</td>
+</tr>
+<tr id="TLSMatchAttributes-source_labels">
+<td><code>sourceLabels</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>One or more labels that constrain the applicability of a rule to
+workloads with the given labels. If the VirtualService has a list of
+gateways specified at the top, it should include the reserved gateway
+<code>mesh</code> in order for this field to be applicable.</p>
+
+</td>
+</tr>
+<tr id="TLSMatchAttributes-gateways">
+<td><code>gateways</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Names of gateways where the rule should be applied to. Gateway names
+at the top of the VirtualService (if any) are overridden. The gateway
+match is independent of sourceLabels.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TLSRoute">TLSRoute</h2>
+<section>
+<p>Describes match conditions and actions for routing unterminated TLS
+traffic (TLS/HTTPS) The following routing rule forwards unterminated TLS
+traffic arriving at port 443 of gateway called &ldquo;mygateway&rdquo; to internal
+services in the mesh based on the SNI value.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: bookinfo-sni
+spec:
+  hosts:
+  - &quot;*.bookinfo.com&quot;
+  gateways:
+  - mygateway
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - login.bookinfo.com
+    route:
+    - destination:
+        host: login.prod.svc.cluster.local
+  - match:
+    - port: 443
+      sniHosts:
+      - reviews.bookinfo.com
+    route:
+    - destination:
+        host: reviews.prod.svc.cluster.local
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TLSRoute-match">
+<td><code>match</code></td>
+<td><code><a href="#TLSMatchAttributes">TLSMatchAttributes[]</a></code></td>
+<td>
+<p>REQUIRED. Match conditions to be satisfied for the rule to be
+activated. All conditions inside a single match block have AND
+semantics, while the list of match blocks have OR semantics. The rule
+is matched if any one of the match blocks succeed.</p>
+
+</td>
+</tr>
+<tr id="TLSRoute-route">
+<td><code>route</code></td>
+<td><code><a href="#RouteDestination">RouteDestination[]</a></code></td>
+<td>
+<p>The destination to which the connection should be forwarded to.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="VirtualService">VirtualService</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="VirtualService-hosts">
+<td><code>hosts</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>REQUIRED. The destination hosts to which traffic is being sent. Could
+be a DNS name with wildcard prefix or an IP address.  Depending on the
+platform, short-names can also be used instead of a FQDN (i.e. has no
+dots in the name). In such a scenario, the FQDN of the host would be
+derived based on the underlying platform.</p>
+
+<p><strong>A host name can be defined by only one VirtualService</strong>. A single
+VirtualService can be used to describe traffic properties for multiple
+HTTP and TCP ports.</p>
+
+<p><em>Note for Kubernetes users</em>: When short names are used (e.g. &ldquo;reviews&rdquo;
+instead of &ldquo;reviews.default.svc.cluster.local&rdquo;), Istio will interpret
+the short name based on the namespace of the rule, not the service. A
+rule in the &ldquo;default&rdquo; namespace containing a host &ldquo;reviews will be
+interpreted as &ldquo;reviews.default.svc.cluster.local&rdquo;, irrespective of
+the actual namespace associated with the reviews service. <em>To avoid
+potential misconfigurations, it is recommended to always use fully
+qualified domain names over short names.</em></p>
+
+<p>The hosts field applies to both HTTP and TCP services. Service inside
+the mesh, i.e., those found in the service registry, must always be
+referred to using their alphanumeric names. IP addresses are allowed
+only for services defined via the Gateway.</p>
+
+</td>
+</tr>
+<tr id="VirtualService-gateways">
+<td><code>gateways</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>The names of gateways and sidecars that should apply these routes. A
+single VirtualService is used for sidecars inside the mesh as well as
+for one or more gateways. The selection condition imposed by this
+field can be overridden using the source field in the match conditions
+of protocol-specific routes. The reserved word <code>mesh</code> is used to imply
+all the sidecars in the mesh. When this field is omitted, the default
+gateway (<code>mesh</code>) will be used, which would apply the rule to all
+sidecars in the mesh. If a list of gateway names is provided, the
+rules will apply only to the gateways. To apply the rules to both
+gateways and sidecars, specify <code>mesh</code> as one of the gateway names.</p>
+
+</td>
+</tr>
+<tr id="VirtualService-http">
+<td><code>http</code></td>
+<td><code><a href="#HTTPRoute">HTTPRoute[]</a></code></td>
+<td>
+<p>An ordered list of route rules for HTTP traffic. HTTP routes will be
+applied to platform service ports named &lsquo;http-<em>&rsquo;/&lsquo;http2-</em>&rsquo;/&lsquo;grpc-*&rsquo;, gateway
+ports with protocol HTTP/HTTP2/GRPC/ TLS-terminated-HTTPS and service
+entry ports using HTTP/HTTP2/GRPC protocols.  The first rule matching
+an incoming request is used.</p>
+
+</td>
+</tr>
+<tr id="VirtualService-tls">
+<td><code>tls</code></td>
+<td><code><a href="#TLSRoute">TLSRoute[]</a></code></td>
+<td>
+<p>An ordered list of route rule for non-terminated TLS &amp; HTTPS
+traffic. Routing is typically performed using the SNI value presented
+by the ClientHello message. TLS routes will be applied to platform
+service ports named &lsquo;https-<em>&rsquo;, &lsquo;tls-</em>&rsquo;, unterminated gateway ports using
+HTTPS/TLS protocols (i.e. with &ldquo;passthrough&rdquo; TLS mode) and service
+entry ports using HTTPS/TLS protocols.  The first rule matching an
+incoming request is used.  NOTE: Traffic &lsquo;https-<em>&rsquo; or &lsquo;tls-</em>&rsquo; ports
+without associated virtual service will be treated as opaque TCP
+traffic.</p>
+
+</td>
+</tr>
+<tr id="VirtualService-tcp">
+<td><code>tcp</code></td>
+<td><code><a href="#TCPRoute">TCPRoute[]</a></code></td>
+<td>
+<p>An ordered list of route rules for opaque TCP traffic. TCP routes will
+be applied to any port that is not a HTTP or TLS port. The first rule
+matching an incoming request is used.</p>
+
+</td>
+</tr>
+<tr id="VirtualService-export_to">
+<td><code>exportTo</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>A list of namespaces to which this virtual service is exported. Exporting a
+virtual service allows it to be used by sidecars and gateways defined in
+other namespaces. This feature provides a mechanism for service owners
+and mesh administrators to control the visibility of virtual services
+across namespace boundaries.</p>
+
+<p>If no namespaces are specified then the virtual service is exported to all
+namespaces by default.</p>
+
+<p>The value &ldquo;.&rdquo; is reserved and defines an export to the same namespace that
+the virtual service is declared in. Similarly the value &ldquo;*&rdquo; is reserved and
+defines an export to all namespaces.</p>
+
+<p>NOTE: in the current release, the <code>exportTo</code> value is restricted to
+&ldquo;.&rdquo; or &ldquo;*&rdquo; (i.e., the current namespace or all namespaces).</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>

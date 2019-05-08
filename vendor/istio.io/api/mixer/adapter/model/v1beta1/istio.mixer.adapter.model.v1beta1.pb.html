@@ -1,0 +1,640 @@
+---
+title: Mixer Adapter Model
+description: Definitions used to create adapters and templates.
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+number_of_entries: 17
+---
+<p>This package defines the service and types used by adapter code to serve requests from Mixer.
+This package also defines the types that are used to create Mixer templates.</p>
+
+<h2 id="Services">Services</h2>
+<h3 id="InfrastructureBackend">InfrastructureBackend</h3>
+<section>
+<p><code>InfrastructureBackend</code> is implemented by backends that wants to provide telemetry and policy functionality to Mixer as an
+out of process adapter.</p>
+
+<p><code>InfrastructureBackend</code> allows Mixer and the backends to have a session based model. In a session based model, Mixer passes
+the relevant configuration state to the backend only once and establishes a session using a session identifier.
+All future communications between Mixer and the backend uses the session identifier which refers to the previously
+passed in configuration data.</p>
+
+<p>For a given <code>InfrastructureBackend</code>, Mixer calls the <code>Validate</code> function, followed by <code>CreateSession</code>. The <code>session_id</code>
+returned from <code>CreateSession</code> is used to make subsequent request-time Handle calls and the eventual <code>CloseSession</code> function.
+Mixer assumes that, given the <code>session_id</code>, the backend can retrieve the necessary context to serve the
+Handle calls that contains the request-time payload (template-specific instance protobuf).</p>
+
+<pre id="InfrastructureBackend-Validate"><code class="language-proto">rpc Validate(ValidateRequest) returns (ValidateResponse)
+</code></pre>
+<p>Validates the handler configuration along with the template-specific instances that would be routed to that
+handler. The <code>CreateSession</code> for a specific handler configuration is invoked only if its associated <code>Validate</code>
+call has returned success.</p>
+
+<pre id="InfrastructureBackend-CreateSession"><code class="language-proto">rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse)
+</code></pre>
+<p>Creates a session for a given handler configuration and the template-specific instances that would be routed to
+that handler. For every handler configuration, Mixer creates a separate session by invoking <code>CreateSession</code>
+on the backend.</p>
+
+<p><code>CreateSessionRequest</code> contains the adapter specific handler configuration and the inferred type information about
+the instances the handler would receive during request processing.</p>
+
+<p><code>CreateSession</code> must return a <code>session_id</code> which Mixer uses to invoke template-specific Handle functions during
+request processing. The <code>session_id</code> provides the Handle functions a way to retrieve the necessary configuration
+associated with the session. Upon Mixer configuration change, Mixer will re-invoke <code>CreateSession</code> for all
+handler configurations whose existing sessions are invalidated or didn&rsquo;t existed.</p>
+
+<p>Backend is allowed to return the same session id if given the same configuration block.
+This would happen when multiple instances of Mixer in a deployment all create sessions with the same configuration.
+Note that given individual instances of Mixer can call <code>CloseSession</code>, reusing <code>session_id</code> by the backend
+assumes that the backend is doing reference counting.</p>
+
+<p>If the backend couldn&rsquo;t create a session for a specific handler configuration and
+returns non S_OK status, Mixer will not make request-time Handle calls associated with that handler configuration.</p>
+
+<pre id="InfrastructureBackend-CloseSession"><code class="language-proto">rpc CloseSession(CloseSessionRequest) returns (CloseSessionResponse)
+</code></pre>
+<p>Closes the session associated with the <code>session_id</code>. Mixer closes a session when its associated handler
+configuration or the instance configuration changes. Backend is supposed to cleanup all the resources associated
+with the session_id referenced by CloseSessionRequest.</p>
+
+</section>
+<h2 id="Types">Types</h2>
+<h3 id="CheckResult">CheckResult</h3>
+<section>
+<p>Expresses the result of a precondition check.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CheckResult-status">
+<td><code>status</code></td>
+<td><code><a href="#google-rpc-Status">google.rpc.Status</a></code></td>
+<td>
+<p>A status code of OK indicates preconditions were satisfied. Any other code indicates preconditions were not
+satisfied and details describe why.</p>
+
+</td>
+</tr>
+<tr id="CheckResult-valid_duration">
+<td><code>validDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>The amount of time for which this result can be considered valid.</p>
+
+</td>
+</tr>
+<tr id="CheckResult-valid_use_count">
+<td><code>validUseCount</code></td>
+<td><code>int32</code></td>
+<td>
+<p>The number of uses for which this result can be considered valid.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="CloseSessionRequest">CloseSessionRequest</h3>
+<section>
+<p>Request message for <code>CloseSession</code> method.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CloseSessionRequest-session_id">
+<td><code>sessionId</code></td>
+<td><code>string</code></td>
+<td>
+<p>Id of the session to be closed.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="CloseSessionResponse">CloseSessionResponse</h3>
+<section>
+<p>Response message for <code>CloseSession</code> method.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CloseSessionResponse-status">
+<td><code>status</code></td>
+<td><code><a href="#google-rpc-Status">google.rpc.Status</a></code></td>
+<td>
+<p>The success/failure status of close session call.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="CreateSessionRequest">CreateSessionRequest</h3>
+<section>
+<p>Request message for <code>CreateSession</code> method.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CreateSessionRequest-adapter_config">
+<td><code>adapterConfig</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any</a></code></td>
+<td>
+<p>Adapter specific configuration.</p>
+
+</td>
+</tr>
+<tr id="CreateSessionRequest-inferred_types">
+<td><code>inferredTypes</code></td>
+<td><code>map&lt;string,&nbsp;<a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any</a>&gt;</code></td>
+<td>
+<p>Map of instance names to their template-specific inferred type.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="CreateSessionResponse">CreateSessionResponse</h3>
+<section>
+<p>Response message for <code>CreateSession</code> method.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CreateSessionResponse-session_id">
+<td><code>sessionId</code></td>
+<td><code>string</code></td>
+<td>
+<p>Id of the created session.</p>
+
+</td>
+</tr>
+<tr id="CreateSessionResponse-status">
+<td><code>status</code></td>
+<td><code><a href="#google-rpc-Status">google.rpc.Status</a></code></td>
+<td>
+<p>The success/failure status of create session call.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="Info">Info</h3>
+<section>
+<p>Info describes an adapter or a backend that wants to provide telemetry and policy functionality to Mixer as an
+out of process adapter.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Info-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Name of the adapter. It must be an RFC 1035 compatible DNS label
+matching the <code>^[a-z]([-a-z0-9]*[a-z0-9])?$</code> regular expression.
+Name is used in Istio configuration, therefore it should be descriptive but short.
+example: denier
+Vendor adapters should use a vendor prefix.
+example: mycompany-denier</p>
+
+</td>
+</tr>
+<tr id="Info-description">
+<td><code>description</code></td>
+<td><code>string</code></td>
+<td>
+<p>User-friendly description of the adapter.</p>
+
+</td>
+</tr>
+<tr id="Info-templates">
+<td><code>templates</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Names of the templates the adapter supports.</p>
+
+</td>
+</tr>
+<tr id="Info-config">
+<td><code>config</code></td>
+<td><code>string</code></td>
+<td>
+<p>Base64 encoded proto descriptor of the adapter configuration.</p>
+
+</td>
+</tr>
+<tr id="Info-session_based">
+<td><code>sessionBased</code></td>
+<td><code>bool</code></td>
+<td>
+<p>True if backend has implemented the
+<a href="https://github.com/istio/api/blob/master/mixer/adapter/model/v1beta1/infrastructure_backend.proto">InfrastructureBackend</a>
+service; false otherwise.</p>
+
+<p>If true, during configuration time, Mixer calls the <code>InfrastructureBackend</code>&rsquo; rpcs
+to validate and pass the handler configuration. And during request-time, Mixer does not pass the handler
+configuration, and only passes the template-specific Instance payload using the template-specific handle service (Example
+<a href="https://github.com/istio/istio/blob/master/mixer/template/metric/template_handler_service.proto">HandlerMetricService</a>,
+<a href="https://github.com/istio/istio/blob/master/mixer/template/logentry/template_handler_service.proto">HandlerListEntryService</a>,
+<a href="https://github.com/istio/istio/blob/master/mixer/template/quota/template_handler_service.proto">HandleQuotaService</a> and more).
+If <code>session_based</code> is false, Mixer does not expect backend to implement <code>InfrastructureBackend</code> service, and
+only communicates with the backends during request-time through the template-specific handle service. Without
+<code>InfrastructureBackend</code> service, Mixer passes the handler configuration on each call during request-time.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="QuotaRequest">QuotaRequest</h3>
+<section>
+<p>Expresses the quota allocation request.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="QuotaRequest-quotas">
+<td><code>quotas</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#QuotaRequest-QuotaParams">QuotaRequest.QuotaParams</a>&gt;</code></td>
+<td>
+<p>The individual quotas to allocate</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="QuotaRequest-QuotaParams">QuotaRequest.QuotaParams</h3>
+<section>
+<p>parameters for a quota allocation</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="QuotaRequest-QuotaParams-amount">
+<td><code>amount</code></td>
+<td><code>int64</code></td>
+<td>
+<p>Amount of quota to allocate</p>
+
+</td>
+</tr>
+<tr id="QuotaRequest-QuotaParams-best_effort">
+<td><code>bestEffort</code></td>
+<td><code>bool</code></td>
+<td>
+<p>When true, supports returning less quota than what was requested.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="QuotaResult">QuotaResult</h3>
+<section>
+<p>Expresses the result of multiple quota allocations.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="QuotaResult-quotas">
+<td><code>quotas</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#QuotaResult-Result">QuotaResult.Result</a>&gt;</code></td>
+<td>
+<p>The resulting quota, one entry per requested quota.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="QuotaResult-Result">QuotaResult.Result</h3>
+<section>
+<p>Expresses the result of a quota allocation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="QuotaResult-Result-valid_duration">
+<td><code>validDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>The amount of time for which this result can be considered valid.</p>
+
+</td>
+</tr>
+<tr id="QuotaResult-Result-granted_amount">
+<td><code>grantedAmount</code></td>
+<td><code>int64</code></td>
+<td>
+<p>The amount of granted quota. When <code>QuotaParams.best_effort</code> is true, this will be &gt;= 0.
+If <code>QuotaParams.best_effort</code> is false, this will be either 0 or &gt;= <code>QuotaParams.amount</code>.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="ReportResult">ReportResult</h3>
+<section>
+<p>Expresses the result of a report call.</p>
+
+</section>
+<h3 id="Template">Template</h3>
+<section>
+<p>Template provides the details of a Mixer template.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Template-descriptor">
+<td><code>descriptor</code></td>
+<td><code>string</code></td>
+<td>
+<p>Base64 encoded proto descriptor of the template.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="TemplateVariety">TemplateVariety</h3>
+<section>
+<p>The available varieties of templates, controlling the semantics of what an adapter does with each instance.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TemplateVariety-TEMPLATE_VARIETY_CHECK">
+<td><code>TEMPLATE_VARIETY_CHECK</code></td>
+<td>
+<p>Makes the template applicable for Mixer&rsquo;s check calls. Instances of such template are created during
+check calls in Mixer and passed to the handlers based on the rule configurations.</p>
+
+</td>
+</tr>
+<tr id="TemplateVariety-TEMPLATE_VARIETY_REPORT">
+<td><code>TEMPLATE_VARIETY_REPORT</code></td>
+<td>
+<p>Makes the template applicable for Mixer&rsquo;s report calls. Instances of such template are created during
+report calls in Mixer and passed to the handlers based on the rule configurations.</p>
+
+</td>
+</tr>
+<tr id="TemplateVariety-TEMPLATE_VARIETY_QUOTA">
+<td><code>TEMPLATE_VARIETY_QUOTA</code></td>
+<td>
+<p>Makes the template applicable for Mixer&rsquo;s quota calls. Instances of such template are created during
+quota check calls in Mixer and passed to the handlers based on the rule configurations.</p>
+
+</td>
+</tr>
+<tr id="TemplateVariety-TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR">
+<td><code>TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR</code></td>
+<td>
+<p>Makes the template applicable for Mixer&rsquo;s attribute generation phase. Instances of such template are created during
+pre-processing attribute generation phase and passed to the handlers based on the rule configurations.</p>
+
+</td>
+</tr>
+<tr id="TemplateVariety-TEMPLATE_VARIETY_CHECK_WITH_OUTPUT">
+<td><code>TEMPLATE_VARIETY_CHECK_WITH_OUTPUT</code></td>
+<td>
+<p>Makes the template applicable for Mixer&rsquo;s check calls. Instances of such template are created during
+check calls in Mixer and passed to the handlers that produce values.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="ValidateRequest">ValidateRequest</h3>
+<section>
+<p>Request message for <code>Validate</code> method.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ValidateRequest-adapter_config">
+<td><code>adapterConfig</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any</a></code></td>
+<td>
+<p>Adapter specific configuration.</p>
+
+</td>
+</tr>
+<tr id="ValidateRequest-inferred_types">
+<td><code>inferredTypes</code></td>
+<td><code>map&lt;string,&nbsp;<a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any</a>&gt;</code></td>
+<td>
+<p>Map of instance names to their template-specific inferred type.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="ValidateResponse">ValidateResponse</h3>
+<section>
+<p>Response message for <code>Validate</code> method.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ValidateResponse-status">
+<td><code>status</code></td>
+<td><code><a href="#google-rpc-Status">google.rpc.Status</a></code></td>
+<td>
+<p>The success/failure status of validation call.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="google-rpc-Status">google.rpc.Status</h3>
+<section>
+<p>The <code>Status</code> type defines a logical error model that is suitable for different
+programming environments, including REST APIs and RPC APIs. It is used by
+<a href="https://github.com/grpc">gRPC</a>. The error model is designed to be:</p>
+
+<ul>
+<li>Simple to use and understand for most users</li>
+<li>Flexible enough to meet unexpected needs</li>
+</ul>
+
+<h4 id="overview">Overview</h4>
+
+<p>The <code>Status</code> message contains three pieces of data: error code, error message,
+and error details. The error code should be an enum value of
+<em>google.rpc.Code</em>, but it may accept additional error codes if needed.  The
+error message should be a developer-facing English message that helps
+developers <em>understand</em> and <em>resolve</em> the error. If a localized user-facing
+error message is needed, put the localized message in the error details or
+localize it in the client. The optional error details may contain arbitrary
+information about the error. There is a predefined set of error detail types
+in the package <code>google.rpc</code> that can be used for common error conditions.</p>
+
+<h4 id="language-mapping">Language mapping</h4>
+
+<p>The <code>Status</code> message is the logical representation of the error model, but it
+is not necessarily the actual wire format. When the <code>Status</code> message is
+exposed in different client libraries and different wire protocols, it can be
+mapped differently. For example, it will likely be mapped to some exceptions
+in Java, but more likely mapped to some error codes in C.</p>
+
+<h4 id="other-uses">Other uses</h4>
+
+<p>The error model and the <code>Status</code> message can be used in a variety of
+environments, either with or without APIs, to provide a
+consistent developer experience across different environments.</p>
+
+<p>Example uses of this error model include:</p>
+
+<ul>
+<li><p>Partial errors. If a service needs to return partial errors to the client,
+it may embed the <code>Status</code> in the normal response to indicate the partial
+errors.</p></li>
+
+<li><p>Workflow errors. A typical workflow has multiple steps. Each step may
+have a <code>Status</code> message for error reporting.</p></li>
+
+<li><p>Batch operations. If a client uses batch request and batch response, the
+<code>Status</code> message should be used directly inside batch response, one for
+each error sub-response.</p></li>
+
+<li><p>Asynchronous operations. If an API call embeds asynchronous operation
+results in its response, the status of those operations should be
+represented directly using the <code>Status</code> message.</p></li>
+
+<li><p>Logging. If some API errors are stored in logs, the message <code>Status</code> could
+be used directly after any stripping needed for security/privacy reasons.</p></li>
+</ul>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="google-rpc-Status-code">
+<td><code>code</code></td>
+<td><code>int32</code></td>
+<td>
+<p>The status code, which should be an enum value of <em>google.rpc.Code</em>.</p>
+
+</td>
+</tr>
+<tr id="google-rpc-Status-message">
+<td><code>message</code></td>
+<td><code>string</code></td>
+<td>
+<p>A developer-facing error message, which should be in English. Any
+user-facing error message should be localized and sent in the
+<a href="#google-rpc-Status-details">google.rpc.Status.details</a> field, or localized by the client.</p>
+
+</td>
+</tr>
+<tr id="google-rpc-Status-details">
+<td><code>details</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any[]</a></code></td>
+<td>
+<p>A list of messages that carry the error details.  There is a common set of
+message types for APIs to use.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>

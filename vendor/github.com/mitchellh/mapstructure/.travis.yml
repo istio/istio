@@ -1,0 +1,8 @@
+language: go
+
+go:
+  - 1.9.x
+  - tip
+
+script:
+  - go test
