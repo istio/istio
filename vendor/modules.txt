@@ -722,7 +722,6 @@ k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
-k8s.io/apiextensions-apiserver/pkg/features
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1/fake
 # k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628
@@ -774,9 +773,6 @@ k8s.io/apimachinery/pkg/apis/meta/v1beta1
 k8s.io/apimachinery/third_party/forked/golang/reflect
 k8s.io/apimachinery/pkg/apis/meta/internalversion
 k8s.io/apimachinery/third_party/forked/golang/netutil
-# k8s.io/apiserver v0.0.0-20190311161003-7ec69625ace0
-k8s.io/apiserver/pkg/util/feature
-k8s.io/apiserver/pkg/features
 # k8s.io/cli-runtime v0.0.0-20190221101700-11047e25a94a
 k8s.io/cli-runtime/pkg/genericclioptions
 k8s.io/cli-runtime/pkg/genericclioptions/resource
@@ -984,8 +980,6 @@ k8s.io/klog
 # k8s.io/kube-openapi v0.0.0-20180216212618-50ae88d24ede
 k8s.io/kube-openapi/pkg/util/proto
 # k8s.io/kubernetes v0.0.0-20190413114802-75128f945898
-k8s.io/kubernetes/pkg/kubelet/apis
-k8s.io/kubernetes/pkg/features
 k8s.io/kubernetes/pkg/apis/core
 # sigs.k8s.io/yaml v1.1.0
 sigs.k8s.io/yaml

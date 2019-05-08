@@ -563,8 +563,6 @@ k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87 h1:BMfPZfi3CkP
 k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87/go.mod h1:IxkesAMoaCRoLrPJdZNZUQp9NfZnzqaVzLhb2VEQzXE=
 k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628 h1:UYfHH+KEF88OTg+GojQUwFTNxbxwmoktLwutUzR0GPg=
 k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628/go.mod h1:ccL7Eh7zubPUSh9A3USN90/OzHNSVN6zxzde07TDCL0=
-k8s.io/apiserver v0.0.0-20190311161003-7ec69625ace0 h1:iUV0B1encXvbgzPzwZ04tl1sbBjJ6cby+f9aoOf8U5g=
-k8s.io/apiserver v0.0.0-20190311161003-7ec69625ace0/go.mod h1:6bqaTSOSJavUIXUtfaR9Os9JtTCm8ZqH2SUl2S60C4w=
 k8s.io/cli-runtime v0.0.0-20190221101700-11047e25a94a h1:GAcwIisjZPZ+M1SnvTMt36TeoGLN+CNKjAn/4DG4T4I=
 k8s.io/cli-runtime v0.0.0-20190221101700-11047e25a94a/go.mod h1:qWnH3/b8sp/l7EvlDh7ulDU3UWA4P4N1NFbEEP791tM=
 k8s.io/client-go v10.0.0+incompatible h1:F1IqCqw7oMBzDkqlcBymRq1450wD0eNqLE9jzUrIi34=
