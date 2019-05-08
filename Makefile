@@ -776,7 +776,7 @@ INSTALLER_REPOSRC=git://github.com/istio/installer.git
 force: ;
 
 ${GOPATH}/src/github.com/istio/installer: force
-	mkdir -p ${GOPATH}/src/istio-ecosystem
+	mkdir -p ${GOPATH}/src/github.com/istio
 	git clone -b master "${INSTALLER_REPOSRC}" "${ISTIO_INSTALLER}" 2> /dev/null || (cd "${ISTIO_INSTALLER}" ; git pull)
 
 generate_installer_e2e_yaml: ${GOPATH}/src/github.com/istio/installer istio-init.yaml
