@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2019 Istio Authors
+# Copyright 2018 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+ROOT=$(dirname "$WD")
+
 # Exit immediately for non zero status
 set -e
 # Check unset variables
@@ -21,8 +25,14 @@ set -u
 # Print commands
 set -x
 
-WD=$(dirname "$0")
-WD=$(cd "$WD"; pwd)
-ROOT=$(dirname "$WD")
+# shellcheck source=prow/lib.sh
+source "${ROOT}/prow/lib.sh"
+setup_and_export_git_sha
 
-"${ROOT}/prow/integ-suite-k8s.sh" test.integration.local
+cd "${ROOT}"
+
+make sync
+
+JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml" \
+T="-v" \
+make test.integration.local
