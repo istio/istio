@@ -38,6 +38,20 @@ spec:
           - mountPath: /etc/istio-certs
             name: istio-certs
 {{- end }}
+{{- if .Values.persistentVolume.enabled }}
+      initContainers:
+      - name: "{{ .Values.initChownData.name }}"
+        image: "{{ .Values.initChownData.image.repository }}:{{ .Values.initChownData.image.tag }}"
+        imagePullPolicy: "{{ .Values.initChownData.image.pullPolicy }}"
+        resources:
+{{ toYaml .Values.initChownData.resources | indent 12 }}
+        # 65534 is the nobody user that prometheus uses.
+        command: ["chown", "-R", "65534:65534", "{{ .Values.persistentVolume.mountPath }}"]
+        volumeMounts:
+        - name: storage-volume
+          mountPath: {{ .Values.persistentVolume.mountPath }}
+          subPath: "{{ .Values.persistentVolume.subPath }}"
+{{- end }}    
       containers:
         - name: prometheus
           image: "{{ .Values.hub }}/prometheus:{{ .Values.tag }}"
@@ -84,10 +98,10 @@ spec:
           secretName: istio.default
       - name: storage-volume
         {{- if .Values.persistentVolume.enabled }}
-          persistentVolumeClaim:
-            claimName: {{ if .Values.persistentVolume.existingClaim }}{{ .Values.persistentVolume.existingClaim }}{{- else }}{{ template "prometheus.fullname" . }}{{- end }}
+        persistentVolumeClaim:
+          claimName: {{ if .Values.persistentVolume.existingClaim }}{{ .Values.persistentVolume.existingClaim }}{{- else }}{{ template "prometheus.fullname" . }}{{- end }}
         {{- else }}
-          emptyDir: {}
+        emptyDir: {}
         {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
