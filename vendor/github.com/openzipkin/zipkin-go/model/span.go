@@ -1,3 +1,17 @@
+// Copyright 2019 The OpenZipkin Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package model
 
 import (
@@ -33,8 +47,8 @@ type SpanModel struct {
 	SpanContext
 	Name           string            `json:"name,omitempty"`
 	Kind           Kind              `json:"kind,omitempty"`
-	Timestamp      time.Time         `json:"timestamp,omitempty"`
-	Duration       time.Duration     `json:"duration,omitempty"`
+	Timestamp      time.Time         `json:"-"`
+	Duration       time.Duration     `json:"-"`
 	Shared         bool              `json:"shared,omitempty"`
 	LocalEndpoint  *Endpoint         `json:"localEndpoint,omitempty"`
 	RemoteEndpoint *Endpoint         `json:"remoteEndpoint,omitempty"`
@@ -82,13 +96,13 @@ func (s SpanModel) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(&struct {
-		Timestamp int64 `json:"timestamp,omitempty"`
-		Duration  int64 `json:"duration,omitempty"`
+		T int64 `json:"timestamp,omitempty"`
+		D int64 `json:"duration,omitempty"`
 		Alias
 	}{
-		Timestamp: timestamp,
-		Duration:  s.Duration.Nanoseconds() / 1e3,
-		Alias:     (Alias)(s),
+		T:     timestamp,
+		D:     s.Duration.Nanoseconds() / 1e3,
+		Alias: (Alias)(s),
 	})
 }
 
@@ -97,8 +111,8 @@ func (s SpanModel) MarshalJSON() ([]byte, error) {
 func (s *SpanModel) UnmarshalJSON(b []byte) error {
 	type Alias SpanModel
 	span := &struct {
-		TimeStamp uint64 `json:"timestamp,omitempty"`
-		Duration  uint64 `json:"duration,omitempty"`
+		T uint64 `json:"timestamp,omitempty"`
+		D uint64 `json:"duration,omitempty"`
 		*Alias
 	}{
 		Alias: (*Alias)(s),
@@ -109,10 +123,10 @@ func (s *SpanModel) UnmarshalJSON(b []byte) error {
 	if s.ID < 1 {
 		return ErrValidIDRequired
 	}
-	if span.TimeStamp > 0 {
-		s.Timestamp = time.Unix(0, int64(span.TimeStamp)*1e3)
+	if span.T > 0 {
+		s.Timestamp = time.Unix(0, int64(span.T)*1e3)
 	}
-	s.Duration = time.Duration(span.Duration*1e3) * time.Nanosecond
+	s.Duration = time.Duration(span.D*1e3) * time.Nanosecond
 	if s.LocalEndpoint.Empty() {
 		s.LocalEndpoint = nil
 	}

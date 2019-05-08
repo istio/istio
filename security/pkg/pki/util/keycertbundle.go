@@ -65,7 +65,7 @@ type KeyCertBundleImpl struct {
 	mutex sync.RWMutex
 }
 
-// NewVerifiedKeyCertBundleFromPem returns a new KeyCertBundle, or error if if the provided certs failed the
+// NewVerifiedKeyCertBundleFromPem returns a new KeyCertBundle, or error if the provided certs failed the
 // verification.
 func NewVerifiedKeyCertBundleFromPem(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) (
 	*KeyCertBundleImpl, error) {
@@ -76,7 +76,7 @@ func NewVerifiedKeyCertBundleFromPem(certBytes, privKeyBytes, certChainBytes, ro
 	return bundle, nil
 }
 
-// NewVerifiedKeyCertBundleFromFile returns a new KeyCertBundle, or error if if the provided certs failed the
+// NewVerifiedKeyCertBundleFromFile returns a new KeyCertBundle, or error if the provided certs failed the
 // verification.
 func NewVerifiedKeyCertBundleFromFile(certFile, privKeyFile, certChainFile, rootCertFile string) (
 	*KeyCertBundleImpl, error) {
@@ -221,7 +221,8 @@ func Verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error
 
 	if len(chains) == 0 || err != nil {
 		return fmt.Errorf(
-			"cannot verify the cert with the provided root chain and cert pool")
+			"cannot verify the cert with the provided root chain and cert "+
+				"pool with error: %v", err)
 	}
 
 	// Verify that the key can be correctly parsed.

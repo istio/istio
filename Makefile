@@ -216,7 +216,7 @@ where-is-docker-tar:
 #-----------------------------------------------------------------------------
 # Target: depend
 #-----------------------------------------------------------------------------
-.PHONY: depend depend.diff init
+.PHONY: depend init
 
 # Parse out the x.y or x.y.z version and output a single value x*10000+y*100+z (e.g., 1.9 is 10900)
 # that allows the three components to be checked in a single comparison.
@@ -263,12 +263,6 @@ depend: init | $(ISTIO_OUT)
 
 $(ISTIO_OUT) $(ISTIO_BIN):
 	@mkdir -p $@
-
-# Used by CI to update the dependencies and generates a git diff of the vendor files against HEAD.
-depend.diff: $(ISTIO_OUT)
-	curl https://raw.githubusercontent.com/golang/dep/master/install.sh | DEP_RELEASE_TAG="v0.5.0" sh
-	dep ensure
-	git diff HEAD --exit-code -- Gopkg.lock vendor > $(ISTIO_OUT)/dep.diff
 
 # Used by CI for automatic go code generation and generates a git diff of the generated files against HEAD.
 go.generate.diff: $(ISTIO_OUT)

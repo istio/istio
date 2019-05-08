@@ -9,6 +9,7 @@ http://onsi.github.io/gomega/
 package matchers
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 )
@@ -131,6 +132,11 @@ func toString(a interface{}) (string, bool) {
 	aStringer, isStringer := a.(fmt.Stringer)
 	if isStringer {
 		return aStringer.String(), true
+	}
+
+	aJSONRawMessage, isJSONRawMessage := a.(json.RawMessage)
+	if isJSONRawMessage {
+		return string(aJSONRawMessage), true
 	}
 
 	return "", false
