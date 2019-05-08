@@ -32,9 +32,9 @@ import (
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/proto"
-	deployment2 "istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/core/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -697,7 +697,7 @@ type deploymentFactory struct {
 }
 
 func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*deployment.Instance, error) {
-	s, err := deployment2.SettingsFromCommandLine()
+	s, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return nil, err
 	}

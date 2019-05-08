@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	k "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -67,8 +68,13 @@ func (n *kubeNamespace) Close() (err error) {
 
 func claimKube(ctx resource.Context, name string) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
+	cfg, err := istio.DefaultConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if !env.Accessor.NamespaceExists(name) {
-		if err := env.CreateNamespace(name, "istio-test", true); err != nil {
+		if err := env.CreateNamespaceWithInjectionEnabled(name, "istio-test", cfg.ConfigNamespace); err != nil {
 			return nil, err
 		}
 
@@ -86,8 +92,21 @@ func newKube(ctx resource.Context, prefix string, inject bool) (Instance, error)
 
 	env := ctx.Environment().(*kube.Environment)
 	ns := fmt.Sprintf("%s-%d-%d", prefix, nsid, r)
-	if err := env.CreateNamespace(ns, "istio-test", inject); err != nil {
-		return nil, err
+
+	if inject {
+		cfg, err := istio.DefaultConfig(ctx)
+		if err != nil {
+			return nil, err
+		}
+		err = env.CreateNamespaceWithInjectionEnabled(ns, "istio-test", cfg.ConfigNamespace)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err := env.CreateNamespace(ns, "istio-test")
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	n := &kubeNamespace{name: ns, a: env.Accessor}
