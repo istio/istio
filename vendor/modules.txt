@@ -617,7 +617,7 @@ google.golang.org/genproto/googleapis/devtools/cloudtrace/v2
 google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1
 # google.golang.org/genproto/googleapis/graphservice v0.0.0 => ./mixer/adapter/stackdriver/vendor/google.golang.org/genproto/googleapis/graphservice
 google.golang.org/genproto/googleapis/graphservice/v0
-# google.golang.org/grpc v1.19.0
+# google.golang.org/grpc v1.20.1
 google.golang.org/grpc
 google.golang.org/grpc/credentials
 google.golang.org/grpc/credentials/oauth
@@ -635,6 +635,7 @@ google.golang.org/grpc/encoding
 google.golang.org/grpc/encoding/proto
 google.golang.org/grpc/internal
 google.golang.org/grpc/internal/backoff
+google.golang.org/grpc/internal/balancerload
 google.golang.org/grpc/internal/binarylog
 google.golang.org/grpc/internal/channelz
 google.golang.org/grpc/internal/envconfig
@@ -780,7 +781,7 @@ k8s.io/apiserver/pkg/features
 k8s.io/cli-runtime/pkg/genericclioptions
 k8s.io/cli-runtime/pkg/genericclioptions/resource
 k8s.io/cli-runtime/pkg/genericclioptions/printers
-# k8s.io/client-go v0.0.0-20190404034449-b9d8bc3e502a
+# k8s.io/client-go v10.0.0+incompatible
 k8s.io/client-go/kubernetes
 k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1
 k8s.io/client-go/tools/cache

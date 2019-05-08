@@ -18,6 +18,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -106,12 +107,13 @@ func newNative(ctx resource.Context, config Config) (Instance, error) {
 		return nil, err
 	}
 
-	if instance.client, err = newClient(instance.server.GRPCListeningAddr.(*net.TCPAddr)); err != nil {
+	// Start the server
+	if err = instance.server.Start(instance.stopChan); err != nil {
 		return nil, err
 	}
 
-	// Start the server
-	if err = instance.server.Start(instance.stopChan); err != nil {
+	time.Sleep(1 * time.Second)
+	if instance.client, err = newClient(instance.server.GRPCListeningAddr.(*net.TCPAddr)); err != nil {
 		return nil, err
 	}
 

@@ -86,7 +86,7 @@ go list -f {{.Dir}} ./... | xargs go run test/go_vet/vet.go
 
 # - gofmt, goimports, golint (with exceptions for generated code), go vet.
 gofmt -s -d -l . 2>&1 | fail_on_output
-goimports -l . 2>&1 | fail_on_output
+goimports -l . 2>&1 | (! grep -vE "(_mock|\.pb)\.go:") | fail_on_output
 golint ./... 2>&1 | (! grep -vE "(_mock|\.pb)\.go:")
 go tool vet -all .
 
@@ -108,13 +108,19 @@ fi
 # TODO(menghanl): fix errors in transport_test.
 staticcheck -go 1.9 -checks 'inherit,-ST1015' -ignore '
 google.golang.org/grpc/balancer.go:SA1019
-google.golang.org/grpc/balancer_test.go:SA1019
-google.golang.org/grpc/clientconn_test.go:SA1019
 google.golang.org/grpc/balancer/roundrobin/roundrobin_test.go:SA1019
+google.golang.org/grpc/balancer/xds/edsbalancer/balancergroup.go:SA1019
+google.golang.org/grpc/balancer/xds/xds.go:SA1019
+google.golang.org/grpc/balancer_conn_wrappers.go:SA1019
+google.golang.org/grpc/balancer_test.go:SA1019
 google.golang.org/grpc/benchmark/benchmain/main.go:SA1019
 google.golang.org/grpc/benchmark/worker/benchmark_client.go:SA1019
+google.golang.org/grpc/clientconn.go:S1024
+google.golang.org/grpc/clientconn_state_transition_test.go:SA1019
+google.golang.org/grpc/clientconn_test.go:SA1019
 google.golang.org/grpc/internal/transport/handler_server.go:SA1019
 google.golang.org/grpc/internal/transport/handler_server_test.go:SA1019
+google.golang.org/grpc/resolver/dns/dns_resolver.go:SA1019
 google.golang.org/grpc/stats/stats_test.go:SA1019
 google.golang.org/grpc/test/channelz_test.go:SA1019
 google.golang.org/grpc/test/end2end_test.go:SA1019

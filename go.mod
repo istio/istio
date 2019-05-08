@@ -182,7 +182,7 @@ require (
 	google.golang.org/genproto v0.0.0-20190404172233-64821d5d2107
 	google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1 v0.0.0
 	google.golang.org/genproto/googleapis/graphservice v0.0.0 // indirect
-	google.golang.org/grpc v1.19.0
+	google.golang.org/grpc v1.20.1
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/ini.v1 v1.42.0 // indirect
 	gopkg.in/logfmt.v0 v0.3.0 // indirect
@@ -199,7 +199,7 @@ require (
 	k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628
 	k8s.io/apiserver v0.0.0-20190311161003-7ec69625ace0 // indirect
 	k8s.io/cli-runtime v0.0.0-20190221101700-11047e25a94a
-	k8s.io/client-go v0.0.0-20190404034449-b9d8bc3e502a
+	k8s.io/client-go v10.0.0+incompatible
 	k8s.io/helm v2.9.1+incompatible
 	k8s.io/klog v0.3.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20180216212618-50ae88d24ede // indirect
