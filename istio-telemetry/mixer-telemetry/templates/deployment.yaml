@@ -47,7 +47,9 @@ spec:
       nodeSelector:
 {{ toYaml .Values.mixer.telemetry.nodeSelector | indent 8 }}
     {{- end }}
-
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.mixer.telemetry.image }}
