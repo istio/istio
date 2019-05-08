@@ -421,7 +421,8 @@ func setupConnection(socket string) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 
 	opts = append(opts, grpc.WithInsecure(), grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-		return net.DialContext(ctx, socket, timeout)
+		var d net.Dialer
+		return d.DialContext(ctx, "unix", socket)
 	}))
 
 	conn, err := grpc.Dial(socket, opts...)
