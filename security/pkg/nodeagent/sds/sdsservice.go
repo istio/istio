@@ -184,15 +184,15 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// request's <token, resourceName, Version>, then this request is a confirmation request.
 			// nodeagent stops sending response to envoy in this case.
 			if discReq.VersionInfo != "" && s.st.SecretExist(con.conID, resourceName, token, discReq.VersionInfo) {
-				log.Debugf("Received SDS ACK from %q, connectionID %q, resourceName %q, versionInfo %q\n", discReq.Node.Id, con.conID, resourceName, discReq.VersionInfo)
+				log.Infof("Received SDS ACK from %q, connectionID %q, resourceName %q, versionInfo %q\n", discReq.Node.Id, con.conID, resourceName, discReq.VersionInfo)
 				continue
 			}
 
 			if firstRequestFlag {
-				log.Debugf("Received first SDS request from %q, connectionID %q, resourceName %q, versionInfo %q\n",
+				log.Infof("Received first SDS request from %q, connectionID %q, resourceName %q, versionInfo %q\n",
 					discReq.Node.Id, con.conID, resourceName, discReq.VersionInfo)
 			} else {
-				log.Debugf("Received SDS request from %q, connectionID %q, resourceName %q, versionInfo %q\n",
+				log.Infof("Received SDS request from %q, connectionID %q, resourceName %q, versionInfo %q\n",
 					discReq.Node.Id, con.conID, resourceName, discReq.VersionInfo)
 			}
 
@@ -200,7 +200,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// wait for secret before sending SDS response. If a kubernetes secret was deleted by operator, wait
 			// for a new kubernetes secret before sending SDS response.
 			if s.st.ShouldWaitForIngressGatewaySecret(con.conID, resourceName, token) {
-				log.Debugf("Waiting for ingress gateway secret resource %q, connectionID %q, node %q\n", resourceName, con.conID, discReq.Node.Id)
+				log.Infof("Waiting for ingress gateway secret resource %q, connectionID %q, node %q\n", resourceName, con.conID, discReq.Node.Id)
 				continue
 			}
 
@@ -223,7 +223,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				return err
 			}
 		case <-con.pushChannel:
-			log.Debugf("Received push channel request for proxy %q connection %q", con.proxyID, con.conID)
+			log.Infof("Received push channel request for proxy %q connection %q", con.proxyID, con.conID)
 
 			if con.secret == nil {
 				// Secret is nil indicates close streaming to proxy, so that proxy

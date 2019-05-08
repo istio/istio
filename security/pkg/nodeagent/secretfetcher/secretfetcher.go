@@ -216,7 +216,7 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 		Version:          t.String(),
 	}
 	sf.secrets.Store(resourceName, *ns)
-	log.Debugf("secret %s is added", resourceName)
+	log.Infof("secret %s is added", resourceName)
 	if sf.AddCache != nil {
 		sf.AddCache(resourceName, *ns)
 	}
@@ -232,7 +232,7 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 			Version:      t.String(),
 		}
 		sf.secrets.Store(rootCertResourceName, *nsRoot)
-		log.Debugf("secret %s is added", rootCertResourceName)
+		log.Infof("secret %s is added", rootCertResourceName)
 		if sf.AddCache != nil {
 			sf.AddCache(rootCertResourceName, *nsRoot)
 		}
@@ -248,7 +248,7 @@ func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 
 	key := scrt.GetName()
 	sf.secrets.Delete(key)
-	log.Debugf("secret %s is deleted", key)
+	log.Infof("secret %s is deleted", key)
 	// Delete all cache entries that match the deleted key.
 	if sf.DeleteCache != nil {
 		sf.DeleteCache(key)
@@ -257,7 +257,7 @@ func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 	rootCertResourceName := key + IngressGatewaySdsCaSuffix
 	// If there is root cert secret with the same resource name, delete that secret now.
 	sf.secrets.Delete(rootCertResourceName)
-	log.Debugf("secret %s is deleted", rootCertResourceName)
+	log.Infof("secret %s is deleted", rootCertResourceName)
 	// Delete all cache entries that match the deleted key.
 	if sf.DeleteCache != nil {
 		sf.DeleteCache(rootCertResourceName)
@@ -309,7 +309,7 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 		Version:          t.String(),
 	}
 	sf.secrets.Store(newScrtName, *ns)
-	log.Debugf("secret %s is updated", newScrtName)
+	log.Infof("secret %s is updated", newScrtName)
 	if sf.UpdateCache != nil {
 		sf.UpdateCache(newScrtName, *ns)
 	}
@@ -325,7 +325,7 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 			Version:      t.String(),
 		}
 		sf.secrets.Store(rootCertResourceName, *nsRoot)
-		log.Debugf("secret %s is updated", rootCertResourceName)
+		log.Infof("secret %s is updated", rootCertResourceName)
 		if sf.UpdateCache != nil {
 			sf.UpdateCache(rootCertResourceName, *nsRoot)
 		}
