@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 	k "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 var (
@@ -52,14 +53,16 @@ func (n *kubeNamespace) ID() resource.ID {
 }
 
 // Close implements io.Closer
-func (n *kubeNamespace) Close() error {
+func (n *kubeNamespace) Close() (err error) {
 	if n.name != "" {
+		scopes.Framework.Debugf("%s deleting namespace", n.id)
 		ns := n.name
 		n.name = ""
-		return n.a.DeleteNamespace(ns)
+		err = n.a.DeleteNamespace(ns)
 	}
 
-	return nil
+	scopes.Framework.Debugf("%s close complete (err:%v)", n.id, err)
+	return
 }
 
 func claimKube(ctx resource.Context, name string) (Instance, error) {

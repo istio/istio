@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 var (
@@ -139,7 +140,10 @@ func (c *instance) CallOrFail(t testing.TB, opts echo.CallOptions) client.Parsed
 
 func (c *instance) Close() (err error) {
 	if c.workload != nil {
+		scopes.Framework.Debugf("%s closing Echo workload", c.id)
 		err = multierror.Append(err, c.workload.Close()).ErrorOrNil()
 	}
+
+	scopes.Framework.Debugf("%s close complete (err:%v)", c.id, err)
 	return
 }

@@ -30,7 +30,7 @@ import (
 
 func TestWhiteListing(t *testing.T) {
 	framework.Run(t, func(ctx framework.TestContext) {
-		ctx.RequireOrSkip(t, environment.Kube)
+		ctx.RequireOrSkip(environment.Kube)
 
 		bookinfoNs, err := namespace.New(ctx, "istio-bookinfo", true)
 		if err != nil {

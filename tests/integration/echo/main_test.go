@@ -12,53 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package apps_test
+package echo
 
 import (
 	"testing"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/apps"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
-func TestNative(t *testing.T) {
-	ctx := framework.NewContext(t)
-	defer ctx.Done()
-
-	g := galley.NewOrFail(t, ctx, galley.Config{})
-	p := pilot.NewOrFail(t, ctx, pilot.Config{
-		Galley: g,
-	})
-
-	ns := namespace.NewOrFail(t, ctx, "test", true)
-	all := apps.NewOrFail(t, ctx, apps.Config{
-		Namespace: ns,
-		Galley:    g,
-		Pilot:     p,
-		AppParams: []apps.AppParam{
-			{
-				Name: "a",
-			},
-			{
-				Name: "b",
-			},
-		},
-	})
-	a := all.GetAppOrFail("a", t)
-	b := all.GetAppOrFail("b", t)
-
-	be := b.EndpointsForProtocol(model.ProtocolHTTP)[0]
-	_ = a.CallOrFail(be, apps.AppCallOptions{}, t)
-}
+var (
+	ist istio.Instance
+	p   pilot.Instance
+	g   galley.Instance
+)
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("apps_test", m).
-		RequireEnvironment(environment.Native).
+		NewSuite("echo_test", m).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		Setup(func(ctx resource.Context) (err error) {
+			if g, err = galley.New(ctx, galley.Config{}); err != nil {
+				return err
+			}
+			if p, err = pilot.New(ctx, pilot.Config{Galley: g}); err != nil {
+				return err
+			}
+			return nil
+		}).
 		Run()
+
 }

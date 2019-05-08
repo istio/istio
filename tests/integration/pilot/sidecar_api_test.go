@@ -33,7 +33,7 @@ import (
 func TestSidecarListeners(t *testing.T) {
 	// Call Requires to explicitly initialize dependencies that the test needs.
 	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
+	defer ctx.Done()
 
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})

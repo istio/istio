@@ -63,7 +63,7 @@ func TestStyle1(t *testing.T) {
 	// is cleaned up correctly.
 	framework.Run(t, func(ctx framework.TestContext) {
 		// You can use the framework.TestContext methods directly to interact with the framework.
-		ctx.CreateDirectoryOrFail(t, "boo")
+		ctx.CreateDirectoryOrFail("boo")
 
 		// You can allocate components at the test level as well. mc2's life will be scoped to this lambda call.
 		mc2 := mycomponent.NewOrFail(t, ctx, mycomponent.Config{DoStuffElegantly: true})

@@ -45,7 +45,7 @@ Then, in the same package as `TestMain`, define your tests:
 func TestHTTP(t *testing.T) {
     // Get the test context from the framework.
     ctx := framework.GetContext(t)
-    defer ctx.Done(t)
+    defer ctx.Done()
     
     // Get the component(s) that you need.
     apps := components.GetApps(t, ctx)

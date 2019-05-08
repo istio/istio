@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package runtime
+package framework
 
 import (
 	"testing"
@@ -20,44 +20,43 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/api"
 	"istio.io/istio/pkg/test/framework/core"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
-// Instance for the test environment.
-type Instance struct {
+var _ resource.Dumper = &runtime{}
+
+// runtime for the test environment.
+type runtime struct {
 	context *suiteContext
 }
 
-// New returns a new runtime instance.
-func New(s *core.Settings, fn api.FactoryFn, labels label.Set) (*Instance, error) {
+// newRuntime returns a new runtime instance.
+func newRuntime(s *core.Settings, fn api.FactoryFn, labels label.Set) (*runtime, error) {
 	ctx, err := newSuiteContext(s, fn, labels)
 	if err != nil {
 		return nil, err
 	}
-	return &Instance{
+	return &runtime{
 		context: ctx,
 	}, nil
 }
 
 // Dump state for all allocated resources.
-func (i *Instance) Dump() {
+func (i *runtime) Dump() {
 	i.context.globalScope.dump()
 }
 
 // suiteContext returns the suiteContext.
-func (i *Instance) SuiteContext() *suiteContext { // nolint:golint
+func (i *runtime) suiteContext() *suiteContext {
 	return i.context
 }
 
-// NewTestContext creates and returns a new testContext
-func (i *Instance) NewTestContext(t *testing.T, parentContext *testContext, labels label.Set) *testContext { // nolint:golint
-	var parentScope *scope
-	if parentContext != nil {
-		parentScope = parentContext.scope
-	}
-	return newTestContext(t, i.context, parentScope, labels)
+// newRootContext creates and returns a new testContext with no parent.
+func (i *runtime) newRootContext(test *Test, goTest *testing.T, labels label.Set) *testContext {
+	return newTestContext(test, goTest, i.context, nil, labels)
 }
 
 // Close implements io.Closer
-func (i *Instance) Close() error {
+func (i *runtime) Close() error {
 	return i.context.globalScope.done(i.context.settings.NoCleanup)
 }
