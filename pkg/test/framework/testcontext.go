@@ -297,5 +297,10 @@ func (c *testContext) Parallel() {
 }
 
 func (c *testContext) IsParallel() bool {
-	return reflect.ValueOf(*c.goTest).FieldByName("isParallel").Bool()
+	return isParallel(c.goTest)
+}
+
+func isParallel(t *testing.T) bool {
+	// nolint: copylocks
+	return reflect.ValueOf(*t).FieldByName("isParallel").Bool()
 }

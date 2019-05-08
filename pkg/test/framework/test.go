@@ -27,12 +27,12 @@ import (
 // Test allows the test author to specify test-related metadata in a fluent-style, before commencing execution.
 type Test struct {
 	// name to be used when creating a Golang test. Only used for subtests.
-	name   string
-	parent *Test
-	goTest *testing.T
-	labels []label.Instance
-	s      *suiteContext
-	env    environment.Name
+	name        string
+	parent      *Test
+	goTest      *testing.T
+	labels      []label.Instance
+	s           *suiteContext
+	requiredEnv environment.Name
 
 	ctx *testContext
 }
@@ -63,7 +63,7 @@ func (t *Test) Label(labels ...label.Instance) *Test {
 // RequiresEnvironment ensures that the current environment matches what the suite expects. Otherwise it stops test
 // execution and skips the test.
 func (t *Test) RequiresEnvironment(name environment.Name) *Test {
-	t.env = name
+	t.requiredEnv = name
 	return t
 }
 
@@ -96,8 +96,8 @@ func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext)) {
 	t.ctx = ctx
 	defer ctx.Done()
 
-	if t.env != "" && t.s.Environment().EnvironmentName() != t.env {
-		t.goTest.Skipf("Skipping %q: expected environment not found: %s", t.goTest.Name(), t.env)
+	if t.requiredEnv != "" && t.s.Environment().EnvironmentName() != t.requiredEnv {
+		t.goTest.Skipf("Skipping %q: expected environment not found: %s", t.goTest.Name(), t.requiredEnv)
 		return
 	}
 
