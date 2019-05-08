@@ -33,7 +33,7 @@ import (
 
 const (
 	appName    = "zipkin"
-	tracesAPI  = "/api/v2/traces?limit=%s&spanName=%s"
+	tracesAPI  = "/api/v2/traces?limit=%d&spanName=%s"
 	zipkinPort = 9411
 )
 
@@ -93,7 +93,8 @@ func (c *kubeComponent) QueryTraces(limit int, spanName string) ([]Trace, error)
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
-	resp, err := client.Get(c.address + fmt.Sprintf(tracesAPI, string(limit), spanName))
+	fmt.Println(c.address + fmt.Sprintf(tracesAPI, limit, spanName))
+	resp, err := client.Get(c.address + fmt.Sprintf(tracesAPI, limit, spanName))
 	if err != nil {
 		return nil, err
 	}
@@ -105,6 +106,7 @@ func (c *kubeComponent) QueryTraces(limit int, spanName string) ([]Trace, error)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println(body)
 	traces, err := extractTraces(body)
 	if err != nil {
 		return nil, err
