@@ -40,7 +40,7 @@ import (
 )
 
 var (
-	serverAddr             = flag.String("server", "127.0.0.1:9901", "The server address")
+	serverAddr             = flag.String("server", "localhost:9901", "The server address")
 	collectionList         = flag.String("collections", "", "Comma separated list of collections to watch")
 	useWellKnownTypes      = flag.Bool("use-wkt", false, "use well known collections types")
 	useWellKnownPilotTypes = flag.Bool("use-wkt-pilot", false, "use well known collections for pilot")

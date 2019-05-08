@@ -335,10 +335,14 @@ ${ISTIO_OUT}/istioctl-osx: depend
 ${ISTIO_OUT}/istioctl-win.exe: depend
 	STATIC=0 GOOS=windows bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 
-# generate the istioctl.bash completion file
+# generate the istioctl completion files
 ${ISTIO_OUT}/istioctl.bash: istioctl
 	${ISTIO_OUT}/istioctl collateral --bash && \
 	mv istioctl.bash ${ISTIO_OUT}/istioctl.bash
+
+${ISTIO_OUT}/_istioctl: istioctl
+	${ISTIO_OUT}/istioctl collateral --zsh && \
+	mv _istioctl ${ISTIO_OUT}/_istioctl
 
 MIXER_GO_BINS:=${ISTIO_OUT}/mixs ${ISTIO_OUT}/mixc
 mixc:
@@ -401,15 +405,15 @@ node_agent istio_ca:
 .PHONY: istioctl-all
 istioctl-all: ${ISTIO_OUT}/istioctl-linux ${ISTIO_OUT}/istioctl-osx ${ISTIO_OUT}/istioctl-win.exe
 
-.PHONY: istioctl.bash
-istioctl.bash: ${ISTIO_OUT}/istioctl.bash
+.PHONY: istioctl.completion
+istioctl.completion: ${ISTIO_OUT}/istioctl.bash ${ISTIO_OUT}/_istioctl
 
 .PHONY: istio-archive
 
 istio-archive: ${ISTIO_OUT}/archive
 
 # TBD: how to capture VERSION, ISTIO_DOCKER_HUB, ISTIO_URL as dependencies
-${ISTIO_OUT}/archive: istioctl-all istioctl.bash LICENSE README.md install/updateVersion.sh release/create_release_archives.sh
+${ISTIO_OUT}/archive: istioctl-all istioctl.completion LICENSE README.md install/updateVersion.sh release/create_release_archives.sh
 	rm -rf ${ISTIO_OUT}/archive
 	mkdir -p ${ISTIO_OUT}/archive/istioctl
 	cp ${ISTIO_OUT}/istioctl-* ${ISTIO_OUT}/archive/istioctl/
@@ -417,6 +421,7 @@ ${ISTIO_OUT}/archive: istioctl-all istioctl.bash LICENSE README.md install/updat
 	cp README.md ${ISTIO_OUT}/archive
 	cp -r tools ${ISTIO_OUT}/archive
 	cp ${ISTIO_OUT}/istioctl.bash ${ISTIO_OUT}/archive/tools/
+	cp ${ISTIO_OUT}/_istioctl ${ISTIO_OUT}/archive/tools/
 	ISTIO_RELEASE=1 install/updateVersion.sh -a "$(ISTIO_DOCKER_HUB),$(VERSION)" \
 		-P "$(ISTIO_URL)/deb" \
 		-d "${ISTIO_OUT}/archive"
