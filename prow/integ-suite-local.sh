@@ -25,4 +25,14 @@ set -u
 # Print commands
 set -x
 
-"${ROOT}/prow/integ-suite-local.sh" test.integration.local
+# shellcheck source=prow/lib.sh
+source "${ROOT}/prow/lib.sh"
+setup_and_export_git_sha
+
+cd "${ROOT}"
+
+make sync
+
+JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml" \
+T="-v" \
+make "$@"
