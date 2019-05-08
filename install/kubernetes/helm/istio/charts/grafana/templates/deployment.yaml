@@ -76,6 +76,8 @@ spec:
 {{- end }}
           - name: GF_PATHS_DATA
             value: /data/grafana
+          - name: GF_SERVER_ROOT_URL
+            value: {{ if $.Values.contextPath }} {{ $.Values.contextPath }} {{ else }} / {{ end }}
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
