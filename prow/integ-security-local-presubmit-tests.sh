@@ -25,4 +25,4 @@ set -u
 # Print commands
 set -x
 
-"${ROOT}/prow/integ-suite-k8s.sh" test.integration.galley.kube.presubmit
+"${ROOT}/prow/integ-suite-local.sh" test.integration.security.local.presubmit
