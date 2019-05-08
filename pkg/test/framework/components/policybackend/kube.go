@@ -21,11 +21,12 @@ import (
 	"os"
 	"path"
 
+	"istio.io/istio/pkg/test/framework/core/image"
+
 	kubeApiCore "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/fakes/policy"
-	deployment2 "istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -179,7 +180,7 @@ func newKube(ctx resource.Context) (Instance, error) {
 		return nil, err
 	}
 
-	s, err := deployment2.SettingsFromCommandLine()
+	s, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return nil, err
 	}
