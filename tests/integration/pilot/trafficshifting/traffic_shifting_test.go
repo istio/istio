@@ -20,6 +20,8 @@ import (
 	"text/template"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/label"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/apps"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -98,7 +100,11 @@ type VirtualServiceConfig struct {
 }
 
 func TestMain(m *testing.M) {
-	framework.Main("traffic_shifting", m, istio.SetupOnKube(&ist, nil))
+	framework.NewSuite("traffic_shifting", m).
+		RequireEnvironment(environment.Kube).
+		Label(label.CustomSetup).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		Run()
 }
 
 func TestTrafficShifting(t *testing.T) {
