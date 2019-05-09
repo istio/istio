@@ -7,8 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/apps"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -17,8 +19,6 @@ import (
 )
 
 const (
-	IstioSystemScope = `
-`
 	ServiceEntry = `
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
@@ -102,51 +102,62 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 				t.Errorf("failed to apply service entries: %v", err)
 			}
 
-			instance := apps.NewOrFail(t, ctx, apps.Config{
+			client := echoboot.NewOrFail(t, ctx, echo.Config{
+				Service:   "client",
 				Namespace: appsNamespace,
+				Sidecar:   true,
 				Pilot:     p,
 				Galley:    g,
-				AppParams: []apps.AppParam{
-					{Name: "client"},
-					{Name: "destination"},
+			})
+			dest := echoboot.NewOrFail(t, ctx, echo.Config{
+				Service:   "destination",
+				Namespace: appsNamespace,
+				Sidecar:   true,
+				Pilot:     p,
+				Galley:    g,
+				Ports: []echo.Port{
+					{
+						Name:     "http",
+						Protocol: model.ProtocolHTTP,
+					},
+					{
+						Name:     "https",
+						Protocol: model.ProtocolHTTPS,
+					},
 				},
 			})
-
-			client := instance.GetAppOrFail("client", t).(apps.KubeApp)
-			dest := instance.GetAppOrFail("destination", t).(apps.KubeApp)
 
 			// Wait for config to propagate
 			time.Sleep(time.Second * 5)
 
 			cases := []struct {
 				name     string
-				protocol string
-				port     int
+				portName string
 			}{
 				{
-					"HTTP Traffic",
-					"http",
-					80,
+					name:     "HTTP Traffic",
+					portName: "http",
 				},
 				{
-					"HTTPS Traffic",
-					"https",
-					90,
+					name:     "HTTPS Traffic",
+					portName: "https",
 				},
 			}
 			for _, tc := range cases {
 				t.Run(tc.name, func(t *testing.T) {
-					ep := dest.EndpointForPort(tc.port)
-					resp, err := client.Call(ep, apps.AppCallOptions{})
-					if err != nil && len(expected[tc.protocol]) != 0 {
+					resp, err := client.Call(echo.CallOptions{
+						Target:   dest,
+						PortName: tc.portName,
+					})
+					if err != nil && len(expected[tc.portName]) != 0 {
 						t.Fatalf("request failed: %v", err)
 					}
 					codes := make([]string, 0, len(resp))
 					for _, r := range resp {
 						codes = append(codes, r.Code)
 					}
-					if !reflect.DeepEqual(codes, expected[tc.protocol]) {
-						t.Errorf("got codes %v, expected %v", codes, expected[tc.protocol])
+					if !reflect.DeepEqual(codes, expected[tc.portName]) {
+						t.Errorf("got codes %v, expected %v", codes, expected[tc.portName])
 					}
 				})
 			}
