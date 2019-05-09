@@ -147,7 +147,7 @@ github.com/envoyproxy/go-control-plane/envoy/config/metrics/v2
 github.com/envoyproxy/go-control-plane/envoy/config/overload/v2alpha
 github.com/envoyproxy/go-control-plane/envoy/config/trace/v2
 github.com/envoyproxy/go-control-plane/pkg/log
-# github.com/envoyproxy/protoc-gen-validate v0.0.6
+# github.com/envoyproxy/protoc-gen-validate v0.0.14
 github.com/envoyproxy/protoc-gen-validate/validate
 # github.com/evanphx/json-patch v3.0.0+incompatible
 github.com/evanphx/json-patch
