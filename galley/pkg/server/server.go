@@ -24,6 +24,7 @@ import (
 
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 
@@ -159,7 +160,13 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)),
 		grpc.MaxRecvMsgSize(int(a.MaxReceivedMessageSize)),
 		grpc.InitialWindowSize(int32(a.InitialWindowSize)),
-		grpc.InitialConnWindowSize(int32(a.InitialConnectionWindowSize)))
+		grpc.InitialConnWindowSize(int32(a.InitialConnectionWindowSize)),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Timeout:               a.KeepAlive.Timeout,
+			Time:                  a.KeepAlive.Time,
+			MaxConnectionAge:      a.KeepAlive.MaxServerConnectionAge,
+			MaxConnectionAgeGrace: a.KeepAlive.MaxServerConnectionAgeGrace,
+		}))
 
 	s.stopCh = make(chan struct{})
 	var checker source.AuthChecker = server.NewAllowAllChecker()

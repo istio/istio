@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/galley/pkg/source/kube/builtin"
 	"istio.io/istio/pkg/ctrlz"
+	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/mcp/creds"
 )
 
@@ -102,6 +103,9 @@ type Args struct {
 	// allows Galley to start when not all supported CRD are
 	// registered with the kube-apiserver.
 	DisableResourceReadyCheck bool
+
+	// keep-alive options for the MCP gRPC Server.
+	KeepAlive *keepalive.Options
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
@@ -123,6 +127,7 @@ func DefaultArgs() *Args {
 		DisableResourceReadyCheck:   false,
 		ExcludedResourceKinds:       defaultExcludedResourceKinds(),
 		SinkMeta:                    make([]string, 0),
+		KeepAlive:                   keepalive.DefaultOption(),
 	}
 }
 
@@ -161,6 +166,10 @@ func (a *Args) String() string {
 	_, _ = fmt.Fprintf(buf, "SinkAddress: %v\n", a.SinkAddress)
 	_, _ = fmt.Fprintf(buf, "SinkAuthMode: %v\n", a.SinkAuthMode)
 	_, _ = fmt.Fprintf(buf, "SinkMeta: %v\n", a.SinkMeta)
+	_, _ = fmt.Fprintf(buf, "KeepAlive.MaxServerConnectionAge: %v\n", a.KeepAlive.MaxServerConnectionAge)
+	_, _ = fmt.Fprintf(buf, "KeepAlive.MaxServerConnectionAgeGrace: %v\n", a.KeepAlive.MaxServerConnectionAgeGrace)
+	_, _ = fmt.Fprintf(buf, "KeepAlive.Time: %v\n", a.KeepAlive.Time)
+	_, _ = fmt.Fprintf(buf, "KeepAlive.Timeout: %v\n", a.KeepAlive.Timeout)
 
 	return buf.String()
 }
