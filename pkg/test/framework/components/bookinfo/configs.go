@@ -16,8 +16,6 @@ package bookinfo
 
 import (
 	"path"
-	"testing"
-
 	"strings"
 
 	"fmt"
@@ -57,7 +55,7 @@ const (
 
 // LoadGatewayFileWithNamespaceOrFail loads a Book Info Gateway configuration file from the system, changes it to be fit
 // for the namespace provided and returns its contents.
-func (l ConfigFile) LoadGatewayFileWithNamespaceOrFail(t testing.TB, namespace string) string {
+func (l ConfigFile) LoadGatewayFileWithNamespaceOrFail(t test.Failer, namespace string) string {
 	t.Helper()
 
 	content, err := l.LoadGatewayFileWithNamespace(namespace)
@@ -70,7 +68,7 @@ func (l ConfigFile) LoadGatewayFileWithNamespaceOrFail(t testing.TB, namespace s
 
 // LoadWithNamespaceOrFail loads a Book Info configuration file from the systemchanges it to be fit
 // for the namespace provided and returns its contents.
-func (l ConfigFile) LoadWithNamespaceOrFail(t testing.TB, namespace string) string {
+func (l ConfigFile) LoadWithNamespaceOrFail(t test.Failer, namespace string) string {
 	t.Helper()
 
 	content, err := l.LoadWithNamespace(namespace)
@@ -112,11 +110,12 @@ func (l ConfigFile) LoadWithNamespace(namespace string) (string, error) {
 }
 
 // LoadOrFail loads a Book Info configuration file from the system and returns its contents.
-func (l ConfigFile) LoadOrFail(t testing.TB) string {
+func (l ConfigFile) LoadOrFail(t test.Failer) string {
+	t.Helper()
 	return l.LoadWithNamespaceOrFail(t, "")
 }
 
-func GetDestinationRuleConfigFile(t testing.TB, ctx resource.Context) ConfigFile {
+func GetDestinationRuleConfigFile(t test.Failer, ctx resource.Context) ConfigFile {
 	t.Helper()
 
 	cfg, err := istio.DefaultConfig(ctx)

@@ -15,7 +15,7 @@
 package tmpl
 
 import (
-	"testing"
+	"istio.io/istio/pkg/test"
 )
 
 // Evaluate parses the template and then executes it with the given parameters.
@@ -29,7 +29,7 @@ func Evaluate(tpl string, data interface{}) (string, error) {
 }
 
 // EvaluateOrFail calls Evaluate and fails tests if it returns error.
-func EvaluateOrFail(t testing.TB, tpl string, data interface{}) string {
+func EvaluateOrFail(t test.Failer, tpl string, data interface{}) string {
 	t.Helper()
 	s, err := Evaluate(tpl, data)
 	if err != nil {
@@ -52,7 +52,8 @@ func EvaluateAll(data interface{}, templates ...string) ([]string, error) {
 }
 
 // EvaluateAllOrFail calls Evaluate and fails t if an error occurs.
-func EvaluateAllOrFail(t testing.TB, data interface{}, templates ...string) []string {
+func EvaluateAllOrFail(t test.Failer, data interface{}, templates ...string) []string {
+	t.Helper()
 	out, err := EvaluateAll(data, templates...)
 	if err != nil {
 		t.Fatal(err)

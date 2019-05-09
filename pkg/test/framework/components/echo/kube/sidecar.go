@@ -18,13 +18,13 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"testing"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/kube"
@@ -88,7 +88,8 @@ func (s *sidecar) Info() (*envoyAdmin.ServerInfo, error) {
 	return msg, nil
 }
 
-func (s *sidecar) InfoOrFail(t testing.TB) *envoyAdmin.ServerInfo {
+func (s *sidecar) InfoOrFail(t test.Failer) *envoyAdmin.ServerInfo {
+	t.Helper()
 	info, err := s.Info()
 	if err != nil {
 		t.Fatal(err)
@@ -105,7 +106,8 @@ func (s *sidecar) Config() (*envoyAdmin.ConfigDump, error) {
 	return msg, nil
 }
 
-func (s *sidecar) ConfigOrFail(t testing.TB) *envoyAdmin.ConfigDump {
+func (s *sidecar) ConfigOrFail(t test.Failer) *envoyAdmin.ConfigDump {
+	t.Helper()
 	cfg, err := s.Config()
 	if err != nil {
 		t.Fatal(err)
@@ -117,7 +119,8 @@ func (s *sidecar) WaitForConfig(accept func(*envoyAdmin.ConfigDump) (bool, error
 	return common.WaitForConfig(s.Config, accept, options...)
 }
 
-func (s *sidecar) WaitForConfigOrFail(t testing.TB, accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option) {
+func (s *sidecar) WaitForConfigOrFail(t test.Failer, accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option) {
+	t.Helper()
 	if err := s.WaitForConfig(accept, options...); err != nil {
 		t.Fatal(err)
 	}

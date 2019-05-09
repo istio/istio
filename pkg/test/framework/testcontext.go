@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"testing"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/core"
 	"istio.io/istio/pkg/test/framework/label"
@@ -32,9 +33,6 @@ import (
 // TestContext is a test-level context that can be created as part of test executing tests.
 type TestContext interface {
 	resource.Context
-
-	// GoTest (Deprecated: this will be removed soon!) provides access to the underlying *testing.T.
-	GoTest() *testing.T
 
 	// NewSubTest creates a new sub-test under the current running Test. The lifecycle of a sub-Test is scoped to the
 	// parent. Calls to Done() will block until all children are also Done(). When Run, sub-Tests will automatically
@@ -76,9 +74,11 @@ type TestContext interface {
 	Skipped() bool
 	Parallel()
 	IsParallel() bool
+	Helper()
 }
 
 var _ TestContext = &testContext{}
+var _ test.Failer = &testContext{}
 
 // testContext for the currently executing test.
 type testContext struct {
@@ -200,10 +200,6 @@ func (c *testContext) newChildContext(test *Test) *testContext {
 	return newTestContext(test, test.goTest, c.suite, c.scope, label.NewSet(test.labels...))
 }
 
-func (c *testContext) GoTest() *testing.T {
-	return c.goTest
-}
-
 func (c *testContext) NewSubTest(name string) *Test {
 	if c.test == nil {
 		panic(fmt.Sprintf("Attempting to create subtest %s from a TestContext with no associated Test", name))
@@ -294,6 +290,10 @@ func (c *testContext) Parallel() {
 	// TODO(https://github.com/istio/istio/issues/13915)
 	//c.goTest.Parallel()
 	panic("TestContext.Parallel() not currently supported: https://github.com/istio/istio/issues/13915")
+}
+
+func (c *testContext) Helper() {
+	c.goTest.Helper()
 }
 
 func (c *testContext) IsParallel() bool {

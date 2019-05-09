@@ -16,12 +16,14 @@ package file
 
 import (
 	"io/ioutil"
-	"testing"
+
+	"istio.io/istio/pkg/test"
 )
 
 // AsBytes is a utility function that reads the content of the given file
 // and fails the test if an error occurs.
-func AsBytes(t testing.TB, filename string) []byte {
+func AsBytes(t test.Failer, filename string) []byte {
+	t.Helper()
 	content, err := ioutil.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
@@ -30,6 +32,7 @@ func AsBytes(t testing.TB, filename string) []byte {
 }
 
 // AsString calls AsBytes and then converts to string.
-func AsString(t testing.TB, filename string) string {
+func AsString(t test.Failer, filename string) string {
+	t.Helper()
 	return string(AsBytes(t, filename))
 }
