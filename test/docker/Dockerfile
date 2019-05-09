@@ -12,11 +12,11 @@ FROM docker:latest as docker
 
 ############################################
 # Image to create go binaries
-FROM golang:1.11.5 as golang
+FROM golang:1.12.5 as golang
 # IMPORTANT: kind releases may or may not work with the 1.14.1 kindest/node tag.
 # We want to create images with multiple k8s versions.
 # Use latest since there is not a specific release to match the current kindest/node:v1.14.1 image
-RUN go get -u sigs.k8s.io/kind   
+RUN GO111MODULE="on" go get -u sigs.k8s.io/kind@master
 
 # Used to upload test results to test grid
 RUN go get -u istio.io/test-infra/toolbox/ci2gubernator
@@ -45,7 +45,7 @@ ENV     PATH=/usr/local/go/bin:/bin:/usr/bin:${PATH}
 
 RUN  apt-get update && apt-get -qqy install make git
 
-RUN curl -Lo - https://dl.google.com/go/go1.11.5.linux-amd64.tar.gz | tar -C /usr/local -xzf -
+RUN curl -Lo - https://dl.google.com/go/go1.12.5.linux-amd64.tar.gz | tar -C /usr/local -xzf -
 
 # It appears go test in istio/istio requires gcc
 RUN  apt-get -qqy install build-essential autoconf libtool autotools-dev
