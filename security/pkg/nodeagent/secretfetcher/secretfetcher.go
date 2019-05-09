@@ -138,6 +138,7 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 		} else {
 			ret.ServeFallbackSecret = false
 		}
+		log.Debugf("use fallback secret %v, fallback secret name %s", ret.ServeFallbackSecret, ret.FallbackSecretName)
 	}
 
 	return ret, nil
@@ -364,7 +365,9 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 // FallbackSecretName, return the fall back secret.
 func (sf *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.SecretItem, ok bool) {
 	log.Debugf("FindIngressGatewaySecret: searching for secret %s", key)
+	log.Debugf("use fallback secret %v, fallback secret name %s", sf.ServeFallbackSecret, sf.FallbackSecretName)
 	val, exist := sf.secrets.Load(key)
+	log.Debugf("load secret %s from secret fetcher: %v", key, exist)
 	if !exist {
 		if sf.ServeFallbackSecret {
 			log.Debugf("Cannot find secret %s, searching for fallback secret %s", key, sf.FallbackSecretName)
@@ -375,6 +378,7 @@ func (sf *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.Secr
 			}
 			log.Debugf("fallback secret %s does not exist", sf.FallbackSecretName)
 		}
+		log.Debugf("cannot find secret %s and cannot find fallback secret %s", key, sf.FallbackSecretName)
 		return model.SecretItem{}, false
 	}
 	e := val.(model.SecretItem)
