@@ -252,21 +252,31 @@ func (sc *SecretCache) ShouldWaitForIngressGatewaySecret(connectionID, resourceN
 
 	// If node agent works as ingress gateway agent, searches for kubernetes secret and verify secret
 	// is not empty.
+	log.Debugf("ShouldWaitForIngressGatewaySecret: Calling secret fetcher to search for secret %s", resourceName)
 	secretItem, exist := sc.fetcher.FindIngressGatewaySecret(resourceName)
 	// If kubernetes secret does not exist, need to wait for secret.
 	if !exist {
+		log.Debugf("ShouldWaitForIngressGatewaySecret: Secret fetcher cannot find secret %s", resourceName)
 		return true
 	}
 
 	// If expecting ingress gateway CA certificate, and that resource is empty, need to wait for
 	// non empty resource.
-	if strings.HasSuffix(resourceName, secretfetcher.IngressGatewaySdsCaSuffix) {
-		return len(secretItem.RootCert) == 0
+	if strings.HasSuffix(resourceName, secretfetcher.IngressGatewaySdsCaSuffix) &&
+			len(secretItem.RootCert) == 0 {
+		log.Debugf("ShouldWaitForIngressGatewaySecret: secret %s has empty RootCert, return true", resourceName)
+		return true
 	}
 
 	// If expect ingress gateway server certificate and private key, but at least one of them is
 	// empty, need to wait for non empty resource.
-	return len(secretItem.CertificateChain) == 0 || len(secretItem.PrivateKey) == 0
+	if len(secretItem.CertificateChain) == 0 || len(secretItem.PrivateKey) == 0 {
+		log.Debugf("ShouldWaitForIngressGatewaySecret: secret %s has empty cert chain %v or private key %v, return true",
+			resourceName, secretItem.CertificateChain, secretItem.PrivateKey)
+		return true
+	}
+
+	return false
 }
 
 // DeleteSecret deletes a secret by its key from cache.

@@ -363,6 +363,7 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 // If ServeFallbackSecret is true, FallbackSecretName is specified and there is a secret named
 // FallbackSecretName, return the fall back secret.
 func (sf *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.SecretItem, ok bool) {
+	log.Debugf("FindIngressGatewaySecret: searching for secret %s", key)
 	val, exist := sf.secrets.Load(key)
 	if !exist {
 		if sf.ServeFallbackSecret {
@@ -377,6 +378,7 @@ func (sf *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.Secr
 		return model.SecretItem{}, false
 	}
 	e := val.(model.SecretItem)
+	log.Debugf("FindIngressGatewaySecret: return secret %s: %v", key, e)
 	return e, true
 }
 
