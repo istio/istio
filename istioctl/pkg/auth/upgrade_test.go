@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package rbac
+package auth
 
 import (
 	"io/ioutil"
@@ -63,7 +63,7 @@ func TestUpgradeLocalFile(t *testing.T) {
 
 	for _, tc := range cases {
 		upgrader := Upgrader{
-			RbacFile:                 tc.input,
+			V1PolicyFile:             tc.input,
 			RoleNameToWorkloadLabels: tc.workloadLabelMapping,
 		}
 		gotContent, err := upgrader.UpgradeCRDs()

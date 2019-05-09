@@ -23,30 +23,56 @@ import (
 	"istio.io/istio/pilot/test/util"
 )
 
+func runCommandAndCheckGolden(name, command, golden string, t *testing.T) {
+	t.Helper()
+	var out bytes.Buffer
+	rootCmd := GetRootCmd(strings.Split(command, " "))
+	rootCmd.SetOutput(&out)
+
+	err := rootCmd.Execute()
+	if err != nil {
+		t.Errorf("%s: unexpected error: %s", name, err)
+	} else {
+		util.CompareContent(out.Bytes(), golden, t)
+	}
+}
+
 func TestAuthCheck(t *testing.T) {
 	testCases := []struct {
-		name           string
-		in             string
-		goldenFilename string
+		name   string
+		in     string
+		golden string
 	}{
 		{
-			name:           "listeners and clusters",
-			in:             "testdata/auth/productpage_config_dump.json",
-			goldenFilename: "testdata/auth/productpage.golden"},
+			name:   "listeners and clusters",
+			in:     "testdata/auth/productpage_config_dump.json",
+			golden: "testdata/auth/productpage.golden",
+		},
 	}
 
 	for _, c := range testCases {
-		var out bytes.Buffer
-
 		command := fmt.Sprintf("experimental auth check -f %s", c.in)
-		rootCmd := GetRootCmd(strings.Split(command, " "))
-		rootCmd.SetOutput(&out)
+		runCommandAndCheckGolden(c.name, command, c.golden, t)
+	}
+}
 
-		err := rootCmd.Execute()
-		if err != nil {
-			t.Errorf("%s: unexpected error: %s", c.name, err)
-		} else {
-			util.CompareContent(out.Bytes(), c.goldenFilename, t)
-		}
+func TestAuthUpgrade(t *testing.T) {
+	testCases := []struct {
+		name     string
+		in       string
+		services []string
+		golden   string
+	}{
+		{
+			name:     "v1 policies",
+			in:       "testdata/auth/authz-policy.yaml",
+			services: []string{"testdata/auth/svc-other.yaml", "testdata/auth/svc-bookinfo.yaml"},
+			golden:   "testdata/auth/authz-policy.golden",
+		},
+	}
+
+	for _, c := range testCases {
+		command := fmt.Sprintf("experimental auth upgrade -f %s --service %s", c.in, strings.Join(c.services, ","))
+		runCommandAndCheckGolden(c.name, command, c.golden, t)
 	}
 }
