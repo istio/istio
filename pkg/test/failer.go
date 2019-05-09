@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright 2019 Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,26 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tmpl
+package test
 
-import (
-	"text/template"
+import "testing"
 
-	"istio.io/istio/pkg/test"
-)
+var _ Failer = &testing.T{}
 
-// Parse the given template content.
-func Parse(tpl string) (*template.Template, error) {
-	t := template.New("test template")
-	return t.Parse(tpl)
-}
-
-// ParseOrFail calls Parse and fails tests if it returns error.
-func ParseOrFail(t test.Failer, tpl string) *template.Template {
-	t.Helper()
-	tpl2, err := Parse(tpl)
-	if err != nil {
-		t.Fatalf("tmpl.ParseOrFail: %v", err)
-	}
-	return tpl2
+// Failer is an interface to be provided to test functions of the form XXXOrFail. This is a
+// substitute for testing.TB, which cannot be implemented outside of the testing
+// package.
+type Failer interface {
+	Fail()
+	FailNow()
+	Fatal(args ...interface{})
+	Fatalf(format string, args ...interface{})
+	Helper()
 }

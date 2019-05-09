@@ -15,11 +15,10 @@
 package echo
 
 import (
-	"testing"
-
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
@@ -41,16 +40,16 @@ type Instance interface {
 	// (i.e. clusters, routes, listeners from Pilot) in order to enable outbound
 	// communication from this instance to each instance in the list.
 	WaitUntilReady(outbound ...Instance) error
-	WaitUntilReadyOrFail(t testing.TB, outbound ...Instance)
+	WaitUntilReadyOrFail(t test.Failer, outbound ...Instance)
 
 	// Workloads retrieves the list of all deployed workloads for this Echo service.
 	// Guarantees at least one workload, if error == nil.
 	Workloads() ([]Workload, error)
-	WorkloadsOrFail(t testing.TB) []Workload
+	WorkloadsOrFail(t test.Failer) []Workload
 
 	// Call makes a call from this Instance to a target Instance.
 	Call(options CallOptions) (client.ParsedResponses, error)
-	CallOrFail(t testing.TB, options CallOptions) client.ParsedResponses
+	CallOrFail(t test.Failer, options CallOptions) client.ParsedResponses
 }
 
 // Port exposed by an Echo Instance
@@ -87,15 +86,15 @@ type Sidecar interface {
 
 	// Info about the Envoy instance.
 	Info() (*envoyAdmin.ServerInfo, error)
-	InfoOrFail(t testing.TB) *envoyAdmin.ServerInfo
+	InfoOrFail(t test.Failer) *envoyAdmin.ServerInfo
 
 	// Config of the Envoy instance.
 	Config() (*envoyAdmin.ConfigDump, error)
-	ConfigOrFail(t testing.TB) *envoyAdmin.ConfigDump
+	ConfigOrFail(t test.Failer) *envoyAdmin.ConfigDump
 
 	// WaitForConfig queries the Envoy configuration an executes the given accept handler. If the
 	// response is not accepted, the request will be retried until either a timeout or a response
 	// has been accepted.
 	WaitForConfig(accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option) error
-	WaitForConfigOrFail(t testing.TB, accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option)
+	WaitForConfigOrFail(t test.Failer, accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option)
 }
