@@ -2,17 +2,19 @@
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istio-galley
+  name: istio-telemetry
   namespace: {{ .Release.Namespace }}
   labels:
-    app: galley
+    app: istio-telemetry
     release: {{ .Release.Name }}
-    istio: galley
+    istio: mixer
+    istio-mixer-type: telemetry
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app: galley
+      app: istio-telemetry
       release: {{ .Release.Name }}
-      istio: galley
+      istio: mixer
+      istio-mixer-type: telemetry
 {{- end }}
