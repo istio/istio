@@ -381,6 +381,7 @@ func (sf *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.Secr
 func (sf *SecretFetcher) AddSecret(obj interface{}) {
 	sf.scrtAdded(obj)
 }
+
 // DeleteSecret deletes obj from local store. Only used for testing.
 func (sf *SecretFetcher) DeleteSecret(obj interface{}) {
 	sf.scrtDeleted(obj)
