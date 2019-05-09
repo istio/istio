@@ -371,9 +371,8 @@ func (sf *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.Secr
 			if fallbackExist {
 				log.Debugf("Return fallback secret %s for gateway secret %s", sf.FallbackSecretName, key)
 				return fallbackVal.(model.SecretItem), true
-			} else {
-				log.Debugf("fallback secret %s does not exist", sf.FallbackSecretName)
 			}
+			log.Debugf("fallback secret %s does not exist", sf.FallbackSecretName)
 		}
 		return model.SecretItem{}, false
 	}
