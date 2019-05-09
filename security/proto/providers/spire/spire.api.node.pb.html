@@ -1,0 +1,542 @@
+---
+title: spire.api.node
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+number_of_entries: 15
+---
+<p>The Node API is exposed by the Spire Server to Node Agents.  A node
+agent uses this API to attest the node it is running on, to retrieve the
+list of identities that are allowed to run on that node, and to retrieve
+SVIDs by presenting certificate signing requests to the Spire Server.</p>
+
+<h2 id="Services">Services</h2>
+<h3 id="Node">Node</h3>
+<section>
+<p>Node api</p>
+
+<pre id="Node-Attest"><code class="language-proto">rpc Attest(AttestRequest) returns (AttestResponse)
+</code></pre>
+<p>Attest the node, get base node SVID.</p>
+
+</section>
+<h2 id="Types">Types</h2>
+<h3 id="AttestRequest">AttestRequest</h3>
+<section>
+<p>Represents a request to attest the node.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="AttestRequest-attestation_data">
+<td><code>attestationData</code></td>
+<td><code><a href="#AttestationData">AttestationData</a></code></td>
+<td>
+<p>A type which contains attestation data for specific platform.</p>
+
+</td>
+</tr>
+<tr id="AttestRequest-csr">
+<td><code>csr</code></td>
+<td><code>bytes</code></td>
+<td>
+<p>Certificate signing request.</p>
+
+</td>
+</tr>
+<tr id="AttestRequest-response">
+<td><code>response</code></td>
+<td><code>bytes</code></td>
+<td>
+<p>Attestation challenge response</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="AttestResponse">AttestResponse</h3>
+<section>
+<p>Represents a response that contains  map of signed SVIDs and an array of
+all current Registration Entries which are relevant to the caller SPIFFE ID</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="AttestResponse-svid_update">
+<td><code>svidUpdate</code></td>
+<td><code><a href="#X509SVIDUpdate">X509SVIDUpdate</a></code></td>
+<td>
+<p>It includes a map of signed SVIDs and an array of all current
+Registration Entries which are relevant to the caller SPIFFE ID.</p>
+
+</td>
+</tr>
+<tr id="AttestResponse-challenge">
+<td><code>challenge</code></td>
+<td><code>bytes</code></td>
+<td>
+<p>This is a challenge issued by the server to the node. If populated, the
+node is expected to respond with another AttestRequest with the response.
+This field is mutually exclusive with the update field.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="AttestationData">AttestationData</h3>
+<section>
+<p>A type which contains attestation data for specific platform.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="AttestationData-type">
+<td><code>type</code></td>
+<td><code>string</code></td>
+<td>
+<p>Type of attestation to perform.</p>
+
+</td>
+</tr>
+<tr id="AttestationData-data">
+<td><code>data</code></td>
+<td><code>bytes</code></td>
+<td>
+<p>The attestation data.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="AttestedNode">AttestedNode</h3>
+<section>
+<p>Represents an attested SPIRE agent</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="AttestedNode-spiffe_id">
+<td><code>spiffeId</code></td>
+<td><code>string</code></td>
+<td>
+<p>Node SPIFFE ID</p>
+
+</td>
+</tr>
+<tr id="AttestedNode-attestation_data_type">
+<td><code>attestationDataType</code></td>
+<td><code>string</code></td>
+<td>
+<p>Attestation data type</p>
+
+</td>
+</tr>
+<tr id="AttestedNode-cert_serial_number">
+<td><code>certSerialNumber</code></td>
+<td><code>string</code></td>
+<td>
+<p>Node certificate serial number</p>
+
+</td>
+</tr>
+<tr id="AttestedNode-cert_not_after">
+<td><code>certNotAfter</code></td>
+<td><code>int64</code></td>
+<td>
+<p>Node certificate not_after (seconds since unix epoch)</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="Bundle">Bundle</h3>
+<section>
+<p>Trust domain bundle</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Bundle-trust_domain_id">
+<td><code>trustDomainId</code></td>
+<td><code>string</code></td>
+<td>
+<p>the SPIFFE ID of the trust domain the bundle belongs to</p>
+
+</td>
+</tr>
+<tr id="Bundle-root_cas">
+<td><code>rootCas</code></td>
+<td><code><a href="#Certificate">Certificate[]</a></code></td>
+<td>
+<p>list of root CA certificates</p>
+
+</td>
+</tr>
+<tr id="Bundle-jwt_signing_keys">
+<td><code>jwtSigningKeys</code></td>
+<td><code><a href="#PublicKey">PublicKey[]</a></code></td>
+<td>
+<p>list of JWT signing keys</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="Certificate">Certificate</h3>
+<section>
+<p>Certificate represents a ASN.1/DER encoded X509 certificate</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Certificate-der_bytes">
+<td><code>derBytes</code></td>
+<td><code>bytes</code></td>
+<td>
+<p>Certificate in der format</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="Empty">Empty</h3>
+<section>
+<p>Represents an empty message</p>
+
+</section>
+<h3 id="PublicKey">PublicKey</h3>
+<section>
+<p>PublicKey represents a PKIX encoded public key</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PublicKey-pkix_bytes">
+<td><code>pkixBytes</code></td>
+<td><code>bytes</code></td>
+<td>
+<p>PKIX encoded key data</p>
+
+</td>
+</tr>
+<tr id="PublicKey-kid">
+<td><code>kid</code></td>
+<td><code>string</code></td>
+<td>
+<p>key identifier</p>
+
+</td>
+</tr>
+<tr id="PublicKey-not_after">
+<td><code>notAfter</code></td>
+<td><code>int64</code></td>
+<td>
+<p>not after (seconds since unix epoch, 0 means &ldquo;never expires&rdquo;)</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="RegistrationEntries">RegistrationEntries</h3>
+<section>
+<p>A list of registration entries.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="RegistrationEntries-entries">
+<td><code>entries</code></td>
+<td><code><a href="#RegistrationEntry">RegistrationEntry[]</a></code></td>
+<td>
+<p>A list of RegistrationEntry.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="RegistrationEntry">RegistrationEntry</h3>
+<section>
+<p>This is a curated record that the Server uses to set up and
+manage the various registered nodes and workloads that are controlled by it.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="RegistrationEntry-selectors">
+<td><code>selectors</code></td>
+<td><code><a href="#Selector">Selector[]</a></code></td>
+<td>
+<p>A list of selectors.</p>
+
+</td>
+</tr>
+<tr id="RegistrationEntry-parent_id">
+<td><code>parentId</code></td>
+<td><code>string</code></td>
+<td>
+<p>The SPIFFE ID of an entity that is authorized to attest the validity
+of a selector</p>
+
+</td>
+</tr>
+<tr id="RegistrationEntry-spiffe_id">
+<td><code>spiffeId</code></td>
+<td><code>string</code></td>
+<td>
+<p>The SPIFFE ID is a structured string used to identify a resource or
+caller. It is defined as a URI comprising a “trust domain” and an
+associated path.</p>
+
+</td>
+</tr>
+<tr id="RegistrationEntry-ttl">
+<td><code>ttl</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Time to live.</p>
+
+</td>
+</tr>
+<tr id="RegistrationEntry-federates_with">
+<td><code>federatesWith</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>A list of federated trust domain SPIFFE IDs.</p>
+
+</td>
+</tr>
+<tr id="RegistrationEntry-entry_id">
+<td><code>entryId</code></td>
+<td><code>string</code></td>
+<td>
+<p>Entry ID</p>
+
+</td>
+</tr>
+<tr id="RegistrationEntry-admin">
+<td><code>admin</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Whether or not the workload is an admin workload. Admin workloads
+can use their SVID&rsquo;s to authenticate with the Registration API, for
+example.</p>
+
+</td>
+</tr>
+<tr id="RegistrationEntry-downstream">
+<td><code>downstream</code></td>
+<td><code>bool</code></td>
+<td>
+<p>To enable signing CA CSR in upstream spire server</p>
+
+</td>
+</tr>
+<tr id="RegistrationEntry-expiry">
+<td><code>expiry</code></td>
+<td><code>int64</code></td>
+<td>
+<p>Expiration of this entry</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="Selector">Selector</h3>
+<section>
+<p>A type which describes the conditions under which a registration
+entry is matched.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Selector-type">
+<td><code>type</code></td>
+<td><code>string</code></td>
+<td>
+<p>A selector type represents the type of attestation used in attesting
+the entity (Eg: AWS, K8).</p>
+
+</td>
+</tr>
+<tr id="Selector-value">
+<td><code>value</code></td>
+<td><code>string</code></td>
+<td>
+<p>The value to be attested.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="Selectors">Selectors</h3>
+<section>
+<p>Represents a type with a list of Selector.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Selectors-entries">
+<td><code>entries</code></td>
+<td><code><a href="#Selector">Selector[]</a></code></td>
+<td>
+<p>A list of Selector.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="X509SVID">X509SVID</h3>
+<section>
+<p>A type which contains the &ldquo;Spiffe Verifiable Identity Document&rdquo; and
+a TTL indicating when the SVID expires.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="X509SVID-cert_chain">
+<td><code>certChain</code></td>
+<td><code>bytes</code></td>
+<td>
+<p>X509 SVID and intermediates necessary to form a chain of trust back
+to a root CA in the bundle.</p>
+
+</td>
+</tr>
+<tr id="X509SVID-expires_at">
+<td><code>expiresAt</code></td>
+<td><code>int64</code></td>
+<td>
+<p>SVID expiration timestamp (in seconds since Unix epoch)</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="X509SVIDUpdate">X509SVIDUpdate</h3>
+<section>
+<p>A message returned by the Spire Server, which includes a map of signed SVIDs and
+a list of all current Registration Entries which are relevant to the caller SPIFFE ID.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="X509SVIDUpdate-svids">
+<td><code>svids</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#X509SVID">X509SVID</a>&gt;</code></td>
+<td>
+<p>A map containing SVID values and corresponding SPIFFE IDs as the
+keys. Map[SPIFFE_ID] =&gt; SVID.</p>
+
+</td>
+</tr>
+<tr id="X509SVIDUpdate-registration_entries">
+<td><code>registrationEntries</code></td>
+<td><code><a href="#RegistrationEntry">RegistrationEntry[]</a></code></td>
+<td>
+<p>A type representing a curated record that the Spire Server uses to set up
+and manage the various registered nodes and workloads that are controlled by it.</p>
+
+</td>
+</tr>
+<tr id="X509SVIDUpdate-bundles">
+<td><code>bundles</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Bundle">Bundle</a>&gt;</code></td>
+<td>
+<p>Trust bundles associated with the SVIDs, keyed by trust domain SPIFFE
+ID. Bundles included are the trust bundle for the server trust domain
+and any federated trust domain bundles applicable to the SVIDs.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>

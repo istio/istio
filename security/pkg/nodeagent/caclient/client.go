@@ -26,6 +26,7 @@ import (
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
+	"istio.io/istio/security/pkg/nodeagent/caclient/providers/spire"
 	vault "istio.io/istio/security/pkg/nodeagent/caclient/providers/vault"
 )
 
@@ -33,6 +34,7 @@ const (
 	googleCAName = "GoogleCA"
 	citadelName  = "Citadel"
 	vaultCAName  = "VaultCA"
+	spireName    = "Spire"
 	ns           = "istio-system"
 
 	retryInterval = time.Second * 2
@@ -45,10 +47,12 @@ type configMap interface {
 
 // NewCAClient create an CA client.
 func NewCAClient(endpoint, caProviderName string, tlsFlag bool, tlsRootCert []byte, vaultAddr, vaultRole,
-	vaultAuthPath, vaultSignCsrPath string) (caClientInterface.Client, error) {
+	vaultAuthPath, vaultSignCsrPath string, trustDomain string) (caClientInterface.Client, error) {
 	switch caProviderName {
 	case googleCAName:
 		return gca.NewGoogleCAClient(endpoint, tlsFlag)
+	case spireName:
+		return spire.NewSpireClient(endpoint, tlsRootCert, trustDomain)
 	case vaultCAName:
 		return vault.NewVaultClient(tlsFlag, tlsRootCert, vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath)
 	case citadelName:
@@ -64,7 +68,8 @@ func NewCAClient(endpoint, caProviderName string, tlsFlag bool, tlsRootCert []by
 		return citadel.NewCitadelClient(endpoint, tlsFlag, rootCert)
 	default:
 		return nil, fmt.Errorf(
-			"CA provider %q isn't supported. Currently Istio supports %q", caProviderName, strings.Join([]string{googleCAName, citadelName, vaultCAName}, ","))
+			"CA provider %q isn't supported. Currently Istio supports %q", caProviderName,
+			strings.Join([]string{googleCAName, citadelName, spireName, vaultCAName}, ","))
 	}
 }
 
