@@ -147,8 +147,8 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 // Run starts the SecretFetcher until a value is sent to ch.
 // Only used when watching kubernetes gateway secrets.
 func (sf *SecretFetcher) Run(ch chan struct{}) {
-	cache.WaitForCacheSync(ch, sf.scrtController.HasSynced)
 	go sf.scrtController.Run(ch)
+	cache.WaitForCacheSync(ch, sf.scrtController.HasSynced)
 }
 
 // Init initializes SecretFetcher to watch kubernetes secrets.
@@ -393,9 +393,4 @@ func (sf *SecretFetcher) AddSecret(obj interface{}) {
 // DeleteSecret deletes obj from local store. Only used for testing.
 func (sf *SecretFetcher) DeleteSecret(obj interface{}) {
 	sf.scrtDeleted(obj)
-}
-
-// RunForTest starts secret controller for testing.
-func (sf *SecretFetcher) RunForTest(ch chan struct{}) {
-	go sf.scrtController.Run(ch)
 }

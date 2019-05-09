@@ -559,7 +559,7 @@ func createSecretCache() *SecretCache {
 
 	fetcher.Init(fake.NewSimpleClientset().CoreV1())
 	ch := make(chan struct{})
-	fetcher.RunForTest(ch)
+	fetcher.Run(ch)
 	opt := Options{
 		SecretTTL:        time.Minute,
 		RotationInterval: 300 * time.Microsecond,
