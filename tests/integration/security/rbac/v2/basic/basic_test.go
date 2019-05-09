@@ -34,15 +34,15 @@ import (
 )
 
 const (
-	rbacClusterConfigTmpl = "testdata/istio-clusterrbacconfig.yaml.tmpl"
-	rbacV2RulesTmpl       = "testdata/istio-rbac-v2-rules.yaml.tmpl"
+	rbacV2RulesTmpl = "testdata/istio-rbac-v2-rules.yaml.tmpl"
 )
 
-func TestRBACV2(t *testing.T) {
+// TestRBACV2Basic tests basic features of RBAC V2 such as AuthorizationPolicy policy and exclusion.
+func TestRBACV2Basic(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, "rbacv1", true)
+			ns := namespace.NewOrFail(t, ctx, "rbacv2-basic-test", true)
 			ports := []echo.Port{
 				{
 					Name:        "http",
@@ -56,12 +56,13 @@ func TestRBACV2(t *testing.T) {
 				},
 			}
 			a := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:   "a",
-				Namespace: ns,
-				Sidecar:   true,
-				Ports:     ports,
-				Galley:    g,
-				Pilot:     p,
+				Service:        "a",
+				Namespace:      ns,
+				Sidecar:        true,
+				ServiceAccount: true,
+				Ports:          ports,
+				Galley:         g,
+				Pilot:          p,
 			})
 			b := echoboot.NewOrFail(t, ctx, echo.Config{
 				Service:        "b",
@@ -92,8 +93,6 @@ func TestRBACV2(t *testing.T) {
 			})
 
 			cases := []util.TestCase{
-				// Port 80 is where HTTP is served, 90 is where TCP is served. When an HTTP request is at port
-				// 90, this means it is a TCP request. The test framework uses HTTP to mimic TCP calls in this case.
 				{
 					Request: connection.Checker{
 						From: b,
@@ -422,10 +421,10 @@ func TestRBACV2(t *testing.T) {
 				},
 			}
 
-			args := map[string]string{
+			namespaceTmpl := map[string]string{
 				"Namespace": ns.Name(),
 			}
-			policies := tmpl.EvaluateAllOrFail(t, args,
+			policies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
 				file.AsString(t, rbacClusterConfigTmpl),
 				file.AsString(t, rbacV2RulesTmpl))
 
@@ -444,7 +443,7 @@ func TestRBACV2(t *testing.T) {
 					tc.Request.Options.Path,
 					tc.ExpectAllowed)
 				t.Run(testName, func(t *testing.T) {
-					retry.UntilSuccessOrFail(t, tc.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
+					retry.UntilSuccessOrFail(t, tc.CheckRBACRequest, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 				})
 			}
 		})
