@@ -979,7 +979,5 @@ k8s.io/helm/pkg/strvals
 k8s.io/klog
 # k8s.io/kube-openapi v0.0.0-20180216212618-50ae88d24ede
 k8s.io/kube-openapi/pkg/util/proto
-# k8s.io/kubernetes v0.0.0-20190413114802-75128f945898
-k8s.io/kubernetes/pkg/apis/core
 # sigs.k8s.io/yaml v1.1.0
 sigs.k8s.io/yaml

@@ -571,7 +571,5 @@ k8s.io/helm v2.9.1+incompatible h1:IafoSdCxLzN1yqabsnwwAMSyjuplWVO/jy+MTyHMLIE=
 k8s.io/helm v2.9.1+incompatible/go.mod h1:LZzlS4LQBHfciFOurYBFkCMTaZ0D1l+p0teMg7TSULI=
 k8s.io/kube-openapi v0.0.0-20180216212618-50ae88d24ede h1:YOWlONzJUq456SnNYPcK/org5asA+LU6AzNBm+l/04o=
 k8s.io/kube-openapi v0.0.0-20180216212618-50ae88d24ede/go.mod h1:BXM9ceUBTj2QnfH2MK1odQs778ajze1RxcmP6S8RVVc=
-k8s.io/kubernetes v0.0.0-20190413114802-75128f945898 h1:CupC/twmK1gBH0DXA79XYTnotB2WBdNRFjzT3cTWMqI=
-k8s.io/kubernetes v0.0.0-20190413114802-75128f945898/go.mod h1:ocZa8+6APFNC2tX1DZASIbocyYT5jHzqFVsY5aoB7Jk=
 sigs.k8s.io/yaml v1.1.0 h1:4A07+ZFc2wgJwo8YNlQpr1rVlgUDlxXHhPJciaPY5gs=
 sigs.k8s.io/yaml v1.1.0/go.mod h1:UJmg0vDUVViEyp3mgSv9WPwZCDxu4rQW1olrI1uml+o=

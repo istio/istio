@@ -42,7 +42,6 @@ import (
 	tversion "k8s.io/helm/pkg/proto/hapi/version"
 	"k8s.io/helm/pkg/strvals"
 	"k8s.io/helm/pkg/timeconv"
-	"k8s.io/kubernetes/pkg/apis/core"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
@@ -924,7 +923,7 @@ func loadConfigMapWithHelm(params *Params, t testing.TB) string {
 		t.Fatalf("Unable to located configmap file %s", helmConfigMapKey)
 	}
 
-	cfgMap := core.ConfigMap{}
+	cfgMap := corev1.ConfigMap{}
 	err = yaml.Unmarshal([]byte(f), &cfgMap)
 	if err != nil {
 		t.Fatal(err)

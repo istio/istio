@@ -202,6 +202,5 @@ require (
 	k8s.io/helm v2.9.1+incompatible
 	k8s.io/klog v0.3.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20180216212618-50ae88d24ede // indirect
-	k8s.io/kubernetes v0.0.0-20190413114802-75128f945898
 	sigs.k8s.io/yaml v1.1.0 // indirect
 )
