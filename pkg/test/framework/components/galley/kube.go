@@ -138,15 +138,15 @@ func (c *kubeComponent) ClearConfig() (err error) {
 
 // ApplyConfig implements Galley.ApplyConfig.
 func (c *kubeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string) error {
-	namespace := ""
+	nsName := ""
 	if ns != nil {
-		namespace = ns.Name()
+		nsName = ns.Name()
 	}
 
 	var err error
 	for _, y := range yamlText {
-		if namespace != "" {
-			if y, err = yml.ApplyNamespace(y, namespace); err != nil {
+		if nsName != "" {
+			if y, err = yml.ApplyNamespace(y, nsName); err != nil {
 				return err
 			}
 		}
@@ -157,11 +157,11 @@ func (c *kubeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string) e
 		}
 
 		for _, k := range keys {
-			if err = c.environment.Accessor.Apply(namespace, c.cache.GetFileFor(k)); err != nil {
+			if err = c.environment.Accessor.Apply(nsName, c.cache.GetFileFor(k)); err != nil {
 				return err
 			}
 		}
-		scopes.Framework.Debugf("Applied config: ns: %s\n%s\n", namespace, y)
+		scopes.Framework.Debugf("Applied config: ns: %s\n%s\n", nsName, y)
 	}
 
 	return nil
@@ -178,8 +178,13 @@ func (c *kubeComponent) ApplyConfigOrFail(t test.Failer, ns namespace.Instance, 
 
 // DeleteConfig implements Galley.DeleteConfig.
 func (c *kubeComponent) DeleteConfig(ns namespace.Instance, yamlText ...string) (err error) {
+	nsName := ""
+	if ns != nil {
+		nsName = ns.Name()
+	}
+
 	for _, txt := range yamlText {
-		err := c.environment.Accessor.DeleteContents(ns.Name(), txt)
+		err := c.environment.Accessor.DeleteContents(nsName, txt)
 		if err != nil {
 			return err
 		}
