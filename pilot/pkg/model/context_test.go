@@ -37,12 +37,12 @@ func TestServiceNode(t *testing.T) {
 		},
 		{
 			in: &model.Proxy{
-				Type:        model.Ingress,
+				Type:        model.Router,
 				ID:          "random",
 				IPAddresses: []string{"10.3.3.3"},
 				DNSDomain:   "local",
 			},
-			out: "ingress~10.3.3.3~random~local",
+			out: "router~10.3.3.3~random~local",
 		},
 		{
 			in: &model.Proxy{

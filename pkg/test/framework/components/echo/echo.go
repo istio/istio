@@ -32,6 +32,9 @@ type Instance interface {
 	// Config returns the configuration of the Echo instance.
 	Config() Config
 
+	// Address of the service (e.g. Kubernetes cluster IP). May be "" if headless.
+	Address() string
+
 	// WaitUntilReady waits until this instance is up and ready to receive traffic. If
 	// outbound are specified, the wait also includes readiness for each
 	// outbound instance as well as waiting for receipt of outbound Envoy configuration
@@ -79,14 +82,20 @@ type Workload interface {
 
 // Sidecar provides an interface to execute queries against a single Envoy sidecar.
 type Sidecar interface {
+	// NodeID returns the node ID used for uniquely identifying this sidecar to Pilot.
+	NodeID() string
+
 	// Info about the Envoy instance.
 	Info() (*envoyAdmin.ServerInfo, error)
+	InfoOrFail(t testing.TB) *envoyAdmin.ServerInfo
 
 	// Config of the Envoy instance.
 	Config() (*envoyAdmin.ConfigDump, error)
+	ConfigOrFail(t testing.TB) *envoyAdmin.ConfigDump
 
 	// WaitForConfig queries the Envoy configuration an executes the given accept handler. If the
 	// response is not accepted, the request will be retried until either a timeout or a response
 	// has been accepted.
 	WaitForConfig(accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option) error
+	WaitForConfigOrFail(t testing.TB, accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option)
 }

@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 var (
@@ -76,6 +77,13 @@ func (c *instance) WaitUntilReady(outboundInstances ...echo.Instance) error {
 		return nil
 	}
 
+	// Wait until all of the outbound instances are ready.
+	for _, outbound := range outboundInstances {
+		if err := outbound.WaitUntilReady(); err != nil {
+			return err
+		}
+	}
+
 	return c.workload.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(outboundInstances...))
 }
 
@@ -83,6 +91,10 @@ func (c *instance) WaitUntilReadyOrFail(t testing.TB, outboundInstances ...echo.
 	if err := c.WaitUntilReady(outboundInstances...); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func (c *instance) Address() string {
+	return localhost
 }
 
 func (c *instance) Config() echo.Config {
@@ -104,13 +116,16 @@ func (c *instance) WorkloadsOrFail(t testing.TB) []echo.Workload {
 func (c *instance) Call(opts echo.CallOptions) (client.ParsedResponses, error) {
 	out, err := c.workload.Call(&opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
-			c.Config().Service,
-			strings.ToLower(string(opts.Port.Protocol)),
-			opts.Target.Config().Service,
-			opts.Port.ServicePort,
-			opts.Path,
-			err)
+		if opts.Port != nil {
+			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
+				c.Config().Service,
+				strings.ToLower(string(opts.Port.Protocol)),
+				opts.Target.Config().Service,
+				opts.Port.ServicePort,
+				opts.Path,
+				err)
+		}
+		return nil, err
 	}
 	return out, nil
 }
@@ -125,7 +140,10 @@ func (c *instance) CallOrFail(t testing.TB, opts echo.CallOptions) client.Parsed
 
 func (c *instance) Close() (err error) {
 	if c.workload != nil {
+		scopes.Framework.Debugf("%s closing Echo workload", c.id)
 		err = multierror.Append(err, c.workload.Close()).ErrorOrNil()
 	}
+
+	scopes.Framework.Debugf("%s close complete (err:%v)", c.id, err)
 	return
 }

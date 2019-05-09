@@ -16,6 +16,7 @@ package citadel
 
 import (
 	"fmt"
+	"testing"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -49,7 +50,7 @@ func newKube(ctx resource.Context, cfg Config) Instance {
 	c.id = ctx.TrackResource(c)
 
 	env := ctx.Environment().(*kube.Environment)
-	c.secret = env.GetSecret(c.istio.Settings().SystemNamespace)
+	c.secret = env.GetSecret(c.istio.Settings().IstioNamespace)
 
 	return c
 }
@@ -80,7 +81,23 @@ func (c *kubeComponent) WaitForSecretToExist() (*v1.Secret, error) {
 	}
 }
 
+func (c *kubeComponent) WaitForSecretToExistOrFail(t testing.TB) *v1.Secret {
+	t.Helper()
+	s, err := c.WaitForSecretToExist()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
 func (c *kubeComponent) DeleteSecret() error {
 	var immediate int64
 	return c.secret.Delete(secretName, &mv1.DeleteOptions{GracePeriodSeconds: &immediate})
+}
+
+func (c *kubeComponent) DeleteSecretOrFail(t testing.TB) {
+	t.Helper()
+	if err := c.DeleteSecret(); err != nil {
+		t.Fatal(err)
+	}
 }

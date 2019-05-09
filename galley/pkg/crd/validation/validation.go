@@ -50,7 +50,7 @@ type httpClient interface {
 func webhookHTTPSHandlerReady(client httpClient, vc *WebhookParameters) error {
 	readinessURL := &url.URL{
 		Scheme: "https",
-		Host:   fmt.Sprintf("127.0.0.1:%v", vc.Port),
+		Host:   fmt.Sprintf("localhost:%v", vc.Port),
 		Path:   httpsHandlerReadyPath,
 	}
 

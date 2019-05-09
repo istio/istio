@@ -30,7 +30,9 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	kubeEnv "istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
-	testKube "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/kube"
+
+	kubeCore "k8s.io/api/core/v1"
 )
 
 const (
@@ -47,6 +49,7 @@ var (
 type instance struct {
 	id        resource.ID
 	cfg       echo.Config
+	clusterIP string
 	env       *kubeEnv.Environment
 	workloads []*workload
 	grpcPort  uint16
@@ -89,6 +92,24 @@ func New(ctx resource.Context, cfg echo.Config) (out echo.Instance, err error) {
 	// Deploy the YAML.
 	if err = env.ApplyContents(cfg.Namespace.Name(), generatedYAML); err != nil {
 		return nil, err
+	}
+
+	// Now retrieve the service information to find the ClusterIP
+	s, err := env.GetService(cfg.Namespace.Name(), cfg.Service)
+	if err != nil {
+		return nil, err
+	}
+
+	c.clusterIP = s.Spec.ClusterIP
+	switch c.clusterIP {
+	case kubeCore.ClusterIPNone, "":
+		if !cfg.Headless {
+			return nil, fmt.Errorf("invalid ClusterIP %s for non-headless service %s/%s",
+				c.clusterIP,
+				c.cfg.Namespace.Name(),
+				c.cfg.Service)
+		}
+		c.clusterIP = ""
 	}
 
 	return c, nil
@@ -145,11 +166,12 @@ func (c *instance) ID() resource.ID {
 	return c.id
 }
 
-func (c *instance) Workloads() ([]echo.Workload, error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+func (c *instance) Address() string {
+	return c.clusterIP
+}
 
-	if err := c.initWorkloads(); err != nil {
+func (c *instance) Workloads() ([]echo.Workload, error) {
+	if err := c.WaitUntilReady(); err != nil {
 		return nil, err
 	}
 
@@ -168,9 +190,77 @@ func (c *instance) WorkloadsOrFail(t testing.TB) []echo.Workload {
 	return out
 }
 
+func initAllWorkloads(accessor *kube.Accessor, instances []echo.Instance) error {
+	needInit := getUninitializedInstances(instances)
+	if len(needInit) == 0 {
+		// Everything is already initialized.
+		return nil
+	}
+
+	instanceEndpoints := make([]*kubeCore.Endpoints, len(needInit))
+	aggregateErrMux := &sync.Mutex{}
+	var aggregateErr error
+	wg := sync.WaitGroup{}
+
+	for i, inst := range instances {
+		wg.Add(1)
+
+		instanceIndex := i
+		serviceName := inst.Config().Service
+		serviceNamespace := inst.Config().Namespace.Name()
+
+		// Run the waits in parallel.
+		go func() {
+			defer wg.Done()
+
+			// Wait until all the endpoints are ready for this service
+			_, endpoints, err := accessor.WaitUntilServiceEndpointsAreReady(serviceNamespace, serviceName)
+			if err != nil {
+				aggregateErrMux.Lock()
+				aggregateErr = multierror.Append(aggregateErr, err)
+				aggregateErrMux.Unlock()
+				return
+			}
+			instanceEndpoints[instanceIndex] = endpoints
+		}()
+	}
+
+	wg.Wait()
+
+	if aggregateErr != nil {
+		return aggregateErr
+	}
+
+	// Initialize the workloads for each instance.
+	for i, inst := range needInit {
+		if err := inst.initWorkloads(instanceEndpoints[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *instance) isInitialized() bool {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	return c.workloads != nil
+}
+
+func getUninitializedInstances(instances []echo.Instance) []*instance {
+	uninitialized := make([]*instance, 0, len(instances))
+	for _, i := range instances {
+		inst := i.(*instance)
+		if !inst.isInitialized() {
+			uninitialized = append(uninitialized, inst)
+		}
+	}
+	return uninitialized
+}
+
 func (c *instance) WaitUntilReady(outboundInstances ...echo.Instance) error {
-	// Initialize if we haven't already.
-	if err := c.initWorkloads(); err != nil {
+
+	// Initialize the workloads for all instances.
+	if err := initAllWorkloads(c.env.Accessor, append([]echo.Instance{c}, outboundInstances...)); err != nil {
 		return err
 	}
 
@@ -192,7 +282,7 @@ func (c *instance) WaitUntilReadyOrFail(t testing.TB, outboundInstances ...echo.
 	}
 }
 
-func (c *instance) initWorkloads() error {
+func (c *instance) initWorkloads(endpoints *kubeCore.Endpoints) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -201,20 +291,19 @@ func (c *instance) initWorkloads() error {
 		return nil
 	}
 
-	// Wait until the pods for this service have been assigned IP Addresses.
-	pods, err := c.env.WaitUntilPodsAreReady(c.newPodFetch())
-	if err != nil {
-		return err
+	workloads := make([]*workload, 0)
+	for _, subset := range endpoints.Subsets {
+		for _, addr := range subset.Addresses {
+			workload, err := newWorkload(addr, c.cfg.Sidecar, c.grpcPort, c.env.Accessor)
+			if err != nil {
+				return err
+			}
+			workloads = append(workloads, workload)
+		}
 	}
 
-	workloads := make([]*workload, 0, len(pods))
-	for _, pod := range pods {
-		workload, err := newWorkload(pod, c.cfg.Sidecar, c.grpcPort, c.env.Accessor)
-		if err != nil {
-			return err
-		}
-
-		workloads = append(workloads, workload)
+	if len(workloads) == 0 {
+		return fmt.Errorf("no pods found for service %s/%s/%s", c.cfg.Namespace.Name(), c.cfg.Service, c.cfg.Version)
 	}
 
 	c.workloads = workloads
@@ -238,19 +327,22 @@ func (c *instance) Config() echo.Config {
 
 func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) {
 	// If we haven't already initialized the client, do so now.
-	if err := c.initWorkloads(); err != nil {
+	if err := c.WaitUntilReady(); err != nil {
 		return nil, err
 	}
 
 	out, err := common.CallEcho(c.workloads[0].Instance, &opts, common.IdentityOutboundPortSelector)
 	if err != nil {
-		return nil, fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
-			c.Config().Service,
-			strings.ToLower(string(opts.Port.Protocol)),
-			opts.Target.Config().Service,
-			opts.Port.ServicePort,
-			opts.Path,
-			err)
+		if opts.Port != nil {
+			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
+				c.Config().Service,
+				strings.ToLower(string(opts.Port.Protocol)),
+				opts.Target.Config().Service,
+				opts.Port.ServicePort,
+				opts.Path,
+				err)
+		}
+		return nil, err
 	}
 	return out, nil
 }
@@ -261,16 +353,4 @@ func (c *instance) CallOrFail(t testing.TB, opts echo.CallOptions) appEcho.Parse
 		t.Fatal(err)
 	}
 	return r
-}
-
-func (c *instance) newPodFetch() testKube.PodFetchFunc {
-	// TODO: change this once we support multiple replicas.
-	return c.env.NewSinglePodFetch(c.cfg.Namespace.Name(), c.selectors()...)
-}
-
-func (c *instance) selectors() []string {
-	return []string{
-		fmt.Sprintf("app=%s", c.cfg.Service),
-		fmt.Sprintf("version=%s", c.cfg.Version),
-	}
 }

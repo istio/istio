@@ -175,7 +175,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(env *model.Environment, nod
 	switch node.Type {
 	case model.SidecarProxy:
 		return configgen.buildSidecarListeners(env, node, push)
-	case model.Router, model.Ingress:
+	case model.Router:
 		return configgen.buildGatewayListeners(env, node, push)
 	}
 	return nil, nil
@@ -1278,6 +1278,10 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 
 	if managementIP == "" {
 		managementIP = "127.0.0.1"
+		addr := net.ParseIP(node.IPAddresses[0])
+		if addr != nil && addr.To4() == nil {
+			managementIP = "::1"
+		}
 	}
 
 	// NOTE: We should not generate inbound listeners when the proxy does not have any IPtables traffic capture
@@ -1676,17 +1680,20 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 }
 
 // getActualWildcardAndLocalHost will return corresponding Wildcard and LocalHost
-// depending on value of proxy's IPAddresses first element
+// depending on value of proxy's IPAddresses. This function checks each element
+// and if there is at least one ipv4 address other than 127.0.0.1, it will use ipv4 address,
+// if all addresses are ipv6  addresses then ipv6 address will be used to get wildcard and local host address.
 func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
-	// Check only first ip address in IPAddresses slice
-	addr := net.ParseIP(node.IPAddresses[0])
-
-	switch {
-	case addr != nil && addr.To4() != nil:
-		return WildcardAddress, LocalhostAddress
-	case addr != nil && addr.To4() == nil:
-		return WildcardIPv6Address, LocalhostIPv6Address
-	default:
-		return WildcardAddress, LocalhostAddress
+	for i := 0; i < len(node.IPAddresses); i++ {
+		addr := net.ParseIP(node.IPAddresses[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if addr.To4() != nil {
+			return WildcardAddress, LocalhostAddress
+		}
 	}
+	return WildcardIPv6Address, LocalhostIPv6Address
 }

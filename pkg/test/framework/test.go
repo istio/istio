@@ -15,6 +15,7 @@
 package framework
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -25,9 +26,15 @@ import (
 
 // Test allows the test author to specify test-related metadata in a fluent-style, before commencing execution.
 type Test struct {
-	t      *testing.T
-	labels []label.Instance
-	s      SuiteContext
+	// name to be used when creating a Golang test. Only used for subtests.
+	name        string
+	parent      *Test
+	goTest      *testing.T
+	labels      []label.Instance
+	s           *suiteContext
+	requiredEnv environment.Name
+
+	ctx *testContext
 }
 
 // NewTest returns a new test wrapper for running a single test.
@@ -40,8 +47,8 @@ func NewTest(t *testing.T) *Test {
 	}
 
 	runner := &Test{
-		s: rt.SuiteContext(),
-		t: t,
+		s:      rt.suiteContext(),
+		goTest: t,
 	}
 
 	return runner
@@ -56,24 +63,51 @@ func (t *Test) Label(labels ...label.Instance) *Test {
 // RequiresEnvironment ensures that the current environment matches what the suite expects. Otherwise it stops test
 // execution and skips the test.
 func (t *Test) RequiresEnvironment(name environment.Name) *Test {
-	if t.s.Environment().EnvironmentName() != name {
-		t.t.Skipf("Skipping %q: expected environment not found: %s", t.t.Name(), name)
-	}
-
+	t.requiredEnv = name
 	return t
 }
 
 // Run the test, supplied as a lambda.
 func (t *Test) Run(fn func(ctx TestContext)) {
+	// Disallow running the same test more than once.
+	if t.ctx != nil {
+		testName := t.name
+		if testName == "" && t.goTest != nil {
+			testName = t.goTest.Name()
+		}
+		panic(fmt.Sprintf("Attempting to run test `%s` more than once", testName))
+	}
+
+	if t.parent != nil {
+		// Create a new subtest under the parent's test.
+		parentGoTest := t.parent.goTest
+		parentCtx := t.parent.ctx
+		parentGoTest.Run(t.name, func(goTest *testing.T) {
+			t.goTest = goTest
+			t.doRun(parentCtx.newChildContext(t), fn)
+		})
+	} else {
+		// Not a child context. Running with the test provided during construction.
+		t.doRun(newRootContext(t, t.goTest, t.labels...), fn)
+	}
+}
+
+func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext)) {
+	t.ctx = ctx
+	defer ctx.Done()
+
+	if t.requiredEnv != "" && t.s.Environment().EnvironmentName() != t.requiredEnv {
+		t.goTest.Skipf("Skipping %q: expected environment not found: %s", t.goTest.Name(), t.requiredEnv)
+		return
+	}
+
 	start := time.Now()
 
-	scopes.CI.Infof("=== BEGIN: Test: '%s[%s]' ===", rt.SuiteContext().Settings().TestID, t.t.Name())
+	scopes.CI.Infof("=== BEGIN: Test: '%s[%s]' ===", rt.suiteContext().Settings().TestID, t.goTest.Name())
 	defer func() {
 		end := time.Now()
-		scopes.CI.Infof("=== DONE:  Test: '%s[%s] (%v)' ===", rt.SuiteContext().Settings().TestID, t.t.Name(), end.Sub(start))
+		scopes.CI.Infof("=== DONE:  Test: '%s[%s] (%v)' ===", rt.suiteContext().Settings().TestID, t.goTest.Name(), end.Sub(start))
 	}()
 
-	ctx := NewContext(t.t, t.labels...)
-	defer ctx.Done(t.t)
 	fn(ctx)
 }

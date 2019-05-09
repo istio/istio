@@ -149,6 +149,8 @@ func zipkinSpan(s *trace.SpanData, localEndpoint *model.Endpoint) model.SpanMode
 				}
 			case int64:
 				m[key] = strconv.FormatInt(v, 10)
+			case float64:
+				m[key] = strconv.FormatFloat(v, 'f', -1, 64)
 			}
 		}
 		z.Tags = m
