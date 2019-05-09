@@ -2,17 +2,17 @@
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istio-galley
+  name: egressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: galley
+    app: egressgateway
     release: {{ .Release.Name }}
-    istio: galley
+    istio: egressgateway
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app: galley
+      app: egressgateway
       release: {{ .Release.Name }}
-      istio: galley
+      istio: egressgateway
 {{- end }}

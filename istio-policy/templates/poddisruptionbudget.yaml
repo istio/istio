@@ -10,14 +10,11 @@ metadata:
     istio: mixer
     istio-mixer-type: policy
 spec:
-{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
   minAvailable: 1
-{{- end }}
   selector:
     matchLabels:
       app: istio-policy
       release: {{ .Release.Name }}
       istio: mixer
       istio-mixer-type: policy
----
 {{- end }}

@@ -9,12 +9,7 @@ metadata:
     release: {{ .Release.Name }}
     istio: pilot
 spec:
-  {{- if .minAvailable }}
-  minAvailable: {{ .minAvailable }}
-  {{- end }}
-  {{- if .maxUnavailable }}
-  maxUnavailable: {{ .maxUnavailable }}
-  {{- end }}
+  minAvailable: 1
   selector:
     matchLabels:
       app: pilot
