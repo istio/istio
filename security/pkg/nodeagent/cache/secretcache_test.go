@@ -458,6 +458,9 @@ func TestGatewayAgentGenerateSecretUsingFallbackSecret(t *testing.T) {
 
 	fetcher.AddSecret(k8sTestTLSFallbackSecret)
 	for _, c := range cases {
+		if sc.ShouldWaitForIngressGatewaySecret(c.connID, c.expectedFbSecret.secret.ResourceName, "") {
+			t.Fatal("When fallback secret is enabled, node agent should not wait for gateway secret")
+		}
 		// Verify that fallback secret is returned
 		gotSecret, err := sc.GenerateSecret(ctx, c.connID, c.expectedFbSecret.secret.ResourceName, "")
 		if err != nil {
@@ -517,6 +520,11 @@ func TestGatewayAgentGenerateSecretUsingFallbackSecret(t *testing.T) {
 					t.Errorf("Secret key: got %+v, want %+v", *gotSecret, cachedSecret)
 				}
 			}
+		}
+		// When secret is deleted, node agent should not wait for ingress gateway secret.
+		fetcher.DeleteSecret(c.addSecret)
+		if sc.ShouldWaitForIngressGatewaySecret(c.connID, c.expectedFbSecret.secret.ResourceName, "") {
+			t.Fatal("When fallback secret is enabled, node agent should not wait for gateway secret")
 		}
 	}
 
