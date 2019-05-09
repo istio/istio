@@ -83,6 +83,10 @@ const (
 	vaultTLSRootCert     = "VAULT_TLS_ROOT_CERT"
 	vaultTLSRootCertFlag = "vaultTLSRootCert"
 
+	// The environmental variable name for Spire TLS bootstrap certificate.
+	spireTLSBootstrapCert     = "SPIRE_TLS_BOOTSTRAP_CERT"
+	spireTLSBootstrapCertFlag = "spireTLSBootstrapCert"
+
 	// The environmental variable name for the flag which is used to indicate the token passed
 	// from envoy is always valid(ex, normal 8ks JWT).
 	alwaysValidTokenFlag     = "VALID_TOKEN"
@@ -172,10 +176,17 @@ var (
 // Although currently not used, Citadel Agent can serve both workload and gateway secrets at the same time.
 func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecretCache *cache.SecretCache) {
 	if serverOptions.EnableWorkloadSDS {
+		var tlsRootCert []byte
+		if len(serverOptions.VaultTLSRootCert) > 0 {
+			tlsRootCert = []byte(serverOptions.VaultTLSRootCert)
+		} else {
+			tlsRootCert = []byte(serverOptions.SpireTLSBootstrapCert)
+		}
+
 		wSecretFetcher, err := secretfetcher.NewSecretFetcher(false, serverOptions.CAEndpoint,
-			serverOptions.CAProviderName, true, []byte(serverOptions.VaultTLSRootCert),
+			serverOptions.CAProviderName, true, tlsRootCert,
 			serverOptions.VaultAddress, serverOptions.VaultRole, serverOptions.VaultAuthPath,
-			serverOptions.VaultSignCsrPath)
+			serverOptions.VaultSignCsrPath, serverOptions.TrustDomain)
 		if err != nil {
 			log.Errorf("failed to create secretFetcher for workload proxy: %v", err)
 			os.Exit(1)
@@ -188,7 +199,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 	}
 
 	if serverOptions.EnableIngressGatewaySDS {
-		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, "", "", false, nil, "", "", "", "")
+		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, "", "", false, nil, "", "", "", "", "")
 		if err != nil {
 			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
 			os.Exit(1)
@@ -216,6 +227,7 @@ var (
 	vaultAuthPathEnv              = env.RegisterStringVar(vaultAuthPath, "", "").Get()
 	vaultSignCsrPathEnv           = env.RegisterStringVar(vaultSignCsrPath, "", "").Get()
 	vaultTLSRootCertEnv           = env.RegisterStringVar(vaultTLSRootCert, "", "").Get()
+	spireTLSBootstrapCertEnv      = env.RegisterStringVar(spireTLSBootstrapCert, "", "").Get()
 	secretTTLEnv                  = env.RegisterDurationVar(secretTTL, 24*time.Hour, "").Get()
 	secretRefreshGraceDurationEnv = env.RegisterDurationVar(SecretRefreshGraceDuration, 1*time.Hour, "").Get()
 	secretRotationIntervalEnv     = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
@@ -268,6 +280,10 @@ func applyEnvVars(cmd *cobra.Command) {
 
 	if !cmd.Flag(vaultTLSRootCertFlag).Changed {
 		serverOptions.VaultTLSRootCert = vaultTLSRootCertEnv
+	}
+
+	if !cmd.Flag(spireTLSBootstrapCertFlag).Changed {
+		serverOptions.SpireTLSBootstrapCert = spireTLSBootstrapCertEnv
 	}
 
 	if !cmd.Flag(secretTTLFlag).Changed {
@@ -352,6 +368,9 @@ func main() {
 		"Vault sign CSR path")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultTLSRootCert, vaultTLSRootCertFlag, "",
 		"Vault TLS root certificate")
+
+	rootCmd.PersistentFlags().StringVar(&serverOptions.SpireTLSBootstrapCert, spireTLSBootstrapCertFlag, "",
+		"SPIRE TLS bootstrap certificate")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

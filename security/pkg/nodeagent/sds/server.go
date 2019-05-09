@@ -82,6 +82,9 @@ type Options struct {
 	EnableIngressGatewaySDS bool
 	// AlwaysValidTokenFlag is set to true for if token used is always valid(ex, normal k8s JWT)
 	AlwaysValidTokenFlag bool
+
+	// The SPIRE TLS bootstrap certificate.
+	SpireTLSBootstrapCert string
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
