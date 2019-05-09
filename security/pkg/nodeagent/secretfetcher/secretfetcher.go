@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -68,6 +68,9 @@ const (
 	// resyncs to API server.
 	// example value format like "30s"
 	SecretControllerResyncPeriod = "SECRET_WATCHER_RESYNC_PERIOD"
+
+	// ingressFallbackSecret specifies the fallback secret for ingress gateway.
+	ingressFallbackSecret = "INGRESS_GATEWAY_FALLBACK_SECRET"
 )
 
 // SecretFetcher fetches secret via watching k8s secrets or sending CSR to CA.
@@ -89,6 +92,11 @@ type SecretFetcher struct {
 	DeleteCache func(secretName string)
 	// Update all entries containing secretName in SecretCache. Called when K8S secret is updated.
 	UpdateCache func(secretName string, ns model.SecretItem)
+
+	// If ServeFallbackSecret is true and FallbackSecretName is not empty, return FallbackSecret to
+	// customer.
+	ServeFallbackSecret bool
+	FallbackSecretName  string
 }
 
 func fatalf(template string, args ...interface{}) {
@@ -107,6 +115,7 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 
 	if ingressGatewayAgent {
 		ret.UseCaClient = false
+		ret.ServeFallbackSecret = false
 		cs, err := kube.CreateClientset("", "")
 		if err != nil {
 			fatalf("Could not create k8s clientset: %v", err)
@@ -121,6 +130,14 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 		}
 		ret.UseCaClient = true
 		ret.CaClient = caClient
+
+		// Check if a fallback secret env variable is set.
+		if fallbackSecret := os.Getenv(ingressFallbackSecret); fallbackSecret != "" {
+			ret.ServeFallbackSecret = true
+			ret.FallbackSecretName = fallbackSecret
+		} else {
+			ret.ServeFallbackSecret = false
+		}
 	}
 
 	return ret, nil
@@ -341,11 +358,19 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	}
 }
 
-// FindIngressGatewaySecret returns the secret for a k8sKeyA, or empty secret if no
+// FindIngressGatewaySecret returns the secret whose name matches the key, or empty secret if no
 // secret is present. The ok result indicates whether secret was found.
+// If ServeFallbackSecret is true, FallbackSecretName is specified and there is a secret named
+// FallbackSecretName, return the fall back secret.
 func (sf *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.SecretItem, ok bool) {
 	val, exist := sf.secrets.Load(key)
 	if !exist {
+		if sf.ServeFallbackSecret {
+			fallbackVal, fallbackExist := sf.secrets.Load(sf.FallbackSecretName)
+			if fallbackExist {
+				return fallbackVal.(model.SecretItem), true
+			}
+		}
 		return model.SecretItem{}, false
 	}
 	e := val.(model.SecretItem)
