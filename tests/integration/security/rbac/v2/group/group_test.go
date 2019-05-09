@@ -97,6 +97,7 @@ func TestRBACV2Group(t *testing.T) {
 				Galley:         g,
 				Pilot:          p,
 			})
+			a.WaitUntilReadyOrFail(t, b, c)
 
 			cases := []util.TestCase{
 				// Port 80 is where HTTP is served

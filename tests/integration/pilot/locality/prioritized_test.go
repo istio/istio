@@ -63,8 +63,6 @@ func TestPrioritized(t *testing.T) {
 	//t.Parallel()
 
 	t.Run("CDS", func(t *testing.T) {
-		t.Parallel()
-
 		framework.NewTest(t).
 			RequiresEnvironment(environment.Kube).
 			Run(func(ctx framework.TestContext) {
@@ -94,8 +92,6 @@ func TestPrioritized(t *testing.T) {
 	})
 
 	t.Run("EDS", func(t *testing.T) {
-		t.Parallel()
-
 		framework.NewTest(t).
 			RequiresEnvironment(environment.Kube).
 			Run(func(ctx framework.TestContext) {

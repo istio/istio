@@ -95,6 +95,7 @@ func TestRBACV1Group(t *testing.T) {
 				Galley:         g,
 				Pilot:          p,
 			})
+			a.WaitUntilReadyOrFail(t, b, c)
 
 			cases := []util.TestCase{
 				{

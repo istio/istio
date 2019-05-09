@@ -72,8 +72,6 @@ func TestFailover(t *testing.T) {
 	//t.Parallel()
 
 	t.Run("CDS", func(t *testing.T) {
-		t.Parallel()
-
 		framework.NewTest(t).
 			RequiresEnvironment(environment.Kube).
 			// TODO(https://github.com/istio/istio/issues/13812)
@@ -108,8 +106,6 @@ func TestFailover(t *testing.T) {
 	})
 
 	t.Run("EDS", func(t *testing.T) {
-		t.Parallel()
-
 		framework.NewTest(t).
 			RequiresEnvironment(environment.Kube).
 			Run(func(ctx framework.TestContext) {

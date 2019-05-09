@@ -91,6 +91,7 @@ func TestRBACV2Basic(t *testing.T) {
 				Galley:         g,
 				Pilot:          p,
 			})
+			a.WaitUntilReadyOrFail(t, b, c, d)
 
 			cases := []util.TestCase{
 				{

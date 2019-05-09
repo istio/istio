@@ -70,6 +70,7 @@ func TestSdsCitadelCaFlow(t *testing.T) {
 				Galley:         g,
 				Pilot:          p,
 			})
+			a.WaitUntilReadyOrFail(t, b)
 
 			checkers := []connection.Checker{
 				{

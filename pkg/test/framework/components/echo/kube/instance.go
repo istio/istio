@@ -20,6 +20,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -36,9 +37,10 @@ import (
 )
 
 const (
-	tcpHealthPort     = 3333
-	httpReadinessPort = 8080
-	defaultDomain     = "svc.cluster.local"
+	tcpHealthPort         = 3333
+	httpReadinessPort     = 8080
+	defaultDomain         = "svc.cluster.local"
+	noSidecarWaitDuration = 10 * time.Second
 )
 
 var (
@@ -260,18 +262,27 @@ func getUninitializedInstances(instances []echo.Instance) []*instance {
 
 func (c *instance) WaitUntilReady(outboundInstances ...echo.Instance) error {
 
+	// Add 'this' to an array with all the other instances.
+	all := append([]echo.Instance{c}, outboundInstances...)
+
 	// Initialize the workloads for all instances.
-	if err := initAllWorkloads(c.env.Accessor, append([]echo.Instance{c}, outboundInstances...)); err != nil {
+	if err := initAllWorkloads(c.env.Accessor, all); err != nil {
 		return err
 	}
 
 	// Wait for the outbound config to be received by each workload from Pilot.
 	for _, w := range c.workloads {
 		if w.sidecar != nil {
-			if err := w.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(outboundInstances...)); err != nil {
+			if err := w.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(all...)); err != nil {
 				return err
 			}
 		}
+	}
+
+	// If this instance has no sidecar, wait for a short duration to allow services/endpoints to be
+	// propagated through the system.
+	if !c.cfg.Sidecar {
+		time.Sleep(noSidecarWaitDuration)
 	}
 
 	return nil
