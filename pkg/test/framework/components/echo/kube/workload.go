@@ -39,7 +39,7 @@ type workload struct {
 	sidecar   *sidecar
 }
 
-func newWorkload(addr kubeCore.EndpointAddress, useSidecar bool, grpcPort uint16, accessor *kube.Accessor) (*workload, error) {
+func newWorkload(addr kubeCore.EndpointAddress, annotations echo.Annotations, grpcPort uint16, accessor *kube.Accessor) (*workload, error) {
 	if addr.TargetRef == nil || addr.TargetRef.Kind != "Pod" {
 		return nil, fmt.Errorf("invalid TargetRef for endpoint %s: %v", addr.IP, addr.TargetRef)
 	}
@@ -66,7 +66,7 @@ func newWorkload(addr kubeCore.EndpointAddress, useSidecar bool, grpcPort uint16
 	}
 
 	var s *sidecar
-	if useSidecar {
+	if annotations.GetBool(echo.SidecarInject) {
 		if s, err = newSidecar(pod, accessor); err != nil {
 			return nil, err
 		}
