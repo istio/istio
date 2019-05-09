@@ -140,6 +140,11 @@ var (
 		return val == "1" || !set
 	}
 
+	// DisablePartialRouteResponse provides an option to disable a partial route response. This
+	// will cause Pilot to send an error if any routes are invalid. The default behavior (without
+	// this flag) is to just skip the invalid route.
+	DisablePartialRouteResponse = os.Getenv("PILOT_DISABLE_PARTIAL_ROUTE_RESPONSE") == "1"
+
 	// DisableXDSMarshalingToAny provides an option to disable the "xDS marshaling to Any" feature ("on" by default).
 	DisableXDSMarshalingToAny = func() bool {
 		return os.Getenv("PILOT_DISABLE_XDS_MARSHALING_TO_ANY") == "1"
