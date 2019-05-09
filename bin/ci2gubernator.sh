@@ -68,8 +68,8 @@ if [ -n "$CIRCLE_PR_NUMBER" ] || [ -n "$CIRCLE_PULL_REQUEST" ]; then
 	ARGS+=("--stage=presubmit")
 fi
 
-if [ ${CIRCLE_BRANCH} == "master" ]; then
-        ARGS+="--branch=${CIRCLE_BRANCH}"
+if [ "${CIRCLE_BRANCH}" == "master" ]; then
+  ARGS+=("--branch=${CIRCLE_BRANCH}")
 fi
 
 ci2gubernator=${GOPATH}/bin/ci2gubernator
