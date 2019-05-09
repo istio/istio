@@ -57,12 +57,12 @@ const (
 		"emRIMHVOfuvHsU60_GhGbiSFzgPTAa9WTltbnarTbxudb_YEOx12JiwYToeX0DCPb43W1tzIBxgm8NxUg"
 )
 
-func TestGroupV1RBAC(t *testing.T) {
+func TestRBACV1Group(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
-			ns := namespace.NewOrFail(t, ctx, "rbacv1", true)
+			ns := namespace.NewOrFail(t, ctx, "rbacv1-group-test", true)
 			ports := []echo.Port{
 				{
 					Name:     "http",
@@ -173,7 +173,7 @@ func TestGroupV1RBAC(t *testing.T) {
 					tc.Request.Options.Path,
 					tc.ExpectAllowed)
 				t.Run(testName, func(t *testing.T) {
-					retry.UntilSuccessOrFail(t, tc.Check, retry.Delay(10*time.Second), retry.Timeout(120*time.Second))
+					retry.UntilSuccessOrFail(t, tc.CheckRBACRequest, retry.Delay(10*time.Second), retry.Timeout(120*time.Second))
 				})
 			}
 		})

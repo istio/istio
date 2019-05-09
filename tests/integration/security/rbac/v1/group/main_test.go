@@ -41,7 +41,7 @@ func setupConfig(cfg *istio.Config) {
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("rbac_group_list", m).
+		NewSuite("rbac_v1_group_list", m).
 		RequireEnvironment(environment.Kube).
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
