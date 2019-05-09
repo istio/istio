@@ -233,7 +233,7 @@ func TestReachability(t *testing.T) {
 				t.Run(testName, func(t *testing.T) {
 
 					// Apply the policy.
-					deploymentYAML := file.AsString(t, filepath.Join("testdata", c.configFile))
+					deploymentYAML := file.AsStringOrFail(t, filepath.Join("testdata", c.configFile))
 					g.ApplyConfigOrFail(t, c.namespace, deploymentYAML)
 					defer g.DeleteConfigOrFail(t, c.namespace, deploymentYAML)
 

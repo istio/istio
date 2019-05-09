@@ -158,8 +158,8 @@ func TestRBACV2Group(t *testing.T) {
 				"Namespace": ns.Name(),
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args,
-				file.AsString(t, rbacClusterConfigTmpl),
-				file.AsString(t, rbacGroupListRulesTmpl))
+				file.AsStringOrFail(t, rbacClusterConfigTmpl),
+				file.AsStringOrFail(t, rbacGroupListRulesTmpl))
 
 			g.ApplyConfigOrFail(t, ns, policies...)
 			defer g.DeleteConfigOrFail(t, ns, policies...)

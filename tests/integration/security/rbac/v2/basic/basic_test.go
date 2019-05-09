@@ -425,8 +425,8 @@ func TestRBACV2Basic(t *testing.T) {
 				"Namespace": ns.Name(),
 			}
 			policies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
-				file.AsString(t, rbacClusterConfigTmpl),
-				file.AsString(t, rbacV2RulesTmpl))
+				file.AsStringOrFail(t, rbacClusterConfigTmpl),
+				file.AsStringOrFail(t, rbacV2RulesTmpl))
 
 			g.ApplyConfigOrFail(t, ns, policies...)
 			defer g.DeleteConfigOrFail(t, ns, policies...)

@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/core/image"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/file"
 
 	kubeCore "k8s.io/api/core/v1"
 )
@@ -132,7 +133,7 @@ func (c *Config) IsMtlsEnabled() bool {
 		return true
 	}
 
-	data, err := test.ReadConfigFile(filepath.Join(c.ChartDir, c.ValuesFile))
+	data, err := file.AsString(filepath.Join(c.ChartDir, c.ValuesFile))
 	if err != nil {
 		return false
 	}
