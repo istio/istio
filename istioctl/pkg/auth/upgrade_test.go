@@ -22,49 +22,66 @@ import (
 
 const (
 	testFailedWithError   = "test failed with error %v"
-	testFailedExpectedGot = "test failed. Expected\n%sGot\n%s"
+	testFailedExpectedGot = "test [%s] failed. Expected\n%s\nGot\n%s"
+)
+
+var (
+	serviceViewerProductpage = map[string]ServiceToWorkloadLabels{
+		"service-viewer": {
+			"productpage": map[string]string{
+				"app": "productpage",
+			},
+		},
+	}
+	serviceViewerRatings = map[string]ServiceToWorkloadLabels{
+		"service-viewer": {
+			"ratings": map[string]string{
+				"app": "ratings",
+			},
+		},
+	}
 )
 
 type testCases struct {
+	testName             string
 	input                string
-	workloadLabelMapping map[string]ServiceToWorkloadLabels
+	workloadLabelMapping map[string]RoleNameToWorkloadLabels
 	expected             string
 }
 
 func TestUpgradeLocalFile(t *testing.T) {
 	cases := []testCases{
 		{
-			input: "./testdata/rbac-policies.yaml",
-			// Data from the BookExample. productpage.svc.cluster.local is the service with pod label
-			// app: productpage.
-			workloadLabelMapping: map[string]ServiceToWorkloadLabels{
-				"service-viewer": {
-					"productpage": map[string]string{
-						"app": "productpage",
-					},
-				},
+			testName: "ServiceRole with only services",
+			input:    "./testdata/rbac-policies.yaml",
+			workloadLabelMapping: map[string]RoleNameToWorkloadLabels{
+				"default": serviceViewerProductpage,
 			},
 			expected: "./testdata/rbac-policies-v2.golden.yaml",
 		},
 		{
-			input: "./testdata/rbac-policies-with-methods-and-paths.yaml",
-			// Data from the BookExample. ratings.svc.cluster.local is the service with pod label
-			// app: ratings.
-			workloadLabelMapping: map[string]ServiceToWorkloadLabels{
-				"service-viewer": {
-					"ratings": map[string]string{
-						"app": "ratings",
-					},
-				},
+			testName: "ServiceRole with methods and paths",
+			input:    "./testdata/rbac-policies-with-methods-and-paths.yaml",
+			workloadLabelMapping: map[string]RoleNameToWorkloadLabels{
+				"default": serviceViewerRatings,
 			},
 			expected: "./testdata/rbac-policies-with-methods-and-paths-v2.golden.yaml",
+		},
+		{
+			testName: "Same ServiceRole name in multiple namespaces",
+			input:    "./testdata/rbac-policies-multiple-namespaces.yaml",
+			workloadLabelMapping: map[string]RoleNameToWorkloadLabels{
+				"foo": serviceViewerProductpage,
+				"bar": serviceViewerRatings,
+			},
+			expected: "./testdata/rbac-policies-multiple-namespaces-v2.golden.yaml",
 		},
 	}
 
 	for _, tc := range cases {
 		upgrader := Upgrader{
-			V1PolicyFile:             tc.input,
-			RoleNameToWorkloadLabels: tc.workloadLabelMapping,
+			V1PolicyFile:                        tc.input,
+			NamespaceToRoleNameToWorkloadLabels: tc.workloadLabelMapping,
 		}
 		gotContent, err := upgrader.UpgradeCRDs()
 		if err != nil {
@@ -75,7 +92,7 @@ func TestUpgradeLocalFile(t *testing.T) {
 			t.Errorf(testFailedWithError, err)
 		}
 		if !reflect.DeepEqual(string(expectedContent), gotContent) {
-			t.Errorf(testFailedExpectedGot, string(expectedContent), gotContent)
+			t.Errorf(testFailedExpectedGot, tc.testName, string(expectedContent), gotContent)
 		}
 	}
 }

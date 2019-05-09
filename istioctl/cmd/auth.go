@@ -176,12 +176,9 @@ func newUpgrader(v1PolicyFile string, serviceFiles []string) (*auth.Upgrader, er
 	if v1PolicyFile == "" {
 		return nil, fmt.Errorf("no input file provided")
 	}
-	istioClient, err := newClient()
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to Istio Config Store with error %v", err)
-	}
 
 	var k8sClient *k8s.Clientset
+	var err error
 	if len(serviceFiles) == 0 {
 		k8sClient, err = kube.CreateClientset("", "")
 		if err != nil {
@@ -190,11 +187,10 @@ func newUpgrader(v1PolicyFile string, serviceFiles []string) (*auth.Upgrader, er
 	}
 
 	upgrader := &auth.Upgrader{
-		IstioConfigStore:         istioClient,
-		K8sClient:                k8sClient,
-		ServiceFiles:             serviceFiles,
-		RoleNameToWorkloadLabels: map[string]auth.ServiceToWorkloadLabels{},
-		V1PolicyFile:             v1PolicyFile,
+		K8sClient:                           k8sClient,
+		ServiceFiles:                        serviceFiles,
+		NamespaceToRoleNameToWorkloadLabels: map[string]auth.RoleNameToWorkloadLabels{},
+		V1PolicyFile:                        v1PolicyFile,
 	}
 	return upgrader, nil
 }

@@ -36,25 +36,26 @@ import (
 	rbacproto "istio.io/api/rbac/v1alpha1"
 )
 
+// WorkloadLabels is the workload labels, for example, app: productpage.
+type WorkloadLabels map[string]string
+
 // ServiceToWorkloadLabels maps the short service name to the workload labels that it's pointing to.
 // This service is defined in same namespace as the ServiceRole that's using it.
 type ServiceToWorkloadLabels map[string]WorkloadLabels
 
-// WorkloadLabels is the workload labels, for example, app: productpage.
-type WorkloadLabels map[string]string
+type RoleNameToWorkloadLabels map[string]ServiceToWorkloadLabels
 
 type Upgrader struct {
-	IstioConfigStore model.ConfigStore
-	K8sClient        *kubernetes.Clientset
-	ServiceFiles     []string
-	// RoleNameToWorkloadLabels maps the ServiceRole name to the map of service name to the workload labels
-	// that the service pointing to.
+	K8sClient    *kubernetes.Clientset
+	ServiceFiles []string
+	// NamespaceToRoleNameToWorkloadLabels maps the namespace to role name to a map of service name to the workload labels
+	// that the service in this namespace pointing to.
 	// We could have remove the `service` key layer to make it ServiceRole name maps to workload labels.
 	// However, this is needed for unit tests.
-	RoleNameToWorkloadLabels map[string]ServiceToWorkloadLabels
-	V1PolicyFile             string
-	serviceRoles             []model.Config
-	serviceRoleBindings      []model.Config
+	NamespaceToRoleNameToWorkloadLabels map[string]RoleNameToWorkloadLabels
+	V1PolicyFile                        string
+	serviceRoles                        []model.Config
+	serviceRoleBindings                 []model.Config
 }
 
 const (
@@ -207,11 +208,13 @@ func (ug *Upgrader) createAuthorizationPolicyFromRoleBinding(serviceRoleBinding 
 	return authzPolicyConfig, nil
 }
 
+// getAndAddRoleNameToWorkloadLabelMapping get the workload labels given the role name and namespace. It may
+// update the NamespaceToRoleNameToWorkloadLabels map along the way if the data is not yet there.
 func (ug *Upgrader) getAndAddRoleNameToWorkloadLabelMapping(roleName, namespace string) (WorkloadLabels, error) {
 	workloadLabels := WorkloadLabels{}
-	if _, found := ug.RoleNameToWorkloadLabels[roleName]; !found {
-		// If RoleNameToWorkloadLabels does not have roleName key yet, try fetching from Kubernetes apiserver.
-		serviceRole := ug.IstioConfigStore.Get(model.ServiceRole.Type, roleName, namespace)
+	if _, found := ug.NamespaceToRoleNameToWorkloadLabels[namespace][roleName]; !found {
+		// If NamespaceToRoleNameToWorkloadLabels does not have roleName key yet, try fetching from Kubernetes apiserver.
+		serviceRole := ug.getServiceRole(roleName, namespace)
 		if serviceRole == nil {
 			return nil, fmt.Errorf("cannot find ServiceRole %q in namespace %q", roleName, namespace)
 		}
@@ -220,12 +223,25 @@ func (ug *Upgrader) getAndAddRoleNameToWorkloadLabelMapping(roleName, namespace 
 			return nil, err
 		}
 	}
-	for _, serviceWorkloadLabels := range ug.RoleNameToWorkloadLabels[roleName] {
-		for serviceName, labels := range serviceWorkloadLabels {
-			workloadLabels[serviceName] = labels
+	// A ServiceRole can have a list of rules. We need to go through all services in all rules for a ServiceRole.
+	// A serviceWorkloadLabels is the mapping from pod selector (for example app: productpage).
+	for _, serviceWorkloadLabels := range ug.NamespaceToRoleNameToWorkloadLabels[namespace][roleName] {
+		// For the example above, labelKey is app, labelValue is productpage.
+		for labelKey, labelValue := range serviceWorkloadLabels {
+			workloadLabels[labelKey] = labelValue
 		}
 	}
 	return workloadLabels, nil
+}
+
+// getServiceRole return the ServiceRole (from the input file) in the provided namespace given the role name.
+func (ug *Upgrader) getServiceRole(roleName, namespace string) *model.Config {
+	for _, serviceRole := range ug.serviceRoles {
+		if serviceRole.Name == roleName && serviceRole.Namespace == namespace {
+			return &serviceRole
+		}
+	}
+	return nil
 }
 
 // addRoleNameToWorkloadLabelMapping maps the ServiceRole name to workload labels that its rules originally
@@ -247,12 +263,12 @@ func (ug *Upgrader) addRoleNameToWorkloadLabelMapping(serviceRolePolicy model.Co
 // mapRoleNameToWorkloadLabels maps the roleName from namespace to workload labels that its rules originally
 // applies to.
 func (ug *Upgrader) mapRoleNameToWorkloadLabels(roleName, namespace, fullServiceName string) error {
-	// TODO(pitlv2109): Handle when services = "*" or wildcards.
-	if strings.Contains(fullServiceName, "*") {
-		return fmt.Errorf("services with wildcard * are not supported")
+	// TODO: Handle suffix for services as described at https://istio.io/docs/reference/config/authorization/istio.rbac.v1alpha1/#AccessRule
+	if fullServiceName == "*" {
+		return nil
 	}
 	serviceName := strings.Split(fullServiceName, ".")[0]
-	if _, found := ug.RoleNameToWorkloadLabels[roleName][serviceName]; found {
+	if _, found := ug.NamespaceToRoleNameToWorkloadLabels[namespace][roleName][serviceName]; found {
 		return nil
 	}
 
@@ -294,12 +310,16 @@ func (ug *Upgrader) mapRoleNameToWorkloadLabels(roleName, namespace, fullService
 	if service.Spec.Selector == nil {
 		return fmt.Errorf("failed because service %q does not have selector", serviceName)
 	}
-	if _, found := ug.RoleNameToWorkloadLabels[roleName]; !found {
-		ug.RoleNameToWorkloadLabels[roleName] = make(ServiceToWorkloadLabels)
+	// Maps need to be initialized (from lowest level outwards) before we can write to them.
+	if _, found := ug.NamespaceToRoleNameToWorkloadLabels[namespace][roleName][serviceName]; !found {
+		if _, found := ug.NamespaceToRoleNameToWorkloadLabels[namespace][roleName]; !found {
+			if _, found := ug.NamespaceToRoleNameToWorkloadLabels[namespace]; !found {
+				ug.NamespaceToRoleNameToWorkloadLabels[namespace] = make(RoleNameToWorkloadLabels)
+			}
+			ug.NamespaceToRoleNameToWorkloadLabels[namespace][roleName] = make(ServiceToWorkloadLabels)
+		}
+		ug.NamespaceToRoleNameToWorkloadLabels[namespace][roleName][serviceName] = make(WorkloadLabels)
 	}
-	if _, found := ug.RoleNameToWorkloadLabels[roleName][serviceName]; !found {
-		ug.RoleNameToWorkloadLabels[roleName][serviceName] = make(WorkloadLabels)
-	}
-	ug.RoleNameToWorkloadLabels[roleName][serviceName] = service.Spec.Selector
+	ug.NamespaceToRoleNameToWorkloadLabels[namespace][roleName][serviceName] = service.Spec.Selector
 	return nil
 }
