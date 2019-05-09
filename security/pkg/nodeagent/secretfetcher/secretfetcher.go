@@ -93,8 +93,8 @@ type SecretFetcher struct {
 	// Update all entries containing secretName in SecretCache. Called when K8S secret is updated.
 	UpdateCache func(secretName string, ns model.SecretItem)
 
-	// If ServeFallbackSecret is true and FallbackSecretName is not empty, return FallbackSecret to
-	// customer.
+	// If ServeFallbackSecret is true and FallbackSecretName is not empty, return FallbackSecret
+	// via FindIngressGatewaySecret when expected secret is not available.
 	ServeFallbackSecret bool
 	FallbackSecretName  string
 }
