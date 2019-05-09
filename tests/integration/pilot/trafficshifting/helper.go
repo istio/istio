@@ -22,28 +22,30 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/apps"
+	"istio.io/istio/pkg/test/framework/components/echo"
 )
 
-func sendTraffic(t *testing.T, duration time.Duration, batchSize int, from apps.KubeApp, to apps.KubeApp, hosts []string, weight []int32, errorBand float64) {
+func sendTraffic(t *testing.T, duration time.Duration, batchSize int, from, to echo.Instance, hosts []string, weight []int32, errorBand float64) {
 	const totalThreads = 10
 	var hitCount sync.Map
 
 	for i := 0; i < totalThreads; i++ {
 		go func() {
-			for {
-				resp, _ := from.Call(to.EndpointForPort(80), apps.AppCallOptions{})
+			resp, _ := from.Call(echo.CallOptions{
+				Target:   to,
+				PortName: "http",
+				Count:    batchSize,
+			})
 
-				for _, r := range resp {
-					for _, h := range hosts {
-						if strings.HasPrefix(r.Hostname, h+"-") {
-							if cnt, found := hitCount.Load(h); found {
-								hitCount.Store(h, cnt.(int)+1)
-							} else {
-								hitCount.Store(h, 1)
-							}
-							break
+			for _, r := range resp {
+				for _, h := range hosts {
+					if strings.HasPrefix(r.Hostname, h+"-") {
+						if cnt, found := hitCount.Load(h); found {
+							hitCount.Store(h, cnt.(int)+1)
+						} else {
+							hitCount.Store(h, 1)
 						}
+						break
 					}
 				}
 			}

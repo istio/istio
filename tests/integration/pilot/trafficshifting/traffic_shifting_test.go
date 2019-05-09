@@ -20,10 +20,16 @@ import (
 	"text/template"
 	"time"
 
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/resource"
+
+	"istio.io/istio/pkg/test/framework/components/namespace"
+
 	"istio.io/istio/pkg/test/framework/label"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/apps"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -41,7 +47,7 @@ import (
 //							|
 //		-------------------------------------
 //		|weight1	|weight2	|weight3	|weight4
-//		|a			|b			|c			|d
+//		|b			|c			|d			|e
 //	|-------|	|-------|	|-------|	|-------|
 //	| Host0 |	| Host1	|	| Host2 |	| Host3 |
 //	|-------|	|-------|	|-------|	|-------|
@@ -50,7 +56,9 @@ import (
 
 var (
 	ist   istio.Instance
-	hosts = []string{"a", "b", "c", "d"}
+	hosts = []string{"b", "c", "d", "e"}
+	p     pilot.Instance
+	g     galley.Instance
 )
 
 const (
@@ -122,10 +130,17 @@ func TestTrafficShifting(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
-			g := galley.NewOrFail(t, ctx, galley.Config{})
-			p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
+			g, _ = galley.New(ctx, galley.Config{})
+			p, _ = pilot.New(ctx, pilot.Config{Galley: g})
 
-			instance := apps.NewOrFail(t, ctx, apps.Config{Pilot: p, Galley: g})
+			ns := namespace.NewOrFail(t, ctx, "traffic-shifting", true)
+
+			a := newEcho(t, ctx, ns, "a")
+			b := newEcho(t, ctx, ns, "b")
+			c := newEcho(t, ctx, ns, "c")
+			d := newEcho(t, ctx, ns, "d")
+			e := newEcho(t, ctx, ns, "e")
+			a.WaitUntilReadyOrFail(t, b, c, d, e)
 
 			for k, v := range weights {
 				t.Run(k, func(t *testing.T) {
@@ -137,7 +152,7 @@ func TestTrafficShifting(t *testing.T) {
 						hosts[1],
 						hosts[2],
 						hosts[3],
-						instance.Namespace().Name(),
+						ns.Name(),
 						v[0],
 						v[1],
 						v[2],
@@ -148,15 +163,32 @@ func TestTrafficShifting(t *testing.T) {
 					var buf bytes.Buffer
 					tmpl.Execute(&buf, vsc)
 
-					g.ApplyConfigOrFail(t, instance.Namespace(), buf.String())
+					g.ApplyConfigOrFail(t, ns, buf.String())
 
 					// TODO: Find a better way to wait for configuration propagation
 					time.Sleep(10 * time.Second)
 
-					from := instance.GetAppOrFail(hosts[0], t).(apps.KubeApp)
-
-					sendTraffic(t, testDuration, batchSize, from, from, hosts, v, errorBand)
+					sendTraffic(t, testDuration, batchSize, a, b, hosts, v, errorBand)
 				})
 			}
 		})
+}
+
+func newEcho(t *testing.T, ctx resource.Context, ns namespace.Instance, name string) echo.Instance {
+	t.Helper()
+	return echoboot.NewOrFail(t, ctx, echo.Config{
+		Service:   name,
+		Namespace: ns,
+		Locality:  "region.zone.subzone",
+		Sidecar:   true,
+		Ports: []echo.Port{
+			{
+				Name:        "http",
+				Protocol:    model.ProtocolHTTP,
+				ServicePort: 80,
+			},
+		},
+		Galley: g,
+		Pilot:  p,
+	})
 }
