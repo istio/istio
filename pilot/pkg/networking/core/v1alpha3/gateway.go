@@ -213,7 +213,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 
 	// make sure that there is some server listening on this port
 	if _, ok := merged.ServersByRouteName[routeName]; !ok {
-		log.Warnf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.ServersByRouteName)
+		log.Warnf("Gateway missing for route %s. This is normal if gateway was recently deleted. Have %v", routeName, merged.ServersByRouteName)
 
 		// If the flag is set, send Envoy an error, blocking all routes from being sent. This flag
 		// is intended only to support legacy behavior and should be removed in the future.
