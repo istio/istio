@@ -13,6 +13,9 @@ FROM docker:latest as docker
 ############################################
 # Image to create go binaries
 FROM golang:1.12.5 as golang
+ENV     GO111MODULE=on
+ENV     GOPROXY=https://proxy.golang.org
+
 # IMPORTANT: kind releases may or may not work with the 1.14.1 kindest/node tag.
 # We want to create images with multiple k8s versions.
 # Use latest since there is not a specific release to match the current kindest/node:v1.14.1 image

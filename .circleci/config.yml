@@ -16,7 +16,7 @@ integrationDefaults: &integrationDefaults
 integrationRemote: &integrationRemote
   working_directory: /go/src/istio.io/installer
   docker:
-    - image: gcr.io/istio-testing/circleci:2019-04-22
+    - image: istionightly/ci:2019-05-09
       environment:
         GOPATH: /go
         SKIP_CLEANUP: 1
@@ -75,9 +75,6 @@ jobs:
           docker_layer_caching: true
       - run: make gitdep
       - run:
-          # TODO: include in the istio base image
-          command: make ${GOPATH}/bin/kind
-      - run:
           # Create KIND cluster (separate so we get time info)
           command: make info dep prepare
       - run:
@@ -113,9 +110,6 @@ jobs:
       - setup_remote_docker:
           docker_layer_caching: true
       - run: make gitdep
-      - run:
-          # TODO: include in the istio base image
-          command: make ${GOPATH}/bin/kind
       - run:
           # Create KIND cluster (separate so we get time info)
           command: make info dep prepare
@@ -178,9 +172,6 @@ jobs:
             mkdir -p $GOPATH/src/istio.io/
             git clone https://github.com/istio/istio.git $GOPATH/src/istio.io/istio
             git clone https://github.com/istio/tools.git $GOPATH/src/istio.io/tools
-      - run:
-          # TODO: include in the istio base image
-          command: make ${GOPATH}/bin/kind
       - run:
           command: make info dep prepare
       - run:
