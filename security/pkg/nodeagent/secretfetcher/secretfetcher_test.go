@@ -127,14 +127,15 @@ func TestSecretFetcher(t *testing.T) {
 		UseCaClient:         false,
 		DeleteCache:         func(secretName string) {},
 		UpdateCache:         func(secretName string, ns model.SecretItem) {},
-		ServeFallbackSecret: false,
+		// Set fallback secret name but no such secret is created.
+		FallbackSecretName:  "gateway-fallback",
 	}
 	gSecretFetcher.Init(fake.NewSimpleClientset().CoreV1())
 	if gSecretFetcher.UseCaClient {
 		t.Error("secretFetcher should not use ca client")
 	}
 	ch := make(chan struct{})
-	gSecretFetcher.Run(ch)
+	gSecretFetcher.RunForTest(ch)
 
 	// Searching a non-existing secret should return false.
 	if _, ok := gSecretFetcher.FindIngressGatewaySecret("non-existing-secret"); ok {
@@ -220,7 +221,7 @@ func TestSecretFetcherInvalidSecret(t *testing.T) {
 		t.Error("secretFetcher should not use ca client")
 	}
 	ch := make(chan struct{})
-	gSecretFetcher.Run(ch)
+	gSecretFetcher.RunForTest(ch)
 
 	gSecretFetcher.scrtAdded(k8sInvalidTestGenericSecretA)
 	if _, ok := gSecretFetcher.FindIngressGatewaySecret(k8sInvalidTestGenericSecretA.GetName()); ok {
@@ -282,7 +283,7 @@ func TestSecretFetcherSkipSecret(t *testing.T) {
 		t.Error("secretFetcher should not use ca client")
 	}
 	ch := make(chan struct{})
-	gSecretFetcher.Run(ch)
+	gSecretFetcher.RunForTest(ch)
 
 	istioPrefixSecret := &v1.Secret{
 		Data: map[string][]byte{
@@ -388,7 +389,7 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 		t.Error("secretFetcher should not use ca client")
 	}
 	ch := make(chan struct{})
-	gSecretFetcher.Run(ch)
+	gSecretFetcher.RunForTest(ch)
 
 	// Searching a non-existing secret should return false.
 	if _, ok := gSecretFetcher.FindIngressGatewaySecret("non-existing-secret"); ok {
@@ -460,7 +461,6 @@ func TestSecretFetcherUsingFallbackIngressSecret(t *testing.T) {
 		UseCaClient:         false,
 		DeleteCache:         func(secretName string) {},
 		UpdateCache:         func(secretName string, ns model.SecretItem) {},
-		ServeFallbackSecret: true,
 		FallbackSecretName:  k8sSecretFallbackScrt,
 	}
 	gSecretFetcher.Init(fake.NewSimpleClientset().CoreV1())
@@ -468,7 +468,7 @@ func TestSecretFetcherUsingFallbackIngressSecret(t *testing.T) {
 		t.Error("secretFetcher should not use ca client")
 	}
 	ch := make(chan struct{})
-	gSecretFetcher.Run(ch)
+	gSecretFetcher.RunForTest(ch)
 
 	gSecretFetcher.scrtAdded(k8sTestTLSFallbackSecret)
 

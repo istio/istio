@@ -64,13 +64,16 @@ const (
 	istioPrefix      = "istio"
 	prometheusPrefix = "prometheus"
 
+	// TODO(JimmyCYJ): Configure these two env variables in Helm
 	// secretControllerResyncPeriod specifies the time period in seconds that secret controller
 	// resyncs to API server.
 	// example value format like "30s"
 	secretControllerResyncPeriod = "SECRET_WATCHER_RESYNC_PERIOD"
-
-	// ingressFallbackSecret specifies the fallback secret for ingress gateway.
+	// ingressFallbackSecret specifies the name of fallback secret for ingress gateway.
 	ingressFallbackSecret = "INGRESS_GATEWAY_FALLBACK_SECRET"
+
+	// Default secret name for fallback secret.
+	defaultFallbackSecretName = "gateway-fallback"
 )
 
 // SecretFetcher fetches secret via watching k8s secrets or sending CSR to CA.
@@ -93,9 +96,10 @@ type SecretFetcher struct {
 	// Update all entries containing secretName in SecretCache. Called when K8S secret is updated.
 	UpdateCache func(secretName string, ns model.SecretItem)
 
-	// If ServeFallbackSecret is true and FallbackSecretName is not empty, return FallbackSecret
-	// via FindIngressGatewaySecret when expected secret is not available.
-	ServeFallbackSecret bool
+	// FallbackSecretName stores the name of fallback secret which is set at env variable
+	// INGRESS_GATEWAY_FALLBACK_SECRET. If INGRESS_GATEWAY_FALLBACK_SECRET is empty, then use
+	// gateway-fallback as default name of fallback secret. If a fallback secret exists,
+	// FindIngressGatewaySecret returns this fallback secret when expected secret is not available.
 	FallbackSecretName  string
 }
 
@@ -115,19 +119,16 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 
 	if ingressGatewayAgent {
 		ret.UseCaClient = false
-		ret.ServeFallbackSecret = false
 		cs, err := kube.CreateClientset("", "")
 		if err != nil {
 			fatalf("Could not create k8s clientset: %v", err)
 		}
+		ret.FallbackSecretName = defaultFallbackSecretName
 		// Check if a fallback secret env variable is set.
 		if secretName := os.Getenv(ingressFallbackSecret); secretName != "" {
-			ret.ServeFallbackSecret = true
 			ret.FallbackSecretName = secretName
-		} else {
-			ret.ServeFallbackSecret = false
 		}
-		log.Debugf("use fallback secret %v, fallback secret name %s", ret.ServeFallbackSecret, ret.FallbackSecretName)
+		log.Debugf("SecretFetcher set fallback secret name %s", ret.FallbackSecretName)
 		ret.Init(cs.CoreV1())
 	} else {
 		caClient, err := ca.NewCAClient(endpoint, CAProviderName, tlsFlag, tlsRootCert,
@@ -146,6 +147,7 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 // Run starts the SecretFetcher until a value is sent to ch.
 // Only used when watching kubernetes gateway secrets.
 func (sf *SecretFetcher) Run(ch chan struct{}) {
+	cache.WaitForCacheSync(ch, sf.scrtController.HasSynced)
 	go sf.scrtController.Run(ch)
 }
 
@@ -242,7 +244,7 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 		Version:          t.String(),
 	}
 	sf.secrets.Store(resourceName, *ns)
-	log.Infof("secret %s is added", resourceName)
+	log.Debugf("secret %s is added", resourceName)
 	if sf.AddCache != nil {
 		sf.AddCache(resourceName, *ns)
 	}
@@ -258,7 +260,7 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 			Version:      t.String(),
 		}
 		sf.secrets.Store(rootCertResourceName, *nsRoot)
-		log.Infof("secret %s is added", rootCertResourceName)
+		log.Debugf("secret %s is added", rootCertResourceName)
 		if sf.AddCache != nil {
 			sf.AddCache(rootCertResourceName, *nsRoot)
 		}
@@ -360,28 +362,26 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 
 // FindIngressGatewaySecret returns the secret whose name matches the key, or empty secret if no
 // secret is present. The ok result indicates whether secret was found.
-// If ServeFallbackSecret is true, FallbackSecretName is specified and there is a secret named
-// FallbackSecretName, return the fall back secret.
+// If there is a fallback secret named FallbackSecretName, return the fall back secret.
 func (sf *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.SecretItem, ok bool) {
-	log.Debugf("FindIngressGatewaySecret: searching for secret %s", key)
-	log.Debugf("use fallback secret %v, fallback secret name %s", sf.ServeFallbackSecret, sf.FallbackSecretName)
+	log.Debugf("SecretFetcher search for secret %s", key)
 	val, exist := sf.secrets.Load(key)
 	log.Debugf("load secret %s from secret fetcher: %v", key, exist)
 	if !exist {
-		if sf.ServeFallbackSecret {
-			log.Debugf("Cannot find secret %s, searching for fallback secret %s", key, sf.FallbackSecretName)
-			fallbackVal, fallbackExist := sf.secrets.Load(sf.FallbackSecretName)
-			if fallbackExist {
-				log.Debugf("Return fallback secret %s for gateway secret %s", sf.FallbackSecretName, key)
-				return fallbackVal.(model.SecretItem), true
-			}
-			log.Debugf("fallback secret %s does not exist", sf.FallbackSecretName)
+		// Expected secret does not exist, try to find the fallback secret.
+		// TODO(JimmyCYJ): Add metrics to node agent to imply usage of fallback secret
+		log.Warnf("Cannot find secret %s, searching for fallback secret %s", key, sf.FallbackSecretName)
+		fallbackVal, fallbackExist := sf.secrets.Load(sf.FallbackSecretName)
+		if fallbackExist {
+			log.Debugf("Return fallback secret %s for gateway secret %s", sf.FallbackSecretName, key)
+			return fallbackVal.(model.SecretItem), true
 		}
-		log.Debugf("cannot find secret %s and cannot find fallback secret %s", key, sf.FallbackSecretName)
+
+		log.Errorf("cannot find secret %s and cannot find fallback secret %s", key, sf.FallbackSecretName)
 		return model.SecretItem{}, false
 	}
 	e := val.(model.SecretItem)
-	log.Debugf("FindIngressGatewaySecret: return secret %s: %v", key, e)
+	log.Debugf("SecretFetcher return secret %s", key)
 	return e, true
 }
 
@@ -393,4 +393,9 @@ func (sf *SecretFetcher) AddSecret(obj interface{}) {
 // DeleteSecret deletes obj from local store. Only used for testing.
 func (sf *SecretFetcher) DeleteSecret(obj interface{}) {
 	sf.scrtDeleted(obj)
+}
+
+// RunForTest starts secret controller for testing.
+func (sf *SecretFetcher) RunForTest(ch chan struct{}) {
+	go sf.scrtController.Run(ch)
 }

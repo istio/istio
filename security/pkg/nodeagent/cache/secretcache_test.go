@@ -369,9 +369,6 @@ func TestGatewayAgentGenerateSecretUsingFallbackSecret(t *testing.T) {
 	os.Setenv("INGRESS_GATEWAY_FALLBACK_SECRET", k8sTLSFallbackSecretName)
 	sc := createSecretCache()
 	fetcher := sc.fetcher
-	if fetcher.ServeFallbackSecret == false {
-		t.Error("INGRESS_GATEWAY_FALLBACK_SECRET is set, fetcher should serve fallback secret")
-	}
 	if fetcher.FallbackSecretName != k8sTLSFallbackSecretName {
 		t.Errorf("Fallback secret name does not match. Expected %v but got %v",
 			k8sTLSFallbackSecretName, fetcher.FallbackSecretName)
@@ -555,16 +552,14 @@ func createSecretCache() *SecretCache {
 	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: false,
 	}
+	fetcher.FallbackSecretName = "gateway-fallback"
 	if fallbackSecret := os.Getenv("INGRESS_GATEWAY_FALLBACK_SECRET"); fallbackSecret != "" {
-		fetcher.ServeFallbackSecret = true
 		fetcher.FallbackSecretName = fallbackSecret
-	} else {
-		fetcher.ServeFallbackSecret = false
 	}
 
 	fetcher.Init(fake.NewSimpleClientset().CoreV1())
 	ch := make(chan struct{})
-	fetcher.Run(ch)
+	fetcher.RunForTest(ch)
 	opt := Options{
 		SecretTTL:        time.Minute,
 		RotationInterval: 300 * time.Microsecond,
