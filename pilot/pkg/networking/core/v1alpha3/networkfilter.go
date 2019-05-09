@@ -44,9 +44,8 @@ func buildInboundNetworkFilters(env *model.Environment, node *model.Proxy, insta
 	return buildNetworkFiltersStack(node, instance.Endpoint.ServicePort, tcpFilter, clusterName)
 }
 
-// setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
-// TcpProxy instance and builds a TCP filter out of it.
-func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, config *tcp_proxy.TcpProxy) *listener.Filter {
+// setAccessLog sets the AccessLog configuration in the given TcpProxy instance.
+func setAccessLog(env *model.Environment, node *model.Proxy, config *tcp_proxy.TcpProxy) *tcp_proxy.TcpProxy {
 	if env.Mesh.AccessLogFile != "" {
 		fl := &fileaccesslog.FileAccessLog{
 			Path: env.Mesh.AccessLogFile,
@@ -67,6 +66,13 @@ func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, co
 		config.AccessLog = []*accesslog.AccessLog{acc}
 
 	}
+	return config
+}
+
+// setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
+// TcpProxy instance and builds a TCP filter out of it.
+func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, config *tcp_proxy.TcpProxy) *listener.Filter {
+	setAccessLog(env, node, config)
 
 	tcpFilter := &listener.Filter{
 		Name: xdsutil.TCPProxy,
