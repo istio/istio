@@ -24,7 +24,7 @@ function print_help() {
 # Customizable
 INGRESS_NS=${INGRESS_NS:-istio-ingress}
 
-export WAIT_TIMEOUT=${WAIT_TIMEOUT:-3m}
+export WAIT_TIMEOUT=${WAIT_TIMEOUT:-5m}
 SKIP_CLEANUP=${SKIP_CLEANUP:-0}
 SKIP_SETUP=${SKIP_SETUP:-0}
 while [ $# -gt 0 ]
