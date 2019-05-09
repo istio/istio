@@ -100,7 +100,7 @@ type SecretFetcher struct {
 	// INGRESS_GATEWAY_FALLBACK_SECRET. If INGRESS_GATEWAY_FALLBACK_SECRET is empty, then use
 	// gateway-fallback as default name of fallback secret. If a fallback secret exists,
 	// FindIngressGatewaySecret returns this fallback secret when expected secret is not available.
-	FallbackSecretName  string
+	FallbackSecretName string
 }
 
 func fatalf(template string, args ...interface{}) {

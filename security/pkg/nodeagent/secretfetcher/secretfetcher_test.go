@@ -124,11 +124,11 @@ type expectedSecret struct {
 // find secret by name, and delete secret by name.
 func TestSecretFetcher(t *testing.T) {
 	gSecretFetcher := &SecretFetcher{
-		UseCaClient:         false,
-		DeleteCache:         func(secretName string) {},
-		UpdateCache:         func(secretName string, ns model.SecretItem) {},
+		UseCaClient: false,
+		DeleteCache: func(secretName string) {},
+		UpdateCache: func(secretName string, ns model.SecretItem) {},
 		// Set fallback secret name but no such secret is created.
-		FallbackSecretName:  "gateway-fallback",
+		FallbackSecretName: "gateway-fallback",
 	}
 	gSecretFetcher.Init(fake.NewSimpleClientset().CoreV1())
 	if gSecretFetcher.UseCaClient {
@@ -458,10 +458,10 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 // the fall back secret will be returned when real secret is not added, or is already deleted.
 func TestSecretFetcherUsingFallbackIngressSecret(t *testing.T) {
 	gSecretFetcher := &SecretFetcher{
-		UseCaClient:         false,
-		DeleteCache:         func(secretName string) {},
-		UpdateCache:         func(secretName string, ns model.SecretItem) {},
-		FallbackSecretName:  k8sSecretFallbackScrt,
+		UseCaClient:        false,
+		DeleteCache:        func(secretName string) {},
+		UpdateCache:        func(secretName string, ns model.SecretItem) {},
+		FallbackSecretName: k8sSecretFallbackScrt,
 	}
 	gSecretFetcher.Init(fake.NewSimpleClientset().CoreV1())
 	if gSecretFetcher.UseCaClient {
