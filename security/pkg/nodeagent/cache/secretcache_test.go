@@ -69,16 +69,16 @@ var (
 		},
 		Type: "test-tls-secret",
 	}
-	k8sTlsFallbackSecretName      = "fallback-scrt"
-	k8sTlsFallbackSecretKey       = []byte("fallback fake private key")
-	k8sTlsFallbackSecretCertChain = []byte("fallback fake cert chain")
+	k8sTLSFallbackSecretName      = "fallback-scrt"
+	k8sTLSFallbackSecretKey       = []byte("fallback fake private key")
+	k8sTLSFallbackSecretCertChain = []byte("fallback fake cert chain")
 	k8sTestTLSFallbackSecret      = &v1.Secret{
 		Data: map[string][]byte{
-			"tls.crt": k8sTlsFallbackSecretCertChain,
-			"tls.key": k8sTlsFallbackSecretKey,
+			"tls.crt": k8sTLSFallbackSecretCertChain,
+			"tls.key": k8sTLSFallbackSecretKey,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      k8sTlsFallbackSecretName,
+			Name:      k8sTLSFallbackSecretName,
 			Namespace: "test-namespace",
 		},
 		Type: "test-tls-secret",
@@ -366,15 +366,15 @@ func TestGatewayAgentGenerateSecret(t *testing.T) {
 // TestGatewayAgentGenerateSecretUsingFallbackSecret verifies that ingress gateway agent picks
 // fallback secret for ingress gateway and serves real secret when that secret is ready.
 func TestGatewayAgentGenerateSecretUsingFallbackSecret(t *testing.T) {
-	os.Setenv("INGRESS_GATEWAY_FALLBACK_SECRET", k8sTlsFallbackSecretName)
+	os.Setenv("INGRESS_GATEWAY_FALLBACK_SECRET", k8sTLSFallbackSecretName)
 	sc := createSecretCache()
 	fetcher := sc.fetcher
 	if fetcher.ServeFallbackSecret == false {
 		t.Error("INGRESS_GATEWAY_FALLBACK_SECRET is set, fetcher should serve fallback secret")
 	}
-	if fetcher.FallbackSecretName != k8sTlsFallbackSecretName {
+	if fetcher.FallbackSecretName != k8sTLSFallbackSecretName {
 		t.Errorf("Fallback secret name does not match. Expected %v but got %v",
-			k8sTlsFallbackSecretName, fetcher.FallbackSecretName)
+			k8sTLSFallbackSecretName, fetcher.FallbackSecretName)
 	}
 	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
@@ -404,8 +404,8 @@ func TestGatewayAgentGenerateSecretUsingFallbackSecret(t *testing.T) {
 				exist: true,
 				secret: &model.SecretItem{
 					ResourceName:     k8sGenericSecretName,
-					CertificateChain: k8sTlsFallbackSecretCertChain,
-					PrivateKey:       k8sTlsFallbackSecretKey,
+					CertificateChain: k8sTLSFallbackSecretCertChain,
+					PrivateKey:       k8sTLSFallbackSecretKey,
 				},
 			},
 			expectedSecrets: []expectedSecret{
@@ -433,8 +433,8 @@ func TestGatewayAgentGenerateSecretUsingFallbackSecret(t *testing.T) {
 				exist: true,
 				secret: &model.SecretItem{
 					ResourceName:     k8sTLSSecretName,
-					CertificateChain: k8sTlsFallbackSecretCertChain,
-					PrivateKey:       k8sTlsFallbackSecretKey,
+					CertificateChain: k8sTLSFallbackSecretCertChain,
+					PrivateKey:       k8sTLSFallbackSecretKey,
 				},
 			},
 			expectedSecrets: []expectedSecret{
