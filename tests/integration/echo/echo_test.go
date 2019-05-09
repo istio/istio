@@ -121,14 +121,13 @@ func TestEcho(t *testing.T) {
 					configTest.Label(label.Flaky)
 				}
 				configTest.Run(func(ctx framework.TestContext) {
-					t := ctx.GoTest()
 
-					ns := namespace.NewOrFail(t, ctx, "echo", true)
+					ns := namespace.NewOrFail(ctx, ctx, "echo", true)
 
-					a := echoboot.NewOrFail(t, ctx, config.apply("a", ns))
-					b := echoboot.NewOrFail(t, ctx, config.apply("b", ns))
+					a := echoboot.NewOrFail(ctx, ctx, config.apply("a", ns))
+					b := echoboot.NewOrFail(ctx, ctx, config.apply("b", ns))
 
-					a.WaitUntilReadyOrFail(t, b)
+					a.WaitUntilReadyOrFail(ctx, b)
 
 					for _, o := range callOptions {
 						// Make a copy of the options for the test.
@@ -141,8 +140,6 @@ func TestEcho(t *testing.T) {
 						}
 
 						ctx.NewSubTest(testName).Run(func(ctx framework.TestContext) {
-							t := ctx.GoTest()
-
 							ctx.Environment().Case(environment.Native, func() {
 								if config.testName != "NoSidecar" {
 									switch opts.Scheme {
@@ -152,9 +149,9 @@ func TestEcho(t *testing.T) {
 									}
 								}
 							})
-							a.CallOrFail(t, opts).
-								CheckOKOrFail(t).
-								CheckHostOrFail(t, "b")
+							a.CallOrFail(ctx, opts).
+								CheckOKOrFail(ctx).
+								CheckHostOrFail(ctx, "b")
 						})
 					}
 				})

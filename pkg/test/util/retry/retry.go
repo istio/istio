@@ -16,8 +16,9 @@ package retry
 
 import (
 	"fmt"
-	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test"
 )
 
 const (
@@ -75,7 +76,7 @@ func UntilSuccess(fn func() error, options ...Option) error {
 }
 
 // UntilSuccessOrFail calls UntilSuccess, and fails t with Fatalf if it ends up returning an error
-func UntilSuccessOrFail(t *testing.T, fn func() error, options ...Option) {
+func UntilSuccessOrFail(t test.Failer, fn func() error, options ...Option) {
 	t.Helper()
 	err := UntilSuccess(fn, options...)
 	if err != nil {

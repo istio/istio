@@ -15,11 +15,11 @@
 package policybackend
 
 import (
-	"testing"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -41,22 +41,22 @@ type Instance interface {
 
 	// DenyCheck indicates that the policy backend should deny all incoming check requests when deny is
 	// set to true.
-	DenyCheck(t testing.TB, deny bool)
+	DenyCheck(t test.Failer, deny bool)
 
 	// AllowCheck indicates the policy backend should allow all incoming check requests,
 	// it also indicates the valid duration and valid count in the check result.
-	AllowCheck(t testing.TB, d time.Duration, c int32)
+	AllowCheck(t test.Failer, d time.Duration, c int32)
 
 	// ExpectReport checks that the backend has received the given report requests. The requests are consumed
 	// after the call completes.
-	ExpectReport(t testing.TB, expected ...proto.Message)
+	ExpectReport(t test.Failer, expected ...proto.Message)
 
 	// ExpectReportJSON checks that the backend has received the given report request.  The requests are
 	// consumed after the call completes.
-	ExpectReportJSON(t testing.TB, expected ...string)
+	ExpectReportJSON(t test.Failer, expected ...string)
 
 	// GetReports reeturns the currently accumulated set of reports.
-	GetReports(t testing.TB) []proto.Message
+	GetReports(t test.Failer) []proto.Message
 
 	// CreateConfigSnippet for the Mixer adapter to talk to this policy backend.
 	// If adapter mode is in process, the supplied name will be the name of the handler.
@@ -75,7 +75,8 @@ func New(ctx resource.Context) (i Instance, err error) {
 	return
 }
 
-func NewOrFail(t *testing.T, s resource.Context) Instance {
+func NewOrFail(t test.Failer, s resource.Context) Instance {
+	t.Helper()
 	i, err := New(s)
 	if err != nil {
 		t.Fatalf("policybackend.NewOrFail: %v", err)

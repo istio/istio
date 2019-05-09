@@ -21,10 +21,10 @@ import (
 	"testing"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-
 	"github.com/gogo/protobuf/jsonpb"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
@@ -156,7 +156,7 @@ func (e *config) ID() resource.ID {
 	panic("not implemented")
 }
 
-func (e *config) WorkloadsOrFail(t testing.TB) []echo.Workload {
+func (e *config) WorkloadsOrFail(t test.Failer) []echo.Workload {
 	panic("not implemented")
 }
 
@@ -164,7 +164,7 @@ func (e *config) WaitUntilReady(_ ...echo.Instance) error {
 	panic("not implemented")
 }
 
-func (e *config) WaitUntilReadyOrFail(_ testing.TB, _ ...echo.Instance) {
+func (e *config) WaitUntilReadyOrFail(_ test.Failer, _ ...echo.Instance) {
 	panic("not implemented")
 }
 
@@ -172,7 +172,7 @@ func (e *config) Call(_ echo.CallOptions) (client.ParsedResponses, error) {
 	panic("not implemented")
 }
 
-func (e *config) CallOrFail(_ testing.TB, _ echo.CallOptions) client.ParsedResponses {
+func (e *config) CallOrFail(_ test.Failer, _ echo.CallOptions) client.ParsedResponses {
 	panic("not implemented")
 }
 

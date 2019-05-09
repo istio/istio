@@ -16,8 +16,9 @@ package tmpl
 
 import (
 	"bytes"
-	"testing"
 	"text/template"
+
+	"istio.io/istio/pkg/test"
 )
 
 // Execute the template with the given parameters.
@@ -31,7 +32,8 @@ func Execute(t *template.Template, data interface{}) (string, error) {
 }
 
 // ExecuteOrFail calls Execute and fails the test if it returns an error.
-func ExecuteOrFail(t testing.TB, t2 *template.Template, data interface{}) string {
+func ExecuteOrFail(t test.Failer, t2 *template.Template, data interface{}) string {
+	t.Helper()
 	s, err := Execute(t2, data)
 	if err != nil {
 		t.Fatal(err)
