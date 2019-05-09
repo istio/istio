@@ -93,7 +93,7 @@ func (c *kubeComponent) QueryTraces(limit int, spanName string) ([]Trace, error)
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
-	fmt.Println(c.address + fmt.Sprintf(tracesAPI, limit, spanName))
+	scopes.Framework.Debugf("make get call to zipkin api %v", c.address+fmt.Sprintf(tracesAPI, limit, spanName))
 	resp, err := client.Get(c.address + fmt.Sprintf(tracesAPI, limit, spanName))
 	if err != nil {
 		return nil, err
@@ -106,7 +106,6 @@ func (c *kubeComponent) QueryTraces(limit int, spanName string) ([]Trace, error)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(body)
 	traces, err := extractTraces(body)
 	if err != nil {
 		return nil, err

@@ -34,9 +34,9 @@ var (
 // More information on distributed tracing can be found here: https://istio.io/docs/tasks/telemetry/distributed-tracing/zipkin/
 func TestProxyTracing(t *testing.T) {
 	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
+	defer ctx.Done()
 
-	ctx.RequireOrSkip(t, environment.Kube)
+	ctx.RequireOrSkip(environment.Kube)
 	// deploy bookinfo app, also deploy a virtualservice which forces all traffic to go to review v1,
 	// which does not get ratings, so that exactly six spans will be included in the wanted trace.
 	galInst.ApplyConfigOrFail(t,
