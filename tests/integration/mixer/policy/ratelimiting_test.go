@@ -18,11 +18,9 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"strings"
 	"testing"
 
-	"strings"
-
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -35,6 +33,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/redis"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/yml"
 	util "istio.io/istio/tests/integration/mixer"
 )
 
@@ -289,7 +288,7 @@ func setupConfigOrFail(t *testing.T, con, bookInfoNameSpaceStr, destinationServi
 	g.ApplyConfigOrFail(
 		t,
 		ns,
-		test.JoinConfigs(
+		yml.JoinString(
 			con,
 			requestQuotaCountConfig,
 			quotaRuleCon,
@@ -302,7 +301,7 @@ func deleteConfigOrFail(t *testing.T, con, quotaSpecCon, quotaRuleCon string, g 
 	g.DeleteConfigOrFail(
 		t,
 		ns,
-		test.JoinConfigs(
+		yml.JoinString(
 			con,
 			requestQuotaCountConfig,
 			quotaRuleCon,
