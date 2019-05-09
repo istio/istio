@@ -120,6 +120,14 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 		if err != nil {
 			fatalf("Could not create k8s clientset: %v", err)
 		}
+		// Check if a fallback secret env variable is set.
+		if secretName := os.Getenv(ingressFallbackSecret); secretName != "" {
+			ret.ServeFallbackSecret = true
+			ret.FallbackSecretName = secretName
+		} else {
+			ret.ServeFallbackSecret = false
+		}
+		log.Debugf("use fallback secret %v, fallback secret name %s", ret.ServeFallbackSecret, ret.FallbackSecretName)
 		ret.Init(cs.CoreV1())
 	} else {
 		caClient, err := ca.NewCAClient(endpoint, CAProviderName, tlsFlag, tlsRootCert,
@@ -130,15 +138,6 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 		}
 		ret.UseCaClient = true
 		ret.CaClient = caClient
-
-		// Check if a fallback secret env variable is set.
-		if secretName := os.Getenv(ingressFallbackSecret); secretName != "" {
-			ret.ServeFallbackSecret = true
-			ret.FallbackSecretName = secretName
-		} else {
-			ret.ServeFallbackSecret = false
-		}
-		log.Debugf("use fallback secret %v, fallback secret name %s", ret.ServeFallbackSecret, ret.FallbackSecretName)
 	}
 
 	return ret, nil
