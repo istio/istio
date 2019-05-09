@@ -33,32 +33,32 @@ var (
 //
 // More information on distributed tracing can be found here: https://istio.io/docs/tasks/telemetry/distributed-tracing/zipkin/
 func TestProxyTracing(t *testing.T) {
-	ctx := framework.NewContext(t)
-	defer ctx.Done()
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			// deploy bookinfo app, also deploy a virtualservice which forces all traffic to go to review v1,
+			// which does not get ratings, so that exactly six spans will be included in the wanted trace.
+			galInst.ApplyConfigOrFail(t,
+				bookinfoNsInst,
+				bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNsInst.Name()),
+				bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNsInst.Name()),
+				bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNsInst.Name()),
+			)
 
-	ctx.RequireOrSkip(environment.Kube)
-	// deploy bookinfo app, also deploy a virtualservice which forces all traffic to go to review v1,
-	// which does not get ratings, so that exactly six spans will be included in the wanted trace.
-	galInst.ApplyConfigOrFail(t,
-		bookinfoNsInst,
-		bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNsInst.Name()),
-		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNsInst.Name()),
-		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNsInst.Name()),
-	)
-
-	retry.UntilSuccessOrFail(t, func() error {
-		// Send test traffic
-		util.SendTraffic(ingInst, t, "Sending traffic", "", 10)
-		traces, err := zipkinInst.QueryTraces(100,
-			fmt.Sprintf("productpage.%s.svc.cluster.local:9080/productpage", bookinfoNsInst.Name()))
-		if err != nil {
-			return fmt.Errorf("cannot get traces from zipkin: %v", err)
-		}
-		if !verifyBookinfoTraces(t, bookinfoNsInst.Name(), traces) {
-			return errors.New("cannot find expected traces")
-		}
-		return nil
-	}, retry.Delay(3*time.Second), retry.Timeout(40*time.Second))
+			retry.UntilSuccessOrFail(t, func() error {
+				// Send test traffic
+				util.SendTraffic(ingInst, t, "Sending traffic", "", 10)
+				traces, err := zipkinInst.QueryTraces(100,
+					fmt.Sprintf("productpage.%s.svc.cluster.local:9080/productpage", bookinfoNsInst.Name()))
+				if err != nil {
+					return fmt.Errorf("cannot get traces from zipkin: %v", err)
+				}
+				if !verifyBookinfoTraces(t, bookinfoNsInst.Name(), traces) {
+					return errors.New("cannot find expected traces")
+				}
+				return nil
+			}, retry.Delay(3*time.Second), retry.Timeout(40*time.Second))
+		})
 }
 
 func TestMain(m *testing.M) {
