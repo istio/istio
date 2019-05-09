@@ -1,4 +1,4 @@
-FROM    circleci/golang:1.12
+FROM    circleci/golang:1.12.5
 
 # The base circleci image runs as user 'circleci'(3434), with sudo capabilities.
 # Based on Debian9. Go installed in /usr/local/go
@@ -66,3 +66,4 @@ RUN cd /tmp && \
     sudo mv linux-amd64/helm /usr/local/bin && \
     rm -rf helm.tgz linux-amd64
 
+RUN GO111MODULE=on GOPROXY=https://proxy.golang.org go get -u sigs.k8s.io/kind@master
