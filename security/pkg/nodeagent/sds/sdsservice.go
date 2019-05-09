@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -54,6 +55,11 @@ const (
 	// IngressGatewaySdsCaSuffix is the suffix of the sds resource name for root CA. All SDS requests
 	// for root CA sent by ingress gateway have suffix -cacert.
 	IngressGatewaySdsCaSuffix = "-cacert"
+
+	// DisableWaitForSecretEnvKey is a name of an environment variable that can be used to manipulate
+	// the 'isWaitForSecretEnabled' feature flag. The flag is enabled by default and can be explicitly
+	// disabled by setting this env variable to 'true'.
+	DisableWaitForSecretEnvKey = "DISABLE_WAIT_FOR_SECRET"
 )
 
 var (
@@ -62,6 +68,13 @@ var (
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
+
+	// isWaitForSecretEnabled is a feature flag that controls whether waiting logic should be enabled
+	// in case the requested Ingress Gateway secret resource is missing.
+	isWaitForSecretEnabled = func() bool {
+		disabled, _ := strconv.ParseBool(os.Getenv(DisableWaitForSecretEnvKey))
+		return !disabled
+	}()
 )
 
 type discoveryStream interface {
@@ -199,7 +212,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// In ingress gateway agent mode, if the first SDS request is received but kubernetes secret is not ready,
 			// wait for secret before sending SDS response. If a kubernetes secret was deleted by operator, wait
 			// for a new kubernetes secret before sending SDS response.
-			if s.st.ShouldWaitForIngressGatewaySecret(con.conID, resourceName, token) {
+			if isWaitForSecretEnabled && s.st.ShouldWaitForIngressGatewaySecret(con.conID, resourceName, token) {
 				log.Debugf("Waiting for ingress gateway secret resource %q, connectionID %q, node %q\n", resourceName, con.conID, discReq.Node.Id)
 				continue
 			}
