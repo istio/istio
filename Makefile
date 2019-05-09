@@ -278,7 +278,7 @@ git.dep: ${GOPATH}/src/istio.io/istio ${GOPATH}/src/istio.io/tools
 ${GOPATH}/bin/kind:
 	echo ${GOPATH}
 	mkdir -p ${TMPDIR}
-	go get -u sigs.k8s.io/kind
+	git clone https://github.com/kubernetes-sigs/kind ${GOPATH}/src/sigs.k8s.io/kind && cd ${GOPATH}/src/sigs.k8s.io/kind && git checkout v0.2.1 && go install .
 
 ${GOPATH}/bin/dep:
 	go get -u github.com/golang/dep/cmd/dep
