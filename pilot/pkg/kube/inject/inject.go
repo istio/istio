@@ -78,6 +78,7 @@ var (
 		annotations.Register("traffic.sidecar.istio.io/excludeOutboundIPRanges", "").Name:      ValidateExcludeIPRanges,
 		annotations.Register("traffic.sidecar.istio.io/includeInboundPorts", "").Name:          ValidateIncludeInboundPorts,
 		annotations.Register("traffic.sidecar.istio.io/excludeInboundPorts", "").Name:          ValidateExcludeInboundPorts,
+		annotations.Register("traffic.sidecar.istio.io/excludeOutboundPorts", "").Name:         ValidateExcludeOutboundPorts,
 		annotations.Register("traffic.sidecar.istio.io/kubevirtInterfaces", "").Name:           alwaysValidFunc,
 	}
 )
@@ -196,6 +197,9 @@ type Params struct {
 	// Comma separated list of inbound ports. If set, inbound traffic will not be redirected for those ports.
 	// Exclusions are only applied if configured to redirect all inbound traffic. By default, no ports are excluded.
 	ExcludeInboundPorts string `json:"excludeInboundPorts"`
+	// Comma separated list of outbound ports. If set, outbound traffic will not be redirected for those ports.
+	// By default, no ports are excluded.
+	ExcludeOutboundPorts string `json:"excludeOutboundPorts"`
 	// Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound
 	// By default, no interfaces are configured.
 	KubevirtInterfaces           string                 `json:"kubevirtInterfaces"`
@@ -377,6 +381,11 @@ func ValidateIncludeInboundPorts(ports string) error {
 // ValidateExcludeInboundPorts validates the excludeInboundPorts parameter
 func ValidateExcludeInboundPorts(ports string) error {
 	return validatePortList("excludeInboundPorts", ports)
+}
+
+// ValidateExcludeInboundPorts validates the excludeInboundPorts parameter
+func ValidateExcludeOutboundPorts(ports string) error {
+	return validatePortList("excludeOutboundPorts", ports)
 }
 
 // validateStatusPort validates the statusPort parameter
