@@ -64,10 +64,10 @@ const (
 	istioPrefix      = "istio"
 	prometheusPrefix = "prometheus"
 
-	// SecretControllerResyncPeriod specifies the time period in seconds that secret controller
+	// secretControllerResyncPeriod specifies the time period in seconds that secret controller
 	// resyncs to API server.
 	// example value format like "30s"
-	SecretControllerResyncPeriod = "SECRET_WATCHER_RESYNC_PERIOD"
+	secretControllerResyncPeriod = "SECRET_WATCHER_RESYNC_PERIOD"
 
 	// ingressFallbackSecret specifies the fallback secret for ingress gateway.
 	ingressFallbackSecret = "INGRESS_GATEWAY_FALLBACK_SECRET"
@@ -132,9 +132,9 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 		ret.CaClient = caClient
 
 		// Check if a fallback secret env variable is set.
-		if fallbackSecret := os.Getenv(ingressFallbackSecret); fallbackSecret != "" {
+		if secretName := os.Getenv(ingressFallbackSecret); secretName != "" {
 			ret.ServeFallbackSecret = true
-			ret.FallbackSecretName = fallbackSecret
+			ret.FallbackSecretName = secretName
 		} else {
 			ret.ServeFallbackSecret = false
 		}
@@ -165,7 +165,7 @@ func (sf *SecretFetcher) Init(core corev1.CoreV1Interface) { // nolint:interface
 	}
 
 	resyncPeriod := 0 * time.Second
-	if env, err := time.ParseDuration(os.Getenv(SecretControllerResyncPeriod)); err == nil {
+	if env, err := time.ParseDuration(os.Getenv(secretControllerResyncPeriod)); err == nil {
 		resyncPeriod = env
 	}
 
@@ -369,7 +369,7 @@ func (sf *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.Secr
 			log.Debugf("Cannot find secret %s, searching for fallback secret %s", key, sf.FallbackSecretName)
 			fallbackVal, fallbackExist := sf.secrets.Load(sf.FallbackSecretName)
 			if fallbackExist {
-				log.Debugf("Return fallback secret %s for gateway secret %s", sf.ServeFallbackSecret, key)
+				log.Debugf("Return fallback secret %s for gateway secret %s", sf.FallbackSecretName, key)
 				return fallbackVal.(model.SecretItem), true
 			} else {
 				log.Debugf("fallback secret %s does not exist", sf.FallbackSecretName)
