@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/metadata"
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
@@ -154,7 +155,11 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	s.processor = runtime.NewProcessor(src, distributor, &processorCfg)
 
 	var grpcOptions []grpc.ServerOption
-	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)), grpc.MaxRecvMsgSize(int(a.MaxReceivedMessageSize)))
+	grpcOptions = append(grpcOptions,
+		grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)),
+		grpc.MaxRecvMsgSize(int(a.MaxReceivedMessageSize)),
+		grpc.InitialWindowSize(int32(a.InitialWindowSize)),
+		grpc.InitialConnWindowSize(int32(a.InitialConnectionWindowSize)))
 
 	s.stopCh = make(chan struct{})
 	var checker source.AuthChecker = server.NewAllowAllChecker()

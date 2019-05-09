@@ -49,6 +49,12 @@ type Args struct {
 	// Maximum number of outstanding RPCs per connection
 	MaxConcurrentStreams uint
 
+	// Initial Window Size for gRPC connections
+	InitialWindowSize uint
+
+	// Initial Connection Window Size for gRPC connections
+	InitialConnectionWindowSize uint
+
 	// The credential options to use for MCP.
 	CredentialOptions *creds.Options
 
@@ -101,20 +107,22 @@ type Args struct {
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
 func DefaultArgs() *Args {
 	return &Args{
-		APIAddress:                "tcp://0.0.0.0:9901",
-		MaxReceivedMessageSize:    1024 * 1024,
-		MaxConcurrentStreams:      1024,
-		IntrospectionOptions:      ctrlz.DefaultOptions(),
-		Insecure:                  false,
-		AccessListFile:            defaultAccessListFile,
-		MeshConfigFile:            defaultMeshConfigFile,
-		EnableServer:              true,
-		CredentialOptions:         creds.DefaultOptions(),
-		ConfigPath:                "",
-		DomainSuffix:              defaultDomainSuffix,
-		DisableResourceReadyCheck: false,
-		ExcludedResourceKinds:     defaultExcludedResourceKinds(),
-		SinkMeta:                  make([]string, 0),
+		APIAddress:                  "tcp://0.0.0.0:9901",
+		MaxReceivedMessageSize:      1024 * 1024,
+		MaxConcurrentStreams:        1024,
+		InitialWindowSize:           1024 * 1024,
+		InitialConnectionWindowSize: 1024 * 1024,
+		IntrospectionOptions:        ctrlz.DefaultOptions(),
+		Insecure:                    false,
+		AccessListFile:              defaultAccessListFile,
+		MeshConfigFile:              defaultMeshConfigFile,
+		EnableServer:                true,
+		CredentialOptions:           creds.DefaultOptions(),
+		ConfigPath:                  "",
+		DomainSuffix:                defaultDomainSuffix,
+		DisableResourceReadyCheck:   false,
+		ExcludedResourceKinds:       defaultExcludedResourceKinds(),
+		SinkMeta:                    make([]string, 0),
 	}
 }
 
@@ -136,6 +144,8 @@ func (a *Args) String() string {
 	_, _ = fmt.Fprintf(buf, "EnableGrpcTracing: %v\n", a.EnableGRPCTracing)
 	_, _ = fmt.Fprintf(buf, "MaxReceivedMessageSize: %d\n", a.MaxReceivedMessageSize)
 	_, _ = fmt.Fprintf(buf, "MaxConcurrentStreams: %d\n", a.MaxConcurrentStreams)
+	_, _ = fmt.Fprintf(buf, "InitialWindowSize: %v\n", a.InitialWindowSize)
+	_, _ = fmt.Fprintf(buf, "InitialConnectionWindowSize: %v\n", a.InitialConnectionWindowSize)
 	_, _ = fmt.Fprintf(buf, "IntrospectionOptions: %+v\n", *a.IntrospectionOptions)
 	_, _ = fmt.Fprintf(buf, "Insecure: %v\n", a.Insecure)
 	_, _ = fmt.Fprintf(buf, "AccessListFile: %s\n", a.AccessListFile)
