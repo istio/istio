@@ -33,6 +33,31 @@ import (
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
+func createTestCases(from, to echo.Instance, ports []echo.Port, expectSuccess bool) []connection.Checker {
+	subTests := []connection.Checker{}
+
+	for _, port := range ports {
+		var s scheme.Instance
+		if port.Name == "tcp" {
+			s = scheme.HTTP
+		} else {
+			s = scheme.Instance(port.Name)
+		}
+
+		subTests = append(subTests, connection.Checker{
+			From: from,
+			Options: echo.CallOptions{
+				Target:   to,
+				PortName: port.Name,
+				Scheme:   s,
+			},
+			ExpectSuccess: expectSuccess,
+		})
+	}
+
+	return subTests
+}
+
 // This test verifies reachability under different authN scenario:
 // - app A to app B using mTLS.
 // - app A to app B using mTLS-permissive.
@@ -57,6 +82,10 @@ func TestReachability(t *testing.T) {
 				{
 					Name:     "tcp",
 					Protocol: model.ProtocolTCP,
+				},
+				{
+					Name:     "grpc",
+					Protocol: model.ProtocolGRPC,
 				},
 			}
 
@@ -119,9 +148,36 @@ func TestReachability(t *testing.T) {
 						{
 							From: a,
 							Options: echo.CallOptions{
+								Target:   b,
+								PortName: "grpc",
+								Scheme:   scheme.GRPC,
+							},
+							ExpectSuccess: true,
+						},
+						{
+							From: a,
+							Options: echo.CallOptions{
+								Target:   b,
+								PortName: "tcp",
+								Scheme:   scheme.HTTP,
+							},
+							ExpectSuccess: true,
+						},
+						{
+							From: a,
+							Options: echo.CallOptions{
 								Target:   headless,
 								PortName: "http",
 								Scheme:   scheme.HTTP,
+							},
+							ExpectSuccess: true,
+						},
+						{
+							From: a,
+							Options: echo.CallOptions{
+								Target:   headless,
+								PortName: "grpc",
+								Scheme:   scheme.GRPC,
 							},
 							ExpectSuccess: true,
 						},
@@ -130,6 +186,24 @@ func TestReachability(t *testing.T) {
 							Options: echo.CallOptions{
 								Target:   b,
 								PortName: "http",
+								Scheme:   scheme.HTTP,
+							},
+							ExpectSuccess: false,
+						},
+						{
+							From: naked,
+							Options: echo.CallOptions{
+								Target:   b,
+								PortName: "grpc",
+								Scheme:   scheme.GRPC,
+							},
+							ExpectSuccess: false,
+						},
+						{
+							From: naked,
+							Options: echo.CallOptions{
+								Target:   b,
+								PortName: "tcp",
 								Scheme:   scheme.HTTP,
 							},
 							ExpectSuccess: false,
@@ -154,6 +228,24 @@ func TestReachability(t *testing.T) {
 							Options: echo.CallOptions{
 								Target:   b,
 								PortName: "http",
+								Scheme:   scheme.HTTP,
+							},
+							ExpectSuccess: true,
+						},
+						{
+							From: naked,
+							Options: echo.CallOptions{
+								Target:   b,
+								PortName: "grpc",
+								Scheme:   scheme.GRPC,
+							},
+							ExpectSuccess: true,
+						},
+						{
+							From: naked,
+							Options: echo.CallOptions{
+								Target:   b,
+								PortName: "tcp",
 								Scheme:   scheme.HTTP,
 							},
 							ExpectSuccess: true,
