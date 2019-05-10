@@ -9,7 +9,7 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   selector:
-    istio: ingressgateay
+    istio: ingressgateway
   servers:
     - port:
         number: 15011
