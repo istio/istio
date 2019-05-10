@@ -68,8 +68,9 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 			bookinfoNs, g, red, ing, prom := setupComponentsOrFail(t, ctx)
 			defer deleteComponentsOrFail(t, ctx, g, bookinfoNs)
 			bookInfoNameSpaceStr := bookinfoNs.Name()
-			setupConfigOrFail(t, bookinfo.ProductPageRedisRateLimit, bookInfoNameSpaceStr,
+			config := setupConfigOrFail(t, bookinfo.ProductPageRedisRateLimit, bookInfoNameSpaceStr,
 				red, g, ctx)
+			defer deleteConfigOrFail(t, config, g, ctx)
 			util.AllowRuleSync(t)
 
 			res := util.SendTraffic(ing, t, "Sending traffic...", "", 300)
@@ -127,7 +128,8 @@ func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService
 			bookinfoNs,
 			bookinfo.NetworkingReviewsV3Rule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
 		bookInfoNameSpaceStr := bookinfoNs.Name()
-		setupConfigOrFail(t, config, bookInfoNameSpaceStr, red, g, ctx)
+		config := setupConfigOrFail(t, config, bookInfoNameSpaceStr, red, g, ctx)
+		defer deleteConfigOrFail(t, config, g, ctx)
 		util.AllowRuleSync(t)
 
 		// This is the number of requests we allow to be missing to be reported, so as to make test stable.
@@ -274,7 +276,7 @@ func deleteComponentsOrFail(t *testing.T, ctx resource.Context, g galley.Instanc
 }
 
 func setupConfigOrFail(t *testing.T, config bookinfo.ConfigFile, bookInfoNameSpaceStr string,
-	red redis.Instance, g galley.Instance, ctx resource.Context) {
+	red redis.Instance, g galley.Instance, ctx resource.Context) string {
 	p := path.Join(env.BookInfoRoot, string(config))
 	con, err := test.ReadConfigFile(p)
 	if err != nil {
@@ -287,26 +289,14 @@ func setupConfigOrFail(t *testing.T, config bookinfo.ConfigFile, bookInfoNameSpa
 		"namespace: "+bookInfoNameSpaceStr, -1)
 
 	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
-	g.ApplyConfigOrFail(
-		t,
-		ns,
-		con)
+	g.ApplyConfigOrFail(t, ns, con)
+	return con
 }
 
-/*
-func deleteConfigOrFail(t *testing.T, con, quotaSpecCon, quotaRuleCon string, g galley.Instance, ctx resource.Context) {
+func deleteConfigOrFail(t *testing.T, config string, g galley.Instance, ctx resource.Context) {
 	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
-	g.DeleteConfigOrFail(
-		t,
-		ns,
-		test.JoinConfigs(
-			con,
-			requestQuotaCountConfig,
-			quotaRuleCon,
-			quotaSpecCon,
-		))
+	g.DeleteConfigOrFail(t, ns, config)
 }
-*/
 
 func TestMain(m *testing.M) {
 	framework.
