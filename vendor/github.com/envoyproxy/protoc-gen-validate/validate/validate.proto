@@ -2,6 +2,7 @@ syntax = "proto2";
 package validate;
 
 option go_package = "github.com/lyft/protoc-gen-validate/validate";
+option java_package = "com.lyft.pgv.validate";
 
 import "google/protobuf/descriptor.proto";
 import "google/protobuf/duration.proto";
@@ -457,6 +458,11 @@ message StringRules {
     // Const specifies that this field must be exactly the specified value
     optional string const = 1;
 
+    // Len specifies that this field must be the specified number of
+    // characters (Unicode code points). Note that the number of
+    // characters may differ from the number of bytes in the string.
+    optional uint64 len = 19;
+
     // MinLen specifies that this field must be the specified number of
     // characters (Unicode code points) at a minimum. Note that the number of
     // characters may differ from the number of bytes in the string.
@@ -466,6 +472,10 @@ message StringRules {
     // characters (Unicode code points) at a maximum. Note that the number of
     // characters may differ from the number of bytes in the string.
     optional uint64 max_len = 3;
+
+    // LenBytes specifies that this field must be the specified number of bytes
+    // at a minimum
+    optional uint64 len_bytes = 20;
 
     // MinBytes specifies that this field must be the specified number of bytes
     // at a minimum
@@ -537,6 +547,9 @@ message StringRules {
 message BytesRules {
     // Const specifies that this field must be exactly the specified value
     optional bytes const = 1;
+
+    // Len specifies that this field must be the specified number of bytes
+    optional uint64 len = 13;
 
     // MinLen specifies that this field must be the specified number of bytes
     // at a minimum
