@@ -15,34 +15,48 @@
 package tmpl
 
 import (
-	"bytes"
-	"testing"
-	"text/template"
+	"istio.io/istio/pkg/test"
 )
 
-// Evaluate the given template using the provided data.
+// Evaluate parses the template and then executes it with the given parameters.
 func Evaluate(tpl string, data interface{}) (string, error) {
-	t := template.New("test template")
-
-	t2, err := t.Parse(tpl)
+	t, err := Parse(tpl)
 	if err != nil {
 		return "", err
 	}
 
-	var b bytes.Buffer
-	if err = t2.Execute(&b, data); err != nil {
-		return "", err
-	}
-
-	return b.String(), nil
+	return Execute(t, data)
 }
 
 // EvaluateOrFail calls Evaluate and fails tests if it returns error.
-func EvaluateOrFail(t *testing.T, tpl string, data interface{}) string {
+func EvaluateOrFail(t test.Failer, tpl string, data interface{}) string {
 	t.Helper()
 	s, err := Evaluate(tpl, data)
 	if err != nil {
 		t.Fatalf("tmpl.EvaluateOrFail: %v", err)
 	}
 	return s
+}
+
+// EvaluateAll calls Evaluate the same data args against each of the given templates.
+func EvaluateAll(data interface{}, templates ...string) ([]string, error) {
+	out := make([]string, 0, len(templates))
+	for _, t := range templates {
+		content, err := Evaluate(t, data)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, content)
+	}
+	return out, nil
+}
+
+// EvaluateAllOrFail calls Evaluate and fails t if an error occurs.
+func EvaluateAllOrFail(t test.Failer, data interface{}, templates ...string) []string {
+	t.Helper()
+	out, err := EvaluateAll(data, templates...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
 }

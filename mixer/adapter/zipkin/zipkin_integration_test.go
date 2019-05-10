@@ -176,7 +176,7 @@ func TestReport(t *testing.T) {
         "http.path": "/foo/bar",
         "http.status_code": "200",
         "http.user_agent": "xxx",
-        "opencensus.status_description": "\"OK\"",
+        "opencensus.status_description": "OK",
         "principal": "unknown",
         "source.version": "v1"
       },

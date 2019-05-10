@@ -175,12 +175,12 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	case plugin.ListenerProtocolTCP:
 		rbacLog.Debugf("building filter for TCP listener protocol")
 		tcpFilter := buildTCPFilter(service, option, util.IsXDSMarshalingToAnyEnabled(in.Node))
-		if in.Node.Type == model.Router || in.Node.Type == model.Ingress {
+		if in.Node.Type == model.Router {
 			// For gateways, due to TLS termination, a listener marked as TCP could very well
 			// be using a HTTP connection manager. So check the filterChain.listenerProtocol
 			// to decide the type of filter to attach
 			httpFilter := buildHTTPFilter(service, option, util.IsXDSMarshalingToAnyEnabled(in.Node))
-			rbacLog.Infof("built RBAC http filter for router/ingress %s", service)
+			rbacLog.Infof("built RBAC http filter for router %s", service)
 			for cnum := range mutable.FilterChains {
 				if mutable.FilterChains[cnum].ListenerProtocol == plugin.ListenerProtocolHTTP {
 					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)

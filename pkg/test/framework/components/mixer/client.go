@@ -16,14 +16,15 @@ package mixer
 
 import (
 	"context"
-	"testing"
 
 	"github.com/hashicorp/go-multierror"
+
 	"google.golang.org/grpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/server"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
 )
@@ -54,7 +55,7 @@ type client struct {
 }
 
 // Report implements DeployedMixer.Report.
-func (c *client) Report(t testing.TB, attributes map[string]interface{}) {
+func (c *client) Report(t test.Failer, attributes map[string]interface{}) {
 	t.Helper()
 
 	req := istioMixerV1.ReportRequest{
@@ -68,7 +69,7 @@ func (c *client) Report(t testing.TB, attributes map[string]interface{}) {
 }
 
 // Check implements DeployedMixer.Check.
-func (c *client) Check(t testing.TB, attributes map[string]interface{}) CheckResponse {
+func (c *client) Check(t test.Failer, attributes map[string]interface{}) CheckResponse {
 	t.Helper()
 
 	req := istioMixerV1.CheckRequest{

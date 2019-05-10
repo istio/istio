@@ -125,10 +125,6 @@ func gatewayID(ip string) string { //nolint: unparam
 	return fmt.Sprintf("router~%s~istio-gateway-644fc65469-96dzt.istio-system~istio-system.svc.cluster.local", ip)
 }
 
-func ingressID(ip string) string {
-	return fmt.Sprintf("ingress~%s~istio-ingress-7cd767fcb4-kl6gt.pilot-noauth-system~pilot-noauth-system.svc.cluster.local", ip)
-}
-
 // initLocalPilotTestEnv creates a local, in process Pilot with XDSv2 support and a set
 // of common test configs. This is a singleton server, reused for all tests in this package.
 //

@@ -20,10 +20,10 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"testing"
 
 	"github.com/pkg/errors"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -168,7 +168,7 @@ func (c *kubeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string) e
 }
 
 // ApplyConfigOrFail applies the given config yaml file via Galley.
-func (c *kubeComponent) ApplyConfigOrFail(t *testing.T, ns namespace.Instance, yamlText ...string) {
+func (c *kubeComponent) ApplyConfigOrFail(t test.Failer, ns namespace.Instance, yamlText ...string) {
 	t.Helper()
 	err := c.ApplyConfig(ns, yamlText...)
 	if err != nil {
@@ -193,7 +193,7 @@ func (c *kubeComponent) DeleteConfig(ns namespace.Instance, yamlText ...string) 
 }
 
 // DeleteConfigOrFail implements Galley.DeleteConfigOrFail.
-func (c *kubeComponent) DeleteConfigOrFail(t *testing.T, ns namespace.Instance, yamlText ...string) {
+func (c *kubeComponent) DeleteConfigOrFail(t test.Failer, ns namespace.Instance, yamlText ...string) {
 	t.Helper()
 	err := c.DeleteConfig(ns, yamlText...)
 	if err != nil {
@@ -224,7 +224,7 @@ func (c *kubeComponent) WaitForSnapshot(collection string, validator SnapshotVal
 }
 
 // WaitForSnapshotOrFail implements Galley.WaitForSnapshotOrFail.
-func (c *kubeComponent) WaitForSnapshotOrFail(t *testing.T, collection string, validator SnapshotValidatorFunc) {
+func (c *kubeComponent) WaitForSnapshotOrFail(t test.Failer, collection string, validator SnapshotValidatorFunc) {
 	t.Helper()
 	if err := c.WaitForSnapshot(collection, validator); err != nil {
 		t.Fatalf("WaitForSnapshotOrFail: %v", err)

@@ -49,6 +49,10 @@ func FillInDefaults(ctx resource.Context, defaultDomain string, c *echo.Config) 
 		}
 	}
 
+	// Make a copy of the ports array. This avoids potential corruption if multiple Echo
+	// Instances share the same underlying ports array.
+	c.Ports = append([]echo.Port{}, c.Ports...)
+
 	// Append a gRPC port, if none was provided. This is needed
 	// for controlling the app.
 	if GetGRPCPort(c) == nil {

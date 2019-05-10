@@ -216,7 +216,7 @@ where-is-docker-tar:
 #-----------------------------------------------------------------------------
 # Target: depend
 #-----------------------------------------------------------------------------
-.PHONY: depend depend.diff init
+.PHONY: depend init
 
 # Parse out the x.y or x.y.z version and output a single value x*10000+y*100+z (e.g., 1.9 is 10900)
 # that allows the three components to be checked in a single comparison.
@@ -263,12 +263,6 @@ depend: init | $(ISTIO_OUT)
 
 $(ISTIO_OUT) $(ISTIO_BIN):
 	@mkdir -p $@
-
-# Used by CI to update the dependencies and generates a git diff of the vendor files against HEAD.
-depend.diff: $(ISTIO_OUT)
-	curl https://raw.githubusercontent.com/golang/dep/master/install.sh | DEP_RELEASE_TAG="v0.5.0" sh
-	dep ensure
-	git diff HEAD --exit-code -- Gopkg.lock vendor > $(ISTIO_OUT)/dep.diff
 
 # Used by CI for automatic go code generation and generates a git diff of the generated files against HEAD.
 go.generate.diff: $(ISTIO_OUT)
@@ -335,10 +329,14 @@ ${ISTIO_OUT}/istioctl-osx: depend
 ${ISTIO_OUT}/istioctl-win.exe: depend
 	STATIC=0 GOOS=windows bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 
-# generate the istioctl.bash completion file
+# generate the istioctl completion files
 ${ISTIO_OUT}/istioctl.bash: istioctl
 	${ISTIO_OUT}/istioctl collateral --bash && \
 	mv istioctl.bash ${ISTIO_OUT}/istioctl.bash
+
+${ISTIO_OUT}/_istioctl: istioctl
+	${ISTIO_OUT}/istioctl collateral --zsh && \
+	mv _istioctl ${ISTIO_OUT}/_istioctl
 
 MIXER_GO_BINS:=${ISTIO_OUT}/mixs ${ISTIO_OUT}/mixc
 mixc:
@@ -401,15 +399,15 @@ node_agent istio_ca:
 .PHONY: istioctl-all
 istioctl-all: ${ISTIO_OUT}/istioctl-linux ${ISTIO_OUT}/istioctl-osx ${ISTIO_OUT}/istioctl-win.exe
 
-.PHONY: istioctl.bash
-istioctl.bash: ${ISTIO_OUT}/istioctl.bash
+.PHONY: istioctl.completion
+istioctl.completion: ${ISTIO_OUT}/istioctl.bash ${ISTIO_OUT}/_istioctl
 
 .PHONY: istio-archive
 
 istio-archive: ${ISTIO_OUT}/archive
 
 # TBD: how to capture VERSION, ISTIO_DOCKER_HUB, ISTIO_URL as dependencies
-${ISTIO_OUT}/archive: istioctl-all istioctl.bash LICENSE README.md install/updateVersion.sh release/create_release_archives.sh
+${ISTIO_OUT}/archive: istioctl-all istioctl.completion LICENSE README.md install/updateVersion.sh release/create_release_archives.sh
 	rm -rf ${ISTIO_OUT}/archive
 	mkdir -p ${ISTIO_OUT}/archive/istioctl
 	cp ${ISTIO_OUT}/istioctl-* ${ISTIO_OUT}/archive/istioctl/
@@ -417,6 +415,7 @@ ${ISTIO_OUT}/archive: istioctl-all istioctl.bash LICENSE README.md install/updat
 	cp README.md ${ISTIO_OUT}/archive
 	cp -r tools ${ISTIO_OUT}/archive
 	cp ${ISTIO_OUT}/istioctl.bash ${ISTIO_OUT}/archive/tools/
+	cp ${ISTIO_OUT}/_istioctl ${ISTIO_OUT}/archive/tools/
 	ISTIO_RELEASE=1 install/updateVersion.sh -a "$(ISTIO_DOCKER_HUB),$(VERSION)" \
 		-P "$(ISTIO_URL)/deb" \
 		-d "${ISTIO_OUT}/archive"

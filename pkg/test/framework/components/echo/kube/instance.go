@@ -20,16 +20,17 @@ import (
 	"io"
 	"strings"
 	"sync"
-	"testing"
 
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test"
 	appEcho "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	kubeEnv "istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/kube"
 
 	kubeCore "k8s.io/api/core/v1"
 )
@@ -38,8 +39,6 @@ const (
 	tcpHealthPort     = 3333
 	httpReadinessPort = 8080
 	defaultDomain     = "svc.cluster.local"
-	appLabel          = "app"
-	versionLabel      = "version"
 )
 
 var (
@@ -183,7 +182,8 @@ func (c *instance) Workloads() ([]echo.Workload, error) {
 	return out, nil
 }
 
-func (c *instance) WorkloadsOrFail(t testing.TB) []echo.Workload {
+func (c *instance) WorkloadsOrFail(t test.Failer) []echo.Workload {
+	t.Helper()
 	out, err := c.Workloads()
 	if err != nil {
 		t.Fatal(err)
@@ -191,85 +191,77 @@ func (c *instance) WorkloadsOrFail(t testing.TB) []echo.Workload {
 	return out
 }
 
-func initAllWorkloads(instances []echo.Instance) error {
-	needInit := make([]*instance, 0, len(instances))
-	namespaceToServices := make(map[string][]string)
-	for _, outbound := range instances {
-		inst := outbound.(*instance)
-
-		inst.mutex.Lock()
-		isInitialized := inst.workloads != nil
-		inst.mutex.Unlock()
-
-		if isInitialized {
-			// Already initialized.
-			continue
-		}
-
-		// Otherwise, unlock before returning.
-		needInit = append(needInit, inst)
-
-		ns := inst.cfg.Namespace.Name()
-		services := namespaceToServices[ns]
-		services = append(services, inst.cfg.Service)
-		namespaceToServices[ns] = services
-	}
-
+func initAllWorkloads(accessor *kube.Accessor, instances []echo.Instance) error {
+	needInit := getUninitializedInstances(instances)
 	if len(needInit) == 0 {
 		// Everything is already initialized.
 		return nil
 	}
 
-	allPodsMux := &sync.Mutex{}
-	allPods := make([]kubeCore.Pod, 0)
-	var allPodsErr error
+	instanceEndpoints := make([]*kubeCore.Endpoints, len(needInit))
+	aggregateErrMux := &sync.Mutex{}
+	var aggregateErr error
 	wg := sync.WaitGroup{}
 
-	// Accumulate the pods across all namespaces.
-	for ns, services := range namespaceToServices {
+	for i, inst := range instances {
 		wg.Add(1)
 
-		// Create a selector for all pods for all instances.
-		podNamespace := ns
-		podSelector := appLabel + " in (" + strings.Join(services, ",") + ")"
+		instanceIndex := i
+		serviceName := inst.Config().Service
+		serviceNamespace := inst.Config().Namespace.Name()
 
+		// Run the waits in parallel.
 		go func() {
 			defer wg.Done()
 
-			// Wait until all the pods are ready
-			accessor := needInit[0].env.Accessor
-			pods, err := accessor.WaitUntilPodsAreReady(accessor.NewPodFetch(podNamespace, podSelector))
-
-			allPodsMux.Lock()
-			defer allPodsMux.Unlock()
-
+			// Wait until all the endpoints are ready for this service
+			_, endpoints, err := accessor.WaitUntilServiceEndpointsAreReady(serviceNamespace, serviceName)
 			if err != nil {
-				allPodsErr = multierror.Append(allPodsErr, err)
+				aggregateErrMux.Lock()
+				aggregateErr = multierror.Append(aggregateErr, err)
+				aggregateErrMux.Unlock()
 				return
 			}
-			allPods = append(allPods, pods...)
+			instanceEndpoints[instanceIndex] = endpoints
 		}()
 	}
 
 	wg.Wait()
 
-	if allPodsErr != nil {
-		return allPodsErr
+	if aggregateErr != nil {
+		return aggregateErr
 	}
 
 	// Initialize the workloads for each instance.
-	for _, inst := range needInit {
-		if err := inst.initWorkloads(allPods); err != nil {
+	for i, inst := range needInit {
+		if err := inst.initWorkloads(instanceEndpoints[i]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+func (c *instance) isInitialized() bool {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	return c.workloads != nil
+}
+
+func getUninitializedInstances(instances []echo.Instance) []*instance {
+	uninitialized := make([]*instance, 0, len(instances))
+	for _, i := range instances {
+		inst := i.(*instance)
+		if !inst.isInitialized() {
+			uninitialized = append(uninitialized, inst)
+		}
+	}
+	return uninitialized
+}
+
 func (c *instance) WaitUntilReady(outboundInstances ...echo.Instance) error {
 
 	// Initialize the workloads for all instances.
-	if err := initAllWorkloads(append([]echo.Instance{c}, outboundInstances...)); err != nil {
+	if err := initAllWorkloads(c.env.Accessor, append([]echo.Instance{c}, outboundInstances...)); err != nil {
 		return err
 	}
 
@@ -285,17 +277,14 @@ func (c *instance) WaitUntilReady(outboundInstances ...echo.Instance) error {
 	return nil
 }
 
-func (c *instance) WaitUntilReadyOrFail(t testing.TB, outboundInstances ...echo.Instance) {
+func (c *instance) WaitUntilReadyOrFail(t test.Failer, outboundInstances ...echo.Instance) {
+	t.Helper()
 	if err := c.WaitUntilReady(outboundInstances...); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func (c *instance) isServicePod(pod kubeCore.Pod) bool {
-	return pod.Namespace == c.cfg.Namespace.Name() && pod.Labels[appLabel] == c.cfg.Service && pod.Labels[versionLabel] == c.cfg.Version
-}
-
-func (c *instance) initWorkloads(pods []kubeCore.Pod) error {
+func (c *instance) initWorkloads(endpoints *kubeCore.Endpoints) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -304,14 +293,13 @@ func (c *instance) initWorkloads(pods []kubeCore.Pod) error {
 		return nil
 	}
 
-	workloads := make([]*workload, 0, len(pods))
-	for _, pod := range pods {
-		if c.isServicePod(pod) {
-			workload, err := newWorkload(pod, c.cfg.Sidecar, c.grpcPort, c.env.Accessor)
+	workloads := make([]*workload, 0)
+	for _, subset := range endpoints.Subsets {
+		for _, addr := range subset.Addresses {
+			workload, err := newWorkload(addr, c.cfg.Sidecar, c.grpcPort, c.env.Accessor)
 			if err != nil {
 				return err
 			}
-
 			workloads = append(workloads, workload)
 		}
 	}
@@ -361,7 +349,8 @@ func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) 
 	return out, nil
 }
 
-func (c *instance) CallOrFail(t testing.TB, opts echo.CallOptions) appEcho.ParsedResponses {
+func (c *instance) CallOrFail(t test.Failer, opts echo.CallOptions) appEcho.ParsedResponses {
+	t.Helper()
 	r, err := c.Call(opts)
 	if err != nil {
 		t.Fatal(err)

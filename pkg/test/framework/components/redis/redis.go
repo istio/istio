@@ -15,8 +15,7 @@
 package redis
 
 import (
-	"testing"
-
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -37,7 +36,7 @@ func New(ctx resource.Context) (i Instance, err error) {
 }
 
 // NewOrFail returns a new Redis instance or fails test.
-func NewOrFail(t *testing.T, ctx resource.Context) Instance {
+func NewOrFail(t test.Failer, ctx resource.Context) Instance {
 	t.Helper()
 	i, err := New(ctx)
 	if err != nil {

@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 )
 
@@ -77,32 +76,17 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	clusters := make([]*apiv2.Cluster, 0)
 	instances := proxy.ServiceInstances
 
+	clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
+
 	// compute the proxy's locality. See if we have a CDS cache for that locality.
 	// If not, compute one.
 	locality := proxy.Locality
-	cdsCachingEnabled := pilot.EnableCDSPrecomputation()
+	if locality != nil {
+		applyLocalityLBSetting(locality, clusters, env.Mesh.LocalityLbSetting, false)
+	}
+
 	switch proxy.Type {
 	case model.SidecarProxy:
-		sidecarScope := proxy.SidecarScope
-		recomputeOutboundClusters := true
-		if cdsCachingEnabled && configgen.CanUsePrecomputedCDS(proxy) {
-			if sidecarScope != nil && sidecarScope.CDSOutboundClusters != nil {
-				// NOTE: We currently only cache & update the CDS output for NoProxyLocality
-				clusters = append(clusters, sidecarScope.CDSOutboundClusters[util.NoProxyLocality]...)
-				recomputeOutboundClusters = false
-				if locality != nil {
-					applyLocalityLBSetting(locality, clusters, env.Mesh.LocalityLbSetting, true)
-				}
-			}
-		}
-
-		if recomputeOutboundClusters {
-			clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
-			if locality != nil {
-				applyLocalityLBSetting(locality, clusters, env.Mesh.LocalityLbSetting, false)
-			}
-		}
-
 		// Let ServiceDiscovery decide which IP and Port are used for management if
 		// there are multiple IPs
 		managementPorts := make([]*model.Port, 0)
@@ -112,25 +96,6 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, push, instances, managementPorts)...)
 
 	default: // Gateways
-		recomputeOutboundClusters := true
-		if cdsCachingEnabled && configgen.CanUsePrecomputedCDS(proxy) {
-			if configgen.PrecomputedOutboundClustersForGateways != nil {
-				if configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace] != nil {
-					clusters = append(clusters, configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace][util.NoProxyLocality]...)
-					recomputeOutboundClusters = false
-					if locality != nil {
-						applyLocalityLBSetting(locality, clusters, env.Mesh.LocalityLbSetting, true)
-					}
-				}
-			}
-		}
-
-		if recomputeOutboundClusters {
-			clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
-			if locality != nil {
-				applyLocalityLBSetting(locality, clusters, env.Mesh.LocalityLbSetting, false)
-			}
-		}
 		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
 			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
 		}
@@ -390,6 +355,8 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 	sidecarScope := proxy.SidecarScope
 	noneMode := proxy.GetInterceptionMode() == model.InterceptionNone
 
+	_, actualLocalHost := getActualWildcardAndLocalHost(proxy)
+
 	if sidecarScope == nil || !sidecarScope.HasCustomIngressListeners {
 		// No user supplied sidecar scope or the user supplied one has no ingress listeners
 
@@ -407,7 +374,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 				ServiceInstance: instance,
 				Port:            instance.Endpoint.ServicePort,
 				Push:            push,
-				Bind:            LocalhostAddress,
+				Bind:            actualLocalHost,
 			}
 			localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
 			clusters = append(clusters, localCluster)
@@ -417,7 +384,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 		for _, port := range managementPorts {
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, port.Name,
 				ManagementClusterHostname, port.Port)
-			localityLbEndpoints := buildInboundLocalityLbEndpoints(LocalhostAddress, port.Port)
+			localityLbEndpoints := buildInboundLocalityLbEndpoints(actualLocalHost, port.Port)
 			mgmtCluster := buildDefaultCluster(env, clusterName, apiv2.Cluster_STATIC, localityLbEndpoints,
 				model.TrafficDirectionInbound, proxy)
 			setUpstreamProtocol(mgmtCluster, port)
@@ -440,7 +407,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			// When building an inbound cluster for the ingress listener, we take the defaultEndpoint specified
 			// by the user and parse it into host:port or a unix domain socket
 			// The default endpoint can be 127.0.0.1:port or :port or unix domain socket
-			endpointAddress := LocalhostAddress
+			endpointAddress := actualLocalHost
 			port := 0
 			var err error
 			if strings.HasPrefix(ingressListener.DefaultEndpoint, model.UnixAddressPrefix) {

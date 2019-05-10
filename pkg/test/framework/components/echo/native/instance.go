@@ -18,15 +18,16 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"testing"
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 var (
@@ -86,7 +87,8 @@ func (c *instance) WaitUntilReady(outboundInstances ...echo.Instance) error {
 	return c.workload.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(outboundInstances...))
 }
 
-func (c *instance) WaitUntilReadyOrFail(t testing.TB, outboundInstances ...echo.Instance) {
+func (c *instance) WaitUntilReadyOrFail(t test.Failer, outboundInstances ...echo.Instance) {
+	t.Helper()
 	if err := c.WaitUntilReady(outboundInstances...); err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +106,8 @@ func (c *instance) Workloads() ([]echo.Workload, error) {
 	return []echo.Workload{c.workload}, nil
 }
 
-func (c *instance) WorkloadsOrFail(t testing.TB) []echo.Workload {
+func (c *instance) WorkloadsOrFail(t test.Failer) []echo.Workload {
+	t.Helper()
 	out, err := c.Workloads()
 	if err != nil {
 		t.Fatal(err)
@@ -129,7 +132,8 @@ func (c *instance) Call(opts echo.CallOptions) (client.ParsedResponses, error) {
 	return out, nil
 }
 
-func (c *instance) CallOrFail(t testing.TB, opts echo.CallOptions) client.ParsedResponses {
+func (c *instance) CallOrFail(t test.Failer, opts echo.CallOptions) client.ParsedResponses {
+	t.Helper()
 	r, err := c.Call(opts)
 	if err != nil {
 		t.Fatal(err)
@@ -139,7 +143,10 @@ func (c *instance) CallOrFail(t testing.TB, opts echo.CallOptions) client.Parsed
 
 func (c *instance) Close() (err error) {
 	if c.workload != nil {
+		scopes.Framework.Debugf("%s closing Echo workload", c.id)
 		err = multierror.Append(err, c.workload.Close()).ErrorOrNil()
 	}
+
+	scopes.Framework.Debugf("%s close complete (err:%v)", c.id, err)
 	return
 }

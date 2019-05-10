@@ -331,6 +331,6 @@ volumes:
 dnsConfig:
   searches:
     {{- range .Values.global.podDNSSearchNamespaces }}
-    - {{ . }}
+    - {{ render . }}
     {{- end }}
 {{- end }}

@@ -15,8 +15,7 @@
 package echoboot
 
 import (
-	"testing"
-
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
 	"istio.io/istio/pkg/test/framework/components/echo/native"
@@ -39,7 +38,7 @@ func New(ctx resource.Context, cfg echo.Config) (i echo.Instance, err error) {
 }
 
 // NewOrFail returns a new instance of echo, or fails t if there is an error.
-func NewOrFail(t *testing.T, ctx resource.Context, cfg echo.Config) echo.Instance {
+func NewOrFail(t test.Failer, ctx resource.Context, cfg echo.Config) echo.Instance {
 	t.Helper()
 	i, err := New(ctx, cfg)
 	if err != nil {

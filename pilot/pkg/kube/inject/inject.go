@@ -212,6 +212,7 @@ type Params struct {
 	Privileged                   bool                   `json:"privileged"`
 	SDSEnabled                   bool                   `json:"sdsEnabled"`
 	EnableSdsTokenMount          bool                   `json:"enableSdsTokenMount"`
+	PodDNSSearchNamespaces       []string               `json:"podDNSSearchNamespaces"`
 }
 
 // Validate validates the parameters and returns an error if there is configuration issue.
@@ -248,8 +249,17 @@ func (p *Params) intoHelmValues() map[string]string {
 		"global.proxy.includeInboundPorts":           p.IncludeInboundPorts,
 		"global.proxy.excludeInboundPorts":           p.ExcludeInboundPorts,
 		"sidecarInjectorWebhook.rewriteAppHTTPProbe": strconv.FormatBool(p.RewriteAppHTTPProbe),
+		"global.podDNSSearchNamespaces":              getHelmValue(p.PodDNSSearchNamespaces),
 	}
 	return vals
+}
+
+func getHelmValue(namespace []string) string {
+	if len(namespace) == 0 {
+		return ""
+	}
+
+	return "{" + strings.Join(namespace, ",") + "}"
 }
 
 // Config specifies the sidecar injection configuration This includes
@@ -514,6 +524,7 @@ func flippedContains(needle, haystack string) bool {
 	return strings.Contains(haystack, needle)
 }
 
+// InjectionData renders sidecarTemplate with valuesConfig.
 func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
 	metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (
 	*SidecarInjectionSpec, string, error) {
@@ -555,21 +566,24 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 		"contains":            flippedContains,
 	}
 
-	var tmpl bytes.Buffer
-	temp := template.New("inject")
-	t, err := temp.Funcs(funcMap).Parse(sidecarTemplate)
-	if err != nil {
-		log.Infof("Failed to parse template: %v %v\n", err, sidecarTemplate)
-		return nil, "", err
+	// Need to use FuncMap and SidecarTemplateData context
+	funcMap["render"] = func(template string) string {
+		bbuf, err := parseTemplate(template, funcMap, data)
+		if err != nil {
+			return ""
+		}
+
+		return bbuf.String()
 	}
-	if err := t.Execute(&tmpl, &data); err != nil {
-		log.Infof("Invalid template: %v %v\n", err, sidecarTemplate)
+
+	bbuf, err := parseTemplate(sidecarTemplate, funcMap, data)
+	if err != nil {
 		return nil, "", err
 	}
 
 	var sic SidecarInjectionSpec
-	if err := yaml.Unmarshal(tmpl.Bytes(), &sic); err != nil {
-		log.Warnf("Failed to unmarshall template %v %s", err, tmpl.String())
+	if err := yaml.Unmarshal(bbuf.Bytes(), &sic); err != nil {
+		log.Warnf("Failed to unmarshall template %v %s", err, bbuf.String())
 		return nil, "", err
 	}
 
@@ -594,6 +608,22 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 		return nil, "", fmt.Errorf("error encoded injection status: %v", err)
 	}
 	return &sic, string(statusAnnotationValue), nil
+}
+
+func parseTemplate(tmplStr string, funcMap map[string]interface{}, data SidecarTemplateData) (bytes.Buffer, error) {
+	var tmpl bytes.Buffer
+	temp := template.New("inject")
+	t, err := temp.Funcs(funcMap).Parse(tmplStr)
+	if err != nil {
+		log.Infof("Failed to parse template: %v %v\n", err, tmplStr)
+		return bytes.Buffer{}, err
+	}
+	if err := t.Execute(&tmpl, &data); err != nil {
+		log.Infof("Invalid template: %v %v\n", err, tmplStr)
+		return bytes.Buffer{}, err
+	}
+
+	return tmpl, nil
 }
 
 // IntoResourceFile injects the istio proxy into the specified
