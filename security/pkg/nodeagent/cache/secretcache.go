@@ -276,17 +276,23 @@ func (sc *SecretCache) DeleteSecret(connectionID, resourceName string) {
 	sc.secrets.Delete(key)
 }
 
-func waitTimeout(wg *sync.WaitGroup, timeoutMessage string) {
+func (sc *SecretCache) callbackWithTimeout(connectionID string, secretName string, secret *model.SecretItem) {
 	c := make(chan struct{})
 	go func() {
 		defer close(c)
-		wg.Wait()
+		if sc.notifyCallback != nil {
+			if err := sc.notifyCallback(connectionID, secretName, secret); err != nil {
+				log.Errorf("Failed to notify secret change for proxy %q: %v", connectionID, err)
+			}
+		} else {
+			log.Warnf("secret cache notify callback isn't set")
+		}
 	}()
 	select {
 	case <-c:
 		return // completed normally
 	case <-time.After(notifyK8sSecretTimeout):
-		log.Warnf(timeoutMessage)
+		log.Warnf("Notify secret change for proxy %q got timeout", connectionID)
 	}
 }
 
@@ -302,13 +308,7 @@ func (sc *SecretCache) DeleteK8sSecret(secretName string) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				if sc.notifyCallback != nil {
-					if err := sc.notifyCallback(connectionID, secretName, nil /*nil indicates close the streaming connection to proxy*/); err != nil {
-						log.Errorf("Failed to notify secret change for proxy %q: %v", connectionID, err)
-					}
-				} else {
-					log.Warnf("secret cache notify callback isn't set")
-				}
+				sc.callbackWithTimeout(connectionID, secretName, nil /*nil indicates close the streaming connection to proxy*/)
 			}()
 			// Currently only one ingress gateway is running, therefore there is at most one cache entry.
 			// Stop the iteration once we have deleted that cache entry.
@@ -316,7 +316,7 @@ func (sc *SecretCache) DeleteK8sSecret(secretName string) {
 		}
 		return true
 	})
-	waitTimeout(&wg, "DeleteK8sSecret timeout")
+	wg.Wait()
 }
 
 // UpdateK8sSecret updates all entries that match secretName. This is called when a K8s secret
@@ -353,13 +353,7 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 					}
 				}
 				secretMap.Store(key, newSecret)
-				if sc.notifyCallback != nil {
-					if err := sc.notifyCallback(connectionID, secretName, newSecret); err != nil {
-						log.Errorf("Failed to notify secret change for proxy %q: %v", connectionID, err)
-					}
-				} else {
-					log.Warnf("secret cache notify callback isn't set")
-				}
+				sc.callbackWithTimeout(connectionID, secretName, newSecret)
 			}()
 			// Currently only one ingress gateway is running, therefore there is at most one cache entry.
 			// Stop the iteration once we have updated that cache entry.
@@ -367,7 +361,7 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 		}
 		return true
 	})
-	waitTimeout(&wg, "UpdateK8sSecret timeout")
+	wg.Wait()
 
 	secretMap.Range(func(k interface{}, v interface{}) bool {
 		key := k.(ConnKey)
@@ -480,21 +474,14 @@ func (sc *SecretCache) rotate() {
 
 				atomic.AddUint64(&sc.secretChangedCount, 1)
 
-				if sc.notifyCallback != nil {
-					if err := sc.notifyCallback(connectionID, key.ResourceName, ns); err != nil {
-						log.Errorf("Failed to notify secret change for proxy %q: %v", connectionID, err)
-					}
-				} else {
-					log.Warnf("secret cache notify callback isn't set")
-				}
-
+				sc.callbackWithTimeout(connectionID, key.ResourceName, ns)
 			}()
 		}
 
 		return true
 	})
 
-	waitTimeout(&wg, "Rotate secret timeout")
+	wg.Wait()
 
 	secretMap.Range(func(k interface{}, v interface{}) bool {
 		key := k.(ConnKey)
