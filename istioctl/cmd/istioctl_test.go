@@ -201,7 +201,7 @@ No resources found.
 		},
 		{
 			configs: testDestinationRules,
-			args:    strings.Split("get destinationrules", " "),
+			args:    strings.Split("get destinationrules -n default", " "),
 			expectedOutput: `Command "get" is deprecated, Use ` + "`kubectl get`" + ` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)
 DESTINATION-RULE NAME   HOST               SUBSETS   NAMESPACE   AGE
 googleapis              *.googleapis.com             default     0s
@@ -209,7 +209,7 @@ googleapis              *.googleapis.com             default     0s
 		},
 		{
 			configs: testServiceEntries,
-			args:    strings.Split("get serviceentries", " "),
+			args:    strings.Split("get serviceentries -n default", " "),
 			expectedOutput: `Command "get" is deprecated, Use ` + "`kubectl get`" + ` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)
 SERVICE-ENTRY NAME   HOSTS              PORTS      NAMESPACE   AGE
 googleapis           *.googleapis.com   HTTP/443   default     0s

@@ -85,7 +85,7 @@ func TestValidation(t *testing.T) {
 					}
 
 					ctx := framework.NewContext(t)
-					defer ctx.Done(t)
+					defer ctx.Done()
 
 					yml, err := d.load()
 					if err != nil {

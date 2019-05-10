@@ -55,16 +55,15 @@ const (
 		"NBUo-KC9PJqYpgGbaXhaGx7bEdFWjcwv3nZzvc7M__ZpaCERdwU7igUmJqYGBYQ51vr2njU9ZimyKkfDe3axcyiBZde" +
 		"7G6dabliUosJvvKOPcKIWPccCgefSj_GNfwIip3-SsFdlR7BtbVUcqR-yv-XOxJ3Uc1MI0tz3uMiiZcyPV7sNCU4KRn" +
 		"emRIMHVOfuvHsU60_GhGbiSFzgPTAa9WTltbnarTbxudb_YEOx12JiwYToeX0DCPb43W1tzIBxgm8NxUg"
-	rbacTestRejectionCode = "403"
 )
 
-func TestGroupV2RBAC(t *testing.T) {
+func TestRBACV2Group(t *testing.T) {
 	framework.NewTest(t).
 		// TODO(lei-tang): add the test to the native environment
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
-			ns := namespace.NewOrFail(t, ctx, "rbacv1", true)
+			ns := namespace.NewOrFail(t, ctx, "rbacv2-group-test", true)
 			ports := []echo.Port{
 				{
 					Name:        "http",
@@ -113,7 +112,6 @@ func TestGroupV2RBAC(t *testing.T) {
 					},
 					Jwt:           noGroupScopeJwt,
 					ExpectAllowed: false,
-					RejectionCode: rbacTestRejectionCode,
 				},
 				{
 					Request: connection.Checker{
@@ -127,7 +125,6 @@ func TestGroupV2RBAC(t *testing.T) {
 					},
 					Jwt:           groupsScopeJwt,
 					ExpectAllowed: true,
-					RejectionCode: rbacTestRejectionCode,
 				},
 				{
 					Request: connection.Checker{
@@ -141,7 +138,6 @@ func TestGroupV2RBAC(t *testing.T) {
 					},
 					Jwt:           noGroupScopeJwt,
 					ExpectAllowed: false,
-					RejectionCode: rbacTestRejectionCode,
 				},
 				{
 					Request: connection.Checker{
@@ -155,7 +151,6 @@ func TestGroupV2RBAC(t *testing.T) {
 					},
 					Jwt:           groupsScopeJwt,
 					ExpectAllowed: true,
-					RejectionCode: rbacTestRejectionCode,
 				},
 			}
 
@@ -163,8 +158,8 @@ func TestGroupV2RBAC(t *testing.T) {
 				"Namespace": ns.Name(),
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args,
-				file.AsString(t, rbacClusterConfigTmpl),
-				file.AsString(t, rbacGroupListRulesTmpl))
+				file.AsStringOrFail(t, rbacClusterConfigTmpl),
+				file.AsStringOrFail(t, rbacGroupListRulesTmpl))
 
 			g.ApplyConfigOrFail(t, ns, policies...)
 			defer g.DeleteConfigOrFail(t, ns, policies...)
@@ -174,13 +169,14 @@ func TestGroupV2RBAC(t *testing.T) {
 			time.Sleep(60 * time.Second)
 
 			for _, tc := range cases {
-				testName := fmt.Sprintf("%s->%s:%s/%s",
+				testName := fmt.Sprintf("%s->%s:%s%s[%v]",
 					tc.Request.From.Config().Service,
 					tc.Request.Options.Target.Config().Service,
 					tc.Request.Options.PortName,
-					tc.Request.Options.Path)
+					tc.Request.Options.Path,
+					tc.ExpectAllowed)
 				t.Run(testName, func(t *testing.T) {
-					retry.UntilSuccessOrFail(t, tc.Check, retry.Delay(10*time.Second), retry.Timeout(120*time.Second))
+					retry.UntilSuccessOrFail(t, tc.CheckRBACRequest, retry.Delay(10*time.Second), retry.Timeout(120*time.Second))
 				})
 			}
 		})

@@ -6,6 +6,7 @@ package circonusgometrics
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -16,7 +17,7 @@ import (
 	"time"
 
 	"github.com/circonus-labs/circonus-gometrics/api"
-	"github.com/hashicorp/go-retryablehttp"
+	retryablehttp "github.com/hashicorp/go-retryablehttp"
 	"github.com/pkg/errors"
 )
 
@@ -71,7 +72,11 @@ func (m *CirconusMetrics) trapCall(payload []byte) (int, error) {
 
 	// keep last HTTP error in the event of retry failure
 	var lastHTTPError error
-	retryPolicy := func(resp *http.Response, err error) (bool, error) {
+	retryPolicy := func(ctx context.Context, resp *http.Response, err error) (bool, error) {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return false, ctxErr
+		}
+
 		if err != nil {
 			lastHTTPError = err
 			return true, errors.Wrap(err, "retry policy")
@@ -136,7 +141,8 @@ func (m *CirconusMetrics) trapCall(payload []byte) (int, error) {
 	client.CheckRetry = retryPolicy
 
 	attempts := -1
-	client.RequestLogHook = func(logger *log.Logger, req *http.Request, retryNumber int) {
+	client.RequestLogHook = func(logger retryablehttp.Logger, req *http.Request, retryNumber int) {
+		//client.RequestLogHook = func(logger *log.Logger, req *http.Request, retryNumber int) {
 		attempts = retryNumber
 	}
 

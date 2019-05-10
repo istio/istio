@@ -31,12 +31,12 @@ import (
 	"istio.io/istio/galley/pkg/runtime/processing"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/annotations"
+	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pilot/pkg/model"
 
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/kubernetes/pkg/kubelet/apis"
 )
 
 const (
@@ -823,10 +823,10 @@ func host(namespace, serviceName string) string {
 func localityLabels(region, zone string) resource.Labels {
 	labels := make(resource.Labels)
 	if region != "" {
-		labels[apis.LabelZoneRegion] = region
+		labels[pod.LabelZoneRegion] = region
 	}
 	if zone != "" {
-		labels[apis.LabelZoneFailureDomain] = zone
+		labels[pod.LabelZoneFailureDomain] = zone
 	}
 	return labels
 }

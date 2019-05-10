@@ -15,13 +15,12 @@
 package citadel
 
 import (
-	"testing"
-
-	corev1 "k8s.io/api/core/v1"
-
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 // Citadel represents a deployed Citadel instance.
@@ -29,9 +28,9 @@ type Instance interface {
 	resource.Resource
 
 	WaitForSecretToExist() (*corev1.Secret, error)
-	WaitForSecretToExistOrFail(t testing.TB) *corev1.Secret
+	WaitForSecretToExistOrFail(t test.Failer) *corev1.Secret
 	DeleteSecret() error
-	DeleteSecretOrFail(t testing.TB)
+	DeleteSecretOrFail(t test.Failer)
 }
 
 type Config struct {
@@ -51,7 +50,7 @@ func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 }
 
 // Deploy returns a new instance of Citadel or fails test
-func NewOrFail(t *testing.T, ctx resource.Context, cfg Config) Instance {
+func NewOrFail(t test.Failer, ctx resource.Context, cfg Config) Instance {
 	t.Helper()
 
 	i, err := New(ctx, cfg)

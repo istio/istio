@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"sort"
 	"sync"
 
 	"go.opencensus.io/internal"
@@ -44,9 +43,10 @@ type Exporter struct {
 
 // Options contains options for configuring the exporter.
 type Options struct {
-	Namespace string
-	Registry  *prometheus.Registry
-	OnError   func(err error)
+	Namespace   string
+	Registry    *prometheus.Registry
+	OnError     func(err error)
+	ConstLabels prometheus.Labels // ConstLabels will be set as labels on all views.
 }
 
 // NewExporter returns an exporter that exports stats to Prometheus.
@@ -80,7 +80,7 @@ func (c *collector) registerViews(views ...*view.View) {
 				viewName(c.opts.Namespace, view),
 				view.Description,
 				tagKeysToLabels(view.TagKeys),
-				nil,
+				c.opts.ConstLabels,
 			)
 			c.registeredViewsMu.Lock()
 			c.registeredViews[sig] = desc
@@ -207,40 +207,24 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 func (c *collector) toMetric(desc *prometheus.Desc, v *view.View, row *view.Row) (prometheus.Metric, error) {
 	switch data := row.Data.(type) {
 	case *view.CountData:
-		return prometheus.NewConstMetric(desc, prometheus.CounterValue, float64(data.Value), tagValues(row.Tags)...)
+		return prometheus.NewConstMetric(desc, prometheus.CounterValue, float64(data.Value), tagValues(row.Tags, v.TagKeys)...)
 
 	case *view.DistributionData:
 		points := make(map[float64]uint64)
 		// Histograms are cumulative in Prometheus.
-		// 1. Sort buckets in ascending order but, retain
-		// their indices for reverse lookup later on.
-		// TODO: If there is a guarantee that distribution elements
-		// are always sorted, then skip the sorting.
-		indicesMap := make(map[float64]int)
-		buckets := make([]float64, 0, len(v.Aggregation.Buckets))
-		for i, b := range v.Aggregation.Buckets {
-			if _, ok := indicesMap[b]; !ok {
-				indicesMap[b] = i
-				buckets = append(buckets, b)
-			}
-		}
-		sort.Float64s(buckets)
-
-		// 2. Now that the buckets are sorted by magnitude
-		// we can create cumulative indicesmap them back by reverse index
+		// Get cumulative bucket counts.
 		cumCount := uint64(0)
-		for _, b := range buckets {
-			i := indicesMap[b]
+		for i, b := range v.Aggregation.Buckets {
 			cumCount += uint64(data.CountPerBucket[i])
 			points[b] = cumCount
 		}
-		return prometheus.NewConstHistogram(desc, uint64(data.Count), data.Sum(), points, tagValues(row.Tags)...)
+		return prometheus.NewConstHistogram(desc, uint64(data.Count), data.Sum(), points, tagValues(row.Tags, v.TagKeys)...)
 
 	case *view.SumData:
-		return prometheus.NewConstMetric(desc, prometheus.UntypedValue, data.Value, tagValues(row.Tags)...)
+		return prometheus.NewConstMetric(desc, prometheus.UntypedValue, data.Value, tagValues(row.Tags, v.TagKeys)...)
 
 	case *view.LastValueData:
-		return prometheus.NewConstMetric(desc, prometheus.GaugeValue, data.Value, tagValues(row.Tags)...)
+		return prometheus.NewConstMetric(desc, prometheus.GaugeValue, data.Value, tagValues(row.Tags, v.TagKeys)...)
 
 	default:
 		return nil, fmt.Errorf("aggregation %T is not yet supported", v.Aggregation)
@@ -254,14 +238,6 @@ func tagKeysToLabels(keys []tag.Key) (labels []string) {
 	return labels
 }
 
-func tagsToLabels(tags []tag.Tag) []string {
-	var names []string
-	for _, tag := range tags {
-		names = append(names, internal.Sanitize(tag.Key.Name()))
-	}
-	return names
-}
-
 func newCollector(opts Options, registrar *prometheus.Registry) *collector {
 	return &collector{
 		reg:             registrar,
@@ -271,10 +247,21 @@ func newCollector(opts Options, registrar *prometheus.Registry) *collector {
 	}
 }
 
-func tagValues(t []tag.Tag) []string {
+func tagValues(t []tag.Tag, expectedKeys []tag.Key) []string {
 	var values []string
+	// Add empty string for all missing keys in the tags map.
+	idx := 0
 	for _, t := range t {
+		for t.Key != expectedKeys[idx] {
+			idx++
+			values = append(values, "")
+		}
 		values = append(values, t.Value)
+		idx++
+	}
+	for idx < len(expectedKeys) {
+		idx++
+		values = append(values, "")
 	}
 	return values
 }

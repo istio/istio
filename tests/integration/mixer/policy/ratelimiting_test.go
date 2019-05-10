@@ -66,6 +66,7 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 			destinationService := "productpage"
 
 			bookinfoNs, g, red, ing, prom := setupComponentsOrFail(t, ctx)
+			defer deleteComponentsOrFail(t, ctx, g, bookinfoNs)
 			bookInfoNameSpaceStr := bookinfoNs.Name()
 			setupConfigOrFail(t, bookinfo.ProductPageRedisRateLimit, bookInfoNameSpaceStr,
 				red, g, ctx)
@@ -116,11 +117,15 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService string) {
 	framework.Run(t, func(ctx framework.TestContext) {
 		bookinfoNs, g, red, ing, prom := setupComponentsOrFail(t, ctx)
+		defer deleteComponentsOrFail(t, ctx, g, bookinfoNs)
 		g.ApplyConfigOrFail(
 			t,
 			bookinfoNs,
 			bookinfo.NetworkingReviewsV3Rule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		)
+		defer g.DeleteConfigOrFail(t,
+			bookinfoNs,
+			bookinfo.NetworkingReviewsV3Rule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
 		bookInfoNameSpaceStr := bookinfoNs.Name()
 		setupConfigOrFail(t, config, bookInfoNameSpaceStr, red, g, ctx)
 		util.AllowRuleSync(t)
@@ -254,7 +259,18 @@ func setupComponentsOrFail(t *testing.T, ctx resource.Context) (bookinfoNs names
 		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 	)
+
 	return
+}
+
+func deleteComponentsOrFail(t *testing.T, ctx resource.Context, g galley.Instance, bookinfoNs namespace.Instance) {
+	defer g.DeleteConfigOrFail(t, bookinfoNs,
+		bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
+	defer g.DeleteConfigOrFail(
+		t,
+		bookinfoNs,
+		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
 }
 
 func setupConfigOrFail(t *testing.T, config bookinfo.ConfigFile, bookInfoNameSpaceStr string,
@@ -276,6 +292,21 @@ func setupConfigOrFail(t *testing.T, config bookinfo.ConfigFile, bookInfoNameSpa
 		ns,
 		con)
 }
+
+/*
+func deleteConfigOrFail(t *testing.T, con, quotaSpecCon, quotaRuleCon string, g galley.Instance, ctx resource.Context) {
+	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
+	g.DeleteConfigOrFail(
+		t,
+		ns,
+		test.JoinConfigs(
+			con,
+			requestQuotaCountConfig,
+			quotaRuleCon,
+			quotaSpecCon,
+		))
+}
+*/
 
 func TestMain(m *testing.M) {
 	framework.

@@ -191,7 +191,7 @@ func (h *Handler) handleRemote(ctx context.Context, qr proto.Marshaler,
 		return err
 	}
 
-	codec := grpc.CallCustomCodec(Codec{decode: svc.decoder})
+	codec := grpc.ForceCodec(Codec{decode: svc.decoder})
 	if h.timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, h.timeout)
@@ -537,7 +537,7 @@ func (c Codec) Unmarshal(data []byte, v interface{}) error {
 	return c.decode(data, v)
 }
 
-// String returns name of the codec.
-func (c Codec) String() string {
+// Name returns name of the codec.
+func (c Codec) Name() string {
 	return "bytes-out-proto-in-codec"
 }

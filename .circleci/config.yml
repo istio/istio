@@ -457,68 +457,6 @@ jobs:
       - store_artifacts:
           path: /tmp
 
-  test-integration-local:
-      <<: *defaults
-      environment:
-        KUBECONFIG: /go/src/istio.io/istio/.circleci/config
-      resource_class: xlarge
-      steps:
-        - checkout
-        - <<: *markJobStartsOnGCS
-        - run: make sync
-        - run:
-            command: |
-              mkdir -p /go/out/tests
-              export PATH=$GOPATH/bin:$PATH
-              make localTestEnv
-              set -o pipefail
-              make test.integration.local.presubmit T=-v | tee -a /go/out/tests/build-log.txt
-        - <<: *recordZeroExitCodeIfTestPassed
-        - <<: *recordNonzeroExitCodeIfTestFailed
-        - <<: *markJobFinishesOnGCS
-        - store_test_results:
-            path: /go/out/tests
-        - store_artifacts:
-            path: /tmp
-
-  test-integration-kubernetes:
-    <<: *integrationDefaults
-    environment:
-      - KUBECONFIG: /go/out/minikube.conf
-      - TEST_ENV: minikube-none
-      - GOPATH: /go
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - <<: *markJobStartsOnGCS
-      - run: make sync
-      - run: bin/testEnvRootMinikube.sh start
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.all generate_e2e_yaml
-      - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
-      - run:
-          no_output_timeout: 20m
-          name: make test.integration.kube
-          command: |
-            make test.integration.kube.presubmit T="-v" | tee -a /go/out/tests/build-log.txt
-      - <<: *recordZeroExitCodeIfTestPassed
-      - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *markJobFinishesOnGCS
-      - store_artifacts:
-          path: /home/circleci/logs
-      - store_artifacts:
-          path: /tmp
-      - store_test_results:
-          path: /go/out/tests
-
   e2e-pilot-auth-v1alpha3-v2-non-mcp:
     <<: *integrationDefaults
     steps:
@@ -552,23 +490,6 @@ jobs:
           path: /go/out/logs
       - store_artifacts:
           path: /tmp
-
-  # Run nightly, to verify 'dep ensure --update' works
-  depupdate:
-    <<: *defaults
-    steps:
-      - checkout
-      - run: mkdir -p /go/out
-      - run:
-          name: Updating all dependencies
-          command: dep ensure --update
-      - run: ( cd vendor ; git status  ) # just to see what changes
-      - run: make init build
-      - run:
-          name: Status and artifacts
-          command: dep status -dot > /go/out/dep.dot
-      - store_artifacts:
-          path: /go/out/dep.dot
 
   codecov:
     <<: *defaults
@@ -699,12 +620,6 @@ jobs:
 #      - run:
 #          name: Check Scripts
 #          command: /go/src/istio.io/istio/bin/check_shell_scripts.sh
-      # Make sure that any modification to vendor is correct. Always use the latest version of dep.
-      - run:
-          name: Creating vendor diff
-          command: make depend.diff ISTIO_OUT=/go/out
-      - store_artifacts:
-          path: /go/out/dep.diff
 
   nightly:
     <<: *defaults
@@ -759,7 +674,6 @@ workflows:
                  - release-1.0
                  - dev-networking
     jobs: #daisy chained steps ending with docker push
-      - depupdate
       - build
       - test
       - e2e-simple:
@@ -792,7 +706,6 @@ workflows:
                  - release-1.0
                  - dev-networking
     jobs:
-      - depupdate
       - build
       - test
       - e2e-simple:

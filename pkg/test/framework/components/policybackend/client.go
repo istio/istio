@@ -17,13 +17,13 @@ package policybackend
 import (
 	"fmt"
 	"reflect"
-	"testing"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/fakes/policy"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -33,7 +33,7 @@ type client struct {
 }
 
 // DenyCheck implementation
-func (c *client) DenyCheck(t testing.TB, deny bool) {
+func (c *client) DenyCheck(t test.Failer, deny bool) {
 	t.Helper()
 
 	if err := c.controller.DenyCheck(deny); err != nil {
@@ -42,7 +42,7 @@ func (c *client) DenyCheck(t testing.TB, deny bool) {
 }
 
 // AllowCheck implementation
-func (c *client) AllowCheck(t testing.TB, d time.Duration, count int32) {
+func (c *client) AllowCheck(t test.Failer, d time.Duration, count int32) {
 	t.Helper()
 
 	if err := c.controller.AllowCheck(d, count); err != nil {
@@ -51,7 +51,7 @@ func (c *client) AllowCheck(t testing.TB, d time.Duration, count int32) {
 }
 
 // ExpectReport implementation
-func (c *client) ExpectReport(t testing.TB, expected ...proto.Message) {
+func (c *client) ExpectReport(t test.Failer, expected ...proto.Message) {
 	t.Helper()
 
 	_, err := retry.Do(func() (interface{}, bool, error) {
@@ -74,7 +74,7 @@ func (c *client) ExpectReport(t testing.TB, expected ...proto.Message) {
 }
 
 // ExpectReportJSON checks that the backend has received the given report request.
-func (c *client) ExpectReportJSON(t testing.TB, expected ...string) {
+func (c *client) ExpectReportJSON(t test.Failer, expected ...string) {
 	t.Helper()
 
 	_, err := retry.Do(func() (interface{}, bool, error) {
@@ -110,7 +110,7 @@ func (c *client) ExpectReportJSON(t testing.TB, expected ...string) {
 	}
 }
 
-func (c *client) GetReports(t testing.TB) []proto.Message {
+func (c *client) GetReports(t test.Failer) []proto.Message {
 	t.Helper()
 	reports, err := c.controller.GetReports()
 	if err != nil {

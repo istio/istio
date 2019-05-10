@@ -202,9 +202,9 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 	}
 	var url string
 	if prober.Scheme == corev1.URISchemeHTTPS {
-		url = fmt.Sprintf("https://127.0.0.1:%v%s", prober.Port.IntValue(), prober.Path)
+		url = fmt.Sprintf("https://localhost:%v%s", prober.Port.IntValue(), prober.Path)
 	} else {
-		url = fmt.Sprintf("http://127.0.0.1:%v%s", prober.Port.IntValue(), prober.Path)
+		url = fmt.Sprintf("http://localhost:%v%s", prober.Port.IntValue(), prober.Path)
 	}
 	appReq, err := http.NewRequest("GET", url, nil)
 	if err != nil {

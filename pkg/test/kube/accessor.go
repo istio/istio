@@ -290,7 +290,7 @@ func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string, opt
 			}
 		}
 		return fmt.Errorf("%s/%v endpoint not ready: no ready addresses", ns, name)
-	}, opts...)
+	}, newRetryOptions(opts...)...)
 
 	if err != nil {
 		return nil, nil, err
@@ -354,8 +354,28 @@ func (a *Accessor) GetEndpoints(ns, service string, options kubeApiMeta.GetOptio
 }
 
 // CreateNamespace with the given name. Also adds an "istio-testing" annotation.
-func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string, injectionEnabled bool) error {
+func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string) error {
 	scopes.Framework.Debugf("Creating namespace: %s", ns)
+
+	n := a.newNamespace(ns, istioTestingAnnotation)
+
+	_, err := a.set.CoreV1().Namespaces().Create(&n)
+	return err
+}
+
+func (a *Accessor) CreateNamespaceWithInjectionEnabled(ns string, istioTestingAnnotation string, configNamespace string) error {
+	scopes.Framework.Debugf("Creating namespace with injection enabled: %s", ns)
+
+	n := a.newNamespace(ns, istioTestingAnnotation)
+
+	n.ObjectMeta.Labels["istio-injection"] = "enabled"
+	n.ObjectMeta.Labels["istio-env"] = configNamespace
+
+	_, err := a.set.CoreV1().Namespaces().Create(&n)
+	return err
+}
+
+func (a *Accessor) newNamespace(ns string, istioTestingAnnotation string) kubeApiCore.Namespace {
 	n := kubeApiCore.Namespace{
 		ObjectMeta: kubeApiMeta.ObjectMeta{
 			Name:   ns,
@@ -365,12 +385,7 @@ func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string, inj
 	if istioTestingAnnotation != "" {
 		n.ObjectMeta.Labels["istio-testing"] = istioTestingAnnotation
 	}
-	if injectionEnabled {
-		n.ObjectMeta.Labels["istio-injection"] = "enabled"
-	}
-
-	_, err := a.set.CoreV1().Namespaces().Create(&n)
-	return err
+	return n
 }
 
 // NamespaceExists returns true if the given namespace exists.

@@ -104,7 +104,6 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(statusCmd)
 
 	experimentalCmd.AddCommand(install.NewVerifyCommand(&istioNamespace))
-	experimentalCmd.AddCommand(Rbac())
 	experimentalCmd.AddCommand(Auth())
 	experimentalCmd.AddCommand(convertIngress())
 	experimentalCmd.AddCommand(dashboard())

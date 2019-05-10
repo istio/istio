@@ -18,7 +18,8 @@ import (
 	"fmt"
 	"text/template"
 
-	"istio.io/istio/pkg/test/framework/components/deployment"
+	"istio.io/istio/pkg/test/framework/core/image"
+
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
@@ -151,7 +152,7 @@ func init() {
 
 func generateYAML(cfg echo.Config) (string, error) {
 	// Create the parameters for the YAML template.
-	settings, err := deployment.SettingsFromCommandLine()
+	settings, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return "", err
 	}

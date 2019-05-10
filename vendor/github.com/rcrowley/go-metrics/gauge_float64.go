@@ -1,6 +1,9 @@
 package metrics
 
-import "sync"
+import (
+	"math"
+	"sync/atomic"
+)
 
 // GaugeFloat64s hold a float64 value that can be set arbitrarily.
 type GaugeFloat64 interface {
@@ -85,8 +88,7 @@ func (NilGaugeFloat64) Value() float64 { return 0.0 }
 // StandardGaugeFloat64 is the standard implementation of a GaugeFloat64 and uses
 // sync.Mutex to manage a single float64 value.
 type StandardGaugeFloat64 struct {
-	mutex sync.Mutex
-	value float64
+	value uint64
 }
 
 // Snapshot returns a read-only copy of the gauge.
@@ -96,16 +98,12 @@ func (g *StandardGaugeFloat64) Snapshot() GaugeFloat64 {
 
 // Update updates the gauge's value.
 func (g *StandardGaugeFloat64) Update(v float64) {
-	g.mutex.Lock()
-	defer g.mutex.Unlock()
-	g.value = v
+	atomic.StoreUint64(&g.value, math.Float64bits(v))
 }
 
 // Value returns the gauge's current value.
 func (g *StandardGaugeFloat64) Value() float64 {
-	g.mutex.Lock()
-	defer g.mutex.Unlock()
-	return g.value
+	return math.Float64frombits(atomic.LoadUint64(&g.value))
 }
 
 // FunctionalGaugeFloat64 returns value from given function

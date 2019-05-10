@@ -19,18 +19,19 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/mitchellh/go-homedir"
-	yaml2 "gopkg.in/yaml.v2"
 
-	kubeCore "k8s.io/api/core/v1"
+	yaml2 "gopkg.in/yaml.v2"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/components/deployment"
+	"istio.io/istio/pkg/test/framework/core/image"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/file"
+
+	kubeCore "k8s.io/api/core/v1"
 )
 
 const (
@@ -132,7 +133,7 @@ func (c *Config) IsMtlsEnabled() bool {
 		return true
 	}
 
-	data, err := test.ReadConfigFile(filepath.Join(c.ChartDir, c.ValuesFile))
+	data, err := file.AsString(filepath.Join(c.ChartDir, c.ValuesFile))
 	if err != nil {
 		return false
 	}
@@ -171,7 +172,7 @@ func DefaultConfig(ctx resource.Context) (Config, error) {
 		return Config{}, err
 	}
 
-	deps, err := deployment.SettingsFromCommandLine()
+	deps, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return Config{}, err
 	}
@@ -192,7 +193,7 @@ func DefaultConfig(ctx resource.Context) (Config, error) {
 }
 
 // DefaultConfigOrFail calls DefaultConfig and fails t if an error occurs.
-func DefaultConfigOrFail(t testing.TB, ctx resource.Context) Config {
+func DefaultConfigOrFail(t test.Failer, ctx resource.Context) Config {
 	cfg, err := DefaultConfig(ctx)
 	if err != nil {
 		t.Fatalf("Get istio config: %v", err)
@@ -218,7 +219,7 @@ func checkFileExists(path string) error {
 	return nil
 }
 
-func newHelmValues(s *deployment.Settings) (map[string]string, error) {
+func newHelmValues(s *image.Settings) (map[string]string, error) {
 	userValues, err := parseHelmValues()
 	if err != nil {
 		return nil, err
@@ -228,9 +229,9 @@ func newHelmValues(s *deployment.Settings) (map[string]string, error) {
 	values := make(map[string]string)
 
 	// Common values
-	values[deployment.HubValuesKey] = s.Hub
-	values[deployment.TagValuesKey] = s.Tag
-	values[deployment.ImagePullPolicyValuesKey] = s.PullPolicy
+	values[image.HubValuesKey] = s.Hub
+	values[image.TagValuesKey] = s.Tag
+	values[image.ImagePullPolicyValuesKey] = s.PullPolicy
 
 	// Copy the user values.
 	for k, v := range userValues {
@@ -238,8 +239,8 @@ func newHelmValues(s *deployment.Settings) (map[string]string, error) {
 	}
 
 	// Always pull Docker images if using the "latest".
-	if values[deployment.TagValuesKey] == deployment.LatestTag {
-		values[deployment.ImagePullPolicyValuesKey] = string(kubeCore.PullAlways)
+	if values[image.TagValuesKey] == image.LatestTag {
+		values[image.ImagePullPolicyValuesKey] = string(kubeCore.PullAlways)
 	}
 	return values, nil
 }
