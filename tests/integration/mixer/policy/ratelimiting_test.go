@@ -65,9 +65,14 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 			destinationService := "productpage"
 
 			bookinfoNs, g, red, ing, prom := setupComponentsOrFail(t, ctx)
+			defer deleteComponentsOrFail(t, ctx, g, bookinfoNs)
 			bookInfoNameSpaceStr := bookinfoNs.Name()
-			setupConfigOrFail(t, defaultAmountLessThanOverride, bookInfoNameSpaceStr, destinationService,
-				defaultQuotaSpecConfig, red, g, ctx)
+			con := defaultAmountLessThanOverride
+			quotaSpecCon := defaultQuotaSpecConfig
+			quotaRuleCon := quotaRuleConfig
+			setupConfigOrFail(t, con, bookInfoNameSpaceStr, destinationService,
+				quotaSpecCon, quotaRuleCon, red, g, ctx)
+			defer deleteConfigOrFail(t, con, quotaSpecCon, quotaRuleCon, g, ctx)
 			util.AllowRuleSync(t)
 
 			res := util.SendTraffic(ing, t, "Sending traffic...", "", 300)
@@ -115,13 +120,21 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 func testRedisQuota(t *testing.T, config, destinationService string) {
 	framework.Run(t, func(ctx framework.TestContext) {
 		bookinfoNs, g, red, ing, prom := setupComponentsOrFail(t, ctx)
+		defer deleteComponentsOrFail(t, ctx, g, bookinfoNs)
 		g.ApplyConfigOrFail(
 			t,
 			bookinfoNs,
 			bookinfo.NetworkingReviewsV3Rule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		)
+		defer g.DeleteConfigOrFail(t,
+			bookinfoNs,
+			bookinfo.NetworkingReviewsV3Rule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
 		bookInfoNameSpaceStr := bookinfoNs.Name()
-		setupConfigOrFail(t, config, bookInfoNameSpaceStr, destinationService, bookInfoQuotaSpecConfig, red, g, ctx)
+		con := config
+		quotaSpecCon := bookInfoQuotaSpecConfig
+		quotaRuleCon := quotaRuleConfig
+		setupConfigOrFail(t, con, bookInfoNameSpaceStr, destinationService, quotaSpecCon, quotaRuleCon, red, g, ctx)
+		defer deleteConfigOrFail(t, con, quotaSpecCon, quotaRuleCon, g, ctx)
 		util.AllowRuleSync(t)
 
 		// This is the number of requests we allow to be missing to be reported, so as to make test stable.
@@ -253,19 +266,40 @@ func setupComponentsOrFail(t *testing.T, ctx resource.Context) (bookinfoNs names
 		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 	)
+
 	return
 }
 
-func setupConfigOrFail(t *testing.T, config, bookInfoNameSpaceStr, destinationService, quotaSpecConfig string,
+func deleteComponentsOrFail(t *testing.T, ctx resource.Context, g galley.Instance, bookinfoNs namespace.Instance) {
+	defer g.DeleteConfigOrFail(t, bookinfoNs,
+		bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
+	defer g.DeleteConfigOrFail(
+		t,
+		bookinfoNs,
+		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
+}
+
+func setupConfigOrFail(t *testing.T, con, bookInfoNameSpaceStr, destinationService, quotaSpecCon, quotaRuleCon string,
 	red redis.Instance, g galley.Instance, ctx resource.Context) {
-	con := config
-	quotaRuleCon := quotaRuleConfig
-	quotaSpecCon := quotaSpecConfig
 	con = strings.Replace(con, "<redis_namespace>", red.GetRedisNamespace(), -1)
 	quotaSpecCon = strings.Replace(quotaSpecCon, "<bookinfo_namespace>", bookInfoNameSpaceStr, -1)
 	quotaRuleCon = strings.Replace(quotaRuleCon, "<destination_service>", destinationService, -1)
 	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
 	g.ApplyConfigOrFail(
+		t,
+		ns,
+		test.JoinConfigs(
+			con,
+			requestQuotaCountConfig,
+			quotaRuleCon,
+			quotaSpecCon,
+		))
+}
+
+func deleteConfigOrFail(t *testing.T, con, quotaSpecCon, quotaRuleCon string, g galley.Instance, ctx resource.Context) {
+	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
+	g.DeleteConfigOrFail(
 		t,
 		ns,
 		test.JoinConfigs(
