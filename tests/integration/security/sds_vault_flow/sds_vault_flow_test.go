@@ -84,7 +84,7 @@ func TestSdsVaultCaFlow(t *testing.T) {
 			}
 
 			// Apply the policy to the system namespace.
-			deployment := tmpl.EvaluateOrFail(t, file.AsString(t, "testdata/global-mtls.yaml"),
+			deployment := tmpl.EvaluateOrFail(t, file.AsStringOrFail(t, "testdata/global-mtls.yaml"),
 				map[string]string{
 					"Namespace": ns.Name(),
 				})

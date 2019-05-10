@@ -15,16 +15,16 @@
 package bookinfo
 
 import (
+	"fmt"
 	"path"
 	"strings"
-
-	"fmt"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/file"
 )
 
 // ConfigFile represents config yaml files for different bookinfo scenarios.
@@ -97,7 +97,7 @@ func (l ConfigFile) LoadGatewayFileWithNamespace(namespace string) (string, erro
 func (l ConfigFile) LoadWithNamespace(namespace string) (string, error) {
 	p := path.Join(env.BookInfoRoot, string(l))
 
-	content, err := test.ReadConfigFile(p)
+	content, err := file.AsString(p)
 	if err != nil {
 		return "", fmt.Errorf("unable to load config %s at %v, err:%v", l, p, err)
 	}
