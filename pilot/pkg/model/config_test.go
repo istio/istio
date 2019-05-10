@@ -24,7 +24,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
-	mccpb "istio.io/api/mixer/v1/config/client"
+
+	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	authz "istio.io/api/security/v1beta1"
@@ -590,11 +591,7 @@ func TestIstioConfigStore_QuotaSpecByDestination(t *testing.T) {
 		},
 	}
 	ii := model.MakeIstioStore(l)
-	cfgs := ii.QuotaSpecByDestination(&model.ServiceInstance{
-		Service: &model.Service{
-			Hostname: host.Name("a." + ns + ".svc.cluster.local"),
-		},
-	})
+	cfgs := ii.QuotaSpecByDestination(host.Name("a." + ns + ".svc.cluster.local"))
 
 	if len(cfgs) != 1 {
 		t.Fatalf("did not find 1 matched quota")

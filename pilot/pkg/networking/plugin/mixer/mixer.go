@@ -453,13 +453,15 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 	return out
 }
 
-func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attrs attributes, isXDSMarshalingToAnyEnabled bool) {
+func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attrs attributes, isXDSMarshalingToAnyEnabled bool,
+	quotaSpec []*mccpb.QuotaSpec) {
 	if isXDSMarshalingToAnyEnabled {
 		httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
 			DisableCheckCalls:  disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
 			DisableReportCalls: in.Env.Mesh.GetDisableMixerHttpReports(),
 			MixerAttributes:    &mpb.Attributes{Attributes: attrs},
 			ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
+			QuotaSpec:         quotaSpec,
 		})
 	} else {
 		httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
@@ -467,22 +469,23 @@ func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attr
 			DisableReportCalls: in.Env.Mesh.GetDisableMixerHttpReports(),
 			MixerAttributes:    &mpb.Attributes{Attributes: attrs},
 			ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
+			QuotaSpec:         quotaSpec,
 		})
 	}
 }
 
 func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, virtualHostname string, httpRoute *route.Route) *route.Route {
 	isXDSMarshalingToAnyEnabled := util.IsXDSMarshalingToAnyEnabled(in.Node)
-
+	isPolicyCheckDisabled := disablePolicyChecks(outbound, in.Env.Mesh, in.Node)
 	// default config, to be overridden by per-weighted cluster
 	if isXDSMarshalingToAnyEnabled {
 		httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
-			DisableCheckCalls:  disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
+			DisableCheckCalls:  isPolicyCheckDisabled,
 			DisableReportCalls: in.Env.Mesh.GetDisableMixerHttpReports(),
 		})
 	} else {
 		httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
-			DisableCheckCalls:  disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
+			DisableCheckCalls:  isPolicyCheckDisabled,
 			DisableReportCalls: in.Env.Mesh.GetDisableMixerHttpReports(),
 		})
 	}
@@ -490,16 +493,17 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 	case *route.Route_Route:
 		switch upstreams := action.Route.ClusterSpecifier.(type) {
 		case *route.RouteAction_Cluster:
-			_, _, hostname, _ := model.ParseSubsetKey(upstreams.Cluster)
-			var attrs attributes
-			if hostname == "" && upstreams.Cluster == util.PassthroughCluster {
-				attrs = addVirtualDestinationServiceAttributes(make(attributes), util.PassthroughCluster)
-			} else {
-				svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
-				attrs = addDestinationServiceAttributes(make(attributes), svc)
+			{
+				_, _, hostname, _ := model.ParseSubsetKey(upstreams.Cluster)
+				var attrs attributes
+				if hostname == "" && upstreams.Cluster == util.PassthroughCluster {
+					attrs = addVirtualDestinationServiceAttributes(make(attributes), util.PassthroughCluster)
+				} else {
+					svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
+					attrs = addDestinationServiceAttributes(make(attributes), svc)
+				}
+				addFilterConfigToRoute(in, httpRoute, attrs, isXDSMarshalingToAnyEnabled, getQuotaSpec(in, hostname, isPolicyCheckDisabled))
 			}
-			addFilterConfigToRoute(in, httpRoute, attrs, isXDSMarshalingToAnyEnabled)
-
 		case *route.RouteAction_WeightedClusters:
 			for _, weighted := range upstreams.WeightedClusters.Clusters {
 				_, _, hostname, _ := model.ParseSubsetKey(weighted.Name)
@@ -511,6 +515,7 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 						DisableReportCalls: in.Env.Mesh.GetDisableMixerHttpReports(),
 						MixerAttributes:    &mpb.Attributes{Attributes: attrs},
 						ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
+						QuotaSpec:         getQuotaSpec(in, hostname, isPolicyCheckDisabled),
 					})
 				} else {
 					weighted.PerFilterConfig = addServiceConfig(weighted.PerFilterConfig, &mccpb.ServiceConfig{
@@ -518,6 +523,7 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 						DisableReportCalls: in.Env.Mesh.GetDisableMixerHttpReports(),
 						MixerAttributes:    &mpb.Attributes{Attributes: attrs},
 						ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
+						QuotaSpec:         getQuotaSpec(in, hostname, isPolicyCheckDisabled),
 					})
 				}
 			}
@@ -531,7 +537,7 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 		if virtualHostname == util.BlackHoleRouteName {
 			hostname := host.Name(util.BlackHoleCluster)
 			attrs := addVirtualDestinationServiceAttributes(make(attributes), hostname)
-			addFilterConfigToRoute(in, httpRoute, attrs, isXDSMarshalingToAnyEnabled)
+			addFilterConfigToRoute(in, httpRoute, attrs, isXDSMarshalingToAnyEnabled, nil)
 		}
 	// route.Route_Redirect is not used currently, so no attributes are added here
 	case *route.Route_Redirect:
@@ -552,7 +558,7 @@ func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInst
 	}
 
 	if configStore != nil {
-		quotaSpecs := configStore.QuotaSpecByDestination(instance)
+		quotaSpecs := configStore.QuotaSpecByDestination(instance.Service.Hostname)
 		model.SortQuotaSpec(quotaSpecs)
 		for _, quotaSpec := range quotaSpecs {
 			bytes, _ := gogoproto.Marshal(quotaSpec.Spec)
@@ -718,4 +724,18 @@ func attrsCopy(attrs attributes) attributes {
 		out[k] = v
 	}
 	return out
+}
+
+func getQuotaSpec(in *plugin.InputParams, hostname host.Name, isPolicyCheckDisabled bool) []*mccpb.QuotaSpec {
+	var quotaSpec []*mccpb.QuotaSpec
+	if in.Env == nil || in.Env.IstioConfigStore == nil || isPolicyCheckDisabled {
+		return quotaSpec
+	}
+	config := in.Env.IstioConfigStore
+	quotaSpecs := config.QuotaSpecByDestination(hostname)
+	model.SortQuotaSpec(quotaSpecs)
+	for _, config := range quotaSpecs {
+		quotaSpec = append(quotaSpec, config.Spec.(*mccpb.QuotaSpec))
+	}
+	return quotaSpec
 }
