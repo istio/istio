@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime"
+	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/source/kube"
 	"istio.io/istio/galley/pkg/source/kube/builtin"
@@ -34,7 +35,6 @@ import (
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/kubernetes/pkg/kubelet/apis"
 )
 
 const (
@@ -177,8 +177,8 @@ func loadNodesAndPods(b *testing.B, kubeClient kubernetes.Interface) {
 					Time: createTime,
 				},
 				Labels: map[string]string{
-					apis.LabelZoneRegion:        region,
-					apis.LabelZoneFailureDomain: zone,
+					pod.LabelZoneRegion:        region,
+					pod.LabelZoneFailureDomain: zone,
 				},
 			},
 			Spec: coreV1.NodeSpec{
@@ -201,8 +201,8 @@ func loadNodesAndPods(b *testing.B, kubeClient kubernetes.Interface) {
 					Time: createTime,
 				},
 				Labels: map[string]string{
-					apis.LabelZoneRegion:        region,
-					apis.LabelZoneFailureDomain: zone,
+					pod.LabelZoneRegion:        region,
+					pod.LabelZoneFailureDomain: zone,
 				},
 			},
 			Spec: coreV1.PodSpec{
