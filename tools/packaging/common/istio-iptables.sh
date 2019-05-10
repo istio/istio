@@ -223,9 +223,11 @@ fi
 # need to split them in different arrays one for ipv4 and one for ipv6
 # in order to not to fail
 pl='/*'
+IFS=',' read -ra EXCLUDE <<< "$OUTBOUND_IP_RANGES_EXCLUDE"
+IFS=',' read -ra INCLUDE <<< "$OUTBOUND_IP_RANGES_INCLUDE"
 ipv6_ranges_exclude=()
 ipv4_ranges_exclude=()
-for range in "${OUTBOUND_IP_RANGES_EXCLUDE[@]}"; do
+for range in "${EXCLUDE[@]}"; do
     r=${range%$pl}
     if isValidIP "$r"; then
         if isIPv4 "$r"; then
@@ -242,7 +244,7 @@ if [ "${OUTBOUND_IP_RANGES_INCLUDE}" == "*" ]; then
    ipv6_ranges_include=("*")
    ipv4_ranges_include=("*")
 else 
-    for range in "${OUTBOUND_IP_RANGES_INCLUDE[@]}"; do
+    for range in "${INCLUDE[@]}"; do
         r=${range%$pl}
         if isValidIP "$r"; then
             if isIPv4 "$r"; then
