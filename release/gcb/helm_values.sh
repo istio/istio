@@ -33,6 +33,11 @@ function fix_values_yaml() {
   # Update version string in yaml files.
   sed -i "s|hub: gcr.io/istio-release|hub: ${CB_DOCKER_HUB}|g" ./"istio-${CB_VERSION}"/install/kubernetes/helm/istio*/values.yaml
   sed -i "s|tag: .*-latest-daily|tag: ${CB_VERSION}|g"         ./"istio-${CB_VERSION}"/install/kubernetes/helm/istio*/values.yaml
+  current_tag=$(grep "appVersion" ./"istio-${CB_VERSION}"/install/kubernetes/helm/istio/Chart.yaml  | cut -d ' ' -f2)
+  if [ ${current_tag} != ${CB_VERSION} ]; then
+    find . -type f -exec sed -i "s/${current_tag}/${CB_VERSION}/g" {} \;
+  fi
+  sed -i "s|tag: .*-latest-daily|tag: ${CB_VERSION}|g"         ./"istio-${CB_VERSION}"/install/kubernetes/helm/istio*/values.yaml
 
   # replace prerelease with release location for istio.io repo
   if [ "${CB_PIPELINE_TYPE}" = "monthly" ]; then
