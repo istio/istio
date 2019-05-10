@@ -203,7 +203,7 @@ func initAllWorkloads(accessor *kube.Accessor, instances []echo.Instance) error 
 	var aggregateErr error
 	wg := sync.WaitGroup{}
 
-	for i, inst := range instances {
+	for i, inst := range needInit {
 		wg.Add(1)
 
 		instanceIndex := i
