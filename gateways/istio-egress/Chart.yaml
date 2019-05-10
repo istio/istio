@@ -5,7 +5,7 @@ tillerVersion: ">=2.7.2"
 description: Helm chart for deploying Istio gateways
 keywords:
   - istio
-  - ingressgateway
+  - egressgateway
   - gateways
 sources:
   - http://github.com/istio/istio

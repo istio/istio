@@ -9,14 +9,12 @@ metadata:
     {{ $key }}: {{ $val | quote }}
     {{- end }}
   labels:
-    app: egressgateway
-    chart: egressgateway
-    heritage: {{ .Release.Service }}
+    app: istio-egressgateway
     release: {{ .Release.Name }}
 spec:
   type: ClusterIP
   selector:
-    app: egressgateway
+    app: istio-egressgateway
   ports:
     {{- range $key, $val := $gateway.ports }}
     -

@@ -6,13 +6,11 @@ metadata:
   name: istio-multicluster-egressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: egressgateway
-    chart: egressgateway
-    heritage: {{ .Release.Service }}
+    app: istio-egressgateway
     release: {{ .Release.Name }}
 spec:
   selector:
-    istio: {{ .Release.Name }}
+    istio: egressgateway
   servers:
   - hosts:
     - "*.{{ $gateway.zvpn.suffix }}"
@@ -28,9 +26,7 @@ metadata:
   name: istio-multicluster-egressgateway
   namespace: {{ .Release.Namespace }} 
   labels:
-    app: egressgateway
-    chart: egressgateway
-    heritage: {{ .Release.Service }}
+    app: istio-egressgateway
     release: {{ .Release.Name }}
 spec:
   gateways:
@@ -55,13 +51,11 @@ metadata:
   name: istio-multicluster-egressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "gateway.name" . }}
-    chart: {{ template "gateway.chart" . }}
-    heritage: {{ .Release.Service }}
+    app: istio-egressgateway
     release: {{ .Release.Name }}
 spec:
    workloadLabels:
-     istio: {{ .Release.Namespace }}
+     istio: egressgateway
    filters:
    - listenerMatch:
        portNumber: 15443
@@ -77,9 +71,7 @@ metadata:
   name: istio-multicluster-destinationrule
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "gateway.name" . }}
-    chart: {{ template "gateway.chart" . }}
-    heritage: {{ .Release.Service }}
+    app: istio-egressgateway
     release: {{ .Release.Name }}
 spec:
   host: "*.{{ $gateway.zvpn.suffix }}"
