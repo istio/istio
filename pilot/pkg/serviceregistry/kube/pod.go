@@ -124,10 +124,7 @@ func (pc *PodCache) getPodKey(addr string) (string, bool) {
 
 // getPodByIp returns the pod or nil if pod not found or an error occurred
 func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
-	pc.RLock()
-	defer pc.RUnlock()
-
-	key, exists := pc.keys[addr]
+	key, exists := pc.getPodKey(addr)
 	if !exists {
 		return nil
 	}
