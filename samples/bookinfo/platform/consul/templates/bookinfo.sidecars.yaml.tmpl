@@ -25,6 +25,12 @@ services:
       - "15001"
       - -u
       - "1337"
+      - -m
+      - REDIRECT
+      - -i
+      - "*"
+      - -b
+      - "9080"
   details-v1-sidecar:
     image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
     network_mode: "container:consul_details-v1_1"
@@ -43,6 +49,12 @@ services:
       - "15001"
       - -u
       - "1337"
+      - -m
+      - REDIRECT
+      - -i
+      - "*"
+      - -b
+      - "9080"
   ratings-v1-sidecar:
     image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
     network_mode: "container:consul_ratings-v1_1"
@@ -61,6 +73,12 @@ services:
       - "15001"
       - -u
       - "1337"
+      - -m
+      - REDIRECT
+      - -i
+      - "*"
+      - -b
+      - "9080"
   productpage-v1-sidecar:
     image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
     network_mode: "container:consul_productpage-v1_1"
@@ -79,6 +97,12 @@ services:
       - "15001"
       - -u
       - "1337"
+      - -m
+      - REDIRECT
+      - -i
+      - "*"
+      - -b
+      - "9080"
   reviews-v1-sidecar:
     image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
     network_mode: "container:consul_reviews-v1_1"
@@ -97,6 +121,12 @@ services:
       - "15001"
       - -u
       - "1337"
+      - -m
+      - REDIRECT
+      - -i
+      - "*"
+      - -b
+      - "9080"
   reviews-v2-sidecar:
     image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
     network_mode: "container:consul_reviews-v2_1"
@@ -115,6 +145,12 @@ services:
       - "15001"
       - -u
       - "1337"
+      - -m
+      - REDIRECT
+      - -i
+      - "*"
+      - -b
+      - "9080"
   reviews-v3-sidecar:
     image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
     network_mode: "container:consul_reviews-v3_1"
