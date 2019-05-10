@@ -33,31 +33,6 @@ import (
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
-func createTestCases(from, to echo.Instance, ports []echo.Port, expectSuccess bool) []connection.Checker {
-	subTests := []connection.Checker{}
-
-	for _, port := range ports {
-		var s scheme.Instance
-		if port.Name == "tcp" {
-			s = scheme.HTTP
-		} else {
-			s = scheme.Instance(port.Name)
-		}
-
-		subTests = append(subTests, connection.Checker{
-			From: from,
-			Options: echo.CallOptions{
-				Target:   to,
-				PortName: port.Name,
-				Scheme:   s,
-			},
-			ExpectSuccess: expectSuccess,
-		})
-	}
-
-	return subTests
-}
-
 // This test verifies reachability under different authN scenario:
 // - app A to app B using mTLS.
 // - app A to app B using mTLS-permissive.
@@ -65,7 +40,7 @@ func createTestCases(from, to echo.Instance, ports []echo.Port, expectSuccess bo
 // In each test, the steps are:
 // - Configure authn policy.
 // - Wait for config propagation.
-// - Send HTTP requests between apps.
+// - Send HTTP/gRPC requests between apps.
 func TestReachability(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
