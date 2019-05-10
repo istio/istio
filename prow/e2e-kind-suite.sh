@@ -60,8 +60,17 @@ done
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 setup_kind_cluster
+setup_and_export_git_sha
 
-export HUB=${HUB:-"gcr.io/istio-testing"}
+echo 'Build'
+(cd "${ROOT}"; make build)
+
+if [[ -n $(git diff) ]]; then
+  echo "Uncommitted changes found:"
+  git diff
+fi
+
+export HUB=${HUB:-"kindtest"}
 export TAG="${TAG:-${GIT_SHA}}"
 
 make init
