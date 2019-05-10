@@ -40,7 +40,7 @@ import (
 // In each test, the steps are:
 // - Configure authn policy.
 // - Wait for config propagation.
-// - Send HTTP requests between apps.
+// - Send HTTP/gRPC requests between apps.
 func TestReachability(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
@@ -57,6 +57,10 @@ func TestReachability(t *testing.T) {
 				{
 					Name:     "tcp",
 					Protocol: model.ProtocolTCP,
+				},
+				{
+					Name:     "grpc",
+					Protocol: model.ProtocolGRPC,
 				},
 			}
 
@@ -119,9 +123,36 @@ func TestReachability(t *testing.T) {
 						{
 							From: a,
 							Options: echo.CallOptions{
+								Target:   b,
+								PortName: "grpc",
+								Scheme:   scheme.GRPC,
+							},
+							ExpectSuccess: true,
+						},
+						{
+							From: a,
+							Options: echo.CallOptions{
+								Target:   b,
+								PortName: "tcp",
+								Scheme:   scheme.HTTP,
+							},
+							ExpectSuccess: true,
+						},
+						{
+							From: a,
+							Options: echo.CallOptions{
 								Target:   headless,
 								PortName: "http",
 								Scheme:   scheme.HTTP,
+							},
+							ExpectSuccess: true,
+						},
+						{
+							From: a,
+							Options: echo.CallOptions{
+								Target:   headless,
+								PortName: "grpc",
+								Scheme:   scheme.GRPC,
 							},
 							ExpectSuccess: true,
 						},
@@ -130,6 +161,24 @@ func TestReachability(t *testing.T) {
 							Options: echo.CallOptions{
 								Target:   b,
 								PortName: "http",
+								Scheme:   scheme.HTTP,
+							},
+							ExpectSuccess: false,
+						},
+						{
+							From: naked,
+							Options: echo.CallOptions{
+								Target:   b,
+								PortName: "grpc",
+								Scheme:   scheme.GRPC,
+							},
+							ExpectSuccess: false,
+						},
+						{
+							From: naked,
+							Options: echo.CallOptions{
+								Target:   b,
+								PortName: "tcp",
 								Scheme:   scheme.HTTP,
 							},
 							ExpectSuccess: false,
@@ -154,6 +203,24 @@ func TestReachability(t *testing.T) {
 							Options: echo.CallOptions{
 								Target:   b,
 								PortName: "http",
+								Scheme:   scheme.HTTP,
+							},
+							ExpectSuccess: true,
+						},
+						{
+							From: naked,
+							Options: echo.CallOptions{
+								Target:   b,
+								PortName: "grpc",
+								Scheme:   scheme.GRPC,
+							},
+							ExpectSuccess: true,
+						},
+						{
+							From: naked,
+							Options: echo.CallOptions{
+								Target:   b,
+								PortName: "tcp",
 								Scheme:   scheme.HTTP,
 							},
 							ExpectSuccess: true,
