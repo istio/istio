@@ -223,6 +223,10 @@ fi
 # need to split them in different arrays one for ipv4 and one for ipv6
 # in order to not to fail
 pl='/*'
+#
+# Next two lines, read comma separated inclusion and exclusion lists into
+# arrays, so each element could be validated individually.
+#
 IFS=',' read -ra EXCLUDE <<< "$OUTBOUND_IP_RANGES_EXCLUDE"
 IFS=',' read -ra INCLUDE <<< "$OUTBOUND_IP_RANGES_INCLUDE"
 ipv6_ranges_exclude=()
