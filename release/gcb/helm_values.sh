@@ -37,7 +37,6 @@ function fix_values_yaml() {
   if [ ${current_tag} != ${CB_VERSION} ]; then
     find . -type f -exec sed -i "s/${current_tag}/${CB_VERSION}/g" {} \;
   fi
-  sed -i "s|tag: .*-latest-daily|tag: ${CB_VERSION}|g"         ./"istio-${CB_VERSION}"/install/kubernetes/helm/istio*/values.yaml
 
   # replace prerelease with release location for istio.io repo
   if [ "${CB_PIPELINE_TYPE}" = "monthly" ]; then
