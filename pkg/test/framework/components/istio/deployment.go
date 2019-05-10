@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/helm"
+	"istio.io/istio/pkg/test/util/file"
 )
 
 const (
@@ -115,7 +116,7 @@ func generateCRDYaml(crdFilesDir string) (string, error) {
 	// Get Joined Crds Yaml file
 	prevContent := ""
 	for _, yamlFileName := range crdFiles {
-		content, err := test.ReadConfigFile(path.Join(crdFilesDir, yamlFileName))
+		content, err := file.AsString(path.Join(crdFilesDir, yamlFileName))
 		if err != nil {
 			return "", err
 		}

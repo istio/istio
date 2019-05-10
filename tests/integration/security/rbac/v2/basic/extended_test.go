@@ -221,14 +221,14 @@ func TestRBACV2Extended(t *testing.T) {
 				"RootNamespace": rootNamespace,
 			}
 			policies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
-				file.AsString(t, rbacClusterConfigTmpl),
-				file.AsString(t, extendedRbacV2RulesTmpl))
+				file.AsStringOrFail(t, rbacClusterConfigTmpl),
+				file.AsStringOrFail(t, extendedRbacV2RulesTmpl))
 
 			// Pass in nil for namespace to apply the policies for all namespaces.
 			g.ApplyConfigOrFail(t, nil, policies...)
 			rootNs := namespace.ClaimOrFail(t, ctx, rootNamespace)
-			defer g.DeleteConfig(ns, policies...)
-			defer g.DeleteConfig(rootNs, policies...)
+			defer func() { _ = g.DeleteConfig(ns, policies...) }()
+			defer func() { _ = g.DeleteConfig(rootNs, policies...) }()
 
 			// Sleep 60 seconds for the policy to take effect.
 			// TODO(pitlv2109): Check to make sure policies have been created instead.
