@@ -1,20 +1,18 @@
 {{ $gateway := index .Values "gateways" "istio-egressgateway" }}
-{{- if $gateway.autoscaleMin }}
+{{- if and $gateway.autoscaleEnabled $gateway.autoscaleMin $gateway.autoscaleMax }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
   name: egressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: egressgateway
-    chart: egressgateway
-    heritage: {{ .Release.Service }}
+    app: istio-egressgateway
     release: {{ .Release.Name }}
 spec:
   maxReplicas: {{ $gateway.autoscaleMax }}
   minReplicas: {{ $gateway.autoscaleMin }}
   scaleTargetRef:
-    apiVersion: apps/v1beta1
+    apiVersion: apps/v1
     kind: Deployment
     name: egressgateway
   metrics:

@@ -25,38 +25,53 @@ gateways:
 
 
     # Scalability tunning
-    replicaCount: 1
+    # replicaCount: 1
+    autoscaleEnabled: true
     autoscaleMin: 1
     autoscaleMax: 5
-    resources: {}
-      # limits:
-      #  cpu: 100m
-      #  memory: 128Mi
-      #requests:
-      #  cpu: 1800m
-      #  memory: 256Mi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 2000m
+        memory: 256Mi
     cpu:
       targetAverageUtilization: 80
-
-    # Debug level for envoy. Can be set to 'debug'
-    debug: info
 
     drainDuration: 45s
     connectTimeout: 10s
 
     serviceAnnotations: {}
     podAnnotations: {}
-    type: ClusterIP
+    type: ClusterIP # change to NodePort or LoadBalancer if need be
+
+    secretVolumes:
+    - name: egressgateway-certs
+      secretName: istio-egressgateway-certs
+      mountPath: /etc/istio/egressgateway-certs
+    - name: egressgateway-ca-certs
+      secretName: istio-egressgateway-ca-certs
+      mountPath: /etc/istio/egressgateway-ca-certs
+
 
     ### Advanced options ############
     # TODO: convert to real options, env should not be exposed
     env:
-      # A gateway with this mode ensures that pilot generates an additional
-      # set of clusters for internal services but without Istio mTLS, to
-      # enable cross cluster routing.
-      ISTIO_META_ROUTER_MODE: "sni-dnat"
-      # Needed to route traffic via egress gateway if desired.
-      #ISTIO_META_REQUESTED_NETWORK_VIEW: "external"
+    # Set this to "external" if and only if you want the egress gateway to
+    # act as a transparent SNI gateway that routes mTLS/TLS traffic to
+    # external services defined using service entries, where the service
+    # entry has resolution set to DNS, has one or more endpoints with
+    # network field set to "external". By default its set to "" so that
+    # the egress gateway sees the same set of endpoints as the sidecars
+    # preserving backward compatibility
+    # ISTIO_META_REQUESTED_NETWORK_VIEW: ""
+    # A gateway with this mode ensures that pilot generates an additional
+    # set of clusters for internal services but without Istio mTLS, to
+    # enable cross cluster routing.
+    ISTIO_META_ROUTER_MODE: "sni-dnat"
+
+    nodeSelector: {}
 
     # Specify the pod anti-affinity that allows you to constrain which nodes
     # your pod is eligible to be scheduled based on labels on pods that are

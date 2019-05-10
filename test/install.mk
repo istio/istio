@@ -113,8 +113,8 @@ install-ingress:
 	kubectl wait deployments ingressgateway -n ${ISTIO_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
 
 install-egress:
-	bin/iop istio-egress istio-egress ${BASE}/gateways/istio-egress  ${IOP_OPTS}
-	kubectl wait deployments egressgateway -n istio-egress --for=condition=available --timeout=${WAIT_TIMEOUT}
+	bin/iop ${ISTIO_NS} istio-egress ${BASE}/gateways/istio-egress  ${IOP_OPTS}
+	kubectl wait deployments egressgateway -n ${ISTIO_NS}  --for=condition=available --timeout=${WAIT_TIMEOUT}
 
 # Telemetry will be installed in istio-control for the tests, until integration tests are changed
 # to expect telemetry in separate namespace
