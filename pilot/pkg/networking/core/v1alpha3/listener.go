@@ -1418,10 +1418,13 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 	// Allow websocket upgrades
 	websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
 	connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
+
+	idleTimeout, err := time.ParseDuration(node.Metadata[model.NodeMetadataIdleTimeout])
+	if idleTimeout > 0 && err == nil {
+		connectionManager.IdleTimeout = &idleTimeout
+	}
+
 	notimeout := 0 * time.Second
-	// Setting IdleTimeout to 0 seems to break most tests, causing
-	// envoy to disconnect.
-	// connectionManager.IdleTimeout = &notimeout
 	connectionManager.StreamIdleTimeout = &notimeout
 
 	if httpOpts.rds != "" {

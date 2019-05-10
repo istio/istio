@@ -25,8 +25,8 @@ nodeSelector: {}
 # This pod anti-affinity rule says that the pod requires not to be scheduled
 # onto a node if that node is already running a pod with label having key
 # “security” and value “S1”.
-podAntiAffinityLabelSelector: {}
-podAntiAffinityTermLabelSelector: {}
+podAntiAffinityLabelSelector: []
+podAntiAffinityTermLabelSelector: []
 
 # If true, webhook or istioctl injector will rewrite PodSpec for liveness
 # health check to redirect request to sidecar. This makes liveness check work

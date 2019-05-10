@@ -120,12 +120,19 @@ var (
 
 	enableFallthroughRouteVar = env.RegisterBoolVar(
 		"PILOT_ENABLE_FALLTHROUGH_ROUTE",
-		false,
+		true,
 		"EnableFallthroughRoute provides an option to add a final wildcard match for routes. "+
 			"When ALLOW_ANY traffic policy is used, a Passthrough cluster is used. "+
 			"When REGISTRY_ONLY traffic policy is used, a 502 error is returned.",
 	)
 	EnableFallthroughRoute = enableFallthroughRouteVar.Get
+
+	DisablePartialRouteResponse = env.RegisterBoolVar(
+		"PILOT_DISABLE_PARTIAL_ROUTE_RESPONSE",
+		false,
+		"DisablePartialRouteResponse provides an option to disable a partial route response."+
+			"This will cause Pilot to send an error if any routes are invalid. The default behavior "+
+			"(without this flag) is to just skip the invalid route.").Get()
 
 	// DisableXDSMarshalingToAny provides an option to disable the "xDS marshaling to Any" feature ("on" by default).
 	disableXDSMarshalingToAnyVar = env.RegisterStringVar("PILOT_DISABLE_XDS_MARSHALING_TO_ANY", "", "")

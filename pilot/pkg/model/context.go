@@ -591,6 +591,10 @@ const (
 	// NodeMetadataTLSClientRootCert is the absolute path to client root cert file
 	NodeMetadataTLSClientRootCert = "TLS_CLIENT_ROOT_CERT"
 
+	// NodeMetadataIdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
+	// If not set, no timeout is set.
+	NodeMetadataIdleTimeout = "IDLE_TIMEOUT"
+
 	// NodeMetadataPolicyCheck determines the policy for behavior when unable to connect to mixer
 	// If not set, FAIL_CLOSE is set, rejecting requests.
 	NodeMetadataPolicyCheck = "policy.istio.io/check"
