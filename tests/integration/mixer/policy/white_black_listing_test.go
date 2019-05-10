@@ -20,44 +20,56 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/components/ingress"
-	"istio.io/istio/pkg/test/framework/components/mixer"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	util "istio.io/istio/tests/integration/mixer"
 )
 
 func TestWhiteListing(t *testing.T) {
 	framework.Run(t, func(ctx framework.TestContext) {
-		ctx.RequireOrSkip(environment.Kube)
-
-		bookinfoNs, err := namespace.New(ctx, "istio-bookinfo", true)
-		if err != nil {
-			t.Fatalf("Could not create istio-bookinfo Namespace; err:%v", err)
+		t.Skipf("https://github.com/istio/istio/issues/13845")
+		if galInst == nil {
+			t.Fatalf("galley not setup")
 		}
-		d := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
-		g := galley.NewOrFail(t, ctx, galley.Config{})
-		_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
-
+		g := *galInst
+		if bookinfoNamespace == nil {
+			t.Fatalf("bookinfo namespace not allocated in setup")
+		}
+		bookinfoNs := *bookinfoNamespace
 		g.ApplyConfigOrFail(
 			t,
-			d.Namespace(),
+			bookinfoNs,
 			bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
 		g.ApplyConfigOrFail(
 			t,
-			d.Namespace(),
+			bookinfoNs,
+			bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+			bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+		)
+		defer g.DeleteConfigOrFail(
+			t,
+			bookinfoNs,
+			bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()),
+		)
+		defer g.DeleteConfigOrFail(
+			t,
+			bookinfoNs,
 			bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 			bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		)
 
-		ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
+		if ingInst == nil {
+			t.Fatalf("ingress not setup")
+		}
+		ing := *ingInst
 		// Verify you can access productpage right now.
 		util.SendTrafficAndWaitForExpectedStatus(ing, t, "Sending traffic...", "", 2, http.StatusOK)
 
 		g.ApplyConfigOrFail(
 			t,
-			d.Namespace(),
+			bookinfoNs,
+			bookinfo.PolicyDenyIPRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
+		defer g.DeleteConfigOrFail(
+			t,
+			bookinfoNs,
 			bookinfo.PolicyDenyIPRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
 		// Verify you can't access productpage now.
 		util.SendTrafficAndWaitForExpectedStatus(ing, t, "Sending traffic...", "", 30, http.StatusForbidden)
