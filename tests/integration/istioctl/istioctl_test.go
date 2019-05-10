@@ -37,9 +37,11 @@ var (
 	env *kube.Environment
 )
 
+// This test requires `--istio.test.env=kube` because it tests istioctl doing PodExec
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("istioctl_integration_test", m).
+		RequireEnvironment(environment.Kube).
 		Label(label.Presubmit).
 
 		// Deploy Istio
@@ -71,17 +73,21 @@ func TestVersion(t *testing.T) {
 				t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(args, " "), fErr)
 			}
 
-			expectedRegexp := regexp.MustCompile(`client version: [a-z0-9\-]*
-citadel version: [a-z0-9\-]*
-galley version: [a-z0-9\-]*
-ingressgateway version: [a-z0-9\-]*
-pilot version: [a-z0-9\-]*
-policy version: [a-z0-9\-]*
-sidecar-injector version: [a-z0-9\-]*
-telemetry version: [a-z0-9\-]*`)
-			if expectedRegexp != nil && !expectedRegexp.MatchString(output) {
-				t.Fatalf("Output didn't match for 'istioctl %s'\n got %v\nwant: %v",
-					strings.Join(args, " "), output, expectedRegexp)
+			expectedRegexps := []*regexp.Regexp{
+				regexp.MustCompile(`citadel version: [a-z0-9\-]*`),
+				regexp.MustCompile(`client version: [a-z0-9\-]*`),
+				regexp.MustCompile(`egressgateway version: [a-z0-9\-]*`),
+				regexp.MustCompile(`ingressgateway version: [a-z0-9\-]*`),
+				regexp.MustCompile(`pilot version: [a-z0-9\-]*`),
+				regexp.MustCompile(`policy version: [a-z0-9\-]*`),
+				regexp.MustCompile(`sidecar-injector version: [a-z0-9\-]*`),
+				regexp.MustCompile(`telemetry version: [a-z0-9\-]*`),
+			}
+			for _, regexp := range expectedRegexps {
+				if !regexp.MatchString(output) {
+					t.Fatalf("Output didn't match for 'istioctl %s'\n got %v\nwant: %v",
+						strings.Join(args, " "), output, regexp)
+				}
 			}
 		})
 }
