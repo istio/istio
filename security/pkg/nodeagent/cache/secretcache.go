@@ -59,6 +59,10 @@ const (
 
 	// initialBackOffIntervalInMilliSec is the initial backoff time interval when hitting non-retryable error in CSR request.
 	initialBackOffIntervalInMilliSec = 50
+
+	// Timeout the K8s update/delete notification threads. This is to make sure to unblock the
+	// secret watch main thread in case those child threads got stuck due to any reason.
+	notifyK8sSecretTimeout = 30 * time.Second
 )
 
 type k8sJwtPayload struct {
@@ -272,13 +276,26 @@ func (sc *SecretCache) DeleteSecret(connectionID, resourceName string) {
 	sc.secrets.Delete(key)
 }
 
+func waitTimeout(wg *sync.WaitGroup, timeoutMessage string) {
+	c := make(chan struct{})
+	go func() {
+			defer close(c)
+			wg.Wait()
+	}()
+	select {
+	case <-c:
+		return // completed normally
+	case <-time.After(notifyK8sSecretTimeout):
+		log.Warnf(timeoutMessage)
+	}
+}
+
 // DeleteK8sSecret deletes all entries that match secretName. This is called when a K8s secret
 // for ingress gateway is deleted.
 func (sc *SecretCache) DeleteK8sSecret(secretName string) {
 	wg := sync.WaitGroup{}
 	sc.secrets.Range(func(k interface{}, v interface{}) bool {
 		key := k.(ConnKey)
-
 		if key.ResourceName == secretName {
 			connectionID := key.ConnectionID
 			sc.secrets.Delete(key)
@@ -299,7 +316,7 @@ func (sc *SecretCache) DeleteK8sSecret(secretName string) {
 		}
 		return true
 	})
-	wg.Wait()
+	waitTimeout(&wg, "DeleteK8sSecret timeout")
 }
 
 // UpdateK8sSecret updates all entries that match secretName. This is called when a K8s secret
@@ -350,8 +367,7 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 		}
 		return true
 	})
-
-	wg.Wait()
+	waitTimeout(&wg, "UpdateK8sSecret timeout")
 
 	secretMap.Range(func(k interface{}, v interface{}) bool {
 		key := k.(ConnKey)
@@ -478,7 +494,7 @@ func (sc *SecretCache) rotate() {
 		return true
 	})
 
-	wg.Wait()
+	waitTimeout(&wg, "Rotate secret timeout")
 
 	secretMap.Range(func(k interface{}, v interface{}) bool {
 		key := k.(ConnKey)
