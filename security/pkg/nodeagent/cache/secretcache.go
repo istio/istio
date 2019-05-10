@@ -279,8 +279,8 @@ func (sc *SecretCache) DeleteSecret(connectionID, resourceName string) {
 func waitTimeout(wg *sync.WaitGroup, timeoutMessage string) {
 	c := make(chan struct{})
 	go func() {
-			defer close(c)
-			wg.Wait()
+		defer close(c)
+		wg.Wait()
 	}()
 	select {
 	case <-c:
