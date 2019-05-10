@@ -250,7 +250,8 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 	}
 
 	// Expect two vhost blocks in RDS output for 8080 (one for http1, another for http2)
-	if len(adsResponse.Routes["8080"].VirtualHosts) != 2 {
+	// plus one extra due to mem registry
+	if len(adsResponse.Routes["8080"].VirtualHosts) != 3 {
 		t.Fatalf("Expected two VirtualHosts in RDS output. Got %d", len(adsResponse.Routes["8080"].VirtualHosts))
 	}
 }
