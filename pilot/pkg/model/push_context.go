@@ -1809,8 +1809,8 @@ func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
 	return nil
 }
 
-func (ps *PushContext) QuotaSpecByDestination(instance *ServiceInstance) []Config {
-	return filterQuotaSpecsByDestination(instance, ps.QuotaSpecBinding, ps.QuotaSpec)
+func (ps *PushContext) QuotaSpecByDestination(hostname host.Name) []Config {
+	return filterQuotaSpecsByDestination(hostname, ps.QuotaSpecBinding, ps.QuotaSpec)
 }
 
 // BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication

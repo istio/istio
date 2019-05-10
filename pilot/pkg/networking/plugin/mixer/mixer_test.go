@@ -21,6 +21,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/golang/protobuf/ptypes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -29,7 +30,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 func TestTransportConfig(t *testing.T) {
@@ -336,4 +339,147 @@ func testAddress() *core.Address {
 	return &core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
 		Address:       "127.0.0.1",
 		PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(9090)}}}}
+}
+
+type fakeStore struct {
+	model.ConfigStore
+	cfg map[string][]model.Config
+	err error
+}
+
+func (l *fakeStore) List(typ, namespace string) ([]model.Config, error) {
+	ret := l.cfg[typ]
+	return ret, l.err
+}
+
+func TestModifyOutboundRouteConfig(t *testing.T) {
+	ns := "ns3"
+	l := &fakeStore{
+		cfg: map[string][]model.Config{
+			schemas.QuotaSpecBinding.Type: {
+				{
+					ConfigMeta: model.ConfigMeta{
+						Namespace: ns,
+						Domain:    "cluster.local",
+					},
+					Spec: &mccpb.QuotaSpecBinding{
+						Services: []*mccpb.IstioService{
+							{
+								Name:      "svc",
+								Namespace: ns,
+							},
+						},
+						QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{
+							{
+								Name: "request-count",
+							},
+						},
+					},
+				},
+			},
+			schemas.QuotaSpec.Type: {
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "request-count",
+						Namespace: ns,
+					},
+					Spec: &mccpb.QuotaSpec{
+						Rules: []*mccpb.QuotaRule{
+							{
+								Quotas: []*mccpb.Quota{
+									{
+										Quota:  "requestcount",
+										Charge: 100,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	ii := model.MakeIstioStore(l)
+	mesh := mesh.DefaultMeshConfig()
+	svc := model.Service{
+		Hostname: "svc.ns3",
+		Attributes: model.ServiceAttributes{
+			Name:      "svc",
+			Namespace: ns,
+			UID:       "istio://ns3/services/svc",
+		},
+	}
+	cases := []struct {
+		serviceByHostnameAndNamespace map[host.Name]map[string]*model.Service
+		env                           *model.Environment
+		node                          *model.Proxy
+		httpRoute                     route.Route
+		quotaSpec                     []*mccpb.QuotaSpec
+	}{
+		{
+			env: &model.Environment{
+				IstioConfigStore: ii,
+				Mesh:             &mesh,
+			},
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{
+					PolicyCheck: "enable",
+				},
+			},
+			httpRoute: route.Route{
+				Match: &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
+				Action: &route.Route_Route{Route: &route.RouteAction{
+					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "outbound|||svc.ns3.svc.cluster.local"},
+				}}},
+			serviceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
+				host.Name("svc.ns3"): {
+					"ns3": &svc,
+				},
+			},
+			quotaSpec: []*mccpb.QuotaSpec{{
+				Rules: []*mccpb.QuotaRule{{Quotas: []*mccpb.Quota{{Quota: "requestcount", Charge: 100}}}},
+			}},
+		},
+		{
+			env: &model.Environment{
+				IstioConfigStore: ii,
+				Mesh:             &mesh,
+			},
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{
+					PolicyCheck: "enable",
+				},
+			},
+			httpRoute: route.Route{
+				Match: &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
+				Action: &route.Route_Route{Route: &route.RouteAction{
+					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "outbound|||a.ns3.svc.cluster.local"},
+				}}},
+			serviceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
+				host.Name("a.ns3"): {
+					"ns3": &svc,
+				},
+			},
+		},
+	}
+	for _, c := range cases {
+		push := &model.PushContext{
+			ServiceByHostnameAndNamespace: c.serviceByHostnameAndNamespace,
+		}
+		in := plugin.InputParams{
+			Env:  c.env,
+			Node: c.node,
+		}
+		tc := modifyOutboundRouteConfig(push, &in, "", &c.httpRoute)
+
+		mixerSvcConfigAny := tc.TypedPerFilterConfig["mixer"]
+		mixerSvcConfig := &mccpb.ServiceConfig{}
+		err := ptypes.UnmarshalAny(mixerSvcConfigAny, mixerSvcConfig)
+		if err != nil {
+			t.Errorf("got err %v", err)
+		}
+		if !reflect.DeepEqual(mixerSvcConfig.QuotaSpec, c.quotaSpec) {
+			t.Errorf("got %v, expected %v", mixerSvcConfig.QuotaSpec, c.quotaSpec)
+		}
+	}
 }

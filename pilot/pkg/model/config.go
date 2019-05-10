@@ -27,8 +27,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
+	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -236,7 +236,7 @@ type IstioConfigStore interface {
 
 	// QuotaSpecByDestination selects Mixerclient quota specifications
 	// associated with destination service instances.
-	QuotaSpecByDestination(instance *ServiceInstance) []Config
+	QuotaSpecByDestination(hostname host.Name) []Config
 
 	// ServiceRoles selects ServiceRoles in the specified namespace.
 	ServiceRoles(namespace string) []Config
@@ -509,13 +509,13 @@ func key(name, namespace string) string {
 }
 
 // findQuotaSpecRefs returns a set of quotaSpec reference names
-func findQuotaSpecRefs(instance *ServiceInstance, bindings []Config) map[string]bool {
+func findQuotaSpecRefs(hostname host.Name, bindings []Config) map[string]bool {
 	// Build the set of quota spec references bound to the service instance.
 	refs := make(map[string]bool)
 	for _, binding := range bindings {
 		b := binding.Spec.(*mccpb.QuotaSpecBinding)
 		for _, service := range b.Services {
-			if MatchesDestHost(string(instance.Service.Hostname), binding.ConfigMeta, service) {
+			if MatchesDestHost(string(hostname), binding.ConfigMeta, service) {
 				recordSpecRef(refs, binding.Namespace, b.QuotaSpecs)
 				// found a binding that matches the instance.
 				break
@@ -526,11 +526,12 @@ func findQuotaSpecRefs(instance *ServiceInstance, bindings []Config) map[string]
 	return refs
 }
 
+
 // filterQuotaSpecsByDestination provides QuotaSpecByDestination filtering logic as a
 // function that can be called on cached binding + spec sets
-func filterQuotaSpecsByDestination(instance *ServiceInstance, bindings []Config, specs []Config) []Config {
+func filterQuotaSpecsByDestination(hostname host.Name, bindings []Config, specs []Config) []Config {
 	// Build the set of quota spec references bound to the service instance.
-	refs := findQuotaSpecRefs(instance, bindings)
+	refs := findQuotaSpecRefs(hostname, bindings)
 	log.Debugf("QuotaSpecByDestination refs:%v", refs)
 
 	// Append any spec that is in the set of references.
@@ -552,8 +553,8 @@ func filterQuotaSpecsByDestination(instance *ServiceInstance, bindings []Config,
 
 // QuotaSpecByDestination selects Mixerclient quota specifications
 // associated with destination service instances.
-func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance) []Config {
-	log.Debugf("QuotaSpecByDestination(%v)", instance)
+func (store *istioConfigStore) QuotaSpecByDestination(hostname host.Name) []Config {
+	log.Debugf("QuotaSpecByDestination(%v)", hostname)
 	bindings, err := store.List(collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		log.Warnf("Unable to fetch QuotaSpecBindings: %v", err)
@@ -569,7 +570,7 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 
 	log.Debugf("QuotaSpecByDestination specs[%d] %v", len(specs), specs)
 
-	return filterQuotaSpecsByDestination(instance, bindings, specs)
+	return filterQuotaSpecsByDestination(hostname, bindings, specs)
 }
 
 func (store *istioConfigStore) ServiceRoles(namespace string) []Config {

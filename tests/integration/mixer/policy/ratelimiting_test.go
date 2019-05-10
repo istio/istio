@@ -19,14 +19,18 @@ import (
 	"io/ioutil"
 	"math"
 	"net/http"
+	"os"
 	"path"
 	"strings"
 	"testing"
+
+	"fortio.org/fortio/periodic"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
 	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -36,6 +40,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/redis"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/shell"
 	util "istio.io/istio/tests/integration/mixer"
 )
 
@@ -110,6 +115,57 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 					want429s)
 			}
 		})
+}
+
+func TestRateLimiting_ExternalTraffic(t *testing.T) {
+	framework.Run(t, func(ctx framework.TestContext) {
+		destinationService := "istio-egressgateway"
+
+		bookInfoNameSpaceStr := bookinfoNs.Name()
+		config := setupConfigOrFail(t, bookinfo.CNNRedisRateLimit, bookInfoNameSpaceStr,
+			red, g, ctx)
+		g.ApplyConfigOrFail(t,
+			bookinfoNs,
+			strings.Replace(egressConfig, "<bookinfo_namespace>", bookInfoNameSpaceStr, -1))
+		defer func() {
+			deleteConfigOrFail(t, config, g, ctx)
+			g.DeleteConfigOrFail(t,
+				bookinfoNs,
+				strings.Replace(egressConfig, "<bookinfo_namespace>", bookInfoNameSpaceStr, -1))
+			util.AllowRuleSync(t)
+		}()
+		util.AllowRuleSync(t)
+
+		res, err := RunCurlTest(300, "http://edition.cnn.com/politics", bookInfoNameSpaceStr, ctx)
+		if err != nil {
+			t.Fatalf("error curling %v", err)
+		}
+
+		want200s := 50.0
+		// Need 50 200s, allowing for some randomness in routing
+		want200s = math.Floor(want200s * 0.70)
+		ns := namespace.ClaimSystemNamespaceOrFail(t, ctx)
+		if res.got200 < want200s {
+			attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
+				util.Fqdn(destinationService, ns.Name())),
+				fmt.Sprintf("%s=\"%d\"", util.GetResponseCodeLabel(), 200),
+				fmt.Sprintf("%s=\"%s\"", util.GetReporterCodeLabel(), "source")}
+			t.Logf("prometheus values for istio_requests_total for 200's:\n%s",
+				util.PromDumpWithAttributes(prom, "istio_requests_total", attributes))
+			t.Errorf("Bad metric value for successful requests (200s): got %f, want at least %f", res.got200, want200s)
+		}
+
+		// Make sure we got 429s.
+		if res.got429 <= 0 {
+			attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
+				util.Fqdn(destinationService, ns.Name())),
+				fmt.Sprintf("%s=\"%d\"", util.GetResponseCodeLabel(), 429),
+				fmt.Sprintf("%s=\"%s\"", util.GetReporterCodeLabel(), "source")}
+			t.Logf("prometheus values for istio_requests_total for 429's:\n%s",
+				util.PromDumpWithAttributes(prom, "istio_requests_total", attributes))
+			t.Errorf("Bad metric value for rate-limited requests (429s): got 0")
+		}
+	})
 }
 
 func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService string) {
@@ -240,13 +296,13 @@ func setupConfigOrFail(t *testing.T, config bookinfo.ConfigFile, bookInfoNameSpa
 	con = strings.Replace(con, "namespace: default",
 		"namespace: "+bookInfoNameSpaceStr, -1)
 
-	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
+	ns := namespace.ClaimSystemNamespaceOrFail(t, ctx)
 	g.ApplyConfigOrFail(t, ns, con)
 	return con
 }
 
 func deleteConfigOrFail(t *testing.T, config string, g galley.Instance, ctx resource.Context) {
-	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
+	ns := namespace.ClaimSystemNamespaceOrFail(t, ctx)
 	g.DeleteConfigOrFail(t, ns, config)
 }
 
@@ -273,6 +329,7 @@ components:
     enabled: true
   telemetry:
     enabled: true`
+		  cfg.Values["pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE"] = "true"
 		})).
 		Setup(testsetup).
 		Run()
@@ -335,3 +392,156 @@ func testsetup(ctx resource.Context) (err error) {
 
 	return nil
 }
+
+type RunnerResults struct {
+	periodic.RunnerResults
+	got429           float64
+	got200           float64
+	ratingsPod       string
+	ratingsContainer string
+	ns               string
+	kubeConfig       string
+	URL              string
+	content          string
+}
+
+func (state *RunnerResults) Run(t int) {
+	configArg := ""
+	if state.kubeConfig != "" {
+		configArg = fmt.Sprintf("--kubeconfig=%s", state.kubeConfig)
+	}
+	var err error
+	state.content, err = shell.Execute(false, "kubectl exec -it %s -n %s -c %s %s -- %s %s",
+		state.ratingsPod, state.ns, state.ratingsContainer, configArg, "curl -sL -o /dev/null -D - ", state.URL)
+	if err != nil {
+		return
+	}
+	if strings.Contains(state.content, "HTTP/2 200") {
+		state.got200++
+	}
+	if strings.Contains(state.content, "HTTP/1.1 429") {
+		state.got429++
+	}
+}
+
+func RunCurlTest(calls int64, url, ns string, ctx resource.Context) (*RunnerResults, error) {
+	runnerOptions := periodic.RunnerOptions{
+		QPS:        10,
+		Exactly:    calls,     // will make exactly 300 calls, so run for about 30 seconds
+		NumThreads: 5,         // get the same number of calls per connection (300/5=60)
+		Out:        os.Stderr, // Only needed because of log capture issue
+	}
+	r := periodic.NewPeriodicRunner(&runnerOptions)
+	defer r.Options().Abort()
+	numThreads := r.Options().NumThreads
+	env := ctx.Environment().(*kube.Environment)
+	ratingsPod, err := env.Accessor.FindPodBySelectors(ns, "app=ratings")
+	if err != nil {
+		return nil, err
+	}
+	total := RunnerResults{
+		URL:              url,
+		ratingsPod:       ratingsPod.Name,
+		ratingsContainer: "ratings",
+		ns:               ns,
+		kubeConfig:       env.Settings().KubeConfig,
+		got200:           0,
+		got429:           0,
+	}
+	state := make([]RunnerResults, numThreads)
+	for i := 0; i < numThreads; i++ {
+		r.Options().Runners[i] = &state[i]
+		state[i].ratingsPod = total.ratingsPod
+		state[i].ratingsContainer = total.ratingsContainer
+		state[i].ns = ns
+		state[i].kubeConfig = total.kubeConfig
+		state[i].got429 = total.got429
+		state[i].got200 = total.got200
+		state[i].URL = total.URL
+	}
+
+	total.RunnerResults = r.Run()
+
+	for i := 0; i < numThreads; i++ {
+		total.got200 += state[i].got200
+		total.got429 += state[i].got429
+	}
+	r.Options().ReleaseRunners()
+	return &total, nil
+}
+
+var egressConfig = `
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: cnn
+spec:
+  hosts:
+  - edition.cnn.com
+  ports:
+  - number: 80
+    name: http-port
+    protocol: HTTP
+  - number: 443
+    name: https
+    protocol: HTTPS
+  resolution: DNS
+  location: MESH_EXTERNAL
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-egressgateway
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - edition.cnn.com
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: egressgateway-for-cnn
+spec:
+  host: istio-egressgateway.istio-system.svc.cluster.local
+  subsets:
+  - name: cnn
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: direct-cnn-through-egress-gateway
+spec:
+  hosts:
+  - edition.cnn.com
+  gateways:
+  - <bookinfo_namespace>/istio-egressgateway
+  - mesh
+  http:
+  - match:
+    - gateways:
+      - mesh
+      port: 80
+    route:
+    - destination:
+        host: istio-egressgateway.istio-system.svc.cluster.local
+        subset: cnn
+        port:
+          number: 80
+      weight: 100
+  - match:
+    - gateways:
+      - <bookinfo_namespace>/istio-egressgateway
+      port: 80
+    route:
+    - destination:
+        host: edition.cnn.com
+        port:
+          number: 80
+      weight: 100
+`

@@ -475,34 +475,40 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 	return out
 }
 
-func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attrs attributes) {
+
+func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attrs attributes,
+	quotaSpec []*mccpb.QuotaSpec) {
 	httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
 		DisableCheckCalls:  disablePolicyChecks(outbound, in.Push.Mesh, in.Node),
 		DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
 		MixerAttributes:    &mpb.Attributes{Attributes: attrs},
 		ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
+		QuotaSpec:          quotaSpec,
 	})
 }
 
 func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, virtualHostname string, httpRoute *route.Route) *route.Route {
+	isPolicyCheckDisabled := disablePolicyChecks(outbound, in.Push.Mesh, in.Node)
 	// default config, to be overridden by per-weighted cluster
 	httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
-		DisableCheckCalls:  disablePolicyChecks(outbound, in.Push.Mesh, in.Node),
+		DisableCheckCalls:  isPolicyCheckDisabled,
 		DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
 	})
 	switch action := httpRoute.Action.(type) {
 	case *route.Route_Route:
 		switch upstreams := action.Route.ClusterSpecifier.(type) {
 		case *route.RouteAction_Cluster:
-			_, _, hostname, _ := model.ParseSubsetKey(upstreams.Cluster)
-			var attrs attributes
-			if hostname == "" && upstreams.Cluster == util.PassthroughCluster {
-				attrs = addVirtualDestinationServiceAttributes(make(attributes), util.PassthroughCluster)
-			} else {
-				svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
-				attrs = addDestinationServiceAttributes(make(attributes), svc)
+			{
+				_, _, hostname, _ := model.ParseSubsetKey(upstreams.Cluster)
+				var attrs attributes
+				if hostname == "" && upstreams.Cluster == util.PassthroughCluster {
+					attrs = addVirtualDestinationServiceAttributes(make(attributes), util.PassthroughCluster)
+				} else {
+					svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
+					attrs = addDestinationServiceAttributes(make(attributes), svc)
+				}
+				addFilterConfigToRoute(in, httpRoute, attrs, getQuotaSpec(in, hostname, isPolicyCheckDisabled))
 			}
-			addFilterConfigToRoute(in, httpRoute, attrs)
 
 		case *route.RouteAction_WeightedClusters:
 			for _, weighted := range upstreams.WeightedClusters.Clusters {
@@ -510,10 +516,11 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 				svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
 				attrs := addDestinationServiceAttributes(make(attributes), svc)
 				weighted.TypedPerFilterConfig = addTypedServiceConfig(weighted.TypedPerFilterConfig, &mccpb.ServiceConfig{
-					DisableCheckCalls:  disablePolicyChecks(outbound, in.Push.Mesh, in.Node),
+					DisableCheckCalls:  isPolicyCheckDisabled,
 					DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
 					MixerAttributes:    &mpb.Attributes{Attributes: attrs},
 					ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
+					QuotaSpec:          getQuotaSpec(in, hostname, isPolicyCheckDisabled),
 				})
 			}
 		case *route.RouteAction_ClusterHeader:
@@ -526,7 +533,7 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 		if virtualHostname == util.BlackHoleRouteName {
 			hostname := host.Name(util.BlackHoleCluster)
 			attrs := addVirtualDestinationServiceAttributes(make(attributes), hostname)
-			addFilterConfigToRoute(in, httpRoute, attrs)
+			addFilterConfigToRoute(in, httpRoute, attrs, nil)
 		}
 	// route.Route_Redirect is not used currently, so no attributes are added here
 	case *route.Route_Redirect:
@@ -547,7 +554,7 @@ func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInst
 	}
 
 	if configStore != nil {
-		quotaSpecs := configStore.QuotaSpecByDestination(instance)
+		quotaSpecs := configStore.QuotaSpecByDestination(instance.Service.Hostname)
 		model.SortQuotaSpec(quotaSpecs)
 		for _, quotaSpec := range quotaSpecs {
 			bytes, _ := gogoproto.Marshal(quotaSpec.Spec)
@@ -696,4 +703,18 @@ func attrsCopy(attrs attributes) attributes {
 		out[k] = v
 	}
 	return out
+}
+
+func getQuotaSpec(in *plugin.InputParams, hostname host.Name, isPolicyCheckDisabled bool) []*mccpb.QuotaSpec {
+	var quotaSpec []*mccpb.QuotaSpec
+	if in.Push == nil || in.Push.IstioConfigStore == nil || isPolicyCheckDisabled {
+		return quotaSpec
+	}
+	config := in.Push.IstioConfigStore
+	quotaSpecs := config.QuotaSpecByDestination(hostname)
+	model.SortQuotaSpec(quotaSpecs)
+	for _, config := range quotaSpecs {
+		quotaSpec = append(quotaSpec, config.Spec.(*mccpb.QuotaSpec))
+	}
+	return quotaSpec
 }
