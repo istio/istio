@@ -446,16 +446,7 @@ func (sc *SecretCache) rotate() {
 				defer wg.Done()
 				if sc.isTokenExpired() {
 					log.Debugf("Token for %q expired for proxy %q", e.ResourceName, connectionID)
-
-					if sc.notifyCallback != nil {
-						// Send the notification to close the stream connection if both cert and token have expired.
-						if err := sc.notifyCallback(key.ConnectionID, key.ResourceName, nil /*nil indicates close the streaming connection to proxy*/); err != nil {
-							log.Errorf("Failed to notify for proxy %q: %v", connectionID, err)
-						}
-					} else {
-						log.Warnf("secret cache notify callback isn't set")
-					}
-
+					sc.callbackWithTimeout(key.ConnectionID, key.ResourceName, nil /*nil indicates close the streaming connection to proxy*/)
 					return
 				}
 
