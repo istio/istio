@@ -327,7 +327,7 @@ github.com/modern-go/concurrent
 github.com/modern-go/reflect2
 # github.com/natefinch/lumberjack v2.0.0+incompatible
 github.com/natefinch/lumberjack
-# github.com/onsi/gomega v1.4.3
+# github.com/onsi/gomega v1.5.0
 github.com/onsi/gomega
 github.com/onsi/gomega/internal/assertion
 github.com/onsi/gomega/internal/asyncassertion
@@ -666,10 +666,11 @@ istio.io/api/envoy/config/filter/http/authn/v2alpha1
 istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1
 istio.io/api/mixer/adapter/model/v1beta1
 istio.io/api/mixer/v1
-# istio.io/common v0.0.0-20190511032946-8f8a38dd5a73
+# istio.io/common v0.0.0-20190511150418-730c55b2e803
 istio.io/common/pkg/collateral
 istio.io/common/pkg/log
 istio.io/common/pkg/version
+istio.io/common/pkg/filewatcher
 istio.io/common/pkg/ctrlz
 istio.io/common/pkg/ctrlz/fw
 istio.io/common/pkg/env

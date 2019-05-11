@@ -132,7 +132,7 @@ require (
 	github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/onsi/ginkgo v1.8.0 // indirect
-	github.com/onsi/gomega v1.4.3
+	github.com/onsi/gomega v1.5.0
 	github.com/open-policy-agent/opa v0.8.2
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
@@ -192,7 +192,7 @@ require (
 	gopkg.in/yaml.v2 v2.2.2
 	gotest.tools v2.2.0+incompatible // indirect
 	istio.io/api v0.0.0-20190405142752-6b8d1849e7f4
-	istio.io/common v0.0.0-20190511032946-8f8a38dd5a73
+	istio.io/common v0.0.0-20190511150418-730c55b2e803
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471
 	k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87
 	k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628
