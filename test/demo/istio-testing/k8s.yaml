@@ -1284,8 +1284,8 @@ data:
     keepaliveMaxServerConnectionAge: 30m
     meshNetworks:
       networks: {}
-    podAntiAffinityLabelSelector: {}
-    podAntiAffinityTermLabelSelector: {}
+    podAntiAffinityLabelSelector: []
+    podAntiAffinityTermLabelSelector: []
     policy:
       enabled: false
     replicaCount: 1
