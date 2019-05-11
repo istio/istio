@@ -58,7 +58,7 @@ import (
 	zk "github.com/uber/jaeger-client-go/zipkin"
 	"go.uber.org/zap"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 )
 
 /* TODO:

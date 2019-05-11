@@ -23,7 +23,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 )
 
 // TODO(lichuqiang): modify defaultTimeout accordingly.

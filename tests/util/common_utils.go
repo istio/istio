@@ -32,7 +32,7 @@ import (
 	"github.com/google/go-github/github"
 	"github.com/pkg/errors"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/pkg/test/env"
 )
 

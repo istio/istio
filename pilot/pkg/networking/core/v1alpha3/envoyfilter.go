@@ -25,10 +25,10 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/log"
 )
 
 // We process EnvoyFilter CRDs after calling all plugins and building the listener with the required filter chains

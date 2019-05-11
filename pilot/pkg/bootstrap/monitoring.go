@@ -23,8 +23,8 @@ import (
 	ocprom "go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/version"
+	"istio.io/common/pkg/log"
+	"istio.io/common/pkg/version"
 )
 
 type monitor struct {

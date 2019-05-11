@@ -20,7 +20,7 @@ import (
 	"os"
 	"sync"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 )
 
 var (

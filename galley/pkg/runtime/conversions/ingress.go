@@ -23,10 +23,10 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 
 	ingress "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"

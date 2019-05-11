@@ -21,10 +21,10 @@ import (
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
 
+	"istio.io/common/pkg/log"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/monitoring"
-	"istio.io/istio/pkg/log"
 )
 
 type env struct {

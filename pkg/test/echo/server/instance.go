@@ -22,8 +22,8 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/server/endpoint"
 )

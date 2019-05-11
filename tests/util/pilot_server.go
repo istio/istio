@@ -25,12 +25,12 @@ import (
 	"github.com/gogo/protobuf/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/keepalive"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/env"
 )
 

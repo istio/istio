@@ -42,7 +42,6 @@ require (
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
 	github.com/containerd/continuity v0.0.0-20190426062206-aaeac12a7ffc // indirect
 	github.com/coreos/go-oidc v0.0.0-20180117170138-065b426bd416
-	github.com/cpuguy83/go-md2man v1.0.8 // indirect
 	github.com/d4l3k/messagediff v1.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dchest/siphash v1.1.0 // indirect
@@ -91,7 +90,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.0.4
 	github.com/googleapis/gnostic v0.1.0 // indirect
 	github.com/gophercloud/gophercloud v0.0.0-20180327194212-2daf3049f2a9 // indirect
-	github.com/gorilla/mux v1.6.2
+	github.com/gorilla/mux v1.7.1
 	github.com/gorilla/websocket v1.2.0
 	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
 	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 // indirect
@@ -131,7 +130,7 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742 // indirect
-	github.com/natefinch/lumberjack v0.0.0-20170531160350-a96e63847dc3
+	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/onsi/ginkgo v1.8.0 // indirect
 	github.com/onsi/gomega v1.4.3
 	github.com/open-policy-agent/opa v0.8.2
@@ -152,8 +151,7 @@ require (
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
 	github.com/prometheus/client_model v0.0.0-20190115171406-56726106282f
 	github.com/prometheus/common v0.2.0
-	github.com/prometheus/prom2json v0.0.0-20180219155529-daa2bca1c13f
-	github.com/russross/blackfriday v1.5.1 // indirect
+	github.com/prometheus/prom2json v1.1.0
 	github.com/ryanuber/go-glob v0.0.0-20160226084822-572520ed46db // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/sethgrid/pester v0.0.0-20180227223404-ed9870dad317 // indirect
@@ -161,8 +159,8 @@ require (
 	github.com/signalfx/gohistogram v0.0.0-20160107210732-1ccfd2ff5083 // indirect
 	github.com/signalfx/golib v1.1.6
 	github.com/smartystreets/goconvey v0.0.0-20190330032615-68dc04aab96a // indirect
-	github.com/spf13/cobra v0.0.2
-	github.com/spf13/pflag v1.0.0
+	github.com/spf13/cobra v0.0.3
+	github.com/spf13/pflag v1.0.3
 	github.com/stretchr/testify v1.3.0
 	github.com/tinylib/msgp v1.0.2 // indirect
 	github.com/uber/jaeger-client-go v0.0.0-20190228190846-ecf2d03a9e80
@@ -171,9 +169,9 @@ require (
 	github.com/yl2chen/cidranger v0.0.0-20180214081945-928b519e5268
 	github.com/yuin/gopher-lua v0.0.0-20180316054350-84ea3a3c79b3 // indirect
 	go.opencensus.io v0.20.1
-	go.uber.org/atomic v1.3.1
+	go.uber.org/atomic v1.4.0
 	go.uber.org/multierr v1.1.0
-	go.uber.org/zap v1.9.1
+	go.uber.org/zap v1.10.0
 	golang.org/x/net v0.0.0-20190311183353-d8887717615a
 	golang.org/x/oauth2 v0.0.0-20190226205417-e64efc72b421
 	golang.org/x/time v0.0.0-20181108054448-85acf8d2951c
@@ -194,6 +192,7 @@ require (
 	gopkg.in/yaml.v2 v2.2.2
 	gotest.tools v2.2.0+incompatible // indirect
 	istio.io/api v0.0.0-20190405142752-6b8d1849e7f4
+	istio.io/common v0.0.0-20190511032946-8f8a38dd5a73
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471
 	k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87
 	k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628

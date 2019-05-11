@@ -21,10 +21,10 @@ import (
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 
 	"istio.io/api/policy/v1beta1"
+	istiolog "istio.io/common/pkg/log"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/protobuf/yaml"
 	"istio.io/istio/mixer/pkg/runtime/lang"
-	istiolog "istio.io/istio/pkg/log"
 )
 
 var (

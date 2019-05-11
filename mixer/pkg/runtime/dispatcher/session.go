@@ -26,13 +26,13 @@ import (
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	mixerpb "istio.io/api/mixer/v1"
 	descriptor "istio.io/api/policy/v1beta1"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/status"
-	"istio.io/istio/pkg/log"
 )
 
 const queueAllocSize = 64

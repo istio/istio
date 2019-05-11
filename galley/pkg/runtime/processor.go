@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/common/pkg/log"
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/groups"
 	"istio.io/istio/galley/pkg/runtime/monitoring"
@@ -28,7 +29,6 @@ import (
 	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/util"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/wait"
 )
 

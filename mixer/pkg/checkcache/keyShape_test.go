@@ -19,8 +19,8 @@ import (
 	"time"
 
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/pkg/log"
 )
 
 type attrCase struct {

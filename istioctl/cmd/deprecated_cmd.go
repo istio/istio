@@ -42,10 +42,10 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	kubecfg "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
 )
 
 const (

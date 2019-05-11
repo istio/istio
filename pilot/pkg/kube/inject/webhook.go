@@ -35,9 +35,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pkg/log"
 )
 
 var (

@@ -35,10 +35,20 @@ Installing and building:
 Running:
 
     $ prom2json http://my-prometheus-client.example.org:8080/metrics
+    $ curl http://my-prometheus-client.example.org:8080/metrics | prom2json
+    $ prom2json /tmp/metrics.prom
     
 Running with TLS client authentication:
 
     $ prom2json --cert=/path/to/certificate --key=/path/to/key http://my-prometheus-client.example.org:8080/metrics
+    
+Running without TLS validation (insecure, do not use in production!):
+
+    $ prom2json --accept-invalid-cert https://my-prometheus-client.example.org:8080/metrics
+    
+Advanced HTTP through `curl`:
+
+    $ curl -XPOST -H 'X-CSRFToken: 1234567890abcdef' --connect-timeout 60 'https://username:password@my-prometheus-client.example.org:8080/metrics' | prom2json
 
 This will dump the JSON to `stdout`. Note that the dumped JSON is
 _not_ using the deprecated JSON format as specified in the

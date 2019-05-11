@@ -22,9 +22,9 @@ import (
 	restful "github.com/emicklei/go-restful"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"istio.io/common/pkg/log"
+	"istio.io/common/pkg/version"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/version"
 )
 
 const (

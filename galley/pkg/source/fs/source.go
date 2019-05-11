@@ -28,6 +28,7 @@ import (
 
 	"github.com/ghodss/yaml"
 
+	"istio.io/common/pkg/appsignals"
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/resource"
@@ -37,7 +38,6 @@ import (
 	"istio.io/istio/galley/pkg/source/kube/log"
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/util"
-	"istio.io/istio/pkg/appsignals"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"

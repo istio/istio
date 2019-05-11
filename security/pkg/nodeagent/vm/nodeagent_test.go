@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/security/pkg/caclient"
 	"istio.io/istio/security/pkg/caclient/protocol/mock"
 	"istio.io/istio/security/pkg/platform"

@@ -31,11 +31,11 @@ import (
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	policypb "istio.io/api/policy/v1beta1"
+	istiolog "istio.io/common/pkg/log"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/wire"
-	istiolog "istio.io/istio/pkg/log"
 )
 
 var (

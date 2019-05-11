@@ -28,7 +28,7 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/security/pkg/listwatch"
 	"istio.io/istio/security/pkg/registry"
 )

@@ -71,10 +71,10 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"istio.io/common/pkg/env"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pkg/env"
-	"istio.io/istio/pkg/log"
 )
 
 const (

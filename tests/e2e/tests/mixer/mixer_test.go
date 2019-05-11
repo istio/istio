@@ -37,7 +37,7 @@ import (
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"

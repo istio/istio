@@ -31,8 +31,8 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"

@@ -28,8 +28,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd" // import GKE cluster authentication plugin
 
+	"istio.io/common/pkg/log"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/probe"
 )

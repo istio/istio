@@ -30,8 +30,8 @@ import (
 	"google.golang.org/grpc/credentials/oauth"
 
 	policypb "istio.io/api/policy/v1beta1"
-	"istio.io/istio/pkg/env"
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/env"
+	"istio.io/common/pkg/log"
 )
 
 const (

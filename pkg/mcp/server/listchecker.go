@@ -26,7 +26,7 @@ import (
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc/credentials"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/security/pkg/pki/util"
 )
 

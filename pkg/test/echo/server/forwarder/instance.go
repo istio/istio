@@ -22,7 +22,7 @@ import (
 
 	"github.com/golang/sync/errgroup"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
 )

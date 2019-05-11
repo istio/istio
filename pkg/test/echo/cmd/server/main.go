@@ -22,9 +22,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/echo/server"
 )
 

@@ -25,13 +25,13 @@ import (
 	_ "google.golang.org/grpc/encoding/gzip" // register the gzip compressor
 
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/loadshedding"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/status"
-	"istio.io/istio/pkg/log"
 )
 
 type benchState struct {

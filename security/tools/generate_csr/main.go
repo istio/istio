@@ -22,7 +22,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/security/pkg/pki/util"
 )
 

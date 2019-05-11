@@ -32,7 +32,7 @@ import (
 	admissionregistration "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 )
 
 var scope = log.RegisterScope("validation", "CRD validation debugging", 0)
