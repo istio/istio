@@ -17,12 +17,12 @@ package lang
 
 import (
 	"istio.io/api/policy/v1beta1"
+	"istio.io/common/pkg/annotations"
+	"istio.io/common/pkg/env"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/cel"
 	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/lang/compiled"
-	"istio.io/istio/pkg/annotations"
-	"istio.io/istio/pkg/env"
 )
 
 type (

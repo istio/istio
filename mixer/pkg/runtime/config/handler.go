@@ -20,10 +20,10 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
+	"istio.io/common/pkg/log"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/runtime/safecall"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/pkg/log"
 )
 
 // inferredTypesMap represents map of instance name to inferred type proto messages

@@ -24,7 +24,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 )
 
 // Controller provides the internal interface to handle events coming

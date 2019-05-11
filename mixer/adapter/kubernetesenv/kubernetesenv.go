@@ -38,11 +38,11 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"istio.io/common/pkg/env"
 	"istio.io/istio/mixer/adapter/kubernetesenv/config"
 	ktmpl "istio.io/istio/mixer/adapter/kubernetesenv/template"
 	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube/secretcontroller"
 )
 

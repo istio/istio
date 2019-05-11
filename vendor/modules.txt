@@ -36,11 +36,6 @@ github.com/DataDog/datadog-go/statsd
 github.com/Masterminds/semver
 # github.com/Masterminds/sprig v2.14.1+incompatible
 github.com/Masterminds/sprig
-# github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc
-github.com/alecthomas/template
-github.com/alecthomas/template/parse
-# github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf
-github.com/alecthomas/units
 # github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6
 github.com/alicebob/gopher-json
 # github.com/alicebob/miniredis v0.0.0-20180201100744-9d52b1fc8da9
@@ -99,7 +94,7 @@ github.com/circonus-labs/circonus-gometrics/api/config
 github.com/circonus-labs/circonusllhist
 # github.com/coreos/go-oidc v0.0.0-20180117170138-065b426bd416
 github.com/coreos/go-oidc
-# github.com/cpuguy83/go-md2man v1.0.8
+# github.com/cpuguy83/go-md2man v1.0.10
 github.com/cpuguy83/go-md2man/md2man
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
@@ -260,9 +255,7 @@ github.com/gophercloud/gophercloud/openstack/identity/v3/tokens
 github.com/gophercloud/gophercloud/openstack/utils
 github.com/gophercloud/gophercloud/openstack/identity/v2/tenants
 github.com/gophercloud/gophercloud/pagination
-# github.com/gorilla/context v1.1.1
-github.com/gorilla/context
-# github.com/gorilla/mux v1.6.2
+# github.com/gorilla/mux v1.7.1
 github.com/gorilla/mux
 # github.com/gorilla/websocket v1.2.0
 github.com/gorilla/websocket
@@ -320,8 +313,6 @@ github.com/inconshreveable/mousetrap
 github.com/jmespath/go-jmespath
 # github.com/json-iterator/go v0.0.0-20180914014843-2433035e5132
 github.com/json-iterator/go
-# github.com/konsorten/go-windows-terminal-sequences v1.0.1
-github.com/konsorten/go-windows-terminal-sequences
 # github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515
 github.com/kr/logfmt
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
@@ -334,7 +325,7 @@ github.com/mitchellh/mapstructure
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742
 github.com/modern-go/reflect2
-# github.com/natefinch/lumberjack v0.0.0-20170531160350-a96e63847dc3
+# github.com/natefinch/lumberjack v2.0.0+incompatible
 github.com/natefinch/lumberjack
 # github.com/onsi/gomega v1.4.3
 github.com/onsi/gomega
@@ -397,18 +388,17 @@ github.com/prometheus/client_model/go
 # github.com/prometheus/common v0.2.0
 github.com/prometheus/common/model
 github.com/prometheus/common/expfmt
-github.com/prometheus/common/log
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
 # github.com/prometheus/procfs v0.0.0-20190117184657-bf6a532e95b1
 github.com/prometheus/procfs
 github.com/prometheus/procfs/nfs
 github.com/prometheus/procfs/xfs
 github.com/prometheus/procfs/internal/util
-# github.com/prometheus/prom2json v0.0.0-20180219155529-daa2bca1c13f
+# github.com/prometheus/prom2json v1.1.0
 github.com/prometheus/prom2json
 # github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a
 github.com/rcrowley/go-metrics
-# github.com/russross/blackfriday v1.5.1
+# github.com/russross/blackfriday v1.5.2
 github.com/russross/blackfriday
 # github.com/ryanuber/go-glob v0.0.0-20160226084822-572520ed46db
 github.com/ryanuber/go-glob
@@ -429,12 +419,10 @@ github.com/signalfx/golib/event
 github.com/signalfx/golib/log
 github.com/signalfx/golib/timekeeper
 github.com/signalfx/golib/eventcounter
-# github.com/sirupsen/logrus v1.2.0
-github.com/sirupsen/logrus
-# github.com/spf13/cobra v0.0.2
+# github.com/spf13/cobra v0.0.3
 github.com/spf13/cobra
 github.com/spf13/cobra/doc
-# github.com/spf13/pflag v1.0.0
+# github.com/spf13/pflag v1.0.3
 github.com/spf13/pflag
 # github.com/stretchr/testify v1.3.0
 github.com/stretchr/testify/assert
@@ -489,11 +477,11 @@ go.opencensus.io/trace/tracestate
 go.opencensus.io
 go.opencensus.io/trace/propagation
 go.opencensus.io/resource
-# go.uber.org/atomic v1.3.1
+# go.uber.org/atomic v1.4.0
 go.uber.org/atomic
 # go.uber.org/multierr v1.1.0
 go.uber.org/multierr
-# go.uber.org/zap v1.9.1
+# go.uber.org/zap v1.10.0
 go.uber.org/zap
 go.uber.org/zap/zapcore
 go.uber.org/zap/zapgrpc
@@ -532,8 +520,6 @@ golang.org/x/sync/semaphore
 # golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-golang.org/x/sys/windows/svc/eventlog
-golang.org/x/sys/windows/registry
 # golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2
 golang.org/x/text/encoding/unicode
 golang.org/x/text/transform
@@ -654,8 +640,6 @@ google.golang.org/grpc/reflection
 google.golang.org/grpc/binarylog/grpc_binarylog_v1
 google.golang.org/grpc/internal/syscall
 google.golang.org/grpc/reflection/grpc_reflection_v1alpha
-# gopkg.in/alecthomas/kingpin.v2 v2.2.6
-gopkg.in/alecthomas/kingpin.v2
 # gopkg.in/d4l3k/messagediff.v1 v1.2.1
 gopkg.in/d4l3k/messagediff.v1
 # gopkg.in/inf.v0 v0.9.1
@@ -682,6 +666,19 @@ istio.io/api/envoy/config/filter/http/authn/v2alpha1
 istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1
 istio.io/api/mixer/adapter/model/v1beta1
 istio.io/api/mixer/v1
+# istio.io/common v0.0.0-20190511032946-8f8a38dd5a73
+istio.io/common/pkg/collateral
+istio.io/common/pkg/log
+istio.io/common/pkg/version
+istio.io/common/pkg/ctrlz
+istio.io/common/pkg/ctrlz/fw
+istio.io/common/pkg/env
+istio.io/common/pkg/appsignals
+istio.io/common/pkg/cache
+istio.io/common/pkg/annotations
+istio.io/common/pkg/ctrlz/assets
+istio.io/common/pkg/ctrlz/topics
+istio.io/common/pkg/ctrlz/topics/assets
 # k8s.io/api v0.0.0-20190222213804-5cb15d344471
 k8s.io/api/admission/v1beta1
 k8s.io/api/admissionregistration/v1beta1
@@ -737,8 +734,8 @@ k8s.io/apimachinery/pkg/runtime/schema
 k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/pkg/util/wait
 k8s.io/apimachinery/pkg/types
-k8s.io/apimachinery/pkg/version
 k8s.io/apimachinery/pkg/util/yaml
+k8s.io/apimachinery/pkg/version
 k8s.io/apimachinery/pkg/labels
 k8s.io/apimachinery/pkg/util/runtime
 k8s.io/apimachinery/pkg/util/strategicpatch

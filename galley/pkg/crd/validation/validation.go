@@ -25,11 +25,11 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
+	"istio.io/common/pkg/log"
 	mixervalidate "istio.io/istio/mixer/pkg/validate"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 )
 

@@ -26,8 +26,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pkg/log"
 )
 
 const (

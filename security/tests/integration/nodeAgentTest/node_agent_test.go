@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/security/tests/integration"
 	"istio.io/istio/tests/integration_old/framework"
 )

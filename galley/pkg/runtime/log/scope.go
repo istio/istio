@@ -14,7 +14,7 @@
 
 package log
 
-import "istio.io/istio/pkg/log"
+import "istio.io/common/pkg/log"
 
 // Scope for logging within the Galley runtime.
 var Scope = log.RegisterScope("runtime", "Galley runtime", 0)

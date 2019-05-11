@@ -25,7 +25,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	gcapb "istio.io/istio/security/proto/providers/google"
 )

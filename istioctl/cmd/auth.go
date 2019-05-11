@@ -22,11 +22,11 @@ import (
 	"github.com/spf13/cobra"
 	k8s "k8s.io/client-go/kubernetes"
 
+	"istio.io/common/pkg/log"
 	"istio.io/istio/istioctl/pkg/auth"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
 )
 
 var (

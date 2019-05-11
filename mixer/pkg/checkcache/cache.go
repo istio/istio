@@ -36,8 +36,8 @@ import (
 	"go.opencensus.io/tag"
 
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/common/pkg/cache"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/pkg/cache"
 )
 
 // Cache holds cached results of calls to Mixer.Check

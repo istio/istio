@@ -23,7 +23,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	yaml "gopkg.in/yaml.v2"
 
-	envvar "istio.io/istio/pkg/env"
+	envvar "istio.io/common/pkg/env"
 	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/mcp/server"
 )

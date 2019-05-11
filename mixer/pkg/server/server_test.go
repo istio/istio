@@ -28,12 +28,12 @@ import (
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/common/pkg/log"
+	"istio.io/common/pkg/version"
 	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/mixer/pkg/runtime"
 	generatedTmplRepo "istio.io/istio/mixer/template"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/tracing"
-	"istio.io/istio/pkg/version"
 )
 
 const (

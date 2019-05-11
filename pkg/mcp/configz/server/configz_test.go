@@ -27,8 +27,8 @@ import (
 	"istio.io/istio/pkg/mcp/source"
 	"istio.io/istio/pkg/mcp/testing/groups"
 
-	"istio.io/istio/pkg/ctrlz"
-	"istio.io/istio/pkg/ctrlz/fw"
+	"istio.io/common/pkg/ctrlz"
+	"istio.io/common/pkg/ctrlz/fw"
 	"istio.io/istio/pkg/mcp/snapshot"
 	mcptest "istio.io/istio/pkg/mcp/testing"
 )

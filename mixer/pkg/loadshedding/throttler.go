@@ -21,7 +21,7 @@ import (
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 )
 
 const (

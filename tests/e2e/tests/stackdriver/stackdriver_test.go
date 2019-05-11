@@ -31,7 +31,7 @@ import (
 	"google.golang.org/api/iterator"
 	monitoring "google.golang.org/api/monitoring/v3"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
 )

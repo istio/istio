@@ -20,8 +20,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/integration_old/framework"
 )
 
