@@ -39,10 +39,6 @@ type Signal struct {
 
 // Notify a channel if a an event is triggered. A notification is always triggered for SIGUSR1
 func Watch(c chan<- Signal) {
-	if c == nil {
-		panic("reload: Watch using nil channel")
-	}
-
 	handlers.Lock()
 	defer handlers.Unlock()
 
@@ -64,7 +60,7 @@ func Watch(c chan<- Signal) {
 func Notify(trigger string, signal os.Signal) {
 	handlers.Lock()
 	defer handlers.Unlock()
-	log.Infof("watcher.Notify: (trigger: %q, signal: %v)", trigger, signal)
+
 	for _, v := range handlers.listeners {
 		log.Debugf("watcher.Notify: Dispatching to listener '%v' (trigger: %q, signal: %v)", v, trigger, signal)
 		select {
@@ -81,10 +77,10 @@ func FileTrigger(path string, signal os.Signal, shutdown chan os.Signal) error {
 	if err != nil {
 		return err
 	}
-	err = watcher.Watch(path)
-	if err != nil {
+	if err = watcher.Watch(path); err != nil {
 		return err
 	}
+
 	go func() {
 		loop := true
 		for loop {

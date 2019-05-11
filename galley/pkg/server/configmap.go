@@ -24,7 +24,7 @@ import (
 	yaml "gopkg.in/yaml.v2"
 
 	envvar "istio.io/common/pkg/env"
-	"istio.io/istio/pkg/filewatcher"
+	"istio.io/common/pkg/filewatcher"
 	"istio.io/istio/pkg/mcp/server"
 )
 
