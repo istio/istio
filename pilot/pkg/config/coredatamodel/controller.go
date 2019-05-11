@@ -23,8 +23,8 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/sink"
 )
 

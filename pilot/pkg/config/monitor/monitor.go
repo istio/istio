@@ -21,8 +21,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
+	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 )
 
 // Monitor will poll a config function in order to update a ConfigStore as

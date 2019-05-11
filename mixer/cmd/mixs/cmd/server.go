@@ -17,11 +17,11 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
+	"istio.io/common/pkg/version"
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/pkg/version"
 )
 
 func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {

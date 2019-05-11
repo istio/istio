@@ -26,7 +26,7 @@ import (
 	"crypto/x509/pkix"
 	"fmt"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 )
 
 // GenCSR generates a X.509 certificate sign request and private key with the given options.

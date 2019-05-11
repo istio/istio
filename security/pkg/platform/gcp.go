@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 	cred "istio.io/istio/security/pkg/credential"
 )
 

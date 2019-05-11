@@ -29,8 +29,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/common/pkg/log"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 )
 

@@ -26,6 +26,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/common/pkg/appsignals"
 	"istio.io/istio/galley/pkg/meshconfig"
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
@@ -34,7 +35,6 @@ import (
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/testing/events"
-	"istio.io/istio/pkg/appsignals"
 	sn "istio.io/istio/pkg/mcp/snapshot"
 
 	coreV1 "k8s.io/api/core/v1"

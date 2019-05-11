@@ -23,7 +23,7 @@ import (
 	"strconv"
 	"time"
 
-	ev "istio.io/istio/pkg/env"
+	ev "istio.io/common/pkg/env"
 	"istio.io/istio/pkg/test/env"
 )
 

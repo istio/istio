@@ -18,8 +18,8 @@ import (
 	"html/template"
 	"net/http"
 
-	"istio.io/istio/pkg/ctrlz"
-	"istio.io/istio/pkg/ctrlz/fw"
+	"istio.io/common/pkg/ctrlz"
+	"istio.io/common/pkg/ctrlz/fw"
 	"istio.io/istio/pkg/mcp/configz/server/assets"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/snapshot"

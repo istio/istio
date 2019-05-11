@@ -19,7 +19,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 )
 
 // Shell out a command and aggregate output

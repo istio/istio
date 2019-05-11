@@ -26,10 +26,10 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/common/pkg/env"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/proxy"
 	"istio.io/istio/pkg/bootstrap"
-	"istio.io/istio/pkg/env"
-	"istio.io/istio/pkg/log"
 )
 
 const (

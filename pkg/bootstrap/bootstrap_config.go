@@ -27,14 +27,14 @@ import (
 	"text/template"
 	"time"
 
-	"istio.io/istio/pkg/annotations"
+	"istio.io/common/pkg/annotations"
 
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/common/pkg/env"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/pkg/bootstrap/platform"
-	"istio.io/istio/pkg/env"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/spiffe"
 )
 

@@ -22,13 +22,13 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/common/pkg/log"
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime/groups"
 	runtimeLog "istio.io/istio/galley/pkg/runtime/log"
 	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/resources"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/util/wait"
 )

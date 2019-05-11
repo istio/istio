@@ -22,7 +22,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	//"istio.io/istio/pkg/log"
+	//"istio.io/common/pkg/log"
 
 	pb "istio.io/istio/security/proto"
 )

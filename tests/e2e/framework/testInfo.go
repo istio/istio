@@ -28,7 +28,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/tests/util"
 )
 

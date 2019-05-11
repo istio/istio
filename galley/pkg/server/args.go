@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/common/pkg/ctrlz"
 	"istio.io/istio/galley/pkg/source/kube/builtin"
-	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/mcp/creds"
 )
 

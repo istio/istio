@@ -26,8 +26,8 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/common/pkg/appsignals"
 	"istio.io/istio/galley/pkg/server"
-	"istio.io/istio/pkg/appsignals"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/native"

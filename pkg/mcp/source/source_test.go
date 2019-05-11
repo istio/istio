@@ -32,7 +32,7 @@ import (
 	"google.golang.org/grpc/peer"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/pkg/mcp/internal/test"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 )

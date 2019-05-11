@@ -24,7 +24,7 @@ import (
 
 	"github.com/hashicorp/vault/api"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 )
 

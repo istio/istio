@@ -19,7 +19,7 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/common/pkg/log"
 	"istio.io/istio/tests/integration_old/framework"
 )
 

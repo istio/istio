@@ -23,7 +23,7 @@ import (
 	ocprom "go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 
-	"istio.io/istio/pkg/version"
+	"istio.io/common/pkg/version"
 )
 
 const (
