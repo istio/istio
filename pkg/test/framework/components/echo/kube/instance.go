@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"sync"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -30,15 +30,15 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	kubeEnv "istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/kube"
 
 	kubeCore "k8s.io/api/core/v1"
 )
 
 const (
-	tcpHealthPort     = 3333
-	httpReadinessPort = 8080
-	defaultDomain     = "svc.cluster.local"
+	tcpHealthPort         = 3333
+	httpReadinessPort     = 8080
+	defaultDomain         = "svc.cluster.local"
+	noSidecarWaitDuration = 10 * time.Second
 )
 
 var (
@@ -53,10 +53,9 @@ type instance struct {
 	env       *kubeEnv.Environment
 	workloads []*workload
 	grpcPort  uint16
-	mutex     sync.Mutex
 }
 
-func New(ctx resource.Context, cfg echo.Config) (out echo.Instance, err error) {
+func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err error) {
 	// Fill in defaults for any missing values.
 	if err = common.FillInDefaults(ctx, defaultDomain, &cfg); err != nil {
 		return nil, err
@@ -171,10 +170,6 @@ func (c *instance) Address() string {
 }
 
 func (c *instance) Workloads() ([]echo.Workload, error) {
-	if err := c.WaitUntilReady(); err != nil {
-		return nil, err
-	}
-
 	out := make([]echo.Workload, 0, len(c.workloads))
 	for _, w := range c.workloads {
 		out = append(out, w)
@@ -191,103 +186,31 @@ func (c *instance) WorkloadsOrFail(t test.Failer) []echo.Workload {
 	return out
 }
 
-func initAllWorkloads(accessor *kube.Accessor, instances []echo.Instance) error {
-	needInit := getUninitializedInstances(instances)
-	if len(needInit) == 0 {
-		// Everything is already initialized.
-		return nil
-	}
-
-	instanceEndpoints := make([]*kubeCore.Endpoints, len(needInit))
-	aggregateErrMux := &sync.Mutex{}
-	var aggregateErr error
-	wg := sync.WaitGroup{}
-
-	for i, inst := range needInit {
-		wg.Add(1)
-
-		instanceIndex := i
-		serviceName := inst.Config().Service
-		serviceNamespace := inst.Config().Namespace.Name()
-
-		// Run the waits in parallel.
-		go func() {
-			defer wg.Done()
-
-			// Wait until all the endpoints are ready for this service
-			_, endpoints, err := accessor.WaitUntilServiceEndpointsAreReady(serviceNamespace, serviceName)
-			if err != nil {
-				aggregateErrMux.Lock()
-				aggregateErr = multierror.Append(aggregateErr, err)
-				aggregateErrMux.Unlock()
-				return
-			}
-			instanceEndpoints[instanceIndex] = endpoints
-		}()
-	}
-
-	wg.Wait()
-
-	if aggregateErr != nil {
-		return aggregateErr
-	}
-
-	// Initialize the workloads for each instance.
-	for i, inst := range needInit {
-		if err := inst.initWorkloads(instanceEndpoints[i]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (c *instance) isInitialized() bool {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	return c.workloads != nil
-}
-
-func getUninitializedInstances(instances []echo.Instance) []*instance {
-	uninitialized := make([]*instance, 0, len(instances))
-	for _, i := range instances {
-		inst := i.(*instance)
-		if !inst.isInitialized() {
-			uninitialized = append(uninitialized, inst)
-		}
-	}
-	return uninitialized
-}
-
-func (c *instance) WaitUntilReady(outboundInstances ...echo.Instance) error {
-
-	// Initialize the workloads for all instances.
-	if err := initAllWorkloads(c.env.Accessor, append([]echo.Instance{c}, outboundInstances...)); err != nil {
-		return err
-	}
-
+func (c *instance) WaitUntilCallable(instances ...echo.Instance) error {
 	// Wait for the outbound config to be received by each workload from Pilot.
 	for _, w := range c.workloads {
 		if w.sidecar != nil {
-			if err := w.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(outboundInstances...)); err != nil {
+			if err := w.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(instances...)); err != nil {
 				return err
 			}
 		}
 	}
 
+	if !c.cfg.Sidecar {
+		time.Sleep(noSidecarWaitDuration)
+	}
+
 	return nil
 }
 
-func (c *instance) WaitUntilReadyOrFail(t test.Failer, outboundInstances ...echo.Instance) {
+func (c *instance) WaitUntilCallableOrFail(t test.Failer, instances ...echo.Instance) {
 	t.Helper()
-	if err := c.WaitUntilReady(outboundInstances...); err != nil {
+	if err := c.WaitUntilCallable(instances...); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func (c *instance) initWorkloads(endpoints *kubeCore.Endpoints) error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
+func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {
 	if c.workloads != nil {
 		// Already ready.
 		return nil
@@ -313,9 +236,6 @@ func (c *instance) initWorkloads(endpoints *kubeCore.Endpoints) error {
 }
 
 func (c *instance) Close() (err error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
 	for _, w := range c.workloads {
 		err = multierror.Append(err, w.Close()).ErrorOrNil()
 	}
@@ -328,11 +248,6 @@ func (c *instance) Config() echo.Config {
 }
 
 func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) {
-	// If we haven't already initialized the client, do so now.
-	if err := c.WaitUntilReady(); err != nil {
-		return nil, err
-	}
-
 	out, err := common.CallEcho(c.workloads[0].Instance, &opts, common.IdentityOutboundPortSelector)
 	if err != nil {
 		if opts.Port != nil {

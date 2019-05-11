@@ -20,6 +20,8 @@ import (
 
 	"istio.io/common/pkg/log"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
@@ -81,10 +83,13 @@ func TestFailover(t *testing.T) {
 			Run(func(ctx framework.TestContext) {
 
 				ns := namespace.NewOrFail(t, ctx, "failover-eds", true)
-				a := newEcho(t, ctx, ns, "a")
-				b := newEcho(t, ctx, ns, "b")
-				c := newEcho(t, ctx, ns, "c")
-				a.WaitUntilReadyOrFail(t, b, c)
+
+				var a, b, c echo.Instance
+				echoboot.NewBuilderOrFail(t, ctx).
+					With(&a, echoConfig(ns, "a")).
+					With(&b, echoConfig(ns, "b")).
+					With(&c, echoConfig(ns, "c")).
+					BuildOrFail(t)
 
 				fakeHostname := fmt.Sprintf("fake-cds-external-service-%v.com", r.Int())
 
@@ -115,10 +120,13 @@ func TestFailover(t *testing.T) {
 			Run(func(ctx framework.TestContext) {
 
 				ns := namespace.NewOrFail(t, ctx, "failover-eds", true)
-				a := newEcho(t, ctx, ns, "a")
-				b := newEcho(t, ctx, ns, "b")
-				c := newEcho(t, ctx, ns, "c")
-				a.WaitUntilReadyOrFail(t, b, c)
+
+				var a, b, c echo.Instance
+				echoboot.NewBuilderOrFail(t, ctx).
+					With(&a, echoConfig(ns, "a")).
+					With(&b, echoConfig(ns, "b")).
+					With(&c, echoConfig(ns, "c")).
+					BuildOrFail(t)
 
 				fakeHostname := fmt.Sprintf("fake-eds-external-service-%v.com", r.Int())
 				deploy(t, ns, serviceConfig{
