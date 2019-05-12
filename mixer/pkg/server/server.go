@@ -44,7 +44,7 @@ import (
 	runtimeconfig "istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/pkg/probe"
+	"istio.io/common/pkg/probe"
 	"istio.io/istio/pkg/tracing"
 )
 

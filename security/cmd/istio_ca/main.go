@@ -31,7 +31,7 @@ import (
 	"istio.io/common/pkg/log"
 	"istio.io/common/pkg/version"
 	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/probe"
+	"istio.io/common/pkg/probe"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/caclient"
 	"istio.io/istio/security/pkg/cmd"

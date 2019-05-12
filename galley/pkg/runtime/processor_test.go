@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/resources"
 	"istio.io/istio/pkg/mcp/snapshot"
-	"istio.io/istio/pkg/util/wait"
+	"istio.io/common/pkg/timedfn"
 )
 
 const (

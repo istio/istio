@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,32 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package probe
+package timedfn
 
 import (
-	"testing"
+	"fmt"
 	"time"
 )
 
-func TestOption(t *testing.T) {
-	var o *Options
-	if o.IsValid() {
-		t.Error("nil should not be valid")
-	}
-	o = &Options{}
-	if o.IsValid() {
-		t.Errorf("Empty option %+v should not be valid", o)
-	}
-	o.Path = "foo"
-	if o.IsValid() {
-		t.Errorf("%+v should not be valid since interval is missing", o)
-	}
-	o.UpdateInterval = time.Second
-	if !o.IsValid() {
-		t.Errorf("%+v should be valid", o)
-	}
-	o.Path = ""
-	if o.IsValid() {
-		t.Errorf("%+v should not be valid since path is missing", o)
+// WithTimeout waits for the function to complete or the given timeout to expire.
+func WithTimeout(fn func(), timeout time.Duration) error {
+	c := make(chan struct{}, 1)
+	go func() {
+		defer close(c)
+		fn()
+	}()
+
+	select {
+	case <-c:
+		return nil
+	case <-time.After(timeout):
+		return fmt.Errorf("timed out while waiting for requested action to complete")
 	}
 }

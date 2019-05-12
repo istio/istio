@@ -115,13 +115,12 @@ func (cb *controller) onChange(p *Probe, newStatus error) {
 	}
 	cb.statuses[p] = newStatus
 	curr := cb.statusLocked()
-	if prev == curr || (prev != nil && curr != nil) {
-		return
-	}
-	if prev == nil && curr != nil {
-		log.Errorf("%s turns unavailable: %v", cb.name, curr)
-	} else if prev != nil {
-		log.Debugf("%s error status: %v", cb.name, curr)
+	if prev != curr && (prev == nil || curr == nil) {
+		if prev == nil && curr != nil {
+			log.Errorf("%s turns unavailable: %v", cb.name, curr)
+		} else if prev != nil {
+			log.Debugf("%s error status: %v", cb.name, curr)
+		}
 	}
 }
 
