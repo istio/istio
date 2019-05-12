@@ -920,7 +920,6 @@ spec:
         istio: galley
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-galley-service-account
       containers:
@@ -1758,7 +1757,6 @@ spec:
         istio: istio-testing
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       containers:
         - name: istio-proxy
@@ -14071,7 +14069,6 @@ spec:
         istio: ingressgateway
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       containers:
         - name: istio-proxy
@@ -15233,7 +15230,6 @@ spec:
         istio-mixer-type: telemetry
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-mixer-service-account
       volumes:
