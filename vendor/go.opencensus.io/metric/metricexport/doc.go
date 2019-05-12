@@ -12,20 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build go1.9
-
-package tag
-
-import (
-	"context"
-	"runtime/pprof"
-)
-
-func do(ctx context.Context, f func(ctx context.Context)) {
-	m := FromContext(ctx)
-	keyvals := make([]string, 0, 2*len(m.m))
-	for k, v := range m.m {
-		keyvals = append(keyvals, k.Name(), v.value)
-	}
-	pprof.Do(ctx, pprof.Labels(keyvals...), f)
-}
+// Package metricexport contains support for exporting metric data.
+//
+// This is an EXPERIMENTAL package, and may change in arbitrary ways without
+// notice.
+package metricexport // import "go.opencensus.io/metric/metricexport"

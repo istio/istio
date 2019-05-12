@@ -22,8 +22,8 @@ import (
 	"net/http/pprof"
 	"time"
 
+	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
-	ocprom "go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 	"google.golang.org/grpc/stats"
 

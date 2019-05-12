@@ -20,10 +20,10 @@ package zipkin
 import (
 	"context"
 
+	oczipkin "contrib.go.opencensus.io/exporter/zipkin"
 	zgo "github.com/openzipkin/zipkin-go"
 	"github.com/openzipkin/zipkin-go/reporter"
 	zhttp "github.com/openzipkin/zipkin-go/reporter/http"
-	oczipkin "go.opencensus.io/exporter/zipkin"
 	"go.opencensus.io/trace"
 
 	"istio.io/istio/mixer/adapter/metadata"

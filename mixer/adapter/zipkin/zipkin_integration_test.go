@@ -153,11 +153,11 @@ func TestReport(t *testing.T) {
       "annotations": [
         {
           "timestamp": 1136239444900000,
-          "value": "RECV"
+          "value": "Received 128 bytes"
         },
         {
           "timestamp": 1136239445000000,
-          "value": "SENT"
+          "value": "Sent 512 bytes"
         }
       ],
       "duration": 100000,
