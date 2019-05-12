@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"istio.io/common/pkg/log"
+	"istio.io/common/pkg/timedfn"
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/groups"
 	"istio.io/istio/galley/pkg/runtime/monitoring"
@@ -29,7 +30,6 @@ import (
 	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/util"
-	"istio.io/common/pkg/timedfn"
 )
 
 var scope = log.RegisterScope("runtime", "Galley runtime", 0)
@@ -172,7 +172,7 @@ func (p *Processor) Stop() {
 
 // AwaitFullSync waits until the full sync event is received from the source. For testing purposes only.
 func (p *Processor) AwaitFullSync(timeout time.Duration) error {
-	return wait.WithTimeout(func() {
+	return timedfn.WithTimeout(func() {
 		p.fullSyncCond.L.Lock()
 		defer p.fullSyncCond.L.Unlock()
 		if p.distribute {

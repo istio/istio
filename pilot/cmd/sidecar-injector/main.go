@@ -35,11 +35,11 @@ import (
 
 	"istio.io/common/pkg/collateral"
 	"istio.io/common/pkg/log"
+	"istio.io/common/pkg/probe"
 	"istio.io/common/pkg/version"
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/kube"
-	"istio.io/common/pkg/probe"
 	"istio.io/istio/pkg/util"
 )
 
