@@ -2758,7 +2758,6 @@ spec:
         istio: galley
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-galley-service-account
       containers:
@@ -2872,7 +2871,6 @@ spec:
         istio: egressgateway
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-egressgateway-service-account
       containers:
@@ -3011,7 +3009,6 @@ spec:
         istio: ingressgateway
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
@@ -3161,7 +3158,6 @@ spec:
         istio-mixer-type: policy
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-mixer-service-account
       volumes:
@@ -3301,7 +3297,6 @@ spec:
         istio-mixer-type: telemetry
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-mixer-service-account
       volumes:
@@ -3414,7 +3409,6 @@ spec:
         app: pilot
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-pilot-service-account
       containers:
@@ -3569,7 +3563,6 @@ spec:
         app: prometheus
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: prometheus
       containers:
@@ -3664,7 +3657,6 @@ spec:
         istio: citadel
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-citadel-service-account
       containers:
@@ -3737,7 +3729,6 @@ spec:
         istio: sidecar-injector
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-sidecar-injector-service-account
       containers:

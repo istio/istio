@@ -96,7 +96,6 @@ spec:
         istio: citadel
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-citadel11-service-account
       containers:

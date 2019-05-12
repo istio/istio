@@ -26,7 +26,6 @@ spec:
         istio-mixer-type: telemetry
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
 {{- with .Values.mixer.telemetry.podAnnotations }}
 {{ toYaml . | indent 8 }}
 {{- end }}
