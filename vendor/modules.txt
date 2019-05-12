@@ -11,9 +11,13 @@ cloud.google.com/go/trace/apiv2
 cloud.google.com/go/contextgraph/apiv1alpha1
 # code.cloudfoundry.org/copilot v0.0.0-20180808174356-6bade2a0677a
 code.cloudfoundry.org/copilot/api
+# contrib.go.opencensus.io/exporter/prometheus v0.1.0
+contrib.go.opencensus.io/exporter/prometheus
 # contrib.go.opencensus.io/exporter/stackdriver v0.6.0
 contrib.go.opencensus.io/exporter/stackdriver
 contrib.go.opencensus.io/exporter/stackdriver/monitoredresource
+# contrib.go.opencensus.io/exporter/zipkin v0.1.1
+contrib.go.opencensus.io/exporter/zipkin
 # fortio.org/fortio v1.3.0
 fortio.org/fortio/fhttp
 fortio.org/fortio/periodic
@@ -361,8 +365,8 @@ github.com/opentracing/opentracing-go/mocktracer
 github.com/openzipkin/zipkin-go
 github.com/openzipkin/zipkin-go/reporter
 github.com/openzipkin/zipkin-go/reporter/http
-github.com/openzipkin/zipkin-go/idgenerator
 github.com/openzipkin/zipkin-go/model
+github.com/openzipkin/zipkin-go/idgenerator
 github.com/openzipkin/zipkin-go/propagation
 # github.com/pborman/uuid v0.0.0-20170612153648-e790cca94e6c
 github.com/pborman/uuid
@@ -457,20 +461,19 @@ github.com/yuin/gopher-lua
 github.com/yuin/gopher-lua/parse
 github.com/yuin/gopher-lua/ast
 github.com/yuin/gopher-lua/pm
-# go.opencensus.io v0.20.1
+# go.opencensus.io v0.21.0
 go.opencensus.io/stats
 go.opencensus.io/stats/view
 go.opencensus.io/tag
-go.opencensus.io/exporter/prometheus
 go.opencensus.io/trace
-go.opencensus.io/exporter/zipkin
 go.opencensus.io/plugin/ochttp
 go.opencensus.io/plugin/ochttp/propagation/b3
 go.opencensus.io/plugin/ocgrpc
+go.opencensus.io/metric/metricdata
 go.opencensus.io/stats/internal
 go.opencensus.io/internal/tagencoding
-go.opencensus.io/metric/metricdata
 go.opencensus.io/metric/metricproducer
+go.opencensus.io/metric/metricexport
 go.opencensus.io/internal
 go.opencensus.io/trace/internal
 go.opencensus.io/trace/tracestate

@@ -13,9 +13,8 @@ GOLINT=golint
 GOVET=go vet
 EMBEDMD=embedmd
 # TODO decide if we need to change these names.
-TRACE_ID_LINT_EXCEPTION="type name will be used as trace.TraceID by other packages"
-TRACE_OPTION_LINT_EXCEPTION="type name will be used as trace.TraceOptions by other packages"
 README_FILES := $(shell find . -name '*README.md' | sort | tr '\n' ' ')
+
 
 .DEFAULT_GOAL := fmt-lint-vet-embedmd-test
 
@@ -57,7 +56,7 @@ fmt:
 
 .PHONY: lint
 lint:
-	@LINTOUT=`$(GOLINT) $(ALL_PKGS) | grep -v $(TRACE_ID_LINT_EXCEPTION) | grep -v $(TRACE_OPTION_LINT_EXCEPTION) 2>&1`; \
+	@LINTOUT=`$(GOLINT) $(ALL_PKGS) 2>&1`; \
 	if [ "$$LINTOUT" ]; then \
 		echo "$(GOLINT) FAILED => clean the following lint errors:\n"; \
 		echo "$$LINTOUT\n"; \

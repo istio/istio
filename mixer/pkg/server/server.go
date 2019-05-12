@@ -21,9 +21,9 @@ import (
 	"os"
 	"strings"
 
+	"contrib.go.opencensus.io/exporter/prometheus"
 	ot "github.com/opentracing/opentracing-go"
 	oprometheus "github.com/prometheus/client_golang/prometheus"
-	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/stats/view"
 	"google.golang.org/grpc"
