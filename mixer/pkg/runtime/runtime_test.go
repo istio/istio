@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
-	"istio.io/istio/pkg/probe"
+	"istio.io/common/pkg/probe"
 )
 
 var egp = pool.NewGoroutinePool(1, true)

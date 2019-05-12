@@ -31,7 +31,7 @@ import (
 
 	"istio.io/common/pkg/log"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/pkg/probe"
+	"istio.io/common/pkg/probe"
 )
 
 const (

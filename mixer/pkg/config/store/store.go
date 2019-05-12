@@ -26,7 +26,7 @@ import (
 
 	"istio.io/common/pkg/log"
 	"istio.io/istio/pkg/mcp/creds"
-	"istio.io/istio/pkg/probe"
+	"istio.io/common/pkg/probe"
 )
 
 // ChangeType denotes the type of a change

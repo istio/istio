@@ -29,7 +29,7 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/common/pkg/log"
-	"istio.io/istio/pkg/probe"
+	"istio.io/common/pkg/probe"
 	"istio.io/istio/security/pkg/k8s/configmap"
 	"istio.io/istio/security/pkg/pki/util"
 )

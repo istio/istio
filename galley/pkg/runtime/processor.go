@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/util"
-	"istio.io/istio/pkg/util/wait"
+	"istio.io/common/pkg/timedfn"
 )
 
 var scope = log.RegisterScope("runtime", "Galley runtime", 0)

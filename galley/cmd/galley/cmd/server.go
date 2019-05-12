@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/galley/pkg/crd/validation"
 	"istio.io/istio/galley/pkg/server"
 	istiocmd "istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/probe"
+	"istio.io/common/pkg/probe"
 )
 
 var (
