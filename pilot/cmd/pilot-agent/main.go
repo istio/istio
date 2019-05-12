@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pilot/pkg/proxy"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/env"
@@ -80,12 +79,6 @@ var (
 	concurrency                int
 	templateFile               string
 	disableInternalTelemetry   bool
-	tlsServerCertChain         string
-	tlsServerKey               string
-	tlsServerRootCert          string
-	tlsClientCertChain         string
-	tlsClientKey               string
-	tlsClientRootCert          string
 	tlsCertsToWatch            []string
 	loggingOptions             = log.DefaultOptions()
 
@@ -159,15 +152,6 @@ var (
 			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(role.TrustDomain, true))
 			role.TrustDomain = spiffe.GetTrustDomain()
 			log.Infof("Proxy role: %#v", role)
-
-			// Check for custom cert paths
-			tlsServerCertChain = getEnvVarOrDefault(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSServerCertChain, model.DefaultCertChain)
-			tlsServerKey = getEnvVarOrDefault(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSServerKey, model.DefaultKey)
-			tlsServerRootCert = getEnvVarOrDefault(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSServerRootCert, model.DefaultRootCert)
-
-			tlsClientCertChain = getEnvVarOrDefault(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSClientCertChain, model.DefaultCertChain)
-			tlsClientKey = getEnvVarOrDefault(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSClientKey, model.DefaultKey)
-			tlsClientRootCert = getEnvVarOrDefault(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSClientRootCert, model.DefaultRootCert)
 
 			tlsCertsToWatch = []string{
 				tlsServerCertChain, tlsServerKey, tlsServerRootCert,
@@ -386,15 +370,6 @@ var (
 		},
 	}
 )
-
-// getEnvVarOrDefault gets the 'key' env var, or returns 'defaultVal' if the env var is missing or blank.
-func getEnvVarOrDefault(key, defaultVal string) string {
-	v := os.Getenv(key)
-	if v == "" {
-		return defaultVal
-	}
-	return v
-}
 
 func dedupeStrings(in []string) []string {
 	stringMap := map[string]bool{}
