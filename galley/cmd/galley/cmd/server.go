@@ -22,10 +22,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/common/pkg/log"
+	"istio.io/common/pkg/probe"
 	"istio.io/istio/galley/pkg/crd/validation"
 	"istio.io/istio/galley/pkg/server"
 	istiocmd "istio.io/istio/pkg/cmd"
-	"istio.io/common/pkg/probe"
 )
 
 var (

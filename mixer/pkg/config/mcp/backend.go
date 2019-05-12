@@ -29,13 +29,13 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/common/pkg/log"
+	"istio.io/common/pkg/probe"
 	"istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/mixer/pkg/config/store"
 	configz "istio.io/istio/pkg/mcp/configz/client"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/sink"
-	"istio.io/common/pkg/probe"
 )
 
 var scope = log.RegisterScope("mcp", "Mixer MCP client stack", 0)
