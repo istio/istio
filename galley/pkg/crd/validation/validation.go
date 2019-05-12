@@ -26,11 +26,11 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/common/pkg/log"
+	"istio.io/common/pkg/probe"
 	mixervalidate "istio.io/istio/mixer/pkg/validate"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/kube"
-	"istio.io/common/pkg/probe"
 )
 
 const (

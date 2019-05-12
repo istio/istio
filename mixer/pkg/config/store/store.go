@@ -25,8 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/common/pkg/log"
-	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/common/pkg/probe"
+	"istio.io/istio/pkg/mcp/creds"
 )
 
 // ChangeType denotes the type of a change
