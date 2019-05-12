@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -34,11 +35,13 @@ const maxStreams = 100000
 type Options struct {
 	// EnableWorkloadSDS indicates whether node agent works as SDS server for workload proxies.
 	EnableWorkloadSDS bool
+
 	// WorkloadUDSPath is the unix domain socket through which SDS server communicates with workload proxies.
 	WorkloadUDSPath string
 
 	// EnableIngressGatewaySDS indicates whether node agent works as ingress gateway agent.
 	EnableIngressGatewaySDS bool
+
 	// IngressGatewayUDSPath is the unix domain socket through which SDS server communicates with
 	// ingress gateway proxies.
 	IngressGatewayUDSPath string
@@ -79,6 +82,9 @@ type Options struct {
 
 	// AlwaysValidTokenFlag is set to true for if token used is always valid(ex, normal k8s JWT)
 	AlwaysValidTokenFlag bool
+
+	// Recyle job running interval (to clean up staled sds client connections).
+	RecyleInterval time.Duration
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
@@ -96,8 +102,8 @@ type Server struct {
 // NewServer creates and starts the Grpc server for SDS.
 func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.SecretManager) (*Server, error) {
 	s := &Server{
-		workloadSds: newSDSService(workloadSecretCache, false),
-		gatewaySds:  newSDSService(gatewaySecretCache, true),
+		workloadSds: newSDSService(workloadSecretCache, false, options.RecyleInterval),
+		gatewaySds:  newSDSService(gatewaySecretCache, true, options.RecyleInterval),
 	}
 	if options.EnableWorkloadSDS {
 		if err := s.initWorkloadSdsService(&options); err != nil {
@@ -132,10 +138,13 @@ func (s *Server) Stop() {
 	}
 
 	if s.grpcWorkloadServer != nil {
+		s.workloadSds.Stop()
 		s.grpcWorkloadServer.Stop()
 	}
 	if s.grpcGatewayServer != nil {
+		s.gatewaySds.Stop()
 		s.grpcGatewayServer.Stop()
+
 	}
 }
 

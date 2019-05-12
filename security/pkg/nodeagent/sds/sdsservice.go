@@ -40,8 +40,8 @@ import (
 )
 
 const (
-	// SecretType is used for secret discovery service to construct response.
-	SecretType = "type.googleapis.com/envoy.api.v2.auth.Secret"
+	// secretType is used for secret discovery service to construct response.
+	secretType = "type.googleapis.com/envoy.api.v2.auth.Secret"
 
 	// credentialTokenHeaderKey is the header key in gPRC header which is used to
 	// pass credential token from envoy's SDS request to SDS service.
@@ -57,8 +57,9 @@ const (
 )
 
 var (
-	sdsClients      = map[cache.ConnKey]*sdsConnection{}
-	sdsClientsMutex sync.RWMutex
+	sdsClients       = map[cache.ConnKey]*sdsConnection{}
+	staledClientKeys []cache.ConnKey
+	sdsClientsMutex  sync.RWMutex
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
@@ -102,20 +103,33 @@ type sdsConnection struct {
 
 type sdsservice struct {
 	st cache.SecretManager
+
 	// skipToken indicates whether token is required.
 	skipToken bool
+
+	ticker         *time.Ticker
+	tickerInterval time.Duration
+
+	// close channel.
+	closing chan bool
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st cache.SecretManager, skipTokenVerification bool) *sdsservice {
+func newSDSService(st cache.SecretManager, skipTokenVerification bool, recyleInterval time.Duration) *sdsservice {
 	if st == nil {
 		return nil
 	}
 
-	return &sdsservice{
-		st:        st,
-		skipToken: skipTokenVerification,
+	ret := &sdsservice{
+		st:             st,
+		skipToken:      skipTokenVerification,
+		tickerInterval: recyleInterval,
+		closing:        make(chan bool),
 	}
+
+	go ret.clearStaledClientsJob()
+
+	return ret
 }
 
 // register adds the SDS handle to the grpc server
@@ -196,6 +210,14 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 					discReq.Node.Id, con.conID, resourceName, discReq.VersionInfo)
 			}
 
+			defer func() {
+				recyleConnection(con.conID, con.ResourceName)
+
+				// Remove the secret from cache, otherwise refresh job will process this item(if envoy fails to reconnect)
+				// and cause some confusing logs like 'fails to notify because connection isn't found'.
+				s.st.DeleteSecret(con.conID, con.ResourceName)
+			}()
+
 			// In ingress gateway agent mode, if the first SDS request is received but kubernetes secret is not ready,
 			// wait for secret before sending SDS response. If a kubernetes secret was deleted by operator, wait
 			// for a new kubernetes secret before sending SDS response.
@@ -211,13 +233,6 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 			con.secret = secret
 
-			defer func() {
-				removeConn(key)
-				// Remove the secret from cache, otherwise refresh job will process this item(if envoy fails to reconnect)
-				// and cause some confusing logs like 'fails to notify because connection isn't found'.
-				s.st.DeleteSecret(con.conID, con.ResourceName)
-			}()
-
 			if err := pushSDS(con); err != nil {
 				log.Errorf("SDS failed to push key/cert to proxy %q connection %q: %v", con.proxyID, con.conID, err)
 				return err
@@ -226,6 +241,11 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			log.Debugf("Received push channel request for proxy %q connection %q", con.proxyID, con.conID)
 
 			if con.secret == nil {
+				defer func() {
+					recyleConnection(con.conID, con.ResourceName)
+					s.st.DeleteSecret(con.conID, con.ResourceName)
+				}()
+
 				// Secret is nil indicates close streaming to proxy, so that proxy
 				// could connect again with updated token.
 				// When nodeagent stops stream by sending envoy error response, it's Ok not to remove secret
@@ -267,6 +287,38 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 	return sdsDiscoveryResponse(secret, discReq.Node.Id)
 }
 
+func (s *sdsservice) Stop() {
+	s.closing <- true
+}
+
+func (s *sdsservice) clearStaledClientsJob() {
+	s.ticker = time.NewTicker(s.tickerInterval)
+	for {
+		select {
+		case <-s.ticker.C:
+			s.clearStaledClients()
+		case <-s.closing:
+			if s.ticker != nil {
+				s.ticker.Stop()
+			}
+		}
+	}
+}
+
+func (s *sdsservice) clearStaledClients() {
+	log.Debug("start staled connection cleanup job")
+	sdsClientsMutex.Lock()
+	defer sdsClientsMutex.Unlock()
+
+	len := len(staledClientKeys)
+	for i := 0; i < len; i++ {
+		log.Debugf("remove staled clients %+v", staledClientKeys[i])
+		delete(sdsClients, staledClientKeys[i])
+	}
+
+	staledClientKeys = staledClientKeys[len:]
+}
+
 // NotifyProxy send notification to proxy about secret update,
 // SDS will close streaming connection if secret is nil.
 func NotifyProxy(conID, resourceName string, secret *model.SecretItem) error {
@@ -285,6 +337,14 @@ func NotifyProxy(conID, resourceName string, secret *model.SecretItem) error {
 
 	conn.pushChannel <- &sdsEvent{}
 	return nil
+}
+
+func recyleConnection(conID, resourceName string) {
+	key := cache.ConnKey{
+		ConnectionID: conID,
+		ResourceName: resourceName,
+	}
+	staledClientKeys = append(staledClientKeys, key)
 }
 
 func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (string /*resourceName*/, error) {
@@ -363,7 +423,7 @@ func pushSDS(con *sdsConnection) error {
 
 func sdsDiscoveryResponse(s *model.SecretItem, conID string) (*xdsapi.DiscoveryResponse, error) {
 	resp := &xdsapi.DiscoveryResponse{
-		TypeUrl:     SecretType,
+		TypeUrl:     secretType,
 		VersionInfo: s.Version,
 		Nonce:       s.Version,
 	}

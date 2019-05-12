@@ -86,6 +86,10 @@ const (
 	// The environmental variable name for key rotation job running interval.
 	// example value format like "20m"
 	SecretRotationJobRunInterval = "SECRET_JOB_RUN_INTERVAL"
+
+	// The environmental variable name for staled connection recyle job running interval.
+	// example value format like "5m"
+	staledConnectionRecyleInterval = "STALED_CONNECTION_RECYLE_RUN_INTERVAL"
 )
 
 var (
@@ -199,6 +203,11 @@ func init() {
 		alwaysValidTokenFlagEnv = env
 	}
 
+	staledConnectionRecyleIntervalEnv := 5 * time.Minute
+	if env, err := time.ParseDuration(os.Getenv(staledConnectionRecyleInterval)); err == nil {
+		staledConnectionRecyleIntervalEnv = env
+	}
+
 	rootCmd.PersistentFlags().BoolVar(&serverOptions.EnableWorkloadSDS, "enableWorkloadSDS",
 		enableWorkloadSdsEnv,
 		"If true, node agent works as SDS server and provisions key/certificate to workload proxies.")
@@ -227,6 +236,9 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&workloadSdsCacheOptions.AlwaysValidTokenFlag, "alwaysValidTokenFlag",
 		alwaysValidTokenFlagEnv,
 		"If true, node agent assume token passed from envoy is always valid.")
+
+	rootCmd.PersistentFlags().DurationVar(&serverOptions.RecyleInterval, "staledConnectionRecyleInternal",
+		staledConnectionRecyleIntervalEnv, "Staled client connections recyle job running interval")
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultAddress, "vaultAddress", os.Getenv(vaultAddress),
 		"Vault address")
