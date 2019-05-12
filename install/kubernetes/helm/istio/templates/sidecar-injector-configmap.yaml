@@ -16,6 +16,10 @@ data:
 
   config: |-
     policy: {{ .Values.global.proxy.autoInject }}
+    alwaysInjectSelector:
+{{ toYaml .Values.global.proxy.alwaysInjectSelector | indent 20}}
+    neverInjectSelector:
+{{ toYaml .Values.global.proxy.neverInjectSelector | indent 20 }}
     template: |-
 {{ .Files.Get "files/injection-template.yaml" | indent 6 }}
 {{- end }}

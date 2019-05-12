@@ -224,6 +224,14 @@ global:
     # This controls the 'policy' in the sidecar injector.
     autoInject: enabled
 
+    # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
+    # always skip the injection on pods that match that label selector, regardless of the global policy.
+    # See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
+
+    neverInjectSelector: []
+
+    alwaysInjectSelector: []
+
     # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
     # would be <host>:<port>).
     # Disabled by default.
