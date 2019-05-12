@@ -16,7 +16,9 @@ require (
 	cloud.google.com/go v0.37.4
 	cloud.google.com/go/contextgraph/apiv1alpha1 v0.0.0
 	code.cloudfoundry.org/copilot v0.0.0-20180808174356-6bade2a0677a
+	contrib.go.opencensus.io/exporter/prometheus v0.1.0
 	contrib.go.opencensus.io/exporter/stackdriver v0.6.0
+	contrib.go.opencensus.io/exporter/zipkin v0.1.1
 	fortio.org/fortio v1.3.0
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
 	github.com/Azure/go-autorest v11.1.0+incompatible // indirect
@@ -167,7 +169,7 @@ require (
 	github.com/yashtewari/glob-intersection v0.0.0-20180206001645-7af743e8ec84 // indirect
 	github.com/yl2chen/cidranger v0.0.0-20180214081945-928b519e5268
 	github.com/yuin/gopher-lua v0.0.0-20180316054350-84ea3a3c79b3 // indirect
-	go.opencensus.io v0.20.1
+	go.opencensus.io v0.21.0
 	go.uber.org/atomic v1.4.0
 	go.uber.org/multierr v1.1.0
 	go.uber.org/zap v1.10.0

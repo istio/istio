@@ -13,10 +13,11 @@
 // limitations under the License.
 
 // Package zipkin contains an trace exporter for Zipkin.
-package zipkin // import "go.opencensus.io/exporter/zipkin"
+package zipkin // import "contrib.go.opencensus.io/exporter/zipkin"
 
 import (
 	"encoding/binary"
+	"fmt"
 	"strconv"
 
 	"github.com/openzipkin/zipkin-go/model"
@@ -182,9 +183,9 @@ func zipkinSpan(s *trace.SpanData, localEndpoint *model.Endpoint) model.SpanMode
 			}
 			switch m.EventType {
 			case trace.MessageEventTypeSent:
-				a.Value = "SENT"
+				a.Value = fmt.Sprintf("Sent %d bytes", m.UncompressedByteSize)
 			case trace.MessageEventTypeRecv:
-				a.Value = "RECV"
+				a.Value = fmt.Sprintf("Received %d bytes", m.UncompressedByteSize)
 			default:
 				a.Value = "<?>"
 			}
