@@ -23,7 +23,7 @@ import (
 	"google.golang.org/grpc"
 
 	"istio.io/common/pkg/log"
-	"istio.io/istio/pkg/probe"
+	"istio.io/common/pkg/probe"
 	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"

@@ -29,6 +29,7 @@ import (
 	"istio.io/common/pkg/ctrlz"
 	"istio.io/common/pkg/ctrlz/fw"
 	"istio.io/common/pkg/log"
+	"istio.io/common/pkg/probe"
 	"istio.io/common/pkg/version"
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/metadata"
@@ -48,7 +49,6 @@ import (
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
-	"istio.io/istio/pkg/probe"
 )
 
 var scope = log.RegisterScope("server", "Galley server debugging", 0)

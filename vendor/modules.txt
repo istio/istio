@@ -457,19 +457,17 @@ github.com/yuin/gopher-lua
 github.com/yuin/gopher-lua/parse
 github.com/yuin/gopher-lua/ast
 github.com/yuin/gopher-lua/pm
-# go.opencensus.io v0.20.1
+# go.opencensus.io v0.21.0
 go.opencensus.io/stats
 go.opencensus.io/stats/view
 go.opencensus.io/tag
-go.opencensus.io/exporter/prometheus
 go.opencensus.io/trace
-go.opencensus.io/exporter/zipkin
 go.opencensus.io/plugin/ochttp
 go.opencensus.io/plugin/ochttp/propagation/b3
 go.opencensus.io/plugin/ocgrpc
+go.opencensus.io/metric/metricdata
 go.opencensus.io/stats/internal
 go.opencensus.io/internal/tagencoding
-go.opencensus.io/metric/metricdata
 go.opencensus.io/metric/metricproducer
 go.opencensus.io/internal
 go.opencensus.io/trace/internal
@@ -666,11 +664,13 @@ istio.io/api/envoy/config/filter/http/authn/v2alpha1
 istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1
 istio.io/api/mixer/adapter/model/v1beta1
 istio.io/api/mixer/v1
-# istio.io/common v0.0.0-20190511150418-730c55b2e803
+# istio.io/common v0.0.0-20190512042725-b051e18db14b
 istio.io/common/pkg/collateral
 istio.io/common/pkg/log
+istio.io/common/pkg/probe
 istio.io/common/pkg/version
 istio.io/common/pkg/filewatcher
+istio.io/common/pkg/timedfn
 istio.io/common/pkg/ctrlz
 istio.io/common/pkg/ctrlz/fw
 istio.io/common/pkg/env

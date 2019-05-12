@@ -19,7 +19,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/pkg/probe"
+	"istio.io/common/pkg/probe"
 )
 
 func probeCmd() *cobra.Command {

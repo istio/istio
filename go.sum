@@ -444,6 +444,8 @@ github.com/yuin/gopher-lua v0.0.0-20180316054350-84ea3a3c79b3 h1:CX+AUpiV2hZ3OaP
 github.com/yuin/gopher-lua v0.0.0-20180316054350-84ea3a3c79b3/go.mod h1:aEV29XrmTYFr3CiRxZeGHpkvbwq+prZduBqMaascyCU=
 go.opencensus.io v0.20.1 h1:pMEjRZ1M4ebWGikflH7nQpV6+Zr88KBMA2XJD3sbijw=
 go.opencensus.io v0.20.1/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
+go.opencensus.io v0.21.0 h1:mU6zScU4U1YAFPHEHYk+3JC4SY7JxgkqS10ZOSyksNg=
+go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=
 go.uber.org/atomic v1.4.0 h1:cxzIVoETapQEqDhQu3QfnvXAV4AlzcvUCxkVUFw3+EU=
 go.uber.org/atomic v1.4.0/go.mod h1:gD2HeocX3+yG+ygLZcrzQJaqmWj9AIm7n08wl/qW/PE=
 go.uber.org/multierr v1.1.0 h1:HoEmRHQPVSqub6w2z2d2EOVs2fjyFRGyofhKuyDq0QI=
@@ -563,8 +565,8 @@ honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 istio.io/api v0.0.0-20190405142752-6b8d1849e7f4 h1:wQ44ZUabUTet5bO+WUEMLcl7Mn96lFzhvg3OChIooc0=
 istio.io/api v0.0.0-20190405142752-6b8d1849e7f4/go.mod h1:hhLFQmpHia8zgaM37vb2ml9iS5NfNfqZGRt1pS9aVEo=
-istio.io/common v0.0.0-20190511150418-730c55b2e803 h1:bp4YBVlvtiFIZh4dTxYzoncxm41YjMxyLHGhdOJ8WBU=
-istio.io/common v0.0.0-20190511150418-730c55b2e803/go.mod h1:+PmZT4IOnHB/EojPjTnn83egbOGQNd+dsamKcNc5eUw=
+istio.io/common v0.0.0-20190512042725-b051e18db14b h1:8JKbWJ09ikdusR0FptJ53Y0eErCZffW92+0hpBQ5ZBE=
+istio.io/common v0.0.0-20190512042725-b051e18db14b/go.mod h1:QHmW/qj75egwWIH5W5coVmFE50ROZHGvq1UkXyt7aEs=
 k8s.io/api v0.0.0-20190222213804-5cb15d344471 h1:MzQGt8qWQCR+39kbYRd0uQqsvSidpYqJLFeWiJ9l4OE=
 k8s.io/api v0.0.0-20190222213804-5cb15d344471/go.mod h1:iuAfoD4hCxJ8Onx9kaTIt30j7jUFS00AXQi6QMi99vA=
 k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87 h1:BMfPZfi3CkPd9e9Qbm+/AFgE6qXWQcbzUvC91LR3m7w=

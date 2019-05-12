@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"istio.io/common/pkg/log"
+	"istio.io/common/pkg/probe"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/pool"
@@ -28,7 +29,6 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/handler"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/pkg/probe"
 )
 
 var errNotListening = errors.New("runtime is not listening to the store")

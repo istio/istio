@@ -54,12 +54,11 @@ func (p *Probe) IsAvailable() error {
 
 // SetAvailable sets the new status, and notifies the controller.
 func (p *Probe) SetAvailable(newStatus error) {
-	if p.status == newStatus {
-		return
-	}
-	p.status = newStatus
-	if p.c != nil {
-		p.c.onChange(p, newStatus)
+	if p.status != newStatus {
+		p.status = newStatus
+		if p.c != nil {
+			p.c.onChange(p, newStatus)
+		}
 	}
 }
 
