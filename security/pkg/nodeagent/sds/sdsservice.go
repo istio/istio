@@ -390,12 +390,6 @@ func addConn(k cache.ConnKey, conn *sdsConnection) {
 	sdsClients[k] = conn
 }
 
-func removeConn(k cache.ConnKey) {
-	sdsClientsMutex.Lock()
-	defer sdsClientsMutex.Unlock()
-	delete(sdsClients, k)
-}
-
 func pushSDS(con *sdsConnection) error {
 	response, err := sdsDiscoveryResponse(con.secret, con.conID)
 	if err != nil {
