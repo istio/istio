@@ -104,7 +104,6 @@ spec:
 				With(&a, echo.Config{
 					Service:   "a",
 					Namespace: ns,
-					Sidecar:   true,
 					Galley:    g,
 					Pilot:     p,
 					Ports: []echo.Port{

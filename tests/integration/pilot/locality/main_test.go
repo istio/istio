@@ -147,7 +147,6 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 		Service:   name,
 		Namespace: ns,
 		Locality:  "region.zone.subzone",
-		Sidecar:   true,
 		Ports: []echo.Port{
 			{
 				Name:        "http",

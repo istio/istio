@@ -110,14 +110,12 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 				With(&client, echo.Config{
 					Service:   "client",
 					Namespace: appsNamespace,
-					Sidecar:   true,
 					Pilot:     p,
 					Galley:    g,
 				}).
 				With(&dest, echo.Config{
 					Service:   "destination",
 					Namespace: appsNamespace,
-					Sidecar:   true,
 					Pilot:     p,
 					Galley:    g,
 					Ports: []echo.Port{
