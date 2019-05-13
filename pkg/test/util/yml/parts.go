@@ -15,30 +15,42 @@
 package yml
 
 import (
-	"bytes"
+	"regexp"
 	"strings"
 )
 
 const (
-	yamlSeparator = "\n---\n"
+	joinSeparator = "\n---\n"
 )
 
-// Split the given yaml doc if it's multipart document.
-func Split(yamlText []byte) [][]byte {
-	return bytes.Split(yamlText, []byte(yamlSeparator))
-}
+var (
+	// Split where the '---' appears at the very beginning of a line. This will avoid
+	// accidentally splitting in cases where yaml resources contain nested yaml (which
+	// is indented).
+	splitRegex = regexp.MustCompile(`(^|\n)---`)
+)
 
 // SplitString splits the given yaml doc if it's multipart document.
 func SplitString(yamlText string) []string {
-	return strings.Split(yamlText, yamlSeparator)
-}
-
-// Join the given yaml parts into a single multipart document.
-func Join(parts ...[]byte) []byte {
-	return bytes.Join(parts, []byte(yamlSeparator))
+	out := make([]string, 0)
+	parts := splitRegex.Split(yamlText, -1)
+	for _, part := range parts {
+		part := strings.TrimSpace(part)
+		if len(part) > 0 {
+			out = append(out, part)
+		}
+	}
+	return out
 }
 
 // JoinString joins the given yaml parts into a single multipart document.
 func JoinString(parts ...string) string {
-	return strings.Join(parts, yamlSeparator)
+	// Assume that each part is already a multi-document. Split and trim each part,
+	// if necessary.
+	toJoin := make([]string, 0, len(parts))
+	for _, part := range parts {
+		toJoin = append(toJoin, SplitString(part)...)
+	}
+
+	return strings.Join(toJoin, joinSeparator)
 }
