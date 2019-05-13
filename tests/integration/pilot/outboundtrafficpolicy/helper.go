@@ -126,7 +126,6 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 					},
 				}).BuildOrFail(t)
 
-
 			// External traffic should work even if we have service entries on the same ports
 			createSidecarScope(t, appsNamespace, serviceNamespace, g)
 			if err := g.ApplyConfig(serviceNamespace, ServiceEntry); err != nil {
