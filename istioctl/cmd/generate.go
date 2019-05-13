@@ -36,8 +36,6 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
@@ -45,7 +43,7 @@ import (
 var (
 	templateVals []string
 
-	plurals map[string]string = map[string]string{
+	plurals = map[string]string{
 		"v1.Service":                    "services",
 		"v1.Pod":                        "pods",
 		"extensions/v1beta1.Deployment": "deployments",
@@ -62,9 +60,9 @@ var (
 		"quote":      quote,
 		"default":    defaultFunc,
 		"parseBool":  parseBool,
-		"k8s_list":   k8s_list,
-		"k8s_get":    k8s_get,
-		"istio_mtls": istio_mtls,
+		"k8s_list":   k8sList,
+		"k8s_get":    k8sGet,
+		"istio_mtls": istioMtls,
 	}
 
 	// mock point for dynamic.Interface factory
@@ -78,14 +76,14 @@ func generateCommand() *cobra.Command {
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(c *cobra.Command, positionalArgs []string) error {
 			if len(positionalArgs) == 0 && file == "" {
-				return listGenerators(c, kubeconfig, configContext)
+				return listGenerators(c)
 			}
 
 			var tmplSrc string
 			var err error
 			if len(positionalArgs) == 1 {
 				if file != "" {
-					return fmt.Errorf("Supply either a configmap or --file parameter, not both")
+					return fmt.Errorf("supply either a configmap or --file parameter, not both")
 				}
 				tmplSrc, err = getTemplate(positionalArgs[0])
 			} else {
@@ -213,7 +211,7 @@ func gvr(k8sType string) schema.GroupVersionResource {
 	}
 }
 
-func k8s_list(typ string) (*[]map[string]interface{}, error) {
+func k8sList(typ string) (*[]map[string]interface{}, error) {
 	if k8sType(typ) {
 		client, err := dynamicClientFactory()
 		if err != nil {
@@ -231,7 +229,7 @@ func k8s_list(typ string) (*[]map[string]interface{}, error) {
 		return &retval, nil
 	}
 
-	return nil, fmt.Errorf("Unknown type %q", typ)
+	return nil, fmt.Errorf("unknown type %q", typ)
 }
 
 func defaultFunc(val, defval interface{}) (string, error) {
@@ -242,7 +240,7 @@ func defaultFunc(val, defval interface{}) (string, error) {
 	return fmt.Sprintf("%v", defval), nil
 }
 
-func k8s_get(typ, name string) (*map[string]interface{}, error) {
+func k8sGet(typ, name string) (*map[string]interface{}, error) {
 	if k8sType(typ) {
 		client, err := dynamicClientFactory()
 		if err != nil {
@@ -257,7 +255,7 @@ func k8s_get(typ, name string) (*map[string]interface{}, error) {
 		return &retval, nil
 	}
 
-	return nil, fmt.Errorf("Unknown type %q", typ)
+	return nil, fmt.Errorf("unknown type %q", typ)
 }
 
 func k8sType(typ string) bool {
@@ -266,7 +264,7 @@ func k8sType(typ string) bool {
 }
 
 func k8sPlural(typ string) string {
-	plural, _ := plurals[typ]
+	plural := plurals[typ]
 	return plural
 }
 
@@ -278,15 +276,15 @@ func parseBool(val interface{}) (bool, error) {
 }
 
 // Note that this only checks global mTLS, not the namespace settings for svc
-func istio_mtls(svc string) (bool, error) {
-	istioClient, err := crd.NewClient(kubeconfig, configContext, model.IstioConfigTypes, "")
+func istioMtls(svc string) (bool, error) {
+	istioClient, err := clientFactory()
 	if err != nil {
 		return false, err
 	}
 
 	meshPolicy := istioClient.Get("mesh-policy", "default", istioNamespace)
 	if meshPolicy == nil {
-		return false, fmt.Errorf("No Istio MeshPolicy defined")
+		return false, fmt.Errorf("no Istio MeshPolicy defined")
 	}
 
 	policy := meshPolicy.Spec.(*authn.Policy)
@@ -300,7 +298,7 @@ func istio_mtls(svc string) (bool, error) {
 	return false, nil
 }
 
-func listGenerators(c *cobra.Command, kubeconfig, configContext string) error {
+func listGenerators(c *cobra.Command) error {
 
 	client, err := createInterface(kubeconfig)
 	if err != nil {
@@ -355,7 +353,7 @@ func getTemplate(templateName string) (string, error) {
 		return contents, nil
 	}
 
-	return "", fmt.Errorf("No template in ConfigMap")
+	return "", fmt.Errorf("no template in ConfigMap")
 }
 
 func effectiveNamespace(namespace string) string {

@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -23,6 +24,28 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
+
+	"istio.io/api/authentication/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
+)
+
+var (
+	testMesh = []model.Config{
+		{
+			ConfigMeta: model.ConfigMeta{
+				Name:      "default",
+				Namespace: "istio-system",
+				Type:      model.AuthenticationMeshPolicy.Type,
+				Group:     model.AuthenticationMeshPolicy.Group,
+				Version:   model.AuthenticationMeshPolicy.Version,
+			},
+			Spec: &v1alpha1.Policy{
+				Peers: []*v1alpha1.PeerAuthenticationMethod{{
+					Params: &v1alpha1.PeerAuthenticationMethod_Mtls{Mtls: &v1alpha1.MutualTls{}},
+				}},
+			},
+		},
+	}
 )
 
 func TestGenerate(t *testing.T) {
@@ -34,16 +57,16 @@ func TestGenerate(t *testing.T) {
 			wantException: true,
 		},
 		{
-			args: strings.Split("experimental generate -f testdata/generate/dr-template.yaml", " "),
-			expectedOutput: `Error: template: generate:4:11: executing "generate" at <required "A valid .s...>: error calling required: A valid .service required, use --set service=...
-`,
-			wantException: true,
+			args:           strings.Split("experimental generate -f testdata/generate/dr-template.yaml", " "),
+			expectedRegexp: regexp.MustCompile("A valid .service required, use --set service="),
+			wantException:  true,
 		},
 		{
 			args:           strings.Split("experimental generate -f testdata/generate/expose-template.yaml --set service=bookstore", " "),
 			goldenFilename: "testdata/generate/exposed-service.yaml.golden",
 		},
-		{
+		{ // case 3
+			configs:        testMesh,
 			args:           strings.Split("experimental generate -f testdata/generate/dr-template.yaml --set service=reviews", " "),
 			goldenFilename: "testdata/generate/dr-123.yaml.golden",
 		},
