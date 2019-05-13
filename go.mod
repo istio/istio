@@ -2,19 +2,12 @@ module istio.io/istio
 
 go 1.12
 
-replace cloud.google.com/go/contextgraph/apiv1alpha1 => ./mixer/adapter/stackdriver/vendor/cloud.google.com/go/contextgraph/apiv1alpha1
-
-replace google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1 => ./mixer/adapter/stackdriver/vendor/google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1
-
-replace google.golang.org/genproto/googleapis/graphservice => ./mixer/adapter/stackdriver/vendor/google.golang.org/genproto/googleapis/graphservice
-
 replace github.com/golang/glog => github.com/istio/glog v0.0.0-20190424172949-d7cfb6fa2ccd
 
 replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
 
 require (
 	cloud.google.com/go v0.37.4
-	cloud.google.com/go/contextgraph/apiv1alpha1 v0.0.0
 	code.cloudfoundry.org/copilot v0.0.0-20180808174356-6bade2a0677a
 	contrib.go.opencensus.io/exporter/prometheus v0.1.0
 	contrib.go.opencensus.io/exporter/stackdriver v0.6.0
@@ -179,8 +172,6 @@ require (
 	golang.org/x/tools v0.0.0-20190328211700-ab21143f2384
 	google.golang.org/api v0.3.1
 	google.golang.org/genproto v0.0.0-20190404172233-64821d5d2107
-	google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1 v0.0.0
-	google.golang.org/genproto/googleapis/graphservice v0.0.0 // indirect
 	google.golang.org/grpc v1.20.1
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/ini.v1 v1.42.0 // indirect
