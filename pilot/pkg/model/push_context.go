@@ -505,13 +505,17 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 		}
 	}
 
-	// if no private/public rule matched in the calling proxy's namespace,
-	// check the target service's namespace for public rules
+	// check the target service's namespace for exported rules
 	if service.Attributes.Namespace != "" && ps.namespaceExportedDestRules[service.Attributes.Namespace] != nil {
 		if host, ok := MostSpecificHostMatch(service.Hostname,
 			ps.namespaceExportedDestRules[service.Attributes.Namespace].hosts); ok {
 			return ps.namespaceExportedDestRules[service.Attributes.Namespace].destRule[host].config
 		}
+	}
+
+	// check the target service's namespace for public rules
+	if host, ok := MostSpecificHostMatch(service.Hostname, ps.allExportedDestRules.hosts); ok {
+		return ps.allExportedDestRules.destRule[host].config
 	}
 
 	// if no public/private rule in calling proxy's namespace matched, and no public rule in the
@@ -610,10 +614,16 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 				ps.publicServices = append(ps.publicServices, s)
 			}
 		} else {
-			if s.Attributes.ExportTo[VisibilityPrivate] {
-				ps.privateServicesByNamespace[ns] = append(ps.privateServicesByNamespace[ns], s)
-			} else {
+			if s.Attributes.ExportTo[VisibilityPublic] {
 				ps.publicServices = append(ps.publicServices, s)
+			} else {
+				ps.privateServicesByNamespace[ns] = append(ps.privateServicesByNamespace[ns], s)
+				for visibleNs := range s.Attributes.ExportTo {
+					if string(visibleNs) == ns {
+						continue
+					}
+					ps.privateServicesByNamespace[string(visibleNs)] = append(ps.privateServicesByNamespace[string(visibleNs)], s)
+				}
 			}
 		}
 		ps.ServiceByHostname[s.Hostname] = s
@@ -729,15 +739,17 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 				ps.publicVirtualServices = append(ps.publicVirtualServices, virtualService)
 			}
 		} else {
-			// TODO: we currently only process the first element in the array
-			// and currently only consider . or * which maps to public/private
-			if Visibility(rule.ExportTo[0]) == VisibilityPrivate {
-				// add to local namespace only
-				ps.privateVirtualServicesByNamespace[ns] = append(ps.privateVirtualServicesByNamespace[ns], virtualService)
-			} else {
-				// ~ is not valid in the exportTo fields in virtualServices, services, destination rules
-				// and we currently only allow . or *. So treat this as public export
+			if Visibility(rule.ExportTo[0]) == VisibilityPublic {
 				ps.publicVirtualServices = append(ps.publicVirtualServices, virtualService)
+			} else {
+				// add to local namespace first
+				ps.privateVirtualServicesByNamespace[ns] = append(ps.privateVirtualServicesByNamespace[ns], virtualService)
+				for _, visibleNs := range rule.ExportTo {
+					if visibleNs == ns {
+						continue
+					}
+					ps.privateVirtualServicesByNamespace[visibleNs] = append(ps.privateVirtualServicesByNamespace[visibleNs], virtualService)
+				}
 			}
 		}
 	}
@@ -899,33 +911,36 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 				isPubliclyExported = true
 			}
 		} else {
-			// TODO: we currently only process the first element in the array
-			// and currently only consider . or * which maps to public/private
-			if Visibility(rule.ExportTo[0]) != VisibilityPrivate {
-				// ~ is not valid in the exportTo fields in virtualServices, services, destination rules
-				// and we currently only allow . or *. So treat this as public export
+			// only consider * and specified namespace
+			if Visibility(rule.ExportTo[0]) == VisibilityPublic {
 				isPubliclyExported = true
 			}
 		}
 
 		if isPubliclyExported {
-			if _, exist := namespaceExportedDestRules[configs[i].Namespace]; !exist {
-				namespaceExportedDestRules[configs[i].Namespace] = &processedDestRules{
-					hosts:    make([]Hostname, 0),
-					destRule: map[Hostname]*combinedDestinationRule{},
-				}
-			}
-			// Merge this destination rule with any public dest rule for the same host in the same namespace
-			// If there are no duplicates, the dest rule will be added to the list
-			namespaceExportedDestRules[configs[i].Namespace].hosts, _ = ps.combineSingleDestinationRule(
-				namespaceExportedDestRules[configs[i].Namespace].hosts,
-				namespaceExportedDestRules[configs[i].Namespace].destRule,
-				configs[i])
-
 			// Merge this destination rule with any public dest rule for the same host
 			// across all namespaces. If there are no duplicates, the dest rule will be added to the list
 			allExportedDestRules.hosts, _ = ps.combineSingleDestinationRule(
 				allExportedDestRules.hosts, allExportedDestRules.destRule, configs[i])
+		} else {
+			// add to exported namespace
+			for _, visibleNs := range rule.ExportTo {
+				if visibleNs == configs[i].Namespace {
+					continue
+				}
+				if _, exist := namespaceExportedDestRules[visibleNs]; !exist {
+					namespaceExportedDestRules[visibleNs] = &processedDestRules{
+						hosts:    make([]Hostname, 0),
+						destRule: map[Hostname]*combinedDestinationRule{},
+					}
+				}
+				// Merge this destination rule with any public dest rule for the same host in the same namespace
+				// If there are no duplicates, the dest rule will be added to the list
+				namespaceExportedDestRules[visibleNs].hosts, _ = ps.combineSingleDestinationRule(
+					namespaceExportedDestRules[visibleNs].hosts,
+					namespaceExportedDestRules[visibleNs].destRule,
+					configs[i])
+			}
 		}
 	}
 

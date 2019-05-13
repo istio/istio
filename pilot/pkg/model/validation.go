@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"path"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -562,14 +563,17 @@ func ValidateDestinationRule(_, _ string, msg proto.Message) (errs error) {
 }
 
 func validateExportTo(exportTo []string) (errs error) {
-	if len(exportTo) > 0 {
-		if len(exportTo) > 1 {
-			errs = appendErrors(errs, fmt.Errorf("exportTo should have only one entry (. or *) in the current release"))
-		} else {
-			switch Visibility(exportTo[0]) {
-			case VisibilityPrivate, VisibilityPublic:
-			default:
-				errs = appendErrors(errs, fmt.Errorf("only . or * is allowed in the exportTo in the current release"))
+	if len(exportTo) > 1 {
+		// only * or specified namespace is allowed
+		sort.SliceStable(exportTo, func(i, j int) bool {
+			return strings.Compare(exportTo[i], exportTo[j]) < 0
+		})
+		if Visibility(exportTo[0]) == VisibilityPublic {
+			return fmt.Errorf("* is conflict with %v in the exportTo", exportTo[1:])
+		}
+		for i := 1; i < len(exportTo); i++ {
+			if exportTo[i] == exportTo[i-1] {
+				errs = appendErrors(errs, fmt.Errorf("%s is duplicate in the exportTo", exportTo[i]))
 			}
 		}
 	}
