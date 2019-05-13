@@ -124,10 +124,11 @@ func TestEcho(t *testing.T) {
 
 					ns := namespace.NewOrFail(ctx, ctx, "echo", true)
 
-					a := echoboot.NewOrFail(ctx, ctx, config.apply("a", ns))
-					b := echoboot.NewOrFail(ctx, ctx, config.apply("b", ns))
-
-					a.WaitUntilReadyOrFail(ctx, b)
+					var a, b echo.Instance
+					echoboot.NewBuilderOrFail(ctx, ctx).
+						With(&a, config.apply("a", ns)).
+						With(&b, config.apply("b", ns)).
+						BuildOrFail(ctx)
 
 					for _, o := range callOptions {
 						// Make a copy of the options for the test.
