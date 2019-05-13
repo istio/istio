@@ -31,7 +31,7 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // CertOptions contains options for generating a new certificate.

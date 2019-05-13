@@ -33,14 +33,14 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/common/pkg/collateral"
-	"istio.io/common/pkg/log"
-	"istio.io/common/pkg/probe"
-	"istio.io/common/pkg/version"
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/util"
+	"istio.io/pkg/collateral"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
+	"istio.io/pkg/version"
 )
 
 var (

@@ -22,8 +22,8 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	"istio.io/common/pkg/filewatcher"
 	"istio.io/istio/pkg/mcp/server"
+	"istio.io/pkg/filewatcher"
 )
 
 func TestWatchAccessList_Basic(t *testing.T) {

@@ -23,17 +23,22 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // The type of a variable's value
 type VarType byte
 
 const (
+	// Variable holds a free-form string.
 	STRING VarType = iota
+	// Variable holds a boolean value.
 	BOOL
+	// Variable holds a signed integer.
 	INT
+	// Variables holds a floating point value.
 	FLOAT
+	// Variable holds a time duration.
 	DURATION
 )
 
@@ -86,7 +91,7 @@ type DurationVar struct {
 var allVars = make(map[string]Var)
 var mutex sync.Mutex
 
-// Returns a description of this process' environment variables, sorted by name.
+// VarDescriptions returns a description of this process' environment variables, sorted by name.
 func VarDescriptions() []Var {
 	mutex.Lock()
 	sorted := make([]Var, 0, len(allVars))
@@ -164,11 +169,19 @@ func getVar(name string) Var {
 	return result
 }
 
+// Get retrieves the value of the environment variable.
+// It returns the value, which will be the default if the variable is not present.
+// To distinguish between an empty value and an unset value, use Lookup.
 func (v StringVar) Get() string {
 	result, _ := v.Lookup()
 	return result
 }
 
+// Lookup retrieves the value of the environment variable. If the
+// variable is present in the environment the
+// value (which may be empty) is returned and the boolean is true.
+// Otherwise the returned value will be the default and the boolean will
+// be false.
 func (v StringVar) Lookup() (string, bool) {
 	result, ok := os.LookupEnv(v.Name)
 	if !ok {
@@ -178,11 +191,19 @@ func (v StringVar) Lookup() (string, bool) {
 	return result, ok
 }
 
+// Get retrieves the value of the environment variable.
+// It returns the value, which will be the default if the variable is not present.
+// To distinguish between an empty value and an unset value, use Lookup.
 func (v BoolVar) Get() bool {
 	result, _ := v.Lookup()
 	return result
 }
 
+// Lookup retrieves the value of the environment variable. If the
+// variable is present in the environment the
+// value (which may be empty) is returned and the boolean is true.
+// Otherwise the returned value will be the default and the boolean will
+// be false.
 func (v BoolVar) Lookup() (bool, bool) {
 	result, ok := os.LookupEnv(v.Name)
 	if !ok {
@@ -198,11 +219,19 @@ func (v BoolVar) Lookup() (bool, bool) {
 	return b, ok
 }
 
+// Get retrieves the value of the environment variable.
+// It returns the value, which will be the default if the variable is not present.
+// To distinguish between an empty value and an unset value, use Lookup.
 func (v IntVar) Get() int {
 	result, _ := v.Lookup()
 	return result
 }
 
+// Lookup retrieves the value of the environment variable. If the
+// variable is present in the environment the
+// value (which may be empty) is returned and the boolean is true.
+// Otherwise the returned value will be the default and the boolean will
+// be false.
 func (v IntVar) Lookup() (int, bool) {
 	result, ok := os.LookupEnv(v.Name)
 	if !ok {
@@ -218,11 +247,19 @@ func (v IntVar) Lookup() (int, bool) {
 	return i, ok
 }
 
+// Get retrieves the value of the environment variable.
+// It returns the value, which will be the default if the variable is not present.
+// To distinguish between an empty value and an unset value, use Lookup.
 func (v FloatVar) Get() float64 {
 	result, _ := v.Lookup()
 	return result
 }
 
+// Lookup retrieves the value of the environment variable. If the
+// variable is present in the environment the
+// value (which may be empty) is returned and the boolean is true.
+// Otherwise the returned value will be the default and the boolean will
+// be false.
 func (v FloatVar) Lookup() (float64, bool) {
 	result, ok := os.LookupEnv(v.Name)
 	if !ok {
@@ -238,11 +275,19 @@ func (v FloatVar) Lookup() (float64, bool) {
 	return f, ok
 }
 
+// Get retrieves the value of the environment variable.
+// It returns the value, which will be the default if the variable is not present.
+// To distinguish between an empty value and an unset value, use Lookup.
 func (v DurationVar) Get() time.Duration {
 	result, _ := v.Lookup()
 	return result
 }
 
+// Lookup retrieves the value of the environment variable. If the
+// variable is present in the environment the
+// value (which may be empty) is returned and the boolean is true.
+// Otherwise the returned value will be the default and the boolean will
+// be false.
 func (v DurationVar) Lookup() (time.Duration, bool) {
 	result, ok := os.LookupEnv(v.Name)
 	if !ok {

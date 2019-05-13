@@ -23,9 +23,9 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/mcp/sink"
+	"istio.io/pkg/log"
 )
 
 var errUnsupported = errors.New("this operation is not supported by mcp controller")

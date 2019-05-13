@@ -24,8 +24,8 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 
 	"istio.io/api/mesh/v1alpha1"
-	"istio.io/common/pkg/filewatcher"
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("meshconfig", "meshconfig watcher/reader", 0)

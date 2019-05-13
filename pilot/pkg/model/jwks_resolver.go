@@ -28,7 +28,7 @@ import (
 	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	"istio.io/common/pkg/cache"
+	"istio.io/pkg/cache"
 )
 
 const (

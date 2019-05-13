@@ -27,15 +27,15 @@ import (
 	"text/template"
 	"time"
 
-	"istio.io/common/pkg/annotations"
+	"istio.io/pkg/annotations"
 
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/common/pkg/env"
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 // Generate the envoy v2 bootstrap configuration, using template.

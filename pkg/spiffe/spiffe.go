@@ -19,7 +19,7 @@ import (
 	"strings"
 	"sync"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const (

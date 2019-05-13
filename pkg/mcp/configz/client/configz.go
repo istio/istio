@@ -18,10 +18,10 @@ import (
 	"html/template"
 	"net/http"
 
-	"istio.io/common/pkg/ctrlz"
-	"istio.io/common/pkg/ctrlz/fw"
 	"istio.io/istio/pkg/mcp/configz/client/assets"
 	"istio.io/istio/pkg/mcp/sink"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/ctrlz/fw"
 )
 
 // configzTopic topic is a Topic fw.implementation that exposes the state info about an MCP sink.

@@ -34,10 +34,10 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	"istio.io/common/pkg/log"
 	pmodel "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/model"
+	"istio.io/pkg/log"
 )
 
 const (

@@ -33,7 +33,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"golang.org/x/net/context/ctxhttp"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const (

@@ -23,8 +23,8 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 func TestRoutes(t *testing.T) {

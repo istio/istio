@@ -17,8 +17,8 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/pkg/log"
 )
 
 var (

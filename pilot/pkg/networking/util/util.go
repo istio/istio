@@ -34,9 +34,9 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/features/pilot"
+	"istio.io/pkg/log"
 )
 
 const (

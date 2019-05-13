@@ -23,8 +23,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 const (

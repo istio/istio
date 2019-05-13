@@ -26,8 +26,8 @@ import (
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc/credentials"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("mcp", "mcp debugging", 0)

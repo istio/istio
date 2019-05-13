@@ -25,8 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/log"
 )
 
 // ConvertObject converts an IstioObject k8s-style object to the

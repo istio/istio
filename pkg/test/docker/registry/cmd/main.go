@@ -25,9 +25,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/pkg/test/docker/registry"
+	"istio.io/pkg/log"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )

@@ -24,9 +24,9 @@ import (
 	"github.com/ghodss/yaml"
 	v1 "k8s.io/api/core/v1"
 
-	"istio.io/common/pkg/version"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/version"
 )
 
 var meshInfo = version.MeshInfo{

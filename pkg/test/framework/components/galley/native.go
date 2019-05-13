@@ -26,7 +26,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/common/pkg/appsignals"
 	"istio.io/istio/galley/pkg/server"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/deployment"
@@ -35,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/pkg/appsignals"
 )
 
 var (

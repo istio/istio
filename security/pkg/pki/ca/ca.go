@@ -28,10 +28,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	"istio.io/common/pkg/log"
-	"istio.io/common/pkg/probe"
 	"istio.io/istio/security/pkg/k8s/configmap"
 	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 const (

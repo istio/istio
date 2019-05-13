@@ -27,8 +27,8 @@ import (
 	"go.opencensus.io/stats/view"
 	"google.golang.org/grpc/stats"
 
-	"istio.io/common/pkg/log"
-	"istio.io/common/pkg/version"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 type monitor struct {

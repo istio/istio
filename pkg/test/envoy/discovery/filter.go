@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var (

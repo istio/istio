@@ -36,8 +36,8 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/client-go/transport/spdy"
 
-	"istio.io/common/pkg/version"
 	"istio.io/istio/pkg/kube"
+	"istio.io/pkg/version"
 )
 
 var (

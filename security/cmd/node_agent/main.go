@@ -21,11 +21,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	"istio.io/common/pkg/collateral"
-	"istio.io/common/pkg/log"
-	"istio.io/common/pkg/version"
 	"istio.io/istio/security/pkg/cmd"
 	nvm "istio.io/istio/security/pkg/nodeagent/vm"
+	"istio.io/pkg/collateral"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 var (

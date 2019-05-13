@@ -20,13 +20,13 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/security/pkg/k8s/configmap"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
 	vault "istio.io/istio/security/pkg/nodeagent/caclient/providers/vault"
+	"istio.io/pkg/log"
 )
 
 const (

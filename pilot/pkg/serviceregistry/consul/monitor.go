@@ -21,8 +21,8 @@ import (
 
 	"github.com/hashicorp/consul/api"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/log"
 )
 
 type consulServices map[string][]string

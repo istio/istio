@@ -23,7 +23,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opencensus.io/stats/view"
 
-	"istio.io/common/pkg/version"
+	"istio.io/pkg/version"
 )
 
 const (

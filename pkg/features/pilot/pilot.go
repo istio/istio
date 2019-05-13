@@ -18,8 +18,8 @@ import (
 	"strconv"
 	"time"
 
-	"istio.io/common/pkg/env"
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 var (

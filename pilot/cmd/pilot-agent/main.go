@@ -33,10 +33,6 @@ import (
 	"github.com/spf13/cobra/doc"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/common/pkg/collateral"
-	"istio.io/common/pkg/env"
-	"istio.io/common/pkg/log"
-	"istio.io/common/pkg/version"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy"
@@ -45,6 +41,10 @@ import (
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/pkg/collateral"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 var (

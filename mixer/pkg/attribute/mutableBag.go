@@ -24,8 +24,8 @@ import (
 	me "github.com/hashicorp/go-multierror"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/common/pkg/log"
 	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/pkg/log"
 )
 
 // MutableBag is a generic mechanism to read and write a set of attributes.
