@@ -19,6 +19,8 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pilot/pkg/model"
+
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 )
 
@@ -26,6 +28,7 @@ import (
 type Probe struct {
 	AdminPort        uint16
 	ApplicationPorts []uint16
+	NodeType         model.NodeType
 }
 
 // Check executes the probe and returns an error is the probe fails.
@@ -43,7 +46,7 @@ func (p *Probe) Check() error {
 // checkApplicationPorts verifies that Envoy has received configuration for all ports exposed by the application container.
 func (p *Probe) checkInboundConfigured() error {
 	if len(p.ApplicationPorts) > 0 {
-		listeningPorts, listeners, err := util.GetInboundListeningPorts(p.AdminPort)
+		listeningPorts, listeners, err := util.GetInboundListeningPorts(p.AdminPort, p.NodeType)
 		if err != nil {
 			return err
 		}

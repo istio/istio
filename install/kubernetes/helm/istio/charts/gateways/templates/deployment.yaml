@@ -153,6 +153,10 @@ spec:
           {{- else }}
           - istio-pilot:15010
           {{- end }}
+          {{- if $spec.applicationPorts }}
+          - --applicationPorts
+          - "{{ $spec.applicationPorts }}"
+          {{- end }}
         {{- end }}
         {{- if $.Values.global.trustDomain }}
           - --trust-domain={{ $.Values.global.trustDomain }}
