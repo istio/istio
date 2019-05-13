@@ -25,21 +25,16 @@ import (
 func ApplyNamespace(yamlText, ns string) (string, error) {
 	chunks := SplitString(yamlText)
 
-	result := ""
+	toJoin := make([]string, 0, len(chunks))
 	for _, chunk := range chunks {
-		if chunk == "" {
-			continue
-		}
-		if result != "" {
-			result += yamlSeparator
-		}
-		y, err := applyNamespace(chunk, ns)
+		chunk, err := applyNamespace(chunk, ns)
 		if err != nil {
 			return "", err
 		}
-		result += y
+		toJoin = append(toJoin, chunk)
 	}
 
+	result := JoinString(toJoin...)
 	return result, nil
 }
 

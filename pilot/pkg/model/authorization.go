@@ -18,7 +18,7 @@ import (
 	"fmt"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
-	istiolog "istio.io/istio/pkg/log"
+	istiolog "istio.io/pkg/log"
 )
 
 const (

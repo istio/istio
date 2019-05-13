@@ -41,8 +41,7 @@ type instance struct {
 	workload *workload
 }
 
-// New creates a new native echo instance.
-func New(ctx resource.Context, cfg echo.Config) (out echo.Instance, err error) {
+func newInstance(ctx resource.Context, cfg echo.Config) (out echo.Instance, err error) {
 	env := ctx.Environment().(*native.Environment)
 
 	// Fill in defaults for any missing values.
@@ -68,7 +67,7 @@ func (c *instance) ID() resource.ID {
 	return c.id
 }
 
-func (c *instance) WaitUntilReady(outboundInstances ...echo.Instance) error {
+func (c *instance) WaitUntilCallable(instances ...echo.Instance) error {
 	// No need to check for inbound readiness, since inbound ports for the native echo instance
 	// are configured by bootstrap.
 
@@ -77,19 +76,12 @@ func (c *instance) WaitUntilReady(outboundInstances ...echo.Instance) error {
 		return nil
 	}
 
-	// Wait until all of the outbound instances are ready.
-	for _, outbound := range outboundInstances {
-		if err := outbound.WaitUntilReady(); err != nil {
-			return err
-		}
-	}
-
-	return c.workload.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(outboundInstances...))
+	return c.workload.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(instances...))
 }
 
-func (c *instance) WaitUntilReadyOrFail(t test.Failer, outboundInstances ...echo.Instance) {
+func (c *instance) WaitUntilCallableOrFail(t test.Failer, instances ...echo.Instance) {
 	t.Helper()
-	if err := c.WaitUntilReady(outboundInstances...); err != nil {
+	if err := c.WaitUntilCallable(instances...); err != nil {
 		t.Fatal(err)
 	}
 }

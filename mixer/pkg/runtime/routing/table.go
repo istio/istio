@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // Table is the main routing table. It is used to find the set of handlers that should be invoked, along with the

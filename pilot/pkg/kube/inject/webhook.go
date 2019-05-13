@@ -37,7 +37,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var (

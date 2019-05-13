@@ -25,9 +25,9 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
+	"istio.io/istio/pkg/test/util/yml"
 
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -209,7 +209,7 @@ func (c *kubectl) writeContentsToTempFile(contents string) (filename string, err
 }
 
 func (c *kubectl) splitContentsToFiles(content, filenamePrefix string) ([]string, error) {
-	cfgs := test.SplitConfigs(content)
+	cfgs := yml.SplitString(content)
 
 	namespacesAndCrds := &yamlDoc{
 		docType: namespacesAndCRDs,
@@ -298,7 +298,7 @@ type yamlDoc struct {
 }
 
 func (d *yamlDoc) append(c string) {
-	d.content = test.JoinConfigs(d.content, c)
+	d.content = yml.JoinString(d.content, c)
 }
 
 func (d *yamlDoc) toTempFile(workDir, fileNamePrefix string) (string, error) {

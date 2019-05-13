@@ -21,8 +21,8 @@ import (
 	"istio.io/istio/mixer/pkg/lang/cel"
 	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/lang/compiled"
-	"istio.io/istio/pkg/annotations"
-	"istio.io/istio/pkg/env"
+	"istio.io/pkg/annotations"
+	"istio.io/pkg/env"
 )
 
 type (

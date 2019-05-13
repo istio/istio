@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/status"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const queueAllocSize = 64

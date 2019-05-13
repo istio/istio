@@ -36,7 +36,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	istiolog "istio.io/istio/pkg/log"
+	istiolog "istio.io/pkg/log"
 )
 
 var (

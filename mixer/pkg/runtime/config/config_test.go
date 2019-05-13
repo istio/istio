@@ -40,7 +40,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var tmpl1Base64Str = getFileDescSetBase64("testdata/tmpl1.descriptor")

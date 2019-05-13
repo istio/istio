@@ -24,7 +24,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/version"
+	"istio.io/pkg/version"
 )
 
 type execTestCase struct {

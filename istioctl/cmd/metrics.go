@@ -30,7 +30,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var (

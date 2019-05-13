@@ -99,24 +99,26 @@ spec:
 `
 			g.ApplyConfigOrFail(t, ns, policy)
 
-			a := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:   "a",
-				Namespace: ns,
-				Sidecar:   true,
-				Galley:    g,
-				Pilot:     p,
-				Ports: []echo.Port{
-					{
-						Name:     "http",
-						Protocol: model.ProtocolHTTP,
+			var a echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, echo.Config{
+					Service:   "a",
+					Namespace: ns,
+					Sidecar:   true,
+					Galley:    g,
+					Pilot:     p,
+					Ports: []echo.Port{
+						{
+							Name:     "http",
+							Protocol: model.ProtocolHTTP,
+						},
+						{
+							Name:     "tcp",
+							Protocol: model.ProtocolTCP,
+						},
 					},
-					{
-						Name:     "tcp",
-						Protocol: model.ProtocolTCP,
-					},
-				},
-			})
-			a.WaitUntilReadyOrFail(t)
+				}).
+				BuildOrFail(t)
 
 			nodeID := a.WorkloadsOrFail(t)[0].Sidecar().NodeID()
 			req := pilot.NewDiscoveryRequest(nodeID, pilot.Listener)

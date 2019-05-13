@@ -19,7 +19,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("shell", "Shell execution scope", 0)

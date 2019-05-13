@@ -30,8 +30,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/probe"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 const (

@@ -20,8 +20,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 var (

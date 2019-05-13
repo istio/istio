@@ -22,7 +22,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // PodCache is an eventually consistent pod cache

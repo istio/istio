@@ -23,7 +23,7 @@ import (
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/il"
 	"istio.io/istio/mixer/pkg/lang/ast"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // Compiler is a stateful compiler that can be used to gradually build an il.Program out of multiple independent
