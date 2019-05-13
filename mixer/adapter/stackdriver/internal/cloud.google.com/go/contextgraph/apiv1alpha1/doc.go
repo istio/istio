@@ -19,7 +19,7 @@
 //
 //   NOTE: This package is in alpha. It is not stable, and is likely to change.
 //
-package contextgraph // import "cloud.google.com/go/contextgraph/apiv1alpha1"
+package contextgraph
 
 import (
 	"golang.org/x/net/context"
