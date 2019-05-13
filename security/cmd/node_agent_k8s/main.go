@@ -207,6 +207,7 @@ func init() {
 	if env, err := time.ParseDuration(os.Getenv(staledConnectionRecyleInterval)); err == nil {
 		staledConnectionRecyleIntervalEnv = env
 	}
+	serverOptions.RecyleInterval = staledConnectionRecyleIntervalEnv
 
 	rootCmd.PersistentFlags().BoolVar(&serverOptions.EnableWorkloadSDS, "enableWorkloadSDS",
 		enableWorkloadSdsEnv,
@@ -236,9 +237,6 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&workloadSdsCacheOptions.AlwaysValidTokenFlag, "alwaysValidTokenFlag",
 		alwaysValidTokenFlagEnv,
 		"If true, node agent assume token passed from envoy is always valid.")
-
-	rootCmd.PersistentFlags().DurationVar(&serverOptions.RecyleInterval, "staledConnectionRecyleInternal",
-		staledConnectionRecyleIntervalEnv, "Staled client connections recyle job running interval")
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultAddress, "vaultAddress", os.Getenv(vaultAddress),
 		"Vault address")

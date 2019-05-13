@@ -310,13 +310,14 @@ func (s *sdsservice) clearStaledClients() {
 	sdsClientsMutex.Lock()
 	defer sdsClientsMutex.Unlock()
 
-	len := len(staledClientKeys)
-	for i := 0; i < len; i++ {
+	sLen := len(staledClientKeys)
+	for i := 0; i < sLen; i++ {
 		log.Debugf("remove staled clients %+v", staledClientKeys[i])
 		delete(sdsClients, staledClientKeys[i])
 	}
 
-	staledClientKeys = staledClientKeys[len:]
+	// truncate staledClientKeys to remove keys that deleted above.
+	staledClientKeys = staledClientKeys[sLen:]
 }
 
 // NotifyProxy send notification to proxy about secret update,
@@ -344,6 +345,9 @@ func recyleConnection(conID, resourceName string) {
 		ConnectionID: conID,
 		ResourceName: resourceName,
 	}
+
+	sdsClientsMutex.Lock()
+	defer sdsClientsMutex.Unlock()
 	staledClientKeys = append(staledClientKeys, key)
 }
 
