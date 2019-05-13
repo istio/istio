@@ -45,7 +45,7 @@ import (
     "istio.io/istio/mixer/pkg/lang/ast"
     "istio.io/istio/mixer/pkg/lang/compiled"
     "istio.io/istio/mixer/pkg/runtime/lang"
-    "istio.io/common/pkg/log"
+    "istio.io/pkg/log"
     "istio.io/istio/mixer/pkg/template"
     istio_adapter_model_v1beta1 "istio.io/api/mixer/adapter/model/v1beta1"
     istio_policy_v1beta1 "istio.io/api/policy/v1beta1"

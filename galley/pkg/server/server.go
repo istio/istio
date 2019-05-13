@@ -26,11 +26,6 @@ import (
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/common/pkg/ctrlz"
-	"istio.io/common/pkg/ctrlz/fw"
-	"istio.io/common/pkg/log"
-	"istio.io/common/pkg/probe"
-	"istio.io/common/pkg/version"
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/metadata"
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
@@ -49,6 +44,11 @@ import (
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/ctrlz/fw"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
+	"istio.io/pkg/version"
 )
 
 var scope = log.RegisterScope("server", "Galley server debugging", 0)

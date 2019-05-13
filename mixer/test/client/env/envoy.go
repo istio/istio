@@ -23,8 +23,8 @@ import (
 	"strconv"
 	"time"
 
-	ev "istio.io/common/pkg/env"
 	"istio.io/istio/pkg/test/env"
+	ev "istio.io/pkg/env"
 )
 
 // Envoy stores data for Envoy process

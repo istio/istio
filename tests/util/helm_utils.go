@@ -18,7 +18,7 @@ import (
 	"context"
 	"time"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // HelmInit init helm with a service account

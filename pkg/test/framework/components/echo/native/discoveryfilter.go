@@ -32,9 +32,9 @@ import (
 
 	"google.golang.org/grpc"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pkg/test/envoy/discovery"
 	"istio.io/istio/pkg/test/util/reserveport"
+	"istio.io/pkg/log"
 )
 
 const (

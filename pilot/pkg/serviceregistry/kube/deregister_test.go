@@ -19,7 +19,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // TestRemoveIPFromEndpoint if the provided IP to deregister has already

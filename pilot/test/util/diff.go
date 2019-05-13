@@ -22,7 +22,7 @@ import (
 
 	"github.com/pmezard/go-difflib/difflib"
 
-	"istio.io/common/pkg/env"
+	"istio.io/pkg/env"
 )
 
 // Refresh controls whether to update the golden artifacts instead.

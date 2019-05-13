@@ -23,7 +23,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/common/pkg/probe"
+	"istio.io/pkg/probe"
 )
 
 const watchFlushDuration = time.Millisecond

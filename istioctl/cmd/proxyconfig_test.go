@@ -22,9 +22,9 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
-	"istio.io/common/pkg/version"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/pkg/version"
 )
 
 type execTestCase struct {

@@ -23,8 +23,8 @@ import (
 
 	yaml "gopkg.in/yaml.v2"
 
-	"istio.io/common/pkg/ctrlz/fw"
-	"istio.io/common/pkg/ctrlz/topics/assets"
+	"istio.io/pkg/ctrlz/fw"
+	"istio.io/pkg/ctrlz/topics/assets"
 )
 
 // ReadableCollection is a staticCollection collection of entries to be exposed via CtrlZ.

@@ -21,7 +21,7 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // Note that this code uses go.opencensus.io/stats,

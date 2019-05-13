@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"sync"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // Registry is the standard interface for identity registry implementation

@@ -21,10 +21,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	"istio.io/common/pkg/collateral"
-	"istio.io/common/pkg/version"
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/pkg/tracing"
+	"istio.io/pkg/collateral"
+	"istio.io/pkg/version"
 )
 
 type rootArgs struct {

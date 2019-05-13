@@ -19,11 +19,11 @@ import (
 	"io/ioutil"
 	"time"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/security/pkg/caclient/protocol"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	pb "istio.io/istio/security/proto"
+	"istio.io/pkg/log"
 )
 
 const (

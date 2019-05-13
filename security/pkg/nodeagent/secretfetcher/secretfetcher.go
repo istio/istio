@@ -30,12 +30,12 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/common/pkg/env"
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pkg/kube"
 	ca "istio.io/istio/security/pkg/nodeagent/caclient"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	"istio.io/istio/security/pkg/nodeagent/model"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 const (

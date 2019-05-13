@@ -28,8 +28,8 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
 
-	"istio.io/common/pkg/filewatcher"
 	"istio.io/istio/pkg/mcp/testing/testcerts"
+	"istio.io/pkg/filewatcher"
 )
 
 var (

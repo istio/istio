@@ -20,10 +20,10 @@ import (
 	"path"
 	"time"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/mixer/pkg/adapter"
 	testEnv "istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/pkg/log"
 )
 
 type server struct {

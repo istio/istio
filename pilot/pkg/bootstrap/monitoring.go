@@ -23,8 +23,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opencensus.io/stats/view"
 
-	"istio.io/common/pkg/log"
-	"istio.io/common/pkg/version"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 type monitor struct {

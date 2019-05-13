@@ -19,9 +19,6 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/common/pkg/ctrlz"
-	"istio.io/common/pkg/log"
-	"istio.io/common/pkg/probe"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/loadshedding"
@@ -29,6 +26,9 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/tracing"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 // Args contains the startup arguments to instantiate Mixer.

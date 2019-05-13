@@ -30,7 +30,7 @@ import (
 	"strings"
 	"text/template"
 
-	"istio.io/common/pkg/annotations"
+	"istio.io/pkg/annotations"
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/types"
@@ -44,8 +44,8 @@ import (
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/log"
 )
 
 type annotationValidationFunc func(value string) error

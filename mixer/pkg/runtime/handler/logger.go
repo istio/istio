@@ -21,7 +21,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // stackDepth is used

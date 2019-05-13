@@ -31,11 +31,11 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/pkg/log"
 )
 
 func makeClient(t *testing.T) kubernetes.Interface {

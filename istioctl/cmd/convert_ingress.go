@@ -26,10 +26,10 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/api/extensions/v1beta1"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/istioctl/pkg/convert"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/log"
 )
 
 var (

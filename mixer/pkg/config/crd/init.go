@@ -28,10 +28,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd" // import GKE cluster authentication plugin
 
-	"istio.io/common/pkg/log"
-	"istio.io/common/pkg/probe"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/mcp/creds"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 // defaultDiscoveryBuilder builds the actual discovery client using the kubernetes config.

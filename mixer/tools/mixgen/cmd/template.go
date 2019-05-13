@@ -24,9 +24,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/common/pkg/env"
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
+	"istio.io/pkg/env"
 )
 
 func templateCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Command {

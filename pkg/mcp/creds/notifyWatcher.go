@@ -23,7 +23,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	"istio.io/common/pkg/filewatcher"
+	"istio.io/pkg/filewatcher"
 )
 
 var (

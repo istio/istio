@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/pkg/log"
 )
 
 // This test allows for Locality Prioritized Load Balancing testing without needing Kube nodes in multiple regions.

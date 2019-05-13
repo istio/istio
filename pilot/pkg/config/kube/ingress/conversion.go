@@ -26,9 +26,9 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/pkg/log"
 )
 
 // EncodeIngressRuleName encodes an ingress rule name for a given ingress resource name,

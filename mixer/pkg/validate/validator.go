@@ -17,13 +17,13 @@ package validate
 import (
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
 	runtimeConfig "istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/template"
 	generatedTmplRepo "istio.io/istio/mixer/template"
+	"istio.io/pkg/log"
 )
 
 // validator provides the default structural validation

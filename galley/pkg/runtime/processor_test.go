@@ -22,8 +22,6 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/common/pkg/log"
-	"istio.io/common/pkg/timedfn"
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime/groups"
 	runtimeLog "istio.io/istio/galley/pkg/runtime/log"
@@ -31,6 +29,8 @@ import (
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/resources"
 	"istio.io/istio/pkg/mcp/snapshot"
+	"istio.io/pkg/log"
+	"istio.io/pkg/timedfn"
 )
 
 const (

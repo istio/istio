@@ -29,8 +29,8 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/spf13/cobra"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/istioctl/pkg/kubernetes"
+	"istio.io/pkg/log"
 )
 
 var (

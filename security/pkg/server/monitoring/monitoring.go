@@ -25,8 +25,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opencensus.io/stats/view"
 
-	"istio.io/common/pkg/log"
-	"istio.io/common/pkg/version"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 // Monitor is the server that exposes Prometheus metrics about Citadel.

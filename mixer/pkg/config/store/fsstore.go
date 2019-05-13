@@ -28,8 +28,8 @@ import (
 
 	"github.com/ghodss/yaml"
 
-	"istio.io/common/pkg/log"
-	"istio.io/common/pkg/probe"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 const defaultDuration = time.Second / 2

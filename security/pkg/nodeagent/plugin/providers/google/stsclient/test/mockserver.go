@@ -24,7 +24,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var fakeaccesstoken = "footoken"

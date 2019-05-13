@@ -18,7 +18,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("mcp", "mcp debugging", 0)

@@ -30,9 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/common/pkg/ctrlz"
-	"istio.io/common/pkg/log"
-	"istio.io/common/pkg/probe"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/api"
 	"istio.io/istio/mixer/pkg/checkcache"
@@ -46,6 +43,9 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/tracing"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 // Server is an in-memory Mixer service.

@@ -35,9 +35,9 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
 	kubecfg "istio.io/istio/pkg/kube"
+	"istio.io/pkg/log"
 )
 
 // IstioObject is a k8s wrapper interface for config objects

@@ -22,7 +22,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/gomega"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/source/kube/builtin"
@@ -30,6 +29,7 @@ import (
 	kubeLog "istio.io/istio/galley/pkg/source/kube/log"
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/testing/events"
+	"istio.io/pkg/log"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

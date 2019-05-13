@@ -22,7 +22,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // cloneMessage looks up the kind in the map, and creates a clone of it.

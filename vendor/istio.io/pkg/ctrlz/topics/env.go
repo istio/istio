@@ -21,8 +21,8 @@ import (
 	"sort"
 	"strings"
 
-	"istio.io/common/pkg/ctrlz/fw"
-	"istio.io/common/pkg/ctrlz/topics/assets"
+	"istio.io/pkg/ctrlz/fw"
+	"istio.io/pkg/ctrlz/topics/assets"
 )
 
 type envTopic struct {
