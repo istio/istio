@@ -40,7 +40,6 @@ import (
 	"google.golang.org/grpc/grpclog"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/common/pkg/log"
 	mcprate "istio.io/istio/pkg/mcp/rate"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/sink"
@@ -48,6 +47,7 @@ import (
 	"istio.io/istio/pkg/mcp/source"
 	"istio.io/istio/pkg/mcp/testing/groups"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
+	"istio.io/pkg/log"
 )
 
 var (

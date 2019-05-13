@@ -20,7 +20,7 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 type Locality struct {

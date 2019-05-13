@@ -669,22 +669,22 @@ istio.io/api/envoy/config/filter/http/authn/v2alpha1
 istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1
 istio.io/api/mixer/adapter/model/v1beta1
 istio.io/api/mixer/v1
-# istio.io/common v0.0.0-20190512121707-885a0ca9b527
-istio.io/common/pkg/collateral
-istio.io/common/pkg/log
-istio.io/common/pkg/probe
-istio.io/common/pkg/version
-istio.io/common/pkg/filewatcher
-istio.io/common/pkg/timedfn
-istio.io/common/pkg/ctrlz
-istio.io/common/pkg/ctrlz/fw
-istio.io/common/pkg/env
-istio.io/common/pkg/appsignals
-istio.io/common/pkg/cache
-istio.io/common/pkg/annotations
-istio.io/common/pkg/ctrlz/assets
-istio.io/common/pkg/ctrlz/topics
-istio.io/common/pkg/ctrlz/topics/assets
+# istio.io/pkg v0.0.0-20190513000936-0187f41267ce
+istio.io/pkg/collateral
+istio.io/pkg/log
+istio.io/pkg/probe
+istio.io/pkg/version
+istio.io/pkg/filewatcher
+istio.io/pkg/timedfn
+istio.io/pkg/ctrlz
+istio.io/pkg/ctrlz/fw
+istio.io/pkg/env
+istio.io/pkg/appsignals
+istio.io/pkg/cache
+istio.io/pkg/annotations
+istio.io/pkg/ctrlz/assets
+istio.io/pkg/ctrlz/topics
+istio.io/pkg/ctrlz/topics/assets
 # k8s.io/api v0.0.0-20190222213804-5cb15d344471
 k8s.io/api/admission/v1beta1
 k8s.io/api/admissionregistration/v1beta1

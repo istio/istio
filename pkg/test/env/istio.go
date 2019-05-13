@@ -23,7 +23,7 @@ import (
 
 	"runtime"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var (

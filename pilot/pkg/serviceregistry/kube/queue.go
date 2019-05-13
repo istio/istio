@@ -18,8 +18,8 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/log"
 )
 
 // Queue of work tickets processed using a rate-limiting loop

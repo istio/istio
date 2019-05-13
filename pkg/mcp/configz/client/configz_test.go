@@ -32,11 +32,11 @@ import (
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/common/pkg/ctrlz"
-	"istio.io/common/pkg/ctrlz/fw"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/snapshot"
 	mcptest "istio.io/istio/pkg/mcp/testing"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/ctrlz/fw"
 )
 
 type updater struct {

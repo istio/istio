@@ -48,11 +48,6 @@ import (
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	istio_networking_v1alpha3 "istio.io/api/networking/v1alpha3"
-	"istio.io/common/pkg/ctrlz"
-	"istio.io/common/pkg/env"
-	"istio.io/common/pkg/filewatcher"
-	"istio.io/common/pkg/log"
-	"istio.io/common/pkg/version"
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/clusterregistry"
@@ -80,6 +75,11 @@ import (
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/sink"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/env"
+	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 const (

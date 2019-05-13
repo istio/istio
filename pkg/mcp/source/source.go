@@ -26,10 +26,10 @@ import (
 	"google.golang.org/grpc/peer"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pkg/mcp/internal"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/rate"
+	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("mcp", "mcp debugging", 0)

@@ -25,7 +25,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var (

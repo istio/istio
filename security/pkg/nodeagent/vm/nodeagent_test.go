@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/security/pkg/caclient"
 	"istio.io/istio/security/pkg/caclient/protocol/mock"
 	"istio.io/istio/security/pkg/platform"
@@ -28,6 +27,7 @@ import (
 	"istio.io/istio/security/pkg/util"
 	mockutil "istio.io/istio/security/pkg/util/mock"
 	pb "istio.io/istio/security/proto"
+	"istio.io/pkg/log"
 )
 
 func TestStartWithArgs(t *testing.T) {

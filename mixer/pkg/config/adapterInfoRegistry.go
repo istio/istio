@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"strings"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/pkg/log"
 )
 
 type adapterInfoRegistry struct {

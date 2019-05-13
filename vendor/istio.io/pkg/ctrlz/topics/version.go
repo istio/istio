@@ -17,32 +17,36 @@ package topics
 import (
 	"html/template"
 	"net/http"
-	"os"
 
-	"istio.io/common/pkg/ctrlz/fw"
-	"istio.io/common/pkg/ctrlz/topics/assets"
+	"istio.io/pkg/ctrlz/fw"
+	"istio.io/pkg/ctrlz/topics/assets"
+	"istio.io/pkg/version"
 )
 
-type argsTopic struct {
+type versionTopic struct {
 }
 
-// ArgsTopic returns a ControlZ topic that allows visualization of process command-line arguments.
-func ArgsTopic() fw.Topic {
-	return argsTopic{}
+// VersionTopic returns a ControlZ topic that allows visualization of versioning info.
+func VersionTopic() fw.Topic {
+	return versionTopic{}
 }
 
-func (argsTopic) Title() string {
-	return "Command-Line Arguments"
+func (versionTopic) Title() string {
+	return "Version Info"
 }
 
-func (argsTopic) Prefix() string {
-	return "arg"
+func (versionTopic) Prefix() string {
+	return "version"
 }
 
-func (argsTopic) Activate(context fw.TopicContext) {
-	tmpl := template.Must(context.Layout().Parse(string(assets.MustAsset("templates/args.html"))))
+func (versionTopic) Activate(context fw.TopicContext) {
+	tmpl := template.Must(context.Layout().Parse(string(assets.MustAsset("templates/version.html"))))
 
 	_ = context.HTMLRouter().StrictSlash(true).NewRoute().Path("/").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		fw.RenderHTML(w, tmpl, os.Args)
+		fw.RenderHTML(w, tmpl, &version.Info)
+	})
+
+	_ = context.JSONRouter().StrictSlash(true).NewRoute().Methods("GET").Path("/").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		fw.RenderJSON(w, http.StatusOK, &version.Info)
 	})
 }

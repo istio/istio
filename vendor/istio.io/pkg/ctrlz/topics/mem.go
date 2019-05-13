@@ -12,41 +12,51 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package topics defines several canonical ControlZ topics.
 package topics
 
 import (
 	"html/template"
 	"net/http"
+	"runtime"
 
-	"istio.io/common/pkg/ctrlz/fw"
-	"istio.io/common/pkg/ctrlz/topics/assets"
-	"istio.io/common/pkg/version"
+	"istio.io/pkg/ctrlz/fw"
+	"istio.io/pkg/ctrlz/topics/assets"
 )
 
-type versionTopic struct {
+type memTopic struct {
 }
 
-// VersionTopic returns a ControlZ topic that allows visualization of versioning info.
-func VersionTopic() fw.Topic {
-	return versionTopic{}
+// MemTopic returns a ControlZ topic that allows visualization of process memory usage.
+func MemTopic() fw.Topic {
+	return memTopic{}
 }
 
-func (versionTopic) Title() string {
-	return "Version Info"
+func (memTopic) Title() string {
+	return "Memory Usage"
 }
 
-func (versionTopic) Prefix() string {
-	return "version"
+func (memTopic) Prefix() string {
+	return "mem"
 }
 
-func (versionTopic) Activate(context fw.TopicContext) {
-	tmpl := template.Must(context.Layout().Parse(string(assets.MustAsset("templates/version.html"))))
+func (memTopic) Activate(context fw.TopicContext) {
+	tmpl := template.Must(context.Layout().Parse(string(assets.MustAsset("templates/mem.html"))))
 
 	_ = context.HTMLRouter().StrictSlash(true).NewRoute().Path("/").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		fw.RenderHTML(w, tmpl, &version.Info)
+		ms := &runtime.MemStats{}
+		runtime.ReadMemStats(ms)
+		fw.RenderHTML(w, tmpl, ms)
 	})
 
 	_ = context.JSONRouter().StrictSlash(true).NewRoute().Methods("GET").Path("/").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		fw.RenderJSON(w, http.StatusOK, &version.Info)
+		ms := &runtime.MemStats{}
+		runtime.ReadMemStats(ms)
+		fw.RenderJSON(w, http.StatusOK, ms)
+	})
+
+	_ = context.JSONRouter().StrictSlash(true).NewRoute().Methods("PUT").Path("/forcecollection").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		runtime.GC()
+		w.WriteHeader(http.StatusAccepted)
 	})
 }

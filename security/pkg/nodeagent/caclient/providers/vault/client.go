@@ -24,8 +24,8 @@ import (
 
 	"github.com/hashicorp/vault/api"
 
-	"istio.io/common/pkg/log"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
+	"istio.io/pkg/log"
 )
 
 type vaultClient struct {

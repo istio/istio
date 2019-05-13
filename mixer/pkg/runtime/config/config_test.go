@@ -37,10 +37,10 @@ import (
 	adapter_model "istio.io/api/mixer/adapter/model/v1beta1"
 	configpb "istio.io/api/policy/v1beta1"
 	descriptorpb "istio.io/api/policy/v1beta1"
-	"istio.io/common/pkg/log"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/pkg/log"
 )
 
 var tmpl1Base64Str = getFileDescSetBase64("testdata/tmpl1.descriptor")

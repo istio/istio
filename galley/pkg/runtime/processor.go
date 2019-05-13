@@ -20,8 +20,6 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/common/pkg/log"
-	"istio.io/common/pkg/timedfn"
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/groups"
 	"istio.io/istio/galley/pkg/runtime/monitoring"
@@ -30,6 +28,8 @@ import (
 	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/util"
+	"istio.io/pkg/log"
+	"istio.io/pkg/timedfn"
 )
 
 var scope = log.RegisterScope("runtime", "Galley runtime", 0)

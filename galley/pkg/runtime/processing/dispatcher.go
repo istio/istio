@@ -15,8 +15,8 @@
 package processing
 
 import (
-	"istio.io/common/pkg/log"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("processing", "Galley data processing", 0)

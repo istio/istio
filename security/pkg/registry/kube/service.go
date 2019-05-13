@@ -25,10 +25,10 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/security/pkg/listwatch"
 	"istio.io/istio/security/pkg/registry"
+	"istio.io/pkg/log"
 )
 
 // ServiceController monitors the service definition changes in a namespace. If a

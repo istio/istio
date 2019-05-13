@@ -44,8 +44,8 @@ import (
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/pflag"
 
-	"istio.io/common/pkg/annotations"
-	"istio.io/common/pkg/env"
+	"istio.io/pkg/annotations"
+	"istio.io/pkg/env"
 )
 
 // Control determines the behavior of the EmitCollateral function

@@ -22,7 +22,7 @@ import (
 
 	"golang.org/x/time/rate"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // Agent manages the restarts and the life cycle of a proxy binary.  Agent

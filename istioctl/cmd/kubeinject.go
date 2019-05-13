@@ -28,12 +28,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/common/pkg/log"
-	"istio.io/common/pkg/version"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 const (

@@ -23,8 +23,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pkg/test/fakes/policy"
+	"istio.io/pkg/log"
 )
 
 var (

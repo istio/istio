@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"sync"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // Worker is a utility to help manage the lifecycle of a worker thread.

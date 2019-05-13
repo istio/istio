@@ -20,7 +20,7 @@ import (
 	"math/rand"
 	"time"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // Load is the load to apply on the Mixer during the perf test.

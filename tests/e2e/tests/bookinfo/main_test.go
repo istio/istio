@@ -32,9 +32,9 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"golang.org/x/net/publicsuffix"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 const (

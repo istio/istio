@@ -19,9 +19,9 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/pkg/log"
 )
 
 // Registry specifies the collection of service registry related interfaces

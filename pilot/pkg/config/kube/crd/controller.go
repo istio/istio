@@ -28,10 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/features/pilot"
+	"istio.io/pkg/log"
 )
 
 // controller is a collection of synchronized resource watchers.

@@ -25,13 +25,13 @@ import (
 	yaml "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"istio.io/common/pkg/log"
 	mixercrd "istio.io/istio/mixer/pkg/config/crd"
 	mixerstore "istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	mixervalidate "istio.io/istio/mixer/pkg/validate"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/log"
 )
 
 var (

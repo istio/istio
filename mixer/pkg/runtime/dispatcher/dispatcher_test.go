@@ -27,7 +27,6 @@ import (
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	v1 "istio.io/api/mixer/v1"
 	"istio.io/api/policy/v1beta1"
-	"istio.io/common/pkg/log"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
@@ -36,6 +35,7 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
 	"istio.io/istio/mixer/pkg/status"
+	"istio.io/pkg/log"
 )
 
 var gp = pool.NewGoroutinePool(10, true)

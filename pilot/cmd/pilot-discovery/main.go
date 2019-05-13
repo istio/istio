@@ -25,14 +25,14 @@ import (
 	"github.com/spf13/cobra/doc"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/common/pkg/collateral"
-	"istio.io/common/pkg/ctrlz"
-	"istio.io/common/pkg/log"
-	"istio.io/common/pkg/version"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/keepalive"
+	"istio.io/pkg/collateral"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 var (

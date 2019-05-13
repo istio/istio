@@ -17,11 +17,11 @@ package routing
 import (
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	descriptor "istio.io/api/policy/v1beta1"
-	"istio.io/common/pkg/log"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/pkg/log"
 )
 
 // Table is the main routing table. It is used to find the set of handlers that should be invoked, along with the

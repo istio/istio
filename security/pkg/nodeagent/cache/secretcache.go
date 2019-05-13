@@ -33,11 +33,11 @@ import (
 	"github.com/gogo/status"
 	"google.golang.org/grpc/codes"
 
-	"istio.io/common/pkg/log"
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/log"
 )
 
 const (

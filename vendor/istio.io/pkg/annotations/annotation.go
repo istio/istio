@@ -20,7 +20,7 @@ import (
 	"sort"
 	"sync"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // Annotation describes a single resource annotation

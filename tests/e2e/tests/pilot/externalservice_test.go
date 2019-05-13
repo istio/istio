@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 func TestServiceEntry(t *testing.T) {

@@ -17,7 +17,7 @@ package store
 import (
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/common/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // The size of the buffer for the outbound channel for the queue.

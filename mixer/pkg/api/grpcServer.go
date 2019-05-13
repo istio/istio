@@ -27,13 +27,13 @@ import (
 	grpc "google.golang.org/grpc/status"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/common/pkg/log"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/checkcache"
 	"istio.io/istio/mixer/pkg/loadshedding"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/status"
+	"istio.io/pkg/log"
 )
 
 type (

@@ -22,10 +22,10 @@ import (
 	types "github.com/gogo/protobuf/types"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/common/pkg/log"
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/source"
+	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("mcp", "mcp debugging", 0)

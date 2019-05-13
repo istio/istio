@@ -23,13 +23,13 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/common/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/proto"
+	"istio.io/pkg/log"
 )
 
 // BuildHTTPRoutes produces a list of routes for the proxy
