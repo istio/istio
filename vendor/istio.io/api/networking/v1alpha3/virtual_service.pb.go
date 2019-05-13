@@ -138,16 +138,15 @@ type VirtualService struct {
 	// referred to using their alphanumeric names. IP addresses are allowed
 	// only for services defined via the Gateway.
 	Hosts []string `protobuf:"bytes,1,rep,name=hosts,proto3" json:"hosts,omitempty"`
-	// The names of gateways and sidecars that should apply these routes. A
-	// single VirtualService is used for sidecars inside the mesh as well as
-	// for one or more gateways. The selection condition imposed by this
-	// field can be overridden using the source field in the match conditions
-	// of protocol-specific routes. The reserved word `mesh` is used to imply
-	// all the sidecars in the mesh. When this field is omitted, the default
-	// gateway (`mesh`) will be used, which would apply the rule to all
-	// sidecars in the mesh. If a list of gateway names is provided, the
-	// rules will apply only to the gateways. To apply the rules to both
-	// gateways and sidecars, specify `mesh` as one of the gateway names.
+	// The names of gateways that should apply these rules. If omitted, the
+	// rules are only applied to sidecars inside the mesh. If a list of gateway
+	// names is provided, the rules will not be applied to sidecars inside the
+	// mesh unless the reserved gateway name `mesh` is included in the list.
+	// Gateways defined in a different namespace can be selected by prefixing
+	// the gateway name with `namespace/`.
+	//
+	// The selection condition imposed by this field can be overridden using
+	// the source field in the match conditions of protocol-specific routes.
 	Gateways []string `protobuf:"bytes,2,rep,name=gateways,proto3" json:"gateways,omitempty"`
 	// An ordered list of route rules for HTTP traffic. HTTP routes will be
 	// applied to platform service ports named 'http-*'/'http2-*'/'grpc-*', gateway
