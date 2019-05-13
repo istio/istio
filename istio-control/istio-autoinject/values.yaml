@@ -42,6 +42,14 @@ sidecarInjectorWebhook:
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
 
+  # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
+  # always skip the injection on pods that match that label selector, regardless of the global policy.
+  # See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
+
+  neverInjectSelector: []
+
+  alwaysInjectSelector: []
+
 # If set, no iptable init will be added. It assumes CNI is installed.
 # TODO: rename to 'enableIptables' or add 'interceptionMode: CNI'
 istio_cni:
