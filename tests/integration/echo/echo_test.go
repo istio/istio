@@ -66,7 +66,6 @@ func TestEcho(t *testing.T) {
 						cfg := baseCfg
 						cfg.Service = name
 						cfg.Namespace = ns
-						cfg.Sidecar = true
 						cfg.Headless = true
 						return cfg
 					},
@@ -77,7 +76,6 @@ func TestEcho(t *testing.T) {
 						cfg := baseCfg
 						cfg.Service = name
 						cfg.Namespace = ns
-						cfg.Sidecar = true
 						return cfg
 					},
 				},
@@ -89,7 +87,8 @@ func TestEcho(t *testing.T) {
 						cfg := baseCfg
 						cfg.Service = name
 						cfg.Namespace = ns
-						cfg.Sidecar = false
+						cfg.Annotations = echo.NewAnnotations().
+							SetBool(echo.SidecarInject, false)
 						return cfg
 					},
 				},

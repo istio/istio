@@ -196,7 +196,7 @@ func (c *instance) WaitUntilCallable(instances ...echo.Instance) error {
 		}
 	}
 
-	if !c.cfg.Sidecar {
+	if !c.cfg.Annotations.GetBool(echo.SidecarInject) {
 		time.Sleep(noSidecarWaitDuration)
 	}
 
@@ -219,7 +219,7 @@ func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {
 	workloads := make([]*workload, 0)
 	for _, subset := range endpoints.Subsets {
 		for _, addr := range subset.Addresses {
-			workload, err := newWorkload(addr, c.cfg.Sidecar, c.grpcPort, c.env.Accessor)
+			workload, err := newWorkload(addr, c.cfg.Annotations, c.grpcPort, c.env.Accessor)
 			if err != nil {
 				return err
 			}

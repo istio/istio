@@ -69,7 +69,6 @@ func TestReachability(t *testing.T) {
 				With(&a, echo.Config{
 					Service:        "a",
 					Namespace:      ns,
-					Sidecar:        true,
 					ServiceAccount: true,
 					Ports:          ports,
 					Galley:         g,
@@ -79,7 +78,6 @@ func TestReachability(t *testing.T) {
 					Service:        "b",
 					Namespace:      ns,
 					Ports:          ports,
-					Sidecar:        true,
 					ServiceAccount: true,
 					Galley:         g,
 					Pilot:          p,
@@ -88,7 +86,6 @@ func TestReachability(t *testing.T) {
 					Service:        "headless",
 					Namespace:      ns,
 					Ports:          ports,
-					Sidecar:        true,
 					ServiceAccount: true,
 					Headless:       true,
 					Galley:         g,
@@ -98,9 +95,10 @@ func TestReachability(t *testing.T) {
 					Service:   "naked",
 					Namespace: ns,
 					Ports:     ports,
-					Sidecar:   false,
-					Galley:    g,
-					Pilot:     p,
+					Annotations: echo.NewAnnotations().
+						SetBool(echo.SidecarInject, false),
+					Galley: g,
+					Pilot:  p,
 				}).
 				BuildOrFail(t)
 

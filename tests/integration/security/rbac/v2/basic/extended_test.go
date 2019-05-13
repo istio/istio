@@ -61,7 +61,6 @@ func TestRBACV2Extended(t *testing.T) {
 				With(&a, echo.Config{
 					Service:        "a",
 					Namespace:      ns,
-					Sidecar:        true,
 					ServiceAccount: true,
 					Ports:          ports,
 					Galley:         g,
@@ -71,7 +70,6 @@ func TestRBACV2Extended(t *testing.T) {
 					Service:        "b",
 					Namespace:      ns,
 					Ports:          ports,
-					Sidecar:        true,
 					ServiceAccount: true,
 					Galley:         g,
 					Pilot:          p,
@@ -80,7 +78,6 @@ func TestRBACV2Extended(t *testing.T) {
 					Service:        "c",
 					Namespace:      ns,
 					Ports:          ports,
-					Sidecar:        true,
 					ServiceAccount: true,
 					Galley:         g,
 					Pilot:          p,

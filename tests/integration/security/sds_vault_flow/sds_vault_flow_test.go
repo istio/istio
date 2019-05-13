@@ -58,7 +58,6 @@ func TestSdsVaultCaFlow(t *testing.T) {
 				With(&a, echo.Config{
 					Service:        "a",
 					Namespace:      ns,
-					Sidecar:        true,
 					ServiceAccount: true,
 					Ports:          ports,
 					Galley:         g,
@@ -67,7 +66,6 @@ func TestSdsVaultCaFlow(t *testing.T) {
 				With(&b, echo.Config{
 					Service:        "b",
 					Namespace:      ns,
-					Sidecar:        true,
 					ServiceAccount: true,
 					Ports:          ports,
 					Galley:         g,
