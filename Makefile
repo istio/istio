@@ -131,8 +131,8 @@ test: info dep maybe-clean maybe-prepare sync docker-run-test maybe-clean
 
 # Build all templates inside the hermetic docker image. Tools are installed.
 build:
-	docker run -it --rm -v ${GOPATH}:${GOPATH} --entrypoint /bin/bash $(BUILD_IMAGE) \
-		-e GOPATH=${GOPATH} \
+	docker run -it --rm -v ${GOPATH}:${GOPATH} --entrypoint /bin/bash -e GOPATH=${GOPATH} \
+		$(BUILD_IMAGE) \
 		-c "cd ${GOPATH}/src/istio.io/installer; ls; make run-build"
 
 # Run a command in the docker image running kind. Command passed as "TARGET" env.
