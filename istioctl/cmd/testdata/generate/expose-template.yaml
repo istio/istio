@@ -1,0 +1,59 @@
+# See https://istio.io/docs/reference/config/networking/v1alpha3/virtual-service/
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: {{ required "A valid .service required" .service }}
+spec:
+  hosts:
+  - "*"
+  gateways:
+  {{- if .gateway }}
+  - {{ .gateway }}
+  {{ else }}
+  - {{ .service }}-gateway
+  {{ end -}}
+  http:
+  - match:
+    - uri:
+        prefix: /
+    # If you prefer to expose only part of your service, replace the previous
+    # uri match with something similar to
+    # - uri:
+    #     exact: /productpage
+    # - uri:
+    #     exact: /login
+    # - uri:
+    #     exact: /logout
+    # - uri:
+    #    prefix: /api/v1/products
+    route:
+    - destination:
+        host: {{ .service }}
+        port:
+          number: {{ if .port -}}
+                     {{ .port }}
+                  {{ else -}}
+                     {{ with k8s_get "v1.Service" .service -}}
+                        {{ (index .spec.ports 0).port }}
+                     {{- end }}
+                  {{- end }}
+{{- if not .gateway }}
+---
+# See https://istio.io/docs/reference/config/networking/v1alpha3/gateway/
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: {{ .service }}-gateway
+spec:
+  selector:
+    istio: ingressgateway # use Istio default controller
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+{{ else }}
+# Using gateway {{ with k8s_get "networking.istio.io/v1alpha3.Gateway" .gateway }}{{ .metadata.name }}{{ end }}
+{{ end -}}

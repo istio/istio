@@ -1,0 +1,45 @@
+# See https://istio.io/docs/reference/config/networking/v1alpha3/virtual-service/
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: bookstore
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - bookstore-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+    # If you prefer to expose only part of your service, replace the previous
+    # uri match with something similar to
+    # - uri:
+    #     exact: /productpage
+    # - uri:
+    #     exact: /login
+    # - uri:
+    #     exact: /logout
+    # - uri:
+    #    prefix: /api/v1/products
+    route:
+    - destination:
+        host: bookstore
+        port:
+          number: 9080
+---
+# See https://istio.io/docs/reference/config/networking/v1alpha3/gateway/
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: bookstore-gateway
+spec:
+  selector:
+    istio: ingressgateway # use Istio default controller
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"

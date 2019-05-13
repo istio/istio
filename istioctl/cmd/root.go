@@ -108,6 +108,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(convertIngress())
 	experimentalCmd.AddCommand(dashboard())
 	experimentalCmd.AddCommand(metricsCmd)
+	experimentalCmd.AddCommand(generateCommand())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",

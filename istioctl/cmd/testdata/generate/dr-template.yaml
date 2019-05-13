@@ -1,0 +1,29 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: {{ required "A valid .service required, use --set service=..." .service }}
+spec:
+  host: {{ .service }}
+  {{- if not .mtls -}}
+  {{- if istio_mtls .service }}
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+  {{- end -}}
+  {{ else }}
+  {{- if .mtls | parseBool }}
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+  {{- end -}}
+  {{- end }}
+  subsets:
+  {{- range k8s_list "extensions/v1beta1.Deployment" }}
+  {{- if eq .metadata.labels.app $.service }}
+  {{- if .metadata.labels.version }}
+    - name: {{ .metadata.labels.version | quote }}
+      labels:
+        version: {{ .metadata.labels.version | quote }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
