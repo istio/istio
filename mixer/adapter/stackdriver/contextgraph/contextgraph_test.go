@@ -19,13 +19,13 @@ import (
 	"testing"
 	"time"
 
-	contextgraph "cloud.google.com/go/contextgraph/apiv1alpha1"
 	gax "github.com/googleapis/gax-go"
 	"google.golang.org/api/option"
-	contextgraphpb "google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
 	"istio.io/istio/mixer/adapter/stackdriver/helper"
+	contextgraph "istio.io/istio/mixer/adapter/stackdriver/internal/cloud.google.com/go/contextgraph/apiv1alpha1"
+	contextgraphpb "istio.io/istio/mixer/adapter/stackdriver/internal/google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
 	env "istio.io/istio/mixer/pkg/adapter/test"
 	edgepb "istio.io/istio/mixer/template/edge"
 )

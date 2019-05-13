@@ -6,7 +6,7 @@ package contextgraph // import "google.golang.org/genproto/googleapis/cloud/cont
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import _ "google.golang.org/genproto/googleapis/graphservice/v0"
+import _ "istio.io/istio/mixer/adapter/stackdriver/internal/google.golang.org/genproto/googleapis/graphservice/v0"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal

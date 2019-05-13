@@ -17,14 +17,15 @@
 package contextgraph
 
 import (
-	"cloud.google.com/go/internal/version"
 	gax "github.com/googleapis/gax-go"
 	"golang.org/x/net/context"
 	"google.golang.org/api/option"
 	"google.golang.org/api/transport"
-	contextgraphpb "google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+
+	"istio.io/istio/mixer/adapter/stackdriver/internal/cloud.google.com/go/internal/version"
+	contextgraphpb "istio.io/istio/mixer/adapter/stackdriver/internal/google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
 )
 
 // CallOptions contains the retry settings for each method of Client.

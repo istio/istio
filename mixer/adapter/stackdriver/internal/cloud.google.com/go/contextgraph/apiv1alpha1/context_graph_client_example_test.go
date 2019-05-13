@@ -17,9 +17,10 @@
 package contextgraph_test
 
 import (
-	contextgraph "cloud.google.com/go/contextgraph/apiv1alpha1"
 	"golang.org/x/net/context"
-	contextgraphpb "google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
+
+	contextgraph "istio.io/istio/mixer/adapter/stackdriver/internal/cloud.google.com/go/contextgraph/apiv1alpha1"
+	contextgraphpb "istio.io/istio/mixer/adapter/stackdriver/internal/google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
 )
 
 func ExampleNewClient() {
