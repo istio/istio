@@ -1,17 +1,18 @@
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: config.istio.io/v1alpha2
 kind: handler
 metadata:
-  name: redisquotahandler
+  name: redishandler
   namespace: istio-system
 spec:
   compiledAdapter: redisquota
   params:
+    redisServerUrl: redis-release-master:6379
+    connectionPoolSize: 10
     quotas:
     - name: requestcountquota.instance.istio-system
       maxAmount: 5000
       validDuration: 30s
-      bucketDuration: 9s
-      rateLimitAlgorithm: ROLLING_WINDOW
+      rateLimitAlgorithm: FIXED_WINDOW
       # The first matching override is applied.
       # A requestcount instance is checked against override dimensions.
       overrides:
@@ -26,10 +27,8 @@ spec:
       - dimensions:
           destination: ratings
         maxAmount: 100
-    redisServerUrl: "redis-release-master.istio-system.svc.cluster.local:6379"
-    connectionPoolSize: 10
 ---
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: config.istio.io/v1alpha2
 kind: instance
 metadata:
   name: requestcountquota
@@ -42,20 +41,6 @@ spec:
       sourceVersion: source.labels["version"] | "unknown"
       destination: destination.labels["app"] | "unknown"
       destinationVersion: destination.labels["version"] | "unknown"
-
----
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: quota
-  namespace: istio-system
-spec:
-  match: (destination.labels["app"]|"unknown") == "ratings"
-  actions:
-  - handler: redisquotahandler
-    instances:
-    - requestcountquota
-
 ---
 apiVersion: config.istio.io/v1alpha2
 kind: QuotaSpec
@@ -67,8 +52,8 @@ spec:
   - quotas:
     - charge: 1
       quota: requestcountquota
-
 ---
+# Note: change the default namespace to the namespace of the bookinfo app
 apiVersion: config.istio.io/v1alpha2
 kind: QuotaSpecBinding
 metadata:
@@ -80,6 +65,23 @@ spec:
     namespace: istio-system
   services:
   - name: ratings
+    namespace: default
   - name: reviews
+    namespace: default
   - name: details
+    namespace: default
   - name: productpage
+    namespace: default
+---
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: quota
+  namespace: istio-system
+spec:
+  match: (destination.labels["app"]|"unknown") == "ratings"
+  actions:
+  - handler: redishandler
+    instances:
+    - requestcountquota
+---

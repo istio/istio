@@ -38,4 +38,3 @@ spec:
         - containerPort: 8080
         - containerPort: 42422
 ---
-  

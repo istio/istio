@@ -49,6 +49,15 @@ const (
 	// NetworkingReviewsV3Rule uses "networking/virtual-service-reviews-v3"
 	NetworkingReviewsV3Rule ConfigFile = "networking/virtual-service-reviews-v3.yaml"
 
+	// RatingsRedisRateLimitFixed uses Mixer configs
+	RatingsRedisRateLimitFixed ConfigFile = "policy/mixer-rule-ratings-redis-quota-fixed-window.yaml"
+
+	// RatingsRedisRateLimitRolling uses Mixer configs
+	RatingsRedisRateLimitRolling ConfigFile = "policy/mixer-rule-ratings-redis-quota-rolling-window.yaml"
+
+	// ProductPageRedisRateLimit uses Mixer configs
+	ProductPageRedisRateLimit ConfigFile = "policy/mixer-rule-productpage-redis-quota-fixed-window.yaml"
+
 	// PolicyDenyIPRule uses "policy/mixer-rule-deny-ip.yaml"
 	PolicyDenyIPRule ConfigFile = "policy/mixer-rule-deny-ip.yaml"
 )
