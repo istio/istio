@@ -52,11 +52,14 @@ spec:
 			g.ApplyConfigOrFail(t, ns, policyYAML)
 			defer g.DeleteConfigOrFail(t, ns, policyYAML)
 
-			_ = echoboot.NewOrFail(t, ctx, echo.Config{
-				Service: "healthcheck",
-				Pilot:   p,
-				Galley:  g,
-			})
+			var healthcheck echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&healthcheck, echo.Config{
+					Service: "healthcheck",
+					Pilot:   p,
+					Galley:  g,
+				}).
+				BuildOrFail(t)
 
 			// TODO(incfly): add a negative test once we have a per deployment annotation support for this feature.
 		})
