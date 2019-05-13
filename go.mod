@@ -2,11 +2,11 @@ module istio.io/istio
 
 go 1.12
 
-replace cloud.google.com/go/contextgraph/apiv1alpha1 => ./mixer/adapter/stackdriver/vendor/cloud.google.com/go/contextgraph/apiv1alpha1
+replace cloud.google.com/go/contextgraph/apiv1alpha1 => github.com/jwendell/stackdriver-deps/cloud.google.com/go/contextgraph/apiv1alpha1 v0.0.0-20190424230111-88fbb2e683e
 
-replace google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1 => ./mixer/adapter/stackdriver/vendor/google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1
+replace google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1 => github.com/jwendell/stackdriver-deps/google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1 v0.0.0-20190424230111-88fbb2e683e
 
-replace google.golang.org/genproto/googleapis/graphservice => ./mixer/adapter/stackdriver/vendor/google.golang.org/genproto/googleapis/graphservice
+replace google.golang.org/genproto/googleapis/graphservice => github.com/jwendell/stackdriver-deps/google.golang.org/genproto/googleapis/graphservice v0.0.0-20190424230111-88fbb2e683e
 
 replace github.com/golang/glog => github.com/istio/glog v0.0.0-20190424172949-d7cfb6fa2ccd
 

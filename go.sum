@@ -295,6 +295,12 @@ github.com/juju/loggo v0.0.0-20190212223446-d976af380377/go.mod h1:vgyd7OREkbtVE
 github.com/juju/testing v0.0.0-20190429233213-dfc56b8c09fc h1:5xUWujf6ES9tEpFHFzI34vcHm8U07lGjxAuJML3qwqM=
 github.com/juju/testing v0.0.0-20190429233213-dfc56b8c09fc/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
+github.com/jwendell/stackdriver-deps/cloud.google.com/go/contextgraph/apiv1alpha1 v0.0.0-20190424230111-88fbb2e683e h1:92D6q9END6WD9ponXrVNWtNLsU5LBrkrxqC0OtQqeO0=
+github.com/jwendell/stackdriver-deps/cloud.google.com/go/contextgraph/apiv1alpha1 v0.0.0-20190424230111-88fbb2e683e/go.mod h1:adoxvLNMPxPAvOHlez4bYWDYqokiU70cSXcWDRyfp9A=
+github.com/jwendell/stackdriver-deps/google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1 v0.0.0-20190424230111-88fbb2e683e h1:vPhLr4S1vrgynvCmfxgVA53vICG3gjp4N9B8iNCRMgs=
+github.com/jwendell/stackdriver-deps/google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1 v0.0.0-20190424230111-88fbb2e683e/go.mod h1:CdC/V17CO1NkaHrRiSXIMOtYfF9i7wF25RTFeQKuPqQ=
+github.com/jwendell/stackdriver-deps/google.golang.org/genproto/googleapis/graphservice v0.0.0-20190424230111-88fbb2e683e h1:4zIPDS3hFrVVh6foFgwuWRJKa4ObgB1NDAdtytN/i3I=
+github.com/jwendell/stackdriver-deps/google.golang.org/genproto/googleapis/graphservice v0.0.0-20190424230111-88fbb2e683e/go.mod h1:CRBTxseGb3Hglvbpt1HF9cUctzZWgTwqm129XyhOikM=
 github.com/keybase/go-crypto v0.0.0-20190416182011-b785b22cc757 h1:rHXu79NFmin5AvIe4JsnfCBGb1qAIlMTX0vnpVnDn7s=
 github.com/keybase/go-crypto v0.0.0-20190416182011-b785b22cc757/go.mod h1:ghbZscTyKdM07+Fw3KSi0hcJm+AlEUWj8QLlPtijN/M=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
