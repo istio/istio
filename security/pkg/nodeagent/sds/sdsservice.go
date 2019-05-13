@@ -115,7 +115,7 @@ type sdsservice struct {
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st cache.SecretManager, skipTokenVerification bool, recyleInterval time.Duration) *sdsservice {
+func newSDSService(st cache.SecretManager, skipTokenVerification bool, recycleInterval time.Duration) *sdsservice {
 	if st == nil {
 		return nil
 	}
@@ -123,7 +123,7 @@ func newSDSService(st cache.SecretManager, skipTokenVerification bool, recyleInt
 	ret := &sdsservice{
 		st:             st,
 		skipToken:      skipTokenVerification,
-		tickerInterval: recyleInterval,
+		tickerInterval: recycleInterval,
 		closing:        make(chan bool),
 	}
 
@@ -211,7 +211,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 
 			defer func() {
-				recyleConnection(con.conID, con.ResourceName)
+				recycleConnection(con.conID, con.ResourceName)
 
 				// Remove the secret from cache, otherwise refresh job will process this item(if envoy fails to reconnect)
 				// and cause some confusing logs like 'fails to notify because connection isn't found'.
@@ -242,7 +242,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 
 			if con.secret == nil {
 				defer func() {
-					recyleConnection(con.conID, con.ResourceName)
+					recycleConnection(con.conID, con.ResourceName)
 					s.st.DeleteSecret(con.conID, con.ResourceName)
 				}()
 
@@ -340,7 +340,7 @@ func NotifyProxy(conID, resourceName string, secret *model.SecretItem) error {
 	return nil
 }
 
-func recyleConnection(conID, resourceName string) {
+func recycleConnection(conID, resourceName string) {
 	key := cache.ConnKey{
 		ConnectionID: conID,
 		ResourceName: resourceName,

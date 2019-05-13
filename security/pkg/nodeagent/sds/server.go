@@ -83,8 +83,8 @@ type Options struct {
 	// AlwaysValidTokenFlag is set to true for if token used is always valid(ex, normal k8s JWT)
 	AlwaysValidTokenFlag bool
 
-	// Recyle job running interval (to clean up staled sds client connections).
-	RecyleInterval time.Duration
+	// Recycle job running interval (to clean up staled sds client connections).
+	RecycleInterval time.Duration
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
@@ -102,8 +102,8 @@ type Server struct {
 // NewServer creates and starts the Grpc server for SDS.
 func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.SecretManager) (*Server, error) {
 	s := &Server{
-		workloadSds: newSDSService(workloadSecretCache, false, options.RecyleInterval),
-		gatewaySds:  newSDSService(gatewaySecretCache, true, options.RecyleInterval),
+		workloadSds: newSDSService(workloadSecretCache, false, options.RecycleInterval),
+		gatewaySds:  newSDSService(gatewaySecretCache, true, options.RecycleInterval),
 	}
 	if options.EnableWorkloadSDS {
 		if err := s.initWorkloadSdsService(&options); err != nil {

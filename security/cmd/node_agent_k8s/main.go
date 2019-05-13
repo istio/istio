@@ -87,9 +87,9 @@ const (
 	// example value format like "20m"
 	SecretRotationJobRunInterval = "SECRET_JOB_RUN_INTERVAL"
 
-	// The environmental variable name for staled connection recyle job running interval.
+	// The environmental variable name for staled connection recycle job running interval.
 	// example value format like "5m"
-	staledConnectionRecyleInterval = "STALED_CONNECTION_RECYLE_RUN_INTERVAL"
+	staledConnectionRecycleInterval = "STALED_CONNECTION_RECYCLE_RUN_INTERVAL"
 )
 
 var (
@@ -203,11 +203,11 @@ func init() {
 		alwaysValidTokenFlagEnv = env
 	}
 
-	staledConnectionRecyleIntervalEnv := 5 * time.Minute
-	if env, err := time.ParseDuration(os.Getenv(staledConnectionRecyleInterval)); err == nil {
-		staledConnectionRecyleIntervalEnv = env
+	staledConnectionRecycleIntervalEnv := 5 * time.Minute
+	if env, err := time.ParseDuration(os.Getenv(staledConnectionRecycleInterval)); err == nil {
+		staledConnectionRecycleIntervalEnv = env
 	}
-	serverOptions.RecyleInterval = staledConnectionRecyleIntervalEnv
+	serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
 
 	rootCmd.PersistentFlags().BoolVar(&serverOptions.EnableWorkloadSDS, "enableWorkloadSDS",
 		enableWorkloadSdsEnv,
