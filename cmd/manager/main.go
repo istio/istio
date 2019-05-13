@@ -10,8 +10,8 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	"github.com/istio-ecosystem/istio-operator/istio-operator/pkg/apis"
-	"github.com/istio-ecosystem/istio-operator/istio-operator/pkg/controller"
+	"istio.io/operator/pkg/apis"
+	"istio.io/operator/pkg/controller"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/leader"

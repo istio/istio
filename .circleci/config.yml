@@ -1,0 +1,40 @@
+version: 2
+
+jobs:
+  build:
+    docker:
+      - image: gcr.io/istio-testing/circleci:2019-04-22
+    working_directory: /go/src/istio.io/operator
+    steps:
+      - checkout
+      - run:
+          name: Building
+          command: go build ./...
+
+  lint:
+    docker:
+      - image: gcr.io/istio-testing/circleci:2019-04-22
+    working_directory: /go/src/istio.io/operator
+    steps:
+      - checkout
+      - run:
+          name: Linting
+          command: make lint
+
+  test:
+    docker:
+      - image: gcr.io/istio-testing/circleci:2019-04-22
+    working_directory: /go/src/istio.io/operator
+    steps:
+      - checkout
+      - run:
+          name: Running unit tests
+          command: go test -race ./...
+
+workflows:
+  version: 2
+  all:
+    jobs:
+      - build
+      - test
+      - lint

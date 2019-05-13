@@ -28,11 +28,11 @@ type IstioControlPlaneStatus struct {
 // IstioControlPlane is the Schema for the istiocontrolplanes API
 // +k8s:openapi-gen=true
 type IstioControlPlane struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
 	Spec   IstioControlPlaneSpec   `json:"spec,omitempty"`
 	Status IstioControlPlaneStatus `json:"status,omitempty"`
+
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta   `json:",inline"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

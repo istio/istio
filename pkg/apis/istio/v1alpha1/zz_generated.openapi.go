@@ -13,9 +13,9 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/istio-ecosystem/istio-operator/pkg/apis/istio/v1alpha1.IstioControlPlane":       schema_pkg_apis_istio_v1alpha1_IstioControlPlane(ref),
-		"github.com/istio-ecosystem/istio-operator/pkg/apis/istio/v1alpha1.IstioControlPlaneSpec":   schema_pkg_apis_istio_v1alpha1_IstioControlPlaneSpec(ref),
-		"github.com/istio-ecosystem/istio-operator/pkg/apis/istio/v1alpha1.IstioControlPlaneStatus": schema_pkg_apis_istio_v1alpha1_IstioControlPlaneStatus(ref),
+		"istio.io/operator/pkg/apis/istio/v1alpha1.IstioControlPlane":       schema_pkg_apis_istio_v1alpha1_IstioControlPlane(ref),
+		"istio.io/operator/pkg/apis/istio/v1alpha1.IstioControlPlaneSpec":   schema_pkg_apis_istio_v1alpha1_IstioControlPlaneSpec(ref),
+		"istio.io/operator/pkg/apis/istio/v1alpha1.IstioControlPlaneStatus": schema_pkg_apis_istio_v1alpha1_IstioControlPlaneStatus(ref),
 	}
 }
 
@@ -46,19 +46,19 @@ func schema_pkg_apis_istio_v1alpha1_IstioControlPlane(ref common.ReferenceCallba
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/istio-ecosystem/istio-operator/pkg/apis/istio/v1alpha1.IstioControlPlaneSpec"),
+							Ref: ref("istio.io/operator/pkg/apis/istio/v1alpha1.IstioControlPlaneSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/istio-ecosystem/istio-operator/pkg/apis/istio/v1alpha1.IstioControlPlaneStatus"),
+							Ref: ref("istio.io/operator/pkg/apis/istio/v1alpha1.IstioControlPlaneStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/istio-ecosystem/istio-operator/pkg/apis/istio/v1alpha1.IstioControlPlaneSpec", "github.com/istio-ecosystem/istio-operator/pkg/apis/istio/v1alpha1.IstioControlPlaneStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"istio.io/operator/pkg/apis/istio/v1alpha1.IstioControlPlaneSpec", "istio.io/operator/pkg/apis/istio/v1alpha1.IstioControlPlaneStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
