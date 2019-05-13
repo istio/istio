@@ -77,8 +77,6 @@ metadata:
   name: istio-multi
   namespace: istio-system
 ---
-
----
 # Source: istio/charts/prometheus/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -105,7 +103,6 @@ spec:
   selector:
     istio: mixer
     istio-mixer-type: telemetry
----
 `,
 			config: ``,
 		},
@@ -136,7 +133,6 @@ spec:
       valueType: STRING
     quota.cache_hit:
       valueType: BOOL
-
 ---
 # Configuration needed by Mixer.
 # Mixer cluster is delivered via CDS
@@ -183,7 +179,6 @@ spec:
       valueType: STRING
     quota.cache_hit:
       valueType: BOOL
-
 ---
 # Configuration needed by Mixer.
 # Mixer cluster is delivered via CDS
@@ -210,7 +205,6 @@ spec:
 		{
 			name: "mixed",
 			input: `
-
 ---
 # Source: istio/charts/mixer/templates/config.yaml
 
@@ -273,7 +267,6 @@ metadata:
 ---
 `,
 			deployment: `
----
 # Source: istio/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -287,7 +280,6 @@ kind: ServiceAccount
 metadata:
   name: istio-multi
   namespace: istio-system
----
 `,
 			config: `
 # Source: istio/charts/mixer/templates/config.yaml
@@ -312,7 +304,6 @@ spec:
       valueType: STRING
     quota.cache_hit:
       valueType: BOOL
-
 ---
 # Configuration needed by Mixer.
 # Mixer cluster is delivered via CDS
@@ -459,7 +450,6 @@ data:
     fi
     sleep 5
     kubectl apply -f ${pathToResourceYAML}
-   
 `,
 			config: ``,
 		},
