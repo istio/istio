@@ -262,9 +262,6 @@ func (s *Source) ProcessStream(stream Stream) error {
 		case <-con.queue.Done():
 			scope.Debugf("MCP: connection %v: stream done", con)
 			return status.Error(codes.Unavailable, "server canceled watch")
-		case <-stream.Context().Done():
-			scope.Debugf("MCP: connection %v: stream done, err=%v", con, stream.Context().Err())
-			return stream.Context().Err()
 		}
 	}
 }
@@ -364,12 +361,11 @@ func (con *connection) receive() {
 	for {
 		req, err := con.stream.Recv()
 		if err != nil {
-			code := status.Code(err)
-			if code == codes.Canceled || err == io.EOF {
+			if err == io.EOF {
 				scope.Infof("MCP: connection %v: TERMINATED %q", con, err)
 				return
 			}
-			con.reporter.RecordRecvError(err, code)
+			con.reporter.RecordRecvError(err, status.Code(err))
 			scope.Errorf("MCP: connection %v: TERMINATED with errors: %v", con, err)
 			// Save the stream error prior to closing the stream. The caller
 			// should access the error after the channel closure.
