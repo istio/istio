@@ -157,6 +157,32 @@ var (
 				return out, nil
 			},
 		},
+		"Namespace": {
+			spec:    getSpec("Namespace"),
+			isEqual: resourceVersionsMatch,
+			extractObject: func(o interface{}) metav1.Object {
+				if obj, ok := o.(metav1.Object); ok {
+					return obj
+				}
+				return nil
+			},
+			extractResource: func(o interface{}) proto.Message {
+				if obj, ok := o.(*v1.Namespace); ok {
+					return obj
+				}
+				return nil
+			},
+			newInformer: func(sharedInformers informers.SharedInformerFactory) cache.SharedIndexInformer {
+				return sharedInformers.Core().V1().Namespaces().Informer()
+			},
+			parseJSON: func(input []byte) (interface{}, error) {
+				out := &v1.Namespace{}
+				if _, _, err := deserializer.Decode(input, nil, out); err != nil {
+					return nil, err
+				}
+				return out, nil
+			},
+		},
 	}
 )
 
