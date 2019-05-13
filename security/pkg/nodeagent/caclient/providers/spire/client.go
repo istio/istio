@@ -30,9 +30,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"istio.io/istio/pkg/log"
 	clientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	spireIntegration "istio.io/istio/security/proto/providers/spire"
+	"istio.io/pkg/log"
 )
 
 const (
