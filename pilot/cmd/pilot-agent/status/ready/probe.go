@@ -56,11 +56,14 @@ func (p *Probe) checkInboundConfigured() error {
 		// confuration in Envoy. The CDS/LDS updates will contain everything, so just ensuring at least one port has
 		// been configured should be sufficient.
 		for _, appPort := range p.ApplicationPorts {
-			if listeningPorts[appPort] {
+			if listeningPorts[appPort] && p.NodeType != model.Router {
 				// Success - Envoy is configured.
+				// For gateways we should check for all ports though, so don't return success yet.
 				return nil
 			}
-			err = multierror.Append(err, fmt.Errorf("envoy missing listener for inbound application port: %d", appPort))
+			if !listeningPorts[appPort] {
+				err = multierror.Append(err, fmt.Errorf("envoy missing listener for inbound application port: %d", appPort))
+			}
 		}
 		if err != nil {
 			return multierror.Append(fmt.Errorf("failed checking application ports. listeners=%s", listeners), err)
