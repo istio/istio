@@ -297,6 +297,11 @@ message HttpRule {
   // present at the top-level of request message type.
   string body = 7;
 
+  // Optional. The name of the response field whose value is mapped to the HTTP
+  // body of response. Other response fields are ignored. When
+  // not set, the response message will be used as HTTP body of response.
+  string response_body = 12;
+
   // Additional HTTP bindings for the selector. Nested bindings must
   // not contain an `additional_bindings` field themselves (that is,
   // the nesting may only be one level deep).
