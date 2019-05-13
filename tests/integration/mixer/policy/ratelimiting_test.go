@@ -16,11 +16,14 @@ package policy
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math"
 	"net/http"
+	"path"
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -33,7 +36,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/redis"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/yml"
 	util "istio.io/istio/tests/integration/mixer"
 )
 
@@ -47,11 +49,11 @@ var (
 )
 
 func TestRateLimiting_RedisQuotaFixedWindow(t *testing.T) {
-	testRedisQuota(t, fixedWindowConfig, "ratings")
+	testRedisQuota(t, bookinfo.RatingsRedisRateLimitFixed, "ratings")
 }
 
 func TestRateLimiting_RedisQuotaRollingWindow(t *testing.T) {
-	testRedisQuota(t, rollingWindowConfig, "ratings")
+	testRedisQuota(t, bookinfo.RatingsRedisRateLimitRolling, "ratings")
 }
 
 func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
@@ -66,12 +68,9 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 			bookinfoNs, g, red, ing, prom := setupComponentsOrFail(t, ctx)
 			defer deleteComponentsOrFail(t, ctx, g, bookinfoNs)
 			bookInfoNameSpaceStr := bookinfoNs.Name()
-			con := defaultAmountLessThanOverride
-			quotaSpecCon := defaultQuotaSpecConfig
-			quotaRuleCon := quotaRuleConfig
-			setupConfigOrFail(t, con, bookInfoNameSpaceStr, destinationService,
-				quotaSpecCon, quotaRuleCon, red, g, ctx)
-			defer deleteConfigOrFail(t, con, quotaSpecCon, quotaRuleCon, g, ctx)
+			config := setupConfigOrFail(t, bookinfo.ProductPageRedisRateLimit, bookInfoNameSpaceStr,
+				red, g, ctx)
+			defer deleteConfigOrFail(t, config, g, ctx)
 			util.AllowRuleSync(t)
 
 			res := util.SendTraffic(ing, t, "Sending traffic...", "", 300)
@@ -116,7 +115,7 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 		})
 }
 
-func testRedisQuota(t *testing.T, config, destinationService string) {
+func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService string) {
 	framework.Run(t, func(ctx framework.TestContext) {
 		bookinfoNs, g, red, ing, prom := setupComponentsOrFail(t, ctx)
 		defer deleteComponentsOrFail(t, ctx, g, bookinfoNs)
@@ -129,11 +128,8 @@ func testRedisQuota(t *testing.T, config, destinationService string) {
 			bookinfoNs,
 			bookinfo.NetworkingReviewsV3Rule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
 		bookInfoNameSpaceStr := bookinfoNs.Name()
-		con := config
-		quotaSpecCon := bookInfoQuotaSpecConfig
-		quotaRuleCon := quotaRuleConfig
-		setupConfigOrFail(t, con, bookInfoNameSpaceStr, destinationService, quotaSpecCon, quotaRuleCon, red, g, ctx)
-		defer deleteConfigOrFail(t, con, quotaSpecCon, quotaRuleCon, g, ctx)
+		config := setupConfigOrFail(t, config, bookInfoNameSpaceStr, red, g, ctx)
+		defer deleteConfigOrFail(t, config, g, ctx)
 		util.AllowRuleSync(t)
 
 		// This is the number of requests we allow to be missing to be reported, so as to make test stable.
@@ -279,34 +275,28 @@ func deleteComponentsOrFail(t *testing.T, ctx resource.Context, g galley.Instanc
 		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
 }
 
-func setupConfigOrFail(t *testing.T, con, bookInfoNameSpaceStr, destinationService, quotaSpecCon, quotaRuleCon string,
-	red redis.Instance, g galley.Instance, ctx resource.Context) {
-	con = strings.Replace(con, "<redis_namespace>", red.GetRedisNamespace(), -1)
-	quotaSpecCon = strings.Replace(quotaSpecCon, "<bookinfo_namespace>", bookInfoNameSpaceStr, -1)
-	quotaRuleCon = strings.Replace(quotaRuleCon, "<destination_service>", destinationService, -1)
+func setupConfigOrFail(t *testing.T, config bookinfo.ConfigFile, bookInfoNameSpaceStr string,
+	red redis.Instance, g galley.Instance, ctx resource.Context) string {
+	p := path.Join(env.BookInfoRoot, string(config))
+	content, err := ioutil.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con := string(content)
+
+	con = strings.Replace(con, "redisServerUrl: redis-release-master:6379",
+		"redisServerUrl: redis-release-master."+red.GetRedisNamespace()+":6379", -1)
+	con = strings.Replace(con, "namespace: default",
+		"namespace: "+bookInfoNameSpaceStr, -1)
+
 	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
-	g.ApplyConfigOrFail(
-		t,
-		ns,
-		yml.JoinString(
-			con,
-			requestQuotaCountConfig,
-			quotaRuleCon,
-			quotaSpecCon,
-		))
+	g.ApplyConfigOrFail(t, ns, con)
+	return con
 }
 
-func deleteConfigOrFail(t *testing.T, con, quotaSpecCon, quotaRuleCon string, g galley.Instance, ctx resource.Context) {
+func deleteConfigOrFail(t *testing.T, config string, g galley.Instance, ctx resource.Context) {
 	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
-	g.DeleteConfigOrFail(
-		t,
-		ns,
-		yml.JoinString(
-			con,
-			requestQuotaCountConfig,
-			quotaRuleCon,
-			quotaSpecCon,
-		))
+	g.DeleteConfigOrFail(t, ns, config)
 }
 
 func TestMain(m *testing.M) {
@@ -353,176 +343,3 @@ func testsetup(ctx resource.Context) error {
 
 	return nil
 }
-
-var rollingWindowConfig = `
-apiVersion: "config.istio.io/v1alpha2"
-kind: handler
-metadata:
-  name: redis
-  namespace: istio-system
-spec:
-  compiledAdapter: redisquota
-  params:
-    quotas:
-    - name: requestquotacount.instance.istio-system
-      maxAmount: 5000
-      validDuration: 30s
-      bucketDuration: 9s
-      rateLimitAlgorithm: ROLLING_WINDOW
-      # The first matching override is applied.
-      # A requestquotacount instance is checked against override dimensions.
-      overrides:
-      # The following override applies to 'ratings' when
-      # the source is 'reviews'.
-      - dimensions:
-          destination: ratings
-          source: reviews
-        maxAmount: 50
-      # The following override applies to 'ratings' regardless
-      # of the source.
-      - dimensions:
-          destination: ratings
-        maxAmount: 100
-    redisServerUrl: "redis-release-master.<redis_namespace>.svc.cluster.local:6379"
-    connectionPoolSize: 10
-`
-var fixedWindowConfig = `
-apiVersion: "config.istio.io/v1alpha2"
-kind: handler
-metadata:
-  name: redis
-  namespace: istio-system
-spec:
-  compiledAdapter: redisquota
-  params:
-    quotas:
-    - name: requestquotacount.instance.istio-system
-      maxAmount: 5000
-      validDuration: 30s
-      rateLimitAlgorithm: FIXED_WINDOW
-      # The first matching override is applied.
-      # A requestquotacount instance is checked against override dimensions.
-      overrides:
-      # The following override applies to 'ratings' when
-      # the source is 'reviews'.
-      - dimensions:
-          destination: ratings
-          source: reviews
-        maxAmount: 50
-      # The following override applies to 'ratings' regardless
-      # of the source.
-      - dimensions:
-          destination: ratings
-        maxAmount: 100
-    redisServerUrl: "redis-release-master.<redis_namespace>.svc.cluster.local:6379"
-    connectionPoolSize: 10
-`
-var defaultAmountLessThanOverride = `
-apiVersion: "config.istio.io/v1alpha2"
-kind: handler
-metadata:
-  name: redis
-  namespace: istio-system
-spec:
-  compiledAdapter: redisquota
-  params:
-    quotas:
-    - name: requestquotacount.instance.istio-system
-      maxAmount: 1
-      validDuration: 30s
-      rateLimitAlgorithm: FIXED_WINDOW
-      # The first matching override is applied.
-      # A requestquotacount instance is checked against override dimensions.
-      overrides:
-      # The following override applies to 'productpage' when
-      # the source is 'istio-ingressgateway'.
-      - dimensions:
-          destination: productpage
-          source: istio-ingressgateway
-        maxAmount: 50
-    redisServerUrl: "redis-release-master.<redis_namespace>.svc.cluster.local:6379"
-    connectionPoolSize: 10
-`
-var requestQuotaCountConfig = `
-apiVersion: "config.istio.io/v1alpha2"
-kind: instance
-metadata:
-  name: requestquotacount
-  namespace: istio-system
-spec:
-  compiledTemplate: quota
-  params:
-    dimensions:
-      source: source.labels["app"] | "unknown"
-      sourceVersion: source.labels["version"] | "unknown"
-      destination: destination.labels["app"] | "unknown"
-      destinationVersion: destination.labels["version"] | "unknown"
----
-apiVersion: config.istio.io/v1alpha2
-kind: QuotaSpec
-metadata:
-  name: request-count
-  namespace: istio-system
-spec:
-  rules:
-  - quotas:
-    - charge: 1
-      quota: requestquotacount
-
----
-`
-var quotaRuleConfig = `
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: quota
-  namespace: istio-system
-spec:
-  match: (destination.labels["app"]|"unknown") == "<destination_service>"
-  actions:
-  - handler: redis
-    instances:
-    - requestquotacount
-`
-var bookInfoQuotaSpecConfig = `
-apiVersion: config.istio.io/v1alpha2
-kind: QuotaSpecBinding
-metadata:
-  name: request-count
-  namespace: istio-system
-spec:
-  quotaSpecs:
-  - name: request-count
-    namespace: istio-system
-  services:
-  - name: ratings
-    namespace: <bookinfo_namespace>
-  - name: reviews
-    namespace: <bookinfo_namespace>
-  - name: details
-    namespace: <bookinfo_namespace>
-  - name: productpage
-    namespace: <bookinfo_namespace>
-`
-var defaultQuotaSpecConfig = `
-apiVersion: config.istio.io/v1alpha2
-kind: QuotaSpecBinding
-metadata:
-  name: request-count
-  namespace: istio-system
-spec:
-  quotaSpecs:
-  - name: request-count
-    namespace: istio-system
-  services:
-  - name: ratings
-    namespace: <bookinfo_namespace>
-  - name: reviews
-    namespace: <bookinfo_namespace>
-  - name: details
-    namespace: <bookinfo_namespace>
-  - name: productpage
-    namespace: <bookinfo_namespace>
-  - name: istio-ingressgateway
-    namespace: istio-system
-`
