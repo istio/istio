@@ -16,12 +16,14 @@ package policy
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math"
 	"net/http"
 	"path"
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -34,7 +36,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/redis"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/yml"
 	util "istio.io/istio/tests/integration/mixer"
 )
 
@@ -277,10 +278,11 @@ func deleteComponentsOrFail(t *testing.T, ctx resource.Context, g galley.Instanc
 func setupConfigOrFail(t *testing.T, config bookinfo.ConfigFile, bookInfoNameSpaceStr string,
 	red redis.Instance, g galley.Instance, ctx resource.Context) string {
 	p := path.Join(env.BookInfoRoot, string(config))
-	con, err := test.ReadConfigFile(p)
+	content, err := ioutil.ReadFile(p)
 	if err != nil {
 		t.Fatal(err)
 	}
+	con := string(content)
 
 	con = strings.Replace(con, "redisServerUrl: redis-release-master:6379",
 		"redisServerUrl: redis-release-master."+red.GetRedisNamespace()+":6379", -1)
