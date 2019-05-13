@@ -73,13 +73,17 @@ fi
 export HUB=${HUB:-"kindtest"}
 export TAG="${TAG:-${GIT_SHA}}"
 
+echo "${HUB}"
 make init
 make docker
 
 function build_kind_images(){
 	# Create a temp directory to store the archived images.
 	TMP_DIR=$(mktemp -d)
-	IMAGE_FILE="${TMP_DIR}"/image.tar 
+	IMAGE_FILE="${TMP_DIR}"/image.tar
+
+        export HUB=$(echo ${HUB} | sed 's/\docker.io\///')
+        echo $HUB
 
 	# Archived local images and load it into KinD's docker daemon
 	# Kubernetes in KinD can only access local images from its docker daemon.
@@ -91,6 +95,7 @@ function build_kind_images(){
 }
 
 build_kind_images
+echo $KUBECONFIG
 
 time ISTIO_DOCKER_HUB=$HUB \
   E2E_ARGS="${E2E_ARGS[*]}" \
