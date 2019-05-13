@@ -329,6 +329,9 @@ func TestStreamSecretsPush(t *testing.T) {
 	// Wait the recycle job run to clear all staled client connections.
 	time.Sleep(10 * time.Second)
 
+	// Add RLock to avoid racetest fail.
+	sdsClientsMutex.RLock()
+	defer sdsClientsMutex.RUnlock()
 	if len(sdsClients) != 0 {
 		t.Fatalf("sdsClients, got %d, expected 0", len(sdsClients))
 	}
