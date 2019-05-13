@@ -82,10 +82,9 @@ type responseWatch struct {
 	pushResponse source.PushResponseFunc
 }
 
-// StatusInfo records watch status information of a remote node.
+// StatusInfo records watch status information of a group.
 type StatusInfo struct {
 	mu                   sync.RWMutex
-	node                 *mcp.SinkNode
 	lastWatchRequestTime time.Time // informational
 	watches              map[int64]*responseWatch
 	// the synced structure is {Collection: {peerAddress: synced|nosynced}}.
@@ -168,7 +167,6 @@ func (c *Cache) fillStatus(group string, request *source.Request, peerAddr strin
 	info, ok := c.status[group]
 	if !ok {
 		info = &StatusInfo{
-			node:    request.SinkNode,
 			watches: make(map[int64]*responseWatch),
 			synced:  make(map[string]map[string]bool),
 		}
