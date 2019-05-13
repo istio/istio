@@ -19,6 +19,8 @@ import (
 	"io/ioutil"
 	"os"
 
+	"istio.io/istio/pilot/pkg/model"
+
 	"github.com/spf13/cobra"
 	k8s "k8s.io/client-go/kubernetes"
 
@@ -32,7 +34,7 @@ import (
 var (
 	printAll       bool
 	configDumpFile string
-	v1PolicyFiles  []string
+	policyFiles    []string
 	serviceFiles   []string
 
 	checkCmd = &cobra.Command{
@@ -105,7 +107,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
   # Upgrade the Istio authorization policy with service definition from 2 yaml files specified in the command line:
   istioctl experimental auth upgrade -f istio-authz-v1-policy.yaml --service svc-a.yaml,svc-b.yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			upgrader, err := newUpgrader(v1PolicyFiles, serviceFiles)
+			upgrader, err := newUpgrader(policyFiles, serviceFiles)
 			if err != nil {
 				return err
 			}
@@ -117,6 +119,32 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			_, err = writer.Write([]byte(upgrader.ConvertedPolicies.String()))
 			if err != nil {
 				return fmt.Errorf("failed writing config with error %v", err)
+			}
+			return nil
+		},
+	}
+
+	validatorCmd = &cobra.Command{
+		Use:   "validate <policy-file1,policy-file2,...>",
+		Short: "Validate authentication and authorization policy",
+		Long: `Validate and find incorrectness in authentication and authorization policy files, such as:
+						* Referring to a non existing ServiceRole.
+						* ServiceRole not used.
+					`,
+		Example: "istioctl experimental auth validate policy1.yaml,policy2.yaml",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			validator, err := newValidator(policyFiles)
+			if err != nil {
+				return err
+			}
+			err = validator.CheckAndReport()
+			if err != nil {
+				return err
+			}
+			writer := cmd.OutOrStdout()
+			_, err = writer.Write([]byte(validator.Report.String()))
+			if err != nil {
+				return fmt.Errorf("failed to write report with error %v", err)
 			}
 			return nil
 		},
@@ -195,6 +223,17 @@ func newUpgrader(v1PolicyFiles []string, serviceFiles []string) (*auth.Upgrader,
 	return upgrader, nil
 }
 
+func newValidator(policyFiles []string) (*auth.Validator, error) {
+	if len(policyFiles) == 0 {
+		return nil, fmt.Errorf("no input file provided")
+	}
+	validator := &auth.Validator{
+		PolicyFiles:          policyFiles,
+		RoleKeyToServiceRole: make(map[string]model.Config),
+	}
+	return validator, nil
+}
+
 // Auth groups commands used for checking the authentication and authorization policy status.
 // Note: this is still under active development and is not ready for real use.
 func Auth() *cobra.Command {
@@ -204,6 +243,7 @@ func Auth() *cobra.Command {
 		Long: `Commands to inspect and interact with the authentication (TLS, JWT) and authorization (RBAC) policies in the mesh
   check - check the TLS/JWT/RBAC settings based on the Envoy config
   upgrade - upgrade the authorization policy from version v1 to v2
+	validate - check the usage correctness of security policy files.
 `,
 		Example: `  # Check the TLS/JWT/RBAC settings for pod httpbin-88ddbcfdd-nt5jb:
   istioctl experimental auth check httpbin-88ddbcfdd-nt5jb`,
@@ -211,6 +251,7 @@ func Auth() *cobra.Command {
 
 	cmd.AddCommand(checkCmd)
 	cmd.AddCommand(upgradeCmd)
+	cmd.AddCommand(validatorCmd)
 	return cmd
 }
 
@@ -219,8 +260,10 @@ func init() {
 		"Show additional information (e.g. SNI and ALPN)")
 	checkCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Check the TLS/JWT/RBAC setting from the config dump file")
-	upgradeCmd.PersistentFlags().StringSliceVarP(&v1PolicyFiles, "file", "f", []string{},
+	upgradeCmd.PersistentFlags().StringSliceVarP(&policyFiles, "file", "f", []string{},
 		"Authorization policy file")
 	upgradeCmd.PersistentFlags().StringSliceVarP(&serviceFiles, "service", "s", []string{},
 		"Kubernetes Service resource that provides the mapping relationship between service name and pod labels")
+	validatorCmd.PersistentFlags().StringSliceVarP(&policyFiles, "file", "f", []string{},
+		"Authorization policy file")
 }
