@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.com/istio-ecosystem/istio-operator/pkg/controller/istiocontrolplane"
+	"istio.io/operator/pkg/controller/istiocontrolplane"
 )
 
 func init() {
