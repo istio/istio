@@ -60,8 +60,12 @@ done
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 setup_kind_cluster
+setup_and_export_git_sha
 
-export HUB=${HUB:-"gcr.io/istio-testing"}
+echo 'Build'
+(cd "${ROOT}"; make build)
+
+export HUB=${HUB:-"kindtest"}
 export TAG="${TAG:-${GIT_SHA}}"
 
 make init
@@ -70,7 +74,7 @@ make docker
 function build_kind_images(){
 	# Create a temp directory to store the archived images.
 	TMP_DIR=$(mktemp -d)
-	IMAGE_FILE="${TMP_DIR}"/image.tar 
+	IMAGE_FILE="${TMP_DIR}"/image.tar
 
 	# Archived local images and load it into KinD's docker daemon
 	# Kubernetes in KinD can only access local images from its docker daemon.
