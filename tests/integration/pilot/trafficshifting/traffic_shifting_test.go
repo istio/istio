@@ -189,7 +189,6 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 	return echo.Config{
 		Service:   name,
 		Namespace: ns,
-		Sidecar:   true,
 		Ports: []echo.Port{
 			{
 				Name:     "http",
