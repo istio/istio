@@ -1,4 +1,24 @@
 ---
+# Source: istio-ingress/templates/poddisruptionbudget.yaml
+
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: ingressgateway
+  namespace: istio-ingress
+  labels:
+    app: ingressgateway
+    release: istio-ingress-istio-ingress
+    istio: ingressgateway
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: ingressgateway
+      release: istio-ingress-istio-ingress
+      istio: ingressgateway
+
+---
 # Source: istio-ingress/templates/service.yaml
 
 apiVersion: v1
@@ -15,6 +35,10 @@ spec:
   selector:
     app: ingressgateway
   ports:
+    -
+      name: status-port
+      port: 15020
+      targetPort: 15020
     -
       name: http2
       port: 80
@@ -57,6 +81,7 @@ spec:
           image: "istionightly/proxyv2:nightly-master"
           imagePullPolicy: Always
           ports:
+            - containerPort: 15020
             - containerPort: 80
             - containerPort: 443
             - containerPort: 15443
@@ -105,7 +130,8 @@ spec:
             timeoutSeconds: 1
           resources:
             requests:
-              cpu: 10m
+              cpu: 0m
+              memory: 1Mi
             
           env:
           - name: POD_NAME
@@ -191,7 +217,7 @@ spec:
               - key: beta.kubernetes.io/arch
                 operator: In
                 values:
-                - s390x
+                - s390x      
 ---
 
 ---
@@ -277,10 +303,6 @@ spec:
 ---
 # Source: istio-ingress/templates/meshexpansion.yaml
 
-
-
----
-# Source: istio-ingress/templates/poddisruptionbudget.yaml
 
 
 ---
