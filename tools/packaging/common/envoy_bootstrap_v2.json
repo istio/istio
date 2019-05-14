@@ -234,6 +234,7 @@
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
+        "http2_protocol_options": {},
         "hosts": [
           {
             "socket_address": {{ .envoy_metrics_service }}

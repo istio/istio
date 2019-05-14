@@ -11,7 +11,7 @@ metadata:
     release: {{ .Release.Name }}
     istio: citadel
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: 1
   selector:
     matchLabels:
       istio: citadel
