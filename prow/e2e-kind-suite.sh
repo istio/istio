@@ -35,6 +35,13 @@ set -u
 # Print commands
 set -x
 
+# shellcheck source=prow/lib.sh
+source "${ROOT}/prow/lib.sh"
+setup_kind_cluster
+setup_and_export_git_sha
+
+echo 'Build'
+(cd "${ROOT}"; make build)
 
 E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
 # e2e tests with kind clusters on prow will get deleted when prow
@@ -56,14 +63,6 @@ for ((i=1; i<=$#; i++)); do
     esac
     E2E_ARGS+=( "${!i}" )
 done
-
-# shellcheck source=prow/lib.sh
-source "${ROOT}/prow/lib.sh"
-setup_kind_cluster
-setup_and_export_git_sha
-
-echo 'Build'
-(cd "${ROOT}"; make build)
 
 export HUB=${HUB:-"kindtest"}
 export TAG="${TAG:-${GIT_SHA}}"
