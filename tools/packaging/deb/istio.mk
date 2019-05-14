@@ -20,7 +20,7 @@ deb: ${ISTIO_OUT}/istio-sidecar.deb
 # Base directory for istio binaries. Likely to change !
 ISTIO_DEB_BIN=/usr/local/bin
 
-ISTIO_DEB_DEPS:=pilot-discovery istioctl mixs istio_ca
+ISTIO_DEB_DEPS:=pilot-discovery istioctl mixs istio_ca istio-iptables
 ISTIO_FILES:=
 # subst is used to turn an absolute path into the relative path that fpm seems to expect
 $(foreach DEP,$(ISTIO_DEB_DEPS),\
@@ -36,7 +36,6 @@ $(foreach DEP,$(SIDECAR_DEB_DEPS),\
 
 ISTIO_DEB_DEST:=${ISTIO_DEB_BIN}/istio-start.sh \
 		${ISTIO_DEB_BIN}/istio-node-agent-start.sh \
-		${ISTIO_DEB_BIN}/istio-iptables \
 		/lib/systemd/system/istio.service \
 		/lib/systemd/system/istio-auth-node-agent.service \
 		/var/lib/istio/envoy/sidecar.env
