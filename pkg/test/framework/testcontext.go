@@ -296,7 +296,8 @@ func (c *testContext) Skipped() bool {
 
 func (c *testContext) Parallel() {
 	c.Helper()
-	// TODO(https://github.com/istio/istio/issues/13915)
-	//c.T.Parallel()
-	panic("TestContext.Parallel() not currently supported: https://github.com/istio/istio/issues/13915")
+
+	// Notify the test that it's running in parallel.
+	c.test.parallel()
+	c.T.Parallel()
 }

@@ -120,6 +120,7 @@ func TestEcho(t *testing.T) {
 					configTest.Label(label.Flaky)
 				}
 				configTest.Run(func(ctx framework.TestContext) {
+					ctx.Parallel()
 
 					ns := namespace.NewOrFail(ctx, ctx, "echo", true)
 

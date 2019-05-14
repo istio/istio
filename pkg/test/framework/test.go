@@ -34,7 +34,8 @@ type Test struct {
 	s           *suiteContext
 	requiredEnv environment.Name
 
-	ctx *testContext
+	ctx             *testContext
+	childIsParallel bool
 }
 
 // NewTest returns a new test wrapper for running a single test.
@@ -92,11 +93,18 @@ func (t *Test) Run(fn func(ctx TestContext)) {
 	}
 }
 
+// parallel is called by the testContext when the user has selected this test to run in Parallel.
+func (t *Test) parallel() {
+	if t.parent != nil {
+		t.parent.childIsParallel = true
+	}
+}
+
 func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext)) {
 	t.ctx = ctx
-	defer ctx.Done()
 
 	if t.requiredEnv != "" && t.s.Environment().EnvironmentName() != t.requiredEnv {
+		ctx.Done()
 		t.goTest.Skipf("Skipping %q: expected environment not found: %s", t.goTest.Name(), t.requiredEnv)
 		return
 	}
@@ -105,8 +113,22 @@ func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext)) {
 
 	scopes.CI.Infof("=== BEGIN: Test: '%s[%s]' ===", rt.suiteContext().Settings().TestID, t.goTest.Name())
 	defer func() {
-		end := time.Now()
-		scopes.CI.Infof("=== DONE:  Test: '%s[%s] (%v)' ===", rt.suiteContext().Settings().TestID, t.goTest.Name(), end.Sub(start))
+		doneFn := func() {
+			end := time.Now()
+			scopes.CI.Infof("=== DONE:  Test: '%s[%s] (%v)' ===",
+				rt.suiteContext().Settings().TestID,
+				t.goTest.Name(),
+				end.Sub(start))
+			ctx.Done()
+		}
+		if t.childIsParallel {
+			// If the child is running in parallel, it won't continue until this test returns.
+			// Since ctx.Done() will block until the child test is complete, we run ctx.Done()
+			// asynchronously.
+			go doneFn()
+		} else {
+			doneFn()
+		}
 	}()
 
 	fn(ctx)
