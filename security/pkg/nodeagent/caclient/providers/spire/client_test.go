@@ -196,7 +196,7 @@ func TestNewSpireClientFail(t *testing.T) {
 	}
 }
 
-func TestSpiffeIDValidation(t *testing.T) {
+func TestValidateWorkloadID(t *testing.T) {
 	cli := &spireClient{trustDomain: "example.org"}
 
 	testCases := map[string]struct {
@@ -235,6 +235,10 @@ func TestSpiffeIDValidation(t *testing.T) {
 			id:          "spiffe://example.org",
 			expectedErr: "path must not be empty",
 		},
+		"SPIRE path": {
+			id:          "spiffe://example.org/spire/test",
+			expectedErr: "the path cannot be part of the SPIRE reserved namespace",
+		},
 	}
 
 	for id, tc := range testCases {
@@ -245,7 +249,7 @@ func TestSpiffeIDValidation(t *testing.T) {
 				return
 			}
 
-			err = cli.validateSpiffeID(spiffeID)
+			err = cli.validateWorkloadID(spiffeID)
 			if err != nil {
 				if err.Error() != tc.expectedErr {
 					t.Errorf("error (%s) does not match expected error (%s)", err.Error(), tc.expectedErr)
@@ -550,7 +554,7 @@ func createTestServer(t *testing.T, bootstrapCert *x509.Certificate, cert *x509.
 	return s, lis.Addr().String()
 }
 
-// writeKey takes a private key, formats as PEM, and writes it to a decodeKey
+// decodeKey takes PEM encoded private key bytes and returns a private key
 func decodeKey(t *testing.T, key []byte) crypto.PrivateKey {
 	pemBlock, _ := pem.Decode(key)
 	if pemBlock == nil {

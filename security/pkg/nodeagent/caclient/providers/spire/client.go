@@ -100,7 +100,7 @@ func (c *spireClient) CSRSign(ctx context.Context, csrPEM []byte, token string,
 	}
 
 	certID := certRequest.URIs[0]
-	if err := c.validateSpiffeID(certID); err != nil {
+	if err := c.validateWorkloadID(certID); err != nil {
 		log.Errorf("Spiffe id from CSR is not valid: %v", err)
 		return nil, errors.New("spiffe id from CSR is not valid")
 	}
@@ -159,7 +159,7 @@ func (c *spireClient) CSRSign(ctx context.Context, csrPEM []byte, token string,
 	for _, ca := range bundle.RootCas {
 		c, err := x509.ParseCertificate(ca.DerBytes)
 		if err != nil {
-			log.Errorf("not able to parse certificate from SPIRE bundle response")
+			log.Error("not able to parse certificate from SPIRE bundle response")
 		} else {
 			bundles = append(bundles, c)
 		}
@@ -261,6 +261,8 @@ func (c *spireClient) serverConn(bundle []byte) (*grpc.ClientConn, error) {
 	return grpc.Dial(c.serverAddr, opts...)
 }
 
+// createNodeClient dials the SPIRE server and initializes a gRPC client to the Node API.
+// It authenticates the SPIRE server using the provided bundle.
 func (c *spireClient) createNodeClient(bundle []byte) error {
 	conn, err := c.serverConn(bundle)
 	if err != nil {
@@ -281,7 +283,8 @@ func (c *spireClient) createNodeClient(bundle []byte) error {
 	return nil
 }
 
-func (c *spireClient) validateSpiffeID(id *url.URL) error {
+// validateWorkloadID validates that the ID is a valid workload SPIFFE ID within the configured trust domain.
+func (c *spireClient) validateWorkloadID(id *url.URL) error {
 	switch {
 	case !strings.EqualFold(id.Scheme, "spiffe"):
 		return errors.New("invalid scheme")
@@ -299,11 +302,17 @@ func (c *spireClient) validateSpiffeID(id *url.URL) error {
 		return fmt.Errorf("%q does not belong to trust domain %q", id, c.trustDomain)
 	case id.Path == "":
 		return errors.New("path must not be empty")
+	case strings.HasPrefix(id.Path, "/spire/"):
+		// SPIRE reserves identities under /spire within trust domains
+		return errors.New("the path cannot be part of the SPIRE reserved namespace")
 	}
 
 	return nil
 }
 
+// buildFullChain returns a verified chain of trust from the certChain back to certificates present in trustBundle.
+// If more than one chain of trust can be formed. for example when trustBundle contains intermediate certificates
+// signed by other certificates within trustBundle, the most complete chain is returned (i.e. the chain that goes back the farthest).
 func buildFullChain(certChain, trustBundle []*x509.Certificate) ([]*x509.Certificate, error) {
 	if len(certChain) == 0 {
 		return nil, errors.New("empty certificate chain")
@@ -326,8 +335,16 @@ func buildFullChain(certChain, trustBundle []*x509.Certificate) ([]*x509.Certifi
 		return nil, err
 	}
 
-	// Verify will return one chain per intermediate CA present in 'Roots' involved in the chain of trust for the leaf.
-	// Grab the longest chain to make sure we get as far back in the chain of trust as possible.
+	// The longest verified chain should be the most "complete". For example, if we have a chain of trust:
+	//  D -> C -> B -> A
+	// And the cert chain contains:
+	// [D,C]
+	// And the trust bundle contains:
+	// [B,A]
+	// Then `Verify` will return two chains since it can form two chains back to certs in the trust bundle:
+	// [D,C,B] and [D,C,B,A]
+	//
+	// [D,C,B,A] represents a more complete chain and is necessary to convey to workloads so they can verify identities signed by A
 	var longestChain []*x509.Certificate
 	for _, chain := range chains {
 		if len(longestChain) < len(chain) {

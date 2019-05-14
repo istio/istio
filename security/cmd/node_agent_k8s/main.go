@@ -83,7 +83,10 @@ const (
 	vaultTLSRootCert     = "VAULT_TLS_ROOT_CERT"
 	vaultTLSRootCertFlag = "vaultTLSRootCert"
 
-	// The environmental variable name for Spire TLS bootstrap certificate.
+	// The environment variable name for the SPIRE TLS bootstrap certificate.
+	// The certificate is used to bootstrap authentication of the SPIRE server on the initial connection.
+	// Afterwards, SPIRE server will send down updates to the trust bundle which can be used
+	// to authenticate future connections.
 	spireTLSBootstrapCert     = "SPIRE_TLS_BOOTSTRAP_CERT"
 	spireTLSBootstrapCertFlag = "spireTLSBootstrapCert"
 
@@ -176,15 +179,16 @@ var (
 // Although currently not used, Citadel Agent can serve both workload and gateway secrets at the same time.
 func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecretCache *cache.SecretCache) {
 	if serverOptions.EnableWorkloadSDS {
-		var tlsRootCert []byte
-		if len(serverOptions.VaultTLSRootCert) > 0 {
-			tlsRootCert = []byte(serverOptions.VaultTLSRootCert)
-		} else {
-			tlsRootCert = []byte(serverOptions.SpireTLSBootstrapCert)
+		var tlsRootCert string
+		switch {
+		case len(serverOptions.VaultTLSRootCert) > 0:
+			tlsRootCert = serverOptions.VaultTLSRootCert
+		case len(serverOptions.SpireTLSBootstrapCert) > 0:
+			tlsRootCert = serverOptions.SpireTLSBootstrapCert
 		}
 
 		wSecretFetcher, err := secretfetcher.NewSecretFetcher(false, serverOptions.CAEndpoint,
-			serverOptions.CAProviderName, true, tlsRootCert,
+			serverOptions.CAProviderName, true, []byte(tlsRootCert),
 			serverOptions.VaultAddress, serverOptions.VaultRole, serverOptions.VaultAuthPath,
 			serverOptions.VaultSignCsrPath, serverOptions.TrustDomain)
 		if err != nil {
