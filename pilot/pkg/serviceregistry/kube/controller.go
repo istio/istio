@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -505,6 +506,10 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 
 	pod := c.pods.getPodByIP(proxyIP)
 	if pod != nil {
+		// for k8s multi cluster, in case there are pods of the same ip across clusters
+		if !strings.HasPrefix(proxy.ID, pod.Name) || !strings.Contains(proxy.ID, pod.Namespace) {
+			return out, nil
+		}
 		proxyNamespace = pod.Namespace
 		// 1. find proxy service by label selector, if not any, there may exist headless service
 		// failover to 2
