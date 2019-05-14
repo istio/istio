@@ -415,14 +415,24 @@ func TestUpdateBootstrap(t *testing.T) {
 	validCA := createCACertificate(t, key, "spiffe://example.org/spire/server", bootstrap)
 
 	newCA := createCACertificate(t, key, "spiffe://example.org/spire/server", bootstrap)
-	newCAPem := certChainPEM(newCA.Raw)
+	secundaryCA := createCACertificate(t, key, "spiffe://example.org/secundary", bootstrap)
 
 	successResp := createClientCertificate(t, validCSR, key, validCA)
 
-	// create a server than will return an invalid CA
+	var expectedCA string
+
+	bundles := []*x509.Certificate{newCA, secundaryCA}
+	sortBundleCerts(bundles)
+
+	// create expected string for latest bundle
+	for _, bundle := range bundles {
+		expectedCA += certChainPEM(bundle.Raw)
+	}
+
+	// create a server
 	server := &mockSpireNodeServer{
 		Svids: [][]byte{successResp.Raw},
-		CAs:   [][]byte{newCA.Raw},
+		CAs:   [][]byte{newCA.Raw, secundaryCA.Raw},
 	}
 
 	s, addr := createTestServer(t, bootstrap, validCA, key, server, "")
@@ -435,17 +445,31 @@ func TestUpdateBootstrap(t *testing.T) {
 	}
 
 	// validate bundle is updated when client is created successfully
-	server.CAs = [][]byte{newCA.Raw}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
+
 	_, err = cli.CSRSign(ctx, []byte(validCSR), fakeToken, 1)
 	if err != nil {
 		t.Errorf("unexpected when signing CSR error: %v", err)
 	}
 
 	sc := cli.(*spireClient)
-	if sc.latestBundle != newCAPem {
+	// latest bundle must be returned in expected order
+	if sc.latestBundle != expectedCA {
 		t.Errorf("latest bundle was not updated")
+	}
+
+	// update server CA with a new order
+	server.CAs = [][]byte{secundaryCA.Raw, newCA.Raw}
+	_, err = cli.CSRSign(ctx, []byte(validCSR), fakeToken, 1)
+	if err != nil {
+		t.Errorf("unexpected when signing CSR error: %v", err)
+	}
+
+	// latest bundle must not be updated
+	sc = cli.(*spireClient)
+	if sc.latestBundle != expectedCA {
+		t.Errorf("latest bundle was updated")
 	}
 }
 

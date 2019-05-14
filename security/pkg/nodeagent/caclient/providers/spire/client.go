@@ -15,6 +15,7 @@
 package spire
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -23,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
 
@@ -206,6 +208,9 @@ func (c *spireClient) buildCertChain(certificates, bundles []*x509.Certificate) 
 	}
 	certChain = append(certChain, rootCerts)
 
+	// sort certificates in bundle to provide a stable ordering for equality comparison
+	sortBundleCerts(bundles)
+
 	for _, ca := range bundles {
 		latestBundle += certChainPEM(ca.Raw)
 	}
@@ -372,4 +377,11 @@ func csrFromPEM(csr []byte) (*x509.CertificateRequest, error) {
 	}
 
 	return x509.ParseCertificateRequest(block.Bytes)
+}
+
+// sortBundleCerts sort bundles by Raw in ascending order
+func sortBundleCerts(bundles []*x509.Certificate) {
+	sort.Slice(bundles, func(i, j int) bool {
+		return bytes.Compare(bundles[i].Raw, bundles[j].Raw) < 0
+	})
 }
