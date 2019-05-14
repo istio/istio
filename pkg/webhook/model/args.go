@@ -29,9 +29,6 @@ type Args struct {
 	// Size of RSA private key
 	RSAKeySize int
 
-	// Whether the certificate is for CA
-	ForCA bool
-
 	// CertFile defines the cert of the CA client.
 	CertFile string
 
@@ -46,10 +43,6 @@ type Args struct {
 
 	//IsSelfSigned defines self signed
 	IsSelfSigned bool
-
-	CertTTL time.Duration
-
-	MaxCertTTL time.Duration
 }
 
 // DefaultArgs allocates a Config struct initialized.
@@ -58,13 +51,10 @@ func DefaultArgs() *Args {
 		Org:              "org",
 		RequestedCertTTL: 365 * 24 * time.Hour,
 		RSAKeySize:       2048,
-		ForCA:            true,
-		IsSelfSigned:     true,
+		IsSelfSigned:     false,
 		CertFile:         "/etc/certs/cert-chain.pem",
 		CertChainFile:    "/etc/certs/cert-chain.pem",
 		KeyFile:          "/etc/certs/key.pem",
 		RootCertFile:     "/etc/certs/root-cert.pem",
-		CertTTL:          90 * 24 * time.Hour,
-		MaxCertTTL:       90 * 24 * time.Hour,
 	}
 }
