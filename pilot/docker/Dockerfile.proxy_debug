@@ -23,7 +23,7 @@ ADD pilot-agent /usr/local/bin/pilot-agent
 # CAP_NET_ADMIN, so any iptables rule matching on "-m owner --uid-owner
 # istio-proxy" will not match connections from those processes anymore.
 # Instead, rely on the process's effective gid being istio-proxy and create a
-# "-m owner --gid-owner istio-proxy" iptables rule in istio-iptables.sh.
+# "-m owner --gid-owner istio-proxy" iptables rule in istio-iptables.
 # TODO: disabling due to https://github.com/istio/istio/issues/5745
 # RUN \
 # chgrp 1337 /usr/local/bin/envoy /usr/local/bin/pilot-agent && \

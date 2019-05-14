@@ -55,6 +55,7 @@ type Command struct {
 }
 
 func defaultCommandRunner(command Command) error {
+	fmt.Printf("%s %s\n", command.Command, strings.Join(command.Args, " "))
 	cmd := exec.Command(command.Command, command.Args...)
 	cmd.Stdout = os.Stdout
 	if !command.RedirectToStdErr {
@@ -76,16 +77,16 @@ func (i Command) RunOrFail() {
 	}
 }
 
-func (i Command) RedirectStdErr() Command {
-	i.RedirectToStdErr = true
-	return i
-}
-
 func (i Command) RunOrIgnore(message string) {
 	err := i.Run()
 	if err != nil {
 		fmt.Println(message)
 	}
+}
+
+func (i Command) RunQuietlyAndIgnore() {
+	i.RedirectToStdErr = true
+	_ = i.Run()
 }
 
 func iptables(args ...string) Command {
@@ -128,8 +129,8 @@ func separateV4V6(cidrList string) (NetworkRange, NetworkRange, error) {
 }
 
 func dump() {
-	iptables("save").RunOrFail()
-	ip6tables("save").RunOrFail()
+	Command{Command: "iptables-save"}.RunOrFail()
+	Command{Command: "ip6tables-save"}.RunOrFail()
 }
 
 func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)) {
@@ -214,25 +215,25 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 	}
 
 	// Remove the old chains, to generate new configs.
-	iptables("-t", "nat", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND").RedirectStdErr().RunOrFail()
-	iptables("-t", "mangle", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND").RedirectStdErr().RunOrFail()
-	iptables("-t", "nat", "-D", "OUTPUT", "-p", "tcp", "-j", "ISTIO_OUTPUT").RedirectStdErr().RunOrFail()
+	iptables("-t", "nat", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND").RunQuietlyAndIgnore()
+	iptables("-t", "mangle", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND").RunQuietlyAndIgnore()
+	iptables("-t", "nat", "-D", "OUTPUT", "-p", "tcp", "-j", "ISTIO_OUTPUT").RunQuietlyAndIgnore()
 	// Flush and delete the istio chains.
-	iptables("-t", "nat", "-F", "ISTIO_OUTPUT").RedirectStdErr().RunOrFail()
-	iptables("-t", "nat", "-X", "ISTIO_OUTPUT").RedirectStdErr().RunOrFail()
-	iptables("-t", "nat", "-F", "ISTIO_INBOUND").RedirectStdErr().RunOrFail()
-	iptables("-t", "nat", "-X", "ISTIO_INBOUND").RedirectStdErr().RunOrFail()
-	iptables("-t", "mangle", "-F", "ISTIO_INBOUND").RedirectStdErr().RunOrFail()
-	iptables("-t", "mangle", "-X", "ISTIO_INBOUND").RedirectStdErr().RunOrFail()
-	iptables("-t", "mangle", "-F", "ISTIO_DIVERT").RedirectStdErr().RunOrFail()
-	iptables("-t", "mangle", "-X", "ISTIO_DIVERT").RedirectStdErr().RunOrFail()
-	iptables("-t", "mangle", "-F", "ISTIO_TPROXY").RedirectStdErr().RunOrFail()
-	iptables("-t", "mangle", "-X", "ISTIO_TPROXY").RedirectStdErr().RunOrFail()
+	iptables("-t", "nat", "-F", "ISTIO_OUTPUT").RunQuietlyAndIgnore()
+	iptables("-t", "nat", "-X", "ISTIO_OUTPUT").RunQuietlyAndIgnore()
+	iptables("-t", "nat", "-F", "ISTIO_INBOUND").RunQuietlyAndIgnore()
+	iptables("-t", "nat", "-X", "ISTIO_INBOUND").RunQuietlyAndIgnore()
+	iptables("-t", "mangle", "-F", "ISTIO_INBOUND").RunQuietlyAndIgnore()
+	iptables("-t", "mangle", "-X", "ISTIO_INBOUND").RunQuietlyAndIgnore()
+	iptables("-t", "mangle", "-F", "ISTIO_DIVERT").RunQuietlyAndIgnore()
+	iptables("-t", "mangle", "-X", "ISTIO_DIVERT").RunQuietlyAndIgnore()
+	iptables("-t", "mangle", "-F", "ISTIO_TPROXY").RunQuietlyAndIgnore()
+	iptables("-t", "mangle", "-X", "ISTIO_TPROXY").RunQuietlyAndIgnore()
 	// Must be last, the others refer to it
-	iptables("-t", "nat", "-F", "ISTIO_REDIRECT").RedirectStdErr().RunOrFail()
-	iptables("-t", "nat", "-X", "ISTIO_REDIRECT").RedirectStdErr().RunOrFail()
-	iptables("-t", "nat", "-F", "ISTIO_IN_REDIRECT").RedirectStdErr().RunOrFail()
-	iptables("-t", "nat", "-X", "ISTIO_IN_REDIRECT").RedirectStdErr().RunOrFail()
+	iptables("-t", "nat", "-F", "ISTIO_REDIRECT").RunQuietlyAndIgnore()
+	iptables("-t", "nat", "-X", "ISTIO_REDIRECT").RunQuietlyAndIgnore()
+	iptables("-t", "nat", "-F", "ISTIO_IN_REDIRECT").RunQuietlyAndIgnore()
+	iptables("-t", "nat", "-X", "ISTIO_IN_REDIRECT").RunQuietlyAndIgnore()
 
 	if len(flagSet.Args()) > 0 && flagSet.Arg(0) == "clean" {
 		fmt.Println("Only cleaning, no new rules added")
@@ -403,25 +404,25 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 	// If ENABLE_INBOUND_IPV6 is unset (default unset), restrict IPv6 traffic.
 	if ENABLE_INBOUND_IPV6 != nil {
 		// Remove the old chains, to generate new configs.
-		ip6tables("-t", "nat", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND").RedirectStdErr().RunOrFail()
-		ip6tables("-t", "mangle", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND").RedirectStdErr().RunOrFail()
-		ip6tables("-t", "nat", "-D", "OUTPUT", "-p", "tcp", "-j", "ISTIO_OUTPUT").RedirectStdErr().RunOrFail()
+		ip6tables("-t", "nat", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND").RunQuietlyAndIgnore()
+		ip6tables("-t", "mangle", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND").RunQuietlyAndIgnore()
+		ip6tables("-t", "nat", "-D", "OUTPUT", "-p", "tcp", "-j", "ISTIO_OUTPUT").RunQuietlyAndIgnore()
 		// Flush and delete the istio chains.
-		ip6tables("-t", "nat", "-F", "ISTIO_OUTPUT").RedirectStdErr().RunOrFail()
-		ip6tables("-t", "nat", "-X", "ISTIO_OUTPUT").RedirectStdErr().RunOrFail()
-		ip6tables("-t", "nat", "-F", "ISTIO_INBOUND").RedirectStdErr().RunOrFail()
-		ip6tables("-t", "nat", "-X", "ISTIO_INBOUND").RedirectStdErr().RunOrFail()
-		ip6tables("-t", "mangle", "-F", "ISTIO_INBOUND").RedirectStdErr().RunOrFail()
-		ip6tables("-t", "mangle", "-X", "ISTIO_INBOUND").RedirectStdErr().RunOrFail()
-		ip6tables("-t", "mangle", "-F", "ISTIO_DIVERT").RedirectStdErr().RunOrFail()
-		ip6tables("-t", "mangle", "-X", "ISTIO_DIVERT").RedirectStdErr().RunOrFail()
-		ip6tables("-t", "mangle", "-F", "ISTIO_TPROXY").RedirectStdErr().RunOrFail()
-		ip6tables("-t", "mangle", "-X", "ISTIO_TPROXY").RedirectStdErr().RunOrFail()
+		ip6tables("-t", "nat", "-F", "ISTIO_OUTPUT").RunQuietlyAndIgnore()
+		ip6tables("-t", "nat", "-X", "ISTIO_OUTPUT").RunQuietlyAndIgnore()
+		ip6tables("-t", "nat", "-F", "ISTIO_INBOUND").RunQuietlyAndIgnore()
+		ip6tables("-t", "nat", "-X", "ISTIO_INBOUND").RunQuietlyAndIgnore()
+		ip6tables("-t", "mangle", "-F", "ISTIO_INBOUND").RunQuietlyAndIgnore()
+		ip6tables("-t", "mangle", "-X", "ISTIO_INBOUND").RunQuietlyAndIgnore()
+		ip6tables("-t", "mangle", "-F", "ISTIO_DIVERT").RunQuietlyAndIgnore()
+		ip6tables("-t", "mangle", "-X", "ISTIO_DIVERT").RunQuietlyAndIgnore()
+		ip6tables("-t", "mangle", "-F", "ISTIO_TPROXY").RunQuietlyAndIgnore()
+		ip6tables("-t", "mangle", "-X", "ISTIO_TPROXY").RunQuietlyAndIgnore()
 		// Must be last, the others refer to it
-		ip6tables("-t", "nat", "-F", "ISTIO_REDIRECT").RedirectStdErr().RunOrFail()
-		ip6tables("-t", "nat", "-X", "ISTIO_REDIRECT").RedirectStdErr().RunOrFail()
-		ip6tables("-t", "nat", "-F", "ISTIO_IN_REDIRECT").RedirectStdErr().RunOrFail()
-		ip6tables("-t", "nat", "-X", "ISTIO_IN_REDIRECT").RedirectStdErr().RunOrFail()
+		ip6tables("-t", "nat", "-F", "ISTIO_REDIRECT").RunQuietlyAndIgnore()
+		ip6tables("-t", "nat", "-X", "ISTIO_REDIRECT").RunQuietlyAndIgnore()
+		ip6tables("-t", "nat", "-F", "ISTIO_IN_REDIRECT").RunQuietlyAndIgnore()
+		ip6tables("-t", "nat", "-X", "ISTIO_IN_REDIRECT").RunQuietlyAndIgnore()
 		// Create a new chain for redirecting outbound traffic to the common Envoy port.
 		// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
 		// redirects to Envoy.
@@ -501,10 +502,10 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 		}
 	} else {
 		// Drop all inbound traffic except established connections.
-		ip6tables("-F", "INPUT").RedirectStdErr().RunOrFail()
-		ip6tables("-A", "INPUT", "-m", "state", "--state", "ESTABLISHED", "-j", "ACCEPT").RedirectStdErr().RunOrFail()
-		ip6tables("-A", "INPUT", "-i", "lo", "-d", "::1", "-j", "ACCEPT").RedirectStdErr().RunOrFail()
-		ip6tables("-A", "INPUT", "-j", "REJECT").RedirectStdErr().RunOrFail()
+		ip6tables("-F", "INPUT").RunQuietlyAndIgnore()
+		ip6tables("-A", "INPUT", "-m", "state", "--state", "ESTABLISHED", "-j", "ACCEPT").RunQuietlyAndIgnore()
+		ip6tables("-A", "INPUT", "-i", "lo", "-d", "::1", "-j", "ACCEPT").RunQuietlyAndIgnore()
+		ip6tables("-A", "INPUT", "-j", "REJECT").RunQuietlyAndIgnore()
 	}
 }
 

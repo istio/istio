@@ -48,17 +48,17 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # 	cp $(ISTIO_OUT)/$FILE $(ISTIO_DOCKER)/($FILE)
 DOCKER_FILES_FROM_ISTIO_OUT:=pkg-test-echo-cmd-client pkg-test-echo-cmd-server \
                              pilot-discovery pilot-agent sidecar-injector mixs mixgen \
-                             istio_ca node_agent node_agent_k8s galley
+                             istio_ca node_agent node_agent_k8s galley istio-iptables
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
 
 # tell make which files are copied from the source tree and generate rules to copy them to the proper location:
 # TODO(sdake)                      $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES)
-DOCKER_FILES_FROM_SOURCE:=tools/packaging/common/istio-iptables.sh docker/ca-certificates.tgz \
-                          tests/testdata/certs/cert.crt tests/testdata/certs/cert.key tests/testdata/certs/cacert.pem
+DOCKER_FILES_FROM_SOURCE:=docker/ca-certificates.tgz tests/testdata/certs/cert.crt \
+                          tests/testdata/certs/cert.key tests/testdata/certs/cacert.pem
 # generates rules like the following:
-# $(ISTIO_DOCKER)/tools/packaging/common/istio-iptables.sh: $(ISTIO_OUT)/tools/packaging/common/istio-iptables.sh | $(ISTIO_DOCKER)
+# $(ISTIO_DOCKER)/tests/testdata/certs/cert.crt: $(ISTIO_OUT)/tests/testdata/certs/cert.crt | $(ISTIO_DOCKER)
 # 	cp $FILE $$(@D))
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
@@ -77,7 +77,7 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
 # pilot docker images
 
 docker.proxy_init: pilot/docker/Dockerfile.proxy_init
-docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables.sh
+docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables
 	# Ensure ubuntu:xenial, the base image for proxy_init, is present so build doesn't fail on network hiccup
 	if [[ "$(docker images -q ubuntu:xenial 2> /dev/null)" == "" ]]; then \
 		docker pull ubuntu:xenial || (sleep 15 ; docker pull ubuntu:xenial) || (sleep 45 ; docker pull ubuntu:xenial) \
@@ -119,10 +119,10 @@ docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
 docker.proxyv2: $(ISTIO_DOCKER)/ca-certificates.tgz
 docker.proxyv2: $(ISTIO_ENVOY_RELEASE_DIR)/envoy
 docker.proxyv2: $(ISTIO_OUT)/pilot-agent
+docker.proxyv2: $(ISTIO_OUT)/istio-iptables
 docker.proxyv2: pilot/docker/Dockerfile.proxyv2
 docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
-docker.proxyv2: tools/packaging/common/istio-iptables.sh
 docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
 	$(DOCKER_RULE)
 
@@ -134,10 +134,10 @@ docker.proxytproxy: install/gcp/bootstrap/gcp_envoy_bootstrap.json
 docker.proxytproxy: $(ISTIO_DOCKER)/ca-certificates.tgz
 docker.proxytproxy: $(ISTIO_ENVOY_RELEASE_DIR)/envoy
 docker.proxytproxy: $(ISTIO_OUT)/pilot-agent
+docker.proxytproxy: $(ISTIO_OUT)/istio-iptables
 docker.proxytproxy: pilot/docker/Dockerfile.proxytproxy
 docker.proxytproxy: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxytproxy: pilot/docker/envoy_policy.yaml.tmpl
-docker.proxytproxy: tools/packaging/common/istio-iptables.sh
 docker.proxytproxy: pilot/docker/envoy_telemetry.yaml.tmpl
 	$(DOCKER_RULE)
 

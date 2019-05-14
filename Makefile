@@ -231,15 +231,9 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
                  then printf "go version $(GO_VERSION_REQUIRED)+ required, found: "; $(GO) version; exit 1; fi
 	@touch ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
 
-# Ensure expected GOPATH setup
-.PHONY: check-tree
-check-tree:
-	@if [ ! "$(ISTIO_GO)" -ef "$(GO_TOP)/src/istio.io/istio" ]; then \
-		echo Not building in expected path \'GOPATH/src/istio.io/istio\'. Make sure to clone Istio into that path. Istio root="$(ISTIO_GO)", GO_TOP="$(GO_TOP)" ; \
-		exit 1; fi
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
-init: check-tree check-go-version $(ISTIO_OUT)/istio_is_init
+init: check-go-version $(ISTIO_OUT)/istio_is_init
 	mkdir -p ${OUT_DIR}/logs
 
 # Sync is the same as init in release branch. In master this pulls from master.
@@ -316,6 +310,20 @@ ${ISTIO_OUT}/$(1):
 	bin/gobuild.sh ${ISTIO_OUT}/$(1) ./pilot/cmd/$(1)
 endef
 $(foreach ITEM,$(PILOT_GO_BINS_SHORT),$(eval $(call pilotbuild,$(ITEM))))
+
+
+PROXY_INIT_GO_BINS:=${ISTIO_OUT}/istio-iptables
+
+PROXY_INIT_GO_BINS_SHORT:=istio-iptables
+define proxy_init_build
+$(1):
+	bin/gobuild.sh ${ISTIO_OUT}/$(1) ./tools/$(1)
+
+${ISTIO_OUT}/$(1):
+	bin/gobuild.sh ${ISTIO_OUT}/$(1) ./tools/$(1)
+endef
+$(foreach ITEM,$(PROXY_INIT_GO_BINS_SHORT),$(eval $(call proxy_init_build,$(ITEM))))
+
 
 .PHONY: istioctl
 istioctl ${ISTIO_OUT}/istioctl:

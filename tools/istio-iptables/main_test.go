@@ -125,8 +125,8 @@ ip6tables -F,INPUT
 ip6tables -A,INPUT,-m,state,--state,ESTABLISHED,-j,ACCEPT
 ip6tables -A,INPUT,-i,lo,-d,::1,-j,ACCEPT
 ip6tables -A,INPUT,-j,REJECT
-iptables save
-ip6tables save`))
+iptables-save 
+ip6tables-save `))
 }
 
 func TestCompatibilityWithTPROXYMode(t *testing.T) {
@@ -193,8 +193,8 @@ ip6tables -F,INPUT
 ip6tables -A,INPUT,-m,state,--state,ESTABLISHED,-j,ACCEPT
 ip6tables -A,INPUT,-i,lo,-d,::1,-j,ACCEPT
 ip6tables -A,INPUT,-j,REJECT
-iptables save
-ip6tables save`))
+iptables-save 
+ip6tables-save `))
 }
 
 func TestCompatibilityWithTPROXYModeAndWildcardPort(t *testing.T) {
@@ -260,8 +260,8 @@ ip6tables -F,INPUT
 ip6tables -A,INPUT,-m,state,--state,ESTABLISHED,-j,ACCEPT
 ip6tables -A,INPUT,-i,lo,-d,::1,-j,ACCEPT
 ip6tables -A,INPUT,-j,REJECT
-iptables save
-ip6tables save`))
+iptables-save 
+ip6tables-save `))
 }
 
 func TestCompatibilityWithREDIRECTMode(t *testing.T) {
@@ -317,8 +317,8 @@ ip6tables -F,INPUT
 ip6tables -A,INPUT,-m,state,--state,ESTABLISHED,-j,ACCEPT
 ip6tables -A,INPUT,-i,lo,-d,::1,-j,ACCEPT
 ip6tables -A,INPUT,-j,REJECT
-iptables save
-ip6tables save`))
+iptables-save 
+ip6tables-save `))
 }
 
 func TestClean(t *testing.T) {
@@ -350,8 +350,8 @@ iptables -t,nat,-F,ISTIO_REDIRECT
 iptables -t,nat,-X,ISTIO_REDIRECT
 iptables -t,nat,-F,ISTIO_IN_REDIRECT
 iptables -t,nat,-X,ISTIO_IN_REDIRECT
-iptables save
-ip6tables save`))
+iptables-save 
+ip6tables-save `))
 }
 
 func TestTProxyModeAndIpV6(t *testing.T) {
@@ -446,6 +446,6 @@ ip6tables -t,nat,-I,PREROUTING,1,-i,eth1,-d,2001:db8::/32,-j,ISTIO_REDIRECT
 ip6tables -t,nat,-I,PREROUTING,1,-i,eth2,-d,2001:db8::/32,-j,ISTIO_REDIRECT
 ip6tables -t,nat,-A,ISTIO_OUTPUT,-d,2001:db8::/32,-j,ISTIO_REDIRECT
 ip6tables -t,nat,-A,ISTIO_OUTPUT,-j,RETURN
-iptables save
-ip6tables save`))
+iptables-save 
+ip6tables-save `))
 }

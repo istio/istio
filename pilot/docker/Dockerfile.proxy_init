@@ -4,5 +4,5 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     iptables \
  && rm -rf /var/lib/apt/lists/*
 
-ADD istio-iptables.sh /usr/local/bin/
-ENTRYPOINT ["/usr/local/bin/istio-iptables.sh"]
+ADD istio-iptables /usr/local/bin/
+ENTRYPOINT ["/usr/local/bin/istio-iptables"]

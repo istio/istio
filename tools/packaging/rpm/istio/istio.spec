@@ -38,7 +38,7 @@ Source0:        istio.tar.gz
 #Source2:        buildinfo
 Source3:        istio-start.sh
 Source4:        istio-node-agent-start.sh
-Source5:        istio-iptables.sh
+Source5:        istio-iptables
 Source6:        istio.service
 Source7:        istio-auth-node-agent.service
 
@@ -235,7 +235,7 @@ install -d -m755 $RPM_BUILD_ROOT/%{_unitdir}
 
 install -m755 %{SOURCE3} $RPM_BUILD_ROOT/%{_bindir}/istio-start.sh
 install -m755 %{SOURCE4} $RPM_BUILD_ROOT/%{_bindir}/istio-node-agent-start.sh
-install -m755 %{SOURCE5} $RPM_BUILD_ROOT/%{_bindir}/istio-iptables.sh
+install -m755 %{SOURCE5} $RPM_BUILD_ROOT/%{_bindir}/istio-iptables
 
 install -m644 %{SOURCE6} $RPM_BUILD_ROOT/%{_unitdir}/istio.service
 install -m644 %{SOURCE7} $RPM_BUILD_ROOT/%{_unitdir}/istio-auth-node-agent.service
@@ -318,7 +318,7 @@ ln -s -T /var/lib/istio /etc/istio 2> /dev/null || :
 %files pilot-agent
 %attr(2755,root,root) %{_bindir}/pilot-agent
 %attr(0755,root,root) %{_bindir}/istio-start.sh
-%attr(0755,root,root) %{_bindir}/istio-iptables.sh
+%attr(0755,root,root) %{_bindir}/istio-iptables
 %attr(0644,root,root) %{_unitdir}/istio.service
 
 %files istioctl
