@@ -24,7 +24,10 @@ func dotEnvLoad(key string, defaultPath string) {
 	path := getEnvWithDefault(key, defaultPath)
 
 	if _, err := os.Stat(path); err == nil {
-		godotenv.Load(path)
+		err = godotenv.Load(path)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 }
@@ -40,7 +43,7 @@ func getLocalIP() (net.IP, error) {
 			return ipnet.IP, nil
 		}
 	}
-	return nil, fmt.Errorf("No valid local IP address found")
+	return nil, fmt.Errorf("no valid local IP address found")
 }
 
 type NetworkRange struct {
@@ -101,31 +104,31 @@ func ip(args ...string) Command {
 	return Command{Command: "ip", Args: args, RedirectToStdErr: false}
 }
 
-func split(s string, sep string) []string {
+func split(s string) []string {
 	if s == "" {
 		return nil
 	}
-	return strings.Split(s, sep)
+	return strings.Split(s, ",")
 }
 
 func separateV4V6(cidrList string) (NetworkRange, NetworkRange, error) {
 	if cidrList == "*" {
 		return NetworkRange{IsWildcard: true}, NetworkRange{IsWildcard: true}, nil
 	}
-	ipv6_ranges := NetworkRange{IsWildcard: false, IPNets: make([]*net.IPNet, 0)}
-	ipv4_ranges := NetworkRange{IsWildcard: false, IPNets: make([]*net.IPNet, 0)}
-	for _, ipRange := range split(cidrList, ",") {
+	ipv6Ranges := NetworkRange{IsWildcard: false, IPNets: make([]*net.IPNet, 0)}
+	ipv4Ranges := NetworkRange{IsWildcard: false, IPNets: make([]*net.IPNet, 0)}
+	for _, ipRange := range split(cidrList) {
 		ip, ipNet, err := net.ParseCIDR(ipRange)
 		if err != nil {
-			return ipv4_ranges, ipv6_ranges, err
+			return ipv4Ranges, ipv6Ranges, err
 		}
 		if ip.To4() != nil {
-			ipv4_ranges.IPNets = append(ipv4_ranges.IPNets, ipNet)
+			ipv4Ranges.IPNets = append(ipv4Ranges.IPNets, ipNet)
 		} else {
-			ipv6_ranges.IPNets = append(ipv6_ranges.IPNets, ipNet)
+			ipv6Ranges.IPNets = append(ipv6Ranges.IPNets, ipNet)
 		}
 	}
-	return ipv4_ranges, ipv6_ranges, nil
+	return ipv4Ranges, ipv6Ranges, nil
 }
 
 func dump() {
@@ -141,35 +144,51 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 	dotEnvLoad("ISTIO_CLUSTER_CONFIG", "/var/lib/istio/envoy/cluster.env")
 	dotEnvLoad("ISTIO_SIDECAR_CONFIG", "/var/lib/istio/envoy/sidecar.env")
 
-	PROXY_PORT := getEnvWithDefault("ENVOY_PORT", "15001")
-	PROXY_UID := ""
-	PROXY_GID := ""
-	INBOUND_INTERCEPTION_MODE := os.Getenv("ISTIO_INBOUND_INTERCEPTION_MODE")
-	INBOUND_TPROXY_MARK := getEnvWithDefault("ISTIO_INBOUND_TPROXY_MARK", "1337")
-	INBOUND_TPROXY_ROUTE_TABLE := getEnvWithDefault("ISTIO_INBOUND_TPROXY_ROUTE_TABLE", "133")
-	INBOUND_PORTS_INCLUDE := os.Getenv("ISTIO_INBOUND_PORTS")
-	INBOUND_PORTS_EXCLUDE := os.Getenv("ISTIO_LOCAL_EXCLUDE_PORTS")
-	OUTBOUND_IP_RANGES_INCLUDE := os.Getenv("ISTIO_SERVICE_CIDR")
-	OUTBOUND_IP_RANGES_EXCLUDE := os.Getenv("ISTIO_SERVICE_EXCLUDE_CIDR")
-	KUBEVIRT_INTERFACES := ""
-	var ENABLE_INBOUND_IPV6 net.IP = nil
+	proxyPort := getEnvWithDefault("ENVOY_PORT", "15001")
+	proxyUid := ""
+	proxyGid := ""
+	inboundInterceptionMode := os.Getenv("ISTIO_INBOUND_INTERCEPTION_MODE")
+	inboundTProxyMark := getEnvWithDefault("ISTIO_INBOUND_TPROXY_MARK", "1337")
+	inboundTProxyRouteTable := getEnvWithDefault("ISTIO_INBOUND_TPROXY_ROUTE_TABLE", "133")
+	inboundPortsInclude := os.Getenv("ISTIO_INBOUND_PORTS")
+	inboundPortsExclude := os.Getenv("ISTIO_LOCAL_EXCLUDE_PORTS")
+	outboundIPRangesInclude := os.Getenv("ISTIO_SERVICE_CIDR")
+	outboundIPRangesExclude := os.Getenv("ISTIO_SERVICE_EXCLUDE_CIDR")
+	kubevirtInterfaces := ""
+	var enableInboundIPv6s net.IP = nil
 
-	flagSet.StringVar(&PROXY_PORT, "p", PROXY_PORT, "Specify the envoy port to which redirect all TCP traffic (default $ENVOY_PORT = 15001)")
-	flagSet.StringVar(&PROXY_UID, "u", PROXY_UID, "Specify the UID of the user for which the redirection is not applied. Typically, this is the UID of the proxy container")
-	flagSet.StringVar(&PROXY_GID, "g", PROXY_GID, "Specify the GID of the user for which the redirection is not applied. (same default value as -u param)")
-	flagSet.StringVar(&INBOUND_INTERCEPTION_MODE, "m", INBOUND_INTERCEPTION_MODE, "The mode used to redirect inbound connections to Envoy, either \"REDIRECT\" or \"TPROXY\"")
-	flagSet.StringVar(&INBOUND_PORTS_INCLUDE, "b", INBOUND_PORTS_INCLUDE, "Comma separated list of inbound ports for which traffic is to be redirected to Envoy (optional). The wildcard character \"*\" can be used to configure redirection for all ports. An empty list will disable")
-	flagSet.StringVar(&INBOUND_PORTS_EXCLUDE, "d", INBOUND_PORTS_EXCLUDE, "Comma separated list of inbound ports to be excluded from redirection to Envoy (optional). Only applies  when all inbound traffic (i.e. \"*\") is being redirected (default to $ISTIO_LOCAL_EXCLUDE_PORTS)")
-	flagSet.StringVar(&OUTBOUND_IP_RANGES_INCLUDE, "i", OUTBOUND_IP_RANGES_INCLUDE, "Comma separated list of IP ranges in CIDR form to redirect to envoy (optional). The wildcard character \"*\" can be used to redirect all outbound traffic. An empty list will disable all outbound")
-	flagSet.StringVar(&OUTBOUND_IP_RANGES_EXCLUDE, "x", OUTBOUND_IP_RANGES_EXCLUDE, "Comma separated list of IP ranges in CIDR form to be excluded from redirection. Only applies when all  outbound traffic (i.e. \"*\") is being redirected (default to $ISTIO_SERVICE_EXCLUDE_CIDR)")
-	flagSet.StringVar(&KUBEVIRT_INTERFACES, "k", KUBEVIRT_INTERFACES, "Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound (optional)")
+	flagSet.StringVar(&proxyPort, "p", proxyPort,
+		"Specify the envoy port to which redirect all TCP traffic (default $ENVOY_PORT = 15001)")
+	flagSet.StringVar(&proxyUid, "u", proxyUid,
+		"Specify the UID of the user for which the redirection is not applied. Typically, this is the UID of the proxy container")
+	flagSet.StringVar(&proxyGid, "g", proxyGid,
+		"Specify the GID of the user for which the redirection is not applied. (same default value as -u param)")
+	flagSet.StringVar(&inboundInterceptionMode, "m", inboundInterceptionMode,
+		"The mode used to redirect inbound connections to Envoy, either \"REDIRECT\" or \"TPROXY\"")
+	flagSet.StringVar(&inboundPortsInclude, "b", inboundPortsInclude,
+		"Comma separated list of inbound ports for which traffic is to be redirected to Envoy (optional). "+
+			"The wildcard character \"*\" can be used to configure redirection for all ports. An empty list will disable")
+	flagSet.StringVar(&inboundPortsExclude, "d", inboundPortsExclude,
+		"Comma separated list of inbound ports to be excluded from redirection to Envoy (optional). "+
+			"Only applies  when all inbound traffic (i.e. \"*\") is being redirected (default to $ISTIO_LOCAL_EXCLUDE_PORTS)")
+	flagSet.StringVar(&outboundIPRangesInclude, "i", outboundIPRangesInclude,
+		"Comma separated list of IP ranges in CIDR form to redirect to envoy (optional). "+
+			"The wildcard character \"*\" can be used to redirect all outbound traffic. An empty list will disable all outbound")
+	flagSet.StringVar(&outboundIPRangesExclude, "x", outboundIPRangesExclude,
+		"Comma separated list of IP ranges in CIDR form to be excluded from redirection. "+
+			"Only applies when all  outbound traffic (i.e. \"*\") is being redirected (default to $ISTIO_SERVICE_EXCLUDE_CIDR)")
+	flagSet.StringVar(&kubevirtInterfaces, "k", kubevirtInterfaces,
+		"Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound (optional)")
 
-	flagSet.Parse(args)
+	err := flagSet.Parse(args)
+	if err != nil {
+		return
+	}
 
 	defer dump()
 
 	// TODO: more flexibility - maybe a whitelist of users to be captured for output instead of a blacklist.
-	if PROXY_UID == "" {
+	if proxyUid == "" {
 		usr, err := user.Lookup(getEnvWithDefault("ENVOY_USER", "istio-proxy"))
 		var userId string
 		// Default to the UID of ENVOY_USER and root
@@ -180,36 +199,36 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 		}
 		// If ENVOY_UID is not explicitly defined (as it would be in k8s env), we add root to the list,
 		// for ca agent.
-		PROXY_UID = userId + ",0"
+		proxyUid = userId + ",0"
 	}
 
 	// for TPROXY as its uid and gid are same
-	if PROXY_GID == "" {
-		PROXY_GID = PROXY_UID
+	if proxyGid == "" {
+		proxyGid = proxyUid
 	}
 
-	POD_IP, err := getLocalIP()
+	podIP, err := getLocalIP()
 	if err != nil {
 		panic(err)
 	}
 	// Check if pod's ip is ipv4 or ipv6, in case of ipv6 set variable
 	// to program ip6tablesOrFail
-	if POD_IP.To4() == nil {
-		ENABLE_INBOUND_IPV6 = POD_IP
+	if podIP.To4() == nil {
+		enableInboundIPv6s = podIP
 	}
 	//
 	// Since OUTBOUND_IP_RANGES_EXCLUDE could carry ipv4 and ipv6 ranges
 	// need to split them in different arrays one for ipv4 and one for ipv6
 	// in order to not to fail
-	ipv4_ranges_exclude, ipv6_ranges_exclude, err := separateV4V6(OUTBOUND_IP_RANGES_EXCLUDE)
+	ipv4RangesExclude, ipv6RangesExclude, err := separateV4V6(outboundIPRangesExclude)
 	if err != nil {
 		panic(err)
 	}
-	if ipv4_ranges_exclude.IsWildcard {
+	if ipv4RangesExclude.IsWildcard {
 		panic("Invalid value for OUTBOUND_IP_RANGES_EXCLUDE")
 	}
 
-	ipv4_ranges_include, ipv6_ranges_include, err := separateV4V6(OUTBOUND_IP_RANGES_INCLUDE)
+	ipv4RangesInclude, ipv6RangesInclude, err := separateV4V6(outboundIPRangesInclude)
 	if err != nil {
 		panic(err)
 	}
@@ -253,37 +272,37 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 	fmt.Println("")
 	fmt.Println("Variables:")
 	fmt.Println("----------")
-	fmt.Printf("PROXY_PORT=%s\n", PROXY_PORT)
+	fmt.Printf("PROXY_PORT=%s\n", proxyPort)
 	fmt.Printf("INBOUND_CAPTURE_PORT=%s\n", getEnvWithDefault("INBOUND_CAPTURE_PORT", "$PROXY_PORT"))
-	fmt.Printf("PROXY_UID=%s\n", PROXY_UID)
-	fmt.Printf("INBOUND_INTERCEPTION_MODE=%s\n", INBOUND_INTERCEPTION_MODE)
-	fmt.Printf("INBOUND_TPROXY_MARK=%s\n", INBOUND_TPROXY_MARK)
-	fmt.Printf("INBOUND_TPROXY_ROUTE_TABLE=%s\n", INBOUND_TPROXY_ROUTE_TABLE)
-	fmt.Printf("INBOUND_PORTS_INCLUDE=%s\n", INBOUND_PORTS_INCLUDE)
-	fmt.Printf("INBOUND_PORTS_EXCLUDE=%s\n", INBOUND_PORTS_EXCLUDE)
-	fmt.Printf("OUTBOUND_IP_RANGES_INCLUDE=%s\n", OUTBOUND_IP_RANGES_INCLUDE)
-	fmt.Printf("OUTBOUND_IP_RANGES_EXCLUDE=%s\n", OUTBOUND_IP_RANGES_EXCLUDE)
-	fmt.Printf("KUBEVIRT_INTERFACES=%s\n", KUBEVIRT_INTERFACES)
-	fmt.Printf("ENABLE_INBOUND_IPV6=%s\n", ENABLE_INBOUND_IPV6)
+	fmt.Printf("PROXY_UID=%s\n", proxyUid)
+	fmt.Printf("INBOUND_INTERCEPTION_MODE=%s\n", inboundInterceptionMode)
+	fmt.Printf("INBOUND_TPROXY_MARK=%s\n", inboundTProxyMark)
+	fmt.Printf("INBOUND_TPROXY_ROUTE_TABLE=%s\n", inboundTProxyRouteTable)
+	fmt.Printf("INBOUND_PORTS_INCLUDE=%s\n", inboundPortsInclude)
+	fmt.Printf("INBOUND_PORTS_EXCLUDE=%s\n", inboundPortsExclude)
+	fmt.Printf("OUTBOUND_IP_RANGES_INCLUDE=%s\n", outboundIPRangesInclude)
+	fmt.Printf("OUTBOUND_IP_RANGES_EXCLUDE=%s\n", outboundIPRangesExclude)
+	fmt.Printf("KUBEVIRT_INTERFACES=%s\n", kubevirtInterfaces)
+	fmt.Printf("ENABLE_INBOUND_IPV6=%s\n", enableInboundIPv6s)
 	fmt.Println("")
 
-	INBOUND_CAPTURE_PORT := getEnvWithDefault("INBOUND_CAPTURE_PORT", PROXY_PORT)
+	inboundCapturePort := getEnvWithDefault("INBOUND_CAPTURE_PORT", proxyPort)
 
 	// Create a new chain for redirecting outbound traffic to the common Envoy port.
 	// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
 	// redirects to Envoy.
 	iptables("-t", "nat", "-N", "ISTIO_REDIRECT").RunOrFail()
-	iptables("-t", "nat", "-A", "ISTIO_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", PROXY_PORT).RunOrFail()
+	iptables("-t", "nat", "-A", "ISTIO_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", proxyPort).RunOrFail()
 	// Use this chain also for redirecting inbound traffic to the common Envoy port
 	// when not using TPROXY.
 	iptables("-t", "nat", "-N", "ISTIO_IN_REDIRECT").RunOrFail()
-	iptables("-t", "nat", "-A", "ISTIO_IN_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", INBOUND_CAPTURE_PORT).RunOrFail()
+	iptables("-t", "nat", "-A", "ISTIO_IN_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", inboundCapturePort).RunOrFail()
 
-	table := "nat"
+	var table string
 	// Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
 	// to the local service. If not set, no inbound port will be intercepted by istio iptablesOrFail.
-	if INBOUND_PORTS_INCLUDE != "" {
-		if INBOUND_INTERCEPTION_MODE == "TPROXY" {
+	if inboundPortsInclude != "" {
+		if inboundInterceptionMode == "TPROXY" {
 			// When using TPROXY, create a new chain for routing all inbound traffic to
 			// Envoy. Any packet entering this chain gets marked with the ${INBOUND_TPROXY_MARK} mark,
 			// so that they get routed to the loopback interface in order to get redirected to Envoy.
@@ -291,13 +310,13 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 			// interface.
 			// Mark all inbound packets.
 			iptables("-t", "mangle", "-N", "ISTIO_DIVERT").RunOrFail()
-			iptables("-t", "mangle", "-A", "ISTIO_DIVERT", "-j", "MARK", "--set-mark", INBOUND_TPROXY_MARK).RunOrFail()
+			iptables("-t", "mangle", "-A", "ISTIO_DIVERT", "-j", "MARK", "--set-mark", inboundTProxyMark).RunOrFail()
 			iptables("-t", "mangle", "-A", "ISTIO_DIVERT", "-j", "ACCEPT").RunOrFail()
 			// Route all packets marked in chain ISTIO_DIVERT using routing table ${INBOUND_TPROXY_ROUTE_TABLE}.
-			ip("-f", "inet", "rule", "add", "fwmark", INBOUND_TPROXY_MARK, "lookup", INBOUND_TPROXY_ROUTE_TABLE).RunOrFail()
+			ip("-f", "inet", "rule", "add", "fwmark", inboundTProxyMark, "lookup", inboundTProxyRouteTable).RunOrFail()
 			// In routing table ${INBOUND_TPROXY_ROUTE_TABLE}, create a single default rule to route all traffic to
 			// the loopback interface.
-			err = ip("-f", "inet", "route", "add", "local", "default", "dev", "lo", "table", INBOUND_TPROXY_ROUTE_TABLE).Run()
+			err = ip("-f", "inet", "route", "add", "local", "default", "dev", "lo", "table", inboundTProxyRouteTable).Run()
 			if err != nil {
 				ip("route", "show", "table", "all").RunOrFail()
 			}
@@ -306,7 +325,7 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 			// In the ISTIO_INBOUND chain, '-j RETURN' bypasses Envoy and
 			// '-j ISTIO_TPROXY' redirects to Envoy.
 			iptables("-t", "mangle", "-N", "ISTIO_TPROXY").RunOrFail()
-			iptables("-t", "mangle", "-A", "ISTIO_TPROXY", "!", "-d", "127.0.0.1/32", "-p", "tcp", "-j", "TPROXY", "--tproxy-mark", INBOUND_TPROXY_MARK+"/0xffffffff", "--on-port", PROXY_PORT).RunOrFail()
+			iptables("-t", "mangle", "-A", "ISTIO_TPROXY", "!", "-d", "127.0.0.1/32", "-p", "tcp", "-j", "TPROXY", "--tproxy-mark", inboundTProxyMark+"/0xffffffff", "--on-port", proxyPort).RunOrFail()
 
 			table = "mangle"
 		} else {
@@ -315,17 +334,17 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 		iptables("-t", table, "-N", "ISTIO_INBOUND").RunOrFail()
 		iptables("-t", table, "-A", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND").RunOrFail()
 
-		if INBOUND_PORTS_INCLUDE == "*" {
+		if inboundPortsInclude == "*" {
 			// Makes sure SSH is not redirected
 			iptables("-t", table, "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", "22", "-j", "RETURN").RunOrFail()
 			// Apply any user-specified port exclusions.
-			if INBOUND_PORTS_EXCLUDE != "" {
-				for _, port := range split(INBOUND_PORTS_EXCLUDE, ",") {
+			if inboundPortsExclude != "" {
+				for _, port := range split(inboundPortsExclude) {
 					iptables("-t", table, "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-j", "RETURN").RunOrFail()
 				}
 			}
 			// Redirect remaining inbound traffic to Envoy.
-			if INBOUND_INTERCEPTION_MODE == "TPROXY" {
+			if inboundInterceptionMode == "TPROXY" {
 				// If an inbound packet belongs to an established socket, route it to the
 				// loopback interface.
 				iptables("-t", "mangle", "-A", "ISTIO_INBOUND", "-p", "tcp", "-m", "socket", "-j", "ISTIO_DIVERT").RunOrIgnore("No socket match support")
@@ -336,8 +355,8 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 			}
 		} else {
 			// User has specified a non-empty list of ports to be redirected to Envoy.
-			for _, port := range split(INBOUND_PORTS_INCLUDE, ",") {
-				if INBOUND_INTERCEPTION_MODE == "TPROXY" {
+			for _, port := range split(inboundPortsInclude) {
+				if inboundInterceptionMode == "TPROXY" {
 					iptables("-t", "mangle", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-m", "socket", "-j", "ISTIO_DIVERT").RunOrIgnore("No socket match support")
 					iptables("-t", "mangle", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-m", "socket", "-j", "ISTIO_DIVERT").RunOrIgnore("No socket match support")
 					iptables("-t", "mangle", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-j", "ISTIO_TPROXY").RunOrFail()
@@ -360,13 +379,13 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 		iptables("-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "127.0.0.1/32", "-j", "ISTIO_REDIRECT").RunOrFail()
 	}
 
-	for _, uid := range split(PROXY_UID, ",") {
+	for _, uid := range split(proxyUid) {
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
 		iptables("-t", "nat", "-A", "ISTIO_OUTPUT", "-m", "owner", "--uid-owner", uid, "-j", "RETURN").RunOrFail()
 	}
 
-	for _, gid := range split(PROXY_GID, ",") {
+	for _, gid := range split(proxyGid) {
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
 		iptables("-t", "nat", "-A", "ISTIO_OUTPUT", "-m", "owner", "--gid-owner", gid, "-j", "RETURN").RunOrFail()
@@ -376,24 +395,24 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 	// localhost.
 	iptables("-t", "nat", "-A", "ISTIO_OUTPUT", "-d", "127.0.0.1/32", "-j", "RETURN").RunOrFail()
 	// Apply outbound IPv4 exclusions. Must be applied before inclusions.
-	for _, cidr := range ipv4_ranges_exclude.IPNets {
+	for _, cidr := range ipv4RangesExclude.IPNets {
 		iptables("-t", "nat", "-A", "ISTIO_OUTPUT", "-d", cidr.String(), "-j", "RETURN").RunOrFail()
 	}
 
-	for _, internalInterface := range split(KUBEVIRT_INTERFACES, ",") {
+	for _, internalInterface := range split(kubevirtInterfaces) {
 		iptables("-t", "nat", "-I", "PREROUTING", "1", "-i", internalInterface, "-j", "RETURN").RunOrFail()
 	}
 	// Apply outbound IP inclusions.
-	if ipv4_ranges_include.IsWildcard {
+	if ipv4RangesInclude.IsWildcard {
 		// Wildcard specified. Redirect all remaining outbound traffic to Envoy.
 		iptables("-t", "nat", "-A", "ISTIO_OUTPUT", "-j", "ISTIO_REDIRECT").RunOrFail()
-		for _, internalInterface := range split(KUBEVIRT_INTERFACES, ",") {
+		for _, internalInterface := range split(kubevirtInterfaces) {
 			iptables("-t", "nat", "-I", "PREROUTING", "1", "-i", internalInterface, "-j", "ISTIO_REDIRECT").RunOrFail()
 		}
-	} else if len(ipv4_ranges_include.IPNets) > 0 {
+	} else if len(ipv4RangesInclude.IPNets) > 0 {
 		// User has specified a non-empty list of cidrs to be redirected to Envoy.
-		for _, cidr := range ipv4_ranges_include.IPNets {
-			for _, internalInterface := range split(KUBEVIRT_INTERFACES, ",") {
+		for _, cidr := range ipv4RangesInclude.IPNets {
+			for _, internalInterface := range split(kubevirtInterfaces) {
 				iptables("-t", "nat", "-I", "PREROUTING", "1", "-i", internalInterface, "-d", cidr.String(), "-j", "ISTIO_REDIRECT").RunOrFail()
 			}
 			iptables("-t", "nat", "-A", "ISTIO_OUTPUT", "-d", cidr.String(), "-j", "ISTIO_REDIRECT").RunOrFail()
@@ -402,7 +421,7 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 		iptables("-t", "nat", "-A", "ISTIO_OUTPUT", "-j", "RETURN").RunOrFail()
 	}
 	// If ENABLE_INBOUND_IPV6 is unset (default unset), restrict IPv6 traffic.
-	if ENABLE_INBOUND_IPV6 != nil {
+	if enableInboundIPv6s != nil {
 		// Remove the old chains, to generate new configs.
 		ip6tables("-t", "nat", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND").RunQuietlyAndIgnore()
 		ip6tables("-t", "mangle", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND").RunQuietlyAndIgnore()
@@ -427,30 +446,30 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 		// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
 		// redirects to Envoy.
 		ip6tables("-t", "nat", "-N", "ISTIO_REDIRECT").RunOrFail()
-		ip6tables("-t", "nat", "-A", "ISTIO_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", PROXY_PORT).RunOrFail()
+		ip6tables("-t", "nat", "-A", "ISTIO_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", proxyPort).RunOrFail()
 		// Use this chain also for redirecting inbound traffic to the common Envoy port
 		// when not using TPROXY.
 		ip6tables("-t", "nat", "-N", "ISTIO_IN_REDIRECT").RunOrFail()
-		ip6tables("-t", "nat", "-A", "ISTIO_IN_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", INBOUND_CAPTURE_PORT).RunOrFail()
+		ip6tables("-t", "nat", "-A", "ISTIO_IN_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", inboundCapturePort).RunOrFail()
 		// Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
 		// to the local service. If not set, no inbound port will be intercepted by istio iptablesOrFail.
-		if INBOUND_PORTS_INCLUDE != "" {
+		if inboundPortsInclude != "" {
 			table = "nat"
 			ip6tables("-t", table, "-N", "ISTIO_INBOUND").RunOrFail()
 			ip6tables("-t", table, "-A", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND").RunOrFail()
 
-			if INBOUND_PORTS_INCLUDE == "*" {
+			if inboundPortsInclude == "*" {
 				// Makes sure SSH is not redirected
 				ip6tables("-t", table, "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", "22", "-j", "RETURN").RunOrFail()
 				// Apply any user-specified port exclusions.
-				if INBOUND_PORTS_EXCLUDE != "" {
-					for _, port := range split(INBOUND_PORTS_EXCLUDE, ",") {
+				if inboundPortsExclude != "" {
+					for _, port := range split(inboundPortsExclude) {
 						ip6tables("-t", table, "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-j", "RETURN").RunOrFail()
 					}
 				}
 			} else {
 				// User has specified a non-empty list of ports to be redirected to Envoy.
-				for _, port := range split(INBOUND_PORTS_INCLUDE, ",") {
+				for _, port := range split(inboundPortsInclude) {
 					ip6tables("-t", "nat", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-j", "ISTIO_IN_REDIRECT").RunOrFail()
 				}
 			}
@@ -463,13 +482,13 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 		// address, e.g. appN => Envoy (client) => Envoy (server) => appN.
 		ip6tables("-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "::1/128", "-j", "ISTIO_REDIRECT").RunOrFail()
 
-		for _, uid := range split(PROXY_UID, ",") {
+		for _, uid := range split(proxyUid) {
 			// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 			// Envoy for non-loopback traffic.
 			ip6tables("-t", "nat", "-A", "ISTIO_OUTPUT", "-m", "owner", "--uid-owner", uid, "-j", "RETURN").RunOrFail()
 		}
 
-		for _, gid := range split(PROXY_GID, ",") {
+		for _, gid := range split(proxyGid) {
 			// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 			// Envoy for non-loopback traffic.
 			ip6tables("-t", "nat", "-A", "ISTIO_OUTPUT", "-m", "owner", "--gid-owner", gid, "-j", "RETURN").RunOrFail()
@@ -479,20 +498,20 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 		// localhost.
 		ip6tables("-t", "nat", "-A", "ISTIO_OUTPUT", "-d", "::1/128", "-j", "RETURN").RunOrFail()
 		// Apply outbound IPv6 exclusions. Must be applied before inclusions.
-		for _, cidr := range ipv6_ranges_exclude.IPNets {
+		for _, cidr := range ipv6RangesExclude.IPNets {
 			ip6tables("-t", "nat", "-A", "ISTIO_OUTPUT", "-d", cidr.String(), "-j", "RETURN").RunOrFail()
 		}
 		// Apply outbound IPv6 inclusions.
-		if ipv6_ranges_include.IsWildcard {
+		if ipv6RangesInclude.IsWildcard {
 			// Wildcard specified. Redirect all remaining outbound traffic to Envoy.
 			ip6tables("-t", "nat", "-A", "ISTIO_OUTPUT", "-j", "ISTIO_REDIRECT").RunOrFail()
-			for _, internalInterface := range split(KUBEVIRT_INTERFACES, ",") {
+			for _, internalInterface := range split(kubevirtInterfaces) {
 				ip6tables("-t", "nat", "-I", "PREROUTING", "1", "-i", internalInterface, "-j", "RETURN").RunOrFail()
 			}
-		} else if len(ipv6_ranges_include.IPNets) > 0 {
+		} else if len(ipv6RangesInclude.IPNets) > 0 {
 			// User has specified a non-empty list of cidrs to be redirected to Envoy.
-			for _, cidr := range ipv6_ranges_include.IPNets {
-				for _, internalInterface := range split(KUBEVIRT_INTERFACES, ",") {
+			for _, cidr := range ipv6RangesInclude.IPNets {
+				for _, internalInterface := range split(kubevirtInterfaces) {
 					ip6tables("-t", "nat", "-I", "PREROUTING", "1", "-i", internalInterface, "-d", cidr.String(), "-j", "ISTIO_REDIRECT").RunOrFail()
 				}
 				ip6tables("-t", "nat", "-A", "ISTIO_OUTPUT", "-d", cidr.String(), "-j", "ISTIO_REDIRECT").RunOrFail()

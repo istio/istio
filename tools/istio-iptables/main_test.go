@@ -52,11 +52,12 @@ func TestRunOrFail(t *testing.T) {
 	}
 	var err interface{}
 	{
-		defer func() {
+		var recoverFromPanic = func() {
 			if e := recover(); e != nil {
 				err = e
 			}
-		}()
+		}
+		defer recoverFromPanic()
 
 		iptables().RunOrFail()
 	}
