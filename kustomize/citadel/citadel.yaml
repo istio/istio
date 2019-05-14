@@ -111,9 +111,16 @@ spec:
             - --custom-dns-names=$(CITADEL_DNS)
             - --self-signed-ca=true
             - --trust-domain=cluster.local
+          livenessProbe:
+            httpGet:
+              path: /version
+              port: 15014
+            initialDelaySeconds: 5
+            periodSeconds: 5
           resources:
             requests:
-              cpu: 10m
+              cpu: 0m
+              memory: 1Mi
             
       affinity:      
         nodeAffinity:
@@ -147,5 +154,5 @@ spec:
               - key: beta.kubernetes.io/arch
                 operator: In
                 values:
-                - s390x
+                - s390x      
 
