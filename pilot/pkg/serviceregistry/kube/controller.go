@@ -871,6 +871,7 @@ func (c *Controller) InitNetworkLookup(meshNetworks *meshconfig.MeshNetworks) {
 				}
 				c.ranger.Insert(rangerEntry)
 			}
+			log.Infof("meshnetworks from registry %s cluster id %s", ep.GetFromRegistry(), c.ClusterID)
 			if ep.GetFromRegistry() != "" && ep.GetFromRegistry() == c.ClusterID {
 				c.networkForRegistry = n
 			}
