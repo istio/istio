@@ -17,7 +17,6 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -33,7 +32,7 @@ func runCommandAndCheckGoldenFile(name, command, golden string, t *testing.T) {
 
 func runCommandAndCheckExpectedString(name, command, expected string, t *testing.T) {
 	out := runCommand(name, command, t)
-	if !reflect.DeepEqual(out.String(), expected) {
+	if out.String() != expected {
 		t.Errorf("test %q failed. \nExpected\n%s\nGot%s\n", name, expected, out.String())
 	}
 }
@@ -100,14 +99,14 @@ func TestAuthValidator(t *testing.T) {
 		{
 			name:     "good policy",
 			in:       []string{"testdata/auth/authz-policy.yaml"},
-			expected: "",
+			expected: auth.GetPolicyValidReport(),
 		},
 		{
 			name: "bad policy",
 			in:   []string{"../pkg/auth/testdata/validator/unused-role.yaml", "../pkg/auth/testdata/validator/notfound-role-in-binding.yaml"},
 			expected: fmt.Sprintf("%s%s",
-				fmt.Sprintf(auth.RoleNotFound, "some-role", "bind-service-viewer", "default"),
-				fmt.Sprintf(auth.RoleNotUsed, "unused-role", "default")),
+				auth.GetRoleNotFoundReport("some-role", "bind-service-viewer", "default"),
+				auth.GetRoleNotUsedReport("unused-role", "default")),
 		},
 	}
 	for _, c := range testCases {

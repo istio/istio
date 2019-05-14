@@ -25,21 +25,27 @@ type cases struct {
 	testName string
 	input    []string
 	expected string
+	errMsg   string
 }
 
 func TestCheckAndReport(t *testing.T) {
 	cases := []cases{
 		{
+			testName: "no policy found",
+			input:    []string{"./testdata/validator/service-entry.yaml"},
+			errMsg:   PolicyMissing,
+		},
+		{
 			testName: "good rbac file",
 			input:    []string{"./testdata/rbac-policies.yaml"},
-			expected: "",
+			expected: GetPolicyValidReport(),
 		},
 		{
 			testName: "bad rbac file",
 			input:    []string{"./testdata/validator/unused-role.yaml", "./testdata/validator/notfound-role-in-binding.yaml"},
 			expected: fmt.Sprintf("%s%s",
-				fmt.Sprintf(RoleNotFound, "some-role", "bind-service-viewer", "default"),
-				fmt.Sprintf(RoleNotUsed, "unused-role", "default")),
+				GetRoleNotFoundReport("some-role", "bind-service-viewer", "default"),
+				GetRoleNotUsedReport("unused-role", "default")),
 		},
 	}
 	for _, tc := range cases {
@@ -49,7 +55,12 @@ func TestCheckAndReport(t *testing.T) {
 		}
 		err := validator.CheckAndReport()
 		if err != nil {
-			t.Errorf("test %q failed with error %v", tc.testName, err)
+			if tc.errMsg == "" {
+				t.Errorf("test %q failed with error %v", tc.testName, err)
+			}
+			if tc.errMsg != err.Error() {
+				t.Errorf("test %q failed. \nExpected \n%sGot\n%s", tc.testName, tc.errMsg, err.Error())
+			}
 		}
 		gotContent := validator.Report.String()
 		if tc.expected != gotContent {

@@ -127,11 +127,12 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 	validatorCmd = &cobra.Command{
 		Use:   "validate <policy-file1,policy-file2,...>",
 		Short: "Validate authentication and authorization policy",
-		Long: `Validate and find incorrectness in authentication and authorization policy files, such as:
-						* Referring to a non existing ServiceRole.
+		Long: `This command goes through all authorization policy files and finds potential issues such as:
+						* ServiceRoleBinding refers to a non existing ServiceRole.
 						* ServiceRole not used.
+           It does not require access to the cluster as the validation is against local files.
 					`,
-		Example: "istioctl experimental auth validate policy1.yaml,policy2.yaml",
+		Example: "istioctl experimental auth validate -f policy1.yaml,policy2.yaml",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			validator, err := newValidator(policyFiles)
 			if err != nil {
@@ -243,7 +244,7 @@ func Auth() *cobra.Command {
 		Long: `Commands to inspect and interact with the authentication (TLS, JWT) and authorization (RBAC) policies in the mesh
   check - check the TLS/JWT/RBAC settings based on the Envoy config
   upgrade - upgrade the authorization policy from version v1 to v2
-	validate - check the usage correctness of security policy files.
+	validate - check for potential incorrect usage in authorization policy files.
 `,
 		Example: `  # Check the TLS/JWT/RBAC settings for pod httpbin-88ddbcfdd-nt5jb:
   istioctl experimental auth check httpbin-88ddbcfdd-nt5jb`,

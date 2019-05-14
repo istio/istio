@@ -30,8 +30,10 @@ type Validator struct {
 }
 
 const (
-	RoleNotFound = "serviceRoleNotFound: %q used by ServiceRoleBinding %q at namespace %q\n"
-	RoleNotUsed  = "serviceRoleNotUsed: ServiceRole %q at namespace %q\n"
+	RoleNotFound  = "serviceRoleNotFound: %q used by ServiceRoleBinding %q at namespace %q.\n"
+	RoleNotUsed   = "serviceRoleNotUsed: ServiceRole %q at namespace %q.\n"
+	PolicyValid   = "Authorization policy is valid.\n"
+	PolicyMissing = "needs to have both ServiceRole and ServiceRoleBinding for validation"
 )
 
 // CheckAndReport checks for Istio authentication and authorization mis-usage.
@@ -41,6 +43,9 @@ func (v *Validator) CheckAndReport() error {
 		return err
 	}
 	v.CheckAndReportRBAC()
+	if v.Report.String() == "" {
+		v.Report.WriteString(GetPolicyValidReport())
+	}
 	return nil
 }
 
@@ -55,14 +60,14 @@ func (v *Validator) CheckAndReportRBAC() {
 			roleKey := getRoleKey(namespace, roleName)
 			usedRoleNames[roleKey] = true
 		} else {
-			v.Report.WriteString(fmt.Sprintf(RoleNotFound, roleName, binding.Name, namespace))
+			v.Report.WriteString(GetRoleNotFoundReport(roleName, binding.Name, namespace))
 		}
 	}
 	// Check if ServiceRole is unused.
 	for roleKey := range v.RoleKeyToServiceRole {
 		if _, found := usedRoleNames[roleKey]; !found {
 			namespace, roleName := getNamespaceAndRoleNameFromRoleKey(roleKey)
-			v.Report.WriteString(fmt.Sprintf(RoleNotUsed, roleName, namespace))
+			v.Report.WriteString(GetRoleNotUsedReport(roleName, namespace))
 		}
 	}
 }
@@ -98,5 +103,20 @@ func (v *Validator) getRoleAndBindingLists() error {
 		v.RoleKeyToServiceRole[roleKey] = role
 	}
 	v.serviceRoleBindings = configsFromFiles[model.ServiceRoleBinding.Type]
+	if len(v.serviceRoleBindings) == 0 || len(v.RoleKeyToServiceRole) == 0 {
+		return fmt.Errorf(PolicyMissing)
+	}
 	return nil
+}
+
+func GetRoleNotFoundReport(roleName, bindingName, namespace string) string {
+	return fmt.Sprintf(RoleNotFound, roleName, bindingName, namespace)
+}
+
+func GetRoleNotUsedReport(roleName, namespace string) string {
+	return fmt.Sprintf(RoleNotUsed, roleName, namespace)
+}
+
+func GetPolicyValidReport() string {
+	return PolicyValid
 }
