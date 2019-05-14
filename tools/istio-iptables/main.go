@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"os/user"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -530,5 +531,8 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 }
 
 func main() {
+	// Emulate slow startup of bash
+	time.Sleep(time.Second * 5)
 	run(os.Args, flag.CommandLine, getLocalIP)
+	fmt.Println("istio-iptables run successful")
 }
