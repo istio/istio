@@ -5,6 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: istio-telemetry
+    istio: mixer
     release: {{ .Release.Name }}
 spec:
   ports:
