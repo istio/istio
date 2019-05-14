@@ -24,9 +24,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/creds"
-	"istio.io/istio/pkg/probe"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 // ChangeType denotes the type of a change

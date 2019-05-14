@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"testing"
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
@@ -41,8 +41,7 @@ type instance struct {
 	workload *workload
 }
 
-// New creates a new native echo instance.
-func New(ctx resource.Context, cfg echo.Config) (out echo.Instance, err error) {
+func newInstance(ctx resource.Context, cfg echo.Config) (out echo.Instance, err error) {
 	env := ctx.Environment().(*native.Environment)
 
 	// Fill in defaults for any missing values.
@@ -68,7 +67,7 @@ func (c *instance) ID() resource.ID {
 	return c.id
 }
 
-func (c *instance) WaitUntilReady(outboundInstances ...echo.Instance) error {
+func (c *instance) WaitUntilCallable(instances ...echo.Instance) error {
 	// No need to check for inbound readiness, since inbound ports for the native echo instance
 	// are configured by bootstrap.
 
@@ -77,18 +76,12 @@ func (c *instance) WaitUntilReady(outboundInstances ...echo.Instance) error {
 		return nil
 	}
 
-	// Wait until all of the outbound instances are ready.
-	for _, outbound := range outboundInstances {
-		if err := outbound.WaitUntilReady(); err != nil {
-			return err
-		}
-	}
-
-	return c.workload.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(outboundInstances...))
+	return c.workload.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(instances...))
 }
 
-func (c *instance) WaitUntilReadyOrFail(t testing.TB, outboundInstances ...echo.Instance) {
-	if err := c.WaitUntilReady(outboundInstances...); err != nil {
+func (c *instance) WaitUntilCallableOrFail(t test.Failer, instances ...echo.Instance) {
+	t.Helper()
+	if err := c.WaitUntilCallable(instances...); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -105,7 +98,8 @@ func (c *instance) Workloads() ([]echo.Workload, error) {
 	return []echo.Workload{c.workload}, nil
 }
 
-func (c *instance) WorkloadsOrFail(t testing.TB) []echo.Workload {
+func (c *instance) WorkloadsOrFail(t test.Failer) []echo.Workload {
+	t.Helper()
 	out, err := c.Workloads()
 	if err != nil {
 		t.Fatal(err)
@@ -130,7 +124,8 @@ func (c *instance) Call(opts echo.CallOptions) (client.ParsedResponses, error) {
 	return out, nil
 }
 
-func (c *instance) CallOrFail(t testing.TB, opts echo.CallOptions) client.ParsedResponses {
+func (c *instance) CallOrFail(t test.Failer, opts echo.CallOptions) client.ParsedResponses {
+	t.Helper()
 	r, err := c.Call(opts)
 	if err != nil {
 		t.Fatal(err)

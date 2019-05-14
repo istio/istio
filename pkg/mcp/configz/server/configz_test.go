@@ -27,10 +27,10 @@ import (
 	"istio.io/istio/pkg/mcp/source"
 	"istio.io/istio/pkg/mcp/testing/groups"
 
-	"istio.io/istio/pkg/ctrlz"
-	"istio.io/istio/pkg/ctrlz/fw"
 	"istio.io/istio/pkg/mcp/snapshot"
 	mcptest "istio.io/istio/pkg/mcp/testing"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/ctrlz/fw"
 )
 
 const testK8sCollection = "k8s/core/v1/nodes"

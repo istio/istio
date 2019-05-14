@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // To route all external traffic via Istio Egress gateway

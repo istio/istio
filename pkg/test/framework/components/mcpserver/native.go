@@ -17,7 +17,6 @@ package mcpserver
 import (
 	"io"
 	"net"
-	"testing"
 	"time"
 
 	"google.golang.org/grpc"
@@ -27,6 +26,7 @@ import (
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -91,7 +91,8 @@ func (n *native) Address() string {
 }
 
 // GetCollectionStateOrFail implements Instance
-func (n *native) GetCollectionStateOrFail(t *testing.T, collection string) []*sink.Object {
+func (n *native) GetCollectionStateOrFail(t test.Failer, collection string) []*sink.Object {
+	t.Helper()
 	return n.u.Get(collection)
 }
 

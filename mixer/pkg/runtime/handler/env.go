@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/monitoring"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 type env struct {

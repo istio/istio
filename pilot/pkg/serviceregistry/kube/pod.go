@@ -22,7 +22,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // PodCache is an eventually consistent pod cache
@@ -124,10 +124,7 @@ func (pc *PodCache) getPodKey(addr string) (string, bool) {
 
 // getPodByIp returns the pod or nil if pod not found or an error occurred
 func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
-	pc.RLock()
-	defer pc.RUnlock()
-
-	key, exists := pc.keys[addr]
+	key, exists := pc.getPodKey(addr)
 	if !exists {
 		return nil
 	}

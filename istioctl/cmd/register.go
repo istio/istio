@@ -20,7 +20,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var (

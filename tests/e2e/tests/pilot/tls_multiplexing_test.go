@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 func TestTLSMultiplexing(t *testing.T) {

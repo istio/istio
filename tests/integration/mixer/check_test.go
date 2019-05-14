@@ -71,7 +71,7 @@ func TestCheck_Allow(t *testing.T) {
 				}
 
 				return nil
-			}, retry.Timeout(time.Second*40))
+			}, retry.Delay(15*time.Second), retry.Timeout(60*time.Second))
 		})
 }
 
@@ -116,7 +116,7 @@ func TestCheck_Deny(t *testing.T) {
 				// TODO: ensure that the policy backend receives the request.
 
 				return nil
-			}, retry.Timeout(time.Second*40))
+			}, retry.Delay(15*time.Second), retry.Timeout(60*time.Second))
 		})
 }
 

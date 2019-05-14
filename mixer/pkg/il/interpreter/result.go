@@ -21,7 +21,7 @@ import (
 
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // Result contains the result of an evaluation performed by the interpreter.

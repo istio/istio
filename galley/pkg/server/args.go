@@ -20,9 +20,9 @@ import (
 	"time"
 
 	"istio.io/istio/galley/pkg/source/kube/builtin"
-	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/mcp/creds"
+	"istio.io/pkg/ctrlz"
 )
 
 const (

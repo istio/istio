@@ -16,15 +16,14 @@ package pilot
 
 import (
 	"fmt"
-	"testing"
 	"time"
-
-	"istio.io/istio/pkg/test/framework/components/environment"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
 	meshConfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -45,12 +44,12 @@ type Instance interface {
 	resource.Resource
 
 	CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error)
-	CallDiscoveryOrFail(t testing.TB, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryResponse
+	CallDiscoveryOrFail(t test.Failer, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryResponse
 
 	StartDiscovery(req *xdsapi.DiscoveryRequest) error
-	StartDiscoveryOrFail(t testing.TB, req *xdsapi.DiscoveryRequest)
+	StartDiscoveryOrFail(t test.Failer, req *xdsapi.DiscoveryRequest)
 	WatchDiscovery(duration time.Duration, accept func(*xdsapi.DiscoveryResponse) (bool, error)) error
-	WatchDiscoveryOrFail(t testing.TB, duration time.Duration, accept func(*xdsapi.DiscoveryResponse) (bool, error))
+	WatchDiscoveryOrFail(t test.Failer, duration time.Duration, accept func(*xdsapi.DiscoveryResponse) (bool, error))
 }
 
 // Structured config for the Pilot component
@@ -77,7 +76,7 @@ func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 }
 
 // NewOrFail returns a new Pilot instance, or fails test.
-func NewOrFail(t *testing.T, c resource.Context, config Config) Instance {
+func NewOrFail(t test.Failer, c resource.Context, config Config) Instance {
 	i, err := New(c, config)
 	if err != nil {
 		t.Fatalf("pilot.NewOrFail: %v", err)

@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/mixer/template/checknothing"
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/mixer/test/keyval"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const (

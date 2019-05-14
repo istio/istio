@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/runtime/safecall"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const (

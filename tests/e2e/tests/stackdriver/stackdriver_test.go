@@ -31,14 +31,14 @@ import (
 	"google.golang.org/api/iterator"
 	monitoring "google.golang.org/api/monitoring/v3"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 const (
 	fortioYaml  = "tests/e2e/tests/stackdriver/fortio-rules.yaml"
-	adapterYaml = "tests/e2e/tests/stackdriver/adapter.yaml"
+	adapterYaml = "samples/fortio/stackdriver.yaml"
 )
 
 type (

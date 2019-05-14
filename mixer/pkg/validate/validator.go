@@ -23,7 +23,7 @@ import (
 	runtimeConfig "istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/template"
 	generatedTmplRepo "istio.io/istio/mixer/template"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // validator provides the default structural validation

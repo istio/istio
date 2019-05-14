@@ -24,6 +24,7 @@ import (
 	prometheusApiV1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -153,6 +154,14 @@ func (c *kubeComponent) WaitForQuiesce(format string, args ...interface{}) (mode
 	return v, err
 }
 
+func (c *kubeComponent) WaitForQuiesceOrFail(t test.Failer, format string, args ...interface{}) model.Value {
+	v, err := c.WaitForQuiesce(format, args...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return v
+}
+
 func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) error {
 
 	time.Sleep(time.Second * 5)
@@ -189,6 +198,12 @@ func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) err
 	}, retryTimeout, retryDelay)
 
 	return err
+}
+
+func (c *kubeComponent) WaitForOneOrMoreOrFail(t test.Failer, format string, args ...interface{}) {
+	if err := c.WaitForOneOrMore(format, args...); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func reduce(v model.Vector, labels map[string]string) model.Vector {
@@ -230,6 +245,14 @@ func (c *kubeComponent) Sum(val model.Value, labels map[string]string) (float64,
 		return valueCount, nil
 	}
 	return 0, fmt.Errorf("value not found for %#v", labels)
+}
+
+func (c *kubeComponent) SumOrFail(t test.Failer, val model.Value, labels map[string]string) float64 {
+	v, err := c.Sum(val, labels)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return v
 }
 
 // Close implements io.Closer.

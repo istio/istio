@@ -102,33 +102,34 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 				t.Errorf("failed to apply service entries: %v", err)
 			}
 
-			client := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:   "client",
-				Namespace: appsNamespace,
-				Sidecar:   true,
-				Pilot:     p,
-				Galley:    g,
-			})
-			dest := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:   "destination",
-				Namespace: appsNamespace,
-				Sidecar:   true,
-				Pilot:     p,
-				Galley:    g,
-				Ports: []echo.Port{
-					{
-						Name:     "http",
-						Protocol: model.ProtocolHTTP,
-					},
-					{
-						Name:     "https",
-						Protocol: model.ProtocolHTTPS,
-					},
-				},
-			})
-
 			// Wait for config to propagate
 			time.Sleep(time.Second * 5)
+
+			var client, dest echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&client, echo.Config{
+					Service:   "client",
+					Namespace: appsNamespace,
+					Pilot:     p,
+					Galley:    g,
+				}).
+				With(&dest, echo.Config{
+					Service:   "destination",
+					Namespace: appsNamespace,
+					Pilot:     p,
+					Galley:    g,
+					Ports: []echo.Port{
+						{
+							Name:     "http",
+							Protocol: model.ProtocolHTTP,
+						},
+						{
+							Name:     "https",
+							Protocol: model.ProtocolHTTPS,
+						},
+					},
+				}).
+				BuildOrFail(t)
 
 			cases := []struct {
 				name     string

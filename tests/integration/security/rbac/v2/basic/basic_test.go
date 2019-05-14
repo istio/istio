@@ -55,42 +55,42 @@ func TestRBACV2Basic(t *testing.T) {
 					ServicePort: 90,
 				},
 			}
-			a := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:        "a",
-				Namespace:      ns,
-				Sidecar:        true,
-				ServiceAccount: true,
-				Ports:          ports,
-				Galley:         g,
-				Pilot:          p,
-			})
-			b := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:        "b",
-				Namespace:      ns,
-				Ports:          ports,
-				Sidecar:        true,
-				ServiceAccount: true,
-				Galley:         g,
-				Pilot:          p,
-			})
-			c := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:        "c",
-				Namespace:      ns,
-				Ports:          ports,
-				Sidecar:        true,
-				ServiceAccount: true,
-				Galley:         g,
-				Pilot:          p,
-			})
-			d := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:        "d",
-				Namespace:      ns,
-				Ports:          ports,
-				Sidecar:        true,
-				ServiceAccount: true,
-				Galley:         g,
-				Pilot:          p,
-			})
+
+			var a, b, c, d echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, echo.Config{
+					Service:        "a",
+					Namespace:      ns,
+					ServiceAccount: true,
+					Ports:          ports,
+					Galley:         g,
+					Pilot:          p,
+				}).
+				With(&b, echo.Config{
+					Service:        "b",
+					Namespace:      ns,
+					Ports:          ports,
+					ServiceAccount: true,
+					Galley:         g,
+					Pilot:          p,
+				}).
+				With(&c, echo.Config{
+					Service:        "c",
+					Namespace:      ns,
+					Ports:          ports,
+					ServiceAccount: true,
+					Galley:         g,
+					Pilot:          p,
+				}).
+				With(&d, echo.Config{
+					Service:        "d",
+					Namespace:      ns,
+					Ports:          ports,
+					ServiceAccount: true,
+					Galley:         g,
+					Pilot:          p,
+				}).
+				BuildOrFail(t)
 
 			cases := []util.TestCase{
 				{
@@ -425,8 +425,8 @@ func TestRBACV2Basic(t *testing.T) {
 				"Namespace": ns.Name(),
 			}
 			policies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
-				file.AsString(t, rbacClusterConfigTmpl),
-				file.AsString(t, rbacV2RulesTmpl))
+				file.AsStringOrFail(t, rbacClusterConfigTmpl),
+				file.AsStringOrFail(t, rbacV2RulesTmpl))
 
 			g.ApplyConfigOrFail(t, ns, policies...)
 			defer g.DeleteConfigOrFail(t, ns, policies...)

@@ -17,6 +17,7 @@ package envoy
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"path"
@@ -27,8 +28,8 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/proxy"
 	"istio.io/istio/pkg/bootstrap"
-	"istio.io/istio/pkg/env"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -70,6 +71,10 @@ func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string, compo
 }
 
 func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
+	proxyLocalAddressType := "v4"
+	if isIPv6Proxy(e.nodeIPs) {
+		proxyLocalAddressType = "v6"
+	}
 	startupArgs := []string{"-c", fname,
 		"--restart-epoch", fmt.Sprint(epoch),
 		"--drain-time-s", fmt.Sprint(int(convertDuration(e.config.DrainDuration) / time.Second)),
@@ -77,6 +82,7 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		"--service-cluster", e.config.ServiceCluster,
 		"--service-node", e.node,
 		"--max-obj-name-len", fmt.Sprint(e.config.StatNameLength),
+		"--local-address-ip-version", proxyLocalAddressType,
 		"--allow-unknown-fields",
 	}
 
@@ -192,4 +198,21 @@ func convertDuration(d *types.Duration) time.Duration {
 
 func configFile(config string, epoch int) string {
 	return path.Join(config, fmt.Sprintf(epochFileTemplate, epoch))
+}
+
+// isIPv6Proxy check the addresses slice and returns true for a valid IPv6 address
+// for all other cases it returns false
+func isIPv6Proxy(ipAddrs []string) bool {
+	for i := 0; i < len(ipAddrs); i++ {
+		addr := net.ParseIP(ipAddrs[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if addr.To4() != nil {
+			return false
+		}
+	}
+	return true
 }

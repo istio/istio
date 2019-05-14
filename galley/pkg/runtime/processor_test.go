@@ -28,9 +28,9 @@ import (
 	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/resources"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/snapshot"
-	"istio.io/istio/pkg/util/wait"
+	"istio.io/pkg/log"
+	"istio.io/pkg/timedfn"
 )
 
 const (
@@ -194,7 +194,7 @@ func TestProcessor_Publishing(t *testing.T) {
 	src.Set(k1, resource.Metadata{}, &types.Empty{})
 
 	// Wait for up to 5 seconds.
-	if err := wait.WithTimeout(processCallCount.Wait, timeout); err != nil {
+	if err := timedfn.WithTimeout(processCallCount.Wait, timeout); err != nil {
 		t.Fatal(err)
 	}
 

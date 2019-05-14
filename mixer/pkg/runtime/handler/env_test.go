@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 func TestEnv(t *testing.T) {

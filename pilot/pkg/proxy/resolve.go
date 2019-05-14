@@ -23,7 +23,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 type lookupIPAddrType = func(ctx context.Context, addr string) ([]net.IPAddr, error)

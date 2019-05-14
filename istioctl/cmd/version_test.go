@@ -26,7 +26,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/version"
+	"istio.io/pkg/version"
 )
 
 var meshInfo = version.MeshInfo{

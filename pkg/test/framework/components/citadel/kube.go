@@ -16,16 +16,16 @@ package citadel
 
 import (
 	"fmt"
-	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/resource"
 
 	v1 "k8s.io/api/core/v1"
 	mv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cv1 "k8s.io/client-go/kubernetes/typed/core/v1"
-
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 const (
@@ -81,7 +81,7 @@ func (c *kubeComponent) WaitForSecretToExist() (*v1.Secret, error) {
 	}
 }
 
-func (c *kubeComponent) WaitForSecretToExistOrFail(t testing.TB) *v1.Secret {
+func (c *kubeComponent) WaitForSecretToExistOrFail(t test.Failer) *v1.Secret {
 	t.Helper()
 	s, err := c.WaitForSecretToExist()
 	if err != nil {
@@ -95,7 +95,7 @@ func (c *kubeComponent) DeleteSecret() error {
 	return c.secret.Delete(secretName, &mv1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
-func (c *kubeComponent) DeleteSecretOrFail(t testing.TB) {
+func (c *kubeComponent) DeleteSecretOrFail(t test.Failer) {
 	t.Helper()
 	if err := c.DeleteSecret(); err != nil {
 		t.Fatal(err)
