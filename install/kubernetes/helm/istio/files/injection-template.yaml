@@ -37,6 +37,7 @@ initContainers:
       cpu: 100m
       memory: 50Mi
   securityContext:
+    allowPrivilegeEscalation: false
     runAsUser: 0
     runAsNonRoot: false
     capabilities:
@@ -63,6 +64,7 @@ initContainers:
   imagePullPolicy: IfNotPresent
   resources: {}
   securityContext:
+    allowPrivilegeEscalation: false
     runAsUser: 0
     runAsNonRoot: false
     privileged: true
@@ -210,6 +212,7 @@ containers:
     failureThreshold: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` .Values.global.proxy.readinessFailureThreshold }}
   {{ end -}}
   securityContext:
+    allowPrivilegeEscalation: false
     {{- if .Values.global.proxy.privileged }}
     privileged: true
     {{- end }}
