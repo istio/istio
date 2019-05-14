@@ -98,6 +98,21 @@ var (
 		},
 		Type: "test-tls-secret",
 	}
+
+	k8sSecretFallbackScrt    = "fallback-scrt"
+	k8sFallbackKey           = []byte("fallback fake private key")
+	k8sFallbackCertChain     = []byte("fallback fake cert chain")
+	k8sTestTLSFallbackSecret = &v1.Secret{
+		Data: map[string][]byte{
+			tlsScrtCert: k8sFallbackCertChain,
+			tlsScrtKey:  k8sFallbackKey,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      k8sSecretFallbackScrt,
+			Namespace: "test-namespace",
+		},
+		Type: "test-tls-secret",
+	}
 )
 
 type expectedSecret struct {
@@ -112,6 +127,8 @@ func TestSecretFetcher(t *testing.T) {
 		UseCaClient: false,
 		DeleteCache: func(secretName string) {},
 		UpdateCache: func(secretName string, ns model.SecretItem) {},
+		// Set fallback secret name but no such secret is created.
+		FallbackSecretName: "gateway-fallback",
 	}
 	gSecretFetcher.InitWithKubeClient(fake.NewSimpleClientset().CoreV1())
 	if gSecretFetcher.UseCaClient {
@@ -433,6 +450,114 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 	var newSecretVersion string
 	testUpdateSecret(t, gSecretFetcher, k8sTestTLSSecretC, k8sTestTLSSecretD, expectedUpdateSecret, &newSecretVersion)
 	if secretVersion == newSecretVersion {
+		t.Errorf("updated secret should have different version")
+	}
+}
+
+// TestSecretFetcherUsingFallbackIngressSecret verifies that if a fall back secret is provided,
+// the fall back secret will be returned when real secret is not added, or is already deleted.
+func TestSecretFetcherUsingFallbackIngressSecret(t *testing.T) {
+	gSecretFetcher := &SecretFetcher{
+		UseCaClient:        false,
+		DeleteCache:        func(secretName string) {},
+		UpdateCache:        func(secretName string, ns model.SecretItem) {},
+		FallbackSecretName: k8sSecretFallbackScrt,
+	}
+	gSecretFetcher.InitWithKubeClient(fake.NewSimpleClientset().CoreV1())
+	if gSecretFetcher.UseCaClient {
+		t.Error("secretFetcher should not use ca client")
+	}
+	ch := make(chan struct{})
+	gSecretFetcher.Run(ch)
+
+	gSecretFetcher.scrtAdded(k8sTestTLSFallbackSecret)
+
+	// Since we have enabled fallback secret, searching a non-existing secret should return true now.
+	fallbackSecret, ok := gSecretFetcher.FindIngressGatewaySecret(k8sSecretNameA)
+	if !ok {
+		t.Error("secretFetcher should return fallback secret for non-existing-secret")
+	}
+	if fallbackSecret.ResourceName != k8sSecretFallbackScrt {
+		t.Errorf("secret name does not match, expected %v but got %v", k8sSecretFallbackScrt,
+			fallbackSecret.ResourceName)
+	}
+	if !bytes.Equal(k8sFallbackCertChain, fallbackSecret.CertificateChain) {
+		t.Errorf("cert chain verification error: expected %v but got %v",
+			k8sFallbackCertChain, fallbackSecret.CertificateChain)
+	}
+	if !bytes.Equal(k8sFallbackKey, fallbackSecret.PrivateKey) {
+		t.Errorf("private key verification error: expected %v but got %v",
+			k8sFallbackKey, fallbackSecret.PrivateKey)
+	}
+
+	// Add test secret and verify that key/cert pair is stored.
+	expectedAddedSecrets := []expectedSecret{
+		{
+			exist: true,
+			secret: &model.SecretItem{
+				ResourceName:     k8sSecretNameA,
+				CertificateChain: k8sCertChainA,
+				PrivateKey:       k8sKeyA,
+			},
+		},
+		{
+			exist: true,
+			secret: &model.SecretItem{
+				ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix,
+				RootCert:     k8sCaCertA,
+			},
+		},
+	}
+	var secretVersionOne string
+	testAddSecret(t, gSecretFetcher, k8sTestGenericSecretA, expectedAddedSecrets, &secretVersionOne)
+
+	// Delete k8sSecretNameA and verify that FindIngressGatewaySecret returns fall back secret.
+	gSecretFetcher.scrtDeleted(k8sTestGenericSecretA)
+	fallbackSecret, ok = gSecretFetcher.FindIngressGatewaySecret(k8sSecretNameA)
+	if !ok {
+		t.Errorf("secretFetcher should return fallback secret for secret %v", k8sSecretNameA)
+	}
+	if fallbackSecret.ResourceName != k8sSecretFallbackScrt {
+		t.Errorf("secret name does not match, expected %v but got %v", k8sSecretFallbackScrt,
+			fallbackSecret.ResourceName)
+	}
+	if !bytes.Equal(k8sFallbackCertChain, fallbackSecret.CertificateChain) {
+		t.Errorf("cert chain verification error: expected %v but got %v",
+			k8sFallbackCertChain, fallbackSecret.CertificateChain)
+	}
+	if !bytes.Equal(k8sFallbackKey, fallbackSecret.PrivateKey) {
+		t.Errorf("private key verification error: expected %v but got %v",
+			k8sFallbackKey, fallbackSecret.PrivateKey)
+	}
+
+	// Add test secret again and with different key, verify that key/cert pair is stored and version number is different.
+	var secretVersionTwo string
+	testAddSecret(t, gSecretFetcher, k8sTestGenericSecretA, expectedAddedSecrets, &secretVersionTwo)
+	if secretVersionTwo == secretVersionOne {
+		t.Errorf("added secret should have different version")
+	}
+
+	// Update test secret and verify that key/cert pair is changed and version number is different.
+	expectedUpdateSecrets := []expectedSecret{
+		{
+			exist: true,
+			secret: &model.SecretItem{
+				ResourceName:     k8sSecretNameA,
+				CertificateChain: k8sCertChainB,
+				PrivateKey:       k8sKeyB,
+			},
+		},
+		{
+			exist: true,
+			secret: &model.SecretItem{
+				ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix,
+				RootCert:     k8sCaCertB,
+			},
+		},
+	}
+	var secretVersionThree string
+	testUpdateSecret(t, gSecretFetcher, k8sTestGenericSecretA, k8sTestGenericSecretB, expectedUpdateSecrets, &secretVersionThree)
+	if secretVersionThree == secretVersionTwo || secretVersionThree == secretVersionOne {
 		t.Errorf("updated secret should have different version")
 	}
 }
