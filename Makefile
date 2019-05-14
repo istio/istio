@@ -516,6 +516,7 @@ security-test:
 .PHONY: common-test
 common-test:
 	go test ${T} ./pkg/...
+	go test ${T} ./tools/istio-iptables/...
 
 .PHONY: selected-pkg-test
 selected-pkg-test:
