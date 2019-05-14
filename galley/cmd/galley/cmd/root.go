@@ -41,17 +41,6 @@ func GetRootCmd(args []string) *cobra.Command {
 		},
 	}
 
-	rootCmd.SetArgs(args)
-	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
-	rootCmd.AddCommand(serverCmd())
-	rootCmd.AddCommand(probeCmd())
-	rootCmd.AddCommand(version.CobraCommand())
-	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
-		Title:   "Istio Galley Server",
-		Section: "galley CLI",
-		Manual:  "Istio Galley Server",
-	}))
-
 	var cfgFile string
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Config file containing args")
 
@@ -65,6 +54,17 @@ func GetRootCmd(args []string) *cobra.Command {
 			}
 		}
 	})
+
+	rootCmd.SetArgs(args)
+	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
+	rootCmd.AddCommand(serverCmd())
+	rootCmd.AddCommand(probeCmd())
+	rootCmd.AddCommand(version.CobraCommand())
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+		Title:   "Istio Galley Server",
+		Section: "galley CLI",
+		Manual:  "Istio Galley Server",
+	}))
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 

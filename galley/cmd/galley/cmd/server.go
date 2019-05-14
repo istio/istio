@@ -64,7 +64,6 @@ func serverCmd() *cobra.Command {
 			return err
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			setupAliases()
 			// Retrieve Viper values for each Cobra Val Flag
 			cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
 				f.Value.Set(viper.GetString(f.Name))
@@ -203,6 +202,8 @@ func serverCmd() *cobra.Command {
 	serverArgs.IntrospectionOptions.AttachCobraFlags(serverCmd)
 	loggingOptions.AttachCobraFlags(serverCmd)
 	viper.BindPFlags(serverCmd.PersistentFlags())
+
+	cobra.OnInitialize(setupAliases)
 
 	return serverCmd
 }
