@@ -789,10 +789,4 @@ workflows:
       - e2e-pilot-auth-v1alpha3-v2-non-mcp: # auth+v1alpha3+v2 without MCP
           requires:
             - build
-      - test-integration-local:
-          requires:
-            - build
-      - test-integration-kubernetes:
-          requires:
-            - build
 
