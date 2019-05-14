@@ -8,9 +8,7 @@ metadata:
     {{ $key }}: {{ $val | quote }}
     {{- end }}
   labels:
-    app: {{ template "grafana.name" . }}
-    chart: {{ template "grafana.chart" . }}
-    heritage: {{ .Release.Service }}
+    app: grafana
     release: {{ .Release.Name }}
 spec:
   type: {{ .Values.grafana.service.type }}

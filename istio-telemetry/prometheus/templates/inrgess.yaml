@@ -6,8 +6,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: prometheus
-    chart: {{ template "prometheus.chart" . }}
-    heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
   annotations:
     {{- range $key, $value := .Values.prometheus.ingress.annotations }}
