@@ -92,6 +92,8 @@ jobs:
           command: make docker-run-test TEST_TARGET="run-test.integration.kube.presubmit"
           # simple is currently failing
       - run:
+          command: make docker-run-test TEST_TARGET="run-prometheus-operator-config-test"
+      - run:
           when: always
           command: make kind-logs
       #    docker_layer_caching: true
@@ -123,7 +125,6 @@ jobs:
           command: make docker-run-test TEST_TARGET="run-simple-strict"
       - run:
           command: make docker-run-test TEST_TARGET="run-bookinfo"
-          # simple is currently failing
       - run:
           when: always
           command: make kind-logs
