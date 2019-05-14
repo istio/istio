@@ -173,7 +173,10 @@ func TestTrafficShifting(t *testing.T) {
 func CheckVirtualServiceConfig(target echo.Instance, port echo.Port, weight int32, validator *structpath.Instance) error {
 	clusterName := clusterName(target, port)
 
-	instance := validator.Select("{.configs[*].dynamicRouteConfigs[*].routeConfig.virtualHosts[*].routes[*].route.weightedClusters.clusters[?(@.name == %q)]}", clusterName)
+	instance := validator.Select(
+		"{.configs[*].dynamicRouteConfigs[*].routeConfig.virtualHosts[*].routes[*].route.weightedClusters.clusters[?(@.name == %q)]}",
+		clusterName)
+
 	return instance.Equals(weight, "{.weight}").Check()
 }
 
