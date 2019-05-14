@@ -12,7 +12,7 @@ const (
 	CAProvider = "ISTIO_CA_PROVIDER"
 	// CA endpoint.
 	CAAddress = "ISTIO_CA_ADDR"
-	// Whether this is a new or old protocol
+	// Whether this is IstioCerfificateService or IstioCAService
 	CAProtocol = "ISTIO_CA_PROTOCOL"
 	// The environment in which the node agent run, e.g. GCP, on premise, etc.
 	NodeEnv = "ISTIO_NODE_ENV"
@@ -23,7 +23,7 @@ const (
 	// Citadel Agent private key file
 	KeyFile = "ISTIO_KEY_FILE"
 	// Citadel Agent root cert file
-	RootCertFile = "ISTIo_ROOT_CERT_FILE"
+	RootCertFile = "ISTIO_ROOT_CERT_FILE"
 	// Enable dual-use mode. Generates certificates with a CommonName identical to the SAN
 	DualUse = "ISTIO_DUAL_USE"
 	// Audience value from the mapper.
