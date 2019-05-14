@@ -146,7 +146,9 @@ func createFile(filename string, content []byte) (err error) {
 	// create file if not exists
 	if os.IsNotExist(err) {
 		path, _ := filepath.Split(filename)
-		os.Mkdir(path, 0644)
+		if err := os.Mkdir(path, 0644); err != nil {
+			return err
+		}
 	}
 	err = ioutil.WriteFile(filename, content, 0400)
 	if err != nil {

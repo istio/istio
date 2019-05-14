@@ -178,7 +178,11 @@ func (sc *SecretController) scrtAdded(obj interface{}) {
 		return
 	}
 	// Create certificate and key files to be used by webhook
-	util.CreateCAFiles(sc.args, scrt.Data[CertChainID], scrt.Data[PrivateKeyID], scrt.Data[RootCertID])
+	err := util.CreateCAFiles(sc.args, scrt.Data[CertChainID], scrt.Data[PrivateKeyID], scrt.Data[RootCertID])
+	if err != nil {
+		log.Errorf("Failed to create file: %v", err)
+		return
+	}
 }
 
 func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
