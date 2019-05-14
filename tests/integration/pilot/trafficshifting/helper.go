@@ -25,9 +25,11 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 )
 
-func sendTraffic(t *testing.T, duration time.Duration, batchSize int, from, to echo.Instance, hosts []string, weight []int32, errorBand float64) {
+func sendTraffic(t *testing.T, duration time.Duration, batchSize int, from, to echo.Instance, hosts []string, weight []int32, errorThreshold float64) {
 	const totalThreads = 10
-	var hitCount sync.Map
+	var lock sync.RWMutex
+	var totalRequests int
+	hitCount := map[string]int{}
 
 	for i := 0; i < totalThreads; i++ {
 		go func() {
@@ -40,11 +42,10 @@ func sendTraffic(t *testing.T, duration time.Duration, batchSize int, from, to e
 			for _, r := range resp {
 				for _, h := range hosts {
 					if strings.HasPrefix(r.Hostname, h+"-") {
-						if cnt, found := hitCount.Load(h); found {
-							hitCount.Store(h, cnt.(int)+1)
-						} else {
-							hitCount.Store(h, 1)
-						}
+						lock.Lock()
+						hitCount[h]++
+						totalRequests++
+						lock.Unlock()
 						break
 					}
 				}
@@ -61,42 +62,35 @@ func sendTraffic(t *testing.T, duration time.Duration, batchSize int, from, to e
 			t.Error("Failed to hit the weight ratio.")
 			return
 		case <-checkTimeout.C:
-			hit := true
-			log := "\n"
+			lock.RLock()
+			if totalRequests >= batchSize {
+				hit := true
+				log := "\n"
+				for i, v := range hosts {
+					percentOfTrafficToHost := float64(hitCount[v]) * 100.0 / float64(totalRequests)
+					deltaFromExpected := math.Abs(float64(weight[i]) - percentOfTrafficToHost)
+					if errorThreshold-deltaFromExpected < 0 {
+						hit = false
+						break
+					}
 
-			totalRequests := 0
-
-			hCount := map[string]int{}
-			hitCount.Range(func(key, val interface{}) bool {
-				totalRequests += val.(int)
-				hCount[key.(string)] += val.(int)
-				return true
-			})
-
-			if totalRequests < batchSize {
-				continue
-			}
-
-			for i, v := range hosts {
-				actual := float64(hCount[v]) * 100.0 / float64(totalRequests)
-				if errorBand-math.Abs(float64(weight[i])-actual) < 0 {
-					hit = false
-					break
+					log = fmt.Sprintf(
+						"%sTraffic weight matches. Total request: %v, expected: %d%%, actually: %g%%, error threshold: %g%%\n",
+						log,
+						totalRequests,
+						weight[i],
+						percentOfTrafficToHost,
+						errorThreshold)
 				}
 
-				log = fmt.Sprintf(
-					"%sTraffic weight matches. Total request: %v, expected: %d%%, actually: %g%%, error band: %g%%\n",
-					log,
-					totalRequests,
-					weight[i],
-					actual,
-					errorBand)
+				if hit {
+					t.Log(log)
+					lock.RUnlock()
+					return
+				}
 			}
 
-			if hit {
-				t.Log(log)
-				return
-			}
+			lock.RUnlock()
 		}
 	}
 }
