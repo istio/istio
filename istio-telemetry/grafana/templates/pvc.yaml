@@ -4,9 +4,7 @@ apiVersion: v1
 metadata:
   name: istio-grafana-pvc
   labels:
-    app: {{ template "grafana.name" . }}
-    chart: {{ template "grafana.chart" . }}
-    heritage: {{ .Release.Service }}
+    app: grafana
     release: {{ .Release.Name }}
 spec:
   storageClassName: {{ .Values.grafana.storageClassName }}
