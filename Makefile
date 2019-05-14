@@ -516,8 +516,6 @@ security-test:
 .PHONY: common-test
 common-test:
 	go test ${T} ./pkg/...
-	# Execute bash shell unit tests scripts
-	./tests/scripts/scripts_test.sh
 
 .PHONY: selected-pkg-test
 selected-pkg-test:
