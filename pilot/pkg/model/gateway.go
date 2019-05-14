@@ -81,8 +81,6 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 		log.Debugf("MergeGateways: merging gateway %q into %v:\n%v", gatewayName, names, gateway)
 		for _, s := range gateway.Servers {
 			sanitizeServerHostNamespace(s, config.Namespace)
-			gatewayNameForServer[s] = gatewayName
-			log.Debugf("MergeGateways: gateway %q processing server %v", gatewayName, s.Hosts)
 			protocol := ParseProtocol(s.Port.Protocol)
 
 			if s.Tls != nil {
@@ -98,6 +96,10 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 					continue
 				}
 			}
+
+			gatewayNameForServer[s] = gatewayName
+			log.Debugf("MergeGateways: gateway %q processing server %v", gatewayName, s.Hosts)
+
 			if gatewayPorts[s.Port.Number] {
 				// We have two servers on the same port. Should we merge?
 				// 1. Yes if both servers are plain text and HTTP
