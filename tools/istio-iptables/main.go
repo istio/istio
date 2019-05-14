@@ -145,8 +145,8 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 	dotEnvLoad("ISTIO_SIDECAR_CONFIG", "/var/lib/istio/envoy/sidecar.env")
 
 	proxyPort := getEnvWithDefault("ENVOY_PORT", "15001")
-	proxyUid := ""
-	proxyGid := ""
+	proxyUID := ""
+	proxyGID := ""
 	inboundInterceptionMode := os.Getenv("ISTIO_INBOUND_INTERCEPTION_MODE")
 	inboundTProxyMark := getEnvWithDefault("ISTIO_INBOUND_TPROXY_MARK", "1337")
 	inboundTProxyRouteTable := getEnvWithDefault("ISTIO_INBOUND_TPROXY_ROUTE_TABLE", "133")
@@ -155,13 +155,13 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 	outboundIPRangesInclude := os.Getenv("ISTIO_SERVICE_CIDR")
 	outboundIPRangesExclude := os.Getenv("ISTIO_SERVICE_EXCLUDE_CIDR")
 	kubevirtInterfaces := ""
-	var enableInboundIPv6s net.IP = nil
+	var enableInboundIPv6s net.IP
 
 	flagSet.StringVar(&proxyPort, "p", proxyPort,
 		"Specify the envoy port to which redirect all TCP traffic (default $ENVOY_PORT = 15001)")
-	flagSet.StringVar(&proxyUid, "u", proxyUid,
+	flagSet.StringVar(&proxyUID, "u", proxyUID,
 		"Specify the UID of the user for which the redirection is not applied. Typically, this is the UID of the proxy container")
-	flagSet.StringVar(&proxyGid, "g", proxyGid,
+	flagSet.StringVar(&proxyGID, "g", proxyGID,
 		"Specify the GID of the user for which the redirection is not applied. (same default value as -u param)")
 	flagSet.StringVar(&inboundInterceptionMode, "m", inboundInterceptionMode,
 		"The mode used to redirect inbound connections to Envoy, either \"REDIRECT\" or \"TPROXY\"")
@@ -188,23 +188,23 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 	defer dump()
 
 	// TODO: more flexibility - maybe a whitelist of users to be captured for output instead of a blacklist.
-	if proxyUid == "" {
+	if proxyUID == "" {
 		usr, err := user.Lookup(getEnvWithDefault("ENVOY_USER", "istio-proxy"))
-		var userId string
+		var userID string
 		// Default to the UID of ENVOY_USER and root
 		if err != nil {
-			userId = "1337"
+			userID = "1337"
 		} else {
-			userId = usr.Uid
+			userID = usr.Uid
 		}
 		// If ENVOY_UID is not explicitly defined (as it would be in k8s env), we add root to the list,
 		// for ca agent.
-		proxyUid = userId + ",0"
+		proxyUID = userID + ",0"
 	}
 
 	// for TPROXY as its uid and gid are same
-	if proxyGid == "" {
-		proxyGid = proxyUid
+	if proxyGID == "" {
+		proxyGID = proxyUID
 	}
 
 	podIP, err := getLocalIP()
@@ -274,7 +274,7 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 	fmt.Println("----------")
 	fmt.Printf("PROXY_PORT=%s\n", proxyPort)
 	fmt.Printf("INBOUND_CAPTURE_PORT=%s\n", getEnvWithDefault("INBOUND_CAPTURE_PORT", "$PROXY_PORT"))
-	fmt.Printf("PROXY_UID=%s\n", proxyUid)
+	fmt.Printf("PROXY_UID=%s\n", proxyUID)
 	fmt.Printf("INBOUND_INTERCEPTION_MODE=%s\n", inboundInterceptionMode)
 	fmt.Printf("INBOUND_TPROXY_MARK=%s\n", inboundTProxyMark)
 	fmt.Printf("INBOUND_TPROXY_ROUTE_TABLE=%s\n", inboundTProxyRouteTable)
@@ -325,7 +325,8 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 			// In the ISTIO_INBOUND chain, '-j RETURN' bypasses Envoy and
 			// '-j ISTIO_TPROXY' redirects to Envoy.
 			iptables("-t", "mangle", "-N", "ISTIO_TPROXY").RunOrFail()
-			iptables("-t", "mangle", "-A", "ISTIO_TPROXY", "!", "-d", "127.0.0.1/32", "-p", "tcp", "-j", "TPROXY", "--tproxy-mark", inboundTProxyMark+"/0xffffffff", "--on-port", proxyPort).RunOrFail()
+			iptables("-t", "mangle", "-A", "ISTIO_TPROXY", "!", "-d", "127.0.0.1/32", "-p", "tcp", "-j", "TPROXY",
+				"--tproxy-mark", inboundTProxyMark+"/0xffffffff", "--on-port", proxyPort).RunOrFail()
 
 			table = "mangle"
 		} else {
@@ -379,13 +380,13 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 		iptables("-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "127.0.0.1/32", "-j", "ISTIO_REDIRECT").RunOrFail()
 	}
 
-	for _, uid := range split(proxyUid) {
+	for _, uid := range split(proxyUID) {
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
 		iptables("-t", "nat", "-A", "ISTIO_OUTPUT", "-m", "owner", "--uid-owner", uid, "-j", "RETURN").RunOrFail()
 	}
 
-	for _, gid := range split(proxyGid) {
+	for _, gid := range split(proxyGID) {
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
 		iptables("-t", "nat", "-A", "ISTIO_OUTPUT", "-m", "owner", "--gid-owner", gid, "-j", "RETURN").RunOrFail()
@@ -482,13 +483,13 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 		// address, e.g. appN => Envoy (client) => Envoy (server) => appN.
 		ip6tables("-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "::1/128", "-j", "ISTIO_REDIRECT").RunOrFail()
 
-		for _, uid := range split(proxyUid) {
+		for _, uid := range split(proxyUID) {
 			// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 			// Envoy for non-loopback traffic.
 			ip6tables("-t", "nat", "-A", "ISTIO_OUTPUT", "-m", "owner", "--uid-owner", uid, "-j", "RETURN").RunOrFail()
 		}
 
-		for _, gid := range split(proxyGid) {
+		for _, gid := range split(proxyGID) {
 			// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 			// Envoy for non-loopback traffic.
 			ip6tables("-t", "nat", "-A", "ISTIO_OUTPUT", "-m", "owner", "--gid-owner", gid, "-j", "RETURN").RunOrFail()

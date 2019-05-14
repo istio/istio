@@ -135,7 +135,8 @@ func TestCompatibilityWithTPROXYMode(t *testing.T) {
 	commandRunner = output.Run
 	g := gomega.NewGomegaWithT(t)
 	run(
-		[]string{"-p", "12345", "-u", "4321", "-g", "4444", "-m", "TPROXY", "-b", "5555,6666", "-d", "7777,8888", "-i", "1.1.0.0/16", "-x", "9.9.0.0/16", "-k", "eth1,eth2"},
+		[]string{"-p", "12345", "-u", "4321", "-g", "4444", "-m", "TPROXY", "-b", "5555,6666",
+			"-d", "7777,8888", "-i", "1.1.0.0/16", "-x", "9.9.0.0/16", "-k", "eth1,eth2"},
 		flag.NewFlagSet("test", flag.ExitOnError),
 		func() (net.IP, error) {
 			return net.ParseIP("127.0.0.1"), nil
@@ -270,7 +271,8 @@ func TestCompatibilityWithREDIRECTMode(t *testing.T) {
 	commandRunner = output.Run
 	g := gomega.NewGomegaWithT(t)
 	run(
-		[]string{"-p", "12345", "-u", "4321", "-g", "4444", "-m", "REDIRECT", "-b", "5555,6666", "-d", "7777,8888", "-i", "1.1.0.0/16", "-x", "9.9.0.0/16", "-k", "eth1,eth2"},
+		[]string{"-p", "12345", "-u", "4321", "-g", "4444", "-m", "REDIRECT", "-b", "5555,6666",
+			"-d", "7777,8888", "-i", "1.1.0.0/16", "-x", "9.9.0.0/16", "-k", "eth1,eth2"},
 		flag.NewFlagSet("test", flag.ExitOnError),
 		func() (net.IP, error) {
 			return net.ParseIP("127.0.0.1"), nil
@@ -360,7 +362,8 @@ func TestTProxyModeAndIpV6(t *testing.T) {
 	commandRunner = output.Run
 	g := gomega.NewGomegaWithT(t)
 	run(
-		[]string{"-p", "12345", "-u", "4321", "-g", "4444", "-m", "TPROXY", "-b", "*", "-d", "7777,8888", "-i", "2001:db8:1::1/32", "-x", "2019:db8:1::1/32", "-k", "eth1,eth2"},
+		[]string{"-p", "12345", "-u", "4321", "-g", "4444", "-m", "TPROXY", "-b", "*",
+			"-d", "7777,8888", "-i", "2001:db8:1::1/32", "-x", "2019:db8:1::1/32", "-k", "eth1,eth2"},
 		flag.NewFlagSet("test", flag.ExitOnError),
 		func() (net.IP, error) {
 			return net.ParseIP("2001:db8:1::1"), nil
