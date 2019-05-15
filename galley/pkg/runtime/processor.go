@@ -133,6 +133,8 @@ func (p *Processor) seedMesh() {
 			ID: resource.VersionedKey{
 				Key: resource.Key{
 					Collection: i.Collection,
+					//TODO Replace istio-system with appropriate name We may
+					//need to serve multiple meshconfigs.
 					FullName: resource.FullNameFromNamespaceAndName(
 						"istio-system",
 						"meshconfig"),
