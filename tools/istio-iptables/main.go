@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"os/user"
 	"strings"
-	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -121,7 +120,11 @@ func separateV4V6(cidrList string) (NetworkRange, NetworkRange, error) {
 	for _, ipRange := range split(cidrList) {
 		ip, ipNet, err := net.ParseCIDR(ipRange)
 		if err != nil {
-			return ipv4Ranges, ipv6Ranges, err
+			_, err = fmt.Fprintf(os.Stderr, "Ignoring error for bug compatibility with istio-iptables.sh: %s\n", err.Error())
+			if err != nil {
+				return ipv4Ranges, ipv6Ranges, err
+			}
+			continue
 		}
 		if ip.To4() != nil {
 			ipv4Ranges.IPNets = append(ipv4Ranges.IPNets, ipNet)
@@ -531,8 +534,6 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 }
 
 func main() {
-	// Emulate slow startup of bash
-	time.Sleep(time.Second * 5)
 	run(os.Args, flag.CommandLine, getLocalIP)
 	fmt.Println("istio-iptables run successful")
 }

@@ -72,8 +72,15 @@ func TestSeparateV4V6(t *testing.T) {
 	g.Expect(v4range.IsWildcard).To(gomega.BeTrue())
 	g.Expect(v6range.IsWildcard).To(gomega.BeTrue())
 
-	_, _, err = separateV4V6("123g:::4567:::")
-	g.Expect(err).To(gomega.HaveOccurred())
+	// For bug compatibility with istio-iptables.sh
+	// TODO: fix this in caller (* should not be expanded to "bin boot dev home ...") and then
+	// fix this tests as well to expect panic when -i argument is invalid
+	// _, _, err = separateV4V6("bin")
+	// g.Expect(err).To(gomega.HaveOccurred())
+	v4range, v6range, err = separateV4V6("bin")
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(v4range).To(gomega.BeEquivalentTo(NetworkRange{IsWildcard: false, IPNets: make([]*net.IPNet, 0)}))
+	g.Expect(v6range).To(gomega.BeEquivalentTo(NetworkRange{IsWildcard: false, IPNets: make([]*net.IPNet, 0)}))
 }
 
 func TestGetEnvWithDefault(t *testing.T) {
