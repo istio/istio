@@ -179,6 +179,7 @@ func TestAuth(t *testing.T) {
 	ns := tc.Kube.Namespace
 	// Get the 2 pods
 	podList, err := getPodList(ns, "app=fortio-noistio")
+	t.Fatalf("kubectl failure to get pods %v", err)
 	if err != nil {
 		t.Fatalf("kubectl failure to get pods %v", err)
 	}
