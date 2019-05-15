@@ -45,6 +45,7 @@ export CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
+setup_and_export_git_sha
 setup_e2e_cluster
 
 if [[ "${ENABLE_ISTIO_CNI:-false}" == true ]]; then
@@ -75,6 +76,9 @@ for ((i=1; i<=$#; i++)); do
     esac
     E2E_ARGS+=( "${!i}" )
 done
+
+# upload images
+time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}"
 
 time ISTIO_DOCKER_HUB=$HUB \
   E2E_ARGS="${E2E_ARGS[*]}" \
