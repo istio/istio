@@ -66,7 +66,7 @@ func serverCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			// Retrieve Viper values for each Cobra Val Flag
 			cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
-				f.Value.Set(viper.GetString(f.Name))
+				_ = f.Value.Set(viper.GetString(f.Name))
 			})
 
 			serverArgs.KubeConfig = kubeConfig
@@ -191,17 +191,17 @@ func serverCmd() *cobra.Command {
 	// Hidden, file only flags for validation specific TLS
 	serverCmd.PersistentFlags().StringVar(&validationArgs.CertFile, "validation.tls.clientCertificate", "",
 		"File containing the x509 Certificate for HTTPS validation.")
-	serverCmd.PersistentFlags().MarkHidden("validation.tls.clientCertificate")
+	_ = serverCmd.PersistentFlags().MarkHidden("validation.tls.clientCertificate")
 	serverCmd.PersistentFlags().StringVar(&validationArgs.KeyFile, "validation.tls.privateKey", "",
 		"File containing the x509 private key matching --validation.tls.clientCertificate.")
-	serverCmd.PersistentFlags().MarkHidden("validation.tls.privateKey")
+	_ = serverCmd.PersistentFlags().MarkHidden("validation.tls.privateKey")
 	serverCmd.PersistentFlags().StringVar(&validationArgs.CACertFile, "validation.tls.caCertificates", "",
 		"File containing the caBundle that signed the cert/key specified by --validation.tls.clientCertificate and --validation.tls.privateKey.")
-	serverCmd.PersistentFlags().MarkHidden("validation.tls.caCertificates")
+	_ = serverCmd.PersistentFlags().MarkHidden("validation.tls.caCertificates")
 
 	serverArgs.IntrospectionOptions.AttachCobraFlags(serverCmd)
 	loggingOptions.AttachCobraFlags(serverCmd)
-	viper.BindPFlags(serverCmd.PersistentFlags())
+	_ = viper.BindPFlags(serverCmd.PersistentFlags())
 
 	cobra.OnInitialize(setupAliases)
 
