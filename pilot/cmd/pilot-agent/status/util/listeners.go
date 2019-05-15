@@ -21,6 +21,8 @@ import (
 	"strings"
 
 	multierror "github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
 var (
@@ -28,7 +30,7 @@ var (
 )
 
 // GetInboundListeningPorts returns a map of inbound ports for which Envoy has active listeners.
-func GetInboundListeningPorts(localHostAddr string, adminPort uint16) (map[uint16]bool, string, error) {
+func GetInboundListeningPorts(localHostAddr string, adminPort uint16, nodeType model.NodeType) (map[uint16]bool, string, error) {
 	buf, err := doHTTPGet(fmt.Sprintf("http://%s:%d/listeners", localHostAddr, adminPort))
 	if err != nil {
 		return nil, "", multierror.Prefix(err, "failed retrieving Envoy listeners:")
@@ -50,8 +52,17 @@ func GetInboundListeningPorts(localHostAddr string, adminPort uint16) (map[uint1
 		}
 		// Before checking if listener is local, removing port portion of the address
 		ipAddr := strings.TrimSuffix(l, ":"+ipAddrParts[len(ipAddrParts)-1])
-		if !isLocalListener(ipAddr) {
-			continue
+
+		switch nodeType {
+		// For gateways, we will not listen on a local host, instead on 0.0.0.0
+		case model.Router:
+			if ipAddr != "0.0.0.0" {
+				continue
+			}
+		default:
+			if !isLocalListener(ipAddr) {
+				continue
+			}
 		}
 
 		portStr := ipAddrParts[len(ipAddrParts)-1]
