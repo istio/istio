@@ -15,18 +15,16 @@
 package istioctl
 
 import (
-	"bytes"
 	"regexp"
 	"strings"
 	"testing"
-
-	"istio.io/istio/istioctl/cmd"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -61,13 +59,11 @@ func TestVersion(t *testing.T) {
 			g := galley.NewOrFail(t, ctx, galley.Config{})
 			_ = pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
 			args := []string{"version", "--remote=true"}
 
-			var out bytes.Buffer
-			rootCmd := cmd.GetRootCmd(args)
-			rootCmd.SetOutput(&out)
-			fErr := rootCmd.Execute()
-			output := out.String()
+			output, fErr := istioCtl.Invoke(args)
 
 			if fErr != nil {
 				t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(args, " "), fErr)
@@ -79,6 +75,7 @@ func TestVersion(t *testing.T) {
 				regexp.MustCompile(`egressgateway version: [a-z0-9\-]*`),
 				regexp.MustCompile(`ingressgateway version: [a-z0-9\-]*`),
 				regexp.MustCompile(`pilot version: [a-z0-9\-]*`),
+				regexp.MustCompile(`galley version: [a-z0-9\-]*`),
 				regexp.MustCompile(`policy version: [a-z0-9\-]*`),
 				regexp.MustCompile(`sidecar-injector version: [a-z0-9\-]*`),
 				regexp.MustCompile(`telemetry version: [a-z0-9\-]*`),
