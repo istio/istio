@@ -39,7 +39,8 @@ func NewBuilder(finder attribute.AttributeDescriptorFinder) *ExpressionBuilder {
 	return newBuilder(finder, allFunctions, allExterns)
 }
 
-func newBuilder(finder attribute.AttributeDescriptorFinder, functions map[string]ast.FunctionMetadata, externs map[string]interpreter.Extern) *ExpressionBuilder {
+func newBuilder(finder attribute.AttributeDescriptorFinder, functions map[string]ast.FunctionMetadata,
+	externs map[string]interpreter.Extern) *ExpressionBuilder {
 	c := compiler.New(finder, functions)
 	return &ExpressionBuilder{
 		compiler:    c,

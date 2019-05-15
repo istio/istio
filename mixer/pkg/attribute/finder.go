@@ -23,6 +23,7 @@ import (
 )
 
 // AttributeDescriptorFinder finds attribute descriptors.
+// nolint: golint
 type AttributeDescriptorFinder interface {
 	// GetAttribute finds attribute descriptor in the vocabulary. returns nil if not found.
 	GetAttribute(name string) *configpb.AttributeManifest_AttributeInfo
