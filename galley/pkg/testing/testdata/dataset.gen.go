@@ -135,6 +135,8 @@ metadata:
   selfLink: /api/v1/namespaces/default
   uid: a0641b25-71b3-11e9-9fe1-42010a8a0126
 spec:
+  finalizers:
+  - kubernetes
 `)
 
 func datasetCoreV1NamespaceYamlBytes() ([]byte, error) {
@@ -155,11 +157,14 @@ func datasetCoreV1NamespaceYaml() (*asset, error) {
 var _datasetCoreV1Namespace_expectedJson = []byte(`{
     "k8s/core/v1/namespaces": [
         {
-            "TypeURL": "type.googleapis.com/k8s.io.api.core.v1.Namespace",
+            "TypeURL": "type.googleapis.com/k8s.io.api.core.v1.NamespaceSpec",
             "Metadata": {
                 "name": "default"
             },
             "Body": {
+                "finalizers": [
+                    "kubernetes"
+                ]
             }
         }
     ]

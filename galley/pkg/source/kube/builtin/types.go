@@ -168,7 +168,7 @@ var (
 			},
 			extractResource: func(o interface{}) proto.Message {
 				if obj, ok := o.(*v1.Namespace); ok {
-					return obj
+					return &obj.Spec
 				}
 				return nil
 			},
