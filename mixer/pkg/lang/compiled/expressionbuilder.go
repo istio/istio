@@ -23,6 +23,9 @@ import (
 	"istio.io/istio/mixer/pkg/lang/compiler"
 )
 
+// Expression type alias
+type Expression = attribute.Expression
+
 // ExpressionBuilder is used to create a set of pre-compiled expressions, backed by the same program and interpreter
 // instance. It is meant to be used to create a large number of precompiled expressions that are backed by an efficient
 // set of shared, immutable objects.
@@ -32,11 +35,11 @@ type ExpressionBuilder struct {
 }
 
 // NewBuilder returns a new ExpressionBuilder
-func NewBuilder(finder ast.AttributeDescriptorFinder) *ExpressionBuilder {
+func NewBuilder(finder attribute.AttributeDescriptorFinder) *ExpressionBuilder {
 	return newBuilder(finder, allFunctions, allExterns)
 }
 
-func newBuilder(finder ast.AttributeDescriptorFinder, functions map[string]ast.FunctionMetadata, externs map[string]interpreter.Extern) *ExpressionBuilder {
+func newBuilder(finder attribute.AttributeDescriptorFinder, functions map[string]ast.FunctionMetadata, externs map[string]interpreter.Extern) *ExpressionBuilder {
 	c := compiler.New(finder, functions)
 	return &ExpressionBuilder{
 		compiler:    c,

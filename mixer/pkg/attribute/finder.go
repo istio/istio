@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ast
+package attribute
 
 import (
 	"fmt"
@@ -21,6 +21,14 @@ import (
 	configpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/pool"
 )
+
+// AttributeDescriptorFinder finds attribute descriptors.
+type AttributeDescriptorFinder interface {
+	// GetAttribute finds attribute descriptor in the vocabulary. returns nil if not found.
+	GetAttribute(name string) *configpb.AttributeManifest_AttributeInfo
+	// Attributes exposes the internal attribute manifest
+	Attributes() map[string]*configpb.AttributeManifest_AttributeInfo
+}
 
 // NewFinder returns a new AttributeDescriptorFinder instance, based on the given attributes
 func NewFinder(attributes map[string]*configpb.AttributeManifest_AttributeInfo) AttributeDescriptorFinder {

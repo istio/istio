@@ -37,9 +37,9 @@ import (
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	config "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/config/storetest"
-	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/protobuf/yaml"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
@@ -64,7 +64,7 @@ type Ephemeral struct {
 	nextID int64
 
 	// type checkers
-	attributes ast.AttributeDescriptorFinder
+	attributes attribute.AttributeDescriptorFinder
 	tcs        map[lang.LanguageRuntime]lang.TypeChecker
 
 	// The ephemeral object is used inside a webhooks validators which run as multiple nodes.
@@ -157,7 +157,7 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 
 	shandlers := e.processStaticAdapterHandlerConfigs()
 
-	af := ast.NewFinder(attributes)
+	af := attribute.NewFinder(attributes)
 	e.attributes = af
 	instances, instErrs := e.processInstanceConfigs(errs)
 

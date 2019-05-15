@@ -12,30 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compiled
-
-import "istio.io/istio/mixer/pkg/attribute"
+package attribute
 
 // Expression represents a precompiled expression that can be immediately evaluated.
 // It holds no cache and does not listen to any events. If the configuration changes, the CompiledExpression needs
 // to be discarded and created again.
 type Expression interface {
 	// Evaluate evaluates this compiled expression against the attribute bag.
-	Evaluate(attributes attribute.Bag) (interface{}, error)
+	Evaluate(attributes Bag) (interface{}, error)
 
 	// EvaluateBoolean evaluates this compiled expression against the attribute bag and returns the result as boolean.
 	// panics if the expression does not return a boolean.
-	EvaluateBoolean(attributes attribute.Bag) (bool, error)
+	EvaluateBoolean(attributes Bag) (bool, error)
 
 	// EvaluateString evaluates this compiled expression against the attribute bag and returns the result as string.
 	// panics if the expression does not return a string.
-	EvaluateString(attributes attribute.Bag) (string, error)
+	EvaluateString(attributes Bag) (string, error)
 
 	// EvaluateDouble evaluates this compiled expression against the attribute bag and returns the result as float64.
 	// panics if the expression does not return a float64.
-	EvaluateDouble(attribute attribute.Bag) (float64, error)
+	EvaluateDouble(attribute Bag) (float64, error)
 
 	// EvaluateInteger evaluates this compiled expression against the attribute bag and returns the result as int64.
 	// panics if the expression does not return a int64.
-	EvaluateInteger(attribute attribute.Bag) (int64, error)
+	EvaluateInteger(attribute Bag) (int64, error)
 }
