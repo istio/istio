@@ -21,6 +21,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 
+	"istio.io/istio/pilot/pkg/model"
+
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 )
 
