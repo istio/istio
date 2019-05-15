@@ -48,7 +48,7 @@ type preCheckExecClient interface {
 	checkMutatingWebhook() error
 }
 
-func installPreCheck(istioNamespaceFlag *string, restClientGetter resource.RESTClientGetter, writer io.Writer) error {
+func installPreCheck(istioNamespaceFlag string, restClientGetter resource.RESTClientGetter, writer io.Writer) error {
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "Checking the cluster to make sure it is ready for Istio installation...\n")
 	fmt.Fprintf(writer, "\n")
@@ -78,12 +78,12 @@ func installPreCheck(istioNamespaceFlag *string, restClientGetter resource.RESTC
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "Istio-existence\n")
 	fmt.Fprintf(writer, "-----------------------\n")
-	_, err = c.getNameSpace(*istioNamespaceFlag)
+	_, err = c.getNameSpace(istioNamespaceFlag)
 	if err == nil {
-		msg := fmt.Sprintf("Istio cannot be installed because the Istio namespace '%v' is already in use", *istioNamespaceFlag)
+		msg := fmt.Sprintf("Istio cannot be installed because the Istio namespace '%v' is already in use", istioNamespaceFlag)
 		return errors.New(msg)
 	}
-	fmt.Fprintf(writer, "Istio will be installed in the %v namespace.\n", *istioNamespaceFlag)
+	fmt.Fprintf(writer, "Istio will be installed in the %v namespace.\n", istioNamespaceFlag)
 
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "Kubernetes-setup\n")
@@ -101,49 +101,49 @@ func installPreCheck(istioNamespaceFlag *string, restClientGetter resource.RESTC
 			name:      "Namespace",
 		},
 		{
-			namespace: *istioNamespaceFlag,
+			namespace: istioNamespaceFlag,
 			group:     "rbac.authorization.k8s.io",
 			version:   "v1beta1",
 			name:      "ClusterRole",
 		},
 		{
-			namespace: *istioNamespaceFlag,
+			namespace: istioNamespaceFlag,
 			group:     "rbac.authorization.k8s.io",
 			version:   "v1beta1",
 			name:      "ClusterRoleBinding",
 		},
 		{
-			namespace: *istioNamespaceFlag,
+			namespace: istioNamespaceFlag,
 			group:     "apiextensions.k8s.io",
 			version:   "v1beta1",
 			name:      "CustomResourceDefinition",
 		},
 		{
-			namespace: *istioNamespaceFlag,
+			namespace: istioNamespaceFlag,
 			group:     "rbac.authorization.k8s.io",
 			version:   "v1beta1",
 			name:      "Role",
 		},
 		{
-			namespace: *istioNamespaceFlag,
+			namespace: istioNamespaceFlag,
 			group:     "",
 			version:   "v1",
 			name:      "ServiceAccount",
 		},
 		{
-			namespace: *istioNamespaceFlag,
+			namespace: istioNamespaceFlag,
 			group:     "",
 			version:   "v1",
 			name:      "Service",
 		},
 		{
-			namespace: *istioNamespaceFlag,
+			namespace: istioNamespaceFlag,
 			group:     "extensions",
 			version:   "v1beta1",
 			name:      "Deployments",
 		},
 		{
-			namespace: *istioNamespaceFlag,
+			namespace: istioNamespaceFlag,
 			group:     "",
 			version:   "v1",
 			name:      "ConfigMap",
