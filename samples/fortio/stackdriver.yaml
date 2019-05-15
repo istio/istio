@@ -8,12 +8,12 @@ spec:
     appCredentials: y
     pushInterval: 5s
     metricInfo:
-      server-request-count.metric.{{.Namespace}}:
+      server-request-count.instance.{{.Namespace}}:
         kind: 3 # CUMULATIVE
         value: 2 # INT64
         metric_type: "istio.io/service/server/request_count"
     logInfo:
-      server-accesslog-stackdriver.logentry.{{.Namespace}}:
+      server-accesslog-stackdriver.instance.{{.Namespace}}:
         labelNames:
         - source_uid
         - source_ip

@@ -203,7 +203,7 @@ func TestMetrics(t *testing.T) {
 
 func TestLogs(t *testing.T) {
 	const (
-		logNameTmpl = "projects/%s/logs/server-accesslog-stackdriver.logentry.%s"
+		logNameTmpl = "projects/%s/logs/server-accesslog-stackdriver.instance.%s"
 		filterTmpl  = `logName = "%s" AND resource.type = "k8s_container" AND resource.labels.namespace_name = "%s"`
 	)
 
