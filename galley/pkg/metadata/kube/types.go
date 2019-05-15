@@ -905,6 +905,17 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
+	b.Add(schema.ResourceSpec{
+		Kind:      "Namespace",
+		ListKind:  "NamespaceList",
+		Singular:  "namespace",
+		Plural:    "namespaces",
+		Versions:  versions,
+		Group:     "",
+		Target:    metadata.Types.Get("k8s/core/v1/namespaces"),
+		Converter: converter.Get("identity"),
+	})
+
 	versions = make([]string, 0)
 
 	versions = append(versions, "v1")

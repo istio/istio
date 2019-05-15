@@ -2,6 +2,8 @@
 // sources:
 // dataset/config.istio.io/v1alpha2/circonus.yaml
 // dataset/config.istio.io/v1alpha2/circonus_expected.json
+// dataset/core/v1/namespace.yaml
+// dataset/core/v1/namespace_expected.json
 // dataset/extensions/v1beta1/ingress_basic.yaml
 // dataset/extensions/v1beta1/ingress_basic_expected.json
 // dataset/extensions/v1beta1/ingress_basic_meshconfig.yaml
@@ -120,6 +122,66 @@ func datasetConfigIstioIoV1alpha2Circonus_expectedJson() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "dataset/config.istio.io/v1alpha2/circonus_expected.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _datasetCoreV1NamespaceYaml = []byte(`apiVersion: v1
+kind: Namespace
+metadata:
+  creationTimestamp: 2019-05-08T17:06:31Z
+  name: default
+  resourceVersion: "4"
+  selfLink: /api/v1/namespaces/default
+  uid: a0641b25-71b3-11e9-9fe1-42010a8a0126
+spec:
+  finalizers:
+  - kubernetes
+`)
+
+func datasetCoreV1NamespaceYamlBytes() ([]byte, error) {
+	return _datasetCoreV1NamespaceYaml, nil
+}
+
+func datasetCoreV1NamespaceYaml() (*asset, error) {
+	bytes, err := datasetCoreV1NamespaceYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/core/v1/namespace.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _datasetCoreV1Namespace_expectedJson = []byte(`{
+    "k8s/core/v1/namespaces": [
+        {
+            "TypeURL": "type.googleapis.com/k8s.io.api.core.v1.NamespaceSpec",
+            "Metadata": {
+                "name": "default"
+            },
+            "Body": {
+                "finalizers": [
+                    "kubernetes"
+                ]
+            }
+        }
+    ]
+}
+`)
+
+func datasetCoreV1Namespace_expectedJsonBytes() ([]byte, error) {
+	return _datasetCoreV1Namespace_expectedJson, nil
+}
+
+func datasetCoreV1Namespace_expectedJson() (*asset, error) {
+	bytes, err := datasetCoreV1Namespace_expectedJsonBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/core/v1/namespace_expected.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1884,6 +1946,8 @@ func AssetNames() []string {
 var _bindata = map[string]func() (*asset, error){
 	"dataset/config.istio.io/v1alpha2/circonus.yaml": datasetConfigIstioIoV1alpha2CirconusYaml,
 	"dataset/config.istio.io/v1alpha2/circonus_expected.json": datasetConfigIstioIoV1alpha2Circonus_expectedJson,
+	"dataset/core/v1/namespace.yaml": datasetCoreV1NamespaceYaml,
+	"dataset/core/v1/namespace_expected.json": datasetCoreV1Namespace_expectedJson,
 	"dataset/extensions/v1beta1/ingress_basic.yaml": datasetExtensionsV1beta1Ingress_basicYaml,
 	"dataset/extensions/v1beta1/ingress_basic_expected.json": datasetExtensionsV1beta1Ingress_basic_expectedJson,
 	"dataset/extensions/v1beta1/ingress_basic_meshconfig.yaml": datasetExtensionsV1beta1Ingress_basic_meshconfigYaml,
@@ -1945,6 +2009,12 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"v1alpha2": &bintree{nil, map[string]*bintree{
 				"circonus.yaml": &bintree{datasetConfigIstioIoV1alpha2CirconusYaml, map[string]*bintree{}},
 				"circonus_expected.json": &bintree{datasetConfigIstioIoV1alpha2Circonus_expectedJson, map[string]*bintree{}},
+			}},
+		}},
+		"core": &bintree{nil, map[string]*bintree{
+			"v1": &bintree{nil, map[string]*bintree{
+				"namespace.yaml": &bintree{datasetCoreV1NamespaceYaml, map[string]*bintree{}},
+				"namespace_expected.json": &bintree{datasetCoreV1Namespace_expectedJson, map[string]*bintree{}},
 			}},
 		}},
 		"extensions": &bintree{nil, map[string]*bintree{
