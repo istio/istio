@@ -82,7 +82,7 @@ type Watcher interface {
 	//
 	// Cancel is an optional function to release resources in the
 	// producer. It can be called idempotently to cancel and release resources.
-	Watch(*Request, PushResponseFunc) CancelWatchFunc
+	Watch(*Request, PushResponseFunc, string) CancelWatchFunc
 }
 
 // CollectionOptions configures the per-collection updates.
@@ -442,7 +442,7 @@ func (con *connection) processClientRequest(req *mcp.RequestResources) error {
 			VersionInfo: versionInfo,
 			incremental: req.Incremental,
 		}
-		w.cancel = con.watcher.Watch(sr, con.queueResponse)
+		w.cancel = con.watcher.Watch(sr, con.queueResponse, con.peerAddr)
 	} else {
 		// This error path should not happen! Skip any requests that don't match the
 		// latest watch's nonce. These could be dup requests or out-of-order
