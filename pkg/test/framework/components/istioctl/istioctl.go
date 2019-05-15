@@ -36,21 +36,23 @@ type Config struct {
 	// currently nothing, we might add stuff like OS env settings later
 }
 
-// The test code will be linked with istioctl, and never runs a seperate istioctl binary
+// The test code will be linked with istioctl, and never runs a separate istioctl binary
 type eitherComponent struct {
+	config Config
 	id     resource.ID
 	ctx    resource.Context
-	config Config
 }
 
 // New returns a new instance of "istioctl".
 func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
 	ctx.Environment().Case(environment.Native, func() {
-		i, err = newEither(ctx, cfg)
+		i = newEither(ctx, cfg)
+		err = nil
 	})
 	ctx.Environment().Case(environment.Kube, func() {
-		i, err = newEither(ctx, cfg)
+		i = newEither(ctx, cfg)
+		err = nil
 	})
 
 	return
@@ -65,14 +67,14 @@ func NewOrFail(t *testing.T, c resource.Context, config Config) Instance {
 	return i
 }
 
-func newEither(ctx resource.Context, config Config) (Instance, error) {
+func newEither(ctx resource.Context, config Config) Instance {
 	n := &eitherComponent{
 		ctx:    ctx,
 		config: config,
 	}
 	n.id = ctx.TrackResource(n)
 
-	return n, nil
+	return n
 }
 
 // ID implements resource.Instance
