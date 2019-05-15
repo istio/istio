@@ -5,7 +5,6 @@ enabled: true
 replicaCount: 1
 image: galley
 nodeSelector: {}
-selfSigned: true
 
 # Specify the pod anti-affinity that allows you to constrain which nodes
 # your pod is eligible to be scheduled based on labels on pods that are
