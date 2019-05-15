@@ -68,7 +68,6 @@ type TestContext interface {
 	SkipNow()
 	Skipf(format string, args ...interface{})
 	Skipped() bool
-	Parallel()
 }
 
 var _ TestContext = &testContext{}
@@ -292,12 +291,4 @@ func (c *testContext) Skipf(format string, args ...interface{}) {
 func (c *testContext) Skipped() bool {
 	c.Helper()
 	return c.T.Skipped()
-}
-
-func (c *testContext) Parallel() {
-	c.Helper()
-
-	// Notify the test that it's running in parallel.
-	c.test.parallel()
-	c.T.Parallel()
 }

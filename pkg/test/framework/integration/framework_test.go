@@ -52,37 +52,31 @@ func TestParallel(t *testing.T) {
 					top = newComponent(ctx, ctx.Name(), closeHandler)
 
 					ctx.NewSubTest("l1a").
-						Run(func(ctx framework.TestContext) {
-							ctx.Parallel()
+						RunParallel(func(ctx framework.TestContext) {
 							l1a = newComponent(ctx, ctx.Name(), closeHandler)
 
 							ctx.NewSubTest("l2a").
-								Run(func(ctx framework.TestContext) {
-									ctx.Parallel()
+								RunParallel(func(ctx framework.TestContext) {
 									l2a = newComponent(ctx, ctx.Name(), closeHandler)
 								})
 
 							ctx.NewSubTest("l2b").
-								Run(func(ctx framework.TestContext) {
-									ctx.Parallel()
+								RunParallel(func(ctx framework.TestContext) {
 									l2b = newComponent(ctx, ctx.Name(), closeHandler)
 								})
 						})
 
 					ctx.NewSubTest("l1b").
-						Run(func(ctx framework.TestContext) {
-							ctx.Parallel()
+						RunParallel(func(ctx framework.TestContext) {
 							l1b = newComponent(ctx, ctx.Name(), closeHandler)
 
 							ctx.NewSubTest("l2c").
-								Run(func(ctx framework.TestContext) {
-									ctx.Parallel()
+								RunParallel(func(ctx framework.TestContext) {
 									l2c = newComponent(ctx, ctx.Name(), closeHandler)
 								})
 
 							ctx.NewSubTest("l2d").
-								Run(func(ctx framework.TestContext) {
-									ctx.Parallel()
+								RunParallel(func(ctx framework.TestContext) {
 									l2d = newComponent(ctx, ctx.Name(), closeHandler)
 								})
 						})
