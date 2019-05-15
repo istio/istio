@@ -973,7 +973,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 			rdsName = fmt.Sprintf("%d", pluginParams.Port.Port)
 		}
 		httpOpts := &httpListenerOpts{
-			useRemoteAddress: false,
+			useRemoteAddress: true,
 			direction:        http_conn.EGRESS,
 			rds:              rdsName,
 		}
