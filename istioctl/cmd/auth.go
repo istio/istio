@@ -109,12 +109,12 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			if err != nil {
 				return err
 			}
-			convertedPolicies, err := upgrader.UpgradeCRDs()
+			err = upgrader.UpgradeCRDs()
 			if err != nil {
 				return err
 			}
 			writer := cmd.OutOrStdout()
-			_, err = writer.Write([]byte(convertedPolicies))
+			_, err = writer.Write([]byte(upgrader.ConvertedPolicies.String()))
 			if err != nil {
 				return fmt.Errorf("failed writing config with error %v", err)
 			}
@@ -187,10 +187,10 @@ func newUpgrader(v1PolicyFile string, serviceFiles []string) (*auth.Upgrader, er
 	}
 
 	upgrader := &auth.Upgrader{
-		K8sClient:                           k8sClient,
-		ServiceFiles:                        serviceFiles,
-		NamespaceToRoleNameToWorkloadLabels: map[string]auth.RoleNameToWorkloadLabels{},
-		V1PolicyFile:                        v1PolicyFile,
+		K8sClient:                          k8sClient,
+		ServiceFiles:                       serviceFiles,
+		NamespaceToServiceToWorkloadLabels: map[string]auth.ServiceToWorkloadLabels{},
+		V1PolicyFile:                       v1PolicyFile,
 	}
 	return upgrader, nil
 }

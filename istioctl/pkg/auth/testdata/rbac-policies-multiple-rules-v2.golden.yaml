@@ -1,11 +1,11 @@
 apiVersion: rbac.istio.io/v1alpha1
 kind: AuthorizationPolicy
 metadata:
-  name: bind-service-viewer
-  namespace: foo
+  name: bind-service-viewer-0
+  namespace: default
 spec:
   allow:
-  - role: service-viewer
+  - role: service-viewer-0
     subjects:
     - names:
       - foo
@@ -16,14 +16,14 @@ spec:
 apiVersion: rbac.istio.io/v1alpha1
 kind: AuthorizationPolicy
 metadata:
-  name: bind-service-viewer
-  namespace: bar
+  name: bind-service-viewer-1
+  namespace: default
 spec:
   allow:
-  - role: service-viewer
+  - role: service-viewer-1
     subjects:
     - names:
-      - bar
+      - foo
   workloadSelector:
     labels:
       app: ratings
@@ -31,8 +31,8 @@ spec:
 apiVersion: rbac.istio.io/v1alpha1
 kind: ServiceRole
 metadata:
-  name: service-viewer
-  namespace: foo
+  name: service-viewer-0
+  namespace: default
 spec:
   rules:
   - methods:
@@ -41,8 +41,8 @@ spec:
 apiVersion: rbac.istio.io/v1alpha1
 kind: ServiceRole
 metadata:
-  name: service-viewer
-  namespace: bar
+  name: service-viewer-1
+  namespace: default
 spec:
   rules:
   - methods:

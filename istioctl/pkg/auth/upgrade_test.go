@@ -22,30 +22,32 @@ import (
 
 const (
 	testFailedWithError   = "test failed with error %v"
-	testFailedExpectedGot = "test [%s] failed. Expected\n%s\nGot\n%s"
+	testFailedExpectedGot = "test [%s] failed.\nExpected\n%s\nGot\n%s"
 )
 
 var (
-	serviceViewerProductpage = map[string]ServiceToWorkloadLabels{
-		"service-viewer": {
-			"productpage": map[string]string{
-				"app": "productpage",
-			},
-		},
+	appProductPage = map[string]string{
+		"app": "productpage",
 	}
-	serviceViewerRatings = map[string]ServiceToWorkloadLabels{
-		"service-viewer": {
-			"ratings": map[string]string{
-				"app": "ratings",
-			},
-		},
+	appRatings = map[string]string{
+		"app": "ratings",
+	}
+	appReviews = map[string]string{
+		"app": "reviews",
+	}
+
+	productPageMapping = map[string]WorkloadLabels{
+		"productpage": appProductPage,
+	}
+	ratingsMapping = map[string]WorkloadLabels{
+		"ratings": appRatings,
 	}
 )
 
 type testCases struct {
 	testName             string
 	input                string
-	workloadLabelMapping map[string]RoleNameToWorkloadLabels
+	workloadLabelMapping map[string]ServiceToWorkloadLabels
 	expected             string
 }
 
@@ -53,40 +55,72 @@ func TestUpgradeLocalFile(t *testing.T) {
 	cases := []testCases{
 		{
 			testName: "ServiceRole with only services",
-			input:    "./testdata/rbac-policies.yaml",
-			workloadLabelMapping: map[string]RoleNameToWorkloadLabels{
-				"default": serviceViewerProductpage,
+			input:    "./testdata/rbac-policies-services-only.yaml",
+			workloadLabelMapping: map[string]ServiceToWorkloadLabels{
+				"default": productPageMapping,
 			},
-			expected: "./testdata/rbac-policies-v2.golden.yaml",
+			expected: "./testdata/rbac-policies-services-only-v2.golden.yaml",
 		},
 		{
 			testName: "ServiceRole with methods and paths",
 			input:    "./testdata/rbac-policies-with-methods-and-paths.yaml",
-			workloadLabelMapping: map[string]RoleNameToWorkloadLabels{
-				"default": serviceViewerRatings,
+			workloadLabelMapping: map[string]ServiceToWorkloadLabels{
+				"default": ratingsMapping,
 			},
 			expected: "./testdata/rbac-policies-with-methods-and-paths-v2.golden.yaml",
 		},
 		{
 			testName: "Same ServiceRole name in multiple namespaces",
 			input:    "./testdata/rbac-policies-multiple-namespaces.yaml",
-			workloadLabelMapping: map[string]RoleNameToWorkloadLabels{
-				"foo": serviceViewerProductpage,
-				"bar": serviceViewerRatings,
+			workloadLabelMapping: map[string]ServiceToWorkloadLabels{
+				"foo": productPageMapping,
+				"bar": ratingsMapping,
 			},
 			expected: "./testdata/rbac-policies-multiple-namespaces-v2.golden.yaml",
+		},
+		{
+			input: "./testdata/rbac-policies-multiple-rules.yaml",
+			workloadLabelMapping: map[string]ServiceToWorkloadLabels{
+				"default": {
+					"productpage": appProductPage,
+					"ratings":     appRatings,
+				},
+			},
+			expected: "./testdata/rbac-policies-multiple-rules-v2.golden.yaml",
+		},
+		{
+			input: "./testdata/rbac-policies-multiple-services.yaml",
+			workloadLabelMapping: map[string]ServiceToWorkloadLabels{
+				"default": {
+					"productpage": appProductPage,
+					"ratings":     appRatings,
+				},
+			},
+			expected: "./testdata/rbac-policies-multiple-services-v2.golden.yaml",
+		},
+		{
+			input: "./testdata/rbac-policies-multiple-rules-multiple-services.yaml",
+			workloadLabelMapping: map[string]ServiceToWorkloadLabels{
+				"default": {
+					"productpage": appProductPage,
+					"ratings":     appRatings,
+					"reviews":     appReviews,
+				},
+			},
+			expected: "./testdata/rbac-policies-multiple-rules-multiple-services-v2.golden.yaml",
 		},
 	}
 
 	for _, tc := range cases {
 		upgrader := Upgrader{
-			V1PolicyFile:                        tc.input,
-			NamespaceToRoleNameToWorkloadLabels: tc.workloadLabelMapping,
+			V1PolicyFile:                       tc.input,
+			NamespaceToServiceToWorkloadLabels: tc.workloadLabelMapping,
 		}
-		gotContent, err := upgrader.UpgradeCRDs()
+		err := upgrader.UpgradeCRDs()
 		if err != nil {
 			t.Errorf(testFailedWithError, err)
 		}
+		gotContent := upgrader.ConvertedPolicies.String()
 		expectedContent, err := ioutil.ReadFile(tc.expected)
 		if err != nil {
 			t.Errorf(testFailedWithError, err)
