@@ -1,5 +1,1 @@
-lint:
-	@scripts/linters.sh
-
-format:
-	@scripts/fmt.sh
+include Makefile.common.mk
