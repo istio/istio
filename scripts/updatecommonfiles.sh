@@ -28,22 +28,7 @@ ROOTDIR=$(dirname "${SCRIPTPATH}")
 
 cd "${ROOTDIR}"
 
-if [[ "$1" == "--fix" ]]
-then
-    FIX="--fix"
-fi
-
-# run any specialized per-repo linters
-if test -f "${ROOTDIR}/repolinters.sh"
-then
-    source "${ROOTDIR}/repolinters.sh"
-fi
-
-# if you want to update this version, also change the version number in .golangci.yml
-GOLANGCI_VERSION="v1.16.0"
-curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b "$GOPATH"/bin "$GOLANGCI_VERSION"
-golangci-lint --version
-
-echo 'Running golangci-lint ...'
-env GOGC=25 golangci-lint run ${FIX} -j 1 -v ./...
-
+git clone https://github.com/istio/common-files
+git rev-parse HEAD >common-files/files/scripts/updatecommonfiles.latest
+cp -r common-files/files/* .
+rm -fr common-files

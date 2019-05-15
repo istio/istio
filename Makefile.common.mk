@@ -1,5 +1,3 @@
-#!/bin/bash
-
 # WARNING: DO NOT EDIT, THIS FILE IS PROBABLY A COPY
 #
 # The original version of this file is located in the https://github.com/istio/common-files repo.
@@ -7,7 +5,7 @@
 # common-files repo, make the change there and check it in. Then come back to this repo and run the
 # scripts/updatecommonfiles.sh script.
 
-# Copyright 2019 Istio Authors
+# Copyright 2018 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,29 +19,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -ex
+lint:
+	@scripts/linters.sh
 
-SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-ROOTDIR=$(dirname "${SCRIPTPATH}")
+fixlint:
+	@scripts/linters.sh --fix
 
-cd "${ROOTDIR}"
+format:
+	@scripts/fmt.sh
 
-if [[ "$1" == "--fix" ]]
-then
-    FIX="--fix"
-fi
+fmt:
+	@scripts/fmt.sh
 
-# run any specialized per-repo linters
-if test -f "${ROOTDIR}/repolinters.sh"
-then
-    source "${ROOTDIR}/repolinters.sh"
-fi
-
-# if you want to update this version, also change the version number in .golangci.yml
-GOLANGCI_VERSION="v1.16.0"
-curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b "$GOPATH"/bin "$GOLANGCI_VERSION"
-golangci-lint --version
-
-echo 'Running golangci-lint ...'
-env GOGC=25 golangci-lint run ${FIX} -j 1 -v ./...
-
+updatecommon:
+	@scripts/updatecommonfiles.sh
