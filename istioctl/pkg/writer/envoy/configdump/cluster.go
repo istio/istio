@@ -73,9 +73,9 @@ func (c *ConfigWriter) PrintClusterSummary(filter ClusterFilter) error {
 				if subset == "" {
 					subset = "-"
 				}
-				fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", fqdn, port, subset, direction, cluster.Type)
+				fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\n", fqdn, port, subset, direction, cluster.GetType())
 			} else {
-				fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", cluster.Name, "-", "-", "-", cluster.Type)
+				fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\n", cluster.Name, "-", "-", "-", cluster.GetType())
 			}
 		}
 	}

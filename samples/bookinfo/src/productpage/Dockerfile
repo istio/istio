@@ -23,9 +23,12 @@ RUN pip install --no-cache-dir -r test-requirements.txt
 COPY productpage.py /opt/microservices/
 COPY tests/unit/* /opt/microservices/
 COPY templates /opt/microservices/templates
+COPY static /opt/microservices/static
 COPY requirements.txt /opt/microservices/
 
 EXPOSE 9080
 WORKDIR /opt/microservices
 RUN python -m unittest discover
-CMD python productpage.py 9080
+CMD touch /opt/microservices/microservice.log && \
+    tail -f /opt/microservices/microservice.log & \
+    python productpage.py 9080

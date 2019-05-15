@@ -70,7 +70,7 @@ func TestNewClient(t *testing.T) {
 
 	for id, tc := range testCases {
 		client, err := NewClient(
-			tc.platform, tc.rootCertFile, tc.keyFile, tc.certChainFile, tc.caAddr)
+			tc.platform, tc.rootCertFile, tc.keyFile, tc.certChainFile)
 		if len(tc.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("%s: Succeeded. Error expected: %v", id, err)

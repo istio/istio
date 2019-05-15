@@ -1,7 +1,0 @@
-template: |-
-  initContainers:
-  - name: istio-init
-    image: docker.io/istio/proxy_init:unittest
-  containers:
-  - name: istio-proxy
-    image: docker.io/istio/proxy_debug:unittest

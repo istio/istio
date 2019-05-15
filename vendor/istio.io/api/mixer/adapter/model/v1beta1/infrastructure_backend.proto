@@ -31,7 +31,7 @@ import "google/rpc/status.proto";
 // out of process adapter.
 //
 // `InfrastructureBackend` allows Mixer and the backends to have a session based model. In a session based model, Mixer passes
-// the relevant configuration state to the backend only once and estabilshes a session using a session identifier.
+// the relevant configuration state to the backend only once and establishes a session using a session identifier.
 // All future communications between Mixer and the backend uses the session identifier which refers to the previously
 // passed in configuration data.
 //
@@ -59,7 +59,7 @@ service InfrastructureBackend {
     //
     // Backend is allowed to return the same session id if given the same configuration block.
     // This would happen when multiple instances of Mixer in a deployment all create sessions with the same configuration.
-    // Note that given individial instances of Mixer can call `CloseSession`, reusing `session_id` by the backend
+    // Note that given individual instances of Mixer can call `CloseSession`, reusing `session_id` by the backend
     // assumes that the backend is doing reference counting.
     //
     // If the backend couldn't create a session for a specific handler configuration and

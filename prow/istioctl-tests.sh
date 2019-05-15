@@ -42,8 +42,8 @@ function test_istioctl_version() {
   local expected_hub=${2}
   local expected_tag=${3}
 
-  hub=$(${istioctl_bin} version | grep -oP 'Hub:"\K.*?(?=")')
-  tag=$(${istioctl_bin} version | grep -oP '{Version:"\K.*?(?=")')
+  hub=$(${istioctl_bin} version --remote=false --short=false | grep -oP 'Hub:"\K.*?(?=")')
+  tag=$(${istioctl_bin} version --remote=false --short=false | grep -oP '{Version:"\K.*?(?=")')
   [ "${hub}" == "${expected_hub}" ]
   [ "${tag}" == "${expected_tag}" ]
 }
@@ -55,11 +55,6 @@ function test_helm_files() {
 
   hub=$(grep hub: "${istio_path}/install/kubernetes/helm/istio/values.yaml" | head -n 1 | cut -c 8-)
   tag=$(grep tag: "${istio_path}/install/kubernetes/helm/istio/values.yaml" | head -n 1 | cut -c 8-)
-  [ "${hub}" == "${expected_hub}" ]
-  [ "${tag}" == "${expected_tag}" ]
-
-  hub=$(grep hub: "${istio_path}/install/kubernetes/helm/istio-remote/values.yaml" | head -n 1 | cut -c 8-)
-  tag=$(grep tag: "${istio_path}/install/kubernetes/helm/istio-remote/values.yaml" | head -n 1 | cut -c 8-)
   [ "${hub}" == "${expected_hub}" ]
   [ "${tag}" == "${expected_tag}" ]
 }

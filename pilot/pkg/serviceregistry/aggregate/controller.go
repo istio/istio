@@ -21,17 +21,21 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // Registry specifies the collection of service registry related interfaces
 type Registry struct {
-	Name      serviceregistry.ServiceRegistry
+	// Name is the type of the registry - Kubernetes, Consul, etc.
+	Name serviceregistry.ServiceRegistry
+	// ClusterID is used when multiple registries of the same type are used,
+	// for example in the case of K8S multicluster.
 	ClusterID string
 	model.Controller
 	model.ServiceDiscovery
-	model.ServiceAccounts
 }
+
+// TODO: rename Name to Type and ClusterID to Name ?
 
 var (
 	clusterAddressesMutex sync.Mutex
@@ -235,7 +239,7 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 
 	if len(out) > 0 {
 		if errs != nil {
-			log.Warnf("GetProxyServiceInstances() found match but encountered an error: %v", errs)
+			log.Debugf("GetProxyServiceInstances() found match but encountered an error: %v", errs)
 		}
 		return out, nil
 	}
@@ -243,15 +247,29 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 	return out, errs
 }
 
-// GetProxyLocality returns the locality where the proxy runs.
-func (c *Controller) GetProxyLocality(proxy *model.Proxy) string {
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCollection, error) {
+	out := make(model.LabelsCollection, 0)
+	var errs error
+	// It doesn't make sense for a single proxy to be found in more than one registry.
+	// TODO: if otherwise, warning or else what to do about it.
 	for _, r := range c.GetRegistries() {
-		locality := r.GetProxyLocality(proxy)
-		if len(locality) > 0 {
-			return locality
+		labels, err := r.GetProxyWorkloadLabels(proxy)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+		} else if len(labels) > 0 {
+			out = append(out, labels...)
+			break
 		}
 	}
-	return ""
+
+	if len(out) > 0 {
+		if errs != nil {
+			log.Warnf("GetProxyWorkloadLabels() found match but encountered an error: %v", errs)
+		}
+		return out, nil
+	}
+
+	return out, errs
 }
 
 // Run starts all the controllers

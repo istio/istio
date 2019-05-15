@@ -17,6 +17,7 @@ package envoy
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"path"
@@ -27,12 +28,16 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/proxy"
 	"istio.io/istio/pkg/bootstrap"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 const (
 	// epochFileTemplate is a template for the root config JSON
 	epochFileTemplate = "envoy-rev%d.json"
+
+	// drainFile is the location of the bootstrap config used for draining on istio-proxy termination
+	drainFile = "/var/lib/istio/envoy/envoy_bootstrap_drain.json"
 )
 
 type envoy struct {
@@ -46,11 +51,14 @@ type envoy struct {
 }
 
 // NewProxy creates an instance of the proxy control commands
-func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string, pilotSAN []string, nodeIPs []string) proxy.Proxy {
+func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string, componentLogLevel string, pilotSAN []string, nodeIPs []string) proxy.Proxy {
 	// inject tracing flag for higher levels
 	var args []string
 	if logLevel != "" {
 		args = append(args, "-l", logLevel)
+	}
+	if componentLogLevel != "" {
+		args = append(args, "--component-log-level", componentLogLevel)
 	}
 
 	return &envoy{
@@ -63,6 +71,10 @@ func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string, pilot
 }
 
 func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
+	proxyLocalAddressType := "v4"
+	if isIPv6Proxy(e.nodeIPs) {
+		proxyLocalAddressType = "v6"
+	}
 	startupArgs := []string{"-c", fname,
 		"--restart-epoch", fmt.Sprint(epoch),
 		"--drain-time-s", fmt.Sprint(int(convertDuration(e.config.DrainDuration) / time.Second)),
@@ -70,6 +82,7 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		"--service-cluster", e.config.ServiceCluster,
 		"--service-node", e.node,
 		"--max-obj-name-len", fmt.Sprint(e.config.StatNameLength),
+		"--local-address-ip-version", proxyLocalAddressType,
 		"--allow-unknown-fields",
 	}
 
@@ -91,6 +104,8 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 	return startupArgs
 }
 
+var istioBootstrapOverrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
+
 func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 
 	var fname string
@@ -100,10 +115,12 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	if len(e.config.CustomConfigFile) > 0 {
 		// there is a custom configuration. Don't write our own config - but keep watching the certs.
 		fname = e.config.CustomConfigFile
+	} else if _, ok := config.(proxy.DrainConfig); ok {
+		fname = drainFile
 	} else {
 		out, err := bootstrap.WriteBootstrap(&e.config, e.node, epoch, e.pilotSAN, e.opts, os.Environ(), e.nodeIPs)
 		if err != nil {
-			log.Errora("Failed to generate bootstrap config", err)
+			log.Errora("Failed to generate bootstrap config: ", err)
 			os.Exit(1) // Prevent infinite loop attempting to write the file, let k8s/systemd report
 			return err
 		}
@@ -111,7 +128,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	}
 
 	// spin up a new Envoy process
-	args := e.args(fname, epoch, os.Getenv("ISTIO_BOOTSTRAP_OVERRIDE"))
+	args := e.args(fname, epoch, istioBootstrapOverrideVar.Get())
 	log.Infof("Envoy command: %v", args)
 
 	/* #nosec */
@@ -181,4 +198,21 @@ func convertDuration(d *types.Duration) time.Duration {
 
 func configFile(config string, epoch int) string {
 	return path.Join(config, fmt.Sprintf(epochFileTemplate, epoch))
+}
+
+// isIPv6Proxy check the addresses slice and returns true for a valid IPv6 address
+// for all other cases it returns false
+func isIPv6Proxy(ipAddrs []string) bool {
+	for i := 0; i < len(ipAddrs); i++ {
+		addr := net.ParseIP(ipAddrs[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if addr.To4() != nil {
+			return false
+		}
+	}
+	return true
 }

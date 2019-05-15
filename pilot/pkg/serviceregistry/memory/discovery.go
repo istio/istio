@@ -112,7 +112,7 @@ func MakeInstance(service *model.Service, port *model.Port, version int, az stri
 	// we make port 80 same as endpoint port, otherwise, it's distinct
 	target := port.Port
 	if target != 80 {
-		target = target + 1000
+		target += 1000
 	}
 
 	return &model.ServiceInstance{
@@ -125,18 +125,6 @@ func MakeInstance(service *model.Service, port *model.Port, version int, az stri
 		Service: service,
 		Labels:  map[string]string{"version": fmt.Sprintf("v%d", version)},
 	}
-}
-
-// GetPortHTTP returns the port which name is PortHTTPName. Returns nil if such
-// a port does not exist (should not happenen if service is create via
-// memory MakeSericve)
-func GetPortHTTP(service *model.Service) *model.Port {
-	for _, port := range service.Ports {
-		if port.Name == PortHTTPName {
-			return port
-		}
-	}
-	return nil
 }
 
 // MakeIP creates a fake IP address for a service and instance version
@@ -235,7 +223,7 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 				// Only one IP for memory discovery?
 				if node.IPAddresses[0] == MakeIP(service, v) {
 					for _, port := range service.Ports {
-						out = append(out, MakeInstance(service, port, v, "zone/region"))
+						out = append(out, MakeInstance(service, port, v, "region/zone"))
 					}
 				}
 			}
@@ -245,10 +233,12 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 	return out, sd.GetProxyServiceInstancesError
 }
 
-// GetProxyLocality returns the locality where the proxy runs.
-func (sd *ServiceDiscovery) GetProxyLocality(node *model.Proxy) string {
-	// not implemented
-	return ""
+func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCollection, error) {
+	if sd.GetProxyServiceInstancesError != nil {
+		return nil, sd.GetProxyServiceInstancesError
+	}
+	// no useful labels from the ServiceInstances created by MakeInstance()
+	return nil, nil
 }
 
 // ManagementPorts implements discovery interface

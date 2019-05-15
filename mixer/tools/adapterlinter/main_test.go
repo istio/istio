@@ -21,7 +21,12 @@ import (
 )
 
 func TestDoAllDirs(t *testing.T) {
-	got := doAllDirs([]string{"testdata/bad"})
+	reps := doAllDirs([]string{"testdata/bad"})
+
+	got := make([]string, len(reps))
+	for i := range reps {
+		got[i] = reps[i].msg
+	}
 
 	sort.Strings(got)
 	want := []string{
@@ -46,7 +51,7 @@ func TestDoAllDirs(t *testing.T) {
 func TestDoAllDirsBadPath(t *testing.T) {
 	// check no panics and no reports
 	got := getReport([]string{"testdata/unknown"})
-	want := []string{}
+	want := reports{}
 	if !reflect.DeepEqual(want, got) {
 		t.Errorf("errors don't match\nwant:%v\ngot :%v", want, got)
 	}
@@ -54,7 +59,7 @@ func TestDoAllDirsBadPath(t *testing.T) {
 
 func TestDoAllDirsGood(t *testing.T) {
 	got := getReport([]string{"testdata/bad2"})
-	want := []string{}
+	want := reports{}
 	if !reflect.DeepEqual(want, got) {
 		t.Errorf("errors don't match\nwant:%v\ngot :%v", want, got)
 	}
@@ -62,7 +67,7 @@ func TestDoAllDirsGood(t *testing.T) {
 
 func TestDoAllDirsCurrentDir(t *testing.T) {
 	got := getReport([]string{})
-	want := []string{}
+	want := reports{}
 	if !reflect.DeepEqual(want, got) {
 		t.Errorf("errors don't match\nwant:%v\ngot :%v", want, got)
 	}

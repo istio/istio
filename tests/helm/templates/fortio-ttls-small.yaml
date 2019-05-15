@@ -39,18 +39,21 @@ spec:
   selector:
     app: fortiottlssmall
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fortiottlssmall
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: fortiottlssmall
+      version: ttlssmall
   template:
     metadata:
       annotations:
         sidecar.istio.io/proxyCPU: 100m
         sidecar.istio.io/proxyMemory: 128M
-        sidecar.istio.io/controlPlaneAuthPolicy: MUTUAL_TLS
         sidecar.istio.io/controlPlaneAuthPolicy: MUTUAL_TLS
         sidecar.istio.io/discoveryAddress: pilot.istio-system:15012
       labels:
@@ -74,12 +77,16 @@ spec:
             memory: "1G"
 
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cli-fortio-ttlssmall
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: cli-fortio-ttlssmall
+      version: v1-ttlssmall
   template:
     metadata:
       labels:

@@ -184,7 +184,7 @@ func (nd NetDev) parseLine(rawLine string) (*NetDevLine, error) {
 }
 
 // Total aggregates the values across interfaces and returns a new NetDevLine.
-// The Name field will be a sorted comma seperated list of interface names.
+// The Name field will be a sorted comma separated list of interface names.
 func (nd NetDev) Total() NetDevLine {
 	total := NetDevLine{}
 

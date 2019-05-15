@@ -32,9 +32,9 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"golang.org/x/net/publicsuffix"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -349,7 +349,6 @@ func applyRules(configVersion string, ruleKeys []string) error {
 	for _, ruleKey := range ruleKeys {
 		rule := getPreprocessedRulePath(tc, configVersion, ruleKey)
 		if err := util.KubeApply(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); err != nil {
-			//log.Errorf("Kubectl apply %s failed", rule)
 			return err
 		}
 	}

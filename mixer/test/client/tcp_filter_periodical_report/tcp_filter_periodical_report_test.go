@@ -101,14 +101,34 @@ const finalReportAttributesOkPost = `
 
 // Stats in Envoy proxy.
 var expectedStats = map[string]int{
-	"tcp_mixer_filter.total_blocking_remote_check_calls": 1,
-	"tcp_mixer_filter.total_blocking_remote_quota_calls": 0,
-	"tcp_mixer_filter.total_check_calls":                 1,
+	// Policy check stats
+	"tcp_mixer_filter.total_check_calls":             1,
+	"tcp_mixer_filter.total_check_cache_hits":        0,
+	"tcp_mixer_filter.total_check_cache_misses":      1,
+	"tcp_mixer_filter.total_check_cache_hit_accepts": 0,
+	"tcp_mixer_filter.total_check_cache_hit_denies":  0,
+	"tcp_mixer_filter.total_remote_check_calls":      1,
+	"tcp_mixer_filter.total_remote_check_accepts":    1,
+	"tcp_mixer_filter.total_remote_check_denies":     0,
+	// Quota check stats
 	"tcp_mixer_filter.total_quota_calls":                 0,
-	"tcp_mixer_filter.total_remote_check_calls":          1,
+	"tcp_mixer_filter.total_quota_cache_hits":            0,
+	"tcp_mixer_filter.total_quota_cache_misses":          0,
+	"tcp_mixer_filter.total_quota_cache_hit_accepts":     0,
+	"tcp_mixer_filter.total_quota_cache_hit_denies":      0,
 	"tcp_mixer_filter.total_remote_quota_calls":          0,
-	"tcp_mixer_filter.total_remote_report_calls":         3,
-	"tcp_mixer_filter.total_report_calls":                3,
+	"tcp_mixer_filter.total_remote_quota_accepts":        0,
+	"tcp_mixer_filter.total_remote_quota_denies":         0,
+	"tcp_mixer_filter.total_remote_quota_prefetch_calls": 0,
+	// Stats for RPCs to mixer policy server
+	"tcp_mixer_filter.total_remote_calls":             1,
+	"tcp_mixer_filter.total_remote_call_successes":    1,
+	"tcp_mixer_filter.total_remote_call_timeouts":     0,
+	"tcp_mixer_filter.total_remote_call_send_errors":  0,
+	"tcp_mixer_filter.total_remote_call_other_errors": 0,
+	// Report stats
+	"tcp_mixer_filter.total_remote_report_calls": 3,
+	"tcp_mixer_filter.total_report_calls":        3,
 }
 
 func TestTCPMixerFilterPeriodicalReport(t *testing.T) {

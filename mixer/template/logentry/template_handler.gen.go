@@ -39,7 +39,7 @@ import (
 //   variables:
 //     sourceIp: source.ip | ip("0.0.0.0")
 //     destinationIp: destination.ip | ip("0.0.0.0")
-//     sourceUser: source.user | ""
+//     sourceUser: source.principal | ""
 //     method: request.method | ""
 //     url: request.path | ""
 //     protocol: request.scheme | "http"

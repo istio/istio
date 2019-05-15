@@ -180,7 +180,7 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) {
 
 	h, err := BuildHandler("spy",
 		&attributeV1beta1.Connection{Address: s.Addr().String()}, false, adapterConfig,
-		[]*TemplateConfig{listentryDi, metricDi, quotaDi, unknownQuota, apaDi, checkoutputDi})
+		[]*TemplateConfig{listentryDi, metricDi, quotaDi, unknownQuota, apaDi, checkoutputDi}, false)
 
 	if err != nil {
 		t.Fatalf("unable to build handler: %v", err)
@@ -310,7 +310,7 @@ func asAdapterCheckResult(result *v1beta1.CheckResult) *adapter.CheckResult {
 
 func TestCodecErrors(t *testing.T) {
 	c := Codec{decode: protoUnmarshal}
-	t.Run(c.String()+".marshalError", func(t *testing.T) {
+	t.Run(c.Name()+".marshalError", func(t *testing.T) {
 		if _, err := c.Marshal("ABC"); err != nil {
 			if !strings.Contains(err.Error(), "unable to marshal") {
 				t.Errorf("incorrect error: %v", err)
@@ -319,7 +319,7 @@ func TestCodecErrors(t *testing.T) {
 			t.Errorf("exepcted marshal to fail")
 		}
 	})
-	t.Run(c.String()+".unMarshalError", func(t *testing.T) {
+	t.Run(c.Name()+".unMarshalError", func(t *testing.T) {
 		var ba []byte
 		if err := c.Unmarshal(ba, "ABC"); err != nil {
 			if !strings.Contains(err.Error(), "unable to unmarshal") {
@@ -387,7 +387,7 @@ func TestHandlerTimeout(t *testing.T) {
 	timeout := 10 * time.Millisecond
 	h, err := BuildHandler("spy",
 		&attributeV1beta1.Connection{Address: s.Addr().String(), Timeout: &timeout}, false, adapterConfig,
-		[]*TemplateConfig{metricDi})
+		[]*TemplateConfig{metricDi}, false)
 	if err != nil {
 		t.Fatalf("cannot connect to remote handler %v", err)
 	}

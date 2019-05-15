@@ -15,7 +15,7 @@
 package ingress
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -40,7 +40,8 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -54,9 +55,9 @@ type StatusSyncer struct {
 
 	ingressClass        string
 	defaultIngressClass string
-	ingressNameSpace    string
-	ingressService      string
-	pod                 *v1.Pod
+
+	// Name of service (ingressgateway default) to find the IP
+	ingressService string
 
 	queue    kube.Queue
 	informer cache.SharedIndexInformer
@@ -67,29 +68,18 @@ type StatusSyncer struct {
 // Run the syncer until stopCh is closed
 func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
 	go s.informer.Run(stopCh)
-	go s.elector.Run()
+	go s.elector.Run(context.Background())
 	<-stopCh
 	// TODO: should we remove current IPs on shutting down?
 }
 
+var podNameVar = env.RegisterStringVar("POD_NAME", "", "")
+
 // NewStatusSyncer creates a new instance
 func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 	client kubernetes.Interface,
-	ingressNamespace string,
+	pilotNamespace string,
 	options kube.ControllerOptions) (*StatusSyncer, error) {
-	podName, exists := os.LookupEnv("POD_NAME")
-	if !exists {
-		return nil, errors.New("POD_NAME environment variable must be defined")
-	}
-	podNamespace, exists := os.LookupEnv("POD_NAMESPACE")
-	if !exists {
-		return nil, errors.New("POD_NAMESPACE environment variable must be defined")
-	}
-
-	pod, _ := client.CoreV1().Pods(podNamespace).Get(podName, meta_v1.GetOptions{})
-	if pod == nil {
-		return nil, fmt.Errorf("unable to get POD information")
-	}
 
 	// we need to use the defined ingress class to allow multiple leaders
 	// in order to update information about ingress status
@@ -121,20 +111,18 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 		queue:               queue,
 		ingressClass:        ingressClass,
 		defaultIngressClass: defaultIngressClass,
-		ingressNameSpace:    ingressNamespace,
 		ingressService:      mesh.IngressService,
-		pod:                 pod,
 		handler:             handler,
 	}
 
 	callbacks := leaderelection.LeaderCallbacks{
-		OnStartedLeading: func(stop <-chan struct{}) {
+		OnStartedLeading: func(ctx context.Context) {
 			log.Infof("I am the new status update leader")
-			go st.queue.Run(stop)
+			go st.queue.Run(ctx.Done())
 			err := wait.PollUntil(updateInterval, func() (bool, error) {
 				st.queue.Push(kube.NewTask(st.handler.Apply, "Start leading", model.EventUpdate))
 				return false, nil
-			}, stop)
+			}, ctx.Done())
 
 			if err != nil {
 				log.Errorf("Stop requested")
@@ -155,9 +143,10 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 		Component: "ingress-leader-elector",
 		Host:      hostname,
 	})
+	podName := podNameVar.Get()
 
 	lock := resourcelock.ConfigMapLock{
-		ConfigMapMeta: meta_v1.ObjectMeta{Namespace: podNamespace, Name: electionID},
+		ConfigMapMeta: meta_v1.ObjectMeta{Namespace: pilotNamespace, Name: electionID},
 		Client:        client.CoreV1(),
 		LockConfig: resourcelock.ResourceLockConfig{
 			Identity:      podName,
@@ -182,7 +171,7 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 
 	// Register handler at the beginning
 	handler.Append(func(obj interface{}, event model.Event) error {
-		addrs, err := st.runningAddresses()
+		addrs, err := st.runningAddresses(ingressNamespace)
 		if err != nil {
 			return err
 		}
@@ -225,11 +214,11 @@ func (s *StatusSyncer) updateStatus(status []v1.LoadBalancerIngress) error {
 
 // runningAddresses returns a list of IP addresses and/or FQDN where the
 // ingress controller is currently running
-func (s *StatusSyncer) runningAddresses() ([]string, error) {
+func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
 	addrs := []string{}
 
 	if s.ingressService != "" {
-		svc, err := s.client.CoreV1().Services(s.ingressNameSpace).Get(s.ingressService, meta_v1.GetOptions{})
+		svc, err := s.client.CoreV1().Services(ingressNs).Get(s.ingressService, meta_v1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -251,9 +240,10 @@ func (s *StatusSyncer) runningAddresses() ([]string, error) {
 		return addrs, nil
 	}
 
-	// get information about all the pods running the ingress controller
-	pods, err := s.client.CoreV1().Pods(s.pod.GetNamespace()).List(meta_v1.ListOptions{
-		LabelSelector: labels.SelectorFromSet(s.pod.GetLabels()).String(),
+	// get information about all the pods running the ingress controller (gateway)
+	pods, err := s.client.CoreV1().Pods(ingressNamespace).List(meta_v1.ListOptions{
+		// TODO: make it a const or maybe setting ( unless we remove k8s ingress support first)
+		LabelSelector: labels.SelectorFromSet(map[string]string{"app": "ingressgateway"}).String(),
 	})
 	if err != nil {
 		return nil, err

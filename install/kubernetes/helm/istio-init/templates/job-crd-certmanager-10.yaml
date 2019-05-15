@@ -1,3 +1,4 @@
+{{- if .Values.certmanager.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -24,3 +25,4 @@ spec:
         configMap:
           name: istio-crd-certmanager-10
       restartPolicy: OnFailure
+{{- end }}

@@ -19,13 +19,19 @@ package spybackend
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net"
 	"sort"
 	"strings"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 
 	adptModel "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/template/listentry"
@@ -70,6 +76,9 @@ var _ checkoutputTmpl.HandleCheckProducerServiceServer = &NoSessionServer{}
 
 // HandleMetric records metric entries and responds with the programmed response
 func (s *NoSessionServer) HandleMetric(c context.Context, r *metric.HandleMetricRequest) (*adptModel.ReportResult, error) {
+	if !verifyHeader(c, s.Behavior.HeaderKey, s.Behavior.HeaderToken) {
+		return nil, fmt.Errorf("want auth header %v %v", s.Behavior.HeaderKey, s.Behavior.HeaderToken)
+	}
 	s.Requests.metricLock.Lock()
 	s.Requests.HandleMetricRequest = append(s.Requests.HandleMetricRequest, r)
 	s.Requests.metricLock.Unlock()
@@ -205,7 +214,6 @@ func (s *NoSessionServer) Close() error {
 	return nil
 }
 
-// GetCapturedCalls ...
 func (s *NoSessionServer) GetCapturedCalls() []spyadapter.CapturedCall {
 	return s.CapturedCalls
 }
@@ -317,10 +325,42 @@ func NewNoSessionServer(a *Args) (Server, error) {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to listen on socket: %v", err)
 	}
-
 	fmt.Printf("listening on :%v", s.listener.Addr())
 
-	s.server = grpc.NewServer()
+	if a.Behavior.RequireMTls || a.Behavior.RequireTLS {
+		certificate, err := tls.LoadX509KeyPair(
+			a.Behavior.CredsPath,
+			a.Behavior.KeyPath,
+		)
+		if err != nil {
+			_ = s.Close()
+			return nil, fmt.Errorf("cannot load key cert pair %v", err)
+		}
+		certPool := x509.NewCertPool()
+		bs, err := ioutil.ReadFile(a.Behavior.CertPath)
+		if err != nil {
+			log.Fatalf("failed to read client ca cert: %s", err)
+		}
+
+		ok := certPool.AppendCertsFromPEM(bs)
+		if !ok {
+			log.Fatal("failed to append client certs")
+		}
+
+		tlsConfig := &tls.Config{
+			Certificates: []tls.Certificate{certificate},
+			ClientCAs:    certPool,
+		}
+		if a.Behavior.RequireMTls {
+			tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+			tlsConfig.InsecureSkipVerify = a.Behavior.InsecureSkipVerification
+		}
+		serverOption := grpc.Creds(credentials.NewTLS(tlsConfig))
+		s.server = grpc.NewServer(serverOption)
+	} else {
+		s.server = grpc.NewServer()
+	}
+
 	metric.RegisterHandleMetricServiceServer(s.server, s)
 	listentry.RegisterHandleListEntryServiceServer(s.server, s)
 	quota.RegisterHandleQuotaServiceServer(s.server, s)
@@ -331,4 +371,18 @@ func NewNoSessionServer(a *Args) (Server, error) {
 	checkoutputTmpl.RegisterHandleCheckProducerServiceServer(s.server, s)
 
 	return s, nil
+}
+
+func verifyHeader(c context.Context, key, value string) bool {
+	if key == "" {
+		return true
+	}
+	md, ok := metadata.FromIncomingContext(c)
+	if !ok {
+		return false
+	}
+	if val, ok := md[key]; ok && len(val) == 1 && val[0] == value {
+		return true
+	}
+	return false
 }

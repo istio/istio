@@ -25,6 +25,13 @@ pulls:
   # Limit the number of actions per hour, from 1-30. Default is 30
   limitPerRun: 1
 
+exemptLabels:
+  - help wanted
+  - kind/customer issue
+  - kind/test failure
+  - Epic
+  - no stalebot
+
 # Issue specific configuration
 issues:
   # TODO: Consider increasing the limitPerRun once we are satisfied with the bot's performance
@@ -39,9 +46,3 @@ issues:
     This issue has been automatically closed because it has not had activity in the
     last month and a half. If this issue is still valid, please ping a maintainer and ask them to label it as "help wanted".
     Thank you for your contributions.
-  exemptLabels:
-    - help wanted
-    - kind/customer issue
-    - kind/test failure
-    - Epic
-    - no stalebot

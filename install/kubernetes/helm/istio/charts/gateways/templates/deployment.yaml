@@ -1,0 +1,302 @@
+{{- range $key, $spec := .Values }}
+{{- if ne $key "enabled" }}
+{{- if $spec.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $key }}
+  namespace: {{ $spec.namespace | default $.Release.Namespace }}
+  labels:
+    chart: {{ template "gateway.chart" $ }}
+    heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
+    {{- range $key, $val := $spec.labels }}
+    {{ $key }}: {{ $val }}
+    {{- end }}
+spec:
+{{- if not $spec.autoscaleEnabled }}
+{{- if $spec.replicaCount }}
+  replicas: {{ $spec.replicaCount }}
+{{- else }}
+  replicas: 1
+{{- end }}
+{{- end }}
+  selector:
+    matchLabels:
+      {{- range $key, $val := $spec.labels }}
+      {{ $key }}: {{ $val }}
+      {{- end }}
+  template:
+    metadata:
+      labels:
+        chart: {{ template "gateway.chart" $ }}
+        heritage: {{ $.Release.Service }}
+        release: {{ $.Release.Name }}
+        {{- range $key, $val := $spec.labels }}
+        {{ $key }}: {{ $val }}
+        {{- end }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+{{- if $spec.podAnnotations }}
+{{ toYaml $spec.podAnnotations | indent 8 }}
+{{ end }}
+    spec:
+      serviceAccountName: {{ $key }}-service-account
+{{- if $.Values.global.priorityClassName }}
+      priorityClassName: "{{ $.Values.global.priorityClassName }}"
+{{- end }}
+{{- if $.Values.global.proxy.enableCoreDump }}
+      initContainers:
+        - name: enable-core-dump
+{{- if contains "/" $.Values.global.proxy_init.image }}
+          image: "{{ $.Values.global.proxy_init.image }}"
+{{- else }}
+          image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy_init.image }}:{{ $.Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+          args:
+            - -c
+            - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
+          securityContext:
+            privileged: true
+{{- end }}
+      containers:
+{{- if $spec.sds }}
+{{- if $spec.sds.enabled }}
+        - name: ingress-sds
+{{- if contains "/" $spec.sds.image }}
+          image: "{{ $spec.sds.image }}"
+{{- else }}
+          image: "{{ $.Values.global.hub }}/{{ $spec.sds.image }}:{{ $.Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          env:
+          - name: "ENABLE_WORKLOAD_SDS"
+            value: "false"
+          - name: "ENABLE_INGRESS_GATEWAY_SDS"
+            value: "true"
+          - name: "INGRESS_GATEWAY_NAMESPACE"
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          volumeMounts:
+          - name: ingressgatewaysdsudspath
+            mountPath: /var/run/ingress_gateway
+{{- end }}
+{{- end }}
+        - name: istio-proxy
+{{- if contains "/" $.Values.global.proxy.image }}
+          image: "{{ $.Values.global.proxy.image }}"
+{{- else }}
+          image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          ports:
+            {{- range $key, $val := $spec.ports }}
+            - containerPort: {{ $val.port }}
+            {{- end }}
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+          args:
+          - proxy
+          - router
+          - --domain
+          - $(POD_NAMESPACE).svc.{{ $.Values.global.proxy.clusterDomain }}
+        {{- if $.Values.global.proxy.logLevel }}
+          - --proxyLogLevel={{ $.Values.global.proxy.logLevel }}
+        {{- end}}
+        {{- if $.Values.global.proxy.componentLogLevel }}
+          - --proxyComponentLogLevel={{ $.Values.global.proxy.componentLogLevel }}
+        {{- end}}
+        {{- if $.Values.global.logging.level }}
+          - --log_output_level={{ $.Values.global.logging.level }}
+        {{- end}}
+          - --drainDuration
+          - '45s' #drainDuration
+          - --parentShutdownDuration
+          - '1m0s' #parentShutdownDuration
+          - --connectTimeout
+          - '10s' #connectTimeout
+          - --serviceCluster
+          - {{ $key }}
+          - --zipkinAddress
+        {{- if $.Values.global.tracer.zipkin.address }}
+          - {{ $.Values.global.tracer.zipkin.address }}
+        {{- else if $.Values.global.istioNamespace }}
+          - zipkin.{{ $.Values.global.istioNamespace }}:9411
+        {{- else }}
+          - zipkin:9411
+        {{- end }}
+        {{- if $.Values.global.proxy.envoyStatsd.enabled }}
+          - --statsdUdpAddress
+          - {{ $.Values.global.proxy.envoyStatsd.host }}:{{ $.Values.global.proxy.envoyStatsd.port }}
+        {{- end }}
+        {{- if $.Values.global.proxy.envoyMetricsService.enabled }}
+          - --envoyMetricsServiceAddress
+          - {{ $.Values.global.proxy.envoyMetricsService.host }}:{{ $.Values.global.proxy.envoyMetricsService.port }}
+        {{- end }}
+          - --proxyAdminPort
+          - "15000"
+          - --statusPort
+          - "15020"
+        {{- if $.Values.global.controlPlaneSecurityEnabled }}
+          - --controlPlaneAuthPolicy
+          - MUTUAL_TLS
+          - --discoveryAddress
+          {{- if $.Values.global.istioNamespace }}
+          - istio-pilot.{{ $.Values.global.istioNamespace }}:15011
+          {{- else }}
+          - istio-pilot:15011
+          {{- end }}
+        {{- else }}
+          - --controlPlaneAuthPolicy
+          - NONE
+          - --discoveryAddress
+          {{- if $.Values.global.istioNamespace }}
+          - istio-pilot.{{ $.Values.global.istioNamespace }}:15010
+          {{- else }}
+          - istio-pilot:15010
+          {{- end }}
+        {{- end }}
+        {{- if $.Values.global.trustDomain }}
+          - --trust-domain={{ $.Values.global.trustDomain }}
+        {{- end }}
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15020
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+{{- if $spec.resources }}
+{{ toYaml $spec.resources | indent 12 }}
+{{- else }}
+{{ toYaml $.Values.global.defaultResources | indent 12 }}
+{{- end }}
+          env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: INSTANCE_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.hostIP
+          - name: ISTIO_META_POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: ISTIO_META_CONFIG_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          {{- if $spec.sds }}
+          {{- if $spec.sds.enabled }}
+          - name: ISTIO_META_USER_SDS
+            value: "true"
+          {{- end }}
+          {{- end }}
+          {{- if $spec.env }}
+          {{- range $key, $val := $spec.env }}
+          - name: {{ $key }}
+            value: {{ $val }}
+          {{- end }}
+          {{- end }}
+          volumeMounts:
+          {{- if $.Values.global.sds.enabled }}
+          - name: sdsudspath
+            mountPath: /var/run/sds/uds_path
+            readOnly: true
+          {{- if $.Values.global.sds.useTrustworthyJwt }}
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+          {{- end }}
+          {{- end }}
+          {{- if $spec.sds }}
+          {{- if $spec.sds.enabled }}
+          - name: ingressgatewaysdsudspath
+            mountPath: /var/run/ingress_gateway
+          {{- end }}
+          {{- end }}
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+          {{- range $spec.secretVolumes }}
+          - name: {{ .name }}
+            mountPath: {{ .mountPath | quote }}
+            readOnly: true
+          {{- end }}
+{{- if $spec.additionalContainers }}
+{{ toYaml $spec.additionalContainers | indent 8 }}
+{{- end }}
+      volumes:
+      {{- if $spec.sds }}
+      {{- if $spec.sds.enabled }}
+      - name: ingressgatewaysdsudspath
+        emptyDir: {}
+      {{- end }}
+      {{- end }}
+      {{- if $.Values.global.sds.enabled }}
+      - name: sdsudspath
+        hostPath:
+          path: /var/run/sds/uds_path
+          type: Socket
+      {{- if $.Values.global.sds.useTrustworthyJwt }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: {{ $.Values.global.trustDomain }}
+      {{- end }}
+      {{- end }}
+      - name: istio-certs
+        secret:
+          secretName: istio.{{ $key }}-service-account
+          optional: true
+      {{- range $spec.secretVolumes }}
+      - name: {{ .name }}
+        secret:
+          secretName: {{ .secretName | quote }}
+          optional: true
+      {{- end }}
+      {{- range $spec.configVolumes }}
+      - name: {{ .name }}
+        configMap:
+          name: {{ .configMapName | quote }}
+          optional: true
+      {{- end }}
+      affinity:
+      {{- include "gatewaynodeaffinity" (dict "root" $ "nodeSelector" $spec.nodeSelector) | indent 6 }}
+      {{- include "gatewaypodAntiAffinity" (dict "podAntiAffinityLabelSelector" $spec.podAntiAffinityLabelSelector "podAntiAffinityTermLabelSelector" $spec.podAntiAffinityTermLabelSelector) | indent 6 }}
+---
+{{- end }}
+{{- end }}
+{{- end }}

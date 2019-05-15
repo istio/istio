@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // We process EnvoyFilter CRDs after calling all plugins and building the listener with the required filter chains
@@ -39,7 +39,7 @@ import (
 // If one or more filters are added to the HTTP connection manager, we will update the last filter in the listener
 // filter chain (which is the http connection manager) with the updated object.
 func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
-	httpConnectionManagers []*http_conn.HttpConnectionManager) error {
+	httpConnectionManagers []*http_conn.HttpConnectionManager) error { //nolint: unparam
 	filterCRD := getUserFiltersForWorkload(in)
 	if filterCRD == nil {
 		return nil
@@ -60,23 +60,50 @@ func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
 		// http listener, tcp filter
 		// tcp listener, http filter -- invalid
 
-		// http, http case
-		if in.ListenerProtocol == plugin.ListenerProtocolHTTP && f.FilterType == networking.EnvoyFilter_Filter_HTTP {
-			// Insert into http connection manager
-			for cnum := range listener.FilterChains {
-				insertHTTPFilter(listener.Name, &listener.FilterChains[cnum], httpConnectionManagers[cnum], f)
-			}
-		} else {
-			// tcp listener with some opaque filter or http listener with some opaque filter
-			// We treat both as insert network filter X into network filter chain.
-			// We cannot insert a HTTP in filter in network filter chain.
-			// Even HTTP connection manager is a network filter
-			if f.FilterType == networking.EnvoyFilter_Filter_HTTP {
-				log.Warnf("Ignoring filter %s. Cannot insert HTTP filter in network filter chain",
-					f.FilterName)
-				continue
-			}
-			for cnum := range listener.FilterChains {
+		for cnum, lFilterChain := range listener.FilterChains {
+			if util.IsHTTPFilterChain(lFilterChain) {
+				// The listener match logic does not take into account the listener protocol
+				// because filter chains in a listener can have multiple protocols.
+				// for each filter chain, if the filter chain has a http connection manager,
+				// treat it as a http listener
+				// ListenerProtocol defaults to ALL. But if user specified listener protocol TCP, then
+				// skip this filter chain as its a HTTP filter chain
+				if f.ListenerMatch != nil &&
+					!(f.ListenerMatch.ListenerProtocol == networking.EnvoyFilter_ListenerMatch_ALL ||
+						f.ListenerMatch.ListenerProtocol == networking.EnvoyFilter_ListenerMatch_HTTP) {
+					continue
+				}
+
+				// Now that the match condition is true, insert the filter if compatible
+				// http listener, http filter case
+				if f.FilterType == networking.EnvoyFilter_Filter_HTTP {
+					// Insert into http connection manager
+					insertHTTPFilter(listener.Name, &listener.FilterChains[cnum], httpConnectionManagers[cnum], f, util.IsXDSMarshalingToAnyEnabled(in.Node))
+				} else {
+					// http listener, tcp filter
+					insertNetworkFilter(listener.Name, &listener.FilterChains[cnum], f)
+				}
+			} else {
+				// The listener match logic does not take into account the listener protocol
+				// because filter chains in a listener can have multiple protocols.
+				// for each filter chain, if the filter chain does not have a http connection manager,
+				// treat it as a tcp listener
+				// ListenerProtocol defaults to ALL. But if user specified listener protocol HTTP, then
+				// skip this filter chain as its a TCP filter chain
+				if f.ListenerMatch != nil &&
+					!(f.ListenerMatch.ListenerProtocol == networking.EnvoyFilter_ListenerMatch_ALL ||
+						f.ListenerMatch.ListenerProtocol == networking.EnvoyFilter_ListenerMatch_TCP) {
+					continue
+				}
+
+				// treat both as insert network filter X into network filter chain.
+				// We cannot insert a HTTP in filter in network filter chain.
+				// Even HTTP connection manager is a network filter
+				if f.FilterType == networking.EnvoyFilter_Filter_HTTP {
+					log.Warnf("Ignoring filter %s. Cannot insert HTTP filter in network filter chain",
+						f.FilterName)
+					continue
+				}
 				insertNetworkFilter(listener.Name, &listener.FilterChains[cnum], f)
 			}
 		}
@@ -88,15 +115,8 @@ func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
 // is undefined.
 func getUserFiltersForWorkload(in *plugin.InputParams) *networking.EnvoyFilter {
 	env := in.Env
-	// collect workload labels
-	workloadInstances := in.ProxyInstances
 
-	var workloadLabels model.LabelsCollection
-	for _, w := range workloadInstances {
-		workloadLabels = append(workloadLabels, w.Labels)
-	}
-
-	f := env.EnvoyFilter(workloadLabels)
+	f := env.EnvoyFilter(in.Node.WorkloadLabels)
 	if f != nil {
 		return f.Spec.(*networking.EnvoyFilter)
 	}
@@ -158,17 +178,7 @@ func listenerMatch(in *plugin.InputParams, listenerIP net.IP,
 		}
 	}
 
-	// Listener protocol
-	switch matchCondition.ListenerProtocol {
-	case networking.EnvoyFilter_ListenerMatch_HTTP:
-		if in.ListenerProtocol != plugin.ListenerProtocolHTTP {
-			return false
-		}
-	case networking.EnvoyFilter_ListenerMatch_TCP:
-		if in.ListenerProtocol != plugin.ListenerProtocolTCP {
-			return false
-		}
-	}
+	// Listener protocol will be matched as we try to insert the filters
 
 	if len(matchCondition.Address) > 0 {
 		if listenerIP == nil {
@@ -203,7 +213,7 @@ func listenerMatch(in *plugin.InputParams, listenerIP net.IP,
 }
 
 func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hcm *http_conn.HttpConnectionManager,
-	envoyFilter *networking.EnvoyFilter_Filter) {
+	envoyFilter *networking.EnvoyFilter_Filter, isXDSMarshalingToAnyEnabled bool) {
 	filter := &http_conn.HttpFilter{
 		Name:       envoyFilter.FilterName,
 		ConfigType: &http_conn.HttpFilter_Config{Config: envoyFilter.FilterConfig},
@@ -244,10 +254,15 @@ func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hc
 
 	// Rebuild the HTTP connection manager in the network filter chain
 	// Its the last filter in the filter chain
-	filterChain.Filters[len(filterChain.Filters)-1] = listener.Filter{
-		Name:       xdsutil.HTTPConnectionManager,
-		ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(hcm)},
+	filterStruct := listener.Filter{
+		Name: xdsutil.HTTPConnectionManager,
 	}
+	if isXDSMarshalingToAnyEnabled {
+		filterStruct.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)}
+	} else {
+		filterStruct.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(hcm)}
+	}
+	filterChain.Filters[len(filterChain.Filters)-1] = filterStruct
 	log.Infof("EnvoyFilters: Rebuilt HTTP Connection Manager %s (from %d filters to %d filters)",
 		listenerName, oldLen, len(hcm.HttpFilters))
 }

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -79,6 +79,11 @@ func (d *InMemoryDistributor) GetSnapshot(name string) sn.Snapshot {
 		return s
 	}
 	return nil
+}
+
+// NumSnapshots returns the current number of snapshots.
+func (d *InMemoryDistributor) NumSnapshots() int {
+	return len(d.snapshots)
 }
 
 // ListenChanges registered listener and start listening snapshot changes in the distributor

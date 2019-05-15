@@ -103,7 +103,6 @@ spec:
         valueType: STRING
       source.serviceAccount:
         valueType: STRING
-        valueType: STRING
       destination.ip:
         valueType: IP_ADDRESS
       destination.labels:

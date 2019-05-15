@@ -1,9 +1,0 @@
-#
-# security configuration
-#
-enabled: true
-replicaCount: 1
-image: citadel
-selfSigned: true # indicate if self-signed CA is used.
-trustDomain: cluster.local # indicate the domain used in SPIFFE identity URL
-nodeSelector: {}

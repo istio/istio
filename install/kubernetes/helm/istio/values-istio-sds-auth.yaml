@@ -6,9 +6,6 @@ global:
     # destination rules or service annotations.
     enabled: true
 
-  # Default is 10s second
-  refreshInterval: 1s
-
   sds:
     enabled: true
     udsPath: "unix:/var/run/sds/uds_path"

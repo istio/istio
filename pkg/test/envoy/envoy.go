@@ -22,9 +22,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
-	"sync"
 
 	"istio.io/istio/pkg/test/env"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -43,24 +43,9 @@ type LogLevel string
 const (
 	// LogLevelTrace level
 	LogLevelTrace LogLevel = "trace"
-	// LogLevelDebug level
-	LogLevelDebug LogLevel = "debug"
-	// LogLevelInfo level
-	LogLevelInfo LogLevel = "info"
+
 	// LogLevelWarning level
 	LogLevelWarning LogLevel = "warning"
-	// LogLevelError level
-	LogLevelError LogLevel = "error"
-	// LogLevelCritical level
-	LogLevelCritical LogLevel = "critical"
-	// LogLevelOff level
-	LogLevelOff = "off"
-)
-
-var (
-	idGenerator = &baseIDGenerator{
-		ids: make(map[uint32]byte),
-	}
 )
 
 // Envoy is a wrapper that simplifies running Envoy.
@@ -106,7 +91,7 @@ func (e *Envoy) Start() (err error) {
 
 	// We need to make sure each envoy has a unique base ID in order to run multiple instances on the same
 	// machine.
-	e.takeBaseID()
+	e.baseID = computeBaseID()
 
 	// Run the envoy binary
 	args := e.getCommandArgs()
@@ -119,8 +104,7 @@ func (e *Envoy) Start() (err error) {
 // Stop kills the Envoy process.
 // TODO: separate returning of baseID, to make it work with Envoy's hot restart.
 func (e *Envoy) Stop() error {
-	// Make sure we return the base ID.
-	defer e.returnBaseID()
+	defer e.freeSharedMemory()
 
 	if e.cmd == nil || e.cmd.Process == nil {
 		// Wasn't previously started - nothing to do.
@@ -144,18 +128,16 @@ func (e *Envoy) validateCommandArgs() error {
 	return nil
 }
 
-func (e *Envoy) takeBaseID() {
-	e.baseID = idGenerator.takeBaseID()
-}
-
-func (e *Envoy) returnBaseID() {
+func (e *Envoy) freeSharedMemory() {
 	if e.baseID != 0 {
-		path := "/dev/shm/envoy_shared_memory_" + strconv.FormatUint(uint64(e.baseID), 10) + "0"
-		if err := os.Remove(path); err == nil || os.IsNotExist(err) {
-			idGenerator.returnBaseID(e.baseID)
-			// Restore the zero value.
-			e.baseID = 0
+		// Envoy internally multiplies the base ID from the command line by 10 so that they have spread
+		// for domain sockets.
+		internalBaseID := int(e.baseID) * 10
+		path := "/dev/shm/envoy_shared_memory_" + strconv.Itoa(internalBaseID)
+		if err := os.Remove(path); err != nil {
+			log.Infof("error deleting Envoy shared memory %s: %v", path, err)
 		}
+		e.baseID = 0
 	}
 }
 
@@ -259,32 +241,20 @@ func getDefaultEnvoyBinaryPath() (string, error) {
 	return latestBinPath, nil
 }
 
-// A little utility that helps to ensure that we don't re-use
-type baseIDGenerator struct {
-	m   sync.Mutex
-	ids map[uint32]byte
-}
+// computeBaseID is a method copied from Envoy server tests.
+//
+// Computes a numeric ID to incorporate into the names of shared-memory segments and
+// domain sockets, to help keep them distinct from other tests that might be running concurrently.
+func computeBaseID() uint32 {
+	// The PID is needed to isolate namespaces between concurrent processes in CI.
+	pid := uint32(os.Getpid())
 
-func (g *baseIDGenerator) takeBaseID() uint32 {
-	g.m.Lock()
-	defer g.m.Unlock()
+	// A random number is needed to avoid baseID collisions for multiple Envoys started from the same
+	// process.
+	randNum := rand.Uint32()
 
-	// Retry until we find a baseID that's not currently in use.
-	for {
-		baseID := rand.Uint32()
-		// Don't allow 0, since we treat that as not-set.
-		if baseID > 0 {
-			_, ok := g.ids[baseID]
-			if !ok {
-				g.ids[baseID] = 1
-				return baseID
-			}
-		}
-	}
-}
-
-func (g *baseIDGenerator) returnBaseID(baseID uint32) {
-	g.m.Lock()
-	defer g.m.Unlock()
-	delete(g.ids, baseID)
+	// Pick a prime number to give more of the 32-bits of entropy to the PID, and the
+	// remainder to the random number.
+	fourDigitPrime := uint32(7919)
+	return pid*fourDigitPrime + randNum%fourDigitPrime
 }

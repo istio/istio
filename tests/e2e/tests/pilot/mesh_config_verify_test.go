@@ -21,12 +21,13 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 const maxDeploymentTimeout = 480 * time.Second
+const propagationTime = 5 * time.Second
 
 func verifyMCMeshConfig(primaryPodNames, remotePodNames []string, appEPs map[string][]string) error {
 	retry := util.Retrier{
@@ -46,7 +47,7 @@ func verifyMCMeshConfig(primaryPodNames, remotePodNames []string, appEPs map[str
 		return nil
 	}
 
-	_, err := retry.Retry(nil, retryFn)
+	_, err := retry.Retry(context.TODO(), retryFn)
 
 	return err
 }
@@ -56,6 +57,7 @@ func addRemoteCluster() error {
 		log.Errorf("Unable to create remote cluster secret on local cluster %s", err.Error())
 		return err
 	}
+	time.Sleep(propagationTime)
 	return nil
 }
 
@@ -63,6 +65,7 @@ func deleteRemoteCluster() error {
 	if err := util.DeleteMultiClusterSecret(tc.Kube.Namespace, tc.Kube.RemoteKubeConfig, tc.Kube.KubeConfig); err != nil {
 		return err
 	}
+	time.Sleep(propagationTime)
 	return nil
 }
 
@@ -116,19 +119,8 @@ func createAndVerifyMCMeshConfig() error {
 		return err
 	}
 
-	// Verify that the mesh contains endpoints from the primary cluster only
-	log.Infof("Before adding remote cluster secret, verify that the mesh only contains endpoints from the primary cluster only")
-	if err = verifyMCMeshConfig(primaryPodNames, remotePodNames, primaryAppEPs); err != nil {
-		return err
-	}
-
-	// Add the remote cluster by creating a secret and configmap in the primary cluster
-	if err = addRemoteCluster(); err != nil {
-		return err
-	}
-
 	// Verify that the mesh contains endpoints from both the primary and the remote clusters
-	log.Infof("After adding remote cluster secret, verify that the mesh contains endpoints from both the primary and the remote clusters")
+	log.Infof("Verify that the mesh contains endpoints from both the primary and the remote clusters")
 	aggregatedAppEPs := aggregateAppEPs(primaryAppEPs, remoteAppEPs)
 
 	if err = verifyMCMeshConfig(primaryPodNames, remotePodNames, aggregatedAppEPs); err != nil {
@@ -140,13 +132,13 @@ func createAndVerifyMCMeshConfig() error {
 		return err
 	}
 
-	log.Infof("After deleting remote cluster secret, verify again that the mesh contains endpoints from the primary cluster only")
-	// Verify that the mesh contains the primary endpoints only
+	// Verify that the mesh contains endpoints from the primary cluster only
+	log.Infof("After deleting remote cluster secret, verify that the mesh only contains endpoints from the primary cluster only")
 	if err = verifyMCMeshConfig(primaryPodNames, remotePodNames, primaryAppEPs); err != nil {
 		return err
 	}
 
-	// Again, add the remote cluster by creating a secret and configmap in the primary cluster
+	// Add back the remote cluster by creating a secret and configmap in the primary cluster
 	if err = addRemoteCluster(); err != nil {
 		return err
 	}
@@ -269,7 +261,7 @@ func verifyPod(istioctl *framework.Istioctl, podName string, appEPs map[string][
 	for app, portIPs := range epInfo {
 		for _, IPs := range portIPs {
 			if !verifyEndpoints(appEPs[app], IPs) {
-				err = fmt.Errorf("endpoints for app '%s' in proxy config in pod %s are not correct: %v vs %v", app, podName, IPs, appEPs[app])
+				err = fmt.Errorf("endpoints for app '%s' in proxy config in pod %s are not correct, got: %v but expected: %v", app, podName, IPs, appEPs[app])
 				log.Errorf("%v", err)
 				return err
 			}

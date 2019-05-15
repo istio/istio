@@ -87,7 +87,7 @@ of an Istio deployment.</p>
 <td><code>string</code></td>
 <td>
 <p>Required. Name of the component producing these attributes. This can be
-the proxy (with the canonical name &ldquo;istio-proxy&rdquo;) or the name of an
+the proxy (with the canonical name <code>istio-proxy</code>) or the name of an
 <code>attributes</code> kind adapter in Mixer.</p>
 
 </td>
@@ -107,9 +107,9 @@ which is how attributes are referred to in aspect configuration, must conform to
 match the regular expression <code>[\.-]</code>.</p>
 
 <p>Attribute names must be unique within a single Istio deployment. The set of canonical
-attributes are described at https://istio.io/docs/reference/attribute-vocabulary.html.
+attributes are described at <a href="https://istio.io/docs/reference/config/policy-and-telemetry/attribute-vocabulary/">here</a>.
 Attributes not in that list should be named with a component-specific suffix such as
-request.count-my.component.</p>
+<code>request.count-my.component</code>.</p>
 
 </td>
 </tr>
@@ -267,7 +267,7 @@ be used.</p>
 </section>
 <h2 id="DNSName">DNSName</h2>
 <section>
-<p>An instance field of type DNSName denotes that the expression for the field must evalaute to
+<p>An instance field of type DNSName denotes that the expression for the field must evaluate to
 <a href="#ValueType-DNS_NAME">ValueType.DNS_NAME</a></p>
 
 <p>Objects of type DNSName are also passed to the adapters during request-time for the instance fields of
@@ -336,7 +336,7 @@ to an RPC error.</p>
 </section>
 <h2 id="Duration">Duration</h2>
 <section>
-<p>An instance field of type Duration denotes that the expression for the field must evalaute to
+<p>An instance field of type Duration denotes that the expression for the field must evaluate to
 <a href="#ValueType-DURATION">ValueType.DURATION</a></p>
 
 <p>Objects of type Duration are also passed to the adapters during request-time for the instance fields of
@@ -365,7 +365,7 @@ type Duration</p>
 <h2 id="EmailAddress">EmailAddress</h2>
 <section>
 <p>DO NOT USE !! Under Development
-An instance field of type EmailAddress denotes that the expression for the field must evalaute to
+An instance field of type EmailAddress denotes that the expression for the field must evaluate to
 <a href="#ValueType-EMAIL_ADDRESS">ValueType.EMAIL_ADDRESS</a></p>
 
 <p>Objects of type EmailAddress are also passed to the adapters during request-time for the instance fields of
@@ -430,7 +430,7 @@ type EmailAddress</p>
 Each adapter implementation defines its own <code>params</code> proto.</p>
 
 <p>In the following example we define a <code>metrics</code> handler for the <code>prometheus</code> adapter.
-The example is in the form of a kubernetes resource:
+The example is in the form of a Kubernetes resource:
 * The <code>metadata.name</code> is the name of the handler
 * The <code>kind</code> refers to the adapter name
 * The <code>spec</code> block represents adapter-specific configuration as well as the connection information</p>
@@ -490,7 +490,7 @@ spec:
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
-<p>Required. Must be unique in the entire mixer configuration. Used by <a href="#Action-handler">Actions</a>
+<p>Required. Must be unique in the entire Mixer configuration. Used by <a href="#Action-handler">Actions</a>
 to refer to this handler.</p>
 
 </td>
@@ -845,7 +845,7 @@ For more details: http://www.iana.org/assignments/http-status-codes/http-status-
 </section>
 <h2 id="IPAddress">IPAddress</h2>
 <section>
-<p>An instance field of type IPAddress denotes that the expression for the field must evalaute to
+<p>An instance field of type IPAddress denotes that the expression for the field must evaluate to
 <a href="#ValueType-IP_ADDRESS">ValueType.IP_ADDRESS</a></p>
 
 <p>Objects of type IPAddress are also passed to the adapters during request-time for the instance fields of
@@ -968,7 +968,7 @@ attribute_bindings:
 </section>
 <h2 id="Mutual">Mutual</h2>
 <section>
-<p>Mutual let operator specify tls config for mixer as client if mtls is used to
+<p>Mutual let operator specify TLS configuration for Mixer as client if mutual TLS is used to
 secure connection to adapter backend.</p>
 
 <table class="message-fields">
@@ -984,8 +984,8 @@ secure connection to adapter backend.</p>
 <td><code>privateKey</code></td>
 <td><code>string</code></td>
 <td>
-<p>The path to the file holding the private key for mtls. If omitted, the
-default mixer private key will be used.</p>
+<p>The path to the file holding the private key for mutual TLS. If omitted, the
+default Mixer private key will be used.</p>
 
 </td>
 </tr>
@@ -993,8 +993,8 @@ default mixer private key will be used.</p>
 <td><code>clientCertificate</code></td>
 <td><code>string</code></td>
 <td>
-<p>The path to the file holding client certificate for mtls. If omitted, the
-default mixer certificates will be used.</p>
+<p>The path to the file holding client certificate for mutual TLS. If omitted, the
+default Mixer certificates will be used.</p>
 
 </td>
 </tr>
@@ -1003,8 +1003,18 @@ default mixer certificates will be used.</p>
 <td><code>string</code></td>
 <td>
 <p>The path to the file holding additional CA certificates that are needed to
-verify the presented adapter certificates. By default mixer should already
+verify the presented adapter certificates. By default Mixer should already
 include Istio CA certificates and system certificates in cert pool.</p>
+
+</td>
+</tr>
+<tr id="Mutual-server_name">
+<td><code>serverName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Used to configure mixer mutual TLS client to supply server name for SNI.
+It is not used to verify the hostname of the peer certificate, since
+Istio verifies whitelisted SAN fields in mutual TLS.</p>
 
 </td>
 </tr>
@@ -1073,7 +1083,7 @@ TLS for connection to the backend.</p>
 <p>A Rule is a selector and a set of intentions to be executed when the
 selector is <code>true</code></p>
 
-<p>The following example instructs Mixer to invoke &lsquo;prometheus-handler&rsquo; handler for all services and pass it the
+<p>The following example instructs Mixer to invoke <code>prometheus-handler</code> handler for all services and pass it the
 instance constructed using the &lsquo;RequestCountByService&rsquo; instance.</p>
 
 <pre><code class="language-yaml">- match: match(destination.service.host, &quot;*&quot;)
@@ -1232,7 +1242,7 @@ adapter to optionally modify the headers.</p>
 </section>
 <h2 id="TimeStamp">TimeStamp</h2>
 <section>
-<p>An instance field of type TimeStamp denotes that the expression for the field must evalaute to
+<p>An instance field of type TimeStamp denotes that the expression for the field must evaluate to
 <a href="#ValueType-TIMESTAMP">ValueType.TIMESTAMP</a></p>
 
 <p>Objects of type TimeStamp are also passed to the adapters during request-time for the instance fields of
@@ -1315,6 +1325,15 @@ passed as what it is.</p>
 
 </td>
 </tr>
+<tr id="Tls-server_name">
+<td><code>serverName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Used to configure mixer TLS client to verify the hostname on the returned
+certificates. It is also included in the client&rsquo;s handshake to support SNI.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -1352,7 +1371,7 @@ bearer some-token).</p>
 <h2 id="Uri">Uri</h2>
 <section>
 <p>DO NOT USE !! Under Development
-An instance field of type Uri denotes that the expression for the field must evalaute to
+An instance field of type Uri denotes that the expression for the field must evaluate to
 <a href="#ValueType-URI">ValueType.URI</a></p>
 
 <p>Objects of type Uri are also passed to the adapters during request-time for the instance fields of
@@ -1380,7 +1399,7 @@ type Uri</p>
 </section>
 <h2 id="Value">Value</h2>
 <section>
-<p>An instance field of type Value denotes that the expression for the field is of dynamic type and can evalaute to any
+<p>An instance field of type Value denotes that the expression for the field is of dynamic type and can evaluate to any
 <a href="#ValueType">ValueType</a> enum values. For example, when
 authoring an instance configuration for a template that has a field <code>data</code> of type <code>istio.policy.v1beta1.Value</code>,
 both of the following expressions are valid <code>data: source.ip | ip(&quot;0.0.0.0&quot;)</code>, <code>data: request.id | &quot;&quot;</code>;

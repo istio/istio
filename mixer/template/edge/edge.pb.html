@@ -14,11 +14,10 @@ number_of_entries: 1
 
 <p>When writing the configuration, the value for the fields associated
 with this template can either be a literal or an
-<a href="https://istio.io/docs/reference/config/mixer/expression-language.html">expression</a>. Please
+<a href="https://istio.io/docs/reference/config/policy-and-telemetry/expression-language/">expression</a>. Please
 note that if the datatype of a field is not
 istio.mixer.adapter.model.v1beta1.Value, then the expression&rsquo;s
-<a href="https://istio.io/docs/reference/config/policy-and-telemetry/expression-language/#type-checking">inferred
-type</a>
+<a href="https://istio.io/docs/reference/config/policy-and-telemetry/expression-language/#type-checking">inferred type</a>
 must match the datatype of the field.</p>
 
 <p>Example config:</p>
@@ -38,6 +37,8 @@ spec:
   destinationOwner: destination.owner | &quot;Unknown&quot;
   destinationWorkloadName: destination.workload.name | &quot;Unknown&quot;
   destinationWorkloadNamespace: destination.workload.namespace | &quot;Unknown&quot;
+  destinationServiceName: destination.service.name | &quot;Unknown&quot;
+  destinationServiceNamespace: destination.service.namespace | &quot;Unknown&quot;
   apiProtocol: api.protocol | &quot;Unknown&quot;
   contextProtocol: context.protocol | &quot;Unknown&quot;
 </code></pre>
@@ -120,6 +121,22 @@ spec:
 <td><code>string</code></td>
 <td>
 <p>UID of the destination workload</p>
+
+</td>
+</tr>
+<tr id="Template-destination_service_namespace">
+<td><code>destinationServiceNamespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Namespace of the destination Service</p>
+
+</td>
+</tr>
+<tr id="Template-destination_service_name">
+<td><code>destinationServiceName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Name of the destination Service</p>
 
 </td>
 </tr>

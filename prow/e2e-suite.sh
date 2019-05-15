@@ -47,6 +47,10 @@ export CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 source "${ROOT}/prow/lib.sh"
 setup_e2e_cluster
 
+if [[ "${ENABLE_ISTIO_CNI:-false}" == true ]]; then
+   cni_run_daemon
+fi
+
 E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
 # e2e tests on prow use clusters borrowed from boskos, which cleans up the
 # clusters. There is no need to cleanup in the test jobs.

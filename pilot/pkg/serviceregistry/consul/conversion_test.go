@@ -35,7 +35,7 @@ var (
 		{"http2", 83, model.ProtocolHTTP2},
 		{"grpc", 84, model.ProtocolGRPC},
 		{"udp", 85, model.ProtocolUDP},
-		{"", 86, model.ProtocolHTTP},
+		{"", 86, model.ProtocolTCP},
 	}
 
 	goodLabels = []string{

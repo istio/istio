@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/apache/thrift/lib/go/thrift"
+	"github.com/uber/jaeger-client-go/thrift"
 
 	"github.com/uber/jaeger-client-go"
 	j "github.com/uber/jaeger-client-go/thrift-gen/jaeger"
@@ -65,6 +65,14 @@ func HTTPBatchSize(n int) HTTPOption {
 func HTTPBasicAuth(username string, password string) HTTPOption {
 	return func(c *HTTPTransport) {
 		c.httpCredentials = &HTTPBasicAuthCredentials{username: username, password: password}
+	}
+}
+
+// HTTPRoundTripper configures the underlying Transport on the *http.Client
+// that is used
+func HTTPRoundTripper(transport http.RoundTripper) HTTPOption {
+	return func(c *HTTPTransport) {
+		c.client.Transport = transport
 	}
 }
 

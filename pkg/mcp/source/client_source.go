@@ -20,14 +20,17 @@ import (
 	"time"
 
 	"github.com/gogo/status"
+	"google.golang.org/grpc/codes"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+
 	"istio.io/istio/pkg/mcp/monitoring"
 )
 
 var (
 	// try to re-establish the bi-directional grpc stream after this delay.
 	reestablishStreamDelay = time.Second
+	triggerCollection      = "$triggerCollection"
 )
 
 // Client implements the client for the MCP sink service. The client is the
@@ -41,6 +44,7 @@ type Client struct {
 	source   *Source
 }
 
+// NewClient returns a new instance of Client.
 func NewClient(client mcp.ResourceSinkClient, options *Options) *Client {
 	return &Client{
 		source:   New(options),
@@ -51,6 +55,28 @@ func NewClient(client mcp.ResourceSinkClient, options *Options) *Client {
 
 var reconnectTestProbe = func() {}
 
+// Some scenarios requires the client to send the first message in a
+// bi-directional stream to establish the stream on the server. Send a
+// trigger response which we expect the server to NACK.
+func (c *Client) sendTriggerResponse(stream Stream) error {
+	trigger := &mcp.Resources{
+		Collection: triggerCollection,
+	}
+
+	if err := stream.Send(trigger); err != nil {
+		return status.Errorf(status.Code(err), "could not send trigger request %v", err)
+	}
+
+	return nil
+}
+
+// isTriggerResponse checks whether the given RequestResources object is an expected NACK response to a previous
+// trigger message.
+func isTriggerResponse(msg *mcp.RequestResources) bool {
+	return msg.Collection == triggerCollection && msg.ErrorDetail != nil && codes.Code(msg.ErrorDetail.Code) == codes.Unimplemented
+}
+
+// Run implements mcpClient
 func (c *Client) Run(ctx context.Context) {
 	// The first attempt is immediate.
 	retryDelay := time.Nanosecond
@@ -67,24 +93,30 @@ func (c *Client) Run(ctx context.Context) {
 			// slow subsequent reconnection attempts down
 			retryDelay = reestablishStreamDelay
 
-			scope.Info("(re)trying to establish new MCP source stream")
-			stream, err := c.client.EstablishResourceStream(ctx)
-
 			if reconnectTestProbe != nil {
 				reconnectTestProbe()
 			}
 
-			if err == nil {
-				c.reporter.RecordStreamCreateSuccess()
-				scope.Info("New MCP source stream created")
-				c.stream = stream
-				break
+			scope.Info("(re)trying to establish new MCP source stream")
+			stream, err := c.client.EstablishResourceStream(ctx)
+
+			if err != nil {
+				scope.Errorf("Failed to create a new MCP source stream: %v", err)
+				continue
+			}
+			c.reporter.RecordStreamCreateSuccess()
+			scope.Info("New MCP source stream created")
+
+			if err := c.sendTriggerResponse(stream); err != nil {
+				scope.Errorf("Failed to send fake response: %v", err)
+				continue
 			}
 
-			scope.Errorf("Failed to create a new MCP source stream: %v", err)
+			c.stream = stream
+			break
 		}
 
-		err := c.source.processStream(c.stream)
+		err := c.source.ProcessStream(c.stream)
 		if err != nil && err != io.EOF {
 			c.reporter.RecordRecvError(err, status.Code(err))
 			scope.Errorf("Error receiving MCP response: %v", err)

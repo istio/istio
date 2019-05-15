@@ -1,12 +1,12 @@
 # Debug interface
 
-The debug handlers are configured on the monitoring port (default 9093) as well
+The debug handlers are configured on the monitoring port (default 15014) as well
 as on the http port (8080).
 
 
 ```bash
 
-PILOT=istio-pilot.istio-system:9093
+PILOT=istio-pilot.istio-system:15014
 
 # What is sent to envoy
 # Listeners and routes

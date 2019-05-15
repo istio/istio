@@ -26,8 +26,8 @@ import (
 	"net/http"
 	"time"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
+	"istio.io/pkg/log"
 )
 
 var (

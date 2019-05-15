@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 type kubeController struct {
@@ -100,7 +100,6 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 			Name:             serviceregistry.KubernetesRegistry,
 			ClusterID:        clusterID,
 			ServiceDiscovery: kubectl,
-			ServiceAccounts:  kubectl,
 			Controller:       kubectl,
 		})
 
@@ -109,7 +108,6 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 	_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { m.XDSUpdater.ConfigUpdate(true) })
 	_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { m.XDSUpdater.ConfigUpdate(true) })
 	go kubectl.Run(stopCh)
-
 	return nil
 }
 
@@ -121,6 +119,10 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 	m.m.Lock()
 	defer m.m.Unlock()
 	m.serviceController.DeleteRegistry(clusterID)
+	if _, ok := m.remoteKubeControllers[clusterID]; !ok {
+		log.Infof("cluster %s does not exist, maybe caused by invalid kubeconfig", clusterID)
+		return nil
+	}
 	close(m.remoteKubeControllers[clusterID].stopCh)
 	delete(m.remoteKubeControllers, clusterID)
 	if m.XDSUpdater != nil {

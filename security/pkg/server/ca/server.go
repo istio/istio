@@ -28,12 +28,12 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	pb "istio.io/istio/security/proto"
+	"istio.io/pkg/log"
 )
 
 // Config for Vault prototyping purpose
@@ -108,10 +108,10 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.CsrResponse, error) {
 	s.monitoring.CSR.Inc()
 	caller := s.authenticate(ctx)
-	if caller == nil {
-		log.Warn("request authentication failure")
+	if caller == nil || len(caller.Identities) == 0 {
+		log.Warn("request authentication failure, no caller identity")
 		s.monitoring.AuthnError.Inc()
-		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
+		return nil, status.Error(codes.Unauthenticated, "request authenticate failure, no caller identity")
 	}
 
 	csr, err := util.ParsePemEncodedCSR(request.CsrPem)
@@ -131,7 +131,8 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 	// TODO: Call authorizer.
 
 	_, _, certChainBytes, _ := s.ca.GetCAKeyCertBundle().GetAll()
-	cert, signErr := s.ca.Sign(request.CsrPem, []string{}, time.Duration(request.RequestedTtlMinutes)*time.Minute, s.forCA)
+	cert, signErr := s.ca.Sign(
+		request.CsrPem, caller.Identities, time.Duration(request.RequestedTtlMinutes)*time.Minute, s.forCA)
 	if signErr != nil {
 		log.Errorf("CSR signing error (%v)", signErr.Error())
 		s.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Inc()
@@ -157,8 +158,7 @@ func (s *Server) Run() error {
 	}
 
 	var grpcOptions []grpc.ServerOption
-	grpcOptions = append(grpcOptions, s.createTLSServerOption())
-	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor))
+	grpcOptions = append(grpcOptions, s.createTLSServerOption(), grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor))
 
 	grpcServer := grpc.NewServer(grpcOptions...)
 	pb.RegisterIstioCAServiceServer(grpcServer, s)
@@ -270,12 +270,18 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 
 func (s *Server) authenticate(ctx context.Context) *authenticate.Caller {
 	// TODO: apply different authenticators in specific order / according to configuration.
-	for _, authn := range s.authenticators {
-		if u, err := authn.Authenticate(ctx); u != nil {
-			log.Infof("Authentication failed: %v", err)
+	var errMsg string
+	for id, authn := range s.authenticators {
+		u, err := authn.Authenticate(ctx)
+		if err != nil {
+			errMsg += fmt.Sprintf("Authenticator#%d error: %v. ", id, err)
+		}
+		if u != nil && err == nil {
+			log.Debugf("Authentication successful through auth source %v", u.AuthSource)
 			return u
 		}
 	}
+	log.Warnf("Authentication failed: %s", errMsg)
 	return nil
 }
 

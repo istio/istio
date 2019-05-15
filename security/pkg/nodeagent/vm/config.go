@@ -17,8 +17,8 @@ package vm
 import (
 	"time"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient"
+	"istio.io/pkg/log"
 )
 
 const (

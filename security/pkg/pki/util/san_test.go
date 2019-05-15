@@ -85,6 +85,10 @@ func TestBuildAndExtractIdentities(t *testing.T) {
 	if !reflect.DeepEqual(actualIds, ids) {
 		t.Errorf("Unmatched identities: before encoding: %v, after decoding %v", ids, actualIds)
 	}
+
+	if san.Critical == false {
+		t.Errorf("SAN field is not critical.")
+	}
 }
 
 func TestBuildSANExtensionWithError(t *testing.T) {

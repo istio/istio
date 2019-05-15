@@ -29,7 +29,7 @@ message AttributeManifest {
   // Optional. The revision of this document. Assigned by server.
   string revision = 1;
   // Required. Name of the component producing these attributes. This can be
-  // the proxy (with the canonical name "istio-proxy") or the name of an
+  // the proxy (with the canonical name `istio-proxy`) or the name of an
   // `attributes` kind adapter in Mixer.
   string name = 2;
 
@@ -91,16 +91,16 @@ message AttributeManifest {
   // match the regular expression `[\.-]`.
   //
   // Attribute names must be unique within a single Istio deployment. The set of canonical
-  // attributes are described at https://istio.io/docs/reference/attribute-vocabulary.html.
+  // attributes are described at [here](https://istio.io/docs/reference/config/policy-and-telemetry/attribute-vocabulary/).
   // Attributes not in that list should be named with a component-specific suffix such as
-  // request.count-my.component.
+  // `request.count-my.component`.
   map<string, AttributeInfo> attributes = 3;
 }
 
 // A Rule is a selector and a set of intentions to be executed when the
 // selector is `true`
 //
-// The following example instructs Mixer to invoke 'prometheus-handler' handler for all services and pass it the
+// The following example instructs Mixer to invoke `prometheus-handler` handler for all services and pass it the
 // instance constructed using the 'RequestCountByService' instance.
 //
 // ```yaml
@@ -270,7 +270,7 @@ message Instance {
 // Each adapter implementation defines its own `params` proto.
 //
 // In the following example we define a `metrics` handler for the `prometheus` adapter.
-// The example is in the form of a kubernetes resource:
+// The example is in the form of a Kubernetes resource:
 // * The `metadata.name` is the name of the handler
 // * The `kind` refers to the adapter name
 // * The `spec` block represents adapter-specific configuration as well as the connection information
@@ -318,7 +318,7 @@ message Instance {
 // ---
 // ```
 message Handler {
-  // Required. Must be unique in the entire mixer configuration. Used by [Actions][istio.policy.v1beta1.Action.handler]
+  // Required. Must be unique in the entire Mixer configuration. Used by [Actions][istio.policy.v1beta1.Action.handler]
   // to refer to this handler.
   string name = 1;
 
@@ -361,7 +361,7 @@ message Connection {
 // $hide_from_docs
 // Sampling provides configuration of sampling strategies for Rule actions.
 // Multiple sampling strategies are supported. When multiple strategies are configured,
-// a request must be selected by all configured sampling strategies. 
+// a request must be selected by all configured sampling strategies.
 message Sampling {
   // Optional. Provides filtering of actions based on random selection per request.
   RandomSampling random = 1;
@@ -378,8 +378,7 @@ message Sampling {
 // `sampling_rate` would be set `12.5`.
 //
 // This sampling configuration is meant to closely match the access log RuntimeFilter configuration
-// supported by Envoy:
-// https://github.com/envoyproxy/data-plane-api/blob/master/envoy/config/filter/accesslog/v2/accesslog.proto#L113
+// [supported by Envoy](https://github.com/envoyproxy/data-plane-api/blob/master/envoy/config/filter/accesslog/v2/accesslog.proto#L113)
 message RandomSampling {
   // Specifies an attribute expression to use to override the numerator in the `percent_sampled` field.
   // If this value is set, but no value is found OR if that value is not a numeric value, then
@@ -389,8 +388,8 @@ message RandomSampling {
   // of 100.
   FractionalPercent percent_sampled = 2;
   // By default sampling will be based on the value of the request header `x-request-id`.
-  // This behavior will cause consistent sampling across `Rule`s and for the full trace of a 
-  // request through a mesh (across hosts). If that value is not present and/or 
+  // This behavior will cause consistent sampling across `Rule`s and for the full trace of a
+  // request through a mesh (across hosts). If that value is not present and/or
   // `use_independent_randomness` is set to true, the sampling will be done based on the value of
   // attribute specified in `attribute_epxression`. If that attribute does not exist, the system
   // will behave as if the sampling rate was 0 (meaning no `Action`s are executed for a `Rule`).
@@ -490,6 +489,10 @@ message Tls {
     // passed as what it is.
     string custom_header = 5;
   }
+
+  // Used to configure mixer TLS client to verify the hostname on the returned
+  // certificates. It is also included in the client's handshake to support SNI.
+  string server_name = 6;
 }
 
 // OAuth let operator specify config to fetch access token via oauth when using
@@ -511,19 +514,24 @@ message OAuth {
   map<string, string> endpoint_params = 5;
 }
 
-// Mutual let operator specify tls config for mixer as client if mtls is used to
+// Mutual let operator specify TLS configuration for Mixer as client if mutual TLS is used to
 // secure connection to adapter backend.
 message Mutual {
-  // The path to the file holding the private key for mtls. If omitted, the
-  // default mixer private key will be used.
+  // The path to the file holding the private key for mutual TLS. If omitted, the
+  // default Mixer private key will be used.
   string private_key = 1;
 
-  // The path to the file holding client certificate for mtls. If omitted, the
-  // default mixer certificates will be used.
+  // The path to the file holding client certificate for mutual TLS. If omitted, the
+  // default Mixer certificates will be used.
   string client_certificate = 2;
 
   // The path to the file holding additional CA certificates that are needed to
-  // verify the presented adapter certificates. By default mixer should already
+  // verify the presented adapter certificates. By default Mixer should already
   // include Istio CA certificates and system certificates in cert pool.
   string ca_certificates = 3;
+
+  // Used to configure mixer mutual TLS client to supply server name for SNI.
+  // It is not used to verify the hostname of the peer certificate, since 
+  // Istio verifies whitelisted SAN fields in mutual TLS.
+  string server_name = 4;
 }

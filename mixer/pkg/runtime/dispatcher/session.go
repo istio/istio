@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/status"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const queueAllocSize = 64
@@ -104,7 +104,7 @@ func (s *session) ensureParallelism(minParallelism int) {
 	}
 }
 
-func (s *session) dispatch() error {
+func (s *session) dispatch() error { //nolint: unparam
 	// Determine namespace to scope config resolution
 	namespace := getIdentityNamespace(s.bag)
 	destinations := s.rc.Routes.GetDestinations(s.variety, namespace)

@@ -318,6 +318,39 @@ func TestLabelsValidate(t *testing.T) {
 			tags:  Labels{"key": "value"},
 			valid: true,
 		},
+		{
+			name:  "good tag - empty value",
+			tags:  Labels{"key": ""},
+			valid: true,
+		},
+		{
+			name: "bad tag - empty key",
+			tags: Labels{"": "value"},
+		},
+		{
+			name: "bad tag key 1",
+			tags: Labels{".key": "value"},
+		},
+		{
+			name: "bad tag key 2",
+			tags: Labels{"key_": "value"},
+		},
+		{
+			name: "bad tag key 3",
+			tags: Labels{"key$": "value"},
+		},
+		{
+			name: "bad tag value 1",
+			tags: Labels{"key": ".value"},
+		},
+		{
+			name: "bad tag value 2",
+			tags: Labels{"key": "value_"},
+		},
+		{
+			name: "bad tag value 3",
+			tags: Labels{"key": "value$"},
+		},
 	}
 	for _, c := range cases {
 		if got := c.tags.Validate(); (got == nil) != c.valid {
@@ -562,17 +595,18 @@ func TestValidateMeshConfig(t *testing.T) {
 
 func TestValidateProxyConfig(t *testing.T) {
 	valid := &meshconfig.ProxyConfig{
-		ConfigPath:             "/etc/istio/proxy",
-		BinaryPath:             "/usr/local/bin/envoy",
-		DiscoveryAddress:       "istio-pilot.istio-system:15010",
-		ProxyAdminPort:         15000,
-		DrainDuration:          types.DurationProto(45 * time.Second),
-		ParentShutdownDuration: types.DurationProto(60 * time.Second),
-		ConnectTimeout:         types.DurationProto(10 * time.Second),
-		ServiceCluster:         "istio-proxy",
-		StatsdUdpAddress:       "istio-statsd-prom-bridge.istio-system:9125",
-		ControlPlaneAuthPolicy: 1,
-		Tracing:                nil,
+		ConfigPath:                 "/etc/istio/proxy",
+		BinaryPath:                 "/usr/local/bin/envoy",
+		DiscoveryAddress:           "istio-pilot.istio-system:15010",
+		ProxyAdminPort:             15000,
+		DrainDuration:              types.DurationProto(45 * time.Second),
+		ParentShutdownDuration:     types.DurationProto(60 * time.Second),
+		ConnectTimeout:             types.DurationProto(10 * time.Second),
+		ServiceCluster:             "istio-proxy",
+		StatsdUdpAddress:           "istio-statsd-prom-bridge.istio-system:9125",
+		EnvoyMetricsServiceAddress: "metrics-service.istio-system:15000",
+		ControlPlaneAuthPolicy:     1,
+		Tracing:                    nil,
 	}
 
 	modify := func(config *meshconfig.ProxyConfig, fieldSetter func(*meshconfig.ProxyConfig)) *meshconfig.ProxyConfig {
@@ -644,6 +678,11 @@ func TestValidateProxyConfig(t *testing.T) {
 		{
 			name:    "statsd udp address invalid",
 			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.StatsdUdpAddress = "10.0.0.100" }),
+			isValid: false,
+		},
+		{
+			name:    "envoy metrics service address invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.EnvoyMetricsServiceAddress = "metrics-service.istio-system" }),
 			isValid: false,
 		},
 		{
@@ -807,6 +846,49 @@ func TestValidateProxyConfig(t *testing.T) {
 			),
 			isValid: false,
 		},
+		{
+			name: "datadog without address",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Datadog_{
+							Datadog: &meshconfig.Tracing_Datadog{},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "datadog with correct address",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Datadog_{
+							Datadog: &meshconfig.Tracing_Datadog{
+								Address: "datadog-agent:8126",
+							},
+						},
+					}
+				},
+			),
+			isValid: true,
+		},
+		{
+			name: "datadog with invalid address",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Datadog_{
+							Datadog: &meshconfig.Tracing_Datadog{
+								Address: "address-missing-port-number",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -821,16 +903,17 @@ func TestValidateProxyConfig(t *testing.T) {
 	}
 
 	invalid := meshconfig.ProxyConfig{
-		ConfigPath:             "",
-		BinaryPath:             "",
-		DiscoveryAddress:       "10.0.0.100",
-		ProxyAdminPort:         0,
-		DrainDuration:          types.DurationProto(-1 * time.Second),
-		ParentShutdownDuration: types.DurationProto(-1 * time.Second),
-		ConnectTimeout:         types.DurationProto(-1 * time.Second),
-		ServiceCluster:         "",
-		StatsdUdpAddress:       "10.0.0.100",
-		ControlPlaneAuthPolicy: -1,
+		ConfigPath:                 "",
+		BinaryPath:                 "",
+		DiscoveryAddress:           "10.0.0.100",
+		ProxyAdminPort:             0,
+		DrainDuration:              types.DurationProto(-1 * time.Second),
+		ParentShutdownDuration:     types.DurationProto(-1 * time.Second),
+		ConnectTimeout:             types.DurationProto(-1 * time.Second),
+		ServiceCluster:             "",
+		StatsdUdpAddress:           "10.0.0.100",
+		EnvoyMetricsServiceAddress: "metrics-service",
+		ControlPlaneAuthPolicy:     -1,
 		Tracing: &meshconfig.Tracing{
 			Tracer: &meshconfig.Tracing_Zipkin_{
 				Zipkin: &meshconfig.Tracing_Zipkin{
@@ -847,7 +930,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.Errors) != 11 {
+			if len(err.Errors) != 12 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -1327,23 +1410,6 @@ func TestValidateGateway(t *testing.T) {
 	}
 }
 
-func TestValidateGatewayNames(t *testing.T) {
-	tests := []struct {
-		name  string
-		names []string
-	}{
-		{"name1", []string{"myname", "##mn"}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := validateGatewayNames(tt.names)
-			if err == nil {
-				t.Errorf("Expected to detect bad gateway name but did not")
-			}
-		})
-	}
-}
-
 func TestValidateServer(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1364,31 +1430,30 @@ func TestValidateServer(t *testing.T) {
 				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			""},
-		// TODO: ADD ONCE ns/name format is supported for gateway
-		//{"happy ns/name",
-		//	&networking.Server{
-		//		Hosts: []string{"ns1/foo.bar.com"},
-		//		Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
-		//	},
-		//	""},
-		//{"happy */name",
-		//	&networking.Server{
-		//		Hosts: []string{"*/foo.bar.com"},
-		//		Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
-		//	},
-		//	""},
-		//{"happy ./name",
-		//	&networking.Server{
-		//		Hosts: []string{"./foo.bar.com"},
-		//		Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
-		//	},
-		//	""},
-		//{"invalid domain ns/name format",
-		//	&networking.Server{
-		//		Hosts: []string{"ns1/foo.*.bar.com"},
-		//		Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
-		//	},
-		//	"domain"},
+		{"happy ns/name",
+			&networking.Server{
+				Hosts: []string{"ns1/foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			""},
+		{"happy */name",
+			&networking.Server{
+				Hosts: []string{"*/foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			""},
+		{"happy ./name",
+			&networking.Server{
+				Hosts: []string{"./foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			""},
+		{"invalid domain ns/name format",
+			&networking.Server{
+				Hosts: []string{"ns1/foo.*.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			"domain"},
 		{"invalid domain",
 			&networking.Server{
 				Hosts: []string{"foo.*.bar.com"},
@@ -1512,36 +1577,89 @@ func TestValidateTlsOptions(t *testing.T) {
 		{"simple",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_SIMPLE,
-				ServerCertificate: "Captain Jean-Luc Picard"},
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh"},
 			""},
 		{"simple with client bundle",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
+			""},
+		{"simple sds with client bundle",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_SIMPLE,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
+				CaCertificates:    "Commander William T. Riker",
+				CredentialName:    "sds-name"},
 			""},
 		{"simple no server cert",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_SIMPLE,
 				ServerCertificate: "",
+				PrivateKey:        "Khan Noonien Singh",
 			},
 			"server certificate"},
+		{"simple no private key",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_SIMPLE,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        ""},
+			"private key"},
+		{"simple sds no server cert",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_SIMPLE,
+				ServerCertificate: "",
+				PrivateKey:        "Khan Noonien Singh",
+				CredentialName:    "sds-name",
+			},
+			""},
+		{"simple sds no private key",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_SIMPLE,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "",
+				CredentialName:    "sds-name",
+			},
+			""},
 		{"mutual",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
+			""},
+		{"mutual sds",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_MUTUAL,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
+				CaCertificates:    "Commander William T. Riker",
+				CredentialName:    "sds-name",
+			},
 			""},
 		{"mutual no server cert",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
 				ServerCertificate: "",
+				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
 			"server certificate"},
+		{"mutual sds no server cert",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "Khan Noonien Singh",
+				CaCertificates:    "Commander William T. Riker",
+				CredentialName:    "sds-name"},
+			""},
 		{"mutual no client CA bundle",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    ""},
 			"client CA bundle"},
 		// this pair asserts we get errors about both client and server certs missing when in mutual mode
@@ -1550,14 +1668,30 @@ func TestValidateTlsOptions(t *testing.T) {
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
 				ServerCertificate: "",
+				PrivateKey:        "",
 				CaCertificates:    ""},
 			"server certificate"},
 		{"mutual no certs",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
 				ServerCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    ""},
+			"private key"},
+		{"mutual no certs",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "",
 				CaCertificates:    ""},
 			"client CA bundle"},
+		{"pass through sds no certs",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_PASSTHROUGH,
+				ServerCertificate: "",
+				CaCertificates:    "",
+				CredentialName:    "sds-name"},
+			""},
 	}
 
 	for _, tt := range tests {
@@ -1621,6 +1755,83 @@ func TestValidateCORSPolicy(t *testing.T) {
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
 			MaxAge:        &types.Duration{Seconds: 2, Nanos: 42},
+		}, valid: false},
+		{name: "good origin ", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"example.com"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "good origin with star", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"*"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "good origin with http", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"http://example.com"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "good origin with https", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"https://example.com"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "good origin with https and port number", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"https://example.com:80"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "good origin with port number", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"example.com:80"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "bad origin", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"example.com", "error$.com"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: false},
+		{name: "bad origin with scheme only", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"http://", "https://"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: false},
+		{name: "bad origin with bad port string", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"example.com:port"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: false},
+		{name: "bad origin with bad port number", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"example.com:100000"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: false},
+		{name: "bad origin with star", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"*.example.com"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
 		}, valid: false},
 	}
 
@@ -2200,55 +2411,70 @@ func TestValidateRouteDestination(t *testing.T) {
 		routes []*networking.RouteDestination
 		valid  bool
 	}{
-		{name: "simple", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "simple", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz"},
 		}}, valid: true},
-		{name: "no destination", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "wildcard dash", routes: []*networking.RouteDestination{{
+			Destination: &networking.Destination{Host: "*-foo.baz"},
+		}}, valid: true},
+		{name: "wildcard prefix", routes: []*networking.RouteDestination{{
+			Destination: &networking.Destination{Host: "*foo.baz"},
+		}}, valid: true},
+		{name: "wildcard", routes: []*networking.RouteDestination{{
+			Destination: &networking.Destination{Host: "*"},
+		}}, valid: false},
+		{name: "bad wildcard", routes: []*networking.RouteDestination{{
+			Destination: &networking.Destination{Host: "foo.*"},
+		}}, valid: false},
+		{name: "bad fqdn", routes: []*networking.RouteDestination{{
+			Destination: &networking.Destination{Host: "default/baz"},
+		}}, valid: false},
+		{name: "no destination", routes: []*networking.RouteDestination{{
 			Destination: nil,
 		}}, valid: false},
-		{name: "weighted", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "weighted", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      25,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      75,
 		}}, valid: true},
-		{name: "weight < 0", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "weight < 0", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      5,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      -1,
 		}}, valid: false},
-		{name: "total weight > 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "total weight > 100", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      55,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      50,
 		}}, valid: false},
-		{name: "total weight < 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "total weight < 100", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      49,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      50,
 		}}, valid: false},
-		{name: "total weight = 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "total weight = 100", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      100,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      0,
 		}}, valid: true},
-		{name: "weight = 0", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "weight = 0", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      0,
 		}}, valid: true},
-		{name: "total weight = 0 with multi RouteDestination", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "total weight = 0 with multi RouteDestination", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      0,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      0,
 		}}, valid: false},
@@ -2651,6 +2877,7 @@ func TestValidateConnectionPool(t *testing.T) {
 				Http2MaxRequests:         11,
 				MaxRequestsPerConnection: 5,
 				MaxRetries:               4,
+				IdleTimeout:              &types.Duration{Seconds: 30},
 			},
 		},
 			valid: true},
@@ -2664,6 +2891,17 @@ func TestValidateConnectionPool(t *testing.T) {
 			valid: true},
 
 		{name: "valid connection pool, http only", in: networking.ConnectionPoolSettings{
+			Http: &networking.ConnectionPoolSettings_HTTPSettings{
+				Http1MaxPendingRequests:  2,
+				Http2MaxRequests:         11,
+				MaxRequestsPerConnection: 5,
+				MaxRetries:               4,
+				IdleTimeout:              &types.Duration{Seconds: 30},
+			},
+		},
+			valid: true},
+
+		{name: "valid connection pool, http only with empty idle timeout", in: networking.ConnectionPoolSettings{
 			Http: &networking.ConnectionPoolSettings_HTTPSettings{
 				Http1MaxPendingRequests:  2,
 				Http2MaxRequests:         11,
@@ -2698,6 +2936,10 @@ func TestValidateConnectionPool(t *testing.T) {
 
 		{name: "invalid connection pool, bad max retries", in: networking.ConnectionPoolSettings{
 			Http: &networking.ConnectionPoolSettings_HTTPSettings{MaxRetries: -1}},
+			valid: false},
+
+		{name: "invalid connection pool, bad idle timeout", in: networking.ConnectionPoolSettings{
+			Http: &networking.ConnectionPoolSettings_HTTPSettings{IdleTimeout: &types.Duration{Seconds: 30, Nanos: 5}}},
 			valid: false},
 	}
 
@@ -3471,41 +3713,58 @@ func TestValidateServiceRole(t *testing.T) {
 			expectErrMsg: "at least 1 rule must be specified",
 		},
 		{
-			name: "no service",
+			name: "has both methods and not_methods",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
-					Constraints: []*rbac.AccessRule_Constraint{
-						{Key: "key", Values: []string{"value"}},
-						{Key: "key", Values: []string{"value"}},
-					},
+					Methods:    []string{"GET", "POST"},
+					NotMethods: []string{"DELETE"},
 				},
+			}},
+			expectErrMsg: "cannot have both regular and *not* attributes for the same kind (i.e. methods and not_methods) for rule 0",
+		},
+		{
+			name: "has both ports and not_ports",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{},
-					Methods:  []string{"GET", "POST"},
+					Ports:    []int32{9080},
+					NotPorts: []int32{443},
+				},
+			}},
+			expectErrMsg: "cannot have both regular and *not* attributes for the same kind (i.e. ports and not_ports) for rule 0",
+		},
+		{
+			name: "has out of range port",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Ports: []int32{9080, -80},
+				},
+			}},
+			expectErrMsg: "at least one port is not in the range of [0, 65535]",
+		},
+		{
+			name: "has both first-class field and constraints",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Ports: []int32{9080},
 					Constraints: []*rbac.AccessRule_Constraint{
-						{Key: "key", Values: []string{"value"}},
-						{Key: "key", Values: []string{"value"}},
+						{Key: "destination.port", Values: []string{"80"}},
 					},
 				},
 			}},
-			expectErrMsg: "at least 1 service must be specified for rule 1",
+			expectErrMsg: "cannot define destination.port for rule 0 because a similar first-class field has been defined",
 		},
 		{
 			name: "no key in constraint",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
+					Methods: []string{"GET", "POST"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{"value"}},
 					},
 				},
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
+					Methods: []string{"GET", "POST"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Values: []string{"value"}},
@@ -3518,16 +3777,14 @@ func TestValidateServiceRole(t *testing.T) {
 			name: "no value in constraint",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
+					Methods: []string{"GET", "POST"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{"value"}},
 					},
 				},
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
+					Methods: []string{"GET", "POST"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{}},
@@ -3540,16 +3797,15 @@ func TestValidateServiceRole(t *testing.T) {
 			name: "success proto",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{"service0"},
 					Methods:  []string{"GET", "POST"},
+					NotHosts: []string{"finances.google.com"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{"value"}},
 					},
 				},
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
+					Methods: []string{"GET", "POST"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{"value"}},
@@ -3597,7 +3853,7 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 				},
 				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
 			},
-			expectErrMsg: "at least 1 of user, group or properties must be specified for subject 1",
+			expectErrMsg: "empty subjects are not allowed. Found an empty subject at index 1",
 		},
 		{
 			name: "no roleRef",
@@ -3607,7 +3863,7 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
 				},
 			},
-			expectErrMsg: "roleRef must be specified",
+			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
 		},
 		{
 			name: "incorrect kind",
@@ -3627,9 +3883,40 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 					{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
 					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
 				},
+				Role: "/",
+			},
+			expectErrMsg: "`role` cannot have an empty ServiceRole name",
+		},
+		{
+			name: "no name",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
+					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
+				},
 				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: ""},
 			},
-			expectErrMsg: "name cannot be empty",
+			expectErrMsg: "`name` in `roleRef` cannot be empty",
+		},
+		{
+			name: "first-class field already exists",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{Namespaces: []string{"default"}, Properties: map[string]string{"source.namespace": "istio-system"}},
+				},
+				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+			},
+			expectErrMsg: "cannot define source.namespace for binding 0 because a similar first-class field has been defined",
+		},
+		{
+			name: "use * for names",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{Names: []string{"*"}},
+				},
+				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+			},
+			expectErrMsg: "do not use * for names or not_names (in rule 0)",
 		},
 		{
 			name: "success proto",
@@ -3650,6 +3937,167 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 			}
 		} else if err.Error() != c.expectErrMsg {
 			t.Errorf("ValidateServiceRoleBinding(%v): got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
+		}
+	}
+}
+
+func TestValidateAuthorizationPolicy(t *testing.T) {
+	cases := []struct {
+		name         string
+		in           proto.Message
+		expectErrMsg string
+	}{
+		{
+			name:         "invalid proto",
+			expectErrMsg: "cannot cast to AuthorizationPolicy",
+		},
+		{
+			name: "proto with no roleRef or inline role definition",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+					},
+				},
+			},
+			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
+		},
+		{
+			name: "proto with both roleRef and inline role definition",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						RoleRef: &rbac.RoleRef{
+							Kind: "ServiceRole",
+							Name: "service-role-1",
+						},
+						Actions: []*rbac.AccessRule{
+							{
+								Ports: []int32{3000},
+							},
+						},
+					},
+				},
+			},
+			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
+		},
+		{
+			name: "proto with both roleRef and role",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						RoleRef: &rbac.RoleRef{
+							Kind: "ServiceRole",
+							Name: "service-role-1",
+						},
+						Role: "service-role-1",
+					},
+				},
+			},
+			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
+		},
+		{
+			name: "proto with both role and inline role definition",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						Role: "service-role-1",
+						Actions: []*rbac.AccessRule{
+							{
+								Ports: []int32{3000},
+							},
+						},
+					},
+				},
+			},
+			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
+		},
+		{
+			name: "success proto with roleRef",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						RoleRef: &rbac.RoleRef{
+							Kind: "ServiceRole",
+							Name: "service-role-1",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "proto with inline but invalid role definition",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						Actions: []*rbac.AccessRule{
+							{
+								Ports:    []int32{3000},
+								NotPorts: []int32{8080},
+							},
+						},
+					},
+				},
+			},
+			expectErrMsg: "cannot have both regular and *not* attributes for the same kind (i.e. ports and not_ports) for rule 0",
+		},
+		{
+			name: "success proto with inline role definition",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						Actions: []*rbac.AccessRule{
+							{
+								Methods: []string{"GET"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, c := range cases {
+		err := ValidateAuthorizationPolicy(someName, someNamespace, c.in)
+		if err == nil {
+			if len(c.expectErrMsg) != 0 {
+				t.Errorf("ValidateAuthorizationPolicy(%v): got nil but want %q\n", c.name, c.expectErrMsg)
+			}
+		} else if err.Error() != c.expectErrMsg {
+			t.Errorf("ValidateAuthorizationPolicy(%v): got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
 		}
 	}
 }
@@ -3820,6 +4268,13 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true},
+		{"import nothing", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"~/*"},
+				},
+			},
+		}, true},
 		{"bad egress host 1", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -3831,13 +4286,6 @@ func TestValidateSidecar(t *testing.T) {
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{"/"},
-				},
-			},
-		}, false},
-		{"bad egress host 3", &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
-				{
-					Hosts: []string{"~/foo.com"},
 				},
 			},
 		}, false},
@@ -3895,6 +4343,19 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false},
+		{"Port without name", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   8080,
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+				},
+			},
+		}, true},
 		{"UDS bind", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -4012,6 +4473,11 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "127.0.0.1:110",
 				},
 			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
 		}, false},
 		{"ingress with duplicate ports", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
@@ -4032,6 +4498,11 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "127.0.0.1:110",
 				},
 			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
 		}, false},
 		{"ingress without default endpoint", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
@@ -4041,6 +4512,11 @@ func TestValidateSidecar(t *testing.T) {
 						Number:   90,
 						Name:     "foo",
 					},
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
 				},
 			},
 		}, false},
@@ -4067,6 +4543,11 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "unix:///",
 				},
 			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
 		}, false},
 		{"ingress with invalid default endpoint port", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
@@ -4077,6 +4558,40 @@ func TestValidateSidecar(t *testing.T) {
 						Name:     "foo",
 					},
 					DefaultEndpoint: "127.0.0.1:hi",
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false},
+		{"valid ingress and egress", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, true},
+		{"valid ingress and empty egress", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
 				},
 			},
 		}, false},

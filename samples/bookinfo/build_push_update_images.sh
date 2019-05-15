@@ -42,4 +42,4 @@ do
 done
 
 #Update image references in the yaml files
-find . -name "*bookinfo*.yaml" -exec sed -i.bak "s/\\(istio\\/examples-bookinfo-.*\\):[[:digit:]]\\.[[:digit:]]\\.[[:digit:]]/\\1:$VERSION/g" {} +
+find . -name "*bookinfo*.yaml" -exec sed -i.bak "s/\\(istio\\/examples-bookinfo-.*\\):[[:digit:]]*\\.[[:digit:]]*\\.[[:digit:]]*/\\1:$VERSION/g" {} +

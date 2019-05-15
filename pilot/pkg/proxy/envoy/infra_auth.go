@@ -20,16 +20,16 @@ import (
 
 const (
 	// Service accounts for Mixer and Pilot, these are hardcoded values at setup time
-	mixerSvcAccName string = "istio-mixer-service-account"
-	pilotSvcAccName string = "istio-pilot-service-account"
+	PilotSvcAccName string = "istio-pilot-service-account"
+
+	MixerSvcAccName string = "istio-mixer-service-account"
 )
 
-// GetMixerSAN returns the SAN used for mixer mTLS
-func GetMixerSAN(ns string) string {
-	return spiffe.MustGenSpiffeURI(ns, mixerSvcAccName)
-}
-
 // GetPilotSAN returns the SAN used for pilot mTLS
-func GetPilotSAN(ns string) string {
-	return spiffe.MustGenSpiffeURI(ns, pilotSvcAccName)
+func GetSAN(ns string, identity string) string {
+
+	if ns != "" {
+		return spiffe.MustGenSpiffeURI(ns, identity)
+	}
+	return spiffe.GenCustomSpiffe(identity)
 }

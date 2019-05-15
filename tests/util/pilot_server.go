@@ -26,11 +26,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/keepalive"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -39,9 +40,6 @@ var (
 
 	// MockPilotSecureAddr is the address to be used for secure grpc connections.
 	MockPilotSecureAddr string
-
-	// MockPilotSecurePort is the secure port
-	MockPilotSecurePort int
 
 	// MockPilotHTTPPort is the dynamic port for pilot http
 	MockPilotHTTPPort int
@@ -58,7 +56,7 @@ type TearDownFunc func()
 func EnsureTestServer(args ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, TearDownFunc) {
 	server, tearDown, err := setup(args...)
 	if err != nil {
-		log.Errora("Failed to start in-process server", err)
+		log.Errora("Failed to start in-process server: ", err)
 		panic(err)
 	}
 	return server, tearDown
@@ -79,6 +77,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 	}
 	httpAddr := ":" + pilotHTTP
 
+	meshConfig := model.DefaultMeshConfig()
 	// Create a test pilot discovery service configured to watch the tempDir.
 	args := bootstrap.PilotArgs{
 		Namespace: "testing",
@@ -102,6 +101,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 			Registries: []string{
 				string(serviceregistry.MockRegistry)},
 		},
+		MeshConfig:        &meshConfig,
 		MCPMaxMessageSize: bootstrap.DefaultMCPMaxMsgSize,
 		KeepaliveOptions:  keepalive.DefaultOption(),
 		ForceStop:         true,
@@ -149,7 +149,6 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		return nil, nil, err
 	}
 	MockPilotSecureAddr = "localhost:" + port
-	MockPilotSecurePort, _ = strconv.Atoi(port)
 
 	// Wait a bit for the server to come up.
 	err = wait.Poll(500*time.Millisecond, 5*time.Second, func() (bool, error) {
@@ -159,7 +158,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 			return false, nil
 		}
 		defer resp.Body.Close()
-		ioutil.ReadAll(resp.Body)
+		_, _ = ioutil.ReadAll(resp.Body)
 		if resp.StatusCode == http.StatusOK {
 			return true, nil
 		}

@@ -27,7 +27,10 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/log"
 )
+
+var scope = log.RegisterScope("mcp", "mcp debugging", 0)
 
 // AllowAllChecker is a simple auth checker that allows all requests.
 type AllowAllChecker struct{}

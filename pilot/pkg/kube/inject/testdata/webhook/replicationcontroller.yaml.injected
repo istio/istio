@@ -32,13 +32,13 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - nginx.default
+        - nginx.$(POD_NAMESPACE)
         - --drainDuration
-        - 2s
+        - 45s
         - --parentShutdownDuration
-        - 3s
+        - 1m0s
         - --discoveryAddress
-        - istio-pilot:15007
+        - istio-pilot:15010
         - --zipkinAddress
         - ""
         - --connectTimeout
@@ -51,6 +51,8 @@ spec:
         - "15020"
         - --applicationPorts
         - "80"
+        - --concurrency
+        - "2"
         env:
         - name: POD_NAME
           valueFrom:
@@ -89,9 +91,12 @@ spec:
           initialDelaySeconds: 1
           periodSeconds: 2
         resources:
+          limits:
+            cpu: "2"
+            memory: 128Mi
           requests:
-            cpu: 10m
-            memory: 30Mi
+            cpu: 100m
+            memory: 128Mi
         securityContext:
           readOnlyRootFilesystem: true
           runAsUser: 1337
@@ -122,12 +127,14 @@ spec:
         name: istio-init
         resources:
           limits:
-            cpu: 10m
-            memory: 10Mi
+            cpu: 100m
+            memory: 50Mi
           requests:
             cpu: 10m
             memory: 10Mi
         securityContext:
+          runAsUser: 0
+          runAsNonRoot: false
           capabilities:
             add:
             - NET_ADMIN

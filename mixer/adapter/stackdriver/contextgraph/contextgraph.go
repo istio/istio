@@ -20,13 +20,13 @@ import (
 	"fmt"
 	"time"
 
-	contextgraph "cloud.google.com/go/contextgraph/apiv1alpha1"
 	gax "github.com/googleapis/gax-go"
 	"google.golang.org/api/option"
-	contextgraphpb "google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
 	"istio.io/istio/mixer/adapter/stackdriver/helper"
+	contextgraph "istio.io/istio/mixer/adapter/stackdriver/internal/cloud.google.com/go/contextgraph/apiv1alpha1"
+	contextgraphpb "istio.io/istio/mixer/adapter/stackdriver/internal/google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
 	"istio.io/istio/mixer/pkg/adapter"
 	edgepb "istio.io/istio/mixer/template/edge"
 )
@@ -155,12 +155,19 @@ func (h *handler) HandleEdge(ctx context.Context, insts []*edgepb.Instance) erro
 			i.DestinationWorkloadName,
 			i.DestinationWorkloadNamespace,
 		}
+		destinationService := service{
+			meshUID:      h.meshUID,
+			namespace:    i.DestinationServiceNamespace,
+			name:         i.DestinationServiceName,
+			istioProject: h.projectID,
+		}
 		h.traffics <- trafficAssertion{
-			source,
-			destination,
-			i.ContextProtocol,
-			i.ApiProtocol,
-			i.Timestamp,
+			source:             source,
+			destination:        destination,
+			contextProtocol:    i.ContextProtocol,
+			apiProtocol:        i.ApiProtocol,
+			destinationService: destinationService,
+			timestamp:          i.Timestamp,
 		}
 	}
 	return nil

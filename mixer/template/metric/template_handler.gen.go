@@ -36,9 +36,8 @@ import (
 // spec:
 //   value: request.size | 0
 //   dimensions:
-//     source_service: source.service | "unknown"
 //     source_version: source.labels["version"] | "unknown"
-//     destination_service: destination.service | "unknown"
+//     destination_service: destination.service.host | "unknown"
 //     destination_version: destination.labels["version"] | "unknown"
 //     response_code: response.code | 200
 //   monitored_resource_type: '"UNSPECIFIED"'

@@ -57,12 +57,12 @@ func TestKeyCertBundleWithRootCertFromFile(t *testing.T) {
 	for id, tc := range testCases {
 		bundle, err := NewKeyCertBundleWithRootCertFromFile(tc.rootCertFile)
 		if err != nil {
-			if len(tc.expectedErr) == 0 {
+			if tc.expectedErr == "" {
 				t.Errorf("%s: Unexpected error: %v", id, err)
 			} else if strings.Compare(err.Error(), tc.expectedErr) != 0 {
 				t.Errorf("%s: Unexpected error: %v VS (expected) %s", id, err, tc.expectedErr)
 			}
-		} else if len(tc.expectedErr) != 0 {
+		} else if tc.expectedErr != "" {
 			t.Errorf("%s: Expected error %s but succeeded", id, tc.expectedErr)
 		} else if bundle == nil {
 			t.Errorf("%s: the bundle should not be empty", id)
@@ -154,12 +154,12 @@ func TestCertOptionsAndRetrieveID(t *testing.T) {
 		}
 		opts, err := k.CertOptions()
 		if err != nil {
-			if len(tc.expectedErr) == 0 {
+			if tc.expectedErr == "" {
 				t.Errorf("%s: Unexpected error: %v", id, err)
 			} else if strings.Compare(err.Error(), tc.expectedErr) != 0 {
 				t.Errorf("%s: Unexpected error: %v VS (expected) %s", id, err, tc.expectedErr)
 			}
-		} else if len(tc.expectedErr) != 0 {
+		} else if tc.expectedErr != "" {
 			t.Errorf("%s: expected error %s but have error %v", id, tc.expectedErr, err)
 		} else {
 			compareCertOptions(opts, tc.certOptions, t)
@@ -248,14 +248,17 @@ func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 			caKeyFile:     int2KeyFile,
 			certChainFile: "",
 			rootCertFile:  rootCertFile,
-			expectedErr:   "cannot verify the cert with the provided root chain and cert pool",
+			expectedErr: "cannot verify the cert with the provided root chain and " +
+				"cert pool with error: x509: certificate signed by unknown authority",
 		},
 		"Failure - cert not verifiable from root cert": {
 			caCertFile:    intCertFile,
 			caKeyFile:     intKeyFile,
 			certChainFile: intCertChainFile,
 			rootCertFile:  anotherRootCertFile,
-			expectedErr:   "cannot verify the cert with the provided root chain and cert pool",
+			expectedErr: "cannot verify the cert with the provided root chain and " +
+				"cert pool with error: x509: certificate is not authorized to sign " +
+				"other certificates",
 		},
 		"Failure - invalid cert": {
 			caCertFile:    badCertFile,
@@ -290,12 +293,12 @@ func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 		_, err := NewVerifiedKeyCertBundleFromFile(
 			tc.caCertFile, tc.caKeyFile, tc.certChainFile, tc.rootCertFile)
 		if err != nil {
-			if len(tc.expectedErr) == 0 {
+			if tc.expectedErr == "" {
 				t.Errorf("%s: Unexpected error: %v", id, err)
 			} else if strings.Compare(err.Error(), tc.expectedErr) != 0 {
 				t.Errorf("%s: Unexpected error: %v VS (expected) %s", id, err, tc.expectedErr)
 			}
-		} else if len(tc.expectedErr) != 0 {
+		} else if tc.expectedErr != "" {
 			t.Errorf("%s: Expected error %s but succeeded", id, tc.expectedErr)
 		}
 	}

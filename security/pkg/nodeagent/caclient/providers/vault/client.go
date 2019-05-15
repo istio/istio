@@ -24,8 +24,8 @@ import (
 
 	"github.com/hashicorp/vault/api"
 
-	"istio.io/istio/pkg/log"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
+	"istio.io/pkg/log"
 )
 
 type vaultClient struct {
@@ -113,10 +113,10 @@ func createVaultTLSClient(vaultAddr string, tlsRootCert []byte) (*api.Client, er
 		log.Errorf("could not get SystemCertPool: %v", err)
 		return nil, fmt.Errorf("could not get SystemCertPool: %v", err)
 	}
-	if tlsRootCert != nil && len(tlsRootCert) > 0 {
+	if len(tlsRootCert) > 0 {
 		ok := pool.AppendCertsFromPEM(tlsRootCert)
 		if !ok {
-			return nil, fmt.Errorf("failed to append a certificate (%v) to the certificate pool", string(tlsRootCert[:]))
+			return nil, fmt.Errorf("failed to append a certificate (%v) to the certificate pool", string(tlsRootCert))
 		}
 	}
 	tlsConfig := &tls.Config{
@@ -175,7 +175,7 @@ func loginVaultK8sAuthMethod(client *api.Client, loginPath, role, sa string) (st
 func signCsrByVault(client *api.Client, csrSigningPath string, certTTLInSec int64, csr []byte) ([]string, error) {
 	m := map[string]interface{}{
 		"format":               "pem",
-		"csr":                  string(csr[:]),
+		"csr":                  string(csr),
 		"ttl":                  strconv.FormatInt(certTTLInSec, 10) + "s",
 		"exclude_cn_from_sans": true,
 	}

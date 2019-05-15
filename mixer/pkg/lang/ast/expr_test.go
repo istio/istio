@@ -35,6 +35,7 @@ func TestGoodParse(t *testing.T) {
 		{`substring(a, 5) == "abc"`, `EQ(substring($a, 5), "abc")`},
 		{`a|b|c`, `OR(OR($a, $b), $c)`},
 		{`200`, `200`},
+		{`"истио"`, `"истио"`},
 		{`origin.host == "9.0.10.1"`, `EQ($origin.host, "9.0.10.1")`},
 		{`service.name == "cluster1.ns.*"`, `EQ($service.name, "cluster1.ns.*")`},
 		{`a() == 200`, `EQ(a(), 200)`},
@@ -195,7 +196,7 @@ func TestBadParse(t *testing.T) {
 		{`*a != b`, "unexpected expression"},
 		{"a = bc", `unable to parse`},
 		{`3 = 10`, "unable to parse"},
-		{`(a.c).d == 300`, `unexpected expression`},
+		{`(a.c()).d == 300`, `unexpected expression`},
 		{`substring(*a, 20) == 12`, `unexpected expression`},
 		{`(*a == 20) && 12`, `unexpected expression`},
 		{`!*a`, `unexpected expression`},
@@ -237,6 +238,7 @@ type af struct {
 }
 
 func (a *af) GetAttribute(name string) *cfgpb.AttributeManifest_AttributeInfo { return a.v[name] }
+func (a *af) Attributes() map[string]*cfgpb.AttributeManifest_AttributeInfo   { return a.v }
 
 func newAF(ds []*ad) *af {
 	m := make(map[string]*cfgpb.AttributeManifest_AttributeInfo)

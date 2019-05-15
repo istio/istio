@@ -17,6 +17,8 @@ var dispatcher = require('httpdispatcher')
 
 var port = parseInt(process.argv[2])
 
+var userAddedRatings = [] // used to demonstrate POST functionality
+
 /**
  * We default to using mongodb, if DB_TYPE is not set to mysql.
  */
@@ -32,6 +34,34 @@ if (process.env.SERVICE_VERSION === 'v2') {
     var url = process.env.MONGO_DB_URL
   }
 }
+
+dispatcher.onPost(/^\/ratings\/[0-9]*/, function (req, res) {
+  var productIdStr = req.url.split('/').pop()
+  var productId = parseInt(productIdStr)
+  var ratings = {}
+
+  if (Number.isNaN(productId)) {
+    res.writeHead(400, {'Content-type': 'application/json'})
+    res.end(JSON.stringify({error: 'please provide numeric product ID'}))
+    return
+  }
+
+  try {
+    ratings = JSON.parse(req.body)
+  } catch (error) {
+    res.writeHead(400, {'Content-type': 'application/json'})
+    res.end(JSON.stringify({error: 'please provide valid ratings JSON'}))
+    return
+  }
+
+  if (process.env.SERVICE_VERSION === 'v2') { // the version that is backed by a database
+    res.writeHead(501, {'Content-type': 'application/json'})
+    res.end(JSON.stringify({error: 'Post not implemented for database backed ratings'}))
+  } else { // the version that holds ratings in-memory
+    res.writeHead(200, {'Content-type': 'application/json'})
+    res.end(JSON.stringify(putLocalReviews(productId, ratings)))
+  }
+})
 
 dispatcher.onGet(/^\/ratings\/[0-9]*/, function (req, res) {
   var productIdStr = req.url.split('/').pop()
@@ -118,7 +148,18 @@ dispatcher.onGet('/health', function (req, res) {
   res.end(JSON.stringify({status: 'Ratings is healthy'}))
 })
 
+function putLocalReviews (productId, ratings) {
+  userAddedRatings[productId] = {
+    id: productId,
+    ratings: ratings
+  }
+  return getLocalReviews(productId)
+}
+
 function getLocalReviews (productId) {
+  if (typeof userAddedRatings[productId] !== 'undefined') {
+      return userAddedRatings[productId]
+  }
   return {
     id: productId,
     ratings: {

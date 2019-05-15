@@ -21,7 +21,7 @@ import (
 	"github.com/hashicorp/consul/api"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -45,7 +45,7 @@ func convertLabels(labels []string) model.Labels {
 
 func convertPort(port int, name string) *model.Port {
 	if name == "" {
-		name = "http"
+		name = "tcp"
 	}
 
 	return &model.Port{

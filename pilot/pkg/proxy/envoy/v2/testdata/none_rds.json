@@ -23,9 +23,9 @@
                   "HostRewriteSpecifier": null,
                   "timeout": 0,
                   "retry_policy": {
-                    "retry_on": "connect-failure,refused-stream,unavailable,cancelled,resource-exhausted",
+                    "retry_on": "connect-failure,refused-stream,unavailable,cancelled,resource-exhausted,retriable-status-codes",
                     "num_retries": {
-                      "value": 10
+                      "value": 2
                     },
                     "retry_host_predicate": [
                       {
@@ -144,9 +144,9 @@
                   "HostRewriteSpecifier": null,
                   "timeout": 0,
                   "retry_policy": {
-                    "retry_on": "connect-failure,refused-stream,unavailable,cancelled,resource-exhausted",
+                    "retry_on": "connect-failure,refused-stream,unavailable,cancelled,resource-exhausted,retriable-status-codes",
                     "num_retries": {
-                      "value": 10
+                      "value": 2
                     },
                     "retry_host_predicate": [
                       {

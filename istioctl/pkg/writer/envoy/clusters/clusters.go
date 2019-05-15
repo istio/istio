@@ -24,7 +24,7 @@ import (
 	"text/tabwriter"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
 	"istio.io/istio/istioctl/pkg/util/clusters"
 	protio "istio.io/istio/istioctl/pkg/util/proto"

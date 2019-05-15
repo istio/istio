@@ -19,10 +19,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
-	"time"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
@@ -45,45 +42,18 @@ func (h *sourceHarness) Context() context.Context {
 	return h.sourceTestHarness.Context()
 }
 
-func verifySentResourcesMultipleTypes(t *testing.T, h *sourceTestHarness, wantResources map[string]*mcp.Resources) map[string]*mcp.Resources {
-	t.Helper()
-
-	gotResources := make(map[string]*mcp.Resources)
-	for {
-		select {
-		case got := <-h.resourcesChan:
-			if _, ok := gotResources[got.Collection]; ok {
-				t.Fatalf("gotResources duplicate response for type %v: %v", got.Collection, got)
-			}
-			gotResources[got.Collection] = got
-
-			want, ok := wantResources[got.Collection]
-			if !ok {
-				t.Fatalf("gotResources unexpected response for type %v: %v", got.Collection, got)
-			}
-
-			if diff := cmp.Diff(*got, *want, cmpopts.IgnoreFields(mcp.Resources{}, "Nonce")); diff != "" {
-				t.Fatalf("wrong responses for %v: \n got %+v \nwant %+v \n diff %v", got.Collection, got, want, diff)
-			}
-
-			if len(gotResources) == len(wantResources) {
-				return gotResources
-			}
-		case <-time.After(time.Second):
-			t.Fatalf("timeout waiting for all responses: gotResources %v", gotResources)
-		}
-	}
-}
-
 func TestClientSource(t *testing.T) {
 	h := &sourceHarness{
 		sourceTestHarness: newSourceTestHarness(t),
 	}
-
+	h.client = true
+	fakeLimiter := test.NewFakePerConnLimiter()
+	close(fakeLimiter.ErrCh)
 	options := &Options{
 		Watcher:            h,
 		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:           monitoring.NewInMemoryStatsContext(),
+		ConnRateLimiter:    fakeLimiter,
 	}
 	c := NewClient(h, options)
 
@@ -115,15 +85,16 @@ func TestClientSource(t *testing.T) {
 		Resources:  []*mcp.Resource{test.Type2A[0].Resource},
 	})
 
-	h.requestsChan <- test.MakeRequest(test.FakeType0Collection, "", codes.OK)
-	h.requestsChan <- test.MakeRequest(test.FakeType1Collection, "", codes.OK)
-	h.requestsChan <- test.MakeRequest(test.FakeType2Collection, "", codes.OK)
+	h.requestsChan <- test.MakeRequest(false, triggerCollection, "", codes.Unimplemented)
+	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "", codes.OK)
+	h.requestsChan <- test.MakeRequest(false, test.FakeType1Collection, "", codes.OK)
+	h.requestsChan <- test.MakeRequest(false, test.FakeType2Collection, "", codes.OK)
 
 	verifySentResourcesMultipleTypes(t, h.sourceTestHarness,
 		map[string]*mcp.Resources{
-			test.FakeType0Collection: test.MakeResources(test.FakeType0Collection, "1", "1", nil, test.Type0A[0]),
-			test.FakeType1Collection: test.MakeResources(test.FakeType1Collection, "2", "2", nil, test.Type1A[0]),
-			test.FakeType2Collection: test.MakeResources(test.FakeType2Collection, "3", "3", nil, test.Type2A[0]),
+			test.FakeType0Collection: test.MakeResources(false, test.FakeType0Collection, "1", "1", nil, test.Type0A[0]),
+			test.FakeType1Collection: test.MakeResources(false, test.FakeType1Collection, "2", "2", nil, test.Type1A[0]),
+			test.FakeType2Collection: test.MakeResources(false, test.FakeType2Collection, "3", "3", nil, test.Type2A[0]),
 		},
 	)
 
@@ -134,13 +105,27 @@ func TestClientSource(t *testing.T) {
 		}
 	}
 
-	reconnectChan := make(chan struct{}, 10)
+	waiting := make(chan bool)
+	proceed := make(chan bool)
 	reconnectTestProbe = func() {
-		reconnectChan <- struct{}{}
+		waiting <- true
+		<-proceed
 	}
 	defer func() { reconnectTestProbe = nil }()
 
 	h.setOpenError(errors.New("fake connection error"))
 	h.recvErrorChan <- errRecv
-	<-reconnectChan
+	<-waiting
+	proceed <- true
+
+	<-waiting
+	h.setOpenError(nil)
+	h.client = true
+	h.requestsChan <- test.MakeRequest(false, "", "", codes.OK)
+	proceed <- true
+
+	<-waiting
+	h.setRecvError(errors.New("fake recv error"))
+	h.client = true
+	proceed <- true
 }

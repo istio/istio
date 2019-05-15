@@ -34,7 +34,7 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/pkg/probe"
+	"istio.io/pkg/probe"
 )
 
 // The "retryTimeout" used by the test.
@@ -45,7 +45,7 @@ const waitForTimeout = time.Second
 
 const apiGroupVersion = ConfigAPIGroup + "/" + ConfigAPIVersion
 
-func createFakeDiscovery(*rest.Config) (discovery.DiscoveryInterface, error) {
+func createFakeDiscovery(_ *rest.Config) (discovery.DiscoveryInterface, error) {
 	return &fake.FakeDiscovery{
 		Fake: &k8stesting.Fake{
 			Resources: []*metav1.APIResourceList{
@@ -99,6 +99,7 @@ func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) dynamic.Resour
 	return &fakeDynamicResource{d: d, w: w, res: res}
 }
 
+// nolint: unparam
 func (d *dummyListerWatcherBuilder) put(key store.Key, spec map[string]interface{}) error {
 	res := &unstructured.Unstructured{}
 	res.SetKind(key.Kind)
@@ -154,7 +155,7 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 			return lw, nil
 		},
 		Probe:         probe.NewProbe(),
-		retryInterval: 0,
+		retryInterval: 1 * time.Millisecond,
 	}
 	return client, ns, lw
 }
@@ -319,9 +320,6 @@ func TestCriticalCrdsAreReady(t *testing.T) {
 		fakeDiscovery.Resources[0].APIResources = append(
 			fakeDiscovery.Resources[0].APIResources,
 			metav1.APIResource{Name: "handlers", SingularName: "handler", Kind: "Handler", Namespaced: true},
-		)
-		fakeDiscovery.Resources[0].APIResources = append(
-			fakeDiscovery.Resources[0].APIResources,
 			metav1.APIResource{Name: "actions", SingularName: "action", Kind: "Action", Namespaced: true},
 		)
 		return true, nil, nil

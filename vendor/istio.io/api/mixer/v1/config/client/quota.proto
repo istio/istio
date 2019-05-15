@@ -24,6 +24,7 @@ import "mixer/v1/config/client/service.proto";
 option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
+option (gogoproto.stable_marshaler_all) = true;
 
 // Specifies runtime quota rules.
 //  * Uses Istio attributes to match individual requests

@@ -39,8 +39,8 @@ func TestListenerMatch(t *testing.T) {
 		name           string
 		inputParams    *plugin.InputParams
 		listenerIP     net.IP
-		direction      networking.EnvoyFilter_ListenerMatch_ListenerType
 		matchCondition *networking.EnvoyFilter_ListenerMatch
+		direction      networking.EnvoyFilter_ListenerMatch_ListenerType
 		result         bool
 	}{
 		{

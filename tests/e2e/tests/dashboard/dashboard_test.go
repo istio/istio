@@ -35,20 +35,20 @@ import (
 	"fortio.org/fortio/fhttp"
 	"fortio.org/fortio/periodic"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 const (
-	istioMeshDashboard   = "install/kubernetes/helm/subcharts/grafana/dashboards/istio-mesh-dashboard.json"
-	serviceDashboard     = "install/kubernetes/helm/subcharts/grafana/dashboards/istio-service-dashboard.json"
-	workloadDashboard    = "install/kubernetes/helm/subcharts/grafana/dashboards/istio-workload-dashboard.json"
-	performanceDashboard = "install/kubernetes/helm/subcharts/grafana/dashboards/istio-performance-dashboard.json"
-	mixerDashboard       = "install/kubernetes/helm/subcharts/grafana/dashboards/mixer-dashboard.json"
-	pilotDashboard       = "install/kubernetes/helm/subcharts/grafana/dashboards/pilot-dashboard.json"
-	galleyDashboard      = "install/kubernetes/helm/subcharts/grafana/dashboards/galley-dashboard.json"
+	istioMeshDashboard   = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-mesh-dashboard.json"
+	serviceDashboard     = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-service-dashboard.json"
+	workloadDashboard    = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-workload-dashboard.json"
+	performanceDashboard = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-performance-dashboard.json"
+	mixerDashboard       = "install/kubernetes/helm/istio/charts/grafana/dashboards/mixer-dashboard.json"
+	pilotDashboard       = "install/kubernetes/helm/istio/charts/grafana/dashboards/pilot-dashboard.json"
+	galleyDashboard      = "install/kubernetes/helm/istio/charts/grafana/dashboards/galley-dashboard.json"
 	fortioYaml           = "tests/e2e/tests/dashboard/fortio-rules.yaml"
 	netcatYaml           = "tests/e2e/tests/dashboard/netcat-rules.yaml"
 
@@ -136,9 +136,9 @@ func TestDashboards(t *testing.T) {
 		{"Istio", istioMeshDashboard, func(queries []string) []string { return queries }, nil, "istio-telemetry", 42422},
 		{"Service", serviceDashboard, func(queries []string) []string { return queries }, nil, "istio-telemetry", 42422},
 		{"Workload", workloadDashboard, func(queries []string) []string { return queries }, workloadReplacer, "istio-telemetry", 42422},
-		{"Mixer", mixerDashboard, mixerQueryFilterFn, nil, "istio-telemetry", 9093},
-		{"Pilot", pilotDashboard, pilotQueryFilterFn, nil, "istio-pilot", 9093},
-		{"Galley", galleyDashboard, galleyQueryFilterFn, nil, "istio-galley", 9093},
+		{"Mixer", mixerDashboard, mixerQueryFilterFn, nil, "istio-telemetry", 15014},
+		{"Pilot", pilotDashboard, pilotQueryFilterFn, nil, "istio-pilot", 15014},
+		{"Galley", galleyDashboard, galleyQueryFilterFn, nil, "istio-galley", 15014},
 		{"Performance", performanceDashboard, performanceQueryFilterFn, nil, "istio-telemetry", 42422},
 	}
 
@@ -451,16 +451,17 @@ func newPromProxy(namespace string) *promProxy {
 
 func (p *promProxy) portForward(labelSelector string, localPort uint16, remotePort uint16) error {
 	log.Infof("Setting up %s proxy", labelSelector)
-	options := &kube.PodSelectOptions{
-		PodNamespace:  p.namespace,
-		LabelSelector: labelSelector,
-	}
+
 	accessor, err := kube.NewAccessor(tc.Kube.KubeConfig, "")
 	if err != nil {
 		log.Errorf("Error creating accessor: %v", err)
 		return err
 	}
-	forwarder, err := accessor.NewPortForwarder(options, localPort, remotePort)
+	pod, err := accessor.FindPodBySelectors(p.namespace, labelSelector)
+	if err != nil {
+		log.Errorf("error finding pod: %v", err)
+	}
+	forwarder, err := accessor.NewPortForwarder(pod, localPort, remotePort)
 	if err != nil {
 		log.Errorf("Error creating port forwarder: %v", err)
 		return err
@@ -544,18 +545,17 @@ func waitForMixerProxyReadiness() error {
 		log.Infof("Waiting for Mixer's proxy to be ready to dispatch traffic: %v", duration)
 		time.Sleep(duration)
 
-		for _, pod := range mixerPods {
-			options := &kube.PodSelectOptions{
-				PodNamespace: tc.Kube.Namespace,
-				PodName:      pod,
-			}
-
+		for _, podName := range mixerPods {
 			accessor, err := kube.NewAccessor(tc.Kube.KubeConfig, "")
 			if err != nil {
 				log.Errorf("Error creating accessor: %v", err)
 				return err
 			}
-			forwarder, err := accessor.NewPortForwarder(options, 16000, 15000)
+			pod, err := accessor.GetPod(tc.Kube.Namespace, podName)
+			if err != nil {
+				log.Errorf("error retrieving pod: %v", err)
+			}
+			forwarder, err := accessor.NewPortForwarder(pod, 16000, 15000)
 			if err != nil {
 				log.Infof("Error creating port forwarder: %v", err)
 				continue
@@ -569,7 +569,7 @@ func waitForMixerProxyReadiness() error {
 			forwarder.Close()
 
 			if err != nil {
-				log.Infof("Failure retrieving status for pod %s (container: istio-proxy): %v", pod, err)
+				log.Infof("Failure retrieving status for pod %v (container: istio-proxy): %v", pod, err)
 				continue
 			}
 
@@ -577,7 +577,7 @@ func waitForMixerProxyReadiness() error {
 				return nil
 			}
 
-			log.Infof("Failure retrieving status for pod %s (container: istio-proxy) status code should be 200 got: %d", pod, resp.StatusCode)
+			log.Infof("Failure retrieving status for pod %v (container: istio-proxy) status code should be 200 got: %d", pod, resp.StatusCode)
 		}
 	}
 	return errors.New("proxy for mixer never started main dispatch loop")

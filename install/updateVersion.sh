@@ -148,15 +148,9 @@ function gen_file() {
 }
 
 function gen_istio_files() {
-    if [[ -n ${ISTIO_RELEASE:-} ]]; then
-        for target in istio-demo.yaml istio-demo-auth.yaml; do
-            gen_file $target "${DEST_DIR}"
-        done
-    else
-        for target in istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml istio-multicluster.yaml istio-auth-multicluster.yaml istio-remote.yaml istio-mcp.yaml istio-auth-mcp.yaml;do
-            gen_file $target "${DEST_DIR}"
-        done
-    fi
+    for target in istio-demo.yaml istio-demo-auth.yaml; do
+        gen_file $target "${DEST_DIR}"
+    done
 }
 
 function update_istio_install_docker() {

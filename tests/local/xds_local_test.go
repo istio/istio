@@ -157,7 +157,7 @@ func deleteTestService(apiServerURL string, svcName, svcNamespace string) error 
 	return nil
 }
 
-func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
+func initLocalPilot(istioSrc string) (*bootstrap.Server, error) {
 
 	serverAgrs := bootstrap.PilotArgs{
 		Namespace: "istio-system",
@@ -173,7 +173,7 @@ func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
 			RdsRefreshDelay: types.DurationProto(10 * time.Millisecond),
 		},
 		Config: bootstrap.ConfigArgs{
-			KubeConfig: IstioSrc + "/.circleci/config",
+			KubeConfig: istioSrc + "/.circleci/config",
 		},
 		Service: bootstrap.ServiceArgs{
 			Registries: []string{

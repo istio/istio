@@ -1,0 +1,31 @@
+{{- range $key, $spec := .Values }}
+{{- if and (ne $key "enabled") }}
+{{- if $spec.enabled }}
+{{- if $.Values.global.defaultPodDisruptionBudget.enabled }}
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $key }}
+  namespace: {{ $spec.namespace | default $.Release.Namespace }}
+  labels:
+    chart: {{ template "gateway.chart" $ }}
+    heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
+    {{- range $key, $val := $spec.labels }}
+    {{ $key }}: {{ $val }}
+    {{- end }}
+spec:
+{{- if $.Values.global.defaultPodDisruptionBudget.enabled }}
+{{ include "podDisruptionBudget.spec" $.Values.global.defaultPodDisruptionBudget }}
+{{- end }}
+  selector:
+    matchLabels:
+      release: {{ $.Release.Name }}
+      {{- range $key, $val := $spec.labels }}
+      {{ $key }}: {{ $val }}
+      {{- end }}
+---
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

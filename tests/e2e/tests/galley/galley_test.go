@@ -27,9 +27,9 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -101,63 +101,11 @@ func TestValidation(t *testing.T) {
 		filename string
 		valid    bool
 	}{
-		{"config-v1alpha2-apikey-invalid", false},
-		{"config-v1alpha2-apikey-valid", true},
-		{"config-v1alpha2-authorization-invalid", false},
-		{"config-v1alpha2-authorization-valid", true},
-		{"config-v1alpha2-checknothing-invalid", false},
-		{"config-v1alpha2-checknothing-valid", true},
-		{"config-v1alpha2-circonus-invalid", false},
-		{"config-v1alpha2-circonus-valid", true},
-		{"config-v1alpha2-denier-invalid", false},
-		{"config-v1alpha2-denier-valid", true},
-		{"config-v1alpha2-fluentd-invalid", false},
-		{"config-v1alpha2-fluentd-valid", true},
-
 		// TODO - APA adapter validation disabled because mixer template's attribute
 		// manifest is not plumbed through to mixer validation code yet.
 		//
 		// {"config-v1alpha2-kubernetes-invalid", false},
 		// {"config-v1alpha2-kubernetes-valid", true},
-
-		{"config-v1alpha2-kubernetesenv-invalid", false},
-		{"config-v1alpha2-kubernetesenv-valid", true},
-		{"config-v1alpha2-listchecker-invalid", false},
-		{"config-v1alpha2-listchecker-valid", true},
-		{"config-v1alpha2-listentry-invalid", false},
-		{"config-v1alpha2-listentry-valid", true},
-		{"config-v1alpha2-logentry-invalid", false},
-		{"config-v1alpha2-logentry-valid", true},
-		{"config-v1alpha2-memquota-invalid", false},
-		{"config-v1alpha2-memquota-valid", true},
-		{"config-v1alpha2-metric-invalid", false},
-		{"config-v1alpha2-metric-valid", true},
-		{"config-v1alpha2-noop-invalid", false},
-		{"config-v1alpha2-noop-valid", true},
-		{"config-v1alpha2-opa-invalid", false},
-		{"config-v1alpha2-opa-valid", true},
-		{"config-v1alpha2-prometheus-invalid", false},
-		{"config-v1alpha2-prometheus-valid", true},
-		{"config-v1alpha2-quota-invalid", false},
-		{"config-v1alpha2-quota-valid", true},
-		{"config-v1alpha2-rbac-invalid", false},
-		{"config-v1alpha2-rbac-valid", true},
-		{"config-v1alpha2-reportnothing-invalid", false},
-		{"config-v1alpha2-reportnothing-valid", true},
-		{"config-v1alpha2-servicecontrol-invalid", false},
-		{"config-v1alpha2-servicecontrol-valid", true},
-		{"config-v1alpha2-servicecontrolreport-invalid", false},
-		{"config-v1alpha2-servicecontrolreport-valid", true},
-		{"config-v1alpha2-solarwinds-invalid", false},
-		{"config-v1alpha2-solarwinds-valid", true},
-		{"config-v1alpha2-stackdriver-invalid", false},
-		{"config-v1alpha2-stackdriver-valid", true},
-		{"config-v1alpha2-statsd-invalid", false},
-		{"config-v1alpha2-statsd-valid", true},
-		{"config-v1alpha2-stdio-invalid", false},
-		{"config-v1alpha2-stdio-valid", true},
-		{"config-v1alpha2-tracespan-invalid", false},
-		{"config-v1alpha2-tracespan-valid", true},
 
 		// {"config-v1alpha2-attributemanifest-invalid", false},
 		// {"config-v1alpha2-attributemanifest-valid", true},
@@ -186,6 +134,8 @@ func TestValidation(t *testing.T) {
 		{"networking-v1alpha3-DestinationRule-valid", true},
 		{"networking-v1alpha3-ServiceEntry-invalid", false},
 		{"networking-v1alpha3-ServiceEntry-valid", true},
+		{"networking-v1alpha3-Sidecar-invalid", false},
+		{"networking-v1alpha3-Sidecar-valid", true},
 		{"networking-v1alpha3-VirtualService-invalid", false},
 		{"networking-v1alpha3-VirtualService-valid", true},
 		{"networking-v1alpha3-Gateway-invalid", false},

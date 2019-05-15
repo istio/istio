@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -36,9 +37,10 @@ var (
 	}
 	productpage = []*api.CatalogService{
 		{
-			Node:           "istio",
+			Node:           "istio-node",
 			Address:        "172.19.0.5",
-			ID:             "111-111-111",
+			ID:             "istio-node-id",
+			ServiceID:      "productpage",
 			ServiceName:    "productpage",
 			ServiceTags:    []string{"version|v1"},
 			ServiceAddress: "172.19.0.11",
@@ -47,27 +49,30 @@ var (
 	}
 	reviews = []*api.CatalogService{
 		{
-			Node:           "istio",
+			Node:           "istio-node",
 			Address:        "172.19.0.5",
-			ID:             "222-222-222",
+			ID:             "istio-node-id",
+			ServiceID:      "reviews-id",
 			ServiceName:    "reviews",
 			ServiceTags:    []string{"version|v1"},
 			ServiceAddress: "172.19.0.6",
 			ServicePort:    9081,
 		},
 		{
-			Node:           "istio",
+			Node:           "istio-node",
 			Address:        "172.19.0.5",
-			ID:             "333-333-333",
+			ID:             "istio-node-id",
+			ServiceID:      "reviews-id",
 			ServiceName:    "reviews",
 			ServiceTags:    []string{"version|v2"},
 			ServiceAddress: "172.19.0.7",
 			ServicePort:    9081,
 		},
 		{
-			Node:           "istio",
+			Node:           "istio-node",
 			Address:        "172.19.0.5",
-			ID:             "444-444-444",
+			ID:             "istio-node-id",
+			ServiceID:      "reviews-id",
 			ServiceName:    "reviews",
 			ServiceTags:    []string{"version|v3"},
 			ServiceAddress: "172.19.0.8",
@@ -77,9 +82,10 @@ var (
 	}
 	rating = []*api.CatalogService{
 		{
-			Node:           "istio",
+			Node:           "istio-node",
 			Address:        "172.19.0.6",
-			ID:             "555-555-555",
+			ID:             "istio-node-id",
+			ServiceID:      "rating-id",
 			ServiceName:    "rating",
 			ServiceTags:    []string{"version|v1"},
 			ServiceAddress: "172.19.0.12",
@@ -430,5 +436,63 @@ func TestGetProxyServiceInstancesWithMultiIPs(t *testing.T) {
 	if services[0].Service.Hostname != serviceHostname("rating") {
 		t.Errorf("GetProxyServiceInstances() wrong service instance returned => hostname %q, want %q",
 			services[0].Service.Hostname, serviceHostname("productpage"))
+	}
+}
+
+func TestGetProxyWorkloadLabels(t *testing.T) {
+	ts := newServer()
+	defer ts.Server.Close()
+	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	if err != nil {
+		t.Errorf("could not create Consul Controller: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		ips      []string
+		expected model.LabelsCollection
+	}{
+		{
+			name:     "Rating",
+			ips:      []string{"10.78.11.18", "172.19.0.12"},
+			expected: model.LabelsCollection{{"version": "v1"}},
+		},
+		{
+			name:     "No proxy ip",
+			ips:      nil,
+			expected: model.LabelsCollection{},
+		},
+		{
+			name:     "No match",
+			ips:      []string{"1.2.3.4", "2.3.4.5"},
+			expected: model.LabelsCollection{},
+		},
+		{
+			name:     "Only match on Service Address",
+			ips:      []string{"172.19.0.5"},
+			expected: model.LabelsCollection{},
+		},
+		{
+			name:     "Match multiple services",
+			ips:      []string{"172.19.0.7", "172.19.0.8"},
+			expected: model.LabelsCollection{{"version": "v2"}, {"version": "v3"}},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			labels, err := controller.GetProxyWorkloadLabels(&model.Proxy{IPAddresses: test.ips})
+
+			if err != nil {
+				t.Errorf("client encountered error during GetProxyWorkloadLabels(): %v", err)
+			}
+			if labels == nil {
+				t.Error("labels should exist")
+			}
+
+			if !reflect.DeepEqual(labels, test.expected) {
+				t.Errorf("GetProxyWorkloadLabels() wrong labels => returned %#v, want %#v", labels, test.expected)
+			}
+		})
 	}
 }

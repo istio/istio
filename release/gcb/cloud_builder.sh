@@ -62,18 +62,36 @@ cp        "${ISTIO_OUT}"/archive/istio-*z*   "${OUTPUT_PATH}/"
 REL_DOCKER_HUB=docker.io/istio
 
 # we always save the docker tars and point them to docker.io/istio ($REL_DOCKER_HUB)
-# later scripts retag the tars with <hub>:$CB_VERSION and push to <hub>:$CB_VERSION 
+# later scripts retag the tars with <hub>:$CB_VERSION and push to <hub>:$CB_VERSION
 BUILD_DOCKER_TARGETS=(docker.save)
 
 VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION="${CB_VERSION}" TAG="${CB_VERSION}" make "${BUILD_DOCKER_TARGETS[@]}"
 
+# preserve the source from the root of the code
+pushd "${ROOT}/../../../.."
+pwd
+# tar the source code
+tar -czf "${OUTPUT_PATH}/source.tar.gz" go src --exclude go/out --exclude go/bin
+popd
+
 cp -r "${ISTIO_OUT}/docker" "${OUTPUT_PATH}/"
 
 go run tools/license/get_dep_licenses.go --branch "${CB_BRANCH}" > LICENSES.txt
-add_license_to_tar_images "${REL_DOCKER_HUB}" "${CB_VERSION}" "${OUTPUT_PATH}"
+
+# Add extra artifacts for legal compliance. The caller of this script can
+# optionally set their EXTRA_ARTIFACTS environment variable to an arbitrarily
+# long list of space-delimited filepaths --- and each artifact would get
+# injected into the Docker image.
+add_extra_artifacts_to_tar_images \
+  "${REL_DOCKER_HUB}" \
+  "${CB_VERSION}" \
+  "${OUTPUT_PATH}" \
+  "${EXTRA_ARTIFACTS:-$PWD/LICENSES.txt}"
 
 # log where git thinks the build might be dirty
 git status
+
+cp "/workspace/manifest.txt" "${OUTPUT_PATH}"
 
 #Handle CNI artifacts.
 pushd ../cni
@@ -92,19 +110,14 @@ mkdir "/cni_tmp"
 cp -r "${CNI_OUT}/docker" "/cni_tmp"
 
 go run ../istio/tools/license/get_dep_licenses.go --branch "${CB_BRANCH}" > LICENSES.txt
-add_license_to_tar_images "${REL_DOCKER_HUB}" "${ISTIO_VERSION}" "/cni_tmp"
+add_extra_artifacts_to_tar_images \
+  "${REL_DOCKER_HUB}" \
+  "${CB_VERSION}" \
+  "/cni_tmp" \
+  "${EXTRA_ARTIFACTS_CNI:-$PWD/LICENSES.txt}"
 cp -r "/cni_tmp/docker" "${OUTPUT_PATH}/"
 
 # log where git thinks the build might be dirty
 git status
 
 popd
-
-# preserve the source from the root of the code
-pushd "${ROOT}/../../../.."
-pwd
-# tar the source code
-tar -czf "${OUTPUT_PATH}/source.tar.gz" go src --exclude go/out --exclude go/bin
-popd
-
-cp "/workspace/manifest.txt" "${OUTPUT_PATH}"

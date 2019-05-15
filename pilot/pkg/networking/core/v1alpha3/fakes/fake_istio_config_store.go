@@ -136,16 +136,17 @@ type IstioConfigStore struct {
 	quotaSpecByDestinationReturnsOnCall map[int]struct {
 		result1 []model.Config
 	}
-	AuthenticationPolicyByDestinationStub        func(service *model.Service, port *model.Port) *model.Config
-	authenticationPolicyByDestinationMutex       sync.RWMutex
-	authenticationPolicyByDestinationArgsForCall []struct {
+	AuthenticationPolicyForWorkloadStub        func(service *model.Service, labels model.Labels, port *model.Port) *model.Config
+	authenticationPolicyForWorkloadMutex       sync.RWMutex
+	authenticationPolicyForWorkloadArgsForCall []struct {
 		service *model.Service
+		labels  model.Labels
 		port    *model.Port
 	}
-	authenticationPolicyByDestinationReturns struct {
+	authenticationPolicyForWorkloadReturns struct {
 		result1 *model.Config
 	}
-	authenticationPolicyByDestinationReturnsOnCall map[int]struct {
+	authenticationPolicyForWorkloadReturnsOnCall map[int]struct {
 		result1 *model.Config
 	}
 	ServiceRolesStub        func(namespace string) []model.Config
@@ -168,6 +169,17 @@ type IstioConfigStore struct {
 		result1 []model.Config
 	}
 	serviceRoleBindingsReturnsOnCall map[int]struct {
+		result1 []model.Config
+	}
+	AuthorizationPoliciesStub        func(namespace string) []model.Config
+	authorizationPoliciesMutex       sync.RWMutex
+	authorizationPoliciesArgsForCall []struct {
+		namespace string
+	}
+	authorizationPoliciesReturns struct {
+		result1 []model.Config
+	}
+	authorizationPoliciesReturnsOnCall map[int]struct {
 		result1 []model.Config
 	}
 	RbacConfigStub        func() *model.Config
@@ -718,51 +730,52 @@ func (fake *IstioConfigStore) QuotaSpecByDestinationReturnsOnCall(i int, result1
 	}{result1}
 }
 
-func (fake *IstioConfigStore) AuthenticationPolicyByDestination(service *model.Service, port *model.Port) *model.Config {
-	fake.authenticationPolicyByDestinationMutex.Lock()
-	ret, specificReturn := fake.authenticationPolicyByDestinationReturnsOnCall[len(fake.authenticationPolicyByDestinationArgsForCall)]
-	fake.authenticationPolicyByDestinationArgsForCall = append(fake.authenticationPolicyByDestinationArgsForCall, struct {
+func (fake *IstioConfigStore) AuthenticationPolicyForWorkload(service *model.Service, labels model.Labels, port *model.Port) *model.Config {
+	fake.authenticationPolicyForWorkloadMutex.Lock()
+	ret, specificReturn := fake.authenticationPolicyForWorkloadReturnsOnCall[len(fake.authenticationPolicyForWorkloadArgsForCall)]
+	fake.authenticationPolicyForWorkloadArgsForCall = append(fake.authenticationPolicyForWorkloadArgsForCall, struct {
 		service *model.Service
+		labels  model.Labels
 		port    *model.Port
-	}{service, port})
-	fake.recordInvocation("AuthenticationPolicyByDestination", []interface{}{service, port})
-	fake.authenticationPolicyByDestinationMutex.Unlock()
-	if fake.AuthenticationPolicyByDestinationStub != nil {
-		return fake.AuthenticationPolicyByDestinationStub(service, port)
+	}{service, labels, port})
+	fake.recordInvocation("AuthenticationPolicyForWorkload", []interface{}{service, labels, port})
+	fake.authenticationPolicyForWorkloadMutex.Unlock()
+	if fake.AuthenticationPolicyForWorkloadStub != nil {
+		return fake.AuthenticationPolicyForWorkloadStub(service, labels, port)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.authenticationPolicyByDestinationReturns.result1
+	return fake.authenticationPolicyForWorkloadReturns.result1
 }
 
-func (fake *IstioConfigStore) AuthenticationPolicyByDestinationCallCount() int {
-	fake.authenticationPolicyByDestinationMutex.RLock()
-	defer fake.authenticationPolicyByDestinationMutex.RUnlock()
-	return len(fake.authenticationPolicyByDestinationArgsForCall)
+func (fake *IstioConfigStore) AuthenticationPolicyForWorkloadCallCount() int {
+	fake.authenticationPolicyForWorkloadMutex.RLock()
+	defer fake.authenticationPolicyForWorkloadMutex.RUnlock()
+	return len(fake.authenticationPolicyForWorkloadArgsForCall)
 }
 
-func (fake *IstioConfigStore) AuthenticationPolicyByDestinationArgsForCall(i int) (*model.Service, *model.Port) {
-	fake.authenticationPolicyByDestinationMutex.RLock()
-	defer fake.authenticationPolicyByDestinationMutex.RUnlock()
-	return fake.authenticationPolicyByDestinationArgsForCall[i].service, fake.authenticationPolicyByDestinationArgsForCall[i].port
+func (fake *IstioConfigStore) AuthenticationPolicyForWorkloadArgsForCall(i int) (*model.Service, model.Labels, *model.Port) {
+	fake.authenticationPolicyForWorkloadMutex.RLock()
+	defer fake.authenticationPolicyForWorkloadMutex.RUnlock()
+	return fake.authenticationPolicyForWorkloadArgsForCall[i].service, fake.authenticationPolicyForWorkloadArgsForCall[i].labels, fake.authenticationPolicyForWorkloadArgsForCall[i].port
 }
 
-func (fake *IstioConfigStore) AuthenticationPolicyByDestinationReturns(result1 *model.Config) {
-	fake.AuthenticationPolicyByDestinationStub = nil
-	fake.authenticationPolicyByDestinationReturns = struct {
+func (fake *IstioConfigStore) AuthenticationPolicyForWorkloadReturns(result1 *model.Config) {
+	fake.AuthenticationPolicyForWorkloadStub = nil
+	fake.authenticationPolicyForWorkloadReturns = struct {
 		result1 *model.Config
 	}{result1}
 }
 
-func (fake *IstioConfigStore) AuthenticationPolicyByDestinationReturnsOnCall(i int, result1 *model.Config) {
-	fake.AuthenticationPolicyByDestinationStub = nil
-	if fake.authenticationPolicyByDestinationReturnsOnCall == nil {
-		fake.authenticationPolicyByDestinationReturnsOnCall = make(map[int]struct {
+func (fake *IstioConfigStore) AuthenticationPolicyForWorkloadReturnsOnCall(i int, result1 *model.Config) {
+	fake.AuthenticationPolicyForWorkloadStub = nil
+	if fake.authenticationPolicyForWorkloadReturnsOnCall == nil {
+		fake.authenticationPolicyForWorkloadReturnsOnCall = make(map[int]struct {
 			result1 *model.Config
 		})
 	}
-	fake.authenticationPolicyByDestinationReturnsOnCall[i] = struct {
+	fake.authenticationPolicyForWorkloadReturnsOnCall[i] = struct {
 		result1 *model.Config
 	}{result1}
 }
@@ -859,6 +872,54 @@ func (fake *IstioConfigStore) ServiceRoleBindingsReturnsOnCall(i int, result1 []
 		})
 	}
 	fake.serviceRoleBindingsReturnsOnCall[i] = struct {
+		result1 []model.Config
+	}{result1}
+}
+
+func (fake *IstioConfigStore) AuthorizationPolicies(namespace string) []model.Config {
+	fake.authorizationPoliciesMutex.Lock()
+	ret, specificReturn := fake.authorizationPoliciesReturnsOnCall[len(fake.authorizationPoliciesArgsForCall)]
+	fake.authorizationPoliciesArgsForCall = append(fake.authorizationPoliciesArgsForCall, struct {
+		namespace string
+	}{namespace})
+	fake.recordInvocation("AuthorizationPolicies", []interface{}{namespace})
+	fake.authorizationPoliciesMutex.Unlock()
+	if fake.AuthorizationPoliciesStub != nil {
+		return fake.AuthorizationPoliciesStub(namespace)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.authorizationPoliciesReturns.result1
+}
+
+func (fake *IstioConfigStore) AuthorizationPoliciesCallCount() int {
+	fake.authorizationPoliciesMutex.RLock()
+	defer fake.authorizationPoliciesMutex.RUnlock()
+	return len(fake.authorizationPoliciesArgsForCall)
+}
+
+func (fake *IstioConfigStore) AuthorizationPoliciesArgsForCall(i int) string {
+	fake.authorizationPoliciesMutex.RLock()
+	defer fake.authorizationPoliciesMutex.RUnlock()
+	return fake.authorizationPoliciesArgsForCall[i].namespace
+}
+
+func (fake *IstioConfigStore) AuthorizationPoliciesReturns(result1 []model.Config) {
+	fake.AuthorizationPoliciesStub = nil
+	fake.authorizationPoliciesReturns = struct {
+		result1 []model.Config
+	}{result1}
+}
+
+func (fake *IstioConfigStore) AuthorizationPoliciesReturnsOnCall(i int, result1 []model.Config) {
+	fake.AuthorizationPoliciesStub = nil
+	if fake.authorizationPoliciesReturnsOnCall == nil {
+		fake.authorizationPoliciesReturnsOnCall = make(map[int]struct {
+			result1 []model.Config
+		})
+	}
+	fake.authorizationPoliciesReturnsOnCall[i] = struct {
 		result1 []model.Config
 	}{result1}
 }
@@ -968,12 +1029,14 @@ func (fake *IstioConfigStore) Invocations() map[string][][]interface{} {
 	defer fake.hTTPAPISpecByDestinationMutex.RUnlock()
 	fake.quotaSpecByDestinationMutex.RLock()
 	defer fake.quotaSpecByDestinationMutex.RUnlock()
-	fake.authenticationPolicyByDestinationMutex.RLock()
-	defer fake.authenticationPolicyByDestinationMutex.RUnlock()
+	fake.authenticationPolicyForWorkloadMutex.RLock()
+	defer fake.authenticationPolicyForWorkloadMutex.RUnlock()
 	fake.serviceRolesMutex.RLock()
 	defer fake.serviceRolesMutex.RUnlock()
 	fake.serviceRoleBindingsMutex.RLock()
 	defer fake.serviceRoleBindingsMutex.RUnlock()
+	fake.authorizationPoliciesMutex.RLock()
+	defer fake.authorizationPoliciesMutex.RUnlock()
 	fake.rbacConfigMutex.RLock()
 	defer fake.rbacConfigMutex.RUnlock()
 	fake.clusterRbacConfigMutex.RLock()

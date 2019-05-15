@@ -28,7 +28,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -41,8 +40,10 @@ import (
 
 	"istio.io/istio/mixer/adapter/kubernetesenv/config"
 	ktmpl "istio.io/istio/mixer/adapter/kubernetesenv/template"
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/pkg/kube/secretcontroller"
+	"istio.io/pkg/env"
 )
 
 const (
@@ -80,6 +81,8 @@ type (
 		k8sCache map[string]cacheController
 		env      adapter.Env
 		params   *config.Params
+
+		builder *builder
 	}
 
 	// used strictly for testing purposes
@@ -92,17 +95,9 @@ var _ ktmpl.HandlerBuilder = &builder{}
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "kubernetesenv",
-		Impl:        "istio.io/istio/mixer/adapter/kubernetesenv",
-		Description: "Provides platform specific functionality for the kubernetes environment",
-		SupportedTemplates: []string{
-			ktmpl.TemplateName,
-		},
-		DefaultConfig: conf,
-
-		NewBuilder: func() adapter.HandlerBuilder { return newBuilder(newKubernetesClient) },
-	}
+	info := metadata.GetInfo("kubernetesenv")
+	info.NewBuilder = func() adapter.HandlerBuilder { return newBuilder(newKubernetesClient) }
+	return info
 }
 
 func (b *builder) SetAdapterConfig(c adapter.Config) {
@@ -115,12 +110,14 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 	return
 }
 
+var kubeConfigVar = env.RegisterStringVar("KUBECONFIG", "", "")
+
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	paramsProto := b.adapterConfig
 	var controller cacheController
 	var controllers = make(map[string]cacheController)
 
-	path, exists := os.LookupEnv("KUBECONFIG")
+	path, exists := kubeConfigVar.Lookup()
 	if !exists {
 		path = paramsProto.KubeconfigPath
 	}
@@ -153,6 +150,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		env:      env,
 		k8sCache: controllers,
 		params:   paramsProto,
+		builder:  b,
 	}
 
 	b.kubeHandler = &kubeHandler
@@ -198,22 +196,22 @@ func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *ktmpl.
 	out := ktmpl.NewOutput()
 
 	if inst.DestinationUid != "" {
-		if p, found := h.findPod(inst.DestinationUid); found {
-			h.fillDestinationAttrs(p, inst.DestinationPort, out)
+		if c, p, found := h.findPod(inst.DestinationUid); found {
+			h.fillDestinationAttrs(c, p, inst.DestinationPort, out)
 		}
 	} else if inst.DestinationIp != nil && !inst.DestinationIp.IsUnspecified() {
-		if p, found := h.findPod(inst.DestinationIp.String()); found {
-			h.fillDestinationAttrs(p, inst.DestinationPort, out)
+		if c, p, found := h.findPod(inst.DestinationIp.String()); found {
+			h.fillDestinationAttrs(c, p, inst.DestinationPort, out)
 		}
 	}
 
 	if inst.SourceUid != "" {
-		if p, found := h.findPod(inst.SourceUid); found {
-			h.fillSourceAttrs(p, out)
+		if c, p, found := h.findPod(inst.SourceUid); found {
+			h.fillSourceAttrs(c, p, out)
 		}
 	} else if inst.SourceIp != nil && !inst.SourceIp.IsUnspecified() {
-		if p, found := h.findPod(inst.SourceIp.String()); found {
-			h.fillSourceAttrs(p, out)
+		if c, p, found := h.findPod(inst.SourceIp.String()); found {
+			h.fillSourceAttrs(c, p, out)
 		}
 	}
 
@@ -221,19 +219,28 @@ func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *ktmpl.
 }
 
 func (h *handler) Close() error {
+	for clusterID := range h.builder.controllers {
+		_ = h.builder.deleteCacheController(clusterID)
+	}
+	h.builder.Lock()
+	h.builder.kubeHandler = nil
+	h.builder.Unlock()
+
 	return nil
 }
 
-func (h *handler) findPod(uid string) (*v1.Pod, bool) {
+func (h *handler) findPod(uid string) (cacheController, *v1.Pod, bool) {
 	podKey := keyFromUID(uid)
 	var found bool
 	var pod *v1.Pod
+	var c cacheController
 
 	h.RLock()
 	defer h.RUnlock()
 	for _, controller := range h.k8sCache {
 		pod, found = controller.Pod(podKey)
 		if found {
+			c = controller
 			break
 		}
 	}
@@ -241,7 +248,7 @@ func (h *handler) findPod(uid string) (*v1.Pod, bool) {
 	if !found {
 		h.env.Logger().Debugf("could not find pod for (uid: %s, key: %s)", uid, podKey)
 	}
-	return pod, found
+	return c, pod, found
 }
 
 func keyFromUID(uid string) string {
@@ -272,7 +279,7 @@ func findContainer(p *v1.Pod, port int64) string {
 	return ""
 }
 
-func (h *handler) fillDestinationAttrs(p *v1.Pod, port int64, o *ktmpl.Output) {
+func (h *handler) fillDestinationAttrs(c cacheController, p *v1.Pod, port int64, o *ktmpl.Output) {
 	if len(p.Labels) > 0 {
 		o.SetDestinationLabels(p.Labels)
 	}
@@ -295,25 +302,20 @@ func (h *handler) fillDestinationAttrs(p *v1.Pod, port int64, o *ktmpl.Output) {
 		o.SetDestinationHostIp(net.ParseIP(p.Status.HostIP))
 	}
 
-	h.RLock()
-	defer h.RUnlock()
-	for _, controller := range h.k8sCache {
-		if wl, found := controller.Workload(p); found {
-			o.SetDestinationWorkloadUid(wl.uid)
-			o.SetDestinationWorkloadName(wl.name)
-			o.SetDestinationWorkloadNamespace(wl.namespace)
-			if len(wl.selfLinkURL) > 0 {
-				o.SetDestinationOwner(wl.selfLinkURL)
-			}
-			break
-		}
+	wl := c.Workload(p)
+	o.SetDestinationWorkloadUid(wl.uid)
+	o.SetDestinationWorkloadName(wl.name)
+	o.SetDestinationWorkloadNamespace(wl.namespace)
+	if len(wl.selfLinkURL) > 0 {
+		o.SetDestinationOwner(wl.selfLinkURL)
 	}
+
 	if cn := findContainer(p, port); cn != "" {
 		o.SetDestinationContainerName(cn)
 	}
 }
 
-func (h *handler) fillSourceAttrs(p *v1.Pod, o *ktmpl.Output) {
+func (h *handler) fillSourceAttrs(c cacheController, p *v1.Pod, o *ktmpl.Output) {
 	if len(p.Labels) > 0 {
 		o.SetSourceLabels(p.Labels)
 	}
@@ -336,18 +338,12 @@ func (h *handler) fillSourceAttrs(p *v1.Pod, o *ktmpl.Output) {
 		o.SetSourceHostIp(net.ParseIP(p.Status.HostIP))
 	}
 
-	h.RLock()
-	defer h.RUnlock()
-	for _, controller := range h.k8sCache {
-		if wl, found := controller.Workload(p); found {
-			o.SetSourceWorkloadUid(wl.uid)
-			o.SetSourceWorkloadName(wl.name)
-			o.SetSourceWorkloadNamespace(wl.namespace)
-			if len(wl.selfLinkURL) > 0 {
-				o.SetSourceOwner(wl.selfLinkURL)
-			}
-			break
-		}
+	wl := c.Workload(p)
+	o.SetSourceWorkloadUid(wl.uid)
+	o.SetSourceWorkloadName(wl.name)
+	o.SetSourceWorkloadNamespace(wl.namespace)
+	if len(wl.selfLinkURL) > 0 {
+		o.SetSourceOwner(wl.selfLinkURL)
 	}
 }
 
@@ -372,11 +368,10 @@ func (b *builder) createCacheController(k8sInterface k8s.Interface, clusterID st
 		b.kubeHandler.Unlock()
 
 		b.kubeHandler.env.Logger().Infof("created remote controller %s", clusterID)
-	} else {
-		b.kubeHandler.env.Logger().Errorf("error on creating remote controller %s err = %v", clusterID, err)
+		return nil
 	}
 
-	return err
+	return b.kubeHandler.env.Logger().Errorf("error on creating remote controller %s err = %v", clusterID, err)
 }
 
 func (b *builder) deleteCacheController(clusterID string) error {
@@ -394,14 +389,14 @@ func (b *builder) deleteCacheController(clusterID string) error {
 	return nil
 }
 
+var clusterNsVar = env.RegisterStringVar("POD_NAMESPACE", defaultClusterRegistriesNamespace, "")
+
 func initMultiClusterSecretController(b *builder, kubeconfig string, env adapter.Env) (err error) {
 	var clusterNs string
 
 	paramsProto := b.adapterConfig
 	if clusterNs = paramsProto.ClusterRegistriesNamespace; clusterNs == "" {
-		if clusterNs = os.Getenv("POD_NAMESPACE"); clusterNs == "" {
-			clusterNs = defaultClusterRegistriesNamespace
-		}
+		clusterNs = clusterNsVar.Get()
 	}
 
 	kubeClient, err := b.newClientFn(kubeconfig, env)

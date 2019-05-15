@@ -1,9 +1,9 @@
+service:
+  # When updating this, also update bin/linters.sh accordingly
+  golangci-lint-version: 1.16.x # use the fixed version to not introduce new linters unexpectedly
 run:
-  # default concurrency is a available CPU number
-  concurrency: 4
-
   # timeout for analysis, e.g. 30s, 5m, default is 1m
-  deadline: 5m
+  deadline: 20m
 
   # which dirs to skip: they won't be analyzed;
   # can use regexp here: generated.*, regexp is applied on full path;
@@ -22,8 +22,21 @@ run:
     - ".*\\.pb\\.go"
     - ".*\\.gen\\.go"
 
+linters:
+  enable-all: true
+  disable:
+    - depguard
+    - dupl
+    - gochecknoglobals
+    - gochecknoinits
+    - goconst
+    - gocyclo
+    - gosec
+    - nakedret
+    - prealloc
+    - scopelint
+  fast: false
 
-# all available settings of specific linters
 linters-settings:
   errcheck:
     # report about not checking of errors in type assetions: `a := b.(MyStruct)`;
@@ -46,25 +59,9 @@ linters-settings:
     # put imports beginning with prefix after 3rd-party packages;
     # it's a comma-separated list of prefixes
     local-prefixes: istio.io/
-  gocyclo:
-    # minimal code complexity to report, 30 by default (but we recommend 10-20)
-    min-complexity: 10
   maligned:
     # print struct with more effective memory layout or not, false by default
     suggest-new: true
-  dupl:
-    # tokens count to trigger issue, 150 by default
-    threshold: 100
-  goconst:
-    # minimal length of string constant, 3 by default
-    min-len: 3
-    # minimal occurrences count to trigger, 3 by default
-    min-occurrences: 3
-  depguard:
-    list-type: blacklist
-    include-go-root: false
-    packages:
-      - github.com/davecgh/go-spew/spew
   misspell:
     # Correct spellings using locale preferences for US or UK.
     # Default is to use a neutral variety of English.
@@ -92,64 +89,86 @@ linters-settings:
     # if it's called for subdir of a project it can't find external interfaces. All text editor integrations
     # with golangci-lint call it on a directory with the changed file.
     check-exported: false
-  nakedret:
-    # make an issue if func has more lines of code than this setting and it has naked returns; default is 30
-    max-func-lines: 30
-  prealloc:
-    # XXX: we don't recommend using this linter before doing performance profiling.
-    # For most programs usage of prealloc will be a premature optimization.
+  gocritic:
+    enabled-checks:
+      - appendCombine
+      - argOrder
+      - assignOp
+      - badCond
+      - boolExprSimplify
+      - builtinShadow
+      - captLocal
+      - caseOrder
+      - codegenComment
+      - commentedOutCode
+      - commentedOutImport
+      - defaultCaseOrder
+      - deprecatedComment
+      - docStub
+      - dupArg
+      - dupBranchBody
+      - dupCase
+      - dupSubExpr
+      - elseif
+      - emptyFallthrough
+      - equalFold
+      - flagDeref
+      - flagName
+      - hexLiteral
+      - indexAlloc
+      - initClause
+      - methodExprCall
+      - nilValReturn
+      - octalLiteral
+      - offBy1
+      - rangeExprCopy
+      - regexpMust
+      - sloppyLen
+      - stringXbytes
+      - switchTrue
+      - typeAssertChain
+      - typeSwitchVar
+      - typeUnparen
+      - underef
+      - unlambda
+      - unnecessaryBlock
+      - unslice
+      - valSwap
+      - weakCond
+      - yodaStyleExpr
 
-    # Report preallocation suggestions only on simple loops that have no returns/breaks/continues/gotos in them.
-    # True by default.
-    simple: true
-    range-loops: true # Report preallocation suggestions on range loops, true by default
-    for-loops: false # Report preallocation suggestions on for loops, false by default
-
-linters:
-  enable:
-    - deadcode
-    - goimports
-    - golint
-    - govet
-    - gosimple
-    - interfacer
-    - lll
-    - misspell
-    - staticcheck
-    - structcheck
-    - ineffassign
-    - unconvert
-    - unparam
-    - unused
-    - varcheck
-  enable-all: false
-  disable:
-    - gocritic
-    - prealloc
-    - typecheck
-    - megacheck
-    - nakedret
-    - scopelint
-    - gochecknoglobals
-    - gochecknoinits
-    - gosec
-      # start here to enable back all gometalinter linters
-    - errcheck
-    - goconst
-    - maligned
-  disable-all: false
-  presets:
-    - bugs
-    - unused
-  fast: false
-
+      # Unused
+      # - appendAssign
+      # - commentFormatting
+      # - emptyStringTest
+      # - exitAfterDefer
+      # - ifElseChain
+      # - hugeParam
+      # - importShadow
+      # - nestingReduce
+      # - paramTypeCombine
+      # - ptrToRefParam
+      # - rangeValCopy
+      # - singleCaseSwitch
+      # - sloppyReassign
+      # - unlabelStmt
+      # - unnamedResult
+      # - wrapperFunc
 
 issues:
   # List of regexps of issue texts to exclude, empty list by default.
   # But independently from this option we use default exclude patterns,
   # it can be disabled by `exclude-use-default: false`. To list all
   # excluded by default patterns execute `golangci-lint run --help`
-  exclude: []
+  exclude:
+    - composite literal uses unkeyed fields
+
+  exclude-rules:
+    # Exclude some linters from running on test files.
+    - path: _test\.go$|^tests/|^samples/
+      linters:
+        - errcheck
+        - maligned
 
   # Independently from option `exclude` we use default exclude patterns,
   # it can be disabled by this option. To list all

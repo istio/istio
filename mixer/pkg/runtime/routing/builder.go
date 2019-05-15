@@ -54,6 +54,7 @@ import (
 	"strings"
 
 	"go.opencensus.io/stats"
+	"go.opencensus.io/tag"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	descriptor "istio.io/api/policy/v1beta1"
@@ -61,12 +62,12 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
-	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/handler"
+	"istio.io/istio/mixer/pkg/runtime/lang"
 	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // builder keeps the ephemeral state while the routing table is built.
@@ -74,8 +75,10 @@ type builder struct {
 	// table that is being built.
 	table                  *Table
 	handlers               *handler.Table
-	expb                   *compiled.ExpressionBuilder
 	defaultConfigNamespace string
+
+	// compilers for snapshot attribute manifest
+	compilers map[lang.LanguageRuntime]lang.Compiler
 
 	// id counter for assigning ids to various items in the hierarchy. These reference into the debug
 	// information.
@@ -97,6 +100,9 @@ type builder struct {
 
 	// compiled.Expressions by canonicalized rule match clauses
 	expressions map[string]compiled.Expression
+
+	// snapshot attribute manifest
+	attributes ast.AttributeDescriptorFinder
 }
 
 // BuildTable builds and returns a routing table. If debugInfo is set, the returned table will have debugging information
@@ -104,7 +110,6 @@ type builder struct {
 func BuildTable(
 	handlers *handler.Table,
 	config *config.Snapshot,
-	expb *compiled.ExpressionBuilder,
 	defaultConfigNamespace string,
 	debugInfo bool) *Table {
 
@@ -115,10 +120,9 @@ func BuildTable(
 			entries: make(map[tpb.TemplateVariety]*varietyTable, 4),
 		},
 
-		// nolint: goimports
 		handlers:               handlers,
-		expb:                   expb,
 		defaultConfigNamespace: defaultConfigNamespace,
+		compilers:              make(map[lang.LanguageRuntime]lang.Compiler),
 		nextIDCounter:          1,
 
 		matchesByID:       make(map[uint32]string, len(config.Rules)),
@@ -127,6 +131,8 @@ func BuildTable(
 		builders:    make(map[string]template.InstanceBuilderFn, len(config.InstancesStatic)),
 		mappers:     make(map[string]template.OutputMapperFn, len(config.InstancesStatic)),
 		expressions: make(map[string]compiled.Expression, len(config.Rules)),
+
+		attributes: config.Attributes,
 	}
 
 	b.build(config)
@@ -149,6 +155,8 @@ func (b *builder) nextID() uint32 {
 
 func (b *builder) build(snapshot *config.Snapshot) {
 
+	var unsatActions, matchErrs int64
+
 	for _, rule := range snapshot.Rules {
 
 		// Create a compiled expression for the rule condition first.
@@ -156,7 +164,7 @@ func (b *builder) build(snapshot *config.Snapshot) {
 		if err != nil {
 			log.Warnf("Unable to compile match condition expression: '%v', rule='%s', expression='%s'",
 				err, rule.Name, rule.Match)
-			stats.Record(snapshot.MonitoringContext, monitoring.MatchErrors.M(1))
+			matchErrs++
 			// Skip the rule
 			continue
 		}
@@ -172,7 +180,7 @@ func (b *builder) build(snapshot *config.Snapshot) {
 				log.Warnf("Unable to find a handler for action. rule[action]='%s[%d]', handler='%s'",
 					rule.Name, i, handlerName)
 
-				stats.Record(snapshot.MonitoringContext, monitoring.UnsatisfiedActionHandlers.M(1))
+				unsatActions++
 				// Skip the rule
 				continue
 			}
@@ -180,7 +188,7 @@ func (b *builder) build(snapshot *config.Snapshot) {
 			for _, instance := range action.Instances {
 				// get the instance mapper and builder for this instance. Mapper is used by APA instances
 				// to map the instance result back to attributes.
-				builder, mapper, err := b.getBuilderAndMapper(snapshot.Attributes, instance)
+				builder, mapper, err := b.getBuilderAndMapper(instance)
 				if err != nil {
 					log.Warnf("Unable to create builder/mapper for instance: instance='%s', err='%v'", instance.Name, err)
 					continue
@@ -202,7 +210,7 @@ func (b *builder) build(snapshot *config.Snapshot) {
 				log.Warnf("Unable to find a handler for action. rule[action]='%s[%d]', handler='%s'",
 					rule.Name, i, handlerName)
 
-				stats.Record(snapshot.MonitoringContext, monitoring.UnsatisfiedActionHandlers.M(1))
+				unsatActions++
 				// Skip the rule
 				continue
 			}
@@ -210,7 +218,7 @@ func (b *builder) build(snapshot *config.Snapshot) {
 			for _, instance := range action.Instances {
 				// get the instance mapper and builder for this instance. Mapper is used by APA instances
 				// to map the instance result back to attributes.
-				builder, mapper := b.getBuilderAndMapperDynamic(snapshot.Attributes, instance)
+				builder, mapper := b.getBuilderAndMapperDynamic(instance)
 
 				b.add(rule.Namespace, b.templateInfo(instance.Template), entry, condition, builder, mapper,
 					entry.Name, instance.Name, rule.Match, action.Name)
@@ -253,20 +261,48 @@ func (b *builder) build(snapshot *config.Snapshot) {
 			}
 		}
 	}
+
+	for variety, vTable := range b.table.entries {
+		totalDests := 0
+		for _, nsTable := range vTable.entries {
+			totalDests += nsTable.Count()
+		}
+		ctx := context.Background()
+		var err error
+		if ctx, err = tag.New(ctx, tag.Insert(monitoring.VarietyTag, variety.String())); err != nil {
+			log.Errorf("error establishing monitoring context for variety type: %v", err)
+		}
+		stats.Record(ctx, monitoring.DestinationsPerVarietyTotal.M(int64(totalDests)))
+	}
+
+	stats.Record(snapshot.MonitoringContext,
+		monitoring.UnsatisfiedActionHandlers.M(unsatActions),
+		monitoring.MatchErrors.M(matchErrs),
+	)
+}
+
+func (b *builder) compiler(mode lang.LanguageRuntime) lang.Compiler {
+	if out, ok := b.compilers[mode]; ok {
+		return out
+	}
+
+	out := lang.NewBuilder(b.attributes, mode)
+	b.compilers[mode] = out
+	return out
 }
 
 // get or create a builder and a mapper for the given instance. The mapper is created only if the template
 // is an attribute generator.
 func (b *builder) getBuilderAndMapper(
-	finder ast.AttributeDescriptorFinder,
 	instance *config.InstanceStatic) (template.InstanceBuilderFn, template.OutputMapperFn, error) {
 	var err error
 
 	t := instance.Template
 
 	builder := b.builders[instance.Name]
+	exprb := b.compiler(instance.Language)
 	if builder == nil {
-		if builder, err = t.CreateInstanceBuilder(instance.Name, instance.Params, b.expb); err != nil {
+		if builder, err = t.CreateInstanceBuilder(instance.Name, instance.Params, exprb); err != nil {
 			return nil, nil, err
 		}
 		b.builders[instance.Name] = builder
@@ -277,7 +313,7 @@ func (b *builder) getBuilderAndMapper(
 		mapper = b.mappers[instance.Name]
 		if mapper == nil {
 			var expressions map[string]compiled.Expression
-			if expressions, err = t.CreateOutputExpressions(instance.Params, finder, b.expb); err != nil {
+			if expressions, err = t.CreateOutputExpressions(instance.Params, b.attributes, exprb); err != nil {
 				return nil, nil, err
 			}
 			mapper = template.NewOutputMapperFn(expressions)
@@ -306,7 +342,7 @@ func (b *builder) getConditionExpression(rule *config.Rule) (compiled.Expression
 	if expression == nil {
 		var err error
 		var t descriptor.ValueType
-		if expression, t, err = b.expb.Compile(text); err != nil {
+		if expression, t, err = b.compiler(rule.Language).Compile(text); err != nil {
 			return nil, err
 		}
 		if t != descriptor.BOOL {
@@ -535,7 +571,7 @@ const defaultInstanceSize = 128
 
 // get or create a builder and a mapper for the given instance. The mapper is created only if the template
 // is an attribute generator. At present this function never returns an error.
-func (b *builder) getBuilderAndMapperDynamic(finder ast.AttributeDescriptorFinder,
+func (b *builder) getBuilderAndMapperDynamic(
 	instance *config.InstanceDynamic) (template.InstanceBuilderFn, template.OutputMapperFn) {
 	var instBuilder template.InstanceBuilderFn = func(attrs attribute.Bag) (interface{}, error) {
 		var err error
@@ -555,12 +591,12 @@ func (b *builder) getBuilderAndMapperDynamic(finder ast.AttributeDescriptorFinde
 	if instance.Template.Variety == tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
 		mapper = b.mappers[instance.Name]
 		if mapper == nil {
-			chained := ast.NewChainedFinder(finder, instance.Template.AttributeManifest)
-			expb := compiled.NewBuilder(chained)
+			chained := ast.NewChainedFinder(b.attributes, instance.Template.AttributeManifest)
+			expb := lang.NewBuilder(chained, instance.Language)
 
 			expressions := make(map[string]compiled.Expression)
 			for attrName, outExpr := range instance.AttributeBindings {
-				attrInfo := finder.GetAttribute(attrName)
+				attrInfo := b.attributes.GetAttribute(attrName)
 				if attrInfo == nil {
 					log.Warnf("attribute not found when mapping outputs: attr=%q, expr=%q", attrName, outExpr)
 					continue
@@ -586,7 +622,7 @@ func (b *builder) getBuilderAndMapperDynamic(finder ast.AttributeDescriptorFinde
 
 // buildRuleCompiler constructs an expression compiler over an extended attribute vocabulary
 // with template output attributes prefixed by the action names added to the global attribute manifests.
-func (b *builder) buildRuleCompiler(parent ast.AttributeDescriptorFinder, rule *config.Rule) *compiled.ExpressionBuilder {
+func (b *builder) buildRuleCompiler(parent ast.AttributeDescriptorFinder, rule *config.Rule) lang.Compiler {
 	// templates include the output template attributes in their manifests
 	attributeDescriptor := make(map[string]*descriptor.AttributeManifest_AttributeInfo)
 
@@ -625,11 +661,11 @@ func (b *builder) buildRuleCompiler(parent ast.AttributeDescriptorFinder, rule *
 		}
 	}
 
-	return compiled.NewBuilder(ast.NewChainedFinder(parent, attributeDescriptor))
+	return lang.NewBuilder(ast.NewChainedFinder(parent, attributeDescriptor), rule.Language)
 }
 
 // buildRuleOperations creates an intermediate symbolic form for the route directive header operations
-func (b *builder) buildRuleOperations(compiler dynamic.Compiler, rule *config.Rule) ([]*HeaderOperation, error) {
+func (b *builder) buildRuleOperations(compiler lang.Compiler, rule *config.Rule) ([]*HeaderOperation, error) {
 	reqOps, err := b.compileRuleOperationTemplates(rule.Name, compiler, RequestHeaderOperation, rule.RequestHeaderOperations)
 	if err != nil {
 		return nil, err
@@ -645,7 +681,7 @@ func (b *builder) buildRuleOperations(compiler dynamic.Compiler, rule *config.Ru
 
 func (b *builder) compileRuleOperationTemplates(
 	location string,
-	compiler dynamic.Compiler,
+	compiler lang.Compiler,
 	typ HeaderOperationType,
 	ops []*descriptor.Rule_HeaderOperationTemplate) ([]*HeaderOperation, error) {
 

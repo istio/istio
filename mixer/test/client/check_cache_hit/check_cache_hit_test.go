@@ -29,7 +29,6 @@ const checkAttributesOkGet = `
   "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
@@ -67,7 +66,6 @@ var reportAttributesOkGet = [...]string{`{
   "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
@@ -109,7 +107,7 @@ var reportAttributesOkGet = [...]string{`{
     "server": "envoy"
   },
   "response.total_size": "*",
-  "request.total_size": 306
+  "request.total_size": 266
 }`,
 	`{
   "context.protocol": "http",
@@ -117,7 +115,6 @@ var reportAttributesOkGet = [...]string{`{
   "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
@@ -138,7 +135,7 @@ var reportAttributesOkGet = [...]string{`{
   "connection.mtls": false,
   "origin.ip": "[127 0 0 1]",
   "check.cache_hit": true,
-  "quota.cache_hit": true,
+  "quota.cache_hit": false,
   "request.headers": {
     ":method": "GET",
     ":path": "/echo",
@@ -159,7 +156,7 @@ var reportAttributesOkGet = [...]string{`{
     "server": "envoy"
   },
   "response.total_size": "*",
-  "request.total_size": 306
+  "request.total_size": 266
 }`}
 
 func TestCheckCacheHit(t *testing.T) {

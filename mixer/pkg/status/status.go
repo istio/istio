@@ -18,7 +18,7 @@ package status
 import (
 	"net/http"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/googleapis/google/rpc"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 

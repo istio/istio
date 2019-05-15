@@ -21,7 +21,11 @@ import (
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+
 	"github.com/gogo/protobuf/types"
+	messagediff "gopkg.in/d4l3k/messagediff.v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -371,6 +375,85 @@ func TestLocalityMatch(t *testing.T) {
 	}
 }
 
+func TestIsLocalityEmpty(t *testing.T) {
+	tests := []struct {
+		name     string
+		locality *core.Locality
+		want     bool
+	}{
+		{
+			"non empty locality",
+			&core.Locality{
+				Region: "region",
+			},
+			false,
+		},
+		{
+			"empty locality",
+			&core.Locality{
+				Region: "",
+			},
+			true,
+		},
+		{
+			"nil locality",
+			nil,
+			true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsLocalityEmpty(tt.locality)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Expected locality empty result %#v, but got %#v", tt.want, got)
+			}
+		})
+	}
+}
+
+func TestBuildConfigInfoMetadata(t *testing.T) {
+	cases := []struct {
+		name string
+		in   model.ConfigMeta
+		want *core.Metadata
+	}{
+		{
+			"destination-rule",
+			model.ConfigMeta{
+				Group:     "networking.istio.io",
+				Version:   "v1alpha3",
+				Name:      "svcA",
+				Namespace: "default",
+				Domain:    "svc.cluster.local",
+				Type:      "destination-rule",
+			},
+			&core.Metadata{
+				FilterMetadata: map[string]*types.Struct{
+					IstioMetadataKey: {
+						Fields: map[string]*types.Value{
+							"config": {
+								Kind: &types.Value_StringValue{
+									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, v := range cases {
+		t.Run(v.name, func(tt *testing.T) {
+			got := BuildConfigInfoMetadata(v.in)
+			if diff, equal := messagediff.PrettyDiff(got, v.want); !equal {
+				tt.Errorf("BuildConfigInfoMetadata(%v) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", v.in, got, v.want, diff)
+			}
+		})
+	}
+}
+
 func TestCloneCluster(t *testing.T) {
 	cluster := buildFakeCluster()
 	clone := CloneCluster(cluster)
@@ -421,5 +504,31 @@ func buildFakeCluster() *v2.Cluster {
 				},
 			},
 		},
+	}
+}
+
+func TestIsHTTPFilterChain(t *testing.T) {
+	httpFilterChain := listener.FilterChain{
+		Filters: []listener.Filter{
+			{
+				Name: xdsutil.HTTPConnectionManager,
+			},
+		},
+	}
+
+	tcpFilterChain := listener.FilterChain{
+		Filters: []listener.Filter{
+			{
+				Name: xdsutil.TCPProxy,
+			},
+		},
+	}
+
+	if !IsHTTPFilterChain(httpFilterChain) {
+		t.Errorf("http Filter chain not detected properly")
+	}
+
+	if IsHTTPFilterChain(tcpFilterChain) {
+		t.Errorf("tcp filter chain detected as http filter chain")
 	}
 }

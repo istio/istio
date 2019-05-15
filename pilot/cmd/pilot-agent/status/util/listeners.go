@@ -28,8 +28,8 @@ var (
 )
 
 // GetInboundListeningPorts returns a map of inbound ports for which Envoy has active listeners.
-func GetInboundListeningPorts(adminPort uint16) (map[uint16]bool, string, error) {
-	buf, err := doHTTPGet(fmt.Sprintf("http://127.0.0.1:%d/listeners", adminPort))
+func GetInboundListeningPorts(localHostAddr string, adminPort uint16) (map[uint16]bool, string, error) {
+	buf, err := doHTTPGet(fmt.Sprintf("http://%s:%d/listeners", localHostAddr, adminPort))
 	if err != nil {
 		return nil, "", multierror.Prefix(err, "failed retrieving Envoy listeners:")
 	}
@@ -43,16 +43,18 @@ func GetInboundListeningPorts(adminPort uint16) (map[uint16]bool, string, error)
 	for _, l := range listeners {
 		// Remove quotes around the string
 		l = strings.Trim(strings.TrimSpace(l), "\"")
-		if !isLocalListener(l) {
+
+		ipAddrParts := strings.Split(l, ":")
+		if len(ipAddrParts) < 2 {
+			return nil, "", fmt.Errorf("failed parsing Envoy listener: %s", l)
+		}
+		// Before checking if listener is local, removing port portion of the address
+		ipAddr := strings.TrimSuffix(l, ":"+ipAddrParts[len(ipAddrParts)-1])
+		if !isLocalListener(ipAddr) {
 			continue
 		}
 
-		ipPort := strings.Split(l, ":")
-		if len(ipPort) != 2 {
-			return nil, "", fmt.Errorf("failed parsing Envoy listener: %s", l)
-		}
-
-		portStr := ipPort[1]
+		portStr := ipAddrParts[len(ipAddrParts)-1]
 		port, err := strconv.ParseUint(portStr, 10, 16)
 		if err != nil {
 			return nil, "", multierror.Prefix(err, fmt.Sprintf("failed parsing port for Envoy listener: %s", l))
@@ -66,7 +68,8 @@ func GetInboundListeningPorts(adminPort uint16) (map[uint16]bool, string, error)
 
 func isLocalListener(l string) bool {
 	for _, ipPrefix := range ipPrefixes {
-		if strings.HasPrefix(l, ipPrefix) {
+		// In case of IPv6 address, it always comes in "[]", remove them so HasPrefix would work
+		if strings.HasPrefix(strings.Trim(l, "[]"), ipPrefix) {
 			return true
 		}
 	}
@@ -95,9 +98,8 @@ func getLocalIPPrefixes() []string {
 			case *net.IPAddr:
 				ip = v.IP
 			}
-			prefixes = append(prefixes, ip.String()+":")
+			prefixes = append(prefixes, ip.String())
 		}
 	}
-
 	return prefixes
 }

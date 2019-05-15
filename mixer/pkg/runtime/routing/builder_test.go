@@ -22,7 +22,6 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/handler"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
@@ -562,9 +561,8 @@ func buildTableWithTemplatesAndAdapters(templates map[string]*template.Info, ada
 
 	s, _ := config.GetSnapshotForTest(templates, adapters, serviceConfig, globalConfig)
 	ht := handler.NewTable(handler.Empty(), s, nil)
-	expb := compiled.NewBuilder(s.Attributes)
 
-	return BuildTable(ht, s, expb, "istio-system", debugInfo), s
+	return BuildTable(ht, s, "istio-system", debugInfo), s
 }
 
 func TestNonPointerAdapter(t *testing.T) {

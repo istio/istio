@@ -15,12 +15,19 @@
 ##################################################################################################
 # Reviews service v2
 ##################################################################################################
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: reviews-v2
+  labels:
+    app: reviews
+    version: v2
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: reviews
+      version: v2
   template:
     metadata:
       labels:
@@ -29,7 +36,7 @@ spec:
     spec:
       containers:
       - name: reviews
-        image: istio/examples-bookinfo-reviews-v2:1.10.0
+        image: istio/examples-bookinfo-reviews-v2:1.12.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080

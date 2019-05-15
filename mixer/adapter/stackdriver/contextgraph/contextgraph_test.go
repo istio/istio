@@ -19,13 +19,13 @@ import (
 	"testing"
 	"time"
 
-	contextgraph "cloud.google.com/go/contextgraph/apiv1alpha1"
 	gax "github.com/googleapis/gax-go"
 	"google.golang.org/api/option"
-	contextgraphpb "google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
 	"istio.io/istio/mixer/adapter/stackdriver/helper"
+	contextgraph "istio.io/istio/mixer/adapter/stackdriver/internal/cloud.google.com/go/contextgraph/apiv1alpha1"
+	contextgraphpb "istio.io/istio/mixer/adapter/stackdriver/internal/google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
 	env "istio.io/istio/mixer/pkg/adapter/test"
 	edgepb "istio.io/istio/mixer/template/edge"
 )
@@ -106,7 +106,7 @@ func TestBuild(t *testing.T) {
 
 	mEnv := env.NewEnv(t)
 
-	han, err := b.Build(nil, mEnv)
+	han, err := b.Build(context.TODO(), mEnv)
 	h := han.(*handler)
 	if err != nil {
 		t.Errorf("Build returned unexpected err: %v", err)
@@ -162,7 +162,7 @@ func TestHandleEdge(t *testing.T) {
 			Timestamp:                    time.Unix(1337, 0),
 		},
 	}
-	if err := h.HandleEdge(nil, i); err != nil {
+	if err := h.HandleEdge(context.TODO(), i); err != nil {
 		t.Errorf("HandleEdge returned unexpected err: %v", err)
 	}
 	ta := <-h.traffics

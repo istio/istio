@@ -29,14 +29,13 @@ import (
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/handler"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
 	"istio.io/istio/mixer/pkg/status"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var gp = pool.NewGoroutinePool(10, true)
@@ -57,9 +56,6 @@ var tests = []struct {
 	// attributes to use. If left empty, a default bag will be used.
 	attr map[string]interface{}
 
-	// the variety of the operation to apply.
-	variety tpb.TemplateVariety
-
 	// quota method arguments to pass
 	qma *QuotaMethodArgs
 
@@ -75,6 +71,9 @@ var tests = []struct {
 
 	// expected adapter/template log.
 	log string
+
+	// the variety of the operation to apply.
+	variety tpb.TemplateVariety
 
 	// print out the full log for this test. Useful for debugging.
 	fullLog bool
@@ -1004,8 +1003,7 @@ func TestDispatcher(t *testing.T) {
 			s, _ := config.GetSnapshotForTest(templates, adapters, data.ServiceConfig, cfg)
 			h := handler.NewTable(handler.Empty(), s, pool.NewGoroutinePool(1, false))
 
-			expb := compiled.NewBuilder(s.Attributes)
-			r := routing.BuildTable(h, s, expb, "istio-system", true)
+			r := routing.BuildTable(h, s, "istio-system", true)
 			_ = dispatcher.ChangeRoute(r)
 
 			// clear logger, as we are not interested in adapter/template logs during config step.
@@ -1075,7 +1073,8 @@ func TestDispatcher(t *testing.T) {
 			if tst.err != "" {
 				if err == nil {
 					tt.Fatalf("expected error was not thrown")
-				} else if strings.TrimSpace(tst.err) != strings.TrimSpace(err.Error()) && !strings.Contains(err.Error(), tst.err) {
+				} else if !reflect.DeepEqual(strings.Fields(tst.err), strings.Fields(err.Error())) &&
+					!strings.Contains(err.Error(), tst.err) {
 					tt.Fatalf("error mismatch: '%v' != '%v'", err, tst.err)
 				}
 			} else {

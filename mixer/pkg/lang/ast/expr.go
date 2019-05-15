@@ -26,7 +26,7 @@ import (
 	cfgpb "istio.io/api/policy/v1beta1"
 	dpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // This private variable is an extract from go/token
@@ -87,6 +87,8 @@ type Expression struct {
 type AttributeDescriptorFinder interface {
 	// GetAttribute finds attribute descriptor in the vocabulary. returns nil if not found.
 	GetAttribute(name string) *cfgpb.AttributeManifest_AttributeInfo
+	// Attributes exposes the internal attribute manifest
+	Attributes() map[string]*cfgpb.AttributeManifest_AttributeInfo
 }
 
 // EvalType Function an expression using fMap and attribute vocabulary. Returns the type that this expression evaluates to.

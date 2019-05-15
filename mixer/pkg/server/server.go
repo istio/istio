@@ -20,12 +20,10 @@ import (
 	"net"
 	"os"
 	"strings"
-	"time"
 
-	"github.com/gogo/protobuf/proto"
+	"contrib.go.opencensus.io/exporter/prometheus"
 	ot "github.com/opentracing/opentracing-go"
 	oprometheus "github.com/prometheus/client_golang/prometheus"
-	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/stats/view"
 	"google.golang.org/grpc"
@@ -44,13 +42,14 @@ import (
 	runtimeconfig "istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/pkg/ctrlz"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/tracing"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 // Server is an in-memory Mixer service.
+
 type Server struct {
 	shutdown  chan error
 	server    *grpc.Server
@@ -130,21 +129,25 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 	}()
 
 	s.gp = pool.NewGoroutinePool(a.APIWorkerPoolSize, a.SingleThreaded)
-	s.gp.AddWorkers(a.APIWorkerPoolSize - 1)
+	s.gp.AddWorkers(a.APIWorkerPoolSize)
 
 	s.adapterGP = pool.NewGoroutinePool(a.AdapterWorkerPoolSize, a.SingleThreaded)
-	s.adapterGP.AddWorkers(a.AdapterWorkerPoolSize - 1)
+	s.adapterGP.AddWorkers(a.AdapterWorkerPoolSize)
 
 	tmplRepo := template.NewRepository(a.Templates)
 	adapterMap := config.AdapterInfoMap(a.Adapters, tmplRepo.SupportsTemplate)
 
 	s.Probe = probe.NewProbe()
+	if a.LivenessProbeOptions.IsValid() {
+		s.livenessProbe = probe.NewFileController(a.LivenessProbeOptions)
+		s.RegisterProbe(s.livenessProbe, "server")
+		s.livenessProbe.Start()
+	}
 
 	// construct the gRPC options
 
 	var grpcOptions []grpc.ServerOption
-	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)))
-	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxMessageSize)))
+	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)), grpc.MaxRecvMsgSize(int(a.MaxMessageSize)))
 
 	if a.TracingOptions.TracingEnabled() {
 		s.tracer, err = p.configTracing("istio-mixer", a.TracingOptions)
@@ -183,19 +186,22 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 		}
 	}
 
-	var rt *runtime.Runtime
 	templateMap := make(map[string]*template.Info, len(a.Templates))
 	for k, v := range a.Templates {
 		t := v // Make a local copy, otherwise we end up capturing the location of the last entry
 		templateMap[k] = &t
 	}
 
-	var kinds map[string]proto.Message
+	var configAdapterMap map[string]*adapter.Info
 	if a.UseAdapterCRDs {
-		kinds = runtimeconfig.KindMap(adapterMap, templateMap)
-	} else {
-		kinds = runtimeconfig.KindMap(map[string]*adapter.Info{}, templateMap)
+		configAdapterMap = adapterMap
 	}
+	var configTemplateMap map[string]*template.Info
+	if a.UseTemplateCRDs {
+		configTemplateMap = templateMap
+	}
+
+	kinds := runtimeconfig.KindMap(configAdapterMap, configTemplateMap)
 
 	if err := st.Init(kinds); err != nil {
 		return nil, fmt.Errorf("unable to initialize config store: %v", err)
@@ -203,12 +209,12 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 
 	// block wait for the config store to sync
 	log.Info("Awaiting for config store sync...")
-	if err := st.WaitForSynced(30 * time.Second); err != nil {
+	if err := st.WaitForSynced(a.ConfigWaitTimeout); err != nil {
 		return nil, err
 	}
 	s.configStore = st
 	log.Info("Starting runtime config watch...")
-	rt = p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
+	rt := p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
 		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
 
 	if err = p.runtimeListen(rt); err != nil {
@@ -247,12 +253,6 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 
 	s.server = grpc.NewServer(grpcOptions...)
 	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp, s.checkCache, throttler))
-
-	if a.LivenessProbeOptions.IsValid() {
-		s.livenessProbe = probe.NewFileController(a.LivenessProbeOptions)
-		s.RegisterProbe(s.livenessProbe, "server")
-		s.livenessProbe.Start()
-	}
 
 	if a.ReadinessProbeOptions.IsValid() {
 		s.readinessProbe = probe.NewFileController(a.ReadinessProbeOptions)

@@ -35,7 +35,7 @@ type (
 	cacheController interface {
 		Run(<-chan struct{})
 		Pod(string) (*v1.Pod, bool)
-		Workload(*v1.Pod) (workload, bool)
+		Workload(*v1.Pod) workload
 		HasSynced() bool
 		StopControlChannel()
 	}
@@ -72,7 +72,7 @@ func podIP(obj interface{}) ([]string, error) {
 func newCacheController(clientset kubernetes.Interface, refreshDuration time.Duration, env adapter.Env, stopChan chan struct{}) cacheController {
 	sharedInformers := informers.NewSharedInformerFactory(clientset, refreshDuration)
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
-	podInformer.AddIndexers(cache.Indexers{
+	_ = podInformer.AddIndexers(cache.Indexers{
 		"ip": podIP,
 	})
 
@@ -132,14 +132,14 @@ func key(namespace, name string) string {
 	return namespace + "/" + name
 }
 
-func (c *controllerImpl) Workload(pod *v1.Pod) (workload, bool) {
+func (c *controllerImpl) Workload(pod *v1.Pod) workload {
 	wl := workload{name: pod.Name, namespace: pod.Namespace, selfLinkURL: pod.SelfLink}
 	if owner, found := c.rootController(&pod.ObjectMeta); found {
 		wl.name = owner.Name
 		wl.selfLinkURL = fmt.Sprintf("kubernetes://apis/%s/namespaces/%s/%ss/%s", owner.APIVersion, pod.Namespace, strings.ToLower(owner.Kind), owner.Name)
 	}
 	wl.uid = "istio://" + wl.namespace + "/workloads/" + wl.name
-	return wl, true
+	return wl
 }
 
 func (c *controllerImpl) rootController(obj *metav1.ObjectMeta) (metav1.OwnerReference, bool) {

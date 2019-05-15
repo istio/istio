@@ -3,7 +3,8 @@ kind: VirtualService
 metadata:
   name: virtual-service-scope-public
 spec:
-  configScope: PUBLIC
+  exportTo:
+  - "*"
   hosts:
   - "bookinfo.com"
   http:

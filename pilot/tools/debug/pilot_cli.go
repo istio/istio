@@ -73,7 +73,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -230,8 +231,10 @@ func edsRequest(pilotURL string, req *xdsapi.DiscoveryRequest) *xdsapi.Discovery
 	return res
 }
 
+var homeVar = env.RegisterStringVar("HOME", "", "")
+
 func resolveKubeConfigPath(kubeConfig string) string {
-	path := strings.Replace(kubeConfig, "~", os.Getenv("HOME"), 1)
+	path := strings.Replace(kubeConfig, "~", homeVar.Get(), 1)
 	ret, err := filepath.Abs(path)
 	if err != nil {
 		panic(err.Error())
@@ -240,17 +243,17 @@ func resolveKubeConfigPath(kubeConfig string) string {
 }
 
 // nolint: golint
-func portForwardPilot(kubeConfig, pilotURL string) (error, *os.Process, string) {
+func portForwardPilot(kubeConfig, pilotURL string) (*os.Process, string, error) {
 	if pilotURL != "" {
 		// No need to port-forward, url is already provided.
-		return nil, nil, pilotURL
+		return nil, pilotURL, nil
 	}
 	log.Info("Pilot url is not provided, try to port-forward pilot pod.")
 
 	podName := ""
 	pods, err := getAllPods(kubeConfig)
 	if err != nil {
-		return err, nil, ""
+		return nil, "", err
 	}
 	for _, pod := range pods.Items {
 		if app, ok := pod.ObjectMeta.Labels["istio"]; ok && app == "pilot" {
@@ -258,7 +261,7 @@ func portForwardPilot(kubeConfig, pilotURL string) (error, *os.Process, string) 
 		}
 	}
 	if podName == "" {
-		return fmt.Errorf("cannot find istio-pilot pod"), nil, ""
+		return nil, "", fmt.Errorf("cannot find istio-pilot pod")
 	}
 
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -268,7 +271,7 @@ func portForwardPilot(kubeConfig, pilotURL string) (error, *os.Process, string) 
 	c := exec.Command(parts[0], parts[1:]...)
 	err = c.Start()
 	if err != nil {
-		return err, nil, ""
+		return nil, "", err
 	}
 	// Make sure istio-pilot is reachable.
 	reachable := false
@@ -282,9 +285,9 @@ func portForwardPilot(kubeConfig, pilotURL string) (error, *os.Process, string) 
 		time.Sleep(1 * time.Second)
 	}
 	if !reachable {
-		return fmt.Errorf("cannot reach local pilot url: %s", url), nil, ""
+		return nil, "", fmt.Errorf("cannot reach local pilot url: %s", url)
 	}
-	return nil, c.Process, fmt.Sprintf("localhost:%d", localPort)
+	return c.Process, fmt.Sprintf("localhost:%d", localPort), nil
 }
 
 func main() {
@@ -297,7 +300,7 @@ func main() {
 	outputFile := flag.String("out", "", "output file. Leave blank to go to stdout")
 	flag.Parse()
 
-	err, process, pilot := portForwardPilot(resolveKubeConfigPath(*kubeConfig), *pilotURL)
+	process, pilot, err := portForwardPilot(resolveKubeConfigPath(*kubeConfig), *pilotURL)
 	if err != nil {
 		log.Errorf("pilot port forward failed: %v", err)
 		return
@@ -325,9 +328,7 @@ func main() {
 	strResponse, _ := model.ToJSONWithIndent(resp, " ")
 	if outputFile == nil || *outputFile == "" {
 		fmt.Printf("%v\n", strResponse)
-	} else {
-		if err := ioutil.WriteFile(*outputFile, []byte(strResponse), 0644); err != nil {
-			log.Errorf("Cannot write output to file %q", *outputFile)
-		}
+	} else if err := ioutil.WriteFile(*outputFile, []byte(strResponse), 0644); err != nil {
+		log.Errorf("Cannot write output to file %q", *outputFile)
 	}
 }

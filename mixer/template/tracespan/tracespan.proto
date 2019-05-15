@@ -15,7 +15,7 @@
 syntax = "proto3";
 
 // $title: Trace Span
-// $description: A template that represents\ an individual span within a distributed trace.
+// $description: A template that represents an individual span within a distributed trace.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan.html
 
 // The `tracespan` template represents an individual span within a distributed trace.
@@ -35,7 +35,7 @@ syntax = "proto3";
 //   spanName: request.path | "/"
 //   startTime: request.time
 //   endTime: response.time
-//   clientSpan: (context.reporter.local | true) == false
+//   clientSpan: (context.reporter.kind | "inbound") == "inbound"
 //   rewriteClientSpanId: false
 //   spanTags:
 //     http.method: request.method | ""
@@ -43,7 +43,7 @@ syntax = "proto3";
 //     http.url: request.path | ""
 //     request.size: request.size | 0
 //     response.size: response.size | 0
-//     source.user: source.user | ""
+//     source.principal: source.principal | ""
 //     source.version: source.labels["version"] | ""
 // ```
 //

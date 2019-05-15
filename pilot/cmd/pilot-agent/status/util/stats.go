@@ -48,8 +48,8 @@ func (s *Stats) String() string {
 }
 
 // GetStats from Envoy.
-func GetStats(adminPort uint16) (*Stats, error) {
-	input, err := doHTTPGet(fmt.Sprintf("http://127.0.0.1:%d/stats?usedonly", adminPort))
+func GetStats(localHostAddr string, adminPort uint16) (*Stats, error) {
+	input, err := doHTTPGet(fmt.Sprintf("http://%s:%d/stats?usedonly", localHostAddr, adminPort))
 	if err != nil {
 		return nil, multierror.Prefix(err, "failed retrieving Envoy stats:")
 	}

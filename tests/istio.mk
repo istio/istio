@@ -65,38 +65,40 @@ DEFAULT_EXTRA_E2E_ARGS += --galley_hub=${HUB}
 
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
-e2e_simple: istioctl generate_yaml e2e_simple_run
+e2e_simple: istioctl generate_e2e_yaml e2e_simple_run
+e2e_kiali: istioctl generate_e2e_yaml e2e_kiali_run
 
-e2e_simple_cni: istioctl
-e2e_simple_cni: export ENABLE_ISTIO_CNI=true
-e2e_simple_cni: export EXTRA_HELM_SETTINGS=--set istio-cni.excludeNamespaces={} --set istio-cni.pullPolicy=IfNotPresent --set istio-cni.tag=$(ISTIO_CNI_DOCKER_TAG) --set istio-cni.hub=$(ISTIO_CNI_DOCKER_HUB)
-e2e_simple_cni: export E2E_ARGS+=--kube_inject_configmap=istio-sidecar-injector
-e2e_simple_cni: generate_yaml e2e_simple_run
+e2e_simple_noauth: istioctl generate_e2e_yaml e2e_simple_noauth_run
 
-e2e_simple_noauth: istioctl generate_yaml e2e_simple_noauth_run
+e2e_mixer: istioctl generate_e2e_yaml e2e_mixer_run
 
-e2e_mixer: istioctl generate_e2e_test_yaml e2e_mixer_run
+e2e_galley: istioctl generate_e2e_yaml e2e_galley_run
 
-e2e_galley: istioctl generate_yaml e2e_galley_run
+e2e_dashboard: istioctl generate_e2e_yaml e2e_dashboard_run
 
-e2e_dashboard: istioctl generate_e2e_test_yaml e2e_dashboard_run
+e2e_bookinfo: istioctl generate_e2e_yaml e2e_bookinfo_run
 
-e2e_bookinfo: istioctl generate_yaml e2e_bookinfo_run
+e2e_stackdriver: istioctl generate_e2e_yaml e2e_stackdriver_run
 
-e2e_stackdriver: istioctl generate_yaml e2e_stackdriver_run
-
-e2e_all: istioctl generate_yaml e2e_all_run
+e2e_all: istioctl generate_e2e_yaml e2e_all_run
 
 # *_run targets do not rebuild the artifacts and test with whatever is given
 
 e2e_simple_run: out_dir
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=true \
 	--egress=false --ingress=false \
+	--valueFile test-values/values-e2e.yaml \
 	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+
+e2e_kiali_run: out_dir
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/kiali -args --auth_enable=false \
+	--egress=false --ingress=false \
+	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 e2e_simple_noauth_run: out_dir
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=false \
 	--egress=false --ingress=false \
+	--valueFile test-values/values-e2e.yaml \
 	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 e2e_mixer_run: out_dir
@@ -132,14 +134,18 @@ e2e_all_run_junit_report:
 	$(MAKE) with_junit_report TARGET=e2e_all_run
 
 # The pilot tests cannot currently be part of e2e_all, since they requires some additional flags.
-e2e_pilot: out_dir istioctl generate_yaml
+e2e_pilot: out_dir istioctl generate_e2e_yaml
 	go test -v -timeout 25m ./tests/e2e/tests/pilot ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
 e2e_pilotv2_v1alpha3: | istioctl test/local/noauth/e2e_pilotv2
 
 e2e_bookinfo_envoyv2_v1alpha3: | istioctl test/local/auth/e2e_bookinfo_envoyv2
 
+e2e_bookinfo_trustdomain: | istioctl test/local/auth/e2e_bookinfo_trustdomain
+
 e2e_pilotv2_auth_sds: | istioctl test/local/auth/e2e_sds_pilotv2
+
+e2e_multicluster_split_horizon: | istioctl test/local/auth/e2e_split_horizon
 
 # This is used to keep a record of the test results.
 CAPTURE_LOG=| tee -a ${OUT_DIR}/tests/build-log.txt
@@ -153,28 +159,28 @@ CAPTURE_LOG=| tee -a ${OUT_DIR}/tests/build-log.txt
 out_dir:
 	@mkdir -p ${OUT_DIR}/{logs,tests}
 
-test/local/auth/e2e_simple: out_dir generate_yaml
+test/local/auth/e2e_simple: out_dir generate_e2e_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=true \
 	--egress=false --ingress=false \
 	--rbac_enable=false --use_local_cluster --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
-test/local/noauth/e2e_simple: out_dir generate_yaml
+test/local/noauth/e2e_simple: out_dir generate_e2e_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=false \
 	--egress=false --ingress=false \
 	--rbac_enable=false --use_local_cluster --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
-test/local/e2e_mixer: out_dir generate_e2e_test_yaml
+test/local/e2e_mixer: out_dir generate_e2e_yaml
 	set -o pipefail; go test -v -timeout 35m ./tests/e2e/tests/mixer \
 	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
 	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
-test/local/e2e_galley: out_dir istioctl generate_yaml
+test/local/e2e_galley: out_dir istioctl generate_e2e_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/galley -args \
 	-use_local_cluster -cluster_wide --use_galley_config_validator -test.v ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
 	${CAPTURE_LOG}
 
 # v1alpha3+envoyv2 test without MTLS
-test/local/noauth/e2e_pilotv2: out_dir generate_yaml_coredump
+test/local/noauth/e2e_pilotv2: out_dir generate_e2e_yaml_coredump
 	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/pilot \
 		--auth_enable=false --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
@@ -182,7 +188,7 @@ test/local/noauth/e2e_pilotv2: out_dir generate_yaml_coredump
 	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/controller ${CAPTURE_LOG}
 
 # v1alpha3+envoyv2 test with MTLS
-test/local/auth/e2e_pilotv2: out_dir generate_yaml_coredump
+test/local/auth/e2e_pilotv2: out_dir generate_e2e_yaml_coredump
 	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/pilot \
 		--auth_enable=true --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
@@ -190,7 +196,7 @@ test/local/auth/e2e_pilotv2: out_dir generate_yaml_coredump
 	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/controller ${CAPTURE_LOG}
 
 # test with MTLS using key/cert distributed through SDS
-test/local/auth/e2e_sds_pilotv2: out_dir generate_e2e_test_yaml
+test/local/auth/e2e_sds_pilotv2: out_dir generate_e2e_yaml_coredump
 	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/pilot \
 		--auth_enable=true --auth_sds_enable=true  --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
@@ -205,12 +211,23 @@ test/local/cloudfoundry/e2e_pilotv2: out_dir
 		${CAPTURE_LOG}
 	sudo iptables -t nat -F
 
-test/local/auth/e2e_bookinfo_envoyv2: out_dir generate_yaml
+test/local/auth/e2e_bookinfo_envoyv2: out_dir generate_e2e_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/bookinfo \
 		--auth_enable=true --egress=true --ingress=false --rbac_enable=false \
 		--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
-test/local/noauth/e2e_mixer_envoyv2: out_dir generate_e2e_test_yaml
+test/local/auth/e2e_bookinfo_trustdomain: out_dir generate_e2e_yaml
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/bookinfo \
+		--auth_enable=true --trust_domain_enable --egress=true --ingress=false --rbac_enable=false \
+		--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+
+test/local/auth/e2e_split_horizon: out_dir generate_e2e_yaml
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/multicluster \
+		--auth_enable=true --split_horizon \
+		--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+
+test/local/noauth/e2e_mixer_envoyv2: export EXTRA_HELM_SETTINGS=--set mixer.adapters.stdio.enabled=false
+test/local/noauth/e2e_mixer_envoyv2: out_dir generate_e2e_yaml
 	set -o pipefail; go test -v -timeout 35m ./tests/e2e/tests/mixer \
 	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
 	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}

@@ -180,14 +180,14 @@
         ]
     },
     {
-        "name": "outbound|9093||istio-policy.istio-system.svc.cluster.local",
+        "name": "outbound|15014||istio-policy.istio-system.svc.cluster.local",
         "addedViaApi": true,
         "hostStatuses": [
             {
                 "address": {
                     "socketAddress": {
                         "address": "172.17.0.14",
-                        "portValue": 9093
+                        "portValue": 15014
                     }
                 },
                 "stats": [

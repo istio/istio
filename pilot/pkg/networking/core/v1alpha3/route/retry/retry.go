@@ -29,8 +29,8 @@ import (
 // DefaultPolicy gets a copy of the default retry policy.
 func DefaultPolicy() *route.RetryPolicy {
 	policy := route.RetryPolicy{
-		NumRetries:           &types.UInt32Value{Value: 10},
-		RetryOn:              "connect-failure,refused-stream,unavailable,cancelled,resource-exhausted",
+		NumRetries:           &types.UInt32Value{Value: 2},
+		RetryOn:              "connect-failure,refused-stream,unavailable,cancelled,resource-exhausted,retriable-status-codes",
 		RetriableStatusCodes: []uint32{http.StatusServiceUnavailable},
 		RetryHostPredicate: []*route.RetryPolicy_RetryHostPredicate{
 			{
@@ -39,7 +39,8 @@ func DefaultPolicy() *route.RetryPolicy {
 				Name: "envoy.retry_host_predicates.previous_hosts",
 			},
 		},
-		HostSelectionRetryMaxAttempts: 3,
+		// TODO: allow this to be configured via API.
+		HostSelectionRetryMaxAttempts: 5,
 	}
 	return &policy
 }

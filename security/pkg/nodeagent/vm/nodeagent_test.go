@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient"
 	"istio.io/istio/security/pkg/caclient/protocol/mock"
 	"istio.io/istio/security/pkg/platform"
@@ -28,12 +27,12 @@ import (
 	"istio.io/istio/security/pkg/util"
 	mockutil "istio.io/istio/security/pkg/util/mock"
 	pb "istio.io/istio/security/proto"
+	"istio.io/pkg/log"
 )
 
 func TestStartWithArgs(t *testing.T) {
 	generalConfig := Config{
 		CAClientConfig: caclient.Config{
-			// nolint: goimports
 			CAAddress:                 "ca_addr",
 			Org:                       "Google Inc.",
 			RSAKeySize:                512,
@@ -90,7 +89,6 @@ func TestStartWithArgs(t *testing.T) {
 
 			config: &Config{
 				CAClientConfig: caclient.Config{
-					// nolint: goimports
 					CAAddress:                 "ca_addr",
 					Org:                       "Google Inc.",
 					RSAKeySize:                128,

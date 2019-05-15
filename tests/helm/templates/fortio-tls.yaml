@@ -47,12 +47,16 @@ spec:
   selector:
     app: fortiotls
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fortiotls
 spec:
   replicas: 2
+  selector:
+    matchLabels:
+      app: fortiotls
+      version: tls
   template:
     metadata:
       annotations:

@@ -28,8 +28,9 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/listwatch"
 	"istio.io/istio/security/pkg/registry"
+	"istio.io/pkg/log"
 )
 
 // ServiceAccountController monitors service account definition changes in a namespace.
@@ -46,20 +47,22 @@ type ServiceAccountController struct {
 }
 
 // NewServiceAccountController returns a new ServiceAccountController
-func NewServiceAccountController(core corev1.CoreV1Interface, namespace string, reg registry.Registry) *ServiceAccountController {
+func NewServiceAccountController(core corev1.CoreV1Interface, namespaces []string, reg registry.Registry) *ServiceAccountController {
 	c := &ServiceAccountController{
 		core: core,
 		reg:  reg,
 	}
 
-	LW := &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			return core.ServiceAccounts(namespace).List(options)
-		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			return core.ServiceAccounts(namespace).Watch(options)
-		},
-	}
+	LW := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				return core.ServiceAccounts(namespace).List(options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				return core.ServiceAccounts(namespace).Watch(options)
+			},
+		}
+	})
 
 	_, c.controller = cache.NewInformer(LW, &v1.ServiceAccount{}, time.Minute, cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.serviceAccountAdded,

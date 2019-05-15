@@ -35,12 +35,12 @@ import (
 
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/util"
-	"istio.io/istio/pkg/version"
+	"istio.io/pkg/collateral"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
+	"istio.io/pkg/version"
 )
 
 var (
@@ -49,6 +49,7 @@ var (
 
 		meshconfig          string
 		injectConfigFile    string
+		injectValuesFile    string
 		certFile            string
 		privateKeyFile      string
 		caCertFile          string
@@ -78,6 +79,7 @@ var (
 
 			parameters := inject.WebhookParameters{
 				ConfigFile:          flags.injectConfigFile,
+				ValuesFile:          flags.injectValuesFile,
 				MeshFile:            flags.meshconfig,
 				CertFile:            flags.certFile,
 				KeyFile:             flags.privateKeyFile,
@@ -203,6 +205,8 @@ func init() {
 		"File containing the Istio mesh configuration")
 	rootCmd.PersistentFlags().StringVar(&flags.injectConfigFile, "injectConfig", "/etc/istio/inject/config",
 		"File containing the Istio sidecar injection configuration and template")
+	rootCmd.PersistentFlags().StringVar(&flags.injectValuesFile, "injectValues", "/etc/istio/inject/values",
+		"File containing the Istio sidecar injection values, in yaml format")
 	rootCmd.PersistentFlags().StringVar(&flags.certFile, "tlsCertFile", "/etc/istio/certs/cert-chain.pem",
 		"File containing the x509 Certificate for HTTPS.")
 	rootCmd.PersistentFlags().StringVar(&flags.privateKeyFile, "tlsKeyFile", "/etc/istio/certs/key.pem",

@@ -23,7 +23,9 @@ import "mixer/v1/config/client/quota.proto";
 
 // $title: Mixer Client
 // $description: Configuration state for the Mixer client library.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/istio.mixer.v1.config.client
 
+// Describes the configuration state for the Mixer client library that's built into Envoy.
 package istio.mixer.v1.config.client;
 
 option go_package = "istio.io/api/mixer/v1/config/client";
@@ -31,6 +33,7 @@ option go_package = "istio.io/api/mixer/v1/config/client";
 option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
+option (gogoproto.stable_marshaler_all) = true;
 
 // Specifies the behavior when the client is unable to connect to Mixer.
 message NetworkFailPolicy {
@@ -46,6 +49,16 @@ message NetworkFailPolicy {
 
   // Specifies the behavior when the client is unable to connect to Mixer.
   FailPolicy policy = 1;
+
+  // Max retries on transport error.
+  uint32 max_retry = 2;
+
+  // Base time to wait between retries.  Will be adjusted by exponential
+  // backoff and jitter.
+  google.protobuf.Duration base_retry_wait = 3;
+
+  // Max time to wait between retries.
+  google.protobuf.Duration max_retry_wait = 4;
 }
 
 // Defines the per-service client configuration.
@@ -104,14 +117,14 @@ message TransportConfig {
   // This is the mesh level policy. The default value for policy is FAIL_OPEN.
   NetworkFailPolicy network_fail_policy = 4;
 
-  // Specify refresh interval to write mixer client statistics to Envoy share
+  // Specify refresh interval to write Mixer client statistics to Envoy share
   // memory. If not specified, the interval is 10 seconds.
   google.protobuf.Duration stats_update_interval = 5;
 
   // Name of the cluster that will forward check calls to a pool of mixer
   // servers. Defaults to "mixer_server". By using different names for
   // checkCluster and reportCluster, it is possible to have one set of
-  // mixer servers handle check calls, while another set of mixer servers
+  // Mixer servers handle check calls, while another set of Mixer servers
   // handle report calls.
   //
   // NOTE: Any value other than the default "mixer_server" will require the
@@ -121,14 +134,14 @@ message TransportConfig {
   // Name of the cluster that will forward report calls to a pool of mixer
   // servers. Defaults to "mixer_server". By using different names for
   // checkCluster and reportCluster, it is possible to have one set of
-  // mixer servers handle check calls, while another set of mixer servers
+  // Mixer servers handle check calls, while another set of Mixer servers
   // handle report calls.
   //
   // NOTE: Any value other than the default "mixer_server" will require the
   // Istio Grafana dashboards to be reconfigured to use the new name.
   string report_cluster = 7;
 
-  // Default attributes to forward to mixer upstream. This typically
+  // Default attributes to forward to Mixer upstream. This typically
   // includes the "source.ip" and "source.uid" attributes. These
   // attributes are consumed by the proxy in front of mixer.
   Attributes attributes_for_mixer_proxy = 8;
@@ -168,10 +181,10 @@ message TcpClientConfig {
   // "destination.uid" attributes.
   Attributes mixer_attributes = 2;
 
-  // If set to true, disables mixer check calls.
+  // If set to true, disables Mixer check calls.
   bool disable_check_calls = 3;
 
-  // If set to true, disables mixer check calls.
+  // If set to true, disables Mixer check calls.
   bool disable_report_calls = 4;
 
   // Quota specifications to generate quota requirements.

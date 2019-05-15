@@ -36,8 +36,8 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -61,6 +61,7 @@ type Webhook struct {
 	sidecarConfig          *Config
 	sidecarTemplateVersion string
 	meshConfig             *meshconfig.MeshConfig
+	valuesConfig           string
 
 	healthCheckInterval time.Duration
 	healthCheckFile     string
@@ -68,29 +69,32 @@ type Webhook struct {
 	server     *http.Server
 	meshFile   string
 	configFile string
+	valuesFile string
 	watcher    *fsnotify.Watcher
 	certFile   string
 	keyFile    string
 	cert       *tls.Certificate
 }
 
-func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, error) {
+func loadConfig(injectFile, meshFile, valuesFile string) (*Config, *meshconfig.MeshConfig, string, error) {
 	data, err := ioutil.ReadFile(injectFile)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 	var c Config
 	if err := yaml.Unmarshal(data, &c); err != nil {
 		log.Warnf("Failed to parse injectFile %s", string(data))
-		return nil, nil, err
+		return nil, nil, "", err
 	}
+
+	valuesConfig, err := ioutil.ReadFile(valuesFile)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
 	meshConfig, err := cmd.ReadMeshConfig(meshFile)
 	if err != nil {
-		return nil, nil, err
-	}
-	err = model.ValidateMeshConfig(meshConfig)
-	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 
 	log.Infof("New configuration: sha256sum %x", sha256.Sum256(data))
@@ -99,7 +103,7 @@ func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, e
 	log.Infof("NeverInjectSelector: %v", c.NeverInjectSelector)
 	log.Infof("Template: |\n  %v", strings.Replace(c.Template, "\n", "\n  ", -1))
 
-	return &c, meshConfig, nil
+	return &c, meshConfig, string(valuesConfig), nil
 }
 
 // WebhookParameters configures parameters for the sidecar injection
@@ -107,6 +111,8 @@ func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, e
 type WebhookParameters struct {
 	// ConfigFile is the path to the sidecar injection configuration file.
 	ConfigFile string
+
+	ValuesFile string
 
 	// MeshFile is the path to the mesh configuration file.
 	MeshFile string
@@ -132,7 +138,7 @@ type WebhookParameters struct {
 
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
 func NewWebhook(p WebhookParameters) (*Webhook, error) {
-	sidecarConfig, meshConfig, err := loadConfig(p.ConfigFile, p.MeshFile)
+	sidecarConfig, meshConfig, valuesConfig, err := loadConfig(p.ConfigFile, p.MeshFile, p.ValuesFile)
 	if err != nil {
 		return nil, err
 	}
@@ -162,6 +168,8 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		sidecarTemplateVersion: sidecarTemplateVersionHash(sidecarConfig.Template),
 		meshConfig:             meshConfig,
 		configFile:             p.ConfigFile,
+		valuesFile:             p.ValuesFile,
+		valuesConfig:           valuesConfig,
 		meshFile:               p.MeshFile,
 		watcher:                watcher,
 		healthCheckInterval:    p.HealthCheckInterval,
@@ -201,7 +209,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 		select {
 		case <-timerC:
 			timerC = nil
-			sidecarConfig, meshConfig, err := loadConfig(wh.configFile, wh.meshFile)
+			sidecarConfig, meshConfig, valuesConfig, err := loadConfig(wh.configFile, wh.meshFile, wh.valuesFile)
 			if err != nil {
 				log.Errorf("update error: %v", err)
 				break
@@ -215,6 +223,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			}
 			wh.mu.Lock()
 			wh.sidecarConfig = sidecarConfig
+			wh.valuesConfig = valuesConfig
 			wh.sidecarTemplateVersion = version
 			wh.meshConfig = meshConfig
 			wh.cert = &pair
@@ -331,7 +340,7 @@ func addContainer(target, added []corev1.Container, basePath string) (patch []rf
 			first = false
 			value = []corev1.Container{add}
 		} else {
-			path = path + "/-"
+			path += "/-"
 		}
 		patch = append(patch, rfc6902PatchOperation{
 			Op:    "add",
@@ -361,7 +370,7 @@ func addVolume(target, added []corev1.Volume, basePath string) (patch []rfc6902P
 			first = false
 			value = []corev1.Volume{add}
 		} else {
-			path = path + "/-"
+			path += "/-"
 		}
 		patch = append(patch, rfc6902PatchOperation{
 			Op:    "add",
@@ -382,7 +391,7 @@ func addImagePullSecrets(target, added []corev1.LocalObjectReference, basePath s
 			first = false
 			value = []corev1.LocalObjectReference{add}
 		} else {
-			path = path + "/-"
+			path += "/-"
 		}
 		patch = append(patch, rfc6902PatchOperation{
 			Op:    "add",
@@ -444,6 +453,23 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	patch = append(patch, removeVolumes(pod.Spec.Volumes, prevStatus.Volumes, "/spec/volumes")...)
 	patch = append(patch, removeImagePullSecrets(pod.Spec.ImagePullSecrets, prevStatus.ImagePullSecrets, "/spec/imagePullSecrets")...)
 
+	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, sic)
+	addAppProberCmd := func() {
+		if !rewrite {
+			return
+		}
+		sidecar := FindSidecar(sic.Containers)
+		if sidecar == nil {
+			log.Errorf("sidecar not found in the template, skip addAppProberCmd")
+			return
+		}
+		// We don't have to escape json encoding here when using golang libraries.
+		if prober := DumpAppProbers(&pod.Spec); prober != "" {
+			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
+		}
+	}
+	addAppProberCmd()
+
 	patch = append(patch, addContainer(pod.Spec.InitContainers, sic.InitContainers, "/spec/initContainers")...)
 	patch = append(patch, addContainer(pod.Spec.Containers, sic.Containers, "/spec/containers")...)
 	patch = append(patch, addVolume(pod.Spec.Volumes, sic.Volumes, "/spec/volumes")...)
@@ -459,6 +485,10 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
 
+	if rewrite {
+		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic)...)
+	}
+
 	return json.Marshal(patch)
 }
 
@@ -473,7 +503,7 @@ var (
 func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
 	var statusBytes []byte
 	if pod.ObjectMeta.Annotations != nil {
-		if value, ok := pod.ObjectMeta.Annotations[annotationStatus.name]; ok {
+		if value, ok := pod.ObjectMeta.Annotations[annotationStatus]; ok {
 			statusBytes = []byte(value)
 		}
 	}
@@ -542,14 +572,13 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		}
 	}
 
-	// TODO(incfly): plumbing wh.sidecarConfig.RewriteHTTPPRobe to the injectionData.
-	spec, status, err := injectionData(wh.sidecarConfig.Template, wh.sidecarTemplateVersion, &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
+	spec, status, err := InjectionData(wh.sidecarConfig.Template, wh.valuesConfig, wh.sidecarTemplateVersion, &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
 	if err != nil {
 		log.Infof("Injection data: err=%v spec=%v\n", err, status)
 		return toAdmissionResponse(err)
 	}
 
-	annotations := map[string]string{annotationStatus.name: status}
+	annotations := map[string]string{annotationStatus: status}
 
 	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec)
 	if err != nil {
@@ -612,10 +641,10 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	resp, err := json.Marshal(response)
 	if err != nil {
 		log.Errorf("Could not encode response: %v", err)
-		http.Error(w, fmt.Sprintf("could encode response: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("could not encode response: %v", err), http.StatusInternalServerError)
 	}
 	if _, err := w.Write(resp); err != nil {
 		log.Errorf("Could not write response: %v", err)
-		http.Error(w, fmt.Sprintf("could write response: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
 	}
 }

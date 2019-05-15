@@ -16,6 +16,8 @@ spec:
   - args:
     - proxy
     - sidecar
+    - --domain
+    - $(POD_NAMESPACE).svc.cluster.local
     - --configPath
     - /etc/istio/proxy
     - --binaryPath
@@ -23,15 +25,13 @@ spec:
     - --serviceCluster
     - hellopod.default
     - --drainDuration
-    - 2s
+    - 45s
     - --parentShutdownDuration
-    - 3s
+    - 1m0s
     - --discoveryAddress
-    - istio-pilot:15007
+    - istio-pilot:15010
     - --connectTimeout
     - 1s
-    - --statsdUdpAddress
-    - ""
     - --proxyAdminPort
     - "15000"
     - --controlPlaneAuthPolicy
@@ -40,6 +40,8 @@ spec:
     - "15020"
     - --applicationPorts
     - "80"
+    - --concurrency
+    - "2"
     env:
     - name: POD_NAME
       valueFrom:
@@ -57,6 +59,10 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: metadata.name
+    - name: ISTIO_META_CONFIG_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
     - name: ISTIO_META_INTERCEPTION_MODE
       value: REDIRECT
     image: docker.io/istio/proxyv2:unittest
@@ -74,11 +80,15 @@ spec:
       initialDelaySeconds: 1
       periodSeconds: 2
     resources:
+      limits:
+        cpu: "2"
+        memory: 128Mi
       requests:
-        cpu: 10m
-        memory: 30Mi
+        cpu: 100m
+        memory: 128Mi
     securityContext:
       readOnlyRootFilesystem: true
+      runAsUser: 1337
     volumeMounts:
     - mountPath: /etc/istio/proxy
       name: istio-envoy
@@ -104,11 +114,19 @@ spec:
     image: docker.io/istio/proxy_init:unittest
     imagePullPolicy: IfNotPresent
     name: istio-init
-    resources: {}
+    resources:
+      limits:
+        cpu: 100m
+        memory: 50Mi
+      requests:
+        cpu: 10m
+        memory: 10Mi
     securityContext:
       capabilities:
         add:
         - NET_ADMIN
+      runAsNonRoot: false
+      runAsUser: 0
   volumes:
   - emptyDir:
       medium: Memory

@@ -28,6 +28,7 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/internal/test"
 	"istio.io/istio/pkg/mcp/source"
+	"istio.io/istio/pkg/mcp/testing/groups"
 )
 
 type fakeSnapshot struct {
@@ -88,7 +89,7 @@ func createTestWatch(c source.Watcher, collection, version string, responseC cha
 
 	cancel := c.Watch(req, func(response *source.WatchResponse) {
 		responseC <- response
-	})
+	}, "192.168.1.1:1234")
 
 	if wantResponse {
 		select {
@@ -113,7 +114,7 @@ func createTestWatch(c source.Watcher, collection, version string, responseC cha
 		}
 	} else {
 		if cancel != nil {
-			return nil, nil, fmt.Errorf("wanted no cancel() function, got %v", cancel)
+			return nil, nil, fmt.Errorf("wanted no cancel() function, got %p", cancel)
 		}
 	}
 
@@ -137,8 +138,8 @@ func TestCreateWatch(t *testing.T) {
 	initVersion := nextStrVersion(&versionInt)
 	snapshot := makeSnapshot(initVersion)
 
-	c := New(DefaultGroupIndex)
-	c.SetSnapshot(DefaultGroup, snapshot)
+	c := New(groups.DefaultIndexFn)
+	c.SetSnapshot(groups.Default, snapshot)
 
 	// verify immediate and async responses are handled independently across types.
 
@@ -166,7 +167,7 @@ func TestCreateWatch(t *testing.T) {
 			watchVersion := collectionVersion
 			collectionVersion = nextStrVersion(&versionInt)
 			snapshot.versions[collection] = collectionVersion
-			c.SetSnapshot(DefaultGroup, snapshot)
+			c.SetSnapshot(groups.Default, snapshot)
 
 			if gotResponse, _ := getAsyncResponse(responseC); gotResponse != nil {
 				wantResponse := &source.WatchResponse{
@@ -203,8 +204,8 @@ func TestWatchCancel(t *testing.T) {
 	initVersion := nextStrVersion(&versionInt)
 	snapshot := makeSnapshot(initVersion)
 
-	c := New(DefaultGroupIndex)
-	c.SetSnapshot(DefaultGroup, snapshot)
+	c := New(groups.DefaultIndexFn)
+	c.SetSnapshot(groups.Default, snapshot)
 
 	for _, collection := range test.SupportedCollections {
 		t.Run(collection, func(t *testing.T) {
@@ -227,7 +228,7 @@ func TestWatchCancel(t *testing.T) {
 			snapshot = snapshot.copy()
 			collectionVersion = nextStrVersion(&versionInt)
 			snapshot.versions[collection] = collectionVersion
-			c.SetSnapshot(DefaultGroup, snapshot)
+			c.SetSnapshot(groups.Default, snapshot)
 
 			if gotResponse, _ := getAsyncResponse(responseC); gotResponse != nil {
 				t.Fatalf("open watch failed: received premature response: %v", gotResponse)
@@ -241,15 +242,15 @@ func TestClearSnapshot(t *testing.T) {
 	initVersion := nextStrVersion(&versionInt)
 	snapshot := makeSnapshot(initVersion)
 
-	c := New(DefaultGroupIndex)
-	c.SetSnapshot(DefaultGroup, snapshot)
+	c := New(groups.DefaultIndexFn)
+	c.SetSnapshot(groups.Default, snapshot)
 
 	for _, collection := range test.SupportedCollections {
 		t.Run(collection, func(t *testing.T) {
 			responseC := make(chan *source.WatchResponse, 1)
 
 			// verify no immediate response if snapshot is cleared.
-			c.ClearSnapshot(DefaultGroup)
+			c.ClearSnapshot(groups.Default)
 			if _, _, err := createTestWatch(c, collection, "", responseC, false, true); err != nil {
 				t.Fatalf("CreateWatch() failed: %v", err)
 			}
@@ -258,7 +259,7 @@ func TestClearSnapshot(t *testing.T) {
 			snapshot = snapshot.copy()
 			typeVersion := nextStrVersion(&versionInt)
 			snapshot.versions[collection] = typeVersion
-			c.SetSnapshot(DefaultGroup, snapshot)
+			c.SetSnapshot(groups.Default, snapshot)
 
 			if gotResponse, _ := getAsyncResponse(responseC); gotResponse != nil {
 				wantResponse := &source.WatchResponse{
@@ -285,7 +286,7 @@ func TestClearStatus(t *testing.T) {
 	initVersion := nextStrVersion(&versionInt)
 	snapshot := makeSnapshot(initVersion)
 
-	c := New(DefaultGroupIndex)
+	c := New(groups.DefaultIndexFn)
 
 	for _, collection := range test.SupportedCollections {
 		t.Run(collection, func(t *testing.T) {
@@ -295,18 +296,18 @@ func TestClearStatus(t *testing.T) {
 				t.Fatalf("CreateWatch() failed: %v", err)
 			}
 
-			if status := c.Status(DefaultGroup); status == nil {
+			if status := c.Status(groups.Default); status == nil {
 				t.Fatal("no status found")
 			}
 
-			c.ClearStatus(DefaultGroup)
+			c.ClearStatus(groups.Default)
 
 			// verify that ClearStatus() cancels the open watch and
 			// that any subsequent snapshot is not delivered.
 			snapshot = snapshot.copy()
 			typeVersion := nextStrVersion(&versionInt)
 			snapshot.versions[collection] = typeVersion
-			c.SetSnapshot(DefaultGroup, snapshot)
+			c.SetSnapshot(groups.Default, snapshot)
 
 			if gotResponse, timeout := getAsyncResponse(responseC); gotResponse != nil {
 				t.Fatalf("open watch failed: received unexpected response: %v", gotResponse)
@@ -314,7 +315,7 @@ func TestClearStatus(t *testing.T) {
 				t.Fatal("open watch was not canceled on ClearStatus()")
 			}
 
-			c.ClearSnapshot(DefaultGroup)
+			c.ClearSnapshot(groups.Default)
 		})
 	}
 }

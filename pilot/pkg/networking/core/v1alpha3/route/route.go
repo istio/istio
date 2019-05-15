@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // Headers with special meaning in Envoy
@@ -211,11 +211,10 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 		case *networking.PortSelector_Number:
 			port = int(selector.Number)
 		}
-	} else {
+	} else if service != nil && len(service.Ports) == 1 {
 		// if service only has one port defined, use that as the port, otherwise use default listenerPort
-		if service != nil && len(service.Ports) == 1 {
-			port = service.Ports[0].Port
-		}
+		port = service.Ports[0].Port
+
 		// Do not return blackhole cluster for service==nil case as there is a legitimate use case for
 		// calling this function with nil service: to route to a pre-defined statically configured cluster
 		// declared as part of the bootstrap.
@@ -247,19 +246,17 @@ func BuildHTTPRoutesForVirtualService(
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
 	}
 
-	vsName := virtualService.ConfigMeta.Name
-
 	out := make([]route.Route, 0, len(vs.Http))
 allroutes:
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(push, node, http, nil, listenPort, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
+			if r := translateRoute(push, node, http, nil, listenPort, virtualService, serviceRegistry, proxyLabels, gatewayNames); r != nil {
 				out = append(out, *r)
 			}
 			break allroutes // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
 			for _, match := range http.Match {
-				if r := translateRoute(push, node, http, match, listenPort, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
+				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, proxyLabels, gatewayNames); r != nil {
 					out = append(out, *r)
 					rType, _ := getEnvoyRouteTypeAndVal(r)
 					if rType == envoyCatchAll {
@@ -301,7 +298,7 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.Label
 // translateRoute translates HTTP routes
 func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
-	vsName string,
+	virtualService model.Config,
 	serviceRegistry map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection,
 	gatewayNames map[string]bool) *route.Route {
@@ -320,8 +317,14 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	}
 
 	out := &route.Route{
-		Match:           translateRouteMatch(match),
-		PerFilterConfig: make(map[string]*types.Struct),
+		Match:    translateRouteMatch(match),
+		Metadata: util.BuildConfigInfoMetadata(virtualService.ConfigMeta),
+	}
+
+	if util.IsXDSMarshalingToAnyEnabled(node) {
+		out.TypedPerFilterConfig = make(map[string]*types.Any)
+	} else {
+		out.PerFilterConfig = make(map[string]*types.Struct)
 	}
 
 	if redirect := in.Redirect; redirect != nil {
@@ -334,7 +337,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			}}
 	} else {
 		action := &route.RouteAction{
-			Cors:        translateCORSPolicy(in.CorsPolicy),
+			Cors:        translateCORSPolicy(in.CorsPolicy, node),
 			RetryPolicy: retry.ConvertPolicy(in.Retries),
 		}
 
@@ -451,10 +454,14 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	}
 
 	out.Decorator = &route.Decorator{
-		Operation: getRouteOperation(out, vsName, port),
+		Operation: getRouteOperation(out, virtualService.Name, port),
 	}
 	if fault := in.Fault; fault != nil {
-		out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(node, in.Fault))
+		if util.IsXDSMarshalingToAnyEnabled(node) {
+			out.TypedPerFilterConfig[xdsutil.Fault] = util.MessageToAny(translateFault(in.Fault))
+		} else {
+			out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(in.Fault))
+		}
 	}
 
 	return out
@@ -567,7 +574,7 @@ func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderM
 }
 
 // translateCORSPolicy translates CORS policy
-func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
+func translateCORSPolicy(in *networking.CorsPolicy, node *model.Proxy) *route.CorsPolicy {
 	if in == nil {
 		return nil
 	}
@@ -576,6 +583,20 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	out := route.CorsPolicy{
 		AllowOrigin: in.AllowOrigin,
 	}
+
+	if util.IsProxyVersionGE11(node) {
+		out.EnabledSpecifier = &route.CorsPolicy_FilterEnabled{
+			FilterEnabled: &core.RuntimeFractionalPercent{
+				DefaultValue: &xdstype.FractionalPercent{
+					Numerator:   100,
+					Denominator: xdstype.FractionalPercent_HUNDRED,
+				},
+			},
+		}
+	} else {
+		out.EnabledSpecifier = &route.CorsPolicy_Enabled{Enabled: &types.BoolValue{Value: true}}
+	}
+
 	out.AllowCredentials = in.AllowCredentials
 	out.AllowHeaders = strings.Join(in.AllowHeaders, ",")
 	out.AllowMethods = strings.Join(in.AllowMethods, ",")
@@ -661,7 +682,7 @@ func translateIntegerToFractionalPercent(p int32) *xdstype.FractionalPercent {
 }
 
 // translateFault translates networking.HTTPFaultInjection into Envoy's HTTPFault
-func translateFault(node *model.Proxy, in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
+func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 	if in == nil {
 		return nil
 	}
@@ -669,18 +690,10 @@ func translateFault(node *model.Proxy, in *networking.HTTPFaultInjection) *xdsht
 	out := xdshttpfault.HTTPFault{}
 	if in.Delay != nil {
 		out.Delay = &xdsfault.FaultDelay{Type: xdsfault.FaultDelay_FIXED}
-		if util.IsProxyVersionGE11(node) {
-			if in.Delay.Percentage != nil {
-				out.Delay.Percentage = translatePercentToFractionalPercent(in.Delay.Percentage)
-			} else {
-				out.Delay.Percentage = translateIntegerToFractionalPercent(in.Delay.Percent)
-			}
+		if in.Delay.Percentage != nil {
+			out.Delay.Percentage = translatePercentToFractionalPercent(in.Delay.Percentage)
 		} else {
-			if in.Delay.Percentage != nil {
-				out.Delay.Percentage = translatePercentToFractionalPercent(in.Delay.Percentage)
-			} else {
-				out.Delay.Percentage = translateIntegerToFractionalPercent(in.Delay.Percent)
-			}
+			out.Delay.Percentage = translateIntegerToFractionalPercent(in.Delay.Percent)
 		}
 		switch d := in.Delay.HttpDelayType.(type) {
 		case *networking.HTTPFaultInjection_Delay_FixedDelay:
@@ -696,18 +709,10 @@ func translateFault(node *model.Proxy, in *networking.HTTPFaultInjection) *xdsht
 
 	if in.Abort != nil {
 		out.Abort = &xdshttpfault.FaultAbort{}
-		if util.IsProxyVersionGE11(node) {
-			if in.Abort.Percentage != nil {
-				out.Abort.Percentage = translatePercentToFractionalPercent(in.Abort.Percentage)
-			} else {
-				out.Abort.Percentage = translateIntegerToFractionalPercent(in.Abort.Percent)
-			}
+		if in.Abort.Percentage != nil {
+			out.Abort.Percentage = translatePercentToFractionalPercent(in.Abort.Percentage)
 		} else {
-			if in.Abort.Percentage != nil {
-				out.Abort.Percentage = translatePercentToFractionalPercent(in.Abort.Percentage)
-			} else {
-				out.Abort.Percentage = translateIntegerToFractionalPercent(in.Abort.Percent)
-			}
+			out.Abort.Percentage = translateIntegerToFractionalPercent(in.Abort.Percent)
 		}
 		switch a := in.Abort.ErrorType.(type) {
 		case *networking.HTTPFaultInjection_Abort_HttpStatus:

@@ -15,19 +15,23 @@
 package ca
 
 import (
+	"context"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
+	"io/ioutil"
+	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/probe"
 	"istio.io/istio/security/pkg/k8s/configmap"
 	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 const (
@@ -48,6 +52,8 @@ const (
 	RootCertID = "root-cert.pem"
 	// ServiceAccountNameAnnotationKey is the key to specify corresponding service account in the annotation of K8s secrets.
 	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
+	// ReadSigningCertCheckInterval specifies the time to wait between retries on reading the signing key and cert.
+	ReadSigningCertCheckInterval = time.Second * 5
 
 	// The size of a private key for a self-signed Istio CA.
 	caKeySize = 2048
@@ -96,12 +102,54 @@ type IstioCA struct {
 	livenessProbe *probe.Probe
 }
 
+// Append root certificates in rootCertFile to the input certificate.
+func appendRootCerts(pemCert []byte, rootCertFile string) ([]byte, error) {
+	var rootCerts []byte
+	if len(pemCert) > 0 {
+		// Copy the input certificate
+		rootCerts = make([]byte, len(pemCert))
+		copy(rootCerts, pemCert)
+	}
+	if len(rootCertFile) > 0 {
+		log.Debugf("append root certificates from %v", rootCertFile)
+		certBytes, err := ioutil.ReadFile(rootCertFile)
+		if err != nil {
+			return rootCerts, fmt.Errorf("failed to read root certificates (%v)", err)
+		}
+		log.Debugf("The root certificates to be appended is: %v", rootCertFile)
+		if len(rootCerts) > 0 {
+			// Append a newline after the last cert
+			rootCerts = []byte(strings.TrimSuffix(string(rootCerts), "\n") + "\n")
+		}
+		rootCerts = append(rootCerts, certBytes...)
+	}
+	return rootCerts, nil
+}
+
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
-func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, org string, dualUse bool,
-	namespace string, client corev1.CoreV1Interface) (caOpts *IstioCAOptions, err error) {
-	// For the first time the CA is up, it generates a self-signed key/cert pair and write it to
-	// CASecret. For subsequent restart, CA will reads key/cert from CASecret.
+func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCertTTL time.Duration, org string, dualUse bool,
+	namespace string, readCertRetryInterval time.Duration, client corev1.CoreV1Interface, rootCertFile string) (caOpts *IstioCAOptions, err error) {
+	// For the first time the CA is up, if readSigningCertOnly is unset,
+	// it generates a self-signed key/cert pair and write it to CASecret.
+	// For subsequent restart, CA will reads key/cert from CASecret.
 	caSecret, scrtErr := client.Secrets(namespace).Get(CASecret, metav1.GetOptions{})
+	if scrtErr != nil && readCertRetryInterval > 0 {
+		log.Infof("Citadel in signing key/cert read only mode. Wait until secret %s:%s can be loaded...", namespace, CASecret)
+		ticker := time.NewTicker(readCertRetryInterval)
+		for scrtErr != nil {
+			select {
+			case <-ticker.C:
+				if caSecret, scrtErr = client.Secrets(namespace).Get(CASecret, metav1.GetOptions{}); scrtErr == nil {
+					log.Infof("Citadel successfully loaded the secret.")
+					break
+				}
+			case <-ctx.Done():
+				log.Errorf("Secret waiting thread is terminated.")
+				return nil, fmt.Errorf("secret waiting thread is terminated")
+			}
+		}
+	}
+
 	caOpts = &IstioCAOptions{
 		CAType:     selfSignedCA,
 		CertTTL:    certTTL,
@@ -123,7 +171,12 @@ func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, o
 			return nil, fmt.Errorf("unable to generate CA cert and key for self-signed CA (%v)", ckErr)
 		}
 
-		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, pemCert); err != nil {
+		rootCerts, err := appendRootCerts(pemCert, rootCertFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to append root certificates (%v)", err)
+		}
+
+		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, rootCerts); err != nil {
 			return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 		}
 
@@ -133,13 +186,18 @@ func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, o
 			log.Errorf("Failed to write secret to CA (error: %s). This CA will not persist when restart.", err)
 		}
 	} else {
+		log.Infof("Load signing key and cert from existing secret %s:%s", caSecret.Namespace, caSecret.Name)
+		rootCerts, err := appendRootCerts(caSecret.Data[caCertID], rootCertFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to append root certificates (%v)", err)
+		}
 		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(caSecret.Data[caCertID],
-			caSecret.Data[caPrivateKeyID], nil, caSecret.Data[caCertID]); err != nil {
+			caSecret.Data[caPrivateKeyID], nil, rootCerts); err != nil {
 			return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 		}
 	}
 
-	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle); err != nil {
+	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle.GetRootCertPem()); err != nil {
 		log.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
 	}
 	return caOpts, nil
@@ -157,7 +215,31 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 		signingCertFile, signingKeyFile, certChainFile, rootCertFile); err != nil {
 		return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 	}
-	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle); err != nil {
+
+	// Validate that the passed in signing cert can be used as CA.
+	// The check can't be done inside `KeyCertBundle`, since bundle could also be used to
+	// validate workload certificates (i.e., where the leaf certificate is not a CA).
+	b, err := ioutil.ReadFile(signingCertFile)
+	if err != nil {
+		return nil, err
+	}
+	block, _ := pem.Decode(b)
+	if block == nil {
+		return nil, fmt.Errorf("invalid PEM encoded certificate")
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse X.509 certificate")
+	}
+	if !cert.IsCA {
+		return nil, fmt.Errorf("certificate is not authorized to sign other certificates")
+	}
+
+	crt := caOpts.KeyCertBundle.GetCertChainPem()
+	if len(crt) == 0 {
+		crt = caOpts.KeyCertBundle.GetRootCertPem()
+	}
+	if err = updateCertInConfigmap(namespace, client, crt); err != nil {
 		log.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
 	}
 	return caOpts, nil
@@ -244,8 +326,7 @@ func BuildSecret(saName, scrtName, namespace string, certChain, privateKey, root
 	}
 }
 
-func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, keyCertBundle util.KeyCertBundle) error {
-	_, _, _, cert := keyCertBundle.GetAllPem()
+func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert []byte) error {
 	certEncoded := base64.StdEncoding.EncodeToString(cert)
 	cmc := configmap.NewController(namespace, client)
 	return cmc.InsertCATLSRootCert(certEncoded)

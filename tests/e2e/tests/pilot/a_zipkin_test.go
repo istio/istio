@@ -43,7 +43,7 @@ func TestZipkin(t *testing.T) {
 				// Send a request with a trace header.
 				id = uuid.NewV4().String()
 				response := ClientRequest(primaryCluster, "a", "http://b", 1,
-					fmt.Sprintf("-key %v -val %v", traceHeader, id))
+					fmt.Sprintf("--key %v --val %v", traceHeader, id))
 				if !response.IsHTTPOk() {
 					// Keep retrying until we successfully send a trace request.
 					return errAgain

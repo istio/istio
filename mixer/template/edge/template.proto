@@ -30,11 +30,10 @@ option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_R
 //
 // When writing the configuration, the value for the fields associated
 // with this template can either be a literal or an
-// [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please
+// [expression](https://istio.io/docs/reference/config/policy-and-telemetry/expression-language/). Please
 // note that if the datatype of a field is not
 // istio.mixer.adapter.model.v1beta1.Value, then the expression's
-// [inferred
-// type](https://istio.io/docs/reference/config/policy-and-telemetry/expression-language/#type-checking)
+// [inferred type](https://istio.io/docs/reference/config/policy-and-telemetry/expression-language/#type-checking)
 // must match the datatype of the field.
 //
 // Example config:
@@ -54,6 +53,8 @@ option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_R
 //   destinationOwner: destination.owner | "Unknown"
 //   destinationWorkloadName: destination.workload.name | "Unknown"
 //   destinationWorkloadNamespace: destination.workload.namespace | "Unknown"
+//   destinationServiceName: destination.service.name | "Unknown"
+//   destinationServiceNamespace: destination.service.namespace | "Unknown"
 //   apiProtocol: api.protocol | "Unknown"
 //   contextProtocol: context.protocol | "Unknown"
 // ```
@@ -85,6 +86,12 @@ message Template {
 
   // UID of the destination workload
   string destination_uid = 23;
+
+  // Namespace of the destination Service
+  string destination_service_namespace = 24;
+
+  // Name of the destination Service
+  string destination_service_name = 25;
 
   // Protocol used for communication (http, tcp)
   string context_protocol = 30;

@@ -73,11 +73,12 @@ type Fake struct {
 	TypeURL    string
 }
 
-func MakeRequest(collection, nonce string, errorCode codes.Code) *mcp.RequestResources {
+func MakeRequest(incremental bool, collection, nonce string, errorCode codes.Code) *mcp.RequestResources {
 	req := &mcp.RequestResources{
 		SinkNode:      Node,
 		Collection:    collection,
 		ResponseNonce: nonce,
+		Incremental:   incremental,
 	}
 	if errorCode != codes.OK {
 		req.ErrorDetail = status.New(errorCode, "").Proto()
@@ -85,12 +86,13 @@ func MakeRequest(collection, nonce string, errorCode codes.Code) *mcp.RequestRes
 	return req
 }
 
-func MakeResources(collection, version, nonce string, removed []string, fakes ...*Fake) *mcp.Resources {
+func MakeResources(incremental bool, collection, version, nonce string, removed []string, fakes ...*Fake) *mcp.Resources {
 	r := &mcp.Resources{
 		Collection:        collection,
 		Nonce:             nonce,
 		RemovedResources:  removed,
 		SystemVersionInfo: version,
+		Incremental:       incremental,
 	}
 	for _, fake := range fakes {
 		r.Resources = append(r.Resources, *fake.Resource)

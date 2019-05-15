@@ -20,7 +20,7 @@ import (
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 type attrCase struct {
@@ -31,7 +31,7 @@ type attrCase struct {
 }
 
 func TestKeyShape(t *testing.T) {
-	allKeys := make(map[string]struct{}, 0)
+	allKeys := make(map[string]struct{})
 	globalWords := attribute.GlobalList()
 
 	cases := []struct {

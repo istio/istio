@@ -74,7 +74,7 @@ func writeTemplateInTempfile(tmpl *template.Template, data interface{}) (string,
 // Start sets up registry and returns if any error was found while doing that.
 func (r *InClusterRegistry) Start() error {
 
-	if err := r.accessor.CreateNamespace(r.namespace, "", false); err != nil {
+	if err := r.accessor.CreateNamespace(r.namespace, ""); err != nil {
 		if !strings.Contains(err.Error(), "already exist") {
 			return err
 		}
@@ -108,11 +108,7 @@ func (r *InClusterRegistry) Start() error {
 	}
 
 	// Registry is up now, try to get the registry pod for port-forwarding
-	options := &kube.PodSelectOptions{
-		PodNamespace: r.namespace,
-		PodName:      registryPod.Name,
-	}
-	forwarder, err := r.accessor.NewPortForwarder(options, r.localRegistryPort, r.localRegistryPort)
+	forwarder, err := r.accessor.NewPortForwarder(registryPod, r.localRegistryPort, r.localRegistryPort)
 	if err != nil {
 		return err
 	}

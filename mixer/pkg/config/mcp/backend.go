@@ -30,20 +30,20 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/mcp/client"
-	"istio.io/istio/pkg/mcp/configz"
+	configz "istio.io/istio/pkg/mcp/configz/client"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/sink"
-	"istio.io/istio/pkg/mcp/snapshot"
-	"istio.io/istio/pkg/probe"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 var scope = log.RegisterScope("mcp", "Mixer MCP client stack", 0)
 
 const (
-	mixerNodeID           = snapshot.DefaultGroup
+	// TODO(nmittler): Need to decide the correct NodeID for mixer.
+	mixerNodeID = "default"
+
 	eventChannelSize      = 4096
 	requiredCertCheckFreq = 500 * time.Millisecond
 )
@@ -191,7 +191,6 @@ func (b *backend) Init(kinds []string) error {
 		return err
 	}
 
-	cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
 	b.mcpReporter = monitoring.NewStatsContext("mixer/mcp/sink")
 	options := &sink.Options{
 		CollectionOptions: sink.CollectionOptionsFromSlice(collections),
@@ -199,8 +198,11 @@ func (b *backend) Init(kinds []string) error {
 		ID:                mixerNodeID,
 		Reporter:          b.mcpReporter,
 	}
-	c := client.New(cl, options)
+
+	cl := mcp.NewResourceSourceClient(conn)
+	c := sink.NewClient(cl, options)
 	configz.Register(c)
+	go c.Run(ctx)
 
 	b.state = &state{
 		items:  make(map[string]map[store.Key]*store.BackEndResource),
@@ -210,7 +212,6 @@ func (b *backend) Init(kinds []string) error {
 		b.state.synced[collection] = false
 	}
 
-	go c.Run(ctx)
 	b.cancel = cancel
 	return nil
 }
@@ -227,13 +228,15 @@ func (b *backend) WaitForSynced(timeout time.Duration) error {
 			return fmt.Errorf("exceeded timeout %v", timeout)
 		case <-tick.C:
 			ready := true
-
+			b.state.RLock()
 			for _, synced := range b.state.synced {
 				if !synced {
 					ready = false
 					break
 				}
 			}
+			b.state.RUnlock()
+
 			if ready {
 				return nil
 			}

@@ -26,7 +26,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -112,7 +112,7 @@ func (ms *MockOpenIDDiscoveryServer) Start() error {
 		return nil
 	}
 
-	ms.Stop()
+	_ = ms.Stop()
 	return errors.New("server failed to start")
 }
 

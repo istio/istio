@@ -1,10 +1,13 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   creationTimestamp: null
   name: resource
 spec:
   replicas: 7
+  selector:
+    matchLabels:
+      app: resource
   strategy: {}
   template:
     metadata:
@@ -33,13 +36,13 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - resource.default
+        - resource.$(POD_NAMESPACE)
         - --drainDuration
-        - 2s
+        - 45s
         - --parentShutdownDuration
-        - 3s
+        - 1m0s
         - --discoveryAddress
-        - istio-pilot:15007
+        - istio-pilot:15010
         - --zipkinAddress
         - ""
         - --connectTimeout
@@ -52,6 +55,8 @@ spec:
         - "15020"
         - --applicationPorts
         - "80"
+        - --concurrency
+        - "1"
         env:
         - name: POD_NAME
           valueFrom:
@@ -123,12 +128,14 @@ spec:
         name: istio-init
         resources:
           limits:
-            cpu: 10m
-            memory: 10Mi
+            cpu: 100m
+            memory: 50Mi
           requests:
             cpu: 10m
             memory: 10Mi
         securityContext:
+          runAsUser: 0
+          runAsNonRoot: false
           capabilities:
             add:
             - NET_ADMIN

@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 func TestEnv(t *testing.T) {
@@ -32,8 +32,8 @@ func TestEnv(t *testing.T) {
 		o := log.DefaultOptions()
 		_ = log.Configure(o)
 
-		env := NewEnv(0, "Foo", gp)
-		log := env.Logger()
+		e := NewEnv(0, "Foo", gp)
+		log := e.Logger()
 		log.Infof("Test%s", "ing")
 		log.Warningf("Test%s", "ing")
 		err := log.Errorf("Test%s", "ing")
@@ -57,20 +57,26 @@ func TestEnv(t *testing.T) {
 
 		wg := sync.WaitGroup{}
 		wg.Add(1)
-		env.ScheduleWork(func() {
+		e.ScheduleWork(func() {
+			if !e.(env).hasStrayWorkers() {
+				t.Error("hasStrayWorkers() => false; wanted true")
+			}
 			wg.Done()
 		})
 
 		wg.Add(1)
-		env.ScheduleDaemon(func() {
+		e.ScheduleDaemon(func() {
+			if !e.(env).hasStrayWorkers() {
+				t.Error("hasStrayWorkers() => false; wanted true")
+			}
 			wg.Done()
 		})
 
-		env.ScheduleWork(func() {
+		e.ScheduleWork(func() {
 			panic("bye!")
 		})
 
-		env.ScheduleDaemon(func() {
+		e.ScheduleDaemon(func() {
 			panic("bye!")
 		})
 
@@ -78,6 +84,10 @@ func TestEnv(t *testing.T) {
 
 		// hack to give time for the panic to 'take hold' if it doesn't get recovered properly
 		time.Sleep(200 * time.Millisecond)
+
+		if e.(env).hasStrayWorkers() {
+			t.Error("hasStrayWorkers() => true; wanted false")
+		}
 
 		_ = gp.Close()
 	}

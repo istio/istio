@@ -19,6 +19,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -35,12 +37,12 @@ func TestServiceNode(t *testing.T) {
 		},
 		{
 			in: &model.Proxy{
-				Type:        model.Ingress,
+				Type:        model.Router,
 				ID:          "random",
 				IPAddresses: []string{"10.3.3.3"},
 				DNSDomain:   "local",
 			},
-			out: "ingress~10.3.3.3~random~local",
+			out: "router~10.3.3.3~random~local",
 		},
 		{
 			in: &model.Proxy{
@@ -49,7 +51,7 @@ func TestServiceNode(t *testing.T) {
 				IPAddresses: []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6"},
 				DNSDomain:   "local",
 				Metadata: map[string]string{
-					"ISTIO_META_INSTANCE_IPS": "10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6",
+					"INSTANCE_IPS": "10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6",
 				},
 			},
 			out: "sidecar~10.3.3.3~random~local",
@@ -176,4 +178,11 @@ networks:
 	if !reflect.DeepEqual(got, &want) {
 		t.Fatalf("Wrong values:\n got %#v \nwant %#v", got, &want)
 	}
+}
+
+func TestGetOrDefaultFromMap(t *testing.T) {
+	meta := map[string]string{"key1": "key1ValueFromMap"}
+	assert.Equal(t, "key1ValueFromMap", model.GetOrDefaultFromMap(meta, "key1", "unexpected"))
+	assert.Equal(t, "expectedDefaultKey2Value", model.GetOrDefaultFromMap(meta, "key2", "expectedDefaultKey2Value"))
+	assert.Equal(t, "expectedDefaultFromNilMap", model.GetOrDefaultFromMap(nil, "key", "expectedDefaultFromNilMap"))
 }

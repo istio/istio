@@ -21,9 +21,11 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/pkg/annotations"
+
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
@@ -32,10 +34,6 @@ import (
 type Environment struct {
 	// Discovery interface for listing services and instances.
 	ServiceDiscovery
-
-	// Accounts interface for listing service accounts
-	// Deprecated - use PushContext.ServiceAccounts
-	ServiceAccounts
 
 	// Config interface for listing routing rules
 	IstioConfigStore
@@ -87,8 +85,10 @@ type Proxy struct {
 	// namespace.
 	ID string
 
-	// Locality is the location of where Envoy proxy runs.
-	Locality Locality
+	// Locality is the location of where Envoy proxy runs. This is extracted from
+	// the registry where possible. If the registry doesn't provide a locality for the
+	// proxy it will use the one sent via ADS that can be configured in the Envoy bootstrap
+	Locality *core.Locality
 
 	// DNSDomain defines the DNS domain suffix for short hostnames (e.g.
 	// "default.svc.cluster.local")
@@ -96,6 +96,15 @@ type Proxy struct {
 
 	// TrustDomain defines the trust domain of the certificate
 	TrustDomain string
+
+	//identity that will be the suffix of the spiffe id for SAN verification when connecting to pilot
+	//spiffe://{TrustDomain}/{PilotIdentity}
+	PilotIdentity string
+
+	//identity that will be the suffix of the spiffe id for SAN verification when connecting to mixer
+	//spiffe://{TrustDomain}/{MixerIdentity}
+	//this value would only be used by pilot's proxy to connect to mixer.  All proxies would get mixer SAN pushed through pilot
+	MixerIdentity string
 
 	// ConfigNamespace defines the namespace where this proxy resides
 	// for the purposes of network scoping.
@@ -107,6 +116,12 @@ type Proxy struct {
 
 	// the sidecarScope associated with the proxy
 	SidecarScope *SidecarScope
+
+	// service instances associated with the proxy
+	ServiceInstances []*ServiceInstance
+
+	// labels associated with the workload
+	WorkloadLabels LabelsCollection
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh
@@ -116,9 +131,6 @@ const (
 	// SidecarProxy type is used for sidecar proxies in the application containers
 	SidecarProxy NodeType = "sidecar"
 
-	// Ingress type is used for cluster ingress proxies
-	Ingress NodeType = "ingress"
-
 	// Router type is used for standalone proxies acting as L7/L4 routers
 	Router NodeType = "router"
 )
@@ -126,7 +138,7 @@ const (
 // IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
 func IsApplicationNodeType(nType NodeType) bool {
 	switch nType {
-	case SidecarProxy, Ingress, Router:
+	case SidecarProxy, Router:
 		return true
 	default:
 		return false
@@ -147,7 +159,7 @@ func (node *Proxy) ServiceNode() string {
 
 // GetProxyVersion returns the proxy version string identifier, and whether it is present.
 func (node *Proxy) GetProxyVersion() (string, bool) {
-	version, found := node.Metadata["ISTIO_PROXY_VERSION"]
+	version, found := node.Metadata[NodeMetadataIstioProxyVersion]
 	return version, found
 }
 
@@ -165,13 +177,49 @@ const (
 // GetRouterMode returns the operating mode associated with the router.
 // Assumes that the proxy is of type Router
 func (node *Proxy) GetRouterMode() RouterMode {
-	if modestr, found := node.Metadata["ROUTER_MODE"]; found {
-		switch RouterMode(modestr) {
-		case SniDnatRouter:
+	if modestr, found := node.Metadata[NodeMetadataRouterMode]; found {
+		if RouterMode(modestr) == SniDnatRouter {
 			return SniDnatRouter
 		}
 	}
 	return StandardRouter
+}
+
+// SetSidecarScope identifies the sidecar scope object associated with this
+// proxy and updates the proxy Node. This is a convenience hack so that
+// callers can simply call push.Services(node) while the implementation of
+// push.Services can return the set of services from the proxyNode's
+// sidecar scope or from the push context's set of global services. Similar
+// logic applies to push.VirtualServices and push.DestinationRule. The
+// short cut here is useful only for CDS and parts of RDS generation code.
+//
+// Listener generation code will still use the SidecarScope object directly
+// as it needs the set of services for each listener port.
+func (node *Proxy) SetSidecarScope(ps *PushContext) {
+	labels := node.WorkloadLabels
+	node.SidecarScope = ps.getSidecarScope(node, labels)
+}
+
+func (node *Proxy) SetServiceInstances(env *Environment) error {
+	instances, err := env.GetProxyServiceInstances(node)
+	if err != nil {
+		log.Errorf("failed to get service proxy service instances: %v", err)
+		return err
+	}
+
+	node.ServiceInstances = instances
+	return nil
+}
+
+func (node *Proxy) SetWorkloadLabels(env *Environment) error {
+	labels, err := env.GetProxyWorkloadLabels(node)
+	if err != nil {
+		log.Warnf("failed to get service proxy workload labels: %v, defaulting to proxy metadata", err)
+		labels = LabelsCollection{node.Metadata}
+	}
+
+	node.WorkloadLabels = labels
+	return nil
 }
 
 // UnnamedNetwork is the default network that proxies in the mesh
@@ -189,7 +237,7 @@ func GetNetworkView(node *Proxy) map[string]bool {
 	}
 
 	nmap := make(map[string]bool)
-	if networks, found := node.Metadata["REQUESTED_NETWORK_VIEW"]; found {
+	if networks, found := node.Metadata[NodeMetadataRequestedNetworkView]; found {
 		for _, n := range strings.Split(networks, ",") {
 			nmap[n] = true
 		}
@@ -220,7 +268,7 @@ func ParseMetadata(metadata *types.Struct) map[string]string {
 }
 
 // ParseServiceNodeWithMetadata parse the Envoy Node from the string generated by ServiceNode
-// fuction and the metadata.
+// function and the metadata.
 func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy, error) {
 	parts := strings.Split(s, serviceNodeSeparator)
 	out := &Proxy{
@@ -233,14 +281,12 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 
 	out.Type = NodeType(parts[0])
 
-	switch out.Type {
-	case SidecarProxy, Ingress, Router:
-	default:
-		return out, fmt.Errorf("invalid node type (valid types: ingress, sidecar, router in the service node %q", s)
+	if !IsApplicationNodeType(out.Type) {
+		return out, fmt.Errorf("invalid node type (valid types: sidecar, router in the service node %q", s)
 	}
 
 	// Get all IP Addresses from Metadata
-	if ipstr, found := metadata["ISTIO_META_INSTANCE_IPS"]; found {
+	if ipstr, found := metadata[NodeMetadataInstanceIPs]; found {
 		ipAddresses, err := parseIPAddresses(ipstr)
 		if err == nil {
 			out.IPAddresses = ipAddresses
@@ -263,6 +309,18 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	return out, nil
 }
 
+// GetOrDefaultFromMap returns either the value found for key or the default value if the map is nil
+// or does not contain the key. Useful when retrieving node metadata fields.
+func GetOrDefaultFromMap(stringMap map[string]string, key, defaultVal string) string {
+	if stringMap == nil {
+		return defaultVal
+	}
+	if valFromMap, ok := stringMap[key]; ok {
+		return valFromMap
+	}
+	return defaultVal
+}
+
 // GetProxyConfigNamespace extracts the namespace associated with the proxy
 // from the proxy metadata or the proxy ID
 func GetProxyConfigNamespace(proxy *Proxy) string {
@@ -272,7 +330,7 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 
 	// First look for ISTIO_META_CONFIG_NAMESPACE
 	// All newer proxies (from Istio 1.1 onwards) are supposed to supply this
-	if configNamespace, found := proxy.Metadata[NodeConfigNamespace]; found {
+	if configNamespace, found := proxy.Metadata[NodeMetadataConfigNamespace]; found {
 		return configNamespace
 	}
 
@@ -284,19 +342,6 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 	}
 
 	return ""
-}
-
-// GetProxyLocality returns the locality where Envoy proxy is running.
-func GetProxyLocality(proxy *core.Node) *Locality {
-	if proxy == nil || proxy.Locality == nil {
-		return nil
-	}
-
-	return &Locality{
-		Region:  proxy.Locality.Region,
-		Zone:    proxy.Locality.Zone,
-		SubZone: proxy.Locality.SubZone,
-	}
 }
 
 const (
@@ -311,11 +356,20 @@ const (
 	// CertChainFilename is mTLS chain file
 	CertChainFilename = "cert-chain.pem"
 
+	// DefaultServerCertChain is the default path to the mTLS chain file
+	DefaultCertChain = AuthCertsPath + CertChainFilename
+
 	// KeyFilename is mTLS private key
 	KeyFilename = "key.pem"
 
+	// DefaultServerKey is the default path to the mTLS private key file
+	DefaultKey = AuthCertsPath + KeyFilename
+
 	// RootCertFilename is mTLS root cert
 	RootCertFilename = "root-cert.pem"
+
+	// DefaultRootCert is the default path to the mTLS root cert file
+	DefaultRootCert = AuthCertsPath + RootCertFilename
 
 	// IngressCertFilename is the ingress cert file name
 	IngressCertFilename = "tls.crt"
@@ -333,7 +387,7 @@ const (
 	ServiceClusterName = "istio-proxy"
 
 	// DiscoveryPlainAddress discovery IP address:port with plain text
-	DiscoveryPlainAddress = "istio-pilot:15007"
+	DiscoveryPlainAddress = "istio-pilot:15010"
 
 	// IstioIngressGatewayName is the internal gateway name assigned to ingress
 	IstioIngressGatewayName = "istio-autogenerated-k8s-ingress"
@@ -348,20 +402,21 @@ var IstioIngressWorkloadLabels = map[string]string{"istio": "ingress"}
 // DefaultProxyConfig for individual proxies
 func DefaultProxyConfig() meshconfig.ProxyConfig {
 	return meshconfig.ProxyConfig{
-		ConfigPath:             ConfigPathDir,
-		BinaryPath:             BinaryPathFilename,
-		ServiceCluster:         ServiceClusterName,
-		DrainDuration:          types.DurationProto(2 * time.Second),
-		ParentShutdownDuration: types.DurationProto(3 * time.Second),
-		DiscoveryAddress:       DiscoveryPlainAddress,
-		ConnectTimeout:         types.DurationProto(1 * time.Second),
-		StatsdUdpAddress:       "",
-		ProxyAdminPort:         15000,
-		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_NONE,
-		CustomConfigFile:       "",
-		Concurrency:            0,
-		StatNameLength:         189,
-		Tracing:                nil,
+		ConfigPath:                 ConfigPathDir,
+		BinaryPath:                 BinaryPathFilename,
+		ServiceCluster:             ServiceClusterName,
+		DrainDuration:              types.DurationProto(45 * time.Second),
+		ParentShutdownDuration:     types.DurationProto(60 * time.Second),
+		DiscoveryAddress:           DiscoveryPlainAddress,
+		ConnectTimeout:             types.DurationProto(1 * time.Second),
+		StatsdUdpAddress:           "",
+		EnvoyMetricsServiceAddress: "",
+		ProxyAdminPort:             15000,
+		ControlPlaneAuthPolicy:     meshconfig.AuthenticationPolicy_NONE,
+		CustomConfigFile:           "",
+		Concurrency:                0,
+		StatNameLength:             189,
+		Tracing:                    nil,
 	}
 }
 
@@ -371,13 +426,13 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 	return meshconfig.MeshConfig{
 		MixerCheckServer:                  "",
 		MixerReportServer:                 "",
-		DisablePolicyChecks:               false,
+		DisablePolicyChecks:               true,
 		PolicyCheckFailOpen:               false,
 		SidecarToTelemetrySessionAffinity: false,
+		RootNamespace:                     IstioSystemNamespace,
 		ProxyListenPort:                   15001,
 		ConnectTimeout:                    types.DurationProto(1 * time.Second),
-		IngressClass:                      "istio",
-		IngressControllerMode:             meshconfig.MeshConfig_STRICT,
+		IngressService:                    "istio-ingressgateway",
 		EnableTracing:                     true,
 		AccessLogFile:                     "/dev/stdout",
 		AccessLogEncoding:                 meshconfig.MeshConfig_TEXT,
@@ -385,7 +440,11 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		SdsUdsPath:                        "",
 		EnableSdsTokenMount:               false,
 		TrustDomain:                       "",
-		OutboundTrafficPolicy:             &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY},
+		DefaultServiceExportTo:            []string{"*"},
+		DefaultVirtualServiceExportTo:     []string{"*"},
+		DefaultDestinationRuleExportTo:    []string{"*"},
+		OutboundTrafficPolicy:             &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
+		DnsRefreshRate:                    types.DurationProto(5 * time.Second), // 5 seconds is the default refresh rate used in Envoy
 	}
 }
 
@@ -393,7 +452,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 // input YAML with defaults applied to omitted configuration values.
 func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 	out := DefaultMeshConfig()
-	if err := ApplyYAML(yaml, &out, false); err != nil {
+	if err := ApplyYAML(yaml, &out); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 
@@ -410,7 +469,7 @@ func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 		if err != nil {
 			return nil, multierror.Prefix(err, "failed to re-encode default proxy config")
 		}
-		if err := ApplyYAML(origProxyConfigYAML, out.DefaultConfig, false); err != nil {
+		if err := ApplyYAML(origProxyConfigYAML, out.DefaultConfig); err != nil {
 			return nil, multierror.Prefix(err, "failed to convert to proto.")
 		}
 	}
@@ -433,7 +492,7 @@ func EmptyMeshNetworks() meshconfig.MeshNetworks {
 // input YAML.
 func LoadMeshNetworksConfig(yaml string) (*meshconfig.MeshNetworks, error) {
 	out := EmptyMeshNetworks()
-	if err := ApplyYAML(yaml, &out, false); err != nil {
+	if err := ApplyYAML(yaml, &out); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 
@@ -475,6 +534,8 @@ func isValidIPAddress(ip string) bool {
 
 // Pile all node metadata constants here
 const (
+	// NodeMetadataIstioProxyVersion specifies the Envoy version associated with the proxy
+	NodeMetadataIstioProxyVersion = "ISTIO_PROXY_VERSION"
 
 	// NodeMetadataNetwork defines the network the node belongs to. It is an optional metadata,
 	// set at injection time. When set, the Endpoints returned to a note and not on same network
@@ -485,13 +546,81 @@ const (
 	// traffic interception mode at the proxy
 	NodeMetadataInterceptionMode = "INTERCEPTION_MODE"
 
-	// NodeConfigNamespace is the name of the metadata variable that carries info about
-	// the config namespace associated with the proxy
-	NodeConfigNamespace = "CONFIG_NAMESPACE"
+	// NodeMetadataHTTP10 indicates the application behind the sidecar is making outbound http requests with HTTP/1.0
+	// protocol. It will enable the "AcceptHttp_10" option on the http options for outbound HTTP listeners.
+	// Alpha in 1.1, based on feedback may be turned into an API or change. Set to "1" to enable.
+	NodeMetadataHTTP10 = "HTTP10"
 
-	// NodeMetadataUID is the user ID running envoy. Pilot can check if envoy runs as root, and may generate
+	// NodeMetadataConfigNamespace is the name of the metadata variable that carries info about
+	// the config namespace associated with the proxy
+	NodeMetadataConfigNamespace = "CONFIG_NAMESPACE"
+
+	// NodeMetadataSidecarUID is the user ID running envoy. Pilot can check if envoy runs as root, and may generate
 	// different configuration. If not set, the default istio-proxy UID (1337) is assumed.
-	NodeMetadataUID = "UID"
+	NodeMetadataSidecarUID = "SIDECAR_UID"
+
+	// NodeMetadataRequestedNetworkView specifies the networks that the proxy wants to see
+	NodeMetadataRequestedNetworkView = "REQUESTED_NETWORK_VIEW"
+
+	// NodeMetadataRouterMode indicates whether the proxy is functioning as a SNI-DNAT router
+	// processing the AUTO_PASSTHROUGH gateway servers
+	NodeMetadataRouterMode = "ROUTER_MODE"
+
+	// NodeMetadataInstanceIPs is the set of IPs attached to this proxy
+	NodeMetadataInstanceIPs = "INSTANCE_IPS"
+
+	// NodeMetadataSdsTokenPath specifies the path of the SDS token used by the Envoy proxy.
+	// If not set, Pilot uses the default SDS token path.
+	NodeMetadataSdsTokenPath = "SDS_TOKEN_PATH"
+
+	// NodeMetadataTLSServerCertChain is the absolute path to server cert-chain file
+	NodeMetadataTLSServerCertChain = "TLS_SERVER_CERT_CHAIN"
+
+	// NodeMetadataTLSServerKey is the absolute path to server private key file
+	NodeMetadataTLSServerKey = "TLS_SERVER_KEY"
+
+	// NodeMetadataTLSServerRootCert is the absolute path to server root cert file
+	NodeMetadataTLSServerRootCert = "TLS_SERVER_ROOT_CERT"
+
+	// NodeMetadataTLSClientCertChain is the absolute path to client cert-chain file
+	NodeMetadataTLSClientCertChain = "TLS_CLIENT_CERT_CHAIN"
+
+	// NodeMetadataTLSClientKey is the absolute path to client private key file
+	NodeMetadataTLSClientKey = "TLS_CLIENT_KEY"
+
+	// NodeMetadataTLSClientRootCert is the absolute path to client root cert file
+	NodeMetadataTLSClientRootCert = "TLS_CLIENT_ROOT_CERT"
+
+	// NodeMetadataPolicyCheck determines the policy for behavior when unable to connect to mixer
+	// If not set, FAIL_CLOSE is set, rejecting requests.
+	NodeMetadataPolicyCheck = "policy.istio.io/check"
+
+	// NodeMetadataPolicyCheckRetries is the max number of retries on transport error to mixer
+	// If not set, this will be 0, indicating no retries.
+	NodeMetadataPolicyCheckRetries = "policy.istio.io/checkRetries"
+
+	// NodeMetadataPolicyCheckBaseRetryWaitTime for base time to wait between retries, will be adjusted by backoff and jitter.
+	// In duration format. If not set, this will be 80ms.
+	NodeMetadataPolicyCheckBaseRetryWaitTime = "policy.istio.io/checkBaseRetryWaitTime"
+
+	// NodeMetadataPolicyCheckMaxRetryWaitTime for max time to wait between retries
+	// In duration format. If not set, this will be 1000ms.
+	NodeMetadataPolicyCheckMaxRetryWaitTime = "policy.istio.io/checkMaxRetryWaitTime"
+
+	// NodeMetadataIdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
+	// If not set, no timeout is set.
+	NodeMetadataIdleTimeout = "IDLE_TIMEOUT"
+)
+
+var (
+	_ = annotations.Register(NodeMetadataPolicyCheck,
+		"Determines the policy for behavior when unable to connect to Mixer. If not set, FAIL_CLOSE is set, rejecting requests.")
+	_ = annotations.Register(NodeMetadataPolicyCheckRetries,
+		"The maximum number of retries on transport errors to Mixer. If not set, this will be 0, indicating no retries.")
+	_ = annotations.Register(NodeMetadataPolicyCheckBaseRetryWaitTime,
+		"Base time to wait between retries, will be adjusted by backoff and jitter. In duration format. If not set, this will be 80ms.")
+	_ = annotations.Register(NodeMetadataPolicyCheckMaxRetryWaitTime,
+		"Maximum time to wait between retries to Mixer. In duration format. If not set, this will be 1000ms.")
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and

@@ -26,8 +26,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/listwatch"
 	"istio.io/istio/security/pkg/registry"
+	"istio.io/pkg/log"
 )
 
 // ServiceController monitors the service definition changes in a namespace. If a
@@ -46,20 +47,22 @@ type ServiceController struct {
 }
 
 // NewServiceController returns a new ServiceController
-func NewServiceController(core corev1.CoreV1Interface, namespace string, reg registry.Registry) *ServiceController {
+func NewServiceController(core corev1.CoreV1Interface, namespaces []string, reg registry.Registry) *ServiceController {
 	c := &ServiceController{
 		core: core,
 		reg:  reg,
 	}
 
-	LW := &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			return core.Services(namespace).List(options)
-		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			return core.Services(namespace).Watch(options)
-		},
-	}
+	LW := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				return core.Services(namespace).List(options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				return core.Services(namespace).Watch(options)
+			},
+		}
+	})
 
 	handler := cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.serviceAdded,

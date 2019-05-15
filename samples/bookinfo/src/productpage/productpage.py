@@ -57,27 +57,30 @@ from flask_bootstrap import Bootstrap
 Bootstrap(app)
 
 servicesDomain = "" if (os.environ.get("SERVICES_DOMAIN") == None) else "." + os.environ.get("SERVICES_DOMAIN")
+detailsHostname = "details" if (os.environ.get("DETAILS_HOSTNAME") == None) else os.environ.get("DETAILS_HOSTNAME")
+ratingsHostname = "ratings" if (os.environ.get("RATINGS_HOSTNAME") == None) else os.environ.get("RATINGS_HOSTNAME")
+reviewsHostname = "reviews" if (os.environ.get("REVIEWS_HOSTNAME") == None) else os.environ.get("REVIEWS_HOSTNAME")
 
 details = {
-    "name" : "http://details{0}:9080".format(servicesDomain),
+    "name" : "http://{0}{1}:9080".format(detailsHostname, servicesDomain),
     "endpoint" : "details",
     "children" : []
 }
 
 ratings = {
-    "name" : "http://ratings{0}:9080".format(servicesDomain),
+    "name" : "http://{0}{1}:9080".format(ratingsHostname, servicesDomain),
     "endpoint" : "ratings",
     "children" : []
 }
 
 reviews = {
-    "name" : "http://reviews{0}:9080".format(servicesDomain),
+    "name" : "http://{0}{1}:9080".format(reviewsHostname, servicesDomain),
     "endpoint" : "reviews",
     "children" : [ratings]
 }
 
 productpage = {
-    "name" : "http://details{0}:9080".format(servicesDomain),
+    "name" : "http://{0}{1}:9080".format(detailsHostname, servicesDomain),
     "endpoint" : "details",
     "children" : [details, reviews]
 }

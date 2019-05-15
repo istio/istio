@@ -22,6 +22,7 @@ package stdio // import "istio.io/istio/mixer/adapter/stdio"
 import (
 	"context"
 	"fmt"
+	"net"
 	"sort"
 	"time"
 
@@ -29,6 +30,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
+	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/adapter/stdio/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/logentry"
@@ -47,6 +50,7 @@ type (
 		sync           func() error
 		logEntryVars   map[string][]string
 		metricDims     map[string][]string
+		logEntryTypes  map[string]*logentry.Type
 	}
 )
 
@@ -61,9 +65,13 @@ func (h *handler) HandleLogEntry(_ context.Context, instances []*logentry.Instan
 			Time:       instance.Timestamp,
 		}
 
+		var logEntryTypes map[string]istio_policy_v1beta1.ValueType
+		if typeInfo, found := h.logEntryTypes[instance.Name]; found {
+			logEntryTypes = typeInfo.Variables
+		}
 		for _, varName := range h.logEntryVars[instance.Name] {
 			if value, ok := instance.Variables[varName]; ok {
-				fields = append(fields, zap.Any(varName, value))
+				fields = append(fields, zap.Any(varName, convertValueTypes(value, varName, logEntryTypes)))
 			}
 		}
 
@@ -117,46 +125,23 @@ func (h *handler) mapSeverityLevel(severity string) zapcore.Level {
 	return level
 }
 
+func convertValueTypes(value interface{}, varName string, logEntryTypes map[string]istio_policy_v1beta1.ValueType) interface{} {
+	if logEntryTypes[varName] == istio_policy_v1beta1.IP_ADDRESS {
+		if byteArr, ok := value.([]byte); ok {
+			return interface{}(net.IP(byteArr).String())
+		}
+	}
+
+	return value
+}
+
 ////////////////// Config //////////////////////////
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "stdio",
-		Impl:        "istio.io/istio/mixer/adapter/stdio",
-		Description: "Writes logs and metrics to a standard I/O stream",
-		SupportedTemplates: []string{
-			logentry.TemplateName,
-			metric.TemplateName,
-		},
-		DefaultConfig: &config.Params{
-			LogStream:                  config.STDOUT,
-			MetricLevel:                config.INFO,
-			OutputLevel:                config.INFO,
-			OutputAsJson:               true,
-			MaxDaysBeforeRotation:      30,
-			MaxMegabytesBeforeRotation: 100 * 1024 * 1024,
-			MaxRotatedFiles:            1000,
-			SeverityLevels: map[string]config.Params_Level{
-				"INFORMATIONAL": config.INFO,
-				"informational": config.INFO,
-				"INFO":          config.INFO,
-				"info":          config.INFO,
-				"WARNING":       config.WARNING,
-				"warning":       config.WARNING,
-				"WARN":          config.WARNING,
-				"warn":          config.WARNING,
-				"ERROR":         config.ERROR,
-				"error":         config.ERROR,
-				"ERR":           config.ERROR,
-				"err":           config.ERROR,
-				"FATAL":         config.ERROR,
-				"fatal":         config.ERROR,
-			},
-		},
-
-		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
-	}
+	info := metadata.GetInfo("stdio")
+	info.NewBuilder = func() adapter.HandlerBuilder { return &builder{} }
+	return info
 }
 
 type builder struct {
@@ -233,5 +218,6 @@ func (b *builder) buildWithZapBuilder(_ context.Context, _ adapter.Env, zb zapBu
 		write:          core.Write,
 		logEntryVars:   varLists,
 		metricDims:     dimLists,
+		logEntryTypes:  b.logEntryTypes,
 	}, nil
 }

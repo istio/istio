@@ -34,7 +34,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 // Hostname describes a (possibly wildcarded) hostname
@@ -110,9 +109,13 @@ const (
 	// IstioDefaultConfigNamespace constant for default namespace
 	IstioDefaultConfigNamespace = "default"
 
-	// AZLabel indicates the region/zone of an instance. It is used if the native
-	// registry doesn't provide one.
-	AZLabel = "istio-az"
+	// LocalityLabel indicates the region/zone/subzone of an instance. It is used to override the native
+	// registry's value.
+	//
+	// Note: because k8s labels does not support `/`, so we use `.` instead in k8s.
+	LocalityLabel = "istio-locality"
+	// k8s istio-locality label separator
+	k8sSeparator = "."
 )
 
 // Port represents a network port where a service is listening for
@@ -200,6 +203,16 @@ const (
 	TrafficDirectionInbound TrafficDirection = "inbound"
 	// TrafficDirectionOutbound indicates outbound traffic
 	TrafficDirectionOutbound TrafficDirection = "outbound"
+)
+
+// Visibility defines whether a given config or service is exported to local namespace, all namespaces or none
+type Visibility string
+
+const (
+	// VisibilityPrivate implies namespace local config
+	VisibilityPrivate Visibility = "."
+	// VisibilityPublic implies config is visible to all
+	VisibilityPublic Visibility = "*"
 )
 
 // ParseProtocol from string ignoring case
@@ -368,16 +381,22 @@ type ServiceInstance struct {
 	ServiceAccount string          `json:"serviceaccount,omitempty"`
 }
 
-// GetLocality returns the availability zone from an instance.
-// - k8s: region/zone, extracted from node's failure-domain.beta.kubernetes.io/{region,zone}
-// - consul: defaults to 'instance.Datacenter'
+// GetLocality returns the availability zone from an instance. If service instance label for locality
+// is set we use this. Otherwise, we use the one set by the registry:
+//   - k8s: region/zone, extracted from node's failure-domain.beta.kubernetes.io/{region,zone}
+// 	 - consul: defaults to 'instance.Datacenter'
 //
 // This is used by CDS/EDS to group the endpoints by locality.
 func (si *ServiceInstance) GetLocality() string {
-	if si.Endpoint.Locality != "" {
-		return si.Endpoint.Locality
+	if si.Labels != nil && si.Labels[LocalityLabel] != "" {
+		// if there are /'s present we don't need to replace
+		if strings.Contains(si.Labels[LocalityLabel], "/") {
+			return si.Labels[LocalityLabel]
+		}
+		// replace "." with "/"
+		return strings.Replace(si.Labels[LocalityLabel], k8sSeparator, "/", -1)
 	}
-	return si.Labels[AZLabel]
+	return si.Endpoint.Locality
 }
 
 // IstioEndpoint has the information about a single address+port for a specific
@@ -404,10 +423,6 @@ type IstioEndpoint struct {
 	// Address is the address of the endpoint, using envoy proto.
 	Address string
 
-	// EndpointPort is the port where the workload is listening, can be different
-	// from the service port.
-	EndpointPort uint32
-
 	// ServicePortName tracks the name of the port, to avoid 'eventual consistency' issues.
 	// Sometimes the Endpoint is visible before Service - so looking up the port number would
 	// fail. Instead the mapping to number is made when the clusters are computed. The lazy
@@ -431,6 +446,10 @@ type IstioEndpoint struct {
 	// The locality where the endpoint is present. / separated string
 	Locality string
 
+	// EndpointPort is the port where the workload is listening, can be different
+	// from the service port.
+	EndpointPort uint32
+
 	// The load balancing weight associated with this endpoint.
 	LbWeight uint32
 }
@@ -443,12 +462,14 @@ type ServiceAttributes struct {
 	Namespace string
 	// UID is "destination.service.uid" attribute
 	UID string
-	// ConfigScope defines the visibility of Service in
+	// ExportTo defines the visibility of Service in
 	// a namespace when the namespace is imported.
-	ConfigScope networking.ConfigScope
+	ExportTo map[Visibility]bool
 }
 
 // ServiceDiscovery enumerates Istio service instances.
+// nolint: lll
+//go:generate $GOPATH/src/istio.io/istio/bin/counterfeiter.sh -o $GOPATH/src/istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes/fake_service_discovery.go --fake-name ServiceDiscovery . ServiceDiscovery
 type ServiceDiscovery interface {
 	// Services list declarations of all services in the system
 	Services() ([]*Service, error)
@@ -500,8 +521,7 @@ type ServiceDiscovery interface {
 	// determine the intended destination of a connection without a Host header on the request.
 	GetProxyServiceInstances(*Proxy) ([]*ServiceInstance, error)
 
-	// GetProxyLocality returns the locality where the proxy runs.
-	GetProxyLocality(*Proxy) string
+	GetProxyWorkloadLabels(*Proxy) (LabelsCollection, error)
 
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management
@@ -515,93 +535,75 @@ type ServiceDiscovery interface {
 	// These probes are used by the platform to identify requests that are performing
 	// health checks.
 	WorkloadHealthCheckInfo(addr string) ProbeList
-}
 
-// ServiceAccounts exposes Istio service accounts
-// Deprecated - service account tracking moved to XdsServer, incremental.
-type ServiceAccounts interface {
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
 	// the specified service hostname and ports.
+	// Deprecated - service account tracking moved to XdsServer, incremental.
 	GetIstioServiceAccounts(hostname Hostname, ports []int) []string
 }
 
-// Matches returns true if this Hostname "matches" the other hostname. Hostnames match if:
+// Matches returns true if this hostname overlaps with the other hostname. Hostnames overlap if:
 // - they're fully resolved (i.e. not wildcarded) and match exactly (i.e. an exact string match)
 // - one or both are wildcarded (e.g. "*.foo.com"), in which case we use wildcard resolution rules
-// to determine if h is covered by o.
+// to determine if h is covered by o or o is covered by h.
 // e.g.:
 //  Hostname("foo.com").Matches("foo.com")   = true
 //  Hostname("foo.com").Matches("bar.com")   = false
 //  Hostname("*.com").Matches("foo.com")     = true
-//  Hostname("*.com").Matches("bar.com")     = true
+//  Hostname("bar.com").Matches("*.com")     = true
 //  Hostname("*.foo.com").Matches("foo.com") = false
-//  Hostname("*").Matches("foo.com") = true
-//  Hostname("*").Matches("*.com") = true
+//  Hostname("*").Matches("foo.com")         = true
+//  Hostname("*").Matches("*.com")           = true
 func (h Hostname) Matches(o Hostname) bool {
-	if len(h) == 0 && len(o) == 0 {
-		return true
-	}
-
 	hWildcard := len(h) > 0 && string(h[0]) == "*"
-	if hWildcard && len(o) == 0 {
-		return true
-	}
-
 	oWildcard := len(o) > 0 && string(o[0]) == "*"
-	if !hWildcard && !oWildcard {
-		// both are non-wildcards, so do normal string comparison
-		return h == o
-	}
 
-	longer, shorter := string(h), string(o)
 	if hWildcard {
-		longer = string(h[1:])
-	}
-	if oWildcard {
-		shorter = string(o[1:])
-	}
-	if len(longer) < len(shorter) {
-		longer, shorter = shorter, longer
-		hWildcard, oWildcard = oWildcard, hWildcard
+		if oWildcard {
+			// both h and o are wildcards
+			if len(h) < len(o) {
+				return strings.HasSuffix(string(o[1:]), string(h[1:]))
+			}
+			return strings.HasSuffix(string(h[1:]), string(o[1:]))
+		}
+		// only h is wildcard
+		return strings.HasSuffix(string(o), string(h[1:]))
 	}
 
-	matches := strings.HasSuffix(longer, shorter)
-	if matches && hWildcard && !oWildcard && strings.TrimSuffix(longer, shorter) == "." {
-		// we match, but the longer is a wildcard and the shorter is not; we need to ensure we don't match input
-		// like `*.foo.com` to `foo.com` in that case (to avoid matching a domain literal to a wildcard subdomain)
-		return false
+	if oWildcard {
+		// only o is wildcard
+		return strings.HasSuffix(string(h), string(o[1:]))
 	}
-	return matches
+
+	// both are non-wildcards, so do normal string comparison
+	return h == o
 }
 
 // SubsetOf returns true if this hostname is a valid subset of the other hostname. The semantics are
-// the same as "Matches", but only in one direction.
+// the same as "Matches", but only in one direction (i.e., h is covered by o).
 func (h Hostname) SubsetOf(o Hostname) bool {
-	if len(h) == 0 && len(o) == 0 {
-		return true
-	}
-
 	hWildcard := len(h) > 0 && string(h[0]) == "*"
 	oWildcard := len(o) > 0 && string(o[0]) == "*"
-	if !oWildcard {
-		if hWildcard {
-			return false
-		}
-		return h == o
-	}
 
-	longer, shorter := string(h), string(o)
 	if hWildcard {
-		longer = string(h[1:])
-	}
-	if oWildcard {
-		shorter = string(o[1:])
-	}
-	if len(longer) < len(shorter) {
+		if oWildcard {
+			// both h and o are wildcards
+			if len(h) < len(o) {
+				return false
+			}
+			return strings.HasSuffix(string(h[1:]), string(o[1:]))
+		}
+		// only h is wildcard
 		return false
 	}
 
-	return strings.HasSuffix(longer, shorter)
+	if oWildcard {
+		// only o is wildcard
+		return strings.HasSuffix(string(h), string(o[1:]))
+	}
+
+	// both are non-wildcards, so do normal string comparison
+	return h == o
 }
 
 // Hostnames is a collection of Hostname; it exists so it's easy to sort hostnames consistently across Pilot.
@@ -642,6 +644,75 @@ func (h Hostnames) Less(i, j int) bool {
 
 func (h Hostnames) Swap(i, j int) {
 	h[i], h[j] = h[j], h[i]
+}
+
+func (h Hostnames) Contains(host Hostname) bool {
+	for _, hHost := range h {
+		if hHost == host {
+			return true
+		}
+	}
+	return false
+}
+
+// Intersection returns the subset of host names that are covered by both h and other.
+// e.g.:
+//  Hostnames(["foo.com","bar.com"]).Intersection(Hostnames(["*.com"]))         = Hostnames(["foo.com","bar.com"])
+//  Hostnames(["foo.com","*.net"]).Intersection(Hostnames(["*.com","bar.net"])) = Hostnames(["foo.com","bar.net"])
+//  Hostnames(["foo.com","*.net"]).Intersection(Hostnames(["*.bar.net"]))       = Hostnames(["*.bar.net"])
+//  Hostnames(["foo.com"]).Intersection(Hostnames(["bar.com"]))                 = Hostnames([])
+//  Hostnames([]).Intersection(Hostnames(["bar.com"])                           = Hostnames([])
+func (h Hostnames) Intersection(other Hostnames) Hostnames {
+	result := make(Hostnames, 0, len(h))
+	for _, hHost := range h {
+		for _, oHost := range other {
+			if hHost.SubsetOf(oHost) {
+				if !result.Contains(hHost) {
+					result = append(result, hHost)
+				}
+			} else if oHost.SubsetOf(hHost) {
+				if !result.Contains(oHost) {
+					result = append(result, oHost)
+				}
+			}
+		}
+	}
+	return result
+}
+
+// StringsToHostnames converts a slice of host name strings to type Hostnames.
+func StringsToHostnames(hosts []string) Hostnames {
+	result := make(Hostnames, 0, len(hosts))
+	for _, host := range hosts {
+		result = append(result, Hostname(host))
+	}
+	return result
+}
+
+// HostnamesForNamespace returns the subset of hosts that are in the specified namespace.
+// The list of hosts contains host names optionally qualified with namespace/ or */.
+// If not qualified or qualified with *, the host name is considered to be in every namespace.
+// e.g.:
+// HostnamesForNamespace(["ns1/foo.com","ns2/bar.com"], "ns1")   = Hostnames(["foo.com"])
+// HostnamesForNamespace(["ns1/foo.com","ns2/bar.com"], "ns3")   = Hostnames([])
+// HostnamesForNamespace(["ns1/foo.com","*/bar.com"], "ns1")     = Hostnames(["foo.com","bar.com"])
+// HostnamesForNamespace(["ns1/foo.com","*/bar.com"], "ns3")     = Hostnames(["bar.com"])
+// HostnamesForNamespace(["foo.com","ns2/bar.com"], "ns2")       = Hostnames(["foo.com","bar.com"])
+// HostnamesForNamespace(["foo.com","ns2/bar.com"], "ns3")       = Hostnames(["foo.com"])
+func HostnamesForNamespace(hosts []string, namespace string) Hostnames {
+	result := make(Hostnames, 0, len(hosts))
+	for _, host := range hosts {
+		if strings.Contains(host, "/") {
+			parts := strings.Split(host, "/")
+			if parts[0] != namespace && parts[0] != "*" {
+				continue
+			}
+			//strip the namespace
+			host = parts[1]
+		}
+		result = append(result, Hostname(host))
+	}
+	return result
 }
 
 // SubsetOf is true if the label has identical values for the keys
@@ -732,7 +803,8 @@ func (ports PortList) Get(name string) (*Port, bool) {
 // GetByPort retrieves a port declaration by port value
 func (ports PortList) GetByPort(num int) (*Port, bool) {
 	for _, port := range ports {
-		if port.Port == num {
+		if port.Port == num && port.Protocol != ProtocolUDP &&
+			port.Protocol != ProtocolUnsupported {
 			return port, true
 		}
 	}

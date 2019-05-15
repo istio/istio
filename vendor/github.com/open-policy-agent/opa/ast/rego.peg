@@ -1,0 +1,291 @@
+{
+package ast
+}
+
+Program <- _ vals:(Stmt (ws Stmt)*)? _ EOF {
+    return makeProgram(c, vals)
+}
+
+Stmt <- val:(Package / Import / Rules / Body / Comment) {
+    return val, nil
+}
+
+Package <- "package" ws val:(Ref / Var) {
+    return makePackage(currentLocation(c), val)
+        }
+
+Import <- "import" ws path:(Ref / Var) alias:(ws "as" ws Var)? {
+    return makeImport(currentLocation(c), path, alias)
+}
+
+Rules <- DefaultRules / NormalRules
+
+DefaultRules <- "default" ws name:Var _ "=" _ value:Term {
+    return makeDefaultRule(currentLocation(c), name, value)
+}
+
+NormalRules <- head:RuleHead _ rest:(NonEmptyBraceEnclosedBody ( _ RuleExt)* ) {
+    return makeRule(currentLocation(c), head, rest)
+}
+
+RuleHead <- name:Var args:( _ "(" _ Args _ ")" _ )? key:( _ "[" _ ExprTerm _ "]" _ )? value:( _ "=" _ ExprTerm )? {
+    return makeRuleHead(currentLocation(c), name, args, key, value)
+}
+
+Args <- list:ExprTermList {
+    return makeArgs(list)
+}
+
+Else <- "else" value:( _ "=" _ Term )? body:( _ NonEmptyBraceEnclosedBody ) {
+    return makeRuleExt(currentLocation(c), value, body)
+}
+
+RuleDup <- b:NonEmptyBraceEnclosedBody {
+    return ruleExt{loc: currentLocation(c), body: b.(Body)}, nil
+}
+
+RuleExt <- Else / RuleDup
+
+Body <- NonWhitespaceBody / BraceEnclosedBody
+
+NonEmptyBraceEnclosedBody <- "{" _ val:WhitespaceBody? _ "}" {
+    if val == nil {
+        panic("body must be non-empty")
+    }
+    return val, nil
+}
+
+BraceEnclosedBody <- "{" _ val:WhitespaceBody? _ "}" {
+    return makeBraceEnclosedBody(currentLocation(c), val)
+}
+
+WhitespaceBody <- head:Literal tail:(WhitespaceLiteralSeparator _ Literal)* {
+    return makeBody(head, tail, 2)
+}
+
+NonWhitespaceBody <- head:Literal tail:( _ NonWhitespaceLiteralSeparator _ Literal)* {
+    return makeBody(head, tail, 3)
+}
+
+WhitespaceLiteralSeparator <- [ \t]* ((NonWhitespaceLiteralSeparator Comment?) / (Comment? [\r\n]))
+
+NonWhitespaceLiteralSeparator <- ";"
+
+Literal <- negated:NotKeyword? value:LiteralExpr with:WithKeywordList? {
+    return makeLiteral(negated, value, with)
+}
+
+LiteralExpr <- lhs:ExprTerm rest:( _ LiteralExprOperator _ ExprTerm)? {
+    return makeLiteralExpr(currentLocation(c), lhs, rest)
+}
+
+LiteralExprOperator <- val:( ":=" / "=" ) {
+    return makeInfixOperator(currentLocation(c), c.text)
+}
+
+NotKeyword <- val:("not" ws)? {
+    return val != nil, nil
+}
+
+WithKeywordList <- ws head:WithKeyword rest:( ws WithKeyword )* {
+    return makeWithKeywordList(head, rest)
+}
+
+WithKeyword <- "with" ws target:ExprTerm ws "as" ws value:ExprTerm {
+    return makeWithKeyword(currentLocation(c), target, value)
+}
+
+ExprTerm <- lhs:RelationExpr rest:( _ RelationOperator _ RelationExpr )* {
+    return makeExprTerm(currentLocation(c), lhs, rest)
+}
+
+ExprTermPairList <- head:ExprTermPair? tail:( _ ',' _ ExprTermPair )* _ ","? {
+    return makeExprTermPairList(head, tail)
+}
+
+ExprTermList <- head:ExprTerm? tail:( _ ',' _ ExprTerm )* _ ","? {
+     return makeExprTermList(head, tail)
+}
+
+ExprTermPair <- key:ExprTerm _ ':' _ value:ExprTerm {
+    return makeExprTermPair(key, value)
+}
+
+RelationOperator <- val:("==" / "!=" / "<=" / ">=" / ">" / "<") {
+    return makeInfixOperator(currentLocation(c), c.text)
+}
+
+RelationExpr <- lhs:BitwiseOrExpr rest:( _ BitwiseOrOperator _ BitwiseOrExpr)* {
+    return makeExprTerm(currentLocation(c), lhs, rest)
+}
+
+BitwiseOrOperator <- val:"|" {
+    return makeInfixOperator(currentLocation(c), c.text)
+}
+
+BitwiseOrExpr <- lhs:BitwiseAndExpr rest:( _ BitwiseAndOperator _ BitwiseAndExpr)* {
+    return makeExprTerm(currentLocation(c), lhs, rest)
+}
+
+BitwiseAndOperator <- val:"&" {
+    return makeInfixOperator(currentLocation(c), c.text)
+}
+
+BitwiseAndExpr <- lhs:ArithExpr rest:( _ ArithOperator _ ArithExpr)* {
+    return makeExprTerm(currentLocation(c), lhs, rest)
+}
+
+ArithOperator <- val:("+" / "-") {
+    return makeInfixOperator(currentLocation(c), c.text)
+}
+
+ArithExpr <- lhs:FactorExpr rest:( _ FactorOperator _ FactorExpr )* {
+    return makeExprTerm(currentLocation(c), lhs, rest)
+}
+
+FactorOperator <- val:("*" / "/" / "%"){
+    return makeInfixOperator(currentLocation(c), c.text)
+}
+
+FactorExpr <- ( "(" _ expr:ExprTerm _ ")" ) {
+    return expr, nil
+} / term:Term {
+    return term, nil
+}
+
+Call <- operator:(Ref / Var) "(" _ args:ExprTermList _ ")" {
+    return makeCall(currentLocation(c), operator, args)
+}
+
+Term <- val:( Comprehension / Composite / Scalar / Call / Ref / Var ) {
+    return val, nil
+}
+
+TermPair <- key:Term _ ":" _ value:Term {
+    return makeExprTermPair(key, value)
+}
+
+Comprehension <- ArrayComprehension / ObjectComprehension / SetComprehension
+
+ArrayComprehension <- "[" _ head:Term _ "|" _ body:WhitespaceBody _ "]" {
+    return makeArrayComprehension(currentLocation(c), head, body)
+}
+
+ObjectComprehension <- "{" _ head:TermPair  _ "|" _ body:WhitespaceBody _ "}" {
+    return makeObjectComprehension(currentLocation(c), head, body)
+}
+
+SetComprehension <- "{" _ head:Term _ "|" _ body:WhitespaceBody _ "}" {
+    return makeSetComprehension(currentLocation(c), head, body)
+}
+
+Composite <- Object / Array / Set
+
+Scalar <- Number / String / Bool / Null
+
+Object <- '{' _ list:ExprTermPairList _ '}' {
+    return makeObject(currentLocation(c), list)
+}
+
+Array <- '[' _ list:ExprTermList _ ']' {
+    return makeArray(currentLocation(c), list)
+}
+
+Set <- SetEmpty / SetNonEmpty
+
+SetEmpty <- "set(" _ ")" {
+    var empty []*Term
+    return makeSet(currentLocation(c), empty)
+}
+
+SetNonEmpty <- '{' _ list:ExprTermList _ '}' {
+    return makeSet(currentLocation(c), list)
+}
+
+Ref <- head:Var rest:RefOperand+ {
+    return makeRef(currentLocation(c), head, rest)
+}
+
+RefOperand <- RefOperandDot / RefOperandCanonical
+
+RefOperandDot <- "." val:Var {
+    return makeRefOperandDot(currentLocation(c), val)
+}
+
+RefOperandCanonical <- "[" val:ExprTerm "]" {
+    return val, nil
+}
+
+Var <- val:VarChecked {
+    return val.([]interface{})[0], nil
+}
+
+VarChecked <- val:VarUnchecked !{
+    return IsKeyword(string(val.(*Term).Value.(Var))), nil
+}
+
+VarUnchecked <- AsciiLetter (AsciiLetter / DecimalDigit)* {
+    return makeVar(currentLocation(c), c.text)
+}
+
+Number <- '-'? ( Float / Integer ) {
+    return makeNumber(currentLocation(c), c.text)
+}
+
+Float <- ExponentFloat / PointFloat
+
+ExponentFloat <- ( PointFloat / Integer ) Exponent
+
+PointFloat <- Integer? Fraction
+
+Fraction <- '.' DecimalDigit+
+
+Exponent <- 'e'i [+-]? DecimalDigit+
+
+Integer <- '0' / ( NonZeroDecimalDigit DecimalDigit* )
+
+String <- QuotedString / RawString
+
+QuotedString <- '"' Char* '"' {
+    return makeString(currentLocation(c), c.text)
+}
+
+RawString <- '`' [^`]* '`' {
+    return makeRawString(currentLocation(c), c.text)
+}
+
+Bool <- val:("true" / "false") {
+    return makeBool(currentLocation(c), c.text)
+}
+
+Null <- "null" {
+    return makeNull(currentLocation(c))
+}
+
+AsciiLetter <- [A-Za-z_]
+
+Char <- ( !EscapedChar . ) / ( '\\' EscapeSequence )
+
+EscapedChar <- [\x00-\x1f"\\]
+
+EscapeSequence <- SingleCharEscape / UnicodeEscape
+
+SingleCharEscape <- [ " \\ / b f n r t ]
+
+UnicodeEscape <- 'u' HexDigit HexDigit HexDigit HexDigit
+
+DecimalDigit <- [0-9]
+
+NonZeroDecimalDigit <- [1-9]
+
+HexDigit <- [0-9a-fA-F]
+
+ws "whitespace" <- [ \t\r\n]+
+
+_ "whitespace" <- ( [ \t\r\n] / Comment )*
+
+Comment <- [ \t]* "#" text:[^\r\n]* {
+    return makeComments(c, text)
+}
+
+EOF <- !.

@@ -1,0 +1,85 @@
+{{ if eq .Values.provider "jaeger" }}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-tracing
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: jaeger
+    chart: {{ template "tracing.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+        chart: {{ template "tracing.chart" . }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "16686"
+{{- if .Values.contextPath }}
+        prometheus.io/path: "{{ .Values.contextPath }}/metrics"
+{{- else }}
+        prometheus.io/path: "/{{ .Values.provider }}/metrics"
+{{- end }}
+    spec:
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+{{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+{{- end }}
+{{- end }}
+      containers:
+        - name: jaeger
+          image: "{{ .Values.jaeger.hub }}/all-in-one:{{ .Values.jaeger.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: 9411
+            - containerPort: 16686
+            - containerPort: 5775
+              protocol: UDP
+            - containerPort: 6831
+              protocol: UDP
+            - containerPort: 6832
+              protocol: UDP
+          env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: COLLECTOR_ZIPKIN_HTTP_PORT
+            value: "9411"
+          - name: MEMORY_MAX_TRACES
+            value: "{{ .Values.jaeger.memory.max_traces }}"
+          - name: QUERY_BASE_PATH
+            value: {{ if .Values.contextPath }} {{ .Values.contextPath }} {{ else }} /{{ .Values.provider }} {{ end }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 16686
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 16686
+          resources:
+{{- if .Values.jaeger.resources }}
+{{ toYaml .Values.jaeger.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
+{{ end }}

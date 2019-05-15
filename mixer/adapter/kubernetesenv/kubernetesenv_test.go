@@ -55,7 +55,7 @@ func (b *fakeK8sBuilder) build(path string, env adapter.Env) (kubernetes.Interfa
 	return fake.NewSimpleClientset(), nil
 }
 
-func errorClientBuilder(path string, env adapter.Env) (kubernetes.Interface, error) {
+func errorClientBuilder(_ string, _ adapter.Env) (kubernetes.Interface, error) {
 	return nil, errors.New("can't build k8s client")
 }
 
@@ -123,6 +123,44 @@ func TestBuilder_ControllerCache(t *testing.T) {
 	}
 }
 
+// tests closing and rebuilding a handler
+func TestHandler_Close(t *testing.T) {
+	b := newFakeBuilder()
+
+	handler, err := b.Build(context.Background(), test.NewEnv(t))
+	if err != nil {
+		t.Fatalf("error in builder: %v", err)
+	}
+
+	b.Lock()
+	if got, want := len(b.controllers), 1; got != want {
+		t.Errorf("Got %d controllers, want %d", got, want)
+	}
+	b.Unlock()
+
+	err = handler.Close()
+	if err != nil {
+		t.Fatalf("Close() returned unexpected error: %v", err)
+	}
+
+	b.Lock()
+	if got, want := len(b.controllers), 0; got != want {
+		t.Errorf("Got %d controllers, want %d", got, want)
+	}
+	b.Unlock()
+
+	_, err = b.Build(context.Background(), test.NewEnv(t))
+	if err != nil {
+		t.Fatalf("error in builder: %v", err)
+	}
+
+	b.Lock()
+	if got, want := len(b.controllers), 1; got != want {
+		t.Errorf("Got %d controllers, want %d", got, want)
+	}
+	b.Unlock()
+}
+
 func TestBuilder_BuildAttributesGeneratorWithEnvVar(t *testing.T) {
 	testConf := *conf
 	testConf.KubeconfigPath = "please/override"
@@ -180,7 +218,7 @@ func TestKubegen_Generate(t *testing.T) {
 	testPodToNoControllerPodOut.SetSourcePodName("test-pod")
 	testPodToNoControllerPodOut.SetSourcePodUid("kubernetes://test-pod.testns")
 	testPodToNoControllerPodOut.SetSourceServiceAccountName("test")
-	testPodToNoControllerPodOut.SetSourceOwner("kubernetes://apis/extensions/v1beta1/namespaces/testns/deployments/test-deployment")
+	testPodToNoControllerPodOut.SetSourceOwner("kubernetes://apis/apps/v1/namespaces/testns/deployments/test-deployment")
 	testPodToNoControllerPodOut.SetSourceWorkloadName("test-deployment")
 	testPodToNoControllerPodOut.SetSourceWorkloadNamespace("testns")
 	testPodToNoControllerPodOut.SetSourceWorkloadUid("istio://testns/workloads/test-deployment")
@@ -211,7 +249,7 @@ func TestKubegen_Generate(t *testing.T) {
 	altTestPodToAltTestPod2Out.SetDestinationPodName("alt-test-pod-2")
 	altTestPodToAltTestPod2Out.SetDestinationNamespace("testns")
 	altTestPodToAltTestPod2Out.SetDestinationPodUid("kubernetes://alt-test-pod-2.testns")
-	altTestPodToAltTestPod2Out.SetDestinationOwner("kubernetes://apis/apps/v1beta2/namespaces/testns/deployments/test-deployment")
+	altTestPodToAltTestPod2Out.SetDestinationOwner("kubernetes://apis/apps/v1/namespaces/testns/deployments/test-deployment")
 	altTestPodToAltTestPod2Out.SetDestinationWorkloadName("test-deployment")
 	altTestPodToAltTestPod2Out.SetDestinationWorkloadNamespace("testns")
 	altTestPodToAltTestPod2Out.SetDestinationWorkloadUid("istio://testns/workloads/test-deployment")
@@ -275,7 +313,7 @@ func TestKubegen_Generate(t *testing.T) {
 	notFoundToNoControllerOut.SetDestinationPodName("test-pod")
 	notFoundToNoControllerOut.SetDestinationPodUid("kubernetes://test-pod.testns")
 	notFoundToNoControllerOut.SetDestinationServiceAccountName("test")
-	notFoundToNoControllerOut.SetDestinationOwner("kubernetes://apis/extensions/v1beta1/namespaces/testns/deployments/test-deployment")
+	notFoundToNoControllerOut.SetDestinationOwner("kubernetes://apis/apps/v1/namespaces/testns/deployments/test-deployment")
 	notFoundToNoControllerOut.SetDestinationWorkloadName("test-deployment")
 	notFoundToNoControllerOut.SetDestinationWorkloadNamespace("testns")
 	notFoundToNoControllerOut.SetDestinationWorkloadUid("istio://testns/workloads/test-deployment")
@@ -315,7 +353,7 @@ func TestKubegen_Generate(t *testing.T) {
 	replicaSetToReplicaSetOut := kubernetes_apa_tmpl.NewOutput()
 	replicaSetToReplicaSetOut.SetSourceLabels(map[string]string{"app": "some-app"})
 	replicaSetToReplicaSetOut.SetSourceNamespace("testns")
-	replicaSetToReplicaSetOut.SetSourceOwner("kubernetes://apis/apps/v1beta2/namespaces/testns/replicasets/not-found-replicaset")
+	replicaSetToReplicaSetOut.SetSourceOwner("kubernetes://apis/apps/v1/namespaces/testns/replicasets/not-found-replicaset")
 	replicaSetToReplicaSetOut.SetSourcePodName("appsv1beta2-replicaset-with-no-deployment-pod")
 	replicaSetToReplicaSetOut.SetSourcePodUid("kubernetes://appsv1beta2-replicaset-with-no-deployment-pod.testns")
 	replicaSetToReplicaSetOut.SetSourceWorkloadName("not-found-replicaset")
@@ -323,7 +361,7 @@ func TestKubegen_Generate(t *testing.T) {
 	replicaSetToReplicaSetOut.SetSourceWorkloadUid("istio://testns/workloads/not-found-replicaset")
 	replicaSetToReplicaSetOut.SetDestinationLabels(map[string]string{"app": "some-app"})
 	replicaSetToReplicaSetOut.SetDestinationNamespace("testns")
-	replicaSetToReplicaSetOut.SetDestinationOwner("kubernetes://apis/extensions/v1beta1/namespaces/testns/replicasets/test-replicaset-without-deployment")
+	replicaSetToReplicaSetOut.SetDestinationOwner("kubernetes://apis/apps/v1/namespaces/testns/replicasets/test-replicaset-without-deployment")
 	replicaSetToReplicaSetOut.SetDestinationPodName("extv1beta1-replicaset-with-no-deployment-pod")
 	replicaSetToReplicaSetOut.SetDestinationPodUid("kubernetes://extv1beta1-replicaset-with-no-deployment-pod.testns")
 	replicaSetToReplicaSetOut.SetDestinationWorkloadName("test-replicaset-without-deployment")
@@ -454,16 +492,21 @@ func verifyControllers(t *testing.T, b *builder, expectedControllerCount int, ti
 	})
 }
 
-func mockLoadKubeConfig(kubeconfig []byte) (*clientcmdapi.Config, error) {
+func mockLoadKubeConfig(_ []byte) (*clientcmdapi.Config, error) {
 	return &clientcmdapi.Config{}, nil
 }
 
-func mockCreateInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (kubernetes.Interface, error) {
+func mockValidateClientConfig(_ clientcmdapi.Config) error {
+	return nil
+}
+
+func mockCreateInterfaceFromClusterConfig(_ *clientcmdapi.Config) (kubernetes.Interface, error) {
 	return fake.NewSimpleClientset(), nil
 }
 
 func Test_KubeSecretController(t *testing.T) {
 	secretcontroller.LoadKubeConfig = mockLoadKubeConfig
+	secretcontroller.ValidateClientConfig = mockValidateClientConfig
 	secretcontroller.CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
 
 	clientset := fake.NewSimpleClientset()
@@ -511,13 +554,13 @@ var k8sobjs = []runtime.Object{
 			Namespace: "testns",
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "extensions/v1beta1",
+					APIVersion: "apps/v1",
 					Controller: &trueVar,
 					Kind:       "Deployment",
 					Name:       "test-deployment",
 				},
 				{
-					APIVersion: "extensions/v1beta1",
+					APIVersion: "apps/v1",
 					Controller: &falseVar,
 					Kind:       "Deployment",
 					Name:       "not-exist-deployment",
@@ -537,7 +580,7 @@ var k8sobjs = []runtime.Object{
 			Namespace: "testns",
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "apps/v1beta2",
+					APIVersion: "apps/v1",
 					Controller: &trueVar,
 					Kind:       "Deployment",
 					Name:       "test-deployment",
@@ -599,7 +642,7 @@ var k8sobjs = []runtime.Object{
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "extensions/v1beta1",
+					APIVersion: "apps/v1",
 					Controller: &trueVar,
 					Kind:       "ReplicaSet",
 					Name:       "test-replicaset-with-deployment",
@@ -636,7 +679,7 @@ var k8sobjs = []runtime.Object{
 			Labels:    map[string]string{"app": "some-app"},
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "apps/v1beta2",
+					APIVersion: "apps/v1",
 					Controller: &trueVar,
 					Kind:       "ReplicaSet",
 					Name:       "test-appsv1beta2-replicaset-with-deployment",
@@ -651,7 +694,7 @@ var k8sobjs = []runtime.Object{
 			Labels:    map[string]string{"app": "some-app"},
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "extensions/v1beta1",
+					APIVersion: "apps/v1",
 					Controller: &trueVar,
 					Kind:       "ReplicaSet",
 					Name:       "test-replicaset-without-deployment",
@@ -666,7 +709,7 @@ var k8sobjs = []runtime.Object{
 			Labels:    map[string]string{"app": "some-app"},
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "apps/v1beta2",
+					APIVersion: "apps/v1",
 					Controller: &trueVar,
 					Kind:       "ReplicaSet",
 					Name:       "not-found-replicaset",

@@ -28,19 +28,17 @@ import (
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/collateral"
-	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/keepalive"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/mcp/creds"
-	"istio.io/istio/pkg/version"
+	"istio.io/pkg/collateral"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 var (
 	serverArgs = bootstrap.PilotArgs{
-		CtrlZOptions:         ctrlz.DefaultOptions(),
-		MCPCredentialOptions: creds.DefaultOptions(),
-		KeepaliveOptions:     keepalive.DefaultOption(),
+		CtrlZOptions:     ctrlz.DefaultOptions(),
+		KeepaliveOptions: keepalive.DefaultOption(),
 	}
 
 	loggingOptions = log.DefaultOptions()
@@ -62,8 +60,7 @@ var (
 				return err
 			}
 
-			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(serverArgs.Config.ControllerOptions.TrustDomain,
-				serverArgs.Config.ControllerOptions.DomainSuffix, hasKubeRegistry()))
+			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(serverArgs.Config.ControllerOptions.TrustDomain, hasKubeRegistry()))
 
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
@@ -114,11 +111,6 @@ func init() {
 		"comma separated list of networking plugins to enable")
 
 	// MCP client flags
-	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.MCPServerAddrs, "mcpServerAddrs", []string{},
-		"comma separated list of MCP server addresses with "+
-			"mcp:// (insecure) or mcps:// (secure) schema, e.g. mcps://istio-galley.istio-system.svc:9901")
-	discoveryCmd.PersistentFlags().MarkDeprecated("mcpServerAddrs", "Use --meshConfig instead, and specify in MeshConfig.ConfigSources[].Address")
-	serverArgs.MCPCredentialOptions.AttachCobraFlags(discoveryCmd)
 	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPMaxMessageSize, "mcpMaxMsgSize", bootstrap.DefaultMCPMaxMsgSize,
 		"Max message size received by MCP's grpc client")
 
@@ -149,8 +141,8 @@ func init() {
 		"Discovery service grpc address")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.SecureGrpcAddr, "secureGrpcAddr", ":15012",
 		"Discovery service grpc address, with https")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.MonitoringAddr, "monitoringAddr", ":9093",
-		"HTTP address to use for the exposing pilot self-monitoring information")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.MonitoringAddr, "monitoringAddr", ":15014",
+		"HTTP address to use for pilot's self-monitoring information")
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableProfiling, "profile", true,
 		"Enable profiling via web interface host:port/debug/pprof")
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableCaching, "discoveryCache", true,

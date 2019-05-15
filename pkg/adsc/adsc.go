@@ -30,9 +30,10 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-	types "github.com/gogo/protobuf/types"
+	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -153,7 +154,7 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	}
 	adsc.Metadata = opts.Meta
 
-	adsc.nodeID = fmt.Sprintf("sidecar~%s~%s.%s~%s.svc.cluster.local", opts.IP,
+	adsc.nodeID = fmt.Sprintf("%s~%s~%s.%s~%s.svc.cluster.local", opts.NodeType, opts.IP,
 		opts.Workload, opts.Namespace, opts.Namespace)
 
 	err := adsc.Run()
@@ -210,7 +211,7 @@ func tlsConfig(certDir string) (*tls.Config, error) {
 func (a *ADSC) Close() {
 	a.mutex.Lock()
 	if a.stream != nil {
-		a.stream.CloseSend()
+		_ = a.stream.CloseSend()
 	}
 	a.conn.Close()
 	a.mutex.Unlock()
@@ -242,9 +243,6 @@ func (a *ADSC) Run() error {
 			return err
 		}
 	}
-	if err != nil {
-		return err
-	}
 
 	xds := ads.NewAggregatedDiscoveryServiceClient(a.conn)
 	edsstr, err := xds.StreamAggregatedResources(context.Background())
@@ -254,13 +252,6 @@ func (a *ADSC) Run() error {
 	a.stream = edsstr
 	go a.handleRecv()
 	return nil
-}
-
-func (a *ADSC) update(m string) {
-	select {
-	case a.Updates <- m:
-	default:
-	}
 }
 
 func (a *ADSC) handleRecv() {
@@ -283,19 +274,19 @@ func (a *ADSC) handleRecv() {
 			valBytes := rsc.Value
 			if rsc.TypeUrl == listenerType {
 				ll := &xdsapi.Listener{}
-				proto.Unmarshal(valBytes, ll)
+				_ = proto.Unmarshal(valBytes, ll)
 				listeners = append(listeners, ll)
 			} else if rsc.TypeUrl == clusterType {
 				ll := &xdsapi.Cluster{}
-				proto.Unmarshal(valBytes, ll)
+				_ = proto.Unmarshal(valBytes, ll)
 				clusters = append(clusters, ll)
 			} else if rsc.TypeUrl == endpointType {
 				ll := &xdsapi.ClusterLoadAssignment{}
-				proto.Unmarshal(valBytes, ll)
+				_ = proto.Unmarshal(valBytes, ll)
 				eds = append(eds, ll)
 			} else if rsc.TypeUrl == routeType {
 				ll := &xdsapi.RouteConfiguration{}
-				proto.Unmarshal(valBytes, ll)
+				_ = proto.Unmarshal(valBytes, ll)
 				routes = append(routes, ll)
 			}
 		}
@@ -321,6 +312,7 @@ func (a *ADSC) handleRecv() {
 
 }
 
+// nolint: staticcheck
 func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 	lh := map[string]*xdsapi.Listener{}
 	lt := map[string]*xdsapi.Listener{}
@@ -336,6 +328,12 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 		}
 		if f0.Name == "envoy.tcp_proxy" {
 			lt[l.Name] = l
+			config := f0.GetConfig()
+			if config == nil {
+				config, _ = xdsutil.MessageToStruct(f0.GetTypedConfig())
+			}
+			c := config.Fields["cluster"].GetStringValue()
+			log.Printf("TCP: %s -> %s", l.Name, c)
 		} else if f0.Name == "envoy.http_connection_manager" {
 			lh[l.Name] = l
 
@@ -346,10 +344,7 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 			} else {
 				routes = append(routes, fmt.Sprintf("%d", port))
 			}
-			//log.Printf("HTTP: %s -> %d", l.Name, port)
 		} else if f0.Name == "envoy.mongo_proxy" {
-			// ignore for now
-		} else if f0.Name == "envoy.redis_proxy" {
 			// ignore for now
 		} else if f0.Name == "envoy.filters.network.mysql_proxy" {
 			// ignore for now
@@ -468,9 +463,12 @@ func (a *ADSC) handleCDS(ll []*xdsapi.Cluster) {
 	cds := map[string]*xdsapi.Cluster{}
 	for _, c := range ll {
 		cdsSize += c.Size()
-		if c.Type != xdsapi.Cluster_EDS {
-			cds[c.Name] = c
-			continue
+		switch v := c.ClusterDiscoveryType.(type) {
+		case *xdsapi.Cluster_Type:
+			if v.Type != xdsapi.Cluster_EDS {
+				cds[c.Name] = c
+				continue
+			}
 		}
 		cn = append(cn, c.Name)
 		edscds[c.Name] = c
@@ -504,7 +502,7 @@ func (a *ADSC) node() *core.Node {
 	if a.Metadata == nil {
 		n.Metadata = &types.Struct{
 			Fields: map[string]*types.Value{
-				"ISTIO_PROXY_VERSION": &types.Value{Kind: &types.Value_StringValue{StringValue: "1.0"}},
+				"ISTIO_PROXY_VERSION": {Kind: &types.Value_StringValue{StringValue: "1.0"}},
 			}}
 	} else {
 		f := map[string]*types.Value{}
@@ -542,7 +540,7 @@ func (a *ADSC) handleEDS(eds []*xdsapi.ClusterLoadAssignment) {
 	}
 	if a.InitialLoad == 0 {
 		// first load - Envoy loads listeners after endpoints
-		a.stream.Send(&xdsapi.DiscoveryRequest{
+		_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 			ResponseNonce: time.Now().String(),
 			Node:          a.node(),
 			TypeUrl:       listenerType,
@@ -640,7 +638,7 @@ func (a *ADSC) EndpointsJSON() string {
 // it will start watching RDS and CDS.
 func (a *ADSC) Watch() {
 	a.watchTime = time.Now()
-	a.stream.Send(&xdsapi.DiscoveryRequest{
+	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node:          a.node(),
 		TypeUrl:       clusterType,
@@ -648,7 +646,7 @@ func (a *ADSC) Watch() {
 }
 
 func (a *ADSC) sendRsc(typeurl string, rsc []string) {
-	a.stream.Send(&xdsapi.DiscoveryRequest{
+	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: "",
 		Node:          a.node(),
 		TypeUrl:       typeurl,
@@ -657,7 +655,7 @@ func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 }
 
 func (a *ADSC) ack(msg *xdsapi.DiscoveryResponse) {
-	a.stream.Send(&xdsapi.DiscoveryRequest{
+	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: msg.Nonce,
 		TypeUrl:       msg.TypeUrl,
 		Node:          a.node(),

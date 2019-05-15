@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
-// The `reportnothing` template represents an empty block of data, which can useful
+// The `reportnothing` template represents an empty block of data, which can be useful
 // in different testing scenarios.
 //
 // Example config:

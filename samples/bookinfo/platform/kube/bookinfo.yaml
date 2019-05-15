@@ -21,6 +21,7 @@ metadata:
   name: details
   labels:
     app: details
+    service: details
 spec:
   ports:
   - port: 9080
@@ -28,12 +29,19 @@ spec:
   selector:
     app: details
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: details-v1
+  labels:
+    app: details
+    version: v1
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: details
+      version: v1
   template:
     metadata:
       labels:
@@ -42,7 +50,7 @@ spec:
     spec:
       containers:
       - name: details
-        image: istio/examples-bookinfo-details-v1:1.10.0
+        image: istio/examples-bookinfo-details-v1:1.12.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
@@ -56,6 +64,7 @@ metadata:
   name: ratings
   labels:
     app: ratings
+    service: ratings
 spec:
   ports:
   - port: 9080
@@ -63,12 +72,19 @@ spec:
   selector:
     app: ratings
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ratings-v1
+  labels:
+    app: ratings
+    version: v1
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: ratings
+      version: v1
   template:
     metadata:
       labels:
@@ -77,7 +93,7 @@ spec:
     spec:
       containers:
       - name: ratings
-        image: istio/examples-bookinfo-ratings-v1:1.10.0
+        image: istio/examples-bookinfo-ratings-v1:1.12.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
@@ -91,6 +107,7 @@ metadata:
   name: reviews
   labels:
     app: reviews
+    service: reviews
 spec:
   ports:
   - port: 9080
@@ -98,12 +115,19 @@ spec:
   selector:
     app: reviews
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: reviews-v1
+  labels:
+    app: reviews
+    version: v1
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: reviews
+      version: v1
   template:
     metadata:
       labels:
@@ -112,17 +136,24 @@ spec:
     spec:
       containers:
       - name: reviews
-        image: istio/examples-bookinfo-reviews-v1:1.10.0
+        image: istio/examples-bookinfo-reviews-v1:1.12.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: reviews-v2
+  labels:
+    app: reviews
+    version: v2
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: reviews
+      version: v2
   template:
     metadata:
       labels:
@@ -131,17 +162,24 @@ spec:
     spec:
       containers:
       - name: reviews
-        image: istio/examples-bookinfo-reviews-v2:1.10.0
+        image: istio/examples-bookinfo-reviews-v2:1.12.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: reviews-v3
+  labels:
+    app: reviews
+    version: v3
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: reviews
+      version: v3
   template:
     metadata:
       labels:
@@ -150,7 +188,7 @@ spec:
     spec:
       containers:
       - name: reviews
-        image: istio/examples-bookinfo-reviews-v3:1.10.0
+        image: istio/examples-bookinfo-reviews-v3:1.12.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
@@ -164,6 +202,7 @@ metadata:
   name: productpage
   labels:
     app: productpage
+    service: productpage
 spec:
   ports:
   - port: 9080
@@ -171,12 +210,19 @@ spec:
   selector:
     app: productpage
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: productpage-v1
+  labels:
+    app: productpage
+    version: v1
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: productpage
+      version: v1
   template:
     metadata:
       labels:
@@ -185,7 +231,7 @@ spec:
     spec:
       containers:
       - name: productpage
-        image: istio/examples-bookinfo-productpage-v1:1.10.0
+        image: istio/examples-bookinfo-productpage-v1:1.12.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080

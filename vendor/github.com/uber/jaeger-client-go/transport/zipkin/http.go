@@ -27,10 +27,12 @@ package zipkin
 
 import (
 	"bytes"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"time"
 
-	"github.com/apache/thrift/lib/go/thrift"
+	"github.com/uber/jaeger-client-go/thrift"
 
 	"github.com/uber/jaeger-client-go"
 	"github.com/uber/jaeger-client-go/log"
@@ -81,6 +83,14 @@ func HTTPBatchSize(n int) HTTPOption {
 func HTTPBasicAuth(username string, password string) HTTPOption {
 	return func(c *HTTPTransport) {
 		c.httpCredentials = &HTTPBasicAuthCredentials{username: username, password: password}
+	}
+}
+
+// HTTPRoundTripper configures the underlying Transport on the *http.Client
+// that is used
+func HTTPRoundTripper(transport http.RoundTripper) HTTPOption {
+	return func(c *HTTPTransport) {
+		c.client.Transport = transport
 	}
 }
 
@@ -160,7 +170,20 @@ func (c *HTTPTransport) send(spans []*zipkincore.Span) error {
 		req.SetBasicAuth(c.httpCredentials.username, c.httpCredentials.password)
 	}
 
-	_, err = c.client.Do(req)
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
 
-	return err
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("could not read response from collector: %s", err)
+	}
+
+	if resp.StatusCode >= http.StatusBadRequest {
+		return fmt.Errorf("error from collector: code=%d body=%q", resp.StatusCode, string(respBytes))
+	}
+
+	return nil
 }

@@ -16,6 +16,7 @@ package ca
 
 import (
 	"bytes"
+	"context"
 	"crypto/x509"
 	"encoding/base64"
 	"io/ioutil"
@@ -89,12 +90,12 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	defaultCertTTL := 30 * time.Minute
 	maxCertTTL := time.Hour
 	org := "test.ca.org"
-	dualUse := false
-	caNamespace := "default"
+	const caNamespace = "default"
 	client := fake.NewSimpleClientset()
+	rootCertFile := ""
 
-	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, defaultCertTTL, maxCertTTL,
-		org, dualUse, caNamespace, client.CoreV1())
+	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), caCertTTL, defaultCertTTL, maxCertTTL,
+		org, false, caNamespace, -1, client.CoreV1(), rootCertFile)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -178,10 +179,10 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	maxCertTTL := time.Hour
 	org := "test.ca.org"
 	caNamespace := "default"
-	dualUse := false
+	const rootCertFile = ""
 
-	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL,
-		org, dualUse, caNamespace, client.CoreV1())
+	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), caCertTTL, certTTL, maxCertTTL,
+		org, false, caNamespace, -1, client.CoreV1(), rootCertFile)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -226,6 +227,77 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	}
 	if !bytes.Equal(cert, certFromConfigMap) {
 		t.Errorf("The cert in configmap is not equal to the CA signing cert: %v VS (expected) %v", certFromConfigMap, cert)
+	}
+}
+
+func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
+	rootCertPem := cert1Pem
+	// Use the same signing cert and root cert for self-signed CA.
+	signingCertPem := []byte(cert1Pem)
+	signingKeyPem := []byte(key1Pem)
+
+	caCertTTL := time.Hour
+	certTTL := 30 * time.Minute
+	maxCertTTL := time.Hour
+	org := "test.ca.org"
+	caNamespace := "default"
+	const rootCertFile = ""
+
+	client := fake.NewSimpleClientset()
+
+	// Should abort with timeout.
+	expectedErr := "secret waiting thread is terminated"
+	ctx0, cancel0 := context.WithTimeout(context.Background(), time.Millisecond*50)
+	defer cancel0()
+	_, err := NewSelfSignedIstioCAOptions(ctx0, caCertTTL, certTTL, maxCertTTL,
+		org, false, caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile)
+	if err == nil {
+		t.Errorf("Expected error, but succeeded.")
+	} else if err.Error() != expectedErr {
+		t.Errorf("Unexpected error message: %s VS (expected) %s", err.Error(), expectedErr)
+		return
+	}
+
+	// Should succeed once secret is ready.
+	secret := BuildSecret("", CASecret, "default", nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
+	_, err = client.CoreV1().Secrets("default").Create(secret)
+	if err != nil {
+		t.Errorf("Failed to create secret (error: %s)", err)
+	}
+
+	ctx1, cancel1 := context.WithCancel(context.Background())
+	defer cancel1()
+	caopts, err := NewSelfSignedIstioCAOptions(ctx1, caCertTTL, certTTL, maxCertTTL,
+		org, false, caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	ca, err := NewIstioCA(caopts)
+	if err != nil {
+		t.Errorf("Got error while createing self-signed CA: %v", err)
+	}
+	if ca == nil {
+		t.Fatalf("Failed to create a self-signed CA.")
+	}
+
+	signingCert, err := util.ParsePemEncodedCertificate(signingCertPem)
+	if err != nil {
+		t.Errorf("Failed to parse cert (error: %s)", err)
+	}
+
+	signingCertFromCA, _, certChainBytesFromCA, rootCertBytesFromCA := ca.GetCAKeyCertBundle().GetAll()
+
+	if !signingCert.Equal(signingCertFromCA) {
+		t.Error("Signing cert does not match")
+	}
+
+	if !bytes.Equal(rootCertBytesFromCA, []byte(rootCertPem)) {
+		t.Error("Root cert does not match")
+	}
+
+	if len(certChainBytesFromCA) != 0 {
+		t.Errorf("Cert chain should be empty")
 	}
 }
 
@@ -275,7 +347,7 @@ func TestCreatePluggedCertCA(t *testing.T) {
 	if err != nil {
 		t.Errorf("Cannot get the CA cert from configmap (%v)", err)
 	}
-	_, _, _, cert := ca.GetCAKeyCertBundle().GetAllPem()
+	_, _, cert, _ := ca.GetCAKeyCertBundle().GetAllPem()
 	certFromConfigMap, err := base64.StdEncoding.DecodeString(strCertFromConfigMap)
 	if err != nil {
 		t.Errorf("Cannot decode the CA cert from configmap (%v)", err)
@@ -299,7 +371,7 @@ func TestSignCSRForWorkload(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA(time.Hour, false)
+	ca, err := createCA(time.Hour)
 	if err != nil {
 		t.Error(err)
 	}
@@ -354,7 +426,7 @@ func TestSignCSRForCA(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA(365*24*time.Hour, true)
+	ca, err := createCA(365 * 24 * time.Hour)
 	if err != nil {
 		t.Error(err)
 	}
@@ -408,7 +480,7 @@ func TestSignCSRTTLError(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA(2*time.Hour, false)
+	ca, err := createCA(2 * time.Hour)
 	if err != nil {
 		t.Error(err)
 	}
@@ -425,8 +497,35 @@ func TestSignCSRTTLError(t *testing.T) {
 	}
 }
 
-// nolint: unparam
-func createCA(maxTTL time.Duration, multicluster bool) (*IstioCA, error) {
+func TestAppendRootCerts(t *testing.T) {
+	root1 := "root-cert-1"
+	expRootCerts := `root-cert-1
+root-cert-2
+root-cert-3`
+	rootCerts, err := appendRootCerts([]byte(root1), "./root-certs-for-testing.pem")
+	if err != nil {
+		t.Errorf("appendRootCerts() returns an error: %v", err)
+	} else if expRootCerts != string(rootCerts) {
+		t.Errorf("the root certificates do not match. Expect:%v. Actual:%v.",
+			expRootCerts, string(rootCerts))
+	}
+}
+
+func TestAppendRootCertsToNullCert(t *testing.T) {
+	// nil certificate
+	var root1 []byte
+	expRootCerts := `root-cert-2
+root-cert-3`
+	rootCerts, err := appendRootCerts(root1, "./root-certs-for-testing.pem")
+	if err != nil {
+		t.Errorf("appendRootCerts() returns an error: %v", err)
+	} else if expRootCerts != string(rootCerts) {
+		t.Errorf("the root certificates do not match. Expect:%v. Actual:%v.",
+			expRootCerts, string(rootCerts))
+	}
+}
+
+func createCA(maxTTL time.Duration) (*IstioCA, error) {
 	// Generate root CA key and cert.
 	rootCAOpts := util.CertOptions{
 		IsCA:         true,

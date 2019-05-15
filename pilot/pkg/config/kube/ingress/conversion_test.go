@@ -118,10 +118,6 @@ func TestConversion(t *testing.T) {
 	}
 
 	for n, cfg := range cfgs {
-		// Not clear if this is right - should probably be under input ns
-		if cfg.ConfigMeta.Namespace != "istio-system" {
-			t.Errorf("Expected istio-system namespace")
-		}
 
 		vs := cfg.Spec.(*networking.VirtualService)
 
@@ -185,15 +181,15 @@ func TestEncoding(t *testing.T) {
 func TestIngressClass(t *testing.T) {
 	istio := model.DefaultMeshConfig().IngressClass
 	cases := []struct {
-		ingressMode   meshconfig.MeshConfig_IngressControllerMode
 		ingressClass  string
+		ingressMode   meshconfig.MeshConfig_IngressControllerMode
 		shouldProcess bool
 	}{
 		{ingressMode: meshconfig.MeshConfig_DEFAULT, ingressClass: "nginx", shouldProcess: false},
 		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: "nginx", shouldProcess: false},
 		{ingressMode: meshconfig.MeshConfig_OFF, ingressClass: istio, shouldProcess: false},
 		{ingressMode: meshconfig.MeshConfig_DEFAULT, ingressClass: istio, shouldProcess: true},
-		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: istio, shouldProcess: true},
+		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: istio, shouldProcess: false},
 		{ingressMode: meshconfig.MeshConfig_DEFAULT, ingressClass: "", shouldProcess: true},
 		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: "", shouldProcess: false},
 		{ingressMode: -1, shouldProcess: false},

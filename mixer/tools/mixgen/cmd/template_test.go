@@ -50,9 +50,7 @@ spec:
 		},
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(tt *testing.T) {
-			var args []string
-
-			args = []string{"template", "-d", td.templateFile, "-n", "myTemplateResourceName", "--namespace", "mynamespace"}
+			args := []string{"template", "-d", td.templateFile, "-n", "myTemplateResourceName", "--namespace", "mynamespace"}
 
 			gotCfg := ""
 			root := GetRootCmd(args,

@@ -16,6 +16,7 @@ package fs
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
@@ -23,9 +24,9 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 
 	"github.com/ghodss/yaml"
-	"github.com/howeyc/fsnotify"
 
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
@@ -35,6 +36,8 @@ import (
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
 	"istio.io/istio/galley/pkg/source/kube/log"
 	"istio.io/istio/galley/pkg/source/kube/schema"
+	"istio.io/istio/galley/pkg/util"
+	"istio.io/pkg/appsignals"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -59,43 +62,34 @@ type source struct {
 	// Config File Path
 	root string
 
-	donec chan struct{}
-
 	mu sync.RWMutex
 
 	// map to store namespace/name : shas
-	shas map[resource.FullName][sha1.Size]byte
+	shas map[fileResourceKey][sha1.Size]byte
 
 	handler resource.EventHandler
 
 	// map to store kind : bool to indicate whether we need to deal with the resource or not
 	kinds map[string]bool
 
-	// map to store filename: []{namespace/name,kind} to indicate whether the resources has been deleted from one file
-	fileResourceKeys map[string][]*fileResourceKey
-
 	// fsresource version
 	version int64
 
-	watcher *fsnotify.Watcher
+	worker *util.Worker
 }
 
-func (s *source) readFiles(root string) map[resource.FullName]*fileResource {
-	results := map[resource.FullName]*fileResource{}
+func (s *source) readFiles(root string) map[fileResourceKey]*fileResource {
+	results := map[fileResourceKey]*fileResource{}
 
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		result := s.readFile(path, info, true)
-		if result != nil && len(result) != 0 {
-			for k, r := range result {
-				results[k] = r
+		result := s.readFile(path, info)
+		if len(result) != 0 {
+			for _, r := range result {
+				results[r.newKey()] = r
 			}
-		}
-		//add watcher for sub folders
-		if info.Mode().IsDir() {
-			_ = s.watcher.Watch(path)
 		}
 		return nil
 	})
@@ -105,8 +99,8 @@ func (s *source) readFiles(root string) map[resource.FullName]*fileResource {
 	return results
 }
 
-func (s *source) readFile(path string, info os.FileInfo, initial bool) map[resource.FullName]*fileResource {
-	result := map[resource.FullName]*fileResource{}
+func (s *source) readFile(path string, info os.FileInfo) []*fileResource {
+	result := make([]*fileResource, 0)
 	if mode := info.Mode() & os.ModeType; !supportedExtensions[filepath.Ext(path)] || (mode != 0 && mode != os.ModeSymlink) {
 		return nil
 	}
@@ -117,95 +111,14 @@ func (s *source) readFile(path string, info os.FileInfo, initial bool) map[resou
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	resourceKeyList := make([]*fileResourceKey, 1)
+
 	for _, r := range s.parseFile(path, data) {
 		if !s.kinds[r.spec.Kind] {
 			continue
 		}
-		result[r.entry.Key] = r
-		resourceKeyList = append(resourceKeyList, r.newKey())
-	}
-	if initial {
-		s.fileResourceKeys[path] = resourceKeyList
+		result = append(result, r)
 	}
 	return result
-}
-
-//process delete part of the resources in a file
-func (s *source) processPartialDelete(fileName string, newData *map[resource.FullName]*fileResource) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if fileResorceKeys, ok := s.fileResourceKeys[fileName]; ok {
-		for i := len(fileResorceKeys) - 1; i >= 0; i-- {
-			if fileResorceKeys[i] != nil {
-				if _, ok := (*newData)[(*fileResorceKeys[i]).key]; !ok {
-					delete(s.shas, (*fileResorceKeys[i]).key)
-					s.process(resource.Deleted, (*fileResorceKeys[i]).key, (*fileResorceKeys[i]).kind, nil)
-					fileResorceKeys = append(fileResorceKeys[:i], fileResorceKeys[i+1:]...)
-				}
-			}
-		}
-		if len(fileResorceKeys) > 0 {
-			s.fileResourceKeys[fileName] = fileResorceKeys
-		}
-		if len(fileResorceKeys) == 0 {
-			delete(s.fileResourceKeys, fileName)
-		}
-	}
-
-}
-
-func (s *source) processAddOrUpdate(fileName string, newData *map[resource.FullName]*fileResource) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	// need versionUpdated as sometimes when fswatcher fires events, there is actually no change on the file content
-	versionUpdated := false
-	for k, r := range *newData {
-		if _, ok := s.shas[k]; ok {
-			if s.shas[k] != r.sha {
-				versionUpdated = true
-				break
-			}
-		} else {
-			versionUpdated = true
-			break
-		}
-	}
-	if versionUpdated {
-		s.version++
-	}
-	for k, r := range *newData {
-		if _, ok := s.shas[k]; ok {
-			if s.shas[k] != r.sha {
-				s.fileResourceKeys[fileName] = append(s.fileResourceKeys[fileName], r.newKey())
-				s.process(resource.Updated, k, "", r)
-			}
-			s.shas[k] = r.sha
-			continue
-		}
-		if s.fileResourceKeys != nil {
-			s.fileResourceKeys[fileName] = append(s.fileResourceKeys[fileName], r.newKey())
-		}
-		s.process(resource.Added, k, "", r)
-		if s.shas != nil {
-			s.shas[k] = r.sha
-		}
-	}
-}
-
-//process delete all resources in a file
-func (s *source) processDelete(fileName string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if fileResourceKeys, ok := s.fileResourceKeys[fileName]; ok {
-		for _, fileResourceKey := range fileResourceKeys {
-			if fileResourceKey != nil {
-				delete(s.shas, (*fileResourceKey).key)
-				s.process(resource.Deleted, (*fileResourceKey).key, (*fileResourceKey).kind, nil)
-			}
-		}
-		delete(s.fileResourceKeys, fileName)
-	}
 }
 
 func (s *source) initialCheck() {
@@ -213,19 +126,48 @@ func (s *source) initialCheck() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for k, r := range newData {
-		s.process(resource.Added, k, "", r)
+		s.process(resource.Added, k, r)
 		s.shas[k] = r.sha
 	}
 	s.handler(resource.FullSyncEvent)
 }
 
-// Stop implements runtime.Source
-func (s *source) Stop() {
-	close(s.donec)
-	_ = s.watcher.Close()
+func (s *source) reload() {
+	newData := s.readFiles(s.root)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	newShas := map[fileResourceKey][sha1.Size]byte{}
+	// Compute the deltas using sha comparisons
+	nextVersion := s.version + 1
+	for k, r := range newData {
+		newShas[k] = r.sha
+		sha, exists := s.shas[k]
+		if exists && sha != r.sha {
+			if s.version != nextVersion {
+				s.version = nextVersion
+			}
+			s.process(resource.Updated, k, r)
+		} else if !exists {
+			if s.version != nextVersion {
+				s.version = nextVersion
+			}
+			s.process(resource.Added, k, r)
+		}
+	}
+	for k := range s.shas {
+		if _, exists := newShas[k]; !exists {
+			s.process(resource.Deleted, k, nil)
+		}
+	}
+	s.shas = newShas
 }
 
-func (s *source) process(eventKind resource.EventKind, key resource.FullName, resourceKind string, r *fileResource) {
+// Stop implements runtime.Source
+func (s *source) Stop() {
+	s.worker.Stop()
+}
+
+func (s *source) process(eventKind resource.EventKind, key fileResourceKey, r *fileResource) {
 	version := resource.Version(fmt.Sprintf("v%d", s.version))
 
 	var event resource.Event
@@ -237,7 +179,7 @@ func (s *source) process(eventKind resource.EventKind, key resource.FullName, re
 				ID: resource.VersionedKey{
 					Key: resource.Key{
 						Collection: r.spec.Target.Collection,
-						FullName:   key,
+						FullName:   key.fullName,
 					},
 					Version: version,
 				},
@@ -246,14 +188,14 @@ func (s *source) process(eventKind resource.EventKind, key resource.FullName, re
 			},
 		}
 	case resource.Deleted:
-		spec := kubeMeta.Types.Get(resourceKind)
+		spec := kubeMeta.Types.Get(key.kind)
 		event = resource.Event{
 			Kind: eventKind,
 			Entry: resource.Entry{
 				ID: resource.VersionedKey{
 					Key: resource.Key{
 						Collection: spec.Target.Collection,
-						FullName:   key,
+						FullName:   key.fullName,
 					},
 					Version: version,
 				},
@@ -267,75 +209,35 @@ func (s *source) process(eventKind resource.EventKind, key resource.FullName, re
 
 // Start implements runtime.Source
 func (s *source) Start(handler resource.EventHandler) error {
-	s.handler = handler
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
-	}
-	s.watcher = watcher
-	_ = s.watcher.Watch(s.root)
-	s.initialCheck()
-	go func() {
+	return s.worker.Start(nil, func(ctx context.Context) {
+		s.handler = handler
+		s.initialCheck()
+		c := make(chan appsignals.Signal)
+		appsignals.Watch(c)
+
 		for {
 			select {
-			// watch for events
-			case ev, more := <-s.watcher.Event:
-				if !more {
-					break
-				}
-				if ev.IsDelete() {
-					s.processDelete(ev.Name)
-				} else if ev.IsCreate() {
-					fi, err := os.Stat(ev.Name)
-					if err != nil {
-						log.Scope.Warnf("error occurs for watching %s", ev.Name)
-					} else {
-						if fi.Mode().IsDir() {
-							log.Scope.Debugf("add watcher for new folder %s", ev.Name)
-							_ = s.watcher.Watch(ev.Name)
-						} else {
-							newData := s.readFile(ev.Name, fi, true)
-							if newData != nil && len(newData) != 0 {
-								s.processAddOrUpdate(ev.Name, &newData)
-							}
-						}
-					}
-				} else if ev.IsModify() {
-					fi, err := os.Stat(ev.Name)
-					if err != nil {
-						log.Scope.Warnf("error occurs for watching %s", ev.Name)
-					} else {
-						if fi.Mode().IsDir() {
-							_ = s.watcher.RemoveWatch(ev.Name)
-						} else {
-							newData := s.readFile(ev.Name, fi, false)
-							if newData != nil && len(newData) != 0 {
-								s.processPartialDelete(ev.Name, &newData)
-								s.processAddOrUpdate(ev.Name, &newData)
-							} else {
-								s.processDelete(ev.Name)
-							}
-						}
-					}
-				}
-			case <-s.donec:
+			case <-ctx.Done():
 				return
+			case trigger := <-c:
+				if trigger.Signal == syscall.SIGUSR1 {
+					log.Scope.Infof("Triggering reload in response to: %v", trigger.Source)
+					s.reload()
+				}
 			}
 		}
-	}()
-	return nil
+	})
 }
 
 // New returns a File System implementation of runtime.Source.
 func New(root string, schema *schema.Instance, config *converter.Config) (runtime.Source, error) {
 	fs := &source{
-		config:           config,
-		root:             root,
-		kinds:            map[string]bool{},
-		fileResourceKeys: map[string][]*fileResourceKey{},
-		donec:            make(chan struct{}),
-		shas:             map[resource.FullName][sha1.Size]byte{},
-		version:          0,
+		config:  config,
+		root:    root,
+		kinds:   map[string]bool{},
+		shas:    map[fileResourceKey][sha1.Size]byte{},
+		worker:  util.NewWorker("fs source", log.Scope),
+		version: 0,
 	}
 	for _, spec := range schema.All() {
 		fs.kinds[spec.Kind] = true
@@ -349,16 +251,16 @@ type fileResource struct {
 	sha   [sha1.Size]byte
 }
 
-func (r *fileResource) newKey() *fileResourceKey {
-	return &fileResourceKey{
-		kind: r.spec.Kind,
-		key:  r.entry.Key,
+func (r *fileResource) newKey() fileResourceKey {
+	return fileResourceKey{
+		kind:     r.spec.Kind,
+		fullName: r.entry.Key,
 	}
 }
 
 type fileResourceKey struct {
-	key  resource.FullName
-	kind string
+	fullName resource.FullName
+	kind     string
 }
 
 func (s *source) parseFile(path string, data []byte) []*fileResource {

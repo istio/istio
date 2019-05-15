@@ -1,0 +1,70 @@
+# This file overrides values for e2e testing.
+
+global:
+  proxy:
+    concurrency: 0
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+
+    accessLogFile: "/dev/stdout"
+    enableCoreDump: true
+
+  disablePolicyChecks: false
+  outboundTrafficPolicy:
+    mode: REGISTRY_ONLY
+
+prometheus:
+  scrapeInterval: 5s
+
+gateways:
+  istio-ingressgateway:
+    autoscaleMax: 1
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+  istio-egressgateway:
+    enabled: true
+    autoscaleMax: 1
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+mixer:
+  policy:
+    enabled: true
+    replicaCount: 2
+    autoscaleEnabled: false
+    resources:
+      requests:
+        cpu: 10m
+        memory: 100Mi
+      limits:
+        cpu: 100m
+        memory: 100Mi
+  telemetry:
+    enabled: true
+    loadshedding:
+      mode: disabled
+    resources:
+      requests:
+        cpu: 50m
+        memory: 100Mi
+      limits:
+        cpu: 100m
+        memory: 100Mi
+  adapters:
+    stdio:
+      enabled: true
+  kiali:
+    enabled: true

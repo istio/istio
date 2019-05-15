@@ -65,7 +65,7 @@ type KeyCertBundleImpl struct {
 	mutex sync.RWMutex
 }
 
-// NewVerifiedKeyCertBundleFromPem returns a new KeyCertBundle, or error if if the provided certs failed the
+// NewVerifiedKeyCertBundleFromPem returns a new KeyCertBundle, or error if the provided certs failed the
 // verification.
 func NewVerifiedKeyCertBundleFromPem(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) (
 	*KeyCertBundleImpl, error) {
@@ -76,7 +76,7 @@ func NewVerifiedKeyCertBundleFromPem(certBytes, privKeyBytes, certChainBytes, ro
 	return bundle, nil
 }
 
-// NewVerifiedKeyCertBundleFromFile returns a new KeyCertBundle, or error if if the provided certs failed the
+// NewVerifiedKeyCertBundleFromFile returns a new KeyCertBundle, or error if the provided certs failed the
 // verification.
 func NewVerifiedKeyCertBundleFromFile(certFile, privKeyFile, certChainFile, rootCertFile string) (
 	*KeyCertBundleImpl, error) {
@@ -158,7 +158,7 @@ func (b *KeyCertBundleImpl) GetRootCertPem() []byte {
 // VerifyAndSetAll verifies the key/certs, and sets all key/certs in KeyCertBundle together.
 // Setting all values together avoids inconsistency.
 func (b *KeyCertBundleImpl) VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error {
-	if err := verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes); err != nil {
+	if err := Verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes); err != nil {
 		return err
 	}
 	b.mutex.Lock()
@@ -200,8 +200,8 @@ func (b *KeyCertBundleImpl) CertOptions() (*CertOptions, error) {
 	}, nil
 }
 
-// verify that the cert chain, root cert and key/cert match.
-func verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error {
+// Verify that the cert chain, root cert and key/cert match.
+func Verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error {
 	// Verify the cert can be verified from the root cert through the cert chain.
 	rcp := x509.NewCertPool()
 	rcp.AppendCertsFromPEM(rootCertBytes)
@@ -221,7 +221,8 @@ func verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error
 
 	if len(chains) == 0 || err != nil {
 		return fmt.Errorf(
-			"cannot verify the cert with the provided root chain and cert pool")
+			"cannot verify the cert with the provided root chain and cert "+
+				"pool with error: %v", err)
 	}
 
 	// Verify that the key can be correctly parsed.

@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -34,6 +35,7 @@ import (
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/testing/events"
 	sn "istio.io/istio/pkg/mcp/snapshot"
+	"istio.io/pkg/appsignals"
 
 	coreV1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -140,6 +142,39 @@ spec:
   type: ClusterIP
 `
 
+	sameNameDifferentTypes = `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: service-a
+spec:
+  hosts:
+  - some.example.com
+  gateways:
+  - some-ingress
+  http:
+  - route:
+    - destination:
+        host: some.example.internal
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-a
+spec:
+   hosts:
+   - some.example.com
+   ports:
+   - number: 80
+     name: http
+     protocol: HTTP
+   resolution: STATIC
+   endpoints:
+    - address: 127.0.0.2
+      ports:
+        http: 7072
+`
+
 	cfg = &converter.Config{Mesh: meshconfig.NewInMemory()}
 
 	runtimeScheme = k8sRuntime.NewScheme()
@@ -212,6 +247,7 @@ func TestDynamicResource(t *testing.T) {
 		// Copy a file to the dir
 		u := copyAndParseSinglePartFile(t, dir, fileName, virtualServiceYAML)
 		u.SetResourceVersion("v1")
+		appsignals.Notify("test", syscall.SIGUSR1)
 
 		// Expect the Add event.
 		expected := resource.Event{
@@ -228,6 +264,7 @@ func TestDynamicResource(t *testing.T) {
 		// Overwrite the original file
 		u := copyAndParseSinglePartFile(t, dir, fileName, virtualServiceChangedYAML)
 		u.SetResourceVersion("v2")
+		appsignals.Notify("test", syscall.SIGUSR1)
 
 		// Expect the update event.
 		expected := resource.Event{
@@ -247,6 +284,7 @@ func TestDynamicResource(t *testing.T) {
 		u := &unstructured.Unstructured{}
 		parseYaml(t, virtualServiceChangedYAML, u)
 		u.SetResourceVersion("v2")
+		appsignals.Notify("test", syscall.SIGUSR1)
 
 		// Expect the update event.
 		expected := resource.Event{
@@ -258,6 +296,46 @@ func TestDynamicResource(t *testing.T) {
 		actual := events.Expect(t, ch)
 		g.Expect(actual).To(Equal(expected))
 	})
+}
+
+func TestDuplicateResourceNamesDifferentTypes(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	dir := createTempDir(t)
+	defer deleteTempDir(t, dir)
+
+	// Copy a file to the dir
+	u := copyAndParseFile(t, dir, "service-a.yaml", sameNameDifferentTypes)
+
+	// Start the source.
+	s := newOrFail(t, dir)
+	ch := startOrFail(t, s)
+	defer s.Stop()
+
+	actual1 := events.Expect(t, ch)
+	actual2 := events.Expect(t, ch)
+	if actual2.Entry.ID.Collection == kubeMeta.Types.Get("VirtualService").Target.Collection {
+		// Reorder
+		actual2, actual1 = actual1, actual2
+	}
+	// Expect the add of VirtualService
+	u[0].SetResourceVersion("v0")
+	expectedVirtualService := resource.Event{
+		Kind:  resource.Added,
+		Entry: unstructuredToEntry(t, u[0], *kubeMeta.Types.Get("VirtualService")),
+	}
+	g.Expect(actual1).To(Equal(expectedVirtualService))
+
+	// ... and the add of service entry
+	u[1].SetResourceVersion("v0")
+	expectedServiceEntry := resource.Event{
+		Kind:  resource.Added,
+		Entry: unstructuredToEntry(t, u[1], *kubeMeta.Types.Get("ServiceEntry")),
+	}
+	g.Expect(actual2).To(Equal(expectedServiceEntry))
+
+	// Expect the full sync event immediately after.
+	expectFullSync(t, ch)
 }
 
 func TestBuiltinResource(t *testing.T) {
@@ -282,6 +360,7 @@ func TestBuiltinResource(t *testing.T) {
 
 		// Copy a file to the dir
 		copyFile(t, dir, fileName, builtinYAML)
+		appsignals.Notify("test", syscall.SIGUSR1)
 
 		// Expect the Add event.
 		svc.SetResourceVersion("v1")
@@ -301,6 +380,7 @@ func TestBuiltinResource(t *testing.T) {
 		newClusterIP := "10.43.240.11"
 		newYAML := strings.Replace(builtinYAML, oldClusterIP, newClusterIP, -1)
 		copyFile(t, dir, fileName, newYAML)
+		appsignals.Notify("test", syscall.SIGUSR1)
 
 		// Expect the update event.
 		svc.Spec.ClusterIP = newClusterIP
@@ -318,6 +398,7 @@ func TestBuiltinResource(t *testing.T) {
 
 		// Delete the file.
 		deleteFiles(t, dir, fileName)
+		appsignals.Notify("test", syscall.SIGUSR1)
 
 		// Expect the update event.
 		expected := resource.Event{
@@ -382,6 +463,7 @@ func TestMultipartEvents(t *testing.T) {
 		g := NewGomegaWithT(t)
 		// Now overwrite the file which removes the last resource.
 		_ = copyAndParseFile(t, dir, "mixer.yaml", mixerPartYAML)
+		appsignals.Notify("test", syscall.SIGUSR1)
 		obj := objs[2]
 		expected := resource.Event{
 			Kind: resource.Deleted,

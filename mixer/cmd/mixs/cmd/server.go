@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/pkg/version"
+	"istio.io/pkg/version"
 )
 
 func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
@@ -43,7 +43,7 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 	serverCmd.PersistentFlags().StringVarP(&sa.APIAddress, "address", "", sa.APIAddress,
 		"Address to use for Mixer's gRPC API, e.g. tcp://127.0.0.1:9092 or unix:///path/to/file")
 	serverCmd.PersistentFlags().Uint16Var(&sa.MonitoringPort, "monitoringPort", sa.MonitoringPort,
-		"HTTP port to use for the exposing mixer self-monitoring information")
+		"HTTP port to use for Mixer self-monitoring information")
 	serverCmd.PersistentFlags().UintVarP(&sa.MaxMessageSize, "maxMessageSize", "", sa.MaxMessageSize,
 		"Maximum size of individual gRPC messages")
 	serverCmd.PersistentFlags().UintVarP(&sa.MaxConcurrentStreams, "maxConcurrentStreams", "", sa.MaxConcurrentStreams,
@@ -63,6 +63,8 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 
 	serverCmd.PersistentFlags().StringVarP(&sa.ConfigDefaultNamespace, "configDefaultNamespace", "", sa.ConfigDefaultNamespace,
 		"Namespace used to store mesh wide configuration.")
+	serverCmd.PersistentFlags().DurationVarP(&sa.ConfigWaitTimeout, "configWaitTimeout", "", sa.ConfigWaitTimeout,
+		"Timeout until the initial set of configurations are received, before declaring as ready.")
 
 	serverCmd.PersistentFlags().StringVar(&sa.LivenessProbeOptions.Path, "livenessProbePath", sa.LivenessProbeOptions.Path,
 		"Path to the file for the liveness probe.")
@@ -77,6 +79,8 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 
 	serverCmd.PersistentFlags().BoolVar(&sa.UseAdapterCRDs, "useAdapterCRDs", sa.UseAdapterCRDs,
 		"Whether or not to allow configuration of Mixer via adapter-specific CRDs")
+	serverCmd.PersistentFlags().BoolVar(&sa.UseTemplateCRDs, "useTemplateCRDs", sa.UseTemplateCRDs,
+		"Whether or not to allow configuration of Mixer via template-specific CRDs")
 
 	sa.CredentialOptions.AttachCobraFlags(serverCmd)
 	sa.LoggingOptions.AttachCobraFlags(serverCmd)

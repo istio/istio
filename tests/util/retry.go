@@ -18,7 +18,7 @@ import (
 	"context"
 	"time"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -31,7 +31,7 @@ const (
 func Backoff(baseDelay, maxDelay time.Duration, retries int) time.Duration {
 	backoff, max := float64(baseDelay), float64(maxDelay)
 	for backoff < max && retries > 0 {
-		backoff = backoff * backoffFactor
+		backoff *= backoffFactor
 		retries--
 	}
 	if backoff > max {

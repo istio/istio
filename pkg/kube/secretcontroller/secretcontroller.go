@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -41,6 +41,8 @@ const (
 // LoadKubeConfig is a unit test override variable for loading the k8s config.
 // DO NOT USE - TEST ONLY.
 var LoadKubeConfig = clientcmd.Load
+
+var ValidateClientConfig = clientcmd.Validate
 
 // CreateInterfaceFromClusterConfig is a unit test override variable for interface create.
 // DO NOT USE - TEST ONLY.
@@ -136,7 +138,7 @@ func NewController(
 	return controller
 }
 
-// Run starts the controller until it receves a message over stopCh
+// Run starts the controller until it receives a message over stopCh
 func (c *Controller) Run(stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
@@ -170,7 +172,6 @@ func StartSecretController(k8s kubernetes.Interface,
 
 func (c *Controller) runWorker() {
 	for c.processNextItem() {
-		// continue looping
 	}
 }
 
@@ -219,28 +220,38 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 		if _, ok := c.cs.remoteClusters[clusterID]; !ok {
 			if len(kubeConfig) == 0 {
 				log.Infof("Data '%s' in the secret %s in namespace %s is empty, and disregarded ",
-					clusterID, secretName, s.ObjectMeta.Namespace)
+					clusterID, secretName, s.Namespace)
 				continue
 			}
 
 			clientConfig, err := LoadKubeConfig(kubeConfig)
 			if err != nil {
 				log.Infof("Data '%s' in the secret %s in namespace %s is not a kubeconfig: %v",
-					clusterID, secretName, s.ObjectMeta.Namespace, err)
+					clusterID, secretName, s.Namespace, err)
+				continue
+			}
+
+			if err := ValidateClientConfig(*clientConfig); err != nil {
+				log.Errorf("Data '%s' in the secret %s in namespace %s is not a valid kubeconfig: %v",
+					clusterID, secretName, s.Namespace, err)
 				continue
 			}
 
 			log.Infof("Adding new cluster member: %s", clusterID)
 			c.cs.remoteClusters[clusterID] = &RemoteCluster{}
 			c.cs.remoteClusters[clusterID].secretName = secretName
-			client, _ := CreateInterfaceFromClusterConfig(clientConfig)
+			client, err := CreateInterfaceFromClusterConfig(clientConfig)
+			if err != nil {
+				log.Errorf("error during create of kubernetes client interface for cluster: %s %v", clusterID, err)
+				continue
+			}
 			err = c.addCallback(client, clusterID)
 			if err != nil {
 				log.Errorf("error during create of clusterID: %s %v", clusterID, err)
 			}
 		} else {
 			log.Infof("Cluster %s in the secret %s in namespace %s already exists",
-				clusterID, c.cs.remoteClusters[clusterID].secretName, s.ObjectMeta.Namespace)
+				clusterID, c.cs.remoteClusters[clusterID].secretName, s.Namespace)
 		}
 	}
 	log.Infof("Number of remote clusters: %d", len(c.cs.remoteClusters))

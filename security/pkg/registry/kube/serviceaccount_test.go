@@ -177,7 +177,7 @@ func TestServiceAccountController(t *testing.T) {
 		reg := &registry.IdentityRegistry{
 			Map: make(map[string]string),
 		}
-		controller := NewServiceAccountController(client.CoreV1(), "test-ns", reg)
+		controller := NewServiceAccountController(client.CoreV1(), []string{"test-ns"}, reg)
 
 		for _, svcAcc := range c.toAdd {
 			controller.serviceAccountAdded(svcAcc)

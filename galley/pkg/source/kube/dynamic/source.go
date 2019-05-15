@@ -15,8 +15,7 @@
 package dynamic
 
 import (
-	"fmt"
-	"sync"
+	"context"
 	"time"
 
 	"istio.io/istio/galley/pkg/runtime"
@@ -26,6 +25,7 @@ import (
 	sourceSchema "istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/source/kube/stats"
 	"istio.io/istio/galley/pkg/source/kube/tombstone"
+	"istio.io/istio/galley/pkg/util"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -40,9 +40,6 @@ var _ runtime.Source = &source{}
 
 // source is a simplified client interface for listening/getting Kubernetes resources in an unstructured way.
 type source struct {
-	// Lock for changing the running state of the source
-	stateLock sync.Mutex
-
 	cfg *converter.Config
 
 	spec sourceSchema.ResourceSpec
@@ -52,13 +49,12 @@ type source struct {
 	// The dynamic resource interface for accessing custom resources dynamically.
 	resourceClient dynamic.ResourceInterface
 
-	// stopCh is used to quiesce the background activity during shutdown
-	stopCh chan struct{}
-
 	// SharedIndexInformer for watching/caching resources
 	informer cache.SharedIndexInformer
 
 	handler resource.EventHandler
+
+	worker *util.Worker
 }
 
 // New returns a new instance of a dynamic source for the given schema.
@@ -77,80 +73,63 @@ func New(
 		cfg:            cfg,
 		resyncPeriod:   resyncPeriod,
 		resourceClient: resourceClient,
+		worker:         util.NewWorker("dynamic source", log.Scope),
 	}, nil
 }
 
 // Start the source. This will commence listening and dispatching of events.
 func (s *source) Start(handler resource.EventHandler) error {
-	s.stateLock.Lock()
-	defer s.stateLock.Unlock()
+	return s.worker.Start(nil, func(ctx context.Context) {
+		if handler == nil {
+			panic("dynamic source provided with nil event handler")
+		}
 
-	if s.stopCh != nil {
-		return fmt.Errorf("already synchronizing resources: name='%s', gv='%v'",
-			s.spec.Singular, s.spec.GroupVersion())
-	}
-	if handler == nil {
-		return fmt.Errorf("invalid event handler")
-	}
+		log.Scope.Debugf("Starting source for %s(%v)", s.spec.Singular, s.spec.GroupVersion())
 
-	log.Scope.Debugf("Starting source for %s(%v)", s.spec.Singular, s.spec.GroupVersion())
-
-	s.stopCh = make(chan struct{})
-	s.handler = handler
-
-	s.informer = cache.NewSharedIndexInformer(
-		&cache.ListWatch{
-			ListFunc: func(options metav1.ListOptions) (k8sRuntime.Object, error) {
-				return s.resourceClient.List(options)
+		s.handler = handler
+		s.informer = cache.NewSharedIndexInformer(
+			&cache.ListWatch{
+				ListFunc: func(options metav1.ListOptions) (k8sRuntime.Object, error) {
+					return s.resourceClient.List(options)
+				},
+				WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+					options.Watch = true
+					return s.resourceClient.Watch(options)
+				},
 			},
-			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-				options.Watch = true
-				return s.resourceClient.Watch(options)
-			},
-		},
-		&unstructured.Unstructured{},
-		s.resyncPeriod,
-		cache.Indexers{})
+			&unstructured.Unstructured{},
+			s.resyncPeriod,
+			cache.Indexers{})
 
-	s.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) { s.handleEvent(resource.Added, obj) },
-		UpdateFunc: func(old, new interface{}) {
-			newRes := new.(*unstructured.Unstructured)
-			oldRes := old.(*unstructured.Unstructured)
-			if newRes.GetResourceVersion() == oldRes.GetResourceVersion() {
-				// Periodic resync will send update events for all known resources.
-				// Two different versions of the same resource will always have different RVs.
-				return
-			}
-			s.handleEvent(resource.Updated, new)
-		},
-		DeleteFunc: func(obj interface{}) { s.handleEvent(resource.Deleted, obj) },
+		s.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) { s.handleEvent(resource.Added, obj) },
+			UpdateFunc: func(old, new interface{}) {
+				newRes := new.(*unstructured.Unstructured)
+				oldRes := old.(*unstructured.Unstructured)
+				if newRes.GetResourceVersion() == oldRes.GetResourceVersion() {
+					// Periodic resync will send update events for all known resources.
+					// Two different versions of the same resource will always have different RVs.
+					return
+				}
+				s.handleEvent(resource.Updated, new)
+			},
+			DeleteFunc: func(obj interface{}) { s.handleEvent(resource.Deleted, obj) },
+		})
+
+		// Send the an event after the cache syncs.
+		go func() {
+			_ = cache.WaitForCacheSync(ctx.Done(), s.informer.HasSynced)
+			handler(resource.FullSyncEvent)
+		}()
+
+		// Start CRD shared informer and wait for it to exit.
+		s.informer.Run(ctx.Done())
 	})
-
-	// Start CRD shared informer background process.
-	go s.informer.Run(s.stopCh)
-
-	// Send the an event after the cache syncs.
-	go func() {
-		_ = cache.WaitForCacheSync(s.stopCh, s.informer.HasSynced)
-		handler(resource.FullSyncEvent)
-	}()
-
-	return nil
 }
 
 // Stop the source. This will stop publishing of events.
 func (s *source) Stop() {
-	s.stateLock.Lock()
-	defer s.stateLock.Unlock()
-
-	if s.stopCh == nil {
-		log.Scope.Errorf("already stopped")
-		return
-	}
-
-	close(s.stopCh)
-	s.stopCh = nil
+	s.worker.Stop()
 }
 
 func (s *source) handleEvent(c resource.EventKind, obj interface{}) {

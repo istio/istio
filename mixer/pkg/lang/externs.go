@@ -34,27 +34,27 @@ import (
 
 // Externs contains the list of standard external functions used during evaluation.
 var Externs = map[string]interpreter.Extern{
-	"ip":                interpreter.ExternFromFn("ip", externIP),
-	"ip_equal":          interpreter.ExternFromFn("ip_equal", externIPEqual),
+	"ip":                interpreter.ExternFromFn("ip", ExternIP),
+	"ip_equal":          interpreter.ExternFromFn("ip_equal", ExternIPEqual),
 	"timestamp":         interpreter.ExternFromFn("timestamp", externTimestamp),
 	"timestamp_equal":   interpreter.ExternFromFn("timestamp_equal", externTimestampEqual),
 	"timestamp_lt":      interpreter.ExternFromFn("timestamp_lt", externTimestampLt),
 	"timestamp_le":      interpreter.ExternFromFn("timestamp_le", externTimestampLe),
 	"timestamp_gt":      interpreter.ExternFromFn("timestamp_gt", externTimestampGt),
 	"timestamp_ge":      interpreter.ExternFromFn("timestamp_ge", externTimestampGe),
-	"dnsName":           interpreter.ExternFromFn("dnsName", externDNSName),
-	"dnsName_equal":     interpreter.ExternFromFn("dnsName_equal", externDNSNameEqual),
-	"email":             interpreter.ExternFromFn("email", externEmail),
-	"email_equal":       interpreter.ExternFromFn("email_equal", externEmailEqual),
-	"uri":               interpreter.ExternFromFn("uri", externURI),
-	"uri_equal":         interpreter.ExternFromFn("uri_equal", externURIEqual),
-	"match":             interpreter.ExternFromFn("match", externMatch),
+	"dnsName":           interpreter.ExternFromFn("dnsName", ExternDNSName),
+	"dnsName_equal":     interpreter.ExternFromFn("dnsName_equal", ExternDNSNameEqual),
+	"email":             interpreter.ExternFromFn("email", ExternEmail),
+	"email_equal":       interpreter.ExternFromFn("email_equal", ExternEmailEqual),
+	"uri":               interpreter.ExternFromFn("uri", ExternURI),
+	"uri_equal":         interpreter.ExternFromFn("uri_equal", ExternURIEqual),
+	"match":             interpreter.ExternFromFn("match", ExternMatch),
 	"matches":           interpreter.ExternFromFn("matches", externMatches),
-	"startsWith":        interpreter.ExternFromFn("startsWith", externStartsWith),
-	"endsWith":          interpreter.ExternFromFn("endsWith", externEndsWith),
+	"startsWith":        interpreter.ExternFromFn("startsWith", ExternStartsWith),
+	"endsWith":          interpreter.ExternFromFn("endsWith", ExternEndsWith),
 	"emptyStringMap":    interpreter.ExternFromFn("emptyStringMap", externEmptyStringMap),
 	"conditionalString": interpreter.ExternFromFn("conditionalString", externConditionalString),
-	"toLower":           interpreter.ExternFromFn("toLower", externToLower),
+	"toLower":           interpreter.ExternFromFn("toLower", ExternToLower),
 }
 
 // ExternFunctionMetadata is the type-metadata about externs. It gets used during compilations.
@@ -127,14 +127,16 @@ var ExternFunctionMetadata = []ast.FunctionMetadata{
 	},
 }
 
-func externIP(in string) ([]byte, error) {
+// ExternIP creates an IP address
+func ExternIP(in string) ([]byte, error) {
 	if ip := net.ParseIP(in); ip != nil {
 		return []byte(ip), nil
 	}
 	return []byte{}, fmt.Errorf("could not convert %s to IP_ADDRESS", in)
 }
 
-func externIPEqual(a []byte, b []byte) bool {
+// ExternIPEqual compares two IP addresses for equality
+func ExternIPEqual(a []byte, b []byte) bool {
 	// net.IP is an alias for []byte, so these are safe to convert
 	ip1 := net.IP(a)
 	ip2 := net.IP(b)
@@ -177,7 +179,8 @@ var externDNSNameProfile = idna.New(
 	idna.VerifyDNSLength(true),
 	idna.BidiRule())
 
-func externDNSName(in string) (string, error) {
+// ExternDNSName converts a string to a DNS name
+func ExternDNSName(in string) (string, error) {
 	s, err := externDNSNameProfile.ToUnicode(in)
 	if err != nil {
 		err = fmt.Errorf("error converting '%s' to dns name: '%v'", in, err)
@@ -190,7 +193,8 @@ func externDNSName(in string) (string, error) {
 var externDNSNameEqualProfile = idna.New(idna.MapForLookup(),
 	idna.BidiRule())
 
-func externDNSNameEqual(n1 string, n2 string) (bool, error) {
+// ExternDNSNameEqual compares two DNS names for equality
+func ExternDNSNameEqual(n1 string, n2 string) (bool, error) {
 	var err error
 
 	if n1, err = externDNSNameEqualProfile.ToUnicode(n1); err != nil {
@@ -201,17 +205,20 @@ func externDNSNameEqual(n1 string, n2 string) (bool, error) {
 		return false, err
 	}
 
-	if n1[len(n1)-1] == '.' && n2[len(n2)-1] != '.' {
-		n1 = n1[:len(n1)-1]
-	}
-	if n2[len(n2)-1] == '.' && n1[len(n1)-1] != '.' {
-		n2 = n2[:len(n2)-1]
+	if len(n1) > 0 && len(n2) > 0 {
+		if n1[len(n1)-1] == '.' && n2[len(n2)-1] != '.' {
+			n1 = n1[:len(n1)-1]
+		}
+		if n2[len(n2)-1] == '.' && n1[len(n1)-1] != '.' {
+			n2 = n2[:len(n2)-1]
+		}
 	}
 
 	return n1 == n2, nil
 }
 
-func externEmail(in string) (string, error) {
+// ExternEmail converts a string to an email address
+func ExternEmail(in string) (string, error) {
 	a, err := mail.ParseAddress(in)
 	if err != nil {
 		return "", fmt.Errorf("error converting '%s' to e-mail: '%v'", in, err)
@@ -226,7 +233,7 @@ func externEmail(in string) (string, error) {
 
 	_, domain := getEmailParts(a.Address)
 
-	_, err = externDNSName(domain)
+	_, err = ExternDNSName(domain)
 	if err != nil {
 		return "", fmt.Errorf("error converting '%s' to e-mail: '%v'", in, err)
 	}
@@ -234,7 +241,8 @@ func externEmail(in string) (string, error) {
 	return in, nil
 }
 
-func externEmailEqual(e1 string, e2 string) (bool, error) {
+// ExternEmailEqual compares two email addresses for equality
+func ExternEmailEqual(e1 string, e2 string) (bool, error) {
 	a1, err := mail.ParseAddress(e1)
 	if err != nil {
 		return false, err
@@ -248,7 +256,7 @@ func externEmailEqual(e1 string, e2 string) (bool, error) {
 	local1, domain1 := getEmailParts(a1.Address)
 	local2, domain2 := getEmailParts(a2.Address)
 
-	domainEq, err := externDNSNameEqual(domain1, domain2)
+	domainEq, err := ExternDNSNameEqual(domain1, domain2)
 	if err != nil {
 		return false, fmt.Errorf("error comparing e-mails '%s' and '%s': %v", e1, e2, err)
 	}
@@ -260,7 +268,8 @@ func externEmailEqual(e1 string, e2 string) (bool, error) {
 	return local1 == local2, nil
 }
 
-func externURI(in string) (string, error) {
+// ExternURI converts a string to a URI
+func ExternURI(in string) (string, error) {
 	if in == "" {
 		return "", errors.New("error converting string to uri: empty string")
 	}
@@ -271,7 +280,8 @@ func externURI(in string) (string, error) {
 	return in, nil
 }
 
-func externURIEqual(u1 string, u2 string) (bool, error) {
+// ExternURIEqual compares two URIs for equality
+func ExternURIEqual(u1 string, u2 string) (bool, error) {
 	url1, err := url.Parse(u1)
 	if err != nil {
 		return false, fmt.Errorf("error converting string to uri '%s': '%v'", u1, err)
@@ -296,7 +306,7 @@ func externURIEqual(u1 string, u2 string) (bool, error) {
 	if scheme1 == "http" || scheme1 == "https" {
 		// Special case http(s) URLs
 
-		dnsEq, err := externDNSNameEqual(url1.Hostname(), url2.Hostname())
+		dnsEq, err := ExternDNSNameEqual(url1.Hostname(), url2.Hostname())
 		if err != nil {
 			return false, err
 		}
@@ -329,7 +339,8 @@ func getEmailParts(email string) (local string, domain string) {
 	return
 }
 
-func externMatch(str string, pattern string) bool {
+// ExternMatch provides wildcard matching for strings
+func ExternMatch(str string, pattern string) bool {
 	if strings.HasSuffix(pattern, "*") {
 		return strings.HasPrefix(str, pattern[:len(pattern)-1])
 	}
@@ -343,11 +354,13 @@ func externMatches(pattern string, str string) (bool, error) {
 	return regexp.MatchString(pattern, str)
 }
 
-func externStartsWith(str string, prefix string) bool {
+// ExternStartsWith checks for prefixes
+func ExternStartsWith(str string, prefix string) bool {
 	return strings.HasPrefix(str, prefix)
 }
 
-func externEndsWith(str string, suffix string) bool {
+// ExternEndsWith checks for suffixes
+func ExternEndsWith(str string, suffix string) bool {
 	return strings.HasSuffix(str, suffix)
 }
 
@@ -362,6 +375,7 @@ func externConditionalString(condition bool, trueStr, falseStr string) string {
 	return falseStr
 }
 
-func externToLower(str string) string {
+// ExternToLower changes the string case to lower
+func ExternToLower(str string) string {
 	return strings.ToLower(str)
 }

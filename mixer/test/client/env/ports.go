@@ -34,7 +34,6 @@ const (
 	FailedRequestTest
 	FaultInjectTest
 	GlobalDictionaryTest
-	JWTAuthTest
 	MixerInternalFailTest
 	NetworkFailureTest
 	QuotaCacheTest
@@ -61,6 +60,8 @@ const (
 	RbacGlobalPermissiveTest
 	RbacPolicyPermissiveTest
 	GatewayTest
+	SidecarTest
+	SidecarConsumerOnlyTest
 
 	// The number of total tests. has to be the last one.
 	maxTestNum

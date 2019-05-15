@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 

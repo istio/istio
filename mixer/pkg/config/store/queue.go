@@ -17,7 +17,7 @@ package store
 import (
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // The size of the buffer for the outbound channel for the queue.
@@ -41,26 +41,6 @@ func newQueue(chin <-chan BackendEvent, kinds map[string]proto.Message) *eventQu
 	return eq
 }
 
-func (q *eventQueue) convertValue(ev BackendEvent) (Event, error) {
-	pbSpec, err := cloneMessage(ev.Kind, q.kinds)
-	if err != nil {
-		return Event{}, err
-	}
-	if ev.Value == nil {
-		return Event{Key: ev.Key, Type: ev.Type}, nil
-	}
-	if err = convert(ev.Key, ev.Value.Spec, pbSpec); err != nil {
-		return Event{}, err
-	}
-	return Event{
-		Key:  ev.Key,
-		Type: ev.Type,
-		Value: &Resource{
-			Metadata: ev.Value.Metadata,
-			Spec:     pbSpec,
-		}}, nil
-}
-
 func (q *eventQueue) run() {
 loop:
 	for {
@@ -68,7 +48,7 @@ loop:
 		case <-q.closec:
 			break loop
 		case ev := <-q.chin:
-			converted, err := q.convertValue(ev)
+			converted, err := ConvertValue(ev, q.kinds)
 			if err != nil {
 				log.Errorf("Failed to convert %s an event: %v", ev.Key, err)
 				break
@@ -79,7 +59,7 @@ loop:
 				case <-q.closec:
 					break loop
 				case ev := <-q.chin:
-					converted, err = q.convertValue(ev)
+					converted, err = ConvertValue(ev, q.kinds)
 					if err != nil {
 						log.Errorf("Failed to convert %s an event: %v", ev.Key, err)
 						break

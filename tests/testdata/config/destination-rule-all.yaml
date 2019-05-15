@@ -52,7 +52,6 @@ spec:
     - name: v2
       labels:
         version: v2
-        version: v3
       trafficPolicy:
         loadBalancer:
           consistentHash:

@@ -28,35 +28,9 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/mcp/testing/testcerts"
+	"istio.io/pkg/filewatcher"
 )
-
-type fakeWatcher struct {
-	events map[string]chan fsnotify.Event
-	errors map[string]chan error
-	added  chan struct{}
-}
-
-func (w *fakeWatcher) Add(path string) error {
-	if _, ok := w.events[path]; !ok {
-		w.events[path] = make(chan fsnotify.Event, 10)
-	}
-	if _, ok := w.errors[path]; !ok {
-		w.errors[path] = make(chan error, 10)
-	}
-	w.added <- struct{}{}
-	return nil
-}
-
-func (w *fakeWatcher) Close() error { return nil }
-func (w *fakeWatcher) Events(path string) chan fsnotify.Event {
-	return w.events[path]
-}
-func (w *fakeWatcher) Errors(path string) chan error {
-	return w.errors[path]
-}
-func (w *fakeWatcher) Remove(path string) error { panic("not supported") }
 
 var (
 	certFile   = "foo.pem"

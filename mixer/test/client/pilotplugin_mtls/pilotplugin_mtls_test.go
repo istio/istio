@@ -312,16 +312,17 @@ func (mock) ID(*core.Node) string {
 func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
-func (mock) GetProxyLocality(_ *model.Proxy) string {
-	return ""
+func (mock) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCollection, error) {
+	return nil, nil
 }
 func (mock) GetService(_ model.Hostname) (*model.Service, error) { return nil, nil }
 func (mock) InstancesByPort(_ model.Hostname, _ int, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
-func (mock) ManagementPorts(_ string) model.PortList          { return nil }
-func (mock) Services() ([]*model.Service, error)              { return nil, nil }
-func (mock) WorkloadHealthCheckInfo(_ string) model.ProbeList { return nil }
+func (mock) ManagementPorts(_ string) model.PortList                               { return nil }
+func (mock) Services() ([]*model.Service, error)                                   { return nil, nil }
+func (mock) WorkloadHealthCheckInfo(_ string) model.ProbeList                      { return nil }
+func (mock) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string { return nil }
 
 const (
 	id = "id"
@@ -424,7 +425,7 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 	serverListener.FilterChains = []listener.FilterChain{{
 		Filters: []listener.Filter{{
 			Name:       util.HTTPConnectionManager,
-			ConfigType: &listener.Filter_Config{pilotutil.MessageToStruct(serverManager)},
+			ConfigType: &listener.Filter_TypedConfig{TypedConfig: pilotutil.MessageToAny(serverManager)},
 		}},
 		// turn on mTLS on downstream
 		TlsContext: &auth.DownstreamTlsContext{
@@ -450,7 +451,7 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 	clientManager.HttpFilters = append(clientMutable.FilterChains[0].HTTP, clientManager.HttpFilters...)
 	clientListener.FilterChains = []listener.FilterChain{{Filters: []listener.Filter{{
 		Name:       util.HTTPConnectionManager,
-		ConfigType: &listener.Filter_Config{pilotutil.MessageToStruct(clientManager)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: pilotutil.MessageToAny(clientManager)},
 	}}}}
 
 	p.OnInboundRouteConfiguration(&serverParams, serverRoute)

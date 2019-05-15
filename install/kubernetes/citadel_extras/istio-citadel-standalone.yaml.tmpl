@@ -42,13 +42,18 @@ metadata:
   name: istio-citadel-service-account
   namespace: {ISTIO_NAMESPACE}
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-standalone-citadel
   namespace: {ISTIO_NAMESPACE}
+  labels:
+    istio: standalone-citadel
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      istio: standalone-citadel
   template:
     metadata:
       labels:

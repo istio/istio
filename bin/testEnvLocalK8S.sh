@@ -28,7 +28,9 @@ export GO_TOP=${GO_TOP:-$(echo "${GOPATH}" | cut -d ':' -f1)}
 export ISTIO_GO=${GO_TOP}/src/istio.io/istio
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
-   export GOOS_LOCAL=darwin
+  export GOOS_LOCAL=darwin
+  echo "kube-apiserver not supported on mac, skipping."
+  exit 0
 else
   export GOOS_LOCAL=${GOOS_LOCAL:-linux}
 fi
@@ -163,7 +165,6 @@ function ensureLocalApiServer() {
 
 function createIstioConfigmap() {
   helm init --client-only
-  helm dep update "${ISTIO_GO}/install/kubernetes/helm/istio"
   helm template "${ISTIO_GO}/install/kubernetes/helm/istio" --namespace=istio-system \
      --execute=templates/configmap.yaml --values install/kubernetes/helm/istio/values.yaml  > "${LOG_DIR}/istio-configmap.yaml"
   kubectl create -f "${LOG_DIR}/istio-configmap.yaml"
