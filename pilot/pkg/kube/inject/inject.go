@@ -141,6 +141,7 @@ const (
 type SidecarInjectionSpec struct {
 	// RewriteHTTPProbe indicates whether Kubernetes HTTP prober in the PodSpec
 	// will be rewritten to be redirected by pilot agent.
+	CniExtraConfig      map[string]string             `yaml:"cniExtraConfig"`
 	RewriteAppHTTPProbe bool                          `yaml:"rewriteAppHTTPProbe"`
 	InitContainers      []corev1.Container            `yaml:"initContainers"`
 	Containers          []corev1.Container            `yaml:"containers"`
@@ -790,6 +791,9 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	// Because we need to extract istio-proxy's statusPort.
 	rewriteAppHTTPProbe(metadata.Annotations, podSpec, spec)
 
+	if len(spec.CniExtraConfig) != 0 {
+		rewriteCniPodSPec(metadata.Annotations, spec)
+	}
 	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
 	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
 	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
@@ -889,6 +893,7 @@ func toYaml(value interface{}) string {
 }
 
 func annotation(meta metav1.ObjectMeta, name string, defaultValue interface{}) string {
+
 	value, ok := meta.Annotations[name]
 	if !ok {
 		value = fmt.Sprint(defaultValue)
@@ -955,4 +960,26 @@ func potentialPodName(metadata *metav1.ObjectMeta) string {
 		return metadata.GenerateName + "***** (actual name not yet known)"
 	}
 	return ""
+}
+
+func rewriteCniPodSPec(annotations map[string]string, spec *SidecarInjectionSpec) error {
+
+	var err error
+	if spec == nil {
+		return nil
+	}
+	if len(spec.CniExtraConfig) == 0 {
+		return nil
+	}
+	for k, _ := range annotationRegistry {
+		if spec.CniExtraConfig[k] != "" {
+			if annotations[k] != "" {
+				err = fmt.Errorf("can't specify annotations on both pod spec and from Helm value")
+				return err
+			}
+
+			annotations[k] = spec.CniExtraConfig[k]
+		}
+	}
+	return err
 }

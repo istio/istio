@@ -347,3 +347,16 @@ dnsConfig:
     - {{ render . }}
     {{- end }}
 {{- end }}
+{{- if .Values.istio_cni.enabled }}
+cniExtraConfig:
+   sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.Int
+erceptionMode }}"
+   traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutb
+oundIPRanges` .Values.global.proxy.includeIPRanges }}"
+   traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutb
+oundIPRanges` .Values.global.proxy.excludeIPRanges }}"
+   traffic.sidecar.istio.io/includeInboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundP
+orts` (includeInboundPorts .Spec.Containers) }}"
+   traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtI
+nterfaces` }}"
+{{- end }}
