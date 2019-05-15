@@ -2,6 +2,7 @@
 name: Bug report
 about: Report a bug to help us improve Istio
 ---
+(This is used to report product bugs, please visit <https://discuss.istio.io> for questions on using Istio)
 
 **Bug description**
 
