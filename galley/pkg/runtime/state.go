@@ -117,11 +117,13 @@ func (s *State) Handle(event resource.Event) {
 		pks.entries[event.Entry.ID.FullName] = entry
 		pks.versions[event.Entry.ID.FullName] = event.Entry.ID.Version
 		monitoring.RecordStateTypeCount(event.Entry.ID.Collection.String(), len(pks.entries))
+		monitorEntry(event.Entry.ID, true)
 
 	case resource.Deleted:
 		delete(pks.entries, event.Entry.ID.FullName)
 		delete(pks.versions, event.Entry.ID.FullName)
 		monitoring.RecordStateTypeCount(event.Entry.ID.Collection.String(), len(pks.entries))
+		monitorEntry(event.Entry.ID, false)
 
 	default:
 		log.Scope.Errorf("Unknown event kind: %v", event.Kind)
@@ -316,4 +318,13 @@ func (s *State) String() string {
 	_, _ = fmt.Fprintf(&b, "%v", sn)
 
 	return b.String()
+}
+
+func monitorEntry(resourceKey resource.VersionedKey, added bool) {
+	namespace, name := resourceKey.FullName.InterpretAsNamespaceAndName()
+	count := 1
+	if !added {
+		count = 0
+	}
+	monitoring.RecordDetailedStateType(namespace, name, resourceKey.Collection, count)
 }
