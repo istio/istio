@@ -181,7 +181,7 @@ func (h *sourceTestHarness) watchesCreated(typeURL string) int {
 	return h.watchCreated[typeURL]
 }
 
-func (h *sourceTestHarness) Watch(req *Request, pushResponse PushResponseFunc) CancelWatchFunc {
+func (h *sourceTestHarness) Watch(req *Request, pushResponse PushResponseFunc, peerAddr string) CancelWatchFunc {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
