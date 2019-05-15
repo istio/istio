@@ -18,8 +18,8 @@ import (
 	"testing"
 
 	istio_mixer_v1_config_descriptor "istio.io/api/policy/v1beta1"
+	"istio.io/istio/mixer/pkg/attribute"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
-	"istio.io/istio/mixer/pkg/lang/ast"
 )
 
 func TestCompiledExpressions(t *testing.T) {
@@ -37,7 +37,7 @@ func TestCompiledExpressions(t *testing.T) {
 
 		name := "Compiled/" + test.TestName()
 		t.Run(name, func(tt *testing.T) {
-			finder := ast.NewFinder(test.Conf())
+			finder := attribute.NewFinder(test.Conf())
 
 			builder := NewBuilder(finder)
 			compiled, exprType, err := builder.Compile(test.E)
