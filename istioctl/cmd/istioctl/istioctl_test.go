@@ -19,7 +19,7 @@ import (
 	"testing"
 )
 
-func TestMain(_ *testing.T) {
+func TestIstioctlMain(_ *testing.T) {
 	os.Args = []string{"istioctl", "version", "--remote=false"}
 	main()
 }
