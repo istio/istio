@@ -116,7 +116,7 @@ function clone_cni() {
 function check_and_install_kind() {
   echo "Checking KinD is installed..."
   if ! kind --help > /dev/null; then
-    if ! (go get sigs.k8s.io/kind); then
+    if ! (GO111MODULE="on" go get sigs.k8s.io/kind); then
       echo "Looks like KinD installation failed."
       exit 1
     fi

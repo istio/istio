@@ -50,7 +50,7 @@ require (
 	github.com/elazarl/go-bindata-assetfs v1.0.0 // indirect
 	github.com/elazarl/goproxy v0.0.0-20190421051319-9d40249d3c2f // indirect
 	github.com/elazarl/goproxy/ext v0.0.0-20190421051319-9d40249d3c2f // indirect
-	github.com/emicklei/go-restful v2.6.0+incompatible
+	github.com/emicklei/go-restful v2.8.0+incompatible
 	github.com/envoyproxy/go-control-plane v0.7.0
 	github.com/envoyproxy/protoc-gen-validate v0.0.14 // indirect
 	github.com/evanphx/json-patch v3.0.0+incompatible
@@ -79,11 +79,9 @@ require (
 	github.com/google/go-cmp v0.2.0
 	github.com/google/go-github v15.0.0+incompatible
 	github.com/google/go-querystring v0.0.0-20170111101155-53e6ce116135 // indirect
-	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf // indirect
 	github.com/google/uuid v0.0.0-20161128191214-064e2069ce9c
 	github.com/googleapis/gax-go v2.0.0+incompatible
 	github.com/googleapis/gax-go/v2 v2.0.4
-	github.com/googleapis/gnostic v0.1.0 // indirect
 	github.com/gophercloud/gophercloud v0.0.0-20180327194212-2daf3049f2a9 // indirect
 	github.com/gorilla/mux v1.7.1
 	github.com/gorilla/websocket v1.2.0
@@ -110,7 +108,6 @@ require (
 	github.com/imdario/mergo v0.3.5 // indirect
 	github.com/jefferai/jsonx v1.0.0 // indirect
 	github.com/jmespath/go-jmespath v0.0.0-20160202185014-0b12d6b521d8 // indirect
-	github.com/json-iterator/go v0.0.0-20180914014843-2433035e5132 // indirect
 	github.com/juju/errors v0.0.0-20190207033735-e65537c515d7 // indirect
 	github.com/juju/loggo v0.0.0-20190212223446-d976af380377 // indirect
 	github.com/juju/testing v0.0.0-20190429233213-dfc56b8c09fc // indirect
@@ -122,8 +119,6 @@ require (
 	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
 	github.com/mitchellh/mapstructure v0.0.0-20180220230111-00c29f56e238 // indirect
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
-	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
-	github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/onsi/ginkgo v1.8.0 // indirect
 	github.com/onsi/gomega v1.5.0
@@ -191,6 +186,5 @@ require (
 	k8s.io/client-go v10.0.0+incompatible
 	k8s.io/helm v2.9.1+incompatible
 	k8s.io/klog v0.3.0 // indirect
-	k8s.io/kube-openapi v0.0.0-20180216212618-50ae88d24ede // indirect
-	sigs.k8s.io/yaml v1.1.0 // indirect
+	sigs.k8s.io/kind v0.2.1 // indirect
 )

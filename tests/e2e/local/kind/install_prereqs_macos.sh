@@ -41,7 +41,7 @@ function check_and_install_golang() {
 function check_and_install_kind() {
     echo "Checking KinD is installed..."
     if ! kind --help > /dev/null; then
-        if ! (go get sigs.k8s.io/kind); then
+        if ! (GO111MODULE="on" go get sigs.k8s.io/kind); then
             echo "Looks like KinD installation failed."
             echo "Please install it manually then run this script again."
             exit 1
