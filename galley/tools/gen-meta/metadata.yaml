@@ -6,8 +6,10 @@ resources:
     singular:    "ingress"
     plural:      "ingresses"
     group:       "extensions"
-    version:     "v1beta1"
     proto:       "k8s.io.api.extensions.v1beta1.IngressSpec"
+    versions:    
+    - "v1beta1"
+    
     protoPackage: "k8s.io/api/extensions/v1beta1"
     converter:    "kube-ingress-resource"
     collection:   "k8s/extensions/v1beta1/ingresses"
@@ -15,7 +17,8 @@ resources:
   - kind:        "Service"
     singular:    "service"
     plural:      "services"
-    version:     "v1"
+    versions:    
+    - "v1"
     proto:       "k8s.io.api.core.v1.ServiceSpec"
     protoPackage: "k8s.io/api/core/v1"
     collection:   "k8s/core/v1/services"
@@ -23,7 +26,8 @@ resources:
   - kind:        "Node"
     singular:    "node"
     plural:      "nodes"
-    version:     "v1"
+    versions:    
+    - "v1"
     proto:       "k8s.io.api.core.v1.NodeSpec"
     protoPackage: "k8s.io/api/core/v1"
     collection:   "k8s/core/v1/nodes"
@@ -31,7 +35,8 @@ resources:
   - kind:        "Pod"
     singular:    "pod"
     plural:      "pods"
-    version:     "v1"
+    versions:    
+    - "v1"
     proto:       "k8s.io.api.core.v1.Pod"
     protoPackage: "k8s.io/api/core/v1"
     collection:   "k8s/core/v1/pods"
@@ -39,7 +44,8 @@ resources:
   - kind:        "Endpoints"
     singular:    "endpoints"
     plural:      "endpoints"
-    version:     "v1"
+    versions:    
+    - "v1"
     proto:       "k8s.io.api.core.v1.Endpoints"
     protoPackage: "k8s.io/api/core/v1"
     collection:   "k8s/core/v1/endpoints"
@@ -48,7 +54,9 @@ resources:
     singular:    "virtualservice"
     plural:      "virtualservices"
     group:       "networking.istio.io"
-    version:     "v1alpha3"
+    versions:    
+    - "v1alpha3"    
+    #- "v1beta1" wait until v1beta1 is available in istio.api
     proto:       "istio.networking.v1alpha3.VirtualService"
     collection:  "istio/networking/v1alpha3/virtualservices"
 
@@ -56,7 +64,9 @@ resources:
     singular:    "gateway"
     plural:      "gateways"
     group:       "networking.istio.io"
-    version:     "v1alpha3"
+    versions:    
+    - "v1alpha3"    
+    #- "v1beta1" wait until v1beta1 is available in istio.api
     proto:       "istio.networking.v1alpha3.Gateway"
     collection:  "istio/networking/v1alpha3/gateways"
 
@@ -64,7 +74,9 @@ resources:
     singular:    "serviceentry"
     plural:      "serviceentries"
     group:       "networking.istio.io"
-    version:     "v1alpha3"
+    versions:    
+    - "v1alpha3"    
+    #- "v1beta1" wait until v1beta1 is available in istio.api
     proto:       "istio.networking.v1alpha3.ServiceEntry"
     collection:  "istio/networking/v1alpha3/serviceentries"
 
@@ -72,7 +84,9 @@ resources:
     singular:    "serviceentry"
     plural:      "serviceentries"
     group:       "networking.istio.io"
-    version:     "v1alpha3"
+    versions:    
+    - "v1alpha3"    
+    #- "v1beta1" wait until v1beta1 is available in istio.api
     proto:       "istio.networking.v1alpha3.ServiceEntry"
     collection:  "istio/networking/v1alpha3/synthetic/serviceentries"
     generated:   "true"
@@ -81,7 +95,9 @@ resources:
     singular:    "destinationrule"
     plural:      "destinationrules"
     group:       "networking.istio.io"
-    version:     "v1alpha3"
+    versions:    
+    - "v1alpha3"    
+    #- "v1beta1" wait until v1beta1 is available in istio.api
     proto:       "istio.networking.v1alpha3.DestinationRule"
     collection:  "istio/networking/v1alpha3/destinationrules"
 
@@ -89,7 +105,9 @@ resources:
     singular:    "envoyfilter"
     plural:      "envoyfilters"
     group:       "networking.istio.io"
-    version:     "v1alpha3"
+    versions:    
+    - "v1alpha3"    
+    #- "v1beta1" wait until v1beta1 is available in istio.api
     proto:       "istio.networking.v1alpha3.EnvoyFilter"
     collection:  "istio/networking/v1alpha3/envoyfilters"
 
@@ -97,7 +115,9 @@ resources:
     singular:    "sidecar"
     plural:      "sidecars"
     group:       "networking.istio.io"
-    version:     "v1alpha3"
+    versions:    
+    - "v1alpha3"    
+    #- "v1beta1" wait until v1beta1 is available in istio.api
     proto:       "istio.networking.v1alpha3.Sidecar"
     collection:  "istio/networking/v1alpha3/sidecars"
 
@@ -105,7 +125,8 @@ resources:
     singular:    "httpapispec"
     plural:      "httpapispecs"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "istio.mixer.v1.config.client.HTTPAPISpec"
     collection:  "istio/config/v1alpha2/httpapispecs"
 
@@ -113,7 +134,8 @@ resources:
     singular:    "httpapispecbinding"
     plural:      "httpapispecbindings"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "istio.mixer.v1.config.client.HTTPAPISpecBinding"
     collection:  "istio/config/v1alpha2/httpapispecbindings"
 
@@ -121,7 +143,8 @@ resources:
     singular:    "quotaspec"
     plural:      "quotaspecs"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "istio.mixer.v1.config.client.QuotaSpec"
     collection:  "istio/mixer/v1/config/client/quotaspecs"
 
@@ -129,7 +152,8 @@ resources:
     singular:    "quotaspecbinding"
     plural:      "quotaspecbindings"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "istio.mixer.v1.config.client.QuotaSpecBinding"
     collection:  "istio/mixer/v1/config/client/quotaspecbindings"
 
@@ -138,7 +162,8 @@ resources:
     singular:    "policy"
     plural:      "policies"
     group:       "authentication.istio.io"
-    version:     "v1alpha1"
+    versions:    
+    - "v1alpha1"
     proto:       "istio.authentication.v1alpha1.Policy"
     converter:   "auth-policy-resource"
     collection:  "istio/authentication/v1alpha1/policies"
@@ -148,7 +173,8 @@ resources:
     singular:      "meshpolicy"
     plural:        "meshpolicies"
     group:         "authentication.istio.io"
-    version:       "v1alpha1"
+    versions:    
+    - "v1alpha1"
     proto:         "istio.authentication.v1alpha1.Policy"
     converter:     "auth-policy-resource"
     collection:    "istio/authentication/v1alpha1/meshpolicies"
@@ -157,7 +183,8 @@ resources:
     singular:    "servicerole"
     plural:      "serviceroles"
     group:       "rbac.istio.io"
-    version:     "v1alpha1"
+    versions:    
+    - "v1alpha1"
     proto:       "istio.rbac.v1alpha1.ServiceRole"
     collection:  "istio/rbac/v1alpha1/serviceroles"
 
@@ -166,7 +193,8 @@ resources:
     singular:    "servicerolebinding"
     plural:      "servicerolebindings"
     group:       "rbac.istio.io"
-    version:     "v1alpha1"
+    versions:    
+    - "v1alpha1"
     proto:       "istio.rbac.v1alpha1.ServiceRoleBinding"
     collection:  "istio/rbac/v1alpha1/servicerolebindings"
 
@@ -174,7 +202,8 @@ resources:
     singular:    "authorizationpolicy"
     plural:      "authorizationpolicies"
     group:       "rbac.istio.io"
-    version:     "v1alpha1"
+    versions:    
+    - "v1alpha1"
     proto:       "istio.rbac.v1alpha1.AuthorizationPolicy"
     collection:  "istio/rbac/v1alpha1/authorizationpolicies"
 
@@ -183,7 +212,8 @@ resources:
     singular:    "rbacconfig"
     plural:      "rbacconfigs"
     group:       "rbac.istio.io"
-    version:     "v1alpha1"
+    versions:    
+    - "v1alpha1"
     proto:       "istio.rbac.v1alpha1.RbacConfig"
     collection:  "istio/rbac/v1alpha1/rbacconfigs"
 
@@ -193,7 +223,8 @@ resources:
     singular:    "clusterrbacconfig"
     plural:      "clusterrbacconfigs"
     group:       "rbac.istio.io"
-    version:     "v1alpha1"
+    versions:    
+    - "v1alpha1"
     proto:       "istio.rbac.v1alpha1.RbacConfig"
     collection:  "istio/rbac/v1alpha1/clusterrbacconfigs"
 
@@ -203,7 +234,8 @@ resources:
     singular:    "rule"
     plural:      "rules"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "istio.policy.v1beta1.Rule"
     collection:  "istio/policy/v1beta1/rules"
 
@@ -211,7 +243,8 @@ resources:
     singular:    "attributemanifest"
     plural:      "attributemanifests"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "istio.policy.v1beta1.AttributeManifest"
     collection:  "istio/policy/v1beta1/attributemanifests"
 
@@ -219,7 +252,8 @@ resources:
     singular:    "instance"
     plural:      "instances"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "istio.policy.v1beta1.Instance"
     collection:  "istio/policy/v1beta1/instances"
 
@@ -227,7 +261,8 @@ resources:
     singular:    "handler"
     plural:      "handlers"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "istio.policy.v1beta1.Handler"
     collection:  "istio/policy/v1beta1/handlers"
 
@@ -235,7 +270,8 @@ resources:
     singular:    "template"
     plural:      "templates"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/templates"
@@ -244,7 +280,8 @@ resources:
     singular:    "adapter"
     plural:      "adapters"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/adapters"
@@ -255,7 +292,8 @@ resources:
     singular:    "bypass"
     plural:      "bypasses"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/bypasses"
@@ -265,7 +303,8 @@ resources:
     singular:    "circonus"
     plural:      "circonuses"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/circonuses"
@@ -275,7 +314,8 @@ resources:
     singular:    "denier"
     plural:      "deniers"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/deniers"
@@ -286,7 +326,8 @@ resources:
     singular:    "fluentd"
     plural:      "fluentds"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/fluentds"
@@ -296,7 +337,8 @@ resources:
     singular:    "kubernetesenv"
     plural:      "kubernetesenvs"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/kubernetesenvs"
@@ -306,7 +348,8 @@ resources:
     singular:    "listchecker"
     plural:      "listcheckers"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/listcheckers"
@@ -316,7 +359,8 @@ resources:
     singular:    "memquota"
     plural:      "memquotas"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/memquotas"
@@ -326,7 +370,8 @@ resources:
     singular:    "noop"
     plural:      "noops"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/noops"
@@ -336,7 +381,8 @@ resources:
     singular:    "opa"
     plural:      "opas"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/opas"
@@ -346,7 +392,8 @@ resources:
     singular:    "prometheus"
     plural:      "prometheuses"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/prometheuses"
@@ -356,7 +403,8 @@ resources:
     singular:    "redisquota"
     plural:      "redisquotas"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/redisquotas"
@@ -366,7 +414,8 @@ resources:
     group:       "config.istio.io"
     plural:      "signalfxs"
     singular:    "signalfx"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/signalfxs"
@@ -376,7 +425,8 @@ resources:
     singular:    "solarwinds"
     plural:      "solarwindses"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/solarwindses"
@@ -386,7 +436,8 @@ resources:
     singular:    "stackdriver"
     plural:      "stackdrivers"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/stackdrivers"
@@ -396,7 +447,8 @@ resources:
     singular:    "statsd"
     plural:      "statsds"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/statsds"
@@ -406,7 +458,8 @@ resources:
     singular:    "stdio"
     plural:      "stdios"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/stdios"
@@ -416,7 +469,8 @@ resources:
     singular:    "apikey"
     plural:      "apikeys"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/apikeys"
@@ -426,7 +480,8 @@ resources:
     singular:    "authorization"
     plural:      "authorizations"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/authorizations"
@@ -436,7 +491,8 @@ resources:
     singular:    "checknothing"
     plural:      "checknothings"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/checknothings"
@@ -446,7 +502,8 @@ resources:
     singular:    "kubernetes"
     plural:      "kuberneteses"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/kuberneteses"
@@ -456,7 +513,8 @@ resources:
     singular:    "listentry"
     plural:      "listentries"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/listentries"
@@ -466,7 +524,8 @@ resources:
     singular:    "logentry"
     plural:      "logentries"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/logentries"
@@ -476,7 +535,8 @@ resources:
     singular:    "metric"
     plural:      "metrics"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/metrics"
@@ -486,7 +546,8 @@ resources:
     singular:    "quota"
     plural:      "quotas"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/quotas"
@@ -496,7 +557,8 @@ resources:
     singular:    "reportnothing"
     plural:      "reportnothings"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/reportnothings"
@@ -506,7 +568,8 @@ resources:
     singular:    "tracespan"
     plural:      "tracespans"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/tracespans"
@@ -516,7 +579,8 @@ resources:
     singular:    "rbac"
     plural:      "rbacs"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/rbacs"
@@ -526,7 +590,8 @@ resources:
     singular:    "cloudwatch"
     plural:      "cloudwatches"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/cloudwatches"
@@ -536,7 +601,8 @@ resources:
     singular:    "dogstatsd"
     plural:      "dogstatsds"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/dogstatsds"
@@ -546,7 +612,8 @@ resources:
     singular:    "edge"
     plural:      "edges"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/edges"
@@ -556,7 +623,8 @@ resources:
     singular:    "zipkin"
     plural:      "zipkins"
     group:       "config.istio.io"
-    version:     "v1alpha2"
+    versions:    
+    - "v1alpha2"
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/zipkins"
