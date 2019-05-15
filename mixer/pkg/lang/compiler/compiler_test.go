@@ -38,7 +38,7 @@ func TestCompiler_SingleExpressionSession(t *testing.T) {
 
 		t.Run(test.TestName(), func(tt *testing.T) {
 
-			finder := ast.NewFinder(test.Conf())
+			finder := attribute.NewFinder(test.Conf())
 
 			fns := lang.ExternFunctionMetadata
 			if test.Fns != nil {
@@ -95,7 +95,7 @@ func TestCompiler_DoubleExpressionSession(t *testing.T) {
 
 		t.Run(test.TestName(), func(tt *testing.T) {
 
-			finder := ast.NewFinder(test.Conf())
+			finder := attribute.NewFinder(test.Conf())
 
 			fns := lang.ExternFunctionMetadata
 			if test.Fns != nil {
@@ -166,7 +166,7 @@ func TestCompile(t *testing.T) {
 		name := fmt.Sprintf("%d '%s'", i, test.TestName())
 		t.Run(name, func(tt *testing.T) {
 
-			finder := ast.NewFinder(test.Conf())
+			finder := attribute.NewFinder(test.Conf())
 
 			fns := lang.ExternFunctionMetadata
 			if test.Fns != nil {
