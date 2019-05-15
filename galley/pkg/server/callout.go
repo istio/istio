@@ -25,7 +25,7 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/authplugins"
 	"istio.io/istio/pkg/mcp/source"
-	"istio.io/istio/pkg/version"
+	"istio.io/pkg/version"
 )
 
 const versionMetadataKey = "config.source.version"
