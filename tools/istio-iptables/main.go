@@ -277,7 +277,7 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 	fmt.Println("Variables:")
 	fmt.Println("----------")
 	fmt.Printf("PROXY_PORT=%s\n", proxyPort)
-	fmt.Printf("INBOUND_CAPTURE_PORT=%s\n", getEnvWithDefault("INBOUND_CAPTURE_PORT", "$PROXY_PORT"))
+	fmt.Printf("INBOUND_CAPTURE_PORT=%s\n", getEnvWithDefault("INBOUND_CAPTURE_PORT", proxyPort))
 	fmt.Printf("PROXY_UID=%s\n", proxyUID)
 	fmt.Printf("INBOUND_INTERCEPTION_MODE=%s\n", inboundInterceptionMode)
 	fmt.Printf("INBOUND_TPROXY_MARK=%s\n", inboundTProxyMark)
@@ -534,6 +534,7 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 }
 
 func main() {
-	run(os.Args, flag.CommandLine, getLocalIP)
+	fmt.Println(os.Args)
+	run(os.Args[1:], flag.CommandLine, getLocalIP)
 	fmt.Println("istio-iptables run successful")
 }
