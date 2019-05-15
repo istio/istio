@@ -84,7 +84,7 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
-  name: %s
+  name: {{.namespace}}
 spec:
   params:
     backend_address: policy-backend.%s.svc.cluster.local:1071
@@ -97,11 +97,11 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
   name: allowhandler
-  namespace: %s
+  namespace: {{.mixerNamespace}}
 spec:
   adapter: policybackend
   connection:
-    address: policy-backend.%s.svc.cluster.local:1071
+    address: policy-backend.{{.policyBackendNamespace}}.svc.cluster.local:1071
   params:
     checkParams:
       checkAllow: true
@@ -112,11 +112,11 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
   name: denyhandler
-  namespace: %s
+  namespace: {{.mixerNamespace}}
 spec:
   adapter: policybackend
   connection:
-    address: policy-backend.%s.svc.cluster.local:1071
+    address: policy-backend.{{.policyBackendNamespace}}.svc.cluster.local:1071
   params:
     checkParams:
       checkAllow: false
@@ -125,11 +125,11 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
   name: keyval
-  namespace: %s
+  namespace: {{.mixerNamespace}}
 spec:
   adapter: policybackend
   connection:
-    address: policy-backend.%s.svc.cluster.local:1071
+    address: policy-backend.{{.policyBackendNamespace}}.svc.cluster.local:1071
   params:
     table:
       jason: admin
@@ -242,14 +242,27 @@ func newKube(ctx resource.Context) (Instance, error) {
 	return c, nil
 }
 
-func (c *kubeComponent) CreateConfigSnippet(name string, namespace string, am AdapterMode) string {
+func (c *kubeComponent) CreateConfigSnippet(name string, mixerNS string, am AdapterMode) string {
 	switch am {
 	case InProcess:
-		return fmt.Sprintf(inProcessHandlerKube, name, c.namespace.Name())
+		ih, err := tmpl.Evaluate(inProcessHandlerKube, map[string]interface{}{
+			"mixerNamespace": mixerNS,
+		})
+		if err != nil {
+			scopes.CI.Infof("Error generating in process adapter handler: %v", err)
+			return ""
+		}
+		return ih
 	case OutOfProcess:
-		handler := fmt.Sprintf(outOfProcessHandlerKube, namespace, c.namespace.Name(),
-			namespace, c.namespace.Name(), namespace, c.namespace.Name())
-		return handler
+		ooph, err := tmpl.Evaluate(outOfProcessHandlerKube, map[string]interface{}{
+			"mixerNamespace":         mixerNS,
+			"policyBackendNamespace": c.namespace.Name(),
+		})
+		if err != nil {
+			scopes.CI.Infof("Error generating out of process adapter handler: %v", err)
+			return ""
+		}
+		return ooph
 	default:
 		scopes.CI.Errorf("Error generating config snippet for policy backend: unsupported adapter mode")
 		return ""

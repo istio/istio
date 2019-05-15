@@ -60,7 +60,7 @@ type Instance interface {
 
 	// CreateConfigSnippet for the Mixer adapter to talk to this policy backend.
 	// If adapter mode is in process, the supplied name will be the name of the handler.
-	CreateConfigSnippet(name string, namespace string, am AdapterMode) string
+	CreateConfigSnippet(name string, mixerNS string, am AdapterMode) string
 }
 
 // New returns a new instance of echo.

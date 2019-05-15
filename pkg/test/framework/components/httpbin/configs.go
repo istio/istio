@@ -16,14 +16,12 @@ package httpbin
 
 import (
 	"path"
-	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/test/util/yml"
-
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 // ConfigFile represents config yaml files for different httpbin scenarios.
@@ -39,7 +37,7 @@ func (l ConfigFile) LoadWithNamespaceOrFail(t testing.TB, namespace string) stri
 	t.Helper()
 	p := path.Join(env.HttpbinRoot, string(l))
 
-	content, err := test.ReadConfigFile(p)
+	content, err := file.AsString(p)
 	if err != nil {
 		t.Fatalf("unable to load config %s at %v, err:%v", l, p, err)
 	}
@@ -48,15 +46,8 @@ func (l ConfigFile) LoadWithNamespaceOrFail(t testing.TB, namespace string) stri
 		if err != nil {
 			t.Fatalf("cannot apply namespace config to httpbin yaml content: %v", content)
 		}
-		content = replaceHttpbinAppAddressWithFQDNAddress(content, namespace)
 	}
 
 	scopes.Framework.Debugf("Loaded Httpbin file: %s\n%s\n", p, content)
-	return content
-}
-
-func replaceHttpbinAppAddressWithFQDNAddress(fileContent, namespace string) string {
-	content := fileContent
-	content = strings.Replace(content, "host: httpbin", "host: httpbin."+namespace+".svc.cluster.local", -1)
 	return content
 }
