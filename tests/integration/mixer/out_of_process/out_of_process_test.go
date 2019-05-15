@@ -99,7 +99,6 @@ func TestRouteDirective(t *testing.T) {
 
 			// Retry visiting httpbin until gets "user-group" header
 			retry.UntilSuccessOrFail(t, func() error {
-				t.Logf("try visiting httpbin with 'user: jason' header, want user-group header to be added")
 				response, err = ing.CallWithHeaders("/headers", map[string]string{"user": "jason"})
 				if err != nil {
 					return fmt.Errorf("unable to connect to httpbin: %v", err)
@@ -121,6 +120,7 @@ func TestRouteDirective(t *testing.T) {
 						return nil
 					}
 				}
+				t.Logf("try visiting httpbin with 'user: jason' header, got %v want user-group header", headers)
 				return fmt.Errorf("cannot find user-group header in request headers: %v", headers)
 			}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
 
@@ -131,7 +131,6 @@ func TestRouteDirective(t *testing.T) {
 			t.Logf("apply rule to edit path header")
 			g.ApplyConfigOrFail(t, istioSystemNs, testOOPKeyValPathRule)
 			retry.UntilSuccessOrFail(t, func() error {
-				t.Logf("try visiting httpbin with 'user: jason' header, want to get status 418")
 				response, err = ing.CallWithHeaders("/headers", map[string]string{"user": "jason"})
 				if err != nil {
 					return fmt.Errorf("unable to connect to httpbin: %v", err)
@@ -139,6 +138,7 @@ func TestRouteDirective(t *testing.T) {
 				if response.Code != statusTeapot {
 					return fmt.Errorf("httpbin does not return teapot: %v", response.Code)
 				}
+				t.Logf("try visiting httpbin with 'user: jason' header, got %v, want to get status %v", response.Code, statusTeapot)
 				return nil
 			}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
 			t.Logf("httpbin returns status 418")

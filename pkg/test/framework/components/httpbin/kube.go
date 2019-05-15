@@ -15,13 +15,13 @@
 package httpbin
 
 import (
-	"io/ioutil"
 	"path"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/file"
 )
 
 type httpbinConfig string
@@ -41,7 +41,7 @@ func deploy(ctx resource.Context, cfg Config) (i deployment.Instance, err error)
 	}
 
 	yamlFile := path.Join(env.HttpbinRoot, string(Httpbin))
-	by, err := ioutil.ReadFile(yamlFile)
+	yml, err := file.AsString(yamlFile)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func deploy(ctx resource.Context, cfg Config) (i deployment.Instance, err error)
 	depcfg := deployment.Config{
 		Name:      "httpbin",
 		Namespace: ns,
-		Yaml:      string(by),
+		Yaml:      yml,
 	}
 
 	return deployment.New(ctx, depcfg)
