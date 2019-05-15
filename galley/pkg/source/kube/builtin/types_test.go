@@ -79,7 +79,7 @@ func TestParse(t *testing.T) {
 		objMeta, objResource := parse(t, input, "Namespace")
 
 		// Just validate a couple of things...
-		_, ok := objResource.(*coreV1.Namespace)
+		_, ok := objResource.(*coreV1.NamespaceSpec)
 		if !ok {
 			t.Fatal("failed casting item to Namespace")
 		}
