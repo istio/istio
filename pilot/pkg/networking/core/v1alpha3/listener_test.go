@@ -219,6 +219,7 @@ func testInboundListenerConfig(t *testing.T, services ...*model.Service) {
 	verifyInboundHTTPListenerServerName(t, listeners[0])
 	if isHTTPListener(listeners[0]) {
 		verifyInboundHTTPListenerCertDetails(t, listeners[0])
+		verifyInboundHTTPListenerNormalizePath(t, listeners[0])
 	}
 
 	verifyInboundEnvoyListenerNumber(t, listeners[0])
@@ -506,6 +507,23 @@ func verifyInboundHTTPListenerCertDetails(t *testing.T, l *xdsapi.Listener) {
 	if !subject || !dns || !uri {
 		t.Fatalf("expected listener to contain set_current_client_cert_details (subject: true, dns: true, uri: true), "+
 			"found (subject: %t, dns: %t, uri %t)", subject, dns, uri)
+	}
+}
+
+func verifyInboundHTTPListenerNormalizePath(t *testing.T, l *xdsapi.Listener) {
+	t.Helper()
+	if len(l.FilterChains) != 2 {
+		t.Fatalf("expected %d filter chains, found %d", 2, len(l.FilterChains))
+	}
+	fc := l.FilterChains[0]
+	if len(fc.Filters) != 1 {
+		t.Fatalf("expected %d filters, found %d", 1, len(fc.Filters))
+	}
+	f := fc.Filters[0]
+	config, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+	actual := config.Fields["normalize_path"].GetBoolValue()
+	if actual != true {
+		t.Errorf("expected HTTP listener with normalize_path set to true, found false")
 	}
 }
 
