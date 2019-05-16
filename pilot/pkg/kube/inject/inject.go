@@ -791,9 +791,6 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	// Because we need to extract istio-proxy's statusPort.
 	rewriteAppHTTPProbe(metadata.Annotations, podSpec, spec)
 
-	if len(spec.CniExtraConfig) != 0 {
-		rewriteCniPodSPec(metadata.Annotations, spec)
-	}
 	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
 	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
 	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
@@ -807,6 +804,14 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	if metadata.Annotations == nil {
 		metadata.Annotations = make(map[string]string)
 	}
+
+	if len(spec.CniExtraConfig) != 0 {
+		err := rewriteCniPodSPec(metadata.Annotations, spec)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	metadata.Annotations[annotationStatus] = status
 
 	return out, nil
@@ -962,6 +967,9 @@ func potentialPodName(metadata *metav1.ObjectMeta) string {
 	return ""
 }
 
+// rewriteCniPodSPec will check if values from the sidecar injector Helm
+// values need to be inserted as Pod annotations so the CNI will apply 
+// the proper redirection rules. 
 func rewriteCniPodSPec(annotations map[string]string, spec *SidecarInjectionSpec) error {
 
 	var err error
@@ -977,7 +985,6 @@ func rewriteCniPodSPec(annotations map[string]string, spec *SidecarInjectionSpec
 				err = fmt.Errorf("can't specify annotations on both pod spec and from Helm value")
 				return err
 			}
-
 			annotations[k] = spec.CniExtraConfig[k]
 		}
 	}
