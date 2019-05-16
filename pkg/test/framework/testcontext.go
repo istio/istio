@@ -68,7 +68,6 @@ type TestContext interface {
 	SkipNow()
 	Skipf(format string, args ...interface{})
 	Skipped() bool
-	Parallel()
 }
 
 var _ TestContext = &testContext{}
@@ -292,11 +291,4 @@ func (c *testContext) Skipf(format string, args ...interface{}) {
 func (c *testContext) Skipped() bool {
 	c.Helper()
 	return c.T.Skipped()
-}
-
-func (c *testContext) Parallel() {
-	c.Helper()
-	// TODO(https://github.com/istio/istio/issues/13915)
-	//c.T.Parallel()
-	panic("TestContext.Parallel() not currently supported: https://github.com/istio/istio/issues/13915")
 }

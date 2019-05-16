@@ -119,8 +119,7 @@ func TestEcho(t *testing.T) {
 				if config.flaky {
 					configTest.Label(label.Flaky)
 				}
-				configTest.Run(func(ctx framework.TestContext) {
-
+				configTest.RunParallel(func(ctx framework.TestContext) {
 					ns := namespace.NewOrFail(ctx, ctx, "echo", true)
 
 					var a, b echo.Instance
@@ -139,20 +138,21 @@ func TestEcho(t *testing.T) {
 							testName = fmt.Sprintf("%s over %s", opts.Scheme, opts.PortName)
 						}
 
-						ctx.NewSubTest(testName).Run(func(ctx framework.TestContext) {
-							ctx.Environment().Case(environment.Native, func() {
-								if config.testName != "NoSidecar" {
-									switch opts.Scheme {
-									case scheme.WebSocket, scheme.GRPC:
-										// TODO(https://github.com/istio/istio/issues/13754)
-										ctx.Skipf("https://github.com/istio/istio/issues/13754")
+						ctx.NewSubTest(testName).
+							RunParallel(func(ctx framework.TestContext) {
+								ctx.Environment().Case(environment.Native, func() {
+									if config.testName != "NoSidecar" {
+										switch opts.Scheme {
+										case scheme.WebSocket, scheme.GRPC:
+											// TODO(https://github.com/istio/istio/issues/13754)
+											ctx.Skipf("https://github.com/istio/istio/issues/13754")
+										}
 									}
-								}
+								})
+								a.CallOrFail(ctx, opts).
+									CheckOKOrFail(ctx).
+									CheckHostOrFail(ctx, "b")
 							})
-							a.CallOrFail(ctx, opts).
-								CheckOKOrFail(ctx).
-								CheckHostOrFail(ctx, "b")
-						})
 					}
 				})
 			}
