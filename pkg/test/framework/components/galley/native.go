@@ -260,7 +260,7 @@ func (c *nativeComponent) restart() error {
 	a.MeshConfigFile = c.meshConfigFile
 	// To prevent ctrlZ port collision between galley/pilot&mixer
 	a.IntrospectionOptions.Port = 0
-	a.ExcludedResourceKinds = make([]string, 0)
+	a.EnableServiceDiscovery = true
 
 	// Bind to an arbitrary port.
 	a.APIAddress = "tcp://0.0.0.0:0"

@@ -92,6 +92,9 @@ type Args struct {
 	// Enable galley server mode
 	EnableServer bool
 
+	// Enable service discovery / endpoint processing.
+	EnableServiceDiscovery bool
+
 	// DisableResourceReadyCheck disables the CRD readiness check. This
 	// allows Galley to start when not all supported CRD are
 	// registered with the kube-apiserver.
