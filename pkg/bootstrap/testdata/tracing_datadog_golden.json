@@ -117,6 +117,7 @@
       {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
+        "dns_refresh_rate": "60s",
         "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -155,6 +156,8 @@
         "name": "datadog_agent",
         "connect_timeout": "1s",
         "type": "STRICT_DNS",
+        "dns_refresh_rate": "60s",
+        "dns_lookup_family": "V4_ONLY",
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
           {
