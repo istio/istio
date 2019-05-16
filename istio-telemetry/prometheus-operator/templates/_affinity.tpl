@@ -19,6 +19,13 @@
           - {{ $key }}
           {{- end }}
         {{- end }}
+        {{- $nodeSelector := default .Values.global.defaultNodeSelector .Values.prometheus.nodeSelector -}}
+        {{- range $key, $val := $nodeSelector }}
+        - key: {{ $key }}
+          operator: In
+          values:
+          - {{ $val }}
+        {{- end }}
 {{- end }}
 
 {{- define "nodeAffinityPreferredDuringScheduling" }}
@@ -36,13 +43,13 @@
 {{- end }}
 
 {{- define "podAntiAffinity" }}
-{{- if or .Values.podAntiAffinityLabelSelector .Values.podAntiAffinityTermLabelSelector}}
+{{- if or .Values.prometheus.podAntiAffinityLabelSelector .Values.prometheus.podAntiAffinityTermLabelSelector}}
   podAntiAffinity:
-    {{- if .Values.podAntiAffinityLabelSelector }}
+    {{- if .Values.prometheus.podAntiAffinityLabelSelector }}
     requiredDuringSchedulingIgnoredDuringExecution:
     {{- include "podAntiAffinityRequiredDuringScheduling" . }}
     {{- end }}
-    {{- if or .Values.podAntiAffinityTermLabelSelector}}
+    {{- if .Values.prometheus.podAntiAffinityTermLabelSelector }}
     preferredDuringSchedulingIgnoredDuringExecution:
     {{- include "podAntiAffinityPreferredDuringScheduling" . }}
     {{- end }}
@@ -50,12 +57,12 @@
 {{- end }}
 
 {{- define "podAntiAffinityRequiredDuringScheduling" }}
-    {{- range $index, $item := .Values.podAntiAffinityLabelSelector }}
+    {{- range $index, $item := .Values.prometheus.podAntiAffinityLabelSelector }}
     - labelSelector:
         matchExpressions:
         - key: {{ $item.key }}
           operator: {{ $item.operator }}
-          {{- if $item.value }}
+          {{- if $item.values }}
           values:
           {{- $vals := split "," $item.values }}
           {{- range $i, $v := $vals }}
@@ -67,7 +74,7 @@
 {{- end }}
 
 {{- define "podAntiAffinityPreferredDuringScheduling" }}
-    {{- range $index, $item := .Values.podAntiAffinityTermLabelSelector }}
+    {{- range $index, $item := .Values.prometheus.podAntiAffinityTermLabelSelector }}
     - podAffinityTerm:
         labelSelector:
           matchExpressions:

@@ -56,3 +56,7 @@ spec:
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.certmanager.tolerations }}
+      tolerations:
+{{ toYaml .Values.certmanager.tolerations | indent 6 }}
+{{- end }}

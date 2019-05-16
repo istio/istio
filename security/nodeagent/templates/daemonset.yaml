@@ -51,3 +51,7 @@ spec:
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.nodeagent.tolerations }}
+      tolerations:
+{{ toYaml .Values.nodeagent.tolerations | indent 6 }}
+{{- end }}

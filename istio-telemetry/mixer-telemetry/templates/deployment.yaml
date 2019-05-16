@@ -41,14 +41,13 @@ spec:
       - name: telemetry-envoy-config
         configMap:
           name: telemetry-envoy-config
-
-    {{- if .Values.mixer.telemetry.nodeSelector }}
-      nodeSelector:
-{{ toYaml .Values.mixer.telemetry.nodeSelector | indent 8 }}
-    {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.mixer.telemetry.tolerations }}
+      tolerations:
+{{ toYaml .Values.mixer.telemetry.tolerations | indent 6 }}
+{{- end }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.mixer.telemetry.image }}

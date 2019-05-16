@@ -253,8 +253,9 @@ spec:
           optional: true
       {{- end }}
       affinity:
-{{- if .Values.global.arch }}
-      {{- include "nodeaffinity" $ | indent 6 }}
-{{- end }}
+      {{- include "nodeaffinity" (dict "global" .Values.global "nodeSelector" $gateway.nodeSelector) | indent 6 }}
       {{- include "podAntiAffinity" $gateway | indent 6 }}
----
+{{- if $gateway.tolerations }}
+      tolerations:
+{{ toYaml $gateway.tolerations | indent 6 }}
+{{- end }}

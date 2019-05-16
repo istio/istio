@@ -175,3 +175,7 @@ spec:
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.galley.tolerations }}
+      tolerations:
+{{ toYaml .Values.galley.tolerations | indent 6 }}
+{{- end }}

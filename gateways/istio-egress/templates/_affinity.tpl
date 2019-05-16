@@ -14,15 +14,22 @@
         - key: beta.kubernetes.io/arch
           operator: In
           values:
-        {{- range $key, $val := .Values.global.arch }}
+        {{- range $key, $val := .global.arch }}
           {{- if gt ($val | int) 0 }}
           - {{ $key }}
           {{- end }}
         {{- end }}
+        {{- $nodeSelector := default .global.defaultNodeSelector .nodeSelector -}}
+        {{- range $key, $val := $nodeSelector }}
+        - key: {{ $key }}
+          operator: In
+          values:
+          - {{ $val }}
+        {{- end }}
 {{- end }}
 
 {{- define "nodeAffinityPreferredDuringScheduling" }}
-  {{- range $key, $val := .Values.global.arch }}
+  {{- range $key, $val := .global.arch }}
     {{- if gt ($val | int) 0 }}
     - weight: {{ $val | int }}
       preference:
@@ -42,7 +49,7 @@
     requiredDuringSchedulingIgnoredDuringExecution:
     {{- include "podAntiAffinityRequiredDuringScheduling" . }}
     {{- end }}
-    {{- if or .podAntiAffinityTermLabelSelector}}
+    {{- if .podAntiAffinityTermLabelSelector }}
     preferredDuringSchedulingIgnoredDuringExecution:
     {{- include "podAntiAffinityPreferredDuringScheduling" . }}
     {{- end }}
