@@ -11,7 +11,7 @@ spec:
     maxReplicas: {{ .Values.mixer.telemetry.autoscaleMax }}
     minReplicas: {{ .Values.mixer.telemetry.autoscaleMin }}
     scaleTargetRef:
-      apiVersion: apps/v1beta1
+      apiVersion: apps/v1
       kind: Deployment
       name: istio-telemetry
     metrics:

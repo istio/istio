@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-policy
@@ -127,6 +127,9 @@ spec:
 {{- end }}
         - name: uds-socket
           mountPath: /sock
+        - name: policy-adapter-secret
+          mountPath: /var/run/secrets/istio.io/policy/adapter
+          readOnly: true
         livenessProbe:
           httpGet:
             path: /version
@@ -201,7 +204,4 @@ spec:
         {{- end }}
         - name: uds-socket
           mountPath: /sock
-        - name: policy-adapter-secret
-          mountPath: /var/run/secrets/istio.io/policy/adapter
-          readOnly: true
 

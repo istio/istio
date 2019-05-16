@@ -200,7 +200,7 @@ spec:
     destination.workload.namespace:
       valueType: STRING
 ---
-{{- if .Values.mixer.telemetry.adapters.stdio.enabled }}
+{{- if .Values.mixer.adapters.stdio.enabled }}
 apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
@@ -212,7 +212,7 @@ metadata:
 spec:
   compiledAdapter: stdio
   params:
-    outputAsJson: {{ .Values.mixer.telemetry.adapters.stdio.outputAsJson }}
+    outputAsJson: {{ .Values.mixer.adapters.stdio.outputAsJson }}
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: instance
@@ -344,7 +344,7 @@ spec:
     - tcpaccesslog
 {{- end }}
 ---
-{{- if .Values.mixer.telemetry.adapters.prometheus.enabled }}
+{{- if .Values.mixer.adapters.prometheus.enabled }}
 apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
@@ -621,7 +621,7 @@ spec:
   compiledAdapter: prometheus
   params:
     metricsExpirationPolicy:
-      metricsExpiryDuration: "{{ .Values.mixer.telemetry.adapters.prometheus.metricsExpiryDuration }}"
+      metricsExpiryDuration: "{{ .Values.mixer.adapters.prometheus.metricsExpiryDuration }}"
     metrics:
     - name: requests_total
       instance_name: requestcount.instance.{{ .Release.Namespace }}
@@ -878,7 +878,7 @@ spec:
     - tcpconnectionsclosed
 {{- end }}
 ---
-{{- if .Values.mixer.telemetry.adapters.kubernetesenv.enabled }}
+{{- if .Values.mixer.adapters.kubernetesenv.enabled }}
 apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
@@ -978,7 +978,11 @@ metadata:
     app: istio-telemetry
     release: {{ .Release.Name }}
 spec:
-  host: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
+  host: istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  {{- if .Values.global.defaultConfigVisibilitySettings }}
+  exportTo:
+  - '*'
+  {{- end }}
   trafficPolicy:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     portLevelSettings:
