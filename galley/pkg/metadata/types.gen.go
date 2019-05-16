@@ -208,6 +208,9 @@ var (
 	// k8s/core/v1/endpoints metadata
 	K8sCoreV1Endpoints resource.Info
 
+	// k8s/core/v1/namespaces metadata
+	K8sCoreV1Namespaces resource.Info
+
 	// k8s/core/v1/nodes metadata
 	K8sCoreV1Nodes resource.Info
 
@@ -392,6 +395,9 @@ func init() {
 	K8sCoreV1Endpoints = b.Register(
 		"k8s/core/v1/endpoints",
 		"type.googleapis.com/k8s.io.api.core.v1.Endpoints")
+	K8sCoreV1Namespaces = b.Register(
+		"k8s/core/v1/namespaces",
+		"type.googleapis.com/k8s.io.api.core.v1.NamespaceSpec")
 	K8sCoreV1Nodes = b.Register(
 		"k8s/core/v1/nodes",
 		"type.googleapis.com/k8s.io.api.core.v1.NodeSpec")

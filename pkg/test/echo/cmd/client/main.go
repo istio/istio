@@ -26,10 +26,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/echo/server/forwarder"
+	"istio.io/pkg/log"
 )
 
 var (

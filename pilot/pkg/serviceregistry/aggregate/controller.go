@@ -21,7 +21,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // Registry specifies the collection of service registry related interfaces

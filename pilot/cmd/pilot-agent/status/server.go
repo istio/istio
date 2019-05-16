@@ -30,7 +30,7 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -202,9 +202,9 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 	}
 	var url string
 	if prober.Scheme == corev1.URISchemeHTTPS {
-		url = fmt.Sprintf("https://127.0.0.1:%v%s", prober.Port.IntValue(), prober.Path)
+		url = fmt.Sprintf("https://localhost:%v%s", prober.Port.IntValue(), prober.Path)
 	} else {
-		url = fmt.Sprintf("http://127.0.0.1:%v%s", prober.Port.IntValue(), prober.Path)
+		url = fmt.Sprintf("http://localhost:%v%s", prober.Port.IntValue(), prober.Path)
 	}
 	appReq, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -212,8 +212,12 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	for _, header := range prober.HTTPHeaders {
-		appReq.Header[header.Name] = []string{header.Value}
+
+	// Forward incoming headers to the application.
+	for name, values := range req.Header {
+		newValues := make([]string, len(values))
+		copy(newValues, values)
+		appReq.Header[name] = newValues
 	}
 
 	// Send the request.

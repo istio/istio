@@ -36,7 +36,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/features/pilot"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -813,7 +813,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	// TODO: Endpoints include the service labels, maybe we can use them ?
 	// nodeName is also included, not needed
 
-	log.Infof("Handle EDS endpoint %s in namespace %s -> %v %v", ep.Name, ep.Namespace, ep.Subsets, endpoints)
+	log.Infof("Handle EDS endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, ep.Subsets)
 
 	_ = c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
 }

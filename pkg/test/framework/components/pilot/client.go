@@ -19,7 +19,6 @@ import (
 	"errors"
 	"net"
 	"sync"
-	"testing"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -27,6 +26,8 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"google.golang.org/grpc"
+
+	"istio.io/istio/pkg/test"
 )
 
 type client struct {
@@ -66,7 +67,8 @@ func (c *client) CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryR
 	return c.stream.Recv()
 }
 
-func (c *client) CallDiscoveryOrFail(t testing.TB, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryResponse {
+func (c *client) CallDiscoveryOrFail(t test.Failer, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryResponse {
+	t.Helper()
 	resp, err := c.CallDiscovery(req)
 	if err != nil {
 		t.Fatal(err)
@@ -83,7 +85,8 @@ func (c *client) StartDiscovery(req *xdsapi.DiscoveryRequest) error {
 	return nil
 }
 
-func (c *client) StartDiscoveryOrFail(t testing.TB, req *xdsapi.DiscoveryRequest) {
+func (c *client) StartDiscoveryOrFail(t test.Failer, req *xdsapi.DiscoveryRequest) {
+	t.Helper()
 	if err := c.StartDiscovery(req); err != nil {
 		t.Fatal(err)
 	}
@@ -133,9 +136,10 @@ func (c *client) WatchDiscovery(timeout time.Duration,
 	}
 }
 
-func (c *client) WatchDiscoveryOrFail(t testing.TB, timeout time.Duration,
+func (c *client) WatchDiscoveryOrFail(t test.Failer, timeout time.Duration,
 	accept func(*xdsapi.DiscoveryResponse) (bool, error)) {
 
+	t.Helper()
 	if err := c.WatchDiscovery(timeout, accept); err != nil {
 		t.Fatalf("no resource accepted: %v", err)
 	}

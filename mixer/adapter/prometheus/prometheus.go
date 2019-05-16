@@ -40,7 +40,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/template/metric"
-	"istio.io/istio/pkg/cache"
+	"istio.io/pkg/cache"
 )
 
 type (

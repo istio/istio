@@ -16,7 +16,6 @@ package handler
 
 import (
 	"context"
-	"strconv"
 	"sync/atomic"
 
 	"go.opencensus.io/stats"
@@ -25,7 +24,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/monitoring"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 type env struct {
@@ -39,10 +38,9 @@ type env struct {
 func NewEnv(cfgID int64, name string, gp *pool.GoroutinePool) adapter.Env {
 	ctx := context.Background()
 	var err error
-	if ctx, err = tag.New(ctx, tag.Insert(monitoring.InitConfigIDTag, strconv.FormatInt(cfgID, 10)), tag.Insert(monitoring.HandlerTag, name)); err != nil {
+	if ctx, err = tag.New(ctx, tag.Insert(monitoring.HandlerTag, name)); err != nil {
 		log.Errorf("could not setup context for stats: %v", err)
 	}
-
 	return env{
 		logger:        newLogger(name),
 		gp:            gp,

@@ -15,8 +15,7 @@
 package galley
 
 import (
-	"testing"
-
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -33,13 +32,13 @@ type Instance interface {
 	ApplyConfig(ns namespace.Instance, yamlText ...string) error
 
 	// ApplyConfigOrFail applies the given config yaml text via Galley.
-	ApplyConfigOrFail(t *testing.T, ns namespace.Instance, yamlText ...string)
+	ApplyConfigOrFail(t test.Failer, ns namespace.Instance, yamlText ...string)
 
 	// DeleteConfig deletes the given config yaml text via Galley.
 	DeleteConfig(ns namespace.Instance, yamlText ...string) error
 
 	// DeleteConfigOrFail deletes the given config yaml text via Galley.
-	DeleteConfigOrFail(t *testing.T, ns namespace.Instance, yamlText ...string)
+	DeleteConfigOrFail(t test.Failer, ns namespace.Instance, yamlText ...string)
 
 	// ApplyConfigDir recursively applies all the config files in the specified directory
 	ApplyConfigDir(ns namespace.Instance, configDir string) error
@@ -51,7 +50,7 @@ type Instance interface {
 	WaitForSnapshot(collection string, validator SnapshotValidatorFunc) error
 
 	// WaitForSnapshotOrFail calls WaitForSnapshot and fails the test if it fails.
-	WaitForSnapshotOrFail(t *testing.T, collection string, validator SnapshotValidatorFunc)
+	WaitForSnapshotOrFail(t test.Failer, collection string, validator SnapshotValidatorFunc)
 }
 
 // Config for Galley
@@ -77,7 +76,7 @@ func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 }
 
 // NewOrFail returns a new Galley instance, or fails test.
-func NewOrFail(t *testing.T, c resource.Context, cfg Config) Instance {
+func NewOrFail(t test.Failer, c resource.Context, cfg Config) Instance {
 	t.Helper()
 
 	i, err := New(c, cfg)

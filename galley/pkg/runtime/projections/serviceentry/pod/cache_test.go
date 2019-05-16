@@ -27,7 +27,6 @@ import (
 
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/kubernetes/pkg/kubelet/apis"
 )
 
 const (
@@ -571,10 +570,10 @@ func (b *podEntryBuilder) Build() resource.Entry {
 func nodeEntry(region, zone string) resource.Entry {
 	labels := make(resource.Labels)
 	if region != "" {
-		labels[apis.LabelZoneRegion] = region
+		labels[pod.LabelZoneRegion] = region
 	}
 	if zone != "" {
-		labels[apis.LabelZoneFailureDomain] = zone
+		labels[pod.LabelZoneFailureDomain] = zone
 	}
 	return resource.Entry{
 		ID: resource.VersionedKey{

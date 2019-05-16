@@ -15,6 +15,7 @@
 package ingress
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -39,8 +40,8 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/env"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -67,7 +68,7 @@ type StatusSyncer struct {
 // Run the syncer until stopCh is closed
 func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
 	go s.informer.Run(stopCh)
-	go s.elector.Run()
+	go s.elector.Run(context.Background())
 	<-stopCh
 	// TODO: should we remove current IPs on shutting down?
 }
@@ -115,13 +116,13 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 	}
 
 	callbacks := leaderelection.LeaderCallbacks{
-		OnStartedLeading: func(stop <-chan struct{}) {
+		OnStartedLeading: func(ctx context.Context) {
 			log.Infof("I am the new status update leader")
-			go st.queue.Run(stop)
+			go st.queue.Run(ctx.Done())
 			err := wait.PollUntil(updateInterval, func() (bool, error) {
 				st.queue.Push(kube.NewTask(st.handler.Apply, "Start leading", model.EventUpdate))
 				return false, nil
-			}, stop)
+			}, ctx.Done())
 
 			if err != nil {
 				log.Errorf("Stop requested")

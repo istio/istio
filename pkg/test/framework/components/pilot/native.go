@@ -18,6 +18,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -27,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 var _ Instance = &nativeComponent{}
@@ -106,12 +108,13 @@ func newNative(ctx resource.Context, config Config) (Instance, error) {
 		return nil, err
 	}
 
-	if instance.client, err = newClient(instance.server.GRPCListeningAddr.(*net.TCPAddr)); err != nil {
+	// Start the server
+	if err = instance.server.Start(instance.stopChan); err != nil {
 		return nil, err
 	}
 
-	// Start the server
-	if err = instance.server.Start(instance.stopChan); err != nil {
+	time.Sleep(1 * time.Second)
+	if instance.client, err = newClient(instance.server.GRPCListeningAddr.(*net.TCPAddr)); err != nil {
 		return nil, err
 	}
 
@@ -125,12 +128,16 @@ func (c *nativeComponent) ID() resource.ID {
 
 func (c *nativeComponent) Close() (err error) {
 	if c.client != nil {
+		scopes.Framework.Debugf("%s closing client", c.id)
 		err = multierror.Append(err, c.client.Close()).ErrorOrNil()
 	}
 
 	if c.stopChan != nil {
+		scopes.Framework.Debugf("%s stopping Pilot server", c.id)
 		close(c.stopChan)
 	}
+
+	scopes.Framework.Debugf("%s close complete (err:%v)", c.id, err)
 	return
 }
 

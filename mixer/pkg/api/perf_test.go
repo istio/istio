@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/status"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 type benchState struct {

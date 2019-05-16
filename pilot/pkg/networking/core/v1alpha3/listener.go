@@ -42,8 +42,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/features/pilot"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -175,7 +175,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(env *model.Environment, nod
 	switch node.Type {
 	case model.SidecarProxy:
 		return configgen.buildSidecarListeners(env, node, push)
-	case model.Router, model.Ingress:
+	case model.Router:
 		return configgen.buildGatewayListeners(env, node, push)
 	}
 	return nil, nil
@@ -486,45 +486,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 		return nil
 	}
 
-	allChains := []plugin.FilterChain{}
-	var httpOpts *httpListenerOpts
-	var tcpNetworkFilters []listener.Filter
-
-	switch pluginParams.ListenerProtocol {
-	case plugin.ListenerProtocolHTTP:
-		httpOpts = &httpListenerOpts{
-			routeConfig: configgen.buildSidecarInboundHTTPRouteConfig(pluginParams.Env, pluginParams.Node,
-				pluginParams.Push, pluginParams.ServiceInstance),
-			rds:              "", // no RDS for inbound traffic
-			useRemoteAddress: false,
-			direction:        http_conn.INGRESS,
-			connectionManager: &http_conn.HttpConnectionManager{
-				// Append and forward client cert to backend.
-				ForwardClientCertDetails: http_conn.APPEND_FORWARD,
-				SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
-					Subject: &google_protobuf.BoolValue{Value: true},
-					Uri:     true,
-					Dns:     true,
-				},
-				ServerName: EnvoyServerName,
-			},
-		}
-		// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
-		if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol.IsHTTP2() {
-			httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
-			if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol == model.ProtocolGRPCWeb {
-				httpOpts.addGRPCWebFilter = true
-			}
-		}
-
-	case plugin.ListenerProtocolTCP:
-		tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Env, pluginParams.Node, pluginParams.ServiceInstance)
-
-	default:
-		log.Warnf("Unsupported inbound protocol %v for port %#v", pluginParams.ListenerProtocol,
-			pluginParams.ServiceInstance.Endpoint.ServicePort)
-		return nil
-	}
+	var allChains []plugin.FilterChain
 
 	for _, p := range configgen.Plugins {
 		chains := p.OnInboundFilterChains(pluginParams)
@@ -544,6 +506,45 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 		allChains = []plugin.FilterChain{{}}
 	}
 	for _, chain := range allChains {
+		var httpOpts *httpListenerOpts
+		var tcpNetworkFilters []listener.Filter
+
+		switch pluginParams.ListenerProtocol {
+		case plugin.ListenerProtocolHTTP:
+			httpOpts = &httpListenerOpts{
+				routeConfig: configgen.buildSidecarInboundHTTPRouteConfig(pluginParams.Env, pluginParams.Node,
+					pluginParams.Push, pluginParams.ServiceInstance),
+				rds:              "", // no RDS for inbound traffic
+				useRemoteAddress: false,
+				direction:        http_conn.INGRESS,
+				connectionManager: &http_conn.HttpConnectionManager{
+					// Append and forward client cert to backend.
+					ForwardClientCertDetails: http_conn.APPEND_FORWARD,
+					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+						Subject: &google_protobuf.BoolValue{Value: true},
+						Uri:     true,
+						Dns:     true,
+					},
+					ServerName: EnvoyServerName,
+				},
+			}
+			// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
+			if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol.IsHTTP2() {
+				httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
+				if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol == model.ProtocolGRPCWeb {
+					httpOpts.addGRPCWebFilter = true
+				}
+			}
+
+		case plugin.ListenerProtocolTCP:
+			tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Env, pluginParams.Node, pluginParams.ServiceInstance)
+
+		default:
+			log.Warnf("Unsupported inbound protocol %v for port %#v", pluginParams.ListenerProtocol,
+				pluginParams.ServiceInstance.Endpoint.ServicePort)
+			return nil
+		}
+
 		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
 			httpOpts:        httpOpts,
 			networkFilters:  tcpNetworkFilters,
@@ -1418,10 +1419,13 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 	// Allow websocket upgrades
 	websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
 	connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
+
+	idleTimeout, err := time.ParseDuration(node.Metadata[model.NodeMetadataIdleTimeout])
+	if idleTimeout > 0 && err == nil {
+		connectionManager.IdleTimeout = &idleTimeout
+	}
+
 	notimeout := 0 * time.Second
-	// Setting IdleTimeout to 0 seems to break most tests, causing
-	// envoy to disconnect.
-	// connectionManager.IdleTimeout = &notimeout
 	connectionManager.StreamIdleTimeout = &notimeout
 
 	if httpOpts.rds != "" {

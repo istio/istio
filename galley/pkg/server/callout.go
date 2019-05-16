@@ -25,7 +25,10 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/authplugins"
 	"istio.io/istio/pkg/mcp/source"
+	"istio.io/pkg/version"
 )
+
+const versionMetadataKey = "config.source.version"
 
 type callout struct {
 	address  string
@@ -93,6 +96,7 @@ func newCalloutPT(address, auth string, metadata []string, so *source.Options,
 		}
 		m = append(m, kv[0], kv[1])
 	}
+	m = append(m, versionMetadataKey, version.Info.Version)
 
 	return &callout{
 		address:  address,

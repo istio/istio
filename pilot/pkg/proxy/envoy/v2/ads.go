@@ -36,7 +36,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	istiolog "istio.io/istio/pkg/log"
+	istiolog "istio.io/pkg/log"
 )
 
 var (
@@ -494,18 +494,18 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 							con.mu.Unlock()
 							continue
 						}
-					} else if discReq.ErrorDetail != nil || routes == nil {
+					} else if discReq.ErrorDetail != nil {
 						// If versions mismatch then we should either have an error detail or no routes if a protocol error has occurred
 						if discReq.ErrorDetail != nil {
 							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%v) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
 							rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 							totalXDSRejects.Add(1)
-						} else { // protocol error
-							adsLog.Warnf("ADS:RDS: ACK PROTOCOL ERROR %v %s (%v) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
-							rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": "Protocol error"}).Add(1)
-							totalXDSRejects.Add(1)
-							continue
 						}
+						continue
+					} else if len(routes) == 0 {
+						// XDS protocol indicates an empty request means to send all route information
+						// In practice we can just skip this request, as this seems to happen when
+						// we don't have any routes to send.
 						continue
 					}
 				}
@@ -882,6 +882,7 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 				adsLog.Infof("PushAll abort %s, push with newer version %s in progress %v", version, currentVersion, time.Since(tstart))
 				return
 			}
+			timer := time.NewTimer(PushTimeout)
 
 			select {
 			case client.pushChannel <- &XdsEvent{
@@ -892,9 +893,12 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 			}:
 				client.LastPush = time.Now()
 				client.LastPushFailure = timeZero
+				if !timer.Stop() {
+					<-timer.C
+				}
 			case <-client.stream.Context().Done(): // grpc stream was closed
 				adsLog.Infof("Client closed connection %v", client.ConID)
-			case <-time.After(PushTimeout):
+			case <-timer.C:
 				// This may happen to some clients if the other side is in a bad state and can't receive.
 				// The tests were catching this - one of the client was not reading.
 				pushTimeouts.Add(1)
@@ -909,7 +913,6 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 					pushTimeoutFailures.Add(1)
 					return
 				}
-
 				goto Retry
 			}
 		}()

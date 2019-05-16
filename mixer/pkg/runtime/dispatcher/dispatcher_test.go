@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
 	"istio.io/istio/mixer/pkg/status"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var gp = pool.NewGoroutinePool(10, true)
@@ -1073,7 +1073,8 @@ func TestDispatcher(t *testing.T) {
 			if tst.err != "" {
 				if err == nil {
 					tt.Fatalf("expected error was not thrown")
-				} else if strings.TrimSpace(tst.err) != strings.TrimSpace(err.Error()) && !strings.Contains(err.Error(), tst.err) {
+				} else if !reflect.DeepEqual(strings.Fields(tst.err), strings.Fields(err.Error())) &&
+					!strings.Contains(err.Error(), tst.err) {
 					tt.Fatalf("error mismatch: '%v' != '%v'", err, tst.err)
 				}
 			} else {

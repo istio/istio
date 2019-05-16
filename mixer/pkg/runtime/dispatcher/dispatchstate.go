@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // dispatchState keeps the input/output state during the dispatch to a handler. It is used as temporary

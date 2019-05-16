@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"reflect"
 	"sync/atomic"
 	"testing"
@@ -65,6 +66,20 @@ var (
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sTLSSecretName,
+			Namespace: "test-namespace",
+		},
+		Type: "test-tls-secret",
+	}
+	k8sTLSFallbackSecretName      = "fallback-scrt"
+	k8sTLSFallbackSecretKey       = []byte("fallback fake private key")
+	k8sTLSFallbackSecretCertChain = []byte("fallback fake cert chain")
+	k8sTestTLSFallbackSecret      = &v1.Secret{
+		Data: map[string][]byte{
+			"tls.crt": k8sTLSFallbackSecretCertChain,
+			"tls.key": k8sTLSFallbackSecretKey,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      k8sTLSFallbackSecretName,
 			Namespace: "test-namespace",
 		},
 		Type: "test-tls-secret",
@@ -347,10 +362,200 @@ func TestGatewayAgentGenerateSecret(t *testing.T) {
 	}
 }
 
+// TestGatewayAgentGenerateSecretUsingFallbackSecret verifies that ingress gateway agent picks
+// fallback secret for ingress gateway and serves real secret when that secret is ready.
+func TestGatewayAgentGenerateSecretUsingFallbackSecret(t *testing.T) {
+	os.Setenv("INGRESS_GATEWAY_FALLBACK_SECRET", k8sTLSFallbackSecretName)
+	sc := createSecretCache()
+	fetcher := sc.fetcher
+	if fetcher.FallbackSecretName != k8sTLSFallbackSecretName {
+		t.Errorf("Fallback secret name does not match. Expected %v but got %v",
+			k8sTLSFallbackSecretName, fetcher.FallbackSecretName)
+	}
+	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
+	defer func() {
+		sc.Close()
+		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
+	}()
+
+	connID1 := "proxy1-id"
+	connID2 := "proxy2-id"
+	ctx := context.Background()
+
+	type expectedSecret struct {
+		exist  bool
+		secret *model.SecretItem
+	}
+
+	cases := []struct {
+		addSecret        *v1.Secret
+		connID           string
+		expectedFbSecret expectedSecret
+		expectedSecrets  []expectedSecret
+	}{
+		{
+			addSecret: k8sTestGenericSecret,
+			connID:    connID1,
+			expectedFbSecret: expectedSecret{
+				exist: true,
+				secret: &model.SecretItem{
+					ResourceName:     k8sGenericSecretName,
+					CertificateChain: k8sTLSFallbackSecretCertChain,
+					PrivateKey:       k8sTLSFallbackSecretKey,
+				},
+			},
+			expectedSecrets: []expectedSecret{
+				{
+					exist: true,
+					secret: &model.SecretItem{
+						ResourceName:     k8sGenericSecretName,
+						CertificateChain: k8sCertChain,
+						PrivateKey:       k8sKey,
+					},
+				},
+				{
+					exist: true,
+					secret: &model.SecretItem{
+						ResourceName: k8sGenericSecretName + "-cacert",
+						RootCert:     k8sCaCert,
+					},
+				},
+			},
+		},
+		{
+			addSecret: k8sTestTLSSecret,
+			connID:    connID2,
+			expectedFbSecret: expectedSecret{
+				exist: true,
+				secret: &model.SecretItem{
+					ResourceName:     k8sTLSSecretName,
+					CertificateChain: k8sTLSFallbackSecretCertChain,
+					PrivateKey:       k8sTLSFallbackSecretKey,
+				},
+			},
+			expectedSecrets: []expectedSecret{
+				{
+					exist: true,
+					secret: &model.SecretItem{
+						ResourceName:     k8sTLSSecretName,
+						CertificateChain: k8sCertChain,
+						PrivateKey:       k8sKey,
+					},
+				},
+				{
+					exist: false,
+					secret: &model.SecretItem{
+						ResourceName: k8sTLSSecretName + "-cacert",
+					},
+				},
+			},
+		},
+	}
+
+	fetcher.AddSecret(k8sTestTLSFallbackSecret)
+	for _, c := range cases {
+		if sc.ShouldWaitForIngressGatewaySecret(c.connID, c.expectedFbSecret.secret.ResourceName, "") {
+			t.Fatal("When fallback secret is enabled, node agent should not wait for gateway secret")
+		}
+		// Verify that fallback secret is returned
+		gotSecret, err := sc.GenerateSecret(ctx, c.connID, c.expectedFbSecret.secret.ResourceName, "")
+		if err != nil {
+			t.Fatalf("Failed to get fallback secrets: %v", err)
+		}
+		if err := verifySecret(gotSecret, c.expectedFbSecret.secret); err != nil {
+			t.Errorf("Secret verification failed: %v", err)
+		}
+		if got, want := sc.SecretExist(c.connID, c.expectedFbSecret.secret.ResourceName, "", gotSecret.Version), true; got != want {
+			t.Errorf("SecretExist: got: %v, want: %v", got, want)
+		}
+		if got, want := sc.SecretExist(c.connID, "nonexistsecret", "", gotSecret.Version), false; got != want {
+			t.Errorf("SecretExist: got: %v, want: %v", got, want)
+		}
+
+		key := ConnKey{
+			ConnectionID: c.connID,
+			ResourceName: c.expectedFbSecret.secret.ResourceName,
+		}
+		cachedSecret, found := sc.secrets.Load(key)
+
+		if !found {
+			t.Errorf("Failed to find secret for proxy %q from secret store: %v", c.connID, err)
+		}
+		if !reflect.DeepEqual(*gotSecret, cachedSecret) {
+			t.Errorf("Secret key: got %+v, want %+v", *gotSecret, cachedSecret)
+		}
+
+		// When real secret is added, verify that real secret is returned.
+		fetcher.AddSecret(c.addSecret)
+		for _, es := range c.expectedSecrets {
+			gotSecret, err := sc.GenerateSecret(ctx, c.connID, es.secret.ResourceName, "")
+			if es.exist {
+				if err != nil {
+					t.Fatalf("Failed to get secrets: %v", err)
+				}
+				if err := verifySecret(gotSecret, es.secret); err != nil {
+					t.Errorf("Secret verification failed: %v", err)
+				}
+				if got, want := sc.SecretExist(c.connID, es.secret.ResourceName, "", gotSecret.Version), true; got != want {
+					t.Errorf("SecretExist: got: %v, want: %v", got, want)
+				}
+				if got, want := sc.SecretExist(c.connID, "nonexistsecret", "", gotSecret.Version), false; got != want {
+					t.Errorf("SecretExist: got: %v, want: %v", got, want)
+				}
+			}
+			key := ConnKey{
+				ConnectionID: c.connID,
+				ResourceName: es.secret.ResourceName,
+			}
+			cachedSecret, found := sc.secrets.Load(key)
+			if es.exist {
+				if !found {
+					t.Errorf("Failed to find secret for proxy %q from secret store: %v", c.connID, err)
+				}
+				if !reflect.DeepEqual(*gotSecret, cachedSecret) {
+					t.Errorf("Secret key: got %+v, want %+v", *gotSecret, cachedSecret)
+				}
+			}
+		}
+		// When secret is deleted, node agent should not wait for ingress gateway secret.
+		fetcher.DeleteSecret(c.addSecret)
+		if sc.ShouldWaitForIngressGatewaySecret(c.connID, c.expectedFbSecret.secret.ResourceName, "") {
+			t.Fatal("When fallback secret is enabled, node agent should not wait for gateway secret")
+		}
+	}
+
+	// Wait until unused secrets are evicted.
+	wait := 500 * time.Millisecond
+	retries := 0
+	for ; retries < 3; retries++ {
+		time.Sleep(wait)
+		if _, found := sc.secrets.Load(connID1); found {
+			// Retry after some sleep.
+			wait *= 2
+			continue
+		}
+		if _, found := sc.secrets.Load(connID2); found {
+			// Retry after some sleep.
+			wait *= 2
+			continue
+		}
+
+		break
+	}
+	if retries == 3 {
+		t.Errorf("Unused secrets failed to be evicted from cache")
+	}
+}
+
 func createSecretCache() *SecretCache {
 	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: false,
 	}
+	fetcher.FallbackSecretName = "gateway-fallback"
+	if fallbackSecret := os.Getenv("INGRESS_GATEWAY_FALLBACK_SECRET"); fallbackSecret != "" {
+		fetcher.FallbackSecretName = fallbackSecret
+	}
+
 	fetcher.InitWithKubeClient(fake.NewSimpleClientset().CoreV1())
 	ch := make(chan struct{})
 	fetcher.Run(ch)

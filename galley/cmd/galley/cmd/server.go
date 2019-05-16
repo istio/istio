@@ -24,8 +24,8 @@ import (
 	"istio.io/istio/galley/pkg/crd/validation"
 	"istio.io/istio/galley/pkg/server"
 	istiocmd "istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/probe"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 var (
@@ -125,7 +125,7 @@ func serverCmd() *cobra.Command {
 
 	// server config
 	serverCmd.PersistentFlags().StringVarP(&serverArgs.APIAddress, "server-address", "", serverArgs.APIAddress,
-		"Address to use for Galley's gRPC API, e.g. tcp://127.0.0.1:9092 or unix:///path/to/file")
+		"Address to use for Galley's gRPC API, e.g. tcp://localhost:9092 or unix:///path/to/file")
 	serverCmd.PersistentFlags().UintVarP(&serverArgs.MaxReceivedMessageSize, "server-maxReceivedMessageSize", "", serverArgs.MaxReceivedMessageSize,
 		"Maximum size of individual gRPC messages")
 	serverCmd.PersistentFlags().UintVarP(&serverArgs.MaxConcurrentStreams, "server-maxConcurrentStreams", "", serverArgs.MaxConcurrentStreams,

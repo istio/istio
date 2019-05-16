@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 type kubeController struct {

@@ -21,7 +21,7 @@ import (
 	"time"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var (

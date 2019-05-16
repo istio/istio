@@ -37,7 +37,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -641,10 +641,10 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	resp, err := json.Marshal(response)
 	if err != nil {
 		log.Errorf("Could not encode response: %v", err)
-		http.Error(w, fmt.Sprintf("could encode response: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("could not encode response: %v", err), http.StatusInternalServerError)
 	}
 	if _, err := w.Write(resp); err != nil {
 		log.Errorf("Could not write response: %v", err)
-		http.Error(w, fmt.Sprintf("could write response: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
 	}
 }

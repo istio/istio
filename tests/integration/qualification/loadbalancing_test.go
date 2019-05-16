@@ -25,7 +25,6 @@ import (
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -33,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -56,9 +56,9 @@ const (
 // --istio.test.kube.config=<path>
 func TestIngressLoadBalancing(t *testing.T) {
 	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
+	defer ctx.Done()
 
-	ctx.RequireOrSkip(t, environment.Kube)
+	ctx.RequireOrSkip(environment.Kube)
 
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 

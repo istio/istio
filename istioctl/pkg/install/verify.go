@@ -26,18 +26,19 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericclioptions/resource"
 	scheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/kubernetes/pkg/kubectl/genericclioptions"
-	"k8s.io/kubernetes/pkg/kubectl/genericclioptions/resource"
 
 	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 )
 
 var (
 	verifyInstallCmd *cobra.Command
 )
 
-func verifyInstall(enableVerbose bool, istioNamespaceFlag *string,
+func verifyInstall(enableVerbose bool, istioNamespaceFlag string,
 	restClientGetter resource.RESTClientGetter, options resource.FilenameOptions,
 	writer io.Writer, args []string) error {
 	if len(options.Filenames) == 0 {
@@ -52,7 +53,7 @@ func verifyInstall(enableVerbose bool, istioNamespaceFlag *string,
 
 }
 
-func verifyPostInstall(enableVerbose bool, istioNamespaceFlag *string,
+func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 	restClientGetter resource.RESTClientGetter, options resource.FilenameOptions, writer io.Writer) error {
 	crdCount := 0
 	istioDeploymentCount := 0
@@ -101,7 +102,7 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag *string,
 			if err != nil {
 				return err
 			}
-			if namespace == *istioNamespaceFlag && strings.HasPrefix(name, "istio-") {
+			if namespace == istioNamespaceFlag && strings.HasPrefix(name, "istio-") {
 				istioDeploymentCount++
 			}
 		case "Job":
@@ -162,7 +163,7 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag *string,
 }
 
 // NewVerifyCommand creates a new command for verifying Istio Installation Status
-func NewVerifyCommand(istioNamespaceFlag *string) *cobra.Command {
+func NewVerifyCommand() *cobra.Command {
 	var (
 		kubeConfigFlags = &genericclioptions.ConfigFlags{
 			Context:    strPtr(""),
@@ -176,7 +177,8 @@ func NewVerifyCommand(istioNamespaceFlag *string) *cobra.Command {
 			Recursive: boolPtr(false),
 			Usage:     "Istio YAML installation file.",
 		}
-		enableVerbose bool
+		enableVerbose  bool
+		istioNamespace string
 	)
 	verifyInstallCmd = &cobra.Command{
 		Use:   "verify-install",
@@ -201,12 +203,14 @@ func NewVerifyCommand(istioNamespaceFlag *string) *cobra.Command {
 		istioctl experimental verify-install -f $HOME/istio.yaml
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-			return verifyInstall(enableVerbose, istioNamespaceFlag, kubeConfigFlags,
+			return verifyInstall(enableVerbose, istioNamespace, kubeConfigFlags,
 				fileNameFlags.ToOptions(), c.OutOrStderr(), args)
 		},
 	}
 
 	flags := verifyInstallCmd.PersistentFlags()
+	flags.StringVarP(&istioNamespace, "istioNamespace", "i", kube.IstioNamespace,
+		"Istio system namespace")
 	kubeConfigFlags.AddFlags(flags)
 	fileNameFlags.AddFlags(flags)
 	verifyInstallCmd.Flags().BoolVar(&enableVerbose, "enableVerbose", true,

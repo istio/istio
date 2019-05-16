@@ -75,7 +75,7 @@ func newWorkload(ctx resource.Context, cfg *echo.Config) (w *workload, err error
 		return nil, err
 	}
 
-	if cfg.Sidecar {
+	if cfg.Annotations.GetBool(echo.SidecarInject) {
 		// Using a sidecar Envoy proxy. Need to wire up a custom discovery filter and start Envoy...
 
 		if cfg.Galley == nil {

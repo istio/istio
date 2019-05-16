@@ -21,11 +21,12 @@ import (
 	"os"
 	"path"
 
+	"istio.io/istio/pkg/test/framework/core/image"
+
 	kubeApiCore "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/fakes/policy"
-	deployment2 "istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -179,7 +180,7 @@ func newKube(ctx resource.Context) (Instance, error) {
 		return nil, err
 	}
 
-	s, err := deployment2.SettingsFromCommandLine()
+	s, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +213,7 @@ func newKube(ctx resource.Context) (Instance, error) {
 	pod := pods[0]
 
 	var svc *kubeApiCore.Service
-	if svc, err = env.WaitUntilServiceEndpointsAreReady(c.namespace.Name(), "policy-backend"); err != nil {
+	if svc, _, err = env.WaitUntilServiceEndpointsAreReady(c.namespace.Name(), "policy-backend"); err != nil {
 		scopes.CI.Infof("Error waiting for PolicyBackend service to be available: %v", err)
 		return nil, err
 	}

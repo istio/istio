@@ -24,8 +24,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/echo/server"
+	"istio.io/pkg/log"
 )
 
 var (

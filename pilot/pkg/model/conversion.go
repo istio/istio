@@ -87,23 +87,18 @@ func (ps *ProtoSchema) FromJSON(js string) (proto.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = ApplyJSON(js, pb, true); err != nil {
+	if err = ApplyJSON(js, pb); err != nil {
 		return nil, err
 	}
 	return pb, nil
 }
 
-// ApplyJSON unmarshals a JSON string into a proto message. Unknown fields will produce an
-//// error unless strict is set to false.
-func ApplyJSON(js string, pb proto.Message, strict bool) error {
+// ApplyJSON unmarshals a JSON string into a proto message.
+func ApplyJSON(js string, pb proto.Message) error {
 	reader := strings.NewReader(js)
 	m := jsonpb.Unmarshaler{}
 	if err := m.Unmarshal(reader, pb); err != nil {
-		if strict {
-			return err
-		}
-
-		log.Warnf("Failed to decode proto: %q. Trying decode with AllowUnknownFields=true", err)
+		log.Debugf("Failed to decode proto: %q. Trying decode with AllowUnknownFields=true", err)
 		m.AllowUnknownFields = true
 		reader.Reset(js)
 		return m.Unmarshal(reader, pb)
@@ -117,20 +112,20 @@ func (ps *ProtoSchema) FromYAML(yml string) (proto.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = ApplyYAML(yml, pb, true); err != nil {
+	if err = ApplyYAML(yml, pb); err != nil {
 		return nil, err
 	}
 	return pb, nil
 }
 
-// ApplyYAML unmarshals a YAML string into a proto message. Unknown fields will produce an
-// error unless strict is set to false.
-func ApplyYAML(yml string, pb proto.Message, strict bool) error {
+// ApplyYAML unmarshals a YAML string into a proto message.
+// Unknown fields are allowed.
+func ApplyYAML(yml string, pb proto.Message) error {
 	js, err := yaml.YAMLToJSON([]byte(yml))
 	if err != nil {
 		return err
 	}
-	return ApplyJSON(string(js), pb, strict)
+	return ApplyJSON(string(js), pb)
 }
 
 // FromJSONMap converts from a generic map to a proto message using canonical JSON encoding

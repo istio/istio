@@ -17,7 +17,7 @@ package store
 import (
 	"time"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // StartWatch registers with store, initiates a watch, and returns the current config state.

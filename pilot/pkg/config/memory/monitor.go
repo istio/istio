@@ -16,7 +16,7 @@ package memory
 
 import (
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const (

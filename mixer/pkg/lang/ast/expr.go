@@ -23,10 +23,10 @@ import (
 	"strings"
 	"time"
 
-	cfgpb "istio.io/api/policy/v1beta1"
 	dpb "istio.io/api/policy/v1beta1"
+	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // This private variable is an extract from go/token
@@ -83,16 +83,8 @@ type Expression struct {
 	Fn    *Function
 }
 
-// AttributeDescriptorFinder finds attribute descriptors.
-type AttributeDescriptorFinder interface {
-	// GetAttribute finds attribute descriptor in the vocabulary. returns nil if not found.
-	GetAttribute(name string) *cfgpb.AttributeManifest_AttributeInfo
-	// Attributes exposes the internal attribute manifest
-	Attributes() map[string]*cfgpb.AttributeManifest_AttributeInfo
-}
-
 // EvalType Function an expression using fMap and attribute vocabulary. Returns the type that this expression evaluates to.
-func (e *Expression) EvalType(attrs AttributeDescriptorFinder, fMap map[string]FunctionMetadata) (valueType dpb.ValueType, err error) {
+func (e *Expression) EvalType(attrs attribute.AttributeDescriptorFinder, fMap map[string]FunctionMetadata) (valueType dpb.ValueType, err error) {
 	if e.Const != nil {
 		return e.Const.Type, nil
 	}
@@ -201,7 +193,7 @@ func (f *Function) String() string {
 }
 
 // EvalType Function using fMap and attribute vocabulary. Return static or computed return type if all args have correct type.
-func (f *Function) EvalType(attrs AttributeDescriptorFinder, fMap map[string]FunctionMetadata) (valueType dpb.ValueType, err error) {
+func (f *Function) EvalType(attrs attribute.AttributeDescriptorFinder, fMap map[string]FunctionMetadata) (valueType dpb.ValueType, err error) {
 	fn, found := fMap[f.Name]
 	if !found {
 		return valueType, fmt.Errorf("unknown function: %s", f.Name)

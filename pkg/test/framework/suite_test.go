@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
-func defaultExitFn(int) {}
+func defaultExitFn(_ int) {}
 
 func settingsFn(s *core.Settings) func(string) (*core.Settings, error) {
 	return func(testID string) (*core.Settings, error) {
@@ -84,7 +84,7 @@ func TestSuite_Label_SuiteFilter(t *testing.T) {
 	}
 
 	sel, err := label.ParseSelector("-presubmit")
-	g.Expect((err)).To(BeNil())
+	g.Expect(err).To(BeNil())
 	settings := core.DefaultSettings()
 	settings.Selector = sel
 
@@ -106,7 +106,7 @@ func TestSuite_Label_SuiteAllow(t *testing.T) {
 	}
 
 	sel, err := label.ParseSelector("+postsubmit")
-	g.Expect((err)).To(BeNil())
+	g.Expect(err).To(BeNil())
 	settings := core.DefaultSettings()
 	settings.Selector = sel
 

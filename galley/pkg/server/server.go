@@ -31,15 +31,13 @@ import (
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/groups"
+	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/source/fs"
 	kubeSource "istio.io/istio/galley/pkg/source/kube"
 	"istio.io/istio/galley/pkg/source/kube/client"
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/source/kube/schema/check"
-	"istio.io/istio/pkg/ctrlz"
-	"istio.io/istio/pkg/ctrlz/fw"
-	"istio.io/istio/pkg/log"
 	configz "istio.io/istio/pkg/mcp/configz/server"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
@@ -47,8 +45,11 @@ import (
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
-	"istio.io/istio/pkg/probe"
-	"istio.io/istio/pkg/version"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/ctrlz/fw"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
+	"istio.io/pkg/version"
 )
 
 var scope = log.RegisterScope("server", "Galley server debugging", 0)
@@ -146,9 +147,17 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		}
 	}
 
+	b := resource.NewSchemaBuilder()
+	b.RegisterSchema(metadata.Types)
+	b.Register(
+		"istio/mesh/v1alpha1/MeshConfig",
+		"type.googleapis.com/istio.mesh.v1alpha1.MeshConfig")
+	types := b.Build()
+
 	processorCfg := runtime.Config{
 		DomainSuffix: a.DomainSuffix,
 		Mesh:         mesh,
+		Schema:       types,
 	}
 	distributor := snapshot.New(groups.IndexFunction)
 	s.processor = runtime.NewProcessor(src, distributor, &processorCfg)
@@ -180,7 +189,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	options := &source.Options{
 		Watcher:            distributor,
 		Reporter:           s.reporter,
-		CollectionsOptions: source.CollectionOptionsFromSlice(metadata.Types.Collections()),
+		CollectionsOptions: source.CollectionOptionsFromSlice(types.Collections()),
 		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second, 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
 	}
 
