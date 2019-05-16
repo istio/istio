@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package galley
+package validation
 
-//go:generate go-bindata --nocompress --nometadata --pkg galley -o data.gen_test.go testdata/...
-//go:generate goimports -w data.gen_test.go
+//go:generate go-bindata --nocompress --nometadata --pkg validation -o dataset.gen.go dataset/...
+//go:generate goimports -w dataset.gen.go

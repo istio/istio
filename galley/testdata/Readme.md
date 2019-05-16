@@ -1,10 +1,26 @@
-**How To Use Galley Test Data Set**
+# How To Use Galley Test Data Set
 
 The Galley Test Data is designed to tests Galley from an inputs/outputs
 perspective. It uses an embedded set of input and golden files from which
 tests are calculated and executed.
 
-The directory structure is as follows:
+The general directory/file structure is as follows:
+
+```
+# Area specific test data set.
+galley/testdata/<area>/dataset/...   
+
+# Custom entry-point code for the data set, in a given area.
+galley/testdata/<area>/dataset.go   
+
+# Generated Go file for test assets 
+galley/testdata/<area>/dataset.gen.go   
+```
+
+
+## Conversion Test Data
+
+The Conversion test data has the following format:
 
 ```
 # Input file for the test
@@ -50,18 +66,18 @@ The expected file structure is as follows:
 
 ```json
 {
-  "type URL 1": [
+  "collection": [
     {
       "Metadata": {
         "name": "output-resource-1"
       },
-      "Resource": {}
+      "Body": {}
     },
     {
       "Metadata": {
         "name": "outout-resource-2"
       },
-      "Resource": {}
+      "Body": {}
     }
   ]
 }
