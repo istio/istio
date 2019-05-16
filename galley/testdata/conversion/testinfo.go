@@ -19,8 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-
-	"istio.io/istio/galley/testdata"
 )
 
 // TestInfo about a particular test.
