@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"istio.io/istio/pkg/spiffe"
@@ -26,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/keepalive"
@@ -82,6 +84,11 @@ var (
 	}
 )
 
+const (
+	// ProxyInboundListenPortEnvKey is a environment variable that allow self defining ProxyInboundListenPort
+	ProxyInboundListenPortEnvKey = "ProxyInboundListenPort"
+)
+
 // when we run on k8s, the default trust domain is 'cluster.local', otherwise it is the empty string
 func hasKubeRegistry() bool {
 	for _, r := range serverArgs.Service.Registries {
@@ -92,7 +99,22 @@ func hasKubeRegistry() bool {
 	return false
 }
 
+func readProxyInboundListenPortFromEnv() {
+	portString := os.Getenv(ProxyInboundListenPortEnvKey)
+	if portString == "" {
+		return
+	}
+	portNumber, err := strconv.Atoi(portString)
+	if err != nil {
+		fmt.Errorf("Cannot parse port from env var %s=%s, use default value %d", ProxyInboundListenPortEnvKey, portString, v1alpha3.ProxyInboundListenPort)
+	} else {
+		v1alpha3.ProxyInboundListenPort = uint32(portNumber)
+		fmt.Printf("Set ProxyInboundListenPort to %d", portNumber)
+	}
+}
+
 func init() {
+	readProxyInboundListenPortFromEnv()
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries",
 		[]string{string(serviceregistry.KubernetesRegistry)},
 		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s, %s})",
