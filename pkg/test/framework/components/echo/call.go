@@ -43,6 +43,11 @@ type CallOptions struct {
 	// Path specifies the URL path for the request.
 	Path string
 
+	// NoEscapePath disables escaping the `Path` when constructing the URL path for the request.
+	// For example, the path "/%2E" will be used as-is and will NOT be escaped to "%252E" when this
+	// flag is set to true.
+	NoEscapePath bool
+
 	// Count indicates the number of exchanges that should be made with the service endpoint.
 	// If Count <= 0, defaults to 1.
 	Count int

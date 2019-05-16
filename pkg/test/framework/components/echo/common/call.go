@@ -59,6 +59,13 @@ func CallEcho(c *client.Instance, opts *echo.CallOptions, outboundPortSelector O
 		Host:   net.JoinHostPort(opts.Host, strconv.Itoa(port)),
 		Path:   opts.Path,
 	}
+	var urlStr string
+	if opts.NoEscapePath {
+		targetURL.Path = ""
+		urlStr = targetURL.String() + opts.Path
+	} else {
+		urlStr = targetURL.String()
+	}
 	targetService := opts.Target.Config().Service
 
 	protoHeaders := []*proto.Header{
@@ -74,7 +81,7 @@ func CallEcho(c *client.Instance, opts *echo.CallOptions, outboundPortSelector O
 	}
 
 	req := &proto.ForwardEchoRequest{
-		Url:           targetURL.String(),
+		Url:           urlStr,
 		Count:         int32(opts.Count),
 		Headers:       protoHeaders,
 		TimeoutMicros: common.DurationToMicros(opts.Timeout),
