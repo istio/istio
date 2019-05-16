@@ -48,7 +48,7 @@ func (t testData) load() (string, error) {
 }
 
 func loadTestData(t *testing.T) []testData {
-	entries, err := validation.AssetDir("testdata")
+	entries, err := validation.AssetDir("dataset")
 	if err != nil {
 		t.Fatalf("Error loading test data: %v", err)
 	}
