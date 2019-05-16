@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -32,7 +33,7 @@ func TestEnvoyArgs(t *testing.T) {
 		node:           "my-node",
 		extraArgs:      []string{"-l", "trace", "--component-log-level", "misc:error"},
 		nodeIPs:        []string{"10.75.2.9", "192.168.11.18"},
-		dnsRefreshRate: "60s",
+		dnsRefreshRate: time.Minute,
 	}
 	testProxy := NewProxy(
 		config,
@@ -41,7 +42,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"misc:error",
 		nil,
 		[]string{"10.75.2.9", "192.168.11.18"},
-		"60s",
+		time.Minute,
 	)
 	if !reflect.DeepEqual(testProxy, test) {
 		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxy, test)

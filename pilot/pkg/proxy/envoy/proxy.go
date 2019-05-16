@@ -48,12 +48,12 @@ type envoy struct {
 	opts           map[string]interface{}
 	errChan        chan error
 	nodeIPs        []string
-	dnsRefreshRate string
+	dnsRefreshRate time.Duration
 }
 
 // NewProxy creates an instance of the proxy control commands
 func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string,
-	componentLogLevel string, pilotSAN []string, nodeIPs []string, dnsRefreshRate string) proxy.Proxy {
+	componentLogLevel string, pilotSAN []string, nodeIPs []string, dnsRefreshRate time.Duration) proxy.Proxy {
 	// inject tracing flag for higher levels
 	var args []string
 	if logLevel != "" {

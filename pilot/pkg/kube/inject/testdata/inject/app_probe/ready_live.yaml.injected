@@ -67,9 +67,9 @@ spec:
         - --parentShutdownDuration
         - 1m0s
         - --discoveryAddress
-<<<<<<< HEAD
+
         - istio-pilot:15010
-=======
+
         - istio-pilot:15007
         - --zipkinAddress
         - ""

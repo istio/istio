@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"regexp"
 	"testing"
+	"time"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
 	"github.com/ghodss/yaml"
@@ -103,7 +104,7 @@ func TestGolden(t *testing.T) {
 			_, localEnv := createEnv(t, c.labels, c.annotations)
 			fn, err := WriteBootstrap(cfg, "sidecar~1.2.3.4~foo~bar", 0, []string{
 				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, nil, localEnv,
-				[]string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6"}, "60s")
+				[]string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6"}, time.Minute)
 			if err != nil {
 				t.Fatal(err)
 			}

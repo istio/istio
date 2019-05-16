@@ -202,7 +202,7 @@ var overrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP", "", "")
 // WriteBootstrap generates an envoy config based on config and epoch, and returns the filename.
 // TODO: in v2 some of the LDS ports (port, http_port) should be configured in the bootstrap.
 func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
-	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string) (string, error) {
+	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate time.Duration) (string, error) {
 	if opts == nil {
 		opts = map[string]interface{}{}
 	}
@@ -287,7 +287,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	// Pass unmodified config.DiscoveryAddress for Google gRPC Envoy client target_uri parameter
 	opts["discovery_address"] = config.DiscoveryAddress
 
-	opts["dns_refresh_rate"] = dnsRefreshRate
+	opts["dns_refresh_rate"] = fmt.Sprintf("%ds", int(dnsRefreshRate.Seconds()))
 
 	// Setting default to ipv4 local host, wildcard and dns policy
 	opts["localhost"] = "127.0.0.1"

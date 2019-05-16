@@ -90,6 +90,11 @@ var (
 	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
 	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	dnsRefreshRateVar    = env.RegisterDurationVar(
+		"ISTIO_DNS_REFRESH_RATE",
+		time.Second*5,
+		"Configure the DNS refresh rate for Envoy cluster.",
+	)
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -359,7 +364,7 @@ var (
 
 			log.Infof("PilotSAN %#v", pilotSAN)
 
-			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses, dnsRefreshRate)
+			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses, dnsRefreshRateVar.Get())
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, pilot.TerminationDrainDuration())
 			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.ConfigCh())
 

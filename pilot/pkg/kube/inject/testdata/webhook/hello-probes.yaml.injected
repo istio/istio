@@ -67,8 +67,6 @@ spec:
         - istio-pilot:15010
         - --zipkinAddress
         - ""
-        - --dnsRefreshRate
-        - 5s
         - --connectTimeout
         - 1s
         - --proxyAdminPort
@@ -106,6 +104,8 @@ spec:
           value: REDIRECT
         - name: ISTIO_META_INCLUDE_INBOUND_PORTS
           value: 80,90
+        - name: ISTIO_DNS_REFRESH_RATE
+          value: 5s
         image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy

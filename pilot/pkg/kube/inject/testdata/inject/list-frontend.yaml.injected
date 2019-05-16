@@ -64,8 +64,6 @@ items:
           - 1m0s
           - --discoveryAddress
           - istio-pilot:15010
-          - --dnsRefreshRate
-          - 5s
           - --connectTimeout
           - 1s
           - --proxyAdminPort
@@ -105,6 +103,8 @@ items:
           - name: ISTIO_METAJSON_LABELS
             value: |
               {"app":"hello","tier":"frontend","track":"stable"}
+          - name: ISTIO_DNS_REFRESH_RATE
+            value: 5s
           image: docker.io/istio/proxyv2:unittest
           imagePullPolicy: IfNotPresent
           name: istio-proxy

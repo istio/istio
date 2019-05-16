@@ -130,8 +130,6 @@ containers:
 {{- if .Values.global.proxy.componentLogLevel }}
   - --proxyComponentLogLevel={{ .Values.global.proxy.componentLogLevel }}
 {{- end}}
-  - --dnsRefreshRate
-  - {{ .Values.global.proxy.dnsRefreshRate }}
   - --connectTimeout
   - "{{ formatDuration .ProxyConfig.ConnectTimeout }}"
 {{- if .Values.global.proxy.envoyStatsd.enabled }}
@@ -212,6 +210,8 @@ containers:
   - name: ISTIO_META_SDS_TOKEN_PATH
     value: "{{ .Values.global.sds.customTokenDirectory -}}/sdstoken"
   {{- end }}
+  - name: ISTIO_DNS_REFRESH_RATE
+    value: {{ .Values.global.proxy.dnsRefreshRate }}
   imagePullPolicy: {{ .Values.global.imagePullPolicy }}
   {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
   readinessProbe:
