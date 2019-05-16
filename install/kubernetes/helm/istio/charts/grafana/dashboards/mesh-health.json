@@ -574,15 +574,16 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "istio_requests:istio_requests:sum_irate1m",
+          "expr": "sum(rate(istio_requests_total{reporter=\"source\"}[1m]))",
           "format": "time_series",
+          "interval": "",
           "intervalFactor": 1,
           "legendFormat": "All",
           "refId": "B",
           "step": 2
         },
         {
-          "expr": "istio_requests_successful:istio_requests:sum_irate1m",
+          "expr": "sum(rate(istio_requests_total{reporter=\"source\", response_code=~\"2.*\"}[1m]))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -591,14 +592,14 @@
           "step": 2
         },
         {
-          "expr": "istio_requests_redirects:istio_requests:sum_irate1m",
+          "expr": "sum(rate(istio_requests_total{reporter=\"source\", response_code=~\"3.*\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "3xx",
           "refId": "G"
         },
         {
-          "expr": "istio_requests_client_errors:istio_requests:sum_irate1m",
+          "expr": "sum(rate(istio_requests_total{reporter=\"source\", response_code=~\"4.*\"}[1m]))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -607,7 +608,7 @@
           "step": 2
         },
         {
-          "expr": "istio_requests_server_errors:istio_requests:sum_irate1m",
+          "expr": "sum(rate(istio_requests_total{reporter=\"source\", response_code=~\"5.*\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "5xx",
@@ -2299,5 +2300,5 @@
   "timezone": "browser",
   "title": "Mesh Health",
   "uid": "mesh-health",
-  "version": 9
+  "version": 1
 }
