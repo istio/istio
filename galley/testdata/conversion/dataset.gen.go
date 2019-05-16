@@ -22,7 +22,7 @@
 // dataset/networking.istio.io/v1alpha3/synthetic/serviceEntry_expected.json
 // DO NOT EDIT!
 
-package testdata
+package conversion
 
 import (
 	"fmt"
