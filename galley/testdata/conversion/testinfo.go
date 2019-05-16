@@ -12,13 +12,15 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package testdata
+package conversion
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
+
+	"istio.io/istio/galley/testdata"
 )
 
 // TestInfo about a particular test.

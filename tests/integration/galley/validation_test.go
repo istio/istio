@@ -19,6 +19,7 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/galley/testdata/validation"
 	"istio.io/istio/pkg/test/framework/label"
 
 	"istio.io/istio/pkg/test/framework"
@@ -38,7 +39,7 @@ func (t testData) isSkipped() bool {
 }
 
 func (t testData) load() (string, error) {
-	by, err := Asset(path.Join("testdata", string(t)))
+	by, err := validation.Asset(path.Join("testdata", string(t)))
 	if err != nil {
 		return "", err
 	}
@@ -47,7 +48,7 @@ func (t testData) load() (string, error) {
 }
 
 func loadTestData(t *testing.T) []testData {
-	entries, err := AssetDir("testdata")
+	entries, err := validation.AssetDir("testdata")
 	if err != nil {
 		t.Fatalf("Error loading test data: %v", err)
 	}
