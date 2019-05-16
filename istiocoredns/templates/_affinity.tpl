@@ -19,6 +19,13 @@
           - {{ $key }}
           {{- end }}
         {{- end }}
+        {{- $nodeSelector := default .Values.global.defaultNodeSelector .Values.istiocoredns.nodeSelector -}}
+        {{- range $key, $val := $nodeSelector }}
+        - key: {{ $key }}
+          operator: In
+          values:
+          - {{ $val }}
+        {{- end }}
 {{- end }}
 
 {{- define "nodeAffinityPreferredDuringScheduling" }}
@@ -42,7 +49,7 @@
     requiredDuringSchedulingIgnoredDuringExecution:
     {{- include "podAntiAffinityRequiredDuringScheduling" . }}
     {{- end }}
-    {{- if or .Values.istiocoredns.podAntiAffinityTermLabelSelector}}
+    {{- if .Values.istiocoredns.podAntiAffinityTermLabelSelector }}
     preferredDuringSchedulingIgnoredDuringExecution:
     {{- include "podAntiAffinityPreferredDuringScheduling" . }}
     {{- end }}

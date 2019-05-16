@@ -104,3 +104,7 @@ spec:
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.sidecarInjectorWebhook.tolerations }}
+      tolerations:
+{{ toYaml .Values.sidecarInjectorWebhook.tolerations | indent 6 }}
+{{- end }}

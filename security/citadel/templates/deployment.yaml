@@ -84,3 +84,7 @@ spec:
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.security.tolerations }}
+      tolerations:
+{{ toYaml .Values.security.tolerations | indent 6 }}
+{{- end }}

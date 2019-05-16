@@ -19,6 +19,13 @@
           - {{ $key }}
           {{- end }}
         {{- end }}
+        {{- $nodeSelector := default .Values.global.defaultNodeSelector .Values.mixer.telemetry.nodeSelector -}}
+        {{- range $key, $val := $nodeSelector }}
+        - key: {{ $key }}
+          operator: In
+          values:
+          - {{ $val }}
+        {{- end }}
 {{- end }}
 
 {{- define "nodeAffinityPreferredDuringScheduling" }}
@@ -36,13 +43,13 @@
 {{- end }}
 
 {{- define "podAntiAffinity" }}
-{{- if or .Values.mixer.podAntiAffinityLabelSelector .Values.mixer.podAntiAffinityTermLabelSelector}}
+{{- if or .Values.mixer.telemetry.podAntiAffinityLabelSelector .Values.mixer.telemetry.podAntiAffinityTermLabelSelector}}
   podAntiAffinity:
-    {{- if .Values.mixer.podAntiAffinityLabelSelector }}
+    {{- if .Values.mixer.telemetry.podAntiAffinityLabelSelector }}
     requiredDuringSchedulingIgnoredDuringExecution:
     {{- include "podAntiAffinityRequiredDuringScheduling" . }}
     {{- end }}
-    {{- if or .Values.mixer.podAntiAffinityTermLabelSelector}}
+    {{- if .Values.mixer.telemetry.podAntiAffinityTermLabelSelector }}
     preferredDuringSchedulingIgnoredDuringExecution:
     {{- include "podAntiAffinityPreferredDuringScheduling" . }}
     {{- end }}
@@ -50,7 +57,7 @@
 {{- end }}
 
 {{- define "podAntiAffinityRequiredDuringScheduling" }}
-    {{- range $index, $item := .Values.mixer.podAntiAffinityLabelSelector }}
+    {{- range $index, $item := .Values.mixer.telemetry.podAntiAffinityLabelSelector }}
     - labelSelector:
         matchExpressions:
         - key: {{ $item.key }}
@@ -67,7 +74,7 @@
 {{- end }}
 
 {{- define "podAntiAffinityPreferredDuringScheduling" }}
-    {{- range $index, $item := .Values.mixer.podAntiAffinityTermLabelSelector }}
+    {{- range $index, $item := .Values.mixer.telemetry.podAntiAffinityTermLabelSelector }}
     - podAffinityTerm:
         labelSelector:
           matchExpressions:

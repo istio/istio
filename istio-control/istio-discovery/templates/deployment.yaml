@@ -214,3 +214,7 @@ spec:
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.pilot.tolerations }}
+      tolerations:
+{{ toYaml .Values.pilot.tolerations | indent 6 }}
+{{- end }}

@@ -63,6 +63,10 @@ spec:
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.mixer.policy.tolerations }}
+      tolerations:
+{{ toYaml .Values.mixer.policy.tolerations | indent 6 }}
+{{- end }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.mixer.policy.image }}
@@ -91,7 +95,7 @@ spec:
           - --configStoreURL=k8s://
 {{- end }}
           - --configDefaultNamespace={{ .Values.global.configNamespace }}
-          {{- if .Values.mixer.adapters.useAdapterCRDs }}
+          {{- if .Values.mixer.policy.adapters.useAdapterCRDs }}
           - --useAdapterCRDs=true
           {{- else }}
           - --useAdapterCRDs=false
@@ -102,9 +106,9 @@ spec:
           {{- else }}
           - --trace_zipkin_url=http://zipkin.{{ .Values.global.telemetryNamespace }}:9411/api/v1/spans
           {{- end }}
-        {{- if .Values.mixer.env }}
+        {{- if .Values.mixer.policy.env }}
         env:
-        {{- range $key, $val := .Values.mixer.env }}
+        {{- range $key, $val := .Values.mixer.policy.env }}
         - name: {{ $key }}
           value: "{{ $val }}"
         {{- end }}

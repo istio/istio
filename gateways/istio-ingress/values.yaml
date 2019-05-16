@@ -109,6 +109,9 @@ gateways:
       # enable cross cluster routing.
       ISTIO_META_ROUTER_MODE: "sni-dnat"
 
+    nodeSelector: {}
+    tolerations: []
+
     # Specify the pod anti-affinity that allows you to constrain which nodes
     # your pod is eligible to be scheduled based on labels on pods that are
     # already running on the node rather than based on labels on nodes.

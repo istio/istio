@@ -96,6 +96,10 @@ spec:
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.grafana.tolerations }}
+      tolerations:
+{{ toYaml .Values.grafana.tolerations | indent 6 }}
+{{- end }}
       volumes:
       - name: config
         configMap:

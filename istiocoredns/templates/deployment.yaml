@@ -83,3 +83,7 @@ spec:
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.istiocoredns.tolerations }}
+      tolerations:
+{{ toYaml .Values.istiocoredns.tolerations | indent 6 }}
+{{- end }}

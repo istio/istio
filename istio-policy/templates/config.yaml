@@ -199,7 +199,7 @@ spec:
     destination.workload.namespace:
       valueType: STRING
 ---
-{{- if .Values.mixer.adapters.kubernetesenv.enabled }}
+{{- if .Values.mixer.policy.adapters.kubernetesenv.enabled }}
 apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
