@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	dpb "istio.io/api/policy/v1beta1"
+	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang"
 	"istio.io/istio/mixer/pkg/lang/ast"
 )
@@ -31,7 +32,7 @@ type TypeChecker interface {
 
 // checker for a c-like expression language.
 type checker struct {
-	finder    ast.AttributeDescriptorFinder
+	finder    attribute.AttributeDescriptorFinder
 	functions map[string]ast.FunctionMetadata
 }
 
@@ -44,7 +45,7 @@ func (c *checker) EvalType(expression string) (dpb.ValueType, error) {
 }
 
 // NewTypeChecker returns a new TypeChecker implementation.
-func NewTypeChecker(finder ast.AttributeDescriptorFinder) TypeChecker {
+func NewTypeChecker(finder attribute.AttributeDescriptorFinder) TypeChecker {
 	return &checker{
 		finder:    finder,
 		functions: ast.FuncMap(lang.ExternFunctionMetadata),

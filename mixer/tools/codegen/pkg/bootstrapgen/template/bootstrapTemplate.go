@@ -42,7 +42,6 @@ import (
     "net"
     "istio.io/istio/mixer/pkg/adapter"
     "istio.io/istio/mixer/pkg/attribute"
-    "istio.io/istio/mixer/pkg/lang/ast"
     "istio.io/istio/mixer/pkg/lang/compiled"
     "istio.io/istio/mixer/pkg/runtime/lang"
     "istio.io/pkg/log"
@@ -455,7 +454,7 @@ var (
         // See template.CreateOutputExpressionsFn for more details.
         CreateOutputExpressions: func(
             instanceParam proto.Message,
-            finder ast.AttributeDescriptorFinder,
+            finder attribute.AttributeDescriptorFinder,
             expb lang.Compiler) (map[string]compiled.Expression, error) {
             var err error
             var expType istio_policy_v1beta1.ValueType
