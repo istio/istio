@@ -898,7 +898,6 @@ func toYaml(value interface{}) string {
 }
 
 func annotation(meta metav1.ObjectMeta, name string, defaultValue interface{}) string {
-
 	value, ok := meta.Annotations[name]
 	if !ok {
 		value = fmt.Sprint(defaultValue)
@@ -968,8 +967,8 @@ func potentialPodName(metadata *metav1.ObjectMeta) string {
 }
 
 // rewriteCniPodSPec will check if values from the sidecar injector Helm
-// values need to be inserted as Pod annotations so the CNI will apply 
-// the proper redirection rules. 
+// values need to be inserted as Pod annotations so the CNI will apply
+// the proper redirection rules.
 func rewriteCniPodSPec(annotations map[string]string, spec *SidecarInjectionSpec) error {
 
 	var err error
