@@ -63,9 +63,9 @@ Within that package, create a `TestMain` to bootstrap the test suite:
 
 ```go
 func TestMain(m *testing.M) {
-	framework.
-		NewSuite("mysuite", m).
-		Run()
+    framework.
+        NewSuite("mysuite", m).
+        Run()
 }
 ```
 
@@ -73,18 +73,18 @@ Next, define your tests in the same package:
 
 ```go
 func TestMyLogic(t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(func(ctx framework.TestContext) {
-			// Create a component
-			g := galley.NewOrFail(ctx, ctx, cfg)
-			
-			// Use the component.
-			g.ApplyConfigOrFail(ctx, nil, mycfg)
-			defer g.DeleteConfigOrFail(ctx, nil, mycfg)
-			
-			// Do more stuff here.
-		}
+    framework.
+        NewTest(t).
+        Run(func(ctx framework.TestContext) {
+            // Create a component
+            g := galley.NewOrFail(ctx, ctx, cfg)
+            
+            // Use the component.
+            g.ApplyConfigOrFail(ctx, nil, mycfg)
+            defer g.DeleteConfigOrFail(ctx, nil, mycfg)
+            
+            // Do more stuff here.
+        }
 }
 ```
 
@@ -97,19 +97,19 @@ In the `TestMain`, you can also restrict the test to particular environment, app
  
 ```go
 func TestMain(m *testing.M) {
-	framework.
-		NewSuite("mysuite", m).
-		// Restrict the test to the K8s environment only, tests will be skipped in native environment.
-		RequireEnvironment(environment.Kube).
-		// Deploy Istio on the cluster
-		Setup(istio.SetupOnKube(nil, nil)).
-		// Run your own custom setup
-		Setup(mySetup).
-		Run()
+    framework.
+        NewSuite("mysuite", m).
+        // Restrict the test to the K8s environment only, tests will be skipped in native environment.
+        RequireEnvironment(environment.Kube).
+        // Deploy Istio on the cluster
+        Setup(istio.SetupOnKube(nil, nil)).
+        // Run your own custom setup
+        Setup(mySetup).
+        Run()
 }
 
 func mySetup(ctx framework.SuiteContext) error {
-    // Your own setup code	
+    // Your own setup code
 }
  ```
 
@@ -119,30 +119,29 @@ Go allows you to run sub-tests with `t.Run()`. Similarly, this framework support
 
 ```go
 func TestMyLogic(t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(func(ctx framework.TestContext) {
-		
-			// Create a component
+    framework.
+        NewTest(t).
+        Run(func(ctx framework.TestContext) {
+        
+            // Create a component
             g := galley.NewOrFail(ctx, ctx, cfg)
-            			
-			configs := []struct{
-				name: string
-				yaml: string
-			} {
-				// Some array of YAML
-			}
-			
-			for _, cfg := range configs
-			} {
-				ctx.NewSubTest(cfg.name).
-					Run(func(ctx framework.TestContext) {
-						g.ApplyConfigOrFail(ctx, nil, mycfg)
-						defer g.DeleteConfigOrFail(ctx, nil, mycfg)
-						// Do more stuff here.
-					})
-			}
-		}
+                        
+            configs := []struct{
+                name: string
+                yaml: string
+            } {
+                // Some array of YAML
+            }
+            
+            for _, cfg := range configs {
+                ctx.NewSubTest(cfg.name).
+                    Run(func(ctx framework.TestContext) {
+                        g.ApplyConfigOrFail(ctx, nil, mycfg)
+                        defer g.DeleteConfigOrFail(ctx, nil, mycfg)
+                        // Do more stuff here.
+                    })
+            }
+        }
 }
 ```
 
@@ -156,11 +155,11 @@ to run these sorts of tests in parallel:
 
 ```go
 func TestMyLogic(t *testing.T) {
-	framework.
-		NewTest(t).
-		RunParallel(func(ctx framework.TestContext) {
-		    // ...
-		}
+    framework.
+        NewTest(t).
+        RunParallel(func(ctx framework.TestContext) {
+            // ...
+        }
 }
 ```
 
@@ -229,27 +228,27 @@ For example, the following code creates and then interacts with a Galley and Pil
 
 ```go
 func TestMyLogic(t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(func(ctx framework.TestContext) {
-			// Create the components.
-			g := galley.NewOrFail(ctx, ctx, galley.Config{})
-			p := pilot.NewOrFail(ctx, ctx, pilot.Config {
-				Galley: g,
-			})
-			
-			// Apply configuration via Galley.
-			g.ApplyConfigOrFail(ctx, nil, mycfg)
-			defer g.DeleteConfigOrFail(ctx, nil, mycfg)
-			
-			// Wait until Pilot has received the configuration update.
-			p.StartDiscoveryOrFail(t, discoveryRequest)
-			p.WatchDiscoveryOrFail(t, timeout,
-				func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
-					// Validate that the discovery response has the configuration applied.
-				})
-			// Do more stuff...
-		}
+    framework.
+        NewTest(t).
+        Run(func(ctx framework.TestContext) {
+            // Create the components.
+            g := galley.NewOrFail(ctx, ctx, galley.Config{})
+            p := pilot.NewOrFail(ctx, ctx, pilot.Config {
+                Galley: g,
+            })
+            
+            // Apply configuration via Galley.
+            g.ApplyConfigOrFail(ctx, nil, mycfg)
+            defer g.DeleteConfigOrFail(ctx, nil, mycfg)
+            
+            // Wait until Pilot has received the configuration update.
+            p.StartDiscoveryOrFail(t, discoveryRequest)
+            p.WatchDiscoveryOrFail(t, timeout,
+                func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
+                    // Validate that the discovery response has the configuration applied.
+                })
+            // Do more stuff...
+        }
 }
 ```
 
@@ -272,10 +271,10 @@ You'll then need to define your component's API.
 package mycomponent
 
 type Instance interface {
-	resource.Resource
+    resource.Resource
 
-	DoStuff() error
-	DoStuffOrFail(t test.Failer)
+    DoStuff() error
+    DoStuffOrFail(t test.Failer)
 }
 ```
 
@@ -288,24 +287,24 @@ Next you need to implement your component for one or more environments. If possi
 package mycomponent
 
 type nativeComponent struct {
-	id resource.ID
-	// ...
+    id resource.ID
+    // ...
 }
  
 func newNative(ctx resource.Context) (Instance, error) {
-	if config.Galley == nil {
-		return nil, errors.New("galley must be provided")
-	}
+    if config.Galley == nil {
+        return nil, errors.New("galley must be provided")
+    }
  
-	instance := &nativeComponent{}
-	instance.id = ctx.TrackResource(instance)
-	
-	//...
-	return instance, nil
+    instance := &nativeComponent{}
+    instance.id = ctx.TrackResource(instance)
+    
+    //...
+    return instance, nil
 }
 
 func (c *nativeComponent) ID() resource.ID {
-	return c.id
+    return c.id
 }
 ````
 
@@ -319,7 +318,7 @@ Finally, you'll need to provide an environment-agnostic constructor for your com
 package mycomponent
 
 func New(ctx resource.Context) (i Instance, err error){
-	err = resource.UnsupportedEnvironment(ctx.Environment())
+    err = resource.UnsupportedEnvironment(ctx.Environment())
     ctx.Environment().Case(environment.Native, func() {
         i, err = newNative(ctx)
     })
@@ -330,11 +329,11 @@ func New(ctx resource.Context) (i Instance, err error){
 }
 
 func NewOrFail(t test.Failer, ctx resource.Context) Instance {
-	i, err := New(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return i
+    i, err := New(ctx)
+    if err != nil {
+        t.Fatal(err)
+    }
+    return i
 }
 ```
 
@@ -342,14 +341,14 @@ Now that everything is in place, you can begin using your component:
 
 ```go
 func TestMyLogic(t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(func(ctx framework.TestContext) {
-			// Create the components.
-			g := myComponent.NewOrFail(ctx, ctx)
+    framework.
+        NewTest(t).
+        Run(func(ctx framework.TestContext) {
+            // Create the components.
+            g := myComponent.NewOrFail(ctx, ctx)
 
-			// Do more stuff...
-		}
+            // Do more stuff...
+        }
 }
 ``` 
 ## Running Tests
@@ -387,11 +386,11 @@ For example, if a test, or test suite uses labels in this fashion:
 
 ```go
 func TestMain(m *testing.M) {
-	framework.
-		NewSuite("galley_conversion", m).
-		// Test is tagged with "Presubmit" label
-		Label(label.Presubmit).
-		Run()
+    framework.
+        NewSuite("galley_conversion", m).
+        // Test is tagged with "Presubmit" label
+        Label(label.Presubmit).
+        Run()
 ``` 
 
 Then you can explicitly select execution of such tests using label based selection. For example, the following expression
@@ -589,55 +588,55 @@ The test framework supports the following command-line flags:
 
 ```
   -istio.test.env string
-    	Specify the environment to run the tests against. Allowed values are: [native kube] (default "native")
+        Specify the environment to run the tests against. Allowed values are: [native kube] (default "native")
 
   -istio.test.work_dir string
-    	Local working directory for creating logs/temp files. If left empty, os.TempDir() is used. (default "/var/folders/x0/c473mbq9269262gd1zj0lwt8008pwc/T/")
+        Local working directory for creating logs/temp files. If left empty, os.TempDir() is used. (default "/var/folders/x0/c473mbq9269262gd1zj0lwt8008pwc/T/")
 
  -istio.test.ci
-    	Enable CI Mode. Additional logging and state dumping will be enabled.
+        Enable CI Mode. Additional logging and state dumping will be enabled.
 
   -istio.test.nocleanup
-    	Do not cleanup resources after test completion
-    	    	
+        Do not cleanup resources after test completion
+                
   -istio.test.select string
-    	Comma separatated list of labels for selecting tests to run (e.g. 'foo,+bar-baz').
+        Comma separatated list of labels for selecting tests to run (e.g. 'foo,+bar-baz').
 
   -istio.test.hub string
-    	Container registry hub to use (default "gcr.io/oztest-mixer")
-    	
+        Container registry hub to use (default "gcr.io/oztest-mixer")
+        
   -istio.test.tag string
-    	Common Container tag to use when deploying container images (default "ozevren")
-    	    	    	
+        Common Container tag to use when deploying container images (default "ozevren")
+                        
   -istio.test.pullpolicy string
-    	Common image pull policy to use when deploying container images
-    	
+        Common image pull policy to use when deploying container images
+        
   -istio.test.kube.config string
-    	The path to the kube config file for cluster environments
-    	
+        The path to the kube config file for cluster environments
+        
   -istio.test.kube.deploy
-    	Deploy Istio into the target Kubernetes environment. (default true)
-    	
+        Deploy Istio into the target Kubernetes environment. (default true)
+        
   -istio.test.kube.deployTimeout duration
-    	Timeout applied to deploying Istio into the target Kubernetes environment. Only applies if DeployIstio=true.
-    	
+        Timeout applied to deploying Istio into the target Kubernetes environment. Only applies if DeployIstio=true.
+        
   -istio.test.kube.undeployTimeout duration
-    	Timeout applied to undeploying Istio from the target Kubernetes environment. Only applies if DeployIstio=true.
-    	
+        Timeout applied to undeploying Istio from the target Kubernetes environment. Only applies if DeployIstio=true.
+        
   -istio.test.kube.systemNamespace string
-    	The namespace where the Istio components reside in a typical deployment. (default "istio-system")
+        The namespace where the Istio components reside in a typical deployment. (default "istio-system")
 
   -istio.test.kube.helm.chartDir string
-    	Helm chart dir for Istio. Only valid when deploying Istio. (default "/Users/ozben/go/src/istio.io/istio/install/kubernetes/helm/istio")
-    	
+        Helm chart dir for Istio. Only valid when deploying Istio. (default "/Users/ozben/go/src/istio.io/istio/install/kubernetes/helm/istio")
+        
   -istio.test.kube.helm.values string
-    	Manual overrides for Helm values file. Only valid when deploying Istio.
-    	
+        Manual overrides for Helm values file. Only valid when deploying Istio.
+        
   -istio.test.kube.helm.valuesFile string
-    	Helm values file. This can be an absolute path or relative to chartDir. Only valid when deploying Istio. (default "test-values/values-e2e.yaml")
-    	
+        Helm values file. This can be an absolute path or relative to chartDir. Only valid when deploying Istio. (default "test-values/values-e2e.yaml")
+        
   -istio.test.kube.minikube
-    	Indicates that the target environment is Minikube. Used by Ingress component to obtain the right IP address..
-    	    
+        Indicates that the target environment is Minikube. Used by Ingress component to obtain the right IP address..
+            
 
 ```
