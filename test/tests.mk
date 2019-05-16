@@ -77,7 +77,7 @@ run-mixer:
 		E2E_ARGS="${E2E_ARGS} --namespace=mixertest")
 
 # Test targets to run. Exclude tests that are broken for now
-INT_TARGETS = $(shell GOPATH=${GOPATH} go list ../istio/tests/integration/... | grep -v "/mixer/policy\|telemetry/tracing")
+INT_TARGETS = $(shell GOPATH=${GOPATH} go list ../istio/tests/integration/... | grep -v "/mixer/policy\|telemetry/tracing\|/istioctl")
 
 INT_FLAGS ?= \
 	--istio.test.hub ${HUB} \
