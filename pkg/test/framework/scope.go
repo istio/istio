@@ -85,11 +85,7 @@ func (s *scope) done(nocleanup bool) error {
 			}
 		}
 	}
-	s.resources = nil // set resources to nil to avoid resetting them
-
-	if e := s.reset(); e != nil {
-		err = multierror.Append(err, e)
-	}
+	s.resources = nil
 
 	scopes.Framework.Debugf("Done cleaning up scope: %v", s.id)
 	return err
@@ -97,21 +93,6 @@ func (s *scope) done(nocleanup bool) error {
 
 func (s *scope) waitForDone() {
 	<-s.closeChan
-}
-
-func (s *scope) reset() error {
-	var err error
-	for _, r := range s.resources {
-		if res, ok := r.(resource.Resetter); ok {
-			scopes.Framework.Debugf("Resetting resource: %s", r.ID())
-			if e := res.Reset(); e != nil {
-				scopes.Framework.Debugf("Error resetting resource %s: %v", r.ID(), e)
-				err = multierror.Append(e, err)
-			}
-		}
-	}
-
-	return err
 }
 
 func (s *scope) dump() {
