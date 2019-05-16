@@ -39,7 +39,7 @@ func (t testData) isSkipped() bool {
 }
 
 func (t testData) load() (string, error) {
-	by, err := validation.Asset(path.Join("testdata", string(t)))
+	by, err := validation.Asset(path.Join("dataset", string(t)))
 	if err != nil {
 		return "", err
 	}
