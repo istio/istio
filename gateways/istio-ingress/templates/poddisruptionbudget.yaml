@@ -5,14 +5,14 @@ metadata:
   name: ingressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: ingressgateway
+    app: istio-ingressgateway
     release: {{ .Release.Name }}
     istio: ingressgateway
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app: ingressgateway
+      app: istio-ingressgateway
       release: {{ .Release.Name }}
       istio: ingressgateway
 {{- end }}

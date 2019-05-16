@@ -3,8 +3,8 @@
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: Role
 metadata:
-  name: ingress-sds
-  namespace: {{ $.Release.Namespace }}
+  name: istio-ingressgateway-sds
+  namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
 rules:

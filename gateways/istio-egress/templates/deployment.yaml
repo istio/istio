@@ -172,7 +172,7 @@ spec:
             valueFrom:
               fieldRef:
                 apiVersion: v1
-                fieldPath: metadata.name           
+                fieldPath: metadata.name
           - name: ISTIO_META_CONFIG_NAMESPACE
             valueFrom:
               fieldRef:
