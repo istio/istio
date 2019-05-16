@@ -19,3 +19,6 @@ spec:
     port: 42422
   selector:
     app: istio-telemetry
+{{- if .Values.mixer.telemetry.sessionAffinityEnabled }}
+  sessionAffinity: ClientIP
+{{- end }}

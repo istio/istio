@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-telemetry
@@ -36,8 +36,27 @@ spec:
         secret:
           secretName: istio.istio-mixer-service-account
           optional: true
+      {{- if .Values.global.sds.enabled }}
+      - hostPath:
+          path: /var/run/sds/uds_path
+          type: Socket
+        name: sds-uds-path
+      {{- if .Values.global.sds.useTrustworthyJwt }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: {{ .Values.global.trustDomain }}
+              expirationSeconds: 43200
+              path: istio-token
+      {{- end }}
+      {{- end }}
       - name: uds-socket
         emptyDir: {}
+      - name: telemetry-adapter-secret
+        secret:
+          secretName: telemetry-adapter-secret
+          optional: true
       - name: telemetry-envoy-config
         configMap:
           name: telemetry-envoy-config
@@ -60,26 +79,36 @@ spec:
         - containerPort: 15014
         - containerPort: 42422
         args:
+          - --monitoringPort=15014
           - --address
           - unix:///sock/mixer.socket
+{{- if .Values.global.logging.level }}
+          - --log_output_level={{ .Values.global.logging.level }}
+{{- end}}
 {{- if .Values.global.useMCP }}
     {{- if .Values.global.controlPlaneSecurityEnabled}}
           - --configStoreURL=mcp://localhost:15019
     {{- else }}
-          - --configStoreURL=mcp://istio-galley.{{ .Values.global.istioNamespace }}.svc:9901
+          - --configStoreURL=mcp://istio-galley.{{ .Values.global.configNamespace }}.svc:9901
     {{- end }}
 {{- else }}
-          - --configStoreURL=k8s://?ns={{ .Release.Namespace }}
+          - --configStoreURL=k8s://
 {{- end }}
-          - --configDefaultNamespace={{ .Release.Namespace }}
+          - --configDefaultNamespace={{ .Values.global.configNamespace }}
+          {{- if .Values.mixer.adapters.useAdapterCRDs }}
+          - --useAdapterCRDs=true
+          {{- else }}
+          - --useAdapterCRDs=false
+          {{- end }}
+          - --useTemplateCRDs=false
           {{- if .Values.global.tracer.zipkin.address }}
           - --trace_zipkin_url=http://{{- .Values.global.tracer.zipkin.address }}/api/v1/spans
           {{- else }}
-          - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+          - --trace_zipkin_url=http://zipkin.{{ .Values.global.telemetryNamespace }}:9411/api/v1/spans
           {{- end }}
-        {{- if .Values.mixer.telemetry.env }}
+        {{- if .Values.mixer.env }}
         env:
-        {{- range $key, $val := .Values.mixer.telemetry.env }}
+        {{- range $key, $val := .Values.mixer.env }}
         - name: {{ $key }}
           value: "{{ $val }}"
         {{- end }}
@@ -98,6 +127,9 @@ spec:
 {{- end }}
         - name: uds-socket
           mountPath: /sock
+        - name: telemetry-adapter-secret
+          mountPath: /var/run/secrets/istio.io/telemetry/adapter
+          readOnly: true
         livenessProbe:
           httpGet:
             path: /version
@@ -120,10 +152,8 @@ spec:
           name: http-envoy-prom
         args:
         - proxy
-{{- if .Values.global.proxy.proxyDomain }}
         - --domain
-        - {{ .Values.global.proxy.proxyDomain }}
-{{- end }}
+        - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
         - --serviceCluster
         - istio-telemetry
         - --templateFile
@@ -134,6 +164,9 @@ spec:
       {{- else }}
         - --controlPlaneAuthPolicy
         - NONE
+      {{- end }}
+      {{- if .Values.global.trustDomain }}
+        - --trust-domain={{ .Values.global.trustDomain }}
       {{- end }}
         env:
         - name: POD_NAME
@@ -163,5 +196,14 @@ spec:
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
+        {{- if .Values.global.sds.enabled }}
+        - name: sds-uds-path
+          mountPath: /var/run/sds/uds_path
+          readOnly: true
+        {{- if .Values.global.sds.useTrustworthyJwt }}
+        - name: istio-token
+          mountPath: /var/run/secrets/tokens
+        {{- end }}
+        {{- end }}
         - name: uds-socket
           mountPath: /sock
