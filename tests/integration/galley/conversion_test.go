@@ -19,20 +19,20 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/galley/testdata/conversion"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 
 	"istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/galley/pkg/testing/testdata"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/util/structpath"
 )
 
 func TestConversion(t *testing.T) {
-	dataset, err := testdata.Load()
+	dataset, err := conversion.Load()
 	if err != nil {
 		t.Fatalf("Error loading data set: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestConversion(t *testing.T) {
 	}
 }
 
-func runTest(t *testing.T, ctx resource.Context, fset *testdata.FileSet, gal galley.Instance) {
+func runTest(t *testing.T, ctx resource.Context, fset *conversion.FileSet, gal galley.Instance) {
 	input, err := fset.LoadInputFile()
 	if err != nil {
 		t.Fatalf("Unable to load input test data: %v", err)
