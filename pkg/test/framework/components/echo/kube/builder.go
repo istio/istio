@@ -69,6 +69,7 @@ func (b *builder) Build() error {
 }
 
 func (b *builder) BuildOrFail(t test.Failer) {
+	t.Helper()
 	if err := b.Build(); err != nil {
 		t.Fatal(err)
 	}

@@ -251,7 +251,7 @@ func (c *testContext) Failed() bool {
 
 func (c *testContext) Fatal(args ...interface{}) {
 	c.Helper()
-	c.T.Error(args...)
+	c.T.Fatal(args...)
 }
 
 func (c *testContext) Fatalf(format string, args ...interface{}) {
