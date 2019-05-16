@@ -55,6 +55,9 @@ var (
 		decls.NewFunction("emptyStringMap",
 			decls.NewOverload("emptyStringMap",
 				[]*exprpb.Type{}, stringMapType)),
+		decls.NewFunction("grpcToHttp",
+			decls.NewOverload("grpcToHttp",
+				[]*exprpb.Type{decls.String}, decls.Int)),
 	}
 
 	standardOverloads = celgo.Functions([]*functions.Overload{
@@ -134,6 +137,17 @@ var (
 					return types.NewErr("emptyStringMap takes no arguments")
 				}
 				return emptyStringMap
+			}},
+		{Operator: "grpcToHttp",
+			Unary: func(v ref.Val) ref.Val {
+				if v.Type() != types.StringType {
+					return types.NewErr("overload cannot be applied to '%s'", v.Type())
+				}
+				out, err := lang.ExternGrpcToHttp(v.Value().(string))
+				if err != nil {
+					return types.NewErr(err.Error())
+				}
+				return types.Int(out)
 			}},
 	}...)
 )

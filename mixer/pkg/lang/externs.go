@@ -21,14 +21,17 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/gogo/googleapis/google/rpc"
 	"golang.org/x/net/idna"
 
 	config "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/il/interpreter"
 	"istio.io/istio/mixer/pkg/lang/ast"
+	"istio.io/istio/mixer/pkg/status"
 	"istio.io/pkg/attribute"
 )
 
@@ -55,6 +58,7 @@ var Externs = map[string]interpreter.Extern{
 	"emptyStringMap":    interpreter.ExternFromFn("emptyStringMap", externEmptyStringMap),
 	"conditionalString": interpreter.ExternFromFn("conditionalString", externConditionalString),
 	"toLower":           interpreter.ExternFromFn("toLower", ExternToLower),
+	"grpcToHttp":        interpreter.ExternFromFn("grpcToHttp", ExternGrpcToHttp),
 }
 
 // ExternFunctionMetadata is the type-metadata about externs. It gets used during compilations.
@@ -123,6 +127,11 @@ var ExternFunctionMetadata = []ast.FunctionMetadata{
 	{
 		Name:          "toLower",
 		ReturnType:    config.STRING,
+		ArgumentTypes: []config.ValueType{config.STRING},
+	},
+	{
+		Name:          "grpcToHttp",
+		ReturnType:    config.INT64,
 		ArgumentTypes: []config.ValueType{config.STRING},
 	},
 }
@@ -378,4 +387,15 @@ func externConditionalString(condition bool, trueStr, falseStr string) string {
 // ExternToLower changes the string case to lower
 func ExternToLower(str string) string {
 	return strings.ToLower(str)
+}
+
+// ExternGrpcToHttp converts a GRPC response code to an HTTP status
+// input type is string because response.grpc_status in the attribute vocabulary
+// has type string.
+func ExternGrpcToHttp(str string) (int64, error) {
+	i, err := strconv.Atoi(str)
+	if err != nil {
+		return 0, fmt.Errorf("error converting string to int64 '%s': '%v'", str, err)
+	}
+	return int64(status.HTTPStatusFromCode(rpc.Code(i))), nil
 }

@@ -494,3 +494,29 @@ func TestExternConditionalString(t *testing.T) {
 		t.Errorf("externIfElse(true, \"yes\", \"no\") => %s, wanted: yes", got)
 	}
 }
+
+func TestExternGrpcToHttp_ValidStatus(t *testing.T) {
+	got, err := ExternGrpcToHttp("7")
+	if err != nil {
+		t.Error("grpcToHttp(\"7\") returned error")
+	} else if got != 403 {
+		t.Errorf("grpcToHttp(\"7\") => %d, wanted: 403", got)
+	}
+}
+
+func TestExternGrpcToHttp_InvalidStatus(t *testing.T) {
+	got, err := ExternGrpcToHttp("-1")
+	// reflecting behavior of mixer.pkg.status.HTTPStatusFromCode
+	if err != nil {
+		t.Error("grpcToHttp(\"-1\") returned error")
+	} else if got != 500 {
+		t.Errorf("grpcToHttp(-1) => %d, wanted: 500", got)
+	}
+}
+
+func TestExternGrpcToHttp_NotANumber(t *testing.T) {
+	_, err := ExternGrpcToHttp("foo")
+	if err == nil {
+		t.Error("grpcToHttp(\"foo\") expected error")
+	}
+}
