@@ -835,7 +835,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	}
 }
 
-func TestClusterDiscoveryTypeAndLbPolicy(t *testing.T) {
+func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	clusters, err := buildTestClusters("*.example.org", model.Passthrough, model.SidecarProxy, nil, testMesh,
@@ -856,4 +856,28 @@ func TestClusterDiscoveryTypeAndLbPolicy(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
 	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
+}
+
+func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	clusters, err := buildTestClusters("*.example.org", model.ClientSideLB, model.SidecarProxy, nil, testMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+			TrafficPolicy: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_PASSTHROUGH,
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 5,
+				},
+			},
+		})
+
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
+	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
+	g.Expect(clusters[0].EdsClusterConfig).To(BeNil())
 }
