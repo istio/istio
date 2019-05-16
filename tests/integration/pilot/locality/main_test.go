@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -141,15 +140,16 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["pilot.env.PILOT_ENABLE_LOCALITY_LOAD_BALANCING"] = "true"
 	cfg.Values["global.localityLbSetting.failover[0].from"] = "region"
 	cfg.Values["global.localityLbSetting.failover[0].to"] = "closeregion"
+
+	// TODO(https://github.com/istio/istio/issues/14084) remove this
+	cfg.Values["pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE"] = "0"
 }
 
-func newEcho(t *testing.T, ctx resource.Context, ns namespace.Instance, name string) echo.Instance {
-	t.Helper()
-	return echoboot.NewOrFail(t, ctx, echo.Config{
+func echoConfig(ns namespace.Instance, name string) echo.Config {
+	return echo.Config{
 		Service:   name,
 		Namespace: ns,
 		Locality:  "region.zone.subzone",
-		Sidecar:   true,
 		Ports: []echo.Port{
 			{
 				Name:        "http",
@@ -159,7 +159,7 @@ func newEcho(t *testing.T, ctx resource.Context, ns namespace.Instance, name str
 		},
 		Galley: g,
 		Pilot:  p,
-	})
+	}
 }
 
 type serviceConfig struct {

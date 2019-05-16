@@ -69,32 +69,33 @@ func TestRBACV1Group(t *testing.T) {
 					Protocol: model.ProtocolHTTP,
 				},
 			}
-			a := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:   "a",
-				Namespace: ns,
-				Sidecar:   true,
-				Ports:     ports,
-				Galley:    g,
-				Pilot:     p,
-			})
-			b := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:        "b",
-				Namespace:      ns,
-				Ports:          ports,
-				Sidecar:        true,
-				ServiceAccount: true,
-				Galley:         g,
-				Pilot:          p,
-			})
-			c := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:        "c",
-				Namespace:      ns,
-				Ports:          ports,
-				Sidecar:        true,
-				ServiceAccount: true,
-				Galley:         g,
-				Pilot:          p,
-			})
+
+			var a, b, c echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, echo.Config{
+					Service:   "a",
+					Namespace: ns,
+					Ports:     ports,
+					Galley:    g,
+					Pilot:     p,
+				}).
+				With(&b, echo.Config{
+					Service:        "b",
+					Namespace:      ns,
+					Ports:          ports,
+					ServiceAccount: true,
+					Galley:         g,
+					Pilot:          p,
+				}).
+				With(&c, echo.Config{
+					Service:        "c",
+					Namespace:      ns,
+					Ports:          ports,
+					ServiceAccount: true,
+					Galley:         g,
+					Pilot:          p,
+				}).
+				BuildOrFail(t)
 
 			cases := []util.TestCase{
 				{

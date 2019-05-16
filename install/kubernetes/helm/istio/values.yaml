@@ -182,6 +182,7 @@ global:
 
     # Configure the DNS refresh rate for Envoy cluster of type STRICT_DNS
     # 5 seconds is the default refresh rate used by Envoy
+    # This must be given it terms of seconds. For example, 600s is valid but 5m is invalid.
     dnsRefreshRate: 5s
 
     #If set to true, istio-proxy container will have privileged securityContext

@@ -76,15 +76,10 @@ var (
 	customConfigFile           string
 	proxyLogLevel              string
 	proxyComponentLogLevel     string
+	dnsRefreshRate             string
 	concurrency                int
 	templateFile               string
 	disableInternalTelemetry   bool
-	tlsServerCertChain         string
-	tlsServerKey               string
-	tlsServerRootCert          string
-	tlsClientCertChain         string
-	tlsClientKey               string
-	tlsClientRootCert          string
 	tlsCertsToWatch            []string
 	loggingOptions             = log.DefaultOptions()
 
@@ -159,30 +154,9 @@ var (
 			role.TrustDomain = spiffe.GetTrustDomain()
 			log.Infof("Proxy role: %#v", role)
 
-			// Add cert paths as node metadata only if they differ from defaults
-			if tlsServerCertChain != model.DefaultCertChain {
-				role.Metadata[model.NodeMetadataTLSServerCertChain] = tlsServerCertChain
-			}
-			if tlsServerKey != model.DefaultKey {
-				role.Metadata[model.NodeMetadataTLSServerKey] = tlsServerKey
-			}
-			if tlsServerRootCert != model.DefaultRootCert {
-				role.Metadata[model.NodeMetadataTLSServerRootCert] = tlsServerRootCert
-			}
-
-			if tlsClientCertChain != model.DefaultCertChain {
-				role.Metadata[model.NodeMetadataTLSClientCertChain] = tlsClientCertChain
-			}
-			if tlsClientKey != model.DefaultKey {
-				role.Metadata[model.NodeMetadataTLSClientKey] = tlsClientKey
-			}
-			if tlsClientRootCert != model.DefaultRootCert {
-				role.Metadata[model.NodeMetadataTLSClientRootCert] = tlsClientRootCert
-			}
-
 			tlsCertsToWatch = []string{
 				tlsServerCertChain, tlsServerKey, tlsServerRootCert,
-				tlsClientCertChain, tlsClientKey, tlsClientCertChain,
+				tlsClientCertChain, tlsClientKey, tlsClientRootCert,
 			}
 
 			// dedupe cert paths so we don't set up 2 watchers for the same file:
@@ -385,7 +359,7 @@ var (
 
 			log.Infof("PilotSAN %#v", pilotSAN)
 
-			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses)
+			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses, dnsRefreshRate)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, pilot.TerminationDrainDuration())
 			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.ConfigCh())
 
@@ -558,6 +532,8 @@ func init() {
 	// See https://www.envoyproxy.io/docs/envoy/latest/operations/cli#cmdoption-component-log-level
 	proxyCmd.PersistentFlags().StringVar(&proxyComponentLogLevel, "proxyComponentLogLevel", "misc:error",
 		"The component log level used to start the Envoy proxy")
+	proxyCmd.PersistentFlags().StringVar(&dnsRefreshRate, "dnsRefreshRate", "300s",
+		"The dns_refresh_rate for bootstrap STRICT_DNS clusters")
 	proxyCmd.PersistentFlags().IntVar(&concurrency, "concurrency", int(values.Concurrency),
 		"number of worker threads to run")
 	proxyCmd.PersistentFlags().StringVar(&templateFile, "templateFile", "",
@@ -566,22 +542,6 @@ func init() {
 		"Disable internal telemetry")
 	proxyCmd.PersistentFlags().BoolVar(&controlPlaneBootstrap, "controlPlaneBootstrap", true,
 		"Process bootstrap provided via templateFile to be used by control plane components.")
-
-	// server certs
-	proxyCmd.PersistentFlags().StringVar(&tlsServerCertChain, "tlsServerCertChain",
-		model.DefaultCertChain, "Absolute path to server cert-chain file used for istio mTLS")
-	proxyCmd.PersistentFlags().StringVar(&tlsServerKey, "tlsServerKey",
-		model.DefaultKey, "Absolute path to server private key file used for istio mTLS")
-	proxyCmd.PersistentFlags().StringVar(&tlsServerRootCert, "tlsServerRootCert",
-		model.DefaultRootCert, "Absolute path to server root cert file used for istio mTLS")
-
-	// client certs
-	proxyCmd.PersistentFlags().StringVar(&tlsClientCertChain, "tlsClientCertChain",
-		model.DefaultCertChain, "Absolute path to client cert-chain file used for istio mTLS")
-	proxyCmd.PersistentFlags().StringVar(&tlsClientKey, "tlsSClientKey",
-		model.DefaultKey, "Absolute path to client key file used for istio mTLS")
-	proxyCmd.PersistentFlags().StringVar(&tlsClientRootCert, "tlsClientRootCert",
-		model.DefaultRootCert, "Absolute path to client root cert file used for istio mTLS")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

@@ -32,7 +32,6 @@ import (
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
-	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 )
 
@@ -40,7 +39,7 @@ func compatTest(test ilt.TestInfo, mutex sync.Locker) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Parallel()
 
-		finder := ast.NewFinder(test.Conf())
+		finder := attribute.NewFinder(test.Conf())
 		builder := NewBuilder(finder, LegacySyntaxCEL)
 		mutex.Lock()
 		ex, typ, err := builder.Compile(test.E)
@@ -123,7 +122,7 @@ func BenchmarkInterpreter(b *testing.B) {
 			continue
 		}
 
-		finder := ast.NewFinder(test.Conf())
+		finder := attribute.NewFinder(test.Conf())
 		builder := NewBuilder(finder, LegacySyntaxCEL)
 		ex, _, _ := builder.Compile(test.E)
 		bg := ilt.NewFakeBag(test.I)
@@ -198,7 +197,7 @@ var attributes = map[string]*v1beta1.AttributeManifest_AttributeInfo{
 func BenchmarkAccessLogCEL(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		finder := ast.NewFinder(attributes)
+		finder := attribute.NewFinder(attributes)
 		builder := NewBuilder(finder, LegacySyntaxCEL)
 		for _, expr := range accessLog {
 			_, _, err := builder.Compile(expr)
@@ -212,7 +211,7 @@ func BenchmarkAccessLogCEL(b *testing.B) {
 func BenchmarkAccessLogCEXL(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		finder := ast.NewFinder(attributes)
+		finder := attribute.NewFinder(attributes)
 		builder := compiled.NewBuilder(finder)
 		for _, expr := range accessLog {
 			_, _, err := builder.Compile(expr)

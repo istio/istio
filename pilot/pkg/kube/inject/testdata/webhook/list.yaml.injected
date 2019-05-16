@@ -49,6 +49,8 @@ spec:
         - istio-pilot:15010
         - --zipkinAddress
         - ""
+        - --dnsRefreshRate
+        - 5s
         - --connectTimeout
         - 1s
         - --proxyAdminPort
@@ -208,6 +210,8 @@ spec:
         - istio-pilot:15010
         - --zipkinAddress
         - ""
+        - --dnsRefreshRate
+        - 5s
         - --connectTimeout
         - 1s
         - --proxyAdminPort

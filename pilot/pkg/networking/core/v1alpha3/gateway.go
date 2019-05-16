@@ -19,6 +19,8 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/istio/pkg/features/pilot"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -212,8 +214,17 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 
 	// make sure that there is some server listening on this port
 	if _, ok := merged.ServersByRouteName[routeName]; !ok {
-		log.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.ServersByRouteName)
-		return nil, fmt.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.ServersByRouteName)
+		log.Warnf("Gateway missing for route %s. This is normal if gateway was recently deleted. Have %v", routeName, merged.ServersByRouteName)
+
+		// If the flag is set, send Envoy an error, blocking all routes from being sent. This flag
+		// is intended only to support legacy behavior and should be removed in the future.
+		if pilot.DisablePartialRouteResponse {
+			return nil, fmt.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.ServersByRouteName)
+		}
+
+		// This can happen when a gateway has recently been deleted. Envoy will still request route
+		// information due to the draining of listeners, so we should not return an error.
+		return nil, nil
 	}
 
 	servers := merged.ServersByRouteName[routeName]

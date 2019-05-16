@@ -160,11 +160,11 @@ func (e *config) WorkloadsOrFail(t test.Failer) []echo.Workload {
 	panic("not implemented")
 }
 
-func (e *config) WaitUntilReady(_ ...echo.Instance) error {
+func (e *config) WaitUntilCallable(_ ...echo.Instance) error {
 	panic("not implemented")
 }
 
-func (e *config) WaitUntilReadyOrFail(_ test.Failer, _ ...echo.Instance) {
+func (e *config) WaitUntilCallableOrFail(_ test.Failer, _ ...echo.Instance) {
 	panic("not implemented")
 }
 

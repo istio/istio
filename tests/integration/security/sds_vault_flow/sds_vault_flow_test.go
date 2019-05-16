@@ -53,23 +53,25 @@ func TestSdsVaultCaFlow(t *testing.T) {
 				},
 			}
 
-			a := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:   "a",
-				Namespace: ns,
-				Sidecar:   true,
-				Ports:     ports,
-				Galley:    g,
-				Pilot:     p,
-			})
-			b := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:        "b",
-				Namespace:      ns,
-				Ports:          ports,
-				Sidecar:        true,
-				ServiceAccount: true,
-				Galley:         g,
-				Pilot:          p,
-			})
+			var a, b echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, echo.Config{
+					Service:        "a",
+					Namespace:      ns,
+					ServiceAccount: true,
+					Ports:          ports,
+					Galley:         g,
+					Pilot:          p,
+				}).
+				With(&b, echo.Config{
+					Service:        "b",
+					Namespace:      ns,
+					ServiceAccount: true,
+					Ports:          ports,
+					Galley:         g,
+					Pilot:          p,
+				}).
+				BuildOrFail(t)
 
 			checkers := []connection.Checker{
 				{

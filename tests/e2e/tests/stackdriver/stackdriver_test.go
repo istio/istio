@@ -38,7 +38,7 @@ import (
 
 const (
 	fortioYaml  = "tests/e2e/tests/stackdriver/fortio-rules.yaml"
-	adapterYaml = "tests/e2e/tests/stackdriver/adapter.yaml"
+	adapterYaml = "samples/fortio/stackdriver.yaml"
 )
 
 type (
@@ -203,7 +203,7 @@ func TestMetrics(t *testing.T) {
 
 func TestLogs(t *testing.T) {
 	const (
-		logNameTmpl = "projects/%s/logs/server-accesslog-stackdriver.logentry.%s"
+		logNameTmpl = "projects/%s/logs/server-accesslog-stackdriver.instance.%s"
 		filterTmpl  = `logName = "%s" AND resource.type = "k8s_container" AND resource.labels.namespace_name = "%s"`
 	)
 

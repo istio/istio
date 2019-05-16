@@ -2,12 +2,16 @@ package outboundtrafficpolicy
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
 	"reflect"
 	"testing"
 	"time"
 
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -16,6 +20,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/structpath"
 )
 
 const (
@@ -95,40 +101,40 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 			appsNamespace := namespace.NewOrFail(t, ctx, "app", true)
 			serviceNamespace := namespace.NewOrFail(t, ctx, "service", true)
 
-			createSidecarScope(t, appsNamespace, serviceNamespace, g)
+			var client, dest echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&client, echo.Config{
+					Service:   "client",
+					Namespace: appsNamespace,
+					Pilot:     p,
+					Galley:    g,
+				}).
+				With(&dest, echo.Config{
+					Service:   "destination",
+					Namespace: appsNamespace,
+					Pilot:     p,
+					Galley:    g,
+					Ports: []echo.Port{
+						{
+							Name:     "http",
+							Protocol: model.ProtocolHTTP,
+						},
+						{
+							Name:     "https",
+							Protocol: model.ProtocolHTTPS,
+						},
+					},
+				}).BuildOrFail(t)
 
 			// External traffic should work even if we have service entries on the same ports
+			createSidecarScope(t, appsNamespace, serviceNamespace, g)
 			if err := g.ApplyConfig(serviceNamespace, ServiceEntry); err != nil {
 				t.Errorf("failed to apply service entries: %v", err)
 			}
 
-			client := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:   "client",
-				Namespace: appsNamespace,
-				Sidecar:   true,
-				Pilot:     p,
-				Galley:    g,
-			})
-			dest := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:   "destination",
-				Namespace: appsNamespace,
-				Sidecar:   true,
-				Pilot:     p,
-				Galley:    g,
-				Ports: []echo.Port{
-					{
-						Name:     "http",
-						Protocol: model.ProtocolHTTP,
-					},
-					{
-						Name:     "https",
-						Protocol: model.ProtocolHTTPS,
-					},
-				},
-			})
-
-			// Wait for config to propagate
-			time.Sleep(time.Second * 5)
+			if err := WaitUntilNotCallable(client, dest); err != nil {
+				t.Fatalf("failed to apply sidecar, %v", err)
+			}
 
 			cases := []struct {
 				name     string
@@ -148,6 +154,7 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 					resp, err := client.Call(echo.CallOptions{
 						Target:   dest,
 						PortName: tc.portName,
+						Scheme:   scheme.HTTP,
 					})
 					if err != nil && len(expected[tc.portName]) != 0 {
 						t.Fatalf("request failed: %v", err)
@@ -162,4 +169,39 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 				})
 			}
 		})
+}
+
+func clusterName(target echo.Instance, port echo.Port) string {
+	cfg := target.Config()
+	return fmt.Sprintf("outbound|%d||%s.%s.%s", port.ServicePort, cfg.Service, cfg.Namespace.Name(), cfg.Domain)
+}
+
+// Wait for the destination to NOT be callable by the client. This allows us to simulate external traffic.
+// This essentially just waits for the Sidecar to be applied, without sleeping.
+func WaitUntilNotCallable(c echo.Instance, dest echo.Instance) error {
+	accept := func(cfg *envoyAdmin.ConfigDump) (bool, error) {
+		validator := structpath.ForProto(cfg)
+		for _, port := range dest.Config().Ports {
+			clusterName := clusterName(dest, port)
+			// Ensure that we have an outbound configuration for the target port.
+			err := validator.NotExists("{.configs[*].dynamicActiveClusters[?(@.cluster.name == '%s')]}", clusterName).Check()
+			if err != nil {
+				return false, err
+			}
+		}
+
+		return true, nil
+	}
+
+	workloads, _ := c.Workloads()
+	// Wait for the outbound config to be received by each workload from Pilot.
+	for _, w := range workloads {
+		if w.Sidecar() != nil {
+			if err := w.Sidecar().WaitForConfig(accept, retry.Timeout(time.Second*10)); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

@@ -7,8 +7,6 @@ cloud.google.com/go/internal/version
 cloud.google.com/go/logging/apiv2
 cloud.google.com/go/logging/internal
 cloud.google.com/go/trace/apiv2
-# cloud.google.com/go/contextgraph/apiv1alpha1 v0.0.0 => ./mixer/adapter/stackdriver/vendor/cloud.google.com/go/contextgraph/apiv1alpha1
-cloud.google.com/go/contextgraph/apiv1alpha1
 # code.cloudfoundry.org/copilot v0.0.0-20180808174356-6bade2a0677a
 code.cloudfoundry.org/copilot/api
 # contrib.go.opencensus.io/exporter/prometheus v0.1.0
@@ -197,14 +195,14 @@ github.com/golang/glog
 github.com/golang/groupcache/lru
 # github.com/golang/protobuf v1.3.0
 github.com/golang/protobuf/ptypes/timestamp
-github.com/golang/protobuf/ptypes
-github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/proto
-github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/struct
+github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/empty
-github.com/golang/protobuf/ptypes/wrappers
+github.com/golang/protobuf/ptypes
+github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/protoc-gen-go/descriptor
+github.com/golang/protobuf/ptypes/wrappers
 github.com/golang/protobuf/descriptor
 # github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db
 github.com/golang/snappy
@@ -566,16 +564,16 @@ golang.org/x/tools/go/internal/gcimporter
 google.golang.org/api/option
 google.golang.org/api/transport
 google.golang.org/api/internal
+google.golang.org/api/transport/grpc
+google.golang.org/api/transport/http
 google.golang.org/api/support/bundler
 google.golang.org/api/iterator
 google.golang.org/api/cloudtrace/v1
 google.golang.org/api/monitoring/v3
-google.golang.org/api/transport/grpc
-google.golang.org/api/transport/http
-google.golang.org/api/gensupport
-google.golang.org/api/googleapi
 google.golang.org/api/googleapi/transport
 google.golang.org/api/transport/http/internal/propagation
+google.golang.org/api/gensupport
+google.golang.org/api/googleapi
 google.golang.org/api/googleapi/internal/uritemplates
 # google.golang.org/appengine v1.4.0
 google.golang.org/appengine
@@ -583,33 +581,29 @@ google.golang.org/appengine/urlfetch
 google.golang.org/appengine/internal
 google.golang.org/appengine/internal/app_identity
 google.golang.org/appengine/internal/modules
+google.golang.org/appengine/socket
 google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/internal/base
 google.golang.org/appengine/internal/datastore
 google.golang.org/appengine/internal/log
 google.golang.org/appengine/internal/remote_api
-google.golang.org/appengine/socket
 google.golang.org/appengine/internal/socket
 # google.golang.org/genproto v0.0.0-20190404172233-64821d5d2107
 google.golang.org/genproto/googleapis/api/metric
+google.golang.org/genproto/googleapis/api/annotations
+google.golang.org/genproto/googleapis/monitoring/v3
+google.golang.org/genproto/googleapis/rpc/status
 google.golang.org/genproto/googleapis/api/monitoredres
 google.golang.org/genproto/googleapis/api/distribution
 google.golang.org/genproto/googleapis/api/label
-google.golang.org/genproto/googleapis/monitoring/v3
-google.golang.org/genproto/googleapis/rpc/status
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
 google.golang.org/genproto/googleapis/api
-google.golang.org/genproto/googleapis/api/annotations
+google.golang.org/genproto/protobuf/field_mask
 google.golang.org/genproto/googleapis/logging/type
 google.golang.org/genproto/googleapis/logging/v2
 google.golang.org/genproto/googleapis/appengine/logging/v1
 google.golang.org/genproto/googleapis/cloud/audit
-google.golang.org/genproto/protobuf/field_mask
 google.golang.org/genproto/googleapis/devtools/cloudtrace/v2
-# google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1 v0.0.0 => ./mixer/adapter/stackdriver/vendor/google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1
-google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1
-# google.golang.org/genproto/googleapis/graphservice v0.0.0 => ./mixer/adapter/stackdriver/vendor/google.golang.org/genproto/googleapis/graphservice
-google.golang.org/genproto/googleapis/graphservice/v0
 # google.golang.org/grpc v1.20.1
 google.golang.org/grpc
 google.golang.org/grpc/credentials

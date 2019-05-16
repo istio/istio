@@ -64,43 +64,43 @@ func TestReachability(t *testing.T) {
 				},
 			}
 
-			a := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:   "a",
-				Namespace: ns,
-				Sidecar:   true,
-				Ports:     ports,
-				Galley:    g,
-				Pilot:     p,
-			})
-			b := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:        "b",
-				Namespace:      ns,
-				Ports:          ports,
-				Sidecar:        true,
-				ServiceAccount: true,
-				Galley:         g,
-				Pilot:          p,
-			})
-			headless := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:        "headless",
-				Namespace:      ns,
-				Ports:          ports,
-				Sidecar:        true,
-				ServiceAccount: true,
-				Headless:       true,
-				Galley:         g,
-				Pilot:          p,
-			})
-			naked := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:   "naked",
-				Namespace: ns,
-				Ports:     ports,
-				Sidecar:   false,
-				Galley:    g,
-				Pilot:     p,
-			})
-
-			a.WaitUntilReadyOrFail(t, b, headless, naked)
+			var a, b, headless, naked echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, echo.Config{
+					Service:        "a",
+					Namespace:      ns,
+					ServiceAccount: true,
+					Ports:          ports,
+					Galley:         g,
+					Pilot:          p,
+				}).
+				With(&b, echo.Config{
+					Service:        "b",
+					Namespace:      ns,
+					Ports:          ports,
+					ServiceAccount: true,
+					Galley:         g,
+					Pilot:          p,
+				}).
+				With(&headless, echo.Config{
+					Service:        "headless",
+					Namespace:      ns,
+					Ports:          ports,
+					ServiceAccount: true,
+					Headless:       true,
+					Galley:         g,
+					Pilot:          p,
+				}).
+				With(&naked, echo.Config{
+					Service:   "naked",
+					Namespace: ns,
+					Ports:     ports,
+					Annotations: echo.NewAnnotations().
+						SetBool(echo.SidecarInject, false),
+					Galley: g,
+					Pilot:  p,
+				}).
+				BuildOrFail(t)
 
 			testCases := []struct {
 				configFile string

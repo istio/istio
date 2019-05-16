@@ -133,8 +133,8 @@ istio-ingressgateway:
   # This pod anti-affinity rule says that the pod requires not to be scheduled
   # onto a node if that node is already running a pod with label having key
   # “security” and value “S1”.
-  podAntiAffinityLabelSelector: {}
-  podAntiAffinityTermLabelSelector: {}
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
 
 istio-egressgateway:
   enabled: false
@@ -208,8 +208,8 @@ istio-egressgateway:
   # This pod anti-affinity rule says that the pod requires not to be scheduled
   # onto a node if that node is already running a pod with label having key
   # “security” and value “S1”.
-  podAntiAffinityLabelSelector: {}
-  podAntiAffinityTermLabelSelector: {}
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
 
 # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
 # for mesh expansion. It exposes the mtls ports for Pilot,CA as well

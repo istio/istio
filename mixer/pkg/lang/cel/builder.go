@@ -23,8 +23,6 @@ import (
 
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/lang/ast"
-	"istio.io/istio/mixer/pkg/lang/compiled"
 )
 
 // LanguageMode controls parsing and evaluation properties of the expression builder
@@ -94,7 +92,7 @@ func (ex *expression) String() string {
 }
 
 // NewBuilder returns a new ExpressionBuilder
-func NewBuilder(finder ast.AttributeDescriptorFinder, mode LanguageMode) *ExpressionBuilder {
+func NewBuilder(finder attribute.AttributeDescriptorFinder, mode LanguageMode) *ExpressionBuilder {
 	provider := newAttributeProvider(finder.Attributes())
 	env := provider.newEnvironment()
 
@@ -139,7 +137,7 @@ func (exb *ExpressionBuilder) check(text string) (checked celgo.Ast, typ descrip
 }
 
 // Compile the given text and return a pre-compiled expression object.
-func (exb *ExpressionBuilder) Compile(text string) (compiled.Expression, descriptor.ValueType, error) {
+func (exb *ExpressionBuilder) Compile(text string) (attribute.Expression, descriptor.ValueType, error) {
 	checked, typ, err := exb.check(text)
 	if err != nil {
 		return nil, typ, err
