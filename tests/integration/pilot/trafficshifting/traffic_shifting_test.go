@@ -142,7 +142,7 @@ func TestTrafficShifting(t *testing.T) {
 
 					workloads, err := instances[0].Workloads()
 					if err != nil {
-						t.Fatal("failed to get workloads")
+						t.Fatalf("Failed to get workloads. Error: %v", err)
 					}
 
 					for _, w := range workloads {
@@ -160,7 +160,7 @@ func TestTrafficShifting(t *testing.T) {
 							}
 							return true, nil
 						}); err != nil {
-							t.Fatal("failed to apply configuration")
+							t.Fatalf("Failed to apply configuration. Error: %v", err)
 						}
 					}
 
