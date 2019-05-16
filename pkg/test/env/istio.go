@@ -98,7 +98,7 @@ var (
 	// ServiceAccountFilePath is the helm service account file.
 	ServiceAccountFilePath = path.Join(ChartsDir, "helm-service-account.yaml")
 
-	// RedisInstallFilePath
+	// RedisInstallFilePath is the redis installation file.
 	RedisInstallFilePath = path.Join(IstioRoot, "pkg/test/framework/components/redis/redis.yaml")
 )
 
