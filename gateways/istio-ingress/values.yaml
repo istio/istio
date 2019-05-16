@@ -5,6 +5,9 @@ gateways:
   istio-ingressgateway:
     ports:
     ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
+    # Note that AWS ELB will by default perform health checks on the first port
+    # on this list. Setting this to the health check port will ensure that health
+    # checks always work. https://github.com/istio/istio/issues/12503
     - port: 15020
       targetPort: 15020
       name: status-port
@@ -19,38 +22,28 @@ gateways:
       name: tls
 
     # Scalability tunning
-    replicaCount: 1
+    # replicaCount: 1
+    autoscaleEnabled: true
     autoscaleMin: 1
     autoscaleMax: 5
-    resources: {}
-      # limits:
-      #  cpu: 100m
-      #  memory: 128Mi
-      #requests:
-      #  cpu: 1800m
-      #  memory: 256Mi
+
     cpu:
       targetAverageUtilization: 80
 
-    # Support legacy k8s ingress.
-    k8sIngress: false
-
-    # Single server certificate supported, not tested
-    k8sIngressHttps: false
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 2000m
+        memory: 256Mi
 
     # Debug level for envoy. Can be set to 'debug'
     debug: info
 
-    # If true, don't auto-generate a Service object.
-    # User can manually create one, with selector "app:ingressgateway" and any settings he needs.
-    # Note that user needs to maintain the list of ports in the manual Service.
-    customService: false
-
-    drainDuration: 45s
-    connectTimeout: 10s
-
     loadBalancerIP: ""
     loadBalancerSourceRanges: []
+    externalIPs: []
     serviceAnnotations: {}
 
     domain: ""
