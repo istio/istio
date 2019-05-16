@@ -79,8 +79,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: ISTIO_META_WORKLOAD_PORTS
-          value: '[[ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts`
-            (includeInboundPorts .Spec.Containers) ]]'
+          value: "80"
         - name: ISTIO_META_CONFIG_NAMESPACE
           valueFrom:
             fieldRef:

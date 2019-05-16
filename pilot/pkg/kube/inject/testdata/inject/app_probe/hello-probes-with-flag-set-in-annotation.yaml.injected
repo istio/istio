@@ -15,7 +15,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/rewriteAppHTTPProbers: "true"
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"e4658cf3ff7a74b528c83019f0824692e13f99418dcc35b203552484d0ec861f","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -101,8 +101,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: ISTIO_META_WORKLOAD_PORTS
-          value: '[[ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts`
-            (includeInboundPorts .Spec.Containers) ]]'
+          value: 80,90
         - name: ISTIO_META_CONFIG_NAMESPACE
           valueFrom:
             fieldRef:
