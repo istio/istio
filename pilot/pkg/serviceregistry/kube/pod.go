@@ -85,6 +85,16 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 				}
 			}
 		case model.EventUpdate:
+			if pod.DeletionTimestamp != nil {
+				// delete only if this pod was in the cache
+				if pc.keys[ip] == key {
+					delete(pc.keys, ip)
+					if pc.c != nil && pc.c.XDSUpdater != nil {
+						pc.c.XDSUpdater.WorkloadUpdate(ip, nil, nil)
+					}
+				}
+				return nil
+			}
 			switch pod.Status.Phase {
 			case v1.PodPending, v1.PodRunning:
 				// add to cache if the pod is running or pending
