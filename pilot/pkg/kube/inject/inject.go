@@ -978,7 +978,7 @@ func rewriteCniPodSPec(annotations map[string]string, spec *SidecarInjectionSpec
 	if len(spec.CniExtraConfig) == 0 {
 		return nil
 	}
-	for k, _ := range annotationRegistry {
+	for k := range annotationRegistry {
 		if spec.CniExtraConfig[k] != "" {
 			if annotations[k] != "" {
 				err = fmt.Errorf("can't specify annotations on both pod spec and from Helm value")
