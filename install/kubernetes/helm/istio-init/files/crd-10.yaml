@@ -29,8 +29,8 @@ spec:
     - name: v1beta1
       served: true
       storage: true
-  conversion:
-    strategy: None
+  #  conversion:
+  #    strategy: None
   additionalPrinterColumns:
   - JSONPath: .spec.gateways
     description: The names of gateways and sidecars that should apply these routes
@@ -79,8 +79,8 @@ spec:
     - name: v1beta1
       served: true
       storage: true
-  conversion:
-    strategy: None
+  #  conversion:
+  #    strategy: None
   additionalPrinterColumns:
   - JSONPath: .spec.host
     description: The name of a service from the service registry
@@ -125,8 +125,8 @@ spec:
     - name: v1beta1
       served: true
       storage: true
-  conversion:
-    strategy: None
+  #  conversion:
+  #    strategy: None
   additionalPrinterColumns:
   - JSONPath: .spec.hosts
     description: The hosts associated with the ServiceEntry
@@ -178,8 +178,8 @@ spec:
     - name: v1beta1
       served: true
       storage: true
-  conversion:
-    strategy: None
+#  conversion:
+#    strategy: None
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -207,8 +207,8 @@ spec:
     - name: v1beta1
       served: true
       storage: true
-  conversion:
-    strategy: None
+#  conversion:
+#    strategy: None
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -238,8 +238,8 @@ spec:
     - name: v1beta1
       served: true
       storage: true
-  conversion:
-    strategy: None
+#  conversion:
+#    strategy: None
 ---
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
