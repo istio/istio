@@ -59,13 +59,13 @@ import (
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/handler"
 	"istio.io/istio/mixer/pkg/runtime/lang"
 	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/pkg/attribute"
 	"istio.io/pkg/log"
 )
 

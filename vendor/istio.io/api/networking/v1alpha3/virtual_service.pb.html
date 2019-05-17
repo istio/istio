@@ -435,7 +435,7 @@ spec:
     fault:
       abort:
         percentage:
-          value: 0.001
+          value: 0.1
         httpStatus: 400
 </code></pre>
 
@@ -507,7 +507,7 @@ spec:
     fault:
       delay:
         percentage:
-          value: 0.001
+          value: 0.1
         fixedDelay: 5s
 </code></pre>
 
@@ -1677,9 +1677,13 @@ platform, short-names can also be used instead of a FQDN (i.e. has no
 dots in the name). In such a scenario, the FQDN of the host would be
 derived based on the underlying platform.</p>
 
-<p><strong>A host name can be defined by only one VirtualService</strong>. A single
-VirtualService can be used to describe traffic properties for multiple
-HTTP and TCP ports.</p>
+<p>A single VirtualService can be used to describe all the traffic
+properties of the corresponding hosts, including those for multiple
+HTTP and TCP ports. Alternatively, the traffic properties of a host
+can be defined using more than one VirtualService, with certain
+caveats. Refer to the
+<a href="/help/ops/traffic-management/deploy-guidelines/#multiple-virtual-services-and-destination-rules-for-the-same-host">Operations Guide</a>
+for details.</p>
 
 <p><em>Note for Kubernetes users</em>: When short names are used (e.g. &ldquo;reviews&rdquo;
 instead of &ldquo;reviews.default.svc.cluster.local&rdquo;), Istio will interpret
@@ -1701,15 +1705,16 @@ only for services defined via the Gateway.</p>
 <td><code>gateways</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>The names of gateways that should apply these rules. If omitted, the
-rules are only applied to sidecars inside the mesh. If a list of gateway
-names is provided, the rules will not be applied to sidecars inside the
-mesh unless the reserved gateway name <code>mesh</code> is included in the list.
-Gateways defined in a different namespace can be selected by prefixing
-the gateway name with <code>namespace/</code>.</p>
-
-<p>The selection condition imposed by this field can be overridden using
-the source field in the match conditions of protocol-specific routes.</p>
+<p>The names of gateways and sidecars that should apply these routes. A
+single VirtualService is used for sidecars inside the mesh as well as
+for one or more gateways. The selection condition imposed by this
+field can be overridden using the source field in the match conditions
+of protocol-specific routes. The reserved word <code>mesh</code> is used to imply
+all the sidecars in the mesh. When this field is omitted, the default
+gateway (<code>mesh</code>) will be used, which would apply the rule to all
+sidecars in the mesh. If a list of gateway names is provided, the
+rules will apply only to the gateways. To apply the rules to both
+gateways and sidecars, specify <code>mesh</code> as one of the gateway names.</p>
 
 </td>
 </tr>

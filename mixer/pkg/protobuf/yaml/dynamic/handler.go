@@ -32,9 +32,9 @@ import (
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	policypb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
 	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/wire"
+	"istio.io/pkg/attribute"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -331,7 +331,8 @@ func (eb staticBag) Contains(key string) bool {
 	_, found := eb.v[key]
 	return found
 }
-func (eb staticBag) String() string { return fmt.Sprintf("%v", eb.v) }
+func (eb staticBag) String() string                               { return fmt.Sprintf("%v", eb.v) }
+func (eb staticBag) ReferenceTracker() attribute.ReferenceTracker { return nil }
 
 const quotaRequestAttrName = "-quota-request-"
 const dedupeAttrName = "-dedup_id-"
