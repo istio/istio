@@ -182,6 +182,14 @@ jobs:
       - run:
           command: make docker-run-test TEST_TARGET="run-test-noauth-full"
       - run:
+          command: make clean
+      - run:
+          command: make info dep prepare
+      - run:
+          command: make sync
+      - run:
+          command: make docker-run-test TEST_TARGET="run-test-knative"
+      - run:
           when: always
           command: make kind-logs
       - store_test_results:
