@@ -31,7 +31,7 @@ run-test-noauth-micro: install-crds
 
 	bin/iop ${ISTIO_NS}-micro istio-ingress ${BASE}/gateways/istio-ingress --set global.istioNamespace=${ISTIO_NS}-micro \
 	 	${IOP_OPTS} --set global.controlPlaneSecurityEnabled=false
-	kubectl wait deployments ingressgateway -n ${ISTIO_NS}-micro --for=condition=available --timeout=${WAIT_TIMEOUT}
+	kubectl wait deployments istio-ingressgateway -n ${ISTIO_NS}-micro --for=condition=available --timeout=${WAIT_TIMEOUT}
 
 	# Verify that we can kube-inject using files ( there is no injector in this config )
 	kubectl create ns simple-micro || true
@@ -77,7 +77,7 @@ run-test-noauth-full: install-crds
 	kubectl wait deployments istio-pilot istio-galley -n ${ISTIO_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
 	bin/iop ${ISTIO_NS} istio-ingress ${BASE}/gateways/istio-ingress ${INSTALL_OPTS} ${IOP_OPTS} \
 		 --set global.controlPlaneSecurityEnabled=false
-	kubectl wait deployments ingressgateway -n ${ISTIO_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
+	kubectl wait deployments istio-ingressgateway -n ${ISTIO_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
 	bin/iop ${ISTIO_NS} istio-telemetry ${BASE}/istio-telemetry/mixer-telemetry --set global.istioNamespace=${ISTIO_NS} ${IOP_OPTS} \
          --set global.controlPlaneSecurityEnabled=false ${INSTALL_OPTS}
 	bin/iop ${ISTIO_NS} istio-prometheus ${BASE}/istio-telemetry/prometheus/ --set global.istioNamespace=${ISTIO_NS} ${IOP_OPTS} \
