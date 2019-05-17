@@ -438,12 +438,12 @@ github.com/spf13/cobra/doc
 github.com/spf13/jwalterweatherman
 # github.com/spf13/pflag v1.0.3
 github.com/spf13/pflag
+# github.com/spf13/viper v1.3.2 => github.com/istio/viper v1.3.3-0.20190515210538-2789fed3109c
+github.com/spf13/viper
 # github.com/spiffe/go-spiffe v0.0.0-20181210192309-b261e4202fec
 github.com/spiffe/go-spiffe/tls
 github.com/spiffe/go-spiffe/spiffe
 github.com/spiffe/go-spiffe/uri
-# github.com/spf13/viper v1.3.2 => github.com/istio/viper v1.3.3-0.20190515210538-2789fed3109c
-github.com/spf13/viper
 # github.com/stretchr/testify v1.3.0
 github.com/stretchr/testify/assert
 # github.com/tinylib/msgp v1.0.2

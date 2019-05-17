@@ -231,7 +231,7 @@ var (
 	vaultAuthPathEnv              = env.RegisterStringVar(vaultAuthPath, "", "").Get()
 	vaultSignCsrPathEnv           = env.RegisterStringVar(vaultSignCsrPath, "", "").Get()
 	vaultTLSRootCertEnv           = env.RegisterStringVar(vaultTLSRootCert, "", "").Get()
-	spireTLSBootstrapCertEnv      = env.RegisterStringVar(spireTLSBootstrapCert, "", "").Get()
+	spireTLSBootstrapCertEnv      = registerHiddenStringVarEnv(spireTLSBootstrapCert, "", "").Get()
 	secretTTLEnv                  = env.RegisterDurationVar(secretTTL, 24*time.Hour, "").Get()
 	secretRefreshGraceDurationEnv = env.RegisterDurationVar(SecretRefreshGraceDuration, 1*time.Hour, "").Get()
 	secretRotationIntervalEnv     = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
@@ -307,6 +307,13 @@ func applyEnvVars(cmd *cobra.Command) {
 	}
 }
 
+// registerHiddenStringVarEnv registers a new hidden string environment variable
+func registerHiddenStringVarEnv(name, defaultValue, description string) env.StringVar {
+	v := env.Var{Name: name, DefaultValue: defaultValue, Description: description, Hidden: true, Type: env.STRING}
+	env.RegisterVar(v)
+	return env.StringVar{v}
+}
+
 var defaultInitialBackoff = 10
 var initialBackoffEnvVar = env.RegisterIntVar("INITIAL_BACKOFF_MSEC", defaultInitialBackoff, "")
 
@@ -375,6 +382,7 @@ func main() {
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.SpireTLSBootstrapCert, spireTLSBootstrapCertFlag, "",
 		"SPIRE TLS bootstrap certificate")
+	_ = rootCmd.PersistentFlags().MarkHidden(spireTLSBootstrapCertFlag)
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
