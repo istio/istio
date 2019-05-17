@@ -17,6 +17,8 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"reflect"
+	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -65,8 +67,14 @@ func serverCmd() *cobra.Command {
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			// Retrieve Viper values for each Cobra Val Flag
+			viper.SetTypeByDefaultValue(true)
 			cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
-				_ = f.Value.Set(viper.GetString(f.Name))
+				if reflect.TypeOf(viper.Get(f.Name)).Kind() == reflect.Slice {
+					// Viper cannot convert slices to strings, so this is our workaround.
+					_ = f.Value.Set(strings.Join(viper.GetStringSlice(f.Name), ","))
+				} else {
+					_ = f.Value.Set(viper.GetString(f.Name))
+				}
 			})
 
 			serverArgs.KubeConfig = kubeConfig
