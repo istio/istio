@@ -30,10 +30,12 @@ type Validator struct {
 }
 
 const (
-	RoleNotFound  = "serviceRoleNotFound: %q used by ServiceRoleBinding %q at namespace %q.\n"
-	RoleNotUsed   = "serviceRoleNotUsed: ServiceRole %q at namespace %q.\n"
-	PolicyValid   = "Authorization policy is valid.\n"
-	PolicyMissing = "needs to have both ServiceRole and ServiceRoleBinding for validation"
+	RoleNotFound        = "serviceRoleNotFound: %q used by ServiceRoleBinding %q at namespace %q.\n"
+	RoleNotUsed         = "serviceRoleNotUsed: ServiceRole %q at namespace %q.\n"
+	PolicyValid         = "Authorization policy is valid.\n"
+	RoleMissing         = "no ServiceRole found for validation"
+	BindingMissing      = "no ServiceRoleBinding found for validation"
+	ValidButNoRBACFound = "Valid (no Authorization policy found).\n"
 )
 
 // CheckAndReport checks for Istio authentication and authorization mis-usage.
@@ -41,6 +43,9 @@ func (v *Validator) CheckAndReport() error {
 	err := v.getRoleAndBindingLists()
 	if err != nil {
 		return err
+	}
+	if v.Report.String() == ValidButNoRBACFound {
+		return nil
 	}
 	v.CheckAndReportRBAC()
 	if v.Report.String() == "" {
@@ -56,8 +61,8 @@ func (v *Validator) CheckAndReportRBAC() {
 		bindingSpec := binding.Spec.(*rbacproto.ServiceRoleBinding)
 		namespace := binding.Namespace
 		roleName := bindingSpec.RoleRef.Name
-		if v.doesRoleExist(namespace, roleName) {
-			roleKey := getRoleKey(namespace, roleName)
+		roleKey := getRoleKey(namespace, roleName)
+		if v.doesRoleExist(roleKey) {
 			usedRoleNames[roleKey] = true
 		} else {
 			v.Report.WriteString(GetRoleNotFoundReport(roleName, binding.Name, namespace))
@@ -73,8 +78,7 @@ func (v *Validator) CheckAndReportRBAC() {
 }
 
 // doesRoleExist check if a role exist in the given namespace in the provided policy file.
-func (v *Validator) doesRoleExist(namespace, roleName string) bool {
-	roleKey := getRoleKey(namespace, roleName)
+func (v *Validator) doesRoleExist(roleKey string) bool {
 	if _, found := v.RoleKeyToServiceRole[roleKey]; found {
 		return true
 	}
@@ -103,8 +107,15 @@ func (v *Validator) getRoleAndBindingLists() error {
 		v.RoleKeyToServiceRole[roleKey] = role
 	}
 	v.serviceRoleBindings = configsFromFiles[model.ServiceRoleBinding.Type]
-	if len(v.serviceRoleBindings) == 0 || len(v.RoleKeyToServiceRole) == 0 {
-		return fmt.Errorf(PolicyMissing)
+	if len(v.serviceRoleBindings) == 0 && len(v.RoleKeyToServiceRole) == 0 {
+		v.Report.WriteString(ValidButNoRBACFound)
+		return nil
+	}
+	if len(v.serviceRoleBindings) == 0 {
+		return fmt.Errorf(BindingMissing)
+	}
+	if len(v.RoleKeyToServiceRole) == 0 {
+		return fmt.Errorf(RoleMissing)
 	}
 	return nil
 }

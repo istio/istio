@@ -103,7 +103,7 @@ func TestAuthValidator(t *testing.T) {
 		},
 		{
 			name: "bad policy",
-			in:   []string{"../pkg/auth/testdata/validator/unused-role.yaml", "../pkg/auth/testdata/validator/notfound-role-in-binding.yaml"},
+			in:   []string{"testdata/auth/unused-role.yaml", "testdata/auth/notfound-role-in-binding.yaml"},
 			expected: fmt.Sprintf("%s%s",
 				auth.GetRoleNotFoundReport("some-role", "bind-service-viewer", "default"),
 				auth.GetRoleNotUsedReport("unused-role", "default")),

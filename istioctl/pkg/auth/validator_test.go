@@ -33,7 +33,17 @@ func TestCheckAndReport(t *testing.T) {
 		{
 			testName: "no policy found",
 			input:    []string{"./testdata/validator/service-entry.yaml"},
-			errMsg:   PolicyMissing,
+			expected: ValidButNoRBACFound,
+		},
+		{
+			testName: "no binding found",
+			input:    []string{"./testdata/validator/unused-role.yaml"},
+			errMsg:   BindingMissing,
+		},
+		{
+			testName: "no role found",
+			input:    []string{"./testdata/validator/notfound-role-in-binding.yaml"},
+			errMsg:   RoleMissing,
 		},
 		{
 			testName: "good rbac file",
