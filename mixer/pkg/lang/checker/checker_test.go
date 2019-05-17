@@ -21,7 +21,7 @@ import (
 
 	cfgpb "istio.io/api/policy/v1beta1"
 	dpb "istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/pkg/attribute"
 )
 
 func TestTypeCheck(t *testing.T) {

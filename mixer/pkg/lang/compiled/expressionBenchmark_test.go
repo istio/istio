@@ -17,8 +17,8 @@ package compiled
 import (
 	"testing"
 
-	"istio.io/istio/mixer/pkg/attribute"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
+	"istio.io/pkg/attribute"
 )
 
 // 12/6/2017

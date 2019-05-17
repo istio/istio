@@ -21,10 +21,10 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
 	"istio.io/istio/mixer/pkg/il/text"
+	"istio.io/pkg/attribute"
 )
 
 // test is a common struct used by many tests in this context.
