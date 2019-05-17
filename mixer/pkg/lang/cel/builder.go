@@ -22,7 +22,7 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 
 	descriptor "istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/pkg/attribute"
 )
 
 // LanguageMode controls parsing and evaluation properties of the expression builder

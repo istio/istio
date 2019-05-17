@@ -26,12 +26,13 @@ import (
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
+	attr "istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/loadshedding"
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/status"
+	"istio.io/pkg/attribute"
 	"istio.io/pkg/log"
+	"istio.io/pkg/pool"
 )
 
 type benchState struct {
@@ -197,9 +198,9 @@ func unaryBench(b *testing.B, grpcCompression, useGlobalDict bool) {
 		request := &mixerpb.CheckRequest{}
 
 		if useGlobalDict {
-			bag.ToProto(&request.Attributes, revGlobalDict, len(revGlobalDict))
+			attr.ToProto(bag, &request.Attributes, revGlobalDict, len(revGlobalDict))
 		} else {
-			bag.ToProto(&request.Attributes, nil, 0)
+			attr.ToProto(bag, &request.Attributes, nil, 0)
 		}
 
 		wg.Add(1)

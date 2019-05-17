@@ -24,9 +24,9 @@ import (
 	"time"
 
 	dpb "istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/pkg/attribute"
 	"istio.io/pkg/log"
+	"istio.io/pkg/pool"
 )
 
 // This private variable is an extract from go/token

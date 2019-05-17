@@ -24,8 +24,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/pkg/log"
+	"istio.io/pkg/pool"
 )
 
 type signature [sha1.Size]byte

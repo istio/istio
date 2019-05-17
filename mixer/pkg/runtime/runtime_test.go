@@ -27,11 +27,11 @@ import (
 	cfgpb "istio.io/api/policy/v1beta1"
 	configpb "istio.io/api/policy/v1beta1"
 	dpb "istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
+	"istio.io/pkg/attribute"
+	"istio.io/pkg/pool"
 	"istio.io/pkg/probe"
 )
 

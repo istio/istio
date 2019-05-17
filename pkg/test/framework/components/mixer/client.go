@@ -22,11 +22,12 @@ import (
 	"google.golang.org/grpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/pkg/attribute"
+	attr "istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
+	"istio.io/pkg/attribute"
 )
 
 const (
@@ -114,6 +115,6 @@ func getAttrBag(attrs map[string]interface{}) istioMixerV1.CompressedAttributes 
 	}
 
 	var attrProto istioMixerV1.CompressedAttributes
-	requestBag.ToProto(&attrProto, nil, 0)
+	attr.ToProto(requestBag, &attrProto, nil, 0)
 	return attrProto
 }

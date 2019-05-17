@@ -38,9 +38,9 @@ import (
 	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/adapter/prometheus/config"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/pkg/cache"
+	"istio.io/pkg/pool"
 )
 
 type (

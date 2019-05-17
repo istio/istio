@@ -19,13 +19,13 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il"
 	"istio.io/istio/mixer/pkg/il/interpreter"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
 	"istio.io/istio/mixer/pkg/il/text"
 	"istio.io/istio/mixer/pkg/lang"
 	"istio.io/istio/mixer/pkg/lang/ast"
+	"istio.io/pkg/attribute"
 )
 
 func TestCompiler_SingleExpressionSession(t *testing.T) {

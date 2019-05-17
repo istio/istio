@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"sync"
 
-	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/pkg/pool"
 )
 
 // we maintain a pool of these for use by the makeKey function
