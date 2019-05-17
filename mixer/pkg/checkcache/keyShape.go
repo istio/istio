@@ -23,18 +23,12 @@ import (
 	"time"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/pkg/attribute"
+	"istio.io/pkg/pool"
 )
 
 // A reference to an attribute and to an optional map key.
-type attributeRef struct {
-	// name of the attribute
-	name string
-
-	// only used if attribute is a stringMap
-	mapKey string
-}
+type attributeRef = attribute.Reference
 
 // keyShape describes the attributes that must/must not participate in key formation
 type keyShape struct {
@@ -55,8 +49,8 @@ func newKeyShape(ra mixerpb.ReferencedAttributes, globalWords []string) keyShape
 	for _, match := range ra.AttributeMatches {
 		var ar attributeRef
 
-		ar.name = getString(match.Name, globalWords, ra.Words)
-		ar.mapKey = getString(match.MapKey, globalWords, ra.Words)
+		ar.Name = getString(match.Name, globalWords, ra.Words)
+		ar.MapKey = getString(match.MapKey, globalWords, ra.Words)
 
 		if match.Condition == mixerpb.ABSENCE {
 			ks.absentAttrs = append(ks.absentAttrs, ar)
@@ -66,11 +60,11 @@ func newKeyShape(ra mixerpb.ReferencedAttributes, globalWords []string) keyShape
 	}
 
 	sort.Slice(ks.absentAttrs, func(i int, j int) bool {
-		return ks.absentAttrs[i].name < ks.absentAttrs[j].name
+		return ks.absentAttrs[i].Name < ks.absentAttrs[j].Name
 	})
 
 	sort.Slice(ks.presentAttrs, func(i int, j int) bool {
-		return ks.presentAttrs[i].name < ks.presentAttrs[j].name
+		return ks.presentAttrs[i].Name < ks.presentAttrs[j].Name
 	})
 
 	return ks
@@ -85,7 +79,7 @@ func (ks keyShape) isCompatible(attrs attribute.Bag) bool {
 // checkAbsentAttrs ensures that the input bag doesn't include any of the attributes that must be absent
 func (ks keyShape) checkAbsentAttrs(attrs attribute.Bag) bool {
 	for i := 0; i < len(ks.absentAttrs); i++ {
-		name := ks.absentAttrs[i].name
+		name := ks.absentAttrs[i].Name
 
 		v, ok := attrs.Get(name)
 		if !ok {
@@ -101,14 +95,14 @@ func (ks keyShape) checkAbsentAttrs(attrs attribute.Bag) bool {
 
 		// since absentAttrs is sorted by name, continue processing stringMaps until a new name is found.
 		for {
-			_, ok := sm.Get(ks.absentAttrs[i].mapKey)
+			_, ok := sm.Get(ks.absentAttrs[i].MapKey)
 			if ok {
 				// if the map key is present, then this bag won't work
 				return false
 			}
 
 			// break loop if at the end or name changes.
-			if i+1 == len(ks.absentAttrs) || ks.absentAttrs[i+1].name != name {
+			if i+1 == len(ks.absentAttrs) || ks.absentAttrs[i+1].Name != name {
 				break
 			}
 			i++
@@ -122,7 +116,7 @@ func (ks keyShape) checkAbsentAttrs(attrs attribute.Bag) bool {
 // checkPresentAttrs ensures that the input bag includes all of the attributes that must be present
 func (ks keyShape) checkPresentAttrs(attrs attribute.Bag) bool {
 	for i := 0; i < len(ks.presentAttrs); i++ {
-		name := ks.presentAttrs[i].name
+		name := ks.presentAttrs[i].Name
 
 		v, ok := attrs.Get(name)
 		if !ok {
@@ -138,14 +132,14 @@ func (ks keyShape) checkPresentAttrs(attrs attribute.Bag) bool {
 
 		// since presentAttrs is sorted by name, continue processing stringMaps until a new name is found.
 		for {
-			_, ok := sm.Get(ks.presentAttrs[i].mapKey)
+			_, ok := sm.Get(ks.presentAttrs[i].MapKey)
 			if !ok {
 				// string map key is missing, not compatible
 				return false
 			}
 
 			// break loop if at the end or name changes.
-			if i+1 == len(ks.presentAttrs) || ks.presentAttrs[i+1].name != name {
+			if i+1 == len(ks.presentAttrs) || ks.presentAttrs[i+1].Name != name {
 				break
 			}
 			i++
@@ -163,7 +157,7 @@ func (ks keyShape) makeKey(attrs attribute.Bag) string {
 	b := make([]byte, 8)
 
 	for i := 0; i < len(ks.presentAttrs); i++ {
-		name := ks.presentAttrs[i].name
+		name := ks.presentAttrs[i].Name
 
 		buf.WriteString(name)
 		buf.WriteByte(delimiter)
@@ -201,15 +195,15 @@ func (ks keyShape) makeKey(attrs attribute.Bag) string {
 		case attribute.StringMap:
 			// Since presentAttrs is sorted by name, continue processing stringMaps until a new name is found.
 			for {
-				v2, _ := v.Get(ks.presentAttrs[i].mapKey)
+				v2, _ := v.Get(ks.presentAttrs[i].MapKey)
 
-				buf.WriteString(ks.presentAttrs[i].mapKey)
+				buf.WriteString(ks.presentAttrs[i].MapKey)
 				buf.WriteByte(delimiter)
 				buf.WriteString(v2)
 				buf.WriteByte(delimiter)
 
 				// break loop if at the end or name changes.
-				if i+1 == len(ks.presentAttrs) || ks.presentAttrs[i+1].name != name {
+				if i+1 == len(ks.presentAttrs) || ks.presentAttrs[i+1].Name != name {
 					break
 				}
 				i++

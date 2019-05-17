@@ -30,9 +30,9 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 
 	"istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/attribute"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
 	"istio.io/istio/mixer/pkg/lang/compiled"
+	"istio.io/pkg/attribute"
 )
 
 func compatTest(test ilt.TestInfo, mutex sync.Locker) func(t *testing.T) {

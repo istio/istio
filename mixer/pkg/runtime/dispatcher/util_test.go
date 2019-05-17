@@ -17,7 +17,7 @@ package dispatcher
 import (
 	"testing"
 
-	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/pkg/attribute"
 )
 
 func TestGetIdentityNamespace(t *testing.T) {

@@ -17,11 +17,11 @@ package lang
 
 import (
 	"istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/cel"
 	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/pkg/annotations"
+	"istio.io/pkg/attribute"
 	"istio.io/pkg/env"
 )
 

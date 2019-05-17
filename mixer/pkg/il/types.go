@@ -17,7 +17,7 @@ package il
 import (
 	"fmt"
 
-	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/pkg/attribute"
 )
 
 // Type represents a core type in the il system.
