@@ -29,4 +29,7 @@ type Config struct {
 
 	// Schema for runtime
 	Schema *resource.Schema
+
+	// Enable Service Entry processing
+	SynthesizeServiceEntries bool
 }
