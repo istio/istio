@@ -669,6 +669,8 @@ func init() {
 
 	versions = append(versions, "v1alpha3")
 
+	versions = append(versions, "v1beta1")
+
 	b.Add(schema.ResourceSpec{
 		Kind:      "DestinationRule",
 		ListKind:  "DestinationRuleList",
@@ -683,6 +685,8 @@ func init() {
 	versions = make([]string, 0)
 
 	versions = append(versions, "v1alpha3")
+
+	versions = append(versions, "v1beta1")
 
 	b.Add(schema.ResourceSpec{
 		Kind:      "EnvoyFilter",
@@ -699,6 +703,8 @@ func init() {
 
 	versions = append(versions, "v1alpha3")
 
+	versions = append(versions, "v1beta1")
+
 	b.Add(schema.ResourceSpec{
 		Kind:      "Gateway",
 		ListKind:  "GatewayList",
@@ -713,6 +719,8 @@ func init() {
 	versions = make([]string, 0)
 
 	versions = append(versions, "v1alpha3")
+
+	versions = append(versions, "v1beta1")
 
 	b.Add(schema.ResourceSpec{
 		Kind:      "ServiceEntry",
@@ -729,6 +737,8 @@ func init() {
 
 	versions = append(versions, "v1alpha3")
 
+	versions = append(versions, "v1beta1")
+
 	b.Add(schema.ResourceSpec{
 		Kind:      "Sidecar",
 		ListKind:  "SidecarList",
@@ -743,6 +753,8 @@ func init() {
 	versions = make([]string, 0)
 
 	versions = append(versions, "v1alpha3")
+
+	versions = append(versions, "v1beta1")
 
 	b.Add(schema.ResourceSpec{
 		Kind:      "VirtualService",

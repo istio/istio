@@ -64,7 +64,7 @@ resources:
     group:       "networking.istio.io"
     versions:    
     - "v1alpha3"    
-    #- "v1beta1" wait until v1beta1 is available in istio.api
+    - "v1beta1"
     proto:       "istio.networking.v1alpha3.VirtualService"
     collection:  "istio/networking/v1alpha3/virtualservices"
 
@@ -73,8 +73,8 @@ resources:
     plural:      "gateways"
     group:       "networking.istio.io"
     versions:    
-    - "v1alpha3"    
-    #- "v1beta1" wait until v1beta1 is available in istio.api
+    - "v1alpha3"
+    - "v1beta1"
     proto:       "istio.networking.v1alpha3.Gateway"
     collection:  "istio/networking/v1alpha3/gateways"
 
@@ -83,8 +83,8 @@ resources:
     plural:      "serviceentries"
     group:       "networking.istio.io"
     versions:    
-    - "v1alpha3"    
-    #- "v1beta1" wait until v1beta1 is available in istio.api
+    - "v1alpha3"
+    - "v1beta1"
     proto:       "istio.networking.v1alpha3.ServiceEntry"
     collection:  "istio/networking/v1alpha3/serviceentries"
 
@@ -93,8 +93,8 @@ resources:
     plural:      "serviceentries"
     group:       "networking.istio.io"
     versions:    
-    - "v1alpha3"    
-    #- "v1beta1" wait until v1beta1 is available in istio.api
+    - "v1alpha3"
+    - "v1beta1"
     proto:       "istio.networking.v1alpha3.ServiceEntry"
     collection:  "istio/networking/v1alpha3/synthetic/serviceentries"
     generated:   "true"
@@ -104,8 +104,8 @@ resources:
     plural:      "destinationrules"
     group:       "networking.istio.io"
     versions:    
-    - "v1alpha3"    
-    #- "v1beta1" wait until v1beta1 is available in istio.api
+    - "v1alpha3"
+    - "v1beta1"
     proto:       "istio.networking.v1alpha3.DestinationRule"
     collection:  "istio/networking/v1alpha3/destinationrules"
 
@@ -114,8 +114,8 @@ resources:
     plural:      "envoyfilters"
     group:       "networking.istio.io"
     versions:    
-    - "v1alpha3"    
-    #- "v1beta1" wait until v1beta1 is available in istio.api
+    - "v1alpha3"
+    - "v1beta1"
     proto:       "istio.networking.v1alpha3.EnvoyFilter"
     collection:  "istio/networking/v1alpha3/envoyfilters"
 
@@ -124,8 +124,8 @@ resources:
     plural:      "sidecars"
     group:       "networking.istio.io"
     versions:    
-    - "v1alpha3"    
-    #- "v1beta1" wait until v1beta1 is available in istio.api
+    - "v1alpha3"
+    - "v1beta1"
     proto:       "istio.networking.v1alpha3.Sidecar"
     collection:  "istio/networking/v1alpha3/sidecars"
 
