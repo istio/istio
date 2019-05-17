@@ -151,6 +151,8 @@ func serverCmd() *cobra.Command {
 		serverArgs.SinkAuthMode, "Name of authentication plugin to use for connection to sink server.")
 	serverCmd.PersistentFlags().StringSliceVar(&serverArgs.SinkMeta, "sinkMeta",
 		serverArgs.SinkMeta, "Comma-separated list of key=values to attach as metadata to outgoing sink connections. Ex: 'key=value,key2=value2'")
+	serverCmd.PersistentFlags().BoolVar(&serverArgs.EnableServiceDiscovery, "enableServiceDiscovery", false,
+		"Enable service discovery processing in Galley")
 
 	// validation config
 	serverCmd.PersistentFlags().StringVar(&validationArgs.WebhookConfigFile,
