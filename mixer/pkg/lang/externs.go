@@ -58,7 +58,7 @@ var Externs = map[string]interpreter.Extern{
 	"emptyStringMap":    interpreter.ExternFromFn("emptyStringMap", externEmptyStringMap),
 	"conditionalString": interpreter.ExternFromFn("conditionalString", externConditionalString),
 	"toLower":           interpreter.ExternFromFn("toLower", ExternToLower),
-	"grpcToHttp":        interpreter.ExternFromFn("grpcToHttp", ExternGrpcToHttp),
+	"grpcToHttp":        interpreter.ExternFromFn("grpcToHttp", ExternGrpcToHTTP),
 }
 
 // ExternFunctionMetadata is the type-metadata about externs. It gets used during compilations.
@@ -389,10 +389,10 @@ func ExternToLower(str string) string {
 	return strings.ToLower(str)
 }
 
-// ExternGrpcToHttp converts a GRPC response code to an HTTP status
+// ExternGrpcToHTTP converts a GRPC response code to an HTTP status
 // input type is string because response.grpc_status in the attribute vocabulary
 // has type string.
-func ExternGrpcToHttp(str string) (int64, error) {
+func ExternGrpcToHTTP(str string) (int64, error) {
 	i, err := strconv.Atoi(str)
 	if err != nil {
 		return 0, fmt.Errorf("error converting string to int64 '%s': '%v'", str, err)

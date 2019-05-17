@@ -143,7 +143,7 @@ var (
 				if v.Type() != types.StringType {
 					return types.NewErr("overload cannot be applied to '%s'", v.Type())
 				}
-				out, err := lang.ExternGrpcToHttp(v.Value().(string))
+				out, err := lang.ExternGrpcToHTTP(v.Value().(string))
 				if err != nil {
 					return types.NewErr(err.Error())
 				}

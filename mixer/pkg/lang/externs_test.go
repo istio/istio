@@ -495,8 +495,8 @@ func TestExternConditionalString(t *testing.T) {
 	}
 }
 
-func TestExternGrpcToHttp_ValidStatus(t *testing.T) {
-	got, err := ExternGrpcToHttp("7")
+func TestExternGrpcToHTTP_ValidStatus(t *testing.T) {
+	got, err := ExternGrpcToHTTP("7")
 	if err != nil {
 		t.Error("grpcToHttp(\"7\") returned error")
 	} else if got != 403 {
@@ -504,8 +504,8 @@ func TestExternGrpcToHttp_ValidStatus(t *testing.T) {
 	}
 }
 
-func TestExternGrpcToHttp_InvalidStatus(t *testing.T) {
-	got, err := ExternGrpcToHttp("-1")
+func TestExternGrpcToHTTP_InvalidStatus(t *testing.T) {
+	got, err := ExternGrpcToHTTP("-1")
 	// reflecting behavior of mixer.pkg.status.HTTPStatusFromCode
 	if err != nil {
 		t.Error("grpcToHttp(\"-1\") returned error")
@@ -514,8 +514,8 @@ func TestExternGrpcToHttp_InvalidStatus(t *testing.T) {
 	}
 }
 
-func TestExternGrpcToHttp_NotANumber(t *testing.T) {
-	_, err := ExternGrpcToHttp("foo")
+func TestExternGrpcToHTTP_NotANumber(t *testing.T) {
+	_, err := ExternGrpcToHTTP("foo")
 	if err == nil {
 		t.Error("grpcToHttp(\"foo\") expected error")
 	}
