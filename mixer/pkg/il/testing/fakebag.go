@@ -19,8 +19,8 @@ import (
 	"sort"
 	"sync"
 
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il"
+	"istio.io/pkg/attribute"
 )
 
 // NewFakeBag creates a FakeBag and converts map[string]string to StringMap
@@ -75,6 +75,11 @@ func (b *FakeBag) Contains(key string) bool {
 
 // String is needed to implement the Bag interface.
 func (b *FakeBag) String() string { return "" }
+
+// ReferenceTracker is not set
+func (b *FakeBag) ReferenceTracker() attribute.ReferenceTracker {
+	return nil
+}
 
 // ReferencedList returns the sorted list of attributes that were referenced. Attribute references through
 // string maps are encoded as mapname[keyname]. Absent values are prefixed with "-".

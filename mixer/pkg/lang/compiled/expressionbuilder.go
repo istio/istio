@@ -16,11 +16,11 @@ package compiled
 
 import (
 	descriptor "istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il/interpreter"
 	"istio.io/istio/mixer/pkg/lang"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiler"
+	"istio.io/pkg/attribute"
 )
 
 // Expression type alias

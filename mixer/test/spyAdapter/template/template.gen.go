@@ -27,10 +27,10 @@ import (
 	istio_adapter_model_v1beta1 "istio.io/api/mixer/adapter/model/v1beta1"
 	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/runtime/lang"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/pkg/attribute"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/mixer/test/spyAdapter/template/apa"
@@ -93,6 +93,11 @@ func (w *wrapperAttr) Names() []string {
 // Done indicates the bag can be reclaimed.
 func (w *wrapperAttr) Done() {
 	w.done()
+}
+
+// ReferenceTracker implements the interface.
+func (w *wrapperAttr) ReferenceTracker() attribute.ReferenceTracker {
+	return nil
 }
 
 // String provides a dump of an attribute Bag that avoids affecting the

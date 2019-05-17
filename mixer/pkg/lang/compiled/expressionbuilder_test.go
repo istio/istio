@@ -18,8 +18,8 @@ import (
 	"testing"
 
 	istio_mixer_v1_config_descriptor "istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/attribute"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
+	"istio.io/pkg/attribute"
 )
 
 func TestCompiledExpressions(t *testing.T) {

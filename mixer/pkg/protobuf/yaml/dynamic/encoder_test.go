@@ -27,11 +27,11 @@ import (
 	diff "gopkg.in/d4l3k/messagediff.v1"
 
 	"istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
 	foo "istio.io/istio/mixer/pkg/protobuf/yaml/testdata/all"
 	"istio.io/istio/mixer/pkg/runtime/lang"
+	"istio.io/pkg/attribute"
 )
 
 func TestEncodeVarintZeroExtend(t *testing.T) {

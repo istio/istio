@@ -18,7 +18,8 @@ import (
 	"encoding/json"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/pkg/attribute"
+	attr "istio.io/istio/mixer/pkg/attribute"
+	"istio.io/pkg/attribute"
 )
 
 // Request interface is the common interface for all different types of requests.
@@ -54,7 +55,7 @@ func BuildBasicReport(attributes map[string]interface{}) BasicReport {
 	}
 
 	var attrProto istio_mixer_v1.CompressedAttributes
-	requestBag.ToProto(&attrProto, nil, 0)
+	attr.ToProto(requestBag, &attrProto, nil, 0)
 
 	br := BasicReport{
 		RequestProto: istio_mixer_v1.ReportRequest{
@@ -94,7 +95,7 @@ func BuildBasicCheck(attributes map[string]interface{}, quotas map[string]istio_
 	}
 
 	var attrProto istio_mixer_v1.CompressedAttributes
-	requestBag.ToProto(&attrProto, nil, 0)
+	attr.ToProto(requestBag, &attrProto, nil, 0)
 
 	c := BasicCheck{
 		RequestProto: istio_mixer_v1.CheckRequest{

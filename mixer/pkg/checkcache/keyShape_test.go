@@ -19,7 +19,8 @@ import (
 	"time"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/pkg/attribute"
+	attr "istio.io/istio/mixer/pkg/attribute"
+	"istio.io/pkg/attribute"
 	"istio.io/pkg/log"
 )
 
@@ -32,7 +33,7 @@ type attrCase struct {
 
 func TestKeyShape(t *testing.T) {
 	allKeys := make(map[string]struct{})
-	globalWords := attribute.GlobalList()
+	globalWords := attr.GlobalList()
 
 	cases := []struct {
 		ra    mixerpb.ReferencedAttributes

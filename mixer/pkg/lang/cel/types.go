@@ -30,9 +30,9 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 
 	"istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il"
 	"istio.io/istio/mixer/pkg/lang"
+	"istio.io/pkg/attribute"
 )
 
 func convertType(typ v1beta1.ValueType) *exprpb.Type {
