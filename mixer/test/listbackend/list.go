@@ -30,9 +30,9 @@ import (
 	"istio.io/istio/mixer/adapter/list"
 	"istio.io/istio/mixer/adapter/list/config"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/handler"
 	"istio.io/istio/mixer/template/listentry"
+	"istio.io/pkg/pool"
 )
 
 type (

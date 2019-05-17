@@ -69,6 +69,9 @@ var _templatesConfigHtml = []byte(`{{ define "content" }}
         width: 500px;
         word-break: break-all;
     }
+    .unsync_error {
+        background-color: red;
+    }
     </style>
 
     <nav class="navbar navbar-expand-lg navbar-dark">
@@ -108,6 +111,7 @@ var _templatesConfigHtml = []byte(`{{ define "content" }}
                 <th>Collection</th>
                 <th>Version</th>
                 <th>Resources</th>
+                <th>Connections</th>
             </tr>
             </thead>
 
@@ -186,6 +190,19 @@ var _templatesConfigHtml = []byte(`{{ define "content" }}
                         }
                         c3.appendChild(c3_ul)
                         row.appendChild(c3);
+
+                        var c4 = document.createElement("td");
+                        var c4_ul = document.createElement("ul");
+                        for (var addr in data.Snapshots[i].Synced) {
+                            var c4_li = document.createElement("li");
+                            c4_li.innerText =  addr + " " + (data.Snapshots[i].Synced[addr] ? "Synced": "Unsynced");
+                            if (!data.Snapshots[i].Synced[addr]) {
+                                c4_li.className = "unsync_error";
+                            } 
+                            c4_ul.appendChild(c4_li);
+                        }
+                        c4.appendChild(c4_ul)
+                        row.appendChild(c4);
 
                         tbody.appendChild(row)
                     }

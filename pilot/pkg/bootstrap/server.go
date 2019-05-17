@@ -443,7 +443,8 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 		return nil
 	}
 	log.Infof("mesh networks configuration %s", spew.Sdump(meshNetworks))
-	util.ResolveHostsInNetworksConfig(s.meshNetworks)
+	util.ResolveHostsInNetworksConfig(meshNetworks)
+	log.Infof("mesh networks configuration post-resolution %s", spew.Sdump(meshNetworks))
 	s.meshNetworks = meshNetworks
 
 	// Watch the networks config file for changes and reload if it got modified
@@ -456,7 +457,8 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 		}
 		if !reflect.DeepEqual(meshNetworks, s.meshNetworks) {
 			log.Infof("mesh networks configuration file updated to: %s", spew.Sdump(meshNetworks))
-			util.ResolveHostsInNetworksConfig(s.meshNetworks)
+			util.ResolveHostsInNetworksConfig(meshNetworks)
+			log.Infof("mesh networks configuration post-resolution %s", spew.Sdump(meshNetworks))
 			s.meshNetworks = meshNetworks
 			if s.kubeRegistry != nil {
 				s.kubeRegistry.InitNetworkLookup(meshNetworks)

@@ -27,8 +27,8 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
+	"istio.io/pkg/attribute"
 )
 
 func checkErrors(t *testing.T, gotError error, wantError error) {

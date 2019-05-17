@@ -103,7 +103,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(proxyConfig())
 	rootCmd.AddCommand(statusCmd)
 
-	experimentalCmd.AddCommand(install.NewVerifyCommand(&istioNamespace))
+	rootCmd.AddCommand(install.NewVerifyCommand())
 	experimentalCmd.AddCommand(Auth())
 	experimentalCmd.AddCommand(convertIngress())
 	experimentalCmd.AddCommand(dashboard())

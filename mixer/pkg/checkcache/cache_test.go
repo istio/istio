@@ -24,7 +24,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/pkg/attribute"
 	"istio.io/pkg/log"
 )
 

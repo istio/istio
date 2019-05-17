@@ -14,7 +14,10 @@
 
 package runtime
 
-import "istio.io/istio/galley/pkg/meshconfig"
+import (
+	"istio.io/istio/galley/pkg/meshconfig"
+	"istio.io/istio/galley/pkg/runtime/resource"
+)
 
 // Config used by the runtime
 type Config struct {
@@ -23,4 +26,7 @@ type Config struct {
 
 	// Domain suffix to use
 	DomainSuffix string
+
+	// Schema for runtime
+	Schema *resource.Schema
 }

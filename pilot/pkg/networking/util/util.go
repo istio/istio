@@ -264,6 +264,9 @@ func ResolveHostsInNetworksConfig(config *meshconfig.MeshNetworks) {
 			gwIP := net.ParseIP(gw.GetAddress())
 			if gwIP == nil {
 				addrs, err := net.LookupHost(gw.GetAddress())
+				if err != nil {
+					log.Warnf("error resolving host %#v: %v", gw.GetAddress(), err)
+				}
 				if err == nil && len(addrs) > 0 {
 					gw.Gw = &meshconfig.Network_IstioNetworkGateway_Address{
 						Address: addrs[0],

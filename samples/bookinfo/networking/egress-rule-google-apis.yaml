@@ -4,11 +4,11 @@ metadata:
   name: googleapis
 spec:
   hosts:
-  - "*.googleapis.com"
+    - "*.googleapis.com"
   ports:
-  - number: 443
-    name: https
-    protocol: http
+    - number: 443
+      name: https
+      protocol: http
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
