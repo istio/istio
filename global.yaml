@@ -126,6 +126,7 @@ global:
     # be allowed by the sidecar
     includeIPRanges: "*"
     excludeIPRanges: ""
+    excludeOutboundPorts: ""
 
     # pod internal interfaces
     kubevirtInterfaces: ""
