@@ -166,7 +166,6 @@ var (
 	// EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `mysql`.
 	EnableMysqlFilter = os.Getenv("PILOT_ENABLE_MYSQL_FILTER") == "1"
-
 )
 
 var (
