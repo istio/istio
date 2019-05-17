@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: egressgateway
+  name: istio-egressgateway
   namespace: {{ .Release.Namespace }}
   labels:
     app: istio-egressgateway

@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ingressgateway
+  name: istio-ingressgateway
   namespace: {{ .Release.Namespace }}
   labels:
     app: istio-ingressgateway

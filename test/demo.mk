@@ -13,7 +13,7 @@ test-demo-simple:
 run-test-demo:
 	#kubectl apply -k github.com/istio/installer/test/demo
 	kubectl apply -k test/demo
-	kubectl wait deployments istio-pilot istio-galley istio-sidecar-injector istio-telemetry prometheus ingressgateway istio-citadel11 grafana -n istio-system --for=condition=available --timeout=${WAIT_TIMEOUT}
+	kubectl wait deployments istio-pilot istio-galley istio-sidecar-injector istio-telemetry prometheus istio-ingressgateway istio-citadel11 grafana -n istio-system --for=condition=available --timeout=${WAIT_TIMEOUT}
 
 	# Verify that we can kube-inject using files ( there is no injector in this config )
 	kubectl create ns demo || true
