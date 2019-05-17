@@ -39,7 +39,6 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 		network = ""
 	}
 
-	adsLog.Infof("proxy %s network %s", conn.modelNode.ID, network)
 	// calculate the multiples of weight.
 	// It is needed to normalize the LB Weight across different networks.
 	multiples := 1
@@ -69,7 +68,6 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 		lbEndpoints := []endpoint.LbEndpoint{}
 		for _, lbEp := range ep.LbEndpoints {
 			epNetwork := istioMetadata(lbEp, "network")
-			adsLog.Infof("ep %s network %s", lbEp.HostIdentifier, epNetwork)
 			if epNetwork == network {
 				// This is a local endpoint
 				lbEp.LoadBalancingWeight = &types.UInt32Value{
