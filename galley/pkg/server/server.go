@@ -149,12 +149,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		}
 	}
 
-	b := resource.NewSchemaBuilder()
-	b.RegisterSchema(metadata.Types)
-	b.Register(
-		"istio/mesh/v1alpha1/MeshConfig",
-		"type.googleapis.com/istio.mesh.v1alpha1.MeshConfig")
-	types := b.Build()
+	types := getMCPTypes(a)
 
 	processorCfg := runtime.Config{
 		DomainSuffix:             a.DomainSuffix,
@@ -259,6 +254,23 @@ func isKindExcluded(a *Args, kind string) bool {
 		}
 	}
 	return false
+}
+
+func getMCPTypes(a *Args) *resource.Schema {
+	b := resource.NewSchemaBuilder()
+	b.RegisterSchema(metadata.Types)
+	b.Register(
+		"istio/mesh/v1alpha1/MeshConfig",
+		"type.googleapis.com/istio.mesh.v1alpha1.MeshConfig")
+
+	for _, k := range a.ExcludedResourceKinds {
+		spec := kubeMeta.Types.Get(k)
+		if spec != nil {
+			b.UnregisterInfo(spec.Target)
+		}
+	}
+
+	return b.Build()
 }
 
 // Run enables Galley to start receiving gRPC requests on its main API port.
