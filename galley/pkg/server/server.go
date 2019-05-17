@@ -27,6 +27,11 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/ctrlz/fw"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
+	"istio.io/pkg/version"
 
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/metadata"
@@ -36,6 +41,7 @@ import (
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/source/fs"
 	kubeSource "istio.io/istio/galley/pkg/source/kube"
+	"istio.io/istio/galley/pkg/source/kube/builtin"
 	"istio.io/istio/galley/pkg/source/kube/client"
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
 	"istio.io/istio/galley/pkg/source/kube/schema"
@@ -47,11 +53,6 @@ import (
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/ctrlz/fw"
-	"istio.io/pkg/log"
-	"istio.io/pkg/probe"
-	"istio.io/pkg/version"
 )
 
 var scope = log.RegisterScope("server", "Galley server debugging", 0)
@@ -149,17 +150,13 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		}
 	}
 
-	b := resource.NewSchemaBuilder()
-	b.RegisterSchema(metadata.Types)
-	b.Register(
-		"istio/mesh/v1alpha1/MeshConfig",
-		"type.googleapis.com/istio.mesh.v1alpha1.MeshConfig")
-	types := b.Build()
+	types := getMCPTypes(a)
 
 	processorCfg := runtime.Config{
-		DomainSuffix: a.DomainSuffix,
-		Mesh:         mesh,
-		Schema:       types,
+		DomainSuffix:             a.DomainSuffix,
+		Mesh:                     mesh,
+		Schema:                   types,
+		SynthesizeServiceEntries: a.EnableServiceDiscovery,
 	}
 	distributor := snapshot.New(groups.IndexFunction)
 	s.processor = runtime.NewProcessor(src, distributor, &processorCfg)
@@ -245,6 +242,15 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 func getSourceSchema(a *Args) *schema.Instance {
 	b := schema.NewBuilder()
 	for _, spec := range kubeMeta.Types.All() {
+
+		if a.EnableServiceDiscovery {
+			// TODO: IsBuiltIn is a proxy for types needed for service discovery
+			if builtin.IsBuiltIn(spec.Kind) {
+				b.Add(spec)
+				continue
+			}
+		}
+
 		if !isKindExcluded(a, spec.Kind) {
 			b.Add(spec)
 		}
@@ -259,6 +265,23 @@ func isKindExcluded(a *Args, kind string) bool {
 		}
 	}
 	return false
+}
+
+func getMCPTypes(a *Args) *resource.Schema {
+	b := resource.NewSchemaBuilder()
+	b.RegisterSchema(metadata.Types)
+	b.Register(
+		"istio/mesh/v1alpha1/MeshConfig",
+		"type.googleapis.com/istio.mesh.v1alpha1.MeshConfig")
+
+	for _, k := range a.ExcludedResourceKinds {
+		spec := kubeMeta.Types.Get(k)
+		if spec != nil {
+			b.UnregisterInfo(spec.Target)
+		}
+	}
+
+	return b.Build()
 }
 
 // Run enables Galley to start receiving gRPC requests on its main API port.

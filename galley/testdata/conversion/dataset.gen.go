@@ -4,6 +4,8 @@
 // dataset/config.istio.io/v1alpha2/circonus_expected.json
 // dataset/core/v1/namespace.yaml
 // dataset/core/v1/namespace_expected.json
+// dataset/core/v1/service.yaml
+// dataset/core/v1/service_expected.json
 // dataset/extensions/v1beta1/ingress_basic.yaml
 // dataset/extensions/v1beta1/ingress_basic_expected.json
 // dataset/extensions/v1beta1/ingress_basic_meshconfig.yaml
@@ -184,6 +186,114 @@ func datasetCoreV1Namespace_expectedJson() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "dataset/core/v1/namespace_expected.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _datasetCoreV1ServiceYaml = []byte(`apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"addonmanager.kubernetes.io/mode":"Reconcile","k8s-app":"kube-dns","kubernetes.io/cluster-service":"true","kubernetes.io/name":"KubeDNS"},"name":"kube-dns","namespace":"kube-system"},"spec":{"clusterIP":"10.43.240.10","ports":[{"name":"dns","port":53,"protocol":"UDP"},{"name":"dns-tcp","port":53,"protocol":"TCP"}],"selector":{"k8s-app":"kube-dns"}}}
+  creationTimestamp: 2018-02-12T15:48:44Z
+  labels:
+    addonmanager.kubernetes.io/mode: Reconcile
+    k8s-app: kube-dns
+    kubernetes.io/cluster-service: "true"
+    kubernetes.io/name: KubeDNS
+  name: kube-dns
+  #namespace: kube-system
+  resourceVersion: "274"
+  selfLink: /api/v1/namespaces/kube-system/services/kube-dns
+  uid: 3497d702-100c-11e8-a600-42010a8002c3
+spec:
+  clusterIP: 10.43.240.10
+  ports:
+    - name: dns
+      port: 53
+      protocol: UDP
+      targetPort: 53
+    - name: dns-tcp
+      port: 53
+      protocol: TCP
+      targetPort: 53
+  selector:
+    k8s-app: kube-dns
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}`)
+
+func datasetCoreV1ServiceYamlBytes() ([]byte, error) {
+	return _datasetCoreV1ServiceYaml, nil
+}
+
+func datasetCoreV1ServiceYaml() (*asset, error) {
+	bytes, err := datasetCoreV1ServiceYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/core/v1/service.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _datasetCoreV1Service_expectedJson = []byte(`{
+  "k8s/core/v1/services": [
+    {
+      "TypeURL": "type.googleapis.com/k8s.io.api.core.v1.ServiceSpec",
+      "Metadata": {
+        "name": "kube-dns",
+        "annotations": {
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Service\",\"metadata\":{\"annotations\":{},\"labels\":{\"addonmanager.kubernetes.io/mode\":\"Reconcile\",\"k8s-app\":\"kube-dns\",\"kubernetes.io/cluster-service\":\"true\",\"kubernetes.io/name\":\"KubeDNS\"},\"name\":\"kube-dns\",\"namespace\":\"kube-system\"},\"spec\":{\"clusterIP\":\"10.43.240.10\",\"ports\":[{\"name\":\"dns\",\"port\":53,\"protocol\":\"UDP\"},{\"name\":\"dns-tcp\",\"port\":53,\"protocol\":\"TCP\"}],\"selector\":{\"k8s-app\":\"kube-dns\"}}}\n"
+        },
+        "labels": {
+          "addonmanager.kubernetes.io/mode": "Reconcile",
+          "k8s-app": "kube-dns",
+          "kubernetes.io/cluster-service": "true",
+          "kubernetes.io/name": "KubeDNS"
+        }
+      },
+      "Body": {
+        "clusterIP": "10.43.240.10",
+        "ports": [
+          {
+            "name": "dns",
+            "port": 53,
+            "protocol": "UDP",
+            "targetPort": 53
+          },
+          {
+            "name": "dns-tcp",
+            "port": 53,
+            "protocol": "TCP",
+            "targetPort": 53
+          }
+        ],
+        "selector": {
+          "k8s-app": "kube-dns"
+        },
+        "sessionAffinity": "None",
+        "type": "ClusterIP"
+      }
+    }
+  ]
+}
+`)
+
+func datasetCoreV1Service_expectedJsonBytes() ([]byte, error) {
+	return _datasetCoreV1Service_expectedJson, nil
+}
+
+func datasetCoreV1Service_expectedJson() (*asset, error) {
+	bytes, err := datasetCoreV1Service_expectedJsonBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/core/v1/service_expected.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2007,6 +2117,8 @@ var _bindata = map[string]func() (*asset, error){
 	"dataset/config.istio.io/v1alpha2/circonus_expected.json": datasetConfigIstioIoV1alpha2Circonus_expectedJson,
 	"dataset/core/v1/namespace.yaml": datasetCoreV1NamespaceYaml,
 	"dataset/core/v1/namespace_expected.json": datasetCoreV1Namespace_expectedJson,
+	"dataset/core/v1/service.yaml": datasetCoreV1ServiceYaml,
+	"dataset/core/v1/service_expected.json": datasetCoreV1Service_expectedJson,
 	"dataset/extensions/v1beta1/ingress_basic.yaml": datasetExtensionsV1beta1Ingress_basicYaml,
 	"dataset/extensions/v1beta1/ingress_basic_expected.json": datasetExtensionsV1beta1Ingress_basic_expectedJson,
 	"dataset/extensions/v1beta1/ingress_basic_meshconfig.yaml": datasetExtensionsV1beta1Ingress_basic_meshconfigYaml,
@@ -2076,6 +2188,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"v1": &bintree{nil, map[string]*bintree{
 				"namespace.yaml": &bintree{datasetCoreV1NamespaceYaml, map[string]*bintree{}},
 				"namespace_expected.json": &bintree{datasetCoreV1Namespace_expectedJson, map[string]*bintree{}},
+				"service.yaml": &bintree{datasetCoreV1ServiceYaml, map[string]*bintree{}},
+				"service_expected.json": &bintree{datasetCoreV1Service_expectedJson, map[string]*bintree{}},
 			}},
 		}},
 		"extensions": &bintree{nil, map[string]*bintree{
