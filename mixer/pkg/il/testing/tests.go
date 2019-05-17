@@ -1596,7 +1596,7 @@ end`,
 		E:    `grpcToHttp(as)`,
 		Type: descriptor.INT64,
 		I: map[string]interface{}{
-			"as": "foo2",
+			"as": "foo",
 		},
 		Err: `error converting string to int64 'foo0': 'strconv.Atoi: parsing "foo": invalid syntax''`,
 	},
