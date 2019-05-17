@@ -139,7 +139,7 @@ func TestVirtualListenerBuilder(t *testing.T) {
 
 func setInboundCaptureAllOnThisNode(proxy *model.Proxy) {
 	proxy.Metadata[model.NodeMetadataInterceptionMode] = "REDIRECT"
-	proxy.Metadata[model.IstioInboundCapturePorts] = model.AllPortsLiteral
+	proxy.Metadata[model.IstioIncludeInboundPorts] = model.AllPortsLiteral
 }
 
 func TestVirtualInboundListenerBuilder(t *testing.T) {

@@ -398,7 +398,7 @@ const (
 	// IstioIngressNamespace is the namespace where Istio ingress controller is deployed
 	IstioIngressNamespace = "istio-system"
 
-	IstioInboundCapturePorts = "INBOUND_CAPTURE_PORTS"
+	IstioIncludeInboundPorts = "INCLUDE_INBOUND_PORTS"
 )
 
 // IstioIngressWorkloadLabels is the label assigned to Istio ingress pods
@@ -670,6 +670,6 @@ func (node *Proxy) IsInboundCaptureAllPorts() bool {
 	if node.GetInterceptionMode() != InterceptionRedirect {
 		return false
 	}
-	capturePorts, ok := node.Metadata[IstioInboundCapturePorts]
+	capturePorts, ok := node.Metadata[IstioIncludeInboundPorts]
 	return ok && strings.Contains(capturePorts, AllPortsLiteral)
 }
