@@ -149,6 +149,12 @@ var (
 	DisableXDSMarshalingToAny = func() bool {
 		return os.Getenv("PILOT_DISABLE_XDS_MARSHALING_TO_ANY") == "1"
 	}
+
+	// DisableSplitHorizonEdsProxyNetworkCompare provides an option to disable
+	// matching proxy and pod network id.
+	DisableSplitHorizonEdsProxyNetworkCompare = func() bool {
+		return os.Getenv("PILOT_DISABLE_SPLIT_HORIZON_EDS_NETWORK_COMPARE") == "1"
+	}
 )
 
 var (
