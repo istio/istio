@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"encoding/json"
 	"fmt"
+
 	"net"
 	"reflect"
 	"sort"
@@ -43,6 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/proto"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
@@ -114,7 +116,7 @@ var (
 
 	// ProxyInboundListenPort is the dedicated inbound traffic capture port for sidecar proxy.
 	// See also `MeshConfig.ProxyListenPort`.
-	ProxyInboundListenPort uint32 = 15006
+	ProxyInboundListenPort = uint32(env.RegisterIntVar("ProxyInboundListenPort", 15006, "").Get())
 )
 
 func buildAccessLog(fl *fileaccesslog.FileAccessLog, env *model.Environment) {
