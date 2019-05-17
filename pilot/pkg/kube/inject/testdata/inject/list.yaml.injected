@@ -86,6 +86,8 @@ items:
                 fieldPath: metadata.namespace
           - name: ISTIO_META_INTERCEPTION_MODE
             value: REDIRECT
+          - name: ISTIO_META_INBOUND_CAPTURE_PORTS
+            value: "80"
           - name: ISTIO_METAJSON_LABELS
             value: |
               {"app":"hello","tier":"backend","track":"stable","version":"v1"}
@@ -246,6 +248,8 @@ items:
                 fieldPath: metadata.namespace
           - name: ISTIO_META_INTERCEPTION_MODE
             value: REDIRECT
+          - name: ISTIO_META_INBOUND_CAPTURE_PORTS
+            value: "81"
           - name: ISTIO_METAJSON_LABELS
             value: |
               {"app":"hello","tier":"backend","track":"stable","version":"v2"}

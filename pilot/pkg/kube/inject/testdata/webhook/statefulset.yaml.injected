@@ -87,6 +87,8 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
+        - name: ISTIO_META_INBOUND_CAPTURE_PORTS
+          value: "80"
         image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -144,11 +146,11 @@ spec:
             cpu: 10m
             memory: 10Mi
         securityContext:
-          runAsUser: 0
-          runAsNonRoot: false
           capabilities:
             add:
             - NET_ADMIN
+          runAsNonRoot: false
+          runAsUser: 0
       volumes:
       - hostPath:
           path: /mnt/disks/ssd0
