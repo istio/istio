@@ -115,7 +115,7 @@ func DefaultArgs() *Args {
 		MaxReceivedMessageSize:      1024 * 1024,
 		MaxConcurrentStreams:        1024,
 		InitialWindowSize:           1024 * 1024,
-		InitialConnectionWindowSize: 1024 * 1024,
+		InitialConnectionWindowSize: 1024 * 1024 * 16,
 		IntrospectionOptions:        ctrlz.DefaultOptions(),
 		Insecure:                    false,
 		AccessListFile:              defaultAccessListFile,

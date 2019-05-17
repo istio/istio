@@ -48,8 +48,8 @@ func TestDefaultArgs(t *testing.T) {
 		t.Fatal("Default of InitialWindowSize should be 1024 * 1024")
 	}
 
-	if a.InitialConnectionWindowSize != 1024*1024 {
-		t.Fatal("Default of InitialConnectionWindowSize should be 1024 * 1024")
+	if a.InitialConnectionWindowSize != 1024*1024*16 {
+		t.Fatal("Default of InitialConnectionWindowSize should be 1024 * 1024 * 16")
 	}
 }
 
