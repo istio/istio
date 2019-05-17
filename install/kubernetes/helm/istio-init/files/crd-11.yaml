@@ -19,5 +19,13 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
-  version: v1alpha3
+  versions:
+    - name: v1alpha3
+      served: true
+      storage: false
+    - name: v1beta1
+      served: true
+      storage: true
+#  conversion:
+#    strategy: None
 ---
