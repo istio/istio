@@ -164,10 +164,22 @@ Access to the security namespace and istio-system should be highly restricted.
 
 ## Install Istio-CNI
 
-TODO. This is an optional step - CNI must run in a dedicated namespace, it is a 'singleton' and extremely 
+This is an optional step - CNI must run in a dedicated namespace, it is a 'singleton' and extremely 
 security sensitive. Access to the CNI namespace must be highly restricted. 
 
-It is possible to add Istio-CNI later, and gradually migrate. 
+**NOTE:** The environment variable `ISTIO_CLUSTER_ISGKE` is assumed to be set to `true` if the cluster
+is a GKE cluster.
+
+```bash
+ISTIO_CNI_ARGS=
+# TODO: What k8s data can we use for this check for whether GKE?
+if [[ "${ISTIO_CLUSTER_ISGKE}" == "true" ]]; then
+    ISTIO_CNI_ARGS="--set cniBinDir=/home/kubernetes/bin"
+fi
+bin/iop istio-cni istio-cni $IBASE/istio-cni/ ${ISTIO_CNI_ARGS}
+```
+
+TODO. It is possible to add Istio-CNI later, and gradually migrate. 
 
 ## Install Control plane 
 
@@ -226,7 +238,9 @@ the default disabled, test it, and move the default from istio-system to istio-c
 
 
 ```bash
-    iop istio-control istio-autoinject $IBASE/istio-control/istio-autoinject --set enableNamespacesByDefault=true
+    # ENABLE_CNI is set to true if istio-cni is installed    
+    iop istio-control istio-autoinject $IBASE/istio-control/istio-autoinject --set enableNamespacesByDefault=true \
+        --set istio_cni.enabled=${ENABLE_CNI}
     
     # Second auto-inject using master version of istio
     # Notice the different options

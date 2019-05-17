@@ -17,6 +17,7 @@
 cd  "$( dirname "${BASH_SOURCE[0]}" )/.."
 export IBASE="$(pwd)"
 export WAIT_TIMEOUT=${WAIT_TIMEOUT:-5m}
+ISTIO_CLUSTER_ISGKE=${ISTIO_CLUSTER_ISGKE:-false}
 
 function step() {
     echo "${METHOD}ing $1"
@@ -99,6 +100,17 @@ function install_telemetry() {
     kubectl rollout status  deployment prometheus -n istio-telemetry --timeout=$WAIT_TIMEOUT
 }
 
+# Install Istio CNI
+function install_cni() {
+    step "cni.."
+    ISTIO_CNI_ARGS=
+    if [[ "${ISTIO_CLUSTER_ISGKE}" == "true" ]]; then
+        ISTIO_CNI_ARGS="--set cniBinDir=/home/kubernetes/bin"
+    fi
+    bin/iop istio-cni istio-cni $IBASE/istio-cni/ ${ISTIO_CNI_ARGS}
+    kubectl rollout status ds istio-cni-node -n istio-cni --timeout=$WAIT_TIMEOUT
+}
+
 # Switch to other istio-control-namespace
 function switch_istio_control() {
     if [ "$METHOD" = "Update" ]; then
@@ -117,7 +129,11 @@ function switch_istio_control() {
 
 function print_help_and_exit() {
     set +x
-    echo "Usage: install.sh [ install_crds | install_system | install_control | install_ingress | install_telemetry | switch_istio_control | install_all ]"
+    echo "Usage: install.sh [ install_crds | install_system | install_control | install_ingress | install_telemetry | install_cni | switch_istio_control | install_all ]"
+    echo ""
+    echo "  Environment Variables:"
+    echo "     ISTIO_CLUSTER_ISGKE     Set to 'true' if Istio is hosted on GKE (default 'false')."
+    echo ""
     exit 1
 }
 
@@ -141,7 +157,9 @@ do
         install_control) COMMAND=$1 ;;
         install_ingress) COMMAND=$1 ;;
         install_telemetry) COMMAND=$1 ;;
+        install_cni) COMMAND=$1 ;;
         switch_istio_control) COMMAND=$1 ;;
+        install_all) COMMAND="install_all" ;;
         "") COMMAND="install_all" ;;
         *) print_help_and_exit ;;
     esac
@@ -154,6 +172,7 @@ case "$COMMAND" in
     install_control) install_control ;;
     install_ingress) install_ingress ;;
     install_telemetry) install_telemetry ;;
+    install_cni) install_cni ;;
     switch_istio_control) switch_istio_control ;;
     install_all) install_crds &&  install_system && install_control && install_ingress && install_telemetry ;;
 esac
