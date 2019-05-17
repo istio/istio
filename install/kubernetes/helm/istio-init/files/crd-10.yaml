@@ -22,7 +22,9 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
-  version: v1alpha3
+  versions:
+    - v1alpha3
+    - v1beta1
   additionalPrinterColumns:
   - JSONPath: .spec.gateways
     description: The names of gateways and sidecars that should apply these routes
@@ -64,7 +66,9 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
-  version: v1alpha3
+  versions:
+    - v1alpha3
+    - v1beta1
   additionalPrinterColumns:
   - JSONPath: .spec.host
     description: The name of a service from the service registry
@@ -102,7 +106,9 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
-  version: v1alpha3
+  versions:
+    - v1alpha3
+    - v1beta1
   additionalPrinterColumns:
   - JSONPath: .spec.hosts
     description: The hosts associated with the ServiceEntry
@@ -147,7 +153,9 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
-  version: v1alpha3
+  versions:
+    - v1alpha3
+    - v1beta1
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -168,7 +176,9 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
-  version: v1alpha3 
+  versions:
+    - v1alpha3
+    - v1beta1
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -191,7 +201,9 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
-  version: v1alpha3
+  versions:
+    - v1alpha3
+    - v1beta1
 ---
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
