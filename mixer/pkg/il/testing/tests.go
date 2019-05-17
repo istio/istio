@@ -1598,7 +1598,7 @@ end`,
 		I: map[string]interface{}{
 			"as": "foo",
 		},
-		Err: `error converting string to int64 'foo': 'strconv.Atoi: parsing "foo": invalid syntax''`,
+		Err: "error converting string to int64 'foo'",
 	},
 
 	{

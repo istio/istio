@@ -395,7 +395,7 @@ func ExternToLower(str string) string {
 func ExternGrpcToHTTP(str string) (int64, error) {
 	i, err := strconv.Atoi(str)
 	if err != nil {
-		return 0, fmt.Errorf("error converting string to int64 '%s': '%v'", str, err)
+		return 0, fmt.Errorf("error converting string to int64 '%s'", str)
 	}
 	return int64(status.HTTPStatusFromCode(rpc.Code(i))), nil
 }
