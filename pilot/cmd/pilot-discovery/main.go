@@ -99,22 +99,21 @@ func hasKubeRegistry() bool {
 	return false
 }
 
-func readProxyInboundListenPortFromEnv() {
+func parseProxyInboundListenPortFromEnv() {
 	portString := os.Getenv(ProxyInboundListenPortEnvKey)
 	if portString == "" {
 		return
 	}
 	portNumber, err := strconv.Atoi(portString)
 	if err != nil {
-		fmt.Errorf("Cannot parse port from env var %s=%s, use default value %d", ProxyInboundListenPortEnvKey, portString, v1alpha3.ProxyInboundListenPort)
+		log.Warnf("Cannot parse port from env var %s=%s, use default value %d", ProxyInboundListenPortEnvKey, portString, v1alpha3.ProxyInboundListenPort)
 	} else {
 		v1alpha3.ProxyInboundListenPort = uint32(portNumber)
-		fmt.Printf("Set ProxyInboundListenPort to %d", portNumber)
+		log.Infof("Set ProxyInboundListenPort to %d", portNumber)
 	}
 }
 
 func init() {
-	readProxyInboundListenPortFromEnv()
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries",
 		[]string{string(serviceregistry.KubernetesRegistry)},
 		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s, %s})",
@@ -191,6 +190,7 @@ func init() {
 }
 
 func main() {
+	parseProxyInboundListenPortFromEnv()
 	if err := rootCmd.Execute(); err != nil {
 		log.Errora(err)
 		os.Exit(-1)
