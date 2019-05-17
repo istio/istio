@@ -37,6 +37,8 @@ const (
 	rbacPolicyYamlTmpl = "testdata/rbac-policy.yaml.tmpl"
 )
 
+// TestRBACV1Path tests the path is normalized before using in authorization. For example, a request
+// with path "/a/../b" should be normalized to "/b" before using in authorization.
 func TestRBACV1Path(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
@@ -69,7 +71,7 @@ func TestRBACV1Path(t *testing.T) {
 				}).
 				BuildOrFail(t)
 
-			newTestCase := func(path string, expect bool) util.TestCase {
+			newTestCase := func(path string, expectAllowed bool) util.TestCase {
 				return util.TestCase{
 					Request: connection.Checker{
 						From: b,
@@ -81,7 +83,7 @@ func TestRBACV1Path(t *testing.T) {
 							NoEscapePath: true,
 						},
 					},
-					ExpectAllowed: expect,
+					ExpectAllowed: expectAllowed,
 				}
 			}
 			cases := []util.TestCase{
