@@ -1584,6 +1584,24 @@ end`,
 	},
 
 	{
+		E:    `grpcToHttp(as)`,
+		Type: descriptor.INT64,
+		I: map[string]interface{}{
+			"as": "0",
+		},
+		R:          int64(200),
+		Referenced: []string{"as"},
+	},
+	{
+		E:    `grpcToHttp(as)`,
+		Type: descriptor.INT64,
+		I: map[string]interface{}{
+			"as": "foo2",
+		},
+		Err: `error converting string to int64 'foo0': 'strconv.Atoi: parsing "foo": invalid syntax''`,
+	},
+
+	{
 		E:    `uri("http://istio.io")`,
 		Type: descriptor.URI,
 		R:    "http://istio.io",
