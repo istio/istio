@@ -23,9 +23,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/envoy/type/matcher"
-
 	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -269,6 +268,10 @@ func checkStatsMatcher(t *testing.T, got, want *v2.Bootstrap, stats stats) {
 		stats.prefixes = requiredEnvoyStatsMatcherInclusionPrefixes
 	} else {
 		stats.prefixes += "," + requiredEnvoyStatsMatcherInclusionPrefixes
+	}
+
+	if err := gsm.Validate(); err != nil {
+		t.Fatalf("Generated invalid matcher: %v", err)
 	}
 
 	checkListStringMatcher(t, gsm.GetInclusionList(), stats.prefixes, "prefix")

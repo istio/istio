@@ -101,15 +101,20 @@ func setStatsOptions(opts map[string]interface{}, meta map[string]string, nodeIP
 			inclusionOption = strings.Split(inclusionPatterns, ",")
 		}
 
-		inclusionOption = append(inclusionOption,
-			strings.Split(required, ",")...)
+		if len(required) > 0 {
+			inclusionOption = append(inclusionOption,
+				strings.Split(required, ",")...)
+		}
 
 		// At the sidecar we can limit downstream metrics collection to the inbound listener.
 		// Inbound downstream metrics are named as: http.{pod_ip}_{port}.downstream_rq_*
 		// Other outbound downstream metrics are numerous and not very interesting for a sidecar.
 		// specifying http.{pod_ip}_  as a prefix will capture these downstream metrics.
 		inclusionOption = substituteValues(inclusionOption, "{pod_ip}", nodeIPs)
-		opts[optKey] = inclusionOption
+
+		if len(inclusionOption) > 0 {
+			opts[optKey] = inclusionOption
+		}
 	}
 
 	setStatsOption(EnvoyStatsMatcherInclusionPrefixes, envoyStatsMatcherInclusionPrefixOption, requiredEnvoyStatsMatcherInclusionPrefixes)
