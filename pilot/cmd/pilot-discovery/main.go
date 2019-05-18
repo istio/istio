@@ -166,6 +166,7 @@ func init() {
 		Section: "pilot-discovery CLI",
 		Manual:  "Istio Pilot Discovery",
 	}))
+
 }
 
 func main() {
