@@ -245,14 +245,17 @@ func buildDispatcher(state *State, serviceEntryHandler processing.Handler) *proc
 	b := processing.NewDispatcherBuilder()
 
 	// Route all types to the state, except for those required by the serviceEntryHandler.
-	stateSchema := resource.NewSchemaBuilder().RegisterSchema(state.config.Schema).UnregisterSchema(serviceentry.Schema).Build()
+
+	stateSchema := resource.NewSchemaBuilder().RegisterSchema(state.config.Schema).Build()
 	for _, spec := range stateSchema.All() {
 		b.Add(spec.Collection, state)
 	}
 
-	// Route all other types to the serviceEntryHandler
-	for _, spec := range serviceentry.Schema.All() {
-		b.Add(spec.Collection, serviceEntryHandler)
+	if state.config.SynthesizeServiceEntries {
+		// Route all other types to the serviceEntryHandler
+		for _, spec := range serviceentry.Schema.All() {
+			b.Add(spec.Collection, serviceEntryHandler)
+		}
 	}
 
 	return b.Build()

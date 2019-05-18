@@ -155,6 +155,7 @@ require (
 	github.com/smartystreets/goconvey v0.0.0-20190330032615-68dc04aab96a // indirect
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/pflag v1.0.3
+	github.com/spf13/viper v1.3.2
 	github.com/spiffe/go-spiffe v0.0.0-20181210192309-b261e4202fec
 	github.com/stretchr/testify v1.3.0
 	github.com/tinylib/msgp v1.0.2 // indirect

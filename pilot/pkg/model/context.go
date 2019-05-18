@@ -133,6 +133,9 @@ const (
 
 	// Router type is used for standalone proxies acting as L7/L4 routers
 	Router NodeType = "router"
+
+	// AllPortsLiteral is the string value indicating all ports
+	AllPortsLiteral = "*"
 )
 
 // IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
@@ -394,6 +397,8 @@ const (
 
 	// IstioIngressNamespace is the namespace where Istio ingress controller is deployed
 	IstioIngressNamespace = "istio-system"
+
+	IstioIncludeInboundPorts = "INCLUDE_INBOUND_PORTS"
 )
 
 // IstioIngressWorkloadLabels is the label assigned to Istio ingress pods
@@ -658,4 +663,13 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 	}
 
 	return InterceptionRedirect
+}
+
+// Inbound capture listener capture all port mode only supports iptables REDIRECT
+func (node *Proxy) IsInboundCaptureAllPorts() bool {
+	if node.GetInterceptionMode() != InterceptionRedirect {
+		return false
+	}
+	capturePorts, ok := node.Metadata[IstioIncludeInboundPorts]
+	return ok && strings.Contains(capturePorts, AllPortsLiteral)
 }
