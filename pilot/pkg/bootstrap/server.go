@@ -91,6 +91,12 @@ const (
 	// DefaultMCPMaxMsgSize is the default maximum message size
 	DefaultMCPMaxMsgSize = 1024 * 1024 * 4
 
+	// DefaultMCPInitialWindowSize is the default InitialWindowSize value for the gRPC connection.
+	DefaultMCPInitialWindowSize = 1024 * 1024
+
+	// DefaultMCPInitialConnWindowSize is the default Initial ConnWindowSize value for the gRPC connection.
+	DefaultMCPInitialConnWindowSize = 1024 * 1024
+
 	// URL types supported by the config store
 	// example fs:///tmp/configroot
 	fsScheme = "fs"
@@ -165,17 +171,19 @@ type ServiceArgs struct {
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
-	DiscoveryOptions   envoy.DiscoveryServiceOptions
-	Namespace          string
-	Mesh               MeshArgs
-	Config             ConfigArgs
-	Service            ServiceArgs
-	MeshConfig         *meshconfig.MeshConfig
-	NetworksConfigFile string
-	CtrlZOptions       *ctrlz.Options
-	Plugins            []string
-	MCPMaxMessageSize  int
-	KeepaliveOptions   *istiokeepalive.Options
+	DiscoveryOptions         envoy.DiscoveryServiceOptions
+	Namespace                string
+	Mesh                     MeshArgs
+	Config                   ConfigArgs
+	Service                  ServiceArgs
+	MeshConfig               *meshconfig.MeshConfig
+	NetworksConfigFile       string
+	CtrlZOptions             *ctrlz.Options
+	Plugins                  []string
+	MCPMaxMessageSize        int
+	MCPInitialWindowSize     int
+	MCPInitialConnWindowSize int
+	KeepaliveOptions         *istiokeepalive.Options
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
 }
@@ -603,8 +611,14 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			Time:    args.KeepaliveOptions.Time,
 			Timeout: args.KeepaliveOptions.Timeout,
 		})
+
+		initialWindowSizeOption := grpc.WithInitialWindowSize(int32(args.MCPInitialWindowSize))
+		initialConnWindowSizeOption := grpc.WithInitialConnWindowSize(int32(args.MCPInitialConnWindowSize))
 		msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
-		conn, err := grpc.DialContext(ctx, configSource.Address, securityOption, msgSizeOption, keepaliveOption)
+
+		conn, err := grpc.DialContext(
+			ctx, configSource.Address,
+			securityOption, msgSizeOption, keepaliveOption, initialWindowSizeOption, initialConnWindowSizeOption)
 		if err != nil {
 			log.Errorf("Unable to dial MCP Server %q: %v", configSource.Address, err)
 			cancel()
