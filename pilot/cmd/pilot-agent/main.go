@@ -96,11 +96,19 @@ var (
 		Short:        "Istio Pilot agent.",
 		Long:         "Istio Pilot agent runs in the sidecar or gateway container and bootstraps Envoy.",
 		SilenceUsage: true,
+		FParseErrWhitelist: cobra.FParseErrWhitelist{
+			// Allow unknown flags for backward-compatibility.
+			UnknownFlags: true,
+		},
 	}
 
 	proxyCmd = &cobra.Command{
 		Use:   "proxy",
 		Short: "Envoy proxy agent",
+		FParseErrWhitelist: cobra.FParseErrWhitelist{
+			// Allow unknown flags for backward-compatibility.
+			UnknownFlags: true,
+		},
 		RunE: func(c *cobra.Command, args []string) error {
 			cmd.PrintFlags(c.Flags())
 			if err := log.Configure(loggingOptions); err != nil {
@@ -590,20 +598,10 @@ func waitForCerts(fname string, maxWait time.Duration) {
 }
 
 func main() {
-	ignoreUnknownFlagsAndWarn(proxyCmd)
 	if err := rootCmd.Execute(); err != nil {
 		log.Errora(err)
 		os.Exit(-1)
 	}
-}
-
-// ignoreUnknownFlagsAndWarn will configure the command to allow unknown flags. It will parse the
-// flags before enabling this, so that a warning can be emitted if there is an unknown flag.
-func ignoreUnknownFlagsAndWarn(cmd *cobra.Command) {
-	if err := cmd.ParseFlags(os.Args); err != nil {
-		log.Warnf("Failed to parse flags, will retry with unknown flags enabled: %v", err)
-	}
-	cmd.FParseErrWhitelist.UnknownFlags = true
 }
 
 // isIPv6Proxy check the addresses slice and returns true for a valid IPv6 address
