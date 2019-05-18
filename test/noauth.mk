@@ -51,7 +51,7 @@ run-test-knative: install-crds
 
 	bin/iop istio-system istio-ingress ${BASE}/gateways/istio-ingress --set global.istioNamespace=istio-system \
 		${IOP_OPTS} --set global.controlPlaneSecurityEnabled=false
-	kubectl wait deployments ingressgateway -n istio-system --for=condition=available --timeout=${WAIT_TIMEOUT}
+	kubectl wait deployments istio-ingressgateway -n istio-system --for=condition=available --timeout=${WAIT_TIMEOUT}
 
 	kubectl apply --selector=knative.dev/crd-install=true \
 	  --filename test/knative/serving.yaml
