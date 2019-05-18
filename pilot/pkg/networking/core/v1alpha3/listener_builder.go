@@ -88,8 +88,8 @@ func (builder *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl,
 		addressString := m.Address.String()
 		existingListener, ok := addresses[addressString]
 		if ok {
-			log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener (%s)",
-				m.Name, m.Address.String(), existingListener.Name)
+			log.Warnf("Omitting listener for management address %s due to collision with service listener (%s)",
+				m.Name, existingListener.Name)
 			continue
 		} else {
 			// dedup management listeners as well

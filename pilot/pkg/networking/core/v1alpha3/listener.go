@@ -1277,8 +1277,8 @@ func (configgen *ConfigGeneratorImpl) generateManagementListeners(node *model.Pr
 			m := mgmtListeners[i]
 			l := util.GetByAddress(listeners, m.Address.String())
 			if l != nil {
-				log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
-					m.Name, m.Address.String(), l.Name, l.Address.String())
+				log.Warnf("Omitting listener for management address %s due to collision with service listener %s",
+					m.Name, l.Name)
 				continue
 			}
 			listeners = append(listeners, m)
