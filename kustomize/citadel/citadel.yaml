@@ -119,8 +119,7 @@ spec:
             periodSeconds: 5
           resources:
             requests:
-              cpu: 0m
-              memory: 1Mi
+              cpu: 10m
             
       affinity:      
         nodeAffinity:

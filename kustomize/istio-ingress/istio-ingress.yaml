@@ -7,17 +7,27 @@ metadata:
   name: ingressgateway
   namespace: istio-ingress
   labels:
-    app: ingressgateway
+    app: istio-ingressgateway
     release: istio-ingress-istio-ingress
     istio: ingressgateway
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app: ingressgateway
+      app: istio-ingressgateway
       release: istio-ingress-istio-ingress
       istio: ingressgateway
 
+---
+# Source: istio-ingress/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ingressgateway-service-account
+  namespace: istio-ingress
+  labels:
+    app: istio-ingressgateway
+    release: istio-ingress-istio-ingress
 ---
 # Source: istio-ingress/templates/service.yaml
 
@@ -28,12 +38,12 @@ metadata:
   namespace: istio-ingress
   annotations:
   labels:
-    app: ingressgateway
+    app: istio-ingressgateway
     release: istio-ingress-istio-ingress
 spec:
   type: LoadBalancer
   selector:
-    app: ingressgateway
+    app: istio-ingressgateway
   ports:
     -
       name: status-port
@@ -57,21 +67,24 @@ spec:
 ---
 # Source: istio-ingress/templates/deployment.yaml
 
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ingressgateway
+  name: istio-ingressgateway
   namespace: istio-ingress
   labels:
-    app: ingressgateway
+    app: istio-ingressgateway
     istio: ingressgateway
     release: istio-ingress-istio-ingress
 spec:
-  replicas: 1
+  selector:
+    matchLabels:
+      app: istio-ingressgateway
+      istio: ingressgateway
   template:
     metadata:
       labels:
-        app: ingressgateway
+        app: istio-ingressgateway
         istio: ingressgateway
       annotations:
         sidecar.istio.io/inject: "false"
@@ -96,18 +109,17 @@ spec:
           - router
           - --domain
           - $(POD_NAMESPACE).svc.cluster.local
-          - --log_output_level
-          - 'info'
-          - --proxyLogLevel
-          - 'info'
+          - --proxyLogLevel=warning
+          - --proxyComponentLogLevel=misc:error
+          - --log_output_level=default:info
           - --drainDuration
-          - '45s'
+          - '45s' #drainDuration
           - --parentShutdownDuration
           - '1m0s' #parentShutdownDuration
           - --connectTimeout
-          - '10s'
+          - '10s' #connectTimeout
           - --serviceCluster
-          - ingressgateway
+          - istio-ingressgateway
           - --zipkinAddress
           - zipkin.istio-telemetry:9411
           - --proxyAdminPort
@@ -129,11 +141,19 @@ spec:
             successThreshold: 1
             timeoutSeconds: 1
           resources:
+            limits:
+              cpu: 2000m
+              memory: 256Mi
             requests:
-              cpu: 0m
-              memory: 1Mi
+              cpu: 100m
+              memory: 128Mi
             
           env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -149,6 +169,11 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.podIP
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.hostIP
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
@@ -172,7 +197,6 @@ spec:
             mountPath: "/etc/istio/ingressgateway-ca-certs"
             readOnly: true
       volumes:
-      
       - name: istio-certs
         secret:
           secretName: istio.default
@@ -218,7 +242,6 @@ spec:
                 operator: In
                 values:
                 - s390x      
----
 
 ---
 # Source: istio-ingress/templates/gateway.yaml
@@ -253,15 +276,13 @@ metadata:
   name: ingressgateway
   namespace: istio-ingress
   labels:
-    app: ingressgateway
-    chart: ingressgateway
-    heritage: Tiller
+    app: istio-ingressgateway
     release: istio-ingress-istio-ingress
 spec:
   maxReplicas: 5
   minReplicas: 1
   scaleTargetRef:
-    apiVersion: apps/v1beta1
+    apiVersion: apps/v1
     kind: Deployment
     name: ingressgateway
   metrics:
@@ -284,11 +305,6 @@ spec:
   egress:
     - hosts:
         - "*/*"
-
----
-# Source: istio-ingress/templates/certificate.yaml
-
-
 
 ---
 # Source: istio-ingress/templates/hosts.yaml
