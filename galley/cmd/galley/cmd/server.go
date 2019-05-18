@@ -17,7 +17,12 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"reflect"
+	"strings"
 	"time"
+
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 
 	"github.com/spf13/cobra"
 
@@ -61,17 +66,39 @@ func serverCmd() *cobra.Command {
 			return err
 		},
 		Run: func(cmd *cobra.Command, args []string) {
+			// Retrieve Viper values for each Cobra Val Flag
+			viper.SetTypeByDefaultValue(true)
+			cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
+				if reflect.TypeOf(viper.Get(f.Name)).Kind() == reflect.Slice {
+					// Viper cannot convert slices to strings, so this is our workaround.
+					_ = f.Value.Set(strings.Join(viper.GetStringSlice(f.Name), ","))
+				} else {
+					_ = f.Value.Set(viper.GetString(f.Name))
+				}
+			})
+
 			serverArgs.KubeConfig = kubeConfig
 			serverArgs.ResyncPeriod = resyncPeriod
-			serverArgs.CredentialOptions.CACertificateFile = validationArgs.CACertFile
-			serverArgs.CredentialOptions.KeyFile = validationArgs.KeyFile
-			serverArgs.CredentialOptions.CertificateFile = validationArgs.CertFile
+
 			if livenessProbeOptions.IsValid() {
 				livenessProbeController = probe.NewFileController(&livenessProbeOptions)
 			}
 			if readinessProbeOptions.IsValid() {
 				readinessProbeController = probe.NewFileController(&readinessProbeOptions)
 			}
+
+			// validation tls args fall back to server arg values
+			// since the default value for these flags is an empty string, zero length indicates not set
+			if len(validationArgs.CACertFile) < 1 {
+				validationArgs.CACertFile = serverArgs.CredentialOptions.CACertificateFile
+			}
+			if len(validationArgs.CertFile) < 1 {
+				validationArgs.CertFile = serverArgs.CredentialOptions.CertificateFile
+			}
+			if len(validationArgs.KeyFile) < 1 {
+				validationArgs.KeyFile = serverArgs.CredentialOptions.KeyFile
+			}
+
 			if !serverArgs.EnableServer && !validationArgs.EnableValidation {
 				log.Fatala("Galley must be running under at least one mode: server or validation")
 			}
@@ -103,11 +130,11 @@ func serverCmd() *cobra.Command {
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	serverCmd.PersistentFlags().DurationVar(&resyncPeriod, "resyncPeriod", 0,
 		"Resync period for rescanning Kubernetes resources")
-	serverCmd.PersistentFlags().StringVar(&validationArgs.CertFile, "tlsCertFile", "/etc/certs/cert-chain.pem",
+	serverCmd.PersistentFlags().StringVar(&serverArgs.CredentialOptions.CertificateFile, "tlsCertFile", "/etc/certs/cert-chain.pem",
 		"File containing the x509 Certificate for HTTPS.")
-	serverCmd.PersistentFlags().StringVar(&validationArgs.KeyFile, "tlsKeyFile", "/etc/certs/key.pem",
+	serverCmd.PersistentFlags().StringVar(&serverArgs.CredentialOptions.KeyFile, "tlsKeyFile", "/etc/certs/key.pem",
 		"File containing the x509 private key matching --tlsCertFile.")
-	serverCmd.PersistentFlags().StringVar(&validationArgs.CACertFile, "caCertFile", "/etc/certs/root-cert.pem",
+	serverCmd.PersistentFlags().StringVar(&serverArgs.CredentialOptions.CACertificateFile, "caCertFile", "/etc/certs/root-cert.pem",
 		"File containing the caBundle that signed the cert/key specified by --tlsCertFile and --tlsKeyFile.")
 	serverCmd.PersistentFlags().StringVar(&livenessProbeOptions.Path, "livenessProbePath", server.DefaultLivenessProbeFilePath,
 		"Path to the file for the Galley liveness probe.")
@@ -171,8 +198,58 @@ func serverCmd() *cobra.Command {
 	serverCmd.PersistentFlags().StringVar(&validationArgs.WebhookName, "webhook-name", "istio-galley",
 		"Name of the k8s validatingwebhookconfiguration")
 
+	// Hidden, file only flags for validation specific TLS
+	serverCmd.PersistentFlags().StringVar(&validationArgs.CertFile, "validation.tls.clientCertificate", "",
+		"File containing the x509 Certificate for HTTPS validation.")
+	_ = serverCmd.PersistentFlags().MarkHidden("validation.tls.clientCertificate")
+	serverCmd.PersistentFlags().StringVar(&validationArgs.KeyFile, "validation.tls.privateKey", "",
+		"File containing the x509 private key matching --validation.tls.clientCertificate.")
+	_ = serverCmd.PersistentFlags().MarkHidden("validation.tls.privateKey")
+	serverCmd.PersistentFlags().StringVar(&validationArgs.CACertFile, "validation.tls.caCertificates", "",
+		"File containing the caBundle that signed the cert/key specified by --validation.tls.clientCertificate and --validation.tls.privateKey.")
+	_ = serverCmd.PersistentFlags().MarkHidden("validation.tls.caCertificates")
+
 	serverArgs.IntrospectionOptions.AttachCobraFlags(serverCmd)
 	loggingOptions.AttachCobraFlags(serverCmd)
+	_ = viper.BindPFlags(serverCmd.PersistentFlags())
+
+	cobra.OnInitialize(setupAliases)
 
 	return serverCmd
+}
+
+func setupAliases() {
+	// setup viper Aliases for hierarchical config files
+	// this must be run after all config sources have been read.
+	viper.RegisterAlias("general.kubeconfig", "kubeconfig")
+	viper.RegisterAlias("general.introspection.port", "ctrlz_port")
+	viper.RegisterAlias("general.introspection.address", "ctrlz_address")
+	viper.RegisterAlias("general.liveness.path", "livenessProbePath")
+	viper.RegisterAlias("general.liveness.interval", "livenessProbeInterval")
+	viper.RegisterAlias("general.readiness.path", "readinessProbePath")
+	viper.RegisterAlias("general.readiness.interval", "readinessProbeInterval")
+	viper.RegisterAlias("general.meshConfigFile", "meshConfigFile")
+	viper.RegisterAlias("general.monitoringPort", "monitoringPort")
+	viper.RegisterAlias("general.pprofPort", "pprofPort")
+	viper.RegisterAlias("general.enable_profiling", "enableProfiling")
+	viper.RegisterAlias("processing.domainSuffix", "domain")
+	viper.RegisterAlias("processing.server.enable", "enable-server")
+	viper.RegisterAlias("processing.server.address", "server-address")
+	viper.RegisterAlias("processing.server.maxReceivedMessageSize", "server-maxReceivedMessageSize")
+	viper.RegisterAlias("processing.server.maxConcurrentStreams", "server-maxConcurrentStreams")
+	viper.RegisterAlias("processing.server.disableResourceReadyCheck", "disableResourceReadyCheck")
+	viper.RegisterAlias("processing.server.auth.mtls.clientCertificate", "tlsCertFile")
+	viper.RegisterAlias("processing.server.auth.mtls.privateKey", "tlsKeyFile")
+	viper.RegisterAlias("processing.server.auth.mtls.caCertificates", "caCertFile")
+	viper.RegisterAlias("processing.server.auth.mtls.accessListFile", "accessListFile")
+	viper.RegisterAlias("processing.server.auth.insecure", "insecure")
+	viper.RegisterAlias("processing.source.kubernetes.resyncPeriod", "resyncPeriod")
+	viper.RegisterAlias("processing.source.filesystem.path", "configPath")
+	viper.RegisterAlias("validation.enable", "enable-validation")
+	viper.RegisterAlias("validation.webhookConfigFile", "validation-webhook-config-file")
+	viper.RegisterAlias("validation.webhookPort", "validation-port")
+	viper.RegisterAlias("validation.webhookName", "webhook-name")
+	viper.RegisterAlias("validation.deploymentName", "deployment-name")
+	viper.RegisterAlias("validation.deploymentNamespace", "deployment-namespace")
+	viper.RegisterAlias("validation.serviceName", "service-name")
 }
