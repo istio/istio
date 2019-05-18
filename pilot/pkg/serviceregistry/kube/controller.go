@@ -716,7 +716,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			portsByNum[uint32(port.Port)] = port.Name
 		}
 
-		svcConv := convertService(*svc, c.domainSuffix)
+		svcConv := convertService(*svc, c.domainSuffix, c.ClusterID)
 		instances := externalNameServiceInstances(*svc, svcConv)
 		switch event {
 		case model.EventDelete:
