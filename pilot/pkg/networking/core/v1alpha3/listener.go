@@ -995,7 +995,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 			rdsName = fmt.Sprintf("%d", pluginParams.Port.Port)
 		}
 		httpOpts := &httpListenerOpts{
-			useRemoteAddress: false,
+			// Set useRemoteAddress to true for side car outbound listeners so that it picks up the localhost address of the sender,
+			// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers
+			// such as "x-envoy-upstream-rq-timeout-ms" set by the calling application.
+			useRemoteAddress: true,
 			direction:        http_conn.EGRESS,
 			rds:              rdsName,
 		}
