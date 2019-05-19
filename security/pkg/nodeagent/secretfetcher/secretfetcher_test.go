@@ -113,6 +113,31 @@ var (
 		},
 		Type: "test-tls-secret",
 	}
+
+	k8sCASecretNameE        = "test-scrtE-cacert"
+	k8sCaCertE              = []byte("fake root cert E")
+	k8sTestGenericCASecretE = &v1.Secret{
+		Data: map[string][]byte{
+			genericScrtCaCert: k8sCaCertE,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      k8sCASecretNameE,
+			Namespace: "test-namespace",
+		},
+		Type: "test-ca-secret",
+	}
+
+	k8sCaCertF       = []byte("fake root cert F")
+	k8sTestCASecretF = &v1.Secret{
+		Data: map[string][]byte{
+			tlsScrtCert: k8sCaCertF,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      k8sCASecretNameE,
+			Namespace: "test-namespace",
+		},
+		Type: "test-tls-ca-secret",
+	}
 )
 
 type expectedSecret struct {
@@ -206,6 +231,44 @@ func TestSecretFetcher(t *testing.T) {
 	if secretVersionThree == secretVersionTwo || secretVersionThree == secretVersionOne {
 		t.Errorf("updated secret should have different version")
 	}
+
+	// Add test ca only secret and verify that cacert is stored.
+	expectedAddedCASecrets := []expectedSecret{
+		{
+			exist: true,
+			secret: &model.SecretItem{
+				ResourceName: k8sCASecretNameE,
+				RootCert:     k8sCaCertE,
+			},
+		},
+	}
+	var secretVersionFour string
+	testAddSecret(t, gSecretFetcher, k8sTestGenericCASecretE, expectedAddedCASecrets, &secretVersionFour)
+
+	// Update test secret and verify that key/cert pair is changed and version number is different.
+	expectedUpdateCASecrets := []expectedSecret{
+		{
+			exist: true,
+			secret: &model.SecretItem{
+				ResourceName: k8sCASecretNameE,
+				RootCert:     k8sCaCertF,
+			},
+		},
+	}
+	var secretVersionFive string
+	testUpdateSecret(t, gSecretFetcher, k8sTestGenericCASecretE, k8sTestCASecretF, expectedUpdateCASecrets, &secretVersionFive)
+	if secretVersionFive == secretVersionFour {
+		t.Errorf("updated secret should have different version")
+	}
+
+	// Delete test ca secret and verify that its cacert is removed from local store.
+	expectedDeletedCASecrets := []expectedSecret{
+		{
+			exist:  false,
+			secret: &model.SecretItem{ResourceName: k8sCASecretNameE},
+		},
+	}
+	testDeleteSecret(t, gSecretFetcher, k8sTestGenericCASecretE, expectedDeletedCASecrets)
 }
 
 // TestSecretFetcherInvalidSecret verifies that if a secret does not have key or cert, secret fetcher

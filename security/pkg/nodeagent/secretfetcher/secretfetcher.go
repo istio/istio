@@ -185,32 +185,105 @@ func (sf *SecretFetcher) InitWithKubeClient(core corev1.CoreV1Interface) { // no
 func isIngressGatewaySecret(scrt *v1.Secret) bool {
 	secretName := scrt.GetName()
 	if strings.HasPrefix(secretName, istioPrefix) || strings.HasPrefix(secretName, prometheusPrefix) {
+		log.Debugf("skipping loading %s as it has one of the reserved prefixes (%s, %s)", secretName, istioPrefix, prometheusPrefix)
 		return false
 	}
 	if len(scrt.Data[scrtTokenField]) > 0 {
+		log.Debugf("skipping loading %s as it has one of the reserved fields (%s)", secretName, scrtTokenField)
 		return false
 	}
 	return true
 }
 
-// extractCertAndKey extracts key, certificate and root certificate, and indicates whether
+// extractCertAndKey extracts key and certificate, and indicates whether
 // these key and certificate are empty.
-func extractCertAndKey(scrt *v1.Secret) (cert, key, root []byte, valid bool) {
+func extractCertAndKey(scrt *v1.Secret) (cert, key []byte, valid bool) {
 	certAndKeyExist := false
 	if len(scrt.Data[genericScrtCert]) > 0 {
 		cert = scrt.Data[genericScrtCert]
 		key = scrt.Data[genericScrtKey]
-		root = scrt.Data[genericScrtCaCert]
 	} else {
 		cert = scrt.Data[tlsScrtCert]
 		key = scrt.Data[tlsScrtKey]
-		root = []byte{}
 	}
-	// root could be empty if ingress gateway only accepts TLS.
 	if len(cert) > 0 && len(key) > 0 {
 		certAndKeyExist = true
 	}
-	return cert, key, root, certAndKeyExist
+	return cert, key, certAndKeyExist
+}
+
+// extractCACert extracts the client CA certificate from either the Opaque
+// Secret, or, if legacyOnly=false, from k8s's "tls.crt".
+func extractCACert(scrt *v1.Secret, legacyOnly bool) (cacert []byte, valid bool) {
+	if len(scrt.Data[genericScrtCaCert]) > 0 {
+		cacert = scrt.Data[genericScrtCaCert]
+	} else if !legacyOnly {
+		cacert = scrt.Data[tlsScrtCert]
+	}
+	return cacert, len(cacert) > 0
+}
+
+// k8sSecretIntoSecretItem extracts a server cert/key pair and a client CA
+// certificate from the k8s Secret into a pair of SecretItems.
+// If the Secret name ends with `-cacert` it's ONLY considered for a client CA;
+// either a `cacert` or `tls.crt` must be provided.
+// Otherwise the Secret can hold a server cert/key pair in `tls.crt`/`tls.key`,
+// or a server cert/key pair in `cert`/`key` and an optional client CA cert in
+// `cacert`. Note that the latter still contains ambiguity as to which client CA
+// cert takes precedence if e.g. both a Secret named `test` exists with a cert
+// in a `cacert` key and there's a Secret named `test-cacert`; it is thus
+// suggested to avoid using a compound Secret and manage the server cert/key
+// pair and the client ca cert in two different k8s Secrets.
+func k8sSecretIntoSecretItem(scrt *v1.Secret, t time.Time) (serverItem, clientCAItem *model.SecretItem) {
+	resourceName := scrt.GetName()
+	isCAOnlyCert := strings.HasSuffix(resourceName, IngressGatewaySdsCaSuffix)
+
+	if isCAOnlyCert {
+		// CA only cert either returns a ca cert or fails
+		cacert, valid := extractCACert(scrt, false /* legacyOnly */)
+		if !valid {
+			log.Debugf("failed load cacert from %s: no 'cacert' or 'tls.crt' key in the secret", scrt.GetName())
+			return nil, nil
+		}
+
+		ns := &model.SecretItem{
+			ResourceName:                  resourceName,
+			CreatedTime:                   t,
+			Version:                       t.String(),
+			RootCertOwnedByCompoundSecret: false,
+			RootCert:                      cacert,
+		}
+
+		return nil, ns
+	}
+
+	cert, key, valid := extractCertAndKey(scrt)
+	if !valid {
+		log.Debugf("failed load cert/key pair from %s: no 'cert' or 'tls.crt' key in the secret", scrt.GetName())
+		return nil, nil
+	}
+	ns := &model.SecretItem{
+		ResourceName:     resourceName,
+		CreatedTime:      t,
+		Version:          t.String(),
+		CertificateChain: cert,
+		PrivateKey:       key,
+	}
+
+	cacert, valid := extractCACert(scrt, true /* legacyOnly */)
+	if !valid {
+		return ns, nil
+	}
+
+	cans := &model.SecretItem{
+		ResourceName:                  resourceName + IngressGatewaySdsCaSuffix,
+		CreatedTime:                   t,
+		Version:                       t.String(),
+		RootCert:                      cacert,
+		RootCertOwnedByCompoundSecret: true,
+	}
+
+	return ns, cans
 }
 
 func (sf *SecretFetcher) scrtAdded(obj interface{}) {
@@ -220,48 +293,47 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 		return
 	}
 
+	t := time.Now()
+
 	resourceName := scrt.GetName()
 	if !isIngressGatewaySecret(scrt) {
 		log.Debugf("secret %s is not an ingress gateway secret, skip adding secret", resourceName)
 		return
 	}
 
-	t := time.Now()
-	newCert, newKey, newRoot, valid := extractCertAndKey(scrt)
-	if !valid {
-		log.Warnf("Secret object: %v has empty field, skip adding secret", resourceName)
+	ns, cans := k8sSecretIntoSecretItem(scrt, t)
+	if ns == nil {
+		// this might be a client ca only Secret
+		if cans == nil {
+			// this is a malformed secret
+			log.Warnf("Secret object: %v failed to be loaded as either server or clientca secret", resourceName)
+			return
+		}
+		sf.secrets.Delete(resourceName)
+		sf.secrets.Store(resourceName, *cans)
+		log.Debugf("secret %s is added as a client root CA", resourceName)
+		if sf.AddCache != nil {
+			sf.AddCache(resourceName, *cans)
+		}
 		return
 	}
-	// If there is secret with the same resource name, delete that secret now.
+
 	sf.secrets.Delete(resourceName)
-	ns := &model.SecretItem{
-		ResourceName:     resourceName,
-		CertificateChain: newCert,
-		PrivateKey:       newKey,
-		CreatedTime:      t,
-		Version:          t.String(),
-	}
 	sf.secrets.Store(resourceName, *ns)
-	log.Debugf("secret %s is added", resourceName)
+	log.Debugf("secret %s is added as a server certificate", resourceName)
 	if sf.AddCache != nil {
 		sf.AddCache(resourceName, *ns)
 	}
 
-	rootCertResourceName := resourceName + IngressGatewaySdsCaSuffix
-	// If there is root cert secret with the same resource name, delete that secret now.
-	sf.secrets.Delete(rootCertResourceName)
-	if len(newRoot) > 0 {
-		nsRoot := &model.SecretItem{
-			ResourceName: rootCertResourceName,
-			RootCert:     newRoot,
-			CreatedTime:  t,
-			Version:      t.String(),
-		}
-		sf.secrets.Store(rootCertResourceName, *nsRoot)
-		log.Debugf("secret %s is added", rootCertResourceName)
-		if sf.AddCache != nil {
-			sf.AddCache(rootCertResourceName, *nsRoot)
-		}
+	if cans == nil {
+		return
+	}
+
+	sf.secrets.Delete(cans.ResourceName)
+	sf.secrets.Store(cans.ResourceName, *cans)
+	log.Debugf("secret %s is added as a client root CA (from a compound Secret)", cans.ResourceName)
+	if sf.AddCache != nil {
+		sf.AddCache(cans.ResourceName, *cans)
 	}
 }
 
@@ -281,12 +353,16 @@ func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 	}
 
 	rootCertResourceName := key + IngressGatewaySdsCaSuffix
-	// If there is root cert secret with the same resource name, delete that secret now.
-	sf.secrets.Delete(rootCertResourceName)
-	log.Infof("secret %s is deleted", rootCertResourceName)
-	// Delete all cache entries that match the deleted key.
-	if sf.DeleteCache != nil {
-		sf.DeleteCache(rootCertResourceName)
+	rootSecret, exists := sf.secrets.Load(rootCertResourceName)
+	// If there is a root cert secret with the same resource name and it's owned
+	// by the same K8S secret -- delete it now.
+	if exists && rootSecret.(model.SecretItem).RootCertOwnedByCompoundSecret {
+		sf.secrets.Delete(rootCertResourceName)
+		log.Debugf("secret %s is deleted", rootCertResourceName)
+		// Delete all cache entries that match the deleted key.
+		if sf.DeleteCache != nil {
+			sf.DeleteCache(rootCertResourceName)
+		}
 	}
 }
 
@@ -303,58 +379,86 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	}
 
 	oldScrtName := oscrt.GetName()
-	newScrtName := nscrt.GetName()
-	if oldScrtName != newScrtName {
-		log.Warnf("Failed to update secret: name does not match (%s vs %s).", oldScrtName, newScrtName)
+	resourceName := nscrt.GetName()
+	if oldScrtName != resourceName {
+		log.Warnf("Failed to update secret: name does not match (%s vs %s).", oldScrtName, resourceName)
 		return
 	}
 
 	if !isIngressGatewaySecret(nscrt) {
-		log.Debugf("secret %s is not an ingress gateway secret, skip update", newScrtName)
+		log.Debugf("secret %s is not an ingress gateway secret, skip update", resourceName)
 		return
 	}
-
-	oldCert, oldKey, oldRoot, _ := extractCertAndKey(oscrt)
-	newCert, newKey, newRoot, valid := extractCertAndKey(nscrt)
-	if !valid {
-		log.Warnf("Secret object: %v has empty field, skip update", newScrtName)
-		return
-	}
-	if bytes.Equal(oldCert, newCert) && bytes.Equal(oldKey, newKey) && bytes.Equal(oldRoot, newRoot) {
-		log.Debugf("secret %s does not change, skip update", oldScrtName)
-		return
-	}
-	sf.secrets.Delete(oldScrtName)
 
 	t := time.Now()
-	ns := &model.SecretItem{
-		ResourceName:     newScrtName,
-		CertificateChain: newCert,
-		PrivateKey:       newKey,
-		CreatedTime:      t,
-		Version:          t.String(),
+
+	oldns, oldcans := k8sSecretIntoSecretItem(oscrt, t)
+	ns, cans := k8sSecretIntoSecretItem(nscrt, t)
+
+	secretChanged := false
+	if (oldns != nil && ns == nil) || (oldns == nil && ns != nil) {
+		secretChanged = true
 	}
-	sf.secrets.Store(newScrtName, *ns)
-	log.Infof("secret %s is updated", newScrtName)
-	if sf.UpdateCache != nil {
-		sf.UpdateCache(newScrtName, *ns)
+	if !secretChanged && ns != nil && oldns != nil {
+		if !bytes.Equal(oldns.CertificateChain, ns.CertificateChain) || !bytes.Equal(oldns.PrivateKey, ns.PrivateKey) {
+			secretChanged = true
+		}
+	}
+	if !secretChanged && (oldcans != nil && cans == nil) || (oldcans == nil && cans != nil) {
+		secretChanged = true
+	}
+	if !secretChanged && cans != nil && oldcans != nil {
+		if !bytes.Equal(oldcans.RootCert, cans.RootCert) {
+			secretChanged = true
+		}
 	}
 
-	rootCertResourceName := newScrtName + IngressGatewaySdsCaSuffix
-	// If there is root cert secret with the same resource name, delete that secret now.
-	sf.secrets.Delete(rootCertResourceName)
-	if len(newRoot) > 0 {
-		nsRoot := &model.SecretItem{
-			ResourceName: rootCertResourceName,
-			RootCert:     newRoot,
-			CreatedTime:  t,
-			Version:      t.String(),
+	if ns == nil && cans == nil {
+		log.Warnf("Secret object: %v has empty field, skip update", resourceName)
+		return
+	}
+
+	if !secretChanged {
+		log.Debugf("secret %s does not change, skip update", resourceName)
+		return
+	}
+
+	if ns == nil {
+		// this is a client ca only Secret
+		if cans == nil {
+			// this is a malformed secret
+			log.Warnf("Secret object: %v failed to be loaded as either server or clientca secret", resourceName)
+			return
 		}
-		sf.secrets.Store(rootCertResourceName, *nsRoot)
-		log.Infof("secret %s is updated", rootCertResourceName)
+
+		sf.secrets.Delete(resourceName)
+		sf.secrets.Store(resourceName, *cans)
 		if sf.UpdateCache != nil {
-			sf.UpdateCache(rootCertResourceName, *nsRoot)
+			sf.UpdateCache(resourceName, *cans)
 		}
+		log.Debugf("secret %s is updated as a client root CA", resourceName)
+		return
+	}
+
+	sf.secrets.Delete(resourceName)
+	sf.secrets.Store(resourceName, *ns)
+	if sf.UpdateCache != nil {
+		sf.UpdateCache(resourceName, *ns)
+	}
+	log.Debugf("secret %s is updated as a server certificate", resourceName)
+
+	if oldcans != nil {
+		sf.secrets.Delete(cans.ResourceName)
+	}
+
+	if cans == nil {
+		return
+	}
+
+	sf.secrets.Store(cans.ResourceName, *cans)
+	log.Debugf("secret %s is updated as a client root CA (from a compound Secret)", cans.ResourceName)
+	if sf.UpdateCache != nil {
+		sf.UpdateCache(cans.ResourceName, *cans)
 	}
 }
 
