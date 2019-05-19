@@ -24,7 +24,7 @@ spec:
         app: {{ template "galley.name" . }}
         chart: {{ template "galley.chart" . }}
         heritage: {{ .Release.Service }}
-        release: {{ .Release.Name }}      
+        release: {{ .Release.Name }}
         istio: galley
       annotations:
         sidecar.istio.io/inject: "false"
@@ -54,11 +54,8 @@ spec:
           - --readinessProbePath=/healthready
           - --readinessProbeInterval=1s
           - --deployment-namespace={{ .Release.Namespace }}
-{{- if $.Values.global.controlPlaneSecurityEnabled}}
-          - --insecure=false
-{{- else }}
           - --insecure=true
-{{- end }}
+          - --server-address=tcp://127.0.0.1:9901
 {{- if not $.Values.global.useMCP }}
           - --enable-server=false
 {{- end }}
@@ -101,6 +98,62 @@ spec:
 {{ toYaml .Values.resources | indent 12 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+{{- if .Values.sidecar }}
+        - name: istio-proxy
+{{- if contains "/" .Values.global.proxy.image }}
+          image: "{{ .Values.global.proxy.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: 9902
+            - containerPort: 15019
+          args:
+            - proxy
+            - --domain
+            - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
+            - --serviceCluster
+            - istio-galley
+            - --templateFile
+            - /etc/istio/proxy/envoy_galley.yaml.tmpl
+          {{- if $.Values.global.controlPlaneSecurityEnabled}}
+            - --controlPlaneAuthPolicy
+            - MUTUAL_TLS
+          {{- else }}
+            - --controlPlaneAuthPolicy
+            - NONE
+          {{- end }}
+          {{- if .Values.global.trustDomain }}
+            - --trust-domain={{ .Values.global.trustDomain }}
+          {{- end }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: INSTANCE_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+          resources:
+{{- if .Values.global.proxy.resources }}
+{{ toYaml .Values.global.proxy.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+          volumeMounts:
+            - name: certs
+              mountPath: /etc/certs
+              readOnly: true
 {{- end }}
       volumes:
       - name: certs

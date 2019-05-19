@@ -52,11 +52,7 @@
           - --log_output_level={{ $.Values.global.logging.level }}
 {{- end}}
 {{- if $.Values.global.useMCP }}
-    {{- if $.Values.global.controlPlaneSecurityEnabled}}
-          - --configStoreURL=mcps://istio-galley.{{ $.Release.Namespace }}.svc:9901
-    {{- else }}
-          - --configStoreURL=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
-    {{- end }}
+          - --configStoreURL=mcp://localhost:15019
 {{- else }}
           - --configStoreURL=k8s://
 {{- end }}
@@ -225,14 +221,7 @@
           - --log_output_level={{ $.Values.global.logging.level }}
 {{- end}}
 {{- if $.Values.global.useMCP }}
-    {{- if $.Values.global.controlPlaneSecurityEnabled}}
-          - --configStoreURL=mcps://istio-galley.{{ $.Release.Namespace }}.svc:9901
-          - --certFile=/etc/certs/cert-chain.pem
-          - --keyFile=/etc/certs/key.pem
-          - --caCertFile=/etc/certs/root-cert.pem
-    {{- else }}
-          - --configStoreURL=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
-    {{- end }}
+          - --configStoreURL=mcp://localhost:15019
 {{- else }}
           - --configStoreURL=k8s://
 {{- end }}
