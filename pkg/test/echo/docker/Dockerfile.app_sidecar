@@ -1,5 +1,9 @@
 FROM istionightly/base_debug
 
+# Add CA certificates for SSL connections.
+# obtained from debian ca-certs deb using fetch_cacerts.sh
+ADD ca-certificates.tgz /
+
 # Install the certs.
 COPY certs/                           /var/lib/istio/
 COPY certs/default/*                  /etc/certs/

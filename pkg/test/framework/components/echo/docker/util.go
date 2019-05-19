@@ -12,18 +12,42 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package api
+package docker
 
 import (
-	"istio.io/istio/pkg/test/framework/core"
-	"istio.io/istio/pkg/test/framework/resource"
+	"fmt"
+	"net"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
-type FactoryFn func(name string, ctx Context) (resource.Environment, error)
+const (
+	localhost = "127.0.0.1"
+)
 
-type Context interface {
-	TrackResource(r resource.Resource) resource.ID
-	CreateDirectory(name string) (string, error)
-	CreateTmpDirectory(prefix string) (string, error)
-	Settings() *core.Settings
+func getIP() (net.IP, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, addr := range addrs {
+		ipNet, ok := addr.(*net.IPNet)
+		if ok && !ipNet.IP.IsLoopback() {
+			v4 := ipNet.IP.To4()
+			if v4 != nil {
+				return v4, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("unable to find IPv4 address in: %v", addrs)
+}
+
+func isGRPC(p model.Protocol) bool {
+	switch p {
+	case model.ProtocolGRPC, model.ProtocolGRPCWeb:
+		return true
+	default:
+		return false
+	}
 }
