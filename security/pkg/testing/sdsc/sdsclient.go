@@ -16,11 +16,9 @@ import (
 
 // Client is a lightweight client for testing secret discovery service server.
 type Client struct {
-	// adsc *adsc.ADSC
 	stream     sds.SecretDiscoveryService_StreamSecretsClient
 	conn       *grpc.ClientConn
 	updateChan chan xdsapi.DiscoveryResponse
-	nodeID     string
 	udsPath    string
 }
 
@@ -58,16 +56,16 @@ func (c *Client) Start() {
 			return
 		}
 		c.updateChan <- *msq
-		log.Infof("received response from sds server %v", msq)
+		log.Infof("receive response from sds server %v", msq)
 	}()
 }
 
 // Stop stops the sds client.
-func (c *Client) Stop() {
-	c.stream.CloseSend()
+func (c *Client) Stop() error {
+	return c.stream.CloseSend()
 }
 
-// WaitForUpdate blocks untill the error occurs or updates are pushed from the sds server.
+// WaitForUpdate blocks until the error occurs or updates are pushed from the sds server.
 func (c *Client) WaitForUpdate(duration time.Duration) (*xdsapi.DiscoveryResponse, error) {
 	t := time.NewTimer(duration)
 	for {

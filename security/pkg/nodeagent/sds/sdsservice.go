@@ -143,7 +143,6 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 		// Block until a request is received.
 		select {
 		case discReq, ok := <-reqChannel:
-			fmt.Println("jianfeih debug ", discReq, ok)
 			if !ok {
 				// Remote side closed connection.
 				return receiveError

@@ -19,8 +19,6 @@ func TestAgentFailsRequestWithoutToken(t *testing.T) {
 	if *skip {
 		t.Skip("Test is skipped until Citadel agent is setup in test.")
 	}
-	defer server.Stop()
-	// time.Sleep(3 * time.Second)
 	client, err := sdsc.NewClient(sdsc.ClientOptions{
 		ServerAddress: *sdsUdsPath,
 	})
