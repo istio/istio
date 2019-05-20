@@ -12,6 +12,7 @@ import (
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 
+	sdscache "istio.io/istio/security/pkg/nodeagent/cache"
 	agent_sds "istio.io/istio/security/pkg/nodeagent/sds"
 )
 
@@ -81,9 +82,15 @@ func (c *Client) WaitForUpdate(duration time.Duration) (*xdsapi.DiscoveryRespons
 
 // Send sends a request to the agent.
 func (c *Client) Send() (*xdsapi.DiscoveryResponse, error) {
+	// TODO(incfly): just a place holder, need to follow xDS protocol.
+	// - Initial request version is empty.
+	// - Version & Nonce is needed for ack/rejecting.
 	err := c.stream.Send(&xdsapi.DiscoveryRequest{
-		VersionInfo: "abcd",
-		TypeUrl:     agent_sds.SecretType,
+		VersionInfo: "",
+		ResourceNames: []string{
+			sdscache.RootCertReqResourceName,
+		},
+		TypeUrl: agent_sds.SecretType,
 	})
 	if err != nil {
 		return nil, err
