@@ -18,79 +18,65 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"testing"
 
-	"istio.io/istio/pkg/test/framework/components/apps"
-	"istio.io/istio/pkg/test/util/connection"
-	"istio.io/istio/tests/util"
+	"istio.io/istio/pkg/test/echo/common/response"
+	"istio.io/istio/tests/integration/security/util/connection"
 )
 
 type TestCase struct {
-	Request       connection.Connection
+	Request       connection.Checker
 	ExpectAllowed bool
 	Jwt           string
-	RejectionCode string
+}
+
+func getError(req connection.Checker, expect, actual string) error {
+	return fmt.Errorf("%s to %s:%s%s: expect %s, got: %s",
+		req.From.Config().Service,
+		req.Options.Target.Config().Service,
+		req.Options.PortName,
+		req.Options.Path,
+		expect,
+		actual)
 }
 
 // CheckRBACRequest checks if a request is successful under RBAC policies.
 // Under RBAC policies, a request is consider successful if:
-// * If the policy is deny:
-// *** For HTTP: response code is same as the tc.RejectionCode.
-// *** For TCP: EOF error
 // * If the policy is allow:
 // *** Response code is 200
-func CheckRBACRequest(tc TestCase) error {
+// * If the policy is deny:
+// *** For HTTP: response code is 403.
+// *** For TCP: EOF error
+func (tc TestCase) CheckRBACRequest() error {
 	req := tc.Request
-	ep := req.To.EndpointForPort(req.Port)
-	if ep == nil {
-		return fmt.Errorf("cannot get upstream endpoint for connection test %v", req)
-	}
 
 	headers := make(http.Header)
 	if len(tc.Jwt) > 0 {
 		headers.Add("Authorization", "Bearer "+tc.Jwt)
 	}
+	tc.Request.Options.Headers = headers
 
-	resp, err := req.From.Call(ep, apps.AppCallOptions{Protocol: req.Protocol, Path: req.Path, Headers: headers})
-	if err != nil && !strings.Contains(err.Error(), "EOF") {
-		return fmt.Errorf("connection error with %v", err)
-	}
+	resp, err := req.From.Call(tc.Request.Options)
 
 	if tc.ExpectAllowed {
-		if !(len(resp) > 0 && resp[0].Code == connection.AllowHTTPRespCode) {
-			return fmt.Errorf("%s to %s:%d%s using %s: expected allow, actually deny",
-				req.From.Name(), req.To.Name(), req.Port, req.Path, req.Protocol)
+		if err == nil {
+			err = resp.CheckOK()
+		}
+		if err != nil {
+			return getError(req, "allow with code 200", fmt.Sprintf("error: %v", err))
 		}
 	} else {
-		if req.Port == connection.TCPPort {
-			if !strings.Contains(err.Error(), "EOF") {
-				return fmt.Errorf("%s to %s:%d%s using %s: expected deny with EOF error, actually %v",
-					req.From.Name(), req.To.Name(), req.Port, req.Path, req.Protocol, err)
+		if req.Options.PortName == "tcp" {
+			if err == nil || !strings.Contains(err.Error(), "EOF") {
+				return getError(req, "deny with EOF error", fmt.Sprintf("error: %v", err))
 			}
 		} else {
-			if !(len(resp) > 0 && resp[0].Code == tc.RejectionCode) {
-				return fmt.Errorf("%s to %s:%d%s using %s: expected deny, actually allow",
-					req.From.Name(), req.To.Name(), req.Port, req.Path, req.Protocol)
+			if err != nil {
+				return getError(req, "deny with code 403", fmt.Sprintf("error: %v", err))
+			}
+			if len(resp) == 0 || resp[0].Code != response.StatusCodeForbidden {
+				return getError(req, "deny with code 403", fmt.Sprintf("resp: %v", resp))
 			}
 		}
 	}
-	// Success
 	return nil
-}
-
-// GetRbacYamlFiles fills the template RBAC policy files with the given namespace and template files,
-// writes the files to outDir and return the list of file paths.
-func GetRbacYamlFiles(t *testing.T, outDir, namespace string, rbacTmplFiles []string) []string {
-	var rbacYamlFiles []string
-	namespaceParams := map[string]string{
-		"Namespace": namespace,
-	}
-	for _, rbacTmplFile := range rbacTmplFiles {
-		yamlFile, err := util.CreateAndFill(outDir, rbacTmplFile, namespaceParams)
-		if err != nil {
-			t.Fatalf("Cannot create and fill %v", rbacTmplFile)
-		}
-		rbacYamlFiles = append(rbacYamlFiles, yamlFile)
-	}
-	return rbacYamlFiles
 }

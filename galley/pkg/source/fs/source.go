@@ -37,7 +37,7 @@ import (
 	"istio.io/istio/galley/pkg/source/kube/log"
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/util"
-	"istio.io/istio/pkg/appsignals"
+	"istio.io/pkg/appsignals"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -212,7 +212,7 @@ func (s *source) Start(handler resource.EventHandler) error {
 	return s.worker.Start(nil, func(ctx context.Context) {
 		s.handler = handler
 		s.initialCheck()
-		c := make(chan appsignals.Signal)
+		c := make(chan appsignals.Signal, 1)
 		appsignals.Watch(c)
 
 		for {

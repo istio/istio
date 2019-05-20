@@ -26,7 +26,7 @@ import (
 
 func TestInfo_APIResource(t *testing.T) {
 	i := schema.ResourceSpec{
-		Version:  "version",
+		Versions: []string{"version"},
 		Kind:     "kind",
 		Group:    "group",
 		ListKind: "listkind",
@@ -51,7 +51,7 @@ func TestInfo_APIResource(t *testing.T) {
 
 func TestInfo_GroupVersion(t *testing.T) {
 	i := schema.ResourceSpec{
-		Version:  "version",
+		Versions: []string{"version"},
 		Kind:     "kind",
 		Group:    "group",
 		ListKind: "listkind",
@@ -72,7 +72,7 @@ func TestInfo_GroupVersion(t *testing.T) {
 
 func TestInfo_CanonicalResourceName(t *testing.T) {
 	i := schema.ResourceSpec{
-		Version:  "version",
+		Versions: []string{"version"},
 		Kind:     "kind",
 		Group:    "group",
 		ListKind: "listkind",
@@ -85,4 +85,21 @@ func TestInfo_CanonicalResourceName(t *testing.T) {
 	if actual != expected {
 		t.Fatalf("Mismatch.\nActual:\n%q\nExpected:\n%q\n", actual, expected)
 	}
+}
+
+func TestGetApiVersion(t *testing.T) {
+	i := schema.ResourceSpec{
+		Versions: []string{"v1alpha1", "v1beta1"},
+		Kind:     "kind",
+		Group:    "group",
+		ListKind: "listkind",
+		Plural:   "plural",
+		Singular: "singular",
+	}
+	actual := i.GetAPIVersion()
+	expected := "v1alpha1"
+	if actual != expected {
+		t.Fatalf("Mismatch.\nActual:\n%q\nExpected:\n%q\n", actual, expected)
+	}
+
 }

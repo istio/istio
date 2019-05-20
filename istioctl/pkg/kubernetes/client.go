@@ -37,7 +37,7 @@ import (
 	"k8s.io/client-go/transport/spdy"
 
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/version"
+	"istio.io/pkg/version"
 )
 
 var (

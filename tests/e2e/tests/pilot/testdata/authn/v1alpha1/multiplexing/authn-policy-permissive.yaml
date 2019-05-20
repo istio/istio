@@ -14,12 +14,12 @@ spec:
 apiVersion: "authentication.istio.io/v1alpha1"
 kind: "Policy"
 metadata:
-  name: "strict-authn-7070"
+  name: "strict-authn-9090"
 spec:
   targets:
   - name: "d"
     ports:
-    - number: 7070
+    - number: 9090
   peers:
     - mtls:
         mode: STRICT

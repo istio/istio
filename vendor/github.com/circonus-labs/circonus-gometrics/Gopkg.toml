@@ -1,0 +1,15 @@
+[[constraint]]
+  name = "github.com/circonus-labs/circonusllhist"
+  version = "0.1.3"
+
+[[constraint]]
+  name = "github.com/hashicorp/go-retryablehttp"
+  version = "=0.5.2"
+
+[[constraint]]
+  name = "github.com/pkg/errors"
+  version = "0.8.1"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/tv42/httpunix"

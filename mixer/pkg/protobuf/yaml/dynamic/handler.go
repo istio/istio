@@ -32,10 +32,10 @@ import (
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	policypb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
 	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/wire"
-	istiolog "istio.io/istio/pkg/log"
+	"istio.io/pkg/attribute"
+	istiolog "istio.io/pkg/log"
 )
 
 var (
@@ -191,7 +191,7 @@ func (h *Handler) handleRemote(ctx context.Context, qr proto.Marshaler,
 		return err
 	}
 
-	codec := grpc.CallCustomCodec(Codec{decode: svc.decoder})
+	codec := grpc.ForceCodec(Codec{decode: svc.decoder})
 	if h.timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, h.timeout)
@@ -331,7 +331,8 @@ func (eb staticBag) Contains(key string) bool {
 	_, found := eb.v[key]
 	return found
 }
-func (eb staticBag) String() string { return fmt.Sprintf("%v", eb.v) }
+func (eb staticBag) String() string                               { return fmt.Sprintf("%v", eb.v) }
+func (eb staticBag) ReferenceTracker() attribute.ReferenceTracker { return nil }
 
 const quotaRequestAttrName = "-quota-request-"
 const dedupeAttrName = "-dedup_id-"
@@ -537,7 +538,7 @@ func (c Codec) Unmarshal(data []byte, v interface{}) error {
 	return c.decode(data, v)
 }
 
-// String returns name of the codec.
-func (c Codec) String() string {
+// Name returns name of the codec.
+func (c Codec) Name() string {
 	return "bytes-out-proto-in-codec"
 }

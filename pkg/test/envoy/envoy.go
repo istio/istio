@@ -23,8 +23,8 @@ import (
 	"regexp"
 	"strconv"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/pkg/log"
 )
 
 const (

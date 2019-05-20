@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/test/framework/core"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/runtime"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -44,7 +43,7 @@ const (
 )
 
 var (
-	rt   *runtime.Instance
+	rt   *runtime
 	rtMu sync.Mutex
 )
 
@@ -148,7 +147,7 @@ func (s *Suite) run() (errLevel int) {
 		return exitCodeInitError
 	}
 
-	ctx := rt.SuiteContext()
+	ctx := rt.suiteContext()
 
 	// Before starting, check whether the current set of labels & label selectors will ever allow us to run tests.
 	// if not, simply exit now.
@@ -237,7 +236,7 @@ func initRuntime(testID string, labels label.Set, getSettingsFn func(string) (*c
 	}
 	scopes.Framework.Infof("Test run dir: %v", s.RunDir())
 
-	rt, err = runtime.New(s, newEnvironment, labels)
+	rt, err = newRuntime(s, newEnvironment, labels)
 	return err
 }
 

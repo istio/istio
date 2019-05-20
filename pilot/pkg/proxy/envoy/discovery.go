@@ -23,8 +23,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/version"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 const (

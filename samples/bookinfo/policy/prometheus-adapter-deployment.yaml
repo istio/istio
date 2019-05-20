@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheusadapter
+  namespace: istio-system
+  labels:
+    app: prometheusadapter
+spec:
+  ports:
+  - name: http
+    port: 8080
+  - name: prometheus
+    port: 42422
+  selector:
+    app: prometheusadapter
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: prometheusadapter
+  namespace: istio-system
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: prometheusadapter
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "42422"
+    spec:
+      containers:
+      - image: gcr.io/istio-testing/prometheusadapter:release-1.1
+        imagePullPolicy: Always
+        name: prometheusadapter
+        ports:
+        - containerPort: 8080
+        - containerPort: 42422
+---

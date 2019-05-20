@@ -21,11 +21,12 @@ import (
 	"os"
 	"path"
 
+	"istio.io/istio/pkg/test/framework/core/image"
+
 	kubeApiCore "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/fakes/policy"
-	deployment2 "istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -134,10 +135,9 @@ spec:
 )
 
 var (
-	_ Instance          = &kubeComponent{}
-	_ resource.Resetter = &kubeComponent{}
-	_ io.Closer         = &kubeComponent{}
-	_ resource.Dumper   = &kubeComponent{}
+	_ Instance        = &kubeComponent{}
+	_ io.Closer       = &kubeComponent{}
+	_ resource.Dumper = &kubeComponent{}
 )
 
 type kubeComponent struct {
@@ -179,7 +179,7 @@ func newKube(ctx resource.Context) (Instance, error) {
 		return nil, err
 	}
 
-	s, err := deployment2.SettingsFromCommandLine()
+	s, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +212,7 @@ func newKube(ctx resource.Context) (Instance, error) {
 	pod := pods[0]
 
 	var svc *kubeApiCore.Service
-	if svc, err = env.WaitUntilServiceEndpointsAreReady(c.namespace.Name(), "policy-backend"); err != nil {
+	if svc, _, err = env.WaitUntilServiceEndpointsAreReady(c.namespace.Name(), "policy-backend"); err != nil {
 		scopes.CI.Infof("Error waiting for PolicyBackend service to be available: %v", err)
 		return nil, err
 	}
@@ -254,13 +254,6 @@ func (c *kubeComponent) CreateConfigSnippet(name string, namespace string, am Ad
 
 func (c *kubeComponent) ID() resource.ID {
 	return c.id
-}
-
-func (c *kubeComponent) Reset() error {
-	if c.client != nil {
-		return c.client.Reset()
-	}
-	return nil
 }
 
 func (c *kubeComponent) Close() (err error) {

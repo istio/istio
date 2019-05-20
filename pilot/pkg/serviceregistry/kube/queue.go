@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // Queue of work tickets processed using a rate-limiting loop

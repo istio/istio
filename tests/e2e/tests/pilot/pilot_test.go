@@ -31,9 +31,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/kube/inject"
 	util2 "istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 const (

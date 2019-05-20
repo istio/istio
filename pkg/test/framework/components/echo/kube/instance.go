@@ -19,12 +19,12 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"sync"
-	"testing"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test"
 	appEcho "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
@@ -35,11 +35,10 @@ import (
 )
 
 const (
-	tcpHealthPort     = 3333
-	httpReadinessPort = 8080
-	defaultDomain     = "svc.cluster.local"
-	appLabel          = "app"
-	versionLabel      = "version"
+	tcpHealthPort         = 3333
+	httpReadinessPort     = 8080
+	defaultDomain         = "svc.cluster.local"
+	noSidecarWaitDuration = 10 * time.Second
 )
 
 var (
@@ -54,10 +53,9 @@ type instance struct {
 	env       *kubeEnv.Environment
 	workloads []*workload
 	grpcPort  uint16
-	mutex     sync.Mutex
 }
 
-func New(ctx resource.Context, cfg echo.Config) (out echo.Instance, err error) {
+func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err error) {
 	// Fill in defaults for any missing values.
 	if err = common.FillInDefaults(ctx, defaultDomain, &cfg); err != nil {
 		return nil, err
@@ -172,10 +170,6 @@ func (c *instance) Address() string {
 }
 
 func (c *instance) Workloads() ([]echo.Workload, error) {
-	if err := c.WaitUntilReady(); err != nil {
-		return nil, err
-	}
-
 	out := make([]echo.Workload, 0, len(c.workloads))
 	for _, w := range c.workloads {
 		out = append(out, w)
@@ -183,7 +177,8 @@ func (c *instance) Workloads() ([]echo.Workload, error) {
 	return out, nil
 }
 
-func (c *instance) WorkloadsOrFail(t testing.TB) []echo.Workload {
+func (c *instance) WorkloadsOrFail(t test.Failer) []echo.Workload {
+	t.Helper()
 	out, err := c.Workloads()
 	if err != nil {
 		t.Fatal(err)
@@ -191,127 +186,43 @@ func (c *instance) WorkloadsOrFail(t testing.TB) []echo.Workload {
 	return out
 }
 
-func initAllWorkloads(instances []echo.Instance) error {
-	needInit := make([]*instance, 0, len(instances))
-	namespaceToServices := make(map[string][]string)
-	for _, outbound := range instances {
-		inst := outbound.(*instance)
-
-		inst.mutex.Lock()
-		isInitialized := inst.workloads != nil
-		inst.mutex.Unlock()
-
-		if isInitialized {
-			// Already initialized.
-			continue
-		}
-
-		// Otherwise, unlock before returning.
-		needInit = append(needInit, inst)
-
-		ns := inst.cfg.Namespace.Name()
-		services := namespaceToServices[ns]
-		services = append(services, inst.cfg.Service)
-		namespaceToServices[ns] = services
-	}
-
-	if len(needInit) == 0 {
-		// Everything is already initialized.
-		return nil
-	}
-
-	allPodsMux := &sync.Mutex{}
-	allPods := make([]kubeCore.Pod, 0)
-	var allPodsErr error
-	wg := sync.WaitGroup{}
-
-	// Accumulate the pods across all namespaces.
-	for ns, services := range namespaceToServices {
-		wg.Add(1)
-
-		// Create a selector for all pods for all instances.
-		podNamespace := ns
-		podSelector := appLabel + " in (" + strings.Join(services, ",") + ")"
-
-		go func() {
-			defer wg.Done()
-
-			// Wait until all the pods are ready
-			accessor := needInit[0].env.Accessor
-			pods, err := accessor.WaitUntilPodsAreReady(accessor.NewPodFetch(podNamespace, podSelector))
-
-			allPodsMux.Lock()
-			defer allPodsMux.Unlock()
-
-			if err != nil {
-				allPodsErr = multierror.Append(allPodsErr, err)
-				return
-			}
-			allPods = append(allPods, pods...)
-		}()
-	}
-
-	wg.Wait()
-
-	if allPodsErr != nil {
-		return allPodsErr
-	}
-
-	// Initialize the workloads for each instance.
-	for _, inst := range needInit {
-		if err := inst.initWorkloads(allPods); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (c *instance) WaitUntilReady(outboundInstances ...echo.Instance) error {
-
-	// Initialize the workloads for all instances.
-	if err := initAllWorkloads(append([]echo.Instance{c}, outboundInstances...)); err != nil {
-		return err
-	}
-
+func (c *instance) WaitUntilCallable(instances ...echo.Instance) error {
 	// Wait for the outbound config to be received by each workload from Pilot.
 	for _, w := range c.workloads {
 		if w.sidecar != nil {
-			if err := w.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(outboundInstances...)); err != nil {
+			if err := w.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(instances...)); err != nil {
 				return err
 			}
 		}
 	}
 
+	if !c.cfg.Annotations.GetBool(echo.SidecarInject) {
+		time.Sleep(noSidecarWaitDuration)
+	}
+
 	return nil
 }
 
-func (c *instance) WaitUntilReadyOrFail(t testing.TB, outboundInstances ...echo.Instance) {
-	if err := c.WaitUntilReady(outboundInstances...); err != nil {
+func (c *instance) WaitUntilCallableOrFail(t test.Failer, instances ...echo.Instance) {
+	t.Helper()
+	if err := c.WaitUntilCallable(instances...); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func (c *instance) isServicePod(pod kubeCore.Pod) bool {
-	return pod.Namespace == c.cfg.Namespace.Name() && pod.Labels[appLabel] == c.cfg.Service && pod.Labels[versionLabel] == c.cfg.Version
-}
-
-func (c *instance) initWorkloads(pods []kubeCore.Pod) error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
+func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {
 	if c.workloads != nil {
 		// Already ready.
 		return nil
 	}
 
-	workloads := make([]*workload, 0, len(pods))
-	for _, pod := range pods {
-		if c.isServicePod(pod) {
-			workload, err := newWorkload(pod, c.cfg.Sidecar, c.grpcPort, c.env.Accessor)
+	workloads := make([]*workload, 0)
+	for _, subset := range endpoints.Subsets {
+		for _, addr := range subset.Addresses {
+			workload, err := newWorkload(addr, c.cfg.Annotations, c.grpcPort, c.env.Accessor)
 			if err != nil {
 				return err
 			}
-
 			workloads = append(workloads, workload)
 		}
 	}
@@ -325,9 +236,6 @@ func (c *instance) initWorkloads(pods []kubeCore.Pod) error {
 }
 
 func (c *instance) Close() (err error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
 	for _, w := range c.workloads {
 		err = multierror.Append(err, w.Close()).ErrorOrNil()
 	}
@@ -340,11 +248,6 @@ func (c *instance) Config() echo.Config {
 }
 
 func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) {
-	// If we haven't already initialized the client, do so now.
-	if err := c.WaitUntilReady(); err != nil {
-		return nil, err
-	}
-
 	out, err := common.CallEcho(c.workloads[0].Instance, &opts, common.IdentityOutboundPortSelector)
 	if err != nil {
 		if opts.Port != nil {
@@ -361,7 +264,8 @@ func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) 
 	return out, nil
 }
 
-func (c *instance) CallOrFail(t testing.TB, opts echo.CallOptions) appEcho.ParsedResponses {
+func (c *instance) CallOrFail(t test.Failer, opts echo.CallOptions) appEcho.ParsedResponses {
+	t.Helper()
 	r, err := c.Call(opts)
 	if err != nil {
 		t.Fatal(err)

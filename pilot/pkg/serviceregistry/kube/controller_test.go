@@ -32,10 +32,10 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/pkg/log"
 )
 
 func makeClient(t *testing.T) kubernetes.Interface {
@@ -448,7 +448,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	fx.Wait("eds")
 
 	var svcNode model.Proxy
-	svcNode.Type = model.Ingress
+	svcNode.Type = model.Router
 	svcNode.IPAddresses = []string{"128.0.0.1"}
 	svcNode.ID = "pod1.nsa"
 	svcNode.DNSDomain = "nsa.svc.cluster.local"

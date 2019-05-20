@@ -15,18 +15,16 @@
 package bookinfo
 
 import (
-	"path"
-	"testing"
-
-	"strings"
-
 	"fmt"
+	"path"
+	"strings"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/file"
 )
 
 // ConfigFile represents config yaml files for different bookinfo scenarios.
@@ -50,11 +48,23 @@ const (
 
 	// NetworkingReviewsV3Rule uses "networking/virtual-service-reviews-v3"
 	NetworkingReviewsV3Rule ConfigFile = "networking/virtual-service-reviews-v3.yaml"
+
+	// RatingsRedisRateLimitFixed uses Mixer configs
+	RatingsRedisRateLimitFixed ConfigFile = "policy/mixer-rule-ratings-redis-quota-fixed-window.yaml"
+
+	// RatingsRedisRateLimitRolling uses Mixer configs
+	RatingsRedisRateLimitRolling ConfigFile = "policy/mixer-rule-ratings-redis-quota-rolling-window.yaml"
+
+	// ProductPageRedisRateLimit uses Mixer configs
+	ProductPageRedisRateLimit ConfigFile = "policy/mixer-rule-productpage-redis-quota-fixed-window.yaml"
+
+	// PolicyDenyIPRule uses "policy/mixer-rule-deny-ip.yaml"
+	PolicyDenyIPRule ConfigFile = "policy/mixer-rule-deny-ip.yaml"
 )
 
 // LoadGatewayFileWithNamespaceOrFail loads a Book Info Gateway configuration file from the system, changes it to be fit
 // for the namespace provided and returns its contents.
-func (l ConfigFile) LoadGatewayFileWithNamespaceOrFail(t testing.TB, namespace string) string {
+func (l ConfigFile) LoadGatewayFileWithNamespaceOrFail(t test.Failer, namespace string) string {
 	t.Helper()
 
 	content, err := l.LoadGatewayFileWithNamespace(namespace)
@@ -67,7 +77,7 @@ func (l ConfigFile) LoadGatewayFileWithNamespaceOrFail(t testing.TB, namespace s
 
 // LoadWithNamespaceOrFail loads a Book Info configuration file from the systemchanges it to be fit
 // for the namespace provided and returns its contents.
-func (l ConfigFile) LoadWithNamespaceOrFail(t testing.TB, namespace string) string {
+func (l ConfigFile) LoadWithNamespaceOrFail(t test.Failer, namespace string) string {
 	t.Helper()
 
 	content, err := l.LoadWithNamespace(namespace)
@@ -96,7 +106,7 @@ func (l ConfigFile) LoadGatewayFileWithNamespace(namespace string) (string, erro
 func (l ConfigFile) LoadWithNamespace(namespace string) (string, error) {
 	p := path.Join(env.BookInfoRoot, string(l))
 
-	content, err := test.ReadConfigFile(p)
+	content, err := file.AsString(p)
 	if err != nil {
 		return "", fmt.Errorf("unable to load config %s at %v, err:%v", l, p, err)
 	}
@@ -109,11 +119,12 @@ func (l ConfigFile) LoadWithNamespace(namespace string) (string, error) {
 }
 
 // LoadOrFail loads a Book Info configuration file from the system and returns its contents.
-func (l ConfigFile) LoadOrFail(t testing.TB) string {
+func (l ConfigFile) LoadOrFail(t test.Failer) string {
+	t.Helper()
 	return l.LoadWithNamespaceOrFail(t, "")
 }
 
-func GetDestinationRuleConfigFile(t testing.TB, ctx resource.Context) ConfigFile {
+func GetDestinationRuleConfigFile(t test.Failer, ctx resource.Context) ConfigFile {
 	t.Helper()
 
 	cfg, err := istio.DefaultConfig(ctx)

@@ -1,0 +1,73 @@
+# istio-extended-rbac-v2-rules.yaml to enforce access control for both http and tcp services using Istio RBAC v2 rules
+# such as root namespace, inline role ref, using role instead of roleRef.
+
+# For service a, authenticated service account b is allowed have both HTTP (except path with prefix "bad-path") and TCP access.
+# For service a, authenticated service account c is allowed to have HTTP access at paths with prefix "good" only.
+# Two ServiceRole with the same name will be created in the root namespace and local namespace,
+# then one AuthorizationPolicy will use role with / to indicate the root namespace, and without /
+# to indicate the local namespace.
+
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: access-a-http
+  namespace: {{ .RootNamespace }}
+spec:
+  rules:
+    - methods: ["GET"]
+      not_paths: ["/bad-path*"]
+    - constraints:
+      - key: "destination.port"
+        values: ["90"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: access-a-http
+  namespace: {{ .Namespace }}
+spec:
+  rules:
+    - methods: ["GET"]
+      paths: ["/good*"]
+    - constraints:
+      - key: "destination.port"
+        values: ["90"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: AuthorizationPolicy
+metadata:
+  name: authz-policy-access-a-http
+  namespace: {{ .Namespace }}
+spec:
+  allow:
+    - subjects:
+      - names: ["cluster.local/ns/{{ .Namespace }}/sa/b"]
+      role: "/access-a-http"
+    - subjects:
+      - names: ["cluster.local/ns/{{ .Namespace }}/sa/c"]
+      role: "access-a-http"
+---
+
+# For service b, allow any user to access it with GET at any paths except /secret*
+# or only access it at tcp port 90.
+# Instead of creating a separate ServiceRole policy, we create an inline role definition inside AuthorizationPolicy.
+
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: AuthorizationPolicy
+metadata:
+  name: authz-policy-access-b-http-tcp
+  namespace: {{ .Namespace }}
+spec:
+  workload_selector:
+    labels:
+      app: b
+  allow:
+    - subjects:
+        - names: ["allUsers"]
+      actions:
+        - methods: ["GET"]
+          not_paths: ["/secret*"]
+        - constraints:
+          - key: "destination.port"
+            values: ["90"]
+---

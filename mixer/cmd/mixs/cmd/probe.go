@@ -18,8 +18,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/mixer/cmd/shared"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/probe"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 func probeCmd(printf, fatalf shared.FormatFn) *cobra.Command {

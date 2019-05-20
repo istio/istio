@@ -19,50 +19,26 @@ package healthcheck
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/label"
-
-	"istio.io/istio/pkg/test/framework/components/apps"
-	"istio.io/istio/pkg/test/framework/components/deployment"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
-
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio"
 )
-
-var (
-	ist istio.Instance
-)
-
-func TestMain(m *testing.M) {
-	framework.NewSuite("mtls_healthcheck", m).
-		RequireEnvironment(environment.Kube).
-		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
-		Run()
-}
-
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	cfg.Values["sidecarInjectorWebhook.rewriteAppHTTPProbe"] = "true"
-}
 
 // TestMtlsHealthCheck verifies Kubernetes HTTP health check can work when mTLS
 // is enabled.
 // Currently this test can only pass on Prow with a real GKE cluster, and fail
 // on CircleCI with a Minikube. For more details, see https://github.com/istio/istio/issues/12754.
 func TestMtlsHealthCheck(t *testing.T) {
-	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
-	ctx.RequireOrSkip(t, environment.Kube)
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
 
-	ns := namespace.ClaimOrFail(t, ctx, "default")
-	_, err := deployment.New(ctx, deployment.Config{
-		Yaml: `apiVersion: "authentication.istio.io/v1alpha1"
+			ns := namespace.ClaimOrFail(t, ctx, "default")
+
+			// Apply the policy.
+			policyYAML := `apiVersion: "authentication.istio.io/v1alpha1"
 kind: "Policy"
 metadata:
   name: "mtls-strict-for-healthcheck"
@@ -72,24 +48,19 @@ spec:
   peers:
     - mtls:
         mode: STRICT
-`,
-		Namespace: ns,
-	})
-	if err != nil {
-		t.Error(err)
-	}
-	g := galley.NewOrFail(t, ctx, galley.Config{})
-	p := pilot.NewOrFail(t, ctx, pilot.Config{
-		Galley: g,
-	})
-	aps := apps.NewOrFail(t, ctx, apps.Config{
-		Pilot:  p,
-		Galley: g,
+`
+			g.ApplyConfigOrFail(t, ns, policyYAML)
+			defer g.DeleteConfigOrFail(t, ns, policyYAML)
 
-		AppParams: []apps.AppParam{
-			{Name: "healthcheck"},
-		},
-	})
-	aps.GetAppOrFail("healthcheck", t)
-	// TODO(incfly): add a negative test once we have a per deployment annotation support for this feature.
+			var healthcheck echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&healthcheck, echo.Config{
+					Service: "healthcheck",
+					Pilot:   p,
+					Galley:  g,
+				}).
+				BuildOrFail(t)
+
+			// TODO(incfly): add a negative test once we have a per deployment annotation support for this feature.
+		})
 }

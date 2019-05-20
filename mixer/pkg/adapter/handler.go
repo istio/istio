@@ -18,7 +18,7 @@ import (
 	"context"
 	"io"
 
-	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/pkg/attribute"
 )
 
 type (

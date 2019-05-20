@@ -27,15 +27,15 @@ import (
 	"text/template"
 	"time"
 
-	"istio.io/istio/pkg/annotations"
+	"istio.io/pkg/annotations"
 
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/bootstrap/platform"
-	"istio.io/istio/pkg/env"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 // Generate the envoy v2 bootstrap configuration, using template.
@@ -52,23 +52,77 @@ const (
 
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
 
-	// statsPatterns gives the developer control over Envoy stats collection
-	EnvoyStatsMatcherInclusionPatterns = "sidecar.istio.io/statsInclusionPrefixes"
-)
+	// statsMatchers give the operator control over Envoy stats collection.
+	EnvoyStatsMatcherInclusionPrefixes = "sidecar.istio.io/statsInclusionPrefixes"
+	EnvoyStatsMatcherInclusionSuffixes = "sidecar.istio.io/statsInclusionSuffixes"
+	EnvoyStatsMatcherInclusionRegexps  = "sidecar.istio.io/statsInclusionRegexps"
 
-var _ = annotations.Register(EnvoyStatsMatcherInclusionPatterns, "Control over Envoy stats collection.")
+	// Options are used in the boostrap template.
+	envoyStatsMatcherInclusionPrefixOption = "inclusionPrefix"
+	envoyStatsMatcherInclusionSuffixOption = "inclusionSuffix"
+	envoyStatsMatcherInclusionRegexpOption = "inclusionRegexps"
+)
 
 var (
-	// default value for EnvoyStatsMatcherInclusionPatterns
-	defaultEnvoyStatsMatcherInclusionPatterns = []string{
-		"cluster_manager",
-		"listener_manager",
-		"http_mixer_filter",
-		"tcp_mixer_filter",
-		"server",
-		"cluster.xds-grpc",
-	}
+	_ = annotations.Register(EnvoyStatsMatcherInclusionPrefixes,
+		"Specifies the comma separated list of prefixes of the stats to be emitted by Envoy.")
+	_ = annotations.Register(EnvoyStatsMatcherInclusionSuffixes,
+		"Specifies the comma separated list of suffixes of the stats to be emitted by Envoy.")
+	_ = annotations.Register(EnvoyStatsMatcherInclusionRegexps,
+		"Specifies the comma separated list of regexes the stats should match to be emitted by Envoy.")
+
+	// required stats are used by readiness checks.
+	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc"
 )
+
+// substituteValues substitutes variables known to the boostrap like pod_ip.
+// "http.{pod_ip}_" with pod_id = [10.3.3.3,10.4.4.4] --> [http.10.3.3.3_,http.10.4.4.4_]
+func substituteValues(patterns []string, varName string, values []string) []string {
+	ret := make([]string, 0, len(patterns))
+	for _, pattern := range patterns {
+		if !strings.Contains(pattern, varName) {
+			ret = append(ret, pattern)
+			continue
+		}
+
+		for _, val := range values {
+			ret = append(ret, strings.Replace(pattern, varName, val, -1))
+		}
+	}
+	return ret
+}
+
+// setStatsOptions configures stats inclusion list based on annotations.
+func setStatsOptions(opts map[string]interface{}, meta map[string]string, nodeIPs []string) {
+
+	setStatsOption := func(metaKey string, optKey string, required string) {
+		var inclusionOption []string
+		if inclusionPatterns, ok := meta[metaKey]; ok {
+			inclusionOption = strings.Split(inclusionPatterns, ",")
+		}
+
+		if len(required) > 0 {
+			inclusionOption = append(inclusionOption,
+				strings.Split(required, ",")...)
+		}
+
+		// At the sidecar we can limit downstream metrics collection to the inbound listener.
+		// Inbound downstream metrics are named as: http.{pod_ip}_{port}.downstream_rq_*
+		// Other outbound downstream metrics are numerous and not very interesting for a sidecar.
+		// specifying http.{pod_ip}_  as a prefix will capture these downstream metrics.
+		inclusionOption = substituteValues(inclusionOption, "{pod_ip}", nodeIPs)
+
+		if len(inclusionOption) > 0 {
+			opts[optKey] = inclusionOption
+		}
+	}
+
+	setStatsOption(EnvoyStatsMatcherInclusionPrefixes, envoyStatsMatcherInclusionPrefixOption, requiredEnvoyStatsMatcherInclusionPrefixes)
+
+	setStatsOption(EnvoyStatsMatcherInclusionSuffixes, envoyStatsMatcherInclusionSuffixOption, "")
+
+	setStatsOption(EnvoyStatsMatcherInclusionRegexps, envoyStatsMatcherInclusionRegexpOption, "")
+}
 
 func defaultPilotSan() []string {
 	return []string{
@@ -202,7 +256,7 @@ var overrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP", "", "")
 // WriteBootstrap generates an envoy config based on config and epoch, and returns the filename.
 // TODO: in v2 some of the LDS ports (port, http_port) should be configured in the bootstrap.
 func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
-	opts map[string]interface{}, localEnv []string, nodeIPs []string) (string, error) {
+	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string) (string, error) {
 	if opts == nil {
 		opts = map[string]interface{}{}
 	}
@@ -259,11 +313,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	// Support passing extra info from node environment as metadata
 	meta := getNodeMetaData(localEnv)
 
-	if inclusionPatterns, ok := meta[EnvoyStatsMatcherInclusionPatterns]; ok {
-		opts["inclusionPatterns"] = strings.Split(inclusionPatterns, ",")
-	} else {
-		opts["inclusionPatterns"] = defaultEnvoyStatsMatcherInclusionPatterns
-	}
+	setStatsOptions(opts, meta, nodeIPs)
 
 	// Support multiple network interfaces
 	meta["ISTIO_META_INSTANCE_IPS"] = strings.Join(nodeIPs, ",")
@@ -287,10 +337,13 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	// Pass unmodified config.DiscoveryAddress for Google gRPC Envoy client target_uri parameter
 	opts["discovery_address"] = config.DiscoveryAddress
 
+	opts["dns_refresh_rate"] = dnsRefreshRate
+
 	// Setting default to ipv4 local host, wildcard and dns policy
 	opts["localhost"] = "127.0.0.1"
 	opts["wildcard"] = "0.0.0.0"
 	opts["dns_lookup_family"] = "V4_ONLY"
+
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
 	if isIPv6Proxy(nodeIPs) {
 		opts["localhost"] = "::1"

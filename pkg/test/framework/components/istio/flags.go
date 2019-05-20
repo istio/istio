@@ -21,7 +21,19 @@ import (
 // init registers the command-line flags that we can exposed for "go test".
 func init() {
 	flag.StringVar(&settingsFromCommandline.SystemNamespace, "istio.test.kube.systemNamespace", settingsFromCommandline.SystemNamespace,
-		"The namespace where the Istio components reside in a typical deployment.")
+		"Deprecated, specifies the namespace where the Istio components (<=1.1) reside in a typical deployment.")
+	flag.StringVar(&settingsFromCommandline.IstioNamespace, "istio.test.kube.istioNamespace", settingsFromCommandline.IstioNamespace,
+		"Specifies the namespace in which istio ca and cert provisioning components are deployed.")
+	flag.StringVar(&settingsFromCommandline.ConfigNamespace, "istio.test.kube.configNamespace", settingsFromCommandline.ConfigNamespace,
+		"Specifies the namespace in which config, discovery and auto-injector are deployed.")
+	flag.StringVar(&settingsFromCommandline.TelemetryNamespace, "istio.test.kube.telemetryNamespace", settingsFromCommandline.TelemetryNamespace,
+		"Specifies the namespace in which mixer, kiali, tracing providers, graphana, prometheus are deployed.")
+	flag.StringVar(&settingsFromCommandline.PolicyNamespace, "istio.test.kube.policyNamespace", settingsFromCommandline.PolicyNamespace,
+		"Specifies the namespace in which istio policy checker is deployed.")
+	flag.StringVar(&settingsFromCommandline.IngressNamespace, "istio.test.kube.ingressNamespace", settingsFromCommandline.IngressNamespace,
+		"Specifies the namespace in which istio ingressgateway is deployed.")
+	flag.StringVar(&settingsFromCommandline.EgressNamespace, "istio.test.kube.egressNamespace", settingsFromCommandline.EgressNamespace,
+		"Specifies the namespace in which istio egressgateway is deployed.")
 	flag.BoolVar(&settingsFromCommandline.DeployIstio, "istio.test.kube.deploy", settingsFromCommandline.DeployIstio,
 		"Deploy Istio into the target Kubernetes environment.")
 	flag.DurationVar(&settingsFromCommandline.DeployTimeout, "istio.test.kube.deployTimeout", 0,

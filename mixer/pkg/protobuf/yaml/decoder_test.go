@@ -22,8 +22,8 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 
 	"istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/attribute"
 	foo "istio.io/istio/mixer/pkg/protobuf/yaml/testdata/all"
+	"istio.io/pkg/attribute"
 )
 
 func TestDecoder(t *testing.T) {

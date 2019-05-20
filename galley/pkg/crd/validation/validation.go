@@ -29,8 +29,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/probe"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 const (
@@ -50,7 +50,7 @@ type httpClient interface {
 func webhookHTTPSHandlerReady(client httpClient, vc *WebhookParameters) error {
 	readinessURL := &url.URL{
 		Scheme: "https",
-		Host:   fmt.Sprintf("127.0.0.1:%v", vc.Port),
+		Host:   fmt.Sprintf("localhost:%v", vc.Port),
 		Path:   httpsHandlerReadyPath,
 	}
 

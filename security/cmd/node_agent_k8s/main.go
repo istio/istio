@@ -24,13 +24,13 @@ import (
 	"github.com/spf13/cobra/doc"
 
 	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/collateral"
-	"istio.io/istio/pkg/env"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/version"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
+	"istio.io/pkg/collateral"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )

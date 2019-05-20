@@ -19,10 +19,10 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"testing"
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/proto"
 )
@@ -85,7 +85,8 @@ func (r ParsedResponses) Check(check func(int, *ParsedResponse) error) (err erro
 	return
 }
 
-func (r ParsedResponses) CheckOrFail(t testing.TB, check func(int, *ParsedResponse) error) ParsedResponses {
+func (r ParsedResponses) CheckOrFail(t test.Failer, check func(int, *ParsedResponse) error) ParsedResponses {
+	t.Helper()
 	if err := r.Check(check); err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +102,8 @@ func (r ParsedResponses) CheckOK() error {
 	})
 }
 
-func (r ParsedResponses) CheckOKOrFail(t testing.TB) ParsedResponses {
+func (r ParsedResponses) CheckOKOrFail(t test.Failer) ParsedResponses {
+	t.Helper()
 	if err := r.CheckOK(); err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +119,8 @@ func (r ParsedResponses) CheckHost(expected string) error {
 	})
 }
 
-func (r ParsedResponses) CheckHostOrFail(t testing.TB, expected string) ParsedResponses {
+func (r ParsedResponses) CheckHostOrFail(t test.Failer, expected string) ParsedResponses {
+	t.Helper()
 	if err := r.CheckHost(expected); err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +137,8 @@ func (r ParsedResponses) CheckPort(expected int) error {
 	})
 }
 
-func (r ParsedResponses) CheckPortOrFail(t testing.TB, expected int) ParsedResponses {
+func (r ParsedResponses) CheckPortOrFail(t test.Failer, expected int) ParsedResponses {
+	t.Helper()
 	if err := r.CheckPort(expected); err != nil {
 		t.Fatal(err)
 	}

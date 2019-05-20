@@ -15,11 +15,12 @@
 package pilot
 
 import (
+	"os"
 	"strconv"
 	"time"
 
-	"istio.io/istio/pkg/env"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -106,14 +107,6 @@ var (
 		return time.Second * time.Duration(duration)
 	}
 
-	// EnableCDSPrecomputation provides an option to enable precomputation
-	// of CDS output for all namespaces at the start of a push cycle.
-	// While it reduces CPU, it comes at the cost of increased memory usage
-	enableCDSPrecomputationVar = env.RegisterStringVar("PILOT_ENABLE_CDS_PRECOMPUTATION", "", "")
-	EnableCDSPrecomputation    = func() bool {
-		return len(enableCDSPrecomputationVar.Get()) != 0
-	}
-
 	// EnableLocalityLoadBalancing provides an option to enable the LocalityLoadBalancerSetting feature
 	// as well as prioritizing the sending of traffic to a local locality. Set the environment variable to any value to enable.
 	// This is an experimental feature.
@@ -128,12 +121,17 @@ var (
 
 	enableFallthroughRouteVar = env.RegisterBoolVar(
 		"PILOT_ENABLE_FALLTHROUGH_ROUTE",
-		false,
+		true,
 		"EnableFallthroughRoute provides an option to add a final wildcard match for routes. "+
 			"When ALLOW_ANY traffic policy is used, a Passthrough cluster is used. "+
 			"When REGISTRY_ONLY traffic policy is used, a 502 error is returned.",
 	)
 	EnableFallthroughRoute = enableFallthroughRouteVar.Get
+
+	// DisablePartialRouteResponse provides an option to disable a partial route response. This
+	// will cause Pilot to send an error if any routes are invalid. The default behavior (without
+	// this flag) is to just skip the invalid route.
+	DisablePartialRouteResponse = os.Getenv("PILOT_DISABLE_PARTIAL_ROUTE_RESPONSE") == "1"
 
 	// DisableXDSMarshalingToAny provides an option to disable the "xDS marshaling to Any" feature ("on" by default).
 	disableXDSMarshalingToAnyVar = env.RegisterStringVar("PILOT_DISABLE_XDS_MARSHALING_TO_ANY", "", "")
