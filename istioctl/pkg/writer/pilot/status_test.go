@@ -117,7 +117,7 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 				"pilot2": statusInputProxyVersion(),
 			},
 			filterPod: "proxy2",
-			want:      "testdata/singleStatus.txt",
+			want:      "testdata/singleStatusFallback.txt",
 		},
 		{
 			name: "error if given non-syncstatus info",

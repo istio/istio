@@ -97,7 +97,7 @@ func statusPrintln(w io.Writer, status *writerStatus) error {
 		// If we can't find an Istio version (talking to a 1.1 pilot), fallback to the proxy version
 		// This is misleading, as the proxy version isn't always the same as the Istio version,
 		// but it is better than not providing any information.
-		version = status.ProxyVersion
+		version = status.ProxyVersion + "*"
 	}
 	fmt.Fprintf(w, "%v\t%v\t%v\t%v (%v%%)\t%v\t%v\t%v\n",
 		status.ProxyID, clusterSynced, listenerSynced, endpointSynced, status.EndpointPercent, routeSynced, status.pilot, version)
