@@ -67,7 +67,6 @@ func TestGolden(t *testing.T) {
 			},
 		},
 		{
-			// nolint: goimports
 			base:                       "tracing_lightstep",
 			expectLightstepAccessToken: true,
 		},
@@ -103,12 +102,13 @@ func TestGolden(t *testing.T) {
 
 			_, localEnv := createEnv(t, c.labels, c.annotations)
 			fn, err := WriteBootstrap(cfg, "sidecar~1.2.3.4~foo~bar", 0, []string{
-				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, nil, localEnv, []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6"})
+				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, nil, localEnv,
+				[]string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6"}, "60s")
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			real, err := ioutil.ReadFile(fn)
+			read, err := ioutil.ReadFile(fn)
 			if err != nil {
 				t.Error("Error reading generated file ", err)
 				return
@@ -116,13 +116,13 @@ func TestGolden(t *testing.T) {
 
 			// apply minor modifications for the generated file so that tests are consistent
 			// across different env setups
-			err = ioutil.WriteFile(fn, correctForEnvDifference(real), 0700)
+			err = ioutil.WriteFile(fn, correctForEnvDifference(read), 0700)
 			if err != nil {
 				t.Error("Error modifying generated file ", err)
 				return
 			}
 			// re-read generated file with the changes having been made
-			real, err = ioutil.ReadFile(fn)
+			read, err = ioutil.ReadFile(fn)
 			if err != nil {
 				t.Error("Error reading generated file ", err)
 				return
@@ -150,14 +150,14 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("invalid golder: %v", err)
 			}
 
-			jreal, err := yaml.YAMLToJSON(real)
+			jreal, err := yaml.YAMLToJSON(read)
 
 			if err != nil {
 				t.Fatalf("unable to convert: %v", err)
 			}
 
 			if err = jsonpb.UnmarshalString(string(jreal), &realM); err != nil {
-				t.Fatalf("invalid json %v\n%s", err, string(real))
+				t.Fatalf("invalid json %v\n%s", err, string(read))
 			}
 
 			if !reflect.DeepEqual(realM, goldenM) {
@@ -201,6 +201,15 @@ func correctForEnvDifference(in []byte) []byte {
 			pattern:     regexp.MustCompile(`("access_token_file": ").*(lightstep_access_token.txt")`),
 			replacement: []byte("$1/test-path/$2"),
 		},
+		// Zone and region can vary based on the environment, so it shouldn't be considered in the diff.
+		{
+			pattern:     regexp.MustCompile(`"zone": ".+"`),
+			replacement: []byte("\"zone\": \"\""),
+		},
+		{
+			pattern:     regexp.MustCompile(`"region": ".+"`),
+			replacement: []byte("\"region\": \"\""),
+		},
 	}
 
 	out := in
@@ -227,7 +236,7 @@ func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, e
 	if gobase == "" {
 		gobase = "../.."
 	}
-	cfg.CustomConfigFile = gobase + "/tools/deb/envoy_bootstrap_v2.json"
+	cfg.CustomConfigFile = gobase + "/tools/packaging/common/envoy_bootstrap_v2.json"
 	return cfg, nil
 }
 
@@ -320,6 +329,36 @@ func TestStoreHostPort(t *testing.T) {
 	}
 }
 
+func TestIsIPv6Proxy(t *testing.T) {
+	tests := []struct {
+		name     string
+		addrs    []string
+		expected bool
+	}{
+		{
+			name:     "ipv4 only",
+			addrs:    []string{"1.1.1.1", "127.0.0.1", "2.2.2.2"},
+			expected: false,
+		},
+		{
+			name:     "ipv6 only",
+			addrs:    []string{"1111:2222::1", "::1", "2222:3333::1"},
+			expected: true,
+		},
+		{
+			name:     "mixed ipv4 and ipv6",
+			addrs:    []string{"1111:2222::1", "::1", "127.0.0.1", "2.2.2.2", "2222:3333::1"},
+			expected: false,
+		},
+	}
+	for _, tt := range tests {
+		result := isIPv6Proxy(tt.addrs)
+		if result != tt.expected {
+			t.Errorf("Test %s failed, expected: %t got: %t", tt.name, tt.expected, result)
+		}
+	}
+}
+
 type encodeFn func(string) string
 
 func envEncode(m map[string]string, prefix string, encode encodeFn, out []string) []string {
@@ -391,7 +430,29 @@ func TestNodeMetadata(t *testing.T) {
 	if !reflect.DeepEqual(nm, merged) {
 		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, merged)
 	}
+}
 
+func TestNodeMetadataEncodeEnvWithIstioMetaPrefix(t *testing.T) {
+	originalKey := "foo"
+	notIstioMetaKey := "NOT_AN_" + IstioMetaPrefix + originalKey
+	anIstioMetaKey := IstioMetaPrefix + originalKey
+	envs := []string{
+		notIstioMetaKey + "=bar",
+		anIstioMetaKey + "=baz",
+	}
+	nm := getNodeMetaData(envs)
+	if _, ok := nm[notIstioMetaKey]; ok {
+		t.Fatalf("%s should not be encoded in node metadata", notIstioMetaKey)
+	}
+
+	if _, ok := nm[anIstioMetaKey]; ok {
+		t.Fatalf("%s should not be encoded in node metadata. The prefix '%s' should be stripped", anIstioMetaKey, IstioMetaPrefix)
+	}
+	if val, ok := nm[originalKey]; !ok {
+		t.Fatalf("%s has the prefix %s and it should be encoded in the node metadata", originalKey, IstioMetaPrefix)
+	} else if val != "baz" {
+		t.Fatalf("unexpected value node metadata %s. got %s, want: %s", originalKey, val, "baz")
+	}
 }
 
 func mergeMap(to map[string]string, from map[string]string) {

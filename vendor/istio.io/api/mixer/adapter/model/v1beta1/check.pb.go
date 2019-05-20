@@ -123,17 +123,17 @@ func (m *CheckResult) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0xa
 	i++
 	i = encodeVarintCheck(dAtA, i, uint64(m.Status.Size()))
-	n1, err := m.Status.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
+	n1, err1 := m.Status.MarshalTo(dAtA[i:])
+	if err1 != nil {
+		return 0, err1
 	}
 	i += n1
 	dAtA[i] = 0x12
 	i++
 	i = encodeVarintCheck(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)))
-	n2, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
-	if err != nil {
-		return 0, err
+	n2, err2 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
+	if err2 != nil {
+		return 0, err2
 	}
 	i += n2
 	if m.ValidUseCount != 0 {
@@ -187,8 +187,8 @@ func (this *CheckResult) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&CheckResult{`,
-		`Status:` + strings.Replace(strings.Replace(this.Status.String(), "Status", "rpc.Status", 1), `&`, ``, 1) + `,`,
-		`ValidDuration:` + strings.Replace(strings.Replace(this.ValidDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`Status:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Status), "Status", "rpc.Status", 1), `&`, ``, 1) + `,`,
+		`ValidDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.ValidDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`ValidUseCount:` + fmt.Sprintf("%v", this.ValidUseCount) + `,`,
 		`}`,
 	}, "")

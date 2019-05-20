@@ -17,9 +17,16 @@ package controller
 import (
 	"strings"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
+// ConstructCustomDNSNames creates DNS entries for given service accounts and allows
+// customization of the DNS names used in the certificate SAN field.
+// By default the DNS name used in the SAN field are in the form of service.namespace
+// and service.namespace.svc. When a custom DNS is specified, we set an additional
+// DNS SAN for the service account.
+// The customDNSNames string contains a list of comma separated entries, with each
+// entry formatted as <service-account-name>:<custom-DNS-value-for-SAN>
 func ConstructCustomDNSNames(serviceAccounts []string, serviceNames []string,
 	namespace string, customDNSNames string) map[string]*DNSNameEntry {
 	result := make(map[string]*DNSNameEntry)

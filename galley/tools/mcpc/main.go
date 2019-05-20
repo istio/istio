@@ -35,21 +35,19 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/metadata"
 	_ "istio.io/istio/galley/pkg/metadata" // Import the resource package to pull in all proto types.
-	"istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 var (
-	serverAddr               = flag.String("server", "127.0.0.1:9901", "The server address")
-	collectionList           = flag.String("collections", "", "Comma separated list of collections to watch")
-	useWellKnownTypes        = flag.Bool("use-wkt", false, "use well known collections types")
-	useWellKnownPilotTypes   = flag.Bool("use-wkt-pilot", false, "use well known collections for pilot")
-	useWellKnownMixerTypes   = flag.Bool("use-wkt-mixer", false, "use well known collections for mixer")
-	id                       = flag.String("id", "", "The node id for the client")
-	useResourceSourceService = flag.Bool("use-source-service", true, "use the new resource source service")
-	output                   = flag.String("output", "short", "output format. One of: long|short|stats|jsonpath=<template>")
-	labels                   = flag.String("labels", "", "comma separated key/value pairs, e.g. -labels=k1=v1,k2,v2")
+	serverAddr             = flag.String("server", "localhost:9901", "The server address")
+	collectionList         = flag.String("collections", "", "Comma separated list of collections to watch")
+	useWellKnownTypes      = flag.Bool("use-wkt", false, "use well known collections types")
+	useWellKnownPilotTypes = flag.Bool("use-wkt-pilot", false, "use well known collections for pilot")
+	useWellKnownMixerTypes = flag.Bool("use-wkt-mixer", false, "use well known collections for mixer")
+	id                     = flag.String("id", "", "The node id for the client")
+	output                 = flag.String("output", "short", "output format. One of: long|short|stats|jsonpath=<template>")
+	labels                 = flag.String("labels", "", "comma separated key/value pairs, e.g. -labels=k1=v1,k2,v2")
 )
 
 var (
@@ -340,25 +338,19 @@ func main() {
 
 		switch {
 		// pilot sortedCollections
-		case strings.HasPrefix(collection, "istio/networking/"):
-			fallthrough
-		case strings.HasPrefix(collection, "istio/authentication/"):
-			fallthrough
-		case strings.HasPrefix(collection, "istio/config/v1alpha2/httpapispecs"):
-			fallthrough
-		case strings.HasPrefix(collection, "istio/config/v1alpha2/httpapispecbindings"):
-			fallthrough
-		case strings.HasPrefix(collection, "istio/mixer/v1/config/client"):
-			fallthrough
-		case strings.HasPrefix(collection, "istio/rbac"):
+		case strings.HasPrefix(collection, "istio/networking/"),
+			strings.HasPrefix(collection, "istio/authentication/"),
+			strings.HasPrefix(collection, "istio/config/v1alpha2/httpapispecs"),
+			strings.HasPrefix(collection, "istio/config/v1alpha2/httpapispecbindings"),
+			strings.HasPrefix(collection, "istio/mixer/v1/config/client"),
+			strings.HasPrefix(collection, "istio/rbac"):
 			if *useWellKnownTypes || *useWellKnownPilotTypes {
 				collectionsMap[collection] = struct{}{}
 			}
 
 		// mixer sortedCollections
-		case strings.HasPrefix(collection, "istio/policy/"):
-			fallthrough
-		case strings.HasPrefix(collection, "istio/config/"):
+		case strings.HasPrefix(collection, "istio/policy/"),
+			strings.HasPrefix(collection, "istio/config/"):
 			if *useWellKnownTypes || *useWellKnownMixerTypes {
 				collectionsMap[collection] = struct{}{}
 			}
@@ -404,13 +396,7 @@ func main() {
 
 	ctx := context.Background()
 
-	if *useResourceSourceService {
-		cl := mcp.NewResourceSourceClient(conn)
-		c := sink.NewClient(cl, options)
-		c.Run(ctx)
-	} else {
-		cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
-		c := client.New(cl, options)
-		c.Run(ctx)
-	}
+	cl := mcp.NewResourceSourceClient(conn)
+	c := sink.NewClient(cl, options)
+	c.Run(ctx)
 }

@@ -23,9 +23,9 @@ import (
 	"github.com/fsnotify/fsnotify"
 	yaml "gopkg.in/yaml.v2"
 
-	"istio.io/istio/pkg/filewatcher"
-	"istio.io/istio/pkg/mcp/env"
 	"istio.io/istio/pkg/mcp/server"
+	envvar "istio.io/pkg/env"
+	"istio.io/pkg/filewatcher"
 )
 
 type accessList struct {
@@ -42,11 +42,11 @@ var (
 var (
 	// For the purposes of logging rate limiting authz failures, this controls how
 	// many authz failures are logs as a burst every AUTHZ_FAILURE_LOG_FREQ.
-	authzFailureLogBurstSize = env.Integer("AUTHZ_FAILURE_LOG_BURST_SIZE", 1)
+	authzFailureLogBurstSize = envvar.RegisterIntVar("AUTHZ_FAILURE_LOG_BURST_SIZE", 1, "").Get()
 
 	// For the purposes of logging rate limiting authz failures, this controls how
 	// frequently bursts of authz failures are logged.
-	authzFailureLogFreq = env.Duration("AUTHZ_FAILURE_LOG_FREQ", time.Minute)
+	authzFailureLogFreq = envvar.RegisterDurationVar("AUTHZ_FAILURE_LOG_FREQ", time.Minute, "").Get()
 )
 
 func watchAccessList(stopCh <-chan struct{}, accessListFile string) (*server.ListAuthChecker, error) {

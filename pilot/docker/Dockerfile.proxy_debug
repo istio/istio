@@ -2,6 +2,11 @@ FROM istionightly/base_debug
 ARG proxy_version
 ARG istio_version
 
+ARG ISTIO_API_SHA=unknown
+ARG ENVOY_SHA=unknown
+LABEL istio-api-vcs-ref=$ISTIO_API_SHA \
+    envoy-vcs-ref=$ENVOY_SHA
+
 # Install Envoy.
 ADD envoy /usr/local/bin/envoy
 

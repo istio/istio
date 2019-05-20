@@ -24,7 +24,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var fakeaccesstoken = "footoken"
@@ -97,6 +97,6 @@ func (ms *MockServer) getFederatedToken(w http.ResponseWriter, req *http.Request
 		TokenType:       "Bearer",
 		ExpiresIn:       3600,
 	}
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 
 }

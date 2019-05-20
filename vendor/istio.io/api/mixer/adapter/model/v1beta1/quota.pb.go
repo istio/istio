@@ -266,9 +266,9 @@ func (m *QuotaRequest) MarshalTo(dAtA []byte) (int, error) {
 			dAtA[i] = 0x12
 			i++
 			i = encodeVarintQuota(dAtA, i, uint64((&v).Size()))
-			n1, err := (&v).MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+			n1, err1 := (&v).MarshalTo(dAtA[i:])
+			if err1 != nil {
+				return 0, err1
 			}
 			i += n1
 		}
@@ -343,9 +343,9 @@ func (m *QuotaResult) MarshalTo(dAtA []byte) (int, error) {
 			dAtA[i] = 0x12
 			i++
 			i = encodeVarintQuota(dAtA, i, uint64((&v).Size()))
-			n2, err := (&v).MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+			n2, err2 := (&v).MarshalTo(dAtA[i:])
+			if err2 != nil {
+				return 0, err2
 			}
 			i += n2
 		}
@@ -371,9 +371,9 @@ func (m *QuotaResult_Result) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0x12
 	i++
 	i = encodeVarintQuota(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)))
-	n3, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
-	if err != nil {
-		return 0, err
+	n3, err3 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
+	if err3 != nil {
+		return 0, err3
 	}
 	i += n3
 	if m.GrantedAmount != 0 {
@@ -527,7 +527,7 @@ func (this *QuotaResult_Result) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&QuotaResult_Result{`,
-		`ValidDuration:` + strings.Replace(strings.Replace(this.ValidDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`ValidDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.ValidDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`GrantedAmount:` + fmt.Sprintf("%v", this.GrantedAmount) + `,`,
 		`}`,
 	}, "")

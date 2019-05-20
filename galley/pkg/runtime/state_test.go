@@ -23,19 +23,21 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/meshconfig"
-	"istio.io/istio/galley/pkg/runtime/groups"
+	"istio.io/istio/galley/pkg/runtime/processing"
 	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/resources"
-	"istio.io/istio/pkg/mcp/snapshot"
 )
 
 var (
 	fakeCreateTime0 time.Time
 	fakeCreateTime1 time.Time
 
-	cfg = &Config{Mesh: meshconfig.NewInMemory()}
-	fn  = resource.FullNameFromNamespaceAndName("", "fn")
+	cfg = &Config{
+		Mesh:   meshconfig.NewInMemory(),
+		Schema: resources.TestSchema,
+	}
+	fn = resource.FullNameFromNamespaceAndName("", "fn")
 )
 
 func init() {
@@ -59,14 +61,6 @@ func checkCreateTime(e *mcp.Resource, want time.Time) error {
 		return fmt.Errorf("wrong time: got %q want %q", got, want)
 	}
 	return nil
-}
-
-func TestStateName(t *testing.T) {
-	name := "testName"
-	s := newState(name, resources.TestSchema, cfg, publish.NewStrategyWithDefaults(), snapshot.New(groups.IndexFunction))
-	if s.name != name {
-		t.Fatalf("incorrect name: expected %s, found %s", name, s.name)
-	}
 }
 
 func TestState_DefaultSnapshot(t *testing.T) {
@@ -309,6 +303,10 @@ func TestState_String(t *testing.T) {
 }
 
 func newTestState() *State {
-	return newState(groups.Default, resources.TestSchema, cfg, publish.NewStrategyWithDefaults(),
-		snapshot.New(groups.IndexFunction))
+	stateStrategy := publish.NewStrategyWithDefaults()
+	stateListener := processing.ListenerFromFn(func(c resource.Collection) {
+		// When the state indicates a change occurred, update the publishing strategy
+		stateStrategy.OnChange()
+	})
+	return newState(cfg, stateListener)
 }

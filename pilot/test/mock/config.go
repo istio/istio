@@ -31,8 +31,8 @@ import (
 	rbac "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
-	"istio.io/istio/pkg/log"
 	pkgtest "istio.io/istio/pkg/test"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -170,13 +170,6 @@ var (
 		}},
 	}
 
-	// ExampleAuthenticationMeshPolicy is an example cluster-scoped authentication Policy
-	ExampleAuthenticationMeshPolicy = &authn.Policy{
-		Peers: []*authn.PeerAuthenticationMethod{{
-			Params: &authn.PeerAuthenticationMethod_Mtls{},
-		}},
-	}
-
 	// ExampleServiceRole is an example rbac service role
 	ExampleServiceRole = &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 		{
@@ -204,6 +197,15 @@ var (
 			{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
 		},
 		RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+	}
+
+	ExampleAuthorizationPolicy = &rbac.AuthorizationPolicy{
+		WorkloadSelector: &rbac.WorkloadSelector{
+			Labels: map[string]string{
+				"app":     "httpbin",
+				"version": "v1",
+			},
+		},
 	}
 
 	// ExampleRbacConfig is an example rbac config
@@ -437,6 +439,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"Policy", configName, model.AuthenticationPolicy, ExampleAuthenticationPolicy},
 		{"ServiceRole", configName, model.ServiceRole, ExampleServiceRole},
 		{"ServiceRoleBinding", configName, model.ServiceRoleBinding, ExampleServiceRoleBinding},
+		{"AuthorizationPolicy", configName, model.AuthorizationPolicy, ExampleAuthorizationPolicy},
 		{"RbacConfig", model.DefaultRbacConfigName, model.RbacConfig, ExampleRbacConfig},
 		{"ClusterRbacConfig", model.DefaultRbacConfigName, model.ClusterRbacConfig, ExampleRbacConfig},
 	}

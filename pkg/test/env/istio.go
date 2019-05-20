@@ -23,7 +23,7 @@ import (
 
 	"runtime"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -46,6 +46,23 @@ var (
 	// ISTIO_OUT environment variable
 	// nolint: golint
 	ISTIO_OUT Variable = "ISTIO_OUT"
+
+	// HUB is the Docker hub to be used for images.
+	// nolint: golint
+	HUB Variable = "HUB"
+
+	// TAG is the Docker tag to be used for images.
+	// nolint: golint
+	TAG Variable = "TAG"
+
+	// PULL_POLICY is the image pull policy to use when rendering templates.
+	// nolint: golint
+	PULL_POLICY Variable = "PULL_POLICY"
+
+	// ISTIO_TEST_KUBE_CONFIG is the Kubernetes configuration file to use for testing. If a configuration file
+	// is specified on the command-line, that takes precedence.
+	// nolint: golint
+	ISTIO_TEST_KUBE_CONFIG Variable = "ISTIO_TEST_KUBE_CONFIG"
 
 	// IstioTop has the top of the istio tree, matches the env variable from make.
 	IstioTop = TOP.ValueOrDefaultFunc(getDefaultIstioTop)
@@ -77,6 +94,12 @@ var (
 
 	// BookInfoKube is the book info folder that contains Yaml deployment files.
 	BookInfoKube = path.Join(BookInfoRoot, "platform/kube")
+
+	// ServiceAccountFilePath is the helm service account file.
+	ServiceAccountFilePath = path.Join(ChartsDir, "helm-service-account.yaml")
+
+	// RedisInstallFilePath is the redis installation file.
+	RedisInstallFilePath = path.Join(IstioRoot, "pkg/test/framework/components/redis/redis.yaml")
 )
 
 func getDefaultIstioTop() string {
@@ -106,6 +129,12 @@ func verifyFile(v Variable, f string) string {
 }
 
 func fileExists(f string) bool {
-	_, err := os.Stat(f)
-	return !os.IsNotExist(err)
+	return CheckFileExists(f) == nil
+}
+
+func CheckFileExists(path string) error {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }

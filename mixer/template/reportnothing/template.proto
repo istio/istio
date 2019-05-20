@@ -20,7 +20,7 @@ syntax = "proto3";
 // $aliases:
 // $  - /docs/reference/config/template/reportnothing.html
 
-// The `reportnothing` template represents an empty block of data, which can useful
+// The `reportnothing` template represents an empty block of data, which can be useful
 // in different testing scenarios.
 //
 // Example config:

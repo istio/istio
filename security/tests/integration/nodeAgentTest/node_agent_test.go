@@ -25,9 +25,9 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/tests/integration"
 	"istio.io/istio/tests/integration_old/framework"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -133,7 +133,7 @@ func TestNodeAgent(t *testing.T) {
 		}
 		log.Infof("retry checking certificate update and validation in %v seconds", term)
 		time.Sleep(time.Duration(term) * time.Second)
-		term = term * 2
+		term *= 2
 	}
 	t.Errorf("failed to check certificate update and validate after %v retries", certValidateRetry)
 }

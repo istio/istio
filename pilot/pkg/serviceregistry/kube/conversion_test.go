@@ -15,7 +15,9 @@
 package kube
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,12 +31,16 @@ import (
 
 var (
 	domainSuffix = "company.com"
+	clusterID    = "test-cluster"
+)
 
-	protocols = []struct {
+func TestConvertProtocol(t *testing.T) {
+	type protocolCase struct {
 		name  string
 		proto v1.Protocol
 		out   model.Protocol
-	}{
+	}
+	protocols := []protocolCase{
 		{"", v1.ProtocolTCP, model.ProtocolTCP},
 		{"http", v1.ProtocolTCP, model.ProtocolHTTP},
 		{"http-test", v1.ProtocolTCP, model.ProtocolHTTP},
@@ -55,14 +61,55 @@ var (
 		{"mysql", v1.ProtocolTCP, model.ProtocolMySQL},
 		{"mysql-test", v1.ProtocolTCP, model.ProtocolMySQL},
 	}
-)
 
-func TestConvertProtocol(t *testing.T) {
-	for _, tt := range protocols {
-		out := ConvertProtocol(tt.name, tt.proto)
-		if out != tt.out {
-			t.Errorf("convertProtocol(%q, %q) => %q, want %q", tt.name, tt.proto, out, tt.out)
+	// Create the list of cases for all of the names in both upper and lowercase.
+	cases := make([]protocolCase, 0, len(protocols)*2)
+	for _, p := range protocols {
+		name := p.name
+
+		p.name = strings.ToLower(name)
+		cases = append(cases, p)
+
+		// Don't bother adding uppercase version for empty string.
+		if name != "" {
+			p.name = strings.ToUpper(name)
+			cases = append(cases, p)
 		}
+	}
+
+	for _, c := range cases {
+		testName := strings.Replace(fmt.Sprintf("%s_%s", c.name, c.proto), "-", "_", -1)
+		t.Run(testName, func(t *testing.T) {
+			out := ConvertProtocol(c.name, c.proto)
+			if out != c.out {
+				t.Errorf("convertProtocol(%q, %q) => %q, want %q", c.name, c.proto, out, c.out)
+			}
+		})
+	}
+}
+
+func BenchmarkConvertProtocol(b *testing.B) {
+	cases := []struct {
+		name  string
+		proto v1.Protocol
+		out   model.Protocol
+	}{
+		{"grpc-web-lowercase", v1.ProtocolTCP, model.ProtocolGRPCWeb},
+		{"GRPC-WEB-mixedcase", v1.ProtocolTCP, model.ProtocolGRPCWeb},
+		{"https-lowercase", v1.ProtocolTCP, model.ProtocolHTTPS},
+		{"HTTPS-mixedcase", v1.ProtocolTCP, model.ProtocolHTTPS},
+	}
+
+	for _, c := range cases {
+		testName := strings.Replace(c.name, "-", "_", -1)
+		b.Run(testName, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				out := ConvertProtocol(c.name, c.proto)
+				if out != c.out {
+					b.Fatalf("convertProtocol(%q, %q) => %q, want %q", c.name, c.proto, out, c.out)
+				}
+			}
+		})
 	}
 }
 
@@ -109,7 +156,7 @@ func TestServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := convertService(localSvc, domainSuffix)
+	service := convertService(localSvc, domainSuffix, clusterID)
 	if service == nil {
 		t.Errorf("could not convert service")
 	}
@@ -179,7 +226,7 @@ func TestServiceConversionWithEmptyServiceAccountsAnnotation(t *testing.T) {
 		},
 	}
 
-	service := convertService(localSvc, domainSuffix)
+	service := convertService(localSvc, domainSuffix, clusterID)
 	if service == nil {
 		t.Errorf("could not convert service")
 	}
@@ -212,7 +259,7 @@ func TestExternalServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := convertService(extSvc, domainSuffix)
+	service := convertService(extSvc, domainSuffix, clusterID)
 	if service == nil {
 		t.Errorf("could not convert external service")
 	}
@@ -256,7 +303,7 @@ func TestExternalClusterLocalServiceConversion(t *testing.T) {
 
 	domainSuffix := "cluster.local"
 
-	service := convertService(extSvc, domainSuffix)
+	service := convertService(extSvc, domainSuffix, clusterID)
 	if service == nil {
 		t.Errorf("could not convert external service")
 	}
@@ -273,6 +320,64 @@ func TestExternalClusterLocalServiceConversion(t *testing.T) {
 	if service.Hostname != serviceHostname(serviceName, namespace, domainSuffix) {
 		t.Errorf("service hostname incorrect => %q, want %q",
 			service.Hostname, serviceHostname(serviceName, namespace, domainSuffix))
+	}
+}
+
+func TestLBServiceConversion(t *testing.T) {
+	serviceName := "service1"
+	namespace := "default"
+
+	addresses := []v1.LoadBalancerIngress{
+		{
+			IP: "127.68.32.112",
+		},
+		{
+			IP: "127.68.32.113",
+		},
+	}
+
+	extSvc := v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceName,
+			Namespace: namespace,
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: v1.ProtocolTCP,
+				},
+			},
+			Type: v1.ServiceTypeLoadBalancer,
+		},
+		Status: v1.ServiceStatus{
+			LoadBalancer: v1.LoadBalancerStatus{
+				Ingress: addresses,
+			},
+		},
+	}
+
+	service := convertService(extSvc, domainSuffix, clusterID)
+	if service == nil {
+		t.Errorf("could not convert external service")
+	}
+
+	if len(service.Attributes.ClusterExternalAddresses[clusterID]) == 0 {
+		t.Errorf("no load balancer addresses found")
+	}
+
+	for i, addr := range addresses {
+		var want string
+		if len(addr.IP) > 0 {
+			want = addr.IP
+		} else {
+			want = addr.Hostname
+		}
+		got := service.Attributes.ClusterExternalAddresses[clusterID][i]
+		if got != want {
+			t.Errorf("Expected address %s but got %s", want, got)
+		}
 	}
 }
 
@@ -361,4 +466,44 @@ func TestProbesToPortsConversion(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestSecureNamingSANCustomIdentity(t *testing.T) {
+
+	pod := &v1.Pod{}
+
+	identity := "foo"
+
+	pod.Annotations = make(map[string]string)
+	pod.Annotations[IdentityPodAnnotation] = identity
+
+	san := secureNamingSAN(pod)
+
+	expectedSAN := fmt.Sprintf("spiffe://%v/%v", spiffe.GetTrustDomain(), identity)
+
+	if san != expectedSAN {
+		t.Errorf("SAN match failed, SAN:%v  expectedSAN:%v", san, expectedSAN)
+	}
+
+}
+
+func TestSecureNamingSAN(t *testing.T) {
+
+	pod := &v1.Pod{}
+
+	pod.Annotations = make(map[string]string)
+
+	ns := "anything"
+	sa := "foo"
+	pod.Namespace = ns
+	pod.Spec.ServiceAccountName = sa
+
+	san := secureNamingSAN(pod)
+
+	expectedSAN := fmt.Sprintf("spiffe://%v/ns/%v/sa/%v", spiffe.GetTrustDomain(), ns, sa)
+
+	if san != expectedSAN {
+		t.Errorf("SAN match failed, SAN:%v  expectedSAN:%v", san, expectedSAN)
+	}
+
 }

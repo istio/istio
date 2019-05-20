@@ -21,10 +21,10 @@ import (
 	"time"
 
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/pkg/pool"
 )
 
 // Create a standard global config with Handler H1, Instance I1 and rule R1 referencing I1 and H1.
@@ -263,7 +263,9 @@ func TestCleanup_WorkerNotClosed(t *testing.T) {
 			s, _ := config.GetSnapshotForTest(templates, adapters, data.ServiceConfig, globalCfg)
 			s.ID = int64(idx * 2)
 
-			oldTable := NewTable(Empty(), s, pool.NewGoroutinePool(5, false))
+			gp := pool.NewGoroutinePool(5, false)
+			gp.AddWorkers(5)
+			oldTable := NewTable(Empty(), s, gp)
 			oldTable.strayWorkersRetryDuration = 5 * time.Millisecond
 
 			s = config.Empty()

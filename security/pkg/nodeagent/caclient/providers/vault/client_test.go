@@ -45,77 +45,7 @@ var (
 	  }
 	}
   `
-	vaultServerTLSCert = `
------BEGIN CERTIFICATE-----
-MIIC3jCCAcagAwIBAgIRAIcSFH1jneS0XPz5r2QDbigwDQYJKoZIhvcNAQELBQAw
-EDEOMAwGA1UEChMFVmF1bHQwIBcNMTgxMjI2MDkwMDU3WhgPMjExODEyMDIwOTAw
-NTdaMBAxDjAMBgNVBAoTBVZhdWx0MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB
-CgKCAQEA2q5lfJCLAOTEjX3xV8qMLEX8zUQpd0AjD6zzOMzx51GVM7Plf7CJmaDq
-yloRz3zcrTEltHUrln5fvouvp4TetOlqEU979vvccnFLgXrSpn+Zt/EyjE0rUYY3
-5e2qxy9bP2E7zJSKONIT6zRDd2zUQGH3zUem1ZG0GFY1ZL5qFSOIy+PvuQ4u8HCa
-1CcnHmI613fVDbFbaxuF2G2MIwCZ/Fg6KBd9kgU7uCOvkbR4AtRe0ntwweIjOIas
-FiohPQzVY4obrYZiTV43HT4lGti7ySn2c96UnRSnmHLWyBb7cafd4WZN/t+OmYSd
-ooxCVQ2Zqub6NlZ5OySYOz/0BJq6DQIDAQABozEwLzAOBgNVHQ8BAf8EBAMCBaAw
-DAYDVR0TAQH/BAIwADAPBgNVHREECDAGhwQj6fn5MA0GCSqGSIb3DQEBCwUAA4IB
-AQBORvUcW0wgg/Wo1aKFaZQuPPFVLjOZat0QpCJYNDhsSIO4Y0JS+Y1cEIkvXB3S
-Q3D7IfNP0gh1fhtP/d45LQSPqpyJF5vKWAvwa/LSPKpw2+Zys4oDahcH+SEKiQco
-IhkkHNEgC4LEKEaGvY4A8Cw7uWWquUJB16AapSSnkeD2vTcxErfCO59yR7yEWDa6
-8j6QNzmGNj2YXtT86+Mmedhfh65Rrh94mhAPQHBAdCNGCUwZ6zHPQ6Z1rj+x3Wm9
-gqpveVq2olloNbnLNmM3V6F9mqSZACgADmRqf42bixeHczkTfRDKThJcpY5U44vy
-w4Nm32yDWhD6AC68rDkXX68m
------END CERTIFICATE-----
-  `
-	testCsr1 = `
------BEGIN CERTIFICATE REQUEST-----
-MIICojCCAYoCAQAwEzERMA8GA1UEAxMId29ya2xvYWQwggEiMA0GCSqGSIb3DQEB
-AQUAA4IBDwAwggEKAoIBAQCtUKHNG598mQ0wo5+AfZhn2yA8HhL1QV0XERJgBU2p
-PbH/4yIHq++kugWWbj4REE7OPvKjJRdo8yJ9OpjDXA8s5t7fchdr6BePLF6+GfkQ
-ACmnKAziRHMg22Zy+crdVEiyrMAzwujbiBxiI5hcHHB15TX+6lAxaLZJ3BLC4NBd
-YHUeEwvuBV4zLLvKSVE6jFQIvxHKk/Nh/sJvvvSIOWmXPgS6raFPKPTDJ3MjFyCU
-VEz8/HWyaEptX4C91NQxa7/CIJ/DYXtKVbP+jXGaLrLQUX+2r95H2cU604OfMz2Z
-PmYgYUovtb93llwgLKoJk3MjIGEvy4AluGqegrDe5ghfAgMBAAGgSjBIBgkqhkiG
-9w0BCQ4xOzA5MDcGA1UdEQQwMC6GLHNwaWZmZTovL2NsdXN0ZXIubG9jYWwvbnMv
-ZGVmYXVsdC9zYS9kZWZhdWx0MA0GCSqGSIb3DQEBCwUAA4IBAQCRnzNqI46M1FJL
-IWaQsZj7QeJPrPmuwcGzQ5qRlXBmxAe95N+9DKpmiTwU0tOz375EEjXwVYvs1cZT
-d75Br1kaAMT70LnPUxvSjlcTNItLwlu6LoH/BuaFa5VL1dKFvjRQC3aKFKD634pX
-U82yKWa7kAVPWJAizoz+wf0RIF2KEp0wpd/FPQJaFkAiTrC8rwEhPIfKTLads4HL
-5pWcfODn5eMC7+htiteWsfdhK8Bxjz0VyzSs3BbgAHs+LFkIBGkKe0sl/ii96Bik
-SQYzPWVk89gu6nKV+fS2pA9C8dAnYOzVu9XXc+PGlcIhjnuS+/P74hN5D3aIGljW
-7WsYeEkp
------END CERTIFICATE REQUEST-----
-  `
-	citadelSANonTLS = "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3Nlcn" +
-		"ZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2" +
-		"UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubm" +
-		"FtZSI6InZhdWx0LWNpdGFkZWwtc2EtdG9rZW4tYjdyemsiLCJrdWJlcm5ldGVzLmlvL3" +
-		"NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoidmF1bHQtY2l0YWRlbC" +
-		"1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Ln" +
-		"VpZCI6IjczMmFhMDYyLTBjYWYtMTFlOS1iNWFkLTQyMDEwYThhMDAwYyIsInN1YiI6In" +
-		"N5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWNpdGFkZWwtc2EifQ.BYX" +
-		"fKQHG3Eu384EY4KlnhFEk6iLZZHVnX03FIrC-xR-tft2AZP0wpGeRNmMMKMiFzXfBQ8j" +
-		"XzarGgPdoWFjVy0R1HuozX-g7WCAkhlMR38IhHr7EFOkue3_73dGNHAXoCQ4C9eAduDn" +
-		"r_yBClB3JMeoJXIS2tvbwZ4BrHJepu7zXJalbWE2n0oucOH2JLIrp_wcA0yCNu6wFXEX" +
-		"S7ghVsiDHKyL1_SmzsZ4gKyhlDUB1UAIbQ9XghXIAK_5Tmo_cKGbZ0MeqJeVUkDr2w-3" +
-		"ZRrnQD8lUEwhkGlgkIjEKAY4yKFliEOIDTft_gz0h6t9zGCn5OmhNolXQ4dIbsEcFgA"
-
-	citadelSATLS = "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3" +
-		"NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3" +
-		"BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZX" +
-		"QubmFtZSI6InZhdWx0LWNpdGFkZWwtc2EtdG9rZW4tcmZxZGoiLCJrdWJlcm5ldGVzLm" +
-		"lvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoidmF1bHQtY2l0YW" +
-		"RlbC1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW" +
-		"50LnVpZCI6IjIzOTk5YzY1LTA4ZjMtMTFlOS1hYzAzLTQyMDEwYThhMDA3OSIsInN1Yi" +
-		"I6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWNpdGFkZWwtc2EifQ" +
-		".RNH1QbapJKPmktV3tCnpiz7hoYpv1TM6LXzThOtaDp7LFpeANZcJ1zVQdys3Ednlkry" +
-		"kGMepEjsdNuT6ndHfh8jRJAZuNWNPGrhxz4BeUaOqZg3v7AzJlMeFKjY_fiTYYd2gBZZ" +
-		"xkpv1FvAPihHYng2NeN2nKbiZbsnZNU1qFdvbgCISaFqTf0dh75OzgCX_1Fh6HOA7ANf" +
-		"7p522PDW_BRln0RTwUJovCpGeiNCGdujGiNLDZyBcdtikY5ry_KXTdrVAcTUvI6lxwRb" +
-		"ONNfuN8hrIDl95vJjhUlE-O-_cx8qWtXNdqJlMje1SsiPCL4uq70OepG_I4aSzC2o8aD" +
-		"tlQ"
-
-	fakeCert        = []string{"fake-certificate\n", "fake-ca1\n", "fake-ca2\n"}
-	vaultNonTLSAddr = "http://35.247.15.29:8200"
-	vaultTLSAddr    = "https://35.233.249.249:8200"
+	fakeCert = []string{"fake-certificate\n", "fake-ca1\n", "fake-ca2\n"}
 )
 
 type mockVaultServer struct {
@@ -246,68 +176,6 @@ func TestClientOnMockVaultCA(t *testing.T) {
 	}
 }
 
-func TestClientOnExampleHttpVaultCA(t *testing.T) {
-	testCases := map[string]struct {
-		cliConfig clientConfig
-	}{
-		"Valid certs 1": {
-			cliConfig: clientConfig{vaultAddr: vaultNonTLSAddr, vaultLoginPath: "auth/kubernetes/login",
-				vaultLoginRole: "istio-cert", vaultSignCsrPath: "istio_ca/sign/istio-pki-role",
-				clientToken: citadelSANonTLS, csr: []byte(testCsr1)},
-		},
-	}
-
-	for id, tc := range testCases {
-		var vaultAddr string
-		vaultAddr = tc.cliConfig.vaultAddr
-		cli, err := NewVaultClient(false, []byte{}, vaultAddr, tc.cliConfig.vaultLoginRole,
-			tc.cliConfig.vaultLoginPath, tc.cliConfig.vaultSignCsrPath)
-		if err != nil {
-			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
-		}
-
-		resp, err := cli.CSRSign(context.Background(), tc.cliConfig.csr, tc.cliConfig.clientToken, 1)
-		if err != nil {
-			t.Errorf("Test case [%s]:  error (%v) is not expected", id, err.Error())
-		} else {
-			if len(resp) != 3 {
-				t.Errorf("Test case [%s]: the certificate chain length (%v) is unexpected", id, len(resp))
-			}
-		}
-	}
-}
-
-func TestClientOnExampleHttpsVaultCA(t *testing.T) {
-	testCases := map[string]struct {
-		cliConfig clientConfig
-	}{
-		"Valid certs 1": {
-			cliConfig: clientConfig{vaultAddr: vaultTLSAddr, vaultLoginPath: "auth/kubernetes/login",
-				vaultLoginRole: "istio-cert", vaultSignCsrPath: "istio_ca/sign/istio-pki-role",
-				clientToken: citadelSATLS, csr: []byte(testCsr1)},
-		},
-	}
-
-	for id, tc := range testCases {
-		var vaultAddr string
-		vaultAddr = tc.cliConfig.vaultAddr
-		cli, err := NewVaultClient(true, []byte(vaultServerTLSCert), vaultAddr, tc.cliConfig.vaultLoginRole,
-			tc.cliConfig.vaultLoginPath, tc.cliConfig.vaultSignCsrPath)
-		if err != nil {
-			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
-		}
-
-		resp, err := cli.CSRSign(context.Background(), tc.cliConfig.csr, tc.cliConfig.clientToken, 1)
-		if err != nil {
-			t.Errorf("Test case [%s]:  error (%v) is not expected", id, err.Error())
-		} else {
-			if len(resp) != 3 {
-				t.Errorf("Test case [%s]: the certificate chain length (%v) is unexpected", id, len(resp))
-			}
-		}
-	}
-}
-
 // newMockVaultServer creates a mock Vault server for testing purpose.
 // token: required access token
 func newMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, signResp string) *mockVaultServer {
@@ -348,7 +216,7 @@ func newMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, sig
 			}
 			resp.Header().Set("Content-Type", "application/json")
 			resp.Write([]byte(vaultServer.vaultLoginResp))
-			break
+
 		case "/v1/sign":
 			t.Logf("%v", req.URL)
 			if req.Header.Get(vaultAuthHeaderName) != "fake-vault-token" {
@@ -369,7 +237,7 @@ func newMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, sig
 				resp.WriteHeader(http.StatusBadRequest)
 				return
 			}
-			if "pem" != signReq.Format {
+			if signReq.Format != "pem" {
 				t.Logf("invalid sign format: %v", signReq.Format)
 				resp.WriteHeader(http.StatusBadRequest)
 				return
@@ -381,7 +249,7 @@ func newMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, sig
 			}
 			resp.Header().Set("Content-Type", "application/json")
 			resp.Write([]byte(vaultServer.vaultSignResp))
-			break
+
 		default:
 			t.Logf("The request contains invalid path: %v", req.URL)
 			resp.WriteHeader(http.StatusNotFound)

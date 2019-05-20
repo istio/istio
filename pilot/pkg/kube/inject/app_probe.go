@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -43,16 +43,19 @@ var (
 	statusPortPattern = regexp.MustCompile(fmt.Sprintf(`^-{1,2}%s(=(?P<port>\d+))?$`, StatusPortCmdFlagName))
 )
 
-// ShouldRewriteAppProbers returns if we should rewrite apps' probers config.
-func ShouldRewriteAppProbers(spec *SidecarInjectionSpec) bool {
+// ShouldRewriteAppHTTPProbers returns if we should rewrite apps' probers config.
+func ShouldRewriteAppHTTPProbers(annotations map[string]string, spec *SidecarInjectionSpec) bool {
+	if annotations != nil {
+		if value, ok := annotations[annotationRewriteAppHTTPProbers]; ok {
+			if isSetInAnnotation, err := strconv.ParseBool(value); err == nil {
+				return isSetInAnnotation
+			}
+		}
+	}
 	if spec == nil {
 		return false
 	}
-	if !spec.RewriteAppHTTPProbe {
-		return false
-	}
-	// TODO: check statusPort is defined, sidecar exists, per deployment annotation, etc.
-	return true
+	return spec.RewriteAppHTTPProbe
 }
 
 // FindSidecar returns the pointer to the first container whose name matches the "istio-proxy".
@@ -109,6 +112,12 @@ func convertAppProber(probe *corev1.Probe, newURL string, statusPort int) *corev
 	// Change the application container prober config.
 	c.Port = intstr.FromInt(statusPort)
 	c.Path = newURL
+	// For HTTPS prober, we change to HTTP,
+	// and pilot agent uses https to request application prober endpoint.
+	// Kubelet -> HTTP -> Pilot Agent -> HTTPS -> Application
+	if c.Scheme == corev1.URISchemeHTTPS {
+		c.Scheme = corev1.URISchemeHTTP
+	}
 	return c
 }
 
@@ -157,8 +166,8 @@ func DumpAppProbers(podspec *corev1.PodSpec) string {
 }
 
 // rewriteAppHTTPProbes modifies the app probers in place for kube-inject.
-func rewriteAppHTTPProbe(podSpec *corev1.PodSpec, spec *SidecarInjectionSpec) {
-	if !ShouldRewriteAppProbers(spec) {
+func rewriteAppHTTPProbe(annotations map[string]string, podSpec *corev1.PodSpec, spec *SidecarInjectionSpec) {
+	if !ShouldRewriteAppHTTPProbers(annotations, spec) {
 		return
 	}
 	sidecar := FindSidecar(podSpec.Containers)
@@ -192,8 +201,8 @@ func rewriteAppHTTPProbe(podSpec *corev1.PodSpec, spec *SidecarInjectionSpec) {
 }
 
 // createProbeRewritePatch generates the patch for webhook.
-func createProbeRewritePatch(podSpec *corev1.PodSpec, spec *SidecarInjectionSpec) []rfc6902PatchOperation {
-	if !ShouldRewriteAppProbers(spec) {
+func createProbeRewritePatch(annotations map[string]string, podSpec *corev1.PodSpec, spec *SidecarInjectionSpec) []rfc6902PatchOperation {
+	if !ShouldRewriteAppHTTPProbers(annotations, spec) {
 		return []rfc6902PatchOperation{}
 	}
 	patch := []rfc6902PatchOperation{}

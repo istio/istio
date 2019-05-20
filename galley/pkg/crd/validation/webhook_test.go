@@ -30,8 +30,8 @@ import (
 	"github.com/ghodss/yaml"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -58,6 +58,10 @@ type fakeValidator struct{ err error }
 
 func (fv *fakeValidator) Validate(*store.BackendEvent) error {
 	return fv.err
+}
+
+func (fv *fakeValidator) SupportsKind(string) bool {
+	return true
 }
 
 var (
@@ -94,7 +98,7 @@ var (
 		},
 	}
 
-	dummyDeployment = &extensionsv1beta1.Deployment{
+	dummyDeployment = &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "istio-galley",
 			Namespace: "istio-system",
@@ -289,7 +293,7 @@ func TestAdmitPilot(t *testing.T) {
 			in: &admissionv1beta1.AdmissionRequest{
 				Kind:      metav1.GroupVersionKind{Kind: "mock"},
 				Object:    runtime.RawExtension{Raw: valid},
-				Operation: admissionv1beta1.Create,
+				Operation: admissionv1beta1.Update,
 			},
 			allowed: true,
 		},
@@ -432,7 +436,7 @@ func TestAdmitMixer(t *testing.T) {
 				Operation: admissionv1beta1.Delete,
 			},
 			validator: &fakeValidator{errors.New("fail")},
-			allowed:   false,
+			allowed:   true,
 		},
 		{
 			name: "invalid delete (missing name)",
@@ -537,9 +541,9 @@ func TestServe(t *testing.T) {
 		name            string
 		body            []byte
 		contentType     string
-		wantAllowed     bool
 		wantStatusCode  int
-		allowedResponse bool //
+		wantAllowed     bool
+		allowedResponse bool
 	}{
 		{
 			name:            "valid",

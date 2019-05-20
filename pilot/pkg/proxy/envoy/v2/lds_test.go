@@ -190,6 +190,7 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope"
 		args.Mesh.MixerAddress = ""
 		args.Mesh.RdsRefreshDelay = nil
+		args.MeshConfig = nil
 		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope/mesh.yaml"
 		args.Service.Registries = []string{}
 	})
@@ -372,32 +373,6 @@ func TestLDS(t *testing.T) {
 		}
 	})
 
-	t.Run("ingress", func(t *testing.T) {
-		ldsr, cancel, err := connectADS(util.MockPilotGrpcAddr)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer cancel()
-
-		err = sendLDSReq(ingressID(ingressIP), ldsr)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		res, err := ldsr.Recv()
-		if err != nil {
-			t.Fatal("Failed to receive LDS", err)
-			return
-		}
-
-		strResponse, _ := model.ToJSONWithIndent(res, " ")
-
-		_ = ioutil.WriteFile(env.IstioOut+"/ads_lds_ingress.json", []byte(strResponse), 0644)
-
-		if len(res.Resources) == 0 {
-			t.Fatal("No response")
-		}
-	})
 	// TODO: compare with some golden once it's stable
 	// check that each mocked service and destination rule has a corresponding resource
 

@@ -15,7 +15,9 @@
 package kube
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -49,6 +51,8 @@ const (
 	ServiceExportAnnotation = "networking.istio.io/exportTo"
 
 	managementPortPrefix = "mgmt-"
+
+	IdentityPodAnnotation = "alpha.istio.io/identity"
 )
 
 func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
@@ -67,7 +71,7 @@ func convertPort(port v1.ServicePort) *model.Port {
 	}
 }
 
-func convertService(svc v1.Service, domainSuffix string) *model.Service {
+func convertService(svc v1.Service, domainSuffix string, clusterID string) *model.Service {
 	addr, external := model.UnspecifiedIP, ""
 	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != v1.ClusterIPNone {
 		addr = svc.Spec.ClusterIP
@@ -95,9 +99,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 	serviceaccounts := make([]string, 0)
 	if svc.Annotations != nil {
 		if svc.Annotations[CanonicalServiceAccountsAnnotation] != "" {
-			for _, csa := range strings.Split(svc.Annotations[CanonicalServiceAccountsAnnotation], ",") {
-				serviceaccounts = append(serviceaccounts, csa)
-			}
+			serviceaccounts = append(serviceaccounts, strings.Split(svc.Annotations[CanonicalServiceAccountsAnnotation], ",")...)
 		}
 		if svc.Annotations[KubeServiceAccountsOnVMAnnotation] != "" {
 			for _, ksa := range strings.Split(svc.Annotations[KubeServiceAccountsOnVMAnnotation], ",") {
@@ -111,9 +113,9 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 			}
 		}
 	}
-	sort.Sort(sort.StringSlice(serviceaccounts))
+	sort.Strings(serviceaccounts)
 
-	return &model.Service{
+	istioService := &model.Service{
 		Hostname:        serviceHostname(svc.Name, svc.Namespace, domainSuffix),
 		Ports:           ports,
 		Address:         addr,
@@ -128,13 +130,32 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 			ExportTo:  exportTo,
 		},
 	}
+
+	if svc.Spec.Type == v1.ServiceTypeLoadBalancer && len(svc.Status.LoadBalancer.Ingress) > 0 {
+		var lbAddrs []string
+		for _, ingress := range svc.Status.LoadBalancer.Ingress {
+			if len(ingress.IP) > 0 {
+				lbAddrs = append(lbAddrs, ingress.IP)
+			} else if len(ingress.Hostname) > 0 {
+				addrs, err := net.DefaultResolver.LookupHost(context.TODO(), ingress.Hostname)
+				if err != nil {
+					lbAddrs = append(lbAddrs, addrs...)
+				}
+			}
+		}
+		if len(lbAddrs) > 0 {
+			istioService.Attributes.ClusterExternalAddresses = map[string][]string{clusterID: lbAddrs}
+		}
+	}
+
+	return istioService
 }
 
 func externalNameServiceInstances(k8sSvc v1.Service, svc *model.Service) []*model.ServiceInstance {
 	if k8sSvc.Spec.Type != v1.ServiceTypeExternalName || k8sSvc.Spec.ExternalName == "" {
 		return nil
 	}
-	var out []*model.ServiceInstance
+	out := make([]*model.ServiceInstance, 0, len(svc.Ports))
 	for _, portEntry := range svc.Ports {
 		out = append(out, &model.ServiceInstance{
 			Endpoint: model.NetworkEndpoint{
@@ -159,6 +180,17 @@ func kubeToIstioServiceAccount(saname string, ns string) string {
 	return spiffe.MustGenSpiffeURI(ns, saname)
 }
 
+// secureNamingSAN creates the secure naming used for SAN verification from pod metadata
+func secureNamingSAN(pod *v1.Pod) string {
+
+	//use the identity annotation
+	if identity, exist := pod.Annotations[IdentityPodAnnotation]; exist {
+		return spiffe.GenCustomSpiffe(identity)
+	}
+
+	return spiffe.MustGenSpiffeURI(pod.Namespace, pod.Spec.ServiceAccountName)
+}
+
 // KeyFunc is the internal API key function that returns "namespace"/"name" or
 // "name" if "namespace" is empty
 func KeyFunc(name, namespace string) string {
@@ -180,6 +212,9 @@ func parseHostname(hostname model.Hostname) (name string, namespace string, err 
 	return
 }
 
+var grpcWeb = string(model.ProtocolGRPCWeb)
+var grpcWebLen = len(grpcWeb)
+
 // ConvertProtocol from k8s protocol and port name
 func ConvertProtocol(name string, proto v1.Protocol) model.Protocol {
 	out := model.ProtocolTCP
@@ -187,16 +222,15 @@ func ConvertProtocol(name string, proto v1.Protocol) model.Protocol {
 	case v1.ProtocolUDP:
 		out = model.ProtocolUDP
 	case v1.ProtocolTCP:
-		prefix := name
-		if strings.HasPrefix(strings.ToLower(prefix), strings.ToLower(string(model.ProtocolGRPCWeb))) {
+		if len(name) >= grpcWebLen && strings.EqualFold(name[:grpcWebLen], grpcWeb) {
 			out = model.ProtocolGRPCWeb
 			break
 		}
-		i := strings.Index(name, "-")
+		i := strings.IndexByte(name, '-')
 		if i >= 0 {
-			prefix = name[:i]
+			name = name[:i]
 		}
-		protocol := model.ParseProtocol(prefix)
+		protocol := model.ParseProtocol(name)
 		if protocol != model.ProtocolUDP && protocol != model.ProtocolUnsupported {
 			out = protocol
 		}

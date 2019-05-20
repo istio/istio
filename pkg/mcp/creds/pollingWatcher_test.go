@@ -415,7 +415,6 @@ func (f *watcherFixture) waitForNoPollError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return
 }
 
 func (f *watcherFixture) newTmpFile(t *testing.T) string {

@@ -24,10 +24,9 @@ import (
 	adptTmpl "istio.io/api/mixer/adapter/model/v1beta1"
 	pb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/runtime/lang"
+	"istio.io/pkg/attribute"
 )
 
 type (
@@ -144,7 +143,7 @@ type (
 	//
 	CreateOutputExpressionsFn func(
 		instanceParam proto.Message,
-		finder ast.AttributeDescriptorFinder,
+		finder attribute.AttributeDescriptorFinder,
 		expb lang.Compiler) (map[string]compiled.Expression, error)
 
 	// OutputMapperFn maps the results of an APA output bag, with "$out"s, by processing it through
@@ -213,7 +212,7 @@ func NewRepository(templateInfos map[string]Info) Repository {
 		}
 	}
 
-	allSupportedTmpls := make([]string, len(templateInfos))
+	allSupportedTmpls := make([]string, 0, len(templateInfos))
 	tmplToBuilderNames := make(map[string]string)
 
 	for t, v := range templateInfos {

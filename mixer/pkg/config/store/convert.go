@@ -22,30 +22,8 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
-
-const (
-	ruleKind      = "rule"
-	selectorField = "selector"
-	matchField    = "match"
-)
-
-// warnDeprecationAndFix warns users about deprecated fields.
-// It maps the field into new name.
-func warnDeprecationAndFix(key Key, spec map[string]interface{}) map[string]interface{} {
-	if key.Kind != ruleKind {
-		return spec
-	}
-	sel := spec[selectorField]
-	if sel == nil {
-		return spec
-	}
-	log.Warnf("Deprecated field 'selector' used in %s. Use 'match' instead.", key)
-	spec[matchField] = sel
-	delete(spec, selectorField)
-	return spec
-}
 
 // cloneMessage looks up the kind in the map, and creates a clone of it.
 func cloneMessage(kind string, kinds map[string]proto.Message) (proto.Message, error) {
@@ -58,7 +36,7 @@ func cloneMessage(kind string, kinds map[string]proto.Message) (proto.Message, e
 
 // convert converts unstructured spec into the target proto.
 func convert(key Key, spec map[string]interface{}, target proto.Message) error {
-	jsonData, err := json.Marshal(warnDeprecationAndFix(key, spec))
+	jsonData, err := json.Marshal(spec)
 	if err != nil {
 		return err
 	}
@@ -67,4 +45,25 @@ func convert(key Key, spec map[string]interface{}, target proto.Message) error {
 	}
 
 	return err
+}
+
+// ConvertValue from JSON using a protobuf mapping
+func ConvertValue(ev BackendEvent, kinds map[string]proto.Message) (Event, error) {
+	pbSpec, err := cloneMessage(ev.Kind, kinds)
+	if err != nil {
+		return Event{}, err
+	}
+	if ev.Value == nil {
+		return Event{Key: ev.Key, Type: ev.Type}, nil
+	}
+	if err = convert(ev.Key, ev.Value.Spec, pbSpec); err != nil {
+		return Event{}, err
+	}
+	return Event{
+		Key:  ev.Key,
+		Type: ev.Type,
+		Value: &Resource{
+			Metadata: ev.Value.Metadata,
+			Spec:     pbSpec,
+		}}, nil
 }

@@ -1,7 +1,6 @@
 #
 # mixer configuration
 #
-enabled: true
 image: mixer
 
 env:
@@ -67,8 +66,8 @@ nodeSelector: {}
 # This pod anti-affinity rule says that the pod requires not to be scheduled
 # onto a node if that node is already running a pod with label having key
 # “security” and value “S1”.
-podAntiAffinityLabelSelector: {}
-podAntiAffinityTermLabelSelector: {}
+podAntiAffinityLabelSelector: []
+podAntiAffinityTermLabelSelector: []
 
 adapters:
   kubernetesenv:
@@ -82,4 +81,4 @@ adapters:
     enabled: true
     metricsExpiryDuration: 10m
   # Setting this to false sets the useAdapterCRDs mixer startup argument to false
-  useAdapterCRDs: true
+  useAdapterCRDs: false

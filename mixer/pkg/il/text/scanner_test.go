@@ -114,7 +114,7 @@ var scannerTests = []scTest{
 	{
 		txt: `0123`,
 		e: []expect{
-			{t: tkIntegerLiteral, v: int64(0123)},
+			{t: tkIntegerLiteral, v: int64(83)},
 		},
 	},
 	{

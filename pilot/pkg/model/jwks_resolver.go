@@ -28,7 +28,7 @@ import (
 	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	"istio.io/istio/pkg/cache"
+	"istio.io/pkg/cache"
 )
 
 const (
@@ -65,7 +65,7 @@ var (
 	publicRootCABundlePath = "/cacert.pem"
 
 	// Close channel
-	close = make(chan bool)
+	closeChan = make(chan bool)
 )
 
 // jwtPubKeyEntry is a single cached entry for jwt public key.
@@ -287,7 +287,7 @@ func (r *jwksResolver) refresher() {
 		select {
 		case now := <-r.refreshTicker.C:
 			r.refresh(now)
-		case <-close:
+		case <-closeChan:
 			r.refreshTicker.Stop()
 		}
 	}
@@ -358,5 +358,5 @@ func (r *jwksResolver) refresh(t time.Time) {
 // TODO: may need to figure out the right place to call this function.
 // (right now calls it from initDiscoveryService in pkg/bootstrap/server.go).
 func (r *jwksResolver) Close() {
-	close <- true
+	closeChan <- true
 }

@@ -15,13 +15,8 @@
 package authz
 
 import (
-	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	"github.com/gogo/protobuf/types"
 )
 
 func TestStringMatch(t *testing.T) {
@@ -56,73 +51,6 @@ func TestStringMatch(t *testing.T) {
 	for _, tc := range testCases {
 		if actual := stringMatch(tc.S, tc.List); actual != tc.Expect {
 			t.Errorf("%s: expecting: %v, but got: %v", tc.Name, tc.Expect, actual)
-		}
-	}
-}
-
-func TestConvertToCidr(t *testing.T) {
-	testCases := []struct {
-		Name   string
-		V      string
-		Expect *core.CidrRange
-		Err    string
-	}{
-		{
-			Name: "cidr with two /",
-			V:    "192.168.0.0//16",
-			Err:  "invalid cidr range",
-		},
-		{
-			Name: "cidr with invalid prefix length",
-			V:    "192.168.0.0/ab",
-			Err:  "invalid cidr range",
-		},
-		{
-			Name: "cidr with negative prefix length",
-			V:    "192.168.0.0/-16",
-			Err:  "invalid cidr range",
-		},
-		{
-			Name: "valid cidr range",
-			V:    "192.168.0.0/16",
-			Expect: &core.CidrRange{
-				AddressPrefix: "192.168.0.0",
-				PrefixLen:     &types.UInt32Value{Value: 16},
-			},
-		},
-		{
-			Name: "invalid ip address",
-			V:    "19216800",
-			Err:  "invalid ip address",
-		},
-		{
-			Name: "valid ipv4 address",
-			V:    "192.168.0.0",
-			Expect: &core.CidrRange{
-				AddressPrefix: "192.168.0.0",
-				PrefixLen:     &types.UInt32Value{Value: 32},
-			},
-		},
-		{
-			Name: "valid ipv6 address",
-			V:    "2001:abcd:85a3::8a2e:370:1234",
-			Expect: &core.CidrRange{
-				AddressPrefix: "2001:abcd:85a3::8a2e:370:1234",
-				PrefixLen:     &types.UInt32Value{Value: 128},
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		actual, err := convertToCidr(tc.V)
-		if tc.Err != "" {
-			if err == nil {
-				t.Errorf("%s: expecting error: %s but found no error", tc.Name, tc.Err)
-			} else if !strings.HasPrefix(err.Error(), tc.Err) {
-				t.Errorf("%s: expecting error: %s, but got: %s", tc.Name, tc.Err, err.Error())
-			}
-		} else if !reflect.DeepEqual(*tc.Expect, *actual) {
-			t.Errorf("%s: expecting %v, but got %v", tc.Name, *tc.Expect, *actual)
 		}
 	}
 }
@@ -170,41 +98,31 @@ func TestConvertToPort(t *testing.T) {
 	}
 }
 
-func TestConvertToHeaderMatcher(t *testing.T) {
+func TestConvertPortsToString(t *testing.T) {
 	testCases := []struct {
 		Name   string
-		K      string
-		V      string
-		Expect *route.HeaderMatcher
+		V      []int32
+		Expect []string
+		Err    string
 	}{
 		{
-			Name: "exact match",
-			K:    ":path",
-			V:    "/productpage",
-			Expect: &route.HeaderMatcher{
-				Name: ":path",
-				HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
-					ExactMatch: "/productpage",
-				},
-			},
+			Name:   "valid ports",
+			V:      []int32{80, 3000, 443},
+			Expect: []string{"80", "3000", "443"},
 		},
 		{
-			Name: "suffix match",
-			K:    ":path",
-			V:    "*/productpage*",
-			Expect: &route.HeaderMatcher{
-				Name: ":path",
-				HeaderMatchSpecifier: &route.HeaderMatcher_SuffixMatch{
-					SuffixMatch: "/productpage*",
-				},
-			},
+			Name:   "valid port",
+			V:      []int32{9080},
+			Expect: []string{"9080"},
 		},
 	}
 
 	for _, tc := range testCases {
-		actual := convertToHeaderMatcher(tc.K, tc.V)
-		if !reflect.DeepEqual(*tc.Expect, *actual) {
-			t.Errorf("%s: expecting %v, but got %v", tc.Name, *tc.Expect, *actual)
+		actual := convertPortsToString(tc.V)
+		for i := range tc.Expect {
+			if tc.Expect[i] != actual[i] {
+				t.Errorf("%s: expecting %s, but got %s", tc.Name, tc.Expect, actual)
+			}
 		}
 	}
 }

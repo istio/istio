@@ -34,9 +34,10 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	"istio.io/istio/pkg/log"
+	pmodel "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/model"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -46,10 +47,6 @@ const (
 	// credentialTokenHeaderKey is the header key in gPRC header which is used to
 	// pass credential token from envoy's SDS request to SDS service.
 	credentialTokenHeaderKey = "authorization"
-
-	// k8sSAJwtTokenHeaderKey is the request header key, header value is k8s sa jwt, which is set in
-	// https://github.com/istio/istio/blob/master/pilot/pkg/model/authentication.go
-	k8sSAJwtTokenHeaderKey = "istio_sds_credentail_header-bin"
 
 	// IngressGatewaySdsCaSuffix is the suffix of the sds resource name for root CA. All SDS requests
 	// for root CA sent by ingress gateway have suffix -cacert.
@@ -200,7 +197,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// wait for secret before sending SDS response. If a kubernetes secret was deleted by operator, wait
 			// for a new kubernetes secret before sending SDS response.
 			if s.st.ShouldWaitForIngressGatewaySecret(con.conID, resourceName, token) {
-				log.Debugf("Waiting for ingress gateway secret resource %q, connectionID %q, node %q\n", resourceName, con.conID, discReq.Node.Id)
+				log.Warnf("Waiting for ingress gateway secret resource %q, connectionID %q, node %q\n", resourceName, con.conID, discReq.Node.Id)
 				continue
 			}
 
@@ -259,15 +256,16 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 		return nil, err
 	}
 
-	secret, err := s.st.GenerateSecret(ctx, discReq.Node.Id, resourceName, token)
+	connID := constructConnectionID(discReq.Node.Id)
+	secret, err := s.st.GenerateSecret(ctx, connID, resourceName, token)
 	if err != nil {
-		log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
+		log.Errorf("Failed to get secret for proxy %q from secret cache: %v", connID, err)
 		return nil, err
 	}
-	return sdsDiscoveryResponse(secret, discReq.Node.Id)
+	return sdsDiscoveryResponse(secret, connID)
 }
 
-// NotifyProxy send notification to proxy about secret update,
+// NotifyProxy sends notification to proxy about secret update,
 // SDS will close streaming connection if secret is nil.
 func NotifyProxy(conID, resourceName string, secret *model.SecretItem) error {
 	key := cache.ConnKey{
@@ -307,9 +305,9 @@ func getCredentialToken(ctx context.Context) (string, error) {
 
 	// Get credential token from request k8sSAJwtTokenHeader(`istio_sds_credentail_header`) if it exists;
 	// otherwise fallback to credentialTokenHeader('authorization').
-	if h, ok := metadata[k8sSAJwtTokenHeaderKey]; ok {
+	if h, ok := metadata[pmodel.K8sSAJwtTokenHeaderKey]; ok {
 		if len(h) != 1 {
-			return "", fmt.Errorf("credential token from %q must have 1 value in gRPC metadata but got %d", k8sSAJwtTokenHeaderKey, len(h))
+			return "", fmt.Errorf("credential token from %q must have 1 value in gRPC metadata but got %d", pmodel.K8sSAJwtTokenHeaderKey, len(h))
 		}
 		return h[0], nil
 	}

@@ -8,6 +8,12 @@
 
 An open platform to connect, manage, and secure microservices.
 
+- For in-depth information about how to use Istio, visit [istio.io](https://istio.io)                                   
+- To ask questions and get assistance from our community, visit [discuss.istio.io](https://discuss.istio.io)
+- To learn how to participate in our overall community, visit [our community page](https://istio.io/about/community)
+
+In this README:
+
 - [Introduction](#introduction)
 - [Repositories](#repositories)
 - [Issue management](#issue-management)
@@ -15,9 +21,9 @@ An open platform to connect, manage, and secure microservices.
 In addition, here are some other documents you may wish to read:
 
 - [Istio Community](https://github.com/istio/community) - describes how to get involved and contribute to the Istio project
-- [Istio Developer's Guide](https://github.com/istio/istio/wiki/Dev-Guide) - explains how to set up and use an Istio development environment
-- [Project Conventions](https://github.com/istio/istio/wiki/Dev-Conventions) - describes the conventions we use within the code base
-- [Creating Fast and Lean Code](https://github.com/istio/istio/wiki/Dev-Writing-Fast-and-Lean-Code) - performance-oriented advice and guidelines for the code base
+- [Istio Developer's Guide](https://github.com/istio/istio/wiki/Preparing-for-Development) - explains how to set up and use an Istio development environment
+- [Project Conventions](https://github.com/istio/istio/wiki/Development-Conventions) - describes the conventions we use within the code base
+- [Creating Fast and Lean Code](https://github.com/istio/istio/wiki/Writing-Fast-and-Lean-Code) - performance-oriented advice and guidelines for the code base
 
 You'll find many other useful documents on our [Wiki](https://github.com/istio/istio/wiki).
 
@@ -26,10 +32,7 @@ You'll find many other useful documents on our [Wiki](https://github.com/istio/i
 Istio is an open platform for providing a uniform way to integrate
 microservices, manage traffic flow across microservices, enforce policies
 and aggregate telemetry data. Istio's control plane provides an abstraction
-layer over the underlying cluster management platform, such as Kubernetes,
-Mesos, etc.
-
-Visit [istio.io](https://istio.io) for in-depth information about using Istio.
+layer over the underlying cluster management platform, such as Kubernetes.
 
 Istio is composed of these components:
 
@@ -52,7 +55,7 @@ Istio is composed of these components:
 
 - **Citadel** - A centralized component responsible for certificate issuance and rotation.
 
-- **Node Agent** - A per-node component responsible for certificate issuance and rotation.
+- **Citadel Agent** - A per-node component responsible for certificate issuance and rotation.
 
 - **Galley**- Central component for validating, ingesting, aggregating, transforming and distributing config within Istio.
 
@@ -68,7 +71,7 @@ currently looking at. It hosts Istio's core components and also
 the sample programs and the various documents that govern the Istio open source
 project. It includes:
   - [security](security/). This directory contains security related code,
-including Citadel (acting as Certificate Authority), node agent, etc.
+including Citadel (acting as Certificate Authority), citadel agent, etc.
   - [pilot](pilot/). This directory
 contains platform-specific code to populate the
 [abstract service model](https://istio.io/docs/concepts/traffic-management/overview.html), dynamically reconfigure the proxies

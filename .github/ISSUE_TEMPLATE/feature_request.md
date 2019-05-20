@@ -3,12 +3,10 @@ name: Feature request
 about: Suggest an idea to improve Istio
 
 ---
+(This is used to request new product features, please visit <https://discuss.istio.io> for questions on using Istio)
 
 **Describe the feature request**
-{{ Succinctly describe your request }}
 
 **Describe alternatives you've considered**
-{{ Describe alternative solutions or workarounds you've considered. }}
 
 **Additional context**
-{{ Add any other context about the feature request here }}

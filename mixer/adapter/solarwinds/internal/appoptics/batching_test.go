@@ -64,7 +64,7 @@ func TestBatchMeasurements(t *testing.T) {
 			}
 			stopChan <- struct{}{}
 		}()
-		BatchMeasurements(prepChan, pushChan, stopChan, batchSize, logger)
+		BatchMeasurements(prepChan, pushChan, stopChan, batchSize)
 		close(stopChan)
 	})
 
@@ -85,7 +85,7 @@ func TestBatchMeasurements(t *testing.T) {
 			time.Sleep(time.Millisecond)
 			stopChan <- struct{}{}
 		}()
-		BatchMeasurements(prepChan, pushChan, stopChan, batchSize, logger)
+		BatchMeasurements(prepChan, pushChan, stopChan, batchSize)
 	})
 }
 
@@ -101,9 +101,9 @@ func (s *MockServiceAccessor) MeasurementsService() MeasurementsCommunicator {
 func TestPersistBatches(t *testing.T) {
 	tests := []struct {
 		name           string
-		expectedCount  int32
 		response       *http.Response
 		error          error
+		expectedCount  int32
 		sendOnStopChan bool
 	}{
 		{

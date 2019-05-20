@@ -31,13 +31,12 @@ import (
 	istio_mixer_v1_config "istio.io/api/policy/v1beta1"
 	pb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/checker"
 	istio_mixer_adapter_sample_myapa "istio.io/istio/mixer/template/sample/apa"
 	sample_check "istio.io/istio/mixer/template/sample/check"
 	sample_quota "istio.io/istio/mixer/template/sample/quota"
 	sample_report "istio.io/istio/mixer/template/sample/report"
+	"istio.io/pkg/attribute"
 )
 
 // Does not implement any template interfaces.
@@ -134,13 +133,6 @@ func (h *fakeQuotaHandler) SetQuotaTypes(t map[string]*sample_quota.Type) {
 }
 func (h *fakeQuotaHandler) Validate() *adapter.ConfigErrors     { return nil }
 func (h *fakeQuotaHandler) SetAdapterConfig(cfg adapter.Config) {}
-
-type fakeBag struct{}
-
-func (f fakeBag) Get(name string) (value interface{}, found bool) { return nil, false }
-func (f fakeBag) Names() []string                                 { return []string{} }
-func (f fakeBag) Done()                                           {}
-func (f fakeBag) String() string                                  { return "" }
 
 func TestGeneratedFields(t *testing.T) {
 	for _, tst := range []struct {
@@ -325,8 +317,8 @@ func getExprEvalFunc(err error) func(string) (pb.ValueType, error) {
 		}
 
 		if retType == pb.VALUE_TYPE_UNSPECIFIED {
-			tc := checker.NewTypeChecker()
-			retType, err = tc.EvalType(expr, createAttributeDescriptorFinder(nil))
+			tc := checker.NewTypeChecker(createAttributeDescriptorFinder(nil))
+			retType, err = tc.EvalType(expr)
 		}
 		return retType, err
 	}
@@ -573,10 +565,8 @@ dimensions:
 				if !reflect.DeepEqual(v, tst.wantType) {
 					t.Errorf("InferType (%s) = \n%v, want \n%v", tst.name, spew.Sdump(v), spew.Sdump(tst.wantType))
 				}
-			} else {
-				if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
-					t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
-				}
+			} else if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
+				t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
 			}
 		})
 	}
@@ -660,10 +650,8 @@ res1:
 				if !reflect.DeepEqual(v, tst.wantType) {
 					t.Errorf("InferType (%s) = \n%v, want \n%v", tst.name, spew.Sdump(v), spew.Sdump(tst.wantType))
 				}
-			} else {
-				if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
-					t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
-				}
+			} else if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
+				t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
 			}
 		})
 	}
@@ -747,10 +735,8 @@ dimensions:
 				if !reflect.DeepEqual(v, tst.wantType) {
 					t.Errorf("InferType (%s) = \n%v, want \n%v", tst.name, spew.Sdump(v), spew.Sdump(tst.wantType))
 				}
-			} else {
-				if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
-					t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
-				}
+			} else if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
+				t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
 			}
 		})
 	}
@@ -872,7 +858,7 @@ var baseManifests = []*istio_mixer_v1_config.AttributeManifest{
 	},
 }
 
-func createAttributeDescriptorFinder(extraAttrManifest []*istio_mixer_v1_config.AttributeManifest) ast.AttributeDescriptorFinder {
+func createAttributeDescriptorFinder(extraAttrManifest []*istio_mixer_v1_config.AttributeManifest) attribute.AttributeDescriptorFinder {
 	attrs := make(map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo)
 	for _, m := range baseManifests {
 		for an, at := range m.Attributes {
@@ -884,7 +870,7 @@ func createAttributeDescriptorFinder(extraAttrManifest []*istio_mixer_v1_config.
 			attrs[an] = at
 		}
 	}
-	return ast.NewFinder(attrs)
+	return attribute.NewFinder(attrs)
 }
 
 // EvalPredicate evaluates given predicate using the attribute bag
@@ -892,16 +878,15 @@ func (e *fakeExpr) EvalPredicate(mapExpression string, attrs attribute.Bag) (boo
 	return true, nil
 }
 
-func (e *fakeExpr) EvalType(s string, af ast.AttributeDescriptorFinder) (pb.ValueType, error) {
-	//return pb.VALUE_TYPE_UNSPECIFIED, nil
+func (e *fakeExpr) EvalType(s string, af attribute.AttributeDescriptorFinder) (pb.ValueType, error) {
 	if i := af.GetAttribute(s); i != nil {
 		return i.ValueType, nil
 	}
-	tc := checker.NewTypeChecker()
-	return tc.EvalType(s, af)
+	tc := checker.NewTypeChecker(af)
+	return tc.EvalType(s)
 }
 
-func (e *fakeExpr) AssertType(string, ast.AttributeDescriptorFinder, pb.ValueType) error {
+func (e *fakeExpr) AssertType(string, attribute.AttributeDescriptorFinder, pb.ValueType) error {
 	return nil
 }
 
@@ -1044,24 +1029,11 @@ attribute_bindings:
 				if cv != nil {
 					t.Errorf("cv should be nil, there should be no type for apa instances")
 				}
-			} else {
-				if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
-					t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
-				}
+			} else if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
+				t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
 			}
 		})
 	}
-}
-
-func InterfaceSlice(slice interface{}) []interface{} {
-	s := reflect.ValueOf(slice)
-
-	ret := make([]interface{}, s.Len())
-	for i := 0; i < s.Len(); i++ {
-		ret[i] = s.Index(i).Interface()
-	}
-
-	return ret
 }
 
 // nolint: unparam

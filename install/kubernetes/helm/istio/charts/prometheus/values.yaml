@@ -4,7 +4,7 @@
 enabled: true
 replicaCount: 1
 hub: docker.io/prom
-tag: v2.3.1
+tag: v2.8.0
 retention: 6h
 nodeSelector: {}
 
@@ -26,8 +26,8 @@ nodeSelector: {}
 # This pod anti-affinity rule says that the pod requires not to be scheduled
 # onto a node if that node is already running a pod with label having key
 # “security” and value “S1”.
-podAntiAffinityLabelSelector: {}
-podAntiAffinityTermLabelSelector: {}
+podAntiAffinityLabelSelector: []
+podAntiAffinityTermLabelSelector: []
 
 # Controls the frequency of prometheus scraping
 scrapeInterval: 15s

@@ -109,8 +109,7 @@ audiences will be accepted.</p>
 <td><code>string</code></td>
 <td>
 <p>URL of the provider&rsquo;s public key set to validate signature of the
-JWT. See <a href="https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata">OpenID
-Discovery</a>.</p>
+JWT. See <a href="https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata">OpenID Discovery</a>.</p>
 
 <p>Optional if the key set document can either (a) be retrieved from
 <a href="https://openid.net/specs/openid-connect-discovery-1_0.html">OpenID
@@ -119,6 +118,19 @@ the issuer or (b) inferred from the email domain of the issuer (e.g. a
 Google service account).</p>
 
 <p>Example: <code>https://www.googleapis.com/oauth2/v1/certs</code></p>
+
+<p>Note: Only one of jwks_uri and jwks should be used.</p>
+
+</td>
+</tr>
+<tr id="Jwt-jwks">
+<td><code>jwks</code></td>
+<td><code>string</code></td>
+<td>
+<p>JSON Web Key Set of public keys to validate signature of the JWT.
+See https://auth0.com/docs/jwks.</p>
+
+<p>Note: Only one of jwks_uri and jwks should be used.</p>
 
 </td>
 </tr>
@@ -130,7 +142,7 @@ Google service account).</p>
 header name.</p>
 
 <p>For example, if <code>header=x-goog-iap-jwt-assertion</code>, the header
-format will be x-goog-iap-jwt-assertion: <JWT>.</p>
+format will be x-goog-iap-jwt-assertion: &lt;JWT&gt;.</p>
 
 </td>
 </tr>
@@ -369,7 +381,7 @@ metadata:
   name: productpage-mTLS-with-JWT
   namespace: frod
 spec:
-  target:
+  targets:
   - name: productpage
     ports:
     - number: 9000
@@ -613,7 +625,7 @@ fully qualified domain name will be resolved in a platform specific manner.</p>
 <td><code>ports</code></td>
 <td><code><a href="#PortSelector">PortSelector[]</a></code></td>
 <td>
-<p>Specifies the ports. Note that this is the port(s) exposed by the service, not workload ports.
+<p>Specifies the ports. Note that this is the port(s) exposed by the service, not workload instance ports.
 For example, if a service is defined as below, then <code>8000</code> should be used, not <code>9000</code>.</p>
 
 <pre><code class="language-yaml">kind: Service

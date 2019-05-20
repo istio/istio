@@ -27,13 +27,14 @@ import (
 
 	"github.com/gogo/status"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/internal/test"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
+	"istio.io/pkg/log"
 )
 
 func init() {
@@ -59,11 +60,11 @@ type sourceTestHarness struct {
 	recvErr           error
 	ctx               context.Context
 	nonce             int
-	closeWatch        bool
 	watchResponses    map[string]*WatchResponse
 	pushResponseFuncs map[string][]PushResponseFunc
 	watchCreated      map[string]int
 	client            bool
+	closeWatch        bool
 }
 
 func newSourceTestHarness(t *testing.T) *sourceTestHarness {
@@ -168,10 +169,10 @@ func (h *sourceTestHarness) setRecvError(err error) {
 	h.recvErr = err
 }
 
-func (h *sourceTestHarness) setCloseWatch(close bool) {
+func (h *sourceTestHarness) setCloseWatch(closeWatch bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.closeWatch = close
+	h.closeWatch = closeWatch
 }
 
 func (h *sourceTestHarness) watchesCreated(typeURL string) int {
@@ -180,7 +181,7 @@ func (h *sourceTestHarness) watchesCreated(typeURL string) int {
 	return h.watchCreated[typeURL]
 }
 
-func (h *sourceTestHarness) Watch(req *Request, pushResponse PushResponseFunc) CancelWatchFunc {
+func (h *sourceTestHarness) Watch(req *Request, pushResponse PushResponseFunc, peerAddr string) CancelWatchFunc {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -235,6 +236,36 @@ func verifySentResources(t *testing.T, h *sourceTestHarness, want *mcp.Resources
 	}
 }
 
+func verifySentResourcesMultipleTypes(t *testing.T, h *sourceTestHarness, wantResources map[string]*mcp.Resources) map[string]*mcp.Resources {
+	t.Helper()
+
+	gotResources := make(map[string]*mcp.Resources)
+	for {
+		select {
+		case got := <-h.resourcesChan:
+			if _, ok := gotResources[got.Collection]; ok {
+				t.Fatalf("gotResources duplicate response for type %v: %v", got.Collection, got)
+			}
+			gotResources[got.Collection] = got
+
+			want, ok := wantResources[got.Collection]
+			if !ok {
+				t.Fatalf("gotResources unexpected response for type %v: %v", got.Collection, got)
+			}
+
+			if diff := cmp.Diff(*got, *want, cmpopts.IgnoreFields(mcp.Resources{}, "Nonce")); diff != "" {
+				t.Fatalf("wrong responses for %v: \n got %+v \nwant %+v \n diff %v", got.Collection, got, want, diff)
+			}
+
+			if len(gotResources) == len(wantResources) {
+				return gotResources
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("timeout waiting for all responses: gotResources %v", gotResources)
+		}
+	}
+}
+
 func makeWatchResponse(collection string, version string, incremental bool, fakes ...*test.Fake) *WatchResponse { // nolint: unparam
 	r := &WatchResponse{
 		Collection: collection,
@@ -253,10 +284,13 @@ func makeWatchResponse(collection string, version string, incremental bool, fake
 }
 
 func makeSourceUnderTest(w Watcher) *Source {
+	fakeLimiter := test.NewFakePerConnLimiter()
+	close(fakeLimiter.ErrCh)
 	options := &Options{
-		Watcher:           w,
-		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:          monitoring.NewInMemoryStatsContext(),
+		Watcher:            w,
+		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
+		ConnRateLimiter:    fakeLimiter,
 	}
 	return New(options)
 }
@@ -271,7 +305,7 @@ func TestSourceACKAddUpdateDelete(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		if err := s.processStream(h); err != nil {
+		if err := s.ProcessStream(h); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
 		}
 		wg.Done()
@@ -355,7 +389,7 @@ func TestSourceWatchBeforeResponsesAvailable(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		if err := s.processStream(h); err != nil {
+		if err := s.ProcessStream(h); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
 		}
 		wg.Done()
@@ -386,8 +420,68 @@ func TestSourceWatchClosed(t *testing.T) {
 
 	// check that response fails since watch gets closed
 	s := makeSourceUnderTest(h)
-	if err := s.processStream(h); err == nil {
+	if err := s.ProcessStream(h); err == nil {
 		t.Error("Stream() => got no error, want watch failed")
+	}
+}
+
+func TestConnRateLimit(t *testing.T) {
+	h := newSourceTestHarness(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	type key int
+	const ctxKey key = 0
+	expectedCtx := "expectedCtx"
+	h.ctx = context.WithValue(ctx, ctxKey, expectedCtx)
+
+	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "", codes.OK)
+
+	fakeLimiter := test.NewFakePerConnLimiter()
+
+	s := makeSourceUnderTest(h)
+	s.requestLimiter = fakeLimiter
+
+	go s.ProcessStream(h)
+
+	<-fakeLimiter.CreateCh
+	c := <-fakeLimiter.WaitCh
+	cancel()
+
+	if len(fakeLimiter.CreateCh) != 0 {
+		t.Error("Stream() => expected create to only get called once")
+	}
+
+	ctxVal := c.Value(ctxKey).(string)
+	if ctxVal != expectedCtx {
+		t.Errorf("Wait received wrong context: got %v want %v", ctxVal, expectedCtx)
+	}
+
+	if len(fakeLimiter.WaitCh) != 0 {
+		t.Error("Stream() => expected Wait to only get called once")
+	}
+}
+
+func TestConnRateLimitError(t *testing.T) {
+	h := newSourceTestHarness(t)
+
+	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "", codes.OK)
+
+	fakeLimiter := test.NewFakePerConnLimiter()
+
+	s := makeSourceUnderTest(h)
+	s.requestLimiter = fakeLimiter
+
+	errC := make(chan error)
+	go func() {
+		errC <- s.ProcessStream(h)
+	}()
+
+	expectedErr := "rate limiting went wrong"
+	fakeLimiter.ErrCh <- errors.New(expectedErr)
+
+	err := <-errC
+	if err == nil || err.Error() != expectedErr {
+		t.Errorf("Stream() => expected %v got %v", expectedErr, err)
 	}
 }
 
@@ -405,7 +499,7 @@ func TestSourceSendError(t *testing.T) {
 
 	// check that response fails since watch gets closed
 	s := makeSourceUnderTest(h)
-	if err := s.processStream(h); err == nil {
+	if err := s.ProcessStream(h); err == nil {
 		t.Error("Stream() => got no error, want send error")
 	}
 }
@@ -423,13 +517,14 @@ func TestSourceReceiveError(t *testing.T) {
 	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "", codes.OK)
 
 	options := &Options{
-		Watcher:           h,
-		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:          monitoring.NewInMemoryStatsContext(),
+		Watcher:            h,
+		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
+		ConnRateLimiter:    test.NewFakePerConnLimiter(),
 	}
 	// check that response fails since watch gets closed
 	s := New(options)
-	if err := s.processStream(h); err == nil {
+	if err := s.ProcessStream(h); err == nil {
 		t.Error("Stream() => got no error, want send error")
 	}
 }
@@ -447,7 +542,7 @@ func TestSourceUnsupportedTypeError(t *testing.T) {
 
 	// check that response fails since watch gets closed
 	s := makeSourceUnderTest(h)
-	if err := s.processStream(h); err == nil {
+	if err := s.ProcessStream(h); err == nil {
 		t.Error("Stream() => got no error, want send error")
 	}
 }
@@ -459,7 +554,7 @@ func TestSourceStaleNonce(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		if err := s.processStream(h); err != nil {
+		if err := s.ProcessStream(h); err != nil {
 			t.Errorf("StreamAggregatedResources() => got %v, want no error", err)
 		}
 		wg.Done()
@@ -504,7 +599,7 @@ func TestSourceConcurrentRequestsForMultipleTypes(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		if err := s.processStream(h); err != nil {
+		if err := s.ProcessStream(h); err != nil {
 			t.Errorf("StreamAggregatedResources() => got %v, want no error", err)
 		}
 		wg.Done()
@@ -661,21 +756,28 @@ func TestSourceACKAddUpdateDelete_Incremental(t *testing.T) {
 		Addr: &net.IPAddr{IP: net.IPv4(192, 168, 1, 1)},
 	}))
 
+	fakeLimiter := test.NewFakePerConnLimiter()
+	close(fakeLimiter.ErrCh)
 	options := &Options{
-		Watcher:           h,
-		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:          monitoring.NewInMemoryStatsContext(),
+		Watcher:            h,
+		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
+		ConnRateLimiter:    fakeLimiter,
 	}
-	for i := range options.CollectionOptions {
-		co := &options.CollectionOptions[i]
+	for i := range options.CollectionsOptions {
+		co := &options.CollectionsOptions[i]
 		co.Incremental = true
 	}
 	s := New(options)
 
+	for _, v := range s.collections {
+		v.Incremental = true
+	}
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		if err := s.processStream(h); err != nil {
+		if err := s.ProcessStream(h); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
 		}
 		wg.Done()

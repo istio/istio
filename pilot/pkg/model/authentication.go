@@ -44,12 +44,12 @@ const (
 	// K8sSAJwtFileName is the token volume mount file name for k8s jwt token.
 	K8sSAJwtFileName = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 
-	// fileBasedMetadataPlugName is File Based Metadata credentials plugin name.
-	fileBasedMetadataPlugName = "envoy.grpc_credentials.file_based_metadata"
+	// FileBasedMetadataPlugName is File Based Metadata credentials plugin name.
+	FileBasedMetadataPlugName = "envoy.grpc_credentials.file_based_metadata"
 
-	// k8sSAJwtTokenHeaderKey is the request header key for k8s jwt token.
+	// K8sSAJwtTokenHeaderKey is the request header key for k8s jwt token.
 	// Binary header name must has suffix "-bin", according to https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
-	k8sSAJwtTokenHeaderKey = "istio_sds_credentail_header-bin"
+	K8sSAJwtTokenHeaderKey = "istio_sds_credentials_header-bin"
 
 	// IngressGatewaySdsUdsPath is the UDS path for ingress gateway to get credentials via SDS.
 	IngressGatewaySdsUdsPath = "unix:/var/run/ingress_gateway/sds"
@@ -61,10 +61,15 @@ const (
 // JwtKeyResolver resolves JWT public key and JwksURI.
 var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
-// GetConsolidateAuthenticationPolicy returns the authentication policy for
-// service specified by hostname and port, if defined. It also tries to resolve JWKS URI if necessary.
-func GetConsolidateAuthenticationPolicy(store IstioConfigStore, service *Service, port *Port) *authn.Policy {
-	config := store.AuthenticationPolicyByDestination(service, port)
+// GetConsolidateAuthenticationPolicy returns the authentication policy for workload specified by
+// hostname (or label selector if specified) and port, if defined.
+// It also tries to resolve JWKS URI if necessary.
+func GetConsolidateAuthenticationPolicy(store IstioConfigStore, serviceInstance *ServiceInstance) *authn.Policy {
+	service := serviceInstance.Service
+	port := serviceInstance.Endpoint.ServicePort
+	labels := serviceInstance.Labels
+
+	config := store.AuthenticationPolicyForWorkload(service, labels, port)
 	if config != nil {
 		policy := config.Spec.(*authn.Policy)
 		if err := JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy); err == nil {
@@ -127,17 +132,17 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, u
 	// request key/cert.
 	if sdsTokenPath, found := metadata[NodeMetadataSdsTokenPath]; found && len(sdsTokenPath) > 0 {
 		log.Debugf("SDS token path is (%v)", sdsTokenPath)
-		gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
-		gRPCConfig.CallCredentials = constructgRPCCallCredentials(sdsTokenPath, k8sSAJwtTokenHeaderKey)
+		gRPCConfig.CredentialsFactoryName = FileBasedMetadataPlugName
+		gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(sdsTokenPath, K8sSAJwtTokenHeaderKey)
 	} else if useK8sSATrustworthyJwt {
-		gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
-		gRPCConfig.CallCredentials = constructgRPCCallCredentials(K8sSATrustworthyJwtFileName, k8sSAJwtTokenHeaderKey)
+		gRPCConfig.CredentialsFactoryName = FileBasedMetadataPlugName
+		gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(K8sSATrustworthyJwtFileName, K8sSAJwtTokenHeaderKey)
 	} else if useK8sSANormalJwt {
-		gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
-		gRPCConfig.CallCredentials = constructgRPCCallCredentials(K8sSAJwtFileName, k8sSAJwtTokenHeaderKey)
+		gRPCConfig.CredentialsFactoryName = FileBasedMetadataPlugName
+		gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(K8sSAJwtFileName, K8sSAJwtTokenHeaderKey)
 	} else {
 		gRPCConfig.CallCredentials = []*core.GrpcService_GoogleGrpc_CallCredentials{
-			&core.GrpcService_GoogleGrpc_CallCredentials{
+			{
 				CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
 					GoogleComputeEngine: &types.Empty{},
 				},
@@ -223,7 +228,7 @@ func ParseJwksURI(jwksURI string) (string, *Port, bool, error) {
 }
 
 // this function is used to construct SDS config which is only available from 1.1
-func constructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcService_GoogleGrpc_CallCredentials {
+func ConstructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcService_GoogleGrpc_CallCredentials {
 	// If k8s sa jwt token file exists, envoy only handles plugin credentials.
 	config := &v2alpha.FileBasedMetadataConfig{
 		SecretData: &core.DataSource{
@@ -237,10 +242,10 @@ func constructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcS
 	any := findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey, config)
 
 	return []*core.GrpcService_GoogleGrpc_CallCredentials{
-		&core.GrpcService_GoogleGrpc_CallCredentials{
+		{
 			CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
 				FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
-					Name: fileBasedMetadataPlugName,
+					Name: FileBasedMetadataPlugName,
 					ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_TypedConfig{
 						TypedConfig: any},
 				},

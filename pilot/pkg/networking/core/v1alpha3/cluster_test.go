@@ -302,7 +302,6 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_RING_HASH))
 	g.Expect(cluster.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(2)))
 	g.Expect(cluster.Name).To(Equal("outbound|8080||*.example.org"))
-	//g.Expect(cluster.Type).To(Equal(apiv2.Cluster_EDS))
 	g.Expect(cluster.ConnectTimeout).To(Equal(time.Duration(10000000001)))
 }
 
@@ -336,7 +335,6 @@ func TestBuildGatewayClustersWithRingHashLbDefaultMinRingSize(t *testing.T) {
 	g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_RING_HASH))
 	g.Expect(cluster.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(1024)))
 	g.Expect(cluster.Name).To(Equal("outbound|8080||*.example.org"))
-	//g.Expect(cluster.Type).To(Equal(apiv2.Cluster_EDS))
 	g.Expect(cluster.ConnectTimeout).To(Equal(time.Duration(10000000001)))
 }
 
@@ -347,7 +345,6 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
 		Mesh:             &mesh,
-		MixerSAN:         []string{},
 	}
 
 	env.PushContext = model.NewPushContext()
@@ -587,8 +584,8 @@ func TestClusterMetadata(t *testing.T) {
 	destRule := &networking.DestinationRule{
 		Host: "*.example.org",
 		Subsets: []*networking.Subset{
-			&networking.Subset{Name: "Subset 1"},
-			&networking.Subset{Name: "Subset 2"},
+			{Name: "Subset 1"},
+			{Name: "Subset 2"},
 		},
 		TrafficPolicy: &networking.TrafficPolicy{
 			ConnectionPool: &networking.ConnectionPoolSettings{

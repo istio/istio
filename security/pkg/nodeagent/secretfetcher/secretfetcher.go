@@ -31,15 +31,14 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
 	ca "istio.io/istio/security/pkg/nodeagent/caclient"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	"istio.io/istio/security/pkg/nodeagent/model"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 const (
-	secretResyncPeriod = 15 * time.Second
-
 	// The ID/name for the certificate chain in kubernetes generic secret.
 	genericScrtCert = "cert"
 	// The ID/name for the private key in kubernetes generic secret.
@@ -67,6 +66,16 @@ const (
 	prometheusPrefix = "prometheus"
 )
 
+var (
+	// TODO(JimmyCYJ): Configure these two env variables in Helm
+	// secretControllerResyncPeriod specifies the time period in seconds that secret controller
+	// resyncs to API server.
+	// example value format like "30s"
+	secretControllerResyncPeriod = env.RegisterStringVar("SECRET_WATCHER_RESYNC_PERIOD", "", "").Get()
+	// ingressFallbackSecret specifies the name of fallback secret for ingress gateway.
+	ingressFallbackSecret = env.RegisterStringVar("INGRESS_GATEWAY_FALLBACK_SECRET", "gateway-fallback", "").Get()
+)
+
 // SecretFetcher fetches secret via watching k8s secrets or sending CSR to CA.
 type SecretFetcher struct {
 	// If UseCaClient is true, use caClient to send CSR to CA.
@@ -86,6 +95,12 @@ type SecretFetcher struct {
 	DeleteCache func(secretName string)
 	// Update all entries containing secretName in SecretCache. Called when K8S secret is updated.
 	UpdateCache func(secretName string, ns model.SecretItem)
+
+	// FallbackSecretName stores the name of fallback secret which is set at env variable
+	// INGRESS_GATEWAY_FALLBACK_SECRET. If INGRESS_GATEWAY_FALLBACK_SECRET is empty, then use
+	// gateway-fallback as default name of fallback secret. If a fallback secret exists,
+	// FindIngressGatewaySecret returns this fallback secret when expected secret is not available.
+	FallbackSecretName string
 }
 
 func fatalf(template string, args ...interface{}) {
@@ -98,7 +113,7 @@ func fatalf(template string, args ...interface{}) {
 }
 
 // NewSecretFetcher returns a pointer to a newly constructed SecretFetcher instance.
-func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string, tlsFlag bool,
+func NewSecretFetcher(ingressGatewayAgent bool, endpoint, caProviderName string, tlsFlag bool,
 	tlsRootCert []byte, vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath string) (*SecretFetcher, error) {
 	ret := &SecretFetcher{}
 
@@ -108,9 +123,11 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 		if err != nil {
 			fatalf("Could not create k8s clientset: %v", err)
 		}
-		ret.Init(cs.CoreV1())
+		ret.FallbackSecretName = ingressFallbackSecret
+		log.Debugf("SecretFetcher set fallback secret name %s", ret.FallbackSecretName)
+		ret.InitWithKubeClient(cs.CoreV1())
 	} else {
-		caClient, err := ca.NewCAClient(endpoint, CAProviderName, tlsFlag, tlsRootCert,
+		caClient, err := ca.NewCAClient(endpoint, caProviderName, tlsFlag, tlsRootCert,
 			vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath)
 		if err != nil {
 			log.Errorf("failed to create caClient: %v", err)
@@ -127,11 +144,14 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 // Only used when watching kubernetes gateway secrets.
 func (sf *SecretFetcher) Run(ch chan struct{}) {
 	go sf.scrtController.Run(ch)
+	cache.WaitForCacheSync(ch, sf.scrtController.HasSynced)
 }
 
-// Init initializes SecretFetcher to watch kubernetes secrets.
-func (sf *SecretFetcher) Init(core corev1.CoreV1Interface) { // nolint:interfacer
-	namespace := os.Getenv(ingressSecretNameSpace)
+var namespaceVar = env.RegisterStringVar(ingressSecretNameSpace, "", "")
+
+// InitWithKubeClient initializes SecretFetcher to watch kubernetes secrets.
+func (sf *SecretFetcher) InitWithKubeClient(core corev1.CoreV1Interface) { // nolint:interfacer
+	namespace := namespaceVar.Get()
 	istioSecretSelector := fields.SelectorFromSet(nil).String()
 	scrtLW := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
@@ -143,8 +163,14 @@ func (sf *SecretFetcher) Init(core corev1.CoreV1Interface) { // nolint:interface
 			return core.Secrets(namespace).Watch(options)
 		},
 	}
+
+	resyncPeriod := 0 * time.Second
+	if e, err := time.ParseDuration(secretControllerResyncPeriod); err == nil {
+		resyncPeriod = e
+	}
+
 	sf.scrtStore, sf.scrtController =
-		cache.NewInformer(scrtLW, &v1.Secret{}, secretResyncPeriod, cache.ResourceEventHandlerFuncs{
+		cache.NewInformer(scrtLW, &v1.Secret{}, resyncPeriod, cache.ResourceEventHandlerFuncs{
 			AddFunc:    sf.scrtAdded,
 			DeleteFunc: sf.scrtDeleted,
 			UpdateFunc: sf.scrtUpdated,
@@ -248,7 +274,7 @@ func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 
 	key := scrt.GetName()
 	sf.secrets.Delete(key)
-	log.Debugf("secret %s is deleted", key)
+	log.Infof("secret %s is deleted", key)
 	// Delete all cache entries that match the deleted key.
 	if sf.DeleteCache != nil {
 		sf.DeleteCache(key)
@@ -257,7 +283,7 @@ func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 	rootCertResourceName := key + IngressGatewaySdsCaSuffix
 	// If there is root cert secret with the same resource name, delete that secret now.
 	sf.secrets.Delete(rootCertResourceName)
-	log.Debugf("secret %s is deleted", rootCertResourceName)
+	log.Infof("secret %s is deleted", rootCertResourceName)
 	// Delete all cache entries that match the deleted key.
 	if sf.DeleteCache != nil {
 		sf.DeleteCache(rootCertResourceName)
@@ -309,7 +335,7 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 		Version:          t.String(),
 	}
 	sf.secrets.Store(newScrtName, *ns)
-	log.Debugf("secret %s is updated", newScrtName)
+	log.Infof("secret %s is updated", newScrtName)
 	if sf.UpdateCache != nil {
 		sf.UpdateCache(newScrtName, *ns)
 	}
@@ -325,25 +351,44 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 			Version:      t.String(),
 		}
 		sf.secrets.Store(rootCertResourceName, *nsRoot)
-		log.Debugf("secret %s is updated", rootCertResourceName)
+		log.Infof("secret %s is updated", rootCertResourceName)
 		if sf.UpdateCache != nil {
 			sf.UpdateCache(rootCertResourceName, *nsRoot)
 		}
 	}
 }
 
-// FindIngressGatewaySecret returns the secret for a k8sKeyA, or empty secret if no
+// FindIngressGatewaySecret returns the secret whose name matches the key, or empty secret if no
 // secret is present. The ok result indicates whether secret was found.
+// If there is a fallback secret named FallbackSecretName, return the fall back secret.
 func (sf *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.SecretItem, ok bool) {
+	log.Debugf("SecretFetcher search for secret %s", key)
 	val, exist := sf.secrets.Load(key)
+	log.Debugf("load secret %s from secret fetcher: %v", key, exist)
 	if !exist {
+		// Expected secret does not exist, try to find the fallback secret.
+		// TODO(JimmyCYJ): Add metrics to node agent to imply usage of fallback secret
+		log.Warnf("Cannot find secret %s, searching for fallback secret %s", key, sf.FallbackSecretName)
+		fallbackVal, fallbackExist := sf.secrets.Load(sf.FallbackSecretName)
+		if fallbackExist {
+			log.Debugf("Return fallback secret %s for gateway secret %s", sf.FallbackSecretName, key)
+			return fallbackVal.(model.SecretItem), true
+		}
+
+		log.Errorf("cannot find secret %s and cannot find fallback secret %s", key, sf.FallbackSecretName)
 		return model.SecretItem{}, false
 	}
 	e := val.(model.SecretItem)
+	log.Debugf("SecretFetcher return secret %s", key)
 	return e, true
 }
 
 // AddSecret adds obj into local store. Only used for testing.
 func (sf *SecretFetcher) AddSecret(obj interface{}) {
 	sf.scrtAdded(obj)
+}
+
+// DeleteSecret deletes obj from local store. Only used for testing.
+func (sf *SecretFetcher) DeleteSecret(obj interface{}) {
+	sf.scrtDeleted(obj)
 }

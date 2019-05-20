@@ -22,29 +22,37 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/ctrlz/fw"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
+	"istio.io/pkg/version"
+
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/metadata"
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/groups"
+	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/source/fs"
 	kubeSource "istio.io/istio/galley/pkg/source/kube"
+	"istio.io/istio/galley/pkg/source/kube/builtin"
 	"istio.io/istio/galley/pkg/source/kube/client"
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/source/kube/schema/check"
-	"istio.io/istio/pkg/ctrlz"
-	"istio.io/istio/pkg/log"
+	configz "istio.io/istio/pkg/mcp/configz/server"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
+	mcprate "istio.io/istio/pkg/mcp/rate"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
-	"istio.io/istio/pkg/probe"
-	"istio.io/istio/pkg/version"
 )
 
 var scope = log.RegisterScope("server", "Galley server debugging", 0)
@@ -54,7 +62,6 @@ type Server struct {
 	serveWG       sync.WaitGroup
 	grpcServer    *grpc.Server
 	processor     *runtime.Processor
-	mcp           *server.Server
 	mcpSource     *source.Server
 	reporter      monitoring.Reporter
 	listenerMutex sync.Mutex
@@ -66,7 +73,7 @@ type Server struct {
 
 type patchTable struct {
 	newKubeFromConfigFile       func(string) (client.Interfaces, error)
-	verifyResourceTypesPresence func(client.Interfaces, []schema.ResourceSpec) error
+	verifyResourceTypesPresence func(client.Interfaces, []schema.ResourceSpec) ([]schema.ResourceSpec, error)
 	findSupportedResources      func(client.Interfaces, []schema.ResourceSpec) ([]schema.ResourceSpec, error)
 	newSource                   func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error)
 	netListen                   func(network, address string) (net.Listener, error)
@@ -126,36 +133,49 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		if err != nil {
 			return nil, err
 		}
+		var found []schema.ResourceSpec
+
 		if !a.DisableResourceReadyCheck {
-			if err := p.verifyResourceTypesPresence(k, sourceSchema.All()); err != nil {
-				return nil, err
-			}
+			found, err = p.verifyResourceTypesPresence(k, sourceSchema.All())
 		} else {
-			found, err := p.findSupportedResources(k, sourceSchema.All())
-			if err != nil {
-				return nil, err
-			}
-			sourceSchema = schema.New(found...)
+			found, err = p.findSupportedResources(k, sourceSchema.All())
 		}
+		if err != nil {
+			return nil, err
+		}
+		sourceSchema = schema.New(found...)
 		src, err = p.newSource(k, a.ResyncPeriod, sourceSchema, converterCfg)
 		if err != nil {
 			return nil, err
 		}
 	}
 
+	types := getMCPTypes(a)
+
 	processorCfg := runtime.Config{
-		DomainSuffix: a.DomainSuffix,
-		Mesh:         mesh,
+		DomainSuffix:             a.DomainSuffix,
+		Mesh:                     mesh,
+		Schema:                   types,
+		SynthesizeServiceEntries: a.EnableServiceDiscovery,
 	}
 	distributor := snapshot.New(groups.IndexFunction)
 	s.processor = runtime.NewProcessor(src, distributor, &processorCfg)
 
 	var grpcOptions []grpc.ServerOption
-	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)))
-	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxReceivedMessageSize)))
+	grpcOptions = append(grpcOptions,
+		grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)),
+		grpc.MaxRecvMsgSize(int(a.MaxReceivedMessageSize)),
+		grpc.InitialWindowSize(int32(a.InitialWindowSize)),
+		grpc.InitialConnWindowSize(int32(a.InitialConnectionWindowSize)),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Timeout:               a.KeepAlive.Timeout,
+			Time:                  a.KeepAlive.Time,
+			MaxConnectionAge:      a.KeepAlive.MaxServerConnectionAge,
+			MaxConnectionAgeGrace: a.KeepAlive.MaxServerConnectionAgeGrace,
+		}))
 
 	s.stopCh = make(chan struct{})
-	var checker server.AuthChecker = server.NewAllowAllChecker()
+	var checker source.AuthChecker = server.NewAllowAllChecker()
 	if !a.Insecure {
 		checker, err = watchAccessList(s.stopCh, a.AccessListFile)
 		if err != nil {
@@ -176,9 +196,10 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	s.reporter = p.mcpMetricReporter("galley/mcp/source")
 
 	options := &source.Options{
-		Watcher:           distributor,
-		Reporter:          s.reporter,
-		CollectionOptions: source.CollectionOptionsFromSlice(metadata.Types.Collections()),
+		Watcher:            distributor,
+		Reporter:           s.reporter,
+		CollectionsOptions: source.CollectionOptionsFromSlice(types.Collections()),
+		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second, 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
 	}
 
 	if a.SinkAddress != "" {
@@ -189,9 +210,11 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		}
 	}
 
-	s.mcp = server.New(options, checker)
+	serverOptions := &source.ServerOptions{
+		AuthChecker: checker,
+		RateLimiter: rate.NewLimiter(rate.Every(time.Second), 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
+	}
 
-	serverOptions := &source.ServerOptions{AuthChecker: checker}
 	s.mcpSource = source.NewServer(options, serverOptions)
 
 	// get the network stuff setup
@@ -209,10 +232,9 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		return nil, fmt.Errorf("unable to listen: %v", err)
 	}
 
-	mcp.RegisterAggregatedMeshConfigServiceServer(s.grpcServer, s.mcp)
 	mcp.RegisterResourceSourceServer(s.grpcServer, s.mcpSource)
 
-	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, nil)
+	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, []fw.Topic{configz.CreateTopic(distributor)})
 
 	return s, nil
 }
@@ -220,6 +242,15 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 func getSourceSchema(a *Args) *schema.Instance {
 	b := schema.NewBuilder()
 	for _, spec := range kubeMeta.Types.All() {
+
+		if a.EnableServiceDiscovery {
+			// TODO: IsBuiltIn is a proxy for types needed for service discovery
+			if builtin.IsBuiltIn(spec.Kind) {
+				b.Add(spec)
+				continue
+			}
+		}
+
 		if !isKindExcluded(a, spec.Kind) {
 			b.Add(spec)
 		}
@@ -234,6 +265,23 @@ func isKindExcluded(a *Args, kind string) bool {
 		}
 	}
 	return false
+}
+
+func getMCPTypes(a *Args) *resource.Schema {
+	b := resource.NewSchemaBuilder()
+	b.RegisterSchema(metadata.Types)
+	b.Register(
+		"istio/mesh/v1alpha1/MeshConfig",
+		"type.googleapis.com/istio.mesh.v1alpha1.MeshConfig")
+
+	for _, k := range a.ExcludedResourceKinds {
+		spec := kubeMeta.Types.Get(k)
+		if spec != nil {
+			b.UnregisterInfo(spec.Target)
+		}
+	}
+
+	return b.Build()
 }
 
 // Run enables Galley to start receiving gRPC requests on its main API port.

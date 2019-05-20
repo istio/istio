@@ -1,10 +1,13 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   creationTimestamp: null
   name: resource
 spec:
   replicas: 7
+  selector:
+    matchLabels:
+      app: resource
   strategy: {}
   template:
     metadata:
@@ -42,6 +45,8 @@ spec:
         - istio-pilot:15010
         - --zipkinAddress
         - ""
+        - --dnsRefreshRate
+        - 5s
         - --connectTimeout
         - 1s
         - --proxyAdminPort
@@ -77,6 +82,8 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
+        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
+          value: "80"
         image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -131,11 +138,11 @@ spec:
             cpu: 10m
             memory: 10Mi
         securityContext:
-          runAsUser: 0
-          runAsNonRoot: false
           capabilities:
             add:
             - NET_ADMIN
+          runAsNonRoot: false
+          runAsUser: 0
       volumes:
       - emptyDir:
           medium: Memory

@@ -25,9 +25,9 @@ import (
 	"google.golang.org/grpc/codes"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/internal"
 	"istio.io/istio/pkg/mcp/monitoring"
+	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("mcp", "mcp debugging", 0)
@@ -179,10 +179,10 @@ func (sink *Sink) createInitialRequests() []*mcp.RequestResources {
 	return initialRequests
 }
 
-// processStream implements the MCP message exchange for the resource sink. It accepts the sink
-// stream interface and returns when a send or receive error occurs. The caller is responsible for handling gRPC
-// client/server specific error handling.
-func (sink *Sink) processStream(stream Stream) error {
+// ProcessStream implements the MCP message exchange for the resource sink. It accepts the sink
+// stream interface and returns when a send or receive error occurs. The caller is responsible for
+// handling gRPC client/server specific error handling.
+func (sink *Sink) ProcessStream(stream Stream) error {
 	// send initial requests for each supported type
 	initialRequests := sink.createInitialRequests()
 	for {

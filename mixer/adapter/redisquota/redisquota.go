@@ -31,6 +31,7 @@ import (
 
 	"github.com/go-redis/redis"
 
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/adapter/redisquota/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/status"
@@ -332,7 +333,6 @@ func (h *handler) HandleQuota(context context.Context, instance *quota.Instance,
 					key + ".meta", // KEY[1]
 					key + ".data", // KEY[2]
 				},
-				// nolint: goimports
 				maxAmount,                               // ARGV[1] credit
 				limit.GetValidDuration().Nanoseconds(),  // ARGV[2] window length
 				limit.GetBucketDuration().Nanoseconds(), // ARGV[3] bucket length
@@ -376,19 +376,9 @@ func (h handler) Close() error {
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "redisquota",
-		Impl:        "istio.io/mixer/adapter/redisquota",
-		Description: "Redis-based quotas.",
-		SupportedTemplates: []string{
-			quota.TemplateName,
-		},
-		DefaultConfig: &config.Params{
-			RedisServerUrl:     "localhost:6379",
-			ConnectionPoolSize: 10,
-		},
-		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
-	}
+	info := metadata.GetInfo("redisquota")
+	info.NewBuilder = func() adapter.HandlerBuilder { return &builder{} }
+	return info
 }
 
 ///////////////////////////////////////////////////////

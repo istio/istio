@@ -28,11 +28,11 @@ import (
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/status"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
+	"istio.io/pkg/pool"
 )
 
 const queueAllocSize = 64
@@ -104,7 +104,7 @@ func (s *session) ensureParallelism(minParallelism int) {
 	}
 }
 
-func (s *session) dispatch() error {
+func (s *session) dispatch() error { //nolint: unparam
 	// Determine namespace to scope config resolution
 	namespace := getIdentityNamespace(s.bag)
 	destinations := s.rc.Routes.GetDestinations(s.variety, namespace)
@@ -269,6 +269,10 @@ func (s *session) dispatchBufferedReports() {
 
 	// dispatch the buffered dispatchStates we've got
 	for k, v := range s.reportStates {
+		if len(v.instances) == 0 {
+			// do not dispatch to handler if nothing is buffered
+			continue
+		}
 		s.dispatchToHandler(v)
 		delete(s.reportStates, k)
 	}

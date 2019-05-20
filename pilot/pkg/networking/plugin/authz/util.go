@@ -16,13 +16,8 @@ package authz
 
 import (
 	"fmt"
-	"net"
 	"strconv"
 	"strings"
-
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	"github.com/gogo/protobuf/types"
 )
 
 // stringMatch checks if a string is in a list, it supports four types of string matches:
@@ -57,42 +52,6 @@ func suffixMatch(a string, pattern string) bool {
 	return strings.HasSuffix(a, pattern)
 }
 
-// convertToCidr converts a CIDR or a single IP string to a corresponding CidrRange. For a single IP
-// string the converted CidrRange prefix is either 32 (for ipv4) or 128 (for ipv6).
-func convertToCidr(v string) (*core.CidrRange, error) {
-	var address string
-	var prefixLen int
-
-	if strings.Contains(v, "/") {
-		if ip, ipnet, err := net.ParseCIDR(v); err == nil {
-			address = ip.String()
-			prefixLen, _ = ipnet.Mask.Size()
-		} else {
-			return nil, fmt.Errorf("invalid cidr range: %v", err)
-		}
-	} else {
-		if ip := net.ParseIP(v); ip != nil {
-			address = ip.String()
-			if strings.Contains(v, ".") {
-				// Set the prefixLen to 32 for ipv4 address.
-				prefixLen = 32
-			} else if strings.Contains(v, ":") {
-				// Set the prefixLen to 128 for ipv6 address.
-				prefixLen = 128
-			} else {
-				return nil, fmt.Errorf("invalid ip address: %s", v)
-			}
-		} else {
-			return nil, fmt.Errorf("invalid ip address: %s", v)
-		}
-	}
-
-	return &core.CidrRange{
-		AddressPrefix: address,
-		PrefixLen:     &types.UInt32Value{Value: uint32(prefixLen)},
-	}, nil
-}
-
 // convertToPort converts a port string to a uint32.
 func convertToPort(v string) (uint32, error) {
 	p, err := strconv.ParseUint(v, 10, 32)
@@ -102,38 +61,12 @@ func convertToPort(v string) (uint32, error) {
 	return uint32(p), nil
 }
 
-// convertToHeaderMatcher converts a key, value string pair to a corresponding HeaderMatcher.
-func convertToHeaderMatcher(k, v string) *route.HeaderMatcher {
-	// We must check "*" first to make sure we'll generate a non empty value in the prefix/suffix case.
-	// Empty prefix/suffix value is invalid in HeaderMatcher.
-	if v == "*" {
-		return &route.HeaderMatcher{
-			Name: k,
-			HeaderMatchSpecifier: &route.HeaderMatcher_PresentMatch{
-				PresentMatch: true,
-			},
-		}
-	} else if strings.HasPrefix(v, "*") {
-		return &route.HeaderMatcher{
-			Name: k,
-			HeaderMatchSpecifier: &route.HeaderMatcher_SuffixMatch{
-				SuffixMatch: v[1:],
-			},
-		}
-	} else if strings.HasSuffix(v, "*") {
-		return &route.HeaderMatcher{
-			Name: k,
-			HeaderMatchSpecifier: &route.HeaderMatcher_PrefixMatch{
-				PrefixMatch: v[:len(v)-1],
-			},
-		}
+func convertPortsToString(intPorts []int32) []string {
+	var ports []string
+	for _, port := range intPorts {
+		ports = append(ports, strconv.Itoa(int(port)))
 	}
-	return &route.HeaderMatcher{
-		Name: k,
-		HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
-			ExactMatch: v,
-		},
-	}
+	return ports
 }
 
 // Check if the key is of format a[b].
@@ -166,4 +99,13 @@ func extractActualServiceAccount(istioServiceAccount string) string {
 		}
 	}
 	return actualSA
+}
+
+func found(key string, list []string) bool {
+	for _, l := range list {
+		if key == l {
+			return true
+		}
+	}
+	return false
 }

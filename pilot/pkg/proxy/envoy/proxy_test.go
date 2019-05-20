@@ -27,8 +27,22 @@ func TestEnvoyArgs(t *testing.T) {
 	config.ServiceCluster = "my-cluster"
 	config.Concurrency = 8
 
-	test := &envoy{config: config, node: "my-node", extraArgs: []string{"-l", "trace"}, nodeIPs: []string{"10.75.2.9", "192.168.11.18"}}
-	testProxy := NewProxy(config, "my-node", "trace", nil, []string{"10.75.2.9", "192.168.11.18"})
+	test := &envoy{
+		config:         config,
+		node:           "my-node",
+		extraArgs:      []string{"-l", "trace", "--component-log-level", "misc:error"},
+		nodeIPs:        []string{"10.75.2.9", "192.168.11.18"},
+		dnsRefreshRate: "60s",
+	}
+	testProxy := NewProxy(
+		config,
+		"my-node",
+		"trace",
+		"misc:error",
+		nil,
+		[]string{"10.75.2.9", "192.168.11.18"},
+		"60s",
+	)
 	if !reflect.DeepEqual(testProxy, test) {
 		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxy, test)
 	}
@@ -42,8 +56,10 @@ func TestEnvoyArgs(t *testing.T) {
 		"--service-cluster", "my-cluster",
 		"--service-node", "my-node",
 		"--max-obj-name-len", fmt.Sprint(config.StatNameLength),
+		"--local-address-ip-version", "v4",
 		"--allow-unknown-fields",
 		"-l", "trace",
+		"--component-log-level", "misc:error",
 		"--config-yaml", `{"key": "value"}`,
 		"--concurrency", "8",
 	}

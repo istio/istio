@@ -318,6 +318,39 @@ func TestLabelsValidate(t *testing.T) {
 			tags:  Labels{"key": "value"},
 			valid: true,
 		},
+		{
+			name:  "good tag - empty value",
+			tags:  Labels{"key": ""},
+			valid: true,
+		},
+		{
+			name: "bad tag - empty key",
+			tags: Labels{"": "value"},
+		},
+		{
+			name: "bad tag key 1",
+			tags: Labels{".key": "value"},
+		},
+		{
+			name: "bad tag key 2",
+			tags: Labels{"key_": "value"},
+		},
+		{
+			name: "bad tag key 3",
+			tags: Labels{"key$": "value"},
+		},
+		{
+			name: "bad tag value 1",
+			tags: Labels{"key": ".value"},
+		},
+		{
+			name: "bad tag value 2",
+			tags: Labels{"key": "value_"},
+		},
+		{
+			name: "bad tag value 3",
+			tags: Labels{"key": "value$"},
+		},
 	}
 	for _, c := range cases {
 		if got := c.tags.Validate(); (got == nil) != c.valid {
@@ -548,10 +581,10 @@ func TestValidateMeshConfig(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
-		switch err.(type) {
+		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.(*multierror.Error).Errors) < 6 {
+			if len(err.Errors) < 6 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -894,10 +927,10 @@ func TestValidateProxyConfig(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
-		switch err.(type) {
+		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.(*multierror.Error).Errors) != 12 {
+			if len(err.Errors) != 12 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -1723,6 +1756,83 @@ func TestValidateCORSPolicy(t *testing.T) {
 			ExposeHeaders: []string{"header3"},
 			MaxAge:        &types.Duration{Seconds: 2, Nanos: 42},
 		}, valid: false},
+		{name: "good origin ", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"example.com"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "good origin with star", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"*"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "good origin with http", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"http://example.com"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "good origin with https", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"https://example.com"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "good origin with https and port number", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"https://example.com:80"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "good origin with port number", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"example.com:80"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "bad origin", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"example.com", "error$.com"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: false},
+		{name: "bad origin with scheme only", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"http://", "https://"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: false},
+		{name: "bad origin with bad port string", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"example.com:port"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: false},
+		{name: "bad origin with bad port number", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"example.com:100000"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: false},
+		{name: "bad origin with star", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"*.example.com"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
@@ -2301,70 +2411,70 @@ func TestValidateRouteDestination(t *testing.T) {
 		routes []*networking.RouteDestination
 		valid  bool
 	}{
-		{name: "simple", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "simple", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz"},
 		}}, valid: true},
-		{name: "wildcard dash", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "wildcard dash", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "*-foo.baz"},
 		}}, valid: true},
-		{name: "wildcard prefix", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "wildcard prefix", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "*foo.baz"},
 		}}, valid: true},
-		{name: "wildcard", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "wildcard", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "*"},
 		}}, valid: false},
-		{name: "bad wildcard", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "bad wildcard", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.*"},
 		}}, valid: false},
-		{name: "bad fqdn", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "bad fqdn", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "default/baz"},
 		}}, valid: false},
-		{name: "no destination", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "no destination", routes: []*networking.RouteDestination{{
 			Destination: nil,
 		}}, valid: false},
-		{name: "weighted", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "weighted", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      25,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      75,
 		}}, valid: true},
-		{name: "weight < 0", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "weight < 0", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      5,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      -1,
 		}}, valid: false},
-		{name: "total weight > 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "total weight > 100", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      55,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      50,
 		}}, valid: false},
-		{name: "total weight < 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "total weight < 100", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      49,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      50,
 		}}, valid: false},
-		{name: "total weight = 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "total weight = 100", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      100,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      0,
 		}}, valid: true},
-		{name: "weight = 0", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "weight = 0", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      0,
 		}}, valid: true},
-		{name: "total weight = 0 with multi RouteDestination", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "total weight = 0 with multi RouteDestination", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      0,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      0,
 		}}, valid: false},
@@ -3603,41 +3713,58 @@ func TestValidateServiceRole(t *testing.T) {
 			expectErrMsg: "at least 1 rule must be specified",
 		},
 		{
-			name: "no service",
+			name: "has both methods and not_methods",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
-					Constraints: []*rbac.AccessRule_Constraint{
-						{Key: "key", Values: []string{"value"}},
-						{Key: "key", Values: []string{"value"}},
-					},
+					Methods:    []string{"GET", "POST"},
+					NotMethods: []string{"DELETE"},
 				},
+			}},
+			expectErrMsg: "cannot have both regular and *not* attributes for the same kind (i.e. methods and not_methods) for rule 0",
+		},
+		{
+			name: "has both ports and not_ports",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{},
-					Methods:  []string{"GET", "POST"},
+					Ports:    []int32{9080},
+					NotPorts: []int32{443},
+				},
+			}},
+			expectErrMsg: "cannot have both regular and *not* attributes for the same kind (i.e. ports and not_ports) for rule 0",
+		},
+		{
+			name: "has out of range port",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Ports: []int32{9080, -80},
+				},
+			}},
+			expectErrMsg: "at least one port is not in the range of [0, 65535]",
+		},
+		{
+			name: "has both first-class field and constraints",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Ports: []int32{9080},
 					Constraints: []*rbac.AccessRule_Constraint{
-						{Key: "key", Values: []string{"value"}},
-						{Key: "key", Values: []string{"value"}},
+						{Key: "destination.port", Values: []string{"80"}},
 					},
 				},
 			}},
-			expectErrMsg: "at least 1 service must be specified for rule 1",
+			expectErrMsg: "cannot define destination.port for rule 0 because a similar first-class field has been defined",
 		},
 		{
 			name: "no key in constraint",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
+					Methods: []string{"GET", "POST"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{"value"}},
 					},
 				},
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
+					Methods: []string{"GET", "POST"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Values: []string{"value"}},
@@ -3650,16 +3777,14 @@ func TestValidateServiceRole(t *testing.T) {
 			name: "no value in constraint",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
+					Methods: []string{"GET", "POST"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{"value"}},
 					},
 				},
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
+					Methods: []string{"GET", "POST"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{}},
@@ -3672,16 +3797,15 @@ func TestValidateServiceRole(t *testing.T) {
 			name: "success proto",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{"service0"},
 					Methods:  []string{"GET", "POST"},
+					NotHosts: []string{"finances.google.com"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{"value"}},
 					},
 				},
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
+					Methods: []string{"GET", "POST"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{"value"}},
@@ -3729,7 +3853,7 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 				},
 				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
 			},
-			expectErrMsg: "at least 1 of user, group or properties must be specified for subject 1",
+			expectErrMsg: "empty subjects are not allowed. Found an empty subject at index 1",
 		},
 		{
 			name: "no roleRef",
@@ -3739,7 +3863,7 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
 				},
 			},
-			expectErrMsg: "roleRef must be specified",
+			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
 		},
 		{
 			name: "incorrect kind",
@@ -3759,9 +3883,40 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 					{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
 					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
 				},
+				Role: "/",
+			},
+			expectErrMsg: "`role` cannot have an empty ServiceRole name",
+		},
+		{
+			name: "no name",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
+					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
+				},
 				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: ""},
 			},
-			expectErrMsg: "name cannot be empty",
+			expectErrMsg: "`name` in `roleRef` cannot be empty",
+		},
+		{
+			name: "first-class field already exists",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{Namespaces: []string{"default"}, Properties: map[string]string{"source.namespace": "istio-system"}},
+				},
+				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+			},
+			expectErrMsg: "cannot define source.namespace for binding 0 because a similar first-class field has been defined",
+		},
+		{
+			name: "use * for names",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{Names: []string{"*"}},
+				},
+				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+			},
+			expectErrMsg: "do not use * for names or not_names (in rule 0)",
 		},
 		{
 			name: "success proto",
@@ -3782,6 +3937,167 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 			}
 		} else if err.Error() != c.expectErrMsg {
 			t.Errorf("ValidateServiceRoleBinding(%v): got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
+		}
+	}
+}
+
+func TestValidateAuthorizationPolicy(t *testing.T) {
+	cases := []struct {
+		name         string
+		in           proto.Message
+		expectErrMsg string
+	}{
+		{
+			name:         "invalid proto",
+			expectErrMsg: "cannot cast to AuthorizationPolicy",
+		},
+		{
+			name: "proto with no roleRef or inline role definition",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+					},
+				},
+			},
+			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
+		},
+		{
+			name: "proto with both roleRef and inline role definition",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						RoleRef: &rbac.RoleRef{
+							Kind: "ServiceRole",
+							Name: "service-role-1",
+						},
+						Actions: []*rbac.AccessRule{
+							{
+								Ports: []int32{3000},
+							},
+						},
+					},
+				},
+			},
+			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
+		},
+		{
+			name: "proto with both roleRef and role",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						RoleRef: &rbac.RoleRef{
+							Kind: "ServiceRole",
+							Name: "service-role-1",
+						},
+						Role: "service-role-1",
+					},
+				},
+			},
+			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
+		},
+		{
+			name: "proto with both role and inline role definition",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						Role: "service-role-1",
+						Actions: []*rbac.AccessRule{
+							{
+								Ports: []int32{3000},
+							},
+						},
+					},
+				},
+			},
+			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
+		},
+		{
+			name: "success proto with roleRef",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						RoleRef: &rbac.RoleRef{
+							Kind: "ServiceRole",
+							Name: "service-role-1",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "proto with inline but invalid role definition",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						Actions: []*rbac.AccessRule{
+							{
+								Ports:    []int32{3000},
+								NotPorts: []int32{8080},
+							},
+						},
+					},
+				},
+			},
+			expectErrMsg: "cannot have both regular and *not* attributes for the same kind (i.e. ports and not_ports) for rule 0",
+		},
+		{
+			name: "success proto with inline role definition",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						Actions: []*rbac.AccessRule{
+							{
+								Methods: []string{"GET"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, c := range cases {
+		err := ValidateAuthorizationPolicy(someName, someNamespace, c.in)
+		if err == nil {
+			if len(c.expectErrMsg) != 0 {
+				t.Errorf("ValidateAuthorizationPolicy(%v): got nil but want %q\n", c.name, c.expectErrMsg)
+			}
+		} else if err.Error() != c.expectErrMsg {
+			t.Errorf("ValidateAuthorizationPolicy(%v): got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
 		}
 	}
 }

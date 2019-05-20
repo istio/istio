@@ -46,5 +46,5 @@ func freePool(pool []ReservedPort) (err error) {
 			err = multierror.Append(err, e)
 		}
 	}
-	return nil
+	return err
 }

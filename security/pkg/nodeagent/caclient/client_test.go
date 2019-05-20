@@ -89,7 +89,7 @@ func TestGetCATLSRootCertFromConfigMap(t *testing.T) {
 		} else {
 			if tc.expectedErr != "" {
 				t.Errorf("Test case [%s]: expect error: %s", id, tc.expectedErr)
-			} else if bytes.Compare(cert, tc.expectedCert) != 0 {
+			} else if !bytes.Equal(cert, tc.expectedCert) {
 				t.Errorf("Test case [%s]: cert from ConfigMap %v does not match expected value %v", id, cert, tc.expectedCert)
 			}
 		}

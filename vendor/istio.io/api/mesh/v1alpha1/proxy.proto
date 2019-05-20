@@ -45,7 +45,7 @@ message Tracing {
     string address = 1;
   }
 
-  // Lightstep defines configuration for a LightStep tracer.
+  // Defines configuration for a LightStep tracer.
   message Lightstep {
     // Address of the LightStep Satellite pool.
     string address = 1;
@@ -77,6 +77,16 @@ message Tracing {
   }
 }
 
+// SDS defines secret discovery service(SDS) configuration to be used by the proxy.
+// For workload, its values are set in sidecar injector(passed as arguments to istio-proxy container).
+// For pilot/mixer, it's passed as arguments to istio-proxy container in pilot/mixer deployment yaml files directly.
+message SDS {
+  // True if SDS is enabled.
+  bool enabled = 1;
+
+  // Path of k8s service account JWT path.
+  string k8s_sa_jwt_path = 2;
+}
 
 // ProxyConfig defines variables for individual Envoy instances.
 message ProxyConfig {
@@ -177,4 +187,7 @@ message ProxyConfig {
 
   // Tracing configuration to be used by the proxy.
   Tracing tracing = 19;
+
+  // secret discovery service(SDS) configuration to be used by the proxy.
+  SDS sds = 21;
 }

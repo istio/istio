@@ -144,15 +144,16 @@ message VirtualService {
   // only for services defined via the Gateway.
   repeated string hosts = 1;
 
-  // The names of gateways that should apply these rules. If omitted, the
-  // rules are only applied to sidecars inside the mesh. If a list of gateway
-  // names is provided, the rules will not be applied to sidecars inside the
-  // mesh unless the reserved gateway name `mesh` is included in the list.
-  // Gateways defined in a different namespace can be selected by prefixing
-  // the gateway name with `namespace/`.
-  //
-  // The selection condition imposed by this field can be overridden using
-  // the source field in the match conditions of protocol-specific routes.
+  // The names of gateways and sidecars that should apply these routes. A
+  // single VirtualService is used for sidecars inside the mesh as well as
+  // for one or more gateways. The selection condition imposed by this
+  // field can be overridden using the source field in the match conditions
+  // of protocol-specific routes. The reserved word `mesh` is used to imply
+  // all the sidecars in the mesh. When this field is omitted, the default
+  // gateway (`mesh`) will be used, which would apply the rule to all
+  // sidecars in the mesh. If a list of gateway names is provided, the
+  // rules will apply only to the gateways. To apply the rules to both
+  // gateways and sidecars, specify `mesh` as one of the gateway names.
   repeated string gateways = 2;
 
   // An ordered list of route rules for HTTP traffic. HTTP routes will be
@@ -624,6 +625,20 @@ message HTTPMatchRequest {
   // at the top of the VirtualService (if any) are overridden. The gateway match is
   // independent of sourceLabels.
   repeated string gateways = 8;
+
+  // Query parameters for matching.
+  //
+  // Ex:
+  // - For a query parameter like "?key=true", the map key would be "key" and
+  //   the string match could be defined as `exact: "true"`.
+  // - For a query parameter like "?key", the map key would be "key" and the
+  //   string match could be defined as `exact: ""`.
+  // - For a query parameter like "?key=123", the map key would be "key" and the
+  //   string match could be defined as `regex: "\d+$"`. Note that this
+  //   configuration will only match values like "123" but not "a123" or "123a".
+  //
+  // **Note:** `prefix` matching is currently not supported.
+  map<string, StringMatch> query_params = 9;
 }
 
 // Each routing rule is associated with one or more service versions (see
@@ -1026,7 +1041,7 @@ message HTTPFaultInjection {
   //     fault:
   //       delay:
   //         percentage:
-  //           value: 0.001
+  //           value: 0.1
   //         fixedDelay: 5s
   // ```
   //
@@ -1072,7 +1087,7 @@ message HTTPFaultInjection {
   //     fault:
   //       abort:
   //         percentage:
-  //           value: 0.001
+  //           value: 0.1
   //         httpStatus: 400
   // ```
   //

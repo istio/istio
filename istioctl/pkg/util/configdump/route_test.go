@@ -23,9 +23,9 @@ import (
 func TestWrapper_GetRouteConfigDump(t *testing.T) {
 	tests := []struct {
 		name                    string
+		wantStatic, wantDynamic int
 		noConfigs               bool
 		noRoute                 bool
-		wantStatic, wantDynamic int
 		wantErr                 bool
 	}{
 		{
@@ -74,9 +74,9 @@ func TestWrapper_GetRouteConfigDump(t *testing.T) {
 func TestWrapper_GetDynamicRouteDump(t *testing.T) {
 	tests := []struct {
 		name                                string
+		wantStatic, wantDynamic             int
 		noRoute                             bool
 		stripVersion, wantVersion, wantLast bool
-		wantStatic, wantDynamic             int
 		wantErr                             bool
 	}{
 		{

@@ -1,4 +1,4 @@
-// Copyright 2019  Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -120,7 +120,6 @@ func getScheduledItem(t *testing.T, q *UniqueQueue) interface{} {
 	case <-time.After(time.Second):
 		t.Fatal("timeout waiting for scheduled response")
 	}
-	t.Fatal("unreachable")
 	return nil
 }
 

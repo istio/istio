@@ -152,7 +152,7 @@ spec:
 kind: Gateway
 metadata:
  name: istio-egressgateway
- namespace: egress
+ namespace: istio-system
 spec:
  selector:
    istio: egressgateway
@@ -195,7 +195,7 @@ spec:
         host: istio-egressgateway.istio-system.svc.cluster.local
   - match:
     - port: 80
-      gateway:
+      gateways:
       - istio-egressgateway
     route:
     - destination:
@@ -379,7 +379,7 @@ or part of the mesh.</p>
 <p>REQUIRED: Service discovery mode for the hosts. Care must be taken
 when setting the resolution mode to NONE for a TCP port without
 accompanying IP addresses. In such cases, traffic to any IP on
-said port will be allowed (i.e. 0.0.0.0:<port>).</p>
+said port will be allowed (i.e. 0.0.0.0:&lt;port&gt;).</p>
 
 </td>
 </tr>
@@ -421,7 +421,7 @@ of namespace names.</p>
 <td><code>subjectAltNames</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>The list of subject alternate names allowed for workloads that
+<p>The list of subject alternate names allowed for workload instances that
 implement this service. This information is used to enforce
 <a href="/docs/concepts/security/#secure-naming">secure-naming</a>.
 If specified, the proxy will verify that the server

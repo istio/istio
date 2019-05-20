@@ -173,7 +173,7 @@ import "networking/v1alpha3/gateway.proto";
 // kind: Gateway
 // metadata:
 //  name: istio-egressgateway
-//  namespace: egress
+//  namespace: istio-system
 // spec:
 //  selector:
 //    istio: egressgateway
@@ -217,7 +217,7 @@ import "networking/v1alpha3/gateway.proto";
 //         host: istio-egressgateway.istio-system.svc.cluster.local
 //   - match:
 //     - port: 80
-//       gateway:
+//       gateways:
 //       - istio-egressgateway
 //     route:
 //     - destination:
@@ -503,7 +503,7 @@ message ServiceEntry {
   // "." or "*" (i.e., the current namespace or all namespaces).
   repeated string export_to = 7;
 
-  // The list of subject alternate names allowed for workloads that
+  // The list of subject alternate names allowed for workload instances that
   // implement this service. This information is used to enforce
   // [secure-naming](/docs/concepts/security/#secure-naming).
   // If specified, the proxy will verify that the server

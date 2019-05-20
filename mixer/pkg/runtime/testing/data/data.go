@@ -255,9 +255,6 @@ metadata:
 spec:
 `
 
-// FqnAReport1 is the fully qualified name of HandlerAReport1.
-var FqnAReport1 = "hreport1.areport.istio-system"
-
 // HandlerAQuota1 is a handler of type aquota with name hquota1.
 var HandlerAQuota1 = `
 apiVersion: "config.istio.io/v1alpha2"
@@ -267,9 +264,6 @@ metadata:
   namespace: istio-system
 spec:
 `
-
-// FqnAQuota1 is the fully qualified name of HandlerAReport1.
-var FqnAQuota1 = "hquota1.aquota.istio-system"
 
 // HandlerAPA1 is an APA handler.
 var HandlerAPA1 = `
@@ -303,7 +297,7 @@ metadata:
   name: rcheck1
   namespace: istio-system
 spec:
-  selector: 'true'
+  match: 'true'
   actions:
   - handler: hcheck1.acheck
     instances:
@@ -318,7 +312,7 @@ metadata:
   name: rcheck1
   namespace: istio-system
 spec:
-  selector: needmorecheese
+  match: needmorecheese
   actions:
   - handler: hcheck1.acheck
     instances:
@@ -416,7 +410,7 @@ metadata:
   name: rcheck1
   namespace: istio-system
 spec:
-  selector: destination.name
+  match: destination.name
   actions:
   - handler: hcheck1.acheck
     instances:

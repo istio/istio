@@ -61,13 +61,12 @@ type Service struct {
 	// ClusterVIPs specifies the service address of the load balancer
 	// in each of the clusters where the service resides
 	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
-
 	// Ports is the set of network ports where the service is listening for
 	// connections
 	Ports PortList `json:"ports,omitempty"`
 
 	// ServiceAccounts specifies the service accounts that run the service.
-	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
+	ServiceAccounts []string `json:"serviceAccounts,omitempty"`
 
 	// MeshExternal (if true) indicates that the service is external to the mesh.
 	// These services are defined using Istio's ServiceEntry spec.
@@ -213,8 +212,6 @@ const (
 	VisibilityPrivate Visibility = "."
 	// VisibilityPublic implies config is visible to all
 	VisibilityPublic Visibility = "*"
-	// VisibilityNone implies config is visible to none
-	VisibilityNone Visibility = "~"
 )
 
 // ParseProtocol from string ignoring case
@@ -425,10 +422,6 @@ type IstioEndpoint struct {
 	// Address is the address of the endpoint, using envoy proto.
 	Address string
 
-	// EndpointPort is the port where the workload is listening, can be different
-	// from the service port.
-	EndpointPort uint32
-
 	// ServicePortName tracks the name of the port, to avoid 'eventual consistency' issues.
 	// Sometimes the Endpoint is visible before Service - so looking up the port number would
 	// fail. Instead the mapping to number is made when the clusters are computed. The lazy
@@ -452,6 +445,10 @@ type IstioEndpoint struct {
 	// The locality where the endpoint is present. / separated string
 	Locality string
 
+	// EndpointPort is the port where the workload is listening, can be different
+	// from the service port.
+	EndpointPort uint32
+
 	// The load balancing weight associated with this endpoint.
 	LbWeight uint32
 }
@@ -467,6 +464,14 @@ type ServiceAttributes struct {
 	// ExportTo defines the visibility of Service in
 	// a namespace when the namespace is imported.
 	ExportTo map[Visibility]bool
+
+	// For Kubernetes platform
+
+	// ClusterExternalAddresses is a mapping between a cluster name and the external
+	// address(es) to access the service from outside the cluster.
+	// Used by the aggregator to aggregate the Attributes.ClusterExternalAddresses
+	// for clusters where the service resides
+	ClusterExternalAddresses map[string][]string
 }
 
 // ServiceDiscovery enumerates Istio service instances.
@@ -805,7 +810,8 @@ func (ports PortList) Get(name string) (*Port, bool) {
 // GetByPort retrieves a port declaration by port value
 func (ports PortList) GetByPort(num int) (*Port, bool) {
 	for _, port := range ports {
-		if port.Port == num {
+		if port.Port == num && port.Protocol != ProtocolUDP &&
+			port.Protocol != ProtocolUnsupported {
 			return port, true
 		}
 	}

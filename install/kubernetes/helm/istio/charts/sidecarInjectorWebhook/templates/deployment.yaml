@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-sidecar-injector
@@ -11,6 +11,9 @@ metadata:
     istio: sidecar-injector
 spec:
   replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      istio: sidecar-injector
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -27,12 +30,16 @@ spec:
         sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istio-sidecar-injector-service-account
- {{- if .Values.global.priorityClassName }}
+{{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
       containers:
         - name: sidecar-injector-webhook
+{{- if contains "/" .Values.image }}
+          image: "{{ .Values.image }}"
+{{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+{{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
             - --caCertFile=/etc/istio/certs/root-cert.pem
@@ -89,6 +96,8 @@ spec:
           items:
           - key: config
             path: config
+          - key: values
+            path: values
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}

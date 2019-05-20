@@ -114,7 +114,7 @@ func TestLog(t *testing.T) {
 
 		count := getKeyCount(pp)
 		if count-pcount != 1 {
-			t.Error("key counts dont match")
+			t.Error("key counts don't match")
 		}
 	})
 }

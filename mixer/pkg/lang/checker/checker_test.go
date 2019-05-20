@@ -21,7 +21,7 @@ import (
 
 	cfgpb "istio.io/api/policy/v1beta1"
 	dpb "istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/lang/ast"
+	"istio.io/pkg/attribute"
 )
 
 func TestTypeCheck(t *testing.T) {
@@ -67,8 +67,8 @@ func TestTypeCheck(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.in), func(t *testing.T) {
-			ev := NewTypeChecker()
-			vt, err := ev.EvalType(tt.in, af)
+			ev := NewTypeChecker(af)
+			vt, err := ev.EvalType(tt.in)
 			if tt.err != "" || err != nil {
 				if !strings.Contains(err.Error(), tt.err) {
 					t.Fatalf("EvalType(%s, adf) = %v, wanted err %v", tt.in, err, tt.err)
@@ -81,47 +81,15 @@ func TestTypeCheck(t *testing.T) {
 	}
 }
 
-func TestAssertType(t *testing.T) {
-	af := newAF([]*ad{
-		{"int64", dpb.INT64},
-		{"string", dpb.STRING},
-		{"duration", dpb.DURATION},
-	})
-
-	tests := []struct {
-		name     string
-		expr     string
-		expected dpb.ValueType
-		err      string
-	}{
-		{"correct type", "string", dpb.STRING, ""},
-		{"wrong type", "int64", dpb.STRING, "expected type STRING"},
-		{"eval error", "duration |", dpb.DURATION, "failed to parse"},
-	}
-
-	for idx, tt := range tests {
-		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			ev := NewTypeChecker()
-			if err := ev.AssertType(tt.expr, af, tt.expected); tt.err != "" || err != nil {
-				if tt.err == "" {
-					t.Fatalf("AssertType(%s, af, %v) = %v, wanted no err", tt.expr, tt.expected, err)
-				} else if !strings.Contains(err.Error(), tt.err) {
-					t.Fatalf("AssertType(%s, af, %v) = %v, wanted err %v", tt.expr, tt.expected, err, tt.err)
-				}
-			}
-		})
-	}
-}
-
 type ad struct {
 	name string
 	v    dpb.ValueType
 }
 
-func newAF(ds []*ad) ast.AttributeDescriptorFinder {
+func newAF(ds []*ad) attribute.AttributeDescriptorFinder {
 	m := make(map[string]*cfgpb.AttributeManifest_AttributeInfo)
 	for _, aa := range ds {
 		m[aa.name] = &cfgpb.AttributeManifest_AttributeInfo{ValueType: aa.v}
 	}
-	return ast.NewFinder(m)
+	return attribute.NewFinder(m)
 }

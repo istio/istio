@@ -64,13 +64,9 @@ func TestImageName(t *testing.T) {
 
 func TestIntoResourceFile(t *testing.T) {
 	cases := []struct {
-		enableAuth                   bool
 		in                           string
 		want                         string
 		imagePullPolicy              string
-		enableCoreDump               bool
-		debugMode                    bool
-		privileged                   bool
 		duration                     time.Duration
 		includeIPRanges              string
 		excludeIPRanges              string
@@ -78,17 +74,20 @@ func TestIntoResourceFile(t *testing.T) {
 		excludeInboundPorts          string
 		kubevirtInterfaces           string
 		statusPort                   int
-		readinessPath                string
 		readinessInitialDelaySeconds uint32
 		readinessPeriodSeconds       uint32
 		readinessFailureThreshold    uint32
+		enableAuth                   bool
+		enableCoreDump               bool
+		debugMode                    bool
+		privileged                   bool
 		tproxy                       bool
+		podDNSSearchNamespaces       []string
 	}{
-		// "testdata/hello.yaml" is tested in http_test.go (with debug)
+		//"testdata/hello.yaml" is tested in http_test.go (with debug)
 		{
 			in:                           "hello.yaml",
 			want:                         "hello.yaml.injected",
-			debugMode:                    true,
 			includeIPRanges:              DefaultIncludeIPRanges,
 			includeInboundPorts:          DefaultIncludeInboundPorts,
 			statusPort:                   DefaultStatusPort,
@@ -99,7 +98,6 @@ func TestIntoResourceFile(t *testing.T) {
 		{
 			in:                           "hello-namespace.yaml",
 			want:                         "hello-namespace.yaml.injected",
-			debugMode:                    true,
 			includeIPRanges:              DefaultIncludeIPRanges,
 			includeInboundPorts:          DefaultIncludeInboundPorts,
 			statusPort:                   DefaultStatusPort,
@@ -110,7 +108,6 @@ func TestIntoResourceFile(t *testing.T) {
 		{
 			in:                           "hello-proxy-override.yaml",
 			want:                         "hello-proxy-override.yaml.injected",
-			debugMode:                    true,
 			includeIPRanges:              DefaultIncludeIPRanges,
 			includeInboundPorts:          DefaultIncludeInboundPorts,
 			statusPort:                   DefaultStatusPort,
@@ -122,12 +119,6 @@ func TestIntoResourceFile(t *testing.T) {
 			in:     "hello.yaml",
 			want:   "hello-tproxy.yaml.injected",
 			tproxy: true,
-		},
-		{
-			in:        "hello.yaml",
-			want:      "hello-tproxy-debug.yaml.injected",
-			debugMode: true,
-			tproxy:    true,
 		},
 		{
 			in:                           "hello.yaml",
@@ -469,7 +460,6 @@ func TestIntoResourceFile(t *testing.T) {
 			// Verifies that the kubevirtInterfaces list are applied properly from parameters..
 			in:                           "kubevirtInterfaces.yaml",
 			want:                         "kubevirtInterfaces.yaml.injected",
-			debugMode:                    true,
 			includeIPRanges:              DefaultIncludeIPRanges,
 			includeInboundPorts:          DefaultIncludeInboundPorts,
 			kubevirtInterfaces:           "net1",
@@ -482,7 +472,6 @@ func TestIntoResourceFile(t *testing.T) {
 			// Verifies that the kubevirtInterfaces list are applied properly from parameters..
 			in:                           "kubevirtInterfaces_list.yaml",
 			want:                         "kubevirtInterfaces_list.yaml.injected",
-			debugMode:                    true,
 			includeIPRanges:              DefaultIncludeIPRanges,
 			includeInboundPorts:          DefaultIncludeInboundPorts,
 			kubevirtInterfaces:           "net1,net2",
@@ -490,6 +479,22 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
+		{
+			// Verifies that global.podDNSSearchNamespaces are applied properly
+			in:                           "hello.yaml",
+			want:                         "hello-template-in-values.yaml.injected",
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			kubevirtInterfaces:           "net1,net2",
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			podDNSSearchNamespaces: []string{
+				"global",
+				"{{ valueOrDefault .DeploymentMeta.Namespace \"default\" }}.global",
+			},
 		},
 	}
 
@@ -531,14 +536,13 @@ func TestIntoResourceFile(t *testing.T) {
 				ReadinessPeriodSeconds:       c.readinessPeriodSeconds,
 				ReadinessFailureThreshold:    c.readinessFailureThreshold,
 				RewriteAppHTTPProbe:          false,
+				PodDNSSearchNamespaces:       c.podDNSSearchNamespaces,
 			}
 			if c.imagePullPolicy != "" {
 				params.ImagePullPolicy = c.imagePullPolicy
 			}
-			sidecarTemplate, err := GenerateTemplateFromParams(params)
-			if err != nil {
-				t.Fatalf("GenerateTemplateFromParams(%v) failed: %v", params, err)
-			}
+			sidecarTemplate := loadSidecarTemplate(t)
+			valuesConfig := getValues(params, t)
 			inputFilePath := "testdata/inject/" + c.in
 			wantFilePath := "testdata/inject/" + c.want
 			in, err := os.Open(inputFilePath)
@@ -547,7 +551,7 @@ func TestIntoResourceFile(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate, &mesh, in, &got); err != nil {
+			if err = IntoResourceFile(sidecarTemplate, valuesConfig, &mesh, in, &got); err != nil {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
@@ -570,33 +574,54 @@ func TestIntoResourceFile(t *testing.T) {
 // TestRewriteAppProbe tests the feature for pilot agent to take over app health check traffic.
 func TestRewriteAppProbe(t *testing.T) {
 	cases := []struct {
-		in       string
-		want     string
-		template string
+		in                  string
+		rewriteAppHTTPProbe bool
+		want                string
 	}{
 		{
-			in:   "hello-probes.yaml",
-			want: "hello-probes.yaml.injected",
+			in:                  "hello-probes.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "hello-probes.yaml.injected",
 		},
 		{
-			in:   "hello-readiness.yaml",
-			want: "hello-readiness.yaml.injected",
+			in:                  "hello-readiness.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "hello-readiness.yaml.injected",
 		},
 		{
-			in:   "named_port.yaml",
-			want: "named_port.yaml.injected",
+			in:                  "named_port.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "named_port.yaml.injected",
 		},
 		{
-			in:   "one_container.yaml",
-			want: "one_container.yaml.injected",
+			in:                  "one_container.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "one_container.yaml.injected",
 		},
 		{
-			in:   "two_container.yaml",
-			want: "two_container.yaml.injected",
+			in:                  "two_container.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "two_container.yaml.injected",
 		},
 		{
-			in:   "ready_only.yaml",
-			want: "ready_only.yaml.injected",
+			in:                  "ready_only.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "ready_only.yaml.injected",
+		},
+		{
+			in:                  "https-probes.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "https-probes.yaml.injected",
+		},
+		{
+			in:                  "hello-probes-with-flag-set-in-annotation.yaml",
+			rewriteAppHTTPProbe: false,
+			want:                "hello-probes-with-flag-set-in-annotation.yaml.injected",
+		},
+		{
+			in:                  "hello-probes-with-flag-unset-in-annotation.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "hello-probes-with-flag-unset-in-annotation.yaml.injected",
 		},
 		// TODO(incfly): add more test case covering different -statusPort=123, --statusPort=123
 		// No statusport, --statusPort 123.
@@ -616,12 +641,10 @@ func TestRewriteAppProbe(t *testing.T) {
 				ReadinessInitialDelaySeconds: DefaultReadinessPeriodSeconds,
 				ReadinessPeriodSeconds:       DefaultReadinessFailureThreshold,
 				ReadinessFailureThreshold:    DefaultReadinessFailureThreshold,
-				RewriteAppHTTPProbe:          true,
+				RewriteAppHTTPProbe:          c.rewriteAppHTTPProbe,
 			}
-			sidecarTemplate, err := GenerateTemplateFromParams(params)
-			if err != nil {
-				t.Fatalf("GenerateTemplateFromParams(%v) failed: %v", params, err)
-			}
+			sidecarTemplate := loadSidecarTemplate(t)
+			valuesConfig := getValues(params, t)
 			inputFilePath := "testdata/inject/app_probe/" + c.in
 			wantFilePath := "testdata/inject/app_probe/" + c.want
 			in, err := os.Open(inputFilePath)
@@ -630,7 +653,7 @@ func TestRewriteAppProbe(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate, &mesh, in, &got); err != nil {
+			if err = IntoResourceFile(sidecarTemplate, valuesConfig, &mesh, in, &got); err != nil {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
@@ -686,7 +709,7 @@ func TestInvalidParams(t *testing.T) {
 			params := newTestParams()
 			c.paramModifier(params)
 
-			if _, err := GenerateTemplateFromParams(params); err == nil {
+			if err := params.Validate(); err == nil {
 				t.Fatalf("expected error")
 			} else if !strings.Contains(strings.ToLower(err.Error()), c.annotation) {
 				t.Fatalf("unexpected error: %v", err)
@@ -716,15 +739,17 @@ func TestInvalidAnnotations(t *testing.T) {
 			annotation: "excludeinboundports",
 			in:         "traffic-annotations-bad-excludeinboundports.yaml",
 		},
+		{
+			annotation: "excludeoutboundports",
+			in:         "traffic-annotations-bad-excludeoutboundports.yaml",
+		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.annotation, func(t *testing.T) {
 			params := newTestParams()
-			sidecarTemplate, err := GenerateTemplateFromParams(params)
-			if err != nil {
-				t.Fatalf("GenerateTemplateFromParams(%v) failed: %v", params, err)
-			}
+			sidecarTemplate := loadSidecarTemplate(t)
+			valuesConfig := getValues(params, t)
 			inputFilePath := "testdata/inject/" + c.in
 			in, err := os.Open(inputFilePath)
 			if err != nil {
@@ -732,7 +757,7 @@ func TestInvalidAnnotations(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate, params.Mesh, in, &got); err == nil {
+			if err = IntoResourceFile(sidecarTemplate, valuesConfig, params.Mesh, in, &got); err == nil {
 				t.Fatalf("expected error")
 			} else if !strings.Contains(strings.ToLower(err.Error()), c.annotation) {
 				t.Fatalf("unexpected error: %v", err)

@@ -114,9 +114,6 @@ tracing:
   jaeger:
     enabled: true
 
-servicegraph:
-  enabled: true
-
 prometheus:
   enabled: true
 

@@ -40,7 +40,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var tmpl1Base64Str = getFileDescSetBase64("testdata/tmpl1.descriptor")
@@ -2984,7 +2984,7 @@ Attributes:
 				CompiledTemplate: "checkk",
 				Params: &types.Struct{
 					Fields: map[string]*types.Value{
-						"extra_field": &types.Value{},
+						"extra_field": {},
 					},
 				},
 			}),
@@ -3014,7 +3014,7 @@ Attributes:
 				CompiledTemplate: "check",
 				Params: &types.Struct{
 					Fields: map[string]*types.Value{
-						"extra_field": &types.Value{},
+						"extra_field": {},
 					},
 				},
 				AttributeBindings: map[string]string{"test": "test"},
@@ -3046,7 +3046,7 @@ Attributes:
 				CompiledTemplate: "check",
 				Params: &types.Struct{
 					Fields: map[string]*types.Value{
-						"extra_field": &types.Value{Kind: &types.Value_StringValue{StringValue: "test"}},
+						"extra_field": {Kind: &types.Value_StringValue{StringValue: "test"}},
 					},
 				},
 			}),
@@ -4370,8 +4370,7 @@ func runTests(t *testing.T) {
 			}
 
 			if (test.wantErr == "" && err != nil) ||
-				(test.wantErr != "" && err == nil) ||
-				(test.wantErr != "" && !strings.Contains(err.Error(), test.wantErr)) {
+				(test.wantErr != "" && err == nil) {
 				tt.Fatalf("**want error '%s' error; got %v", test.wantErr, err)
 			}
 

@@ -28,19 +28,17 @@ import (
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/collateral"
-	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/keepalive"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/mcp/creds"
-	"istio.io/istio/pkg/version"
+	"istio.io/pkg/collateral"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 var (
 	serverArgs = bootstrap.PilotArgs{
-		CtrlZOptions:         ctrlz.DefaultOptions(),
-		MCPCredentialOptions: creds.DefaultOptions(),
-		KeepaliveOptions:     keepalive.DefaultOption(),
+		CtrlZOptions:     ctrlz.DefaultOptions(),
+		KeepaliveOptions: keepalive.DefaultOption(),
 	}
 
 	loggingOptions = log.DefaultOptions()
@@ -113,12 +111,11 @@ func init() {
 		"comma separated list of networking plugins to enable")
 
 	// MCP client flags
-	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.MCPServerAddrs, "mcpServerAddrs", []string{},
-		"comma separated list of MCP server addresses with "+
-			"mcp:// (insecure) or mcps:// (secure) schema, e.g. mcps://istio-galley.istio-system.svc:9901")
-	discoveryCmd.PersistentFlags().MarkDeprecated("mcpServerAddrs", "Use --meshConfig instead, and specify in MeshConfig.ConfigSources[].Address")
-	serverArgs.MCPCredentialOptions.AttachCobraFlags(discoveryCmd)
 	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPMaxMessageSize, "mcpMaxMsgSize", bootstrap.DefaultMCPMaxMsgSize,
+		"Max message size received by MCP's grpc client")
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPInitialWindowSize, "mcpInitialWindowSize", bootstrap.DefaultMCPInitialWindowSize,
+		"Max message size received by MCP's grpc client")
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPInitialConnWindowSize, "mcpInitialConnWindowSize", bootstrap.DefaultMCPInitialConnWindowSize,
 		"Max message size received by MCP's grpc client")
 
 	// Config Controller options
@@ -173,6 +170,7 @@ func init() {
 		Section: "pilot-discovery CLI",
 		Manual:  "Istio Pilot Discovery",
 	}))
+
 }
 
 func main() {

@@ -20,16 +20,16 @@ import (
 	"io"
 	"strconv"
 	"sync/atomic"
-	"time"
 
 	"github.com/gogo/status"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/internal"
 	"istio.io/istio/pkg/mcp/monitoring"
+	"istio.io/istio/pkg/mcp/rate"
+	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("mcp", "mcp debugging", 0)
@@ -82,7 +82,7 @@ type Watcher interface {
 	//
 	// Cancel is an optional function to release resources in the
 	// producer. It can be called idempotently to cancel and release resources.
-	Watch(*Request, PushResponseFunc) CancelWatchFunc
+	Watch(*Request, PushResponseFunc, string) CancelWatchFunc
 }
 
 // CollectionOptions configures the per-collection updates.
@@ -110,9 +110,10 @@ func CollectionOptionsFromSlice(names []string) []CollectionOptions {
 
 // Options contains options for configuring MCP sources.
 type Options struct {
-	Watcher           Watcher
-	CollectionOptions []CollectionOptions
-	Reporter          monitoring.Reporter
+	Watcher            Watcher
+	CollectionsOptions []CollectionOptions
+	Reporter           monitoring.Reporter
+	ConnRateLimiter    rate.LimitFactory
 }
 
 // Stream is for sending Resource messages and receiving RequestResources messages.
@@ -122,14 +123,15 @@ type Stream interface {
 	Context() context.Context
 }
 
-// Sources implements the resource source message exchange for MCP. It can be instantiated by client and server
-// source implementations to manage the MCP message exchange.
+// Source implements the resource source message exchange for MCP.
+// It can be instantiated by client and server
 type Source struct {
-	watcher      Watcher
-	collections  []CollectionOptions
-	nextStreamID int64
-	reporter     monitoring.Reporter
-	connections  int64
+	watcher        Watcher
+	collections    []CollectionOptions
+	nextStreamID   int64
+	reporter       monitoring.Reporter
+	connections    int64
+	requestLimiter rate.LimitFactory
 }
 
 // watch maintains local push state of the most recent watch per-type.
@@ -159,18 +161,18 @@ type connection struct {
 	watcher  Watcher
 
 	reporter monitoring.Reporter
+	limiter  rate.Limit
 
 	queue *internal.UniqueQueue
 }
 
-const DefaultRetryPushDelay = 10 * time.Millisecond
-
 // New creates a new resource source.
 func New(options *Options) *Source {
 	s := &Source{
-		watcher:     options.Watcher,
-		collections: options.CollectionOptions,
-		reporter:    options.Reporter,
+		watcher:        options.Watcher,
+		collections:    options.CollectionsOptions,
+		reporter:       options.Reporter,
+		requestLimiter: options.ConnRateLimiter,
 	}
 	return s
 }
@@ -194,10 +196,11 @@ func (s *Source) newConnection(stream Stream) *connection {
 		watcher:  s.watcher,
 		id:       atomic.AddInt64(&s.nextStreamID, 1),
 		reporter: s.reporter,
+		limiter:  s.requestLimiter.Create(),
 		queue:    internal.NewUniqueScheduledQueue(len(s.collections)),
 	}
 
-	var collections []string
+	collections := make([]string, 0, len(s.collections))
 	for i := range s.collections {
 		collection := s.collections[i]
 		w := &watch{
@@ -215,7 +218,7 @@ func (s *Source) newConnection(stream Stream) *connection {
 	return con
 }
 
-func (s *Source) processStream(stream Stream) error {
+func (s *Source) ProcessStream(stream Stream) error {
 	con := s.newConnection(stream)
 
 	defer s.closeConnection(con)
@@ -247,15 +250,18 @@ func (s *Source) processStream(stream Stream) error {
 			if !more {
 				return con.reqError
 			}
+			if con.limiter != nil {
+				if err := con.limiter.Wait(stream.Context()); err != nil {
+					return err
+				}
+
+			}
 			if err := con.processClientRequest(req); err != nil {
 				return err
 			}
 		case <-con.queue.Done():
 			scope.Debugf("MCP: connection %v: stream done", con)
 			return status.Error(codes.Unavailable, "server canceled watch")
-		case <-stream.Context().Done():
-			scope.Debugf("MCP: connection %v: stream done, err=%v", con, stream.Context().Err())
-			return stream.Context().Err()
 		}
 	}
 }
@@ -338,7 +344,7 @@ func (con *connection) pushServerResponse(w *watch, resp *WatchResponse) error {
 	}
 
 	// increment nonce
-	con.streamNonce = con.streamNonce + 1
+	con.streamNonce++
 	msg.Nonce = strconv.FormatInt(con.streamNonce, 10)
 	if err := con.stream.Send(msg); err != nil {
 		con.reporter.RecordSendError(err, status.Code(err))
@@ -355,12 +361,11 @@ func (con *connection) receive() {
 	for {
 		req, err := con.stream.Recv()
 		if err != nil {
-			code := status.Code(err)
-			if code == codes.Canceled || err == io.EOF {
+			if err == io.EOF {
 				scope.Infof("MCP: connection %v: TERMINATED %q", con, err)
 				return
 			}
-			con.reporter.RecordRecvError(err, code)
+			con.reporter.RecordRecvError(err, status.Code(err))
 			scope.Errorf("MCP: connection %v: TERMINATED with errors: %v", con, err)
 			// Save the stream error prior to closing the stream. The caller
 			// should access the error after the channel closure.
@@ -390,9 +395,13 @@ func (con *connection) close() {
 }
 
 func (con *connection) processClientRequest(req *mcp.RequestResources) error {
+	if isTriggerResponse(req) {
+		return nil
+	}
+
 	collection := req.Collection
 
-	con.reporter.RecordRequestSize(collection, con.id, req.Size())
+	con.reporter.RecordRequestSize(collection, con.id, internal.ProtoSize(req))
 
 	w, ok := con.watches[collection]
 	if !ok {
@@ -433,7 +442,7 @@ func (con *connection) processClientRequest(req *mcp.RequestResources) error {
 			VersionInfo: versionInfo,
 			incremental: req.Incremental,
 		}
-		w.cancel = con.watcher.Watch(sr, con.queueResponse)
+		w.cancel = con.watcher.Watch(sr, con.queueResponse, con.peerAddr)
 	} else {
 		// This error path should not happen! Skip any requests that don't match the
 		// latest watch's nonce. These could be dup requests or out-of-order

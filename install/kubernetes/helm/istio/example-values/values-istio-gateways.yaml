@@ -28,7 +28,7 @@ global:
 # By default (if enabled) a pair of Ingress and Egress Gateways will be created for the mesh.
 # You can add more gateways in addition to the defaults but make sure those are uniquely named
 # and that NodePorts are not conflicting.
-# Disable specifc gateway by setting the `enabled` to false.
+# Disable specific gateway by setting the `enabled` to false.
 #
 gateways:
   enabled: true
@@ -123,9 +123,6 @@ grafana:
   enabled: false
 
 prometheus:
-  enabled: false
-
-servicegraph:
   enabled: false
 
 tracing:

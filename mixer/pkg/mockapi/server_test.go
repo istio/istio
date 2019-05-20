@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/googleapis/google/rpc"
 	"github.com/gogo/protobuf/proto"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -29,6 +29,7 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/status"
+	attr "istio.io/pkg/attribute"
 )
 
 var (
@@ -45,29 +46,29 @@ var (
 
 type testSetupFn func(server *AttributesServer, handler *ChannelsHandler)
 
-func noop(s *AttributesServer, h *ChannelsHandler) {}
+func noop(_ *AttributesServer, _ *ChannelsHandler) {}
 
-func setGRPCErr(s *AttributesServer, h *ChannelsHandler) {
+func setGRPCErr(s *AttributesServer, _ *ChannelsHandler) {
 	s.GenerateGRPCError = true
 }
 
-func clearGRPCErr(s *AttributesServer, h *ChannelsHandler) {
+func clearGRPCErr(s *AttributesServer, _ *ChannelsHandler) {
 	s.GenerateGRPCError = false
 }
 
-func setInvalidStatus(s *AttributesServer, h *ChannelsHandler) {
+func setInvalidStatus(_ *AttributesServer, h *ChannelsHandler) {
 	h.ReturnStatus = status.WithInvalidArgument("test failure")
 }
 
-func clearStatus(s *AttributesServer, h *ChannelsHandler) {
+func clearStatus(_ *AttributesServer, h *ChannelsHandler) {
 	h.ReturnStatus = status.OK
 }
 
-func setQuotaResponse(s *AttributesServer, h *ChannelsHandler) {
+func setQuotaResponse(_ *AttributesServer, h *ChannelsHandler) {
 	h.QuotaResponse = QuotaResponse{55 * time.Second, int64(999), nil}
 }
 
-func clearQuotaResponse(s *AttributesServer, h *ChannelsHandler) {
+func clearQuotaResponse(_ *AttributesServer, h *ChannelsHandler) {
 	h.QuotaResponse = QuotaResponse{DefaultValidDuration, DefaultAmount, nil}
 }
 
@@ -89,8 +90,8 @@ func TestCheck(t *testing.T) {
 
 	client := mixerpb.NewMixerClient(conn)
 
-	srcBag := attribute.NewProtoBag(&attrs, attrSrv.GlobalDict, attribute.GlobalList())
-	wantBag := attribute.CopyBag(srcBag)
+	srcBag := attribute.GetProtoBag(&attrs, attrSrv.GlobalDict, attribute.GlobalList())
+	wantBag := attr.CopyBag(srcBag)
 
 	noQuotaReq := &mixerpb.CheckRequest{Attributes: attrs}
 	quotaReq := &mixerpb.CheckRequest{Attributes: attrs, Quotas: testQuotas, DeduplicationId: "baz"}
@@ -229,15 +230,15 @@ func TestReport(t *testing.T) {
 
 	words := []string{"foo", "bar", "baz"}
 
-	baseBag := attribute.CopyBag(attribute.NewProtoBag(&attrs[0], attrSrv.GlobalDict, attribute.GlobalList()))
-	middleBag := attribute.CopyBag(baseBag)
-	if err = middleBag.UpdateBagFromProto(&attrs[1], attribute.GlobalList()); err != nil {
+	baseBag := attr.CopyBag(attribute.GetProtoBag(&attrs[0], attrSrv.GlobalDict, attribute.GlobalList()))
+	middleBag := attr.CopyBag(baseBag)
+	if err = attribute.UpdateBagFromProto(middleBag, &attrs[1], attribute.GlobalList()); err != nil {
 		t.Fatalf("Could not set up attribute bags for testing: %v", err)
 	}
 
 	finalAttr := &mixerpb.CompressedAttributes{Words: words, Strings: attrs[2].Strings}
-	finalBag := attribute.CopyBag(middleBag)
-	if err = finalBag.UpdateBagFromProto(finalAttr, attribute.GlobalList()); err != nil {
+	finalBag := attr.CopyBag(middleBag)
+	if err = attribute.UpdateBagFromProto(finalBag, finalAttr, attribute.GlobalList()); err != nil {
 		t.Fatalf("Could not set up attribute bags for testing: %v", err)
 	}
 

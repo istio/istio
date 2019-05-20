@@ -71,7 +71,7 @@ func init() {
 	}
 }
 
-func collectionOf(nonLegacyKind string) string {
+func collectionOf(nonLegacyKind string) string { //nolint: unparam
 	for _, u := range kube.Types.All() {
 		if u.Kind == nonLegacyKind {
 			return u.Target.Collection.String()
@@ -184,7 +184,7 @@ func TestBackend_List(t *testing.T) {
 	actual := st.backend.List()
 
 	expected := map[store.Key]*store.BackEndResource{
-		store.Key{
+		{
 			Name:      "e1",
 			Namespace: "ns1",
 			Kind:      constant.RulesKind,
@@ -199,7 +199,7 @@ func TestBackend_List(t *testing.T) {
 			},
 			Spec: map[string]interface{}{"match": "foo"},
 		},
-		store.Key{
+		{
 			Name:      "e2",
 			Namespace: "ns2",
 			Kind:      constant.RulesKind,
@@ -214,7 +214,7 @@ func TestBackend_List(t *testing.T) {
 			},
 			Spec: map[string]interface{}{"match": "bar"},
 		},
-		store.Key{
+		{
 			Name:      "e3",
 			Namespace: "",
 			Kind:      constant.RulesKind,

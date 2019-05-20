@@ -26,20 +26,37 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericclioptions/resource"
 	scheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/kubernetes/pkg/kubectl/genericclioptions"
-	"k8s.io/kubernetes/pkg/kubectl/genericclioptions/resource"
 
 	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 )
 
-func verifyInstall(enableVerbose bool, istioNamespaceFlag *string,
+var (
+	verifyInstallCmd *cobra.Command
+)
+
+func verifyInstall(enableVerbose bool, istioNamespaceFlag string,
+	restClientGetter resource.RESTClientGetter, options resource.FilenameOptions,
+	writer io.Writer, args []string) error {
+	if len(options.Filenames) == 0 {
+		if len(args) != 0 {
+			fmt.Fprint(writer, verifyInstallCmd.UsageString())
+			return fmt.Errorf("verify-install takes no arguments to perform installation pre-check")
+		}
+		return installPreCheck(istioNamespaceFlag, restClientGetter, writer)
+	}
+	return verifyPostInstall(enableVerbose, istioNamespaceFlag, restClientGetter,
+		options, writer)
+
+}
+
+func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 	restClientGetter resource.RESTClientGetter, options resource.FilenameOptions, writer io.Writer) error {
 	crdCount := 0
 	istioDeploymentCount := 0
-	if len(options.Filenames) == 0 {
-		return errors.New("--filename must be set")
-	}
 	r := resource.NewBuilder(restClientGetter).
 		Unstructured().
 		FilenameParam(false, &options).
@@ -49,6 +66,9 @@ func verifyInstall(enableVerbose bool, istioNamespaceFlag *string,
 		return err
 	}
 	err := r.Visit(func(info *resource.Info, err error) error {
+		if err != nil {
+			return err
+		}
 		content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
 		if err != nil {
 			return err
@@ -78,11 +98,11 @@ func verifyInstall(enableVerbose bool, istioNamespaceFlag *string,
 			if err != nil {
 				return err
 			}
-			err = getDeploymentStatus(deployment, name)
+			err = getDeploymentStatus(deployment, name, options.Filenames[0])
 			if err != nil {
 				return err
 			}
-			if namespace == *istioNamespaceFlag && strings.HasPrefix(name, "istio-") {
+			if namespace == istioNamespaceFlag && strings.HasPrefix(name, "istio-") {
 				istioDeploymentCount++
 			}
 		case "Job":
@@ -99,9 +119,10 @@ func verifyInstall(enableVerbose bool, istioNamespaceFlag *string,
 				return err
 			}
 			for _, c := range job.Status.Conditions {
-				switch c.Type {
-				case v1batch.JobFailed:
-					return fmt.Errorf("istio installation fails - the required Job  %s failed", name)
+				if c.Type == v1batch.JobFailed {
+					msg := fmt.Sprintf("Istio installation failed, incomplete or"+
+						" does not match \"%s\" - the required Job  %s failed", options.Filenames[0], name)
+					return errors.New(msg)
 				}
 			}
 		default:
@@ -118,7 +139,9 @@ func verifyInstall(enableVerbose bool, istioNamespaceFlag *string,
 					Name(name).
 					Do()
 				if result.Error() != nil {
-					return fmt.Errorf("istio installation fails or have not been completed - the required %s:%s is not ready due to: %v", kind, name, result.Error())
+					msg := fmt.Sprintf("Istio installation failed, incomplete or"+
+						" does not match \"%s\" - the required %s:%s is not ready due to: %v", options.Filenames[0], kind, name, result.Error())
+					return errors.New(msg)
 				}
 			}
 			if kind == "CustomResourceDefinition" {
@@ -140,7 +163,7 @@ func verifyInstall(enableVerbose bool, istioNamespaceFlag *string,
 }
 
 // NewVerifyCommand creates a new command for verifying Istio Installation Status
-func NewVerifyCommand(istioNamespaceFlag *string) *cobra.Command {
+func NewVerifyCommand() *cobra.Command {
 	var (
 		kubeConfigFlags = &genericclioptions.ConfigFlags{
 			Context:    strPtr(""),
@@ -151,33 +174,46 @@ func NewVerifyCommand(istioNamespaceFlag *string) *cobra.Command {
 		filenames     = []string{}
 		fileNameFlags = &genericclioptions.FileNameFlags{
 			Filenames: &filenames,
-			Recursive: boolPtr(true),
+			Recursive: boolPtr(false),
 			Usage:     "Istio YAML installation file.",
 		}
-		enableVerbose bool
+		enableVerbose  bool
+		istioNamespace string
 	)
-	verifyInstallCmd := &cobra.Command{
+	verifyInstallCmd = &cobra.Command{
 		Use:   "verify-install",
-		Short: "Verifies Istio Installation Status",
+		Short: "Verifies Istio Installation Status or performs pre-check for the cluster before Istio installation",
 		Long: `
 		verify-install verifies Istio installation status against the installation file
 		you specified when you installed Istio. It loops through all the installation
 		resources defined in your installation file and reports whether all of them are
 		in ready status. It will report failure when any of them are not ready.
+
+		If you do not specify installation file it will perform pre-check for your cluster
+		and report whether the cluster is ready for Istio installation.
 `,
 		Example: `
-istioctl verify-install -f istio-demo.yaml
+		# Verify that Istio can be freshly installed
+		istioctl experimental verify-install
+		
+		# Verify that the deployment matches the istio-demo profile
+		istioctl experimental verify-install -f istio-demo.yaml
+		
+		# Verify the deployment matches a custom Istio deployment configuration
+		istioctl experimental verify-install -f $HOME/istio.yaml
 `,
-		RunE: func(c *cobra.Command, _ []string) error {
-			return verifyInstall(enableVerbose, istioNamespaceFlag, kubeConfigFlags,
-				fileNameFlags.ToOptions(), c.OutOrStderr())
+		RunE: func(c *cobra.Command, args []string) error {
+			return verifyInstall(enableVerbose, istioNamespace, kubeConfigFlags,
+				fileNameFlags.ToOptions(), c.OutOrStderr(), args)
 		},
 	}
 
 	flags := verifyInstallCmd.PersistentFlags()
+	flags.StringVarP(&istioNamespace, "istioNamespace", "i", kube.IstioNamespace,
+		"Istio system namespace")
 	kubeConfigFlags.AddFlags(flags)
 	fileNameFlags.AddFlags(flags)
-	verifyInstallCmd.Flags().BoolVar(&enableVerbose, "enableVerbose", false,
+	verifyInstallCmd.Flags().BoolVar(&enableVerbose, "enableVerbose", true,
 		"Enable verbose output")
 	return verifyInstallCmd
 }
@@ -190,26 +226,30 @@ func boolPtr(val bool) *bool {
 	return &val
 }
 
-func getDeploymentStatus(deployment *v1beta1.Deployment, name string) error {
+func getDeploymentStatus(deployment *v1beta1.Deployment, name, fileName string) error {
 	cond := getDeploymentCondition(deployment.Status, v1beta1.DeploymentProgressing)
 	if cond != nil && cond.Reason == "ProgressDeadlineExceeded" {
-		return fmt.Errorf("istio installation fails or have not been completed"+
-			" - deployment %q exceeded its progress deadline", name)
+		msg := fmt.Sprintf("Istio installation failed, incomplete or does not match \"%s\""+
+			" - deployment %q exceeded its progress deadline", fileName, name)
+		return errors.New(msg)
 	}
 	if deployment.Spec.Replicas != nil && deployment.Status.UpdatedReplicas < *deployment.Spec.Replicas {
-		return fmt.Errorf("istio installation fails or have not been completed"+
+		msg := fmt.Sprintf("Istio installation failed, incomplete or does not match \"%s\""+
 			" - waiting for deployment %q rollout to finish: %d out of %d new replicas have been updated",
-			name, deployment.Status.UpdatedReplicas, *deployment.Spec.Replicas)
+			fileName, name, deployment.Status.UpdatedReplicas, *deployment.Spec.Replicas)
+		return errors.New(msg)
 	}
 	if deployment.Status.Replicas > deployment.Status.UpdatedReplicas {
-		return fmt.Errorf("istio installation fails or have not been completed"+
+		msg := fmt.Sprintf("Istio installation failed, incomplete or does not match \"%s\""+
 			" - waiting for deployment %q rollout to finish: %d old replicas are pending termination",
-			name, deployment.Status.Replicas-deployment.Status.UpdatedReplicas)
+			fileName, name, deployment.Status.Replicas-deployment.Status.UpdatedReplicas)
+		return errors.New(msg)
 	}
 	if deployment.Status.AvailableReplicas < deployment.Status.UpdatedReplicas {
-		return fmt.Errorf("istio installation fails or have not been completed"+
+		msg := fmt.Sprintf("Istio installation failed, incomplete or does not match \"%s\""+
 			" - waiting for deployment %q rollout to finish: %d of %d updated replicas are available",
-			name, deployment.Status.AvailableReplicas, deployment.Status.UpdatedReplicas)
+			fileName, name, deployment.Status.AvailableReplicas, deployment.Status.UpdatedReplicas)
+		return errors.New(msg)
 	}
 	return nil
 }

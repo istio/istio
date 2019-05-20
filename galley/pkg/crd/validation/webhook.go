@@ -29,7 +29,7 @@ import (
 	"github.com/howeyc/fsnotify"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/api/admissionregistration/v1beta1"
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
@@ -60,7 +60,7 @@ var (
 )
 
 func init() {
-	v1beta1.AddToScheme(runtimeScheme)
+	_ = v1beta1.AddToScheme(runtimeScheme)
 }
 
 const (
@@ -269,14 +269,14 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		createInformerEndpointSource:  defaultCreateInformerEndpointSource,
 	}
 
-	if galleyDeployment, err := wh.clientset.ExtensionsV1beta1().Deployments(wh.deploymentAndServiceNamespace).Get(wh.deploymentName, v1.GetOptions{}); err != nil { // nolint: lll
+	if galleyDeployment, err := wh.clientset.AppsV1().Deployments(wh.deploymentAndServiceNamespace).Get(wh.deploymentName, v1.GetOptions{}); err != nil { // nolint: lll
 		scope.Warnf("Could not find %s/%s deployment to set ownerRef. The validatingwebhookconfiguration must be deleted manually",
 			wh.deploymentAndServiceNamespace, wh.deploymentName)
 	} else {
 		wh.ownerRefs = []v1.OwnerReference{
 			*v1.NewControllerRef(
 				galleyDeployment,
-				extensionsv1beta1.SchemeGroupVersion.WithKind("Deployment"),
+				appsv1.SchemeGroupVersion.WithKind("Deployment"),
 			),
 		}
 	}
@@ -521,9 +521,12 @@ func (wh *Webhook) admitMixer(request *admissionv1beta1.AdmissionRequest) *admis
 		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}
 
-	if err := wh.validator.Validate(ev); err != nil {
-		reportValidationFailed(request, reasonInvalidConfig)
-		return toAdmissionResponse(err)
+	// webhook skips deletions
+	if ev.Type == store.Update {
+		if err := wh.validator.Validate(ev); err != nil {
+			reportValidationFailed(request, reasonInvalidConfig)
+			return toAdmissionResponse(err)
+		}
 	}
 
 	reportValidationPass(request)

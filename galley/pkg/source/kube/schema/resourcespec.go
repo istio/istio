@@ -16,9 +16,11 @@ package schema
 
 import (
 	"fmt"
+	"sort"
 
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	sc "k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/version"
 
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
@@ -37,8 +39,8 @@ type ResourceSpec struct {
 	// Group name of the K8s resource
 	Group string
 
-	// Version of the K8s resource
-	Version string
+	// Versions of the K8s resource
+	Versions []string
 
 	// Kind of the K8s resource
 	Kind string
@@ -51,6 +53,9 @@ type ResourceSpec struct {
 
 	// The converter to use
 	Converter converter.Fn
+
+	// Indicates that the resource is not required to be present
+	Optional bool
 }
 
 // APIResource generated from this type.
@@ -59,7 +64,7 @@ func (i *ResourceSpec) APIResource() *metaV1.APIResource {
 		Name:         i.Plural,
 		SingularName: i.Singular,
 		Kind:         i.Kind,
-		Version:      i.Version,
+		Version:      i.GetAPIVersion(),
 		Group:        i.Group,
 		Namespaced:   true,
 	}
@@ -69,11 +74,27 @@ func (i *ResourceSpec) APIResource() *metaV1.APIResource {
 func (i *ResourceSpec) GroupVersion() sc.GroupVersion {
 	return sc.GroupVersion{
 		Group:   i.Group,
-		Version: i.Version,
+		Version: i.GetAPIVersion(),
 	}
 }
 
 // CanonicalResourceName of the resource.
 func (i *ResourceSpec) CanonicalResourceName() string {
-	return fmt.Sprintf("%s.%s/%s", i.Plural, i.Group, i.Version)
+	return fmt.Sprintf("%s.%s/%s", i.Plural, i.Group, i.GetAPIVersion())
+}
+
+// GetAPIVersion returns the earlist served version for a given CRD.
+func (i *ResourceSpec) GetAPIVersion() string {
+	if len(i.Versions) == 1 {
+		return i.Versions[0]
+	}
+	//For testing purpose only
+	if len(i.Versions) == 0 {
+		return ""
+	}
+	//return the earliest version for now until we implement the discovery function
+	sort.Slice(i.Versions, func(j, k int) bool {
+		return version.CompareKubeAwareVersionStrings(i.Versions[j], i.Versions[k]) < 0
+	})
+	return i.Versions[0]
 }

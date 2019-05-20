@@ -27,12 +27,15 @@ import (
 	"text/template"
 	"time"
 
-	"istio.io/istio/pkg/spiffe"
+	"istio.io/pkg/annotations"
 
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/spiffe"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 // Generate the envoy v2 bootstrap configuration, using template.
@@ -40,8 +43,6 @@ const (
 	// EpochFileTemplate is a template for the root config JSON
 	EpochFileTemplate = "envoy-rev%d.json"
 	DefaultCfgDir     = "/var/lib/istio/envoy/envoy_bootstrap_tmpl.json"
-	// MaxClusterNameLength is the maximum cluster name length
-	MaxClusterNameLength = 189 // TODO: use MeshConfig.StatNameLength instead
 
 	// IstioMetaPrefix is used to pass env vars as node metadata.
 	IstioMetaPrefix = "ISTIO_META_"
@@ -54,6 +55,8 @@ const (
 	// statsPatterns gives the developer control over Envoy stats collection
 	EnvoyStatsMatcherInclusionPatterns = "sidecar.istio.io/statsInclusionPrefixes"
 )
+
+var _ = annotations.Register(EnvoyStatsMatcherInclusionPatterns, "Control over Envoy stats collection.")
 
 var (
 	// default value for EnvoyStatsMatcherInclusionPatterns
@@ -100,9 +103,7 @@ func createArgs(config *meshconfig.ProxyConfig, node, fname string, epoch int, c
 		"--allow-unknown-fields",
 	}
 
-	for _, v := range cliarg {
-		startupArgs = append(startupArgs, v)
-	}
+	startupArgs = append(startupArgs, cliarg...)
 
 	if config.Concurrency > 0 {
 		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(config.Concurrency))
@@ -196,10 +197,12 @@ func getNodeMetaData(envs []string) map[string]string {
 	return meta
 }
 
+var overrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP", "", "")
+
 // WriteBootstrap generates an envoy config based on config and epoch, and returns the filename.
 // TODO: in v2 some of the LDS ports (port, http_port) should be configured in the bootstrap.
 func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
-	opts map[string]interface{}, localEnv []string, nodeIPs []string) (string, error) {
+	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string) (string, error) {
 	if opts == nil {
 		opts = map[string]interface{}{}
 	}
@@ -217,7 +220,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 		cfg = DefaultCfgDir
 	}
 
-	override := os.Getenv("ISTIO_BOOTSTRAP")
+	override := overrideVar.Get()
 	if len(override) > 0 {
 		cfg = override
 	}
@@ -243,6 +246,15 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["connect_timeout"] = (&types.Duration{Seconds: config.ConnectTimeout.Seconds, Nanos: config.ConnectTimeout.Nanos}).String()
 	opts["cluster"] = config.ServiceCluster
 	opts["nodeID"] = node
+
+	// Populate the platform locality if available.
+	l := platform.GetPlatformLocality()
+	if l.Region != "" {
+		opts["region"] = l.Region
+	}
+	if l.Zone != "" {
+		opts["zone"] = l.Zone
+	}
 
 	// Support passing extra info from node environment as metadata
 	meta := getNodeMetaData(localEnv)
@@ -274,6 +286,20 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 
 	// Pass unmodified config.DiscoveryAddress for Google gRPC Envoy client target_uri parameter
 	opts["discovery_address"] = config.DiscoveryAddress
+
+	opts["dns_refresh_rate"] = dnsRefreshRate
+
+	// Setting default to ipv4 local host, wildcard and dns policy
+	opts["localhost"] = "127.0.0.1"
+	opts["wildcard"] = "0.0.0.0"
+	opts["dns_lookup_family"] = "V4_ONLY"
+
+	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
+	if isIPv6Proxy(nodeIPs) {
+		opts["localhost"] = "::1"
+		opts["wildcard"] = "::"
+		opts["dns_lookup_family"] = "AUTO"
+	}
 
 	if config.Tracing != nil {
 		switch tracer := config.Tracing.Tracer.(type) {
@@ -331,8 +357,26 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	if err != nil {
 		return "", err
 	}
+	defer fout.Close()
 
 	// Execute needs some sort of io.Writer
 	err = t.Execute(fout, opts)
 	return fname, err
+}
+
+// isIPv6Proxy check the addresses slice and returns true for a valid IPv6 address
+// for all other cases it returns false
+func isIPv6Proxy(ipAddrs []string) bool {
+	for i := 0; i < len(ipAddrs); i++ {
+		addr := net.ParseIP(ipAddrs[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if addr.To4() != nil {
+			return false
+		}
+	}
+	return true
 }

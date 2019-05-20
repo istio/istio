@@ -435,7 +435,7 @@ spec:
     fault:
       abort:
         percentage:
-          value: 0.001
+          value: 0.1
         httpStatus: 400
 </code></pre>
 
@@ -507,7 +507,7 @@ spec:
     fault:
       delay:
         percentage:
-          value: 0.001
+          value: 0.1
         fixedDelay: 5s
 </code></pre>
 
@@ -709,6 +709,25 @@ gateways specified at the top, it should include the reserved gateway
 <p>Names of gateways where the rule should be applied to. Gateway names
 at the top of the VirtualService (if any) are overridden. The gateway match is
 independent of sourceLabels.</p>
+
+</td>
+</tr>
+<tr id="HTTPMatchRequest-query_params">
+<td><code>queryParams</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#StringMatch">StringMatch</a>&gt;</code></td>
+<td>
+<p>Query parameters for matching.</p>
+
+<p>Ex:
+- For a query parameter like &ldquo;?key=true&rdquo;, the map key would be &ldquo;key&rdquo; and
+  the string match could be defined as <code>exact: &quot;true&quot;</code>.
+- For a query parameter like &ldquo;?key&rdquo;, the map key would be &ldquo;key&rdquo; and the
+  string match could be defined as <code>exact: &quot;&quot;</code>.
+- For a query parameter like &ldquo;?key=123&rdquo;, the map key would be &ldquo;key&rdquo; and the
+  string match could be defined as <code>regex: &quot;\d+$&quot;</code>. Note that this
+  configuration will only match values like &ldquo;123&rdquo; but not &ldquo;a123&rdquo; or &ldquo;123a&rdquo;.</p>
+
+<p><strong>Note:</strong> <code>prefix</code> matching is currently not supported.</p>
 
 </td>
 </tr>
@@ -1686,15 +1705,16 @@ only for services defined via the Gateway.</p>
 <td><code>gateways</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>The names of gateways that should apply these rules. If omitted, the
-rules are only applied to sidecars inside the mesh. If a list of gateway
-names is provided, the rules will not be applied to sidecars inside the
-mesh unless the reserved gateway name <code>mesh</code> is included in the list.
-Gateways defined in a different namespace can be selected by prefixing
-the gateway name with <code>namespace/</code>.</p>
-
-<p>The selection condition imposed by this field can be overridden using
-the source field in the match conditions of protocol-specific routes.</p>
+<p>The names of gateways and sidecars that should apply these routes. A
+single VirtualService is used for sidecars inside the mesh as well as
+for one or more gateways. The selection condition imposed by this
+field can be overridden using the source field in the match conditions
+of protocol-specific routes. The reserved word <code>mesh</code> is used to imply
+all the sidecars in the mesh. When this field is omitted, the default
+gateway (<code>mesh</code>) will be used, which would apply the rule to all
+sidecars in the mesh. If a list of gateway names is provided, the
+rules will apply only to the gateways. To apply the rules to both
+gateways and sidecars, specify <code>mesh</code> as one of the gateway names.</p>
 
 </td>
 </tr>

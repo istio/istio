@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: istio-nodeagent
@@ -10,6 +10,9 @@ metadata:
     heritage: {{ .Release.Service }}
     istio: nodeagent
 spec:
+  selector:
+    matchLabels:
+      istio: nodeagent
   template:
     metadata:
       labels:

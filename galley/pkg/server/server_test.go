@@ -104,8 +104,8 @@ func TestNewServer(t *testing.T) {
 	p.fsNew = func(string, *schema.Instance, *converter.Config) (runtime.Source, error) {
 		return runtime.NewInMemorySource(), nil
 	}
-	p.verifyResourceTypesPresence = func(client.Interfaces, []schema.ResourceSpec) error {
-		return nil
+	p.verifyResourceTypesPresence = func(_ client.Interfaces, specs []schema.ResourceSpec) ([]schema.ResourceSpec, error) {
+		return specs, nil
 	}
 
 	partialResourceList := sourceResourceSchemas[:len(sourceResourceSchemas)/2]
@@ -162,8 +162,8 @@ func TestServer_Basic(t *testing.T) {
 		return mcptestmon.NewInMemoryStatsContext()
 	}
 	p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
-	p.verifyResourceTypesPresence = func(client.Interfaces, []schema.ResourceSpec) error {
-		return nil
+	p.verifyResourceTypesPresence = func(_ client.Interfaces, specs []schema.ResourceSpec) ([]schema.ResourceSpec, error) {
+		return specs, nil
 	}
 
 	args := DefaultArgs()

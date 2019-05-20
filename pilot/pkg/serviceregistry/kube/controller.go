@@ -36,7 +36,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/features/pilot"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -225,7 +225,6 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 
 				if !reflect.DeepEqual(oldE.Subsets, curE.Subsets) {
 					k8sEvents.With(prometheus.Labels{"type": otype, "event": "update"}).Add(1)
-					// c.updateEDS(cur.(*v1.Endpoints))
 					c.queue.Push(Task{handler: handler.Apply, obj: cur, event: model.EventUpdate})
 				} else {
 					k8sEvents.With(prometheus.Labels{"type": otype, "event": "updateSame"}).Add(1)
@@ -305,19 +304,6 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 	return c.servicesMap[hostname], nil
 }
 
-// serviceByKey retrieves a service by name and namespace
-func (c *Controller) serviceByKey(name, namespace string) (*v1.Service, bool) {
-	item, exists, err := c.services.informer.GetStore().GetByKey(KeyFunc(name, namespace))
-	if err != nil {
-		log.Infof("serviceByKey(%s, %s) => error %v", name, namespace, err)
-		return nil, false
-	}
-	if !exists {
-		return nil, false
-	}
-	return item.(*v1.Service), true
-}
-
 // GetPodLocality retrieves the locality for a pod.
 func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 	// NodeName is set by the scheduler after the pod is created
@@ -328,8 +314,8 @@ func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 		return ""
 	}
 
-	region, _ := node.(*v1.Node).Labels[NodeRegionLabel]
-	zone, _ := node.(*v1.Node).Labels[NodeZoneLabel]
+	region := node.(*v1.Node).Labels[NodeRegionLabel]
+	zone := node.(*v1.Node).Labels[NodeZoneLabel]
 	if region == "" && zone == "" {
 		return ""
 	}
@@ -466,7 +452,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 			az, sa, uid := "", "", ""
 			if pod != nil {
 				az = c.GetPodLocality(pod)
-				sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace())
+				sa = secureNamingSAN(pod)
 				uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 			}
 
@@ -636,7 +622,7 @@ func (c *Controller) getEndpoints(ip string, endpointPort int32, svcPort *model.
 	az, sa := "", ""
 	if pod != nil {
 		az = c.GetPodLocality(pod)
-		sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace())
+		sa = secureNamingSAN(pod)
 	}
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -730,7 +716,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			portsByNum[uint32(port.Port)] = port.Name
 		}
 
-		svcConv := convertService(*svc, c.domainSuffix)
+		svcConv := convertService(*svc, c.domainSuffix, c.ClusterID)
 		instances := externalNameServiceInstances(*svc, svcConv)
 		switch event {
 		case model.EventDelete:
@@ -816,7 +802,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						ServicePortName: port.Name,
 						Labels:          labels,
 						UID:             uid,
-						ServiceAccount:  kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace()),
+						ServiceAccount:  secureNamingSAN(pod),
 						Network:         c.endpointNetwork(ea.IP),
 					})
 				}
@@ -827,9 +813,9 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	// TODO: Endpoints include the service labels, maybe we can use them ?
 	// nodeName is also included, not needed
 
-	log.Infof("Handle EDS endpoint %s in namespace %s -> %v %v", ep.Name, ep.Namespace, ep.Subsets, endpoints)
+	log.Infof("Handle EDS endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, ep.Subsets)
 
-	c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
+	_ = c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
 }
 
 // namedRangerEntry for holding network's CIDR and name
@@ -864,7 +850,7 @@ func (c *Controller) InitNetworkLookup(meshNetworks *meshconfig.MeshNetworks) {
 					name:    n,
 					network: *net,
 				}
-				c.ranger.Insert(rangerEntry)
+				_ = c.ranger.Insert(rangerEntry)
 			}
 			if ep.GetFromRegistry() != "" && ep.GetFromRegistry() == c.ClusterID {
 				c.networkForRegistry = n

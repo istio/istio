@@ -146,8 +146,7 @@ message Jwt {
   repeated string audiences = 2;
 
   // URL of the provider's public key set to validate signature of the
-  // JWT. See [OpenID
-  // Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata).
+  // JWT. See [OpenID Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata).
   //
   // Optional if the key set document can either (a) be retrieved from
   // [OpenID
@@ -156,7 +155,15 @@ message Jwt {
   // Google service account).
   //
   // Example: `https://www.googleapis.com/oauth2/v1/certs`
+  //
+  // Note: Only one of jwks_uri and jwks should be used.
   string jwks_uri = 3;
+
+  // JSON Web Key Set of public keys to validate signature of the JWT.
+  // See https://auth0.com/docs/jwks.
+  //
+  // Note: Only one of jwks_uri and jwks should be used.
+  string jwks = 10;
 
   // Two fields below define where to extract the JWT from an HTTP request.
   //
@@ -203,6 +210,9 @@ message Jwt {
   // skip the JWT validation.
   // Leave this empty to always trigger the JWT validation.
   repeated TriggerRule trigger_rules = 9;
+
+  // $hide_from_docs
+  // Next available field number: 11
 }
 
 // PeerAuthenticationMethod defines one particular type of authentication, e.g
@@ -290,7 +300,7 @@ enum PrincipalBinding {
 //   name: productpage-mTLS-with-JWT
 //   namespace: frod
 // spec:
-//   target:
+//   targets:
 //   - name: productpage
 //     ports:
 //     - number: 9000
@@ -364,10 +374,10 @@ message TargetSelector {
   // $hide_from_docs
   // $not-implemented-hide
   // Select workload by labels.
-  // Once implemented, this is a prefer way over using service name.
+  // Once implemented, this is the preferred way rather than using the service name.
   map<string, string> labels = 3;
 
-  // Specifies the ports. Note that this is the port(s) exposed by the service, not workload ports.
+  // Specifies the ports. Note that this is the port(s) exposed by the service, not workload instance ports.
   // For example, if a service is defined as below, then `8000` should be used, not `9000`.
   // ```yaml
   // kind: Service

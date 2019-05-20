@@ -27,12 +27,12 @@ import (
 	cfgpb "istio.io/api/policy/v1beta1"
 	configpb "istio.io/api/policy/v1beta1"
 	dpb "istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
-	"istio.io/istio/pkg/probe"
+	"istio.io/pkg/attribute"
+	"istio.io/pkg/pool"
+	"istio.io/pkg/probe"
 )
 
 var egp = pool.NewGoroutinePool(1, true)
@@ -301,19 +301,15 @@ func TestRuntime_InFlightRequestsDuringConfigChange(t *testing.T) {
 }
 
 type mockStore struct {
-	// Init method related fields
-	initCalled        bool
-	initKinds         map[string]proto.Message
-	initErrorToReturn error
-
-	// Watch method related fields
-	watchCalled          bool
+	initKinds            map[string]proto.Message
+	initErrorToReturn    error
 	watchChannelToReturn chan store.Event
 	watchErrorToReturn   error
+	listResultToReturn   map[store.Key]*store.Resource
 
-	// List method related fields
-	listCalled         bool
-	listResultToReturn map[store.Key]*store.Resource
+	initCalled  bool
+	watchCalled bool
+	listCalled  bool
 }
 
 var _ store.Store = &mockStore{}

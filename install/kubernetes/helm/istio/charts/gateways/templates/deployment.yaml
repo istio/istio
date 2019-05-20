@@ -1,7 +1,7 @@
 {{- range $key, $spec := .Values }}
 {{- if ne $key "enabled" }}
 {{- if $spec.enabled }}
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ $key }}
@@ -21,6 +21,11 @@ spec:
   replicas: 1
 {{- end }}
 {{- end }}
+  selector:
+    matchLabels:
+      {{- range $key, $val := $spec.labels }}
+      {{ $key }}: {{ $val }}
+      {{- end }}
   template:
     metadata:
       labels:
@@ -104,6 +109,9 @@ spec:
         {{- if $.Values.global.proxy.logLevel }}
           - --proxyLogLevel={{ $.Values.global.proxy.logLevel }}
         {{- end}}
+        {{- if $.Values.global.proxy.componentLogLevel }}
+          - --proxyComponentLogLevel={{ $.Values.global.proxy.componentLogLevel }}
+        {{- end}}
         {{- if $.Values.global.logging.level }}
           - --log_output_level={{ $.Values.global.logging.level }}
         {{- end}}
@@ -174,6 +182,11 @@ spec:
 {{ toYaml $.Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
           - name: POD_NAME
             valueFrom:
               fieldRef:

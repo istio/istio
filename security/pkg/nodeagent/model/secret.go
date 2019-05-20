@@ -37,4 +37,6 @@ type SecretItem struct {
 	Version string
 
 	CreatedTime time.Time
+
+	ExpireTime time.Time
 }

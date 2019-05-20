@@ -17,11 +17,11 @@ package mockapi
 import (
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/googleapis/google/rpc"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/status"
+	"istio.io/pkg/attribute"
 )
 
 // AttributesHandler provides an interface for building custom testing behavior.

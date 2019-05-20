@@ -28,7 +28,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -41,8 +40,10 @@ import (
 
 	"istio.io/istio/mixer/adapter/kubernetesenv/config"
 	ktmpl "istio.io/istio/mixer/adapter/kubernetesenv/template"
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/pkg/kube/secretcontroller"
+	"istio.io/pkg/env"
 )
 
 const (
@@ -94,17 +95,9 @@ var _ ktmpl.HandlerBuilder = &builder{}
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "kubernetesenv",
-		Impl:        "istio.io/istio/mixer/adapter/kubernetesenv",
-		Description: "Provides platform specific functionality for the kubernetes environment",
-		SupportedTemplates: []string{
-			ktmpl.TemplateName,
-		},
-		DefaultConfig: conf,
-
-		NewBuilder: func() adapter.HandlerBuilder { return newBuilder(newKubernetesClient) },
-	}
+	info := metadata.GetInfo("kubernetesenv")
+	info.NewBuilder = func() adapter.HandlerBuilder { return newBuilder(newKubernetesClient) }
+	return info
 }
 
 func (b *builder) SetAdapterConfig(c adapter.Config) {
@@ -117,12 +110,14 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 	return
 }
 
+var kubeConfigVar = env.RegisterStringVar("KUBECONFIG", "", "")
+
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	paramsProto := b.adapterConfig
 	var controller cacheController
 	var controllers = make(map[string]cacheController)
 
-	path, exists := os.LookupEnv("KUBECONFIG")
+	path, exists := kubeConfigVar.Lookup()
 	if !exists {
 		path = paramsProto.KubeconfigPath
 	}
@@ -225,7 +220,7 @@ func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *ktmpl.
 
 func (h *handler) Close() error {
 	for clusterID := range h.builder.controllers {
-		h.builder.deleteCacheController(clusterID)
+		_ = h.builder.deleteCacheController(clusterID)
 	}
 	h.builder.Lock()
 	h.builder.kubeHandler = nil
@@ -373,11 +368,10 @@ func (b *builder) createCacheController(k8sInterface k8s.Interface, clusterID st
 		b.kubeHandler.Unlock()
 
 		b.kubeHandler.env.Logger().Infof("created remote controller %s", clusterID)
-	} else {
-		b.kubeHandler.env.Logger().Errorf("error on creating remote controller %s err = %v", clusterID, err)
+		return nil
 	}
 
-	return err
+	return b.kubeHandler.env.Logger().Errorf("error on creating remote controller %s err = %v", clusterID, err)
 }
 
 func (b *builder) deleteCacheController(clusterID string) error {
@@ -395,14 +389,14 @@ func (b *builder) deleteCacheController(clusterID string) error {
 	return nil
 }
 
+var clusterNsVar = env.RegisterStringVar("POD_NAMESPACE", defaultClusterRegistriesNamespace, "")
+
 func initMultiClusterSecretController(b *builder, kubeconfig string, env adapter.Env) (err error) {
 	var clusterNs string
 
 	paramsProto := b.adapterConfig
 	if clusterNs = paramsProto.ClusterRegistriesNamespace; clusterNs == "" {
-		if clusterNs = os.Getenv("POD_NAMESPACE"); clusterNs == "" {
-			clusterNs = defaultClusterRegistriesNamespace
-		}
+		clusterNs = clusterNsVar.Get()
 	}
 
 	kubeClient, err := b.newClientFn(kubeconfig, env)

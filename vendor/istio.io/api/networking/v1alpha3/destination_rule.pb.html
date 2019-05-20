@@ -172,7 +172,7 @@ parameter to 1 disables keep alive.</p>
 <td><code>int32</code></td>
 <td>
 <p>Maximum number of retries that can be outstanding to all hosts in a
-cluster at a given time. Defaults to 3.</p>
+cluster at a given time. Defaults to 1024.</p>
 
 </td>
 </tr>
@@ -1003,8 +1003,8 @@ on which this policy is being applied.</p>
 
 <p>Names must comply with DNS label syntax (rfc1035) and therefore cannot
 collide with numbers. If there are multiple ports on a service with
-the same protocol the names should be of the form <protocol-name>-<DNS
-label>.</p>
+the same protocol the names should be of the form &lt;protocol-name&gt;-&lt;DNS
+label&gt;.</p>
 
 </td>
 </tr>

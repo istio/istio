@@ -197,11 +197,11 @@ message Gateway {
   // REQUIRED: A list of server specifications.
   repeated Server servers = 1;
 
-  // REQUIRED: One or more labels used to select the specific gateway workload
-  // to which this configuration should be applied.
-  // It is recommended that the Gateway resource reside in the same namespace
-  // as the gateway workload.
-  // This may become a requirement in the future.
+  // REQUIRED: One or more labels that indicate a specific set of pods/VMs
+  // on which this gateway configuration should be applied. The scope of
+  // label search is restricted to the configuration namespace in which the
+  // the resource is present. In other words, the Gateway resource must
+  // reside in the same namespace as the gateway workload instance.
   map<string, string> selector = 2;
 }
 
@@ -362,13 +362,13 @@ message Server {
     // as Kubernetes secrets, will be configured to retrieve the
     // serverCertificate and the privateKey using credentialName, instead
     // of using the file system paths specified above. If using mutual TLS,
-    // gateway workloads will retrieve the CaCertificates using
+    // gateway workload instances will retrieve the CaCertificates using
     // credentialName-cacert. The semantics of the name are platform
     // dependent.  In Kubernetes, the default Istio supplied credential
     // server expects the credentialName to match the name of the
     // Kubernetes secret that holds the server certificate, the private
     // key, and the CA certificate (if using mutual TLS). Set the
-    // ISTIO_META_USER_SDS metadata variable in the gateway's proxy to
+    // `ISTIO_META_USER_SDS` metadata variable in the gateway's proxy to
     // enable the dynamic credential fetching feature.
     string credential_name = 10;
 

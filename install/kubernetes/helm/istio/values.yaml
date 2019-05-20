@@ -33,7 +33,6 @@ galley:
 #
 # @see charts/mixer/values.yaml, it takes precedence
 mixer:
-  enabled: true
   policy:
     # if policy is enabled the global.disablePolicyChecks has affect.
     enabled: true
@@ -72,12 +71,6 @@ prometheus:
   enabled: true
 
 #
-# addon servicegraph configuration
-#
-servicegraph:
-  enabled: false
-
-#
 # addon jaeger tracing configuration
 #
 tracing:
@@ -89,6 +82,12 @@ tracing:
 kiali:
   enabled: false
 
+#
+# addon certmanager configuration
+#
+certmanager:
+  enabled: false
+  
 #
 # Istio CNI plugin enabled
 #   This must be enabled to use the CNI plugin in Istio.  The CNI plugin is installed separately.
@@ -111,7 +110,7 @@ global:
   hub: gcr.io/istio-release
 
   # Default tag for Istio images.
-  tag: release-1.1-latest-daily
+  tag: master-latest-daily
 
   # Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>
   # The control plane has different scopes depending on component, but can configure default log level across all components
@@ -171,8 +170,13 @@ global:
     # Expected values are: trace|debug|info|warning|error|critical|off
     logLevel: ""
 
+    # Per Component log level for proxy, applies to gateways and sidecars. If a component level is
+    # not set, then the global "logLevel" will be used. If left empty, "misc:error" is used.
+    componentLogLevel: ""
+
     # Configure the DNS refresh rate for Envoy cluster of type STRICT_DNS
     # 5 seconds is the default refresh rate used by Envoy
+    # This must be given it terms of seconds. For example, 600s is valid but 5m is invalid.
     dnsRefreshRate: 5s
 
     #If set to true, istio-proxy container will have privileged securityContext
@@ -200,6 +204,7 @@ global:
     # be allowed by the sidecar
     includeIPRanges: "*"
     excludeIPRanges: ""
+    excludeOutboundPorts: ""
 
     # pod internal interfaces
     kubevirtInterfaces: ""
@@ -251,7 +256,7 @@ global:
   # TODO: Switch to Always as default, and override in the local tests.
   imagePullPolicy: IfNotPresent
 
-  # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
+  # controlPlaneSecurityEnabled enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
 
@@ -301,7 +306,7 @@ global:
   # to use for pulling any images in pods that reference this ServiceAccount.
   # For components that don't use ServiceAccounts (i.e. grafana, servicegraph, tracing)
   # ImagePullSecrets will be added to the corresponding Deployment(StatefulSet) objects.
-  # Must be set for any clustser configured with private docker registry.
+  # Must be set for any cluster configured with private docker registry.
   imagePullSecrets:
     # - private-registry-key
 
@@ -319,9 +324,9 @@ global:
   # If not set, controller watches all namespaces
   oneNamespace: false
 
-  # Default node selector to be applied to all deployments so that all pods can be 
-  # constrained to run a particular nodes. Each component can overwrite these default 
-  # values by adding its node selector block in the relevant section below and setting 
+  # Default node selector to be applied to all deployments so that all pods can be
+  # constrained to run a particular nodes. Each component can overwrite these default
+  # values by adding its node selector block in the relevant section below and setting
   # the desired values.
   defaultNodeSelector: {}
 
@@ -434,8 +439,9 @@ global:
   # The second network, `network2`, in this example is defined differently with all endpoints
   # retrieved through the specified Multi-Cluster registry being mapped to network2. The
   # gateway is also defined differently with the name of the gateway service on the remote
-  # cluster. The public IP for the gateway will be determined from that remote service (not
-  # supported yet).
+  # cluster. The public IP for the gateway will be determined from that remote service (only
+  # LoadBalancer gateway service type is currently supported, for a NodePort type gateway service,
+  # it still need to be configured manually).
   #
   # meshNetworks:
   #   network1:
@@ -448,7 +454,7 @@ global:
   #     endpoints:
   #     - fromRegistry: reg1
   #     gateways:
-  #     - registryServiceName: istio-ingressgateway
+  #     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
   #       port: 443
   #
   meshNetworks: {}
