@@ -383,7 +383,7 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 	iptables("-t", "nat", "-A", "OUTPUT", "-p", "tcp", "-j", "ISTIO_OUTPUT").RunOrFail()
 
 	// Apply port based exclusions. Must be applied before connections back to self are redirected.
-	if outboundPortsExclude != ""{
+	if outboundPortsExclude != "" {
 		for _, port := range split(outboundPortsExclude) {
 			iptables("-t", "nat", "-A", "ISTIO_OUTPUT", "-p", "tcp", "--dport", port, "-j", "RETURN").RunOrFail()
 		}
@@ -495,7 +495,7 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 		// Jump to the ISTIO_OUTPUT chain from OUTPUT chain for all tcp traffic.
 		ip6tables("-t", "nat", "-A", "OUTPUT", "-p", "tcp", "-j", "ISTIO_OUTPUT").RunOrFail()
 		// Apply port based exclusions. Must be applied before connections back to self are redirected.
-		if outboundPortsExclude != ""{
+		if outboundPortsExclude != "" {
 			for _, port := range split(outboundPortsExclude) {
 				ip6tables("-t", "nat", "-A", "ISTIO_OUTPUT", "-p", "tcp", "--dport", port, "-j", "RETURN").RunOrFail()
 			}

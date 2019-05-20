@@ -516,7 +516,7 @@ iptables-save
 ip6tables-save `))
 }
 
-func TestSupportsExcludeOutboundPorts(t *testing.T){
+func TestSupportsExcludeOutboundPorts(t *testing.T) {
 	output := OutputCollector{}
 	commandRunner = output.Run
 	g := gomega.NewGomegaWithT(t)
