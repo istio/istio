@@ -23,9 +23,13 @@ spec:
   template:
     metadata:
       labels:
-        release: {{ $.Release.Name }}
         app: istio-egressgateway
         istio: egressgateway
+{{- if eq .Release.Namespace "istio-system"}}
+        heritage: Tiller
+        release: istio
+        chart: gateways
+{{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
 {{- if $gateway.podAnnotations }}

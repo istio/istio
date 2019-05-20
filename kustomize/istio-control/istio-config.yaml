@@ -1,0 +1,530 @@
+---
+# Source: istio-config/templates/poddisruptionbudget.yaml
+
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istio-galley
+  namespace: istio-control
+  labels:
+    app: galley
+    release: istio-control-istio-config
+    istio: galley
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: galley
+      release: istio-control-istio-config
+      istio: galley
+
+---
+# Source: istio-config/templates/configmap-envoy.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: istio-control
+  name: galley-envoy-config
+  labels:
+    app: galley
+    istio: galley
+    release: istio-control-istio-config
+data:
+  envoy.yaml.tmpl: |-
+    admin:
+      access_log_path: /dev/null
+      address:
+        socket_address:
+          address: 127.0.0.1
+          port_value: 15000
+
+    static_resources:
+
+      clusters:
+      - name: in.9901
+        http2_protocol_options: {}
+        connect_timeout: 1.000s
+
+        hosts:
+        - socket_address:
+            address: 127.0.0.1
+            port_value: 9901
+
+        circuit_breakers:
+          thresholds:
+          - max_connections: 100000
+            max_pending_requests: 100000
+            max_requests: 100000
+            max_retries: 3
+
+      listeners:
+      - name: "15019"
+        address:
+          socket_address:
+            address: 0.0.0.0
+            port_value: 15019
+        filter_chains:
+        - filters:
+          - name: envoy.http_connection_manager
+            config:
+              codec_type: HTTP2
+              stat_prefix: "15010"
+              http2_protocol_options:
+                max_concurrent_streams: 1073741824
+
+              access_log:
+              - name: envoy.file_access_log
+                config:
+                  path: /dev/stdout
+
+              http_filters:
+              - name: envoy.router
+
+              route_config:
+                name: "15019"
+
+                virtual_hosts:
+                - name: istio-galley
+
+                  domains:
+                  - '*'
+
+                  routes:
+                  - match:
+                      prefix: /
+                    route:
+                      cluster: in.9901
+                      timeout: 0.000s
+          tls_context:
+            common_tls_context:
+              alpn_protocols:
+              - h2
+              tls_certificates:
+              - certificate_chain:
+                  filename: /etc/certs/cert-chain.pem
+                private_key:
+                  filename: /etc/certs/key.pem
+              validation_context:
+                trusted_ca:
+                  filename: /etc/certs/root-cert.pem
+            require_client_certificate: true
+
+
+
+---
+# Source: istio-config/templates/configmap-mesh.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-mesh-galley
+  namespace: istio-control
+  labels:
+    release: istio-control-istio-config
+data:
+
+
+  mesh: |-
+    {}
+    
+
+---
+# Source: istio-config/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-galley-configuration
+  namespace: istio-control
+  labels:
+    release: istio-control-istio-config
+data:
+  validatingwebhookconfiguration.yaml: |-    
+    apiVersion: admissionregistration.k8s.io/v1beta1
+    kind: ValidatingWebhookConfiguration
+    metadata:
+      name: istio-galley-istio-control
+      namespace: istio-control
+      labels:
+        app: galley
+        release: istio-control-istio-config
+        istio: galley
+    webhooks:
+      - name: pilot.validation.istio.io
+        clientConfig:
+          service:
+            name: istio-galley
+            namespace: istio-control
+            path: "/admitpilot"
+          caBundle: ""
+        rules:
+          - operations:
+            - CREATE
+            - UPDATE
+            apiGroups:
+            - config.istio.io
+            apiVersions:
+            - v1alpha2
+            resources:
+            - httpapispecs
+            - httpapispecbindings
+            - quotaspecs
+            - quotaspecbindings
+          - operations:
+            - CREATE
+            - UPDATE
+            apiGroups:
+            - rbac.istio.io
+            apiVersions:
+            - "*"
+            resources:
+            - "*"
+          - operations:
+            - CREATE
+            - UPDATE
+            apiGroups:
+            - authentication.istio.io
+            apiVersions:
+            - "*"
+            resources:
+            - "*"
+          - operations:
+            - CREATE
+            - UPDATE
+            apiGroups:
+            - networking.istio.io
+            apiVersions:
+            - "*"
+            resources:
+            - destinationrules
+            - envoyfilters
+            - gateways
+            - serviceentries
+            - sidecars
+            - virtualservices
+        failurePolicy: Fail
+        sideEffects: None
+      - name: mixer.validation.istio.io
+        clientConfig:
+          service:
+            name: istio-galley
+            namespace: istio-control
+            path: "/admitmixer"
+          caBundle: ""
+        rules:
+          - operations:
+            - CREATE
+            - UPDATE
+            apiGroups:
+            - config.istio.io
+            apiVersions:
+            - v1alpha2
+            resources:
+            - rules
+            - attributemanifests
+            - circonuses
+            - deniers
+            - fluentds
+            - kubernetesenvs
+            - listcheckers
+            - memquotas
+            - noops
+            - opas
+            - prometheuses
+            - rbacs
+            - solarwindses
+            - stackdrivers
+            - cloudwatches
+            - dogstatsds
+            - statsds
+            - stdios
+            - apikeys
+            - authorizations
+            - checknothings
+            # - kuberneteses
+            - listentries
+            - logentries
+            - metrics
+            - quotas
+            - reportnothings
+            - tracespans
+        failurePolicy: Fail
+        sideEffects: None
+
+
+---
+# Source: istio-config/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-galley-service-account
+  namespace: istio-control
+  labels:
+    app: galley
+    release: istio-control-istio-config
+
+---
+# Source: istio-config/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-galley-istio-control
+  labels:
+    release: istio-control-istio-config
+rules:
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["validatingwebhookconfigurations"]
+  verbs: ["*"]
+- apiGroups: ["config.istio.io"] # istio mixer CRD watcher
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["authentication.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["rbac.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["extensions","apps"]
+  resources: ["deployments"]
+  resourceNames: ["istio-galley"]
+  verbs: ["get"]
+- apiGroups: [""]
+  resources: ["pods", "nodes", "services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["extensions"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["extensions"]
+  resources: ["deployments/finalizers"]
+  resourceNames: ["istio-galley"]
+  verbs: ["update"]
+
+
+---
+# Source: istio-config/templates/clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-galley-admin-role-binding-istio-control
+  labels:
+    release: istio-control-istio-config
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-galley-istio-control
+subjects:
+  - kind: ServiceAccount
+    name: istio-galley-service-account
+    namespace: istio-control
+
+---
+# Source: istio-config/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-galley
+  namespace: istio-control
+  labels:
+    app: galley
+    istio: galley
+    release: istio-control-istio-config
+spec:
+  ports:
+  - port: 443
+    name: https-validation
+  - port: 15014
+    name: http-monitoring
+  - port: 9901
+    name: grpc-mcp
+  - port: 15019
+    name: grpc-tls-mcp
+  selector:
+    istio: galley
+
+---
+# Source: istio-config/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-galley
+  namespace: istio-control
+  labels:
+    app: galley
+    istio: galley
+    release: istio-control-istio-config
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: galley
+      istio: galley
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: galley
+        istio: galley
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-galley-service-account
+      containers:
+        - name: galley
+          image: "istionightly/galley:nightly-master"
+          imagePullPolicy: Always
+          ports:
+          - containerPort: 443
+          - containerPort: 15014
+          - containerPort: 15019
+          - containerPort: 9901
+          command:
+          - /usr/local/bin/galley
+          - server
+          - --meshConfigFile=/etc/mesh-config/mesh
+          - --livenessProbeInterval=1s
+          - --livenessProbePath=/healthliveness
+          - --readinessProbePath=/healthready
+          - --readinessProbeInterval=1s
+          - --insecure=true
+          - --enable-validation=true
+          - --enable-server=true
+          - --deployment-namespace=istio-control
+          - --validation-webhook-config-file
+          - /etc/config/validatingwebhookconfiguration.yaml
+          - --monitoringPort=15014
+          - --log_output_level=default:info
+          volumeMounts:
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+          - name: config
+            mountPath: /etc/config
+            readOnly: true
+          - name: mesh-config
+            mountPath: /etc/mesh-config
+            readOnly: true
+          livenessProbe:
+            exec:
+              command:
+                - /usr/local/bin/galley
+                - probe
+                - --probe-path=/healthliveness
+                - --interval=10s
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - /usr/local/bin/galley
+                - probe
+                - --probe-path=/healthready
+                - --interval=10s
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+            
+        - name: istio-proxy
+          image: "istionightly/proxyv2:nightly-master"
+          imagePullPolicy: Always
+          ports:
+          - containerPort: 9902
+          args:
+          - proxy
+          - --serviceCluster
+          - istio-galley
+          - --templateFile
+          - /var/lib/istio/galley/envoy/envoy.yaml.tmpl
+          - --controlPlaneAuthPolicy
+          - MUTUAL_TLS
+          env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: INSTANCE_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            
+
+          volumeMounts:
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+          - name: envoy-config
+            mountPath: /var/lib/istio/galley/envoy
+
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.istio-galley-service-account
+      - name: envoy-config
+        configMap:
+          name: galley-envoy-config
+      - name: config
+        configMap:
+          name: istio-galley-configuration
+      # Different config map from pilot, to allow independent config and rollout.
+      # Both are derived from values.yaml.
+      - name: mesh-config
+        configMap:
+          name: istio-mesh-galley
+
+      affinity:      
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x      
+
+---
+# Source: istio-config/templates/validatingwebhookconfiguration.yaml.tpl
+
+

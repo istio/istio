@@ -32,8 +32,12 @@ spec:
     metadata:
       labels:
         app: pilot
-        release: {{ .Release.Name }}
         istio: pilot
+{{- if eq .Release.Namespace "istio-system"}}
+        heritage: Tiller
+        release: istio
+        chart: pilot
+{{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         checksum/config-volume-envoy: {{ print $.Template.BasePath "/configmap-envoy.yaml" | sha256sum }}

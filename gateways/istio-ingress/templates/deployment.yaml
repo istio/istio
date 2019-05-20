@@ -25,6 +25,11 @@ spec:
       labels:
         app: istio-ingressgateway
         istio: ingressgateway
+{{- if eq .Release.Namespace "istio-system"}}
+        heritage: Tiller
+        release: istio
+        chart: gateways
+{{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
 {{- if $gateway.podAnnotations }}

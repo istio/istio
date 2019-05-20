@@ -1,5 +1,5 @@
 {{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
-# Main Gatewaay. Apps must bind to NAMESPACE/ingressgateway
+# Main Gateway. Apps must bind to NAMESPACE/ingressgateway
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:

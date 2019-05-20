@@ -1,0 +1,15 @@
+# Base config for multiple namespaces
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - istio-ingress.yaml
+  - discovery.yaml
+
+patchesStrategicMerge:
+  - allocation.yaml
+
+commonLabels:
+  istio-profile: micro

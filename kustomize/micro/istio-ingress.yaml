@@ -1,0 +1,335 @@
+---
+# Source: istio-ingress/templates/poddisruptionbudget.yaml
+
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: ingressgateway
+  namespace: istio-micro
+  labels:
+    app: istio-ingressgateway
+    release: istio-micro-istio-ingress
+    istio: ingressgateway
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: istio-ingressgateway
+      release: istio-micro-istio-ingress
+      istio: ingressgateway
+
+---
+# Source: istio-ingress/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ingressgateway-service-account
+  namespace: istio-micro
+  labels:
+    app: istio-ingressgateway
+    release: istio-micro-istio-ingress
+---
+# Source: istio-ingress/templates/service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingressgateway
+  namespace: istio-micro
+  annotations:
+  labels:
+    app: istio-ingressgateway
+    release: istio-micro-istio-ingress
+spec:
+  type: LoadBalancer
+  selector:
+    app: istio-ingressgateway
+  ports:
+    -
+      name: status-port
+      port: 15020
+      targetPort: 15020
+    -
+      name: http2
+      port: 80
+      targetPort: 80
+    -
+      name: https
+      port: 443
+    -
+      name: tls
+      port: 15443
+      targetPort: 15443
+  
+---
+
+
+---
+# Source: istio-ingress/templates/deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingressgateway
+  namespace: istio-micro
+  labels:
+    app: istio-ingressgateway
+    istio: ingressgateway
+    release: istio-micro-istio-ingress
+spec:
+  selector:
+    matchLabels:
+      app: istio-ingressgateway
+      istio: ingressgateway
+  template:
+    metadata:
+      labels:
+        app: istio-ingressgateway
+        istio: ingressgateway
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+        - name: istio-proxy
+          image: "istionightly/proxyv2:nightly-master"
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 15020
+            - containerPort: 80
+            - containerPort: 443
+            - containerPort: 15443
+            - containerPort: 15011
+            - containerPort: 8060
+            - containerPort: 853
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+          args:
+          - proxy
+          - router
+          - --domain
+          - $(POD_NAMESPACE).svc.cluster.local
+          - --proxyLogLevel=warning
+          - --proxyComponentLogLevel=misc:error
+          - --log_output_level=default:info
+          - --drainDuration
+          - '45s' #drainDuration
+          - --parentShutdownDuration
+          - '1m0s' #parentShutdownDuration
+          - --connectTimeout
+          - '10s' #connectTimeout
+          - --serviceCluster
+          - istio-ingressgateway
+          - --zipkinAddress
+          - zipkin.istio-telemetry:9411
+          - --proxyAdminPort
+          - "15000"
+          - --statusPort
+          - "15020"
+          - --controlPlaneAuthPolicy
+          - NONE
+          - --discoveryAddress
+          - istio-pilot.istio-micro:15010
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15020
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            
+          env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: INSTANCE_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.hostIP
+          - name: ISTIO_META_POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: ISTIO_META_CONFIG_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: ISTIO_META_ROUTER_MODE
+            value: sni-dnat
+          volumeMounts:
+          
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+          - name: ingressgateway-certs
+            mountPath: "/etc/istio/ingressgateway-certs"
+            readOnly: true
+          - name: ingressgateway-ca-certs
+            mountPath: "/etc/istio/ingressgateway-ca-certs"
+            readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+          optional: true
+      - name: ingressgateway-certs
+        secret:
+          secretName: "istio-ingressgateway-certs"
+          optional: true
+      - name: ingressgateway-ca-certs
+        secret:
+          secretName: "istio-ingressgateway-ca-certs"
+          optional: true
+      affinity:      
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x      
+
+---
+# Source: istio-ingress/templates/gateway.yaml
+
+# Main Gatewaay. Apps must bind to NAMESPACE/ingressgateway
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: ingressgateway
+  namespace: istio-micro
+  labels:
+    release: istio-micro-istio-ingress
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+      - "*"
+    # Additional ports in gateaway for the ingressPorts - apps using dedicated port instead of hostname
+
+
+---
+# Source: istio-ingress/templates/autoscale.yaml
+
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ingressgateway
+  namespace: istio-micro
+  labels:
+    app: istio-ingressgateway
+    release: istio-micro-istio-ingress
+spec:
+  maxReplicas: 5
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ingressgateway
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: 80
+---
+
+---
+# Source: istio-ingress/templates/sidecar.yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: default
+  namespace: istio-micro
+  labels:
+    release: istio-micro-istio-ingress
+spec:
+  egress:
+    - hosts:
+        - "*/*"
+
+---
+# Source: istio-ingress/templates/hosts.yaml
+
+
+# TODO: range TCP ports, add ports
+# 
+
+
+
+
+---
+# Source: istio-ingress/templates/meshexpansion.yaml
+
+
+
+---
+# Source: istio-ingress/templates/preconfigured.yaml
+
+
+---
+# Source: istio-ingress/templates/role.yaml
+
+
+---
+# Source: istio-ingress/templates/rolebindings.yaml
+
+

@@ -11,7 +11,7 @@ test-demo-simple:
 
 # Run the 'install demo' test. Should run with a valid kube config and cluster - KIND or real.
 run-test-demo:
-	#kubectl apply -k github.com/istio/installer/test/demo
+	kubectl apply -k github.com/istio/installer/crds
 	kubectl apply -k test/demo
 	kubectl wait deployments istio-pilot istio-galley istio-sidecar-injector istio-telemetry prometheus istio-ingressgateway istio-citadel11 grafana -n istio-system --for=condition=available --timeout=${WAIT_TIMEOUT}
 
