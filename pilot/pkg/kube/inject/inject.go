@@ -141,7 +141,7 @@ const (
 type SidecarInjectionSpec struct {
 	// RewriteHTTPProbe indicates whether Kubernetes HTTP prober in the PodSpec
 	// will be rewritten to be redirected by pilot agent.
-	CniExtraConfig      map[string]string             `yaml:"cniExtraConfig"`
+	PodRedirectAnnot    map[string]string             `yaml:"podRedirectAnnot"`
 	RewriteAppHTTPProbe bool                          `yaml:"rewriteAppHTTPProbe"`
 	InitContainers      []corev1.Container            `yaml:"initContainers"`
 	Containers          []corev1.Container            `yaml:"containers"`
@@ -805,7 +805,7 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 		metadata.Annotations = make(map[string]string)
 	}
 
-	if len(spec.CniExtraConfig) != 0 {
+	if len(spec.PodRedirectAnnot) != 0 {
 		err := rewriteCniPodSPec(metadata.Annotations, spec)
 		if err != nil {
 			return nil, err
@@ -975,18 +975,15 @@ func rewriteCniPodSPec(annotations map[string]string, spec *SidecarInjectionSpec
 	if spec == nil {
 		return nil
 	}
-	if len(spec.CniExtraConfig) == 0 {
+	if len(spec.PodRedirectAnnot) == 0 {
 		return nil
 	}
 	for k := range annotationRegistry {
-		if spec.CniExtraConfig[k] != "" {
-			if annotations[k] == spec.CniExtraConfig[k] {
+		if spec.PodRedirectAnnot[k] != "" {
+			if annotations[k] == spec.PodRedirectAnnot[k] {
 				continue
-			} else if annotations[k] != "" {
-				err = fmt.Errorf("Helm redirection inconsistent with pod spec annotation %s", annotations[k])
-				return err
 			}
-			annotations[k] = spec.CniExtraConfig[k]
+			annotations[k] = spec.PodRedirectAnnot[k]
 		}
 	}
 	return err
