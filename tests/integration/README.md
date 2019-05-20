@@ -598,10 +598,10 @@ The test framework supports the following command-line flags:
         Comma separatated list of labels for selecting tests to run (e.g. 'foo,+bar-baz').
 
   -istio.test.hub string
-        Container registry hub to use (default HUB environemnt variable)
+        Container registry hub to use (default HUB environment variable)
 
   -istio.test.tag string
-        Common Container tag to use when deploying container images (default TAG environemnt variable)
+        Common Container tag to use when deploying container images (default TAG environment variable)
 
   -istio.test.pullpolicy string
         Common image pull policy to use when deploying container images
