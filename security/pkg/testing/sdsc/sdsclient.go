@@ -11,6 +11,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
+
 	agent_sds "istio.io/istio/security/pkg/nodeagent/sds"
 )
 
