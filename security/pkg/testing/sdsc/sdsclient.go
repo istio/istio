@@ -47,7 +47,7 @@ func NewClient(options ClientOptions) (*Client, error) {
 	}, nil
 }
 
-// Start starts sds client to recieve the scecret updates from the server.
+// Start starts sds client to receive the scecret updates from the server.
 func (c *Client) Start() {
 	go func() {
 		msq, err := c.stream.Recv()
