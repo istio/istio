@@ -584,10 +584,14 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
 			}
 
+			con.mu.Lock()
 			if !con.added {
 				con.added = true
+				con.mu.Unlock()
 				s.addCon(con.ConID, con)
 				defer s.removeCon(con.ConID, con)
+			} else {
+				con.mu.Unlock()
 			}
 		case pushEv := <-con.pushChannel:
 			// It is called when config changes.
@@ -896,8 +900,10 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 				version:            version,
 				edsUpdatedServices: edsOnly,
 			}:
+				client.mu.Lock()
 				client.LastPush = time.Now()
 				client.LastPushFailure = timeZero
+				client.mu.Unlock()
 				if !timer.Stop() {
 					<-timer.C
 				}
@@ -907,11 +913,14 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 				// This may happen to some clients if the other side is in a bad state and can't receive.
 				// The tests were catching this - one of the client was not reading.
 				pushTimeouts.Add(1)
+				client.mu.Lock()
 				if client.LastPushFailure.IsZero() {
 					client.LastPushFailure = time.Now()
+					client.mu.Unlock()
 					adsLog.Warnf("Failed to push, client busy %s", client.ConID)
 					pushErrors.With(prometheus.Labels{"type": "retry"}).Add(1)
 				} else if time.Since(client.LastPushFailure) > 10*time.Second {
+					client.mu.Unlock()
 					adsLog.Warnf("Repeated failure to push %s", client.ConID)
 					// unfortunately grpc go doesn't allow closing (unblocking) the stream.
 					pushErrors.With(prometheus.Labels{"type": "unrecoverable"}).Add(1)
