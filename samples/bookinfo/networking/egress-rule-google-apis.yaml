@@ -4,10 +4,18 @@ metadata:
   name: googleapis
 spec:
   hosts:
-    - www.googleapis.com
+    - "*.googleapis.com"
   ports:
     - number: 443
       name: https
       protocol: http
-  location: MESH_EXTERNAL
-  resolution: DNS
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: googleapis
+spec:
+  host: "*.googleapis.com"
+  trafficPolicy:
+    tls:
+      mode: SIMPLE # initiates HTTPS when talking to www.google.com
