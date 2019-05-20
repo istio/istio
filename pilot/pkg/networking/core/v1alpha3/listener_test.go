@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -500,6 +501,8 @@ func getOldestService(services ...*model.Service) *model.Service {
 
 func buildOutboundListeners(p plugin.Plugin, sidecarConfig *model.Config, services ...*model.Service) []*xdsapi.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
+
+	os.Setenv("PILOT_ENABLE_MYSQL_FILTER", "true")
 
 	env := buildListenerEnv(services)
 
