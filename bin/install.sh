@@ -109,6 +109,12 @@ function install_cni() {
     fi
     bin/iop istio-cni istio-cni $IBASE/istio-cni/ ${ISTIO_CNI_ARGS}
     kubectl rollout status ds istio-cni-node -n istio-cni --timeout=$WAIT_TIMEOUT
+
+# Install kiali into namespace istio-kiali
+function install_kiali() {
+    step "istio-kiali"
+    bin/iop istio-admin istio-kiali $IBASE/istio-telemetry/kiali/ --set global.istioNamespace=${ISTIO_CONTROL_NS} $RESOURCES_FLAGS
+    kubectl rollout status deployment kiali -n istio-admin --timeout=$WAIT_TIMEOUT
 }
 
 # Switch to other istio-control-namespace
@@ -129,7 +135,7 @@ function switch_istio_control() {
 
 function print_help_and_exit() {
     set +x
-    echo "Usage: install.sh [ install_crds | install_system | install_control | install_ingress | install_telemetry | install_cni | switch_istio_control | install_all ]"
+    echo "Usage: install.sh [ install_crds | install_system | install_control | install_ingress | install_telemetry | install_cni | install_kiali | switch_istio_control | install_all ]"
     echo ""
     echo "  Environment Variables:"
     echo "     ISTIO_CLUSTER_ISGKE     Set to 'true' if Istio is hosted on GKE (default 'false')."
@@ -158,6 +164,7 @@ do
         install_ingress) COMMAND=$1 ;;
         install_telemetry) COMMAND=$1 ;;
         install_cni) COMMAND=$1 ;;
+        install_kiali) COMMAND=$1 ;;
         switch_istio_control) COMMAND=$1 ;;
         install_all) COMMAND="install_all" ;;
         "") COMMAND="install_all" ;;
@@ -173,6 +180,7 @@ case "$COMMAND" in
     install_ingress) install_ingress ;;
     install_telemetry) install_telemetry ;;
     install_cni) install_cni ;;
+    install_kiali) install_kiali ;;
     switch_istio_control) switch_istio_control ;;
     install_all) install_crds &&  install_system && install_control && install_ingress && install_telemetry ;;
 esac

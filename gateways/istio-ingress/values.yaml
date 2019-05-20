@@ -95,6 +95,9 @@ gateways:
       secretName: istio-ingressgateway-ca-certs
       mountPath: /etc/istio/ingressgateway-ca-certs
 
+    # Domain name for telemetry addons
+    telemetry_domain_name: ""
+
     ### Advanced options ############
     env:
       # A gateway with this mode ensures that pilot generates an additional
@@ -125,3 +128,7 @@ gateways:
     # “security” and value “S1”.
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
+
+  kiali_gateway:
+    # certmanager_email
+    enabled: false

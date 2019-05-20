@@ -73,6 +73,9 @@ export ISTIOCTL_BIN ?= /usr/local/bin/istioctl
 # A cluster must support multiple control plane versions.
 ISTIO_NS ?= istio-control
 
+# Namespace for running components with admin rights, e.g. kiali
+ISTIO_ADMIN_NS ?= istio-admin
+
 # TODO: to convert the tests, we're running telemetry/policy in istio-ns - need new tests or fixes to support
 # moving them to separate ns
 

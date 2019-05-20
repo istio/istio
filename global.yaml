@@ -23,6 +23,8 @@ global:
 
   # Telemetry namespace, including tracing.
   telemetryNamespace: istio-telemetry
+ 
+  prometheusNamespace: istio-telemetry
 
   policyNamespace: istio-policy
 

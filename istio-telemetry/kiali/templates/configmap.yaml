@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kiali
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: kiali
+    release: {{ .Release.Name }}
+data:
+  config.yaml: |
+    istio_namespace: {{ .Release.Namespace }}
+    server:
+      port: 20001
+    external_services:
+      istio:
+        url_service_version: http://istio-pilot.{{ .Values.global.istioNamespace }}:8080/version
+      jaeger:
+        url: {{ .Values.kiali.dashboard.jaegerURL }}
+      grafana:
+        url: {{ .Values.kiali.dashboard.grafanaURL }}
