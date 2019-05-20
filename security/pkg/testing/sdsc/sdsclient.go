@@ -11,6 +11,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
+	agent_sds "istio.io/istio/security/pkg/nodeagent/sds"
 )
 
 // Client is a lightweight client for testing secret discovery service server.
@@ -23,7 +24,7 @@ type Client struct {
 	udsPath    string
 }
 
-// ClientOptions contains the options for the SDS testing
+// ClientOptions contains the options for the SDS testing.
 type ClientOptions struct {
 	ServerAddress string
 }
@@ -83,7 +84,7 @@ func (c *Client) WaitForUpdate(duration time.Duration) (*xdsapi.DiscoveryRespons
 func (c *Client) Send() (*xdsapi.DiscoveryResponse, error) {
 	err := c.stream.Send(&xdsapi.DiscoveryRequest{
 		VersionInfo: "abcd",
-		TypeUrl:     "type.googleapis.com/envoy.api.v2.auth.Secret",
+		TypeUrl:     agent_sds.SecretType,
 	})
 	if err != nil {
 		return nil, err
