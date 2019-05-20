@@ -1,0 +1,15 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: ingressgateway
+spec:
+  template:
+    spec:
+      containers:
+        - name: istio-proxy
+          resources:
+            limits:
+              memory: 1250Mi
+            requests:
+              memory: 1250Mi
+

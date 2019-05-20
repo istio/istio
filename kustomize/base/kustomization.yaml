@@ -1,0 +1,14 @@
+# Base config for multiple namespaces
+# Note that CRDS must be installed first, as a separate step. Otherwise deleting this resource will also delete the CRDs
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+bases:
+  - ../citadel
+  - ../istio-control
+  - ../istio-ingress
+  - ../istio-telemetry
+
+commonLabels:
+  istio-profile: base

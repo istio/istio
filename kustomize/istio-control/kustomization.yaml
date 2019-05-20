@@ -3,4 +3,6 @@ kind: Kustomization
 
 resources:
   - namespace.yaml
-  - istio-ingress.yaml
+  - istio-config.yaml
+  - discovery/discovery.yaml
+  - istio-autoinject.yaml
