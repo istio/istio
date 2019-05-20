@@ -31,21 +31,20 @@ This folder contains Istio integration tests that use the test framework checked
 1. [Reference](#reference)
     1. [Helm Values Overrides](#helm-values-overrides)
     1. [Commandline Flags](#command-line-flags)
+1. [Notes](#notes)
+    1. [Running on a Mac](#running-on-a-mac)
 
 ## Overview
 
 The goal of the framework is to make it as easy as possible to author and run tests. In its simplest
 case, just typing ```go test ./...``` should be sufficient to run tests.
 
+## Writing Tests
+
 The test framework is designed to work with standard go tooling and allows developers
 to write environment-agnostics tests in a high-level fashion. The quickest way to get started with authoring
 new tests is to checkout the code in the
-[examples](https://github.com/istio/istio/tree/master/tests/integration/examples) folder.
-
-## Writing Tests
-
-This section describes how to add your own suite and tests. You can find a more comprehensive examples in
-the [examples](https://github.com/istio/istio/tree/master/tests/integration/examples) folder.
+[framework](https://github.com/istio/istio/tree/master/tests/integration/framework) folder.
 
 ### Adding a Test Suite
 
@@ -494,7 +493,7 @@ The test binaries run in a Kubernetes cluster, but the test logic runs in the te
 environment:
 
 ```console
-$ go test ./... -p 1 -istio.test.env kube
+$ go test ./... -p 1 --istio.test.env kube
 ```
 
 | WARNING: ```-p 1``` is required when running directly in the ```tests/integration/``` folder, when using ```kube``` environment. |
@@ -505,7 +504,7 @@ against. You can specify the kube config file that should be used to use for con
 command-line:
 
 ```console
-$ go test ./...  --istio.test.env kube --istio.test.kube.config ~/.kube/config
+$ go test ./... -p 1 --istio.test.env kube --istio.test.kube.config ~/.kube/config
 ```
 
 If not specified, `~/.kube/config` will be used by default.
@@ -587,7 +586,7 @@ The test framework supports the following command-line flags:
         Specify the environment to run the tests against. Allowed values are: [native kube] (default "native")
 
   -istio.test.work_dir string
-        Local working directory for creating logs/temp files. If left empty, os.TempDir() is used. (default "/var/folders/x0/c473mbq9269262gd1zj0lwt8008pwc/T/")
+        Local working directory for creating logs/temp files. If left empty, os.TempDir() is used.
 
  -istio.test.ci
         Enable CI Mode. Additional logging and state dumping will be enabled.
@@ -599,10 +598,10 @@ The test framework supports the following command-line flags:
         Comma separatated list of labels for selecting tests to run (e.g. 'foo,+bar-baz').
 
   -istio.test.hub string
-        Container registry hub to use (default "gcr.io/oztest-mixer")
+        Container registry hub to use (default HUB environemnt variable)
 
   -istio.test.tag string
-        Common Container tag to use when deploying container images (default "ozevren")
+        Common Container tag to use when deploying container images (default TAG environemnt variable)
 
   -istio.test.pullpolicy string
         Common image pull policy to use when deploying container images
@@ -632,9 +631,26 @@ The test framework supports the following command-line flags:
         Helm values file. This can be an absolute path or relative to chartDir. Only valid when deploying Istio. (default "test-values/values-e2e.yaml")
 
   -istio.test.kube.minikube
-        Indicates that the target environment is Minikube. Used by Ingress component to obtain the right IP address..
+        Indicates that the target environment is Minikube. Used by Ingress component to obtain the right IP address.
 ```
 
 }
 
+## Notes
+
+### Running on a Mac
+
+* Currently some _native_ tests fail when being run on a Mac with an error like:
+
+```
+unable to locate an Envoy binary
+```
+
+This is documented in this [PR](https://github.com/istio/istio/issues/13677). Once the Envoy binary is available for the Mac,
+these tests will hopefully succeed.
+
+* If one uses Docker for Mac for the kubernetes environment be sure to specify the `-istio.test.kube.minikube` parameter. The solves an error like:
+
+```
+service ingress is not available yet
 ```
