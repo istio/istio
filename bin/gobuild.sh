@@ -63,8 +63,8 @@ while read -r line; do
 done < "${BUILDINFO}"
 
 # forgoing -i (incremental build) because it will be deprecated by tool chain.
-time GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} ${GOBINARY} build \
+time GOOS=${BUILD_GOOS} CGO_ENABLED=1 GOARCH=${BUILD_GOARCH} ${GOBINARY} build \
         ${V} "${GOBUILDFLAGS_ARRAY[@]}" ${GCFLAGS:+-gcflags "${GCFLAGS}"} \
-        -o "${OUT}" \
+        -o "${OUT}" -race \
         -pkgdir="${GOPKG}/${BUILD_GOOS}_${BUILD_GOARCH}" \
         -ldflags "${LDFLAGS} ${LD_EXTRAFLAGS}" "${BUILDPATH}"

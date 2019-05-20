@@ -555,10 +555,12 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						adsLog.Debugf("ADS:EDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
 						if discReq.ResponseNonce != "" {
 							con.mu.Lock()
+							edsClusterMutex.RLock()
 							con.EndpointNonceAcked = discReq.ResponseNonce
 							if len(edsClusters) != 0 {
 								con.EndpointPercent = int((float64(len(clusters)) / float64(len(edsClusters))) * float64(100))
 							}
+							edsClusterMutex.RUnlock()
 							con.mu.Unlock()
 						}
 						continue
