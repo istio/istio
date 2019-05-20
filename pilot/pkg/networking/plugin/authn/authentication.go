@@ -45,12 +45,8 @@ func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 // Can be used to add additional filters on the outbound path
 func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	if in.ServiceInstance == nil {
-		return nil
-	}
-
-	if in.Node.Type != model.Ingress && in.Node.Type != model.Router {
-		// Only care about ingress and router.
+	if in.ServiceInstance == nil || in.Node.Type != model.Router {
+		// Only care about router.
 		return nil
 	}
 

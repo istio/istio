@@ -37,7 +37,7 @@ import (
 	"istio.io/istio/galley/pkg/source/kube/log"
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/util"
-	"istio.io/istio/pkg/appsignals"
+	"istio.io/pkg/appsignals"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -214,14 +214,18 @@ func (s *source) Start(handler resource.EventHandler) error {
 		s.initialCheck()
 		c := make(chan appsignals.Signal)
 		appsignals.Watch(c)
-		go func() {
-			for trigger := range c {
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case trigger := <-c:
 				if trigger.Signal == syscall.SIGUSR1 {
 					log.Scope.Infof("Triggering reload in response to: %v", trigger.Source)
 					s.reload()
 				}
 			}
-		}()
+		}
 	})
 }
 

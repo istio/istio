@@ -49,9 +49,6 @@ type Config struct {
 	// Headless (k8s only) indicates that no ClusterIP should be specified.
 	Headless bool
 
-	// Sidecar indicates that no Envoy sidecar should be created for the instance.
-	Sidecar bool
-
 	// ServiceAccount (k8s only) indicates that a service account should be created
 	// for the deployment.
 	ServiceAccount bool
@@ -59,6 +56,13 @@ type Config struct {
 	// Ports for this application. Port numbers may or may not be used, depending
 	// on the implementation.
 	Ports []Port
+
+	// Annotations provides metadata hints for deployment of the instance.
+	Annotations Annotations
+
+	// IncludeInboundPorts provides the ports that inbound listener should capture
+	// "*" means capture all.
+	IncludeInboundPorts string
 }
 
 // String implements the Configuration interface (which implements fmt.Stringer)

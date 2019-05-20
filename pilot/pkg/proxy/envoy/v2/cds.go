@@ -17,8 +17,6 @@ package v2
 import (
 	"fmt"
 
-	"istio.io/istio/pkg/features/pilot"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
@@ -67,33 +65,23 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 	pushes.With(prometheus.Labels{"type": "cds"}).Add(1)
 
 	// The response can't be easily read due to 'any' marshaling.
-	adsLog.Infof("CDS: PUSH %s for %s %q, Clusters: %d, Services %d", version,
-		con.ConID, con.PeerAddr, len(rawClusters), len(push.Services(nil)))
+	adsLog.Infof("CDS: PUSH for node:%s clusters:%d services:%d version:%s",
+		con.modelNode.ID, len(rawClusters), len(push.Services(nil)), version)
 	return nil
 }
 
 func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.PushContext) ([]*xdsapi.Cluster, error) {
 	rawClusters, err := s.ConfigGenerator.BuildClusters(s.Env, node, push)
 	if err != nil {
-		adsLog.Warnf("CDS: Failed to generate clusters for node %s: %v", node.ID, err)
+		adsLog.Warnf("CDS: Failed to generate clusters for node:%s: %v", node.ID, err)
 		pushes.With(prometheus.Labels{"type": "cds_builderr"}).Add(1)
 		return nil, err
 	}
 
-	if sdsTokenPath, found := node.Metadata[model.NodeMetadataSdsTokenPath]; found && len(sdsTokenPath) > 0 &&
-		pilot.EnableCDSPrecomputation() {
-		// If SDS_TOKEN_PATH is in the node metadata, make a copy of rawClusters so that
-		// the path of SDS token will be applied to the copied clusters.
-		rawClusters = CopyClusters(rawClusters)
-	}
-
 	for _, c := range rawClusters {
-		if pilot.EnableCDSPrecomputation() {
-			SetTokenPathForSdsFromProxyMetadata(c, node)
-		}
 		if err = c.Validate(); err != nil {
 			retErr := fmt.Errorf("CDS: Generated invalid cluster for node %v: %v", node, err)
-			adsLog.Errorf("CDS: Generated invalid cluster for node %s: %v, %v", node.ID, err, c)
+			adsLog.Errorf("CDS: Generated invalid cluster for node:%s: %v, %v", node.ID, err, c)
 			pushes.With(prometheus.Labels{"type": "cds_builderr"}).Add(1)
 			totalXDSInternalErrors.Add(1)
 			// Generating invalid clusters is a bug.
@@ -146,26 +134,4 @@ func SetTokenPathForSdsFromProxyMetadata(c *xdsapi.Cluster, node *model.Proxy) {
 			}
 		}
 	}
-}
-
-func CopyClusters(srcClusters []*xdsapi.Cluster) []*xdsapi.Cluster {
-	clusters := make([]*xdsapi.Cluster, 0)
-	if srcClusters == nil {
-		return clusters
-	}
-	for _, c := range srcClusters {
-		bytes, err := c.Marshal()
-		if err != nil {
-			adsLog.Warnf("Error when marshal cluster: %v, error: %v", c, err)
-			continue
-		}
-		cp := &xdsapi.Cluster{}
-		err = cp.Unmarshal(bytes)
-		if err != nil {
-			adsLog.Warnf("Error when unmarshal cluster, error: %v", err)
-			continue
-		}
-		clusters = append(clusters, cp)
-	}
-	return clusters
 }

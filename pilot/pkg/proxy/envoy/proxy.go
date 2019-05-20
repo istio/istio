@@ -17,6 +17,7 @@ package envoy
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"path"
@@ -27,8 +28,8 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/proxy"
 	"istio.io/istio/pkg/bootstrap"
-	"istio.io/istio/pkg/env"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -40,17 +41,19 @@ const (
 )
 
 type envoy struct {
-	config    meshconfig.ProxyConfig
-	node      string
-	extraArgs []string
-	pilotSAN  []string
-	opts      map[string]interface{}
-	errChan   chan error
-	nodeIPs   []string
+	config         meshconfig.ProxyConfig
+	node           string
+	extraArgs      []string
+	pilotSAN       []string
+	opts           map[string]interface{}
+	errChan        chan error
+	nodeIPs        []string
+	dnsRefreshRate string
 }
 
 // NewProxy creates an instance of the proxy control commands
-func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string, componentLogLevel string, pilotSAN []string, nodeIPs []string) proxy.Proxy {
+func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string,
+	componentLogLevel string, pilotSAN []string, nodeIPs []string, dnsRefreshRate string) proxy.Proxy {
 	// inject tracing flag for higher levels
 	var args []string
 	if logLevel != "" {
@@ -61,15 +64,20 @@ func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string, compo
 	}
 
 	return &envoy{
-		config:    config,
-		node:      node,
-		extraArgs: args,
-		pilotSAN:  pilotSAN,
-		nodeIPs:   nodeIPs,
+		config:         config,
+		node:           node,
+		extraArgs:      args,
+		pilotSAN:       pilotSAN,
+		nodeIPs:        nodeIPs,
+		dnsRefreshRate: dnsRefreshRate,
 	}
 }
 
 func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
+	proxyLocalAddressType := "v4"
+	if isIPv6Proxy(e.nodeIPs) {
+		proxyLocalAddressType = "v6"
+	}
 	startupArgs := []string{"-c", fname,
 		"--restart-epoch", fmt.Sprint(epoch),
 		"--drain-time-s", fmt.Sprint(int(convertDuration(e.config.DrainDuration) / time.Second)),
@@ -77,6 +85,7 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		"--service-cluster", e.config.ServiceCluster,
 		"--service-node", e.node,
 		"--max-obj-name-len", fmt.Sprint(e.config.StatNameLength),
+		"--local-address-ip-version", proxyLocalAddressType,
 		"--allow-unknown-fields",
 	}
 
@@ -112,7 +121,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	} else if _, ok := config.(proxy.DrainConfig); ok {
 		fname = drainFile
 	} else {
-		out, err := bootstrap.WriteBootstrap(&e.config, e.node, epoch, e.pilotSAN, e.opts, os.Environ(), e.nodeIPs)
+		out, err := bootstrap.WriteBootstrap(&e.config, e.node, epoch, e.pilotSAN, e.opts, os.Environ(), e.nodeIPs, e.dnsRefreshRate)
 		if err != nil {
 			log.Errora("Failed to generate bootstrap config: ", err)
 			os.Exit(1) // Prevent infinite loop attempting to write the file, let k8s/systemd report
@@ -192,4 +201,21 @@ func convertDuration(d *types.Duration) time.Duration {
 
 func configFile(config string, epoch int) string {
 	return path.Join(config, fmt.Sprintf(epochFileTemplate, epoch))
+}
+
+// isIPv6Proxy check the addresses slice and returns true for a valid IPv6 address
+// for all other cases it returns false
+func isIPv6Proxy(ipAddrs []string) bool {
+	for i := 0; i < len(ipAddrs); i++ {
+		addr := net.ParseIP(ipAddrs[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if addr.To4() != nil {
+			return false
+		}
+	}
+	return true
 }

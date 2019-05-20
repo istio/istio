@@ -28,8 +28,8 @@ import (
 
 	"istio.io/istio/mixer/adapter/solarwinds/config"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/template/logentry"
+	"istio.io/pkg/pool"
 )
 
 const (

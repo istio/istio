@@ -102,7 +102,8 @@ func TestGolden(t *testing.T) {
 
 			_, localEnv := createEnv(t, c.labels, c.annotations)
 			fn, err := WriteBootstrap(cfg, "sidecar~1.2.3.4~foo~bar", 0, []string{
-				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, nil, localEnv, []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6"})
+				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, nil, localEnv,
+				[]string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6"}, "60s")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -328,6 +329,36 @@ func TestStoreHostPort(t *testing.T) {
 	}
 }
 
+func TestIsIPv6Proxy(t *testing.T) {
+	tests := []struct {
+		name     string
+		addrs    []string
+		expected bool
+	}{
+		{
+			name:     "ipv4 only",
+			addrs:    []string{"1.1.1.1", "127.0.0.1", "2.2.2.2"},
+			expected: false,
+		},
+		{
+			name:     "ipv6 only",
+			addrs:    []string{"1111:2222::1", "::1", "2222:3333::1"},
+			expected: true,
+		},
+		{
+			name:     "mixed ipv4 and ipv6",
+			addrs:    []string{"1111:2222::1", "::1", "127.0.0.1", "2.2.2.2", "2222:3333::1"},
+			expected: false,
+		},
+	}
+	for _, tt := range tests {
+		result := isIPv6Proxy(tt.addrs)
+		if result != tt.expected {
+			t.Errorf("Test %s failed, expected: %t got: %t", tt.name, tt.expected, result)
+		}
+	}
+}
+
 type encodeFn func(string) string
 
 func envEncode(m map[string]string, prefix string, encode encodeFn, out []string) []string {
@@ -399,7 +430,29 @@ func TestNodeMetadata(t *testing.T) {
 	if !reflect.DeepEqual(nm, merged) {
 		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, merged)
 	}
+}
 
+func TestNodeMetadataEncodeEnvWithIstioMetaPrefix(t *testing.T) {
+	originalKey := "foo"
+	notIstioMetaKey := "NOT_AN_" + IstioMetaPrefix + originalKey
+	anIstioMetaKey := IstioMetaPrefix + originalKey
+	envs := []string{
+		notIstioMetaKey + "=bar",
+		anIstioMetaKey + "=baz",
+	}
+	nm := getNodeMetaData(envs)
+	if _, ok := nm[notIstioMetaKey]; ok {
+		t.Fatalf("%s should not be encoded in node metadata", notIstioMetaKey)
+	}
+
+	if _, ok := nm[anIstioMetaKey]; ok {
+		t.Fatalf("%s should not be encoded in node metadata. The prefix '%s' should be stripped", anIstioMetaKey, IstioMetaPrefix)
+	}
+	if val, ok := nm[originalKey]; !ok {
+		t.Fatalf("%s has the prefix %s and it should be encoded in the node metadata", originalKey, IstioMetaPrefix)
+	} else if val != "baz" {
+		t.Fatalf("unexpected value node metadata %s. got %s, want: %s", originalKey, val, "baz")
+	}
 }
 
 func mergeMap(to map[string]string, from map[string]string) {

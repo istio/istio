@@ -24,6 +24,7 @@ export DNS_DOMAIN="fake_dns.org"
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 setup_e2e_cluster
+helm init --client-only
 
 echo "Get istio release: $TAG"
 pushd "${GOPATH}/src/istio.io/tools/perf/istio-install"

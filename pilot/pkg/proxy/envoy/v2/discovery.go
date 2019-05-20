@@ -249,7 +249,7 @@ func (s *DiscoveryServer) periodicRefresh(stopCh <-chan struct{}) {
 	for {
 		select {
 		case <-ticker.C:
-			adsLog.Debugf("ADS: periodic push of envoy configs %s", versionInfo())
+			adsLog.Debugf("ADS: Periodic push of envoy configs version:%s", versionInfo())
 			s.AdsPushAll(versionInfo(), s.globalPushContext(), true, nil)
 		case <-stopCh:
 			return
@@ -283,7 +283,6 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 // to avoid direct dependencies.
 func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]struct{}) {
 	if !full {
-		adsLog.Infof("XDS Incremental Push EDS:%d", len(edsUpdates))
 		go s.AdsPushAll(versionInfo(), s.globalPushContext(), false, edsUpdates)
 		return
 	}
@@ -298,17 +297,12 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]struct{}) {
 	push := model.NewPushContext()
 	err := push.InitContext(s.Env)
 	if err != nil {
-		adsLog.Errorf("XDS: failed to update services %v", err)
+		adsLog.Errorf("XDS: Failed to update services: %v", err)
 		// We can't push if we can't read the data - stick with previous version.
 		pushContextErrors.Inc()
 		return
 	}
 
-	if err = s.ConfigGenerator.BuildSharedPushState(s.Env, push); err != nil {
-		adsLog.Errorf("XDS: Failed to rebuild share state in configgen: %v", err)
-		totalXDSInternalErrors.Add(1)
-		return
-	}
 	if err := s.updateServiceShards(push); err != nil {
 		return
 	}

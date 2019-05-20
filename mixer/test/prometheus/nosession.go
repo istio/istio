@@ -32,9 +32,9 @@ import (
 	"istio.io/istio/mixer/adapter/prometheus"
 	"istio.io/istio/mixer/adapter/prometheus/config"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/handler"
 	"istio.io/istio/mixer/template/metric"
+	"istio.io/pkg/pool"
 )
 
 type (

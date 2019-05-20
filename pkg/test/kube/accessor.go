@@ -264,8 +264,9 @@ func (a *Accessor) WaitUntilDaemonSetIsReady(ns string, name string, opts ...ret
 
 // WaitUntilServiceEndpointsAreReady will wait until the service with the given name/namespace is present, and have at least
 // one usable endpoint.
-func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string, opts ...retry.Option) (*kubeApiCore.Service, error) {
+func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string, opts ...retry.Option) (*kubeApiCore.Service, *kubeApiCore.Endpoints, error) {
 	var service *kubeApiCore.Service
+	var endpoints *kubeApiCore.Endpoints
 	err := retry.UntilSuccess(func() error {
 
 		s, err := a.GetService(ns, name)
@@ -273,28 +274,29 @@ func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string, opt
 			return err
 		}
 
-		endpoints, err := a.GetEndpoints(ns, name, kubeApiMeta.GetOptions{})
+		eps, err := a.GetEndpoints(ns, name, kubeApiMeta.GetOptions{})
 		if err != nil {
 			return err
 		}
-		if len(endpoints.Subsets) == 0 {
+		if len(eps.Subsets) == 0 {
 			return fmt.Errorf("%s/%v endpoint not ready: no subsets", ns, name)
 		}
 
-		for _, subset := range endpoints.Subsets {
+		for _, subset := range eps.Subsets {
 			if len(subset.Addresses) > 0 && len(subset.NotReadyAddresses) == 0 {
 				service = s
+				endpoints = eps
 				return nil
 			}
 		}
 		return fmt.Errorf("%s/%v endpoint not ready: no ready addresses", ns, name)
-	}, opts...)
+	}, newRetryOptions(opts...)...)
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return service, nil
+	return service, endpoints, nil
 }
 
 // DeleteValidatingWebhook deletes the validating webhook with the given name.
@@ -352,8 +354,28 @@ func (a *Accessor) GetEndpoints(ns, service string, options kubeApiMeta.GetOptio
 }
 
 // CreateNamespace with the given name. Also adds an "istio-testing" annotation.
-func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string, injectionEnabled bool) error {
+func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string) error {
 	scopes.Framework.Debugf("Creating namespace: %s", ns)
+
+	n := a.newNamespace(ns, istioTestingAnnotation)
+
+	_, err := a.set.CoreV1().Namespaces().Create(&n)
+	return err
+}
+
+func (a *Accessor) CreateNamespaceWithInjectionEnabled(ns string, istioTestingAnnotation string, configNamespace string) error {
+	scopes.Framework.Debugf("Creating namespace with injection enabled: %s", ns)
+
+	n := a.newNamespace(ns, istioTestingAnnotation)
+
+	n.ObjectMeta.Labels["istio-injection"] = "enabled"
+	n.ObjectMeta.Labels["istio-env"] = configNamespace
+
+	_, err := a.set.CoreV1().Namespaces().Create(&n)
+	return err
+}
+
+func (a *Accessor) newNamespace(ns string, istioTestingAnnotation string) kubeApiCore.Namespace {
 	n := kubeApiCore.Namespace{
 		ObjectMeta: kubeApiMeta.ObjectMeta{
 			Name:   ns,
@@ -363,12 +385,7 @@ func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string, inj
 	if istioTestingAnnotation != "" {
 		n.ObjectMeta.Labels["istio-testing"] = istioTestingAnnotation
 	}
-	if injectionEnabled {
-		n.ObjectMeta.Labels["istio-injection"] = "enabled"
-	}
-
-	_, err := a.set.CoreV1().Namespaces().Create(&n)
-	return err
+	return n
 }
 
 // NamespaceExists returns true if the given namespace exists.
@@ -407,6 +424,16 @@ func (a *Accessor) WaitForNamespaceDeletion(ns string, opts ...retry.Option) err
 	}, newRetryOptions(opts...)...)
 
 	return err
+}
+
+// GetNamespace returns the K8s namespaceresource with the given name.
+func (a *Accessor) GetNamespace(ns string) (*kubeApiCore.Namespace, error) {
+	n, err := a.set.CoreV1().Namespaces().Get(ns, kubeApiMeta.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return n, nil
 }
 
 // ApplyContents applies the given config contents using kubectl.

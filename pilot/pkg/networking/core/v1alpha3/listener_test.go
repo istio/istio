@@ -21,6 +21,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -137,6 +138,42 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 	testOutboundListenerConfigWithSidecarWithCaptureModeNone(t, services...)
 }
 
+func TestGetActualWildcardAndLocalHost(t *testing.T) {
+	tests := []struct {
+		name     string
+		proxy    *model.Proxy
+		expected [2]string
+	}{
+		{
+			name: "ipv4 only",
+			proxy: &model.Proxy{
+				IPAddresses: []string{"1.1.1.1", "127.0.0.1", "2.2.2.2"},
+			},
+			expected: [2]string{WildcardAddress, LocalhostAddress},
+		},
+		{
+			name: "ipv6 only",
+			proxy: &model.Proxy{
+				IPAddresses: []string{"1111:2222::1", "::1", "2222:3333::1"},
+			},
+			expected: [2]string{WildcardIPv6Address, LocalhostIPv6Address},
+		},
+		{
+			name: "mixed ipv4 and ipv6",
+			proxy: &model.Proxy{
+				IPAddresses: []string{"1111:2222::1", "::1", "127.0.0.1", "2.2.2.2", "2222:3333::1"},
+			},
+			expected: [2]string{WildcardAddress, LocalhostAddress},
+		},
+	}
+	for _, tt := range tests {
+		wm, lh := getActualWildcardAndLocalHost(tt.proxy)
+		if wm != tt.expected[0] && lh != tt.expected[1] {
+			t.Errorf("Test %s failed, expected: %s / %s got: %s / %s", tt.name, tt.expected[0], tt.expected[1], wm, lh)
+		}
+	}
+}
+
 func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	t.Helper()
 
@@ -182,6 +219,8 @@ func testInboundListenerConfig(t *testing.T, services ...*model.Service) {
 	if isHTTPListener(listeners[0]) {
 		verifyInboundHTTPListenerCertDetails(t, listeners[0])
 	}
+
+	verifyInboundEnvoyListenerNumber(t, listeners[0])
 }
 
 func testInboundListenerConfigWithoutServices(t *testing.T) {
@@ -383,8 +422,8 @@ func verifyOutboundTCPListenerHostname(t *testing.T, l *xdsapi.Listener, hostnam
 
 func verifyInboundHTTPListenerServerName(t *testing.T, l *xdsapi.Listener) {
 	t.Helper()
-	if len(l.FilterChains) != 1 {
-		t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
+	if len(l.FilterChains) != 2 {
+		t.Fatalf("expected %d filter chains, found %d", 2, len(l.FilterChains))
 	}
 	fc := l.FilterChains[0]
 	if len(fc.Filters) != 1 {
@@ -399,10 +438,35 @@ func verifyInboundHTTPListenerServerName(t *testing.T, l *xdsapi.Listener) {
 	}
 }
 
+func verifyInboundEnvoyListenerNumber(t *testing.T, l *xdsapi.Listener) {
+	t.Helper()
+	if len(l.FilterChains) != 2 {
+		t.Fatalf("expected %d filter chains, found %d", 2, len(l.FilterChains))
+	}
+
+	for _, fc := range l.FilterChains {
+		if len(fc.Filters) != 1 {
+			t.Fatalf("expected %d filters, found %d", 1, len(fc.Filters))
+		}
+
+		f := fc.Filters[0]
+		config, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+		hf := config.Fields["http_filters"].GetListValue()
+		if len(hf.Values) != 4 {
+			t.Fatalf("expected %d http filters, found %d", 4, len(hf.Values))
+		}
+		envoyLua := hf.Values[0].GetStructValue().Fields["name"].GetStringValue()
+		envoyCors := hf.Values[1].GetStructValue().Fields["name"].GetStringValue()
+		if envoyLua != "envoy.lua" || envoyCors != "envoy.cors" {
+			t.Fatalf("expected %q %q http filter, found %q %q", "envoy.lua", "envoy.cors", envoyLua, envoyCors)
+		}
+	}
+}
+
 func verifyInboundHTTPListenerCertDetails(t *testing.T, l *xdsapi.Listener) {
 	t.Helper()
-	if len(l.FilterChains) != 1 {
-		t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
+	if len(l.FilterChains) != 2 {
+		t.Fatalf("expected %d filter chains, found %d", 2, len(l.FilterChains))
 	}
 	fc := l.FilterChains[0]
 	if len(fc.Filters) != 1 {
@@ -498,7 +562,7 @@ func (p *fakePlugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeCo
 }
 
 func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
-	return nil
+	return []plugin.FilterChain{{}, {}}
 }
 
 func isHTTPListener(listener *xdsapi.Listener) bool {
@@ -539,7 +603,28 @@ func buildListenerEnv(services []*model.Service) model.Environment {
 	serviceDiscovery := new(fakes.ServiceDiscovery)
 	serviceDiscovery.ServicesReturns(services, nil)
 
-	configStore := &fakes.IstioConfigStore{}
+	configStore := &fakes.IstioConfigStore{
+		EnvoyFilterStub: func(workloadLabels model.LabelsCollection) *model.Config {
+			return &model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Name:      "test-envoyfilter",
+					Namespace: "not-default",
+				},
+				Spec: &networking.EnvoyFilter{
+					Filters: []*networking.EnvoyFilter_Filter{
+						{
+							InsertPosition: &networking.EnvoyFilter_InsertPosition{
+								Index: networking.EnvoyFilter_InsertPosition_FIRST,
+							},
+							FilterType:   networking.EnvoyFilter_Filter_HTTP,
+							FilterName:   "envoy.lua",
+							FilterConfig: &types.Struct{},
+						},
+					},
+				},
+			}
+		},
+	}
 
 	mesh := model.DefaultMeshConfig()
 	env := model.Environment{

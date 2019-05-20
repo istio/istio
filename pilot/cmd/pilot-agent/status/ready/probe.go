@@ -24,6 +24,7 @@ import (
 
 // Probe for readiness.
 type Probe struct {
+	LocalHostAddr    string
 	AdminPort        uint16
 	ApplicationPorts []uint16
 }
@@ -43,7 +44,7 @@ func (p *Probe) Check() error {
 // checkApplicationPorts verifies that Envoy has received configuration for all ports exposed by the application container.
 func (p *Probe) checkInboundConfigured() error {
 	if len(p.ApplicationPorts) > 0 {
-		listeningPorts, listeners, err := util.GetInboundListeningPorts(p.AdminPort)
+		listeningPorts, listeners, err := util.GetInboundListeningPorts(p.LocalHostAddr, p.AdminPort)
 		if err != nil {
 			return err
 		}
@@ -68,7 +69,7 @@ func (p *Probe) checkInboundConfigured() error {
 
 // checkUpdated checks to make sure updates have been received from Pilot
 func (p *Probe) checkUpdated() error {
-	s, err := util.GetStats(p.AdminPort)
+	s, err := util.GetStats(p.LocalHostAddr, p.AdminPort)
 	if err != nil {
 		return err
 	}

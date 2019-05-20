@@ -442,7 +442,7 @@ func testSidecarRDSVHosts(t *testing.T, testName string, services []*model.Servi
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
-	os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "")
+	os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "0")
 	if fallthroughRoute {
 		os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "1")
 	}

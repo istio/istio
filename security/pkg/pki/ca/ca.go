@@ -28,10 +28,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/probe"
 	"istio.io/istio/security/pkg/k8s/configmap"
 	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 const (
@@ -197,7 +197,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCer
 		}
 	}
 
-	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle); err != nil {
+	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle.GetRootCertPem()); err != nil {
 		log.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
 	}
 	return caOpts, nil
@@ -235,7 +235,11 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 		return nil, fmt.Errorf("certificate is not authorized to sign other certificates")
 	}
 
-	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle); err != nil {
+	crt := caOpts.KeyCertBundle.GetCertChainPem()
+	if len(crt) == 0 {
+		crt = caOpts.KeyCertBundle.GetRootCertPem()
+	}
+	if err = updateCertInConfigmap(namespace, client, crt); err != nil {
 		log.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
 	}
 	return caOpts, nil
@@ -322,8 +326,7 @@ func BuildSecret(saName, scrtName, namespace string, certChain, privateKey, root
 	}
 }
 
-func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, keyCertBundle util.KeyCertBundle) error {
-	_, _, _, cert := keyCertBundle.GetAllPem()
+func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert []byte) error {
 	certEncoded := base64.StdEncoding.EncodeToString(cert)
 	cmc := configmap.NewController(namespace, client)
 	return cmc.InsertCATLSRootCert(certEncoded)

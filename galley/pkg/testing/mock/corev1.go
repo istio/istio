@@ -22,10 +22,11 @@ import (
 var _ corev1.CoreV1Interface = &corev1Impl{}
 
 type corev1Impl struct {
-	nodes     corev1.NodeInterface
-	pods      corev1.PodInterface
-	services  corev1.ServiceInterface
-	endpoints corev1.EndpointsInterface
+	nodes      corev1.NodeInterface
+	pods       corev1.PodInterface
+	services   corev1.ServiceInterface
+	endpoints  corev1.EndpointsInterface
+	namespaces corev1.NamespaceInterface
 }
 
 func (c *corev1Impl) Nodes() corev1.NodeInterface {
@@ -65,7 +66,7 @@ func (c *corev1Impl) LimitRanges(namespace string) corev1.LimitRangeInterface {
 }
 
 func (c *corev1Impl) Namespaces() corev1.NamespaceInterface {
-	panic("not implemented")
+	return c.namespaces
 }
 
 func (c *corev1Impl) PersistentVolumes() corev1.PersistentVolumeInterface {
