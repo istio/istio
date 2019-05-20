@@ -46,7 +46,7 @@ spec:
     spec:
       containers:
       - name: mongodb 
-        image: istio/examples-bookinfo-mongodb:1.12.0
+        image: istio/examples-bookinfo-mongodb:1.14.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 27017
