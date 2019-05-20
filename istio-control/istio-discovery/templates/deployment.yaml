@@ -108,6 +108,10 @@ spec:
             value: "1"
           - name: CONFIG_NAMESPACE
             value: {{ .Values.pilot.configNamespace }}
+{{- if .Values.pilot.appNamespaces }}
+          - name: APP_NAMESPACE
+            value: {{ join "," .Values.pilot.appNamespaces }}
+{{- end }}
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | indent 12 }}
