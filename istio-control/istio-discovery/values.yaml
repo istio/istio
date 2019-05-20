@@ -20,6 +20,9 @@ pilot:
   # Namespace for Istio config
   configNamespace: istio-config
 
+  # Applications namespace list pilot manages
+  appNamespaces: []
+
   env:
     GODEBUG: gctrace=1
 
