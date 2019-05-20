@@ -515,3 +515,63 @@ ip6tables -A,INPUT,-j,REJECT
 iptables-save 
 ip6tables-save `))
 }
+
+func TestSupportsExcludeOutboundPorts(t *testing.T){
+	output := OutputCollector{}
+	commandRunner = output.Run
+	g := gomega.NewGomegaWithT(t)
+	run(
+		[]string{"-p", "12345", "-u", "4321", "-g", "4444", "-o", "1024,21", "-m", "REDIRECT", "-b", "5555,6666",
+			"-d", "7777,8888", "-i", "1.1.0.0/16", "-x", "9.9.0.0/16", "-k", "eth1,eth2"},
+		flag.NewFlagSet("test", flag.ExitOnError),
+		func() (net.IP, error) {
+			return net.ParseIP("127.0.0.1"), nil
+		})
+	g.Expect(output.Commands).To(gomega.Equal(`
+iptables -t,nat,-D,PREROUTING,-p,tcp,-j,ISTIO_INBOUND
+iptables -t,mangle,-D,PREROUTING,-p,tcp,-j,ISTIO_INBOUND
+iptables -t,nat,-D,OUTPUT,-p,tcp,-j,ISTIO_OUTPUT
+iptables -t,nat,-F,ISTIO_OUTPUT
+iptables -t,nat,-X,ISTIO_OUTPUT
+iptables -t,nat,-F,ISTIO_INBOUND
+iptables -t,nat,-X,ISTIO_INBOUND
+iptables -t,mangle,-F,ISTIO_INBOUND
+iptables -t,mangle,-X,ISTIO_INBOUND
+iptables -t,mangle,-F,ISTIO_DIVERT
+iptables -t,mangle,-X,ISTIO_DIVERT
+iptables -t,mangle,-F,ISTIO_TPROXY
+iptables -t,mangle,-X,ISTIO_TPROXY
+iptables -t,nat,-F,ISTIO_REDIRECT
+iptables -t,nat,-X,ISTIO_REDIRECT
+iptables -t,nat,-F,ISTIO_IN_REDIRECT
+iptables -t,nat,-X,ISTIO_IN_REDIRECT
+iptables -t,nat,-N,ISTIO_REDIRECT
+iptables -t,nat,-A,ISTIO_REDIRECT,-p,tcp,-j,REDIRECT,--to-port,12345
+iptables -t,nat,-N,ISTIO_IN_REDIRECT
+iptables -t,nat,-A,ISTIO_IN_REDIRECT,-p,tcp,-j,REDIRECT,--to-port,12345
+iptables -t,nat,-N,ISTIO_INBOUND
+iptables -t,nat,-A,PREROUTING,-p,tcp,-j,ISTIO_INBOUND
+iptables -t,nat,-A,ISTIO_INBOUND,-p,tcp,--dport,5555,-j,ISTIO_IN_REDIRECT
+iptables -t,nat,-A,ISTIO_INBOUND,-p,tcp,--dport,6666,-j,ISTIO_IN_REDIRECT
+iptables -t,nat,-N,ISTIO_OUTPUT
+iptables -t,nat,-A,OUTPUT,-p,tcp,-j,ISTIO_OUTPUT
+iptables -t,nat,-A,ISTIO_OUTPUT,-p,tcp,--dport,1024,-j,RETURN
+iptables -t,nat,-A,ISTIO_OUTPUT,-p,tcp,--dport,21,-j,RETURN
+iptables -t,nat,-A,ISTIO_OUTPUT,-o,lo,!,-d,127.0.0.1/32,-j,ISTIO_REDIRECT
+iptables -t,nat,-A,ISTIO_OUTPUT,-m,owner,--uid-owner,4321,-j,RETURN
+iptables -t,nat,-A,ISTIO_OUTPUT,-m,owner,--gid-owner,4444,-j,RETURN
+iptables -t,nat,-A,ISTIO_OUTPUT,-d,127.0.0.1/32,-j,RETURN
+iptables -t,nat,-A,ISTIO_OUTPUT,-d,9.9.0.0/16,-j,RETURN
+iptables -t,nat,-I,PREROUTING,1,-i,eth1,-j,RETURN
+iptables -t,nat,-I,PREROUTING,1,-i,eth2,-j,RETURN
+iptables -t,nat,-I,PREROUTING,1,-i,eth1,-d,1.1.0.0/16,-j,ISTIO_REDIRECT
+iptables -t,nat,-I,PREROUTING,1,-i,eth2,-d,1.1.0.0/16,-j,ISTIO_REDIRECT
+iptables -t,nat,-A,ISTIO_OUTPUT,-d,1.1.0.0/16,-j,ISTIO_REDIRECT
+iptables -t,nat,-A,ISTIO_OUTPUT,-j,RETURN
+ip6tables -F,INPUT
+ip6tables -A,INPUT,-m,state,--state,ESTABLISHED,-j,ACCEPT
+ip6tables -A,INPUT,-i,lo,-d,::1,-j,ACCEPT
+ip6tables -A,INPUT,-j,REJECT
+iptables-save 
+ip6tables-save `))
+}

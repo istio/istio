@@ -158,6 +158,7 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 	inboundPortsExclude := os.Getenv("ISTIO_LOCAL_EXCLUDE_PORTS")
 	outboundIPRangesInclude := os.Getenv("ISTIO_SERVICE_CIDR")
 	outboundIPRangesExclude := os.Getenv("ISTIO_SERVICE_EXCLUDE_CIDR")
+	outboundPortsExclude := os.Getenv("ISTIO_LOCAL_OUTBOUND_PORTS_EXCLUDE")
 	kubevirtInterfaces := ""
 	var enableInboundIPv6s net.IP
 
@@ -181,6 +182,8 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 	flagSet.StringVar(&outboundIPRangesExclude, "x", outboundIPRangesExclude,
 		"Comma separated list of IP ranges in CIDR form to be excluded from redirection. "+
 			"Only applies when all  outbound traffic (i.e. \"*\") is being redirected (default to $ISTIO_SERVICE_EXCLUDE_CIDR)")
+	flagSet.StringVar(&outboundPortsExclude, "o", outboundPortsExclude,
+		"Comma separated list of outbound ports to be excluded from redirection to Envoy (optional")
 	flagSet.StringVar(&kubevirtInterfaces, "k", kubevirtInterfaces,
 		"Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound (optional)")
 
@@ -286,6 +289,7 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 	fmt.Printf("INBOUND_PORTS_EXCLUDE=%s\n", inboundPortsExclude)
 	fmt.Printf("OUTBOUND_IP_RANGES_INCLUDE=%s\n", outboundIPRangesInclude)
 	fmt.Printf("OUTBOUND_IP_RANGES_EXCLUDE=%s\n", outboundIPRangesExclude)
+	fmt.Printf("OUTBOUND_PORTS_EXCLUDE=%s\n", outboundPortsExclude)
 	fmt.Printf("KUBEVIRT_INTERFACES=%s\n", kubevirtInterfaces)
 	fmt.Printf("ENABLE_INBOUND_IPV6=%s\n", enableInboundIPv6s)
 	fmt.Println("")
@@ -378,8 +382,15 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 	// Jump to the ISTIO_OUTPUT chain from OUTPUT chain for all tcp traffic.
 	iptables("-t", "nat", "-A", "OUTPUT", "-p", "tcp", "-j", "ISTIO_OUTPUT").RunOrFail()
 
+	// Apply port based exclusions. Must be applied before connections back to self are redirected.
+	if outboundPortsExclude != ""{
+		for _, port := range split(outboundPortsExclude) {
+			iptables("-t", "nat", "-A", "ISTIO_OUTPUT", "-p", "tcp", "--dport", port, "-j", "RETURN").RunOrFail()
+		}
+	}
+
 	if os.Getenv("DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK") == "" {
-		// Redirect app calls to back itself via Envoy when using the service VIP or endpoint
+		// Redirect app calls back to itself via Envoy when using the service VIP or endpoint
 		// address, e.g. appN => Envoy (client) => Envoy (server) => appN.
 		iptables("-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "127.0.0.1/32", "-j", "ISTIO_REDIRECT").RunOrFail()
 	}
@@ -483,6 +494,12 @@ func run(args []string, flagSet *flag.FlagSet, getLocalIP func() (net.IP, error)
 		ip6tables("-t", "nat", "-N", "ISTIO_OUTPUT").RunOrFail()
 		// Jump to the ISTIO_OUTPUT chain from OUTPUT chain for all tcp traffic.
 		ip6tables("-t", "nat", "-A", "OUTPUT", "-p", "tcp", "-j", "ISTIO_OUTPUT").RunOrFail()
+		// Apply port based exclusions. Must be applied before connections back to self are redirected.
+		if outboundPortsExclude != ""{
+			for _, port := range split(outboundPortsExclude) {
+				ip6tables("-t", "nat", "-A", "ISTIO_OUTPUT", "-p", "tcp", "--dport", port, "-j", "RETURN").RunOrFail()
+			}
+		}
 		// Redirect app calls to back itself via Envoy when using the service VIP or endpoint
 		// address, e.g. appN => Envoy (client) => Envoy (server) => appN.
 		ip6tables("-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "::1/128", "-j", "ISTIO_REDIRECT").RunOrFail()
