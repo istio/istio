@@ -348,6 +348,13 @@ func (a *Accessor) GetSecret(ns string) kubeClientCore.SecretInterface {
 	return a.set.CoreV1().Secrets(ns)
 }
 
+// CreateSecret takes the representation of a secret and creates it in the given namespace.
+// Returns an error if there is any.
+func (a *Accessor) CreateSecret(namespace string, secret *kubeApiCore.Secret) (err error) {
+	_, err = a.set.CoreV1().Secrets(namespace).Create(secret)
+	return err
+}
+
 // GetEndpoints returns the endpoints for the given service.
 func (a *Accessor) GetEndpoints(ns, service string, options kubeApiMeta.GetOptions) (*kubeApiCore.Endpoints, error) {
 	return a.set.CoreV1().Endpoints(ns).Get(service, options)
