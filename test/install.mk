@@ -72,6 +72,7 @@ run-lint:
 	helm lint istio-telemetry/grafana -f global.yaml
 	helm lint istio-telemetry/mixer-telemetry -f global.yaml
 	helm lint istio-telemetry/prometheus -f global.yaml
+	helm lint istio-telemetry/kiali -f global.yaml
 	helm lint security/citadel -f global.yaml
 	helm lint gateways/istio-egress -f global.yaml
 	helm lint gateways/istio-ingress -f global.yaml
@@ -116,8 +117,13 @@ install-egress:
 install-telemetry:
 	#bin/iop istio-telemetry istio-grafana $IBASE/istio-telemetry/grafana/ 
 	bin/iop ${ISTIO_NS} istio-prometheus ${BASE}/istio-telemetry/prometheus/  ${IOP_OPTS}
-	bin/iop ${ISTIO_NS} istio-mixer ${BASE}/istio-telemetry/mixer-telemetry/  ${IOP_OPTS}
+	bin/iop ${ISTIO_NS} istio-telemetry ${BASE}/istio-telemetry/mixer-telemetry/  ${IOP_OPTS}
+
 	kubectl wait deployments istio-telemetry prometheus -n ${ISTIO_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
+
+# Install kiali separately with telemetry
+install-kiali:
+	bin/iop ${ISTIO_ADMIN_NS} istio-kiali ${BASE}/istio-telemetry/kiali/ ${IOP_OPTS}
 
 install-policy:
 	bin/iop ${ISTIO_NS} istio-policy ${BASE}/istio-policy  ${IOP_OPTS}
