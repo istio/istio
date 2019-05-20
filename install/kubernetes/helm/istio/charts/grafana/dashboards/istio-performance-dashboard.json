@@ -1373,7 +1373,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "process_virtual_memory_bytes{job=\"pilot\"}",
+          "expr": "process_virtual_memory_bytes{job=~\"istio-telemetry|istio-policy\"}",
           "format": "time_series",
           "instant": false,
           "intervalFactor": 2,
@@ -1382,7 +1382,7 @@
           "step": 2
         },
         {
-          "expr": "process_resident_memory_bytes{job=\"pilot\"}",
+          "expr": "process_resident_memory_bytes{job=~\"istio-telemetry|istio-policy\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Resident Memory",
@@ -1390,7 +1390,7 @@
           "step": 2
         },
         {
-          "expr": "go_memstats_heap_sys_bytes{job=\"pilot\"}",
+          "expr": "go_memstats_heap_sys_bytes{job=~\"istio-telemetry|istio-policy\"}",
           "format": "time_series",
           "hide": true,
           "intervalFactor": 2,
@@ -1398,7 +1398,7 @@
           "refId": "A"
         },
         {
-          "expr": "go_memstats_heap_alloc_bytes{job=\"pilot\"}",
+          "expr": "go_memstats_heap_alloc_bytes{job=~\"istio-telemetry|istio-policy\"}",
           "format": "time_series",
           "hide": true,
           "intervalFactor": 2,
@@ -1406,7 +1406,7 @@
           "refId": "D"
         },
         {
-          "expr": "go_memstats_alloc_bytes{job=\"pilot\"}",
+          "expr": "go_memstats_alloc_bytes{job=~\"istio-telemetry|istio-policy\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Alloc",
@@ -1414,7 +1414,7 @@
           "step": 2
         },
         {
-          "expr": "go_memstats_heap_inuse_bytes{job=\"pilot\"}",
+          "expr": "go_memstats_heap_inuse_bytes{job=~\"istio-telemetry|istio-policy\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
