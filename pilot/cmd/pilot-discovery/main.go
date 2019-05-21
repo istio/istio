@@ -137,6 +137,14 @@ func init() {
 		"URL for the Consul server")
 	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.Service.Consul.Interval, "consulserverInterval", 2*time.Second,
 		"Interval (in seconds) for polling the Consul service registry")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Mesos.ServerURL, "marathonURL", "",
+		"URL for the Marathon server")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Mesos.ContainerDomain, "mesosContainerDomain", "marathon.containerip.dcos.thisdcos.directory",
+		"FQDN Suffix of Container ip. Default 'marathon.containerip.dcos.thisdcos.directory'")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Mesos.VIPDomain, "mesosVIPDomain", "marathon.l4lb.thisdcos.directory",
+		"FQDN suffix for service ip with VIP label")
+	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.Service.Mesos.Interval, "mesosSyncInterval", 2*time.Second,
+		"Interval (in seconds) for polling the Mesos service registry")
 
 	// using address, so it can be configured as localhost:.. (possibly UDS in future)
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.HTTPAddr, "httpAddr", ":8080",

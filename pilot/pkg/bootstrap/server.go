@@ -1053,7 +1053,7 @@ func (s *Server) initConsulRegistry(serviceControllers *aggregate.Controller, ar
 }
 
 func (s *Server) initMesosRegistry(serviceControllers *aggregate.Controller, args *PilotArgs) error {
-	log.Infof("Mesos Master address: %v", args.Service.Mesos.Master)
+	log.Infof("Marathon url: %v", args.Service.Mesos.ServerURL)
 	mesosctl, conerr := mesos.NewController(args.Service.Mesos)
 	if conerr != nil {
 		return fmt.Errorf("failed to create Mesos controller: %v", conerr)
