@@ -13,7 +13,7 @@ run-micro-tests: install-crds install-base install-ingress run-simple run-simple
 
 
 
-E2E_ARGS=--skip_setup --use_local_cluster=true --istio_namespace=${ISTIO_NS}
+E2E_ARGS=--skip_setup --use_local_cluster=true --istio_namespace=${ISTIO_CONTROL_NS}
 
 SIMPLE_AUTH ?= false
 
@@ -35,7 +35,7 @@ run-simple-base: ${TMPDIR}
          --cluster_wide \
          --skip_setup \
          --use_local_cluster=true \
-         --istio_namespace=${ISTIO_NS} \
+         --istio_namespace=${ISTIO_CONTROL_NS} \
          --namespace=${NS} \
          ${SIMPLE_EXTRA} \
          --istioctl=${ISTIOCTL_BIN} \
@@ -60,10 +60,10 @@ run-bookinfo:
 	kubectl create ns bookinfo || true
 	echo ${BASE} ${GOPATH}
 	# Bookinfo test
-	#kubectl label namespace bookinfo istio-env=${ISTIO_NS} --overwrite
+	#kubectl label namespace bookinfo istio-env=${ISTIO_CONTROL_NS} --overwrite
 	kubectl -n bookinfo apply -f test/k8s/mtls_permissive.yaml
 	kubectl -n bookinfo apply -f test/k8s/sidecar-local.yaml
-	SKIP_CLEANUP=1 ISTIO_CONTROL=${ISTIO_NS} INGRESS_NS=${ISTIO_NS} SKIP_DELETE=1 SKIP_LABEL=1 bin/test.sh ${GOPATH}/src/istio.io/istio
+	SKIP_CLEANUP=1 ISTIO_CONTROL=${ISTIO_CONTROL_NS} INGRESS_NS=${ISTIO_INGRESS_NS} SKIP_DELETE=1 SKIP_LABEL=1 bin/test.sh ${GOPATH}/src/istio.io/istio
 
 # Simple fortio install and curl command
 #run-fortio:
@@ -88,13 +88,13 @@ INT_FLAGS ?= \
 	--istio.test.ci \
 	--istio.test.nocleanup \
 	--istio.test.kube.deploy=false \
-	--istio.test.kube.systemNamespace ${ISTIO_NS} \
-	--istio.test.kube.istioNamespace ${ISTIO_NS} \
-	--istio.test.kube.configNamespace ${ISTIO_NS} \
-	--istio.test.kube.telemetryNamespace ${ISTIO_NS} \
-	--istio.test.kube.policyNamespace ${ISTIO_NS} \
-	--istio.test.kube.ingressNamespace ${ISTIO_NS} \
-	--istio.test.kube.egressNamespace ${ISTIO_NS} \
+	--istio.test.kube.systemNamespace ${ISTIO_CONTROL_NS} \
+	--istio.test.kube.istioNamespace ${ISTIO_CONTROL_NS} \
+	--istio.test.kube.configNamespace ${ISTIO_CONTROL_NS} \
+	--istio.test.kube.telemetryNamespace ${ISTIO_TELEMETRY_NS} \
+	--istio.test.kube.policyNamespace ${ISTIO_POLICY_NS} \
+	--istio.test.kube.ingressNamespace ${ISTIO_INGRESS_NS} \
+	--istio.test.kube.egressNamespace ${ISTIO_EGRESS_NS} \
 	--istio.test.kube.minikube \
 	--istio.test.ci -timeout 30m
 
@@ -121,18 +121,18 @@ run-test.integration.kube.presubmit:
 	${GO} test -v ${INT_TARGETS} --istio.test.select -customsetup,+presubmit ${INT_FLAGS} 2>&1 | tee ${GOPATH}/out/logs/$@.log
 
 run-stability:
-	 ISTIO_ENV=${ISTIO_NS} bin/iop test stability ${GOPATH}/src/istio.io/tools/perf/stability/allconfig ${IOP_OPTS}
+	 ISTIO_ENV=${ISTIO_CONTROL_NS} bin/iop test stability ${GOPATH}/src/istio.io/tools/perf/stability/allconfig ${IOP_OPTS}
 
 run-mysql:
-	 ISTIO_ENV=${ISTIO_NS} bin/iop mysql mysql ${BASE}/test/mysql ${IOP_OPTS}
-	 ISTIO_ENV=${ISTIO_NS} bin/iop mysqlplain mysqlplain ${BASE}/test/mysql ${IOP_OPTS} --set mtls=false --set Name=plain
+	 ISTIO_ENV=${ISTIO_CONTROL_NS} bin/iop mysql mysql ${BASE}/test/mysql ${IOP_OPTS}
+	 ISTIO_ENV=${ISTIO_CONTROL_NS} bin/iop mysqlplain mysqlplain ${BASE}/test/mysql ${IOP_OPTS} --set mtls=false --set Name=plain
 
 # This test currently only validates the correct config generation and install in API server.
 # When prom operator config moves out of alpha, this should be incorporated in the other tests
 # and removed.
 run-prometheus-operator-config-test: PROM_OPTS="--set prometheus.createPrometheusResource=true"
 run-prometheus-operator-config-test: install-prometheus-operator install-prometheus-operator-config
-	if [ "$$(kubectl -n ${ISTIO_NS} get servicemonitors -o name | wc -l)" -ne "7" ]; then echo "Failure to find ServiceMonitor resouces!"; return 1; fi
+	if [ "$$(kubectl -n ${ISTIO_CONTROL_NS} get servicemonitors -o name | wc -l)" -ne "7" ]; then echo "Failure to find ServiceMonitor resouces!"; return 1; fi
 	# kubectl wait is problematic, as the pod may not exist before the command is issued.
-	until timeout ${WAIT_TIMEOUT} kubectl -n ${ISTIO_NS} get pod/prometheus-prometheus-0; do echo "Waiting for pods to be created..."; done
-	kubectl -n ${ISTIO_NS} wait pod/prometheus-prometheus-0 --for=condition=Ready --timeout=${WAIT_TIMEOUT}
+	until timeout ${WAIT_TIMEOUT} kubectl -n ${ISTIO_CONTROL_NS} get pod/prometheus-prometheus-0; do echo "Waiting for pods to be created..."; done
+	kubectl -n ${ISTIO_CONTROL_NS} wait pod/prometheus-prometheus-0 --for=condition=Ready --timeout=${WAIT_TIMEOUT}

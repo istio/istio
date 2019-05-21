@@ -12,8 +12,19 @@ integrationDefaults: &integrationDefaults
     - KUBECONFIG: /go/out/minikube.conf
     - TEST_ENV: minikube-none
 
-# remote docker environment. Appears to be faster
-integrationRemote: &integrationRemote
+# remote docker environment for one namespace. Appears to be faster
+integrationRemoteOneNamespace: &integrationRemoteOneNamespace
+  working_directory: /go/src/istio.io/installer
+  docker:
+    - image: istionightly/ci:2019-05-09
+      environment:
+        GOPATH: /go
+        SKIP_CLEANUP: 1
+        ONE_NAMESPACE: 1
+        TMPDIR: /go/tmp
+
+# remote docker environment for isolated namespaces.
+integrationRemoteIsolatedNamespaces: &integrationRemoteIsolatedNamespaces
   working_directory: /go/src/istio.io/installer
   docker:
     - image: istionightly/ci:2019-05-09
@@ -21,7 +32,6 @@ integrationRemote: &integrationRemote
         GOPATH: /go
         SKIP_CLEANUP: 1
         TMPDIR: /go/tmp
-
 
 # Common procedure to initialize working directory
 initWorkingDir: &initWorkingDir
@@ -65,8 +75,8 @@ jobs:
   # Pipeline running KIND and installer in the remote-docker environment
   # Runs the 'integration.presubmit' tests against an environment using new installer with components in same
   # namespace.
-  integration-presubmit-kind:
-    <<: *integrationRemote
+  integration-presubmit-one-namespace-kind:
+    <<: *integrationRemoteOneNamespace
 
     # Can run multiple images, first is primary, all use localhost
     steps:
@@ -102,9 +112,49 @@ jobs:
       - store_artifacts:
           path: /go/out/logs
 
-  # Old integration tests - simple (mtls strict and permissive), bookinfo
+  # Pipeline running KIND and installer in the remote-docker environment
+  # Runs the 'integration.presubmit' tests against an environment using new installer with components in isolated
+  # namespaces.
+  integration-presubmit-isolated-namespaces-kind:
+    <<: *integrationRemoteIsolatedNamespaces
+
+    # Can run multiple images, first is primary, all use localhost
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run: make gitdep
+      - run:
+          # Create KIND cluster (separate so we get time info)
+          command: make info dep prepare
+      - run:
+          command: make sync
+      - run:
+          command: make docker-run-test TEST_TARGET="install-crds install-base"
+      - run:
+          command: make docker-run-test TEST_TARGET="install-ingress"
+      - run:
+          command: make docker-run-test TEST_TARGET="install-telemetry"
+      - run:
+          command: make docker-run-test TEST_TARGET="install-policy"
+      - run:
+          no_output_timeout: 20m
+          command: make docker-run-test TEST_TARGET="run-test.integration.kube.presubmit"
+          # simple is currently failing
+      - run:
+          command: make docker-run-test TEST_TARGET="run-prometheus-operator-config-test"
+      - run:
+          when: always
+          command: make kind-logs
+      #    docker_layer_caching: true
+      - store_test_results:
+          path: /go/out/tests
+      - store_artifacts:
+          path: /go/out/logs
+
+  # Old integration tests in same namespace - simple (mtls strict and permissive), bookinfo
   integration-old-kind:
-    <<: *integrationRemote
+    <<: *integrationRemoteOneNamespace
 
     # Can run multiple images, first is primary, all use localhost
     steps:
@@ -135,7 +185,7 @@ jobs:
 
   # Install the demo and bookinfo
   install-demo:
-    <<: *integrationRemote
+    <<: *integrationRemoteOneNamespace
 
     # Can run multiple images, first is primary, all use localhost
     steps:
@@ -160,7 +210,7 @@ jobs:
 
   # Verify a-la-carte with no certificates ( smallest possible install, and cases without certs/mtls)
   noauth:
-    <<: *integrationRemote
+    <<: *integrationRemoteOneNamespace
 
     # Can run multiple images, first is primary, all use localhost
     steps:
@@ -247,7 +297,8 @@ workflows:
                  - dev
     jobs:
       - build
-      - integration-presubmit-kind
+      - integration-presubmit-one-namespace-kind
+      - integration-presubmit-isolated-namespaces-kind
       - integration-old-kind
       - install-minikube
       - install-demo
@@ -256,7 +307,8 @@ workflows:
   all:
     jobs:
       - build
-      - integration-presubmit-kind
+      - integration-presubmit-one-namespace-kind
+      - integration-presubmit-isolated-namespaces-kind
       - integration-old-kind
       - install-minikube
       - install-demo
