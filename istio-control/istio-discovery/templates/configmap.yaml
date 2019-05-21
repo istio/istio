@@ -88,6 +88,9 @@ data:
     - address: istio-galley:9901
     {{- end }}
     {{- end }}
+
+    localityLbSetting:
+{{ toYaml .Values.global.localityLbSetting | indent 6 }}
     #
     defaultConfig:
       #
