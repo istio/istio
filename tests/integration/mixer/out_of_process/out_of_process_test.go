@@ -67,13 +67,13 @@ func TestRouteDirective(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unable to read out of process adapter config: %v", err)
 			}
-
+			pbCfg := be.CreateConfigSnippet("policy-backend", istioSystemNs.Name(), policybackend.OutOfProcess)
 			// Apply all configs needed by out of process adapter, which includes all needed dynamic templates,
 			// adapter config, instances and handlers.
 			g.ApplyConfigOrFail(t, istioSystemNs,
 				oopConfig,
 				testOOPKeyValInstace,
-				be.CreateConfigSnippet("policy-backend", istioSystemNs.Name(), policybackend.OutOfProcess),
+				pbCfg,
 			)
 			g.ApplyConfigOrFail(t, httpbinNs,
 				httpbin.NetworkingHttpbinGateway.LoadWithNamespaceOrFail(t, httpbinNs.Name()))
@@ -142,12 +142,12 @@ func TestRouteDirective(t *testing.T) {
 				return nil
 			}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
 			t.Logf("httpbin returns status 418")
-			g.DeleteConfigOrFail(t, istioSystemNs, testOOPKeyValPathRule)
+			g.DeleteConfigOrFail(t, istioSystemNs, testOOPKeyValPathRule, pbCfg)
 		})
 }
 
 // TestCheck tests policy check deniel with an out of process policy adapter.
-func TestCheck(t *testing.T) {
+func TestDenyCheck(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
@@ -160,21 +160,43 @@ func TestCheck(t *testing.T) {
 			ns := namespace.NewOrFail(t, ctx, "testcheck-deny-oop", false)
 			istioSystemNs := namespace.ClaimOrFail(t, ctx, "istio-system")
 
+			retry.UntilSuccessOrFail(t, func() error {
+				t.Log("try call mixer check, it should pass since no deny rule applied")
+				result := mxr.Check(t, map[string]interface{}{
+					"context.protocol":      "http",
+					"destination.name":      "someworkload",
+					"destination.namespace": ns.Name(),
+					"response.time":         time.Now(),
+					"request.time":          time.Now(),
+					"destination.service":   `svc.` + ns.Name(),
+					"origin.ip":             []byte{1, 2, 3, 4},
+				})
+
+				if !result.Succeeded() {
+					t.Logf("check denied with result: %v", result.Raw)
+					return fmt.Errorf("check should pass: %v", result.Raw)
+				}
+
+				return nil
+			}, retry.Delay(3*time.Second), retry.Timeout(time.Second*80))
+
+			t.Log("check could pass, apply out of process adapter config for check deny")
 			// Get out of process adapter related config, which includes dyanmic template for keyval and checknothing,
 			// and dynamic adapter config for policy backend.
 			oopConfig, err := readOOPConfig()
 			if err != nil {
 				t.Fatalf("cannot read out of process config file: %v", err)
 			}
-
+			pbCfg := be.CreateConfigSnippet("", "", policybackend.OutOfProcess)
 			gal.ApplyConfigOrFail(
 				t,
 				istioSystemNs,
 				oopConfig,
 				testOOPCheckConfig,
-				be.CreateConfigSnippet("", "", policybackend.OutOfProcess))
+				pbCfg)
 
 			retry.UntilSuccessOrFail(t, func() error {
+				t.Log("try call mixer check, it should not pass since deny rule has been applied")
 				result := mxr.Check(t, map[string]interface{}{
 					"context.protocol":      "http",
 					"destination.name":      "someworkload",
@@ -186,11 +208,13 @@ func TestCheck(t *testing.T) {
 				})
 
 				if result.Succeeded() {
+					t.Logf("check passed with result: %v", result.Raw)
 					return fmt.Errorf("check should not pass: %v", result.Raw)
 				}
 
 				return nil
-			}, retry.Timeout(time.Second*40))
+			}, retry.Delay(3*time.Second), retry.Timeout(time.Second*80))
+			gal.DeleteConfigOrFail(t, istioSystemNs, pbCfg, testOOPCheckConfig)
 		})
 }
 
