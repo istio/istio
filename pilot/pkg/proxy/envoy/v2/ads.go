@@ -902,10 +902,8 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 				version:            version,
 				edsUpdatedServices: edsOnly,
 			}:
-				client.mu.Lock()
 				client.LastPush = time.Now()
 				client.LastPushFailure = timeZero
-				client.mu.Unlock()
 				if !timer.Stop() {
 					<-timer.C
 				}
