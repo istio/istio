@@ -18,6 +18,8 @@ import (
 	"reflect"
 	"testing"
 
+	"istio.io/istio/pkg/features/pilot"
+
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -727,6 +729,7 @@ func constructSDSConfig(name, sdsudspath string) *auth.SdsSecretConfig {
 	return &auth.SdsSecretConfig{
 		Name: name,
 		SdsConfig: &core.ConfigSource{
+			InitialFetchTimeout: pilot.InitialFetchTimeout,
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 				ApiConfigSource: &core.ApiConfigSource{
 					ApiType: core.ApiConfigSource_GRPC,
