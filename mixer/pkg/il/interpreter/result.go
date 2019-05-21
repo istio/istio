@@ -19,8 +19,8 @@ import (
 	"math"
 	"time"
 
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il"
+	"istio.io/pkg/attribute"
 	"istio.io/pkg/log"
 )
 

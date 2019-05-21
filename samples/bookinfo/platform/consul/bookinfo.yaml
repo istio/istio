@@ -28,6 +28,7 @@ services:
       - SERVICE_NAME=details
       - SERVICE_TAGS=version|v1
       - SERVICE_PROTOCOL=http
+      - SERVICE_VERSION=v1
     expose:
       - "9080"
 
@@ -44,6 +45,7 @@ services:
       - SERVICE_NAME=ratings
       - SERVICE_TAGS=version|v1
       - SERVICE_PROTOCOL=http
+      - SERVICE_VERSION=v1
     expose:
       - "9080"
 
@@ -61,6 +63,7 @@ services:
       - SERVICE_TAGS=version|v1
       - SERVICE_PROTOCOL=http
       - SERVICE_9443_IGNORE=1
+      - SERVICE_VERSION=v1
     expose:
       - "9080"
 
@@ -78,6 +81,7 @@ services:
       - SERVICE_TAGS=version|v2
       - SERVICE_PROTOCOL=http
       - SERVICE_9443_IGNORE=1
+      - SERVICE_VERSION=v2
     expose:
       - "9080"
 
@@ -95,6 +99,7 @@ services:
       - SERVICE_TAGS=version|v3
       - SERVICE_PROTOCOL=http
       - SERVICE_9443_IGNORE=1
+      - SERVICE_VERSION=v3
     expose:
       - "9080"
 
@@ -112,6 +117,7 @@ services:
       - SERVICE_NAME=productpage
       - SERVICE_TAGS=version|v1
       - SERVICE_PROTOCOL=http
+      - SERVICE_VERSION=v1
     ports:
       - "9081:9080"
     expose:

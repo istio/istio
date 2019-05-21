@@ -151,8 +151,3 @@ func mapArrayToInterfaceArray(arr []map[string]interface{}) []interface{} {
 	}
 	return result
 }
-
-// Reset implements internal.Resettable.
-func (c *client) Reset() error {
-	return c.controller.Reset()
-}

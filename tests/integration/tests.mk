@@ -14,9 +14,9 @@ ifneq ($(CI),)
 endif
 
 # In Prow, ARTIFACTS_DIR points to the location where Prow captures the artifacts from the tests
-_INTEGRATION_TEST_WORK_DIR_FLAG =
+INTEGRATION_TEST_WORKDIR =
 ifneq ($(ARTIFACTS_DIR),)
-	_INTEGRATION_TEST_WORK_DIR_FLAG = --istio.test.work_dir ${ARTIFACTS_DIR}
+	INTEGRATION_TEST_WORKDIR = ${ARTIFACTS_DIR}
 endif
 
 _INTEGRATION_TEST_INGRESS_FLAG =
@@ -105,14 +105,13 @@ test.integration.local.presubmit: | $(JUNIT_REPORT)
 test.integration.kube: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
-	$(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
+	$(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORK_DIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
 	--istio.test.env kube \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
 	--istio.test.hub=${HUB} \
 	--istio.test.tag=${TAG} \
 	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
-	${_INTEGRATION_TEST_WORK_DIR_FLAG} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 # Presubmit integration tests targeting Kubernetes environment.
@@ -120,7 +119,7 @@ test.integration.kube: | $(JUNIT_REPORT)
 test.integration.kube.presubmit: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
-	$(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
+	$(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORK_DIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
     --istio.test.select -postsubmit,-flaky \
  	--istio.test.env kube \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
@@ -128,7 +127,6 @@ test.integration.kube.presubmit: | $(JUNIT_REPORT)
 	--istio.test.tag=${TAG} \
 	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
-	${_INTEGRATION_TEST_WORK_DIR_FLAG} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 # Integration tests that detect race condition for native environment.

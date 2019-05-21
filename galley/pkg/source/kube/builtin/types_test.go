@@ -71,6 +71,20 @@ func TestParse(t *testing.T) {
 		}
 		g.Expect(objMeta.GetName()).To(Equal("kube-dns"))
 	})
+
+	t.Run("Namespace", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		input := getJSON(t, "namespace.yaml")
+
+		objMeta, objResource := parse(t, input, "Namespace")
+
+		// Just validate a couple of things...
+		_, ok := objResource.(*coreV1.NamespaceSpec)
+		if !ok {
+			t.Fatal("failed casting item to Namespace")
+		}
+		g.Expect(objMeta.GetName()).To(Equal("default"))
+	})
 }
 
 func TestEquals(t *testing.T) {
@@ -223,6 +237,8 @@ func empty(kind string) metaV1.Object {
 		return &coreV1.Pod{}
 	case "Endpoints":
 		return &coreV1.Endpoints{}
+	case "Namespace":
+		return &coreV1.Namespace{}
 	default:
 		panic("unsupported kind")
 	}

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -140,6 +141,9 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["pilot.env.PILOT_ENABLE_LOCALITY_LOAD_BALANCING"] = "true"
 	cfg.Values["global.localityLbSetting.failover[0].from"] = "region"
 	cfg.Values["global.localityLbSetting.failover[0].to"] = "closeregion"
+
+	// TODO(https://github.com/istio/istio/issues/14084) remove this
+	cfg.Values["pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE"] = "0"
 }
 
 func echoConfig(ns namespace.Instance, name string) echo.Config {
@@ -172,7 +176,7 @@ type serviceConfig struct {
 	NonExistantServiceLocality string
 }
 
-func deploy(t *testing.T, ns namespace.Instance, se serviceConfig) {
+func deploy(t test.Failer, ns namespace.Instance, se serviceConfig) {
 	t.Helper()
 	var buf bytes.Buffer
 	if err := deploymentTemplate.Execute(&buf, se); err != nil {
@@ -185,8 +189,8 @@ func deploy(t *testing.T, ns namespace.Instance, se serviceConfig) {
 	time.Sleep(10 * time.Second)
 }
 
-func sendTraffic(t *testing.T, from echo.Instance /*to echo.Instance,*/, host string) {
-	t.Helper()
+func sendTraffic(ctx framework.TestContext, from echo.Instance /*to echo.Instance,*/, host string) {
+	ctx.Helper()
 	headers := http.Header{}
 	headers.Add("Host", host)
 	// This is a hack to remain infrastructure agnostic when running these tests
@@ -198,19 +202,19 @@ func sendTraffic(t *testing.T, from echo.Instance /*to echo.Instance,*/, host st
 		Count:    sendCount,
 	})
 	if err != nil {
-		t.Errorf("%s->%s failed sending: %v", from.Config().Service, host, err)
+		ctx.Errorf("%s->%s failed sending: %v", from.Config().Service, host, err)
 	}
 	if len(resp) != sendCount {
-		t.Errorf("%s->%s expected %d responses, received %d", from.Config().Service, host, sendCount, len(resp))
+		ctx.Errorf("%s->%s expected %d responses, received %d", from.Config().Service, host, sendCount, len(resp))
 	}
 	numFailed := 0
 	for i, r := range resp {
 		if match := bHostnameMatcher.FindString(r.Hostname); len(match) == 0 {
 			numFailed++
-			t.Errorf("%s->%s request[%d] made to unexpected service: %s", from.Config().Service, host, i, r.Hostname)
+			ctx.Errorf("%s->%s request[%d] made to unexpected service: %s", from.Config().Service, host, i, r.Hostname)
 		}
 	}
 	if numFailed > 0 {
-		t.Errorf("%s->%s total requests to unexpected service=%d/%d", from.Config().Service, host, numFailed, len(resp))
+		ctx.Errorf("%s->%s total requests to unexpected service=%d/%d", from.Config().Service, host, numFailed, len(resp))
 	}
 }

@@ -46,6 +46,8 @@ spec:
         - 1m0s
         - --discoveryAddress
         - istio-pilot:15010
+        - --dnsRefreshRate
+        - 300s
         - --connectTimeout
         - 1s
         - --proxyAdminPort
@@ -81,6 +83,8 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
+        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
+          value: "80"
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"hello","tier":"backend","track":"stable"}

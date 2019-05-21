@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/meshconfig"
+	"istio.io/istio/galley/pkg/metadata"
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/resource"
@@ -489,7 +490,10 @@ func TestSnapshotDistribution(t *testing.T) {
 	d := runtime.NewInMemoryDistributor()
 
 	// Create and start the runtime processor.
-	cfg := &runtime.Config{Mesh: meshconfig.NewInMemory()}
+	cfg := &runtime.Config{
+		Mesh:   meshconfig.NewInMemory(),
+		Schema: metadata.Types,
+	}
 	processor := runtime.NewProcessor(s, d, cfg)
 	err := processor.Start()
 	if err != nil {

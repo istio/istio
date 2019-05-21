@@ -73,9 +73,8 @@ spec:
 var (
 	retryDelay = retry.Delay(time.Second)
 
-	_ Instance          = &nativeComponent{}
-	_ io.Closer         = &nativeComponent{}
-	_ resource.Resetter = &nativeComponent{}
+	_ Instance  = &nativeComponent{}
+	_ io.Closer = &nativeComponent{}
 )
 
 type nativeComponent struct {
@@ -139,13 +138,6 @@ func (c *nativeComponent) CreateConfigSnippet(name string, namespace string, am 
 		scopes.CI.Errorf("Error generating config snippet for policy backend: unsupported adapter mode")
 		return ""
 	}
-}
-
-func (c *nativeComponent) Reset() error {
-	if c.client != nil {
-		return c.client.Reset()
-	}
-	return nil
 }
 
 func (c *nativeComponent) ID() resource.ID {

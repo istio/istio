@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/pkg/attribute"
 )
 
 func TestExternIp(t *testing.T) {

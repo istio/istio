@@ -141,13 +141,20 @@ func (c *Controller) Services() ([]*model.Service, error) {
 					services = append(services, sp)
 				}
 
+				sp.Mutex.Lock()
 				// If the registry has a cluster ID, keep track of the cluster and the
 				// local address inside the cluster.
 				if sp.ClusterVIPs == nil {
 					sp.ClusterVIPs = make(map[string]string)
 				}
-				sp.Mutex.Lock()
 				sp.ClusterVIPs[r.ClusterID] = s.Address
+
+				if s.Attributes.ClusterExternalAddresses != nil && len(s.Attributes.ClusterExternalAddresses[r.ClusterID]) > 0 {
+					if sp.Attributes.ClusterExternalAddresses == nil {
+						sp.Attributes.ClusterExternalAddresses = make(map[string][]string)
+					}
+					sp.Attributes.ClusterExternalAddresses[r.ClusterID] = s.Attributes.ClusterExternalAddresses[r.ClusterID]
+				}
 				sp.Mutex.Unlock()
 			}
 		}

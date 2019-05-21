@@ -27,11 +27,10 @@ import (
 	istio_mixer_v1_template "istio.io/api/mixer/adapter/model/v1beta1"
 	policy "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/runtime/lang"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/pkg/attribute"
 )
 
 // BuildTemplates builds a standard set of testing templates. The supplied settings is used to override behavior.
@@ -270,7 +269,7 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 		},
 		CreateOutputExpressions: func(
 			instanceParam proto.Message,
-			finder ast.AttributeDescriptorFinder,
+			finder attribute.AttributeDescriptorFinder,
 			expb lang.Compiler) (map[string]compiled.Expression, error) {
 			l.WriteFormat(name, "CreateOutputExpressions => param:            '%+v'", instanceParam)
 			l.WriteFormat(name, "CreateOutputExpressions => finder exists:    '%+v'", finder != nil)

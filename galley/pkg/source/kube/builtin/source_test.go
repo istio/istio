@@ -74,7 +74,7 @@ func TestNewWithUnknownSpecShouldError(t *testing.T) {
 		ListKind:  "UnknownList",
 		Singular:  "unknown",
 		Plural:    "unknowns",
-		Version:   "v1alpha1",
+		Versions:  []string{"v1alpha1"},
 		Group:     "cofig.istio.io",
 		Converter: converter.Get("identity"),
 	}

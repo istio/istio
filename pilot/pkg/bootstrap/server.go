@@ -34,7 +34,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -90,6 +90,12 @@ const (
 
 	// DefaultMCPMaxMsgSize is the default maximum message size
 	DefaultMCPMaxMsgSize = 1024 * 1024 * 4
+
+	// DefaultMCPInitialWindowSize is the default InitialWindowSize value for the gRPC connection.
+	DefaultMCPInitialWindowSize = 1024 * 1024
+
+	// DefaultMCPInitialConnWindowSize is the default Initial ConnWindowSize value for the gRPC connection.
+	DefaultMCPInitialConnWindowSize = 1024 * 1024
 
 	// URL types supported by the config store
 	// example fs:///tmp/configroot
@@ -165,17 +171,19 @@ type ServiceArgs struct {
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
-	DiscoveryOptions   envoy.DiscoveryServiceOptions
-	Namespace          string
-	Mesh               MeshArgs
-	Config             ConfigArgs
-	Service            ServiceArgs
-	MeshConfig         *meshconfig.MeshConfig
-	NetworksConfigFile string
-	CtrlZOptions       *ctrlz.Options
-	Plugins            []string
-	MCPMaxMessageSize  int
-	KeepaliveOptions   *istiokeepalive.Options
+	DiscoveryOptions         envoy.DiscoveryServiceOptions
+	Namespace                string
+	Mesh                     MeshArgs
+	Config                   ConfigArgs
+	Service                  ServiceArgs
+	MeshConfig               *meshconfig.MeshConfig
+	NetworksConfigFile       string
+	CtrlZOptions             *ctrlz.Options
+	Plugins                  []string
+	MCPMaxMessageSize        int
+	MCPInitialWindowSize     int
+	MCPInitialConnWindowSize int
+	KeepaliveOptions         *istiokeepalive.Options
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
 }
@@ -435,7 +443,8 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 		return nil
 	}
 	log.Infof("mesh networks configuration %s", spew.Sdump(meshNetworks))
-	util.ResolveHostsInNetworksConfig(s.meshNetworks)
+	util.ResolveHostsInNetworksConfig(meshNetworks)
+	log.Infof("mesh networks configuration post-resolution %s", spew.Sdump(meshNetworks))
 	s.meshNetworks = meshNetworks
 
 	// Watch the networks config file for changes and reload if it got modified
@@ -448,7 +457,8 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 		}
 		if !reflect.DeepEqual(meshNetworks, s.meshNetworks) {
 			log.Infof("mesh networks configuration file updated to: %s", spew.Sdump(meshNetworks))
-			util.ResolveHostsInNetworksConfig(s.meshNetworks)
+			util.ResolveHostsInNetworksConfig(meshNetworks)
+			log.Infof("mesh networks configuration post-resolution %s", spew.Sdump(meshNetworks))
 			s.meshNetworks = meshNetworks
 			if s.kubeRegistry != nil {
 				s.kubeRegistry.InitNetworkLookup(meshNetworks)
@@ -601,8 +611,14 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			Time:    args.KeepaliveOptions.Time,
 			Timeout: args.KeepaliveOptions.Timeout,
 		})
+
+		initialWindowSizeOption := grpc.WithInitialWindowSize(int32(args.MCPInitialWindowSize))
+		initialConnWindowSizeOption := grpc.WithInitialConnWindowSize(int32(args.MCPInitialConnWindowSize))
 		msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
-		conn, err := grpc.DialContext(ctx, configSource.Address, securityOption, msgSizeOption, keepaliveOption)
+
+		conn, err := grpc.DialContext(
+			ctx, configSource.Address,
+			securityOption, msgSizeOption, keepaliveOption, initialWindowSizeOption, initialConnWindowSizeOption)
 		if err != nil {
 			log.Errorf("Unable to dial MCP Server %q: %v", configSource.Address, err)
 			cancel()

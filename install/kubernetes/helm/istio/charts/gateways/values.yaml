@@ -114,6 +114,7 @@ istio-ingressgateway:
     # enable cross cluster routing.
     ISTIO_META_ROUTER_MODE: "sni-dnat"
   nodeSelector: {}
+  tolerations: []
 
   # Specify the pod anti-affinity that allows you to constrain which nodes
   # your pod is eligible to be scheduled based on labels on pods that are
@@ -133,8 +134,8 @@ istio-ingressgateway:
   # This pod anti-affinity rule says that the pod requires not to be scheduled
   # onto a node if that node is already running a pod with label having key
   # “security” and value “S1”.
-  podAntiAffinityLabelSelector: {}
-  podAntiAffinityTermLabelSelector: {}
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
 
 istio-egressgateway:
   enabled: false
@@ -189,6 +190,7 @@ istio-egressgateway:
     # enable cross cluster routing.
     ISTIO_META_ROUTER_MODE: "sni-dnat"
   nodeSelector: {}
+  tolerations: []
   
   # Specify the pod anti-affinity that allows you to constrain which nodes
   # your pod is eligible to be scheduled based on labels on pods that are
@@ -208,8 +210,8 @@ istio-egressgateway:
   # This pod anti-affinity rule says that the pod requires not to be scheduled
   # onto a node if that node is already running a pod with label having key
   # “security” and value “S1”.
-  podAntiAffinityLabelSelector: {}
-  podAntiAffinityTermLabelSelector: {}
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
 
 # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
 # for mesh expansion. It exposes the mtls ports for Pilot,CA as well
@@ -259,3 +261,4 @@ istio-ilbgateway:
     secretName: istio-ilbgateway-ca-certs
     mountPath: /etc/istio/ilbgateway-ca-certs
   nodeSelector: {}
+  tolerations: []
