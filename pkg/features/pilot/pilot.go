@@ -138,6 +138,14 @@ var (
 	DisableXDSMarshalingToAny    = func() bool {
 		return disableXDSMarshalingToAnyVar.Get() == "1"
 	}
+
+	// EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.
+	// Pilot injects this outbound filter if the service port name is `mysql`.
+	EnableMysqlFilter = enableMysqlFilter.Get
+	enableMysqlFilter = env.RegisterBoolVar(
+		"PILOT_ENABLE_MYSQL_FILTER",
+		false,
+		"EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.")
 )
 
 var (
