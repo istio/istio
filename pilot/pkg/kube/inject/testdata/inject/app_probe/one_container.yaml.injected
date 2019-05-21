@@ -54,7 +54,7 @@ spec:
         - --discoveryAddress
         - istio-pilot:15010
         - --dnsRefreshRate
-        - 5s
+        - 300s
         - --connectTimeout
         - 1s
         - --proxyAdminPort
