@@ -112,6 +112,7 @@ func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames 
 	}
 }
 
+// curl -o /dev/null -s -v -w "%{http_code}\n" -HHost:bookinfo3.example.com --resolve bookinfo3.example.com:443:34.66.112.126 --cacert ca.cert https://bookinfo3.example.com:443/productpage
 func VisitProductPage(ingress ingress.Instance, timeout time.Duration, wantStatus int, t *testing.T) error {
 	start := time.Now()
 	for {
