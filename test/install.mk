@@ -134,6 +134,11 @@ install-telemetry:
 # Install kiali separately with telemetry
 install-kiali:
 	bin/iop ${ISTIO_ADMIN_NS} istio-kiali ${BASE}/istio-telemetry/kiali/ ${IOP_OPTS}
+	kubectl wait deployments istio-kiali -n ${ISTIO_ADMIN_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
+
+install-tracing:
+	bin/iop ${ISTIO_NS} istio-tracing ${BASE}/istio-telemetry/tracing/  ${IOP_OPTS}
+	kubectl wait deployments istio-tracing -n ${ISTIO_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
 
 install-policy:
 	kubectl create ns ${ISTIO_POLICY_NS} || true
