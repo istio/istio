@@ -38,6 +38,8 @@ import (
 	"istio.io/pkg/log"
 )
 
+var scope = log.RegisterScope("citadelagent", "citadel agent debugging", 0)
+
 const (
 	// The ID/name for the certificate chain in kubernetes generic secret.
 	genericScrtCert = "cert"
@@ -105,9 +107,9 @@ type SecretFetcher struct {
 
 func fatalf(template string, args ...interface{}) {
 	if len(args) > 0 {
-		log.Errorf(template, args...)
+		scope.Errorf(template, args...)
 	} else {
-		log.Errorf(template)
+		scope.Errorf(template)
 	}
 	os.Exit(-1)
 }
@@ -124,13 +126,13 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, caProviderName string,
 			fatalf("Could not create k8s clientset: %v", err)
 		}
 		ret.FallbackSecretName = ingressFallbackSecret
-		log.Debugf("SecretFetcher set fallback secret name %s", ret.FallbackSecretName)
+		scope.Debugf("SecretFetcher set fallback secret name %s", ret.FallbackSecretName)
 		ret.InitWithKubeClient(cs.CoreV1())
 	} else {
 		caClient, err := ca.NewCAClient(endpoint, caProviderName, tlsFlag, tlsRootCert,
 			vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath)
 		if err != nil {
-			log.Errorf("failed to create caClient: %v", err)
+			scope.Errorf("failed to create caClient: %v", err)
 			return ret, fmt.Errorf("failed to create caClient")
 		}
 		ret.UseCaClient = true
@@ -216,20 +218,20 @@ func extractCertAndKey(scrt *v1.Secret) (cert, key, root []byte, valid bool) {
 func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 	scrt, ok := obj.(*v1.Secret)
 	if !ok {
-		log.Warnf("Failed to convert to secret object: %v", obj)
+		scope.Warnf("Failed to convert to secret object: %v", obj)
 		return
 	}
 
 	resourceName := scrt.GetName()
 	if !isIngressGatewaySecret(scrt) {
-		log.Debugf("secret %s is not an ingress gateway secret, skip adding secret", resourceName)
+		scope.Debugf("secret %s is not an ingress gateway secret, skip adding secret", resourceName)
 		return
 	}
 
 	t := time.Now()
 	newCert, newKey, newRoot, valid := extractCertAndKey(scrt)
 	if !valid {
-		log.Warnf("Secret object: %v has empty field, skip adding secret", resourceName)
+		scope.Warnf("Secret object: %v has empty field, skip adding secret", resourceName)
 		return
 	}
 	// If there is secret with the same resource name, delete that secret now.
@@ -242,7 +244,7 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 		Version:          t.String(),
 	}
 	sf.secrets.Store(resourceName, *ns)
-	log.Debugf("secret %s is added", resourceName)
+	scope.Debugf("secret %s is added", resourceName)
 	if sf.AddCache != nil {
 		sf.AddCache(resourceName, *ns)
 	}
@@ -258,7 +260,7 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 			Version:      t.String(),
 		}
 		sf.secrets.Store(rootCertResourceName, *nsRoot)
-		log.Debugf("secret %s is added", rootCertResourceName)
+		scope.Debugf("secret %s is added", rootCertResourceName)
 		if sf.AddCache != nil {
 			sf.AddCache(rootCertResourceName, *nsRoot)
 		}
@@ -268,13 +270,13 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 	scrt, ok := obj.(*v1.Secret)
 	if !ok {
-		log.Warnf("Failed to convert to secret object: %v", obj)
+		scope.Warnf("Failed to convert to secret object: %v", obj)
 		return
 	}
 
 	key := scrt.GetName()
 	sf.secrets.Delete(key)
-	log.Infof("secret %s is deleted", key)
+	scope.Infof("secret %s is deleted", key)
 	// Delete all cache entries that match the deleted key.
 	if sf.DeleteCache != nil {
 		sf.DeleteCache(key)
@@ -283,7 +285,7 @@ func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 	rootCertResourceName := key + IngressGatewaySdsCaSuffix
 	// If there is root cert secret with the same resource name, delete that secret now.
 	sf.secrets.Delete(rootCertResourceName)
-	log.Infof("secret %s is deleted", rootCertResourceName)
+	scope.Infof("secret %s is deleted", rootCertResourceName)
 	// Delete all cache entries that match the deleted key.
 	if sf.DeleteCache != nil {
 		sf.DeleteCache(rootCertResourceName)
@@ -293,35 +295,35 @@ func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	oscrt, ok := oldObj.(*v1.Secret)
 	if !ok {
-		log.Warnf("Failed to convert to old secret object: %v", oldObj)
+		scope.Warnf("Failed to convert to old secret object: %v", oldObj)
 		return
 	}
 	nscrt, ok := newObj.(*v1.Secret)
 	if !ok {
-		log.Warnf("Failed to convert to new secret object: %v", newObj)
+		scope.Warnf("Failed to convert to new secret object: %v", newObj)
 		return
 	}
 
 	oldScrtName := oscrt.GetName()
 	newScrtName := nscrt.GetName()
 	if oldScrtName != newScrtName {
-		log.Warnf("Failed to update secret: name does not match (%s vs %s).", oldScrtName, newScrtName)
+		scope.Warnf("Failed to update secret: name does not match (%s vs %s).", oldScrtName, newScrtName)
 		return
 	}
 
 	if !isIngressGatewaySecret(nscrt) {
-		log.Debugf("secret %s is not an ingress gateway secret, skip update", newScrtName)
+		scope.Debugf("secret %s is not an ingress gateway secret, skip update", newScrtName)
 		return
 	}
 
 	oldCert, oldKey, oldRoot, _ := extractCertAndKey(oscrt)
 	newCert, newKey, newRoot, valid := extractCertAndKey(nscrt)
 	if !valid {
-		log.Warnf("Secret object: %v has empty field, skip update", newScrtName)
+		scope.Warnf("Secret object: %v has empty field, skip update", newScrtName)
 		return
 	}
 	if bytes.Equal(oldCert, newCert) && bytes.Equal(oldKey, newKey) && bytes.Equal(oldRoot, newRoot) {
-		log.Debugf("secret %s does not change, skip update", oldScrtName)
+		scope.Debugf("secret %s does not change, skip update", oldScrtName)
 		return
 	}
 	sf.secrets.Delete(oldScrtName)
@@ -335,7 +337,7 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 		Version:          t.String(),
 	}
 	sf.secrets.Store(newScrtName, *ns)
-	log.Infof("secret %s is updated", newScrtName)
+	scope.Infof("secret %s is updated", newScrtName)
 	if sf.UpdateCache != nil {
 		sf.UpdateCache(newScrtName, *ns)
 	}
@@ -351,7 +353,7 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 			Version:      t.String(),
 		}
 		sf.secrets.Store(rootCertResourceName, *nsRoot)
-		log.Infof("secret %s is updated", rootCertResourceName)
+		scope.Infof("secret %s is updated", rootCertResourceName)
 		if sf.UpdateCache != nil {
 			sf.UpdateCache(rootCertResourceName, *nsRoot)
 		}
@@ -362,24 +364,24 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 // secret is present. The ok result indicates whether secret was found.
 // If there is a fallback secret named FallbackSecretName, return the fall back secret.
 func (sf *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.SecretItem, ok bool) {
-	log.Debugf("SecretFetcher search for secret %s", key)
+	scope.Debugf("SecretFetcher search for secret %s", key)
 	val, exist := sf.secrets.Load(key)
-	log.Debugf("load secret %s from secret fetcher: %v", key, exist)
+	scope.Debugf("load secret %s from secret fetcher: %v", key, exist)
 	if !exist {
 		// Expected secret does not exist, try to find the fallback secret.
 		// TODO(JimmyCYJ): Add metrics to node agent to imply usage of fallback secret
-		log.Warnf("Cannot find secret %s, searching for fallback secret %s", key, sf.FallbackSecretName)
+		scope.Warnf("Cannot find secret %s, searching for fallback secret %s", key, sf.FallbackSecretName)
 		fallbackVal, fallbackExist := sf.secrets.Load(sf.FallbackSecretName)
 		if fallbackExist {
-			log.Debugf("Return fallback secret %s for gateway secret %s", sf.FallbackSecretName, key)
+			scope.Debugf("Return fallback secret %s for gateway secret %s", sf.FallbackSecretName, key)
 			return fallbackVal.(model.SecretItem), true
 		}
 
-		log.Errorf("cannot find secret %s and cannot find fallback secret %s", key, sf.FallbackSecretName)
+		scope.Errorf("cannot find secret %s and cannot find fallback secret %s", key, sf.FallbackSecretName)
 		return model.SecretItem{}, false
 	}
 	e := val.(model.SecretItem)
-	log.Debugf("SecretFetcher return secret %s", key)
+	scope.Debugf("SecretFetcher return secret %s", key)
 	return e, true
 }
 

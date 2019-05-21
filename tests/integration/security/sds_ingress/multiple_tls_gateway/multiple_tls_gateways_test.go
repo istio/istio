@@ -50,7 +50,7 @@ func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 	if err != nil {
 		t.Fatalf("Could not create istio-bookinfo Namespace; err:%v", err)
 	}
-	_ := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
+	bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
 
 	// Apply the policy to the system namespace.
 	bGatewayDeployment := file.AsStringOrFail(t, "testdata/bookinfo-multiple-gateways.yaml")

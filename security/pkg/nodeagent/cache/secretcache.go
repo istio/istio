@@ -40,6 +40,8 @@ import (
 	"istio.io/pkg/log"
 )
 
+var scope = log.RegisterScope("citadelagent", "citadel agent debugging", 0)
+
 const (
 	// The size of a private key for a leaf certificate.
 	keySize = 2048
@@ -194,7 +196,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		// root cert ends with "-cacert".
 		ns, err := sc.generateSecret(ctx, token, resourceName, time.Now())
 		if err != nil {
-			log.Errorf("Failed to generate secret for proxy %q: %v", connectionID, err)
+			scope.Errorf("Failed to generate secret for proxy %q: %v", connectionID, err)
 			return nil, err
 		}
 
@@ -218,7 +220,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	}
 
 	if sc.rootCert == nil {
-		log.Errorf("Failed to get root cert for proxy %q", connectionID)
+		scope.Errorf("Failed to get root cert for proxy %q", connectionID)
 		return nil, errors.New("failed to get root cert")
 
 	}
@@ -278,11 +280,11 @@ func (sc *SecretCache) ShouldWaitForIngressGatewaySecret(connectionID, resourceN
 
 	// If node agent works as ingress gateway agent, searches for kubernetes secret and verify secret
 	// is not empty.
-	log.Debugf("SecretCache Calling SecretFetcher to search for secret %s", resourceName)
+	scope.Debugf("SecretCache Calling SecretFetcher to search for secret %s", resourceName)
 	_, exist := sc.fetcher.FindIngressGatewaySecret(resourceName)
 	// If kubernetes secret does not exist, need to wait for secret.
 	if !exist {
-		log.Warnf("SecretFetcher cannot find secret %s for SecretCache", resourceName)
+		scope.Warnf("SecretFetcher cannot find secret %s for SecretCache", resourceName)
 		return true
 	}
 
@@ -333,10 +335,10 @@ func (sc *SecretCache) DeleteK8sSecret(secretName string) {
 				defer wg.Done()
 				if sc.notifyCallback != nil {
 					if err := sc.notifyCallback(connectionID, secretName, nil /*nil indicates close the streaming connection to proxy*/); err != nil {
-						log.Errorf("Failed to notify secret change for proxy %q: %v", connectionID, err)
+						scope.Errorf("Failed to notify secret change for proxy %q: %v", connectionID, err)
 					}
 				} else {
-					log.Warn("secret cache notify callback isn't set")
+					scope.Warn("secret cache notify callback isn't set")
 				}
 			}()
 			// Currently only one ingress gateway is running, therefore there is at most one cache entry.
@@ -384,10 +386,10 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 				secretMap.Store(key, newSecret)
 				if sc.notifyCallback != nil {
 					if err := sc.notifyCallback(connectionID, secretName, newSecret); err != nil {
-						log.Errorf("Failed to notify secret change for proxy %q: %v", connectionID, err)
+						scope.Errorf("Failed to notify secret change for proxy %q: %v", connectionID, err)
 					}
 				} else {
-					log.Warn("secret cache notify callback isn't set")
+					scope.Warn("secret cache notify callback isn't set")
 				}
 			}()
 			// Currently only one ingress gateway is running, therefore there is at most one cache entry.
@@ -413,7 +415,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		return
 	}
 
-	log.Debug("Refresh job running")
+	scope.Debug("Refresh job running")
 
 	var secretMap sync.Map
 	wg := sync.WaitGroup{}
@@ -443,10 +445,10 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			if sc.notifyCallback != nil {
 				// Push the updated root cert to client.
 				if err := sc.notifyCallback(connectionID, resourceName, ns); err != nil {
-					log.Errorf("Failed to notify for proxy %q for resource %q: %v", connectionID, resourceName, err)
+					scope.Errorf("Failed to notify for proxy %q for resource %q: %v", connectionID, resourceName, err)
 				}
 			} else {
-				log.Warn("secret cache notify callback isn't set")
+				scope.Warn("secret cache notify callback isn't set")
 			}
 
 			return true
@@ -471,14 +473,14 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 
 			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
 			if sc.isTokenExpired() {
-				log.Debugf("Token for %q expired for proxy %q", resourceName, connectionID)
+				scope.Debugf("Token for %q expired for proxy %q", resourceName, connectionID)
 
 				if sc.notifyCallback != nil {
 					if err := sc.notifyCallback(connectionID, resourceName, nil /*nil indicates close the streaming connection to proxy*/); err != nil {
-						log.Errorf("Failed to notify for proxy %q: %v", connectionID, err)
+						scope.Errorf("Failed to notify for proxy %q: %v", connectionID, err)
 					}
 				} else {
-					log.Warn("secret cache notify callback isn't set")
+					scope.Warn("secret cache notify callback isn't set")
 				}
 
 				return true
@@ -487,14 +489,14 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				log.Debugf("Token for %q is still valid for proxy %q, use it to generate key/cert", resourceName, connectionID)
+				scope.Debugf("Token for %q is still valid for proxy %q, use it to generate key/cert", resourceName, connectionID)
 
 				// If token is still valid, re-generated the secret and push change to proxy.
 				// Most likey this code path may not necessary, since TTL of cert is much longer than token.
 				// When cert has expired, we could make it simple by assuming token has already expired.
 				ns, err := sc.generateSecret(context.Background(), e.Token, resourceName, now)
 				if err != nil {
-					log.Errorf("Failed to generate secret for proxy %q: %v", connectionID, err)
+					scope.Errorf("Failed to generate secret for proxy %q: %v", connectionID, err)
 					return
 				}
 
@@ -502,10 +504,10 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 
 				if sc.notifyCallback != nil {
 					if err := sc.notifyCallback(connectionID, resourceName, ns); err != nil {
-						log.Errorf("Failed to notify secret change for proxy %q: %v", connectionID, err)
+						scope.Errorf("Failed to notify secret change for proxy %q: %v", connectionID, err)
 					}
 				} else {
-					log.Warn("secret cache notify callback isn't set")
+					scope.Warn("secret cache notify callback isn't set")
 				}
 
 			}()
@@ -559,7 +561,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		for _, p := range sc.configOptions.Plugins {
 			exchangedToken, _, err = p.ExchangeToken(ctx, sc.configOptions.TrustDomain, exchangedToken)
 			if err != nil {
-				log.Errorf("failed to exchange token: %v", err)
+				scope.Errorf("failed to exchange token: %v", err)
 				return nil, err
 			}
 		}
@@ -569,7 +571,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	// otherwise just use sdsrequest.resourceName as csr host name.
 	csrHostName, err := constructCSRHostName(sc.configOptions.TrustDomain, token)
 	if err != nil {
-		log.Warnf("failed to extract host name from jwt: %v, fallback to SDS request resource name", err)
+		scope.Warnf("failed to extract host name from jwt: %v, fallback to SDS request resource name", err)
 		csrHostName = resourceName
 	}
 	options := util.CertOptions{
@@ -580,12 +582,12 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	// Generate the cert/key, send CSR to CA.
 	csrPEM, keyPEM, err := util.GenCSR(options)
 	if err != nil {
-		log.Errorf("Failed to generated key cert for %q: %v", resourceName, err)
+		scope.Errorf("Failed to generated key cert for %q: %v", resourceName, err)
 		return nil, err
 	}
 
 	backOffInMilliSec := rand.Int63n(sc.configOptions.InitialBackoff)
-	log.Debugf("Wait for %d millisec for initial CSR", backOffInMilliSec)
+	scope.Debugf("Wait for %d millisec for initial CSR", backOffInMilliSec)
 	// Add a jitter to initial CSR to avoid thundering herd problem.
 	time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
 	startTime := time.Now()
@@ -600,23 +602,23 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 
 		// If non-retryable error, fail the request by returning err
 		if !isRetryableErr(status.Code(err)) {
-			log.Errorf("CSR for %q hit non-retryable error %v", resourceName, err)
+			scope.Errorf("CSR for %q hit non-retryable error %v", resourceName, err)
 			return nil, err
 		}
 
 		// If reach envoy timeout, fail the request by returning err
 		if startTime.Add(time.Millisecond * envoyDefaultTimeoutInMilliSec).Before(time.Now()) {
-			log.Errorf("CSR retry timeout for %q: %v", resourceName, err)
+			scope.Errorf("CSR retry timeout for %q: %v", resourceName, err)
 			return nil, err
 		}
 
 		retry++
 		backOffInMilliSec = rand.Int63n(retry * initialBackOffIntervalInMilliSec)
 		time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
-		log.Warnf("CSR failed for %q: %v, retry in %d millisec", resourceName, err, backOffInMilliSec)
+		scope.Warnf("CSR failed for %q: %v, retry in %d millisec", resourceName, err, backOffInMilliSec)
 	}
 
-	log.Debugf("CSR response certificate chain %+v \n", certChainPEM)
+	scope.Debugf("CSR response certificate chain %+v \n", certChainPEM)
 
 	certChain := []byte{}
 	for _, c := range certChainPEM {
@@ -630,12 +632,12 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	if !sc.configOptions.SkipValidateCert {
 		block, _ := pem.Decode(certChain)
 		if block == nil {
-			log.Errorf("Failed to decode certificate %+v for %q", certChainPEM, resourceName)
+			scope.Errorf("Failed to decode certificate %+v for %q", certChainPEM, resourceName)
 			return nil, errors.New("failed to decode certificate")
 		}
 		cert, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
-			log.Errorf("Failed to parse certificate %+v for %q: %v", certChainPEM, resourceName, err)
+			scope.Errorf("Failed to parse certificate %+v for %q: %v", certChainPEM, resourceName, err)
 			return nil, errors.New("failed to parse certificate")
 		}
 		expireTime = cert.NotAfter
@@ -651,7 +653,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	}
 
 	if rootCertChanged {
-		log.Info("Root cert has changed")
+		scope.Info("Root cert has changed")
 		sc.rotate(true /*updateRootFlag*/)
 	}
 
