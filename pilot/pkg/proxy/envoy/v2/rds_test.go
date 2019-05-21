@@ -29,28 +29,26 @@ func TestRDS(t *testing.T) {
 	defer tearDown()
 
 	tests := []struct {
-		name     string
-		node     string
-		routes   []string
-		response bool
+		name   string
+		node   string
+		routes []string
 	}{
 		{
 			"sidecar_new",
 			sidecarID(app3Ip, "app3"),
 			[]string{"80", "8080"},
-			true,
 		},
 		{
 			"gateway_new",
 			gatewayID(gatewayIP),
 			[]string{"http.80", "https.443.https.my-gateway.testns"},
-			true,
 		},
 		{
+			// Even if we get a bad route, we should still send Envoy an empty response, rather than
+			// ignore it. If we ignore the route, the listeners can get stuck waiting forever.
 			"sidecar_badroute",
 			sidecarID(app3Ip, "app3"),
 			[]string{"ht&p"},
-			false,
 		},
 	}
 
@@ -74,14 +72,8 @@ func TestRDS(t *testing.T) {
 
 			strResponse, _ := model.ToJSONWithIndent(res, " ")
 			_ = ioutil.WriteFile(env.IstioOut+fmt.Sprintf("/rdsv2/%s_%d.json", tt.name, idx), []byte(strResponse), 0644)
-			if tt.response {
-				if len(res.Resources) == 0 {
-					t.Fatal("No response")
-				}
-			} else {
-				if len(res.Resources) != 0 {
-					t.Fatal("Unexpected response")
-				}
+			if len(res.Resources) == 0 {
+				t.Fatal("No response")
 			}
 		})
 	}
