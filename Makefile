@@ -615,7 +615,7 @@ gcs.push.istioctl-all: istioctl-all
 	gsutil -m cp -r "${ISTIO_OUT}"/istioctl-* "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/istioctl"
 
 # TODO: rename this with better name.
-gcs.push.deb: deb
+gcs.push.deb: deb rpm
 	gsutil -m cp -r "${ISTIO_OUT}"/*.deb "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/debs/"
 	gsutil -m cp -r "${ISTIO_OUT}"/rpm/*.rpm "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/rpms/"
 
