@@ -43,25 +43,3 @@ spec:
 {{- end }}
 {{- end }}
 
-{{ if .Values.gateways.kiali_gateway.enabled }}
-apiVersion: certmanager.k8s.io/v1alpha1
-kind: Certificate
-metadata:
-  name: telemetry-gw-cert
-  namespace: {{ .Release.Namespace }}
-spec:
-  secretName: telemetry-gw-cert
-  issuerRef:
-    name: letsencrypt
-    kind: ClusterIssuer
-  commonName: {{ $gateway.telemetry_domain_name }}
-  dnsNames:
-    - {{ $gateway.telemetry_domain_name }}
-  acme:
-    config:
-      - http01:
-          ingressClass: istio
-        domains:
-          - {{ $gateway.telemetry_domain_name }}
-{{- end }}
-

@@ -98,6 +98,25 @@ gateways:
     # Domain name for telemetry addons
     telemetry_domain_name: ""
 
+    # Telemetry addon gateways example config
+    telemetry_addon_gateways:
+      tracing_gateway:
+        name: tracing
+        desPort: 80
+        enabled: false
+        tls: false
+      kiali_gateway:
+        name: kiali
+        desPort: 20001
+        enabled: false
+        tls: false
+      # grafana_gateway
+      # prometheus_gateway
+
+    # For Certmanager Issuer and Certificate generation
+    # certificates: {}
+    # email: ""
+
     ### Advanced options ############
     env:
       # A gateway with this mode ensures that pilot generates an additional
@@ -128,7 +147,3 @@ gateways:
     # “security” and value “S1”.
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
-
-  kiali_gateway:
-    # certmanager_email
-    enabled: false
