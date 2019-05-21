@@ -22,7 +22,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/sds"
@@ -31,7 +30,6 @@ import (
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
-
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
@@ -115,7 +113,7 @@ const (
 
 	// The environmental variable name for the initial backoff in milliseconds.
 	// example value format like "10"
-	InitialBackoff = "INITIAL_BACKOFF_MSEC"
+	InitialBackoff     = "INITIAL_BACKOFF_MSEC"
 	InitialBackoffFlag = "initialBackoff"
 )
 
@@ -303,7 +301,7 @@ func validateOptions() error {
 	}
 
 	if serverOptions.EnableIngressGatewaySDS && serverOptions.EnableWorkloadSDS &&
-			serverOptions.IngressGatewayUDSPath == serverOptions.WorkloadUDSPath {
+		serverOptions.IngressGatewayUDSPath == serverOptions.WorkloadUDSPath {
 		return fmt.Errorf("UDS paths for ingress gateway and workload cannot be the same: %s", serverOptions.IngressGatewayUDSPath)
 	}
 
@@ -349,7 +347,8 @@ func main() {
 	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.RotationInterval, secretRotationIntervalFlag,
 		10*time.Minute, "Secret rotation job running interval")
 
-	rootCmd.PersistentFlags().Int64Var(&workloadSdsCacheOptions.InitialBackoff, InitialBackoffFlag,	10, "The initial backoff interval in milliseconds")
+	rootCmd.PersistentFlags().Int64Var(&workloadSdsCacheOptions.InitialBackoff, InitialBackoffFlag, 10,
+		"The initial backoff interval in milliseconds, must be within the range [10, 120000]")
 
 	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.EvictionDuration, "secretEvictionDuration",
 		24*time.Hour, "Secret eviction time duration")

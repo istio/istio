@@ -1,14 +1,15 @@
 package main
 
 import (
-	"istio.io/istio/security/pkg/nodeagent/cache"
-	"istio.io/istio/security/pkg/nodeagent/sds"
 	"strings"
 	"testing"
+
+	"istio.io/istio/security/pkg/nodeagent/cache"
+	"istio.io/istio/security/pkg/nodeagent/sds"
 )
 
 func TestValidateOptions(t *testing.T) {
-	cases := []struct{
+	cases := []struct {
 		name            string
 		setExtraOptions func()
 		errorMsg        string
@@ -62,11 +63,11 @@ func TestValidateOptions(t *testing.T) {
 		}
 		serverOptions = sds.Options{
 			EnableIngressGatewaySDS: true,
-			EnableWorkloadSDS: true,
-			IngressGatewayUDSPath: "/abc",
-			WorkloadUDSPath: "/xyz",
-			CAEndpoint: "endpoint",
-			CAProviderName: "provider",
+			EnableWorkloadSDS:       true,
+			IngressGatewayUDSPath:   "/abc",
+			WorkloadUDSPath:         "/xyz",
+			CAEndpoint:              "endpoint",
+			CAProviderName:          "provider",
 		}
 
 		// Set extra options from each test case
