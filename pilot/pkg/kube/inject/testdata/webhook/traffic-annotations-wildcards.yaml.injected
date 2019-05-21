@@ -48,7 +48,7 @@ spec:
         - --zipkinAddress
         - ""
         - --dnsRefreshRate
-        - 5s
+        - 300s
         - --connectTimeout
         - 1s
         - --proxyAdminPort

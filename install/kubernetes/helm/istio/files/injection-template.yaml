@@ -11,7 +11,7 @@ initContainers:
 {{- end }}
   args:
   - "-p"
-  - "{{ .MeshConfig.ProxyListenPort }}"
+  - "15001"
   - "-u"
   - 1337
   - "-m"
