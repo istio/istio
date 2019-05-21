@@ -1,7 +1,7 @@
 # Test the demo install - in istio-system and the 'side by side'/upgrade mode.
 # This requires a fresh kind cluster.
 
-INSTALL_OPTS="--set global.istioNamespace=${ISTIO_NS} --set global.configNamespace=${ISTIO_NS} --set global.telemetryNamespace=${ISTIO_NS} --set global.policyNamespace=${ISTIO_NS}"
+INSTALL_OPTS="--set global.istioNamespace=${ISTIO_CONTROL_NS} --set global.configNamespace=${ISTIO_CONTROL_NS} --set global.telemetryNamespace=${ISTIO_TELEMETRY_NS} --set global.policyNamespace=${ISTIO_POLICY_NS}"
 
 test-demo-simple:
 	$(MAKE) KIND_CLUSTER=${KIND_CLUSTER}-demo maybe-clean maybe-prepare sync
@@ -12,8 +12,12 @@ test-demo-simple:
 # Run the 'install demo' test. Should run with a valid kube config and cluster - KIND or real.
 run-test-demo: ${TMPDIR}
 	kubectl apply -k github.com/istio/installer/crds
-	kubectl apply -k test/demo
-	kubectl wait deployments istio-pilot istio-galley istio-sidecar-injector istio-telemetry prometheus istio-ingressgateway istio-citadel11 grafana -n istio-system --for=condition=available --timeout=${WAIT_TIMEOUT}
+	kubectl apply -k test/demo	
+	kubectl wait deployments istio-citadel11 -n ${ISTIO_SYSTEM_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
+	kubectl wait deployments istio-galley istio-pilot -n ${ISTIO_CONTROL_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
+	kubectl wait deployments istio-sidecar-injector -n ${ISTIO_CONTROL_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
+	kubectl wait deployments istio-ingressgateway -n ${ISTIO_INGRESS_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
+	kubectl wait deployments istio-telemetry prometheus grafana -n ${ISTIO_TELEMETRY_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
 
 	# Verify that we can kube-inject using files ( there is no injector in this config )
 	kubectl create ns demo || true
