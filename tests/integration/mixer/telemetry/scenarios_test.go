@@ -91,7 +91,7 @@ func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValu
 	)
 
 	prom := prometheus.NewOrFail(t, ctx)
-	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
+	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist, IngressType: ingress.PlainText})
 
 	// Warm up
 	err = util.VisitProductPage(ing, 30*time.Second, 200, t)
@@ -171,7 +171,7 @@ func TestTcpMetric(t *testing.T) {
 			util.AllowRuleSync(t)
 
 			prom := prometheus.NewOrFail(t, ctx)
-			ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
+			ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist, IngressType: ingress.PlainText})
 
 			err = util.VisitProductPage(ing, 30*time.Second, 200, t)
 			if err != nil {

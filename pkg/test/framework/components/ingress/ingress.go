@@ -21,6 +21,14 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
+// IgType defines ingress gateway type
+type IgType int
+const (
+		PlainText	IgType = 0
+		Tls				IgType = 1
+		Mtls			IgType = 2
+)
+
 // Instance represents a deployed Ingress Gateway instance.
 type Instance interface {
 	resource.Resource
@@ -36,6 +44,7 @@ type Instance interface {
 
 type Config struct {
 	Istio istio.Instance
+	IngressType IgType
 }
 
 // CallResponse is the result of a call made through Istio Ingress.

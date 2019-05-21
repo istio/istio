@@ -92,7 +92,7 @@ func testSetup(ctx resource.Context) (err error) {
 	if _, err = bookinfo.Deploy(ctx, bookinfo.Config{Namespace: bookinfoNsInst, Cfg: bookinfo.BookInfo}); err != nil {
 		return
 	}
-	ingInst, err = ingress.New(ctx, ingress.Config{Istio: ist})
+	ingInst, err = ingress.New(ctx, ingress.Config{Istio: ist, IngressType: ingress.PlainText})
 	if err != nil {
 		return
 	}

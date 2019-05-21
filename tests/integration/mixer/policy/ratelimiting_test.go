@@ -330,7 +330,7 @@ func testsetup(ctx resource.Context) error {
 		return err
 	}
 	redInst = &red
-	ing, err := ingress.New(ctx, ingress.Config{Istio: ist})
+	ing, err := ingress.New(ctx, ingress.Config{Istio: ist, IngressType: ingress.PlainText})
 	if err != nil {
 		return err
 	}
