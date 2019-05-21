@@ -9,11 +9,14 @@ import (
 	"istio.io/pkg/log"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	authapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 
 	sdscache "istio.io/istio/security/pkg/nodeagent/cache"
 	agent_sds "istio.io/istio/security/pkg/nodeagent/sds"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 // Client is a lightweight client for testing secret discovery service server.
@@ -92,4 +95,19 @@ func (c *Client) Send() error {
 		},
 		TypeUrl: agent_sds.SecretType,
 	})
+}
+
+// ValidateResponse validates the SDS response.
+func ValidateResponse(response *xdsapi.DiscoveryResponse, verify *util.VerifyFields) error {
+	if response == nil {
+		return fmt.Errorf("DiscoveryResponse is empty")
+	}
+	if len(response.Resources) != 1 {
+		return fmt.Errorf("unexpected resource size in the response, %v ", response.Resources)
+	}
+	var pb authapi.Secret
+	if err := types.UnmarshalAny(&response.Resources[0], &pb); err != nil {
+		return fmt.Errorf("unmarshalAny SDS response failed: %v", err)
+	}
+	return nil
 }
