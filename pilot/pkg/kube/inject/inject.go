@@ -966,7 +966,7 @@ func potentialPodName(metadata *metav1.ObjectMeta) string {
 // rewriteCniPodSPec will check if values from the sidecar injector Helm
 // values need to be inserted as Pod annotations so the CNI will apply
 // the proper redirection rules.
-func rewriteCniPodSPec(annotations map[string]string, spec *SidecarInjectionSpec)  {
+func rewriteCniPodSPec(annotations map[string]string, spec *SidecarInjectionSpec) {
 
 	if spec == nil {
 		return
