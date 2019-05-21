@@ -289,7 +289,6 @@ github.com/hashicorp/golang-lru
 github.com/hashicorp/hcl
 github.com/hashicorp/hcl/hcl/printer
 github.com/hashicorp/hcl/hcl/ast
-github.com/hashicorp/hcl/hcl/printer
 github.com/hashicorp/hcl/hcl/parser
 github.com/hashicorp/hcl/hcl/token
 github.com/hashicorp/hcl/json/parser
@@ -619,12 +618,12 @@ google.golang.org/genproto/googleapis/devtools/cloudtrace/v2
 google.golang.org/grpc
 google.golang.org/grpc/credentials
 google.golang.org/grpc/credentials/oauth
+google.golang.org/grpc/keepalive
 google.golang.org/grpc/metadata
 google.golang.org/grpc/codes
 google.golang.org/grpc/status
 google.golang.org/grpc/stats
 google.golang.org/grpc/balancer/roundrobin
-google.golang.org/grpc/keepalive
 google.golang.org/grpc/peer
 google.golang.org/grpc/grpclog
 google.golang.org/grpc/balancer

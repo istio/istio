@@ -600,11 +600,11 @@ gotest.tools v2.2.0+incompatible/go.mod h1:DsYFclhRJ6vuDpmuTbkuFWG+y2sxOXAzmJt81
 honnef.co/go/tools v0.0.0-20180728063816-88497007e858/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
-istio.io/api v0.0.0-20190405142752-6b8d1849e7f4 h1:wQ44ZUabUTet5bO+WUEMLcl7Mn96lFzhvg3OChIooc0=
-istio.io/api v0.0.0-20190405142752-6b8d1849e7f4/go.mod h1:hhLFQmpHia8zgaM37vb2ml9iS5NfNfqZGRt1pS9aVEo=
+istio.io/api v0.0.0-20190515205759-982e5c3888c6 h1:lnDXeR6NYxT+Rfa5jKE1CpMfStnJ36/bYOSziS8dubU=
+istio.io/api v0.0.0-20190515205759-982e5c3888c6/go.mod h1:hhLFQmpHia8zgaM37vb2ml9iS5NfNfqZGRt1pS9aVEo=
 istio.io/gogo-genproto v0.0.0-20190124151557-6d926a6e6feb/go.mod h1:eIDJ6jNk/IeJz6ODSksHl5Aiczy5JUq6vFhJWI5OtiI=
-istio.io/pkg v0.0.0-20190513000936-0187f41267ce h1:lBicv2wmTtNCOw9iH30NfsBtBa1k6i8FKroeQIVraPc=
-istio.io/pkg v0.0.0-20190513000936-0187f41267ce/go.mod h1:+o3nlEteTEdVOi3r2B8/t04z8jBZbpllHcKo873LrAo=
+istio.io/pkg v0.0.0-20190516214103-40b7bf4c7321 h1:zXJi3xLeMGtvewwN7LzzqGhpiAOw/pFrM+CPGd5Fowc=
+istio.io/pkg v0.0.0-20190516214103-40b7bf4c7321/go.mod h1:QuX5yn89LMkQdwuz0OyikOs3DBN45poAUNBAlOmFIvQ=
 k8s.io/api v0.0.0-20190222213804-5cb15d344471 h1:MzQGt8qWQCR+39kbYRd0uQqsvSidpYqJLFeWiJ9l4OE=
 k8s.io/api v0.0.0-20190222213804-5cb15d344471/go.mod h1:iuAfoD4hCxJ8Onx9kaTIt30j7jUFS00AXQi6QMi99vA=
 k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87 h1:BMfPZfi3CkPd9e9Qbm+/AFgE6qXWQcbzUvC91LR3m7w=
