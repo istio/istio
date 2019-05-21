@@ -5,23 +5,19 @@ metadata:
   namespace: default
 spec:
   rules:
-  - services: ["productpage.svc.cluster.local"]
-    constraints:
-    - key: "destination.labels[version]"
-      values: ["v3"]
+  - services: ["productpage.svc.cluster.local", "ratings.svc.cluster.local"]
+    methods: ["GET"]
+  - services: ["reviews.svc.cluster.local"]
+    methods: ["POST"]
 ---
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRoleBinding
-# This comment will be removed in the converted version of this file.
 metadata:
   name: bind-service-viewer
   namespace: default
 spec:
   subjects:
-  - properties:
-      source.namespace: "istio-system"
-  - user: "foo"
-    group: "bar"
+    - user: "foo"
   roleRef:
     kind: ServiceRole
     name: "service-viewer"
