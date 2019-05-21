@@ -806,10 +806,7 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	}
 
 	if len(spec.PodRedirectAnnot) != 0 {
-		err := rewriteCniPodSPec(metadata.Annotations, spec)
-		if err != nil {
-			return nil, err
-		}
+		rewriteCniPodSPec(metadata.Annotations, spec)
 	}
 
 	metadata.Annotations[annotationStatus] = status
@@ -969,14 +966,13 @@ func potentialPodName(metadata *metav1.ObjectMeta) string {
 // rewriteCniPodSPec will check if values from the sidecar injector Helm
 // values need to be inserted as Pod annotations so the CNI will apply
 // the proper redirection rules.
-func rewriteCniPodSPec(annotations map[string]string, spec *SidecarInjectionSpec) error {
+func rewriteCniPodSPec(annotations map[string]string, spec *SidecarInjectionSpec)  {
 
-	var err error
 	if spec == nil {
-		return nil
+		return
 	}
 	if len(spec.PodRedirectAnnot) == 0 {
-		return nil
+		return
 	}
 	for k := range annotationRegistry {
 		if spec.PodRedirectAnnot[k] != "" {
@@ -986,5 +982,4 @@ func rewriteCniPodSPec(annotations map[string]string, spec *SidecarInjectionSpec
 			annotations[k] = spec.PodRedirectAnnot[k]
 		}
 	}
-	return err
 }
