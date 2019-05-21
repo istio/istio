@@ -812,13 +812,15 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 
 	// TODO: Endpoints include the service labels, maybe we can use them ?
 	// nodeName is also included, not needed
-	addresses := []string{}
-	for _, ss := range ep.Subsets {
-		for _, a := range ss.Addresses {
-			addresses = append(addresses, a.IP)
+	if log.InfoEnabled() {
+		var addresses []string
+		for _, ss := range ep.Subsets {
+			for _, a := range ss.Addresses {
+				addresses = append(addresses, a.IP)
+			}
 		}
+		log.Infof("Handle EDS endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, addresses)
 	}
-	log.Infof("Handle EDS endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, addresses)
 
 	_ = c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
 }
