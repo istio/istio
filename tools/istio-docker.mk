@@ -48,7 +48,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # 	cp $(ISTIO_OUT)/$FILE $(ISTIO_DOCKER)/($FILE)
 DOCKER_FILES_FROM_ISTIO_OUT:=pkg-test-echo-cmd-client pkg-test-echo-cmd-server \
                              pilot-discovery pilot-agent sidecar-injector mixs mixgen \
-                             istio_ca node_agent node_agent_k8s galley
+                             istio_ca node_agent node_agent_k8s galley sdsclient
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
@@ -215,6 +215,10 @@ docker.node-agent-test: $(ISTIO_DOCKER)/node_agent
 docker.node-agent-test: $(ISTIO_DOCKER)/istio_ca.crt
 docker.node-agent-test: $(ISTIO_DOCKER)/node_agent.crt
 docker.node-agent-test: $(ISTIO_DOCKER)/node_agent.key
+	$(DOCKER_RULE)
+
+docker.sdsclient: security/docker/Dockerfile.sdsclient
+docker.sdsclient: $(ISTIO_DOCKER)/sdsclient
 	$(DOCKER_RULE)
 
 # $@ is the name of the target
