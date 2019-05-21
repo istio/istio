@@ -23,5 +23,5 @@ remain in the operator CRD, and continue to use values.yaml for the parameters t
 The API will be aligned with Istio a-la-carte/building blocks philosophy and have a functional structure.
 1.   Add an overlay mechanism to allow users to customize the rendered manifest in a way that survives upgrades. 
 1.   Support upgrade, both in-place and dual control plane version rollover. The latter will be supported through the 
-use of the [istio-ecosystem/istio-installer](https://github.com/istio-ecosystem/istio-installer) charts.
+use of the [istio/installer](https://github.com/istio/installer) charts.
 1.   Provide validation of all parameters.
