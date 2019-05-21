@@ -109,6 +109,7 @@ function install_cni() {
     fi
     bin/iop istio-cni istio-cni $IBASE/istio-cni/ ${ISTIO_CNI_ARGS}
     kubectl rollout status ds istio-cni-node -n istio-cni --timeout=$WAIT_TIMEOUT
+}
 
 # Install kiali into namespace istio-kiali
 function install_kiali() {
