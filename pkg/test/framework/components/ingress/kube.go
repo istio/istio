@@ -15,6 +15,8 @@
 package ingress
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -44,8 +46,11 @@ var (
 type kubeComponent struct {
 	id      resource.ID
 	address string
+	gatewayType	IgType
+	caCert string
 }
 
+// getHttpAddress returns the ingress gateway address for plain text http requests.
 func getHttpAddress(env *kube.Environment, cfg Config) (interface{}, bool, error) {
 	// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
 	// port.
@@ -96,61 +101,40 @@ func getHttpAddress(env *kube.Environment, cfg Config) (interface{}, bool, error
 	return fmt.Sprintf("http://%s", ip), true, nil
 }
 
+// getHttpsAddress returns the ingress gateway address for https requests.
+func getHttpsAddress(env *kube.Environment, cfg Config) (interface{}, bool, error) {
+	// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
+	// port.
+	n := cfg.Istio.Settings().IngressNamespace
+
+	// Otherwise, get the load balancer IP.
+	svc, err := env.Accessor.GetService(n, serviceName)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
+		return nil, false, fmt.Errorf("service ingress is not available yet: %s/%s", svc.Namespace, svc.Name)
+	}
+
+	ip := svc.Status.LoadBalancer.Ingress[0].IP
+	return fmt.Sprintf("https://%s", ip), true, nil
+}
+
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	c := &kubeComponent{}
 	c.id = ctx.TrackResource(c)
+	c.gatewayType = cfg.IngressType
+	c.caCert = cfg.CaCert
 
 	env := ctx.Environment().(*kube.Environment)
 
 	address, err := retry.Do(func() (interface{}, bool, error) {
 
-		// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
-		// port.
-		n := cfg.Istio.Settings().IngressNamespace
-		if env.Settings().Minikube {
-			pods, err := env.GetPods(n, fmt.Sprintf("istio=%s", istioLabel))
-			if err != nil {
-				return nil, false, err
-			}
-
-			scopes.Framework.Debugf("Querying ingress, pods:\n%v\n", pods)
-			if len(pods) == 0 {
-				return nil, false, errors.New("no ingress pod found")
-			}
-
-			scopes.Framework.Debugf("Found pod: \n%v\n", pods[0])
-			ip := pods[0].Status.HostIP
-			if ip == "" {
-				return nil, false, errors.New("no Host IP available on the ingress node yet")
-			}
-
-			svc, err := env.Accessor.GetService(n, serviceName)
-			if err != nil {
-				return nil, false, err
-			}
-
-			scopes.Framework.Debugf("Found service for the gateway:\n%v\n", svc)
-			if len(svc.Spec.Ports) == 0 {
-				return nil, false, fmt.Errorf("no ports found in service: %s/%s", n, "istio-ingressgateway")
-			}
-
-			port := svc.Spec.Ports[0].NodePort
-
-			return fmt.Sprintf("http://%s:%d", ip, port), true, nil
+		if cfg.IngressType == PlainText {
+			return getHttpAddress(env, cfg)
 		}
-
-		// Otherwise, get the load balancer IP.
-		svc, err := env.Accessor.GetService(n, serviceName)
-		if err != nil {
-			return nil, false, err
-		}
-
-		if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
-			return nil, false, fmt.Errorf("service ingress is not available yet: %s/%s", svc.Namespace, svc.Name)
-		}
-
-		ip := svc.Status.LoadBalancer.Ingress[0].IP
-		return fmt.Sprintf("http://%s", ip), true, nil
+		return getHttpsAddress(env, cfg)
 	}, retryTimeout, retryDelay)
 
 	if err != nil {
@@ -173,6 +157,18 @@ func (c *kubeComponent) Address() string {
 func (c *kubeComponent) Call(path string) (CallResponse, error) {
 	client := &http.Client{
 		Timeout: 1 * time.Minute,
+	}
+	if c.gatewayType == Tls {
+		roots := x509.NewCertPool()
+		ok := roots.AppendCertsFromPEM([]byte(c.caCert))
+		if !ok {
+			panic("failed to parse root certificate")
+		}
+		tr := &http.Transport{ TLSClientConfig: &tls.Config{ RootCAs: roots}}
+		client = &http.Client{
+			Transport: tr,
+			Timeout: 1 * time.Minute,
+		}
 	}
 
 	if !strings.HasPrefix(path, "/") {

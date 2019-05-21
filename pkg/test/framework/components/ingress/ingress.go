@@ -45,6 +45,7 @@ type Instance interface {
 type Config struct {
 	Istio istio.Instance
 	IngressType IgType
+	CaCert      string
 }
 
 // CallResponse is the result of a call made through Istio Ingress.

@@ -18,6 +18,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
 	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -35,6 +36,11 @@ var (
 )
 
 func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:interfacer
+	// TODO(JimmyCYJ): Add support into ingress package to test TLS/mTLS ingress gateway in Minikube
+	//  environment
+	if ctx.Environment().(*kube.Environment).Settings().Minikube {
+		t.Skip("https://github.com/istio/istio/issues/14180")
+	}
 	t.Helper()
 
 	g := galley.NewOrFail(t, ctx, galley.Config{})
@@ -56,7 +62,7 @@ func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 	defer g.DeleteConfigOrFail(t, bookinfoNs, bVirtualServiceDeployment)
 
 	ingressutil.CreateIngressKubeSecret(t, ctx, credNames)
-	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist, IngressType: ingress.Tls})
+	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist, IngressType: ingress.Tls, CaCert: ingressutil.CaCert})
 
 	// Warm up
 	err = ingressutil.VisitProductPage(ing, 30*time.Second, 200, t)
