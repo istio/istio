@@ -2,10 +2,12 @@ pull_request_rules:
   - name: automatic merge on CI success and review
     conditions:
       - "status-success=ci/circleci: build"
-      - "status-success=ci/circleci: noauth"
+      - "status-success=ci/circleci: install-demo"
       - "status-success=ci/circleci: install-minikube"
       - "status-success=ci/circleci: integration-old-kind"
-      - "status-success=ci/circleci: integration-presubmit-kind"
+      - "status-success=ci/circleci: integration-presubmit-isolated-namespaces-kind"
+      - "status-success=ci/circleci: integration-presubmit-one-namespace-kind"
+      - "status-success=ci/circleci: noauth"
       - "status-success=cla/google"
       - "#approved-reviews-by>=1"
       - "#changes-requested-reviews-by=0"
