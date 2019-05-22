@@ -59,7 +59,7 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 	n.id = ctx.TrackResource(n)
 
-	return n, n.Reset()
+	return n, n.reset()
 }
 
 type nativeComponent struct {
@@ -212,8 +212,7 @@ func (c *nativeComponent) WaitForSnapshotOrFail(t test.Failer, collection string
 	}
 }
 
-// Reset implements Resettable.Reset.
-func (c *nativeComponent) Reset() error {
+func (c *nativeComponent) reset() error {
 	_ = c.Close()
 
 	var err error
@@ -260,7 +259,8 @@ func (c *nativeComponent) restart() error {
 	a.MeshConfigFile = c.meshConfigFile
 	// To prevent ctrlZ port collision between galley/pilot&mixer
 	a.IntrospectionOptions.Port = 0
-	a.ExcludedResourceKinds = make([]string, 0)
+	a.ExcludedResourceKinds = nil
+	a.EnableServiceDiscovery = true
 
 	// Bind to an arbitrary port.
 	a.APIAddress = "tcp://0.0.0.0:0"

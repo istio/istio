@@ -35,12 +35,13 @@ import (
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
+	attr "istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
 	template2 "istio.io/istio/mixer/template"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/pkg/attribute"
 )
 
 // Utility to help write Mixer-adapter integration tests.
@@ -397,7 +398,7 @@ func getAttrBag(attrs map[string]interface{}) istio_mixer_v1.CompressedAttribute
 	}
 
 	var attrProto istio_mixer_v1.CompressedAttributes
-	requestBag.ToProto(&attrProto, nil, 0)
+	attr.ToProto(requestBag, &attrProto, nil, 0)
 	return attrProto
 }
 

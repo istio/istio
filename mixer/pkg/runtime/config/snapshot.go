@@ -24,10 +24,10 @@ import (
 	adptTmpl "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
 	"istio.io/istio/mixer/pkg/runtime/lang"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/pkg/attribute"
 )
 
 type (
@@ -41,7 +41,7 @@ type (
 		Adapters  map[string]*adapter.Info
 
 		// Config store based information
-		Attributes ast.AttributeDescriptorFinder
+		Attributes attribute.AttributeDescriptorFinder
 
 		HandlersStatic  map[string]*HandlerStatic
 		InstancesStatic map[string]*InstanceStatic

@@ -25,8 +25,8 @@ import (
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/mockapi"
+	"istio.io/pkg/attribute"
 )
 
 // Handler stores data for Check, Quota and Report.

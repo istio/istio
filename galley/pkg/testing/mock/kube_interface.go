@@ -64,10 +64,11 @@ type kubeInterface struct {
 func newKubeInterface() kubernetes.Interface {
 	return &kubeInterface{
 		core: &corev1Impl{
-			nodes:     newNodeInterface(),
-			pods:      newPodInterface(),
-			services:  newServiceInterface(),
-			endpoints: newEndpointsInterface(),
+			nodes:      newNodeInterface(),
+			pods:       newPodInterface(),
+			services:   newServiceInterface(),
+			endpoints:  newEndpointsInterface(),
+			namespaces: newNamespaceInterface(),
 		},
 	}
 }

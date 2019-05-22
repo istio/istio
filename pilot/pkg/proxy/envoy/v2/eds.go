@@ -27,6 +27,9 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
 
+	networkingapi "istio.io/api/networking/v1alpha3"
+	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -320,7 +323,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 		}
 		if len(instances) == 0 {
 			push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
-			adsLog.Debugf("EDS: cluster %q (host=%s ports=%v labels=%v) has no instances", clusterName, hostname, port, labels)
+			adsLog.Debugf("EDS: Cluster %q (host:%s ports:%v labels:%v) has no instances", clusterName, hostname, port, labels)
 		}
 		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
 
@@ -371,8 +374,8 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]u
 // Update clusters for an incremental EDS push, and initiate the push.
 // Only clusters that changed are updated/pushed.
 func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, edsUpdates map[string]struct{}) {
-	adsLog.Infof("XDS:EDSInc Pushing %s Services: %v, "+
-		"ConnectedEndpoints: %d", version, edsUpdates, adsClientCount())
+	adsLog.Infof("XDS:EDSInc Pushing:%s Services:%v ConnectedEndpoints:%d",
+		version, edsUpdates, adsClientCount())
 	t0 := time.Now()
 
 	// First update all cluster load assignments. This is computed for each cluster once per config change
@@ -395,7 +398,7 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 	// In general this code is called from the 'event' callback that is throttled.
 	for clusterName, edsCluster := range cMap {
 		if err := s.updateClusterInc(push, clusterName, edsCluster); err != nil {
-			adsLog.Errorf("updateCluster failed with clusterName %s", clusterName)
+			adsLog.Errorf("updateCluster failed with clusterName:%s", clusterName)
 		}
 	}
 	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
@@ -561,7 +564,7 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 	for _, instance := range instances {
 		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint)
 		if err != nil {
-			adsLog.Errorf("EDS: unexpected pilot model endpoint v1 to v2 conversion: %v", err)
+			adsLog.Errorf("EDS: Unexpected pilot model endpoint v1 to v2 conversion: %v", err)
 			totalXDSInternalErrors.Add(1)
 			continue
 		}
@@ -665,8 +668,8 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 // a client connects, for incremental updates and for full periodic updates.
 func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, edsUpdatedServices map[string]struct{}) error {
 	loadAssignments := []*xdsapi.ClusterLoadAssignment{}
-	emptyClusters := 0
 	endpoints := 0
+	empty := []string{}
 	sidecarScope := con.modelNode.SidecarScope
 
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
@@ -712,16 +715,16 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 			// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
 			clonedCLA := util.CloneClusterLoadAssignment(l)
 			l = &clonedCLA
-			// TODO(#12961) get outlierDetection from the cluster
-			// For now, we should default to allowing Failover rather than rejecting. Even if we do not know
-			// what the outlierDetection is for the Cluster, it is reasonable to require the user to provide
-			// outlier detection without enforcing this in code, as this is an alpha feature behind a flag.
-			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting, true)
+
+			// Failover should only be enabled when there is an outlier detection, otherwise Envoy
+			// will never detect the hosts are unhealthy and redirect traffic.
+			enableFailover := hasOutlierDetection(push, con.modelNode, clusterName)
+			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting, enableFailover)
 		}
 
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
-			emptyClusters++
+			empty = append(empty, clusterName)
 		}
 		loadAssignments = append(loadAssignments, l)
 	}
@@ -736,13 +739,56 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 	pushes.With(prometheus.Labels{"type": "eds"}).Add(1)
 
 	if edsUpdatedServices == nil {
-		adsLog.Debugf("EDS: PUSH for %s clusters %d endpoints %d empty %d",
-			con.ConID, len(con.Clusters), endpoints, emptyClusters)
+		adsLog.Infof("EDS: PUSH for node:%s clusters:%d endpoints:%d empty:%v",
+			con.modelNode.ID, len(con.Clusters), endpoints, empty)
 	} else {
-		adsLog.Debugf("EDS: INC PUSH for %s clusters %d endpoints %d empty %d",
-			con.ConID, len(con.Clusters), endpoints, emptyClusters)
+		adsLog.Infof("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v",
+			con.modelNode.ID, len(con.Clusters), endpoints, empty)
 	}
 	return nil
+}
+
+// getDestinationRule gets the DestinationRule for a given hostname. As an optimization, this also gets the service port,
+// which is needed to access the traffic policy from the destination rule.
+func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname model.Hostname, clusterPort int) (*networkingapi.DestinationRule, *model.Port) {
+	for _, service := range push.Services(proxy) {
+		if service.Hostname == hostname {
+			config := push.DestinationRule(proxy, service)
+			if config == nil {
+				continue
+			}
+			for _, p := range service.Ports {
+				if p.Port == clusterPort {
+					return config.Spec.(*networkingapi.DestinationRule), p
+				}
+			}
+		}
+	}
+	return nil, nil
+}
+
+func hasOutlierDetection(push *model.PushContext, proxy *model.Proxy, clusterName string) bool {
+	_, subsetName, hostname, portNumber := model.ParseSubsetKey(clusterName)
+
+	destinationRule, port := getDestinationRule(push, proxy, hostname, portNumber)
+	if destinationRule == nil || port == nil {
+		return false
+	}
+
+	_, outlierDetection, _, _ := networking.SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, port)
+	if outlierDetection != nil {
+		return true
+	}
+
+	for _, subset := range destinationRule.Subsets {
+		if subset.Name == subsetName {
+			_, outlierDetection, _, _ := networking.SelectTrafficPolicyComponents(subset.TrafficPolicy, port)
+			if outlierDetection != nil {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // addEdsCon will track the eds connection with clusters, for optimized event-based push and debug
@@ -798,7 +844,7 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName, node string, connectio
 func (s *DiscoveryServer) removeEdsCon(clusterName string, node string) {
 	c := s.getEdsCluster(clusterName)
 	if c == nil {
-		adsLog.Warnf("EDS: missing cluster %s", clusterName)
+		adsLog.Warnf("EDS: Missing cluster: %s", clusterName)
 		return
 	}
 
@@ -811,7 +857,7 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string) {
 		// This happens when a previously used cluster is no longer watched by any
 		// sidecar. It should not happen very often - normally all clusters are sent
 		// in CDS requests to all sidecars. It may happen if all connections are closed.
-		adsLog.Debugf("EDS: remove unwatched cluster node=%s cluster=%s", node, clusterName)
+		adsLog.Debugf("EDS: Remove unwatched cluster node:%s cluster:%s", node, clusterName)
 		delete(edsClusters, clusterName)
 	}
 }

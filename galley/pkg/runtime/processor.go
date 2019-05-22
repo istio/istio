@@ -20,7 +20,6 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/groups"
 	"istio.io/istio/galley/pkg/runtime/monitoring"
 	"istio.io/istio/galley/pkg/runtime/processing"
@@ -76,13 +75,12 @@ type postProcessHookFn func()
 func NewProcessor(src Source, distributor Distributor, cfg *Config) *Processor {
 	stateStrategy := publish.NewStrategyWithDefaults()
 
-	return newProcessor(src, cfg, metadata.Types, stateStrategy, distributor, nil)
+	return newProcessor(src, cfg, stateStrategy, distributor, nil)
 }
 
 func newProcessor(
 	src Source,
 	cfg *Config,
-	schema *resource.Schema,
 	stateStrategy *publish.Strategy,
 	distributor Distributor,
 	postProcessHook postProcessHookFn) *Processor {
@@ -104,7 +102,7 @@ func newProcessor(
 			stateStrategy.OnChange()
 		}
 	})
-	p.state = newState(schema, cfg, stateListener)
+	p.state = newState(cfg, stateListener)
 
 	// Publish ServiceEntry events as soon as they occur.
 	p.serviceEntryHandler = serviceentry.NewHandler(cfg.DomainSuffix, processing.ListenerFromFn(func(_ resource.Collection) {
@@ -114,7 +112,39 @@ func newProcessor(
 	}))
 
 	p.handler = buildDispatcher(p.state, p.serviceEntryHandler)
+
+	p.seedMesh()
+
 	return p
+}
+
+func (p *Processor) seedMesh() {
+	i, ok := p.state.config.Schema.Lookup("istio/mesh/v1alpha1/MeshConfig")
+	if !ok {
+		return
+	}
+	m := p.state.config.Mesh.Get()
+	e := resource.Event{
+		Kind: resource.Added,
+		Entry: resource.Entry{
+			Metadata: resource.Metadata{
+				CreateTime: time.Now(),
+			},
+			ID: resource.VersionedKey{
+				Key: resource.Key{
+					Collection: i.Collection,
+					//TODO Replace istio-system with appropriate name We may
+					//need to serve multiple meshconfigs.
+					FullName: resource.FullNameFromNamespaceAndName(
+						"istio-system",
+						"meshconfig"),
+				},
+				Version: "1",
+			},
+			Item: &m,
+		},
+	}
+	p.state.Handle(e)
 }
 
 // Start the processor. This will cause processor to listen to incoming events from the provider
@@ -215,14 +245,17 @@ func buildDispatcher(state *State, serviceEntryHandler processing.Handler) *proc
 	b := processing.NewDispatcherBuilder()
 
 	// Route all types to the state, except for those required by the serviceEntryHandler.
-	stateSchema := resource.NewSchemaBuilder().RegisterSchema(state.schema).UnregisterSchema(serviceentry.Schema).Build()
+
+	stateSchema := resource.NewSchemaBuilder().RegisterSchema(state.config.Schema).Build()
 	for _, spec := range stateSchema.All() {
 		b.Add(spec.Collection, state)
 	}
 
-	// Route all other types to the serviceEntryHandler
-	for _, spec := range serviceentry.Schema.All() {
-		b.Add(spec.Collection, serviceEntryHandler)
+	if state.config.SynthesizeServiceEntries {
+		// Route all other types to the serviceEntryHandler
+		for _, spec := range serviceentry.Schema.All() {
+			b.Add(spec.Collection, serviceEntryHandler)
+		}
 	}
 
 	return b.Build()

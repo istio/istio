@@ -120,9 +120,13 @@ type VirtualService struct {
 	// dots in the name). In such a scenario, the FQDN of the host would be
 	// derived based on the underlying platform.
 	//
-	// **A host name can be defined by only one VirtualService**. A single
-	// VirtualService can be used to describe traffic properties for multiple
-	// HTTP and TCP ports.
+	// A single VirtualService can be used to describe all the traffic
+	// properties of the corresponding hosts, including those for multiple
+	// HTTP and TCP ports. Alternatively, the traffic properties of a host
+	// can be defined using more than one VirtualService, with certain
+	// caveats. Refer to the
+	// [Operations Guide](/help/ops/traffic-management/deploy-guidelines/#multiple-virtual-services-and-destination-rules-for-the-same-host)
+	// for details.
 	//
 	// *Note for Kubernetes users*: When short names are used (e.g. "reviews"
 	// instead of "reviews.default.svc.cluster.local"), Istio will interpret
@@ -138,15 +142,16 @@ type VirtualService struct {
 	// referred to using their alphanumeric names. IP addresses are allowed
 	// only for services defined via the Gateway.
 	Hosts []string `protobuf:"bytes,1,rep,name=hosts,proto3" json:"hosts,omitempty"`
-	// The names of gateways that should apply these rules. If omitted, the
-	// rules are only applied to sidecars inside the mesh. If a list of gateway
-	// names is provided, the rules will not be applied to sidecars inside the
-	// mesh unless the reserved gateway name `mesh` is included in the list.
-	// Gateways defined in a different namespace can be selected by prefixing
-	// the gateway name with `namespace/`.
-	//
-	// The selection condition imposed by this field can be overridden using
-	// the source field in the match conditions of protocol-specific routes.
+	// The names of gateways and sidecars that should apply these routes. A
+	// single VirtualService is used for sidecars inside the mesh as well as
+	// for one or more gateways. The selection condition imposed by this
+	// field can be overridden using the source field in the match conditions
+	// of protocol-specific routes. The reserved word `mesh` is used to imply
+	// all the sidecars in the mesh. When this field is omitted, the default
+	// gateway (`mesh`) will be used, which would apply the rule to all
+	// sidecars in the mesh. If a list of gateway names is provided, the
+	// rules will apply only to the gateways. To apply the rules to both
+	// gateways and sidecars, specify `mesh` as one of the gateway names.
 	Gateways []string `protobuf:"bytes,2,rep,name=gateways,proto3" json:"gateways,omitempty"`
 	// An ordered list of route rules for HTTP traffic. HTTP routes will be
 	// applied to platform service ports named 'http-*'/'http2-*'/'grpc-*', gateway
@@ -2304,7 +2309,7 @@ func (m *HTTPFaultInjection) GetAbort() *HTTPFaultInjection_Abort {
 //     fault:
 //       delay:
 //         percentage:
-//           value: 0.001
+//           value: 0.1
 //         fixedDelay: 5s
 // ```
 //
@@ -2506,7 +2511,7 @@ func _HTTPFaultInjection_Delay_OneofSizer(msg proto.Message) (n int) {
 //     fault:
 //       abort:
 //         percentage:
-//           value: 0.001
+//           value: 0.1
 //         httpStatus: 400
 // ```
 //

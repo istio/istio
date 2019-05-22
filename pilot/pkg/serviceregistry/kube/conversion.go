@@ -15,7 +15,9 @@
 package kube
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -69,7 +71,7 @@ func convertPort(port v1.ServicePort) *model.Port {
 	}
 }
 
-func convertService(svc v1.Service, domainSuffix string) *model.Service {
+func convertService(svc v1.Service, domainSuffix string, clusterID string) *model.Service {
 	addr, external := model.UnspecifiedIP, ""
 	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != v1.ClusterIPNone {
 		addr = svc.Spec.ClusterIP
@@ -113,7 +115,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 	}
 	sort.Strings(serviceaccounts)
 
-	return &model.Service{
+	istioService := &model.Service{
 		Hostname:        serviceHostname(svc.Name, svc.Namespace, domainSuffix),
 		Ports:           ports,
 		Address:         addr,
@@ -128,6 +130,25 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 			ExportTo:  exportTo,
 		},
 	}
+
+	if svc.Spec.Type == v1.ServiceTypeLoadBalancer && len(svc.Status.LoadBalancer.Ingress) > 0 {
+		var lbAddrs []string
+		for _, ingress := range svc.Status.LoadBalancer.Ingress {
+			if len(ingress.IP) > 0 {
+				lbAddrs = append(lbAddrs, ingress.IP)
+			} else if len(ingress.Hostname) > 0 {
+				addrs, err := net.DefaultResolver.LookupHost(context.TODO(), ingress.Hostname)
+				if err != nil {
+					lbAddrs = append(lbAddrs, addrs...)
+				}
+			}
+		}
+		if len(lbAddrs) > 0 {
+			istioService.Attributes.ClusterExternalAddresses = map[string][]string{clusterID: lbAddrs}
+		}
+	}
+
+	return istioService
 }
 
 func externalNameServiceInstances(k8sSvc v1.Service, svc *model.Service) []*model.ServiceInstance {

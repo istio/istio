@@ -115,19 +115,6 @@ func newWorkload(ctx resource.Context, cfg *echo.Config) (w *workload, err error
 			return nil, err
 		}
 
-		// Apply the service config to Galley.
-		svcCfg := serviceConfig{
-			service:  cfg.Service,
-			ns:       cfg.Namespace,
-			domain:   env.Domain,
-			version:  cfg.Version,
-			ports:    out.sidecar.GetPorts(),
-			locality: cfg.Locality,
-		}
-		if _, err = svcCfg.applyTo(cfg.Galley); err != nil {
-			return nil, err
-		}
-
 		// Update the ports in the configuration to reflect the port mapping between Envoy and the Application.
 		cfg.Ports = out.sidecar.GetPorts()
 	} else {
@@ -143,6 +130,19 @@ func newWorkload(ctx resource.Context, cfg *echo.Config) (w *workload, err error
 				InstancePort: p.Port,
 			})
 		}
+	}
+
+	// Apply the service config to Galley.
+	svcCfg := serviceConfig{
+		service:  cfg.Service,
+		ns:       cfg.Namespace,
+		domain:   env.Domain,
+		version:  cfg.Version,
+		ports:    cfg.Ports,
+		locality: cfg.Locality,
+	}
+	if _, err = svcCfg.applyTo(cfg.Galley); err != nil {
+		return nil, err
 	}
 
 	// Get the GRPC port.

@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/loadshedding"
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime"
 	runtimeconfig "istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
@@ -45,6 +44,7 @@ import (
 	"istio.io/istio/pkg/tracing"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
+	"istio.io/pkg/pool"
 	"istio.io/pkg/probe"
 )
 

@@ -70,81 +70,72 @@ import (
 //
 
 func TestFailover(t *testing.T) {
-	// TODO(liamawhite): Investigate why it fails in Parallel.
-	//t.Parallel()
+	framework.NewTest(t).
+		RunParallel(func(ctx framework.TestContext) {
 
-	t.Run("CDS", func(t *testing.T) {
-		t.Parallel()
+			ctx.NewSubTest("CDS").
+				RequiresEnvironment(environment.Kube).
+				// TODO(https://github.com/istio/istio/issues/13812)
+				Label(label.Flaky).
+				RunParallel(func(ctx framework.TestContext) {
+					ns := namespace.NewOrFail(ctx, ctx, "locality-failover-cds", true)
 
-		framework.NewTest(t).
-			RequiresEnvironment(environment.Kube).
-			// TODO(https://github.com/istio/istio/issues/13812)
-			Label(label.Flaky).
-			Run(func(ctx framework.TestContext) {
+					var a, b, c echo.Instance
+					echoboot.NewBuilderOrFail(ctx, ctx).
+						With(&a, echoConfig(ns, "a")).
+						With(&b, echoConfig(ns, "b")).
+						With(&c, echoConfig(ns, "c")).
+						BuildOrFail(ctx)
 
-				ns := namespace.NewOrFail(t, ctx, "failover-eds", true)
+					fakeHostname := fmt.Sprintf("fake-cds-external-service-%v.com", r.Int())
 
-				var a, b, c echo.Instance
-				echoboot.NewBuilderOrFail(t, ctx).
-					With(&a, echoConfig(ns, "a")).
-					With(&b, echoConfig(ns, "b")).
-					With(&c, echoConfig(ns, "c")).
-					BuildOrFail(t)
+					deploy(ctx, ns, serviceConfig{
+						Name:                       "failover-cds",
+						Host:                       fakeHostname,
+						Namespace:                  ns.Name(),
+						Resolution:                 "DNS",
+						ServiceBAddress:            "b",
+						ServiceBLocality:           "closeregion/zone/subzone",
+						ServiceCAddress:            "c",
+						ServiceCLocality:           "notcloseregion/zone/subzone",
+						NonExistantService:         "nonexistantservice",
+						NonExistantServiceLocality: "region/zone/subzone",
+					})
 
-				fakeHostname := fmt.Sprintf("fake-cds-external-service-%v.com", r.Int())
-
-				deploy(t, ns, serviceConfig{
-					Name:                       "failover-cds",
-					Host:                       fakeHostname,
-					Namespace:                  ns.Name(),
-					Resolution:                 "DNS",
-					ServiceBAddress:            "b",
-					ServiceBLocality:           "closeregion/zone/subzone",
-					ServiceCAddress:            "c",
-					ServiceCLocality:           "notcloseregion/zone/subzone",
-					NonExistantService:         "nonexistantservice",
-					NonExistantServiceLocality: "region/zone/subzone",
+					// Send traffic to service B via a service entry.
+					log.Infof("Sending traffic to local service (CDS) via %v", fakeHostname)
+					sendTraffic(ctx, a, fakeHostname)
 				})
 
-				// Send traffic to service B via a service entry.
-				log.Infof("Sending traffic to local service (CDS) via %v", fakeHostname)
-				sendTraffic(t, a, fakeHostname)
-			})
-	})
+			ctx.NewSubTest("EDS").
+				RequiresEnvironment(environment.Kube).
+				RunParallel(func(ctx framework.TestContext) {
+					ns := namespace.NewOrFail(ctx, ctx, "locality-failover-eds", true)
 
-	t.Run("EDS", func(t *testing.T) {
-		t.Parallel()
+					var a, b, c echo.Instance
+					echoboot.NewBuilderOrFail(ctx, ctx).
+						With(&a, echoConfig(ns, "a")).
+						With(&b, echoConfig(ns, "b")).
+						With(&c, echoConfig(ns, "c")).
+						BuildOrFail(ctx)
 
-		framework.NewTest(t).
-			RequiresEnvironment(environment.Kube).
-			Run(func(ctx framework.TestContext) {
+					fakeHostname := fmt.Sprintf("fake-eds-external-service-%v.com", r.Int())
+					deploy(ctx, ns, serviceConfig{
+						Name:                       "failover-eds",
+						Host:                       fakeHostname,
+						Namespace:                  ns.Name(),
+						Resolution:                 "STATIC",
+						ServiceBAddress:            b.WorkloadsOrFail(ctx)[0].Address(),
+						ServiceBLocality:           "closeregion/zone/subzone",
+						ServiceCAddress:            c.WorkloadsOrFail(ctx)[0].Address(),
+						ServiceCLocality:           "notcloseregion/zone/subzone",
+						NonExistantService:         "10.10.10.10",
+						NonExistantServiceLocality: "region/zone/subzone",
+					})
 
-				ns := namespace.NewOrFail(t, ctx, "failover-eds", true)
-
-				var a, b, c echo.Instance
-				echoboot.NewBuilderOrFail(t, ctx).
-					With(&a, echoConfig(ns, "a")).
-					With(&b, echoConfig(ns, "b")).
-					With(&c, echoConfig(ns, "c")).
-					BuildOrFail(t)
-
-				fakeHostname := fmt.Sprintf("fake-eds-external-service-%v.com", r.Int())
-				deploy(t, ns, serviceConfig{
-					Name:                       "failover-eds",
-					Host:                       fakeHostname,
-					Namespace:                  ns.Name(),
-					Resolution:                 "STATIC",
-					ServiceBAddress:            b.WorkloadsOrFail(t)[0].Address(),
-					ServiceBLocality:           "closeregion/zone/subzone",
-					ServiceCAddress:            c.WorkloadsOrFail(t)[0].Address(),
-					ServiceCLocality:           "notcloseregion/zone/subzone",
-					NonExistantService:         "10.10.10.10",
-					NonExistantServiceLocality: "region/zone/subzone",
+					// Send traffic to service B via a service entry.
+					log.Infof("Sending traffic to local service (EDS) via %v", fakeHostname)
+					sendTraffic(ctx, a, fakeHostname)
 				})
-
-				// Send traffic to service B via a service entry.
-				log.Infof("Sending traffic to local service (EDS) via %v", fakeHostname)
-				sendTraffic(t, a, fakeHostname)
-			})
-	})
+		})
 }

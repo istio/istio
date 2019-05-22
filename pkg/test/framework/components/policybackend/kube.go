@@ -135,10 +135,9 @@ spec:
 )
 
 var (
-	_ Instance          = &kubeComponent{}
-	_ resource.Resetter = &kubeComponent{}
-	_ io.Closer         = &kubeComponent{}
-	_ resource.Dumper   = &kubeComponent{}
+	_ Instance        = &kubeComponent{}
+	_ io.Closer       = &kubeComponent{}
+	_ resource.Dumper = &kubeComponent{}
 )
 
 type kubeComponent struct {
@@ -255,13 +254,6 @@ func (c *kubeComponent) CreateConfigSnippet(name string, namespace string, am Ad
 
 func (c *kubeComponent) ID() resource.ID {
 	return c.id
-}
-
-func (c *kubeComponent) Reset() error {
-	if c.client != nil {
-		return c.client.Reset()
-	}
-	return nil
 }
 
 func (c *kubeComponent) Close() (err error) {

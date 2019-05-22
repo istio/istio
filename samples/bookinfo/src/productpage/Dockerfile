@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM python:2.7-slim
+FROM python:3.6-slim
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
@@ -25,6 +25,9 @@ COPY tests/unit/* /opt/microservices/
 COPY templates /opt/microservices/templates
 COPY static /opt/microservices/static
 COPY requirements.txt /opt/microservices/
+
+ARG flood_factor
+ENV FLOOD_FACTOR ${flood_factor:-0}
 
 EXPOSE 9080
 WORKDIR /opt/microservices

@@ -113,6 +113,10 @@ func init() {
 	// MCP client flags
 	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPMaxMessageSize, "mcpMaxMsgSize", bootstrap.DefaultMCPMaxMsgSize,
 		"Max message size received by MCP's grpc client")
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPInitialWindowSize, "mcpInitialWindowSize", bootstrap.DefaultMCPInitialWindowSize,
+		"Max message size received by MCP's grpc client")
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPInitialConnWindowSize, "mcpInitialConnWindowSize", bootstrap.DefaultMCPInitialConnWindowSize,
+		"Max message size received by MCP's grpc client")
 
 	// Config Controller options
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.Config.DisableInstallCRDs, "disable-install-crds", false,
@@ -166,6 +170,7 @@ func init() {
 		Section: "pilot-discovery CLI",
 		Manual:  "Istio Pilot Discovery",
 	}))
+
 }
 
 func main() {

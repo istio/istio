@@ -17,11 +17,11 @@ package lang
 
 import (
 	"istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/cel"
 	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/pkg/annotations"
+	"istio.io/pkg/attribute"
 	"istio.io/pkg/env"
 )
 
@@ -77,7 +77,7 @@ func fromString(value string) LanguageRuntime {
 }
 
 // NewBuilder returns an expression builder
-func NewBuilder(finder ast.AttributeDescriptorFinder, mode LanguageRuntime) Compiler {
+func NewBuilder(finder attribute.AttributeDescriptorFinder, mode LanguageRuntime) Compiler {
 	switch mode {
 	case CEL:
 		return cel.NewBuilder(finder, cel.CEL)
@@ -89,7 +89,7 @@ func NewBuilder(finder ast.AttributeDescriptorFinder, mode LanguageRuntime) Comp
 }
 
 // NewTypeChecker returns a type checker
-func NewTypeChecker(finder ast.AttributeDescriptorFinder, mode LanguageRuntime) TypeChecker {
+func NewTypeChecker(finder attribute.AttributeDescriptorFinder, mode LanguageRuntime) TypeChecker {
 	switch mode {
 	case CEL:
 		return cel.NewBuilder(finder, cel.CEL)

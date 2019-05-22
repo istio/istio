@@ -41,6 +41,7 @@ func NewBuilder(ctx resource.Context) (b echo.Builder, err error) {
 
 // NewBuilder for Echo Instances.
 func NewBuilderOrFail(t test.Failer, ctx resource.Context) echo.Builder {
+	t.Helper()
 	b, err := NewBuilder(ctx)
 	if err != nil {
 		t.Fatalf("echo.NewBuilderOrFail: %v", err)
