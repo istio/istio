@@ -109,6 +109,8 @@ func TestFailover(t *testing.T) {
 
 			ctx.NewSubTest("EDS").
 				RequiresEnvironment(environment.Kube).
+				// TODO(https://github.com/istio/istio/issues/13812)
+				Label(label.Flaky).
 				RunParallel(func(ctx framework.TestContext) {
 					ns := namespace.NewOrFail(ctx, ctx, "locality-failover-eds", true)
 

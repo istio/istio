@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/pkg/log"
 )
 
@@ -66,6 +67,8 @@ func TestPrioritized(t *testing.T) {
 
 			ctx.NewSubTest("CDS").
 				RequiresEnvironment(environment.Kube).
+				// TODO(https://github.com/istio/istio/issues/13812)
+				Label(label.Flaky).
 				RunParallel(func(ctx framework.TestContext) {
 					ns := namespace.NewOrFail(ctx, ctx, "locality-prioritized-cds", true)
 
@@ -95,6 +98,8 @@ func TestPrioritized(t *testing.T) {
 
 			ctx.NewSubTest("EDS").
 				RequiresEnvironment(environment.Kube).
+				// TODO(https://github.com/istio/istio/issues/13812)
+				Label(label.Flaky).
 				RunParallel(func(ctx framework.TestContext) {
 
 					ns := namespace.NewOrFail(ctx, ctx, "locality-prioritized-eds", true)
