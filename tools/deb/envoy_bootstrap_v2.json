@@ -54,10 +54,20 @@
     "stats_matcher": {
       "inclusion_list": {
         "patterns": [
-          {{- range $a, $s := .inclusionPatterns }}
-            {
-              "prefix": "{{$s}}"
-            },
+          {{- range $a, $s := .inclusionPrefix }}
+          {
+          "prefix": "{{$s}}"
+          },
+          {{- end }}
+          {{- range $a, $s := .inclusionSuffix }}
+          {
+          "suffix": "{{$s}}"
+          },
+          {{- end }}
+          {{- range $a, $s := .inclusionRegexps }}
+          {
+          "regex": "{{js $s}}"
+          },
           {{- end }}
         ]
       }
