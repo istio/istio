@@ -601,6 +601,8 @@ jobs:
       - image: koalaman/shellcheck-alpine:v0.6.0
     steps:
       - checkout
+      - setup_remote_docker: 
+          docker_layer_caching: true
       - run:
           name: Check Scripts
           command: /root/project/bin/check_shell_scripts.sh
