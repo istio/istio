@@ -87,7 +87,7 @@ kiali:
 #
 certmanager:
   enabled: false
-  
+
 #
 # Istio CNI plugin enabled
 #   This must be enabled to use the CNI plugin in Istio.  The CNI plugin is installed separately.
@@ -121,12 +121,6 @@ global:
   # To output all istio components logs in json format by adding --log_as_json argument to each container
   logAsJson: false
 
-  # Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>
-  # The control plane has different scopes depending on component, but can configure default log level across all components
-  # If empty, default scope and level will be used as configured in code
-  logging:
-    level: "default:info"
-
   # monitoring port used by mixer, pilot, galley
   monitoringPort: 15014
 
@@ -156,7 +150,7 @@ global:
         memory: 128Mi
       limits:
         cpu: 2000m
-        memory: 128Mi
+        memory: 1024Mi
 
     # Controls number of Proxy worker threads.
     # If set to 0 (default), then start worker thread for each CPU thread/core.
@@ -184,8 +178,8 @@ global:
     componentLogLevel: ""
 
     # Configure the DNS refresh rate for Envoy cluster of type STRICT_DNS
-    # 5 seconds is the default refresh rate used by Envoy
-    dnsRefreshRate: 5s
+    # This must be given it terms of seconds. For example, 300s is valid but 5m is invalid.
+    dnsRefreshRate: 300s
 
     #If set to true, istio-proxy container will have privileged securityContext
     privileged: false
@@ -212,6 +206,7 @@ global:
     # be allowed by the sidecar
     includeIPRanges: "*"
     excludeIPRanges: ""
+    excludeOutboundPorts: ""
 
     # pod internal interfaces
     kubevirtInterfaces: ""
@@ -243,7 +238,7 @@ global:
     # available to scrape via the Envoy admin port at either /stats or /stats/prometheus.
     #
     # See https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto
-    # for details about Envoy's Metrics Service API. 
+    # for details about Envoy's Metrics Service API.
     #
     # Disabled by default.
     envoyMetricsService:
@@ -410,7 +405,7 @@ global:
   #   services or ServiceEntries for the destination port
   # REGISTRY_ONLY - restrict outbound traffic to services defined in the service registry as well
   #   as those defined through ServiceEntries
-  # ALLOW_ANY is the default in 1.1.  This means each pod will be able to make outbound requests 
+  # ALLOW_ANY is the default in 1.1.  This means each pod will be able to make outbound requests
   # to services outside of the mesh without any ServiceEntry.
   # REGISTRY_ONLY was the default in 1.0.  If this behavior is desired, set the value below to REGISTRY_ONLY.
   outboundTrafficPolicy:
@@ -425,7 +420,7 @@ global:
   # rules should be exported to. Currently only one value can be provided in this list. This value
   # should be one of the following two options:
   # * implies these objects are visible to all namespaces, enabling any sidecar to talk to any other sidecar.
-  # . implies these objects are visible to only to sidecars in the same namespace, or if imported as a Sidecar.egress.host  
+  # . implies these objects are visible to only to sidecars in the same namespace, or if imported as a Sidecar.egress.host
   #defaultConfigVisibilitySettings:
   #- '*'
 
@@ -446,8 +441,9 @@ global:
   # The second network, `network2`, in this example is defined differently with all endpoints
   # retrieved through the specified Multi-Cluster registry being mapped to network2. The
   # gateway is also defined differently with the name of the gateway service on the remote
-  # cluster. The public IP for the gateway will be determined from that remote service (not
-  # supported yet).
+  # cluster. The public IP for the gateway will be determined from that remote service (only
+  # LoadBalancer gateway service type is currently supported, for a NodePort type gateway service,
+  # it still need to be configured manually).
   #
   # meshNetworks:
   #   network1:
@@ -460,7 +456,7 @@ global:
   #     endpoints:
   #     - fromRegistry: reg1
   #     gateways:
-  #     - registryServiceName: istio-ingressgateway
+  #     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
   #       port: 443
   #
   meshNetworks: {}
