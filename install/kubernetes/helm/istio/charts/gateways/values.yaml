@@ -253,8 +253,11 @@ istio-ilbgateway:
     #  cpu: 1800m
     #  memory: 256Mi
   loadBalancerIP: ""
-  serviceAnnotations:
-    cloud.google.com/load-balancer-type: "internal"
+  serviceAnnotations: {}
+  #  cloud.google.com/load-balancer-type: "internal"
+  #  service.beta.kubernetes.io/alicloud-loadbalancer-address-type: "intranet"
+  #  service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0
+  #  service.beta.kubernetes.io/azure-load-balancer-internal: "true"
   podAnnotations: {}
   type: LoadBalancer
   ports:
