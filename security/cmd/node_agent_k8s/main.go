@@ -22,6 +22,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
+
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/sds"
@@ -30,7 +32,6 @@ import (
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
 const (
