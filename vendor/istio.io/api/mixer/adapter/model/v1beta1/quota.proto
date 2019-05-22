@@ -20,6 +20,7 @@ option go_package="istio.io/api/mixer/adapter/model/v1beta1";
 
 import "gogoproto/gogo.proto";
 import "google/protobuf/duration.proto";
+import "google/rpc/status.proto";
 
 option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
@@ -50,6 +51,9 @@ message QuotaResult {
     // The amount of granted quota. When `QuotaParams.best_effort` is true, this will be >= 0.
     // If `QuotaParams.best_effort` is false, this will be either 0 or >= `QuotaParams.amount`.
     int64 granted_amount = 3;
+
+    // A status code of OK indicates quota was fetched successfully. Any other code indicates error in fetching quota.
+    google.rpc.Status status = 4 [(gogoproto.nullable) = false];
   }
 
   // The resulting quota, one entry per requested quota.
