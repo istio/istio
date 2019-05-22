@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 const maxStreams = 100000
@@ -118,6 +119,7 @@ func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.Se
 		log.Infof("SDS gRPC server for ingress gateway controller starts, listening on %q \n",
 			options.IngressGatewayUDSPath)
 	}
+	version.Info.RecordComponentBuildTag("citadel_agent")
 
 	return s, nil
 }

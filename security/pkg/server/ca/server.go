@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	pb "istio.io/istio/security/proto"
 	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 // Config for Vault prototyping purpose
@@ -211,6 +212,9 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 			log.Infof("added generatl JWT authenticator")
 		}
 	}
+
+	version.Info.RecordComponentBuildTag("citadel")
+
 	return &Server{
 		authenticators: authenticators,
 		authorizer:     &registryAuthorizor{registry.GetIdentityRegistry()},
