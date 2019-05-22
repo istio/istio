@@ -4,6 +4,7 @@ package sdsc
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"time"
 
 	"istio.io/pkg/log"
@@ -13,7 +14,9 @@ import (
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
+	"istio.io/istio/pilot/pkg/model"
 	sdscache "istio.io/istio/security/pkg/nodeagent/cache"
 	agent_sds "istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/pki/util"
@@ -32,6 +35,19 @@ type ClientOptions struct {
 	ServerAddress string
 }
 
+// constructSDSRequest returns the context for the outbound request to include necessary
+func constructSDSRequestContext() (context.Context, error) {
+	// Read from the designated location for Kubernetes JWT.
+	content, err := ioutil.ReadFile(model.K8sSATrustworthyJwtFileName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the token file %v", err)
+	}
+	md := metadata.New(map[string]string{
+		model.K8sSAJwtTokenHeaderKey: string(content),
+	})
+	return metadata.NewOutgoingContext(context.Background(), md), nil
+}
+
 // NewClient returns a sds client for testing.
 func NewClient(options ClientOptions) (*Client, error) {
 	address := fmt.Sprintf("unix://%s", options.ServerAddress)
@@ -39,8 +55,12 @@ func NewClient(options ClientOptions) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	ctx, err := constructSDSRequestContext()
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct the context %v", err)
+	}
 	client := sds.NewSecretDiscoveryServiceClient(conn)
-	stream, err := client.StreamSecrets(context.Background())
+	stream, err := client.StreamSecrets(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -55,13 +75,15 @@ func NewClient(options ClientOptions) (*Client, error) {
 // Start starts sds client to receive the scecret updates from the server.
 func (c *Client) Start() {
 	go func() {
-		msq, err := c.stream.Recv()
-		if err != nil {
-			log.Errorf("Connection closed %v", err)
-			return
+		for {
+			msq, err := c.stream.Recv()
+			if err != nil {
+				log.Errorf("Connection closed %v", err)
+				return
+			}
+			c.updateChan <- *msq
+			log.Infof("receive response from sds server %v", msq)
 		}
-		c.updateChan <- *msq
-		log.Infof("receive response from sds server %v", msq)
 	}()
 }
 

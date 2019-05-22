@@ -1,0 +1,20 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: sdsclient
+  labels:
+    version: v1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        "sidecar.istio.io/inject": "false"
+      labels:
+        app: helloworld
+    spec:
+      containers:
+      - name: helloworld
+        image: gcr.io/jianfeih-test/sdsclient:sdsc
+        imagePullPolicy: Always
+        command: ["/sdsclient"]

@@ -22,6 +22,11 @@ go test -v -istio.testing.citadelagent.skip=false \
   ${GOPATH}/src/istio.io/istio/security/testing/agent
 ```
 
+## Deploy in Kuberentes
+
+```bash
+```
+
 ## Future Work
 
 - Refactor `node_agent_k8s` binary to be able to start the server from the test.
