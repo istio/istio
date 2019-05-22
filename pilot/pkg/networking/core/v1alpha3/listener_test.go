@@ -513,11 +513,11 @@ func verifyInboundHTTPListenerCertDetails(t *testing.T, l *xdsapi.Listener) {
 func verifyInboundHTTPListenerNormalizePath(t *testing.T, l *xdsapi.Listener) {
 	t.Helper()
 	if len(l.FilterChains) != 2 {
-		t.Fatalf("expected %d filter chains, found %d", 2, len(l.FilterChains))
+		t.Fatalf("expected 2 filter chains, found %d", len(l.FilterChains))
 	}
 	fc := l.FilterChains[0]
 	if len(fc.Filters) != 1 {
-		t.Fatalf("expected %d filters, found %d", 1, len(fc.Filters))
+		t.Fatalf("expected 1 filter, found %d", len(fc.Filters))
 	}
 	f := fc.Filters[0]
 	config, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
