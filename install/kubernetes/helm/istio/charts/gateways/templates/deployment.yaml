@@ -225,6 +225,11 @@ spec:
             value: {{ $val }}
           {{- end }}
           {{- end }}
+{{- if $spec.podAnnotations }}
+          - name: "ISTIO_METAJSON_ANNOTATIONS"
+            value: |
+{{ toJson $spec.podAnnotations | indent 16}}
+{{ end }}
           volumeMounts:
           {{- if $.Values.global.sds.enabled }}
           - name: sdsudspath
