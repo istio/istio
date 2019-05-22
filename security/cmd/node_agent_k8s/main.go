@@ -112,7 +112,6 @@ const (
 	// The environmental variable name for staled connection recycle job running interval.
 	// example value format like "5m"
 	staledConnectionRecycleInterval     = "STALED_CONNECTION_RECYCLE_RUN_INTERVAL"
-	staledConnectionRecycleIntervalFlag = "staledConnectionRecycleInterval"
 )
 
 var (
@@ -244,10 +243,6 @@ func applyEnvVars(cmd *cobra.Command) {
 		serverOptions.AlwaysValidTokenFlag = alwaysValidTokenFlagEnv
 	}
 
-	if !cmd.Flag(staledConnectionRecycleIntervalFlag).Changed {
-		serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
-	}
-
 	if !cmd.Flag(caProviderFlag).Changed {
 		serverOptions.CAProviderName = caProviderEnv
 	}
@@ -343,9 +338,6 @@ func main() {
 
 	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.EvictionDuration, "secretEvictionDuration",
 		24*time.Hour, "Secret eviction time duration")
-
-	rootCmd.PersistentFlags().DurationVar(&serverOptions.RecycleInterval, staledConnectionRecycleIntervalFlag,
-		5*time.Minute, "Staled connection recycle interval.")
 
 	rootCmd.PersistentFlags().BoolVar(&workloadSdsCacheOptions.AlwaysValidTokenFlag, alwaysValidTokenFlagFlag,
 		false,
