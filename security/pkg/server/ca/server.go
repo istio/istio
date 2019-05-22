@@ -28,13 +28,13 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 
-	"istio.io/istio/pkg/version"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	pb "istio.io/istio/security/proto"
 	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 // Config for Vault prototyping purpose
