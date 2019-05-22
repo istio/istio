@@ -29,10 +29,10 @@ import (
 
 const (
 	// DefaultTimeout the default timeout for the entire retry operation
-	defaultTimeout = time.Second * 30
+	defaultConfigTimeout = time.Second * 30
 
 	// DefaultDelay the default delay between successive retry attempts
-	defaultDelay = time.Second * 2
+	defaultConfigDelay = time.Second * 2
 )
 
 // ConfigFetchFunc retrieves the config dump from Envoy.
@@ -44,7 +44,7 @@ type ConfigFetchFunc func() (*envoyAdmin.ConfigDump, error)
 type ConfigAcceptFunc func(*envoyAdmin.ConfigDump) (bool, error)
 
 func WaitForConfig(fetch ConfigFetchFunc, accept ConfigAcceptFunc, options ...retry.Option) error {
-	options = append([]retry.Option{retry.Delay(defaultDelay), retry.Timeout(defaultTimeout)}, options...)
+	options = append([]retry.Option{retry.Delay(defaultConfigDelay), retry.Timeout(defaultConfigTimeout)}, options...)
 
 	var cfg *envoyAdmin.ConfigDump
 	_, err := retry.Do(func() (result interface{}, completed bool, err error) {
@@ -91,12 +91,6 @@ func OutboundConfigAcceptFunc(outboundInstances ...echo.Instance) ConfigAcceptFu
 		validator := structpath.ForProto(cfg)
 
 		for _, target := range outboundInstances {
-
-			// First, wait for the outbound instance to be ready.
-			if err := target.WaitUntilReady(); err != nil {
-				return false, err
-			}
-
 			for _, port := range target.Config().Ports {
 				// Ensure that we have an outbound configuration for the target port.
 				if err := CheckOutboundConfig(target, port, validator); err != nil {
@@ -113,35 +107,43 @@ func OutboundConfigAcceptFunc(outboundInstances ...echo.Instance) ConfigAcceptFu
 func CheckOutboundConfig(target echo.Instance, port echo.Port, validator *structpath.Instance) error {
 	// Verify that we have an outbound cluster for the target.
 	clusterName := clusterName(target, port)
-	if err := validator.Exists("{.configs[*].dynamicActiveClusters[?(@.cluster.name == '%s')]}", clusterName).
+	if err := validator.
+		Exists("{.configs[*].dynamicActiveClusters[?(@.cluster.name == '%s')]}", clusterName).
 		Check(); err != nil {
-		if err := validator.Exists("{.configs[*].dynamicActiveClusters[?(@.cluster.edsClusterConfig.serviceName == '%s')]}",
-			clusterName).Check(); err != nil {
+		if err := validator.
+			Exists("{.configs[*].dynamicActiveClusters[?(@.cluster.edsClusterConfig.serviceName == '%s')]}", clusterName).
+			Check(); err != nil {
 			return err
 		}
 	}
 
 	// For HTTP endpoints, verify that we have a route configured.
 	if port.Protocol.IsHTTP() {
-		return validator.Exists("{.configs[*].dynamicRouteConfigs[*].routeConfig.virtualHosts[*].routes[?(@.route.cluster == '%s')]}",
-			clusterName).Check()
+		rname := routeName(target, port)
+		return validator.
+			Select("{.configs[*].dynamicRouteConfigs[*].routeConfig.virtualHosts[?(@.name == '%s')]}", rname).
+			Exists("{.routes[?(@.route.cluster == '%s')]}", clusterName).
+			Check()
 	}
 
-	// TCP case: Make sure we have an outbound listener configured for each workload.
-	workloads, err := target.Workloads()
-	if err != nil {
-		return err
+	if !target.Config().Headless {
+		// TCP case: Make sure we have an outbound listener configured.
+		listenerName := listenerName(target.Address(), port)
+		return validator.
+			Exists("{.configs[*].dynamicActiveListeners[?(@.listener.name == '%s')]}", listenerName).
+			Check()
 	}
-	for _, w := range workloads {
-		listenerName := listenerName(w.Address(), port)
-		validator.Exists("{.configs[*].dynamicActiveListeners[?(@.listener.name == '%s')]}", listenerName)
-	}
-	return validator.Check()
+	return nil
 }
 
 func clusterName(target echo.Instance, port echo.Port) string {
 	cfg := target.Config()
 	return fmt.Sprintf("outbound|%d||%s.%s.%s", port.ServicePort, cfg.Service, cfg.Namespace.Name(), cfg.Domain)
+}
+
+func routeName(target echo.Instance, port echo.Port) string {
+	cfg := target.Config()
+	return fmt.Sprintf("%s:%d", cfg.FQDN(), port.ServicePort)
 }
 
 func listenerName(address string, port echo.Port) string {

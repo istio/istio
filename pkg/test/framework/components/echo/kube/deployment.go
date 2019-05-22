@@ -15,13 +15,13 @@
 package kube
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"text/template"
 
-	"istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/core/image"
+	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/tmpl"
 )
 
 const (
@@ -39,6 +39,12 @@ metadata:
   name: {{ .Service }}
   labels:
     app: {{ .Service }}
+{{- if .ServiceAnnotations }}
+  annotations:
+{{- range $name, $value := .ServiceAnnotations }}
+    {{ $name }}: {{ printf "%q" $value }}
+{{- end }}
+{{- end }}
 spec:
 {{- if .Headless }}
   clusterIP: None
@@ -73,9 +79,15 @@ spec:
 {{- if ne .Locality "" }}
         istio-locality: {{ .Locality }}
 {{- end }}
-{{- if not .Sidecar }}
       annotations:
-        sidecar.istio.io/inject: "false"
+        foo: bar
+{{- if .WorkloadAnnotations }}
+{{- range $name, $value := .WorkloadAnnotations }}
+        {{ $name }}: {{ printf "%q" $value }}
+{{- end }}
+{{- end }}
+{{- if .IncludeInboundPorts }}
+        traffic.sidecar.istio.io/includeInboundPorts: "{{ .IncludeInboundPorts }}"
 {{- end }}
     spec:
 {{- if .ServiceAccount }}
@@ -126,16 +138,15 @@ stringData:
   sdstoken: "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2\
 VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Ii\
 wia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6InZhdWx0LWNpdGFkZWwtc2\
-EtdG9rZW4tcmZxZGoiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC\
+EtdG9rZW4tNzR0d3MiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC\
 5uYW1lIjoidmF1bHQtY2l0YWRlbC1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2Vydm\
-ljZS1hY2NvdW50LnVpZCI6IjIzOTk5YzY1LTA4ZjMtMTFlOS1hYzAzLTQyMDEwYThhMDA3OSIsInN1Yi\
-I6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWNpdGFkZWwtc2EifQ.RNH1QbapJKP\
-mktV3tCnpiz7hoYpv1TM6LXzThOtaDp7LFpeANZcJ1zVQdys3EdnlkrykGMepEjsdNuT6ndHfh8jRJAZ\
-uNWNPGrhxz4BeUaOqZg3v7AzJlMeFKjY_fiTYYd2gBZZxkpv1FvAPihHYng2NeN2nKbiZbsnZNU1qFdv\
-bgCISaFqTf0dh75OzgCX_1Fh6HOA7ANf7p522PDW_BRln0RTwUJovCpGeiNCGdujGiNLDZyBcdtikY5r\
-y_KXTdrVAcTUvI6lxwRbONNfuN8hrIDl95vJjhUlE-O-_cx8qWtXNdqJlMje1SsiPCL4uq70OepG_I4a\
-SzC2o8aDtlQ"
----
+ljZS1hY2NvdW50LnVpZCI6IjJhYzAzYmEyLTY5MTUtMTFlOS05NjkwLTQyMDEwYThhMDExNCIsInN1Yi\
+I6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWNpdGFkZWwtc2EifQ.pZ8SiyNeO0p\
+1p8HB9oXvXOAI1XCJZKk2wVHXBsTSzKWxlVD9HrHbAcSbO2dlhFpeCgknt6eZywvhShZJh2F6-iHP_Yo\
+UVoCqQmzjPoB3c3JoYFpJo-9jTN1_mNRtZUcNvYl-tDlTmBlaKEvoC5P2WGVUF3AoLsES66u4FG9Wllm\
+LV92LG1WNqx_ltkT1tahSy9WiHQgyzPqwtwE72T1jAGdgVIoJy1lfSaLam_bo9rqkRlgSg-au9BAjZiD\
+Gtm9tf3lwrcgfbxccdlG4jAsTFa2aNs3dW4NLk7mFnWCJa-iWj-TgFxf9TW-9XPK0g3oYIQ0Id0CIW2S\
+iFxKGPAjB-g"
 `
 )
 
@@ -152,33 +163,41 @@ func init() {
 
 func generateYAML(cfg echo.Config) (string, error) {
 	// Create the parameters for the YAML template.
-	settings, err := deployment.SettingsFromCommandLine()
+	settings, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return "", err
 	}
 
+	// Separate the annotations.
+	serviceAnnotations := make(map[string]string)
+	workloadAnnotations := make(map[string]string)
+	for k, v := range cfg.Annotations {
+		switch k.Type {
+		case echo.ServiceAnnotation:
+			serviceAnnotations[k.Name] = v.Value
+		case echo.WorkloadAnnotation:
+			workloadAnnotations[k.Name] = v.Value
+		default:
+			scopes.Framework.Warnf("annotation %s with unknown type %s", k.Name, k.Type)
+		}
+	}
+
 	params := map[string]interface{}{
-		"Hub":            settings.Hub,
-		"Tag":            settings.Tag,
-		"PullPolicy":     settings.PullPolicy,
-		"Service":        cfg.Service,
-		"Version":        cfg.Version,
-		"Sidecar":        cfg.Sidecar,
-		"Headless":       cfg.Headless,
-		"Locality":       cfg.Locality,
-		"ServiceAccount": cfg.ServiceAccount,
-		"Ports":          cfg.Ports,
-		"ContainerPorts": getContainerPorts(cfg.Ports),
+		"Hub":                 settings.Hub,
+		"Tag":                 settings.Tag,
+		"PullPolicy":          settings.PullPolicy,
+		"Service":             cfg.Service,
+		"Version":             cfg.Version,
+		"Headless":            cfg.Headless,
+		"Locality":            cfg.Locality,
+		"ServiceAccount":      cfg.ServiceAccount,
+		"Ports":               cfg.Ports,
+		"ContainerPorts":      getContainerPorts(cfg.Ports),
+		"ServiceAnnotations":  serviceAnnotations,
+		"WorkloadAnnotations": workloadAnnotations,
+		"IncludeInboundPorts": cfg.IncludeInboundPorts,
 	}
 
 	// Generate the YAML content.
-	var filled bytes.Buffer
-	w := bufio.NewWriter(&filled)
-	if err := deploymentTemplate.Execute(w, params); err != nil {
-		return "", err
-	}
-	if err := w.Flush(); err != nil {
-		return "", err
-	}
-	return filled.String(), nil
+	return tmpl.Execute(deploymentTemplate, params)
 }

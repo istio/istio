@@ -15,8 +15,7 @@
 package namespace
 
 import (
-	"testing"
-
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -40,7 +39,8 @@ func Claim(ctx resource.Context, name string) (i Instance, err error) {
 }
 
 // ClaimOrFail calls Claim and fails test if it returns error
-func ClaimOrFail(t *testing.T, ctx resource.Context, name string) Instance {
+func ClaimOrFail(t test.Failer, ctx resource.Context, name string) Instance {
+	t.Helper()
 	i, err := Claim(ctx, name)
 	if err != nil {
 		t.Fatalf("namespace.ClaimOrFail:: %v", err)
@@ -62,10 +62,11 @@ func New(ctx resource.Context, prefix string, inject bool) (i Instance, err erro
 }
 
 // NewOrFail calls New and fails test if it returns error
-func NewOrFail(t *testing.T, ctx resource.Context, prefix string, inject bool) Instance {
+func NewOrFail(t test.Failer, ctx resource.Context, prefix string, inject bool) Instance {
+	t.Helper()
 	i, err := New(ctx, prefix, inject)
 	if err != nil {
-		t.Fatalf("namespace.NewOrFail:: %v", err)
+		t.Fatalf("namespace.NewOrFail: %v", err)
 	}
 	return i
 }

@@ -20,8 +20,18 @@ const (
 
 	// Postsubmit indicates that the test should be run as part of a postsubmit run.
 	Postsubmit Instance = "postsubmit"
+
+	// CustomSetup indicates that the test requires a custom Istio installation.
+	CustomSetup Instance = "customsetup"
+
+	// Flaky indicates that a test is currently flaky and should not be run as part
+	// of presubmit or postsubmit. When a test is determined to be Flaky, a github
+	// issue should be created to fix the test.
+	Flaky Instance = "flaky"
 )
 
 var all = NewSet(
 	Presubmit,
-	Postsubmit)
+	Postsubmit,
+	CustomSetup,
+	Flaky)

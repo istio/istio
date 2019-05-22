@@ -20,8 +20,9 @@ import (
 	"time"
 
 	"istio.io/istio/galley/pkg/source/kube/builtin"
-	"istio.io/istio/pkg/ctrlz"
+	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/mcp/creds"
+	"istio.io/pkg/ctrlz"
 )
 
 const (
@@ -48,6 +49,12 @@ type Args struct {
 
 	// Maximum number of outstanding RPCs per connection
 	MaxConcurrentStreams uint
+
+	// Initial Window Size for gRPC connections
+	InitialWindowSize uint
+
+	// Initial Connection Window Size for gRPC connections
+	InitialConnectionWindowSize uint
 
 	// The credential options to use for MCP.
 	CredentialOptions *creds.Options
@@ -92,29 +99,38 @@ type Args struct {
 	// Enable galley server mode
 	EnableServer bool
 
+	// Enable service discovery / endpoint processing.
+	EnableServiceDiscovery bool
+
 	// DisableResourceReadyCheck disables the CRD readiness check. This
 	// allows Galley to start when not all supported CRD are
 	// registered with the kube-apiserver.
 	DisableResourceReadyCheck bool
+
+	// keep-alive options for the MCP gRPC Server.
+	KeepAlive *keepalive.Options
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
 func DefaultArgs() *Args {
 	return &Args{
-		APIAddress:                "tcp://0.0.0.0:9901",
-		MaxReceivedMessageSize:    1024 * 1024,
-		MaxConcurrentStreams:      1024,
-		IntrospectionOptions:      ctrlz.DefaultOptions(),
-		Insecure:                  false,
-		AccessListFile:            defaultAccessListFile,
-		MeshConfigFile:            defaultMeshConfigFile,
-		EnableServer:              true,
-		CredentialOptions:         creds.DefaultOptions(),
-		ConfigPath:                "",
-		DomainSuffix:              defaultDomainSuffix,
-		DisableResourceReadyCheck: false,
-		ExcludedResourceKinds:     defaultExcludedResourceKinds(),
-		SinkMeta:                  make([]string, 0),
+		APIAddress:                  "tcp://0.0.0.0:9901",
+		MaxReceivedMessageSize:      1024 * 1024,
+		MaxConcurrentStreams:        1024,
+		InitialWindowSize:           1024 * 1024,
+		InitialConnectionWindowSize: 1024 * 1024 * 16,
+		IntrospectionOptions:        ctrlz.DefaultOptions(),
+		Insecure:                    false,
+		AccessListFile:              defaultAccessListFile,
+		MeshConfigFile:              defaultMeshConfigFile,
+		EnableServer:                true,
+		CredentialOptions:           creds.DefaultOptions(),
+		ConfigPath:                  "",
+		DomainSuffix:                defaultDomainSuffix,
+		DisableResourceReadyCheck:   false,
+		ExcludedResourceKinds:       defaultExcludedResourceKinds(),
+		SinkMeta:                    make([]string, 0),
+		KeepAlive:                   keepalive.DefaultOption(),
 	}
 }
 
@@ -136,6 +152,8 @@ func (a *Args) String() string {
 	_, _ = fmt.Fprintf(buf, "EnableGrpcTracing: %v\n", a.EnableGRPCTracing)
 	_, _ = fmt.Fprintf(buf, "MaxReceivedMessageSize: %d\n", a.MaxReceivedMessageSize)
 	_, _ = fmt.Fprintf(buf, "MaxConcurrentStreams: %d\n", a.MaxConcurrentStreams)
+	_, _ = fmt.Fprintf(buf, "InitialWindowSize: %v\n", a.InitialWindowSize)
+	_, _ = fmt.Fprintf(buf, "InitialConnectionWindowSize: %v\n", a.InitialConnectionWindowSize)
 	_, _ = fmt.Fprintf(buf, "IntrospectionOptions: %+v\n", *a.IntrospectionOptions)
 	_, _ = fmt.Fprintf(buf, "Insecure: %v\n", a.Insecure)
 	_, _ = fmt.Fprintf(buf, "AccessListFile: %s\n", a.AccessListFile)
@@ -151,6 +169,10 @@ func (a *Args) String() string {
 	_, _ = fmt.Fprintf(buf, "SinkAddress: %v\n", a.SinkAddress)
 	_, _ = fmt.Fprintf(buf, "SinkAuthMode: %v\n", a.SinkAuthMode)
 	_, _ = fmt.Fprintf(buf, "SinkMeta: %v\n", a.SinkMeta)
+	_, _ = fmt.Fprintf(buf, "KeepAlive.MaxServerConnectionAge: %v\n", a.KeepAlive.MaxServerConnectionAge)
+	_, _ = fmt.Fprintf(buf, "KeepAlive.MaxServerConnectionAgeGrace: %v\n", a.KeepAlive.MaxServerConnectionAgeGrace)
+	_, _ = fmt.Fprintf(buf, "KeepAlive.Time: %v\n", a.KeepAlive.Time)
+	_, _ = fmt.Fprintf(buf, "KeepAlive.Timeout: %v\n", a.KeepAlive.Timeout)
 
 	return buf.String()
 }

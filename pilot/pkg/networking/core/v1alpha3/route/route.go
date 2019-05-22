@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // Headers with special meaning in Envoy
@@ -550,6 +550,28 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
 		out.Headers = append(out.Headers, &matcher)
 	}
 
+	for name, stringMatch := range in.QueryParams {
+		matcher := translateQueryParamMatch(name, stringMatch)
+		out.QueryParameters = append(out.QueryParameters, &matcher)
+	}
+
+	return out
+}
+
+// translateQueryParamMatch translates a StringMatch to a QueryParameterMatcher.
+func translateQueryParamMatch(name string, in *networking.StringMatch) route.QueryParameterMatcher {
+	out := route.QueryParameterMatcher{
+		Name: name,
+	}
+
+	switch m := in.MatchType.(type) {
+	case *networking.StringMatch_Exact:
+		out.Value = m.Exact
+	case *networking.StringMatch_Regex:
+		out.Value = m.Regex
+		out.Regex = &types.BoolValue{Value: true}
+	}
+
 	return out
 }
 
@@ -585,7 +607,14 @@ func translateCORSPolicy(in *networking.CorsPolicy, node *model.Proxy) *route.Co
 	}
 
 	if util.IsProxyVersionGE11(node) {
-		out.EnabledSpecifier = &route.CorsPolicy_FilterEnabled{}
+		out.EnabledSpecifier = &route.CorsPolicy_FilterEnabled{
+			FilterEnabled: &core.RuntimeFractionalPercent{
+				DefaultValue: &xdstype.FractionalPercent{
+					Numerator:   100,
+					Denominator: xdstype.FractionalPercent_HUNDRED,
+				},
+			},
+		}
 	} else {
 		out.EnabledSpecifier = &route.CorsPolicy_Enabled{Enabled: &types.BoolValue{Value: true}}
 	}

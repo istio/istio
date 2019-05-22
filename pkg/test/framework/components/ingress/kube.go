@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -55,7 +56,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 		// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
 		// port.
-		n := cfg.Istio.Settings().SystemNamespace
+		n := cfg.Istio.Settings().IngressNamespace
 		if env.Settings().Minikube {
 			pods, err := env.GetPods(n, fmt.Sprintf("istio=%s", istioLabel))
 			if err != nil {
@@ -159,4 +160,13 @@ func (c *kubeComponent) Call(path string) (CallResponse, error) {
 	}
 
 	return response, nil
+}
+
+func (c *kubeComponent) CallOrFail(t test.Failer, path string) CallResponse {
+	t.Helper()
+	resp, err := c.Call(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp
 }

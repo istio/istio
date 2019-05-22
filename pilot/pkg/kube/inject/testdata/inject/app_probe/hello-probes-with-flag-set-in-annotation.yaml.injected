@@ -69,6 +69,8 @@ spec:
         - 1m0s
         - --discoveryAddress
         - istio-pilot:15010
+        - --dnsRefreshRate
+        - 300s
         - --connectTimeout
         - 1s
         - --proxyAdminPort
@@ -104,6 +106,8 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
+        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
+          value: 80,90
         - name: ISTIO_METAJSON_ANNOTATIONS
           value: |
             {"sidecar.istio.io/rewriteAppHTTPProbers":"true"}
@@ -129,7 +133,7 @@ spec:
         resources:
           limits:
             cpu: "2"
-            memory: 128Mi
+            memory: 1Gi
           requests:
             cpu: 100m
             memory: 128Mi

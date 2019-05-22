@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/tmpl"
 	util "istio.io/istio/tests/integration/mixer"
 )
@@ -40,26 +41,30 @@ var (
 
 // Port of TestMetric
 func TestIngessToPrometheus_ServiceMetric(t *testing.T) {
-	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
-
-	ctx.RequireOrSkip(t, environment.Kube)
-
-	label := "source_workload"
-	labelValue := "istio-ingressgateway"
-	testMetric(t, ctx, label, labelValue)
+	framework.
+		NewTest(t).
+		// TODO(https://github.com/istio/istio/issues/12750)
+		Label(label.Flaky).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			label := "source_workload"
+			labelValue := "istio-ingressgateway"
+			testMetric(t, ctx, label, labelValue)
+		})
 }
 
 // Port of TestMetric
 func TestIngessToPrometheus_IngressMetric(t *testing.T) {
-	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
-
-	ctx.RequireOrSkip(t, environment.Kube)
-
-	label := "destination_service"
-	labelValue := "productpage.{{.TestNamespace}}.svc.cluster.local"
-	testMetric(t, ctx, label, labelValue)
+	framework.
+		NewTest(t).
+		// TODO(https://github.com/istio/istio/issues/12750)
+		Label(label.Flaky).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			label := "destination_service"
+			labelValue := "productpage.{{.TestNamespace}}.svc.cluster.local"
+			testMetric(t, ctx, label, labelValue)
+		})
 }
 
 func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValue string) { // nolint:interfacer
@@ -135,55 +140,61 @@ func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValu
 
 // Port of TestTcpMetric
 func TestTcpMetric(t *testing.T) {
-	framework.Run(t, func(ctx framework.TestContext) {
-		ctx.RequireOrSkip(t, environment.Kube)
+	framework.
+		NewTest(t).
+		// TODO(https://github.com/istio/istio/issues/12750)
+		Label(label.Flaky).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			bookinfoNs, err := namespace.New(ctx, "istio-bookinfo", true)
+			if err != nil {
+				t.Fatalf("Could not create istio-bookinfo Namespace; err:%v", err)
+			}
+			d := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
+			_ = bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoRatingsv2})
+			_ = bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoDb})
 
-		bookinfoNs, err := namespace.New(ctx, "istio-bookinfo", true)
-		if err != nil {
-			t.Fatalf("Could not create istio-bookinfo Namespace; err:%v", err)
-		}
-		d := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
-		_ = bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoRatingsv2})
-		_ = bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoDb})
+			g := galley.NewOrFail(t, ctx, galley.Config{})
+			_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
 
-		g := galley.NewOrFail(t, ctx, galley.Config{})
-		_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
+			g.ApplyConfigOrFail(
+				t,
+				d.Namespace(),
+				bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
+			g.ApplyConfigOrFail(
+				t,
+				d.Namespace(),
+				bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+				bookinfo.NetworkingTCPDbRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+			)
 
-		g.ApplyConfigOrFail(
-			t,
-			d.Namespace(),
-			bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
-		g.ApplyConfigOrFail(
-			t,
-			d.Namespace(),
-			bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-			bookinfo.NetworkingTCPDbRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-		)
+			util.AllowRuleSync(t)
 
-		util.AllowRuleSync(t)
+			prom := prometheus.NewOrFail(t, ctx)
+			ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
 
-		prom := prometheus.NewOrFail(t, ctx)
-		ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
+			err = util.VisitProductPage(ing, 30*time.Second, 200, t)
+			if err != nil {
+				t.Fatalf("unable to retrieve 200 from product page: %v", err)
+			}
 
-		err = util.VisitProductPage(ing, 30*time.Second, 200, t)
-		if err != nil {
-			t.Fatalf("unable to retrieve 200 from product page: %v", err)
-		}
+			query := fmt.Sprintf("sum(istio_tcp_sent_bytes_total{destination_app=\"%s\"})", "mongodb")
+			util.ValidateMetric(t, prom, query, "istio_tcp_sent_bytes_total")
 
-		query := fmt.Sprintf("sum(istio_tcp_sent_bytes_total{destination_app=\"%s\"})", "mongodb")
-		util.ValidateMetric(t, prom, query, "istio_tcp_sent_bytes_total")
+			query = fmt.Sprintf("sum(istio_tcp_received_bytes_total{destination_app=\"%s\"})", "mongodb")
+			util.ValidateMetric(t, prom, query, "istio_tcp_received_bytes_total")
 
-		query = fmt.Sprintf("sum(istio_tcp_received_bytes_total{destination_app=\"%s\"})", "mongodb")
-		util.ValidateMetric(t, prom, query, "istio_tcp_received_bytes_total")
+			query = fmt.Sprintf("sum(istio_tcp_connections_opened_total{destination_app=\"%s\"})", "mongodb")
+			util.ValidateMetric(t, prom, query, "istio_tcp_connections_opened_total")
 
-		query = fmt.Sprintf("sum(istio_tcp_connections_opened_total{destination_app=\"%s\"})", "mongodb")
-		util.ValidateMetric(t, prom, query, "istio_tcp_connections_opened_total")
-
-		query = fmt.Sprintf("sum(istio_tcp_connections_closed_total{destination_app=\"%s\"})", "mongodb")
-		util.ValidateMetric(t, prom, query, "istio_tcp_connections_closed_total")
-	})
+			query = fmt.Sprintf("sum(istio_tcp_connections_closed_total{destination_app=\"%s\"})", "mongodb")
+			util.ValidateMetric(t, prom, query, "istio_tcp_connections_closed_total")
+		})
 }
 
 func TestMain(m *testing.M) {
-	framework.Main("mixer_policy_ratelimit", m, istio.SetupOnKube(&ist, nil))
+	framework.
+		NewSuite("mixer_policy_ratelimit", m).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		Run()
 }

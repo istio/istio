@@ -23,7 +23,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/version"
-	"k8s.io/kubernetes/pkg/kubectl/genericclioptions/resource"
+	"k8s.io/cli-runtime/pkg/genericclioptions/resource"
 )
 
 type mockClientExecPreCheckConfig struct {
@@ -66,6 +66,27 @@ func TestPreCheck(t *testing.T) {
 				namespace: "istio-system",
 			},
 			expectedException: true,
+		},
+		{description: "Valid Istio System",
+			config: &mockClientExecPreCheckConfig{
+				version:   version1_13,
+				namespace: "test",
+				authConfig: &authorizationapi.SelfSubjectAccessReview{
+					Spec: authorizationapi.SelfSubjectAccessReviewSpec{
+						ResourceAttributes: &authorizationapi.ResourceAttributes{
+							Namespace: "test",
+							Verb:      "create",
+							Group:     "test",
+							Version:   "test",
+							Resource:  "test",
+						},
+					},
+					Status: authorizationapi.SubjectAccessReviewStatus{
+						Allowed: true,
+					},
+				},
+			},
+			expectedException: false,
 		},
 		{description: "Lacking Permission",
 			config: &mockClientExecPreCheckConfig{
@@ -119,8 +140,7 @@ func verifyOutput(t *testing.T, c testcase) {
 
 	clientExecFactory = mockPreCheckClient(c.config)
 	var out bytes.Buffer
-	ns := "istio-system"
-	verifyInstallCmd := NewVerifyCommand(&ns)
+	verifyInstallCmd := NewVerifyCommand()
 	verifyInstallCmd.SetOutput(&out)
 	fErr := verifyInstallCmd.Execute()
 	output := out.String()

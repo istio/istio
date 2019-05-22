@@ -89,7 +89,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 	if !listenPort.Protocol.IsTLS() {
 		return nil
 	}
-
+	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	// TLS matches are composed of runtime and static predicates.
 	// Static predicates can be evaluated during the generation of the config. Examples: gateway, source labels, etc.
 	// Runtime predicates cannot be evaluated during config generation. Instead the proxy must be configured to
@@ -173,7 +173,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 			svcListenAddress = ""
 		}
 
-		if len(destinationCIDR) > 0 || len(svcListenAddress) == 0 || svcListenAddress == WildcardAddress {
+		if len(destinationCIDR) > 0 || len(svcListenAddress) == 0 || svcListenAddress == actualWildcard {
 			sniHosts = []string{string(service.Hostname)}
 		}
 

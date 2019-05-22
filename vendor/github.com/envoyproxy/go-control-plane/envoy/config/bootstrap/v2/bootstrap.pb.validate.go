@@ -242,6 +242,8 @@ func (m *Bootstrap) Validate() error {
 		}
 	}
 
+	// no validation rules for EnableDispatcherStats
+
 	return nil
 }
 

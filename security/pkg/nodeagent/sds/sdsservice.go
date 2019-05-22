@@ -35,9 +35,9 @@ import (
 	"google.golang.org/grpc/status"
 
 	pmodel "istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/model"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -159,6 +159,11 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				return err
 			}
 
+			if resourceName == "" {
+				log.Infof("Received empty resource name from %q", discReq.Node.Id)
+				continue
+			}
+
 			con.proxyID = discReq.Node.Id
 			con.ResourceName = resourceName
 
@@ -197,7 +202,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// wait for secret before sending SDS response. If a kubernetes secret was deleted by operator, wait
 			// for a new kubernetes secret before sending SDS response.
 			if s.st.ShouldWaitForIngressGatewaySecret(con.conID, resourceName, token) {
-				log.Debugf("Waiting for ingress gateway secret resource %q, connectionID %q, node %q\n", resourceName, con.conID, discReq.Node.Id)
+				log.Warnf("Waiting for ingress gateway secret resource %q, connectionID %q, node %q\n", resourceName, con.conID, discReq.Node.Id)
 				continue
 			}
 
@@ -288,6 +293,10 @@ func NotifyProxy(conID, resourceName string, secret *model.SecretItem) error {
 func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (string /*resourceName*/, error) {
 	if discReq.Node.Id == "" {
 		return "", fmt.Errorf("discovery request %+v missing node id", discReq)
+	}
+
+	if len(discReq.ResourceNames) == 0 {
+		return "", nil
 	}
 
 	if len(discReq.ResourceNames) == 1 {

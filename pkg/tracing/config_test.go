@@ -26,7 +26,7 @@ import (
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/uber/jaeger-client-go/transport/zipkin"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 func TestConfigure(t *testing.T) {

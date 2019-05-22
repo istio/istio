@@ -18,13 +18,44 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
 	ist istio.Instance
+	g   galley.Instance
+	p   pilot.Instance
 )
 
 func TestMain(m *testing.M) {
-	framework.Main("reachability_test", m, istio.SetupOnKube(&ist, nil))
+	framework.
+		NewSuite("reachability_test", m).
+		RequireEnvironment(environment.Kube).
+		Label(label.CustomSetup).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
+		Setup(func(ctx resource.Context) (err error) {
+			if g, err = galley.New(ctx, galley.Config{}); err != nil {
+				return err
+			}
+			if p, err = pilot.New(ctx, pilot.Config{
+				Galley: g,
+			}); err != nil {
+				return err
+			}
+			return nil
+		}).
+		Run()
+}
+
+func setupConfig(cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	// TODO(https://github.com/istio/istio/issues/14084) remove this
+	cfg.Values["pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE"] = "0"
 }

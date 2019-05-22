@@ -42,7 +42,7 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 
 	// Environment defines the networks with:
 	//  - 1 gateway for network1
-	//  - 1 gateway for network2
+	//  - 2 gateway for network2
 	//  - 1 gateway for network3
 	//  - 0 gateways for network4
 	env := environment()
@@ -179,6 +179,174 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 	}
 }
 
+func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
+
+	//  - 1 gateway for network1
+	//  - 1 gateway for network2
+	//  - 1 gateway for network3
+	//  - 0 gateways for network4
+	env := environment()
+	env.MeshNetworks.Networks["network2"] = &meshconfig.Network{
+		Endpoints: []*meshconfig.Network_NetworkEndpoints{
+			{
+				Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{
+					FromRegistry: "cluster2",
+				},
+			},
+		},
+		Gateways: []*meshconfig.Network_IstioNetworkGateway{
+			{
+				Gw: &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{
+					RegistryServiceName: "istio-ingressgateway.istio-system.svc.cluster.local",
+				},
+				Port: 80,
+			},
+		},
+	}
+
+	gwSvcName := model.Hostname("istio-ingressgateway.istio-system.svc.cluster.local")
+	serviceDiscovery := NewMemServiceDiscovery(map[model.Hostname]*model.Service{
+		gwSvcName: {
+			Hostname: gwSvcName,
+			Attributes: model.ServiceAttributes{
+				ClusterExternalAddresses: map[string][]string{
+					"cluster2": {"2.2.2.2"},
+				},
+			},
+		},
+	}, 0)
+
+	env.ServiceDiscovery = serviceDiscovery
+
+	// Test endpoints creates:
+	//  - 2 endpoints in network1
+	//  - 1 endpoints in network2
+	//  - 0 endpoints in network3
+	//  - 1 endpoints in network4
+	testEndpoints := testEndpoints()
+
+	// The tests below are calling the endpoints filter from each one of the
+	// networks and examines the returned filtered endpoints
+	tests := []struct {
+		name      string
+		endpoints []endpoint.LocalityLbEndpoints
+		conn      *XdsConnection
+		env       *model.Environment
+		want      []LocLbEpInfo
+	}{
+		{
+			name:      "from_network1",
+			conn:      xdsConnection("network1"),
+			env:       env,
+			endpoints: testEndpoints,
+			want: []LocLbEpInfo{
+				{
+					lbEps: []LbEpInfo{
+						// 2 local endpoints
+						{address: "10.0.0.1", weight: 1},
+						{address: "10.0.0.2", weight: 1},
+						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
+						{address: "2.2.2.2", weight: 1},
+					},
+					weight: 3,
+				},
+			},
+		},
+		{
+			name:      "from_network2",
+			conn:      xdsConnection("network2"),
+			env:       env,
+			endpoints: testEndpoints,
+			want: []LocLbEpInfo{
+				{
+					lbEps: []LbEpInfo{
+						// 1 local endpoint
+						{address: "20.0.0.1", weight: 1},
+						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
+						{address: "1.1.1.1", weight: 2},
+					},
+					weight: 3,
+				},
+			},
+		},
+		{
+			name:      "from_network3",
+			conn:      xdsConnection("network3"),
+			env:       env,
+			endpoints: testEndpoints,
+			want: []LocLbEpInfo{
+				{
+					lbEps: []LbEpInfo{
+						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
+						{address: "1.1.1.1", weight: 2},
+						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
+						{address: "2.2.2.2", weight: 1},
+					},
+					weight: 3,
+				},
+			},
+		},
+		{
+			name:      "from_network4",
+			conn:      xdsConnection("network4"),
+			env:       env,
+			endpoints: testEndpoints,
+			want: []LocLbEpInfo{
+				{
+					lbEps: []LbEpInfo{
+						// 1 local endpoint
+						{address: "40.0.0.1", weight: 1},
+						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
+						{address: "1.1.1.1", weight: 2},
+						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
+						{address: "2.2.2.2", weight: 1},
+					},
+					weight: 4,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filtered := EndpointsByNetworkFilter(tt.endpoints, tt.conn, tt.env)
+			if len(filtered) != len(tt.want) {
+				t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(filtered), len(tt.want))
+				return
+			}
+
+			sort.Slice(filtered, func(i, j int) bool {
+				addrI := filtered[i].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
+				addrJ := filtered[j].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
+				return addrI < addrJ
+			})
+
+			for i, ep := range filtered {
+				if len(ep.LbEndpoints) != len(tt.want[i].lbEps) {
+					t.Errorf("Unexpected number of LB endpoints within endpoint %d: %v, want %v", i, len(ep.LbEndpoints), len(tt.want[i].lbEps))
+				}
+
+				if ep.LoadBalancingWeight.GetValue() != tt.want[i].weight {
+					t.Errorf("Unexpected weight for endpoint %d: got %v, want %v", i, ep.LoadBalancingWeight.GetValue(), tt.want[i].weight)
+				}
+
+				for _, lbEp := range ep.LbEndpoints {
+					addr := lbEp.GetEndpoint().Address.GetSocketAddress().Address
+					found := false
+					for _, wantLbEp := range tt.want[i].lbEps {
+						if addr == wantLbEp.address {
+							found = true
+							break
+						}
+					}
+					if !found {
+						t.Errorf("Unexpected address for endpoint %d: %v", i, addr)
+					}
+				}
+			}
+		})
+	}
+}
+
 func xdsConnection(network string) *XdsConnection {
 	var metadata map[string]string
 	if network != "" {
@@ -193,11 +361,12 @@ func xdsConnection(network string) *XdsConnection {
 
 // environment creates an Environment object with the following MeshNetworks configurations:
 //  - 1 gateway for network1
-//  - 1 gateway for network2
+//  - 2 gateway for network2
 //  - 1 gateway for network3
 //  - 0 gateways for network4
 func environment() *model.Environment {
 	return &model.Environment{
+		ServiceDiscovery: NewMemServiceDiscovery(nil, 0),
 		MeshNetworks: &meshconfig.MeshNetworks{
 			Networks: map[string]*meshconfig.Network{
 				"network1": {
@@ -264,7 +433,6 @@ func testEndpoints() []endpoint.LocalityLbEndpoints {
 			},
 		},
 	}
-
 }
 
 func createLbEndpoints(lbEpsInfo []LbEpInfo) []endpoint.LbEndpoint {

@@ -18,7 +18,13 @@ import (
 	"fmt"
 	"sync"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
+)
+
+var (
+	// singleton object of identity registry
+	reg  Registry
+	once sync.Once
 )
 
 // Registry is the standard interface for identity registry implementation
@@ -83,17 +89,12 @@ func (reg *IdentityRegistry) DeleteMapping(id1, id2 string) error {
 	return nil
 }
 
-var (
-	// singleton object of identity registry
-	reg Registry
-)
-
-// GetIdentityRegistry returns the identity registry object
+// GetIdentityRegistry returns the identity registry object.
 func GetIdentityRegistry() Registry {
-	if reg == nil {
+	once.Do(func() {
 		reg = &IdentityRegistry{
 			Map: make(map[string]string),
 		}
-	}
+	})
 	return reg
 }

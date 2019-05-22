@@ -24,7 +24,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
-	gax "github.com/googleapis/gax-go"
+	gax "github.com/googleapis/gax-go/v2"
 	xcontext "golang.org/x/net/context"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 	grpcstatus "google.golang.org/genproto/googleapis/rpc/status"

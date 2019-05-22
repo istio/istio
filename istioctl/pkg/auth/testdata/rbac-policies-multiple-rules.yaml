@@ -1,0 +1,24 @@
+# Since there are two rules, this ServiceRole will be converting into two ServiceRoles, one with a rule.
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: service-viewer
+  namespace: default
+spec:
+  rules:
+  - services: ["productpage.svc.cluster.local"]
+    methods: ["GET"]
+  - services: ["ratings.svc.cluster.local"]
+    methods: ["POST"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: bind-service-viewer
+  namespace: default
+spec:
+  subjects:
+    - user: "foo"
+  roleRef:
+    kind: ServiceRole
+    name: "service-viewer"

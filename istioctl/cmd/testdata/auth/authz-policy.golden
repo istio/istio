@@ -1,0 +1,31 @@
+apiVersion: rbac.istio.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: bind-productpage-viewer
+  namespace: default
+spec:
+  allow:
+  - role: productpage-viewer
+    subjects:
+    - properties:
+        source.namespace: istio-system
+    - groups:
+      - bar
+      names:
+      - foo
+  workloadSelector:
+    labels:
+      app: productpage
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRole
+metadata:
+  name: productpage-viewer
+  namespace: default
+spec:
+  rules:
+  - constraints:
+    - key: destination.labels[version]
+      values:
+      - v3
+---
