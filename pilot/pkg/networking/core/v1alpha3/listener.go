@@ -1436,6 +1436,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.HttpFilters = filters
 	connectionManager.StatPrefix = httpOpts.statPrefix
+	connectionManager.NormalizePath = proto.BoolTrue
 	if httpOpts.useRemoteAddress {
 		connectionManager.UseRemoteAddress = proto.BoolTrue
 	} else {
