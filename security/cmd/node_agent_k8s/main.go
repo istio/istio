@@ -111,7 +111,7 @@ const (
 
 	// The environmental variable name for staled connection recycle job running interval.
 	// example value format like "5m"
-	staledConnectionRecycleInterval = "STALED_CONNECTION_RECYCLE_RUN_INTERVAL"
+	staledConnectionRecycleInterval     = "STALED_CONNECTION_RECYCLE_RUN_INTERVAL"
 	staledConnectionRecycleIntervalFlag = "staledConnectionRecycleInterval"
 )
 
@@ -208,23 +208,23 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 }
 
 var (
-	pluginNamesEnv                = env.RegisterStringVar(pluginNames, "", "").Get()
-	enableWorkloadSDSEnv          = env.RegisterBoolVar(enableWorkloadSDS, true, "").Get()
-	enableIngressGatewaySDSEnv    = env.RegisterBoolVar(enableIngressGatewaySDS, false, "").Get()
-	alwaysValidTokenFlagEnv       = env.RegisterBoolVar(alwaysValidTokenFlag, false, "").Get()
-	skipValidateCertFlagEnv       = env.RegisterBoolVar(skipValidateCertFlag, false, "").Get()
-	caProviderEnv                 = env.RegisterStringVar(caProvider, "", "").Get()
-	caEndpointEnv                 = env.RegisterStringVar(caEndpoint, "", "").Get()
-	trustDomainEnv                = env.RegisterStringVar(trustDomain, "", "").Get()
-	vaultAddressEnv               = env.RegisterStringVar(vaultAddress, "", "").Get()
-	vaultRoleEnv                  = env.RegisterStringVar(vaultRole, "", "").Get()
-	vaultAuthPathEnv              = env.RegisterStringVar(vaultAuthPath, "", "").Get()
-	vaultSignCsrPathEnv           = env.RegisterStringVar(vaultSignCsrPath, "", "").Get()
-	vaultTLSRootCertEnv           = env.RegisterStringVar(vaultTLSRootCert, "", "").Get()
-	secretTTLEnv                  = env.RegisterDurationVar(secretTTL, 24*time.Hour, "").Get()
-	secretRefreshGraceDurationEnv = env.RegisterDurationVar(SecretRefreshGraceDuration, 1*time.Hour, "").Get()
-	secretRotationIntervalEnv     = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
-	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5 * time.Minute, "").Get()
+	pluginNamesEnv                     = env.RegisterStringVar(pluginNames, "", "").Get()
+	enableWorkloadSDSEnv               = env.RegisterBoolVar(enableWorkloadSDS, true, "").Get()
+	enableIngressGatewaySDSEnv         = env.RegisterBoolVar(enableIngressGatewaySDS, false, "").Get()
+	alwaysValidTokenFlagEnv            = env.RegisterBoolVar(alwaysValidTokenFlag, false, "").Get()
+	skipValidateCertFlagEnv            = env.RegisterBoolVar(skipValidateCertFlag, false, "").Get()
+	caProviderEnv                      = env.RegisterStringVar(caProvider, "", "").Get()
+	caEndpointEnv                      = env.RegisterStringVar(caEndpoint, "", "").Get()
+	trustDomainEnv                     = env.RegisterStringVar(trustDomain, "", "").Get()
+	vaultAddressEnv                    = env.RegisterStringVar(vaultAddress, "", "").Get()
+	vaultRoleEnv                       = env.RegisterStringVar(vaultRole, "", "").Get()
+	vaultAuthPathEnv                   = env.RegisterStringVar(vaultAuthPath, "", "").Get()
+	vaultSignCsrPathEnv                = env.RegisterStringVar(vaultSignCsrPath, "", "").Get()
+	vaultTLSRootCertEnv                = env.RegisterStringVar(vaultTLSRootCert, "", "").Get()
+	secretTTLEnv                       = env.RegisterDurationVar(secretTTL, 24*time.Hour, "").Get()
+	secretRefreshGraceDurationEnv      = env.RegisterDurationVar(SecretRefreshGraceDuration, 1*time.Hour, "").Get()
+	secretRotationIntervalEnv          = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
+	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute, "").Get()
 )
 
 func applyEnvVars(cmd *cobra.Command) {
@@ -345,7 +345,7 @@ func main() {
 		24*time.Hour, "Secret eviction time duration")
 
 	rootCmd.PersistentFlags().DurationVar(&serverOptions.RecycleInterval, staledConnectionRecycleIntervalFlag,
-		5 * time.Minute, "Staled connection recycle interval.")
+		5*time.Minute, "Staled connection recycle interval.")
 
 	rootCmd.PersistentFlags().BoolVar(&workloadSdsCacheOptions.AlwaysValidTokenFlag, alwaysValidTokenFlagFlag,
 		false,
