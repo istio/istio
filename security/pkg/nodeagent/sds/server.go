@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
+	"istio.io/istio/pkg/version"
 	"istio.io/pkg/log"
 )
 
@@ -118,6 +119,7 @@ func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.Se
 		log.Infof("SDS gRPC server for ingress gateway controller starts, listening on %q \n",
 			options.IngressGatewayUDSPath)
 	}
+	version.Info.RecordComponentBuildTag("citadel_agent")
 
 	return s, nil
 }

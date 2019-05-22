@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 
+	"istio.io/istio/pkg/version"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/registry"
@@ -211,6 +212,9 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 			log.Infof("added generatl JWT authenticator")
 		}
 	}
+
+	version.Info.RecordComponentBuildTag("citadel")
+
 	return &Server{
 		authenticators: authenticators,
 		authorizer:     &registryAuthorizor{registry.GetIdentityRegistry()},
