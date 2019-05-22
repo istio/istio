@@ -134,7 +134,7 @@ require (
 	github.com/opentracing/opentracing-go v1.0.2
 	github.com/openzipkin/zipkin-go v0.1.6
 	github.com/ory/dockertest v3.3.4+incompatible // indirect
-	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
+	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pborman/uuid v0.0.0-20170612153648-e790cca94e6c // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/philhofer/fwd v1.0.0 // indirect

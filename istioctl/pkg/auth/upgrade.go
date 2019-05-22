@@ -21,8 +21,9 @@ import (
 	"io/ioutil"
 	"strconv"
 	"strings"
+	"time"
 
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/ghodss/yaml"
@@ -32,10 +33,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 
-	rbacproto "istio.io/api/rbac/v1alpha1"
+	"github.com/patrickmn/go-cache"
 )
+
+var c = cache.New(30*time.Minute, 10*time.Minute)
 
 // WorkloadLabels is the workload labels, for example, app: productpage.
 type WorkloadLabels map[string]string
@@ -276,8 +280,15 @@ func (ug *Upgrader) addServiceToWorkloadLabelMapping(namespace, serviceName stri
 		return nil
 	}
 
-	// TODO: cache the Service.
 	var service *v1.Service
+	// check if the cache exists
+	if s, found := c.Get(namespace + ":" + serviceName); found {
+		if svc, ok := s.(*v1.Service); ok {
+			service = svc
+			goto Initialized
+		}
+	}
+
 	if len(ug.ServiceFiles) != 0 {
 		svc := v1.Service{}
 		for _, filename := range ug.ServiceFiles {
@@ -314,6 +325,11 @@ func (ug *Upgrader) addServiceToWorkloadLabelMapping(namespace, serviceName stri
 	if service.Spec.Selector == nil {
 		return fmt.Errorf("failed because service %q does not have selector", serviceName)
 	}
+
+	// cache the service
+	c.Set(namespace+":"+serviceName, service, cache.DefaultExpiration)
+
+Initialized:
 	// Maps need to be initialized (from lowest level outwards) before we can write to them.
 	if _, found := ug.NamespaceToServiceToWorkloadLabels[namespace][serviceName]; !found {
 		if _, found := ug.NamespaceToServiceToWorkloadLabels[namespace]; !found {
