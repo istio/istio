@@ -7,6 +7,7 @@ hub: docker.io/prom
 tag: v2.8.0
 retention: 6h
 nodeSelector: {}
+tolerations: []
 
 # Specify the pod anti-affinity that allows you to constrain which nodes
 # your pod is eligible to be scheduled based on labels on pods that are

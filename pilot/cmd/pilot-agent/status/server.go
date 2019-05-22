@@ -29,6 +29,8 @@ import (
 	"syscall"
 	"time"
 
+	"istio.io/istio/pilot/pkg/model"
+
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/pkg/log"
 
@@ -65,6 +67,7 @@ type Config struct {
 	ApplicationPorts []uint16
 	// KubeAppHTTPProbers is a json with Kubernetes application HTTP prober config encoded.
 	KubeAppHTTPProbers string
+	NodeType           model.NodeType
 }
 
 // Server provides an endpoint for handling status probes.
@@ -84,6 +87,7 @@ func NewServer(config Config) (*Server, error) {
 			LocalHostAddr:    config.LocalHostAddr,
 			AdminPort:        config.AdminPort,
 			ApplicationPorts: config.ApplicationPorts,
+			NodeType:         config.NodeType,
 		},
 	}
 	if config.KubeAppHTTPProbers == "" {

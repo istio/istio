@@ -1,16 +1,4 @@
 apiVersion: rbac.istio.io/v1alpha1
-kind: ServiceRole
-metadata:
-  name: productpage-viewer
-  namespace: default
-spec:
-  rules:
-  - constraints:
-    - key: destination.labels[version]
-      values:
-      - v3
----
-apiVersion: rbac.istio.io/v1alpha1
 kind: AuthorizationPolicy
 metadata:
   name: bind-productpage-viewer
@@ -28,4 +16,16 @@ spec:
   workloadSelector:
     labels:
       app: productpage
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRole
+metadata:
+  name: productpage-viewer
+  namespace: default
+spec:
+  rules:
+  - constraints:
+    - key: destination.labels[version]
+      values:
+      - v3
 ---

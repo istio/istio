@@ -47,7 +47,7 @@ spec:
         - --zipkinAddress
         - ""
         - --dnsRefreshRate
-        - 5s
+        - 300s
         - --connectTimeout
         - 1s
         - --proxyAdminPort
@@ -102,7 +102,7 @@ spec:
         resources:
           limits:
             cpu: "2"
-            memory: 128Mi
+            memory: 1Gi
           requests:
             cpu: 100m
             memory: 128Mi
