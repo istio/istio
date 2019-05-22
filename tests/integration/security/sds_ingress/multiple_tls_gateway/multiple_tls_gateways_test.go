@@ -62,7 +62,7 @@ func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 	defer g.DeleteConfigOrFail(t, bookinfoNs, bVirtualServiceDeployment)
 
 	ingressutil.CreateIngressKubeSecret(t, ctx, credNames)
-	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist, IngressType: ingress.Tls, CaCert: ingressutil.CaCert})
+	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCert})
 
 	// Warm up
 	err = ingressutil.VisitProductPage(ing, 30*time.Second, 200, t)

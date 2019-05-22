@@ -34,22 +34,20 @@ var (
 
 func TestMain(m *testing.M) {
 	// Integration test for the ingress SDS multiple Gateway flow.
-	framework.
-		NewSuite("sds_ingress_multiple_tls_gateways_test", m).
-		RequireEnvironment(environment.Kube).
+	framework.NewSuite("sds_ingress_multiple_tls_gateways_test", m).
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
-			Setup(func(ctx resource.Context) (err error) {
-				if g, err = galley.New(ctx, galley.Config{}); err != nil {
-					return err
-				}
-				if p, err = pilot.New(ctx, pilot.Config{
-					Galley: g,
-				}); err != nil {
-					return err
-				}
-				return nil
-			}).
+		Setup(func(ctx resource.Context) (err error) {
+			if g, err = galley.New(ctx, galley.Config{}); err != nil {
+				return err
+			}
+			if p, err = pilot.New(ctx, pilot.Config{
+				Galley: g,
+			}); err != nil {
+				return err
+			}
+			return nil
+		}).
 		Run()
 
 }
@@ -59,7 +57,7 @@ func setupConfig(cfg *istio.Config) {
 		return
 	}
 	cfg.Values["gateways.istio-ingressgateway.sds.enabled"] = "true"
-
+	cfg.Values["gateways.istio-egressgateway.enabled"] = "false"
 	// TODO(https://github.com/istio/istio/issues/14084) remove this
 	cfg.Values["pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE"] = "0"
 }
