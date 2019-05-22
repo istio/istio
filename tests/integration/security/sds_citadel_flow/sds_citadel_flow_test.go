@@ -26,9 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
@@ -39,7 +37,7 @@ func TestSdsCitadelCaFlow(t *testing.T) {
 
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 
-			systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 			ns := namespace.NewOrFail(t, ctx, "reachability", true)
 
 			ports := []echo.Port{
@@ -85,16 +83,8 @@ func TestSdsCitadelCaFlow(t *testing.T) {
 				},
 			}
 
-			// Apply the policy to the system namespace.
-			deployment := tmpl.EvaluateOrFail(t, file.AsStringOrFail(t, "testdata/global-mtls.yaml"),
-				map[string]string{
-					"Namespace": ns.Name(),
-				})
-			g.ApplyConfigOrFail(t, systemNS, deployment)
-			defer g.DeleteConfigOrFail(t, systemNS, deployment)
-
-			// Sleep 3 seconds for the policy to take effect.
-			time.Sleep(3 * time.Second)
+			// Sleep 10 seconds for the policy to take effect.
+			time.Sleep(10 * time.Second)
 
 			for _, checker := range checkers {
 				retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
