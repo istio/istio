@@ -19,7 +19,7 @@ export USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
 export CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 # This is config for postsubmit cluster under istio/tools/perf/istio.
 export VALUES="${VALUES:-values-istio-postsubmit.yaml}"
-export DNS_DOMAIN="fake_dns.org"
+export DNS_DOMAIN="fake-dns.org"
 
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
