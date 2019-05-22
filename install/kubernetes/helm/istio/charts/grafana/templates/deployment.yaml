@@ -38,7 +38,7 @@ spec:
 {{- end }}
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.hub }}/grafana:{{ .Values.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 3000

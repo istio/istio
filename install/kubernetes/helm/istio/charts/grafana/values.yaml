@@ -3,9 +3,8 @@
 #
 enabled: false
 replicaCount: 1
-image:
-  repository: grafana/grafana
-  tag: 6.1.6
+hub: docker.io/grafana
+tag: 6.1.6
 ingress:
   enabled: false
   ## Used to create an Ingress record.
