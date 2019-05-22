@@ -111,7 +111,7 @@ const (
 
 	// The environmental variable name for staled connection recycle job running interval.
 	// example value format like "5m"
-	staledConnectionRecycleInterval     = "STALED_CONNECTION_RECYCLE_RUN_INTERVAL"
+	staledConnectionRecycleInterval = "STALED_CONNECTION_RECYCLE_RUN_INTERVAL"
 )
 
 var (
@@ -290,6 +290,8 @@ func applyEnvVars(cmd *cobra.Command) {
 	if !cmd.Flag(skipValidateCertFlag).Changed {
 		workloadSdsCacheOptions.SkipValidateCert = skipValidateCertFlagEnv
 	}
+
+	serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
 }
 
 var defaultInitialBackoff = 10
