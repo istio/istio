@@ -27,6 +27,9 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
 
+	networkingapi "istio.io/api/networking/v1alpha3"
+	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -351,6 +354,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 
 // SvcUpdate is a callback from service discovery when service info changes.
 func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, rports map[uint32]string) {
+	inboundUpdates.With(prometheus.Labels{"type": "svc"}).Add(1)
 	pc := s.globalPushContext()
 	// In 1.0 Services and configs are only from the 'primary' K8S cluster.
 	if cluster == string(serviceregistry.KubernetesRegistry) {
@@ -405,6 +409,7 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 
 // WorkloadUpdate is called when workload labels/annotations are updated.
 func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ map[string]string) {
+	inboundUpdates.With(prometheus.Labels{"type": "workload"}).Add(1)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if labels == nil {
@@ -466,6 +471,7 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ 
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
 func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
 	istioEndpoints []*model.IstioEndpoint) error {
+	inboundUpdates.With(prometheus.Labels{"type": "eds"}).Add(1)
 	s.edsUpdate(shard, serviceName, istioEndpoints, false)
 	return nil
 }
@@ -712,11 +718,11 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 			// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
 			clonedCLA := util.CloneClusterLoadAssignment(l)
 			l = &clonedCLA
-			// TODO(#12961) get outlierDetection from the cluster
-			// For now, we should default to allowing Failover rather than rejecting. Even if we do not know
-			// what the outlierDetection is for the Cluster, it is reasonable to require the user to provide
-			// outlier detection without enforcing this in code, as this is an alpha feature behind a flag.
-			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting, true)
+
+			// Failover should only be enabled when there is an outlier detection, otherwise Envoy
+			// will never detect the hosts are unhealthy and redirect traffic.
+			enableFailover := hasOutlierDetection(push, con.modelNode, clusterName)
+			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting, enableFailover)
 		}
 
 		endpoints += len(l.Endpoints)
@@ -743,6 +749,49 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 			con.modelNode.ID, len(con.Clusters), endpoints, empty)
 	}
 	return nil
+}
+
+// getDestinationRule gets the DestinationRule for a given hostname. As an optimization, this also gets the service port,
+// which is needed to access the traffic policy from the destination rule.
+func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname model.Hostname, clusterPort int) (*networkingapi.DestinationRule, *model.Port) {
+	for _, service := range push.Services(proxy) {
+		if service.Hostname == hostname {
+			config := push.DestinationRule(proxy, service)
+			if config == nil {
+				continue
+			}
+			for _, p := range service.Ports {
+				if p.Port == clusterPort {
+					return config.Spec.(*networkingapi.DestinationRule), p
+				}
+			}
+		}
+	}
+	return nil, nil
+}
+
+func hasOutlierDetection(push *model.PushContext, proxy *model.Proxy, clusterName string) bool {
+	_, subsetName, hostname, portNumber := model.ParseSubsetKey(clusterName)
+
+	destinationRule, port := getDestinationRule(push, proxy, hostname, portNumber)
+	if destinationRule == nil || port == nil {
+		return false
+	}
+
+	_, outlierDetection, _, _ := networking.SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, port)
+	if outlierDetection != nil {
+		return true
+	}
+
+	for _, subset := range destinationRule.Subsets {
+		if subset.Name == subsetName {
+			_, outlierDetection, _, _ := networking.SelectTrafficPolicyComponents(subset.TrafficPolicy, port)
+			if outlierDetection != nil {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // addEdsCon will track the eds connection with clusters, for optimized event-based push and debug

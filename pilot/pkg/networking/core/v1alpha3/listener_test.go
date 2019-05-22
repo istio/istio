@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -312,21 +313,41 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 					Hosts: []string{"*/*"},
 				},
 				{
+					Port: &networking.Port{
+						Number:   3306,
+						Protocol: string(model.ProtocolMySQL),
+						Name:     "MySQL",
+					},
+					Bind:  "8.8.8.8",
+					Hosts: []string{"*/*"},
+				},
+				{
 					Hosts: []string{"*/*"},
 				},
 			},
 		},
 	}
+
+	// enable mysql filter that is used here
+	os.Setenv("PILOT_ENABLE_MYSQL_FILTER", "true")
+
+	defer os.Unsetenv("PILOT_ENABLE_MYSQL_FILTER")
+
 	listeners := buildOutboundListeners(p, sidecarConfig, services...)
-	if len(listeners) != 2 {
-		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
+	if len(listeners) != 3 {
+		t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
 	}
 
-	if isHTTPListener(listeners[0]) {
-		t.Fatal("expected TCP listener on port 8080, found HTTP")
+	if listener := findListenerByPort(listeners, 8080); isHTTPListener(listener) {
+		t.Fatalf("expected TCP listener on port 8080, found HTTP: %v", listener)
 	}
-	if !isHTTPListener(listeners[1]) {
-		t.Fatal("expected HTTP listener on port 9000, found TCP")
+
+	if listener := findListenerByPort(listeners, 3306); !isMysqlListener(listener) {
+		t.Fatalf("expected MySQL listener on port 3306, found %v", listener)
+	}
+
+	if listener := findListenerByPort(listeners, 9000); !isHTTPListener(listener) {
+		t.Fatalf("expected HTTP listener on port 9000, found TCP\n%v", listener)
 	}
 }
 
@@ -566,10 +587,31 @@ func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.Filt
 }
 
 func isHTTPListener(listener *xdsapi.Listener) bool {
+	if listener == nil {
+		return false
+	}
+
 	if len(listener.FilterChains) > 0 && len(listener.FilterChains[0].Filters) > 0 {
 		return listener.FilterChains[0].Filters[0].Name == "envoy.http_connection_manager"
 	}
 	return false
+}
+
+func isMysqlListener(listener *xdsapi.Listener) bool {
+	if len(listener.FilterChains) > 0 && len(listener.FilterChains[0].Filters) > 0 {
+		return listener.FilterChains[0].Filters[0].Name == xdsutil.MySQLProxy
+	}
+	return false
+}
+
+func findListenerByPort(listeners []*xdsapi.Listener, port uint32) *xdsapi.Listener {
+	for _, l := range listeners {
+		if port == l.Address.GetSocketAddress().GetPortValue() {
+			return l
+		}
+	}
+
+	return nil
 }
 
 func buildService(hostname string, ip string, protocol model.Protocol, creationTime time.Time) *model.Service {

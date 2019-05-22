@@ -31,6 +31,7 @@ from json2html import *
 import logging
 import requests
 import os
+import asyncio
 
 # These two lines enable debugging at httplib level (requests->urllib3->http.client)
 # You will see the REQUEST, including HEADERS and DATA, and RESPONSE with HEADERS but without DATA.
@@ -57,9 +58,8 @@ from flask_bootstrap import Bootstrap
 Bootstrap(app)
 
 servicesDomain = "" if (os.environ.get("SERVICES_DOMAIN") == None) else "." + os.environ.get("SERVICES_DOMAIN")
-detailsHostname = "details" if (os.environ.get("DETAILS_HOSTNAME") == None) else os.environ.get("DETAILS_HOSTNAME")
-ratingsHostname = "ratings" if (os.environ.get("RATINGS_HOSTNAME") == None) else os.environ.get("RATINGS_HOSTNAME")
-reviewsHostname = "reviews" if (os.environ.get("REVIEWS_HOSTNAME") == None) else os.environ.get("REVIEWS_HOSTNAME")
+
+flood_factor = 0 if (os.environ.get("FLOOD_FACTOR") == None) else int(os.environ.get("FLOOD_FACTOR"))
 
 details = {
     "name" : "http://{0}{1}:9080".format(detailsHostname, servicesDomain),
@@ -226,6 +226,20 @@ def logout():
     session.pop('user', None)
     return response
 
+# a helper function for asyncio.gather, does not return a value
+async def getProductReviewsIgnoreResponse(product_id, headers):
+    getProductReviews(product_id, headers)
+
+# flood reviews with unnecessary requests to demonstrate Istio rate limiting, asynchoronously
+async def floodReviewsAsynchronously(product_id, headers):
+    # the response is disregarded
+    await asyncio.gather(*(getProductReviewsIgnoreResponse(product_id, headers) for _ in range(flood_factor)))
+
+# flood reviews with unnecessary requests to demonstrate Istio rate limiting
+def floodReviews(product_id, headers):
+    loop = asyncio.new_event_loop()
+    loop.run_until_complete(floodReviewsAsynchronously(product_id, headers))
+    loop.close()
 
 @app.route('/productpage')
 @trace()
@@ -235,6 +249,10 @@ def front():
     user = session.get('user', '')
     product = getProduct(product_id)
     detailsStatus, details = getProductDetails(product_id, headers)
+
+    if flood_factor > 0:
+        floodReviews(product_id, headers)
+
     reviewsStatus, reviews = getProductReviews(product_id, headers)
     return render_template(
         'productpage.html',

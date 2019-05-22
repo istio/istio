@@ -161,6 +161,11 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				return err
 			}
 
+			if resourceName == "" {
+				log.Infof("Received empty resource name from %q", discReq.Node.Id)
+				continue
+			}
+
 			con.proxyID = discReq.Node.Id
 			con.ResourceName = resourceName
 
@@ -290,6 +295,10 @@ func NotifyProxy(conID, resourceName string, secret *model.SecretItem) error {
 func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (string /*resourceName*/, error) {
 	if discReq.Node.Id == "" {
 		return "", fmt.Errorf("discovery request %+v missing node id", discReq)
+	}
+
+	if len(discReq.ResourceNames) == 0 {
+		return "", nil
 	}
 
 	if len(discReq.ResourceNames) == 1 {

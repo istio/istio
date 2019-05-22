@@ -20,9 +20,11 @@ import (
 	"path"
 	"reflect"
 	"regexp"
+	"strings"
 	"testing"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -30,6 +32,27 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/test/env"
+)
+
+type stats struct {
+	prefixes string
+	suffixes string
+	regexps  string
+}
+
+var (
+	// The following set of inclusions add minimal upstream and downstream metrics.
+	// Upstream metrics record client side measurements.
+	// Downstream metrics record server side measurements.
+	upstreamStatsSuffixes = "upstream_rq_1xx,upstream_rq_2xx,upstream_rq_3xx,upstream_rq_4xx,upstream_rq_5xx," +
+		"upstream_rq_time,upstream_cx_tx_bytes_total,upstream_cx_rx_bytes_total,upstream_cx_total"
+
+	// example downstream metric: http.10.16.48.230_8080.downstream_rq_2xx
+	// http.<pod_ip>_<port>.downstream_rq_2xx
+	// This metric is collected at the inbound listener at a sidecar.
+	// All the other downstream metrics at a sidecar are from the application to the local sidecar.
+	downstreamStatsSuffixes = "downstream_rq_1xx,downstream_rq_2xx,downstream_rq_3xx,downstream_rq_4xx,downstream_rq_5xx," +
+		"downstream_rq_time,downstream_cx_tx_bytes_total,downstream_cx_rx_bytes_total,downstream_cx_total"
 )
 
 // Generate configs for the default configs used by istio.
@@ -46,6 +69,7 @@ func TestGolden(t *testing.T) {
 		labels                     map[string]string
 		annotations                map[string]string
 		expectLightstepAccessToken bool
+		stats                      stats
 	}{
 		{
 			base: "auth",
@@ -83,8 +107,34 @@ func TestGolden(t *testing.T) {
 		{
 			base: "stats_inclusion",
 			annotations: map[string]string{
-				"sidecar.istio.io/statsInclusionPrefixes": "cluster_manager,cluster.xds-grpc,listener.",
+				"sidecar.istio.io/statsInclusionPrefixes": "prefix1,prefix2",
+				"sidecar.istio.io/statsInclusionSuffixes": "suffix1,suffix2",
 			},
+			stats: stats{prefixes: "prefix1,prefix2",
+				suffixes: "suffix1,suffix2"},
+		},
+		{
+			base: "stats_inclusion",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsInclusionSuffixes": upstreamStatsSuffixes + "," + downstreamStatsSuffixes,
+			},
+			stats: stats{
+				suffixes: upstreamStatsSuffixes + "," + downstreamStatsSuffixes},
+		},
+		{
+			base: "stats_inclusion",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsInclusionPrefixes": "http.{pod_ip}_",
+			},
+			// {pod_ip} is unrolled
+			stats: stats{prefixes: "http.10.3.3.3_,http.10.4.4.4_,http.10.5.5.5_,http.10.6.6.6_"},
+		},
+		{
+			base: "stats_inclusion",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsInclusionRegexps": "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time",
+			},
+			stats: stats{regexps: "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time"},
 		},
 	}
 
@@ -160,6 +210,8 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("invalid json %v\n%s", err, string(read))
 			}
 
+			checkStatsMatcher(t, &realM, &goldenM, c.stats)
+
 			if !reflect.DeepEqual(realM, goldenM) {
 				s, _ := diff.PrettyDiff(realM, goldenM)
 				t.Logf("difference: %s", s)
@@ -184,6 +236,59 @@ func TestGolden(t *testing.T) {
 		})
 	}
 
+}
+
+func checkListStringMatcher(t *testing.T, got *matcher.ListStringMatcher, want string, typ string) {
+	var patterns []string
+	for _, pattern := range got.GetPatterns() {
+		var pat string
+		switch typ {
+		case "prefix":
+			pat = pattern.GetPrefix()
+		case "suffix":
+			pat = pattern.GetSuffix()
+		case "regexp":
+			pat = pattern.GetRegex()
+		}
+
+		if pat != "" {
+			patterns = append(patterns, pat)
+		}
+	}
+	gotPattern := strings.Join(patterns, ",")
+	if want != gotPattern {
+		t.Fatalf("%s mismatch:\ngot: %s\nwant: %s", typ, gotPattern, want)
+	}
+}
+
+func checkStatsMatcher(t *testing.T, got, want *v2.Bootstrap, stats stats) {
+	gsm := got.GetStatsConfig().GetStatsMatcher()
+
+	if stats.prefixes == "" {
+		stats.prefixes = requiredEnvoyStatsMatcherInclusionPrefixes
+	} else {
+		stats.prefixes += "," + requiredEnvoyStatsMatcherInclusionPrefixes
+	}
+
+	if err := gsm.Validate(); err != nil {
+		t.Fatalf("Generated invalid matcher: %v", err)
+	}
+
+	checkListStringMatcher(t, gsm.GetInclusionList(), stats.prefixes, "prefix")
+	checkListStringMatcher(t, gsm.GetInclusionList(), stats.suffixes, "suffix")
+	checkListStringMatcher(t, gsm.GetInclusionList(), stats.regexps, "regexp")
+
+	// remove StatsMatcher for general matching
+	got.StatsConfig.StatsMatcher = nil
+	want.StatsConfig.StatsMatcher = nil
+
+	// remove StatsMatcher metadata from matching
+	delete(got.Node.Metadata.Fields, EnvoyStatsMatcherInclusionPrefixes)
+	delete(want.Node.Metadata.Fields, EnvoyStatsMatcherInclusionPrefixes)
+	delete(got.Node.Metadata.Fields, EnvoyStatsMatcherInclusionSuffixes)
+	delete(want.Node.Metadata.Fields, EnvoyStatsMatcherInclusionSuffixes)
+	delete(got.Node.Metadata.Fields, EnvoyStatsMatcherInclusionRegexps)
+	delete(want.Node.Metadata.Fields, EnvoyStatsMatcherInclusionRegexps)
 }
 
 type regexReplacement struct {

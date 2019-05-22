@@ -43,6 +43,14 @@ func TestDefaultArgs(t *testing.T) {
 	if a.Insecure {
 		t.Fatal("Default of Insecure should be false")
 	}
+
+	if a.InitialWindowSize != 1024*1024 {
+		t.Fatal("Default of InitialWindowSize should be 1024 * 1024")
+	}
+
+	if a.InitialConnectionWindowSize != 1024*1024*16 {
+		t.Fatal("Default of InitialConnectionWindowSize should be 1024 * 1024 * 16")
+	}
 }
 
 func TestArgs_String(t *testing.T) {

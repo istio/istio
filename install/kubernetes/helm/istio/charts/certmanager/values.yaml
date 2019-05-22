@@ -8,6 +8,7 @@ hub: quay.io/jetstack
 tag: v0.6.2
 resources: {}
 nodeSelector: {}
+tolerations: []
 
 # Specify the pod anti-affinity that allows you to constrain which nodes
 # your pod is eligible to be scheduled based on labels on pods that are

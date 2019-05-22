@@ -18,6 +18,14 @@ istio-ingressgateway:
     # SDS server that watches kubernetes secrets and provisions credentials to ingress gateway.
     # This server runs in the same pod as ingress gateway.
     image: node-agent-k8s
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 2000m
+        memory: 1024Mi
+
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
@@ -32,7 +40,7 @@ istio-ingressgateway:
       memory: 128Mi
     limits:
       cpu: 2000m
-      memory: 256Mi
+      memory: 1024Mi
   cpu:
     targetAverageUtilization: 80
   loadBalancerIP: ""
@@ -108,12 +116,22 @@ istio-ingressgateway:
     secretName: istio-ingressgateway-ca-certs
     mountPath: /etc/istio/ingressgateway-ca-certs
   ### Advanced options ############
+
+  # Ports to explicitly check for readiness. If configured, the readiness check will expect a
+  # listener on these ports. A comma separated list is expected, such as "80,443".
+  #
+  # Warning: If you do not have a gateway configured for the ports provided, this check will always
+  # fail. This is intended for use cases where you always expect to have a listener on the port,
+  # such as 80 or 443 in typical setups.
+  applicationPorts: ""
+
   env:
     # A gateway with this mode ensures that pilot generates an additional
     # set of clusters for internal services but without Istio mTLS, to
     # enable cross cluster routing.
     ISTIO_META_ROUTER_MODE: "sni-dnat"
   nodeSelector: {}
+  tolerations: []
 
   # Specify the pod anti-affinity that allows you to constrain which nodes
   # your pod is eligible to be scheduled based on labels on pods that are
@@ -189,6 +207,7 @@ istio-egressgateway:
     # enable cross cluster routing.
     ISTIO_META_ROUTER_MODE: "sni-dnat"
   nodeSelector: {}
+  tolerations: []
   
   # Specify the pod anti-affinity that allows you to constrain which nodes
   # your pod is eligible to be scheduled based on labels on pods that are
@@ -259,3 +278,4 @@ istio-ilbgateway:
     secretName: istio-ilbgateway-ca-certs
     mountPath: /etc/istio/ilbgateway-ca-certs
   nodeSelector: {}
+  tolerations: []

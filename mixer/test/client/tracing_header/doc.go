@@ -12,9 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package resource
-
-// Resetter is an interface that is implemented by resources that can be reset between executions within contexts.
-type Resetter interface {
-	Reset() error
-}
+// Package client contains an integration test for istio proxy and pilot plugin for mixer HTTP filter.
+package client

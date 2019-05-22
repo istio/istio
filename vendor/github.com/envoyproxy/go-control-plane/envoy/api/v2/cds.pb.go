@@ -321,7 +321,7 @@ type Cluster struct {
 	// :ref:`STRICT_DNS<envoy_api_enum_value_Cluster.DiscoveryType.STRICT_DNS>`
 	// or :ref:`LOGICAL_DNS<envoy_api_enum_value_Cluster.DiscoveryType.LOGICAL_DNS>` clusters.
 	// This field supersedes :ref:`hosts<envoy_api_field_Cluster.hosts>` field.
-	// [#comment:TODO(dio): Deprecate the hosts field and add it to DEPRECATED.md
+	// [#comment:TODO(dio): Deprecate the hosts field and add it to :ref:`deprecated log<deprecated>`
 	// once load_assignment is implemented.]
 	//
 	// .. attention::

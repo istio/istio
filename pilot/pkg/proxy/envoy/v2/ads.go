@@ -160,6 +160,11 @@ var (
 		Name: "pilot_total_xds_internal_errors",
 		Help: "Total number of internal XDS errors in pilot (check logs).",
 	})
+
+	inboundUpdates = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "pilot_inbound_updates",
+		Help: "Total number of updates received by pilot.",
+	}, []string{"type"})
 )
 
 func init() {
@@ -181,6 +186,7 @@ func init() {
 	prometheus.MustRegister(proxiesConvergeDelay)
 	prometheus.MustRegister(pushContextErrors)
 	prometheus.MustRegister(totalXDSInternalErrors)
+	prometheus.MustRegister(inboundUpdates)
 }
 
 // DiscoveryStream is a common interface for EDS and ADS. It also has a
@@ -436,7 +442,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// CDS REQ is the first request an envoy makes. This shows up
 				// immediately after connect. It is followed by EDS REQ as
 				// soon as the CDS push is returned.
-				adsLog.Infof("ADS:CDS: REQ %v %s %v raw: %s", peerAddr, con.ConID, time.Since(t0), discReq.String())
+				adsLog.Infof("ADS:CDS: REQ %v %s %v version:%s", peerAddr, con.ConID, time.Since(t0), discReq.VersionInfo)
 				con.CDSWatch = true
 				err := s.pushCds(con, s.globalPushContext(), versionInfo())
 				if err != nil {
