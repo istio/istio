@@ -108,6 +108,11 @@ const (
 	// example value format like "20m"
 	SecretRotationInterval     = "SECRET_JOB_RUN_INTERVAL"
 	secretRotationIntervalFlag = "secretRotationInterval"
+
+	// The environmental variable name for staled connection recycle job running interval.
+	// example value format like "5m"
+	staledConnectionRecycleInterval = "STALED_CONNECTION_RECYCLE_RUN_INTERVAL"
+	staledConnectionRecycleIntervalFlag = "staledConnectionRecycleInterval"
 )
 
 var (
@@ -219,6 +224,7 @@ var (
 	secretTTLEnv                  = env.RegisterDurationVar(secretTTL, 24*time.Hour, "").Get()
 	secretRefreshGraceDurationEnv = env.RegisterDurationVar(SecretRefreshGraceDuration, 1*time.Hour, "").Get()
 	secretRotationIntervalEnv     = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
+	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5 * time.Minute, "").Get()
 )
 
 func applyEnvVars(cmd *cobra.Command) {
@@ -236,6 +242,10 @@ func applyEnvVars(cmd *cobra.Command) {
 
 	if !cmd.Flag(alwaysValidTokenFlagFlag).Changed {
 		serverOptions.AlwaysValidTokenFlag = alwaysValidTokenFlagEnv
+	}
+
+	if !cmd.Flag(staledConnectionRecycleIntervalFlag).Changed {
+		serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
 	}
 
 	if !cmd.Flag(caProviderFlag).Changed {
@@ -333,6 +343,9 @@ func main() {
 
 	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.EvictionDuration, "secretEvictionDuration",
 		24*time.Hour, "Secret eviction time duration")
+
+	rootCmd.PersistentFlags().DurationVar(&serverOptions.RecycleInterval, staledConnectionRecycleIntervalFlag,
+		5 * time.Minute, "Staled connection recycle interval.")
 
 	rootCmd.PersistentFlags().BoolVar(&workloadSdsCacheOptions.AlwaysValidTokenFlag, alwaysValidTokenFlagFlag,
 		false,
