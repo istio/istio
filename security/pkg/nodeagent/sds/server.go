@@ -16,6 +16,7 @@ package sds
 
 import (
 	"fmt"
+	"istio.io/pkg/log"
 	"net"
 	"os"
 	"time"
@@ -103,18 +104,18 @@ func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.Se
 	}
 	if options.EnableWorkloadSDS {
 		if err := s.initWorkloadSdsService(&options); err != nil {
-			scope.Errorf("Failed to initialize secret discovery service for workload proxies: %v", err)
+			log.Errorf("Failed to initialize secret discovery service for workload proxies: %v", err)
 			return nil, err
 		}
-		scope.Infof("SDS gRPC server for workload UDS starts, listening on %q \n", options.WorkloadUDSPath)
+		log.Infof("SDS gRPC server for workload UDS starts, listening on %q \n", options.WorkloadUDSPath)
 	}
 
 	if options.EnableIngressGatewaySDS {
 		if err := s.initGatewaySdsService(&options); err != nil {
-			scope.Errorf("Failed to initialize secret discovery service for ingress gateway: %v", err)
+			log.Errorf("Failed to initialize secret discovery service for ingress gateway: %v", err)
 			return nil, err
 		}
-		scope.Infof("SDS gRPC server for ingress gateway controller starts, listening on %q \n",
+		log.Infof("SDS gRPC server for ingress gateway controller starts, listening on %q \n",
 			options.IngressGatewayUDSPath)
 	}
 
@@ -163,20 +164,20 @@ func (s *Server) initWorkloadSdsService(options *Options) error { //nolint: unpa
 	var err error
 	s.grpcWorkloadListener, err = setUpUds(options.WorkloadUDSPath)
 	if err != nil {
-		scope.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
+		log.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
 	}
 
 	go func() {
-		scope.Info("Start SDS grpc server")
+		log.Info("Start SDS grpc server")
 		waitTime := time.Second
 		for i := 0; i < maxRetryTimes; i++ {
 			// Retry if Serve() fails
 			if err = s.grpcWorkloadServer.Serve(s.grpcWorkloadListener); err != nil {
-				scope.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
+				log.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
 			}
 			s.grpcWorkloadListener, err = setUpUds(options.WorkloadUDSPath)
 			if err != nil {
-				scope.Errorf("SDS grpc server for workload proxies failed to set up UDS: %v", err)
+				log.Errorf("SDS grpc server for workload proxies failed to set up UDS: %v", err)
 			}
 			time.Sleep(waitTime)
 			waitTime *= 2
@@ -193,21 +194,21 @@ func (s *Server) initGatewaySdsService(options *Options) error {
 	var err error
 	s.grpcGatewayListener, err = setUpUds(options.IngressGatewayUDSPath)
 	if err != nil {
-		scope.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
+		log.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
 		return fmt.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
 	}
 
 	go func() {
-		scope.Info("Start SDS grpc server for ingress gateway proxy")
+		log.Info("Start SDS grpc server for ingress gateway proxy")
 		waitTime := time.Second
 		for i := 0; i < maxRetryTimes; i++ {
 			// Retry if Serve() fails
 			if err = s.grpcGatewayServer.Serve(s.grpcGatewayListener); err != nil {
-				scope.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
+				log.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
 			}
 			s.grpcGatewayListener, err = setUpUds(options.IngressGatewayUDSPath)
 			if err != nil {
-				scope.Errorf("SDS grpc server for ingress gateway proxy failed to set up UDS: %v", err)
+				log.Errorf("SDS grpc server for ingress gateway proxy failed to set up UDS: %v", err)
 			}
 			time.Sleep(waitTime)
 			waitTime *= 2
@@ -221,24 +222,24 @@ func setUpUds(udsPath string) (net.Listener, error) {
 	// Remove unix socket before use.
 	if err := os.Remove(udsPath); err != nil && !os.IsNotExist(err) {
 		// Anything other than "file not found" is an error.
-		scope.Errorf("Failed to remove unix://%s: %v", udsPath, err)
+		log.Errorf("Failed to remove unix://%s: %v", udsPath, err)
 		return nil, fmt.Errorf("failed to remove unix://%s", udsPath)
 	}
 
 	var err error
 	udsListener, err := net.Listen("unix", udsPath)
 	if err != nil {
-		scope.Errorf("Failed to listen on unix socket %q: %v", udsPath, err)
+		log.Errorf("Failed to listen on unix socket %q: %v", udsPath, err)
 		return nil, err
 	}
 
 	// Update SDS UDS file permission so that istio-proxy has permission to access it.
 	if _, err := os.Stat(udsPath); err != nil {
-		scope.Errorf("SDS uds file %q doesn't exist", udsPath)
+		log.Errorf("SDS uds file %q doesn't exist", udsPath)
 		return nil, fmt.Errorf("sds uds file %q doesn't exist", udsPath)
 	}
 	if err := os.Chmod(udsPath, 0666); err != nil {
-		scope.Errorf("Failed to update %q permission", udsPath)
+		log.Errorf("Failed to update %q permission", udsPath)
 		return nil, fmt.Errorf("failed to update %q permission", udsPath)
 	}
 
@@ -253,7 +254,7 @@ func (s *Server) grpcServerOptions(options *Options) []grpc.ServerOption {
 	if options.CertFile != "" && options.KeyFile != "" {
 		creds, err := credentials.NewServerTLSFromFile(options.CertFile, options.KeyFile)
 		if err != nil {
-			scope.Errorf("Failed to load TLS keys: %s", err)
+			log.Errorf("Failed to load TLS keys: %s", err)
 			return nil
 		}
 		grpcOptions = append(grpcOptions, grpc.Creds(creds))

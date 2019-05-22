@@ -34,7 +34,8 @@ var (
 
 func TestMain(m *testing.M) {
 	// Integration test for the ingress SDS multiple Gateway flow.
-	framework.NewSuite("sds_ingress_multiple_tls_gateways_test", m).
+	framework.
+		NewSuite("sds_ingress_multiple_tls_gateways_test", m).
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {

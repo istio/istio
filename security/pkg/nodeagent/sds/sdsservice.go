@@ -59,8 +59,6 @@ var (
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
-
-	scope = log.RegisterScope("citadelagent", "citadel agent debugging", 0)
 )
 
 type discoveryStream interface {
@@ -129,7 +127,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 		ctx = stream.Context()
 		t, err := getCredentialToken(ctx)
 		if err != nil {
-			scope.Errorf("Failed to get credential token from incoming request: %v", err)
+			log.Errorf("Failed to get credential token from incoming request: %v", err)
 			return err
 		}
 		token = t
@@ -151,13 +149,13 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 
 			if discReq.Node == nil {
-				scope.Errorf("Invalid discovery request with no node")
+				log.Errorf("Invalid discovery request with no node")
 				return fmt.Errorf("invalid discovery request with no node")
 			}
 
 			resourceName, err := parseDiscoveryRequest(discReq)
 			if err != nil {
-				scope.Errorf("Failed to parse discovery request: %v", err)
+				log.Errorf("Failed to parse discovery request: %v", err)
 				return err
 			}
 
@@ -188,15 +186,15 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// request's <token, resourceName, Version>, then this request is a confirmation request.
 			// nodeagent stops sending response to envoy in this case.
 			if discReq.VersionInfo != "" && s.st.SecretExist(con.conID, resourceName, token, discReq.VersionInfo) {
-				scope.Debugf("Received SDS ACK from %q, connectionID %q, resourceName %q, versionInfo %q\n", discReq.Node.Id, con.conID, resourceName, discReq.VersionInfo)
+				log.Debugf("Received SDS ACK from %q, connectionID %q, resourceName %q, versionInfo %q\n", discReq.Node.Id, con.conID, resourceName, discReq.VersionInfo)
 				continue
 			}
 
 			if firstRequestFlag {
-				scope.Debugf("Received first SDS request from %q, connectionID %q, resourceName %q, versionInfo %q\n",
+				log.Debugf("Received first SDS request from %q, connectionID %q, resourceName %q, versionInfo %q\n",
 					discReq.Node.Id, con.conID, resourceName, discReq.VersionInfo)
 			} else {
-				scope.Debugf("Received SDS request from %q, connectionID %q, resourceName %q, versionInfo %q\n",
+				log.Debugf("Received SDS request from %q, connectionID %q, resourceName %q, versionInfo %q\n",
 					discReq.Node.Id, con.conID, resourceName, discReq.VersionInfo)
 			}
 
@@ -204,13 +202,13 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// wait for secret before sending SDS response. If a kubernetes secret was deleted by operator, wait
 			// for a new kubernetes secret before sending SDS response.
 			if s.st.ShouldWaitForIngressGatewaySecret(con.conID, resourceName, token) {
-				scope.Warnf("Waiting for ingress gateway secret resource %q, connectionID %q, node %q\n", resourceName, con.conID, discReq.Node.Id)
+				log.Warnf("Waiting for ingress gateway secret resource %q, connectionID %q, node %q\n", resourceName, con.conID, discReq.Node.Id)
 				continue
 			}
 
 			secret, err := s.st.GenerateSecret(ctx, con.conID, resourceName, token)
 			if err != nil {
-				scope.Errorf("Failed to get secret for proxy %q connection %q from secret cache: %v", discReq.Node.Id, con.conID, err)
+				log.Errorf("Failed to get secret for proxy %q connection %q from secret cache: %v", discReq.Node.Id, con.conID, err)
 				return err
 			}
 			con.secret = secret
@@ -223,23 +221,23 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}()
 
 			if err := pushSDS(con); err != nil {
-				scope.Errorf("SDS failed to push key/cert to proxy %q connection %q: %v", con.proxyID, con.conID, err)
+				log.Errorf("SDS failed to push key/cert to proxy %q connection %q: %v", con.proxyID, con.conID, err)
 				return err
 			}
 		case <-con.pushChannel:
-			scope.Debugf("Received push channel request for proxy %q connection %q", con.proxyID, con.conID)
+			log.Debugf("Received push channel request for proxy %q connection %q", con.proxyID, con.conID)
 
 			if con.secret == nil {
 				// Secret is nil indicates close streaming to proxy, so that proxy
 				// could connect again with updated token.
 				// When nodeagent stops stream by sending envoy error response, it's Ok not to remove secret
 				// from secret cache because cache has auto-evication.
-				scope.Debugf("Close streaming for proxy %q connection %q", con.proxyID, con.conID)
+				log.Debugf("Close streaming for proxy %q connection %q", con.proxyID, con.conID)
 				return fmt.Errorf("streaming for proxy %q connection %q closed", con.proxyID, con.conID)
 			}
 
 			if err := pushSDS(con); err != nil {
-				scope.Errorf("SDS failed to push key/cert to proxy %q connection %q: %v", con.proxyID, con.conID, err)
+				log.Errorf("SDS failed to push key/cert to proxy %q connection %q: %v", con.proxyID, con.conID, err)
 				return err
 			}
 		}
@@ -251,7 +249,7 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 	if !s.skipToken {
 		t, err := getCredentialToken(ctx)
 		if err != nil {
-			scope.Errorf("Failed to get credential token: %v", err)
+			log.Errorf("Failed to get credential token: %v", err)
 			return nil, err
 		}
 		token = t
@@ -259,14 +257,14 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 
 	resourceName, err := parseDiscoveryRequest(discReq)
 	if err != nil {
-		scope.Errorf("Failed to parse discovery request: %v", err)
+		log.Errorf("Failed to parse discovery request: %v", err)
 		return nil, err
 	}
 
 	connID := constructConnectionID(discReq.Node.Id)
 	secret, err := s.st.GenerateSecret(ctx, connID, resourceName, token)
 	if err != nil {
-		scope.Errorf("Failed to get secret for proxy %q from secret cache: %v", connID, err)
+		log.Errorf("Failed to get secret for proxy %q from secret cache: %v", connID, err)
 		return nil, err
 	}
 	return sdsDiscoveryResponse(secret, connID)
@@ -281,7 +279,7 @@ func NotifyProxy(conID, resourceName string, secret *model.SecretItem) error {
 	}
 	conn := sdsClients[key]
 	if conn == nil {
-		scope.Errorf("No connection with id %q can be found", conID)
+		log.Errorf("No connection with id %q can be found", conID)
 		return fmt.Errorf("no connection with id %q can be found", conID)
 	}
 	conn.mutex.Lock()
@@ -348,22 +346,22 @@ func removeConn(k cache.ConnKey) {
 func pushSDS(con *sdsConnection) error {
 	response, err := sdsDiscoveryResponse(con.secret, con.conID)
 	if err != nil {
-		scope.Errorf("SDS: Failed to construct response %v", err)
+		log.Errorf("SDS: Failed to construct response %v", err)
 		return err
 	}
 
 	if err = con.stream.Send(response); err != nil {
-		scope.Errorf("SDS: Send response failure %v", err)
+		log.Errorf("SDS: Send response failure %v", err)
 		return err
 	}
 
 	con.mutex.RLock()
 	if con.secret.RootCert != nil {
-		scope.Infof("SDS: push root cert from node agent to proxy connection: %q\n", con.conID)
-		scope.Debugf("SDS: push root cert %+v to proxy connection: %q\n", string(con.secret.RootCert), con.conID)
+		log.Infof("SDS: push root cert from node agent to proxy connection: %q\n", con.conID)
+		log.Debugf("SDS: push root cert %+v to proxy connection: %q\n", string(con.secret.RootCert), con.conID)
 	} else {
-		scope.Infof("SDS: push key/cert pair from node agent to proxy: %q\n", con.conID)
-		scope.Debugf("SDS: push certificate chain %+v to proxy connection: %q\n", string(con.secret.CertificateChain), con.conID)
+		log.Infof("SDS: push key/cert pair from node agent to proxy: %q\n", con.conID)
+		log.Debugf("SDS: push certificate chain %+v to proxy connection: %q\n", string(con.secret.CertificateChain), con.conID)
 	}
 	con.mutex.RUnlock()
 
@@ -378,7 +376,7 @@ func sdsDiscoveryResponse(s *model.SecretItem, conID string) (*xdsapi.DiscoveryR
 	}
 
 	if s == nil {
-		scope.Errorf("SDS: got nil secret for proxy connection %q", conID)
+		log.Errorf("SDS: got nil secret for proxy connection %q", conID)
 		return resp, nil
 	}
 
@@ -414,7 +412,7 @@ func sdsDiscoveryResponse(s *model.SecretItem, conID string) (*xdsapi.DiscoveryR
 
 	ms, err := types.MarshalAny(secret)
 	if err != nil {
-		scope.Errorf("Failed to mashal secret for proxy %q: %v", conID, err)
+		log.Errorf("Failed to mashal secret for proxy %q: %v", conID, err)
 		return nil, err
 	}
 	resp.Resources = append(resp.Resources, *ms)
@@ -436,11 +434,11 @@ func receiveThread(con *sdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 		req, err := con.stream.Recv()
 		if err != nil {
 			if status.Code(err) == codes.Canceled || err == io.EOF {
-				scope.Infof("SDS: connection with %q terminated %v", con.conID, err)
+				log.Infof("SDS: connection with %q terminated %v", con.conID, err)
 				return
 			}
 			*errP = err
-			scope.Errorf("SDS: connection with %q terminated with errors %v", con.conID, err)
+			log.Errorf("SDS: connection with %q terminated with errors %v", con.conID, err)
 			return
 		}
 		reqChannel <- req
