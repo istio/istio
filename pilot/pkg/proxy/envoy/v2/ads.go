@@ -160,6 +160,11 @@ var (
 		Name: "pilot_total_xds_internal_errors",
 		Help: "Total number of internal XDS errors in pilot (check logs).",
 	})
+
+	inboundUpdates = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "pilot_inbound_updates",
+		Help: "Total number of updates received by pilot.",
+	}, []string{"type"})
 )
 
 func init() {
@@ -181,6 +186,7 @@ func init() {
 	prometheus.MustRegister(proxiesConvergeDelay)
 	prometheus.MustRegister(pushContextErrors)
 	prometheus.MustRegister(totalXDSInternalErrors)
+	prometheus.MustRegister(inboundUpdates)
 }
 
 // DiscoveryStream is a common interface for EDS and ADS. It also has a
