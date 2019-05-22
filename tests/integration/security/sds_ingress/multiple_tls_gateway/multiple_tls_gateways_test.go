@@ -19,14 +19,13 @@ import (
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
-	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
-	"testing"
+
 	"time"
+	"testing"
 )
 
 var (
@@ -34,15 +33,13 @@ var (
 )
 
 func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:interfacer
+	t.Helper()
+
 	// TODO(JimmyCYJ): Add support into ingress package to test TLS/mTLS ingress gateway in Minikube
 	//  environment
 	if ctx.Environment().(*kube.Environment).Settings().Minikube {
 		t.Skip("https://github.com/istio/istio/issues/14180")
 	}
-	t.Helper()
-
-	g := galley.NewOrFail(t, ctx, galley.Config{})
-	_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
 
 	bookinfoNs, err := namespace.New(ctx, "istio-bookinfo", true)
 	if err != nil {
