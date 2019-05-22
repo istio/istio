@@ -1,0 +1,5 @@
+FROM istionightly/base_debug
+
+ADD sinkserver /usr/local/bin/fakemcpsink
+ENV PORT=6666 SINK_CONFIG=istio/networking/v1alpha3/gateways
+ENTRYPOINT /usr/local/bin/fakemcpsink --port=${PORT} --sink-config=${SINK_CONFIG}

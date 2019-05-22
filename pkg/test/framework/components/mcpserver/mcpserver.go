@@ -38,6 +38,9 @@ func NewSink(ctx resource.Context, cfg SinkConfig) (i Instance, err error) {
 	ctx.Environment().Case(environment.Native, func() {
 		i, err = newSinkNative(ctx, cfg)
 	})
+	ctx.Environment().Case(environment.Kube, func() {
+		i, err = newKube(ctx)
+	})
 	return
 }
 

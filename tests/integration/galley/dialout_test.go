@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/mcpserver"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -48,7 +47,6 @@ func TestDialout_Basic(t *testing.T) {
 	// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
 	// component
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Native).
 		Run(func(ctx framework.TestContext) {
 			srv := mcpserver.NewSinkOrFail(t, ctx, mcpserver.SinkConfig{Collections: []string{"istio/networking/v1alpha3/gateways"}})
 
