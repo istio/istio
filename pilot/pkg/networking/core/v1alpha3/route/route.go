@@ -550,6 +550,28 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
 		out.Headers = append(out.Headers, &matcher)
 	}
 
+	for name, stringMatch := range in.QueryParams {
+		matcher := translateQueryParamMatch(name, stringMatch)
+		out.QueryParameters = append(out.QueryParameters, &matcher)
+	}
+
+	return out
+}
+
+// translateQueryParamMatch translates a StringMatch to a QueryParameterMatcher.
+func translateQueryParamMatch(name string, in *networking.StringMatch) route.QueryParameterMatcher {
+	out := route.QueryParameterMatcher{
+		Name: name,
+	}
+
+	switch m := in.MatchType.(type) {
+	case *networking.StringMatch_Exact:
+		out.Value = m.Exact
+	case *networking.StringMatch_Regex:
+		out.Value = m.Regex
+		out.Regex = &types.BoolValue{Value: true}
+	}
+
 	return out
 }
 
