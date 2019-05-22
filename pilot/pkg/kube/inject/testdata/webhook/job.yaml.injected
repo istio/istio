@@ -4,6 +4,7 @@ metadata:
   creationTimestamp: null
   name: pi
 spec:
+  selector: null
   strategy: {}
   template:
     metadata:
