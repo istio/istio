@@ -17,6 +17,7 @@ package out_of_process_adapter_test
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -99,7 +100,7 @@ func TestRouteDirective(t *testing.T) {
 
 			// Retry visiting httpbin until gets "user-group" header
 			retry.UntilSuccessOrFail(t, func() error {
-				response, err = ing.CallWithHeaders("/headers", map[string]string{"user": "jason"})
+				response, err = ing.CallWithHeaders("/headers", http.Header{"user": []string{"jason"}})
 				if err != nil {
 					return fmt.Errorf("unable to connect to httpbin: %v", err)
 				}
@@ -131,7 +132,7 @@ func TestRouteDirective(t *testing.T) {
 			t.Logf("apply rule to edit path header")
 			g.ApplyConfigOrFail(t, istioSystemNs, testOOPKeyValPathRule)
 			retry.UntilSuccessOrFail(t, func() error {
-				response, err = ing.CallWithHeaders("/headers", map[string]string{"user": "jason"})
+				response, err = ing.CallWithHeaders("/headers", http.Header{"user": []string{"jason"}})
 				if err != nil {
 					return fmt.Errorf("unable to connect to httpbin: %v", err)
 				}

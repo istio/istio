@@ -15,6 +15,8 @@
 package ingress
 
 import (
+	"net/http"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -34,7 +36,7 @@ type Instance interface {
 	CallOrFail(t test.Failer, path string) CallResponse
 
 	// Call makes an HTTP call with the given headers through ingress, where the URL has the given path.
-	CallWithHeaders(path string, header map[string]string) (CallResponse, error)
+	CallWithHeaders(path string, header http.Header) (CallResponse, error)
 }
 
 type Config struct {

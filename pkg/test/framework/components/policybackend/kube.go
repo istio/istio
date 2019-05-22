@@ -84,7 +84,8 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
-  name: {{.namespace}}
+  name: {{.name}}
+  namespace: {{.mixerNamespace}}
 spec:
   params:
     backend_address: policy-backend.%s.svc.cluster.local:1071
@@ -246,6 +247,7 @@ func (c *kubeComponent) CreateConfigSnippet(name string, mixerNS string, am Adap
 	switch am {
 	case InProcess:
 		ih, err := tmpl.Evaluate(inProcessHandlerKube, map[string]interface{}{
+			"name":           name,
 			"mixerNamespace": mixerNS,
 		})
 		if err != nil {

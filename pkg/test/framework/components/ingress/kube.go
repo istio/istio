@@ -133,7 +133,7 @@ func (c *kubeComponent) Call(path string) (CallResponse, error) {
 	return c.CallWithHeaders(path, nil)
 }
 
-func (c *kubeComponent) CallWithHeaders(path string, headers map[string]string) (CallResponse, error) {
+func (c *kubeComponent) CallWithHeaders(path string, header http.Header) (CallResponse, error) {
 	client := &http.Client{
 		Timeout: 1 * time.Minute,
 	}
@@ -149,9 +149,7 @@ func (c *kubeComponent) CallWithHeaders(path string, headers map[string]string) 
 	if err != nil {
 		return CallResponse{}, err
 	}
-	for k, v := range headers {
-		req.Header.Add(k, v)
-	}
+	req.Header = header
 
 	resp, err := client.Do(req)
 	if err != nil {
