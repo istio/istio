@@ -358,6 +358,7 @@ var (
 					StatusPort:         statusPort,
 					ApplicationPorts:   parsedPorts,
 					KubeAppHTTPProbers: prober,
+					NodeType:           role.Type,
 				})
 				if err != nil {
 					return err
