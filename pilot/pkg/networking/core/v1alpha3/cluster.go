@@ -158,8 +158,19 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
 				defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-				applyTrafficPolicy(env, defaultCluster, destinationRule.TrafficPolicy, port, serviceAccounts,
-					defaultSni, DefaultClusterMode, model.TrafficDirectionOutbound, proxy)
+				opts := buildClusterOpts{
+					env:             env,
+					cluster:         defaultCluster,
+					policy:          destinationRule.TrafficPolicy,
+					port:            port,
+					serviceAccounts: serviceAccounts,
+					sni:             defaultSni,
+					clusterMode:     DefaultClusterMode,
+					direction:       model.TrafficDirectionOutbound,
+					proxy:           proxy,
+				}
+
+				applyTrafficPolicy(opts)
 				defaultCluster.Metadata = util.BuildConfigInfoMetadata(config.ConfigMeta)
 				for _, subset := range destinationRule.Subsets {
 					inputParams.Subset = subset.Name
@@ -173,11 +184,25 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					}
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy)
 					setUpstreamProtocol(subsetCluster, port)
-					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port, serviceAccounts, defaultSni,
-						DefaultClusterMode, model.TrafficDirectionOutbound, proxy)
-					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port, serviceAccounts, defaultSni,
-						DefaultClusterMode, model.TrafficDirectionOutbound, proxy)
+
+					opts := buildClusterOpts{
+						env:             env,
+						cluster:         subsetCluster,
+						policy:          destinationRule.TrafficPolicy,
+						port:            port,
+						serviceAccounts: serviceAccounts,
+						sni:             defaultSni,
+						clusterMode:     DefaultClusterMode,
+						direction:       model.TrafficDirectionOutbound,
+						proxy:           proxy,
+					}
+					applyTrafficPolicy(opts)
+
+					opts.policy = subset.TrafficPolicy
+					applyTrafficPolicy(opts)
+
 					updateEds(subsetCluster)
+
 					subsetCluster.Metadata = util.BuildConfigInfoMetadata(config.ConfigMeta)
 					// call plugins
 					for _, p := range configgen.Plugins {
@@ -223,8 +248,16 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
-				applyTrafficPolicy(env, defaultCluster, destinationRule.TrafficPolicy, port, nil, "",
-					SniDnatClusterMode, model.TrafficDirectionOutbound, proxy)
+				opts := buildClusterOpts{
+					env:         env,
+					cluster:     defaultCluster,
+					policy:      destinationRule.TrafficPolicy,
+					port:        port,
+					clusterMode: SniDnatClusterMode,
+					direction:   model.TrafficDirectionOutbound,
+					proxy:       proxy,
+				}
+				applyTrafficPolicy(opts)
 				defaultCluster.Metadata = util.BuildConfigInfoMetadata(config.ConfigMeta)
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
@@ -235,11 +268,14 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 					}
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy)
 					subsetCluster.TlsContext = nil
-					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port, nil, "",
-						SniDnatClusterMode, model.TrafficDirectionOutbound, proxy)
-					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port, nil, "",
-						SniDnatClusterMode, model.TrafficDirectionOutbound, proxy)
+
+					opts.cluster = subsetCluster
+					applyTrafficPolicy(opts)
+					opts.policy = subset.TrafficPolicy
+					applyTrafficPolicy(opts)
+
 					updateEds(subsetCluster)
+
 					subsetCluster.Metadata = util.BuildConfigInfoMetadata(config.ConfigMeta)
 					clusters = append(clusters, subsetCluster)
 				}
@@ -623,19 +659,27 @@ const (
 	DefaultClusterMode ClusterMode = "outbound"
 )
 
-// FIXME: There are too many variables here. Create a clusterOpts struct and stick the values in it, just like
-// listenerOpts
-func applyTrafficPolicy(env *model.Environment, cluster *apiv2.Cluster, policy *networking.TrafficPolicy,
-	port *model.Port, serviceAccounts []string, defaultSni string, clusterMode ClusterMode, direction model.TrafficDirection,
-	proxy *model.Proxy) {
-	connectionPool, outlierDetection, loadBalancer, tls := SelectTrafficPolicyComponents(policy, port)
+type buildClusterOpts struct {
+	env             *model.Environment
+	cluster         *apiv2.Cluster
+	policy          *networking.TrafficPolicy
+	port            *model.Port
+	serviceAccounts []string
+	sni             string
+	clusterMode     ClusterMode
+	direction       model.TrafficDirection
+	proxy           *model.Proxy
+}
 
-	applyConnectionPool(env, cluster, connectionPool, direction)
-	applyOutlierDetection(cluster, outlierDetection)
-	applyLoadBalancer(cluster, loadBalancer)
-	if clusterMode != SniDnatClusterMode {
-		tls = conditionallyConvertToIstioMtls(tls, serviceAccounts, defaultSni, proxy)
-		applyUpstreamTLSSettings(env, cluster, tls, proxy.Metadata)
+func applyTrafficPolicy(opts buildClusterOpts) {
+	connectionPool, outlierDetection, loadBalancer, tls := SelectTrafficPolicyComponents(opts.policy, opts.port)
+
+	applyConnectionPool(opts.env, opts.cluster, connectionPool, opts.direction)
+	applyOutlierDetection(opts.cluster, outlierDetection)
+	applyLoadBalancer(opts.cluster, loadBalancer)
+	if opts.clusterMode != SniDnatClusterMode {
+		tls = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.sni, opts.proxy)
+		applyUpstreamTLSSettings(opts.env, opts.cluster, tls, opts.proxy.Metadata)
 	}
 }
 
@@ -1008,8 +1052,18 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv
 	}
 
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
-	applyTrafficPolicy(env, cluster, defaultTrafficPolicy, nil, nil, "",
-		DefaultClusterMode, direction, proxy)
+	opts := buildClusterOpts{
+		env:             env,
+		cluster:         cluster,
+		policy:          defaultTrafficPolicy,
+		port:            nil,
+		serviceAccounts: nil,
+		sni:             "",
+		clusterMode:     DefaultClusterMode,
+		direction:       direction,
+		proxy:           proxy,
+	}
+	applyTrafficPolicy(opts)
 	return cluster
 }
 
