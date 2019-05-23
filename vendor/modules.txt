@@ -110,7 +110,7 @@ github.com/docker/spdystream/spdy
 # github.com/emicklei/go-restful v2.6.0+incompatible
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
-# github.com/envoyproxy/go-control-plane v0.7.0
+# github.com/envoyproxy/go-control-plane v0.8.0
 github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha
 github.com/envoyproxy/go-control-plane/envoy/api/v2
 github.com/envoyproxy/go-control-plane/envoy/api/v2/auth
@@ -177,10 +177,10 @@ github.com/gobwas/glob/syntax/ast
 github.com/gobwas/glob/util/runes
 github.com/gobwas/glob/syntax/lexer
 github.com/gobwas/glob/util/strings
-# github.com/gogo/googleapis v0.0.0-20180223154316-0cd9801be74a
+# github.com/gogo/googleapis v1.1.0
 github.com/gogo/googleapis/google/rpc
 github.com/gogo/googleapis/google/api
-# github.com/gogo/protobuf v1.2.0
+# github.com/gogo/protobuf v1.2.1
 github.com/gogo/protobuf/jsonpb
 github.com/gogo/protobuf/types
 github.com/gogo/protobuf/proto
@@ -289,7 +289,6 @@ github.com/hashicorp/golang-lru
 github.com/hashicorp/hcl
 github.com/hashicorp/hcl/hcl/printer
 github.com/hashicorp/hcl/hcl/ast
-github.com/hashicorp/hcl/hcl/printer
 github.com/hashicorp/hcl/hcl/parser
 github.com/hashicorp/hcl/hcl/token
 github.com/hashicorp/hcl/json/parser
@@ -511,7 +510,7 @@ golang.org/x/crypto/scrypt
 golang.org/x/crypto/ed25519
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/ed25519/internal/edwards25519
-# golang.org/x/net v0.0.0-20190311183353-d8887717615a
+# golang.org/x/net v0.0.0-20190503192946-f4e77d36d62c
 golang.org/x/net/context
 golang.org/x/net/idna
 golang.org/x/net/context/ctxhttp
@@ -531,12 +530,12 @@ golang.org/x/oauth2/clientcredentials
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/sync v0.0.0-20190227155943-e225da77a7e6
+# golang.org/x/sync v0.0.0-20190423024810-112230192c58
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a
+# golang.org/x/sys v0.0.0-20190508220229-2d0786266e9c
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2
+# golang.org/x/text v0.3.2
 golang.org/x/text/encoding/unicode
 golang.org/x/text/transform
 golang.org/x/text/secure/bidirule
@@ -619,12 +618,12 @@ google.golang.org/genproto/googleapis/devtools/cloudtrace/v2
 google.golang.org/grpc
 google.golang.org/grpc/credentials
 google.golang.org/grpc/credentials/oauth
+google.golang.org/grpc/keepalive
 google.golang.org/grpc/metadata
 google.golang.org/grpc/codes
 google.golang.org/grpc/status
 google.golang.org/grpc/stats
 google.golang.org/grpc/balancer/roundrobin
-google.golang.org/grpc/keepalive
 google.golang.org/grpc/peer
 google.golang.org/grpc/grpclog
 google.golang.org/grpc/balancer
@@ -666,7 +665,7 @@ gopkg.in/square/go-jose.v2/json
 gopkg.in/stack.v1
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
-# istio.io/api v0.0.0-20190515205759-982e5c3888c6
+# istio.io/api v0.0.0-20190522004026-1dffc8d3d26d
 istio.io/api/mesh/v1alpha1
 istio.io/api/authentication/v1alpha1
 istio.io/api/mixer/v1/config/client

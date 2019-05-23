@@ -53,8 +53,7 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20190421051319-9d40249d3c2f // indirect
 	github.com/elazarl/goproxy/ext v0.0.0-20190421051319-9d40249d3c2f // indirect
 	github.com/emicklei/go-restful v2.6.0+incompatible
-	github.com/envoyproxy/go-control-plane v0.7.0
-	github.com/envoyproxy/protoc-gen-validate v0.0.14 // indirect
+	github.com/envoyproxy/go-control-plane v0.8.0
 	github.com/evanphx/json-patch v3.0.0+incompatible
 	github.com/facebookgo/stack v0.0.0-20160209184415-751773369052 // indirect
 	github.com/facebookgo/stackerr v0.0.0-20150612192056-c2fcf88613f4 // indirect
@@ -69,8 +68,8 @@ require (
 	github.com/go-sql-driver/mysql v1.4.1 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gocql/gocql v0.0.0-20190423091413-b99afaf3b163 // indirect
-	github.com/gogo/googleapis v0.0.0-20180223154316-0cd9801be74a
-	github.com/gogo/protobuf v1.2.0
+	github.com/gogo/googleapis v1.1.0
+	github.com/gogo/protobuf v1.2.1
 	github.com/gogo/status v1.0.3
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20180203143532-66deaeb636df // indirect
@@ -167,7 +166,7 @@ require (
 	go.uber.org/atomic v1.4.0
 	go.uber.org/multierr v1.1.0
 	go.uber.org/zap v1.10.0
-	golang.org/x/net v0.0.0-20190311183353-d8887717615a
+	golang.org/x/net v0.0.0-20190503192946-f4e77d36d62c
 	golang.org/x/oauth2 v0.0.0-20190226205417-e64efc72b421
 	golang.org/x/time v0.0.0-20181108054448-85acf8d2951c
 	golang.org/x/tools v0.0.0-20190328211700-ab21143f2384
@@ -183,7 +182,7 @@ require (
 	gopkg.in/stack.v1 v1.7.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 	gotest.tools v2.2.0+incompatible // indirect
-	istio.io/api v0.0.0-20190515205759-982e5c3888c6
+	istio.io/api v0.0.0-20190522004026-1dffc8d3d26d
 	istio.io/pkg v0.0.0-20190516214103-40b7bf4c7321
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471
 	k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87

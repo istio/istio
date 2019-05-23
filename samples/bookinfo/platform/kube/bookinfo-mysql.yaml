@@ -33,7 +33,7 @@ metadata:
 spec:
   ports:
   - port: 3306
-    name: mysql
+    name: tcp
   selector:
     app: mysqldb
 ---
@@ -58,7 +58,7 @@ spec:
     spec:
       containers:
       - name: mysqldb
-        image: istio/examples-bookinfo-mysqldb:1.12.0
+        image: istio/examples-bookinfo-mysqldb:1.14.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3306
@@ -68,4 +68,5 @@ spec:
               secretKeyRef:
                 name: mysql-credentials
                 key: rootpasswd
+        args: ["--default-authentication-plugin","mysql_native_password"]
 ---

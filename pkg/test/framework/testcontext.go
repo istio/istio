@@ -16,6 +16,7 @@ package framework
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -52,6 +53,9 @@ type TestContext interface {
 
 	// RequireOrSkip skips the test if the environment is not as expected.
 	RequireOrSkip(envName environment.Name)
+
+	// WhenDone runs the given function when the test context completes.
+	WhenDone(fn func() error)
 
 	// Done should be called when this context is no longer needed. It triggers the asynchronous cleanup of any
 	// allocated resources.
@@ -209,6 +213,10 @@ func (c *testContext) NewSubTest(name string) *Test {
 	}
 }
 
+func (c *testContext) WhenDone(fn func() error) {
+	c.scope.addCloser(&closer{fn})
+}
+
 func (c *testContext) Done() {
 	if c.Failed() {
 		scopes.Framework.Debugf("Begin dumping testContext: %q", c.id)
@@ -291,4 +299,14 @@ func (c *testContext) Skipf(format string, args ...interface{}) {
 func (c *testContext) Skipped() bool {
 	c.Helper()
 	return c.T.Skipped()
+}
+
+var _ io.Closer = &closer{}
+
+type closer struct {
+	fn func() error
+}
+
+func (c *closer) Close() error {
+	return c.fn()
 }
