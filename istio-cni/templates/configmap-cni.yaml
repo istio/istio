@@ -4,7 +4,8 @@ metadata:
   name: istio-cni-config
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- template "common_labels" . }}
+    app: istio-cni
+    release: {{ .Release.Name }}
 data:
   # The CNI network configuration to add to the plugin chain on each node.  The special
   # values in this config will be automatically populated.

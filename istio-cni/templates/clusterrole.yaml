@@ -3,12 +3,12 @@ kind: ClusterRole
 metadata:
   name: istio-cni
   labels:
-    release: {{ .Release.Name }}
     app: istio-cni
+    release: {{ .Release.Name }}
 rules:
-  - apiGroups: [""]
-    resources:
-      - pods
-      - nodes
-    verbs:
-      - get
+- apiGroups: [""]
+  resources:
+  - pods
+  - nodes
+  verbs:
+  - get
