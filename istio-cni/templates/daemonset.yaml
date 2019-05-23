@@ -8,7 +8,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     k8s-app: istio-cni-node
-    {{- template "common_labels" . }}
+    release: {{ .Release.Name }}
 spec:
   selector:
     matchLabels:

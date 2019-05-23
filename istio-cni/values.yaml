@@ -17,5 +17,3 @@ cni:
 
   excludeNamespaces:
     - istio-system
-
-
