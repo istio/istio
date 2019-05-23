@@ -15,17 +15,22 @@
 package kube
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
+
+	kubeCore "k8s.io/api/core/v1"
 )
 
 const (
@@ -36,9 +41,42 @@ const (
 var _ echo.Sidecar = &sidecar{}
 
 type sidecar struct {
+	nodeID       string
 	podNamespace string
 	podName      string
 	accessor     *kube.Accessor
+}
+
+func newSidecar(pod kubeCore.Pod, accessor *kube.Accessor) (*sidecar, error) {
+	sidecar := &sidecar{
+		podNamespace: pod.Namespace,
+		podName:      pod.Name,
+		accessor:     accessor,
+	}
+
+	// Extract the node ID from Envoy.
+	if err := sidecar.WaitForConfig(func(cfg *envoyAdmin.ConfigDump) (bool, error) {
+		for _, c := range cfg.Configs {
+			if c.TypeUrl == "type.googleapis.com/envoy.admin.v2alpha.BootstrapConfigDump" {
+				cd := envoyAdmin.BootstrapConfigDump{}
+				if err := types.UnmarshalAny(&c, &cd); err != nil {
+					return false, err
+				}
+
+				sidecar.nodeID = cd.Bootstrap.Node.Id
+				return true, nil
+			}
+		}
+		return false, errors.New("envoy Bootstrap not found in config dump")
+	}); err != nil {
+		return nil, err
+	}
+
+	return sidecar, nil
+}
+
+func (s *sidecar) NodeID() string {
+	return s.nodeID
 }
 
 func (s *sidecar) Info() (*envoyAdmin.ServerInfo, error) {
@@ -50,6 +88,15 @@ func (s *sidecar) Info() (*envoyAdmin.ServerInfo, error) {
 	return msg, nil
 }
 
+func (s *sidecar) InfoOrFail(t test.Failer) *envoyAdmin.ServerInfo {
+	t.Helper()
+	info, err := s.Info()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return info
+}
+
 func (s *sidecar) Config() (*envoyAdmin.ConfigDump, error) {
 	msg := &envoyAdmin.ConfigDump{}
 	if err := s.adminRequest("config_dump", msg); err != nil {
@@ -59,8 +106,24 @@ func (s *sidecar) Config() (*envoyAdmin.ConfigDump, error) {
 	return msg, nil
 }
 
+func (s *sidecar) ConfigOrFail(t test.Failer) *envoyAdmin.ConfigDump {
+	t.Helper()
+	cfg, err := s.Config()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cfg
+}
+
 func (s *sidecar) WaitForConfig(accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option) error {
 	return common.WaitForConfig(s.Config, accept, options...)
+}
+
+func (s *sidecar) WaitForConfigOrFail(t test.Failer, accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option) {
+	t.Helper()
+	if err := s.WaitForConfig(accept, options...); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func (s *sidecar) adminRequest(path string, out proto.Message) error {

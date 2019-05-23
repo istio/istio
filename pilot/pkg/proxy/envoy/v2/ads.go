@@ -36,7 +36,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	istiolog "istio.io/istio/pkg/log"
+	istiolog "istio.io/pkg/log"
 )
 
 var (
@@ -160,6 +160,11 @@ var (
 		Name: "pilot_total_xds_internal_errors",
 		Help: "Total number of internal XDS errors in pilot (check logs).",
 	})
+
+	inboundUpdates = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "pilot_inbound_updates",
+		Help: "Total number of updates received by pilot.",
+	}, []string{"type"})
 )
 
 func init() {
@@ -181,6 +186,7 @@ func init() {
 	prometheus.MustRegister(proxiesConvergeDelay)
 	prometheus.MustRegister(pushContextErrors)
 	prometheus.MustRegister(totalXDSInternalErrors)
+	prometheus.MustRegister(inboundUpdates)
 }
 
 // DiscoveryStream is a common interface for EDS and ADS. It also has a
@@ -351,7 +357,7 @@ func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 				return
 			}
 			*errP = err
-			adsLog.Errorf("ADS: %q %s terminated with errors %v", con.PeerAddr, con.ConID, err)
+			adsLog.Errorf("ADS: %q %s terminated with error: %v", con.PeerAddr, con.ConID, err)
 			totalXDSInternalErrors.Add(1)
 			return
 		}
@@ -424,19 +430,19 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if con.CDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
-						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
+						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 						cdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 						totalXDSRejects.Add(1)
 					} else if discReq.ResponseNonce != "" {
 						con.ClusterNonceAcked = discReq.ResponseNonce
 					}
-					adsLog.Debugf("ADS:CDS: ACK %v %v", peerAddr, discReq.String())
+					adsLog.Debugf("ADS:CDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
 					continue
 				}
 				// CDS REQ is the first request an envoy makes. This shows up
 				// immediately after connect. It is followed by EDS REQ as
 				// soon as the CDS push is returned.
-				adsLog.Infof("ADS:CDS: REQ %v %s %v raw: %s", peerAddr, con.ConID, time.Since(t0), discReq.String())
+				adsLog.Infof("ADS:CDS: REQ %v %s %v version:%s", peerAddr, con.ConID, time.Since(t0), discReq.VersionInfo)
 				con.CDSWatch = true
 				err := s.pushCds(con, s.globalPushContext(), versionInfo())
 				if err != nil {
@@ -447,13 +453,13 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if con.LDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
-						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s %v", peerAddr, con.modelNode.ID, discReq.String())
+						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 						ldsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 						totalXDSRejects.Add(1)
 					} else if discReq.ResponseNonce != "" {
 						con.ListenerNonceAcked = discReq.ResponseNonce
 					}
-					adsLog.Debugf("ADS:LDS: ACK %v", discReq.String())
+					adsLog.Debugf("ADS:LDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
 					continue
 				}
 				// too verbose - sent immediately after EDS response is received
@@ -488,24 +494,24 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						sort.Strings(routes)
 						sortedRoutes = routes
 						if reflect.DeepEqual(con.Routes, sortedRoutes) {
-							adsLog.Debugf("ADS:RDS: ACK %s %s (%v) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
+							adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
 							con.mu.Lock()
 							con.RouteNonceAcked = discReq.ResponseNonce
 							con.mu.Unlock()
 							continue
 						}
-					} else if discReq.ErrorDetail != nil || routes == nil {
+					} else if discReq.ErrorDetail != nil {
 						// If versions mismatch then we should either have an error detail or no routes if a protocol error has occurred
 						if discReq.ErrorDetail != nil {
-							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%v) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
+							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 							rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 							totalXDSRejects.Add(1)
-						} else { // protocol error
-							adsLog.Warnf("ADS:RDS: ACK PROTOCOL ERROR %v %s (%v) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
-							rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": "Protocol error"}).Add(1)
-							totalXDSRejects.Add(1)
-							continue
 						}
+						continue
+					} else if len(routes) == 0 {
+						// XDS protocol indicates an empty request means to send all route information
+						// In practice we can just skip this request, as this seems to happen when
+						// we don't have any routes to send.
 						continue
 					}
 				}
@@ -515,7 +521,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					sortedRoutes = routes
 				}
 				con.Routes = sortedRoutes
-				adsLog.Debugf("ADS:RDS: REQ %s %s  routes: %d", peerAddr, con.ConID, len(con.Routes))
+				adsLog.Debugf("ADS:RDS: REQ %s %s routes:%d", peerAddr, con.ConID, len(con.Routes))
 				err := s.pushRoute(con, s.globalPushContext())
 				if err != nil {
 					return err
@@ -523,7 +529,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			case EndpointType:
 				if discReq.ErrorDetail != nil {
-					adsLog.Warnf("ADS:EDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
+					adsLog.Warnf("ADS:EDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 					edsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 					totalXDSRejects.Add(1)
 					continue
@@ -568,7 +574,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 				con.Clusters = clusters
-				adsLog.Debugf("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
+				adsLog.Debugf("ADS:EDS: REQ %s %s clusters:%d", peerAddr, con.ConID, len(con.Clusters))
 				err := s.pushEds(s.globalPushContext(), con, nil)
 				if err != nil {
 					return err
@@ -788,9 +794,8 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 		return
 	}
 
-	adsLog.Infof("XDS: Pushing %s Services: %d, "+
-		"ConnectedEndpoints: %d", version,
-		len(push.Services(nil)), adsClientCount())
+	adsLog.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d",
+		version, len(push.Services(nil)), adsClientCount())
 	monServices.Set(float64(len(push.Services(nil))))
 
 	t0 := time.Now()
@@ -882,6 +887,7 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 				adsLog.Infof("PushAll abort %s, push with newer version %s in progress %v", version, currentVersion, time.Since(tstart))
 				return
 			}
+			timer := time.NewTimer(PushTimeout)
 
 			select {
 			case client.pushChannel <- &XdsEvent{
@@ -892,9 +898,12 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 			}:
 				client.LastPush = time.Now()
 				client.LastPushFailure = timeZero
+				if !timer.Stop() {
+					<-timer.C
+				}
 			case <-client.stream.Context().Done(): // grpc stream was closed
 				adsLog.Infof("Client closed connection %v", client.ConID)
-			case <-time.After(PushTimeout):
+			case <-timer.C:
 				// This may happen to some clients if the other side is in a bad state and can't receive.
 				// The tests were catching this - one of the client was not reading.
 				pushTimeouts.Add(1)
@@ -909,7 +918,6 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 					pushTimeoutFailures.Add(1)
 					return
 				}
-
 				goto Retry
 			}
 		}()
@@ -942,7 +950,7 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	}
 
 	if _, exist := adsClients[conID]; !exist {
-		adsLog.Errorf("ADS: Removing connection for non-existing node %v.", conID)
+		adsLog.Errorf("ADS: Removing connection for non-existing node:%v.", conID)
 		totalXDSInternalErrors.Add(1)
 	} else {
 		delete(adsClients, conID)

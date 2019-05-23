@@ -31,8 +31,9 @@ import (
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/cmd/shared"
-	"istio.io/istio/mixer/pkg/attribute"
+	attr "istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/pkg/tracing"
+	"istio.io/pkg/attribute"
 )
 
 type clientState struct {
@@ -106,7 +107,7 @@ func parseBytes(s string) (interface{}, error) {
 }
 
 func parseStringMap(s string) (interface{}, error) {
-	m := attribute.NewStringMap("")
+	m := attribute.NewStringMap("", make(map[string]string, 1), nil)
 	for _, pair := range strings.Split(s, ";") {
 		colon := strings.Index(pair, ":")
 		if colon < 0 {
@@ -211,7 +212,7 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.CompressedAttributes, []strin
 	}
 
 	var attrs mixerpb.CompressedAttributes
-	b.ToProto(&attrs, nil, 0)
+	attr.ToProto(b, &attrs, nil, 0)
 
 	dw := make([]string, len(gb))
 	for k, v := range gb {

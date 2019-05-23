@@ -28,7 +28,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // EncodeIngressRuleName encodes an ingress rule name for a given ingress resource name,

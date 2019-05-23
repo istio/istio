@@ -1,0 +1,27 @@
+apiVersion: rbac.istio.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: bind-service-viewer
+  namespace: default
+spec:
+  allow:
+  - role: service-viewer
+    subjects:
+    - names:
+      - foo
+  workloadSelector:
+    labels:
+      app: ratings
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRole
+metadata:
+  name: service-viewer
+  namespace: default
+spec:
+  rules:
+  - methods:
+    - GET
+    paths:
+    - /prod/*
+---

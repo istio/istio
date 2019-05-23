@@ -1129,7 +1129,7 @@ func (m *ConnectionPoolSettings) GetHttp() *ConnectionPoolSettings_HTTPSettings 
 
 // Settings common to both HTTP and TCP upstream connections.
 type ConnectionPoolSettings_TCPSettings struct {
-	// Maximum number of HTTP1 /TCP connections to a destination host.
+	// Maximum number of HTTP1 /TCP connections to a destination host. Default 1024.
 	MaxConnections int32 `protobuf:"varint,1,opt,name=max_connections,json=maxConnections,proto3" json:"max_connections,omitempty"`
 	// TCP connection timeout.
 	ConnectTimeout *types.Duration `protobuf:"bytes,2,opt,name=connect_timeout,json=connectTimeout,proto3" json:"connect_timeout,omitempty"`
@@ -1281,7 +1281,7 @@ type ConnectionPoolSettings_HTTPSettings struct {
 	// parameter to 1 disables keep alive.
 	MaxRequestsPerConnection int32 `protobuf:"varint,3,opt,name=max_requests_per_connection,json=maxRequestsPerConnection,proto3" json:"max_requests_per_connection,omitempty"`
 	// Maximum number of retries that can be outstanding to all hosts in a
-	// cluster at a given time. Defaults to 3.
+	// cluster at a given time. Defaults to 1024.
 	MaxRetries int32 `protobuf:"varint,4,opt,name=max_retries,json=maxRetries,proto3" json:"max_retries,omitempty"`
 	// The idle timeout for upstream connection pool connections. The idle timeout is defined as the period in which there are no active requests.
 	// If not set, there is no idle timeout. When the idle timeout is reached the connection will be closed.

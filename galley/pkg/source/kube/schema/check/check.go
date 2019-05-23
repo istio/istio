@@ -66,7 +66,7 @@ func resourceTypesPresence(cs clientset.Interface, specs []sourceSchema.Resource
 		var errs error
 	nextResource:
 		for plural, spec := range search {
-			gv := schema.GroupVersion{Group: spec.Group, Version: spec.Version}.String()
+			gv := schema.GroupVersion{Group: spec.Group, Version: spec.GetAPIVersion()}.String()
 			list, err := cs.Discovery().ServerResourcesForGroupVersion(gv)
 			if err != nil {
 				errs = multierror.Append(errs, fmt.Errorf("could not find %v: %v", gv, err))

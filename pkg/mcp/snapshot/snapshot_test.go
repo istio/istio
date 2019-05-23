@@ -89,7 +89,7 @@ func createTestWatch(c source.Watcher, collection, version string, responseC cha
 
 	cancel := c.Watch(req, func(response *source.WatchResponse) {
 		responseC <- response
-	})
+	}, "192.168.1.1:1234")
 
 	if wantResponse {
 		select {

@@ -3,6 +3,7 @@ FROM centos:7
 RUN yum upgrade -y && \
     yum install -y epel-release centos-release-scl && \
     yum install -y fedpkg golang sudo make which cmake3 \
+                   automake autoconf autogen libtool \
                    devtoolset-6-gcc devtoolset-6-gcc-c++ \
                    devtoolset-6-libatomic-devel ninja-build && \
     yum clean all

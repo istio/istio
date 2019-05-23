@@ -98,7 +98,7 @@ func runTestCode(name string, t *testing.T, test scenario) {
 		if test.expectedError == "" {
 			t.Errorf("Test %q failed: expected nil error, got %v", name, err)
 		}
-		if !strings.HasSuffix(err.Error(), test.expectedError) {
+		if !strings.Contains(err.Error(), test.expectedError) {
 			t.Errorf("Test %q failed: expected error: %q, got %q", name, test.expectedError, err.Error())
 		}
 	}

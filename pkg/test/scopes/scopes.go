@@ -14,7 +14,7 @@
 
 package scopes
 
-import "istio.io/istio/pkg/log"
+import "istio.io/pkg/log"
 
 var (
 	// Framework is the general logging scope for the framework.

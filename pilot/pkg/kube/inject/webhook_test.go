@@ -27,6 +27,8 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/helm/pkg/strvals"
+
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
@@ -40,9 +42,7 @@ import (
 	"k8s.io/helm/pkg/engine"
 	"k8s.io/helm/pkg/proto/hapi/chart"
 	tversion "k8s.io/helm/pkg/proto/hapi/version"
-	"k8s.io/helm/pkg/strvals"
 	"k8s.io/helm/pkg/timeconv"
-	"k8s.io/kubernetes/pkg/apis/core"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
@@ -924,7 +924,7 @@ func loadConfigMapWithHelm(params *Params, t testing.TB) string {
 		t.Fatalf("Unable to located configmap file %s", helmConfigMapKey)
 	}
 
-	cfgMap := core.ConfigMap{}
+	cfgMap := corev1.ConfigMap{}
 	err = yaml.Unmarshal([]byte(f), &cfgMap)
 	if err != nil {
 		t.Fatal(err)
@@ -966,6 +966,20 @@ func mergeParamsIntoHelmValues(params *Params, vals string, t testing.TB) string
 }
 
 func escapeHelmValue(val string) string {
+	if len(val) == 0 {
+		return val
+	}
+
+	if val[0] == '{' && val[len(val)-1] == '}' {
+		val := val[1 : len(val)-1]
+		val = strings.Replace(val, "{", "\\{", -1)
+		val = strings.Replace(val, "}", "\\}", -1)
+		val = strings.Replace(val, ".", "\\.", -1)
+		val = strings.Replace(val, "=", "\\=", -1)
+
+		return "{" + val + "}"
+	}
+
 	val = strings.Replace(val, ",", "\\,", -1)
 	val = strings.Replace(val, ".", "\\.", -1)
 	val = strings.Replace(val, "=", "\\=", -1)

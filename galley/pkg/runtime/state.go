@@ -38,7 +38,6 @@ var _ processing.Handler = &State{}
 
 // State is the in-memory state of Galley.
 type State struct {
-	schema   *resource.Schema
 	listener processing.Listener
 
 	config *Config
@@ -71,10 +70,9 @@ type resourceTypeState struct {
 	versions map[resource.FullName]resource.Version
 }
 
-func newState(schema *resource.Schema, cfg *Config, listener processing.Listener) *State {
+func newState(cfg *Config, listener processing.Listener) *State {
 	now := time.Now()
 	s := &State{
-		schema:           schema,
 		listener:         listener,
 		config:           cfg,
 		entries:          make(map[resource.Collection]*resourceTypeState),
@@ -83,7 +81,7 @@ func newState(schema *resource.Schema, cfg *Config, listener processing.Listener
 
 	// pre-populate state for all known types so that built snapshots
 	// includes valid default version for empty resource collections.
-	for _, info := range schema.All() {
+	for _, info := range cfg.Schema.All() {
 		s.entries[info.Collection] = &resourceTypeState{
 			entries:  make(map[resource.FullName]*mcp.Resource),
 			versions: make(map[resource.FullName]resource.Version),

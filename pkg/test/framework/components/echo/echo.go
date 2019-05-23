@@ -15,15 +15,39 @@
 package echo
 
 import (
-	"testing"
-
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
+
+// Builder for a group of collaborating Echo Instances. Once built, all Instances in the
+// group:
+//
+//     1. Are ready to receive traffic, and
+//     2. Can call every other Instance in the group (i.e. have received Envoy config
+//        from Pilot).
+//
+// If a test needs to verify that one Instance is NOT reachable from another, there are
+// a couple of options:
+//
+//     1. Build a group while all Instances ARE reachable. Then apply a policy
+//        disallowing the communication.
+//     2. Build the source and destination Instances in separate groups and then
+//        call `source.WaitUntilCallable(destination)`.
+type Builder interface {
+	// With adds a new Echo configuration to the Builder. Once built, the instance
+	// pointer will be updated to point at the new Instance.
+	With(i *Instance, cfg Config) Builder
+
+	// Build and initialize all Echo Instances. Upon returning, the Instance pointers
+	// are assigned and all Instances are ready to communicate with each other.
+	Build() error
+	BuildOrFail(t test.Failer)
+}
 
 // Instance is a component that provides access to a deployed echo service.
 type Instance interface {
@@ -32,22 +56,24 @@ type Instance interface {
 	// Config returns the configuration of the Echo instance.
 	Config() Config
 
-	// WaitUntilReady waits until this instance is up and ready to receive traffic. If
-	// outbound are specified, the wait also includes readiness for each
-	// outbound instance as well as waiting for receipt of outbound Envoy configuration
-	// (i.e. clusters, routes, listeners from Pilot) in order to enable outbound
-	// communication from this instance to each instance in the list.
-	WaitUntilReady(outbound ...Instance) error
-	WaitUntilReadyOrFail(t testing.TB, outbound ...Instance)
+	// Address of the service (e.g. Kubernetes cluster IP). May be "" if headless.
+	Address() string
+
+	// WaitUntilCallable waits until each of the provided instances are callable from
+	// this Instance. If this instance has a sidecar, this waits until Envoy has
+	// received outbound configuration (e.g. clusters, routes, listeners) for every
+	// port.
+	WaitUntilCallable(instances ...Instance) error
+	WaitUntilCallableOrFail(t test.Failer, instances ...Instance)
 
 	// Workloads retrieves the list of all deployed workloads for this Echo service.
 	// Guarantees at least one workload, if error == nil.
 	Workloads() ([]Workload, error)
-	WorkloadsOrFail(t testing.TB) []Workload
+	WorkloadsOrFail(t test.Failer) []Workload
 
 	// Call makes a call from this Instance to a target Instance.
 	Call(options CallOptions) (client.ParsedResponses, error)
-	CallOrFail(t testing.TB, options CallOptions) client.ParsedResponses
+	CallOrFail(t test.Failer, options CallOptions) client.ParsedResponses
 }
 
 // Port exposed by an Echo Instance
@@ -79,14 +105,20 @@ type Workload interface {
 
 // Sidecar provides an interface to execute queries against a single Envoy sidecar.
 type Sidecar interface {
+	// NodeID returns the node ID used for uniquely identifying this sidecar to Pilot.
+	NodeID() string
+
 	// Info about the Envoy instance.
 	Info() (*envoyAdmin.ServerInfo, error)
+	InfoOrFail(t test.Failer) *envoyAdmin.ServerInfo
 
 	// Config of the Envoy instance.
 	Config() (*envoyAdmin.ConfigDump, error)
+	ConfigOrFail(t test.Failer) *envoyAdmin.ConfigDump
 
 	// WaitForConfig queries the Envoy configuration an executes the given accept handler. If the
 	// response is not accepted, the request will be retried until either a timeout or a response
 	// has been accepted.
 	WaitForConfig(accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option) error
+	WaitForConfigOrFail(t test.Failer, accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option)
 }

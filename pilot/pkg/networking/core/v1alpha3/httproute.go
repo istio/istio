@@ -28,8 +28,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/features/pilot"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
+	"istio.io/pkg/log"
 )
 
 // BuildHTTPRoutes produces a list of routes for the proxy
@@ -40,7 +40,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 	switch node.Type {
 	case model.SidecarProxy:
 		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, routeName), nil
-	case model.Router, model.Ingress:
+	case model.Router:
 		return configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, routeName)
 	}
 	return nil, nil

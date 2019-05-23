@@ -400,7 +400,7 @@ message ConnectionPoolSettings {
       google.protobuf.Duration interval = 3;
     };
 
-    // Maximum number of HTTP1 /TCP connections to a destination host.
+    // Maximum number of HTTP1 /TCP connections to a destination host. Default 1024.
     int32 max_connections = 1;
 
     // TCP connection timeout.
@@ -423,7 +423,7 @@ message ConnectionPoolSettings {
     int32 max_requests_per_connection = 3;
 
     // Maximum number of retries that can be outstanding to all hosts in a
-    // cluster at a given time. Defaults to 3.
+    // cluster at a given time. Defaults to 1024.
     int32 max_retries = 4;
 
     // The idle timeout for upstream connection pool connections. The idle timeout is defined as the period in which there are no active requests.

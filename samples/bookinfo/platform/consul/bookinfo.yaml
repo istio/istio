@@ -16,7 +16,7 @@
 version: '2'
 services:
   details-v1:
-    image: istio/examples-bookinfo-details-v1:1.12.0
+    image: istio/examples-bookinfo-details-v1:1.14.0
     networks:
       istiomesh:
     dns:
@@ -28,11 +28,12 @@ services:
       - SERVICE_NAME=details
       - SERVICE_TAGS=version|v1
       - SERVICE_PROTOCOL=http
+      - SERVICE_VERSION=v1
     expose:
       - "9080"
 
   ratings-v1:
-    image: istio/examples-bookinfo-ratings-v1:1.12.0
+    image: istio/examples-bookinfo-ratings-v1:1.14.0
     networks:
       istiomesh:
     dns:
@@ -44,11 +45,12 @@ services:
       - SERVICE_NAME=ratings
       - SERVICE_TAGS=version|v1
       - SERVICE_PROTOCOL=http
+      - SERVICE_VERSION=v1
     expose:
       - "9080"
 
   reviews-v1:
-    image: istio/examples-bookinfo-reviews-v1:1.12.0
+    image: istio/examples-bookinfo-reviews-v1:1.14.0
     networks:
       istiomesh:
     dns:
@@ -61,11 +63,12 @@ services:
       - SERVICE_TAGS=version|v1
       - SERVICE_PROTOCOL=http
       - SERVICE_9443_IGNORE=1
+      - SERVICE_VERSION=v1
     expose:
       - "9080"
 
   reviews-v2:
-    image: istio/examples-bookinfo-reviews-v2:1.12.0
+    image: istio/examples-bookinfo-reviews-v2:1.14.0
     networks:
       istiomesh:
     dns:
@@ -78,11 +81,12 @@ services:
       - SERVICE_TAGS=version|v2
       - SERVICE_PROTOCOL=http
       - SERVICE_9443_IGNORE=1
+      - SERVICE_VERSION=v2
     expose:
       - "9080"
 
   reviews-v3:
-    image: istio/examples-bookinfo-reviews-v3:1.12.0
+    image: istio/examples-bookinfo-reviews-v3:1.14.0
     networks:
       istiomesh:
     dns:
@@ -95,11 +99,12 @@ services:
       - SERVICE_TAGS=version|v3
       - SERVICE_PROTOCOL=http
       - SERVICE_9443_IGNORE=1
+      - SERVICE_VERSION=v3
     expose:
       - "9080"
 
   productpage-v1:
-    image: istio/examples-bookinfo-productpage-v1:1.12.0
+    image: istio/examples-bookinfo-productpage-v1:1.14.0
     networks:
       istiomesh:
         ipv4_address: 172.28.0.14
@@ -112,6 +117,7 @@ services:
       - SERVICE_NAME=productpage
       - SERVICE_TAGS=version|v1
       - SERVICE_PROTOCOL=http
+      - SERVICE_VERSION=v1
     ports:
       - "9081:9080"
     expose:

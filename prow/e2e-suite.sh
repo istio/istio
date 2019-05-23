@@ -45,6 +45,7 @@ export CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
+setup_and_export_git_sha
 setup_e2e_cluster
 
 if [[ "${ENABLE_ISTIO_CNI:-false}" == true ]]; then
@@ -55,11 +56,6 @@ E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
 # e2e tests on prow use clusters borrowed from boskos, which cleans up the
 # clusters. There is no need to cleanup in the test jobs.
 E2E_ARGS+=("--skip_cleanup")
-
-export HUB=${HUB:-"gcr.io/istio-testing"}
-export TAG="${TAG:-${GIT_SHA}}"
-
-make init
 
 # getopts only handles single character flags
 for ((i=1; i<=$#; i++)); do
@@ -75,6 +71,14 @@ for ((i=1; i<=$#; i++)); do
     esac
     E2E_ARGS+=( "${!i}" )
 done
+
+export HUB=${HUB:-"gcr.io/istio-testing"}
+export TAG="${TAG:-${GIT_SHA}}""${SINGLE_TEST}"
+
+make init
+
+# upload images
+time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}"
 
 time ISTIO_DOCKER_HUB=$HUB \
   E2E_ARGS="${E2E_ARGS[*]}" \

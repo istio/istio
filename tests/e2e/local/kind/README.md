@@ -1,5 +1,5 @@
 # Benefits:
-1. Set up a local kubeadm environment once and run E2E tests on local machine, so you can test and debug locally.
+1. Set up a local KinD environment once and run E2E tests on local machine, so you can test and debug locally.
 1. No need to worry about kubernetes cluster setup.
 
 # Prereqs:
@@ -45,7 +45,7 @@ kind export logs --name e2e [output_dir]
 
 
 # Cleanup
-To destroy the kubeadm:
+To destroy the KinD cluster:
 ```bash
 kind delete cluster --name e2e
-``` 
+```

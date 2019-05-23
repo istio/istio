@@ -15,99 +15,146 @@
 package echo
 
 import (
+	"fmt"
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
-)
-
-var (
-	ist istio.Instance
+	"istio.io/istio/pkg/test/framework/label"
 )
 
 // TODO(sven): Add additional testing of the echo component, this is just the basics.
 func TestEcho(t *testing.T) {
-	framework.Run(t, func(ctx framework.TestContext) {
-		g := galley.NewOrFail(t, ctx, galley.Config{})
-		p := pilot.NewOrFail(t, ctx, pilot.Config{
-			Galley: g,
-		})
-
-		ns := namespace.NewOrFail(t, ctx, "test", true)
-		a := echoboot.NewOrFail(ctx, t, echo.Config{
-			Pilot:     p,
-			Galley:    g,
-			Namespace: ns,
-			Sidecar:   true,
-			Service:   "a",
-			Version:   "v1",
-		})
-		b := echoboot.NewOrFail(ctx, t, echo.Config{
-			Pilot:     p,
-			Galley:    g,
-			Namespace: ns,
-			Sidecar:   true,
-			Service:   "b",
-			Version:   "v2",
-			Ports: []echo.Port{
-				{
-					Name:     "http",
-					Protocol: model.ProtocolHTTP,
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			baseCfg := echo.Config{
+				Pilot:  p,
+				Galley: g,
+				Ports: []echo.Port{
+					{
+						Name:        "http",
+						Protocol:    model.ProtocolHTTP,
+						ServicePort: 80,
+					},
+					{
+						Name:        "tcp",
+						Protocol:    model.ProtocolTCP,
+						ServicePort: 90,
+					},
+					{
+						Name:        "grpc",
+						Protocol:    model.ProtocolGRPC,
+						ServicePort: 70,
+					},
 				},
-			}})
+			}
 
-		a.WaitUntilReadyOrFail(t, b)
-
-		_ = a.CallOrFail(t, echo.CallOptions{
-			Target:   b,
-			PortName: "http",
-		}).CheckOKOrFail(t)
-	})
-}
-
-func TestEchoNoSidecar(t *testing.T) {
-	framework.Run(t, func(ctx framework.TestContext) {
-		g := galley.NewOrFail(t, ctx, galley.Config{})
-		p := pilot.NewOrFail(t, ctx, pilot.Config{
-			Galley: g,
-		})
-
-		ns := namespace.NewOrFail(t, ctx, "test", true)
-		a := echoboot.NewOrFail(ctx, t, echo.Config{
-			Pilot:     p,
-			Galley:    g,
-			Namespace: ns,
-			Service:   "a",
-			Version:   "v1",
-		})
-		b := echoboot.NewOrFail(ctx, t, echo.Config{
-			Pilot:     p,
-			Galley:    g,
-			Namespace: ns,
-			Service:   "b",
-			Version:   "v2",
-			Ports: []echo.Port{
+			configs := []struct {
+				testName string
+				apply    func(name string, ns namespace.Instance) echo.Config
+				flaky    bool
+			}{
 				{
-					Name:     "http",
-					Protocol: model.ProtocolHTTP,
+					testName: "Headless",
+					apply: func(name string, ns namespace.Instance) echo.Config {
+						cfg := baseCfg
+						cfg.Service = name
+						cfg.Namespace = ns
+						cfg.Headless = true
+						return cfg
+					},
 				},
-			}})
+				{
+					testName: "Sidecar",
+					apply: func(name string, ns namespace.Instance) echo.Config {
+						cfg := baseCfg
+						cfg.Service = name
+						cfg.Namespace = ns
+						return cfg
+					},
+				},
+				{
+					// TODO(https://github.com/istio/istio/issues/13810)
+					flaky:    true,
+					testName: "NoSidecar",
+					apply: func(name string, ns namespace.Instance) echo.Config {
+						cfg := baseCfg
+						cfg.Service = name
+						cfg.Namespace = ns
+						cfg.Annotations = echo.NewAnnotations().
+							SetBool(echo.SidecarInject, false)
+						return cfg
+					},
+				},
+			}
 
-		a.WaitUntilReadyOrFail(t, b)
+			callOptions := []echo.CallOptions{
+				{
+					PortName: "http",
+					Scheme:   scheme.HTTP,
+				},
+				{
+					PortName: "http",
+					Scheme:   scheme.WebSocket,
+				},
+				{
+					PortName: "tcp",
+					Scheme:   scheme.HTTP,
+				},
+				{
+					PortName: "grpc",
+					Scheme:   scheme.GRPC,
+				},
+			}
 
-		_ = a.CallOrFail(t, echo.CallOptions{
-			Target:   b,
-			PortName: "http",
-		}).CheckOKOrFail(t)
-	})
-}
+			for _, config := range configs {
 
-func TestMain(m *testing.M) {
-	framework.Main("echo_test", m, istio.SetupOnKube(&ist, nil))
+				configTest := ctx.NewSubTest(config.testName)
+				if config.flaky {
+					configTest.Label(label.Flaky)
+				}
+				configTest.RunParallel(func(ctx framework.TestContext) {
+					ns := namespace.NewOrFail(ctx, ctx, "echo", true)
+
+					var a, b echo.Instance
+					echoboot.NewBuilderOrFail(ctx, ctx).
+						With(&a, config.apply("a", ns)).
+						With(&b, config.apply("b", ns)).
+						BuildOrFail(ctx)
+
+					for _, o := range callOptions {
+						// Make a copy of the options for the test.
+						opts := o
+						opts.Target = b
+
+						testName := opts.PortName
+						if opts.PortName != string(opts.Scheme) {
+							testName = fmt.Sprintf("%s over %s", opts.Scheme, opts.PortName)
+						}
+
+						ctx.NewSubTest(testName).
+							RunParallel(func(ctx framework.TestContext) {
+								ctx.Environment().Case(environment.Native, func() {
+									if config.testName != "NoSidecar" {
+										switch opts.Scheme {
+										case scheme.WebSocket, scheme.GRPC:
+											// TODO(https://github.com/istio/istio/issues/13754)
+											ctx.Skipf("https://github.com/istio/istio/issues/13754")
+										}
+									}
+								})
+								a.CallOrFail(ctx, opts).
+									CheckOKOrFail(ctx).
+									CheckHostOrFail(ctx, "b")
+							})
+					}
+				})
+			}
+		})
 }

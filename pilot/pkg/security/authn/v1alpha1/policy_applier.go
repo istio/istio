@@ -33,8 +33,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pkg/features/pilot"
-	"istio.io/istio/pkg/log"
 	protovalue "istio.io/istio/pkg/proto"
+	"istio.io/pkg/log"
 )
 
 const (

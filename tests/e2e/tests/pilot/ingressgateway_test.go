@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 // maybeAddTLSForDestinationRule fills the DestinationRule template if the mTLS is turned on globally.

@@ -31,7 +31,7 @@ import (
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
-	"istio.io/istio/pkg/env"
+	"istio.io/pkg/env"
 )
 
 func adapterCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Command {

@@ -16,11 +16,11 @@ package mixer
 
 import (
 	"net"
-	"testing"
 
 	"github.com/gogo/googleapis/google/rpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -28,8 +28,8 @@ import (
 
 type Instance interface {
 	resource.Resource
-	Report(t testing.TB, attributes map[string]interface{})
-	Check(t testing.TB, attributes map[string]interface{}) CheckResponse
+	Report(t test.Failer, attributes map[string]interface{})
+	Check(t test.Failer, attributes map[string]interface{}) CheckResponse
 	GetCheckAddress() net.Addr
 	GetReportAddress() net.Addr
 }
@@ -60,7 +60,8 @@ func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 	return
 }
 
-func NewOrFail(t *testing.T, c resource.Context, config Config) Instance {
+func NewOrFail(t test.Failer, c resource.Context, config Config) Instance {
+	t.Helper()
 	i, err := New(c, config)
 	if err != nil {
 		t.Fatalf("mixer.NewOrFail:: %v", err)

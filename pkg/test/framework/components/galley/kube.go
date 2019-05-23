@@ -15,16 +15,26 @@
 package galley
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"testing"
 
+	"github.com/pkg/errors"
+
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/yml"
+)
+
+const (
+	grpcPortName = "grpc-mcp"
 )
 
 var (
@@ -32,16 +42,61 @@ var (
 	_ io.Closer = &kubeComponent{}
 )
 
-func newKube(ctx resource.Context, cfg Config) Instance {
+func newKube(ctx resource.Context, cfg Config) (Instance, error) {
+
+	dir, err := ctx.CreateTmpDirectory("galley-workdir")
+	if err != nil {
+		return nil, err
+	}
 
 	n := &kubeComponent{
 		context:     ctx,
 		environment: ctx.Environment().(*kube.Environment),
 		cfg:         cfg,
+		cache:       yml.NewCache(dir),
 	}
 	n.id = ctx.TrackResource(n)
 
-	return n
+	// TODO: This should be obtained from an Istio deployment.
+	c, err := istio.DefaultConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ns := c.ConfigNamespace
+
+	fetchFn := n.environment.NewSinglePodFetch(ns, "istio=galley")
+	pods, err := n.environment.WaitUntilPodsAreReady(fetchFn)
+	if err != nil {
+		return nil, err
+	}
+	pod := pods[0]
+
+	scopes.Framework.Debug("completed wait for Galley pod")
+
+	port, err := getGrpcPort(n.environment, ns)
+	if err != nil {
+		return nil, err
+	}
+	scopes.Framework.Debugf("extracted grpc port for service: %v", port)
+
+	if n.forwarder, err = n.environment.NewPortForwarder(pod, 0, port); err != nil {
+		return nil, err
+	}
+	scopes.Framework.Debugf("initialized port forwarder: %v", n.forwarder.Address())
+
+	if err = n.forwarder.Start(); err != nil {
+		return nil, err
+	}
+
+	n.client = &client{
+		address: fmt.Sprintf("tcp://%s", n.forwarder.Address()),
+	}
+
+	if err = n.client.waitForStartup(); err != nil {
+		return nil, err
+	}
+
+	return n, nil
 }
 
 type kubeComponent struct {
@@ -52,6 +107,9 @@ type kubeComponent struct {
 	environment *kube.Environment
 
 	client *client
+
+	cache     *yml.Cache
+	forwarder kube2.PortForwarder
 }
 
 var _ Instance = &kubeComponent{}
@@ -68,42 +126,49 @@ func (c *kubeComponent) Address() string {
 
 // ClearConfig implements Galley.ClearConfig.
 func (c *kubeComponent) ClearConfig() (err error) {
-	panic("NYI: ClearConfig")
-	// TODO
-	//infos, err := ioutil.ReadDir(c.configDir)
-	//if err != nil {
-	//	return err
-	//}
-	//for _, i := range infos {
-	//	err := os.Remove(path.Join(c.configDir, i.Name()))
-	//	if err != nil {
-	//		return err
-	//	}
-	//}
-	//
-	//err = c.applyAttributeManifest()
+
+	for _, k := range c.cache.AllKeys() {
+		if err = c.environment.Accessor.Delete("", c.cache.GetFileFor(k)); err != nil {
+			return err
+		}
+	}
+
+	return c.cache.Clear()
 }
 
 // ApplyConfig implements Galley.ApplyConfig.
 func (c *kubeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string) error {
-	namespace := ""
+	nsName := ""
 	if ns != nil {
-		namespace = ns.Name()
+		nsName = ns.Name()
 	}
 
+	var err error
 	for _, y := range yamlText {
-		_, err := c.environment.Accessor.ApplyContents(namespace, y)
+		if nsName != "" {
+			if y, err = yml.ApplyNamespace(y, nsName); err != nil {
+				return err
+			}
+		}
+
+		keys, err := c.cache.Apply(y)
 		if err != nil {
 			return err
 		}
-		scopes.Framework.Debugf("Applied config: ns: %s\n%s\n", namespace, y)
+
+		for _, k := range keys {
+			if err = c.environment.Accessor.Apply(nsName, c.cache.GetFileFor(k)); err != nil {
+				return err
+			}
+		}
+		scopes.Framework.Debugf("Applied config: ns: %s\n%s\n", nsName, y)
 	}
 
 	return nil
 }
 
 // ApplyConfigOrFail applies the given config yaml file via Galley.
-func (c *kubeComponent) ApplyConfigOrFail(t *testing.T, ns namespace.Instance, yamlText ...string) {
+func (c *kubeComponent) ApplyConfigOrFail(t test.Failer, ns namespace.Instance, yamlText ...string) {
 	t.Helper()
 	err := c.ApplyConfig(ns, yamlText...)
 	if err != nil {
@@ -113,11 +178,27 @@ func (c *kubeComponent) ApplyConfigOrFail(t *testing.T, ns namespace.Instance, y
 
 // DeleteConfig implements Galley.DeleteConfig.
 func (c *kubeComponent) DeleteConfig(ns namespace.Instance, yamlText ...string) (err error) {
-	panic("NYI: DeleteConfig")
+	nsName := ""
+	if ns != nil {
+		nsName = ns.Name()
+	}
+
+	for _, txt := range yamlText {
+		err := c.environment.Accessor.DeleteContents(nsName, txt)
+		if err != nil {
+			return err
+		}
+
+		if err = c.cache.Delete(txt); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // DeleteConfigOrFail implements Galley.DeleteConfigOrFail.
-func (c *kubeComponent) DeleteConfigOrFail(t *testing.T, ns namespace.Instance, yamlText ...string) {
+func (c *kubeComponent) DeleteConfigOrFail(t test.Failer, ns namespace.Instance, yamlText ...string) {
 	t.Helper()
 	err := c.DeleteConfig(ns, yamlText...)
 	if err != nil {
@@ -144,9 +225,15 @@ func (c *kubeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string) 
 
 // WaitForSnapshot implements Galley.WaitForSnapshot.
 func (c *kubeComponent) WaitForSnapshot(collection string, validator SnapshotValidatorFunc) error {
-	panic("NYI: WaitForSnapshot")
-	// TODO
-	//	return c.client.waitForSnapshot(collection, validator)
+	return c.client.waitForSnapshot(collection, validator)
+}
+
+// WaitForSnapshotOrFail implements Galley.WaitForSnapshotOrFail.
+func (c *kubeComponent) WaitForSnapshotOrFail(t test.Failer, collection string, validator SnapshotValidatorFunc) {
+	t.Helper()
+	if err := c.WaitForSnapshot(collection, validator); err != nil {
+		t.Fatalf("WaitForSnapshotOrFail: %v", err)
+	}
 }
 
 // Close implements io.Closer.
@@ -159,4 +246,17 @@ func (c *kubeComponent) Close() (err error) {
 
 	scopes.Framework.Debugf("%s close complete (err:%v)", c.id, err)
 	return
+}
+
+func getGrpcPort(e *kube.Environment, ns string) (uint16, error) {
+	svc, err := e.Accessor.GetService(ns, "istio-galley")
+	if err != nil {
+		return 0, fmt.Errorf("failed to retrieve service: %v", err)
+	}
+	for _, portInfo := range svc.Spec.Ports {
+		if portInfo.Name == grpcPortName {
+			return uint16(portInfo.TargetPort.IntValue()), nil
+		}
+	}
+	return 0, errors.New("failed to get target port in service")
 }

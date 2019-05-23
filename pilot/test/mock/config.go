@@ -31,8 +31,8 @@ import (
 	rbac "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
-	"istio.io/istio/pkg/log"
 	pkgtest "istio.io/istio/pkg/test"
+	"istio.io/pkg/log"
 )
 
 var (

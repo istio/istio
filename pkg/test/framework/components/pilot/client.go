@@ -24,7 +24,10 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	adsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/hashicorp/go-multierror"
+
 	"google.golang.org/grpc"
+
+	"istio.io/istio/pkg/test"
 )
 
 type client struct {
@@ -64,6 +67,15 @@ func (c *client) CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryR
 	return c.stream.Recv()
 }
 
+func (c *client) CallDiscoveryOrFail(t test.Failer, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryResponse {
+	t.Helper()
+	resp, err := c.CallDiscovery(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp
+}
+
 func (c *client) StartDiscovery(req *xdsapi.DiscoveryRequest) error {
 	c.lastRequest = req
 	err := c.stream.Send(req)
@@ -71,6 +83,13 @@ func (c *client) StartDiscovery(req *xdsapi.DiscoveryRequest) error {
 		return err
 	}
 	return nil
+}
+
+func (c *client) StartDiscoveryOrFail(t test.Failer, req *xdsapi.DiscoveryRequest) {
+	t.Helper()
+	if err := c.StartDiscovery(req); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func (c *client) WatchDiscovery(timeout time.Duration,
@@ -114,6 +133,15 @@ func (c *client) WatchDiscovery(timeout time.Duration,
 		return err
 	case <-time.After(timeout):
 		return errors.New("timed out")
+	}
+}
+
+func (c *client) WatchDiscoveryOrFail(t test.Failer, timeout time.Duration,
+	accept func(*xdsapi.DiscoveryResponse) (bool, error)) {
+
+	t.Helper()
+	if err := c.WatchDiscovery(timeout, accept); err != nil {
+		t.Fatalf("no resource accepted: %v", err)
 	}
 }
 

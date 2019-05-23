@@ -17,8 +17,8 @@ package framework
 import (
 	"flag"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/pkg/log"
 )
 
 var (

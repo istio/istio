@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/kube"
 
-	coreV1 "k8s.io/api/core/v1"
+	kubeCore "k8s.io/api/core/v1"
 )
 
 var (
@@ -33,14 +33,20 @@ var (
 type workload struct {
 	*client.Instance
 
-	pod       coreV1.Pod
+	addr      kubeCore.EndpointAddress
+	pod       kubeCore.Pod
 	forwarder kube.PortForwarder
 	sidecar   *sidecar
 }
 
-func newWorkload(pod coreV1.Pod, useSidecar bool, grpcPort uint16, accessor *kube.Accessor) (*workload, error) {
-	if pod.Status.HostIP == "" {
-		return nil, fmt.Errorf("no IP available for pod %s/%s", pod.Namespace, pod.Name)
+func newWorkload(addr kubeCore.EndpointAddress, annotations echo.Annotations, grpcPort uint16, accessor *kube.Accessor) (*workload, error) {
+	if addr.TargetRef == nil || addr.TargetRef.Kind != "Pod" {
+		return nil, fmt.Errorf("invalid TargetRef for endpoint %s: %v", addr.IP, addr.TargetRef)
+	}
+
+	pod, err := accessor.GetPod(addr.TargetRef.Namespace, addr.TargetRef.Name)
+	if err != nil {
+		return nil, err
 	}
 
 	// Create a forwarder to the command port of the app.
@@ -60,15 +66,14 @@ func newWorkload(pod coreV1.Pod, useSidecar bool, grpcPort uint16, accessor *kub
 	}
 
 	var s *sidecar
-	if useSidecar {
-		s = &sidecar{
-			podNamespace: pod.Namespace,
-			podName:      pod.Name,
-			accessor:     accessor,
+	if annotations.GetBool(echo.SidecarInject) {
+		if s, err = newSidecar(pod, accessor); err != nil {
+			return nil, err
 		}
 	}
 
 	return &workload{
+		addr:      addr,
 		pod:       pod,
 		forwarder: forwarder,
 		Instance:  c,
@@ -87,7 +92,7 @@ func (w *workload) Close() (err error) {
 }
 
 func (w *workload) Address() string {
-	return w.pod.Status.HostIP
+	return w.addr.IP
 }
 
 func (w *workload) Sidecar() echo.Sidecar {

@@ -29,11 +29,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 
-	"istio.io/istio/pkg/log"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -62,6 +63,7 @@ const (
 	ingressCertsName               = "istio-ingress-certs"
 	maxDeploymentRolloutTime       = 960 * time.Second
 	maxValidationReadyCheckTime    = 30 * time.Second
+	maxCNIDeployTime               = 10 * time.Second
 	helmServiceAccountFile         = "helm-service-account.yaml"
 	istioHelmInstallDir            = istioInstallDir + "/helm/istio"
 	caCertFileName                 = "samples/certs/ca-cert.pem"
@@ -100,6 +102,8 @@ var (
 	caTag              = flag.String("ca_tag", os.Getenv("TAG"), "Ca tag")
 	galleyHub          = flag.String("galley_hub", os.Getenv("HUB"), "Galley hub")
 	galleyTag          = flag.String("galley_tag", os.Getenv("TAG"), "Galley tag")
+	cniHub             = flag.String("cni_hub", os.Getenv("ISTIO_CNI_HUB"), "CNI hub")
+	cniTag             = flag.String("cni_tag", os.Getenv("ISTIO_CNI_TAG"), "CNI tag")
 	sidecarInjectorHub = flag.String("sidecar_injector_hub", os.Getenv("HUB"), "Sidecar injector hub")
 	sidecarInjectorTag = flag.String("sidecar_injector_tag", os.Getenv("TAG"), "Sidecar injector tag")
 	trustDomainEnable  = flag.Bool("trust_domain_enable", false, "Enable different trust domains (e.g. test.local)")
@@ -113,14 +117,17 @@ var (
 	clusterWide         = flag.Bool("cluster_wide", false, "If true Pilot/Mixer will observe all namespaces rather than just the testing namespace")
 	imagePullPolicy     = flag.String("image_pull_policy", "", "Specifies an override for the Docker image pull policy to be used")
 	multiClusterDir     = flag.String("cluster_registry_dir", "",
-		"Directory name for the cluster registry config. When provided a multicluster test to be run across two clusters.")
+		"Directory name for the cluster registry config. When provided a multicluster test is run across two clusters.")
 	splitHorizon             = flag.Bool("split_horizon", false, "Set up a split horizon EDS multi-cluster test environment")
 	useGalleyConfigValidator = flag.Bool("use_galley_config_validator", true, "Use galley configuration validation webhook")
 	installer                = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm")
 	useMCP                   = flag.Bool("use_mcp", true, "use MCP for configuring Istio components")
 	outboundTrafficPolicy    = flag.String("outbound_trafficpolicy", "ALLOW_ANY", "Istio outbound traffic policy, default to ALLOW_ANY")
 	enableEgressGateway      = flag.Bool("enable_egressgateway", false, "enable egress gateway, default to false")
-	kubeInjectCM             = flag.String("kube_inject_configmap", "",
+	useCNI                   = flag.Bool("use_cni", false,
+		"Install the Istio CNI which will add the IP table rules for Envoy instead of the init container")
+	cniHelmRepo  = flag.String("cni_helm_repo", "istio.io/istio-cni", "Name of the Istio CNI helm repo")
+	kubeInjectCM = flag.String("kube_inject_configmap", "",
 		"Configmap to use by the istioctl kube-inject command.")
 	valueFile     = flag.String("valueFile", "", "Istio value yaml file when helm is used")
 	helmSetValues helmSetValueList
@@ -494,15 +501,25 @@ func (k *KubeInfo) Teardown() error {
 	if *skipSetup || *skipCleanup || os.Getenv("SKIP_CLEANUP") != "" {
 		return nil
 	}
+	var errs error
 	if *installer == helmInstallerName {
 		// clean up using helm
 		err := util.HelmDelete(istioHelmChartName)
 		if err != nil {
-			return nil
+			// If fail don't return so other cleanup activities can complete
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("Could not delete %s", istioHelmChartName)))
+		}
+
+		if *useCNI {
+			err := util.HelmDelete("istio-cni")
+			if err != nil {
+				// If fail don't return so other cleanup activities can complete
+				errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("Helm delete of chart %s failed", "istio-cni")))
+			}
 		}
 
 		if err := util.DeleteNamespace(k.Namespace, k.KubeConfig); err != nil {
-			log.Errorf("Failed to delete namespace %s", k.Namespace)
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("Failed to delete namespace %s", k.Namespace)))
 		}
 	} else {
 		if *useAutomaticInjection {
@@ -556,7 +573,7 @@ func (k *KubeInfo) Teardown() error {
 	}
 	if *multiClusterDir != "" {
 		if err := util.DeleteNamespace(k.Namespace, k.RemoteKubeConfig); err != nil {
-			log.Errorf("Failed to delete namespace %s on remote cluster", k.Namespace)
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("Failed to delete namespace %s on remote cluster", k.Namespace)))
 		}
 	}
 
@@ -594,7 +611,7 @@ func (k *KubeInfo) Teardown() error {
 
 	log.Infof("Namespace %s deletion status: %v", k.Namespace, namespaceDeleted)
 
-	return nil
+	return errs
 }
 
 // GetAppPods gets a map of app name to pods for that app. If pods are found, the results are cached.
@@ -695,6 +712,37 @@ func (k *KubeInfo) deployIstio() error {
 		log.Errorf("Unable to create namespace %s: %s", k.Namespace, err.Error())
 		return err
 	}
+
+	// Deploy the CNI if enabled
+	if *useCNI {
+		err := k.deployCNI()
+		if err != nil {
+			log.Errorf("Unable to deply Istio CNI")
+			return err
+		}
+
+		timeout := time.Now().Add(maxCNIDeployTime)
+		var CNIPodName string
+		for time.Now().Before(timeout) {
+			// Check if the CNI pod deployed
+			if CNIPodName, err = util.GetPodName(k.Namespace, "k8s-app=istio-cni-node", k.KubeConfig); err == nil {
+				break
+			}
+
+		}
+
+		if CNIPodName == "" {
+			return errors.New("timeout waiting for CNI to deploy")
+		}
+
+		// Check if the CNI Pod is running.  Note at this point only the CNI is deployed
+		// and it will be the only pod in the namespace
+		if CNIRunning := util.CheckPodsRunning(k.Namespace, k.KubeConfig); !CNIRunning {
+			return errors.New("timeout waiting for CNI to become ready")
+		}
+
+	}
+
 	// Apply istio-init
 	yamlDir := filepath.Join(istioInstallDir, initInstallFile)
 	baseIstioYaml := filepath.Join(k.ReleaseDir, yamlDir)
@@ -964,6 +1012,14 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		valFile = filepath.Join(workDir, *valueFile)
 	}
 
+	if *useCNI {
+		if err = k.deployCNI(); err != nil {
+			log.Error("Failed to deploy the Istio CNI")
+			return err
+		}
+		setValue += " --set istio_cni.enabled=true"
+	}
+
 	// helm install dry run - dry run seems to have problems
 	// with CRDs even in 2.9.2, pre-install is not executed
 	err = util.HelmInstallDryRun(workDir, istioHelmChartName, valFile, k.Namespace, setValue)
@@ -1133,4 +1189,53 @@ func updateImagePullPolicy(policy string, content []byte) []byte {
 	image := []byte(fmt.Sprintf("imagePullPolicy: %s", policy))
 	r := regexp.MustCompile("imagePullPolicy:.*")
 	return r.ReplaceAllLiteral(content, image)
+}
+
+// deployCNI will deploy the Istio CNI components on to the cluster.
+// There are two prerequisites. First, the helm repo must be added in the
+// local environemt.  The tests won't add the repo for any code paths.
+// The Istio helm value istio_cni.enabled needs to be set when the test
+// is being run using the generated yamls (vs. helm install).  The ENV
+// variable ENABLE_ISTIO_CNI can be used.
+func (k *KubeInfo) deployCNI() error {
+	// The CNI is not compatible with all test options.  TODO - enumerate others
+	if *multiClusterDir != "" {
+		log.Errorf("CNI is not enabled for the multicluster test")
+	}
+	log.Info("Deploy Istio CNI components")
+	// Some environments will require additional options to be set or changed
+	// (e.g. GKE environments need the bin directory to be changed from the default
+	setValue := " --set hub=" + *cniHub + " --set tag=" + *cniTag
+	setValue += " --set excludeNamespaces={} --set pullPolicy=IfNotPresent --set logLevel=debug"
+	if extraHelmValues := os.Getenv("EXTRA_HELM_SETTINGS"); extraHelmValues != "" {
+		setValue += extraHelmValues
+	}
+	if *installer == helmInstallerName {
+		//Assumes the CNI helm repo is available alongside the istio repo
+		err := util.HelmInstall(*cniHelmRepo, "istio-cni", "", k.Namespace, setValue)
+		if err != nil {
+			log.Errorf("Helm install istio-cni chart failed, setValue=%s, namespace=%s",
+				setValue, k.Namespace)
+			return err
+		}
+		return err
+	}
+	chartDir := filepath.Join(k.TmpDir, "cniChartDir")
+	err := util.HelmFetch(*cniHelmRepo, chartDir)
+	if err != nil {
+		log.Errorf("Helm fetch of %s failed", *cniHelmRepo)
+		return err
+	}
+	outputFile := filepath.Join(k.TmpDir, "istio-cni_install.yaml")
+	chartDir = filepath.Join(chartDir, "istio-cni")
+	err = util.HelmTemplate(chartDir, "istio-cni", k.Namespace, setValue, outputFile)
+	if err != nil {
+		log.Errorf("Helm template of istio-cni failed")
+		return err
+	}
+	err = util.KubeApply(k.Namespace, outputFile, k.KubeConfig)
+	if err != nil {
+		log.Errorf("Kubeapply istio-cni failed")
+	}
+	return err
 }

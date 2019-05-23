@@ -183,6 +183,27 @@ func (m *ClusterLoadAssignment_Policy) Validate() error {
 
 	}
 
+	if d := m.GetEndpointStaleAfter(); d != nil {
+		dur, err := types.DurationFromProto(d)
+		if err != nil {
+			return ClusterLoadAssignment_PolicyValidationError{
+				field:  "EndpointStaleAfter",
+				reason: "value is not a valid duration",
+				cause:  err,
+			}
+		}
+
+		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+		if dur <= gt {
+			return ClusterLoadAssignment_PolicyValidationError{
+				field:  "EndpointStaleAfter",
+				reason: "value must be greater than 0s",
+			}
+		}
+
+	}
+
 	return nil
 }
 

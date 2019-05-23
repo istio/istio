@@ -36,7 +36,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/features/pilot"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -716,7 +716,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			portsByNum[uint32(port.Port)] = port.Name
 		}
 
-		svcConv := convertService(*svc, c.domainSuffix)
+		svcConv := convertService(*svc, c.domainSuffix, c.ClusterID)
 		instances := externalNameServiceInstances(*svc, svcConv)
 		switch event {
 		case model.EventDelete:
@@ -781,7 +781,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 			for _, ea := range ss.Addresses {
 				pod := c.pods.getPodByIP(ea.IP)
 				if pod == nil {
-					log.Warnf("Endpoint without pod %s %v", ea.IP, ep)
+					log.Warnf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
 					if c.Env != nil {
 						c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
 					}
@@ -812,8 +812,15 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 
 	// TODO: Endpoints include the service labels, maybe we can use them ?
 	// nodeName is also included, not needed
-
-	log.Infof("Handle EDS endpoint %s in namespace %s -> %v %v", ep.Name, ep.Namespace, ep.Subsets, endpoints)
+	if log.InfoEnabled() {
+		var addresses []string
+		for _, ss := range ep.Subsets {
+			for _, a := range ss.Addresses {
+				addresses = append(addresses, a.IP)
+			}
+		}
+		log.Infof("Handle EDS endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, addresses)
+	}
 
 	_ = c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
 }

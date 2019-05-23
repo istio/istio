@@ -45,6 +45,28 @@ const (
 	rootNamespacePrefix = "/"
 )
 
+// TODO: refactor this into model.AuthorizationPolicies.
+func roleForBinding(binding *rbacproto.ServiceRoleBinding, namespace string, ap *model.AuthorizationPolicies) (string, *rbacproto.ServiceRole) {
+	var role *rbacproto.ServiceRole
+	var name string
+	if binding.RoleRef != nil {
+		role = ap.RoleForNameAndNamespace(binding.RoleRef.Name, namespace)
+		name = binding.RoleRef.Name
+	} else if binding.Role != "" {
+		if strings.HasPrefix(binding.Role, rootNamespacePrefix) {
+			globalRoleName := strings.TrimPrefix(binding.Role, rootNamespacePrefix)
+			role = ap.RoleForNameAndNamespace(globalRoleName, model.DefaultMeshConfig().RootNamespace)
+		} else {
+			role = ap.RoleForNameAndNamespace(binding.Role, namespace)
+		}
+		name = binding.Role
+	} else if len(binding.Actions) > 0 {
+		role = &rbacproto.ServiceRole{Rules: binding.Actions}
+		name = "%s-inline-role"
+	}
+	return name, role
+}
+
 // convertRbacRulesToFilterConfigV2 is the successor of convertRbacRulesToFilterConfig, which supports
 // converting AuthorizationPolicy.
 func convertRbacRulesToFilterConfigV2(service *serviceMetadata, option rbacOption) *http_config.RBAC {
@@ -71,75 +93,23 @@ func convertRbacRulesToFilterConfigV2(service *serviceMetadata, option rbacOptio
 	// Get all AuthorizationPolicy Istio config from this namespace.
 	allAuthzPolicies := authorizationConfigV2FromNamespace.AuthzPolicies
 	for _, authzPolicy := range allAuthzPolicies {
-		// If a WorkloadSelector is used in the AuthorizationPolicy config and does not match this service, skip this
-		// AuthorizationPolicy.
-		serviceLabelsCollection := model.LabelsCollection{service.labels}
-		if authzPolicy.Policy.WorkloadSelector != nil &&
-			!(serviceLabelsCollection.IsSupersetOf(authzPolicy.Policy.WorkloadSelector.Labels)) {
+		workloadLabels := model.LabelsCollection{service.labels}
+		policySelector := authzPolicy.Policy.WorkloadSelector.GetLabels()
+		if !(workloadLabels.IsSupersetOf(policySelector)) {
+			// Skip if the workload labels is not a superset of the policy selector (i.e. the workload
+			// is not selected by the policy).
 			continue
 		}
+
 		for i, binding := range authzPolicy.Policy.Allow {
-			permissions := make([]*policyproto.Permission, 0)
-			var role *rbacproto.ServiceRole
-			var serviceRoleName string
-			if binding.RoleRef != nil {
-				role = option.authzPolicies.RoleForNameAndNamespace(binding.RoleRef.Name, namespace)
-				serviceRoleName = binding.RoleRef.Name
-			} else if binding.Role != "" {
-				if strings.HasPrefix(binding.Role, rootNamespacePrefix) {
-					globalRoleName := strings.TrimPrefix(binding.Role, rootNamespacePrefix)
-					role = option.authzPolicies.RoleForNameAndNamespace(globalRoleName, model.DefaultMeshConfig().RootNamespace)
-				} else {
-					role = option.authzPolicies.RoleForNameAndNamespace(binding.Role, namespace)
-				}
-				serviceRoleName = binding.Role
-			} else if len(binding.Actions) > 0 {
-				role = &rbacproto.ServiceRole{Rules: binding.Actions}
-				serviceRoleName = fmt.Sprintf("%s-inline-role", authzPolicy.Name)
-			}
-			for _, rule := range role.Rules {
-				// Check to make sure that the current service (caller) is the one this rule is applying to.
-				if !service.areConstraintsMatched(rule) {
-					rbacLog.Debugf("rule has constraints but doesn't match with the service (found in %s)", serviceRoleName)
-					continue
-				}
-				if option.forTCPFilter {
-					// TODO(yangminzhu): Add metrics.
-					if err := validateRuleForTCPFilter(rule); err != nil {
-						// It's a user misconfiguration if a HTTP rule is specified to a TCP service.
-						// For safety consideration, we ignore the whole rule which means no access is opened to
-						// the TCP service in this case.
-						rbacLog.Debugf("rules[%d] ignored, found HTTP only rule for a TCP service: %v", i, err)
-						continue
-					}
-				}
-				// Generate the policy if the service is matched and validated to the services specified in
-				// ServiceRole.
-				permissions = append(permissions, convertToPermission(rule))
-			}
-			if len(permissions) == 0 {
-				rbacLog.Debugf("role %s skipped for no rule matched", serviceRoleName)
-				continue
-			}
-
-			if option.forTCPFilter {
-				if err := validateBindingsForTCPFilter([]*rbacproto.ServiceRoleBinding{binding}); err != nil {
-					rbacLog.Debugf("role %s skipped, found HTTP only binding for a TCP service: %v", serviceRoleName, err)
-					continue
-				}
-			}
-
-			enforcedPrincipals, _ := convertToPrincipals([]*rbacproto.ServiceRoleBinding{binding}, option.forTCPFilter)
-
-			if len(enforcedPrincipals) == 0 {
-				rbacLog.Debugf("role %s skipped for no principals found", serviceRoleName)
-				continue
-			}
-
-			policyName := fmt.Sprintf("authz-policy-%s-allow[%d]", authzPolicy.Name, i)
-			rbac.Policies[policyName] = &policyproto.Policy{
-				Permissions: permissions,
-				Principals:  enforcedPrincipals,
+			roleName, role := roleForBinding(binding, namespace, option.authzPolicies)
+			// TODO: optimize for multiple bindings referring to the same role.
+			m := NewModel(role, []*rbacproto.ServiceRoleBinding{binding})
+			policy := m.Generate(service, option.forTCPFilter)
+			if policy != nil {
+				rbacLog.Debugf("generated config for role: %s", roleName)
+				policyName := fmt.Sprintf("authz-policy-%s-allow[%d]", authzPolicy.Name, i)
+				rbac.Policies[policyName] = policy
 			}
 		}
 	}
