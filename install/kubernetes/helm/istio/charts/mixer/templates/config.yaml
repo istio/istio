@@ -231,6 +231,8 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+  annotations:
+    policy.istio.io/lang: COMPAT
 spec:
   compiledTemplate: logentry
   params:
@@ -334,8 +336,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-  annotations:
-    policy.istio.io/lang: COMPAT
 spec:
   match: context.protocol == "http" || context.protocol == "grpc"
   actions:
@@ -353,8 +353,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-  annotations:
-    policy.istio.io/lang: COMPAT
 spec:
   match: context.protocol == "tcp"
   actions:
@@ -860,8 +858,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-  annotations:
-    policy.istio.io/lang: COMPAT
 spec:
   match: (context.protocol == "http" || context.protocol == "grpc") && (match((request.useragent | "-"), "kube-probe*") == false) && (match((request.useragent | "-"), "Prometheus*") == false)
   actions:
@@ -882,8 +878,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-  annotations:
-    policy.istio.io/lang: COMPAT
 spec:
   match: context.protocol == "tcp"
   actions:
@@ -897,8 +891,6 @@ kind: rule
 metadata:
   name: promtcpconnectionopen
   namespace: {{ .Release.Namespace }}
-  annotations:
-    policy.istio.io/lang: COMPAT
   labels:
     app: {{ template "mixer.name" . }}
     chart: {{ template "mixer.chart" . }}
@@ -916,8 +908,6 @@ kind: rule
 metadata:
   name: promtcpconnectionclosed
   namespace: {{ .Release.Namespace }}
-  annotations:
-    policy.istio.io/lang: COMPAT
   labels:
     app: {{ template "mixer.name" . }}
     chart: {{ template "mixer.chart" . }}
@@ -963,8 +953,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-  annotations:
-    policy.istio.io/lang: COMPAT
 spec:
   actions:
   - handler: kubernetesenv
@@ -981,8 +969,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-  annotations:
-    policy.istio.io/lang: COMPAT
 spec:
   match: context.protocol == "tcp"
   actions:
