@@ -136,3 +136,14 @@ run-prometheus-operator-config-test: install-prometheus-operator install-prometh
 	# kubectl wait is problematic, as the pod may not exist before the command is issued.
 	until timeout ${WAIT_TIMEOUT} kubectl -n ${ISTIO_CONTROL_NS} get pod/prometheus-prometheus-0; do echo "Waiting for pods to be created..."; done
 	kubectl -n ${ISTIO_CONTROL_NS} wait pod/prometheus-prometheus-0 --for=condition=Ready --timeout=${WAIT_TIMEOUT}
+
+run-minimal-test:
+	mkdir -p ${GOPATH}/out/logs ${GOPATH}/out/tmp
+	(set -o pipefail; cd ${GOPATH}/src/istio.io/istio; \
+		go test ./tests/integration/echo/ \
+			-istio.test.env kube \
+			-istio.test.kube.config=${KUBECONFIG} \
+			-istio.test.nocleanup \
+			-istio.test.kube.deploy=0 \
+			-istio.test.kube.configNamespace=istio-control \
+			-v)
