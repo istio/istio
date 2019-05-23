@@ -412,9 +412,9 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ 
 	inboundUpdates.With(prometheus.Labels{"type": "workload"}).Add(1)
 	if labels == nil {
 		// No push needed - the Endpoints object will also be triggered.
-	        s.mutex.Lock()
+		s.mutex.Lock()
 		delete(s.WorkloadsByID, id)
-	        s.mutex.Unlock()
+		s.mutex.Unlock()
 		return
 	}
 	s.mutex.RLock()
