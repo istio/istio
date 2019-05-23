@@ -29,31 +29,9 @@ function assert_equals() {
 
 TEST_FILE=/tmp/istio-iptables.sh
 TEST_SHELL=/usr/local/bin/bash
-cat > $TEST_FILE <<-END
-#!$TEST_SHELL
-iptables() {
-    echo "iptables \$*"
-}
+grep -v "^trap" ./tools/packaging/common/istio-iptables.sh > $TEST_FILE
 
-ip6tables() {
-    echo  "ip6tables \$*"
-}
-
-ip() {
-    echo  "ip \$*"
-}
-
-hostname() {
-    echo "127.0.0.1"
-}
-
-id() {
-    echo "0"
-}
-
-END
-grep -v "^trap" ./tools/packaging/common/istio-iptables.sh >> $TEST_FILE
-
+export PATH="${PWD}/tests/scripts/stubs:${PATH}"
 
 # Test mode REDIRECT
 OUTPUT=$($TEST_SHELL $TEST_FILE -p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888  -i 1.1.1.0/16 -x 9.9.9.0/16  -k eth1,eth2  2>/dev/null)
