@@ -53,6 +53,7 @@ ADD envoy_pilot.yaml.tmpl /etc/istio/proxy/envoy_pilot.yaml.tmpl
 ADD envoy_policy.yaml.tmpl /etc/istio/proxy/envoy_policy.yaml.tmpl
 ADD envoy_telemetry.yaml.tmpl /etc/istio/proxy/envoy_telemetry.yaml.tmpl
 ADD istio-iptables.sh /usr/local/bin/istio-iptables.sh
+ADD start.sh /usr/local/bin/start.sh
 
 # The pilot-agent will bootstrap Envoy.
-ENTRYPOINT ["/usr/local/bin/pilot-agent"]
+ENTRYPOINT ["/usr/local/bin/start.sh"]

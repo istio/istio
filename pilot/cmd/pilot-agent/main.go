@@ -154,6 +154,13 @@ var (
 					role.ID = podNameVar.Get() + "." + podNamespaceVar.Get()
 				} else if registry == serviceregistry.ConsulRegistry {
 					role.ID = role.IPAddresses[0] + ".service.consul"
+				} else if registry == serviceregistry.MesosRegistry {
+					taskID := os.Getenv("MESOS_TASK_ID")
+					// Trim taskID
+					if lastIndex := strings.LastIndex(taskID, "."); lastIndex > 0 {
+						taskID = taskID[0:lastIndex]
+					}
+					role.ID = taskID
 				} else {
 					role.ID = role.IPAddresses[0]
 				}
