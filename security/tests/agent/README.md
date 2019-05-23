@@ -24,6 +24,8 @@ go test -v -istio.testing.citadelagent.skip=false \
 
 ## Deploy in Kuberentes
 
+Deploy Istio with SDS enabled, following instructions in [istio.io](https://istio.io/docs/tasks/security/auth-sds/).
+
 ```bash
 make clean && make docker.sdsclient && docker push ${HUB}/sdsclient:${TAG}
 kubectl apply -f sdsc.yaml
