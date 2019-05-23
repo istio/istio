@@ -285,7 +285,7 @@ jobs:
           path: /go/out/tests
 
   run-test-on-base-installation:
-    <<: *integrationRemoteOneNamespace
+    <<: *integrationRemoteIsolatedNamespaces
 
     # Can run multiple images, first is primary, all use localhost
     steps:
