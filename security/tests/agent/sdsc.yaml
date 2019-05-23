@@ -20,7 +20,7 @@ spec:
         name: sds-uds-path
       containers:
       - name: client
-        image: gcr.io/jianfeih-test/sdsclient:dev
+        image: gcr.io/istio-testing/sdsclient:0523
         imagePullPolicy: Always
         command: ["/sdsclient"]
         env:
