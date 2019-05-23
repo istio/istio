@@ -61,13 +61,12 @@ type Service struct {
 	// ClusterVIPs specifies the service address of the load balancer
 	// in each of the clusters where the service resides
 	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
-
 	// Ports is the set of network ports where the service is listening for
 	// connections
 	Ports PortList `json:"ports,omitempty"`
 
 	// ServiceAccounts specifies the service accounts that run the service.
-	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
+	ServiceAccounts []string `json:"serviceAccounts,omitempty"`
 
 	// MeshExternal (if true) indicates that the service is external to the mesh.
 	// These services are defined using Istio's ServiceEntry spec.
@@ -465,6 +464,14 @@ type ServiceAttributes struct {
 	// ExportTo defines the visibility of Service in
 	// a namespace when the namespace is imported.
 	ExportTo map[Visibility]bool
+
+	// For Kubernetes platform
+
+	// ClusterExternalAddresses is a mapping between a cluster name and the external
+	// address(es) to access the service from outside the cluster.
+	// Used by the aggregator to aggregate the Attributes.ClusterExternalAddresses
+	// for clusters where the service resides
+	ClusterExternalAddresses map[string][]string
 }
 
 // ServiceDiscovery enumerates Istio service instances.
@@ -803,7 +810,8 @@ func (ports PortList) Get(name string) (*Port, bool) {
 // GetByPort retrieves a port declaration by port value
 func (ports PortList) GetByPort(num int) (*Port, bool) {
 	for _, port := range ports {
-		if port.Port == num {
+		if port.Port == num && port.Protocol != ProtocolUDP &&
+			port.Protocol != ProtocolUnsupported {
 			return port, true
 		}
 	}

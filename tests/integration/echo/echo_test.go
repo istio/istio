@@ -66,7 +66,6 @@ func TestEcho(t *testing.T) {
 						cfg := baseCfg
 						cfg.Service = name
 						cfg.Namespace = ns
-						cfg.Sidecar = true
 						cfg.Headless = true
 						return cfg
 					},
@@ -77,7 +76,6 @@ func TestEcho(t *testing.T) {
 						cfg := baseCfg
 						cfg.Service = name
 						cfg.Namespace = ns
-						cfg.Sidecar = true
 						return cfg
 					},
 				},
@@ -89,7 +87,8 @@ func TestEcho(t *testing.T) {
 						cfg := baseCfg
 						cfg.Service = name
 						cfg.Namespace = ns
-						cfg.Sidecar = false
+						cfg.Annotations = echo.NewAnnotations().
+							SetBool(echo.SidecarInject, false)
 						return cfg
 					},
 				},
@@ -120,15 +119,14 @@ func TestEcho(t *testing.T) {
 				if config.flaky {
 					configTest.Label(label.Flaky)
 				}
-				configTest.Run(func(ctx framework.TestContext) {
-					t := ctx.GoTest()
+				configTest.RunParallel(func(ctx framework.TestContext) {
+					ns := namespace.NewOrFail(ctx, ctx, "echo", true)
 
-					ns := namespace.NewOrFail(t, ctx, "echo", true)
-
-					a := echoboot.NewOrFail(t, ctx, config.apply("a", ns))
-					b := echoboot.NewOrFail(t, ctx, config.apply("b", ns))
-
-					a.WaitUntilReadyOrFail(t, b)
+					var a, b echo.Instance
+					echoboot.NewBuilderOrFail(ctx, ctx).
+						With(&a, config.apply("a", ns)).
+						With(&b, config.apply("b", ns)).
+						BuildOrFail(ctx)
 
 					for _, o := range callOptions {
 						// Make a copy of the options for the test.
@@ -140,22 +138,21 @@ func TestEcho(t *testing.T) {
 							testName = fmt.Sprintf("%s over %s", opts.Scheme, opts.PortName)
 						}
 
-						ctx.NewSubTest(testName).Run(func(ctx framework.TestContext) {
-							t := ctx.GoTest()
-
-							ctx.Environment().Case(environment.Native, func() {
-								if config.testName != "NoSidecar" {
-									switch opts.Scheme {
-									case scheme.WebSocket, scheme.GRPC:
-										// TODO(https://github.com/istio/istio/issues/13754)
-										ctx.Skipf("https://github.com/istio/istio/issues/13754")
+						ctx.NewSubTest(testName).
+							RunParallel(func(ctx framework.TestContext) {
+								ctx.Environment().Case(environment.Native, func() {
+									if config.testName != "NoSidecar" {
+										switch opts.Scheme {
+										case scheme.WebSocket, scheme.GRPC:
+											// TODO(https://github.com/istio/istio/issues/13754)
+											ctx.Skipf("https://github.com/istio/istio/issues/13754")
+										}
 									}
-								}
+								})
+								a.CallOrFail(ctx, opts).
+									CheckOKOrFail(ctx).
+									CheckHostOrFail(ctx, "b")
 							})
-							a.CallOrFail(t, opts).
-								CheckOKOrFail(t).
-								CheckHostOrFail(t, "b")
-						})
 					}
 				})
 			}

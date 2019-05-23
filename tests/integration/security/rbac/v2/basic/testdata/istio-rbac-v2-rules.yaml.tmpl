@@ -3,6 +3,7 @@
 # For service a, allow no one to access it.
 # This will also result a default tcp rule for service a that denies all access.
 # This actually means nobody could access a.
+
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
@@ -29,6 +30,7 @@ spec:
 
 # For service b, only allow authenticated user to access it with GET at any paths except /secret*
 # or only access it at tcp port 90.
+
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
@@ -61,6 +63,7 @@ spec:
 # * Allow GET requests for any path, except paths ending with /admin for service account d.
 # * Deny all requests for service account b.
 # * Deny anyone else by default.
+
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
@@ -103,6 +106,7 @@ spec:
 # For service d:
 # * anyone can access it via HTTP requests
 # * no one can access TCP at port 90.
+
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:

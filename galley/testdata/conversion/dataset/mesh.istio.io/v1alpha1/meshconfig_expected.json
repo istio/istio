@@ -1,0 +1,23 @@
+{
+    "istio/mesh/v1alpha1/MeshConfig": [
+        {
+            "TypeURL": "type.googleapis.com/istio.mesh.v1alpha1.MeshConfig",
+            "Metadata": {
+                "name": "istio-system/meshconfig"
+            },
+            "Body": {
+                "access_log_file": "/dev/stdout",
+                "connect_timeout": {
+                    "seconds": 1
+                },
+                "enable_tracing": true,
+                "ingress_class": "istio",
+                "ingress_controller_mode": 2,
+                "outbound_traffic_policy": {
+                    "mode": 1
+                },
+                "proxy_listen_port": 15001
+            }
+        }
+    ]
+}

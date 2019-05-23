@@ -22,11 +22,6 @@ die () {
 SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOTDIR="$(dirname "$SCRIPTPATH")"
 
-if [ ! -e "$ROOTDIR/Gopkg.lock" ]; then
-  echo "Please run 'dep ensure' first"
-  exit 1
-fi
-
 set -e
 
 outdir=$ROOTDIR

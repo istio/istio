@@ -18,10 +18,13 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/pkg/log"
 )
 
 // This test allows for Locality Prioritized Load Balancing testing without needing Kube nodes in multiple regions.
@@ -59,68 +62,70 @@ import (
 //                                                                 +-> 10.28.1.139 (c -> notregion.notzone.notsubzone)
 
 func TestPrioritized(t *testing.T) {
-	// TODO(liamawhite): Investigate why it fails in Parallel.
-	//t.Parallel()
+	framework.NewTest(t).
+		RunParallel(func(ctx framework.TestContext) {
 
-	t.Run("CDS", func(t *testing.T) {
-		t.Parallel()
+			ctx.NewSubTest("CDS").
+				RequiresEnvironment(environment.Kube).
+				// TODO(https://github.com/istio/istio/issues/13812)
+				Label(label.Flaky).
+				RunParallel(func(ctx framework.TestContext) {
+					ns := namespace.NewOrFail(ctx, ctx, "locality-prioritized-cds", true)
 
-		framework.NewTest(t).
-			RequiresEnvironment(environment.Kube).
-			Run(func(ctx framework.TestContext) {
+					var a, b, c echo.Instance
+					echoboot.NewBuilderOrFail(ctx, ctx).
+						With(&a, echoConfig(ns, "a")).
+						With(&b, echoConfig(ns, "b")).
+						With(&c, echoConfig(ns, "c")).
+						BuildOrFail(ctx)
 
-				ns := namespace.NewOrFail(t, ctx, "failover-eds", true)
-				a := newEcho(t, ctx, ns, "a")
-				b := newEcho(t, ctx, ns, "b")
-				c := newEcho(t, ctx, ns, "c")
-				a.WaitUntilReadyOrFail(t, b, c)
+					fakeHostname := fmt.Sprintf("fake-cds-external-service-%v.com", r.Int())
+					deploy(ctx, ns, serviceConfig{
+						Name:             "prioritized-cds",
+						Host:             fakeHostname,
+						Namespace:        ns.Name(),
+						Resolution:       "DNS",
+						ServiceBAddress:  "b",
+						ServiceBLocality: "region/zone/subzone",
+						ServiceCAddress:  "c",
+						ServiceCLocality: "notregion/notzone/notsubzone",
+					})
 
-				fakeHostname := fmt.Sprintf("fake-cds-external-service-%v.com", r.Int())
-				deploy(t, ns, serviceConfig{
-					Name:             "prioritized-cds",
-					Host:             fakeHostname,
-					Namespace:        ns.Name(),
-					Resolution:       "DNS",
-					ServiceBAddress:  "b",
-					ServiceBLocality: "region/zone/subzone",
-					ServiceCAddress:  "c",
-					ServiceCLocality: "notregion/notzone/notsubzone",
+					// Send traffic to service B via a service entry.
+					log.Infof("Sending traffic to local service (CDS) via %v", fakeHostname)
+					sendTraffic(ctx, a, fakeHostname)
 				})
 
-				// Send traffic to service B via a service entry.
-				log.Infof("Sending traffic to local service (CDS) via %v", fakeHostname)
-				sendTraffic(t, a, fakeHostname)
-			})
-	})
+			ctx.NewSubTest("EDS").
+				RequiresEnvironment(environment.Kube).
+				// TODO(https://github.com/istio/istio/issues/13812)
+				Label(label.Flaky).
+				RunParallel(func(ctx framework.TestContext) {
 
-	t.Run("EDS", func(t *testing.T) {
-		t.Parallel()
+					ns := namespace.NewOrFail(ctx, ctx, "locality-prioritized-eds", true)
 
-		framework.NewTest(t).
-			RequiresEnvironment(environment.Kube).
-			Run(func(ctx framework.TestContext) {
+					var a, b, c echo.Instance
+					echoboot.NewBuilderOrFail(ctx, ctx).
+						With(&a, echoConfig(ns, "a")).
+						With(&b, echoConfig(ns, "b")).
+						With(&c, echoConfig(ns, "c")).
+						BuildOrFail(ctx)
 
-				ns := namespace.NewOrFail(t, ctx, "failover-eds", true)
-				a := newEcho(t, ctx, ns, "a")
-				b := newEcho(t, ctx, ns, "b")
-				c := newEcho(t, ctx, ns, "c")
-				a.WaitUntilReadyOrFail(t, b, c)
+					fakeHostname := fmt.Sprintf("fake-eds-external-service-%v.com", r.Int())
+					deploy(ctx, ns, serviceConfig{
+						Name:             "prioritized-eds",
+						Host:             fakeHostname,
+						Namespace:        ns.Name(),
+						Resolution:       "STATIC",
+						ServiceBAddress:  b.WorkloadsOrFail(ctx)[0].Address(),
+						ServiceBLocality: "region/zone/subzone",
+						ServiceCAddress:  c.WorkloadsOrFail(ctx)[0].Address(),
+						ServiceCLocality: "notregion/notzone/notsubzone",
+					})
 
-				fakeHostname := fmt.Sprintf("fake-eds-external-service-%v.com", r.Int())
-				deploy(t, ns, serviceConfig{
-					Name:             "prioritized-eds",
-					Host:             fakeHostname,
-					Namespace:        ns.Name(),
-					Resolution:       "STATIC",
-					ServiceBAddress:  b.WorkloadsOrFail(t)[0].Address(),
-					ServiceBLocality: "region/zone/subzone",
-					ServiceCAddress:  c.WorkloadsOrFail(t)[0].Address(),
-					ServiceCLocality: "notregion/notzone/notsubzone",
+					// Send traffic to service B via a service entry.
+					log.Infof("Sending traffic to local service (EDS) via %v", fakeHostname)
+					sendTraffic(ctx, a, fakeHostname)
 				})
-
-				// Send traffic to service B via a service entry.
-				log.Infof("Sending traffic to local service (EDS) via %v", fakeHostname)
-				sendTraffic(t, a, fakeHostname)
-			})
-	})
+		})
 }

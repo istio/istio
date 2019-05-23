@@ -19,13 +19,13 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il"
 	"istio.io/istio/mixer/pkg/il/interpreter"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
 	"istio.io/istio/mixer/pkg/il/text"
 	"istio.io/istio/mixer/pkg/lang"
 	"istio.io/istio/mixer/pkg/lang/ast"
+	"istio.io/pkg/attribute"
 )
 
 func TestCompiler_SingleExpressionSession(t *testing.T) {
@@ -38,7 +38,7 @@ func TestCompiler_SingleExpressionSession(t *testing.T) {
 
 		t.Run(test.TestName(), func(tt *testing.T) {
 
-			finder := ast.NewFinder(test.Conf())
+			finder := attribute.NewFinder(test.Conf())
 
 			fns := lang.ExternFunctionMetadata
 			if test.Fns != nil {
@@ -95,7 +95,7 @@ func TestCompiler_DoubleExpressionSession(t *testing.T) {
 
 		t.Run(test.TestName(), func(tt *testing.T) {
 
-			finder := ast.NewFinder(test.Conf())
+			finder := attribute.NewFinder(test.Conf())
 
 			fns := lang.ExternFunctionMetadata
 			if test.Fns != nil {
@@ -166,7 +166,7 @@ func TestCompile(t *testing.T) {
 		name := fmt.Sprintf("%d '%s'", i, test.TestName())
 		t.Run(name, func(tt *testing.T) {
 
-			finder := ast.NewFinder(test.Conf())
+			finder := attribute.NewFinder(test.Conf())
 
 			fns := lang.ExternFunctionMetadata
 			if test.Fns != nil {

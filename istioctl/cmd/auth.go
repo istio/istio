@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -109,12 +109,12 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			if err != nil {
 				return err
 			}
-			convertedPolicies, err := upgrader.UpgradeCRDs()
+			err = upgrader.UpgradeCRDs()
 			if err != nil {
 				return err
 			}
 			writer := cmd.OutOrStdout()
-			_, err = writer.Write([]byte(convertedPolicies))
+			_, err = writer.Write([]byte(upgrader.ConvertedPolicies.String()))
 			if err != nil {
 				return fmt.Errorf("failed writing config with error %v", err)
 			}
@@ -176,12 +176,9 @@ func newUpgrader(v1PolicyFile string, serviceFiles []string) (*auth.Upgrader, er
 	if v1PolicyFile == "" {
 		return nil, fmt.Errorf("no input file provided")
 	}
-	istioClient, err := newClient()
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to Istio Config Store with error %v", err)
-	}
 
 	var k8sClient *k8s.Clientset
+	var err error
 	if len(serviceFiles) == 0 {
 		k8sClient, err = kube.CreateClientset("", "")
 		if err != nil {
@@ -190,11 +187,10 @@ func newUpgrader(v1PolicyFile string, serviceFiles []string) (*auth.Upgrader, er
 	}
 
 	upgrader := &auth.Upgrader{
-		IstioConfigStore:         istioClient,
-		K8sClient:                k8sClient,
-		ServiceFiles:             serviceFiles,
-		RoleNameToWorkloadLabels: map[string]auth.ServiceToWorkloadLabels{},
-		V1PolicyFile:             v1PolicyFile,
+		K8sClient:                          k8sClient,
+		ServiceFiles:                       serviceFiles,
+		NamespaceToServiceToWorkloadLabels: map[string]auth.ServiceToWorkloadLabels{},
+		V1PolicyFile:                       v1PolicyFile,
 	}
 	return upgrader, nil
 }

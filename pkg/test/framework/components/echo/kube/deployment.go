@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"text/template"
 
-	"istio.io/istio/pkg/test/framework/core/image"
-
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/core/image"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -39,6 +39,12 @@ metadata:
   name: {{ .Service }}
   labels:
     app: {{ .Service }}
+{{- if .ServiceAnnotations }}
+  annotations:
+{{- range $name, $value := .ServiceAnnotations }}
+    {{ $name }}: {{ printf "%q" $value }}
+{{- end }}
+{{- end }}
 spec:
 {{- if .Headless }}
   clusterIP: None
@@ -73,9 +79,15 @@ spec:
 {{- if ne .Locality "" }}
         istio-locality: {{ .Locality }}
 {{- end }}
-{{- if not .Sidecar }}
       annotations:
-        sidecar.istio.io/inject: "false"
+        foo: bar
+{{- if .WorkloadAnnotations }}
+{{- range $name, $value := .WorkloadAnnotations }}
+        {{ $name }}: {{ printf "%q" $value }}
+{{- end }}
+{{- end }}
+{{- if .IncludeInboundPorts }}
+        traffic.sidecar.istio.io/includeInboundPorts: "{{ .IncludeInboundPorts }}"
 {{- end }}
     spec:
 {{- if .ServiceAccount }}
@@ -135,7 +147,6 @@ UVoCqQmzjPoB3c3JoYFpJo-9jTN1_mNRtZUcNvYl-tDlTmBlaKEvoC5P2WGVUF3AoLsES66u4FG9Wllm
 LV92LG1WNqx_ltkT1tahSy9WiHQgyzPqwtwE72T1jAGdgVIoJy1lfSaLam_bo9rqkRlgSg-au9BAjZiD\
 Gtm9tf3lwrcgfbxccdlG4jAsTFa2aNs3dW4NLk7mFnWCJa-iWj-TgFxf9TW-9XPK0g3oYIQ0Id0CIW2S\
 iFxKGPAjB-g"
----
 `
 )
 
@@ -157,18 +168,34 @@ func generateYAML(cfg echo.Config) (string, error) {
 		return "", err
 	}
 
+	// Separate the annotations.
+	serviceAnnotations := make(map[string]string)
+	workloadAnnotations := make(map[string]string)
+	for k, v := range cfg.Annotations {
+		switch k.Type {
+		case echo.ServiceAnnotation:
+			serviceAnnotations[k.Name] = v.Value
+		case echo.WorkloadAnnotation:
+			workloadAnnotations[k.Name] = v.Value
+		default:
+			scopes.Framework.Warnf("annotation %s with unknown type %s", k.Name, k.Type)
+		}
+	}
+
 	params := map[string]interface{}{
-		"Hub":            settings.Hub,
-		"Tag":            settings.Tag,
-		"PullPolicy":     settings.PullPolicy,
-		"Service":        cfg.Service,
-		"Version":        cfg.Version,
-		"Sidecar":        cfg.Sidecar,
-		"Headless":       cfg.Headless,
-		"Locality":       cfg.Locality,
-		"ServiceAccount": cfg.ServiceAccount,
-		"Ports":          cfg.Ports,
-		"ContainerPorts": getContainerPorts(cfg.Ports),
+		"Hub":                 settings.Hub,
+		"Tag":                 settings.Tag,
+		"PullPolicy":          settings.PullPolicy,
+		"Service":             cfg.Service,
+		"Version":             cfg.Version,
+		"Headless":            cfg.Headless,
+		"Locality":            cfg.Locality,
+		"ServiceAccount":      cfg.ServiceAccount,
+		"Ports":               cfg.Ports,
+		"ContainerPorts":      getContainerPorts(cfg.Ports),
+		"ServiceAnnotations":  serviceAnnotations,
+		"WorkloadAnnotations": workloadAnnotations,
+		"IncludeInboundPorts": cfg.IncludeInboundPorts,
 	}
 
 	// Generate the YAML content.

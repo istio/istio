@@ -19,18 +19,19 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"testing"
 	"time"
 
-	homedir "github.com/mitchellh/go-homedir"
-	yaml2 "gopkg.in/yaml.v2"
+	"github.com/mitchellh/go-homedir"
 
-	kubeCore "k8s.io/api/core/v1"
+	yaml2 "gopkg.in/yaml.v2"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/core/image"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/file"
+
+	kubeCore "k8s.io/api/core/v1"
 )
 
 const (
@@ -132,7 +133,7 @@ func (c *Config) IsMtlsEnabled() bool {
 		return true
 	}
 
-	data, err := test.ReadConfigFile(filepath.Join(c.ChartDir, c.ValuesFile))
+	data, err := file.AsString(filepath.Join(c.ChartDir, c.ValuesFile))
 	if err != nil {
 		return false
 	}
@@ -192,7 +193,7 @@ func DefaultConfig(ctx resource.Context) (Config, error) {
 }
 
 // DefaultConfigOrFail calls DefaultConfig and fails t if an error occurs.
-func DefaultConfigOrFail(t testing.TB, ctx resource.Context) Config {
+func DefaultConfigOrFail(t test.Failer, ctx resource.Context) Config {
 	cfg, err := DefaultConfig(ctx)
 	if err != nil {
 		t.Fatalf("Get istio config: %v", err)

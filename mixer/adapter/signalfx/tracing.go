@@ -29,8 +29,8 @@ import (
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/adapter/opencensus"
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/template/tracespan"
+	"istio.io/pkg/attribute"
 )
 
 // How long to wait for a response from ingest when sending spans.  New spans will

@@ -26,8 +26,8 @@ import (
 	"istio.io/istio/istioctl/pkg/validate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/collateral"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/collateral"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -103,7 +103,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(proxyConfig())
 	rootCmd.AddCommand(statusCmd)
 
-	experimentalCmd.AddCommand(install.NewVerifyCommand(&istioNamespace))
+	rootCmd.AddCommand(install.NewVerifyCommand())
 	experimentalCmd.AddCommand(Auth())
 	experimentalCmd.AddCommand(convertIngress())
 	experimentalCmd.AddCommand(dashboard())

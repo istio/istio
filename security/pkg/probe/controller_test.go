@@ -23,12 +23,12 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer"
 
-	"istio.io/istio/pkg/probe"
 	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/caclient/protocol/mock"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	pb "istio.io/istio/security/proto"
+	"istio.io/pkg/probe"
 )
 
 func TestGcpGetServiceIdentity(t *testing.T) {

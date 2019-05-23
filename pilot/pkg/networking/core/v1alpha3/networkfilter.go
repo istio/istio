@@ -16,6 +16,9 @@ package v1alpha3
 
 import (
 	"fmt"
+	"time"
+
+	"istio.io/istio/pkg/features/pilot"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
@@ -94,6 +97,12 @@ func buildOutboundNetworkFiltersWithSingleDestination(env *model.Environment, no
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
 		// TODO: Need to set other fields such as Idle timeouts
 	}
+
+	idleTimeout, err := time.ParseDuration(node.Metadata[model.NodeMetadataIdleTimeout])
+	if idleTimeout > 0 && err == nil {
+		config.IdleTimeout = &idleTimeout
+	}
+
 	tcpFilter := setAccessLogAndBuildTCPFilter(env, node, config)
 	return buildNetworkFiltersStack(node, port, tcpFilter, clusterName)
 }
@@ -107,10 +116,16 @@ func buildOutboundNetworkFiltersWithWeightedClusters(env *model.Environment, nod
 	clusterSpecifier := &tcp_proxy.TcpProxy_WeightedClusters{
 		WeightedClusters: &tcp_proxy.TcpProxy_WeightedCluster{},
 	}
+
 	proxyConfig := &tcp_proxy.TcpProxy{
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: clusterSpecifier,
 		// TODO: Need to set other fields such as Idle timeouts
+	}
+
+	idleTimeout, err := time.ParseDuration(node.Metadata[model.NodeMetadataIdleTimeout])
+	if idleTimeout > 0 && err == nil {
+		proxyConfig.IdleTimeout = &idleTimeout
 	}
 
 	for _, route := range routes {
@@ -135,7 +150,7 @@ func buildNetworkFiltersStack(node *model.Proxy, port *model.Port, tcpFilter *li
 	case model.ProtocolMongo:
 		filterstack = append(filterstack, buildMongoFilter(statPrefix, util.IsProxyVersionGE11(node)), *tcpFilter)
 	case model.ProtocolMySQL:
-		if util.IsProxyVersionGE11(node) {
+		if util.IsProxyVersionGE11(node) && pilot.EnableMysqlFilter() {
 			filterstack = append(filterstack, buildMySQLFilter(statPrefix, util.IsProxyVersionGE11(node)))
 		}
 		filterstack = append(filterstack, *tcpFilter)

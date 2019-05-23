@@ -24,8 +24,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"istio.io/istio/pkg/log"
 	cred "istio.io/istio/security/pkg/credential"
+	"istio.io/pkg/log"
 )
 
 const (

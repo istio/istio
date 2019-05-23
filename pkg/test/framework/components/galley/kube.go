@@ -20,10 +20,10 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"testing"
 
 	"github.com/pkg/errors"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -138,15 +138,15 @@ func (c *kubeComponent) ClearConfig() (err error) {
 
 // ApplyConfig implements Galley.ApplyConfig.
 func (c *kubeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string) error {
-	namespace := ""
+	nsName := ""
 	if ns != nil {
-		namespace = ns.Name()
+		nsName = ns.Name()
 	}
 
 	var err error
 	for _, y := range yamlText {
-		if namespace != "" {
-			if y, err = yml.ApplyNamespace(y, namespace); err != nil {
+		if nsName != "" {
+			if y, err = yml.ApplyNamespace(y, nsName); err != nil {
 				return err
 			}
 		}
@@ -157,18 +157,18 @@ func (c *kubeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string) e
 		}
 
 		for _, k := range keys {
-			if err = c.environment.Accessor.Apply(namespace, c.cache.GetFileFor(k)); err != nil {
+			if err = c.environment.Accessor.Apply(nsName, c.cache.GetFileFor(k)); err != nil {
 				return err
 			}
 		}
-		scopes.Framework.Debugf("Applied config: ns: %s\n%s\n", namespace, y)
+		scopes.Framework.Debugf("Applied config: ns: %s\n%s\n", nsName, y)
 	}
 
 	return nil
 }
 
 // ApplyConfigOrFail applies the given config yaml file via Galley.
-func (c *kubeComponent) ApplyConfigOrFail(t *testing.T, ns namespace.Instance, yamlText ...string) {
+func (c *kubeComponent) ApplyConfigOrFail(t test.Failer, ns namespace.Instance, yamlText ...string) {
 	t.Helper()
 	err := c.ApplyConfig(ns, yamlText...)
 	if err != nil {
@@ -178,8 +178,13 @@ func (c *kubeComponent) ApplyConfigOrFail(t *testing.T, ns namespace.Instance, y
 
 // DeleteConfig implements Galley.DeleteConfig.
 func (c *kubeComponent) DeleteConfig(ns namespace.Instance, yamlText ...string) (err error) {
+	nsName := ""
+	if ns != nil {
+		nsName = ns.Name()
+	}
+
 	for _, txt := range yamlText {
-		err := c.environment.Accessor.DeleteContents(ns.Name(), txt)
+		err := c.environment.Accessor.DeleteContents(nsName, txt)
 		if err != nil {
 			return err
 		}
@@ -193,7 +198,7 @@ func (c *kubeComponent) DeleteConfig(ns namespace.Instance, yamlText ...string) 
 }
 
 // DeleteConfigOrFail implements Galley.DeleteConfigOrFail.
-func (c *kubeComponent) DeleteConfigOrFail(t *testing.T, ns namespace.Instance, yamlText ...string) {
+func (c *kubeComponent) DeleteConfigOrFail(t test.Failer, ns namespace.Instance, yamlText ...string) {
 	t.Helper()
 	err := c.DeleteConfig(ns, yamlText...)
 	if err != nil {
@@ -224,7 +229,7 @@ func (c *kubeComponent) WaitForSnapshot(collection string, validator SnapshotVal
 }
 
 // WaitForSnapshotOrFail implements Galley.WaitForSnapshotOrFail.
-func (c *kubeComponent) WaitForSnapshotOrFail(t *testing.T, collection string, validator SnapshotValidatorFunc) {
+func (c *kubeComponent) WaitForSnapshotOrFail(t test.Failer, collection string, validator SnapshotValidatorFunc) {
 	t.Helper()
 	if err := c.WaitForSnapshot(collection, validator); err != nil {
 		t.Fatalf("WaitForSnapshotOrFail: %v", err)

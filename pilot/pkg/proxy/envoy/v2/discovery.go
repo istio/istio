@@ -19,6 +19,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
@@ -249,7 +251,7 @@ func (s *DiscoveryServer) periodicRefresh(stopCh <-chan struct{}) {
 	for {
 		select {
 		case <-ticker.C:
-			adsLog.Debugf("ADS: periodic push of envoy configs %s", versionInfo())
+			adsLog.Debugf("ADS: Periodic push of envoy configs version:%s", versionInfo())
 			s.AdsPushAll(versionInfo(), s.globalPushContext(), true, nil)
 		case <-stopCh:
 			return
@@ -283,7 +285,6 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 // to avoid direct dependencies.
 func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]struct{}) {
 	if !full {
-		adsLog.Infof("XDS Incremental Push EDS:%d", len(edsUpdates))
 		go s.AdsPushAll(versionInfo(), s.globalPushContext(), false, edsUpdates)
 		return
 	}
@@ -298,7 +299,7 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]struct{}) {
 	push := model.NewPushContext()
 	err := push.InitContext(s.Env)
 	if err != nil {
-		adsLog.Errorf("XDS: failed to update services %v", err)
+		adsLog.Errorf("XDS: Failed to update services: %v", err)
 		// We can't push if we can't read the data - stick with previous version.
 		pushContextErrors.Inc()
 		return
@@ -371,6 +372,7 @@ func (s *DiscoveryServer) clearCache() {
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 // It replaces the 'clear cache' from v1.
 func (s *DiscoveryServer) ConfigUpdate(full bool) {
+	inboundUpdates.With(prometheus.Labels{"type": "config"}).Add(1)
 	s.updateChannel <- &updateReq{full: full}
 }
 
@@ -384,7 +386,6 @@ func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
 	var startDebounce time.Time
 	var lastConfigUpdateTime time.Time
 
-	configUpdateCounter := 0
 	pushCounter := 0
 
 	debouncedEvents := 0
@@ -399,7 +400,6 @@ func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
 				startDebounce = lastConfigUpdateTime
 			}
 			debouncedEvents++
-			configUpdateCounter++
 			// fullPush is sticky if any debounced event requires a fullPush
 			if r.full {
 				fullPush = true

@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -290,7 +290,7 @@ func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string, opt
 			}
 		}
 		return fmt.Errorf("%s/%v endpoint not ready: no ready addresses", ns, name)
-	}, opts...)
+	}, newRetryOptions(opts...)...)
 
 	if err != nil {
 		return nil, nil, err

@@ -29,6 +29,7 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/status"
+	attr "istio.io/pkg/attribute"
 )
 
 var (
@@ -90,7 +91,7 @@ func TestCheck(t *testing.T) {
 	client := mixerpb.NewMixerClient(conn)
 
 	srcBag := attribute.GetProtoBag(&attrs, attrSrv.GlobalDict, attribute.GlobalList())
-	wantBag := attribute.CopyBag(srcBag)
+	wantBag := attr.CopyBag(srcBag)
 
 	noQuotaReq := &mixerpb.CheckRequest{Attributes: attrs}
 	quotaReq := &mixerpb.CheckRequest{Attributes: attrs, Quotas: testQuotas, DeduplicationId: "baz"}
@@ -229,15 +230,15 @@ func TestReport(t *testing.T) {
 
 	words := []string{"foo", "bar", "baz"}
 
-	baseBag := attribute.CopyBag(attribute.GetProtoBag(&attrs[0], attrSrv.GlobalDict, attribute.GlobalList()))
-	middleBag := attribute.CopyBag(baseBag)
-	if err = middleBag.UpdateBagFromProto(&attrs[1], attribute.GlobalList()); err != nil {
+	baseBag := attr.CopyBag(attribute.GetProtoBag(&attrs[0], attrSrv.GlobalDict, attribute.GlobalList()))
+	middleBag := attr.CopyBag(baseBag)
+	if err = attribute.UpdateBagFromProto(middleBag, &attrs[1], attribute.GlobalList()); err != nil {
 		t.Fatalf("Could not set up attribute bags for testing: %v", err)
 	}
 
 	finalAttr := &mixerpb.CompressedAttributes{Words: words, Strings: attrs[2].Strings}
-	finalBag := attribute.CopyBag(middleBag)
-	if err = finalBag.UpdateBagFromProto(finalAttr, attribute.GlobalList()); err != nil {
+	finalBag := attr.CopyBag(middleBag)
+	if err = attribute.UpdateBagFromProto(finalBag, finalAttr, attribute.GlobalList()); err != nil {
 		t.Fatalf("Could not set up attribute bags for testing: %v", err)
 	}
 

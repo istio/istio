@@ -21,7 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	istioVersion "istio.io/istio/pkg/version"
+	istioVersion "istio.io/pkg/version"
 )
 
 func newVersionCommand() *cobra.Command {

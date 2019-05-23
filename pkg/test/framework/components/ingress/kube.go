@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -159,4 +160,13 @@ func (c *kubeComponent) Call(path string) (CallResponse, error) {
 	}
 
 	return response, nil
+}
+
+func (c *kubeComponent) CallOrFail(t test.Failer, path string) CallResponse {
+	t.Helper()
+	resp, err := c.Call(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp
 }

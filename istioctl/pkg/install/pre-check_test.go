@@ -67,6 +67,27 @@ func TestPreCheck(t *testing.T) {
 			},
 			expectedException: true,
 		},
+		{description: "Valid Istio System",
+			config: &mockClientExecPreCheckConfig{
+				version:   version1_13,
+				namespace: "test",
+				authConfig: &authorizationapi.SelfSubjectAccessReview{
+					Spec: authorizationapi.SelfSubjectAccessReviewSpec{
+						ResourceAttributes: &authorizationapi.ResourceAttributes{
+							Namespace: "test",
+							Verb:      "create",
+							Group:     "test",
+							Version:   "test",
+							Resource:  "test",
+						},
+					},
+					Status: authorizationapi.SubjectAccessReviewStatus{
+						Allowed: true,
+					},
+				},
+			},
+			expectedException: false,
+		},
 		{description: "Lacking Permission",
 			config: &mockClientExecPreCheckConfig{
 				version:   version1_13,
@@ -119,8 +140,7 @@ func verifyOutput(t *testing.T, c testcase) {
 
 	clientExecFactory = mockPreCheckClient(c.config)
 	var out bytes.Buffer
-	ns := "istio-system"
-	verifyInstallCmd := NewVerifyCommand(&ns)
+	verifyInstallCmd := NewVerifyCommand()
 	verifyInstallCmd.SetOutput(&out)
 	fErr := verifyInstallCmd.Execute()
 	output := out.String()

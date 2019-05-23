@@ -57,44 +57,45 @@ const (
 		"emRIMHVOfuvHsU60_GhGbiSFzgPTAa9WTltbnarTbxudb_YEOx12JiwYToeX0DCPb43W1tzIBxgm8NxUg"
 )
 
-func TestGroupV1RBAC(t *testing.T) {
+func TestRBACV1Group(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
-			ns := namespace.NewOrFail(t, ctx, "rbacv1", true)
+			ns := namespace.NewOrFail(t, ctx, "rbacv1-group-test", true)
 			ports := []echo.Port{
 				{
 					Name:     "http",
 					Protocol: model.ProtocolHTTP,
 				},
 			}
-			a := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:   "a",
-				Namespace: ns,
-				Sidecar:   true,
-				Ports:     ports,
-				Galley:    g,
-				Pilot:     p,
-			})
-			b := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:        "b",
-				Namespace:      ns,
-				Ports:          ports,
-				Sidecar:        true,
-				ServiceAccount: true,
-				Galley:         g,
-				Pilot:          p,
-			})
-			c := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:        "c",
-				Namespace:      ns,
-				Ports:          ports,
-				Sidecar:        true,
-				ServiceAccount: true,
-				Galley:         g,
-				Pilot:          p,
-			})
+
+			var a, b, c echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, echo.Config{
+					Service:   "a",
+					Namespace: ns,
+					Ports:     ports,
+					Galley:    g,
+					Pilot:     p,
+				}).
+				With(&b, echo.Config{
+					Service:        "b",
+					Namespace:      ns,
+					Ports:          ports,
+					ServiceAccount: true,
+					Galley:         g,
+					Pilot:          p,
+				}).
+				With(&c, echo.Config{
+					Service:        "c",
+					Namespace:      ns,
+					Ports:          ports,
+					ServiceAccount: true,
+					Galley:         g,
+					Pilot:          p,
+				}).
+				BuildOrFail(t)
 
 			cases := []util.TestCase{
 				{
@@ -155,8 +156,8 @@ func TestGroupV1RBAC(t *testing.T) {
 				"Namespace": ns.Name(),
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args,
-				file.AsString(t, rbacClusterConfigTmpl),
-				file.AsString(t, rbacGroupListRulesTmpl))
+				file.AsStringOrFail(t, rbacClusterConfigTmpl),
+				file.AsStringOrFail(t, rbacGroupListRulesTmpl))
 
 			g.ApplyConfigOrFail(t, ns, policies...)
 			defer g.DeleteConfigOrFail(t, ns, policies...)
@@ -173,7 +174,7 @@ func TestGroupV1RBAC(t *testing.T) {
 					tc.Request.Options.Path,
 					tc.ExpectAllowed)
 				t.Run(testName, func(t *testing.T) {
-					retry.UntilSuccessOrFail(t, tc.Check, retry.Delay(10*time.Second), retry.Timeout(120*time.Second))
+					retry.UntilSuccessOrFail(t, tc.CheckRBACRequest, retry.Delay(10*time.Second), retry.Timeout(120*time.Second))
 				})
 			}
 		})

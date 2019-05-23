@@ -4,18 +4,43 @@ metadata:
   name: googleapis
 spec:
   hosts:
-  - "*.googleapis.com"
+  - www.googleapis.com
   ports:
+  - number: 80
+    name: http
+    protocol: HTTP
   - number: 443
     name: https
-    protocol: http
+    protocol: HTTPS
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: rewrite-port-for-googleapis
+spec:
+  hosts:
+  - www.googleapis.com
+  http:
+  - match:
+    - port: 80
+    route:
+    - destination:
+        host: www.googleapis.com
+        port:
+          number: 443
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: googleapis
+  name: originate-tls-for-googleapis
 spec:
-  host: "*.googleapis.com"
+  host: www.googleapis.com
   trafficPolicy:
-    tls:
-      mode: SIMPLE # initiates HTTPS when talking to www.google.com
+    loadBalancer:
+      simple: ROUND_ROBIN
+    portLevelSettings:
+    - port:
+        number: 443
+      tls:
+        mode: SIMPLE # initiates HTTPS when accessing www.googleapis.com

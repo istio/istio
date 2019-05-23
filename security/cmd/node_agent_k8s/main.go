@@ -24,13 +24,13 @@ import (
 	"github.com/spf13/cobra/doc"
 
 	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/collateral"
-	"istio.io/istio/pkg/env"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/version"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
+	"istio.io/pkg/collateral"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
@@ -108,6 +108,10 @@ const (
 	// example value format like "20m"
 	SecretRotationInterval     = "SECRET_JOB_RUN_INTERVAL"
 	secretRotationIntervalFlag = "secretRotationInterval"
+
+	// The environmental variable name for staled connection recycle job running interval.
+	// example value format like "5m"
+	staledConnectionRecycleInterval = "STALED_CONNECTION_RECYCLE_RUN_INTERVAL"
 )
 
 var (
@@ -203,22 +207,23 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 }
 
 var (
-	pluginNamesEnv                = env.RegisterStringVar(pluginNames, "", "").Get()
-	enableWorkloadSDSEnv          = env.RegisterBoolVar(enableWorkloadSDS, true, "").Get()
-	enableIngressGatewaySDSEnv    = env.RegisterBoolVar(enableIngressGatewaySDS, false, "").Get()
-	alwaysValidTokenFlagEnv       = env.RegisterBoolVar(alwaysValidTokenFlag, false, "").Get()
-	skipValidateCertFlagEnv       = env.RegisterBoolVar(skipValidateCertFlag, false, "").Get()
-	caProviderEnv                 = env.RegisterStringVar(caProvider, "", "").Get()
-	caEndpointEnv                 = env.RegisterStringVar(caEndpoint, "", "").Get()
-	trustDomainEnv                = env.RegisterStringVar(trustDomain, "", "").Get()
-	vaultAddressEnv               = env.RegisterStringVar(vaultAddress, "", "").Get()
-	vaultRoleEnv                  = env.RegisterStringVar(vaultRole, "", "").Get()
-	vaultAuthPathEnv              = env.RegisterStringVar(vaultAuthPath, "", "").Get()
-	vaultSignCsrPathEnv           = env.RegisterStringVar(vaultSignCsrPath, "", "").Get()
-	vaultTLSRootCertEnv           = env.RegisterStringVar(vaultTLSRootCert, "", "").Get()
-	secretTTLEnv                  = env.RegisterDurationVar(secretTTL, 24*time.Hour, "").Get()
-	secretRefreshGraceDurationEnv = env.RegisterDurationVar(SecretRefreshGraceDuration, 1*time.Hour, "").Get()
-	secretRotationIntervalEnv     = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
+	pluginNamesEnv                     = env.RegisterStringVar(pluginNames, "", "").Get()
+	enableWorkloadSDSEnv               = env.RegisterBoolVar(enableWorkloadSDS, true, "").Get()
+	enableIngressGatewaySDSEnv         = env.RegisterBoolVar(enableIngressGatewaySDS, false, "").Get()
+	alwaysValidTokenFlagEnv            = env.RegisterBoolVar(alwaysValidTokenFlag, false, "").Get()
+	skipValidateCertFlagEnv            = env.RegisterBoolVar(skipValidateCertFlag, false, "").Get()
+	caProviderEnv                      = env.RegisterStringVar(caProvider, "", "").Get()
+	caEndpointEnv                      = env.RegisterStringVar(caEndpoint, "", "").Get()
+	trustDomainEnv                     = env.RegisterStringVar(trustDomain, "", "").Get()
+	vaultAddressEnv                    = env.RegisterStringVar(vaultAddress, "", "").Get()
+	vaultRoleEnv                       = env.RegisterStringVar(vaultRole, "", "").Get()
+	vaultAuthPathEnv                   = env.RegisterStringVar(vaultAuthPath, "", "").Get()
+	vaultSignCsrPathEnv                = env.RegisterStringVar(vaultSignCsrPath, "", "").Get()
+	vaultTLSRootCertEnv                = env.RegisterStringVar(vaultTLSRootCert, "", "").Get()
+	secretTTLEnv                       = env.RegisterDurationVar(secretTTL, 24*time.Hour, "").Get()
+	secretRefreshGraceDurationEnv      = env.RegisterDurationVar(SecretRefreshGraceDuration, 1*time.Hour, "").Get()
+	secretRotationIntervalEnv          = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
+	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute, "").Get()
 )
 
 func applyEnvVars(cmd *cobra.Command) {
@@ -285,6 +290,8 @@ func applyEnvVars(cmd *cobra.Command) {
 	if !cmd.Flag(skipValidateCertFlag).Changed {
 		workloadSdsCacheOptions.SkipValidateCert = skipValidateCertFlagEnv
 	}
+
+	serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
 }
 
 var defaultInitialBackoff = 10

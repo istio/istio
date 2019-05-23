@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	testEnv "istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 type server struct {

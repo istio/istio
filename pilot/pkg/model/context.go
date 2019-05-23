@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/annotations"
+	"istio.io/pkg/annotations"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
@@ -133,6 +133,9 @@ const (
 
 	// Router type is used for standalone proxies acting as L7/L4 routers
 	Router NodeType = "router"
+
+	// AllPortsLiteral is the string value indicating all ports
+	AllPortsLiteral = "*"
 )
 
 // IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
@@ -160,6 +163,12 @@ func (node *Proxy) ServiceNode() string {
 // GetProxyVersion returns the proxy version string identifier, and whether it is present.
 func (node *Proxy) GetProxyVersion() (string, bool) {
 	version, found := node.Metadata[NodeMetadataIstioProxyVersion]
+	return version, found
+}
+
+// GetIstioVersion returns the Istio version of the proxy, and whether it is present
+func (node *Proxy) GetIstioVersion() (string, bool) {
+	version, found := node.Metadata[NodeMetadataIstioVersion]
 	return version, found
 }
 
@@ -394,6 +403,8 @@ const (
 
 	// IstioIngressNamespace is the namespace where Istio ingress controller is deployed
 	IstioIngressNamespace = "istio-system"
+
+	IstioIncludeInboundPorts = "INCLUDE_INBOUND_PORTS"
 )
 
 // IstioIngressWorkloadLabels is the label assigned to Istio ingress pods
@@ -537,6 +548,9 @@ const (
 	// NodeMetadataIstioProxyVersion specifies the Envoy version associated with the proxy
 	NodeMetadataIstioProxyVersion = "ISTIO_PROXY_VERSION"
 
+	// NodeMetadataIstioVersion specifies the Istio version associated with the proxy
+	NodeMetadataIstioVersion = "ISTIO_VERSION"
+
 	// NodeMetadataNetwork defines the network the node belongs to. It is an optional metadata,
 	// set at injection time. When set, the Endpoints returned to a note and not on same network
 	// will be replaced with the gateway defined in the settings.
@@ -606,6 +620,10 @@ const (
 	// NodeMetadataPolicyCheckMaxRetryWaitTime for max time to wait between retries
 	// In duration format. If not set, this will be 1000ms.
 	NodeMetadataPolicyCheckMaxRetryWaitTime = "policy.istio.io/checkMaxRetryWaitTime"
+
+	// NodeMetadataIdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
+	// If not set, no timeout is set.
+	NodeMetadataIdleTimeout = "IDLE_TIMEOUT"
 )
 
 var (
@@ -654,4 +672,13 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 	}
 
 	return InterceptionRedirect
+}
+
+// Inbound capture listener capture all port mode only supports iptables REDIRECT
+func (node *Proxy) IsInboundCaptureAllPorts() bool {
+	if node.GetInterceptionMode() != InterceptionRedirect {
+		return false
+	}
+	capturePorts, ok := node.Metadata[IstioIncludeInboundPorts]
+	return ok && strings.Contains(capturePorts, AllPortsLiteral)
 }

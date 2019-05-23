@@ -15,8 +15,9 @@
 package tmpl
 
 import (
-	"testing"
 	"text/template"
+
+	"istio.io/istio/pkg/test"
 )
 
 // Parse the given template content.
@@ -26,7 +27,7 @@ func Parse(tpl string) (*template.Template, error) {
 }
 
 // ParseOrFail calls Parse and fails tests if it returns error.
-func ParseOrFail(t testing.TB, tpl string) *template.Template {
+func ParseOrFail(t test.Failer, tpl string) *template.Template {
 	t.Helper()
 	tpl2, err := Parse(tpl)
 	if err != nil {

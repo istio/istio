@@ -33,7 +33,7 @@ func TestCallout(t *testing.T) {
 	if co.address != "foo" {
 		t.Error("Callout address not set")
 	}
-	if len(co.metadata) != 2 || co.metadata[0] != "foo" || co.metadata[1] != "bar" {
+	if len(co.metadata) != 4 || co.metadata[0] != "foo" || co.metadata[1] != "bar" {
 		t.Errorf("Callout meta not set: %v", co.metadata)
 	}
 	_, err = newCallout("foo", "NONE", []string{"foo"}, &source.Options{})

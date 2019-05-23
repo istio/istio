@@ -19,7 +19,7 @@ import (
 	"strings"
 
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 type adapterInfoRegistry struct {

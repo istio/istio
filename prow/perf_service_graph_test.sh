@@ -11,6 +11,7 @@ set -u
 set -x
 export CMD=""
 export DELETE=""
+export DNS_DOMAIN="fake-dns.org"
 
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"

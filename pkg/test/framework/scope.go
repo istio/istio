@@ -33,12 +33,15 @@ type scope struct {
 	resources []resource.Resource
 
 	children []*scope
+
+	closeChan chan struct{}
 }
 
 func newScope(id string, p *scope) *scope {
 	s := &scope{
-		id:     id,
-		parent: p,
+		id:        id,
+		parent:    p,
+		closeChan: make(chan struct{}, 1),
 	}
 
 	if p != nil {
@@ -55,6 +58,17 @@ func (s *scope) add(r resource.Resource, id *resourceID) {
 
 func (s *scope) done(nocleanup bool) error {
 	scopes.Framework.Debugf("Begin cleaning up scope: %v", s.id)
+
+	// First, wait for all of the children to be done.
+	for _, c := range s.children {
+		c.waitForDone()
+	}
+
+	// Upon returning, notify the parent that we're done.
+	defer func() {
+		close(s.closeChan)
+	}()
+
 	var err error
 	if !nocleanup {
 
@@ -71,29 +85,14 @@ func (s *scope) done(nocleanup bool) error {
 			}
 		}
 	}
-	s.resources = nil // set resources to nil to avoid resetting them
-
-	if e := s.reset(); e != nil {
-		err = multierror.Append(err, e)
-	}
+	s.resources = nil
 
 	scopes.Framework.Debugf("Done cleaning up scope: %v", s.id)
 	return err
 }
 
-func (s *scope) reset() error {
-	var err error
-	for _, r := range s.resources {
-		if res, ok := r.(resource.Resetter); ok {
-			scopes.Framework.Debugf("Resetting resource: %s", r.ID())
-			if e := res.Reset(); e != nil {
-				scopes.Framework.Debugf("Error resetting resource %s: %v", r.ID(), e)
-				err = multierror.Append(e, err)
-			}
-		}
-	}
-
-	return err
+func (s *scope) waitForDone() {
+	<-s.closeChan
 }
 
 func (s *scope) dump() {

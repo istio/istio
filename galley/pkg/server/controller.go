@@ -17,7 +17,7 @@ package server
 import (
 	"time"
 
-	"istio.io/istio/pkg/probe"
+	"istio.io/pkg/probe"
 )
 
 const (

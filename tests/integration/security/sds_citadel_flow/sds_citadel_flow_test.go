@@ -53,23 +53,25 @@ func TestSdsCitadelCaFlow(t *testing.T) {
 				},
 			}
 
-			a := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:   "a",
-				Namespace: ns,
-				Sidecar:   true,
-				Ports:     ports,
-				Galley:    g,
-				Pilot:     p,
-			})
-			b := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:        "b",
-				Namespace:      ns,
-				Ports:          ports,
-				Sidecar:        true,
-				ServiceAccount: true,
-				Galley:         g,
-				Pilot:          p,
-			})
+			var a, b echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, echo.Config{
+					Service:        "a",
+					Namespace:      ns,
+					ServiceAccount: true,
+					Ports:          ports,
+					Galley:         g,
+					Pilot:          p,
+				}).
+				With(&b, echo.Config{
+					Service:        "b",
+					Namespace:      ns,
+					ServiceAccount: true,
+					Ports:          ports,
+					Galley:         g,
+					Pilot:          p,
+				}).
+				BuildOrFail(t)
 
 			checkers := []connection.Checker{
 				{
@@ -84,7 +86,7 @@ func TestSdsCitadelCaFlow(t *testing.T) {
 			}
 
 			// Apply the policy to the system namespace.
-			deployment := tmpl.EvaluateOrFail(t, file.AsString(t, "testdata/global-mtls.yaml"),
+			deployment := tmpl.EvaluateOrFail(t, file.AsStringOrFail(t, "testdata/global-mtls.yaml"),
 				map[string]string{
 					"Namespace": ns.Name(),
 				})

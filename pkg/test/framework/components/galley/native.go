@@ -22,19 +22,19 @@ import (
 	"path"
 	"path/filepath"
 	"syscall"
-	"testing"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/galley/pkg/server"
-	"istio.io/istio/pkg/appsignals"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/pkg/appsignals"
 )
 
 var (
@@ -59,7 +59,7 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 	n.id = ctx.TrackResource(n)
 
-	return n, n.Reset()
+	return n, n.reset()
 }
 
 type nativeComponent struct {
@@ -130,7 +130,7 @@ func (c *nativeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string)
 }
 
 // ApplyConfigOrFail applies the given config yaml file via Galley.
-func (c *nativeComponent) ApplyConfigOrFail(t *testing.T, ns namespace.Instance, yamlText ...string) {
+func (c *nativeComponent) ApplyConfigOrFail(t test.Failer, ns namespace.Instance, yamlText ...string) {
 	t.Helper()
 	err := c.ApplyConfig(ns, yamlText...)
 	if err != nil {
@@ -158,7 +158,7 @@ func (c *nativeComponent) DeleteConfig(ns namespace.Instance, yamlText ...string
 }
 
 // DeleteConfigOrFail implements Galley.DeleteConfigOrFail.
-func (c *nativeComponent) DeleteConfigOrFail(t *testing.T, ns namespace.Instance, yamlText ...string) {
+func (c *nativeComponent) DeleteConfigOrFail(t test.Failer, ns namespace.Instance, yamlText ...string) {
 	t.Helper()
 	err := c.DeleteConfig(ns, yamlText...)
 	if err != nil {
@@ -205,15 +205,14 @@ func (c *nativeComponent) WaitForSnapshot(collection string, validator SnapshotV
 }
 
 // WaitForSnapshotOrFail implements Galley.WaitForSnapshotOrFail.
-func (c *nativeComponent) WaitForSnapshotOrFail(t *testing.T, collection string, validator SnapshotValidatorFunc) {
+func (c *nativeComponent) WaitForSnapshotOrFail(t test.Failer, collection string, validator SnapshotValidatorFunc) {
 	t.Helper()
 	if err := c.WaitForSnapshot(collection, validator); err != nil {
 		t.Fatalf("WaitForSnapshotOrFail: %v", err)
 	}
 }
 
-// Reset implements Resettable.Reset.
-func (c *nativeComponent) Reset() error {
+func (c *nativeComponent) reset() error {
 	_ = c.Close()
 
 	var err error
@@ -260,7 +259,8 @@ func (c *nativeComponent) restart() error {
 	a.MeshConfigFile = c.meshConfigFile
 	// To prevent ctrlZ port collision between galley/pilot&mixer
 	a.IntrospectionOptions.Port = 0
-	a.ExcludedResourceKinds = make([]string, 0)
+	a.ExcludedResourceKinds = nil
+	a.EnableServiceDiscovery = true
 
 	// Bind to an arbitrary port.
 	a.APIAddress = "tcp://0.0.0.0:0"

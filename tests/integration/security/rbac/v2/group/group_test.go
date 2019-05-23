@@ -57,13 +57,13 @@ const (
 		"emRIMHVOfuvHsU60_GhGbiSFzgPTAa9WTltbnarTbxudb_YEOx12JiwYToeX0DCPb43W1tzIBxgm8NxUg"
 )
 
-func TestGroupV2RBAC(t *testing.T) {
+func TestRBACV2Group(t *testing.T) {
 	framework.NewTest(t).
 		// TODO(lei-tang): add the test to the native environment
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
-			ns := namespace.NewOrFail(t, ctx, "rbacv1", true)
+			ns := namespace.NewOrFail(t, ctx, "rbacv2-group-test", true)
 			ports := []echo.Port{
 				{
 					Name:        "http",
@@ -71,32 +71,34 @@ func TestGroupV2RBAC(t *testing.T) {
 					ServicePort: 80,
 				},
 			}
-			a := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:   "a",
-				Namespace: ns,
-				Sidecar:   true,
-				Ports:     ports,
-				Galley:    g,
-				Pilot:     p,
-			})
-			b := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:        "b",
-				Namespace:      ns,
-				Ports:          ports,
-				Sidecar:        true,
-				ServiceAccount: true,
-				Galley:         g,
-				Pilot:          p,
-			})
-			c := echoboot.NewOrFail(t, ctx, echo.Config{
-				Service:        "c",
-				Namespace:      ns,
-				Ports:          ports,
-				Sidecar:        true,
-				ServiceAccount: true,
-				Galley:         g,
-				Pilot:          p,
-			})
+
+			var a, b, c echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, echo.Config{
+					Service:        "a",
+					Namespace:      ns,
+					ServiceAccount: true,
+					Ports:          ports,
+					Galley:         g,
+					Pilot:          p,
+				}).
+				With(&b, echo.Config{
+					Service:        "b",
+					Namespace:      ns,
+					Ports:          ports,
+					ServiceAccount: true,
+					Galley:         g,
+					Pilot:          p,
+				}).
+				With(&c, echo.Config{
+					Service:        "c",
+					Namespace:      ns,
+					Ports:          ports,
+					ServiceAccount: true,
+					Galley:         g,
+					Pilot:          p,
+				}).
+				BuildOrFail(t)
 
 			cases := []util.TestCase{
 				// Port 80 is where HTTP is served
@@ -158,8 +160,8 @@ func TestGroupV2RBAC(t *testing.T) {
 				"Namespace": ns.Name(),
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args,
-				file.AsString(t, rbacClusterConfigTmpl),
-				file.AsString(t, rbacGroupListRulesTmpl))
+				file.AsStringOrFail(t, rbacClusterConfigTmpl),
+				file.AsStringOrFail(t, rbacGroupListRulesTmpl))
 
 			g.ApplyConfigOrFail(t, ns, policies...)
 			defer g.DeleteConfigOrFail(t, ns, policies...)
@@ -176,7 +178,7 @@ func TestGroupV2RBAC(t *testing.T) {
 					tc.Request.Options.Path,
 					tc.ExpectAllowed)
 				t.Run(testName, func(t *testing.T) {
-					retry.UntilSuccessOrFail(t, tc.Check, retry.Delay(10*time.Second), retry.Timeout(120*time.Second))
+					retry.UntilSuccessOrFail(t, tc.CheckRBACRequest, retry.Delay(10*time.Second), retry.Timeout(120*time.Second))
 				})
 			}
 		})

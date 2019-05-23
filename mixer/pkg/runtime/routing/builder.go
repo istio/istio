@@ -59,15 +59,14 @@ import (
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/handler"
 	"istio.io/istio/mixer/pkg/runtime/lang"
 	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/attribute"
+	"istio.io/pkg/log"
 )
 
 // builder keeps the ephemeral state while the routing table is built.
@@ -102,7 +101,7 @@ type builder struct {
 	expressions map[string]compiled.Expression
 
 	// snapshot attribute manifest
-	attributes ast.AttributeDescriptorFinder
+	attributes attribute.AttributeDescriptorFinder
 }
 
 // BuildTable builds and returns a routing table. If debugInfo is set, the returned table will have debugging information
@@ -591,7 +590,7 @@ func (b *builder) getBuilderAndMapperDynamic(
 	if instance.Template.Variety == tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
 		mapper = b.mappers[instance.Name]
 		if mapper == nil {
-			chained := ast.NewChainedFinder(b.attributes, instance.Template.AttributeManifest)
+			chained := attribute.NewChainedFinder(b.attributes, instance.Template.AttributeManifest)
 			expb := lang.NewBuilder(chained, instance.Language)
 
 			expressions := make(map[string]compiled.Expression)
@@ -622,7 +621,7 @@ func (b *builder) getBuilderAndMapperDynamic(
 
 // buildRuleCompiler constructs an expression compiler over an extended attribute vocabulary
 // with template output attributes prefixed by the action names added to the global attribute manifests.
-func (b *builder) buildRuleCompiler(parent ast.AttributeDescriptorFinder, rule *config.Rule) lang.Compiler {
+func (b *builder) buildRuleCompiler(parent attribute.AttributeDescriptorFinder, rule *config.Rule) lang.Compiler {
 	// templates include the output template attributes in their manifests
 	attributeDescriptor := make(map[string]*descriptor.AttributeManifest_AttributeInfo)
 
@@ -661,7 +660,7 @@ func (b *builder) buildRuleCompiler(parent ast.AttributeDescriptorFinder, rule *
 		}
 	}
 
-	return lang.NewBuilder(ast.NewChainedFinder(parent, attributeDescriptor), rule.Language)
+	return lang.NewBuilder(attribute.NewChainedFinder(parent, attributeDescriptor), rule.Language)
 }
 
 // buildRuleOperations creates an intermediate symbolic form for the route directive header operations
@@ -735,15 +734,17 @@ func (b *builder) addRuleOperations(
 		b.table.entries[tpb.TEMPLATE_VARIETY_CHECK] = &varietyTable{}
 	}
 	if b.table.entries[tpb.TEMPLATE_VARIETY_CHECK].entries == nil {
-		b.table.entries[tpb.TEMPLATE_VARIETY_CHECK].entries = map[string]*NamespaceTable{
-			namespace: {
-				entries:    []*Destination{},
-				directives: []*DirectiveGroup{},
-			},
-		}
+		b.table.entries[tpb.TEMPLATE_VARIETY_CHECK].entries = make(map[string]*NamespaceTable)
 	}
 
-	byNamespace := b.table.entries[tpb.TEMPLATE_VARIETY_CHECK].entries[namespace]
+	byNamespace, found := b.table.entries[tpb.TEMPLATE_VARIETY_CHECK].entries[namespace]
+	if !found {
+		byNamespace = &NamespaceTable{
+			entries:    []*Destination{},
+			directives: []*DirectiveGroup{},
+		}
+		b.table.entries[tpb.TEMPLATE_VARIETY_CHECK].entries[namespace] = byNamespace
+	}
 
 	var group *DirectiveGroup
 	for _, set := range byNamespace.directives {
