@@ -54,7 +54,7 @@ func constructSDSRequestContext() (context.Context, error) {
 
 // NewClient returns a sds client for testing.
 func NewClient(opt ClientOptions) (*Client, error) {
-	conn, err := grpc.Dial(opt.ServerAddress, grpc.WithInsecure(), grpc.WithStreamInterceptor(streamInterceptor))
+	conn, err := grpc.Dial(opt.ServerAddress, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +131,7 @@ func (c *Client) Send() error {
 // ValidateResponse validates the SDS response.
 func ValidateResponse(response *xdsapi.DiscoveryResponse, verify *util.VerifyFields) error {
 	if response == nil {
-		return fmt.Errorf("DiscoveryResponse is empty")
+		return fmt.Errorf("discoveryResponse is empty")
 	}
 	if len(response.Resources) != 1 {
 		return fmt.Errorf("unexpected resource size in the response, %v ", response.Resources)
