@@ -75,7 +75,7 @@ var (
 // EdsCluster tracks eds-related info for monitored cluster. Used in 1.0, where cluster info is not source-dependent.
 type EdsCluster struct {
 	// mutex protects changes to this cluster
-	mutex sync.Mutex
+	mutex sync.RWMutex
 
 	// LoadAssignment has the pre-computed EDS response for this cluster. Any sidecar asking for the
 	// cluster will get this response.
@@ -224,12 +224,11 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	// better to accept the extra computations.
 	// We still lock the access to the LoadAssignments.
 	edsCluster.mutex.Lock()
-	defer edsCluster.mutex.Unlock()
-
 	edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
 		Endpoints:   locEps,
 	}
+	edsCluster.mutex.Unlock()
 	return nil
 }
 
@@ -340,7 +339,6 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	// better to accept the extra computations.
 	// We still lock the access to the LoadAssignments.
 	edsCluster.mutex.Lock()
-	defer edsCluster.mutex.Unlock()
 
 	// Normalize LoadBalancingWeight in range [1, 128]
 	locEps = LoadBalancingWeightNormalize(locEps)
@@ -349,6 +347,8 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 		ClusterName: clusterName,
 		Endpoints:   locEps,
 	}
+	edsCluster.mutex.Unlock()
+
 	return nil
 }
 
@@ -410,18 +410,22 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 // WorkloadUpdate is called when workload labels/annotations are updated.
 func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ map[string]string) {
 	inboundUpdates.With(prometheus.Labels{"type": "workload"}).Add(1)
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 	if labels == nil {
 		// No push needed - the Endpoints object will also be triggered.
+	        s.mutex.Lock()
 		delete(s.WorkloadsByID, id)
+	        s.mutex.Unlock()
 		return
 	}
+	s.mutex.RLock()
 	w, f := s.WorkloadsByID[id]
+	s.mutex.RUnlock()
 	if !f {
+		s.mutex.Lock()
 		s.WorkloadsByID[id] = &Workload{
 			Labels: labels,
 		}
+		s.mutex.Unlock()
 
 		fullPush := false
 		adsClientsMutex.RLock()
@@ -484,8 +488,6 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	// update. The endpoint updates may be grouped by K8S clusters, other service registries
 	// or by deployment. Multiple updates are debounced, to avoid too frequent pushes.
 	// After debounce, the services are merged and pushed.
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 	requireFull := false
 
 	// To prevent memory leak.
@@ -505,16 +507,20 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 
 	// Update the data structures for the service.
 	// 1. Find the 'per service' data
+	s.mutex.RLock()
 	ep, f := s.EndpointShardsByService[serviceName]
+	s.mutex.RUnlock()
 	if !f {
 		// This endpoint is for a service that was not previously loaded.
 		// Return an error to force a full sync, which will also cause the
 		// EndpointsShardsByService to be initialized with all services.
+		s.mutex.Lock()
 		ep = &EndpointShards{
 			Shards:          map[string][]*model.IstioEndpoint{},
 			ServiceAccounts: map[string]bool{},
 		}
 		s.EndpointShardsByService[serviceName] = ep
+		s.mutex.Unlock()
 		if !internal {
 			adsLog.Infof("Full push, new service %s", serviceName)
 			requireFull = true
@@ -525,12 +531,12 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	// updates containing the full list of endpoints for the service in that cluster.
 	for _, e := range istioEndpoints {
 		if e.ServiceAccount != "" {
-			ep.mutex.Lock()
+			s.mutex.RLock()
 			_, f = ep.ServiceAccounts[e.ServiceAccount]
 			if !f {
 				ep.ServiceAccounts[e.ServiceAccount] = true
 			}
-			ep.mutex.Unlock()
+			s.mutex.RUnlock()
 
 			if !f && !internal {
 				// The entry has a service account that was not previously associated.
@@ -851,18 +857,18 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string) {
 		return
 	}
 
-	edsClusterMutex.Lock()
-	defer edsClusterMutex.Unlock()
 	c.mutex.Lock()
-	defer c.mutex.Unlock()
 	delete(c.EdsClients, node)
 	if len(c.EdsClients) == 0 {
 		// This happens when a previously used cluster is no longer watched by any
 		// sidecar. It should not happen very often - normally all clusters are sent
 		// in CDS requests to all sidecars. It may happen if all connections are closed.
 		adsLog.Debugf("EDS: Remove unwatched cluster node:%s cluster:%s", node, clusterName)
+		edsClusterMutex.Lock()
 		delete(edsClusters, clusterName)
+		edsClusterMutex.Unlock()
 	}
+	c.mutex.Unlock()
 }
 
 func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment) *xdsapi.DiscoveryResponse {

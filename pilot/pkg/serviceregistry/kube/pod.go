@@ -51,9 +51,6 @@ func newPodCache(ch cacheHandler, c *Controller) *PodCache {
 
 // event updates the IP-based index (pc.keys).
 func (pc *PodCache) event(obj interface{}, ev model.Event) error {
-	pc.Lock()
-	defer pc.Unlock()
-
 	// When a pod is deleted obj could be an *v1.Pod or a DeletionFinalStateUnknown marker item.
 	pod, ok := obj.(*v1.Pod)
 	if !ok {
@@ -79,7 +76,9 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 			switch pod.Status.Phase {
 			case v1.PodPending, v1.PodRunning:
 				// add to cache if the pod is running or pending
+				pc.Lock()
 				pc.keys[ip] = key
+				pc.Unlock()
 				if pc.c != nil && pc.c.XDSUpdater != nil {
 					pc.c.XDSUpdater.WorkloadUpdate(ip, pod.ObjectMeta.Labels, pod.ObjectMeta.Annotations)
 				}
@@ -87,8 +86,10 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 		case model.EventUpdate:
 			if pod.DeletionTimestamp != nil {
 				// delete only if this pod was in the cache
-				if pc.keys[ip] == key {
+				if k, _ := pc.getPodKey(ip); k == key {
+					pc.Lock()
 					delete(pc.keys, ip)
+					pc.Unlock()
 					if pc.c != nil && pc.c.XDSUpdater != nil {
 						pc.c.XDSUpdater.WorkloadUpdate(ip, nil, nil)
 					}
@@ -98,14 +99,18 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 			switch pod.Status.Phase {
 			case v1.PodPending, v1.PodRunning:
 				// add to cache if the pod is running or pending
+				pc.Lock()
 				pc.keys[ip] = key
+				pc.Unlock()
 				if pc.c != nil && pc.c.XDSUpdater != nil {
 					pc.c.XDSUpdater.WorkloadUpdate(ip, pod.ObjectMeta.Labels, pod.ObjectMeta.Annotations)
 				}
 			default:
 				// delete if the pod switched to other states and is in the cache
-				if pc.keys[ip] == key {
+				if k, _ := pc.getPodKey(ip); k == key {
+					pc.Lock()
 					delete(pc.keys, ip)
+					pc.Unlock()
 					if pc.c != nil && pc.c.XDSUpdater != nil {
 						pc.c.XDSUpdater.WorkloadUpdate(ip, nil, nil)
 					}
@@ -113,8 +118,10 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 			}
 		case model.EventDelete:
 			// delete only if this pod was in the cache
-			if pc.keys[ip] == key {
+			if k, _ := pc.getPodKey(ip); k == key {
+				pc.Lock()
 				delete(pc.keys, ip)
+				pc.Unlock()
 				if pc.c != nil && pc.c.XDSUpdater != nil {
 					pc.c.XDSUpdater.WorkloadUpdate(ip, nil, nil)
 				}
@@ -127,8 +134,8 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 // nolint: unparam
 func (pc *PodCache) getPodKey(addr string) (string, bool) {
 	pc.RLock()
-	defer pc.RUnlock()
 	key, exists := pc.keys[addr]
+	pc.RUnlock()
 	return key, exists
 }
 
