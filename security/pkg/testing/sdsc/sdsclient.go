@@ -20,7 +20,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	sdscache "istio.io/istio/security/pkg/nodeagent/cache"
 	agent_sds "istio.io/istio/security/pkg/nodeagent/sds"
-	"istio.io/istio/security/pkg/pki/util"
 )
 
 // Client is a lightweight client for testing secret discovery service server.
@@ -84,7 +83,11 @@ func (c *Client) Start() {
 				return
 			}
 			c.updateChan <- *msq
-			log.Infof("received response from sds server %v", msq)
+			log.Infof("Received response from sds server %v", msq)
+			if err := ValidateResponse(msq); err != nil {
+				log.Errorf("Failed to validate sds response %v", err)
+				return
+			}
 		}
 	}()
 }
@@ -125,7 +128,8 @@ func (c *Client) Send() error {
 }
 
 // ValidateResponse validates the SDS response.
-func ValidateResponse(response *xdsapi.DiscoveryResponse, verify *util.VerifyFields) error {
+// TODO(incfly): add more check around cert.
+func ValidateResponse(response *xdsapi.DiscoveryResponse) error {
 	if response == nil {
 		return fmt.Errorf("discoveryResponse is empty")
 	}
