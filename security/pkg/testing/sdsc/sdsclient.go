@@ -48,7 +48,6 @@ func constructSDSRequestContext() (context.Context, error) {
 	md := metadata.New(map[string]string{
 		model.K8sSAJwtTokenHeaderKey: string(content),
 	})
-	// log.Infof("jianfeih debugging, the metadata is\n%v", string(content))
 	return metadata.NewOutgoingContext(context.Background(), md), nil
 }
 
@@ -59,9 +58,6 @@ func NewClient(opt ClientOptions) (*Client, error) {
 		return nil, err
 	}
 	client := sds.NewSecretDiscoveryServiceClient(conn)
-	if err != nil {
-		return nil, err
-	}
 	ctx, err := constructSDSRequestContext()
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct the context %v", err)
@@ -88,7 +84,7 @@ func (c *Client) Start() {
 				return
 			}
 			c.updateChan <- *msq
-			log.Infof("receive response from sds server %v", msq)
+			log.Infof("received response from sds server %v", msq)
 		}
 	}()
 }

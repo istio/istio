@@ -24,7 +24,9 @@ var (
 			if err != nil {
 				log.Fatalf("failed to create client, error %v", err)
 			}
-			client.Send()
+			if err := client.Send(); err != nil {
+				log.Fatalf("failed to send sds request err: %v", err)
+			}
 			client.Start()
 			cmd.WaitSignal(make(chan struct{}))
 			return nil
