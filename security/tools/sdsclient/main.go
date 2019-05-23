@@ -12,10 +12,10 @@ import (
 
 var (
 	sdsServerUdsPath = env.RegisterStringVar(
-		"CITADEL_AGENT_TESTING_UDS_PATH", "/var/run/sds/uds_path", "The server uds path").Get()
+		"CITADEL_AGENT_TESTING_UDS_PATH", "unix:///var/run/sds/uds_path",
+		"The server unix domain socket path").Get()
 	rootCmd = &cobra.Command{
-		Use:   "sdsclient is used for testing sds server",
-		Short: "Node agent",
+		Use: "sdsclient is used for testing sds server",
 		RunE: func(c *cobra.Command, args []string) error {
 			client, err := sdsc.NewClient(sdsc.ClientOptions{
 				ServerAddress: sdsServerUdsPath,
@@ -23,6 +23,7 @@ var (
 			if err != nil {
 				log.Fatalf("failed to create client, error %v", err)
 			}
+			client.Send()
 			client.Start()
 			cmd.WaitSignal(make(chan struct{}))
 			return nil

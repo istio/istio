@@ -1,6 +1,6 @@
 # Testing Citadel Agent
 
-## Getting Started
+## Getting Started for the Test
 
 Starting the Citadel Agent first
 
@@ -25,6 +25,11 @@ go test -v -istio.testing.citadelagent.skip=false \
 ## Deploy in Kuberentes
 
 ```bash
+make clean && make docker.sdsclient && docker push ${HUB}/sdsclient:${TAG}
+kubectl apply -f sdsc.yaml
+
+# Key/Cert are printed in the log.
+kubectl logs <pod-id>
 ```
 
 ## Future Work

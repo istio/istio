@@ -299,6 +299,7 @@ func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (string /*resourceN
 
 func getCredentialToken(ctx context.Context) (string, error) {
 	metadata, ok := metadata.FromIncomingContext(ctx)
+	log.Infof("jianfeih debug getCredentialToken MD", metadata)
 	if !ok {
 		return "", fmt.Errorf("unable to get metadata from incoming context")
 	}

@@ -1,9 +1,9 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: sdsclient
+  name: sdsc
   labels:
-    version: v1
+    app: sdsc
 spec:
   replicas: 1
   template:
@@ -11,10 +11,24 @@ spec:
       annotations:
         "sidecar.istio.io/inject": "false"
       labels:
-        app: helloworld
+        app: sdsc
     spec:
+      volumes:
+      - hostPath:
+          path: /var/run/sds/uds_path
+          type: Socket
+        name: sds-uds-path
       containers:
-      - name: helloworld
-        image: gcr.io/jianfeih-test/sdsclient:sdsc
+      - name: client
+        image: gcr.io/jianfeih-test/sdsclient:dev
         imagePullPolicy: Always
         command: ["/sdsclient"]
+        env:
+        - name: GRPC_GO_LOG_VERBOSITY_LEVEL
+          value: "99"
+        - name: GRPC_GO_LOG_SEVERITY_LEVEL
+          value: "info"
+        volumeMounts:
+        - mountPath: /var/run/sds/uds_path
+          name: sds-uds-path
+          readOnly: true

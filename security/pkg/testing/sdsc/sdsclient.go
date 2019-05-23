@@ -11,6 +11,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	authapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
@@ -24,34 +25,40 @@ import (
 
 // Client is a lightweight client for testing secret discovery service server.
 type Client struct {
-	stream     sds.SecretDiscoveryService_StreamSecretsClient
-	conn       *grpc.ClientConn
-	updateChan chan xdsapi.DiscoveryResponse
-	udsPath    string
+	stream        sds.SecretDiscoveryService_StreamSecretsClient
+	conn          *grpc.ClientConn
+	updateChan    chan xdsapi.DiscoveryResponse
+	serverAddress string
 }
 
 // ClientOptions contains the options for the SDS testing.
 type ClientOptions struct {
+	// unix://var/run/sds/, localhost:15000
+	// https://github.com/grpc/grpc/blob/master/doc/naming.md#name-syntax
 	ServerAddress string
 }
 
 // constructSDSRequest returns the context for the outbound request to include necessary
 func constructSDSRequestContext() (context.Context, error) {
 	// Read from the designated location for Kubernetes JWT.
-	content, err := ioutil.ReadFile(model.K8sSATrustworthyJwtFileName)
+	content, err := ioutil.ReadFile(model.K8sSAJwtFileName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the token file %v", err)
 	}
 	md := metadata.New(map[string]string{
 		model.K8sSAJwtTokenHeaderKey: string(content),
 	})
+	// log.Infof("jianfeih debugging, the metadata is\n%v", string(content))
 	return metadata.NewOutgoingContext(context.Background(), md), nil
 }
 
 // NewClient returns a sds client for testing.
-func NewClient(options ClientOptions) (*Client, error) {
-	address := fmt.Sprintf("unix://%s", options.ServerAddress)
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
+func NewClient(opt ClientOptions) (*Client, error) {
+	conn, err := grpc.Dial(opt.ServerAddress, grpc.WithInsecure(), grpc.WithStreamInterceptor(streamInterceptor))
+	if err != nil {
+		return nil, err
+	}
+	client := sds.NewSecretDiscoveryServiceClient(conn)
 	if err != nil {
 		return nil, err
 	}
@@ -59,16 +66,15 @@ func NewClient(options ClientOptions) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct the context %v", err)
 	}
-	client := sds.NewSecretDiscoveryServiceClient(conn)
 	stream, err := client.StreamSecrets(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &Client{
-		stream:     stream,
-		conn:       conn,
-		updateChan: make(chan xdsapi.DiscoveryResponse, 1),
-		udsPath:    address,
+		stream:        stream,
+		conn:          conn,
+		updateChan:    make(chan xdsapi.DiscoveryResponse, 1),
+		serverAddress: opt.ServerAddress,
 	}, nil
 }
 
@@ -112,8 +118,11 @@ func (c *Client) Send() error {
 	// - Version & Nonce is needed for ack/rejecting.
 	return c.stream.Send(&xdsapi.DiscoveryRequest{
 		VersionInfo: "",
+		Node: &core.Node{
+			Id: "sidecar~127.0.0.1~id2~local",
+		},
 		ResourceNames: []string{
-			sdscache.RootCertReqResourceName,
+			sdscache.WorkloadKeyCertResourceName,
 		},
 		TypeUrl: agent_sds.SecretType,
 	})
