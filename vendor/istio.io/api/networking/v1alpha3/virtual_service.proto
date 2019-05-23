@@ -545,6 +545,7 @@ message TCPRoute {
 //           exact: jason
 //       uri:
 //         prefix: "/ratings/v2/"
+//       ignoreUriCase: true
 //     route:
 //     - destination:
 //         host: ratings.prod.svc.cluster.local
@@ -561,6 +562,8 @@ message HTTPMatchRequest {
   //
   // - `regex: "value"` for ECMAscript style regex-based match
   //
+  // **Note:** Case-insensitive matching could be enabled via the
+  // `ignore_uri_case` flag.
   StringMatch uri = 1;
 
   // URI Scheme
@@ -639,6 +642,12 @@ message HTTPMatchRequest {
   //
   // **Note:** `prefix` matching is currently not supported.
   map<string, StringMatch> query_params = 9;
+
+  // Flag to specify whether the URI matching should be case-insensitive.
+  //
+  // **Note:** The case will be ignored only in the case of `exact` and `prefix`
+  // URI matches.
+  bool ignore_uri_case = 10;
 }
 
 // Each routing rule is associated with one or more service versions (see

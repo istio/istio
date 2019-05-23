@@ -182,8 +182,13 @@ require (
 	gopkg.in/stack.v1 v1.7.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 	gotest.tools v2.2.0+incompatible // indirect
+<<<<<<< HEAD
 	istio.io/api v0.0.0-20190517041403-820986f2947c
 	istio.io/pkg v0.0.0-20190612170818-730a2b1683f9
+=======
+	istio.io/api v0.0.0-20190522004026-1dffc8d3d26d
+	istio.io/pkg v0.0.0-20190516214103-40b7bf4c7321
+>>>>>>> 7fbfec5e8e... Add support for ignoring URI case in HTTP match (#14304)
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471
 	k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87
 	k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628
