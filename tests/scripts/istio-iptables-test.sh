@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 Istio Authors. All Rights Reserved.
 #
@@ -16,6 +16,8 @@
 #
 ################################################################################
 
+set -e
+
 function assert_equals() {
     if [ "$1" != "$2" ]; then
         echo "Expected result "
@@ -31,25 +33,21 @@ FILE_UNDER_TEST=./tools/packaging/common/istio-iptables.sh
 
 export PATH="${PWD}/tests/scripts/stubs:${PATH}"
 
-# Test mode REDIRECT
-OUTPUT=$($FILE_UNDER_TEST -p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888  -i 1.1.1.0/16 -x 9.9.9.0/16  -k eth1,eth2  2>/dev/null)
-EXPECTED_OUTPUT=$(cat tests/scripts/testdata/mode_redirect_golden.txt)
-assert_equals "$OUTPUT" "$EXPECTED_OUTPUT"
+declare -A TESTS
+TESTS[mode_redirect]="-p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888  -i 1.1.1.0/16 -x 9.9.9.0/16  -k eth1,eth2"
+TESTS[mode_tproxy]="-p 12345 -u 4321 -g 4444 -m TPROXY -b 5555,6666 -d 7777,8888  -i 1.1.1.0/16 -x 9.9.9.0/16  -k eth1,eth2"
+TESTS[empty_parameter]=""
+TESTS[outbound_port_exclude]="-p 12345 -u 4321 -g 4444 -o 1024,21 -m REDIRECT -b 5555,6666 -d 7777,8888  -i 1.1.0.0/16 -x 9.9.0.0/16  -k eth1,eth2"
 
+for TEST_NAME in "${!TESTS[@]}"
+do
+  echo "running test $TEST_NAME"
+  TEST_ARGS=${TESTS[$TEST_NAME]}
 
-# Test mode TPROXY
-OUTPUT=$($FILE_UNDER_TEST -p 12345 -u 4321 -g 4444 -m TPROXY -b 5555,6666 -d 7777,8888  -i 1.1.1.0/16 -x 9.9.9.0/16  -k eth1,eth2 2>/dev/null)
-EXPECTED_OUTPUT=$(cat tests/scripts/testdata/mode_tproxy_golden.txt)
-assert_equals "$OUTPUT" "$EXPECTED_OUTPUT"
+  # shellcheck disable=SC2086
+  OUTPUT=$($FILE_UNDER_TEST $TEST_ARGS  2>/dev/null)
+  EXPECTED_OUTPUT=$(cat "tests/scripts/testdata/${TEST_NAME}_golden.txt")
+  assert_equals "$OUTPUT" "$EXPECTED_OUTPUT"
+done
 
-# Test empty parameter
-OUTPUT=$($FILE_UNDER_TEST 2>/dev/null)
-EXPECTED_OUTPUT=$(cat tests/scripts/testdata/empty_parameter_golden.txt)
-assert_equals "$OUTPUT" "$EXPECTED_OUTPUT"
-
-# Test outbound port exclusion
-OUTPUT=$($FILE_UNDER_TEST -p 12345 -u 4321 -g 4444 -o 1024,21 -m REDIRECT -b 5555,6666 -d 7777,8888  -i 1.1.0.0/16 -x 9.9.0.0/16  -k eth1,eth2  2>/dev/null)
-EXPECTED_OUTPUT=$(cat tests/scripts/testdata/outbound_port_exclude_golden.txt)
-assert_equals "$OUTPUT" "$EXPECTED_OUTPUT"
-
-echo "Test was successful"
+echo "Tests were successful"
