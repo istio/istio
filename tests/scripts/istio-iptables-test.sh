@@ -27,30 +27,28 @@ function assert_equals() {
     fi
 }
 
-TEST_FILE=/tmp/istio-iptables.sh
-TEST_SHELL=/usr/local/bin/bash
-grep -v "^trap" ./tools/packaging/common/istio-iptables.sh > $TEST_FILE
+FILE_UNDER_TEST=./tools/packaging/common/istio-iptables.sh
 
 export PATH="${PWD}/tests/scripts/stubs:${PATH}"
 
 # Test mode REDIRECT
-OUTPUT=$($TEST_SHELL $TEST_FILE -p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888  -i 1.1.1.0/16 -x 9.9.9.0/16  -k eth1,eth2  2>/dev/null)
+OUTPUT=$($FILE_UNDER_TEST -p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888  -i 1.1.1.0/16 -x 9.9.9.0/16  -k eth1,eth2  2>/dev/null)
 EXPECTED_OUTPUT=$(cat tests/scripts/testdata/mode_redirect_golden.txt)
 assert_equals "$OUTPUT" "$EXPECTED_OUTPUT"
 
 
 # Test mode TPROXY
-OUTPUT=$($TEST_SHELL $TEST_FILE -p 12345 -u 4321 -g 4444 -m TPROXY -b 5555,6666 -d 7777,8888  -i 1.1.1.0/16 -x 9.9.9.0/16  -k eth1,eth2 2>/dev/null)
+OUTPUT=$($FILE_UNDER_TEST -p 12345 -u 4321 -g 4444 -m TPROXY -b 5555,6666 -d 7777,8888  -i 1.1.1.0/16 -x 9.9.9.0/16  -k eth1,eth2 2>/dev/null)
 EXPECTED_OUTPUT=$(cat tests/scripts/testdata/mode_tproxy_golden.txt)
 assert_equals "$OUTPUT" "$EXPECTED_OUTPUT"
 
 # Test empty parameter
-OUTPUT=$($TEST_SHELL $TEST_FILE 2>/dev/null)
+OUTPUT=$($FILE_UNDER_TEST 2>/dev/null)
 EXPECTED_OUTPUT=$(cat tests/scripts/testdata/empty_parameter_golden.txt)
 assert_equals "$OUTPUT" "$EXPECTED_OUTPUT"
 
 # Test outbound port exclusion
-OUTPUT=$($TEST_SHELL $TEST_FILE -p 12345 -u 4321 -g 4444 -o 1024,21 -m REDIRECT -b 5555,6666 -d 7777,8888  -i 1.1.0.0/16 -x 9.9.0.0/16  -k eth1,eth2  2>/dev/null)
+OUTPUT=$($FILE_UNDER_TEST -p 12345 -u 4321 -g 4444 -o 1024,21 -m REDIRECT -b 5555,6666 -d 7777,8888  -i 1.1.0.0/16 -x 9.9.0.0/16  -k eth1,eth2  2>/dev/null)
 EXPECTED_OUTPUT=$(cat tests/scripts/testdata/outbound_port_exclude_golden.txt)
 assert_equals "$OUTPUT" "$EXPECTED_OUTPUT"
 

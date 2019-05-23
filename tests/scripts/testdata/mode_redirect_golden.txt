@@ -67,3 +67,5 @@ ip6tables -F,INPUT
 ip6tables -A,INPUT,-m,state,--state,ESTABLISHED,-j,ACCEPT
 ip6tables -A,INPUT,-i,lo,-d,::1,-j,ACCEPT
 ip6tables -A,INPUT,-j,REJECT
+iptables-save 
+ip6tables-save 
