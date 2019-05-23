@@ -179,6 +179,10 @@ func buildSidecarVirtualHostsForVirtualService(
 		// This is a gross HACK. Fix me. Its a much bigger surgery though, due to the way
 		// the current code is written.
 		serviceByPort[80] = nil
+		matchPorts := findHTTPMatchPorts(virtualService)
+		for _, matchPort := range matchPorts {
+			serviceByPort[int(matchPort)] = nil
+		}
 	}
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
@@ -222,6 +226,26 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 	}
 
 	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, model.Hostname(destination.Host), port)
+}
+
+// findHTTPMatchPorts returns the list of ports used in HTTP match of a given virtual service
+func findHTTPMatchPorts(virtualService model.Config) []uint32 {
+	vs, ok := virtualService.Spec.(*networking.VirtualService)
+	if !ok { // should never happen
+		return nil
+	}
+
+	out := make([]uint32, 0)
+	for _, http := range vs.Http {
+		if len(http.Match) != 0 {
+			for _, match := range http.Match {
+				if match != nil && match.Port != 0 {
+					out = append(out, match.Port)
+				}
+			}
+		}
+	}
+	return out
 }
 
 // BuildHTTPRoutesForVirtualService creates data plane HTTP routes from the virtual service spec.
