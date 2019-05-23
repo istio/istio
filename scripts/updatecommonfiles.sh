@@ -29,6 +29,8 @@ ROOTDIR=$(dirname "${SCRIPTPATH}")
 cd "${ROOTDIR}"
 
 git clone https://github.com/istio/common-files
-git rev-parse HEAD >common-files/files/scripts/updatecommonfiles.latest
-cp -r common-files/files/* .
+cd common-files
+git rev-parse HEAD >files/scripts/updatecommonfiles.latest
+cd ..
+cp -r common-files/files/* common-files/files/.[^.]* .
 rm -fr common-files
