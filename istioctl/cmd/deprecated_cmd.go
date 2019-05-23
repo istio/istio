@@ -276,9 +276,8 @@ var (
 	}
 
 	getCmd = &cobra.Command{
-		Use:        "get <type> [<name>]",
-		Deprecated: "Use `kubectl get` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)",
-		Short:      "Retrieve policies and rules",
+		Use:   "get <type> [<name>]",
+		Short: "Retrieve policies and rules",
 		Example: `# List all virtual services
 istioctl get virtualservices
 

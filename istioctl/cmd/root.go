@@ -109,6 +109,8 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(dashboard())
 	experimentalCmd.AddCommand(metricsCmd)
 
+	rootCmd.AddCommand(getCmd)
+
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",
 		Section: "istioctl CLI",
@@ -118,7 +120,6 @@ debug and diagnose their Istio mesh.
 	// Deprecated commands
 	rootCmd.AddCommand(postCmd)
 	rootCmd.AddCommand(putCmd)
-	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(contextCmd)
 

@@ -172,46 +172,40 @@ func TestGet(t *testing.T) {
 		{
 			configs: []model.Config{},
 			args:    strings.Split("get destinationrules", " "),
-			expectedOutput: `Command "get" is deprecated, Use ` + "`kubectl get`" + ` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)
-No resources found.
+			expectedOutput: `No resources found.
 `,
 		},
 		{
 			configs: testGateways,
 			args:    strings.Split("get gateways -n default", " "),
-			expectedOutput: `Command "get" is deprecated, Use ` + "`kubectl get`" + ` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)
-GATEWAY NAME       HOSTS     NAMESPACE   AGE
+			expectedOutput: `GATEWAY NAME       HOSTS     NAMESPACE   AGE
 bookinfo-gateway   *         default     0s
 `,
 		},
 		{
 			configs: testVirtualServices,
 			args:    strings.Split("get virtualservices -n default", " "),
-			expectedOutput: `Command "get" is deprecated, Use ` + "`kubectl get`" + ` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)
-VIRTUAL-SERVICE NAME   GATEWAYS           HOSTS     #HTTP     #TCP      NAMESPACE   AGE
+			expectedOutput: `VIRTUAL-SERVICE NAME   GATEWAYS           HOSTS     #HTTP     #TCP      NAMESPACE   AGE
 bookinfo               bookinfo-gateway   *             1        0      default     0s
 `,
 		},
 		{
 			configs: []model.Config{},
 			args:    strings.Split("get all", " "),
-			expectedOutput: `Command "get" is deprecated, Use ` + "`kubectl get`" + ` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)
-No resources found.
+			expectedOutput: `No resources found.
 `,
 		},
 		{
 			configs: testDestinationRules,
 			args:    strings.Split("get destinationrules -n default", " "),
-			expectedOutput: `Command "get" is deprecated, Use ` + "`kubectl get`" + ` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)
-DESTINATION-RULE NAME   HOST               SUBSETS   NAMESPACE   AGE
+			expectedOutput: `DESTINATION-RULE NAME   HOST               SUBSETS   NAMESPACE   AGE
 googleapis              *.googleapis.com             default     0s
 `,
 		},
 		{
 			configs: testServiceEntries,
 			args:    strings.Split("get serviceentries -n default", " "),
-			expectedOutput: `Command "get" is deprecated, Use ` + "`kubectl get`" + ` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)
-SERVICE-ENTRY NAME   HOSTS              PORTS      NAMESPACE   AGE
+			expectedOutput: `SERVICE-ENTRY NAME   HOSTS              PORTS      NAMESPACE   AGE
 googleapis           *.googleapis.com   HTTP/443   default     0s
 `,
 		},
