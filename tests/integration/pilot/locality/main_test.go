@@ -16,12 +16,15 @@ package locality
 
 import (
 	"bytes"
+	"fmt"
 	"math/rand"
 	"net/http"
 	"regexp"
 	"testing"
 	"text/template"
 	"time"
+
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
@@ -34,6 +37,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/structpath"
 )
 
 const (
@@ -139,6 +144,7 @@ func setupConfig(cfg *istio.Config) {
 		return
 	}
 	cfg.Values["pilot.env.PILOT_ENABLE_LOCALITY_LOAD_BALANCING"] = "true"
+	cfg.Values["pilot.autoscaleEnabled"] = "false"
 	cfg.Values["global.localityLbSetting.failover[0].from"] = "region"
 	cfg.Values["global.localityLbSetting.failover[0].to"] = "closeregion"
 
@@ -176,7 +182,7 @@ type serviceConfig struct {
 	NonExistantServiceLocality string
 }
 
-func deploy(t test.Failer, ns namespace.Instance, se serviceConfig) {
+func deploy(t test.Failer, ns namespace.Instance, se serviceConfig, from echo.Instance) {
 	t.Helper()
 	var buf bytes.Buffer
 	if err := deploymentTemplate.Execute(&buf, se); err != nil {
@@ -184,12 +190,44 @@ func deploy(t test.Failer, ns namespace.Instance, se serviceConfig) {
 	}
 	g.ApplyConfigOrFail(t, ns, buf.String())
 
-	// TODO: find a better way to do this!
-	// This sleep allows config to propagate
-	time.Sleep(10 * time.Second)
+	err := WaitUntilRoute(from, se.Host)
+	if err != nil {
+		t.Fatalf("Failed to get expected route: %v", err)
+	}
 }
 
-func sendTraffic(ctx framework.TestContext, from echo.Instance /*to echo.Instance,*/, host string) {
+// Wait for our route for the "fake" target to be established
+func WaitUntilRoute(c echo.Instance, dest string) error {
+	accept := func(cfg *envoyAdmin.ConfigDump) (bool, error) {
+		validator := structpath.ForProto(cfg)
+		if err := validator.
+			Exists("{.configs[*].dynamicRouteConfigs[*].routeConfig.virtualHosts[?(@.name == '%s')]}", dest+":80").
+			Check(); err != nil {
+			return false, err
+		}
+		clusterName := fmt.Sprintf("outbound|%d||%s", 80, dest)
+		if err := validator.
+			Exists("{.configs[*].dynamicActiveClusters[?(@.cluster.name == '%s')]}", clusterName).
+			Check(); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+
+	workloads, _ := c.Workloads()
+	// Wait for the outbound config to be received by each workload from Pilot.
+	for _, w := range workloads {
+		if w.Sidecar() != nil {
+			if err := w.Sidecar().WaitForConfig(accept, retry.Timeout(time.Second*10)); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func sendTraffic(ctx framework.TestContext, from echo.Instance, host string) {
 	ctx.Helper()
 	headers := http.Header{}
 	headers.Add("Host", host)
