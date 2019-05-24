@@ -229,7 +229,7 @@ var (
 	vaultAuthPathEnv                   = env.RegisterStringVar(vaultAuthPath, "", "").Get()
 	vaultSignCsrPathEnv                = env.RegisterStringVar(vaultSignCsrPath, "", "").Get()
 	vaultTLSRootCertEnv                = env.RegisterStringVar(vaultTLSRootCert, "", "").Get()
-  spireTLSBootstrapCertEnv           = registerHiddenStringVarEnv(spireTLSBootstrapCert, "", "").Get()
+	spireTLSBootstrapCertEnv           = registerHiddenStringVarEnv(spireTLSBootstrapCert, "", "").Get()
 	secretTTLEnv                       = env.RegisterDurationVar(secretTTL, 24*time.Hour, "").Get()
 	secretRefreshGraceDurationEnv      = env.RegisterDurationVar(SecretRefreshGraceDuration, 1*time.Hour, "").Get()
 	secretRotationIntervalEnv          = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()

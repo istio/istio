@@ -86,8 +86,8 @@ type Options struct {
 
 	// The SPIRE TLS bootstrap certificate.
 	SpireTLSBootstrapCert string
-	
-  // Recycle job running interval (to clean up staled sds client connections).
+
+	// Recycle job running interval (to clean up staled sds client connections).
 	RecycleInterval time.Duration
 }
 
