@@ -442,7 +442,7 @@ ${ISTIO_BIN}/go-junit-report:
 # Run coverage tests
 JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 ifeq ($(WHAT),)
-       TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test
+       TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test iptables-test
 else
        TEST_OBJ = selected-pkg-test
 endif
@@ -489,6 +489,10 @@ pilot-test: pilot-agent
 .PHONY: istioctl-test
 istioctl-test: istioctl
 	go test -p 1 ${T} ./istioctl/...
+
+.PHONY: iptables-test
+iptables-test:
+	tests/scripts/istio-iptables-test.sh
 
 .PHONY: mixer-test
 MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
