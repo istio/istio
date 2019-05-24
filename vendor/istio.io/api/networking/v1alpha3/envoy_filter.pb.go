@@ -42,6 +42,37 @@
 //       inlineCode: |
 //         ... lua code ...
 // ```
+//
+// For a more flexible approach, use Listener/Cluster to specify a
+// JSON Path based expression to match in the generated Envoy config
+// and a replacement value for the matched section. It can be used to
+// arbitrarily modify the generated Envoy config for a sidecar or
+// gateway. No guarantee is made with respect to the applicability of
+// the generated Envoy config. The following example overwrites
+// certain fields (HTTP idle timeout and X-Forward-For trusted hops)
+// in the HTTP connection manager in a listener on the ingress gateway
+// while leaving the rest as is.
+//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: EnvoyFilter
+// metadata:
+//   name: hcm-tweaks
+//   namespace: istio-system
+// spec:
+//   workloadLabels:
+//     istio: ingress-gateway
+//   listeners:
+//   - match:
+//       listenerType: GATEWAY # will match all gateway listeners
+//     patches:
+//     - path: '{.filter_chains[*].filters[?(@.name=="envoy.http_connection_manager")]}'
+//       operation: ADD
+//       value: |
+//         idle_timeout: 30s
+//         xff_num_trusted_hops: 5
+//```
+//
 
 package v1alpha3
 
@@ -197,6 +228,52 @@ func (EnvoyFilter_Filter_FilterType) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 3, 0}
 }
 
+type EnvoyFilter_Patch_Operator int32
+
+const (
+	// Overlay the value onto the element selected by the path using
+	// protobuf merge semantics. For primitive fields this is
+	// equivalent to ADD.
+	EnvoyFilter_Patch_MERGE EnvoyFilter_Patch_Operator = 0
+	// Overlay the value onto the element selected by the path using
+	// protobuf merge semantics but only for fields that are set to
+	// their default values, or fields that are unset.
+	EnvoyFilter_Patch_MERGE_UNSET EnvoyFilter_Patch_Operator = 1
+	// For arrays this will insert the value before the selected
+	// element. It is permitted for the inserted value to also be an
+	// array in this case. Appending to an array is indicated using
+	// the syntax somearray[-]. For maps this will either add to the
+	// map or replace the value for the key.  For fields this will
+	// replace the value.
+	EnvoyFilter_Patch_ADD EnvoyFilter_Patch_Operator = 2
+	// Remove the selected elements from their parent. Does not
+	// require a value to be specified. When removing fields their
+	// values are reset to their intrinsic default.
+	EnvoyFilter_Patch_REMOVE EnvoyFilter_Patch_Operator = 3
+)
+
+var EnvoyFilter_Patch_Operator_name = map[int32]string{
+	0: "MERGE",
+	1: "MERGE_UNSET",
+	2: "ADD",
+	3: "REMOVE",
+}
+
+var EnvoyFilter_Patch_Operator_value = map[string]int32{
+	"MERGE":       0,
+	"MERGE_UNSET": 1,
+	"ADD":         2,
+	"REMOVE":      3,
+}
+
+func (x EnvoyFilter_Patch_Operator) String() string {
+	return proto.EnumName(EnvoyFilter_Patch_Operator_name, int32(x))
+}
+
+func (EnvoyFilter_Patch_Operator) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 6, 0}
+}
+
 type EnvoyFilter struct {
 	// Zero or more labels that indicate a specific set of pods/VMs whose
 	// proxies should be configured to use these additional filters.  The
@@ -205,14 +282,27 @@ type EnvoyFilter struct {
 	// namespaces. Omitting the selector applies the filter to all proxies in
 	// the mesh.
 	WorkloadLabels map[string]string `protobuf:"bytes,1,rep,name=workload_labels,json=workloadLabels,proto3" json:"workload_labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	// REQUIRED: Envoy network filters/http filters to be added to matching
-	// listeners.  When adding network filters to http connections, care
-	// should be taken to ensure that the filter is added before
-	// envoy.http_connection_manager.
-	Filters              []*EnvoyFilter_Filter `protobuf:"bytes,2,rep,name=filters,proto3" json:"filters,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
-	XXX_unrecognized     []byte                `json:"-"`
-	XXX_sizecache        int32                 `json:"-"`
+	// REQUIRED: Atleast one of filters, listeners, clusters, or routes
+	// should be specified. Envoy network filters/http filters to be
+	// added to matching listeners.  When adding network filters to http
+	// connections, care should be taken to ensure that the filter is
+	// added before envoy.http_connection_manager.
+	Filters []*EnvoyFilter_Filter `protobuf:"bytes,2,rep,name=filters,proto3" json:"filters,omitempty"`
+	// REQUIRED: Atleast one of filters, listeners, clusters, or routes
+	// should be specified. Changes to be applied to one or more Envoy
+	// listeners.
+	Listeners []*EnvoyFilter_Listener `protobuf:"bytes,3,rep,name=listeners,proto3" json:"listeners,omitempty"`
+	// REQUIRED: Atleast one of filters, listeners, clusters, or routes
+	// should be specified. Changes to be applied to one or more Envoy
+	// clusters.
+	Clusters []*EnvoyFilter_Cluster `protobuf:"bytes,4,rep,name=clusters,proto3" json:"clusters,omitempty"`
+	// REQUIRED: Atleast one of filters, listeners, clusters, or routes
+	// should be specified. Changes to be applied to one or more Envoy
+	// routes.
+	Routes               []*EnvoyFilter_Route `protobuf:"bytes,5,rep,name=routes,proto3" json:"routes,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
 }
 
 func (m *EnvoyFilter) Reset()         { *m = EnvoyFilter{} }
@@ -258,6 +348,27 @@ func (m *EnvoyFilter) GetWorkloadLabels() map[string]string {
 func (m *EnvoyFilter) GetFilters() []*EnvoyFilter_Filter {
 	if m != nil {
 		return m.Filters
+	}
+	return nil
+}
+
+func (m *EnvoyFilter) GetListeners() []*EnvoyFilter_Listener {
+	if m != nil {
+		return m.Listeners
+	}
+	return nil
+}
+
+func (m *EnvoyFilter) GetClusters() []*EnvoyFilter_Cluster {
+	if m != nil {
+		return m.Clusters
+	}
+	return nil
+}
+
+func (m *EnvoyFilter) GetRoutes() []*EnvoyFilter_Route {
+	if m != nil {
+		return m.Routes
 	}
 	return nil
 }
@@ -428,12 +539,12 @@ type EnvoyFilter_Filter struct {
 	// in invalid configurations. It is recommended to specify the
 	// listener match criteria for all filter insertions.
 	ListenerMatch *EnvoyFilter_ListenerMatch `protobuf:"bytes,1,opt,name=listener_match,json=listenerMatch,proto3" json:"listener_match,omitempty"`
-	// Insert position in the filter chain. Defaults to FIRST
+	// Insert position in the filter chain. Defaults to FIRST.
 	InsertPosition *EnvoyFilter_InsertPosition `protobuf:"bytes,2,opt,name=insert_position,json=insertPosition,proto3" json:"insert_position,omitempty"`
 	// REQUIRED: The type of filter to instantiate.
 	FilterType EnvoyFilter_Filter_FilterType `protobuf:"varint,3,opt,name=filter_type,json=filterType,proto3,enum=istio.networking.v1alpha3.EnvoyFilter_Filter_FilterType" json:"filter_type,omitempty"`
-	// REQUIRED: The name of the filter to instantiate. The name must match a supported
-	// filter _compiled into_ Envoy.
+	// REQUIRED: The name of the filter to instantiate or replace. The
+	// name must match a supported filter _compiled into_ Envoy.
 	FilterName string `protobuf:"bytes,4,opt,name=filter_name,json=filterName,proto3" json:"filter_name,omitempty"`
 	// REQUIRED: Filter specific configuration which depends on the filter being
 	// instantiated.
@@ -511,16 +622,410 @@ func (m *EnvoyFilter_Filter) GetFilterConfig() *types.Struct {
 	return nil
 }
 
+// Conditions specified in ClusterMatch must be met for the patch
+// to be applied to a cluster.
+type EnvoyFilter_ClusterMatch struct {
+	// A regular expression to match on the Envoy cluster name or
+	// route name. The regular expression pattern should follow
+	// Golang's regular expression (RE2) format as specified here
+	// (https://golang.org/pkg/regexp/). See
+	// https://github.com/google/re2/wiki/Syntax for examples.
+	//
+	// The names for Envoy clusters generated by Pilot follow the
+	// pattern
+	// (inbound|outbound)|<portNumber>|<subset>|<FQDNofService>.  For
+	// example, outbound|80|v1|productpage.default.svc.cluster.local.
+	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *EnvoyFilter_ClusterMatch) Reset()         { *m = EnvoyFilter_ClusterMatch{} }
+func (m *EnvoyFilter_ClusterMatch) String() string { return proto.CompactTextString(m) }
+func (*EnvoyFilter_ClusterMatch) ProtoMessage()    {}
+func (*EnvoyFilter_ClusterMatch) Descriptor() ([]byte, []int) {
+	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 4}
+}
+func (m *EnvoyFilter_ClusterMatch) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EnvoyFilter_ClusterMatch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EnvoyFilter_ClusterMatch.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EnvoyFilter_ClusterMatch) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EnvoyFilter_ClusterMatch.Merge(m, src)
+}
+func (m *EnvoyFilter_ClusterMatch) XXX_Size() int {
+	return m.Size()
+}
+func (m *EnvoyFilter_ClusterMatch) XXX_DiscardUnknown() {
+	xxx_messageInfo_EnvoyFilter_ClusterMatch.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EnvoyFilter_ClusterMatch proto.InternalMessageInfo
+
+func (m *EnvoyFilter_ClusterMatch) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+// Conditions specified in RouteMatch must be met for the patch
+// to be applied to a route.
+type EnvoyFilter_RouteMatch struct {
+	// A regular expression to match on the Envoy cluster name or
+	// route name. The regular expression pattern should follow
+	// Golang's regular expression (RE2) format as specified here
+	// (https://golang.org/pkg/regexp/). See
+	// https://github.com/google/re2/wiki/Syntax for examples.
+	//
+	// The RDS routes for Envoy are named as follows:
+	// For sidecars,
+	// route name is the portNumber. Note that multiple HTTP services
+	// on the same port share the same RDS route.
+	//
+	// For gateways, route name is either http.<server.portNumber> for
+	// plain text gateway or
+	// https.<server.portNumber>.<server.portName>.<gateway.Name>.<gateway.NameSpace>
+	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *EnvoyFilter_RouteMatch) Reset()         { *m = EnvoyFilter_RouteMatch{} }
+func (m *EnvoyFilter_RouteMatch) String() string { return proto.CompactTextString(m) }
+func (*EnvoyFilter_RouteMatch) ProtoMessage()    {}
+func (*EnvoyFilter_RouteMatch) Descriptor() ([]byte, []int) {
+	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 5}
+}
+func (m *EnvoyFilter_RouteMatch) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EnvoyFilter_RouteMatch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EnvoyFilter_RouteMatch.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EnvoyFilter_RouteMatch) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EnvoyFilter_RouteMatch.Merge(m, src)
+}
+func (m *EnvoyFilter_RouteMatch) XXX_Size() int {
+	return m.Size()
+}
+func (m *EnvoyFilter_RouteMatch) XXX_DiscardUnknown() {
+	xxx_messageInfo_EnvoyFilter_RouteMatch.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EnvoyFilter_RouteMatch proto.InternalMessageInfo
+
+func (m *EnvoyFilter_RouteMatch) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+// Patch specifies the JSON path in the generated proto and the
+// content to merge/remove on the specific path.
+type EnvoyFilter_Patch struct {
+	// A valid JSON Path expression against the type declared
+	// above. The path expression specifies the point in the object
+	// graph where the mutation operation should occur. The patch is
+	// ignored if there is no object on the specified path.
+	Path string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	// Default behavior is MERGE.
+	Operator EnvoyFilter_Patch_Operator `protobuf:"varint,2,opt,name=operator,proto3,enum=istio.networking.v1alpha3.EnvoyFilter_Patch_Operator" json:"operator,omitempty"`
+	// The proto equivalent of JSON Value. This will be merged using
+	// protobuf merge semantics with the existing proto in the path.
+	Value                *types.Value `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
+	XXX_unrecognized     []byte       `json:"-"`
+	XXX_sizecache        int32        `json:"-"`
+}
+
+func (m *EnvoyFilter_Patch) Reset()         { *m = EnvoyFilter_Patch{} }
+func (m *EnvoyFilter_Patch) String() string { return proto.CompactTextString(m) }
+func (*EnvoyFilter_Patch) ProtoMessage()    {}
+func (*EnvoyFilter_Patch) Descriptor() ([]byte, []int) {
+	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 6}
+}
+func (m *EnvoyFilter_Patch) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EnvoyFilter_Patch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EnvoyFilter_Patch.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EnvoyFilter_Patch) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EnvoyFilter_Patch.Merge(m, src)
+}
+func (m *EnvoyFilter_Patch) XXX_Size() int {
+	return m.Size()
+}
+func (m *EnvoyFilter_Patch) XXX_DiscardUnknown() {
+	xxx_messageInfo_EnvoyFilter_Patch.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EnvoyFilter_Patch proto.InternalMessageInfo
+
+func (m *EnvoyFilter_Patch) GetPath() string {
+	if m != nil {
+		return m.Path
+	}
+	return ""
+}
+
+func (m *EnvoyFilter_Patch) GetOperator() EnvoyFilter_Patch_Operator {
+	if m != nil {
+		return m.Operator
+	}
+	return EnvoyFilter_Patch_MERGE
+}
+
+func (m *EnvoyFilter_Patch) GetValue() *types.Value {
+	if m != nil {
+		return m.Value
+	}
+	return nil
+}
+
+// Changes to be made to Envoy listeners generated by Pilot.
+type EnvoyFilter_Listener struct {
+	// Criteria to select a specific listener. If omitted, the patch
+	// will be applied to all listeners.
+	Match *EnvoyFilter_ListenerMatch `protobuf:"bytes,1,opt,name=match,proto3" json:"match,omitempty"`
+	// Patches to apply on the matched listener.
+	Patches []*EnvoyFilter_Patch `protobuf:"bytes,2,rep,name=patches,proto3" json:"patches,omitempty"`
+	// Listeners to be added. They will be shipped as is to the workload.
+	Additions            []*types.Struct `protobuf:"bytes,3,rep,name=additions,proto3" json:"additions,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
+	XXX_unrecognized     []byte          `json:"-"`
+	XXX_sizecache        int32           `json:"-"`
+}
+
+func (m *EnvoyFilter_Listener) Reset()         { *m = EnvoyFilter_Listener{} }
+func (m *EnvoyFilter_Listener) String() string { return proto.CompactTextString(m) }
+func (*EnvoyFilter_Listener) ProtoMessage()    {}
+func (*EnvoyFilter_Listener) Descriptor() ([]byte, []int) {
+	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 7}
+}
+func (m *EnvoyFilter_Listener) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EnvoyFilter_Listener) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EnvoyFilter_Listener.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EnvoyFilter_Listener) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EnvoyFilter_Listener.Merge(m, src)
+}
+func (m *EnvoyFilter_Listener) XXX_Size() int {
+	return m.Size()
+}
+func (m *EnvoyFilter_Listener) XXX_DiscardUnknown() {
+	xxx_messageInfo_EnvoyFilter_Listener.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EnvoyFilter_Listener proto.InternalMessageInfo
+
+func (m *EnvoyFilter_Listener) GetMatch() *EnvoyFilter_ListenerMatch {
+	if m != nil {
+		return m.Match
+	}
+	return nil
+}
+
+func (m *EnvoyFilter_Listener) GetPatches() []*EnvoyFilter_Patch {
+	if m != nil {
+		return m.Patches
+	}
+	return nil
+}
+
+func (m *EnvoyFilter_Listener) GetAdditions() []*types.Struct {
+	if m != nil {
+		return m.Additions
+	}
+	return nil
+}
+
+// Changes to be made to Envoy clusters generated by Pilot.
+type EnvoyFilter_Cluster struct {
+	// Criteria to match a specific cluster.
+	Match *EnvoyFilter_ClusterMatch `protobuf:"bytes,1,opt,name=match,proto3" json:"match,omitempty"`
+	// Patches to apply on the matched cluster.
+	Patches []*EnvoyFilter_Patch `protobuf:"bytes,2,rep,name=patches,proto3" json:"patches,omitempty"`
+	// Clusters to be added. They will be shipped as is to the workload.
+	Additions            []*types.Struct `protobuf:"bytes,3,rep,name=additions,proto3" json:"additions,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
+	XXX_unrecognized     []byte          `json:"-"`
+	XXX_sizecache        int32           `json:"-"`
+}
+
+func (m *EnvoyFilter_Cluster) Reset()         { *m = EnvoyFilter_Cluster{} }
+func (m *EnvoyFilter_Cluster) String() string { return proto.CompactTextString(m) }
+func (*EnvoyFilter_Cluster) ProtoMessage()    {}
+func (*EnvoyFilter_Cluster) Descriptor() ([]byte, []int) {
+	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 8}
+}
+func (m *EnvoyFilter_Cluster) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EnvoyFilter_Cluster) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EnvoyFilter_Cluster.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EnvoyFilter_Cluster) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EnvoyFilter_Cluster.Merge(m, src)
+}
+func (m *EnvoyFilter_Cluster) XXX_Size() int {
+	return m.Size()
+}
+func (m *EnvoyFilter_Cluster) XXX_DiscardUnknown() {
+	xxx_messageInfo_EnvoyFilter_Cluster.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EnvoyFilter_Cluster proto.InternalMessageInfo
+
+func (m *EnvoyFilter_Cluster) GetMatch() *EnvoyFilter_ClusterMatch {
+	if m != nil {
+		return m.Match
+	}
+	return nil
+}
+
+func (m *EnvoyFilter_Cluster) GetPatches() []*EnvoyFilter_Patch {
+	if m != nil {
+		return m.Patches
+	}
+	return nil
+}
+
+func (m *EnvoyFilter_Cluster) GetAdditions() []*types.Struct {
+	if m != nil {
+		return m.Additions
+	}
+	return nil
+}
+
+// Changes to be made to Envoy RDS routes generated by Pilot.
+type EnvoyFilter_Route struct {
+	// Criteria to match a specific route.
+	Match *EnvoyFilter_RouteMatch `protobuf:"bytes,1,opt,name=match,proto3" json:"match,omitempty"`
+	// Patches to apply on the matched route.
+	Patches              []*EnvoyFilter_Patch `protobuf:"bytes,2,rep,name=patches,proto3" json:"patches,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
+}
+
+func (m *EnvoyFilter_Route) Reset()         { *m = EnvoyFilter_Route{} }
+func (m *EnvoyFilter_Route) String() string { return proto.CompactTextString(m) }
+func (*EnvoyFilter_Route) ProtoMessage()    {}
+func (*EnvoyFilter_Route) Descriptor() ([]byte, []int) {
+	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 9}
+}
+func (m *EnvoyFilter_Route) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EnvoyFilter_Route) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EnvoyFilter_Route.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EnvoyFilter_Route) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EnvoyFilter_Route.Merge(m, src)
+}
+func (m *EnvoyFilter_Route) XXX_Size() int {
+	return m.Size()
+}
+func (m *EnvoyFilter_Route) XXX_DiscardUnknown() {
+	xxx_messageInfo_EnvoyFilter_Route.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EnvoyFilter_Route proto.InternalMessageInfo
+
+func (m *EnvoyFilter_Route) GetMatch() *EnvoyFilter_RouteMatch {
+	if m != nil {
+		return m.Match
+	}
+	return nil
+}
+
+func (m *EnvoyFilter_Route) GetPatches() []*EnvoyFilter_Patch {
+	if m != nil {
+		return m.Patches
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterEnum("istio.networking.v1alpha3.EnvoyFilter_ListenerMatch_ListenerType", EnvoyFilter_ListenerMatch_ListenerType_name, EnvoyFilter_ListenerMatch_ListenerType_value)
 	proto.RegisterEnum("istio.networking.v1alpha3.EnvoyFilter_ListenerMatch_ListenerProtocol", EnvoyFilter_ListenerMatch_ListenerProtocol_name, EnvoyFilter_ListenerMatch_ListenerProtocol_value)
 	proto.RegisterEnum("istio.networking.v1alpha3.EnvoyFilter_InsertPosition_Index", EnvoyFilter_InsertPosition_Index_name, EnvoyFilter_InsertPosition_Index_value)
 	proto.RegisterEnum("istio.networking.v1alpha3.EnvoyFilter_Filter_FilterType", EnvoyFilter_Filter_FilterType_name, EnvoyFilter_Filter_FilterType_value)
+	proto.RegisterEnum("istio.networking.v1alpha3.EnvoyFilter_Patch_Operator", EnvoyFilter_Patch_Operator_name, EnvoyFilter_Patch_Operator_value)
 	proto.RegisterType((*EnvoyFilter)(nil), "istio.networking.v1alpha3.EnvoyFilter")
 	proto.RegisterMapType((map[string]string)(nil), "istio.networking.v1alpha3.EnvoyFilter.WorkloadLabelsEntry")
 	proto.RegisterType((*EnvoyFilter_ListenerMatch)(nil), "istio.networking.v1alpha3.EnvoyFilter.ListenerMatch")
 	proto.RegisterType((*EnvoyFilter_InsertPosition)(nil), "istio.networking.v1alpha3.EnvoyFilter.InsertPosition")
 	proto.RegisterType((*EnvoyFilter_Filter)(nil), "istio.networking.v1alpha3.EnvoyFilter.Filter")
+	proto.RegisterType((*EnvoyFilter_ClusterMatch)(nil), "istio.networking.v1alpha3.EnvoyFilter.ClusterMatch")
+	proto.RegisterType((*EnvoyFilter_RouteMatch)(nil), "istio.networking.v1alpha3.EnvoyFilter.RouteMatch")
+	proto.RegisterType((*EnvoyFilter_Patch)(nil), "istio.networking.v1alpha3.EnvoyFilter.Patch")
+	proto.RegisterType((*EnvoyFilter_Listener)(nil), "istio.networking.v1alpha3.EnvoyFilter.Listener")
+	proto.RegisterType((*EnvoyFilter_Cluster)(nil), "istio.networking.v1alpha3.EnvoyFilter.Cluster")
+	proto.RegisterType((*EnvoyFilter_Route)(nil), "istio.networking.v1alpha3.EnvoyFilter.Route")
 }
 
 func init() {
@@ -528,52 +1033,67 @@ func init() {
 }
 
 var fileDescriptor_16d9b2922bd3e4a9 = []byte{
-	// 706 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x54, 0x41, 0x6f, 0xda, 0x4c,
-	0x10, 0x8d, 0x71, 0x08, 0x1f, 0xe3, 0x40, 0xfc, 0x6d, 0x22, 0xd5, 0x45, 0x55, 0x8a, 0x38, 0x54,
-	0x5c, 0x6a, 0x5a, 0xd2, 0x4a, 0x51, 0xda, 0x8b, 0x93, 0x98, 0x14, 0x95, 0x02, 0x5d, 0x9c, 0x46,
-	0x69, 0xa5, 0x5a, 0x06, 0x16, 0xb2, 0x8a, 0xf1, 0x5a, 0xf6, 0x42, 0xc2, 0xcf, 0xea, 0xb1, 0xd7,
-	0x9e, 0x7a, 0x6c, 0xff, 0x41, 0x95, 0x5f, 0x52, 0x79, 0x6d, 0x08, 0x44, 0xa9, 0x94, 0xa6, 0x27,
-	0x7b, 0x9f, 0xde, 0xbc, 0x99, 0xd9, 0x79, 0xb3, 0xf0, 0xc4, 0x23, 0xfc, 0x82, 0x05, 0xe7, 0xd4,
-	0x1b, 0x56, 0x26, 0xcf, 0x1d, 0xd7, 0x3f, 0x73, 0x76, 0x2a, 0xc4, 0x9b, 0xb0, 0xa9, 0x3d, 0xa0,
-	0x2e, 0x27, 0x81, 0xee, 0x07, 0x8c, 0x33, 0xf4, 0x90, 0x86, 0x9c, 0x32, 0xfd, 0x9a, 0xad, 0xcf,
-	0xd8, 0x85, 0x47, 0x43, 0xc6, 0x86, 0x2e, 0xa9, 0x08, 0x62, 0x77, 0x3c, 0xa8, 0x84, 0x3c, 0x18,
-	0xf7, 0x78, 0x1c, 0x58, 0xfa, 0x06, 0xa0, 0x98, 0x91, 0x5e, 0x4d, 0xc8, 0xa1, 0x1e, 0x6c, 0x44,
-	0x0a, 0x2e, 0x73, 0xfa, 0xb6, 0xeb, 0x74, 0x89, 0x1b, 0x6a, 0x52, 0x51, 0x2e, 0x2b, 0xd5, 0x3d,
-	0xfd, 0x8f, 0x29, 0xf4, 0x05, 0x01, 0xfd, 0x24, 0x89, 0x6e, 0x88, 0x60, 0xd3, 0xe3, 0xc1, 0x14,
-	0xe7, 0x2f, 0x96, 0x40, 0x74, 0x04, 0x99, 0xb8, 0xfa, 0x50, 0x4b, 0x09, 0xf1, 0xa7, 0x77, 0x14,
-	0x8f, 0x3f, 0x78, 0x16, 0x5d, 0x30, 0x60, 0xf3, 0x96, 0x7c, 0x48, 0x05, 0xf9, 0x9c, 0x4c, 0x35,
-	0xa9, 0x28, 0x95, 0xb3, 0x38, 0xfa, 0x45, 0x5b, 0x90, 0x9e, 0x38, 0xee, 0x98, 0x68, 0x29, 0x81,
-	0xc5, 0x87, 0xbd, 0xd4, 0xae, 0x54, 0xf8, 0x29, 0x43, 0xae, 0x41, 0x43, 0x4e, 0x3c, 0x12, 0xbc,
-	0x73, 0x78, 0xef, 0x0c, 0x3d, 0x06, 0xc5, 0x67, 0x01, 0xb7, 0xbd, 0xf1, 0xa8, 0x4b, 0x02, 0xa1,
-	0x92, 0xc3, 0x10, 0x41, 0x4d, 0x81, 0xa0, 0x32, 0xa8, 0x31, 0xc1, 0x19, 0x11, 0xdb, 0x0f, 0xc8,
-	0x80, 0x5e, 0x26, 0xba, 0x79, 0xc1, 0x72, 0x46, 0xa4, 0x2d, 0x50, 0x34, 0x80, 0x9c, 0x9b, 0x68,
-	0xdb, 0x7c, 0xea, 0x13, 0x4d, 0x2e, 0x4a, 0xe5, 0x7c, 0xd5, 0xb8, 0x63, 0xbb, 0x4b, 0x75, 0xcd,
-	0x4f, 0xd6, 0xd4, 0x27, 0x78, 0xdd, 0x5d, 0x38, 0xa1, 0x00, 0xfe, 0x9f, 0xe7, 0x11, 0x73, 0xed,
-	0x31, 0x57, 0x5b, 0x15, 0xb9, 0xcc, 0x7f, 0xca, 0xd5, 0x4e, 0xc4, 0xb0, 0xea, 0xde, 0x40, 0x90,
-	0x06, 0x19, 0xa7, 0xdf, 0x0f, 0x48, 0x18, 0x6a, 0xe9, 0xa2, 0x5c, 0xce, 0xe2, 0xd9, 0xb1, 0xd4,
-	0x82, 0xf5, 0xc5, 0x5a, 0x51, 0x06, 0x64, 0xa3, 0x79, 0xaa, 0xae, 0xa0, 0x4d, 0xd8, 0xe8, 0xd4,
-	0x0f, 0xcd, 0x03, 0x03, 0xdb, 0xf5, 0xe6, 0x7e, 0xeb, 0xb8, 0x79, 0xa8, 0x4a, 0x68, 0x0b, 0xd4,
-	0x19, 0xd8, 0x3a, 0xb6, 0x62, 0x34, 0x85, 0x14, 0xc8, 0x1c, 0x19, 0x96, 0x79, 0x62, 0x9c, 0xaa,
-	0x72, 0x49, 0x07, 0xf5, 0x66, 0x41, 0x42, 0xb4, 0xd1, 0x50, 0x57, 0xd0, 0x7f, 0xb0, 0xfa, 0xc6,
-	0xb2, 0xda, 0xaa, 0x14, 0x41, 0xd6, 0x41, 0x5b, 0x4d, 0x15, 0xbe, 0x4a, 0x90, 0xaf, 0x7b, 0x21,
-	0x09, 0x78, 0x9b, 0x85, 0x94, 0x53, 0xe6, 0xa1, 0xf7, 0x90, 0xa6, 0x5e, 0x9f, 0x5c, 0x8a, 0x71,
-	0xe6, 0xab, 0xaf, 0xee, 0x78, 0x2b, 0xcb, 0x2a, 0x7a, 0x3d, 0x92, 0xc0, 0xb1, 0x52, 0xe4, 0x93,
-	0x80, 0xb8, 0x0e, 0xa7, 0x13, 0x62, 0x73, 0x96, 0x38, 0x00, 0x66, 0x90, 0xc5, 0x4a, 0x3b, 0x90,
-	0x16, 0x01, 0x28, 0x0b, 0xe9, 0x5a, 0x1d, 0x77, 0xac, 0xb8, 0xda, 0x86, 0xd1, 0xb1, 0x54, 0x09,
-	0x01, 0xac, 0xed, 0x9b, 0xb5, 0x16, 0x36, 0xd5, 0x54, 0x44, 0x30, 0x6a, 0x96, 0x89, 0x55, 0xb9,
-	0xf0, 0x45, 0x86, 0xb5, 0x64, 0x17, 0x3f, 0x41, 0x7e, 0x3e, 0xd5, 0x51, 0x34, 0x16, 0x51, 0xbc,
-	0x52, 0x7d, 0x71, 0x9f, 0x91, 0xe2, 0xb9, 0x13, 0x63, 0x97, 0x7f, 0x86, 0x0d, 0x2a, 0x9a, 0xb3,
-	0xfd, 0xa4, 0x3b, 0xd1, 0x81, 0x52, 0x7d, 0x79, 0xaf, 0xab, 0xc1, 0x79, 0xba, 0x7c, 0xe1, 0xa7,
-	0xa0, 0xc4, 0x5b, 0xba, 0x68, 0xfc, 0xdd, 0xbf, 0xda, 0xf3, 0xe4, 0x23, 0xfc, 0x0e, 0x83, 0xf9,
-	0x7f, 0x74, 0xf1, 0x89, 0x74, 0xb4, 0x81, 0xc2, 0xe7, 0xd9, 0x19, 0x21, 0x5a, 0x3e, 0xf4, 0x1a,
-	0x72, 0x09, 0xa1, 0xc7, 0xbc, 0x01, 0x1d, 0x6a, 0x69, 0xd1, 0xd9, 0x03, 0x3d, 0x7e, 0x0a, 0xf5,
-	0xd9, 0x53, 0xa8, 0x77, 0xc4, 0x53, 0x88, 0xd7, 0x63, 0xf6, 0x81, 0x20, 0x97, 0x9e, 0x01, 0x5c,
-	0x27, 0x8e, 0x8c, 0x58, 0x6f, 0x7e, 0x30, 0x1a, 0xf5, 0xc3, 0x25, 0xaf, 0x29, 0x90, 0x69, 0x9a,
-	0xd6, 0x49, 0x0b, 0xbf, 0x55, 0x53, 0xfb, 0xfa, 0xf7, 0xab, 0x6d, 0xe9, 0xc7, 0xd5, 0xb6, 0xf4,
-	0xeb, 0x6a, 0x5b, 0xfa, 0x58, 0x8c, 0x7b, 0xa4, 0xac, 0xe2, 0xf8, 0xb4, 0x72, 0xcb, 0x03, 0xde,
-	0x5d, 0x13, 0x05, 0xec, 0xfc, 0x0e, 0x00, 0x00, 0xff, 0xff, 0x26, 0x48, 0xc9, 0xfc, 0xde, 0x05,
-	0x00, 0x00,
+	// 960 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x56, 0xcd, 0x6e, 0xdb, 0x46,
+	0x17, 0x35, 0x45, 0xeb, 0xef, 0xca, 0x96, 0xf9, 0x8d, 0x83, 0xaf, 0xaa, 0x50, 0xb8, 0x82, 0x16,
+	0x85, 0x17, 0x2e, 0xd5, 0xc8, 0x0d, 0x10, 0x24, 0xdd, 0xd0, 0x16, 0xe5, 0x2a, 0x95, 0x25, 0x65,
+	0x44, 0xdb, 0x70, 0x0b, 0x94, 0xa0, 0xa5, 0x91, 0x4d, 0x84, 0xe6, 0x10, 0x24, 0xe5, 0x44, 0x2f,
+	0xd1, 0x75, 0x5f, 0xa3, 0xcb, 0xbe, 0x41, 0x97, 0x2d, 0x8a, 0x2e, 0xba, 0x2b, 0xfc, 0x24, 0xc5,
+	0xdc, 0x21, 0x65, 0x2b, 0x8d, 0x01, 0x29, 0x41, 0x81, 0xae, 0x34, 0x73, 0x79, 0xcf, 0x99, 0xfb,
+	0x73, 0xe6, 0x8e, 0xe0, 0x33, 0x9f, 0xc5, 0xaf, 0x79, 0xf8, 0xca, 0xf5, 0x2f, 0x1b, 0x37, 0x8f,
+	0x1d, 0x2f, 0xb8, 0x72, 0xf6, 0x1b, 0xcc, 0xbf, 0xe1, 0x33, 0x7b, 0xe2, 0x7a, 0x31, 0x0b, 0xf5,
+	0x20, 0xe4, 0x31, 0x27, 0x1f, 0xbb, 0x51, 0xec, 0x72, 0xfd, 0xce, 0x5b, 0x4f, 0xbd, 0xab, 0x9f,
+	0x5c, 0x72, 0x7e, 0xe9, 0xb1, 0x06, 0x3a, 0x5e, 0x4c, 0x27, 0x8d, 0x28, 0x0e, 0xa7, 0xa3, 0x58,
+	0x02, 0xeb, 0x3f, 0x6c, 0x43, 0xc9, 0x14, 0x7c, 0x6d, 0xa4, 0x23, 0x23, 0xd8, 0x12, 0x0c, 0x1e,
+	0x77, 0xc6, 0xb6, 0xe7, 0x5c, 0x30, 0x2f, 0xaa, 0x28, 0x35, 0x75, 0xb7, 0xd4, 0x7c, 0xa6, 0x3f,
+	0x78, 0x84, 0x7e, 0x8f, 0x40, 0x3f, 0x4b, 0xd0, 0x5d, 0x04, 0x9b, 0x7e, 0x1c, 0xce, 0x68, 0xf9,
+	0xf5, 0x82, 0x91, 0x1c, 0x41, 0x5e, 0x46, 0x1f, 0x55, 0x32, 0x48, 0xfe, 0xf9, 0x92, 0xe4, 0xf2,
+	0x87, 0xa6, 0x68, 0x72, 0x0c, 0x45, 0xcf, 0x8d, 0x62, 0xe6, 0x0b, 0x2a, 0x15, 0xa9, 0x1a, 0x4b,
+	0x52, 0x75, 0x13, 0x1c, 0xbd, 0x63, 0x20, 0x2f, 0xa0, 0x30, 0xf2, 0xa6, 0x11, 0x06, 0xb6, 0x8e,
+	0x6c, 0xfa, 0x92, 0x6c, 0x87, 0x12, 0x46, 0xe7, 0x78, 0xd2, 0x82, 0x5c, 0xc8, 0xa7, 0x31, 0x8b,
+	0x2a, 0x59, 0x64, 0xda, 0x5b, 0x92, 0x89, 0x0a, 0x10, 0x4d, 0xb0, 0x55, 0x03, 0xb6, 0xdf, 0x51,
+	0x50, 0xa2, 0x81, 0xfa, 0x8a, 0xcd, 0x2a, 0x4a, 0x4d, 0xd9, 0x2d, 0x52, 0xb1, 0x24, 0x8f, 0x20,
+	0x7b, 0xe3, 0x78, 0x53, 0x56, 0xc9, 0xa0, 0x4d, 0x6e, 0x9e, 0x65, 0x9e, 0x2a, 0xd5, 0xdf, 0x54,
+	0xd8, 0x4c, 0x93, 0x3d, 0x76, 0xe2, 0xd1, 0x15, 0xf9, 0x14, 0x4a, 0x01, 0x0f, 0x63, 0xdb, 0x9f,
+	0x5e, 0x5f, 0xb0, 0x10, 0x59, 0x36, 0x29, 0x08, 0x53, 0x0f, 0x2d, 0x64, 0x17, 0x34, 0xe9, 0xe0,
+	0x5c, 0x33, 0x3b, 0x08, 0xd9, 0xc4, 0x7d, 0x93, 0xf0, 0x96, 0xd1, 0xcb, 0xb9, 0x66, 0x03, 0xb4,
+	0x92, 0x09, 0x6c, 0xa6, 0xe5, 0xb3, 0xe3, 0x59, 0xc0, 0x2a, 0x6a, 0x4d, 0xd9, 0x2d, 0x37, 0x8d,
+	0x15, 0x9b, 0x80, 0x71, 0xcd, 0x77, 0xd6, 0x2c, 0x60, 0x74, 0xc3, 0xbb, 0xb7, 0x23, 0x21, 0xfc,
+	0x6f, 0x7e, 0x0e, 0x0a, 0x77, 0xc4, 0xbd, 0xca, 0x3a, 0x9e, 0x65, 0x7e, 0xd0, 0x59, 0x83, 0x84,
+	0x8c, 0x6a, 0xde, 0x5b, 0x16, 0x52, 0x81, 0xbc, 0x33, 0x1e, 0x87, 0x2c, 0x92, 0x2d, 0x2c, 0xd2,
+	0x74, 0x5b, 0xef, 0xc3, 0xc6, 0xfd, 0x58, 0x49, 0x1e, 0x54, 0xa3, 0x77, 0xae, 0xad, 0x91, 0x6d,
+	0xd8, 0x1a, 0x76, 0x5a, 0xe6, 0xa1, 0x41, 0xed, 0x4e, 0xef, 0xa0, 0x7f, 0xd2, 0x6b, 0x69, 0x0a,
+	0x79, 0x04, 0x5a, 0x6a, 0xec, 0x9f, 0x58, 0xd2, 0x9a, 0x21, 0x25, 0xc8, 0x1f, 0x19, 0x96, 0x79,
+	0x66, 0x9c, 0x6b, 0x6a, 0x5d, 0x07, 0xed, 0xed, 0x80, 0x90, 0xb4, 0xdb, 0xd5, 0xd6, 0x48, 0x01,
+	0xd6, 0xbf, 0xb6, 0xac, 0x81, 0xa6, 0x08, 0x93, 0x75, 0x38, 0xd0, 0x32, 0xd5, 0x9f, 0x15, 0x28,
+	0x77, 0xfc, 0x88, 0x85, 0xf1, 0x80, 0x47, 0x6e, 0xec, 0x72, 0x9f, 0xbc, 0x84, 0xac, 0xeb, 0x8f,
+	0xd9, 0x1b, 0x6c, 0x67, 0xb9, 0xf9, 0x7c, 0xc9, 0xaa, 0x2c, 0xb2, 0xe8, 0x1d, 0x41, 0x41, 0x25,
+	0x93, 0xd0, 0x49, 0xc8, 0x3c, 0x27, 0x76, 0x6f, 0x98, 0x1d, 0xf3, 0x44, 0x01, 0x90, 0x9a, 0x2c,
+	0x5e, 0xdf, 0x87, 0x2c, 0x02, 0x48, 0x11, 0xb2, 0xed, 0x0e, 0x1d, 0x5a, 0x32, 0xda, 0xae, 0x31,
+	0xb4, 0x34, 0x85, 0x00, 0xe4, 0x0e, 0xcc, 0x76, 0x9f, 0x9a, 0x5a, 0x46, 0x38, 0x18, 0x6d, 0xcb,
+	0xa4, 0x9a, 0x5a, 0xfd, 0x49, 0x85, 0x5c, 0x32, 0x6c, 0xbe, 0x83, 0xf2, 0xbc, 0xab, 0xd7, 0xa2,
+	0x2d, 0x18, 0x7c, 0xa9, 0xf9, 0xe5, 0xfb, 0xb4, 0x94, 0xce, 0x95, 0x28, 0x55, 0xfe, 0x3d, 0x6c,
+	0xb9, 0x98, 0x9c, 0x1d, 0x24, 0xd9, 0x61, 0x06, 0xa5, 0xe6, 0x93, 0xf7, 0x2a, 0x0d, 0x2d, 0xbb,
+	0x8b, 0x05, 0x3f, 0x87, 0x92, 0x1c, 0x43, 0xf7, 0x85, 0xff, 0x74, 0xa5, 0x41, 0x96, 0xfc, 0xa0,
+	0xde, 0x61, 0x32, 0x5f, 0x8b, 0xc2, 0x27, 0xd4, 0xe2, 0x06, 0xa2, 0xce, 0x8b, 0xa9, 0x83, 0xb8,
+	0x7c, 0xe4, 0x2b, 0xd8, 0x4c, 0x1c, 0x46, 0xdc, 0x9f, 0xb8, 0x97, 0x95, 0x2c, 0x66, 0xf6, 0x91,
+	0x2e, 0x67, 0xbd, 0x9e, 0xce, 0x7a, 0x7d, 0x88, 0xb3, 0x9e, 0x6e, 0x48, 0xef, 0x43, 0x74, 0xae,
+	0x7f, 0x01, 0x70, 0x77, 0xb0, 0x10, 0x62, 0xa7, 0x77, 0x6a, 0x74, 0x3b, 0xad, 0x05, 0xad, 0x95,
+	0x20, 0xdf, 0x33, 0xad, 0xb3, 0x3e, 0xfd, 0x46, 0xcb, 0x54, 0xeb, 0xb0, 0x91, 0x4c, 0x38, 0x59,
+	0x5b, 0x02, 0xeb, 0x18, 0x99, 0x1c, 0x40, 0xb8, 0xae, 0xd6, 0x00, 0x70, 0x76, 0x3d, 0xec, 0xf1,
+	0xa7, 0x02, 0xd9, 0x41, 0xfa, 0x35, 0x70, 0xe2, 0xab, 0xf4, 0xab, 0x58, 0x93, 0x97, 0x50, 0xe0,
+	0x01, 0x0b, 0x9d, 0x98, 0x87, 0xd8, 0xa8, 0xf2, 0xd2, 0x8d, 0x42, 0x4e, 0xbd, 0x9f, 0x80, 0xe9,
+	0x9c, 0x86, 0xec, 0xa5, 0x43, 0x51, 0xc5, 0xf2, 0xfc, 0xff, 0x1f, 0xe5, 0x39, 0x15, 0x5f, 0x93,
+	0x61, 0x59, 0x7f, 0x0e, 0x85, 0x94, 0x43, 0xe8, 0xf5, 0xd8, 0xa4, 0x47, 0xa6, 0xb6, 0x46, 0xb6,
+	0xa0, 0x84, 0x4b, 0xfb, 0xa4, 0x37, 0x34, 0x2d, 0x79, 0x0b, 0x8d, 0x96, 0xb8, 0xc2, 0x00, 0x39,
+	0x6a, 0x1e, 0xf7, 0x4f, 0x4d, 0x4d, 0xad, 0xfe, 0xa1, 0x40, 0x21, 0x95, 0x23, 0x79, 0x01, 0xd9,
+	0x0f, 0x97, 0xb3, 0xa4, 0x20, 0x6d, 0xc8, 0x07, 0x62, 0xc1, 0xd2, 0xb7, 0x72, 0x6f, 0x95, 0xaa,
+	0xd0, 0x14, 0x4c, 0x9e, 0x40, 0xd1, 0x19, 0x8f, 0x51, 0xba, 0xe9, 0x53, 0xf9, 0xa0, 0x5c, 0xee,
+	0x3c, 0xab, 0xbf, 0x2b, 0x90, 0x4f, 0x5a, 0x4f, 0x3a, 0x8b, 0x69, 0xed, 0xaf, 0xf6, 0x36, 0xfe,
+	0x97, 0xb2, 0xfa, 0x51, 0x81, 0x2c, 0x8a, 0x95, 0x1c, 0x2d, 0xe6, 0xf4, 0x78, 0x95, 0x57, 0xfa,
+	0xdf, 0xc8, 0xe8, 0x40, 0xff, 0xe5, 0x76, 0x47, 0xf9, 0xf5, 0x76, 0x47, 0xf9, 0xeb, 0x76, 0x47,
+	0xf9, 0xb6, 0x26, 0x39, 0x5c, 0xde, 0x70, 0x02, 0xb7, 0xf1, 0x8e, 0x3f, 0x83, 0x17, 0x39, 0x4c,
+	0x73, 0xff, 0xef, 0x00, 0x00, 0x00, 0xff, 0xff, 0xbb, 0xdb, 0xed, 0x15, 0x2a, 0x0a, 0x00, 0x00,
 }
 
 func (m *EnvoyFilter) Marshal() (dAtA []byte, err error) {
@@ -611,6 +1131,42 @@ func (m *EnvoyFilter) MarshalTo(dAtA []byte) (int, error) {
 	if len(m.Filters) > 0 {
 		for _, msg := range m.Filters {
 			dAtA[i] = 0x12
+			i++
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if len(m.Listeners) > 0 {
+		for _, msg := range m.Listeners {
+			dAtA[i] = 0x1a
+			i++
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if len(m.Clusters) > 0 {
+		for _, msg := range m.Clusters {
+			dAtA[i] = 0x22
+			i++
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if len(m.Routes) > 0 {
+		for _, msg := range m.Routes {
+			dAtA[i] = 0x2a
 			i++
 			i = encodeVarintEnvoyFilter(dAtA, i, uint64(msg.Size()))
 			n, err := msg.MarshalTo(dAtA[i:])
@@ -777,6 +1333,255 @@ func (m *EnvoyFilter_Filter) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *EnvoyFilter_ClusterMatch) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EnvoyFilter_ClusterMatch) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Name) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Name)))
+		i += copy(dAtA[i:], m.Name)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *EnvoyFilter_RouteMatch) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EnvoyFilter_RouteMatch) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Name) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Name)))
+		i += copy(dAtA[i:], m.Name)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *EnvoyFilter_Patch) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EnvoyFilter_Patch) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Path) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Path)))
+		i += copy(dAtA[i:], m.Path)
+	}
+	if m.Operator != 0 {
+		dAtA[i] = 0x10
+		i++
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.Operator))
+	}
+	if m.Value != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.Value.Size()))
+		n4, err4 := m.Value.MarshalTo(dAtA[i:])
+		if err4 != nil {
+			return 0, err4
+		}
+		i += n4
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *EnvoyFilter_Listener) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EnvoyFilter_Listener) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Match != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.Match.Size()))
+		n5, err5 := m.Match.MarshalTo(dAtA[i:])
+		if err5 != nil {
+			return 0, err5
+		}
+		i += n5
+	}
+	if len(m.Patches) > 0 {
+		for _, msg := range m.Patches {
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if len(m.Additions) > 0 {
+		for _, msg := range m.Additions {
+			dAtA[i] = 0x1a
+			i++
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *EnvoyFilter_Cluster) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EnvoyFilter_Cluster) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Match != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.Match.Size()))
+		n6, err6 := m.Match.MarshalTo(dAtA[i:])
+		if err6 != nil {
+			return 0, err6
+		}
+		i += n6
+	}
+	if len(m.Patches) > 0 {
+		for _, msg := range m.Patches {
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if len(m.Additions) > 0 {
+		for _, msg := range m.Additions {
+			dAtA[i] = 0x1a
+			i++
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *EnvoyFilter_Route) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EnvoyFilter_Route) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Match != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.Match.Size()))
+		n7, err7 := m.Match.MarshalTo(dAtA[i:])
+		if err7 != nil {
+			return 0, err7
+		}
+		i += n7
+	}
+	if len(m.Patches) > 0 {
+		for _, msg := range m.Patches {
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
 func encodeVarintEnvoyFilter(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -802,6 +1607,24 @@ func (m *EnvoyFilter) Size() (n int) {
 	}
 	if len(m.Filters) > 0 {
 		for _, e := range m.Filters {
+			l = e.Size()
+			n += 1 + l + sovEnvoyFilter(uint64(l))
+		}
+	}
+	if len(m.Listeners) > 0 {
+		for _, e := range m.Listeners {
+			l = e.Size()
+			n += 1 + l + sovEnvoyFilter(uint64(l))
+		}
+	}
+	if len(m.Clusters) > 0 {
+		for _, e := range m.Clusters {
+			l = e.Size()
+			n += 1 + l + sovEnvoyFilter(uint64(l))
+		}
+	}
+	if len(m.Routes) > 0 {
+		for _, e := range m.Routes {
 			l = e.Size()
 			n += 1 + l + sovEnvoyFilter(uint64(l))
 		}
@@ -886,6 +1709,139 @@ func (m *EnvoyFilter_Filter) Size() (n int) {
 	if m.FilterConfig != nil {
 		l = m.FilterConfig.Size()
 		n += 1 + l + sovEnvoyFilter(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *EnvoyFilter_ClusterMatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Name)
+	if l > 0 {
+		n += 1 + l + sovEnvoyFilter(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *EnvoyFilter_RouteMatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Name)
+	if l > 0 {
+		n += 1 + l + sovEnvoyFilter(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *EnvoyFilter_Patch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Path)
+	if l > 0 {
+		n += 1 + l + sovEnvoyFilter(uint64(l))
+	}
+	if m.Operator != 0 {
+		n += 1 + sovEnvoyFilter(uint64(m.Operator))
+	}
+	if m.Value != nil {
+		l = m.Value.Size()
+		n += 1 + l + sovEnvoyFilter(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *EnvoyFilter_Listener) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Match != nil {
+		l = m.Match.Size()
+		n += 1 + l + sovEnvoyFilter(uint64(l))
+	}
+	if len(m.Patches) > 0 {
+		for _, e := range m.Patches {
+			l = e.Size()
+			n += 1 + l + sovEnvoyFilter(uint64(l))
+		}
+	}
+	if len(m.Additions) > 0 {
+		for _, e := range m.Additions {
+			l = e.Size()
+			n += 1 + l + sovEnvoyFilter(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *EnvoyFilter_Cluster) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Match != nil {
+		l = m.Match.Size()
+		n += 1 + l + sovEnvoyFilter(uint64(l))
+	}
+	if len(m.Patches) > 0 {
+		for _, e := range m.Patches {
+			l = e.Size()
+			n += 1 + l + sovEnvoyFilter(uint64(l))
+		}
+	}
+	if len(m.Additions) > 0 {
+		for _, e := range m.Additions {
+			l = e.Size()
+			n += 1 + l + sovEnvoyFilter(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *EnvoyFilter_Route) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Match != nil {
+		l = m.Match.Size()
+		n += 1 + l + sovEnvoyFilter(uint64(l))
+	}
+	if len(m.Patches) > 0 {
+		for _, e := range m.Patches {
+			l = e.Size()
+			n += 1 + l + sovEnvoyFilter(uint64(l))
+		}
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1093,6 +2049,108 @@ func (m *EnvoyFilter) Unmarshal(dAtA []byte) error {
 			}
 			m.Filters = append(m.Filters, &EnvoyFilter_Filter{})
 			if err := m.Filters[len(m.Filters)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Listeners", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnvoyFilter
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Listeners = append(m.Listeners, &EnvoyFilter_Listener{})
+			if err := m.Listeners[len(m.Listeners)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Clusters", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnvoyFilter
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Clusters = append(m.Clusters, &EnvoyFilter_Cluster{})
+			if err := m.Clusters[len(m.Clusters)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Routes", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnvoyFilter
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Routes = append(m.Routes, &EnvoyFilter_Route{})
+			if err := m.Routes[len(m.Routes)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -1586,6 +2644,759 @@ func (m *EnvoyFilter_Filter) Unmarshal(dAtA []byte) error {
 				m.FilterConfig = &types.Struct{}
 			}
 			if err := m.FilterConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEnvoyFilter(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EnvoyFilter_ClusterMatch) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEnvoyFilter
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ClusterMatch: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ClusterMatch: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnvoyFilter
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Name = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEnvoyFilter(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EnvoyFilter_RouteMatch) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEnvoyFilter
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: RouteMatch: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: RouteMatch: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnvoyFilter
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Name = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEnvoyFilter(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EnvoyFilter_Patch) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEnvoyFilter
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Patch: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Patch: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Path", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnvoyFilter
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Path = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Operator", wireType)
+			}
+			m.Operator = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnvoyFilter
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Operator |= EnvoyFilter_Patch_Operator(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Value", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnvoyFilter
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Value == nil {
+				m.Value = &types.Value{}
+			}
+			if err := m.Value.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEnvoyFilter(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EnvoyFilter_Listener) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEnvoyFilter
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Listener: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Listener: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Match", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnvoyFilter
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Match == nil {
+				m.Match = &EnvoyFilter_ListenerMatch{}
+			}
+			if err := m.Match.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Patches", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnvoyFilter
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Patches = append(m.Patches, &EnvoyFilter_Patch{})
+			if err := m.Patches[len(m.Patches)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Additions", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnvoyFilter
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Additions = append(m.Additions, &types.Struct{})
+			if err := m.Additions[len(m.Additions)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEnvoyFilter(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EnvoyFilter_Cluster) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEnvoyFilter
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Cluster: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Cluster: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Match", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnvoyFilter
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Match == nil {
+				m.Match = &EnvoyFilter_ClusterMatch{}
+			}
+			if err := m.Match.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Patches", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnvoyFilter
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Patches = append(m.Patches, &EnvoyFilter_Patch{})
+			if err := m.Patches[len(m.Patches)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Additions", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnvoyFilter
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Additions = append(m.Additions, &types.Struct{})
+			if err := m.Additions[len(m.Additions)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEnvoyFilter(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EnvoyFilter_Route) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEnvoyFilter
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Route: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Route: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Match", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnvoyFilter
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Match == nil {
+				m.Match = &EnvoyFilter_RouteMatch{}
+			}
+			if err := m.Match.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Patches", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnvoyFilter
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Patches = append(m.Patches, &EnvoyFilter_Patch{})
+			if err := m.Patches[len(m.Patches)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
