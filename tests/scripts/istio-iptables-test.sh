@@ -55,10 +55,14 @@ export PATH="${PWD}/tests/scripts/stubs:${PATH}"
 SCRIPT_NAME=$0
 declare -A TESTS
 FAILED=()
-TESTS[mode_redirect]="-p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888  -i 1.1.1.0/16 -x 9.9.9.0/16  -k eth1,eth2"
-TESTS[mode_tproxy]="-p 12345 -u 4321 -g 4444 -m TPROXY -b 5555,6666 -d 7777,8888  -i 1.1.1.0/16 -x 9.9.9.0/16  -k eth1,eth2"
+TESTS[mode_redirect]="-p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888 -i 1.1.1.0/16 -x 9.9.9.0/16 -k eth1,eth2"
+TESTS[mode_tproxy]="-p 12345 -u 4321 -g 4444 -m TPROXY -b 5555,6666 -d 7777,8888 -i 1.1.1.0/16 -x 9.9.9.0/16 -k eth1,eth2"
+TESTS[mode_tproxy_and_ipv6]="-p 12345 -u 4321 -g 4444 -m TPROXY -b * -d 7777,8888 -i 2001:db8:1::1/32 -x 2019:db8:1::1/32 -k eth1,eth2"
+TESTS[mode_tproxy_and_wildcard_port]="-p 12345 -u 4321 -g 4444 -m TPROXY -b * -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2"
 TESTS[empty_parameter]=""
-TESTS[outbound_port_exclude]="-p 12345 -u 4321 -g 4444 -o 1024,21 -m REDIRECT -b 5555,6666 -d 7777,8888  -i 1.1.0.0/16 -x 9.9.0.0/16  -k eth1,eth2"
+TESTS[outbound_port_exclude]="-p 12345 -u 4321 -g 4444 -o 1024,21 -m REDIRECT -b 5555,6666 -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2"
+TESTS[wildcard_include_ip_range]="-p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888 -i * -x 9.9.0.0/16 -k eth1,eth2"
+TESTS[clean]="Clean"
 
 for TEST_NAME in "${!TESTS[@]}"
 do
@@ -66,11 +70,11 @@ do
 
   # shellcheck disable=SC2086
   ACTUAL_OUTPUT=$(${FILE_UNDER_TEST} ${TEST_ARGS}  2>/dev/null)
-  EXPECTED_OUTPUT=$(cat "tests/scripts/testdata/${TEST_NAME}_golden.txt")
   
   if [[ "x${REFRESH_GOLDEN:-false}x" = "xtruex" ]] ; then
     refresh_reference "${TEST_NAME}" "${ACTUAL_OUTPUT}"
   else
+    EXPECTED_OUTPUT=$(cat "tests/scripts/testdata/${TEST_NAME}_golden.txt")
     if assert_equals "${TEST_NAME}" "${ACTUAL_OUTPUT}" "${EXPECTED_OUTPUT}"; then
       echo -e "ok\tistio.io/$0/${TEST_NAME}\t0.000s"
     else
