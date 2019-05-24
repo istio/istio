@@ -26,10 +26,9 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
-	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
@@ -44,280 +43,223 @@ import (
 func TestReachability(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			istioCfg := istio.DefaultConfigOrFail(t, ctx)
-
-			systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-			ns := namespace.NewOrFail(t, ctx, "reachability", true)
-
-			ports := []echo.Port{
-				{
-					Name:     "http",
-					Protocol: model.ProtocolHTTP,
-				},
-				{
-					Name:     "tcp",
-					Protocol: model.ProtocolTCP,
-				},
-				{
-					Name:     "grpc",
-					Protocol: model.ProtocolGRPC,
-				},
-			}
+			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
+			ns := namespace.NewOrFail(ctx, ctx, "reachability", true)
 
 			var a, b, headless, naked echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, echo.Config{
-					Service:        "a",
-					Namespace:      ns,
-					ServiceAccount: true,
-					Ports:          ports,
-					Galley:         g,
-					Pilot:          p,
-				}).
-				With(&b, echo.Config{
-					Service:        "b",
-					Namespace:      ns,
-					Ports:          ports,
-					ServiceAccount: true,
-					Galley:         g,
-					Pilot:          p,
-				}).
-				With(&headless, echo.Config{
-					Service:        "headless",
-					Namespace:      ns,
-					Ports:          ports,
-					ServiceAccount: true,
-					Headless:       true,
-					Galley:         g,
-					Pilot:          p,
-				}).
-				With(&naked, echo.Config{
-					Service:   "naked",
-					Namespace: ns,
-					Ports:     ports,
-					Annotations: echo.NewAnnotations().
-						SetBool(echo.SidecarInject, false),
-					Galley: g,
-					Pilot:  p,
-				}).
-				BuildOrFail(t)
+			echoboot.NewBuilderOrFail(ctx, ctx).
+				With(&a, config("a", ns, false, nil)).
+				With(&b, config("b", ns, false, nil)).
+				With(&headless, config("headless", ns, true, nil)).
+				With(&naked, config("naked", ns, false, echo.NewAnnotations().
+					SetBool(echo.SidecarInject, false))).
+				BuildOrFail(ctx)
+
+			callOptions := []echo.CallOptions{
+				{
+					PortName: "http",
+					Scheme:   scheme.HTTP,
+				},
+				{
+					PortName: "http",
+					Scheme:   scheme.WebSocket,
+				},
+				{
+					PortName: "tcp",
+					Scheme:   scheme.HTTP,
+				},
+				{
+					PortName: "grpc",
+					Scheme:   scheme.GRPC,
+				},
+			}
 
 			testCases := []struct {
 				configFile string
 				namespace  namespace.Instance
-				subTests   []connection.Checker
+
+				requiredEnvironment environment.Name
+
+				// Indicates whether a test should be created for the given configuration.
+				include func(src echo.Instance, opts echo.CallOptions) bool
+
+				// Handler called when the given test is being run.
+				onRun func(ctx framework.TestContext, src echo.Instance, opts echo.CallOptions)
+
+				// Indicates whether the test should expect a successful response.
+				expectSuccess func(src echo.Instance, opts echo.CallOptions) bool
 			}{
 				{
-					configFile: "global-mtls-on.yaml",
-					namespace:  systemNS,
-					subTests: []connection.Checker{
-						{
-							From: a,
-							Options: echo.CallOptions{
-								Target:   b,
-								PortName: "http",
-								Scheme:   scheme.HTTP,
-							},
-							ExpectSuccess: true,
-						},
-						{
-							From: a,
-							Options: echo.CallOptions{
-								Target:   b,
-								PortName: "grpc",
-								Scheme:   scheme.GRPC,
-							},
-							ExpectSuccess: true,
-						},
-						{
-							From: a,
-							Options: echo.CallOptions{
-								Target:   b,
-								PortName: "tcp",
-								Scheme:   scheme.HTTP,
-							},
-							ExpectSuccess: true,
-						},
-						{
-							From: a,
-							Options: echo.CallOptions{
-								Target:   headless,
-								PortName: "http",
-								Scheme:   scheme.HTTP,
-							},
-							ExpectSuccess: true,
-						},
-						{
-							From: a,
-							Options: echo.CallOptions{
-								Target:   headless,
-								PortName: "grpc",
-								Scheme:   scheme.GRPC,
-							},
-							ExpectSuccess: true,
-						},
-						{
-							From: naked,
-							Options: echo.CallOptions{
-								Target:   b,
-								PortName: "http",
-								Scheme:   scheme.HTTP,
-							},
-							ExpectSuccess: false,
-						},
-						{
-							From: naked,
-							Options: echo.CallOptions{
-								Target:   b,
-								PortName: "grpc",
-								Scheme:   scheme.GRPC,
-							},
-							ExpectSuccess: false,
-						},
-						{
-							From: naked,
-							Options: echo.CallOptions{
-								Target:   b,
-								PortName: "tcp",
-								Scheme:   scheme.HTTP,
-							},
-							ExpectSuccess: false,
-						},
+					configFile:          "global-mtls-on.yaml",
+					namespace:           systemNM,
+					requiredEnvironment: environment.Kube,
+					include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Exclude calls to the headless TCP port.
+						if opts.Target == headless && opts.PortName == "tcp" {
+							return false
+						}
+
+						// Exclude headless->headless
+						return src != headless || opts.Target != headless
+					},
+					expectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						if src == naked && opts.Target == naked {
+							// naked->naked should always succeed.
+							return true
+						}
+
+						// If one of the two endpoints is naked, expect failure.
+						return src != naked && opts.Target != naked
 					},
 				},
 				{
-					configFile: "global-mtls-permissive.yaml",
-					namespace:  systemNS,
-					subTests: []connection.Checker{
-						{
-							From: a,
-							Options: echo.CallOptions{
-								Target:   b,
-								PortName: "http",
-								Scheme:   scheme.HTTP,
-							},
-							ExpectSuccess: true,
-						},
-						{
-							From: naked,
-							Options: echo.CallOptions{
-								Target:   b,
-								PortName: "http",
-								Scheme:   scheme.HTTP,
-							},
-							ExpectSuccess: true,
-						},
-						{
-							From: naked,
-							Options: echo.CallOptions{
-								Target:   b,
-								PortName: "grpc",
-								Scheme:   scheme.GRPC,
-							},
-							ExpectSuccess: true,
-						},
-						{
-							From: naked,
-							Options: echo.CallOptions{
-								Target:   b,
-								PortName: "tcp",
-								Scheme:   scheme.HTTP,
-							},
-							ExpectSuccess: true,
-						},
+					configFile:          "global-mtls-permissive.yaml",
+					namespace:           systemNM,
+					requiredEnvironment: environment.Kube,
+					include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Exclude calls to the naked app.
+						if opts.Target == naked {
+							return false
+						}
+
+						// Exclude calls to the headless TCP port.
+						if opts.Target == headless && opts.PortName == "tcp" {
+							return false
+						}
+						return true
+					},
+					expectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
 					},
 				},
 				{
 					configFile: "global-mtls-off.yaml",
-					namespace:  systemNS,
-					subTests: []connection.Checker{
-						{
-							From: a,
-							Options: echo.CallOptions{
-								Target:   b,
-								PortName: "http",
-								Scheme:   scheme.HTTP,
-							},
-							ExpectSuccess: true,
-						},
-						{
-							From: naked,
-							Options: echo.CallOptions{
-								Target:   b,
-								PortName: "http",
-								Scheme:   scheme.HTTP,
-							},
-							ExpectSuccess: true,
-						},
+					namespace:  systemNM,
+					include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Exclude calls to the headless TCP port.
+						if opts.Target == headless && opts.PortName == "tcp" {
+							return false
+						}
+						return true
+					},
+					onRun: func(ctx framework.TestContext, src echo.Instance, opts echo.CallOptions) {
+						// The native implementation has some limitations that we need to account for.
+						ctx.Environment().Case(environment.Native, func() {
+							if src == naked && opts.Target == naked {
+								// naked->naked should always work.
+								return
+							}
+
+							switch opts.Scheme {
+							case scheme.WebSocket, scheme.GRPC:
+								// TODO(https://github.com/istio/istio/issues/13754)
+								ctx.Skipf("https://github.com/istio/istio/issues/13754")
+							}
+						})
+					},
+					expectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
 					},
 				},
 				{
-					configFile: "single-port-mtls-on.yaml",
-					namespace:  ns,
-					subTests: []connection.Checker{
-						{
-							From: a,
-							Options: echo.CallOptions{
-								Target:   b,
-								PortName: "http",
-								Scheme:   scheme.HTTP,
-							},
-							ExpectSuccess: false,
-						},
-						{
-							From: naked,
-							Options: echo.CallOptions{
-								Target:   b,
-								PortName: "http",
-								Scheme:   scheme.HTTP,
-							},
-							ExpectSuccess: false,
-						},
-						{
-							From: a,
-							Options: echo.CallOptions{
-								Target:   b,
-								PortName: "tcp",
-								Scheme:   scheme.HTTP,
-							},
-							ExpectSuccess: true,
-						},
-						{
-							From: naked,
-							Options: echo.CallOptions{
-								Target:   b,
-								PortName: "tcp",
-								Scheme:   scheme.HTTP,
-							},
-							ExpectSuccess: true,
-						},
+					configFile:          "single-port-mtls-on.yaml",
+					namespace:           ns,
+					requiredEnvironment: environment.Kube,
+					include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Include all tests that target app B, which has the single-port config.
+						return opts.Target == b
+					},
+					expectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						return opts.PortName != "http"
 					},
 				},
 			}
 
 			for _, c := range testCases {
 				testName := strings.TrimSuffix(c.configFile, filepath.Ext(c.configFile))
-				t.Run(testName, func(t *testing.T) {
+				test := ctx.NewSubTest(testName)
 
+				if c.requiredEnvironment != "" {
+					test.RequiresEnvironment(c.requiredEnvironment)
+				}
+
+				test.Run(func(ctx framework.TestContext) {
 					// Apply the policy.
-					deploymentYAML := file.AsStringOrFail(t, filepath.Join("testdata", c.configFile))
-					g.ApplyConfigOrFail(t, c.namespace, deploymentYAML)
-					defer g.DeleteConfigOrFail(t, c.namespace, deploymentYAML)
+					policyYAML := file.AsStringOrFail(ctx, filepath.Join("testdata", c.configFile))
+					g.ApplyConfigOrFail(ctx, c.namespace, policyYAML)
+					ctx.WhenDone(func() error {
+						return g.DeleteConfig(ctx, c.namespace.Name(), policyYAML)
+					})
 
 					// Give some time for the policy propagate.
 					// TODO: query pilot or app to know instead of sleep.
-					time.Sleep(time.Second)
+					time.Sleep(10 * time.Second)
 
-					for _, subTest := range c.subTests {
-						subTestName := fmt.Sprintf("%s->%s:%s",
-							subTest.From.Config().Service,
-							subTest.Options.Target.Config().Service,
-							subTest.Options.PortName)
-						t.Run(subTestName, func(t *testing.T) {
-							retry.UntilSuccessOrFail(t, subTest.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
-						})
+					for _, src := range []echo.Instance{a, b, headless, naked} {
+						for _, dest := range []echo.Instance{a, b, headless, naked} {
+							for _, opts := range callOptions {
+								// Copy the loop variables so they won't change for the subtests.
+								src := src
+								dest := dest
+								opts := opts
+								onPreRun := c.onRun
+
+								// Set the target on the call options.
+								opts.Target = dest
+
+								if c.include(src, opts) {
+									expectSuccess := c.expectSuccess(src, opts)
+
+									subTestName := fmt.Sprintf("%s->%s://%s:%s",
+										src.Config().Service,
+										opts.Scheme,
+										dest.Config().Service,
+										opts.PortName)
+
+									ctx.NewSubTest(subTestName).
+										RunParallel(func(ctx framework.TestContext) {
+											if onPreRun != nil {
+												onPreRun(ctx, src, opts)
+											}
+
+											checker := connection.Checker{
+												From:          src,
+												Options:       opts,
+												ExpectSuccess: expectSuccess,
+											}
+											checker.CheckOrFail(ctx)
+										})
+								}
+							}
+						}
 					}
 				})
 			}
 		})
+}
+
+func config(name string, ns namespace.Instance, headless bool, annos echo.Annotations) echo.Config {
+	return echo.Config{
+		Service:        name,
+		Namespace:      ns,
+		ServiceAccount: true,
+		Headless:       headless,
+		Annotations:    annos,
+		Ports: []echo.Port{
+			{
+				Name:     "http",
+				Protocol: model.ProtocolHTTP,
+			},
+			{
+				Name:     "tcp",
+				Protocol: model.ProtocolTCP,
+			},
+			{
+				Name:     "grpc",
+				Protocol: model.ProtocolGRPC,
+			},
+		},
+		Galley: g,
+		Pilot:  p,
+	}
 }

@@ -166,6 +166,12 @@ func (node *Proxy) GetProxyVersion() (string, bool) {
 	return version, found
 }
 
+// GetIstioVersion returns the Istio version of the proxy, and whether it is present
+func (node *Proxy) GetIstioVersion() (string, bool) {
+	version, found := node.Metadata[NodeMetadataIstioVersion]
+	return version, found
+}
+
 // RouterMode decides the behavior of Istio Gateway (normal or sni-dnat)
 type RouterMode string
 
@@ -541,6 +547,9 @@ func isValidIPAddress(ip string) bool {
 const (
 	// NodeMetadataIstioProxyVersion specifies the Envoy version associated with the proxy
 	NodeMetadataIstioProxyVersion = "ISTIO_PROXY_VERSION"
+
+	// NodeMetadataIstioVersion specifies the Istio version associated with the proxy
+	NodeMetadataIstioVersion = "ISTIO_VERSION"
 
 	// NodeMetadataNetwork defines the network the node belongs to. It is an optional metadata,
 	// set at injection time. When set, the Endpoints returned to a note and not on same network

@@ -37,8 +37,8 @@ set -x
 
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
-setup_kind_cluster
 setup_and_export_git_sha
+setup_kind_cluster
 
 echo 'Build'
 (cd "${ROOT}"; make build)

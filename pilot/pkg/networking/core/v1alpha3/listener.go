@@ -225,8 +225,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 					StatPrefix:       util.PassthroughCluster,
 					ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
 				}
-				setAccessLog(env, node, tcpProxy)
 			}
+
+			setAccessLog(env, node, tcpProxy)
+
 			var transparent *google_protobuf.BoolValue
 			if node.GetInterceptionMode() == model.InterceptionTproxy {
 				transparent = proto.BoolTrue
@@ -1277,8 +1279,8 @@ func (configgen *ConfigGeneratorImpl) generateManagementListeners(node *model.Pr
 			m := mgmtListeners[i]
 			l := util.GetByAddress(listeners, m.Address.String())
 			if l != nil {
-				log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
-					m.Name, m.Address.String(), l.Name, l.Address.String())
+				log.Warnf("Omitting listener for management address %s due to collision with service listener %s",
+					m.Name, l.Name)
 				continue
 			}
 			listeners = append(listeners, m)
@@ -1436,6 +1438,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.HttpFilters = filters
 	connectionManager.StatPrefix = httpOpts.statPrefix
+	connectionManager.NormalizePath = proto.BoolTrue
 	if httpOpts.useRemoteAddress {
 		connectionManager.UseRemoteAddress = proto.BoolTrue
 	} else {

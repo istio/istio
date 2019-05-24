@@ -152,7 +152,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			serviceAccounts := push.ServiceAccounts[service.Hostname][port.Port]
 			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy)
 
-			updateEds(defaultCluster)
 			setUpstreamProtocol(defaultCluster, port)
 			clusters = append(clusters, defaultCluster)
 
@@ -173,12 +172,12 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 						lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []model.Labels{subset.Labels})
 					}
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy)
-					updateEds(subsetCluster)
 					setUpstreamProtocol(subsetCluster, port)
 					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port, serviceAccounts, defaultSni,
 						DefaultClusterMode, model.TrafficDirectionOutbound, proxy)
 					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port, serviceAccounts, defaultSni,
 						DefaultClusterMode, model.TrafficDirectionOutbound, proxy)
+					updateEds(subsetCluster)
 					subsetCluster.Metadata = util.BuildConfigInfoMetadata(config.ConfigMeta)
 					// call plugins
 					for _, p := range configgen.Plugins {
@@ -187,6 +186,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					clusters = append(clusters, subsetCluster)
 				}
 			}
+
+			updateEds(defaultCluster)
 
 			// call plugins for the default cluster
 			for _, p := range configgen.Plugins {
@@ -218,7 +219,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy)
 			defaultCluster.TlsContext = nil
-			updateEds(defaultCluster)
 			clusters = append(clusters, defaultCluster)
 
 			if config != nil {
@@ -235,15 +235,17 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 					}
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy)
 					subsetCluster.TlsContext = nil
-					updateEds(subsetCluster)
 					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port, nil, "",
 						SniDnatClusterMode, model.TrafficDirectionOutbound, proxy)
 					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port, nil, "",
 						SniDnatClusterMode, model.TrafficDirectionOutbound, proxy)
+					updateEds(subsetCluster)
 					subsetCluster.Metadata = util.BuildConfigInfoMetadata(config.ConfigMeta)
 					clusters = append(clusters, subsetCluster)
 				}
 			}
+
+			updateEds(defaultCluster)
 		}
 	}
 

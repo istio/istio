@@ -354,6 +354,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 
 // SvcUpdate is a callback from service discovery when service info changes.
 func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, rports map[uint32]string) {
+	inboundUpdates.With(prometheus.Labels{"type": "svc"}).Add(1)
 	pc := s.globalPushContext()
 	// In 1.0 Services and configs are only from the 'primary' K8S cluster.
 	if cluster == string(serviceregistry.KubernetesRegistry) {
@@ -408,6 +409,7 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 
 // WorkloadUpdate is called when workload labels/annotations are updated.
 func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ map[string]string) {
+	inboundUpdates.With(prometheus.Labels{"type": "workload"}).Add(1)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if labels == nil {
@@ -469,6 +471,7 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ 
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
 func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
 	istioEndpoints []*model.IstioEndpoint) error {
+	inboundUpdates.With(prometheus.Labels{"type": "eds"}).Add(1)
 	s.edsUpdate(shard, serviceName, istioEndpoints, false)
 	return nil
 }
@@ -889,7 +892,7 @@ func buildLocalityLbEndpointsFromShards(
 	push *model.PushContext) []endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 
-	shards.mutex.RLock()
+	shards.mutex.Lock()
 	// The shards are updated independently, now need to filter and merge
 	// for this cluster
 	for _, endpoints := range shards.Shards {
@@ -916,7 +919,7 @@ func buildLocalityLbEndpointsFromShards(
 
 		}
 	}
-	shards.mutex.RUnlock()
+	shards.mutex.Unlock()
 
 	locEps := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {

@@ -19,6 +19,29 @@ var port = parseInt(process.argv[2])
 
 var userAddedRatings = [] // used to demonstrate POST functionality
 
+var unavailable = false
+var healthy = true
+
+if (process.env.SERVICE_VERSION === 'v-unavailable') {
+    // make the service unavailable once in 60 seconds
+    setInterval(function () {
+        unavailable = !unavailable
+    }, 60000);
+}
+
+if (process.env.SERVICE_VERSION === 'v-unhealthy') {
+    // make the service unavailable once in 15 minutes for 15 minutes.
+    // 15 minutes is chosen since the Kubernetes's exponential back-off is reset after 10 minutes
+    // of successful execution
+    // see https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy
+    // Kiali shows the last 10 or 30 minutes, so to show the error rate of 50%,
+    // it will be required to run the service for 30 minutes, 15 minutes of each state (healthy/unhealthy)
+    setInterval(function () {
+        healthy = !healthy
+        unavailable = !unavailable
+    }, 900000);
+}
+
 /**
  * We default to using mongodb, if DB_TYPE is not set to mysql.
  */
@@ -83,31 +106,38 @@ dispatcher.onGet(/^\/ratings\/[0-9]*/, function (req, res) {
         database: 'test'
       })
 
-      connection.connect()
-      connection.query('SELECT Rating FROM ratings', function (err, results, fields) {
-        if (err) {
-          res.writeHead(500, {'Content-type': 'application/json'})
-          res.end(JSON.stringify({error: 'could not connect to ratings database'}))
-        } else {
-          if (results[0]) {
-            firstRating = results[0].Rating
+      connection.connect(function(err) {
+          if (err) {
+              res.end(JSON.stringify({error: 'could not connect to ratings database'}))
+              console.log(err)
+              return
           }
-          if (results[1]) {
-            secondRating = results[1].Rating
-          }
-          var result = {
-            id: productId,
-            ratings: {
-              Reviewer1: firstRating,
-              Reviewer2: secondRating
-            }
-          }
-          res.writeHead(200, {'Content-type': 'application/json'})
-          res.end(JSON.stringify(result))
-        }
+          connection.query('SELECT Rating FROM ratings', function (err, results, fields) {
+              if (err) {
+                  res.writeHead(500, {'Content-type': 'application/json'})
+                  res.end(JSON.stringify({error: 'could not perform select'}))
+                  console.log(err)
+              } else {
+                  if (results[0]) {
+                      firstRating = results[0].Rating
+                  }
+                  if (results[1]) {
+                      secondRating = results[1].Rating
+                  }
+                  var result = {
+                      id: productId,
+                      ratings: {
+                          Reviewer1: firstRating,
+                          Reviewer2: secondRating
+                      }
+                  }
+                  res.writeHead(200, {'Content-type': 'application/json'})
+                  res.end(JSON.stringify(result))
+              }
+          })
+          // close the connection
+          connection.end()
       })
-      // close connection in any case:
-      connection.end()
     } else {
       MongoClient.connect(url, function (err, db) {
         if (err) {
@@ -138,14 +168,47 @@ dispatcher.onGet(/^\/ratings\/[0-9]*/, function (req, res) {
       })
     }
   } else {
-    res.writeHead(200, {'Content-type': 'application/json'})
-    res.end(JSON.stringify(getLocalReviews(productId)))
+      if (process.env.SERVICE_VERSION === 'v-faulty') {
+        // in half of the cases return error,
+        // in another half proceed as usual
+        var random = Math.random(); // returns [0,1]
+        if (random <= 0.5) {
+          getLocalReviewsServiceUnavailable(res)
+        } else {
+          getLocalReviewsSuccessful(res, productId)
+        }
+      }
+      else if (process.env.SERVICE_VERSION === 'v-delayed') {
+        // in half of the cases delay for 7 seconds,
+        // in another half proceed as usual
+        var random = Math.random(); // returns [0,1]
+        if (random <= 0.5) {
+          setTimeout(getLocalReviewsSuccessful, 7000, res, productId)
+        } else {
+          getLocalReviewsSuccessful(res, productId)
+        }
+      }
+      else if (process.env.SERVICE_VERSION === 'v-unavailable' || process.env.SERVICE_VERSION === 'v-unhealthy') {
+          if (unavailable) {
+              getLocalReviewsServiceUnavailable(res)
+          } else {
+              getLocalReviewsSuccessful(res, productId)
+          }
+      }
+      else {
+        getLocalReviewsSuccessful(res, productId)
+      }
   }
 })
 
 dispatcher.onGet('/health', function (req, res) {
-  res.writeHead(200, {'Content-type': 'application/json'})
-  res.end(JSON.stringify({status: 'Ratings is healthy'}))
+    if (healthy) {
+        res.writeHead(200, {'Content-type': 'application/json'})
+        res.end(JSON.stringify({status: 'Ratings is healthy'}))
+    } else {
+        res.writeHead(500, {'Content-type': 'application/json'})
+        res.end(JSON.stringify({status: 'Ratings is not healthy'}))
+    }
 })
 
 function putLocalReviews (productId, ratings) {
@@ -154,6 +217,16 @@ function putLocalReviews (productId, ratings) {
     ratings: ratings
   }
   return getLocalReviews(productId)
+}
+
+function getLocalReviewsSuccessful(res, productId) {
+  res.writeHead(200, {'Content-type': 'application/json'})
+  res.end(JSON.stringify(getLocalReviews(productId)))
+}
+
+function getLocalReviewsServiceUnavailable(res) {
+  res.writeHead(503, {'Content-type': 'application/json'})
+  res.end(JSON.stringify({error: 'Service unavailable'}))
 }
 
 function getLocalReviews (productId) {
