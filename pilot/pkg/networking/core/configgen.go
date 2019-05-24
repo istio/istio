@@ -18,8 +18,6 @@ import (
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	"istio.io/istio/pilot/pkg/networking/plugin/registry"
 )
 
 // ConfigGenerator represents the interfaces to be implemented by code that generates xDS responses
@@ -34,9 +32,4 @@ type ConfigGenerator interface {
 
 	// BuildHTTPRoutes returns the list of HTTP routes for the given proxy. This is the RDS output
 	BuildHTTPRoutes(env *model.Environment, node *model.Proxy, push *model.PushContext, routeName string) (*v2.RouteConfiguration, error)
-}
-
-// NewConfigGenerator creates a new instance of the dataplane configuration generator
-func NewConfigGenerator(plugins []string) ConfigGenerator {
-	return v1alpha3.NewConfigGenerator(registry.NewPlugins(plugins))
 }

@@ -30,6 +30,8 @@ import (
 	"sync"
 	"time"
 
+	pluginregistry "istio.io/istio/pilot/pkg/networking/plugin/registry"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/types"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -57,7 +59,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
-	istio_networking "istio.io/istio/pilot/pkg/networking/core"
+	istio_networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
@@ -900,7 +902,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	s.mux = discovery.RestContainer.ServeMux
 
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment,
-		istio_networking.NewConfigGenerator(args.Plugins),
+		istio_networking.NewConfigGenerator(pluginregistry.NewPlugins(args.Plugins)),
 		s.ServiceController, s.kubeRegistry, s.configController)
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
 	if s.kubeRegistry != nil {
