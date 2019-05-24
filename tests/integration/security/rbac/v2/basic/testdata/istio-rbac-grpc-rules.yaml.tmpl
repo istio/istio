@@ -1,0 +1,50 @@
+# istio-rbac-grpc-rules.yaml to enforce access control for gRPC services using Istio RBAC v2 rules.
+
+# For service a:
+# * Allow b to call a's Echo method.
+# * Do not allow c to talk to a (since NonExistingMethod does not exist).
+# * Allow d to call any methods of a.
+
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: access-a-grpc-echo
+  namespace: {{ .Namespace }}
+spec:
+  rules:
+    - paths: ["/proto.EchoTestService/Echo"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: not-access-a-grpc
+  namespace: {{ .Namespace }}
+spec:
+  rules:
+    - paths: ["/proto.EchoTestService/NonExistingMethod"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: access-a-grpc-any
+  namespace: {{ .Namespace }}
+spec:
+  rules:
+    - paths: ["*"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: AuthorizationPolicy
+metadata:
+  name: authz-policy-access-a-http
+  namespace: {{ .Namespace }}
+spec:
+  allow:
+  - subjects:
+    - names: ["cluster.local/ns/{{ .Namespace }}/sa/b"]
+    role: access-a-grpc-echo
+  - subjects:
+    - names: ["cluster.local/ns/{{ .Namespace }}/sa/c"]
+    role: not-access-a-grpc
+  - subjects:
+    - names: ["cluster.local/ns/{{ .Namespace }}/sa/d"]
+    role: access-a-grpc-any

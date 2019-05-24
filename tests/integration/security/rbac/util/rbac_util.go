@@ -29,6 +29,11 @@ type TestCase struct {
 	Jwt           string
 }
 
+const (
+	gRPCDenyMsg = "rpc error: code = PermissionDenied desc = RBAC: access denied"
+	tcpDenyMsg  = "EOF"
+)
+
 func getError(req connection.Checker, expect, actual string) error {
 	return fmt.Errorf("%s to %s:%s%s: expect %s, got: %s",
 		req.From.Config().Service,
@@ -65,9 +70,15 @@ func (tc TestCase) CheckRBACRequest() error {
 			return getError(req, "allow with code 200", fmt.Sprintf("error: %v", err))
 		}
 	} else {
-		if req.Options.PortName == "tcp" {
-			if err == nil || !strings.Contains(err.Error(), "EOF") {
-				return getError(req, "deny with EOF error", fmt.Sprintf("error: %v", err))
+		if req.Options.PortName == "tcp" || req.Options.PortName == "grpc" {
+			expectedErrMsg := tcpDenyMsg
+			if req.Options.PortName == "grpc" {
+				expectedErrMsg = gRPCDenyMsg
+			}
+			if err == nil || !strings.Contains(err.Error(), expectedErrMsg) {
+				expect := fmt.Sprintf("deny with %s error", expectedErrMsg)
+				actual := fmt.Sprintf("error: %v", err)
+				return getError(req, expect, actual)
 			}
 		} else {
 			if err != nil {

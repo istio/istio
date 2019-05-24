@@ -29,9 +29,6 @@ spec:
   rules:
     - methods: ["GET"]
       paths: ["/good*"]
-    - constraints:
-      - key: "destination.port"
-        values: ["90"]
 ---
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: AuthorizationPolicy
