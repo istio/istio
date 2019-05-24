@@ -167,6 +167,9 @@ func TestHTTPProtocol(t *testing.T) {
 	if !ProtocolGRPC.IsHTTP() {
 		t.Errorf("gRPC is HTTP protocol")
 	}
+	if ProtocolGRPC.IsHTTP1() {
+		t.Errorf("gRPC is not HTTP/1.1 protocol")
+	}
 }
 
 func TestGetByPort(t *testing.T) {

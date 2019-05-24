@@ -19,6 +19,8 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/istio/pkg/features/pilot"
+
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	v2Cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
@@ -635,7 +637,7 @@ func applyTrafficPolicy(env *model.Environment, cluster *apiv2.Cluster, policy *
 	applyLoadBalancer(cluster, loadBalancer)
 	if clusterMode != SniDnatClusterMode {
 		tls = conditionallyConvertToIstioMtls(tls, serviceAccounts, defaultSni, proxy)
-		applyUpstreamTLSSettings(env, cluster, tls, proxy.Metadata)
+		applyUpstreamTLSSettings(env, cluster, tls, proxy.Metadata, port)
 	}
 }
 
@@ -652,6 +654,12 @@ func applyConnectionPool(env *model.Environment, cluster *apiv2.Cluster, setting
 		if settings.Http.Http2MaxRequests > 0 {
 			// Envoy only applies MaxRequests in HTTP/2 clusters
 			threshold.MaxRequests = &types.UInt32Value{Value: uint32(settings.Http.Http2MaxRequests)}
+			if pilot.EnableH2AutoUpgrade() {
+				// by configuring http2 settings for a destination
+				// user asserts that this is an h2 capable destination
+				// so we upgrade.
+				setH2UpstreamProtocol(cluster)
+			}
 		}
 		if settings.Http.Http1MaxPendingRequests > 0 {
 			// Envoy only applies MaxPendingRequests in HTTP/1.1 clusters
@@ -851,7 +859,8 @@ func applyLocalityLBSetting(
 	}
 }
 
-func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tls *networking.TLSSettings, metadata map[string]string) {
+func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tls *networking.TLSSettings,
+	metadata map[string]string, port *model.Port) {
 	if tls == nil {
 		return
 	}
@@ -935,9 +944,16 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 		}
 
 		// Set default SNI of cluster name for istio_mutual if sni is not set.
-		if len(tls.Sni) == 0 && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-			cluster.TlsContext.Sni = cluster.Name
+		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+			if len(tls.Sni) == 0 {
+				cluster.TlsContext.Sni = cluster.Name
+			}
+			// Only upgrade connections for http1 protocol
+			if pilot.EnableH2AutoUpgrade() && port.Protocol.IsHTTP1() {
+				setH2UpstreamProtocol(cluster)
+			}
 		}
+
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 			if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
@@ -953,13 +969,20 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 }
 
 func setUpstreamProtocol(cluster *apiv2.Cluster, port *model.Port) {
-	if port.Protocol.IsHTTP2() {
-		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
-			// Envoy default value of 100 is too low for data path.
-			MaxConcurrentStreams: &types.UInt32Value{
-				Value: 1073741824,
-			},
-		}
+	if port.Protocol.IsHTTP2() && cluster.Http2ProtocolOptions != nil {
+		setH2UpstreamProtocol(cluster)
+	}
+}
+
+func setH2UpstreamProtocol(cluster *apiv2.Cluster) {
+	if cluster.Http2ProtocolOptions != nil {
+		return
+	}
+	cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
+		// Envoy default value of 100 is too low for data path.
+		MaxConcurrentStreams: &types.UInt32Value{
+			Value: 1073741824,
+		},
 	}
 }
 

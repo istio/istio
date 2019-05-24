@@ -153,6 +153,13 @@ var (
 		"PILOT_ENABLE_MYSQL_FILTER",
 		false,
 		"EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.")
+
+	// EnableH2AutoUpgrade enables auto upgrade to an http/2.
+	EnableH2AutoUpgrade = enableH2AutoUpgrade.Get
+	enableH2AutoUpgrade = env.RegisterBoolVar(
+		"PILOT_ENABLE_H2_AUTOUPGRADE",
+		false,
+		"PILOT_ENABLE_H2_AUTOUPGRADE enables auto upgrade to an http/2 connection when communicating over ISTIO_MTLS ")
 )
 
 var (
