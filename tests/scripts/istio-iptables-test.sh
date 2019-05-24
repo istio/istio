@@ -16,7 +16,7 @@
 #
 ################################################################################
 
-set -e
+set -eu
 
 function refresh_reference() {
     local NAME=$1
@@ -32,16 +32,9 @@ function assert_equals() {
     local EXPECTED=$3
 
     if [ "${ACTUAL}" != "${EXPECTED}" ]; then
-        if [[ "x${REFRESH_GOLDEN}x" = "xtruex" ]] ; then
-            refresh_reference "${NAME}" "${ACTUAL}"
-        else
-            echo -e "FAIL: Actual result\n"
-            echo "${ACTUAL}"
-            echo -e "\ndoesn't match expected result\n"
-            echo "${EXPECTED}"
-            diff -u <(echo "${ACTUAL}") <(echo "${EXPECTED}") || true
-            FAILED+=("${NAME}")
-        fi
+        return 1
+    else
+        return 0
     fi
 }
 
@@ -50,7 +43,7 @@ FILE_UNDER_TEST=./tools/packaging/common/istio-iptables.sh
 export PATH="${PWD}/tests/scripts/stubs:${PATH}"
 
 declare -A TESTS
-declare -a FAILED
+FAILED=()
 TESTS[mode_redirect]="-p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888  -i 1.1.1.0/16 -x 9.9.9.0/16  -k eth1,eth2"
 TESTS[mode_tproxy]="-p 12345 -u 4321 -g 4444 -m TPROXY -b 5555,6666 -d 7777,8888  -i 1.1.1.0/16 -x 9.9.9.0/16  -k eth1,eth2"
 TESTS[empty_parameter]=""
@@ -58,13 +51,28 @@ TESTS[outbound_port_exclude]="-p 12345 -u 4321 -g 4444 -o 1024,21 -m REDIRECT -b
 
 for TEST_NAME in "${!TESTS[@]}"
 do
-  echo "running test ${TEST_NAME}"
   TEST_ARGS=${TESTS[$TEST_NAME]}
 
   # shellcheck disable=SC2086
   OUTPUT=$(${FILE_UNDER_TEST} ${TEST_ARGS}  2>/dev/null)
   EXPECTED_OUTPUT=$(cat "tests/scripts/testdata/${TEST_NAME}_golden.txt")
-  assert_equals "${TEST_NAME}" "${OUTPUT}" "${EXPECTED_OUTPUT}"
+  
+  if [[ "x${REFRESH_GOLDEN:-false}x" = "xtruex" ]] ; then
+    refresh_reference "${TEST_NAME}" "${OUTPUT}"
+  else
+    if assert_equals "${TEST_NAME}" "${OUTPUT}" "${EXPECTED_OUTPUT}"; then
+      echo -e "ok\tistio.io/$0/${TEST_NAME}\t0.000s"
+    else
+      echo "--- FAIL: ${TEST_NAME} (0.00s)"
+      echo "    $0: ${TEST_NAME} output does not match with golden file"
+      echo "${OUTPUT}"
+      echo -e "\ndoesn't match expected result\n"
+      echo "${EXPECTED_OUTPUT}"
+      diff -u <(echo "${OUTPUT}") <(echo "${EXPECTED_OUTPUT}") || true
+      echo -e "FAIL\tistio.io/$0/${TEST_NAME}\t0.000s"
+      FAILED+=("${TEST_NAME}")
+    fi
+  fi
 done
 
 NUMBER_FAILING=${#FAILED[@]}
