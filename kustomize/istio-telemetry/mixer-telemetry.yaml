@@ -486,7 +486,7 @@ spec:
           - unix:///sock/mixer.socket
           - --log_output_level=default:info
           - --configStoreURL=mcp://localhost:15019
-          - --configDefaultNamespace=istio-control
+          - --configDefaultNamespace=istio-telemetry
           - --useAdapterCRDs=false
           - --useTemplateCRDs=false
           - --trace_zipkin_url=http://zipkin.istio-telemetry:9411/api/v1/spans
