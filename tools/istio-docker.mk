@@ -262,12 +262,22 @@ $(foreach TGT,$(filter-out docker.app,$(DOCKER_TARGETS)),$(eval push.$(TGT): | $
 push.docker.app: docker.app
 	time (docker push $(HUB)/app:$(TAG))
 
+define run_vulnerability_scanning
+        $(eval RESULTS_DIR := vulnerability_scan_results)
+        $(eval CURL_RESPONSE := $(shell curl -s --create-dirs -o $(RESULTS_DIR)/$(1) -w "%{http_code}" http://imagescanner.cloud.ibm.com/scan?image="docker.io/$(2)")) \
+        $(if $(filter $(CURL_RESPONSE), 200), (mv $(RESULTS_DIR)/$(1) $(RESULTS_DIR)/$(1).json))
+endef
+
 # create a DOCKER_PUSH_TARGETS that's each of DOCKER_TARGETS with a push. prefix
 DOCKER_PUSH_TARGETS:=
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 
 # Will build and push docker images.
 docker.push: $(DOCKER_PUSH_TARGETS)
+
+# Scan images for security vulnerabilities using the ImageScanner tool
+docker.scan_images: $(DOCKER_PUSH_TARGETS)
+	$(foreach TGT,$(DOCKER_TARGETS),$(call run_vulnerability_scanning,$(subst docker.,,$(TGT)),$(HUB)/$(subst docker.,,$(TGT)):$(TAG)))
 
 # Base image for 'debug' containers.
 # You can run it first to use local changes (or guarantee it is built from scratch)
