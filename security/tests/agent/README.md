@@ -26,8 +26,16 @@ go test -v -istio.testing.citadelagent.skip=false \
 
 Deploy Istio with SDS enabled, following instructions in [istio.io](https://istio.io/docs/tasks/security/auth-sds/).
 
+Build Image
+
 ```bash
-make clean && make docker.sdsclient && docker push ${HUB}/sdsclient:${TAG}
+make clean && make sdsclient
+cp /path/to/output/sdsclient security/docker/
+cd security/docker
+docker build -f -t gcr.io/you-project/sdsclient:dev && docker push gcr.io/you-project/sdsclient:dev
+```
+
+```bash
 kubectl apply -f sdsc.yaml
 
 # Key/Cert are printed in the log.
