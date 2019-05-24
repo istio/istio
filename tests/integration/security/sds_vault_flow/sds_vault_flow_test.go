@@ -39,7 +39,7 @@ func TestSdsVaultCaFlow(t *testing.T) {
 
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 
-			systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 			ns := namespace.NewOrFail(t, ctx, "reachability", true)
 
 			ports := []echo.Port{
@@ -85,16 +85,17 @@ func TestSdsVaultCaFlow(t *testing.T) {
 				},
 			}
 
-			// Apply the policy to the system namespace.
-			deployment := tmpl.EvaluateOrFail(t, file.AsStringOrFail(t, "testdata/global-mtls.yaml"),
+			// Apply the policy
+			deployment := tmpl.EvaluateOrFail(t, file.AsStringOrFail(t, "testdata/config.yaml"),
 				map[string]string{
 					"Namespace": ns.Name(),
 				})
-			g.ApplyConfigOrFail(t, systemNS, deployment)
-			defer g.DeleteConfigOrFail(t, systemNS, deployment)
 
-			// Sleep 3 seconds for the policy to take effect.
-			time.Sleep(3 * time.Second)
+			g.ApplyConfigOrFail(t, ns, deployment)
+			defer g.DeleteConfigOrFail(t, ns, deployment)
+
+			// Sleep 10 seconds for the policy to take effect.
+			time.Sleep(10 * time.Second)
 
 			for _, checker := range checkers {
 				retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
