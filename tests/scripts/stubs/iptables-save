@@ -1,3 +1,2 @@
 #!/bin/sh
-ARGS=$(echo "$*" | sed "s/ /,/g")
-echo "iptables-save $ARGS"
+echo "iptables-save $*"

@@ -18,18 +18,30 @@
 
 set -e
 
+function refresh_reference() {
+    local NAME=$1
+    local ACTUAL=$2
+
+    echo "${ACTUAL}" > "tests/scripts/testdata/${NAME}_golden.txt"
+    echo "golden file for test ${NAME} updated"
+}
+
 function assert_equals() {
     local NAME=$1
     local ACTUAL=$2
     local EXPECTED=$3
 
     if [ "${ACTUAL}" != "${EXPECTED}" ]; then
-        echo -e "FAIL: Actual result\n"
-        echo "${ACTUAL}"
-        echo -e "\ndoesn't match expected result\n"
-        echo "${EXPECTED}"
-        diff -u <(echo "${ACTUAL}") <(echo "${EXPECTED}") || true
-        FAILED+=("${NAME}")
+        if [[ "x${REFRESH_GOLDEN}x" = "xtruex" ]] ; then
+            refresh_reference "${NAME}" "${ACTUAL}"
+        else
+            echo -e "FAIL: Actual result\n"
+            echo "${ACTUAL}"
+            echo -e "\ndoesn't match expected result\n"
+            echo "${EXPECTED}"
+            diff -u <(echo "${ACTUAL}") <(echo "${EXPECTED}") || true
+            FAILED+=("${NAME}")
+        fi
     fi
 }
 

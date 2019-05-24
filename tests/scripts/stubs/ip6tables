@@ -1,3 +1,2 @@
 #!/bin/sh
-ARGS=$(echo "$*" | sed "s/ /,/g")
-echo "ip6tables $ARGS"
+echo "ip6tables $*"
