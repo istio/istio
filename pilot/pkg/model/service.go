@@ -387,15 +387,21 @@ type ServiceInstance struct {
 //
 // This is used by CDS/EDS to group the endpoints by locality.
 func (si *ServiceInstance) GetLocality() string {
-	if si.Labels != nil && si.Labels[LocalityLabel] != "" {
+	return GetLocalityOrDefault(si.Endpoint.Locality, si.Labels)
+}
+
+// Gets the locality from the labels, or falls back to to a default locality if not found
+// Because Kubernetes labels don't support `/`, we replace "." with "/" as a workaround
+func GetLocalityOrDefault(defaultLocality string, labels map[string]string) string {
+	if labels != nil && labels[LocalityLabel] != "" {
 		// if there are /'s present we don't need to replace
-		if strings.Contains(si.Labels[LocalityLabel], "/") {
-			return si.Labels[LocalityLabel]
+		if strings.Contains(labels[LocalityLabel], "/") {
+			return labels[LocalityLabel]
 		}
 		// replace "." with "/"
-		return strings.Replace(si.Labels[LocalityLabel], k8sSeparator, "/", -1)
+		return strings.Replace(labels[LocalityLabel], k8sSeparator, "/", -1)
 	}
-	return si.Endpoint.Locality
+	return defaultLocality
 }
 
 // IstioEndpoint has the information about a single address+port for a specific
