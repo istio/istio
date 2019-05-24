@@ -140,7 +140,7 @@ run-prometheus-operator-config-test: install-prometheus-operator install-prometh
 run-minimal-test:
 	mkdir -p ${GOPATH}/out/logs ${GOPATH}/out/tmp
 	(set -o pipefail; cd ${GOPATH}/src/istio.io/istio; \
-		go test ./tests/integration/echo/ \
+		go test ./tests/integration/security/reachability/... \
 			-istio.test.env kube \
 			-istio.test.kube.config=${KUBECONFIG} \
 			-istio.test.nocleanup \
