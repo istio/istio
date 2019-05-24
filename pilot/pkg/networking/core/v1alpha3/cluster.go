@@ -198,7 +198,17 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					}
 					applyTrafficPolicy(opts)
 
-					opts.policy = subset.TrafficPolicy
+					opts = buildClusterOpts{
+						env:             env,
+						cluster:         subsetCluster,
+						policy:          subset.TrafficPolicy,
+						port:            port,
+						serviceAccounts: serviceAccounts,
+						sni:             defaultSni,
+						clusterMode:     DefaultClusterMode,
+						direction:       model.TrafficDirectionOutbound,
+						proxy:           proxy,
+					}
 					applyTrafficPolicy(opts)
 
 					updateEds(subsetCluster)
@@ -269,9 +279,26 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy)
 					subsetCluster.TlsContext = nil
 
-					opts.cluster = subsetCluster
+					opts = buildClusterOpts{
+						env:         env,
+						cluster:     subsetCluster,
+						policy:      destinationRule.TrafficPolicy,
+						port:        port,
+						clusterMode: SniDnatClusterMode,
+						direction:   model.TrafficDirectionOutbound,
+						proxy:       proxy,
+					}
 					applyTrafficPolicy(opts)
-					opts.policy = subset.TrafficPolicy
+
+					opts = buildClusterOpts{
+						env:         env,
+						cluster:     subsetCluster,
+						policy:      subset.TrafficPolicy,
+						port:        port,
+						clusterMode: SniDnatClusterMode,
+						direction:   model.TrafficDirectionOutbound,
+						proxy:       proxy,
+					}
 					applyTrafficPolicy(opts)
 
 					updateEds(subsetCluster)
