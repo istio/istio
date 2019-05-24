@@ -19,13 +19,17 @@
 set -e
 
 function assert_equals() {
-    if [ "$2" != "$3" ]; then
-        echo "FAIL: Expected result "
-        echo $2
-        echo "doesn't match current result"
-        echo $3
-        diff -u <(echo "$2") <(echo "$3") || true
-        FAILED+=("$1")
+    local NAME=$1
+    local ACTUAL=$2
+    local EXPECTED=$3
+
+    if [ "${ACTUAL}" != "${EXPECTED}" ]; then
+        echo -e "FAIL: Actual result\n"
+        echo "${ACTUAL}"
+        echo -e "\ndoesn't match expected result\n"
+        echo "${EXPECTED}"
+        diff -u <(echo "${ACTUAL}") <(echo "${EXPECTED}") || true
+        FAILED+=("${NAME}")
     fi
 }
 
@@ -42,22 +46,24 @@ TESTS[outbound_port_exclude]="-p 12345 -u 4321 -g 4444 -o 1024,21 -m REDIRECT -b
 
 for TEST_NAME in "${!TESTS[@]}"
 do
-  echo "running test $TEST_NAME"
+  echo "running test ${TEST_NAME}"
   TEST_ARGS=${TESTS[$TEST_NAME]}
 
   # shellcheck disable=SC2086
-  OUTPUT=$($FILE_UNDER_TEST $TEST_ARGS  2>/dev/null)
+  OUTPUT=$(${FILE_UNDER_TEST} ${TEST_ARGS}  2>/dev/null)
   EXPECTED_OUTPUT=$(cat "tests/scripts/testdata/${TEST_NAME}_golden.txt")
-  assert_equals "$TEST_NAME" "$OUTPUT" "$EXPECTED_OUTPUT"
+  assert_equals "${TEST_NAME}" "${OUTPUT}" "${EXPECTED_OUTPUT}"
 done
 
-if [[ ${#FAILED[@]} -eq 0 ]] ; then
+NUMBER_FAILING=${#FAILED[@]}
+if [[ ${NUMBER_FAILING} -eq 0 ]] ; then
     echo -e "\nAll tests were successful"
 else
-    echo -e "\nThe following tests failed:"
-    for TEST_NAME in "${FAILED[@]}"
+    echo -e "\n${NUMBER_FAILING} test(s) failed:"
+    for FAILING_TEST in "${FAILED[@]}"
     do
-        echo "  - $TEST_NAME"
+        echo "  - ${FAILING_TEST}"
     done
-    exit 1
 fi
+
+exit "${NUMBER_FAILING}"
