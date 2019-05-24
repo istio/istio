@@ -16,10 +16,13 @@ package v1alpha3
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/features/pilot"
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -120,16 +123,31 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 	}
 }
 
+func TestH2Upgrade(t *testing.T) {
+	os.Setenv("PILOT_ENABLE_H2_AUTOUPGRADE", "1")
+
+	if !pilot.EnableH2AutoUpgrade() {
+		t.Fatalf("Could not turn on the flag")
+	}
+
+	os.Unsetenv("PILOT_ENABLE_H2_AUTOUPGRADE")
+}
+
 func TestCommonHttpProtocolOptions(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	directionInfos := []struct {
 		direction    model.TrafficDirection
 		clusterIndex int
+		h2upgrade    bool
 	}{
 		{
 			direction:    model.TrafficDirectionOutbound,
 			clusterIndex: 0,
+		}, {
+			direction:    model.TrafficDirectionOutbound,
+			clusterIndex: 0,
+			h2upgrade:    true,
 		}, {
 			direction:    model.TrafficDirectionInbound,
 			clusterIndex: 1,
@@ -142,6 +160,8 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 		},
 	}
 
+	os.Setenv("PILOT_ENABLE_H2_AUTOUPGRADE", "1")
+	defer os.Unsetenv("PILOT_ENABLE_H2_AUTOUPGRADE")
 	for _, directionInfo := range directionInfos {
 		settingsName := "default"
 		if settings != nil {
@@ -149,6 +169,13 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 		}
 		testName := fmt.Sprintf("%s-%s", directionInfo.direction, settingsName)
 		t.Run(testName, func(t *testing.T) {
+			if directionInfo.h2upgrade {
+				// request h2 upgrade by setting Http2MaxRequests
+				settings.Http.Http2MaxRequests = 1024
+			} else {
+				settings.Http.Http2MaxRequests = 0
+			}
+
 			clusters, err := buildTestClusters("*.example.org", 0, model.SidecarProxy, nil, testMesh,
 				&networking.DestinationRule{
 					Host: "*.example.org",
@@ -165,6 +192,10 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			// Verify that the values were set correctly.
 			g.Expect(commonHTTPProtocolOptions.IdleTimeout).To(Not(BeNil()))
 			g.Expect(*commonHTTPProtocolOptions.IdleTimeout).To(Equal(time.Duration(15000000000)))
+
+			if directionInfo.h2upgrade != (cluster.Http2ProtocolOptions != nil) {
+				t.Fatalf("unexpected upgrade. got: %t, want: %t", cluster.Http2ProtocolOptions != nil, directionInfo.h2upgrade)
+			}
 		})
 	}
 }

@@ -257,6 +257,16 @@ func (p Protocol) IsHTTP2() bool {
 	}
 }
 
+// IsHTTP1 is true for protocols that use HTTP1.1 or earlier as transport protocol
+func (p Protocol) IsHTTP1() bool {
+	switch p {
+	case ProtocolHTTP:
+		return true
+	default:
+		return false
+	}
+}
+
 // IsHTTP is true for protocols that use HTTP as transport protocol
 func (p Protocol) IsHTTP() bool {
 	switch p {

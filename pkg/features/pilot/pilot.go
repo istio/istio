@@ -160,6 +160,11 @@ var (
 	// EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `mysql`.
 	EnableMysqlFilter = os.Getenv("PILOT_ENABLE_MYSQL_FILTER") == "1"
+
+	// EnableH2AutoUpgrade enables auto upgrade to an http/2 connection.
+	EnableH2AutoUpgrade = func() bool {
+		return os.Getenv("PILOT_ENABLE_H2_AUTOUPGRADE") != "0"
+	}
 )
 
 var (

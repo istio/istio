@@ -551,7 +551,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 			// only connection pool settings make sense on the inbound path.
 			// upstream TLS settings/outlier detection/load balancer don't apply here.
 			applyConnectionPool(pluginParams.Env, localCluster, destinationRule.TrafficPolicy.ConnectionPool,
-				model.TrafficDirectionInbound)
+				model.TrafficDirectionInbound, instance.Endpoint.ServicePort)
 			localCluster.Metadata = util.BuildConfigInfoMetadata(config.ConfigMeta)
 		}
 	}
@@ -664,17 +664,17 @@ func applyTrafficPolicy(env *model.Environment, cluster *apiv2.Cluster, policy *
 	proxy *model.Proxy) {
 	connectionPool, outlierDetection, loadBalancer, tls := SelectTrafficPolicyComponents(policy, port)
 
-	applyConnectionPool(env, cluster, connectionPool, direction)
+	applyConnectionPool(env, cluster, connectionPool, direction, port)
 	applyOutlierDetection(cluster, outlierDetection)
 	applyLoadBalancer(cluster, loadBalancer)
 	if clusterMode != SniDnatClusterMode {
 		tls = conditionallyConvertToIstioMtls(tls, serviceAccounts, defaultSni, proxy)
-		applyUpstreamTLSSettings(env, cluster, tls, proxy.Metadata)
+		applyUpstreamTLSSettings(env, cluster, tls, proxy.Metadata, port)
 	}
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
-func applyConnectionPool(env *model.Environment, cluster *apiv2.Cluster, settings *networking.ConnectionPoolSettings, direction model.TrafficDirection) {
+func applyConnectionPool(env *model.Environment, cluster *apiv2.Cluster, settings *networking.ConnectionPoolSettings, direction model.TrafficDirection, port *model.Port) {
 	if settings == nil {
 		return
 	}
@@ -686,6 +686,12 @@ func applyConnectionPool(env *model.Environment, cluster *apiv2.Cluster, setting
 		if settings.Http.Http2MaxRequests > 0 {
 			// Envoy only applies MaxRequests in HTTP/2 clusters
 			threshold.MaxRequests = &types.UInt32Value{Value: uint32(settings.Http.Http2MaxRequests)}
+			if pilot.EnableH2AutoUpgrade() && direction == model.TrafficDirectionOutbound && port.Protocol.IsHTTP1() {
+				// by configuring http2 settings for a destination
+				// user asserts that this is an h2 capable destination
+				// so we upgrade.
+				setH2UpstreamProtocol(cluster)
+			}
 		}
 		if settings.Http.Http1MaxPendingRequests > 0 {
 			// Envoy only applies MaxPendingRequests in HTTP/1.1 clusters
@@ -885,7 +891,8 @@ func applyLocalityLBSetting(
 	}
 }
 
-func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tls *networking.TLSSettings, metadata map[string]string) {
+func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tls *networking.TLSSettings,
+	metadata map[string]string, port *model.Port) {
 	if tls == nil {
 		return
 	}
@@ -969,9 +976,17 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 		}
 
 		// Set default SNI of cluster name for istio_mutual if sni is not set.
-		if len(tls.Sni) == 0 && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-			cluster.TlsContext.Sni = cluster.Name
+		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+			if len(tls.Sni) == 0 {
+				cluster.TlsContext.Sni = cluster.Name
+			}
+			// Only upgrade connections for http1 protocol
+			// FIXME disabled full upgrade for now
+			if false && pilot.EnableH2AutoUpgrade() && port.Protocol.IsHTTP1() {
+				setH2UpstreamProtocol(cluster)
+			}
 		}
+
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 			if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
@@ -988,12 +1003,19 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 
 func setUpstreamProtocol(cluster *apiv2.Cluster, port *model.Port) {
 	if port.Protocol.IsHTTP2() {
-		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
-			// Envoy default value of 100 is too low for data path.
-			MaxConcurrentStreams: &types.UInt32Value{
-				Value: 1073741824,
-			},
-		}
+		setH2UpstreamProtocol(cluster)
+	}
+}
+
+func setH2UpstreamProtocol(cluster *apiv2.Cluster) {
+	if cluster.Http2ProtocolOptions != nil {
+		return
+	}
+	cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
+		// Envoy default value of 100 is too low for data path.
+		MaxConcurrentStreams: &types.UInt32Value{
+			Value: 1073741824,
+		},
 	}
 }
 
