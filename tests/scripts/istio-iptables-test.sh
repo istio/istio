@@ -18,6 +18,16 @@
 
 set -eu
 
+function show_difference() {
+    local ACTUAL=$1
+    local EXPECTED=$2
+
+    echo "${ACTUAL}"
+    echo -e "\ndoesn't match expected result\n"
+    echo "${EXPECTED}"
+    diff -u <(echo "${ACTUAL}") <(echo "${EXPECTED}") || true
+}
+
 function refresh_reference() {
     local NAME=$1
     local ACTUAL=$2
@@ -42,6 +52,7 @@ FILE_UNDER_TEST=./tools/packaging/common/istio-iptables.sh
 
 export PATH="${PWD}/tests/scripts/stubs:${PATH}"
 
+SCRIPT_NAME=$0
 declare -A TESTS
 FAILED=()
 TESTS[mode_redirect]="-p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888  -i 1.1.1.0/16 -x 9.9.9.0/16  -k eth1,eth2"
@@ -54,22 +65,19 @@ do
   TEST_ARGS=${TESTS[$TEST_NAME]}
 
   # shellcheck disable=SC2086
-  OUTPUT=$(${FILE_UNDER_TEST} ${TEST_ARGS}  2>/dev/null)
+  ACTUAL_OUTPUT=$(${FILE_UNDER_TEST} ${TEST_ARGS}  2>/dev/null)
   EXPECTED_OUTPUT=$(cat "tests/scripts/testdata/${TEST_NAME}_golden.txt")
   
   if [[ "x${REFRESH_GOLDEN:-false}x" = "xtruex" ]] ; then
-    refresh_reference "${TEST_NAME}" "${OUTPUT}"
+    refresh_reference "${TEST_NAME}" "${ACTUAL_OUTPUT}"
   else
-    if assert_equals "${TEST_NAME}" "${OUTPUT}" "${EXPECTED_OUTPUT}"; then
+    if assert_equals "${TEST_NAME}" "${ACTUAL_OUTPUT}" "${EXPECTED_OUTPUT}"; then
       echo -e "ok\tistio.io/$0/${TEST_NAME}\t0.000s"
     else
       echo "--- FAIL: ${TEST_NAME} (0.00s)"
-      echo "    $0: ${TEST_NAME} output does not match with golden file"
-      echo "${OUTPUT}"
-      echo -e "\ndoesn't match expected result\n"
-      echo "${EXPECTED_OUTPUT}"
-      diff -u <(echo "${OUTPUT}") <(echo "${EXPECTED_OUTPUT}") || true
-      echo -e "FAIL\tistio.io/$0/${TEST_NAME}\t0.000s"
+      echo "    ${SCRIPT_NAME}: ${TEST_NAME} output does not match with golden file"
+      show_difference "${ACTUAL_OUTPUT}" "${EXPECTED_OUTPUT}"
+      echo -e "FAIL\tistio.io/${SCRIPT_NAME}/${TEST_NAME}\t0.000s"
       FAILED+=("${TEST_NAME}")
     fi
   fi
