@@ -889,7 +889,7 @@ func buildLocalityLbEndpointsFromShards(
 	push *model.PushContext) []endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 
-	shards.mutex.RLock()
+	shards.mutex.Lock()
 	// The shards are updated independently, now need to filter and merge
 	// for this cluster
 	for _, endpoints := range shards.Shards {
@@ -916,7 +916,7 @@ func buildLocalityLbEndpointsFromShards(
 
 		}
 	}
-	shards.mutex.RUnlock()
+	shards.mutex.Unlock()
 
 	locEps := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
