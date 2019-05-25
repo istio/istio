@@ -27,7 +27,9 @@ func TestAgentFailsRequestWithoutToken(t *testing.T) {
 	}
 	client.Start()
 	defer client.Stop()
-	client.Send()
+	if err := client.Send(); err != nil {
+		t.Errorf("failed to send request to sds server %v", err)
+	}
 	errmsg := "no credential token"
 	_, err = client.WaitForUpdate(3 * time.Second)
 	if err == nil || strings.Contains(err.Error(), errmsg) {
