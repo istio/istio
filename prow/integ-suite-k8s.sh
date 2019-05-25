@@ -68,7 +68,15 @@ fi
 export HUB=${HUB:-"gcr.io/istio-testing"}
 export TAG="${TAG:-${GIT_SHA}}"
 
+if [[ $HUB != *"istio-release"* ]]; then
+  export TAG="${TAG:-${GIT_SHA}}"-"$*"
+fi
+
 make init
+
+if [[ $HUB != *"istio-release"* ]]; then
+  time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}"
+fi
 
 setup_cluster
 
