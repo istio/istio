@@ -13,6 +13,21 @@ metadata:
 spec:
   rules:
     - paths: ["/proto.EchoTestService/Echo"]
+      # This is optional, since gRPC can only allow POST.
+      # If methods are not specified, it will allow all methods, which include POST.
+      methods: ["POST"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: not-access-a-grpc-not-post
+  namespace: {{ .Namespace }}
+spec:
+  rules:
+    - paths: ["/proto.EchoTestService/Echo"]
+      # Since gRPC only allows POST, this will be denied (even though paths should be allowed).
+      # In practice, users should not define methods when writing rules for gRPC services.
+      methods: ["GET", "DELETE", "PUT"]
 ---
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
@@ -38,6 +53,9 @@ metadata:
   name: authz-policy-access-a-http
   namespace: {{ .Namespace }}
 spec:
+  workload_selector:
+    labels:
+      app: a
   allow:
   - subjects:
     - names: ["cluster.local/ns/{{ .Namespace }}/sa/b"]
@@ -48,3 +66,6 @@ spec:
   - subjects:
     - names: ["cluster.local/ns/{{ .Namespace }}/sa/d"]
     role: access-a-grpc-any
+  - subjects:
+    - names: ["cluster.local/ns/{{ .Namespace }}/sa/e"]
+    role: not-access-a-grpc-not-post

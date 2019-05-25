@@ -29,11 +29,6 @@ type TestCase struct {
 	Jwt           string
 }
 
-const (
-	gRPCDenyMsg = "rpc error: code = PermissionDenied desc = RBAC: access denied"
-	tcpDenyMsg  = "EOF"
-)
-
 func getError(req connection.Checker, expect, actual string) error {
 	return fmt.Errorf("%s to %s:%s%s: expect %s, got: %s",
 		req.From.Config().Service,
@@ -71,9 +66,9 @@ func (tc TestCase) CheckRBACRequest() error {
 		}
 	} else {
 		if req.Options.PortName == "tcp" || req.Options.PortName == "grpc" {
-			expectedErrMsg := tcpDenyMsg
+			expectedErrMsg := "EOF" // TCP deny message.
 			if req.Options.PortName == "grpc" {
-				expectedErrMsg = gRPCDenyMsg
+				expectedErrMsg = "rpc error: code = PermissionDenied desc = RBAC: access denied"
 			}
 			if err == nil || !strings.Contains(err.Error(), expectedErrMsg) {
 				expect := fmt.Sprintf("deny with %s error", expectedErrMsg)
