@@ -100,7 +100,7 @@ Kubernetes cluster or from a yaml file specified from command line.
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
 		Example: `  # Upgrade the Istio authorization policy with service definition from the current k8s cluster:
-  istioctl experimental auth upgrade -f istio-authz-v1-policy-1.yaml istio-authz-v1-policy-2.yaml
+  istioctl experimental auth upgrade -f istio-authz-v1-policy-1.yaml,istio-authz-v1-policy-2.yaml
 
   # Upgrade the Istio authorization policy with service definition from 2 yaml files specified in the command line:
   istioctl experimental auth upgrade -f istio-authz-v1-policy.yaml --service svc-a.yaml,svc-b.yaml`,
