@@ -1,9 +1,6 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
-  name: valid-sidecar-config
-  namespace: istio-system
+  name: invalid-sidecar-config
 spec:
   egress:
-  - hosts:
-    - "abc/*"
