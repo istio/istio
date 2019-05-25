@@ -516,7 +516,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 				con.Routes = sortedRoutes
 				adsLog.Debugf("ADS:RDS: REQ %s %s routes:%d", peerAddr, con.ConID, len(con.Routes))
-				err := s.pushRoute(con, s.globalPushContext())
+				err := s.pushRoute(con, s.globalPushContext(), versionInfo())
 				if err != nil {
 					return err
 				}
@@ -569,7 +569,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 				con.Clusters = clusters
 				adsLog.Debugf("ADS:EDS: REQ %s %s clusters:%d", peerAddr, con.ConID, len(con.Clusters))
-				err := s.pushEds(s.globalPushContext(), con, nil)
+				err := s.pushEds(s.globalPushContext(), con, versionInfo(), nil)
 				if err != nil {
 					return err
 				}
@@ -679,7 +679,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
 		if len(con.Clusters) > 0 {
-			if err := s.pushEds(pushEv.push, con, pushEv.edsUpdatedServices); err != nil {
+			if err := s.pushEds(pushEv.push, con, pushEv.version, pushEv.edsUpdatedServices); err != nil {
 				return err
 			}
 		}
@@ -745,7 +745,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	}
 
 	if len(con.Clusters) > 0 {
-		err := s.pushEds(pushEv.push, con, nil)
+		err := s.pushEds(pushEv.push, con, pushEv.version, nil)
 		if err != nil {
 			return err
 		}
@@ -757,7 +757,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		}
 	}
 	if len(con.Routes) > 0 {
-		err := s.pushRoute(con, pushEv.push)
+		err := s.pushRoute(con, pushEv.push, pushEv.version)
 		if err != nil {
 			return err
 		}
