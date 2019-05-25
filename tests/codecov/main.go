@@ -60,6 +60,7 @@ func parseReport(filename string) (map[string]float64, error) {
 	}()
 
 	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 4096*8), bufio.MaxScanTokenSize*8)
 	for scanner.Scan() {
 		if pkg, cov, err := parseReportLine(scanner.Text()); err == nil {
 			coverage[pkg] = cov
