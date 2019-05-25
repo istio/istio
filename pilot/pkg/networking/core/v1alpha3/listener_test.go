@@ -21,11 +21,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -428,23 +424,6 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 	}
 }
 
-func TestOutboundListenerAccessLogs(t *testing.T) {
-	t.Helper()
-	p := &fakePlugin{}
-	listeners := buildAllListeners(p, nil)
-	for _, l := range listeners {
-		if l.Name == "virtual" {
-			fc := &tcp_proxy.TcpProxy{}
-			if err := getFilterConfig(l.FilterChains[0].Filters[0], fc); err != nil {
-				t.Fatalf("failed to get TCP Proxy config: %s", err)
-			}
-			if fc.AccessLog == nil {
-				t.Fatal("expected access log configuration")
-			}
-		}
-	}
-}
-
 func verifyOutboundTCPListenerHostname(t *testing.T, l *xdsapi.Listener, hostname model.Hostname) {
 	t.Helper()
 	if len(l.FilterChains) != 1 {
@@ -556,42 +535,6 @@ func getOldestService(services ...*model.Service) *model.Service {
 		}
 	}
 	return oldestService
-}
-
-func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, services ...*model.Service) []*xdsapi.Listener {
-	configgen := NewConfigGenerator([]plugin.Plugin{p})
-
-	env := buildListenerEnv(services)
-
-	if err := env.PushContext.InitContext(&env); err != nil {
-		return nil
-	}
-
-	if sidecarConfig == nil {
-		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
-	} else {
-		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
-	}
-	listeners, err := configgen.buildSidecarListeners(&env, &proxy, env.PushContext)
-	if err != nil {
-		return nil
-	}
-
-	return listeners
-}
-
-func getFilterConfig(filter listener.Filter, out proto.Message) error {
-	switch c := filter.ConfigType.(type) {
-	case *listener.Filter_Config:
-		if err := util.StructToMessage(c.Config, out); err != nil {
-			return err
-		}
-	case *listener.Filter_TypedConfig:
-		if err := types.UnmarshalAny(c.TypedConfig, out); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func buildOutboundListeners(p plugin.Plugin, sidecarConfig *model.Config, services ...*model.Service) []*xdsapi.Listener {
