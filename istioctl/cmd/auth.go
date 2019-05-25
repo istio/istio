@@ -90,7 +90,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 	}
 
 	upgradeCmd = &cobra.Command{
-		Use:   "upgrade <yaml-file>",
+		Use:   "upgrade",
 		Short: "Upgrade Istio Authorization Policy from version v1 to v2",
 		Long: `Upgrade converts Istio authorization policy from version v1 to v2. It requires access to Kubernetes
 service definition in order to translate the service name specified in the ServiceRole to the corresponding
@@ -100,7 +100,7 @@ Kubernetes cluster or from a yaml file specified from command line.
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
 		Example: `  # Upgrade the Istio authorization policy with service definition from the current k8s cluster:
-  istioctl experimental auth upgrade -f istio-authz-v1-policy.yaml
+  istioctl experimental auth upgrade -f istio-authz-v1-policy-1.yaml istio-authz-v1-policy-2.yaml
 
   # Upgrade the Istio authorization policy with service definition from 2 yaml files specified in the command line:
   istioctl experimental auth upgrade -f istio-authz-v1-policy.yaml --service svc-a.yaml,svc-b.yaml`,
