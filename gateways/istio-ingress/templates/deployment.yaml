@@ -36,6 +36,7 @@ spec:
 {{ toYaml $gateway.podAnnotations | indent 8 }}
 {{ end }}
     spec:
+      serviceAccountName: istio-ingressgateway-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
@@ -269,7 +270,7 @@ spec:
       {{- end }}
       - name: istio-certs
         secret:
-          secretName: istio.default
+          secretName: istio.istio-ingressgateway-service-account
           optional: true
       {{- range $gateway.secretVolumes }}
       - name: {{ .name }}

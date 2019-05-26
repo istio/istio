@@ -3,6 +3,22 @@
 
 gateways:
   istio-ingressgateway:
+    #
+    # Secret Discovery Service (SDS) configuration for ingress gateway.
+    #
+    sds:
+      # If true, ingress gateway fetches credentials from SDS server to handle TLS connections.
+      enabled: false
+      # SDS server that watches kubernetes secrets and provisions credentials to ingress gateway.
+      # This server runs in the same pod as ingress gateway.
+      image: node-agent-k8s
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 2000m
+          memory: 1024Mi
     ports:
     ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
     # Note that AWS ELB will by default perform health checks on the first port
