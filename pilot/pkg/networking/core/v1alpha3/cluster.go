@@ -357,6 +357,9 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
 			continue
 		}
+		if service.Resolution != instance.Service.Resolution {
+			continue
+		}
 		host := util.BuildAddress(instance.Endpoint.Address, uint32(instance.Endpoint.Port))
 		ep := endpoint.LbEndpoint{
 			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
