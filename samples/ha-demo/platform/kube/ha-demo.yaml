@@ -154,7 +154,7 @@ data:
                     direct_response:
                       status: 200
                       body: 
-                        inline_string: "Here the latest article.\n"
+                        inline_string: "Weather forecast: Sunny and cloudless.\n"
                   - match:
                       prefix: "/healthz"
                     direct_response:
