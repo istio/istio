@@ -5,17 +5,17 @@ NAMESPACE=${NAMESPACE:-"ha-demo"}
 # TODO loop over all deployments
 function update_deployments() {
     CTIME=$(date +%s)
-    kubectl set env deployment/news  LAST_MANUAL_RESTART="${CTIME}" --namespace=${NAMESPACE} > /dev/null 
-    kubectl set env deployment/article-v2  LAST_MANUAL_RESTART="${CTIME}" --namespace=${NAMESPACE} > /dev/null
+    kubectl set env deployments --all  LAST_MANUAL_RESTART="${CTIME}" --namespace=${NAMESPACE} > /dev/null 
 }
 
 function wait_for_deployments() {
-    until kubectl rollout status deployment/news --namespace=${NAMESPACE} > /dev/null; do
-      sleep 0.5
+    for depl in $(kubectl get deployments. -n ha-demo --no-headers -o custom-columns=NAME:.metadata.name)
+    do
+      until kubectl rollout status deployment/$depl --namespace=${NAMESPACE} > /dev/null; do
+        sleep 0.5
+      done
     done
-    until kubectl rollout status deployment/article-v2 --namespace=${NAMESPACE} > /dev/null; do
-      sleep 0.5
-    done
+
     sleep 1
 }
 
