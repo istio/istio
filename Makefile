@@ -472,7 +472,12 @@ $(MIXER_TEST_BINS):
 hyperistio:
 	CGO_ENABLED=0 go build ${GOSTATIC} -o ${ISTIO_OUT}/hyperistio istio.io/istio/tools/hyperistio
 
-test-bins: $(TEST_APP_BINS) $(MIXER_TEST_BINS)
+MCPSINK_TEST_BINS:=${ISTIO_OUT}/mcp-testing-sink
+.PHONY: $(MCPSINK_TEST_BINS)
+$(MCPSINK_TEST_BINS):
+	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/pkg/$(subst -,/,$(@F))
+
+test-bins: $(TEST_APP_BINS) $(MIXER_TEST_BINS) $(MCPSINK_TEST_BINS)
 
 localTestEnv: test-bins
 	bin/testEnvLocalK8S.sh ensure

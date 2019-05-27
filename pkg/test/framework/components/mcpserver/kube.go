@@ -25,42 +25,38 @@ const (
 apiVersion: v1
 kind: Service
 metadata:
-	name: {{.app}}
-	labels:
-		app: {{.app}}
+  name: {{.app}}
+  labels:
+    app: {{.app}}
 spec:
-	ports:
-	- port: {{.port}}
-		targetPort: {{.port}}
-		name: grpc
-	selector:
-		app: {{.app}}
+  ports:
+  - port: {{.port}}
+    targetPort: {{.port}}
+    name: grpc
+  selector:
+    app: {{.app}}
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-	name: {{.deployment}}
+  name: {{.deployment}}
 spec:
-	replicas: 1
-	template:
-		metadata:
-			labels:
-				app: {{.app}}
-				version: {{.version}}
-			annotations:
-				sidecar.istio.io/inject: "false"
-		spec:
-			containers:
-			- name: app
-				image: "{{.Hub}}/test_mcpserver:{{.Tag}}"
-				imagePullPolicy: {{.ImagePullPolicy}}
-				ports:
-				- name: grpc
-					containerPort: {{.port}}
-				readinessProbe:
-					tcpSocket:
-						port: grpc
-					initialDelaySeconds: 1
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: {{.app}}
+        version: {{.version}}
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - name: app
+        image: "{{.Hub}}/test_mcpserver:{{.Tag}}"
+        imagePullPolicy: {{.ImagePullPolicy}}
+        ports:
+        - name: grpc
+          containerPort: {{.port}}
 `
 )
 
@@ -139,21 +135,23 @@ func newKube(ctx resource.Context) (Instance, error) {
 		return nil, err
 	}
 
-	c.svcAddress = fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].TargetPort.IntVal)
-	scopes.Framework.Infof("MCPServer (Sink) in-cluster address: %s", c.svcAddress)
-
-	if c.forwarder, err = env.NewPortForwarder(
-		pod, 0, uint16(svc.Spec.Ports[0].TargetPort.IntValue())); err != nil {
+	remotePort := uint16(svc.Spec.Ports[0].TargetPort.IntValue())
+	if c.forwarder, err = env.NewPortForwarder(pod, 0, remotePort); err != nil {
 		scopes.CI.Infof("Error setting up PortForwarder for MCP Server (Sink): %v", err)
 		return nil, err
 	}
+	scopes.CI.Infof("forwading from %s -> %d", c.forwarder.Address(), remotePort)
 
 	if err = c.forwarder.Start(); err != nil {
 		scopes.CI.Infof("Error starting PortForwarder for MCP Server (Sink): %v", err)
 		return nil, err
 	}
 
-	if c.client, err = newClient(c.svcAddress); err != nil {
+	// This is the address passed to Galley which is inside the K8S cluster
+	c.svcAddress = fmt.Sprintf("mcp-sinkserver.%s.svc.cluster.local:%d",
+		c.namespace.Name(), svc.Spec.Ports[0].TargetPort.IntValue())
+
+	if c.client, err = newClient(c.forwarder.Address()); err != nil {
 		scopes.CI.Infof("Error while creating MCPServer (Sink) client: %v", err)
 		return nil, err
 	}
@@ -166,11 +164,11 @@ func (c *kubeComponent) Address() string {
 
 func (c *kubeComponent) GetCollectionStateOrFail(t test.Failer, collection string) []*sink.Object {
 	t.Helper()
-	sinkObjects, err := c.client.GetCollectionState(collection)
+	resources, err := c.client.GetCollectionState(collection)
 	if err != nil {
 		t.Fatalf("MCPServer.GetCollectionStateOrFail: %v", err)
 	}
-	return sinkObjects
+	return resources
 }
 
 func (c *kubeComponent) ID() resource.ID {
@@ -182,6 +180,5 @@ func (c *kubeComponent) Close() (err error) {
 		err = c.forwarder.Close()
 		c.forwarder = nil
 	}
-
 	return err
 }

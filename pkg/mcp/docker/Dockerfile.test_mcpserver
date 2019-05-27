@@ -1,0 +1,7 @@
+FROM istionightly/base_debug
+
+ADD mcp-testing-sink /usr/local/bin/fakemcpsink
+ENV SINK_CONFIG=istio/networking/v1alpha3/gateways
+
+EXPOSE 6666
+ENTRYPOINT /usr/local/bin/fakemcpsink --sink-config=${SINK_CONFIG}

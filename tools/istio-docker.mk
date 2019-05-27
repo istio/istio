@@ -22,7 +22,8 @@
 docker: build test-bins docker.all
 
 DOCKER_TARGETS:=docker.pilot docker.proxy_debug docker.proxytproxy docker.proxyv2 docker.app docker.test_policybackend \
-	docker.proxy_init docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s
+	docker.proxy_init docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s \
+	docker.test_mcpserver
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -187,6 +188,11 @@ docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 
 docker.galley: galley/docker/Dockerfile.galley
 docker.galley: $(ISTIO_DOCKER)/galley
+	$(DOCKER_RULE)
+
+# Test MCP server in sink mode
+docker.test_mcpserver: pkg/mcp/docker/Dockerfile.test_mcpserver
+docker.test_mcpserver: $(ISTIO_OUT)/mcp-testing-sink
 	$(DOCKER_RULE)
 
 # security docker images

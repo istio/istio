@@ -35,7 +35,7 @@ func (m *CollectionStateRequest) Reset()         { *m = CollectionStateRequest{}
 func (m *CollectionStateRequest) String() string { return proto.CompactTextString(m) }
 func (*CollectionStateRequest) ProtoMessage()    {}
 func (*CollectionStateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_controller_3485dbb23b1863ba, []int{0}
+	return fileDescriptor_controller_82d86bd4079ea76c, []int{0}
 }
 func (m *CollectionStateRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CollectionStateRequest.Unmarshal(m, b)
@@ -63,7 +63,7 @@ func (m *CollectionStateRequest) GetCollection() string {
 }
 
 type CollectionStateResponse struct {
-	SinkObject           []*v1alpha1.Resource `protobuf:"bytes,1,rep,name=sink_object,json=sinkObject,proto3" json:"sink_object,omitempty"`
+	Resources            []*v1alpha1.Resource `protobuf:"bytes,1,rep,name=resources,proto3" json:"resources,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
 	XXX_sizecache        int32                `json:"-"`
@@ -73,7 +73,7 @@ func (m *CollectionStateResponse) Reset()         { *m = CollectionStateResponse
 func (m *CollectionStateResponse) String() string { return proto.CompactTextString(m) }
 func (*CollectionStateResponse) ProtoMessage()    {}
 func (*CollectionStateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_controller_3485dbb23b1863ba, []int{1}
+	return fileDescriptor_controller_82d86bd4079ea76c, []int{1}
 }
 func (m *CollectionStateResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CollectionStateResponse.Unmarshal(m, b)
@@ -93,148 +93,16 @@ func (m *CollectionStateResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_CollectionStateResponse proto.InternalMessageInfo
 
-func (m *CollectionStateResponse) GetSinkObject() []*v1alpha1.Resource {
+func (m *CollectionStateResponse) GetResources() []*v1alpha1.Resource {
 	if m != nil {
-		return m.SinkObject
+		return m.Resources
 	}
 	return nil
 }
 
-type SetCollectionOptionsRequest struct {
-	Collection           string   `protobuf:"bytes,1,opt,name=collection,proto3" json:"collection,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *SetCollectionOptionsRequest) Reset()         { *m = SetCollectionOptionsRequest{} }
-func (m *SetCollectionOptionsRequest) String() string { return proto.CompactTextString(m) }
-func (*SetCollectionOptionsRequest) ProtoMessage()    {}
-func (*SetCollectionOptionsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_controller_3485dbb23b1863ba, []int{2}
-}
-func (m *SetCollectionOptionsRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SetCollectionOptionsRequest.Unmarshal(m, b)
-}
-func (m *SetCollectionOptionsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SetCollectionOptionsRequest.Marshal(b, m, deterministic)
-}
-func (dst *SetCollectionOptionsRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SetCollectionOptionsRequest.Merge(dst, src)
-}
-func (m *SetCollectionOptionsRequest) XXX_Size() int {
-	return xxx_messageInfo_SetCollectionOptionsRequest.Size(m)
-}
-func (m *SetCollectionOptionsRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_SetCollectionOptionsRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_SetCollectionOptionsRequest proto.InternalMessageInfo
-
-func (m *SetCollectionOptionsRequest) GetCollection() string {
-	if m != nil {
-		return m.Collection
-	}
-	return ""
-}
-
-type SetCollectionOptionsResponse struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *SetCollectionOptionsResponse) Reset()         { *m = SetCollectionOptionsResponse{} }
-func (m *SetCollectionOptionsResponse) String() string { return proto.CompactTextString(m) }
-func (*SetCollectionOptionsResponse) ProtoMessage()    {}
-func (*SetCollectionOptionsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_controller_3485dbb23b1863ba, []int{3}
-}
-func (m *SetCollectionOptionsResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SetCollectionOptionsResponse.Unmarshal(m, b)
-}
-func (m *SetCollectionOptionsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SetCollectionOptionsResponse.Marshal(b, m, deterministic)
-}
-func (dst *SetCollectionOptionsResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SetCollectionOptionsResponse.Merge(dst, src)
-}
-func (m *SetCollectionOptionsResponse) XXX_Size() int {
-	return xxx_messageInfo_SetCollectionOptionsResponse.Size(m)
-}
-func (m *SetCollectionOptionsResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_SetCollectionOptionsResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_SetCollectionOptionsResponse proto.InternalMessageInfo
-
-type ResetCollectionOptionsRequest struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *ResetCollectionOptionsRequest) Reset()         { *m = ResetCollectionOptionsRequest{} }
-func (m *ResetCollectionOptionsRequest) String() string { return proto.CompactTextString(m) }
-func (*ResetCollectionOptionsRequest) ProtoMessage()    {}
-func (*ResetCollectionOptionsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_controller_3485dbb23b1863ba, []int{4}
-}
-func (m *ResetCollectionOptionsRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ResetCollectionOptionsRequest.Unmarshal(m, b)
-}
-func (m *ResetCollectionOptionsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ResetCollectionOptionsRequest.Marshal(b, m, deterministic)
-}
-func (dst *ResetCollectionOptionsRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ResetCollectionOptionsRequest.Merge(dst, src)
-}
-func (m *ResetCollectionOptionsRequest) XXX_Size() int {
-	return xxx_messageInfo_ResetCollectionOptionsRequest.Size(m)
-}
-func (m *ResetCollectionOptionsRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_ResetCollectionOptionsRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ResetCollectionOptionsRequest proto.InternalMessageInfo
-
-type ResetCollectionOptionsResponse struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *ResetCollectionOptionsResponse) Reset()         { *m = ResetCollectionOptionsResponse{} }
-func (m *ResetCollectionOptionsResponse) String() string { return proto.CompactTextString(m) }
-func (*ResetCollectionOptionsResponse) ProtoMessage()    {}
-func (*ResetCollectionOptionsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_controller_3485dbb23b1863ba, []int{5}
-}
-func (m *ResetCollectionOptionsResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ResetCollectionOptionsResponse.Unmarshal(m, b)
-}
-func (m *ResetCollectionOptionsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ResetCollectionOptionsResponse.Marshal(b, m, deterministic)
-}
-func (dst *ResetCollectionOptionsResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ResetCollectionOptionsResponse.Merge(dst, src)
-}
-func (m *ResetCollectionOptionsResponse) XXX_Size() int {
-	return xxx_messageInfo_ResetCollectionOptionsResponse.Size(m)
-}
-func (m *ResetCollectionOptionsResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_ResetCollectionOptionsResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ResetCollectionOptionsResponse proto.InternalMessageInfo
-
 func init() {
 	proto.RegisterType((*CollectionStateRequest)(nil), "istio.testing.mcp.sinkserver.CollectionStateRequest")
 	proto.RegisterType((*CollectionStateResponse)(nil), "istio.testing.mcp.sinkserver.CollectionStateResponse")
-	proto.RegisterType((*SetCollectionOptionsRequest)(nil), "istio.testing.mcp.sinkserver.SetCollectionOptionsRequest")
-	proto.RegisterType((*SetCollectionOptionsResponse)(nil), "istio.testing.mcp.sinkserver.SetCollectionOptionsResponse")
-	proto.RegisterType((*ResetCollectionOptionsRequest)(nil), "istio.testing.mcp.sinkserver.ResetCollectionOptionsRequest")
-	proto.RegisterType((*ResetCollectionOptionsResponse)(nil), "istio.testing.mcp.sinkserver.ResetCollectionOptionsResponse")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -309,26 +177,23 @@ var _McpSinkControllerService_serviceDesc = grpc.ServiceDesc{
 	Metadata: "controller.proto",
 }
 
-func init() { proto.RegisterFile("controller.proto", fileDescriptor_controller_3485dbb23b1863ba) }
+func init() { proto.RegisterFile("controller.proto", fileDescriptor_controller_82d86bd4079ea76c) }
 
-var fileDescriptor_controller_3485dbb23b1863ba = []byte{
-	// 282 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x94, 0x91, 0x4f, 0x4b, 0x03, 0x31,
-	0x10, 0xc5, 0x59, 0x04, 0xa1, 0xb3, 0x17, 0xc9, 0x41, 0x4b, 0xbb, 0xae, 0x25, 0xa7, 0x9e, 0x52,
-	0x5a, 0x15, 0xbc, 0xf4, 0x62, 0x0f, 0x9e, 0xa4, 0xb0, 0x7b, 0x11, 0x2f, 0xb2, 0x0d, 0x83, 0xae,
-	0xae, 0x49, 0x4c, 0xd2, 0xde, 0xfd, 0x22, 0x7e, 0x56, 0x27, 0x1b, 0xad, 0x05, 0x5b, 0xb1, 0x97,
-	0xfd, 0x93, 0xbc, 0xf7, 0xe6, 0xc7, 0x3c, 0x38, 0x92, 0x5a, 0x79, 0xab, 0x9b, 0x06, 0xad, 0x30,
-	0x56, 0x7b, 0xcd, 0xb2, 0xda, 0xf9, 0x5a, 0x0b, 0x8f, 0xf4, 0x52, 0x8f, 0xe2, 0x55, 0x1a, 0xe1,
-	0x6a, 0xf5, 0xe2, 0xd0, 0xae, 0xd0, 0xf6, 0xfa, 0xf4, 0x3f, 0x5a, 0x8d, 0xab, 0xc6, 0x3c, 0x55,
-	0xe3, 0x91, 0x45, 0xa7, 0x97, 0x56, 0x62, 0xb4, 0xf2, 0x2b, 0x38, 0x9e, 0x85, 0x28, 0x49, 0x01,
-	0xaa, 0xf4, 0x95, 0xc7, 0x02, 0xdf, 0x96, 0x14, 0xc4, 0x72, 0x00, 0xb9, 0xbe, 0xe9, 0x26, 0x83,
-	0x64, 0xd8, 0x29, 0x36, 0x4e, 0xf8, 0x1d, 0x9c, 0xfc, 0x72, 0x3a, 0xa3, 0x95, 0x43, 0x36, 0x85,
-	0x34, 0xcc, 0x7f, 0xd0, 0x8b, 0x67, 0xba, 0x26, 0xef, 0xc1, 0x30, 0x9d, 0x64, 0x22, 0x52, 0x06,
-	0xba, 0x6f, 0x1a, 0x51, 0x7c, 0xd1, 0x14, 0x10, 0x0c, 0xf3, 0x56, 0xcf, 0xa7, 0xd0, 0x2f, 0xd1,
-	0xff, 0x84, 0xcf, 0x4d, 0x78, 0xba, 0xff, 0x82, 0xe5, 0x90, 0x6d, 0xb7, 0x47, 0x3a, 0x7e, 0x06,
-	0xa7, 0xf4, 0xbd, 0x7b, 0x00, 0x1f, 0x40, 0xbe, 0x4b, 0x10, 0x23, 0x26, 0x1f, 0x09, 0x74, 0x6f,
-	0xa5, 0x29, 0x89, 0x79, 0xb6, 0x2e, 0xa3, 0xa4, 0x75, 0xd7, 0x12, 0xd9, 0x7b, 0x02, 0xec, 0x66,
-	0xd3, 0xdd, 0x2e, 0x87, 0x5d, 0x88, 0xbf, 0x5a, 0x12, 0xdb, 0x5b, 0xe8, 0x5d, 0xee, 0xe9, 0x8a,
-	0x80, 0xd7, 0xe9, 0x7d, 0x87, 0x94, 0x51, 0xb4, 0x38, 0x6c, 0xab, 0x3e, 0xff, 0x0c, 0x00, 0x00,
-	0xff, 0xff, 0x45, 0x58, 0xe6, 0x33, 0x39, 0x02, 0x00, 0x00,
+var fileDescriptor_controller_82d86bd4079ea76c = []byte{
+	// 234 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xe2, 0x12, 0x48, 0xce, 0xcf, 0x2b,
+	0x29, 0xca, 0xcf, 0xc9, 0x49, 0x2d, 0xd2, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x92, 0xc9, 0x2c,
+	0x2e, 0xc9, 0xcc, 0xd7, 0x2b, 0x49, 0x05, 0x52, 0x79, 0xe9, 0x7a, 0xb9, 0xc9, 0x05, 0x7a, 0xc5,
+	0x99, 0x79, 0xd9, 0xc5, 0xa9, 0x45, 0x65, 0xa9, 0x45, 0x52, 0xd2, 0x40, 0xbe, 0x7e, 0x99, 0x61,
+	0x62, 0x4e, 0x41, 0x46, 0xa2, 0xa1, 0x7e, 0x51, 0x6a, 0x71, 0x7e, 0x69, 0x51, 0x72, 0x2a, 0x44,
+	0xab, 0x92, 0x05, 0x97, 0x98, 0x33, 0xc8, 0xa8, 0x64, 0xa0, 0x01, 0x79, 0xc1, 0x25, 0x89, 0x25,
+	0xa9, 0x41, 0xa9, 0x85, 0xa5, 0x40, 0x83, 0x84, 0xe4, 0xb8, 0xb8, 0x92, 0xe1, 0x32, 0x12, 0x8c,
+	0x0a, 0x8c, 0x1a, 0x9c, 0x41, 0x48, 0x22, 0x4a, 0xa1, 0x5c, 0xe2, 0x18, 0x3a, 0x8b, 0x0b, 0xf2,
+	0xf3, 0x8a, 0x53, 0x85, 0xac, 0xb8, 0x38, 0x61, 0xd6, 0x14, 0x03, 0x75, 0x32, 0x6b, 0x70, 0x1b,
+	0xc9, 0xe8, 0x41, 0xdc, 0x08, 0x72, 0x1b, 0xcc, 0x2d, 0x7a, 0x41, 0x50, 0x45, 0x41, 0x08, 0xe5,
+	0x46, 0xf3, 0x18, 0xb9, 0x24, 0x7c, 0x93, 0x0b, 0x82, 0x81, 0xee, 0x77, 0x86, 0xfb, 0x33, 0x18,
+	0xe8, 0x93, 0xcc, 0xe4, 0x54, 0xa1, 0x46, 0x46, 0x2e, 0x21, 0xf7, 0xd4, 0x12, 0x34, 0x7b, 0x85,
+	0x4c, 0xf4, 0xf0, 0x05, 0x80, 0x1e, 0x76, 0x0f, 0x4a, 0x99, 0x92, 0xa8, 0x0b, 0xe2, 0x39, 0x27,
+	0xee, 0x28, 0x4e, 0xa0, 0x4a, 0x88, 0xa2, 0x24, 0x36, 0x70, 0x28, 0x1a, 0x03, 0x02, 0x00, 0x00,
+	0xff, 0xff, 0x40, 0x43, 0x73, 0x97, 0x94, 0x01, 0x00, 0x00,
 }

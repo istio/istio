@@ -44,8 +44,6 @@ spec:
 `
 
 func TestDialout_Basic(t *testing.T) {
-	// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
-	// component
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
 			srv := mcpserver.NewSinkOrFail(t, ctx, mcpserver.SinkConfig{Collections: []string{"istio/networking/v1alpha3/gateways"}})
@@ -55,6 +53,7 @@ func TestDialout_Basic(t *testing.T) {
 			ns := namespace.NewOrFail(t, ctx, "dialout", true)
 
 			g.ApplyConfigOrFail(t, ns, yamlCfg)
+			t.Logf("Applying configuration: %v", yamlCfg)
 
 			retry.UntilSuccessOrFail(t, func() error {
 				objects := srv.GetCollectionStateOrFail(t, "istio/networking/v1alpha3/gateways")

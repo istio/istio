@@ -1,23 +1,18 @@
 package mcpserver
 
 import (
-	"flag"
-	"fmt"
+	fmt "fmt"
 	"net"
-	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	context "golang.org/x/net/context"
-	mcp "istio.io/api/mcp/v1alpha1"
-	v1alpha1 "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/pkg/mcp/rate"
-	"istio.io/istio/pkg/mcp/server"
+	grpc "google.golang.org/grpc"
+
 	"istio.io/istio/pkg/test/scopes"
 
-	"google.golang.org/grpc"
-	"istio.io/istio/pkg/mcp/testing/monitoring"
-
+	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/pkg/mcp/rate"
+	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/sink"
 )
 
@@ -25,64 +20,54 @@ const (
 	FakeServerPort = 6666
 )
 
-type mcpSinkServer struct {
-	upd *sink.InMemoryUpdater
+type McpSinkServer struct {
+	upd         *sink.InMemoryUpdater
+	sinkOptions sink.Options
+	grpcSrv     *grpc.Server
 }
 
-func main() {
-	fakeMcpSinkPort := flag.Int("port", FakeServerPort, "port on which fake MCP server (in sink mode) listens")
-	sinkConfigCollection := flag.String("sink-config", "", "sink mode configuration for MCP server")
-	flag.Parse()
-
-	sinkConfigColl := strings.Split(*sinkConfigCollection, ",")
+func NewMcpSinkServer(sinkOptions sink.Options) *McpSinkServer {
 	inMemoryUpdater := sink.NewInMemoryUpdater()
-	so := sink.Options{
-		ID:                "mcpserver.sink",
-		CollectionOptions: sink.CollectionOptionsFromSlice(sinkConfigColl),
-		Updater:           inMemoryUpdater,
-		Reporter:          monitoring.NewInMemoryStatsContext(),
-	}
-	ctrlSrv := &mcpSinkServer{upd: inMemoryUpdater}
-
-	sinkListener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", *fakeMcpSinkPort))
-	if err != nil {
-		scopes.Framework.Errorf("mcpserver.listen: %v", err)
-		return
-	}
-
-	s := grpc.NewServer()
-	srv := sink.NewServer(&so, &sink.ServerOptions{
-		AuthChecker: &server.AllowAllChecker{},
-		RateLimiter: rate.NewRateLimiter(time.Millisecond, 1000).Create(),
-	})
-	mcp.RegisterResourceSinkServer(s, srv)
-	RegisterMcpSinkControllerServiceServer(s, ctrlSrv)
-
-	if err := s.Serve(sinkListener); err != nil {
-		scopes.Framework.Errorf("mcpserver.Serve: %v", err)
+	sinkOptions.Updater = inMemoryUpdater
+	return &McpSinkServer{
+		upd:         inMemoryUpdater,
+		sinkOptions: sinkOptions,
 	}
 }
 
-func (srv *mcpSinkServer) GetCollectionState(ctx context.Context, req *CollectionStateRequest) (*CollectionStateResponse, error) {
+func (srv *McpSinkServer) GetCollectionState(ctx context.Context, req *CollectionStateRequest) (*CollectionStateResponse, error) {
 	sinkObjects := srv.upd.Get(req.GetCollection())
 	scopes.Framework.Infof("collection=%s, sinkObjects=%v", req.GetCollection(), sinkObjects)
 	protoResp := &CollectionStateResponse{
-		SinkObject: convertToProtoSinkObjects(sinkObjects),
+		Resources: convertToProtoSinkObjects(sinkObjects),
 	}
 	return protoResp, nil
 }
 
-func convertToProtoSinkObjects(sos []*sink.Object) []*v1alpha1.Resource {
-	protoSinkObjects := make([]*v1alpha1.Resource, 0)
-	for _, so := range sos {
-		pso := &v1alpha1.Resource{
-			Metadata: so.Metadata,
-			Body: &types.Any{
-				TypeUrl: so.TypeURL,
-				Value:   []byte(so.Body.String()),
-			},
-		}
-		protoSinkObjects = append(protoSinkObjects, pso)
+func (srv *McpSinkServer) Start(port int) error {
+	sinkListener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		fmt.Printf("mcpserver.listen: %v", err)
+		return err
 	}
-	return protoSinkObjects
+	fmt.Sprintf("server listening at %s", sinkListener.Addr().String())
+
+	s := grpc.NewServer()
+	gsrv := sink.NewServer(&srv.sinkOptions, &sink.ServerOptions{
+		AuthChecker: &server.AllowAllChecker{},
+		RateLimiter: rate.NewRateLimiter(time.Millisecond, 1000).Create(),
+	})
+	mcp.RegisterResourceSinkServer(s, gsrv)
+	RegisterMcpSinkControllerServiceServer(s, srv)
+	go func() {
+		if err := srv.grpcSrv.Serve(sinkListener); err != nil {
+			fmt.Printf("mcpserver.serve: %v", err)
+		}
+	}()
+	srv.grpcSrv = s
+	return nil
+}
+
+func (srv *McpSinkServer) Stop() {
+	srv.grpcSrv.GracefulStop()
 }

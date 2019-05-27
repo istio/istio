@@ -15,5 +15,5 @@ message CollectionStateRequest {
 }
 
 message CollectionStateResponse {
-    repeated istio.mcp.v1alpha1.Resource sink_object = 1;
+    repeated istio.mcp.v1alpha1.Resource resources = 1;
 }

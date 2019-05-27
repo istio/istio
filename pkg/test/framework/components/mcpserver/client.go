@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"google.golang.org/grpc"
+
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/test/fakes/mcpserver"
 )
@@ -29,6 +30,6 @@ func (c *client) GetCollectionState(collection string) ([]*sink.Object, error) {
 	if err != nil {
 		return nil, err
 	}
-	protoSinkObjects := resp.GetSinkObject()
-	return transformToSinkObject(protoSinkObjects), nil
+	resources := resp.GetResources()
+	return transformToSinkObject(resources), nil
 }
