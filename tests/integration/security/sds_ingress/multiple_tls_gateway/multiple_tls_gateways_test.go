@@ -31,8 +31,8 @@ import (
 )
 
 var (
-	//credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3"}
-	credNames = []string{"bookinfo-credential-1"}
+	credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3"}
+	hosts = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com"}
 )
 
 func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:interfacer
@@ -66,14 +66,15 @@ func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 		destRulePath.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		virtualSvcPath.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
 
-	time.Sleep(3 * time.Second)
-
 	ingressutil.CreateIngressKubeSecret(t, ctx, credNames)
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCert})
-	
-	err = ingressutil.VisitProductPage(ing, 30*time.Second, 200, t)
-	if err != nil {
-		t.Fatalf("unable to retrieve 200 from product page: %v", err)
+	time.Sleep(3 * time.Second)
+
+	for _, h := range hosts {
+		err = ingressutil.VisitProductPage(ing, h, 30*time.Second, 200, t)
+		if err != nil {
+			t.Fatalf("unable to retrieve 200 from product page at host %s: %v", h, err)
+		}
 	}
 }
 

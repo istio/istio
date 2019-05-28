@@ -38,8 +38,8 @@ type Instance interface {
 	Address() string
 
 	//  Call makes an HTTP call through ingress, where the URL has the given path.
-	Call(path string) (CallResponse, error)
-	CallOrFail(t test.Failer, path string) CallResponse
+	Call(path, host string) (CallResponse, error)
+	CallOrFail(t test.Failer, path, host string) CallResponse
 }
 
 type Config struct {

@@ -130,11 +130,10 @@ func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames 
 }
 
 // VisitProductPage makes HTTPS request to ingress gateway to visit product page
-// curl -o /dev/null -s -v -w "%{http_code}\n" -HHost:bookinfo1.example.com --resolve bookinfo1.example.com:443:35.188.24.205 --cacert ~/test_cert/ca.cert https://bookinfo1.example.com:443/productpage
-func VisitProductPage(ingress ingress.Instance, timeout time.Duration, wantStatus int, t *testing.T) error {
+func VisitProductPage(ingress ingress.Instance, host string, timeout time.Duration, wantStatus int, t *testing.T) error {
 	start := time.Now()
 	for {
-		response, err := ingress.Call("/productpage")
+		response, err := ingress.Call("/productpage", host)
 		if err != nil {
 			t.Logf("Unable to connect to product page: %v", err)
 		}

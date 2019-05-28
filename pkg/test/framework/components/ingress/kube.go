@@ -117,7 +117,7 @@ func getHttpsAddress(env *kube.Environment, cfg Config) (interface{}, bool, erro
 	}
 
 	ip := svc.Status.LoadBalancer.Ingress[0].IP
-	return fmt.Sprintf("%s:443", ip), true, nil
+	return ip, true, nil
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
@@ -153,7 +153,10 @@ func (c *kubeComponent) Address() string {
 	return c.address
 }
 
-func (c *kubeComponent) Call(path string) (CallResponse, error) {
+// createClient creates a client which sends HTTP requests or HTTPS requests, depending on
+// ingress type. If host is not empty, the client will resolve domain name and verify server
+// cert using the host name.
+func (c *kubeComponent) createClient(host string) (*http.Client, error) {
 	client := &http.Client{
 		Timeout: 1 * time.Minute,
 	}
@@ -162,44 +165,65 @@ func (c *kubeComponent) Call(path string) (CallResponse, error) {
 		roots := x509.NewCertPool()
 		ok := roots.AppendCertsFromPEM([]byte(c.caCert))
 		if !ok {
-			panic("failed to parse root certificate")
+			return nil, errors.New("failed to parse root certificate")
 		}
-		tlsConfig := &tls.Config{ RootCAs: roots}
+		tlsConfig := &tls.Config{
+			RootCAs:    roots,
+			ServerName: host,
+		}
 		tr := &http.Transport{
 			TLSClientConfig: tlsConfig,
-			DialTLS: func(_, addr string) (net.Conn, error) {
-				if addr == "bookinfo1.example.com:443" {
-					addr = c.address
+			DialTLS: func(netw, addr string) (net.Conn, error) {
+				if addr == host + ":443" {
+					addr = c.address + ":443"
 				}
-				tc, err := tls.Dial("tcp", addr, tlsConfig)
+				tc, err := tls.Dial(netw, addr, tlsConfig)
 				if err != nil {
+					scopes.Framework.Errorf("TLS dial fail: %v", err)
 					return nil, err
 				}
 				if err := tc.Handshake(); err != nil {
+					scopes.Framework.Errorf("SSL handshake fail: %v", err)
 					return nil, err
 				}
 				return tc, nil
 			}}
-		client = &http.Client{
-			Transport: tr,
-			Timeout: 1 * time.Minute,
-		}
+		client.Transport = tr
 	}
+	return client, nil
+}
 
+// createRequest returns a request for client to send, or nil and error if request is failed to generate.
+func (c *kubeComponent) createRequest(path, host string) (*http.Request, error) {
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
 	url := c.address + path
 	if c.gatewayType == Tls {
-		url = "https://bookinfo1.example.com:443" + path
+		url = "https://" + host + ":443"+ path
 	}
-	scopes.Framework.Debugf("Sending call to ingress at: %s", url)
 
 	req, err := http.NewRequest("GET", url, nil)
-	if c.gatewayType == Tls {
-		req.Host = "bookinfo1.example.com"
-	}
 	if err != nil {
+		return nil, err
+	}
+	if c.gatewayType == Tls && host != ""{
+		req.Host = host
+	}
+
+	scopes.Framework.Debugf("Created a request to send %v", req)
+	return req, nil
+}
+
+func (c *kubeComponent) Call(path, host string) (CallResponse, error) {
+	client, err := c.createClient(host)
+	if err != nil {
+		scopes.Framework.Errorf("failed to create test client, error %v", err)
+		return CallResponse{}, err
+	}
+	req, err := c.createRequest(path, host)
+	if err != nil {
+		scopes.Framework.Errorf("failed to create request, error %v", err)
 		return CallResponse{}, err
 	}
 
@@ -207,7 +231,7 @@ func (c *kubeComponent) Call(path string) (CallResponse, error) {
 	if err != nil {
 		return CallResponse{}, err
 	}
-	scopes.Framework.Debugf("Received response from %q: %v", url, resp.StatusCode)
+	scopes.Framework.Debugf("Received response from %q: %v", req.URL, resp.StatusCode)
 
 	defer func() { _ = resp.Body.Close() }()
 
@@ -228,9 +252,9 @@ func (c *kubeComponent) Call(path string) (CallResponse, error) {
 	return response, nil
 }
 
-func (c *kubeComponent) CallOrFail(t test.Failer, path string) CallResponse {
+func (c *kubeComponent) CallOrFail(t test.Failer, path, host string) CallResponse {
 	t.Helper()
-	resp, err := c.Call(path)
+	resp, err := c.Call(path, host)
 	if err != nil {
 		t.Fatal(err)
 	}
