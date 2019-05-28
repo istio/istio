@@ -1,8 +1,0 @@
-apiVersion: "rbac.istio.io/v1alpha1"
-kind: ClusterRbacConfig
-metadata:
-  name: default
-spec:
-  mode: 'ON_WITH_INCLUSION'
-  inclusion:
-    services: ["mongodb.default.svc.cluster.local"]

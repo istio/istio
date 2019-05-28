@@ -1,0 +1,29 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: handler-for-invalid-rule
+spec:
+  compiledAdapter: denier
+  params:
+    status:
+      code: 7
+      message: Not allowed
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: instance-for-invalid-rule
+spec:
+  compiledTemplate: checknothing
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: invalid-rule
+spec:
+  badField: foo
+  match: request.headers["clnt"] == "abc"
+  actions:
+  - handler: handler-for-invalid-rule
+    instances:
+    - instance-for-invalid-rule
