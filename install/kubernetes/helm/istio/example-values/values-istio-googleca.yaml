@@ -13,6 +13,8 @@ global:
 
   trustDomain: ""
 
+  useMCP: true
+
 nodeagent:
   enabled: true
   image: node-agent-k8s
@@ -20,3 +22,4 @@ nodeagent:
     CA_PROVIDER: "GoogleCA"
     CA_ADDR: "istioca.googleapis.com:443"
     Plugins: "GoogleTokenExchange"
+    GKE_CLUSTER_URL: ""
