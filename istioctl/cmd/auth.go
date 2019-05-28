@@ -32,7 +32,7 @@ import (
 var (
 	printAll       bool
 	configDumpFile string
-	v1PolicyFile   string
+	v1PolicyFiles  []string
 	serviceFiles   []string
 
 	checkCmd = &cobra.Command{
@@ -90,7 +90,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 	}
 
 	upgradeCmd = &cobra.Command{
-		Use:   "upgrade -f <yaml-file>",
+		Use:   "upgrade",
 		Short: "Upgrade Istio Authorization Policy from version v1 to v2",
 		Long: `Upgrade converts Istio authorization policy from version v1 to v2. It requires access to Kubernetes
 service definition in order to translate the service name specified in the ServiceRole to the corresponding
@@ -100,12 +100,12 @@ Kubernetes cluster or from a yaml file specified from command line.
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
 		Example: `  # Upgrade the Istio authorization policy with service definition from the current k8s cluster:
-  istioctl experimental auth upgrade -f istio-authz-v1-policy.yaml
+  istioctl experimental auth upgrade -f istio-authz-v1-policy-1.yaml,istio-authz-v1-policy-2.yaml
 
   # Upgrade the Istio authorization policy with service definition from 2 yaml files specified in the command line:
   istioctl experimental auth upgrade -f istio-authz-v1-policy.yaml --service svc-a.yaml,svc-b.yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			upgrader, err := newUpgrader(v1PolicyFile, serviceFiles)
+			upgrader, err := newUpgrader(v1PolicyFiles, serviceFiles)
 			if err != nil {
 				return err
 			}
@@ -172,8 +172,8 @@ func getConfigDumpFromPod(podName, podNamespace string) (*configdump.Wrapper, er
 	return envoyConfig, nil
 }
 
-func newUpgrader(v1PolicyFile string, serviceFiles []string) (*auth.Upgrader, error) {
-	if v1PolicyFile == "" {
+func newUpgrader(v1PolicyFiles []string, serviceFiles []string) (*auth.Upgrader, error) {
+	if len(v1PolicyFiles) == 0 {
 		return nil, fmt.Errorf("no input file provided")
 	}
 
@@ -190,7 +190,7 @@ func newUpgrader(v1PolicyFile string, serviceFiles []string) (*auth.Upgrader, er
 		K8sClient:                          k8sClient,
 		ServiceFiles:                       serviceFiles,
 		NamespaceToServiceToWorkloadLabels: map[string]auth.ServiceToWorkloadLabels{},
-		V1PolicyFile:                       v1PolicyFile,
+		V1PolicyFiles:                      v1PolicyFiles,
 	}
 	return upgrader, nil
 }
@@ -219,7 +219,7 @@ func init() {
 		"Show additional information (e.g. SNI and ALPN)")
 	checkCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Check the TLS/JWT/RBAC setting from the config dump file")
-	upgradeCmd.PersistentFlags().StringVarP(&v1PolicyFile, "file", "f", "",
+	upgradeCmd.PersistentFlags().StringSliceVarP(&v1PolicyFiles, "file", "f", []string{},
 		"Authorization policy file")
 	upgradeCmd.PersistentFlags().StringSliceVarP(&serviceFiles, "service", "s", []string{},
 		"Kubernetes Service resource that provides the mapping relationship between service name and pod labels")

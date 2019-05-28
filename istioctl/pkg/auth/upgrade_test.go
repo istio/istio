@@ -46,7 +46,7 @@ var (
 
 type testCases struct {
 	testName             string
-	input                string
+	input                []string
 	workloadLabelMapping map[string]ServiceToWorkloadLabels
 	expected             string
 }
@@ -55,7 +55,7 @@ func TestUpgradeLocalFile(t *testing.T) {
 	cases := []testCases{
 		{
 			testName: "ServiceRole with only services",
-			input:    "./testdata/rbac-policies-services-only.yaml",
+			input:    []string{"./testdata/rbac-policies-services-only.yaml"},
 			workloadLabelMapping: map[string]ServiceToWorkloadLabels{
 				"default": productPageMapping,
 			},
@@ -63,7 +63,7 @@ func TestUpgradeLocalFile(t *testing.T) {
 		},
 		{
 			testName: "ServiceRole with methods and paths",
-			input:    "./testdata/rbac-policies-with-methods-and-paths.yaml",
+			input:    []string{"./testdata/rbac-policies-with-methods-and-paths.yaml", "./testdata/binding-ns-default-user-foo.yaml"},
 			workloadLabelMapping: map[string]ServiceToWorkloadLabels{
 				"default": ratingsMapping,
 			},
@@ -71,7 +71,7 @@ func TestUpgradeLocalFile(t *testing.T) {
 		},
 		{
 			testName: "Same ServiceRole name in multiple namespaces",
-			input:    "./testdata/rbac-policies-multiple-namespaces.yaml",
+			input:    []string{"./testdata/rbac-policies-multiple-namespaces.yaml"},
 			workloadLabelMapping: map[string]ServiceToWorkloadLabels{
 				"foo": productPageMapping,
 				"bar": ratingsMapping,
@@ -79,7 +79,7 @@ func TestUpgradeLocalFile(t *testing.T) {
 			expected: "./testdata/rbac-policies-multiple-namespaces-v2.golden.yaml",
 		},
 		{
-			input: "./testdata/rbac-policies-multiple-rules.yaml",
+			input: []string{"./testdata/rbac-policies-multiple-rules.yaml", "./testdata/binding-ns-default-user-foo.yaml"},
 			workloadLabelMapping: map[string]ServiceToWorkloadLabels{
 				"default": {
 					"productpage": appProductPage,
@@ -89,7 +89,7 @@ func TestUpgradeLocalFile(t *testing.T) {
 			expected: "./testdata/rbac-policies-multiple-rules-v2.golden.yaml",
 		},
 		{
-			input: "./testdata/rbac-policies-multiple-services.yaml",
+			input: []string{"./testdata/rbac-policies-multiple-services.yaml", "./testdata/binding-ns-default-user-foo.yaml"},
 			workloadLabelMapping: map[string]ServiceToWorkloadLabels{
 				"default": {
 					"productpage": appProductPage,
@@ -99,7 +99,7 @@ func TestUpgradeLocalFile(t *testing.T) {
 			expected: "./testdata/rbac-policies-multiple-services-v2.golden.yaml",
 		},
 		{
-			input: "./testdata/rbac-policies-multiple-rules-multiple-services.yaml",
+			input: []string{"./testdata/rbac-policies-multiple-rules-multiple-services.yaml", "./testdata/binding-ns-default-user-foo.yaml"},
 			workloadLabelMapping: map[string]ServiceToWorkloadLabels{
 				"default": {
 					"productpage": appProductPage,
@@ -113,7 +113,7 @@ func TestUpgradeLocalFile(t *testing.T) {
 
 	for _, tc := range cases {
 		upgrader := Upgrader{
-			V1PolicyFile:                       tc.input,
+			V1PolicyFiles:                      tc.input,
 			NamespaceToServiceToWorkloadLabels: tc.workloadLabelMapping,
 		}
 		err := upgrader.UpgradeCRDs()
