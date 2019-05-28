@@ -64,9 +64,6 @@ func setupConfig(cfg *istio.Config) {
 	}
 	isMtlsEnabled = cfg.IsMtlsEnabled()
 	cfg.Values["sidecarInjectorWebhook.rewriteAppHTTPProbe"] = "true"
-	// Turn on mTLS since RBAC is usually used with mTLS.
-	cfg.Values["global.mtls.enabled"] = "true"
-	isMtlsEnabled = true
 
 	// TODO(https://github.com/istio/istio/issues/14084) remove this
 	cfg.Values["pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE"] = "0"

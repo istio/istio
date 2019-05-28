@@ -43,13 +43,12 @@ func TestRBACV2GRPC(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, "rbacv2-grpc-test", true)
-			var a, b, c, d, e echo.Instance
+			var a, b, c, d echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
 				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
 				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
 				With(&d, util.EchoConfig("d", ns, false, nil, g, p)).
-				With(&e, util.EchoConfig("e", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
 			cases := []rbacUtil.TestCase{
@@ -85,17 +84,6 @@ func TestRBACV2GRPC(t *testing.T) {
 						},
 					},
 					ExpectAllowed: isMtlsEnabled,
-				},
-				{
-					Request: connection.Checker{
-						From: e,
-						Options: echo.CallOptions{
-							Target:   a,
-							PortName: "grpc",
-							Scheme:   scheme.GRPC,
-						},
-					},
-					ExpectAllowed: false,
 				},
 			}
 
