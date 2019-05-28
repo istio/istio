@@ -9,3 +9,15 @@ spec:
     methods: ["GET"]
   - services: ["reviews.svc.cluster.local"]
     methods: ["POST"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: bind-service-viewer
+  namespace: default
+spec:
+  subjects:
+    - user: "foo"
+  roleRef:
+    kind: ServiceRole
+    name: "service-viewer"

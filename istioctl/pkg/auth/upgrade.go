@@ -50,7 +50,7 @@ type Upgrader struct {
 	// NamespaceToServiceToWorkloadLabels maps the namespace to service name to the workload labels
 	// that the service in this namespace pointing to.
 	NamespaceToServiceToWorkloadLabels map[string]ServiceToWorkloadLabels
-	V1PolicyFiles                      []string
+	V1PolicyFile                       string
 	serviceRoles                       []model.Config
 	serviceRoleBindings                []model.Config
 	ConvertedPolicies                  strings.Builder
@@ -70,7 +70,7 @@ var (
 
 // UpgradeCRDs is the main function that converts RBAC v1 to v2 for local policy files.
 func (ug *Upgrader) UpgradeCRDs() error {
-	err := ug.createRoleAndBindingLists(ug.V1PolicyFiles)
+	err := ug.createRoleAndBindingLists(ug.V1PolicyFile)
 	if err != nil {
 		return err
 	}
@@ -118,22 +118,20 @@ func parseConfigToString(config model.Config) (string, error) {
 }
 
 // createRoleAndBindingLists creates lists of model.Configs to store ServiceRole and ServiceRoleBinding policies.
-func (ug *Upgrader) createRoleAndBindingLists(fileNames []string) error {
-	for _, fileName := range fileNames {
-		rbacFileBuf, err := ioutil.ReadFile(fileName)
-		if err != nil {
-			return fmt.Errorf("failed to read file %s", fileName)
-		}
-		configsFromFile, _, err := crd.ParseInputs(string(rbacFileBuf))
-		if err != nil {
-			return err
-		}
-		for _, config := range configsFromFile {
-			if config.Type == model.ServiceRole.Type {
-				ug.serviceRoles = append(ug.serviceRoles, config)
-			} else if config.Type == model.ServiceRoleBinding.Type {
-				ug.serviceRoleBindings = append(ug.serviceRoleBindings, config)
-			}
+func (ug *Upgrader) createRoleAndBindingLists(fileName string) error {
+	rbacFileBuf, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		return fmt.Errorf("failed to read file %s", fileName)
+	}
+	configsFromFile, _, err := crd.ParseInputs(string(rbacFileBuf))
+	if err != nil {
+		return err
+	}
+	for _, config := range configsFromFile {
+		if config.Type == model.ServiceRole.Type {
+			ug.serviceRoles = append(ug.serviceRoles, config)
+		} else if config.Type == model.ServiceRoleBinding.Type {
+			ug.serviceRoleBindings = append(ug.serviceRoleBindings, config)
 		}
 	}
 	return nil
