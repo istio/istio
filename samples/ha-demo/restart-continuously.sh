@@ -2,7 +2,6 @@
 set -eu
 NAMESPACE=${NAMESPACE:-"ha-demo"}
 
-# TODO loop over all deployments
 function update_deployments() {
     CTIME=$(date +%s)
     kubectl set env deployments --all  LAST_MANUAL_RESTART="${CTIME}" --namespace=${NAMESPACE} > /dev/null 
