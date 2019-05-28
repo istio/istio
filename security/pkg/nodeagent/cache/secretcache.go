@@ -53,11 +53,6 @@ const (
 	// RootCertReqResourceName is resource name of discovery request for root certificate.
 	RootCertReqResourceName = "ROOTCA"
 
-	// WorkloadKeyCertResourceName is the resource name of the discovery request for workload
-	// identity.
-	// TODO: change all the pilot one reference definition here instead.
-	WorkloadKeyCertResourceName = "default"
-
 	// identityTemplate is the format template of identity in the CSR request.
 	identityTemplate = "spiffe://%s/ns/%s/sa/%s"
 
