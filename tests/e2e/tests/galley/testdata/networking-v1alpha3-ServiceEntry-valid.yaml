@@ -1,0 +1,18 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: valid-service-entry
+spec:
+  hosts:
+  - eu.bookinfo.com
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: DNS
+  endpoints:
+  # Rather than relying on an external host that might become unreachable (causing test failures)
+  # we can mock the external endpoint using service t which has no sidecar.
+  - address: t.istio-system.svc.cluster.local # TODO: this is brittle
+    ports:
+      http: 8080 # TODO test https
