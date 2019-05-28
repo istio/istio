@@ -43,6 +43,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"istio.io/pkg/annotations"
+	"istio.io/pkg/collateral/metrics"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -333,6 +334,7 @@ func genHTMLFragment(cmd *cobra.Command, path string) error {
 
 	g.genVars(cmd)
 	g.genAnnotations(cmd)
+	g.genMetrics()
 
 	f, err := os.Create(path)
 	if err != nil {
@@ -731,4 +733,21 @@ func (g *generator) genAnnotations(root *cobra.Command) {
 
 	g.emit("</tbody>")
 	g.emit("</table>")
+}
+
+func (g *generator) genMetrics() {
+	g.emit(`<h2 id=\"metrics\">Exported Metrics</h2>
+<table class=\"metrics\">
+<thead>
+<tr><th>Metric Name</th><th>Type</th><th>Description</th></tr>
+</thead>
+<tbody>`)
+
+	r := metrics.NewOpenCensusRegistry()
+	for _, metric := range r.ExportedMetrics() {
+		g.emit("<tr><td><code>", metric.Name, "</code></td><td><code>", metric.Type, "</code></td><td>", metric.Description, "</td></tr>")
+	}
+
+	g.emit(`</tbody>
+</table>`)
 }
