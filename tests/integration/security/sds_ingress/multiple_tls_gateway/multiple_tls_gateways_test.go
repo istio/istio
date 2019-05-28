@@ -15,13 +15,14 @@
 package multiple_tls_gateway
 
 import (
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/util/file"
+	"path"
 	"time"
 
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
@@ -30,7 +31,8 @@ import (
 )
 
 var (
-	credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3"}
+	//credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3"}
+	credNames = []string{"bookinfo-credential-1"}
 )
 
 func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:interfacer
@@ -46,21 +48,29 @@ func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 	if err != nil {
 		t.Fatalf("Could not create istio-bookinfo Namespace; err:%v", err)
 	}
-	bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
+	d := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
 
-	// Apply the policy to the system namespace.
-	bGatewayDeployment := file.AsStringOrFail(t, "testdata/bookinfo-multiple-gateways.yaml")
-	g.ApplyConfigOrFail(t, bookinfoNs, bGatewayDeployment)
-	defer g.DeleteConfigOrFail(t, bookinfoNs, bGatewayDeployment)
 
-	bVirtualServiceDeployment := file.AsStringOrFail(t, "testdata/bookinfo-multiple-virtualservices.yaml")
-	g.ApplyConfigOrFail(t, bookinfoNs, bVirtualServiceDeployment)
-	defer g.DeleteConfigOrFail(t, bookinfoNs, bVirtualServiceDeployment)
+	env.BookInfoRoot = path.Join(env.IstioRoot, "tests/integration/security/sds_ingress/multiple_tls_gateway")
+	var gatewayPath bookinfo.ConfigFile = "testdata/bookinfo-multiple-gateways.yaml"
+	g.ApplyConfigOrFail(
+		t,
+		d.Namespace(),
+		gatewayPath.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
+
+	var virtualSvcPath bookinfo.ConfigFile = "testdata/bookinfo-multiple-virtualservices.yaml"
+	var destRulePath bookinfo.ConfigFile = "testdata/bookinfo-multiple-destinationrules.yaml"
+	g.ApplyConfigOrFail(
+		t,
+		d.Namespace(),
+		destRulePath.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+		virtualSvcPath.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
+
+	time.Sleep(3 * time.Second)
 
 	ingressutil.CreateIngressKubeSecret(t, ctx, credNames)
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCert})
-
-	// Warm up
+	
 	err = ingressutil.VisitProductPage(ing, 30*time.Second, 200, t)
 	if err != nil {
 		t.Fatalf("unable to retrieve 200 from product page: %v", err)

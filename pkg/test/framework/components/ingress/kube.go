@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -103,8 +104,6 @@ func getHttpAddress(env *kube.Environment, cfg Config) (interface{}, bool, error
 
 // getHttpsAddress returns the ingress gateway address for https requests.
 func getHttpsAddress(env *kube.Environment, cfg Config) (interface{}, bool, error) {
-	// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
-	// port.
 	n := cfg.Istio.Settings().IngressNamespace
 
 	// Otherwise, get the load balancer IP.
@@ -118,7 +117,7 @@ func getHttpsAddress(env *kube.Environment, cfg Config) (interface{}, bool, erro
 	}
 
 	ip := svc.Status.LoadBalancer.Ingress[0].IP
-	return fmt.Sprintf("https://%s", ip), true, nil
+	return fmt.Sprintf("%s:443", ip), true, nil
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
@@ -159,12 +158,28 @@ func (c *kubeComponent) Call(path string) (CallResponse, error) {
 		Timeout: 1 * time.Minute,
 	}
 	if c.gatewayType == Tls {
+		scopes.Framework.Debug("Prepare root cert for client")
 		roots := x509.NewCertPool()
 		ok := roots.AppendCertsFromPEM([]byte(c.caCert))
 		if !ok {
 			panic("failed to parse root certificate")
 		}
-		tr := &http.Transport{ TLSClientConfig: &tls.Config{ RootCAs: roots}}
+		tlsConfig := &tls.Config{ RootCAs: roots}
+		tr := &http.Transport{
+			TLSClientConfig: tlsConfig,
+			DialTLS: func(_, addr string) (net.Conn, error) {
+				if addr == "bookinfo1.example.com:443" {
+					addr = c.address
+				}
+				tc, err := tls.Dial("tcp", addr, tlsConfig)
+				if err != nil {
+					return nil, err
+				}
+				if err := tc.Handshake(); err != nil {
+					return nil, err
+				}
+				return tc, nil
+			}}
 		client = &http.Client{
 			Transport: tr,
 			Timeout: 1 * time.Minute,
@@ -175,10 +190,15 @@ func (c *kubeComponent) Call(path string) (CallResponse, error) {
 		path = "/" + path
 	}
 	url := c.address + path
-
+	if c.gatewayType == Tls {
+		url = "https://bookinfo1.example.com:443" + path
+	}
 	scopes.Framework.Debugf("Sending call to ingress at: %s", url)
 
 	req, err := http.NewRequest("GET", url, nil)
+	if c.gatewayType == Tls {
+		req.Host = "bookinfo1.example.com"
+	}
 	if err != nil {
 		return CallResponse{}, err
 	}

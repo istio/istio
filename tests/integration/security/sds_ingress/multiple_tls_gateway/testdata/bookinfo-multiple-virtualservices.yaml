@@ -5,71 +5,21 @@ metadata:
   name: bookinfo1
 spec:
   hosts:
-    - "bookinfo1.example.com"
+  - "bookinfo1.example.com"
   gateways:
-    - bookinfo-gateway-1
+  - bookinfo-gateway-1
   http:
-    - match:
-        - uri:
-            exact: /productpage
-        - uri:
-            exact: /login
-        - uri:
-            exact: /logout
-        - uri:
-            prefix: /api/v1/products
-      route:
-        - destination:
-            host: productpage
-            port:
-              number: 9080
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: bookinfo2
-spec:
-  hosts:
-    - "bookinfo2.example.com"
-  gateways:
-    - bookinfo-gateway-2
-  http:
-    - match:
-        - uri:
-            exact: /productpage
-        - uri:
-            exact: /login
-        - uri:
-            exact: /logout
-        - uri:
-            prefix: /api/v1/products
-      route:
-        - destination:
-            host: productpage
-            port:
-              number: 9080
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: bookinfo3
-spec:
-  hosts:
-    - "bookinfo3.example.com"
-  gateways:
-    - bookinfo-gateway-3
-  http:
-    - match:
-        - uri:
-            exact: /productpage
-        - uri:
-            exact: /login
-        - uri:
-            exact: /logout
-        - uri:
-            prefix: /api/v1/products
-      route:
-        - destination:
-            host: productpage
-            port:
-              number: 9080
+  - match:
+    - uri:
+        exact: /productpage
+    - uri:
+        exact: /login
+    - uri:
+        exact: /logout
+    - uri:
+        prefix: /api/v1/products
+    route:
+    - destination:
+        host: productpage
+        port:
+          number: 9080

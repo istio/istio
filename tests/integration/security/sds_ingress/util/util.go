@@ -94,6 +94,8 @@ func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames 
 		t.Log("no credential names are specified, skip creating ingress secret")
 		return
 	}
+	// Create Kubernetes secret for ingress gateway
+	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
 	for _, cn := range credNames {
 		secret := v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -105,14 +107,30 @@ func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames 
 				tlsScrtKey:  []byte(tlsKey),
 			},
 		}
-		err := ctx.Environment().(*kube.Environment).Accessor.CreateSecret(systemNS.Name(), &secret)
+		err := kubeAccessor.CreateSecret(systemNS.Name(), &secret)
 		if err != nil {
 			t.Errorf("Failed to create secret (error: %s)", err)
 		}
 	}
+	// Check if Kubernetes secret is ready
+	maxRetryNumber := 5
+	checkRetryInterval := time.Second * 1
+	for _, cn := range credNames {
+		t.Logf("Check ingress Kubernetes secret %s:%s...", systemNS.Name(), cn)
+		for i := 0; i < maxRetryNumber; i++ {
+			_, err := kubeAccessor.GetSecret(systemNS.Name()).Get(cn, metav1.GetOptions{})
+			if err != nil {
+				time.Sleep(checkRetryInterval)
+			} else {
+				t.Logf("Secret %s:%s is ready.", systemNS.Name(), cn)
+				break
+			}
+		}
+	}
 }
 
-// curl -o /dev/null -s -v -w "%{http_code}\n" -HHost:bookinfo3.example.com --resolve bookinfo3.example.com:443:34.66.112.126 --cacert ca.cert https://bookinfo3.example.com:443/productpage
+// VisitProductPage makes HTTPS request to ingress gateway to visit product page
+// curl -o /dev/null -s -v -w "%{http_code}\n" -HHost:bookinfo1.example.com --resolve bookinfo1.example.com:443:35.188.24.205 --cacert ~/test_cert/ca.cert https://bookinfo1.example.com:443/productpage
 func VisitProductPage(ingress ingress.Instance, timeout time.Duration, wantStatus int, t *testing.T) error {
 	start := time.Now()
 	for {
