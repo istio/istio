@@ -47,7 +47,7 @@ func TestCheckAndReport(t *testing.T) {
 		},
 		{
 			testName: "good rbac file",
-			input:    []string{"./testdata/rbac-policies.yaml"},
+			input:    []string{"./testdata/validator/rbac-policies.yaml"},
 			expected: GetPolicyValidReport(),
 		},
 		{
