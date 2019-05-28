@@ -184,7 +184,7 @@ func serverCmd() *cobra.Command {
 	// validation config
 	serverCmd.PersistentFlags().StringVar(&validationArgs.WebhookConfigFile,
 		"validation-webhook-config-file", "",
-		"File that contains k8s validatingwebhookconfiguration yaml. Validation is disabled if file is not specified")
+		"File that contains k8s validatingwebhookconfiguration yaml. Required if enable-validation is true.")
 	serverCmd.PersistentFlags().UintVar(&validationArgs.Port, "validation-port", 443,
 		"HTTPS port of the validation service. Must be 443 if service has more than one port ")
 	serverCmd.PersistentFlags().BoolVar(&validationArgs.EnableValidation, "enable-validation", validationArgs.EnableValidation,
