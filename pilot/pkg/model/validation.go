@@ -584,8 +584,8 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 		return fmt.Errorf("cannot cast to envoy filter")
 	}
 
-	if len(rule.Filters) == 0 {
-		return fmt.Errorf("envoy filter: missing filters")
+	if len(rule.Filters) == 0 && len(rule.Listeners) == 0 && len(rule.Routes) == 0 && len(rule.Clusters) == 0 {
+		return fmt.Errorf("envoy filter: at least one filter, cluster, route, or listener is required")
 	}
 
 	for _, f := range rule.Filters {

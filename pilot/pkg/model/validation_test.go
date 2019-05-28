@@ -3069,8 +3069,10 @@ func TestValidateEnvoyFilter(t *testing.T) {
 		in    proto.Message
 		error string
 	}{
-		{name: "empty filters", in: &networking.EnvoyFilter{}, error: "missing filters"},
+		{name: "no filters, clusters, routes or listeners", in: &networking.EnvoyFilter{},
+			error: "at least one filter, cluster, route, or listener is required"},
 
+		// Filters
 		{name: "missing relativeTo", in: &networking.EnvoyFilter{
 			Filters: []*networking.EnvoyFilter_Filter{
 				{
