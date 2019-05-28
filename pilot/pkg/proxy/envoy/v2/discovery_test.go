@@ -17,14 +17,17 @@ package v2
 import (
 	"context"
 	"fmt"
+	"os"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"google.golang.org/grpc"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -163,4 +166,134 @@ func (h *fakeStream) Recv() (*xdsapi.DiscoveryRequest, error) {
 
 func (h *fakeStream) Context() context.Context {
 	return context.Background()
+}
+
+func TestDebounce(t *testing.T) {
+	// This test tests the timeout and debouncing of config updates
+	// If it is flaking, DebounceAfter may need to be increased, or the code refactored to mock time.
+	// For now, this seems to work well
+	DebounceAfter = time.Millisecond * 25
+	DebounceMax = DebounceAfter * 2
+	if err := os.Setenv(features.EnableEDSDebounce.Name, "false"); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := os.Unsetenv(features.EnableEDSDebounce.Name); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	tests := []struct {
+		name            string
+		test            func(updateCh chan *model.UpdateRequest)
+		expectedFull    int32
+		expectedPartial int32
+	}{
+		{
+			name: "Should not debounce partial pushes",
+			test: func(updateCh chan *model.UpdateRequest) {
+				updateCh <- &model.UpdateRequest{Full: false}
+				updateCh <- &model.UpdateRequest{Full: false}
+				updateCh <- &model.UpdateRequest{Full: false}
+				updateCh <- &model.UpdateRequest{Full: false}
+				updateCh <- &model.UpdateRequest{Full: false}
+			},
+			expectedFull:    0,
+			expectedPartial: 5,
+		},
+		{
+			name: "Should debounce full pushes",
+			test: func(updateCh chan *model.UpdateRequest) {
+				updateCh <- &model.UpdateRequest{Full: true}
+			},
+			expectedFull:    0,
+			expectedPartial: 0,
+		},
+		{
+			name: "Should send full updates in batches",
+			test: func(updateCh chan *model.UpdateRequest) {
+				updateCh <- &model.UpdateRequest{Full: true}
+				updateCh <- &model.UpdateRequest{Full: true}
+				time.Sleep(DebounceAfter * 3 / 2)
+				updateCh <- &model.UpdateRequest{Full: true}
+			},
+			expectedFull:    1,
+			expectedPartial: 0,
+		},
+		{
+			name: "Should send full updates in batches, partial updates immediately",
+			test: func(updateCh chan *model.UpdateRequest) {
+				updateCh <- &model.UpdateRequest{Full: true}
+				updateCh <- &model.UpdateRequest{Full: true}
+				updateCh <- &model.UpdateRequest{Full: false}
+				updateCh <- &model.UpdateRequest{Full: false}
+				time.Sleep(DebounceAfter * 2)
+				updateCh <- &model.UpdateRequest{Full: false}
+			},
+			expectedFull:    1,
+			expectedPartial: 3,
+		},
+		{
+			name: "Should force a push after DebounceMax",
+			test: func(updateCh chan *model.UpdateRequest) {
+				// Send many requests within debounce window
+				updateCh <- &model.UpdateRequest{Full: true}
+				time.Sleep(DebounceAfter / 2)
+				updateCh <- &model.UpdateRequest{Full: true}
+				time.Sleep(DebounceAfter / 2)
+				updateCh <- &model.UpdateRequest{Full: true}
+				time.Sleep(DebounceAfter / 2)
+				updateCh <- &model.UpdateRequest{Full: true}
+				time.Sleep(DebounceAfter / 2)
+				// At this point a push should be triggered, from DebounceMax
+
+				updateCh <- &model.UpdateRequest{Full: true}
+				time.Sleep(DebounceAfter / 2)
+				updateCh <- &model.UpdateRequest{Full: true}
+				time.Sleep(DebounceAfter / 2)
+			},
+			expectedFull:    1,
+			expectedPartial: 0,
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			stopCh := make(chan struct{})
+			updateCh := make(chan *model.UpdateRequest)
+
+			var partialPushes int32
+			var fullPushes int32
+
+			wg := sync.WaitGroup{}
+
+			fakePush := func(req *model.UpdateRequest) {
+				wg.Add(1)
+				go func() {
+					if req.Full {
+						atomic.AddInt32(&fullPushes, 1)
+					} else {
+						atomic.AddInt32(&partialPushes, 1)
+					}
+					wg.Done()
+				}()
+			}
+
+			wg.Add(1)
+			go func() {
+				debounce(updateCh, stopCh, fakePush)
+				wg.Done()
+			}()
+
+			// Send updates
+			tt.test(updateCh)
+
+			close(stopCh)
+			wg.Wait()
+
+			if partialPushes != tt.expectedPartial || fullPushes != tt.expectedFull {
+				t.Fatalf("Got %v full and %v partial, expected %v full and %v partial", fullPushes, partialPushes, tt.expectedFull, tt.expectedPartial)
+			}
+		})
+	}
 }
