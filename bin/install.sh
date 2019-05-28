@@ -82,7 +82,7 @@ function install_ingress() {
 
     kubectl patch deployment -n istio-ingress ingressgateway --patch '{"spec": {"strategy": {"rollingUpdate": {"maxSurge": 1,"maxUnavailable": 0},"type": "RollingUpdate"}}}'
     kubectl rollout status  deployment istio-pilot -n istio-ingress --timeout=$WAIT_TIMEOUT
-    kubectl rollout status  deployment ingressgateway -n istio-ingress --timeout=$WAIT_TIMEOUT
+    kubectl rollout status  deployment istio-ingressgateway -n istio-ingress --timeout=$WAIT_TIMEOUT
 }
 
 # Install grafana, mixer and prometheus into namespace istio-telemetry
