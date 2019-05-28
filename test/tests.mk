@@ -132,7 +132,7 @@ run-mysql:
 # and removed.
 run-prometheus-operator-config-test: PROM_OPTS="--set prometheus.createPrometheusResource=true"
 run-prometheus-operator-config-test: install-prometheus-operator install-prometheus-operator-config
-	if [ "$$(kubectl -n ${ISTIO_CONTROL_NS} get servicemonitors -o name | wc -l)" -ne "7" ]; then echo "Failure to find ServiceMonitor resouces!"; return 1; fi
+	if [ "$$(kubectl -n ${ISTIO_CONTROL_NS} get servicemonitors -o name | wc -l)" -ne "8" ]; then echo "Failure to find ServiceMonitor resouces!"; exit 1; fi
 	# kubectl wait is problematic, as the pod may not exist before the command is issued.
 	until timeout ${WAIT_TIMEOUT} kubectl -n ${ISTIO_CONTROL_NS} get pod/prometheus-prometheus-0; do echo "Waiting for pods to be created..."; done
 	kubectl -n ${ISTIO_CONTROL_NS} wait pod/prometheus-prometheus-0 --for=condition=Ready --timeout=${WAIT_TIMEOUT}
