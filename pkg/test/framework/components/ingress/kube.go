@@ -127,7 +127,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	c.id = ctx.TrackResource(c)
 	c.gatewayType = cfg.IngressType
 	c.caCert = cfg.CaCert
-	c.tlsCert = cfg.ServerCert
+	c.tlsCert = cfg.Cert
 	c.tlsKey = cfg.PrivateKey
 
 	env := ctx.Environment().(*kube.Environment)

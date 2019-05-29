@@ -58,6 +58,6 @@ func setupConfig(cfg *istio.Config) {
 		return
 	}
 	cfg.Values["gateways.istio-ingressgateway.sds.enabled"] = "true"
-	//// TODO(https://github.com/istio/istio/issues/14084) remove this
+	// TODO(https://github.com/istio/istio/issues/14084) remove this
 	cfg.Values["pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE"] = "0"
 }

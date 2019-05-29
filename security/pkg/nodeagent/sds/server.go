@@ -20,14 +20,13 @@ import (
 	"os"
 	"time"
 
-	"istio.io/pkg/log"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
+	"istio.io/pkg/log"
 )
 
 const maxStreams = 100000

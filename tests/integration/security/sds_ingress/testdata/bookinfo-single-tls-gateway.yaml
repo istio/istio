@@ -6,12 +6,13 @@ spec:
   selector:
     istio: ingressgateway # use istio default ingress gateway
   servers:
-    - port:
-        number: 443
-        name: https-bookinfo-4
-        protocol: HTTPS
-      tls:
-        mode: MUTUAL
-        credentialName: "bookinfo-credential-4" # must be the same as secret
-      hosts:
-      - "bookinfo4.example.com"
+  - port:
+      number: 443
+      name: https-bookinfo-4
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: "bookinfo-credential-4" # must be the same as secret
+    hosts:
+    - "bookinfo4.example.com"
+---

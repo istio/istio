@@ -355,6 +355,13 @@ func (a *Accessor) CreateSecret(namespace string, secret *kubeApiCore.Secret) (e
 	return err
 }
 
+// DeleteSecret deletes secret by name in namespace.
+func (a *Accessor) DeleteSecret(namespace, name string) (err error) {
+	var immediate int64
+	err = a.set.CoreV1().Secrets(namespace).Delete(name, &kubeApiMeta.DeleteOptions{GracePeriodSeconds: &immediate})
+	return err
+}
+
 // GetEndpoints returns the endpoints for the given service.
 func (a *Accessor) GetEndpoints(ns, service string, options kubeApiMeta.GetOptions) (*kubeApiCore.Endpoints, error) {
 	return a.set.CoreV1().Endpoints(ns).Get(service, options)

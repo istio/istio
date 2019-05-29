@@ -69,12 +69,13 @@ func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 		destRulePath.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		virtualSvcPath.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
 
-	ingressutil.CreateIngressKubeSecret(t, ctx, credNames, ingress.Tls)
+	ingressutil.CreateIngressKubeSecret(t, ctx, credNames, ingress.Tls, ingressutil.IngressCredentialA)
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertA})
 	time.Sleep(3 * time.Second)
 
 	for _, h := range hosts {
-		err = ingressutil.VisitProductPage(ing, h, 30*time.Second, 200, t)
+		err = ingressutil.VisitProductPage(ing, h, 30*time.Second,
+			ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 		if err != nil {
 			t.Fatalf("unable to retrieve 200 from product page at host %s: %v", h, err)
 		}

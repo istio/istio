@@ -40,39 +40,54 @@ var (
 // (1) no kubernetes secret is provisioned, which means private key and server certificate are not available.
 // (2) invalid kubernetes secret is provisioned, which would cause SSL handshake fail.
 // (3) valid kubernetes secret is provisioned, and gateway should terminate SSL connection successfully.
-func testSingleTlsGateway(t *testing.T, ctx framework.TestContext) { // nolint:interfacer
-	t.Helper()
 
-	// TODO(JimmyCYJ): Add support into ingress package to test TLS/mTLS ingress gateway in Minikube
-	//  environment
-	if ctx.Environment().(*kube.Environment).Settings().Minikube {
-		t.Skip("https://github.com/istio/istio/issues/14180")
-	}
-
-	deployBookinfo(t, ctx)
-
-	// Do not provide private key and server certificate for ingress gateway. Connection creation should fail.
-	ingA := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertA})
-	err := ingressutil.VisitProductPage(ingA, host, 30*time.Second, 0, t)
-	if err != nil {
-		t.Fatalf("unable to retrieve code 0 from product page at host %s: %v", host, err)
-	}
-
-	ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.Tls)
-	time.Sleep(3 * time.Second)
-	ingB := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertA})
-	err = ingressutil.VisitProductPage(ingB, host, 30*time.Second, 200, t)
-	if err != nil {
-		t.Fatalf("unable to retrieve 200 from product page at host %s: %v", host, err)
-	}
-}
-
-func TestTlsGateways(t *testing.T) {
+// TestSingleTlsGateway_CredentialNotAvailable tests a single TLS ingress gateway with SDS enabled.
+// Verifies behavior when kubernetes secret is not provisioned, which means private key and server
+// certificate are not available. A valid kubernetes secret with key/cert is added later, and verifies
+// that SSL connection termination is working properly.
+func TestSingleTlsGateway_CredentialNotAvailable(t *testing.T) {
 	framework.
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			testSingleTlsGateway(t, ctx)
+			// TODO(JimmyCYJ): Add support into ingress package to test TLS/mTLS ingress gateway in Minikube
+			//  environment
+			if ctx.Environment().(*kube.Environment).Settings().Minikube {
+				t.Skip("https://github.com/istio/istio/issues/14180")
+			}
+
+			deployBookinfo(t, ctx)
+
+			// Do not provide private key and server certificate for ingress gateway. Connection creation should fail.
+			ingA := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertA})
+			err := ingressutil.VisitProductPage(ingA, host, 30*time.Second,
+				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "connection refused"}, t)
+			if err != nil {
+				t.Fatalf("unable to retrieve code 0 from product page at host %s: %v", host, err)
+			}
+
+			// Add kubernetes secret to provision key/cert for ingress gateway.
+			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.Tls, ingressutil.IngressCredentialA)
+			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
+			time.Sleep(3 * time.Second)
+			ingB := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertA})
+			err = ingressutil.VisitProductPage(ingB, host, 30*time.Second,
+				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
+			if err != nil {
+				t.Fatalf("unable to retrieve 200 from product page at host %s: %v", host, err)
+			}
+
+			// key/cert rotation
+			ingressutil.RotateSecrets(t, ctx, credName, ingress.Tls, ingressutil.IngressCredentialB)
+			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
+			time.Sleep(3 * time.Second)
+			ingC := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertB})
+			err = ingressutil.VisitProductPage(ingC, host, 30*time.Second,
+				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
+			if err != nil {
+				t.Fatalf("unable to retrieve 200 from product page at host %s: %v", host, err)
+			}
+
 		})
 }
 
