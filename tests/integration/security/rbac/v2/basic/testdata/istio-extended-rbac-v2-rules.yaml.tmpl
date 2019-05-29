@@ -36,6 +36,9 @@ metadata:
   name: authz-policy-access-a
   namespace: {{ .Namespace }}
 spec:
+  workload_selector:
+    labels:
+      app: a
   allow:
     - subjects:
       - names: ["cluster.local/ns/{{ .Namespace }}/sa/b"]
