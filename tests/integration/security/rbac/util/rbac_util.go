@@ -65,9 +65,15 @@ func (tc TestCase) CheckRBACRequest() error {
 			return getError(req, "allow with code 200", fmt.Sprintf("error: %v", err))
 		}
 	} else {
-		if req.Options.PortName == "tcp" {
-			if err == nil || !strings.Contains(err.Error(), "EOF") {
-				return getError(req, "deny with EOF error", fmt.Sprintf("error: %v", err))
+		if req.Options.PortName == "tcp" || req.Options.PortName == "grpc" {
+			expectedErrMsg := "EOF" // TCP deny message.
+			if req.Options.PortName == "grpc" {
+				expectedErrMsg = "rpc error: code = PermissionDenied desc = RBAC: access denied"
+			}
+			if err == nil || !strings.Contains(err.Error(), expectedErrMsg) {
+				expect := fmt.Sprintf("deny with %s error", expectedErrMsg)
+				actual := fmt.Sprintf("error: %v", err)
+				return getError(req, expect, actual)
 			}
 		} else {
 			if err != nil {
