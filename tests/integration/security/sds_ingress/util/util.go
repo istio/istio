@@ -18,6 +18,12 @@ const (
 	tlsScrtCert = "tls.crt"
 	// The ID/name for the k8sKey in kubernetes tls secret.
 	tlsScrtKey = "tls.key"
+	// The ID/name for the certificate chain in kubernetes generic secret.
+	genericScrtCert = "cert"
+	// The ID/name for the private key in kubernetes generic secret.
+	genericScrtKey = "key"
+	// The ID/name for the CA certificate in kubernetes generic secret.
+	genericScrtCaCert = "cacert"
 	tlsCert = `-----BEGIN CERTIFICATE-----
 MIIC8zCCAdugAwIBAgIRAP3c/nKjm5bIlq1JSAiH04swDQYJKoZIhvcNAQELBQAw
 GDEWMBQGA1UEChMNY2x1c3Rlci5sb2NhbDAeFw0xOTA1MjAwNDA1MThaFw0yNDA1
@@ -85,7 +91,8 @@ IQ0V5r5pTBIkjWHRrkrYTEs=
 
 // CreateIngressKubeSecret reads credential names from credNames and create K8s secrets for
 // ingress gateway.
-func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames []string) {
+func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames []string,
+	ingressType ingress.IgType) {
 	// Get namespace for ingress gateway pod.
 	istioCfg := istio.DefaultConfigOrFail(t, ctx)
 	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
@@ -97,17 +104,8 @@ func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames 
 	// Create Kubernetes secret for ingress gateway
 	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
 	for _, cn := range credNames {
-		secret := v1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cn,
-				Namespace: systemNS.Name(),
-			},
-			Data: map[string][]byte{
-				tlsScrtCert: []byte(tlsCert),
-				tlsScrtKey:  []byte(tlsKey),
-			},
-		}
-		err := kubeAccessor.CreateSecret(systemNS.Name(), &secret)
+		secret := createSecret(ingressType, cn, systemNS.Name())
+		err := kubeAccessor.CreateSecret(systemNS.Name(), secret)
 		if err != nil {
 			t.Errorf("Failed to create secret (error: %s)", err)
 		}
@@ -129,6 +127,31 @@ func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames 
 	}
 }
 
+func createSecret(ingressType ingress.IgType, cn, ns string) *v1.Secret {
+	if ingressType == ingress.Mtls {
+		return &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cn,
+				Namespace: ns,
+			},
+			Data: map[string][]byte{
+				genericScrtCert: []byte(tlsCert),
+				genericScrtKey:  []byte(tlsKey),
+				genericScrtCaCert: []byte(CaCert),
+			},
+		}
+	}
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cn,
+			Namespace: ns,
+		},
+		Data: map[string][]byte{
+			tlsScrtCert: []byte(tlsCert),
+			tlsScrtKey:  []byte(tlsKey),
+		},
+	}
+}
 // VisitProductPage makes HTTPS request to ingress gateway to visit product page
 func VisitProductPage(ingress ingress.Instance, host string, timeout time.Duration, wantStatus int, t *testing.T) error {
 	start := time.Now()

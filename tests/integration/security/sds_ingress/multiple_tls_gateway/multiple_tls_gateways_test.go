@@ -51,8 +51,8 @@ func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 	d := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
 
 
-	env.BookInfoRoot = path.Join(env.IstioRoot, "tests/integration/security/sds_ingress/multiple_tls_gateway")
-	var gatewayPath bookinfo.ConfigFile = "testdata/bookinfo-multiple-gateways.yaml"
+	env.BookInfoRoot = path.Join(env.IstioRoot, "tests/integration/security/sds_ingress/")
+	var gatewayPath bookinfo.ConfigFile = "testdata/bookinfo-multiple-tls-gateways.yaml"
 	g.ApplyConfigOrFail(
 		t,
 		d.Namespace(),
@@ -66,7 +66,7 @@ func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 		destRulePath.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		virtualSvcPath.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
 
-	ingressutil.CreateIngressKubeSecret(t, ctx, credNames)
+	ingressutil.CreateIngressKubeSecret(t, ctx, credNames, ingress.Tls)
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCert})
 	time.Sleep(3 * time.Second)
 
