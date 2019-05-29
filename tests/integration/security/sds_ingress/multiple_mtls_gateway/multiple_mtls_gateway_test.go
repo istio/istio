@@ -15,6 +15,9 @@
 package multiple_mtls_gateway
 
 import (
+	"path"
+	"time"
+
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
@@ -22,8 +25,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"path"
-	"time"
 
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 
@@ -32,7 +33,7 @@ import (
 
 var (
 	credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3"}
-	hosts = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com"}
+	hosts     = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com"}
 )
 
 // testMultiMtlsGateways deploys multiple mTLS gateways with SDS enabled, and creates kubernetes that store
@@ -70,11 +71,11 @@ func testMultiMtlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:
 
 	ingressutil.CreateIngressKubeSecret(t, ctx, credNames, ingress.Mtls)
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{
-		Istio: inst,
+		Istio:       inst,
 		IngressType: ingress.Mtls,
-		CaCert: ingressutil.CaCertA,
-		PrivateKey: ingressutil.TlsKeyA,
-		ServerCert: ingressutil.TlsCertA,
+		CaCert:      ingressutil.CaCertA,
+		PrivateKey:  ingressutil.TlsKeyA,
+		ServerCert:  ingressutil.TlsCertA,
 	})
 	time.Sleep(3 * time.Second)
 

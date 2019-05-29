@@ -15,6 +15,9 @@
 package single_tls_gateway
 
 import (
+	"path"
+	"time"
+
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
@@ -22,8 +25,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"path"
-	"time"
 
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 
@@ -32,7 +33,7 @@ import (
 
 var (
 	credName = []string{"bookinfo-credential-4"}
-	host = "bookinfo4.example.com"
+	host     = "bookinfo4.example.com"
 )
 
 // testSingleTlsGateway tests a single TLS ingress gateway with SDS enabled. Verifies behaviors in three stages.

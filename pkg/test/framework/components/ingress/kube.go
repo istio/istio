@@ -45,12 +45,12 @@ var (
 )
 
 type kubeComponent struct {
-	id      resource.ID
-	address string
-	gatewayType	IgType
-	caCert string
-	tlsCert string
-	tlsKey string
+	id          resource.ID
+	address     string
+	gatewayType IgType
+	caCert      string
+	tlsCert     string
+	tlsKey      string
 }
 
 // getHttpAddress returns the ingress gateway address for plain text http requests.
@@ -185,7 +185,7 @@ func (c *kubeComponent) createClient(host string) (*http.Client, error) {
 		tr := &http.Transport{
 			TLSClientConfig: tlsConfig,
 			DialTLS: func(netw, addr string) (net.Conn, error) {
-				if addr == host + ":443" {
+				if addr == host+":443" {
 					addr = c.address + ":443"
 				}
 				tc, err := tls.Dial(netw, addr, tlsConfig)
@@ -211,14 +211,14 @@ func (c *kubeComponent) createRequest(path, host string) (*http.Request, error) 
 	}
 	url := c.address + path
 	if c.gatewayType != PlainText {
-		url = "https://" + host + ":443"+ path
+		url = "https://" + host + ":443" + path
 	}
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	if c.gatewayType != PlainText && host != ""{
+	if c.gatewayType != PlainText && host != "" {
 		req.Host = host
 	}
 

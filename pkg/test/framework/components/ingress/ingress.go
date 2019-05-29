@@ -23,10 +23,11 @@ import (
 
 // IgType defines ingress gateway type
 type IgType int
+
 const (
-		PlainText	IgType = 0
-		Tls				IgType = 1
-		Mtls			IgType = 2
+	PlainText IgType = 0
+	Tls       IgType = 1
+	Mtls      IgType = 2
 )
 
 // Instance represents a deployed Ingress Gateway instance.
@@ -43,7 +44,7 @@ type Instance interface {
 }
 
 type Config struct {
-	Istio istio.Instance
+	Istio       istio.Instance
 	IngressType IgType
 	CaCert      string
 	PrivateKey  string

@@ -16,10 +16,11 @@ package sds
 
 import (
 	"fmt"
-	"istio.io/pkg/log"
 	"net"
 	"os"
 	"time"
+
+	"istio.io/pkg/log"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

@@ -15,6 +15,9 @@
 package multiple_tls_gateway
 
 import (
+	"path"
+	"time"
+
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
@@ -22,8 +25,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"path"
-	"time"
 
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 
@@ -32,7 +33,7 @@ import (
 
 var (
 	credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3"}
-	hosts = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com"}
+	hosts     = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com"}
 )
 
 // testMultiTlsGateways deploys multiple TLS gateways with SDS enabled, and creates kubernetes that store
@@ -84,7 +85,7 @@ func TestTlsGateways(t *testing.T) {
 	framework.
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
-			Run(func(ctx framework.TestContext) {
-				testMultiTlsGateways(t, ctx)
-			})
+		Run(func(ctx framework.TestContext) {
+			testMultiTlsGateways(t, ctx)
+		})
 }

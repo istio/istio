@@ -2,15 +2,17 @@ package util
 
 import (
 	"fmt"
+	"testing"
+	"time"
+
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
-	"time"
 )
 
 const (
@@ -154,19 +156,20 @@ oke6Hv5bkEFTm2GJ7GXS/6Z9
 )
 
 type ingressCredential struct {
-	PrivateKey	string
-	ServerCert	string
-	CaCert		string
+	PrivateKey string
+	ServerCert string
+	CaCert     string
 }
-var IngressCredentialA = ingressCredential {
+
+var IngressCredentialA = ingressCredential{
 	PrivateKey: TlsKeyA,
 	ServerCert: TlsCertA,
-	CaCert:		CaCertA,
+	CaCert:     CaCertA,
 }
-var IngressCredentialB = ingressCredential {
+var IngressCredentialB = ingressCredential{
 	PrivateKey: TlsKeyB,
 	ServerCert: TlsCertB,
-	CaCert:		CaCertB,
+	CaCert:     CaCertB,
 }
 
 // CreateIngressKubeSecret reads credential names from credNames and create K8s secrets for
@@ -217,8 +220,8 @@ func createSecret(ingressType ingress.IgType, cn, ns string, ic *ingressCredenti
 				Namespace: ns,
 			},
 			Data: map[string][]byte{
-				genericScrtCert: []byte(ic.ServerCert),
-				genericScrtKey:  []byte(ic.PrivateKey),
+				genericScrtCert:   []byte(ic.ServerCert),
+				genericScrtKey:    []byte(ic.PrivateKey),
 				genericScrtCaCert: []byte(ic.CaCert),
 			},
 		}
@@ -234,6 +237,7 @@ func createSecret(ingressType ingress.IgType, cn, ns string, ic *ingressCredenti
 		},
 	}
 }
+
 // VisitProductPage makes HTTPS request to ingress gateway to visit product page
 func VisitProductPage(ingress ingress.Instance, host string, timeout time.Duration, wantStatus int, t *testing.T) error {
 	start := time.Now()
