@@ -48,7 +48,7 @@ var (
 // (2) A valid kubernetes secret with key/cert is added later, verifies that SSL connection termination is working properly.
 // (3) After key/cert rotation, client needs to pick new CA cert to complete SSL connection. Old CA
 // cert will cause the SSL connection fail.
-func TestSingleTlsGateway_CredentialNotAvailable(t *testing.T) {
+func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 	framework.
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
