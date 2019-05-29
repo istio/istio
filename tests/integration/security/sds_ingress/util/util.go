@@ -24,7 +24,7 @@ const (
 	genericScrtKey = "key"
 	// The ID/name for the CA certificate in kubernetes generic secret.
 	genericScrtCaCert = "cacert"
-	tlsCert = `-----BEGIN CERTIFICATE-----
+	TlsCert           = `-----BEGIN CERTIFICATE-----
 MIIC8zCCAdugAwIBAgIRAP3c/nKjm5bIlq1JSAiH04swDQYJKoZIhvcNAQELBQAw
 GDEWMBQGA1UEChMNY2x1c3Rlci5sb2NhbDAeFw0xOTA1MjAwNDA1MThaFw0yNDA1
 MTgwNDA1MThaMBMxETAPBgNVBAoTCEp1anUgb3JnMIIBIjANBgkqhkiG9w0BAQEF
@@ -42,7 +42,7 @@ FWuGNFxRjvuVemlPW0ZkIeGEmWm69pJx0s+gIq45+91vS6bsKzw+bAgXFhOWnshU
 GL1kMpJO8kq5El4EQJg8deHScLuXno6vdjxKw1YfJNEyFJJ0tLbTB0cNLULnxC29
 sDAcimMwIw16gI611PSImGfkZ5WPEQueAzSBGeFOxibEPQ2nvh7h
 -----END CERTIFICATE-----`
-	tlsKey = `-----BEGIN RSA PRIVATE KEY-----
+	TlsKey = `-----BEGIN RSA PRIVATE KEY-----
 MIIEowIBAAKCAQEAuOntOWs+c5KjjwOlAFtsnhpxDNcnqPUq0+xq13XUvrjfaqBt
 vAqfVY3r4HTfO/FLsiTIbnhytMoVVpydUQTW2JdaoKi07RgN89/WoQeu+mZlF1Co
 3JjAxlxuDT8dGGJVrXo/KVAU+Yq55UWeUeRHh1Z3RdeyqlP3HcRaaVJ9L0Sw5WCJ
@@ -127,6 +127,8 @@ func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames 
 	}
 }
 
+// createSecret creates a kubernetes secret which stores private key, server certificate for TLS ingress gateway.
+// For mTLS ingress gateway, createSecret adds ca certificate into the secret object.
 func createSecret(ingressType ingress.IgType, cn, ns string) *v1.Secret {
 	if ingressType == ingress.Mtls {
 		return &v1.Secret{
@@ -135,8 +137,8 @@ func createSecret(ingressType ingress.IgType, cn, ns string) *v1.Secret {
 				Namespace: ns,
 			},
 			Data: map[string][]byte{
-				genericScrtCert: []byte(tlsCert),
-				genericScrtKey:  []byte(tlsKey),
+				genericScrtCert: []byte(TlsCert),
+				genericScrtKey:  []byte(TlsKey),
 				genericScrtCaCert: []byte(CaCert),
 			},
 		}
@@ -147,8 +149,8 @@ func createSecret(ingressType ingress.IgType, cn, ns string) *v1.Secret {
 			Namespace: ns,
 		},
 		Data: map[string][]byte{
-			tlsScrtCert: []byte(tlsCert),
-			tlsScrtKey:  []byte(tlsKey),
+			tlsScrtCert: []byte(TlsCert),
+			tlsScrtKey:  []byte(TlsKey),
 		},
 	}
 }

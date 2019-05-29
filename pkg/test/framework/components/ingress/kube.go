@@ -49,6 +49,8 @@ type kubeComponent struct {
 	address string
 	gatewayType	IgType
 	caCert string
+	tlsCert string
+	tlsKey string
 }
 
 // getHttpAddress returns the ingress gateway address for plain text http requests.
@@ -125,6 +127,8 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	c.id = ctx.TrackResource(c)
 	c.gatewayType = cfg.IngressType
 	c.caCert = cfg.CaCert
+	c.tlsCert = cfg.ServerCert
+	c.tlsKey = cfg.PrivateKey
 
 	env := ctx.Environment().(*kube.Environment)
 
@@ -160,7 +164,7 @@ func (c *kubeComponent) createClient(host string) (*http.Client, error) {
 	client := &http.Client{
 		Timeout: 1 * time.Minute,
 	}
-	if c.gatewayType == Tls {
+	if c.gatewayType != PlainText {
 		scopes.Framework.Debug("Prepare root cert for client")
 		roots := x509.NewCertPool()
 		ok := roots.AppendCertsFromPEM([]byte(c.caCert))
@@ -170,6 +174,13 @@ func (c *kubeComponent) createClient(host string) (*http.Client, error) {
 		tlsConfig := &tls.Config{
 			RootCAs:    roots,
 			ServerName: host,
+		}
+		if c.gatewayType == Mtls {
+			cer, err := tls.X509KeyPair([]byte(c.tlsCert), []byte(c.tlsKey))
+			if err != nil {
+				return nil, errors.New("failed to parse private key and server cert")
+			}
+			tlsConfig.Certificates = []tls.Certificate{cer}
 		}
 		tr := &http.Transport{
 			TLSClientConfig: tlsConfig,
@@ -199,7 +210,7 @@ func (c *kubeComponent) createRequest(path, host string) (*http.Request, error) 
 		path = "/" + path
 	}
 	url := c.address + path
-	if c.gatewayType == Tls {
+	if c.gatewayType != PlainText {
 		url = "https://" + host + ":443"+ path
 	}
 
@@ -207,7 +218,7 @@ func (c *kubeComponent) createRequest(path, host string) (*http.Request, error) 
 	if err != nil {
 		return nil, err
 	}
-	if c.gatewayType == Tls && host != ""{
+	if c.gatewayType != PlainText && host != ""{
 		req.Host = host
 	}
 
