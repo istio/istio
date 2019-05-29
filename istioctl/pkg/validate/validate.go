@@ -141,7 +141,7 @@ func (v *validator) validateFile(reader io.Reader) error {
 	}
 }
 
-func validateFiles(filenames []string, referential bool) error {
+func validateFiles(filenames []string, referential bool, writer io.Writer) error {
 	if len(filenames) == 0 {
 		return errMissingFilename
 	}
@@ -162,7 +162,16 @@ func validateFiles(filenames []string, referential bool) error {
 			errs = multierror.Append(errs, err)
 		}
 	}
-	return errs
+
+	if errs != nil {
+		return errs
+	}
+
+	for _, fname := range filenames {
+		fmt.Fprintf(writer, "%q is valid\n", fname)
+	}
+
+	return nil
 }
 
 // NewValidateCommand creates a new command for validating Istio k8s resources.
@@ -176,7 +185,7 @@ func NewValidateCommand() *cobra.Command {
 		Example: `istioctl validate -f bookinfo-gateway.yaml`,
 		Args:    cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			return validateFiles(filenames, referential)
+			return validateFiles(filenames, referential, c.OutOrStdout())
 		},
 	}
 
