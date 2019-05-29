@@ -40,15 +40,11 @@ import (
 	"strconv"
 	"strings"
 
-	"gopkg.in/yaml.v2"
-
-	"istio.io/pkg/annotations"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 
+	"istio.io/pkg/annotations"
 	"istio.io/pkg/env"
 )
 
@@ -328,7 +324,6 @@ func genHTMLFragment(cmd *cobra.Command, path string) error {
 		}
 
 		g.genCommand(commands[n])
-		_ = g.genConfigFile(viper.GetViper(), commands[n].Flags())
 	}
 
 	g.genVars(cmd)
@@ -342,87 +337,6 @@ func genHTMLFragment(cmd *cobra.Command, path string) error {
 	_ = f.Close()
 
 	return err
-}
-
-func (g *generator) genConfigFile(v *viper.Viper, flags *pflag.FlagSet) error {
-	// find all flag names and aliases which contain dots, as these allow
-	// structured config files, which aren't intuitive
-	deepkeys := make(map[string]string)
-	flags.VisitAll(func(f *pflag.Flag) {
-		if strings.Contains(f.Name, ".") {
-			deepkeys[f.Name] = "--" + f.Name
-		}
-	})
-	ultimatealias := dereferenceMap(v.GetAliases())
-	for alias, target := range ultimatealias {
-		// limit to deep aliases pointing to this command's flags...
-		if strings.Contains(alias, ".") && flags.Lookup(target) != nil {
-			deepkeys[alias] = "--" + target
-		}
-	}
-
-	if len(deepkeys) < 1 {
-		return nil
-	}
-
-	deepConfig := buildNestedMap(deepkeys)
-	strb, err := yaml.Marshal(deepConfig)
-	if err != nil {
-		return err
-	}
-	str := string(strb)
-
-	g.emit("<p/>Accepts deep config files, like:")
-	g.emit("<pre class=\"language-yaml\"><code>", str)
-	g.emit("</code></pre>")
-	return nil
-}
-
-func dereferenceMap(m map[string]string) (result map[string]string) {
-	// return a map keyed by alias, whose value is the alias' ultimate target
-	// consider the map as the list of edges in a set of trees
-	// return a map where each node has one key pointing to the root node of its tree
-	reversemap := make(map[string][]string)
-	result = make(map[string]string)
-	for key, value := range m {
-		if deepvalue, ok := result[value]; ok {
-			value = deepvalue
-		}
-		if deepkeys, ok := reversemap[key]; ok {
-			// we have found a new candidate root node for this tree
-			// look through our results so far and update to new candidate root
-			for _, deepkey := range deepkeys {
-				result[deepkey] = value
-			}
-			delete(reversemap, key)
-			reversemap[value] = append(reversemap[value], deepkeys...)
-		}
-		result[key] = value
-		reversemap[value] = append(reversemap[value], key)
-	}
-	return
-}
-
-func buildNestedMap(flatMap map[string]string) (result map[string]interface{}) {
-	result = make(map[string]interface{})
-	for complexkey, value := range flatMap {
-		buildMapRecursive(strings.Split(complexkey, "."), result, value)
-	}
-	return
-}
-
-func buildMapRecursive(remainingPath []string, currentPointer map[string]interface{}, value string) {
-	if len(remainingPath) == 1 {
-		currentPointer[remainingPath[0]] = value
-		return
-	}
-	var nextPointer interface{}
-	var existingPath bool
-	if nextPointer, existingPath = currentPointer[remainingPath[0]]; !existingPath {
-		nextPointer = make(map[string]interface{})
-		currentPointer[remainingPath[0]] = nextPointer
-	}
-	buildMapRecursive(remainingPath[1:], nextPointer.(map[string]interface{}), value)
 }
 
 func (g *generator) genFrontMatter(root *cobra.Command, numEntries int) {

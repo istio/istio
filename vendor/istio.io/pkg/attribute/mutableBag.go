@@ -19,6 +19,13 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
+
+	me "github.com/hashicorp/go-multierror"
+
+	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/pkg/log"
+	"istio.io/pkg/pool"
 )
 
 // MutableBag is a generic mechanism to read and write a set of attributes.
@@ -39,6 +46,8 @@ var mutableBags = sync.Pool{
 		}
 	},
 }
+
+var scope = log.RegisterScope("attributes", "Attribute-related messages.", 0)
 
 // GetMutableBag returns an initialized bag.
 //
@@ -69,6 +78,15 @@ func GetMutableBagForTesting(values map[string]interface{}) *MutableBag {
 		}
 	}
 	return m
+}
+
+// GetProtoForTesting returns a CompressedAttributes struct based on the specified map
+// Use this function only for testing purposes.
+func GetProtoForTesting(v map[string]interface{}) *mixerpb.CompressedAttributes {
+	b := GetMutableBagForTesting(v)
+	var ca mixerpb.CompressedAttributes
+	b.ToProto(&ca, nil, 0)
+	return &ca
 }
 
 // CopyBag makes a deep copy of a bag.
@@ -203,6 +221,239 @@ func (mb *MutableBag) Merge(bag *MutableBag) {
 	}
 }
 
+// ToProto fills-in an Attributes proto based on the content of the bag.
+func (mb *MutableBag) ToProto(output *mixerpb.CompressedAttributes, globalDict map[string]int32, globalWordCount int) {
+	ds := newDictState(globalDict, globalWordCount)
+	keys := mb.Names()
+
+	for _, k := range keys {
+		index := ds.assignDictIndex(k)
+		v, found := mb.Get(k)
+
+		// nil can be []byte type, so we should handle not found without type switching
+		if !found {
+			continue
+		}
+
+		switch t := v.(type) {
+		case string:
+			if output.Strings == nil {
+				output.Strings = make(map[int32]int32)
+			}
+			output.Strings[index] = ds.assignDictIndex(t)
+
+		case int64:
+			if output.Int64S == nil {
+				output.Int64S = make(map[int32]int64)
+			}
+			output.Int64S[index] = t
+
+		case int:
+			if output.Int64S == nil {
+				output.Int64S = make(map[int32]int64)
+			}
+			output.Int64S[index] = int64(t)
+
+		case float64:
+			if output.Doubles == nil {
+				output.Doubles = make(map[int32]float64)
+			}
+			output.Doubles[index] = t
+
+		case bool:
+			if output.Bools == nil {
+				output.Bools = make(map[int32]bool)
+			}
+			output.Bools[index] = t
+
+		case time.Time:
+			if output.Timestamps == nil {
+				output.Timestamps = make(map[int32]time.Time)
+			}
+			output.Timestamps[index] = t
+
+		case time.Duration:
+			if output.Durations == nil {
+				output.Durations = make(map[int32]time.Duration)
+			}
+			output.Durations[index] = t
+
+		case []byte:
+			if output.Bytes == nil {
+				output.Bytes = make(map[int32][]byte)
+			}
+			output.Bytes[index] = t
+
+		case StringMap:
+			sm := make(map[int32]int32, len(t.entries))
+			for smk, smv := range t.entries {
+				sm[ds.assignDictIndex(smk)] = ds.assignDictIndex(smv)
+			}
+
+			if output.StringMaps == nil {
+				output.StringMaps = make(map[int32]mixerpb.StringMap)
+			}
+			output.StringMaps[index] = mixerpb.StringMap{Entries: sm}
+
+		default:
+			panic(fmt.Errorf("cannot convert value:%v of type:%T", v, v))
+		}
+	}
+
+	output.Words = ds.getMessageWordList()
+}
+
+// GetBagFromProto returns an initialized bag from an Attribute proto.
+func GetBagFromProto(attrs *mixerpb.CompressedAttributes, globalWordList []string) (*MutableBag, error) {
+	mb := GetMutableBag(nil)
+	err := mb.UpdateBagFromProto(attrs, globalWordList)
+	if err != nil {
+		mb.Done()
+		return nil, err
+	}
+
+	return mb, nil
+}
+
+// add an attribute to the bag, guarding against duplicate names
+func (mb *MutableBag) insertProtoAttr(name string, value interface{},
+	seen map[string]struct{}, lg func(string, ...interface{})) error {
+
+	lg("    %s -> '%v'", name, value)
+	if _, duplicate := seen[name]; duplicate {
+		previous := mb.values[name]
+		return fmt.Errorf("duplicate attribute %s (type %T, was %T)", name, value, previous)
+	}
+	seen[name] = struct{}{}
+	mb.values[name] = value
+	return nil
+}
+
+// UpdateBagFromProto refreshes the bag based on the content of the attribute proto.
+//
+// Note that in the case of semantic errors in the supplied proto which leads to
+// an error return, it's likely that the bag will have been partially updated.
+func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.CompressedAttributes, globalWordList []string) error {
+	messageWordList := attrs.Words
+	var e error
+	var name string
+	var value string
+
+	// fail if the proto carries multiple attributes by the same name (but different types)
+	seen := make(map[string]struct{})
+
+	var buf *bytes.Buffer
+	lg := func(format string, args ...interface{}) {}
+
+	if scope.DebugEnabled() {
+		buf = pool.GetBuffer()
+		lg = func(format string, args ...interface{}) {
+			fmt.Fprintf(buf, format, args...)
+			buf.WriteString("\n")
+		}
+
+		defer func() {
+			if buf != nil {
+				scope.Debug(buf.String())
+				pool.PutBuffer(buf)
+			}
+		}()
+	}
+
+	lg("Updating bag from wire attributes:")
+
+	lg("  setting string attributes:")
+	for k, v := range attrs.Strings {
+		name, e = lookup(k, e, globalWordList, messageWordList)
+		value, e = lookup(v, e, globalWordList, messageWordList)
+
+		// this call cannot fail, given that this is the first map we're iterating through
+		_ = mb.insertProtoAttr(name, value, seen, lg)
+	}
+
+	lg("  setting int64 attributes:")
+	for k, v := range attrs.Int64S {
+		name, e = lookup(k, e, globalWordList, messageWordList)
+		if err := mb.insertProtoAttr(name, v, seen, lg); err != nil {
+			return err
+		}
+	}
+
+	lg("  setting double attributes:")
+	for k, v := range attrs.Doubles {
+		name, e = lookup(k, e, globalWordList, messageWordList)
+		if err := mb.insertProtoAttr(name, v, seen, lg); err != nil {
+			return err
+		}
+	}
+
+	lg("  setting bool attributes:")
+	for k, v := range attrs.Bools {
+		name, e = lookup(k, e, globalWordList, messageWordList)
+		if err := mb.insertProtoAttr(name, v, seen, lg); err != nil {
+			return err
+		}
+	}
+
+	lg("  setting timestamp attributes:")
+	for k, v := range attrs.Timestamps {
+		name, e = lookup(k, e, globalWordList, messageWordList)
+		if err := mb.insertProtoAttr(name, v, seen, lg); err != nil {
+			return err
+		}
+	}
+
+	lg("  setting duration attributes:")
+	for k, v := range attrs.Durations {
+		name, e = lookup(k, e, globalWordList, messageWordList)
+		if err := mb.insertProtoAttr(name, v, seen, lg); err != nil {
+			return err
+		}
+	}
+
+	lg("  setting bytes attributes:")
+	for k, v := range attrs.Bytes {
+		name, e = lookup(k, e, globalWordList, messageWordList)
+		if err := mb.insertProtoAttr(name, v, seen, lg); err != nil {
+			return err
+		}
+	}
+
+	lg("  setting string map attributes:")
+	for k, v := range attrs.StringMaps {
+		name, e = lookup(k, e, globalWordList, messageWordList)
+
+		sm := make(map[string]string, len(v.Entries))
+		for k2, v2 := range v.Entries {
+			var name2 string
+			var value2 string
+			name2, e = lookup(k2, e, globalWordList, messageWordList)
+			value2, e = lookup(v2, e, globalWordList, messageWordList)
+			sm[name2] = value2
+		}
+
+		v := StringMap{name: name, entries: sm}
+
+		if err := mb.insertProtoAttr(name, v, seen, lg); err != nil {
+			return err
+		}
+	}
+	return e
+}
+
+func lookup(index int32, err error, globalWordList []string, messageWordList []string) (string, error) {
+	if index < 0 {
+		slot := indexToSlot(index)
+		if slot < len(messageWordList) {
+			return messageWordList[slot], err
+		}
+	} else if index < int32(len(globalWordList)) {
+		return globalWordList[index], err
+	}
+
+	return "", me.Append(err, fmt.Errorf("attribute index %d is not defined in the available dictionaries", index))
+}
+
 // String prints out the attributes from the parent bag, then
 // walks through the local changes and prints them as well.
 func (mb *MutableBag) String() string {
@@ -224,9 +475,4 @@ func (mb *MutableBag) String() string {
 		fmt.Fprintf(buf, "%-30s: %v\n", key, mb.values[key])
 	}
 	return buf.String()
-}
-
-// ReferenceTracker keeps track of bag accesses (optionally)
-func (mb *MutableBag) ReferenceTracker() ReferenceTracker {
-	return nil
 }

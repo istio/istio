@@ -27,10 +27,13 @@ SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOTDIR=$(dirname "${SCRIPTPATH}")
 cd "${ROOTDIR}"
 
-git clone https://github.com/istio/common-files
-(
-cd common-files || exit
-git rev-parse HEAD >files/scripts/updatecommonfiles.latest
-)
-cp -r common-files/files/* common-files/files/.[^.]* .
-rm -fr common-files
+if [[ "$1" == "--fix" ]]
+then
+    FIX="--fix"
+fi
+
+# if you want to update this version, also change the version number in .golangci.yml
+GOLANGCI_VERSION="v1.16.0"
+curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b "$GOPATH"/bin "$GOLANGCI_VERSION"
+golangci-lint --version
+env GOGC=25 golangci-lint run ${FIX} -j 1 -v ./...

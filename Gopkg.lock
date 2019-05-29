@@ -1281,8 +1281,7 @@
   version = "v2.2.2"
 
 [[projects]]
-  branch = "master"
-  digest = "1:e59e2356a3d5235c7dd848b56a53ea4955adb8bf5184a950702504d2b6febf84"
+  digest = "1:8141d0bf696acabb350ddae4d7f1a7dcd5bff2b4317dc3a88ed0b9f3e7c1252b"
   name = "istio.io/pkg"
   packages = [
     "annotations",
@@ -1298,7 +1297,7 @@
     "version",
   ]
   pruneopts = "NT"
-  revision = "1fcd6eb90ce184b1084430fdf7804d8a41b88370"
+  revision = "9332430ad747c06f4e0c5e090d75db327bf9ca80"
 
 [[projects]]
   digest = "1:6fa82ea248029bbbdddade20c06ab177ff6e485e5e45e48b045707415b7efd34"

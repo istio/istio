@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// nolint
+//go:generate $GOPATH/src/istio.io/istio/mixer/bin/generate_word_list.py $GOPATH/src/istio.io/istio/vendor/istio.io/api/mixer/v1/global_dictionary.yaml list.gen.go
+
 // Package attribute is focused on enabling efficient handling and tracking of
-// attribute usage.
+// attribute usage within Mixer.
 package attribute

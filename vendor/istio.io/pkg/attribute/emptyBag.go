@@ -26,4 +26,3 @@ func (eb *emptyBag) Names() []string                     { return emptySlice }
 func (eb *emptyBag) Contains(key string) bool            { return false }
 func (eb *emptyBag) Done()                               {}
 func (eb *emptyBag) String() string                      { return "" }
-func (eb *emptyBag) ReferenceTracker() ReferenceTracker  { return nil }

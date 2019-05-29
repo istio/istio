@@ -1,6 +1,6 @@
 # Bugs and Feature Requests
 
-You can report bugs and feature requests to the Istio team is one of three places:
+You can report bugs and feature requests to the Istio team in one of three places:
 
 - [Product Bugs and Feature Requests](https://github.com/istio/istio/issues)
 - [Documentation Bugs and Feature Requests](https://github.com/istio/istio.io/issues)
