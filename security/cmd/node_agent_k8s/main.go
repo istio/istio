@@ -126,8 +126,7 @@ var (
 
 	// rootCmd defines the command for node agent.
 	rootCmd = &cobra.Command{
-		Use:   "citadel-agent",
-		Short: "Citadel agent",
+		Use:   "nodeagent",
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
