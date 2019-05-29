@@ -42,9 +42,12 @@ var (
 // (3) valid kubernetes secret is provisioned, and gateway should terminate SSL connection successfully.
 
 // TestSingleTlsGateway_CredentialNotAvailable tests a single TLS ingress gateway with SDS enabled.
-// Verifies behavior when kubernetes secret is not provisioned, which means private key and server
-// certificate are not available. A valid kubernetes secret with key/cert is added later, and verifies
-// that SSL connection termination is working properly.
+// Verifies behavior in these scenarios.
+// (1) when kubernetes secret is not provisioned, which means private key and server certificate
+// are not available. Verifies that listener is not up and connection creation get rejected.
+// (2) A valid kubernetes secret with key/cert is added later, verifies that SSL connection termination is working properly.
+// (3) After key/cert rotation, client needs to pick new CA cert to complete SSL connection. Old CA
+// cert will cause the SSL connection fail.
 func TestSingleTlsGateway_CredentialNotAvailable(t *testing.T) {
 	framework.
 		NewTest(t).
@@ -87,7 +90,6 @@ func TestSingleTlsGateway_CredentialNotAvailable(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unable to retrieve 200 from product page at host %s: %v", host, err)
 			}
-
 		})
 }
 

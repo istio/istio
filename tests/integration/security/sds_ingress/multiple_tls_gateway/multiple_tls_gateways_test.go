@@ -71,6 +71,7 @@ func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 
 	ingressutil.CreateIngressKubeSecret(t, ctx, credNames, ingress.Tls, ingressutil.IngressCredentialA)
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertA})
+	// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 	time.Sleep(3 * time.Second)
 
 	for _, h := range hosts {

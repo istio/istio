@@ -77,6 +77,7 @@ func testMultiMtlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:
 		PrivateKey:  ingressutil.TLSClientKeyA,
 		Cert:  ingressutil.TLSClientCertA,
 	})
+	// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 	time.Sleep(3 * time.Second)
 
 	for _, h := range hosts {
