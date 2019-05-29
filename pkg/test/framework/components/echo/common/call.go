@@ -60,9 +60,8 @@ func CallEcho(c *client.Instance, opts *echo.CallOptions, outboundPortSelector O
 		Path:   opts.Path,
 	}
 	var urlStr string
-	if opts.NoEscapePath {
-		targetURL.Path = ""
-		urlStr = targetURL.String() + opts.Path
+	if opts.UseRawURL {
+		urlStr = fmt.Sprintf("%s://%s%s", string(opts.Scheme), net.JoinHostPort(opts.Host, strconv.Itoa(port)), opts.Path)
 	} else {
 		urlStr = targetURL.String()
 	}
