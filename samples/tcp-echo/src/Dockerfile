@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 # build a tcp-echo binary using the golang container
-FROM golang:1.11 as builder
+FROM golang:1.12 as builder
 WORKDIR /go/src/istio.io/tcp-echo-server/
 COPY main.go .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o tcp-echo main.go
