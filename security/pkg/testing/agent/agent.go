@@ -6,26 +6,15 @@ import (
 )
 
 var (
+	// serverOptions is the default testing options for creating a Citadel Agent instance.
 	serverOptions = sds.Options {
-		// WorkloadUDSPath is the unix domain socket through which SDS server communicates with workload proxies.
-		 WorkloadUDSPath: "unix:/var/run/sds",
-		//IngressGatewayUDSPath string
-
-		// CertFile is the path of Cert File for gRPC server TLS settings.
-		//CertFile string
-
-		// KeyFile is the path of Key File for gRPC server TLS settings.
-		//KeyFile string
-
-		// CAEndpoint is the CA endpoint to which node agent sends CSR request.
-		//CAEndpoint string
-
-		// The CA provider name.
-		//CAProviderName string
+		WorkloadUDSPath: "unix:/var/run/sds-place-holder",
+		CAEndpoint: "unix:/var/run/citadel-place-holder",
 		TrustDomain: "cluster.local",
 	}
 )
 
+// New creates a Citadel Agent testing instance.
 func New() error {
 	return fmt.Errorf("not implemetned yet")
 }
