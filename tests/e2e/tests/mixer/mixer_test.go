@@ -445,9 +445,14 @@ func setTestConfig() error {
 		tc.Kube.AppManager.AddApp(&demoApps[i])
 	}
 	mp := newPromProxy(tc.Kube.Namespace)
-	redis := &redisDeployment{}
 	tc.Cleanup.RegisterCleanable(mp)
-	tc.Cleanup.RegisterCleanable(redis)
+
+	// disabling redis per https://github.com/istio/istio/issues/14424
+	if false {
+		redis := &redisDeployment{}
+		tc.Cleanup.RegisterCleanable(redis)
+	}
+
 	return nil
 }
 
@@ -1325,10 +1330,12 @@ func queryValue(promAPI v1.API, query string) (float64, error) {
 }
 
 func TestRedisQuotaRollingWindow(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/14424")
 	testRedisQuota(t, redisQuotaRollingWindowRule)
 }
 
 func TestRedisQuotaFixedWindow(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/14424")
 	testRedisQuota(t, redisQuotaFixedWindowRule)
 }
 
