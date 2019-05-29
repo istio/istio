@@ -188,9 +188,9 @@ func LocalityLbWeightNormalize(endpoints []endpoint.LocalityLbEndpoints) []endpo
 
 // GetByAddress returns a listener by its address
 // TODO(mostrowski): consider passing map around to save iteration.
-func GetByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
+func GetByAddress(listeners []*xdsapi.Listener, addr core.Address) *xdsapi.Listener {
 	for _, listener := range listeners {
-		if listener != nil && listener.Address.String() == addr {
+		if listener != nil && listener.Address.Equal(addr) {
 			return listener
 		}
 	}

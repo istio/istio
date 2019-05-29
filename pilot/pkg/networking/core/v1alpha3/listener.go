@@ -1277,7 +1277,7 @@ func (configgen *ConfigGeneratorImpl) generateManagementListeners(node *model.Pr
 		// non overlapping listeners only.
 		for i := range mgmtListeners {
 			m := mgmtListeners[i]
-			l := util.GetByAddress(listeners, m.Address.String())
+			l := util.GetByAddress(listeners, m.Address)
 			if l != nil {
 				log.Warnf("Omitting listener for management address %s due to collision with service listener %s",
 					m.Name, l.Name)
