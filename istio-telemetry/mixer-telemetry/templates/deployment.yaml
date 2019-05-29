@@ -94,7 +94,7 @@ spec:
 {{- else }}
           - --configStoreURL=k8s://
 {{- end }}
-          - --configDefaultNamespace={{ .Values.global.configNamespace }}
+          - --configDefaultNamespace={{ .Values.global.telemetryNamespace }}
           {{- if .Values.mixer.adapters.useAdapterCRDs }}
           - --useAdapterCRDs=true
           {{- else }}
