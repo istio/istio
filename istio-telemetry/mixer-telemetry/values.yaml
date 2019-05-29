@@ -47,6 +47,9 @@ mixer:
     kubernetesenv:
       enabled: true
 
+    stackdriver:
+      enabled: false
+
     # Setting this to false sets the useAdapterCRDs mixer startup argument to false
     useAdapterCRDs: false
 
