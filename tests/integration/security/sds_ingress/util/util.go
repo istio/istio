@@ -24,7 +24,7 @@ const (
 	genericScrtKey = "key"
 	// The ID/name for the CA certificate in kubernetes generic secret.
 	genericScrtCaCert = "cacert"
-	TlsCert           = `-----BEGIN CERTIFICATE-----
+	TlsCertA          = `-----BEGIN CERTIFICATE-----
 MIIC8zCCAdugAwIBAgIRAP3c/nKjm5bIlq1JSAiH04swDQYJKoZIhvcNAQELBQAw
 GDEWMBQGA1UEChMNY2x1c3Rlci5sb2NhbDAeFw0xOTA1MjAwNDA1MThaFw0yNDA1
 MTgwNDA1MThaMBMxETAPBgNVBAoTCEp1anUgb3JnMIIBIjANBgkqhkiG9w0BAQEF
@@ -42,7 +42,7 @@ FWuGNFxRjvuVemlPW0ZkIeGEmWm69pJx0s+gIq45+91vS6bsKzw+bAgXFhOWnshU
 GL1kMpJO8kq5El4EQJg8deHScLuXno6vdjxKw1YfJNEyFJJ0tLbTB0cNLULnxC29
 sDAcimMwIw16gI611PSImGfkZ5WPEQueAzSBGeFOxibEPQ2nvh7h
 -----END CERTIFICATE-----`
-	TlsKey = `-----BEGIN RSA PRIVATE KEY-----
+	TlsKeyA = `-----BEGIN RSA PRIVATE KEY-----
 MIIEowIBAAKCAQEAuOntOWs+c5KjjwOlAFtsnhpxDNcnqPUq0+xq13XUvrjfaqBt
 vAqfVY3r4HTfO/FLsiTIbnhytMoVVpydUQTW2JdaoKi07RgN89/WoQeu+mZlF1Co
 3JjAxlxuDT8dGGJVrXo/KVAU+Yq55UWeUeRHh1Z3RdeyqlP3HcRaaVJ9L0Sw5WCJ
@@ -69,7 +69,7 @@ ZUAoDQKBgCa5QtsIsB3Pb1vLwtiVMzPEOsyhzCilIDwYdNnwYN/FUN/3x5XQa6Lk
 5q+J0E+l9i3Z4RSwcv8lvMDO+PQ0wje/sIFJYXDYdyHVjfjCw8VeMaX/lBCgqPPD
 37el6OwXaTiA3iMsMI7wxdYNatrTUH+WpfpOX24nu8wiFPWV4uog
 -----END RSA PRIVATE KEY-----`
-	CaCert = `-----BEGIN CERTIFICATE-----
+	CaCertA = `-----BEGIN CERTIFICATE-----
 MIIC3TCCAcWgAwIBAgIQS/dEZzWQWjY/u9UvprczZzANBgkqhkiG9w0BAQsFADAY
 MRYwFAYDVQQKEw1jbHVzdGVyLmxvY2FsMB4XDTE5MDUwODE2NDUwNVoXDTIwMDUw
 NzE2NDUwNVowGDEWMBQGA1UEChMNY2x1c3Rlci5sb2NhbDCCASIwDQYJKoZIhvcN
@@ -87,7 +87,87 @@ GKrZhCuiLpeR0mQ6TSW9GGIGsFizDccNmqXBtAWo2fthQ+Z/7hLj7GsQmUpk+6n+
 yQ2mq7pkOghaxpjrPFK1BJUTehTE/d7uz6C3bisQCtRUEI6vtk/WF4ZT6djSaMpx
 IQ0V5r5pTBIkjWHRrkrYTEs=
 -----END CERTIFICATE-----`
+	TlsCertB = `-----BEGIN CERTIFICATE-----
+MIIDFjCCAf6gAwIBAgIRAN/GwM061YoVYQjJskaHqp4wDQYJKoZIhvcNAQELBQAw
+GDEWMBQGA1UEChMNY2x1c3Rlci5sb2NhbDAeFw0xOTA0MjEwMTQzMzFaFw0yOTA0
+MTgwMTQzMzFaMBMxETAPBgNVBAoTCEp1anUgb3JnMIIBIjANBgkqhkiG9w0BAQEF
+AAOCAQ8AMIIBCgKCAQEA8Vcne4hySZSiYdehjQlqLPu63WlbzZl48C9XzC3lMj/c
+5efSFgPq9byMi9GvSSRn1fx6GoeqT9uK1LsNf0NCwOkmAbzv1tjGlVXU1PZxj8Rt
+Ox5gymdc/YaeGJUt1FA7ndWlsKxROMdKwXfZXbSqTnr+1ohmuH/rM6W9GHZjlxw4
+4+erWo0Pzm9/Q8yhM8qAh1VMqDbSG/TnsNKroIz4NN4cCCl3EFnMISdS4NJijbTE
+4Mdb3XZ2qvm2YZVQFkvoenDeZtM3TjFwl64Y4/myrbom/BYwRCEmk89cayv29pCv
+/0luA+dlN+fjYDKGwFzG9aV7fbbn4INbD1E8v88l3QIDAQABo2AwXjAOBgNVHQ8B
+Af8EBAMCBaAwDAYDVR0TAQH/BAIwADA+BgNVHREENzA1hjNzcGlmZmU6Ly9mb28t
+ZG9tYWluL25zL2Jhci1uYW1lc3BhY2Uvc2EvYmF6LWFjY291bnQwDQYJKoZIhvcN
+AQELBQADggEBACeCXuGb7z67l7927G3ser1XYW5p72P1ixb2Fpsh6Y4Ry1lhRtIQ
+pBYg41U+a7fMwtVkfKP+M+U0b/8pPfdvOy877mqAKByAmbF5B6/i3Dj83fdVBVyM
+enSHeUaeJEe7goGhPkuYvTg190eE898yae6PIdN9PQ7nVOW9bPA79FmndZLg/0a+
+YUCBXSQSlhMpVIAuYorOTlhpkcg5e80TfTNZ5r1y4MOH8UkTQaNbu9EGRbfhRx/p
+N5mU6UOLYrH4xJWwhbor0cSDiKwr11H5i7G1dreMX/oWURg61zEj+frTRmD4cXiz
+ks34RLGuoryBBoYftQ2Z/Jn5HjCnzkm/qtQ=
+-----END CERTIFICATE-----`
+	TlsKeyB = `-----BEGIN RSA PRIVATE KEY-----
+MIIEowIBAAKCAQEA8Vcne4hySZSiYdehjQlqLPu63WlbzZl48C9XzC3lMj/c5efS
+FgPq9byMi9GvSSRn1fx6GoeqT9uK1LsNf0NCwOkmAbzv1tjGlVXU1PZxj8RtOx5g
+ymdc/YaeGJUt1FA7ndWlsKxROMdKwXfZXbSqTnr+1ohmuH/rM6W9GHZjlxw44+er
+Wo0Pzm9/Q8yhM8qAh1VMqDbSG/TnsNKroIz4NN4cCCl3EFnMISdS4NJijbTE4Mdb
+3XZ2qvm2YZVQFkvoenDeZtM3TjFwl64Y4/myrbom/BYwRCEmk89cayv29pCv/0lu
+A+dlN+fjYDKGwFzG9aV7fbbn4INbD1E8v88l3QIDAQABAoIBAAID0266xRLWh1k1
+cYIEcJr/NQsGh1Ta8awLsSTMGKGdRTe0LPMFxa9B4OiFRSc2rcPsb4vg0xax7gxN
+otS2V+HVcH2g5AhmrJhwQYPPqkNkL/HyPyZMIPYgQBn+G4ZYxHlSYHzuS1/5JfzM
+hoeQ67/A/iIGEdl7fpgNS7FfF6tvdZFsSSiYzDt1XNYtgAypzUYaupgCCqbfGe8/
+zRXFQc2XM5ptJqD4iIklft4xjTgs5ANuIbrnHqt9fZK9/bpnbE1jJJN3G2kiLGkG
+DEzauG8WJdfzWnzhaBUoi6vBlB+Y8AMZx4Ixllr8d2HcPBOfMZRJiK0LxsD4TM1Z
+ISGpsu8CgYEA/RxVIMoiIHGz9h0gAQZgo73zWa/f7xxVt9nrzHaJYIV5V0kafbmV
+ODCly0WEUp1hMHKKdPMGDCyPe4N2Wm7lX6plUFKIEGwVAeiOiAr4KL2JWcRDlPJo
+eUFzbjifGvn+u88z4qw/EDUEnri/hKUnkqzHWA5M8QL/KDqfTEos3ysCgYEA9Bhs
+6v/KObX47AHx/0+3Fux4oDQBvRBsq5TmjzQlolyAXB5iTlr7FMCJAkEzW1CTvrNC
+DS/A2s7QCfHlqPkgzdVfjct0dcMJYqlLZMISK0kz4B7bDp3MgCRyx50HVxvPgTst
+MsXLehgaYb4p+QzPvUzKqUj+SwsvnyZyjZpwyxcCgYAhDEr9LgdIry/tKZ5dI+UI
+XCvjAPi/Mrbqe3SzTKLhTGwsfmoMEmguXwO2x8vgMZZYCgyT+otGmabeXKreYe5n
+EEuMMkp7wnD3v9KkZrJCN4UwiFS+pOwJMQeOU6xKjGu7P/GpXg4Z4qJIyxyOiDXj
+i9W3ZJ6dNWP1b7oO7vxu4wKBgQCZv8jbPMLkFvrzrUYAyvVIOyq/vgJaVD4e1Wtk
+SDRsUFeJrpm9QRFlwOCLywXOPrLRK5gvNiUDrcDcgsFl7YX8IKpPZhe1FWSUAI68
+qIFJQpKqWMUiL8Lf9BVYJlC5TYsmm1+c23mPLh9v8Zf+h1NSqUv91TxXiHQ2isEc
+8GqbgQKBgH29F9JIoHGnseOiaHtl6wJ1HgiFYMlpDkm+vpoY6ANBh3vn+3Toar06
+7ymVRYkJd+VMzDLvxcGazM0L9W1toKCQZtvSqFC0IWoCkOxbWXOGGGYvnQlnjOTq
+QeT4wjUtrpqi0UtSBmcPzlfavCU6LdMlTfQaJTSKBhphI1fYX3bX
+-----END RSA PRIVATE KEY-----`
+	CaCertB = `-----BEGIN CERTIFICATE-----
+MIIC3jCCAcagAwIBAgIRAKy6gtfNLI5YGd10eSc+C90wDQYJKoZIhvcNAQELBQAw
+GDEWMBQGA1UEChMNY2x1c3Rlci5sb2NhbDAeFw0xOTA0MTUxOTA3MjNaFw0yOTA0
+MTIxOTA3MjNaMBgxFjAUBgNVBAoTDWNsdXN0ZXIubG9jYWwwggEiMA0GCSqGSIb3
+DQEBAQUAA4IBDwAwggEKAoIBAQCz6+Y52zPwDQNshYdWkMr7eqCPNTfNyPWqAHH0
+G9Q7/Lt0O29xOBFsAiMzrGYzboXc7Nc4EJs+hpIrEuz+cUpqc/7THsyiEOHz0n+S
+bG97inkaVUccAzO39hwQh0ULsbOYOJBqw89Hi3DKPgIBH61Oa+6Z/+U9XjXoQ8ah
+Bd36efD7o1crgDh7AnQCZXo7JkOeEFwo39i0RIk1PmbuSMJZZbI2QJFxza+5voe3
+7iZ8Q2fk1SxW/71u4Q5kZfIIbzJcMr77N9J/yVHvh6zD7ovYZXZvO0UUzka1x2p+
+kYrFhTiQJHVBLaabjDTr91C76G0HZyQ9L4Op62D7Kq2fqXJ5AgMBAAGjIzAhMA4G
+A1UdDwEB/wQEAwICBDAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IB
+AQCvFc803CKFGuEObGrWBBTQiqRcbMnoiVPieRubvMLQwUQ+q6Vln8f1nuJYIm0u
+pPVw4A7qKzA1cnqswPAhTiVDgWVLZHzAa9U6nmhPqgyMszdoHheMX8JZrgBpkviy
+ogn79E51ywafTuQ5KHzqIdpoUHlxNE99owDQ3Lez2tVWLJjO9sdhDYUJLYgpCnvr
+FatenWY9f9d5Na+KLgWxSkg54mBhAF+HAT4feap1lSdumX4Y6oouufpbfz6B6nEh
+iymngayzaKLHK+n4ZVtk/VkGhY7OzvcR6MAXu0uBwEgwLo0AXW0Um5bGcpPdfRqn
+oke6Hv5bkEFTm2GJ7GXS/6Z9
+-----END CERTIFICATE-----`
 )
+
+type ingressCredential struct {
+	PrivateKey	string
+	ServerCert	string
+	CaCert		string
+}
+var IngressCredentialA = ingressCredential {
+	PrivateKey: TlsKeyA,
+	ServerCert: TlsCertA,
+	CaCert:		CaCertA,
+}
+var IngressCredentialB = ingressCredential {
+	PrivateKey: TlsKeyB,
+	ServerCert: TlsCertB,
+	CaCert:		CaCertB,
+}
 
 // CreateIngressKubeSecret reads credential names from credNames and create K8s secrets for
 // ingress gateway.
@@ -104,7 +184,7 @@ func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames 
 	// Create Kubernetes secret for ingress gateway
 	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
 	for _, cn := range credNames {
-		secret := createSecret(ingressType, cn, systemNS.Name())
+		secret := createSecret(ingressType, cn, systemNS.Name(), &IngressCredentialA)
 		err := kubeAccessor.CreateSecret(systemNS.Name(), secret)
 		if err != nil {
 			t.Errorf("Failed to create secret (error: %s)", err)
@@ -129,7 +209,7 @@ func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames 
 
 // createSecret creates a kubernetes secret which stores private key, server certificate for TLS ingress gateway.
 // For mTLS ingress gateway, createSecret adds ca certificate into the secret object.
-func createSecret(ingressType ingress.IgType, cn, ns string) *v1.Secret {
+func createSecret(ingressType ingress.IgType, cn, ns string, ic *ingressCredential) *v1.Secret {
 	if ingressType == ingress.Mtls {
 		return &v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -137,9 +217,9 @@ func createSecret(ingressType ingress.IgType, cn, ns string) *v1.Secret {
 				Namespace: ns,
 			},
 			Data: map[string][]byte{
-				genericScrtCert: []byte(TlsCert),
-				genericScrtKey:  []byte(TlsKey),
-				genericScrtCaCert: []byte(CaCert),
+				genericScrtCert: []byte(ic.ServerCert),
+				genericScrtKey:  []byte(ic.PrivateKey),
+				genericScrtCaCert: []byte(ic.CaCert),
 			},
 		}
 	}
@@ -149,8 +229,8 @@ func createSecret(ingressType ingress.IgType, cn, ns string) *v1.Secret {
 			Namespace: ns,
 		},
 		Data: map[string][]byte{
-			tlsScrtCert: []byte(TlsCert),
-			tlsScrtKey:  []byte(TlsKey),
+			tlsScrtCert: []byte(ic.ServerCert),
+			tlsScrtKey:  []byte(ic.PrivateKey),
 		},
 	}
 }
@@ -167,6 +247,8 @@ func VisitProductPage(ingress ingress.Instance, host string, timeout time.Durati
 		if status == wantStatus {
 			t.Logf("Got %d response from product page!", wantStatus)
 			return nil
+		} else {
+			t.Errorf("expected response code %d but got %d", wantStatus, status)
 		}
 
 		if time.Since(start) > timeout {
@@ -175,4 +257,8 @@ func VisitProductPage(ingress ingress.Instance, host string, timeout time.Durati
 
 		time.Sleep(3 * time.Second)
 	}
+}
+
+func RotateSecret(secretName string) {
+
 }

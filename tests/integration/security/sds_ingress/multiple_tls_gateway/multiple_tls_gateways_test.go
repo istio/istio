@@ -35,6 +35,9 @@ var (
 	hosts = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com"}
 )
 
+// testMultiTlsGateways deploys multiple TLS gateways with SDS enabled, and creates kubernetes that store
+// private key and server certificate for each TLS gateway. Verifies that all gateways are able to terminate
+// SSL connections successfully.
 func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:interfacer
 	t.Helper()
 
@@ -50,7 +53,6 @@ func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 	}
 	d := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
 
-
 	env.BookInfoRoot = path.Join(env.IstioRoot, "tests/integration/security/sds_ingress/")
 	var gatewayPath bookinfo.ConfigFile = "testdata/bookinfo-multiple-tls-gateways.yaml"
 	g.ApplyConfigOrFail(
@@ -59,7 +61,7 @@ func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 		gatewayPath.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
 
 	var virtualSvcPath bookinfo.ConfigFile = "testdata/bookinfo-multiple-virtualservices.yaml"
-	var destRulePath bookinfo.ConfigFile = "testdata/bookinfo-multiple-destinationrules.yaml"
+	var destRulePath bookinfo.ConfigFile = "testdata/bookinfo-productpage-destinationrule.yaml"
 	g.ApplyConfigOrFail(
 		t,
 		d.Namespace(),
@@ -67,7 +69,7 @@ func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 		virtualSvcPath.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
 
 	ingressutil.CreateIngressKubeSecret(t, ctx, credNames, ingress.Tls)
-	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCert})
+	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertA})
 	time.Sleep(3 * time.Second)
 
 	for _, h := range hosts {
@@ -83,6 +85,6 @@ func TestTlsGateways(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 			Run(func(ctx framework.TestContext) {
-			testMultiTlsGateways(t, ctx)
+				testMultiTlsGateways(t, ctx)
 			})
 }
