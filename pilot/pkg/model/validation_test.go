@@ -360,11 +360,52 @@ func TestLabelsValidate(t *testing.T) {
 }
 
 func TestValidateFQDN(t *testing.T) {
-	if ValidateFQDN(strings.Repeat("x", 256)) == nil {
-		t.Error("expected error on long FQDN")
+	tests := []struct {
+		fqdn  string
+		valid bool
+		name  string
+	}{
+		{
+			fqdn:  strings.Repeat("x", 256),
+			valid: false,
+			name:  "long FQDN",
+		},
+		{
+			fqdn:  "",
+			valid: false,
+			name:  "empty FQDN",
+		},
+		{
+			fqdn:  "istio.io",
+			valid: true,
+			name:  "standard FQDN",
+		},
+		{
+			fqdn:  "istio.io.",
+			valid: true,
+			name:  "unambiguous FQDN",
+		},
+		{
+			fqdn:  "istio-pilot.istio-system.svc.cluster.local",
+			valid: true,
+			name:  "standard kubernetes FQDN",
+		},
+		{
+			fqdn:  "istio-pilot.istio-system.svc.cluster.local.",
+			valid: true,
+			name:  "unambiguous kubernetes FQDN",
+		},
 	}
-	if ValidateFQDN("") == nil {
-		t.Error("expected error on empty FQDN")
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateFQDN(tt.fqdn)
+			valid := err == nil
+			if valid != tt.valid {
+				t.Errorf("Expected valid=%v, got valid=%v for %v", tt.valid, valid, tt.fqdn)
+			}
+		})
+
 	}
 }
 
