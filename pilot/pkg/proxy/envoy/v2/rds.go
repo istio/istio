@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/proto"
 )
 
-func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext) error {
+func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext, version string) error {
 	rawRoutes, err := s.generateRawRoutes(con, push)
 	if err != nil {
 		return err
@@ -42,7 +42,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext)
 		}
 	}
 
-	response := routeDiscoveryResponse(rawRoutes)
+	response := routeDiscoveryResponse(rawRoutes, version)
 	err = con.send(response)
 	if err != nil {
 		adsLog.Warnf("RDS: Send failure for node:%v: %v", con.modelNode.ID, err)
@@ -99,10 +99,10 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.Push
 	return rc, nil
 }
 
-func routeDiscoveryResponse(rs []*xdsapi.RouteConfiguration) *xdsapi.DiscoveryResponse {
+func routeDiscoveryResponse(rs []*xdsapi.RouteConfiguration, version string) *xdsapi.DiscoveryResponse {
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl:     RouteType,
-		VersionInfo: versionInfo(),
+		VersionInfo: version,
 		Nonce:       nonce(),
 	}
 	for _, rc := range rs {
