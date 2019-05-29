@@ -79,8 +79,32 @@ var _templatesArgsHtml = []byte(`{{ define "content" }}
 </table>
 
 <br>
+<button class="btn btn-istio" onclick="configreload()">Force config reload</button>
 
 {{ template "last-refresh" .}}
+
+<script>
+    "use strict"
+
+    function configreload() {
+        var url = window.location.protocol + "//" + window.location.host + "/argj/reloadconfig";
+
+        var ajax = new XMLHttpRequest();
+        ajax.onload = onload;
+        ajax.onerror = onerror;
+        ajax.open("PUT", url, true);
+        ajax.send();
+
+        function onload() {
+            console.log(url + " -> " + ajax.status)
+        }
+
+        function onerror(e) {
+            console.error(e);
+        }
+    }
+</script>
+
 {{ end }}
 `)
 
@@ -378,7 +402,7 @@ var _templatesMemHtml = []byte(`{{ define "content" }}
 
     <script>
         // we do this so there's a useful date in the table, which avoids things shifting around during initial paint
-        let d = new Date().toLocaleString();
+        var d = new Date().toLocaleString();
         document.getElementById("LastGC").innerText = d;
     </script>
 
@@ -414,20 +438,20 @@ var _templatesMemHtml = []byte(`{{ define "content" }}
 {{ template "last-refresh" .}}
 
 <script>
-    "use strict";
+    "use strict"
 
     function refreshMemStats() {
-        let url = window.location.protocol + "//" + window.location.host + "/memj/";
+        var url = window.location.protocol + "//" + window.location.host + "/memj/";
 
-        let ajax = new XMLHttpRequest();
+        var ajax = new XMLHttpRequest();
         ajax.onload = onload;
         ajax.onerror = onerror;
         ajax.open("GET", url, true);
         ajax.send();
 
         function onload() {
-            if (this.status === 200) { // request succeeded
-                let ms = JSON.parse(this.responseText);
+            if (this.status == 200) { // request succeeded
+                var ms = JSON.parse(this.responseText);
                 document.getElementById("HeapInuse").innerText = ms.HeapInuse.toLocaleString() + " bytes";
                 document.getElementById("TotalAlloc").innerText = ms.TotalAlloc.toLocaleString() + " bytes";
                 document.getElementById("Sys").innerText = ms.Sys.toLocaleString() + " bytes";
@@ -447,14 +471,14 @@ var _templatesMemHtml = []byte(`{{ define "content" }}
                 document.getElementById("NumGC").innerText = ms.NumGC.toLocaleString() + " GC cycles";
                 document.getElementById("NumForcedGC").innerText = ms.NumForcedGC.toLocaleString() + " GC cycles";
 
-                let d = new Date(ms.LastGC / 1000000).toLocaleString();
+                var d = new Date(ms.LastGC / 1000000).toLocaleString();
                 document.getElementById("LastGC").innerText = d;
 
-                let frac = ms.GCCPUFraction;
+                var frac = ms.GCCPUFraction;
                 if (frac < 0) {
                     frac = 0.0;
                 }
-                let percent = (frac * 100).toFixed(2);
+                var percent = (frac * 100).toFixed(2);
                 document.getElementById("GCCPUFraction").innerText = percent + "%";
 
                 updateRefreshTime();
@@ -467,9 +491,9 @@ var _templatesMemHtml = []byte(`{{ define "content" }}
     }
 
     function forceCollection() {
-        let url = window.location.protocol + "//" + window.location.host + "/memj/forcecollection";
+        var url = window.location.protocol + "//" + window.location.host + "/memj/forcecollection";
 
-        let ajax = new XMLHttpRequest();
+        var ajax = new XMLHttpRequest();
         ajax.onload = onload;
         ajax.onerror = onerror;
         ajax.open("PUT", url, true);
@@ -535,14 +559,14 @@ var _templatesMetricsHtml = []byte(`{{ define "content" }}
 {{ range . }}
     {{ if .Metrics }}
         <div class="card metric-card">
-            <div class="card-header metric-header" onclick="$('#{{.Name | normalize}}').collapse('toggle')" role="button" aria-expanded="false" aria-controls="{{.Name}}">
-                {{.Name}} - {{.Help}} [{{.Type}}]
+            <div class="card-header metric-header" onclick="$('#{{.Name}}').collapse('toggle')" role="button" aria-expanded="false" aria-controls="{{.Name}}">
+                {{.Name}} [{{.Type}}]</a>
             </div>
 
-            <div id="{{.Name | normalize }}" class="collapse">
+            <div id="{{.Name}}" class="collapse">
                 <div class="card-body metric-body">
                     <table class="metric-table">
-                        {{ if eq .Type "GAUGE" "COUNTER" "UNTYPED" "LASTVALUE" "COUNT" }}
+                        {{ if eq .Type "GAUGE" "COUNTER" "UNTYPED" }}
                             <thead>
                                 <tr>
                                     <th>Labels</th>
@@ -599,34 +623,34 @@ var _templatesMetricsHtml = []byte(`{{ define "content" }}
 {{ template "last-refresh" .}}
 
 <script>
-    "use strict";
+    "use strict"
 
     function refreshMetrics() {
-        let url = window.location.protocol + "//" + window.location.host + "/metricj/";
+        var url = window.location.protocol + "//" + window.location.host + "/metricj/";
 
-        let ajax = new XMLHttpRequest();
+        var ajax = new XMLHttpRequest();
         ajax.onload = onload;
         ajax.onerror = onerror;
         ajax.open("GET", url, true);
         ajax.send();
 
         function onload() {
-            if (this.status === 200) { // request succeeded
-                let families = JSON.parse(this.responseText);
+            if (this.status == 200) { // request succeeded
+                var families = JSON.parse(this.responseText);
 
-                for (let i = 0; i < families.length; i++) {
-                    let name = families[i].name;
-                    let div = document.getElementById(name);
+                for (var i = 0; i < families.length; i++) {
+                    var name = families[i].name;
+                    var div = document.getElementById(name);
 
                     if (div) {
-                        let tbody = div.getElementsByTagName("TBODY")[0];
-                        for (let j = 0; j < tbody.children.length; j++) {
-                            let tr = tbody.children[j];
-                            let labels_td = tr.children[0];
+                        var tbody = div.getElementsByTagName("TBODY")[0];
+                        for (var j = 0; j < tbody.children.length; j++) {
+                            var tr = tbody.children[j];
+                            var labels_td = tr.children[0];
 
-                            let labels = "";
+                            var labels = "";
                             if (families[i].metrics[j].labels) {
-                                for (let key in families[i].metrics[j].labels) {
+                                for (var key in families[i].metrics[j].labels) {
                                     if (labels.length > 0) {
                                         labels = labels + "<br>";
                                     }
@@ -637,18 +661,19 @@ var _templatesMetricsHtml = []byte(`{{ define "content" }}
 
                             labels_td.innerHTML = labels;
 
-                            if (families[i].metrics[j].value !== undefined) {
-                                let value_td = tr.children[1];
+                            if (families[i].metrics[j].value != undefined) {
+                                var value_td = tr.children[1];
                                 value_td.innerText = families[i].metrics[j].value;
                             } else {
-                                let count_td = tr.children[1];
-                                let sum_td = tr.children[2];
+                                var count_td = tr.children[1];
+                                var sum_td = tr.children[2];
                                 count_td.innerText = families[i].metrics[j].count;
                                 sum_td.innerText = families[i].metrics[j].sum;
                             }
                         }
                     }
                 }
+
 
                 updateRefreshTime();
             }
@@ -762,20 +787,20 @@ var _templatesProcHtml = []byte(`{{ define "content" }}
 {{ template "last-refresh" .}}
 
 <script>
-    "use strict";
+    "use strict"
 
     function refreshProcStats() {
-        let url = window.location.protocol + "//" + window.location.host + "/procj/";
+        var url = window.location.protocol + "//" + window.location.host + "/procj/";
 
-        let ajax = new XMLHttpRequest();
+        var ajax = new XMLHttpRequest();
         ajax.onload = onload;
         ajax.onerror = onerror;
         ajax.open("GET", url, true);
         ajax.send();
 
         function onload() {
-            if (this.status === 200) { // request succeeded
-                let pi = JSON.parse(this.responseText);
+            if (this.status == 200) { // request succeeded
+                var pi = JSON.parse(this.responseText);
                 document.getElementById("Threads").innerText = pi.threads;
                 document.getElementById("Goroutines").innerText = pi.goroutines;
 
@@ -881,24 +906,24 @@ var _templatesScopesHtml = []byte(`{{ define "content" }}
 {{ template "last-refresh" .}}
 
 <script>
-    "use strict";
+    "use strict"
 
     function refreshScopes() {
-        let url = window.location.protocol + "//" + window.location.host + "/scopej/";
+        var url = window.location.protocol + "//" + window.location.host + "/scopej/";
 
-        let ajax = new XMLHttpRequest();
+        var ajax = new XMLHttpRequest();
         ajax.onload = onload;
         ajax.onerror = onerror;
         ajax.open("GET", url, true);
         ajax.send();
 
         function onload() {
-            if (this.status === 200) { // request succeeded
-                let si = JSON.parse(this.responseText);
-                for (let i = 0; i < si.length; i++) {
-                    let info = si[i];
+            if (this.status == 200) { // request succeeded
+                var si = JSON.parse(this.responseText);
+                for (var i = 0; i < si.length; i++) {
+                    var info = si[i]
 
-                    let tr = document.getElementById(info.name);
+                    var tr = document.getElementById(info.name);
                     tr.querySelector("#outputLevel").innerText = info.output_level;
                     tr.querySelector("#stackTraceLevel").innerText = info.stack_trace_level;
                     tr.querySelector("#logCallers").checked = info.log_callers;
@@ -914,22 +939,22 @@ var _templatesScopesHtml = []byte(`{{ define "content" }}
     }
 
     function selectOutputLevel(element, level) {
-        let scope = element.parentElement.parentElement.parentElement.parentElement.id;
+        var scope = element.parentElement.parentElement.parentElement.parentElement.id;
 
-        let url = window.location.protocol + "//" + window.location.host + "/scopej/" + scope;
-        let ajax = new XMLHttpRequest();
+        var url = window.location.protocol + "//" + window.location.host + "/scopej/" + scope;
+        var ajax = new XMLHttpRequest();
         ajax.onload = onload;
         ajax.onerror = onerror;
         ajax.open("GET", url, true);
         ajax.send();
 
         function onload() {
-            if (this.status === 200) { // request succeeded
-                let si = JSON.parse(this.responseText);
+            if (this.status == 200) { // request succeeded
+                var si = JSON.parse(this.responseText);
                 si.output_level = level;
 
-                let url = window.location.protocol + "//" + window.location.host + "/scopej/" + scope;
-                let ajax = new XMLHttpRequest();
+                var url = window.location.protocol + "//" + window.location.host + "/scopej/" + scope;
+                var ajax = new XMLHttpRequest();
                 ajax.onload = onload2;
                 ajax.onerror = onerror;
                 ajax.open("PUT", url, true);
@@ -947,22 +972,22 @@ var _templatesScopesHtml = []byte(`{{ define "content" }}
     }
 
     function selectStackTraceLevel(element, level) {
-        let scope = element.parentElement.parentElement.parentElement.parentElement.id;
+        var scope = element.parentElement.parentElement.parentElement.parentElement.id;
 
-        let url = window.location.protocol + "//" + window.location.host + "/scopej/" + scope;
-        let ajax = new XMLHttpRequest();
+        var url = window.location.protocol + "//" + window.location.host + "/scopej/" + scope;
+        var ajax = new XMLHttpRequest();
         ajax.onload = onload;
         ajax.onerror = onerror;
         ajax.open("GET", url, true);
         ajax.send();
 
         function onload() {
-            if (this.status === 200) { // request succeeded
-                let si = JSON.parse(this.responseText);
+            if (this.status == 200) { // request succeeded
+                var si = JSON.parse(this.responseText);
                 si.stack_trace_level = level;
 
-                let url = window.location.protocol + "//" + window.location.host + "/scopej/" + scope;
-                let ajax = new XMLHttpRequest();
+                var url = window.location.protocol + "//" + window.location.host + "/scopej/" + scope;
+                var ajax = new XMLHttpRequest();
                 ajax.onload = onload2;
                 ajax.onerror = onerror;
                 ajax.open("PUT", url, true);
@@ -980,23 +1005,23 @@ var _templatesScopesHtml = []byte(`{{ define "content" }}
     }
 
     function toggleLogCallers(checkbox) {
-        let scope = checkbox.parentElement.parentElement.id;
-        let logCallers = checkbox.checked;
+        var scope = checkbox.parentElement.parentElement.id;
+        var logCallers = checkbox.checked;
 
-        let url = window.location.protocol + "//" + window.location.host + "/scopej/" + scope;
-        let ajax = new XMLHttpRequest();
+        var url = window.location.protocol + "//" + window.location.host + "/scopej/" + scope;
+        var ajax = new XMLHttpRequest();
         ajax.onload = onload;
         ajax.onerror = onerror;
         ajax.open("GET", url, true);
         ajax.send();
 
         function onload() {
-            if (this.status === 200) { // request succeeded
-                let si = JSON.parse(this.responseText);
+            if (this.status == 200) { // request succeeded
+                var si = JSON.parse(this.responseText);
                 si.log_callers = logCallers;
 
-                let url = window.location.protocol + "//" + window.location.host + "/scopej/" + scope;
-                let ajax = new XMLHttpRequest();
+                var url = window.location.protocol + "//" + window.location.host + "/scopej/" + scope;
+                var ajax = new XMLHttpRequest();
                 ajax.onload = onload2;
                 ajax.onerror = onerror;
                 ajax.open("PUT", url, true);
@@ -1041,17 +1066,17 @@ var _templatesSignalsHtml = []byte(`{{ define "content" }}
 </p>
 
 <br>
-<button class="btn btn-istio" onclick="sendSIGUSR1()">SIGUSR1</button>
+<button class="btn btn-istio" onclick="sendSIGUSR1()">SIGUSR1 (Reload Config)</button>
 
 {{ template "last-refresh" .}}
 
 <script>
-    "use strict";
+    "use strict"
 
     function sendSIGUSR1() {
-        let url = window.location.protocol + "//" + window.location.host + "/signalj/SIGUSR1";
+        var url = window.location.protocol + "//" + window.location.host + "/signalj/SIGUSR1";
 
-        let ajax = new XMLHttpRequest();
+        var ajax = new XMLHttpRequest();
         ajax.onload = onload;
         ajax.onerror = onerror;
         ajax.open("PUT", url, true);
@@ -1093,10 +1118,10 @@ var _templatesVersionHtml = []byte(`{{ define "content" }}
 
 <table>
     <thead>
-        <tr>
-            <th>Name</th>
-            <th>Value</th>
-        </tr>
+    <tr>
+        <th>Name</th>
+        <th>Value</th>
+    </tr>
     </thead>
 
     <tbody>

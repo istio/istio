@@ -21,11 +21,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -ex
+set -e
 
 SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOTDIR=$(dirname "${SCRIPTPATH}")
-
 cd "${ROOTDIR}"
 
 if [[ "$1" == "--fix" ]]
@@ -33,17 +32,16 @@ then
     FIX="--fix"
 fi
 
+echo 'Linting Go code...'
+scripts/run_golangci.sh
+echo 'Go code OK'
+
+echo 'Checking licenses...'
+scripts/check_license.sh
+echo 'Licenses OK'
+
 # run any specialized per-repo linters
 if test -f "${ROOTDIR}/repolinters.sh"
 then
     source "${ROOTDIR}/repolinters.sh"
 fi
-
-# if you want to update this version, also change the version number in .golangci.yml
-GOLANGCI_VERSION="v1.16.0"
-curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b "$GOPATH"/bin "$GOLANGCI_VERSION"
-golangci-lint --version
-
-echo 'Running golangci-lint ...'
-env GOGC=25 golangci-lint run ${FIX} -j 1 -v ./...
-

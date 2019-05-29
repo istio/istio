@@ -15,15 +15,11 @@
 package topics
 
 import (
-	"fmt"
 	"html/template"
 	"net/http"
-	"strings"
-	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/prom2json"
-	"go.opencensus.io/stats/view"
 
 	"istio.io/pkg/ctrlz/fw"
 	"istio.io/pkg/ctrlz/topics/assets"
@@ -68,70 +64,5 @@ func getMetricInfo() []*prom2json.Family {
 		result = append(result, prom2json.NewFamily(f))
 	}
 
-	// process any OpenCensus metrics and cram 'em into promjson.* data structures
-	knownViewLock.Lock()
-
-	for name, v := range knownViews {
-		if rows, err := view.RetrieveData(name); err == nil {
-			family := prom2json.Family{
-				Name:    name,
-				Help:    v.Description,
-				Type:    strings.ToUpper(v.Aggregation.Type.String()),
-				Metrics: make([]interface{}, 0),
-			}
-			result = append(result, &family)
-
-			for _, row := range rows {
-				labels := make(map[string]string)
-				for _, tag := range row.Tags {
-					labels[tag.Key.Name()] = tag.Value
-				}
-
-				var metric interface{}
-
-				switch d := row.Data.(type) {
-				case *view.LastValueData:
-					metric = &prom2json.Metric{
-						Labels: labels,
-						Value:  fmt.Sprintf("%v", d.Value),
-					}
-				case *view.CountData:
-					metric = &prom2json.Metric{
-						Labels: labels,
-						Value:  fmt.Sprintf("%v", d.Value),
-					}
-				case *view.SumData:
-					metric = &prom2json.Summary{
-						Labels: labels,
-						Sum:    fmt.Sprintf("%v", d.Value),
-					}
-				}
-
-				if metric != nil {
-					family.Metrics = append(family.Metrics, metric)
-				}
-			}
-		}
-	}
-	knownViewLock.Unlock()
-
 	return result
-}
-
-type exporter struct{}
-
-var (
-	knownViews    = make(map[string]*view.View)
-	knownViewLock sync.Mutex
-)
-
-// use this to keep track of all known OpenCensus views
-func (e *exporter) ExportView(vd *view.Data) {
-	knownViewLock.Lock()
-	knownViews[vd.View.Name] = vd.View
-	knownViewLock.Unlock()
-}
-
-func init() {
-	view.RegisterExporter(&exporter{})
 }

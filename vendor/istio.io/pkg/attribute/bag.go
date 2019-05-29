@@ -32,7 +32,7 @@ import (
 // - []byte (backed by a byte array)
 // - attribute.StringMap (backed by a map[string]string)
 //
-// Attribute value types are physical representation of the semantic attribute types.
+// Attribute value types are physical representation of the semantic Mixer types.
 // For example, IP addresses are represented as []byte.
 //
 // The following types are not fully implemented at the surface level:
@@ -51,9 +51,6 @@ type Bag interface {
 
 	// Done indicates the bag can be reclaimed.
 	Done()
-
-	// ReferenceTracker keeps track of bag accesses (optionally)
-	ReferenceTracker() ReferenceTracker
 }
 
 // Equal compares two attribute values.
