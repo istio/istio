@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/sds"
-	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -127,15 +126,14 @@ var (
 
 	// rootCmd defines the command for node agent.
 	rootCmd = &cobra.Command{
-		Use:   "nodeagent",
-		Short: "Node agent",
+		Use:   "citadel-agent",
+		Short: "Citadel agent",
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}
 
 			applyEnvVars(c)
-
 			gatewaySdsCacheOptions = workloadSdsCacheOptions
 
 			if err := validateOptions(); err != nil {
@@ -143,62 +141,17 @@ var (
 			}
 
 			stop := make(chan struct{})
-
-			workloadSecretCache, gatewaySecretCache := newSecretCache(serverOptions)
-			if workloadSecretCache != nil {
-				defer workloadSecretCache.Close()
-			}
-			if gatewaySecretCache != nil {
-				defer gatewaySecretCache.Close()
-			}
-
-			server, err := sds.NewServer(serverOptions, workloadSecretCache, gatewaySecretCache)
+			server, err := sds.NewServer(serverOptions, workloadSdsCacheOptions, gatewaySdsCacheOptions)
 			defer server.Stop()
 			if err != nil {
 				log.Errorf("failed to create sds service: %v", err)
 				return fmt.Errorf("failed to create sds service")
 			}
-
 			cmd.WaitSignal(stop)
-
 			return nil
 		},
 	}
 )
-
-// newSecretCache creates the cache for workload secrets and/or gateway secrets.
-// Although currently not used, Citadel Agent can serve both workload and gateway secrets at the same time.
-func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecretCache *cache.SecretCache) {
-	if serverOptions.EnableWorkloadSDS {
-		wSecretFetcher, err := secretfetcher.NewSecretFetcher(false, serverOptions.CAEndpoint,
-			serverOptions.CAProviderName, true, []byte(serverOptions.VaultTLSRootCert),
-			serverOptions.VaultAddress, serverOptions.VaultRole, serverOptions.VaultAuthPath,
-			serverOptions.VaultSignCsrPath)
-		if err != nil {
-			log.Errorf("failed to create secretFetcher for workload proxy: %v", err)
-			os.Exit(1)
-		}
-		workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
-		workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
-		workloadSecretCache = cache.NewSecretCache(wSecretFetcher, sds.NotifyProxy, workloadSdsCacheOptions)
-	} else {
-		workloadSecretCache = nil
-	}
-
-	if serverOptions.EnableIngressGatewaySDS {
-		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, "", "", false, nil, "", "", "", "")
-		if err != nil {
-			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
-			os.Exit(1)
-		}
-		gatewaySecretChan = make(chan struct{})
-		gSecretFetcher.Run(gatewaySecretChan)
-		gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, gatewaySdsCacheOptions)
-	} else {
-		gatewaySecretCache = nil
-	}
-	return workloadSecretCache, gatewaySecretCache
-}
 
 var (
 	pluginNamesEnv                     = env.RegisterStringVar(pluginNames, "", "").Get()

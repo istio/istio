@@ -16,6 +16,7 @@ package sds
 
 import (
 	"fmt"
+	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	"net"
 	"os"
 	"time"
@@ -100,8 +101,45 @@ type Server struct {
 	grpcGatewayServer  *grpc.Server
 }
 
+// newSecretCache creates the cache for workload secrets and/or gateway secrets.
+// Although currently not used, Citadel Agent can serve both workload and gateway secrets at the same time.
+func newSecretCache(serverOptions Options, workloadSdsCacheOptions cache.Options, gatewaySdsCacheOptions cache.Options) (
+	workloadSecretCache, gatewaySecretCache *cache.SecretCache) {
+	if serverOptions.EnableWorkloadSDS {
+		wSecretFetcher, err := secretfetcher.NewSecretFetcher(false, serverOptions.CAEndpoint,
+			serverOptions.CAProviderName, true, []byte(serverOptions.VaultTLSRootCert),
+			serverOptions.VaultAddress, serverOptions.VaultRole, serverOptions.VaultAuthPath,
+			serverOptions.VaultSignCsrPath)
+		if err != nil {
+			log.Errorf("failed to create secretFetcher for workload proxy: %v", err)
+			os.Exit(1)
+		}
+		workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
+		workloadSdsCacheOptions.Plugins = NewPlugins(serverOptions.PluginNames)
+		workloadSecretCache = cache.NewSecretCache(wSecretFetcher, NotifyProxy, workloadSdsCacheOptions)
+	} else {
+		workloadSecretCache = nil
+	}
+
+	if serverOptions.EnableIngressGatewaySDS {
+		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, "", "", false, nil, "", "", "", "")
+		if err != nil {
+			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
+			os.Exit(1)
+		}
+		gatewaySecretChan := make(chan struct{})
+		gSecretFetcher.Run(gatewaySecretChan)
+		gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, NotifyProxy, gatewaySdsCacheOptions)
+	} else {
+		gatewaySecretCache = nil
+	}
+	return workloadSecretCache, gatewaySecretCache
+}
+
+
 // NewServer creates and starts the Grpc server for SDS.
-func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.SecretManager) (*Server, error) {
+func NewServer(options Options, workloadSDSCacheOptions cache.Options, gatewaySdsCacheOptions cache.Options) (*Server, error) {
+	workloadSecretCache, gatewaySecretCache := newSecretCache(options, workloadSDSCacheOptions, gatewaySdsCacheOptions)
 	s := &Server{
 		workloadSds: newSDSService(workloadSecretCache, false, options.RecycleInterval),
 		gatewaySds:  newSDSService(gatewaySecretCache, true, options.RecycleInterval),
