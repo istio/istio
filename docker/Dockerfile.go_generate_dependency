@@ -2,7 +2,7 @@ FROM alpine:3.7 as go_generate_dependency_builder
 RUN apk add --no-cache build-base git
 
 RUN apk update
-RUN apk add --no-cache go>1.10
+RUN apk add --no-cache go>1.12
 ENV GOPATH=/go \
     PATH=/go/bin/:$PATH
 RUN go get -u -v \
