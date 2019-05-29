@@ -22,7 +22,7 @@ spec:
   spanName: request.path | &quot;/&quot;
   startTime: request.time
   endTime: response.time
-  clientSpan: (context.reporter.kind | &quot;inbound&quot;) == &quot;inbound&quot;
+  clientSpan: (context.reporter.kind | &quot;inbound&quot;) == &quot;outbound&quot;
   rewriteClientSpanId: false
   spanTags:
     http.method: request.method | &quot;&quot;
