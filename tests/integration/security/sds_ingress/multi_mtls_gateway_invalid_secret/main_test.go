@@ -38,17 +38,17 @@ func TestMain(m *testing.M) {
 		NewSuite("sds_ingress_multi_mtls_gateway_invalid_secret_test", m).
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
-			Setup(func(ctx resource.Context) (err error) {
-				if g, err = galley.New(ctx, galley.Config{}); err != nil {
-					return err
-				}
-				if p, err = pilot.New(ctx, pilot.Config{
-					Galley: g,
-				}); err != nil {
-					return err
-				}
-				return nil
-			}).
+		Setup(func(ctx resource.Context) (err error) {
+			if g, err = galley.New(ctx, galley.Config{}); err != nil {
+				return err
+			}
+			if p, err = pilot.New(ctx, pilot.Config{
+				Galley: g,
+			}); err != nil {
+				return err
+			}
+			return nil
+		}).
 		Run()
 
 }
