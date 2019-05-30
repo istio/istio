@@ -106,9 +106,12 @@ func getHTTPAddress(env *kube.Environment, cfg Config) (interface{}, bool, error
 
 // getHTTPSAddress returns the ingress gateway address for https requests.
 func getHTTPSAddress(env *kube.Environment, cfg Config) (interface{}, bool, error) {
+	if env.Settings().Minikube {
+		// TODO(JimmyCYJ): Add support into ingress package to fetch address in Minikube environment
+		return nil, false, fmt.Errorf("Fetching HTTPS address in Minikube is not implemented yet")
+	}
 	n := cfg.Istio.Settings().IngressNamespace
 
-	// Otherwise, get the load balancer IP.
 	svc, err := env.Accessor.GetService(n, serviceName)
 	if err != nil {
 		return nil, false, err
@@ -218,7 +221,7 @@ func (c *kubeComponent) createRequest(path, host string) (*http.Request, error) 
 	if err != nil {
 		return nil, err
 	}
-	if c.gatewayType != PlainText && host != "" {
+	if host != "" {
 		req.Host = host
 	}
 
