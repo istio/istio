@@ -303,6 +303,13 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 
 			return inject.IntoResourceFile(sidecarTemplate, valuesConfig, meshConfig, reader, writer)
 		},
+		PersistentPreRunE: func(c *cobra.Command, args []string) error {
+			// istioctl kube-inject is typically redirected to a .yaml file;
+			// the default for log messages should be stderr, not stdout
+			_ = c.Root().PersistentFlags().Set("log_target", "stderr")
+
+			return c.Parent().PersistentPreRunE(c, args)
+		},
 	}
 
 	injectCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfigFile", "",
