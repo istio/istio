@@ -60,7 +60,7 @@ func (c *GrpcConnection) SendCSR(req *pb.CsrRequest) (*pb.CsrResponse, error) {
 	return client.HandleCSR(context.Background(), req)
 }
 
-// Close closes the gRPC connection.
+// Stop closes the gRPC connection.
 func (c *GrpcConnection) Close() error {
 	return c.connection.Close()
 }

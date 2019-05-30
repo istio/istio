@@ -252,7 +252,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				// could connect again with updated token.
 				// When nodeagent stops stream by sending envoy error response, it's Ok not to remove secret
 				// from secret cache because cache has auto-evication.
-				log.Debugf("Close streaming for proxy %q connection %q", con.proxyID, con.conID)
+				log.Debugf("Stop streaming for proxy %q connection %q", con.proxyID, con.conID)
 				return fmt.Errorf("streaming for proxy %q connection %q closed", con.proxyID, con.conID)
 			}
 
@@ -291,6 +291,7 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 }
 
 func (s *sdsservice) Stop() {
+	s.st.Stop()
 	s.closing <- true
 }
 

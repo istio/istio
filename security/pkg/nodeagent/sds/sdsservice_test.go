@@ -489,3 +489,7 @@ func (ms *mockSecretStore) DeleteSecret(conID, resourceName string) {
 func (ms *mockSecretStore) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string) bool {
 	return false
 }
+
+func (ms *mockSecretStore) Stop() error {
+	return nil
+}

@@ -102,7 +102,7 @@ func TestWorkloadAgentGenerateSecret(t *testing.T) {
 	sc := NewSecretCache(fetcher, notifyCb, opt)
 	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
-		sc.Close()
+		sc.Stop()
 		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
@@ -198,7 +198,7 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 	sc := NewSecretCache(fetcher, notifyCb, opt)
 	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
-		sc.Close()
+		sc.Stop()
 		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
@@ -245,7 +245,7 @@ func TestGatewayAgentGenerateSecret(t *testing.T) {
 	fetcher := sc.fetcher
 	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
-		sc.Close()
+		sc.Stop()
 		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
@@ -374,7 +374,7 @@ func TestGatewayAgentGenerateSecretUsingFallbackSecret(t *testing.T) {
 	}
 	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
-		sc.Close()
+		sc.Stop()
 		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
@@ -575,7 +575,7 @@ func TestGatewayAgentDeleteSecret(t *testing.T) {
 	fetcher := sc.fetcher
 	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
-		sc.Close()
+		sc.Stop()
 		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
@@ -621,7 +621,7 @@ func TestGatewayAgentUpdateSecret(t *testing.T) {
 	fetcher := sc.fetcher
 	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
-		sc.Close()
+		sc.Stop()
 		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
@@ -725,7 +725,7 @@ func TestSetAlwaysValidTokenFlag(t *testing.T) {
 	}
 	sc := NewSecretCache(fetcher, notifyCb, opt)
 	defer func() {
-		sc.Close()
+		sc.Stop()
 	}()
 
 	checkBool(t, "isTokenExpired", sc.isTokenExpired(), false)

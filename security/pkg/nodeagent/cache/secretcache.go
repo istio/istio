@@ -122,6 +122,9 @@ type SecretManager interface {
 
 	// DeleteSecret deletes a secret by its key from cache.
 	DeleteSecret(connectionID, resourceName string)
+
+	// Stop stops the secret manager as clean up step.
+	Stop()
 }
 
 // ConnKey is the key of one SDS connection.
@@ -327,8 +330,8 @@ func (sc *SecretCache) callbackWithTimeout(connectionID string, secretName strin
 	}
 }
 
-// Close shuts down the secret cache.
-func (sc *SecretCache) Close() {
+// Stop shuts down the secret cache.
+func (sc *SecretCache) Stop() {
 	sc.closing <- true
 }
 
