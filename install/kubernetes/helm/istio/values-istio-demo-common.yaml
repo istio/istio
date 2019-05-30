@@ -4,14 +4,6 @@
 # Note: please only put common configuration for the demo profiles here.
 global:
   proxy:
-    init:
-      resources:
-        limits:
-          cpu: 100m
-          memory: 50Mi
-        requests:
-          cpu: 10m
-          memory: 10Mi
     accessLogFile: "/dev/stdout"
     resources:
       requests:
