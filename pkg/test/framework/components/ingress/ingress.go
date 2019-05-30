@@ -26,7 +26,7 @@ type IgType int
 
 const (
 	PlainText IgType = 0
-	Tls       IgType = 1
+	TLS       IgType = 1
 	Mtls      IgType = 2
 )
 
@@ -48,7 +48,7 @@ type Config struct {
 	IngressType IgType
 	CaCert      string
 	PrivateKey  string
-	Cert  string
+	Cert        string
 }
 
 // CallResponse is the result of a call made through Istio Ingress.

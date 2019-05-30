@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multiple_mtls_gateway
+package multiplemtlsgateway
 
 import (
 	"time"
@@ -29,7 +29,7 @@ import (
 var (
 	credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3",
 		"bookinfo-credential-4", "bookinfo-credential-5"}
-	hosts     = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com",
+	hosts = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com",
 		"bookinfo4.example.com", "bookinfo5.example.com"}
 )
 
@@ -55,7 +55,7 @@ func testMultiMtlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:
 		IngressType: ingress.Mtls,
 		CaCert:      ingressutil.CaCertA,
 		PrivateKey:  ingressutil.TLSClientKeyA,
-		Cert:  ingressutil.TLSClientCertA,
+		Cert:        ingressutil.TLSClientCertA,
 	})
 
 	for _, h := range hosts {

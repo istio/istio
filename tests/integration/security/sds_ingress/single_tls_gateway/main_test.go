@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package single_tls_gateway
+package singletlsgateway
 
 import (
 	"testing"

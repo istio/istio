@@ -12,18 +12,18 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package single_mtls_gateway
+package singlemtlsgateway
 
 import (
-"testing"
+	"testing"
 
-"istio.io/istio/pkg/test/framework"
-"istio.io/istio/pkg/test/framework/components/environment"
-"istio.io/istio/pkg/test/framework/components/galley"
-"istio.io/istio/pkg/test/framework/components/istio"
-"istio.io/istio/pkg/test/framework/components/pilot"
-"istio.io/istio/pkg/test/framework/label"
-"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/galley"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
@@ -61,4 +61,3 @@ func setupConfig(cfg *istio.Config) {
 	// TODO(https://github.com/istio/istio/issues/14084) remove this
 	cfg.Values["pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE"] = "0"
 }
-

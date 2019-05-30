@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multi_tls_gateway_invalid_secret
+package multitlsgatewayinvalidsecret
 
 import (
 	"time"
@@ -46,64 +46,64 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 				t.Skip("https://github.com/istio/istio/issues/14180")
 			}
 
-			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.SingleTLSGateway)
+			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.MultiTLSGateway)
 
 			// (1) Add invalid kubernetes secret with invalid private key.
-			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credNames[0]}, ingress.Tls,
+			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credNames[0]}, ingress.TLS,
 				ingressutil.IngressCredential{PrivateKey: "invalid", ServerCert: ingressutil.TLSServerCertA})
 			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 			time.Sleep(3 * time.Second)
-			ingA := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertA})
+			ingA := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.TLS, CaCert: ingressutil.CaCertA})
 			err := ingressutil.VisitProductPage(ingA, hosts[0], 30*time.Second,
-				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "connection reset by peer"}, t)
+				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "connection refused"}, t)
 			if err != nil {
 				t.Errorf("unable to retrieve 0 from product page at host %s: %v", hosts[0], err)
 			}
 
 			// (2) Add invalid kubernetes secret which has invalid server certificate.
-			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credNames[1]}, ingress.Tls,
+			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credNames[1]}, ingress.TLS,
 				ingressutil.IngressCredential{PrivateKey: ingressutil.TLSServerKeyA, ServerCert: "invalid"})
 			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 			time.Sleep(3 * time.Second)
-			ingB := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertA})
+			ingB := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.TLS, CaCert: ingressutil.CaCertA})
 			err = ingressutil.VisitProductPage(ingB, hosts[1], 30*time.Second,
-				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "connection reset by peer"}, t)
+				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "connection refused"}, t)
 			if err != nil {
 				t.Errorf("unable to retrieve 0 from product page at host %s: %v", hosts[1], err)
 			}
 
 			// (3) Add invalid kubernetes secret which has mis-matched private key and server certificate.
-			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credNames[2]}, ingress.Tls,
+			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credNames[2]}, ingress.TLS,
 				ingressutil.IngressCredential{PrivateKey: ingressutil.TLSServerKeyA, ServerCert: ingressutil.TLSServerCertB})
 			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 			time.Sleep(3 * time.Second)
-			ingC := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertA})
+			ingC := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.TLS, CaCert: ingressutil.CaCertA})
 			err = ingressutil.VisitProductPage(ingC, hosts[2], 30*time.Second,
-				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "connection reset by peer"}, t)
+				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "connection refused"}, t)
 			if err != nil {
 				t.Errorf("unable to retrieve 0 from product page at host %s: %v", hosts[2], err)
 			}
 
 			// (4) Add invalid kubernetes secret without private key.
-			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credNames[3]}, ingress.Tls,
+			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credNames[3]}, ingress.TLS,
 				ingressutil.IngressCredential{ServerCert: ingressutil.TLSServerCertA})
 			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 			time.Sleep(3 * time.Second)
-			ingD := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertA})
+			ingD := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.TLS, CaCert: ingressutil.CaCertA})
 			err = ingressutil.VisitProductPage(ingD, hosts[3], 30*time.Second,
-				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "connection reset by peer"}, t)
+				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "connection refused"}, t)
 			if err != nil {
 				t.Errorf("unable to retrieve 0 from product page at host %s: %v", hosts[3], err)
 			}
 
 			// (5) Add invalid kubernetes secret without server cert.
-			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credNames[4]}, ingress.Tls,
+			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credNames[4]}, ingress.TLS,
 				ingressutil.IngressCredential{PrivateKey: ingressutil.TLSServerKeyA})
 			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 			time.Sleep(3 * time.Second)
-			ingE := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertA})
+			ingE := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.TLS, CaCert: ingressutil.CaCertA})
 			err = ingressutil.VisitProductPage(ingE, hosts[4], 30*time.Second,
-				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "connection reset by peer"}, t)
+				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "connection refused"}, t)
 			if err != nil {
 				t.Errorf("unable to retrieve 0 from product page at host %s: %v", hosts[4], err)
 			}

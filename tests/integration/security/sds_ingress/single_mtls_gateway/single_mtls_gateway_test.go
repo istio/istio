@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package single_mtls_gateway
+package singlemtlsgateway
 
 import (
-"time"
+	"time"
 
-"istio.io/istio/pkg/test/framework"
-"istio.io/istio/pkg/test/framework/components/environment"
-"istio.io/istio/pkg/test/framework/components/environment/kube"
-"istio.io/istio/pkg/test/framework/components/ingress"
-ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/ingress"
+	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 
-"testing"
+	"testing"
 )
 
 var (
@@ -53,11 +53,11 @@ func TestSingleMTLSGateway_SecretRotation(t *testing.T) {
 
 			// Do not provide private key and server certificate for ingress gateway. Connection creation should fail.
 			ingA := ingress.NewOrFail(t, ctx, ingress.Config{
-				Istio: inst,
+				Istio:       inst,
 				IngressType: ingress.Mtls,
-				CaCert: ingressutil.CaCertA,
+				CaCert:      ingressutil.CaCertA,
 				PrivateKey:  ingressutil.TLSClientKeyA,
-				Cert:  ingressutil.TLSClientCertA,
+				Cert:        ingressutil.TLSClientCertA,
 			})
 			err := ingressutil.VisitProductPage(ingA, host, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "connection refused"}, t)
@@ -70,11 +70,11 @@ func TestSingleMTLSGateway_SecretRotation(t *testing.T) {
 			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 			time.Sleep(3 * time.Second)
 			ingB := ingress.NewOrFail(t, ctx, ingress.Config{
-				Istio: inst,
+				Istio:       inst,
 				IngressType: ingress.Mtls,
-				CaCert: ingressutil.CaCertA,
+				CaCert:      ingressutil.CaCertA,
 				PrivateKey:  ingressutil.TLSClientKeyA,
-				Cert:  ingressutil.TLSClientCertA,
+				Cert:        ingressutil.TLSClientCertA,
 			})
 			err = ingressutil.VisitProductPage(ingB, host, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
@@ -96,11 +96,11 @@ func TestSingleMTLSGateway_SecretRotation(t *testing.T) {
 
 			// Use new CA cert to set up SSL connection.
 			ingC := ingress.NewOrFail(t, ctx, ingress.Config{
-				Istio: inst,
+				Istio:       inst,
 				IngressType: ingress.Mtls,
-				CaCert: ingressutil.CaCertB,
+				CaCert:      ingressutil.CaCertB,
 				PrivateKey:  ingressutil.TLSClientKeyB,
-				Cert:  ingressutil.TLSClientCertB,
+				Cert:        ingressutil.TLSClientCertB,
 			})
 			err = ingressutil.VisitProductPage(ingC, host, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)

@@ -16,15 +16,16 @@ package util
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"path"
 	"strings"
 	"testing"
 	"time"
 
-	"k8s.io/api/core/v1"
+	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/bookinfo"
+	"istio.io/istio/pkg/test/framework/components/galley"
+
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework"
@@ -49,10 +50,10 @@ const (
 	// The ID/name for the CA certificate in kubernetes generic secret.
 	genericScrtCaCert = "cacert"
 
-	SingleTLSGateway	GatewayType = 0
-	SingleMTLSGateway	GatewayType = 1
-	MultiTLSGateway		GatewayType = 2
-	MultiMTLSGateway	GatewayType = 3
+	SingleTLSGateway  GatewayType = 0
+	SingleMTLSGateway GatewayType = 1
+	MultiTLSGateway   GatewayType = 2
+	MultiMTLSGateway  GatewayType = 3
 )
 
 type IngressCredential struct {
@@ -74,18 +75,18 @@ var IngressCredentialB = IngressCredential{
 
 // CreateIngressKubeSecret reads credential names from credNames and key/cert from ingressCred,
 // and creates K8s secrets for ingress gateway.
-func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames []string,
+func CreateIngressKubeSecret(t *testing.T, tctx framework.TestContext, credNames []string,
 	ingressType ingress.IgType, ingressCred IngressCredential) {
 	// Get namespace for ingress gateway pod.
-	istioCfg := istio.DefaultConfigOrFail(t, ctx)
-	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+	istioCfg := istio.DefaultConfigOrFail(t, tctx)
+	systemNS := namespace.ClaimOrFail(t, tctx, istioCfg.SystemNamespace)
 
 	if len(credNames) == 0 {
 		t.Log("no credential names are specified, skip creating ingress secret")
 		return
 	}
 	// Create Kubernetes secret for ingress gateway
-	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
+	kubeAccessor := tctx.Environment().(*kube.Environment).Accessor
 	for _, cn := range credNames {
 		secret := createSecret(ingressType, cn, systemNS.Name(), ingressCred)
 		err := kubeAccessor.CreateSecret(systemNS.Name(), secret)
@@ -242,7 +243,6 @@ func DeployBookinfo(t *testing.T, ctx framework.TestContext, g galley.Instance, 
 		t,
 		d.Namespace(),
 		gatewayPath.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
-
 
 	g.ApplyConfigOrFail(
 		t,

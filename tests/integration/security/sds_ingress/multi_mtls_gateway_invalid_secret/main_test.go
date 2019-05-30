@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package multipletlsgateway
+package multimtlsgatewayinvalidsecret
 
 import (
 	"testing"
@@ -33,22 +33,22 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	// Integration test for the ingress SDS multiple Gateway flow.
+	// Integration test for the ingress SDS Gateway flow.
 	framework.
-		NewSuite("sds_ingress_multiple_tls_gateways_test", m).
+		NewSuite("sds_ingress_multi_mtls_gateway_invalid_secret_test", m).
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
-		Setup(func(ctx resource.Context) (err error) {
-			if g, err = galley.New(ctx, galley.Config{}); err != nil {
-				return err
-			}
-			if p, err = pilot.New(ctx, pilot.Config{
-				Galley: g,
-			}); err != nil {
-				return err
-			}
-			return nil
-		}).
+			Setup(func(ctx resource.Context) (err error) {
+				if g, err = galley.New(ctx, galley.Config{}); err != nil {
+					return err
+				}
+				if p, err = pilot.New(ctx, pilot.Config{
+					Galley: g,
+				}); err != nil {
+					return err
+				}
+				return nil
+			}).
 		Run()
 
 }

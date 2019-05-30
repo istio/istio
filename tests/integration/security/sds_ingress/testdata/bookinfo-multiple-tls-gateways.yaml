@@ -73,18 +73,18 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  name: bookinfo-gateway-4
+  name: bookinfo-gateway-5
 spec:
   selector:
     istio: ingressgateway # use istio default ingress gateway
   servers:
     - port:
         number: 443
-        name: https-bookinfo-4
+        name: https-bookinfo-5
         protocol: HTTPS
       tls:
         mode: SIMPLE
-        credentialName: "bookinfo-credential-4" # must be the same as secret
+        credentialName: "bookinfo-credential-5" # must be the same as secret
       hosts:
-        - "bookinfo4.example.com"
+        - "bookinfo5.example.com"
 ---

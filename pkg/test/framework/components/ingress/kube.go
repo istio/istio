@@ -53,8 +53,8 @@ type kubeComponent struct {
 	tlsKey      string
 }
 
-// getHttpAddress returns the ingress gateway address for plain text http requests.
-func getHttpAddress(env *kube.Environment, cfg Config) (interface{}, bool, error) {
+// getHTTPAddress returns the ingress gateway address for plain text http requests.
+func getHTTPAddress(env *kube.Environment, cfg Config) (interface{}, bool, error) {
 	// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
 	// port.
 	n := cfg.Istio.Settings().IngressNamespace
@@ -104,8 +104,8 @@ func getHttpAddress(env *kube.Environment, cfg Config) (interface{}, bool, error
 	return fmt.Sprintf("http://%s", ip), true, nil
 }
 
-// getHttpsAddress returns the ingress gateway address for https requests.
-func getHttpsAddress(env *kube.Environment, cfg Config) (interface{}, bool, error) {
+// getHTTPSAddress returns the ingress gateway address for https requests.
+func getHTTPSAddress(env *kube.Environment, cfg Config) (interface{}, bool, error) {
 	n := cfg.Istio.Settings().IngressNamespace
 
 	// Otherwise, get the load balancer IP.
@@ -135,9 +135,9 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	address, err := retry.Do(func() (interface{}, bool, error) {
 
 		if cfg.IngressType == PlainText {
-			return getHttpAddress(env, cfg)
+			return getHTTPAddress(env, cfg)
 		}
-		return getHttpsAddress(env, cfg)
+		return getHTTPSAddress(env, cfg)
 	}, retryTimeout, retryDelay)
 
 	if err != nil {

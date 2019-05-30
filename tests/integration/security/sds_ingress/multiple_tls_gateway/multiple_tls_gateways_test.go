@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multiple_tls_gateway
+package multipletlsgateway
 
 import (
 	"time"
@@ -29,7 +29,7 @@ import (
 var (
 	credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3",
 		"bookinfo-credential-4", "bookinfo-credential-5"}
-	hosts     = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com",
+	hosts = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com",
 		"bookinfo4.example.com", "bookinfo5.example.com"}
 )
 
@@ -47,8 +47,8 @@ func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 
 	ingressutil.DeployBookinfo(t, ctx, g, ingressutil.MultiTLSGateway)
 
-	ingressutil.CreateIngressKubeSecret(t, ctx, credNames, ingress.Tls, ingressutil.IngressCredentialA)
-	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertA})
+	ingressutil.CreateIngressKubeSecret(t, ctx, credNames, ingress.TLS, ingressutil.IngressCredentialA)
+	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.TLS, CaCert: ingressutil.CaCertA})
 	// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 	time.Sleep(3 * time.Second)
 

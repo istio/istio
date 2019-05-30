@@ -12,18 +12,18 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package multi_tls_gateway_invalid_secret
+package multitlsgatewayinvalidsecret
 
 import (
-"testing"
+	"testing"
 
-"istio.io/istio/pkg/test/framework"
-"istio.io/istio/pkg/test/framework/components/environment"
-"istio.io/istio/pkg/test/framework/components/galley"
-"istio.io/istio/pkg/test/framework/components/istio"
-"istio.io/istio/pkg/test/framework/components/pilot"
-"istio.io/istio/pkg/test/framework/label"
-"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/galley"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (

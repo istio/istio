@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package single_tls_gateway
+package singletlsgateway
 
 import (
 	"time"
@@ -52,7 +52,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.SingleTLSGateway)
 
 			// Do not provide private key and server certificate for ingress gateway. Connection creation should fail.
-			ingA := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertA})
+			ingA := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.TLS, CaCert: ingressutil.CaCertA})
 			err := ingressutil.VisitProductPage(ingA, host, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "connection refused"}, t)
 			if err != nil {
@@ -60,10 +60,10 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 			}
 
 			// Add kubernetes secret to provision key/cert for ingress gateway.
-			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.Tls, ingressutil.IngressCredentialA)
+			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.TLS, ingressutil.IngressCredentialA)
 			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 			time.Sleep(3 * time.Second)
-			ingB := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertA})
+			ingB := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.TLS, CaCert: ingressutil.CaCertA})
 			err = ingressutil.VisitProductPage(ingB, host, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {
@@ -71,7 +71,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 			}
 
 			// key/cert rotation
-			ingressutil.RotateSecrets(t, ctx, credName, ingress.Tls, ingressutil.IngressCredentialB)
+			ingressutil.RotateSecrets(t, ctx, credName, ingress.TLS, ingressutil.IngressCredentialB)
 			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 			time.Sleep(3 * time.Second)
 
@@ -83,7 +83,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 			}
 
 			// Use new CA cert to set up SSL connection.
-			ingC := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertB})
+			ingC := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.TLS, CaCert: ingressutil.CaCertB})
 			err = ingressutil.VisitProductPage(ingC, host, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {
@@ -91,4 +91,3 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 			}
 		})
 }
-
