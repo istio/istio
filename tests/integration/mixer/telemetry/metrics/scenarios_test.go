@@ -215,6 +215,7 @@ func TestTcpMetric(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("mixer_telemetry_metrics", m).
+		RequireEnvironment(environment.Kube).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
 		Setup(testsetup).
 		Run()
