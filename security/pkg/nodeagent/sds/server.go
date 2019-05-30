@@ -16,10 +16,11 @@ package sds
 
 import (
 	"fmt"
-	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	"net"
 	"os"
 	"time"
+
+	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -135,7 +136,6 @@ func newSecretCache(serverOptions Options, workloadSdsCacheOptions cache.Options
 	}
 	return workloadSecretCache, gatewaySecretCache
 }
-
 
 // NewServer creates and starts the Grpc server for SDS.
 func NewServer(options Options, workloadSDSCacheOptions cache.Options, gatewaySdsCacheOptions cache.Options) (*Server, error) {
