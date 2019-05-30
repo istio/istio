@@ -16,6 +16,10 @@ package util
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/bookinfo"
+	"istio.io/istio/pkg/test/framework/components/galley"
+	"path"
 	"strings"
 	"testing"
 	"time"
@@ -30,6 +34,9 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
+// GatewayType defines type of bookinfo gateway
+type GatewayType int
+
 const (
 	// The ID/name for the certificate chain in kubernetes tls secret.
 	tlsScrtCert = "tls.crt"
@@ -41,20 +48,25 @@ const (
 	genericScrtKey = "key"
 	// The ID/name for the CA certificate in kubernetes generic secret.
 	genericScrtCaCert = "cacert"
+
+	SingleTLSGateway	GatewayType = 0
+	SingleMTLSGateway	GatewayType = 1
+	MultiTLSGateway		GatewayType = 2
+	MultiMTLSGateway	GatewayType = 3
 )
 
-type ingressCredential struct {
+type IngressCredential struct {
 	PrivateKey string
 	ServerCert string
 	CaCert     string
 }
 
-var IngressCredentialA = ingressCredential{
+var IngressCredentialA = IngressCredential{
 	PrivateKey: TLSServerKeyA,
 	ServerCert: TLSServerCertA,
 	CaCert:     CaCertA,
 }
-var IngressCredentialB = ingressCredential{
+var IngressCredentialB = IngressCredential{
 	PrivateKey: TLSServerKeyB,
 	ServerCert: TLSServerCertB,
 	CaCert:     CaCertB,
@@ -63,7 +75,7 @@ var IngressCredentialB = ingressCredential{
 // CreateIngressKubeSecret reads credential names from credNames and key/cert from ingressCred,
 // and creates K8s secrets for ingress gateway.
 func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames []string,
-	ingressType ingress.IgType, ingressCred ingressCredential) {
+	ingressType ingress.IgType, ingressCred IngressCredential) {
 	// Get namespace for ingress gateway pod.
 	istioCfg := istio.DefaultConfigOrFail(t, ctx)
 	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
@@ -100,7 +112,7 @@ func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames 
 
 // createSecret creates a kubernetes secret which stores private key, server certificate for TLS ingress gateway.
 // For mTLS ingress gateway, createSecret adds ca certificate into the secret object.
-func createSecret(ingressType ingress.IgType, cn, ns string, ic ingressCredential) *v1.Secret {
+func createSecret(ingressType ingress.IgType, cn, ns string, ic IngressCredential) *v1.Secret {
 	if ingressType == ingress.Mtls {
 		return &v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -151,7 +163,7 @@ func VisitProductPage(ingress ingress.Instance, host string, timeout time.Durati
 		} else if status != exRsp.ResponseCode {
 			t.Errorf("expected response code %d but got %d", exRsp.ResponseCode, status)
 		} else {
-			t.Errorf("expected response error message %d but got %d", exRsp.ErrorMessage, err.Error())
+			t.Errorf("expected response error message %s but got %s", exRsp.ErrorMessage, err.Error())
 		}
 
 		if time.Since(start) > timeout {
@@ -165,14 +177,14 @@ func VisitProductPage(ingress ingress.Instance, host string, timeout time.Durati
 // RotateSecrets deletes kubernetes secrets by name in credNames and creates same secrets using key/cert
 // from ingressCred.
 func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string,
-	ingressType ingress.IgType, ingressCred ingressCredential) {
+	ingressType ingress.IgType, ingressCred IngressCredential) {
 	istioCfg := istio.DefaultConfigOrFail(t, ctx)
 	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
 	for _, cn := range credNames {
 		err := kubeAccessor.DeleteSecret(systemNS.Name(), cn)
 		if err != nil {
-			t.Errorf("Failed to create secret (error: %s)", err)
+			t.Errorf("Failed to delete secret (error: %s)", err)
 		}
 	}
 	// Check if Kubernetes secret is deleted
@@ -193,4 +205,50 @@ func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string,
 	}
 
 	CreateIngressKubeSecret(t, ctx, credNames, ingressType, ingressCred)
+}
+
+// DeployBookinfo deploys bookinfo application, and deploys gateway with various type.
+func DeployBookinfo(t *testing.T, ctx framework.TestContext, g galley.Instance, gatewayType GatewayType) {
+	bookinfoNs, err := namespace.New(ctx, "istio-bookinfo", true)
+	if err != nil {
+		t.Fatalf("Could not create istio-bookinfo Namespace; err:%v", err)
+	}
+	d := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
+
+	env.BookInfoRoot = path.Join(env.IstioRoot, "tests/integration/security/sds_ingress/")
+	var gatewayPath, virtualSvcPath, destRulePath bookinfo.ConfigFile
+	switch gatewayType {
+	case SingleTLSGateway:
+		gatewayPath = "testdata/bookinfo-single-tls-gateway.yaml"
+		virtualSvcPath = "testdata/bookinfo-single-virtualservice.yaml"
+		destRulePath = "testdata/bookinfo-productpage-destinationrule.yaml"
+	case SingleMTLSGateway:
+		gatewayPath = "testdata/bookinfo-single-mtls-gateway.yaml"
+		virtualSvcPath = "testdata/bookinfo-single-virtualservice.yaml"
+		destRulePath = "testdata/bookinfo-productpage-destinationrule.yaml"
+	case MultiTLSGateway:
+		gatewayPath = "testdata/bookinfo-multiple-tls-gateways.yaml"
+		virtualSvcPath = "testdata/bookinfo-multiple-virtualservices.yaml"
+		destRulePath = "testdata/bookinfo-productpage-destinationrule.yaml"
+	case MultiMTLSGateway:
+		gatewayPath = "testdata/bookinfo-multiple-mtls-gateways.yaml"
+		virtualSvcPath = "testdata/bookinfo-multiple-virtualservices.yaml"
+		destRulePath = "testdata/bookinfo-productpage-destinationrule.yaml"
+	default:
+		t.Fatalf("Invalid gateway type for bookinfo")
+	}
+
+	g.ApplyConfigOrFail(
+		t,
+		d.Namespace(),
+		gatewayPath.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
+
+
+	g.ApplyConfigOrFail(
+		t,
+		d.Namespace(),
+		destRulePath.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+		virtualSvcPath.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
+	// Wait for deployment to complete
+	time.Sleep(3 * time.Second)
 }

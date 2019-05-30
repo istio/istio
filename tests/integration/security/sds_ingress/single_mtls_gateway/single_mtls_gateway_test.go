@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package single_tls_gateway
+package single_mtls_gateway
 
 import (
-	"time"
+"time"
 
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/ingress"
-	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
+"istio.io/istio/pkg/test/framework"
+"istio.io/istio/pkg/test/framework/components/environment"
+"istio.io/istio/pkg/test/framework/components/environment/kube"
+"istio.io/istio/pkg/test/framework/components/ingress"
+ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 
-	"testing"
+"testing"
 )
 
 var (
@@ -31,14 +31,14 @@ var (
 	host     = "bookinfo1.example.com"
 )
 
-// TestSingleTlsGateway_SecretRotation tests a single TLS ingress gateway with SDS enabled.
+// TestSingleMTLSGateway_SecretRotation tests a single mTLS ingress gateway with SDS enabled.
 // Verifies behavior in these scenarios.
 // (1) when kubernetes secret is not provisioned, which means private key and server certificate
 // are not available. Verifies that listener is not up and connection creation get rejected.
 // (2) A valid kubernetes secret with key/cert is added later, verifies that SSL connection termination is working properly.
 // (3) After key/cert rotation, client needs to pick new CA cert to complete SSL connection. Old CA
 // cert will cause the SSL connection fail.
-func TestSingleTlsGateway_SecretRotation(t *testing.T) {
+func TestSingleMTLSGateway_SecretRotation(t *testing.T) {
 	framework.
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
@@ -49,10 +49,16 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 				t.Skip("https://github.com/istio/istio/issues/14180")
 			}
 
-			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.SingleTLSGateway)
+			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.SingleMTLSGateway)
 
 			// Do not provide private key and server certificate for ingress gateway. Connection creation should fail.
-			ingA := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertA})
+			ingA := ingress.NewOrFail(t, ctx, ingress.Config{
+				Istio: inst,
+				IngressType: ingress.Mtls,
+				CaCert: ingressutil.CaCertA,
+				PrivateKey:  ingressutil.TLSClientKeyA,
+				Cert:  ingressutil.TLSClientCertA,
+			})
 			err := ingressutil.VisitProductPage(ingA, host, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "connection refused"}, t)
 			if err != nil {
@@ -60,10 +66,16 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 			}
 
 			// Add kubernetes secret to provision key/cert for ingress gateway.
-			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.Tls, ingressutil.IngressCredentialA)
+			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialA)
 			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 			time.Sleep(3 * time.Second)
-			ingB := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertA})
+			ingB := ingress.NewOrFail(t, ctx, ingress.Config{
+				Istio: inst,
+				IngressType: ingress.Mtls,
+				CaCert: ingressutil.CaCertA,
+				PrivateKey:  ingressutil.TLSClientKeyA,
+				Cert:  ingressutil.TLSClientCertA,
+			})
 			err = ingressutil.VisitProductPage(ingB, host, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {
@@ -71,7 +83,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 			}
 
 			// key/cert rotation
-			ingressutil.RotateSecrets(t, ctx, credName, ingress.Tls, ingressutil.IngressCredentialB)
+			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialB)
 			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 			time.Sleep(3 * time.Second)
 
@@ -83,7 +95,13 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 			}
 
 			// Use new CA cert to set up SSL connection.
-			ingC := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertB})
+			ingC := ingress.NewOrFail(t, ctx, ingress.Config{
+				Istio: inst,
+				IngressType: ingress.Mtls,
+				CaCert: ingressutil.CaCertB,
+				PrivateKey:  ingressutil.TLSClientKeyB,
+				Cert:  ingressutil.TLSClientCertB,
+			})
 			err = ingressutil.VisitProductPage(ingC, host, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {
@@ -91,4 +109,3 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 			}
 		})
 }
-

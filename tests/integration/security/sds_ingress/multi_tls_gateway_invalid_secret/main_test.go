@@ -12,18 +12,18 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package single_tls_gateway
+package multi_tls_gateway_invalid_secret
 
 import (
-	"testing"
+"testing"
 
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
+"istio.io/istio/pkg/test/framework"
+"istio.io/istio/pkg/test/framework/components/environment"
+"istio.io/istio/pkg/test/framework/components/galley"
+"istio.io/istio/pkg/test/framework/components/istio"
+"istio.io/istio/pkg/test/framework/components/pilot"
+"istio.io/istio/pkg/test/framework/label"
+"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
@@ -35,7 +35,7 @@ var (
 func TestMain(m *testing.M) {
 	// Integration test for the ingress SDS Gateway flow.
 	framework.
-		NewSuite("sds_ingress_single_tls_gateway_test", m).
+		NewSuite("sds_ingress_multi_tls_gateway_invalid_secret_test", m).
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {

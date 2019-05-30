@@ -1,12 +1,12 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: bookinfo4
+  name: bookinfo1
 spec:
   hosts:
-    - "bookinfo4.example.com"
+    - "bookinfo1.example.com"
   gateways:
-    - bookinfo-gateway-4
+    - bookinfo-gateway-1
   http:
     - match:
         - uri:

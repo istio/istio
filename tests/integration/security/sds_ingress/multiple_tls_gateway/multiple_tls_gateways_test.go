@@ -15,25 +15,22 @@
 package multiple_tls_gateway
 
 import (
-	"path"
 	"time"
 
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/bookinfo"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/ingress"
-	"istio.io/istio/pkg/test/framework/components/namespace"
-
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 
 	"testing"
 )
 
 var (
-	credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3"}
-	hosts     = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com"}
+	credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3",
+		"bookinfo-credential-4", "bookinfo-credential-5"}
+	hosts     = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com",
+		"bookinfo4.example.com", "bookinfo5.example.com"}
 )
 
 // testMultiTlsGateways deploys multiple TLS gateways with SDS enabled, and creates kubernetes that store
@@ -48,26 +45,7 @@ func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 		t.Skip("https://github.com/istio/istio/issues/14180")
 	}
 
-	bookinfoNs, err := namespace.New(ctx, "istio-bookinfo", true)
-	if err != nil {
-		t.Fatalf("Could not create istio-bookinfo Namespace; err:%v", err)
-	}
-	d := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
-
-	env.BookInfoRoot = path.Join(env.IstioRoot, "tests/integration/security/sds_ingress/")
-	var gatewayPath bookinfo.ConfigFile = "testdata/bookinfo-multiple-tls-gateways.yaml"
-	g.ApplyConfigOrFail(
-		t,
-		d.Namespace(),
-		gatewayPath.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
-
-	var virtualSvcPath bookinfo.ConfigFile = "testdata/bookinfo-multiple-virtualservices.yaml"
-	var destRulePath bookinfo.ConfigFile = "testdata/bookinfo-productpage-destinationrule.yaml"
-	g.ApplyConfigOrFail(
-		t,
-		d.Namespace(),
-		destRulePath.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-		virtualSvcPath.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
+	ingressutil.DeployBookinfo(t, ctx, g, ingressutil.MultiTLSGateway)
 
 	ingressutil.CreateIngressKubeSecret(t, ctx, credNames, ingress.Tls, ingressutil.IngressCredentialA)
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.Tls, CaCert: ingressutil.CaCertA})
@@ -75,7 +53,7 @@ func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 	time.Sleep(3 * time.Second)
 
 	for _, h := range hosts {
-		err = ingressutil.VisitProductPage(ing, h, 30*time.Second,
+		err := ingressutil.VisitProductPage(ing, h, 30*time.Second,
 			ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 		if err != nil {
 			t.Fatalf("unable to retrieve 200 from product page at host %s: %v", h, err)
