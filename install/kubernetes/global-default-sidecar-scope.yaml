@@ -2,6 +2,8 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: istio-config
+  labels:
+    istio-injection: disabled
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar

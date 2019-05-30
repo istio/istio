@@ -23,7 +23,8 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: "default"
-  namespace: {{ .Release.Namespace }}
+  namespace: istio-config 
+  # {{ .Values.global.configRootNamespace }}
   labels:
     app: {{ template "security.name" . }}
     chart: {{ template "security.chart" . }}
@@ -45,7 +46,8 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: "api-server"
-  namespace: {{ .Release.Namespace }}
+  namespace: istio-config
+  # {{ .Values.global.configRootNamespace }}
   labels:
     app: {{ template "security.name" . }}
     chart: {{ template "security.chart" . }}
