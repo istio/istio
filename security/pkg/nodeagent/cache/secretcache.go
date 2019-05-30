@@ -53,6 +53,11 @@ const (
 	// RootCertReqResourceName is resource name of discovery request for root certificate.
 	RootCertReqResourceName = "ROOTCA"
 
+	// WorkloadKeyCertResourceName is the resource name of the discovery request for workload
+	// identity.
+	// TODO: change all the pilot one reference definition here instead.
+	WorkloadKeyCertResourceName = "default"
+
 	// identityTemplate is the format template of identity in the CSR request.
 	identityTemplate = "spiffe://%s/ns/%s/sa/%s"
 
@@ -61,6 +66,10 @@ const (
 
 	// initialBackOffIntervalInMilliSec is the initial backoff time interval when hitting non-retryable error in CSR request.
 	initialBackOffIntervalInMilliSec = 50
+
+	// Timeout the K8s update/delete notification threads. This is to make sure to unblock the
+	// secret watch main thread in case those child threads got stuck due to any reason.
+	notifyK8sSecretTimeout = 30 * time.Second
 )
 
 type k8sJwtPayload struct {
@@ -298,6 +307,26 @@ func (sc *SecretCache) DeleteSecret(connectionID, resourceName string) {
 	sc.secrets.Delete(key)
 }
 
+func (sc *SecretCache) callbackWithTimeout(connectionID string, secretName string, secret *model.SecretItem) {
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		if sc.notifyCallback != nil {
+			if err := sc.notifyCallback(connectionID, secretName, secret); err != nil {
+				log.Errorf("Failed to notify secret change for proxy %q: %v", connectionID, err)
+			}
+		} else {
+			log.Warnf("secret cache notify callback isn't set")
+		}
+	}()
+	select {
+	case <-c:
+		return // completed normally
+	case <-time.After(notifyK8sSecretTimeout):
+		log.Warnf("Notify secret change for proxy %q got timeout", connectionID)
+	}
+}
+
 // Close shuts down the secret cache.
 func (sc *SecretCache) Close() {
 	sc.closing <- true
@@ -331,13 +360,7 @@ func (sc *SecretCache) DeleteK8sSecret(secretName string) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				if sc.notifyCallback != nil {
-					if err := sc.notifyCallback(connectionID, secretName, nil /*nil indicates close the streaming connection to proxy*/); err != nil {
-						log.Errorf("Failed to notify secret change for proxy %q: %v", connectionID, err)
-					}
-				} else {
-					log.Warn("secret cache notify callback isn't set")
-				}
+				sc.callbackWithTimeout(connectionID, secretName, nil /*nil indicates close the streaming connection to proxy*/)
 			}()
 			// Currently only one ingress gateway is running, therefore there is at most one cache entry.
 			// Stop the iteration once we have deleted that cache entry.
@@ -382,13 +405,7 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 					}
 				}
 				secretMap.Store(key, newSecret)
-				if sc.notifyCallback != nil {
-					if err := sc.notifyCallback(connectionID, secretName, newSecret); err != nil {
-						log.Errorf("Failed to notify secret change for proxy %q: %v", connectionID, err)
-					}
-				} else {
-					log.Warn("secret cache notify callback isn't set")
-				}
+				sc.callbackWithTimeout(connectionID, secretName, newSecret)
 			}()
 			// Currently only one ingress gateway is running, therefore there is at most one cache entry.
 			// Stop the iteration once we have updated that cache entry.
@@ -439,15 +456,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 				Version:      t.String(),
 			}
 			secretMap.Store(key, ns)
-
-			if sc.notifyCallback != nil {
-				// Push the updated root cert to client.
-				if err := sc.notifyCallback(connectionID, resourceName, ns); err != nil {
-					log.Errorf("Failed to notify for proxy %q for resource %q: %v", connectionID, resourceName, err)
-				}
-			} else {
-				log.Warn("secret cache notify callback isn't set")
-			}
+			sc.callbackWithTimeout(connectionID, resourceName, ns)
 
 			return true
 		}
@@ -473,13 +482,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			if sc.isTokenExpired() {
 				log.Debugf("Token for %q expired for proxy %q", resourceName, connectionID)
 
-				if sc.notifyCallback != nil {
-					if err := sc.notifyCallback(connectionID, resourceName, nil /*nil indicates close the streaming connection to proxy*/); err != nil {
-						log.Errorf("Failed to notify for proxy %q: %v", connectionID, err)
-					}
-				} else {
-					log.Warn("secret cache notify callback isn't set")
-				}
+				sc.callbackWithTimeout(key.ConnectionID, key.ResourceName, nil /*nil indicates close the streaming connection to proxy*/)
 
 				return true
 			}
@@ -500,13 +503,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 
 				secretMap.Store(key, ns)
 
-				if sc.notifyCallback != nil {
-					if err := sc.notifyCallback(connectionID, resourceName, ns); err != nil {
-						log.Errorf("Failed to notify secret change for proxy %q: %v", connectionID, err)
-					}
-				} else {
-					log.Warn("secret cache notify callback isn't set")
-				}
+				sc.callbackWithTimeout(connectionID, key.ResourceName, ns)
 
 			}()
 		}

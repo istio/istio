@@ -225,8 +225,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 					StatPrefix:       util.PassthroughCluster,
 					ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
 				}
-				setAccessLog(env, node, tcpProxy)
 			}
+
+			setAccessLog(env, node, tcpProxy)
+
 			var transparent *google_protobuf.BoolValue
 			if node.GetInterceptionMode() == model.InterceptionTproxy {
 				transparent = proto.BoolTrue
@@ -1436,6 +1438,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.HttpFilters = filters
 	connectionManager.StatPrefix = httpOpts.statPrefix
+	connectionManager.NormalizePath = proto.BoolTrue
 	if httpOpts.useRemoteAddress {
 		connectionManager.UseRemoteAddress = proto.BoolTrue
 	} else {
@@ -1461,6 +1464,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 					ConfigSourceSpecifier: &core.ConfigSource_Ads{
 						Ads: &core.AggregatedConfigSource{},
 					},
+					InitialFetchTimeout: pilot.InitialFetchTimeout,
 				},
 				RouteConfigName: httpOpts.rds,
 			},

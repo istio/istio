@@ -22,6 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/security/pkg/nodeagent/cache"
@@ -31,8 +32,6 @@ import (
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
-
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
 const (
@@ -108,6 +107,15 @@ const (
 	// example value format like "20m"
 	SecretRotationInterval     = "SECRET_JOB_RUN_INTERVAL"
 	secretRotationIntervalFlag = "secretRotationInterval"
+
+	// The environmental variable name for staled connection recycle job running interval.
+	// example value format like "5m"
+	staledConnectionRecycleInterval = "STALED_CONNECTION_RECYCLE_RUN_INTERVAL"
+
+	// The environmental variable name for the initial backoff in milliseconds.
+	// example value format like "10"
+	InitialBackoff     = "INITIAL_BACKOFF_MSEC"
+	InitialBackoffFlag = "initialBackoff"
 )
 
 var (
@@ -130,18 +138,8 @@ var (
 
 			gatewaySdsCacheOptions = workloadSdsCacheOptions
 
-			if serverOptions.EnableIngressGatewaySDS && serverOptions.EnableWorkloadSDS &&
-				serverOptions.IngressGatewayUDSPath == serverOptions.WorkloadUDSPath {
-				log.Error("UDS paths for ingress gateway and workload are the same")
-				os.Exit(1)
-			}
-			if serverOptions.CAProviderName == "" && serverOptions.EnableWorkloadSDS {
-				log.Error("CA Provider is missing")
-				os.Exit(1)
-			}
-			if serverOptions.CAEndpoint == "" && serverOptions.EnableWorkloadSDS {
-				log.Error("CA Endpoint is missing")
-				os.Exit(1)
+			if err := validateOptions(); err != nil {
+				return err
 			}
 
 			stop := make(chan struct{})
@@ -203,22 +201,24 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 }
 
 var (
-	pluginNamesEnv                = env.RegisterStringVar(pluginNames, "", "").Get()
-	enableWorkloadSDSEnv          = env.RegisterBoolVar(enableWorkloadSDS, true, "").Get()
-	enableIngressGatewaySDSEnv    = env.RegisterBoolVar(enableIngressGatewaySDS, false, "").Get()
-	alwaysValidTokenFlagEnv       = env.RegisterBoolVar(alwaysValidTokenFlag, false, "").Get()
-	skipValidateCertFlagEnv       = env.RegisterBoolVar(skipValidateCertFlag, false, "").Get()
-	caProviderEnv                 = env.RegisterStringVar(caProvider, "", "").Get()
-	caEndpointEnv                 = env.RegisterStringVar(caEndpoint, "", "").Get()
-	trustDomainEnv                = env.RegisterStringVar(trustDomain, "", "").Get()
-	vaultAddressEnv               = env.RegisterStringVar(vaultAddress, "", "").Get()
-	vaultRoleEnv                  = env.RegisterStringVar(vaultRole, "", "").Get()
-	vaultAuthPathEnv              = env.RegisterStringVar(vaultAuthPath, "", "").Get()
-	vaultSignCsrPathEnv           = env.RegisterStringVar(vaultSignCsrPath, "", "").Get()
-	vaultTLSRootCertEnv           = env.RegisterStringVar(vaultTLSRootCert, "", "").Get()
-	secretTTLEnv                  = env.RegisterDurationVar(secretTTL, 24*time.Hour, "").Get()
-	secretRefreshGraceDurationEnv = env.RegisterDurationVar(SecretRefreshGraceDuration, 1*time.Hour, "").Get()
-	secretRotationIntervalEnv     = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
+	pluginNamesEnv                     = env.RegisterStringVar(pluginNames, "", "").Get()
+	enableWorkloadSDSEnv               = env.RegisterBoolVar(enableWorkloadSDS, true, "").Get()
+	enableIngressGatewaySDSEnv         = env.RegisterBoolVar(enableIngressGatewaySDS, false, "").Get()
+	alwaysValidTokenFlagEnv            = env.RegisterBoolVar(alwaysValidTokenFlag, false, "").Get()
+	skipValidateCertFlagEnv            = env.RegisterBoolVar(skipValidateCertFlag, false, "").Get()
+	caProviderEnv                      = env.RegisterStringVar(caProvider, "", "").Get()
+	caEndpointEnv                      = env.RegisterStringVar(caEndpoint, "", "").Get()
+	trustDomainEnv                     = env.RegisterStringVar(trustDomain, "", "").Get()
+	vaultAddressEnv                    = env.RegisterStringVar(vaultAddress, "", "").Get()
+	vaultRoleEnv                       = env.RegisterStringVar(vaultRole, "", "").Get()
+	vaultAuthPathEnv                   = env.RegisterStringVar(vaultAuthPath, "", "").Get()
+	vaultSignCsrPathEnv                = env.RegisterStringVar(vaultSignCsrPath, "", "").Get()
+	vaultTLSRootCertEnv                = env.RegisterStringVar(vaultTLSRootCert, "", "").Get()
+	secretTTLEnv                       = env.RegisterDurationVar(secretTTL, 24*time.Hour, "").Get()
+	secretRefreshGraceDurationEnv      = env.RegisterDurationVar(SecretRefreshGraceDuration, 1*time.Hour, "").Get()
+	secretRotationIntervalEnv          = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
+	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute, "").Get()
+	initialBackoffEnv                  = env.RegisterIntVar(InitialBackoff, 10, "").Get()
 )
 
 func applyEnvVars(cmd *cobra.Command) {
@@ -285,10 +285,37 @@ func applyEnvVars(cmd *cobra.Command) {
 	if !cmd.Flag(skipValidateCertFlag).Changed {
 		workloadSdsCacheOptions.SkipValidateCert = skipValidateCertFlagEnv
 	}
+
+	serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
+
+	if !cmd.Flag(InitialBackoffFlag).Changed {
+		workloadSdsCacheOptions.InitialBackoff = int64(initialBackoffEnv)
+	}
 }
 
-var defaultInitialBackoff = 10
-var initialBackoffEnvVar = env.RegisterIntVar("INITIAL_BACKOFF_MSEC", defaultInitialBackoff, "")
+func validateOptions() error {
+	// The initial backoff time (in millisec) is a random number between 0 and initBackoff.
+	// Default to 10, a valid range is [10, 120000].
+	initBackoff := workloadSdsCacheOptions.InitialBackoff
+	if initBackoff < 10 || initBackoff > 120000 {
+		return fmt.Errorf("initial backoff should be within range 10 to 120000, found: %d", initBackoff)
+	}
+
+	if serverOptions.EnableIngressGatewaySDS && serverOptions.EnableWorkloadSDS &&
+		serverOptions.IngressGatewayUDSPath == serverOptions.WorkloadUDSPath {
+		return fmt.Errorf("UDS paths for ingress gateway and workload cannot be the same: %s", serverOptions.IngressGatewayUDSPath)
+	}
+
+	if serverOptions.EnableWorkloadSDS {
+		if serverOptions.CAProviderName == "" {
+			return fmt.Errorf("CA provider cannot be empty when workload SDS is enabled")
+		}
+		if serverOptions.CAEndpoint == "" {
+			return fmt.Errorf("CA endpoint cannot be empty when workload SDS is enabled")
+		}
+	}
+	return nil
+}
 
 func main() {
 	rootCmd.PersistentFlags().BoolVar(&serverOptions.EnableWorkloadSDS, enableWorkloadSDSFlag,
@@ -321,15 +348,8 @@ func main() {
 	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.RotationInterval, secretRotationIntervalFlag,
 		10*time.Minute, "Secret rotation job running interval")
 
-	// The initial backoff time (in millisec) is a random number between 0 and initBackoff.
-	// Default to 10, a valid range is [10, 120000].
-	initBackoff := int64(initialBackoffEnvVar.Get())
-	if initBackoff < 10 || initBackoff > 120000 {
-		log.Errorf("INITIAL_BACKOFF_MSEC should be within range 10 to 120000")
-		os.Exit(1)
-	}
-	rootCmd.PersistentFlags().Int64Var(&workloadSdsCacheOptions.InitialBackoff, "initialBackoff",
-		initBackoff, "The initial backoff interval in milliseconds")
+	rootCmd.PersistentFlags().Int64Var(&workloadSdsCacheOptions.InitialBackoff, InitialBackoffFlag, 10,
+		"The initial backoff interval in milliseconds, must be within the range [10, 120000]")
 
 	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.EvictionDuration, "secretEvictionDuration",
 		24*time.Hour, "Secret eviction time duration")

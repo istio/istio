@@ -21,7 +21,11 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
+	"github.com/envoyproxy/go-control-plane/pkg/util"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -61,6 +65,33 @@ var (
 			Labels: nil,
 		},
 	}
+	virtualServiceSpec = &networking.VirtualService{
+		Hosts:    []string{"test.com"},
+		Gateways: []string{"mesh"},
+		Tcp: []*networking.TCPRoute{
+			{
+				Match: []*networking.L4MatchAttributes{
+					{
+						DestinationSubnets: []string{"10.10.0.0/24"},
+						Port:               8080,
+					},
+				},
+				Route: []*networking.RouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test.org",
+							Port: &networking.PortSelector{
+								Port: &networking.PortSelector_Number{
+									Number: 80,
+								},
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
 )
 
 func TestOutboundListenerConflict_HTTPWithCurrentTCP(t *testing.T) {
@@ -96,7 +127,7 @@ func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 		buildService("test3.com", "1.2.3.4", model.ProtocolTCP, tnow.Add(2*time.Second)),
 	}
 	p := &fakePlugin{}
-	listeners := buildOutboundListeners(p, nil, services...)
+	listeners := buildOutboundListeners(p, nil, nil, services...)
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
@@ -119,6 +150,49 @@ func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 	}
 }
 
+func TestOutboundListenerTCPWithVS(t *testing.T) {
+	tests := []struct {
+		name           string
+		CIDR           string
+		expectedChains int
+	}{
+		{
+			name:           "same CIDR",
+			CIDR:           "10.10.0.0/24",
+			expectedChains: 1,
+		},
+		{
+			name:           "different CIDR",
+			CIDR:           "10.10.10.0/24",
+			expectedChains: 2,
+		},
+	}
+	for _, tt := range tests {
+		services := []*model.Service{
+			buildService("test.com", tt.CIDR, model.ProtocolTCP, tnow),
+		}
+
+		p := &fakePlugin{}
+		virtualService := model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:      model.VirtualService.Type,
+				Version:   model.VirtualService.Version,
+				Name:      "test_vs",
+				Namespace: "default",
+			},
+			Spec: virtualServiceSpec,
+		}
+		listeners := buildOutboundListeners(p, nil, &virtualService, services...)
+
+		if len(listeners) != 1 {
+			t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+		}
+		// There should not be multiple filter chains with same CIDR match
+		if len(listeners[0].FilterChains) != tt.expectedChains {
+			t.Fatalf("test with %s expected %d filter chains, found %d", tt.name, tt.expectedChains, len(listeners[0].FilterChains))
+		}
+	}
+}
 func TestInboundListenerConfig_HTTP(t *testing.T) {
 	// Add a service and verify it's config
 	testInboundListenerConfig(t,
@@ -181,7 +255,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	oldestService := getOldestService(services...)
 
 	p := &fakePlugin{}
-	listeners := buildOutboundListeners(p, nil, services...)
+	listeners := buildOutboundListeners(p, nil, nil, services...)
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
@@ -219,6 +293,7 @@ func testInboundListenerConfig(t *testing.T, services ...*model.Service) {
 	verifyInboundHTTPListenerServerName(t, listeners[0])
 	if isHTTPListener(listeners[0]) {
 		verifyInboundHTTPListenerCertDetails(t, listeners[0])
+		verifyInboundHTTPListenerNormalizePath(t, listeners[0])
 	}
 
 	verifyInboundEnvoyListenerNumber(t, listeners[0])
@@ -333,7 +408,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 
 	defer os.Unsetenv("PILOT_ENABLE_MYSQL_FILTER")
 
-	listeners := buildOutboundListeners(p, sidecarConfig, services...)
+	listeners := buildOutboundListeners(p, sidecarConfig, nil, services...)
 	if len(listeners) != 3 {
 		t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
 	}
@@ -396,7 +471,7 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 			},
 		},
 	}
-	listeners := buildOutboundListeners(p, sidecarConfig, services...)
+	listeners := buildOutboundListeners(p, sidecarConfig, nil, services...)
 	if len(listeners) != 4 {
 		t.Fatalf("expected %d listeners, found %d", 4, len(listeners))
 	}
@@ -419,6 +494,23 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 		}
 		if expectedListenerType == "HTTP" && !isHTTPListener(listener) {
 			t.Fatalf("expected HTTP listener %s, but found TCP", listenerName)
+		}
+	}
+}
+
+func TestOutboundListenerAccessLogs(t *testing.T) {
+	t.Helper()
+	p := &fakePlugin{}
+	listeners := buildAllListeners(p, nil)
+	for _, l := range listeners {
+		if l.Name == "virtual" {
+			fc := &tcp_proxy.TcpProxy{}
+			if err := getFilterConfig(l.FilterChains[0].Filters[0], fc); err != nil {
+				t.Fatalf("failed to get TCP Proxy config: %s", err)
+			}
+			if fc.AccessLog == nil {
+				t.Fatal("expected access log configuration")
+			}
 		}
 	}
 }
@@ -509,6 +601,23 @@ func verifyInboundHTTPListenerCertDetails(t *testing.T, l *xdsapi.Listener) {
 	}
 }
 
+func verifyInboundHTTPListenerNormalizePath(t *testing.T, l *xdsapi.Listener) {
+	t.Helper()
+	if len(l.FilterChains) != 2 {
+		t.Fatalf("expected 2 filter chains, found %d", len(l.FilterChains))
+	}
+	fc := l.FilterChains[0]
+	if len(fc.Filters) != 1 {
+		t.Fatalf("expected 1 filter, found %d", len(fc.Filters))
+	}
+	f := fc.Filters[0]
+	config, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+	actual := config.Fields["normalize_path"].GetBoolValue()
+	if actual != true {
+		t.Errorf("expected HTTP listener with normalize_path set to true, found false")
+	}
+}
+
 func getOldestService(services ...*model.Service) *model.Service {
 	var oldestService *model.Service
 	for _, s := range services {
@@ -519,7 +628,7 @@ func getOldestService(services ...*model.Service) *model.Service {
 	return oldestService
 }
 
-func buildOutboundListeners(p plugin.Plugin, sidecarConfig *model.Config, services ...*model.Service) []*xdsapi.Listener {
+func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, services ...*model.Service) []*xdsapi.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
 	env := buildListenerEnv(services)
@@ -532,6 +641,47 @@ func buildOutboundListeners(p plugin.Plugin, sidecarConfig *model.Config, servic
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
+	}
+	listeners, err := configgen.buildSidecarListeners(&env, &proxy, env.PushContext)
+	if err != nil {
+		return nil
+	}
+
+	return listeners
+}
+
+func getFilterConfig(filter listener.Filter, out proto.Message) error {
+	switch c := filter.ConfigType.(type) {
+	case *listener.Filter_Config:
+		if err := util.StructToMessage(c.Config, out); err != nil {
+			return err
+		}
+	case *listener.Filter_TypedConfig:
+		if err := types.UnmarshalAny(c.TypedConfig, out); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func buildOutboundListeners(p plugin.Plugin, sidecarConfig *model.Config,
+	virtualService *model.Config, services ...*model.Service) []*xdsapi.Listener {
+	configgen := NewConfigGenerator([]plugin.Plugin{p})
+
+	env := buildListenerEnv(services)
+
+	if err := env.PushContext.InitContext(&env); err != nil {
+		return nil
+	}
+
+	if sidecarConfig == nil {
+		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
+	} else {
+		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
+	}
+
+	if virtualService != nil {
+		env.PushContext.AddVirtualServiceForTesting(virtualService)
 	}
 	return configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext, proxyInstances)
 }

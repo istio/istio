@@ -41,8 +41,7 @@ const (
 		"QemGyf2UB6QsuZLH+JFEZnzU859qURnNIITa1Wf4YUtka5Sp1kDnEll3\\\\nwj4IlXKU+Wl1CzxJyn4SSQAXy/" +
 		"Lb08ZKrF/YSzcIISnRX5j+wa8ApOSwwA/B7iaT\\\\nTWz1g+RlV9qHap70eIjPsQvb\\\\n-----END CERTIFICATE-----"
 
-	vaultAddr      = "https://34.83.129.211:8200"
-	excludeIPRange = "34.83.129.211/32"
+	vaultAddr = "https://34.83.129.211:8200"
 )
 
 var (
@@ -92,7 +91,6 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["nodeagent.env.VAULT_ROLE"] = "istio-cert"
 	cfg.Values["nodeagent.env.VAULT_SIGN_CSR_PATH"] = "istio_ca/sign/istio-pki-role"
 	cfg.Values["nodeagent.env.VAULT_TLS_ROOT_CERT"] = tlsRootCert
-	cfg.Values["global.proxy.excludeIPRanges"] = excludeIPRange
 
 	// TODO(https://github.com/istio/istio/issues/14084) remove this
 	cfg.Values["pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE"] = "0"

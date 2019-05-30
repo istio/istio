@@ -18,7 +18,7 @@
 //   spanName: request.path | "/"
 //   startTime: request.time
 //   endTime: response.time
-//   clientSpan: (context.reporter.kind | "inbound") == "inbound"
+//   clientSpan: (context.reporter.kind | "inbound") == "outbound"
 //   rewriteClientSpanId: false
 //   spanTags:
 //     http.method: request.method | ""

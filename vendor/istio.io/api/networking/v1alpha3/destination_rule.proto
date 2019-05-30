@@ -400,7 +400,7 @@ message ConnectionPoolSettings {
       google.protobuf.Duration interval = 3;
     };
 
-    // Maximum number of HTTP1 /TCP connections to a destination host.
+    // Maximum number of HTTP1 /TCP connections to a destination host. Default 1024.
     int32 max_connections = 1;
 
     // TCP connection timeout.

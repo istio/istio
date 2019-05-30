@@ -15,11 +15,14 @@
 package v1alpha3
 
 import (
+	"reflect"
+	"sort"
 	"strings"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/pkg/log"
 )
 
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
@@ -250,6 +253,17 @@ TcpLoop:
 					destinationCIDRs: virtualServiceDestinationSubnets,
 					networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort, config.ConfigMeta),
 				})
+
+				// If at this point there is a filter chain generated with the same CIDR match as the
+				// one that may be generated for the service as the default route, do not generate it.
+				// Otherwise, Envoy will complain about having filter chains with identical matches
+				// and will reject the config.
+				sort.Strings(virtualServiceDestinationSubnets)
+				sort.Strings(destinationCIDRs)
+				if reflect.DeepEqual(virtualServiceDestinationSubnets, destinationCIDRs) {
+					log.Warnf("Existing filter chain with same matching CIDR: %v.", destinationCIDRs)
+					defaultRouteAdded = true
+				}
 			}
 		}
 	}

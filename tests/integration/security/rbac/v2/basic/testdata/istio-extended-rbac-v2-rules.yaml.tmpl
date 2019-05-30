@@ -10,7 +10,7 @@
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
-  name: access-a-http
+  name: access-a
   namespace: {{ .RootNamespace }}
 spec:
   rules:
@@ -23,29 +23,29 @@ spec:
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
-  name: access-a-http
+  name: access-a
   namespace: {{ .Namespace }}
 spec:
   rules:
     - methods: ["GET"]
       paths: ["/good*"]
-    - constraints:
-      - key: "destination.port"
-        values: ["90"]
 ---
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: AuthorizationPolicy
 metadata:
-  name: authz-policy-access-a-http
+  name: authz-policy-access-a
   namespace: {{ .Namespace }}
 spec:
+  workload_selector:
+    labels:
+      app: a
   allow:
     - subjects:
       - names: ["cluster.local/ns/{{ .Namespace }}/sa/b"]
-      role: "/access-a-http"
+      role: "/access-a"
     - subjects:
       - names: ["cluster.local/ns/{{ .Namespace }}/sa/c"]
-      role: "access-a-http"
+      role: "access-a"
 ---
 
 # For service b, allow any user to access it with GET at any paths except /secret*

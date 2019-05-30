@@ -41,7 +41,7 @@ initWorkingDir: &initWorkingDir
     GOROOT=$(go env GOROOT)
     sudo rm -r $(go env GOROOT)
     sudo mkdir $GOROOT
-    curl https://dl.google.com/go/go1.10.4.linux-amd64.tar.gz | sudo tar xz -C $GOROOT --strip-components=1
+    curl https://dl.google.com/go/go1.12.5.linux-amd64.tar.gz | sudo tar xz -C $GOROOT --strip-components=1
 
 recordZeroExitCodeIfTestPassed: &recordZeroExitCodeIfTestPassed
   run:
@@ -279,44 +279,6 @@ jobs:
           command: |
             E2E_ARGS="--use_mcp=false" \
             make test/local/noauth/e2e_mixer_envoyv2
-      - <<: *recordZeroExitCodeIfTestPassed
-      - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *markJobFinishesOnGCS
-      - store_artifacts:
-          path: /home/circleci/logs
-      - store_artifacts:
-          path: /tmp
-      - store_test_results:
-          path: /go/out/tests
-
-  e2e-galley:
-    <<: *integrationDefaults
-    environment:
-            - KUBECONFIG: /go/out/minikube.conf
-            - TEST_ENV: minikube-none
-            - GOPATH: /go
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - <<: *markJobStartsOnGCS
-      - run: make sync
-      - run: bin/testEnvRootMinikube.sh start
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.all generate_e2e_yaml
-      - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
-      - run:
-          no_output_timeout: 20m
-          name: make e2e_galley
-          command: |
-            make test/local/e2e_galley
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
       - <<: *markJobFinishesOnGCS
@@ -730,9 +692,6 @@ workflows:
       - e2e-mixer-noauth-v1alpha3-v2-non-mcp:
           requires:
             - build
-      - e2e-galley:
-          requires:
-            - build
       - racetest:
           requires:
             - test
@@ -757,9 +716,6 @@ workflows:
       - test
       - codecov
       - e2e-mixer-noauth-v1alpha3-v2:
-          requires:
-            - build
-      - e2e-galley:
           requires:
             - build
       - e2e-simple:

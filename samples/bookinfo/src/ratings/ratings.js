@@ -106,31 +106,38 @@ dispatcher.onGet(/^\/ratings\/[0-9]*/, function (req, res) {
         database: 'test'
       })
 
-      connection.connect()
-      connection.query('SELECT Rating FROM ratings', function (err, results, fields) {
-        if (err) {
-          res.writeHead(500, {'Content-type': 'application/json'})
-          res.end(JSON.stringify({error: 'could not connect to ratings database'}))
-        } else {
-          if (results[0]) {
-            firstRating = results[0].Rating
+      connection.connect(function(err) {
+          if (err) {
+              res.end(JSON.stringify({error: 'could not connect to ratings database'}))
+              console.log(err)
+              return
           }
-          if (results[1]) {
-            secondRating = results[1].Rating
-          }
-          var result = {
-            id: productId,
-            ratings: {
-              Reviewer1: firstRating,
-              Reviewer2: secondRating
-            }
-          }
-          res.writeHead(200, {'Content-type': 'application/json'})
-          res.end(JSON.stringify(result))
-        }
+          connection.query('SELECT Rating FROM ratings', function (err, results, fields) {
+              if (err) {
+                  res.writeHead(500, {'Content-type': 'application/json'})
+                  res.end(JSON.stringify({error: 'could not perform select'}))
+                  console.log(err)
+              } else {
+                  if (results[0]) {
+                      firstRating = results[0].Rating
+                  }
+                  if (results[1]) {
+                      secondRating = results[1].Rating
+                  }
+                  var result = {
+                      id: productId,
+                      ratings: {
+                          Reviewer1: firstRating,
+                          Reviewer2: secondRating
+                      }
+                  }
+                  res.writeHead(200, {'Content-type': 'application/json'})
+                  res.end(JSON.stringify(result))
+              }
+          })
+          // close the connection
+          connection.end()
       })
-      // close connection in any case:
-      connection.end()
     } else {
       MongoClient.connect(url, function (err, db) {
         if (err) {

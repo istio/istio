@@ -576,6 +576,7 @@ spec:
           exact: jason
       uri:
         prefix: &quot;/ratings/v2/&quot;
+      ignoreUriCase: true
     route:
     - destination:
         host: ratings.prod.svc.cluster.local
@@ -606,6 +607,9 @@ values are case-sensitive and formatted as follows:</p>
 
 <li><p><code>regex: &quot;value&quot;</code> for ECMAscript style regex-based match</p></li>
 </ul>
+
+<p><strong>Note:</strong> Case-insensitive matching could be enabled via the
+<code>ignore_uri_case</code> flag.</p>
 
 </td>
 </tr>
@@ -728,6 +732,17 @@ independent of sourceLabels.</p>
   configuration will only match values like &ldquo;123&rdquo; but not &ldquo;a123&rdquo; or &ldquo;123a&rdquo;.</p>
 
 <p><strong>Note:</strong> <code>prefix</code> matching is currently not supported.</p>
+
+</td>
+</tr>
+<tr id="HTTPMatchRequest-ignore_uri_case">
+<td><code>ignoreUriCase</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Flag to specify whether the URI matching should be case-insensitive.</p>
+
+<p><strong>Note:</strong> The case will be ignored only in the case of <code>exact</code> and <code>prefix</code>
+URI matches.</p>
 
 </td>
 </tr>
