@@ -36,7 +36,7 @@ var (
 // testMultiTlsGateways deploys multiple TLS gateways with SDS enabled, and creates kubernetes that store
 // private key and server certificate for each TLS gateway. Verifies that all gateways are able to terminate
 // SSL connections successfully.
-func testMultiTlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:interfacer
+func testMultiTLSGateways(t *testing.T, ctx framework.TestContext) { // nolint:interfacer
 	t.Helper()
 
 	// TODO(JimmyCYJ): Add support into ingress package to test TLS/mTLS ingress gateway in Minikube
@@ -66,6 +66,6 @@ func TestTlsGateways(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			testMultiTlsGateways(t, ctx)
+			testMultiTLSGateways(t, ctx)
 		})
 }

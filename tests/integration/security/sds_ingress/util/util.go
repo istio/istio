@@ -75,18 +75,19 @@ var IngressCredentialB = IngressCredential{
 
 // CreateIngressKubeSecret reads credential names from credNames and key/cert from ingressCred,
 // and creates K8s secrets for ingress gateway.
-func CreateIngressKubeSecret(t *testing.T, tctx framework.TestContext, credNames []string,
+// nolint: interfacer
+func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames []string,
 	ingressType ingress.IgType, ingressCred IngressCredential) {
 	// Get namespace for ingress gateway pod.
-	istioCfg := istio.DefaultConfigOrFail(t, tctx)
-	systemNS := namespace.ClaimOrFail(t, tctx, istioCfg.SystemNamespace)
+	istioCfg := istio.DefaultConfigOrFail(t, ctx)
+	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 
 	if len(credNames) == 0 {
 		t.Log("no credential names are specified, skip creating ingress secret")
 		return
 	}
 	// Create Kubernetes secret for ingress gateway
-	kubeAccessor := tctx.Environment().(*kube.Environment).Accessor
+	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
 	for _, cn := range credNames {
 		secret := createSecret(ingressType, cn, systemNS.Name(), ingressCred)
 		err := kubeAccessor.CreateSecret(systemNS.Name(), secret)
@@ -209,6 +210,7 @@ func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string,
 }
 
 // DeployBookinfo deploys bookinfo application, and deploys gateway with various type.
+// nolint: interfacer
 func DeployBookinfo(t *testing.T, ctx framework.TestContext, g galley.Instance, gatewayType GatewayType) {
 	bookinfoNs, err := namespace.New(ctx, "istio-bookinfo", true)
 	if err != nil {
