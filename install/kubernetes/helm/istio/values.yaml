@@ -139,8 +139,8 @@ global:
     init:
       resources:
         limits:
-          cpu: 10m
-          memory: 10Mi
+          cpu: 100m
+          memory: 50Mi
         requests:
           cpu: 10m
           memory: 10Mi
