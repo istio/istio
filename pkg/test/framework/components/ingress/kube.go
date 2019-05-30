@@ -108,7 +108,7 @@ func getHTTPAddress(env *kube.Environment, cfg Config) (interface{}, bool, error
 func getHTTPSAddress(env *kube.Environment, cfg Config) (interface{}, bool, error) {
 	if env.Settings().Minikube {
 		// TODO(JimmyCYJ): Add support into ingress package to fetch address in Minikube environment
-		return nil, false, fmt.Errorf("Fetching HTTPS address in Minikube is not implemented yet")
+		return nil, false, fmt.Errorf("fetching HTTPS address in Minikube is not implemented yet")
 	}
 	n := cfg.Istio.Settings().IngressNamespace
 
