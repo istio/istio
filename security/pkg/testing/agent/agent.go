@@ -14,7 +14,7 @@ var (
 		TrustDomain:     "cluster.local",
 	}
 	workloadCacheOption = cache.Options{}
-	gatewayCacheOption = cache.Options{}
+	gatewayCacheOption  = cache.Options{}
 )
 
 // New creates a Citadel Agent testing instance.
