@@ -5,6 +5,7 @@ FROM ubuntu:bionic
 # Do not add more stuff to this list that isn't small or critically useful.
 # If you occasionally need something on the container do
 # sudo apt-get update && apt-get whichever
+
 RUN apt-get update && \
     apt-get install --no-install-recommends -y \
       curl \
@@ -17,6 +18,7 @@ RUN apt-get update && \
       net-tools \
       lsof \
       sudo && \
+      apt-get upgrade -y && \
       apt-get clean -y && \
       rm -rf /var/cache/debconf/* /var/lib/apt/lists/* \
         /var/log/* /tmp/*  /var/tmp/*
