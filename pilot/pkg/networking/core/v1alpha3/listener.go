@@ -1464,6 +1464,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 					ConfigSourceSpecifier: &core.ConfigSource_Ads{
 						Ads: &core.AggregatedConfigSource{},
 					},
+					InitialFetchTimeout: pilot.InitialFetchTimeout,
 				},
 				RouteConfigName: httpOpts.rds,
 			},
