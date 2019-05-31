@@ -76,6 +76,10 @@ func (p *Probe) checkInboundConfigured() error {
 
 // checkUpdated checks to make sure updates have been received from Pilot
 func (p *Probe) checkUpdated() error {
+	if p.receivedFirstUpdate {
+		return nil
+	}
+
 	s, err := util.GetStats(p.LocalHostAddr, p.AdminPort)
 	if err != nil {
 		return err
@@ -83,7 +87,7 @@ func (p *Probe) checkUpdated() error {
 
 	CDSUpdated := s.CDSUpdatesSuccess > 0 || s.CDSUpdatesRejection > 0
 	LDSUpdated := s.LDSUpdatesSuccess > 0 || s.LDSUpdatesRejection > 0
-	if (CDSUpdated && LDSUpdated) || p.receivedFirstUpdate {
+	if CDSUpdated && LDSUpdated {
 		p.receivedFirstUpdate = true
 		return nil
 	}
