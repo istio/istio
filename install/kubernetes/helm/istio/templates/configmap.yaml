@@ -20,16 +20,12 @@ data:
     {{- end }}
 
     {{- if .Values.mixer.telemetry.reportBatchMaxEntries }}
-    # Set reportBatchMaxEntries to 0 to use the default batching behavior. A positive
-    # value indicates the number of requests that are batched before telemetry data 
-    # is sent to the mixer server
+    # reportBatchMaxEntries is the number of requests batched before telemetry data is sent to the mixer server
     reportBatchMaxEntries: {{ .Values.mixer.telemetry.reportBatchMaxEntries }}
     {{- end }}
 
     {{- if .Values.mixer.telemetry.reportBatchMaxTime }}
-    # Set reportBatchMaxTime to 0 to use the default batching behavior. A positive time 
-    # value indicates the maximum wait time since the last request will telemetry data 
-    # be batched before being sent to the mixer server
+    # reportBatchMaxTime is the max wait time for a request before its telemetry data is sent to the mixer server
     reportBatchMaxTime: {{ .Values.mixer.telemetry.reportBatchMaxTime }}
     {{- end }}
 
