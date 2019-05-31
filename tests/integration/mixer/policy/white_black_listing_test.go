@@ -70,6 +70,7 @@ func TestWhiteListing(t *testing.T) {
 			t,
 			bookinfoNs,
 			bookinfo.PolicyDenyIPRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
+		util.AllowRuleSync(t)
 		// Verify you can't access productpage now.
 		util.SendTrafficAndWaitForExpectedStatus(ing, t, "Sending traffic...", "", 30, http.StatusForbidden)
 	})
