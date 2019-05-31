@@ -26,10 +26,11 @@ import (
 
 // Probe for readiness.
 type Probe struct {
-	LocalHostAddr    string
-	AdminPort        uint16
-	ApplicationPorts []uint16
-	NodeType         model.NodeType
+	LocalHostAddr       string
+	AdminPort           uint16
+	ApplicationPorts    []uint16
+	NodeType            model.NodeType
+	receivedFirstUpdate bool
 }
 
 // Check executes the probe and returns an error if the probe fails.
@@ -82,7 +83,8 @@ func (p *Probe) checkUpdated() error {
 
 	CDSUpdated := s.CDSUpdatesSuccess > 0 || s.CDSUpdatesRejection > 0
 	LDSUpdated := s.LDSUpdatesSuccess > 0 || s.LDSUpdatesRejection > 0
-	if CDSUpdated && LDSUpdated {
+	if (CDSUpdated && LDSUpdated) || p.receivedFirstUpdate {
+		p.receivedFirstUpdate = true
 		return nil
 	}
 
