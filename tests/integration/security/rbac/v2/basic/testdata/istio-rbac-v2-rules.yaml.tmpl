@@ -29,7 +29,7 @@ spec:
 ---
 
 # For service b, only allow authenticated user to access it with GET at any paths except /secret*
-# or only access it at tcp port 90.
+# or only access it at tcp port 9090.
 
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
@@ -41,7 +41,7 @@ spec:
       not_paths: ["/secret*"]
     - constraints:
         - key: "destination.port"
-          values: ["90"]
+          values: ["9090"]
 ---
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: AuthorizationPolicy
@@ -105,7 +105,7 @@ spec:
 
 # For service d:
 # * anyone can access it via HTTP requests
-# * no one can access TCP at port 90.
+# * no one can access TCP at port 9090.
 
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
@@ -114,7 +114,7 @@ metadata:
 spec:
   rules:
     - methods: ["*"]
-    - not_ports: [90]
+    - not_ports: [9090]
 ---
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: AuthorizationPolicy
