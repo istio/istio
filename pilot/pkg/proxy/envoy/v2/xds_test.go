@@ -106,7 +106,7 @@ func startEnvoy(t *testing.T) {
 		"NodeID":  nodeID,
 		"BaseDir": env.IstioSrc + "/tests/testdata/local",
 		// Same value used in the real template
-		"meta_json_str": fmt.Sprintf(`"BASE": "%s"`, env.IstioSrc+"/tests/testdata/local"),
+		"meta_json_str": fmt.Sprintf(`"BASE": "%s", ISTIO_PROXY_VERSION: 1.1.3`, env.IstioSrc+"/tests/testdata/local"),
 	}
 
 	// Mixer will push stats every 1 sec
@@ -324,7 +324,6 @@ func testPorts(base int) []*model.Port {
 
 // Test XDS with real envoy and with mixer.
 func TestEnvoy(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/13294")
 	_, tearDown := initLocalPilotTestEnv(t)
 	defer func() {
 		if testEnv != nil {
