@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -227,9 +228,10 @@ func TestValidateCommand(t *testing.T) {
 	defer closeUnsupportedKeyFile.Close()
 
 	cases := []struct {
-		name      string
-		args      []string
-		wantError bool
+		name           string
+		args           []string
+		wantError      bool
+		expectedRegexp *regexp.Regexp // Expected regexp output
 	}{
 		{
 			name:      "filename missing",
@@ -265,8 +267,10 @@ func TestValidateCommand(t *testing.T) {
 			wantError: true,
 		},
 		{
-			name:      "valid Kubernetes YAML",
-			args:      []string{"--filename", validKubernetesYAMLFile},
+			name: "valid Kubernetes YAML",
+			args: []string{"--filename", validKubernetesYAMLFile},
+			expectedRegexp: regexp.MustCompile(`^".*" is valid
+$`),
 			wantError: false,
 		},
 		{
@@ -294,6 +298,12 @@ func TestValidateCommand(t *testing.T) {
 			if (err != nil) != c.wantError {
 				tt.Errorf("unexpected validate return status: got %v want %v: \nerr=%v",
 					err != nil, c.wantError, err)
+			}
+
+			output := out.String()
+			if c.expectedRegexp != nil && !c.expectedRegexp.MatchString(output) {
+				t.Errorf("Output didn't match for 'istioctl %s'\n got %v\nwant: %v",
+					strings.Join(c.args, " "), output, c.expectedRegexp)
 			}
 		})
 	}
