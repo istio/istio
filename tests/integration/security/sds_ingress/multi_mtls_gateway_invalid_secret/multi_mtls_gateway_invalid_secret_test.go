@@ -26,13 +26,6 @@ import (
 	"testing"
 )
 
-var (
-	credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3",
-		"bookinfo-credential-4", "bookinfo-credential-5"}
-	hosts = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com",
-		"bookinfo4.example.com", "bookinfo5.example.com"}
-)
-
 // TestMultiMtlsGateway_InvalidSecret tests a single mTLS ingress gateway with SDS enabled. Creates kubernetes secret
 // with invalid key/cert and verify the behavior.
 func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
@@ -48,66 +41,89 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 
 			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.MultiMTLSGateway)
 
-			// (1) Add invalid kubernetes secret with invalid CA cert.
-			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credNames[0]}, ingress.Mtls,
-				ingressutil.IngressCredential{
-					PrivateKey: ingressutil.TLSServerKeyA,
-					ServerCert: ingressutil.TLSServerCertA,
-					CaCert:     "invalid",
-				})
-			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
-			time.Sleep(3 * time.Second)
-			ingA := ingress.NewOrFail(t, ctx, ingress.Config{
-				Istio:       inst,
-				IngressType: ingress.Mtls,
-				CaCert:      ingressutil.CaCertA,
-				PrivateKey:  ingressutil.TLSClientKeyA,
-				Cert:        ingressutil.TLSClientCertA,
-			})
-			err := ingressutil.VisitProductPage(ingA, hosts[0], 30*time.Second,
-				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "connection refused"}, t)
-			if err != nil {
-				t.Errorf("unable to retrieve 0 from product page at host %s: %v", hosts[0], err)
+			testCase := []struct {
+				name 											string
+				secretName 								string
+				ingressGatewayCredential 	ingressutil.IngressCredential
+				ingressConfig 						ingress.Config
+				hostName 									string
+				expectedResponse 					ingressutil.ExpectedResponse
+			}{
+				{
+					name: "mtls ingress gateway invalid CA cert",
+					secretName: "bookinfo-credential-1",
+					ingressGatewayCredential: ingressutil.IngressCredential{
+						PrivateKey: ingressutil.TLSServerKeyA,
+						ServerCert: ingressutil.TLSServerCertA,
+						CaCert:     "invalid",
+					},
+					ingressConfig: ingress.Config{
+						Istio:       inst,
+						IngressType: ingress.Mtls,
+						CaCert:      ingressutil.CaCertA,
+						PrivateKey:  ingressutil.TLSClientKeyA,
+						Cert:        ingressutil.TLSClientCertA,
+					},
+					hostName: "bookinfo1.example.com",
+					expectedResponse: ingressutil.ExpectedResponse{
+						ResponseCode: 0,
+						ErrorMessage: "connection refused",
+					},
+				},
+				{
+					name: "mtls ingress gateway no CA cert",
+					secretName: "bookinfo-credential-2",
+					ingressGatewayCredential: ingressutil.IngressCredential{
+						PrivateKey: ingressutil.TLSServerKeyA,
+						ServerCert: ingressutil.TLSServerCertA,
+					},
+					ingressConfig: ingress.Config{
+						Istio:       inst,
+						IngressType: ingress.Mtls,
+						CaCert:      ingressutil.CaCertA,
+						PrivateKey:  ingressutil.TLSClientKeyA,
+						Cert:        ingressutil.TLSClientCertA,
+					},
+					hostName: "bookinfo2.example.com",
+					expectedResponse: ingressutil.ExpectedResponse{
+						ResponseCode: 0,
+						ErrorMessage: "connection refused",
+					},
+				},
+				{
+					name: "mtls ingress gateway mismatched CA cert",
+					secretName: "bookinfo-credential-3",
+					ingressGatewayCredential: ingressutil.IngressCredential{
+						PrivateKey: ingressutil.TLSServerKeyA,
+						ServerCert: ingressutil.TLSServerCertA,
+						CaCert:     ingressutil.CaCertB,
+					},
+					ingressConfig: ingress.Config{
+						Istio:       inst,
+						IngressType: ingress.Mtls,
+						CaCert:      ingressutil.CaCertA,
+						PrivateKey:  ingressutil.TLSClientKeyA,
+						Cert:        ingressutil.TLSClientCertA,
+					},
+					hostName: "bookinfo3.example.com",
+					expectedResponse: ingressutil.ExpectedResponse{
+						ResponseCode: 0,
+						ErrorMessage: "connection refused",
+					},
+				},
 			}
 
-			// (2) Add invalid kubernetes secret which does not have CA certificate.
-			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credNames[1]}, ingress.Mtls,
-				ingressutil.IngressCredential{PrivateKey: ingressutil.TLSServerKeyA, ServerCert: ingressutil.TLSServerCertA})
-			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
-			time.Sleep(3 * time.Second)
-			ingB := ingress.NewOrFail(t, ctx, ingress.Config{
-				Istio:       inst,
-				IngressType: ingress.Mtls,
-				CaCert:      ingressutil.CaCertA,
-				PrivateKey:  ingressutil.TLSClientKeyA,
-				Cert:        ingressutil.TLSClientCertA,
-			})
-			err = ingressutil.VisitProductPage(ingB, hosts[1], 30*time.Second,
-				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "connection refused"}, t)
-			if err != nil {
-				t.Errorf("unable to retrieve 0 from product page at host %s: %v", hosts[1], err)
-			}
-
-			// (3) Add invalid kubernetes secret which has a CA certificate that could not verify client certificate
-			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credNames[2]}, ingress.Mtls,
-				ingressutil.IngressCredential{
-					PrivateKey: ingressutil.TLSServerKeyA,
-					ServerCert: ingressutil.TLSServerCertA,
-					CaCert:     ingressutil.CaCertB,
-				})
-			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
-			time.Sleep(3 * time.Second)
-			ingC := ingress.NewOrFail(t, ctx, ingress.Config{
-				Istio:       inst,
-				IngressType: ingress.Mtls,
-				CaCert:      ingressutil.CaCertA,
-				PrivateKey:  ingressutil.TLSClientKeyA,
-				Cert:        ingressutil.TLSClientCertA,
-			})
-			err = ingressutil.VisitProductPage(ingC, hosts[2], 30*time.Second,
-				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "connection refused"}, t)
-			if err != nil {
-				t.Errorf("unable to retrieve 0 from product page at host %s: %v", hosts[2], err)
+			for _, c := range testCase {
+				ingressutil.CreateIngressKubeSecret(t, ctx, []string{c.secretName}, ingress.Mtls,
+					c.ingressGatewayCredential)
+				// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
+				time.Sleep(3 * time.Second)
+				ing := ingress.NewOrFail(t, ctx, c.ingressConfig)
+				err := ingressutil.VisitProductPage(ing, c.hostName, 30*time.Second, c.expectedResponse, t)
+				if err != nil {
+					t.Errorf("test case %s: unable to retrieve %d from product page at host %s: %v",
+						c.name, c.expectedResponse.ResponseCode, c.hostName, err)
+				}
 			}
 		})
 }

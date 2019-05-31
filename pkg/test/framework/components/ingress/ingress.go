@@ -21,13 +21,13 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
-// IgType defines ingress gateway type
-type IgType int
+// IngressGatewayType defines ingress gateway type
+type IngressGatewayType int
 
 const (
-	PlainText IgType = 0
-	TLS       IgType = 1
-	Mtls      IgType = 2
+	PlainText IngressGatewayType = 0
+	TLS       IngressGatewayType = 1
+	Mtls      IngressGatewayType = 2
 )
 
 // Instance represents a deployed Ingress Gateway instance.
@@ -45,9 +45,14 @@ type Instance interface {
 
 type Config struct {
 	Istio       istio.Instance
-	IngressType IgType
+	// IngressType specifies the type of ingress gateway.
+	IngressType IngressGatewayType
+	// CaCert is inline base64 encoded root certificate that authenticates server certificate provided
+	// by ingress gateway.
 	CaCert      string
+	// PrivateKey is inline base64 encoded private key for test client.
 	PrivateKey  string
+	// Cert is inline base64 encoded certificate for test client.
 	Cert        string
 }
 

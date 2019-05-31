@@ -17,7 +17,6 @@ package ingress
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -47,7 +46,7 @@ var (
 type kubeComponent struct {
 	id          resource.ID
 	address     string
-	gatewayType IgType
+	gatewayType IngressGatewayType
 	caCert      string
 	tlsCert     string
 	tlsKey      string
@@ -66,13 +65,13 @@ func getHTTPAddress(env *kube.Environment, cfg Config) (interface{}, bool, error
 
 		scopes.Framework.Debugf("Querying ingress, pods:\n%v\n", pods)
 		if len(pods) == 0 {
-			return nil, false, errors.New("no ingress pod found")
+			return nil, false, fmt.Errorf("no ingress pod found")
 		}
 
 		scopes.Framework.Debugf("Found pod: \n%v\n", pods[0])
 		ip := pods[0].Status.HostIP
 		if ip == "" {
-			return nil, false, errors.New("no Host IP available on the ingress node yet")
+			return nil, false, fmt.Errorf("no Host IP available on the ingress node yet")
 		}
 
 		svc, err := env.Accessor.GetService(n, serviceName)
@@ -172,7 +171,7 @@ func (c *kubeComponent) createClient(host string) (*http.Client, error) {
 		roots := x509.NewCertPool()
 		ok := roots.AppendCertsFromPEM([]byte(c.caCert))
 		if !ok {
-			return nil, errors.New("failed to parse root certificate")
+			return nil, fmt.Errorf("failed to parse root certificate")
 		}
 		tlsConfig := &tls.Config{
 			RootCAs:    roots,
@@ -181,7 +180,7 @@ func (c *kubeComponent) createClient(host string) (*http.Client, error) {
 		if c.gatewayType == Mtls {
 			cer, err := tls.X509KeyPair([]byte(c.tlsCert), []byte(c.tlsKey))
 			if err != nil {
-				return nil, errors.New("failed to parse private key and server cert")
+				return nil, fmt.Errorf("failed to parse private key and server cert")
 			}
 			tlsConfig.Certificates = []tls.Certificate{cer}
 		}

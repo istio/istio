@@ -80,7 +80,7 @@ func TestIngressLoadBalancing(t *testing.T) {
 	)
 
 	prom := prometheus.NewOrFail(t, ctx)
-	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist, IngressType: ingress.PlainText})
+	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
 
 	rangeStart := time.Now()
 
