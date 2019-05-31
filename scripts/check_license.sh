@@ -34,7 +34,7 @@ if [[ $ADD_LICENSE == true ]]; then
 fi
 
 ret=0
-for fn in $(find "${ROOTDIR}" -type f \( -name '*.go' -o -name '*.cc' -o -name '*.h' \) | grep -v vendor | grep -v testdata); do
+for fn in $(find "${ROOTDIR}" -type f \( -name '*.go' -o -name '*.cc' -o -name '*.h' -o -name '*.proto' \) | grep -v vendor | grep -v testdata); do
   if [[ $fn == *.pb.go ]];then
     continue
   fi
