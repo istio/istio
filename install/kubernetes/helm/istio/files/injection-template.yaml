@@ -34,7 +34,10 @@ initContainers:
   {{ end -}}
   imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
 {{- if .Values.global.proxy.init.resources }}
-    {{ toYaml .Values.global.proxy.init.resources | indent 8 }}
+  resources:
+    {{ toYaml .Values.global.proxy.init.resources | indent 4 }}
+{{- else }}
+  resources: {}
 {{- end }}
   securityContext:
     runAsUser: 0
