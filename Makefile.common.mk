@@ -19,17 +19,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-lint:
-	@scripts/linters.sh
-
-fixlint:
-	@scripts/linters.sh --fix
-
-format:
-	@scripts/fmt.sh
-
-fmt:
-	@scripts/fmt.sh
-
 updatecommon:
-	@scripts/updatecommonfiles.sh
+	@git clone https://github.com/istio/common-files
+	@cd common-files
+	@git rev-parse HEAD >.commonfiles.sha
+	@cp -r common-files/files/* common-files/files/.[^.]* .
+	@rm -fr common-files
