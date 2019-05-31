@@ -7,7 +7,7 @@ metadata:
     app: certmanager
     release: {{ .Release.Name }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.certmanager.replicaCount }}
   selector:
     matchLabels:
       app: certmanager
