@@ -157,6 +157,12 @@ var (
 		return os.Getenv("PILOT_DISABLE_XDS_MARSHALING_TO_ANY") == "1"
 	}
 
+	// DisableSplitHorizonEdsProxyNetworkCompare provides an option to disable
+	// matching proxy and pod network id.
+	DisableSplitHorizonEdsProxyNetworkCompare = func() bool {
+		return os.Getenv("PILOT_DISABLE_SPLIT_HORIZON_EDS_NETWORK_COMPARE") == "1"
+	}
+
 	// EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `mysql`.
 	EnableMysqlFilter = os.Getenv("PILOT_ENABLE_MYSQL_FILTER") == "1"
