@@ -44,6 +44,8 @@ telemetry:
       # We have experimentally found that these values work well.
       cpu: 4800m
       memory: 4G
+  reportBatchMaxEntries: 100
+  reportBatchMaxTime: 1s
 
 podAnnotations: {}
 nodeSelector: {}
