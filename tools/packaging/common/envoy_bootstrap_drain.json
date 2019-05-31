@@ -1,11 +1,2 @@
 {
-  "admin": {
-    "access_log_path": "/dev/null",
-    "address": {
-      "socket_address": {
-        "address": "{{ .localhost }}",
-        "port_value": 15000
-      }
-    }
-  }
 }
