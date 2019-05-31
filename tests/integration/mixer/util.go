@@ -154,7 +154,7 @@ func SendTrafficAndWaitForExpectedStatus(ingress ingress.Instance, t *testing.T,
 	httpStatusCode int) {
 	retry := util.Retrier{
 		BaseDelay: 15 * time.Second,
-		Retries:   5,
+		Retries:   3,
 	}
 
 	retryFn := func(_ context.Context, i int) error {
