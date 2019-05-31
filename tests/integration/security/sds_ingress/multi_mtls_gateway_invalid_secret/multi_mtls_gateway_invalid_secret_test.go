@@ -42,15 +42,15 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.MultiMTLSGateway)
 
 			testCase := []struct {
-				name 											string
-				secretName 								string
-				ingressGatewayCredential 	ingressutil.IngressCredential
-				ingressConfig 						ingress.Config
-				hostName 									string
-				expectedResponse 					ingressutil.ExpectedResponse
+				name                     string
+				secretName               string
+				ingressGatewayCredential ingressutil.IngressCredential
+				ingressConfig            ingress.Config
+				hostName                 string
+				expectedResponse         ingressutil.ExpectedResponse
 			}{
 				{
-					name: "mtls ingress gateway invalid CA cert",
+					name:       "mtls ingress gateway invalid CA cert",
 					secretName: "bookinfo-credential-1",
 					ingressGatewayCredential: ingressutil.IngressCredential{
 						PrivateKey: ingressutil.TLSServerKeyA,
@@ -71,7 +71,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 					},
 				},
 				{
-					name: "mtls ingress gateway no CA cert",
+					name:       "mtls ingress gateway no CA cert",
 					secretName: "bookinfo-credential-2",
 					ingressGatewayCredential: ingressutil.IngressCredential{
 						PrivateKey: ingressutil.TLSServerKeyA,
@@ -91,7 +91,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 					},
 				},
 				{
-					name: "mtls ingress gateway mismatched CA cert",
+					name:       "mtls ingress gateway mismatched CA cert",
 					secretName: "bookinfo-credential-3",
 					ingressGatewayCredential: ingressutil.IngressCredential{
 						PrivateKey: ingressutil.TLSServerKeyA,

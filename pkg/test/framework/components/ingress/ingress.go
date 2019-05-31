@@ -44,16 +44,16 @@ type Instance interface {
 }
 
 type Config struct {
-	Istio       istio.Instance
+	Istio istio.Instance
 	// IngressType specifies the type of ingress gateway.
 	IngressType IngressGatewayType
 	// CaCert is inline base64 encoded root certificate that authenticates server certificate provided
 	// by ingress gateway.
-	CaCert      string
+	CaCert string
 	// PrivateKey is inline base64 encoded private key for test client.
-	PrivateKey  string
+	PrivateKey string
 	// Cert is inline base64 encoded certificate for test client.
-	Cert        string
+	Cert string
 }
 
 // CallResponse is the result of a call made through Istio Ingress.

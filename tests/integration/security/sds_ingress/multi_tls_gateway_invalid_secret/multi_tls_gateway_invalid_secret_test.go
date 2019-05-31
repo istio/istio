@@ -49,15 +49,15 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.MultiTLSGateway)
 
 			testCase := []struct {
-				name 											string
-				secretName 								string
-				ingressGatewayCredential 	ingressutil.IngressCredential
-				ingressConfig 						ingress.Config
-				hostName 									string
-				expectedResponse 					ingressutil.ExpectedResponse
+				name                     string
+				secretName               string
+				ingressGatewayCredential ingressutil.IngressCredential
+				ingressConfig            ingress.Config
+				hostName                 string
+				expectedResponse         ingressutil.ExpectedResponse
 			}{
 				{
-					name: "tls ingress gateway invalid private key",
+					name:       "tls ingress gateway invalid private key",
 					secretName: "bookinfo-credential-1",
 					ingressGatewayCredential: ingressutil.IngressCredential{
 						PrivateKey: "invalid",
@@ -75,7 +75,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					},
 				},
 				{
-					name: "tls ingress gateway invalid server cert",
+					name:       "tls ingress gateway invalid server cert",
 					secretName: "bookinfo-credential-2",
 					ingressGatewayCredential: ingressutil.IngressCredential{
 						PrivateKey: ingressutil.TLSServerKeyA,
@@ -93,7 +93,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					},
 				},
 				{
-					name: "tls ingress gateway mis-matched key and cert",
+					name:       "tls ingress gateway mis-matched key and cert",
 					secretName: "bookinfo-credential-3",
 					ingressGatewayCredential: ingressutil.IngressCredential{
 						PrivateKey: ingressutil.TLSServerKeyA,
@@ -111,7 +111,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					},
 				},
 				{
-					name: "tls ingress gateway no private key",
+					name:       "tls ingress gateway no private key",
 					secretName: "bookinfo-credential-4",
 					ingressGatewayCredential: ingressutil.IngressCredential{
 						ServerCert: ingressutil.TLSServerCertA,
@@ -128,7 +128,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					},
 				},
 				{
-					name: "tls ingress gateway no server cert",
+					name:       "tls ingress gateway no server cert",
 					secretName: "bookinfo-credential-5",
 					ingressGatewayCredential: ingressutil.IngressCredential{
 						PrivateKey: ingressutil.TLSServerKeyA,
