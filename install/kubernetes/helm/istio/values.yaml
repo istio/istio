@@ -39,8 +39,6 @@ mixer:
 
   telemetry:
     enabled: true
-    report_batch_max_entries: 100
-    report_batch_max_time: 1s
 #
 # pilot configuration
 #

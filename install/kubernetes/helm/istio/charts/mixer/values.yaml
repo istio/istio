@@ -45,6 +45,9 @@ telemetry:
       cpu: 4800m
       memory: 4G
 
+  report_batch_max_entries: 100
+  report_batch_max_time: 1s
+
 podAnnotations: {}
 nodeSelector: {}
 tolerations: []
