@@ -9,11 +9,14 @@ FROM debian:9-slim
 RUN apt-get update && \
     apt-get install --no-install-recommends -y \
       curl \
+      gdb \
       iptables \
       iproute2 \
       iputils-ping \
       knot-dnsutils \
       netcat \
+      pstack \
+      strace \
       tcpdump \
       net-tools \
       lsof \
@@ -33,5 +36,8 @@ RUN apt-get update && \
 # net-tools (0.7M): netstat
 # lsof (0.5M): for debugging open socket, file descriptors
 # knot-dnsutils (4.5M): dig/nslookup
+# gdb: for debugging envoy
+# pstack: display a stack trace for each process
+# strace: monitor and tamper with interactions between processes and the Linux kernel
 
 # Alternative: dnsutils(44M) for dig/nslookup
