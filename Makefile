@@ -770,3 +770,5 @@ include tests/integration/tests.mk
 .PHONY: benchcheck
 benchcheck:
 	bin/perfcheck.sh
+
+include Makefile.common.mk
