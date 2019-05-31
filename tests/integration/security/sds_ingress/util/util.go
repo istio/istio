@@ -77,7 +77,7 @@ var IngressCredentialB = IngressCredential{
 // and creates K8s secrets for ingress gateway.
 // nolint: interfacer
 func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames []string,
-	ingressType ingress.IngressGatewayType, ingressCred IngressCredential) {
+	ingressType ingress.GatewayType, ingressCred IngressCredential) {
 	// Get namespace for ingress gateway pod.
 	istioCfg := istio.DefaultConfigOrFail(t, ctx)
 	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
@@ -114,7 +114,7 @@ func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames 
 
 // createSecret creates a kubernetes secret which stores private key, server certificate for TLS ingress gateway.
 // For mTLS ingress gateway, createSecret adds ca certificate into the secret object.
-func createSecret(ingressType ingress.IngressGatewayType, cn, ns string, ic IngressCredential) *v1.Secret {
+func createSecret(ingressType ingress.GatewayType, cn, ns string, ic IngressCredential) *v1.Secret {
 	if ingressType == ingress.Mtls {
 		return &v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -179,7 +179,7 @@ func VisitProductPage(ingress ingress.Instance, host string, timeout time.Durati
 // RotateSecrets deletes kubernetes secrets by name in credNames and creates same secrets using key/cert
 // from ingressCred.
 func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string,
-	ingressType ingress.IngressGatewayType, ingressCred IngressCredential) {
+	ingressType ingress.GatewayType, ingressCred IngressCredential) {
 	istioCfg := istio.DefaultConfigOrFail(t, ctx)
 	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor

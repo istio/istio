@@ -46,7 +46,7 @@ var (
 type kubeComponent struct {
 	id          resource.ID
 	address     string
-	gatewayType IngressGatewayType
+	gatewayType GatewayType
 	caCert      string
 	tlsCert     string
 	tlsKey      string
