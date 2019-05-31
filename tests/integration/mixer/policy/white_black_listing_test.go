@@ -25,7 +25,6 @@ import (
 
 func TestWhiteListing(t *testing.T) {
 	framework.Run(t, func(ctx framework.TestContext) {
-		t.Skipf("https://github.com/istio/istio/issues/13845")
 		if galInst == nil {
 			t.Fatalf("galley not setup")
 		}
