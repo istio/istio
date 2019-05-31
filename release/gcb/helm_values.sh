@@ -34,6 +34,14 @@ function fix_values_yaml() {
   sed -i "s|hub: gcr.io/istio-release|hub: ${CB_DOCKER_HUB}|g" ./"istio-${CB_VERSION}"/install/kubernetes/helm/istio*/values.yaml
   sed -i "s|tag: .*-latest-daily|tag: ${CB_VERSION}|g"         ./"istio-${CB_VERSION}"/install/kubernetes/helm/istio*/values.yaml
 
+  current_tag=$(grep "appVersion" ./"istio-${CB_VERSION}"/install/kubernetes/helm/istio/Chart.yaml  | cut -d ' ' -f2)
+  if [ "${current_tag}" != "${CB_VERSION}" ]; then
+    find . -type f -exec sed -i "s/tag: ${current_tag}/tag: ${CB_VERSION}/g" {} \;
+    find . -type f -exec sed -i "s/version: ${current_tag}/version: ${CB_VERSION}/g" {} \;
+    find . -type f -exec sed -i "s/appVersion: ${current_tag}/appVersion: ${CB_VERSION}/g" {} \;
+    find . -type f -exec sed -i "s/istio-release\/releases\/${current_tag}/istio-release\/releases\/${CB_VERSION}/g" {} \;
+  fi
+
   # replace prerelease with release location for istio.io repo
   if [ "${CB_PIPELINE_TYPE}" = "monthly" ]; then
     sed -i.bak "s:istio-prerelease/daily-build.*$:istio-release/releases/${CB_VERSION}/charts:g" ./"istio-${CB_VERSION}"/install/kubernetes/helm/istio/README.md
