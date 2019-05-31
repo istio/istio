@@ -17,6 +17,7 @@ package controller
 import (
 	"bytes"
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -60,12 +61,12 @@ const (
 	keySize = 2048
 
 	// The number of retries when requesting to create secret.
-	secretCreationRetry = 3
+	secretOperationRetry = 3
 )
 
 // DNSNameEntry stores the service name and namespace to construct the DNS id.
 // Service accounts matching the ServiceName and Namespace will have additional DNS SANs:
-// ServiceName.Namespace.svc, ServiceName.Namespace and optionall CustomDomain.
+// ServiceName.Namespace.svc, ServiceName.Namespace and optional CustomDomain.
 // This is intended for control plane and trusted services.
 type DNSNameEntry struct {
 	// ServiceName is the name of the service account to match
@@ -273,7 +274,6 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	if err != nil {
 		log.Errorf("Failed to generate key and certificate for service account %q in namespace %q (error %v)",
 			saName, saNamespace, err)
-
 		return
 	}
 	rootCert := sc.ca.GetCAKeyCertBundle().GetRootCertPem()
@@ -284,7 +284,7 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	}
 
 	// We retry several times when create secret to mitigate transient network failures.
-	for i := 0; i < secretCreationRetry; i++ {
+	for i := 0; i < secretOperationRetry; i++ {
 		_, err = sc.core.Secrets(saNamespace).Create(secret)
 		if err == nil || errors.IsAlreadyExists(err) {
 			if errors.IsAlreadyExists(err) {
@@ -292,30 +292,42 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 			}
 			break
 		} else {
-			log.Errorf("Failed to create secret in attempt %v/%v, (error: %s)", i+1, secretCreationRetry, err)
+			log.Errorf("Failed to create secret in attempt %v/%v, (error: %s)", i+1, secretOperationRetry, err)
 		}
-		time.Sleep(time.Second)
+		time.Sleep(time.Millisecond * time.Duration(rand.Int31n(1000)))
 	}
 
-	if err != nil && !errors.IsAlreadyExists(err) {
-		log.Errorf("Failed to create secret for service account \"%s\"  (error: %s), retries %v times",
-			saName, err, secretCreationRetry)
+	if err != nil {
+		if !errors.IsAlreadyExists(err) {
+			log.Errorf("Failed to create secret for service account \"%s\" (error: %s), retries %v times", saName, err, secretOperationRetry)
+			return
+		}
+		log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" has been created by others, skip", saName, saNamespace)
 		return
 	}
 
-	log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" has been created", saName, saNamespace)
+	log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" has been created successfully", saName, saNamespace)
 }
 
 func (sc *SecretController) deleteSecret(saName, saNamespace string) {
-	err := sc.core.Secrets(saNamespace).Delete(GetSecretName(saName), nil)
-	// kube-apiserver returns NotFound error when the secret is successfully deleted.
-	if err == nil || errors.IsNotFound(err) {
-		log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" has been deleted", saName, saNamespace)
-		return
-	}
+	// Retry several times when create secret to mitigate transient network failures.
+	for i := 0; i < secretOperationRetry; i++ {
+		err := sc.core.Secrets(saNamespace).Delete(GetSecretName(saName), nil)
+		if err == nil {
+			log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" has been deleted by current citadel instance", saName, saNamespace)
+			return
+		}
 
-	log.Errorf("Failed to delete Istio secret for service account \"%s\" in namespace \"%s\" (error: %s)",
-		saName, saNamespace, err)
+		if errors.IsNotFound(err) {
+			log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" has been deleted by others, skip", saName, saNamespace)
+			return
+		}
+
+		log.Errorf("Failed to delete secret in attempt %v/%v for service account \"%s\" in namespace \"%s\" (error: %s)", i+1,
+			secretOperationRetry, saName, saNamespace, err)
+
+		time.Sleep(time.Millisecond * time.Duration(rand.Int31n(1000)))
+	}
 }
 
 func (sc *SecretController) scrtDeleted(obj interface{}) {
@@ -394,10 +406,16 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	if err != nil {
 		log.Warnf("Failed to parse certificates in secret %s/%s (error: %v), refreshing the secret.",
 			namespace, name, err)
-		if err = sc.refreshSecret(scrt); err != nil {
-			log.Errora(err)
+		err = sc.refreshSecret(scrt)
+		if err == nil {
+			log.Infof("Successfully updated invalid secret %s/%s", namespace, name)
+		} else if errors.IsConflict(err) {
+			log.Warnf("Invalide secret %s/%s may be updated by other instances "+
+				"already (error: %s), skip", namespace, name, err)
+		} else {
+			log.Errorf("Failed to update invalid secret %s/%s (error: %s), ",
+				namespace, name, err)
 		}
-
 		return
 	}
 
@@ -406,6 +424,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	// TODO(myidpt): we may introduce a minimum gracePeriod, without making the config too complex.
 	// Because time.Duration only takes int type, multiply gracePeriodRatio by 1000 and then divide it.
 	gracePeriod := time.Duration(sc.gracePeriodRatio*1000) * certLifeTime / 1000
+
 	if gracePeriod < sc.minGracePeriod {
 		log.Warnf("gracePeriod (%v * %f) = %v is less than minGracePeriod %v. Apply minGracePeriod.",
 			certLifeTime, sc.gracePeriodRatio, gracePeriod, sc.minGracePeriod)
@@ -421,13 +440,20 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 		log.Infof("Refreshing secret %s/%s, either the leaf certificate is about to expire "+
 			"or the root certificate is outdated", namespace, name)
 
-		if err = sc.refreshSecret(scrt); err != nil {
-			log.Errorf("Failed to update secret %s/%s (error: %s)", namespace, name, err)
+		err = sc.refreshSecret(scrt)
+		if err == nil {
+			log.Infof("Successfully updated expiring secret %s/%s", namespace, name)
+		} else if errors.IsConflict(err) {
+			log.Warnf("Expiring secret %s/%s may be updated by other instances already "+
+				"(error: %s), skip", namespace, name, err)
+		} else {
+			log.Errorf("Failed to update expiring secret %s/%s (error: %s), ",
+				namespace, name, err)
 		}
 	}
 }
 
-// refreshSecret is an inner func to refresh cert secrets when necessary
+// refreshSecret refreshes key/cert
 func (sc *SecretController) refreshSecret(scrt *v1.Secret) error {
 	namespace := scrt.GetNamespace()
 	saName := scrt.Annotations[ServiceAccountNameAnnotationKey]
@@ -441,6 +467,20 @@ func (sc *SecretController) refreshSecret(scrt *v1.Secret) error {
 	scrt.Data[PrivateKeyID] = key
 	scrt.Data[RootCertID] = sc.ca.GetCAKeyCertBundle().GetRootCertPem()
 
-	_, err = sc.core.Secrets(namespace).Update(scrt)
+	// Update secret with retry to mitigate transient failures.
+	for i := 0; i < secretOperationRetry; i++ {
+		_, err = sc.core.Secrets(namespace).Update(scrt)
+		// IsConflict may mean an optimistic lock error, i.e., the secret has been
+		// updated by other citadel instances since last read. In this case, we
+		// should abort the update action. See here for more info:
+		// https://oreil.ly/2HKQiyQ
+		if err == nil || errors.IsConflict(err) {
+			return err
+		}
+		log.Errorf("Failed to update Istio secret in attempt %v/%v for service "+
+			"account \"%s\" in namespace \"%s\" (error: %s)", i+1,
+			secretOperationRetry, saName, namespace, err)
+		time.Sleep(time.Millisecond * time.Duration(rand.Int31n(1000)))
+	}
 	return err
 }
