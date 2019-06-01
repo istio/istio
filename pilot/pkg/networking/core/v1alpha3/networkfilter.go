@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/istio/pkg/features/pilot"
-
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+
+	"istio.io/istio/pkg/features/pilot"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	accesslogconfig "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
@@ -31,6 +31,7 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -73,28 +74,21 @@ func setAccessLog(env *model.Environment, node *model.Proxy, config *tcp_proxy.T
 
 	}
 
-	if env.Mesh.EnvoyAccessLogService != nil && env.Mesh.EnvoyAccessLogService.Address != "" {
+	if env.Mesh.EnvoyAccesslogService != nil && env.Mesh.EnvoyAccesslogService.TargetUri != "" {
 		googleGrpc := &core.GrpcService_GoogleGrpc{
-			TargetUri:  env.Mesh.EnvoyAccessLogService.Address,
+			TargetUri:  env.Mesh.EnvoyAccesslogService.TargetUri,
 			StatPrefix: tcpEnvoyAccesslogName,
 		}
-		if env.Mesh.EnvoyAccessLogService.Credentials != nil {
-			c := env.Mesh.EnvoyAccessLogService.Credentials
-			sslCred := &core.GrpcService_GoogleGrpc_SslCredentials{
-				RootCerts:  &core.DataSource{Specifier: &core.DataSource_Filename{Filename: c.RootCerts}},
-				PrivateKey: &core.DataSource{Specifier: &core.DataSource_Filename{Filename: c.PrivateKey}},
-				CertChain:  &core.DataSource{Specifier: &core.DataSource_Filename{Filename: c.CertChain}},
-			}
+		if env.Mesh.EnvoyAccesslogService.Credentials != nil {
+			c := env.Mesh.EnvoyAccesslogService.Credentials
+			sslCred := &core.GrpcService_GoogleGrpc_SslCredentials{}
 			isValid := false
 			if c.RootCerts != "" {
 				sslCred.RootCerts = &core.DataSource{Specifier: &core.DataSource_Filename{Filename: c.RootCerts}}
 				isValid = true
 			}
-			if c.PrivateKey != "" {
+			if c.PrivateKey != "" && c.CertChain != "" {
 				sslCred.PrivateKey = &core.DataSource{Specifier: &core.DataSource_Filename{Filename: c.PrivateKey}}
-				isValid = true
-			}
-			if c.CertChain != "" {
 				sslCred.CertChain = &core.DataSource{Specifier: &core.DataSource_Filename{Filename: c.CertChain}}
 				isValid = true
 			}

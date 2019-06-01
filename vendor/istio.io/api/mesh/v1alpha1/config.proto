@@ -140,6 +140,26 @@ message MeshConfig {
   // Default value is text.
   AccessLogEncoding access_log_encoding = 27;
 
+  message GoogleGrpcService {
+    //Required: host[:port] The target URI when using the Google gRPC client. 
+    string target_uri = 1;
+    message SSLCredentials {
+      //The path to the PEM encoded file contains server root certificates.
+      string root_certs = 1;
+      //The path to the PEM encoded file contains client private key.
+      string private_key = 2;
+      //The path to the PEM encoded file contains client certificate chain.
+      string cert_chain = 3;
+    }
+    // Optional: SSL credentials. If empty, client will use insecure gRPC channel.
+    SSLCredentials credentials = 2;
+  }
+
+  // The Envoy gRPC Access Log Service (ALS) implementation.
+  // See [Access Log Service](https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto#config-accesslog-v2-httpgrpcaccesslogconfig)
+  // for details about Envoy's gRPC Access Log Service API.
+  GoogleGrpcService envoy_accesslog_service = 40;
+
   // Default proxy config used by the proxy injection mechanism operating in the mesh
   // (e.g. Kubernetes admission controller)
   // In case of Kubernetes, the proxy config is applied once during the injection process,
@@ -282,8 +302,23 @@ message MeshConfig {
   // Configures DNS refresh rate for Envoy clusters of type STRICT_DNS
   google.protobuf.Duration dns_refresh_rate = 36;
 
+  // The flag to disable report batch.
+  bool disable_report_batch = 37;
+
+  // When disable_report_batch is false, this value specifies the maximum number
+  // of requests that are batched in report. If left unspecified, the default value 
+  // of report_batch_max_entries == 0 will use the hardcoded defaults of 
+  // istio::mixerclient::ReportOptions.
+  uint32 report_batch_max_entries = 38;
+
+  // When disable_report_batch is false, this value specifies the maximum elapsed 
+  // time a batched report will be sent after a user request is processed. If left
+  // unspecified, the default report_batch_max_time == 0 will use the hardcoded 
+  // defaults of istio::mixerclient::ReportOptions.
+  google.protobuf.Duration report_batch_max_time = 39;
+
   // $hide_from_docs
-  // Next available field number: 37
+  // Next available field number: 41
 }
 
 // ConfigSource describes information about a configuration store inside a

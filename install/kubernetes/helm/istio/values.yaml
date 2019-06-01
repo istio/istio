@@ -167,10 +167,10 @@ global:
     accessLogEncoding: TEXT
 
     # Configure envoy gRPC access log service.
-    envoyAccessLogService:
+    envoyAccesslogService:
       enabled: false
       config:
-        address: ""
+        targetUri: ""
         credentials:
           rootCerts: ""
           privateKey: ""

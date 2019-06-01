@@ -4,7 +4,7 @@ description: Configuration affecting the service mesh as a whole.
 location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 21
+number_of_entries: 23
 ---
 <p>Configuration affecting the service mesh as a whole.</p>
 
@@ -416,6 +416,16 @@ Default value is text.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-envoy_accesslog_service">
+<td><code>envoyAccesslogService</code></td>
+<td><code><a href="#MeshConfig-GoogleGrpcService">MeshConfig.GoogleGrpcService</a></code></td>
+<td>
+<p>The Envoy gRPC Access Log Service (ALS) implementation.
+See <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto#config-accesslog-v2-httpgrpcaccesslogconfig">Access Log Service</a>
+for details about Envoy&rsquo;s gRPC Access Log Service API.</p>
+
+</td>
+</tr>
 <tr id="MeshConfig-default_config">
 <td><code>defaultConfig</code></td>
 <td><code><a href="#ProxyConfig">ProxyConfig</a></code></td>
@@ -496,6 +506,36 @@ Fallback to old identity format(without trust domain) if not set.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-disable_report_batch">
+<td><code>disableReportBatch</code></td>
+<td><code>bool</code></td>
+<td>
+<p>The flag to disable report batch.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-report_batch_max_entries">
+<td><code>reportBatchMaxEntries</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>When disable<em>report</em>batch is false, this value specifies the maximum number
+of requests that are batched in report. If left unspecified, the default value
+of report<em>batch</em>max_entries == 0 will use the hardcoded defaults of
+istio::mixerclient::ReportOptions.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-report_batch_max_time">
+<td><code>reportBatchMaxTime</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>When disable<em>report</em>batch is false, this value specifies the maximum elapsed
+time a batched report will be sent after a user request is processed. If left
+unspecified, the default report<em>batch</em>max_time == 0 will use the hardcoded
+defaults of istio::mixerclient::ReportOptions.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -517,6 +557,74 @@ Fallback to old identity format(without trust domain) if not set.</p>
 <tr id="MeshConfig-AccessLogEncoding-JSON">
 <td><code>JSON</code></td>
 <td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MeshConfig-GoogleGrpcService">MeshConfig.GoogleGrpcService</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MeshConfig-GoogleGrpcService-target_uri">
+<td><code>targetUri</code></td>
+<td><code>string</code></td>
+<td>
+<p>Required: host[:port] The target URI when using the Google gRPC client.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-GoogleGrpcService-credentials">
+<td><code>credentials</code></td>
+<td><code><a href="#MeshConfig-GoogleGrpcService-SSLCredentials">MeshConfig.GoogleGrpcService.SSLCredentials</a></code></td>
+<td>
+<p>Optional: SSL credentials. If empty, client will use insecure gRPC channel.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MeshConfig-GoogleGrpcService-SSLCredentials">MeshConfig.GoogleGrpcService.SSLCredentials</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MeshConfig-GoogleGrpcService-SSLCredentials-root_certs">
+<td><code>rootCerts</code></td>
+<td><code>string</code></td>
+<td>
+<p>The path to the PEM encoded file contains server root certificates.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-GoogleGrpcService-SSLCredentials-private_key">
+<td><code>privateKey</code></td>
+<td><code>string</code></td>
+<td>
+<p>The path to the PEM encoded file contains client private key.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-GoogleGrpcService-SSLCredentials-cert_chain">
+<td><code>certChain</code></td>
+<td><code>string</code></td>
+<td>
+<p>The path to the PEM encoded file contains client certificate chain.</p>
+
 </td>
 </tr>
 </tbody>
@@ -618,8 +726,9 @@ there are no services or ServiceEntries for the destination port</p>
 <p>MeshNetworks (config map) provides information about the set of networks
 inside a mesh and how to route to endpoints in each network. For example</p>
 
-<p>MeshNetworks(file/config map):
-networks:
+<p>MeshNetworks(file/config map):</p>
+
+<pre><code class="language-yaml">networks:
   network1:
   - endpoints:
     - fromRegistry: registry1 #must match secret name in Kubernetes
@@ -630,7 +739,8 @@ networks:
       locality: us-east-1a
     - address: 192.168.100.1
       port: 15443
-      locality: us-east-1a</p>
+      locality: us-east-1a
+</code></pre>
 
 <table class="message-fields">
 <thead>
