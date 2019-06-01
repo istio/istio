@@ -186,7 +186,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCer
 			log.Errorf("Failed to write secret to CA (error: %s). Abort.", err)
 			return nil, fmt.Errorf("failed to create CA due to secret write error")
 		}
-		log.Infof("Using self-generated public key: %v", rootCerts)
+		log.Infof("Using self-generated public key: %v", string(rootCerts))
 	} else {
 		log.Infof("Load signing key and cert from existing secret %s:%s", caSecret.Namespace, caSecret.Name)
 		rootCerts, err := appendRootCerts(caSecret.Data[caCertID], rootCertFile)
@@ -197,7 +197,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCer
 			caSecret.Data[caPrivateKeyID], nil, rootCerts); err != nil {
 			return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 		}
-		log.Infof("Using existing public key: %v", rootCerts)
+		log.Infof("Using existing public key: %v", string(rootCerts))
 	}
 
 	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle.GetRootCertPem()); err != nil {
