@@ -1,5 +1,0 @@
-fortio (1.3.0-1) unstable; urgency=medium
-
-  * Initial debian packaged release (Closes: #908172)
-
- -- Laurent Demailly <ldemailly@gmail.com>  Thu, 06 Sep 2018 16:21:28 -0700

@@ -3,7 +3,7 @@
 1. No need to worry about kubernetes cluster setup.
 
 # Prereqs:
-1. Set up Istio Dev environment using https://github.com/istio/istio/wiki/Dev-Guide.
+1. Set up Istio Dev environment using https://github.com/istio/istio/wiki/Preparing-for-Development.
 
 1. Install
   * [virtual box](https://www.virtualbox.org/wiki/Downloads) - Verify `virtualbox` command opens up a virtual box window
@@ -81,7 +81,7 @@ Then, you can run Delve
 ```bash
 sudo -E env "PATH=$PATH" dlv attach <pid of pilot-discovery>
 ```
-For more information, please check [Debug an Istio container with Delve](https://github.com/istio/istio/wiki/Dev-Guide#debug-an-istio-container-with-delve)
+For more information, please check [Debug an Istio container with Delve](https://github.com/istio/istio/wiki/Using-the-Code-Base#debug-an-istio-container-with-delve)
 
 # Cleanup
 To save the vagrant VM status:

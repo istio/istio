@@ -31,12 +31,12 @@ type Instance interface {
 // SetupConfigFn is a setup function that specifies the overrides of the configuration to deploy Istio.
 type SetupConfigFn func(cfg *Config)
 
-// SetupOnKube is a setup function that will deploy Istio on Kubernetes environment
-func SetupOnKube(i *Instance, cfn SetupConfigFn) resource.SetupFn {
+// Setup is a setup function that will deploy Istio on Kubernetes environment
+func Setup(i *Instance, cfn SetupConfigFn) resource.SetupFn {
 	return func(ctx resource.Context) error {
 		switch ctx.Environment().EnvironmentName() {
 		case environment.Native:
-			scopes.Framework.Debugf("istio.SetupOnKube: Skipping deployment of Istio on native")
+			scopes.Framework.Debugf("istio.Setup: Skipping deployment of Istio on native")
 
 		case environment.Kube:
 			cfg, err := DefaultConfig(ctx)

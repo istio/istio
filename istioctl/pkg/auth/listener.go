@@ -33,7 +33,7 @@ import (
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	jwt_filter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 type filterChainMatch struct {

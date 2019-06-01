@@ -22,12 +22,13 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-	"testing"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 
 	"gopkg.in/d4l3k/messagediff.v1"
+
+	"istio.io/istio/pkg/test"
 
 	"k8s.io/client-go/util/jsonpath"
 )
@@ -253,7 +254,7 @@ func (i *Instance) Check() error {
 
 // CheckOrFail calls Check on this selection and fails the given test if an
 // error is encountered.
-func (i *Instance) CheckOrFail(t *testing.T) *Instance {
+func (i *Instance) CheckOrFail(t test.Failer) *Instance {
 	t.Helper()
 	if err := i.Check(); err != nil {
 		t.Fatal(err)

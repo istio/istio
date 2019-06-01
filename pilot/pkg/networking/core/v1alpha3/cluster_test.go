@@ -375,6 +375,72 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	g.Expect(cluster.TlsContext.GetSni()).To(Equal("outbound_.8080_.foobar_.foo.example.org"))
 }
 
+func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T) {
+	expectedClientKeyPath := "/clientKeyFromNodeMetadata.pem"
+	expectedClientCertPath := "/clientCertFromNodeMetadata.pem"
+	expectedRootCertPath := "/clientRootCertFromNodeMetadata.pem"
+
+	g := NewGomegaWithT(t)
+
+	envoyMetadata := map[string]string{
+		model.NodeMetadataTLSClientCertChain: expectedClientCertPath,
+		model.NodeMetadataTLSClientKey:       expectedClientKeyPath,
+		model.NodeMetadataTLSClientRootCert:  expectedRootCertPath,
+	}
+
+	destRule := &networking.DestinationRule{
+		Host: "*.example.org",
+		TrafficPolicy: &networking.TrafficPolicy{
+			Tls: &networking.TLSSettings{
+				Mode:              networking.TLSSettings_MUTUAL,
+				ClientCertificate: "/defaultCert.pem",
+				PrivateKey:        "/defaultPrivateKey.pem",
+				CaCertificates:    "/defaultCaCert.pem",
+			},
+		},
+		Subsets: []*networking.Subset{
+			{
+				Name:   "foobar",
+				Labels: map[string]string{"foo": "bar"},
+				TrafficPolicy: &networking.TrafficPolicy{
+					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+						{
+							Port: &networking.PortSelector{
+								Port: &networking.PortSelector_Number{Number: 8080},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	clusters, err := buildTestClustersWithProxyMetadata("foo.example.org", model.ClientSideLB, model.SidecarProxy,
+		nil, testMesh, destRule, envoyMetadata)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	g.Expect(clusters).To(HaveLen(5))
+
+	expectedOutboundClusterCount := 2
+	actualOutboundClusterCount := 0
+
+	for _, c := range clusters {
+		if strings.Contains(c.Name, "outbound") {
+			actualOutboundClusterCount++
+			tlsContext := c.TlsContext.CommonTlsContext
+			g.Expect(tlsContext).NotTo(BeNil())
+
+			tlsCerts := tlsContext.TlsCertificates
+			g.Expect(tlsCerts).To(HaveLen(1))
+
+			g.Expect(tlsCerts[0].PrivateKey.GetFilename()).To(Equal(expectedClientKeyPath))
+			g.Expect(tlsCerts[0].CertificateChain.GetFilename()).To(Equal(expectedClientCertPath))
+			g.Expect(tlsContext.GetValidationContext().TrustedCa.GetFilename()).To(Equal(expectedRootCertPath))
+		}
+	}
+	g.Expect(actualOutboundClusterCount).To(Equal(expectedOutboundClusterCount))
+}
+
 func buildSniTestClusters(sniValue string) ([]*apiv2.Cluster, error) {
 	return buildSniTestClustersWithMetadata(sniValue, make(map[string]string))
 }
@@ -766,7 +832,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	}
 }
 
-func TestClusterDiscoveryTypeAndLbPolicy(t *testing.T) {
+func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	clusters, err := buildTestClusters("*.example.org", model.Passthrough, model.SidecarProxy, nil, testMesh,
@@ -787,4 +853,48 @@ func TestClusterDiscoveryTypeAndLbPolicy(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
 	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
+}
+
+func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	clusters, err := buildTestClusters("*.example.org", model.ClientSideLB, model.SidecarProxy, nil, testMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+			TrafficPolicy: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_PASSTHROUGH,
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 5,
+				},
+			},
+		})
+
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
+	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
+	g.Expect(clusters[0].EdsClusterConfig).To(BeNil())
+}
+
+func TestPassthroughClusterMaxConnections(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	configgen := NewConfigGenerator([]plugin.Plugin{})
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+	env := newTestEnvironment(serviceDiscovery, testMesh)
+	proxy := &model.Proxy{}
+
+	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	for _, cluster := range clusters {
+		if cluster.Name == "PassthroughCluster" {
+			fmt.Println(cluster.CircuitBreakers)
+			g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
+			g.Expect(cluster.CircuitBreakers.Thresholds[0].MaxConnections.Value).To(Equal(uint32(102400)))
+		}
+	}
 }

@@ -15,8 +15,7 @@
 package ingress
 
 import (
-	"testing"
-
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -32,6 +31,7 @@ type Instance interface {
 
 	//  Call makes an HTTP call through ingress, where the URL has the given path.
 	Call(path string) (CallResponse, error)
+	CallOrFail(t test.Failer, path string) CallResponse
 }
 
 type Config struct {
@@ -57,7 +57,7 @@ func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 }
 
 // Deploy returns a new Ingress instance or fails test
-func NewOrFail(t *testing.T, ctx resource.Context, cfg Config) Instance {
+func NewOrFail(t test.Failer, ctx resource.Context, cfg Config) Instance {
 	t.Helper()
 	i, err := New(ctx, cfg)
 	if err != nil {

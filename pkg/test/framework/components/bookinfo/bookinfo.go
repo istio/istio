@@ -15,8 +15,7 @@
 package bookinfo
 
 import (
-	"testing"
-
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -40,7 +39,7 @@ func Deploy(ctx resource.Context, cfg Config) (i deployment.Instance, err error)
 }
 
 // DeployOrFail returns a new instance of deployed BookInfo or fails test
-func DeployOrFail(t *testing.T, ctx resource.Context, cfg Config) deployment.Instance {
+func DeployOrFail(t test.Failer, ctx resource.Context, cfg Config) deployment.Instance {
 	t.Helper()
 
 	i, err := Deploy(ctx, cfg)

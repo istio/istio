@@ -61,13 +61,12 @@ type Service struct {
 	// ClusterVIPs specifies the service address of the load balancer
 	// in each of the clusters where the service resides
 	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
-
 	// Ports is the set of network ports where the service is listening for
 	// connections
 	Ports PortList `json:"ports,omitempty"`
 
 	// ServiceAccounts specifies the service accounts that run the service.
-	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
+	ServiceAccounts []string `json:"serviceAccounts,omitempty"`
 
 	// MeshExternal (if true) indicates that the service is external to the mesh.
 	// These services are defined using Istio's ServiceEntry spec.
@@ -388,15 +387,21 @@ type ServiceInstance struct {
 //
 // This is used by CDS/EDS to group the endpoints by locality.
 func (si *ServiceInstance) GetLocality() string {
-	if si.Labels != nil && si.Labels[LocalityLabel] != "" {
+	return GetLocalityOrDefault(si.Endpoint.Locality, si.Labels)
+}
+
+// Gets the locality from the labels, or falls back to to a default locality if not found
+// Because Kubernetes labels don't support `/`, we replace "." with "/" as a workaround
+func GetLocalityOrDefault(defaultLocality string, labels map[string]string) string {
+	if labels != nil && labels[LocalityLabel] != "" {
 		// if there are /'s present we don't need to replace
-		if strings.Contains(si.Labels[LocalityLabel], "/") {
-			return si.Labels[LocalityLabel]
+		if strings.Contains(labels[LocalityLabel], "/") {
+			return labels[LocalityLabel]
 		}
 		// replace "." with "/"
-		return strings.Replace(si.Labels[LocalityLabel], k8sSeparator, "/", -1)
+		return strings.Replace(labels[LocalityLabel], k8sSeparator, "/", -1)
 	}
-	return si.Endpoint.Locality
+	return defaultLocality
 }
 
 // IstioEndpoint has the information about a single address+port for a specific
@@ -465,6 +470,14 @@ type ServiceAttributes struct {
 	// ExportTo defines the visibility of Service in
 	// a namespace when the namespace is imported.
 	ExportTo map[Visibility]bool
+
+	// For Kubernetes platform
+
+	// ClusterExternalAddresses is a mapping between a cluster name and the external
+	// address(es) to access the service from outside the cluster.
+	// Used by the aggregator to aggregate the Attributes.ClusterExternalAddresses
+	// for clusters where the service resides
+	ClusterExternalAddresses map[string][]string
 }
 
 // ServiceDiscovery enumerates Istio service instances.
@@ -803,7 +816,8 @@ func (ports PortList) Get(name string) (*Port, bool) {
 // GetByPort retrieves a port declaration by port value
 func (ports PortList) GetByPort(num int) (*Port, bool) {
 	for _, port := range ports {
-		if port.Port == num {
+		if port.Port == num && port.Protocol != ProtocolUDP &&
+			port.Protocol != ProtocolUnsupported {
 			return port, true
 		}
 	}

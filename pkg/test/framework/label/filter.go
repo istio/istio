@@ -30,6 +30,7 @@ type Selector struct {
 
 var _ fmt.Stringer = Selector{}
 
+// NewSelector returns a new selector based on the given presence/absence predicates.
 func NewSelector(present []Instance, absent []Instance) Selector {
 	return Selector{
 		present: NewSet(present...),
@@ -39,6 +40,7 @@ func NewSelector(present []Instance, absent []Instance) Selector {
 
 var userLabelRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z0-9_]+)*$`)
 
+// ParseSelector parses and returns a new instance of Selector.
 func ParseSelector(s string) (Selector, error) {
 	var present, absent []Instance
 

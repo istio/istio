@@ -23,9 +23,9 @@ import (
 	"github.com/fsnotify/fsnotify"
 	yaml "gopkg.in/yaml.v2"
 
-	envvar "istio.io/istio/pkg/env"
-	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/mcp/server"
+	envvar "istio.io/pkg/env"
+	"istio.io/pkg/filewatcher"
 )
 
 type accessList struct {

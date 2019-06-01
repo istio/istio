@@ -20,6 +20,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"istio.io/istio/pilot/pkg/networking/plugin/authz/matcher"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -767,20 +769,6 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			Rule: &policy.Permission_AndRules{
 				AndRules: &policy.Permission_Set{
 					Rules: []*policy.Permission{
-						{Rule: generateDestinationPortRule([]uint32{80, 443})},
-						{Rule: generateDestinationCidrRule([]string{"192.1.2.0", "2001:db8::"}, []uint32{24, 28})},
-						{
-							Rule: generateHeaderRule([]*route.HeaderMatcher{
-								{Name: "key1", HeaderMatchSpecifier: &route.HeaderMatcher_PrefixMatch{PrefixMatch: "prefix"}},
-								{Name: "key1", HeaderMatchSpecifier: &route.HeaderMatcher_SuffixMatch{SuffixMatch: "suffix"}},
-							}),
-						},
-						{
-							Rule: generateHeaderRule([]*route.HeaderMatcher{
-								{Name: "key2", HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "simple"}},
-								{Name: "key2", HeaderMatchSpecifier: &route.HeaderMatcher_PresentMatch{PresentMatch: true}},
-							}),
-						},
 						{
 							Rule: &policy.Permission_OrRules{
 								OrRules: &policy.Permission_Set{
@@ -797,6 +785,20 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 									},
 								},
 							},
+						},
+						{Rule: generateDestinationCidrRule([]string{"192.1.2.0", "2001:db8::"}, []uint32{24, 28})},
+						{Rule: generateDestinationPortRule([]uint32{80, 443})},
+						{
+							Rule: generateHeaderRule([]*route.HeaderMatcher{
+								{Name: "key1", HeaderMatchSpecifier: &route.HeaderMatcher_PrefixMatch{PrefixMatch: "prefix"}},
+								{Name: "key1", HeaderMatchSpecifier: &route.HeaderMatcher_SuffixMatch{SuffixMatch: "suffix"}},
+							}),
+						},
+						{
+							Rule: generateHeaderRule([]*route.HeaderMatcher{
+								{Name: "key2", HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "simple"}},
+								{Name: "key2", HeaderMatchSpecifier: &route.HeaderMatcher_PresentMatch{PresentMatch: true}},
+							}),
 						},
 					},
 				},
@@ -948,8 +950,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			Rule: &policy.Permission_AndRules{
 				AndRules: &policy.Permission_Set{
 					Rules: []*policy.Permission{
-						{Rule: generateDestinationPortRule([]uint32{80, 443})},
 						{Rule: generateDestinationCidrRule([]string{"192.1.2.0", "2001:db8::"}, []uint32{24, 28})},
+						{Rule: generateDestinationPortRule([]uint32{80, 443})},
 					},
 				},
 			},
@@ -1534,12 +1536,15 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		},
 	}
 
+	spewCfg := spew.NewDefaultConfig()
+	spewCfg.SortKeys = true
 	for _, tc := range testCases {
 		rbac := convertRbacRulesToFilterConfig(tc.service, tc.option)
-		if !reflect.DeepEqual(*tc.rbac, *rbac.Rules) {
-			t.Errorf("%s want:\n%v\nbut got:\n%v", tc.name, *tc.rbac, *rbac.Rules)
+		want := spewCfg.Sdump(*tc.rbac)
+		got := spewCfg.Sdump(*rbac.Rules)
+		if got != want {
+			t.Errorf("%s\nwant: %s\n got: %s", tc.name, want, got)
 		}
-
 	}
 }
 
@@ -1831,99 +1836,15 @@ func TestCreateServiceMetadata(t *testing.T) {
 		Labels:         model.Labels{"version": "v1"},
 		ServiceAccount: "spiffe://xyz.com/sa/service-account/ns/test-ns",
 	}
-	actual := createServiceMetadata(&model.ServiceAttributes{Name: "svc-name", Namespace: "test-ns"}, serviceInstance)
+	actual := newServiceMetadata(&model.ServiceAttributes{Name: "svc-name", Namespace: "test-ns"}, serviceInstance)
 
 	if !reflect.DeepEqual(*actual, *expect) {
 		t.Errorf("expecting %v, but got %v", *expect, *actual)
 	}
 
-	actual = createServiceMetadata(&model.ServiceAttributes{Name: "svc-name", Namespace: ""}, serviceInstance)
+	actual = newServiceMetadata(&model.ServiceAttributes{Name: "svc-name", Namespace: ""}, serviceInstance)
 	if actual != nil {
 		t.Errorf("expecting nil, but got %v", *actual)
-	}
-}
-
-func TestServiceMetadataMatch(t *testing.T) {
-	cases := []struct {
-		Name    string
-		Service *serviceMetadata
-		Rule    *rbacproto.AccessRule
-		Expect  bool
-	}{
-		{
-			Name:    "empty access rule",
-			Service: &serviceMetadata{},
-			Expect:  true,
-		},
-		{
-			Name: "service.name not matched",
-			Service: &serviceMetadata{
-				name:       "product.default",
-				attributes: map[string]string{"destination.name": "s2"},
-			},
-			Rule: &rbacproto.AccessRule{
-				Services: []string{"review.default"},
-				Constraints: []*rbacproto.AccessRule_Constraint{
-					{Key: "destination.name", Values: []string{"s1", "s2"}},
-				},
-			},
-			Expect: false,
-		},
-		{
-			Name: "constraint.name not matched",
-			Service: &serviceMetadata{
-				name:       "product.default",
-				attributes: map[string]string{"destination.name": "s3"},
-			},
-			Rule: &rbacproto.AccessRule{
-				Services: []string{"product.default"},
-				Constraints: []*rbacproto.AccessRule_Constraint{
-					{Key: "destination.name", Values: []string{"s1", "s2"}},
-				},
-			},
-			Expect: false,
-		},
-		{
-			Name: "constraint.label not matched",
-			Service: &serviceMetadata{
-				name:   "product.default",
-				labels: map[string]string{"token": "t3"},
-			},
-			Rule: &rbacproto.AccessRule{
-				Services: []string{"product.default"},
-				Constraints: []*rbacproto.AccessRule_Constraint{
-					{Key: "destination.labels[token]", Values: []string{"t1", "t2"}},
-				},
-			},
-			Expect: false,
-		},
-		{
-			Name: "allt matched",
-			Service: &serviceMetadata{
-				name: "product.default",
-				attributes: map[string]string{
-					"destination.name": "s2", "destination.namespace": "ns2", "destination.user": "sa2", "other": "other"},
-				labels: map[string]string{"token": "t2"},
-			},
-			Rule: &rbacproto.AccessRule{
-				Services: []string{"product.default"},
-				Constraints: []*rbacproto.AccessRule_Constraint{
-					{Key: "destination.name", Values: []string{"s1", "s2"}},
-					{Key: "destination.namespace", Values: []string{"ns1", "ns2"}},
-					{Key: "destination.user", Values: []string{"sa1", "sa2"}},
-					{Key: "destination.labels[token]", Values: []string{"t1", "t2"}},
-					{Key: "request.headers[user-agent]", Values: []string{"x1", "x2"}},
-				},
-			},
-			Expect: true,
-		},
-	}
-
-	for _, tc := range cases {
-		if tc.Service.match(tc.Rule) != tc.Expect {
-			t.Errorf("%s: expecting %v for service %v and rule %v",
-				tc.Name, tc.Expect, tc.Service, tc.Rule)
-		}
 	}
 }
 

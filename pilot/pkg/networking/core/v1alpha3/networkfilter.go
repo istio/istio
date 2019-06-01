@@ -16,6 +16,9 @@ package v1alpha3
 
 import (
 	"fmt"
+	"time"
+
+	"istio.io/istio/pkg/features/pilot"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
@@ -47,9 +50,8 @@ func buildInboundNetworkFilters(env *model.Environment, node *model.Proxy, insta
 	return buildNetworkFiltersStack(node, instance.Endpoint.ServicePort, tcpFilter, clusterName)
 }
 
-// setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
-// TcpProxy instance and builds a TCP filter out of it.
-func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, config *tcp_proxy.TcpProxy) *listener.Filter {
+// setAccessLog sets the AccessLog configuration in the given TcpProxy instance.
+func setAccessLog(env *model.Environment, node *model.Proxy, config *tcp_proxy.TcpProxy) *tcp_proxy.TcpProxy {
 	if env.Mesh.AccessLogFile != "" {
 		fl := &accesslogconfig.FileAccessLog{
 			Path: env.Mesh.AccessLogFile,
@@ -127,6 +129,13 @@ func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, co
 
 		config.AccessLog = append(config.AccessLog, acc)
 	}
+	return config
+}
+
+// setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
+// TcpProxy instance and builds a TCP filter out of it.
+func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, config *tcp_proxy.TcpProxy) *listener.Filter {
+	setAccessLog(env, node, config)
 
 	tcpFilter := &listener.Filter{
 		Name: xdsutil.TCPProxy,
@@ -149,6 +158,12 @@ func buildOutboundNetworkFiltersWithSingleDestination(env *model.Environment, no
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
 		// TODO: Need to set other fields such as Idle timeouts
 	}
+
+	idleTimeout, err := time.ParseDuration(node.Metadata[model.NodeMetadataIdleTimeout])
+	if idleTimeout > 0 && err == nil {
+		config.IdleTimeout = &idleTimeout
+	}
+
 	tcpFilter := setAccessLogAndBuildTCPFilter(env, node, config)
 	return buildNetworkFiltersStack(node, port, tcpFilter, clusterName)
 }
@@ -162,10 +177,16 @@ func buildOutboundNetworkFiltersWithWeightedClusters(env *model.Environment, nod
 	clusterSpecifier := &tcp_proxy.TcpProxy_WeightedClusters{
 		WeightedClusters: &tcp_proxy.TcpProxy_WeightedCluster{},
 	}
+
 	proxyConfig := &tcp_proxy.TcpProxy{
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: clusterSpecifier,
 		// TODO: Need to set other fields such as Idle timeouts
+	}
+
+	idleTimeout, err := time.ParseDuration(node.Metadata[model.NodeMetadataIdleTimeout])
+	if idleTimeout > 0 && err == nil {
+		proxyConfig.IdleTimeout = &idleTimeout
 	}
 
 	for _, route := range routes {
@@ -190,7 +211,7 @@ func buildNetworkFiltersStack(node *model.Proxy, port *model.Port, tcpFilter *li
 	case model.ProtocolMongo:
 		filterstack = append(filterstack, buildMongoFilter(statPrefix, util.IsProxyVersionGE11(node)), *tcpFilter)
 	case model.ProtocolMySQL:
-		if util.IsProxyVersionGE11(node) {
+		if util.IsProxyVersionGE11(node) && pilot.EnableMysqlFilter() {
 			filterstack = append(filterstack, buildMySQLFilter(statPrefix, util.IsProxyVersionGE11(node)))
 		}
 		filterstack = append(filterstack, *tcpFilter)

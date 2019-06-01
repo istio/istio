@@ -1,3 +1,17 @@
+// Copyright 2019 Istio Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package builtin_test
 
 import (
@@ -70,6 +84,20 @@ func TestParse(t *testing.T) {
 			t.Fatal("failed casting item to ServiceSpec")
 		}
 		g.Expect(objMeta.GetName()).To(Equal("kube-dns"))
+	})
+
+	t.Run("Namespace", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		input := getJSON(t, "namespace.yaml")
+
+		objMeta, objResource := parse(t, input, "Namespace")
+
+		// Just validate a couple of things...
+		_, ok := objResource.(*coreV1.NamespaceSpec)
+		if !ok {
+			t.Fatal("failed casting item to Namespace")
+		}
+		g.Expect(objMeta.GetName()).To(Equal("default"))
 	})
 }
 
@@ -223,6 +251,8 @@ func empty(kind string) metaV1.Object {
 		return &coreV1.Pod{}
 	case "Endpoints":
 		return &coreV1.Endpoints{}
+	case "Namespace":
+		return &coreV1.Namespace{}
 	default:
 		panic("unsupported kind")
 	}

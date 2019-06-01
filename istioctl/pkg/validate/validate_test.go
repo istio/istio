@@ -19,11 +19,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	mixervalidate "istio.io/istio/mixer/pkg/validate"
 )
 
 const (
@@ -102,6 +105,19 @@ spec:
   - handler: handler-for-valid-rule.denier
     instances:
     - instance-for-valid-rule.checknothing`
+	invalidYAML = `
+(...!)`
+	validKubernetesYAML = `
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-system`
+	invalidMixerKind = `
+apiVersion: config.istio.io/v1alpha2
+kind: validator
+metadata:
+  name: invalid-kind
+spec:`
 	invalidUnsupportedKey = `
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -140,18 +156,21 @@ func TestValidateResource(t *testing.T) {
 		{
 			name:  "valid mixer configuration",
 			in:    validMixerRule,
-			valid: false, // TODO(https://github.com/istio/istio/issues/4887)
+			valid: true,
 		},
 		{
 			name:  "invalid mixer configuration",
 			in:    invalidMixerRule,
-			valid: false, // TODO(https://github.com/istio/istio/issues/4887)
+			valid: false,
 		},
 	}
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v] %v ", i, c.name), func(tt *testing.T) {
-			err := validateResource(fromYAML(c.in))
+			v := &validator{
+				mixerValidator: mixervalidate.NewDefaultValidator(false),
+			}
+			err := v.validateResource(fromYAML(c.in))
 			if (err == nil) != c.valid {
 				tt.Fatalf("unexpected validation result: got %v want %v: err=%q", err == nil, c.valid, err)
 			}
@@ -196,13 +215,23 @@ func TestValidateCommand(t *testing.T) {
 	unsupportedMixerRuleFilename, closeMixerRuleFile := createTestFile(t, unsupportedMixerRule)
 	defer closeMixerRuleFile.Close()
 
+	invalidYAMLFile, closeInvalidYAMLFile := createTestFile(t, invalidYAML)
+	defer closeInvalidYAMLFile.Close()
+
+	validKubernetesYAMLFile, closeKubernetesYAMLFile := createTestFile(t, validKubernetesYAML)
+	defer closeKubernetesYAMLFile.Close()
+
+	invalidMixerKindFile, closeInvalidMixerKindFile := createTestFile(t, invalidMixerKind)
+	defer closeInvalidMixerKindFile.Close()
+
 	unsupportedKeyFilename, closeUnsupportedKeyFile := createTestFile(t, invalidUnsupportedKey)
 	defer closeUnsupportedKeyFile.Close()
 
 	cases := []struct {
-		name      string
-		args      []string
-		wantError bool
+		name           string
+		args           []string
+		wantError      bool
+		expectedRegexp *regexp.Regexp // Expected regexp output
 	}{
 		{
 			name:      "filename missing",
@@ -228,6 +257,28 @@ func TestValidateCommand(t *testing.T) {
 			wantError: true,
 		},
 		{
+			name:      "invalid filename",
+			args:      []string{"--filename", "INVALID_FILE_NAME"},
+			wantError: true,
+		},
+		{
+			name:      "invalid YAML",
+			args:      []string{"--filename", invalidYAMLFile},
+			wantError: true,
+		},
+		{
+			name: "valid Kubernetes YAML",
+			args: []string{"--filename", validKubernetesYAMLFile},
+			expectedRegexp: regexp.MustCompile(`^".*" is valid
+$`),
+			wantError: false,
+		},
+		{
+			name:      "invalid Mixer kind",
+			args:      []string{"--filename", invalidMixerKindFile},
+			wantError: true,
+		},
+		{
 			name:      "invalid top-level key",
 			args:      []string{"--filename", unsupportedKeyFilename},
 			wantError: true,
@@ -245,8 +296,14 @@ func TestValidateCommand(t *testing.T) {
 
 			err := validateCmd.Execute()
 			if (err != nil) != c.wantError {
-				tt.Fatalf("unexpected validate return status: got %v want %v: \nerr=%v",
+				tt.Errorf("unexpected validate return status: got %v want %v: \nerr=%v",
 					err != nil, c.wantError, err)
+			}
+
+			output := out.String()
+			if c.expectedRegexp != nil && !c.expectedRegexp.MatchString(output) {
+				t.Errorf("Output didn't match for 'istioctl %s'\n got %v\nwant: %v",
+					strings.Join(c.args, " "), output, c.expectedRegexp)
 			}
 		})
 	}

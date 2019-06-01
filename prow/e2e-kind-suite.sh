@@ -35,6 +35,13 @@ set -u
 # Print commands
 set -x
 
+# shellcheck source=prow/lib.sh
+source "${ROOT}/prow/lib.sh"
+setup_and_export_git_sha
+setup_kind_cluster
+
+echo 'Build'
+(cd "${ROOT}"; make build)
 
 E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
 # e2e tests with kind clusters on prow will get deleted when prow
@@ -57,11 +64,7 @@ for ((i=1; i<=$#; i++)); do
     E2E_ARGS+=( "${!i}" )
 done
 
-# shellcheck source=prow/lib.sh
-source "${ROOT}/prow/lib.sh"
-setup_kind_cluster
-
-export HUB=${HUB:-"gcr.io/istio-testing"}
+export HUB=${HUB:-"kindtest"}
 export TAG="${TAG:-${GIT_SHA}}"
 
 make init
@@ -70,7 +73,7 @@ make docker
 function build_kind_images(){
 	# Create a temp directory to store the archived images.
 	TMP_DIR=$(mktemp -d)
-	IMAGE_FILE="${TMP_DIR}"/image.tar 
+	IMAGE_FILE="${TMP_DIR}"/image.tar
 
 	# Archived local images and load it into KinD's docker daemon
 	# Kubernetes in KinD can only access local images from its docker daemon.

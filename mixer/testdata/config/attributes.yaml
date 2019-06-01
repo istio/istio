@@ -188,3 +188,5 @@ spec:
         valueType: STRING
       destination.workload.namespace:
         valueType: STRING
+      destination.container.name:
+        valueType: STRING

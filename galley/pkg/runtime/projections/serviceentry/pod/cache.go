@@ -24,11 +24,16 @@ import (
 	"istio.io/istio/pkg/spiffe"
 
 	coreV1 "k8s.io/api/core/v1"
-	"k8s.io/kubernetes/pkg/kubelet/apis"
 )
 
 var _ Cache = &cacheImpl{}
 var _ processing.Handler = &cacheImpl{}
+
+// k8s well known labels
+const (
+	LabelZoneRegion        = "failure-domain.beta.kubernetes.io/region"
+	LabelZoneFailureDomain = "failure-domain.beta.kubernetes.io/zone"
+)
 
 // Info for a Pod.
 type Info struct {
@@ -96,8 +101,8 @@ func (pc *cacheImpl) handleNode(event resource.Event) {
 		// Just update the node information directly
 		labels := event.Entry.Metadata.Labels
 
-		region := labels[apis.LabelZoneRegion]
-		zone := labels[apis.LabelZoneFailureDomain]
+		region := labels[LabelZoneRegion]
+		zone := labels[LabelZoneFailureDomain]
 
 		newLocality := getLocality(region, zone)
 		oldLocality := pc.nodeNameToLocality[nodeName]

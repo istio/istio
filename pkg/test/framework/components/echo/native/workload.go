@@ -21,8 +21,8 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test/application"
-	appEcho "istio.io/istio/pkg/test/application/echo"
+	"istio.io/istio/pkg/test/echo/client"
+	"istio.io/istio/pkg/test/echo/server"
 	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
@@ -38,21 +38,21 @@ const (
 var _ echo.Workload = &workload{}
 
 type workload struct {
-	*appEcho.Client
+	*client.Instance
 
 	discoveryFilter discoveryFilter
-	app             application.Application
+	echoServer      *server.Instance
 	sidecar         *sidecar
 }
 
 func newWorkload(ctx resource.Context, cfg *echo.Config) (w *workload, err error) {
 	env := ctx.Environment().(*native.Environment)
 
-	w = &workload{}
+	out := &workload{}
 
 	defer func() {
 		if err != nil {
-			_ = w.Close()
+			_ = out.Close()
 		}
 	}()
 
@@ -64,18 +64,18 @@ func newWorkload(ctx resource.Context, cfg *echo.Config) (w *workload, err error
 			Protocol: p.Protocol,
 		})
 	}
-	appFactory := &appEcho.Factory{
+
+	out.echoServer = server.New(server.Config{
 		Ports:   appPorts,
 		Version: cfg.Version,
-	}
+	})
 
 	// Create and start the Echo application
-	w.app, err = appFactory.NewApplication(application.DefaultDialer)
-	if err != nil {
+	if err = out.echoServer.Start(); err != nil {
 		return nil, err
 	}
 
-	if cfg.Sidecar {
+	if cfg.Annotations.GetBool(echo.SidecarInject) {
 		// Using a sidecar Envoy proxy. Need to wire up a custom discovery filter and start Envoy...
 
 		if cfg.Galley == nil {
@@ -90,7 +90,7 @@ func newWorkload(ctx resource.Context, cfg *echo.Config) (w *workload, err error
 
 		// Create the discovery filter that modifies the XDS from Pilot to allow the application run
 		// run natively.
-		w.discoveryFilter, err = newDiscoverFilter(pilotDiscoveryAddress.String(), env.PortManager)
+		out.discoveryFilter, err = newDiscoverFilter(pilotDiscoveryAddress.String(), env.PortManager)
 		if err != nil {
 			return nil, err
 		}
@@ -102,40 +102,27 @@ func newWorkload(ctx resource.Context, cfg *echo.Config) (w *workload, err error
 		}
 
 		// Create an start a new sidecar.
-		if w.sidecar, err = newSidecar(sidecarConfig{
-			discoveryAddress: w.discoveryFilter.GetDiscoveryAddress(),
+		if out.sidecar, err = newSidecar(sidecarConfig{
+			discoveryAddress: out.discoveryFilter.GetDiscoveryAddress(),
 			portManager:      env.PortManager,
 			outDir:           tmpDir,
 			domain:           env.Domain,
 			service:          cfg.Service,
 			envoyLogLevel:    envoyLogLovel,
 			namespace:        cfg.Namespace.Name(),
-			servicePorts:     w.app.GetPorts(),
+			servicePorts:     out.echoServer.Ports,
 		}); err != nil {
 			return nil, err
 		}
 
-		// Apply the service config to Galley.
-		svcCfg := serviceConfig{
-			service:  cfg.Service,
-			ns:       cfg.Namespace,
-			domain:   env.Domain,
-			version:  cfg.Version,
-			ports:    w.sidecar.GetPorts(),
-			locality: cfg.Locality,
-		}
-		if _, err = svcCfg.applyTo(cfg.Galley); err != nil {
-			return nil, err
-		}
-
 		// Update the ports in the configuration to reflect the port mapping between Envoy and the Application.
-		cfg.Ports = w.sidecar.GetPorts()
+		cfg.Ports = out.sidecar.GetPorts()
 	} else {
 		// No sidecar case is simple: just use the application ports directly ...
 
 		// Update the configuration with the ports assigned by the application.
 		cfg.Ports = cfg.Ports[:0]
-		for _, p := range w.app.GetPorts() {
+		for _, p := range out.echoServer.Ports {
 			cfg.Ports = append(cfg.Ports, echo.Port{
 				Name:         p.Name,
 				Protocol:     p.Protocol,
@@ -143,6 +130,19 @@ func newWorkload(ctx resource.Context, cfg *echo.Config) (w *workload, err error
 				InstancePort: p.Port,
 			})
 		}
+	}
+
+	// Apply the service config to Galley.
+	svcCfg := serviceConfig{
+		service:  cfg.Service,
+		ns:       cfg.Namespace,
+		domain:   env.Domain,
+		version:  cfg.Version,
+		ports:    cfg.Ports,
+		locality: cfg.Locality,
+	}
+	if _, err = svcCfg.applyTo(cfg.Galley); err != nil {
+		return nil, err
 	}
 
 	// Get the GRPC port.
@@ -160,11 +160,11 @@ func newWorkload(ctx resource.Context, cfg *echo.Config) (w *workload, err error
 		return nil, errors.New("unable to find grpc port for application")
 	}
 
-	w.Client, err = appEcho.NewClient(fmt.Sprintf("%s:%d", localhost, grpcPort))
+	out.Instance, err = client.New(fmt.Sprintf("%s:%d", localhost, grpcPort))
 	if err != nil {
 		return nil, err
 	}
-	return w, nil
+	return out, nil
 }
 
 func (w *workload) Address() string {
@@ -175,7 +175,7 @@ func (w *workload) Sidecar() echo.Sidecar {
 	return w.sidecar
 }
 
-func (w *workload) Call(opts *echo.CallOptions) (appEcho.ParsedResponses, error) {
+func (w *workload) Call(opts *echo.CallOptions) (client.ParsedResponses, error) {
 	// Override the Host.
 	opts.Host = localhost
 
@@ -186,12 +186,12 @@ func (w *workload) Call(opts *echo.CallOptions) (appEcho.ParsedResponses, error)
 		portSelector = w.discoveryFilter.GetBoundOutboundListenerPort
 	}
 
-	return common.CallEcho(w.Client, opts, portSelector)
+	return common.CallEcho(w.Instance, opts, portSelector)
 }
 
 func (w *workload) Close() (err error) {
-	if w.Client != nil {
-		err = multierror.Append(err, w.Client.Close()).ErrorOrNil()
+	if w.Instance != nil {
+		err = multierror.Append(err, w.Instance.Close()).ErrorOrNil()
 	}
 	if w.sidecar != nil {
 		w.sidecar.Stop()
@@ -199,8 +199,8 @@ func (w *workload) Close() (err error) {
 	if w.discoveryFilter != nil {
 		w.discoveryFilter.Stop()
 	}
-	if w.app != nil {
-		err = multierror.Append(err, w.app.Close()).ErrorOrNil()
+	if w.echoServer != nil {
+		err = multierror.Append(err, w.echoServer.Close()).ErrorOrNil()
 	}
 	return
 }

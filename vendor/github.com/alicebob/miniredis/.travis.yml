@@ -1,0 +1,10 @@
+language: go
+
+install: go get -t
+
+script: make test testrace
+
+sudo: false
+
+go:
+    - 1.9

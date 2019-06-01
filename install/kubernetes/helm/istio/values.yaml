@@ -118,12 +118,6 @@ global:
   logging:
     level: "default:info"
 
-  # Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>
-  # The control plane has different scopes depending on component, but can configure default log level across all components
-  # If empty, default scope and level will be used as configured in code
-  logging:
-    level: "default:info"
-
   # monitoring port used by mixer, pilot, galley
   monitoringPort: 15014
 
@@ -153,7 +147,7 @@ global:
         memory: 128Mi
       limits:
         cpu: 2000m
-        memory: 128Mi
+        memory: 1024Mi
 
     # Controls number of Proxy worker threads.
     # If set to 0 (default), then start worker thread for each CPU thread/core.
@@ -186,9 +180,13 @@ global:
     # Expected values are: trace|debug|info|warning|error|critical|off
     logLevel: ""
 
+    # Per Component log level for proxy, applies to gateways and sidecars. If a component level is
+    # not set, then the global "logLevel" will be used. If left empty, "misc:error" is used.
+    componentLogLevel: ""
+
     # Configure the DNS refresh rate for Envoy cluster of type STRICT_DNS
-    # 5 seconds is the default refresh rate used by Envoy
-    dnsRefreshRate: 5s
+    # This must be given it terms of seconds. For example, 300s is valid but 5m is invalid.
+    dnsRefreshRate: 300s
 
     #If set to true, istio-proxy container will have privileged securityContext
     privileged: false
@@ -215,6 +213,7 @@ global:
     # be allowed by the sidecar
     includeIPRanges: "*"
     excludeIPRanges: ""
+    excludeOutboundPorts: ""
 
     # pod internal interfaces
     kubevirtInterfaces: ""
@@ -340,6 +339,14 @@ global:
   # the desired values.
   defaultNodeSelector: {}
 
+  # Default node tolerations to be applied to all deployments so that all pods can be
+  # scheduled to a particular nodes with matching taints. Each component can overwrite
+  # these default values by adding its tolerations block in the relevant section below
+  # and setting the desired values.
+  # Configure this field in case that all pods of Istio control plane are expected to
+  # be scheduled to particular nodes with specified taints.
+  defaultTolerations: []
+
   # Whether to perform server-side validation of configuration.
   configValidation: true
 
@@ -449,8 +456,9 @@ global:
   # The second network, `network2`, in this example is defined differently with all endpoints
   # retrieved through the specified Multi-Cluster registry being mapped to network2. The
   # gateway is also defined differently with the name of the gateway service on the remote
-  # cluster. The public IP for the gateway will be determined from that remote service (not
-  # supported yet).
+  # cluster. The public IP for the gateway will be determined from that remote service (only
+  # LoadBalancer gateway service type is currently supported, for a NodePort type gateway service,
+  # it still need to be configured manually).
   #
   # meshNetworks:
   #   network1:
@@ -463,7 +471,7 @@ global:
   #     endpoints:
   #     - fromRegistry: reg1
   #     gateways:
-  #     - registryServiceName: istio-ingressgateway
+  #     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
   #       port: 443
   #
   meshNetworks: {}

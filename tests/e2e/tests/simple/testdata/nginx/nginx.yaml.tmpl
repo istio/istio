@@ -236,7 +236,7 @@ spec:
         traffic.sidecar.istio.io/includeInboundPorts: ""
         # Exclude outbound traffic to kubernetes master from redirection.
         # This is required in order to support single-namespace Istio configurations.
-        traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{.KubeMasterCIDR}}"
+        traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{.KubeMasterCIDR}},1.1.1.1/24,2.2.2.2/16,3.3.3.3/20"
     spec:
       serviceAccountName: nginx-ingress-serviceaccount
       containers:

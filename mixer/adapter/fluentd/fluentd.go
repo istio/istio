@@ -33,6 +33,7 @@ import (
 
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/fluentd/config"
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/logentry"
 )
@@ -41,10 +42,6 @@ const (
 	defaultBufferSize    int64 = 1024
 	defaultMaxBatchBytes int64 = 8 * 1024 * 1024
 	defaultTimeout             = 1 * time.Minute
-)
-
-var (
-	defaultAddress = "localhost:24224"
 )
 
 type (
@@ -268,15 +265,7 @@ func (h *handler) Close() (err error) {
 
 // GetInfo returns the adapter.Info specific to this adapter.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "fluentd",
-		Description: "Sends logentrys to a fluentd instance",
-		SupportedTemplates: []string{
-			logentry.TemplateName,
-		},
-		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
-		DefaultConfig: &config.Params{
-			Address: defaultAddress,
-		},
-	}
+	info := metadata.GetInfo("fluentd")
+	info.NewBuilder = func() adapter.HandlerBuilder { return &builder{} }
+	return info
 }

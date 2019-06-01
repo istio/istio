@@ -17,7 +17,7 @@ package controller
 import (
 	"strings"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // ConstructCustomDNSNames creates DNS entries for given service accounts and allows

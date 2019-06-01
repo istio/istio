@@ -521,9 +521,12 @@ func (wh *Webhook) admitMixer(request *admissionv1beta1.AdmissionRequest) *admis
 		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}
 
-	if err := wh.validator.Validate(ev); err != nil {
-		reportValidationFailed(request, reasonInvalidConfig)
-		return toAdmissionResponse(err)
+	// webhook skips deletions
+	if ev.Type == store.Update {
+		if err := wh.validator.Validate(ev); err != nil {
+			reportValidationFailed(request, reasonInvalidConfig)
+			return toAdmissionResponse(err)
+		}
 	}
 
 	reportValidationPass(request)

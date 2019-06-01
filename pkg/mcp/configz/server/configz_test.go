@@ -24,13 +24,12 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/pkg/mcp/source"
-	"istio.io/istio/pkg/mcp/testing/groups"
-
-	"istio.io/istio/pkg/ctrlz"
-	"istio.io/istio/pkg/ctrlz/fw"
 	"istio.io/istio/pkg/mcp/snapshot"
+	"istio.io/istio/pkg/mcp/source"
 	mcptest "istio.io/istio/pkg/mcp/testing"
+	"istio.io/istio/pkg/mcp/testing/groups"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/ctrlz/fw"
 )
 
 const testK8sCollection = "k8s/core/v1/nodes"
@@ -62,6 +61,8 @@ func TestConfigZ(t *testing.T) {
 	baseURL := fmt.Sprintf("http://%v", cz.Address())
 
 	t.Run("configj with 1 request", func(tt *testing.T) { testConfigJWithOneRequest(tt, baseURL) })
+
+	t.Run("configj mcp resource with 1 request", func(tt *testing.T) { testConfigJResourceWithOneRequest(tt, baseURL) })
 }
 
 func testConfigJWithOneRequest(t *testing.T, baseURL string) {
@@ -87,14 +88,39 @@ func testConfigJWithOneRequest(t *testing.T, baseURL string) {
 	}
 
 	exists = false
-	for _, collection := range m["Snapshots"].([]interface{}) {
-		if collection.(map[string]interface{})["Collection"].(string) == testK8sCollection {
+	for _, snapshot := range m["Snapshots"].([]interface{}) {
+		if snapshot.(map[string]interface{})["Collection"].(string) == testK8sCollection {
 			exists = true
 			break
 		}
 	}
 	if !exists {
 		t.Fatalf("Should have contained supported collections: %v", data)
+	}
+
+}
+
+func testConfigJResourceWithOneRequest(t *testing.T, baseURL string) {
+	t.Helper()
+
+	data := request(t, baseURL+"/configj/resource?group="+groups.Default+"&collection="+testK8sCollection+"&name=foo")
+
+	m := make(map[string]interface{})
+	err := json.Unmarshal([]byte(data), &m)
+	if err != nil {
+		t.Fatalf("Should have unmarshalled json: %v", err)
+	}
+
+	if m["Metadata"].(map[string]interface{})["name"] != "foo" {
+		t.Fatalf("Should have name with foo: %v", data)
+	}
+
+	if m["Metadata"].(map[string]interface{})["version"] != "v0" {
+		t.Fatalf("Should have version with v0: %v", data)
+	}
+
+	if m["TypeURL"].(string) != "type.googleapis.com/google.protobuf.Empty" {
+		t.Fatalf("Should have type_url with type.googleapis.com/google.protobuf.Empty: %v", data)
 	}
 
 }

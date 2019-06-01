@@ -32,10 +32,10 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/pkg/log"
 )
 
 func makeClient(t *testing.T) kubernetes.Interface {
@@ -306,10 +306,12 @@ func makeService(n, ns string, cl kubernetes.Interface, t *testing.T) {
 	log.Infof("Created service %s", n)
 }
 
-func TestController_getPodAZ(t *testing.T) {
+func TestController_GetPodLocality(t *testing.T) {
 	t.Parallel()
 	pod1 := generatePod("128.0.1.1", "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
 	pod2 := generatePod("128.0.1.2", "pod2", "nsB", "", "node2", map[string]string{"app": "prod-app"}, map[string]string{})
+	podOverride := generatePod("128.0.1.2", "pod2", "nsB", "",
+		"node1", map[string]string{"app": "prod-app", model.LocalityLabel: "regionOverride.zoneOverride.subzoneOverride"}, map[string]string{})
 	testCases := []struct {
 		name   string
 		pods   []*v1.Pod
@@ -365,6 +367,16 @@ func TestController_getPodAZ(t *testing.T) {
 			wantAZ: map[*v1.Pod]string{
 				pod1: "/zone1",
 				pod2: "/zone2",
+			},
+		},
+		{
+			name: "should return correct az for given address",
+			pods: []*v1.Pod{podOverride},
+			nodes: []*v1.Node{
+				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1"}),
+			},
+			wantAZ: map[*v1.Pod]string{
+				podOverride: "regionOverride/zoneOverride/subzoneOverride",
 			},
 		},
 	}
@@ -448,7 +460,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	fx.Wait("eds")
 
 	var svcNode model.Proxy
-	svcNode.Type = model.Ingress
+	svcNode.Type = model.Router
 	svcNode.IPAddresses = []string{"128.0.0.1"}
 	svcNode.ID = "pod1.nsa"
 	svcNode.DNSDomain = "nsa.svc.cluster.local"

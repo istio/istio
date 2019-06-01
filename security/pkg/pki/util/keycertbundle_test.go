@@ -248,14 +248,17 @@ func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 			caKeyFile:     int2KeyFile,
 			certChainFile: "",
 			rootCertFile:  rootCertFile,
-			expectedErr:   "cannot verify the cert with the provided root chain and cert pool",
+			expectedErr: "cannot verify the cert with the provided root chain and " +
+				"cert pool with error: x509: certificate signed by unknown authority",
 		},
 		"Failure - cert not verifiable from root cert": {
 			caCertFile:    intCertFile,
 			caKeyFile:     intKeyFile,
 			certChainFile: intCertChainFile,
 			rootCertFile:  anotherRootCertFile,
-			expectedErr:   "cannot verify the cert with the provided root chain and cert pool",
+			expectedErr: "cannot verify the cert with the provided root chain and " +
+				"cert pool with error: x509: certificate is not authorized to sign " +
+				"other certificates",
 		},
 		"Failure - invalid cert": {
 			caCertFile:    badCertFile,

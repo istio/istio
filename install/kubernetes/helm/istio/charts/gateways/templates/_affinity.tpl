@@ -62,7 +62,7 @@
         matchExpressions:
         - key: {{ $item.key }}
           operator: {{ $item.operator }}
-          {{- if $item.value }}
+          {{- if $item.values }}
           values:
           {{- $vals := split "," $item.values }}
           {{- range $i, $v := $vals }}

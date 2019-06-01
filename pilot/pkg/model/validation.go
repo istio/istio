@@ -286,7 +286,11 @@ func validateDNS1123Labels(domain string) error {
 	if _, err := strconv.Atoi(topLevelDomain); err == nil {
 		return fmt.Errorf("domain name %q invalid (top level domain %q cannot be all-numeric)", domain, topLevelDomain)
 	}
-	for _, label := range parts {
+	for i, label := range parts {
+		// Allow the last part to be empty, for unambiguous names like `istio.io.`
+		if i == len(parts)-1 && label == "" {
+			return nil
+		}
 		if !IsDNS1123Label(label) {
 			return fmt.Errorf("domain name %q invalid (label %q invalid)", domain, label)
 		}
@@ -1573,7 +1577,6 @@ func checkServiceRoleBinding(in *rbac.ServiceRoleBinding) error {
 		errs = appendErrors(errs, fmt.Errorf("exactly one of `roleRef`, `role`, or `actions` must be specified"))
 	}
 	if in.RoleRef != nil {
-		rbacLog.Warnf("`roleRef` is deprecated. Please use `role` instead")
 		expectKind := "ServiceRole"
 		if in.RoleRef.Kind != expectKind {
 			errs = appendErrors(errs, fmt.Errorf("kind set to %q, currently the only supported value is %q",

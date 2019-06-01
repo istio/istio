@@ -15,11 +15,14 @@
 package pilot
 
 import (
+	"os"
 	"strconv"
 	"time"
 
-	"istio.io/istio/pkg/env"
-	"istio.io/istio/pkg/log"
+	"github.com/gogo/protobuf/types"
+
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -88,6 +91,15 @@ var (
 	// where Sidecar is enabled.
 	HTTP10 = env.RegisterBoolVar("PILOT_HTTP10", false, "").Get()
 
+	initialFetchTimeoutVar = env.RegisterDurationVar(
+		"PILOT_INITIAL_FETCH_TIMEOUT",
+		0,
+		"Specifies the initial_fetch_timeout for config. If this time is reached without "+
+			"a response to the config requested by Envoy, the Envoy will move on with the init phase. "+
+			"This prevents envoy from getting stuck waiting on config during startup.",
+	)
+	InitialFetchTimeout = types.DurationProto(initialFetchTimeoutVar.Get())
+
 	// TerminationDrainDuration is the amount of time allowed for connections to complete on pilot-agent shutdown.
 	// On receiving SIGTERM or SIGINT, pilot-agent tells the active Envoy to start draining,
 	// preventing any new connections and allowing existing connections to complete. It then
@@ -106,14 +118,6 @@ var (
 		return time.Second * time.Duration(duration)
 	}
 
-	// EnableCDSPrecomputation provides an option to enable precomputation
-	// of CDS output for all namespaces at the start of a push cycle.
-	// While it reduces CPU, it comes at the cost of increased memory usage
-	enableCDSPrecomputationVar = env.RegisterStringVar("PILOT_ENABLE_CDS_PRECOMPUTATION", "", "")
-	EnableCDSPrecomputation    = func() bool {
-		return len(enableCDSPrecomputationVar.Get()) != 0
-	}
-
 	// EnableLocalityLoadBalancing provides an option to enable the LocalityLoadBalancerSetting feature
 	// as well as prioritizing the sending of traffic to a local locality. Set the environment variable to any value to enable.
 	// This is an experimental feature.
@@ -128,18 +132,38 @@ var (
 
 	enableFallthroughRouteVar = env.RegisterBoolVar(
 		"PILOT_ENABLE_FALLTHROUGH_ROUTE",
-		false,
+		true,
 		"EnableFallthroughRoute provides an option to add a final wildcard match for routes. "+
 			"When ALLOW_ANY traffic policy is used, a Passthrough cluster is used. "+
 			"When REGISTRY_ONLY traffic policy is used, a 502 error is returned.",
 	)
 	EnableFallthroughRoute = enableFallthroughRouteVar.Get
 
+	// DisablePartialRouteResponse provides an option to disable a partial route response. This
+	// will cause Pilot to send an error if any routes are invalid. The default behavior (without
+	// this flag) is to just skip the invalid route.
+	DisablePartialRouteResponse = os.Getenv("PILOT_DISABLE_PARTIAL_ROUTE_RESPONSE") == "1"
+
+	// DisableEmptyRouteResponse provides an option to disable a partial route response. This
+	// will cause Pilot to ignore a route request if Pilot generates a nil route (due to an error).
+	// This may cause Envoy to wait forever for the route, blocking listeners from receiving traffic.
+	// The default behavior (without this flag set) is to explicitly send an empty route. This
+	// will break routing for that particular route, but allow others on the same listener to work.
+	DisableEmptyRouteResponse = os.Getenv("PILOT_DISABLE_EMPTY_ROUTE_RESPONSE") == "1"
+
 	// DisableXDSMarshalingToAny provides an option to disable the "xDS marshaling to Any" feature ("on" by default).
 	disableXDSMarshalingToAnyVar = env.RegisterStringVar("PILOT_DISABLE_XDS_MARSHALING_TO_ANY", "", "")
 	DisableXDSMarshalingToAny    = func() bool {
 		return disableXDSMarshalingToAnyVar.Get() == "1"
 	}
+
+	// EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.
+	// Pilot injects this outbound filter if the service port name is `mysql`.
+	EnableMysqlFilter = enableMysqlFilter.Get
+	enableMysqlFilter = env.RegisterBoolVar(
+		"PILOT_ENABLE_MYSQL_FILTER",
+		false,
+		"EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.")
 )
 
 var (

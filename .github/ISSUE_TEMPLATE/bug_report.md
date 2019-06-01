@@ -1,10 +1,22 @@
 ---
 name: Bug report
 about: Report a bug to help us improve Istio
-
 ---
+(This is used to report product bugs, please visit <https://discuss.istio.io> for questions on using Istio)
 
 **Bug description**
+
+**Affected product area (please put an X in all that apply)**
+
+[ ] Configuration Infrastructure
+[ ] Docs
+[ ] Installation
+[ ] Networking
+[ ] Performance and Scalability
+[ ] Policies and Telemetry
+[ ] Security
+[ ] Test and Release
+[ ] User Experience
 
 **Expected behavior**
 
