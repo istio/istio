@@ -285,7 +285,10 @@ ${GEN_CERT}:
 precommit: format lint
 
 format:
-	bin/fmt.sh
+	scripts/run_gofmt.sh
+
+fmt:
+	scripts/run_gofmt.sh
 
 # Build with -i to store the build caches into $GOPATH/pkg
 buildcache:
@@ -770,3 +773,5 @@ include tests/integration/tests.mk
 .PHONY: benchcheck
 benchcheck:
 	bin/perfcheck.sh
+
+include Makefile.common.mk

@@ -32,23 +32,9 @@ function ensure_pilot_types() {
     echo 'Pilot types generation OK'
 }
 
-function check_licenses() {
-    echo 'Checking licenses'
-    bin/check_license.sh
-    echo 'licenses OK'
-}
-
-function install_golangcilint() {
-    # if you want to update this version, also change the version number in .golangci.yml
-    GOLANGCI_VERSION="v1.16.0"
-    curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b "$GOPATH"/bin "$GOLANGCI_VERSION"
-    golangci-lint --version
-}
-
 function run_adapter_lint() {
     echo 'Running adapterlinter ....'
-    go build -o bin/adapterlinter mixer/tools/adapterlinter/main.go
-    bin/adapterlinter ./mixer/adapter/...
+    go run mixer/tools/adapterlinter/main.go ./mixer/adapter/...
     echo 'adapterlinter OK'
 }
 
@@ -64,11 +50,6 @@ function run_envvar_lint() {
     go build -o bin/envvarlinter tools/checker/envvarlinter/*.go
     bin/envvarlinter mixer pilot security galley istioctl
     echo 'envvarlinter OK'
-}
-
-function run_golangcilint() {
-    echo 'Running golangci-lint ...'
-    env GOGC=25 golangci-lint run -j 1 -v ./...
 }
 
 function run_helm_lint() {
@@ -97,11 +78,12 @@ function check_samples() {
 
 ensure_pilot_types
 check_licenses
-install_golangcilint
-run_golangcilint
 run_adapter_lint
 run_test_lint
 run_envvar_lint
 run_helm_lint
 check_grafana_dashboards
 check_samples
+
+"${WORKSPACE}/scripts/run_golangci.sh"
+"${WORKSPACE}/scripts/check_license.sh"

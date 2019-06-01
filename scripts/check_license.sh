@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# WARNING: DO NOT EDIT, THIS FILE IS PROBABLY A COPY
+#
+# The original version of this file is located in the https://github.com/istio/common-files repo.
+# If you're looking at this file in a different repo and want to make a change, please go to the
+# common-files repo, make the change there and check it in. Then come back to this repo and run the
+# scripts/updatecommonfiles.sh script.
+
 # Copyright 2018 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,9 +21,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-SCRIPTPATH=$( cd "$(dirname "$0")" && pwd -P )
-ROOTDIR=$SCRIPTPATH/..
-cd "$ROOTDIR" || exit
+set -e
+
+SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ROOTDIR=$(dirname "${SCRIPTPATH}")
+cd "${ROOTDIR}"
 
 ADD_LICENSE=$1
 THISYEAR=$(date +"%Y")
@@ -25,7 +34,7 @@ if [[ $ADD_LICENSE == true ]]; then
 fi
 
 ret=0
-for fn in $(find "${ROOTDIR}" -name '*.go' | grep -v vendor | grep -v testdata); do
+for fn in $(find "${ROOTDIR}" -type f \( -name '*.go' -o -name '*.cc' -o -name '*.h' -o -name '*.proto' \) | grep -v vendor | grep -v testdata); do
   if [[ $fn == *.pb.go ]];then
     continue
   fi
