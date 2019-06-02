@@ -224,27 +224,6 @@ func (a *Accessor) WaitUntilPodsAreDeleted(fetchFunc PodFetchFunc, opts ...retry
 	return err
 }
 
-// WaitUntilPodsAreFailed waits until all the pods have failed.
-func (a *Accessor) WaitUntilPodsAreFailed(fetchFunc PodFetchFunc, opts ...retry.Option) error {
-	_, err := retry.Do(func() (interface{}, bool, error) {
-
-		fetched, err := fetchFunc()
-		if err != nil {
-			scopes.CI.Infof("Failed retrieving pods: %v", err)
-			return nil, false, err
-		}
-
-		for _, p := range fetched {
-			if p.Status.Phase != kubeApiCore.PodFailed {
-				return nil, false, nil
-			}
-		}
-		return nil, true, nil
-	}, newRetryOptions(opts...)...)
-
-	return err
-}
-
 // WaitUntilDeploymentIsReady waits until the deployment with the name/namespace is in ready state.
 func (a *Accessor) WaitUntilDeploymentIsReady(ns string, name string, opts ...retry.Option) error {
 	_, err := retry.Do(func() (interface{}, bool, error) {
@@ -478,8 +457,8 @@ func (a *Accessor) Delete(namespace string, filename string) error {
 }
 
 // Logs calls the logs command for the specified pod, with -c, if container is specified.
-func (a *Accessor) Logs(namespace string, pod string, container string) (string, error) {
-	return a.ctl.logs(namespace, pod, container)
+func (a *Accessor) Logs(namespace string, pod string, container string, previousLog bool) (string, error) {
+	return a.ctl.logs(namespace, pod, container, previousLog)
 }
 
 // Exec executes the provided command on the specified pod/container.

@@ -125,9 +125,13 @@ func (c *kubectl) deleteInternal(namespace string, files []string) (err error) {
 }
 
 // logs calls the logs command for the specified pod, with -c, if container is specified.
-func (c *kubectl) logs(namespace string, pod string, container string) (string, error) {
+func (c *kubectl) logs(namespace string, pod string, container string, previousLog bool) (string, error) {
 	cmd := fmt.Sprintf("kubectl logs %s %s %s %s",
 		c.configArg(), namespaceArg(namespace), pod, containerArg(container))
+	if previousLog {
+		cmd = fmt.Sprintf("kubectl logs %s %s %s %s -p",
+			c.configArg(), namespaceArg(namespace), pod, containerArg(container))
+	}
 
 	s, err := shell.Execute(true, cmd)
 

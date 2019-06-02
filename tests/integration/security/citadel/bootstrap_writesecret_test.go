@@ -16,6 +16,7 @@ package citadel
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
-	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/security/pkg/pki/ca"
 )
@@ -37,6 +37,9 @@ const (
 // TestCitadelBootstrapKubernetes verifies that Citadel exits if:
 // It fails to read the CA-root secret due to network issue, etc. (this is simulated via RBAC policy),
 // and then it tries to create a new CA-root secret and fails because the secret already exists.
+// This test verifies that when Citadel can't read the existing CA-root secret due to network issue,
+// it should not generate a new cert and overwrite the existing secret. Instead, the Citadel pod should
+// immediately exit with error.
 func TestCitadelBootstrapKubernetes(t *testing.T) {
 	framework.NewTest(t).Run(func(ctx framework.TestContext) {
 		ns := namespace.ClaimOrFail(t, ctx, ist.Settings().IstioNamespace)
@@ -69,20 +72,26 @@ func TestCitadelBootstrapKubernetes(t *testing.T) {
 		}
 		env.DeletePod(ns.Name(), pods[0].GetName())
 
-		// Sleep 30 seconds for the pod deletion and recreation to take effect.
-		time.Sleep(30 * time.Second)
+		// Sleep 60 seconds for the recreated Citadel to detect the write error and exit.
+		time.Sleep(60 * time.Second)
 
-		// Due to the RBAC setting, the restarted Citadel won't be able to read the secret.
-		// It also won't be able to create a CA-root secret because the secret already exists.
-		// Citadel is expected to exit and CA-root to be intact.
-		fetchFn := env.NewSinglePodFetch(ns.Name(), "istio=citadel")
-
-		err = env.WaitUntilPodsAreFailed(fetchFn, retry.Timeout(time.Minute), retry.Delay(time.Second*10))
+		pods, err = env.GetPods(ns.Name(), "istio=citadel")
 		if err != nil {
-			t.Fatal("Without writing to secret, Citadel pod is still up.")
+			t.Fatalf("failed to get Citadel pod")
+		}
+		cl, cErr := env.Logs(ns.Name(), pods[0].Name, "citadel", false /* previousLog */)
+		pl, pErr := env.Logs(ns.Name(), pods[0].Name, "citadel", true /* previousLog */)
+		expectedErr := []string{"Failed to write secret to CA", "Failed to create a self-signed Citadel"}
+		if cl != "" && cErr == nil && strings.Contains(cl, expectedErr[0]) && strings.Contains(cl, expectedErr[1]) {
+			// Found the strings in the current log.
+		} else if pl != "" && pErr == nil && strings.Contains(pl, expectedErr[0]) && strings.Contains(pl, expectedErr[1]) {
+			// Found the strings in the previous log.
+		} else {
+			t.Errorf("log does not match, expected strings %s and %s not found in logs. Current log: %s, previous log: %s",
+				expectedErr[0], expectedErr[1], cl, pl)
 		}
 
-		// Verify that the secret is untouched.
+		// Verify that the CA-root secret remains intact.
 		currentSecret, err := secrets.Get(ca.CASecret, metav1.GetOptions{})
 		if err != nil {
 			t.Fatal("Failed to retrieve Citadel CA-root secret.")
