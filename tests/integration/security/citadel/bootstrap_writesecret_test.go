@@ -15,14 +15,17 @@
 package citadel
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/citadel"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/security/pkg/pki/ca"
 )
@@ -32,22 +35,14 @@ const (
 )
 
 // TestCitadelBootstrapKubernetes verifies that Citadel exits if:
-// It fails to read the CA-root secret, and then -
-// It tries to create a new CA-root secret and fails because the secret already exists.
+// It fails to read the CA-root secret due to network issue, etc. (this is simulated via RBAC policy),
+// and then it tries to create a new CA-root secret and fails because the secret already exists.
 func TestCitadelBootstrapKubernetes(t *testing.T) {
 	framework.NewTest(t).Run(func(ctx framework.TestContext) {
 		ns := namespace.ClaimOrFail(t, ctx, ist.Settings().IstioNamespace)
-
 		namespaceTmpl := map[string]string{
 			"Namespace": ns.Name(),
 		}
-		// Create the Citadel's CA-root secret for signing key and cert.
-		env := ctx.Environment().(*kube.Environment)
-		secrets := env.GetSecret(ns.Name())
-		pemCert := []byte("ABC")
-		pemKey := []byte("DEF")
-		citadelSecret := ca.BuildSecret("", ca.CASecret, ns.Name(), nil, nil, nil, pemCert, pemKey, "istio.io/ca-root")
-		secrets.Create(citadelSecret)
 
 		// Apply the RBAC policy to prevent Citadel to read the CA-root secret.
 		policies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
@@ -56,19 +51,44 @@ func TestCitadelBootstrapKubernetes(t *testing.T) {
 		g.ApplyConfigOrFail(t, ns, policies...)
 		defer g.DeleteConfigOrFail(t, ns, policies...)
 
-		// Sleep 60 seconds for the policy to take effect.
-		time.Sleep(60 * time.Second)
+		// Sleep 30 seconds for the policy to take effect.
+		time.Sleep(30 * time.Second)
 
-		// Start Citadel
-		_ = citadel.NewOrFail(t, ctx, citadel.Config{Istio: ist})
-		t.Log(`checking citadel exits after a while`)
-		time.Sleep(10 * time.Second)
-		fetchFn := env.NewSinglePodFetch(ns.Name(), "istio=citadel")
-		err := env.WaitUntilPodsAreDeleted(fetchFn)
+		// Retrieve Citadel CA-root secret. Keep it for later comparison.
+		env := ctx.Environment().(*kube.Environment)
+		secrets := env.GetSecret(ns.Name())
+		citadelSecret, err := secrets.Get(ca.CASecret, metav1.GetOptions{})
 		if err != nil {
-			t.Fatal("Citadel pod is not deleted when writing to CA-root secret fails.")
+			t.Fatal("Failed to retrieve Citadel CA-root secret.")
 		}
 
-		// [TODO] Verify that the secret is untouched.
+		// Delete Citadel pod, a new pod will be started.
+		pods, err := env.GetPods(ns.Name(), "istio=citadel")
+		if err != nil {
+			t.Fatal("Failed to get Citadel pods.")
+		}
+		env.DeletePod(ns.Name(), pods[0].GetName())
+
+		// Sleep 30 seconds for the pod deletion and recreation to take effect.
+		time.Sleep(30 * time.Second)
+
+		// Due to the RBAC setting, the restarted Citadel won't be able to read the secret.
+		// It also won't be able to create a CA-root secret because the secret already exists.
+		// Citadel is expected to exit and CA-root to be intact.
+		fetchFn := env.NewSinglePodFetch(ns.Name(), "istio=citadel")
+
+		err = env.WaitUntilPodsAreFailed(fetchFn, retry.Timeout(time.Minute), retry.Delay(time.Second*10))
+		if err != nil {
+			t.Fatal("Without writing to secret, Citadel pod is still up.")
+		}
+
+		// Verify that the secret is untouched.
+		currentSecret, err := secrets.Get(ca.CASecret, metav1.GetOptions{})
+		if err != nil {
+			t.Fatal("Failed to retrieve Citadel CA-root secret.")
+		}
+		if !reflect.DeepEqual(citadelSecret, currentSecret) {
+			t.Fatal("Citadel CA-root secret is changed!")
+		}
 	})
 }

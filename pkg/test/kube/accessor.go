@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -219,6 +219,27 @@ func (a *Accessor) WaitUntilPodsAreDeleted(fetchFunc PodFetchFunc, opts ...retry
 		}
 
 		return nil, false, fmt.Errorf("failed waiting to delete pod %s/%s", pods[0].Namespace, pods[0].Name)
+	}, newRetryOptions(opts...)...)
+
+	return err
+}
+
+// WaitUntilPodsAreFailed waits until all the pods have failed.
+func (a *Accessor) WaitUntilPodsAreFailed(fetchFunc PodFetchFunc, opts ...retry.Option) error {
+	_, err := retry.Do(func() (interface{}, bool, error) {
+
+		fetched, err := fetchFunc()
+		if err != nil {
+			scopes.CI.Infof("Failed retrieving pods: %v", err)
+			return nil, false, err
+		}
+
+		for _, p := range fetched {
+			if p.Status.Phase != kubeApiCore.PodFailed {
+				return nil, false, nil
+			}
+		}
+		return nil, true, nil
 	}, newRetryOptions(opts...)...)
 
 	return err
