@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/features/pilot"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 )
 
@@ -163,28 +164,41 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	// Get list of virtual services bound to the mesh gateway
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap, proxyLabels, virtualServices, listenerPort)
 	vHostPortMap := make(map[int][]route.VirtualHost)
-
+	uniques := make(map[string]struct{})
 	for _, virtualHostWrapper := range virtualHostWrappers {
 		// If none of the routes matched by source, skip this virtual host
 		if len(virtualHostWrapper.Routes) == 0 {
 			continue
 		}
-
 		virtualHosts := make([]route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
 		for _, host := range virtualHostWrapper.VirtualServiceHosts {
-			virtualHosts = append(virtualHosts, route.VirtualHost{
-				Name:    fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port),
-				Domains: []string{host, fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port)},
-				Routes:  virtualHostWrapper.Routes,
-			})
+			name := fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port)
+			if _, found := uniques[name]; !found {
+				uniques[name] = struct{}{}
+				virtualHosts = append(virtualHosts, route.VirtualHost{
+					Name:    name,
+					Domains: []string{host, fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port)},
+					Routes:  virtualHostWrapper.Routes,
+				})
+			} else {
+				push.Add(model.DuplicatedDomains, name, node, fmt.Sprintf("duplicate domain from virtual service: %s", name))
+				log.Debugf("Dropping duplicate route entry %v.", name)
+			}
 		}
 
 		for _, svc := range virtualHostWrapper.Services {
-			virtualHosts = append(virtualHosts, route.VirtualHost{
-				Name:    fmt.Sprintf("%s:%d", svc.Hostname, virtualHostWrapper.Port),
-				Domains: generateVirtualHostDomains(svc, virtualHostWrapper.Port, node),
-				Routes:  virtualHostWrapper.Routes,
-			})
+			name := fmt.Sprintf("%s:%d", svc.Hostname, virtualHostWrapper.Port)
+			if _, found := uniques[name]; !found {
+				uniques[name] = struct{}{}
+				virtualHosts = append(virtualHosts, route.VirtualHost{
+					Name:    name,
+					Domains: generateVirtualHostDomains(svc, virtualHostWrapper.Port, node),
+					Routes:  virtualHostWrapper.Routes,
+				})
+			} else {
+				push.Add(model.DuplicatedDomains, name, node, fmt.Sprintf("duplicate domain from virtual service: %s", name))
+				log.Debugf("Dropping duplicate route entry %v.", name)
+			}
 		}
 
 		vHostPortMap[virtualHostWrapper.Port] = append(vHostPortMap[virtualHostWrapper.Port], virtualHosts...)
