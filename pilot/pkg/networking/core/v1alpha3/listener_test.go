@@ -65,6 +65,33 @@ var (
 			Labels: nil,
 		},
 	}
+	virtualServiceSpec = &networking.VirtualService{
+		Hosts:    []string{"test.com"},
+		Gateways: []string{"mesh"},
+		Tcp: []*networking.TCPRoute{
+			{
+				Match: []*networking.L4MatchAttributes{
+					{
+						DestinationSubnets: []string{"10.10.0.0/24"},
+						Port:               8080,
+					},
+				},
+				Route: []*networking.RouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test.org",
+							Port: &networking.PortSelector{
+								Port: &networking.PortSelector_Number{
+									Number: 80,
+								},
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
 )
 
 func TestOutboundListenerConflict_HTTPWithCurrentTCP(t *testing.T) {
@@ -100,7 +127,7 @@ func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 		buildService("test3.com", "1.2.3.4", model.ProtocolTCP, tnow.Add(2*time.Second)),
 	}
 	p := &fakePlugin{}
-	listeners := buildOutboundListeners(p, nil, services...)
+	listeners := buildOutboundListeners(p, nil, nil, services...)
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
@@ -123,6 +150,49 @@ func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 	}
 }
 
+func TestOutboundListenerTCPWithVS(t *testing.T) {
+	tests := []struct {
+		name           string
+		CIDR           string
+		expectedChains int
+	}{
+		{
+			name:           "same CIDR",
+			CIDR:           "10.10.0.0/24",
+			expectedChains: 1,
+		},
+		{
+			name:           "different CIDR",
+			CIDR:           "10.10.10.0/24",
+			expectedChains: 2,
+		},
+	}
+	for _, tt := range tests {
+		services := []*model.Service{
+			buildService("test.com", tt.CIDR, model.ProtocolTCP, tnow),
+		}
+
+		p := &fakePlugin{}
+		virtualService := model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:      model.VirtualService.Type,
+				Version:   model.VirtualService.Version,
+				Name:      "test_vs",
+				Namespace: "default",
+			},
+			Spec: virtualServiceSpec,
+		}
+		listeners := buildOutboundListeners(p, nil, &virtualService, services...)
+
+		if len(listeners) != 1 {
+			t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+		}
+		// There should not be multiple filter chains with same CIDR match
+		if len(listeners[0].FilterChains) != tt.expectedChains {
+			t.Fatalf("test with %s expected %d filter chains, found %d", tt.name, tt.expectedChains, len(listeners[0].FilterChains))
+		}
+	}
+}
 func TestInboundListenerConfig_HTTP(t *testing.T) {
 	// Add a service and verify it's config
 	testInboundListenerConfig(t,
@@ -185,7 +255,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	oldestService := getOldestService(services...)
 
 	p := &fakePlugin{}
-	listeners := buildOutboundListeners(p, nil, services...)
+	listeners := buildOutboundListeners(p, nil, nil, services...)
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
@@ -338,7 +408,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 
 	defer os.Unsetenv("PILOT_ENABLE_MYSQL_FILTER")
 
-	listeners := buildOutboundListeners(p, sidecarConfig, services...)
+	listeners := buildOutboundListeners(p, sidecarConfig, nil, services...)
 	if len(listeners) != 3 {
 		t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
 	}
@@ -401,7 +471,7 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 			},
 		},
 	}
-	listeners := buildOutboundListeners(p, sidecarConfig, services...)
+	listeners := buildOutboundListeners(p, sidecarConfig, nil, services...)
 	if len(listeners) != 4 {
 		t.Fatalf("expected %d listeners, found %d", 4, len(listeners))
 	}
@@ -594,7 +664,8 @@ func getFilterConfig(filter listener.Filter, out proto.Message) error {
 	return nil
 }
 
-func buildOutboundListeners(p plugin.Plugin, sidecarConfig *model.Config, services ...*model.Service) []*xdsapi.Listener {
+func buildOutboundListeners(p plugin.Plugin, sidecarConfig *model.Config,
+	virtualService *model.Config, services ...*model.Service) []*xdsapi.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
 	env := buildListenerEnv(services)
@@ -607,6 +678,10 @@ func buildOutboundListeners(p plugin.Plugin, sidecarConfig *model.Config, servic
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
+	}
+
+	if virtualService != nil {
+		env.PushContext.AddVirtualServiceForTesting(virtualService)
 	}
 	return configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext, proxyInstances)
 }

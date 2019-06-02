@@ -285,7 +285,10 @@ ${GEN_CERT}:
 precommit: format lint
 
 format:
-	bin/fmt.sh
+	scripts/run_gofmt.sh
+
+fmt:
+	scripts/run_gofmt.sh
 
 # Build with -i to store the build caches into $GOPATH/pkg
 buildcache:
@@ -366,9 +369,12 @@ SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/node_agent_k8s ${ISTIO_OU
 $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ ./security/cmd/$(@F)
 
+${ISTIO_OUT}/sdsclient:
+	bin/gobuild.sh $@ ./security/tools/sdsclient
+
 .PHONY: build
 # Build will rebuild the go binaries.
-build: depend $(PILOT_GO_BINS_SHORT) mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley
+build: depend $(PILOT_GO_BINS_SHORT) mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -387,6 +393,10 @@ node-agent:
 .PHONY: node_agent_k8s
 node_agent_k8s:
 	bin/gobuild.sh ${ISTIO_OUT}/node_agent_k8s ./security/cmd/node_agent_k8s
+
+.PHONY: sdsclient
+sdsclient:
+	bin/gobuild.sh ${ISTIO_OUT}/sdsclient ./security/tools/sdsclient
 
 .PHONY: pilot
 pilot: pilot-discovery
@@ -625,7 +635,7 @@ installgen:
 	install/updateVersion.sh -a ${HUB},${TAG}
 	$(MAKE) istio.yaml
 
-$(HELM):
+$(HELM): $(ISTIO_OUT)
 	bin/init_helm.sh
 
 $(HOME)/.helm:
@@ -763,3 +773,5 @@ include tests/integration/tests.mk
 .PHONY: benchcheck
 benchcheck:
 	bin/perfcheck.sh
+
+include Makefile.common.mk

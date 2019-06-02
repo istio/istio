@@ -16,10 +16,37 @@ package auth
 
 import (
 	"fmt"
+	"io/ioutil"
 	"strings"
+
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/model"
 
 	envoy_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 )
+
+// PolicyTypeToConfigs maps policy type (e.g. service-role) to a list of its config.
+type PolicyTypeToConfigs map[string][]model.Config
+
+// getConfigsFromFiles returns a list of model.Configs from the given files.
+func getConfigsFromFiles(fileNames []string) (PolicyTypeToConfigs, error) {
+	policyTypeToConfigs := make(PolicyTypeToConfigs)
+	for _, fileName := range fileNames {
+		fileBuf, err := ioutil.ReadFile(fileName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read file %s", fileName)
+		}
+		configsFromFile, _, err := crd.ParseInputs(string(fileBuf))
+		if err != nil {
+			return nil, err
+		}
+		for _, config := range configsFromFile {
+			configType := config.Type
+			policyTypeToConfigs[configType] = append(policyTypeToConfigs[configType], config)
+		}
+	}
+	return policyTypeToConfigs, nil
+}
 
 func getCertificate(ctx *envoy_auth.CommonTlsContext) string {
 	cert := "none"

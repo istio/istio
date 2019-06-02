@@ -189,10 +189,10 @@ installIstioSystemAtVersionHelmTemplate() {
         auth_opts="--set global.mtls.enabled=true --set global.controlPlaneSecurityEnabled=true "
     fi
     release_path="${3}"/install/kubernetes/helm/istio
-    if [[ "${release_path}" == *"1.1"* || "${release_path}" == *"master"* ]]; then
+    if [[ "${release_path}" == *"1.1"* || "${release_path}" == *"1.2"* || "${release_path}" == *"master"* ]]; then
         # See https://preliminary.istio.io/docs/setup/kubernetes/helm-install/
         helm init --client-only
-        for i in install/kubernetes/helm/istio-init/files/crd*yaml; do
+        for i in "${3}"/install/kubernetes/helm/istio-init/files/crd*yaml; do
             echo_and_run kubectl apply -f "${i}"
         done
         sleep 5 # Per official Istio documentation!
