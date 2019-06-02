@@ -32,8 +32,9 @@ import (
 )
 
 const (
-	serviceName = "istio-ingressgateway"
-	istioLabel  = "ingressgateway"
+	serviceName           = "istio-ingressgateway"
+	istioLabel            = "ingressgateway"
+	DefaultRequestTimeout = 1 * time.Minute
 )
 
 var (
@@ -107,11 +108,12 @@ func getHTTPAddress(env *kube.Environment, cfg Config) (interface{}, bool, error
 func getHTTPSAddress(env *kube.Environment, cfg Config) (interface{}, bool, error) {
 	if env.Settings().Minikube {
 		// TODO(JimmyCYJ): Add support into ingress package to fetch address in Minikube environment
+		// https://github.com/istio/istio/issues/14180
 		return nil, false, fmt.Errorf("fetching HTTPS address in Minikube is not implemented yet")
 	}
-	n := cfg.Istio.Settings().IngressNamespace
+	ns := cfg.Istio.Settings().IngressNamespace
 
-	svc, err := env.Accessor.GetService(n, serviceName)
+	svc, err := env.Accessor.GetService(ns, serviceName)
 	if err != nil {
 		return nil, false, err
 	}
@@ -162,9 +164,9 @@ func (c *kubeComponent) Address() string {
 // createClient creates a client which sends HTTP requests or HTTPS requests, depending on
 // ingress type. If host is not empty, the client will resolve domain name and verify server
 // cert using the host name.
-func (c *kubeComponent) createClient(host string) (*http.Client, error) {
+func (c *kubeComponent) createClient(options CallOptions) (*http.Client, error) {
 	client := &http.Client{
-		Timeout: 1 * time.Minute,
+		Timeout: options.Timeout,
 	}
 	if c.gatewayType != PlainText {
 		scopes.Framework.Debug("Prepare root cert for client")
@@ -175,7 +177,7 @@ func (c *kubeComponent) createClient(host string) (*http.Client, error) {
 		}
 		tlsConfig := &tls.Config{
 			RootCAs:    roots,
-			ServerName: host,
+			ServerName: options.Host,
 		}
 		if c.gatewayType == Mtls {
 			cer, err := tls.X509KeyPair([]byte(c.tlsCert), []byte(c.tlsKey))
@@ -187,7 +189,7 @@ func (c *kubeComponent) createClient(host string) (*http.Client, error) {
 		tr := &http.Transport{
 			TLSClientConfig: tlsConfig,
 			DialTLS: func(netw, addr string) (net.Conn, error) {
-				if addr == host+":443" {
+				if addr == options.Host+":443" {
 					addr = c.address + ":443"
 				}
 				tc, err := tls.Dial(netw, addr, tlsConfig)
@@ -228,13 +230,16 @@ func (c *kubeComponent) createRequest(path, host string) (*http.Request, error) 
 	return req, nil
 }
 
-func (c *kubeComponent) Call(path, host string) (CallResponse, error) {
-	client, err := c.createClient(host)
+func (c *kubeComponent) Call(options CallOptions) (CallResponse, error) {
+	if options.Timeout <= 0 {
+		options.Timeout = DefaultRequestTimeout
+	}
+	client, err := c.createClient(options)
 	if err != nil {
 		scopes.Framework.Errorf("failed to create test client, error %v", err)
 		return CallResponse{}, err
 	}
-	req, err := c.createRequest(path, host)
+	req, err := c.createRequest(options.Path, options.Host)
 	if err != nil {
 		scopes.Framework.Errorf("failed to create request, error %v", err)
 		return CallResponse{}, err
@@ -265,9 +270,9 @@ func (c *kubeComponent) Call(path, host string) (CallResponse, error) {
 	return response, nil
 }
 
-func (c *kubeComponent) CallOrFail(t test.Failer, path, host string) CallResponse {
+func (c *kubeComponent) CallOrFail(t test.Failer, options CallOptions) CallResponse {
 	t.Helper()
-	resp, err := c.Call(path, host)
+	resp, err := c.Call(options)
 	if err != nil {
 		t.Fatal(err)
 	}

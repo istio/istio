@@ -34,7 +34,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			// TODO(JimmyCYJ): Add support into ingress package to test TLS/mTLS ingress gateway in Minikube
-			//  environment
+			//  environment https://github.com/istio/istio/issues/14180.
 			if ctx.Environment().(*kube.Environment).Settings().Minikube {
 				t.Skip("https://github.com/istio/istio/issues/14180")
 			}

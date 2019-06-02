@@ -146,10 +146,10 @@ type ExpectedResponse struct {
 }
 
 // VisitProductPage makes HTTPS request to ingress gateway to visit product page
-func VisitProductPage(ingress ingress.Instance, host string, timeout time.Duration, exRsp ExpectedResponse, t *testing.T) error {
+func VisitProductPage(ing ingress.Instance, host string, timeout time.Duration, exRsp ExpectedResponse, t *testing.T) error {
 	start := time.Now()
 	for {
-		response, err := ingress.Call("/productpage", host)
+		response, err := ing.Call(ingress.CallOptions{Host: host, Path: "/productpage"})
 		errorMatch := true
 		if err != nil {
 			t.Logf("Unable to connect to product page: %v", err)
@@ -218,6 +218,8 @@ func DeployBookinfo(t *testing.T, ctx framework.TestContext, g galley.Instance, 
 	}
 	d := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
 
+	// Backup the original bookinfo root.
+	originBookInfoRoot := env.BookInfoRoot
 	env.BookInfoRoot = path.Join(env.IstioRoot, "tests/integration/security/sds_ingress/")
 	var gatewayPath, virtualSvcPath, destRulePath bookinfo.ConfigFile
 	switch gatewayType {
@@ -253,4 +255,6 @@ func DeployBookinfo(t *testing.T, ctx framework.TestContext, g galley.Instance, 
 		virtualSvcPath.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
 	// Wait for deployment to complete
 	time.Sleep(3 * time.Second)
+	// Restore the bookinfo root to original value.
+	env.BookInfoRoot = originBookInfoRoot
 }

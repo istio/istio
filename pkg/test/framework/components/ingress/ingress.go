@@ -19,6 +19,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
+
+	"time"
 )
 
 // GatewayType defines ingress gateway type
@@ -30,6 +32,19 @@ const (
 	Mtls      GatewayType = 2
 )
 
+// CallOptions defines options for calling a Endpoint.
+type CallOptions struct {
+	// Host specifies the host to be used on the request. If not provided, an appropriate
+	// default is chosen for the target Instance.
+	Host string
+
+	// Path specifies the URL path for the request.
+	Path string
+
+	// Timeout used for each individual request. Must be > 0, otherwise 1 minute is used.
+	Timeout time.Duration
+}
+
 // Instance represents a deployed Ingress Gateway instance.
 type Instance interface {
 	resource.Resource
@@ -38,9 +53,9 @@ type Instance interface {
 	// when running under Minikube).
 	Address() string
 
-	//  Call makes an HTTP call through ingress, where the URL has the given path.
-	Call(path, host string) (CallResponse, error)
-	CallOrFail(t test.Failer, path, host string) CallResponse
+	//  Call makes a call through ingress.
+	Call(options CallOptions) (CallResponse, error)
+	CallOrFail(t test.Failer, options CallOptions) CallResponse
 }
 
 type Config struct {

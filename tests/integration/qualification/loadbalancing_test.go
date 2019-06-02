@@ -175,7 +175,7 @@ func sendTraffic(duration time.Duration, ing ingress.Instance, wg *sync.WaitGrou
 			wg.Done()
 			return
 		default:
-			_, err := ing.Call("/productpage", "" /* host */)
+			_, err := ing.Call(ingress.CallOptions{Host: "", Path: "/productpage"})
 			if err != nil {
 				log.Debugf("Send to Ingress failed: %v", err)
 			}

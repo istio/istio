@@ -40,7 +40,7 @@ func testMultiTLSGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 	t.Helper()
 
 	// TODO(JimmyCYJ): Add support into ingress package to test TLS/mTLS ingress gateway in Minikube
-	//  environment
+	//  environment https://github.com/istio/istio/issues/14180.
 	if ctx.Environment().(*kube.Environment).Settings().Minikube {
 		t.Skip("https://github.com/istio/istio/issues/14180")
 	}
