@@ -776,10 +776,12 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 		return out, nil
 	}
 	//skip injection for injected pods
-	for _, c := range podSpec.Containers {
-		if c.Name == ProxyContainerName {
-			fmt.Fprintf(os.Stderr, "Skipping injection because %q has injected %q sidecar already\n", metadata.Name, ProxyContainerName) //nolint: errcheck
-			return out, nil
+	if len(podSpec.Containers) > 1 {
+		for _, c := range podSpec.Containers {
+			if c.Name == ProxyContainerName {
+				fmt.Fprintf(os.Stderr, "Skipping injection because %q has injected %q sidecar already\n", metadata.Name, ProxyContainerName) //nolint: errcheck
+				return out, nil
+			}
 		}
 	}
 
