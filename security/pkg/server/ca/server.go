@@ -101,6 +101,25 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	return response, nil
 }
 
+// RootCertExpiration returns the remaining duration that root cert is still valid, if already expires, returns error.
+// ========================================
+// TODO: anyone who plan to support ROOT ROTATION FEATURE or MULTI ROOT FEATURE
+// ! PLEASE ENSURE THE ROOT CERT CAN BE ACCESSED SAFELY CONCURRENTLY !
+// ========================================
+func (s *Server) RootCertExpirationSeconds() float64 {
+	rb := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	cert, err := util.ParsePemEncodedCertificate(rb)
+	if err != nil {
+		fmt.Errorf("failed to parse the root cert: %v", err)
+		return -1
+	}
+	end := cert.NotAfter
+	if end.Before(time.Now()) {
+		log.Errorf("Expired Citadel Root found, x509.NotAfter %v, please checkout <TODO-LINK-TO-USER-GUIDE>", end)
+	}
+	return end.Sub(time.Now()).Seconds()
+}
+
 // HandleCSR handles an incoming certificate signing request (CSR). It does
 // proper validation (e.g. authentication) and upon validated, signs the CSR
 // and returns the resulting certificate. If not approved, reason for refusal
@@ -215,7 +234,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 
 	version.Info.RecordComponentBuildTag("citadel")
 
-	return &Server{
+	server := &Server{
 		authenticators: authenticators,
 		authorizer:     &registryAuthorizor{registry.GetIdentityRegistry()},
 		serverCertTTL:  ttl,
@@ -223,8 +242,11 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 		hostnames:      hostlist,
 		forCA:          forCA,
 		port:           port,
-		monitoring:     newMonitoringMetrics(),
-	}, nil
+	}
+	server.monitoring = newMonitoringMetrics(func () float64 {
+		return server.RootCertExpirationSeconds()
+	})
+	return server, nil
 }
 
 func (s *Server) createTLSServerOption() grpc.ServerOption {

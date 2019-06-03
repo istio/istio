@@ -93,6 +93,11 @@ func (authz *mockAuthorizer) authorize(requester *authenticate.Caller, requested
 	return nil
 }
 
+// Test the root cert expiration checker returns correct timestamp.
+func TestServer_RootCertExpirationSeconds(t *testing.T) {
+	// TODO call the function directly...
+}
+
 func TestCreateCertificate(t *testing.T) {
 	testCases := map[string]struct {
 		authenticators []authenticator
