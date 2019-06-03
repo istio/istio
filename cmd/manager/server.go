@@ -32,6 +32,7 @@ import (
 
 	"istio.io/operator/pkg/apis"
 	"istio.io/operator/pkg/controller"
+	"istio.io/operator/pkg/controller/istiocontrolplane"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
 )
@@ -48,7 +49,7 @@ func serverCmd() *cobra.Command {
 
 	serverCmd := &cobra.Command{
 		Use:   "server",
-		Short: "Starts the Istio operation server",
+		Short: "Starts the Istio operator server",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := log.Configure(loggingOptions); err != nil {
@@ -68,6 +69,7 @@ func serverCmd() *cobra.Command {
 
 	loggingOptions.AttachCobraFlags(serverCmd)
 	introspectionOptions.AttachCobraFlags(serverCmd)
+	istiocontrolplane.AttachCobraFlags(serverCmd)
 
 	return serverCmd
 }
