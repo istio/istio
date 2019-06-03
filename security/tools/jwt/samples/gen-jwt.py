@@ -28,9 +28,10 @@ from jwcrypto import jwt, jwk
 def main(args):
     """Generates a signed JSON Web Token from local private key."""
     with open(args.key) as f:
-        pem_data = f.read()
+        pem_data_encode = f.read()
     f.closed
 
+    pem_data = pem_data.encode("utf-8")
     key = jwk.JWK.from_pem(pem_data)
 
     if args.jwks:
