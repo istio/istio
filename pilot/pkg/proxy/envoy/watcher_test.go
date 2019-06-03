@@ -107,12 +107,17 @@ func TestWatchCerts_Multiple(t *testing.T) {
 }
 
 func TestWatchCerts(t *testing.T) {
-	name, err := ioutil.TempDir(os.TempDir(), "certs")
+	tmpDir, err := ioutil.TempDir(os.TempDir(), "certs")
 	if err != nil {
 		t.Errorf("failed to create a temp dir: %v", err)
 	}
+	// create a temp file
+	tmpFile, err := ioutil.TempFile(tmpDir, "test.file")
+	if err != nil {
+		t.Errorf("failed to create a temp file in testdata/certs: %v", err)
+	}
 	defer func() {
-		if err := os.RemoveAll(name); err != nil {
+		if err := os.RemoveAll(tmpDir); err != nil {
 			t.Errorf("failed to remove temp dir: %v", err)
 		}
 	}()
@@ -124,14 +129,15 @@ func TestWatchCerts(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	go watchCerts(ctx, []string{name}, watchFileEvents, 50*time.Millisecond, callbackFunc)
+	go watchCerts(ctx, []string{tmpFile.Name()}, watchFileEvents, 50*time.Millisecond, callbackFunc)
 
 	// sleep one second to make sure the watcher is set up before change is made
 	time.Sleep(time.Second)
 
-	// make a change to the watched dir
-	if _, err := ioutil.TempFile(name, "test.file"); err != nil {
-		t.Errorf("failed to create a temp file in testdata/certs: %v", err)
+	// make a change in the file to trigger watch
+	_, err = tmpFile.Write([]byte("foo"))
+	if err != nil {
+		t.Errorf("failed to update file %s: %v", tmpFile.Name(), err)
 	}
 
 	select {
