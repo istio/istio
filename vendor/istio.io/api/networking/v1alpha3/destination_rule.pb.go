@@ -1278,7 +1278,8 @@ type ConnectionPoolSettings_HTTPSettings struct {
 	// Maximum number of requests to a backend. Default 1024.
 	Http2MaxRequests int32 `protobuf:"varint,2,opt,name=http2_max_requests,json=http2MaxRequests,proto3" json:"http2_max_requests,omitempty"`
 	// Maximum number of requests per connection to a backend. Setting this
-	// parameter to 1 disables keep alive.
+	// parameter to 1 disables keep alive. Default 0, meaning "unlimited",
+	// up to 2^29.
 	MaxRequestsPerConnection int32 `protobuf:"varint,3,opt,name=max_requests_per_connection,json=maxRequestsPerConnection,proto3" json:"max_requests_per_connection,omitempty"`
 	// Maximum number of retries that can be outstanding to all hosts in a
 	// cluster at a given time. Defaults to 1024.

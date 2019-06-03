@@ -318,9 +318,11 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 	}
 
 	res := &mccpb.TransportConfig{
-		CheckCluster:      buildUpstreamName(mesh.MixerCheckServer),
-		ReportCluster:     buildUpstreamName(mesh.MixerReportServer),
-		NetworkFailPolicy: networkFailPolicy,
+		CheckCluster:          buildUpstreamName(mesh.MixerCheckServer),
+		ReportCluster:         buildUpstreamName(mesh.MixerReportServer),
+		NetworkFailPolicy:     networkFailPolicy,
+		ReportBatchMaxEntries: mesh.ReportBatchMaxEntries,
+		ReportBatchMaxTime:    mesh.ReportBatchMaxTime,
 	}
 
 	return res
