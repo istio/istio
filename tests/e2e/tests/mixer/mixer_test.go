@@ -51,7 +51,6 @@ const (
 	bookinfoRatingsv2Yaml = "bookinfo-ratings-v2"
 	bookinfoDbYaml        = "bookinfo-db"
 	sleepYaml             = "samples/sleep/sleep"
-	mixerTestDataDir      = "tests/e2e/tests/mixer/testdata"
 
 	prometheusPort   = uint16(9090)
 	mixerMetricsPort = uint16(42422)
