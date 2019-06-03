@@ -36,10 +36,8 @@ func TestMain(m *testing.M) {
 		RequireEnvironment(environment.Kube).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
 		Setup(func(ctx resource.Context) (err error) {
-			if g, err = galley.New(ctx, galley.Config{}); err != nil {
-				return err
-			}
-			return nil
+			g, err = galley.New(ctx, galley.Config{})
+			return err
 		}).
 		Run()
 }
