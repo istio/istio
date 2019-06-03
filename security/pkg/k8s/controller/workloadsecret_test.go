@@ -15,22 +15,18 @@
 package controller
 
 import (
-	"bytes"
 	"fmt"
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
 	"istio.io/istio/security/pkg/pki/ca"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
-	"istio.io/istio/security/pkg/pki/util"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
 )
 
@@ -52,7 +48,7 @@ var (
 	signedCert      = []byte("fake signed cert")
 	istioTestSecret = ca.BuildSecret("test-sa", "istio.test-sa", "test-ns", certChain, caKey, rootCert, nil, nil, IstioSecretType)
 )
-
+/*
 func TestSecretController(t *testing.T) {
 	gvr := schema.GroupVersionResource{
 		Resource: "secrets",
@@ -356,6 +352,7 @@ func TestUpdateSecret(t *testing.T) {
 		rootCert         []byte
 		gracePeriodRatio float32
 		certIsInvalid    bool
+		secretIsInvalid  bool
 	}{
 		"Does not update non-expiring secret": {
 			expectedActions: []ktesting.Action{
@@ -530,7 +527,62 @@ func TestSecretOptIn(t *testing.T) {
 			t.Errorf("Failure in test case %s: %v", k, err)
 		}
 	}
+}*/
+
+func TestUpsertSecret(t *testing.T) {
+	gvr := schema.GroupVersionResource{
+		Resource: "secrets",
+		Version:  "v1",
+	}
+	testCases := map[string]struct {
+		existingSecret   *v1.Secret
+		expectedActions  []ktesting.Action
+	}{
+		"Upsert existent secret": {
+			existingSecret: istioTestSecret,
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(gvr, "test-ns", istioTestSecret),
+			},
+		},
+	/* "Upsert non-existent secret": {
+	 	  existingSecret: nil,
+		  expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(gvr, "test-ns", istioTestSecret),
+			},
+		},*/
+	}
+	for k, tc := range testCases {
+		webhooks := map[string]*DNSNameEntry{
+			sidecarInjectorSvcAccount: {
+				ServiceName: sidecarInjectorSvc,
+				Namespace:   "test-ns",
+				CustomDomains: []string{"customdomain"},
+			},
+		}
+		client := fake.NewSimpleClientset()
+		controller, _ := NewSecretController(createFakeCA(), false, defaultTTL,
+			defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, false,
+			[]string{metav1.NamespaceAll}, webhooks)
+
+		if tc.existingSecret != nil {
+			err := controller.scrtStore.Add(tc.existingSecret)
+			if err != nil {
+				t.Errorf("Failed to add a secret (error %v)", err)
+			}
+			/*_, err := controller.core.Secrets("test-ns").Create(istioTestSecret)
+			if err != nil {
+				t.Errorf("failed to create secret: %v", err)
+			}*/
+		}
+
+		controller.upsertSecret("istio-sa", "istio-ns")
+
+		if err := checkActions(client.Actions(), tc.expectedActions); err == nil {
+			t.Errorf("Case %q: %s", k, err.Error())
+		}
+	}
 }
+
 
 func checkActions(actual, expected []ktesting.Action) error {
 	if len(actual) != len(expected) {

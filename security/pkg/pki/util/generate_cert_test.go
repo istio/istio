@@ -34,7 +34,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 
 	// Options to generate a CA cert.
 	caCertOptions := CertOptions{
-		Host:         "test_ca.com",
+		Host:         "test_ca.com",fg
 		NotBefore:    caCertNotBefore,
 		TTL:          caCertTTL,
 		SignerCert:   nil,
