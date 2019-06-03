@@ -319,7 +319,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 		opts["zone"] = l.Zone
 	}
 	if l.SubZone != "" {
-		opts["sub_zone"] = l.Zone
+		opts["sub_zone"] = l.SubZone
 	}
 
 	setStatsOptions(opts, meta, nodeIPs)
