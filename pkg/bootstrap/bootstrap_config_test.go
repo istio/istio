@@ -15,7 +15,6 @@ package bootstrap
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -176,14 +175,13 @@ func TestGolden(t *testing.T) {
 				return
 			}
 
-			fmt.Println(string(read))
 			// re-read generated file with the changes having been made
 			read, err = ioutil.ReadFile(fn)
 			if err != nil {
 				t.Error("Error reading generated file ", err)
 				return
 			}
-			fmt.Println(string(read))
+
 			golden, err := ioutil.ReadFile("testdata/" + c.base + "_golden.json")
 			if err != nil {
 				golden = []byte{}
