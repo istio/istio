@@ -783,6 +783,13 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		Ports:       model.PortList{servicePort},
 		Resolution:  model.DNSLB,
 	}
+	service2 := &model.Service{
+		Hostname:    model.Hostname("*.example.org"),
+		Address:     "1.1.1.2",
+		ClusterVIPs: make(map[string]string),
+		Ports:       model.PortList{servicePort},
+		Resolution:  model.ClientSideLB,
+	}
 	instances := []*model.ServiceInstance{
 		{
 			Service: service,
@@ -791,7 +798,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 				Port:        10001,
 				ServicePort: servicePort,
 				Locality:    "region1/zone1/subzone1",
-				LbWeight:    30,
+				LbWeight:    20,
 			},
 		},
 		{
@@ -801,7 +808,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 				Port:        10001,
 				ServicePort: servicePort,
 				Locality:    "region1/zone1/subzone1",
-				LbWeight:    30,
+				LbWeight:    20,
 			},
 		},
 		{
@@ -811,7 +818,17 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 				Port:        10001,
 				ServicePort: servicePort,
 				Locality:    "region2/zone1/subzone1",
-				LbWeight:    40,
+				LbWeight:    30,
+			},
+		},
+		{
+			Service: service2,
+			Endpoint: model.NetworkEndpoint{
+				Address:     "192.168.1.4",
+				Port:        10001,
+				ServicePort: servicePort,
+				Locality:    "region2/zone1/subzone1",
+				LbWeight:    30,
 			},
 		},
 	}
@@ -825,9 +842,9 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	g.Expect(len(localityLbEndpoints)).To(Equal(2))
 	for _, ep := range localityLbEndpoints {
 		if ep.Locality.Region == "region1" {
-			g.Expect(ep.LoadBalancingWeight.GetValue()).To(Equal(uint32(60)))
-		} else if ep.Locality.Region == "region2" {
 			g.Expect(ep.LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+		} else if ep.Locality.Region == "region2" {
+			g.Expect(ep.LoadBalancingWeight.GetValue()).To(Equal(uint32(30)))
 		}
 	}
 }
