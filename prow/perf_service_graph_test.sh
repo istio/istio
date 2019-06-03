@@ -39,7 +39,7 @@ perf_metrics="${OUTPUT_PATH}/perf_metrics.txt"
 rm "${perf_metrics}" || true
 
 pushd "${GOPATH}/src/istio.io/tools/perf/benchmark/runner"
-count=$(("$TIME_TO_RUN_PERF_TESTS" / 60))
+count="$((TIME_TO_RUN_PERF_TESTS / 60))"
   echo "Get metric $count time(s)."
   for i in $(seq 1 "$count");
   do
