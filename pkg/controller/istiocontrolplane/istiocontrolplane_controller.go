@@ -17,24 +17,25 @@ package istiocontrolplane
 import (
 	"context"
 
-	istiov1alpha1 "istio.io/operator/pkg/apis/istio/v1alpha1"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	istiov1alpha1 "istio.io/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/operator/pkg/controller/common"
+	"istio.io/operator/pkg/helmreconciler"
 )
 
 var log = logf.Log.WithName("controller_istiocontrolplane")
+
+const finalizer = "istio-operator"
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -49,7 +50,8 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileIstioControlPlane{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	factory := &helmreconciler.Factory{CustomizerFactory: &IstioRenderingCustomizerFactory{}}
+	return &ReconcileIstioControlPlane{client: mgr.GetClient(), scheme: mgr.GetScheme(), factory: factory}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -85,8 +87,9 @@ var _ reconcile.Reconciler = &ReconcileIstioControlPlane{}
 type ReconcileIstioControlPlane struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	client  client.Client
+	scheme  *runtime.Scheme
+	factory *helmreconciler.Factory
 }
 
 // Reconcile reads that state of the cluster for a IstioControlPlane object and makes changes based on the state read
@@ -114,54 +117,62 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{}, err
 	}
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
+	deleted := instance.GetDeletionTimestamp() != nil
+	finalizers := instance.GetFinalizers()
+	finalizerIndex := common.IndexOf(finalizers, finalizer)
 
-	// Set IstioControlPlane instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
-		if err != nil {
-			return reconcile.Result{}, err
+	if deleted {
+		if finalizerIndex < 0 {
+			reqLogger.Info("IstioControlPlane deleted")
+			return reconcile.Result{}, nil
 		}
+		reqLogger.Info("Deleting IstioControlPlane")
 
-		// Pod created successfully - don't requeue
-		return reconcile.Result{}, nil
-	} else if err != nil {
+		reconciler, err := r.factory.New(instance, r.client, reqLogger)
+		if err == nil {
+			err = reconciler.Delete()
+		} else {
+			reqLogger.Error(err, "failed to create reconciler")
+		}
+		// XXX: for now, nuke the resources, regardless of errors
+		finalizers = append(finalizers[:finalizerIndex], finalizers[finalizerIndex+1:]...)
+		instance.SetFinalizers(finalizers)
+		finalizerError := r.client.Update(context.TODO(), instance)
+		for retryCount := 0; errors.IsConflict(finalizerError) && retryCount < 5; retryCount++ {
+			// workaround for https://github.com/kubernetes/kubernetes/issues/73098 for k8s < 1.14
+			reqLogger.Info("confilict during finalizer removal, retrying")
+			_ = r.client.Get(context.TODO(), request.NamespacedName, instance)
+			finalizers = instance.GetFinalizers()
+			finalizerIndex = common.IndexOf(finalizers, finalizer)
+			finalizers = append(finalizers[:finalizerIndex], finalizers[finalizerIndex+1:]...)
+			instance.SetFinalizers(finalizers)
+			finalizerError = r.client.Update(context.TODO(), instance)
+		}
+		if finalizerError != nil {
+			reqLogger.Error(finalizerError, "error removing finalizer")
+		}
+		return reconcile.Result{}, err
+	} else if finalizerIndex < 0 {
+		reqLogger.V(1).Info("Adding finalizer", "finalizer", finalizer)
+		finalizers = append(finalizers, finalizer)
+		instance.SetFinalizers(finalizers)
+		err = r.client.Update(context.TODO(), instance)
 		return reconcile.Result{}, err
 	}
 
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
-	return reconcile.Result{}, nil
-}
+	if instance.GetGeneration() == instance.Status.ObservedGeneration &&
+		instance.Status.GetCondition(istiov1alpha1.ConditionTypeReconciled).Status == istiov1alpha1.ConditionStatusTrue {
+		reqLogger.Info("nothing to reconcile, generations match")
+		return reconcile.Result{}, nil
+	}
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *istiov1alpha1.IstioControlPlane) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
+	reqLogger.Info("Updating IstioControlPlane")
+	reconciler, err := r.factory.New(instance, r.client, reqLogger)
+	if err == nil {
+		err = reconciler.Reconcile()
+	} else {
+		reqLogger.Error(err, "failed to create reconciler")
 	}
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
-				},
-			},
-		},
-	}
+
+	return reconcile.Result{}, err
 }
