@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	util2 "istio.io/istio/tests/integration/security/util"
+	securityUtil "istio.io/istio/tests/integration/security/util"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
@@ -65,9 +65,9 @@ func TestRBACV1Group(t *testing.T) {
 
 			var a, b, c echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util2.EchoConfig("a", ns, false, nil, g, p)).
-				With(&b, util2.EchoConfig("b", ns, false, nil, g, p)).
-				With(&c, util2.EchoConfig("c", ns, false, nil, g, p)).
+				With(&a, securityUtil.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, securityUtil.EchoConfig("b", ns, false, nil, g, p)).
+				With(&c, securityUtil.EchoConfig("c", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
 			cases := []util.TestCase{
