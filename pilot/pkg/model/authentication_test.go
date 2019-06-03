@@ -22,6 +22,8 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
 	"github.com/gogo/protobuf/types"
+
+	"istio.io/istio/pkg/features/pilot"
 )
 
 func TestParseJwksURI(t *testing.T) {
@@ -121,6 +123,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			expected: &auth.SdsSecretConfig{
 				Name: "spiffe://cluster.local/ns/bar/sa/foo",
 				SdsConfig: &core.ConfigSource{
+					InitialFetchTimeout: pilot.InitialFetchTimeout,
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
 							ApiType: core.ApiConfigSource_GRPC,
@@ -193,6 +196,7 @@ func TestConstructSdsSecretConfigForGatewayListener(t *testing.T) {
 			expected: &auth.SdsSecretConfig{
 				Name: "spiffe://cluster.local/ns/bar/sa/foo",
 				SdsConfig: &core.ConfigSource{
+					InitialFetchTimeout: pilot.InitialFetchTimeout,
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
 							ApiType: core.ApiConfigSource_GRPC,
@@ -250,6 +254,7 @@ func constructGCECallCredConfig() *core.GrpcService_GoogleGrpc_CallCredentials {
 func constructsdsconfighelper(tokenFileName, headerKey string, metaConfig *v2alpha.FileBasedMetadataConfig) *core.ConfigSource {
 	any := findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey, metaConfig)
 	return &core.ConfigSource{
+		InitialFetchTimeout: pilot.InitialFetchTimeout,
 		ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 			ApiConfigSource: &core.ApiConfigSource{
 				ApiType: core.ApiConfigSource_GRPC,
