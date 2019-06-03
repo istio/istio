@@ -31,7 +31,8 @@ import (
 )
 
 const (
-	rbacConfigTmpl = "testdata/citadel-noread-rbac.yaml.tmpl"
+	noReadRBACConfigTmpl = "testdata/citadel-noread-rbac.yaml.tmpl"
+	normalRBACConfigTmpl = "testdata/citadel-rbac.yaml.tmpl"
 )
 
 // TestCitadelBootstrapKubernetes verifies that Citadel exits if:
@@ -47,15 +48,14 @@ func TestCitadelBootstrapKubernetes(t *testing.T) {
 			"Namespace": ns.Name(),
 		}
 
-		// Apply the RBAC policy to prevent Citadel to read the CA-root secret.
+		// Apply the RBAC policy to prevent Citadel from reading the CA-root secret.
 		policies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
-			file.AsStringOrFail(t, rbacConfigTmpl))
+			file.AsStringOrFail(t, noReadRBACConfigTmpl))
 
 		g.ApplyConfigOrFail(t, ns, policies...)
-		defer g.DeleteConfigOrFail(t, ns, policies...)
 
-		// Sleep 30 seconds for the policy to take effect.
-		time.Sleep(30 * time.Second)
+		// Sleep 10 seconds for the policy to take effect.
+		time.Sleep(10 * time.Second)
 
 		// Retrieve Citadel CA-root secret. Keep it for later comparison.
 		env := ctx.Environment().(*kube.Environment)
@@ -99,5 +99,24 @@ func TestCitadelBootstrapKubernetes(t *testing.T) {
 		if !reflect.DeepEqual(citadelSecret, currentSecret) {
 			t.Fatal("Citadel CA-root secret is changed!")
 		}
+
+		// Recover the normal setup for other tests.
+		// Recover the normal RBAC policy.
+		policies = tmpl.EvaluateAllOrFail(t, namespaceTmpl,
+			file.AsStringOrFail(t, normalRBACConfigTmpl))
+
+		g.ApplyConfigOrFail(t, ns, policies...)
+
+		// Sleep 10 seconds for the policy to take effect.
+		time.Sleep(10 * time.Second)
+
+		// Delete Citadel pod, a new pod will be started.
+		pods, err = env.GetPods(ns.Name(), "istio=citadel")
+		if err != nil {
+			t.Fatal("Failed to get Citadel pods.")
+		}
+		env.DeletePod(ns.Name(), pods[0].GetName())
+		// Sleep 10 seconds for the Citadel pod to recreate.
+		time.Sleep(10 * time.Second)
 	})
 }
