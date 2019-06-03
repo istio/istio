@@ -43,11 +43,6 @@ type CallOptions struct {
 	// Path specifies the URL path for the request.
 	Path string
 
-	// UseRawURL specifies to construct the URL for the request as-is, without any escaping. For example,
-	// the code "%2E" in the path will be escaped to "%252E" when UseRawURL is false and it will be used as-is
-	// when UseRawURL is true.
-	UseRawURL bool
-
 	// Count indicates the number of exchanges that should be made with the service endpoint.
 	// If Count <= 0, defaults to 1.
 	Count int

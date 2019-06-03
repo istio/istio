@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"reflect"
 	"strconv"
 
@@ -54,17 +53,7 @@ func CallEcho(c *client.Instance, opts *echo.CallOptions, outboundPortSelector O
 	}
 
 	// Forward a request from 'this' service to the destination service.
-	targetURL := &url.URL{
-		Scheme: string(opts.Scheme),
-		Host:   net.JoinHostPort(opts.Host, strconv.Itoa(port)),
-		Path:   opts.Path,
-	}
-	var urlStr string
-	if opts.UseRawURL {
-		urlStr = fmt.Sprintf("%s://%s%s", string(opts.Scheme), net.JoinHostPort(opts.Host, strconv.Itoa(port)), opts.Path)
-	} else {
-		urlStr = targetURL.String()
-	}
+	targetURL := fmt.Sprintf("%s://%s%s", string(opts.Scheme), net.JoinHostPort(opts.Host, strconv.Itoa(port)), opts.Path)
 	targetService := opts.Target.Config().Service
 
 	protoHeaders := []*proto.Header{
@@ -80,7 +69,7 @@ func CallEcho(c *client.Instance, opts *echo.CallOptions, outboundPortSelector O
 	}
 
 	req := &proto.ForwardEchoRequest{
-		Url:           urlStr,
+		Url:           targetURL,
 		Count:         int32(opts.Count),
 		Headers:       protoHeaders,
 		TimeoutMicros: common.DurationToMicros(opts.Timeout),

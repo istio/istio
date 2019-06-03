@@ -80,8 +80,6 @@ func TestRBACV1Path(t *testing.T) {
 							PortName: "http",
 							Scheme:   scheme.HTTP,
 							Path:     path,
-							// UseRawURL ensures the code "%2E" in the path will be used as-is, not escaped.
-							UseRawURL: true,
 						},
 					},
 					ExpectAllowed: expectAllowed,
