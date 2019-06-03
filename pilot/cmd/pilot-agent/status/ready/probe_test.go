@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var probe = Probe{AdminPort: 1234}
+var probe Probe
 
 func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
 	g := NewGomegaWithT(t)
@@ -31,6 +31,7 @@ func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
 
 	server := createAndStartServer(stats)
 	defer server.Close()
+	probe = Probe{AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -43,6 +44,7 @@ func TestEnvoyStatsIncompleteCDS(t *testing.T) {
 
 	server := createAndStartServer(stats)
 	defer server.Close()
+	probe = Probe{AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -56,6 +58,7 @@ func TestEnvoyStatsIncompleteLDS(t *testing.T) {
 
 	server := createAndStartServer(stats)
 	defer server.Close()
+	probe = Probe{AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -69,6 +72,7 @@ func TestEnvoyStatsCompleteAndRejectedCDS(t *testing.T) {
 
 	server := createAndStartServer(stats)
 	defer server.Close()
+	probe = Probe{AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -81,6 +85,7 @@ func TestEnvoyStatsCompleteAndRejectedLDS(t *testing.T) {
 
 	server := createAndStartServer(stats)
 	defer server.Close()
+	probe = Probe{AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -93,6 +98,7 @@ func TestEnvoyCheckFailsIfStatsUnparsableNoSeparator(t *testing.T) {
 
 	server := createAndStartServer(stats)
 	defer server.Close()
+	probe = Probe{AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -106,11 +112,37 @@ func TestEnvoyCheckFailsIfStatsUnparsableNoNumber(t *testing.T) {
 
 	server := createAndStartServer(stats)
 	defer server.Close()
+	probe = Probe{AdminPort: 1234}
 
 	err := probe.Check()
 
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(err.Error()).To(ContainSubstring("failed parsing Envoy stat"))
+}
+
+func TestEnvoyCheckSucceedsIfStatsCleared(t *testing.T) {
+	g := NewGomegaWithT(t)
+	probe = Probe{AdminPort: 1234}
+
+	// Verify bad stats trigger an error
+	badStats := "cluster_manager.cds.update_success: 0\nlistener_manager.lds.update_success: 0"
+	server := createAndStartServer(badStats)
+	err := probe.Check()
+	server.Close()
+	g.Expect(err).To(HaveOccurred())
+
+	// trigger the state change
+	goodStats := "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1"
+	server = createAndStartServer(goodStats)
+	err = probe.Check()
+	server.Close()
+	g.Expect(err).NotTo(HaveOccurred())
+
+	// verify empty stats no longer break probe
+	server = createAndStartServer(badStats)
+	err = probe.Check()
+	server.Close()
+	g.Expect(err).ToNot(HaveOccurred())
 }
 
 func createAndStartServer(statsToReturn string) *httptest.Server {
