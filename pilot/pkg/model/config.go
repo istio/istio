@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mitchellh/copystructure"
+
 	"github.com/gogo/protobuf/proto"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -1057,4 +1059,13 @@ func SortQuotaSpec(specs []Config) {
 		jrule, _ := specs[j].Spec.(*mccpb.QuotaSpec)
 		return irule == nil || jrule == nil || (specs[i].Key() < specs[j].Key())
 	})
+}
+
+func (config Config) DeepCopy() Config {
+	copied, err := copystructure.Copy(config)
+	if err != nil {
+		// this should never happen, because a deep clone of a well known config object should always succeed
+		panic(err)
+	}
+	return copied.(Config)
 }

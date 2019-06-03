@@ -15,15 +15,15 @@
 package memory_test
 
 import (
-	"istio.io/istio/pilot/pkg/model/test"
 	"strconv"
 	"testing"
 
+	. "github.com/onsi/gomega"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/test/mock"
-
-	. "github.com/onsi/gomega"
 )
 
 func TestStoreInvariant(t *testing.T) {

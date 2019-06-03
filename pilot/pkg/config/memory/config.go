@@ -64,7 +64,7 @@ func (cr *store) Get(typ, name, namespace string) *model.Config {
 	if !exists {
 		return nil
 	}
-	config := out.(model.Config)
+	config := out.(model.Config).DeepCopy()
 
 	return &config
 }
@@ -78,7 +78,7 @@ func (cr *store) List(typ, namespace string) ([]model.Config, error) {
 	if namespace == "" {
 		for _, ns := range data {
 			ns.Range(func(key, value interface{}) bool {
-				out = append(out, value.(model.Config))
+				out = append(out, value.(model.Config).DeepCopy())
 				return true
 			})
 		}
@@ -88,7 +88,7 @@ func (cr *store) List(typ, namespace string) ([]model.Config, error) {
 			return nil, nil
 		}
 		ns.Range(func(key, value interface{}) bool {
-			out = append(out, value.(model.Config))
+			out = append(out, value.(model.Config).DeepCopy())
 			return true
 		})
 	}
