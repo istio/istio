@@ -4,7 +4,7 @@ description: Configuration affecting the service mesh as a whole.
 location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 23
+number_of_entries: 21
 ---
 <p>Configuration affecting the service mesh as a whole.</p>
 
@@ -416,16 +416,6 @@ Default value is text.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig-envoy_accesslog_service">
-<td><code>envoyAccesslogService</code></td>
-<td><code><a href="#MeshConfig-GoogleGrpcService">MeshConfig.GoogleGrpcService</a></code></td>
-<td>
-<p>The Envoy gRPC Access Log Service (ALS) implementation.
-See <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto#config-accesslog-v2-httpgrpcaccesslogconfig">Access Log Service</a>
-for details about Envoy&rsquo;s gRPC Access Log Service API.</p>
-
-</td>
-</tr>
 <tr id="MeshConfig-default_config">
 <td><code>defaultConfig</code></td>
 <td><code><a href="#ProxyConfig">ProxyConfig</a></code></td>
@@ -557,74 +547,6 @@ defaults of istio::mixerclient::ReportOptions.</p>
 <tr id="MeshConfig-AccessLogEncoding-JSON">
 <td><code>JSON</code></td>
 <td>
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="MeshConfig-GoogleGrpcService">MeshConfig.GoogleGrpcService</h2>
-<section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="MeshConfig-GoogleGrpcService-target_uri">
-<td><code>targetUri</code></td>
-<td><code>string</code></td>
-<td>
-<p>Required: host[:port] The target URI when using the Google gRPC client.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig-GoogleGrpcService-credentials">
-<td><code>credentials</code></td>
-<td><code><a href="#MeshConfig-GoogleGrpcService-SSLCredentials">MeshConfig.GoogleGrpcService.SSLCredentials</a></code></td>
-<td>
-<p>Optional: SSL credentials. If empty, client will use insecure gRPC channel.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="MeshConfig-GoogleGrpcService-SSLCredentials">MeshConfig.GoogleGrpcService.SSLCredentials</h2>
-<section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="MeshConfig-GoogleGrpcService-SSLCredentials-root_certs">
-<td><code>rootCerts</code></td>
-<td><code>string</code></td>
-<td>
-<p>The path to the PEM encoded file contains server root certificates.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig-GoogleGrpcService-SSLCredentials-private_key">
-<td><code>privateKey</code></td>
-<td><code>string</code></td>
-<td>
-<p>The path to the PEM encoded file contains client private key.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig-GoogleGrpcService-SSLCredentials-cert_chain">
-<td><code>certChain</code></td>
-<td><code>string</code></td>
-<td>
-<p>The path to the PEM encoded file contains client certificate chain.</p>
-
 </td>
 </tr>
 </tbody>
