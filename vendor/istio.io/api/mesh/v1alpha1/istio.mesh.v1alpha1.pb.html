@@ -496,6 +496,36 @@ Fallback to old identity format(without trust domain) if not set.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-disable_report_batch">
+<td><code>disableReportBatch</code></td>
+<td><code>bool</code></td>
+<td>
+<p>The flag to disable report batch.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-report_batch_max_entries">
+<td><code>reportBatchMaxEntries</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>When disable<em>report</em>batch is false, this value specifies the maximum number
+of requests that are batched in report. If left unspecified, the default value
+of report<em>batch</em>max_entries == 0 will use the hardcoded defaults of
+istio::mixerclient::ReportOptions.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-report_batch_max_time">
+<td><code>reportBatchMaxTime</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>When disable<em>report</em>batch is false, this value specifies the maximum elapsed
+time a batched report will be sent after a user request is processed. If left
+unspecified, the default report<em>batch</em>max_time == 0 will use the hardcoded
+defaults of istio::mixerclient::ReportOptions.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -618,8 +648,9 @@ there are no services or ServiceEntries for the destination port</p>
 <p>MeshNetworks (config map) provides information about the set of networks
 inside a mesh and how to route to endpoints in each network. For example</p>
 
-<p>MeshNetworks(file/config map):
-networks:
+<p>MeshNetworks(file/config map):</p>
+
+<pre><code class="language-yaml">networks:
   network1:
   - endpoints:
     - fromRegistry: registry1 #must match secret name in Kubernetes
@@ -630,7 +661,8 @@ networks:
       locality: us-east-1a
     - address: 192.168.100.1
       port: 15443
-      locality: us-east-1a</p>
+      locality: us-east-1a
+</code></pre>
 
 <table class="message-fields">
 <thead>
