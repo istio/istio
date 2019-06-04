@@ -34,6 +34,7 @@ source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
 echo 'Build'
+echo 'YELLLOW!!!'
 (cd "${ROOT}"; make build)
 
 if [[ -n $(git diff) ]]; then
