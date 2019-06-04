@@ -140,26 +140,6 @@ message MeshConfig {
   // Default value is text.
   AccessLogEncoding access_log_encoding = 27;
 
-  message GoogleGrpcService {
-    //Required: host[:port] The target URI when using the Google gRPC client. 
-    string target_uri = 1;
-    message SSLCredentials {
-      //The path to the PEM encoded file contains server root certificates.
-      string root_certs = 1;
-      //The path to the PEM encoded file contains client private key.
-      string private_key = 2;
-      //The path to the PEM encoded file contains client certificate chain.
-      string cert_chain = 3;
-    }
-    // Optional: SSL credentials. If empty, client will use insecure gRPC channel.
-    SSLCredentials credentials = 2;
-  }
-
-  // The Envoy gRPC Access Log Service (ALS) implementation.
-  // See [Access Log Service](https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto#config-accesslog-v2-httpgrpcaccesslogconfig)
-  // for details about Envoy's gRPC Access Log Service API.
-  GoogleGrpcService envoy_accesslog_service = 40;
-
   // Default proxy config used by the proxy injection mechanism operating in the mesh
   // (e.g. Kubernetes admission controller)
   // In case of Kubernetes, the proxy config is applied once during the injection process,
@@ -318,7 +298,7 @@ message MeshConfig {
   google.protobuf.Duration report_batch_max_time = 39;
 
   // $hide_from_docs
-  // Next available field number: 41
+  // Next available field number: 40
 }
 
 // ConfigSource describes information about a configuration store inside a
