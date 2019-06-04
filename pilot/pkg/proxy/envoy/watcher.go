@@ -132,9 +132,7 @@ func watchCerts(ctx context.Context, certs []string, watchFileEventsFn watchFile
 	// deletes the existing file, which sends a DELETE file event and breaks the watch
 	certDirs := make(map[string]bool)
 	for _, c := range certs {
-		if !certDirs[filepath.Dir(c)] {
-			certDirs[filepath.Dir(c)] = true
-		}
+		certDirs[filepath.Dir(c)] = true
 	}
 	for dir := range certDirs {
 		if err := fw.Watch(dir); err != nil {
