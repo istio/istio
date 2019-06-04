@@ -29,6 +29,7 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -819,6 +820,7 @@ func buildListenerEnv(services []*model.Service) model.Environment {
 	}
 
 	mesh := model.DefaultMeshConfig()
+	mesh.EnableEnvoyAccessLogService = true
 	env := model.Environment{
 		PushContext:      model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
