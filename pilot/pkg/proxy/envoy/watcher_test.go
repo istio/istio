@@ -151,8 +151,8 @@ func TestWatchCerts(t *testing.T) {
 		// expected
 		cancel()
 	case <-time.After(time.Second):
-		t.Fatalf("The callback is not called within time limit " + time.Now().String() + " when file was modified")
 		cancel()
+		t.Fatalf("The callback is not called within time limit " + time.Now().String() + " when file was modified")
 	}
 
 	// test delete file event
@@ -173,8 +173,8 @@ func TestWatchCerts(t *testing.T) {
 		// expected
 		cancel()
 	case <-time.After(time.Second):
-		t.Fatalf("The callback is not called within time limit " + time.Now().String() + " when file was deleted")
 		cancel()
+		t.Fatalf("The callback is not called within time limit " + time.Now().String() + " when file was deleted")
 	}
 
 	// call with nil
