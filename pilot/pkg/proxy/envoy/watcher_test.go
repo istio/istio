@@ -127,14 +127,14 @@ func TestWatchCerts(t *testing.T) {
 		called <- true
 	}
 
+	// test modify file event
 	ctx, cancel := context.WithCancel(context.Background())
-
 	go watchCerts(ctx, []string{tmpFile.Name()}, watchFileEvents, 50*time.Millisecond, callbackFunc)
 
 	// sleep one second to make sure the watcher is set up before change is made
 	time.Sleep(time.Second)
 
-	// make a change in the file to trigger watch
+	// modify file
 	_, err = tmpFile.Write([]byte("foo"))
 	if err != nil {
 		t.Errorf("failed to update file %s: %v", tmpFile.Name(), err)
@@ -145,10 +145,33 @@ func TestWatchCerts(t *testing.T) {
 		// expected
 		cancel()
 	case <-time.After(time.Second):
-		t.Errorf("The callback is not called within time limit " + time.Now().String())
+		t.Errorf("The callback is not called within time limit " + time.Now().String() + " when file was modified")
 		cancel()
 	}
 
+	// test delete file event
+	ctx, cancel = context.WithCancel(context.Background())
+	go watchCerts(ctx, []string{tmpFile.Name()}, watchFileEvents, 50*time.Millisecond, callbackFunc)
+
+	// sleep one second to make sure the watcher is set up before change is made
+	time.Sleep(time.Second)
+
+	// delete the file
+	err = os.Remove(tmpFile.Name())
+	if err != nil {
+		t.Errorf("failed to delete file %s: %v", tmpFile.Name(), err)
+	}
+
+	select {
+	case <-called:
+		// expected
+		cancel()
+	case <-time.After(time.Second):
+		t.Errorf("The callback is not called within time limit " + time.Now().String() + " when file was deleted")
+		cancel()
+	}
+
+	// call with nil
 	// should terminate immediately
 	go watchCerts(ctx, nil, watchFileEvents, 50*time.Millisecond, callbackFunc)
 }
