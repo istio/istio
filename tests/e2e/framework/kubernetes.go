@@ -712,6 +712,11 @@ func (k *KubeInfo) deployIstio() error {
 		log.Errorf("Unable to create namespace %s: %s", k.Namespace, err.Error())
 		return err
 	}
+	// Create istio-config namespace
+	if err := util.CreateNamespace("istio-config", k.KubeConfig); err != nil {
+		log.Errorf("Unable to create namespace istio-config: %s", err.Error())
+		return err
+	}
 
 	// Deploy the CNI if enabled
 	if *useCNI {
