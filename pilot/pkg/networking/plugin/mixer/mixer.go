@@ -104,6 +104,12 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
 		}
 		return nil
+	case plugin.ListenerProtocolThrift:
+		thriftFilter := buildOutboundThriftFilter(in.Env.Mesh, attrs, in.Node)
+		for cnum := range mutable.FilterChains {
+			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+		}
+		return nil
 	case plugin.ListenerProtocolTCP:
 		tcpFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service, in.Push)
 		if in.Node.Type == model.Router {
@@ -494,6 +500,45 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 }
 
 func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) listener.Filter {
+	config := &mccpb.TcpClientConfig{
+		DisableCheckCalls: disablePolicyChecks(inbound, mesh, node),
+		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
+		Transport:         buildTransport(mesh, node),
+	}
+	out := listener.Filter{
+		Name: mixer,
+	}
+
+	if util.IsXDSMarshalingToAnyEnabled(node) {
+		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	} else {
+		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+	}
+
+	return out
+}
+
+func buildOutboundThriftFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) listener.Filter {
+	config := &mccpb.ThriftClientConfig{
+		DisableCheckCalls: disablePolicyChecks(outbound, mesh, node),
+		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
+		Transport:         buildTransport(mesh, node),
+	}
+
+	out := listener.Filter{
+		Name: mixer,
+	}
+
+	if util.IsXDSMarshalingToAnyEnabled(node) {
+		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	} else {
+		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+	}
+
+	return out
+}
+
+func buildInboundThriftFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) listener.Filter {
 	config := &mccpb.TcpClientConfig{
 		DisableCheckCalls: disablePolicyChecks(inbound, mesh, node),
 		MixerAttributes:   &mpb.Attributes{Attributes: attrs},

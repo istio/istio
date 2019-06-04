@@ -211,6 +211,9 @@ func TestParseProtocol(t *testing.T) {
 		{"MySQL", ProtocolMySQL},
 		{"", ProtocolUnsupported},
 		{"SMTP", ProtocolUnsupported},
+		{"thrift", ProtocolThrift},
+		{"Thrift", ProtocolThrift},
+		{"THRIFT", ProtocolThrift},
 	}
 
 	for _, testPair := range testPairs {

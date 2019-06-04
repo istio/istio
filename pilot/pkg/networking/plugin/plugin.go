@@ -34,6 +34,8 @@ const (
 	ListenerProtocolTCP
 	// ListenerProtocolHTTP is an HTTP listener.
 	ListenerProtocolHTTP
+	// ListenerProtocolThrift is a Thrift listener.
+	ListenerProtocolThrift
 
 	// Authn is the name of the authentication plugin passed through the command line
 	Authn = "authn"
@@ -53,6 +55,8 @@ func ModelProtocolToListenerProtocol(protocol model.Protocol) ListenerProtocol {
 	case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolTLS,
 		model.ProtocolMongo, model.ProtocolRedis, model.ProtocolMySQL:
 		return ListenerProtocolTCP
+	case model.ProtocolThrift:
+		return ListenerProtocolThrift
 	default:
 		return ListenerProtocolUnknown
 	}

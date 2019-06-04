@@ -68,6 +68,10 @@ func MakeService(hostname model.Hostname, address string) *model.Service {
 				Name:     "mysql",
 				Port:     120, // target port 1120
 				Protocol: model.ProtocolMySQL,
+			}, {
+				Name:     "thrift",
+				Port:     130, // target port 1130
+				Protocol: model.ProtocolThrift,
 			},
 		},
 	}

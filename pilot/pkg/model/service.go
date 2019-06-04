@@ -155,6 +155,8 @@ const (
 	// ProtocolTCP declares the the port uses TCP.
 	// This is the default protocol for a service port.
 	ProtocolTCP Protocol = "TCP"
+	// ProtocolThrift declares that the port carries Thrift traffic.
+	ProtocolThrift Protocol = "Thrift"
 	// ProtocolTLS declares that the port carries TLS traffic.
 	// TLS traffic is assumed to contain SNI as part of the handshake.
 	ProtocolTLS Protocol = "TLS"
@@ -231,6 +233,8 @@ func ParseProtocol(s string) Protocol {
 		return ProtocolHTTP2
 	case "https":
 		return ProtocolHTTPS
+	case "thrift":
+		return ProtocolThrift
 	case "tls":
 		return ProtocolTLS
 	case "mongo":
@@ -268,6 +272,16 @@ func (p Protocol) IsHTTP() bool {
 func (p Protocol) IsTCP() bool {
 	switch p {
 	case ProtocolTCP, ProtocolHTTPS, ProtocolTLS, ProtocolMongo, ProtocolRedis, ProtocolMySQL:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsThrift is true for protocols that use Thrift as transport protocol
+func (p Protocol) IsThrift() bool {
+	switch p {
+	case ProtocolThrift:
 		return true
 	default:
 		return false
