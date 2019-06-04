@@ -1667,7 +1667,7 @@ func TestInterpreter_Eval(t *testing.T) {
 		`,
 			expected: "c",
 			externs: map[string]Extern{
-				"ext": ExternFromFn("ext", func() il.StringMap {
+				"ext": ExternFromFn("ext", func() attribute.StringMap {
 					return attribute.WrapStringMap(map[string]string{"b": "c"})
 				}),
 			},
@@ -1682,8 +1682,8 @@ func TestInterpreter_Eval(t *testing.T) {
 		`,
 			expected: "c",
 			externs: map[string]Extern{
-				"ext": ExternFromFn("ext", func() il.StringMap {
-					return ilt.NewStringMap("", map[string]string{"b": "c"}, nil)
+				"ext": ExternFromFn("ext", func() attribute.StringMap {
+					return attribute.NewStringMap("", map[string]string{"b": "c"}, nil)
 				}),
 			},
 		},
@@ -1837,7 +1837,7 @@ func TestInterpreter_Eval(t *testing.T) {
 				}),
 			},
 			externs: map[string]Extern{
-				"ext": ExternFromFn("ext", func(r il.StringMap) string {
+				"ext": ExternFromFn("ext", func(r attribute.StringMap) string {
 					v, _ := r.Get("b")
 					return v
 				}),
