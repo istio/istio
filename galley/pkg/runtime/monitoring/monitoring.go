@@ -24,6 +24,8 @@ import (
 
 	"fmt"
 
+	"strings"
+
 	"istio.io/istio/galley/pkg/runtime/log"
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
@@ -32,6 +34,7 @@ const (
 	collection = "collection"
 	namespace  = "namespace"
 	name       = "name"
+	version    = "version"
 )
 
 var (
@@ -41,6 +44,8 @@ var (
 	NamespaceTag tag.Key
 	// NameTag holds name of the resource for the context.
 	NameTag tag.Key
+	// VersionTag holds version of the resource for the context.
+	VersionTag tag.Key
 )
 
 var (
@@ -141,28 +146,35 @@ func RecordStateTypeCountWithContext(ctx context.Context, count int) {
 
 // RecordDetailedStateType
 func RecordDetailedStateType(namespace, name string, collection resource.Collection, count int) {
+	collectionStr := strings.Split(collection.String(), "/")
+	// collection is of the format istio/<kind>/<version>/<name>
+	if len(collectionStr) < 4 {
+		log.Scope.Errorf("length of collection is less than 4, does not match expectation.")
+		return
+	}
 	ctx, err := tag.New(context.Background(), tag.Insert(NamespaceTag, namespace),
-		tag.Insert(NameTag, name))
+		tag.Insert(NameTag, name), tag.Insert(VersionTag, collectionStr[2]))
 	if err != nil {
 		log.Scope.Errorf("Error creating monitoring context for counting state: %v", err)
 	} else {
-		RecordDetailedStateTypeWithContext(ctx, collection, count)
+		RecordDetailedStateTypeWithContext(ctx, strings.Replace(collection.String(),
+			fmt.Sprintf("%s/", collectionStr[2]), "", 1), count)
 	}
 }
 
 // RecordDetailedStateTypeWithContext
-func RecordDetailedStateTypeWithContext(ctx context.Context, collection resource.Collection, count int) {
+func RecordDetailedStateTypeWithContext(ctx context.Context, collection string, count int) {
 	if ctx == nil {
 		return
 	}
-	if stateTypeConfigTotal[collection.String()] == nil {
+	if stateTypeConfigTotal[collection] == nil {
 		err := registerNewStateTypeConfigView(collection)
 		if err != nil {
 			log.Scope.Errorf("Could not register collection %v for monitoring", err)
 			return
 		}
 	}
-	stats.Record(ctx, stateTypeConfigTotal[collection.String()].M(int64(count)))
+	stats.Record(ctx, stateTypeConfigTotal[collection].M(int64(count)))
 }
 
 func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) *view.View {
@@ -183,21 +195,23 @@ func getStateTypeConfigKeys() ([]tag.Key, error) {
 	if NameTag, err = tag.NewKey(name); err != nil {
 		panic(err)
 	}
+	if VersionTag, err = tag.NewKey(version); err != nil {
+		panic(err)
+	}
 
-	return []tag.Key{NamespaceTag, NameTag}, err
+	return []tag.Key{NamespaceTag, NameTag, VersionTag}, err
 }
 
-func registerNewStateTypeConfigView(collection resource.Collection) error {
-	collectionStr := collection.String()
-	stateTypeConfigTotal[collection.String()] = stats.Int64(fmt.Sprintf("galley/runtime/state/%s", collectionStr),
-		fmt.Sprintf("The number of valid %s known to galley at a point in time", collectionStr),
+func registerNewStateTypeConfigView(collection string) error {
+	stateTypeConfigTotal[collection] = stats.Int64(fmt.Sprintf("galley/runtime/state/%s_total", collection),
+		fmt.Sprintf("The number of valid %v known to galley at a point in time", collection),
 		stats.UnitDimensionless)
 	nameKeys, err := getStateTypeConfigKeys()
 	if err != nil {
 		return err
 	}
 	err = view.Register(
-		newView(stateTypeConfigTotal[collectionStr], nameKeys, view.LastValue()),
+		newView(stateTypeConfigTotal[collection], nameKeys, view.LastValue()),
 	)
 	return err
 }
