@@ -86,7 +86,7 @@ func TestPrioritized(t *testing.T) {
 						ServiceBLocality: "region/zone/subzone",
 						ServiceCAddress:  "c",
 						ServiceCLocality: "notregion/notzone/notsubzone",
-					})
+					}, a)
 
 					// Send traffic to service B via a service entry.
 					log.Infof("Sending traffic to local service (CDS) via %v", fakeHostname)
@@ -116,7 +116,7 @@ func TestPrioritized(t *testing.T) {
 						ServiceBLocality: "region/zone/subzone",
 						ServiceCAddress:  c.WorkloadsOrFail(ctx)[0].Address(),
 						ServiceCLocality: "notregion/notzone/notsubzone",
-					})
+					}, a)
 
 					// Send traffic to service B via a service entry.
 					log.Infof("Sending traffic to local service (EDS) via %v", fakeHostname)
