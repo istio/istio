@@ -122,7 +122,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(contextCmd)
 
-	rootCmd.AddCommand(validate.NewValidateCommand())
+	rootCmd.AddCommand(validate.NewValidateCommand(&istioNamespace))
 
 	return rootCmd
 }
