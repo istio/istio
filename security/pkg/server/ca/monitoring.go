@@ -86,16 +86,16 @@ type monitoringMetrics struct {
 }
 
 // RootCertExpirationChecker is used for callback function to monitor Citadel root cert remained validness in seconds.
-type RootCertExpirationChecker func () float64
+type RootCertExpirationChecker func() float64
 
 // newMonitoringMetrics creates a new monitoringMetrics.
 func newMonitoringMetrics(rootExpireChecker RootCertExpirationChecker) monitoringMetrics {
 	rootCertRemainingSeconds := prometheus.NewGaugeFunc(
 		prometheus.GaugeOpts{
 			Namespace: "citadel",
-			Name: "citadel_root_cert_expire_time_seconds",
+			Name:      "citadel_root_cert_expire_time_seconds",
 			Subsystem: "server",
-			Help: "The remaining valid duration for root certificate Citadel uses, in seconds.",
+			Help:      "The remaining valid duration for root certificate Citadel uses, in seconds.",
 		},
 		rootExpireChecker)
 	prometheus.MustRegister(rootCertRemainingSeconds)

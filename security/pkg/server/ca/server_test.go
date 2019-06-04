@@ -29,6 +29,7 @@ import (
 
 	"istio.io/istio/security/pkg/pki/ca"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
+	pkiutil "istio.io/istio/security/pkg/pki/util"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	pb "istio.io/istio/security/proto"
@@ -95,7 +96,60 @@ func (authz *mockAuthorizer) authorize(requester *authenticate.Caller, requested
 
 // Test the root cert expiration checker returns correct timestamp.
 func TestServer_RootCertExpirationSeconds(t *testing.T) {
-	// TODO call the function directly...
+	cert, key, err := pkiutil.GenCertKeyFromOptions(pkiutil.CertOptions{
+		Host:         "citadel.testing.istio.io",
+		NotBefore:    time.Now(),
+		TTL:          time.Second * 10,
+		SignerCert:   nil,
+		SignerPriv:   nil,
+		Org:          "MyOrg",
+		IsCA:         true,
+		IsSelfSigned: true,
+		IsClient:     false,
+		IsServer:     true,
+		RSAKeySize:   512,
+	})
+	if err != nil {
+		t.Errorf("failed to gen cert for Citadel self signed cert %v", err)
+	}
+	kb, err := pkiutil.NewVerifiedKeyCertBundleFromPem(cert, key, nil, cert)
+	if err != nil {
+		t.Errorf("failed to create key cert bundle %v", err)
+	}
+	server := &Server{
+		ca: &mockca.FakeCA{
+			KeyCertBundle: kb,
+		},
+	}
+	testCases := []struct {
+		name     string
+		ttlRange []float64
+		sleep    int
+	}{
+		{
+			name:     "ttl-valid",
+			ttlRange: []float64{9, 10},
+			sleep:    3,
+		},
+		{
+			name:     "ttl-valid-3s-less",
+			ttlRange: []float64{6, 7},
+			sleep:    8,
+		},
+		{
+			name:     "ttl-invalid-expired",
+			ttlRange: []float64{-10, -0.01},
+		},
+	}
+	for _, tc := range testCases {
+		sec := server.RootCertExpirationSeconds()
+		if sec < tc.ttlRange[0] || sec > tc.ttlRange[1] {
+			t.Errorf("[%v] Failed, expect within range [%v, %v], got %v", tc.name, tc.ttlRange[0], tc.ttlRange[1], sec)
+		}
+		if tc.sleep != 0 {
+			time.Sleep(time.Duration(tc.sleep) * time.Second)
+		}
+	}
 }
 
 func TestCreateCertificate(t *testing.T) {
@@ -166,8 +220,8 @@ func TestCreateCertificate(t *testing.T) {
 			port:           8080,
 			authorizer:     c.authorizer,
 			authenticators: c.authenticators,
-			monitoring:     newMonitoringMetrics(),
 		}
+		server.monitoring = newMonitoringMetrics(server.RootCertExpirationSeconds)
 		request := &pb.IstioCertificateRequest{Csr: "dumb CSR"}
 
 		response, err := server.CreateCertificate(context.Background(), request)
@@ -275,8 +329,8 @@ func TestHandleCSR(t *testing.T) {
 			port:           8080,
 			authorizer:     c.authorizer,
 			authenticators: c.authenticators,
-			monitoring:     newMonitoringMetrics(),
 		}
+		server.monitoring = newMonitoringMetrics(server.RootCertExpirationSeconds)
 		request := &pb.CsrRequest{CsrPem: []byte(c.csr)}
 
 		response, err := server.HandleCSR(context.Background(), request)

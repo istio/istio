@@ -243,7 +243,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 		forCA:          forCA,
 		port:           port,
 	}
-	server.monitoring = newMonitoringMetrics(func () float64 {
+	server.monitoring = newMonitoringMetrics(func() float64 {
 		return server.RootCertExpirationSeconds()
 	})
 	return server, nil
