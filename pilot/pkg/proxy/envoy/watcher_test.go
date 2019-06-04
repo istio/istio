@@ -109,19 +109,19 @@ func TestWatchCerts_Multiple(t *testing.T) {
 func TestWatchCerts(t *testing.T) {
 	tmpDir, err := ioutil.TempDir(os.TempDir(), "certs")
 	if err != nil {
-		t.Errorf("failed to create a temp dir: %v", err)
+		t.Fatalf("failed to create a temp dir: %v", err)
 	}
 	// create a temp file
 	tmpFile, err := ioutil.TempFile(tmpDir, "test.file")
 	if err != nil {
-		t.Errorf("failed to create a temp file in testdata/certs: %v", err)
+		t.Fatalf("failed to create a temp file in testdata/certs: %v", err)
 	}
 	defer func() {
 		if err := tmpFile.Close(); err != nil {
-			t.Errorf("failed to close file %s: %v", tmpFile.Name(), err)
+			t.Fatalf("failed to close file %s: %v", tmpFile.Name(), err)
 		}
 		if err := os.RemoveAll(tmpDir); err != nil {
-			t.Errorf("failed to remove temp dir: %v", err)
+			t.Fatalf("failed to remove temp dir: %v", err)
 		}
 	}()
 
@@ -138,13 +138,12 @@ func TestWatchCerts(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// modify file
-	_, err = tmpFile.Write([]byte("foo"))
-	if err != nil {
-		t.Errorf("failed to update file %s: %v", tmpFile.Name(), err)
+	if _, err := tmpFile.Write([]byte("foo")); err != nil {
+		t.Fatalf("failed to update file %s: %v", tmpFile.Name(), err)
 	}
-	err = tmpFile.Sync()
-	if err != nil {
-		t.Errorf("failed to sync file %s: %v", tmpFile.Name(), err)
+
+	if err := tmpFile.Sync(); err != nil {
+		t.Fatalf("failed to sync file %s: %v", tmpFile.Name(), err)
 	}
 
 	select {
@@ -152,7 +151,7 @@ func TestWatchCerts(t *testing.T) {
 		// expected
 		cancel()
 	case <-time.After(time.Second):
-		t.Errorf("The callback is not called within time limit " + time.Now().String() + " when file was modified")
+		t.Fatalf("The callback is not called within time limit " + time.Now().String() + " when file was modified")
 		cancel()
 	}
 
@@ -166,7 +165,7 @@ func TestWatchCerts(t *testing.T) {
 	// delete the file
 	err = os.Remove(tmpFile.Name())
 	if err != nil {
-		t.Errorf("failed to delete file %s: %v", tmpFile.Name(), err)
+		t.Fatalf("failed to delete file %s: %v", tmpFile.Name(), err)
 	}
 
 	select {
@@ -174,7 +173,7 @@ func TestWatchCerts(t *testing.T) {
 		// expected
 		cancel()
 	case <-time.After(time.Second):
-		t.Errorf("The callback is not called within time limit " + time.Now().String() + " when file was deleted")
+		t.Fatalf("The callback is not called within time limit " + time.Now().String() + " when file was deleted")
 		cancel()
 	}
 
