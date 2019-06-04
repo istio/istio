@@ -110,14 +110,14 @@ func (s *Server) RootCertExpirationSeconds() float64 {
 	rb := s.ca.GetCAKeyCertBundle().GetRootCertPem()
 	cert, err := util.ParsePemEncodedCertificate(rb)
 	if err != nil {
-		fmt.Errorf("failed to parse the root cert: %v", err)
+		log.Errorf("Failed to parse the root cert: %v", err)
 		return -1
 	}
 	end := cert.NotAfter
 	if end.Before(time.Now()) {
 		log.Errorf("Expired Citadel Root found, x509.NotAfter %v, please checkout <TODO-LINK-TO-USER-GUIDE>", end)
 	}
-	return end.Sub(time.Now()).Seconds()
+	return time.Until(end).Seconds()
 }
 
 // HandleCSR handles an incoming certificate signing request (CSR). It does
@@ -243,9 +243,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 		forCA:          forCA,
 		port:           port,
 	}
-	server.monitoring = newMonitoringMetrics(func() float64 {
-		return server.RootCertExpirationSeconds()
-	})
+	server.monitoring = newMonitoringMetrics(server.RootCertExpirationSeconds)
 	return server, nil
 }
 
