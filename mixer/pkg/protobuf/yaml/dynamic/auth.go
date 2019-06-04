@@ -96,7 +96,7 @@ func getWhitelistSAN(cert []byte) []*url.URL {
 	return append(whitelistSAN, c.URIs...)
 }
 
-var bypassVerificationVar = env.RegisterBoolVar("BYPASS_OOP_MTLS_SAN_VERIFICATION", false, "")
+var bypassVerificationVar = env.RegisterBoolVar("BYPASS_OOP_MTLS_SAN_VERIFICATION", false, "Whether or not to validate SANs for out-of-process adapters auth.")
 
 func buildMTLSDialOption(mtlsCfg *policypb.Mutual) ([]grpc.DialOption, error) {
 	// load peer cert/key.
