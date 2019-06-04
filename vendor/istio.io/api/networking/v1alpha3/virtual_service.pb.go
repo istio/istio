@@ -125,7 +125,7 @@ type VirtualService struct {
 	// HTTP and TCP ports. Alternatively, the traffic properties of a host
 	// can be defined using more than one VirtualService, with certain
 	// caveats. Refer to the
-	// [Operations Guide](/help/ops/traffic-management/deploy-guidelines/#multiple-virtual-services-and-destination-rules-for-the-same-host)
+	// [Operations Guide](/docs/ops/traffic-management/deploy-guidelines/#multiple-virtual-services-and-destination-rules-for-the-same-host)
 	// for details.
 	//
 	// *Note for Kubernetes users*: When short names are used (e.g. "reviews"

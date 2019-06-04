@@ -430,6 +430,20 @@ message ConnectionPoolSettings {
     // If not set, there is no idle timeout. When the idle timeout is reached the connection will be closed. 
     // Note that request based timeouts mean that HTTP/2 PINGs will not keep the connection alive. Applies to both HTTP1.1 and HTTP2 connections.
     google.protobuf.Duration idle_timeout = 5;
+
+    // Policy for upgrading http1.1 connections to http2.
+    enum H2UpgradePolicy {
+      // Use the global default.
+      DEFAULT = 0;
+      // Do not upgrade the connection to http2.
+      // This opt-out option overrides the default.
+      DO_NOT_UPGRADE = 1;
+      // Upgrade the connection to http2.
+      // This opt-in option overrides the default.
+      UPGRADE = 2;
+    };
+    // Specify if http1.1 connection should be upgraded to http2 for the associated destination.
+    H2UpgradePolicy h2_upgrade_policy = 6;
   };
 
   // Settings common to both HTTP and TCP upstream connections.

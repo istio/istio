@@ -259,6 +259,23 @@
         ]
       }
       {{ end }}
+      {{ if .envoy_accesslog_service }}
+      ,
+      {
+        "name": "envoy_accesslog_service",
+        "type": "STRICT_DNS",
+        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "dns_lookup_family": "{{ .dns_lookup_family }}",
+        "connect_timeout": "1s",
+        "lb_policy": "ROUND_ROBIN",
+        "http2_protocol_options": {},
+        "hosts": [
+          {
+            "socket_address": {{ .envoy_accesslog_service }}
+          }
+        ]
+      }
+      {{ end }}
     ],
     "listeners":[
       {

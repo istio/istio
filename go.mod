@@ -178,12 +178,17 @@ require (
 	gopkg.in/logfmt.v0 v0.3.0 // indirect
 	gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce // indirect
 	gopkg.in/ory-am/dockertest.v3 v3.3.4 // indirect
-	gopkg.in/square/go-jose.v2 v2.0.0-20180411045311-89060dee6a84 // indirect
+	gopkg.in/square/go-jose.v2 v2.0.0-20180411045311-89060dee6a84
 	gopkg.in/stack.v1 v1.7.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 	gotest.tools v2.2.0+incompatible // indirect
+<<<<<<< HEAD
 	istio.io/api v0.0.0-20190517041403-820986f2947c
 	istio.io/pkg v0.0.0-20190603185215-940899ee7e72
+=======
+	istio.io/api v0.0.0-20190604023128-6f137ab2ce6d
+	istio.io/pkg v0.0.0-20190516214103-40b7bf4c7321
+>>>>>>> 290545095a... Enabling Envoy gRPC Access Log Service (ALS) (#13638)
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471
 	k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87
 	k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628
@@ -192,5 +197,5 @@ require (
 	k8s.io/helm v2.9.1+incompatible
 	k8s.io/klog v0.3.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20180216212618-50ae88d24ede // indirect
-	sigs.k8s.io/yaml v1.1.0 // indirect
+	sigs.k8s.io/yaml v1.1.0
 )

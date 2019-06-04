@@ -166,6 +166,12 @@ global:
     # Configure the access log for sidecar to JSON or TEXT.
     accessLogEncoding: TEXT
 
+    # Configure envoy gRPC access log service.
+    envoyAccessLogService:
+      enabled: false
+      host: # example: accesslog-service.istio-system
+      port: # example: 15000
+
     # Log level for proxy, applies to gateways and sidecars.  If left empty, "warning" is used.
     # Expected values are: trace|debug|info|warning|error|critical|off
     logLevel: ""
