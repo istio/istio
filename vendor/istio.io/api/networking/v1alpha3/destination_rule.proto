@@ -419,7 +419,8 @@ message ConnectionPoolSettings {
     int32 http2_max_requests = 2;
 
     // Maximum number of requests per connection to a backend. Setting this
-    // parameter to 1 disables keep alive.
+    // parameter to 1 disables keep alive. Default 0, meaning "unlimited",
+    // up to 2^29.
     int32 max_requests_per_connection = 3;
 
     // Maximum number of retries that can be outstanding to all hosts in a

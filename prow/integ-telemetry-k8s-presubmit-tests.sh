@@ -1,8 +1,6 @@
-#!/usr/bin/env python
-#
-# Copyright 2018 Istio Authors
-#
-# failed
+#!/bin/bash
+
+# Copyright 2019 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,3 +13,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+ROOT=$(dirname "$WD")
+
+# Exit immediately for non zero status
+set -e
+# Check unset variables
+set -u
+# Print commands
+set -x
+
+"${ROOT}/prow/integ-suite-k8s.sh" test.integration.telemetry.kube.presubmit

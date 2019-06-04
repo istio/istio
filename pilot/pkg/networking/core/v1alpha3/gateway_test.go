@@ -22,6 +22,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -81,6 +82,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
+								InitialFetchTimeout: pilot.InitialFetchTimeout,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -122,6 +124,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
+								InitialFetchTimeout: pilot.InitialFetchTimeout,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -234,6 +237,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
+								InitialFetchTimeout: pilot.InitialFetchTimeout,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -260,6 +264,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 								Name: "ingress-sds-resource-name-cacert",
 								SdsConfig: &core.ConfigSource{
+									InitialFetchTimeout: pilot.InitialFetchTimeout,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType: core.ApiConfigSource_GRPC,
