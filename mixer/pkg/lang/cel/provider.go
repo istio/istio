@@ -31,7 +31,7 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 
 	"istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/pkg/attribute"
 )
 
 // Attribute provider resolves typing information by modeling attributes
