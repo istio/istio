@@ -118,10 +118,10 @@ func TestWatchCerts(t *testing.T) {
 	}
 	defer func() {
 		if err := tmpFile.Close(); err != nil {
-			t.Fatalf("failed to close file %s: %v", tmpFile.Name(), err)
+			t.Errorf("failed to close file %s: %v", tmpFile.Name(), err)
 		}
 		if err := os.RemoveAll(tmpDir); err != nil {
-			t.Fatalf("failed to remove temp dir: %v", err)
+			t.Errorf("failed to remove temp dir: %v", err)
 		}
 	}()
 
