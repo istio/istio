@@ -64,6 +64,19 @@ var (
 		Name:      "success_cert_issuance_count",
 		Help:      "The number of certificates issuances that have succeeded.",
 	}, []string{})
+
+	rootCertRemainingSeconds = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "citadel",
+		Name:      "citadel_root_cert_expire_time_seconds",
+		Subsystem: "server",
+		Help:      "The remaining valid duration for root certificate Citadel uses, in seconds.",
+	}, RootExpirationCheckerCallback)
+
+	// RootExpirationChecker returns the seconds the root cert remains valid.
+	// This call back will be reset in Citadel server.
+	RootExpirationCheckerCallback = func() float64 {
+		return -1
+	}
 )
 
 func init() {
@@ -73,6 +86,7 @@ func init() {
 	prometheus.MustRegister(idExtractionErrorCounts)
 	prometheus.MustRegister(certSignErrorCounts)
 	prometheus.MustRegister(successCounts)
+	prometheus.MustRegister(rootCertRemainingSeconds)
 }
 
 // monitoringMetrics are counters for certificate signing related operations.
@@ -89,16 +103,7 @@ type monitoringMetrics struct {
 type RootCertExpirationChecker func() float64
 
 // newMonitoringMetrics creates a new monitoringMetrics.
-func newMonitoringMetrics(rootExpireChecker RootCertExpirationChecker) monitoringMetrics {
-	rootCertRemainingSeconds := prometheus.NewGaugeFunc(
-		prometheus.GaugeOpts{
-			Namespace: "citadel",
-			Name:      "citadel_root_cert_expire_time_seconds",
-			Subsystem: "server",
-			Help:      "The remaining valid duration for root certificate Citadel uses, in seconds.",
-		},
-		rootExpireChecker)
-	prometheus.MustRegister(rootCertRemainingSeconds)
+func newMonitoringMetrics() monitoringMetrics {
 	return monitoringMetrics{
 		CSR:               csrCounts.With(prometheus.Labels{}),
 		AuthnError:        authnErrorCounts.With(prometheus.Labels{}),

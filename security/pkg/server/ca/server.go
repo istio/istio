@@ -242,8 +242,9 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 		hostnames:      hostlist,
 		forCA:          forCA,
 		port:           port,
+		monitoring:     newMonitoringMetrics(),
 	}
-	server.monitoring = newMonitoringMetrics(server.RootCertExpirationSeconds)
+	RootExpirationCheckerCallback = server.RootCertExpirationSeconds
 	return server, nil
 }
 

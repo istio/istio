@@ -217,8 +217,8 @@ func TestCreateCertificate(t *testing.T) {
 			port:           8080,
 			authorizer:     c.authorizer,
 			authenticators: c.authenticators,
+			monitoring:     newMonitoringMetrics(),
 		}
-		server.monitoring = newMonitoringMetrics(server.RootCertExpirationSeconds)
 		request := &pb.IstioCertificateRequest{Csr: "dumb CSR"}
 
 		response, err := server.CreateCertificate(context.Background(), request)
@@ -326,8 +326,8 @@ func TestHandleCSR(t *testing.T) {
 			port:           8080,
 			authorizer:     c.authorizer,
 			authenticators: c.authenticators,
+			monitoring:     newMonitoringMetrics(),
 		}
-		server.monitoring = newMonitoringMetrics(server.RootCertExpirationSeconds)
 		request := &pb.CsrRequest{CsrPem: []byte(c.csr)}
 
 		response, err := server.HandleCSR(context.Background(), request)
