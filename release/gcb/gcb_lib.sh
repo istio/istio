@@ -61,7 +61,7 @@ EOF
      pushd ../proxy
        PROXY_API_SHA=$(grep ISTIO_API istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
      popd
-     if [[ "$PROXY_API_SHA" != "$API_REPO_SHA" ]]; then
+     if [[ "$PROXY_API_SHA" != "$API_REPO_SHA"* ]]; then
        echo "inconsistent shas PROXY_API_SHA $PROXY_API_SHA !=   $API_REPO_SHA   API_REPO_SHA" 1>&2
        exit 17
      fi
