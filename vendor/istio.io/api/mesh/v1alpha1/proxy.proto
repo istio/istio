@@ -190,4 +190,10 @@ message ProxyConfig {
 
   // secret discovery service(SDS) configuration to be used by the proxy.
   SDS sds = 21;
+
+  // Address of the service to which access logs from Envoys should be
+  // sent. (e.g. accesslog-service:15000). See [Access Log
+  // Service](https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto)
+  // for details about Envoy's gRPC Access Log Service API.
+  string envoy_access_log_service_address = 22;
 }

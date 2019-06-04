@@ -4,7 +4,7 @@ description: Configuration affecting the service mesh as a whole.
 location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 23
+number_of_entries: 22
 ---
 <p>Configuration affecting the service mesh as a whole.</p>
 
@@ -416,12 +416,12 @@ Default value is text.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig-envoy_accesslog_service">
-<td><code>envoyAccesslogService</code></td>
-<td><code><a href="#MeshConfig-GoogleGrpcService">MeshConfig.GoogleGrpcService</a></code></td>
+<tr id="MeshConfig-enable_envoy_access_log_service">
+<td><code>enableEnvoyAccessLogService</code></td>
+<td><code>bool</code></td>
 <td>
-<p>The Envoy gRPC Access Log Service (ALS) implementation.
-See <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto#config-accesslog-v2-httpgrpcaccesslogconfig">Access Log Service</a>
+<p>This flag enables Envoy&rsquo;s gRPC Access Log Service.
+See <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto">Access Log Service</a>
 for details about Envoy&rsquo;s gRPC Access Log Service API.</p>
 
 </td>
@@ -536,6 +536,17 @@ defaults of istio::mixerclient::ReportOptions.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-h2_upgrade_policy">
+<td><code>h2UpgradePolicy</code></td>
+<td><code><a href="#MeshConfig-H2UpgradePolicy">MeshConfig.H2UpgradePolicy</a></code></td>
+<td>
+<p>Specify if http1.1 connections should be upgraded to http2 by default.
+if sidecar is installed on all pods in the mesh, then this should be set to UPGRADE.
+If one or more services or namespaces do not have sidecar(s), then this should be set to DO<em>NOT</em>UPGRADE.
+It can be enabled by destination using the destinationRule.trafficPolicy.connectionPool.http.h2UpgradePolicy override.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -562,68 +573,29 @@ defaults of istio::mixerclient::ReportOptions.</p>
 </tbody>
 </table>
 </section>
-<h2 id="MeshConfig-GoogleGrpcService">MeshConfig.GoogleGrpcService</h2>
+<h2 id="MeshConfig-H2UpgradePolicy">MeshConfig.H2UpgradePolicy</h2>
 <section>
-<table class="message-fields">
+<p>Default Policy for upgrading http1.1 connections to http2.</p>
+
+<table class="enum-values">
 <thead>
 <tr>
-<th>Field</th>
-<th>Type</th>
+<th>Name</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
-<tr id="MeshConfig-GoogleGrpcService-target_uri">
-<td><code>targetUri</code></td>
-<td><code>string</code></td>
+<tr id="MeshConfig-H2UpgradePolicy-DO_NOT_UPGRADE">
+<td><code>DO_NOT_UPGRADE</code></td>
 <td>
-<p>Required: host[:port] The target URI when using the Google gRPC client.</p>
+<p>Do not upgrade connections to http2.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig-GoogleGrpcService-credentials">
-<td><code>credentials</code></td>
-<td><code><a href="#MeshConfig-GoogleGrpcService-SSLCredentials">MeshConfig.GoogleGrpcService.SSLCredentials</a></code></td>
+<tr id="MeshConfig-H2UpgradePolicy-UPGRADE">
+<td><code>UPGRADE</code></td>
 <td>
-<p>Optional: SSL credentials. If empty, client will use insecure gRPC channel.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="MeshConfig-GoogleGrpcService-SSLCredentials">MeshConfig.GoogleGrpcService.SSLCredentials</h2>
-<section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="MeshConfig-GoogleGrpcService-SSLCredentials-root_certs">
-<td><code>rootCerts</code></td>
-<td><code>string</code></td>
-<td>
-<p>The path to the PEM encoded file contains server root certificates.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig-GoogleGrpcService-SSLCredentials-private_key">
-<td><code>privateKey</code></td>
-<td><code>string</code></td>
-<td>
-<p>The path to the PEM encoded file contains client private key.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig-GoogleGrpcService-SSLCredentials-cert_chain">
-<td><code>certChain</code></td>
-<td><code>string</code></td>
-<td>
-<p>The path to the PEM encoded file contains client certificate chain.</p>
+<p>Upgrade the connections to http2.</p>
 
 </td>
 </tr>
@@ -1102,6 +1074,17 @@ Increase the value of this field if you find that the metrics from Envoys are tr
 <td><code><a href="#SDS">SDS</a></code></td>
 <td>
 <p>secret discovery service(SDS) configuration to be used by the proxy.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-envoy_access_log_service_address">
+<td><code>envoyAccessLogServiceAddress</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the service to which access logs from Envoys should be
+sent. (e.g. accesslog-service:15000). See <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto">Access Log
+Service</a>
+for details about Envoy&rsquo;s gRPC Access Log Service API.</p>
 
 </td>
 </tr>

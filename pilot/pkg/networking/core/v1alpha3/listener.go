@@ -51,8 +51,6 @@ import (
 const (
 	envoyListenerTLSInspector = "envoy.listener.tls_inspector"
 
-	httpEnvoyAccesslogName = "http_envoy_accesslog"
-
 	// RDSHttpProxy is the special name for HTTP PROXY route
 	RDSHttpProxy = "http_proxy"
 
@@ -85,6 +83,10 @@ const (
 
 	// EnvoyServerName for istio's envoy
 	EnvoyServerName = "istio-envoy"
+
+	// EnvoyAccessLogCluster is the cluster name that has details for server implementing Envoy ALS.
+	// This cluster is created in bootstrap.
+	EnvoyAccessLogCluster = "envoy_accesslog_service"
 )
 
 var (
@@ -1498,38 +1500,14 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 		connectionManager.AccessLog = append(connectionManager.AccessLog, acc)
 	}
 
-	if env.Mesh.EnvoyAccesslogService != nil && env.Mesh.EnvoyAccesslogService.TargetUri != "" {
-		googleGrpc := &core.GrpcService_GoogleGrpc{
-			TargetUri:  env.Mesh.EnvoyAccesslogService.TargetUri,
-			StatPrefix: httpEnvoyAccesslogName,
-		}
-		if env.Mesh.EnvoyAccesslogService.Credentials != nil {
-			c := env.Mesh.EnvoyAccesslogService.Credentials
-			sslCred := &core.GrpcService_GoogleGrpc_SslCredentials{}
-			isValid := false
-			if c.RootCerts != "" {
-				sslCred.RootCerts = &core.DataSource{Specifier: &core.DataSource_Filename{Filename: c.RootCerts}}
-				isValid = true
-			}
-			if c.PrivateKey != "" && c.CertChain != "" {
-				sslCred.PrivateKey = &core.DataSource{Specifier: &core.DataSource_Filename{Filename: c.PrivateKey}}
-				sslCred.CertChain = &core.DataSource{Specifier: &core.DataSource_Filename{Filename: c.CertChain}}
-				isValid = true
-			}
-			if isValid {
-				googleGrpc.ChannelCredentials = &core.GrpcService_GoogleGrpc_ChannelCredentials{
-					CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
-						SslCredentials: sslCred,
-					},
-				}
-			}
-		}
+	if env.Mesh.EnableEnvoyAccessLogService {
 		fl := &accesslogconfig.HttpGrpcAccessLogConfig{
 			CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
-				LogName: httpEnvoyAccesslogName,
 				GrpcService: &core.GrpcService{
-					TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-						GoogleGrpc: googleGrpc,
+					TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+						EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+							ClusterName: EnvoyAccessLogCluster,
+						},
 					},
 				},
 			},

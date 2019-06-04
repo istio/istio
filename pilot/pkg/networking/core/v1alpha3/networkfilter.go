@@ -71,41 +71,17 @@ func setAccessLog(env *model.Environment, node *model.Proxy, config *tcp_proxy.T
 		}
 
 		config.AccessLog = append(config.AccessLog, acc)
-
 	}
 
-	if env.Mesh.EnvoyAccesslogService != nil && env.Mesh.EnvoyAccesslogService.TargetUri != "" {
-		googleGrpc := &core.GrpcService_GoogleGrpc{
-			TargetUri:  env.Mesh.EnvoyAccesslogService.TargetUri,
-			StatPrefix: tcpEnvoyAccesslogName,
-		}
-		if env.Mesh.EnvoyAccesslogService.Credentials != nil {
-			c := env.Mesh.EnvoyAccesslogService.Credentials
-			sslCred := &core.GrpcService_GoogleGrpc_SslCredentials{}
-			isValid := false
-			if c.RootCerts != "" {
-				sslCred.RootCerts = &core.DataSource{Specifier: &core.DataSource_Filename{Filename: c.RootCerts}}
-				isValid = true
-			}
-			if c.PrivateKey != "" && c.CertChain != "" {
-				sslCred.PrivateKey = &core.DataSource{Specifier: &core.DataSource_Filename{Filename: c.PrivateKey}}
-				sslCred.CertChain = &core.DataSource{Specifier: &core.DataSource_Filename{Filename: c.CertChain}}
-				isValid = true
-			}
-			if isValid {
-				googleGrpc.ChannelCredentials = &core.GrpcService_GoogleGrpc_ChannelCredentials{
-					CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
-						SslCredentials: sslCred,
-					},
-				}
-			}
-		}
+	if env.Mesh.EnableEnvoyAccessLogService {
 		fl := &accesslogconfig.TcpGrpcAccessLogConfig{
 			CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
 				LogName: tcpEnvoyAccesslogName,
 				GrpcService: &core.GrpcService{
-					TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-						GoogleGrpc: googleGrpc,
+					TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+						EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+							ClusterName: EnvoyAccessLogCluster,
+						},
 					},
 				},
 			},
