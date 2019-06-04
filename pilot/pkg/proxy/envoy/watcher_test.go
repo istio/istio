@@ -132,6 +132,8 @@ func TestWatchCerts(t *testing.T) {
 
 	// test modify file event
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	go watchCerts(ctx, []string{tmpFile.Name()}, watchFileEvents, 50*time.Millisecond, callbackFunc)
 
 	// sleep one second to make sure the watcher is set up before change is made
@@ -149,14 +151,12 @@ func TestWatchCerts(t *testing.T) {
 	select {
 	case <-called:
 		// expected
-		cancel()
+		break
 	case <-time.After(time.Second):
-		cancel()
 		t.Fatalf("The callback is not called within time limit " + time.Now().String() + " when file was modified")
 	}
 
 	// test delete file event
-	ctx, cancel = context.WithCancel(context.Background())
 	go watchCerts(ctx, []string{tmpFile.Name()}, watchFileEvents, 50*time.Millisecond, callbackFunc)
 
 	// sleep one second to make sure the watcher is set up before change is made
@@ -171,9 +171,8 @@ func TestWatchCerts(t *testing.T) {
 	select {
 	case <-called:
 		// expected
-		cancel()
+		break
 	case <-time.After(time.Second):
-		cancel()
 		t.Fatalf("The callback is not called within time limit " + time.Now().String() + " when file was deleted")
 	}
 
