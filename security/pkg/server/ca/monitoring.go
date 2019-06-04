@@ -71,6 +71,7 @@ var (
 		Subsystem: "server",
 		Help:      "The remaining valid duration for root certificate Citadel uses, in seconds.",
 	}, func() float64 {
+		// We invoke the callback here to ensure when the callback is updated in Citadel, it will take effect.
 		return RootExpirationCheckerCallback()
 	})
 
