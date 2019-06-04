@@ -70,7 +70,9 @@ var (
 		Name:      "citadel_root_cert_expire_time_seconds",
 		Subsystem: "server",
 		Help:      "The remaining valid duration for root certificate Citadel uses, in seconds.",
-	}, RootExpirationCheckerCallback)
+	}, func() float64 {
+		return RootExpirationCheckerCallback()
+	})
 
 	// RootExpirationChecker returns the seconds the root cert remains valid.
 	// This call back will be reset in Citadel server.
