@@ -31,3 +31,39 @@ function github_keys() {
     gsutil -q cp "gs://${CB_TEST_GITHUB_TOKEN_FILE_PATH}" "${KEYFILE_TEMP}"
   fi
 }
+
+function create_manifest_check_consistency() {
+  local MANIFEST_FILE=$1
+
+  local ISTIO_REPO_SHA
+  local PROXY_REPO_SHA
+  local CNI_REPO_SHA
+  local API_REPO_SHA
+  ISTIO_REPO_SHA=$(git rev-parse HEAD)
+  CNI_REPO_SHA=$(grep CNI_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+  PROXY_REPO_SHA=$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+  API_REPO_SHA=$(grep istio.io.api -A 100 < Gopkg.lock | grep revision -m 1 | cut -f 2 -d '"')
+
+  if [ -z "${ISTIO_REPO_SHA}" ] || [ -z "${API_REPO_SHA}" ] || [ -z "${PROXY_REPO_SHA}" ] || [ -z "${CNI_REPO_SHA}" ] ; then
+    echo "ISTIO_REPO_SHA:$ISTIO_REPO_SHA API_REPO_SHA:$API_REPO_SHA PROXY_REPO_SHA:$PROXY_REPO_SHA CNI_REPO_SHA:$CNI_REPO_SHA some shas not found"
+    exit 8
+  fi
+cat << EOF > "${MANIFEST_FILE}"
+istio ${ISTIO_REPO_SHA}
+proxy ${PROXY_REPO_SHA}
+api ${API_REPO_SHA}
+cni ${CNI_REPO_SHA}
+tools ${TOOLS_HEAD_SHA}
+EOF
+
+
+  if [[ "${CB_VERIFY_CONSISTENCY}" == "true" ]]; then
+     pushd ../proxy
+       PROXY_API_SHA=$(grep ISTIO_API istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+     popd
+     if [ "$PROXY_API_SHA" != "$API_REPO_SHA" ]; then
+       echo "inconsistent shas PROXY_API_SHA $PROXY_API_SHA !=   $API_REPO_SHA   API_REPO_SHA" 1>&2
+       exit 17
+     fi
+  fi
+}
