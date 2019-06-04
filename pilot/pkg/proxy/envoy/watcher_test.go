@@ -117,7 +117,9 @@ func TestWatchCerts(t *testing.T) {
 		t.Errorf("failed to create a temp file in testdata/certs: %v", err)
 	}
 	defer func() {
-
+		if err := tmpFile.Close(); err != nil {
+			t.Errorf("failed to close file %s: %v", tmpFile.Name(), err)
+		}
 		if err := os.RemoveAll(tmpDir); err != nil {
 			t.Errorf("failed to remove temp dir: %v", err)
 		}
@@ -140,8 +142,9 @@ func TestWatchCerts(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to update file %s: %v", tmpFile.Name(), err)
 	}
-	if err := tmpFile.Close(); err != nil {
-		t.Errorf("failed to close file %s: %v", tmpFile.Name(), err)
+	err = tmpFile.Sync()
+	if err != nil {
+		t.Errorf("failed to sync file %s: %v", tmpFile.Name(), err)
 	}
 
 	select {
