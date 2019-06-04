@@ -99,13 +99,10 @@ func TestServer_RootCertExpirationSeconds(t *testing.T) {
 	cert, key, err := pkiutil.GenCertKeyFromOptions(pkiutil.CertOptions{
 		Host:         "citadel.testing.istio.io",
 		NotBefore:    time.Now(),
-		TTL:          time.Second * 10,
-		SignerCert:   nil,
-		SignerPriv:   nil,
+		TTL:          time.Second * 5,
 		Org:          "MyOrg",
 		IsCA:         true,
 		IsSelfSigned: true,
-		IsClient:     false,
 		IsServer:     true,
 		RSAKeySize:   512,
 	})
@@ -128,13 +125,13 @@ func TestServer_RootCertExpirationSeconds(t *testing.T) {
 	}{
 		{
 			name:     "ttl-valid",
-			ttlRange: []float64{9, 10},
+			ttlRange: []float64{4, 5},
 			sleep:    3,
 		},
 		{
 			name:     "ttl-valid-3s-less",
-			ttlRange: []float64{6, 7},
-			sleep:    8,
+			ttlRange: []float64{1, 2},
+			sleep:    3,
 		},
 		{
 			name:     "ttl-invalid-expired",
