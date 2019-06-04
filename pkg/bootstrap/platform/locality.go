@@ -19,15 +19,10 @@ import (
 	"regexp"
 
 	"cloud.google.com/go/compute/metadata"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
 	"istio.io/pkg/log"
 )
-
-type Locality struct {
-	Region  string
-	Zone    string
-	SubZone string
-}
 
 // Converts a GCP zone into a region.
 func gcpZoneToRegion(z string) (string, error) {
@@ -41,22 +36,22 @@ func gcpZoneToRegion(z string) (string, error) {
 }
 
 // GetLocality returns the platform-specific region and zone. Currently only GCP is supported.
-func GetPlatformLocality() Locality {
-	var l Locality
+func GetPlatformLocality() *core.Locality {
+	var l core.Locality
 	if metadata.OnGCE() {
 		z, zerr := metadata.Zone()
 		if zerr != nil {
 			log.Warnf("Error fetching GCP zone: %v", zerr)
-			return l
+			return &l
 		}
 		r, rerr := gcpZoneToRegion(z)
 		if rerr != nil {
 			log.Warnf("Error fetching GCP region: %v", rerr)
-			return l
+			return &l
 		}
 		l.Region = r
 		l.Zone = z
 	}
 
-	return l
+	return &l
 }
