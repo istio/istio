@@ -28,6 +28,7 @@ set -x
 # shellcheck disable=SC1091
 source "/workspace/gcb_env.sh"
 # shellcheck disable=SC1091
+# shellcheck disable=SC1090
 source "${SCRIPTPATH}/gcb_lib.sh"
 
 function checkout_code() {
@@ -57,6 +58,7 @@ function istio_checkout_green_sha() {
 function istio_tools_get_green_sha() {
   pushd tools
     TOOLS_HEAD_SHA=$(git rev-parse HEAD)
+    export TOOLS_HEAD_SHA
   popd
 }
 

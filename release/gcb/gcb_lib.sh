@@ -43,7 +43,6 @@ function create_manifest_check_consistency() {
   CNI_REPO_SHA=$(grep CNI_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
   PROXY_REPO_SHA=$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
   API_REPO_SHA=$(grep "istio\.io/api" go.mod | cut -f 3 -d '-')
-
   if [ -z "${ISTIO_REPO_SHA}" ] || [ -z "${API_REPO_SHA}" ] || [ -z "${PROXY_REPO_SHA}" ] || [ -z "${CNI_REPO_SHA}" ] ; then
     echo "ISTIO_REPO_SHA:$ISTIO_REPO_SHA API_REPO_SHA:$API_REPO_SHA PROXY_REPO_SHA:$PROXY_REPO_SHA CNI_REPO_SHA:$CNI_REPO_SHA some shas not found"
     exit 8
@@ -58,9 +57,9 @@ EOF
 
 
   if [[ "${CB_VERIFY_CONSISTENCY}" == "true" ]]; then
-     pushd ../proxy
+     pushd ../proxy || exit
        PROXY_API_SHA=$(grep ISTIO_API istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
-     popd
+     popd || exit
      if [[ "$PROXY_API_SHA" != "$API_REPO_SHA"* ]]; then
        echo "inconsistent shas PROXY_API_SHA $PROXY_API_SHA !=   $API_REPO_SHA   API_REPO_SHA" 1>&2
        exit 17
