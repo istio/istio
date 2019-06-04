@@ -27,7 +27,6 @@ import (
 	"strings"
 
 	"istio.io/istio/galley/pkg/runtime/log"
-	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
 const (
@@ -145,7 +144,7 @@ func RecordStateTypeCountWithContext(ctx context.Context, count int) {
 }
 
 // RecordDetailedStateType
-func RecordDetailedStateType(namespace, name string, collection resource.Collection, count int) {
+func RecordDetailedStateType(namespace, name string, collection fmt.Stringer, count int) {
 	collectionStr := strings.Split(collection.String(), "/")
 	// collection is of the format istio/<kind>/<version>/<name>
 	if len(collectionStr) < 4 {

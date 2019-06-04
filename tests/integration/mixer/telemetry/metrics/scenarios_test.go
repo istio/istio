@@ -155,8 +155,7 @@ func TestStateMetrics(t *testing.T) {
 
 			util.AllowRuleSync(t)
 
-			query := fmt.Sprintf("sum(galley_runtime_state_istio_networking_destinationrules_total" +
-				"{namespace=\"%s\",version=\"v1alpha3\"})", bookinfoNs.Name())
+			query := fmt.Sprintf("sum(galley_runtime_state_istio_networking_destinationrules_total{namespace=\"%s\",version=\"v1alpha3\"})", bookinfoNs.Name())
 			util.ValidateMetric(t, prom, query, "galley_runtime_state_istio_networking_destinationrules_total", 4)
 
 			query = fmt.Sprintf("sum(galley_runtime_state_istio_networking_virtualservices_total{namespace=\"%s\"})", bookinfoNs.Name())
