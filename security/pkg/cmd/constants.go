@@ -18,7 +18,7 @@ import "time"
 
 const (
 	// DefaultSelfSignedCACertTTL is the default TTL of self-signed CA root certificate.
-	DefaultSelfSignedCACertTTL = 365 * 24 * time.Hour
+	DefaultSelfSignedCACertTTL = 3650 * 24 * time.Hour
 
 	// DefaultRequestedCACertTTL is the default requested TTL for the workload.
 	DefaultRequestedCACertTTL = 365 * 24 * time.Hour
