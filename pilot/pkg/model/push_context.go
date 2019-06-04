@@ -481,7 +481,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 
 	// If proxy has a sidecar scope that is user supplied, then get the destination rules from the sidecar scope
 	// sidecarScope.config is nil if there is no sidecar scope for the namespace
-	if proxy != nil && proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
+	if proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
 		// If there is a sidecar scope for this proxy, return the destination rule
 		// from the sidecar scope.
 		return proxy.SidecarScope.DestinationRule(service.Hostname)
