@@ -75,7 +75,7 @@ var (
 		return RootExpirationCheckerCallback()
 	})
 
-	// RootExpirationChecker returns the seconds the root cert remains valid.
+	// RootExpirationCheckerCallback returns the seconds the root cert remains valid.
 	// This call back will be reset in Citadel server.
 	RootExpirationCheckerCallback = func() float64 {
 		return -1
