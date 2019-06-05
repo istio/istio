@@ -15,7 +15,6 @@
 package server
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -23,7 +22,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"google.golang.org/grpc/stats"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
