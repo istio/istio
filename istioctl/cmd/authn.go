@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/writer/pilot"
@@ -56,7 +57,7 @@ istioctl authn tls-check foo-656bd7df7c-5zp4s.default bar
 			var debug []v2.AuthenticationDebug
 			for i := range results {
 				if err := json.Unmarshal(results[i], &debug); err != nil {
-					return err
+					return multierror.Prefix(err, "JSON response invalid:")
 				}
 				if len(debug) > 0 {
 					break

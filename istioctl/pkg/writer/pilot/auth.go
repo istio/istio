@@ -28,7 +28,7 @@ type TLSCheckWriter struct {
 	Writer io.Writer
 }
 
-func (t *TLSCheckWriter) setupTLSCheckPrint(dat []v2.AuthenticationDebug) (*tabwriter.Writer, []v2.AuthenticationDebug, error) { // nolint: unparam
+func (t *TLSCheckWriter) setupTLSCheckPrint(dat []v2.AuthenticationDebug) (*tabwriter.Writer, []v2.AuthenticationDebug) {
 	sort.Slice(dat, func(i, j int) bool {
 		if dat[i].Host == dat[j].Host {
 			return dat[i].Port < dat[j].Port
@@ -37,15 +37,12 @@ func (t *TLSCheckWriter) setupTLSCheckPrint(dat []v2.AuthenticationDebug) (*tabw
 	})
 	w := new(tabwriter.Writer).Init(t.Writer, 0, 8, 5, ' ', 0)
 	fmt.Fprintln(w, "HOST:PORT\tSTATUS\tSERVER\tCLIENT\tAUTHN POLICY\tDESTINATION RULE")
-	return w, dat, nil
+	return w, dat
 }
 
 // PrintAll takes a Pilot authenticationz response and outputs them using a tabwriter
 func (t *TLSCheckWriter) PrintAll(dat []v2.AuthenticationDebug) error {
-	w, fullAuth, err := t.setupTLSCheckPrint(dat)
-	if err != nil {
-		return err
-	}
+	w, fullAuth := t.setupTLSCheckPrint(dat)
 	for _, entry := range fullAuth {
 		tlsCheckPrintln(w, entry)
 	}
@@ -54,10 +51,7 @@ func (t *TLSCheckWriter) PrintAll(dat []v2.AuthenticationDebug) error {
 
 // PrintSingle takes a Pilot authenticationz response and outputs them using a tabwriter filtering for a specific service
 func (t *TLSCheckWriter) PrintSingle(dat []v2.AuthenticationDebug, service string) error {
-	w, fullAuth, err := t.setupTLSCheckPrint(dat)
-	if err != nil {
-		return err
-	}
+	w, fullAuth := t.setupTLSCheckPrint(dat)
 	for _, entry := range fullAuth {
 		if entry.Host == service {
 			tlsCheckPrintln(w, entry)
