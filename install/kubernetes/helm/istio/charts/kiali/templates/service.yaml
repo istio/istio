@@ -9,8 +9,9 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
+  type: {{ .Values.service.type }}
   ports:
-  - name: http-kiali
+  - name: {{ .Values.service.name }}
     protocol: TCP
     port: 20001
   selector:
