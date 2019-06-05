@@ -1,0 +1,12 @@
+prometheus:
+  scrapeInterval: 15s
+  createPrometheusResource: false
+  hub: docker.io/prom
+  tag: v2.8.0
+  retention: 6h
+  service:
+    annotations:
+      key: value
+    nodePort:
+      enabled: false
+      port: 32090

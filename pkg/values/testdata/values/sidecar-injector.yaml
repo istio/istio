@@ -1,0 +1,23 @@
+sidecarInjectorWebhook:
+  replicaCount: 1
+  image: sidecar_injector
+  enableNamespacesByDefault: false
+  rewriteAppHTTPProbe: false
+  selfSigned: false
+  podAntiAffinityLabelSelector:
+    - key: security
+      operator: In
+      values: S1,S2
+      topologyKey: "kubernetes.io/hostname"
+  podAntiAffinityTermLabelSelector:
+    - key: value
+  neverInjectSelector:
+    - matchExpressions:
+        - {key: openshift.io/build.name, operator: Exists}
+    - matchExpressions:
+        - {key: openshift.io/deployer-pod-for.name, operator: Exists}
+  alwaysInjectSelector:
+    - matchExpressions:
+        - {key: openshift.io/build.name, operator: Exists}
+    - matchExpressions:
+        - {key: openshift.io/deployer-pod-for.name, operator: Exists}

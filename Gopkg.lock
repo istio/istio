@@ -165,14 +165,6 @@
   version = "v0.29.0"
 
 [[projects]]
-  digest = "1:dfbda67027ae44e160db386bd399d12c634c8aa9225fe3c28cc912bf78e70acc"
-  name = "github.com/cpuguy83/go-md2man"
-  packages = ["md2man"]
-  pruneopts = "NT"
-  revision = "7762f7e404f8416dfa1d9bb6a8c192aa9acb4d19"
-  version = "v1.0.10"
-
-[[projects]]
   digest = "1:8449bb0c1da0fd7ec4706afb5ae46ad0ad658fd87f17a7eb067c5a307ffe3818"
   name = "github.com/cyphar/filepath-securejoin"
   packages = ["."]
@@ -461,14 +453,6 @@
   revision = "b9b92a82580638d091517faa0a8a9655657ed263"
 
 [[projects]]
-  digest = "1:caf94762c0e0a1bdd44d9307d319f2841939399c86db9f04b4d2e470c51aa007"
-  name = "github.com/gorilla/mux"
-  packages = ["."]
-  pruneopts = "NT"
-  revision = "ed099d42384823742bba0bf9a72b53b55c9e2e38"
-  version = "v1.7.2"
-
-[[projects]]
   branch = "master"
   digest = "1:bb7bd892abcb75ef819ce2efab9d54d22b7e38dc05ffac55428bb0578b52912b"
   name = "github.com/gregjones/httpcache"
@@ -530,14 +514,6 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:002e717d1aba87b3b5d85f50c7f4755679866edb6297a46679cbd2b7c74a084c"
-  name = "github.com/howeyc/fsnotify"
-  packages = ["."]
-  pruneopts = "NT"
-  revision = "441bbc86b167f3c1f4786afae9931403b99fdacf"
-  version = "v0.9.0"
-
-[[projects]]
   digest = "1:dc54242755f5b6721dd880843de6e45fe234838ea9149ec8249951880fd5802f"
   name = "github.com/huandu/xstrings"
   packages = ["."]
@@ -592,22 +568,6 @@
   pruneopts = "NT"
   revision = "f55edac94c9bbba5d6182a4be46d86a2c9b5b50e"
   version = "v1.0.2"
-
-[[projects]]
-  digest = "1:7b21c7fc5551b46d1308b4ffa9e9e49b66c7a8b0ba88c0130474b0e7a20d859f"
-  name = "github.com/kr/pretty"
-  packages = ["."]
-  pruneopts = "NT"
-  revision = "73f6ac0b30a98e433b289500d779f50c1a6f0712"
-  version = "v0.1.0"
-
-[[projects]]
-  digest = "1:5d9fa22c7c5b88d36fb6dc6991f4747311d9e7d7e869027a3a2411e5758f3bb8"
-  name = "github.com/kr/text"
-  packages = ["."]
-  pruneopts = "NT"
-  revision = "e2ffdb16a802fe2bb95e2e35ff34f0e53aeef34f"
-  version = "v0.1.0"
 
 [[projects]]
   digest = "1:4244266b65ea535b8ebd109a327720821707b59f9a37bda738946d52ec69442d"
@@ -700,14 +660,6 @@
   packages = ["flowrate"]
   pruneopts = "NT"
   revision = "cca7078d478f8520f85629ad7c68962d31ed7682"
-
-[[projects]]
-  digest = "1:80c34337e8a734e190f2d1b716cae774cca74db98315166f92074434e9af0227"
-  name = "github.com/natefinch/lumberjack"
-  packages = ["."]
-  pruneopts = "NT"
-  revision = "a96e63847dc3c67d17befa69c303767e2f84e54f"
-  version = "v2.1"
 
 [[projects]]
   digest = "1:e0cc8395ea893c898ff5eb0850f4d9851c1f57c78c232304a026379a47a552d0"
@@ -881,14 +833,6 @@
   revision = "87a4384529e0652f5035fb5cc8095faf73ea9b0b"
 
 [[projects]]
-  digest = "1:cd95d45a7241dc089fc61aec85ea85ee2e2c2a0722187928df56f3a0ecae8ffe"
-  name = "github.com/prometheus/prom2json"
-  packages = ["."]
-  pruneopts = "NT"
-  revision = "63d8d642831b6d75c46715acc8722965dadb46a1"
-  version = "v1.2.1"
-
-[[projects]]
   digest = "1:a4644e85e1f29f9825a4e61dcdd8244fe7c4db02eead3f508d5a5bdf7924dbbd"
   name = "github.com/rogpeppe/go-internal"
   packages = [
@@ -946,10 +890,7 @@
 [[projects]]
   digest = "1:234b95cdbb31612ff4f97e0ac69abdede0c60f5f84e5d3f40123859f77d8bc2c"
   name = "github.com/spf13/cobra"
-  packages = [
-    ".",
-    "doc",
-  ]
+  packages = ["."]
   pruneopts = "NT"
   revision = "ef82de70bb3f60c65fb8eebacbb2d122ef517385"
   version = "v0.0.3"
@@ -1039,7 +980,6 @@
     "internal/color",
     "internal/exit",
     "zapcore",
-    "zapgrpc",
   ]
   pruneopts = "NT"
   revision = "ff33455a0e382e8a81d14dd7c922020b6b5e7982"
@@ -1287,25 +1227,6 @@
   pruneopts = "NT"
   revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
   version = "v2.2.2"
-
-[[projects]]
-  digest = "1:8141d0bf696acabb350ddae4d7f1a7dcd5bff2b4317dc3a88ed0b9f3e7c1252b"
-  name = "istio.io/pkg"
-  packages = [
-    "annotations",
-    "appsignals",
-    "collateral",
-    "ctrlz",
-    "ctrlz/assets",
-    "ctrlz/fw",
-    "ctrlz/topics",
-    "ctrlz/topics/assets",
-    "env",
-    "log",
-    "version",
-  ]
-  pruneopts = "NT"
-  revision = "9332430ad747c06f4e0c5e090d75db327bf9ca80"
 
 [[projects]]
   digest = "1:6fa82ea248029bbbdddade20c06ab177ff6e485e5e45e48b045707415b7efd34"
@@ -1841,7 +1762,6 @@
     "pkg/recorder",
     "pkg/runtime/inject",
     "pkg/runtime/log",
-    "pkg/runtime/scheme",
     "pkg/runtime/signals",
     "pkg/source",
     "pkg/source/internal",
@@ -1897,7 +1817,10 @@
     "github.com/operator-framework/operator-sdk/cmd/operator-sdk",
     "github.com/operator-framework/operator-sdk/pkg/k8sutil",
     "github.com/operator-framework/operator-sdk/pkg/leader",
+    "github.com/operator-framework/operator-sdk/pkg/log/zap",
     "github.com/operator-framework/operator-sdk/pkg/metrics",
+    "github.com/operator-framework/operator-sdk/version",
+    "k8s.io/apimachinery/pkg/runtime",
     "github.com/pkg/errors",
     "github.com/spf13/cobra",
     "github.com/spf13/cobra/doc",
@@ -1936,6 +1859,7 @@
     "k8s.io/helm/pkg/tiller",
     "k8s.io/helm/pkg/timeconv",
     "k8s.io/kube-openapi/cmd/openapi-gen",
+    "sigs.k8s.io/controller-runtime/pkg/client/config",
     "k8s.io/kube-openapi/pkg/common",
     "k8s.io/kubernetes/pkg/kubectl",
     "sigs.k8s.io/controller-runtime/pkg/client",
@@ -1943,11 +1867,8 @@
     "sigs.k8s.io/controller-runtime/pkg/controller",
     "sigs.k8s.io/controller-runtime/pkg/handler",
     "sigs.k8s.io/controller-runtime/pkg/manager",
-    "sigs.k8s.io/controller-runtime/pkg/reconcile",
     "sigs.k8s.io/controller-runtime/pkg/runtime/log",
-    "sigs.k8s.io/controller-runtime/pkg/runtime/scheme",
     "sigs.k8s.io/controller-runtime/pkg/runtime/signals",
-    "sigs.k8s.io/controller-runtime/pkg/source",
     "sigs.k8s.io/controller-tools/pkg/crd/generator",
   ]
   solver-name = "gps-cdcl"

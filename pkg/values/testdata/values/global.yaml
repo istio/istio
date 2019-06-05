@@ -1,0 +1,135 @@
+global:
+  istioNamespace: istio-control
+  configNamespace: istio-control
+  telemetryNamespace: istio-telemetry
+  policyNamespace: istio-policy
+
+  hub: docker.io/istio
+  tag: 1.1.4
+  logging:
+    level: "default:info"
+
+  k8sIngress:
+    enabled: false
+    gatewayName: ingressgateway
+    enableHttps: false
+
+  proxy:
+    image: proxyv2
+    clusterDomain: "cluster.local"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 2000m
+        memory: 128Mi
+    concurrency: 2
+    accessLogFile: ""
+    accessLogFormat: ""
+    accessLogEncoding: TEXT
+    logLevel: warning
+    componentLogLevel: "misc:error"
+    dnsRefreshRate: 5s
+    privileged: false
+    enableCoreDump: false
+    statusPort: 15020
+    readinessInitialDelaySeconds: 1
+    readinessPeriodSeconds: 2
+    readinessFailureThreshold: 30
+    includeIPRanges: "*"
+    excludeIPRanges: ""
+    kubevirtInterfaces: ""
+    includeInboundPorts: "*"
+    excludeInboundPorts: ""
+    autoInject: enabled
+    envoyStatsd:
+      enabled: false
+    envoyMetricsService:
+      enabled: false
+      host: metrics-service.istio-system
+      port: 15000
+
+    tracer: "zipkin"
+
+  proxy_init:
+    image: proxy_init
+
+  imagePullPolicy: Always
+  controlPlaneSecurityEnabled: true
+  disablePolicyChecks: true
+  policyCheckFailOpen: false
+  enableTracing: true
+  tracer:
+    lightstep:
+      address: lightstep-satellite:443
+      accessToken: abcdefg1234567
+      secure: true
+      cacertPath: /etc/lightstep/cacert.pem
+    zipkin:
+      address: ""
+    datadog:
+      address: "$(HOST_IP):8126"
+
+  mtls:
+    enabled: false
+
+  arch:
+    amd64: 2
+    s390x: 2
+    ppc64le: 2
+
+  oneNamespace: false
+  configValidation: true
+
+  meshExpansion:
+    enabled: false
+    useILB: false
+
+  multiCluster:
+    enabled: false
+
+  defaultResources:
+    requests:
+      cpu: 10m
+
+  defaultPodDisruptionBudget:
+    enabled: true
+
+  priorityClassName: ""
+
+  useMCP: true
+
+  trustDomain: ""
+
+  outboundTrafficPolicy:
+    mode: ALLOW_ANY
+
+  sds:
+    enabled: false
+    udsPath: ""
+    useTrustworthyJwt: false
+    useNormalJwt: false
+
+  meshNetworks:
+    network1:
+      endpoints:
+      - fromCidr: "192.168.0.1/24"
+      gateways:
+      - address: 1.1.1.1
+        port: 80
+    network2:
+      endpoints:
+      - fromRegistry: reg1
+      gateways:
+      - registryServiceName: istio-ingressgateway
+        port: 443
+
+  localityLbSetting:
+    distribute:
+    - from: "us-central1/*"
+      to:
+        "us-central1/*": 80
+        "us-central2/*": 20
+
+  enableHelmTest: false
