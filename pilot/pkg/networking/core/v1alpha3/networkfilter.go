@@ -185,16 +185,16 @@ func buildNetworkFiltersStack(node *model.Proxy, port *model.Port, tcpFilter *li
 	filterstack := make([]listener.Filter, 0)
 	switch port.Protocol {
 	case model.ProtocolMongo:
-		filterstack = append(filterstack, buildMongoFilter(statPrefix, util.IsProxyVersionGE11(node)), *tcpFilter)
+		filterstack = append(filterstack, buildMongoFilter(statPrefix, util.IsXDSMarshalingToAnyEnabled(node)), *tcpFilter)
 	case model.ProtocolRedis:
 		if util.IsProxyVersionGE11(node) {
-			filterstack = append(filterstack, buildRedisFilter(statPrefix, clusterName, util.IsProxyVersionGE11(node)))
+			filterstack = append(filterstack, buildRedisFilter(statPrefix, clusterName, util.IsXDSMarshalingToAnyEnabled(node)))
 		} else {
 			filterstack = append(filterstack, *tcpFilter)
 		}
 	case model.ProtocolMySQL:
 		if util.IsProxyVersionGE11(node) && pilot.EnableMysqlFilter() {
-			filterstack = append(filterstack, buildMySQLFilter(statPrefix, util.IsProxyVersionGE11(node)))
+			filterstack = append(filterstack, buildMySQLFilter(statPrefix, util.IsXDSMarshalingToAnyEnabled(node)))
 		}
 		filterstack = append(filterstack, *tcpFilter)
 	default:
