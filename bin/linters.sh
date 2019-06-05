@@ -76,6 +76,12 @@ function check_samples() {
     echo 'Samples OK'
 }
 
+function check_dockerfiles() {
+    echo 'Checking Dockerfiles'
+    bin/check_dockerfiles.sh
+    echo 'Dockerfiles OK'
+}
+
 ensure_pilot_types
 check_licenses
 run_adapter_lint
@@ -84,6 +90,7 @@ run_envvar_lint
 run_helm_lint
 check_grafana_dashboards
 check_samples
+check_dockerfiles
 
 "${WORKSPACE}/scripts/run_golangci.sh"
 "${WORKSPACE}/scripts/check_license.sh"
