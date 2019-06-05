@@ -48,8 +48,13 @@ const (
 	// jwksURICacheEviction specifies the frequency at which eviction activities take place.
 	jwksURICacheEviction = time.Minute * 30
 
-	// JwtPubKeyExpireDuration is the expire duration for JWT public key in the cache.
-	// After this duration expire, refresher job will fetch key for the cached item again.
+	// JwtPubKeyExpireDuration is the duration of a JWT public key cache time. A JWT public key will
+	// be cached for this duration when it's returned successfully from the network.
+	// This implies the following:
+	// 1) The cached JWT public key will be used even if the refresh job failed to update it from the
+	//    network within this duration.
+	// 2) The cached JWT public key will be expired if the refresh job failed to update it for the whole
+	//    of this duration.
 	JwtPubKeyExpireDuration = 24 * 7 * time.Hour
 
 	// JwtPubKeyEvictionDuration is the life duration for cached item.
@@ -59,12 +64,9 @@ const (
 	// JwtPubKeyRefreshInterval is the running interval of JWT pubKey refresh job.
 	JwtPubKeyRefreshInterval = time.Minute * 20
 
-	// jwtPubKeyFetchRetryCount is the number of retries for fetching the public key from network.
-	jwtPubKeyFetchRetryCount = 5
-
 	// jwtPubKeyFetchRetryInterval is the retry interval between the attempt to retry fetching
 	// the public key from network.
-	jwtPubKeyFetchRetryInterval = 2 * time.Second
+	jwtPubKeyFetchRetryInterval = time.Second
 )
 
 var (
@@ -215,7 +217,7 @@ func (r *jwksResolver) GetPublicKey(jwksURI string) (string, error) {
 	// For security reasons, we will stop using the cached public key if it still fails this time.
 	// This means either the customer should update to use a new jwks URI or there are some constant
 	// errors that prevents pilot to access the network.
-	resp, err := r.getRemoteContent(jwksURI)
+	resp, err := r.getRemoteContentWithRetry(jwksURI, 1)
 	if err != nil {
 		log.Errorf("Failed to fetch public key from %q: %v", jwksURI, err)
 		return "", err
@@ -239,7 +241,7 @@ func (r *jwksResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) 
 	}
 
 	// Try to get jwks_uri through OpenID Discovery.
-	body, err := r.getRemoteContent(issuer + openIDDiscoveryCfgURLSuffix)
+	body, err := r.getRemoteContentWithRetry(issuer+openIDDiscoveryCfgURLSuffix, 1)
 	if err != nil {
 		log.Errorf("Failed to fetch jwks_uri from %q: %v", issuer+openIDDiscoveryCfgURLSuffix, err)
 		return "", err
@@ -260,7 +262,7 @@ func (r *jwksResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) 
 	return jwksURI, nil
 }
 
-func (r *jwksResolver) getRemoteContent(uri string) ([]byte, error) {
+func (r *jwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
 		log.Errorf("Failed to parse %q", uri)
@@ -298,15 +300,15 @@ func (r *jwksResolver) getRemoteContent(uri string) ([]byte, error) {
 		return body, nil
 	}
 
-	for i := 1; i < jwtPubKeyFetchRetryCount; i++ {
+	for i := 0; i < retry; i++ {
 		if body, err := getPublicKey(); err == nil {
 			return body, nil
 		}
 		time.Sleep(jwtPubKeyFetchRetryInterval)
 	}
 
-	// Return the last fetch directly, reaching here means we have already already retried
-	// jwtPubKeyFetchRetryCount-1 times for fetching the public key.
+	// Return the last fetch directly, reaching here means we have already already tried `retry` times
+	// for fetching the public key.
 	return getPublicKey()
 }
 
@@ -348,7 +350,7 @@ func (r *jwksResolver) refresh() {
 			// Decrement the counter when the goroutine completes.
 			defer wg.Done()
 
-			resp, err := r.getRemoteContent(jwksURI)
+			resp, err := r.getRemoteContentWithRetry(jwksURI, 3)
 			if err != nil {
 				log.Errorf("Failed to refresh JWT public key from %q, reusing the cached public key: %v", jwksURI, err)
 				atomic.AddUint64(&r.keyRefreshFailedCount, 1)

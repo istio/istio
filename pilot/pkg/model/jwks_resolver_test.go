@@ -195,18 +195,18 @@ func TestGetPublicKeyWithRetry(t *testing.T) {
 	ms := startMockServer(t)
 	defer ms.Stop()
 
-	// Configures the mock server to return error for the first 9 requests and return the successful
-	// results starting from the 10th request.
-	ms.ReturnErrorForFirstNumHits = 9
+	// Configures the mock server to return error for the first 3 requests and return the successful
+	// results starting from the 4th request.
+	ms.ReturnErrorForFirstNumHits = 3
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
 
-	// The first request should fail for all of its 5 retries.
+	// The first request should fail for all of its 2 fetches (1 retry).
 	pk, err := r.GetPublicKey(mockCertURL)
 	if err == nil || !strings.Contains(err.Error(), "unsuccessful response") {
 		t.Errorf("GetPublicKey(%+v) fails: expected error, got (%s)", mockCertURL, pk)
 	}
 
-	// The second request should succeed for the last of its 5 retries.
+	// The second request should succeed for the last of its 2 fetches (1 retry).
 	pk, err = r.GetPublicKey(mockCertURL)
 	if err != nil {
 		t.Errorf("GetPublicKey(%+v) fails: expected no error, got (%s)", mockCertURL, err)
@@ -214,8 +214,8 @@ func TestGetPublicKeyWithRetry(t *testing.T) {
 		t.Errorf("GetPublicKey(%+v) fails: expected (%s), got (%s)", mockCertURL, test.JwtPubKey1, pk)
 	}
 
-	// Verify mock server http://localhost:9999/oauth2/v3/certs was called 10 times because of the retry.
-	if got, want := ms.PubKeyHitNum, uint64(10); got != want {
+	// Verify mock server http://localhost:9999/oauth2/v3/certs was called 4 times because of the retry.
+	if got, want := ms.PubKeyHitNum, uint64(4); got != want {
 		t.Errorf("Mock server Hit number => expected %d but got %d", want, got)
 	}
 }
