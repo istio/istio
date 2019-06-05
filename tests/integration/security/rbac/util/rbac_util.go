@@ -79,8 +79,14 @@ func (tc TestCase) CheckRBACRequest() error {
 			if err != nil {
 				return getError(req, "deny with code 403", fmt.Sprintf("error: %v", err))
 			}
-			if len(resp) == 0 || resp[0].Code != response.StatusCodeForbidden {
-				return getError(req, "deny with code 403", fmt.Sprintf("resp: %v", resp))
+			var result string
+			if len(resp) == 0 {
+				result = "no response"
+			} else if resp[0].Code != response.StatusCodeForbidden {
+				result = resp[0].Code
+			}
+			if result != "" {
+				return getError(req, "deny with code 403", result)
 			}
 		}
 	}
