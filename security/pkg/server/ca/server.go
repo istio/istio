@@ -106,8 +106,8 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 // TODO: anyone who plan to support ROOT ROTATION FEATURE or MULTI ROOT FEATURE
 // ! PLEASE ENSURE THE ROOT CERT CAN BE ACCESSED SAFELY CONCURRENTLY !
 // ========================================
-func (s *Server) rootCertExpirationSeconds() float64 {
-	rb := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+func rootCertExpirationSeconds(ca ca.CertificateAuthority) float64 {
+	rb := ca.GetCAKeyCertBundle().GetRootCertPem()
 	cert, err := util.ParsePemEncodedCertificate(rb)
 	if err != nil {
 		log.Errorf("Failed to parse the root cert: %v", err)
@@ -115,9 +115,9 @@ func (s *Server) rootCertExpirationSeconds() float64 {
 	}
 	end := cert.NotAfter
 	if end.Before(time.Now()) {
-		log.Errorf("Expired Citadel Root found, x509.NotAfter %v, please checkout <TODO-LINK-TO-USER-GUIDE>", end)
+		log.Errorf("Expired Citadel Root found, x509.NotAfter %v, please transit your root", end)
 	}
-	return time.Until(end).Seconds()
+	return float64(end.Unix())
 }
 
 // HandleCSR handles an incoming certificate signing request (CSR). It does
@@ -233,6 +233,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 	}
 
 	version.Info.RecordComponentBuildTag("citadel")
+	rootCertExpiryTime.Set(rootCertExpirationSeconds(ca))
 
 	server := &Server{
 		authenticators: authenticators,
@@ -244,7 +245,6 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 		port:           port,
 		monitoring:     newMonitoringMetrics(),
 	}
-	registerRootCertChecker(server.rootCertExpirationSeconds)
 	return server, nil
 }
 

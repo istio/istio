@@ -113,10 +113,8 @@ func TestServer_RootCertExpirationSeconds(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create key cert bundle %v", err)
 	}
-	server := &Server{
-		ca: &mockca.FakeCA{
-			KeyCertBundle: kb,
-		},
+	ca := &mockca.FakeCA{
+		KeyCertBundle: kb,
 	}
 	testCases := []struct {
 		name     string
@@ -139,7 +137,7 @@ func TestServer_RootCertExpirationSeconds(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		sec := server.rootCertExpirationSeconds()
+		sec := rootCertExpirationSeconds(ca) - float64(time.Now().Unix())
 		if sec < tc.ttlRange[0] || sec > tc.ttlRange[1] {
 			t.Errorf("[%v] Failed, expect within range [%v, %v], got %v", tc.name, tc.ttlRange[0], tc.ttlRange[1], sec)
 		}

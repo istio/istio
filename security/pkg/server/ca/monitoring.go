@@ -16,6 +16,7 @@ package ca
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+
 	"istio.io/pkg/log"
 )
 
@@ -65,6 +66,14 @@ var (
 		Name:      "success_cert_issuance_count",
 		Help:      "The number of certificates issuances that have succeeded.",
 	}, []string{})
+
+	rootCertExpiryTime = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: "citadel",
+			Name:      "citadel_root_cert_expiry_time_seconds",
+			Subsystem: "server",
+			Help:      "The unix time stamp in seconds when Citadel root cert will expire.",
+		})
 )
 
 func init() {
@@ -74,6 +83,7 @@ func init() {
 	prometheus.MustRegister(idExtractionErrorCounts)
 	prometheus.MustRegister(certSignErrorCounts)
 	prometheus.MustRegister(successCounts)
+	prometheus.MustRegister(rootCertExpiryTime)
 }
 
 // registerRootCertChecker exposes a metric representing the remaining valid duration of the root certificate, in seconds.
