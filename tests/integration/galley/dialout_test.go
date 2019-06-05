@@ -86,7 +86,7 @@ func TestDialout_Basic(t *testing.T) {
 func updateGalleyDeploymentConfigWithSinkAddress(t *testing.T, ctx resource.Context, address string) error {
 	kubeEnv, ok := ctx.Environment().(*kube.Environment)
 	if !ok {
-		t.Logf("patchGalley: not kubernetes environment. So no patching needed")
+		t.Logf("updateGalley: not kubernetes environment. So no patching needed")
 		return nil
 	}
 
