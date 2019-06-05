@@ -31,5 +31,6 @@ STALE_DOCKERFILES=$( \
   done)
 
 if [ "" != "$STALE_DOCKERFILES" ]; then
+  echo "$STALE_DOCKERFILES"
   exit 1
 fi
