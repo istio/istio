@@ -65,12 +65,13 @@ var (
 		Help:      "The number of certificates issuances that have succeeded.",
 	}, []string{})
 
-	rootCertExpiryTime = prometheus.NewGauge(
+	rootCertExpiryTimestamp = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Namespace: "citadel",
-			Name:      "citadel_root_cert_expiry_time_seconds",
+			Name:      "citadel_root_cert_expiry_timestamp",
 			Subsystem: "server",
-			Help:      "The unix time stamp in seconds when Citadel root cert will expire.",
+			Help: "The unix timestamp, in seconds, when Citadel root cert will expire. " +
+				"We set it to negative in case of internal error",
 		})
 )
 
@@ -81,7 +82,7 @@ func init() {
 	prometheus.MustRegister(idExtractionErrorCounts)
 	prometheus.MustRegister(certSignErrorCounts)
 	prometheus.MustRegister(successCounts)
-	prometheus.MustRegister(rootCertExpiryTime)
+	prometheus.MustRegister(rootCertExpiryTimestamp)
 }
 
 // monitoringMetrics are counters for certificate signing related operations.

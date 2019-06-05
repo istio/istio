@@ -229,7 +229,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 	}
 
 	version.Info.RecordComponentBuildTag("citadel")
-	rootCertExpiryTime.Set(rootCertExpirationSeconds(ca))
+	rootCertExpiryTimestamp.Set(rootCertExpirationSeconds(ca))
 
 	server := &Server{
 		authenticators: authenticators,
