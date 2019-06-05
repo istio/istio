@@ -15,9 +15,8 @@
 package ca
 
 import (
-	"fmt"
-
 	"github.com/prometheus/client_golang/prometheus"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -78,7 +77,7 @@ func init() {
 }
 
 // registerRootCertChecker exposes a metric representing the remaining valid duration of the root certificate, in seconds.
-func registerRootCertChecker(checker rootCertExpirationChecker) error {
+func registerRootCertChecker(checker rootCertExpirationChecker) {
 	rootCertRemainingSeconds := prometheus.NewGaugeFunc(
 		prometheus.GaugeOpts{
 			Namespace: "citadel",
@@ -87,9 +86,8 @@ func registerRootCertChecker(checker rootCertExpirationChecker) error {
 			Help:      "The remaining valid duration for root certificate Citadel is using, in seconds.",
 		}, checker)
 	if err := prometheus.Register(rootCertRemainingSeconds); err != nil {
-		return fmt.Errorf("failed to initialize citadel_root_cert_expire_time_seconds metrics: %v", err)
+		log.Errorf("failed to initialize citadel_root_cert_expire_time_seconds metrics: %v", err)
 	}
-	return nil
 }
 
 // monitoringMetrics are counters for certificate signing related operations.

@@ -244,9 +244,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 		port:           port,
 		monitoring:     newMonitoringMetrics(),
 	}
-	if err := registerRootCertChecker(server.rootCertExpirationSeconds); err != nil {
-		return nil, err
-	}
+	registerRootCertChecker(server.rootCertExpirationSeconds)
 	return server, nil
 }
 

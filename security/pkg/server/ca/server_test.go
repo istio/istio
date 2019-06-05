@@ -125,17 +125,17 @@ func TestServer_RootCertExpirationSeconds(t *testing.T) {
 	}{
 		{
 			name:     "ttl-valid",
-			ttlRange: []float64{4, 5},
+			ttlRange: []float64{3, 5},
 			sleep:    3,
 		},
 		{
 			name:     "ttl-valid-3s-less",
-			ttlRange: []float64{1, 2},
+			ttlRange: []float64{0, 2},
 			sleep:    3,
 		},
 		{
 			name:     "ttl-invalid-expired",
-			ttlRange: []float64{-10, -0.01},
+			ttlRange: []float64{-2, -0.01},
 		},
 	}
 	for _, tc := range testCases {
