@@ -132,7 +132,7 @@ func TestAuthnTlsCheckNoKube(t *testing.T) {
 		{ // case 0
 			configs:        []model.Config{},
 			args:           strings.Split("authn tls-check badpod-123456-1111", " "),
-			expectedRegexp: regexp.MustCompile("Error: Unauthorized"),
+			expectedRegexp: regexp.MustCompile("Error: unauthorized"),
 			wantException:  true,
 		},
 	}
