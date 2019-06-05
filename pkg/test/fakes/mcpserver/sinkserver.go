@@ -1,19 +1,17 @@
 package mcpserver
 
 import (
-	fmt "fmt"
+	"context"
+	"fmt"
 	"net"
 	"time"
 
-	context "golang.org/x/net/context"
 	grpc "google.golang.org/grpc"
-
-	"istio.io/pkg/log"
-
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/rate"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/sink"
+	"istio.io/pkg/log"
 
 	// include this to pull in appropriate protobuf types
 	// so that protobuf won't complain that the type is

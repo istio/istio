@@ -3,12 +3,10 @@ package mcpserver
 import (
 	"context"
 
-	"istio.io/istio/pkg/test/scopes"
-
 	"google.golang.org/grpc"
-
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/test/fakes/mcpserver"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 type client struct {

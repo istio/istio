@@ -3,7 +3,6 @@ package mcpserver
 import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-
 	v1alpha1 "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/sink"
 )
