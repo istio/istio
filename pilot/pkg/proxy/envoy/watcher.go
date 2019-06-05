@@ -20,6 +20,7 @@ import (
 	"hash"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/howeyc/fsnotify"
@@ -124,13 +125,21 @@ func watchCerts(ctx context.Context, certs []string, watchFileEventsFn watchFile
 		}
 	}()
 
-	// watch all files
+	// watch cert folders instead of files because
+	// watch breaks in kubernetes when secrets are updated.
+	// This happens because secrets are symbolic links pointing to files
+	// which are updated by kubernetes. On updating secrets, kubernetes
+	// deletes the existing file, which sends a DELETE file event and breaks the watch
+	certDirs := make(map[string]bool)
 	for _, c := range certs {
-		if err := fw.Watch(c); err != nil {
-			log.Warnf("watching %s encounters an error %v", c, err)
+		certDirs[filepath.Dir(c)] = true
+	}
+	for dir := range certDirs {
+		if err := fw.Watch(dir); err != nil {
+			log.Warnf("watching %s encountered an error %v", dir, err)
 			return
 		}
-		log.Infof("watching %s for changes", c)
+		log.Infof("watching %s for changes", dir)
 	}
 	watchFileEventsFn(ctx, fw.Event, minDelay, updateFunc)
 }
