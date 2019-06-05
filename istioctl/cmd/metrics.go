@@ -18,7 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
+	"io"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -79,7 +79,7 @@ type workloadMetrics struct {
 	p50Latency, p90Latency, p99Latency time.Duration
 }
 
-func run(_ *cobra.Command, args []string) error {
+func run(c *cobra.Command, args []string) error {
 	log.Debugf("metrics command invoked for workload(s): %v", args)
 
 	client, err := clientExecFactory(kubeconfig, configContext)
@@ -111,7 +111,7 @@ func run(_ *cobra.Command, args []string) error {
 			return err
 		}
 
-		printHeader()
+		printHeader(c.OutOrStdout())
 
 		workloads := args
 		for _, workload := range workloads {
@@ -120,7 +120,7 @@ func run(_ *cobra.Command, args []string) error {
 				return fmt.Errorf("could not build metrics for workload '%s': %v", workload, err)
 			}
 
-			printMetrics(sm)
+			printMetrics(c.OutOrStdout(), sm)
 		}
 		close(fw.StopChannel)
 		return nil
@@ -213,14 +213,14 @@ func vectorValue(promAPI promv1.API, query string) (float64, error) {
 	}
 }
 
-func printHeader() {
-	w := tabwriter.NewWriter(os.Stdout, 13, 1, 2, ' ', tabwriter.AlignRight)
+func printHeader(writer io.Writer) {
+	w := tabwriter.NewWriter(writer, 13, 1, 2, ' ', tabwriter.AlignRight)
 	fmt.Fprintf(w, "%40s\tTOTAL RPS\tERROR RPS\tP50 LATENCY\tP90 LATENCY\tP99 LATENCY\t\n", "WORKLOAD")
 	_ = w.Flush()
 }
 
-func printMetrics(wm workloadMetrics) {
-	w := tabwriter.NewWriter(os.Stdout, 13, 1, 2, ' ', tabwriter.AlignRight)
+func printMetrics(writer io.Writer, wm workloadMetrics) {
+	w := tabwriter.NewWriter(writer, 13, 1, 2, ' ', tabwriter.AlignRight)
 	fmt.Fprintf(w, "%40s\t", wm.workload)
 	fmt.Fprintf(w, "%.3f\t", wm.totalRPS)
 	fmt.Fprintf(w, "%.3f\t", wm.errorRPS)
