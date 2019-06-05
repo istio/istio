@@ -1,13 +1,11 @@
 syntax = "proto3";
 
-package istio.testing.mcp.sinkserver;
-
 import "mcp/v1alpha1/resource.proto";
 
 option go_package="mcpserver";
 
 service McpSinkControllerService {
-    rpc GetCollectionState(CollectionStateRequest) returns (CollectionStateResponse);
+    rpc GetCollectionState(CollectionStateRequest) returns (CollectionStateResponse) {}
 }
 
 message CollectionStateRequest {

@@ -58,6 +58,8 @@ spec:
         - name: grpc
           containerPort: {{.port}}
 `
+
+	appName = "mcp-sinkserver"
 )
 
 type kubeComponent struct {
@@ -106,8 +108,8 @@ func newKube(ctx resource.Context) (Instance, error) {
 		"Hub":             s.Hub,
 		"Tag":             s.Tag,
 		"ImagePullPolicy": s.PullPolicy,
-		"deployment":      "mcp-sinkserver",
-		"app":             "mcp-sinkserver",
+		"deployment":      appName,
+		"app":             appName,
 		"version":         "test",
 		"port":            mcpserver.FakeServerPort,
 	})
@@ -116,12 +118,12 @@ func newKube(ctx resource.Context) (Instance, error) {
 	}
 
 	c.deployment = deployment.NewYamlContentDeployment(c.namespace.Name(), yamlContent)
-	if err = c.deployment.Deploy(env.Accessor, false); err != nil {
+	if err = c.deployment.Deploy(env.Accessor, true); err != nil {
 		scopes.CI.Info("Error applying MCPServer (Sink) deployment config")
 		return nil, err
 	}
 
-	podFetchFunc := env.NewSinglePodFetch(c.namespace.Name(), "app=mcp-sinkserver", "version=test")
+	podFetchFunc := env.NewSinglePodFetch(c.namespace.Name(), fmt.Sprintf("app=%s", appName), "version=test")
 	pods, err := env.WaitUntilPodsAreReady(podFetchFunc)
 	if err != nil {
 		scopes.CI.Infof("Error waiting for MCPServer (Sink) pod to become running: %v", err)
@@ -130,7 +132,7 @@ func newKube(ctx resource.Context) (Instance, error) {
 	pod := pods[0]
 
 	var svc *kubeApiCore.Service
-	if svc, _, err = env.WaitUntilServiceEndpointsAreReady(c.namespace.Name(), "mcp-sinkserver"); err != nil {
+	if svc, _, err = env.WaitUntilServiceEndpointsAreReady(c.namespace.Name(), appName); err != nil {
 		scopes.CI.Infof("Error waiting for MCPServer (Sink) service to be available: %v", err)
 		return nil, err
 	}
@@ -140,17 +142,16 @@ func newKube(ctx resource.Context) (Instance, error) {
 		scopes.CI.Infof("Error setting up PortForwarder for MCP Server (Sink): %v", err)
 		return nil, err
 	}
-	scopes.CI.Infof("forwading from %s -> %d", c.forwarder.Address(), remotePort)
 
 	if err = c.forwarder.Start(); err != nil {
 		scopes.CI.Infof("Error starting PortForwarder for MCP Server (Sink): %v", err)
 		return nil, err
 	}
+	scopes.Framework.Infof("forwading from %s -> %d", c.forwarder.Address(), remotePort)
 
-	// This is the address passed to Galley which is inside the K8S cluster
-	c.svcAddress = fmt.Sprintf("mcp-sinkserver.%s.svc.cluster.local:%d",
-		c.namespace.Name(), svc.Spec.Ports[0].TargetPort.IntValue())
-
+	// svcAddress is the address needed for Galley to contact MCP sink. Since both Galley and MCP Sink
+	// live inside Kubernetes cluster, Galley can find the MCP Sink from the service address (not the pod address)
+	c.svcAddress = fmt.Sprintf("%s.%s.svc.cluster.local:6666", appName, c.namespace.Name())
 	if c.client, err = newClient(c.forwarder.Address()); err != nil {
 		scopes.CI.Infof("Error while creating MCPServer (Sink) client: %v", err)
 		return nil, err

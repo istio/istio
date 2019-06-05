@@ -19,6 +19,8 @@ import (
 	"strings"
 	"time"
 
+	kubeApiAppsV1 "k8s.io/api/apps/v1"
+
 	"github.com/hashicorp/go-multierror"
 
 	istioKube "istio.io/istio/pkg/kube"
@@ -130,6 +132,25 @@ func (a *Accessor) GetPod(namespace, name string) (kubeApiCore.Pod, error) {
 // DeletePod deletes the given pod.
 func (a *Accessor) DeletePod(namespace, name string) error {
 	return a.set.CoreV1().Pods(namespace).Delete(name, &kubeApiMeta.DeleteOptions{})
+}
+
+// GetDeployment returns the deployment with the given namespace and name
+func (a *Accessor) GetDeployment(namespace, name string) (*kubeApiAppsV1.Deployment, error) {
+	v, err := a.set.AppsV1().Deployments(namespace).Get(name, kubeApiMeta.GetOptions{})
+	if err != nil {
+		return &kubeApiAppsV1.Deployment{}, err
+	}
+	return v, nil
+}
+
+// DeleteDeployment deletes the deployment with the given namespace and name
+func (a *Accessor) DeleteDeployment(namespace, name string) error {
+	return a.set.AppsV1().Deployments(namespace).Delete(name, &kubeApiMeta.DeleteOptions{})
+}
+
+// UpdateDeployment creates the deployment with the given namespace and deployment configuration
+func (a *Accessor) UpdateDeployment(namespace string, deployment *kubeApiAppsV1.Deployment) (*kubeApiAppsV1.Deployment, error) {
+	return a.set.AppsV1().Deployments(namespace).Update(deployment)
 }
 
 // FindPodBySelectors returns the first matching pod, given a namespace and a set of selectors.

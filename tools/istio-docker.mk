@@ -191,7 +191,7 @@ docker.galley: $(ISTIO_DOCKER)/galley
 	$(DOCKER_RULE)
 
 # Test MCP server in sink mode
-docker.test_mcpserver: pkg/mcp/docker/Dockerfile.test_mcpserver
+docker.test_mcpserver: galley/docker/Dockerfile.test_mcpserver
 docker.test_mcpserver: $(ISTIO_OUT)/mcp-testing-sink
 	$(DOCKER_RULE)
 

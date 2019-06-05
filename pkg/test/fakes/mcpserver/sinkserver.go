@@ -8,17 +8,24 @@ import (
 	context "golang.org/x/net/context"
 	grpc "google.golang.org/grpc"
 
-	"istio.io/istio/pkg/test/scopes"
+	"istio.io/pkg/log"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/rate"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/sink"
+
+	// include this to pull in appropriate protobuf types
+	// so that protobuf won't complain that the type is
+	// "not linked in"
+	_ "istio.io/istio/galley/pkg/metadata"
 )
 
 const (
 	FakeServerPort = 6666
 )
+
+var scope = log.RegisterScope("server", "MCP Sink server debugging", 0)
 
 type McpSinkServer struct {
 	upd         *sink.InMemoryUpdater
@@ -37,20 +44,23 @@ func NewMcpSinkServer(sinkOptions sink.Options) *McpSinkServer {
 
 func (srv *McpSinkServer) GetCollectionState(ctx context.Context, req *CollectionStateRequest) (*CollectionStateResponse, error) {
 	sinkObjects := srv.upd.Get(req.GetCollection())
-	scopes.Framework.Infof("collection=%s, sinkObjects=%v", req.GetCollection(), sinkObjects)
+	protoResources, err := convertToProtoSinkObjects(sinkObjects)
+	if err != nil {
+		return nil, err
+	}
 	protoResp := &CollectionStateResponse{
-		Resources: convertToProtoSinkObjects(sinkObjects),
+		Resources: protoResources,
 	}
 	return protoResp, nil
 }
 
 func (srv *McpSinkServer) Start(port int) error {
-	sinkListener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	sinkListener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
-		fmt.Printf("mcpserver.listen: %v", err)
+		scope.Fatalf("mcpserver.listen: %v", err)
 		return err
 	}
-	fmt.Sprintf("server listening at %s", sinkListener.Addr().String())
+	scope.Infof("server listening at %s", sinkListener.Addr().String())
 
 	s := grpc.NewServer()
 	gsrv := sink.NewServer(&srv.sinkOptions, &sink.ServerOptions{
@@ -61,7 +71,7 @@ func (srv *McpSinkServer) Start(port int) error {
 	RegisterMcpSinkControllerServiceServer(s, srv)
 	go func() {
 		if err := srv.grpcSrv.Serve(sinkListener); err != nil {
-			fmt.Printf("mcpserver.serve: %v", err)
+			scope.Fatalf("mcpserver.serve: %v", err)
 		}
 	}()
 	srv.grpcSrv = s
