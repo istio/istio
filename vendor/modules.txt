@@ -129,6 +129,7 @@ github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mysql_proxy/v1alpha1
 github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2
+github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1
 github.com/envoyproxy/go-control-plane/envoy/type
 github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2

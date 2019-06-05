@@ -940,6 +940,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	var destinationCIDR string
 	var listenerMapKey string
 	var currentListenerEntry *outboundListenerEntry
+	var collisionMetric *model.PushMetric
 
 	switch pluginParams.ListenerProtocol {
 	case plugin.ListenerProtocolHTTP:
@@ -975,17 +976,21 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 				return
 			}
 			if pluginParams.Service != nil {
-				if !currentListenerEntry.servicePort.Protocol.IsHTTP() {
-					outboundListenerConflict{
-						metric:          model.ProxyStatusConflictOutboundListenerTCPOverHTTP,
-						node:            pluginParams.Node,
-						listenerName:    listenerMapKey,
-						currentServices: currentListenerEntry.services,
-						currentProtocol: currentListenerEntry.servicePort.Protocol,
-						newHostname:     pluginParams.Service.Hostname,
-						newProtocol:     pluginParams.Port.Protocol,
-					}.addMetric(pluginParams.Push)
+				if currentListenerEntry.servicePort.Protocol.IsThrift() {
+					collisionMetric = model.ProxyStatusConflictOutboundListenerThriftOverHTTP
+				} else {
+					collisionMetric = model.ProxyStatusConflictOutboundListenerTCPOverHTTP
 				}
+
+				outboundListenerConflict{
+					metric:          collisionMetric,
+					node:            pluginParams.Node,
+					listenerName:    listenerMapKey,
+					currentServices: currentListenerEntry.services,
+					currentProtocol: currentListenerEntry.servicePort.Protocol,
+					newHostname:     pluginParams.Service.Hostname,
+					newProtocol:     pluginParams.Port.Protocol,
+				}.addMetric(pluginParams.Push)
 
 				// Skip building listener for the same http port
 				currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
@@ -1019,6 +1024,82 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 
 		listenerOpts.filterChainOpts = []*filterChainOpts{{
 			httpOpts: httpOpts,
+		}}
+
+	case plugin.ListenerProtocolThrift:
+		// first identify the bind if its not set. Then construct the key
+		// used to lookup the listener in the conflict map.
+		if len(listenerOpts.bind) == 0 { // no user specified bind. Use 0.0.0.0:Port
+			listenerOpts.bind = actualWildcard
+		}
+		listenerMapKey = fmt.Sprintf("%s:%d", listenerOpts.bind, pluginParams.Port.Port)
+
+		var exists bool
+
+		// Have we already generated a listener for this Port based on user
+		// specified listener ports? if so, we should not add any more Thrift
+		// services to the port. The user could have specified a sidecar
+		// resource with one or more explicit ports and then added a catch
+		// all listener, implying add all other ports as usual. When we are
+		// iterating through the services for a catchAll egress listener,
+		// the caller would have set the locked bit for each listener Entry
+		// in the map.
+		//
+		// Check if this Thrift listener conflicts with an existing TCP or
+		// HTTP listener. We could have listener conflicts occur on unix
+		// domain sockets, or on IP binds. Specifically, its common to see
+		// conflicts on binds for wildcard address when a service has NONE
+		// resolution type, since we collapse all Thrift listeners into a
+		// single 0.0.0.0:port listener and use vhosts to distinguish
+		// individual http services in that port
+		if currentListenerEntry, exists = listenerMap[listenerMapKey]; exists {
+			// NOTE: This is not a conflict. This is simply filtering the
+			// services for a given listener explicitly.
+			if currentListenerEntry.locked {
+				return
+			}
+			if pluginParams.Service != nil {
+				if !currentListenerEntry.servicePort.Protocol.IsThrift() {
+					if currentListenerEntry.servicePort.Protocol.IsThrift() {
+						collisionMetric = model.ProxyStatusConflictOutboundListenerTCPOverThrift
+					} else {
+						collisionMetric = model.ProxyStatusConflictOutboundListenerHTTPOverThrift
+					}
+
+					outboundListenerConflict{
+						metric:          collisionMetric,
+						node:            pluginParams.Node,
+						listenerName:    listenerMapKey,
+						currentServices: currentListenerEntry.services,
+						currentProtocol: currentListenerEntry.servicePort.Protocol,
+						newHostname:     pluginParams.Service.Hostname,
+						newProtocol:     pluginParams.Port.Protocol,
+					}.addMetric(pluginParams.Push)
+				}
+
+				// Skip building listener for the same thrift port
+				currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
+			}
+			return
+		}
+
+		// No conflicts. Add a thrift filter chain option to the listenerOpts
+		var rdsName string
+		if pluginParams.Port.Port == 0 {
+			rdsName = listenerOpts.bind // use the UDS as a rds name
+		} else {
+			rdsName = fmt.Sprintf("%d", pluginParams.Port.Port)
+		}
+		thriftOpts := &thriftListenerOpts{
+			// Set useRemoteAddress to true for side car outbound listeners so that it picks up the localhost address of the sender,
+			// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers
+			// such as "x-envoy-upstream-rq-timeout-ms" set by the calling application.
+			useRemoteAddress: true,
+			rds:              rdsName,
+		}
+
+		listenerOpts.filterChainOpts = []*filterChainOpts{{
+			thriftOpts: thriftOpts,
 		}}
 
 	case plugin.ListenerProtocolTCP:
@@ -1064,14 +1145,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		// the caller would have set the locked bit for each listener Entry
 		// in the map.
 		//
-		// Check if this TCP listener conflicts with an existing HTTP listener
+		// Check if this TCP listener conflicts with an existing listener
 		if currentListenerEntry, exists = listenerMap[listenerMapKey]; exists {
 			// NOTE: This is not a conflict. This is simply filtering the
 			// services for a given listener explicitly.
 			if currentListenerEntry.locked {
 				return
 			}
-			// Check for port collisions between TCP/TLS and HTTP. If
+			// Check for port collisions between TCP/TLS and other types. If
 			// configured correctly, TCP/TLS ports may not collide. We'll
 			// need to do additional work to find out if there is a
 			// collision within TCP/TLS.
@@ -1089,8 +1170,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 					newHostname = "sidecar-config-egress-http-listener"
 				}
 
+				if currentListenerEntry.servicePort.Protocol.IsThrift() {
+					collisionMetric = model.ProxyStatusConflictOutboundListenerThriftOverTCP
+				} else {
+					collisionMetric = model.ProxyStatusConflictOutboundListenerHTTPOverTCP
+				}
+
 				outboundListenerConflict{
-					metric:          model.ProxyStatusConflictOutboundListenerHTTPOverTCP,
+					metric:          collisionMetric,
 					node:            pluginParams.Node,
 					listenerName:    listenerMapKey,
 					currentServices: currentListenerEntry.services,
@@ -1391,6 +1478,16 @@ type httpListenerOpts struct {
 	useRemoteAddress bool
 }
 
+// thriftListenerOpts are options for a Thrift listener
+type thriftListenerOpts struct {
+	routeConfig *xdsapi.RouteConfiguration
+	rds         string
+	// stat prefix for the thrift connection manager
+	// DO not set this field. Will be overridden by buildCompleteFilterChain
+	statPrefix       string
+	useRemoteAddress bool
+}
+
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
 type filterChainOpts struct {
 	sniHosts         []string
@@ -1398,6 +1495,7 @@ type filterChainOpts struct {
 	metadata         *core.Metadata
 	tlsContext       *auth.DownstreamTlsContext
 	httpOpts         *httpListenerOpts
+	thriftOpts       *thriftListenerOpts
 	match            *listener.FilterChainMatch
 	listenerFilters  []listener.ListenerFilter
 	networkFilters   []listener.Filter

@@ -332,55 +332,6 @@ func (m *TcpClientConfig) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_TcpClientConfig proto.InternalMessageInfo
 
-// Defines the client config for TCP.
-type ThriftClientConfig struct {
-	// The transport config.
-	Transport *TransportConfig `protobuf:"bytes,1,opt,name=transport,proto3" json:"transport,omitempty"`
-	// Default attributes to send to Mixer in both Check and
-	// Report. This typically includes "destination.ip" and
-	// "destination.uid" attributes.
-	MixerAttributes *v1.Attributes `protobuf:"bytes,2,opt,name=mixer_attributes,json=mixerAttributes,proto3" json:"mixer_attributes,omitempty"`
-	// If set to true, disables Mixer check calls.
-	DisableCheckCalls bool `protobuf:"varint,3,opt,name=disable_check_calls,json=disableCheckCalls,proto3" json:"disable_check_calls,omitempty"`
-	// If set to true, disables Mixer check calls.
-	DisableReportCalls bool `protobuf:"varint,4,opt,name=disable_report_calls,json=disableReportCalls,proto3" json:"disable_report_calls,omitempty"`
-	// Quota specifications to generate quota requirements.
-	// It applies on the new TCP connections.
-	ConnectionQuotaSpec *QuotaSpec `protobuf:"bytes,5,opt,name=connection_quota_spec,json=connectionQuotaSpec,proto3" json:"connection_quota_spec,omitempty"`
-	// Specify report interval to send periodical reports for long TCP
-	// connections. If not specified, the interval is 10 seconds. This interval
-	// should not be less than 1 second, otherwise it will be reset to 1 second.
-	ReportInterval *types.Duration `protobuf:"bytes,6,opt,name=report_interval,json=reportInterval,proto3" json:"report_interval,omitempty"`
-}
-
-func (m *ThriftClientConfig) Reset()      { *m = TcpClientConfig{} }
-func (*ThriftClientConfig) ProtoMessage() {}
-func (*ThriftClientConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_27bf0dec365e2f6f, []int{4}
-}
-func (m *ThriftClientConfig) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *ThriftClientConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	b = b[:cap(b)]
-	n, err := m.MarshalTo(b)
-	if err != nil {
-		return nil, err
-	}
-	return b[:n], nil
-}
-func (m *ThriftClientConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TcpClientConfig.Merge(m, src)
-}
-func (m *ThriftClientConfig) XXX_Size() int {
-	return m.Size()
-}
-func (m *ThriftClientConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_ThriftClientConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ThriftClientConfig proto.InternalMessageInfo
-
 func init() {
 	proto.RegisterEnum("istio.mixer.v1.config.client.NetworkFailPolicy_FailPolicy", NetworkFailPolicy_FailPolicy_name, NetworkFailPolicy_FailPolicy_value)
 	proto.RegisterType((*NetworkFailPolicy)(nil), "istio.mixer.v1.config.client.NetworkFailPolicy")
@@ -1164,21 +1115,6 @@ func (this *TcpClientConfig) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&TcpClientConfig{`,
-		`Transport:` + strings.Replace(this.Transport.String(), "TransportConfig", "TransportConfig", 1) + `,`,
-		`MixerAttributes:` + strings.Replace(fmt.Sprintf("%v", this.MixerAttributes), "Attributes", "v1.Attributes", 1) + `,`,
-		`DisableCheckCalls:` + fmt.Sprintf("%v", this.DisableCheckCalls) + `,`,
-		`DisableReportCalls:` + fmt.Sprintf("%v", this.DisableReportCalls) + `,`,
-		`ConnectionQuotaSpec:` + strings.Replace(fmt.Sprintf("%v", this.ConnectionQuotaSpec), "QuotaSpec", "QuotaSpec", 1) + `,`,
-		`ReportInterval:` + strings.Replace(fmt.Sprintf("%v", this.ReportInterval), "Duration", "types.Duration", 1) + `,`,
-		`}`,
-	}, "")
-	return s
-}
-func (this *ThriftClientConfig) String() string {
-	if this == nil {
-		return "nil"
-	}
-	s := strings.Join([]string{`&ThriftClientConfig{`,
 		`Transport:` + strings.Replace(this.Transport.String(), "TransportConfig", "TransportConfig", 1) + `,`,
 		`MixerAttributes:` + strings.Replace(fmt.Sprintf("%v", this.MixerAttributes), "Attributes", "v1.Attributes", 1) + `,`,
 		`DisableCheckCalls:` + fmt.Sprintf("%v", this.DisableCheckCalls) + `,`,

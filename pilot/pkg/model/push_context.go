@@ -240,11 +240,46 @@ var (
 		"Number of conflicting tcp listeners with current tcp listener.",
 	)
 
+	// ProxyStatusConflictOutboundListenerTCPOverThrift metric tracks number of
+	// TCP listeners that conflicted with existing Thrift listeners on same port
+	ProxyStatusConflictOutboundListenerTCPOverThrift = newPushMetric(
+		"pilot_conflict_outbound_listener_tcp_over_current_thrift",
+		"Number of conflicting tcp listeners with current thrift listener.",
+	)
+
+	// ProxyStatusConflictOutboundListenerThriftOverHTTP metric tracks number of
+	// wildcard Thrift listeners that conflicted with existing wildcard HTTP listener on same port
+	ProxyStatusConflictOutboundListenerThriftOverHTTP = newPushMetric(
+		"pilot_conflict_outbound_listener_thrift_over_current_http",
+		"Number of conflicting wildcard thrift listeners with current wildcard http listener.",
+	)
+
+	// ProxyStatusConflictOutboundListenerThriftOverTCP metric tracks number of
+	// Thrift listeners that conflicted with existing TCP listeners on same port
+	ProxyStatusConflictOutboundListenerThriftOverTCP = newPushMetric(
+		"pilot_conflict_outbound_listener_thrift_over_current_tcp",
+		"Number of conflicting thrift listeners with current tcp listener.",
+	)
+
+	// ProxyStatusConflictOutboundListenerThriftOverThrift metric tracks number of
+	// Thrift listeners that conflicted with existing Thrift listeners on same port
+	ProxyStatusConflictOutboundListenerThriftOverThrift = newPushMetric(
+		"pilot_conflict_outbound_listener_thrift_over_current_thrift",
+		"Number of conflicting thrift listeners with current thrift listener.",
+	)
+
 	// ProxyStatusConflictOutboundListenerHTTPOverTCP metric tracks number of
 	// wildcard HTTP listeners that conflicted with existing wildcard TCP listener on same port
 	ProxyStatusConflictOutboundListenerHTTPOverTCP = newPushMetric(
 		"pilot_conflict_outbound_listener_http_over_current_tcp",
 		"Number of conflicting wildcard http listeners with current wildcard tcp listener.",
+	)
+
+	// ProxyStatusConflictOutboundListenerHTTPOverThrift metric tracks number of
+	// wildcard HTTP listeners that conflicted with existing wildcard Thrift listener on same port
+	ProxyStatusConflictOutboundListenerHTTPOverThrift = newPushMetric(
+		"pilot_conflict_outbound_listener_http_over_current_thrift",
+		"Number of conflicting wildcard http listeners with current wildcard thrift listener.",
 	)
 
 	// ProxyStatusConflictInboundListener tracks cases of multiple inbound
