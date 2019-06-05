@@ -821,6 +821,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						ServiceAccount:  kube.SecureNamingSAN(pod),
 						Network:         c.endpointNetwork(ea.IP),
 						Locality:        c.GetPodLocality(pod),
+						Attributes:      model.ServiceAttributes{Name: ep.Name, Namespace: ep.Namespace},
 					})
 				}
 			}

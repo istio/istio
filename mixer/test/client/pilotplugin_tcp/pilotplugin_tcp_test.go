@@ -215,8 +215,10 @@ var (
 		ServiceDiscovery: mock{},
 	}
 	pushContext = model.PushContext{
-		ServiceByHostname: map[config.Hostname]*model.Service{
-			config.Hostname("svc.ns3"): &svc,
+		ServiceByHostnameAndNamespace: map[config.Hostname]map[string]*model.Service{
+			config.Hostname("svc.ns3"): {
+				"ns3": &svc,
+			},
 		},
 	}
 )

@@ -332,6 +332,10 @@ type IstioEndpoint struct {
 
 	// The load balancing weight associated with this endpoint.
 	LbWeight uint32
+
+	// Attributes contains additional attributes associated with the service
+	// used mostly by mixer and RBAC for policy enforcement purposes.
+	Attributes ServiceAttributes
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.
