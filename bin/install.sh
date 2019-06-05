@@ -183,9 +183,13 @@ case "$COMMAND" in
     install_cni) install_cni ;;
     install_kiali) install_kiali ;;
     switch_istio_control) switch_istio_control ;;
-    install_all) install_crds &&  install_system && install_control && install_ingress && install_telemetry ;;
+    install_all)
+        install_crds
+        install_system
+        install_control
+        install_ingress
+        install_telemetry ;;
 esac
 
-# Temporarily disabled - fails in circle:  && switch_istio_control
 
 echo "Finished"
