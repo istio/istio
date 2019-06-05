@@ -32,7 +32,7 @@ function refresh_reference() {
     local NAME=$1
     local ACTUAL=$2
 
-    echo "${ACTUAL}" > "tests/scripts/testdata/${NAME}_golden.txt"
+    echo "${ACTUAL}" > "${SCRIPT_DIR}/testdata/${NAME}_golden.txt"
     echo "golden file for test ${NAME} updated"
 }
 
@@ -48,33 +48,14 @@ function assert_equals() {
     fi
 }
 
-FILE_UNDER_TEST=./tools/packaging/common/istio-iptables.sh
+function compareWithGolden() {
+  TEST_NAME="$1"
+  ACTUAL_OUTPUT="$2"
 
-export PATH="${PWD}/tests/scripts/stubs:${PATH}"
-
-SCRIPT_NAME=$0
-declare -A TESTS
-FAILED=()
-TESTS[mode_redirect]="-p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888 -i 1.1.1.0/16 -x 9.9.9.0/16 -k eth1,eth2"
-TESTS[mode_tproxy]="-p 12345 -u 4321 -g 4444 -m TPROXY -b 5555,6666 -d 7777,8888 -i 1.1.1.0/16 -x 9.9.9.0/16 -k eth1,eth2"
-TESTS[mode_tproxy_and_ipv6]="-p 12345 -u 4321 -g 4444 -m TPROXY -b * -d 7777,8888 -i 2001:db8:1::1/32 -x 2019:db8:1::1/32 -k eth1,eth2"
-TESTS[mode_tproxy_and_wildcard_port]="-p 12345 -u 4321 -g 4444 -m TPROXY -b * -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2"
-TESTS[empty_parameter]=""
-TESTS[outbound_port_exclude]="-p 12345 -u 4321 -g 4444 -o 1024,21 -m REDIRECT -b 5555,6666 -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2"
-TESTS[wildcard_include_ip_range]="-p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888 -i * -x 9.9.0.0/16 -k eth1,eth2"
-TESTS[clean]="Clean"
-
-for TEST_NAME in "${!TESTS[@]}"
-do
-  TEST_ARGS=${TESTS[$TEST_NAME]}
-
-  # shellcheck disable=SC2086
-  ACTUAL_OUTPUT=$(${FILE_UNDER_TEST} ${TEST_ARGS}  2>/dev/null)
-  
   if [[ "x${REFRESH_GOLDEN:-false}x" = "xtruex" ]] ; then
     refresh_reference "${TEST_NAME}" "${ACTUAL_OUTPUT}"
   else
-    EXPECTED_OUTPUT=$(cat "tests/scripts/testdata/${TEST_NAME}_golden.txt")
+    EXPECTED_OUTPUT=$(cat "${SCRIPT_DIR}/testdata/${TEST_NAME}_golden.txt")
     if assert_equals "${TEST_NAME}" "${ACTUAL_OUTPUT}" "${EXPECTED_OUTPUT}"; then
       echo -e "ok\tistio.io/$0/${TEST_NAME}\t0.000s"
     else
@@ -85,7 +66,23 @@ do
       FAILED+=("${TEST_NAME}")
     fi
   fi
-done
+}
+
+SCRIPT_NAME=$0
+SCRIPT_DIR=$(dirname $SCRIPT_NAME)
+FILE_UNDER_TEST="${SCRIPT_DIR}/../../tools/packaging/common/istio-iptables.sh"
+export PATH="${SCRIPT_DIR}/stubs:${PATH}"
+
+FAILED=()
+
+compareWithGolden mode_redirect "$(${FILE_UNDER_TEST} -p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888 -i 1.1.1.0/16 -x 9.9.9.0/16 -k eth1,eth2 2>/dev/null)"
+compareWithGolden mode_tproxy "$(${FILE_UNDER_TEST} -p 12345 -u 4321 -g 4444 -m TPROXY -b 5555,6666 -d 7777,8888 -i 1.1.1.0/16 -x 9.9.9.0/16 -k eth1,eth2 2>/dev/null)"
+compareWithGolden mode_tproxy_and_ipv6 "$(${FILE_UNDER_TEST} -p 12345 -u 4321 -g 4444 -m TPROXY -b "*" -d 7777,8888 -i 2001:db8:1::1/32 -x 2019:db8:1::1/32 -k eth1,eth2 2>/dev/null)"
+compareWithGolden mode_tproxy_and_wildcard_port "$(${FILE_UNDER_TEST} -p 12345 -u 4321 -g 4444 -m TPROXY -b "*" -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2 2>/dev/null)"
+compareWithGolden empty_parameter "$(${FILE_UNDER_TEST} 2>/dev/null)"
+compareWithGolden outbound_port_exclude "$(${FILE_UNDER_TEST} -p 12345 -u 4321 -g 4444 -o 1024,21 -m REDIRECT -b 5555,6666 -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2 2>/dev/null)"
+compareWithGolden wildcard_include_ip_range "$(${FILE_UNDER_TEST} -p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888 -i "*" -x 9.9.0.0/16 -k eth1,eth2 2>/dev/null)"
+compareWithGolden clean "$(${FILE_UNDER_TEST} Clean 2>/dev/null)"
 
 NUMBER_FAILING=${#FAILED[@]}
 if [[ ${NUMBER_FAILING} -eq 0 ]] ; then
