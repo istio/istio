@@ -1,0 +1,51 @@
+pilot:
+  autoscaleEnabled: true
+  autoscaleMin: 1
+  autoscaleMax: 5
+  replicaCount: 1
+
+  image: pilot
+  traceSampling: 1.0
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2048Mi
+
+  configNamespace: istio-config
+
+  env:
+    GODEBUG: gctrace=1
+
+  cpu:
+    targetAverageUtilization: 80
+
+  podAntiAffinityLabelSelector:
+  - key: security
+    operator: In
+    values: S1,S2
+    topologyKey: "kubernetes.io/hostname"
+  podAntiAffinityTermLabelSelector: []
+
+  keepaliveMaxServerConnectionAge: 30m
+
+  deploymentLabels:
+    foo: bar
+
+  meshNetworks:
+    networks: {}
+
+  configMap: true
+
+  ingress:
+    ingressService: istio-ingressgateway
+    ingressControllerMode: "OFF"
+    ingressClass: istio
+
+  telemetry:
+    enabled: true
+
+  policy:
+    enabled: false
+
+  useMCP: true

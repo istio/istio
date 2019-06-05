@@ -1,0 +1,59 @@
+mixer:
+  policy:
+    image: mixer
+
+
+    replicaCount: 1
+    autoscaleEnabled: true
+    autoscaleMin: 1
+    autoscaleMax: 5
+    cpu:
+      targetAverageUtilization: 80
+
+    podAnnotations:
+      key: value
+
+  env:
+    GODEBUG: gctrace=1
+
+  adapters:
+    kubernetesenv:
+      enabled: true
+
+  telemetry:
+    image: mixer
+    env:
+      GODEBUG: gctrace=2
+    enabled: true
+    replicaCount: 1
+    autoscaleEnabled: true
+    autoscaleMin: 1
+    autoscaleMax: 5
+    cpu:
+      targetAverageUtilization: 80
+
+    resources:
+      requests:
+        cpu: 900m
+        memory: 1G
+
+    podAnnotations:
+      key: value
+
+    adapters:
+      # stdio is a debug adapter in istio-telemetry, it is not recommended for production use.
+      stdio:
+        # If set to true, will add 'rule' and 'stdio' handler for access logs.
+        # If false, user will need to configure their own rules outside of installer.
+        enabled: false
+        outputAsJson: false
+
+      prometheus:
+        enabled: true
+        metricsExpiryDuration: 10m
+
+      kubernetesenv:
+        enabled: true
+
+      # Setting this to false sets the useAdapterCRDs mixer startup argument to false
+      useAdapterCRDs: false

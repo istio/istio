@@ -1,0 +1,86 @@
+
+# A-la-carte istio ingress gateway.
+# Must be installed in a separate namespace, to minimize access to secrets.
+gateways:
+  istio-ingressgateway:
+    ports:
+      ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
+      - port: 15020
+        targetPort: 15020
+        name: status-port
+      - port: 80
+        targetPort: 80
+        name: http2
+      - port: 443
+        name: https
+        # This is the port where sni routing happens
+      - port: 15443
+        targetPort: 15443
+        name: tls
+
+    replicaCount: 1
+    autoscaleMin: 1
+    autoscaleMax: 5
+    resources:
+      requests:
+        cpu: 10m
+
+    cpu:
+      targetAverageUtilization: 80
+
+    k8sIngress: false
+    k8sIngressHttps: false
+    debug: info
+    customService: false
+    drainDuration: 45s
+    connectTimeout: 10s
+
+    loadBalancerIP: ""
+    loadBalancerSourceRanges:
+      - "1.1.1.1"
+      - "2.2.2.2"
+    serviceAnnotations:
+      key: value
+    domain: ""
+    zvpn:
+      enabled: true
+      suffix: global
+
+    sds:
+      enabled: false
+      image: node-agent-k8s
+
+    podAnnotations:
+      key1: value1
+      key2: value2
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+
+    meshExpansionPorts:
+      - port: 15011
+        targetPort: 15011
+        name: tcp-pilot-grpc-tls
+      - port: 8060
+        targetPort: 8060
+        name: tcp-citadel-grpc-tls
+      - port: 853
+        targetPort: 853
+        name: tcp-dns-tls
+
+    secretVolumes:
+      - name: ingressgateway-certs
+        secretName: istio-ingressgateway-certs
+        mountPath: /etc/istio/ingressgateway-certs
+      - name: ingressgateway-ca-certs
+        secretName: istio-ingressgateway-ca-certs
+        mountPath: /etc/istio/ingressgateway-ca-certs
+
+    env:
+      ISTIO_META_ROUTER_MODE: "sni-dnat"
+
+    podAntiAffinityLabelSelector:
+    - key: security
+      operator: In
+      values: S1,S2
+      topologyKey: "kubernetes.io/hostname"
+    podAntiAffinityTermLabelSelector:
+      - key: value

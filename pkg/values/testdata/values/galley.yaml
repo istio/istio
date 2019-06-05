@@ -1,0 +1,10 @@
+galley:
+  image: galley
+  replicaCount: 1
+
+  resources:
+    requests:
+      cpu: 100m
+
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
