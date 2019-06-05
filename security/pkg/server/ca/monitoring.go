@@ -94,9 +94,6 @@ type monitoringMetrics struct {
 	certSignErrors    *prometheus.CounterVec
 }
 
-// rootCertExpirationChecker is used for callback function to monitor Citadel root cert remained validness in seconds.
-type rootCertExpirationChecker func() float64
-
 // newMonitoringMetrics creates a new monitoringMetrics.
 func newMonitoringMetrics() monitoringMetrics {
 	return monitoringMetrics{
