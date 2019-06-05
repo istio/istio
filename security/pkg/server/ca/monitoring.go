@@ -75,7 +75,6 @@ func init() {
 	prometheus.MustRegister(idExtractionErrorCounts)
 	prometheus.MustRegister(certSignErrorCounts)
 	prometheus.MustRegister(successCounts)
-	//prometheus.MustRegister(rootCertRemainingSeconds)
 }
 
 // registerRootCertChecker exposes a metric representing the remaining valid duration of the root certificate, in seconds.
