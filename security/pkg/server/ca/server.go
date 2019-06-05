@@ -106,7 +106,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 // TODO: anyone who plan to support ROOT ROTATION FEATURE or MULTI ROOT FEATURE
 // ! PLEASE ENSURE THE ROOT CERT CAN BE ACCESSED SAFELY CONCURRENTLY !
 // ========================================
-func (s *Server) RootCertExpirationSeconds() float64 {
+func (s *Server) rootCertExpirationSeconds() float64 {
 	rb := s.ca.GetCAKeyCertBundle().GetRootCertPem()
 	cert, err := util.ParsePemEncodedCertificate(rb)
 	if err != nil {
@@ -244,7 +244,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 		port:           port,
 		monitoring:     newMonitoringMetrics(),
 	}
-	RootExpirationCheckerCallback = server.RootCertExpirationSeconds
+	registerRootCertChecker(server.rootCertExpirationSeconds)
 	return server, nil
 }
 

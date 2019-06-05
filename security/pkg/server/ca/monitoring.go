@@ -15,6 +15,8 @@
 package ca
 
 import (
+	"fmt"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -64,22 +66,6 @@ var (
 		Name:      "success_cert_issuance_count",
 		Help:      "The number of certificates issuances that have succeeded.",
 	}, []string{})
-
-	rootCertRemainingSeconds = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: "citadel",
-		Name:      "citadel_root_cert_expire_time_seconds",
-		Subsystem: "server",
-		Help:      "The remaining valid duration for root certificate Citadel uses, in seconds.",
-	}, func() float64 {
-		// We invoke the callback here to ensure when the callback is updated in Citadel, it will take effect.
-		return RootExpirationCheckerCallback()
-	})
-
-	// RootExpirationCheckerCallback returns the seconds the root cert remains valid.
-	// This call back will be reset in Citadel server.
-	RootExpirationCheckerCallback = func() float64 {
-		return -1
-	}
 )
 
 func init() {
@@ -89,7 +75,22 @@ func init() {
 	prometheus.MustRegister(idExtractionErrorCounts)
 	prometheus.MustRegister(certSignErrorCounts)
 	prometheus.MustRegister(successCounts)
-	prometheus.MustRegister(rootCertRemainingSeconds)
+	//prometheus.MustRegister(rootCertRemainingSeconds)
+}
+
+// registerRootCertChecker exposes a metric representing the remaining valid duration of the root certificate, in seconds.
+func registerRootCertChecker(checker rootCertExpirationChecker) error {
+	rootCertRemainingSeconds := prometheus.NewGaugeFunc(
+		prometheus.GaugeOpts{
+			Namespace: "citadel",
+			Name:      "citadel_root_cert_expire_time_seconds",
+			Subsystem: "server",
+			Help:      "The remaining valid duration for root certificate Citadel is using, in seconds.",
+		}, checker)
+	if err := prometheus.Register(rootCertRemainingSeconds); err != nil {
+		return fmt.Errorf("failed to initialize citadel_root_cert_expire_time_seconds metrics: %v", err)
+	}
+	return nil
 }
 
 // monitoringMetrics are counters for certificate signing related operations.
@@ -102,8 +103,8 @@ type monitoringMetrics struct {
 	certSignErrors    *prometheus.CounterVec
 }
 
-// RootCertExpirationChecker is used for callback function to monitor Citadel root cert remained validness in seconds.
-type RootCertExpirationChecker func() float64
+// rootCertExpirationChecker is used for callback function to monitor Citadel root cert remained validness in seconds.
+type rootCertExpirationChecker func() float64
 
 // newMonitoringMetrics creates a new monitoringMetrics.
 func newMonitoringMetrics() monitoringMetrics {

@@ -139,7 +139,7 @@ func TestServer_RootCertExpirationSeconds(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		sec := server.RootCertExpirationSeconds()
+		sec := server.rootCertExpirationSeconds()
 		if sec < tc.ttlRange[0] || sec > tc.ttlRange[1] {
 			t.Errorf("[%v] Failed, expect within range [%v, %v], got %v", tc.name, tc.ttlRange[0], tc.ttlRange[1], sec)
 		}
