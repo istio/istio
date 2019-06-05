@@ -319,8 +319,8 @@ func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 	if region == "" && zone == "" {
 		return ""
 	}
-
-	return fmt.Sprintf("%v/%v", region, zone)
+	locality := fmt.Sprintf("%v/%v", region, zone)
+	return model.GetLocalityOrDefault(locality, pod.Labels)
 }
 
 // ManagementPorts implements a service catalog operation
@@ -812,6 +812,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						UID:             uid,
 						ServiceAccount:  secureNamingSAN(pod),
 						Network:         c.endpointNetwork(ea.IP),
+						Locality:        c.GetPodLocality(pod),
 					})
 				}
 			}
