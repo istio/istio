@@ -115,7 +115,7 @@ func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, o
 			return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 		}
 
-		// Rewrite the key/cert back to secret so they will be persistent when CA restarts.
+		// Write the key/cert back to secret so they will be persistent when CA restarts.
 		secret := &apiv1.Secret{
 			Data: map[string][]byte{
 				cACertID:       pemCert,
@@ -128,13 +128,16 @@ func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, o
 			Type: istioCASecretType,
 		}
 		if _, err = core.Secrets(namespace).Create(secret); err != nil {
-			log.Errorf("Failed to write secret to CA (error: %s). This CA will not persist when restart.", err)
+			log.Errorf("Failed to write secret to CA (error: %s). Abort.", err)
+			return nil, fmt.Errorf("failed to create CA due to secret write error")
 		}
+		log.Infof("Using self-generated public key: %v", string(pemCert))
 	} else {
 		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(caSecret.Data[cACertID],
 			caSecret.Data[cAPrivateKeyID], nil, caSecret.Data[cACertID]); err != nil {
 			return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 		}
+		log.Infof("Using existing public key: %v", string(caSecret.Data[cACertID]))
 	}
 
 	return caOpts, nil
