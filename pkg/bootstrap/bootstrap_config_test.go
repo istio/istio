@@ -268,6 +268,7 @@ func createEnv(t *testing.T, labels map[string]string, anno map[string]string) (
 	return merged, envs
 }
 
+// nolint: golint
 func encodeAsJson(t *testing.T, data map[string]string, name string) string {
 	jsonStr, err := json.Marshal(data)
 	if err != nil {
