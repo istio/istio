@@ -140,7 +140,3 @@ func (m *multiStatsHandler) HandleConn(ctx context.Context, cs stats.ConnStats) 
 		h.HandleConn(ctx, cs)
 	}
 }
-
-func newMultiStatsHandler(handlers ...stats.Handler) stats.Handler {
-	return &multiStatsHandler{handlers: handlers}
-}
