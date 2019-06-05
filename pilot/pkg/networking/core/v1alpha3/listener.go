@@ -1084,18 +1084,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		}
 
 		// No conflicts. Add a thrift filter chain option to the listenerOpts
-		var rdsName string
-		if pluginParams.Port.Port == 0 {
-			rdsName = listenerOpts.bind // use the UDS as a rds name
-		} else {
-			rdsName = fmt.Sprintf("%d", pluginParams.Port.Port)
-		}
 		thriftOpts := &thriftListenerOpts{
 			// Set useRemoteAddress to true for side car outbound listeners so that it picks up the localhost address of the sender,
 			// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers
 			// such as "x-envoy-upstream-rq-timeout-ms" set by the calling application.
 			useRemoteAddress: true,
-			rds:              rdsName,
 		}
 
 		listenerOpts.filterChainOpts = []*filterChainOpts{{
@@ -1480,8 +1473,6 @@ type httpListenerOpts struct {
 
 // thriftListenerOpts are options for a Thrift listener
 type thriftListenerOpts struct {
-	routeConfig *xdsapi.RouteConfiguration
-	rds         string
 	// stat prefix for the thrift connection manager
 	// DO not set this field. Will be overridden by buildCompleteFilterChain
 	statPrefix       string
