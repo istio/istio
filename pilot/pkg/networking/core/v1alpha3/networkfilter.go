@@ -187,7 +187,7 @@ func buildNetworkFiltersStack(node *model.Proxy, port *model.Port, tcpFilter *li
 	case model.ProtocolMongo:
 		filterstack = append(filterstack, buildMongoFilter(statPrefix, util.IsXDSMarshalingToAnyEnabled(node)), *tcpFilter)
 	case model.ProtocolRedis:
-		if util.IsProxyVersionGE11(node) {
+		if util.IsProxyVersionGE11(node) && pilot.EnableRedisFilter() {
 			filterstack = append(filterstack, buildRedisFilter(statPrefix, clusterName, util.IsXDSMarshalingToAnyEnabled(node)))
 		} else {
 			filterstack = append(filterstack, *tcpFilter)
