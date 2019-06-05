@@ -101,11 +101,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	return response, nil
 }
 
-// RootCertExpiration returns the remaining duration that root cert is still valid, if already expires, returns error.
-// ========================================
-// TODO: anyone who plan to support ROOT ROTATION FEATURE or MULTI ROOT FEATURE
-// ! PLEASE ENSURE THE ROOT CERT CAN BE ACCESSED SAFELY CONCURRENTLY !
-// ========================================
+// rootCertExpirationSeconds returns the unix timestamp when the root becomes expires.
 func rootCertExpirationSeconds(ca ca.CertificateAuthority) float64 {
 	rb := ca.GetCAKeyCertBundle().GetRootCertPem()
 	cert, err := util.ParsePemEncodedCertificate(rb)
