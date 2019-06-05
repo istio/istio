@@ -23,13 +23,13 @@ STALE_DOCKERFILES=$( \
   find "${ISTIO_ROOT}" \
   -name 'Dockerfile*' | \
   while read -r f; do
-    if [ "" != "$(grep "apt-get update" $f)" ] ; then \
-      if [ "" == "$(grep "apt-get upgrade" $f)" ] ; then \
+    if [ "" != "$(grep "apt-get update" "$f")" ] ; then \
+      if [ "" = "$(grep "apt-get upgrade" "$f")" ] ; then \
         echo "$f:"; \
       fi ; \
     fi; \
   done)
 
-if [ "" != $STALE_DOCKERFILES ]; then
+if [ "" != "$STALE_DOCKERFILES" ]; then
   exit 1
 fi
