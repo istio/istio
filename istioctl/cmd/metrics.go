@@ -106,7 +106,7 @@ func run(_ *cobra.Command, args []string) error {
 	if err = kubernetes.RunPortForwarder(fw, func(fw *kubernetes.PortForward) error {
 		log.Debugf("port-forward to prometheus pod ready")
 
-		promAPI, err := prometheusAPI(port)
+		promAPI, err := prometheusAPI(fw.LocalPort)
 		if err != nil {
 			return err
 		}
@@ -122,6 +122,7 @@ func run(_ *cobra.Command, args []string) error {
 
 			printMetrics(sm)
 		}
+		close(fw.StopChannel)
 		return nil
 	}); err != nil {
 		return fmt.Errorf("failure running port forward process: %v", err)
