@@ -110,7 +110,7 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 	return
 }
 
-var kubeConfigVar = env.RegisterStringVar("KUBECONFIG", "", "")
+var kubeConfigVar = env.RegisterStringVar("KUBECONFIG", "", "Path for a kubeconfig file.")
 
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	paramsProto := b.adapterConfig
@@ -389,7 +389,7 @@ func (b *builder) deleteCacheController(clusterID string) error {
 	return nil
 }
 
-var clusterNsVar = env.RegisterStringVar("POD_NAMESPACE", defaultClusterRegistriesNamespace, "")
+var clusterNsVar = env.RegisterStringVar("POD_NAMESPACE", defaultClusterRegistriesNamespace, "Namespace for the Mixer pod (Downward API).")
 
 func initMultiClusterSecretController(b *builder, kubeconfig string, env adapter.Env) (err error) {
 	var clusterNs string
