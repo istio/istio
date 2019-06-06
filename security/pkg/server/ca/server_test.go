@@ -94,8 +94,8 @@ func (authz *mockAuthorizer) authorize(requester *authenticate.Caller, requested
 	return nil
 }
 
-// Test the root cert expiration checker returns correct timestamp.
-func TestServer_RootCertExpirationSeconds(t *testing.T) {
+// Test the root cert expiry timestamp can be extracted correctly.
+func TestExtractRootCertExpiryTimestamp(t *testing.T) {
 	cert, key, err := pkiutil.GenCertKeyFromOptions(pkiutil.CertOptions{
 		Host:         "citadel.testing.istio.io",
 		NotBefore:    time.Now(),
@@ -133,7 +133,7 @@ func TestServer_RootCertExpirationSeconds(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		sec := rootCertExpirationSeconds(ca) - float64(time.Now().Unix())
+		sec := extractRootCertExpiryTimestamp(ca) - float64(time.Now().Unix())
 		if sec < tc.ttlRange[0] || sec > tc.ttlRange[1] {
 			t.Errorf("[%v] Failed, expect within range [%v, %v], got %v", tc.name, tc.ttlRange[0], tc.ttlRange[1], sec)
 		}
