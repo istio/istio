@@ -7,6 +7,7 @@ discovery_address:               "mypilot:15011"
 connect_timeout:                 {seconds: 7}
 statsd_udp_address:              "10.1.1.1:9125"
 envoy_metrics_service_address:   "metrics-service:15000"
+envoy_access_log_service_address: "accesslog-service:15000"
 proxy_admin_port:                15005
 control_plane_auth_policy:       MUTUAL_TLS
 stat_name_length:                200

@@ -659,13 +659,13 @@ gopkg.in/inf.v0
 gopkg.in/logfmt.v0
 # gopkg.in/square/go-jose.v2 v2.0.0-20180411045311-89060dee6a84
 gopkg.in/square/go-jose.v2
-gopkg.in/square/go-jose.v2/cipher
 gopkg.in/square/go-jose.v2/json
+gopkg.in/square/go-jose.v2/cipher
 # gopkg.in/stack.v1 v1.7.0
 gopkg.in/stack.v1
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
-# istio.io/api v0.0.0-20190522004026-1dffc8d3d26d
+# istio.io/api v0.0.0-20190604023128-6f137ab2ce6d
 istio.io/api/mesh/v1alpha1
 istio.io/api/authentication/v1alpha1
 istio.io/api/mixer/v1/config/client

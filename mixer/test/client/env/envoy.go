@@ -42,7 +42,7 @@ func (s *TestSetup) NewEnvoy() (*Envoy, error) {
 		return nil, err
 	}
 
-	debugLevel := ev.RegisterStringVar("ENVOY_DEBUG", "info", "").Get()
+	debugLevel := ev.RegisterStringVar("ENVOY_DEBUG", "info", "Specifies the debug level for Envoy.").Get()
 
 	baseID := ""
 	args := []string{"-c", confPath,
@@ -69,7 +69,7 @@ func (s *TestSetup) NewEnvoy() (*Envoy, error) {
 	}
 	/* #nosec */
 	envoyPath := filepath.Join(env.IstioBin, "envoy")
-	if path, exists := ev.RegisterStringVar("ENVOY_PATH", "", "").Lookup(); exists {
+	if path, exists := ev.RegisterStringVar("ENVOY_PATH", "", "Specifies the path to an Envoy binary.").Lookup(); exists {
 		envoyPath = path
 	}
 	cmd := exec.Command(envoyPath, args...)

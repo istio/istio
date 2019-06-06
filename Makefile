@@ -285,7 +285,10 @@ ${GEN_CERT}:
 precommit: format lint
 
 format:
-	bin/fmt.sh
+	scripts/run_gofmt.sh
+
+fmt:
+	scripts/run_gofmt.sh
 
 # Build with -i to store the build caches into $GOPATH/pkg
 buildcache:
@@ -517,6 +520,7 @@ common-test:
 	go test ${T} ./pkg/...
 	# Execute bash shell unit tests scripts
 	./tests/scripts/scripts_test.sh
+	./tests/scripts/istio-iptables-test.sh
 
 .PHONY: selected-pkg-test
 selected-pkg-test:
@@ -770,3 +774,5 @@ include tests/integration/tests.mk
 .PHONY: benchcheck
 benchcheck:
 	bin/perfcheck.sh
+
+include Makefile.common.mk

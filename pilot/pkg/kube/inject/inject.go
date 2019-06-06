@@ -67,8 +67,18 @@ var (
 		annotations.Register(annotationStatus, "").Name: alwaysValidFunc,
 		annotations.Register(annotationRewriteAppHTTPProbers,
 			"Rewrite HTTP readiness and liveness probes to be redirected to istio-proxy sidecar").Name: alwaysValidFunc,
+		annotations.Register("sidecar.istio.io/controlPlaneAuthPolicy", "").Name:               alwaysValidFunc,
+		annotations.Register("sidecar.istio.io/discoveryAddress", "").Name:                     alwaysValidFunc,
 		annotations.Register("sidecar.istio.io/proxyImage", "").Name:                           alwaysValidFunc,
+		annotations.Register("sidecar.istio.io/proxyCPU", "").Name:                             alwaysValidFunc,
+		annotations.Register("sidecar.istio.io/proxyMemory", "").Name:                          alwaysValidFunc,
 		annotations.Register("sidecar.istio.io/interceptionMode", "").Name:                     validateInterceptionMode,
+		annotations.Register("sidecar.istio.io/bootstrapOverride", "").Name:                    alwaysValidFunc,
+		annotations.Register("sidecar.istio.io/statsInclusionPrefixes", "").Name:               alwaysValidFunc,
+		annotations.Register("sidecar.istio.io/statsInclusionSuffixes", "").Name:               alwaysValidFunc,
+		annotations.Register("sidecar.istio.io/statsInclusionRegexps", "").Name:                alwaysValidFunc,
+		annotations.Register("sidecar.istio.io/userVolume", "").Name:                           alwaysValidFunc,
+		annotations.Register("sidecar.istio.io/userVolumeMount", "").Name:                      alwaysValidFunc,
 		annotations.Register("status.sidecar.istio.io/port", "").Name:                          validateStatusPort,
 		annotations.Register("readiness.status.sidecar.istio.io/initialDelaySeconds", "").Name: validateUInt32,
 		annotations.Register("readiness.status.sidecar.istio.io/periodSeconds", "").Name:       validateUInt32,
@@ -764,6 +774,15 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	if podSpec.HostNetwork {
 		fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled\n", metadata.Name) //nolint: errcheck
 		return out, nil
+	}
+	//skip injection for injected pods
+	if len(podSpec.Containers) > 1 {
+		for _, c := range podSpec.Containers {
+			if c.Name == ProxyContainerName {
+				fmt.Fprintf(os.Stderr, "Skipping injection because %q has injected %q sidecar already\n", metadata.Name, ProxyContainerName) //nolint: errcheck
+				return out, nil
+			}
+		}
 	}
 
 	spec, status, err := InjectionData(

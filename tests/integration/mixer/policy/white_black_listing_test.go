@@ -25,7 +25,6 @@ import (
 
 func TestWhiteListing(t *testing.T) {
 	framework.Run(t, func(ctx framework.TestContext) {
-		t.Skipf("https://github.com/istio/istio/issues/13845")
 		if galInst == nil {
 			t.Fatalf("galley not setup")
 		}
@@ -71,6 +70,7 @@ func TestWhiteListing(t *testing.T) {
 			t,
 			bookinfoNs,
 			bookinfo.PolicyDenyIPRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
+		util.AllowRuleSync(t)
 		// Verify you can't access productpage now.
 		util.SendTrafficAndWaitForExpectedStatus(ing, t, "Sending traffic...", "", 30, http.StatusForbidden)
 	})

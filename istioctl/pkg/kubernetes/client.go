@@ -251,7 +251,7 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 		return nil, err
 	}
 	if len(pods) == 0 {
-		return nil, errors.New("unable to find any Istio pod in namespace " + namespace)
+		return nil, fmt.Errorf("unable to determine control plane version - no Istio pods in namespace %q", namespace)
 	}
 
 	labelToPodDetail := map[string]podDetail{

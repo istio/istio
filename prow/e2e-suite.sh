@@ -46,7 +46,7 @@ export HUB=${HUB:-"gcr.io/istio-testing"}
 
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
-if [[ $HUB != *"istio-release"* ]]; then
+if [[ $HUB == *"istio-testing"* ]]; then
   setup_and_export_git_sha
 fi
 setup_e2e_cluster
@@ -77,13 +77,13 @@ done
 
 export TAG="${TAG:-${GIT_SHA}}"
 
-if [[ $HUB != *"istio-release"* ]]; then
+if [[ $HUB == *"istio-testing"* ]]; then
   export TAG="${TAG:-${GIT_SHA}}"-"${SINGLE_TEST}"
 fi
 
 make init
 
-if [[ $HUB != *"istio-release"* ]]; then
+if [[ $HUB == *"istio-testing"* ]]; then
   # upload images
   time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}"
 fi

@@ -1,0 +1,2 @@
+#!/bin/sh
+echo "ip6tables $*"

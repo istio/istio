@@ -18,8 +18,11 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/echo/common/response"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
@@ -79,10 +82,30 @@ func (tc TestCase) CheckRBACRequest() error {
 			if err != nil {
 				return getError(req, "deny with code 403", fmt.Sprintf("error: %v", err))
 			}
-			if len(resp) == 0 || resp[0].Code != response.StatusCodeForbidden {
-				return getError(req, "deny with code 403", fmt.Sprintf("resp: %v", resp))
+			var result string
+			if len(resp) == 0 {
+				result = "no response"
+			} else if resp[0].Code != response.StatusCodeForbidden {
+				result = resp[0].Code
+			}
+			if result != "" {
+				return getError(req, "deny with code 403", result)
 			}
 		}
 	}
 	return nil
+}
+
+func RunRBACTest(t *testing.T, cases []TestCase) {
+	for _, tc := range cases {
+		testName := fmt.Sprintf("%s->%s:%s%s[%v]",
+			tc.Request.From.Config().Service,
+			tc.Request.Options.Target.Config().Service,
+			tc.Request.Options.PortName,
+			tc.Request.Options.Path,
+			tc.ExpectAllowed)
+		t.Run(testName, func(t *testing.T) {
+			retry.UntilSuccessOrFail(t, tc.CheckRBACRequest, retry.Delay(time.Second), retry.Timeout(10*time.Second))
+		})
+	}
 }

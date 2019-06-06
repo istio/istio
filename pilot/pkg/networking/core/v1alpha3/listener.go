@@ -28,7 +28,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
+	accesslogconfig "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
@@ -83,6 +83,10 @@ const (
 
 	// EnvoyServerName for istio's envoy
 	EnvoyServerName = "istio-envoy"
+
+	// EnvoyAccessLogCluster is the cluster name that has details for server implementing Envoy ALS.
+	// This cluster is created in bootstrap.
+	EnvoyAccessLogCluster = "envoy_accesslog_service"
 )
 
 var (
@@ -119,14 +123,14 @@ var (
 	ProxyInboundListenPort = uint32(env.RegisterIntVar("ProxyInboundListenPort", 15006, "").Get())
 )
 
-func buildAccessLog(fl *fileaccesslog.FileAccessLog, env *model.Environment) {
+func buildAccessLog(fl *accesslogconfig.FileAccessLog, env *model.Environment) {
 	switch env.Mesh.AccessLogEncoding {
 	case meshconfig.MeshConfig_TEXT:
 		formatString := EnvoyTextLogFormat
 		if env.Mesh.AccessLogFormat != "" {
 			formatString = env.Mesh.AccessLogFormat
 		}
-		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
+		fl.AccessLogFormat = &accesslogconfig.FileAccessLog_Format{
 			Format: formatString,
 		}
 	case meshconfig.MeshConfig_JSON:
@@ -153,7 +157,7 @@ func buildAccessLog(fl *fileaccesslog.FileAccessLog, env *model.Environment) {
 		if jsonLog == nil {
 			jsonLog = EnvoyJSONLogFormat
 		}
-		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_JsonFormat{
+		fl.AccessLogFormat = &accesslogconfig.FileAccessLog_JsonFormat{
 			JsonFormat: jsonLog,
 		}
 	default:
@@ -1475,7 +1479,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 	}
 
 	if env.Mesh.AccessLogFile != "" {
-		fl := &fileaccesslog.FileAccessLog{
+		fl := &accesslogconfig.FileAccessLog{
 			Path: env.Mesh.AccessLogFile,
 		}
 
@@ -1493,7 +1497,33 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
 		}
 
-		connectionManager.AccessLog = []*accesslog.AccessLog{acc}
+		connectionManager.AccessLog = append(connectionManager.AccessLog, acc)
+	}
+
+	if env.Mesh.EnableEnvoyAccessLogService {
+		fl := &accesslogconfig.HttpGrpcAccessLogConfig{
+			CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
+				GrpcService: &core.GrpcService{
+					TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+						EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+							ClusterName: EnvoyAccessLogCluster,
+						},
+					},
+				},
+			},
+		}
+
+		acc := &accesslog.AccessLog{
+			Name: xdsutil.HTTPGRPCAccessLog,
+		}
+
+		if util.IsXDSMarshalingToAnyEnabled(node) {
+			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
+		} else {
+			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
+		}
+
+		connectionManager.AccessLog = append(connectionManager.AccessLog, acc)
 	}
 
 	if env.Mesh.EnableTracing {

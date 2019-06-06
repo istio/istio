@@ -296,14 +296,14 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{container_name=~\"galley\", pod_name=~\"istio-galley-.*\"}[1m]))",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container_name=~\"galley\", pod_name=~\"istio-galley-.*\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Total (k8s)",
           "refId": "A"
         },
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{container_name=~\"galley\", pod_name=~\"istio-galley-.*\"}[1m])) by (container_name)",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container_name=~\"galley\", pod_name=~\"istio-galley-.*\"}[1m])) by (container_name)",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ container_name }} (k8s)",
