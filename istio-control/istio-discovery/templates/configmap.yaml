@@ -25,6 +25,16 @@ data:
     accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
     #
 
+    {{- if .Values.mixer.telemetry.reportBatchMaxEntries }}
+    # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
+    reportBatchMaxEntries: {{ .Values.mixer.telemetry.reportBatchMaxEntries }}
+    {{- end }}
+
+    {{- if .Values.mixer.telemetry.reportBatchMaxTime }}
+    # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
+    reportBatchMaxTime: {{ .Values.mixer.telemetry.reportBatchMaxTime }}
+    {{- end }}
+
     {{- if .Values.pilot.telemetry.enabled }}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.cluster.local:15004
