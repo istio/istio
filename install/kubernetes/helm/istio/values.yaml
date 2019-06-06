@@ -56,7 +56,7 @@ security:
 # nodeagent configuration
 #
 nodeagent:
-  enabled: false
+  enabled: true
 
 #
 # addon grafana configuration
