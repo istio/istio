@@ -948,7 +948,7 @@ func buildLocalityLbEndpointsFromShards(
 			weight += ep.LoadBalancingWeight.GetValue()
 		}
 		locLbEps.LoadBalancingWeight = &types.UInt32Value{
-			Value: uint32(weight),
+			Value: weight,
 		}
 		locEps = append(locEps, *locLbEps)
 	}
