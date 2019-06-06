@@ -15,14 +15,7 @@ spec:
     istio: ingressgateway
   servers:
     - port:
-        number: 80
-        name: http-{{ $addon.name }}
-        protocol: HTTP
-      hosts:
-        - "*"
-   {{- if $addon.tls }}
-    - port:
-        number: 443
+        number: {{ $addon.port }}
         name: https-{{ $addon.name }}
         protocol: HTTPS
       tls:
@@ -31,7 +24,6 @@ spec:
         privateKey: /etc/istio/ingressgateway-certs/tls.key
       hosts:
         - "*"
-  {{- end }}
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -48,8 +40,7 @@ spec:
     - istio-{{ $addon.name }}-gateway
   http:
     - match:
-        - uri:
-            prefix: /{{ $addon.name}}
+        - port: {{ $addon.port }}
       route:
         - destination:
             host: {{ $addon.name }}.{{ $.Release.Namespace }}.svc.{{ $.Values.global.proxy.clusterDomain }}
