@@ -95,7 +95,7 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 }
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
-func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32, network string) *endpoint.LbEndpoint {
+func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32, network string, weight uint32) *endpoint.LbEndpoint {
 	var addr core.Address
 	switch family {
 	case model.AddressFamilyTCP:
@@ -113,7 +113,14 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 		addr = core.Address{Address: &core.Address_Pipe{Pipe: &core.Pipe{Path: address}}}
 	}
 
+	epWeight := weight
+	if epWeight == 0 {
+		epWeight = 1
+	}
 	ep := &endpoint.LbEndpoint{
+		LoadBalancingWeight: &types.UInt32Value{
+			Value: epWeight,
+		},
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 			Endpoint: &endpoint.Endpoint{
 				Address: &addr,
@@ -133,8 +140,17 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpo
 	if err != nil {
 		return nil, err
 	}
+
 	addr := util.GetNetworkEndpointAddress(e)
+
+	epWeight := e.LbWeight
+	if epWeight == 0 {
+		epWeight = 1
+	}
 	ep := &endpoint.LbEndpoint{
+		LoadBalancingWeight: &types.UInt32Value{
+			Value: epWeight,
+		},
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 			Endpoint: &endpoint.Endpoint{
 				Address: &addr,
@@ -331,8 +347,12 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	}
 
 	for i := 0; i < len(locEps); i++ {
+		var weight uint32
+		for _, ep := range locEps[i].LbEndpoints {
+			weight += ep.LoadBalancingWeight.GetValue()
+		}
 		locEps[i].LoadBalancingWeight = &types.UInt32Value{
-			Value: uint32(len(locEps[i].LbEndpoints)),
+			Value: weight,
 		}
 	}
 	// There is a chance multiple goroutines will update the cluster at the same time.
@@ -913,7 +933,7 @@ func buildLocalityLbEndpointsFromShards(
 				localityEpMap[ep.Locality] = locLbEps
 			}
 			if ep.EnvoyEndpoint == nil {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network)
+				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network, ep.LbWeight)
 			}
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *ep.EnvoyEndpoint)
 
@@ -923,8 +943,12 @@ func buildLocalityLbEndpointsFromShards(
 
 	locEps := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
+		var weight uint32
+		for _, ep := range locLbEps.LbEndpoints {
+			weight += ep.LoadBalancingWeight.GetValue()
+		}
 		locLbEps.LoadBalancingWeight = &types.UInt32Value{
-			Value: uint32(len(locLbEps.LbEndpoints)),
+			Value: uint32(weight),
 		}
 		locEps = append(locEps, *locLbEps)
 	}
