@@ -142,6 +142,10 @@ containers:
   - --envoyMetricsServiceAddress
   - "{{ .ProxyConfig.EnvoyMetricsServiceAddress }}"
 {{- end }}
+{{- if .Values.global.proxy.envoyAccessLogService.enabled }}
+- --envoyAccessLogServiceAddress
+- "{{ .ProxyConfig.EnvoyAccessLogServiceAddress }}"
+{{- end }}
   - --proxyAdminPort
   - "{{ .ProxyConfig.ProxyAdminPort }}"
   {{ if gt .ProxyConfig.Concurrency 0 -}}
