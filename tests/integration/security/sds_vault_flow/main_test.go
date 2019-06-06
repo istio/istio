@@ -54,7 +54,8 @@ func TestMain(m *testing.M) {
 	// Integration test for the SDS Vault CA flow, as well as mutual TLS
 	// with the certificates issued by the SDS Vault CA flow.
 	framework.NewSuite("sds_vault_flow_test", m).
-		Label(label.CustomSetup).
+		// TODO(https://github.com/istio/istio/issues/14364) remove flaky label
+		Label(label.CustomSetup, label.Flaky).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
