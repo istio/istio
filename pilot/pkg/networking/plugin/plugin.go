@@ -19,6 +19,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -115,6 +116,8 @@ type FilterChain struct {
 	ListenerProtocol ListenerProtocol
 	// HTTP is the set of HTTP filters for this filter chain
 	HTTP []*http_conn.HttpFilter
+	// Thrift is the set of Thrift filters for this filter chain.
+	Thrift []thrift_proxy.ThriftFilter
 	// TCP is the set of network (TCP) filters for this filter chain.
 	TCP []listener.Filter
 }

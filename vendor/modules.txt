@@ -129,10 +129,10 @@ github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mysql_proxy/v1alpha1
 github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2
-github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1
 github.com/envoyproxy/go-control-plane/envoy/type
 github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2
+github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1
 github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha
 github.com/envoyproxy/go-control-plane/envoy/type/matcher
 github.com/envoyproxy/go-control-plane/envoy/config/filter/http/health_check/v2
@@ -382,6 +382,8 @@ github.com/philhofer/fwd
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
+# github.com/pnovotnak/api v0.0.0-20190604023128-cb99ab91412e
+github.com/pnovotnak/api/mixer/v1/config/client
 # github.com/pquerna/cachecontrol v0.0.0-20180306154005-525d0eb5f91d
 github.com/pquerna/cachecontrol
 github.com/pquerna/cachecontrol/cacheobject

@@ -27,8 +27,11 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1"
 	"github.com/gogo/protobuf/types"
 
+	// TODO remove this when api defs are merged
+	mccpbNew "github.com/pnovotnak/api/mixer/v1/config/client"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -107,7 +110,7 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 	case plugin.ListenerProtocolThrift:
 		thriftFilter := buildOutboundThriftFilter(in.Env.Mesh, attrs, in.Node)
 		for cnum := range mutable.FilterChains {
-			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+			mutable.FilterChains[cnum].Thrift = append(mutable.FilterChains[cnum].Thrift, thriftFilter)
 		}
 		return nil
 	case plugin.ListenerProtocolTCP:
@@ -518,8 +521,8 @@ func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *
 	return out
 }
 
-func buildOutboundThriftFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) listener.Filter {
-	config := &mccpb.ThriftClientConfig{
+func buildOutboundThriftFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) thrift_proxy.ThriftFilter {
+	config := &mccpbNew.ThriftClientConfig{
 		DisableCheckCalls: disablePolicyChecks(outbound, mesh, node),
 		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 		Transport:         buildTransport(mesh, node),
