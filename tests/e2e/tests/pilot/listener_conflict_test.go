@@ -218,6 +218,9 @@ func (i *pilotInfo) String() string {
 	return fmt.Sprintf("pilotPod: %s, pushStatus: %s", i.pod, i.pushStatusJSON)
 }
 
+// Since curl is not available on the pilot docker image (e.g. distroless scenario)
+// we need to run the curl command (to get the pilot info) on a different pod
+// Therefore, we run a query to get the IP addresses of all pilot pods and run the curl command inside a test pod.
 func getPilotInfos() (pilotInfos, error) {
 	podIPs, err := getPilotIPs()
 	if err != nil {
