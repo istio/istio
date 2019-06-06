@@ -59,6 +59,16 @@ const (
 	// getRemoteContentRetryInSec is the retry interval between the attempt to retry getting the remote
 	// content from network.
 	getRemoteContentRetryInSec = 1
+
+	// How many times should we retry the failed network fetch on main flow. The main flow
+	// means it's called when Pilot is pushing configs. We should retry more conservatively to make sure
+	// not to block Pilot too long.
+	networkFetchRetryCountOnMainFlow = 1
+
+	// How many times should we retry the failed network fetch on refresh flow. The refresh flow
+	// means it's called when the periodically refresh job is triggered. We can retry more aggressively
+	// as it's running separately from the main flow.
+	networkFetchRetryCountOnRefreshFlow = 3
 )
 
 var (
@@ -196,8 +206,8 @@ func (r *jwksResolver) GetPublicKey(jwksURI string) (string, error) {
 		return e.pubKey, nil
 	}
 
-	// Fetch key if it's not cached, only retry once as this is in the critical path for pushing configs.
-	resp, err := r.getRemoteContentWithRetry(jwksURI, 1)
+	// Fetch key if it's not cached.
+	resp, err := r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnMainFlow)
 	if err != nil {
 		log.Errorf("Failed to fetch public key from %q: %v", jwksURI, err)
 		return "", err
@@ -220,8 +230,8 @@ func (r *jwksResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) 
 		return uri.(string), nil
 	}
 
-	// Try to get jwks_uri through OpenID Discovery, only retry once as this is in the critical path for pushing configs.
-	body, err := r.getRemoteContentWithRetry(issuer+openIDDiscoveryCfgURLSuffix, 1)
+	// Try to get jwks_uri through OpenID Discovery.
+	body, err := r.getRemoteContentWithRetry(issuer+openIDDiscoveryCfgURLSuffix, networkFetchRetryCountOnMainFlow)
 	if err != nil {
 		log.Errorf("Failed to fetch jwks_uri from %q: %v", issuer+openIDDiscoveryCfgURLSuffix, err)
 		return "", err
@@ -337,8 +347,7 @@ func (r *jwksResolver) refresh() {
 			// Decrement the counter when the goroutine completes.
 			defer wg.Done()
 
-			// Retry more aggressively in the refresh job.
-			resp, err := r.getRemoteContentWithRetry(jwksURI, 3)
+			resp, err := r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnRefreshFlow)
 			if err != nil {
 				log.Errorf("Failed to refresh JWT public key from %q: %v", jwksURI, err)
 				atomic.AddUint64(&r.refreshJobFetchFailedCount, 1)
