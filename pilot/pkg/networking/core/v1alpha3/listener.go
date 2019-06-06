@@ -1778,6 +1778,10 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 		opt := opts.filterChainOpts[i]
 		mutable.Listener.FilterChains[i].Metadata = opt.metadata
 
+		if opt.thriftOpts != nil {
+			opt.thriftOpts.statPrefix = mutable.Listener.Name
+		}
+
 		if opt.httpOpts == nil {
 			// we are building a network filter chain (no http connection manager) for this filter chain
 			// In HTTP, we need to have mixer, RBAC, etc. upfront so that they can enforce policies immediately
