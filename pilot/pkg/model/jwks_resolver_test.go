@@ -20,7 +20,7 @@ import (
 	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	"istio.io/istio/pilot/pkg/model/test"
+	"istio.io/istio/pilot/pkg/authn/test"
 )
 
 func TestResolveJwksURIUsingOpenID(t *testing.T) {

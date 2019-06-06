@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package model
+package authn
 
 import (
-	"fmt"
-	"net/url"
-	"strconv"
 	"sync"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -25,6 +22,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/features/pilot"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -61,12 +59,12 @@ const (
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
-var JwtKeyResolver = newJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
+var JwtKeyResolver = model.NewJwksResolver(model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval)
 
 // GetConsolidateAuthenticationPolicy returns the authentication policy for workload specified by
 // hostname (or label selector if specified) and port, if defined.
 // It also tries to resolve JWKS URI if necessary.
-func GetConsolidateAuthenticationPolicy(store IstioConfigStore, serviceInstance *ServiceInstance) *authn.Policy {
+func GetConsolidateAuthenticationPolicy(store model.IstioConfigStore, serviceInstance *model.ServiceInstance) *authn.Policy {
 	service := serviceInstance.Service
 	port := serviceInstance.Endpoint.ServicePort
 	labels := serviceInstance.Labels
@@ -133,7 +131,7 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, u
 	// Otherwise, if useK8sSATrustworthyJwt is set, envoy will fetch and pass k8s sa trustworthy jwt(which is available for k8s 1.10 or higher),
 	// pass it to SDS server to request key/cert; if trustworthy jwt isn't available, envoy will fetch and pass normal k8s sa jwt to
 	// request key/cert.
-	if sdsTokenPath, found := metadata[NodeMetadataSdsTokenPath]; found && len(sdsTokenPath) > 0 {
+	if sdsTokenPath, found := metadata[model.NodeMetadataSdsTokenPath]; found && len(sdsTokenPath) > 0 {
 		log.Debugf("SDS token path is (%v)", sdsTokenPath)
 		gRPCConfig.CredentialsFactoryName = FileBasedMetadataPlugName
 		gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(sdsTokenPath, K8sSAJwtTokenHeaderKey)
@@ -190,45 +188,6 @@ func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string)
 	}
 
 	return ret
-}
-
-// ParseJwksURI parses the input URI and returns the corresponding hostname, port, and whether SSL is used.
-// URI must start with "http://" or "https://", which corresponding to "http" or "https" scheme.
-// Port number is extracted from URI if available (i.e from postfix :<port>, eg. ":80"), or assigned
-// to a default value based on URI scheme (80 for http and 443 for https).
-// Port name is set to URI scheme value.
-// Note: this is to replace [buildJWKSURIClusterNameAndAddress]
-// (https://github.com/istio/istio/blob/master/pilot/pkg/proxy/envoy/v1/mixer.go#L401),
-// which is used for the old EUC policy.
-func ParseJwksURI(jwksURI string) (string, *Port, bool, error) {
-	u, err := url.Parse(jwksURI)
-	if err != nil {
-		return "", nil, false, err
-	}
-	var useSSL bool
-	var portNumber int
-	switch u.Scheme {
-	case "http":
-		useSSL = false
-		portNumber = 80
-	case "https":
-		useSSL = true
-		portNumber = 443
-	default:
-		return "", nil, false, fmt.Errorf("URI scheme %q is not supported", u.Scheme)
-	}
-
-	if u.Port() != "" {
-		portNumber, err = strconv.Atoi(u.Port())
-		if err != nil {
-			return "", nil, useSSL, err
-		}
-	}
-
-	return u.Hostname(), &Port{
-		Name: u.Scheme,
-		Port: portNumber,
-	}, useSSL, nil
 }
 
 // this function is used to construct SDS config which is only available from 1.1

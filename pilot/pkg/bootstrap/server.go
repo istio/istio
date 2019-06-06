@@ -49,6 +49,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	istio_networking_v1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/cmd"
+	"istio.io/istio/pilot/pkg/authn"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/clusterregistry"
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
@@ -956,7 +957,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 			go func() {
 				<-stop
-				model.JwtKeyResolver.Close()
+				authn.JwtKeyResolver.Close()
 
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()

@@ -30,6 +30,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/authn"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -414,7 +415,7 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
 		// SDS config for gateway to fetch key/cert at gateway agent.
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			model.ConstructSdsSecretConfigForGatewayListener(server.Tls.CredentialName, model.IngressGatewaySdsUdsPath),
+			authn.ConstructSdsSecretConfigForGatewayListener(server.Tls.CredentialName, authn.IngressGatewaySdsUdsPath),
 		}
 		// If tls mode is MUTUAL, create SDS config for gateway to fetch certificate validation context
 		// at gateway agent. Otherwise, use the static certificate validation context config.
@@ -422,8 +423,8 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 					DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
-					ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfigForGatewayListener(
-						server.Tls.CredentialName+model.IngressGatewaySdsCaSuffix, model.IngressGatewaySdsUdsPath),
+					ValidationContextSdsSecretConfig: authn.ConstructSdsSecretConfigForGatewayListener(
+						server.Tls.CredentialName+authn.IngressGatewaySdsCaSuffix, authn.IngressGatewaySdsUdsPath),
 				},
 			}
 		} else if len(server.Tls.SubjectAltNames) > 0 {

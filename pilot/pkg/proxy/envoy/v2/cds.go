@@ -20,6 +20,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/istio/pilot/pkg/authn"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -104,10 +105,10 @@ func SetTokenPathForSdsFromProxyMetadata(c *xdsapi.Cluster, node *model.Proxy) {
 					for _, svc := range sc.GetSdsConfig().GetApiConfigSource().GetGrpcServices() {
 						// If no call-credential in the cluster, no need to set SDS token path
 						if svc.GetGoogleGrpc() != nil && svc.GetGoogleGrpc().GetCallCredentials() != nil &&
-							svc.GetGoogleGrpc().GetCredentialsFactoryName() == model.FileBasedMetadataPlugName {
+							svc.GetGoogleGrpc().GetCredentialsFactoryName() == authn.FileBasedMetadataPlugName {
 							adsLog.Debugf("Set SDS token path in TLS context based on the proxy metadata")
 							svc.GetGoogleGrpc().CallCredentials =
-								model.ConstructgRPCCallCredentials(sdsTokenPath, model.K8sSAJwtTokenHeaderKey)
+								authn.ConstructgRPCCallCredentials(sdsTokenPath, authn.K8sSAJwtTokenHeaderKey)
 						}
 					}
 				}
@@ -124,10 +125,10 @@ func SetTokenPathForSdsFromProxyMetadata(c *xdsapi.Cluster, node *model.Proxy) {
 				for _, svc := range sc.GetSdsConfig().GetApiConfigSource().GetGrpcServices() {
 					// If no call-credential in the cluster, no need to set SDS token path
 					if svc.GetGoogleGrpc() != nil && svc.GetGoogleGrpc().GetCallCredentials() != nil &&
-						svc.GetGoogleGrpc().GetCredentialsFactoryName() == model.FileBasedMetadataPlugName {
+						svc.GetGoogleGrpc().GetCredentialsFactoryName() == authn.FileBasedMetadataPlugName {
 						adsLog.Debugf("Set SDS token path in validation context based on the proxy metadata")
 						svc.GetGoogleGrpc().CallCredentials =
-							model.ConstructgRPCCallCredentials(sdsTokenPath, model.K8sSAJwtTokenHeaderKey)
+							authn.ConstructgRPCCallCredentials(sdsTokenPath, authn.K8sSAJwtTokenHeaderKey)
 					}
 				}
 			}

@@ -25,6 +25,7 @@ import (
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 
+	"istio.io/istio/pilot/pkg/authn"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -200,7 +201,7 @@ func NewDiscoveryServer(
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
-	model.JwtKeyResolver.PushFunc = out.ClearCache
+	authn.JwtKeyResolver.PushFunc = out.ClearCache
 
 	if configCache != nil {
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
