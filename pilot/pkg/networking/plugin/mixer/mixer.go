@@ -169,6 +169,12 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
 		}
 		return nil
+	case plugin.ListenerProtocolThrift:
+		filter := buildInboundThriftFilter(in.Env.Mesh, attrs, in.Node)
+		for cnum := range mutable.FilterChains {
+			mutable.FilterChains[cnum].Thrift = append(mutable.FilterChains[cnum].Thrift, filter)
+		}
+		return nil
 	case plugin.ListenerProtocolTCP:
 		filter := buildInboundTCPFilter(in.Env.Mesh, attrs, in.Node)
 		for cnum := range mutable.FilterChains {
