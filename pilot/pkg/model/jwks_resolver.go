@@ -49,7 +49,8 @@ const (
 	jwksURICacheEviction = time.Minute * 30
 
 	// JwtPubKeyEvictionDuration is the life duration for cached item.
-	// Cached item will be removed from the cache if it hasn't been used longer than JwtPubKeyEvictionDuration.
+	// Cached item will be removed from the cache if it hasn't been used longer than JwtPubKeyEvictionDuration or if pilot
+	// has failed to refresh it for more than JwtPubKeyEvictionDuration.
 	JwtPubKeyEvictionDuration = 24 * 7 * time.Hour
 
 	// JwtPubKeyRefreshInterval is the running interval of JWT pubKey refresh job.
@@ -71,6 +72,9 @@ var (
 // jwtPubKeyEntry is a single cached entry for jwt public key.
 type jwtPubKeyEntry struct {
 	pubKey string
+
+	// The last success refreshed time of the pubKey.
+	lastRefreshedTime time.Time
 
 	// Cached item's last used time, which is set in GetPublicKey.
 	lastUsedTime time.Time
@@ -201,8 +205,9 @@ func (r *jwksResolver) GetPublicKey(jwksURI string) (string, error) {
 
 	pubKey := string(resp)
 	r.keyEntries.Store(jwksURI, jwtPubKeyEntry{
-		pubKey:       pubKey,
-		lastUsedTime: now,
+		pubKey:            pubKey,
+		lastRefreshedTime: now,
+		lastUsedTime:      now,
 	})
 
 	return pubKey, nil
@@ -263,13 +268,13 @@ func (r *jwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 			_ = resp.Body.Close()
 		}()
 
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			return nil, fmt.Errorf("unsuccessful response from %q", uri)
-		}
-
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
+		}
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return nil, fmt.Errorf("status %d, %s", resp.StatusCode, string(body))
 		}
 
 		return body, nil
@@ -280,8 +285,7 @@ func (r *jwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 		if err == nil {
 			return body, nil
 		}
-		log.Warnf("Failed to get remote content from %q, retry in %d seconds: %s",
-			uri, getRemoteContentRetryInSec, err)
+		log.Warnf("Failed to GET from %q: %s. Retry in %d seconds", uri, err, getRemoteContentRetryInSec)
 		time.Sleep(getRemoteContentRetryInSec * time.Second)
 	}
 
@@ -312,8 +316,14 @@ func (r *jwksResolver) refresh() {
 		jwksURI := key.(string)
 		e := value.(jwtPubKeyEntry)
 
-		// Remove cached item if it hasn't been used for a while, so we don't cache any JWT public key forever.
-		if now.Sub(e.lastUsedTime) >= r.evictionDuration {
+		// Remove cached item for either of the following 2 situations
+		// 1) it hasn't been used for a while
+		// 2) it hasn't been refreshed successfully for a while
+		// This makes sure 2 things, we don't grow the cache infinitely and also we don't reuse a cached public key
+		// with no success refresh for too much time.
+		if now.Sub(e.lastUsedTime) >= r.evictionDuration || now.Sub(e.lastRefreshedTime) >= r.evictionDuration {
+			log.Infof("Removed cached JWT public key (lastRefreshed: %s, lastUsed: %s) from %q",
+				e.lastRefreshedTime, e.lastUsedTime, jwksURI)
 			r.keyEntries.Delete(jwksURI)
 			return true
 		}
@@ -335,16 +345,14 @@ func (r *jwksResolver) refresh() {
 				return
 			}
 			newPubKey := string(resp)
-
 			r.keyEntries.Store(jwksURI, jwtPubKeyEntry{
-				pubKey:       newPubKey,
-				lastUsedTime: e.lastUsedTime, // keep original lastUsedTime.
+				pubKey:            newPubKey,
+				lastRefreshedTime: now,            // update the lastRefreshedTime if we get a success response from the network.
+				lastUsedTime:      e.lastUsedTime, // keep original lastUsedTime.
 			})
-
-			log.Infof("Refreshed JWT public key from %q", jwksURI)
 			if oldPubKey != newPubKey {
 				hasChange = true
-				log.Warnf("JWT public key from %q has changed", jwksURI)
+				log.Infof("Updated cached JWT public key from %q", jwksURI)
 			}
 		}()
 

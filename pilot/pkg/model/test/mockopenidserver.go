@@ -148,7 +148,7 @@ func (ms *MockOpenIDDiscoveryServer) jwtPubKey(w http.ResponseWriter, req *http.
 	atomic.AddUint64(&ms.PubKeyHitNum, 1)
 	if ms.ReturnErrorAfterFirstNumHits != 0 && atomic.LoadUint64(&ms.PubKeyHitNum) > ms.ReturnErrorAfterFirstNumHits {
 		w.WriteHeader(http.StatusForbidden)
-		fmt.Fprintf(w, "Mock server configured to return error after %d hits", ms.ReturnErrorForFirstNumHits)
+		fmt.Fprintf(w, "Mock server configured to return error after %d hits", ms.ReturnErrorAfterFirstNumHits)
 		return
 	}
 
