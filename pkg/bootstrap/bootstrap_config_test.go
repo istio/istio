@@ -70,6 +70,7 @@ func TestGolden(t *testing.T) {
 		annotations                map[string]string
 		expectLightstepAccessToken bool
 		stats                      stats
+		checkLocality              bool
 	}{
 		{
 			base: "auth",
@@ -85,10 +86,12 @@ func TestGolden(t *testing.T) {
 				"ISTIO_PROXY_VERSION": "istio-proxy:version",
 				"ISTIO_VERSION":       "release-3.1",
 				"POD_NAME":            "svc-0-0-0-6944fb884d-4pgx8",
+				"istio-locality":      "region.zone.sub_zone",
 			},
 			annotations: map[string]string{
 				"istio.io/insecurepath": "{\"paths\":[\"/metrics\",\"/live\"]}",
 			},
+			checkLocality: true,
 		},
 		{
 			base:                       "tracing_lightstep",
@@ -166,11 +169,12 @@ func TestGolden(t *testing.T) {
 
 			// apply minor modifications for the generated file so that tests are consistent
 			// across different env setups
-			err = ioutil.WriteFile(fn, correctForEnvDifference(read), 0700)
+			err = ioutil.WriteFile(fn, correctForEnvDifference(read, !c.checkLocality), 0700)
 			if err != nil {
 				t.Error("Error modifying generated file ", err)
 				return
 			}
+
 			// re-read generated file with the changes having been made
 			read, err = ioutil.ReadFile(fn)
 			if err != nil {
@@ -298,7 +302,7 @@ type regexReplacement struct {
 
 // correctForEnvDifference corrects the portions of a generated bootstrap config that vary depending on the environment
 // so that they match the golden file's expected value.
-func correctForEnvDifference(in []byte) []byte {
+func correctForEnvDifference(in []byte, excludeLocality bool) []byte {
 	replacements := []regexReplacement{
 		// Lightstep access tokens are written to a file and that path is dependent upon the environment variables that
 		// are set. Standardize the path so that golden files can be properly checked.
@@ -306,15 +310,18 @@ func correctForEnvDifference(in []byte) []byte {
 			pattern:     regexp.MustCompile(`("access_token_file": ").*(lightstep_access_token.txt")`),
 			replacement: []byte("$1/test-path/$2"),
 		},
+	}
+	if excludeLocality {
 		// Zone and region can vary based on the environment, so it shouldn't be considered in the diff.
-		{
-			pattern:     regexp.MustCompile(`"zone": ".+"`),
-			replacement: []byte("\"zone\": \"\""),
-		},
-		{
-			pattern:     regexp.MustCompile(`"region": ".+"`),
-			replacement: []byte("\"region\": \"\""),
-		},
+		replacements = append(replacements,
+			regexReplacement{
+				pattern:     regexp.MustCompile(`"zone": ".+"`),
+				replacement: []byte("\"zone\": \"\""),
+			},
+			regexReplacement{
+				pattern:     regexp.MustCompile(`"region": ".+"`),
+				replacement: []byte("\"region\": \"\""),
+			})
 	}
 
 	out := in

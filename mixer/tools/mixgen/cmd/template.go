@@ -81,7 +81,7 @@ spec:
 		fatalf("template in invalid: %v", err)
 	}
 
-	goPath := env.RegisterStringVar("GOPATH", "", "").Get()
+	goPath := env.RegisterStringVar("GOPATH", "", "Specifies directories outside of $GOROOT that contain the source for Go projects and their binaries.").Get()
 	tmplObj := &templateCRVar{
 		Name:       name,
 		Namespace:  ns,

@@ -18,7 +18,7 @@ spec:
       not_paths: ["/bad-path*"]
     - constraints:
       - key: "destination.port"
-        values: ["90"]
+        values: ["9090"]
 ---
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
@@ -49,7 +49,7 @@ spec:
 ---
 
 # For service b, allow any user to access it with GET at any paths except /secret*
-# or only access it at tcp port 90.
+# or only access it at tcp port 9090.
 # Instead of creating a separate ServiceRole policy, we create an inline role definition inside AuthorizationPolicy.
 
 apiVersion: "rbac.istio.io/v1alpha1"
@@ -69,5 +69,5 @@ spec:
           not_paths: ["/secret*"]
         - constraints:
           - key: "destination.port"
-            values: ["90"]
+            values: ["9090"]
 ---

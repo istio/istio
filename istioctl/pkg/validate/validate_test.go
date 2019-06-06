@@ -30,6 +30,134 @@ import (
 )
 
 const (
+	validDeploymentList = `
+apiVersion: v1
+items:
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    labels:
+      app: hello
+      version: v1
+    name: hello-v1
+  spec:
+    replicas: 1
+    template:
+      metadata:
+        labels:
+          app: hello
+          version: v1
+      spec:
+        containers:
+        - name: hello
+          image: istio/examples-hello
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: 9080
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    labels:
+      app: details
+      version: v2
+    name: details
+  spec:
+    replicas: 1
+    template:
+      metadata:
+        labels:
+          app: details
+          version: v1
+      spec:
+        containers:
+        - name: details
+          image: istio/examples-bookinfo-details-v1:1.10.1
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: 9080
+kind: List
+metadata:
+  resourceVersion: ""
+  selfLink: ""`
+	invalidSvcList = `
+apiVersion: v1
+items: 
+  - 
+    apiVersion: v1
+    kind: Service
+    metadata: 
+      name: details
+    spec: 
+      ports: 
+        - 
+          name: details
+          port: 9080
+  - 
+    apiVersion: v1
+    kind: Service
+    metadata: 
+      name: hello
+    spec: 
+      ports: 
+        - 
+          port: 80
+          protocol: TCP
+kind: List
+metadata: 
+  resourceVersion: ""`
+	udpService = `
+kind: Service
+metadata: 
+  name: hello
+spec: 
+  ports: 
+    - 
+      protocol: udp`
+	skippedService = `
+kind: Service
+metadata: 
+  name: hello
+  namespace: istio-system
+spec: 
+  ports: 
+    - 
+      name: http
+      port: 9080`
+	validPortNamingSvc = `
+apiVersion: v1
+kind: Service
+metadata: 
+  name: hello
+spec: 
+  ports: 
+    - name: http
+      port: 9080`
+	validPortNamingWithSuffixSvc = `
+apiVersion: v1
+kind: Service
+metadata: 
+  name: hello
+spec: 
+  ports: 
+    - name: http-hello
+      port: 9080`
+	invalidPortNamingSvc = `
+apiVersion: v1
+kind: Service
+metadata: 
+  name: hello
+spec: 
+  ports: 
+    - name: hello
+      port: 9080`
+	portNameMissingSvc = `
+apiVersion: v1
+kind: Service
+metadata: 
+  name: hello
+spec: 
+  ports: 
+  - protocol: TCP`
 	validVirtualService = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -126,7 +254,20 @@ metadata:
 unexpected_junk:
    still_more_junk:
 spec:
-  host: productpage`
+	host: productpage`
+	versionLabelMissingDeployment = `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello
+spec:`
+	skippedDeployment = `
+apiVersion: apps/v1
+kind: Deployment
+metadata: 
+  name: hello
+  namespace: istio-system
+spec: ~`
 )
 
 func fromYAML(in string) *unstructured.Unstructured {
@@ -136,7 +277,6 @@ func fromYAML(in string) *unstructured.Unstructured {
 	}
 	return &un
 }
-
 func TestValidateResource(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -163,6 +303,56 @@ func TestValidateResource(t *testing.T) {
 			in:    invalidMixerRule,
 			valid: false,
 		},
+		{
+			name:  "port name missing service",
+			in:    portNameMissingSvc,
+			valid: false,
+		},
+		{
+			name:  "version label missing deployment",
+			in:    versionLabelMissingDeployment,
+			valid: true,
+		},
+		{
+			name:  "valid port naming service",
+			in:    validPortNamingSvc,
+			valid: true,
+		},
+		{
+			name:  "valid port naming with suffix service",
+			in:    validPortNamingWithSuffixSvc,
+			valid: true,
+		},
+		{
+			name:  "invalid port naming service",
+			in:    invalidPortNamingSvc,
+			valid: false,
+		},
+		{
+			name:  "invalid service list",
+			in:    invalidSvcList,
+			valid: false,
+		},
+		{
+			name:  "valid deployment list",
+			in:    validDeploymentList,
+			valid: true,
+		},
+		{
+			name:  "skip validating deployment",
+			in:    skippedDeployment,
+			valid: true,
+		},
+		{
+			name:  "skip validating service",
+			in:    skippedService,
+			valid: true,
+		},
+		{
+			name:  "service with udp port",
+			in:    udpService,
+			valid: true,
+		},
 	}
 
 	for i, c := range cases {
@@ -170,7 +360,7 @@ func TestValidateResource(t *testing.T) {
 			v := &validator{
 				mixerValidator: mixervalidate.NewDefaultValidator(false),
 			}
-			err := v.validateResource(fromYAML(c.in))
+			err := v.validateResource("istio-system", fromYAML(c.in))
 			if (err == nil) != c.valid {
 				tt.Fatalf("unexpected validation result: got %v want %v: err=%q", err == nil, c.valid, err)
 			}
@@ -224,8 +414,23 @@ func TestValidateCommand(t *testing.T) {
 	invalidMixerKindFile, closeInvalidMixerKindFile := createTestFile(t, invalidMixerKind)
 	defer closeInvalidMixerKindFile.Close()
 
+	versionLabelMissingDeploymentFile, closeVersionLabelMissingDeploymentFile := createTestFile(t, versionLabelMissingDeployment)
+	defer closeVersionLabelMissingDeploymentFile.Close()
+
+	portNameMissingSvcFile, closePortNameMissingSvcFile := createTestFile(t, portNameMissingSvc)
+	defer closePortNameMissingSvcFile.Close()
+
 	unsupportedKeyFilename, closeUnsupportedKeyFile := createTestFile(t, invalidUnsupportedKey)
 	defer closeUnsupportedKeyFile.Close()
+
+	validPortNamingSvcFile, closeValidPortNamingSvcFile := createTestFile(t, validPortNamingSvc)
+	defer closeValidPortNamingSvcFile.Close()
+
+	validPortNamingWithSuffixSvcFile, closeValidPortNamingWithSuffixSvcFile := createTestFile(t, validPortNamingWithSuffixSvc)
+	defer closeValidPortNamingWithSuffixSvcFile.Close()
+
+	invalidPortNamingSvcFile, closeInvalidPortNamingSvcFile := createTestFile(t, invalidPortNamingSvc)
+	defer closeInvalidPortNamingSvcFile.Close()
 
 	cases := []struct {
 		name           string
@@ -233,6 +438,21 @@ func TestValidateCommand(t *testing.T) {
 		wantError      bool
 		expectedRegexp *regexp.Regexp // Expected regexp output
 	}{
+		{
+			name:      "valid port naming service",
+			args:      []string{"--filename", validPortNamingSvcFile},
+			wantError: false,
+		},
+		{
+			name:      "valid port naming with suffix service",
+			args:      []string{"--filename", validPortNamingWithSuffixSvcFile},
+			wantError: false,
+		},
+		{
+			name:      "invalid port naming service",
+			args:      []string{"--filename", invalidPortNamingSvcFile},
+			wantError: true,
+		},
 		{
 			name:      "filename missing",
 			wantError: true,
@@ -283,11 +503,21 @@ $`),
 			args:      []string{"--filename", unsupportedKeyFilename},
 			wantError: true,
 		},
+		{
+			name:      "version label missing deployment",
+			args:      []string{"--filename", versionLabelMissingDeploymentFile},
+			wantError: false,
+		},
+		{
+			name:      "port name missing service",
+			args:      []string{"--filename", portNameMissingSvcFile},
+			wantError: true,
+		},
 	}
-
+	istioNamespace := "istio-system"
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v] %v ", i, c.name), func(tt *testing.T) {
-			validateCmd := NewValidateCommand()
+			validateCmd := NewValidateCommand(&istioNamespace)
 			validateCmd.SetArgs(c.args)
 
 			// capture output to keep test logs clean
@@ -299,7 +529,6 @@ $`),
 				tt.Errorf("unexpected validate return status: got %v want %v: \nerr=%v",
 					err != nil, c.wantError, err)
 			}
-
 			output := out.String()
 			if c.expectedRegexp != nil && !c.expectedRegexp.MatchString(output) {
 				t.Errorf("Output didn't match for 'istioctl %s'\n got %v\nwant: %v",

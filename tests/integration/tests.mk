@@ -53,7 +53,7 @@ test.integration.%.kube:
 	${_INTEGRATION_TEST_INGRESS_FLAG}
 
 # Generate integration test targets for local environment.
-test.integration.%:
+test.integration.%.local:
 	$(GO) test -p 1 ${T} ./tests/integration/$*/... --istio.test.env native
 
 JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml

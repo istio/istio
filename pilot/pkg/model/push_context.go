@@ -471,20 +471,20 @@ func (ps *PushContext) GetAllSidecarScopes() map[string][]*SidecarScope {
 
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
-	// If proxy has a sidecar scope that is user supplied, then get the destination rules from the sidecar scope
-	// sidecarScope.config is nil if there is no sidecar scope for the namespace
-	if proxy != nil && proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
-		// If there is a sidecar scope for this proxy, return the destination rule
-		// from the sidecar scope.
-		return proxy.SidecarScope.DestinationRule(service.Hostname)
-	}
-
 	// FIXME: this code should be removed once the EDS issue is fixed
 	if proxy == nil {
 		if host, ok := MostSpecificHostMatch(service.Hostname, ps.allExportedDestRules.hosts); ok {
 			return ps.allExportedDestRules.destRule[host].config
 		}
 		return nil
+	}
+
+	// If proxy has a sidecar scope that is user supplied, then get the destination rules from the sidecar scope
+	// sidecarScope.config is nil if there is no sidecar scope for the namespace
+	if proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
+		// If there is a sidecar scope for this proxy, return the destination rule
+		// from the sidecar scope.
+		return proxy.SidecarScope.DestinationRule(service.Hostname)
 	}
 
 	// If the proxy config namespace is same as the root config namespace
@@ -886,7 +886,7 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 		}
 		// Merge this destination rule with any public/private dest rules for same host in the same namespace
 		// If there are no duplicates, the dest rule will be added to the list
-		namespaceLocalDestRules[configs[i].Namespace].hosts, _ = ps.combineSingleDestinationRule(
+		namespaceLocalDestRules[configs[i].Namespace].hosts = ps.combineSingleDestinationRule(
 			namespaceLocalDestRules[configs[i].Namespace].hosts,
 			namespaceLocalDestRules[configs[i].Namespace].destRule,
 			configs[i])
@@ -917,14 +917,14 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 			}
 			// Merge this destination rule with any public dest rule for the same host in the same namespace
 			// If there are no duplicates, the dest rule will be added to the list
-			namespaceExportedDestRules[configs[i].Namespace].hosts, _ = ps.combineSingleDestinationRule(
+			namespaceExportedDestRules[configs[i].Namespace].hosts = ps.combineSingleDestinationRule(
 				namespaceExportedDestRules[configs[i].Namespace].hosts,
 				namespaceExportedDestRules[configs[i].Namespace].destRule,
 				configs[i])
 
 			// Merge this destination rule with any public dest rule for the same host
 			// across all namespaces. If there are no duplicates, the dest rule will be added to the list
-			allExportedDestRules.hosts, _ = ps.combineSingleDestinationRule(
+			allExportedDestRules.hosts = ps.combineSingleDestinationRule(
 				allExportedDestRules.hosts, allExportedDestRules.destRule, configs[i])
 		}
 	}

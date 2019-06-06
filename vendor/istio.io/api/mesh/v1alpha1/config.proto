@@ -140,6 +140,11 @@ message MeshConfig {
   // Default value is text.
   AccessLogEncoding access_log_encoding = 27;
 
+  // This flag enables Envoy's gRPC Access Log Service.
+  // See [Access Log Service](https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto)
+  // for details about Envoy's gRPC Access Log Service API.
+  bool enable_envoy_access_log_service = 40;
+
   // Default proxy config used by the proxy injection mechanism operating in the mesh
   // (e.g. Kubernetes admission controller)
   // In case of Kubernetes, the proxy config is applied once during the injection process,
@@ -297,8 +302,22 @@ message MeshConfig {
   // defaults of istio::mixerclient::ReportOptions.
   google.protobuf.Duration report_batch_max_time = 39;
 
+  // Default Policy for upgrading http1.1 connections to http2.
+  enum H2UpgradePolicy {
+    // Do not upgrade connections to http2.
+    DO_NOT_UPGRADE = 0;
+    // Upgrade the connections to http2.
+    UPGRADE = 1;
+  }
+
+  // Specify if http1.1 connections should be upgraded to http2 by default.
+  // if sidecar is installed on all pods in the mesh, then this should be set to UPGRADE.
+  // If one or more services or namespaces do not have sidecar(s), then this should be set to DO_NOT_UPGRADE.
+  // It can be enabled by destination using the destinationRule.trafficPolicy.connectionPool.http.h2UpgradePolicy override.
+  H2UpgradePolicy h2_upgrade_policy = 41;
+
   // $hide_from_docs
-  // Next available field number: 40
+  // Next available field number: 42
 }
 
 // ConfigSource describes information about a configuration store inside a
