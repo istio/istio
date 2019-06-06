@@ -154,8 +154,9 @@ func (h *Handler) connect() (err error) {
 	if err != nil {
 		return err
 	}
-	opts = append(opts, grpc.WithBalancerName(roundrobin.Name))
-	if h.conn, err = grpc.Dial(h.connConfig.GetAddress(), opts...); err != nil {
+	dialTarget := "dns:///" + h.connConfig.GetAddress()
+	opts = append(opts, grpc.WithBalancerName(roundrobin.Name), grpc.WithDisableServiceConfig())
+	if h.conn, err = grpc.Dial(dialTarget, opts...); err != nil {
 		handlerLog.Errorf("Unable to connect to:%s %v", h.connConfig.GetAddress(), err)
 		return errors.WithStack(err)
 	}
