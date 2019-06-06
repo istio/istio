@@ -44,6 +44,7 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/config/kube/crd/controller"
 	"istio.io/istio/pilot/pkg/model"
 	kubecfg "istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -730,7 +731,7 @@ func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configLis
 }
 
 func newClient() (model.ConfigStore, error) {
-	return crd.NewClient(kubeconfig, configContext, model.IstioConfigTypes, "")
+	return controller.NewClient(kubeconfig, configContext, model.IstioConfigTypes, "")
 }
 
 func supportedTypes(configClient model.ConfigStore) []string {

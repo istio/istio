@@ -15,6 +15,7 @@
 package crd
 
 import (
+	"istio.io/istio/pilot/pkg/model"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -120,4 +121,27 @@ func (in *IstioKindList) DeepCopyObject() runtime.Object {
 	}
 
 	return nil
+}
+
+// IstioObject is a k8s wrapper interface for config objects
+type IstioObject interface {
+	runtime.Object
+	GetSpec() map[string]interface{}
+	SetSpec(map[string]interface{})
+	GetObjectMeta() meta_v1.ObjectMeta
+	SetObjectMeta(meta_v1.ObjectMeta)
+}
+
+// IstioObjectList is a k8s wrapper interface for config lists
+type IstioObjectList interface {
+	runtime.Object
+	GetItems() []IstioObject
+}
+
+func ApiVersion(schema *model.ProtoSchema) string {
+	return ResourceGroup(schema) + "/" + schema.Version
+}
+
+func ApiVersionFromConfig(config *model.Config) string {
+	return config.Group + "/" + config.Version
 }

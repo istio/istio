@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package crd
+package controller
 
 import (
 	"errors"
@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/features/pilot"
@@ -37,7 +38,7 @@ import (
 // controller is a collection of synchronized resource watchers.
 // Caches are thread-safe
 type controller struct {
-	client *Client
+	client *client
 	queue  kube.Queue
 	kinds  map[string]cacheHandler
 }
@@ -71,7 +72,7 @@ func init() {
 
 // NewController creates a new Kubernetes controller for CRDs
 // Use "" for namespace to listen for all namespace changes
-func NewController(client *Client, options kube.ControllerOptions) model.ConfigStoreCache {
+func NewController(client *client, options kube.ControllerOptions) model.ConfigStoreCache {
 	log.Infof("CRD controller watching namespaces %q", options.WatchedNamespace)
 
 	// Queue requires a time duration for a retry delay after a handler error
@@ -90,15 +91,15 @@ func NewController(client *Client, options kube.ControllerOptions) model.ConfigS
 }
 
 func (c *controller) addInformer(schema model.ProtoSchema, namespace string, resyncPeriod time.Duration) {
-	c.kinds[schema.Type] = c.createInformer(knownTypes[schema.Type].object.DeepCopyObject(), schema.Type, resyncPeriod,
+	c.kinds[schema.Type] = c.createInformer(crd.KnownTypes[schema.Type].Object.DeepCopyObject(), schema.Type, resyncPeriod,
 		func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
-			result = knownTypes[schema.Type].collection.DeepCopyObject()
-			rc, ok := c.client.clientset[apiVersion(&schema)]
+			result = crd.KnownTypes[schema.Type].Collection.DeepCopyObject()
+			rc, ok := c.client.clientset[crd.ApiVersion(&schema)]
 			if !ok {
 				return nil, fmt.Errorf("client not initialized %s", schema.Type)
 			}
 			req := rc.dynamic.Get().
-				Resource(ResourceName(schema.Plural)).
+				Resource(crd.ResourceName(schema.Plural)).
 				VersionedParams(&opts, meta_v1.ParameterCodec)
 
 			if !schema.ClusterScoped {
@@ -108,13 +109,13 @@ func (c *controller) addInformer(schema model.ProtoSchema, namespace string, res
 			return
 		},
 		func(opts meta_v1.ListOptions) (watch.Interface, error) {
-			rc, ok := c.client.clientset[apiVersion(&schema)]
+			rc, ok := c.client.clientset[crd.ApiVersion(&schema)]
 			if !ok {
 				return nil, fmt.Errorf("client not initialized %s", schema.Type)
 			}
 			opts.Watch = true
 			req := rc.dynamic.Get().
-				Resource(ResourceName(schema.Plural)).
+				Resource(crd.ResourceName(schema.Plural)).
 				VersionedParams(&opts, meta_v1.ParameterCodec)
 			if !schema.ClusterScoped {
 				req = req.Namespace(namespace)
@@ -180,9 +181,9 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 		return
 	}
 	c.kinds[typ].handler.Append(func(object interface{}, ev model.Event) error {
-		item, ok := object.(IstioObject)
+		item, ok := object.(crd.IstioObject)
 		if ok {
-			config, err := ConvertObject(schema, item, c.client.domainSuffix)
+			config, err := crd.ConvertObject(schema, item, c.client.domainSuffix)
 			if err != nil {
 				log.Warnf("error translating object for schema %#v : %v\n Object:\n%#v", schema, err, object)
 			} else {
@@ -239,13 +240,13 @@ func (c *controller) Get(typ, name, namespace string) *model.Config {
 		return nil
 	}
 
-	obj, ok := data.(IstioObject)
+	obj, ok := data.(crd.IstioObject)
 	if !ok {
 		log.Warn("Cannot convert to config from store")
 		return nil
 	}
 
-	config, err := ConvertObject(schema, obj, c.client.domainSuffix)
+	config, err := crd.ConvertObject(schema, obj, c.client.domainSuffix)
 	if err != nil {
 		return nil
 	}
@@ -282,7 +283,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 		})
 	}
 	for _, data := range c.kinds[typ].informer.GetStore().List() {
-		item, ok := data.(IstioObject)
+		item, ok := data.(crd.IstioObject)
 		if !ok {
 			continue
 		}
@@ -291,7 +292,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 			continue
 		}
 
-		config, err := ConvertObject(schema, item, c.client.domainSuffix)
+		config, err := crd.ConvertObject(schema, item, c.client.domainSuffix)
 		if err != nil {
 			key := item.GetObjectMeta().Namespace + "/" + item.GetObjectMeta().Name
 			log.Errorf("Failed to convert %s object, ignoring: %s %v %v", typ, key, err, item.GetSpec())
