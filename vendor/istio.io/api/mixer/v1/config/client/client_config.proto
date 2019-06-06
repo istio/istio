@@ -147,14 +147,14 @@ message TransportConfig {
   Attributes attributes_for_mixer_proxy = 8;
 
   // When disable_report_batch is false, this value specifies the maximum number
-  // of requests that are batched in report. If left unspecified, the default value 
-  // of report_batch_max_entries == 0 will use the hardcoded defaults of 
+  // of requests that are batched in report. If left unspecified, the default value
+  // of report_batch_max_entries == 0 will use the hardcoded defaults of
   // istio::mixerclient::ReportOptions.
   uint32 report_batch_max_entries = 9;
 
-  // When disable_report_batch is false, this value specifies the maximum elapsed 
+  // When disable_report_batch is false, this value specifies the maximum elapsed
   // time a batched report will be sent after a user request is processed. If left
-  // unspecified, the default report_batch_max_time == 0 will use the hardcoded 
+  // unspecified, the default report_batch_max_time == 0 will use the hardcoded
   // defaults of istio::mixerclient::ReportOptions.
   google.protobuf.Duration report_batch_max_time = 10;
 }
@@ -207,4 +207,37 @@ message TcpClientConfig {
   // connections. If not specified, the interval is 10 seconds. This interval
   // should not be less than 1 second, otherwise it will be reset to 1 second.
   google.protobuf.Duration report_interval = 6;
+}
+
+// Defines the client config for Thrift.
+message ThriftClientConfig {
+  // The transport config.
+  TransportConfig transport = 1;
+
+  // Map of control configuration indexed by destination.service. This
+  // is used to support per-service configuration for cases where a
+  // mixerclient serves multiple services.
+  map<string, ServiceConfig> service_configs = 2;
+
+  // Default destination service name if none was specified in the
+  // client request.
+  string default_destination_service = 3;
+
+  // Default attributes to send to Mixer in both Check and
+  // Report. This typically includes "destination.ip" and
+  // "destination.uid" attributes.
+  Attributes mixer_attributes = 4;
+
+  // Default attributes to forward to upstream. This typically
+  // includes the "source.ip" and "source.uid" attributes.
+  Attributes forward_attributes = 5;
+
+  // Quota specifications to generate quota requirements.
+  // It applies on the new TCP connections.
+  QuotaSpec connection_quota_spec = 6;
+
+  // Specify report interval to send periodical reports for long Thrift
+  // connections. If not specified, the interval is 10 seconds. This interval
+  // should not be less than 1 second, otherwise it will be reset to 1 second.
+  google.protobuf.Duration report_interval = 7;
 }

@@ -7,15 +7,16 @@ import (
 	bytes "bytes"
 	encoding_binary "encoding/binary"
 	fmt "fmt"
-	proto "github.com/gogo/protobuf/proto"
-	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
-	types "github.com/gogo/protobuf/types"
 	io "io"
-	v1beta1 "istio.io/api/policy/v1beta1"
 	math "math"
 	reflect "reflect"
 	strconv "strconv"
 	strings "strings"
+
+	proto "github.com/gogo/protobuf/proto"
+	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+	types "github.com/gogo/protobuf/types"
+	v1beta1 "istio.io/api/policy/v1beta1"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.

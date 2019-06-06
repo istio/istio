@@ -30,8 +30,6 @@ import (
 	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1"
 	"github.com/gogo/protobuf/types"
 
-	// TODO remove this when api defs are merged
-	mccpbNew "github.com/pnovotnak/api/mixer/v1/config/client"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -522,39 +520,47 @@ func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *
 }
 
 func buildOutboundThriftFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) thrift_proxy.ThriftFilter {
-	config := &mccpbNew.ThriftClientConfig{
-		DisableCheckCalls: disablePolicyChecks(outbound, mesh, node),
-		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-		Transport:         buildTransport(mesh, node),
+	config := &mccpb.ThriftClientConfig{
+		DefaultDestinationService: defaultConfig,
+		ServiceConfigs: map[string]*mccpb.ServiceConfig{
+			defaultConfig: {
+				DisableCheckCalls: disablePolicyChecks(outbound, mesh, node),
+			},
+		},
+		MixerAttributes: &mpb.Attributes{Attributes: attrs},
+		ForwardAttributes: &mpb.Attributes{Attributes: attributes{
+			"source.uid": attrUID(node),
+		}},
+		Transport: buildTransport(mesh, node),
 	}
 
-	out := listener.Filter{
+	out := thrift_proxy.ThriftFilter{
 		Name: mixer,
 	}
 
 	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+		out.ConfigType = &thrift_proxy.ThriftFilter_TypedConfig{TypedConfig: util.MessageToAny(config)}
 	} else {
-		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+		out.ConfigType = &thrift_proxy.ThriftFilter_Config{Config: util.MessageToStruct(config)}
 	}
 
 	return out
 }
 
-func buildInboundThriftFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) listener.Filter {
+func buildInboundThriftFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) thrift_proxy.ThriftFilter {
 	config := &mccpb.TcpClientConfig{
 		DisableCheckCalls: disablePolicyChecks(inbound, mesh, node),
 		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 		Transport:         buildTransport(mesh, node),
 	}
-	out := listener.Filter{
+	out := thrift_proxy.ThriftFilter{
 		Name: mixer,
 	}
 
 	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+		out.ConfigType = &thrift_proxy.ThriftFilter_TypedConfig{TypedConfig: util.MessageToAny(config)}
 	} else {
-		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+		out.ConfigType = &thrift_proxy.ThriftFilter_Config{Config: util.MessageToStruct(config)}
 	}
 
 	return out

@@ -382,8 +382,6 @@ github.com/philhofer/fwd
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
-# github.com/pnovotnak/api v0.0.0-20190604023128-cb99ab91412e
-github.com/pnovotnak/api/mixer/v1/config/client
 # github.com/pquerna/cachecontrol v0.0.0-20180306154005-525d0eb5f91d
 github.com/pquerna/cachecontrol
 github.com/pquerna/cachecontrol/cacheobject
@@ -668,7 +666,7 @@ gopkg.in/square/go-jose.v2/cipher
 gopkg.in/stack.v1
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
-# istio.io/api v0.0.0-20190604023128-6f137ab2ce6d
+# istio.io/api v0.0.0-20190515205759-982e5c3888c6 => github.com/pnovotnak/api v0.0.0-20190604023128-cb99ab91412e
 istio.io/api/mesh/v1alpha1
 istio.io/api/authentication/v1alpha1
 istio.io/api/mixer/v1/config/client

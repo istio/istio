@@ -6,6 +6,8 @@ replace github.com/golang/glog => github.com/istio/glog v0.0.0-20190424172949-d7
 
 replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
 
+replace istio.io/api => github.com/pnovotnak/api v0.0.0-20190604023128-cb99ab91412e
+
 replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538-2789fed3109c
 
 require (
@@ -140,7 +142,6 @@ require (
 	github.com/philhofer/fwd v1.0.0 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/pmezard/go-difflib v1.0.0
-	github.com/pnovotnak/api v0.0.0-20190604023128-cb99ab91412e
 	github.com/pquerna/cachecontrol v0.0.0-20180306154005-525d0eb5f91d // indirect
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
 	github.com/prometheus/client_model v0.0.0-20190115171406-56726106282f
@@ -183,7 +184,7 @@ require (
 	gopkg.in/stack.v1 v1.7.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 	gotest.tools v2.2.0+incompatible // indirect
-	istio.io/api v0.0.0-20190604023128-6f137ab2ce6d
+	istio.io/api v0.0.0-20190515205759-982e5c3888c6
 	istio.io/pkg v0.0.0-20190516214103-40b7bf4c7321
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471
 	k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87
