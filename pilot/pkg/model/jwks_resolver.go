@@ -48,15 +48,6 @@ const (
 	// jwksURICacheEviction specifies the frequency at which eviction activities take place.
 	jwksURICacheEviction = time.Minute * 30
 
-	// JwtPubKeyExpireDuration is the duration of a JWT public key cache time. A JWT public key will
-	// be cached for this duration when it's returned successfully from the network.
-	// This implies the following:
-	// 1) The cached JWT public key will be used even if the refresh job failed to update it from the
-	//    network within this duration.
-	// 2) The cached JWT public key will be expired if the refresh job failed to update it for the whole
-	//    of this duration.
-	JwtPubKeyExpireDuration = 24 * 7 * time.Hour
-
 	// JwtPubKeyEvictionDuration is the life duration for cached item.
 	// Cached item will be removed from the cache if it hasn't been used longer than JwtPubKeyEvictionDuration.
 	JwtPubKeyEvictionDuration = 24 * 7 * time.Hour
@@ -64,9 +55,9 @@ const (
 	// JwtPubKeyRefreshInterval is the running interval of JWT pubKey refresh job.
 	JwtPubKeyRefreshInterval = time.Minute * 20
 
-	// jwtPubKeyFetchRetryInterval is the retry interval between the attempt to retry fetching
+	// jwtPubKeyFetchRetryInSec is the retry interval between the attempt to retry fetching
 	// the public key from network.
-	jwtPubKeyFetchRetryInterval = time.Second
+	jwtPubKeyFetchRetryInSec = 1
 )
 
 var (
@@ -80,9 +71,6 @@ var (
 // jwtPubKeyEntry is a single cached entry for jwt public key.
 type jwtPubKeyEntry struct {
 	pubKey string
-
-	// Cached item will be fetched again by refresher job if (time.now >= expireTime).
-	expireTime time.Time
 
 	// Cached item's last used time, which is set in GetPublicKey.
 	lastUsedTime time.Time
@@ -104,8 +92,6 @@ type jwksResolver struct {
 	httpClient       *http.Client
 	refreshTicker    *time.Ticker
 
-	expireDuration time.Duration
-
 	// Cached key will be removed from cache if (time.now - cachedItem.lastUsedTime >= evictionDuration), this prevents key cache growing indefinitely.
 	evictionDuration time.Duration
 
@@ -113,17 +99,16 @@ type jwksResolver struct {
 	refreshInterval time.Duration
 
 	// How many times refresh job has detected JWT public key change happened, used in unit test.
-	keyChangedCount uint64
+	refreshJobKeyChangedCount uint64
 
-	// How many times refresh job has updated the cached JWT public key when failed to fetch from network, used in unit test.
-	keyRefreshFailedCount uint64
+	// How many times refresh job failed to fetch the public key from network, used in unit test.
+	refreshJobFetchFailedCount uint64
 }
 
 // newJwksResolver creates new instance of jwksResolver.
-func newJwksResolver(expireDuration, evictionDuration, refreshInterval time.Duration) *jwksResolver {
+func newJwksResolver(evictionDuration, refreshInterval time.Duration) *jwksResolver {
 	ret := &jwksResolver{
 		JwksURICache:     cache.NewTTL(jwksURICacheExpiration, jwksURICacheEviction),
-		expireDuration:   expireDuration,
 		evictionDuration: evictionDuration,
 		refreshInterval:  refreshInterval,
 		httpClient: &http.Client{
@@ -153,8 +138,8 @@ func newJwksResolver(expireDuration, evictionDuration, refreshInterval time.Dura
 		}
 	}
 
-	atomic.StoreUint64(&ret.keyChangedCount, 0)
-	atomic.StoreUint64(&ret.keyRefreshFailedCount, 0)
+	atomic.StoreUint64(&ret.refreshJobKeyChangedCount, 0)
+	atomic.StoreUint64(&ret.refreshJobFetchFailedCount, 0)
 	go ret.refresher()
 
 	return ret
@@ -201,22 +186,13 @@ func (r *jwksResolver) GetPublicKey(jwksURI string) (string, error) {
 	now := time.Now()
 	if val, found := r.keyEntries.Load(jwksURI); found {
 		e := val.(jwtPubKeyEntry)
-
-		// Return from cache if it's not expired.
-		if e.expireTime.After(now) {
-			// Update cached key's last used time.
-			e.lastUsedTime = now
-			r.keyEntries.Store(jwksURI, e)
-			return e.pubKey, nil
-		}
+		// Update cached key's last used time.
+		e.lastUsedTime = now
+		r.keyEntries.Store(jwksURI, e)
+		return e.pubKey, nil
 	}
 
-	// Fetch key if it's not cached, or cached item is expired.
-	// The cache expiration happens if the jwt public key refresh have been constantly failing for
-	// the past 1 week (JwtPubKeyExpireDuration).
-	// For security reasons, we will stop using the cached public key if it still fails this time.
-	// This means either the customer should update to use a new jwks URI or there are some constant
-	// errors that prevents pilot to access the network.
+	// Fetch key if it's not cached, only retry once as this is in the critical path for pushing configs.
 	resp, err := r.getRemoteContentWithRetry(jwksURI, 1)
 	if err != nil {
 		log.Errorf("Failed to fetch public key from %q: %v", jwksURI, err)
@@ -226,7 +202,6 @@ func (r *jwksResolver) GetPublicKey(jwksURI string) (string, error) {
 	pubKey := string(resp)
 	r.keyEntries.Store(jwksURI, jwtPubKeyEntry{
 		pubKey:       pubKey,
-		expireTime:   now.Add(r.expireDuration),
 		lastUsedTime: now,
 	})
 
@@ -240,7 +215,7 @@ func (r *jwksResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) 
 		return uri.(string), nil
 	}
 
-	// Try to get jwks_uri through OpenID Discovery.
+	// Try to get jwks_uri through OpenID Discovery, only retry once as this is in the critical path for pushing configs.
 	body, err := r.getRemoteContentWithRetry(issuer+openIDDiscoveryCfgURLSuffix, 1)
 	if err != nil {
 		log.Errorf("Failed to fetch jwks_uri from %q: %v", issuer+openIDDiscoveryCfgURLSuffix, err)
@@ -301,20 +276,22 @@ func (r *jwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 	}
 
 	for i := 0; i < retry; i++ {
-		if body, err := getPublicKey(); err == nil {
+		body, err := getPublicKey()
+		if err == nil {
 			return body, nil
 		}
-		time.Sleep(jwtPubKeyFetchRetryInterval)
+		log.Warnf("Failed to fetch JWT public key from %q, retry in %d seconds: %s",
+			uri, jwtPubKeyFetchRetryInSec, err)
+		time.Sleep(jwtPubKeyFetchRetryInSec * time.Second)
 	}
 
-	// Return the last fetch directly, reaching here means we have already already tried `retry` times
-	// for fetching the public key.
+	// Return the last fetch directly, reaching here means we have tried `retry` times, this will be
+	// the last time for the retry.
 	return getPublicKey()
 }
 
 func (r *jwksResolver) refresher() {
 	// Wake up once in a while and refresh stale items.
-	//Write
 	r.refreshTicker = time.NewTicker(r.refreshInterval)
 	for {
 		select {
@@ -335,7 +312,7 @@ func (r *jwksResolver) refresh() {
 		jwksURI := key.(string)
 		e := value.(jwtPubKeyEntry)
 
-		// Remove cached item if it hasn't been used for a while.
+		// Remove cached item if it hasn't been used for a while, so we don't cache any JWT public key forever.
 		if now.Sub(e.lastUsedTime) >= r.evictionDuration {
 			r.keyEntries.Delete(jwksURI)
 			return true
@@ -350,25 +327,24 @@ func (r *jwksResolver) refresh() {
 			// Decrement the counter when the goroutine completes.
 			defer wg.Done()
 
+			// Retry more aggressively in the refresh job.
 			resp, err := r.getRemoteContentWithRetry(jwksURI, 3)
 			if err != nil {
-				log.Errorf("Failed to refresh JWT public key from %q, reusing the cached public key: %v", jwksURI, err)
-				atomic.AddUint64(&r.keyRefreshFailedCount, 1)
-				// Return directly without updating the expireTime for the failed fetch.
+				log.Errorf("Failed to refresh JWT public key from %q: %v", jwksURI, err)
+				atomic.AddUint64(&r.refreshJobFetchFailedCount, 1)
 				return
 			}
 			newPubKey := string(resp)
 
 			r.keyEntries.Store(jwksURI, jwtPubKeyEntry{
 				pubKey:       newPubKey,
-				expireTime:   now.Add(r.expireDuration), // Update expireTime even if prev/current keys are the same.
-				lastUsedTime: e.lastUsedTime,            // keep original lastUsedTime.
+				lastUsedTime: e.lastUsedTime, // keep original lastUsedTime.
 			})
 
-			log.Infof("Refreshed to use JWT public key from %q", jwksURI)
+			log.Infof("Refreshed JWT public key from %q", jwksURI)
 			if oldPubKey != newPubKey {
 				hasChange = true
-				log.Infof("The JWT public key has changed from %q", jwksURI)
+				log.Warnf("JWT public key from %q has changed", jwksURI)
 			}
 		}()
 
@@ -379,7 +355,7 @@ func (r *jwksResolver) refresh() {
 	wg.Wait()
 
 	if hasChange {
-		atomic.AddUint64(&r.keyChangedCount, 1)
+		atomic.AddUint64(&r.refreshJobKeyChangedCount, 1)
 		// Push public key changes to sidecars.
 		if r.PushFunc != nil {
 			r.PushFunc()
