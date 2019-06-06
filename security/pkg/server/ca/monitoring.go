@@ -71,7 +71,7 @@ var (
 			Name:      "citadel_root_cert_expiry_timestamp",
 			Subsystem: "server",
 			Help: "The unix timestamp, in seconds, when Citadel root cert will expire. " +
-				"We set it to negative in case of internal error",
+				"We set it to negative in case of internal error.",
 		})
 )
 

@@ -101,8 +101,8 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	return response, nil
 }
 
-// rootCertExpirationSeconds returns the unix timestamp when the root becomes expires.
-func rootCertExpirationSeconds(ca ca.CertificateAuthority) float64 {
+// extractRootCertExpiryTimestamp returns the unix timestamp when the root becomes expires.
+func extractRootCertExpiryTimestamp(ca ca.CertificateAuthority) float64 {
 	rb := ca.GetCAKeyCertBundle().GetRootCertPem()
 	cert, err := util.ParsePemEncodedCertificate(rb)
 	if err != nil {
@@ -229,7 +229,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 	}
 
 	version.Info.RecordComponentBuildTag("citadel")
-	rootCertExpiryTimestamp.Set(rootCertExpirationSeconds(ca))
+	rootCertExpiryTimestamp.Set(extractRootCertExpiryTimestamp(ca))
 
 	server := &Server{
 		authenticators: authenticators,
