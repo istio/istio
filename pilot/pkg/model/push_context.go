@@ -266,6 +266,12 @@ var (
 		"Number of clusters without instances.",
 	)
 
+	// DuplicatedDomains tracks rejected VirtualServices due to duplicated hostname.
+	DuplicatedDomains = newPushMetric(
+		"pilot_vservice_dup_domain",
+		"Virtual services with dup domains.",
+	)
+
 	// DuplicatedSubsets tracks duplicate subsets that we rejected while merging multiple destination rules for same host
 	DuplicatedSubsets = newPushMetric(
 		"pilot_destrule_subsets",

@@ -418,7 +418,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			testSidecarRDSVHosts(t, services, c.sidecarConfig, c.virtualServiceConfigs,
-			c.routeName, c.expectedHosts, c.fallthroughRoute, c.registryOnly)})
+				c.routeName, c.expectedHosts, c.fallthroughRoute, c.registryOnly)
+		})
 	}
 }
 
@@ -472,9 +473,6 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	}
 	if (expectedNumberOfRoutes >= 0) && (numberOfRoutes != expectedNumberOfRoutes) {
 		t.Errorf("Wrong number of routes. expected: %v, Got: %v", expectedNumberOfRoutes, numberOfRoutes)
-	}
-	if (expectedNumberOfRoutes >= 0) && (numberOfRoutes != expectedNumberOfRoutes) {
-		t.Errorf("testSidecarRDSVhosts(%s): expected: %v, Got: %v", testName, expectedNumberOfRoutes, numberOfRoutes)
 	}
 }
 

@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/proto"
 
