@@ -55,9 +55,9 @@ const (
 	// JwtPubKeyRefreshInterval is the running interval of JWT pubKey refresh job.
 	JwtPubKeyRefreshInterval = time.Minute * 20
 
-	// jwtPubKeyFetchRetryInSec is the retry interval between the attempt to retry fetching
-	// the public key from network.
-	jwtPubKeyFetchRetryInSec = 1
+	// getRemoteContentRetryInSec is the retry interval between the attempt to retry getting the remote
+	// content from network.
+	getRemoteContentRetryInSec = 1
 )
 
 var (
@@ -280,9 +280,9 @@ func (r *jwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 		if err == nil {
 			return body, nil
 		}
-		log.Warnf("Failed to fetch JWT public key from %q, retry in %d seconds: %s",
-			uri, jwtPubKeyFetchRetryInSec, err)
-		time.Sleep(jwtPubKeyFetchRetryInSec * time.Second)
+		log.Warnf("Failed to get remote content from %q, retry in %d seconds: %s",
+			uri, getRemoteContentRetryInSec, err)
+		time.Sleep(getRemoteContentRetryInSec * time.Second)
 	}
 
 	// Return the last fetch directly, reaching here means we have tried `retry` times, this will be
