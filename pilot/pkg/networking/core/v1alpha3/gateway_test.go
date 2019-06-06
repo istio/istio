@@ -20,8 +20,10 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/proto"
 
@@ -305,6 +307,59 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 
 	for _, tc := range testCases {
 		ret := buildGatewayListenerTLSContext(tc.server, tc.enableSds)
+		if !reflect.DeepEqual(tc.result, ret) {
+			t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.result, ret)
+		}
+	}
+}
+
+func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
+	testCases := []struct {
+		name      string
+		node      *model.Proxy
+		server    *networking.Server
+		routeName string
+		result    *filterChainOpts
+	}{
+		{
+			name: "HTTP1.0 mode enabled",
+			node: &model.Proxy{
+				Metadata: map[string]string{
+					model.NodeMetadataHTTP10: "1",
+				},
+			},
+			server: &networking.Server{
+				Port: &networking.Port{},
+			},
+			routeName: "some-route",
+			result: &filterChainOpts{
+				sniHosts:   nil,
+				tlsContext: nil,
+				httpOpts: &httpListenerOpts{
+					rds:              "some-route",
+					useRemoteAddress: true,
+					direction:        http_conn.EGRESS,
+					connectionManager: &http_conn.HttpConnectionManager{
+						ForwardClientCertDetails: http_conn.SANITIZE_SET,
+						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+							Subject: proto.BoolTrue,
+							Cert:    true,
+							Uri:     true,
+							Dns:     true,
+						},
+						ServerName: EnvoyServerName,
+						HttpProtocolOptions: &core.Http1ProtocolOptions{
+							AcceptHttp_10: true,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		cgi := NewConfigGenerator([]plugin.Plugin{})
+		ret := cgi.createGatewayHTTPFilterChainOpts(tc.node, tc.server, tc.routeName)
 		if !reflect.DeepEqual(tc.result, ret) {
 			t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.result, ret)
 		}
