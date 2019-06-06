@@ -80,7 +80,7 @@ function install_ingress() {
     step "ingress.."
     bin/iop istio-ingress istio-ingress $IBASE/gateways/istio-ingress  --set global.istioNamespace=${ISTIO_CONTROL_NS} $RESOURCES_FLAGS
 
-    kubectl patch deployment -n istio-ingress ingressgateway --patch '{"spec": {"strategy": {"rollingUpdate": {"maxSurge": 1,"maxUnavailable": 0},"type": "RollingUpdate"}}}'
+    kubectl patch deployment -n istio-ingress istio-ingressgateway --patch '{"spec": {"strategy": {"rollingUpdate": {"maxSurge": 1,"maxUnavailable": 0},"type": "RollingUpdate"}}}'
     kubectl rollout status  deployment istio-pilot -n istio-ingress --timeout=$WAIT_TIMEOUT
     kubectl rollout status  deployment istio-ingressgateway -n istio-ingress --timeout=$WAIT_TIMEOUT
 }
