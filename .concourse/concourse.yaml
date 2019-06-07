@@ -48,8 +48,6 @@ jobs:
 
     - task: install-master
       params:
-        TAG: master-latest-daily
-        HUB: gcr.io/istio-release
         KUBECONFIG: ((KUBECONFIG))
         # Remove overly generous resource request to avoid unnecessarily scaling up k8s nodes
         RESOURCES_FLAGS: "--set global.resources.requests.cpu=0m --set resources.requests.cpu=0 --set resources.requests.memory=0 --set global.proxy.resources.requests.cpu=0 --set global.proxy.resources.requests.memory=0"
@@ -68,8 +66,10 @@ jobs:
           - |
             echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/cleanup.sh
-            istio-installer/bin/install.sh
+
+            kubectl delete namespace istio-system --ignore-not-found
+            kubectl apply -k istio-installer/crds
+            kubectl apply -k istio-installer/test/demo
     
   - name: test-after-install
     serial_groups: [ cluster ]
@@ -102,4 +102,4 @@ jobs:
           - |
             echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/test.sh --skip-cleanup src/github.com/istio/istio/
+            ISTIO_CONTROL=istio-system INGRESS_NS=istio-system istio-installer/bin/test.sh --skip-cleanup src/github.com/istio/istio/
