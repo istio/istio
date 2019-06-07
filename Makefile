@@ -203,9 +203,6 @@ ifeq ($(SKIP_CLEANUP), 0)
 	$(MAKE) clean
 endif
 
-demo-install:
-	bin/install.sh
-
 # Generate junit reports, upload to testgrid, fail if conditions are met.
 # Failure is based on test status - may exclude some tests.
 report:
