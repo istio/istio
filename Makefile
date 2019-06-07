@@ -294,10 +294,15 @@ fmt:
 buildcache:
 	GOBUILDFLAGS=-i $(MAKE) build
 
+JUNIT_LINT_TEST_XML ?= $(ISTIO_OUT)/junit_lint-tests.xml
 # Existence of build cache .a files actually affects the results of
 # some linters; they need to exist.
-lint: buildcache
-	SKIP_INIT=1 bin/linters.sh
+lint: $(JUNIT_REPORT) buildcache
+	mkdir -p $(dir $(JUNIT_LINT_TEST_XML))
+	set -o pipefail; \
+	SKIP_INIT=1 bin/linters.sh \
+    2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_LINT_TEST_XML))
+
 
 # @todo gometalinter targets?
 
