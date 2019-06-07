@@ -252,12 +252,6 @@ type XdsConnection struct {
 	// is added to the map of active.
 	added bool
 
-	// Time of last push
-	LastPush time.Time
-
-	// Time of last push failure.
-	LastPushFailure time.Time
-
 	// pushMutex prevents 2 overlapping pushes for this connection.
 	pushMutex sync.Mutex
 }
@@ -885,7 +879,7 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 			if proxyFull {
 				edsOnly = nil
 			}
-
+			lastPushFailure := timeZero
 		Retry:
 			currentVersion := versionInfo()
 			// Stop attempting to push
@@ -902,8 +896,6 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 				version:            version,
 				edsUpdatedServices: edsOnly,
 			}:
-				client.LastPush = time.Now()
-				client.LastPushFailure = timeZero
 				if !timer.Stop() {
 					<-timer.C
 				}
@@ -913,19 +905,19 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 				// This may happen to some clients if the other side is in a bad state and can't receive.
 				// The tests were catching this - one of the client was not reading.
 				pushTimeouts.Add(1)
-				client.mu.Lock()
-				if client.LastPushFailure.IsZero() {
-					client.LastPushFailure = time.Now()
-					client.mu.Unlock()
-					adsLog.Warnf("Failed to push, client busy %s", client.ConID)
-					pushErrors.With(prometheus.Labels{"type": "retry"}).Add(1)
-				} else if time.Since(client.LastPushFailure) > 10*time.Second {
-					client.mu.Unlock()
+				if lastPushFailure.IsZero() {
+					lastPushFailure = time.Now()
+
+				}
+				if time.Since(lastPushFailure) > 10*time.Second {
 					adsLog.Warnf("Repeated failure to push %s", client.ConID)
 					// unfortunately grpc go doesn't allow closing (unblocking) the stream.
 					pushErrors.With(prometheus.Labels{"type": "unrecoverable"}).Add(1)
 					pushTimeoutFailures.Add(1)
 					return
+				} else {
+					adsLog.Warnf("Failed to push, client busy %s", client.ConID)
+					pushErrors.With(prometheus.Labels{"type": "retry"}).Add(1)
 				}
 				goto Retry
 			}
