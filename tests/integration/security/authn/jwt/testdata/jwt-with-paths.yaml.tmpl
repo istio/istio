@@ -1,0 +1,37 @@
+# Service b will allow access to path /health_check or paths with prefix /guest without jwt authentication.
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: "jwt-with-excluded-paths-for-b"
+  namespace: {{ .Namespace }}
+spec:
+  targets:
+  - name: b
+  origins:
+  - jwt:
+      issuer: "testing@secure.istio.io"
+      jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.1/security/tools/jwt/samples/jwks.json"
+      trigger_rules:
+      - excluded_paths:
+        - exact: /health_check
+        - prefix: /guest
+  principalBinding: USE_ORIGIN
+---
+
+# Service c will only require jwt authentication on paths with suffix "confidential"
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: "jwt-with-included-paths-for-c"
+  namespace: {{ .Namespace }}
+spec:
+  targets:
+  - name: c
+  origins:
+  - jwt:
+      issuer: "testing@secure.istio.io"
+      jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.1/security/tools/jwt/samples/jwks.json"
+      trigger_rules:
+      - included_paths:
+        - suffix: confidential
+  principalBinding: USE_ORIGIN
