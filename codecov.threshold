@@ -1,0 +1,43 @@
+# This overrides the default threshold used by the circle codecov job to prevent
+# unexpected drop of code coverage. And this supplements the packages specified
+# in codecov.skip.
+#
+# This is useful to temporarily whitelist the packages that have either non
+# deterministic code path. (E.g. test may retry on failure. Some paths may not
+# be exercised when there is no error, but are hit when there is an error
+# before the test retries.)
+#
+# Ideally this file should contain only istio.io=x as the default. All other
+# whitelisted packages or files should eventually be removed when the tests
+# are made deteministic.
+#
+# Format:
+# <package or filename>{=<threshold in float64>}
+#
+# If threshold is not specified, codecov check will be skipped for the package
+# or go file.
+
+# Istio wide default
+istio.io=5
+
+# Overrides
+istio.io/istio/mixer/adapter/solarwinds/internal/papertrail/papertrail_logger.go=50
+istio.io/istio/pilot/pkg/config/memory/monitor.go=30
+istio.io/istio/pilot/pkg/proxy/envoy/v2=10
+istio.io/istio/pilot/pkg/proxy/envoy/v2/rds.go=25
+istio.io/istio/pilot/pkg/serviceregistry/consul/monitor.go=20
+istio.io/istio/pkg/mcp/creds/watcher.go=100
+istio.io/istio/pkg/mcp/source/client_source.go=90
+istio.io/istio/pkg/mcp/source/source.go=90
+istio.io/istio/security/pkg/nodeagent=15
+istio.io/istio/istioctl/cmd/istioctl/kubeinject.go=41
+
+# Disable codecov check for testing and proto packages
+istio.io/istio/security/proto=100
+istio.io/istio/tests
+
+# Temporary until integ tests are restored
+istio.io/istio/pilot/pkg/networking/plugin=50
+istio.io/istio/galley/pkg/runtime=30
+istio.io/istio/galley/pkg/meshconfig/cache.go=100
+istio.io/istio/pilot/pkg/model/authentication.go=20
