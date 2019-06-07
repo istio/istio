@@ -915,10 +915,11 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 					pushErrors.With(prometheus.Labels{"type": "unrecoverable"}).Add(1)
 					pushTimeoutFailures.Add(1)
 					return
-				} else {
-					adsLog.Warnf("Failed to push, client busy %s", client.ConID)
-					pushErrors.With(prometheus.Labels{"type": "retry"}).Add(1)
 				}
+
+				adsLog.Warnf("Failed to push, client busy %s", client.ConID)
+				pushErrors.With(prometheus.Labels{"type": "retry"}).Add(1)
+
 				goto Retry
 			}
 		}()
