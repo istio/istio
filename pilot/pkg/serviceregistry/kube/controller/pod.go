@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kube
+package controller
 
 import (
 	"fmt"
@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/pkg/log"
 )
 
@@ -73,7 +74,7 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 
 	if len(ip) > 0 {
 		log.Infof("Handling event %s for pod %s in namespace %s -> %v", ev, pod.Name, pod.Namespace, ip)
-		key := KeyFunc(pod.Name, pod.Namespace)
+		key := kube.KeyFunc(pod.Name, pod.Namespace)
 		switch ev {
 		case model.EventAdd:
 			switch pod.Status.Phase {
@@ -151,5 +152,5 @@ func (pc *PodCache) labelsByIP(addr string) (model.Labels, bool) {
 	if pod == nil {
 		return nil, false
 	}
-	return convertLabels(pod.ObjectMeta), true
+	return kube.ConvertLabels(pod.ObjectMeta), true
 }

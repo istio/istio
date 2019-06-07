@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kube
+package controller
 
 import (
 	"errors"
@@ -35,6 +35,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/pkg/log"
 )
@@ -95,7 +96,7 @@ type Controller struct {
 	domainSuffix string
 
 	client    kubernetes.Interface
-	queue     Queue
+	queue     kube.Queue
 	services  cacheHandler
 	endpoints cacheHandler
 	nodes     cacheHandler
@@ -129,7 +130,7 @@ type Controller struct {
 
 type cacheHandler struct {
 	informer cache.SharedIndexInformer
-	handler  *ChainHandler
+	handler  *kube.ChainHandler
 }
 
 // NewController creates a new Kubernetes controller
@@ -142,7 +143,7 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 	out := &Controller{
 		domainSuffix:               options.DomainSuffix,
 		client:                     client,
-		queue:                      NewQueue(1 * time.Second),
+		queue:                      kube.NewQueue(1 * time.Second),
 		ClusterID:                  options.ClusterID,
 		XDSUpdater:                 options.XDSUpdater,
 		servicesMap:                make(map[model.Hostname]*model.Service),
@@ -182,26 +183,26 @@ func (c *Controller) notify(obj interface{}, event model.Event) error {
 // See config/kube for CRD events.
 // See config/ingress for Ingress objects
 func (c *Controller) createCacheHandler(informer cache.SharedIndexInformer, otype string) cacheHandler {
-	handler := &ChainHandler{funcs: []Handler{c.notify}}
+	handler := &kube.ChainHandler{Funcs: []kube.Handler{c.notify}}
 
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
-				c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventAdd})
+				c.queue.Push(kube.Task{Handler: handler.Apply, Obj: obj, Event: model.EventAdd})
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
 					k8sEvents.With(prometheus.Labels{"type": otype, "event": "update"}).Add(1)
-					c.queue.Push(Task{handler: handler.Apply, obj: cur, event: model.EventUpdate})
+					c.queue.Push(kube.Task{Handler: handler.Apply, Obj: cur, Event: model.EventUpdate})
 				} else {
 					k8sEvents.With(prometheus.Labels{"type": otype, "event": "updateSame"}).Add(1)
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				k8sEvents.With(prometheus.Labels{"type": otype, "event": "delete"}).Add(1)
-				c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventDelete})
+				c.queue.Push(kube.Task{Handler: handler.Apply, Obj: obj, Event: model.EventDelete})
 			},
 		})
 
@@ -209,14 +210,14 @@ func (c *Controller) createCacheHandler(informer cache.SharedIndexInformer, otyp
 }
 
 func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, otype string) cacheHandler {
-	handler := &ChainHandler{funcs: []Handler{c.notify}}
+	handler := &kube.ChainHandler{Funcs: []kube.Handler{c.notify}}
 
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
-				c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventAdd})
+				c.queue.Push(kube.Task{Handler: handler.Apply, Obj: obj, Event: model.EventAdd})
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				// Avoid pushes if only resource version changed (kube-scheduller, cluster-autoscaller, etc)
@@ -225,7 +226,7 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 
 				if !reflect.DeepEqual(oldE.Subsets, curE.Subsets) {
 					k8sEvents.With(prometheus.Labels{"type": otype, "event": "update"}).Add(1)
-					c.queue.Push(Task{handler: handler.Apply, obj: cur, event: model.EventUpdate})
+					c.queue.Push(kube.Task{Handler: handler.Apply, Obj: cur, Event: model.EventUpdate})
 				} else {
 					k8sEvents.With(prometheus.Labels{"type": otype, "event": "updateSame"}).Add(1)
 				}
@@ -236,7 +237,7 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 				// deleting the service should delete the resources. The full sync replaces the
 				// maps.
 				// c.updateEDS(obj.(*v1.Endpoints))
-				c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventDelete})
+				c.queue.Push(kube.Task{Handler: handler.Apply, Obj: obj, Event: model.EventDelete})
 			},
 		})
 
@@ -330,7 +331,7 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 		return nil
 	}
 
-	managementPorts, err := convertProbesToPorts(&pod.Spec)
+	managementPorts, err := kube.ConvertProbesToPorts(&pod.Spec)
 	if err != nil {
 		log.Infof("Error while parsing liveliness and readiness probe ports for %s => %v", addr, err)
 	}
@@ -352,7 +353,7 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 	// Obtain probes from the readiness and liveness probes
 	for _, container := range pod.Spec.Containers {
 		if container.ReadinessProbe != nil && container.ReadinessProbe.Handler.HTTPGet != nil {
-			p, err := convertProbePort(&container, &container.ReadinessProbe.Handler)
+			p, err := kube.ConvertProbePort(&container, &container.ReadinessProbe.Handler)
 			if err != nil {
 				log.Infof("Error while parsing readiness probe port =%v", err)
 			}
@@ -362,7 +363,7 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 			})
 		}
 		if container.LivenessProbe != nil && container.LivenessProbe.Handler.HTTPGet != nil {
-			p, err := convertProbePort(&container, &container.LivenessProbe.Handler)
+			p, err := kube.ConvertProbePort(&container, &container.LivenessProbe.Handler)
 			if err != nil {
 				log.Infof("Error while parsing liveness probe port =%v", err)
 			}
@@ -402,9 +403,9 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 // InstancesByPort implements a service catalog operation
 func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 	labelsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	name, namespace, err := parseHostname(hostname)
+	name, namespace, err := kube.ParseHostname(hostname)
 	if err != nil {
-		log.Infof("parseHostname(%s) => error %v", hostname, err)
+		log.Infof("ParseHostname(%s) => error %v", hostname, err)
 		return nil, err
 	}
 
@@ -429,7 +430,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 		return instances, nil
 	}
 
-	item, exists, err := c.endpoints.informer.GetStore().GetByKey(KeyFunc(name, namespace))
+	item, exists, err := c.endpoints.informer.GetStore().GetByKey(kube.KeyFunc(name, namespace))
 	if err != nil {
 		log.Infof("get endpoint(%s, %s) => error %v", name, namespace, err)
 		return nil, nil
@@ -452,7 +453,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 			az, sa, uid := "", "", ""
 			if pod != nil {
 				az = c.GetPodLocality(pod)
-				sa = secureNamingSAN(pod)
+				sa = kube.SecureNamingSAN(pod)
 				uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 			}
 
@@ -546,7 +547,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 
-	hostname := serviceHostname(endpoints.Name, endpoints.Namespace, c.domainSuffix)
+	hostname := kube.ServiceHostname(endpoints.Name, endpoints.Namespace, c.domainSuffix)
 	c.RLock()
 	svc := c.servicesMap[hostname]
 	c.RUnlock()
@@ -583,7 +584,7 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Service, proxy *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 
-	hostname := serviceHostname(service.Name, service.Namespace, c.domainSuffix)
+	hostname := kube.ServiceHostname(service.Name, service.Namespace, c.domainSuffix)
 	c.RLock()
 	svc := c.servicesMap[hostname]
 	c.RUnlock()
@@ -630,7 +631,7 @@ func (c *Controller) getEndpoints(ip string, endpointPort int32, svcPort *model.
 	az, sa := "", ""
 	if pod != nil {
 		az = c.GetPodLocality(pod)
-		sa = secureNamingSAN(pod)
+		sa = kube.SecureNamingSAN(pod)
 	}
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -724,8 +725,8 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			portsByNum[uint32(port.Port)] = port.Name
 		}
 
-		svcConv := convertService(*svc, c.domainSuffix, c.ClusterID)
-		instances := externalNameServiceInstances(*svc, svcConv)
+		svcConv := kube.ConvertService(*svc, c.domainSuffix, c.ClusterID)
+		instances := kube.ExternalNameServiceInstances(*svc, svcConv)
 		switch event {
 		case model.EventDelete:
 			c.Lock()
@@ -781,7 +782,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 }
 
 func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
-	hostname := serviceHostname(ep.Name, ep.Namespace, c.domainSuffix)
+	hostname := kube.ServiceHostname(ep.Name, ep.Namespace, c.domainSuffix)
 
 	endpoints := []*model.IstioEndpoint{}
 	if event != model.EventDelete {
@@ -797,7 +798,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 					continue
 				}
 
-				labels := map[string]string(convertLabels(pod.ObjectMeta))
+				labels := map[string]string(kube.ConvertLabels(pod.ObjectMeta))
 
 				uid := fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 
@@ -810,7 +811,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						ServicePortName: port.Name,
 						Labels:          labels,
 						UID:             uid,
-						ServiceAccount:  secureNamingSAN(pod),
+						ServiceAccount:  kube.SecureNamingSAN(pod),
 						Network:         c.endpointNetwork(ea.IP),
 						Locality:        c.GetPodLocality(pod),
 					})

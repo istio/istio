@@ -67,7 +67,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/consul"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/features/pilot"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
@@ -149,7 +149,7 @@ type MeshArgs struct {
 type ConfigArgs struct {
 	ClusterRegistriesNamespace string
 	KubeConfig                 string
-	ControllerOptions          kube.ControllerOptions
+	ControllerOptions          controller2.ControllerOptions
 	FileDir                    string
 	DisableInstallCRDs         bool
 
@@ -213,7 +213,7 @@ type Server struct {
 	secureGRPCServer *grpc.Server
 	istioConfigStore model.IstioConfigStore
 	mux              *http.ServeMux
-	kubeRegistry     *kube.Controller
+	kubeRegistry     *controller2.Controller
 	fileWatcher      filewatcher.FileWatcher
 }
 
@@ -407,8 +407,8 @@ func (s *Server) initMesh(args *PilotArgs) error {
 
 	if mesh == nil {
 		// Config file either wasn't specified or failed to load - use a default mesh.
-		if _, mesh, err = GetMeshConfig(s.kubeClient, kube.IstioNamespace, kube.IstioConfigMap); err != nil {
-			log.Warnf("failed to read the default mesh configuration: %v, from the %s config map in the %s namespace", err, kube.IstioConfigMap, kube.IstioNamespace)
+		if _, mesh, err = GetMeshConfig(s.kubeClient, controller2.IstioNamespace, controller2.IstioConfigMap); err != nil {
+			log.Warnf("failed to read the default mesh configuration: %v, from the %s config map in the %s namespace", err, controller2.IstioConfigMap, controller2.IstioNamespace)
 			return err
 		}
 
@@ -779,7 +779,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 	clusterID := string(serviceregistry.KubernetesRegistry)
 	log.Infof("Primary Cluster name: %s", clusterID)
 	args.Config.ControllerOptions.ClusterID = clusterID
-	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
+	kubectl := controller2.NewController(s.kubeClient, args.Config.ControllerOptions)
 	s.kubeRegistry = kubectl
 	serviceControllers.AddRegistry(
 		aggregate.Registry{

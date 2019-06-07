@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/authn"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/features/pilot"
 )
 
@@ -91,7 +91,7 @@ type DiscoveryServer struct {
 	ConfigController model.ConfigStoreCache
 
 	// KubeController provides readiness info (if initial sync is complete)
-	KubeController *kube.Controller
+	KubeController *controller.Controller
 
 	// rate limiter for sending updates during full ads push.
 	rateLimiter *rate.Limiter
@@ -174,7 +174,7 @@ func NewDiscoveryServer(
 	env *model.Environment,
 	generator core.ConfigGenerator,
 	ctl model.Controller,
-	kuebController *kube.Controller,
+	kuebController *controller.Controller,
 	configCache model.ConfigStoreCache) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                     env,

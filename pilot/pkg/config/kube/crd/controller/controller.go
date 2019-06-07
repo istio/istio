@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/pkg/log"
 )
@@ -72,7 +73,7 @@ func init() {
 
 // NewController creates a new Kubernetes controller for CRDs
 // Use "" for namespace to listen for all namespace changes
-func NewController(client *client, options kube.ControllerOptions) model.ConfigStoreCache {
+func NewController(client *client, options controller2.ControllerOptions) model.ConfigStoreCache {
 	log.Infof("CRD controller watching namespaces %q", options.WatchedNamespace)
 
 	// Queue requires a time duration for a retry delay after a handler error
