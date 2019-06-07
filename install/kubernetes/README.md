@@ -1,6 +1,6 @@
 # Install Istio on an existing Kubernetes cluster
 
-Please follow the installation instructions from [istio.io](https://istio.io/docs/setup/kubernetes/quick-start.html).
+Please follow the installation instructions from [istio.io](https://istio.io/docs/setup/kubernetes/).
 
-If you prefer to install Istio by checking out the [istio/istio](https://github.com/istio/istio) repository, you can run `updateVersion.sh`
-in the parent directory to generate the required installation files.
+Use the [helm installation instructions](https://istio.io/docs/setup/kubernetes/install/helm/)
+if you want to install Istio by checking out the istio/istio repository, istead of downloading a release.
