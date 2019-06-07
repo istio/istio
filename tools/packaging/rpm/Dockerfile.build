@@ -1,14 +1,19 @@
 FROM centos:7
 
 RUN yum upgrade -y && \
+    yum remove git && \
+    yum install -y https://centos7.iuscommunity.org/ius-release.rpm && \
     yum install -y epel-release centos-release-scl && \
-    yum install -y fedpkg golang sudo make which cmake3 \
+    yum install -y sudo git2u fedpkg make which cmake3 \
                    automake autoconf autogen libtool \
                    devtoolset-6-gcc devtoolset-6-gcc-c++ \
                    devtoolset-6-libatomic-devel ninja-build && \
+    rpm --import https://mirror.go-repo.io/centos/RPM-GPG-KEY-GO-REPO &&\
+    curl -s https://mirror.go-repo.io/centos/go-repo.repo | tee /etc/yum.repos.d/go-repo.repo && \
+    yum install -y golang &&\
     yum clean all
 
-RUN curl -o /root/bazel-installer.sh -L http://github.com/bazelbuild/bazel/releases/download/0.22.0/bazel-0.22.0-installer-linux-x86_64.sh && \
+RUN curl -o /root/bazel-installer.sh -L http://github.com/bazelbuild/bazel/releases/download/0.26.1/bazel-0.26.1-installer-linux-x86_64.sh && \
     chmod +x /root/bazel-installer.sh && \
     /root/bazel-installer.sh
 
