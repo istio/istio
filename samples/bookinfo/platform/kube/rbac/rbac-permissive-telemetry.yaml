@@ -40,10 +40,8 @@ metadata:
   name: rabcsamplestdio
   namespace: istio-system
 spec:
-  match: "true" # match for all requests
   actions:
-   - handler: rbacsamplehandler.stdio
-     instances:
-     - rbacsamplelog.logentry
+   - handler: rbacsamplehandler
+     instances: [ rbacsamplelog ]
 ---
 
