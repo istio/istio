@@ -48,8 +48,8 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 				ingressConfig            ingress.Config
 				hostName                 string
 				expectedResponse         ingressutil.ExpectedResponse
-				callType 								 ingress.CallType
-				tlsContext 							 ingressutil.TlsContext
+				callType                 ingress.CallType
+				tlsContext               ingressutil.TLSContext
 			}{
 				{
 					name:       "mtls ingress gateway invalid CA cert",
@@ -60,15 +60,15 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 						CaCert:     "invalid",
 					},
 					ingressConfig: ingress.Config{
-						Istio:       inst,
+						Istio: inst,
 					},
 					hostName: "bookinfo1.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
 						ResponseCode: 0,
 						ErrorMessage: "connection refused",
 					},
-					callType: 	ingress.Mtls,
-					tlsContext: ingressutil.TlsContext{
+					callType: ingress.Mtls,
+					tlsContext: ingressutil.TLSContext{
 						CaCert:     ingressutil.CaCertA,
 						PrivateKey: ingressutil.TLSClientKeyA,
 						Cert:       ingressutil.TLSClientCertA,
@@ -82,18 +82,18 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 						ServerCert: ingressutil.TLSServerCertA,
 					},
 					ingressConfig: ingress.Config{
-						Istio:       inst,
+						Istio: inst,
 					},
 					hostName: "bookinfo2.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
 						ResponseCode: 0,
 						ErrorMessage: "connection refused",
 					},
-					callType: 	ingress.Mtls,
-					tlsContext: ingressutil.TlsContext{
-						CaCert:      ingressutil.CaCertA,
-						PrivateKey:  ingressutil.TLSClientKeyA,
-						Cert:        ingressutil.TLSClientCertA,
+					callType: ingress.Mtls,
+					tlsContext: ingressutil.TLSContext{
+						CaCert:     ingressutil.CaCertA,
+						PrivateKey: ingressutil.TLSClientKeyA,
+						Cert:       ingressutil.TLSClientCertA,
 					},
 				},
 				{
@@ -105,18 +105,18 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 						CaCert:     ingressutil.CaCertB,
 					},
 					ingressConfig: ingress.Config{
-						Istio:       inst,
+						Istio: inst,
 					},
 					hostName: "bookinfo3.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
 						ResponseCode: 0,
 						ErrorMessage: "connection refused",
 					},
-					callType: 	ingress.Mtls,
-					tlsContext: ingressutil.TlsContext{
-						CaCert:      ingressutil.CaCertA,
-						PrivateKey:  ingressutil.TLSClientKeyA,
-						Cert:        ingressutil.TLSClientCertA,
+					callType: ingress.Mtls,
+					tlsContext: ingressutil.TLSContext{
+						CaCert:     ingressutil.CaCertA,
+						PrivateKey: ingressutil.TLSClientKeyA,
+						Cert:       ingressutil.TLSClientCertA,
 					},
 				},
 			}

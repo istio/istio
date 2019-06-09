@@ -53,7 +53,7 @@ type CallOptions struct {
 	Cert string
 
 	// Address is the ingress gateway address to call to.
-	Address     string
+	Address string
 
 	// CallType specifies what type of call to make (PlainText, TLS, mTLS).
 	CallType CallType
@@ -94,7 +94,8 @@ type CallResponse struct {
 func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
 	ctx.Environment().Case(environment.Kube, func() {
-		i, err = newKube(ctx, cfg)
+		i = newKube(ctx, cfg)
+		err = nil
 	})
 	return
 }

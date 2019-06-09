@@ -45,10 +45,9 @@ var (
 )
 
 type kubeComponent struct {
-	id          resource.ID
-	address     string
-	namespace   string
-	env         *kube.Environment
+	id        resource.ID
+	namespace string
+	env       *kube.Environment
 }
 
 // getHTTPAddressInner returns the ingress gateway address for plain text http requests.
@@ -122,13 +121,13 @@ func getHTTPSAddressInner(env *kube.Environment, ns string) (interface{}, bool, 
 	return ip, true, nil
 }
 
-func newKube(ctx resource.Context, cfg Config) (Instance, error) {
+func newKube(ctx resource.Context, cfg Config) Instance {
 	c := &kubeComponent{}
 	c.id = ctx.TrackResource(c)
 	c.namespace = cfg.Istio.Settings().IngressNamespace
 	c.env = ctx.Environment().(*kube.Environment)
 
-	return c, nil
+	return c
 }
 
 func (c *kubeComponent) ID() resource.ID {

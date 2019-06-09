@@ -145,7 +145,7 @@ type ExpectedResponse struct {
 	ErrorMessage string
 }
 
-type TlsContext struct {
+type TLSContext struct {
 	// CaCert is inline base64 encoded root certificate that authenticates server certificate provided
 	// by ingress gateway.
 	CaCert string
@@ -156,17 +156,19 @@ type TlsContext struct {
 }
 
 // VisitProductPage makes HTTPS request to ingress gateway to visit product page
-func VisitProductPage(ing ingress.Instance, host string, callType ingress.CallType, tlsCtx TlsContext, timeout time.Duration, exRsp ExpectedResponse, t *testing.T) error {
+func VisitProductPage(ing ingress.Instance, host string, callType ingress.CallType, tlsCtx TLSContext,
+	timeout time.Duration, exRsp ExpectedResponse, t *testing.T) error {
 	start := time.Now()
+	endpointIP := ing.HTTPSAddress()
 	for {
 		response, err := ing.Call(ingress.CallOptions{
-			Host: host,
-			Path: "/productpage",
-			CaCert: tlsCtx.CaCert,
+			Host:       host,
+			Path:       "/productpage",
+			CaCert:     tlsCtx.CaCert,
 			PrivateKey: tlsCtx.PrivateKey,
-			Cert: tlsCtx.Cert,
-			CallType: callType,
-			Address: ing.HTTPSAddress(),
+			Cert:       tlsCtx.Cert,
+			CallType:   callType,
+			Address:    endpointIP,
 		})
 		errorMatch := true
 		if err != nil {

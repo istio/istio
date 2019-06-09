@@ -53,11 +53,11 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 
 			// Do not provide private key and server certificate for ingress gateway. Connection creation should fail.
 			ingA := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
-			tlsContext := ingressutil.TlsContext{CaCert: ingressutil.CaCertA}
+			tlsContext := ingressutil.TLSContext{CaCert: ingressutil.CaCertA}
 			err := ingressutil.VisitProductPage(ingA, host, ingress.TLS, tlsContext, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "connection refused"}, t)
 			if err != nil {
-				t.Fatalf("unable to retrieve code 0 from product page at host %s: %v", host, err)
+				t.Errorf("unable to retrieve code 0 from product page at host %s: %v", host, err)
 			}
 
 			// Add kubernetes secret to provision key/cert for ingress gateway.
@@ -68,7 +68,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 			err = ingressutil.VisitProductPage(ingB, host, ingress.TLS, tlsContext, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {
-				t.Fatalf("unable to retrieve 200 from product page at host %s: %v", host, err)
+				t.Errorf("unable to retrieve 200 from product page at host %s: %v", host, err)
 			}
 
 			// key/cert rotation
@@ -84,12 +84,12 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 			}
 
 			// Use new CA cert to set up SSL connection.
-		tlsContext = ingressutil.TlsContext{CaCert: ingressutil.CaCertB}
+			tlsContext = ingressutil.TLSContext{CaCert: ingressutil.CaCertB}
 			ingC := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
 			err = ingressutil.VisitProductPage(ingC, host, ingress.TLS, tlsContext, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {
-				t.Fatalf("unable to retrieve 200 from product page at host %s: %v", host, err)
+				t.Errorf("unable to retrieve 200 from product page at host %s: %v", host, err)
 			}
 		})
 }

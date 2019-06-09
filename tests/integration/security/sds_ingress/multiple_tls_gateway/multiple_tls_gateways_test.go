@@ -49,7 +49,7 @@ func testMultiTLSGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 
 	ingressutil.CreateIngressKubeSecret(t, ctx, credNames, ingress.TLS, ingressutil.IngressCredentialA)
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
-	tlsContext := ingressutil.TlsContext{
+	tlsContext := ingressutil.TLSContext{
 		CaCert: ingressutil.CaCertA,
 	}
 	callType := ingress.TLS
@@ -60,7 +60,7 @@ func testMultiTLSGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 		err := ingressutil.VisitProductPage(ing, h, callType, tlsContext, 30*time.Second,
 			ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 		if err != nil {
-			t.Fatalf("unable to retrieve 200 from product page at host %s: %v", h, err)
+			t.Errorf("unable to retrieve 200 from product page at host %s: %v", h, err)
 		}
 	}
 }

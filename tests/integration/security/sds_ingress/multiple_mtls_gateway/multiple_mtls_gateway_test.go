@@ -51,12 +51,12 @@ func testMultiMtlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:
 	// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 	time.Sleep(3 * time.Second)
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{
-		Istio:       inst,
+		Istio: inst,
 	})
-	tlsContext := ingressutil.TlsContext{
-		CaCert:      ingressutil.CaCertA,
-		PrivateKey:  ingressutil.TLSClientKeyA,
-		Cert:        ingressutil.TLSClientCertA,
+	tlsContext := ingressutil.TLSContext{
+		CaCert:     ingressutil.CaCertA,
+		PrivateKey: ingressutil.TLSClientKeyA,
+		Cert:       ingressutil.TLSClientCertA,
 	}
 	callType := ingress.Mtls
 
@@ -64,7 +64,7 @@ func testMultiMtlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:
 		err := ingressutil.VisitProductPage(ing, h, callType, tlsContext, 30*time.Second,
 			ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 		if err != nil {
-			t.Fatalf("unable to retrieve 200 from product page at host %s: %v", h, err)
+			t.Errorf("unable to retrieve 200 from product page at host %s: %v", h, err)
 		}
 	}
 }
