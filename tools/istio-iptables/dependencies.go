@@ -95,23 +95,29 @@ func (r *RealDependencies) RunQuietlyAndIgnore(cmd Cmd, args ...string) {
 	Command{Command: cmd.command, Args: args, RedirectToStdErr: false}.RunQuietlyAndIgnore()
 }
 
-func (r *RealDependencies) Iptables(args ...string) {
-	Command{Command: "iptables", Args: args, RedirectToStdErr: false}.RunOrFail()
+type StdoutStubDependencies struct {
+	as string
 }
 
-func (r *RealDependencies) TryIptables(args ...string) error {
-	return Command{Command: "iptables", Args: args, RedirectToStdErr: false}.Run()
+func (s *StdoutStubDependencies) GetLocalIP() (net.IP, error) {
+	fmt.Println("IP")
+	return net.IPv4(127, 0, 0, 1), nil
 }
 
-func (r *RealDependencies) Ip6tables(args ...string) {
-	Command{Command: "ip6tables", Args: args, RedirectToStdErr: false}.RunOrFail()
+func (s *StdoutStubDependencies) LookupUser() (*user.User, error) {
+	fmt.Println("User")
+	return nil, nil
 }
 
-func (r *RealDependencies) Ip6tablesQuietly(args ...string) {
-	c := Command{Command: "ip6tables", Args: args, RedirectToStdErr: false}
-	c.RunQuietlyAndIgnore()
+func (s *StdoutStubDependencies) RunOrFail(cmd Cmd, args ...string) {
+	fmt.Printf("%s %s\n", cmd.command, strings.Join(args, " "))
 }
 
-func (r *RealDependencies) Ip(args ...string) {
-	Command{Command: "ip", Args: args, RedirectToStdErr: false}.RunOrFail()
+func (s *StdoutStubDependencies) Run(cmd Cmd, args ...string) error {
+	fmt.Printf("%s %s\n", cmd.command, strings.Join(args, " "))
+	return nil
+}
+
+func (s *StdoutStubDependencies) RunQuietlyAndIgnore(cmd Cmd, args ...string) {
+	fmt.Printf("%s %s\n", cmd.command, strings.Join(args, " "))
 }

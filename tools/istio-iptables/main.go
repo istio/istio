@@ -117,10 +117,9 @@ func run(args []string, flagSet *flag.FlagSet) {
 		"Comma separated list of outbound ports to be excluded from redirection to Envoy (optional")
 	flagSet.StringVar(&kubevirtInterfaces, "k", kubevirtInterfaces,
 		"Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound (optional)")
-	//	flagSet.BoolVar(&dryRun, "dryRun", false,
-	//		"Do not ")
-	var dep Dependencies
-	dep = &RealDependencies{}
+
+	var dryRun bool
+	flagSet.BoolVar(&dryRun, "dryRun", false, "Do not call any external dependencies like iptables")
 	err := flagSet.Parse(args)
 	if err != nil {
 		return
@@ -128,6 +127,12 @@ func run(args []string, flagSet *flag.FlagSet) {
 
 	defer dump()
 
+	var dep Dependencies
+	if dryRun {
+		dep = &StdoutStubDependencies{}
+	} else {
+		dep = &RealDependencies{}
+	}
 	// TODO: more flexibility - maybe a whitelist of users to be captured for output instead of a blacklist.
 	if proxyUID == "" {
 		usr, err := dep.LookupUser()

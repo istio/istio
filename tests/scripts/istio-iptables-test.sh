@@ -71,7 +71,7 @@ function compareWithGolden() {
 SCRIPT_NAME=$0
 SCRIPT_DIR=$(dirname "$SCRIPT_NAME")
 #FILE_UNDER_TEST="${SCRIPT_DIR}/../../tools/packaging/common/istio-iptables.sh"
-FILE_UNDER_TEST="${SCRIPT_DIR}/../../tools/istio-iptables/istio-iptables"
+FILE_UNDER_TEST="${SCRIPT_DIR}/../../tools/istio-iptables/istio-iptables --dryRun"
 export PATH="${SCRIPT_DIR}/stubs:${PATH}"
 
 FAILED=()
