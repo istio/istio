@@ -48,6 +48,8 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 				ingressConfig            ingress.Config
 				hostName                 string
 				expectedResponse         ingressutil.ExpectedResponse
+				callType 								 ingress.CallType
+				tlsContext 							 ingressutil.TlsContext
 			}{
 				{
 					name:       "mtls ingress gateway invalid CA cert",
@@ -59,15 +61,17 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 					},
 					ingressConfig: ingress.Config{
 						Istio:       inst,
-						IngressType: ingress.Mtls,
-						CaCert:      ingressutil.CaCertA,
-						PrivateKey:  ingressutil.TLSClientKeyA,
-						Cert:        ingressutil.TLSClientCertA,
 					},
 					hostName: "bookinfo1.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
 						ResponseCode: 0,
 						ErrorMessage: "connection refused",
+					},
+					callType: 	ingress.Mtls,
+					tlsContext: ingressutil.TlsContext{
+						CaCert:     ingressutil.CaCertA,
+						PrivateKey: ingressutil.TLSClientKeyA,
+						Cert:       ingressutil.TLSClientCertA,
 					},
 				},
 				{
@@ -79,15 +83,17 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 					},
 					ingressConfig: ingress.Config{
 						Istio:       inst,
-						IngressType: ingress.Mtls,
-						CaCert:      ingressutil.CaCertA,
-						PrivateKey:  ingressutil.TLSClientKeyA,
-						Cert:        ingressutil.TLSClientCertA,
 					},
 					hostName: "bookinfo2.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
 						ResponseCode: 0,
 						ErrorMessage: "connection refused",
+					},
+					callType: 	ingress.Mtls,
+					tlsContext: ingressutil.TlsContext{
+						CaCert:      ingressutil.CaCertA,
+						PrivateKey:  ingressutil.TLSClientKeyA,
+						Cert:        ingressutil.TLSClientCertA,
 					},
 				},
 				{
@@ -100,15 +106,17 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 					},
 					ingressConfig: ingress.Config{
 						Istio:       inst,
-						IngressType: ingress.Mtls,
-						CaCert:      ingressutil.CaCertA,
-						PrivateKey:  ingressutil.TLSClientKeyA,
-						Cert:        ingressutil.TLSClientCertA,
 					},
 					hostName: "bookinfo3.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
 						ResponseCode: 0,
 						ErrorMessage: "connection refused",
+					},
+					callType: 	ingress.Mtls,
+					tlsContext: ingressutil.TlsContext{
+						CaCert:      ingressutil.CaCertA,
+						PrivateKey:  ingressutil.TLSClientKeyA,
+						Cert:        ingressutil.TLSClientCertA,
 					},
 				},
 			}
@@ -119,7 +127,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 				// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 				time.Sleep(3 * time.Second)
 				ing := ingress.NewOrFail(t, ctx, c.ingressConfig)
-				err := ingressutil.VisitProductPage(ing, c.hostName, 30*time.Second, c.expectedResponse, t)
+				err := ingressutil.VisitProductPage(ing, c.hostName, c.callType, c.tlsContext, 30*time.Second, c.expectedResponse, t)
 				if err != nil {
 					t.Errorf("test case %s: unable to retrieve %d from product page at host %s: %v",
 						c.name, c.expectedResponse.ResponseCode, c.hostName, err)

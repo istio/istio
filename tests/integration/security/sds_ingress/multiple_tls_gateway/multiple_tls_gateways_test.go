@@ -48,12 +48,16 @@ func testMultiTLSGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 	ingressutil.DeployBookinfo(t, ctx, g, ingressutil.MultiTLSGateway)
 
 	ingressutil.CreateIngressKubeSecret(t, ctx, credNames, ingress.TLS, ingressutil.IngressCredentialA)
-	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst, IngressType: ingress.TLS, CaCert: ingressutil.CaCertA})
+	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
+	tlsContext := ingressutil.TlsContext{
+		CaCert: ingressutil.CaCertA,
+	}
+	callType := ingress.TLS
 	// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 	time.Sleep(3 * time.Second)
 
 	for _, h := range hosts {
-		err := ingressutil.VisitProductPage(ing, h, 30*time.Second,
+		err := ingressutil.VisitProductPage(ing, h, callType, tlsContext, 30*time.Second,
 			ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 		if err != nil {
 			t.Fatalf("unable to retrieve 200 from product page at host %s: %v", h, err)

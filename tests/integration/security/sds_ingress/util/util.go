@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
-// GatewayType defines type of bookinfo gateway
+// CallType defines type of bookinfo gateway
 type GatewayType int
 
 const (
@@ -77,7 +77,7 @@ var IngressCredentialB = IngressCredential{
 // and creates K8s secrets for ingress gateway.
 // nolint: interfacer
 func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames []string,
-	ingressType ingress.GatewayType, ingressCred IngressCredential) {
+	ingressType ingress.CallType, ingressCred IngressCredential) {
 	// Get namespace for ingress gateway pod.
 	istioCfg := istio.DefaultConfigOrFail(t, ctx)
 	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
@@ -114,7 +114,7 @@ func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames 
 
 // createSecret creates a kubernetes secret which stores private key, server certificate for TLS ingress gateway.
 // For mTLS ingress gateway, createSecret adds ca certificate into the secret object.
-func createSecret(ingressType ingress.GatewayType, cn, ns string, ic IngressCredential) *v1.Secret {
+func createSecret(ingressType ingress.CallType, cn, ns string, ic IngressCredential) *v1.Secret {
 	if ingressType == ingress.Mtls {
 		return &v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -145,11 +145,29 @@ type ExpectedResponse struct {
 	ErrorMessage string
 }
 
+type TlsContext struct {
+	// CaCert is inline base64 encoded root certificate that authenticates server certificate provided
+	// by ingress gateway.
+	CaCert string
+	// PrivateKey is inline base64 encoded private key for test client.
+	PrivateKey string
+	// Cert is inline base64 encoded certificate for test client.
+	Cert string
+}
+
 // VisitProductPage makes HTTPS request to ingress gateway to visit product page
-func VisitProductPage(ing ingress.Instance, host string, timeout time.Duration, exRsp ExpectedResponse, t *testing.T) error {
+func VisitProductPage(ing ingress.Instance, host string, callType ingress.CallType, tlsCtx TlsContext, timeout time.Duration, exRsp ExpectedResponse, t *testing.T) error {
 	start := time.Now()
 	for {
-		response, err := ing.Call(ingress.CallOptions{Host: host, Path: "/productpage"})
+		response, err := ing.Call(ingress.CallOptions{
+			Host: host,
+			Path: "/productpage",
+			CaCert: tlsCtx.CaCert,
+			PrivateKey: tlsCtx.PrivateKey,
+			Cert: tlsCtx.Cert,
+			CallType: callType,
+			Address: ing.HTTPSAddress(),
+		})
 		errorMatch := true
 		if err != nil {
 			t.Logf("Unable to connect to product page: %v", err)
@@ -179,7 +197,7 @@ func VisitProductPage(ing ingress.Instance, host string, timeout time.Duration, 
 // RotateSecrets deletes kubernetes secrets by name in credNames and creates same secrets using key/cert
 // from ingressCred.
 func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string,
-	ingressType ingress.GatewayType, ingressCred IngressCredential) {
+	ingressType ingress.CallType, ingressCred IngressCredential) {
 	istioCfg := istio.DefaultConfigOrFail(t, ctx)
 	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor

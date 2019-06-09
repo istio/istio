@@ -47,19 +47,16 @@ var (
 type kubeComponent struct {
 	id          resource.ID
 	address     string
-	gatewayType GatewayType
-	caCert      string
-	tlsCert     string
-	tlsKey      string
+	namespace   string
+	env         *kube.Environment
 }
 
-// getHTTPAddress returns the ingress gateway address for plain text http requests.
-func getHTTPAddress(env *kube.Environment, cfg Config) (interface{}, bool, error) {
+// getHTTPAddressInner returns the ingress gateway address for plain text http requests.
+func getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, error) {
 	// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
 	// port.
-	n := cfg.Istio.Settings().IngressNamespace
 	if env.Settings().Minikube {
-		pods, err := env.GetPods(n, fmt.Sprintf("istio=%s", istioLabel))
+		pods, err := env.GetPods(ns, fmt.Sprintf("istio=%s", istioLabel))
 		if err != nil {
 			return nil, false, err
 		}
@@ -75,14 +72,14 @@ func getHTTPAddress(env *kube.Environment, cfg Config) (interface{}, bool, error
 			return nil, false, fmt.Errorf("no Host IP available on the ingress node yet")
 		}
 
-		svc, err := env.Accessor.GetService(n, serviceName)
+		svc, err := env.Accessor.GetService(ns, serviceName)
 		if err != nil {
 			return nil, false, err
 		}
 
 		scopes.Framework.Debugf("Found service for the gateway:\n%v\n", svc)
 		if len(svc.Spec.Ports) == 0 {
-			return nil, false, fmt.Errorf("no ports found in service: %s/%s", n, "istio-ingressgateway")
+			return nil, false, fmt.Errorf("no ports found in service: %s/%s", ns, "istio-ingressgateway")
 		}
 
 		port := svc.Spec.Ports[0].NodePort
@@ -91,7 +88,7 @@ func getHTTPAddress(env *kube.Environment, cfg Config) (interface{}, bool, error
 	}
 
 	// Otherwise, get the load balancer IP.
-	svc, err := env.Accessor.GetService(n, serviceName)
+	svc, err := env.Accessor.GetService(ns, serviceName)
 	if err != nil {
 		return nil, false, err
 	}
@@ -104,14 +101,13 @@ func getHTTPAddress(env *kube.Environment, cfg Config) (interface{}, bool, error
 	return fmt.Sprintf("http://%s", ip), true, nil
 }
 
-// getHTTPSAddress returns the ingress gateway address for https requests.
-func getHTTPSAddress(env *kube.Environment, cfg Config) (interface{}, bool, error) {
+// getHTTPSAddressInner returns the ingress gateway address for https requests.
+func getHTTPSAddressInner(env *kube.Environment, ns string) (interface{}, bool, error) {
 	if env.Settings().Minikube {
 		// TODO(JimmyCYJ): Add support into ingress package to fetch address in Minikube environment
 		// https://github.com/istio/istio/issues/14180
 		return nil, false, fmt.Errorf("fetching HTTPS address in Minikube is not implemented yet")
 	}
-	ns := cfg.Istio.Settings().IngressNamespace
 
 	svc, err := env.Accessor.GetService(ns, serviceName)
 	if err != nil {
@@ -129,25 +125,8 @@ func getHTTPSAddress(env *kube.Environment, cfg Config) (interface{}, bool, erro
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	c := &kubeComponent{}
 	c.id = ctx.TrackResource(c)
-	c.gatewayType = cfg.IngressType
-	c.caCert = cfg.CaCert
-	c.tlsCert = cfg.Cert
-	c.tlsKey = cfg.PrivateKey
-
-	env := ctx.Environment().(*kube.Environment)
-
-	address, err := retry.Do(func() (interface{}, bool, error) {
-
-		if cfg.IngressType == PlainText {
-			return getHTTPAddress(env, cfg)
-		}
-		return getHTTPSAddress(env, cfg)
-	}, retryTimeout, retryDelay)
-
-	if err != nil {
-		return nil, err
-	}
-	c.address = address.(string)
+	c.namespace = cfg.Istio.Settings().IngressNamespace
+	c.env = ctx.Environment().(*kube.Environment)
 
 	return c, nil
 }
@@ -156,9 +135,26 @@ func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }
 
-// Address implements environment.DeployedIngress
-func (c *kubeComponent) Address() string {
-	return c.address
+// HTTPAddress returns HTTP address of ingress gateway.
+func (c *kubeComponent) HTTPAddress() string {
+	address, err := retry.Do(func() (interface{}, bool, error) {
+		return getHTTPAddressInner(c.env, c.namespace)
+	}, retryTimeout, retryDelay)
+	if err != nil {
+		return ""
+	}
+	return address.(string)
+}
+
+// HTTPSAddress returns HTTPS address of ingress gateway.
+func (c *kubeComponent) HTTPSAddress() string {
+	address, err := retry.Do(func() (interface{}, bool, error) {
+		return getHTTPSAddressInner(c.env, c.namespace)
+	}, retryTimeout, retryDelay)
+	if err != nil {
+		return ""
+	}
+	return address.(string)
 }
 
 // createClient creates a client which sends HTTP requests or HTTPS requests, depending on
@@ -168,10 +164,10 @@ func (c *kubeComponent) createClient(options CallOptions) (*http.Client, error) 
 	client := &http.Client{
 		Timeout: options.Timeout,
 	}
-	if c.gatewayType != PlainText {
+	if options.CallType != PlainText {
 		scopes.Framework.Debug("Prepare root cert for client")
 		roots := x509.NewCertPool()
-		ok := roots.AppendCertsFromPEM([]byte(c.caCert))
+		ok := roots.AppendCertsFromPEM([]byte(options.CaCert))
 		if !ok {
 			return nil, fmt.Errorf("failed to parse root certificate")
 		}
@@ -179,8 +175,8 @@ func (c *kubeComponent) createClient(options CallOptions) (*http.Client, error) 
 			RootCAs:    roots,
 			ServerName: options.Host,
 		}
-		if c.gatewayType == Mtls {
-			cer, err := tls.X509KeyPair([]byte(c.tlsCert), []byte(c.tlsKey))
+		if options.CallType == Mtls {
+			cer, err := tls.X509KeyPair([]byte(options.Cert), []byte(options.PrivateKey))
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse private key and server cert")
 			}
@@ -190,7 +186,7 @@ func (c *kubeComponent) createClient(options CallOptions) (*http.Client, error) 
 			TLSClientConfig: tlsConfig,
 			DialTLS: func(netw, addr string) (net.Conn, error) {
 				if addr == options.Host+":443" {
-					addr = c.address + ":443"
+					addr = options.Address + ":443"
 				}
 				tc, err := tls.Dial(netw, addr, tlsConfig)
 				if err != nil {
@@ -209,37 +205,45 @@ func (c *kubeComponent) createClient(options CallOptions) (*http.Client, error) 
 }
 
 // createRequest returns a request for client to send, or nil and error if request is failed to generate.
-func (c *kubeComponent) createRequest(path, host string) (*http.Request, error) {
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
-	}
-	url := c.address + path
-	if c.gatewayType != PlainText {
-		url = "https://" + host + ":443" + path
+func (c *kubeComponent) createRequest(options CallOptions) (*http.Request, error) {
+	url := options.Address + options.Path
+	if options.CallType != PlainText {
+		url = "https://" + options.Host + ":443" + options.Path
 	}
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	if host != "" {
-		req.Host = host
+	if options.Host != "" {
+		req.Host = options.Host
 	}
 
 	scopes.Framework.Debugf("Created a request to send %v", req)
 	return req, nil
 }
 
-func (c *kubeComponent) Call(options CallOptions) (CallResponse, error) {
+// sanitizeCallOptions checks and fills fields in CallOptions.
+func sanitizeCallOptions(options *CallOptions) {
 	if options.Timeout <= 0 {
 		options.Timeout = DefaultRequestTimeout
 	}
+	if !strings.HasPrefix(options.Path, "/") {
+		options.Path = "/" + options.Path
+	}
+	if options.Address == "" {
+		scopes.Framework.Fatal("ingress gateway address is empty")
+	}
+}
+
+func (c *kubeComponent) Call(options CallOptions) (CallResponse, error) {
+	sanitizeCallOptions(&options)
 	client, err := c.createClient(options)
 	if err != nil {
 		scopes.Framework.Errorf("failed to create test client, error %v", err)
 		return CallResponse{}, err
 	}
-	req, err := c.createRequest(options.Path, options.Host)
+	req, err := c.createRequest(options)
 	if err != nil {
 		scopes.Framework.Errorf("failed to create request, error %v", err)
 		return CallResponse{}, err
@@ -256,7 +260,7 @@ func (c *kubeComponent) Call(options CallOptions) (CallResponse, error) {
 	var ba []byte
 	ba, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		scopes.Framework.Warnf("Unable to connect to read from %s: %v", c.address, err)
+		scopes.Framework.Warnf("Unable to connect to read from %s: %v", options.Address, err)
 		return CallResponse{}, err
 	}
 	contents := string(ba)

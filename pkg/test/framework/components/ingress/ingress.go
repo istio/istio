@@ -23,13 +23,13 @@ import (
 	"time"
 )
 
-// GatewayType defines ingress gateway type
-type GatewayType int
+// CallType defines ingress gateway type
+type CallType int
 
 const (
-	PlainText GatewayType = 0
-	TLS       GatewayType = 1
-	Mtls      GatewayType = 2
+	PlainText CallType = 0
+	TLS       CallType = 1
+	Mtls      CallType = 2
 )
 
 // CallOptions defines options for calling a Endpoint.
@@ -43,15 +43,32 @@ type CallOptions struct {
 
 	// Timeout used for each individual request. Must be > 0, otherwise 1 minute is used.
 	Timeout time.Duration
+
+	// CaCert is inline base64 encoded root certificate that authenticates server certificate provided
+	// by ingress gateway.
+	CaCert string
+	// PrivateKey is inline base64 encoded private key for test client.
+	PrivateKey string
+	// Cert is inline base64 encoded certificate for test client.
+	Cert string
+
+	// Address is the ingress gateway address to call to.
+	Address     string
+
+	// CallType specifies what type of call to make (PlainText, TLS, mTLS).
+	CallType CallType
 }
 
 // Instance represents a deployed Ingress Gateway instance.
 type Instance interface {
 	resource.Resource
 
-	// Address returns the external HTTP address of the ingress gateway (or the NodePort address,
+	// HTTPAddress returns the external HTTP address of the ingress gateway (or the NodePort address,
 	// when running under Minikube).
-	Address() string
+	HTTPAddress() string
+	// HTTPSAddress returns the external HTTPS address of the ingress gateway (or the NodePort address,
+	// when running under Minikube).
+	HTTPSAddress() string
 
 	//  Call makes a call through ingress.
 	Call(options CallOptions) (CallResponse, error)
@@ -61,14 +78,7 @@ type Instance interface {
 type Config struct {
 	Istio istio.Instance
 	// IngressType specifies the type of ingress gateway.
-	IngressType GatewayType
-	// CaCert is inline base64 encoded root certificate that authenticates server certificate provided
-	// by ingress gateway.
-	CaCert string
-	// PrivateKey is inline base64 encoded private key for test client.
-	PrivateKey string
-	// Cert is inline base64 encoded certificate for test client.
-	Cert string
+	IngressType CallType
 }
 
 // CallResponse is the result of a call made through Istio Ingress.

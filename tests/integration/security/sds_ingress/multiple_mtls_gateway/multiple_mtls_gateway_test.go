@@ -52,14 +52,16 @@ func testMultiMtlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:
 	time.Sleep(3 * time.Second)
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{
 		Istio:       inst,
-		IngressType: ingress.Mtls,
+	})
+	tlsContext := ingressutil.TlsContext{
 		CaCert:      ingressutil.CaCertA,
 		PrivateKey:  ingressutil.TLSClientKeyA,
 		Cert:        ingressutil.TLSClientCertA,
-	})
+	}
+	callType := ingress.Mtls
 
 	for _, h := range hosts {
-		err := ingressutil.VisitProductPage(ing, h, 30*time.Second,
+		err := ingressutil.VisitProductPage(ing, h, callType, tlsContext, 30*time.Second,
 			ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 		if err != nil {
 			t.Fatalf("unable to retrieve 200 from product page at host %s: %v", h, err)

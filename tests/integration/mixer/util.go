@@ -126,7 +126,7 @@ func PromDumpWithAttributes(prometheus prometheus.Instance, metric string, attri
 func SendTraffic(ingress ingress.Instance, t *testing.T, msg, url string, calls int64) *fhttp.HTTPRunnerResults {
 	t.Log(msg)
 	if url == "" {
-		url = fmt.Sprintf("%s/productpage", ingress.Address())
+		url = fmt.Sprintf("%s/productpage", ingress.HTTPAddress())
 	}
 
 	// run at a high enough QPS (here 10) to ensure that enough
