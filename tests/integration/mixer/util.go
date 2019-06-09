@@ -50,8 +50,13 @@ func GetReporterCodeLabel() string {
 
 func VisitProductPage(ing ingress.Instance, timeout time.Duration, wantStatus int, t *testing.T) error {
 	start := time.Now()
+	endpointIP := ing.HTTPAddress()
 	for {
-		response, err := ing.Call(ingress.CallOptions{Host: "", Path: "/productpage"})
+		response, err := ing.Call(ingress.CallOptions{
+			Host:     "",
+			Path:     "/productpage",
+			CallType: ingress.PlainText,
+			Address:  endpointIP})
 		if err != nil {
 			t.Logf("Unable to connect to product page: %v", err)
 		}
