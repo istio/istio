@@ -677,7 +677,7 @@ istio.io/api/envoy/config/filter/http/authn/v2alpha1
 istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1
 istio.io/api/mixer/adapter/model/v1beta1
 istio.io/api/mixer/v1
-# istio.io/pkg v0.0.0-20190516214103-40b7bf4c7321
+# istio.io/pkg v0.0.0-20190603185215-940899ee7e72
 istio.io/pkg/collateral
 istio.io/pkg/log
 istio.io/pkg/probe
@@ -692,6 +692,7 @@ istio.io/pkg/pool
 istio.io/pkg/cache
 istio.io/pkg/attribute
 istio.io/pkg/annotations
+istio.io/pkg/collateral/metrics
 istio.io/pkg/ctrlz/assets
 istio.io/pkg/ctrlz/topics
 istio.io/pkg/ctrlz/topics/assets
