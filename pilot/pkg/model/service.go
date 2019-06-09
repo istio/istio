@@ -944,8 +944,8 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 	// This could be the DNS srv form of the cluster that uses outbound_.port_.subset_.hostname
 	// Since we dont want every callsite to implement the logic to differentiate between the two forms
 	// we add an alternate parser here.
-	if strings.HasPrefix(s, fmt.Sprintf("%s_", TrafficDirectionOutbound)) ||
-		strings.HasPrefix(s, fmt.Sprintf("%s_", TrafficDirectionInbound)) {
+	if strings.HasPrefix(s, string(TrafficDirectionOutbound)+"_") ||
+		strings.HasPrefix(s, string(TrafficDirectionInbound)+"_") {
 		parts = strings.SplitN(s, ".", 4)
 		dnsSrvMode = true
 	} else {
