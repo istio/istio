@@ -516,6 +516,13 @@ func TestHostnamesSortOrder(t *testing.T) {
 	}
 }
 
+func BenchmarkParseSubsetKey(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		ParseSubsetKey("outbound|80|v1|example.com")
+		ParseSubsetKey("outbound_.8080_.v1_.foo.example.org")
+	}
+}
+
 func TestParseSubsetKey(t *testing.T) {
 	tests := []struct {
 		input      string
