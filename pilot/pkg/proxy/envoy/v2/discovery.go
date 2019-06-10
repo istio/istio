@@ -19,8 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
@@ -372,7 +370,7 @@ func (s *DiscoveryServer) clearCache() {
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 // It replaces the 'clear cache' from v1.
 func (s *DiscoveryServer) ConfigUpdate(full bool) {
-	inboundUpdates.With(prometheus.Labels{"type": "config"}).Add(1)
+	inboundConfigUpdates.Add(1)
 	s.updateChannel <- &updateReq{full: full}
 }
 
