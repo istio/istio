@@ -111,7 +111,7 @@ func ValidatePort(port int) error {
 	return fmt.Errorf("port number %d must be in the range 1..65535", port)
 }
 
-// ValidatePort checks if all ports are in range [0, 65535]
+// ValidatePorts checks if all ports are in range [0, 65535]
 func ValidatePorts(ports []int32) bool {
 	for _, port := range ports {
 		if ValidatePort(int(port)) != nil {
@@ -2478,18 +2478,27 @@ func appendErrors(err error, errs ...error) error {
 // ValidateNetworkEndpointAddress checks the Address field of a NetworkEndpoint. If the family is TCP, it checks the
 // address is a valid IP address. If the family is Unix, it checks the address is a valid socket file path.
 func ValidateNetworkEndpointAddress(n *NetworkEndpoint) error {
-	switch n.Family {
+	return validateAddress(n.Family, n.Address)
+}
+
+// ValidateIstioEndpointAddress checks the Address field of a IstioEndpoint. If the family is TCP, it checks the
+// address is a valid IP address. If the family is Unix, it checks the address is a valid socket file path.
+func ValidateIstioEndpointAddress(ie *IstioEndpoint) error {
+	return validateAddress(ie.Family, ie.Address)
+}
+
+// validateAddress checks ip or unix address
+func validateAddress(family AddressFamily, address string) error {
+	switch family {
 	case AddressFamilyTCP:
-		ipAddr := net.ParseIP(n.Address) // Typically it is an IP address
+		ipAddr := net.ParseIP(address) // Typically it is an IP address
 		if ipAddr == nil {
-			if err := ValidateFQDN(n.Address); err != nil { // Otherwise could be an FQDN
-				return errors.New("invalid address " + n.Address)
-			}
+			return errors.New("invalid address " + address)
 		}
 	case AddressFamilyUnix:
-		return ValidateUnixAddress(n.Address)
+		return ValidateUnixAddress(address)
 	default:
-		panic(fmt.Sprintf("unhandled Family %v", n.Family))
+		panic(fmt.Sprintf("unhandled Family %v", family))
 	}
 	return nil
 }

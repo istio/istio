@@ -128,27 +128,6 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 	return ep
 }
 
-func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
-	err := model.ValidateNetworkEndpointAddress(e)
-	if err != nil {
-		return nil, err
-	}
-	addr := util.GetNetworkEndpointAddress(e)
-	ep := &endpoint.LbEndpoint{
-		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
-			Endpoint: &endpoint.Endpoint{
-				Address: &addr,
-			},
-		},
-	}
-
-	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
-	// Do not remove: mixerfilter depends on this logic.
-	ep.Metadata = endpointMetadata(e.UID, e.Network)
-
-	return ep, nil
-}
-
 // Create an Istio filter metadata object with the UID and Network fields (if exist).
 func endpointMetadata(uid string, network string) *core.Metadata {
 	if uid == "" && network == "" {
@@ -172,6 +151,24 @@ func endpointMetadata(uid string, network string) *core.Metadata {
 	}
 
 	return metadata
+}
+
+func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
+	// Only ip unix address allowed when build envoy endpoints
+	if err := model.ValidateNetworkEndpointAddress(e); err != nil {
+		return nil, err
+	}
+
+	return buildEnvoyLbEndpoint(e.UID, e.Family, e.Address, uint32(e.Port), e.Network), nil
+}
+
+func istioEndpointToEnvoyEndpoint(e *model.IstioEndpoint) (*endpoint.LbEndpoint, error) {
+	// Only ip and unix address allowed when build envoy endpoints
+	if err := model.ValidateIstioEndpointAddress(e); err != nil {
+		return nil, err
+	}
+
+	return buildEnvoyLbEndpoint(e.UID, e.Family, e.Address, e.EndpointPort, e.Network), nil
 }
 
 // updateClusterInc computes an envoy cluster assignment from the service shards.
@@ -576,8 +573,6 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 	for _, instance := range instances {
 		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint)
 		if err != nil {
-			adsLog.Errorf("EDS: Unexpected pilot model endpoint v1 to v2 conversion: %v", err)
-			totalXDSInternalErrors.Add(1)
 			continue
 		}
 		locality := instance.GetLocality()
@@ -922,7 +917,11 @@ func buildLocalityLbEndpointsFromShards(
 				localityEpMap[ep.Locality] = locLbEps
 			}
 			if ep.EnvoyEndpoint == nil {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network)
+				lbEp, err := istioEndpointToEnvoyEndpoint(ep)
+				if err != nil {
+					continue
+				}
+				ep.EnvoyEndpoint = lbEp
 			}
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *ep.EnvoyEndpoint)
 

@@ -4176,10 +4176,59 @@ func TestValidateNetworkEndpointAddress(t *testing.T) {
 			&NetworkEndpoint{Address: "260.3.4.5", Port: 76},
 			false,
 		},
+		{
+			"FQDN invalid",
+			&NetworkEndpoint{Address: "foo.bar.svc.cluster.local", Port: 80},
+			false,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := ValidateNetworkEndpointAddress(tc.ne)
+			if tc.valid && err != nil {
+				t.Fatalf("ValidateAddress() => want error nil got %v", err)
+			} else if !tc.valid && err == nil {
+				t.Fatalf("ValidateAddress() => want error got nil")
+			}
+		})
+	}
+}
+
+func TestValidateIstioEndpointAddress(t *testing.T) {
+	testCases := []struct {
+		name  string
+		ne    *IstioEndpoint
+		valid bool
+	}{
+		{
+			"Unix OK",
+			&IstioEndpoint{Family: AddressFamilyUnix, Address: "/absolute/path"},
+			true,
+		},
+		{
+			"IP OK",
+			&IstioEndpoint{Address: "12.3.4.5"},
+			true,
+		},
+		{
+			"Unix not absolute",
+			&IstioEndpoint{Family: AddressFamilyUnix, Address: "./socket"},
+			false,
+		},
+		{
+			"IP invalid",
+			&IstioEndpoint{Address: "260.3.4.5"},
+			false,
+		},
+		{
+			"FQDN invalid",
+			&IstioEndpoint{Address: "foo.bar.svc.cluster.local"},
+			false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateIstioEndpointAddress(tc.ne)
 			if tc.valid && err != nil {
 				t.Fatalf("ValidateAddress() => want error nil got %v", err)
 			} else if !tc.valid && err == nil {
