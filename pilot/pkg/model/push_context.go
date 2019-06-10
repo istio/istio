@@ -38,7 +38,6 @@ type PushContext struct {
 	// Start represents the time of last config change that reset the
 	// push status.
 	Start time.Time
-	End   time.Time
 
 	// Mutex is used to protect the below store.
 	// All data is set when the PushContext object is populated in `InitContext`,
