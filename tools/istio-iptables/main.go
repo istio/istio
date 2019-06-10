@@ -8,11 +8,12 @@ import (
 	"strings"
 
 	"github.com/joho/godotenv"
+	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
 func getEnvWithDefault(key string, defaultValue string) string {
-	value := os.Getenv(key)
-	if value == "" {
+	value, exists := os.LookupEnv(key)
+	if !exists {
 		return defaultValue
 	}
 	return value
@@ -120,21 +121,21 @@ func run(args []string, flagSet *flag.FlagSet) {
 		return
 	}
 
-	var dep Dependencies
+	var ext dep.Dependencies
 	if dryRun {
-		dep = &StdoutStubDependencies{}
+		ext = &dep.StdoutStubDependencies{}
 	} else {
-		dep = &RealDependencies{}
+		ext = &dep.RealDependencies{}
 	}
 
 	defer func() {
-		dep.RunOrFail(IPTABLES_SAVE)
-		dep.RunOrFail(IP6TABLES_SAVE)
+		ext.RunOrFail(dep.IPTABLES_SAVE)
+		ext.RunOrFail(dep.IP6TABLES_SAVE)
 	}()
 
 	// TODO: more flexibility - maybe a whitelist of users to be captured for output instead of a blacklist.
 	if proxyUID == "" {
-		usr, err := dep.LookupUser()
+		usr, err := ext.LookupUser()
 		var userID string
 		// Default to the UID of ENVOY_USER and root
 		if err != nil {
@@ -152,7 +153,7 @@ func run(args []string, flagSet *flag.FlagSet) {
 		proxyGID = proxyUID
 	}
 
-	podIP, err := dep.GetLocalIP()
+	podIP, err := ext.GetLocalIP()
 	if err != nil {
 		panic(err)
 	}
@@ -179,25 +180,25 @@ func run(args []string, flagSet *flag.FlagSet) {
 	}
 
 	// Remove the old chains, to generate new configs.
-	dep.RunQuietlyAndIgnore(IPTABLES, "-t", "nat", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND")
-	dep.RunQuietlyAndIgnore(IPTABLES, "-t", "mangle", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND")
-	dep.RunQuietlyAndIgnore(IPTABLES, "-t", "nat", "-D", "OUTPUT", "-p", "tcp", "-j", "ISTIO_OUTPUT")
+	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND")
+	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND")
+	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-D", "OUTPUT", "-p", "tcp", "-j", "ISTIO_OUTPUT")
 	// Flush and delete the istio chains.
-	dep.RunQuietlyAndIgnore(IPTABLES, "-t", "nat", "-F", "ISTIO_OUTPUT")
-	dep.RunQuietlyAndIgnore(IPTABLES, "-t", "nat", "-X", "ISTIO_OUTPUT")
-	dep.RunQuietlyAndIgnore(IPTABLES, "-t", "nat", "-F", "ISTIO_INBOUND")
-	dep.RunQuietlyAndIgnore(IPTABLES, "-t", "nat", "-X", "ISTIO_INBOUND")
-	dep.RunQuietlyAndIgnore(IPTABLES, "-t", "mangle", "-F", "ISTIO_INBOUND")
-	dep.RunQuietlyAndIgnore(IPTABLES, "-t", "mangle", "-X", "ISTIO_INBOUND")
-	dep.RunQuietlyAndIgnore(IPTABLES, "-t", "mangle", "-F", "ISTIO_DIVERT")
-	dep.RunQuietlyAndIgnore(IPTABLES, "-t", "mangle", "-X", "ISTIO_DIVERT")
-	dep.RunQuietlyAndIgnore(IPTABLES, "-t", "mangle", "-F", "ISTIO_TPROXY")
-	dep.RunQuietlyAndIgnore(IPTABLES, "-t", "mangle", "-X", "ISTIO_TPROXY")
+	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-F", "ISTIO_OUTPUT")
+	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-X", "ISTIO_OUTPUT")
+	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-F", "ISTIO_INBOUND")
+	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-X", "ISTIO_INBOUND")
+	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-F", "ISTIO_INBOUND")
+	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-X", "ISTIO_INBOUND")
+	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-F", "ISTIO_DIVERT")
+	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-X", "ISTIO_DIVERT")
+	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-F", "ISTIO_TPROXY")
+	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-X", "ISTIO_TPROXY")
 	// Must be last, the others refer to it
-	dep.RunQuietlyAndIgnore(IPTABLES, "-t", "nat", "-F", "ISTIO_REDIRECT")
-	dep.RunQuietlyAndIgnore(IPTABLES, "-t", "nat", "-X", "ISTIO_REDIRECT")
-	dep.RunQuietlyAndIgnore(IPTABLES, "-t", "nat", "-F", "ISTIO_IN_REDIRECT")
-	dep.RunQuietlyAndIgnore(IPTABLES, "-t", "nat", "-X", "ISTIO_IN_REDIRECT")
+	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-F", "ISTIO_REDIRECT")
+	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-X", "ISTIO_REDIRECT")
+	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-F", "ISTIO_IN_REDIRECT")
+	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-X", "ISTIO_IN_REDIRECT")
 
 	if len(flagSet.Args()) > 0 && flagSet.Arg(0) == "clean" {
 		fmt.Println("Only cleaning, no new rules added")
@@ -237,12 +238,12 @@ func run(args []string, flagSet *flag.FlagSet) {
 	// Create a new chain for redirecting outbound traffic to the common Envoy port.
 	// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
 	// redirects to Envoy.
-	dep.RunOrFail(IPTABLES, "-t", "nat", "-N", "ISTIO_REDIRECT")
-	dep.RunOrFail(IPTABLES, "-t", "nat", "-A", "ISTIO_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", proxyPort)
+	ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-N", "ISTIO_REDIRECT")
+	ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", proxyPort)
 	// Use this chain also for redirecting inbound traffic to the common Envoy port
 	// when not using TPROXY.
-	dep.RunOrFail(IPTABLES, "-t", "nat", "-N", "ISTIO_IN_REDIRECT")
-	dep.RunOrFail(IPTABLES, "-t", "nat", "-A", "ISTIO_IN_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", inboundCapturePort)
+	ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-N", "ISTIO_IN_REDIRECT")
+	ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_IN_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", inboundCapturePort)
 
 	var table string
 	// Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
@@ -255,68 +256,68 @@ func run(args []string, flagSet *flag.FlagSet) {
 			// In the ISTIO_INBOUND chain, '-j ISTIO_DIVERT' reroutes to the loopback
 			// interface.
 			// Mark all inbound packets.
-			dep.RunOrFail(IPTABLES, "-t", "mangle", "-N", "ISTIO_DIVERT")
-			dep.RunOrFail(IPTABLES, "-t", "mangle", "-A", "ISTIO_DIVERT", "-j", "MARK", "--set-mark", inboundTProxyMark)
-			dep.RunOrFail(IPTABLES, "-t", "mangle", "-A", "ISTIO_DIVERT", "-j", "ACCEPT")
+			ext.RunOrFail(dep.IPTABLES, "-t", "mangle", "-N", "ISTIO_DIVERT")
+			ext.RunOrFail(dep.IPTABLES, "-t", "mangle", "-A", "ISTIO_DIVERT", "-j", "MARK", "--set-mark", inboundTProxyMark)
+			ext.RunOrFail(dep.IPTABLES, "-t", "mangle", "-A", "ISTIO_DIVERT", "-j", "ACCEPT")
 			// Route all packets marked in chain ISTIO_DIVERT using routing table ${INBOUND_TPROXY_ROUTE_TABLE}.
-			dep.RunOrFail(IP, "-f", "inet", "rule", "add", "fwmark", inboundTProxyMark, "lookup", inboundTProxyRouteTable)
+			ext.RunOrFail(dep.IP, "-f", "inet", "rule", "add", "fwmark", inboundTProxyMark, "lookup", inboundTProxyRouteTable)
 			// In routing table ${INBOUND_TPROXY_ROUTE_TABLE}, create a single default rule to route all traffic to
 			// the loopback interface.
-			err = dep.Run(IP, "-f", "inet", "route", "add", "local", "default", "dev", "lo", "table", inboundTProxyRouteTable)
+			err = ext.Run(dep.IP, "-f", "inet", "route", "add", "local", "default", "dev", "lo", "table", inboundTProxyRouteTable)
 			if err != nil {
-				dep.RunOrFail(IP, "route", "show", "table", "all")
+				ext.RunOrFail(dep.IP, "route", "show", "table", "all")
 			}
 			// Create a new chain for redirecting inbound traffic to the common Envoy
 			// port.
 			// In the ISTIO_INBOUND chain, '-j RETURN' bypasses Envoy and
 			// '-j ISTIO_TPROXY' redirects to Envoy.
-			dep.RunOrFail(IPTABLES, "-t", "mangle", "-N", "ISTIO_TPROXY")
-			dep.RunOrFail(IPTABLES, "-t", "mangle", "-A", "ISTIO_TPROXY", "!", "-d", "127.0.0.1/32", "-p", "tcp", "-j", "TPROXY",
+			ext.RunOrFail(dep.IPTABLES, "-t", "mangle", "-N", "ISTIO_TPROXY")
+			ext.RunOrFail(dep.IPTABLES, "-t", "mangle", "-A", "ISTIO_TPROXY", "!", "-d", "127.0.0.1/32", "-p", "tcp", "-j", "TPROXY",
 				"--tproxy-mark", inboundTProxyMark+"/0xffffffff", "--on-port", proxyPort)
 
 			table = "mangle"
 		} else {
 			table = "nat"
 		}
-		dep.RunOrFail(IPTABLES, "-t", table, "-N", "ISTIO_INBOUND")
-		dep.RunOrFail(IPTABLES, "-t", table, "-A", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND")
+		ext.RunOrFail(dep.IPTABLES, "-t", table, "-N", "ISTIO_INBOUND")
+		ext.RunOrFail(dep.IPTABLES, "-t", table, "-A", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND")
 
 		if inboundPortsInclude == "*" {
 			// Makes sure SSH is not redirected
-			dep.RunOrFail(IPTABLES, "-t", table, "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", "22", "-j", "RETURN")
+			ext.RunOrFail(dep.IPTABLES, "-t", table, "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", "22", "-j", "RETURN")
 			// Apply any user-specified port exclusions.
 			if inboundPortsExclude != "" {
 				for _, port := range split(inboundPortsExclude) {
-					dep.RunOrFail(IPTABLES, "-t", table, "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-j", "RETURN")
+					ext.RunOrFail(dep.IPTABLES, "-t", table, "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-j", "RETURN")
 				}
 			}
 			// Redirect remaining inbound traffic to Envoy.
 			if inboundInterceptionMode == "TPROXY" {
 				// If an inbound packet belongs to an established socket, route it to the
 				// loopback interface.
-				err := dep.Run(IPTABLES, "-t", "mangle", "-A", "ISTIO_INBOUND", "-p", "tcp", "-m", "socket", "-j", "ISTIO_DIVERT")
+				err := ext.Run(dep.IPTABLES, "-t", "mangle", "-A", "ISTIO_INBOUND", "-p", "tcp", "-m", "socket", "-j", "ISTIO_DIVERT")
 				if err != nil {
 					fmt.Println("No socket match support")
 				}
 				// Otherwise, it's a new connection. Redirect it using TPROXY.
-				dep.RunOrFail(IPTABLES, "-t", "mangle", "-A", "ISTIO_INBOUND", "-p", "tcp", "-j", "ISTIO_TPROXY")
+				ext.RunOrFail(dep.IPTABLES, "-t", "mangle", "-A", "ISTIO_INBOUND", "-p", "tcp", "-j", "ISTIO_TPROXY")
 			} else {
-				dep.RunOrFail(IPTABLES, "-t", "nat", "-A", "ISTIO_INBOUND", "-p", "tcp", "-j", "ISTIO_IN_REDIRECT")
+				ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_INBOUND", "-p", "tcp", "-j", "ISTIO_IN_REDIRECT")
 			}
 		} else {
 			// User has specified a non-empty list of ports to be redirected to Envoy.
 			for _, port := range split(inboundPortsInclude) {
 				if inboundInterceptionMode == "TPROXY" {
-					err := dep.Run(IPTABLES, "-t", "mangle", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-m", "socket", "-j", "ISTIO_DIVERT")
+					err := ext.Run(dep.IPTABLES, "-t", "mangle", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-m", "socket", "-j", "ISTIO_DIVERT")
 					if err != nil {
 						fmt.Println("No socket match support")
 					}
-					err = dep.Run(IPTABLES, "-t", "mangle", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-m", "socket", "-j", "ISTIO_DIVERT")
+					err = ext.Run(dep.IPTABLES, "-t", "mangle", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-m", "socket", "-j", "ISTIO_DIVERT")
 					if err != nil {
 						fmt.Println("No socket match support")
 					}
-					dep.RunOrFail(IPTABLES, "-t", "mangle", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-j", "ISTIO_TPROXY")
-					dep.RunOrFail(IPTABLES, "-t", "nat", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-j", "ISTIO_IN_REDIRECT")
+					ext.RunOrFail(dep.IPTABLES, "-t", "mangle", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-j", "ISTIO_TPROXY")
+					ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-j", "ISTIO_IN_REDIRECT")
 				}
 			}
 		}
@@ -324,175 +325,175 @@ func run(args []string, flagSet *flag.FlagSet) {
 	// TODO: change the default behavior to not intercept any output - user may use http_proxy or another
 	// iptablesOrFail wrapper (like ufw). Current default is similar with 0.1
 	// Create a new chain for selectively redirecting outbound packets to Envoy.
-	dep.RunOrFail(IPTABLES, "-t", "nat", "-N", "ISTIO_OUTPUT")
+	ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-N", "ISTIO_OUTPUT")
 	// Jump to the ISTIO_OUTPUT chain from OUTPUT chain for all tcp traffic.
-	dep.RunOrFail(IPTABLES, "-t", "nat", "-A", "OUTPUT", "-p", "tcp", "-j", "ISTIO_OUTPUT")
+	ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "OUTPUT", "-p", "tcp", "-j", "ISTIO_OUTPUT")
 
 	// Apply port based exclusions. Must be applied before connections back to self are redirected.
 	if outboundPortsExclude != "" {
 		for _, port := range split(outboundPortsExclude) {
-			dep.RunOrFail(IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-p", "tcp", "--dport", port, "-j", "RETURN")
+			ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-p", "tcp", "--dport", port, "-j", "RETURN")
 		}
 	}
 
 	if os.Getenv("DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK") == "" {
 		// Redirect app calls back to itself via Envoy when using the service VIP or endpoint
 		// address, e.g. appN => Envoy (client) => Envoy (server) => appN.
-		dep.RunOrFail(IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "127.0.0.1/32", "-j", "ISTIO_REDIRECT")
+		ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "127.0.0.1/32", "-j", "ISTIO_REDIRECT")
 	}
 
 	for _, uid := range split(proxyUID) {
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
-		dep.RunOrFail(IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-m", "owner", "--uid-owner", uid, "-j", "RETURN")
+		ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-m", "owner", "--uid-owner", uid, "-j", "RETURN")
 	}
 
 	for _, gid := range split(proxyGID) {
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
-		dep.RunOrFail(IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-m", "owner", "--gid-owner", gid, "-j", "RETURN")
+		ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-m", "owner", "--gid-owner", gid, "-j", "RETURN")
 	}
 	// Skip redirection for Envoy-aware applications and
 	// container-to-container traffic both of which explicitly use
 	// localhost.
-	dep.RunOrFail(IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-d", "127.0.0.1/32", "-j", "RETURN")
+	ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-d", "127.0.0.1/32", "-j", "RETURN")
 	// Apply outbound IPv4 exclusions. Must be applied before inclusions.
 	for _, cidr := range ipv4RangesExclude.IPNets {
-		dep.RunOrFail(IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-d", cidr.String(), "-j", "RETURN")
+		ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-d", cidr.String(), "-j", "RETURN")
 	}
 
 	for _, internalInterface := range split(kubevirtInterfaces) {
-		dep.RunOrFail(IPTABLES, "-t", "nat", "-I", "PREROUTING", "1", "-i", internalInterface, "-j", "RETURN")
+		ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-I", "PREROUTING", "1", "-i", internalInterface, "-j", "RETURN")
 	}
 	// Apply outbound IP inclusions.
 	if ipv4RangesInclude.IsWildcard {
 		// Wildcard specified. Redirect all remaining outbound traffic to Envoy.
-		dep.RunOrFail(IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-j", "ISTIO_REDIRECT")
+		ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-j", "ISTIO_REDIRECT")
 		for _, internalInterface := range split(kubevirtInterfaces) {
-			dep.RunOrFail(IPTABLES, "-t", "nat", "-I", "PREROUTING", "1", "-i", internalInterface, "-j", "ISTIO_REDIRECT")
+			ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-I", "PREROUTING", "1", "-i", internalInterface, "-j", "ISTIO_REDIRECT")
 		}
 	} else if len(ipv4RangesInclude.IPNets) > 0 {
 		// User has specified a non-empty list of cidrs to be redirected to Envoy.
 		for _, cidr := range ipv4RangesInclude.IPNets {
 			for _, internalInterface := range split(kubevirtInterfaces) {
-				dep.RunOrFail(IPTABLES, "-t", "nat", "-I", "PREROUTING", "1", "-i", internalInterface, "-d", cidr.String(), "-j", "ISTIO_REDIRECT")
+				ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-I", "PREROUTING", "1", "-i", internalInterface, "-d", cidr.String(), "-j", "ISTIO_REDIRECT")
 			}
-			dep.RunOrFail(IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-d", cidr.String(), "-j", "ISTIO_REDIRECT")
+			ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-d", cidr.String(), "-j", "ISTIO_REDIRECT")
 		}
 		// All other traffic is not redirected.
-		dep.RunOrFail(IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-j", "RETURN")
+		ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-j", "RETURN")
 	}
 	// If ENABLE_INBOUND_IPV6 is unset (default unset), restrict IPv6 traffic.
 	if enableInboundIPv6s != nil {
 		// Remove the old chains, to generate new configs.
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-t", "nat", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND")
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-t", "mangle", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND")
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-t", "nat", "-D", "OUTPUT", "-p", "tcp", "-j", "ISTIO_OUTPUT")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", "nat", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", "mangle", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", "nat", "-D", "OUTPUT", "-p", "tcp", "-j", "ISTIO_OUTPUT")
 		// Flush and delete the istio chains.
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-t", "nat", "-F", "ISTIO_OUTPUT")
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-t", "nat", "-X", "ISTIO_OUTPUT")
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-t", "nat", "-F", "ISTIO_INBOUND")
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-t", "nat", "-X", "ISTIO_INBOUND")
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-t", "mangle", "-F", "ISTIO_INBOUND")
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-t", "mangle", "-X", "ISTIO_INBOUND")
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-t", "mangle", "-F", "ISTIO_DIVERT")
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-t", "mangle", "-X", "ISTIO_DIVERT")
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-t", "mangle", "-F", "ISTIO_TPROXY")
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-t", "mangle", "-X", "ISTIO_TPROXY")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", "nat", "-F", "ISTIO_OUTPUT")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", "nat", "-X", "ISTIO_OUTPUT")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", "nat", "-F", "ISTIO_INBOUND")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", "nat", "-X", "ISTIO_INBOUND")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", "mangle", "-F", "ISTIO_INBOUND")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", "mangle", "-X", "ISTIO_INBOUND")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", "mangle", "-F", "ISTIO_DIVERT")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", "mangle", "-X", "ISTIO_DIVERT")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", "mangle", "-F", "ISTIO_TPROXY")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", "mangle", "-X", "ISTIO_TPROXY")
 
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-t", "nat", "-F", "ISTIO_REDIRECT")
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-t", "nat", "-X", "ISTIO_REDIRECT")
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-t", "nat", "-F", "ISTIO_IN_REDIRECT")
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-t", "nat", "-X", "ISTIO_IN_REDIRECT")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", "nat", "-F", "ISTIO_REDIRECT")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", "nat", "-X", "ISTIO_REDIRECT")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", "nat", "-F", "ISTIO_IN_REDIRECT")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", "nat", "-X", "ISTIO_IN_REDIRECT")
 		// Create a new chain for redirecting outbound traffic to the common Envoy port.
 		// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
 		// redirects to Envoy.
-		dep.RunOrFail(IP6TABLES, "-t", "nat", "-N", "ISTIO_REDIRECT")
-		dep.RunOrFail(IP6TABLES, "-t", "nat", "-A", "ISTIO_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", proxyPort)
+		ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-N", "ISTIO_REDIRECT")
+		ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", proxyPort)
 		// Use this chain also for redirecting inbound traffic to the common Envoy port
 		// when not using TPROXY.
-		dep.RunOrFail(IP6TABLES, "-t", "nat", "-N", "ISTIO_IN_REDIRECT")
-		dep.RunOrFail(IP6TABLES, "-t", "nat", "-A", "ISTIO_IN_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", inboundCapturePort)
+		ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-N", "ISTIO_IN_REDIRECT")
+		ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_IN_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", inboundCapturePort)
 		// Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
 		// to the local service. If not set, no inbound port will be intercepted by istio iptablesOrFail.
 		if inboundPortsInclude != "" {
 			table = "nat"
-			dep.RunOrFail(IP6TABLES, "-t", table, "-N", "ISTIO_INBOUND")
-			dep.RunOrFail(IP6TABLES, "-t", table, "-A", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND")
+			ext.RunOrFail(dep.IP6TABLES, "-t", table, "-N", "ISTIO_INBOUND")
+			ext.RunOrFail(dep.IP6TABLES, "-t", table, "-A", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND")
 
 			if inboundPortsInclude == "*" {
 				// Makes sure SSH is not redirected
-				dep.RunOrFail(IP6TABLES, "-t", table, "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", "22", "-j", "RETURN")
+				ext.RunOrFail(dep.IP6TABLES, "-t", table, "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", "22", "-j", "RETURN")
 				// Apply any user-specified port exclusions.
 				if inboundPortsExclude != "" {
 					for _, port := range split(inboundPortsExclude) {
-						dep.RunOrFail(IP6TABLES, "-t", table, "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-j", "RETURN")
+						ext.RunOrFail(dep.IP6TABLES, "-t", table, "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-j", "RETURN")
 					}
 				}
 			} else {
 				// User has specified a non-empty list of ports to be redirected to Envoy.
 				for _, port := range split(inboundPortsInclude) {
-					dep.RunOrFail(IP6TABLES, "-t", "nat", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-j", "ISTIO_IN_REDIRECT")
+					ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-j", "ISTIO_IN_REDIRECT")
 				}
 			}
 		}
 		// Create a new chain for selectively redirecting outbound packets to Envoy.
-		dep.RunOrFail(IP6TABLES, "-t", "nat", "-N", "ISTIO_OUTPUT")
+		ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-N", "ISTIO_OUTPUT")
 		// Jump to the ISTIO_OUTPUT chain from OUTPUT chain for all tcp traffic.
-		dep.RunOrFail(IP6TABLES, "-t", "nat", "-A", "OUTPUT", "-p", "tcp", "-j", "ISTIO_OUTPUT")
+		ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "OUTPUT", "-p", "tcp", "-j", "ISTIO_OUTPUT")
 		// Apply port based exclusions. Must be applied before connections back to self are redirected.
 		if outboundPortsExclude != "" {
 			for _, port := range split(outboundPortsExclude) {
-				dep.RunOrFail(IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-p", "tcp", "--dport", port, "-j", "RETURN")
+				ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-p", "tcp", "--dport", port, "-j", "RETURN")
 			}
 		}
 		// Redirect app calls to back itself via Envoy when using the service VIP or endpoint
 		// address, e.g. appN => Envoy (client) => Envoy (server) => appN.
-		dep.RunOrFail(IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "::1/128", "-j", "ISTIO_REDIRECT")
+		ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "::1/128", "-j", "ISTIO_REDIRECT")
 
 		for _, uid := range split(proxyUID) {
 			// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 			// Envoy for non-loopback traffic.
-			dep.RunOrFail(IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-m", "owner", "--uid-owner", uid, "-j", "RETURN")
+			ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-m", "owner", "--uid-owner", uid, "-j", "RETURN")
 		}
 
 		for _, gid := range split(proxyGID) {
 			// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 			// Envoy for non-loopback traffic.
-			dep.RunOrFail(IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-m", "owner", "--gid-owner", gid, "-j", "RETURN")
+			ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-m", "owner", "--gid-owner", gid, "-j", "RETURN")
 		}
 		// Skip redirection for Envoy-aware applications and
 		// container-to-container traffic both of which explicitly use
 		// localhost.
-		dep.RunOrFail(IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-d", "::1/128", "-j", "RETURN")
+		ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-d", "::1/128", "-j", "RETURN")
 		// Apply outbound IPv6 exclusions. Must be applied before inclusions.
 		for _, cidr := range ipv6RangesExclude.IPNets {
-			dep.RunOrFail(IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-d", cidr.String(), "-j", "RETURN")
+			ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-d", cidr.String(), "-j", "RETURN")
 		}
 		// Apply outbound IPv6 inclusions.
 		if ipv6RangesInclude.IsWildcard {
 			// Wildcard specified. Redirect all remaining outbound traffic to Envoy.
-			dep.RunOrFail(IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-j", "ISTIO_REDIRECT")
+			ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-j", "ISTIO_REDIRECT")
 			for _, internalInterface := range split(kubevirtInterfaces) {
-				dep.RunOrFail(IP6TABLES, "-t", "nat", "-I", "PREROUTING", "1", "-i", internalInterface, "-j", "RETURN")
+				ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-I", "PREROUTING", "1", "-i", internalInterface, "-j", "RETURN")
 			}
 		} else if len(ipv6RangesInclude.IPNets) > 0 {
 			// User has specified a non-empty list of cidrs to be redirected to Envoy.
 			for _, cidr := range ipv6RangesInclude.IPNets {
 				for _, internalInterface := range split(kubevirtInterfaces) {
-					dep.RunOrFail(IP6TABLES, "-t", "nat", "-I", "PREROUTING", "1", "-i", internalInterface, "-d", cidr.String(), "-j", "ISTIO_REDIRECT")
+					ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-I", "PREROUTING", "1", "-i", internalInterface, "-d", cidr.String(), "-j", "ISTIO_REDIRECT")
 				}
-				dep.RunOrFail(IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-d", cidr.String(), "-j", "ISTIO_REDIRECT")
+				ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-d", cidr.String(), "-j", "ISTIO_REDIRECT")
 			}
 			// All other traffic is not redirected.
-			dep.RunOrFail(IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-j", "RETURN")
+			ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-j", "RETURN")
 		}
 	} else {
 		// Drop all inbound traffic except established connections.
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-F", "INPUT")
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-A", "INPUT", "-m", "state", "--state", "ESTABLISHED", "-j", "ACCEPT")
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-A", "INPUT", "-i", "lo", "-d", "::1", "-j", "ACCEPT")
-		dep.RunQuietlyAndIgnore(IP6TABLES, "-A", "INPUT", "-j", "REJECT")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-F", "INPUT")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-A", "INPUT", "-m", "state", "--state", "ESTABLISHED", "-j", "ACCEPT")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-A", "INPUT", "-i", "lo", "-d", "::1", "-j", "ACCEPT")
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-A", "INPUT", "-j", "REJECT")
 	}
 }
 
