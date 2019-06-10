@@ -33,13 +33,12 @@ initContainers:
   - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
   {{ end -}}
   imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
+{{- if .Values.global.proxy.init.resources }}
   resources:
-    requests:
-      cpu: 10m
-      memory: 10Mi
-    limits:
-      cpu: 100m
-      memory: 50Mi
+    {{ toYaml .Values.global.proxy.init.resources | indent 4 }}
+{{- else }}
+  resources: {}
+{{- end }}
   securityContext:
     runAsUser: 0
     runAsNonRoot: false
