@@ -14,9 +14,11 @@ type Cmd struct {
 }
 
 var (
-	IPTABLES  = Cmd{"iptables"}
-	IP6TABLES = Cmd{"ip6tables"}
-	IP        = Cmd{"ip"}
+	IPTABLES       = Cmd{"iptables"}
+	IPTABLES_SAVE  = Cmd{"iptables-save"}
+	IP6TABLES      = Cmd{"ip6tables"}
+	IP6TABLES_SAVE = Cmd{"ip6tables-save"}
+	IP             = Cmd{"ip"}
 )
 
 type Command struct {
@@ -100,12 +102,12 @@ type StdoutStubDependencies struct {
 }
 
 func (s *StdoutStubDependencies) GetLocalIP() (net.IP, error) {
-	fmt.Println("IP")
+	fmt.Println("ip")
 	return net.IPv4(127, 0, 0, 1), nil
 }
 
 func (s *StdoutStubDependencies) LookupUser() (*user.User, error) {
-	fmt.Println("User")
+	fmt.Println("id")
 	return nil, nil
 }
 

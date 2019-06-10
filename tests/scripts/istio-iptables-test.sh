@@ -25,7 +25,7 @@ function show_difference() {
     echo "${ACTUAL}"
     echo -e "\ndoesn't match expected result\n"
     echo "${EXPECTED}"
-    diff -u <(echo "${ACTUAL}") <(echo "${EXPECTED}") || true
+    diff -u <(echo "${EXPECTED}") <(echo "${ACTUAL}")  || true
 }
 
 function refresh_reference() {

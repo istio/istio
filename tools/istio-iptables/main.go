@@ -66,11 +66,6 @@ func separateV4V6(cidrList string) (NetworkRange, NetworkRange, error) {
 	return ipv4Ranges, ipv6Ranges, nil
 }
 
-func dump() {
-	Command{Command: "iptables-save"}.RunOrFail()
-	Command{Command: "ip6tables-save"}.RunOrFail()
-}
-
 func run(args []string, flagSet *flag.FlagSet) {
 
 	// The cluster env can be used for common cluster settings, pushed to all VMs in the cluster.
@@ -125,14 +120,18 @@ func run(args []string, flagSet *flag.FlagSet) {
 		return
 	}
 
-	defer dump()
-
 	var dep Dependencies
 	if dryRun {
 		dep = &StdoutStubDependencies{}
 	} else {
 		dep = &RealDependencies{}
 	}
+
+	defer func() {
+		dep.RunOrFail(IPTABLES_SAVE)
+		dep.RunOrFail(IP6TABLES_SAVE)
+	}()
+
 	// TODO: more flexibility - maybe a whitelist of users to be captured for output instead of a blacklist.
 	if proxyUID == "" {
 		usr, err := dep.LookupUser()
@@ -500,5 +499,4 @@ func run(args []string, flagSet *flag.FlagSet) {
 func main() {
 	fmt.Println(os.Args)
 	run(os.Args[1:], flag.CommandLine)
-	fmt.Println("istio-iptables run successful")
 }
