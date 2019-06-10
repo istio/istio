@@ -8,11 +8,12 @@
 //
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
-// kind: checknothing
+// kind: instance
 // metadata:
 //   name: denyrequest
 //   namespace: istio-system
 // spec:
+//   compiledTemplate: checknothing
 // ```
 //
 // CheckNothing represents an empty block of data that is used for Check-capable
