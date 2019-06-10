@@ -31,7 +31,7 @@ spec:
       containers:
       - name: coredns
         image: {{ .Values.coreDNSImage }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         args: [ "-conf", "/etc/coredns/Corefile" ]
         volumeMounts:
         - name: config-volume
@@ -65,7 +65,7 @@ spec:
         command:
         - /usr/local/bin/plugin
         image: {{ .Values.coreDNSPluginImage }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         ports:
         - containerPort: 8053
           name: dns-grpc
