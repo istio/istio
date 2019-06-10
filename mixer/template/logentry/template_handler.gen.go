@@ -34,7 +34,7 @@ import (
 //   name: accesslog
 //   namespace: istio-system
 // spec:
-//   compiledTemplate: accesslog
+//   compiledTemplate: logentry
 //   params:
 //     severity: '"Default"'
 //     timestamp: request.time
