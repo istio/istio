@@ -38,7 +38,7 @@ func TestMain(m *testing.M) {
 		NewSuite("framework_test", m).
 
 		// Labels that apply to the whole suite can be specified here.
-		Label(label.Presubmit).
+		Label(label.CustomSetup).
 
 		// You can specify multiple setup functions that will be run as part of suite setup. setupFn will always be called.
 		Setup(mysetup).
