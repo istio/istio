@@ -18,12 +18,14 @@ If you want to run Mixer locally, you can set the configuration store
 URL to a local directory (e.g., &ldquo;fs:///tmp/testdata/configroot&rdquo;).</p>
 
 <pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
-kind: rbac
+kind: handler
 metadata:
   name: rbachandler
   namespace: istio-system
 spec:
-  config_store_url: &quot;fs:///tmp/testdata/config&quot;
+  compiledAdapter: rbac
+  params:
+    config_store_url: &quot;fs:///tmp/testdata/config&quot;
 </code></pre>
 
 <table class="message-fields">
