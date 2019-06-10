@@ -281,7 +281,7 @@ func (c *kubeComponent) Dump() {
 
 	for _, pod := range pods {
 		for _, container := range pod.Spec.Containers {
-			l, err := c.kubeEnv.Logs(pod.Namespace, pod.Name, container.Name)
+			l, err := c.kubeEnv.Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
 			if err != nil {
 				scopes.CI.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 				continue
