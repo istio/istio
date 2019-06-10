@@ -203,10 +203,10 @@ const (
 	// TrafficDirectionOutbound indicates outbound traffic
 	TrafficDirectionOutbound TrafficDirection = "outbound"
 
-	// TrafficDirectionOutboundSrvPrefix the prefix for a DNS SRV type subset key
-	TrafficDirectionOutboundSrvPrefix string = string(TrafficDirectionOutbound) + "_"
-	// TrafficDirectionInboundSrvPrefix the prefix for a DNS SRV type subset key
-	TrafficDirectionInboundSrvPrefix string = string(TrafficDirectionInbound) + "_"
+	// trafficDirectionOutboundSrvPrefix the prefix for a DNS SRV type subset key
+	trafficDirectionOutboundSrvPrefix string = string(TrafficDirectionOutbound) + "_"
+	// trafficDirectionInboundSrvPrefix the prefix for a DNS SRV type subset key
+	trafficDirectionInboundSrvPrefix string = string(TrafficDirectionInbound) + "_"
 )
 
 // Visibility defines whether a given config or service is exported to local namespace, all namespaces or none
@@ -949,8 +949,8 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 	// This could be the DNS srv form of the cluster that uses outbound_.port_.subset_.hostname
 	// Since we dont want every callsite to implement the logic to differentiate between the two forms
 	// we add an alternate parser here.
-	if strings.HasPrefix(s, TrafficDirectionOutboundSrvPrefix) ||
-		strings.HasPrefix(s, TrafficDirectionInboundSrvPrefix) {
+	if strings.HasPrefix(s, trafficDirectionOutboundSrvPrefix) ||
+		strings.HasPrefix(s, trafficDirectionInboundSrvPrefix) {
 		parts = strings.SplitN(s, ".", 4)
 		dnsSrvMode = true
 	} else {
