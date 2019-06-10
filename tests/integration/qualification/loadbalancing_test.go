@@ -169,13 +169,19 @@ func getCPUSamples(v model.Value, t *testing.T) []float64 {
 
 func sendTraffic(duration time.Duration, ing ingress.Instance, wg *sync.WaitGroup) {
 	timeout := time.After(duration)
+	endpointIP := ing.HTTPSAddress()
 	for {
 		select {
 		case <-timeout:
 			wg.Done()
 			return
 		default:
-			_, err := ing.Call("/productpage")
+			_, err := ing.Call(ingress.CallOptions{
+				Host:     "",
+				Path:     "/productpage",
+				CallType: ingress.PlainText,
+				Address:  endpointIP,
+			})
 			if err != nil {
 				log.Debugf("Send to Ingress failed: %v", err)
 			}
