@@ -267,13 +267,19 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 		return nil, err
 	}
 
+	if podStatus.Spec == nil {
+		log.Errorf("Cannot find pod status for %v", podName)
+		return nil, nil
+	}
+
 	out := make([]*model.ServiceInstance, 0)
 	portList := getPortList(podStatus.Spec)
 
 	hostName := serviceHostname(podStatus.Spec.Labels[PodServiceLabel])
 
+	// Every pod has the same containerPort, so instances' endpoints are same
 	for _, inst := range podStatus.Instances {
-		if len(inst.Networks) == 0 && len(inst.Networks[0].Addresses) == 0 {
+		if len(inst.Networks) == 0 || len(inst.Networks[0].Addresses) == 0 {
 			continue
 		}
 		addr := inst.Networks[0].Addresses[0]
@@ -291,27 +297,17 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 			},
 		}
 
-		// Here svcPort is used of accessing services
-		// whereas hostPort is regarded as endpoints port
-		for _, container := range inst.Containers {
-			for _, ep := range container.Endpoints {
-				epPort := model.Port{
-					Name:     ep.Name,
-					Port:     ep.ContainerPort,
-					Protocol: convertProtocol(ep.Name, ep.Protocol),
-				}
-				out = append(out, &model.ServiceInstance{
-					Endpoint: model.NetworkEndpoint{
-						Address:     addr,
-						Port:        ep.ContainerPort,
-						ServicePort: &epPort,
-					},
-					//AvailabilityZone: "default",
-					Service: &service,
-					Labels:  podStatus.Spec.Labels,
-				})
-			}
-
+		for _, ep := range portList {
+			out = append(out, &model.ServiceInstance{
+				Endpoint: model.NetworkEndpoint{
+					Address:     addr,
+					Port:        ep.Port,
+					ServicePort: ep,
+				},
+				//AvailabilityZone: "default",
+				Service: &service,
+				Labels:  podStatus.Spec.Labels,
+			})
 		}
 	}
 
@@ -326,7 +322,18 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
-
+	ticker := time.NewTicker(c.syncPeriod)
+	var event model.Event
+	for {
+		select {
+		case <-stop:
+			ticker.Stop()
+			return
+		case <-ticker.C:
+			c.instanceHandler(nil, event)
+			c.serviceHandler(nil, event)
+		}
+	}
 }
 
 // Abstract model for Marathon pods.
