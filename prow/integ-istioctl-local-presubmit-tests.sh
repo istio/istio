@@ -1,6 +1,6 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-# Copyright 2018 Istio Authors
+# Copyright 2019 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,22 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -o errexit
-set -o nounset
-set -o pipefail
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+ROOT=$(dirname "$WD")
 
-ISTIO_ROOT=$(dirname "${BASH_SOURCE[@]}")/..
+# Exit immediately for non zero status
+set -e
+# Check unset variables
+set -u
+# Print commands
+set -x
 
-boilerDir="${ISTIO_ROOT}/bin/boilerplate"
-boiler="${boilerDir}/boilerplate.py"
-
-files_need_boilerplate=("$(${boiler} "$@")")
-
-# Run boilerplate check
-if [[ ${#files_need_boilerplate[@]} -gt 0 ]]; then
-  for file in "${files_need_boilerplate[@]}"; do
-    echo "Boilerplate header is wrong for: ${file}" >&2
-  done
-
-  exit 1
-fi
+"${ROOT}/prow/integ-suite-local.sh" test.integration.istioctl.local.presubmit

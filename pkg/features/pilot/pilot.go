@@ -19,6 +19,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gogo/protobuf/types"
+
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -88,6 +90,15 @@ var (
 	// Alpha in 1.1, may become the default or be turned into a Sidecar API or mesh setting. Only applies to namespaces
 	// where Sidecar is enabled.
 	HTTP10 = env.RegisterBoolVar("PILOT_HTTP10", false, "").Get()
+
+	initialFetchTimeoutVar = env.RegisterDurationVar(
+		"PILOT_INITIAL_FETCH_TIMEOUT",
+		0,
+		"Specifies the initial_fetch_timeout for config. If this time is reached without "+
+			"a response to the config requested by Envoy, the Envoy will move on with the init phase. "+
+			"This prevents envoy from getting stuck waiting on config during startup.",
+	)
+	InitialFetchTimeout = types.DurationProto(initialFetchTimeoutVar.Get())
 
 	// TerminationDrainDuration is the amount of time allowed for connections to complete on pilot-agent shutdown.
 	// On receiving SIGTERM or SIGINT, pilot-agent tells the active Envoy to start draining,

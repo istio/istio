@@ -20,11 +20,12 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/tests/integration/security/util"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	lis "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/pilot/pkg/model"
 	authn_applier "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -101,22 +102,7 @@ spec:
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, echo.Config{
-					Service:   "a",
-					Namespace: ns,
-					Galley:    g,
-					Pilot:     p,
-					Ports: []echo.Port{
-						{
-							Name:     "http",
-							Protocol: model.ProtocolHTTP,
-						},
-						{
-							Name:     "tcp",
-							Protocol: model.ProtocolTCP,
-						},
-					},
-				}).
+				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
 			nodeID := a.WorkloadsOrFail(t)[0].Sidecar().NodeID()

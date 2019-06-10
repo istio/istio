@@ -15,11 +15,11 @@
 package basic
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
-	"istio.io/istio/pilot/pkg/model"
+	securityUtil "istio.io/istio/tests/integration/security/util"
+
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
-	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/security/rbac/util"
 	"istio.io/istio/tests/integration/security/util/connection"
@@ -43,53 +42,13 @@ func TestRBACV2Basic(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, "rbacv2-basic-test", true)
-			ports := []echo.Port{
-				{
-					Name:        "http",
-					Protocol:    model.ProtocolHTTP,
-					ServicePort: 80,
-				},
-				{
-					Name:        "tcp",
-					Protocol:    model.ProtocolTCP,
-					ServicePort: 90,
-				},
-			}
 
 			var a, b, c, d echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, echo.Config{
-					Service:        "a",
-					Namespace:      ns,
-					ServiceAccount: true,
-					Ports:          ports,
-					Galley:         g,
-					Pilot:          p,
-				}).
-				With(&b, echo.Config{
-					Service:        "b",
-					Namespace:      ns,
-					Ports:          ports,
-					ServiceAccount: true,
-					Galley:         g,
-					Pilot:          p,
-				}).
-				With(&c, echo.Config{
-					Service:        "c",
-					Namespace:      ns,
-					Ports:          ports,
-					ServiceAccount: true,
-					Galley:         g,
-					Pilot:          p,
-				}).
-				With(&d, echo.Config{
-					Service:        "d",
-					Namespace:      ns,
-					Ports:          ports,
-					ServiceAccount: true,
-					Galley:         g,
-					Pilot:          p,
-				}).
+				With(&a, securityUtil.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, securityUtil.EchoConfig("b", ns, false, nil, g, p)).
+				With(&c, securityUtil.EchoConfig("c", ns, false, nil, g, p)).
+				With(&d, securityUtil.EchoConfig("d", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
 			cases := []util.TestCase{
@@ -435,16 +394,6 @@ func TestRBACV2Basic(t *testing.T) {
 			// TODO(pitlv2109: Check to make sure policies have been created instead.
 			time.Sleep(60 * time.Second)
 
-			for _, tc := range cases {
-				testName := fmt.Sprintf("%s->%s:%s%s[%v]",
-					tc.Request.From.Config().Service,
-					tc.Request.Options.Target.Config().Service,
-					tc.Request.Options.PortName,
-					tc.Request.Options.Path,
-					tc.ExpectAllowed)
-				t.Run(testName, func(t *testing.T) {
-					retry.UntilSuccessOrFail(t, tc.CheckRBACRequest, retry.Delay(time.Second), retry.Timeout(10*time.Second))
-				})
-			}
+			util.RunRBACTest(t, cases)
 		})
 }

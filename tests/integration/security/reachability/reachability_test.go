@@ -21,7 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/tests/integration/security/util"
+
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -48,11 +49,11 @@ func TestReachability(t *testing.T) {
 
 			var a, b, headless, naked echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, config("a", ns, false, nil)).
-				With(&b, config("b", ns, false, nil)).
-				With(&headless, config("headless", ns, true, nil)).
-				With(&naked, config("naked", ns, false, echo.NewAnnotations().
-					SetBool(echo.SidecarInject, false))).
+				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				With(&headless, util.EchoConfig("headless", ns, false, nil, g, p)).
+				With(&naked, util.EchoConfig("naked", ns, false, echo.NewAnnotations().
+					SetBool(echo.SidecarInject, false), g, p)).
 				BuildOrFail(ctx)
 
 			callOptions := []echo.CallOptions{
@@ -236,30 +237,4 @@ func TestReachability(t *testing.T) {
 				})
 			}
 		})
-}
-
-func config(name string, ns namespace.Instance, headless bool, annos echo.Annotations) echo.Config {
-	return echo.Config{
-		Service:        name,
-		Namespace:      ns,
-		ServiceAccount: true,
-		Headless:       headless,
-		Annotations:    annos,
-		Ports: []echo.Port{
-			{
-				Name:     "http",
-				Protocol: model.ProtocolHTTP,
-			},
-			{
-				Name:     "tcp",
-				Protocol: model.ProtocolTCP,
-			},
-			{
-				Name:     "grpc",
-				Protocol: model.ProtocolGRPC,
-			},
-		},
-		Galley: g,
-		Pilot:  p,
-	}
 }

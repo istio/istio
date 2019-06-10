@@ -3,8 +3,8 @@
 #
 enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `true`.
 replicaCount: 1
-hub: docker.io/kiali
-tag: v0.16
+hub: quay.io/kiali
+tag: v0.20
 contextPath: /kiali # The root context path to access the Kiali UI.
 nodeSelector: {}
 tolerations: []
@@ -46,8 +46,6 @@ ingress:
 
 dashboard:
   secretName: kiali # You must create a secret with this name - one is not provided out-of-box.
-  usernameKey: username # This is the key name within the secret whose value is the actual username.
-  passphraseKey: passphrase # This is the key name within the secret whose value is the actual passphrase.
   viewOnlyMode: false # Bind the service account to a role with only read access
   grafanaURL:  # If you have Grafana installed and it is accessible to client browsers, then set this to its external URL. Kiali will redirect users to this URL when Grafana metrics are to be shown.
   jaegerURL:  # If you have Jaeger installed and it is accessible to client browsers, then set this property to its external URL. Kiali will redirect users to this URL when Jaeger tracing is to be shown.

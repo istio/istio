@@ -197,7 +197,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	labels := push.SubsetToLabels(nil, subsetName, hostname)
 
 	push.Mutex.Lock()
-	ports, f := push.ServicePort2Name[string(hostname)]
+	ports, f := push.ServicePortByHostname[hostname]
 	push.Mutex.Unlock()
 	if !f {
 		return s.updateCluster(push, clusterName, edsCluster)
@@ -353,23 +353,32 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 }
 
 // SvcUpdate is a callback from service discovery when service info changes.
-func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, rports map[uint32]string) {
+func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, _ map[uint32]string) {
 	inboundUpdates.With(prometheus.Labels{"type": "svc"}).Add(1)
 	pc := s.globalPushContext()
-	// In 1.0 Services and configs are only from the 'primary' K8S cluster.
-	if cluster == string(serviceregistry.KubernetesRegistry) {
-		pl := model.PortList{}
-		for k, v := range ports {
-			pl = append(pl, &model.Port{
-				Port: int(v),
-				Name: k,
-			})
-		}
-		pc.Mutex.Lock()
-		pc.ServicePort2Name[hostname] = pl
-		pc.Mutex.Unlock()
+	pl := model.PortList{}
+	for k, v := range ports {
+		pl = append(pl, &model.Port{
+			Port: int(v),
+			Name: k,
+		})
 	}
-	// TODO: for updates from other clusters, warn if they don't match primary.
+	if cluster == string(serviceregistry.KubernetesRegistry) {
+		pc.Mutex.Lock()
+		pc.ServicePortByHostname[model.Hostname(hostname)] = pl
+		pc.Mutex.Unlock()
+	} else {
+		pc.Mutex.Lock()
+		ports, ok := pc.ServicePortByHostname[model.Hostname(hostname)]
+		pc.Mutex.Unlock()
+		if ok {
+			if !reflect.DeepEqual(ports, pl) {
+				adsLog.Warnf("service %s within cluster %s does not match the one in primary cluster", hostname, cluster)
+			}
+		} else {
+			adsLog.Debugf("service %s within cluster %s occurs before primary cluster, will only take services within primary cluster", hostname, cluster)
+		}
+	}
 }
 
 // Update clusters for an incremental EDS push, and initiate the push.
@@ -638,7 +647,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	labels := push.SubsetToLabels(proxy, subsetName, hostname)
 
 	push.Mutex.Lock()
-	portMap, f := push.ServicePort2Name[string(hostname)]
+	portMap, f := push.ServicePortByHostname[hostname]
 	push.Mutex.Unlock()
 	if !f {
 		// Shouldn't happen here - but just in case fallback

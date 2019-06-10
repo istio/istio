@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/pkg/log"
 )
 
@@ -67,8 +66,6 @@ func TestPrioritized(t *testing.T) {
 
 			ctx.NewSubTest("CDS").
 				RequiresEnvironment(environment.Kube).
-				// TODO(https://github.com/istio/istio/issues/13812)
-				Label(label.Flaky).
 				RunParallel(func(ctx framework.TestContext) {
 					ns := namespace.NewOrFail(ctx, ctx, "locality-prioritized-cds", true)
 
@@ -89,7 +86,7 @@ func TestPrioritized(t *testing.T) {
 						ServiceBLocality: "region/zone/subzone",
 						ServiceCAddress:  "c",
 						ServiceCLocality: "notregion/notzone/notsubzone",
-					})
+					}, a)
 
 					// Send traffic to service B via a service entry.
 					log.Infof("Sending traffic to local service (CDS) via %v", fakeHostname)
@@ -98,8 +95,6 @@ func TestPrioritized(t *testing.T) {
 
 			ctx.NewSubTest("EDS").
 				RequiresEnvironment(environment.Kube).
-				// TODO(https://github.com/istio/istio/issues/13812)
-				Label(label.Flaky).
 				RunParallel(func(ctx framework.TestContext) {
 
 					ns := namespace.NewOrFail(ctx, ctx, "locality-prioritized-eds", true)
@@ -121,7 +116,7 @@ func TestPrioritized(t *testing.T) {
 						ServiceBLocality: "region/zone/subzone",
 						ServiceCAddress:  c.WorkloadsOrFail(ctx)[0].Address(),
 						ServiceCLocality: "notregion/notzone/notsubzone",
-					})
+					}, a)
 
 					// Send traffic to service B via a service entry.
 					log.Infof("Sending traffic to local service (EDS) via %v", fakeHostname)

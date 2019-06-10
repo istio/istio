@@ -18,8 +18,11 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/echo/common/response"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
@@ -65,18 +68,44 @@ func (tc TestCase) CheckRBACRequest() error {
 			return getError(req, "allow with code 200", fmt.Sprintf("error: %v", err))
 		}
 	} else {
-		if req.Options.PortName == "tcp" {
-			if err == nil || !strings.Contains(err.Error(), "EOF") {
-				return getError(req, "deny with EOF error", fmt.Sprintf("error: %v", err))
+		if req.Options.PortName == "tcp" || req.Options.PortName == "grpc" {
+			expectedErrMsg := "EOF" // TCP deny message.
+			if req.Options.PortName == "grpc" {
+				expectedErrMsg = "rpc error: code = PermissionDenied desc = RBAC: access denied"
+			}
+			if err == nil || !strings.Contains(err.Error(), expectedErrMsg) {
+				expect := fmt.Sprintf("deny with %s error", expectedErrMsg)
+				actual := fmt.Sprintf("error: %v", err)
+				return getError(req, expect, actual)
 			}
 		} else {
 			if err != nil {
 				return getError(req, "deny with code 403", fmt.Sprintf("error: %v", err))
 			}
-			if len(resp) == 0 || resp[0].Code != response.StatusCodeForbidden {
-				return getError(req, "deny with code 403", fmt.Sprintf("resp: %v", resp))
+			var result string
+			if len(resp) == 0 {
+				result = "no response"
+			} else if resp[0].Code != response.StatusCodeForbidden {
+				result = resp[0].Code
+			}
+			if result != "" {
+				return getError(req, "deny with code 403", result)
 			}
 		}
 	}
 	return nil
+}
+
+func RunRBACTest(t *testing.T, cases []TestCase) {
+	for _, tc := range cases {
+		testName := fmt.Sprintf("%s->%s:%s%s[%v]",
+			tc.Request.From.Config().Service,
+			tc.Request.Options.Target.Config().Service,
+			tc.Request.Options.PortName,
+			tc.Request.Options.Path,
+			tc.ExpectAllowed)
+		t.Run(testName, func(t *testing.T) {
+			retry.UntilSuccessOrFail(t, tc.CheckRBACRequest, retry.Delay(time.Second), retry.Timeout(10*time.Second))
+		})
+	}
 }
