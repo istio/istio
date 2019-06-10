@@ -53,7 +53,7 @@ spec:
 {{- else }}
           image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy_init.image }}:{{ $.Values.global.tag }}"
 {{- end }}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           command:
             - /bin/sh
           args:
