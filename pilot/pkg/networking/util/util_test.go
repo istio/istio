@@ -542,10 +542,10 @@ var (
 func BenchmarkGetByAddress(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		GetByAddress([]*v2.Listener{
+			listener80,
 			listener81,
 			listenerip,
-			listener80,
-		}, listener81.Address)
+		}, listenerip.Address)
 	}
 }
 
