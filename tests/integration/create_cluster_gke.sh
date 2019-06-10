@@ -83,7 +83,7 @@ function cleanup {
   if [ -z "$OLD_USE_CLIENT_CERT" ]; then
     gcloud config unset container/use_client_certificate
   else
-    gcloud config set container/use_client_certificate $OLD_USE_CLIENT_CERT
+    gcloud config set container/use_client_certificate "$OLD_USE_CLIENT_CERT"
   fi
 }
 
