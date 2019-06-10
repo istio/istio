@@ -533,10 +533,23 @@ func TestIsHTTPFilterChain(t *testing.T) {
 	}
 }
 
+var (
+	listener80 = &v2.Listener{Address: BuildAddress("0.0.0.0", 80)}
+	listener81 = &v2.Listener{Address: BuildAddress("0.0.0.0", 81)}
+	listenerip = &v2.Listener{Address: BuildAddress("1.1.1.1", 80)}
+)
+
+func BenchmarkGetByAddress(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		GetByAddress([]*v2.Listener{
+			listener81,
+			listenerip,
+			listener80,
+		}, listener81.Address)
+	}
+}
+
 func TestGetByAddress(t *testing.T) {
-	listener80 := &v2.Listener{Address: BuildAddress("0.0.0.0", 80)}
-	listener81 := &v2.Listener{Address: BuildAddress("0.0.0.0", 81)}
-	listenerip := &v2.Listener{Address: BuildAddress("1.1.1.1", 80)}
 	tests := []struct {
 		name      string
 		listeners []*v2.Listener
