@@ -21,7 +21,6 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"istio.io/istio/pkg/test"
@@ -222,21 +221,10 @@ func (c *kubeComponent) createRequest(options CallOptions) (*http.Request, error
 	return req, nil
 }
 
-// sanitizeCallOptions checks and fills fields in CallOptions.
-func sanitizeCallOptions(options *CallOptions) {
-	if options.Timeout <= 0 {
-		options.Timeout = DefaultRequestTimeout
-	}
-	if !strings.HasPrefix(options.Path, "/") {
-		options.Path = "/" + options.Path
-	}
-	if options.Address == "" {
-		scopes.Framework.Fatal("ingress gateway address is empty")
-	}
-}
-
 func (c *kubeComponent) Call(options CallOptions) (CallResponse, error) {
-	sanitizeCallOptions(&options)
+	if err := options.sanitize(); err != nil {
+		scopes.Framework.Fatalf("CallOptions sanitization failure, error %v", err)
+	}
 	client, err := c.createClient(options)
 	if err != nil {
 		scopes.Framework.Errorf("failed to create test client, error %v", err)

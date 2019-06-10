@@ -15,6 +15,9 @@
 package ingress
 
 import (
+	"fmt"
+	"strings"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -57,6 +60,20 @@ type CallOptions struct {
 
 	// CallType specifies what type of call to make (PlainText, TLS, mTLS).
 	CallType CallType
+}
+
+// sanitize checks and fills fields in CallOptions. Returns error on failures, and nil otherwise.
+func (o *CallOptions) sanitize() error {
+	if o.Timeout <= 0 {
+		o.Timeout = DefaultRequestTimeout
+	}
+	if !strings.HasPrefix(o.Path, "/") {
+		o.Path = "/" + o.Path
+	}
+	if o.Address == "" {
+		return fmt.Errorf("address is not set")
+	}
+	return nil
 }
 
 // Instance represents a deployed Ingress Gateway instance.
