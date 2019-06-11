@@ -370,6 +370,7 @@ func (s *DiscoveryServer) clearCache() {
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 // It replaces the 'clear cache' from v1.
 func (s *DiscoveryServer) ConfigUpdate(full bool) {
+	inboundConfigUpdates.Add(1)
 	s.updateChannel <- &updateReq{full: full}
 }
 
