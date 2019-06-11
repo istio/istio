@@ -106,7 +106,7 @@ for TEST_MODE in "${TEST_MODES[@]}"; do
     compareWithGolden empty_parameter "${TEST_MODE}" ""
     compareWithGolden outbound_port_exclude "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -o 1024,21 -m REDIRECT -b 5555,6666 -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2"
     compareWithGolden wildcard_include_ip_range "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888 -i * -x 9.9.0.0/16 -k eth1,eth2"
-    compareWithGolden clean "${TEST_MODE}" "Clean"
+    compareWithGolden clean "${TEST_MODE}" "clean"
 
 done
 
