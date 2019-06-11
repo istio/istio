@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2018 Istio Authors
+# Copyright 2019 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ cp "${ROOTDIR}"/codecov.skip "${CODECOV_SKIP}"
 cp "${ROOTDIR}"/codecov.threshold "${THRESHOLD_FILE}"
 
 # First run codecov from current workspace (PR)
-OUT_DIR="${REPORT_PATH}" MAXPROCS="${MAXPROCS:-}" CODECOV_SKIP="${CODECOV_SKIP:-}" ./bin/codecov.sh
+OUT_DIR="${REPORT_PATH}" MAXPROCS="${MAXPROCS:-}" CODECOV_SKIP="${CODECOV_SKIP:-}" ./scripts/codecov.sh
 
 if [[ -n "${CIRCLE_PR_NUMBER:-}" ]]; then
   TMP_GITHUB_TOKEN=$(mktemp /tmp/XXXXX.github)
@@ -43,18 +43,18 @@ if [[ -n "${CIRCLE_PR_NUMBER:-}" ]]; then
 
   # Backup codecov.sh since the base SHA may not have this copy.
   TMP_CODECOV_SH=$(mktemp /tmp/XXXXX.codecov)
-  cp ./bin/codecov.sh "${TMP_CODECOV_SH}"
-
+  cp ./scripts/codecov.sh "${TMP_CODECOV_SH}"
+  
   go get -u istio.io/test-infra/toolbox/githubctl
-  BASE_SHA=$("${GOPATH}"/bin/githubctl --token_file="${TMP_GITHUB_TOKEN}" --op=getBaseSHA --repo=istio --pr_num="${CIRCLE_PR_NUMBER}")
+  BASE_SHA=$("${GOPATH}"/bin/githubctl --token_file="${TMP_GITHUB_TOKEN}" --op=getBaseSHA --repo=operator --pr_num="${CIRCLE_PR_NUMBER}")
   git reset HEAD --hard
   git clean -f -d
   git checkout "${BASE_SHA}"
 
-  cp "${TMP_CODECOV_SH}" ./bin/codecov.sh
+  cp "${TMP_CODECOV_SH}" ./scripts/codecov.sh
 
   # Run test at the base SHA
-  OUT_DIR="${BASELINE_PATH}" MAXPROCS="${MAXPROCS:-}" CODECOV_SKIP="${CODECOV_SKIP:-}" ./bin/codecov.sh
+  OUT_DIR="${BASELINE_PATH}" MAXPROCS="${MAXPROCS:-}" CODECOV_SKIP="${CODECOV_SKIP:-}" ./scripts/codecov.sh
 
   # Get back to the PR head
   git reset HEAD --hard
@@ -62,7 +62,7 @@ if [[ -n "${CIRCLE_PR_NUMBER:-}" ]]; then
   git checkout "${CIRCLE_SHA1}"
 
   # Test that coverage is not dropped
-  go test -v istio.io/istio/tests/codecov/... \
+  go test -v istio.io/operator/tests/codecov/... \
     --report_file="${REPORT_PATH}/coverage.html" \
     --baseline_file="${BASELINE_PATH}/coverage.html" \
     --threshold_files="${THRESHOLD_FILE},${CODECOV_SKIP}" \

@@ -19,25 +19,3 @@
 
 # Istio wide default
 istio.io=5
-
-# Overrides
-istio.io/istio/mixer/adapter/solarwinds/internal/papertrail/papertrail_logger.go=50
-istio.io/istio/pilot/pkg/config/memory/monitor.go=30
-istio.io/istio/pilot/pkg/proxy/envoy/v2=10
-istio.io/istio/pilot/pkg/proxy/envoy/v2/rds.go=25
-istio.io/istio/pilot/pkg/serviceregistry/consul/monitor.go=20
-istio.io/istio/pkg/mcp/creds/watcher.go=100
-istio.io/istio/pkg/mcp/source/client_source.go=90
-istio.io/istio/pkg/mcp/source/source.go=90
-istio.io/istio/security/pkg/nodeagent=15
-istio.io/istio/istioctl/cmd/istioctl/kubeinject.go=41
-
-# Disable codecov check for testing and proto packages
-istio.io/istio/security/proto=100
-istio.io/istio/tests
-
-# Temporary until integ tests are restored
-istio.io/istio/pilot/pkg/networking/plugin=50
-istio.io/istio/galley/pkg/runtime=30
-istio.io/istio/galley/pkg/meshconfig/cache.go=100
-istio.io/istio/pilot/pkg/model/authentication.go=20

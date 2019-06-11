@@ -6,3 +6,8 @@ fmt:
 	@scripts/run_gofmt.sh
 
 include Makefile.common.mk
+
+
+# Coverage tests
+coverage:
+	scripts/codecov.sh
