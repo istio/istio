@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/joho/godotenv"
+
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
@@ -230,7 +231,12 @@ func run(args []string, flagSet *flag.FlagSet) {
 	fmt.Printf("OUTBOUND_IP_RANGES_EXCLUDE=%s\n", outboundIPRangesExclude)
 	fmt.Printf("OUTBOUND_PORTS_EXCLUDE=%s\n", outboundPortsExclude)
 	fmt.Printf("KUBEVIRT_INTERFACES=%s\n", kubevirtInterfaces)
-	fmt.Printf("ENABLE_INBOUND_IPV6=%s\n", enableInboundIPv6s)
+	// Print "" instead of <nil> to produce same output as script and satisfy golden tests
+	if enableInboundIPv6s == nil {
+		fmt.Printf("ENABLE_INBOUND_IPV6=%s\n", "")
+	} else {
+		fmt.Printf("ENABLE_INBOUND_IPV6=%s\n", enableInboundIPv6s)
+	}
 	fmt.Println("")
 
 	inboundCapturePort := getEnvWithDefault("INBOUND_CAPTURE_PORT", proxyPort)
@@ -317,6 +323,7 @@ func run(args []string, flagSet *flag.FlagSet) {
 						fmt.Println("No socket match support")
 					}
 					ext.RunOrFail(dep.IPTABLES, "-t", "mangle", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-j", "ISTIO_TPROXY")
+				} else {
 					ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", port, "-j", "ISTIO_IN_REDIRECT")
 				}
 			}
@@ -498,6 +505,5 @@ func run(args []string, flagSet *flag.FlagSet) {
 }
 
 func main() {
-	fmt.Println(os.Args)
 	run(os.Args[1:], flag.CommandLine)
 }

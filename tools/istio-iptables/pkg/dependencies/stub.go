@@ -12,13 +12,11 @@ type StdoutStubDependencies struct {
 }
 
 func (s *StdoutStubDependencies) GetLocalIP() (net.IP, error) {
-	fmt.Println("ip")
 	return net.IPv4(127, 0, 0, 1), nil
 }
 
 func (s *StdoutStubDependencies) LookupUser() (*user.User, error) {
-	fmt.Println("id")
-	return nil, nil
+	return &user.User{Uid: "0"}, nil
 }
 
 func (s *StdoutStubDependencies) RunOrFail(cmd Cmd, args ...string) {
