@@ -39,7 +39,7 @@ import (
 // controller is a collection of synchronized resource watchers.
 // Caches are thread-safe
 type controller struct {
-	client *client
+	client *Client
 	queue  kube.Queue
 	kinds  map[string]cacheHandler
 }
@@ -73,7 +73,7 @@ func init() {
 
 // NewController creates a new Kubernetes controller for CRDs
 // Use "" for namespace to listen for all namespace changes
-func NewController(client *client, options controller2.ControllerOptions) model.ConfigStoreCache {
+func NewController(client *Client, options controller2.ControllerOptions) model.ConfigStoreCache {
 	log.Infof("CRD controller watching namespaces %q", options.WatchedNamespace)
 
 	// Queue requires a time duration for a retry delay after a handler error
@@ -95,7 +95,7 @@ func (c *controller) addInformer(schema model.ProtoSchema, namespace string, res
 	c.kinds[schema.Type] = c.createInformer(crd.KnownTypes[schema.Type].Object.DeepCopyObject(), schema.Type, resyncPeriod,
 		func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
 			result = crd.KnownTypes[schema.Type].Collection.DeepCopyObject()
-			rc, ok := c.client.clientset[crd.ApiVersion(&schema)]
+			rc, ok := c.client.clientset[crd.APIVersion(&schema)]
 			if !ok {
 				return nil, fmt.Errorf("client not initialized %s", schema.Type)
 			}
@@ -110,7 +110,7 @@ func (c *controller) addInformer(schema model.ProtoSchema, namespace string, res
 			return
 		},
 		func(opts meta_v1.ListOptions) (watch.Interface, error) {
-			rc, ok := c.client.clientset[crd.ApiVersion(&schema)]
+			rc, ok := c.client.clientset[crd.APIVersion(&schema)]
 			if !ok {
 				return nil, fmt.Errorf("client not initialized %s", schema.Type)
 			}

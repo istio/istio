@@ -138,10 +138,10 @@ type IstioObjectList interface {
 	GetItems() []IstioObject
 }
 
-func ApiVersion(schema *model.ProtoSchema) string {
+func APIVersion(schema *model.ProtoSchema) string {
 	return ResourceGroup(schema) + "/" + schema.Version
 }
 
-func ApiVersionFromConfig(config *model.Config) string {
+func APIVersionFromConfig(config *model.Config) string {
 	return config.Group + "/" + config.Version
 }

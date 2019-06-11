@@ -49,7 +49,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	istio_networking_v1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/cmd"
-	"istio.io/istio/pilot/pkg/authn"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/clusterregistry"
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
@@ -63,6 +62,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/consul"
@@ -408,7 +408,8 @@ func (s *Server) initMesh(args *PilotArgs) error {
 	if mesh == nil {
 		// Config file either wasn't specified or failed to load - use a default mesh.
 		if _, mesh, err = GetMeshConfig(s.kubeClient, controller2.IstioNamespace, controller2.IstioConfigMap); err != nil {
-			log.Warnf("failed to read the default mesh configuration: %v, from the %s config map in the %s namespace", err, controller2.IstioConfigMap, controller2.IstioNamespace)
+			log.Warnf("failed to read the default mesh configuration: %v, from the %s config map in the %s namespace",
+				err, controller2.IstioConfigMap, controller2.IstioNamespace)
 			return err
 		}
 
@@ -957,7 +958,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 			go func() {
 				<-stop
-				authn.JwtKeyResolver.Close()
+				authn_model.JwtKeyResolver.Close()
 
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()

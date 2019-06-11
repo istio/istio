@@ -40,7 +40,7 @@ var KnownTypes = map[string]SchemaType{
 		Object: &MockConfig{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "MockConfig",
-				APIVersion: ApiVersion(&model.MockConfig),
+				APIVersion: APIVersion(&model.MockConfig),
 			},
 		},
 		Collection: &MockConfigList{},
@@ -50,7 +50,7 @@ var KnownTypes = map[string]SchemaType{
 		Object: &VirtualService{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "VirtualService",
-				APIVersion: ApiVersion(&model.VirtualService),
+				APIVersion: APIVersion(&model.VirtualService),
 			},
 		},
 		Collection: &VirtualServiceList{},
@@ -60,7 +60,7 @@ var KnownTypes = map[string]SchemaType{
 		Object: &Gateway{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "Gateway",
-				APIVersion: ApiVersion(&model.Gateway),
+				APIVersion: APIVersion(&model.Gateway),
 			},
 		},
 		Collection: &GatewayList{},
@@ -70,7 +70,7 @@ var KnownTypes = map[string]SchemaType{
 		Object: &ServiceEntry{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "ServiceEntry",
-				APIVersion: ApiVersion(&model.ServiceEntry),
+				APIVersion: APIVersion(&model.ServiceEntry),
 			},
 		},
 		Collection: &ServiceEntryList{},
@@ -80,7 +80,7 @@ var KnownTypes = map[string]SchemaType{
 		Object: &DestinationRule{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "DestinationRule",
-				APIVersion: ApiVersion(&model.DestinationRule),
+				APIVersion: APIVersion(&model.DestinationRule),
 			},
 		},
 		Collection: &DestinationRuleList{},
@@ -90,7 +90,7 @@ var KnownTypes = map[string]SchemaType{
 		Object: &EnvoyFilter{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "EnvoyFilter",
-				APIVersion: ApiVersion(&model.EnvoyFilter),
+				APIVersion: APIVersion(&model.EnvoyFilter),
 			},
 		},
 		Collection: &EnvoyFilterList{},
@@ -100,7 +100,7 @@ var KnownTypes = map[string]SchemaType{
 		Object: &Sidecar{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "Sidecar",
-				APIVersion: ApiVersion(&model.Sidecar),
+				APIVersion: APIVersion(&model.Sidecar),
 			},
 		},
 		Collection: &SidecarList{},
@@ -110,7 +110,7 @@ var KnownTypes = map[string]SchemaType{
 		Object: &HTTPAPISpec{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "HTTPAPISpec",
-				APIVersion: ApiVersion(&model.HTTPAPISpec),
+				APIVersion: APIVersion(&model.HTTPAPISpec),
 			},
 		},
 		Collection: &HTTPAPISpecList{},
@@ -120,7 +120,7 @@ var KnownTypes = map[string]SchemaType{
 		Object: &HTTPAPISpecBinding{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "HTTPAPISpecBinding",
-				APIVersion: ApiVersion(&model.HTTPAPISpecBinding),
+				APIVersion: APIVersion(&model.HTTPAPISpecBinding),
 			},
 		},
 		Collection: &HTTPAPISpecBindingList{},
@@ -130,7 +130,7 @@ var KnownTypes = map[string]SchemaType{
 		Object: &QuotaSpec{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "QuotaSpec",
-				APIVersion: ApiVersion(&model.QuotaSpec),
+				APIVersion: APIVersion(&model.QuotaSpec),
 			},
 		},
 		Collection: &QuotaSpecList{},
@@ -140,7 +140,7 @@ var KnownTypes = map[string]SchemaType{
 		Object: &QuotaSpecBinding{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "QuotaSpecBinding",
-				APIVersion: ApiVersion(&model.QuotaSpecBinding),
+				APIVersion: APIVersion(&model.QuotaSpecBinding),
 			},
 		},
 		Collection: &QuotaSpecBindingList{},
@@ -150,7 +150,7 @@ var KnownTypes = map[string]SchemaType{
 		Object: &Policy{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "Policy",
-				APIVersion: ApiVersion(&model.AuthenticationPolicy),
+				APIVersion: APIVersion(&model.AuthenticationPolicy),
 			},
 		},
 		Collection: &PolicyList{},
@@ -160,7 +160,7 @@ var KnownTypes = map[string]SchemaType{
 		Object: &MeshPolicy{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "MeshPolicy",
-				APIVersion: ApiVersion(&model.AuthenticationMeshPolicy),
+				APIVersion: APIVersion(&model.AuthenticationMeshPolicy),
 			},
 		},
 		Collection: &MeshPolicyList{},
@@ -170,7 +170,7 @@ var KnownTypes = map[string]SchemaType{
 		Object: &ServiceRole{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "ServiceRole",
-				APIVersion: ApiVersion(&model.ServiceRole),
+				APIVersion: APIVersion(&model.ServiceRole),
 			},
 		},
 		Collection: &ServiceRoleList{},
@@ -180,7 +180,7 @@ var KnownTypes = map[string]SchemaType{
 		Object: &ServiceRoleBinding{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "ServiceRoleBinding",
-				APIVersion: ApiVersion(&model.ServiceRoleBinding),
+				APIVersion: APIVersion(&model.ServiceRoleBinding),
 			},
 		},
 		Collection: &ServiceRoleBindingList{},
@@ -190,7 +190,7 @@ var KnownTypes = map[string]SchemaType{
 		Object: &AuthorizationPolicy{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "AuthorizationPolicy",
-				APIVersion: ApiVersion(&model.AuthorizationPolicy),
+				APIVersion: APIVersion(&model.AuthorizationPolicy),
 			},
 		},
 		Collection: &AuthorizationPolicyList{},
@@ -200,7 +200,7 @@ var KnownTypes = map[string]SchemaType{
 		Object: &RbacConfig{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "RbacConfig",
-				APIVersion: ApiVersion(&model.RbacConfig),
+				APIVersion: APIVersion(&model.RbacConfig),
 			},
 		},
 		Collection: &RbacConfigList{},
@@ -210,7 +210,7 @@ var KnownTypes = map[string]SchemaType{
 		Object: &ClusterRbacConfig{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "ClusterRbacConfig",
-				APIVersion: ApiVersion(&model.ClusterRbacConfig),
+				APIVersion: APIVersion(&model.ClusterRbacConfig),
 			},
 		},
 		Collection: &ClusterRbacConfigList{},

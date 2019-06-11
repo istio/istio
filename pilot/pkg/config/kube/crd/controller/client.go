@@ -42,7 +42,7 @@ import (
 )
 
 // Client is a basic REST client for CRDs implementing config store
-type client struct {
+type Client struct {
 	// Map of apiVersion to restClient.
 	clientset map[string]*restClient
 
@@ -74,7 +74,7 @@ func newClientSet(descriptor model.ConfigDescriptor) (map[string]*restClient, er
 			return nil, fmt.Errorf("missing known type for %q", typ.Type)
 		}
 
-		rc, ok := cs[crd.ApiVersion(&typ)]
+		rc, ok := cs[crd.APIVersion(&typ)]
 		if !ok {
 			// create a new client if one doesn't already exist
 			rc = &restClient{
@@ -83,7 +83,7 @@ func newClientSet(descriptor model.ConfigDescriptor) (map[string]*restClient, er
 					Version: typ.Version,
 				},
 			}
-			cs[crd.ApiVersion(&typ)] = rc
+			cs[crd.APIVersion(&typ)] = rc
 		}
 		rc.descriptor = append(rc.descriptor, typ)
 		rc.types = append(rc.types, &s)
@@ -130,13 +130,13 @@ func (rc *restClient) updateRESTConfig(cfg *rest.Config) (config *rest.Config, e
 }
 
 // NewForConfig creates a client to the Kubernetes API using a rest config.
-func NewForConfig(cfg *rest.Config, descriptor model.ConfigDescriptor, domainSuffix string) (*client, error) {
+func NewForConfig(cfg *rest.Config, descriptor model.ConfigDescriptor, domainSuffix string) (*Client, error) {
 	cs, err := newClientSet(descriptor)
 	if err != nil {
 		return nil, err
 	}
 
-	out := &client{
+	out := &Client{
 		clientset:    cs,
 		domainSuffix: domainSuffix,
 	}
@@ -154,7 +154,7 @@ func NewForConfig(cfg *rest.Config, descriptor model.ConfigDescriptor, domainSuf
 // Use an empty value for `kubeconfig` to use the in-cluster config.
 // If the kubeconfig file is empty, defaults to in-cluster config as well.
 // You can also choose a config context by providing the desired context name.
-func NewClient(config string, context string, descriptor model.ConfigDescriptor, domainSuffix string) (*client, error) {
+func NewClient(config string, context string, descriptor model.ConfigDescriptor, domainSuffix string) (*Client, error) {
 	cfg, err := kubecfg.BuildClientConfig(config, context)
 	if err != nil {
 		return nil, err
@@ -164,7 +164,7 @@ func NewClient(config string, context string, descriptor model.ConfigDescriptor,
 }
 
 // RegisterResources sends a request to create CRDs and waits for them to initialize
-func (cl *client) RegisterResources() error {
+func (cl *Client) RegisterResources() error {
 	g, _ := errgroup.WithContext(context.Background())
 	for k, rc := range cl.clientset {
 		k, rc := k, rc
@@ -276,7 +276,7 @@ func (rc *restClient) registerResources() error {
 }
 
 // DeregisterResources removes third party resources
-func (cl *client) DeregisterResources() error {
+func (cl *Client) DeregisterResources() error {
 	for k, rc := range cl.clientset {
 		log.Infof("deregistering for apiVersion %s", k)
 		if err := rc.deregisterResources(); err != nil {
@@ -302,7 +302,7 @@ func (rc *restClient) deregisterResources() error {
 }
 
 // ConfigDescriptor for the store
-func (cl *client) ConfigDescriptor() model.ConfigDescriptor {
+func (cl *Client) ConfigDescriptor() model.ConfigDescriptor {
 	d := make(model.ConfigDescriptor, 0, len(cl.clientset))
 	for _, rc := range cl.clientset {
 		d = append(d, rc.descriptor...)
@@ -311,13 +311,13 @@ func (cl *client) ConfigDescriptor() model.ConfigDescriptor {
 }
 
 // Get implements store interface
-func (cl *client) Get(typ, name, namespace string) *model.Config {
+func (cl *Client) Get(typ, name, namespace string) *model.Config {
 	s, ok := crd.KnownTypes[typ]
 	if !ok {
 		log.Warn("unknown type " + typ)
 		return nil
 	}
-	rc, ok := cl.clientset[crd.ApiVersion(&s.Schema)]
+	rc, ok := cl.clientset[crd.APIVersion(&s.Schema)]
 	if !ok {
 		log.Warn("cannot find client for type " + typ)
 		return nil
@@ -350,8 +350,8 @@ func (cl *client) Get(typ, name, namespace string) *model.Config {
 }
 
 // Create implements store interface
-func (cl *client) Create(config model.Config) (string, error) {
-	rc, ok := cl.clientset[crd.ApiVersionFromConfig(&config)]
+func (cl *Client) Create(config model.Config) (string, error) {
+	rc, ok := cl.clientset[crd.APIVersionFromConfig(&config)]
 	if !ok {
 		return "", fmt.Errorf("unrecognized apiVersion %q", config)
 	}
@@ -384,8 +384,8 @@ func (cl *client) Create(config model.Config) (string, error) {
 }
 
 // Update implements store interface
-func (cl *client) Update(config model.Config) (string, error) {
-	rc, ok := cl.clientset[crd.ApiVersionFromConfig(&config)]
+func (cl *Client) Update(config model.Config) (string, error) {
+	rc, ok := cl.clientset[crd.APIVersionFromConfig(&config)]
 	if !ok {
 		return "", fmt.Errorf("unrecognized apiVersion %q", config)
 	}
@@ -422,12 +422,12 @@ func (cl *client) Update(config model.Config) (string, error) {
 }
 
 // Delete implements store interface
-func (cl *client) Delete(typ, name, namespace string) error {
+func (cl *Client) Delete(typ, name, namespace string) error {
 	s, ok := crd.KnownTypes[typ]
 	if !ok {
 		return fmt.Errorf("unrecognized type %q", typ)
 	}
-	rc, ok := cl.clientset[crd.ApiVersion(&s.Schema)]
+	rc, ok := cl.clientset[crd.APIVersion(&s.Schema)]
 	if !ok {
 		return fmt.Errorf("unrecognized apiVersion %v", s.Schema)
 	}
@@ -444,12 +444,12 @@ func (cl *client) Delete(typ, name, namespace string) error {
 }
 
 // List implements store interface
-func (cl *client) List(typ, namespace string) ([]model.Config, error) {
+func (cl *Client) List(typ, namespace string) ([]model.Config, error) {
 	s, ok := crd.KnownTypes[typ]
 	if !ok {
 		return nil, fmt.Errorf("unrecognized type %q", typ)
 	}
-	rc, ok := cl.clientset[crd.ApiVersion(&s.Schema)]
+	rc, ok := cl.clientset[crd.APIVersion(&s.Schema)]
 	if !ok {
 		return nil, fmt.Errorf("unrecognized apiVersion %v", s.Schema)
 	}

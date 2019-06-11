@@ -91,8 +91,8 @@ type jwtPubKeyEntry struct {
 	lastUsedTime time.Time
 }
 
-// jwksResolver is resolver for jwksURI and jwt public key.
-type jwksResolver struct {
+// JwksResolver is resolver for jwksURI and jwt public key.
+type JwksResolver struct {
 	// cache for jwksURI.
 	JwksURICache cache.ExpiringCache
 
@@ -120,9 +120,9 @@ type jwksResolver struct {
 	refreshJobFetchFailedCount uint64
 }
 
-// NewJwksResolver creates new instance of jwksResolver.
-func NewJwksResolver(evictionDuration, refreshInterval time.Duration) *jwksResolver {
-	ret := &jwksResolver{
+// NewJwksResolver creates new instance of JwksResolver.
+func NewJwksResolver(evictionDuration, refreshInterval time.Duration) *JwksResolver {
+	ret := &JwksResolver{
 		JwksURICache:     cache.NewTTL(jwksURICacheExpiration, jwksURICacheEviction),
 		evictionDuration: evictionDuration,
 		refreshInterval:  refreshInterval,
@@ -161,7 +161,7 @@ func NewJwksResolver(evictionDuration, refreshInterval time.Duration) *jwksResol
 }
 
 // Set jwks_uri through openID discovery if it's not set in auth policy.
-func (r *jwksResolver) SetAuthenticationPolicyJwksURIs(policy *authn.Policy) error {
+func (r *JwksResolver) SetAuthenticationPolicyJwksURIs(policy *authn.Policy) error {
 	if policy == nil {
 		return fmt.Errorf("invalid nil policy")
 	}
@@ -197,7 +197,7 @@ func (r *jwksResolver) SetAuthenticationPolicyJwksURIs(policy *authn.Policy) err
 }
 
 // GetPublicKey gets JWT public key and cache the key for future use.
-func (r *jwksResolver) GetPublicKey(jwksURI string) (string, error) {
+func (r *JwksResolver) GetPublicKey(jwksURI string) (string, error) {
 	now := time.Now()
 	if val, found := r.keyEntries.Load(jwksURI); found {
 		e := val.(jwtPubKeyEntry)
@@ -225,7 +225,7 @@ func (r *jwksResolver) GetPublicKey(jwksURI string) (string, error) {
 }
 
 // Resolve jwks_uri through openID discovery and cache the jwks_uri for future use.
-func (r *jwksResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) {
+func (r *JwksResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) {
 	// Set policyJwt.JwksUri if the JwksUri could be found in cache.
 	if uri, found := r.JwksURICache.Get(issuer); found {
 		return uri.(string), nil
@@ -253,7 +253,7 @@ func (r *jwksResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) 
 	return jwksURI, nil
 }
 
-func (r *jwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte, error) {
+func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
 		log.Errorf("Failed to parse %q", uri)
@@ -305,7 +305,7 @@ func (r *jwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 	return getPublicKey()
 }
 
-func (r *jwksResolver) refresher() {
+func (r *JwksResolver) refresher() {
 	// Wake up once in a while and refresh stale items.
 	r.refreshTicker = time.NewTicker(r.refreshInterval)
 	for {
@@ -318,7 +318,7 @@ func (r *jwksResolver) refresher() {
 	}
 }
 
-func (r *jwksResolver) refresh() {
+func (r *JwksResolver) refresh() {
 	var wg sync.WaitGroup
 	hasChange := false
 
@@ -384,7 +384,7 @@ func (r *jwksResolver) refresh() {
 // Shut down the refresher job.
 // TODO: may need to figure out the right place to call this function.
 // (right now calls it from initDiscoveryService in pkg/bootstrap/server.go).
-func (r *jwksResolver) Close() {
+func (r *JwksResolver) Close() {
 	closeChan <- true
 }
 
