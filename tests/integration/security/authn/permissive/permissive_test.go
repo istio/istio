@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package basic contains an example test suite for showcase purposes.
-package authn
+package permissive
 
 import (
 	"reflect"
