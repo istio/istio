@@ -23,7 +23,66 @@ import (
 	util "istio.io/istio/tests/integration/mixer"
 )
 
+func validateIPRule(t *testing.T, ctx framework.TestContext) {
+	t.Helper()
+	if galInst == nil {
+		t.Fatalf("galley not setup")
+	}
+	g := *galInst
+	if bookinfoNamespace == nil {
+		t.Fatalf("bookinfo namespace not allocated in setup")
+	}
+	bookinfoNs := *bookinfoNamespace
+	g.ApplyConfigOrFail(
+		t,
+		bookinfoNs,
+		bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
+	g.ApplyConfigOrFail(
+		t,
+		bookinfoNs,
+		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+	)
+	defer g.DeleteConfigOrFail(
+		t,
+		bookinfoNs,
+		bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()),
+	)
+	defer g.DeleteConfigOrFail(
+		t,
+		bookinfoNs,
+		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+	)
+
+	if ingInst == nil {
+		t.Fatalf("ingress not setup")
+	}
+	ing := *ingInst
+	// Verify you can access productpage right now.
+	util.SendTrafficAndWaitForExpectedStatus(ing, t, "Sending traffic...", "", 2, http.StatusOK)
+
+	g.ApplyConfigOrFail(
+		t,
+		bookinfoNs,
+		bookinfo.PolicyDenyIPRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
+	defer g.DeleteConfigOrFail(
+		t,
+		bookinfoNs,
+		bookinfo.PolicyDenyIPRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
+	util.AllowRuleSync(t)
+	// Verify you can't access productpage now.
+	util.SendTrafficAndWaitForExpectedStatus(ing, t, "Sending traffic...", "", 30, http.StatusForbidden)
+}
+
 func TestWhiteListing(t *testing.T) {
+	framework.Run(t, func(ctx framework.TestContext) {
+		validateIPRule(t, ctx)
+	})
+}
+
+func TestWhiteListingTCP(t *testing.T) {
+	// re-validate after marking productpage port 9080 TCP
 	framework.Run(t, func(ctx framework.TestContext) {
 		if galInst == nil {
 			t.Fatalf("galley not setup")
@@ -33,45 +92,26 @@ func TestWhiteListing(t *testing.T) {
 			t.Fatalf("bookinfo namespace not allocated in setup")
 		}
 		bookinfoNs := *bookinfoNamespace
-		g.ApplyConfigOrFail(
-			t,
-			bookinfoNs,
-			bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
-		g.ApplyConfigOrFail(
-			t,
-			bookinfoNs,
-			bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-			bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-		)
-		defer g.DeleteConfigOrFail(
-			t,
-			bookinfoNs,
-			bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()),
-		)
-		defer g.DeleteConfigOrFail(
-			t,
-			bookinfoNs,
-			bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-			bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-		)
 
-		if ingInst == nil {
-			t.Fatalf("ingress not setup")
-		}
-		ing := *ingInst
-		// Verify you can access productpage right now.
-		util.SendTrafficAndWaitForExpectedStatus(ing, t, "Sending traffic...", "", 2, http.StatusOK)
+		g.ApplyConfigOrFail(t, bookinfoNs,
+			`apiVersion: v1
+kind: Service
+metadata:
+  name: productpage
+spec:
+  ports:
+  - port: 9080
+    name: tcp`)
+		defer g.ApplyConfigOrFail(t, bookinfoNs,
+			`apiVersion: v1
+kind: Service
+metadata:
+  name: productpage
+spec:
+  ports:
+  - port: 9080
+    name: http`)
 
-		g.ApplyConfigOrFail(
-			t,
-			bookinfoNs,
-			bookinfo.PolicyDenyIPRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
-		defer g.DeleteConfigOrFail(
-			t,
-			bookinfoNs,
-			bookinfo.PolicyDenyIPRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
-		util.AllowRuleSync(t)
-		// Verify you can't access productpage now.
-		util.SendTrafficAndWaitForExpectedStatus(ing, t, "Sending traffic...", "", 30, http.StatusForbidden)
+		validateIPRule(t, ctx)
 	})
 }
