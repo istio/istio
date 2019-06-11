@@ -10,7 +10,6 @@ import (
 )
 
 type RealDependencies struct {
-	as string
 }
 
 func (r *RealDependencies) GetLocalIP() (net.IP, error) {
@@ -40,8 +39,8 @@ func (r *RealDependencies) LookupUser() (*user.User, error) {
 }
 
 func (r *RealDependencies) execute(cmd Cmd, redirectStdout bool, args ...string) error {
-	fmt.Printf("%s %s\n", cmd.command, strings.Join(args, " "))
-	externalCommand := exec.Command(cmd.command, args...)
+	fmt.Printf("%s %s\n", cmd, strings.Join(args, " "))
+	externalCommand := exec.Command(string(cmd), args...)
 	externalCommand.Stdout = os.Stdout
 	//TODO Check naming and redirection logic
 	if !redirectStdout {
@@ -63,5 +62,5 @@ func (r *RealDependencies) Run(cmd Cmd, args ...string) error {
 }
 
 func (r *RealDependencies) RunQuietlyAndIgnore(cmd Cmd, args ...string) {
-	r.execute(cmd, true, args...)
+	_ = r.execute(cmd, true, args...)
 }

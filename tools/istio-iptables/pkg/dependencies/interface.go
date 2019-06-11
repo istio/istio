@@ -5,16 +5,14 @@ import (
 	"os/user"
 )
 
-type Cmd struct {
-	command string
-}
+type Cmd string
 
-var (
-	IPTABLES       = Cmd{"iptables"}
-	IPTABLES_SAVE  = Cmd{"iptables-save"}
-	IP6TABLES      = Cmd{"ip6tables"}
-	IP6TABLES_SAVE = Cmd{"ip6tables-save"}
-	IP             = Cmd{"ip"}
+const (
+	IPTABLES      = "iptables"
+	IPTABLESSAVE  = "iptables-save"
+	IP6TABLES     = "ip6tables"
+	IP6TABLESSAVE = "ip6tables-save"
+	IP            = "ip"
 )
 
 type Dependencies interface {

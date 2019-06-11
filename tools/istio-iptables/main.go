@@ -130,8 +130,8 @@ func run(args []string, flagSet *flag.FlagSet) {
 	}
 
 	defer func() {
-		ext.RunOrFail(dep.IPTABLES_SAVE)
-		ext.RunOrFail(dep.IP6TABLES_SAVE)
+		ext.RunOrFail(dep.IPTABLESSAVE)
+		ext.RunOrFail(dep.IP6TABLESSAVE)
 	}()
 
 	// TODO: more flexibility - maybe a whitelist of users to be captured for output instead of a blacklist.
