@@ -14,18 +14,20 @@ monitoring backends.</p>
 <p>Example config:</p>
 
 <pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
-kind: metric
+kind: instance
 metadata:
   name: requestsize
   namespace: istio-system
 spec:
-  value: request.size | 0
-  dimensions:
-    source_version: source.labels[&quot;version&quot;] | &quot;unknown&quot;
-    destination_service: destination.service.host | &quot;unknown&quot;
-    destination_version: destination.labels[&quot;version&quot;] | &quot;unknown&quot;
-    response_code: response.code | 200
-  monitored_resource_type: '&quot;UNSPECIFIED&quot;'
+  compiledTemplate: metric
+  params:
+    value: request.size | 0
+    dimensions:
+      source_version: source.labels[&quot;version&quot;] | &quot;unknown&quot;
+      destination_service: destination.service.host | &quot;unknown&quot;
+      destination_version: destination.labels[&quot;version&quot;] | &quot;unknown&quot;
+      response_code: response.code | 200
+    monitored_resource_type: '&quot;UNSPECIFIED&quot;'
 </code></pre>
 
 <h2 id="Template">Template</h2>
