@@ -64,6 +64,7 @@ function compareWithGolden() {
    ;;
   esac
 
+  # shellcheck disable=SC2086
   ACTUAL_OUTPUT="$(${FILE_UNDER_TEST} ${PARAMS} 2>/dev/null)"
 
   if [[ "x${REFRESH_GOLDEN:-false}x" = "xtruex" ]] ; then
