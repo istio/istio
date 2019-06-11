@@ -20,7 +20,6 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/types"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/features/pilot"
@@ -45,11 +44,11 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext)
 	response := routeDiscoveryResponse(rawRoutes)
 	err = con.send(response)
 	if err != nil {
-		adsLog.Warnf("ADS: RDS: Send failure %v: %v", con.modelNode.ID, err)
-		pushes.With(prometheus.Labels{"type": "rds_senderr"}).Add(1)
+		adsLog.Warnf("RDS: Send failure for node:%v: %v", con.modelNode.ID, err)
+		rdsSendErrPushes.Add(1)
 		return err
 	}
-	pushes.With(prometheus.Labels{"type": "rds"}).Add(1)
+	rdsPushes.Add(1)
 
 	adsLog.Infof("ADS: RDS: PUSH for node: %s addr:%s routes:%d", con.modelNode.ID, con.PeerAddr, len(rawRoutes))
 	return nil
@@ -63,8 +62,8 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.Push
 		r, err := s.ConfigGenerator.BuildHTTPRoutes(s.Env, con.modelNode, push, routeName)
 		if err != nil {
 			retErr := fmt.Errorf("RDS: Failed to generate route %s for node %v: %v", routeName, con.modelNode, err)
-			adsLog.Warnf("RDS: Failed to generate routes for route %s for node %v: %v", routeName, con.modelNode, err)
-			pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
+			adsLog.Warnf("RDS: Failed to generate routes for route:%s for node:%v: %v", routeName, con.modelNode.ID, err)
+			rdsBuildErrPushes.Add(1)
 			return nil, retErr
 		}
 
@@ -87,8 +86,8 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.Push
 
 		if err = r.Validate(); err != nil {
 			retErr := fmt.Errorf("RDS: Generated invalid route %s for node %v: %v", routeName, con.modelNode, err)
-			adsLog.Errorf("RDS: Generated invalid routes for route %s for node %v: %v, %v", routeName, con.modelNode, err, r)
-			pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
+			adsLog.Errorf("RDS: Generated invalid routes for route:%s for node:%v: %v, %v", routeName, con.modelNode.ID, err, r)
+			rdsBuildErrPushes.Add(1)
 			// Generating invalid routes is a bug.
 			// Panic instead of trying to recover from that, since we can't
 			// assume anything about the state.
