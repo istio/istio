@@ -33,6 +33,7 @@ spec:
 {{- end }}
       containers:
       - image: "{{ .Values.hub }}/kiali:{{ .Values.tag }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         name: kiali
         command:
         - "/opt/kiali/kiali"
