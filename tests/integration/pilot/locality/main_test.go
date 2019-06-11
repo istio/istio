@@ -148,9 +148,6 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["pilot.autoscaleEnabled"] = "false"
 	cfg.Values["global.localityLbSetting.failover[0].from"] = "region"
 	cfg.Values["global.localityLbSetting.failover[0].to"] = "closeregion"
-
-	// TODO(https://github.com/istio/istio/issues/14084) remove this
-	cfg.Values["pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE"] = "0"
 }
 
 func echoConfig(ns namespace.Instance, name string) echo.Config {
