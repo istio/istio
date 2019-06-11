@@ -88,7 +88,9 @@ SCRIPT_NAME=$0
 SCRIPT_DIR=$(dirname "$SCRIPT_NAME")
 if [[ ${#TEST_MODES[@]} -eq 0 ]] ; then
     TEST_MODES+=("script")
-    TEST_MODES+=("golang")
+    if [[ "x${REFRESH_GOLDEN:-false}x" != "xtruex" ]] ; then
+        TEST_MODES+=("golang")
+    fi
 fi
 export PATH="${SCRIPT_DIR}/stubs:${PATH}"
 
