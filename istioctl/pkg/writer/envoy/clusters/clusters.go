@@ -46,10 +46,11 @@ type ConfigWriter struct {
 
 // EndpointCluster is used to store the endpoint and cluster
 type EndpointCluster struct {
-	address string
-	port    int
-	cluster string
-	status  core.HealthStatus
+	address            string
+	port               int
+	cluster            string
+	status             core.HealthStatus
+	failedOutlierCheck bool
 }
 
 // Prime loads the clusters output into the writer ready for printing
@@ -73,6 +74,10 @@ func retrieveEndpointPort(l *adminapi.HostStatus) uint32 {
 
 func retrieveEndpointStatus(l *adminapi.HostStatus) core.HealthStatus {
 	return l.HealthStatus.GetEdsHealthStatus()
+}
+
+func retrieveFailedOutlierCheck(l *adminapi.HostStatus) bool {
+	return l.HealthStatus.GetFailedOutlierCheck()
 }
 
 // Verify returns true if the passed host matches the filter fields
@@ -111,17 +116,17 @@ func (c *ConfigWriter) PrintEndpointsSummary(filter EndpointFilter) error {
 				addr := retrieveEndpointAddress(host)
 				port := retrieveEndpointPort(host)
 				status := retrieveEndpointStatus(host)
-
-				clusterEndpoint = append(clusterEndpoint, EndpointCluster{addr, int(port), cluster.Name, status})
+				outlierCheck := retrieveFailedOutlierCheck(host)
+				clusterEndpoint = append(clusterEndpoint, EndpointCluster{addr, int(port), cluster.Name, status, outlierCheck})
 			}
 		}
 	}
 
 	clusterEndpoint = retrieveSortedEndpointClusterSlice(clusterEndpoint)
-	fmt.Fprintln(w, "ENDPOINT\tSTATUS\tCLUSTER")
+	fmt.Fprintln(w, "ENDPOINT\tSTATUS\tOUTLIER CHECK\tCLUSTER")
 	for _, ce := range clusterEndpoint {
 		endpoint := ce.address + ":" + strconv.Itoa(ce.port)
-		fmt.Fprintf(w, "%v\t%v\t%v\n", endpoint, core.HealthStatus_name[int32(ce.status)], ce.cluster)
+		fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", endpoint, core.HealthStatus_name[int32(ce.status)], printFailedOutlierCheck(ce.failedOutlierCheck), ce.cluster)
 	}
 
 	return w.Flush()
@@ -162,4 +167,11 @@ func retrieveSortedEndpointClusterSlice(ec []EndpointCluster) []EndpointCluster 
 		return ec[i].address < ec[j].address
 	})
 	return ec
+}
+
+func printFailedOutlierCheck(b bool) string {
+	if b {
+		return "FAILED"
+	}
+	return "OK"
 }
