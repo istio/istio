@@ -322,9 +322,9 @@ func (s *State) String() string {
 
 func monitorEntry(resourceKey resource.VersionedKey, added bool) {
 	namespace, name := resourceKey.FullName.InterpretAsNamespaceAndName()
-	count := 1
+	value := 1
 	if !added {
-		count = 0
+		value = 0
 	}
-	monitoring.RecordDetailedStateType(namespace, name, resourceKey.Collection, count)
+	monitoring.RecordDetailedStateType(namespace, name, resourceKey.Collection, value)
 }
