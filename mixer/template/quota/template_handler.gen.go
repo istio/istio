@@ -28,16 +28,18 @@ import (
 //
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
-// kind: quota
+// kind: instance
 // metadata:
 //   name: requestcount
 //   namespace: istio-system
 // spec:
-//   dimensions:
-//     source: source.name | "unknown"
-//     sourceVersion: source.labels["version"] | "unknown"
-//     destination: destination.labels["app"] | destination.service.host | "unknown"
-//     destinationVersion: destination.labels["version"] | "unknown"
+//   compiledTemplate: quota
+//   params:
+//     dimensions:
+//       source: source.name | "unknown"
+//       sourceVersion: source.labels["version"] | "unknown"
+//       destination: destination.labels["app"] | destination.service.host | "unknown"
+//       destinationVersion: destination.labels["version"] | "unknown"
 // ```
 
 // Fully qualified name of the template

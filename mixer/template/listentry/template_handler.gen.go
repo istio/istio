@@ -29,12 +29,14 @@ import (
 //
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
-// kind: listentry
+// kind: instance
 // metadata:
 //   name: appversion
 //   namespace: istio-system
 // spec:
-//   value: source.labels["version"]
+//   compiledTemplate: listentry
+//   params:
+//     value: source.labels["version"]
 // ```
 
 // Fully qualified name of the template

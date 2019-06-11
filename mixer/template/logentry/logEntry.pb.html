@@ -13,25 +13,27 @@ number_of_entries: 1
 <p>Example config:</p>
 
 <pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
-kind: logentry
+kind: instance
 metadata:
   name: accesslog
   namespace: istio-system
 spec:
-  severity: '&quot;Default&quot;'
-  timestamp: request.time
-  variables:
-    sourceIp: source.ip | ip(&quot;0.0.0.0&quot;)
-    destinationIp: destination.ip | ip(&quot;0.0.0.0&quot;)
-    sourceUser: source.principal | &quot;&quot;
-    method: request.method | &quot;&quot;
-    url: request.path | &quot;&quot;
-    protocol: request.scheme | &quot;http&quot;
-    responseCode: response.code | 0
-    responseSize: response.size | 0
-    requestSize: request.size | 0
-    latency: response.duration | &quot;0ms&quot;
-  monitored_resource_type: '&quot;UNSPECIFIED&quot;'
+  compiledTemplate: logentry
+  params:
+    severity: '&quot;Default&quot;'
+    timestamp: request.time
+    variables:
+      sourceIp: source.ip | ip(&quot;0.0.0.0&quot;)
+      destinationIp: destination.ip | ip(&quot;0.0.0.0&quot;)
+      sourceUser: source.principal | &quot;&quot;
+      method: request.method | &quot;&quot;
+      url: request.path | &quot;&quot;
+      protocol: request.scheme | &quot;http&quot;
+      responseCode: response.code | 0
+      responseSize: response.size | 0
+      requestSize: request.size | 0
+      latency: response.duration | &quot;0ms&quot;
+    monitored_resource_type: '&quot;UNSPECIFIED&quot;'
 </code></pre>
 
 <h2 id="Template">Template</h2>
