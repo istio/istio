@@ -32,8 +32,7 @@ func TestStringMap_Clone_Nil(t *testing.T) {
 func TestStringMap_Clone_NonNil(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	var s StringMap
-	s = map[string]string{
+	var s StringMap = map[string]string{
 		"foo": "bar",
 	}
 
@@ -56,8 +55,7 @@ func TestStringMap_CloneOrCreate_Nil(t *testing.T) {
 func TestStringMap_CloneOrCreate_NonNil(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	var s StringMap
-	s = map[string]string{
+	var s StringMap = map[string]string{
 		"foo": "bar",
 	}
 
@@ -70,8 +68,7 @@ func TestStringMap_CloneOrCreate_NonNil(t *testing.T) {
 func TestStringMap_Delete_NonNil(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	var s StringMap
-	s = map[string]string{
+	var s StringMap = map[string]string{
 		"foo": "bar",
 	}
 
