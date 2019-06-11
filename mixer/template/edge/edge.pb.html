@@ -23,24 +23,26 @@ must match the datatype of the field.</p>
 <p>Example config:</p>
 
 <pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
-kind: edge
+kind: instance
 metadata:
   name: default
   namespace: istio-system
 spec:
-  timestamp: request.time
-  sourceUid: source.uid | &quot;Unknown&quot;
-  sourceOwner: source.owner | &quot;Unknown&quot;
-  sourceWorkloadName: source.workload.name | &quot;Unknown&quot;
-  sourceWorkloadNamespace: source.workload.namespace | &quot;Unknown&quot;
-  destinationUid: destination.uid | &quot;Unknown&quot;
-  destinationOwner: destination.owner | &quot;Unknown&quot;
-  destinationWorkloadName: destination.workload.name | &quot;Unknown&quot;
-  destinationWorkloadNamespace: destination.workload.namespace | &quot;Unknown&quot;
-  destinationServiceName: destination.service.name | &quot;Unknown&quot;
-  destinationServiceNamespace: destination.service.namespace | &quot;Unknown&quot;
-  apiProtocol: api.protocol | &quot;Unknown&quot;
-  contextProtocol: context.protocol | &quot;Unknown&quot;
+  compiledTemplate: edge
+  params:
+    timestamp: request.time
+    sourceUid: source.uid | &quot;Unknown&quot;
+    sourceOwner: source.owner | &quot;Unknown&quot;
+    sourceWorkloadName: source.workload.name | &quot;Unknown&quot;
+    sourceWorkloadNamespace: source.workload.namespace | &quot;Unknown&quot;
+    destinationUid: destination.uid | &quot;Unknown&quot;
+    destinationOwner: destination.owner | &quot;Unknown&quot;
+    destinationWorkloadName: destination.workload.name | &quot;Unknown&quot;
+    destinationWorkloadNamespace: destination.workload.namespace | &quot;Unknown&quot;
+    destinationServiceName: destination.service.name | &quot;Unknown&quot;
+    destinationServiceNamespace: destination.service.namespace | &quot;Unknown&quot;
+    apiProtocol: api.protocol | &quot;Unknown&quot;
+    contextProtocol: context.protocol | &quot;Unknown&quot;
 </code></pre>
 
 <table class="message-fields">
