@@ -140,10 +140,25 @@ var (
 		Help: "Pilot build and send errors for lds, rds, cds and eds.",
 	}, []string{"type"})
 
+	cdsPushes         = pushes.WithLabelValues("cds")
+	cdsBuildErrPushes = pushes.WithLabelValues("cds_builderr")
+	cdsSendErrPushes  = pushes.WithLabelValues("cds_senderr")
+	edsPushes         = pushes.WithLabelValues("eds")
+	edsSendErrPushes  = pushes.WithLabelValues("eds_senderr")
+	ldsPushes         = pushes.WithLabelValues("lds")
+	ldsBuildErrPushes = pushes.WithLabelValues("lds_builderr")
+	ldsSendErrPushes  = pushes.WithLabelValues("lds_senderr")
+	rdsPushes         = pushes.WithLabelValues("rds")
+	rdsBuildErrPushes = pushes.WithLabelValues("rds_builderr")
+	rdsSendErrPushes  = pushes.WithLabelValues("rds_senderr")
+
 	pushErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "pilot_xds_push_errors",
 		Help: "Number of errors (timeouts) pushing to sidecars.",
 	}, []string{"type"})
+
+	unrecoverablePushErrors = pushErrors.WithLabelValues("unrecoverable")
+	retryPushErrors         = pushErrors.WithLabelValues("retry")
 
 	proxiesConvergeDelay = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Name:    "pilot_proxy_convergence_time",
@@ -424,8 +439,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if con.CDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
-						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
-						cdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
+						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
+						errCode := codes.Code(discReq.ErrorDetail.Code)
+						cdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": errCode.String()}).Add(1)
 						totalXDSRejects.Add(1)
 					} else if discReq.ResponseNonce != "" {
 						con.ClusterNonceAcked = discReq.ResponseNonce
@@ -447,8 +463,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if con.LDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
-						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s %v", peerAddr, con.modelNode.ID, discReq.String())
-						ldsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
+						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
+						errCode := codes.Code(discReq.ErrorDetail.Code)
+						ldsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": errCode.String()}).Add(1)
 						totalXDSRejects.Add(1)
 					} else if discReq.ResponseNonce != "" {
 						con.ListenerNonceAcked = discReq.ResponseNonce
@@ -467,7 +484,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			case RouteType:
 				if discReq.ErrorDetail != nil {
 					adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
-					rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
+					errCode := codes.Code(discReq.ErrorDetail.Code)
+					rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": errCode.String()}).Add(1)
 					totalXDSRejects.Add(1)
 					continue
 				}
@@ -497,8 +515,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					} else if discReq.ErrorDetail != nil {
 						// If versions mismatch then we should either have an error detail or no routes if a protocol error has occurred
 						if discReq.ErrorDetail != nil {
-							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%v) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
-							rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
+							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
+							errCode := codes.Code(discReq.ErrorDetail.Code)
+							rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": errCode.String()}).Add(1)
 							totalXDSRejects.Add(1)
 						}
 						continue
@@ -523,8 +542,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			case EndpointType:
 				if discReq.ErrorDetail != nil {
-					adsLog.Warnf("ADS:EDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
-					edsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
+					adsLog.Warnf("ADS:EDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
+					errCode := codes.Code(discReq.ErrorDetail.Code)
+					edsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": errCode.String()}).Add(1)
 					totalXDSRejects.Add(1)
 					continue
 				}
@@ -884,12 +904,12 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 				if client.LastPushFailure.IsZero() {
 					client.LastPushFailure = time.Now()
 					adsLog.Warnf("Failed to push, client busy %s", client.ConID)
-					pushErrors.With(prometheus.Labels{"type": "retry"}).Add(1)
+					retryPushErrors.Add(1)
 				} else {
 					if time.Since(client.LastPushFailure) > 10*time.Second {
 						adsLog.Warnf("Repeated failure to push %s", client.ConID)
 						// unfortunately grpc go doesn't allow closing (unblocking) the stream.
-						pushErrors.With(prometheus.Labels{"type": "unrecoverable"}).Add(1)
+						unrecoverablePushErrors.Add(1)
 						pushTimeoutFailures.Add(1)
 						return
 					}

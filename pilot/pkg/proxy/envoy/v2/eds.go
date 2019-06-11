@@ -451,7 +451,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 }
 
 // SvcUpdate is a callback from service discovery when service info changes.
-func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, rports map[uint32]string) {
+func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, _ map[uint32]string) {
 	pc := s.globalPushContext()
 	// In 1.0 Services and configs are only from the 'primary' K8S cluster.
 	if cluster == string(serviceregistry.KubernetesRegistry) {
@@ -855,10 +855,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 	err := con.send(response)
 	if err != nil {
 		adsLog.Warnf("EDS: Send failure %s: %v", con.ConID, err)
-		pushes.With(prometheus.Labels{"type": "eds_senderr"}).Add(1)
+		edsSendErrPushes.Add(1)
 		return err
 	}
-	pushes.With(prometheus.Labels{"type": "eds"}).Add(1)
+	edsPushes.Add(1)
 
 	if edsUpdatedServices == nil {
 		adsLog.Debugf("EDS: PUSH for %s clusters %d endpoints %d empty %d",
