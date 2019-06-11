@@ -60,7 +60,7 @@ function compareWithGolden() {
     FILE_UNDER_TEST="${SCRIPT_DIR}/../../tools/packaging/common/istio-iptables.sh"
    ;;
    "golang")
-    FILE_UNDER_TEST="${SCRIPT_DIR}/../../tools/istio-iptables/istio-iptables --dryRun"
+    FILE_UNDER_TEST="${ISTIO_OUT}/istio-iptables --dryRun"
    ;;
   esac
 
