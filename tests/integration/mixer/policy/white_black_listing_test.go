@@ -20,10 +20,11 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
+	"istio.io/istio/pkg/test/framework/resource"
 	util "istio.io/istio/tests/integration/mixer"
 )
 
-func validateIPRule(t *testing.T, ctx framework.TestContext) {
+func validateIPRule(t *testing.T, ctx resource.Context) {
 	t.Helper()
 	if galInst == nil {
 		t.Fatalf("galley not setup")
@@ -37,23 +38,10 @@ func validateIPRule(t *testing.T, ctx framework.TestContext) {
 		t,
 		bookinfoNs,
 		bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
-	g.ApplyConfigOrFail(
-		t,
-		bookinfoNs,
-		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-	)
 	defer g.DeleteConfigOrFail(
 		t,
 		bookinfoNs,
-		bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()),
-	)
-	defer g.DeleteConfigOrFail(
-		t,
-		bookinfoNs,
-		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-	)
+		bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
 
 	if ingInst == nil {
 		t.Fatalf("ingress not setup")
