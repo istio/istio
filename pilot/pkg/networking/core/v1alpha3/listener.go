@@ -345,8 +345,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 	sidecarScope := node.SidecarScope
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
-	actualWildcard, _ := getActualWildcardAndLocalHost(node)
-
 	if sidecarScope == nil || !sidecarScope.HasCustomIngressListeners {
 		// There is no user supplied sidecarScope for this namespace
 		// Construct inbound listeners in the usual way by looking at the ports of the service instances
@@ -433,9 +431,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			}
 
 			bind := ingressListener.Bind
-			// if bindToPort is true, we set the bind address if empty to 0.0.0.0 - this is an inbound port.
+			// if bindToPort is true, we set the bind address if empty to instance unicast IP - this is an inbound port.
+			// if no global unicast IP is available, then default to wildcard IP - 0.0.0.0 or ::
 			if len(bind) == 0 && bindToPort {
-				bind = actualWildcard
+				bind = getSidecarInboundBindIp(node)
 			} else if len(bind) == 0 {
 				// auto infer the IP from the proxyInstances
 				// We assume all endpoints in the proxy instances have the same IP
@@ -1728,4 +1727,19 @@ func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
 		}
 	}
 	return WildcardIPv6Address, LocalhostIPv6Address
+}
+
+// getSidecarInboundBindIp returns the IP that the proxy can bind to along with the sidecar specified port.
+// It looks for an unicast address, if none found, then the default wildcard address is used.
+// This will make the inbound listener bind to instance_ip:port instead of 0.0.0.0:port where applicable.
+func getSidecarInboundBindIp(node *model.Proxy) string {
+	defaultInboundIP, _ := getActualWildcardAndLocalHost(node)
+	for _, ipAddr := range node.IPAddresses {
+		ip := net.ParseIP(ipAddr)
+		// Return the IP if its a global unicast address.
+		if ip != nil && ip.IsGlobalUnicast() {
+			return ip.String()
+		}
+	}
+	return defaultInboundIP
 }
