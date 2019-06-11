@@ -17,6 +17,7 @@ package dependencies
 import (
 	"fmt"
 	"net"
+	"os"
 	"os/user"
 	"strings"
 )
@@ -25,7 +26,12 @@ type StdoutStubDependencies struct {
 }
 
 func (s *StdoutStubDependencies) GetLocalIP() (net.IP, error) {
-	return net.IPv4(127, 0, 0, 1), nil
+	ip, exists := os.LookupEnv("STUB_IP")
+	if exists {
+		return net.ParseIP(ip), nil
+	} else {
+		return net.IPv4(127, 0, 0, 1), nil
+	}
 }
 
 func (s *StdoutStubDependencies) LookupUser() (*user.User, error) {
