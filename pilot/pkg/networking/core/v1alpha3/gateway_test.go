@@ -21,6 +21,9 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
+	"istio.io/istio/pilot/pkg/networking/plugin"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/proto"
@@ -309,4 +312,164 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.result, ret)
 		}
 	}
+}
+
+func TestGatewayHTTPRouteConfig(t *testing.T) {
+	httpGateway := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "gateway",
+			Namespace: "default",
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{"example.org"},
+					Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+				},
+			},
+		},
+	}
+	virtualServiceSpec := &networking.VirtualService{
+		Hosts:    []string{"example.org"},
+		Gateways: []string{"gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "example.org",
+							Port: &networking.PortSelector{
+								Port: &networking.PortSelector_Number{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	virtualService := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      model.VirtualService.Type,
+			Name:      "virtual-service",
+			Namespace: "default",
+		},
+		Spec: virtualServiceSpec,
+	}
+	virtualServiceCopy := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      model.VirtualService.Type,
+			Name:      "virtual-service-copy",
+			Namespace: "default",
+		},
+		Spec: virtualServiceSpec,
+	}
+	virtualServiceWildcard := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      model.VirtualService.Type,
+			Name:      "virtual-service-wildcard",
+			Namespace: "default",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"*.org"},
+			Gateways: []string{"gateway"},
+			Http: []*networking.HTTPRoute{
+				{
+					Route: []*networking.HTTPRouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "example.org",
+								Port: &networking.PortSelector{
+									Port: &networking.PortSelector_Number{
+										Number: 80,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	cases := []struct {
+		name                 string
+		virtualServices      []model.Config
+		gateways             []model.Config
+		routeName            string
+		expectedVirtualHosts []string
+	}{
+		{
+			"404 when no services",
+			[]model.Config{},
+			[]model.Config{httpGateway},
+			"http.80",
+			[]string{"blackhole:80"},
+		},
+		{
+			"add a route for a virtual service",
+			[]model.Config{virtualService},
+			[]model.Config{httpGateway},
+			"http.80",
+			[]string{"example.org:80"},
+		},
+		{
+			"duplicate virtual service should merge",
+			[]model.Config{virtualService, virtualServiceCopy},
+			[]model.Config{httpGateway},
+			"http.80",
+			[]string{"example.org:80"},
+		},
+		{
+			"duplicate by wildcard should merge",
+			[]model.Config{virtualService, virtualServiceWildcard},
+			[]model.Config{httpGateway},
+			"http.80",
+			[]string{"example.org:80"},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &fakePlugin{}
+			configgen := NewConfigGenerator([]plugin.Plugin{p})
+			env := buildEnv(t, tt.gateways)
+			for _, v := range tt.virtualServices {
+				env.PushContext.AddVirtualServiceForTesting(&v)
+			}
+			route, err := configgen.buildGatewayHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, tt.routeName)
+			if err != nil {
+				t.Error(err)
+			}
+			vh := []string{}
+			for _, h := range route.VirtualHosts {
+				vh = append(vh, h.Name)
+			}
+			if !reflect.DeepEqual(tt.expectedVirtualHosts, vh) {
+				t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHosts, vh)
+			}
+		})
+	}
+
+}
+
+func buildEnv(t *testing.T, gateways []model.Config) model.Environment {
+	serviceDiscovery := new(fakes.ServiceDiscovery)
+
+	configStore := &fakes.IstioConfigStore{}
+	configStore.GatewaysReturns(gateways)
+
+	mesh := model.DefaultMeshConfig()
+	env := model.Environment{
+		PushContext:      model.NewPushContext(),
+		ServiceDiscovery: serviceDiscovery,
+		IstioConfigStore: configStore,
+		Mesh:             &mesh,
+		MixerSAN:         []string{},
+	}
+
+	if err := env.PushContext.InitContext(&env); err != nil {
+		t.Fatalf("failed to init push context: %v", err)
+	}
+	return env
 }
