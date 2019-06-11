@@ -1,5 +1,5 @@
 FROM istionightly/base_debug
-ADD node_agent_k8s /
-RUN apt-get update && apt-get install -y ca-certificates && update-ca-certificates
+COPY node_agent_k8s /
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && update-ca-certificates && apt-get clean  && rm -rf /var/lib/apt/lists/*
 RUN chmod 755 /node_agent_k8s
 ENTRYPOINT ["/node_agent_k8s"]
