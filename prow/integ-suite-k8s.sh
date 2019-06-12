@@ -57,8 +57,6 @@ FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
 
 setup_and_export_git_sha
 
-get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
-
 
 if [ "${CI:-}" == 'bootstrap' ]; then
   # bootsrap upload all artifacts in _artifacts to the log bucket.
@@ -78,6 +76,7 @@ if [[ $HUB == *"istio-testing"* ]]; then
   time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}"
 fi
 
+get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
 setup_cluster
 
 JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml" \
