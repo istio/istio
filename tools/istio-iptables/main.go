@@ -21,21 +21,15 @@ import (
 	"os"
 	"strings"
 
+	"istio.io/pkg/env"
+
 	"github.com/joho/godotenv"
 
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
-func getEnvWithDefault(key string, defaultValue string) string {
-	value, exists := os.LookupEnv(key)
-	if !exists {
-		return defaultValue
-	}
-	return value
-}
-
 func dotEnvLoad(key string, defaultPath string) {
-	path := getEnvWithDefault(key, defaultPath)
+	path := env.RegisterStringVar(key, defaultPath, "").Get()
 
 	if _, err := os.Stat(path); err == nil {
 		err = godotenv.Load(path)
@@ -90,20 +84,20 @@ func run(args []string, flagSet *flag.FlagSet) {
 	dotEnvLoad("ISTIO_CLUSTER_CONFIG", "/var/lib/istio/envoy/cluster.env")
 	dotEnvLoad("ISTIO_SIDECAR_CONFIG", "/var/lib/istio/envoy/sidecar.env")
 
-	proxyPort := getEnvWithDefault("ENVOY_PORT", "15001")
 	proxyUID := ""
 	proxyGID := ""
-	inboundInterceptionMode := os.Getenv("ISTIO_INBOUND_INTERCEPTION_MODE")
-	inboundTProxyMark := getEnvWithDefault("ISTIO_INBOUND_TPROXY_MARK", "1337")
-	inboundTProxyRouteTable := getEnvWithDefault("ISTIO_INBOUND_TPROXY_ROUTE_TABLE", "133")
-	inboundPortsInclude := os.Getenv("ISTIO_INBOUND_PORTS")
-	inboundPortsExclude := os.Getenv("ISTIO_LOCAL_EXCLUDE_PORTS")
-	outboundIPRangesInclude := os.Getenv("ISTIO_SERVICE_CIDR")
-	outboundIPRangesExclude := os.Getenv("ISTIO_SERVICE_EXCLUDE_CIDR")
-	outboundPortsExclude := os.Getenv("ISTIO_LOCAL_OUTBOUND_PORTS_EXCLUDE")
+	inboundInterceptionMode := env.RegisterStringVar("ISTIO_INBOUND_INTERCEPTION_MODE", "", "").Get()
+	inboundTProxyMark := env.RegisterStringVar("ISTIO_INBOUND_TPROXY_MARK", "1337", "").Get()
+	inboundTProxyRouteTable := env.RegisterStringVar("ISTIO_INBOUND_TPROXY_ROUTE_TABLE", "133", "").Get()
+	inboundPortsInclude := env.RegisterStringVar("ISTIO_INBOUND_PORTS", "", "").Get()
+	inboundPortsExclude := env.RegisterStringVar("ISTIO_LOCAL_EXCLUDE_PORTS", "", "").Get()
+	outboundIPRangesInclude := env.RegisterStringVar("ISTIO_SERVICE_CIDR", "", "").Get()
+	outboundIPRangesExclude := env.RegisterStringVar("ISTIO_SERVICE_EXCLUDE_CIDR", "", "").Get()
+	outboundPortsExclude := env.RegisterStringVar("ISTIO_LOCAL_OUTBOUND_PORTS_EXCLUDE", "", "").Get()
 	kubevirtInterfaces := ""
 	var enableInboundIPv6s net.IP
 
+	proxyPort := env.RegisterStringVar("ENVOY_PORT", "15001", "").Get()
 	flagSet.StringVar(&proxyPort, "p", proxyPort,
 		"Specify the envoy port to which redirect all TCP traffic (default $ENVOY_PORT = 15001)")
 	flagSet.StringVar(&proxyUID, "u", proxyUID,
@@ -234,7 +228,8 @@ func run(args []string, flagSet *flag.FlagSet) {
 	fmt.Println("Variables:")
 	fmt.Println("----------")
 	fmt.Printf("PROXY_PORT=%s\n", proxyPort)
-	fmt.Printf("INBOUND_CAPTURE_PORT=%s\n", getEnvWithDefault("INBOUND_CAPTURE_PORT", proxyPort))
+	inboundCapturePort := env.RegisterStringVar("INBOUND_CAPTURE_PORT", proxyPort, "").Get()
+	fmt.Printf("INBOUND_CAPTURE_PORT=%s\n", inboundCapturePort)
 	fmt.Printf("PROXY_UID=%s\n", proxyUID)
 	fmt.Printf("INBOUND_INTERCEPTION_MODE=%s\n", inboundInterceptionMode)
 	fmt.Printf("INBOUND_TPROXY_MARK=%s\n", inboundTProxyMark)
@@ -252,8 +247,6 @@ func run(args []string, flagSet *flag.FlagSet) {
 		fmt.Printf("ENABLE_INBOUND_IPV6=%s\n", enableInboundIPv6s)
 	}
 	fmt.Println("")
-
-	inboundCapturePort := getEnvWithDefault("INBOUND_CAPTURE_PORT", proxyPort)
 
 	// Create a new chain for redirecting outbound traffic to the common Envoy port.
 	// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
@@ -357,7 +350,7 @@ func run(args []string, flagSet *flag.FlagSet) {
 		}
 	}
 
-	if os.Getenv("DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK") == "" {
+	if env.RegisterStringVar("DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK", "", "").Get() == "" {
 		// Redirect app calls back to itself via Envoy when using the service VIP or endpoint
 		// address, e.g. appN => Envoy (client) => Envoy (server) => appN.
 		ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "127.0.0.1/32", "-j", "ISTIO_REDIRECT")

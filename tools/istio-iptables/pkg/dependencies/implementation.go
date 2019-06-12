@@ -21,6 +21,8 @@ import (
 	"os/exec"
 	"os/user"
 	"strings"
+
+	"istio.io/pkg/env"
 )
 
 type RealDependencies struct {
@@ -40,16 +42,10 @@ func (r *RealDependencies) GetLocalIP() (net.IP, error) {
 	return nil, fmt.Errorf("no valid local IP address found")
 }
 
-func getEnvWithDefault(key string, defaultValue string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		return defaultValue
-	}
-	return value
-}
-
 func (r *RealDependencies) LookupUser() (*user.User, error) {
-	return user.Lookup(getEnvWithDefault("ENVOY_USER", "istio-proxy"))
+	username := env.RegisterStringVar("ENVOY_USER", "istio-proxy", "User used for iptable rules").Get()
+
+	return user.Lookup(username)
 }
 
 func (r *RealDependencies) execute(cmd Cmd, redirectStdout bool, args ...string) error {

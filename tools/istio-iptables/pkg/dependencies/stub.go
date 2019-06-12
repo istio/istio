@@ -17,20 +17,18 @@ package dependencies
 import (
 	"fmt"
 	"net"
-	"os"
 	"os/user"
 	"strings"
+
+	"istio.io/pkg/env"
 )
 
 type StdoutStubDependencies struct {
 }
 
 func (s *StdoutStubDependencies) GetLocalIP() (net.IP, error) {
-	ip, exists := os.LookupEnv("STUB_IP")
-	if exists {
-		return net.ParseIP(ip), nil
-	}
-	return net.IPv4(127, 0, 0, 1), nil
+	ip := env.RegisterStringVar("STUB_IP", "127.0.0.1", "Stub value for local ip").Get()
+	return net.ParseIP(ip), nil
 }
 
 func (s *StdoutStubDependencies) LookupUser() (*user.User, error) {
