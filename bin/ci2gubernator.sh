@@ -70,7 +70,12 @@ fi
 
 if [ "${CIRCLE_BRANCH}" == "master" ] || [ "${CIRCLE_BRANCH}" == "release-1.2" ]; then
   ARGS+=("--branch=${CIRCLE_BRANCH}")
-fi
+else
+  target_branch=$(git symbolic-ref --short HEAD)
+  if [ "${target_branch}" == "master" ] || [ "${target_branch}" == "release-1.2" ]; then
+    ARGS+=("--branch=${target_branch}")
+  fi
+fi 
 
 ci2gubernator=${GOPATH}/bin/ci2gubernator
 $ci2gubernator "${@}" "${ARGS[@]}" || true
