@@ -43,18 +43,25 @@ ifneq ($(KUBECONFIG),)
 endif
 
 # Generate integration test targets for kubernetes environment.
-test.integration.%.kube:
+test.integration.%.kube: | $(JUNIT_REPORT)
+	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
+	set -o pipefail; \
 	$(GO) test -p 1 ${T} ./tests/integration/$*/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
 	--istio.test.env kube \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
 	--istio.test.hub=${HUB} \
 	--istio.test.tag=${TAG} \
 	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
-	${_INTEGRATION_TEST_INGRESS_FLAG}
+	${_INTEGRATION_TEST_INGRESS_FLAG} \
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 # Generate integration test targets for local environment.
-test.integration.%.local:
-	$(GO) test -p 1 ${T} ./tests/integration/$*/... --istio.test.env native
+test.integration.%.local: | $(JUNIT_REPORT)
+	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
+	set -o pipefail; \
+	$(GO) test -p 1 ${T} ./tests/integration/$*/... \
+	--istio.test.env native \
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 JUNIT_REPORT = $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
