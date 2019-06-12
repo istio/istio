@@ -314,8 +314,6 @@ github.com/imdario/mergo
 github.com/inconshreveable/mousetrap
 # github.com/jmespath/go-jmespath v0.0.0-20160202185014-0b12d6b521d8
 github.com/jmespath/go-jmespath
-# github.com/joho/godotenv v1.3.0
-github.com/joho/godotenv
 # github.com/json-iterator/go v0.0.0-20180914014843-2433035e5132
 github.com/json-iterator/go
 # github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515
