@@ -23,6 +23,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/features/pilot"
 )
 
@@ -30,7 +31,7 @@ func TestParseJwksURI(t *testing.T) {
 	cases := []struct {
 		in                   string
 		expectedHostname     string
-		expectedPort         *Port
+		expectedPort         *model.Port
 		expectedUseSSL       bool
 		expectedErrorMessage string
 	}{
@@ -49,30 +50,30 @@ func TestParseJwksURI(t *testing.T) {
 		{
 			in:               "http://foo.bar.com",
 			expectedHostname: "foo.bar.com",
-			expectedPort:     &Port{Name: "http", Port: 80},
+			expectedPort:     &model.Port{Name: "http", Port: 80},
 			expectedUseSSL:   false,
 		},
 		{
 			in:               "https://foo.bar.com",
 			expectedHostname: "foo.bar.com",
-			expectedPort:     &Port{Name: "https", Port: 443},
+			expectedPort:     &model.Port{Name: "https", Port: 443},
 			expectedUseSSL:   true,
 		},
 		{
 			in:               "http://foo.bar.com:1234",
 			expectedHostname: "foo.bar.com",
-			expectedPort:     &Port{Name: "http", Port: 1234},
+			expectedPort:     &model.Port{Name: "http", Port: 1234},
 			expectedUseSSL:   false,
 		},
 		{
 			in:               "https://foo.bar.com:1234/secure/key",
 			expectedHostname: "foo.bar.com",
-			expectedPort:     &Port{Name: "https", Port: 1234},
+			expectedPort:     &model.Port{Name: "https", Port: 1234},
 			expectedUseSSL:   true,
 		},
 	}
 	for _, c := range cases {
-		host, port, useSSL, err := ParseJwksURI(c.in)
+		host, port, useSSL, err := model.ParseJwksURI(c.in)
 		if err != nil {
 			if c.expectedErrorMessage != err.Error() {
 				t.Errorf("ParseJwksURI(%s): expected error (%s), got (%v)", c.in, c.expectedErrorMessage, err)

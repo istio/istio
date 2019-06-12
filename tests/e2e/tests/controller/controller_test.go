@@ -24,9 +24,9 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pilot/pkg/config/kube/crd"
+	crd "istio.io/istio/pilot/pkg/config/kube/crd/controller"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pilot/test/util"
 )
