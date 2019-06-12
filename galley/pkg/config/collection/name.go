@@ -19,7 +19,7 @@ import "regexp"
 // Name of a collection.
 type Name struct{ string }
 
-var validNameRegex = regexp.MustCompile("^[a-zA-Z0-9_][a-zA-Z0-9_\\.]*(/[a-zA-Z0-9_][a-zA-Z0-9_\\.]*)*$")
+var validNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_][a-zA-Z0-9_\.]*(/[a-zA-Z0-9_][a-zA-Z0-9_\.]*)*$`)
 
 // EmptyName is a sentinel value
 var EmptyName = Name{string: ""}
