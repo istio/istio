@@ -715,32 +715,3 @@ func TestInvalidResource_BadTimestamp(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(entries).To(gomega.HaveLen(0))
 }
-
-func TestStoreListReturnsCopy(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	messages := convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
-	expected := messages[0].String()
-	g.Expect(expected).NotTo(gomega.BeEmpty())
-
-	change := convert(
-		[]proto.Message{messages[0]},
-		[]string{"namespace1/some-gateway1"},
-		model.Gateway.Collection, model.Gateway.MessageName)
-	store := coredatamodel.NewController(testControllerOptions)
-	store.Apply(change)
-
-	for _, namespace := range []string{"", "namespace1"} {
-		storedConfigs, err := store.List(model.Gateway.Type, namespace)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(storedConfigs).To(gomega.HaveLen(1))
-
-		fmt.Println(storedConfigs[0].Spec.String())
-		g.Expect(storedConfigs[0].Spec.String()).To(gomega.Equal(expected))
-		storedConfigs[0].Spec.Reset()
-
-		storedConfigs, err = store.List(model.Gateway.Type, namespace)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(storedConfigs[0].Spec.String()).To(gomega.Equal(expected))
-	}
-}

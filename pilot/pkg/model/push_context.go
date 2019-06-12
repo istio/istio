@@ -654,9 +654,17 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 
 // Caches list of virtual services
 func (ps *PushContext) initVirtualServices(env *Environment) error {
-	vservices, err := env.List(VirtualService.Type, NamespaceAll)
+	virtualServices, err := env.List(VirtualService.Type, NamespaceAll)
 	if err != nil {
 		return err
+	}
+
+	// values returned from ConfigStore.List are immutable.
+	// Therefore, we make a copy
+	vservices := make([]Config, len(virtualServices))
+
+	for i := range vservices {
+		vservices[i] = virtualServices[i].DeepCopy()
 	}
 
 	// TODO(rshriram): parse each virtual service and maintain a map of the

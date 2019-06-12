@@ -103,14 +103,14 @@ func (c *Controller) List(typ, namespace string) (out []model.Config, err error)
 		// we replace the entire sub-map
 		for _, byNamespace := range byType {
 			for _, config := range byNamespace {
-				out = append(out, config.DeepCopy())
+				out = append(out, *config)
 			}
 		}
 		return out, nil
 	}
 
 	for _, config := range byType[namespace] {
-		out = append(out, config.DeepCopy())
+		out = append(out, *config)
 	}
 	return out, nil
 }

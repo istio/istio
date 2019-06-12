@@ -1108,3 +1108,24 @@ func TestIstioConfigStore_HTTPAPISpecByDestination(t *testing.T) {
 		t.Fatalf("did not find 1 matched HTTPAPISpec, \n%v", cfgs)
 	}
 }
+
+func TestDeepCopy(t *testing.T) {
+	config := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:              "name1",
+			Namespace:         "zzz",
+			CreationTimestamp: time.Now(),
+		},
+		Spec: &networking.Gateway{},
+	}
+
+	copied := config.DeepCopy()
+
+	if !(config.Spec.String() == copied.Spec.String() &&
+		config.Namespace == copied.Namespace &&
+		config.Name == copied.Name &&
+		config.CreationTimestamp == copied.CreationTimestamp) {
+		t.Fatalf("cloned config is not identical")
+	}
+
+}

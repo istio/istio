@@ -1064,7 +1064,10 @@ func SortQuotaSpec(specs []Config) {
 func (config Config) DeepCopy() Config {
 	copied, err := copystructure.Copy(config)
 	if err != nil {
-		// this should never happen, because a deep clone of a well known config object should always succeed
+		// There are 2 locations where errors are generated in copystructure.Copy:
+		//  * The reflection walk over the structure fails, which should never happen
+		//  * A configurable copy function returns an error. This is only used for copying times, which never returns an error.
+		// Therefore, this should never happen
 		panic(err)
 	}
 	return copied.(Config)

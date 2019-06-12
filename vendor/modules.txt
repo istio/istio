@@ -319,6 +319,8 @@ github.com/jmespath/go-jmespath
 github.com/json-iterator/go
 # github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515
 github.com/kr/logfmt
+# github.com/lukechampine/freeze v0.0.0-20160818180733-f514e08ae5a0
+github.com/lukechampine/freeze
 # github.com/magiconair/properties v1.8.0
 github.com/magiconair/properties
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
