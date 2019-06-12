@@ -328,6 +328,9 @@ func NotifyProxy(conID, resourceName string, secret *model.SecretItem) error {
 		ConnectionID: conID,
 		ResourceName: resourceName,
 	}
+
+	sdsClientsMutex.Lock()
+	defer sdsClientsMutex.Unlock()
 	conn := sdsClients[key]
 	if conn == nil {
 		log.Errorf("No connection with id %q can be found", conID)

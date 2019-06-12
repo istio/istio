@@ -42,10 +42,13 @@ export OWNER="${OWNER:-e2e-suite}"
 export PILOT_CLUSTER="${PILOT_CLUSTER:-}"
 export USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
 export CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
+export HUB=${HUB:-"gcr.io/istio-testing"}
 
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
-setup_and_export_git_sha
+if [[ $HUB == *"istio-testing"* ]]; then
+  setup_and_export_git_sha
+fi
 setup_e2e_cluster
 
 if [[ "${ENABLE_ISTIO_CNI:-false}" == true ]]; then
@@ -72,13 +75,18 @@ for ((i=1; i<=$#; i++)); do
     E2E_ARGS+=( "${!i}" )
 done
 
-export HUB=${HUB:-"gcr.io/istio-testing"}
-export TAG="${TAG:-${GIT_SHA}}""${SINGLE_TEST}"
+export TAG="${TAG:-${GIT_SHA}}"
+
+if [[ $HUB == *"istio-testing"* ]]; then
+  export TAG="${TAG:-${GIT_SHA}}"-"${SINGLE_TEST}"
+fi
 
 make init
 
-# upload images
-time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}"
+if [[ $HUB == *"istio-testing"* ]]; then
+  # upload images
+  time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}"
+fi
 
 time ISTIO_DOCKER_HUB=$HUB \
   E2E_ARGS="${E2E_ARGS[*]}" \

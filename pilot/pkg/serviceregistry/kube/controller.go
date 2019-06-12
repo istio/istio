@@ -319,8 +319,8 @@ func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 	if region == "" && zone == "" {
 		return ""
 	}
-
-	return fmt.Sprintf("%v/%v", region, zone)
+	locality := fmt.Sprintf("%v/%v", region, zone)
+	return model.GetLocalityOrDefault(locality, pod.Labels)
 }
 
 // ManagementPorts implements a service catalog operation
@@ -491,6 +491,14 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 
 	pod := c.pods.getPodByIP(proxyIP)
 	if pod != nil {
+		// for split horizon EDS k8s multi cluster, in case there are pods of the same ip across clusters,
+		// which can happen when multi clusters using same pod cidr.
+		// As we have proxy Network meta, compare it with the network which endpoint belongs to,
+		// if they are not same, ignore the pod, because the pod is in another cluster.
+		if proxy.Metadata[model.NodeMetadataNetwork] != c.endpointNetwork(proxyIP) {
+			return out, nil
+		}
+
 		proxyNamespace = pod.Namespace
 		// 1. find proxy service by label selector, if not any, there may exist headless service
 		// failover to 2
@@ -804,6 +812,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						UID:             uid,
 						ServiceAccount:  secureNamingSAN(pod),
 						Network:         c.endpointNetwork(ea.IP),
+						Locality:        c.GetPodLocality(pod),
 					})
 				}
 			}

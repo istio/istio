@@ -4,7 +4,7 @@ description: Configuration affecting load balancing, outlier detection, etc.
 location: https://istio.io/docs/reference/config/networking/v1alpha3/destination-rule.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 15
+number_of_entries: 16
 ---
 <p><code>DestinationRule</code> defines policies that apply to traffic intended for a
 service after routing has occurred. These rules specify configuration
@@ -163,7 +163,8 @@ spec:
 <td><code>int32</code></td>
 <td>
 <p>Maximum number of requests per connection to a backend. Setting this
-parameter to 1 disables keep alive.</p>
+parameter to 1 disables keep alive. Default 0, meaning &ldquo;unlimited&rdquo;,
+up to 2^29.</p>
 
 </td>
 </tr>
@@ -183,6 +184,52 @@ cluster at a given time. Defaults to 1024.</p>
 <p>The idle timeout for upstream connection pool connections. The idle timeout is defined as the period in which there are no active requests.
 If not set, there is no idle timeout. When the idle timeout is reached the connection will be closed.
 Note that request based timeouts mean that HTTP/2 PINGs will not keep the connection alive. Applies to both HTTP1.1 and HTTP2 connections.</p>
+
+</td>
+</tr>
+<tr id="ConnectionPoolSettings-HTTPSettings-h2_upgrade_policy">
+<td><code>h2UpgradePolicy</code></td>
+<td><code><a href="#ConnectionPoolSettings-HTTPSettings-H2UpgradePolicy">ConnectionPoolSettings.HTTPSettings.H2UpgradePolicy</a></code></td>
+<td>
+<p>Specify if http1.1 connection should be upgraded to http2 for the associated destination.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ConnectionPoolSettings-HTTPSettings-H2UpgradePolicy">ConnectionPoolSettings.HTTPSettings.H2UpgradePolicy</h2>
+<section>
+<p>Policy for upgrading http1.1 connections to http2.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ConnectionPoolSettings-HTTPSettings-H2UpgradePolicy-DEFAULT">
+<td><code>DEFAULT</code></td>
+<td>
+<p>Use the global default.</p>
+
+</td>
+</tr>
+<tr id="ConnectionPoolSettings-HTTPSettings-H2UpgradePolicy-DO_NOT_UPGRADE">
+<td><code>DO_NOT_UPGRADE</code></td>
+<td>
+<p>Do not upgrade the connection to http2.
+This opt-out option overrides the default.</p>
+
+</td>
+</tr>
+<tr id="ConnectionPoolSettings-HTTPSettings-H2UpgradePolicy-UPGRADE">
+<td><code>UPGRADE</code></td>
+<td>
+<p>Upgrade the connection to http2.
+This opt-in option overrides the default.</p>
 
 </td>
 </tr>

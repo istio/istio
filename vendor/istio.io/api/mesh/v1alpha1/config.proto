@@ -140,6 +140,11 @@ message MeshConfig {
   // Default value is text.
   AccessLogEncoding access_log_encoding = 27;
 
+  // This flag enables Envoy's gRPC Access Log Service.
+  // See [Access Log Service](https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto)
+  // for details about Envoy's gRPC Access Log Service API.
+  bool enable_envoy_access_log_service = 40;
+
   // Default proxy config used by the proxy injection mechanism operating in the mesh
   // (e.g. Kubernetes admission controller)
   // In case of Kubernetes, the proxy config is applied once during the injection process,
@@ -282,8 +287,37 @@ message MeshConfig {
   // Configures DNS refresh rate for Envoy clusters of type STRICT_DNS
   google.protobuf.Duration dns_refresh_rate = 36;
 
+  // The flag to disable report batch.
+  bool disable_report_batch = 37;
+
+  // When disable_report_batch is false, this value specifies the maximum number
+  // of requests that are batched in report. If left unspecified, the default value 
+  // of report_batch_max_entries == 0 will use the hardcoded defaults of 
+  // istio::mixerclient::ReportOptions.
+  uint32 report_batch_max_entries = 38;
+
+  // When disable_report_batch is false, this value specifies the maximum elapsed 
+  // time a batched report will be sent after a user request is processed. If left
+  // unspecified, the default report_batch_max_time == 0 will use the hardcoded 
+  // defaults of istio::mixerclient::ReportOptions.
+  google.protobuf.Duration report_batch_max_time = 39;
+
+  // Default Policy for upgrading http1.1 connections to http2.
+  enum H2UpgradePolicy {
+    // Do not upgrade connections to http2.
+    DO_NOT_UPGRADE = 0;
+    // Upgrade the connections to http2.
+    UPGRADE = 1;
+  }
+
+  // Specify if http1.1 connections should be upgraded to http2 by default.
+  // if sidecar is installed on all pods in the mesh, then this should be set to UPGRADE.
+  // If one or more services or namespaces do not have sidecar(s), then this should be set to DO_NOT_UPGRADE.
+  // It can be enabled by destination using the destinationRule.trafficPolicy.connectionPool.http.h2UpgradePolicy override.
+  H2UpgradePolicy h2_upgrade_policy = 41;
+
   // $hide_from_docs
-  // Next available field number: 37
+  // Next available field number: 42
 }
 
 // ConfigSource describes information about a configuration store inside a

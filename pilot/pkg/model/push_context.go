@@ -86,11 +86,11 @@ type PushContext struct {
 	// Env has a pointer to the shared environment used to create the snapshot.
 	Env *Environment `json:"-"`
 
-	// ServicePort2Name is used to keep track of service name and port mapping.
+	// ServicePortByHostname is used to keep track of service name and port mapping.
 	// This is needed because ADS names use port numbers, while endpoints use
 	// port names. The key is the service name. If a service or port are not found,
 	// the endpoint needs to be re-evaluated later (eventual consistency)
-	ServicePort2Name map[string]PortList `json:"-"`
+	ServicePortByHostname map[Hostname]PortList `json:"-"`
 
 	// ServiceAccounts contains a map of hostname and port to service accounts.
 	ServiceAccounts map[Hostname]map[int][]string `json:"-"`
@@ -266,6 +266,12 @@ var (
 		"Number of clusters without instances.",
 	)
 
+	// DuplicatedDomains tracks rejected VirtualServices due to duplicated hostname.
+	DuplicatedDomains = newPushMetric(
+		"pilot_vservice_dup_domain",
+		"Virtual services with dup domains.",
+	)
+
 	// DuplicatedSubsets tracks duplicate subsets that we rejected while merging multiple destination rules for same host
 	DuplicatedSubsets = newPushMetric(
 		"pilot_destrule_subsets",
@@ -299,11 +305,11 @@ func NewPushContext() *PushContext {
 		},
 		sidecarsByNamespace: map[string][]*SidecarScope{},
 
-		ServiceByHostname: map[Hostname]*Service{},
-		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
-		ServicePort2Name:  map[string]PortList{},
-		ServiceAccounts:   map[Hostname]map[int][]string{},
-		Start:             time.Now(),
+		ServiceByHostname:     map[Hostname]*Service{},
+		ProxyStatus:           map[string]map[string]ProxyPushStatus{},
+		ServicePortByHostname: map[Hostname]PortList{},
+		ServiceAccounts:       map[Hostname]map[int][]string{},
+		Start:                 time.Now(),
 	}
 }
 
@@ -471,20 +477,20 @@ func (ps *PushContext) GetAllSidecarScopes() map[string][]*SidecarScope {
 
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
-	// If proxy has a sidecar scope that is user supplied, then get the destination rules from the sidecar scope
-	// sidecarScope.config is nil if there is no sidecar scope for the namespace
-	if proxy != nil && proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
-		// If there is a sidecar scope for this proxy, return the destination rule
-		// from the sidecar scope.
-		return proxy.SidecarScope.DestinationRule(service.Hostname)
-	}
-
 	// FIXME: this code should be removed once the EDS issue is fixed
 	if proxy == nil {
 		if host, ok := MostSpecificHostMatch(service.Hostname, ps.allExportedDestRules.hosts); ok {
 			return ps.allExportedDestRules.destRule[host].config
 		}
 		return nil
+	}
+
+	// If proxy has a sidecar scope that is user supplied, then get the destination rules from the sidecar scope
+	// sidecarScope.config is nil if there is no sidecar scope for the namespace
+	if proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
+		// If there is a sidecar scope for this proxy, return the destination rule
+		// from the sidecar scope.
+		return proxy.SidecarScope.DestinationRule(service.Hostname)
 	}
 
 	// If the proxy config namespace is same as the root config namespace
@@ -617,7 +623,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 			}
 		}
 		ps.ServiceByHostname[s.Hostname] = s
-		ps.ServicePort2Name[string(s.Hostname)] = s.Ports
+		ps.ServicePortByHostname[s.Hostname] = s.Ports
 	}
 
 	ps.initServiceAccounts(env, allServices)
@@ -886,7 +892,7 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 		}
 		// Merge this destination rule with any public/private dest rules for same host in the same namespace
 		// If there are no duplicates, the dest rule will be added to the list
-		namespaceLocalDestRules[configs[i].Namespace].hosts, _ = ps.combineSingleDestinationRule(
+		namespaceLocalDestRules[configs[i].Namespace].hosts = ps.combineSingleDestinationRule(
 			namespaceLocalDestRules[configs[i].Namespace].hosts,
 			namespaceLocalDestRules[configs[i].Namespace].destRule,
 			configs[i])
@@ -917,14 +923,14 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 			}
 			// Merge this destination rule with any public dest rule for the same host in the same namespace
 			// If there are no duplicates, the dest rule will be added to the list
-			namespaceExportedDestRules[configs[i].Namespace].hosts, _ = ps.combineSingleDestinationRule(
+			namespaceExportedDestRules[configs[i].Namespace].hosts = ps.combineSingleDestinationRule(
 				namespaceExportedDestRules[configs[i].Namespace].hosts,
 				namespaceExportedDestRules[configs[i].Namespace].destRule,
 				configs[i])
 
 			// Merge this destination rule with any public dest rule for the same host
 			// across all namespaces. If there are no duplicates, the dest rule will be added to the list
-			allExportedDestRules.hosts, _ = ps.combineSingleDestinationRule(
+			allExportedDestRules.hosts = ps.combineSingleDestinationRule(
 				allExportedDestRules.hosts, allExportedDestRules.destRule, configs[i])
 		}
 	}

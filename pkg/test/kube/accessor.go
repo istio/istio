@@ -348,6 +348,20 @@ func (a *Accessor) GetSecret(ns string) kubeClientCore.SecretInterface {
 	return a.set.CoreV1().Secrets(ns)
 }
 
+// CreateSecret takes the representation of a secret and creates it in the given namespace.
+// Returns an error if there is any.
+func (a *Accessor) CreateSecret(namespace string, secret *kubeApiCore.Secret) (err error) {
+	_, err = a.set.CoreV1().Secrets(namespace).Create(secret)
+	return err
+}
+
+// DeleteSecret deletes secret by name in namespace.
+func (a *Accessor) DeleteSecret(namespace, name string) (err error) {
+	var immediate int64
+	err = a.set.CoreV1().Secrets(namespace).Delete(name, &kubeApiMeta.DeleteOptions{GracePeriodSeconds: &immediate})
+	return err
+}
+
 // GetEndpoints returns the endpoints for the given service.
 func (a *Accessor) GetEndpoints(ns, service string, options kubeApiMeta.GetOptions) (*kubeApiCore.Endpoints, error) {
 	return a.set.CoreV1().Endpoints(ns).Get(service, options)
@@ -457,8 +471,8 @@ func (a *Accessor) Delete(namespace string, filename string) error {
 }
 
 // Logs calls the logs command for the specified pod, with -c, if container is specified.
-func (a *Accessor) Logs(namespace string, pod string, container string) (string, error) {
-	return a.ctl.logs(namespace, pod, container)
+func (a *Accessor) Logs(namespace string, pod string, container string, previousLog bool) (string, error) {
+	return a.ctl.logs(namespace, pod, container, previousLog)
 }
 
 // Exec executes the provided command on the specified pod/container.

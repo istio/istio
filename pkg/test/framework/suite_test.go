@@ -83,13 +83,13 @@ func TestSuite_Label_SuiteFilter(t *testing.T) {
 		return 0
 	}
 
-	sel, err := label.ParseSelector("-presubmit")
+	sel, err := label.ParseSelector("-customsetup")
 	g.Expect(err).To(BeNil())
 	settings := core.DefaultSettings()
 	settings.Selector = sel
 
 	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
-	s.Label(label.Presubmit)
+	s.Label(label.CustomSetup)
 	s.Run()
 
 	g.Expect(runCalled).To(BeFalse())
@@ -111,7 +111,7 @@ func TestSuite_Label_SuiteAllow(t *testing.T) {
 	settings.Selector = sel
 
 	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
-	s.Label(label.Presubmit)
+	s.Label(label.CustomSetup)
 	s.Run()
 
 	g.Expect(runCalled).To(BeTrue())

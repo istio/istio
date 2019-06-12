@@ -27,6 +27,8 @@ import (
 	"text/template"
 	"time"
 
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/pkg/annotations"
 
 	"github.com/gogo/protobuf/types"
@@ -301,17 +303,24 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["cluster"] = config.ServiceCluster
 	opts["nodeID"] = node
 
-	// Populate the platform locality if available.
-	l := platform.GetPlatformLocality()
+	// Support passing extra info from node environment as metadata
+	meta := getNodeMetaData(localEnv)
+
+	localityOverride := model.GetLocalityOrDefault("", meta)
+	l := util.ConvertLocality(localityOverride)
+	if l == nil {
+		// Populate the platform locality if available.
+		l = platform.GetPlatformLocality()
+	}
 	if l.Region != "" {
 		opts["region"] = l.Region
 	}
 	if l.Zone != "" {
 		opts["zone"] = l.Zone
 	}
-
-	// Support passing extra info from node environment as metadata
-	meta := getNodeMetaData(localEnv)
+	if l.SubZone != "" {
+		opts["sub_zone"] = l.SubZone
+	}
 
 	setStatsOptions(opts, meta, nodeIPs)
 
@@ -401,6 +410,14 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 			return "", err
 		}
 		StoreHostPort(h, p, "envoy_metrics_service", opts)
+	}
+
+	if config.EnvoyAccessLogServiceAddress != "" {
+		h, p, err = GetHostPort("envoy accesslog service", config.EnvoyAccessLogServiceAddress)
+		if err != nil {
+			return "", err
+		}
+		StoreHostPort(h, p, "envoy_accesslog_service", opts)
 	}
 
 	fout, err := os.Create(fname)
