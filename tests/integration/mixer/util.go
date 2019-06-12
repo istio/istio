@@ -130,7 +130,7 @@ func PromDumpWithAttributes(prometheus prometheus.Instance, metric string, attri
 	return ""
 }
 
-func SendTraffic(ingress ingress.Instance, t *testing.T, msg, url string, calls int64) *fhttp.HTTPRunnerResults {
+func SendTraffic(ingress ingress.Instance, t *testing.T, msg, url, extraHeader string, calls int64) *fhttp.HTTPRunnerResults {
 	t.Log(msg)
 	if url == "" {
 		url = fmt.Sprintf("%s/productpage", ingress.HTTPAddress())
@@ -149,6 +149,9 @@ func SendTraffic(ingress ingress.Instance, t *testing.T, msg, url string, calls 
 			URL: url,
 		},
 	}
+	if extraHeader != "" {
+		opts.HTTPOptions.AddAndValidateExtraHeader(extraHeader)
+	}
 	// productpage should still return 200s when ratings is rate-limited.
 	res, err := fhttp.RunHTTPTest(&opts)
 	if err != nil {
@@ -165,7 +168,7 @@ func SendTrafficAndWaitForExpectedStatus(ingress ingress.Instance, t *testing.T,
 	}
 
 	retryFn := func(_ context.Context, i int) error {
-		res := SendTraffic(ingress, t, msg, url, calls)
+		res := SendTraffic(ingress, t, msg, url, "", calls)
 		// Verify you get specified http return code.
 		if float64(res.RetCodes[httpStatusCode]) == 0 {
 			return fmt.Errorf("could not get %v status", httpStatusCode)
