@@ -87,7 +87,7 @@ metadata:
   name: %s
 spec:
   params:
-    backend_address: %s
+    backend_address: policy-backend.%s.svc.cluster.local:1071
   compiledAdapter: bypass
 ---
 `
@@ -100,7 +100,7 @@ metadata:
 spec:
   adapter: policybackend
   connection:
-    address: %s
+    address: policy-backend.%s.svc.cluster.local:1071
   params:
     checkParams:
       checkAllow: true
@@ -114,7 +114,7 @@ metadata:
 spec:
   adapter: policybackend
   connection:
-    address: %s
+    address: policy-backend.%s.svc.cluster.local:1071
   params:
     checkParams:
       checkAllow: false
@@ -126,7 +126,7 @@ metadata:
 spec:
   adapter: policybackend
   connection:
-    address: %s
+    address: policy-backend.%s.svc.cluster.local:1071
   params:
     table:
       jason: admin
@@ -151,8 +151,6 @@ type kubeComponent struct {
 
 	forwarder  testKube.PortForwarder
 	deployment *deployment.Instance
-
-	address string
 }
 
 // NewKubeComponent factory function for the component
@@ -219,8 +217,8 @@ func newKube(ctx resource.Context) (Instance, error) {
 		return nil, err
 	}
 
-	c.address = fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].TargetPort.IntVal)
-	scopes.Framework.Infof("Policy Backend in-cluster address: %s", c.address)
+	address := fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].TargetPort.IntVal)
+	scopes.Framework.Infof("Policy Backend in-cluster address: %s", address)
 
 	if c.forwarder, err = env.NewPortForwarder(
 		pod, 0, uint16(svc.Spec.Ports[0].TargetPort.IntValue())); err != nil {
@@ -244,9 +242,9 @@ func newKube(ctx resource.Context) (Instance, error) {
 func (c *kubeComponent) CreateConfigSnippet(name string, namespace string, am AdapterMode) string {
 	switch am {
 	case InProcess:
-		return fmt.Sprintf(inProcessHandlerKube, name, c.address)
+		return fmt.Sprintf(inProcessHandlerKube, name, c.namespace.Name())
 	case OutOfProcess:
-		handler := fmt.Sprintf(outOfProcessHandlerKube, c.address, c.address, c.address)
+		handler := fmt.Sprintf(outOfProcessHandlerKube, c.namespace.Name(), c.namespace.Name(), c.namespace.Name())
 		return handler
 	default:
 		scopes.CI.Errorf("Error generating config snippet for policy backend: unsupported adapter mode")

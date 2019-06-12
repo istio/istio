@@ -155,7 +155,7 @@ func (b *builder) ensureConn() error {
 	if b.conn == nil {
 		bo := backoff.NewExponentialBackOff()
 		bo.InitialInterval = time.Millisecond * 10
-		bo.MaxElapsedTime = time.Minute
+		bo.MaxElapsedTime = time.Minute * 5
 
 		err := backoff.Retry(func() error {
 			var e error
