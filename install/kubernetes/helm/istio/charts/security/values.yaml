@@ -7,6 +7,8 @@ selfSigned: true # indicate if self-signed CA is used.
 createMeshPolicy: true
 nodeSelector: {}
 tolerations: []
+# Enable health checking on the CSR signing API.
+# https://istio.io/docs/tasks/security/health-check/
 healthChecking: false
 
 # Specify the pod anti-affinity that allows you to constrain which nodes

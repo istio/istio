@@ -65,8 +65,8 @@ spec:
             - --liveness-probe-interval=60s # interval for health check file update
             - --probe-check-interval=15s    # interval for health status check
           {{- end }}
-          {{- if .Values.healthChecking }}
           livenessProbe:
+          {{- if .Values.healthChecking }}
             exec:
               command:
               - /usr/local/bin/istio_ca
@@ -76,7 +76,6 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 60
           {{- else }}
-          livenessProbe:
             httpGet:
               path: /version
               port: {{ .Values.global.monitoringPort }}
