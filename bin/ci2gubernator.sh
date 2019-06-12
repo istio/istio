@@ -68,15 +68,17 @@ if [ -n "$CIRCLE_PR_NUMBER" ] || [ -n "$CIRCLE_PULL_REQUEST" ]; then
 	ARGS+=("--stage=presubmit")
 fi
 
-if [ "${CIRCLE_BRANCH}" == "master" ] || [ "${CIRCLE_BRANCH}" == "release-1.2" ]; then
-  ARGS+=("--branch=${CIRCLE_BRANCH}")
-else
-  target_branch=$(git symbolic-ref --short HEAD)
-  echo "Target branch: ${target_branch}"
-  if [ "${target_branch}" == "master" ] || [ "${target_branch}" == "release-1.2" ]; then
-    ARGS+=("--branch=${target_branch}")
+if [[ "${CI_PULL_REQUEST}" == "https://github.com/istio"* ]]; then
+  if [ "${CIRCLE_BRANCH}" == "master" ] || [ "${CIRCLE_BRANCH}" == "release-1.2" ]; then
+    ARGS+=("--branch=${CIRCLE_BRANCH}")
+  else
+    target_branch=$(git symbolic-ref --short HEAD)
+    echo "Target branch: ${target_branch}"
+    if [ "${target_branch}" == "master" ] || [ "${target_branch}" == "release-1.2" ]; then
+      ARGS+=("--branch=${target_branch}")
+    fi
   fi
-fi 
+fi
 
 ci2gubernator=${GOPATH}/bin/ci2gubernator
 $ci2gubernator "${@}" "${ARGS[@]}" || true
