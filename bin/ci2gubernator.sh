@@ -72,6 +72,7 @@ if [ "${CIRCLE_BRANCH}" == "master" ] || [ "${CIRCLE_BRANCH}" == "release-1.2" ]
   ARGS+=("--branch=${CIRCLE_BRANCH}")
 else
   target_branch=$(git symbolic-ref --short HEAD)
+  echo "Target branch: ${target_branch}"
   if [ "${target_branch}" == "master" ] || [ "${target_branch}" == "release-1.2" ]; then
     ARGS+=("--branch=${target_branch}")
   fi
