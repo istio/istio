@@ -28,7 +28,7 @@ mkdir -vp "$WORK_DIR/istio"
 cp -R "./istio-${CB_VERSION}/install" "$WORK_DIR/istio/install"
 
 pushd "$WORK_DIR"
-    git clone -b master https://github.com/istio/cni.git
+    git clone -b "${CB_BRANCH}" https://github.com/istio/cni.git
 popd
 
 
