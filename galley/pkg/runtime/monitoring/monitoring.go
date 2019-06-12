@@ -94,7 +94,8 @@ var (
 	durationDistributionMs = view.Distribution(0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8193, 16384, 32768, 65536,
 		131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608)
 
-	stateTypeConfigTotal sync.Map
+	stateTypeConfigTotal     map[string]*stats.Int64Measure
+	stateTypeCollectionMutex sync.RWMutex
 )
 
 // RecordStrategyOnChange
@@ -168,21 +169,16 @@ func RecordDetailedStateTypeWithContext(ctx context.Context, collection string, 
 	if ctx == nil {
 		return
 	}
-	measure, ok := stateTypeConfigTotal.Load(collection)
-	if !ok {
-		var err error
-		measure, err = registerNewStateTypeConfigView(collection)
+	stateTypeCollectionMutex.Lock()
+	defer stateTypeCollectionMutex.Unlock()
+	if stateTypeConfigTotal[collection] == nil {
+		err := registerNewStateTypeConfigView(collection)
 		if err != nil {
 			log.Scope.Errorf("could not register collection %v for monitoring", err)
 			return
 		}
 	}
-	int64Measure, ok := measure.(*stats.Int64Measure)
-	if !ok {
-		log.Scope.Errorf("could not get stats int64measure for collection %v", collection)
-		return
-	}
-	stats.Record(ctx, int64Measure.M(int64(count)))
+	stats.Record(ctx, stateTypeConfigTotal[collection].M(int64(count)))
 }
 
 func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) *view.View {
@@ -210,19 +206,18 @@ func getStateTypeConfigKeys() ([]tag.Key, error) {
 	return []tag.Key{NamespaceTag, NameTag, VersionTag}, err
 }
 
-func registerNewStateTypeConfigView(collection string) (*stats.Int64Measure, error) {
-	measure := stats.Int64(fmt.Sprintf("galley/runtime/state/%s_total", collection),
+func registerNewStateTypeConfigView(collection string) error {
+	stateTypeConfigTotal[collection] = stats.Int64(fmt.Sprintf("galley/runtime/state/%s_total", collection),
 		fmt.Sprintf("The number of valid %v known to galley at a point in time", collection),
 		stats.UnitDimensionless)
-	stateTypeConfigTotal.Store(collection, measure)
 	nameKeys, err := getStateTypeConfigKeys()
 	if err != nil {
-		return measure, err
+		return err
 	}
 	err = view.Register(
-		newView(measure, nameKeys, view.LastValue()),
+		newView(stateTypeConfigTotal[collection], nameKeys, view.LastValue()),
 	)
-	return measure, err
+	return err
 }
 
 func init() {
@@ -250,4 +245,6 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+
+	stateTypeConfigTotal = make(map[string]*stats.Int64Measure)
 }
