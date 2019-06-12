@@ -492,6 +492,7 @@ func receiveThread(con *sdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 	for {
 		req, err := con.stream.Recv()
 		if err != nil {
+			// Add read lock to avoid race condition with set con.conID in StreamSecrets.
 			con.mutex.RLock()
 			conID := con.conID
 			con.mutex.RUnlock()
