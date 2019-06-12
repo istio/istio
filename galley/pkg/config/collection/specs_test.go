@@ -178,38 +178,3 @@ func TestSpecs_Validate_Error(t *testing.T) {
 	err := b.Build().Validate()
 	g.Expect(err).NotTo(BeNil())
 }
-
-//
-// func TestSpec_WrongProtoInstance(t *testing.T) {
-// 	g := NewGomegaWithT(t)
-// 	defer func() {
-// 		r := recover()
-// 		g.Expect(r).NotTo(BeNil())
-// 	}()
-//
-// 	b := newSpecsBuilder(func(name string) reflect.Type {
-// 		return reflect.TypeOf(&struct{}{})
-// 	})
-//
-// 	s := b.MustRegister("foo", "github.com/gogo/protobuf/types", "google.protobuf.Empty")
-// 	_ = b.Build()
-//
-// 	_ = s.NewProtoInstance()
-// }
-
-//
-// func TestSpecs_Register_InvalidCollection(t *testing.T) {
-// 	g := NewGomegaWithT(t)
-// 	b := NewSpecsBuilder()
-//
-// 	_, err := .Add(MustNewSpec(("$a", "github.com/gogo/protobuf/types", "google.protobuf.Empty")
-// 	g.Expect(err).NotTo(BeNil())
-// }
-//
-// func TestSpecs_Register_InvalidMessageType(t *testing.T) {
-// 	g := NewGomegaWithT(t)
-// 	b := NewSpecsBuilder()
-//
-// 	_, err := b.Register("foo", "github.com/gogo/protobuf/types", "google.Empty")
-// 	g.Expect(err).NotTo(BeNil())
-// }
