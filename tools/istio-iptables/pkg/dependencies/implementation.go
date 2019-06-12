@@ -25,9 +25,11 @@ import (
 	"istio.io/pkg/env"
 )
 
+// RealDependencies implementation of interface Dependencies, which is used in production
 type RealDependencies struct {
 }
 
+// GetLocalIP returns the local IP address
 func (r *RealDependencies) GetLocalIP() (net.IP, error) {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
@@ -42,6 +44,7 @@ func (r *RealDependencies) GetLocalIP() (net.IP, error) {
 	return nil, fmt.Errorf("no valid local IP address found")
 }
 
+// LookupUser returns user, which runs this executable
 func (r *RealDependencies) LookupUser() (*user.User, error) {
 	username := env.RegisterStringVar("ENVOY_USER", "istio-proxy", "User used for iptable rules").Get()
 
@@ -59,6 +62,7 @@ func (r *RealDependencies) execute(cmd Cmd, redirectStdout bool, args ...string)
 	return externalCommand.Run()
 }
 
+// RunOrFail runs a command and panics, if it fails
 func (r *RealDependencies) RunOrFail(cmd Cmd, args ...string) {
 	err := r.execute(cmd, false, args...)
 
@@ -67,10 +71,12 @@ func (r *RealDependencies) RunOrFail(cmd Cmd, args ...string) {
 	}
 }
 
+// Run runs a command
 func (r *RealDependencies) Run(cmd Cmd, args ...string) error {
 	return r.execute(cmd, false, args...)
 }
 
+// RunQuietlyAndIgnore runs a command quietly and ignores errors
 func (r *RealDependencies) RunQuietlyAndIgnore(cmd Cmd, args ...string) {
 	_ = r.execute(cmd, true, args...)
 }
