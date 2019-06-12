@@ -45,7 +45,7 @@ func TestIstioAccessLog(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			_, g, ing := setupComponentsOrFail(t, ctx)
+			_, g, ing := setupComponentsOrFail(t)
 
 			ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
 			g.ApplyConfigOrFail(
@@ -112,7 +112,7 @@ func testsetup(ctx resource.Context) error {
 	return nil
 }
 
-func setupComponentsOrFail(t *testing.T, ctx resource.Context) (bookinfoNs namespace.Instance, g galley.Instance,
+func setupComponentsOrFail(t *testing.T) (bookinfoNs namespace.Instance, g galley.Instance,
 	ing ingress.Instance) {
 	if bookinfoNamespace == nil {
 		t.Fatalf("bookinfo namespace not allocated in setup")
