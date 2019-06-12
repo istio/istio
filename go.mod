@@ -110,7 +110,6 @@ require (
 	github.com/imdario/mergo v0.3.5 // indirect
 	github.com/jefferai/jsonx v1.0.0 // indirect
 	github.com/jmespath/go-jmespath v0.0.0-20160202185014-0b12d6b521d8 // indirect
-	github.com/joho/godotenv v1.3.0
 	github.com/json-iterator/go v0.0.0-20180914014843-2433035e5132 // indirect
 	github.com/juju/errors v0.0.0-20190207033735-e65537c515d7 // indirect
 	github.com/juju/loggo v0.0.0-20190212223446-d976af380377 // indirect

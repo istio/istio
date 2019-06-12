@@ -23,22 +23,8 @@ import (
 
 	"istio.io/pkg/env"
 
-	"github.com/joho/godotenv"
-
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
-
-func dotEnvLoad(key string, defaultPath string) {
-	path := env.RegisterStringVar(key, defaultPath, "").Get()
-
-	if _, err := os.Stat(path); err == nil {
-		err = godotenv.Load(path)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-}
 
 type NetworkRange struct {
 	IsWildcard bool
@@ -77,12 +63,6 @@ func separateV4V6(cidrList string) (NetworkRange, NetworkRange, error) {
 }
 
 func run(args []string, flagSet *flag.FlagSet) {
-
-	// The cluster env can be used for common cluster settings, pushed to all VMs in the cluster.
-	// This allows separating per-machine settings (the list of inbound ports, local path overrides) from cluster wide
-	// settings (CIDR range)
-	dotEnvLoad("ISTIO_CLUSTER_CONFIG", "/var/lib/istio/envoy/cluster.env")
-	dotEnvLoad("ISTIO_SIDECAR_CONFIG", "/var/lib/istio/envoy/sidecar.env")
 
 	proxyUID := ""
 	proxyGID := ""
