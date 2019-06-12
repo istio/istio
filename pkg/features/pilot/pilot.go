@@ -164,6 +164,14 @@ var (
 		"PILOT_ENABLE_MYSQL_FILTER",
 		false,
 		"EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.")
+
+	// EnableRedisFilter enables injection of `envoy.filters.network.redis_proxy` in the filter chain.
+	// Pilot injects this outbound filter if the service port name is `redis`.
+	EnableRedisFilter = enableRedisFilter.Get
+	enableRedisFilter = env.RegisterBoolVar(
+		"PILOT_ENABLE_REDIS_FILTER",
+		false,
+		"EnableRedisFilter enables injection of `envoy.filters.network.redis_proxy` in the filter chain.")
 )
 
 var (
