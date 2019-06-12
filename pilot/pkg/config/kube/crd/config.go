@@ -15,9 +15,10 @@
 package crd
 
 import (
-	"istio.io/istio/pilot/pkg/model"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
 // IstioKind is the generic Kubernetes API object wrapper
