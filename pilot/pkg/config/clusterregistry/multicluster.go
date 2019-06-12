@@ -85,7 +85,7 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 	var remoteKubeController kubeController
 	remoteKubeController.stopCh = stopCh
 	m.m.Lock()
-	kubectl := controller.NewController(clientset, controller.ControllerOptions{
+	kubectl := controller.NewController(clientset, controller.Options{
 		WatchedNamespace: m.WatchedNamespace,
 		ResyncPeriod:     m.ResyncPeriod,
 		DomainSuffix:     m.DomainSuffix,

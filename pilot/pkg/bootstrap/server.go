@@ -149,7 +149,7 @@ type MeshArgs struct {
 type ConfigArgs struct {
 	ClusterRegistriesNamespace string
 	KubeConfig                 string
-	ControllerOptions          controller2.ControllerOptions
+	ControllerOptions          controller2.Options
 	FileDir                    string
 	DisableInstallCRDs         bool
 

@@ -147,7 +147,7 @@ func (fx *FakeXdsUpdater) Clear() {
 func newLocalController(t *testing.T) (*Controller, *FakeXdsUpdater) {
 	fx := NewFakeXDS()
 	ki := makeClient(t)
-	ctl := NewController(ki, ControllerOptions{
+	ctl := NewController(ki, Options{
 		WatchedNamespace: "",
 		ResyncPeriod:     resync,
 		DomainSuffix:     domainSuffix,
@@ -161,7 +161,7 @@ func newLocalController(t *testing.T) (*Controller, *FakeXdsUpdater) {
 func newFakeController(t *testing.T) (*Controller, *FakeXdsUpdater) {
 	fx := NewFakeXDS()
 	clientSet := fake.NewSimpleClientset()
-	c := NewController(clientSet, ControllerOptions{
+	c := NewController(clientSet, Options{
 		WatchedNamespace: "", // tests create resources in multiple ns
 		ResyncPeriod:     resync,
 		DomainSuffix:     domainSuffix,

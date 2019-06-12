@@ -80,7 +80,7 @@ var podNameVar = env.RegisterStringVar("POD_NAME", "", "")
 func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 	client kubernetes.Interface,
 	pilotNamespace string,
-	options controller2.ControllerOptions) (*StatusSyncer, error) {
+	options controller2.Options) (*StatusSyncer, error) {
 
 	// we need to use the defined ingress class to allow multiple leaders
 	// in order to update information about ingress status

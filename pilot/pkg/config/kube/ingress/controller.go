@@ -82,7 +82,7 @@ var (
 
 // NewController creates a new Kubernetes controller
 func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
-	options kubecontroller.ControllerOptions) model.ConfigStoreCache {
+	options kubecontroller.Options) model.ConfigStoreCache {
 	handler := &kube.ChainHandler{}
 
 	// queue requires a time duration for a retry delay after a handler error

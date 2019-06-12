@@ -71,8 +71,8 @@ func init() {
 	prometheus.MustRegister(k8sEvents)
 }
 
-// ControllerOptions stores the configurable attributes of a Controller.
-type ControllerOptions struct {
+// Options stores the configurable attributes of a Controller.
+type Options struct {
 	// Namespace the controller watches. If set to meta_v1.NamespaceAll (""), controller watches all namespaces
 	WatchedNamespace string
 	ResyncPeriod     time.Duration
@@ -135,7 +135,7 @@ type cacheHandler struct {
 
 // NewController creates a new Kubernetes controller
 // Created by bootstrap and multicluster (see secretcontroler).
-func NewController(client kubernetes.Interface, options ControllerOptions) *Controller {
+func NewController(client kubernetes.Interface, options Options) *Controller {
 	log.Infof("Service controller watching namespace %q for services, endpoints, nodes and pods, refresh %s",
 		options.WatchedNamespace, options.ResyncPeriod)
 
