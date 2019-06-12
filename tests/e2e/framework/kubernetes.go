@@ -579,7 +579,9 @@ func (k *KubeInfo) Teardown() error {
 
 	// NB: Increasing maxAttempts much past 230 seconds causes the CI infrastructure
 	// to terminate the test run not reporting what actually failed in the deletion.
-	maxAttempts := 180
+
+	// de-flaking tests
+	maxAttempts := 10
 
 	namespaceDeleted := false
 	validatingWebhookConfigurationExists := false
