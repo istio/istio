@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lukechampine/freeze"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
@@ -669,7 +671,12 @@ func buildOutboundListeners(p plugin.Plugin, sidecarConfig *model.Config,
 	virtualService *model.Config, services ...*model.Service) []*xdsapi.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
-	env := buildListenerEnv(services)
+	var env model.Environment
+	if virtualService != nil {
+		env = buildListenerEnvWithVirtualServices(services, []*model.Config{virtualService})
+	} else {
+		env = buildListenerEnv(services)
+	}
 
 	if err := env.PushContext.InitContext(&env); err != nil {
 		return nil
@@ -681,9 +688,6 @@ func buildOutboundListeners(p plugin.Plugin, sidecarConfig *model.Config,
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
 
-	if virtualService != nil {
-		env.PushContext.AddVirtualServiceForTesting(virtualService)
-	}
 	return configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext, proxyInstances)
 }
 
@@ -793,6 +797,10 @@ func buildEndpoint(service *model.Service) model.NetworkEndpoint {
 }
 
 func buildListenerEnv(services []*model.Service) model.Environment {
+	return buildListenerEnvWithVirtualServices(services, nil)
+}
+
+func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServices []*model.Config) model.Environment {
 	serviceDiscovery := new(fakes.ServiceDiscovery)
 	serviceDiscovery.ServicesReturns(services, nil)
 
@@ -816,6 +824,17 @@ func buildListenerEnv(services []*model.Service) model.Environment {
 					},
 				},
 			}
+		},
+		ListStub: func(typ, namespace string) (configs []model.Config, e error) {
+			if typ == "virtual-service" {
+				result := make([]model.Config, len(virtualServices))
+				for i := range virtualServices {
+					result[i] = *virtualServices[i]
+				}
+				return freeze.Slice(result).([]model.Config), nil
+			}
+			return nil, nil
+
 		},
 	}
 

@@ -430,15 +430,11 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	p := &fakePlugin{}
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
-	env := buildListenerEnv(services)
+	env := buildListenerEnvWithVirtualServices(services, virtualServices)
 
 	if err := env.PushContext.InitContext(&env); err != nil {
 		t.Fatalf("failed to initialize push context")
 	}
-	for _, virtualService := range virtualServices {
-		env.PushContext.AddVirtualServiceForTesting(virtualService)
-	}
-
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
