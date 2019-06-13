@@ -507,9 +507,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	clientNodeID := ""
 	collections := make([]sink.CollectionOptions, len(model.IstioConfigTypes))
 	for i, model := range model.IstioConfigTypes {
-		collections[i] = sink.CollectionOptions{
-			Name: model.Collection,
-		}
+		collections[i] = sink.CollectionOptions{model.Collection, false}
 	}
 
 	options := coredatamodel.Options{
