@@ -389,30 +389,30 @@ func TestMain(m *testing.M) {
     framework.
         NewSuite("galley_conversion", m).
         // Test is tagged with "Presubmit" label
-        Label(label.Presubmit).
+        Label(label.CustomSetup).
         Run()
 ```
 
 Then you can explicitly select execution of such tests using label based selection. For example, the following expression
-will select only the tests that have the ```label.Presubmit``` label.
+will select only the tests that have the ```label.CustomSetup``` label.
 
 ```console
-$ go test ./... --istio.test.select +presubmit
+$ go test ./... --istio.test.select +customsetup
 ```
 
-Similarly, you can exclude tests that use ```label.Presubmit``` label by:
+Similarly, you can exclude tests that use ```label.CustomSetup``` label by:
 
 ```console
-$ go test ./... --istio.test.select -presubmit
+$ go test ./... --istio.test.select -customsetup
 ```
 
-You can "and" the predicatesby seperating commas:
+You can "and" the predicates by separating with commas:
 
 ```console
-$ go test ./... --istio.test.select +presubmit,-postsubmit
+$ go test ./... --istio.test.select +customsetup,-postsubmit
 ```
 
-This will select tests that have ```label.Presubmit``` only. It will **not** select tests that have both ```label.Presubmit```
+This will select tests that have ```label.CustomSetup``` only. It will **not** select tests that have both ```label.CustomSetup```
 and ```label.Postsubmit```.
 
 ### Running Tests on CI

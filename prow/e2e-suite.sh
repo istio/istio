@@ -46,13 +46,8 @@ export HUB=${HUB:-"gcr.io/istio-testing"}
 
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
-if [[ $HUB != *"istio-release"* ]]; then
+if [[ $HUB == *"istio-testing"* ]]; then
   setup_and_export_git_sha
-fi
-setup_e2e_cluster
-
-if [[ "${ENABLE_ISTIO_CNI:-false}" == true ]]; then
-   cni_run_daemon
 fi
 
 E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
@@ -77,15 +72,20 @@ done
 
 export TAG="${TAG:-${GIT_SHA}}"
 
-if [[ $HUB != *"istio-release"* ]]; then
+if [[ $HUB == *"istio-testing"* ]]; then
   export TAG="${TAG:-${GIT_SHA}}"-"${SINGLE_TEST}"
 fi
 
 make init
 
-if [[ $HUB != *"istio-release"* ]]; then
+if [[ $HUB == *"istio-testing"* ]]; then
   # upload images
   time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}"
+fi
+
+setup_e2e_cluster
+if [[ "${ENABLE_ISTIO_CNI:-false}" == true ]]; then
+   cni_run_daemon
 fi
 
 time ISTIO_DOCKER_HUB=$HUB \

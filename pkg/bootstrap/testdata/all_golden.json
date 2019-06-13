@@ -202,6 +202,22 @@
           }
         ]
       }
+
+      ,
+      {
+        "name": "envoy_accesslog_service",
+        "type": "STRICT_DNS",
+        "dns_refresh_rate": "60s",
+        "dns_lookup_family": "V4_ONLY",
+        "connect_timeout": "1s",
+        "lb_policy": "ROUND_ROBIN",
+        "http2_protocol_options": {},
+        "hosts": [
+           {
+             "socket_address": {"address": "accesslog-service", "port_value": 15000}
+           }
+        ]
+      }
       
     ],
     "listeners":[

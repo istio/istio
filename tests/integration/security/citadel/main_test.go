@@ -19,18 +19,23 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
 	ist istio.Instance
+	g   galley.Instance
 )
 
 func TestMain(m *testing.M) {
 	framework.NewSuite("citadel_test", m).
-		Label(label.Presubmit).
 		RequireEnvironment(environment.Kube).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		Setup(func(ctx resource.Context) (err error) {
+			g, err = galley.New(ctx, galley.Config{})
+			return err
+		}).
 		Run()
 }

@@ -231,15 +231,9 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
                  then printf "go version $(GO_VERSION_REQUIRED)+ required, found: "; $(GO) version; exit 1; fi
 	@touch ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
 
-# Ensure expected GOPATH setup
-.PHONY: check-tree
-check-tree:
-	@if [ ! "$(ISTIO_GO)" -ef "$(GO_TOP)/src/istio.io/istio" ]; then \
-		echo Not building in expected path \'GOPATH/src/istio.io/istio\'. Make sure to clone Istio into that path. Istio root="$(ISTIO_GO)", GO_TOP="$(GO_TOP)" ; \
-		exit 1; fi
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
-init: check-tree check-go-version $(ISTIO_OUT)/istio_is_init
+init: check-go-version $(ISTIO_OUT)/istio_is_init
 	mkdir -p ${OUT_DIR}/logs
 
 # Sync is the same as init in release branch. In master this pulls from master.
@@ -285,7 +279,10 @@ ${GEN_CERT}:
 precommit: format lint
 
 format:
-	bin/fmt.sh
+	scripts/run_gofmt.sh
+
+fmt:
+	scripts/run_gofmt.sh
 
 # Build with -i to store the build caches into $GOPATH/pkg
 buildcache:
@@ -319,15 +316,15 @@ $(foreach ITEM,$(PILOT_GO_BINS_SHORT),$(eval $(call pilotbuild,$(ITEM))))
 
 .PHONY: istioctl
 istioctl ${ISTIO_OUT}/istioctl:
-	bin/gobuild.sh ${ISTIO_OUT}/istioctl ./istioctl/cmd/istioctl
+	LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh ${ISTIO_OUT}/istioctl ./istioctl/cmd/istioctl
 
 # Non-static istioctls. These are typically a build artifact.
 ${ISTIO_OUT}/istioctl-linux: depend
-	STATIC=0 GOOS=linux   bin/gobuild.sh $@ ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=linux  LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/istioctl-osx: depend
-	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=darwin LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/istioctl-win.exe: depend
-	STATIC=0 GOOS=windows bin/gobuild.sh $@ ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=windows LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 
 # generate the istioctl completion files
 ${ISTIO_OUT}/istioctl.bash: istioctl
@@ -401,6 +398,10 @@ pilot: pilot-discovery
 .PHONY: node_agent istio_ca
 node_agent istio_ca:
 	bin/gobuild.sh ${ISTIO_OUT}/$@ ./security/cmd/$(@F)
+
+.PHONY: istio-iptables
+istio-iptables:
+	bin/gobuild.sh ${ISTIO_OUT}/$@ ./tools/istio-iptables
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
@@ -513,14 +514,15 @@ security-test:
 	go test ${T} ./security/cmd/...
 
 .PHONY: common-test
-common-test:
+common-test: istio-iptables
 	go test ${T} ./pkg/...
 	# Execute bash shell unit tests scripts
 	./tests/scripts/scripts_test.sh
+	./tests/scripts/istio-iptables-test.sh
 
 .PHONY: selected-pkg-test
 selected-pkg-test:
-	find ${WHAT} -name "*_test.go"|xargs -i dirname {}|uniq|xargs -i go test ${T} {}
+	find ${WHAT} -name "*_test.go" | xargs -I {} dirname {} | uniq | xargs -I {} go test ${T} ./{}
 
 #-----------------------------------------------------------------------------
 # Target: coverage
@@ -632,7 +634,7 @@ installgen:
 	install/updateVersion.sh -a ${HUB},${TAG}
 	$(MAKE) istio.yaml
 
-$(HELM):
+$(HELM): $(ISTIO_OUT)
 	bin/init_helm.sh
 
 $(HOME)/.helm:
@@ -770,3 +772,5 @@ include tests/integration/tests.mk
 .PHONY: benchcheck
 benchcheck:
 	bin/perfcheck.sh
+
+include Makefile.common.mk

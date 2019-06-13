@@ -77,6 +77,17 @@ var levelToZap = map[Level]zapcore.Level{
 	NoneLevel:  none,
 }
 
+// functions that can be replaced in a test setting
+type patchTable struct {
+	write       func(ent zapcore.Entry, fields []zapcore.Field) error
+	sync        func() error
+	exitProcess func(code int)
+	errorSink   zapcore.WriteSyncer
+}
+
+// function table that can be replaced by tests
+var funcs = &atomic.Value{}
+
 func init() {
 	// use our defaults for starters so that logging works even before everything is fully configured
 	_ = Configure(DefaultOptions())
@@ -194,63 +205,64 @@ func formatDate(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendString(string(buf))
 }
 
-func updateScopes(options *Options, core zapcore.Core, errSink zapcore.WriteSyncer) error {
-	// init the global I/O funcs
-	writeFn.Store(func(ent zapcore.Entry, fields []zapcore.Field) error {
-		err := core.Write(ent, fields)
-		if ent.Level == zapcore.FatalLevel {
-			if options.testonlyExit == nil {
-				os.Exit(1)
-			}
-			options.testonlyExit()
-		}
-		return err
-	})
-	syncFn.Store(core.Sync)
-	errorSink.Store(errSink)
-
+func updateScopes(options *Options) error {
 	// snapshot what's there
 	allScopes := Scopes()
 
-	// update the output levels of all scopes
-	levels := strings.Split(options.outputLevels, ",")
-	for _, sl := range levels {
-		s, l, err := convertScopedLevel(sl)
-		if err != nil {
-			return err
-		}
-
-		if scope, ok := allScopes[s]; ok {
-			scope.SetOutputLevel(l)
-		} else {
-			return fmt.Errorf("unknown scope '%s' specified", s)
-		}
+	// update the output levels of all listed scopes
+	if err := processLevels(allScopes, options.outputLevels, func(s *Scope, l Level) { s.SetOutputLevel(l) }); err != nil {
+		return err
 	}
 
-	// update the stack tracing levels of all scopes
-	levels = strings.Split(options.stackTraceLevels, ",")
-	for _, sl := range levels {
-		s, l, err := convertScopedLevel(sl)
-		if err != nil {
-			return err
-		}
-
-		if scope, ok := allScopes[s]; ok {
-			scope.SetStackTraceLevel(l)
-		} else {
-			return fmt.Errorf("unknown scope '%s' specified", s)
-		}
+	// update the stack tracing levels of all listed scopes
+	if err := processLevels(allScopes, options.stackTraceLevels, func(s *Scope, l Level) { s.SetStackTraceLevel(l) }); err != nil {
+		return err
 	}
 
-	// update the caller location setting of all scopes
+	// update the caller location setting of all listed scopes
 	sc := strings.Split(options.logCallers, ",")
 	for _, s := range sc {
 		if s == "" {
 			continue
 		}
 
+		if s == OverrideScopeName {
+			// ignore everything else and just apply the override value
+			for _, scope := range allScopes {
+				scope.SetLogCallers(true)
+			}
+
+			return nil
+		}
+
 		if scope, ok := allScopes[s]; ok {
 			scope.SetLogCallers(true)
+		} else {
+			return fmt.Errorf("unknown scope '%s' specified", s)
+		}
+	}
+
+	return nil
+}
+
+// processLevels breaks down an argument string into a set of scope & levels and then
+// tries to apply the result to the scopes. It supports the use of a global override.
+func processLevels(allScopes map[string]*Scope, arg string, setter func(*Scope, Level)) error {
+	levels := strings.Split(arg, ",")
+	for _, sl := range levels {
+		s, l, err := convertScopedLevel(sl)
+		if err != nil {
+			return err
+		}
+
+		if scope, ok := allScopes[s]; ok {
+			setter(scope, l)
+		} else if s == OverrideScopeName {
+			// override replaces everything
+			for _, scope := range allScopes {
+				setter(scope, l)
+			}
+			return nil
 		} else {
 			return fmt.Errorf("unknown scope '%s' specified", s)
 		}
@@ -270,9 +282,24 @@ func Configure(options *Options) error {
 		return err
 	}
 
-	if err = updateScopes(options, core, errSink); err != nil {
+	if err = updateScopes(options); err != nil {
 		return err
 	}
+
+	pt := patchTable{
+		write: func(ent zapcore.Entry, fields []zapcore.Field) error {
+			err := core.Write(ent, fields)
+			if ent.Level == zapcore.FatalLevel {
+				funcs.Load().(patchTable).exitProcess(1)
+			}
+
+			return err
+		},
+		sync:        core.Sync,
+		exitProcess: os.Exit,
+		errorSink:   errSink,
+	}
+	funcs.Store(pt)
 
 	opts := []zap.Option{
 		zap.ErrorOutput(errSink),
@@ -304,16 +331,8 @@ func Configure(options *Options) error {
 	return nil
 }
 
-// reset by the Configure method
-var syncFn atomic.Value
-
 // Sync flushes any buffered log entries.
 // Processes should normally take care to call Sync before exiting.
 func Sync() error {
-	var err error
-	if s := syncFn.Load().(func() error); s != nil {
-		err = s()
-	}
-
-	return err
+	return funcs.Load().(patchTable).sync()
 }

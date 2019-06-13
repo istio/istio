@@ -53,7 +53,7 @@ spec:
 {{- else }}
           image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy_init.image }}:{{ $.Values.global.tag }}"
 {{- end }}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           command:
             - /bin/sh
           args:
@@ -144,6 +144,10 @@ spec:
         {{- if $.Values.global.proxy.envoyMetricsService.enabled }}
           - --envoyMetricsServiceAddress
           - {{ $.Values.global.proxy.envoyMetricsService.host }}:{{ $.Values.global.proxy.envoyMetricsService.port }}
+        {{- end }}
+        {{- if $.Values.global.proxy.envoyAccessLogService.enabled }}
+          - --envoyAccessLogServiceAddress
+          - {{ $.Values.global.proxy.envoyAccessLogService.host }}:{{ $.Values.global.proxy.envoyAccessLogService.port }}
         {{- end }}
           - --proxyAdminPort
           - "15000"

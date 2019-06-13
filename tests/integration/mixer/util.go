@@ -48,10 +48,15 @@ func GetReporterCodeLabel() string {
 	return reporterLabel
 }
 
-func VisitProductPage(ingress ingress.Instance, timeout time.Duration, wantStatus int, t *testing.T) error {
+func VisitProductPage(ing ingress.Instance, timeout time.Duration, wantStatus int, t *testing.T) error {
 	start := time.Now()
+	endpointIP := ing.HTTPAddress()
 	for {
-		response, err := ingress.Call("/productpage")
+		response, err := ing.Call(ingress.CallOptions{
+			Host:     "",
+			Path:     "/productpage",
+			CallType: ingress.PlainText,
+			Address:  endpointIP})
 		if err != nil {
 			t.Logf("Unable to connect to product page: %v", err)
 		}
@@ -126,7 +131,7 @@ func PromDumpWithAttributes(prometheus prometheus.Instance, metric string, attri
 func SendTraffic(ingress ingress.Instance, t *testing.T, msg, url string, calls int64) *fhttp.HTTPRunnerResults {
 	t.Log(msg)
 	if url == "" {
-		url = fmt.Sprintf("%s/productpage", ingress.Address())
+		url = fmt.Sprintf("%s/productpage", ingress.HTTPAddress())
 	}
 
 	// run at a high enough QPS (here 10) to ensure that enough

@@ -14,11 +14,12 @@ in different testing scenarios.</p>
 <p>Example config:</p>
 
 <pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
-kind: reportnothing
+kind: instance
 metadata:
   name: reportrequest
   namespace: istio-system
 spec:
+  compiledTemplate: reportnothing
 </code></pre>
 
 <h2 id="Template">Template</h2>

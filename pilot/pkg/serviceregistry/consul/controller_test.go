@@ -355,7 +355,7 @@ func TestServices(t *testing.T) {
 		}
 	}
 	if len(services) != 3 {
-		t.Errorf("Services() returned wrong # of services: %q, want 2", len(services))
+		t.Errorf("Services() returned wrong # of services: %q, want 3", len(services))
 	}
 }
 

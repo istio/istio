@@ -194,13 +194,13 @@ func NewVerifyCommand() *cobra.Command {
 `,
 		Example: `
 		# Verify that Istio can be freshly installed
-		istioctl experimental verify-install
+		istioctl verify-install
 		
 		# Verify that the deployment matches the istio-demo profile
-		istioctl experimental verify-install -f istio-demo.yaml
+		istioctl verify-install -f istio-demo.yaml
 		
 		# Verify the deployment matches a custom Istio deployment configuration
-		istioctl experimental verify-install -f $HOME/istio.yaml
+		istioctl verify-install -f $HOME/istio.yaml
 `,
 		RunE: func(c *cobra.Command, args []string) error {
 			return verifyInstall(enableVerbose, istioNamespace, kubeConfigFlags,

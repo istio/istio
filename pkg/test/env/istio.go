@@ -79,7 +79,7 @@ var (
 	// TODO: Some of these values are overlapping. We should re-align them.
 
 	// IstioRoot is the root of the Istio source repository.
-	IstioRoot = path.Join(GOPATH.Value(), "/src/istio.io/istio")
+	IstioRoot = path.Join(GOPATH.ValueOrDefault(build.Default.GOPATH), "/src/istio.io/istio")
 
 	// ChartsDir is the Kubernetes Helm chart directory in the repository
 	ChartsDir = path.Join(IstioRoot, "install/kubernetes/helm")

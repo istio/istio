@@ -328,6 +328,9 @@ func NotifyProxy(conID, resourceName string, secret *model.SecretItem) error {
 		ConnectionID: conID,
 		ResourceName: resourceName,
 	}
+
+	sdsClientsMutex.Lock()
+	defer sdsClientsMutex.Unlock()
 	conn := sdsClients[key]
 	if conn == nil {
 		log.Errorf("No connection with id %q can be found", conID)
@@ -489,12 +492,16 @@ func receiveThread(con *sdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 	for {
 		req, err := con.stream.Recv()
 		if err != nil {
+			// Add read lock to avoid race condition with set con.conID in StreamSecrets.
+			con.mutex.RLock()
+			conID := con.conID
+			con.mutex.RUnlock()
 			if status.Code(err) == codes.Canceled || err == io.EOF {
-				log.Infof("SDS: connection with %q terminated %v", con.conID, err)
+				log.Infof("SDS: connection with %q terminated %v", conID, err)
 				return
 			}
 			*errP = err
-			log.Errorf("SDS: connection with %q terminated with errors %v", con.conID, err)
+			log.Errorf("SDS: connection with %q terminated with errors %v", conID, err)
 			return
 		}
 		reqChannel <- req

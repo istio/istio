@@ -15,27 +15,87 @@
 package ingress
 
 import (
+	"fmt"
+	"strings"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
+
+	"time"
 )
+
+// CallType defines ingress gateway type
+type CallType int
+
+const (
+	PlainText CallType = 0
+	TLS       CallType = 1
+	Mtls      CallType = 2
+)
+
+// CallOptions defines options for calling a Endpoint.
+type CallOptions struct {
+	// Host specifies the host to be used on the request. If not provided, an appropriate
+	// default is chosen for the target Instance.
+	Host string
+
+	// Path specifies the URL path for the request.
+	Path string
+
+	// Timeout used for each individual request. Must be > 0, otherwise 1 minute is used.
+	Timeout time.Duration
+
+	// CaCert is inline base64 encoded root certificate that authenticates server certificate provided
+	// by ingress gateway.
+	CaCert string
+	// PrivateKey is inline base64 encoded private key for test client.
+	PrivateKey string
+	// Cert is inline base64 encoded certificate for test client.
+	Cert string
+
+	// Address is the ingress gateway address to call to.
+	Address string
+
+	// CallType specifies what type of call to make (PlainText, TLS, mTLS).
+	CallType CallType
+}
+
+// sanitize checks and fills fields in CallOptions. Returns error on failures, and nil otherwise.
+func (o *CallOptions) sanitize() error {
+	if o.Timeout <= 0 {
+		o.Timeout = DefaultRequestTimeout
+	}
+	if !strings.HasPrefix(o.Path, "/") {
+		o.Path = "/" + o.Path
+	}
+	if o.Address == "" {
+		return fmt.Errorf("address is not set")
+	}
+	return nil
+}
 
 // Instance represents a deployed Ingress Gateway instance.
 type Instance interface {
 	resource.Resource
 
-	// Address returns the external HTTP address of the ingress gateway (or the NodePort address,
+	// HTTPAddress returns the external HTTP address of the ingress gateway (or the NodePort address,
 	// when running under Minikube).
-	Address() string
+	HTTPAddress() string
+	// HTTPSAddress returns the external HTTPS address of the ingress gateway (or the NodePort address,
+	// when running under Minikube).
+	HTTPSAddress() string
 
-	//  Call makes an HTTP call through ingress, where the URL has the given path.
-	Call(path string) (CallResponse, error)
-	CallOrFail(t test.Failer, path string) CallResponse
+	//  Call makes a call through ingress.
+	Call(options CallOptions) (CallResponse, error)
+	CallOrFail(t test.Failer, options CallOptions) CallResponse
 }
 
 type Config struct {
 	Istio istio.Instance
+	// IngressType specifies the type of ingress gateway.
+	IngressType CallType
 }
 
 // CallResponse is the result of a call made through Istio Ingress.
@@ -51,7 +111,8 @@ type CallResponse struct {
 func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
 	ctx.Environment().Case(environment.Kube, func() {
-		i, err = newKube(ctx, cfg)
+		i = newKube(ctx, cfg)
+		err = nil
 	})
 	return
 }
