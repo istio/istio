@@ -29,10 +29,8 @@ cp -R "./istio-${CB_VERSION}/install" "$WORK_DIR/istio/install"
 
 pushd "$WORK_DIR"
     git clone -b "${CB_BRANCH}" https://github.com/istio/cni.git
-    if [ "${CB_PIPELINE_TYPE}" = "monthly" ]; then
-      sed -i "s|hub: gcr.io/istio-release|hub: ${CB_DOCKER_HUB}|g" cni/deployments/kubernetes/install/helm/istio-cni/values.yaml
-      sed -i "s|tag: master-latest-daily|tag: ${CB_VERSION}|g" cni/deployments/kubernetes/install/helm/istio-cni/values.yaml
-    fi
+    sed -i "s|hub: gcr.io/istio-release|hub: ${CB_DOCKER_HUB}|g" cni/deployments/kubernetes/install/helm/istio-cni/values.yaml
+    sed -i "s|tag: .*-latest-daily|tag: ${CB_VERSION}|g" cni/deployments/kubernetes/install/helm/istio-cni/values.yaml
 popd
 
 
