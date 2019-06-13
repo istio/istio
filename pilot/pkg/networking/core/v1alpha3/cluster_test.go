@@ -343,7 +343,7 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
+		IstioConfigStore: configStore.Freeze(),
 		Mesh:             &mesh,
 	}
 

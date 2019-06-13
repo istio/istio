@@ -20,8 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lukechampine/freeze"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
@@ -831,7 +829,7 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 				for i := range virtualServices {
 					result[i] = *virtualServices[i]
 				}
-				return freeze.Slice(result).([]model.Config), nil
+				return result, nil
 			}
 			return nil, nil
 
@@ -843,7 +841,7 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 	env := model.Environment{
 		PushContext:      model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
+		IstioConfigStore: configStore.Freeze(),
 		Mesh:             &mesh,
 	}
 

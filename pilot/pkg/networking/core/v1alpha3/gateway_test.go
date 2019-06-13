@@ -520,7 +520,7 @@ func buildEnv(t *testing.T, gateways []model.Config, virtualServices []model.Con
 	env := model.Environment{
 		PushContext:      model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
+		IstioConfigStore: configStore.Freeze(),
 		Mesh:             &mesh,
 		MixerSAN:         []string{},
 	}
