@@ -60,13 +60,14 @@ nodeagent:
 
 #
 # addon grafana configuration
+# @see https://istio.io/docs/reference/config/installation-options/#grafana-options
 #
 grafana:
   enabled: true
   
-  persist: true # 
+  persist: true # enable persistence
   
-  security: #
+  security: # security
     secretName: grafana-secrets #
     usernameKey: ADMIN_USERNAME #
     passphraseKey: ADMIN_PASSWORD #
@@ -78,7 +79,7 @@ grafana:
     GF_SMTP_FROM_ADDRESS: alerts@mydomain.com
     GF_SMTP_FROM_NAME: Grafana
 
-  envSecrets: #{}
+  envSecrets: # {}
     # The key name and ENV name must match in the secrets file.
     # ---
     # apiVersion: v1

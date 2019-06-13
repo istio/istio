@@ -76,7 +76,6 @@ spec:
 {{- end }}
           - name: GF_PATHS_DATA
             value: /data/grafana
-{{- if or $.Values.env $.Values.envSecrets }}
           {{- range $key, $value := $.Values.env }}
           - name: {{ $key }}
             value: {{ $value | quote }}
@@ -88,7 +87,6 @@ spec:
                 name: {{ $secret }}
                 key: {{ $key | quote }}
           {{- end }}
-{{- end }}
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
