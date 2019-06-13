@@ -22,7 +22,7 @@ type Name struct{ string }
 var validNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_][a-zA-Z0-9_\.]*(/[a-zA-Z0-9_][a-zA-Z0-9_\.]*)*$`)
 
 // EmptyName is a sentinel value
-var EmptyName = Name{string: ""}
+var EmptyName = Name{}
 
 // NewName returns a strongly typed collection. Panics if the name is not valid.
 func NewName(n string) Name {

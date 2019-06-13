@@ -33,7 +33,7 @@ func NewSet(names []Name) *Set {
 
 // NewSetFromCollections creates a new set based on the given collections
 func NewSetFromCollections(collections []*Instance) *Set {
-	c := make(map[Name]*Instance)
+	c := make(map[Name]*Instance, len(collections))
 	for _, col := range collections {
 		c[col.collection] = col
 	}
@@ -50,7 +50,7 @@ func (s *Set) Collection(n Name) *Instance {
 
 // Clone the set.
 func (s *Set) Clone() *Set {
-	c := make(map[Name]*Instance)
+	c := make(map[Name]*Instance, len(s.collections))
 	for k, v := range s.collections {
 		c[k] = v.Clone()
 	}
