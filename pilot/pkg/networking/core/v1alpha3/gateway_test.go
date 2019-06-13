@@ -28,8 +28,6 @@ import (
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/proto"
 
-	"github.com/lukechampine/freeze"
-
 	networking "istio.io/api/networking/v1alpha3"
 )
 
@@ -512,7 +510,7 @@ func buildEnv(t *testing.T, gateways []model.Config, virtualServices []model.Con
 	configStore.GatewaysReturns(gateways)
 	configStore.ListStub = func(typ, namespace string) (configs []model.Config, e error) {
 		if typ == "virtual-service" {
-			return freeze.Slice(virtualServices).([]model.Config), nil
+			return virtualServices, nil
 		}
 		return nil, nil
 	}
