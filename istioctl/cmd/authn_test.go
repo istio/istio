@@ -96,3 +96,54 @@ func mockExecClientAuth(_, _ string) (kubernetes.ExecClient, error) {
 func mockExecClientAuthNoPilot(_, _ string) (kubernetes.ExecClient, error) {
 	return &mockExecConfig{}, nil
 }
+
+func TestAuthnTlsCheckCorruptPilot(t *testing.T) {
+	clientExecFactory = mockExecClientAuthCorruptPilot
+
+	cases := []testCase{
+		{ // case 0
+			configs:        []model.Config{},
+			args:           strings.Split("authn tls-check badpod-123456-9999.default", " "),
+			expectedRegexp: regexp.MustCompile("Error: JSON response invalid:"),
+			wantException:  true,
+		},
+	}
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
+			verifyOutput(t, c)
+		})
+	}
+}
+
+func mockExecClientAuthCorruptPilot(_, _ string) (kubernetes.ExecClient, error) {
+	return &mockExecConfig{
+		results: map[string][]byte{
+			"istio-pilot-123456-7890": []byte(`
+500: Pilot has crashed`),
+		},
+	}, nil
+}
+
+func TestAuthnTlsCheckNoKube(t *testing.T) {
+	clientExecFactory = mockExecClientAuthNoKube
+
+	cases := []testCase{
+		{ // case 0
+			configs:        []model.Config{},
+			args:           strings.Split("authn tls-check badpod-123456-1111", " "),
+			expectedRegexp: regexp.MustCompile("Error: unauthorized"),
+			wantException:  true,
+		},
+	}
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
+			verifyOutput(t, c)
+		})
+	}
+}
+
+func mockExecClientAuthNoKube(_, _ string) (kubernetes.ExecClient, error) {
+	return nil, fmt.Errorf("unauthorized")
+}
