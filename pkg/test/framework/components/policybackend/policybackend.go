@@ -63,7 +63,7 @@ type Instance interface {
 	CreateConfigSnippet(name string, namespace string, am AdapterMode) string
 }
 
-// New returns a new instance of echo.
+// New returns a new instance of policybackend.Instance.
 func New(ctx resource.Context) (i Instance, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
 	ctx.Environment().Case(environment.Native, func() {
@@ -75,6 +75,7 @@ func New(ctx resource.Context) (i Instance, err error) {
 	return
 }
 
+// NewOrFail calls New and fails test if it returns an error.
 func NewOrFail(t test.Failer, s resource.Context) Instance {
 	t.Helper()
 	i, err := New(s)
