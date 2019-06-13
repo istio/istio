@@ -16,10 +16,11 @@ package main
 
 import (
 	"fmt"
-	"istio.io/pkg/ctrlz"
 	"os"
 	"strings"
 	"time"
+
+	"istio.io/pkg/ctrlz"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -125,7 +126,7 @@ var (
 	serverOptions           sds.Options
 	gatewaySecretChan       chan struct{}
 	loggingOptions          = log.DefaultOptions()
-	ctrlzOptions   					= ctrlz.DefaultOptions()
+	ctrlzOptions            = ctrlz.DefaultOptions()
 
 	// rootCmd defines the command for node agent.
 	rootCmd = &cobra.Command{
