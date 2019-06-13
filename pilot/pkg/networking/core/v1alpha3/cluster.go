@@ -423,8 +423,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 	sidecarScope := proxy.SidecarScope
 	noneMode := proxy.GetInterceptionMode() == model.InterceptionNone
 
-	_, actualLocalHost := getActualWildcardAndLocalHost(proxy)
-
 	if sidecarScope == nil || !sidecarScope.HasCustomIngressListeners {
 		// No user supplied sidecar scope or the user supplied one has no ingress listeners
 
@@ -435,14 +433,16 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			return nil
 		}
 
+		bind := proxy.IPAddresses[0]
 		for _, instance := range instances {
+			bind = instance.Endpoint.Address
 			pluginParams := &plugin.InputParams{
 				Env:             env,
 				Node:            proxy,
 				ServiceInstance: instance,
 				Port:            instance.Endpoint.ServicePort,
 				Push:            push,
-				Bind:            actualLocalHost,
+				Bind:            bind,
 			}
 			localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
 			clusters = append(clusters, localCluster)
@@ -452,7 +452,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 		for _, port := range managementPorts {
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, port.Name,
 				ManagementClusterHostname, port.Port)
-			localityLbEndpoints := buildInboundLocalityLbEndpoints(actualLocalHost, port.Port)
+			localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, port.Port)
 			mgmtCluster := buildDefaultCluster(env, clusterName, apiv2.Cluster_STATIC, localityLbEndpoints,
 				model.TrafficDirectionInbound, proxy)
 			setUpstreamProtocol(mgmtCluster, port)
@@ -462,6 +462,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 		if len(instances) == 0 {
 			return clusters
 		}
+		endpointAddress := instances[0].Endpoint.Address
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
 		for _, ingressListener := range rule.Ingress {
 			// LDS would have setup the inbound clusters
@@ -475,7 +476,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			// When building an inbound cluster for the ingress listener, we take the defaultEndpoint specified
 			// by the user and parse it into host:port or a unix domain socket
 			// The default endpoint can be 127.0.0.1:port or :port or unix domain socket
-			endpointAddress := actualLocalHost
 			port := 0
 			var err error
 			if strings.HasPrefix(ingressListener.DefaultEndpoint, model.UnixAddressPrefix) {
