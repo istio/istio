@@ -324,6 +324,16 @@ func TestLabelsValidate(t *testing.T) {
 			valid: true,
 		},
 		{
+			name:  "good tag - DNS prefix",
+			tags:  Labels{"k8s.io/key": "value"},
+			valid: true,
+		},
+		{
+			name:  "good tag - subdomain DNS prefix",
+			tags:  Labels{"app.kubernetes.io/name": "value"},
+			valid: true,
+		},
+		{
 			name: "bad tag - empty key",
 			tags: Labels{"": "value"},
 		},
@@ -338,6 +348,10 @@ func TestLabelsValidate(t *testing.T) {
 		{
 			name: "bad tag key 3",
 			tags: Labels{"key$": "value"},
+		},
+		{
+			name: "bad tag key - invalid DNS prefix",
+			tags: Labels{"istio./key": "value"},
 		},
 		{
 			name: "bad tag value 1",

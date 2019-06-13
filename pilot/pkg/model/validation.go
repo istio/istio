@@ -39,14 +39,18 @@ import (
 
 const (
 	dns1123LabelMaxLength int    = 63
-	dns1123LabelFmt       string = "[a-zA-Z0-9]([-a-z-A-Z0-9]*[a-zA-Z0-9])?"
+	dns1123LabelFmt       string = "[a-zA-Z0-9](?:[-a-z-A-Z0-9]*[a-zA-Z0-9])?"
 	// a wild-card prefix is an '*', a normal DNS1123 label with a leading '*' or '*-', or a normal DNS1123 label
 	wildcardPrefix = `(\*|(\*|\*-)?` + dns1123LabelFmt + `)`
 
 	// Using kubernetes requirement, a valid key must be a non-empty string consist
 	// of alphanumeric characters, '-', '_' or '.', and must start and end with an
 	// alphanumeric character (e.g. 'MyValue',  or 'my_value',  or '12345'
-	qualifiedNameFmt string = "([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]"
+	qualifiedNameFmt string = "(?:[A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]"
+
+	// In Kubernetes, label names can start with a DNS name followed by a '/':
+	dnsNamePrefixFmt       string = dns1123LabelFmt + `(?:\.` + dns1123LabelFmt + `)*/`
+	dnsNamePrefixMaxLength        = 253
 )
 
 // Constants for duration fields
@@ -64,7 +68,7 @@ const UnixAddressPrefix = "unix://"
 
 var (
 	dns1123LabelRegexp = regexp.MustCompile("^" + dns1123LabelFmt + "$")
-	tagRegexp          = regexp.MustCompile("^" + qualifiedNameFmt + "$")
+	tagRegexp          = regexp.MustCompile("^(" + dnsNamePrefixFmt + ")?(" + qualifiedNameFmt + ")$")
 	// label value can be an empty string
 	labelValueRegexp     = regexp.MustCompile("^" + "(" + qualifiedNameFmt + ")?" + "$")
 	wildcardPrefixRegexp = regexp.MustCompile("^" + wildcardPrefix + "$")
@@ -236,14 +240,35 @@ func (instance *ServiceInstance) Validate() error {
 func (l Labels) Validate() error {
 	var errs error
 	for k, v := range l {
-		if !tagRegexp.MatchString(k) {
-			errs = multierror.Append(errs, fmt.Errorf("invalid tag key: %q", k))
+		if err := validateTagKey(k); err != nil {
+			errs = multierror.Append(errs, err)
 		}
 		if !labelValueRegexp.MatchString(v) {
 			errs = multierror.Append(errs, fmt.Errorf("invalid tag value: %q", v))
 		}
 	}
 	return errs
+}
+
+// validateTagKey checks that a string is valid as a Kubernetes label name.
+func validateTagKey(k string) error {
+	match := tagRegexp.FindStringSubmatch(k)
+	if match == nil {
+		return fmt.Errorf("invalid tag key: %q", k)
+	}
+
+	if len(match[1]) > 0 {
+		dnsPrefixLength := len(match[1]) - 1 // exclude the trailing / from the length
+		if dnsPrefixLength > dnsNamePrefixMaxLength {
+			return fmt.Errorf("invalid tag key: %q (DNS prefix is too long)", k)
+		}
+	}
+
+	if len(match[2]) > dns1123LabelMaxLength {
+		return fmt.Errorf("invalid tag key: %q (name is too long)", k)
+	}
+
+	return nil
 }
 
 // ValidateFQDN checks a fully-qualified domain name
