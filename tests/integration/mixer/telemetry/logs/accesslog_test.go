@@ -15,11 +15,10 @@
 package logs
 
 import (
-	"testing"
-	"time"
-
 	"fmt"
 	"strings"
+	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
@@ -141,8 +140,8 @@ func validateLog(content string) error {
 		return fmt.Errorf(
 			"accesslog doesnt contain either details or reviews or productpage destination. Log %v", content)
 	}
-	if !strings.Contains(content, "\"responseCode\":200") {
-		return fmt.Errorf("accesslog doesnt 200 response code. Log %v", content)
+	if !strings.Contains(content, "\"responseCode\":") {
+		return fmt.Errorf("accesslog doesnt contain response code. Log %v", content)
 	}
 	if !strings.Contains(content, "\"source\":\"productpage\"") || !strings.Contains(content,
 		"\"source\":\"istio-ingressgateway\"") {
