@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"istio.io/pkg/ctrlz"
 	"os"
 	"strings"
 	"time"
@@ -124,6 +125,7 @@ var (
 	serverOptions           sds.Options
 	gatewaySecretChan       chan struct{}
 	loggingOptions          = log.DefaultOptions()
+	ctrlzOptions   					= ctrlz.DefaultOptions()
 
 	// rootCmd defines the command for node agent.
 	rootCmd = &cobra.Command{
@@ -135,7 +137,7 @@ var (
 			}
 
 			applyEnvVars(c)
-
+			_, _ = ctrlz.Run(ctrlzOptions, nil)
 			gatewaySdsCacheOptions = workloadSdsCacheOptions
 
 			if err := validateOptions(); err != nil {
@@ -375,6 +377,8 @@ func main() {
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
+	// Attach Ctrlz options to the command.
+	ctrlzOptions.AttachCobraFlags(rootCmd)
 
 	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
