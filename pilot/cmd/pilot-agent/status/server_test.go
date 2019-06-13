@@ -103,6 +103,7 @@ func TestAppProbe(t *testing.T) {
 
 	// Starts the pilot agent status server.
 	server, err := NewServer(Config{
+		PublicAddr: "127.0.0.1",
 		StatusPort: 0,
 		KubeAppHTTPProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": %v},
 "/app-health/hello-world/livez": {"port": %v}}`, appPort, appPort),
@@ -167,6 +168,7 @@ func TestHttpsAppProbe(t *testing.T) {
 
 	// Starts the pilot agent status server.
 	server, err := NewServer(Config{
+		PublicAddr: "127.0.0.1",
 		StatusPort: 0,
 		KubeAppHTTPProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": %v, "scheme": "HTTPS"},
 "/app-health/hello-world/livez": {"port": %v, "scheme": "HTTPS"}}`, appPort, appPort),

@@ -61,6 +61,7 @@ type KubeAppProbers map[string]*corev1.HTTPGetAction
 
 // Config for the status server.
 type Config struct {
+	PublicAddr       string
 	LocalHostAddr    string
 	StatusPort       uint16
 	AdminPort        uint16
@@ -72,6 +73,7 @@ type Config struct {
 
 // Server provides an endpoint for handling status probes.
 type Server struct {
+	publicAddress       string
 	ready               *ready.Probe
 	mutex               sync.RWMutex
 	appKubeProbers      KubeAppProbers
@@ -82,7 +84,8 @@ type Server struct {
 // NewServer creates a new status server.
 func NewServer(config Config) (*Server, error) {
 	s := &Server{
-		statusPort: config.StatusPort,
+		publicAddress: config.PublicAddr,
+		statusPort:    config.StatusPort,
 		ready: &ready.Probe{
 			LocalHostAddr:    config.LocalHostAddr,
 			AdminPort:        config.AdminPort,
@@ -206,9 +209,9 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 	}
 	var url string
 	if prober.Scheme == corev1.URISchemeHTTPS {
-		url = fmt.Sprintf("https://localhost:%v%s", prober.Port.IntValue(), prober.Path)
+		url = fmt.Sprintf("https://%s:%v%s", s.publicAddress, prober.Port.IntValue(), prober.Path)
 	} else {
-		url = fmt.Sprintf("http://localhost:%v%s", prober.Port.IntValue(), prober.Path)
+		url = fmt.Sprintf("http://%s:%v%s", s.publicAddress, prober.Port.IntValue(), prober.Path)
 	}
 	appReq, err := http.NewRequest("GET", url, nil)
 	if err != nil {
