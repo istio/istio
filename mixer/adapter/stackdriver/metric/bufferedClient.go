@@ -81,7 +81,7 @@ func batchTimeSeries(series []*monitoringpb.TimeSeries, tsLimit int) [][]*monito
 	return batches
 }
 
-func (b *buffered) start(env adapter.Env, ticker *time.Ticker, quit chan int) {
+func (b *buffered) start(env adapter.Env, ticker *time.Ticker, quit chan struct{}) {
 	env.ScheduleDaemon(func() {
 		select {
 		case <-ticker.C:
