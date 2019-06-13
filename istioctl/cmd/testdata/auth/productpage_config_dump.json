@@ -13,7 +13,7 @@
       "CONFIG_NAMESPACE": "default",
       "ISTIO_VERSION": "1.1.1",
       "kubernetes.io/limit-ranger": "LimitRanger plugin set: cpu request for container productpage",
-      "ISTIO_META_INSTANCE_IPS": "10.52.2.21,10.52.2.21,fe80::54f8:2cff:fe2b:2dd3",
+      "INSTANCE_IPS": "10.52.2.21,10.52.2.21,fe80::54f8:2cff:fe2b:2dd3",
       "POD_NAME": "productpage-v1-5cb458d74f-56sx7",
       "istio": "sidecar",
       "ISTIO_PROXY_VERSION": "1.1.0",
