@@ -16,17 +16,14 @@ package monitoring
 
 import (
 	"context"
+	"fmt"
+	"strings"
+	"sync"
 	"time"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
-
-	"fmt"
-
-	"strings"
-
-	"sync"
 
 	"istio.io/istio/galley/pkg/runtime/log"
 )
@@ -47,6 +44,8 @@ var (
 	NameTag tag.Key
 	// VersionTag holds version of the resource for the context.
 	VersionTag tag.Key
+	// Array that stores key tags for runtime state metrics.
+	StateTypeConfigKeys []tag.Key
 )
 
 var (
@@ -146,12 +145,13 @@ func RecordStateTypeCountWithContext(ctx context.Context, count int) {
 	}
 }
 
-// RecordDetailedStateType
+// RecordDetailedStateType records name, namespace, version of the resource in Galley.
 func RecordDetailedStateType(namespace, name string, collection fmt.Stringer, count int) {
 	collectionStr := strings.Split(collection.String(), "/")
 	// collection is of the format istio/<kind>/<version>/<name>
 	if len(collectionStr) < 4 {
-		log.Scope.Errorf("length of collection is less than 4, does not match expectation.")
+		log.Scope.Errorf("length of collection is less than 4, does not match expectation. collection: %v",
+			collectionStr)
 		return
 	}
 	ctx, err := tag.New(context.Background(), tag.Insert(NamespaceTag, namespace),
@@ -194,13 +194,13 @@ func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregatio
 func getStateTypeConfigKeys() ([]tag.Key, error) {
 	var err error
 	if NamespaceTag, err = tag.NewKey(namespace); err != nil {
-		panic(err)
+		return nil, err
 	}
 	if NameTag, err = tag.NewKey(name); err != nil {
-		panic(err)
+		return nil, err
 	}
 	if VersionTag, err = tag.NewKey(version); err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	return []tag.Key{NamespaceTag, NameTag, VersionTag}, err
@@ -210,12 +210,8 @@ func registerNewStateTypeConfigView(collection string) error {
 	stateTypeConfigTotal[collection] = stats.Int64(fmt.Sprintf("galley/runtime/state/%s_total", collection),
 		fmt.Sprintf("The number of valid %v known to galley at a point in time", collection),
 		stats.UnitDimensionless)
-	nameKeys, err := getStateTypeConfigKeys()
-	if err != nil {
-		return err
-	}
-	err = view.Register(
-		newView(stateTypeConfigTotal[collection], nameKeys, view.LastValue()),
+	err := view.Register(
+		newView(stateTypeConfigTotal[collection], StateTypeConfigKeys, view.LastValue()),
 	)
 	return err
 }
@@ -247,4 +243,8 @@ func init() {
 	}
 
 	stateTypeConfigTotal = make(map[string]*stats.Int64Measure)
+	StateTypeConfigKeys, err = getStateTypeConfigKeys()
+	if err != nil {
+		panic(err)
+	}
 }
