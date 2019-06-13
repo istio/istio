@@ -5,8 +5,8 @@ set -x
 source gcb_lib.sh
 ROOT=$(cd "$(git rev-parse --show-cdup)" && pwd || return)
 artifacts="$HOME/output/local"
-export NEW_VERSION="local.1"
-export DOCKER_HUB='utka/testing_local'
+export NEW_VERSION="fake"
+export DOCKER_HUB='fake/fake'
 GOPATH=$(cd "$ROOT/../../.." && pwd)
 export GOPATH
 echo "gopath is $GOPATH"
