@@ -61,9 +61,9 @@ const (
 	getRemoteContentRetryInSec = 1
 
 	// How many times should we retry the failed network fetch on main flow. The main flow
-	// means it's called when Pilot is pushing configs. We should retry more conservatively to make sure
-	// not to block Pilot too long.
-	networkFetchRetryCountOnMainFlow = 1
+	// means it's called when Pilot is pushing configs. Do not retry to make sure not to block Pilot
+	// too long.
+	networkFetchRetryCountOnMainFlow = 0
 
 	// How many times should we retry the failed network fetch on refresh flow. The refresh flow
 	// means it's called when the periodically refresh job is triggered. We can retry more aggressively
