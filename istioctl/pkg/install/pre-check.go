@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -54,36 +55,47 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter resource.RESTCl
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "Kubernetes-api\n")
 	fmt.Fprintf(writer, "-----------------------\n")
+	var errs error
 	c, err := clientExecFactory(restClientGetter)
 	if err != nil {
-		return fmt.Errorf("failed to initialize the Kubernetes client: %v", err)
+		errs = multierror.Append(errs, fmt.Errorf("failed to initialize the Kubernetes client: %v", err))
+		fmt.Fprintf(writer, fmt.Sprintf("Failed to initialize the Kubernetes client: %v.\n", err))
+	} else {
+		fmt.Fprintf(writer, "Can initialize the Kubernetes client.\n")
 	}
-	fmt.Fprintf(writer, "Can initialize the Kubernetes client.\n")
 	v, err := c.serverVersion()
 	if err != nil {
-		return fmt.Errorf("failed to query the Kubernetes API Server: %v", err)
+		errs = multierror.Append(errs, fmt.Errorf("failed to query the Kubernetes API Server: %v", err))
+		fmt.Fprintf(writer, fmt.Sprintf("Failed to query the Kubernetes API Server: %v.\n", err))
+	} else {
+		fmt.Fprintf(writer, "Can query the Kubernetes API Server.\n")
 	}
-	fmt.Fprintf(writer, "Can query the Kubernetes API Server.\n")
-
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "Kubernetes-version\n")
 	fmt.Fprintf(writer, "-----------------------\n")
-
-	if !checkKubernetesVersion(v) {
+	res, err := checkKubernetesVersion(v)
+	if err != nil {
+		errs = multierror.Append(errs, err)
+		fmt.Fprint(writer, err)
+	} else if !res {
 		msg := fmt.Sprintf("The Kubernetes API version: %v is lower than the minimum version: "+minK8SVersion, v)
-		return errors.New(msg)
+		errs = multierror.Append(errs, errors.New(msg))
+		fmt.Fprintf(writer, msg+"\n")
+	} else {
+		fmt.Fprintf(writer, "Istio is compatible with Kubernetes: %v.\n", v)
 	}
-	fmt.Fprintf(writer, "Istio is compatible with Kubernetes: %v.\n", v)
 
-	fmt.Fprintf(writer, "\n")
+	fmt.Fprintf(writer, "\n\n")
 	fmt.Fprintf(writer, "Istio-existence\n")
 	fmt.Fprintf(writer, "-----------------------\n")
 	_, err = c.getNameSpace(istioNamespaceFlag)
 	if err == nil {
 		msg := fmt.Sprintf("Istio cannot be installed because the Istio namespace '%v' is already in use", istioNamespaceFlag)
-		return errors.New(msg)
+		errs = multierror.Append(errs, errors.New(msg))
+		fmt.Fprintf(writer, msg+"\n")
+	} else {
+		fmt.Fprintf(writer, "Istio will be installed in the %v namespace.\n", istioNamespaceFlag)
 	}
-	fmt.Fprintf(writer, "Istio will be installed in the %v namespace.\n", istioNamespaceFlag)
 
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "Kubernetes-setup\n")
@@ -149,20 +161,24 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter resource.RESTCl
 			name:      "ConfigMap",
 		},
 	}
-	var errs error
+	var createErrors error
 	resourceNames := make([]string, 0)
+	errResourceNames := make([]string, 0)
 	for _, r := range Resources {
 		err = checkCanCreateResources(c, r.namespace, r.group, r.version, r.name)
 		if err != nil {
+			createErrors = multierror.Append(createErrors, err)
 			errs = multierror.Append(errs, err)
+			errResourceNames = append(errResourceNames, r.name)
 		}
 		resourceNames = append(resourceNames, r.name)
 	}
-	if errs != nil {
-		return errs
+	if createErrors == nil {
+		fmt.Fprintf(writer, "Can create necessary Kubernetes configurations: %v. \n", strings.Join(resourceNames, ","))
+	} else {
+		fmt.Fprintf(writer, "Can not create necessary Kubernetes configurations: %v. \n", strings.Join(errResourceNames, ","))
 	}
 
-	fmt.Fprintf(writer, "Can create necessary Kubernetes configurations: "+"%v. \n", strings.Join(resourceNames, ","))
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "SideCar-Injector\n")
 	fmt.Fprintf(writer, "-----------------------\n")
@@ -171,21 +187,39 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter resource.RESTCl
 		fmt.Fprintf(writer, "This Kubernetes cluster deployed without MutatingAdmissionWebhook support."+
 			"See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#automatic-sidecar-injection\n")
 	} else {
-		fmt.Fprintf(writer, "Istio Configured to use automatic sidecar injection for 'default' namespace."+
-			" To enable injection for other namespaces see https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#deploying-an-app\n")
+		fmt.Fprintf(writer, "This Kubernetes cluster supports automatic sidecar injection."+
+			" To enable automatic sidecar injection see https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#deploying-an-app\n")
 	}
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "-----------------------\n")
-	fmt.Fprintf(writer, "Install Pre-Check passed! The cluster is ready for Istio installation.\n")
+	if errs == nil {
+		fmt.Fprintf(writer, "Install Pre-Check passed! The cluster is ready for Istio installation.\n")
+	}
 	fmt.Fprintf(writer, "\n")
-	return nil
+	return errs
 
 }
 
-func checkKubernetesVersion(versionInfo *version.Info) bool {
-
-	v := strings.Join([]string{versionInfo.Major, versionInfo.Minor}, ".")
-	return parseVersion(minK8SVersion, 4) < parseVersion(v, 4)
+func checkKubernetesVersion(versionInfo *version.Info) (bool, error) {
+	v, err := extractKubernetesVersion(versionInfo)
+	if err != nil {
+		return false, err
+	}
+	return parseVersion(minK8SVersion, 4) < parseVersion(v, 4), nil
+}
+func extractKubernetesVersion(versionInfo *version.Info) (string, error) {
+	versionMatchRE := regexp.MustCompile(`^\s*v?([0-9]+(?:\.[0-9]+)*)(.*)*$`)
+	parts := versionMatchRE.FindStringSubmatch(versionInfo.GitVersion)
+	if parts == nil {
+		return "", fmt.Errorf("could not parse %q as version", versionInfo.GitVersion)
+	}
+	numbers := parts[1]
+	components := strings.Split(numbers, ".")
+	if len(components) <= 1 {
+		return "", fmt.Errorf("the version %q is invalid", versionInfo.GitVersion)
+	}
+	v := strings.Join([]string{components[0], components[1]}, ".")
+	return v, nil
 }
 func parseVersion(s string, width int) int64 {
 	strList := strings.Split(s, ".")

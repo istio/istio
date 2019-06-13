@@ -117,6 +117,10 @@ func createVaultTLSClient(vaultAddr string, tlsRootCert []byte) (*api.Client, er
 		vaultClientLog.Errorf("could not get SystemCertPool: %v", err)
 		return nil, fmt.Errorf("could not get SystemCertPool: %v", err)
 	}
+	if pool == nil {
+		log.Info("system cert pool is nil, create a new cert pool")
+		pool = x509.NewCertPool()
+	}
 	if len(tlsRootCert) > 0 {
 		ok := pool.AppendCertsFromPEM(tlsRootCert)
 		if !ok {

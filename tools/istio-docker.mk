@@ -91,7 +91,7 @@ docker.sidecar_injector:$(ISTIO_DOCKER)/sidecar-injector
 # BUILD_PRE tells $(DOCKER_RULE) to run the command specified before executing a docker build
 # BUILD_ARGS tells  $(DOCKER_RULE) to execute a docker build with the specified commands
 
-docker.proxy_debug: BUILD_PRE=$(if $(filter 1,${USE_LOCAL_PROXY}),,mv envoy-debug-${PROXY_REPO_SHA} envoy &&)
+docker.proxy_debug: BUILD_PRE=$(if $(filter 1,${USE_LOCAL_PROXY}),,mv envoy-debug-${PROXY_REPO_SHA} envoy &&) chmod 755 envoy pilot-agent &&
 docker.proxy_debug: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg ISTIO_API_SHA=${ISTIO_PROXY_ISTIO_API_SHA_LABEL} --build-arg ENVOY_SHA=${ISTIO_PROXY_ENVOY_SHA_LABEL}
 docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
 docker.proxy_debug: tools/packaging/common/envoy_bootstrap_v2.json
@@ -112,6 +112,7 @@ ${ISTIO_ENVOY_RELEASE_DIR}/envoy: ${ISTIO_ENVOY_RELEASE_PATH}
 	cp ${ISTIO_ENVOY_RELEASE_PATH} ${ISTIO_ENVOY_RELEASE_DIR}/envoy
 
 # Default proxy image.
+docker.proxyv2: BUILD_PRE=chmod 755 envoy pilot-agent &&
 docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg ISTIO_API_SHA=${ISTIO_PROXY_ISTIO_API_SHA_LABEL} --build-arg ENVOY_SHA=${ISTIO_PROXY_ENVOY_SHA_LABEL}
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_drain.json
