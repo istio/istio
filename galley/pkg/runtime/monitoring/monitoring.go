@@ -44,7 +44,7 @@ var (
 	NameTag tag.Key
 	// VersionTag holds version of the resource for the context.
 	VersionTag tag.Key
-	// Array that stores key tags for runtime state metrics.
+	// StateTypeConfigKeys holds key tags for runtime state metrics.
 	StateTypeConfigKeys []tag.Key
 )
 
