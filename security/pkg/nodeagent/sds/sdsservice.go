@@ -201,7 +201,8 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// request's <token, resourceName, Version>, then this request is a confirmation request.
 			// nodeagent stops sending response to envoy in this case.
 			if discReq.VersionInfo != "" && s.st.SecretExist(con.conID, resourceName, token, discReq.VersionInfo) {
-				sdsServiceLog.Debugf("Received SDS ACK from %q, connectionID %q, resourceName %q, versionInfo %q\n", discReq.Node.Id, con.conID, resourceName, discReq.VersionInfo)
+				sdsServiceLog.Debugf("Received SDS ACK from %q, connectionID %q, resourceName %q, versionInfo %q\n",
+					discReq.Node.Id, con.conID, resourceName, discReq.VersionInfo)
 				continue
 			}
 
