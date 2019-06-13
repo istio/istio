@@ -157,12 +157,12 @@ func verifyOutput(t *testing.T, c testcase) {
 	output := out.String()
 	if c.expectedException {
 		if fErr == nil {
-			t.Fatalf("Wanted an exception for 'istioctl verrify-install',"+
+			t.Fatalf("Wanted an exception for 'istioctl verify-install',"+
 				"didn't get one, output was %q", output)
 		}
 	} else {
 		if fErr != nil {
-			t.Fatalf("Unwanted exception for 'istioctl verrify-install': %v", fErr)
+			t.Fatalf("Unwanted exception for 'istioctl verify-install': %v", fErr)
 		}
 	}
 }
