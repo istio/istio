@@ -399,6 +399,10 @@ pilot: pilot-discovery
 node_agent istio_ca:
 	bin/gobuild.sh ${ISTIO_OUT}/$@ ./security/cmd/$(@F)
 
+.PHONY: istio-iptables
+istio-iptables:
+	bin/gobuild.sh ${ISTIO_OUT}/$@ ./tools/istio-iptables
+
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
 istioctl-all: ${ISTIO_OUT}/istioctl-linux ${ISTIO_OUT}/istioctl-osx ${ISTIO_OUT}/istioctl-win.exe
@@ -510,7 +514,7 @@ security-test:
 	go test ${T} ./security/cmd/...
 
 .PHONY: common-test
-common-test:
+common-test: istio-iptables
 	go test ${T} ./pkg/...
 	# Execute bash shell unit tests scripts
 	./tests/scripts/scripts_test.sh
