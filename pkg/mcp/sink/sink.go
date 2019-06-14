@@ -183,31 +183,36 @@ func (sink *Sink) createInitialRequests() []*mcp.RequestResources {
 // stream interface and returns when a send or receive error occurs. The caller is responsible for
 // handling gRPC client/server specific error handling.
 func (sink *Sink) ProcessStream(stream Stream) error {
-	// send initial requests for each supported type
-	initialRequests := sink.createInitialRequests()
-	for {
-		var req *mcp.RequestResources
-
-		if len(initialRequests) > 0 {
-			req = initialRequests[0]
-			initialRequests = initialRequests[1:]
-		} else {
-			resources, err := stream.Recv()
-			if err != nil {
-				if err != io.EOF {
-					sink.reporter.RecordRecvError(err, status.Code(err))
-					scope.Errorf("Error receiving MCP resource: %v", err)
-				}
-				return err
+	// send initial subscribe requests
+	go func() {
+		initialRequests := sink.createInitialRequests()
+		for _, req := range initialRequests {
+			sink.journal.RecordRequestResources(req)
+			if err := stream.Send(req); err != nil {
+				sink.reporter.RecordSendError(err, status.Code(err))
+				scope.Errorf("Error sending MCP request: %v", err)
+				return
 			}
-			req = sink.handleResponse(resources)
 		}
+	}()
+
+	// handle response and send ACK/NACK
+	for {
+		resources, err := stream.Recv()
+		if err != nil {
+			if err != io.EOF {
+				sink.reporter.RecordRecvError(err, status.Code(err))
+				scope.Errorf("Error receiving MCP resource: %v", err)
+			}
+			return err
+		}
+		req := sink.handleResponse(resources)
 
 		sink.journal.RecordRequestResources(req)
 
 		if err := stream.Send(req); err != nil {
 			sink.reporter.RecordSendError(err, status.Code(err))
-			scope.Errorf("Error sending MCP request: %v", err)
+			scope.Errorf("Error sending MCP ACK/NCK: %v", err)
 			return err
 		}
 	}
