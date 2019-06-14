@@ -286,24 +286,17 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	// We retry several times when create secret to mitigate transient network failures.
 	for i := 0; i < secretCreationRetry; i++ {
 		_, err = sc.core.Secrets(saNamespace).Create(secret)
-		if err == nil || errors.IsAlreadyExists(err) {
-			if errors.IsAlreadyExists(err) {
-				log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" already exists", saName, saNamespace)
-			}
-			break
-		} else {
-			log.Errorf("Failed to create secret in attempt %v/%v, (error: %s)", i+1, secretCreationRetry, err)
+		if err == nil {
+			log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" has been created", saName, saNamespace)
+			return
 		}
+		if errors.IsAlreadyExists(err) {
+			log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" already exists", saName, saNamespace)
+			return
+		}
+		log.Errorf("Failed to create secret in attempt %v/%v, (error: %s)", i+1, secretCreationRetry, err)
 		time.Sleep(time.Second)
 	}
-
-	if err != nil && !errors.IsAlreadyExists(err) {
-		log.Errorf("Failed to create secret for service account \"%s\"  (error: %s), retries %v times",
-			saName, err, secretCreationRetry)
-		return
-	}
-
-	log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" has been created", saName, saNamespace)
 }
 
 func (sc *SecretController) deleteSecret(saName, saNamespace string) {
@@ -397,7 +390,6 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 		if err = sc.refreshSecret(scrt); err != nil {
 			log.Errora(err)
 		}
-
 		return
 	}
 
