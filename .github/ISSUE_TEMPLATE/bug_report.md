@@ -11,6 +11,7 @@ about: Report a bug to help us improve Istio
 
 **Affected product area (please put an X in all that apply)**
 
+[ ] Base Infrastructure
 [ ] Configuration Infrastructure
 [ ] Docs
 [ ] Installation
