@@ -196,38 +196,6 @@ func TestGetPublicKey(t *testing.T) {
 	}
 }
 
-func TestGetPublicKeyWithRetry(t *testing.T) {
-	r := newJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
-	defer r.Close()
-
-	ms := startMockServer(t)
-	defer ms.Stop()
-
-	// Configures the mock server to return error for the first 3 requests and return the successful
-	// results starting from the 4th request.
-	ms.ReturnErrorForFirstNumHits = 3
-	mockCertURL := ms.URL + "/oauth2/v3/certs"
-
-	// The first call should fail for its 1st and 2nd request.
-	pk, err := r.GetPublicKey(mockCertURL)
-	if err == nil {
-		t.Errorf("GetPublicKey(%+v) fails: expected error, got (%s)", mockCertURL, pk)
-	}
-
-	// The second call should fail for its 1st request but succeed for its 2nd request.
-	pk, err = r.GetPublicKey(mockCertURL)
-	if err != nil {
-		t.Errorf("GetPublicKey(%+v) fails: expected no error, got (%s)", mockCertURL, err)
-	} else if pk != test.JwtPubKey1 {
-		t.Errorf("GetPublicKey(%+v) fails: expected (%s), got (%s)", mockCertURL, test.JwtPubKey1, pk)
-	}
-
-	// Verify mock server http://localhost:9999/oauth2/v3/certs was called 4 times because of the retry.
-	if got, want := ms.PubKeyHitNum, uint64(4); got != want {
-		t.Errorf("Mock server Hit number => expected %d but got %d", want, got)
-	}
-}
-
 func TestJwtPubKeyEvictionForNotUsed(t *testing.T) {
 	r := newJwksResolver(100*time.Millisecond /*EvictionDuration*/, 2*time.Millisecond /*RefreshInterval*/)
 	defer r.Close()
