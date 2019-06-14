@@ -255,7 +255,7 @@ $(foreach TGT,$(filter-out docker.app,$(DOCKER_TARGETS)),$(eval tar.$(TGT): $(TG
 			   ); \
 		  )))
 
-tar.docker.app: docker.app
+tar.docker.app: docker.app | $(ISTIO_DOCKER_TAR)
 	time ( docker save -o ${ISTIO_DOCKER_TAR}/app.tar $(HUB)/app:$(TAG) && \
              gzip ${ISTIO_DOCKER_TAR}/app.tar )
 
