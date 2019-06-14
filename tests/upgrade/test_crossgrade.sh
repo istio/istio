@@ -43,8 +43,13 @@ usage() {
 }
 
 ISTIO_NAMESPACE="istio-system"
-# Minimum % of all requests that must be 200 for test to pass.
-MIN_200_PCT_FOR_PASS="85"
+# Maximum % of 503 response that cannot exceed
+MAX_503_PCT_FOR_PASS="15"
+# Maximum % of connection refused that cannot exceed
+# Set it to high value so it fails for explicit sidecar issues
+MAX_CONNECTION_ERR_FOR_PASS="30"
+SERVICE_UNAVAILABLE_CODE="Code 503"
+CONNECTION_ERROR_CODE="Code -1"
 
 while (( "$#" )); do
     PARAM=$(echo "${1}" | awk -F= '{print $1}')
@@ -253,7 +258,7 @@ sendInternalRequestTraffic() {
 
 # Runs traffic from external fortio client, with retries.
 runFortioLoadCommand() {
-    withRetries 10 10  echo_and_run fortio load -c 32 -t "${TRAFFIC_RUNTIME_SEC}"s -qps 10 \
+    withRetries 10 10  echo_and_run fortio load -c 32 -t "${TRAFFIC_RUNTIME_SEC}"s -qps 10 -timeout 30s\
         -H "Host:echosrv.test.svc.cluster.local" "http://${1}/echo?size=200" &> "${LOCAL_FORTIO_LOG}"
     echo "done" >> "${EXTERNAL_FORTIO_DONE_FILE}"
 }
@@ -365,19 +370,19 @@ resetCluster() {
     echo_and_run_or_die kubectl label namespace "${TEST_NAMESPACE}" istio-injection=enabled
 }
 
-# Returns 0 if the passed string has form "Code 200 : 6601 (94.6 %)" and the percentage is smaller than ${MIN_200_PCT_FOR_PASS}
-percent200sAbove() {
-    local s=$1
-    local regex="Code 200 : [0-9]+ \\(([0-9]+)\\.[0-9]+ %\\)"
-    if [[ $s =~ $regex ]]; then
-        local pct200s="${BASH_REMATCH[1]}"
-        if (( pct200s > MIN_200_PCT_FOR_PASS )); then
-            return 0
-        fi
-        return 1
-    fi
-    echo "No Code 200 percentage found in log."
-    return 1
+# Return 1 if the specific error code percentage exceed corresponding threshold
+errorPercentBelow() {
+     local s
+     s=$(grep "${2}" "${1}")
+     local regex="${2} : [0-9]+ \\(([0-9]+)\\.[0-9]+ %\\)"
+     if [[ ${s} =~ ${regex} ]]; then
+          local pctErr="${BASH_REMATCH[1]}"
+          if (( pctErr > ${3} )); then
+             return 1
+          fi
+             echo "Errors percentage is within threshold"
+     fi
+     return 0
 }
 
 die() {
@@ -462,23 +467,30 @@ cat ${LOCAL_FORTIO_LOG}
 if [[ ${local_log_str} != *"Code 200"* ]];then
     echo "=== No Code 200 found in external traffic log ==="
     failed=true
-elif ! percent200sAbove "${local_log_str}"; then
-    echo "=== Errors found in external traffic exceeded ${MIN_200_PCT_FOR_PASS}% threshold ==="
+elif ! errorPercentBelow "${LOCAL_FORTIO_LOG}" "${SERVICE_UNAVAILABLE_CODE}" ${MAX_503_PCT_FOR_PASS}; then
+    echo "=== Code 503 Errors found in external traffic exceeded ${MAX_503_PCT_FOR_PASS}% threshold ==="
+    failed=true
+elif ! errorPercentBelow "${LOCAL_FORTIO_LOG}" "${CONNECTION_ERROR_CODE}" ${MAX_CONNECTION_ERR_FOR_PASS}; then
+    echo "=== Connection Errors found in external traffic exceeded ${MAX_CONNECTION_ERR_FOR_PASS}% threshold ==="
     failed=true
 else
-    echo "=== Errors found in external traffic is within ${MIN_200_PCT_FOR_PASS}% threshold ==="
+    echo "=== Errors found in external traffic is within threshold ==="
 fi
 
 # Then dump pod log
 cat ${POD_FORTIO_LOG}
-if [[ ${pod_log_str}  != *"Code 200"* ]]; then
+
+if [[ ${pod_log_str} != *"Code 200"* ]];then
     echo "=== No Code 200 found in internal traffic log ==="
     failed=true
-elif ! percent200sAbove "${pod_log_str}"; then
-    echo "=== Errors found in internal traffic exceeded ${MIN_200_PCT_FOR_PASS}% threshold ==="
+elif ! errorPercentBelow "${POD_FORTIO_LOG}" "${SERVICE_UNAVAILABLE_CODE}" ${MAX_503_PCT_FOR_PASS}; then
+    echo "=== Code 503 Errors found in internal traffic exceeded ${MAX_503_PCT_FOR_PASS}% threshold ==="
+    failed=true
+elif ! errorPercentBelow "${POD_FORTIO_LOG}" "Code -1" ${MAX_CONNECTION_ERR_FOR_PASS}; then
+    echo "=== Connection Errors found in internal traffic exceeded ${MAX_CONNECTION_ERR_FOR_PASS}% threshold ==="
     failed=true
 else
-    echo "=== Errors found in internal traffic is within ${MIN_200_PCT_FOR_PASS}% threshold ==="
+    echo "=== Errors found in internal traffic is within threshold ==="
 fi
 
 echo_and_run popd
