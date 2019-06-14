@@ -46,12 +46,6 @@ type Instance interface {
 	// ClearConfig clears all applied config so far.
 	ClearConfig() error
 
-	// GetMeshConfig returns the currently applied meshconfig
-	GetMeshConfig() (string, error)
-
-	// GetMeshConfigOrFail calls GetMeshConfig and fails tests if an error is returned.
-	GetMeshConfigOrFail(t test.Failer) string
-
 	// SetMeshConfig applies the given mesh config.
 	SetMeshConfig(meshCfg string) error
 

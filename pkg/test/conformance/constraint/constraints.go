@@ -22,7 +22,7 @@ import (
 
 // Constraints that needs to be satisfied.
 type Constraints struct {
-	Constraints []*Collection `json:"Constraints"`
+	Constraints []*Collection `json:"constraints"`
 }
 
 // Parse the given yaml bytes as a Constraint
