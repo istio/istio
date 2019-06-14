@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -22,7 +23,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -50,16 +53,13 @@ type cacheHandler struct {
 }
 
 var (
-	// experiment on getting some monitoring on config errors.
-	k8sEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "pilot_k8s_cfg_events",
-		Help: "Events from k8s config.",
-	}, []string{"type", "event"})
+	typeTag  tag.Key
+	eventTag tag.Key
+	nameTag  tag.Key
 
-	k8sErrors = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pilot_k8s_object_errors",
-		Help: "Errors converting k8s CRDs",
-	}, []string{"name"})
+	// experiment on getting some monitoring on config errors.
+	k8sEvents = stats.Int64("pilot_k8s_cfg_events", "Events from k8s config.", stats.UnitDimensionless)
+	k8sErrors = stats.Int64("pilot_k8s_object_errors", "Errors converting k8s CRDs", stats.UnitDimensionless)
 
 	// InvalidCRDs contains a sync.Map keyed by the namespace/name of the entry, and has the error as value.
 	// It can be used by tools like ctrlz to display the errors.
@@ -67,8 +67,25 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(k8sEvents)
-	prometheus.MustRegister(k8sErrors)
+	var err error
+	if typeTag, err = tag.NewKey("type"); err != nil {
+		panic(err)
+	}
+	if eventTag, err = tag.NewKey("event"); err != nil {
+		panic(err)
+	}
+	if nameTag, err = tag.NewKey("event"); err != nil {
+		panic(err)
+	}
+	eventTagKeys := []tag.Key{typeTag, eventTag}
+	errorTagKeys := []tag.Key{nameTag}
+
+	if err := view.Register(
+		&view.View{Measure: k8sEvents, TagKeys: eventTagKeys, Aggregation: view.Sum()},
+		&view.View{Measure: k8sErrors, TagKeys: errorTagKeys, Aggregation: view.LastValue()},
+	); err != nil {
+		panic(err)
+	}
 }
 
 // NewController creates a new Kubernetes controller for CRDs
@@ -156,24 +173,29 @@ func (c *controller) createInformer(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
-				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
+				incrementEvent(otype, "add")
 				c.queue.Push(kube.NewTask(handler.Apply, obj, model.EventAdd))
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
-					k8sEvents.With(prometheus.Labels{"type": otype, "event": "update"}).Add(1)
+					incrementEvent(otype, "update")
 					c.queue.Push(kube.NewTask(handler.Apply, cur, model.EventUpdate))
 				} else {
-					k8sEvents.With(prometheus.Labels{"type": otype, "event": "updateSame"}).Add(1)
+					incrementEvent(otype, "updatesame")
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				k8sEvents.With(prometheus.Labels{"type": otype, "event": "delete"}).Add(1)
+				incrementEvent(otype, "delete")
 				c.queue.Push(kube.NewTask(handler.Apply, obj, model.EventDelete))
 			},
 		})
 
 	return cacheHandler{informer: informer, handler: handler}
+}
+
+func incrementEvent(kind, event string) {
+	ctx, _ := tag.New(context.Background(), tag.Upsert(typeTag, kind), tag.Upsert(eventTag, event))
+	stats.Record(ctx, k8sEvents.M(1))
 }
 
 func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
@@ -279,7 +301,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 	oldMap := InvalidCRDs.Load()
 	if oldMap != nil {
 		oldMap.(*sync.Map).Range(func(key, value interface{}) bool {
-			k8sErrors.With(prometheus.Labels{"name": key.(string)}).Set(1)
+			setErrorGauge(key.(string), 1)
 			return true
 		})
 	}
@@ -301,11 +323,16 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 			// the rest should still be processed.
 			// TODO: find a way to reset and represent the error !!
 			newErrors.Store(key, err)
-			k8sErrors.With(prometheus.Labels{"name": key}).Set(1)
+			setErrorGauge(key, 1)
 		} else {
 			out = append(out, *config)
 		}
 	}
 	InvalidCRDs.Store(&newErrors)
 	return out, errs
+}
+
+func setErrorGauge(name string, value int64) {
+	ctx, _ := tag.New(context.Background(), tag.Upsert(nameTag, name))
+	stats.Record(ctx, k8sErrors.M(1))
 }

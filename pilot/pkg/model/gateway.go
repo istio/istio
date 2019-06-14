@@ -15,10 +15,13 @@
 package model
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
-	"github.com/prometheus/client_golang/prometheus"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 
 	networking "istio.io/api/networking/v1alpha3"
 )
@@ -45,17 +48,35 @@ type MergedGateway struct {
 	RouteNamesByServer map[*networking.Server]string
 }
 
-var totalRejectedConfigs = prometheus.NewCounterVec(prometheus.CounterOpts{
-	Name: "pilot_total_rejected_configs",
-	Help: "Total number of configs that Pilot had to reject or ignore.",
-}, []string{"type", "name"})
+var (
+	typeTag tag.Key
+	nameTag tag.Key
 
-func rejectConfig(gateway string) {
-	totalRejectedConfigs.With(prometheus.Labels{"type": "gateway", "name": gateway}).Inc()
-}
+	totalRejectedConfigs = stats.Int64(
+		"pilot_total_rejected_configs", "Total number of configs that Pilot had to reject or ignore.",
+		stats.UnitDimensionless)
+)
 
 func init() {
-	prometheus.MustRegister(totalRejectedConfigs)
+	var err error
+	if typeTag, err = tag.NewKey("type"); err != nil {
+		panic(err)
+	}
+	if nameTag, err = tag.NewKey("event"); err != nil {
+		panic(err)
+	}
+	nameTypeTagKeys := []tag.Key{typeTag, nameTag}
+
+	if err := view.Register(
+		&view.View{Measure: totalRejectedConfigs, TagKeys: nameTypeTagKeys, Aggregation: view.Sum()},
+	); err != nil {
+		panic(err)
+	}
+}
+
+func rejectConfig(gateway string) {
+	ctx, _ := tag.New(context.Background(), tag.Upsert(typeTag, "gateway"), tag.Upsert(nameTag, gateway))
+	stats.Record(ctx, totalRejectedConfigs.M(1))
 }
 
 // MergeGateways combines multiple gateways targeting the same workload into a single logical Gateway.

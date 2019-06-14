@@ -15,12 +15,15 @@
 package model
 
 import (
+	"context"
 	"encoding/json"
 	"sort"
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 
 	networking "istio.io/api/networking/v1alpha3"
 )
@@ -155,7 +158,7 @@ type ProxyPushStatus struct {
 // PushMetric wraps a prometheus metric.
 type PushMetric struct {
 	Name  string
-	gauge prometheus.Gauge
+	gauge *stats.Int64Measure
 }
 
 type combinedDestinationRule struct {
@@ -165,14 +168,21 @@ type combinedDestinationRule struct {
 }
 
 func newPushMetric(name, help string) *PushMetric {
-	pm := &PushMetric{
-		gauge: prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: name,
-			Help: help,
-		}),
-		Name: name,
+	metric := stats.Int64(name, help, stats.UnitDimensionless)
+	if err := view.Register(&view.View{
+		Name:        name,
+		Description: help,
+		Measure:     metric,
+		TagKeys:     []tag.Key{},
+		Aggregation: view.LastValue(),
+	}); err != nil {
+		panic(err)
 	}
-	prometheus.MustRegister(pm.gauge)
+
+	pm := &PushMetric{
+		Name:  name,
+		gauge: metric,
+	}
 	metrics = append(metrics, pm)
 	return pm
 }
@@ -340,9 +350,9 @@ func (ps *PushContext) UpdateMetrics() {
 	for _, pm := range metrics {
 		mmap, f := ps.ProxyStatus[pm.Name]
 		if f {
-			pm.gauge.Set(float64(len(mmap)))
+			stats.Record(context.Background(), pm.gauge.M(int64(len(mmap))))
 		} else {
-			pm.gauge.Set(0)
+			stats.Record(context.Background(), pm.gauge.M(0))
 		}
 	}
 }
