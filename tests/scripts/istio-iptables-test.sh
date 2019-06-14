@@ -16,7 +16,7 @@
 #
 ################################################################################
 
-set -eu
+set -euf
 
 function show_difference() {
     local ACTUAL=$1
@@ -25,7 +25,7 @@ function show_difference() {
     echo "${ACTUAL}"
     echo -e "\ndoesn't match expected result\n"
     echo "${EXPECTED}"
-    diff -u <(echo "${ACTUAL}") <(echo "${EXPECTED}") || true
+    diff -u <(echo "${EXPECTED}") <(echo "${ACTUAL}")  || true
 }
 
 function refresh_reference() {
@@ -49,40 +49,68 @@ function assert_equals() {
 }
 
 function compareWithGolden() {
-  TEST_NAME="$1"
-  ACTUAL_OUTPUT="$2"
+  local TEST_NAME="$1"
+  local TEST_MODE="$2"
+  local PARAMS="$3"
+  local ACTUAL_OUTPUT
+  local FILE_UNDER_TEST
+
+  case "${TEST_MODE}" in
+   "script")
+    FILE_UNDER_TEST="${SCRIPT_DIR}/../../tools/packaging/common/istio-iptables.sh"
+   ;;
+   "golang")
+    FILE_UNDER_TEST="${ISTIO_OUT}/istio-iptables --dryRun"
+   ;;
+  esac
+
+  # shellcheck disable=SC2086
+  ACTUAL_OUTPUT="$(${FILE_UNDER_TEST} ${PARAMS} 2>/dev/null)"
 
   if [[ "x${REFRESH_GOLDEN:-false}x" = "xtruex" ]] ; then
     refresh_reference "${TEST_NAME}" "${ACTUAL_OUTPUT}"
   else
     EXPECTED_OUTPUT=$(cat "${SCRIPT_DIR}/testdata/${TEST_NAME}_golden.txt")
     if assert_equals "${TEST_NAME}" "${ACTUAL_OUTPUT}" "${EXPECTED_OUTPUT}"; then
-      echo -e "ok\tistio.io/$0/${TEST_NAME}\t0.000s"
+      echo -e "ok\tistio.io/$0/${TEST_NAME} (${TEST_MODE})\t0.000s"
     else
-      echo "--- FAIL: ${TEST_NAME} (0.00s)"
+      echo "--- FAIL: ${TEST_NAME} (${TEST_MODE}) (0.00s)"
       echo "    ${SCRIPT_NAME}: ${TEST_NAME} output does not match with golden file"
       show_difference "${ACTUAL_OUTPUT}" "${EXPECTED_OUTPUT}"
       echo -e "FAIL\tistio.io/${SCRIPT_NAME}/${TEST_NAME}\t0.000s"
-      FAILED+=("${TEST_NAME}")
+      FAILED+=("${TEST_NAME} (${TEST_MODE})")
     fi
   fi
 }
 
+TEST_MODES=( "$@" )
+
 SCRIPT_NAME=$0
 SCRIPT_DIR=$(dirname "$SCRIPT_NAME")
-FILE_UNDER_TEST="${SCRIPT_DIR}/../../tools/packaging/common/istio-iptables.sh"
+if [[ ${#TEST_MODES[@]} -eq 0 ]] ; then
+    TEST_MODES+=("script")
+    if [[ "x${REFRESH_GOLDEN:-false}x" != "xtruex" ]] ; then
+        TEST_MODES+=("golang")
+    fi
+fi
 export PATH="${SCRIPT_DIR}/stubs:${PATH}"
 
 FAILED=()
 
-compareWithGolden mode_redirect "$(${FILE_UNDER_TEST} -p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888 -i 1.1.1.0/16 -x 9.9.9.0/16 -k eth1,eth2 2>/dev/null)"
-compareWithGolden mode_tproxy "$(${FILE_UNDER_TEST} -p 12345 -u 4321 -g 4444 -m TPROXY -b 5555,6666 -d 7777,8888 -i 1.1.1.0/16 -x 9.9.9.0/16 -k eth1,eth2 2>/dev/null)"
-compareWithGolden mode_tproxy_and_ipv6 "$(${FILE_UNDER_TEST} -p 12345 -u 4321 -g 4444 -m TPROXY -b "*" -d 7777,8888 -i 2001:db8:1::1/32 -x 2019:db8:1::1/32 -k eth1,eth2 2>/dev/null)"
-compareWithGolden mode_tproxy_and_wildcard_port "$(${FILE_UNDER_TEST} -p 12345 -u 4321 -g 4444 -m TPROXY -b "*" -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2 2>/dev/null)"
-compareWithGolden empty_parameter "$(${FILE_UNDER_TEST} 2>/dev/null)"
-compareWithGolden outbound_port_exclude "$(${FILE_UNDER_TEST} -p 12345 -u 4321 -g 4444 -o 1024,21 -m REDIRECT -b 5555,6666 -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2 2>/dev/null)"
-compareWithGolden wildcard_include_ip_range "$(${FILE_UNDER_TEST} -p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888 -i "*" -x 9.9.0.0/16 -k eth1,eth2 2>/dev/null)"
-compareWithGolden clean "$(${FILE_UNDER_TEST} Clean 2>/dev/null)"
+for TEST_MODE in "${TEST_MODES[@]}"; do
+
+    compareWithGolden mode_redirect "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2"
+    compareWithGolden mode_tproxy "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -m TPROXY -b 5555,6666 -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2"
+    export STUB_IP="2001:db8:1::1"
+    compareWithGolden mode_tproxy_and_ipv6 "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -m TPROXY -b * -d 7777,8888 -i 2001:db8::/32 -x 2019:db8::/32 -k eth1,eth2"
+    unset STUB_IP
+    compareWithGolden mode_tproxy_and_wildcard_port "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -m TPROXY -b * -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2"
+    compareWithGolden empty_parameter "${TEST_MODE}" ""
+    compareWithGolden outbound_port_exclude "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -o 1024,21 -m REDIRECT -b 5555,6666 -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2"
+    compareWithGolden wildcard_include_ip_range "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888 -i * -x 9.9.0.0/16 -k eth1,eth2"
+    compareWithGolden clean "${TEST_MODE}" "clean"
+
+done
 
 NUMBER_FAILING=${#FAILED[@]}
 if [[ ${NUMBER_FAILING} -eq 0 ]] ; then
