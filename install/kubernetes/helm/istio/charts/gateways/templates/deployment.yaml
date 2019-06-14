@@ -234,10 +234,6 @@ spec:
           {{- if $spec.sds.enabled }}
           - name: ISTIO_META_USER_SDS
             value: "true"
-          {{- range $key, $val := $spec.sds.env }}
-          - name: {{ $key }}
-            value: {{ $val }}
-          {{- end }}
           {{- end }}
           {{- end }}
           {{- if $spec.env }}

@@ -25,8 +25,6 @@ istio-ingressgateway:
       limits:
         cpu: 2000m
         memory: 1024Mi
-    env:
-      ISTIO_METAJSON_STATS: "| {\"sidecar.istio.io/statsInclusionSuffixes\": \"ssl_context_update_by_sds\"}"
 
   labels:
     app: istio-ingressgateway
