@@ -228,7 +228,8 @@ docker.node-agent-test: $(ISTIO_DOCKER)/node_agent.key
 # 4. This rule runs $(BUILD_PRE) prior to any docker build and only if specified as a dependency variable
 # 5. This rule finally runs docker build passing $(BUILD_ARGS) to docker if they are specified as a dependency variable
 
-DOCKER_BUILD_VARIANTS:=default distroless
+# DOCKER_BUILD_VARIANTS:=default distroless
+DOCKER_BUILD_VARIANTS:=default
 DEFAULT_DISTRIBUTION=default
 DOCKER_RULE=$(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp -r $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ && $(BUILD_PRE) docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(VARIANT) -t $(HUB)/$(subst docker.,,$@):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
 
