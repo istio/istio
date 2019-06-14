@@ -416,11 +416,15 @@ func pushSDS(con *sdsConnection) error {
 
 	con.mutex.RLock()
 	if con.secret.RootCert != nil {
-		log.Infof("SDS: push root cert from node agent to proxy connection: %q\n", con.conID)
-		log.Debugf("SDS: push root cert %+v to proxy connection: %q\n", string(con.secret.RootCert), con.conID)
+		log.Infof("SDS: push root cert (resource name: %q) from node agent to proxy connection: %q\n",
+			con.ResourceName, con.conID)
+		log.Debugf("SDS: push root cert %+v (resource name: %q) to proxy connection: %q\n",
+			string(con.secret.RootCert), con.ResourceName, con.conID)
 	} else {
-		log.Infof("SDS: push key/cert pair from node agent to proxy: %q\n", con.conID)
-		log.Debugf("SDS: push certificate chain %+v to proxy connection: %q\n", string(con.secret.CertificateChain), con.conID)
+		log.Infof("SDS: push key/cert pair (resource name: %q) from node agent to proxy: %q\n",
+			con.ResourceName, con.conID)
+		log.Debugf("SDS: push certificate chain %+v (resource name: %q) to proxy connection: %q\n",
+			string(con.secret.CertificateChain), con.ResourceName, con.conID)
 	}
 	con.mutex.RUnlock()
 
