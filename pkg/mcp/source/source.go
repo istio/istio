@@ -137,10 +137,12 @@ type Source struct {
 // watch maintains local push state of the most recent watch per-type.
 type watch struct {
 	// only accessed from connection goroutine
-	cancel          func()
-	ackedVersionMap map[string]string // resources that exist at the sink; by name and version
-	pending         *mcp.Resources
-	incremental     bool
+	cancel func()
+	// resources that exist at the sink; by name and version
+	ackedVersionMap map[string]string
+	// resources that wait for ack
+	pending     *mcp.Resources
+	incremental bool
 }
 
 // connection maintains per-stream connection state for a
@@ -200,7 +202,6 @@ func (s *Source) newConnection(stream Stream) *connection {
 		queue:    internal.NewUniqueScheduledQueue(len(s.collections)),
 	}
 
-	collections := make([]string, 0, len(s.collections))
 	for i := range s.collections {
 		collection := s.collections[i]
 		w := &watch{
@@ -208,12 +209,11 @@ func (s *Source) newConnection(stream Stream) *connection {
 			incremental:     collection.Incremental,
 		}
 		con.watches[collection.Name] = w
-		collections = append(collections, collection.Name)
 	}
 
 	s.reporter.SetStreamCount(atomic.AddInt64(&s.connections, 1))
 
-	scope.Infof("MCP: connection %v: NEW (ResourceSource), supported collections: %#v", con, collections)
+	scope.Infof("MCP: connection %v: NEW (ResourceSource), supported collections: %#v", con, s.collections)
 
 	return con
 }
@@ -361,7 +361,7 @@ func (con *connection) receive() {
 	for {
 		req, err := con.stream.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if status.Code(err) == codes.Canceled || err == io.EOF {
 				scope.Infof("MCP: connection %v: TERMINATED %q", con, err)
 				return
 			}
@@ -375,10 +375,10 @@ func (con *connection) receive() {
 		select {
 		case con.requestC <- req:
 		case <-con.queue.Done():
-			scope.Debugf("MCP: connection %v: stream done", con)
+			scope.Infof("MCP: connection %v: stream done", con)
 			return
 		case <-con.stream.Context().Done():
-			scope.Debugf("MCP: connection %v: stream done, err=%v", con, con.stream.Context().Err())
+			scope.Infof("MCP: connection %v: stream done, err=%v", con, con.stream.Context().Err())
 			return
 		}
 	}
@@ -418,7 +418,7 @@ func (con *connection) processClientRequest(req *mcp.RequestResources) error {
 			versionInfo = w.pending.SystemVersionInfo
 			if req.ErrorDetail != nil {
 				scope.Warnf("MCP: connection %v: NACK collection=%v version=%q with nonce=%q error=%#v inc=%v", // nolint: lll
-					con, collection, req.ResponseNonce, versionInfo, req.ErrorDetail, req.Incremental)
+					con, collection, versionInfo, req.ResponseNonce, req.ErrorDetail, req.Incremental)
 				con.reporter.RecordRequestNack(collection, con.id, codes.Code(req.ErrorDetail.Code))
 			} else {
 				scope.Infof("MCP: connection %v ACK collection=%v with version=%q nonce=%q inc=%v",
