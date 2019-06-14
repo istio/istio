@@ -199,6 +199,48 @@ func (c *nativeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string
 	})
 }
 
+// GetMeshConfig implements Instance
+func (c *nativeComponent) GetMeshConfig() (string, error) {
+	by, err := ioutil.ReadFile(c.meshConfigFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", err
+	}
+
+	return string(by), nil
+}
+
+// GetMeshConfigOrFail implements Instance
+func (c *nativeComponent) GetMeshConfigOrFail(t test.Failer) string {
+	t.Helper()
+	s, err := c.GetMeshConfig()
+
+	if err != nil {
+		t.Fatalf("galley.GetMeshConfigOrFail: %v", err)
+	}
+
+	return s
+}
+
+// SetMeshConfig implements Instance
+func (c *nativeComponent) SetMeshConfig(meshCfg string) error {
+	if err := ioutil.WriteFile(c.meshConfigFile, []byte(meshCfg), os.ModePerm); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// SetMeshConfigOrFail implements Instance
+func (c *nativeComponent) SetMeshConfigOrFail(t test.Failer, meshCfg string) {
+	t.Helper()
+	if err := c.SetMeshConfig(meshCfg); err != nil {
+		t.Fatalf("galley.SetMeshConfigOrFail: %v", err)
+	}
+}
+
 // WaitForSnapshot implements Galley.WaitForSnapshot.
 func (c *nativeComponent) WaitForSnapshot(collection string, validator SnapshotValidatorFunc) error {
 	return c.client.waitForSnapshot(collection, validator)

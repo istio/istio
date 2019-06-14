@@ -223,6 +223,36 @@ func (c *kubeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string) 
 	})
 }
 
+// GetMeshConfig implements Instance
+func (c *kubeComponent) GetMeshConfig() (string, error) {
+	return "", fmt.Errorf("NYI: K8s Galley.SetMeshConfig")
+}
+
+// GetMeshConfigOrFail implements Instance
+func (c *kubeComponent) GetMeshConfigOrFail(t test.Failer) string {
+	t.Helper()
+	s, err := c.GetMeshConfig()
+
+	if err != nil {
+		t.Fatalf("galley.GetMeshConfigOrFail: %v", err)
+	}
+
+	return s
+}
+
+// SetMeshConfig implements Instance
+func (c *kubeComponent) SetMeshConfig(meshCfg string) error {
+	return fmt.Errorf("NYI: K8s Galley.SetMeshConfig")
+}
+
+// SetMeshConfigOrFail implements Instance
+func (c *kubeComponent) SetMeshConfigOrFail(t test.Failer, meshCfg string) {
+	t.Helper()
+	if err := c.SetMeshConfig(meshCfg); err != nil {
+		t.Fatalf("galley.SetMeshConfigOrFail: %v", err)
+	}
+}
+
 // WaitForSnapshot implements Galley.WaitForSnapshot.
 func (c *kubeComponent) WaitForSnapshot(collection string, validator SnapshotValidatorFunc) error {
 	return c.client.waitForSnapshot(collection, validator)
