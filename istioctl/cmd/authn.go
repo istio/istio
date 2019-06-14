@@ -21,6 +21,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
+	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 )
@@ -47,7 +48,7 @@ istioctl authn tls-check foo-656bd7df7c-5zp4s.default bar
 			if err != nil {
 				return err
 			}
-			podName, ns := inferPodInfo(args[0], handleNamespace())
+			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 			results, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET",
 				fmt.Sprintf("/debug/authenticationz?proxyID=%s.%s", podName, ns), nil)
 			if err != nil {
