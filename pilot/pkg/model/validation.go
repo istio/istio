@@ -1827,6 +1827,9 @@ func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualServi
 	for _, match := range tls.Match {
 		errs = appendErrors(errs, validateTLSMatch(match, context))
 	}
+	if len(tls.Route) == 0 {
+		errs = appendErrors(errs, errors.New("TLS route is required"))
+	}
 	errs = appendErrors(errs, validateRouteDestinations(tls.Route))
 	return
 }
@@ -1878,6 +1881,9 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 	}
 	for _, match := range tcp.Match {
 		errs = appendErrors(errs, validateTCPMatch(match))
+	}
+	if len(tcp.Route) == 0 {
+		errs = appendErrors(errs, errors.New("TCP route is required"))
 	}
 	errs = appendErrors(errs, validateRouteDestinations(tcp.Route))
 	return
