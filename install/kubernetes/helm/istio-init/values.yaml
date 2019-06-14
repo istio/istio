@@ -5,7 +5,7 @@ global:
   hub: gcr.io/istio-release
 
   # Default tag for Istio images.
-  tag: master-latest-daily
+  tag: release-1.2-latest-daily
 
   # imagePullPolicy is applied to istio control plane components.
   # local tests require IfNotPresent, to avoid uploading to dockerhub.
