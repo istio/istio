@@ -136,9 +136,18 @@ var (
 			}
 
 			// Obtain all the IPs from the node
-			if ipAddr, ok := proxy.GetPrivateIPs(context.Background()); ok {
-				log.Infof("Obtained private IP %v", ipAddr)
-				role.IPAddresses = append(role.IPAddresses, ipAddr...)
+			if ipAddrs, ok := proxy.GetPrivateIPs(context.Background()); ok {
+				log.Infof("Obtained private IP %v", ipAddrs)
+				if len(role.IPAddresses) == 1 {
+					for _, ip := range ipAddrs {
+						// remove duplicate ip address
+						if ip != role.IPAddresses[0] {
+							role.IPAddresses = append(role.IPAddresses, ip)
+						}
+					}
+				} else {
+					role.IPAddresses = append(role.IPAddresses, ipAddrs...)
+				}
 			}
 
 			// No IP addresses provided, append 127.0.0.1 for ipv4 and ::1 for ipv6
