@@ -88,6 +88,7 @@ function docker_tag_images() {
     BASE_NAME=$(basename "$TAR_PATH")
     TAR_NAME="${BASE_NAME%.*}"
     IMAGE_NAME="${TAR_NAME%.*}"
+    VARIANT_NAME="${IMAGE_NAME##*-}"
 
     # if no docker/ directory or directory has no tar files
     if [[ "${IMAGE_NAME}" == "*" ]]; then
@@ -98,8 +99,16 @@ function docker_tag_images() {
     SRC_HUB=$(echo "$DOCKER_OUT" | cut -f 2 -d : | xargs dirname)
     SRC_TAG=$(echo "$DOCKER_OUT" | cut -f 3 -d :)
 
-    docker tag     "${SRC_HUB}/${IMAGE_NAME}:${SRC_TAG}" \
-                   "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}"
+
+    #check if it is a build variant (e.g. distroless)
+    if [[ "${IMAGE_NAME}" == "${VARIANT_NAME}" ]]; then
+      docker tag "${SRC_HUB}/${IMAGE_NAME}:${SRC_TAG}" \
+                 "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}"
+    else
+      IMAGE_NAME="${IMAGE_NAME%-${VARIANT_NAME}}"
+      docker tag "${SRC_HUB}/${IMAGE_NAME}:${SRC_TAG}-${VARIANT_NAME}" \
+                 "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}-${VARIANT_NAME}"
+    fi
   done
 }
 
@@ -130,12 +139,21 @@ function docker_push_images() {
     BASE_NAME=$(basename "$TAR_PATH")
     TAR_NAME="${BASE_NAME%.*}"
     IMAGE_NAME="${TAR_NAME%.*}"
+    VARIANT_NAME="${IMAGE_NAME##*-}"
 
     # if no docker/ directory or directory has no tar files
     if [[ "${IMAGE_NAME}" == "*" ]]; then
       break
     fi
+
     docker load -i "${TAR_PATH}"
-    docker push    "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}"
+
+    #check if it is a build variant (e.g. distroless)
+    if [[ "${IMAGE_NAME}" == "${VARIANT_NAME}" ]]; then
+          docker push "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}"
+    else
+          IMAGE_NAME="${IMAGE_NAME%-${VARIANT_NAME}}"
+          docker push "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}-${VARIANT_NAME}"
+    fi
   done
 }
