@@ -74,6 +74,7 @@ type (
 		client     bufferedClient
 		// We hold a ref for cleanup during Close()
 		ticker *time.Ticker
+		quit   chan struct{}
 	}
 )
 
@@ -169,7 +170,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	}
 
 	ticker := time.NewTicker(cfg.PushInterval)
-
+	quit := make(chan struct{})
 	var err error
 	var client *monitoring.MetricClient
 	if client, err = b.createClient(cfg); err != nil {
@@ -191,8 +192,8 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		pushInterval:        cfg.PushInterval,
 		env:                 env,
 	}
-	// We hold on to the ref to the ticker so we can stop it later
-	buffered.start(env, ticker)
+	// We hold on to the ref to the ticker so we can stop it later and quit channel to exit the daemon.
+	buffered.start(env, ticker, quit)
 	h := &handler{
 		l:          env.Logger(),
 		now:        time.Now,
@@ -200,6 +201,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		md:         md,
 		metricInfo: types,
 		ticker:     ticker,
+		quit:       quit,
 	}
 	return h, nil
 }
@@ -266,6 +268,7 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 
 func (h *handler) Close() error {
 	h.ticker.Stop()
+	close(h.quit)
 	return h.client.Close()
 }
 
