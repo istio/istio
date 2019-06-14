@@ -43,7 +43,7 @@ const (
 	readyPath = "/healthz/ready"
 	// KubeAppProberEnvName is the name of the command line flag for pilot agent to pass app prober config.
 	// The json encoded string to pass app HTTP probe information from injector(istioctl or webhook).
-	// For example, --ISTIO_KUBE_APP_PROBERS='{"/app-health/httpbin/livez":{"path": "/hello", "port": 8080}.
+	// For example, ISTIO_KUBE_APP_PROBERS='{"/app-health/httpbin/livez":{"path": "/hello", "port": 8080}.
 	// indicates that httpbin container liveness prober port is 8080 and probing path is /hello.
 	// This environment variable should never be set manually.
 	KubeAppProberEnvName = "ISTIO_KUBE_APP_PROBERS"
@@ -123,9 +123,7 @@ func (s *Server) Run(ctx context.Context) {
 
 	// Add the handler for ready probes.
 	mux.HandleFunc(readyPath, s.handleReadyProbe)
-	mux.HandleFunc("/", s.handleAppProbe)
-
-	mux.HandleFunc("/app-health", s.handleAppProbe)
+	mux.HandleFunc("/app-health/", s.handleAppProbe)
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))
 	if err != nil {
