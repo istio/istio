@@ -52,7 +52,6 @@ var (
 	cdsBuildErrPushCtx = typeContext("cds_builderr")
 	edsPushCtx         = typeContext("eds")
 	edsSendErrPushCtx  = typeContext("eds_senderr")
-	edsBuildErrPushCtx = typeContext("eds_builderr")
 	ldsPushCtx         = typeContext("lds")
 	ldsSendErrPushCtx  = typeContext("lds_senderr")
 	ldsBuildErrPushCtx = typeContext("lds_builderr")
@@ -68,7 +67,7 @@ var (
 	proxiesConvergeDelay     = stats.Float64("pilot_proxy_convergence_time", "Delay between config change and all proxies converging.", stats.UnitDimensionless)
 	proxiesConvergenceBounds = view.Distribution(1, 3, 5, 10, 20, 30, 50, 100)
 	pushContextErrors        = stats.Int64("pilot_xds_push_context_errors", "Number of errors (timeouts) initiating push context.", stats.UnitDimensionless)
-	totalXDSInternalErrors   = stats.Int64("pilot_total_xds_internal_errors", "Total number of internal XDS errors in pilot (check logs).", stats.UnitDimensionless)
+	totalXDSInternalErrors   = stats.Int64("pilot_total_xds_internal_errors", "Total number of internal XDS errors in pilot.", stats.UnitDimensionless)
 
 	inboundUpdates     = stats.Int64("pilot_inbound_updates", "Total number of updates received by pilot.", stats.UnitDimensionless)
 	configUpdatesCtx   = typeContext("config")
@@ -108,7 +107,7 @@ func recordWith(ctx context.Context, measure *stats.Int64Measure, value int64) {
 	stats.Record(ctx, measure.M(value))
 }
 
-func incrementXDSRejects(measure *stats.Int64Measure, node, errCode string) {
+func incrementXDSRejects(measure stats.Measure, node, errCode string) {
 	ctx, _ := tag.New(context.Background(), tag.Upsert(nodeTag, node), tag.Upsert(errTag, errCode))
 	incrementWith(ctx, measure, totalXDSRejects)
 }

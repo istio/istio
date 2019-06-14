@@ -334,5 +334,5 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 
 func setErrorGauge(name string, value int64) {
 	ctx, _ := tag.New(context.Background(), tag.Upsert(nameTag, name))
-	stats.Record(ctx, k8sErrors.M(1))
+	stats.Record(ctx, k8sErrors.M(value))
 }
