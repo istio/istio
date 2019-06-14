@@ -370,6 +370,11 @@ $(SECURITY_GO_BINS):
 # Build will rebuild the go binaries.
 build: depend $(PILOT_GO_BINS_SHORT) mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley
 
+.PHONY: version-test
+# Do not run istioctl since is different (connects to kubernetes)
+version-test:
+	go test ./tests/version/... -v --base-dir ${ISTIO_OUT} --binaries="$(PILOT_GO_BINS_SHORT) mixc mixs mixgen node_agent node_agent_k8s istio_ca galley sdsclient"
+
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
 # while the ones that follow need slight adjustments to their names.

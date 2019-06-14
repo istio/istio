@@ -36,7 +36,11 @@ GOBINARY=${GOBINARY:-go}
 GOPKG="$GOPATH/pkg"
 BUILDINFO=${BUILDINFO:-""}
 STATIC=${STATIC:-1}
+<<<<<<< HEAD
 LDFLAGS="-extldflags -static"
+=======
+LDFLAGS=${LDFLAGS:--extldflags -static}
+>>>>>>> 0f775a4ba3... Fix version command to show correct information (#14754)
 GOBUILDFLAGS=${GOBUILDFLAGS:-""}
 # Split GOBUILDFLAGS by spaces into an array called GOBUILDFLAGS_ARRAY.
 IFS=' ' read -r -a GOBUILDFLAGS_ARRAY <<< "$GOBUILDFLAGS"

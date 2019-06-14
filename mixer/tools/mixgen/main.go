@@ -19,10 +19,13 @@ import (
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/tools/mixgen/cmd"
+	"istio.io/pkg/version"
 )
 
 func main() {
 	rootCmd := cmd.GetRootCmd(os.Args[1:], shared.Printf, shared.Fatalf)
+
+	rootCmd.AddCommand(version.CobraCommand())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)
