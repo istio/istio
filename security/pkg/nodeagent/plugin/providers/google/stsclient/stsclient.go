@@ -36,6 +36,7 @@ var (
 	secureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	tlsFlag             = true
 	gkeClusterURL       = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
+	stsClientLog        = log.RegisterScope("stsClientLog", "STS client debugging", 0)
 )
 
 const (
@@ -65,7 +66,7 @@ func NewPlugin() plugin.Plugin {
 	if tlsFlag {
 		caCertPool, err := x509.SystemCertPool()
 		if err != nil {
-			log.Errorf("Failed to get SystemCertPool: %v", err)
+			stsClientLog.Errorf("Failed to get SystemCertPool: %v", err)
 			return nil
 		}
 		tlsCfg = &tls.Config{
@@ -93,7 +94,7 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 
 	resp, err := p.hTTPClient.Do(req)
 	if err != nil {
-		log.Errorf("Failed to call getfederatedtoken: %v", err)
+		stsClientLog.Errorf("Failed to call getfederatedtoken: %v", err)
 		return "", time.Now(), errors.New("failed to exchange token")
 	}
 	defer resp.Body.Close()
@@ -101,7 +102,7 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 	body, _ := ioutil.ReadAll(resp.Body)
 	respData := &federatedTokenResponse{}
 	if err := json.Unmarshal(body, respData); err != nil {
-		log.Errorf("Failed to unmarshal response data: %v", err)
+		stsClientLog.Errorf("Failed to unmarshal response data: %v", err)
 		return "", time.Now(), errors.New("failed to exchange token")
 	}
 
