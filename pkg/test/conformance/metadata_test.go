@@ -36,7 +36,7 @@ func TestMetadata(t *testing.T) {
 		{
 			Input: `
 skip: true
-isolated: true
+exclusive: true
 labels:
   - a
   - b
@@ -49,7 +49,7 @@ environments:
 			Expected: &Metadata{
 				Name:         "foo",
 				Skip:         true,
-				Isolated:     true,
+				Exclusive:    true,
 				Labels:       []string{"a", "b", "c"},
 				Environments: []string{"kube", "native"},
 			},

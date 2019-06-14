@@ -27,7 +27,7 @@ import (
 
 const (
 	metadata = `skip: true
-isolated: true
+exclusive: true
 labels:
   - a
   - b
@@ -83,7 +83,7 @@ func TestBasic_NoStages(t *testing.T) {
 			Metadata: &Metadata{
 				Name:         "basic",
 				Skip:         true,
-				Isolated:     true,
+				Exclusive:    true,
 				Labels:       []string{"a", "b", "c"},
 				Environments: []string{"kube", "native"},
 			},
@@ -143,7 +143,7 @@ func TestBasic_1Stage(t *testing.T) {
 			Metadata: &Metadata{
 				Name:         "basic",
 				Skip:         true,
-				Isolated:     true,
+				Exclusive:    true,
 				Labels:       []string{"a", "b", "c"},
 				Environments: []string{"kube", "native"},
 			},
@@ -209,7 +209,7 @@ func TestBasic_2Stage(t *testing.T) {
 			Metadata: &Metadata{
 				Name:         "basic",
 				Skip:         true,
-				Isolated:     true,
+				Exclusive:    true,
 				Labels:       []string{"a", "b", "c"},
 				Environments: []string{"kube", "native"},
 			},
