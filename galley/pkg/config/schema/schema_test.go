@@ -340,7 +340,7 @@ func TestSchema_Find(t *testing.T) {
 		Kind:    "VirtualService",
 	}))
 
-	k, b = s.KubeSource().Resources().Find("foo", "bar")
+	_, b = s.KubeSource().Resources().Find("foo", "bar")
 	g.Expect(b).To(BeFalse())
 }
 

@@ -155,7 +155,6 @@ transforms:
     mapping:
       "k8s/networking.istio.io/v1alpha3/destinationrules": "istio/networking/v1alpha3/destinationrules"
 `,
-
 	}
 
 	for _, c := range cases {
