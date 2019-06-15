@@ -486,10 +486,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &fakePlugin{}
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
-			env := buildEnv(t, tt.gateways)
-			for _, v := range tt.virtualServices {
-				env.PushContext.AddVirtualServiceForTesting(&v)
-			}
+			env := buildEnv(t, tt.gateways, tt.virtualServices)
 			route, err := configgen.buildGatewayHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, tt.routeName)
 			if err != nil {
 				t.Error(err)
@@ -506,17 +503,22 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 
 }
 
-func buildEnv(t *testing.T, gateways []model.Config) model.Environment {
+func buildEnv(t *testing.T, gateways []model.Config, virtualServices []model.Config) model.Environment {
 	serviceDiscovery := new(fakes.ServiceDiscovery)
 
 	configStore := &fakes.IstioConfigStore{}
 	configStore.GatewaysReturns(gateways)
-
+	configStore.ListStub = func(typ, namespace string) (configs []model.Config, e error) {
+		if typ == "virtual-service" {
+			return virtualServices, nil
+		}
+		return nil, nil
+	}
 	mesh := model.DefaultMeshConfig()
 	env := model.Environment{
 		PushContext:      model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
+		IstioConfigStore: configStore.Freeze(),
 		Mesh:             &mesh,
 		MixerSAN:         []string{},
 	}

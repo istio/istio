@@ -182,11 +182,11 @@ func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBala
 		},
 	}
 
-	configStore := &fakes.IstioConfigStore{}
+	configStore := fakes.IstioConfigStore{}
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
+		IstioConfigStore: configStore.Freeze(),
 		Mesh:             meshConfig,
 		MixerSAN:         []string{},
 	}
@@ -249,7 +249,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
+		IstioConfigStore: configStore.Freeze(),
 		Mesh:             meshConfig,
 		MixerSAN:         []string{},
 	}
