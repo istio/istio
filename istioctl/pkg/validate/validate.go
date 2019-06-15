@@ -33,7 +33,7 @@ import (
 	mixervalidate "istio.io/istio/mixer/pkg/validate"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/pkg/log"
 )
 
@@ -331,7 +331,7 @@ func servicePortPrefixed(n string) bool {
 }
 func handleNamespace(istioNamespace string) string {
 	if istioNamespace == "" {
-		istioNamespace = kube.IstioNamespace
+		istioNamespace = controller.IstioNamespace
 	}
 	return istioNamespace
 }

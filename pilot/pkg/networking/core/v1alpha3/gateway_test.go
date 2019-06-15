@@ -22,9 +22,10 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
-	"istio.io/istio/pilot/pkg/model"
+	pilot_model "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/proto"
 
@@ -317,16 +318,16 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 	testCases := []struct {
 		name      string
-		node      *model.Proxy
+		node      *pilot_model.Proxy
 		server    *networking.Server
 		routeName string
 		result    *filterChainOpts
 	}{
 		{
 			name: "HTTP1.0 mode enabled",
-			node: &model.Proxy{
+			node: &pilot_model.Proxy{
 				Metadata: map[string]string{
-					model.NodeMetadataHTTP10: "1",
+					pilot_model.NodeMetadataHTTP10: "1",
 				},
 			},
 			server: &networking.Server{
@@ -368,8 +369,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 }
 
 func TestGatewayHTTPRouteConfig(t *testing.T) {
-	httpGateway := model.Config{
-		ConfigMeta: model.ConfigMeta{
+	httpGateway := pilot_model.Config{
+		ConfigMeta: pilot_model.ConfigMeta{
 			Name:      "gateway",
 			Namespace: "default",
 		},
@@ -403,25 +404,25 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
-	virtualService := model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      model.VirtualService.Type,
+	virtualService := pilot_model.Config{
+		ConfigMeta: pilot_model.ConfigMeta{
+			Type:      pilot_model.VirtualService.Type,
 			Name:      "virtual-service",
 			Namespace: "default",
 		},
 		Spec: virtualServiceSpec,
 	}
-	virtualServiceCopy := model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      model.VirtualService.Type,
+	virtualServiceCopy := pilot_model.Config{
+		ConfigMeta: pilot_model.ConfigMeta{
+			Type:      pilot_model.VirtualService.Type,
 			Name:      "virtual-service-copy",
 			Namespace: "default",
 		},
 		Spec: virtualServiceSpec,
 	}
-	virtualServiceWildcard := model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      model.VirtualService.Type,
+	virtualServiceWildcard := pilot_model.Config{
+		ConfigMeta: pilot_model.ConfigMeta{
+			Type:      pilot_model.VirtualService.Type,
 			Name:      "virtual-service-wildcard",
 			Namespace: "default",
 		},
@@ -448,36 +449,36 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 	cases := []struct {
 		name                 string
-		virtualServices      []model.Config
-		gateways             []model.Config
+		virtualServices      []pilot_model.Config
+		gateways             []pilot_model.Config
 		routeName            string
 		expectedVirtualHosts []string
 	}{
 		{
 			"404 when no services",
-			[]model.Config{},
-			[]model.Config{httpGateway},
+			[]pilot_model.Config{},
+			[]pilot_model.Config{httpGateway},
 			"http.80",
 			[]string{"blackhole:80"},
 		},
 		{
 			"add a route for a virtual service",
-			[]model.Config{virtualService},
-			[]model.Config{httpGateway},
+			[]pilot_model.Config{virtualService},
+			[]pilot_model.Config{httpGateway},
 			"http.80",
 			[]string{"example.org:80"},
 		},
 		{
 			"duplicate virtual service should merge",
-			[]model.Config{virtualService, virtualServiceCopy},
-			[]model.Config{httpGateway},
+			[]pilot_model.Config{virtualService, virtualServiceCopy},
+			[]pilot_model.Config{httpGateway},
 			"http.80",
 			[]string{"example.org:80"},
 		},
 		{
 			"duplicate by wildcard should merge",
-			[]model.Config{virtualService, virtualServiceWildcard},
-			[]model.Config{httpGateway},
+			[]pilot_model.Config{virtualService, virtualServiceWildcard},
+			[]pilot_model.Config{httpGateway},
 			"http.80",
 			[]string{"example.org:80"},
 		},
@@ -503,20 +504,20 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 
 }
 
-func buildEnv(t *testing.T, gateways []model.Config, virtualServices []model.Config) model.Environment {
+func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pilot_model.Config) pilot_model.Environment {
 	serviceDiscovery := new(fakes.ServiceDiscovery)
 
 	configStore := &fakes.IstioConfigStore{}
 	configStore.GatewaysReturns(gateways)
-	configStore.ListStub = func(typ, namespace string) (configs []model.Config, e error) {
+	configStore.ListStub = func(typ, namespace string) (configs []pilot_model.Config, e error) {
 		if typ == "virtual-service" {
 			return virtualServices, nil
 		}
 		return nil, nil
 	}
-	mesh := model.DefaultMeshConfig()
-	env := model.Environment{
-		PushContext:      model.NewPushContext(),
+	mesh := pilot_model.DefaultMeshConfig()
+	env := pilot_model.Environment{
+		PushContext:      pilot_model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore.Freeze(),
 		Mesh:             &mesh,

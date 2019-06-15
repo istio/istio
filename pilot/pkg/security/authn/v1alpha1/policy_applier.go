@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/features/pilot"
 	protovalue "istio.io/istio/pkg/proto"
 	"istio.io/pkg/log"
@@ -126,7 +127,7 @@ func convertPolicyToJwtConfig(policy *authn_v1alpha1.Policy) *jwtfilter.JwtAuthe
 		}
 		jwt.FromParams = policyJwt.JwtParams
 
-		jwtPubKey, err := model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
+		jwtPubKey, err := authn_model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
 		if err != nil {
 			log.Warnf("Failed to fetch jwt public key from %q", policyJwt.JwksUri)
 		}
@@ -256,7 +257,7 @@ func (a v1alpha1PolicyApplier) InboundFilterChain(sdsUdsPath string, sdsUseTrust
 		base := meta[pilot.BaseDir] + model.AuthCertsPath
 		tlsServerRootCert := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerRootCert, base+model.RootCertFilename)
 
-		tls.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(tlsServerRootCert, []string{} /*subjectAltNames*/)
+		tls.CommonTlsContext.ValidationContextType = authn_model.ConstructValidationContext(tlsServerRootCert, []string{} /*subjectAltNames*/)
 
 		tlsServerCertChain := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerCertChain, base+model.CertChainFilename)
 		tlsServerKey := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerKey, base+model.KeyFilename)
@@ -277,13 +278,14 @@ func (a v1alpha1PolicyApplier) InboundFilterChain(sdsUdsPath string, sdsUseTrust
 		}
 	} else {
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, sdsUdsPath, sdsUseTrustworthyJwt, sdsUseNormalJwt, meta),
+			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, sdsUdsPath, sdsUseTrustworthyJwt, sdsUseNormalJwt, meta),
 		}
 
 		tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
-				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName, sdsUdsPath, sdsUseTrustworthyJwt, sdsUseNormalJwt, meta),
+				DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
+				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName,
+					sdsUdsPath, sdsUseTrustworthyJwt, sdsUseNormalJwt, meta),
 			},
 		}
 	}

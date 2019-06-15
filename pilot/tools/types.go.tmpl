@@ -28,28 +28,28 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-type schemaType struct {
-        schema     model.ProtoSchema
-        object     IstioObject
-        collection IstioObjectList
+type SchemaType struct {
+        Schema     model.ProtoSchema
+        Object     IstioObject
+        Collection IstioObjectList
 }
 
-var knownTypes = map[string]schemaType{
+var KnownTypes = map[string]SchemaType{
 {{range $index, $element := .}}model.{{ .IstioKind }}.Type: {
-        schema: model.{{ .IstioKind }},
-        object: &{{ .CrdKind }}{
+        Schema: model.{{ .IstioKind }},
+        Object: &{{ .CrdKind }}{
             TypeMeta: meta_v1.TypeMeta{
                 Kind:       "{{ .CrdKind }}",
-                APIVersion: apiVersion(&model.{{ .IstioKind }}),
+                APIVersion: APIVersion(&model.{{ .IstioKind }}),
             },
         },
-        collection: &{{ .CrdKind }}List{},
+        Collection: &{{ .CrdKind }}List{},
     },
 {{end}}
 }
 
 {{range $index, $element := .}}
-// {{ .CrdKind }} is the generic Kubernetes API object wrapper
+// {{ .CrdKind }} is the generic Kubernetes API Object wrapper
 type {{ .CrdKind }} struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`
