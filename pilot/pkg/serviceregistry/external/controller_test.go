@@ -15,7 +15,12 @@
 package external
 
 import (
+<<<<<<< HEAD
 	"sync"
+=======
+	"fmt"
+	"sync/atomic"
+>>>>>>> f4a7f15ad7... Fix test by making it non racy (#14789)
 	"testing"
 	"time"
 
@@ -35,29 +40,20 @@ func TestController(t *testing.T) {
 	store := memory.Make(configDescriptor)
 	configController := memory.NewController(store)
 
-	countMutex := sync.Mutex{}
-	count := 0
+	count := int64(0)
 
-	incrementCount := func() {
-		countMutex.Lock()
-		defer countMutex.Unlock()
-		count++
-	}
-	getCountAndReset := func() int {
-		countMutex.Lock()
-		defer countMutex.Unlock()
-		c := count
-		count = 0
-		return c
-	}
-
+<<<<<<< HEAD
 	ctl := NewServiceDiscovery(configController, model.MakeIstioStore(configController))
 	err := ctl.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) { incrementCount() })
+=======
+	ctl := external.NewServiceDiscovery(configController, model.MakeIstioStore(configController))
+	err := ctl.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) { atomic.AddInt64(&count, 1) })
+>>>>>>> f4a7f15ad7... Fix test by making it non racy (#14789)
 	if err != nil {
 		t.Errorf("AppendInstanceHandler() => %q", err)
 	}
 
-	err = ctl.AppendServiceHandler(func(service *model.Service, event model.Event) { incrementCount() })
+	err = ctl.AppendServiceHandler(func(service *model.Service, event model.Event) { atomic.AddInt64(&count, 1) })
 	if err != nil {
 		t.Errorf("AppendServiceHandler() => %q", err)
 	}
@@ -70,14 +66,28 @@ func TestController(t *testing.T) {
 	if c := getCountAndReset(); c != 0 {
 		t.Errorf("got %d notifications from controller, want %d", c, 0)
 	}
+<<<<<<< HEAD
+=======
+	expectedCount := int64(7) // 1 service + 6 instances
+>>>>>>> f4a7f15ad7... Fix test by making it non racy (#14789)
 
 	_, err = configController.Create(*httpStatic)
 	if err != nil {
 		t.Errorf("error occurred crearting ServiceEntry config: %v", err)
 	}
 
+<<<<<<< HEAD
 	time.Sleep(notifyThreshold)
 	if c := getCountAndReset(); c != 7 {
 		t.Errorf("got %d notifications from controller, want %d", c, 7)
+=======
+	if err := retry.UntilSuccess(func() error {
+		if gotcount := atomic.AddInt64(&count, 0); gotcount != expectedCount {
+			return fmt.Errorf("got %d notifications from controller, want %d", gotcount, expectedCount)
+		}
+		return nil
+	}, retry.Delay(50*time.Millisecond), retry.Timeout(5*time.Second)); err != nil {
+		t.Fatal(err)
+>>>>>>> f4a7f15ad7... Fix test by making it non racy (#14789)
 	}
 }
