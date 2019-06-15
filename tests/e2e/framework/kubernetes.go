@@ -85,8 +85,8 @@ const (
 	// RemoteCluster identifies the remote cluster
 	RemoteCluster = "remote"
 
-	kubernetesResponsiveTimeout       = time.SecondMinute * 180
-	kubernetesResponsiveFreq          = 100 * time.Millisecond
+	kubernetesResponsiveTimeout       = time.Second * 180
+	kubernetesResponsiveFreq          = 200 * time.Millisecond
 	validationWebhookReadinessTimeout = time.Minute
 	validationWebhookReadinessFreq    = 100 * time.Millisecond
 )
@@ -380,7 +380,7 @@ func (k *KubeInfo) Setup() error {
 		return err
 	}
 
-	if err = waitForKubernetes(); err != nil {
+	if err = k.waitForKubernetes(); err != nil {
 		return err
 	}
 
@@ -913,7 +913,7 @@ func (k *KubeInfo) waitForKubernetes() error {
 	timeout := time.Now().Add(kubernetesResponsiveTimeout)
 	for {
 		if time.Now().After(timeout) {
-			return errors.New("Timeout waiting for Kubernetes to become active")
+			return errors.New("timeout waiting for Kubernetes to become active")
 		}
 
 		out, err := util.ShellSilent(cmd)
