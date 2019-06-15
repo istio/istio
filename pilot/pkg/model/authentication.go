@@ -61,7 +61,7 @@ const (
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
-var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
+var JwtKeyResolver = newJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
 // GetConsolidateAuthenticationPolicy returns the authentication policy for workload specified by
 // hostname (or label selector if specified) and port, if defined.
