@@ -36,4 +36,5 @@ fi
 GOLANGCI_VERSION="v1.16.0"
 curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b "$GOPATH"/bin "$GOLANGCI_VERSION"
 golangci-lint --version
+# For tuning and when switching verions PLEASE REFERENCE: https://github.com/istio/istio/issues/14888
 env GOGC=25 golangci-lint run ${FIX} -j 8 -v ./...
