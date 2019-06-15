@@ -76,6 +76,9 @@ type DirectTransform struct {
 	Mapping map[string]string `json:"mapping"`
 }
 
+// for testing purposes
+var jsonUnmarshal = json.Unmarshal
+
 // UnmarshalJSON implements json.Unmarshaler
 func (s *Metadata) UnmarshalJSON(data []byte) error {
 	var in struct {
@@ -85,7 +88,7 @@ func (s *Metadata) UnmarshalJSON(data []byte) error {
 		Transforms  []json.RawMessage `json:"transforms"`
 	}
 
-	if err := json.Unmarshal(data, &in); err != nil {
+	if err := jsonUnmarshal(data, &in); err != nil {
 		return err
 	}
 
@@ -94,13 +97,13 @@ func (s *Metadata) UnmarshalJSON(data []byte) error {
 
 	for _, src := range in.Sources {
 		m := make(map[string]interface{})
-		if err := json.Unmarshal(src, &m); err != nil {
+		if err := jsonUnmarshal(src, &m); err != nil {
 			return err
 		}
 
 		if m["type"] == "kubernetes" {
 			ks := &KubeSource{}
-			if err := json.Unmarshal(src, &ks); err != nil {
+			if err := jsonUnmarshal(src, &ks); err != nil {
 				return err
 			}
 			s.Sources = append(s.Sources, ks)
@@ -111,13 +114,13 @@ func (s *Metadata) UnmarshalJSON(data []byte) error {
 
 	for _, xform := range in.Transforms {
 		m := make(map[string]interface{})
-		if err := json.Unmarshal(xform, &m); err != nil {
+		if err := jsonUnmarshal(xform, &m); err != nil {
 			return err
 		}
 
 		if m["type"] == "direct" {
 			dt := &DirectTransform{}
-			if err := json.Unmarshal(xform, &dt); err != nil {
+			if err := jsonUnmarshal(xform, &dt); err != nil {
 				return err
 			}
 			s.Transforms = append(s.Transforms, dt)

@@ -263,9 +263,6 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 				if !ok {
 					return nil, fmt.Errorf("collection not found: %v", v)
 				}
-				if _, found := mapping[from.Name]; found {
-					return nil, fmt.Errorf("mapping already exists: %v", v)
-				}
 				mapping[from.Name] = to.Name
 			}
 			tr := &DirectTransform{
