@@ -11,7 +11,6 @@ about: Report a bug to help us improve Istio
 
 **Affected product area (please put an X in all that apply)**
 
-[ ] Base Infrastructure
 [ ] Configuration Infrastructure
 [ ] Docs
 [ ] Installation
@@ -21,6 +20,7 @@ about: Report a bug to help us improve Istio
 [ ] Security
 [ ] Test and Release
 [ ] User Experience
+[ ] Developer Infrastrcture
 
 **Expected behavior**
 
