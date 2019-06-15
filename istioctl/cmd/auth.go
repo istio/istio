@@ -90,8 +90,14 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 	}
 
 	upgradeCmd = &cobra.Command{
+<<<<<<< HEAD
 		Use:   "upgrade -f <yaml-file>",
 		Short: "Upgrade Istio Authorization Policy from version v1 to v2",
+=======
+		Hidden: true,
+		Use:    "upgrade",
+		Short:  "Upgrade Istio Authorization Policy from version v1 to v2",
+>>>>>>> 9eab338ad7... Hide istioctl upgrade command for RBAC (#14849)
 		Long: `Upgrade converts Istio authorization policy from version v1 to v2. It requires access to Kubernetes
 service definition in order to translate the service name specified in the ServiceRole to the corresponding
 workload labels in the AuthorizationPolicy. The service definition could be provided either from the current
