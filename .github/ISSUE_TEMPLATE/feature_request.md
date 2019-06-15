@@ -20,5 +20,6 @@ about: Suggest an idea to improve Istio
 [ ] Security
 [ ] Test and Release
 [ ] User Experience
+[ ] Developer Infrastructure
 
 **Additional context**
