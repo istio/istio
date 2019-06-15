@@ -85,6 +85,8 @@ const (
 	// RemoteCluster identifies the remote cluster
 	RemoteCluster = "remote"
 
+	kubernetesResponsiveTimeout       = time.SecondMinute * 180
+	kubernetesResponsiveFreq          = 100 * time.Millisecond
 	validationWebhookReadinessTimeout = time.Minute
 	validationWebhookReadinessFreq    = 100 * time.Millisecond
 )
@@ -370,11 +372,15 @@ func (k *KubeInfo) IstioEgressGatewayService() string {
 	return istioEgressGatewayServiceName
 }
 
-// Setup set up Kubernetes prerequest for tests
+// Setup Kubernetes pre-requisites for tests
 func (k *KubeInfo) Setup() error {
 	log.Infoa("Setting up kubeInfo setupSkip=", *skipSetup)
 	var err error
 	if err = os.Mkdir(k.yamlDir, os.ModeDir|os.ModePerm); err != nil {
+		return err
+	}
+
+	if err = waitForKubernetes(); err != nil {
 		return err
 	}
 
@@ -897,6 +903,31 @@ spec:
     - validation-readiness-dummy
 `
 )
+
+// Wait for Kubernetes to become active within kubernetesResponiveTimeout period
+// Does a simple kubectl get pods operation to determine if kubeapi is active
+// (TODO) sdake: This may be insufficient for a complete readiness check of Kubernetes
+func (k *KubeInfo) waitForKubernetes() error {
+	log.Info("Waiting for Kubernetes to become responsive")
+	cmd := fmt.Sprintf("kubectl get pods --kubeconfig=%s", k.KubeConfig)
+	timeout := time.Now().Add(kubernetesResponsiveTimeout)
+	for {
+		if time.Now().After(timeout) {
+			return errors.New("Timeout waiting for Kubernetes to become active")
+		}
+
+		out, err := util.ShellSilent(cmd)
+		if err == nil && !strings.Contains(out, "connection refused") {
+			break
+		}
+
+		log.Warnf("Kubernetes not ready yet: %v %v", out, err)
+		time.Sleep(kubernetesResponsiveFreq)
+
+	}
+	log.Infof("Kubernetes is ready.")
+	return nil
+}
 
 func (k *KubeInfo) waitForValdiationWebhook() error {
 
