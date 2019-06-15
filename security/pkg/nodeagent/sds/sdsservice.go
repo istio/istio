@@ -92,6 +92,7 @@ type sdsConnection struct {
 	secret *model.SecretItem
 
 	// Mutex to protect read/write to this connection
+	// TODO(JimmyCYJ): Move all read/write into member function with lock protection to avoid race condition.
 	mutex sync.RWMutex
 
 	// ConID is the connection identifier, used as a key in the connection table.
@@ -405,26 +406,35 @@ func addConn(k cache.ConnKey, conn *sdsConnection) {
 }
 
 func pushSDS(con *sdsConnection) error {
-	response, err := sdsDiscoveryResponse(con.secret, con.conID)
+	con.mutex.RLock()
+	conID := con.conID
+	secret := *con.secret
+	resourceName := con.ResourceName
+	con.mutex.RUnlock()
+
+	response, err := sdsDiscoveryResponse(&secret, conID)
 	if err != nil {
-		sdsServiceLog.Errorf("SDS: Failed to construct response %v", err)
+		sdsServiceLog.Errorf("Failed to construct response for SDS resource %q: %v", resourceName, err)
 		return err
 	}
 
 	if err = con.stream.Send(response); err != nil {
-		sdsServiceLog.Errorf("SDS: Send response failure %v", err)
+		sdsServiceLog.Errorf("Failed to send response for SDS resource %q to proxy connection %q: %v",
+			resourceName, conID, err)
 		return err
 	}
 
-	con.mutex.RLock()
-	if con.secret.RootCert != nil {
-		sdsServiceLog.Infof("SDS: push root cert from node agent to proxy connection: %q\n", con.conID)
-		sdsServiceLog.Debugf("SDS: push root cert %+v to proxy connection: %q\n", string(con.secret.RootCert), con.conID)
+	if secret.RootCert != nil {
+		sdsServiceLog.Infof("Pushed root cert (resource name: %q) from node agent to proxy connection: %q\n",
+			resourceName, conID)
+		sdsServiceLog.Debugf("Pushed root cert %+v (resource name: %q) to proxy connection: %q\n",
+			string(secret.RootCert), resourceName, conID)
 	} else {
-		sdsServiceLog.Infof("SDS: push key/cert pair from node agent to proxy: %q\n", con.conID)
-		sdsServiceLog.Debugf("SDS: push certificate chain %+v to proxy connection: %q\n", string(con.secret.CertificateChain), con.conID)
+		sdsServiceLog.Infof("Pushed key/cert pair (resource name: %q) from node agent to proxy: %q\n",
+			resourceName, conID)
+		sdsServiceLog.Debugf("Pushed certificate chain %+v (resource name: %q) to proxy connection: %q\n",
+			string(secret.CertificateChain), resourceName, conID)
 	}
-	con.mutex.RUnlock()
 
 	return nil
 }
