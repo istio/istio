@@ -262,7 +262,7 @@ containers:
   - mountPath: /etc/istio/proxy
     name: istio-envoy
   {{- if .Values.global.sds.enabled }}
-  - mountPath: /var/run/sds/uds_path
+  - mountPath: /var/run/sds
     name: sds-uds-path
     readOnly: true
   {{- if .Values.global.sds.useTrustworthyJwt }}
@@ -302,8 +302,7 @@ volumes:
 {{- if .Values.global.sds.enabled }}
 - name: sds-uds-path
   hostPath:
-    path: /var/run/sds/uds_path
-    type: Socket
+    path: /var/run/sds
 {{- if .Values.global.sds.customTokenDirectory }}
 - name: custom-sds-token
   secret:
