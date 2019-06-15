@@ -12,17 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kube
+package model
 
 import (
-	v1 "k8s.io/api/core/v1"
+	istiolog "istio.io/pkg/log"
 )
 
-func hasProxyIP(addresses []v1.EndpointAddress, proxyIP string) bool {
-	for _, addr := range addresses {
-		if addr.IP == proxyIP {
-			return true
-		}
-	}
-	return false
-}
+var log = istiolog.RegisterScope("authn", "authn", 0)

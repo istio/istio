@@ -34,7 +34,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	pmodel "istio.io/istio/pilot/pkg/model"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/pkg/log"
@@ -382,9 +382,9 @@ func getCredentialToken(ctx context.Context) (string, error) {
 
 	// Get credential token from request k8sSAJwtTokenHeader(`istio_sds_credentail_header`) if it exists;
 	// otherwise fallback to credentialTokenHeader('authorization').
-	if h, ok := metadata[pmodel.K8sSAJwtTokenHeaderKey]; ok {
+	if h, ok := metadata[authn_model.K8sSAJwtTokenHeaderKey]; ok {
 		if len(h) != 1 {
-			return "", fmt.Errorf("credential token from %q must have 1 value in gRPC metadata but got %d", pmodel.K8sSAJwtTokenHeaderKey, len(h))
+			return "", fmt.Errorf("credential token from %q must have 1 value in gRPC metadata but got %d", authn_model.K8sSAJwtTokenHeaderKey, len(h))
 		}
 		return h[0], nil
 	}

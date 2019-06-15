@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package kube implements the shared and reusable library for Kubernetes
-package kube
+// package controller implements the shared and reusable library for Kubernetes
+package controller
 
 import (
 	"k8s.io/client-go/kubernetes"

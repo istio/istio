@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kube
+package controller
 
 import (
 	"reflect"
@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 )
 
 // Prepare k8s. This can be used in multiple tests, to
@@ -170,7 +171,7 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 // Checks that events from the watcher create the proper internal structures
 func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
-	handler := &ChainHandler{}
+	handler := &kube.ChainHandler{}
 	c, _ := newFakeController(t)
 	cache := newPodCache(cacheHandler{handler: handler}, c)
 

@@ -24,7 +24,7 @@ import (
 )
 
 func TestResolveJwksURIUsingOpenID(t *testing.T) {
-	r := newJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
 	ms, err := test.StartNewServer()
 	defer ms.Stop()
@@ -70,7 +70,7 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 }
 
 func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
-	r := newJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
 	ms, err := test.StartNewServer()
 	defer ms.Stop()
@@ -147,7 +147,7 @@ func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 }
 
 func TestGetPublicKey(t *testing.T) {
-	r := newJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 	defer r.Close()
 
 	ms, err := test.StartNewServer()
@@ -188,7 +188,7 @@ func TestGetPublicKey(t *testing.T) {
 }
 
 func TestJwtPubKeyEvictionForNotUsed(t *testing.T) {
-	r := newJwksResolver(100*time.Millisecond /*EvictionDuration*/, 2*time.Millisecond /*RefreshInterval*/)
+	r := NewJwksResolver(100*time.Millisecond /*EvictionDuration*/, 2*time.Millisecond /*RefreshInterval*/)
 	defer r.Close()
 
 	ms := startMockServer(t)
@@ -216,7 +216,7 @@ func TestJwtPubKeyEvictionForNotUsed(t *testing.T) {
 }
 
 func TestJwtPubKeyEvictionForNotRefreshed(t *testing.T) {
-	r := newJwksResolver(2*time.Second /*EvictionDuration*/, 100*time.Millisecond /*RefreshInterval*/)
+	r := NewJwksResolver(2*time.Second /*EvictionDuration*/, 100*time.Millisecond /*RefreshInterval*/)
 	defer r.Close()
 
 	ms := startMockServer(t)
@@ -262,7 +262,7 @@ func TestJwtPubKeyEvictionForNotRefreshed(t *testing.T) {
 }
 
 func TestJwtPubKeyLastRefreshedTime(t *testing.T) {
-	r := newJwksResolver(JwtPubKeyEvictionDuration, 2*time.Millisecond /*RefreshInterval*/)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, 2*time.Millisecond /*RefreshInterval*/)
 	defer r.Close()
 
 	ms := startMockServer(t)
@@ -277,7 +277,7 @@ func TestJwtPubKeyLastRefreshedTime(t *testing.T) {
 }
 
 func TestJwtPubKeyRefreshWithNetworkError(t *testing.T) {
-	r := newJwksResolver(JwtPubKeyEvictionDuration, time.Second /*RefreshInterval*/)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, time.Second /*RefreshInterval*/)
 	defer r.Close()
 
 	ms := startMockServer(t)
@@ -303,7 +303,7 @@ func startMockServer(t *testing.T) *test.MockOpenIDDiscoveryServer {
 	return ms
 }
 
-func verifyKeyRefresh(t *testing.T, r *jwksResolver, ms *test.MockOpenIDDiscoveryServer, expectedJwtPubkey string) {
+func verifyKeyRefresh(t *testing.T, r *JwksResolver, ms *test.MockOpenIDDiscoveryServer, expectedJwtPubkey string) {
 	t.Helper()
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
 
@@ -338,7 +338,7 @@ func verifyKeyRefresh(t *testing.T, r *jwksResolver, ms *test.MockOpenIDDiscover
 	}
 }
 
-func verifyKeyLastRefreshedTime(t *testing.T, r *jwksResolver, ms *test.MockOpenIDDiscoveryServer, wantChanged bool) {
+func verifyKeyLastRefreshedTime(t *testing.T, r *JwksResolver, ms *test.MockOpenIDDiscoveryServer, wantChanged bool) {
 	t.Helper()
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
 
