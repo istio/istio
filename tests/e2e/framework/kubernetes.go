@@ -33,7 +33,9 @@ import (
 	"github.com/pkg/errors"
 
 	testKube "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/util"
+
 	"istio.io/pkg/log"
 )
 
@@ -85,8 +87,8 @@ const (
 	// RemoteCluster identifies the remote cluster
 	RemoteCluster = "remote"
 
-	kubernetesResponsiveTimeout       = time.Second * 180
-	kubernetesResponsiveFreq          = 200 * time.Millisecond
+	kubernetesReadinessTimeout        = time.Second * 180
+	kubernetesReadinessInterval       = 200 * time.Millisecond
 	validationWebhookReadinessTimeout = time.Minute
 	validationWebhookReadinessFreq    = 100 * time.Millisecond
 )
@@ -904,29 +906,18 @@ spec:
 `
 )
 
-// Wait for Kubernetes to become active within kubernetesResponiveTimeout period
-// Does a simple kubectl get pods operation to determine if kubeapi is active
+// Wait for Kubernetes to become active within kubernetesReadinessTimeout period
+// This operation only retreives the pods in the kube-system namespace
 // (TODO) sdake: This may be insufficient for a complete readiness check of Kubernetes
 func (k *KubeInfo) waitForKubernetes() error {
 	log.Info("Waiting for Kubernetes to become responsive")
-	cmd := fmt.Sprintf("kubectl get pods --kubeconfig=%s", k.KubeConfig)
-	timeout := time.Now().Add(kubernetesResponsiveTimeout)
-	for {
-		if time.Now().After(timeout) {
-			return errors.New("timeout waiting for Kubernetes to become active")
+	return retry.UntilSuccess(func() error {
+		pods, err := k.KubeAccessor.GetPods("kube-system")
+		if err != nil {
+			return err
 		}
-
-		out, err := util.ShellSilent(cmd)
-		if err == nil && !strings.Contains(out, "connection refused") {
-			break
-		}
-
-		log.Warnf("Kubernetes not ready yet: %v %v", out, err)
-		time.Sleep(kubernetesResponsiveFreq)
-
-	}
-	log.Infof("Kubernetes is ready.")
-	return nil
+		return nil
+	}, retry.Delay(kubernetesReadinessInterval), retry.Timeout(kubernetesReadinessTimeout))
 }
 
 func (k *KubeInfo) waitForValdiationWebhook() error {
