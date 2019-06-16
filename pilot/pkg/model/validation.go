@@ -111,7 +111,7 @@ func ValidatePort(port int) error {
 	return fmt.Errorf("port number %d must be in the range 1..65535", port)
 }
 
-// ValidatePort checks if all ports are in range [0, 65535]
+// ValidatePorts checks if all ports are in range [0, 65535]
 func ValidatePorts(ports []int32) bool {
 	for _, port := range ports {
 		if ValidatePort(int(port)) != nil {
@@ -1548,7 +1548,7 @@ func hasExistingFirstClassFieldInRole(constraintKey string, rule *rbac.AccessRul
 	return false
 }
 
-// ValidateServiceRoleBinding checks that ServiceRoleBinding is well-formed.
+// checkServiceRoleBinding checks that ServiceRoleBinding is well-formed.
 func checkServiceRoleBinding(in *rbac.ServiceRoleBinding) error {
 	var errs error
 	if len(in.Subjects) == 0 {
