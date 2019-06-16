@@ -35,7 +35,6 @@ import (
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/util"
-
 	"istio.io/pkg/log"
 )
 
