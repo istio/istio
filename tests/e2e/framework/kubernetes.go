@@ -912,10 +912,7 @@ func (k *KubeInfo) waitForKubernetes() error {
 	log.Info("Waiting for Kubernetes to become responsive")
 	return retry.UntilSuccess(func() error {
 		_, err := k.KubeAccessor.GetPods("kube-system")
-		if err != nil {
-			return err
-		}
-		return nil
+		return err
 	}, retry.Delay(kubernetesReadinessInterval), retry.Timeout(kubernetesReadinessTimeout))
 }
 
