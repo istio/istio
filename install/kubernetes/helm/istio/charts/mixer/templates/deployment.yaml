@@ -69,7 +69,11 @@
           {{- else }}
           - --useAdapterCRDs=false
           {{- end }}
+          {{- if $.Values.templates.useTemplateCRDs }}
+          - --useTemplateCRDs=true
+          {{- else }}
           - --useTemplateCRDs=false
+          {{- end }}
           {{- if $.Values.global.tracer.zipkin.address }}
           - --trace_zipkin_url=http://{{- $.Values.global.tracer.zipkin.address }}/api/v1/spans
           {{- else }}
@@ -247,6 +251,11 @@
           - --useAdapterCRDs=true
           {{- else }}
           - --useAdapterCRDs=false
+          {{- end }}
+          {{- if $.Values.templates.useTemplateCRDs }}
+          - --useTemplateCRDs=true
+          {{- else }}
+          - --useTemplateCRDs=false
           {{- end }}
           {{- if $.Values.global.tracer.zipkin.address }}
           - --trace_zipkin_url=http://{{- $.Values.global.tracer.zipkin.address }}/api/v1/spans
