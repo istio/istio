@@ -55,13 +55,13 @@ function add_extra_artifacts_to_tar_images() {
 
   for TAR_PATH in "${OUT_PATH}"/docker/*.tar.gz; do
     # if no docker/ directory or directory has no tar files
-    if [[ "${TAR_PATH}" == *"/docker/*.tar.gz" ]]; then
+    if [[ "${TAR_PATH}" == "${OUT_PATH}/docker/*.tar.gz" ]]; then
       break
     fi
     set_image_vars "$TAR_PATH"
 
     #check if it is a build variant (e.g. distroless)
-    if [[ "${IMAGE_NAME}" != "${VARIANT_NAME}" ]]; then
+    if [[ -z "${VARIANT_NAME}" ]]; then
       TAG="${TAG}-${VARIANT_NAME}"
     fi
     docker load -i "${TAR_PATH}"
@@ -88,7 +88,7 @@ function docker_tag_images() {
 
   for TAR_PATH in "${OUT_PATH}"/docker/*.tar.gz; do
     # if no docker/ directory or directory has no tar files
-    if [[ "${TAR_PATH}" == *"/docker/*.tar.gz" ]]; then
+    if [[ "${TAR_PATH}" == "${OUT_PATH}/docker/*.tar.gz" ]]; then
       break
     fi
     set_image_vars "$TAR_PATH"
@@ -100,7 +100,7 @@ function docker_tag_images() {
 
 
     #check if it is a build variant (e.g. distroless)
-    if [[ "${IMAGE_NAME}" == "${VARIANT_NAME}" ]]; then
+    if [[ -z "${VARIANT_NAME}" ]]; then
       docker tag "${SRC_HUB}/${IMAGE_NAME}:${SRC_TAG}" \
                  "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}"
     else
@@ -135,7 +135,7 @@ function docker_push_images() {
 
   for TAR_PATH in "${OUT_PATH}"/docker/*.tar.gz; do
     # if no docker/ directory or directory has no tar files
-    if [[ "${TAR_PATH}" == *"/docker/*.tar.gz" ]]; then
+    if [[ "${TAR_PATH}" == "${OUT_PATH}/docker/*.tar.gz" ]]; then
       break
     fi
     set_image_vars "$TAR_PATH"
@@ -143,7 +143,7 @@ function docker_push_images() {
     docker load -i "${TAR_PATH}"
 
     #check if it is a build variant (e.g. distroless)
-    if [[ "${IMAGE_NAME}" == "${VARIANT_NAME}" ]]; then
+    if [[ -z "${VARIANT_NAME}" ]]; then
           docker push "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}"
     else
           docker push "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}-${VARIANT_NAME}"
@@ -156,9 +156,11 @@ function set_image_vars() {
   BASE_NAME=$(basename "$TAR_PATH")
   TAR_NAME="${BASE_NAME%.*}"
   IMAGE_NAME="${TAR_NAME%.*}"
-  VARIANT_NAME="${IMAGE_NAME##*-}"
   #check if it is a build variant (e.g. distroless)
-  if [[ "${IMAGE_NAME}" != "${VARIANT_NAME}" ]]; then
+  if [[ "${IMAGE_NAME}" != "${IMAGE_NAME##*-}" ]]; then
+    VARIANT_NAME="${IMAGE_NAME##*-}"
     IMAGE_NAME="${IMAGE_NAME%-${VARIANT_NAME}}"
+  else
+    VARIANT_NAME=""
   fi
 }
