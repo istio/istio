@@ -40,7 +40,7 @@ if [[ -n ${ISTIO_DOCKER_HUB} ]]; then
   DOCKER_HUB="${ISTIO_DOCKER_HUB}"
 fi
 
-GIT_DESCRIBE_TAG=$(git describe)
+GIT_DESCRIBE_TAG=$(git describe --tags)
 
 # used by bin/gobuild.sh
 echo "istio.io/istio/vendor/istio.io/pkg/version.buildVersion=${VERSION}"

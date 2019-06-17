@@ -2650,6 +2650,25 @@ func TestValidateVirtualService(t *testing.T) {
 				RemoveResponseHeaders: []string{"unwantedHeader", "secretStuff"},
 			}},
 		}, valid: true},
+		{name: "missing tcp route", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Tcp: []*networking.TCPRoute{{
+				Match: []*networking.L4MatchAttributes{
+					{Port: 999},
+				},
+			}},
+		}, valid: false},
+		{name: "missing tls route", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Tls: []*networking.TLSRoute{{
+				Match: []*networking.TLSMatchAttributes{
+					{
+						Port:     999,
+						SniHosts: []string{"foo.bar"},
+					},
+				},
+			}},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {

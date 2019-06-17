@@ -36,11 +36,11 @@ INBOUND_TPROXY_MARK=1337
 INBOUND_TPROXY_ROUTE_TABLE=133
 INBOUND_PORTS_INCLUDE=*
 INBOUND_PORTS_EXCLUDE=7777,8888
-OUTBOUND_IP_RANGES_INCLUDE=2001:db8:1::1/32
-OUTBOUND_IP_RANGES_EXCLUDE=2019:db8:1::1/32
+OUTBOUND_IP_RANGES_INCLUDE=2001:db8::/32
+OUTBOUND_IP_RANGES_EXCLUDE=2019:db8::/32
 OUTBOUND_PORTS_EXCLUDE=
 KUBEVIRT_INTERFACES=eth1,eth2
-ENABLE_INBOUND_IPV6=
+ENABLE_INBOUND_IPV6=2001:db8:1::1
 
 iptables -t nat -N ISTIO_REDIRECT
 iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port 12345
@@ -68,9 +68,42 @@ iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 4444 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
 iptables -t nat -I PREROUTING 1 -i eth1 -j RETURN
 iptables -t nat -I PREROUTING 1 -i eth2 -j RETURN
-ip6tables -F INPUT
-ip6tables -A INPUT -m state --state ESTABLISHED -j ACCEPT
-ip6tables -A INPUT -i lo -d ::1 -j ACCEPT
-ip6tables -A INPUT -j REJECT
+ip6tables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND
+ip6tables -t mangle -D PREROUTING -p tcp -j ISTIO_INBOUND
+ip6tables -t nat -D OUTPUT -p tcp -j ISTIO_OUTPUT
+ip6tables -t nat -F ISTIO_OUTPUT
+ip6tables -t nat -X ISTIO_OUTPUT
+ip6tables -t nat -F ISTIO_INBOUND
+ip6tables -t nat -X ISTIO_INBOUND
+ip6tables -t mangle -F ISTIO_INBOUND
+ip6tables -t mangle -X ISTIO_INBOUND
+ip6tables -t mangle -F ISTIO_DIVERT
+ip6tables -t mangle -X ISTIO_DIVERT
+ip6tables -t mangle -F ISTIO_TPROXY
+ip6tables -t mangle -X ISTIO_TPROXY
+ip6tables -t nat -F ISTIO_REDIRECT
+ip6tables -t nat -X ISTIO_REDIRECT
+ip6tables -t nat -F ISTIO_IN_REDIRECT
+ip6tables -t nat -X ISTIO_IN_REDIRECT
+ip6tables -t nat -N ISTIO_REDIRECT
+ip6tables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port 12345
+ip6tables -t nat -N ISTIO_IN_REDIRECT
+ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port 12345
+ip6tables -t nat -N ISTIO_INBOUND
+ip6tables -t nat -A PREROUTING -p tcp -j ISTIO_INBOUND
+ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 22 -j RETURN
+ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 7777 -j RETURN
+ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 8888 -j RETURN
+ip6tables -t nat -N ISTIO_OUTPUT
+ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
+ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -j ISTIO_REDIRECT
+ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 4321 -j RETURN
+ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 4444 -j RETURN
+ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN
+ip6tables -t nat -A ISTIO_OUTPUT -d 2019:db8::/32 -j RETURN
+ip6tables -t nat -I PREROUTING 1 -i eth1 -d 2001:db8::/32 -j ISTIO_REDIRECT
+ip6tables -t nat -I PREROUTING 1 -i eth2 -d 2001:db8::/32 -j ISTIO_REDIRECT
+ip6tables -t nat -A ISTIO_OUTPUT -d 2001:db8::/32 -j ISTIO_REDIRECT
+ip6tables -t nat -A ISTIO_OUTPUT -j RETURN
 iptables-save 
 ip6tables-save 

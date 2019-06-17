@@ -29,6 +29,11 @@ spec:
   selector:
     app: details
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bookinfo-details
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -48,6 +53,7 @@ spec:
         app: details
         version: v1
     spec:
+      serviceAccountName: bookinfo-details
       containers:
       - name: details
         image: istio/examples-bookinfo-details-v1:1.14.0
@@ -72,6 +78,11 @@ spec:
   selector:
     app: ratings
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bookinfo-ratings
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -91,6 +102,7 @@ spec:
         app: ratings
         version: v1
     spec:
+      serviceAccountName: bookinfo-ratings
       containers:
       - name: ratings
         image: istio/examples-bookinfo-ratings-v1:1.14.0
@@ -115,6 +127,11 @@ spec:
   selector:
     app: reviews
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bookinfo-reviews
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -134,6 +151,7 @@ spec:
         app: reviews
         version: v1
     spec:
+      serviceAccountName: bookinfo-reviews
       containers:
       - name: reviews
         image: istio/examples-bookinfo-reviews-v1:1.14.0
@@ -160,6 +178,7 @@ spec:
         app: reviews
         version: v2
     spec:
+      serviceAccountName: bookinfo-reviews
       containers:
       - name: reviews
         image: istio/examples-bookinfo-reviews-v2:1.14.0
@@ -186,6 +205,7 @@ spec:
         app: reviews
         version: v3
     spec:
+      serviceAccountName: bookinfo-reviews
       containers:
       - name: reviews
         image: istio/examples-bookinfo-reviews-v3:1.14.0
@@ -210,6 +230,11 @@ spec:
   selector:
     app: productpage
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bookinfo-productpage
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -229,6 +254,7 @@ spec:
         app: productpage
         version: v1
     spec:
+      serviceAccountName: bookinfo-productpage
       containers:
       - name: productpage
         image: istio/examples-bookinfo-productpage-v1:1.14.0
