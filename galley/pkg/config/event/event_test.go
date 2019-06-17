@@ -154,3 +154,95 @@ func TestEvent_FullSyncFor(t *testing.T) {
 	}
 	g.Expect(e).To(Equal(expected))
 }
+
+func TestEvent_AddFor(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	r := resource.Entry{
+		Metadata: resource.Metadata{
+			Name: resource.NewName("ns1", "rs1"),
+			Labels: map[string]string{
+				"foo": "bar",
+			},
+			Version: "v1",
+		},
+		Item: &types.Empty{},
+	}
+
+	e := AddFor(collection.NewName("boo"), &r)
+
+	expected := Event{
+		Kind:   Added,
+		Source: collection.NewName("boo"),
+		Entry:  &r,
+	}
+	g.Expect(e).To(Equal(expected))
+}
+
+func TestEvent_UpdateFor(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	r := resource.Entry{
+		Metadata: resource.Metadata{
+			Name: resource.NewName("ns1", "rs1"),
+			Labels: map[string]string{
+				"foo": "bar",
+			},
+			Version: "v1",
+		},
+		Item: &types.Empty{},
+	}
+
+	e := UpdateFor(collection.NewName("boo"), &r)
+
+	expected := Event{
+		Kind:   Updated,
+		Source: collection.NewName("boo"),
+		Entry:  &r,
+	}
+	g.Expect(e).To(Equal(expected))
+}
+
+func TestEvent_DeleteFor(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	n := resource.NewName("ns1", "rs1")
+	v := resource.Version("v1")
+	e := DeleteFor(collection.NewName("boo"), n, v)
+
+	expected := Event{
+		Kind:   Deleted,
+		Source: collection.NewName("boo"),
+		Entry: &resource.Entry{
+			Metadata: resource.Metadata{
+				Name:    n,
+				Version: v,
+			},
+		},
+	}
+	g.Expect(e).To(Equal(expected))
+}
+
+func TestEvent_UpdateForResource(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	r := resource.Entry{
+		Metadata: resource.Metadata{
+			Name: resource.NewName("ns1", "rs1"),
+			Labels: map[string]string{
+				"foo": "bar",
+			},
+			Version: "v1",
+		},
+		Item: &types.Empty{},
+	}
+
+	e := DeleteForResource(collection.NewName("boo"), &r)
+
+	expected := Event{
+		Kind:   Deleted,
+		Source: collection.NewName("boo"),
+		Entry:  &r,
+	}
+	g.Expect(e).To(Equal(expected))
+}

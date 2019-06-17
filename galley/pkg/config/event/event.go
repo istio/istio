@@ -61,3 +61,27 @@ func (e Event) String() string {
 func FullSyncFor(source collection.Name) Event {
 	return Event{Kind: FullSync, Source: source}
 }
+
+// AddFor creates an Add event for the given source and entry.
+func AddFor(source collection.Name, r *resource.Entry) Event {
+	return Event{Kind: Added, Source: source, Entry: r}
+}
+
+// UpdateFor creates an Update event for the given source and entry.
+func UpdateFor(source collection.Name, r *resource.Entry) Event {
+	return Event{Kind: Updated, Source: source, Entry: r}
+}
+
+// DeleteForResource creates a Deleted event for the given source and entry.
+func DeleteForResource(source collection.Name, r *resource.Entry) Event {
+	return Event{Kind: Deleted, Source: source, Entry: r}
+}
+// DeleteFor creates a Delete event for the given source and name.
+func DeleteFor(source collection.Name, name resource.Name, v resource.Version) Event {
+	return Event{Kind: Deleted, Source: source, Entry: &resource.Entry{
+		Metadata: resource.Metadata{
+			Name: name,
+			Version: v,
+		},
+	}}
+}
