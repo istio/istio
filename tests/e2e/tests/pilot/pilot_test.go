@@ -388,7 +388,6 @@ func getApp(deploymentName, serviceName string, replicas, port1, port2, port3, p
 			"port5":           strconv.Itoa(port5),
 			"port6":           strconv.Itoa(port6),
 			"version":         version,
-			"istioNamespace":  tc.Kube.Namespace,
 			"injectProxy":     strconv.FormatBool(injectProxy),
 			"headless":        strconv.FormatBool(headless),
 			"serviceAccount":  strconv.FormatBool(serviceAccount),
