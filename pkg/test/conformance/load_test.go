@@ -263,7 +263,6 @@ func TestBasic_2Stage(t *testing.T) {
 	g.Expect(m).To(Equal(expected))
 }
 
-
 func TestBasic_SpuriousFolder(t *testing.T) {
 	g := NewGomegaWithT(t)
 
