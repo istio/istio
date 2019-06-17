@@ -106,6 +106,8 @@ func loadTest(dir, name string) (*Test, error) {
 		stMap := make(map[int]*Stage)
 		for _, f := range entries {
 			if !f.IsDir() {
+				// There can be non-directory files in the case of staged execution. One example is the
+				// test metadata file that spans all stages.
 				continue
 			}
 
