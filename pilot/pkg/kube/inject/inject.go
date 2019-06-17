@@ -669,6 +669,7 @@ func includeInboundPorts(containers []corev1.Container) string {
 	return getContainerPorts(containers, func(corev1.Container) bool { return true })
 }
 
+// nolint: golint
 func toJson(m map[string]string) string {
 	if m == nil {
 		return "{}"

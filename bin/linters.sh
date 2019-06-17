@@ -18,9 +18,9 @@ echo 'Checking Pilot types generation ....'
 bin/check_pilot_codegen.sh
 echo 'Pilot types generation OK'
 
-echo 'Running format/imports check ....'
-bin/fmt.sh -c
-echo 'Format/imports check OK'
+# echo 'Running format/imports check ....'
+# bin/fmt.sh -c
+# echo 'Format/imports check OK'
 
 echo 'Checking licenses'
 bin/check_license.sh

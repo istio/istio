@@ -47,7 +47,7 @@ import (
 
 // TODO(myidpt): move the following constants to pkg/cmd.
 const (
-	defaultSelfSignedCACertTTL = 365 * 24 * time.Hour
+	defaultSelfSignedCACertTTL = 3650 * 24 * time.Hour
 
 	defaultRequestedCACertTTL = 365 * 24 * time.Hour
 
