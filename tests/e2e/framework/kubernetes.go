@@ -33,6 +33,7 @@ import (
 	"github.com/pkg/errors"
 
 	testKube "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/util"
 	"istio.io/pkg/log"
 )
@@ -85,6 +86,8 @@ const (
 	// RemoteCluster identifies the remote cluster
 	RemoteCluster = "remote"
 
+	kubernetesReadinessTimeout        = time.Second * 180
+	kubernetesReadinessInterval       = 200 * time.Millisecond
 	validationWebhookReadinessTimeout = time.Minute
 	validationWebhookReadinessFreq    = 100 * time.Millisecond
 )
@@ -370,11 +373,15 @@ func (k *KubeInfo) IstioEgressGatewayService() string {
 	return istioEgressGatewayServiceName
 }
 
-// Setup set up Kubernetes prerequest for tests
+// Setup Kubernetes pre-requisites for tests
 func (k *KubeInfo) Setup() error {
 	log.Infoa("Setting up kubeInfo setupSkip=", *skipSetup)
 	var err error
 	if err = os.Mkdir(k.yamlDir, os.ModeDir|os.ModePerm); err != nil {
+		return err
+	}
+
+	if err = k.waitForKubernetes(); err != nil {
 		return err
 	}
 
@@ -897,6 +904,17 @@ spec:
     - validation-readiness-dummy
 `
 )
+
+// Wait for Kubernetes to become active within kubernetesReadinessTimeout period
+// This operation only retreives the pods in the kube-system namespace
+// (TODO) sdake: This may be insufficient for a complete readiness check of Kubernetes
+func (k *KubeInfo) waitForKubernetes() error {
+	log.Info("Waiting for Kubernetes to become responsive")
+	return retry.UntilSuccess(func() error {
+		_, err := k.KubeAccessor.GetPods("kube-system")
+		return err
+	}, retry.Delay(kubernetesReadinessInterval), retry.Timeout(kubernetesReadinessTimeout))
+}
 
 func (k *KubeInfo) waitForValdiationWebhook() error {
 
