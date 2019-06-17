@@ -21,6 +21,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -45,6 +46,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out echo.Instance, err 
 	env := ctx.Environment().(*native.Environment)
 
 	// Fill in defaults for any missing values.
+	common.AddPortIfMissing(&cfg, model.ProtocolGRPC)
 	if err = common.FillInDefaults(ctx, env.Domain, &cfg); err != nil {
 		return nil, err
 	}
