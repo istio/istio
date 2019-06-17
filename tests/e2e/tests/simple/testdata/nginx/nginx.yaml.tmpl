@@ -293,8 +293,10 @@ metadata:
   labels:
     app: ingress-nginx
 spec:
-  externalTrafficPolicy: Local
-  type: LoadBalancer
+  #externalTrafficPolicy: Local
+  #type: LoadBalancer
+  # Use ClusterIP since test client is within same cluster and kube-proxy IPv6 NAT rules
+  # are not globally set up on all nodes for LoadBalancer type services.
   selector:
     app: ingress-nginx
   ports:

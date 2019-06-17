@@ -378,35 +378,3 @@ func verifyOutput(t *testing.T, c testCase) {
 		}
 	}
 }
-
-func TestKubeInject(t *testing.T) {
-	cases := []testCase{
-		{ // case 0
-			configs:        []model.Config{},
-			args:           strings.Split("kube-inject", " "),
-			expectedOutput: "Error: filename not specified (see --filename or -f)\n",
-			wantException:  true,
-		},
-		{ // case 1
-			configs:        []model.Config{},
-			args:           strings.Split("kube-inject -f missing.yaml", " "),
-			expectedOutput: "Error: open missing.yaml: no such file or directory\n",
-			wantException:  true,
-		},
-		{ // case 2
-			configs: []model.Config{},
-			args: strings.Split(
-				"kube-inject --meshConfigFile testdata/mesh-config.yaml"+
-					" --injectConfigFile testdata/inject-config.yaml -f testdata/deployment/hello.yaml"+
-					" --valuesFile testdata/inject-values.yaml",
-				" "),
-			goldenFilename: "testdata/deployment/hello.yaml.injected",
-		},
-	}
-
-	for i, c := range cases {
-		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			verifyOutput(t, c)
-		})
-	}
-}

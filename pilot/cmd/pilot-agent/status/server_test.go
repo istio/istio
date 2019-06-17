@@ -125,8 +125,8 @@ func TestAppProbe(t *testing.T) {
 		statusCode int
 	}{
 		{
-			probePath:  fmt.Sprintf(":%v/bad-path-should-be-disallowed", statusPort),
-			statusCode: http.StatusBadRequest,
+			probePath:  fmt.Sprintf(":%v/bad-path-should-be-404", statusPort),
+			statusCode: http.StatusNotFound,
 		},
 		{
 			probePath:  fmt.Sprintf(":%v/app-health/hello-world/readyz", statusPort),
@@ -190,7 +190,7 @@ func TestHttpsAppProbe(t *testing.T) {
 	}{
 		{
 			probePath:  fmt.Sprintf(":%v/bad-path-should-be-disallowed", statusPort),
-			statusCode: http.StatusBadRequest,
+			statusCode: http.StatusNotFound,
 		},
 		{
 			probePath:  fmt.Sprintf(":%v/app-health/hello-world/readyz", statusPort),

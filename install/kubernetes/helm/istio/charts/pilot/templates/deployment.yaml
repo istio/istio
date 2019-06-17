@@ -183,7 +183,7 @@ spec:
             readOnly: true
           {{- if $.Values.global.sds.enabled }}
           - name: sds-uds-path
-            mountPath: /var/run/sds/uds_path
+            mountPath: /var/run/sds
             readOnly: true
           {{- if $.Values.global.sds.useTrustworthyJwt }}
           - name: istio-token
@@ -194,8 +194,7 @@ spec:
       volumes:
       {{- if $.Values.global.sds.enabled }}
       - hostPath:
-          path: /var/run/sds/uds_path
-          type: Socket
+          path: /var/run/sds
         name: sds-uds-path
       {{- if $.Values.global.sds.useTrustworthyJwt }}
       - name: istio-token

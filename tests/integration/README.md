@@ -361,6 +361,11 @@ using the default (native) environment, you can simply type:
 go test ./tests/integration/mycomponent/...
 ```
 
+Note that samples below invoking variations of ```go test ./...``` are intended to be run from the ```tests/integration``` directory.
+
+| WARNING: Many tests, including integration tests, assume that a [helm](https://github.com/helm/helm/blob/master/docs/install.md) client is installed and on the path.|
+| --- |
+
 ### Test Parellelism and Kubernetes
 
 By default, Go will run tests within the same package (i.e. suite) synchronously. However, tests in other packages
@@ -500,7 +505,10 @@ $ go test ./... -p 1 --istio.test.env kube
 | --- |
 
 When running the tests against the Kubernetes environment, you will need to provide a K8s cluster to run the tests
-against. You can specify the kube config file that should be used to use for connecting to the cluster, through
+against.
+(See [here](https://github.com/istio/istio/blob/master/tests/integration/GKE.md)
+for info about how to set up a suitable GKE cluster.)
+You can specify the kube config file that should be used to use for connecting to the cluster, through
 command-line:
 
 ```console
@@ -510,6 +518,8 @@ $ go test ./... -p 1 --istio.test.env kube --istio.test.kube.config ~/.kube/conf
 If not specified, `~/.kube/config` will be used by default.
 
 **Be aware that any existing content will be altered and/or removed from the cluster**.
+
+Note that the HUB and TAG environment variables **must** be set when running tests in the Kubernetes environment.
 
 ## Diagnosing Failures
 

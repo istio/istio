@@ -55,7 +55,7 @@ const (
 	IdentityPodAnnotation = "alpha.istio.io/identity"
 )
 
-func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
+func ConvertLabels(obj meta_v1.ObjectMeta) model.Labels {
 	out := make(model.Labels, len(obj.Labels))
 	for k, v := range obj.Labels {
 		out[k] = v
@@ -71,7 +71,7 @@ func convertPort(port v1.ServicePort) *model.Port {
 	}
 }
 
-func convertService(svc v1.Service, domainSuffix string, clusterID string) *model.Service {
+func ConvertService(svc v1.Service, domainSuffix string, clusterID string) *model.Service {
 	addr, external := model.UnspecifiedIP, ""
 	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != v1.ClusterIPNone {
 		addr = svc.Spec.ClusterIP
@@ -116,7 +116,7 @@ func convertService(svc v1.Service, domainSuffix string, clusterID string) *mode
 	sort.Strings(serviceaccounts)
 
 	istioService := &model.Service{
-		Hostname:        serviceHostname(svc.Name, svc.Namespace, domainSuffix),
+		Hostname:        ServiceHostname(svc.Name, svc.Namespace, domainSuffix),
 		Ports:           ports,
 		Address:         addr,
 		ServiceAccounts: serviceaccounts,
@@ -151,7 +151,7 @@ func convertService(svc v1.Service, domainSuffix string, clusterID string) *mode
 	return istioService
 }
 
-func externalNameServiceInstances(k8sSvc v1.Service, svc *model.Service) []*model.ServiceInstance {
+func ExternalNameServiceInstances(k8sSvc v1.Service, svc *model.Service) []*model.ServiceInstance {
 	if k8sSvc.Spec.Type != v1.ServiceTypeExternalName || k8sSvc.Spec.ExternalName == "" {
 		return nil
 	}
@@ -170,8 +170,8 @@ func externalNameServiceInstances(k8sSvc v1.Service, svc *model.Service) []*mode
 	return out
 }
 
-// serviceHostname produces FQDN for a k8s service
-func serviceHostname(name, namespace, domainSuffix string) model.Hostname {
+// ServiceHostname produces FQDN for a k8s service
+func ServiceHostname(name, namespace, domainSuffix string) model.Hostname {
 	return model.Hostname(fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix))
 }
 
@@ -180,8 +180,8 @@ func kubeToIstioServiceAccount(saname string, ns string) string {
 	return spiffe.MustGenSpiffeURI(ns, saname)
 }
 
-// secureNamingSAN creates the secure naming used for SAN verification from pod metadata
-func secureNamingSAN(pod *v1.Pod) string {
+// SecureNamingSAN creates the secure naming used for SAN verification from pod metadata
+func SecureNamingSAN(pod *v1.Pod) string {
 
 	//use the identity annotation
 	if identity, exist := pod.Annotations[IdentityPodAnnotation]; exist {
@@ -200,8 +200,8 @@ func KeyFunc(name, namespace string) string {
 	return namespace + "/" + name
 }
 
-// parseHostname extracts service name and namespace from the service hostname
-func parseHostname(hostname model.Hostname) (name string, namespace string, err error) {
+// ParseHostname extracts service name and namespace from the service hostname
+func ParseHostname(hostname model.Hostname) (name string, namespace string, err error) {
 	parts := strings.Split(string(hostname), ".")
 	if len(parts) < 2 {
 		err = fmt.Errorf("missing service name and namespace from the service hostname %q", hostname)
@@ -238,7 +238,7 @@ func ConvertProtocol(name string, proto v1.Protocol) model.Protocol {
 	return out
 }
 
-func convertProbePort(c *v1.Container, handler *v1.Handler) (*model.Port, error) {
+func ConvertProbePort(c *v1.Container, handler *v1.Handler) (*model.Port, error) {
 	if handler == nil {
 		return nil, nil
 	}
@@ -283,9 +283,9 @@ func convertProbePort(c *v1.Container, handler *v1.Handler) (*model.Port, error)
 	}
 }
 
-// convertProbesToPorts returns a PortList consisting of the ports where the
+// ConvertProbesToPorts returns a PortList consisting of the ports where the
 // pod is configured to do Liveness and Readiness probes
-func convertProbesToPorts(t *v1.PodSpec) (model.PortList, error) {
+func ConvertProbesToPorts(t *v1.PodSpec) (model.PortList, error) {
 	set := make(map[string]*model.Port)
 	var errs error
 	for _, container := range t.Containers {
@@ -294,7 +294,7 @@ func convertProbesToPorts(t *v1.PodSpec) (model.PortList, error) {
 				continue
 			}
 
-			p, err := convertProbePort(&container, &probe.Handler)
+			p, err := ConvertProbePort(&container, &probe.Handler)
 			if err != nil {
 				errs = multierror.Append(errs, err)
 			} else if p != nil && set[p.Name] == nil {

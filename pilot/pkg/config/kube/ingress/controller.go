@@ -29,6 +29,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -81,7 +82,7 @@ var (
 
 // NewController creates a new Kubernetes controller
 func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
-	options kube.ControllerOptions) model.ConfigStoreCache {
+	options kubecontroller.Options) model.ConfigStoreCache {
 	handler := &kube.ChainHandler{}
 
 	// queue requires a time duration for a retry delay after a handler error
