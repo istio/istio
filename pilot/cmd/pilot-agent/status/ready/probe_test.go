@@ -22,6 +22,7 @@ import (
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/gomega"
 )
 
@@ -163,7 +164,7 @@ func TestEnvoyInitializing(t *testing.T) {
 	g.Expect(err).To(HaveOccurred())
 }
 
-func createAndStartServer(statsToReturn string, serverInfo *admin.ServerInfo) *httptest.Server {
+func createAndStartServer(statsToReturn string, serverInfo proto.Message) *httptest.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/stats", http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		// Send response to be tested
@@ -171,10 +172,10 @@ func createAndStartServer(statsToReturn string, serverInfo *admin.ServerInfo) *h
 	}))
 	mux.HandleFunc("/server_info", http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		jsonm := &jsonpb.Marshaler{Indent: "  "}
-		infoJson, _ := jsonm.MarshalToString(serverInfo)
+		infoJSON, _ := jsonm.MarshalToString(serverInfo)
 
 		// Send response to be tested
-		rw.Write([]byte(infoJson))
+		rw.Write([]byte(infoJSON))
 	}))
 
 	// Start a local HTTP server
