@@ -24,6 +24,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
+	"istio.io/istio/security/pkg/pki/util"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	authapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -111,6 +115,8 @@ type sdsservice struct {
 
 	// close channel.
 	closing chan bool
+
+	sdsMetrics monitoringMetrics
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
@@ -238,7 +244,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 			con.secret = secret
 
-			if err := pushSDS(con); err != nil {
+			if err := s.pushSDS(con); err != nil {
 				sdsServiceLog.Errorf("SDS failed to push key/cert to proxy %q connection %q: %v", con.proxyID, con.conID, err)
 				return err
 			}
@@ -259,7 +265,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				return fmt.Errorf("streaming for proxy %q connection %q closed", con.proxyID, con.conID)
 			}
 
-			if err := pushSDS(con); err != nil {
+			if err := s.pushSDS(con); err != nil {
 				sdsServiceLog.Errorf("SDS failed to push key/cert to proxy %q connection %q: %v", con.proxyID, con.conID, err)
 				return err
 			}
@@ -405,7 +411,7 @@ func addConn(k cache.ConnKey, conn *sdsConnection) {
 	sdsClients[k] = conn
 }
 
-func pushSDS(con *sdsConnection) error {
+func (s *sdsservice) pushSDS(con *sdsConnection) error {
 	con.mutex.RLock()
 	conID := con.conID
 	secret := *con.secret
@@ -421,22 +427,47 @@ func pushSDS(con *sdsConnection) error {
 	if err = con.stream.Send(response); err != nil {
 		sdsServiceLog.Errorf("Failed to send response for SDS resource %q to proxy connection %q: %v",
 			resourceName, conID, err)
+		s.sdsMetrics.pushFailurePerConn.With(prometheus.Labels{"resourcePerConn": resourceName + "-" + conID}).Inc()
 		return err
 	}
 
+	// Update metrics after push to avoid adding latency to SDS push.
 	if secret.RootCert != nil {
 		sdsServiceLog.Infof("Pushed root cert (resource name: %q) from node agent to proxy connection: %q\n",
 			resourceName, conID)
 		sdsServiceLog.Debugf("Pushed root cert %+v (resource name: %q) to proxy connection: %q\n",
 			string(secret.RootCert), resourceName, conID)
+		s.sdsMetrics.rootCertExpiryTimestamp.With(prometheus.Labels{"resourcePerConn": resourceName + "-" + conID}).Set(
+			extractCertExpiryTimestamp(resourceName, conID, secret.RootCert))
 	} else {
 		sdsServiceLog.Infof("Pushed key/cert pair (resource name: %q) from node agent to proxy: %q\n",
 			resourceName, conID)
 		sdsServiceLog.Debugf("Pushed certificate chain %+v (resource name: %q) to proxy connection: %q\n",
 			string(secret.CertificateChain), resourceName, conID)
+		s.sdsMetrics.serverCertExpiryTimestamp.With(prometheus.Labels{"resourcePerConn": resourceName + "-" + conID}).Set(
+			extractCertExpiryTimestamp(resourceName, conID, secret.CertificateChain))
 	}
-
+	s.sdsMetrics.pushPerConn.With(prometheus.Labels{"resourcePerConn": resourceName + "-" + conID}).Inc()
+	s.sdsMetrics.pendingPushPerConn.With(prometheus.Labels{"resourcePerConn": resourceName + "-" + conID}).Desc()
+	s.sdsMetrics.totalPush.Inc()
 	return nil
+}
+
+// extractCertExpiryTimestamp returns the cert expiration time as unix timestamp.
+func extractCertExpiryTimestamp(resourceName, conID string, certByte []byte) float64 {
+	cert, err := util.ParsePemEncodedCertificate(certByte)
+	if err != nil {
+		sdsServiceLog.Errorf("failed to parse the cert pushed to connection %q as resource: %q: %v",
+			conID, resourceName, err)
+		return -1
+	}
+	end := cert.NotAfter
+	if end.Before(time.Now()) {
+		// Set warn level as it could be an error from CA or an intend to push expired cert.
+		sdsServiceLog.Warnf("expired cert pushed to connection %q as resource: %q, x509.NotAfter %v",
+			conID, resourceName, end)
+	}
+	return float64(end.Unix())
 }
 
 func sdsDiscoveryResponse(s *model.SecretItem, conID string) (*xdsapi.DiscoveryResponse, error) {
