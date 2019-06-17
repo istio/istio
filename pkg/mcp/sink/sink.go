@@ -185,6 +185,7 @@ func (sink *Sink) createInitialRequests() []*mcp.RequestResources {
 // stream interface and returns when a send or receive error occurs. The caller is responsible for
 // handling gRPC client/server specific error handling.
 func (sink *Sink) ProcessStream(stream Stream) error {
+	errCh := make(chan error, 2)
 	initialRequests := sink.createInitialRequests()
 	reqChan := make(chan *mcp.RequestResources, len(initialRequests))
 	defer close(reqChan)
@@ -198,34 +199,41 @@ func (sink *Sink) ProcessStream(stream Stream) error {
 			if err := stream.Send(req); err != nil {
 				sink.reporter.RecordSendError(err, status.Code(err))
 				scope.Errorf("Error sending MCP request %v: %v", req, err)
+				errCh <- err
 				return
 			}
 		}
 	}()
 
-	// handle response
-	for {
-		resources, err := stream.Recv()
-		if err != nil {
-			if err != io.EOF {
-				sink.reporter.RecordRecvError(err, status.Code(err))
-				scope.Errorf("Error receiving MCP resource: %v", err)
+	go func() {
+		// handle response
+		for {
+			resources, err := stream.Recv()
+			if err != nil {
+				if err != io.EOF {
+					sink.reporter.RecordRecvError(err, status.Code(err))
+					scope.Errorf("Error receiving MCP resource: %v", err)
+				}
+				errCh <- err
+				return
 			}
-			return err
-		}
-		// TODO: separate handleResponse with Recv in case it blocks Recv
-		req := sink.handleResponse(resources)
-		timer := time.NewTimer(5 * time.Second) // TODO: make this configurable
-		select {
-		case reqChan <- req:
-			if !timer.Stop() {
-				<-timer.C
+			// TODO: separate handleResponse with Recv in case it blocks Recv
+			req := sink.handleResponse(resources)
+			timer := time.NewTimer(5 * time.Second) // TODO: make this configurable
+			select {
+			case reqChan <- req:
+				if !timer.Stop() {
+					<-timer.C
+				}
+			case <-timer.C:
+				scope.Errorf("Error sending MCP request timeout")
+				errCh <- fmt.Errorf("error sending MCP request timeout")
+				return
 			}
-		case <-timer.C:
-			scope.Errorf("Error sending MCP request timeout")
-			return fmt.Errorf("error sending MCP request timeout")
 		}
-	}
+	}()
+
+	return <-errCh
 }
 
 // SnapshotRequestInfo returns a snapshot of the last known set of request results.
