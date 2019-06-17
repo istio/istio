@@ -203,7 +203,7 @@ func (sink *Sink) ProcessStream(stream Stream) error {
 		}
 	}()
 
-	// handle response and send ACK/NACK
+	// handle response
 	for {
 		resources, err := stream.Recv()
 		if err != nil {
@@ -213,10 +213,15 @@ func (sink *Sink) ProcessStream(stream Stream) error {
 			}
 			return err
 		}
+		// TODO: separate handleResponse with Recv in case it blocks Recv
 		req := sink.handleResponse(resources)
+		timer := time.NewTimer(5 * time.Second) // TODO: make this configurable
 		select {
 		case reqChan <- req:
-		case <-time.After(5 * time.Second): // TODO: make this configurable
+			if !timer.Stop() {
+				<-timer.C
+			}
+		case <-timer.C:
 			scope.Errorf("Error sending MCP request timeout")
 			return fmt.Errorf("error sending MCP request timeout")
 		}
