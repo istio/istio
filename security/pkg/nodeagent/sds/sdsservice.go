@@ -67,7 +67,7 @@ var (
 	sdsServiceLog    = log.RegisterScope("sdsServiceLog", "SDS service debugging", 0)
 
 	// metrics for monitoring SDS service.
-	sdsMetrics 			 = newMonitoringMetrics()
+	sdsMetrics = newMonitoringMetrics()
 )
 
 type discoveryStream interface {

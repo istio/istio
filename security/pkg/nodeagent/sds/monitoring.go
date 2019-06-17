@@ -29,8 +29,9 @@ var (
 	pendingPushPerConnCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel_agent",
 		Subsystem: "sds_service",
-		Name:      "push_count",
-		Help:      "The number of secret pushes to an active SDS connection.",
+		Name:      "pending_push_count",
+		Help: "The number of pending secret pushes to an active SDS connection. " +
+			"According to xDS protocol this metric should be either 0 or 1",
 	}, []string{"resourcePerConn"})
 
 	staleConnCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -98,7 +99,7 @@ func newMonitoringMetrics() monitoringMetrics {
 	return monitoringMetrics{
 		totalPush:                 totalPushCounts,
 		pendingPushPerConn:        pendingPushPerConnCounts,
-		staleConn:								 staleConnCounts,
+		staleConn:                 staleConnCounts,
 		pushPerConn:               pushPerConnCounts,
 		pushFailurePerConn:        pushFailurePerConnCounts,
 		rootCertExpiryTimestamp:   rootCertExpiryTimestamp,

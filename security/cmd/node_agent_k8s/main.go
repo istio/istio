@@ -248,9 +248,9 @@ var (
 	secretRotationIntervalEnv          = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
 	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute, "").Get()
 	initialBackoffEnv                  = env.RegisterIntVar(InitialBackoff, 10, "").Get()
-	monitoringPortEnv                  = env.RegisterIntVar(MonitoringPort, 9093,
+	monitoringPortEnv                  = env.RegisterIntVar(MonitoringPort, 15014,
 		"The port number for monitoring Citadel agent").Get()
-	enableProfilingEnv = env.RegisterBoolVar(EnableProfiling, false,
+	enableProfilingEnv = env.RegisterBoolVar(EnableProfiling, true,
 		"Enabling profiling when monitoring Citadel agent").Get()
 )
 
