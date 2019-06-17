@@ -1239,6 +1239,10 @@ func ValidateMixerAttributes(msg proto.Message) error {
 	}
 	var errs error
 	for k, v := range in.Attributes {
+		if v == nil {
+			errs = multierror.Append(errs, errors.New("an attribute cannot be empty"))
+			continue
+		}
 		switch val := v.Value.(type) {
 		case *mpb.Attributes_AttributeValue_StringValue:
 			if val.StringValue == "" {
@@ -1371,6 +1375,10 @@ func ValidateQuotaSpec(_, _ string, msg proto.Message) error {
 	for _, rule := range in.Rules {
 		for _, match := range rule.Match {
 			for name, clause := range match.Clause {
+				if clause == nil {
+					errs = multierror.Append(errs, errors.New("a clause cannot be empty"))
+					continue
+				}
 				switch matchType := clause.MatchType.(type) {
 				case *mccpb.StringMatch_Exact:
 					if matchType.Exact == "" {
@@ -1477,6 +1485,14 @@ func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) err
 		}
 	}
 	for _, method := range in.Origins {
+		if method == nil {
+			errs = multierror.Append(errs, errors.New("origin cannot be empty"))
+			continue
+		}
+		if method.Jwt == nil {
+			errs = multierror.Append(errs, errors.New("jwt cannot be empty"))
+			continue
+		}
 		if _, jwtExist := jwtIssuers[method.Jwt.Issuer]; jwtExist {
 			errs = appendErrors(errs, fmt.Errorf("jwt with issuer %q already defined", method.Jwt.Issuer))
 		} else {
