@@ -33,6 +33,13 @@ var (
 		Help:      "The number of secret pushes to an active SDS connection.",
 	}, []string{"resourcePerConn"})
 
+	staleConnCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "citadel_agent",
+		Subsystem: "sds_service",
+		Name:      "stale_conn_count",
+		Help:      "The number of stale SDS connections.",
+	}, []string{"staleConn"})
+
 	pushPerConnCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel_agent",
 		Subsystem: "sds_service",
@@ -69,6 +76,7 @@ var (
 func init() {
 	prometheus.MustRegister(totalPushCounts)
 	prometheus.MustRegister(pendingPushPerConnCounts)
+	prometheus.MustRegister(staleConnCounts)
 	prometheus.MustRegister(pushPerConnCounts)
 	prometheus.MustRegister(rootCertExpiryTimestamp)
 	prometheus.MustRegister(serverCertExpiryTimestamp)
@@ -78,6 +86,7 @@ func init() {
 type monitoringMetrics struct {
 	totalPush                 prometheus.Counter
 	pendingPushPerConn        *prometheus.CounterVec
+	staleConn                 *prometheus.CounterVec
 	pushPerConn               *prometheus.CounterVec
 	pushFailurePerConn        *prometheus.CounterVec
 	rootCertExpiryTimestamp   *prometheus.GaugeVec
@@ -89,6 +98,7 @@ func newMonitoringMetrics() monitoringMetrics {
 	return monitoringMetrics{
 		totalPush:                 totalPushCounts,
 		pendingPushPerConn:        pendingPushPerConnCounts,
+		staleConn:								 staleConnCounts,
 		pushPerConn:               pushPerConnCounts,
 		pushFailurePerConn:        pushFailurePerConnCounts,
 		rootCertExpiryTimestamp:   rootCertExpiryTimestamp,
