@@ -622,7 +622,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(pilot_xds_pushes{type!~\".*_senderr\"}[1m])) by (type)",
+          "expr": "sum(irate(pilot_xds_pushes{type=~\"lds|cds|rds|eds\"}[1m])) by (type)",
           "format": "time_series",
           "instant": false,
           "interval": "",
