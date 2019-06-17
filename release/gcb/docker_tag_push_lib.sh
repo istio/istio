@@ -54,13 +54,15 @@ function add_extra_artifacts_to_tar_images() {
   fi
 
   for TAR_PATH in "${OUT_PATH}"/docker/*.tar.gz; do
-    BASE_NAME=$(basename "$TAR_PATH")
-    TAR_NAME="${BASE_NAME%.*}"
-    IMAGE_NAME="${TAR_NAME%.*}"
-
     # if no docker/ directory or directory has no tar files
-    if [[ "${IMAGE_NAME}" == "*" ]]; then
+    if [[ "${TAR_PATH}" == *"/docker/*.tar.gz" ]]; then
       break
+    fi
+    set_image_vars "$TAR_PATH"
+
+    #check if it is a build variant (e.g. distroless)
+    if [[ "${IMAGE_NAME}" == "${VARIANT_NAME}" ]]; then
+      TAG="${TAG}-${VARIANT_NAME}"
     fi
     docker load -i "${TAR_PATH}"
 
@@ -85,15 +87,12 @@ function docker_tag_images() {
   OUT_PATH="$3"
 
   for TAR_PATH in "${OUT_PATH}"/docker/*.tar.gz; do
-    BASE_NAME=$(basename "$TAR_PATH")
-    TAR_NAME="${BASE_NAME%.*}"
-    IMAGE_NAME="${TAR_NAME%.*}"
-    VARIANT_NAME="${IMAGE_NAME##*-}"
-
     # if no docker/ directory or directory has no tar files
-    if [[ "${IMAGE_NAME}" == "*" ]]; then
+    if [[ "${TAR_PATH}" == *"/docker/*.tar.gz" ]]; then
       break
     fi
+    set_image_vars "$TAR_PATH"
+
     docker load -i "${TAR_PATH}"
     DOCKER_OUT=$(docker load -i "${TAR_PATH}")
     SRC_HUB=$(echo "$DOCKER_OUT" | cut -f 2 -d : | xargs dirname)
@@ -105,7 +104,6 @@ function docker_tag_images() {
       docker tag "${SRC_HUB}/${IMAGE_NAME}:${SRC_TAG}" \
                  "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}"
     else
-      IMAGE_NAME="${IMAGE_NAME%-${VARIANT_NAME}}"
       docker tag "${SRC_HUB}/${IMAGE_NAME}:${SRC_TAG}-${VARIANT_NAME}" \
                  "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}-${VARIANT_NAME}"
     fi
@@ -136,15 +134,11 @@ function docker_push_images() {
   add_docker_creds "${DST_HUB}"
 
   for TAR_PATH in "${OUT_PATH}"/docker/*.tar.gz; do
-    BASE_NAME=$(basename "$TAR_PATH")
-    TAR_NAME="${BASE_NAME%.*}"
-    IMAGE_NAME="${TAR_NAME%.*}"
-    VARIANT_NAME="${IMAGE_NAME##*-}"
-
     # if no docker/ directory or directory has no tar files
-    if [[ "${IMAGE_NAME}" == "*" ]]; then
+    if [[ "${TAR_PATH}" == *"/docker/*.tar.gz" ]]; then
       break
     fi
+    set_image_vars "$TAR_PATH"
 
     docker load -i "${TAR_PATH}"
 
@@ -152,8 +146,19 @@ function docker_push_images() {
     if [[ "${IMAGE_NAME}" == "${VARIANT_NAME}" ]]; then
           docker push "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}"
     else
-          IMAGE_NAME="${IMAGE_NAME%-${VARIANT_NAME}}"
           docker push "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}-${VARIANT_NAME}"
     fi
   done
+}
+
+function set_image_vars() {
+  local TAR_PATH=$1
+  BASE_NAME=$(basename "$TAR_PATH")
+  TAR_NAME="${BASE_NAME%.*}"
+  IMAGE_NAME="${TAR_NAME%.*}"
+  VARIANT_NAME="${IMAGE_NAME##*-}"
+  #check if it is a build variant (e.g. distroless)
+  if [[ "${IMAGE_NAME}" != "${VARIANT_NAME}" ]]; then
+    IMAGE_NAME="${IMAGE_NAME%-${VARIANT_NAME}}"
+  fi
 }
