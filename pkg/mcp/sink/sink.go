@@ -15,9 +15,11 @@
 package sink
 
 import (
+	"fmt"
 	"io"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -183,14 +185,19 @@ func (sink *Sink) createInitialRequests() []*mcp.RequestResources {
 // stream interface and returns when a send or receive error occurs. The caller is responsible for
 // handling gRPC client/server specific error handling.
 func (sink *Sink) ProcessStream(stream Stream) error {
-	// send initial subscribe requests
+	initialRequests := sink.createInitialRequests()
+	reqChan := make(chan *mcp.RequestResources, len(initialRequests))
+	defer close(reqChan)
+	for _, req := range initialRequests {
+		reqChan <- req
+	}
+	// send initial subscribe requests and following ACK/NACK
 	go func() {
-		initialRequests := sink.createInitialRequests()
-		for _, req := range initialRequests {
+		for req := range reqChan {
 			sink.journal.RecordRequestResources(req)
 			if err := stream.Send(req); err != nil {
 				sink.reporter.RecordSendError(err, status.Code(err))
-				scope.Errorf("Error sending MCP request: %v", err)
+				scope.Errorf("Error sending MCP request %v: %v", req, err)
 				return
 			}
 		}
@@ -207,13 +214,11 @@ func (sink *Sink) ProcessStream(stream Stream) error {
 			return err
 		}
 		req := sink.handleResponse(resources)
-
-		sink.journal.RecordRequestResources(req)
-
-		if err := stream.Send(req); err != nil {
-			sink.reporter.RecordSendError(err, status.Code(err))
-			scope.Errorf("Error sending MCP ACK/NCK: %v", err)
-			return err
+		select {
+		case reqChan <- req:
+		case <-time.After(5 * time.Second): // TODO: make this configurable
+			scope.Errorf("Error sending MCP request timeout")
+			return fmt.Errorf("error sending MCP request timeout")
 		}
 	}
 }
