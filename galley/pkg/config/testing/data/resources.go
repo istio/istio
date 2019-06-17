@@ -15,6 +15,9 @@
 package data
 
 import (
+	"bytes"
+
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/galley/pkg/config/resource"
@@ -27,7 +30,10 @@ var (
 			Name:    resource.NewName("n1", "i1"),
 			Version: "v1",
 		},
-		Item: &types.Empty{},
+		Item: parseStruct(`
+{
+	"n1_i1": "v1"
+}`),
 	}
 
 	// EntryN1I1V1Broken is a test resource.Entry
@@ -45,7 +51,22 @@ var (
 			Name:    resource.NewName("n1", "i1"),
 			Version: "v2",
 		},
-		Item: &types.Empty{},
+		Item: parseStruct(`
+{
+	"n1_i1": "v2"
+}`),
+	}
+
+	// EntryN2I2V1 is a test resource.Entry
+	EntryN2I2V1 = &resource.Entry{
+		Metadata: resource.Metadata{
+			Name:    resource.NewName("n2", "i2"),
+			Version: "v1",
+		},
+		Item: parseStruct(`
+{
+	"n2_i2": "v1"
+}`),
 	}
 
 	// EntryN2I2V2 is a test resource.Entry
@@ -54,6 +75,31 @@ var (
 			Name:    resource.NewName("n2", "i2"),
 			Version: "v2",
 		},
-		Item: &types.Empty{},
+		Item: parseStruct(`{
+	"n2_i2": "v2"
+}`),
+	}
+
+	// EntryN3I3V1 is a test resource.Entry
+	EntryN3I3V1 = &resource.Entry{
+		Metadata: resource.Metadata{
+			Name:    resource.NewName("n3", "i3"),
+			Version: "v1",
+		},
+		Item: parseStruct(`{
+	"n3_i3": "v1"
+}`),
 	}
 )
+
+func parseStruct(s string) *types.Struct {
+	m := jsonpb.Unmarshaler{}
+
+	str := &types.Struct{}
+	err := m.Unmarshal(bytes.NewReader([]byte(s)), str)
+	if err != nil {
+		panic(err)
+	}
+
+	return str
+}

@@ -20,13 +20,13 @@ import (
 
 var (
 	// Collection1 is a testing collection
-	Collection1 = collection.NewName("col1")
+	Collection1 = collection.NewName("collection1")
 
 	// Collection2 is a testing collection
-	Collection2 = collection.NewName("col2")
+	Collection2 = collection.NewName("collection2")
 
 	// Collection3 is a testing collection
-	Collection3 = collection.NewName("col3")
+	Collection3 = collection.NewName("collection3")
 
 	// CollectionNames of all collections in the test data.
 	CollectionNames = collection.Names{Collection1, Collection2, Collection3}
