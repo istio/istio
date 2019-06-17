@@ -743,7 +743,7 @@
           "refId": "G"
         },
         {
-          "expr": "sum(rate(pilot_xds_push_errors{job=\"pilot\"}[1m]))",
+          "expr": "sum(rate(pilot_xds_push_errors{job=\"pilot\"}[1m])) by (type)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
