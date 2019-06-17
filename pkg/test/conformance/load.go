@@ -111,7 +111,7 @@ func loadTest(dir, name string) (*Test, error) {
 
 			stageID, ok := parseStageName(f.Name())
 			if !ok {
-				continue
+				return nil, fmt.Errorf("error while parsing the stage name of directory %q", f.Name())
 			}
 
 			stage, err := loadStage(path.Join(dir, f.Name()))

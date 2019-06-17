@@ -263,6 +263,33 @@ func TestBasic_2Stage(t *testing.T) {
 	g.Expect(m).To(Equal(expected))
 }
 
+
+func TestBasic_SpuriousFolder(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	base, err := ioutil.TempDir(os.TempDir(), t.Name())
+	g.Expect(err).To(BeNil())
+
+	d := path.Join(base, "basic")
+	err = os.Mkdir(d, os.ModePerm)
+	g.Expect(err).To(BeNil())
+
+	writeMetadata(g, d)
+
+	s0 := path.Join(d, "stage0")
+	err = os.Mkdir(s0, os.ModePerm)
+	g.Expect(err).To(BeNil())
+
+	writeStageFiles(g, s0)
+
+	s1 := path.Join(d, "foo")
+	err = os.Mkdir(s1, os.ModePerm)
+	g.Expect(err).To(BeNil())
+
+	_, err = Load(base)
+	g.Expect(err).NotTo(BeNil())
+}
+
 func writeMetadata(g *GomegaWithT, d string) {
 	err := ioutil.WriteFile(path.Join(d, MetadataFileName), []byte(metadata), os.ModePerm)
 	g.Expect(err).To(BeNil())
