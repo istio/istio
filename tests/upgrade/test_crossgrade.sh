@@ -48,8 +48,8 @@ MAX_503_PCT_FOR_PASS="15"
 # Maximum % of connection refused that cannot exceed
 # Set it to high value so it fails for explicit sidecar issues
 MAX_CONNECTION_ERR_FOR_PASS="30"
-SERVICE_UNAVAILABLE_CODE="Code 503"
-CONNECTION_ERROR_CODE="Code -1"
+SERVICE_UNAVAILABLE_CODE="503"
+CONNECTION_ERROR_CODE="-1"
 
 while (( "$#" )); do
     PARAM=$(echo "${1}" | awk -F= '{print $1}')
@@ -372,12 +372,15 @@ resetCluster() {
 
 # Return 1 if the specific error code percentage exceed corresponding threshold
 errorPercentBelow() {
+     local LOG=${1}
+     local ERR_CODE=${2}
+     local LIMIT=${3}
      local s
-     s=$(grep "${2}" "${1}")
-     local regex="${2} : [0-9]+ \\(([0-9]+)\\.[0-9]+ %\\)"
+     s=$(grep "Code ${ERR_CODE}" "${LOG}")
+     local regex="Code ${ERR_CODE} : [0-9]+ \\(([0-9]+)\\.[0-9]+ %\\)"
      if [[ ${s} =~ ${regex} ]]; then
           local pctErr="${BASH_REMATCH[1]}"
-          if (( pctErr > ${3} )); then
+          if (( pctErr > LIMIT )); then
              return 1
           fi
              echo "Errors percentage is within threshold"
@@ -486,7 +489,7 @@ if [[ ${pod_log_str} != *"Code 200"* ]];then
 elif ! errorPercentBelow "${POD_FORTIO_LOG}" "${SERVICE_UNAVAILABLE_CODE}" ${MAX_503_PCT_FOR_PASS}; then
     echo "=== Code 503 Errors found in internal traffic exceeded ${MAX_503_PCT_FOR_PASS}% threshold ==="
     failed=true
-elif ! errorPercentBelow "${POD_FORTIO_LOG}" "Code -1" ${MAX_CONNECTION_ERR_FOR_PASS}; then
+elif ! errorPercentBelow "${POD_FORTIO_LOG}" "${CONNECTION_ERROR_CODE}" ${MAX_CONNECTION_ERR_FOR_PASS}; then
     echo "=== Connection Errors found in internal traffic exceeded ${MAX_CONNECTION_ERR_FOR_PASS}% threshold ==="
     failed=true
 else
