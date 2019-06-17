@@ -485,6 +485,9 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			} else {
 				// parse the ip, port. Validation guarantees presence of :
 				parts := strings.Split(ingressListener.DefaultEndpoint, ":")
+				if len(parts) < 2 {
+					continue
+				}
 				if port, err = strconv.Atoi(parts[1]); err != nil {
 					continue
 				}
