@@ -15,25 +15,29 @@
 package v1alpha1
 
 import (
+	"os"
 	"reflect"
 	"testing"
 
-	"istio.io/istio/pkg/features/pilot"
-
+	"github.com/davecgh/go-spew/spew"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	protobuf "github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
-	jwtfilter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
+	istio_jwt "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/proto"
 )
 
@@ -200,8 +204,10 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 	jwksURI := ms.URL + "/oauth2/v3/certs"
 
 	cases := []struct {
-		in       *authn.Policy
-		expected *jwtfilter.JwtAuthentication
+		in         *authn.Policy
+		env        string
+		wantName   string
+		wantConfig protobuf.Message
 	}{
 		{
 			in: &authn.Policy{
@@ -215,27 +221,98 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 					},
 				},
 			},
-			expected: &jwtfilter.JwtAuthentication{
-				Rules: []*jwtfilter.JwtRule{
+			wantName: "jwt-auth",
+			wantConfig: &istio_jwt.JwtAuthentication{
+				Rules: []*istio_jwt.JwtRule{
 					{
-						JwksSourceSpecifier: &jwtfilter.JwtRule_LocalJwks{
-							LocalJwks: &jwtfilter.DataSource{
-								Specifier: &jwtfilter.DataSource_InlineString{
+						JwksSourceSpecifier: &istio_jwt.JwtRule_LocalJwks{
+							LocalJwks: &istio_jwt.DataSource{
+								Specifier: &istio_jwt.DataSource_InlineString{
 									InlineString: test.JwtPubKey1,
 								},
 							},
 						},
 						Forward:              true,
-						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709"},
+						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
+					},
 				},
 				AllowMissingOrFailed: true,
+			},
+		},
+		{
+			in: &authn.Policy{
+				Origins: []*authn.OriginAuthenticationMethod{
+					{
+						Jwt: &authn.Jwt{
+							Issuer:  "issuer",
+							JwksUri: jwksURI,
+						},
+					},
+				},
+			},
+			env:      "USE_ENVOY_JWT_FILTER",
+			wantName: "envoy.filters.http.jwt_authn",
+			wantConfig: &envoy_jwt.JwtAuthentication{
+				Rules: []*envoy_jwt.RequirementRule{
+					{
+						Match: &route.RouteMatch{
+							PathSpecifier: &route.RouteMatch_Prefix{
+								Prefix: "/",
+							},
+						},
+						Requires: &envoy_jwt.JwtRequirement{
+							RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+								RequiresAny: &envoy_jwt.JwtRequirementOrList{
+									Requirements: []*envoy_jwt.JwtRequirement{
+										{
+											RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+												ProviderName: "origins-0",
+											},
+										},
+										{
+											RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Providers: map[string]*envoy_jwt.JwtProvider{
+					"origins-0": {
+						Issuer: "issuer",
+						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
+							LocalJwks: &core.DataSource{
+								Specifier: &core.DataSource_InlineString{
+									InlineString: test.JwtPubKey1,
+								},
+							},
+						},
+						Forward:              true,
+						ForwardPayloadHeader: "istio-sec-9cf32721ebab5d715f51669cbe62b023851870b8",
+						PayloadInMetadata:    "issuer",
+					},
+				},
 			},
 		},
 	}
 
 	for _, c := range cases {
-		if got := convertPolicyToJwtConfig(c.in); !reflect.DeepEqual(c.expected, got) {
-			t.Errorf("ConvertPolicyToJwtConfig(%#v), got:\n%#v\nwanted:\n%#v\n", c.in, got, c.expected)
+		if c.env != "" {
+			err := os.Setenv(c.env, "true")
+			if err != nil {
+				t.Fatalf("failed to set env %s: %v", c.env, err)
+			}
+		}
+		if gotName, gotCfg := convertPolicyToJwtConfig(c.in); gotName != c.wantName || !reflect.DeepEqual(c.wantConfig, gotCfg) {
+			t.Errorf("ConvertPolicyToJwtConfig(%#v), got:\n%s\n%#v\nwanted:\n%s\n%#v\n",
+				c.in, gotName, spew.Sdump(gotCfg), c.wantName, spew.Sdump(c.wantConfig))
+		}
+		if c.env != "" {
+			err := os.Unsetenv(c.env)
+			if err != nil {
+				t.Fatalf("failed to unset env %s: %v", c.env, err)
+			}
 		}
 	}
 }
@@ -276,15 +353,15 @@ func TestBuildJwtFilter(t *testing.T) {
 				Name: "jwt-auth",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
 					TypedConfig: pilotutil.MessageToAny(
-						&jwtfilter.JwtAuthentication{
+						&istio_jwt.JwtAuthentication{
 							AllowMissingOrFailed: true,
-							Rules: []*jwtfilter.JwtRule{
+							Rules: []*istio_jwt.JwtRule{
 								{
 									Forward:              true,
 									ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
-									JwksSourceSpecifier: &jwtfilter.JwtRule_LocalJwks{
-										LocalJwks: &jwtfilter.DataSource{
-											Specifier: &jwtfilter.DataSource_InlineString{
+									JwksSourceSpecifier: &istio_jwt.JwtRule_LocalJwks{
+										LocalJwks: &istio_jwt.DataSource{
+											Specifier: &istio_jwt.DataSource_InlineString{
 												InlineString: test.JwtPubKey1,
 											},
 										},
@@ -428,7 +505,7 @@ func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
 	}
 	for _, c := range cases {
 		if got := convertPolicyToAuthNFilterConfig(c.in, model.SidecarProxy); !reflect.DeepEqual(c.expected, got) {
-			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
+			t.Errorf("Test case %s: wantConfig\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
 		}
 	}
 }
