@@ -287,14 +287,14 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	for i := 0; i < secretCreationRetry; i++ {
 		_, err = sc.core.Secrets(saNamespace).Create(secret)
 		if err == nil {
-			log.Infof("Secret %s/%s is created successfully.", saNamespace, GetSecretName(saName))
+			log.Infof("Secret %s/%s is created successfully", saNamespace, GetSecretName(saName))
 			return
 		}
 		if errors.IsAlreadyExists(err) {
-			log.Infof("Secret %s/%s already exists, skip.", saNamespace, GetSecretName(saName))
+			log.Infof("Secret %s/%s already exists, skip", saNamespace, GetSecretName(saName))
 			return
 		}
-		log.Errorf("Failed to create secret %s/%s in attempt %v/%v, (error: %s).",
+		log.Errorf("Failed to create secret %s/%s in attempt %v/%v, (error: %s)",
 			saNamespace, GetSecretName(saName), i+1, secretCreationRetry, err)
 		time.Sleep(time.Second)
 	}
