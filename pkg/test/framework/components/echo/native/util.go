@@ -23,25 +23,11 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-
-	"istio.io/istio/pkg/test/util/reserveport"
 )
 
 const (
 	localhost = "127.0.0.1"
 )
-
-func findFreePort(portMgr reserveport.PortManager) (int, error) {
-	reservedPort, err := portMgr.ReservePort()
-	if err != nil {
-		return 0, err
-	}
-	defer func() {
-		_ = reservedPort.Close()
-	}()
-
-	return int(reservedPort.GetPort()), nil
-}
 
 func randomBase64String(length int) string {
 	buff := make([]byte, length)
