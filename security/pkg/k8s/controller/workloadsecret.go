@@ -260,7 +260,8 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 
 	_, exists, err := sc.scrtStore.Get(secret)
 	if err != nil {
-		log.Errorf("Failed to get secret from the store (error %v)", err)
+		log.Errorf("Failed to get secret %s/%s from the store (error %v)",
+			saNamespace, GetSecretName(saName), err)
 	}
 
 	if exists {
@@ -271,9 +272,8 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	// Now we know the secret does not exist yet. So we create a new one.
 	chain, key, err := sc.generateKeyAndCert(saName, saNamespace)
 	if err != nil {
-		log.Errorf("Failed to generate key and certificate for service account %q in namespace %q (error %v)",
-			saName, saNamespace, err)
-
+		log.Errorf("Failed to generate key/cert for %s/%s (error %v)",
+			saNamespace, GetSecretName(saName), err)
 		return
 	}
 	rootCert := sc.ca.GetCAKeyCertBundle().GetRootCertPem()
@@ -287,14 +287,15 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	for i := 0; i < secretCreationRetry; i++ {
 		_, err = sc.core.Secrets(saNamespace).Create(secret)
 		if err == nil {
-			log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" has been created", saName, saNamespace)
+			log.Infof("Secret %s/%s is created successfully.", saNamespace, GetSecretName(saName))
 			return
 		}
 		if errors.IsAlreadyExists(err) {
-			log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" already exists", saName, saNamespace)
+			log.Infof("Secret %s/%s already exists, skip.", saNamespace, GetSecretName(saName))
 			return
 		}
-		log.Errorf("Failed to create secret in attempt %v/%v, (error: %s)", i+1, secretCreationRetry, err)
+		log.Errorf("Failed to create secret %s/%s in attempt %v/%v, (error: %s).",
+			saNamespace, GetSecretName(saName), i+1, secretCreationRetry, err)
 		time.Sleep(time.Second)
 	}
 }
@@ -303,12 +304,11 @@ func (sc *SecretController) deleteSecret(saName, saNamespace string) {
 	err := sc.core.Secrets(saNamespace).Delete(GetSecretName(saName), nil)
 	// kube-apiserver returns NotFound error when the secret is successfully deleted.
 	if err == nil || errors.IsNotFound(err) {
-		log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" has been deleted", saName, saNamespace)
+		log.Infof("Secret %s/%s deleted successfully.", saNamespace, GetSecretName(saName))
 		return
 	}
 
-	log.Errorf("Failed to delete Istio secret for service account \"%s\" in namespace \"%s\" (error: %s)",
-		saName, saNamespace, err)
+	log.Errorf("Failed to delete secret %s/%s (error: %s)", saNamespace, GetSecretName(saName), err)
 }
 
 func (sc *SecretController) scrtDeleted(obj interface{}) {
@@ -320,7 +320,7 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 
 	saName := scrt.Annotations[ServiceAccountNameAnnotationKey]
 	if sa, err := sc.core.ServiceAccounts(scrt.GetNamespace()).Get(saName, metav1.GetOptions{}); err == nil {
-		log.Errorf("Re-create deleted Istio secret for existing service account %s.", saName)
+		log.Infof("Re-creating deleted secret %s/%s.", scrt.GetNamespace(), GetSecretName(saName))
 		if sc.istioEnabledObject(sa.GetObjectMeta()) {
 			sc.upsertSecret(saName, scrt.GetNamespace())
 		}
@@ -385,8 +385,8 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	certBytes := scrt.Data[CertChainID]
 	cert, err := util.ParsePemEncodedCertificate(certBytes)
 	if err != nil {
-		log.Warnf("Failed to parse certificates in secret %s/%s (error: %v), refreshing the secret.",
-			namespace, name, err)
+		log.Warnf("Failed to parse cert in secret %s/%s (error: %v), refreshing.",
+			namespace, GetSecretName(name), err)
 		if err = sc.refreshSecret(scrt); err != nil {
 			log.Errora(err)
 		}
@@ -410,11 +410,16 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	// one held by the ca (this may happen when the CA is restarted and
 	// a new self-signed CA cert is generated).
 	if certLifeTimeLeft < gracePeriod || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
-		log.Infof("Refreshing secret %s/%s, either the leaf certificate is about to expire "+
-			"or the root certificate is outdated", namespace, name)
+		if certLifeTimeLeft < gracePeriod {
+			log.Infof("Refreshing about to expire secret %s/%s", namespace, GetSecretName(name))
+		} else {
+  		log.Infof("Refreshing secret %s/%s (outdated root cert)", namespace, GetSecretName(name))
+	  }
 
 		if err = sc.refreshSecret(scrt); err != nil {
-			log.Errorf("Failed to update secret %s/%s (error: %s)", namespace, name, err)
+			log.Errorf("Failed to refresh secret %s/%s (error: %s)", namespace, GetSecretName(name), err)
+		} else {
+			log.Infof("Secret %s/%s refreshed successfully.", namespace, GetSecretName(name))
 		}
 	}
 }
