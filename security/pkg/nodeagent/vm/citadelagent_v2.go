@@ -162,7 +162,7 @@ func getProjectID(jwt string) (string, error) {
 		return "", fmt.Errorf("jwt may be invalid: %s", jwt)
 	}
 	payload := jwtSplit[1]
-	// Use RawStdEncoding since the payload is not padded.
+	// Use RawStdEncoding since the payload may not be padded.
 	// TODO: Add test for unpadded JWT.
 	payloadBytes, err := base64.RawStdEncoding.DecodeString(payload)
 	if err != nil {
