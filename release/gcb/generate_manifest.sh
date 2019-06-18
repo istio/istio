@@ -59,15 +59,19 @@ function create_manifest_check_consistency() {
     echo "ISTIO_REPO_SHA:$ISTIO_REPO_SHA API_REPO_SHA:$API_REPO_SHA PROXY_REPO_SHA:$PROXY_REPO_SHA CNI_REPO_SHA:$CNI_REPO_SHA some shas not found"
     exit 8
   fi
+  popd
+  checkout_code "api" "${API_REPO_SHA}" .
+  pushd api || exit
+    API_SHA=$(git rev-parse "${API_REPO_SHA}")
+  popd
 cat << EOF > "${MANIFEST_FILE}"
 istio ${ISTIO_REPO_SHA}
 proxy ${PROXY_REPO_SHA}
-api ${API_REPO_SHA}
+api ${API_SHA}
 cni ${CNI_REPO_SHA}
 tools ${TOOLS_HEAD_SHA}
 EOF
 
- popd
 
   if [[ "${CB_VERIFY_CONSISTENCY}" == "true" ]]; then
      # Consistency check not needed for CNI
