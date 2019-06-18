@@ -50,7 +50,7 @@ function create_manifest_check_consistency() {
 
   pushd ../api || exit
     API_SHA=$(git rev-parse "${API_REPO_SHA}")
-  popd
+  popd || exit
 cat << EOF > "${MANIFEST_FILE}"
 istio ${ISTIO_REPO_SHA}
 proxy ${PROXY_REPO_SHA}
