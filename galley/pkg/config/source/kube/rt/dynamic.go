@@ -85,7 +85,7 @@ func (p *Provider) getDynamicAdapter(r schema.KubeResource) *Adapter {
 
 			return u, nil
 		},
-
+		isEqual: resourceVersionsMatch,
 		isBuiltIn: false,
 	}
 }

@@ -15,12 +15,20 @@
 package rt
 
 import (
+	"fmt"
+	"reflect"
+
 	"github.com/gogo/protobuf/proto"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
-	// 	"istio.io/istio/galley/pkg/config/schema"
+
+	"istio.io/pkg/log"
+
+	"istio.io/istio/galley/pkg/config/source/kube/apiserver/stats"
 )
+
+var scope = log.RegisterScope("source", "", 0)
 
 // Adapter provides core functions that are necessary to interact with a Kubernetes resource.
 type Adapter struct {
@@ -28,6 +36,7 @@ type Adapter struct {
 	extractResource extractResourceFn
 	newInformer     newInformerFn
 	parseJSON       parseJSONFn
+	isEqual         isEqualFn
 	isBuiltIn       bool
 }
 
@@ -51,6 +60,11 @@ func (p *Adapter) ParseJSON(input []byte) (interface{}, error) {
 	return p.parseJSON(input)
 }
 
+// IsEqual checks whether the given two resources are equal
+func (p *Adapter) IsEqual(o1, o2 interface{}) bool {
+	return p.isEqual(o1, o2)
+}
+
 // IsBuiltIn returns true if the adapter uses built-in client libraries.
 func (p *Adapter) IsBuiltIn() bool {
 	return p.isBuiltIn
@@ -60,3 +74,19 @@ type extractObjectFn func(o interface{}) metav1.Object
 type extractResourceFn func(o interface{}) (proto.Message, error)
 type newInformerFn func() (cache.SharedIndexInformer, error)
 type parseJSONFn func(input []byte) (interface{}, error)
+type isEqualFn func(o1 interface{}, o2 interface{}) bool
+
+// resourceVersionsMatch is a resourceEqualFn that determines equality by the resource version.
+func resourceVersionsMatch(o1 interface{}, o2 interface{}) bool {
+	r1, ok1 := o1.(metav1.Object)
+	r2, ok2 := o2.(metav1.Object)
+	if !ok1 || !ok2 {
+		msg := fmt.Sprintf("error decoding kube objects during update, o1 type: %v, o2 type: %v",
+			reflect.TypeOf(o1),
+			reflect.TypeOf(o2))
+		scope.Error(msg)
+		stats.RecordEventError(msg)
+		return false
+	}
+	return r1.GetResourceVersion() == r2.GetResourceVersion()
+}
