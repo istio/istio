@@ -249,11 +249,11 @@ func (a *discoveryFilterImpl) bindOutboundPort(any *googleProtobuf6.Any, l *xdsa
 
 	// Bind a real port for the outbound listener if we haven't already.
 	if !ok {
-		var err error
-		boundPort, err = findFreePort(a.portManager)
+		p, err := a.portManager.ReservePortNumber()
 		if err != nil {
 			return err
 		}
+		boundPort = int(p)
 		a.boundPortMap[portFromPilot] = boundPort
 	}
 

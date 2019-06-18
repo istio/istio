@@ -1,0 +1,21 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: httpbin
+spec:
+  hosts:
+    - weighted.static.svc.cluster.local
+  ports:
+    - number: 80
+      name: http
+      protocol: HTTP
+  resolution: STATIC
+  endpoints:
+    - address: 3.3.3.3
+      locality: a
+    - address: 2.2.2.2
+      locality: a
+      weight: 8
+    - address: 1.1.1.1
+      locality: b
+      weight: 3

@@ -269,22 +269,23 @@ func generateEnvoyServiceNode(serviceName, namespace, domain string) string {
 }
 
 func createEnvoyPorts(portManager reserveport.PortManager, servicePorts model.PortList) (adminPort int, mappedPorts []echo.Port, err error) {
-	if adminPort, err = findFreePort(portManager); err != nil {
-		return
+	p, err := portManager.ReservePortNumber()
+	if err != nil {
+		return 0, nil, err
 	}
+	adminPort = int(p)
 
 	mappedPorts = make([]echo.Port, len(servicePorts))
 	for i, servicePort := range servicePorts {
-		var envoyPort int
-		envoyPort, err = findFreePort(portManager)
+		envoyPort, err := portManager.ReservePortNumber()
 		if err != nil {
-			return
+			return 0, nil, err
 		}
 
 		mappedPorts[i] = echo.Port{
 			Name:         servicePort.Name,
 			Protocol:     servicePort.Protocol,
-			ServicePort:  envoyPort,
+			ServicePort:  int(envoyPort),
 			InstancePort: servicePort.Port,
 		}
 	}
