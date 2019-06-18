@@ -121,8 +121,8 @@ func init() {
 // monitoringMetrics are counters for SDS push related operations.
 type monitoringMetrics struct {
 	totalPush                 prometheus.Counter
-	totalActiveConn						prometheus.Gauge
-	totalStaleConn						prometheus.Gauge
+	totalActiveConn           prometheus.Gauge
+	totalStaleConn            prometheus.Gauge
 	pendingPushPerConn        *prometheus.GaugeVec
 	staleConn                 *prometheus.CounterVec
 	pushPerConn               *prometheus.CounterVec
@@ -135,8 +135,8 @@ type monitoringMetrics struct {
 func newMonitoringMetrics() monitoringMetrics {
 	return monitoringMetrics{
 		totalPush:                 totalPushCounts,
-		totalActiveConn: 					 totalActiveConnCounts,
-		totalStaleConn: 					 totalStaleConnCounts,
+		totalActiveConn:           totalActiveConnCounts,
+		totalStaleConn:            totalStaleConnCounts,
 		pendingPushPerConn:        pendingPushPerConnCounts,
 		staleConn:                 staleConnCounts,
 		pushPerConn:               pushPerConnCounts,

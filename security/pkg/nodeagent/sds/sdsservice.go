@@ -24,8 +24,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"istio.io/istio/security/pkg/pki/util"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	authapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -457,36 +455,19 @@ func pushSDS(con *sdsConnection) error {
 		sdsServiceLog.Debugf("Pushed root cert %+v (resource name: %q) to proxy connection: %q\n",
 			string(secret.RootCert), resourceName, conID)
 		sdsMetrics.rootCertExpiryTimestamp.WithLabelValues(resourceName + "-" + conID).Set(
-			extractCertExpiryTimestamp(resourceName, conID, secret.RootCert))
+			float64(secret.ExpireTime.Unix()))
 	} else {
 		sdsServiceLog.Infof("Pushed key/cert pair (resource name: %q) from node agent to proxy: %q\n",
 			resourceName, conID)
 		sdsServiceLog.Debugf("Pushed certificate chain %+v (resource name: %q) to proxy connection: %q\n",
 			string(secret.CertificateChain), resourceName, conID)
 		sdsMetrics.serverCertExpiryTimestamp.WithLabelValues(resourceName + "-" + conID).Set(
-			extractCertExpiryTimestamp(resourceName, conID, secret.CertificateChain))
+			float64(secret.ExpireTime.Unix()))
 	}
 	sdsMetrics.pushPerConn.WithLabelValues(resourceName + "-" + conID).Inc()
 	sdsMetrics.pendingPushPerConn.WithLabelValues(resourceName + "-" + conID).Dec()
 	sdsMetrics.totalPush.Inc()
 	return nil
-}
-
-// extractCertExpiryTimestamp returns the cert expiration time as unix timestamp.
-func extractCertExpiryTimestamp(resourceName, conID string, certByte []byte) float64 {
-	expiryTime, err := util.ExtractCertExpiryTimestamp(certByte)
-	if err != nil {
-		sdsServiceLog.Errorf("failed to parse the cert pushed to connection %q as resource: %q: %v",
-			conID, resourceName, err)
-		return -1
-	}
-
-	if expiryTime.Before(time.Now()) {
-		// Set warn level as it could be an error from CA or an intend to push expired cert.
-		sdsServiceLog.Warnf("expired cert pushed to connection %q as resource: %q, x509.NotAfter %v",
-			conID, resourceName, expiryTime)
-	}
-	return float64(expiryTime.Unix())
 }
 
 func sdsDiscoveryResponse(s *model.SecretItem, conID string) (*xdsapi.DiscoveryResponse, error) {

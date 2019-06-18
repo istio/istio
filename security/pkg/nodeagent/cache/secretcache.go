@@ -166,8 +166,8 @@ type SecretCache struct {
 	// close channel.
 	closing chan bool
 
-	rootCertMutex *sync.Mutex
-	rootCert      []byte
+	rootCertMutex      *sync.Mutex
+	rootCert           []byte
 	rootCertExpireTime time.Time
 }
 
@@ -633,7 +633,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	expireTime := t.Add(sc.configOptions.SecretTTL)
 	if !sc.configOptions.SkipValidateCert {
 		if expireTime, err = parseCertAndGetExpiryTimestamp(certChain); err != nil {
-			cacheLog.Errorf("Failed to extract expire time from certificate %+v for resource " +
+			cacheLog.Errorf("Failed to extract expire time from certificate %+v for resource "+
 				"%q: %v", certChainPEM, resourceName, err)
 			return nil, fmt.Errorf("failed to extract expiry timestamp from server certificate: %v", err)
 		}
