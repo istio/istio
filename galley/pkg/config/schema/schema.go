@@ -127,7 +127,11 @@ type KubeResources []KubeResource
 
 // CanonicalResourceName of the resource.
 func (i KubeResource) CanonicalResourceName() string {
-	return fmt.Sprintf("%s.%s/%s", i.Group, i.Version, i.Kind)
+	if i.Group == "" {
+		return fmt.Sprintf("core/%s/%s", i.Version, i.Kind)
+	} else {
+		return fmt.Sprintf("%s/%s/%s", i.Group, i.Version, i.Kind)
+	}
 }
 
 // Collections returns the name of collections for this set of resources

@@ -320,7 +320,7 @@ func TestSchemaBasic(t *testing.T) {
 		collection.NewName("k8s/networking.istio.io/v1alpha3/virtualservices"),
 	}))
 
-	g.Expect(s.KubeSource().Resources()[0].CanonicalResourceName()).To(Equal("networking.istio.io.v1alpha3/VirtualService"))
+	g.Expect(s.KubeSource().Resources()[0].CanonicalResourceName()).To(Equal("networking.istio.io/v1alpha3/VirtualService"))
 }
 
 func TestSchema_Find(t *testing.T) {
