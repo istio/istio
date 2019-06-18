@@ -105,7 +105,14 @@ pushd "${CLONE_DIR}"
 
   istio_checkout_green_sha        "${MANIFEST_FILE}"
   istio_check_green_sha_age
+
+  pushd istio
+    PROXY_REPO_SHA=$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+    API_REPO_SHA=$(grep "istio\.io/api" go.mod | cut -f 3 -d '-')
+  popd  
   checkout_code "proxy" "${PROXY_REPO_SHA}" .
+  checkout_code "api" "${API_REPO_SHA}" .
+
   pushd istio
     create_manifest_check_consistency "${MANIFEST_FILE}"
   popd
