@@ -44,7 +44,9 @@ require (
 	github.com/dchest/siphash v1.1.0 // indirect
 	github.com/denisenkom/go-mssqldb v0.0.0-20190423183735-731ef375ac02 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
-	github.com/docker/go-connections v0.4.0 // indirect
+	github.com/docker/distribution v2.7.1+incompatible // indirect
+	github.com/docker/docker v1.13.1
+	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/docker/spdystream v0.0.0-20170912183627-bc6354cbbc29 // indirect
 	github.com/dropbox/godropbox v0.0.0-20190501155911-5749d3b71cbe // indirect
