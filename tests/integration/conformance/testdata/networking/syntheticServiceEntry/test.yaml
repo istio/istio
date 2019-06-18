@@ -4,5 +4,3 @@ skip: true
 ennvironments:
   # TODO: Limit to native environment until we can run the test in K8s.
   - native
-labels:
-  - presubmit
