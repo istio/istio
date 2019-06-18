@@ -21,6 +21,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 )
 
@@ -42,7 +44,11 @@ func (p *Probe) Check() error {
 
 	// Envoy has received some configuration, make sure that configuration has been received for
 	// all inbound ports.
-	return p.checkInboundConfigured()
+	if err := p.checkInboundConfigured(); err != nil {
+		return err
+	}
+
+	return p.checkServerInfo()
 }
 
 // checkApplicationPorts verifies that Envoy has received configuration for all ports exposed by the application container.
@@ -93,4 +99,18 @@ func (p *Probe) checkUpdated() error {
 	}
 
 	return fmt.Errorf("config not received from Pilot (is Pilot running?): %s", s.String())
+}
+
+// checkServerInfo checks to ensure that Envoy is in the READY state
+func (p *Probe) checkServerInfo() error {
+	info, err := util.GetServerInfo(p.LocalHostAddr, p.AdminPort)
+	if err != nil {
+		return fmt.Errorf("failed to get server info: %v", err)
+	}
+
+	if info.GetState() != admin.ServerInfo_LIVE {
+		return fmt.Errorf("server is not live, current state is: %v", info.GetState().String())
+	}
+
+	return nil
 }
