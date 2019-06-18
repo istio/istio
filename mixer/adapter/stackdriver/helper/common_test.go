@@ -17,6 +17,8 @@ package helper
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 
@@ -26,23 +28,33 @@ import (
 )
 
 func TestToOpts(t *testing.T) {
+	testSvcAcctFile, err := ioutil.TempFile("", "serviceAccount.json")
+	if err != nil {
+		t.Fatalf("cannot create a temp file for testing: %v", err)
+	}
+	svcAcctFilePath := testSvcAcctFile.Name()
+	defer os.Remove(svcAcctFilePath)
 	tests := []struct {
 		name string
 		cfg  *config.Params
 		out  []gapiopts.ClientOption // we only assert that the types match, so contents of the option don't matter
 	}{
 		{"empty", &config.Params{}, []gapiopts.ClientOption{}},
-		{"api key", &config.Params{Creds: &config.Params_ApiKey{}}, []gapiopts.ClientOption{gapiopts.WithAPIKey("")}},
+		{"api key", &config.Params{Creds: &config.Params_ApiKey{ApiKey: "test-api-key"}}, []gapiopts.ClientOption{gapiopts.WithAPIKey("test-api-key")}},
+		{"api key empty", &config.Params{Creds: &config.Params_ApiKey{}}, []gapiopts.ClientOption{}},
 		{"app creds", &config.Params{Creds: &config.Params_AppCredentials{}}, []gapiopts.ClientOption{}},
 		{"service account",
+			&config.Params{Creds: &config.Params_ServiceAccountPath{ServiceAccountPath: svcAcctFilePath}},
+			[]gapiopts.ClientOption{gapiopts.WithCredentialsFile(svcAcctFilePath)}},
+		{"service account empty",
 			&config.Params{Creds: &config.Params_ServiceAccountPath{}},
-			[]gapiopts.ClientOption{gapiopts.WithCredentialsFile("")}},
+			[]gapiopts.ClientOption{}},
 		{"endpoint",
 			&config.Params{Endpoint: "foo.bar"},
 			[]gapiopts.ClientOption{gapiopts.WithEndpoint("")}},
 		{"endpoint + svc account",
 			&config.Params{Endpoint: "foo.bar", Creds: &config.Params_ServiceAccountPath{}},
-			[]gapiopts.ClientOption{gapiopts.WithEndpoint(""), gapiopts.WithCredentialsFile("")}},
+			[]gapiopts.ClientOption{gapiopts.WithEndpoint("")}},
 	}
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {

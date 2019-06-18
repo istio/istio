@@ -15,6 +15,8 @@
 package helper
 
 import (
+	"os"
+
 	gapiopts "google.golang.org/api/option"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
@@ -93,9 +95,14 @@ func (md *Metadata) FillProjectMetadata(in map[string]string) {
 func ToOpts(cfg *config.Params) (opts []gapiopts.ClientOption) {
 	switch cfg.Creds.(type) {
 	case *config.Params_ApiKey:
-		opts = append(opts, gapiopts.WithAPIKey(cfg.GetApiKey()))
+		if key := cfg.GetApiKey(); key != "" {
+			opts = append(opts, gapiopts.WithAPIKey(cfg.GetApiKey()))
+		}
 	case *config.Params_ServiceAccountPath:
-		opts = append(opts, gapiopts.WithCredentialsFile(cfg.GetServiceAccountPath()))
+		path := cfg.GetServiceAccountPath()
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			opts = append(opts, gapiopts.WithCredentialsFile(path))
+		}
 	case *config.Params_AppCredentials:
 		// When using default app credentials the SDK handles everything for us.
 	}
