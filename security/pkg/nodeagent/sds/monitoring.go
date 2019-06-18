@@ -27,6 +27,22 @@ var (
 		Help:      "The total number of SDS pushes.",
 	})
 
+	// totalActiveConnCounts records total number of active SDS connections.
+	totalActiveConnCounts = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "citadel_agent",
+		Subsystem: "sds_service",
+		Name:      "total_active_conn_count",
+		Help:      "The total number of active SDS connections.",
+	})
+
+	// totalStaleConnCounts records total number of stale SDS connections.
+	totalStaleConnCounts = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "citadel_agent",
+		Subsystem: "sds_service",
+		Name:      "total_stale_conn_count",
+		Help:      "The total number of stale SDS connections.",
+	})
+
 	// pendingPushPerConnCounts records the number of SDS requests in an active connection that are
 	// not responded yet. The label of a connection is represented as <resource name>-<connection ID>,
 	// and the value should be 0 or 1.
@@ -93,6 +109,8 @@ var (
 
 func init() {
 	prometheus.MustRegister(totalPushCounts)
+	prometheus.MustRegister(totalActiveConnCounts)
+	prometheus.MustRegister(totalStaleConnCounts)
 	prometheus.MustRegister(pendingPushPerConnCounts)
 	prometheus.MustRegister(staleConnCounts)
 	prometheus.MustRegister(pushPerConnCounts)
@@ -103,6 +121,8 @@ func init() {
 // monitoringMetrics are counters for SDS push related operations.
 type monitoringMetrics struct {
 	totalPush                 prometheus.Counter
+	totalActiveConn						prometheus.Gauge
+	totalStaleConn						prometheus.Gauge
 	pendingPushPerConn        *prometheus.GaugeVec
 	staleConn                 *prometheus.CounterVec
 	pushPerConn               *prometheus.CounterVec
@@ -115,6 +135,8 @@ type monitoringMetrics struct {
 func newMonitoringMetrics() monitoringMetrics {
 	return monitoringMetrics{
 		totalPush:                 totalPushCounts,
+		totalActiveConn: 					 totalActiveConnCounts,
+		totalStaleConn: 					 totalStaleConnCounts,
 		pendingPushPerConn:        pendingPushPerConnCounts,
 		staleConn:                 staleConnCounts,
 		pushPerConn:               pushPerConnCounts,

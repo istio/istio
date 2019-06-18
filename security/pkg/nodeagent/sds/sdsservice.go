@@ -203,8 +203,9 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			con.ResourceName = resourceName
 			con.mutex.Unlock()
 
-			// Update metric for pending push per connection.
+			// Update metric for metrics.
 			sdsMetrics.pendingPushPerConn.WithLabelValues(resourceName + "-" + conID).Inc()
+			sdsMetrics.totalActiveConn.Inc()
 
 			// When nodeagent receives StreamSecrets request, if there is cached secret which matches
 			// request's <token, resourceName, Version>, then this request is a confirmation request.
@@ -339,6 +340,7 @@ func (s *sdsservice) clearStaledClients() {
 
 	staledClientKeys = staledClientKeys[:0]
 	sdsMetrics.staleConn.Reset()
+	sdsMetrics.totalStaleConn.Set(0)
 }
 
 // NotifyProxy sends notification to proxy about secret update,
@@ -369,6 +371,8 @@ func recycleConnection(conID, resourceName string) {
 	sdsMetrics.pendingPushPerConn.DeleteLabelValues(resourceName + "-" + conID)
 	sdsMetrics.pushErrorPerConn.DeleteLabelValues(resourceName + "-" + conID)
 	sdsMetrics.staleConn.WithLabelValues(conID).Inc()
+	sdsMetrics.totalStaleConn.Inc()
+	sdsMetrics.totalActiveConn.Dec()
 	key := cache.ConnKey{
 		ConnectionID: conID,
 		ResourceName: resourceName,

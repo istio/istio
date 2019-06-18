@@ -20,7 +20,6 @@ import (
 	"crypto/x509"
 	"reflect"
 	"testing"
-	"time"
 )
 
 const (
@@ -181,44 +180,6 @@ func TestParsePemEncodedCertificate(t *testing.T) {
 			}
 		} else if cert.PublicKeyAlgorithm != c.publicKeyAlgo {
 			t.Errorf("%s: Unexpected public key algorithm: want %d but got %d", id, c.publicKeyAlgo, cert.PublicKeyAlgorithm)
-		}
-	}
-}
-
-func TestExtractCertExpiryTimestamp(t *testing.T) {
-	testCases := map[string]struct {
-		errMsg       string
-		pem          string
-		expectedTime time.Time
-	}{
-		"Invalid PEM string": {
-			errMsg: "failed to parse the cert: invalid PEM encoded certificate",
-			pem:    "invalid pem string",
-		},
-		"Invalid certificate string": {
-			errMsg: "failed to parse the cert: failed to parse X.509 certificate",
-			pem:    keyECDSA,
-		},
-		"Extract RSA certificate expiry timestamp": {
-			expectedTime: time.Date(2018, time.March, 11, 06, 04, 02, 0, time.UTC),
-			pem:          certRSA,
-		},
-		"Extract ECDSA certificate expiry timestamp": {
-			expectedTime: time.Date(2017, time.March, 13, 05, 16, 58, 0, time.UTC),
-			pem:          certECDSA,
-		},
-	}
-
-	for id, c := range testCases {
-		expiryTime, err := ExtractCertExpiryTimestamp([]byte(c.pem))
-		if c.errMsg != "" {
-			if err == nil {
-				t.Errorf("%s: no error is returned", id)
-			} else if c.errMsg != err.Error() {
-				t.Errorf(`%s: Unexpected error message: expected "%s" but got "%s"`, id, c.errMsg, err.Error())
-			}
-		} else if expiryTime != c.expectedTime {
-			t.Errorf("%s: timestamp does not match. Expected %v but got %v", id, c.expectedTime, expiryTime)
 		}
 	}
 }

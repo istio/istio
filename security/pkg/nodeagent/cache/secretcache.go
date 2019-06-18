@@ -168,6 +168,7 @@ type SecretCache struct {
 
 	rootCertMutex *sync.Mutex
 	rootCert      []byte
+	rootCertExpireTime time.Time
 }
 
 // NewSecretCache creates a new secret cache.
@@ -240,6 +241,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	ns = &model.SecretItem{
 		ResourceName: resourceName,
 		RootCert:     sc.rootCert,
+		ExpireTime:   sc.rootCertExpireTime,
 		Token:        token,
 		CreatedTime:  t,
 		Version:      t.String(),
@@ -455,6 +457,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			ns := &model.SecretItem{
 				ResourceName: resourceName,
 				RootCert:     sc.rootCert,
+				ExpireTime:   sc.rootCertExpireTime,
 				Token:        e.Token,
 				CreatedTime:  t,
 				Version:      t.String(),
@@ -624,22 +627,16 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		certChain = append(certChain, []byte(c)...)
 	}
 
-	// Cert exipre time by default is createTime + sc.configOptions.SecretTTL.
+	// Cert expire time by default is createTime + sc.configOptions.SecretTTL.
 	// Citadel respects SecretTTL that passed to it and use it decide TTL of cert it issued.
 	// Some customer CA may override TTL param that's passed to it.
 	expireTime := t.Add(sc.configOptions.SecretTTL)
 	if !sc.configOptions.SkipValidateCert {
-		block, _ := pem.Decode(certChain)
-		if block == nil {
-			cacheLog.Errorf("Failed to decode certificate %+v for %q", certChainPEM, resourceName)
-			return nil, errors.New("failed to decode certificate")
+		if expireTime, err = parseCertAndGetExpiryTimestamp(certChain); err != nil {
+			cacheLog.Errorf("Failed to extract expire time from certificate %+v for resource " +
+				"%q: %v", certChainPEM, resourceName, err)
+			return nil, fmt.Errorf("failed to extract expiry timestamp from server certificate: %v", err)
 		}
-		cert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			cacheLog.Errorf("Failed to parse certificate %+v for %q: %v", certChainPEM, resourceName, err)
-			return nil, errors.New("failed to parse certificate")
-		}
-		expireTime = cert.NotAfter
 	}
 
 	length := len(certChainPEM)
@@ -647,7 +644,14 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	rootCertChanged := !bytes.Equal(sc.rootCert, []byte(certChainPEM[length-1]))
 	if sc.rootCert == nil || rootCertChanged {
 		sc.rootCertMutex.Lock()
-		sc.rootCert = []byte(certChainPEM[length-1])
+		rootCertExpireTime, err := parseCertAndGetExpiryTimestamp([]byte(certChainPEM[length-1]))
+		if err == nil {
+			sc.rootCert = []byte(certChainPEM[length-1])
+			sc.rootCertExpireTime = rootCertExpireTime
+		} else {
+			cacheLog.Errorf("Failed to parse root certificate: %v", err)
+			rootCertChanged = false
+		}
 		sc.rootCertMutex.Unlock()
 	}
 
@@ -665,6 +669,22 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		ExpireTime:       expireTime,
 		Version:          t.String(),
 	}, nil
+}
+
+// parseCertAndGetExpiryTimestamp parses certificate and returns cert expire time, or return error
+// if fails to parse certificate.
+func parseCertAndGetExpiryTimestamp(certByte []byte) (time.Time, error) {
+	block, _ := pem.Decode(certByte)
+	if block == nil {
+		cacheLog.Errorf("Failed to decode certificate")
+		return time.Time{}, fmt.Errorf("failed to decode certificate")
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		cacheLog.Errorf("Failed to parse certificate: %v", err)
+		return time.Time{}, fmt.Errorf("failed to parse certificate: %v", err)
+	}
+	return cert.NotAfter, nil
 }
 
 func (sc *SecretCache) shouldRefresh(s *model.SecretItem) bool {
