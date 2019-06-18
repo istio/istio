@@ -61,9 +61,6 @@ for ((i=1; i<=$#; i++)); do
         --timeout) ((i++)); E2E_TIMEOUT=${!i}
         continue
         ;;
-        --variant) ((i++)); VARIANT="-${!i}"
-        continue
-        ;;
     esac
     E2E_ARGS+=( "${!i}" )
 done
@@ -94,4 +91,4 @@ E2E_ARGS+=("--skip_cleanup")
 time ISTIO_DOCKER_HUB=$HUB \
   E2E_ARGS="${E2E_ARGS[*]}" \
   JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit.xml" \
-  make with_junit_report TARGET="${SINGLE_TEST}" VARIANT="${VARIANT:-}" ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}
+  make with_junit_report TARGET="${SINGLE_TEST}" ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}
