@@ -155,14 +155,14 @@ func TestStateMetrics(t *testing.T) {
 
 			util.AllowRuleSync(t)
 
-			query := fmt.Sprintf("sum(galley_runtime_state_istio_networking_destinationrules_total{namespace=\"%s\",version=\"v1alpha3\"})", bookinfoNs.Name())
-			util.ValidateMetric(t, prom, query, "galley_runtime_state_istio_networking_destinationrules_total", 4)
+			query := fmt.Sprintf("sum(galley_istio_networking_destinationrules{namespace=\"%s\",version=\"v1alpha3\"})", bookinfoNs.Name())
+			util.ValidateMetric(t, prom, query, "galley_istio_networking_destinationrules", 4)
 
-			query = fmt.Sprintf("sum(galley_runtime_state_istio_networking_virtualservices_total{namespace=\"%s\"})", bookinfoNs.Name())
-			util.ValidateMetric(t, prom, query, "galley_runtime_state_istio_networking_virtualservices_total", 5)
+			query = fmt.Sprintf("sum(galley_istio_networking_virtualservices{namespace=\"%s\"})", bookinfoNs.Name())
+			util.ValidateMetric(t, prom, query, "galley_istio_networking_virtualservices", 5)
 
-			query = fmt.Sprintf("sum(galley_runtime_state_istio_networking_gateways_total{namespace=\"%s\"})", bookinfoNs.Name())
-			util.ValidateMetric(t, prom, query, "galley_runtime_state_istio_networking_gateways_total", 1)
+			query = fmt.Sprintf("sum(galley_istio_networking_gateways{namespace=\"%s\"})", bookinfoNs.Name())
+			util.ValidateMetric(t, prom, query, "galley_istio_networking_gateways", 1)
 		})
 }
 

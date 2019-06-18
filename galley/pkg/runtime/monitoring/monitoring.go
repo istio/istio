@@ -158,10 +158,13 @@ func RecordDetailedStateType(namespace, name string, collection fmt.Stringer, co
 		tag.Insert(NameTag, name), tag.Insert(VersionTag, collectionStr[2]))
 	if err != nil {
 		log.Scope.Errorf("error creating monitoring context for counting state: %v", err)
-	} else {
-		RecordDetailedStateTypeWithContext(ctx, strings.Replace(collection.String(),
-			fmt.Sprintf("%s/", collectionStr[2]), "", 1), count)
+		return
 	}
+
+	// We remove version from the collection name as it has been added as the VersionTag in the measurement.
+	collectionName := strings.Replace(collection.String(),
+		fmt.Sprintf("%s/", collectionStr[2]), "", 1)
+	RecordDetailedStateTypeWithContext(ctx, collectionName, count)
 }
 
 // RecordDetailedStateTypeWithContext
@@ -207,7 +210,7 @@ func getStateTypeConfigKeys() ([]tag.Key, error) {
 }
 
 func registerNewStateTypeConfigView(collection string) error {
-	stateTypeConfigTotal[collection] = stats.Int64(fmt.Sprintf("galley/runtime/state/%s_total", collection),
+	stateTypeConfigTotal[collection] = stats.Int64(fmt.Sprintf("galley/%s_total", collection),
 		fmt.Sprintf("The number of valid %v known to galley at a point in time", collection),
 		stats.UnitDimensionless)
 	err := view.Register(
