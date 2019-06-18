@@ -141,11 +141,12 @@ function set_image_vars() {
   BASE_NAME=$(basename "$TAR_PATH")
   TAR_NAME="${BASE_NAME%.*}"
   IMAGE_NAME="${TAR_NAME%.*}"
+  VARIANT_NAME=""
   #check if it is a build variant (e.g. distroless)
-  if [[ "${IMAGE_NAME}" != "${IMAGE_NAME##*-}" ]]; then
-    VARIANT_NAME="-${IMAGE_NAME##*-}"
-    IMAGE_NAME="${IMAGE_NAME%${VARIANT_NAME}}"
-  else
-    VARIANT_NAME=""
-  fi
+  case "${IMAGE_NAME}" in
+    *-distroless)
+      VARIANT_NAME="-${IMAGE_NAME##*-}"
+      IMAGE_NAME="${IMAGE_NAME%${VARIANT_NAME}}"
+      ;;
+  esac
 }
