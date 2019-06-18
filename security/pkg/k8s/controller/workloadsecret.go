@@ -304,7 +304,7 @@ func (sc *SecretController) deleteSecret(saName, saNamespace string) {
 	err := sc.core.Secrets(saNamespace).Delete(GetSecretName(saName), nil)
 	// kube-apiserver returns NotFound error when the secret is successfully deleted.
 	if err == nil || errors.IsNotFound(err) {
-		log.Infof("Secret %s/%s deleted successfully.", saNamespace, GetSecretName(saName))
+		log.Infof("Secret %s/%s deleted successfully", saNamespace, GetSecretName(saName))
 		return
 	}
 
