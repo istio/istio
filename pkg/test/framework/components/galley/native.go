@@ -199,6 +199,23 @@ func (c *nativeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string
 	})
 }
 
+// SetMeshConfig implements Instance
+func (c *nativeComponent) SetMeshConfig(meshCfg string) error {
+	if err := ioutil.WriteFile(c.meshConfigFile, []byte(meshCfg), os.ModePerm); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// SetMeshConfigOrFail implements Instance
+func (c *nativeComponent) SetMeshConfigOrFail(t test.Failer, meshCfg string) {
+	t.Helper()
+	if err := c.SetMeshConfig(meshCfg); err != nil {
+		t.Fatalf("galley.SetMeshConfigOrFail: %v", err)
+	}
+}
+
 // WaitForSnapshot implements Galley.WaitForSnapshot.
 func (c *nativeComponent) WaitForSnapshot(collection string, validator SnapshotValidatorFunc) error {
 	return c.client.waitForSnapshot(collection, validator)
