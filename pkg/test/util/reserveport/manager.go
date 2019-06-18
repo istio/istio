@@ -49,6 +49,18 @@ func (m *managerImpl) ReservePort() (ReservedPort, error) {
 	return p, nil
 }
 
+func (m *managerImpl) ReservePortNumber() (uint16, error) {
+	p, err := m.ReservePort()
+	if err != nil {
+		return 0, err
+	}
+	n := p.GetPort()
+	if err := p.Close(); err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
 func (m *managerImpl) Close() (err error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()

@@ -1170,6 +1170,15 @@ func TestValidateHTTPAPISpec(t *testing.T) {
 			},
 			valid: true,
 		},
+		{
+			name: "invalid attribute (nil)",
+			in: &mccpb.HTTPAPISpec{
+				Attributes: &mpb.Attributes{
+					Attributes: map[string]*mpb.Attributes_AttributeValue{"": nil},
+				},
+			},
+			valid: false,
+		},
 	}
 	for _, c := range cases {
 		if got := ValidateHTTPAPISpec(someName, someNamespace, c.in); (got == nil) != c.valid {
@@ -1331,6 +1340,19 @@ func TestValidateQuotaSpec(t *testing.T) {
 				}},
 			},
 			valid: true,
+		},
+		{
+			name: "regression test - nil clause",
+			in: &mccpb.QuotaSpec{
+				Rules: []*mccpb.QuotaRule{{
+					Match: []*mccpb.AttributeMatch{{
+						Clause: map[string]*mccpb.StringMatch{
+							"": nil,
+						},
+					}},
+				}},
+			},
+			valid: false,
 		},
 	}
 	for _, c := range cases {
@@ -2040,6 +2062,14 @@ func TestValidateHTTPRetry(t *testing.T) {
 			PerTryTimeout: &types.Duration{Seconds: 2},
 			RetryOn:       "5xx,gateway-error",
 		}, valid: true},
+		{name: "disable retries", in: &networking.HTTPRetry{
+			Attempts: 0,
+		}, valid: true},
+		{name: "invalid, retry policy configured but attempts set to zero", in: &networking.HTTPRetry{
+			Attempts:      0,
+			PerTryTimeout: &types.Duration{Seconds: 2},
+			RetryOn:       "5xx,gateway-error",
+		}, valid: false},
 		{name: "valid default", in: &networking.HTTPRetry{
 			Attempts: 10,
 		}, valid: true},
@@ -3755,6 +3785,22 @@ func TestValidateAuthenticationMeshPolicy(t *testing.T) {
 				}},
 			},
 			valid: true,
+		},
+		{
+			name:       "empty origin",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn.Policy{
+				Origins: []*authn.OriginAuthenticationMethod{{}},
+			},
+			valid: false,
+		},
+		{
+			name:       "nil origin",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn.Policy{
+				Origins: []*authn.OriginAuthenticationMethod{nil},
+			},
+			valid: false,
 		},
 	}
 	for _, c := range cases {

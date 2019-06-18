@@ -26,7 +26,9 @@ import (
 	"fortio.org/fortio/periodic"
 
 	"istio.io/istio/pkg/test/framework/components/ingress"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/tests/util"
 )
 
@@ -167,6 +169,31 @@ func SendTrafficAndWaitForExpectedStatus(ingress ingress.Instance, t *testing.T,
 		// Verify you get specified http return code.
 		if float64(res.RetCodes[httpStatusCode]) == 0 {
 			return fmt.Errorf("could not get %v status", httpStatusCode)
+		}
+		return nil
+	}
+
+	if _, err := retry.Retry(context.Background(), retryFn); err != nil {
+		t.Fatalf("Failed with err: %v", err)
+	}
+}
+
+func GetAndValidateAccessLog(ns namespace.Instance, t *testing.T, labelSelector, container string, validate func(string) error) {
+	retry := util.Retrier{
+		BaseDelay: 15 * time.Second,
+		Retries:   3,
+		MaxDelay:  30 * time.Second,
+	}
+
+	retryFn := func(_ context.Context, i int) error {
+		content, err := shell.Execute(false, "kubectl logs -n %s -l %s -c %s ",
+			ns.Name(), labelSelector, container)
+		if err != nil {
+			return fmt.Errorf("unable to get access logs from mixer: %v , content %v", err, content)
+		}
+		err = validate(content)
+		if err != nil {
+			return fmt.Errorf("error validating content %v ", err)
 		}
 		return nil
 	}

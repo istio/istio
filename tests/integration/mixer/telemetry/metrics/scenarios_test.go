@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package telemetry
+package metrics
 
 import (
 	"fmt"
@@ -194,7 +194,7 @@ func TestTcpMetric(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("mixer_policy_ratelimit", m).
+		NewSuite("mixer_telemetry_metrics", m).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
 		Run()
 }
