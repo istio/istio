@@ -212,6 +212,36 @@ func buildOutboundAutoPassthroughFilterStack(env *model.Environment, node *model
 	return filterstack
 }
 
+<<<<<<< HEAD
+=======
+// buildRedisFilter builds an outbound Envoy RedisProxy filter.
+// Currently, if multiple clusters are defined, one of them will be picked for
+// configuring the Redis proxy.
+func buildRedisFilter(statPrefix, clusterName string, isXDSMarshalingToAnyEnabled bool) listener.Filter {
+	config := &redis_proxy.RedisProxy{
+		LatencyInMicros: true,       // redis latency stats are captured in micro seconds which is typically the case.
+		StatPrefix:      statPrefix, // redis stats are prefixed with redis.<statPrefix> by Envoy
+		Settings: &redis_proxy.RedisProxy_ConnPoolSettings{
+			OpTimeout: &redisOpTimeout, // TODO: Make this user configurable
+		},
+		PrefixRoutes: redis_proxy.RedisProxy_PrefixRoutes{
+			CatchAllCluster: clusterName,
+		},
+	}
+
+	out := listener.Filter{
+		Name: xdsutil.RedisProxy,
+	}
+	if isXDSMarshalingToAnyEnabled {
+		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	} else {
+		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+	}
+
+	return out
+}
+
+>>>>>>> daee8b1bc0... configure redis latency stat in micros (#14868)
 // buildMySQLFilter builds an outbound Envoy MySQLProxy filter.
 func buildMySQLFilter(statPrefix string, isXDSMarshalingToAnyEnabled bool) listener.Filter {
 	config := &mysql_proxy.MySQLProxy{
