@@ -35,11 +35,35 @@ func Get() (*schema.Metadata, error) {
 	return m, nil
 }
 
+// Get returns the contained baiscmeta.yaml file, in parsed form.
+func Get2() (*schema.Metadata, error) {
+	b, err := Asset("basicmeta2.yaml")
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := schema.ParseAndBuild(string(b))
+	if err != nil {
+		return nil, err
+	}
+
+	return m, nil
+}
+
 // MustGet calls Get and panics if it returns and error.
 func MustGet() *schema.Metadata {
 	s, err := Get()
 	if err != nil {
 		panic(fmt.Sprintf("testmeta.MustGet: %v", err))
+	}
+	return s
+}
+
+// MustGet2 calls Get2 and panics if it returns and error.
+func MustGet2() *schema.Metadata {
+	s, err := Get2()
+	if err != nil {
+		panic(fmt.Sprintf("testmeta.MustGet2: %v", err))
 	}
 	return s
 }
