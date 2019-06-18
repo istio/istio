@@ -64,7 +64,7 @@ func Join(parts ...[]byte) []byte {
 		}
 		_, _ = b.Write(p)
 		s := string(p)
-		lastIsNewLine = s[len(s) - 1] == '\n'
+		lastIsNewLine = s[len(s)-1] == '\n'
 	}
 
 	return b.Bytes()
@@ -86,7 +86,7 @@ func JoinString(parts ...string) string {
 			st.WriteString(yamlSeparator)
 		}
 		_, _ = st.WriteString(p)
-		lastIsNewLine = p[len(p) - 1] == '\n'
+		lastIsNewLine = p[len(p)-1] == '\n'
 	}
 
 	return st.String()
