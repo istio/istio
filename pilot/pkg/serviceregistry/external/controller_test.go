@@ -12,22 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package external
+package external_test
 
 import (
-	"sync"
+	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/external"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
-const (
-	notifyThreshold = 5 * time.Millisecond
-)
-
-// TODO: ensure this test is reliable (no timing issues) on different systems
 func TestController(t *testing.T) {
 	configDescriptor := model.ConfigDescriptor{
 		model.ServiceEntry,
@@ -35,49 +34,68 @@ func TestController(t *testing.T) {
 	store := memory.Make(configDescriptor)
 	configController := memory.NewController(store)
 
-	countMutex := sync.Mutex{}
-	count := 0
+	count := int64(0)
 
-	incrementCount := func() {
-		countMutex.Lock()
-		defer countMutex.Unlock()
-		count++
-	}
-	getCountAndReset := func() int {
-		countMutex.Lock()
-		defer countMutex.Unlock()
-		c := count
-		count = 0
-		return c
-	}
-
-	ctl := NewServiceDiscovery(configController, model.MakeIstioStore(configController))
-	err := ctl.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) { incrementCount() })
+	ctl := external.NewServiceDiscovery(configController, model.MakeIstioStore(configController))
+	err := ctl.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) { atomic.AddInt64(&count, 1) })
 	if err != nil {
-		t.Errorf("AppendInstanceHandler() => %q", err)
+		t.Fatalf("AppendInstanceHandler() => %q", err)
 	}
 
-	err = ctl.AppendServiceHandler(func(service *model.Service, event model.Event) { incrementCount() })
+	err = ctl.AppendServiceHandler(func(service *model.Service, event model.Event) { atomic.AddInt64(&count, 1) })
 	if err != nil {
-		t.Errorf("AppendServiceHandler() => %q", err)
+		t.Fatalf("AppendServiceHandler() => %q", err)
 	}
 
 	stop := make(chan struct{})
 	go configController.Run(stop)
 	defer close(stop)
 
-	time.Sleep(notifyThreshold)
-	if c := getCountAndReset(); c != 0 {
-		t.Errorf("got %d notifications from controller, want %d", c, 0)
+	cfg := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:              model.ServiceEntry.Type,
+			Name:              "fake",
+			Namespace:         "fake-ns",
+			CreationTimestamp: time.Now(),
+		},
+		Spec: &networking.ServiceEntry{
+			Hosts: []string{"*.google.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Name: "http-port", Protocol: "http"},
+				{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{
+					Address: "2.2.2.2",
+					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
+				},
+				{
+					Address: "3.3.3.3",
+					Ports:   map[string]uint32{"http-port": 1080},
+				},
+				{
+					Address: "4.4.4.4",
+					Ports:   map[string]uint32{"http-port": 1080},
+					Labels:  map[string]string{"foo": "bar"},
+				},
+			},
+			Location:   networking.ServiceEntry_MESH_EXTERNAL,
+			Resolution: networking.ServiceEntry_STATIC,
+		},
 	}
+	expectedCount := int64(7) // 1 service + 6 instances
 
-	_, err = configController.Create(*httpStatic)
+	_, err = configController.Create(cfg)
 	if err != nil {
-		t.Errorf("error occurred crearting ServiceEntry config: %v", err)
+		t.Fatalf("error occurred crearting ServiceEntry config: %v", err)
 	}
 
-	time.Sleep(notifyThreshold)
-	if c := getCountAndReset(); c != 7 {
-		t.Errorf("got %d notifications from controller, want %d", c, 7)
+	if err := retry.UntilSuccess(func() error {
+		if gotcount := atomic.AddInt64(&count, 0); gotcount != expectedCount {
+			return fmt.Errorf("got %d notifications from controller, want %d", gotcount, expectedCount)
+		}
+		return nil
+	}, retry.Delay(50*time.Millisecond), retry.Timeout(5*time.Second)); err != nil {
+		t.Fatal(err)
 	}
 }

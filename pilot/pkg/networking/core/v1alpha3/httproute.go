@@ -161,7 +161,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	// Get list of virtual services bound to the mesh gateway
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap, proxyLabels, virtualServices, listenerPort)
 	vHostPortMap := make(map[int][]route.VirtualHost)
-	var name string
 	uniques := make(map[string]struct{})
 	for _, virtualHostWrapper := range virtualHostWrappers {
 		// If none of the routes matched by source, skip this virtual host
@@ -170,7 +169,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		}
 		virtualHosts := make([]route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
 		for _, host := range virtualHostWrapper.VirtualServiceHosts {
-			name = fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port)
+			name := fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port)
 			if _, found := uniques[name]; !found {
 				uniques[name] = struct{}{}
 				virtualHosts = append(virtualHosts, route.VirtualHost{
@@ -179,12 +178,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 					Routes:  virtualHostWrapper.Routes,
 				})
 			} else {
-				log.Warnf("httproute(buildSidecarOutboundHTTPRouteConfig): Duplicate route entry %v. Dropping.", name)
+				push.Add(model.DuplicatedDomains, name, node, fmt.Sprintf("duplicate domain from virtual service: %s", name))
+				log.Debugf("Dropping duplicate route entry %v.", name)
 			}
 		}
 
 		for _, svc := range virtualHostWrapper.Services {
-			name = fmt.Sprintf("%s:%d", svc.Hostname, virtualHostWrapper.Port)
+			name := fmt.Sprintf("%s:%d", svc.Hostname, virtualHostWrapper.Port)
 			if _, found := uniques[name]; !found {
 				uniques[name] = struct{}{}
 				virtualHosts = append(virtualHosts, route.VirtualHost{
@@ -193,7 +193,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 					Routes:  virtualHostWrapper.Routes,
 				})
 			} else {
-				log.Warnf("httproute(buildSidecarOutboundHTTPRouteConfig): Duplicate route entry %v. Dropping.", name)
+				push.Add(model.DuplicatedDomains, name, node, fmt.Sprintf("duplicate domain from virtual service: %s", name))
+				log.Debugf("Dropping duplicate route entry %v.", name)
 			}
 		}
 

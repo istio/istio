@@ -128,6 +128,7 @@ github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mysql_proxy/v1alpha1
+github.com/envoyproxy/go-control-plane/envoy/config/filter/network/redis_proxy/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2
 github.com/envoyproxy/go-control-plane/envoy/type
 github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2
@@ -318,14 +319,20 @@ github.com/jmespath/go-jmespath
 github.com/json-iterator/go
 # github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515
 github.com/kr/logfmt
+# github.com/lukechampine/freeze v0.0.0-20160818180733-f514e08ae5a0
+github.com/lukechampine/freeze
 # github.com/magiconair/properties v1.8.0
 github.com/magiconair/properties
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 github.com/matttproud/golang_protobuf_extensions/pbutil
+# github.com/mitchellh/copystructure v1.0.0
+github.com/mitchellh/copystructure
 # github.com/mitchellh/go-homedir v0.0.0-20161203194507-b8bc1bf76747
 github.com/mitchellh/go-homedir
 # github.com/mitchellh/mapstructure v1.1.2
 github.com/mitchellh/mapstructure
+# github.com/mitchellh/reflectwalk v1.0.1
+github.com/mitchellh/reflectwalk
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742
@@ -659,13 +666,13 @@ gopkg.in/inf.v0
 gopkg.in/logfmt.v0
 # gopkg.in/square/go-jose.v2 v2.0.0-20180411045311-89060dee6a84
 gopkg.in/square/go-jose.v2
-gopkg.in/square/go-jose.v2/cipher
 gopkg.in/square/go-jose.v2/json
+gopkg.in/square/go-jose.v2/cipher
 # gopkg.in/stack.v1 v1.7.0
 gopkg.in/stack.v1
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
-# istio.io/api v0.0.0-20190522004026-1dffc8d3d26d
+# istio.io/api v0.0.0-20190604023128-6f137ab2ce6d
 istio.io/api/mesh/v1alpha1
 istio.io/api/authentication/v1alpha1
 istio.io/api/mixer/v1/config/client
@@ -677,7 +684,7 @@ istio.io/api/envoy/config/filter/http/authn/v2alpha1
 istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1
 istio.io/api/mixer/adapter/model/v1beta1
 istio.io/api/mixer/v1
-# istio.io/pkg v0.0.0-20190516214103-40b7bf4c7321
+# istio.io/pkg v0.0.0-20190603185215-940899ee7e72
 istio.io/pkg/collateral
 istio.io/pkg/log
 istio.io/pkg/probe
@@ -692,6 +699,7 @@ istio.io/pkg/pool
 istio.io/pkg/cache
 istio.io/pkg/attribute
 istio.io/pkg/annotations
+istio.io/pkg/collateral/metrics
 istio.io/pkg/ctrlz/assets
 istio.io/pkg/ctrlz/topics
 istio.io/pkg/ctrlz/topics/assets

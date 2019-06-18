@@ -33,6 +33,7 @@ spec:
 {{- end }}
       containers:
       - image: "{{ .Values.hub }}/kiali:{{ .Values.tag }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         name: kiali
         command:
         - "/opt/kiali/kiali"
@@ -45,12 +46,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        - name: PROMETHEUS_SERVICE_URL
-          value: {{ .Values.prometheusAddr }}
-{{- if .Values.contextPath }}
-        - name: SERVER_WEB_ROOT
-          value: {{ .Values.contextPath }}
-{{- end }}
         volumeMounts:
         - name: kiali-configuration
           mountPath: "/kiali-configuration"
@@ -73,3 +68,10 @@ spec:
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+      {{- if .Values.tolerations }}
+      tolerations:
+{{ toYaml .Values.tolerations | indent 6 }}
+      {{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+      {{- end }}

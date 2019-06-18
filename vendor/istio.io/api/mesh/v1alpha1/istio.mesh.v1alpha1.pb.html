@@ -4,7 +4,7 @@ description: Configuration affecting the service mesh as a whole.
 location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 21
+number_of_entries: 22
 ---
 <p>Configuration affecting the service mesh as a whole.</p>
 
@@ -416,6 +416,16 @@ Default value is text.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-enable_envoy_access_log_service">
+<td><code>enableEnvoyAccessLogService</code></td>
+<td><code>bool</code></td>
+<td>
+<p>This flag enables Envoy&rsquo;s gRPC Access Log Service.
+See <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto">Access Log Service</a>
+for details about Envoy&rsquo;s gRPC Access Log Service API.</p>
+
+</td>
+</tr>
 <tr id="MeshConfig-default_config">
 <td><code>defaultConfig</code></td>
 <td><code><a href="#ProxyConfig">ProxyConfig</a></code></td>
@@ -496,6 +506,47 @@ Fallback to old identity format(without trust domain) if not set.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-disable_report_batch">
+<td><code>disableReportBatch</code></td>
+<td><code>bool</code></td>
+<td>
+<p>The flag to disable report batch.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-report_batch_max_entries">
+<td><code>reportBatchMaxEntries</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>When disable<em>report</em>batch is false, this value specifies the maximum number
+of requests that are batched in report. If left unspecified, the default value
+of report<em>batch</em>max_entries == 0 will use the hardcoded defaults of
+istio::mixerclient::ReportOptions.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-report_batch_max_time">
+<td><code>reportBatchMaxTime</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>When disable<em>report</em>batch is false, this value specifies the maximum elapsed
+time a batched report will be sent after a user request is processed. If left
+unspecified, the default report<em>batch</em>max_time == 0 will use the hardcoded
+defaults of istio::mixerclient::ReportOptions.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-h2_upgrade_policy">
+<td><code>h2UpgradePolicy</code></td>
+<td><code><a href="#MeshConfig-H2UpgradePolicy">MeshConfig.H2UpgradePolicy</a></code></td>
+<td>
+<p>Specify if http1.1 connections should be upgraded to http2 by default.
+if sidecar is installed on all pods in the mesh, then this should be set to UPGRADE.
+If one or more services or namespaces do not have sidecar(s), then this should be set to DO<em>NOT</em>UPGRADE.
+It can be enabled by destination using the destinationRule.trafficPolicy.connectionPool.http.h2UpgradePolicy override.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -517,6 +568,35 @@ Fallback to old identity format(without trust domain) if not set.</p>
 <tr id="MeshConfig-AccessLogEncoding-JSON">
 <td><code>JSON</code></td>
 <td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MeshConfig-H2UpgradePolicy">MeshConfig.H2UpgradePolicy</h2>
+<section>
+<p>Default Policy for upgrading http1.1 connections to http2.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MeshConfig-H2UpgradePolicy-DO_NOT_UPGRADE">
+<td><code>DO_NOT_UPGRADE</code></td>
+<td>
+<p>Do not upgrade connections to http2.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-H2UpgradePolicy-UPGRADE">
+<td><code>UPGRADE</code></td>
+<td>
+<p>Upgrade the connections to http2.</p>
+
 </td>
 </tr>
 </tbody>
@@ -618,8 +698,9 @@ there are no services or ServiceEntries for the destination port</p>
 <p>MeshNetworks (config map) provides information about the set of networks
 inside a mesh and how to route to endpoints in each network. For example</p>
 
-<p>MeshNetworks(file/config map):
-networks:
+<p>MeshNetworks(file/config map):</p>
+
+<pre><code class="language-yaml">networks:
   network1:
   - endpoints:
     - fromRegistry: registry1 #must match secret name in Kubernetes
@@ -630,7 +711,8 @@ networks:
       locality: us-east-1a
     - address: 192.168.100.1
       port: 15443
-      locality: us-east-1a</p>
+      locality: us-east-1a
+</code></pre>
 
 <table class="message-fields">
 <thead>
@@ -992,6 +1074,17 @@ Increase the value of this field if you find that the metrics from Envoys are tr
 <td><code><a href="#SDS">SDS</a></code></td>
 <td>
 <p>secret discovery service(SDS) configuration to be used by the proxy.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-envoy_access_log_service_address">
+<td><code>envoyAccessLogServiceAddress</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the service to which access logs from Envoys should be
+sent. (e.g. accesslog-service:15000). See <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto">Access Log
+Service</a>
+for details about Envoy&rsquo;s gRPC Access Log Service API.</p>
 
 </td>
 </tr>

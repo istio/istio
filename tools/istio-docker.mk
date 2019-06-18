@@ -91,7 +91,7 @@ docker.sidecar_injector:$(ISTIO_DOCKER)/sidecar-injector
 # BUILD_PRE tells $(DOCKER_RULE) to run the command specified before executing a docker build
 # BUILD_ARGS tells  $(DOCKER_RULE) to execute a docker build with the specified commands
 
-docker.proxy_debug: BUILD_PRE=mv envoy-debug-${PROXY_REPO_SHA} envoy &&
+docker.proxy_debug: BUILD_PRE=$(if $(filter 1,${USE_LOCAL_PROXY}),,mv envoy-debug-${PROXY_REPO_SHA} envoy &&) chmod 755 envoy pilot-agent &&
 docker.proxy_debug: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg ISTIO_API_SHA=${ISTIO_PROXY_ISTIO_API_SHA_LABEL} --build-arg ENVOY_SHA=${ISTIO_PROXY_ENVOY_SHA_LABEL}
 docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
 docker.proxy_debug: tools/packaging/common/envoy_bootstrap_v2.json
@@ -112,6 +112,7 @@ ${ISTIO_ENVOY_RELEASE_DIR}/envoy: ${ISTIO_ENVOY_RELEASE_PATH}
 	cp ${ISTIO_ENVOY_RELEASE_PATH} ${ISTIO_ENVOY_RELEASE_DIR}/envoy
 
 # Default proxy image.
+docker.proxyv2: BUILD_PRE=chmod 755 envoy pilot-agent &&
 docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg ISTIO_API_SHA=${ISTIO_PROXY_ISTIO_API_SHA_LABEL} --build-arg ENVOY_SHA=${ISTIO_PROXY_ENVOY_SHA_LABEL}
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_drain.json
@@ -158,7 +159,7 @@ ifeq ($(DEBUG_IMAGE),1)
 	# It is extremely helpful to debug from the test app. The savings in size are not worth the
 	# developer pain
 	cp $(ISTIO_DOCKER)/testapp/Dockerfile.app $(ISTIO_DOCKER)/testapp/Dockerfile.appdbg
-	sed -e "s,FROM scratch,FROM $(HUB)/proxy_debug:$(TAG)," $(ISTIO_DOCKER)/testapp/Dockerfile.appdbg > $(ISTIO_DOCKER)/testapp/Dockerfile.appd
+	sed -e "s,FROM \${BASE_DISTRIBUTION},FROM $(HUB)/proxy_debug:$(TAG)," $(ISTIO_DOCKER)/testapp/Dockerfile.appdbg > $(ISTIO_DOCKER)/testapp/Dockerfile.appd
 endif
 	time (cd $(ISTIO_DOCKER)/testapp && \
 		docker build -t $(HUB)/app:$(TAG) -f Dockerfile.app .)
@@ -227,7 +228,10 @@ docker.node-agent-test: $(ISTIO_DOCKER)/node_agent.key
 # 4. This rule runs $(BUILD_PRE) prior to any docker build and only if specified as a dependency variable
 # 5. This rule finally runs docker build passing $(BUILD_ARGS) to docker if they are specified as a dependency variable
 
-DOCKER_RULE=time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp -r $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ && $(BUILD_PRE) docker build $(BUILD_ARGS) -t $(HUB)/$(subst docker.,,$@):$(TAG) -f Dockerfile$(suffix $@) .)
+# DOCKER_BUILD_VARIANTS:=default distroless
+DOCKER_BUILD_VARIANTS:=default
+DEFAULT_DISTRIBUTION=default
+DOCKER_RULE=$(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp -r $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ && $(BUILD_PRE) docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(VARIANT) -t $(HUB)/$(subst docker.,,$@):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
 
 # This target will package all docker images used in test and release, without re-building
 # go binaries. It is intended for CI/CD systems where the build is done in separate job.
@@ -252,8 +256,11 @@ docker.save: $(DOCKER_TAR_TARGETS)
 # for each docker.XXX target create a push.docker.XXX target that pushes
 # the local docker image to another hub
 # a possible optimization is to use tag.$(TGT) as a dependency to do the tag for us
-$(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
-	time (docker push $(HUB)/$(subst docker.,,$(TGT)):$(TAG))))
+$(foreach TGT,$(filter-out docker.app,$(DOCKER_TARGETS)),$(eval push.$(TGT): | $(TGT) ; \
+	time (set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$$$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$$$${tag%-$(DEFAULT_DISTRIBUTION)}; done)))
+
+push.docker.app: docker.app
+	time (docker push $(HUB)/app:$(TAG))
 
 # create a DOCKER_PUSH_TARGETS that's each of DOCKER_TARGETS with a push. prefix
 DOCKER_PUSH_TARGETS:=

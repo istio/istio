@@ -88,5 +88,6 @@
             {{- end }}
             {{- end }}
         topologyKey: {{ $item.topologyKey }}
+      weight: 100
     {{- end }}
 {{- end }}

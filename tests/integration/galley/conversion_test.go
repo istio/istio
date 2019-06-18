@@ -22,7 +22,6 @@ import (
 	"istio.io/istio/galley/testdata/conversion"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 
 	"istio.io/istio/galley/pkg/metadata"
@@ -48,7 +47,6 @@ func TestConversion(t *testing.T) {
 			// component
 
 			framework.NewTest(t).
-				Label(label.Presubmit).
 				RequiresEnvironment(environment.Native).
 				Run(func(ctx framework.TestContext) {
 

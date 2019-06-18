@@ -53,7 +53,7 @@ spec:
 {{- else }}
           image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy_init.image }}:{{ $.Values.global.tag }}"
 {{- end }}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           command:
             - /bin/sh
           args:
@@ -144,6 +144,10 @@ spec:
         {{- if $.Values.global.proxy.envoyMetricsService.enabled }}
           - --envoyMetricsServiceAddress
           - {{ $.Values.global.proxy.envoyMetricsService.host }}:{{ $.Values.global.proxy.envoyMetricsService.port }}
+        {{- end }}
+        {{- if $.Values.global.proxy.envoyAccessLogService.enabled }}
+          - --envoyAccessLogServiceAddress
+          - {{ $.Values.global.proxy.envoyAccessLogService.host }}:{{ $.Values.global.proxy.envoyAccessLogService.port }}
         {{- end }}
           - --proxyAdminPort
           - "15000"
@@ -241,7 +245,7 @@ spec:
           volumeMounts:
           {{- if $.Values.global.sds.enabled }}
           - name: sdsudspath
-            mountPath: /var/run/sds/uds_path
+            mountPath: /var/run/sds
             readOnly: true
           {{- if $.Values.global.sds.useTrustworthyJwt }}
           - name: istio-token
@@ -275,8 +279,7 @@ spec:
       {{- if $.Values.global.sds.enabled }}
       - name: sdsudspath
         hostPath:
-          path: /var/run/sds/uds_path
-          type: Socket
+          path: /var/run/sds
       {{- if $.Values.global.sds.useTrustworthyJwt }}
       - name: istio-token
         projected:
@@ -306,10 +309,13 @@ spec:
       affinity:
       {{- include "gatewaynodeaffinity" (dict "root" $ "nodeSelector" $spec.nodeSelector) | indent 6 }}
       {{- include "gatewaypodAntiAffinity" (dict "podAntiAffinityLabelSelector" $spec.podAntiAffinityLabelSelector "podAntiAffinityTermLabelSelector" $spec.podAntiAffinityTermLabelSelector) | indent 6 }}
-{{- if $spec.tolerations }}
+      {{- if $spec.tolerations }}
       tolerations:
 {{ toYaml $spec.tolerations | indent 6 }}
-{{- end }}
+      {{- else if $.Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml $.Values.global.defaultTolerations | indent 6 }}
+      {{- end }}
 ---
 {{- end }}
 {{- end }}

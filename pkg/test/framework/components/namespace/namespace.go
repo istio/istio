@@ -17,6 +17,8 @@ package namespace
 import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/environment/native"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -67,6 +69,33 @@ func NewOrFail(t test.Failer, ctx resource.Context, prefix string, inject bool) 
 	i, err := New(ctx, prefix, inject)
 	if err != nil {
 		t.Fatalf("namespace.NewOrFail: %v", err)
+	}
+	return i
+}
+
+// ClaimSystemNamespace retrieves the namespace for the Istio system components from the environment.
+func ClaimSystemNamespace(ctx resource.Context) (Instance, error) {
+	switch ctx.Environment().EnvironmentName() {
+	case environment.Kube:
+		istioCfg, err := istio.DefaultConfig(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return Claim(ctx, istioCfg.SystemNamespace)
+	case environment.Native:
+		ns := ctx.Environment().(*native.Environment).SystemNamespace
+		return Claim(ctx, ns)
+	default:
+		return nil, resource.UnsupportedEnvironment(ctx.Environment())
+	}
+}
+
+// ClaimSystemNamespaceOrFail calls ClaimSystemNamespace, failing the test if an error occurs.
+func ClaimSystemNamespaceOrFail(t test.Failer, ctx resource.Context) Instance {
+	t.Helper()
+	i, err := ClaimSystemNamespace(ctx)
+	if err != nil {
+		t.Fatal(err)
 	}
 	return i
 }

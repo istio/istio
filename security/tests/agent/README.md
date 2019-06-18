@@ -1,6 +1,6 @@
 # Testing Citadel Agent
 
-## Getting Started
+## Getting Started for the Test
 
 Starting the Citadel Agent first
 
@@ -20,6 +20,26 @@ Run the test in a separate terminal window
 go test -v -istio.testing.citadelagent.skip=false \
   -istio.testing.citadelagent.uds=${AGENT_UDS_PATH} \
   ${GOPATH}/src/istio.io/istio/security/testing/agent
+```
+
+## Deploy in Kuberentes
+
+Deploy Istio with SDS enabled, following instructions in [istio.io](https://istio.io/docs/tasks/security/auth-sds/).
+
+Build Image
+
+```bash
+make clean && make sdsclient
+cp /path/to/output/sdsclient security/docker/
+cd security/docker
+docker build -f -t gcr.io/you-project/sdsclient:dev && docker push gcr.io/you-project/sdsclient:dev
+```
+
+```bash
+kubectl apply -f sdsc.yaml
+
+# Key/Cert are printed in the log.
+kubectl logs <pod-id>
 ```
 
 ## Future Work

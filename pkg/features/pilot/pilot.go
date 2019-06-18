@@ -19,6 +19,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gogo/protobuf/types"
+
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -89,6 +91,15 @@ var (
 	// where Sidecar is enabled.
 	HTTP10 = env.RegisterBoolVar("PILOT_HTTP10", false, "").Get()
 
+	initialFetchTimeoutVar = env.RegisterDurationVar(
+		"PILOT_INITIAL_FETCH_TIMEOUT",
+		0,
+		"Specifies the initial_fetch_timeout for config. If this time is reached without "+
+			"a response to the config requested by Envoy, the Envoy will move on with the init phase. "+
+			"This prevents envoy from getting stuck waiting on config during startup.",
+	)
+	InitialFetchTimeout = types.DurationProto(initialFetchTimeoutVar.Get())
+
 	// TerminationDrainDuration is the amount of time allowed for connections to complete on pilot-agent shutdown.
 	// On receiving SIGTERM or SIGINT, pilot-agent tells the active Envoy to start draining,
 	// preventing any new connections and allowing existing connections to complete. It then
@@ -153,6 +164,14 @@ var (
 		"PILOT_ENABLE_MYSQL_FILTER",
 		false,
 		"EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.")
+
+	// EnableRedisFilter enables injection of `envoy.filters.network.redis_proxy` in the filter chain.
+	// Pilot injects this outbound filter if the service port name is `redis`.
+	EnableRedisFilter = enableRedisFilter.Get
+	enableRedisFilter = env.RegisterBoolVar(
+		"PILOT_ENABLE_REDIS_FILTER",
+		false,
+		"EnableRedisFilter enables injection of `envoy.filters.network.redis_proxy` in the filter chain.")
 )
 
 var (

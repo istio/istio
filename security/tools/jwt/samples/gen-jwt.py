@@ -31,7 +31,8 @@ def main(args):
         pem_data = f.read()
     f.closed
 
-    key = jwk.JWK.from_pem(pem_data)
+    pem_data_encode = pem_data.encode("utf-8")
+    key = jwk.JWK.from_pem(pem_data_encode)
 
     if args.jwks:
         with open(args.jwks, "w+") as fout:

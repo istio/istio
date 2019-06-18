@@ -428,7 +428,6 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
-		w.WriteHeader(http.StatusOK)
 		return
 	}
 	w.WriteHeader(http.StatusBadRequest)

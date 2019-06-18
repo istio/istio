@@ -24,9 +24,9 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pilot/pkg/config/kube/crd"
+	crd "istio.io/istio/pilot/pkg/config/kube/crd/controller"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pilot/test/util"
 )
@@ -169,16 +169,16 @@ func TestUnknownConfig(t *testing.T) {
 }
 
 func controllerEvents(t *testing.T, cl *crd.Client, ns string) {
-	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespace: ns, ResyncPeriod: resync})
+	ctl := crd.NewController(cl, kube.Options{WatchedNamespace: ns, ResyncPeriod: resync})
 	mock.CheckCacheEvents(cl, ctl, ns, 5, t)
 }
 
 func controllerCacheFreshness(t *testing.T, cl *crd.Client, ns string) {
-	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespace: ns, ResyncPeriod: resync})
+	ctl := crd.NewController(cl, kube.Options{WatchedNamespace: ns, ResyncPeriod: resync})
 	mock.CheckCacheFreshness(ctl, ns, t)
 }
 
 func controllerClientSync(t *testing.T, cl *crd.Client, ns string) {
-	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespace: ns, ResyncPeriod: resync})
+	ctl := crd.NewController(cl, kube.Options{WatchedNamespace: ns, ResyncPeriod: resync})
 	mock.CheckCacheSync(cl, ctl, ns, 5, t)
 }

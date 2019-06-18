@@ -28,8 +28,10 @@ set -x
 #   prow/upgrade-tests-1.0.2.sh
 
 # Set up inputs needed by test_upgrade.sh
+export SOURCE_HUB=${SOURCE_HUB:-$HUB}
 export SOURCE_VERSION=1.0.2
 export SOURCE_RELEASE_PATH="https://github.com/istio/istio/releases/download/${SOURCE_VERSION}"
+export TARGET_HUB=${TARGET_HUB:-$HUB}
 export TARGET_VERSION=${TAG}
 export TARGET_RELEASE_PATH=${ISTIO_REL_URL}
 

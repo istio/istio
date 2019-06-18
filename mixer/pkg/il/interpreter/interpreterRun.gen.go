@@ -11,8 +11,8 @@ import (
 	"math"
 	"time"
 
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il"
+	"istio.io/pkg/attribute"
 )
 
 func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Result, error) {
@@ -1033,7 +1033,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto INVALID_HEAP_ACCESS
 			}
 			tVal = heap[t2]
-			tStr, tFound = il.MapGet(tVal, tStr)
+			tStr, tFound = tVal.(attribute.StringMap).Get(tStr)
 			if tFound {
 				if hp == heapSize-1 {
 					goto HEAP_OVERFLOW
@@ -1064,7 +1064,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto INVALID_HEAP_ACCESS
 			}
 			tVal = heap[t2]
-			tStr, tFound = il.MapGet(tVal, tStr)
+			tStr, tFound = tVal.(attribute.StringMap).Get(tStr)
 			if !tFound {
 				if t1 >= hp {
 					goto INVALID_HEAP_ACCESS
@@ -1097,7 +1097,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto INVALID_HEAP_ACCESS
 			}
 			tVal = heap[t2]
-			tStr, tFound = il.MapGet(tVal, tStr)
+			tStr, tFound = tVal.(attribute.StringMap).Get(tStr)
 			if !tFound {
 				tStr = ""
 			}
@@ -1123,7 +1123,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto INVALID_HEAP_ACCESS
 			}
 			tVal = heap[t2]
-			tStr, tFound = il.MapGet(tVal, tStr)
+			tStr, tFound = tVal.(attribute.StringMap).Get(tStr)
 			if !tFound {
 				tErr = fmt.Errorf("member lookup failed: '%v'", strings.GetString(t1))
 				goto RETURN_ERR
@@ -1150,7 +1150,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto INVALID_HEAP_ACCESS
 			}
 			tVal = heap[t2]
-			tStr, tFound = il.MapGet(tVal, tStr)
+			tStr, tFound = tVal.(attribute.StringMap).Get(tStr)
 			if !tFound {
 				tStr = ""
 			}

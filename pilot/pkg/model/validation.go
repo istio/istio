@@ -111,7 +111,7 @@ func ValidatePort(port int) error {
 	return fmt.Errorf("port number %d must be in the range 1..65535", port)
 }
 
-// ValidatePort checks if all ports are in range [0, 65535]
+// ValidatePorts checks if all ports are in range [0, 65535]
 func ValidatePorts(ports []int32) bool {
 	for _, port := range ports {
 		if ValidatePort(int(port)) != nil {
@@ -286,7 +286,11 @@ func validateDNS1123Labels(domain string) error {
 	if _, err := strconv.Atoi(topLevelDomain); err == nil {
 		return fmt.Errorf("domain name %q invalid (top level domain %q cannot be all-numeric)", domain, topLevelDomain)
 	}
-	for _, label := range parts {
+	for i, label := range parts {
+		// Allow the last part to be empty, for unambiguous names like `istio.io.`
+		if i == len(parts)-1 && label == "" {
+			return nil
+		}
 		if !IsDNS1123Label(label) {
 			return fmt.Errorf("domain name %q invalid (label %q invalid)", domain, label)
 		}
@@ -1203,6 +1207,12 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 		}
 	}
 
+	if config.EnvoyAccessLogServiceAddress != "" {
+		if err := ValidateProxyAddress(config.EnvoyAccessLogServiceAddress); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy access log service address %q:", config.EnvoyAccessLogServiceAddress)))
+		}
+	}
+
 	if err := ValidatePort(int(config.ProxyAdminPort)); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy admin port:"))
 	}
@@ -1538,7 +1548,7 @@ func hasExistingFirstClassFieldInRole(constraintKey string, rule *rbac.AccessRul
 	return false
 }
 
-// ValidateServiceRoleBinding checks that ServiceRoleBinding is well-formed.
+// checkServiceRoleBinding checks that ServiceRoleBinding is well-formed.
 func checkServiceRoleBinding(in *rbac.ServiceRoleBinding) error {
 	var errs error
 	if len(in.Subjects) == 0 {
@@ -1817,6 +1827,9 @@ func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualServi
 	for _, match := range tls.Match {
 		errs = appendErrors(errs, validateTLSMatch(match, context))
 	}
+	if len(tls.Route) == 0 {
+		errs = appendErrors(errs, errors.New("TLS route is required"))
+	}
 	errs = appendErrors(errs, validateRouteDestinations(tls.Route))
 	return
 }
@@ -1868,6 +1881,9 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 	}
 	for _, match := range tcp.Match {
 		errs = appendErrors(errs, validateTCPMatch(match))
+	}
+	if len(tcp.Route) == 0 {
+		errs = appendErrors(errs, errors.New("TCP route is required"))
 	}
 	errs = appendErrors(errs, validateRouteDestinations(tcp.Route))
 	return

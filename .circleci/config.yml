@@ -41,7 +41,7 @@ initWorkingDir: &initWorkingDir
     GOROOT=$(go env GOROOT)
     sudo rm -r $(go env GOROOT)
     sudo mkdir $GOROOT
-    curl https://dl.google.com/go/go1.10.4.linux-amd64.tar.gz | sudo tar xz -C $GOROOT --strip-components=1
+    curl https://dl.google.com/go/go1.12.5.linux-amd64.tar.gz | sudo tar xz -C $GOROOT --strip-components=1
 
 recordZeroExitCodeIfTestPassed: &recordZeroExitCodeIfTestPassed
   run:
@@ -70,262 +70,114 @@ markJobFinishesOnGCS: &markJobFinishesOnGCS
       make dumpsys || true
 
 jobs:
-  e2e-simple:
-    <<: *integrationDefaults
-    environment:
-            - KUBECONFIG: /go/out/minikube.conf
-            - TEST_ENV: minikube-none
-            - GOPATH: /go
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - <<: *markJobStartsOnGCS
-      - run: make sync
-      - run: bin/testEnvRootMinikube.sh start
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.all
-      - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
-      - run: make test/local/auth/e2e_simple
-      - <<: *recordZeroExitCodeIfTestPassed
-      - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *markJobFinishesOnGCS
-      - store_artifacts:
-          path: /home/circleci/logs
-      - store_artifacts:
-          path: /tmp
-      - store_artifacts:
-          path: /var/lib/localkube/
-      - store_test_results:
-          path: /go/out/tests
+  # e2e-simple:
+  #   <<: *integrationDefaults
+  #   environment:
+  #           - KUBECONFIG: /go/out/minikube.conf
+  #           - TEST_ENV: minikube-none
+  #           - GOPATH: /go
+  #   steps:
+  #     - <<: *initWorkingDir
+  #     - checkout
+  #     - attach_workspace:
+  #         at:  /go
+  #     - <<: *markJobStartsOnGCS
+  #     - run: make sync
+  #     - run: bin/testEnvRootMinikube.sh start
+  #     - run:
+  #         command: |
+  #           if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+  #             # Should only happen when re-running a job, and the workspace is gone
+  #             time make build test-bins
+  #           fi
+  #           make docker.all
+  #     - run: bin/testEnvRootMinikube.sh wait
+  #     - run: docker images
+  #     - run: make test/local/auth/e2e_simple
+  #     - <<: *recordZeroExitCodeIfTestPassed
+  #     - <<: *recordNonzeroExitCodeIfTestFailed
+  #     - <<: *markJobFinishesOnGCS
+  #     - store_artifacts:
+  #         path: /home/circleci/logs
+  #     - store_artifacts:
+  #         path: /tmp
+  #     - store_artifacts:
+  #         path: /var/lib/localkube/
+  #     - store_test_results:
+  #         path: /go/out/tests
 
-  e2e-simple-non-mcp:
-    <<: *integrationDefaults
-    environment:
-            - KUBECONFIG: /go/out/minikube.conf
-            - TEST_ENV: minikube-none
-            - GOPATH: /go
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - <<: *markJobStartsOnGCS
-      - run: make sync
-      - run: bin/testEnvRootMinikube.sh start
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.all
-      - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
-      - run: E2E_ARGS="--use_mcp=false" make test/local/auth/e2e_simple
-      - <<: *recordZeroExitCodeIfTestPassed
-      - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *markJobFinishesOnGCS
-      - store_artifacts:
-          path: /home/circleci/logs
-      - store_artifacts:
-          path: /tmp
-      - store_artifacts:
-          path: /var/lib/localkube/
-      - store_test_results:
-          path: /go/out/tests
+  # e2e-dashboard:
+  #   <<: *integrationDefaults
+  #   environment:
+  #           - KUBECONFIG: /go/out/minikube.conf
+  #           - TEST_ENV: minikube-none
+  #           - GOPATH: /go
+  #   steps:
+  #     - <<: *initWorkingDir
+  #     - checkout
+  #     - attach_workspace:
+  #         at:  /go
+  #     - <<: *markJobStartsOnGCS
+  #     - run: make sync
+  #     - run: bin/testEnvRootMinikube.sh start
+  #     - run:
+  #         command: |
+  #           if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+  #             # Should only happen when re-running a job, and the workspace is gone
+  #             time make build test-bins
+  #           fi
+  #           make docker.all generate_e2e_yaml
+  #     - run: bin/testEnvRootMinikube.sh wait
+  #     - run: docker images
+  #     - run:
+  #         command: |
+  #           PATH=$GOPATH/bin:$PATH \
+  #           E2E_ARGS="--skip_cleanup -use_local_cluster -test.v" \
+  #           set -o pipefail
+  #           make e2e_dashboard | tee -a /go/out/tests/build-log.txt
+  #     - <<: *recordZeroExitCodeIfTestPassed
+  #     - <<: *recordNonzeroExitCodeIfTestFailed
+  #     - <<: *markJobFinishesOnGCS
+  #     - store_artifacts:
+  #         path: /home/circleci/logs
+  #     - store_artifacts:
+  #         path: /tmp
+  #     - store_artifacts:
+  #         path: /var/lib/localkube/
 
-  e2e-dashboard:
-    <<: *integrationDefaults
-    environment:
-            - KUBECONFIG: /go/out/minikube.conf
-            - TEST_ENV: minikube-none
-            - GOPATH: /go
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - <<: *markJobStartsOnGCS
-      - run: make sync
-      - run: bin/testEnvRootMinikube.sh start
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.all generate_e2e_yaml
-      - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
-      - run:
-          command: |
-            PATH=$GOPATH/bin:$PATH \
-            E2E_ARGS="--skip_cleanup -use_local_cluster -test.v" \
-            set -o pipefail
-            make e2e_dashboard | tee -a /go/out/tests/build-log.txt
-      - <<: *recordZeroExitCodeIfTestPassed
-      - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *markJobFinishesOnGCS
-      - store_artifacts:
-          path: /home/circleci/logs
-      - store_artifacts:
-          path: /tmp
-      - store_artifacts:
-          path: /var/lib/localkube/
-
-  e2e-dashboard-non-mcp:
-    <<: *integrationDefaults
-    environment:
-            - KUBECONFIG: /go/out/minikube.conf
-            - TEST_ENV: minikube-none
-            - GOPATH: /go
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - <<: *markJobStartsOnGCS
-      - run: make sync
-      - run: bin/testEnvRootMinikube.sh start
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.all generate_e2e_yaml
-      - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
-      - run:
-          command: |
-            PATH=$GOPATH/bin:$PATH \
-            E2E_ARGS="--skip_cleanup -use_local_cluster --use_mcp=false -test.v" \
-            set -o pipefail
-            make e2e_dashboard | tee -a /go/out/tests/build-log.txt
-      - <<: *recordZeroExitCodeIfTestPassed
-      - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *markJobFinishesOnGCS
-      - store_artifacts:
-          path: /home/circleci/logs
-      - store_artifacts:
-          path: /tmp
-      - store_artifacts:
-          path: /var/lib/localkube/
-
-  e2e-mixer-noauth-v1alpha3-v2:
-    <<: *integrationDefaults
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - <<: *markJobStartsOnGCS
-      - run: make sync
-      - run: bin/testEnvRootMinikube.sh start
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.all generate_e2e_yaml
-      - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
-      - run:
-          no_output_timeout: 20m
-          name: make e2e_mixer
-          command: |
-            make test/local/noauth/e2e_mixer_envoyv2
-      - <<: *recordZeroExitCodeIfTestPassed
-      - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *markJobFinishesOnGCS
-      - store_artifacts:
-          path: /home/circleci/logs
-      - store_artifacts:
-          path: /tmp
-      - store_test_results:
-          path: /go/out/tests
-
-  e2e-mixer-noauth-v1alpha3-v2-non-mcp:
-    <<: *integrationDefaults
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - <<: *markJobStartsOnGCS
-      - run: make sync
-      - run: bin/testEnvRootMinikube.sh start
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.all generate_e2e_yaml
-      - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
-      - run:
-          no_output_timeout: 20m
-          name: make e2e_mixer (non-mcp)
-          command: |
-            E2E_ARGS="--use_mcp=false" \
-            make test/local/noauth/e2e_mixer_envoyv2
-      - <<: *recordZeroExitCodeIfTestPassed
-      - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *markJobFinishesOnGCS
-      - store_artifacts:
-          path: /home/circleci/logs
-      - store_artifacts:
-          path: /tmp
-      - store_test_results:
-          path: /go/out/tests
-
-  e2e-galley:
-    <<: *integrationDefaults
-    environment:
-            - KUBECONFIG: /go/out/minikube.conf
-            - TEST_ENV: minikube-none
-            - GOPATH: /go
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - <<: *markJobStartsOnGCS
-      - run: make sync
-      - run: bin/testEnvRootMinikube.sh start
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.all generate_e2e_yaml
-      - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
-      - run:
-          no_output_timeout: 20m
-          name: make e2e_galley
-          command: |
-            make test/local/e2e_galley
-      - <<: *recordZeroExitCodeIfTestPassed
-      - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *markJobFinishesOnGCS
-      - store_artifacts:
-          path: /home/circleci/logs
-      - store_artifacts:
-          path: /tmp
-      - store_test_results:
-          path: /go/out/tests
+  # e2e-mixer-noauth-v1alpha3-v2:
+  #   <<: *integrationDefaults
+  #   steps:
+  #     - <<: *initWorkingDir
+  #     - checkout
+  #     - attach_workspace:
+  #         at:  /go
+  #     - <<: *markJobStartsOnGCS
+  #     - run: make sync
+  #     - run: bin/testEnvRootMinikube.sh start
+  #     - run:
+  #         command: |
+  #           if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+  #             # Should only happen when re-running a job, and the workspace is gone
+  #             time make build test-bins
+  #           fi
+  #           make docker.all generate_e2e_yaml
+  #     - run: bin/testEnvRootMinikube.sh wait
+  #     - run: docker images
+  #     - run:
+  #         no_output_timeout: 20m
+  #         name: make e2e_mixer
+  #         command: |
+  #           make test/local/noauth/e2e_mixer_envoyv2
+  #     - <<: *recordZeroExitCodeIfTestPassed
+  #     - <<: *recordNonzeroExitCodeIfTestFailed
+  #     - <<: *markJobFinishesOnGCS
+  #     - store_artifacts:
+  #         path: /home/circleci/logs
+  #     - store_artifacts:
+  #         path: /tmp
+  #     - store_test_results:
+  #         path: /go/out/tests
 
   e2e-pilot-cloudfoundry-v1alpha3-v2:
     <<: *integrationDefaults
@@ -386,110 +238,38 @@ jobs:
       - store_artifacts:
           path: /tmp
 
-  e2e-pilot-noauth-v1alpha3-v2-non-mcp:
-    <<: *integrationDefaults
-    environment:
-            - GOPATH: /go
-            - KUBECONFIG: /go/out/minikube.conf
-            - TEST_ENV: minikube-none
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - <<: *markJobStartsOnGCS
-      - run: make sync
-      - run: bin/testEnvRootMinikube.sh start
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.all generate_e2e_yaml
-      - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
-      - run:
-          no_output_timeout: 20m
-          command: |
-                E2E_ARGS="--use_mcp=false" \
-                make test/local/noauth/e2e_pilotv2
-      - <<: *recordZeroExitCodeIfTestPassed
-      - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *markJobFinishesOnGCS
-      - store_test_results:
-          path: /go/out/tests
-      - store_artifacts:
-          path: /go/out/logs
-      - store_artifacts:
-          path: /tmp
-
-  e2e-pilot-auth-v1alpha3-v2:
-    <<: *integrationDefaults
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - <<: *markJobStartsOnGCS
-      - run: make sync
-      - run: bin/testEnvRootMinikube.sh start
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.all generate_e2e_yaml
-      - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
-      - run:
-          no_output_timeout: 20m
-          command: |
-                make test/local/auth/e2e_pilotv2
-      - <<: *recordZeroExitCodeIfTestPassed
-      - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *markJobFinishesOnGCS
-      - store_test_results:
-          path: /go/out/tests
-      - store_artifacts:
-          path: /go/out/logs
-      - store_artifacts:
-          path: /tmp
-
-  e2e-pilot-auth-v1alpha3-v2-non-mcp:
-    <<: *integrationDefaults
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - <<: *markJobStartsOnGCS
-      - run: make sync
-      - run: bin/testEnvRootMinikube.sh start
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.all generate_e2e_yaml
-      - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
-      - run:
-          no_output_timeout: 20m
-          command: |
-                E2E_ARGS="--use_mcp=false" \
-                make test/local/auth/e2e_pilotv2
-      - <<: *recordZeroExitCodeIfTestPassed
-      - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *markJobFinishesOnGCS
-      - store_test_results:
-          path: /go/out/tests
-      - store_artifacts:
-          path: /go/out/logs
-      - store_artifacts:
-          path: /tmp
+  # e2e-pilot-auth-v1alpha3-v2:
+  #   <<: *integrationDefaults
+  #   steps:
+  #     - <<: *initWorkingDir
+  #     - checkout
+  #     - attach_workspace:
+  #         at:  /go
+  #     - <<: *markJobStartsOnGCS
+  #     - run: make sync
+  #     - run: bin/testEnvRootMinikube.sh start
+  #     - run:
+  #         command: |
+  #           if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+  #             # Should only happen when re-running a job, and the workspace is gone
+  #             time make build test-bins
+  #           fi
+  #           make docker.all generate_e2e_yaml
+  #     - run: bin/testEnvRootMinikube.sh wait
+  #     - run: docker images
+  #     - run:
+  #         no_output_timeout: 20m
+  #         command: |
+  #               make test/local/auth/e2e_pilotv2
+  #     - <<: *recordZeroExitCodeIfTestPassed
+  #     - <<: *recordNonzeroExitCodeIfTestFailed
+  #     - <<: *markJobFinishesOnGCS
+  #     - store_test_results:
+  #         path: /go/out/tests
+  #     - store_artifacts:
+  #         path: /go/out/logs
+  #     - store_artifacts:
+  #         path: /tmp
 
   codecov:
     <<: *defaults
@@ -566,19 +346,6 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
-  benchcheck:
-    <<: *defaults
-    environment:
-      KUBECONFIG: /go/src/istio.io/istio/.circleci/config
-    steps:
-      - checkout
-      - run:
-          command: |
-            mkdir -p /go/out/benchcheck
-            make benchcheck | tee -a /go/out/benchcheck/go-benchcheck-report.out
-      - store_test_results:
-          path: /go/out/benchcheck
-
   build:
     <<: *defaults
     resource_class: xlarge
@@ -621,134 +388,24 @@ jobs:
 #          name: Check Scripts
 #          command: /go/src/istio.io/istio/bin/check_shell_scripts.sh
 
-  nightly:
+
+  # This job is triggered via API. expect env vars
+  # DOCKER_USER, DOCKER_PASS, HUB, TAG
+  dockerpush:
     <<: *defaults
     resource_class: xlarge
-    environment:
-      TAG: circleci-nightly
     steps:
       - checkout
-      - attach_workspace:
-          at:  /go
       - run: make sync
+      - run: make build
       - setup_remote_docker:
           docker_layer_caching: true
-      - run: make istio-archive
-      - run:
-          command: |
-            if [ ! -z "${DOCKER_USER}" ] ; then
-              echo "Pushing docker images"
-              export TAG=nightly-${CIRCLE_BRANCH}
-              docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
-              # The xenail debug image is built first, will be used in the next steps
-              make docker.push.basedebug docker.all push
-            fi
-
-  goxbuild:
-    <<: *defaults
-    resource_class: xlarge
-    steps:
-      - checkout
-      - run:
-          command: |
-            cp -a /usr/local/go /go
-            export PATH=/go/go/bin:$PATH
-            export GOROOT=/go/go
-            cd /go/src/istio.io/istio
-            make build GOOS=darwin KUBECONFIG=/go/src/istio.io/istio/.circleci/config
-            make build GOOS=linux GOARCH=arm KUBECONFIG=/go/src/istio.io/istio/.circleci/config
-      - store_artifacts:
-          path: /go/bin
+      - run: make docker.all
+      - run: docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
+      - run: make push
 
 workflows:
   version: 2
-  nightly:
-    triggers:
-       - schedule:
-           cron: "0 0 * * *"
-           filters:
-             branches:
-               only:
-                 - master
-                 - release-1.1
-                 - release-1.0
-                 - dev-networking
-    jobs: #daisy chained steps ending with docker push
-      - build
-      - test
-      - e2e-simple:
-          requires:
-            - test
-            - build
-      - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
-          requires:
-            - build
-      # Compile for mac and arm
-      - goxbuild:
-          requires:
-            - test
-            - build
-      # Nightly release
-      - nightly:
-          context: org-global
-          requires:
-            - build
-
-  periodic:
-    triggers:
-       - schedule:
-           cron: "20 7,14,21 * * *"
-           filters:
-             branches:
-               only:
-                 - master
-                 - release-1.1
-                 - release-1.0
-                 - dev-networking
-    jobs:
-      - build
-      - test
-      - e2e-simple:
-          requires:
-            - build
-      - e2e-simple-non-mcp:
-          requires:
-            - build
-      - e2e-dashboard:
-          requires:
-            - build
-      - e2e-dashboard-non-mcp:
-          requires:
-            - build
-      - benchcheck:
-          requires:
-            - test
-            - build
-      - e2e-mixer-noauth-v1alpha3-v2:
-          requires:
-            - build
-      - e2e-mixer-noauth-v1alpha3-v2-non-mcp:
-          requires:
-            - build
-      - e2e-galley:
-          requires:
-            - build
-      - racetest:
-          requires:
-            - test
-      - e2e-pilot-noauth-v1alpha3-v2: # no auth+v1alpha3+v2
-          requires:
-            - build
-      - e2e-pilot-noauth-v1alpha3-v2-non-mcp: # no auth+v1alpha3+v2
-          requires:
-            - build
-      - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
-          requires:
-            - build
-      - e2e-pilot-auth-v1alpha3-v2-non-mcp: # auth+v1alpha3+v2 without MCP
-          requires:
-            - build
-
   all:
     jobs:
       - shellcheck
@@ -756,31 +413,28 @@ workflows:
       - build
       - test
       - codecov
-      - e2e-mixer-noauth-v1alpha3-v2:
-          requires:
-            - build
-      - e2e-galley:
-          requires:
-            - build
-      - e2e-simple:
-          requires:
-            - build
-      - e2e-dashboard:
-          requires:
-            - build
+      # - e2e-mixer-noauth-v1alpha3-v2:
+      #     requires:
+      #       - build
+      # - e2e-simple:
+      #     requires:
+      #       - build
+      # - e2e-dashboard:
+      #     requires:
+      #       - build
       - racetest:
           requires:
             - test
-      - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
-          requires:
-            - build
+      # - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
+      #     requires:
+      #       - build
       - e2e-pilot-noauth-v1alpha3-v2: # noauth+v1alpha3+v2
           requires:
             - build
       - e2e-pilot-cloudfoundry-v1alpha3-v2:
           requires:
             - build
-      - e2e-pilot-auth-v1alpha3-v2-non-mcp: # auth+v1alpha3+v2 without MCP
-          requires:
-            - build
+      # - e2e-pilot-auth-v1alpha3-v2-non-mcp: # auth+v1alpha3+v2 without MCP
+      #     requires:
+      #       - build
 

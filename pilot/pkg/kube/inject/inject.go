@@ -67,8 +67,18 @@ var (
 		annotations.Register(annotationStatus, "").Name: alwaysValidFunc,
 		annotations.Register(annotationRewriteAppHTTPProbers,
 			"Rewrite HTTP readiness and liveness probes to be redirected to istio-proxy sidecar").Name: alwaysValidFunc,
+		annotations.Register("sidecar.istio.io/controlPlaneAuthPolicy", "").Name:               alwaysValidFunc,
+		annotations.Register("sidecar.istio.io/discoveryAddress", "").Name:                     alwaysValidFunc,
 		annotations.Register("sidecar.istio.io/proxyImage", "").Name:                           alwaysValidFunc,
+		annotations.Register("sidecar.istio.io/proxyCPU", "").Name:                             alwaysValidFunc,
+		annotations.Register("sidecar.istio.io/proxyMemory", "").Name:                          alwaysValidFunc,
 		annotations.Register("sidecar.istio.io/interceptionMode", "").Name:                     validateInterceptionMode,
+		annotations.Register("sidecar.istio.io/bootstrapOverride", "").Name:                    alwaysValidFunc,
+		annotations.Register("sidecar.istio.io/statsInclusionPrefixes", "").Name:               alwaysValidFunc,
+		annotations.Register("sidecar.istio.io/statsInclusionSuffixes", "").Name:               alwaysValidFunc,
+		annotations.Register("sidecar.istio.io/statsInclusionRegexps", "").Name:                alwaysValidFunc,
+		annotations.Register("sidecar.istio.io/userVolume", "").Name:                           alwaysValidFunc,
+		annotations.Register("sidecar.istio.io/userVolumeMount", "").Name:                      alwaysValidFunc,
 		annotations.Register("status.sidecar.istio.io/port", "").Name:                          validateStatusPort,
 		annotations.Register("readiness.status.sidecar.istio.io/initialDelaySeconds", "").Name: validateUInt32,
 		annotations.Register("readiness.status.sidecar.istio.io/periodSeconds", "").Name:       validateUInt32,
@@ -141,6 +151,7 @@ const (
 type SidecarInjectionSpec struct {
 	// RewriteHTTPProbe indicates whether Kubernetes HTTP prober in the PodSpec
 	// will be rewritten to be redirected by pilot agent.
+	PodRedirectAnnot    map[string]string             `yaml:"podRedirectAnnot"`
 	RewriteAppHTTPProbe bool                          `yaml:"rewriteAppHTTPProbe"`
 	InitContainers      []corev1.Container            `yaml:"initContainers"`
 	Containers          []corev1.Container            `yaml:"containers"`
@@ -765,6 +776,15 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 		fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled\n", metadata.Name) //nolint: errcheck
 		return out, nil
 	}
+	//skip injection for injected pods
+	if len(podSpec.Containers) > 1 {
+		for _, c := range podSpec.Containers {
+			if c.Name == ProxyContainerName {
+				fmt.Fprintf(os.Stderr, "Skipping injection because %q has injected %q sidecar already\n", metadata.Name, ProxyContainerName) //nolint: errcheck
+				return out, nil
+			}
+		}
+	}
 
 	spec, status, err := InjectionData(
 		sidecarTemplate,
@@ -803,6 +823,11 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	if metadata.Annotations == nil {
 		metadata.Annotations = make(map[string]string)
 	}
+
+	if len(spec.PodRedirectAnnot) != 0 {
+		rewriteCniPodSPec(metadata.Annotations, spec)
+	}
+
 	metadata.Annotations[annotationStatus] = status
 
 	return out, nil
@@ -955,4 +980,25 @@ func potentialPodName(metadata *metav1.ObjectMeta) string {
 		return metadata.GenerateName + "***** (actual name not yet known)"
 	}
 	return ""
+}
+
+// rewriteCniPodSPec will check if values from the sidecar injector Helm
+// values need to be inserted as Pod annotations so the CNI will apply
+// the proper redirection rules.
+func rewriteCniPodSPec(annotations map[string]string, spec *SidecarInjectionSpec) {
+
+	if spec == nil {
+		return
+	}
+	if len(spec.PodRedirectAnnot) == 0 {
+		return
+	}
+	for k := range annotationRegistry {
+		if spec.PodRedirectAnnot[k] != "" {
+			if annotations[k] == spec.PodRedirectAnnot[k] {
+				continue
+			}
+			annotations[k] = spec.PodRedirectAnnot[k]
+		}
+	}
 }
