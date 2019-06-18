@@ -463,7 +463,7 @@ func pushSDS(con *sdsConnection) error {
 			extractCertExpiryTimestamp(resourceName, conID, secret.CertificateChain))
 	}
 	sdsMetrics.pushPerConn.WithLabelValues(resourceName + "-" + conID).Inc()
-	sdsMetrics.pendingPushPerConn.WithLabelValues(resourceName + "-" + conID).Desc()
+	sdsMetrics.pendingPushPerConn.WithLabelValues(resourceName + "-" + conID).Dec()
 	sdsMetrics.totalPush.Inc()
 	return nil
 }

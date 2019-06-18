@@ -30,7 +30,7 @@ var (
 	// pendingPushPerConnCounts records the number of SDS requests in an active connection that are
 	// not responded yet. The label of a connection is represented as <resource name>-<connection ID>,
 	// and the value should be 0 or 1.
-	pendingPushPerConnCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
+	pendingPushPerConnCounts = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "citadel_agent",
 		Subsystem: "sds_service",
 		Name:      "pending_push_count",
@@ -103,7 +103,7 @@ func init() {
 // monitoringMetrics are counters for SDS push related operations.
 type monitoringMetrics struct {
 	totalPush                 prometheus.Counter
-	pendingPushPerConn        *prometheus.CounterVec
+	pendingPushPerConn        *prometheus.GaugeVec
 	staleConn                 *prometheus.CounterVec
 	pushPerConn               *prometheus.CounterVec
 	pushErrorPerConn          *prometheus.CounterVec
