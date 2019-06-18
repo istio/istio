@@ -96,7 +96,7 @@ func ToOpts(cfg *config.Params) (opts []gapiopts.ClientOption) {
 	switch cfg.Creds.(type) {
 	case *config.Params_ApiKey:
 		if key := cfg.GetApiKey(); key != "" {
-			opts = append(opts, gapiopts.WithAPIKey(cfg.GetApiKey()))
+			opts = append(opts, gapiopts.WithAPIKey(key))
 		}
 	case *config.Params_ServiceAccountPath:
 		path := cfg.GetServiceAccountPath()
