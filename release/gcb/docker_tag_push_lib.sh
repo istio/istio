@@ -60,20 +60,16 @@ function add_extra_artifacts_to_tar_images() {
     fi
     set_image_vars "$TAR_PATH"
 
-    #check if it is a build variant (e.g. distroless)
-    if [[ -n "${VARIANT_NAME}" ]]; then
-      TAG="${TAG}-${VARIANT_NAME}"
-    fi
     docker load -i "${TAR_PATH}"
 
     cat >Dockerfile <<EOF
-FROM ${REPO}/${IMAGE_NAME}:${TAG}
+FROM ${REPO}/${IMAGE_NAME}:${TAG}${VARIANT_NAME}
 ${add_cmd}
 EOF
 
-    docker build -t              "${HUB}/${IMAGE_NAME}:${TAG}" .
+    docker build -t              "${HUB}/${IMAGE_NAME}:${TAG}${VARIANT_NAME}" .
     # Include the license text in the tarball as well (overwrite old $TAR_PATH).
-    docker save -o "${TAR_PATH}" "${HUB}/${IMAGE_NAME}:${TAG}"
+    docker save -o "${TAR_PATH}" "${HUB}/${IMAGE_NAME}:${TAG}${VARIANT_NAME}"
   done
   popd || return 1
 }
@@ -99,14 +95,8 @@ function docker_tag_images() {
     SRC_TAG=$(echo "$DOCKER_OUT" | cut -f 3 -d :)
 
 
-    #check if it is a build variant (e.g. distroless)
-    if [[ -z "${VARIANT_NAME}" ]]; then
-      docker tag "${SRC_HUB}/${IMAGE_NAME}:${SRC_TAG}" \
-                 "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}"
-    else
-      docker tag "${SRC_HUB}/${IMAGE_NAME}:${SRC_TAG}-${VARIANT_NAME}" \
-                 "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}-${VARIANT_NAME}"
-    fi
+    docker tag "${SRC_HUB}/${IMAGE_NAME}:${SRC_TAG}${VARIANT_NAME}" \
+                "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}${VARIANT_NAME}"
   done
 }
 
@@ -142,12 +132,7 @@ function docker_push_images() {
 
     docker load -i "${TAR_PATH}"
 
-    #check if it is a build variant (e.g. distroless)
-    if [[ -z "${VARIANT_NAME}" ]]; then
-          docker push "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}"
-    else
-          docker push "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}-${VARIANT_NAME}"
-    fi
+    docker push "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}${VARIANT_NAME}"
   done
 }
 
@@ -158,8 +143,8 @@ function set_image_vars() {
   IMAGE_NAME="${TAR_NAME%.*}"
   #check if it is a build variant (e.g. distroless)
   if [[ "${IMAGE_NAME}" != "${IMAGE_NAME##*-}" ]]; then
-    VARIANT_NAME="${IMAGE_NAME##*-}"
-    IMAGE_NAME="${IMAGE_NAME%-${VARIANT_NAME}}"
+    VARIANT_NAME="-${IMAGE_NAME##*-}"
+    IMAGE_NAME="${IMAGE_NAME%${VARIANT_NAME}}"
   else
     VARIANT_NAME=""
   fi
