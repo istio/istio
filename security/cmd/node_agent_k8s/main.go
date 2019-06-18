@@ -188,9 +188,8 @@ var (
 
 // exitOnMonitorServerError shuts down Citadel agent when monitor server stops and returns an error.
 func exitOnMonitorServerError(errCh <-chan error) {
-	select {
-	case err := <-errCh:
-		log.Errorf("Monitoring server error: %v", err)
+	if err := <-errCh; err != nil {
+		log.Errorf("Monitoring server error: %v, terminate", err)
 		os.Exit(-1)
 	}
 }

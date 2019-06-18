@@ -104,16 +104,15 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 // extractRootCertExpiryTimestamp returns the unix timestamp when the root becomes expires.
 func extractRootCertExpiryTimestamp(ca ca.CertificateAuthority) float64 {
 	rb := ca.GetCAKeyCertBundle().GetRootCertPem()
-	cert, err := util.ParsePemEncodedCertificate(rb)
+	expiryTime, err := util.ExtractCertExpiryTimestamp(rb)
 	if err != nil {
-		log.Errorf("Failed to parse the root cert: %v", err)
+		log.Errorf("Failed to extract timestamp from the root cert: %v", err)
 		return -1
 	}
-	end := cert.NotAfter
-	if end.Before(time.Now()) {
-		log.Errorf("Expired Citadel Root found, x509.NotAfter %v, please transit your root", end)
+	if expiryTime.Before(time.Now()) {
+		log.Errorf("Expired Citadel Root found, x509.NotAfter %v, please transit your root", expiryTime)
 	}
-	return float64(end.Unix())
+	return float64(expiryTime.Unix())
 }
 
 // HandleCSR handles an incoming certificate signing request (CSR). It does

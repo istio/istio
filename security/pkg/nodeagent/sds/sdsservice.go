@@ -24,8 +24,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	"istio.io/istio/security/pkg/pki/util"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -206,7 +204,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			con.mutex.Unlock()
 
 			// Update metric for pending push per connection.
-			sdsMetrics.pendingPushPerConn.With(prometheus.Labels{"resourcePerConn": resourceName + "-" + conID}).Inc()
+			sdsMetrics.pendingPushPerConn.WithLabelValues(resourceName + "-" + conID).Inc()
 
 			// When nodeagent receives StreamSecrets request, if there is cached secret which matches
 			// request's <token, resourceName, Version>, then this request is a confirmation request.
@@ -367,10 +365,10 @@ func NotifyProxy(conID, resourceName string, secret *model.SecretItem) error {
 }
 
 func recycleConnection(conID, resourceName string) {
-	sdsMetrics.pushPerConn.Delete(prometheus.Labels{"resourcePerConn": resourceName + "-" + conID})
-	sdsMetrics.pendingPushPerConn.Delete(prometheus.Labels{"resourcePerConn": resourceName + "-" + conID})
-	sdsMetrics.pushFailurePerConn.Delete(prometheus.Labels{"resourcePerConn": resourceName + "-" + conID})
-	sdsMetrics.staleConn.With(prometheus.Labels{"staleConn": conID}).Inc()
+	sdsMetrics.pushPerConn.DeleteLabelValues(resourceName + "-" + conID)
+	sdsMetrics.pendingPushPerConn.DeleteLabelValues(resourceName + "-" + conID)
+	sdsMetrics.pushErrorPerConn.DeleteLabelValues(resourceName + "-" + conID)
+	sdsMetrics.staleConn.WithLabelValues(conID).Inc()
 	key := cache.ConnKey{
 		ConnectionID: conID,
 		ResourceName: resourceName,
@@ -444,7 +442,7 @@ func pushSDS(con *sdsConnection) error {
 	if err = con.stream.Send(response); err != nil {
 		sdsServiceLog.Errorf("Failed to send response for SDS resource %q to proxy connection %q: %v",
 			resourceName, conID, err)
-		sdsMetrics.pushFailurePerConn.With(prometheus.Labels{"resourcePerConn": resourceName + "-" + conID}).Inc()
+		sdsMetrics.pushErrorPerConn.WithLabelValues(resourceName + "-" + conID).Inc()
 		return err
 	}
 
@@ -454,37 +452,37 @@ func pushSDS(con *sdsConnection) error {
 			resourceName, conID)
 		sdsServiceLog.Debugf("Pushed root cert %+v (resource name: %q) to proxy connection: %q\n",
 			string(secret.RootCert), resourceName, conID)
-		sdsMetrics.rootCertExpiryTimestamp.With(prometheus.Labels{"resourcePerConn": resourceName + "-" + conID}).Set(
+		sdsMetrics.rootCertExpiryTimestamp.WithLabelValues(resourceName + "-" + conID).Set(
 			extractCertExpiryTimestamp(resourceName, conID, secret.RootCert))
 	} else {
 		sdsServiceLog.Infof("Pushed key/cert pair (resource name: %q) from node agent to proxy: %q\n",
 			resourceName, conID)
 		sdsServiceLog.Debugf("Pushed certificate chain %+v (resource name: %q) to proxy connection: %q\n",
 			string(secret.CertificateChain), resourceName, conID)
-		sdsMetrics.serverCertExpiryTimestamp.With(prometheus.Labels{"resourcePerConn": resourceName + "-" + conID}).Set(
+		sdsMetrics.serverCertExpiryTimestamp.WithLabelValues(resourceName + "-" + conID).Set(
 			extractCertExpiryTimestamp(resourceName, conID, secret.CertificateChain))
 	}
-	sdsMetrics.pushPerConn.With(prometheus.Labels{"resourcePerConn": resourceName + "-" + conID}).Inc()
-	sdsMetrics.pendingPushPerConn.With(prometheus.Labels{"resourcePerConn": resourceName + "-" + conID}).Desc()
+	sdsMetrics.pushPerConn.WithLabelValues(resourceName + "-" + conID).Inc()
+	sdsMetrics.pendingPushPerConn.WithLabelValues(resourceName + "-" + conID).Desc()
 	sdsMetrics.totalPush.Inc()
 	return nil
 }
 
 // extractCertExpiryTimestamp returns the cert expiration time as unix timestamp.
 func extractCertExpiryTimestamp(resourceName, conID string, certByte []byte) float64 {
-	cert, err := util.ParsePemEncodedCertificate(certByte)
+	expiryTime, err := util.ExtractCertExpiryTimestamp(certByte)
 	if err != nil {
 		sdsServiceLog.Errorf("failed to parse the cert pushed to connection %q as resource: %q: %v",
 			conID, resourceName, err)
 		return -1
 	}
-	end := cert.NotAfter
-	if end.Before(time.Now()) {
+
+	if expiryTime.Before(time.Now()) {
 		// Set warn level as it could be an error from CA or an intend to push expired cert.
 		sdsServiceLog.Warnf("expired cert pushed to connection %q as resource: %q, x509.NotAfter %v",
-			conID, resourceName, end)
+			conID, resourceName, expiryTime)
 	}
-	return float64(end.Unix())
+	return float64(expiryTime.Unix())
 }
 
 func sdsDiscoveryResponse(s *model.SecretItem, conID string) (*xdsapi.DiscoveryResponse, error) {

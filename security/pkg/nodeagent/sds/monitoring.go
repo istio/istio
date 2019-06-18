@@ -19,6 +19,7 @@ import (
 )
 
 var (
+	// totalPushCounts records total number of SDS pushes since server starts serving.
 	totalPushCounts = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: "citadel_agent",
 		Subsystem: "sds_service",
@@ -26,14 +27,18 @@ var (
 		Help:      "The total number of SDS pushes.",
 	})
 
+	// pendingPushPerConnCounts records the number of SDS requests in an active connection that are
+	// not responded yet. The label of a connection is represented as <resource name>-<connection ID>,
+	// and the value should be 0 or 1.
 	pendingPushPerConnCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel_agent",
 		Subsystem: "sds_service",
 		Name:      "pending_push_count",
-		Help: "The number of pending secret pushes to an active SDS connection. " +
-			"According to xDS protocol this metric should be either 0 or 1",
+		Help:      "The number of active SDS connections which are waiting for SDS push.",
 	}, []string{"resourcePerConn"})
 
+	// staleConnCounts records all the stale connections which will be closed. The label of a
+	// stale connection is represented as <connection ID>, and the value should be 1.
 	staleConnCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel_agent",
 		Subsystem: "sds_service",
@@ -41,6 +46,9 @@ var (
 		Help:      "The number of stale SDS connections.",
 	}, []string{"staleConn"})
 
+	// pushPerConnCounts records the number of SDS pushes in an active connection. The label of a
+	// connection is represented as <resource name>-<connection ID>, and the value should be at
+	// least 1.
 	pushPerConnCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel_agent",
 		Subsystem: "sds_service",
@@ -48,30 +56,39 @@ var (
 		Help:      "The number of secret pushes to an active SDS connection.",
 	}, []string{"resourcePerConn"})
 
-	pushFailurePerConnCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
+	// pushErrorsPerConnCounts records the number of SDS push failures in an active connection.
+	// The label of a connection is represented as <resource name>-<connection ID>, and the value
+	// should be at least 1.
+	pushErrorsPerConnCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel_agent",
 		Subsystem: "sds_service",
-		Name:      "push_failure_count",
+		Name:      "push_error_count",
 		Help:      "The number of failed secret pushes to an active SDS connection.",
 	}, []string{"resourcePerConn"})
 
+	// rootCertExpiryTimestamp records the expiration timestamp of the most recent pushed root
+	// certificate for a particular SDS resource. The label of a pushed root cert is represented as
+	// <resource name>-<connection ID>, and the value is in Unix Epoch Time.
 	rootCertExpiryTimestamp = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: "citadel_agent",
 			Name:      "pushed_root_cert_expiry_timestamp",
 			Subsystem: "sds_service",
-			Help: "The unix timestamp, in seconds, when pushed root cert will expire. " +
-				"We set it to negative in case of internal error.",
-		}, []string{"resource"})
+			Help: "The date after which a pushed root certificate expires. Expressed as a Unix Epoch Time. " +
+				"A -1 indicates internal error.",
+		}, []string{"resourcePerConn"})
 
+	// serverCertExpiryTimestamp records the expiration timestamp of the most recent pushed server
+	// certificate for a particular SDS resource. The label of a pushed root cert is represented as
+	// <resource name>-<connection ID>, and the value is in Unix Epoch Time.
 	serverCertExpiryTimestamp = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: "citadel_agent",
 			Name:      "pushed_server_cert_expiry_timestamp",
 			Subsystem: "sds_service",
-			Help: "The unix timestamp, in seconds, when pushed server cert will expire. " +
-				"We set it to negative in case of internal error.",
-		}, []string{"resource"})
+			Help: "The date after which a pushed server certificate expires. Expressed as a Unix Epoch Time. " +
+				"A -1 indicates internal error.",
+		}, []string{"resourcePerConn"})
 )
 
 func init() {
@@ -89,7 +106,7 @@ type monitoringMetrics struct {
 	pendingPushPerConn        *prometheus.CounterVec
 	staleConn                 *prometheus.CounterVec
 	pushPerConn               *prometheus.CounterVec
-	pushFailurePerConn        *prometheus.CounterVec
+	pushErrorPerConn          *prometheus.CounterVec
 	rootCertExpiryTimestamp   *prometheus.GaugeVec
 	serverCertExpiryTimestamp *prometheus.GaugeVec
 }
@@ -101,7 +118,7 @@ func newMonitoringMetrics() monitoringMetrics {
 		pendingPushPerConn:        pendingPushPerConnCounts,
 		staleConn:                 staleConnCounts,
 		pushPerConn:               pushPerConnCounts,
-		pushFailurePerConn:        pushFailurePerConnCounts,
+		pushErrorPerConn:          pushErrorsPerConnCounts,
 		rootCertExpiryTimestamp:   rootCertExpiryTimestamp,
 		serverCertExpiryTimestamp: serverCertExpiryTimestamp,
 	}

@@ -21,6 +21,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"reflect"
+	"time"
 )
 
 const (
@@ -97,4 +98,15 @@ func GetRSAKeySize(privKey crypto.PrivateKey) (int, error) {
 	}
 	pkey := privKey.(*rsa.PrivateKey)
 	return pkey.N.BitLen(), nil
+}
+
+// extractCertExpiryTimestamp returns the timestamp when the cert becomes expires, or returns
+// error if any failure occurs.
+func ExtractCertExpiryTimestamp(certByte []byte) (time.Time, error) {
+	cert, err := ParsePemEncodedCertificate(certByte)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to parse the cert: %v", err)
+	}
+	end := cert.NotAfter
+	return end, nil
 }
