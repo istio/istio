@@ -30,6 +30,7 @@ type ReservedPort interface {
 type PortManager interface {
 	// ReservePort reserves a new port. The lifecycle of the returned port is transferred to the caller.
 	ReservePort() (ReservedPort, error)
+	ReservePortNumber() (uint16, error)
 	// Close shuts down this manager and frees any associated resources.
 	Close() error
 }
