@@ -23,15 +23,23 @@ var (
 	totalPushCounts = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: "citadel_agent",
 		Subsystem: "sds_service",
-		Name:      "total_push_count",
+		Name:      "total_pushes",
 		Help:      "The total number of SDS pushes.",
+	})
+
+	// totalPushErrorCounts records total number of failed SDS pushes since server starts serving.
+	totalPushErrorCounts = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "citadel_agent",
+		Subsystem: "sds_service",
+		Name:      "total_push_errors",
+		Help:      "The total number of failed SDS pushes.",
 	})
 
 	// totalActiveConnCounts records total number of active SDS connections.
 	totalActiveConnCounts = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "citadel_agent",
 		Subsystem: "sds_service",
-		Name:      "total_active_conn_count",
+		Name:      "total_active_connections",
 		Help:      "The total number of active SDS connections.",
 	})
 
@@ -39,7 +47,7 @@ var (
 	totalStaleConnCounts = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "citadel_agent",
 		Subsystem: "sds_service",
-		Name:      "total_stale_conn_count",
+		Name:      "total_stale_connections",
 		Help:      "The total number of stale SDS connections.",
 	})
 
@@ -49,7 +57,7 @@ var (
 	pendingPushPerConnCounts = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "citadel_agent",
 		Subsystem: "sds_service",
-		Name:      "pending_push_count",
+		Name:      "pending_push_per_connection",
 		Help:      "The number of active SDS connections which are waiting for SDS push.",
 	}, []string{"resourcePerConn"})
 
@@ -60,7 +68,7 @@ var (
 		Subsystem: "sds_service",
 		Name:      "stale_conn_count",
 		Help:      "The number of stale SDS connections.",
-	}, []string{"staleConn"})
+	}, []string{"resourcePerConn"})
 
 	// pushPerConnCounts records the number of SDS pushes in an active connection. The label of a
 	// connection is represented as <resource name>-<connection ID>, and the value should be at
@@ -68,7 +76,7 @@ var (
 	pushPerConnCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel_agent",
 		Subsystem: "sds_service",
-		Name:      "push_count",
+		Name:      "pushes_per_connection",
 		Help:      "The number of secret pushes to an active SDS connection.",
 	}, []string{"resourcePerConn"})
 
@@ -78,7 +86,7 @@ var (
 	pushErrorsPerConnCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel_agent",
 		Subsystem: "sds_service",
-		Name:      "push_error_count",
+		Name:      "push_errors_per_connection",
 		Help:      "The number of failed secret pushes to an active SDS connection.",
 	}, []string{"resourcePerConn"})
 
@@ -90,8 +98,7 @@ var (
 			Namespace: "citadel_agent",
 			Name:      "pushed_root_cert_expiry_timestamp",
 			Subsystem: "sds_service",
-			Help: "The date after which a pushed root certificate expires. Expressed as a Unix Epoch Time. " +
-				"A -1 indicates internal error.",
+			Help: "The date after which a pushed root certificate expires. Expressed as a Unix Epoch Time.",
 		}, []string{"resourcePerConn"})
 
 	// serverCertExpiryTimestamp records the expiration timestamp of the most recent pushed server
@@ -102,13 +109,13 @@ var (
 			Namespace: "citadel_agent",
 			Name:      "pushed_server_cert_expiry_timestamp",
 			Subsystem: "sds_service",
-			Help: "The date after which a pushed server certificate expires. Expressed as a Unix Epoch Time. " +
-				"A -1 indicates internal error.",
+			Help: "The date after which a pushed server certificate expires. Expressed as a Unix Epoch Time.",
 		}, []string{"resourcePerConn"})
 )
 
 func init() {
 	prometheus.MustRegister(totalPushCounts)
+	prometheus.MustRegister(totalPushErrorCounts)
 	prometheus.MustRegister(totalActiveConnCounts)
 	prometheus.MustRegister(totalStaleConnCounts)
 	prometheus.MustRegister(pendingPushPerConnCounts)
@@ -121,6 +128,7 @@ func init() {
 // monitoringMetrics are counters for SDS push related operations.
 type monitoringMetrics struct {
 	totalPush                 prometheus.Counter
+	totalPushError            prometheus.Counter
 	totalActiveConn           prometheus.Gauge
 	totalStaleConn            prometheus.Gauge
 	pendingPushPerConn        *prometheus.GaugeVec
@@ -135,6 +143,7 @@ type monitoringMetrics struct {
 func newMonitoringMetrics() monitoringMetrics {
 	return monitoringMetrics{
 		totalPush:                 totalPushCounts,
+		totalPushError:            totalPushErrorCounts,
 		totalActiveConn:           totalActiveConnCounts,
 		totalStaleConn:            totalStaleConnCounts,
 		pendingPushPerConn:        pendingPushPerConnCounts,

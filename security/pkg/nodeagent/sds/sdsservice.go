@@ -365,10 +365,11 @@ func NotifyProxy(conID, resourceName string, secret *model.SecretItem) error {
 }
 
 func recycleConnection(conID, resourceName string) {
-	sdsMetrics.pushPerConn.DeleteLabelValues(resourceName + "-" + conID)
-	sdsMetrics.pendingPushPerConn.DeleteLabelValues(resourceName + "-" + conID)
-	sdsMetrics.pushErrorPerConn.DeleteLabelValues(resourceName + "-" + conID)
-	sdsMetrics.staleConn.WithLabelValues(conID).Inc()
+	metricLabelName := resourceName + "+" + conID
+	sdsMetrics.pushPerConn.DeleteLabelValues(metricLabelName)
+	sdsMetrics.pendingPushPerConn.DeleteLabelValues(metricLabelName)
+	sdsMetrics.pushErrorPerConn.DeleteLabelValues(metricLabelName)
+	sdsMetrics.staleConn.WithLabelValues(metricLabelName).Inc()
 	sdsMetrics.totalStaleConn.Inc()
 	sdsMetrics.totalActiveConn.Dec()
 	key := cache.ConnKey{
@@ -441,10 +442,12 @@ func pushSDS(con *sdsConnection) error {
 		return err
 	}
 
+	metricLabelName := resourceName + "+" + conID
 	if err = con.stream.Send(response); err != nil {
 		sdsServiceLog.Errorf("Failed to send response for SDS resource %q to proxy connection %q: %v",
 			resourceName, conID, err)
-		sdsMetrics.pushErrorPerConn.WithLabelValues(resourceName + "-" + conID).Inc()
+		sdsMetrics.pushErrorPerConn.WithLabelValues(metricLabelName).Inc()
+		sdsMetrics.totalPushError.Inc()
 		return err
 	}
 
@@ -454,18 +457,18 @@ func pushSDS(con *sdsConnection) error {
 			resourceName, conID)
 		sdsServiceLog.Debugf("Pushed root cert %+v (resource name: %q) to proxy connection: %q\n",
 			string(secret.RootCert), resourceName, conID)
-		sdsMetrics.rootCertExpiryTimestamp.WithLabelValues(resourceName + "-" + conID).Set(
+		sdsMetrics.rootCertExpiryTimestamp.WithLabelValues(metricLabelName).Set(
 			float64(secret.ExpireTime.Unix()))
 	} else {
 		sdsServiceLog.Infof("Pushed key/cert pair (resource name: %q) from node agent to proxy: %q\n",
 			resourceName, conID)
 		sdsServiceLog.Debugf("Pushed certificate chain %+v (resource name: %q) to proxy connection: %q\n",
 			string(secret.CertificateChain), resourceName, conID)
-		sdsMetrics.serverCertExpiryTimestamp.WithLabelValues(resourceName + "-" + conID).Set(
+		sdsMetrics.serverCertExpiryTimestamp.WithLabelValues(metricLabelName).Set(
 			float64(secret.ExpireTime.Unix()))
 	}
-	sdsMetrics.pushPerConn.WithLabelValues(resourceName + "-" + conID).Inc()
-	sdsMetrics.pendingPushPerConn.WithLabelValues(resourceName + "-" + conID).Dec()
+	sdsMetrics.pushPerConn.WithLabelValues(metricLabelName).Inc()
+	sdsMetrics.pendingPushPerConn.WithLabelValues(metricLabelName).Dec()
 	sdsMetrics.totalPush.Inc()
 	return nil
 }
