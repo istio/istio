@@ -413,8 +413,8 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 		if certLifeTimeLeft < gracePeriod {
 			log.Infof("Refreshing about to expire secret %s/%s", namespace, GetSecretName(name))
 		} else {
-  		log.Infof("Refreshing secret %s/%s (outdated root cert)", namespace, GetSecretName(name))
-	  }
+			log.Infof("Refreshing secret %s/%s (outdated root cert)", namespace, GetSecretName(name))
+		}
 
 		if err = sc.refreshSecret(scrt); err != nil {
 			log.Errorf("Failed to refresh secret %s/%s (error: %s)", namespace, GetSecretName(name), err)
