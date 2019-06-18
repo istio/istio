@@ -31,7 +31,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	"istio.io/istio/pilot/pkg/model"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	sdscache "istio.io/istio/security/pkg/nodeagent/cache"
 	agent_sds "istio.io/istio/security/pkg/nodeagent/sds"
 )
@@ -54,12 +54,12 @@ type ClientOptions struct {
 // constructSDSRequest returns the context for the outbound request to include necessary
 func constructSDSRequestContext() (context.Context, error) {
 	// Read from the designated location for Kubernetes JWT.
-	content, err := ioutil.ReadFile(model.K8sSAJwtFileName)
+	content, err := ioutil.ReadFile(authn_model.K8sSAJwtFileName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the token file %v", err)
 	}
 	md := metadata.New(map[string]string{
-		model.K8sSAJwtTokenHeaderKey: string(content),
+		authn_model.K8sSAJwtTokenHeaderKey: string(content),
 	})
 	return metadata.NewOutgoingContext(context.Background(), md), nil
 }

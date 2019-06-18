@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -39,8 +40,9 @@ import (
 const (
 	podFailedGet = "Failed_Get"
 	// The index of STATUS field in kubectl CLI output.
-	statusField          = 2
-	defaultClusterSubnet = "24"
+	statusField            = 2
+	defaultClusterSubnet   = "24"
+	defaultClusterSubnetv6 = "128"
 
 	// NodePortServiceType NodePort type of Kubernetes Service
 	NodePortServiceType = "NodePort"
@@ -258,9 +260,18 @@ func GetClusterSubnet(kubeconfig string) (string, error) {
 	}
 	parts := strings.Split(cidr, "/")
 	if len(parts) != 2 {
-		// TODO(nmittler): Need a way to get the subnet on minikube. For now, just return a default value.
-		log.Info("unable to identify cluster subnet. running on minikube?")
-		return defaultClusterSubnet, nil
+		ip, _ := GetKubeMasterIP(kubeconfig)
+		addr := net.ParseIP(ip)
+		if addr == nil {
+			return "", fmt.Errorf("unable to determine the kubernetes service IP and cluster subnet")
+		}
+		if addr.To4() != nil {
+			// TODO(nmittler): Need a way to get the subnet on minikube. For now, just return a default value.
+			log.Info("unable to identify cluster subnet. running on minikube?")
+			return defaultClusterSubnet, nil
+		}
+		log.Info("unable to identify IPv6 cluster subnet")
+		return defaultClusterSubnetv6, nil
 	}
 	return parts[1], nil
 }
@@ -349,8 +360,8 @@ func getServiceLoadBalancer(name, namespace, kubeconfig string) (string, error) 
 	}
 
 	ip = strings.Trim(ip, "'")
-	ri := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
-	if ri.FindString(ip) == "" {
+	addr := net.ParseIP(ip)
+	if addr == nil {
 		return "", errors.New("ingress ip not available yet")
 	}
 
@@ -367,8 +378,8 @@ func getServiceNodePort(serviceName, podLabel, namespace, kubeconfig string) (st
 	}
 
 	ip = strings.Trim(ip, "'")
-	ri := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
-	if ri.FindString(ip) == "" {
+	addr := net.ParseIP(ip)
+	if addr == nil {
 		return "", fmt.Errorf("the ip of %s is not available yet", serviceName)
 	}
 
@@ -377,6 +388,9 @@ func getServiceNodePort(serviceName, podLabel, namespace, kubeconfig string) (st
 		return "", err
 	}
 
+	if addr.To4() == nil {
+		return "[" + ip + "]" + ":" + port, nil
+	}
 	return ip + ":" + port, nil
 }
 

@@ -32,6 +32,10 @@ import (
 
 const bearerTokenPrefix = "Bearer "
 
+var (
+	googleCAClientLog = log.RegisterScope("googleCAClientLog", "Google CA client debugging", 0)
+)
+
 type googleCAClient struct {
 	caEndpoint string
 	enableTLS  bool
@@ -56,9 +60,11 @@ func NewGoogleCAClient(endpoint string, tls bool) (caClientInterface.Client, err
 		opts = grpc.WithInsecure()
 	}
 
+	// TODO(JimmyCYJ): This connection is create at construction time. If conn is broken at anytime,
+	//  need a way to reconnect.
 	conn, err := grpc.Dial(endpoint, opts)
 	if err != nil {
-		log.Errorf("Failed to connect to endpoint %s: %v", endpoint, err)
+		googleCAClientLog.Errorf("Failed to connect to endpoint %s: %v", endpoint, err)
 		return nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
 	}
 
@@ -82,12 +88,12 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token stri
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token))
 	resp, err := cl.client.CreateCertificate(ctx, req)
 	if err != nil {
-		log.Errorf("Failed to create certificate: %v", err)
+		googleCAClientLog.Errorf("Failed to create certificate: %v", err)
 		return nil, err
 	}
 
 	if len(resp.CertChain) <= 1 {
-		log.Errorf("CertChain length is %d, expected more than 1", len(resp.CertChain))
+		googleCAClientLog.Errorf("CertChain length is %d, expected more than 1", len(resp.CertChain))
 		return nil, errors.New("invalid response cert chain")
 	}
 
@@ -98,7 +104,7 @@ func (cl *googleCAClient) getTLSDialOption() (grpc.DialOption, error) {
 	// Load the system default root certificates.
 	pool, err := x509.SystemCertPool()
 	if err != nil {
-		log.Errorf("could not get SystemCertPool: %v", err)
+		googleCAClientLog.Errorf("could not get SystemCertPool: %v", err)
 		return nil, errors.New("could not get SystemCertPool")
 	}
 	creds := credentials.NewClientTLSFromCert(pool, "")

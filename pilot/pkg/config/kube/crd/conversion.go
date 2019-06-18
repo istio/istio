@@ -90,7 +90,7 @@ func ConvertConfig(schema model.ProtoSchema, config model.Config) (IstioObject, 
 	if namespace == "" {
 		namespace = meta_v1.NamespaceDefault
 	}
-	out := knownTypes[schema.Type].object.DeepCopyObject().(IstioObject)
+	out := KnownTypes[schema.Type].Object.DeepCopyObject().(IstioObject)
 	out.SetObjectMeta(meta_v1.ObjectMeta{
 		Name:            config.Name,
 		Namespace:       namespace,

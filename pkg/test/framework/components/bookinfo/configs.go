@@ -60,6 +60,9 @@ const (
 
 	// PolicyDenyIPRule uses "policy/mixer-rule-deny-ip.yaml"
 	PolicyDenyIPRule ConfigFile = "policy/mixer-rule-deny-ip.yaml"
+
+	// TelemetryLogEntry uses "telemetry/log-entry.yaml"
+	TelemetryLogEntry ConfigFile = "telemetry/log-entry.yaml"
 )
 
 // LoadGatewayFileWithNamespaceOrFail loads a Book Info Gateway configuration file from the system, changes it to be fit

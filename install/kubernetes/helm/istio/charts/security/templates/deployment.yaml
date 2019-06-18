@@ -60,12 +60,22 @@ spec:
           {{- if .Values.global.trustDomain }}
             - --trust-domain={{ .Values.global.trustDomain }}
           {{- end }}
+          {{- if .Values.citadelHealthCheck }}
+            - --liveness-probe-path=/tmp/ca.liveness # path to the liveness health check status file
+            - --liveness-probe-interval=60s # interval for health check file update
+            - --probe-check-interval=15s    # interval for health status check
+          {{- end }}
+          {{- if .Values.citadelHealthCheck }}
           livenessProbe:
-            httpGet:
-              path: /version
-              port: {{ .Values.global.monitoringPort }}
-            initialDelaySeconds: 5
-            periodSeconds: 5
+            exec:
+              command:
+              - /usr/local/bin/istio_ca
+              - probe
+              - --probe-path=/tmp/ca.liveness # path to the liveness health check status file
+              - --interval=125s # the maximum time gap allowed between the file mtime and the current sys clock
+            initialDelaySeconds: 60
+            periodSeconds: 60
+          {{- end }}
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}

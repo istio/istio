@@ -20,13 +20,6 @@
 
 set -e
 
-# Load optional config variables
-ISTIO_SIDECAR_CONFIG=${ISTIO_SIDECAR_CONFIG:-/var/lib/istio/envoy/sidecar.env}
-if [[ -r ${ISTIO_SIDECAR_CONFIG} ]]; then
-  # shellcheck disable=SC1090
-  . "$ISTIO_SIDECAR_CONFIG"
-fi
-
 # Set defaults
 ISTIO_BIN_BASE=${ISTIO_BIN_BASE:-/usr/local/bin}
 ISTIO_LOG_DIR=${ISTIO_LOG_DIR:-/var/log/istio}

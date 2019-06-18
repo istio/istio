@@ -31,7 +31,7 @@ import (
 	scheme "k8s.io/client-go/kubernetes/scheme"
 
 	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 )
 
 var (
@@ -209,7 +209,7 @@ func NewVerifyCommand() *cobra.Command {
 	}
 
 	flags := verifyInstallCmd.PersistentFlags()
-	flags.StringVarP(&istioNamespace, "istioNamespace", "i", kube.IstioNamespace,
+	flags.StringVarP(&istioNamespace, "istioNamespace", "i", controller.IstioNamespace,
 		"Istio system namespace")
 	kubeConfigFlags.AddFlags(flags)
 	fileNameFlags.AddFlags(flags)

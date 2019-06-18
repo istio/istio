@@ -27,6 +27,7 @@ package simple
 import (
 	"bytes"
 	"flag"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -226,7 +227,13 @@ func TestAuthWithHeaders(t *testing.T) {
 	}
 	podIstioIP := podList[0]
 	log.Infof("From client, non istio injected pod \"%s\" to istio pod \"%s\"", podNoIstio, podIstioIP)
-	// TODO: ipv6 fix
+	addr := net.ParseIP(podIstioIP)
+	if addr == nil {
+		t.Fatalf("the IP of app=echosrv,extrap=non pod is invalid: %s", podIstioIP)
+	}
+	if addr.To4() == nil {
+		podIstioIP = "[" + podIstioIP + "]"
+	}
 	res, err := util.Shell("kubectl exec -n %s %s -- fortio curl -H Host:echosrv-extrap.%s:8088 http://%s:8088/debug",
 		ns, podNoIstio, ns, podIstioIP)
 	if tc.Kube.AuthEnabled {
