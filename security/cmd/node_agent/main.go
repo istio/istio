@@ -59,7 +59,7 @@ func init() {
 	cAClientConfig.CAAddress = env.RegisterStringVar(envvar.CAAddress, "", "CA's endpoint").Get()
 	cAClientConfig.CAProviderName = env.RegisterStringVar(envvar.CAProvider, "", "CA's provider name").Get()
 	cAClientConfig.CAProtocol = env.RegisterStringVar(envvar.CAProtocol, nvm.IstioCAService, "CA service protocol").Get()
-	cAClientConfig.Env = env.RegisterStringVar(envvar.NodeEnv, "unspecified", "Node Environment : unspecified | onPremVM | gcpVM | awsVM").Get()
+	cAClientConfig.Env = env.RegisterStringVar(envvar.NodeEnv, "unspecified", "Node Environment : Unspecified | OnPremVM | GcpVM | AwsVM").Get()
 	cAClientConfig.Platform = env.RegisterStringVar(envvar.NodePlatform, nvm.VMPlatform, "The platform istio runs on: vm | k8s").Get()
 	cAClientConfig.CertChainFile = env.RegisterStringVar(envvar.CertChainFile, "/etc/certs/cert-chain.pem", "Citadel Agent identity cert file").Get()
 	cAClientConfig.KeyFile = env.RegisterStringVar(envvar.KeyFile, "/etc/certs/key.pem", "Citadel Agent private key file").Get()
