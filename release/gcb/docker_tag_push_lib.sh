@@ -61,7 +61,7 @@ function add_extra_artifacts_to_tar_images() {
     set_image_vars "$TAR_PATH"
 
     #check if it is a build variant (e.g. distroless)
-    if [[ -z "${VARIANT_NAME}" ]]; then
+    if [[ -n "${VARIANT_NAME}" ]]; then
       TAG="${TAG}-${VARIANT_NAME}"
     fi
     docker load -i "${TAR_PATH}"
