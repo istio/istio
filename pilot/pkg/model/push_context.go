@@ -23,7 +23,6 @@ import (
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
 
 	networking "istio.io/api/networking/v1alpha3"
 )
@@ -155,10 +154,9 @@ type ProxyPushStatus struct {
 	Message string `json:"message,omitempty"`
 }
 
-// PushMetric wraps a prometheus metric.
+// PushMetric wraps an OpenCensus measure.
 type PushMetric struct {
-	Name  string
-	gauge *stats.Int64Measure
+	*stats.Int64Measure
 }
 
 type combinedDestinationRule struct {
@@ -169,22 +167,13 @@ type combinedDestinationRule struct {
 
 func newPushMetric(name, help string) *PushMetric {
 	metric := stats.Int64(name, help, stats.UnitDimensionless)
-	if err := view.Register(&view.View{
-		Name:        name,
-		Description: help,
-		Measure:     metric,
-		TagKeys:     []tag.Key{},
-		Aggregation: view.LastValue(),
-	}); err != nil {
-		panic(err)
-	}
-
-	pm := &PushMetric{
-		Name:  name,
-		gauge: metric,
-	}
+	pm := &PushMetric{metric}
 	metrics = append(metrics, pm)
 	return pm
+}
+
+func (p *PushMetric) record(val int64) {
+	stats.Record(context.Background(), p.M(val))
 }
 
 // Add will add an case to the metric.
@@ -196,10 +185,10 @@ func (ps *PushContext) Add(metric *PushMetric, key string, proxy *Proxy, msg str
 	ps.proxyStatusMutex.Lock()
 	defer ps.proxyStatusMutex.Unlock()
 
-	metricMap, f := ps.ProxyStatus[metric.Name]
+	metricMap, f := ps.ProxyStatus[metric.Name()]
 	if !f {
 		metricMap = map[string]ProxyPushStatus{}
-		ps.ProxyStatus[metric.Name] = metricMap
+		ps.ProxyStatus[metric.Name()] = metricMap
 	}
 	ev := ProxyPushStatus{Message: msg}
 	if proxy != nil {
@@ -299,6 +288,24 @@ var (
 	metrics []*PushMetric
 )
 
+func init() {
+	if err := view.Register(
+		&view.View{Measure: EndpointNoPod.Int64Measure, Aggregation: view.LastValue()},
+		&view.View{Measure: ProxyStatusNoService.Int64Measure, Aggregation: view.LastValue()},
+		&view.View{Measure: ProxyStatusEndpointNotReady.Int64Measure, Aggregation: view.LastValue()},
+		&view.View{Measure: ProxyStatusConflictOutboundListenerTCPOverHTTP.Int64Measure, Aggregation: view.LastValue()},
+		&view.View{Measure: ProxyStatusConflictOutboundListenerTCPOverTCP.Int64Measure, Aggregation: view.LastValue()},
+		&view.View{Measure: ProxyStatusConflictOutboundListenerHTTPOverTCP.Int64Measure, Aggregation: view.LastValue()},
+		&view.View{Measure: ProxyStatusConflictInboundListener.Int64Measure, Aggregation: view.LastValue()},
+		&view.View{Measure: DuplicatedClusters.Int64Measure, Aggregation: view.LastValue()},
+		&view.View{Measure: ProxyStatusClusterNoInstances.Int64Measure, Aggregation: view.LastValue()},
+		&view.View{Measure: DuplicatedDomains.Int64Measure, Aggregation: view.LastValue()},
+		&view.View{Measure: DuplicatedSubsets.Int64Measure, Aggregation: view.LastValue()},
+	); err != nil {
+		panic(err)
+	}
+}
+
 // NewPushContext creates a new PushContext structure to track push status.
 func NewPushContext() *PushContext {
 	// TODO: detect push in progress, don't update status if set
@@ -348,12 +355,8 @@ func (ps *PushContext) UpdateMetrics() {
 	defer ps.proxyStatusMutex.RUnlock()
 
 	for _, pm := range metrics {
-		mmap, f := ps.ProxyStatus[pm.Name]
-		if f {
-			stats.Record(context.Background(), pm.gauge.M(int64(len(mmap))))
-		} else {
-			stats.Record(context.Background(), pm.gauge.M(0))
-		}
+		mmap := ps.ProxyStatus[pm.Name()]
+		pm.record((int64(len(mmap))))
 	}
 }
 
