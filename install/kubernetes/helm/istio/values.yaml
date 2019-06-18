@@ -87,7 +87,7 @@ kiali:
 #
 certmanager:
   enabled: false
-  
+
 #
 # Istio CNI plugin enabled
 #   This must be enabled to use the CNI plugin in Istio.  The CNI plugin is installed separately.
@@ -250,7 +250,7 @@ global:
     # available to scrape via the Envoy admin port at either /stats or /stats/prometheus.
     #
     # See https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto
-    # for details about Envoy's Metrics Service API. 
+    # for details about Envoy's Metrics Service API.
     #
     # Disabled by default.
     envoyMetricsService:
@@ -363,9 +363,9 @@ global:
   # set of DNS settings than the normal application pods (e.g., in
   # multicluster scenarios).
   # NOTE: If using templates, follow the pattern in the commented example below.
-  #podDNSSearchNamespaces:
-  #- global
-  #- "[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]].global"
+  # podDNSSearchNamespaces:
+  # - global
+  # - "[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]].global"
 
   # If set to true, the pilot and citadel mtls will be exposed on the
   # ingress gateway
@@ -425,7 +425,7 @@ global:
   #   services or ServiceEntries for the destination port
   # REGISTRY_ONLY - restrict outbound traffic to services defined in the service registry as well
   #   as those defined through ServiceEntries
-  # ALLOW_ANY is the default in 1.1.  This means each pod will be able to make outbound requests 
+  # ALLOW_ANY is the default in 1.1.  This means each pod will be able to make outbound requests
   # to services outside of the mesh without any ServiceEntry.
   # REGISTRY_ONLY was the default in 1.0.  If this behavior is desired, set the value below to REGISTRY_ONLY.
   outboundTrafficPolicy:
@@ -440,8 +440,8 @@ global:
   # rules should be exported to. Currently only one value can be provided in this list. This value
   # should be one of the following two options:
   # * implies these objects are visible to all namespaces, enabling any sidecar to talk to any other sidecar.
-  # . implies these objects are visible to only to sidecars in the same namespace, or if imported as a Sidecar.egress.host  
-  #defaultConfigVisibilitySettings:
+  # . implies these objects are visible to only to sidecars in the same namespace, or if imported as a Sidecar.egress.host
+  # defaultConfigVisibilitySettings:
   #- '*'
 
   sds:
