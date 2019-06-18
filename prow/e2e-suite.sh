@@ -73,12 +73,6 @@ ISTIO_GO=$(cd $(dirname $0)/..; pwd)
 export HUB=${HUB:-"gcr.io/istio-testing"}
 export TAG="${GIT_SHA}"
 
-make init
-
-trap cleanup EXIT
-get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
-setup_cluster
-
 # getopts only handles single character flags
 for ((i=1; i<=$#; i++)); do
     case ${!i} in
@@ -90,6 +84,21 @@ for ((i=1; i<=$#; i++)); do
     esac
     E2E_ARGS+=( ${!i} )
 done
+
+if [[ ${SINGLE_MODE} && $HUB == *"istio-testing"* ]]; then
+  export TAG="${TAG:-${GIT_SHA}}"-"${SINGLE_TEST}"
+fi
+
+make init
+
+if [[ $HUB == *"istio-testing"* ]]; then
+  # upload images
+  time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}"
+fi
+
+trap cleanup EXIT
+get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
+setup_cluster
 
 echo 'Running ISTIO E2E Test(s)'
 if ${SINGLE_MODE}; then
