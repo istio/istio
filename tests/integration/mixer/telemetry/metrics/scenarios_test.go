@@ -35,11 +35,11 @@ import (
 )
 
 var (
-	ist               istio.Instance
-	bookinfoNamespace *namespace.Instance
-	galInst           *galley.Instance
-	ingInst           *ingress.Instance
-	promInst          *prometheus.Instance
+	ist        istio.Instance
+	bookinfoNs namespace.Instance
+	g          galley.Instance
+	ing        ingress.Instance
+	prom       prometheus.Instance
 )
 
 // This file contains Mixer tests that are ported from Mixer E2E tests
@@ -74,8 +74,6 @@ func TestIngessToPrometheus_IngressMetric(t *testing.T) {
 
 func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValue string) { // nolint:interfacer
 	t.Helper()
-
-	bookinfoNs, g, ing, prom := setupComponentsOrFail(t)
 	g.ApplyConfigOrFail(
 		t,
 		bookinfoNs,
@@ -139,8 +137,6 @@ func TestStateMetrics(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			bookinfoNs, g, _, prom := setupComponentsOrFail(t)
-
 			g.ApplyConfigOrFail(
 				t,
 				bookinfoNs,
@@ -174,8 +170,6 @@ func TestTcpMetric(t *testing.T) {
 		Label(label.Flaky).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			bookinfoNs, g, ing, prom := setupComponentsOrFail(t)
-
 			_ = bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoRatingsv2})
 			_ = bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoDb})
 
@@ -221,12 +215,11 @@ func TestMain(m *testing.M) {
 		Run()
 }
 
-func testsetup(ctx resource.Context) error {
-	bookinfoNs, err := namespace.New(ctx, "istio-bookinfo", true)
+func testsetup(ctx resource.Context) (err error) {
+	bookinfoNs, err = namespace.New(ctx, "istio-bookinfo", true)
 	if err != nil {
-		return err
+		return
 	}
-	bookinfoNamespace = &bookinfoNs
 	if _, err := bookinfo.Deploy(ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo}); err != nil {
 		return err
 	}
@@ -234,21 +227,17 @@ func testsetup(ctx resource.Context) error {
 	if err != nil {
 		return err
 	}
-	galInst = &g
 	if _, err = mixer.New(ctx, mixer.Config{Galley: g}); err != nil {
 		return err
 	}
-	ing, err := ingress.New(ctx, ingress.Config{Istio: ist})
+	ing, err = ingress.New(ctx, ingress.Config{Istio: ist})
 	if err != nil {
 		return err
 	}
-	ingInst = &ing
-	prom, err := prometheus.New(ctx)
+	prom, err = prometheus.New(ctx)
 	if err != nil {
 		return err
 	}
-	promInst = &prom
-
 	yamlText, err := bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespace(bookinfoNs.Name())
 	if err != nil {
 		return err
@@ -259,26 +248,4 @@ func testsetup(ctx resource.Context) error {
 	}
 
 	return nil
-}
-
-func setupComponentsOrFail(t *testing.T) (bookinfoNs namespace.Instance, g galley.Instance,
-	ing ingress.Instance, prom prometheus.Instance) {
-	if bookinfoNamespace == nil {
-		t.Fatalf("bookinfo namespace not allocated in setup")
-	}
-	bookinfoNs = *bookinfoNamespace
-	if galInst == nil {
-		t.Fatalf("galley not setup")
-	}
-	g = *galInst
-	if ingInst == nil {
-		t.Fatalf("ingress not setup")
-	}
-	ing = *ingInst
-	if promInst == nil {
-		t.Fatalf("prometheus not setup")
-	}
-	prom = *promInst
-
-	return
 }
