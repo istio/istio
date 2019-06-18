@@ -630,6 +630,12 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 		version, len(push.Services(nil)), adsClientCount())
 	monServices.Record(float64(len(push.Services(nil))))
 
+	onlyMesh := make(map[string]bool)
+	onlyMesh[model.IstioMeshGateway] = true
+	numberOfKnownMeshVirtualServices := len(push.VirtualServices(nil, onlyMesh))
+	adsLog.Debugf("Known virtual services for mesh gateway:%d", numberOfKnownMeshVirtualServices)
+	monVServices.Set(float64(numberOfKnownMeshVirtualServices))
+
 	t0 := time.Now()
 
 	// First update all cluster load assignments. This is computed for each cluster once per config change
