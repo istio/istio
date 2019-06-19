@@ -38,7 +38,6 @@ import (
 	google_protobuf "github.com/gogo/protobuf/types"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -181,7 +180,7 @@ var (
 )
 
 func init() {
-	if err := view.Register(&view.View{Measure: invalidOutboundListeners, TagKeys: []tag.Key{}, Aggregation: view.LastValue()}); err != nil {
+	if err := view.Register(&view.View{Measure: invalidOutboundListeners, Aggregation: view.LastValue()}); err != nil {
 		panic(err)
 	}
 }
@@ -907,6 +906,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 		if err := l.listener.Validate(); err != nil {
 			log.Warnf("buildSidecarOutboundListeners: error validating listener %s (type %v): %v", name, l.servicePort.Protocol, err)
 			invalid++
+			stats.Record(context.Background(), invalidOutboundListeners.M(int64(invalid)))
 			continue
 		}
 		if l.servicePort.Protocol.IsTCP() {
@@ -915,8 +915,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 			httpListeners = append(httpListeners, l.listener)
 		}
 	}
-
-	stats.Record(context.Background(), invalidOutboundListeners.M(int64(invalid)))
 
 	return append(tcpListeners, httpListeners...)
 }
