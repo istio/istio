@@ -111,7 +111,6 @@ function make_istio() {
   popd || exit
 
   cp -r "${ISTIO_OUT}/docker" "${OUTPUT_PATH}/"
-  go run tools/license/get_dep_licenses.go --branch "${BRANCH}" > LICENSES.txt
 
   # log where git thinks the build might be dirty
   git status
@@ -126,13 +125,13 @@ function make_istio() {
     CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} make docker.save || exit 1
 
     cp -r "${CNI_OUT}/docker" "${OUTPUT_PATH}/"
-    go run ../istio/tools/license/get_dep_licenses.go --branch "${BRANCH}" > LICENSES.txt
     git status
   popd || exit
   # Add extra artifacts for legal compliance. The caller of this script can
   # optionally set their EXTRA_ARTIFACTS environment variable to an arbitrarily
   # long list of space-delimited filepaths --- and each artifact would get
   # injected into the Docker image.
+  go run tools/license/get_dep_licenses.go --branch "${BRANCH}" > LICENSES.txt
   add_extra_artifacts_to_tar_images \
     "${DOCKER_HUB}" \
     "${TAG}" \
