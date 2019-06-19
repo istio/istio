@@ -80,11 +80,15 @@ func getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, e
 			return nil, false, fmt.Errorf("no ports found in service: %s/%s", ns, "istio-ingressgateway")
 		}
 
-		var nodePort int32
-		for _, port := range svc.Spec.Ports {
-			if port.Name == "http2" {
-				nodePort = port.NodePort
+		var port int32 = 1
+		for _, svcPort := range svc.Spec.Ports {
+			if svcPort.Protocol == "TCP" && svcPort.Port == 80 {
+				port = svcPort.NodePort
+				break
 			}
+		}
+		if nodePort == 1 {
+			return nil, false, fmt.Errorf("no port 80 found in service: %s/%s", ns, "istio-ingressgateway")
 		}
 
 		return fmt.Sprintf("http://%s:%d", ip, nodePort), true, nil
