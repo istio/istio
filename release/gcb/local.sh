@@ -4,8 +4,6 @@ set -o errexit
 
 # shellcheck disable=SC1091
 source gcb_lib.sh
-# shellcheck disable=SC1091
-source docker_tag_push_lib.sh
 ROOT=$(cd "$(git rev-parse --show-cdup)" && pwd || return)
 artifacts="$HOME/output/local"
 export NEW_VERSION="fake"

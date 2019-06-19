@@ -16,6 +16,9 @@
 
 
 # This script is meant to be sourced, has a set of functions used by scripts on gcb
+SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+# shellcheck source=release/gcb/docker_tag_push_lib.sh
+source "${SCRIPTPATH}/docker_tag_push_lib.sh"
 
 #sets GITHUB_KEYFILE to github auth file
 function github_keys() {

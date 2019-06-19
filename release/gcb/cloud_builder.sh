@@ -32,8 +32,6 @@ set -x
 source "/workspace/gcb_env.sh"
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-# shellcheck source=release/gcb/docker_tag_push_lib.sh
-source "${SCRIPTPATH}/docker_tag_push_lib.sh"
 # shellcheck source=release/gcb/gcb_lib.sh
 source "${SCRIPTPATH}/gcb_lib.sh"
 
