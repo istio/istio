@@ -25,6 +25,7 @@ import (
 	gapiopts "google.golang.org/api/option"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
+	testenv "istio.io/istio/mixer/pkg/adapter/test"
 )
 
 func TestToOpts(t *testing.T) {
@@ -46,6 +47,9 @@ func TestToOpts(t *testing.T) {
 		{"service account",
 			&config.Params{Creds: &config.Params_ServiceAccountPath{ServiceAccountPath: svcAcctFilePath}},
 			[]gapiopts.ClientOption{gapiopts.WithCredentialsFile(svcAcctFilePath)}},
+		{"service account file not found",
+			&config.Params{Creds: &config.Params_ServiceAccountPath{ServiceAccountPath: "/some/non/existent/path"}},
+			[]gapiopts.ClientOption{}},
 		{"service account empty",
 			&config.Params{Creds: &config.Params_ServiceAccountPath{}},
 			[]gapiopts.ClientOption{}},
@@ -58,7 +62,7 @@ func TestToOpts(t *testing.T) {
 	}
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			opts := ToOpts(tt.cfg)
+			opts := ToOpts(tt.cfg, testenv.NewEnv(t).Logger())
 			if len(opts) != len(tt.out) {
 				t.Errorf("len(toOpts(%v)) = %d, expected %d", tt.cfg, len(opts), len(tt.out))
 			}
