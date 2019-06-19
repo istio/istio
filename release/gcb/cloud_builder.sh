@@ -34,6 +34,7 @@ source "/workspace/gcb_env.sh"
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 # shellcheck source=release/gcb/docker_tag_push_lib.sh
 source "${SCRIPTPATH}/docker_tag_push_lib.sh"
+source "${SCRIPTPATH}/gcb_lib.sh"
 
 # directory that has the artifacts, hardcoded since the volume name in cloud_builder.json
 # need to be the same also there is no value in making this configurable
@@ -47,77 +48,15 @@ echo gopath is "$GOPATH"
 export ISTIO_VERSION="${CB_VERSION}"
 
 ISTIO_OUT=$(make DEBUG=0 where-is-out)
-
-MAKE_TARGETS=(istio-archive)
-MAKE_TARGETS+=(sidecar.deb)
-
-VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB="${CB_ISTIOCTL_DOCKER_HUB}" HUB="${CB_ISTIOCTL_DOCKER_HUB}" VERSION="${CB_VERSION}" TAG="${CB_VERSION}" make "${MAKE_TARGETS[@]}"
-mkdir -p "${OUTPUT_PATH}/deb"
-sha256sum "${ISTIO_OUT}/istio-sidecar.deb" > "${OUTPUT_PATH}/deb/istio-sidecar.deb.sha256"
-cp        "${ISTIO_OUT}/istio-sidecar.deb"   "${OUTPUT_PATH}/deb/"
-cp        "${ISTIO_OUT}"/archive/istio-*z*   "${OUTPUT_PATH}/"
-
-
 # build docker tar images
 REL_DOCKER_HUB=docker.io/istio
 
-# we always save the docker tars and point them to docker.io/istio ($REL_DOCKER_HUB)
-# later scripts retag the tars with <hub>:$CB_VERSION and push to <hub>:$CB_VERSION
-BUILD_DOCKER_TARGETS=(docker.save)
-
-VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION="${CB_VERSION}" TAG="${CB_VERSION}" make "${BUILD_DOCKER_TARGETS[@]}"
-
-# preserve the source from the root of the code
-pushd "${ROOT}/../../../.."
-pwd
-# tar the source code
-tar -czf "${OUTPUT_PATH}/source.tar.gz" go src --exclude go/out --exclude go/bin
-popd
-
-cp -r "${ISTIO_OUT}/docker" "${OUTPUT_PATH}/"
-
-go run tools/license/get_dep_licenses.go --branch "${CB_BRANCH}" > LICENSES.txt
-
-# Add extra artifacts for legal compliance. The caller of this script can
-# optionally set their EXTRA_ARTIFACTS environment variable to an arbitrarily
-# long list of space-delimited filepaths --- and each artifact would get
-# injected into the Docker image.
-add_extra_artifacts_to_tar_images \
-  "${REL_DOCKER_HUB}" \
-  "${CB_VERSION}" \
-  "${OUTPUT_PATH}" \
-  "${EXTRA_ARTIFACTS:-$PWD/LICENSES.txt}"
-
-# log where git thinks the build might be dirty
-git status
-
+make_istio "${OUTPUT_PATH}" "${CB_ISTIOCTL_DOCKER_HUB}" "${REL_DOCKER_HUB}" "${CB_VERSION}" "${CB_BRANCH}"
 cp "/workspace/manifest.txt" "${OUTPUT_PATH}"
 
 #Handle CNI artifacts.
 pushd ../cni
-CNI_OUT=$(make DEBUG=0 where-is-out)
-# CNI version strategy is to have CNI run lock step with Istio i.e. CB_VERSION
-VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB="${CB_ISTIOCTL_DOCKER_HUB}" HUB="${CB_ISTIOCTL_DOCKER_HUB}" VERSION="${ISTIO_VERSION}" TAG="${ISTIO_VERSION}" make build
 
-if [ -d "${CNI_OUT}/docker" ]; then
-    rm -r "${CNI_OUT}/docker"
-fi
-
-VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION="${ISTIO_VERSION}" TAG="${ISTIO_VERSION}" make docker.save
-
-mkdir "/cni_tmp"
-
-cp -r "${CNI_OUT}/docker" "/cni_tmp"
-
-go run ../istio/tools/license/get_dep_licenses.go --branch "${CB_BRANCH}" > LICENSES.txt
-add_extra_artifacts_to_tar_images \
-  "${REL_DOCKER_HUB}" \
-  "${CB_VERSION}" \
-  "/cni_tmp" \
-  "${EXTRA_ARTIFACTS_CNI:-$PWD/LICENSES.txt}"
-cp -r "/cni_tmp/docker" "${OUTPUT_PATH}/"
-
-# log where git thinks the build might be dirty
-git status
+  make_cni "${OUTPUT_PATH}" "${CB_ISTIOCTL_DOCKER_HUB}" "${REL_DOCKER_HUB}" "${CB_VERSION}" "${CB_BRANCH}"
 
 popd
