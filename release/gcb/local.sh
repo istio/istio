@@ -17,7 +17,7 @@ echo "gopath is $GOPATH"
 CURRENT_BRANCH=$(git symbolic-ref --short HEAD)
 BRANCH=${BRANCH:-$CURRENT_BRANCH}
 export BRANCH
-#export CB_VERIFY_CONSISTENCY=true
+export CB_VERIFY_CONSISTENCY=true
 
 echo "Delete old builds"
 rm -r "${artifacts}" || echo
@@ -30,9 +30,6 @@ popd || return
 
 pushd "${ROOT}" || exit
   create_manifest_check_consistency "${artifacts}/manifest.txt"
-popd || return 
-
-pushd "${ROOT}" || exit 
   make_istio "${artifacts}" "${DOCKER_HUB}" "${DOCKER_HUB}" "${NEW_VERSION}" "${BRANCH}"
 popd || return
 
