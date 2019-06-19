@@ -29,6 +29,6 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("qualification", m).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil, istio.Ingress, istio.Telemetry)).
 		Run()
 }

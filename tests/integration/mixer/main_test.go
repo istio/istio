@@ -28,6 +28,6 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.NewSuite("mixer_test", m).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil, istio.Telemetry, istio.Policy)).
 		Run()
 }

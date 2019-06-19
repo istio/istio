@@ -32,7 +32,7 @@ type Instance interface {
 type SetupConfigFn func(cfg *Config)
 
 // Setup is a setup function that will deploy Istio on Kubernetes environment
-func Setup(i *Instance, cfn SetupConfigFn) resource.SetupFn {
+func Setup(i *Instance, cfn SetupConfigFn, components ...InstallComponent) resource.SetupFn {
 	return func(ctx resource.Context) error {
 		switch ctx.Environment().EnvironmentName() {
 		case environment.Native:
@@ -46,6 +46,7 @@ func Setup(i *Instance, cfn SetupConfigFn) resource.SetupFn {
 			if cfn != nil {
 				cfn(&cfg)
 			}
+			cfg.InstallComponents = append(cfg.InstallComponents, components...)
 			ins, err := Deploy(ctx, &cfg)
 			if err != nil {
 				return err
@@ -82,7 +83,11 @@ func Deploy(ctx resource.Context, cfg *Config) (Instance, error) {
 	var i Instance
 	switch ctx.Environment().EnvironmentName() {
 	case environment.Kube:
-		i, err = deploy(ctx, ctx.Environment().(*kube.Environment), *cfg)
+		if cfg.AlphaInstaller {
+			i, err = deployAlphaInstall(ctx, ctx.Environment().(*kube.Environment), *cfg)
+		} else {
+			i, err = deploy(ctx, ctx.Environment().(*kube.Environment), *cfg)
+		}
 	default:
 		err = resource.UnsupportedEnvironment(ctx.Environment())
 	}

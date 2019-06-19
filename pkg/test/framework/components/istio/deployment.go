@@ -17,6 +17,7 @@ package istio
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 	"regexp"
 	"sort"
@@ -24,6 +25,8 @@ import (
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/helm"
+	"istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/yml"
 )
@@ -37,6 +40,37 @@ metadata:
     istio-injection: disabled
 `
 )
+
+func applyAlphaInstall(accessor *kube.Accessor, helmDir string, ns string, chart string, cfg Config) error {
+	if err := helm.Init(helmDir, true); err != nil {
+		return err
+	}
+
+	valuesFile := []string{path.Join(env.IstioAlphaInstallDir, "global.yaml"), path.Join(env.IstioAlphaInstallDir, cfg.ValuesFile)}
+	name := chart[strings.LastIndex(chart, "/")+1:]
+
+	// todo(howardjohn): do we need to add namespaces to values?
+	renderedYaml, err := helm.Template(
+		helmDir, path.Join(env.IstioAlphaInstallDir, chart), name, ns, valuesFile, cfg.Values)
+	if err != nil {
+		return err
+	}
+
+	namespaceData := fmt.Sprintf(namespaceTemplate, ns)
+	renderedYaml = yml.JoinString(namespaceData, renderedYaml)
+
+	fname := path.Join(helmDir, name+".yaml")
+	if err = ioutil.WriteFile(fname, []byte(renderedYaml), os.ModePerm); err != nil {
+		return fmt.Errorf("unable to write %q: %v", fname, err)
+	}
+
+	scopes.CI.Infof("Applying %v (%v)", name, fname)
+	if _, err = accessor.ApplyContents("", renderedYaml); err != nil {
+		return err
+	}
+
+	return nil
+}
 
 func generateIstioYaml(helmDir string, cfg Config) (string, error) {
 	generatedYaml, err := renderIstioTemplate(helmDir, cfg)
@@ -58,7 +92,7 @@ func renderIstioTemplate(helmDir string, cfg Config) (string, error) {
 	}
 
 	renderedYaml, err := helm.Template(
-		helmDir, cfg.ChartDir, "istio", cfg.SystemNamespace, path.Join(env.IstioChartDir, cfg.ValuesFile), cfg.Values)
+		helmDir, cfg.ChartDir, "istio", cfg.SystemNamespace, []string{path.Join(env.IstioChartDir, cfg.ValuesFile)}, cfg.Values)
 	if err != nil {
 		return "", err
 	}

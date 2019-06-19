@@ -41,7 +41,7 @@ func TestMain(m *testing.M) {
 		RequireEnvironment(environment.Kube).
 
 		// Deploy Istio
-		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(&i, nil, istio.Ingress, istio.Egress, istio.Telemetry, istio.Policy)).
 		SetupOnEnv(environment.Kube, func(ctx resource.Context) error {
 			env = ctx.Environment().(*kube.Environment)
 			return nil
