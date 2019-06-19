@@ -372,15 +372,15 @@ jobs:
           name: Check Scripts
           command: /root/project/bin/check_shell_scripts.sh
 
-  lint:
-    <<: *defaults
-    environment:
-      KUBECONFIG: /go/src/istio.io/istio/.circleci/config
-    resource_class: xlarge
-    steps:
-      - checkout
-      - run: make sync
-      - run: make lint
+#  lint:
+#    <<: *defaults
+#    environment:
+#      KUBECONFIG: /go/src/istio.io/istio/.circleci/config
+#    resource_class: xlarge
+#    steps:
+#      - checkout
+#      - run: make sync
+#      - run: make lint
 # TODO: https://github.com/istio/istio/issues/7861
 # We can re-enable this after it runs for 1 week straight as a non-required gate, and by consulting with the
 # test-infra team.
@@ -409,7 +409,7 @@ workflows:
   all:
     jobs:
       - shellcheck
-      - lint
+#      - lint
       - build
       - test
       - codecov
