@@ -316,7 +316,7 @@ global:
     # destination rules or service annotations.
     enabled: false
 
-  # Lists the secrets you need to use to pull Istio images from a secure registry.
+  # Lists the secrets you need to use to pull Istio images from a private registry.
   imagePullSecrets: []
     # - private-registry-key
 
