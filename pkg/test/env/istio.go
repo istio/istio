@@ -15,10 +15,12 @@
 package env
 
 import (
+	"errors"
 	"fmt"
 	"go/build"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"runtime"
@@ -27,14 +29,6 @@ import (
 )
 
 var (
-	// GOPATH environment variable
-	// nolint: golint
-	GOPATH Variable = "GOPATH"
-
-	// TOP environment variable
-	// nolint: golint
-	TOP Variable = "TOP"
-
 	// ISTIO_GO environment variable
 	// nolint: golint
 	ISTIO_GO Variable = "ISTIO_GO"
@@ -64,25 +58,19 @@ var (
 	// nolint: golint
 	ISTIO_TEST_KUBE_CONFIG Variable = "ISTIO_TEST_KUBE_CONFIG"
 
-	// IstioTop has the top of the istio tree, matches the env variable from make.
-	IstioTop = TOP.ValueOrDefaultFunc(getDefaultIstioTop)
-
-	// IstioSrc is the location if istio source ($TOP/src/istio.io/istio
-	IstioSrc = path.Join(IstioTop, "src/istio.io/istio")
+	// IstioSrc is the location if istio source ($TOP/src/istio.io/istio).
+	IstioSrc = getIstioSrc()
 
 	// IstioBin is the location of the binary output directory
-	IstioBin = verifyFile(ISTIO_BIN, ISTIO_BIN.ValueOrDefaultFunc(getDefaultIstioBin))
+	IstioBin = artifactDir(ISTIO_BIN, "bin")
 
 	// IstioOut is the location of the output directory ($TOP/out)
-	IstioOut = verifyFile(ISTIO_OUT, ISTIO_OUT.ValueOrDefaultFunc(getDefaultIstioOut))
+	IstioOut = artifactDir(ISTIO_OUT, "out", fmt.Sprintf("%s_%s", runtime.GOOS, runtime.GOARCH))
 
 	// TODO: Some of these values are overlapping. We should re-align them.
 
-	// IstioRoot is the root of the Istio source repository.
-	IstioRoot = path.Join(GOPATH.ValueOrDefault(build.Default.GOPATH), "/src/istio.io/istio")
-
 	// ChartsDir is the Kubernetes Helm chart directory in the repository
-	ChartsDir = path.Join(IstioRoot, "install/kubernetes/helm")
+	ChartsDir = path.Join(IstioSrc, "install/kubernetes/helm")
 
 	// IstioChartDir is the Kubernetes Helm chart directory in the repository
 	IstioChartDir = path.Join(ChartsDir, "istio")
@@ -90,7 +78,7 @@ var (
 	CrdsFilesDir = path.Join(ChartsDir, "istio-init/files")
 
 	// BookInfoRoot is the root folder for the bookinfo samples
-	BookInfoRoot = path.Join(IstioRoot, "samples/bookinfo")
+	BookInfoRoot = path.Join(IstioSrc, "samples/bookinfo")
 
 	// BookInfoKube is the book info folder that contains Yaml deployment files.
 	BookInfoKube = path.Join(BookInfoRoot, "platform/kube")
@@ -99,45 +87,72 @@ var (
 	ServiceAccountFilePath = path.Join(ChartsDir, "helm-service-account.yaml")
 
 	// RedisInstallFilePath is the redis installation file.
-	RedisInstallFilePath = path.Join(IstioRoot, "pkg/test/framework/components/redis/redis.yaml")
+	RedisInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/redis/redis.yaml")
 )
 
-func getDefaultIstioTop() string {
-	// Assume it is run inside istio.io/istio
-	current, err := os.Getwd()
+func moduleRoot(dir string) (string, error) {
+	for {
+		switch _, err := os.Stat(filepath.Join(dir, "go.mod")); {
+		case os.IsNotExist(err):
+			parent := filepath.Dir(dir)
+			if parent == dir {
+				// TODO: Find a better message, this may be confusing if not using Go modules.
+				return "", errors.New("not a Go module")
+			}
+			dir = parent
+		case err != nil:
+			return "", err
+		default:
+			return dir, nil
+		}
+	}
+}
+
+func insideGoPath(dir string) bool {
+	pref := build.Default.GOPATH
+	if !strings.HasPrefix(dir, pref) {
+		return false
+	}
+	return len(dir) == len(pref) || dir[len(pref)] == filepath.Separator
+}
+
+func getIstioSrc() string {
+	dir, err := os.Getwd()
 	if err != nil {
 		panic(err)
 	}
-	idx := strings.Index(current, "/src/istio.io/istio")
-	if idx > 0 {
-		return current[0:idx]
+	// Even if we're inside GOPATH and not respect modules, moduleRoot is a good way to find the
+	// repository root no matter the name (which, in GOPATH, should be istio.io/istio).
+	dir, err = moduleRoot(dir)
+	if err != nil {
+		panic(err)
 	}
-	return current // launching from GOTOP (for example in goland)
-}
-
-func getDefaultIstioBin() string {
-	return fmt.Sprintf("%s/bin", build.Default.GOPATH)
-}
-
-func getDefaultIstioOut() string {
-	return fmt.Sprintf("%s/out/%s_%s", build.Default.GOPATH, runtime.GOOS, runtime.GOARCH)
+	return dir
 }
 
 func verifyFile(v Variable, f string) string {
-	if !fileExists(f) {
-		log.Warnf("unable to resolve %s. Dir %s does not exist", v, f)
-		return ""
+	if err := CheckFileExists(f); err != nil {
+		// The error should contain the file path.
+		log.Fatalf("Unable to resolve %s: %v", v, err)
 	}
 	return f
 }
 
-func fileExists(f string) bool {
-	return CheckFileExists(f) == nil
+func CheckFileExists(path string) error {
+	_, err := os.Stat(path)
+	return err
 }
 
-func CheckFileExists(path string) error {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return err
+func artifactDir(v Variable, kind string, subdirs ...string) string {
+	if x := v.Value(); x != "" {
+		return verifyFile(v, x)
 	}
-	return nil
+	root := IstioSrc
+	if insideGoPath(IstioSrc) {
+		root = build.Default.GOPATH
+	} else {
+		kind = "istio_" + kind
+	}
+	dirs := append([]string{root, kind}, subdirs...)
+	return verifyFile(v, filepath.Join(dirs...))
 }

@@ -258,7 +258,7 @@ func DeployBookinfo(t *testing.T, ctx framework.TestContext, g galley.Instance, 
 
 	// Backup the original bookinfo root.
 	originBookInfoRoot := env.BookInfoRoot
-	env.BookInfoRoot = path.Join(env.IstioRoot, "tests/integration/security/sds_ingress/")
+	env.BookInfoRoot = path.Join(env.IstioSrc, "tests/integration/security/sds_ingress/")
 	var gatewayPath, virtualSvcPath, destRulePath bookinfo.ConfigFile
 	switch gatewayType {
 	case SingleTLSGateway:

@@ -18,6 +18,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
@@ -447,12 +448,8 @@ func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, e
 	}
 
 	// Exported from makefile or env
-	cfg.ConfigPath = out + "/bootstrap/" + base
-	gobase := os.Getenv("ISTIO_GO")
-	if gobase == "" {
-		gobase = "../.."
-	}
-	cfg.CustomConfigFile = gobase + "/tools/packaging/common/envoy_bootstrap_v2.json"
+	cfg.ConfigPath = filepath.Join(out, "bootstrap", base)
+	cfg.CustomConfigFile = filepath.Join(env.IstioSrc, "tools", "packaging", "common", "envoy_bootstrap_v2.json")
 	return cfg, nil
 }
 
