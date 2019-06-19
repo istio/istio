@@ -4,6 +4,7 @@ set -o errexit
 
 # shellcheck disable=SC1091
 source gcb_lib.sh
+# shellcheck disable=SC1091
 source docker_tag_push_lib.sh
 ROOT=$(cd "$(git rev-parse --show-cdup)" && pwd || return)
 artifacts="$HOME/output/local"
@@ -18,7 +19,6 @@ echo "gopath is $GOPATH"
 CURRENT_BRANCH=$(git symbolic-ref --short HEAD)
 BRANCH=${BRANCH:-$CURRENT_BRANCH}
 export BRANCH
-echo $BRANCH
 #export CB_VERIFY_CONSISTENCY=true
 
 echo "Delete old builds"
@@ -38,7 +38,6 @@ pushd "${ROOT}" || exit
   make_istio "${artifacts}" "${DOCKER_HUB}" "${DOCKER_HUB}" "${NEW_VERSION}" "${BRANCH}"
 popd || return
 
-echo $ROOT
 pushd "${ROOT}/../cni" || exit
   make_cni "${artifacts}" "${DOCKER_HUB}" "${DOCKER_HUB}" "${NEW_VERSION}" "${BRANCH}"
 popd || return

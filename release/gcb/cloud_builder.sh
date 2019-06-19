@@ -34,6 +34,7 @@ source "/workspace/gcb_env.sh"
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 # shellcheck source=release/gcb/docker_tag_push_lib.sh
 source "${SCRIPTPATH}/docker_tag_push_lib.sh"
+# shellcheck source=release/gcb/gcb_lib.sh
 source "${SCRIPTPATH}/gcb_lib.sh"
 
 # directory that has the artifacts, hardcoded since the volume name in cloud_builder.json
@@ -47,7 +48,6 @@ echo gopath is "$GOPATH"
 # this is needed for istioctl and other parts of build to get the version info
 export ISTIO_VERSION="${CB_VERSION}"
 
-ISTIO_OUT=$(make DEBUG=0 where-is-out)
 # build docker tar images
 REL_DOCKER_HUB=docker.io/istio
 

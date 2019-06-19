@@ -71,18 +71,20 @@ EOF
 }
 
 function make_istio() {
-  # Functiona expects to be called from istio/istio repo.
+  # Should be called from istio/istio repo.
   local OUTPUT_PATH=$1
   local DOCKER_HUB=$2
   local REL_DOCKER_HUB=$3
-  local TAG=$4
+  TAG=$4
+  export TAG
   local BRANCH=$5
-  local ISTIO_OUT=$(make DEBUG=0 where-is-out)
-    
+  ISTIO_OUT=$(make DEBUG=0 where-is-out)
+  VERSION="${TAG}"
+  export VERSION
   MAKE_TARGETS=(istio-archive)
   MAKE_TARGETS+=(sidecar.deb)
   
-  CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB="${DOCKER_HUB}" HUB="${DOCKER_HUB}" VERSION="${TAG}" TAG="${TAG}" make "${MAKE_TARGETS[@]}"
+  CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB="${DOCKER_HUB}" HUB="${DOCKER_HUB}" make "${MAKE_TARGETS[@]}"
   mkdir -p "${OUTPUT_PATH}/deb"
   sha256sum "${ISTIO_OUT}/istio-sidecar.deb" > "${OUTPUT_PATH}/deb/istio-sidecar.deb.sha256"
   cp        "${ISTIO_OUT}/istio-sidecar.deb"   "${OUTPUT_PATH}/deb/"
@@ -91,10 +93,10 @@ function make_istio() {
   rm -r "${ISTIO_OUT}/docker" || true
   BUILD_DOCKER_TARGETS=(docker.save)
 
-  CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION="${TAG}" TAG="${TAG}" make "${BUILD_DOCKER_TARGETS[@]}"
+  CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} make "${BUILD_DOCKER_TARGETS[@]}"
 
   # preserve the source from the root of the code
-  pushd "${ROOT}/../../../.."
+  pushd "${ROOT}/../../../.." || exit
     pwd
     # tar the source code
     if [ -z "${LOCAL_BUILD+x}" ]; then
@@ -102,7 +104,7 @@ function make_istio() {
     else
       tar -cvzf "${OUTPUT_PATH}/source.tar.gz" go/src/istio.io/istio go/src/istio.io/api go/src/istio.io/cni go/src/istio.io/proxy
     fi
-  popd
+  popd || exit
 
   cp -r "${ISTIO_OUT}/docker" "${OUTPUT_PATH}/"
   go run tools/license/get_dep_licenses.go --branch "${BRANCH}" > LICENSES.txt
@@ -127,14 +129,17 @@ function make_cni() {
   local OUTPUT_PATH=$1
   local DOCKER_HUB=$2
   local REL_DOCKER_HUB=$3
-  local TAG=$4
+  TAG=$4
+  export TAG
   local BRANCH=$5
   CNI_OUT=$(make DEBUG=0 where-is-out)
   rm -r "${CNI_OUT}/docker" || true
+  VERSION="${TAG}"
+  export VERSION
   # CNI version strategy is to have CNI run lock step with Istio i.e. CB_VERSION
-  CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB="${DOCKER_HUB}" HUB="${DOCKER_HUB}" VERSION="${TAG}" TAG="${TAG}" make build
+  CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB="${DOCKER_HUB}" HUB="${DOCKER_HUB}" make build
   
-  CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION="${TAG}" TAG="${TAG}" make docker.save || exit 1
+  CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} make docker.save || exit 1
 
   cp -r "${CNI_OUT}/docker" "${OUTPUT_PATH}/"
   go run ../istio/tools/license/get_dep_licenses.go --branch "${BRANCH}" > LICENSES.txt
