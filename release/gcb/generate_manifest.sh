@@ -28,6 +28,8 @@ set -x
 # shellcheck disable=SC1091
 source "/workspace/gcb_env.sh"
 # shellcheck disable=SC1091
+
+SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 # shellcheck disable=SC1090
 source "${SCRIPTPATH}/gcb_lib.sh"
 
