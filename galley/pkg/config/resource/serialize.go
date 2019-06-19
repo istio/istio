@@ -88,6 +88,10 @@ func Deserialize(e *mcp.Resource) (*Entry, error) {
 		return nil, fmt.Errorf("error unmarshaling create time: %v", err)
 	}
 
+	if err = types.UnmarshalAny(e.Body, p); err != nil {
+		return nil, fmt.Errorf("error unmarshaling body: %v", err)
+	}
+
 	return &Entry{
 		Metadata: Metadata{
 			Name:        Name{e.Metadata.Name},
