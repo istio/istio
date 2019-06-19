@@ -7,7 +7,7 @@ source gcb_lib.sh
 ROOT=$(cd "$(git rev-parse --show-cdup)" && pwd || return)
 artifacts="$HOME/output/local"
 export NEW_VERSION="fake"
-export DOCKER_HUB='fake'
+export DOCKER_HUB='docker.io/fake'
 GOPATH=$(cd "$ROOT/../../.." && pwd)
 LOCAL_BUILD=true
 export LOCAL_BUILD
@@ -34,9 +34,5 @@ popd || return
 
 pushd "${ROOT}" || exit 
   make_istio "${artifacts}" "${DOCKER_HUB}" "${DOCKER_HUB}" "${NEW_VERSION}" "${BRANCH}"
-popd || return
-
-pushd "${ROOT}/../cni" || exit
-  make_cni "${artifacts}" "${DOCKER_HUB}" "${DOCKER_HUB}" "${NEW_VERSION}" "${BRANCH}"
 popd || return
 

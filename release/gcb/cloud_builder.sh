@@ -51,10 +51,3 @@ REL_DOCKER_HUB=docker.io/istio
 
 make_istio "${OUTPUT_PATH}" "${CB_ISTIOCTL_DOCKER_HUB}" "${REL_DOCKER_HUB}" "${CB_VERSION}" "${CB_BRANCH}"
 cp "/workspace/manifest.txt" "${OUTPUT_PATH}"
-
-#Handle CNI artifacts.
-pushd ../cni
-
-  make_cni "${OUTPUT_PATH}" "${CB_ISTIOCTL_DOCKER_HUB}" "${REL_DOCKER_HUB}" "${CB_VERSION}" "${CB_BRANCH}"
-
-popd

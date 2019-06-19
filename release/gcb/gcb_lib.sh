@@ -84,6 +84,7 @@ function make_istio() {
   ISTIO_OUT=$(make DEBUG=0 where-is-out)
   VERSION="${TAG}"
   export VERSION
+  IFS='/' read -ra REPO <<< "$REL_DOCKER_HUB"
   MAKE_TARGETS=(istio-archive)
   MAKE_TARGETS+=(sidecar.deb)
   
@@ -112,6 +113,22 @@ function make_istio() {
   cp -r "${ISTIO_OUT}/docker" "${OUTPUT_PATH}/"
   go run tools/license/get_dep_licenses.go --branch "${BRANCH}" > LICENSES.txt
 
+  # log where git thinks the build might be dirty
+  git status
+  
+  pushd ../cni || exit
+    #Handle CNI artifacts. Expects to be called from istio/cni repo.
+    CNI_OUT=$(make DEBUG=0 where-is-out)
+    rm -r "${CNI_OUT}/docker" || true
+    # CNI version strategy is to have CNI run lock step with Istio i.e. CB_VERSION
+    CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB="${DOCKER_HUB}" HUB="${DOCKER_HUB}" make build
+  
+    CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} make docker.save || exit 1
+
+    cp -r "${CNI_OUT}/docker" "${OUTPUT_PATH}/"
+    go run ../istio/tools/license/get_dep_licenses.go --branch "${BRANCH}" > LICENSES.txt
+    git status
+  popd || exit
   # Add extra artifacts for legal compliance. The caller of this script can
   # optionally set their EXTRA_ARTIFACTS environment variable to an arbitrarily
   # long list of space-delimited filepaths --- and each artifact would get
@@ -120,38 +137,7 @@ function make_istio() {
     "${DOCKER_HUB}" \
     "${TAG}" \
     "${OUTPUT_PATH}" \
-    "${DOCKER_HUB}" \
+    "${REPO[1]}" \
     "${EXTRA_ARTIFACTS:-$PWD/LICENSES.txt}"
-
-  # log where git thinks the build might be dirty
-  git status
-}
-
-function make_cni() {
-  #Handle CNI artifacts. Expects to be called from istio/cni repo.
-  local OUTPUT_PATH=$1
-  local DOCKER_HUB=$2
-  local REL_DOCKER_HUB=$3
-  TAG=$4
-  export TAG
-  local BRANCH=$5
-  CNI_OUT=$(make DEBUG=0 where-is-out)
-  rm -r "${CNI_OUT}/docker" || true
-  VERSION="${TAG}"
-  export VERSION
-  # CNI version strategy is to have CNI run lock step with Istio i.e. CB_VERSION
-  CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB="${DOCKER_HUB}" HUB="${DOCKER_HUB}" make build
-  
-  CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} make docker.save || exit 1
-
-  cp -r "${CNI_OUT}/docker" "${OUTPUT_PATH}/"
-  go run ../istio/tools/license/get_dep_licenses.go --branch "${BRANCH}" > LICENSES.txt
-  add_extra_artifacts_to_tar_images \
-      "${DOCKER_HUB}" \
-      "${TAG}" \
-      "${OUTPUT_PATH}" \
-      "${DOCKER_HUB}" \
-      "${EXTRA_ARTIFACTS_CNI:-$PWD/LICENSES.txt}"
-  git status
 }
 
