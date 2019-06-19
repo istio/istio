@@ -189,7 +189,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			con.mutex.Unlock()
 
 			conIDresourceNamePrefix := sdsLogPrefix(conID, resourceName)
-			if !s.skipToken && token == "" {
+			if !s.skipToken {
 				ctx = stream.Context()
 				t, err := getCredentialToken(ctx)
 				if err != nil {
