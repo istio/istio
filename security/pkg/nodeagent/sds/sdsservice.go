@@ -202,7 +202,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			con.mutex.Unlock()
 
 			// Update metric for metrics.
-			sdsMetrics.pendingPushPerConn.WithLabelValues(resourceName + "-" + conID).Inc()
+			sdsMetrics.pendingPushPerConn.WithLabelValues(generateResourcePerConnLabel(resourceName, conID)).Inc()
 			sdsMetrics.totalActiveConn.Inc()
 
 			// When nodeagent receives StreamSecrets request, if there is cached secret which matches
@@ -365,7 +365,7 @@ func NotifyProxy(conID, resourceName string, secret *model.SecretItem) error {
 }
 
 func recycleConnection(conID, resourceName string) {
-	metricLabelName := resourceName + "+" + conID
+	metricLabelName := generateResourcePerConnLabel(resourceName, conID)
 	sdsMetrics.pushPerConn.DeleteLabelValues(metricLabelName)
 	sdsMetrics.pendingPushPerConn.DeleteLabelValues(metricLabelName)
 	sdsMetrics.pushErrorPerConn.DeleteLabelValues(metricLabelName)
@@ -442,7 +442,7 @@ func pushSDS(con *sdsConnection) error {
 		return err
 	}
 
-	metricLabelName := resourceName + "+" + conID
+	metricLabelName := generateResourcePerConnLabel(resourceName, conID)
 	if err = con.stream.Send(response); err != nil {
 		sdsServiceLog.Errorf("Failed to send response for SDS resource %q to proxy connection %q: %v",
 			resourceName, conID, err)

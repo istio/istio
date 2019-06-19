@@ -98,7 +98,7 @@ var (
 			Namespace: "citadel_agent",
 			Name:      "pushed_root_cert_expiry_timestamp",
 			Subsystem: "sds_service",
-			Help: "The date after which a pushed root certificate expires. Expressed as a Unix Epoch Time.",
+			Help:      "The date after which a pushed root certificate expires. Expressed as a Unix Epoch Time.",
 		}, []string{"resourcePerConn"})
 
 	// serverCertExpiryTimestamp records the expiration timestamp of the most recent pushed server
@@ -109,7 +109,7 @@ var (
 			Namespace: "citadel_agent",
 			Name:      "pushed_server_cert_expiry_timestamp",
 			Subsystem: "sds_service",
-			Help: "The date after which a pushed server certificate expires. Expressed as a Unix Epoch Time.",
+			Help:      "The date after which a pushed server certificate expires. Expressed as a Unix Epoch Time.",
 		}, []string{"resourcePerConn"})
 )
 
@@ -153,4 +153,12 @@ func newMonitoringMetrics() monitoringMetrics {
 		rootCertExpiryTimestamp:   rootCertExpiryTimestamp,
 		serverCertExpiryTimestamp: serverCertExpiryTimestamp,
 	}
+}
+
+// generateResourcePerConnLabel returns a label that can be used to differentiate metrics by
+// resource name and connection ID.
+// An example label is
+// bookinfo-credential-1-cacert+router~10.60.4.32~istio-ingressgateway-5b4458d75b-5kqhg.istio-system~istio-system.svc.cluster.local-7
+func generateResourcePerConnLabel(resourceName, conID string) string {
+	return resourceName + "+" + conID
 }
