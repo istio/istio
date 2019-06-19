@@ -8,7 +8,7 @@
       "sub_zone": "sub_zone"
     },
     "metadata": {
-      "ISTIO_META_INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6",
+      "INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6",
       "INTERCEPTION_MODE":"REDIRECT",
       "ISTIO_PROXY_SHA":"istio-proxy:sha",
       "ISTIO_PROXY_VERSION":"istio-proxy:version",
