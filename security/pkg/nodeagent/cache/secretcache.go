@@ -538,16 +538,28 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		}
 
 		if strings.HasSuffix(resourceName, secretfetcher.IngressGatewaySdsCaSuffix) {
+			certExpireTime, err := parseCertAndGetExpiryTimestamp(secretItem.RootCert)
+			if err != nil {
+				cacheLog.Warnf("ingress gateway secret %v contains a certificate that fails to parse",
+					resourceName, err)
+			}
 			return &model.SecretItem{
 				ResourceName: resourceName,
 				RootCert:     secretItem.RootCert,
+				ExpireTime:   certExpireTime,
 				Token:        token,
 				CreatedTime:  t,
 				Version:      t.String(),
 			}, nil
 		}
+		certExpireTime, err := parseCertAndGetExpiryTimestamp(secretItem.CertificateChain)
+		if err != nil {
+			cacheLog.Warnf("ingress gateway secret %v contains a certificate that fails to parse",
+				resourceName, err)
+		}
 		return &model.SecretItem{
 			CertificateChain: secretItem.CertificateChain,
+			ExpireTime:       certExpireTime,
 			PrivateKey:       secretItem.PrivateKey,
 			ResourceName:     resourceName,
 			Token:            token,
