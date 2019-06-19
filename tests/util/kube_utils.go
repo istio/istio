@@ -359,12 +359,25 @@ func getServiceLoadBalancer(name, namespace, kubeconfig string) (string, error) 
 		return "", err
 	}
 
-	ip = strings.Trim(ip, "'")
-	addr := net.ParseIP(ip)
-	if addr == nil {
-		return "", errors.New("ingress ip not available yet")
-	}
+	if ip == "" {
+		// This block is used for docker-desktop kubernetes
+		ip, err = ShellSilent(
+			"kubectl get svc %s -n %s -o jsonpath='{.status.loadBalancer.ingress[*].hostname}' --kubeconfig=%s",
+			name, namespace, kubeconfig)
 
+		if err != nil {
+			return "", err
+		}
+		if ip == "localhost" {
+			ip = "127.0.0.1"
+		}
+	} else {
+		ip = strings.Trim(ip, "'")
+		addr := net.ParseIP(ip)
+		if addr == nil {
+			return "", errors.New("ingress ip not available yet")
+		}
+	}
 	return ip, nil
 }
 

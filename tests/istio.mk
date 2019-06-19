@@ -58,11 +58,15 @@ DEFAULT_EXTRA_E2E_ARGS += --pilot_tag=${TAG_VARIANT}
 DEFAULT_EXTRA_E2E_ARGS += --proxy_tag=${TAG_VARIANT}
 DEFAULT_EXTRA_E2E_ARGS += --ca_tag=${TAG_VARIANT}
 DEFAULT_EXTRA_E2E_ARGS += --galley_tag=${TAG_VARIANT}
+DEFAULT_EXTRA_E2E_ARGS += --sidecar_injector_tag=${TAG_VARIANT}
+DEFAULT_EXTRA_E2E_ARGS += --test_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --mixer_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --pilot_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --proxy_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --ca_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --galley_hub=${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --sidecar_injector_hub=${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --test_hub=${HUB}
 
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
