@@ -210,7 +210,7 @@ func getStateTypeConfigKeys() ([]tag.Key, error) {
 }
 
 func registerNewStateTypeConfigView(collection string) error {
-	stateTypeConfigTotal[collection] = stats.Int64(fmt.Sprintf("galley/%s_total", collection),
+	stateTypeConfigTotal[collection] = stats.Int64(fmt.Sprintf("galley/%s", collection),
 		fmt.Sprintf("The number of valid %v known to galley at a point in time", collection),
 		stats.UnitDimensionless)
 	err := view.Register(
