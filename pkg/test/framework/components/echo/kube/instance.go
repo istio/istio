@@ -57,6 +57,7 @@ type instance struct {
 
 func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err error) {
 	// Fill in defaults for any missing values.
+	common.AddPortIfMissing(&cfg, model.ProtocolGRPC)
 	if err = common.FillInDefaults(ctx, defaultDomain, &cfg); err != nil {
 		return nil, err
 	}
@@ -76,7 +77,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	c.id = ctx.TrackResource(c)
 
 	// Save the GRPC port.
-	grpcPort := common.GetGRPCPort(&cfg)
+	grpcPort := common.GetPortForProtocol(&cfg, model.ProtocolGRPC)
 	if grpcPort == nil {
 		return nil, errors.New("unable fo find GRPC command port")
 	}
