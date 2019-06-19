@@ -49,6 +49,7 @@ OWNER="${OWNER:-e2e-suite}"
 PILOT_CLUSTER="${PILOT_CLUSTER:-}"
 USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
 CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
+export HUB=${HUB:-"gcr.io/istio-testing"}
 
 
 # shellcheck source=prow/lib.sh
@@ -70,32 +71,9 @@ function cleanup() {
 
 trap cleanup EXIT
 
-if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
-  INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
-  FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
-
-  E2E_ARGS=("--mason_info=${INFO_PATH}")
-
+if [[ $HUB == *"istio-testing"* ]]; then
   setup_and_export_git_sha
-
-  get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
-else
-  GIT_SHA="${GIT_SHA:-$TAG}"
 fi
-
-
-if [ "${CI:-}" == 'bootstrap' ]; then
-  # bootsrap upload all artifacts in _artifacts to the log bucket.
-  ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
-  E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
-fi
-
-export HUB=${HUB:-"gcr.io/istio-testing"}
-export TAG="${GIT_SHA}"
-
-make init
-
-setup_cluster
 
 # getopts only handles single character flags
 for ((i=1; i<=$#; i++)); do
@@ -114,6 +92,37 @@ for ((i=1; i<=$#; i++)); do
     esac
     E2E_ARGS+=( "${!i}" )
 done
+
+export TAG="${TAG:-${GIT_SHA}}"
+
+ if [[ ${SINGLE_MODE} && $HUB == *"istio-testing"* ]]; then
+  export TAG="${TAG:-${GIT_SHA}}"-"${SINGLE_TEST}"
+fi
+
+make init
+
+if [[ $HUB == *"istio-testing"* ]]; then
+  # upload images
+  time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}"
+fi
+
+if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
+  INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
+  FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
+
+  E2E_ARGS=("--mason_info=${INFO_PATH}")
+
+  setup_and_export_git_sha
+
+  get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
+fi
+
+if [ "${CI:-}" == 'bootstrap' ]; then
+  # bootsrap upload all artifacts in _artifacts to the log bucket.
+  ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
+  E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
+fi
+setup_cluster
 
 echo 'Running ISTIO E2E Test(s)'
 if ${SINGLE_MODE}; then
