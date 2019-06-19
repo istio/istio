@@ -657,7 +657,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	if sc.rootCert == nil || rootCertChanged {
 		sc.rootCertMutex.Lock()
 		rootCertExpireTime, err := parseCertAndGetExpiryTimestamp([]byte(certChainPEM[length-1]))
-		if err == nil {
+		if sc.configOptions.SkipValidateCert || err == nil {
 			sc.rootCert = []byte(certChainPEM[length-1])
 			sc.rootCertExpireTime = rootCertExpireTime
 		} else {
