@@ -72,12 +72,38 @@ var (
 		IngressNamespace:   DefaultSystemNamespace,
 		EgressNamespace:    DefaultSystemNamespace,
 		DeployIstio:        true,
+		AlphaInstaller:     false,
 		DeployTimeout:      0,
 		UndeployTimeout:    0,
+		InstallComponents:  []InstallComponent{Base},
 		ChartDir:           env.IstioChartDir,
 		CrdsFilesDir:       env.CrdsFilesDir,
 		ValuesFile:         E2EValuesFile,
 	}
+)
+
+// InstallComponent represents a component, or set of components, to be installed
+// This is only used for the alpha installer
+type InstallComponent int
+
+const (
+	// Base will install citadel, galley, pilot, and autoinjector
+	Base InstallComponent = iota
+
+	// Ingress will install an ingressgateway
+	Ingress
+
+	// Ingress will install an egressgateway
+	Egress
+
+	// Telemetry will install Mixer policy
+	Telemetry
+
+	// Policy will install Mixer policy
+	Policy
+
+	// Tracing will install zipkins
+	Tracing
 )
 
 // Config provide kube-specific Config from flags.
@@ -105,6 +131,12 @@ type Config struct {
 
 	// Indicates that the test should deploy Istio into the target Kubernetes cluster before running tests.
 	DeployIstio bool
+
+	// Indicates that the test should deploy Istio using the alpha installer.
+	AlphaInstaller bool
+
+	// Indicates which components to install for the test. Use only if AlphaInstaller=true.
+	InstallComponents []InstallComponent
 
 	// DeployTimeout the timeout for deploying Istio.
 	DeployTimeout time.Duration
@@ -274,6 +306,7 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("IngressNamespace:   %s\n", c.IngressNamespace)
 	result += fmt.Sprintf("EgressNamespace:    %s\n", c.EgressNamespace)
 	result += fmt.Sprintf("DeployIstio:        %v\n", c.DeployIstio)
+	result += fmt.Sprintf("AlphaInstaller:     %v\n", c.AlphaInstaller)
 	result += fmt.Sprintf("DeployTimeout:      %s\n", c.DeployTimeout.String())
 	result += fmt.Sprintf("UndeployTimeout:    %s\n", c.UndeployTimeout.String())
 	result += fmt.Sprintf("Values:             %v\n", c.Values)

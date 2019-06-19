@@ -36,6 +36,8 @@ func init() {
 		"Specifies the namespace in which istio egressgateway is deployed.")
 	flag.BoolVar(&settingsFromCommandline.DeployIstio, "istio.test.kube.deploy", settingsFromCommandline.DeployIstio,
 		"Deploy Istio into the target Kubernetes environment.")
+	flag.BoolVar(&settingsFromCommandline.AlphaInstaller, "istio.test.kube.deploy.alpha", settingsFromCommandline.AlphaInstaller,
+		"Deploy Istio into the target Kubernetes environment using the alpha installer.")
 	flag.DurationVar(&settingsFromCommandline.DeployTimeout, "istio.test.kube.deployTimeout", 0,
 		"Timeout applied to deploying Istio into the target Kubernetes environment. Only applies if DeployIstio=true.")
 	flag.DurationVar(&settingsFromCommandline.UndeployTimeout, "istio.test.kube.undeployTimeout", 0,

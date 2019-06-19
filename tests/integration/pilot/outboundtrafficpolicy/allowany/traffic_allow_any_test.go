@@ -38,6 +38,7 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
+
 	cfg.Values["global.outboundTrafficPolicy.mode"] = "ALLOW_ANY"
 	cfg.Values["pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE"] = "true"
 }

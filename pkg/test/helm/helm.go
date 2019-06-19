@@ -38,9 +38,9 @@ func Init(homeDir string, clientOnly bool) error {
 	return err
 }
 
-func Template(homeDir, template, name, namespace string, valuesFile string, values map[string]string) (string, error) {
+func Template(homeDir, template, name, namespace string, valuesFiles []string, values map[string]string) (string, error) {
 	p := []string{"helm", "--home", homeDir, "template", template, "--name", name, "--namespace", namespace}
-	if valuesFile != "" {
+	for _, valuesFile := range valuesFiles {
 		p = append(p, "--values", valuesFile)
 	}
 

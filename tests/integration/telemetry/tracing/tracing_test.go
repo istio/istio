@@ -78,7 +78,7 @@ func TestProxyTracing(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.NewSuite("tracing_test", m).
 		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig, istio.Tracing)).
 		Setup(testSetup).
 		Run()
 }

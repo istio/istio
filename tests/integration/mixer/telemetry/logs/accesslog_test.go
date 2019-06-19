@@ -72,7 +72,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("mixer_telemetry_logs", m).
 		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil, istio.Telemetry, istio.Policy)).
 		Setup(testsetup).
 		Run()
 }

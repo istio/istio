@@ -289,13 +289,13 @@ func setupConfigOrFail(t *testing.T, config bookinfo.ConfigFile, bookInfoNameSpa
 	con = strings.Replace(con, "namespace: default",
 		"namespace: "+bookInfoNameSpaceStr, -1)
 
-	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
+	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().PolicyNamespace)
 	g.ApplyConfigOrFail(t, ns, con)
 	return con
 }
 
 func deleteConfigOrFail(t *testing.T, config string, g galley.Instance, ctx resource.Context) {
-	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
+	ns := namespace.ClaimOrFail(t, ctx, ist.Settings().PolicyNamespace)
 	g.DeleteConfigOrFail(t, ns, config)
 }
 
@@ -303,7 +303,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("mixer_policy_ratelimit", m).
 		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil, istio.Telemetry, istio.Policy)).
 		Setup(testsetup).
 		Run()
 }
