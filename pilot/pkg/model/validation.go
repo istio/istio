@@ -2355,17 +2355,21 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 		}
 	}
 
-	servicePortNumbers := make(map[uint32]bool)
+	servicePortNumbers := make(map[uint32]string)
 	servicePorts := make(map[string]bool, len(serviceEntry.Ports))
 	for _, port := range serviceEntry.Ports {
 		if servicePorts[port.Name] {
 			errs = appendErrors(errs, fmt.Errorf("service entry port name %q already defined", port.Name))
 		}
 		servicePorts[port.Name] = true
-		if servicePortNumbers[port.Number] {
-			errs = appendErrors(errs, fmt.Errorf("service entry port %d already defined", port.Number))
+
+		if protocol, ok := servicePortNumbers[port.Number]; ok {
+			if protocol == port.Protocol {
+				errs = appendErrors(errs, fmt.Errorf("service entry port number & protocol %d already defined", port.Number))
+			}
+		} else {
+			servicePortNumbers[port.Number] = port.Protocol
 		}
-		servicePortNumbers[port.Number] = true
 	}
 
 	switch serviceEntry.Resolution {

@@ -3335,6 +3335,15 @@ func TestValidateServiceEntries(t *testing.T) {
 			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
+		{name: "same port numbers different protocols", in: networking.ServiceEntry{
+			Hosts: []string{"google.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid"},
+				{Number: 80, Protocol: "tcp", Name: "tcp-valid"},
+			},
+			Resolution: networking.ServiceEntry_DNS,
+		},
+			valid: true},
 
 		{name: "discovery type DNS, non-FQDN endpoint", in: networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
