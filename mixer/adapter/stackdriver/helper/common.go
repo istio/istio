@@ -95,11 +95,7 @@ func (md *Metadata) FillProjectMetadata(in map[string]string) {
 func ToOpts(cfg *config.Params, logger adapter.Logger) (opts []gapiopts.ClientOption) {
 	switch cfg.Creds.(type) {
 	case *config.Params_ApiKey:
-		if key := cfg.GetApiKey(); key != "" {
-			opts = append(opts, gapiopts.WithAPIKey(key))
-		} else {
-			logger.Warningf("received an empty API key, using Application Default Credentials instead")
-		}
+		opts = append(opts, gapiopts.WithAPIKey(cfg.GetApiKey()))
 	case *config.Params_ServiceAccountPath:
 		path := cfg.GetServiceAccountPath()
 		if _, err := os.Stat(path); !os.IsNotExist(err) {

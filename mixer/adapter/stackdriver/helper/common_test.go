@@ -41,8 +41,7 @@ func TestToOpts(t *testing.T) {
 		out  []gapiopts.ClientOption // we only assert that the types match, so contents of the option don't matter
 	}{
 		{"empty", &config.Params{}, []gapiopts.ClientOption{}},
-		{"api key", &config.Params{Creds: &config.Params_ApiKey{ApiKey: "test-api-key"}}, []gapiopts.ClientOption{gapiopts.WithAPIKey("test-api-key")}},
-		{"api key empty", &config.Params{Creds: &config.Params_ApiKey{}}, []gapiopts.ClientOption{}},
+		{"api key", &config.Params{Creds: &config.Params_ApiKey{}}, []gapiopts.ClientOption{gapiopts.WithAPIKey("")}},
 		{"app creds", &config.Params{Creds: &config.Params_AppCredentials{}}, []gapiopts.ClientOption{}},
 		{"service account",
 			&config.Params{Creds: &config.Params_ServiceAccountPath{ServiceAccountPath: svcAcctFilePath}},
