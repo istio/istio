@@ -3,7 +3,6 @@ apiVersion: config.istio.io/v1alpha2
 kind: instance
 metadata:
   name: newlog
-  namespace: istio-system
 spec:
   compiledTemplate: logentry
   params:
@@ -23,7 +22,6 @@ apiVersion: config.istio.io/v1alpha2
 kind: handler
 metadata:
   name: newloghandler
-  namespace: istio-system
 spec:
   compiledAdapter: stdio
   params:
@@ -36,7 +34,6 @@ apiVersion: config.istio.io/v1alpha2
 kind: rule
 metadata:
   name: newlogstdio
-  namespace: istio-system
 spec:
   match: "true" # match for all requests
   actions:
