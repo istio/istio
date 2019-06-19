@@ -15,12 +15,15 @@
 package resource
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"math"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 )
@@ -32,7 +35,7 @@ func TestSerialization_Basic(t *testing.T) {
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
-		Item: &types.Empty{},
+		Item: parseStruct(`{ "foo": "bar" }`),
 	}
 
 	env, err := Serialize(&e)
@@ -52,8 +55,9 @@ func TestSerialization_Basic(t *testing.T) {
 		t.Fatal("CreateTime is nil")
 	}
 
-	if env.Body == nil {
-		t.Fatal("Resource is nil is nil")
+	expected := boxAny(parseStruct(`{ "foo": "bar" }`))
+	if !reflect.DeepEqual(env.Body, expected) {
+		t.Fatalf("Resources are not equal %v != %v", env.Body, expected)
 	}
 
 	ext, err := Deserialize(env)
@@ -179,6 +183,31 @@ func TestDeserialize_InvalidTimestamp_Error(t *testing.T) {
 	}
 }
 
+func TestDeserialize_Any_Error(t *testing.T) {
+	e := Entry{
+		Metadata: Metadata{
+			Name:       NewName("ns1", "res1"),
+			CreateTime: time.Unix(1, 1).UTC(),
+			Version:    "v1",
+		},
+		Item: &types.Empty{},
+	}
+
+	env, err := Serialize(&e)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	b := make([]byte, len(env.Body.Value) + 1)
+	b[0] = 0xFA
+	copy(b[1:], env.Body.Value)
+	env.Body.Value = b
+
+	if _, err = Deserialize(env); err == nil {
+		t.Fatalf("expected error not found")
+	}
+}
+
 func TestMustDeserialize(t *testing.T) {
 	e := Entry{
 		Metadata: Metadata{
@@ -231,7 +260,7 @@ func TestDeserializeAll(t *testing.T) {
 				CreateTime: time.Unix(1, 1).UTC(),
 				Version:    "v1",
 			},
-			Item: &types.Empty{},
+			Item: parseStruct(`{"foo": "bar"}`),
 		},
 		{
 			Metadata: Metadata{
@@ -239,7 +268,7 @@ func TestDeserializeAll(t *testing.T) {
 				CreateTime: time.Unix(1, 1).UTC(),
 				Version:    "v2",
 			},
-			Item: &types.Empty{},
+			Item: parseStruct(`{"bar": "foo"}`),
 		},
 	}
 
@@ -327,3 +356,22 @@ func (i *invalidProto) String() string           { return "" }
 func (i *invalidProto) ProtoMessage()            {}
 func (i *invalidProto) Unmarshal([]byte) error   { return errors.New("unmarshal error") }
 func (i *invalidProto) Marshal() ([]byte, error) { return nil, errors.New("marshal error") }
+
+func parseStruct(s string) *types.Struct {
+	p := &types.Struct{}
+
+	b := bytes.NewReader([]byte(s))
+	if err := jsonpb.Unmarshal(b, p); err != nil {
+		panic(fmt.Errorf("invalid struct JSON: %v", err))
+	}
+
+	return p
+}
+
+func boxAny(p *types.Struct) *types.Any {
+	a, err := types.MarshalAny(p)
+	if err != nil {
+		panic(fmt.Errorf("unable to marshal to any: %v", err))
+	}
+	return a
+}
