@@ -43,7 +43,7 @@ func TestK8sDeployment(t *testing.T) {
 		env := ctx.Environment().(*kube.Environment)
 
 		// Ensure that we can loop-through at least ten times while all pods in the ready.
-		for i := 0; i < 20; i++ {
+		for i := 0; i < 40; i++ {
 			if _, err := env.CheckPodsAreReady(env.NewPodFetch(cfg.IstioNamespace)); err != nil {
 				t.Fatalf("Error waiting for pods: %v", err)
 			}
