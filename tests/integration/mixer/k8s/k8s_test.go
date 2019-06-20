@@ -42,13 +42,29 @@ func TestK8sDeployment(t *testing.T) {
 
 		env := ctx.Environment().(*kube.Environment)
 
-		// Ensure that we can loop-through at least ten times while all pods in the ready.
-		for i := 0; i < 40; i++ {
+		time.Sleep(time.Minute * 2) // Sleep for two minutes to account for the initial crash loops during the pod startup.
+
+		const tryCount = 40
+		var successCount int
+		var lastWasSuccess bool
+		for i := 0; i < tryCount; i++ {
 			if _, err := env.CheckPodsAreReady(env.NewPodFetch(cfg.IstioNamespace)); err != nil {
-				t.Fatalf("Error waiting for pods: %v", err)
+				lastWasSuccess = false
+				t.Logf("Error waiting for pods: %v", err)
+			} else {
+				lastWasSuccess = true
+				successCount++
 			}
 
 			time.Sleep(3 * time.Second)
+		}
+
+		if successCount < (tryCount * 75 / 100) {
+			t.Fatalf("Too many errors while waiting for pod readiness: (success: %d/%d)", successCount, tryCount)
+		}
+
+		if !lastWasSuccess {
+			t.Fatalf("Last pod readiness check was a failure (success: %d/%d)", successCount, tryCount)
 		}
 	})
 }
