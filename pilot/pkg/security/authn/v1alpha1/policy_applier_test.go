@@ -250,7 +250,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 					},
 				},
 			},
-			env:      "USE_ENVOY_JWT_FILTER",
+			env:      "AUTHN_USE_ENVOY_JWT_FILTER",
 			wantName: "envoy.filters.http.jwt_authn",
 			wantConfig: &envoy_jwt.JwtAuthentication{
 				Rules: []*envoy_jwt.RequirementRule{
@@ -289,7 +289,6 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 							},
 						},
 						Forward:              true,
-						ForwardPayloadHeader: "istio-sec-9cf32721ebab5d715f51669cbe62b023851870b8",
 						PayloadInMetadata:    "issuer",
 					},
 				},

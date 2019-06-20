@@ -62,7 +62,7 @@ const (
 
 var (
 	// TODO: Remove after fully migrate to Envoy JWT filter.
-	useEnvoyJWTFilterEnv = env.RegisterBoolVar("USE_ENVOY_JWT_FILTER", false,
+	useEnvoyJWTFilterEnv = env.RegisterBoolVar("AUTHN_USE_ENVOY_JWT_FILTER", false,
 		"Use the Envoy JWT filter instead of Istio JWT filter for JWT verification")
 )
 
@@ -120,10 +120,10 @@ func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAut
 	var requirements []*envoy_jwt.JwtRequirement
 	providers := map[string]*envoy_jwt.JwtProvider{}
 	for i, policyJwt := range policyJwts {
+		// TODO(yangminzhu): Support RCToken when its API is finalized.
 		provider := &envoy_jwt.JwtProvider{
 			Issuer:               policyJwt.Issuer,
 			Audiences:            policyJwt.Audiences,
-			ForwardPayloadHeader: outputLocationForJwtIssuer(policyJwt.Issuer),
 			Forward:              true,
 			PayloadInMetadata:    policyJwt.Issuer,
 		}
