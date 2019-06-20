@@ -129,8 +129,8 @@ func (s *Store) checkAndCreateCaches(
 			continue
 		}
 		if _, ok := kindsSet[res.Kind]; ok {
-			// res.Group = ConfigAPIGroup
-			// res.Version = ConfigAPIVersion
+			res.Group = ConfigAPIGroup
+			res.Version = ConfigAPIVersion
 			cl := lwBuilder.build(res)
 			informer := cache.NewSharedInformer(
 				&cache.ListWatch{
