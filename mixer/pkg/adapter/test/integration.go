@@ -22,10 +22,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"path"
-	"path/filepath"
 	"reflect"
-	"runtime"
 	"sync"
 	"testing"
 
@@ -342,31 +339,12 @@ func getServerArgs(
 	data := make([]string, 0)
 	data = append(data, cfgs...)
 
-	// always include the attribute vocabulary
-	_, filename, _, _ := runtime.Caller(0)
-	additionalCrs := []string{
-		"../../../testdata/config/attributes.yaml",
-		"../../../template/apikey/template.yaml",
-		"../../../template/authorization/template.yaml",
-		"../../../template/checknothing/template.yaml",
-		"../../../template/listentry/template.yaml",
-		"../../../template/logentry/template.yaml",
-		"../../../template/metric/template.yaml",
-		"../../../template/quota/template.yaml",
-		"../../../template/reportnothing/template.yaml",
-		"../../../template/tracespan/tracespan.yaml",
-		"../../../test/spyAdapter/template/apa/tmpl.yaml",
-		"../../../test/spyAdapter/template/checkoutput/tmpl.yaml",
-	}
-
-	for _, fileRelativePath := range additionalCrs {
-		if f, err := filepath.Abs(path.Join(path.Dir(filename), fileRelativePath)); err != nil {
-			return nil, fmt.Errorf("cannot load %v: %v", fileRelativePath, err)
-		} else if f, err := ioutil.ReadFile(f); err != nil {
-			return nil, fmt.Errorf("cannot load %v: %v", fileRelativePath, err)
-		} else {
-			data = append(data, string(f))
+	for _, cr := range AssetNames() {
+		b, err := Asset(cr)
+		if err != nil {
+			return nil, fmt.Errorf("cannot load %v: %v", cr, err)
 		}
+		data = append(data, string(b))
 	}
 
 	var err error
