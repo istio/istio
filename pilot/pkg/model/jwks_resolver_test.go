@@ -19,7 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_model/go"
+	dto "github.com/prometheus/client_model/go"
+
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model/test"
 )
@@ -306,7 +307,7 @@ func TestJwtPubKeyMetric(t *testing.T) {
 	ms.ReturnErrorForFirstNumHits = 1
 
 	getCounter := func(success bool) float64 {
-		metric := &io_prometheus_client.Metric{}
+		metric := &dto.Metric{}
 		if success {
 			if err := networkFetchSuccessCounter.Write(metric); err != nil {
 				t.Fatalf("failed to get counter: %v", err)
