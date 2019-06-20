@@ -1,0 +1,51 @@
+constraints:
+  - collection: istio/config/v1alpha2/httpapispecs
+    check:
+      - exactlyOne:
+          - equals: {
+            "Body": {
+              "api_keys": [
+              {
+                "Key": {
+                  "Query": "key"
+                }
+              }
+              ],
+              "attributes": {
+                "attributes": {
+                  "api.service": {
+                    "Value": {
+                      "StringValue": "bookinfo.endpoints.istio-manlinl.cloud.goog"
+                    }
+                  },
+                  "api.version": {
+                    "Value": {
+                      "StringValue": "v1"
+                    }
+                  }
+                }
+              },
+              "patterns": [
+              {
+                "Pattern": {
+                  "UriTemplate": "/productpage"
+                },
+                "attributes": {
+                  "attributes": {
+                    "api.operation": {
+                      "Value": {
+                        "StringValue": "getProducts"
+                      }
+                    }
+                  }
+                },
+                "http_method": "GET"
+              }
+              ]
+            },
+            "Metadata": {
+              "name": "{{.Namespace}}/valid-http-api-spec"
+            },
+            "TypeURL": "type.googleapis.com/istio.mixer.v1.config.client.HTTPAPISpec"
+          }
+
