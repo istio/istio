@@ -25,6 +25,7 @@ import (
 
 	"istio.io/pkg/log"
 
+	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/stats"
 )
 
@@ -68,6 +69,23 @@ func (p *Adapter) IsEqual(o1, o2 interface{}) bool {
 // IsBuiltIn returns true if the adapter uses built-in client libraries.
 func (p *Adapter) IsBuiltIn() bool {
 	return p.isBuiltIn
+}
+
+// JSONToEntry parses the JSON and converts it to resource entry.
+func (p *Adapter) JSONToEntry(s string) (*resource.Entry, error) {
+	i, err := p.ParseJSON([]byte(s))
+	if err != nil {
+		return nil, err
+	}
+
+	obj := p.ExtractObject(i)
+	item, err := p.ExtractResource(i)
+	if err != nil {
+		return nil, err
+	}
+
+	return ToResourceEntry(obj, item), nil
+
 }
 
 type extractObjectFn func(o interface{}) metav1.Object

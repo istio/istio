@@ -224,7 +224,6 @@ func parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeResource, error) 
 		return kubeResource{}, fmt.Errorf("failed parsing JSON for built-in type: %v", err)
 	}
 	objMeta := t.ExtractObject(obj)
-	name := resource.NewName(objMeta.GetNamespace(), objMeta.GetName())
 
 	item, err := t.ExtractResource(obj)
 	if err != nil {
@@ -232,16 +231,8 @@ func parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeResource, error) 
 	}
 
 	return kubeResource{
-		spec: resourceSpec,
-		sha:  sha1.Sum(yamlChunk),
-		entry: &resource.Entry{
-			Metadata: resource.Metadata{
-				CreateTime:  objMeta.GetCreationTimestamp().Time,
-				Labels:      objMeta.GetLabels(),
-				Annotations: objMeta.GetAnnotations(),
-				Name:        name,
-			},
-			Item: item,
-		},
+		spec:  resourceSpec,
+		sha:   sha1.Sum(yamlChunk),
+		entry: rt.ToResourceEntry(objMeta, item),
 	}, nil
 }

@@ -21,7 +21,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/stats"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/tombstone"
@@ -99,6 +98,7 @@ func (w *watcher) handleEvent(c event.Kind, obj interface{}) {
 			scope.Warnf("Unable to extract object for event: %v", obj)
 			return
 		}
+		obj = object
 	}
 
 	object = w.adapter.ExtractObject(obj)
@@ -108,16 +108,7 @@ func (w *watcher) handleEvent(c event.Kind, obj interface{}) {
 		return
 	}
 
-	r := &resource.Entry{
-		Metadata: resource.Metadata{
-			Name:        resource.NewName(object.GetNamespace(), object.GetName()),
-			Version:     resource.Version(object.GetResourceVersion()),
-			Annotations: object.GetAnnotations(),
-			Labels:      object.GetLabels(),
-			CreateTime:  object.GetCreationTimestamp().Time,
-		},
-		Item: res,
-	}
+	r := rt.ToResourceEntry(object, res)
 
 	e := event.Event{
 		Kind:   c,
