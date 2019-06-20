@@ -49,7 +49,11 @@ spec:
     spec:
       containers:
       - name: details
+<<<<<<< HEAD
         image: docker.io/istio/examples-bookinfo-details-v1:1.15.0
+=======
+        image: istio/examples-bookinfo-details-v1:1.15.0
+>>>>>>> eb9be4c94b... Update bookinfo images to 1.15.0 (#14995)
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
