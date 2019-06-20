@@ -128,7 +128,7 @@ type Config struct {
 
 	// Do not wait for the validation webhook before completing the deployment. This is useful for
 	// doing deployments without Galley.
-	DoNotWaitForValidationWebhook bool
+	SkipWaitForValidationWebhook bool
 }
 
 // Is mtls enabled. Check in Values flag and Values file.

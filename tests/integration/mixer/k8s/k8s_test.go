@@ -31,7 +31,7 @@ func TestK8sDeployment(t *testing.T) {
 		cfg := istio.DefaultConfigOrFail(ctx, ctx)
 		cfg.Values["global.useMCP"] = "false"
 		cfg.Values["galley.enabled"] = "false"
-		cfg.DoNotWaitForValidationWebhook = true
+		cfg.SkipWaitForValidationWebhook = true
 
 		_, err := istio.Deploy(ctx, &cfg)
 		if err != nil {
