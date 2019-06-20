@@ -26,7 +26,7 @@ if [[ -z "$(command -v docker)" ]]; then
 fi
 
 # Add extra artifacts into each Docker image's tarball in OUT_PATH. The extra
-# artifacts are specified in the 4th argument as a space-delimited list.
+# artifacts are specified in the 5th argument as a space-delimited list.
 function add_extra_artifacts_to_tar_images() {
   local HUB
   HUB="$1"
@@ -34,7 +34,8 @@ function add_extra_artifacts_to_tar_images() {
   TAG="$2"
   local OUT_PATH
   OUT_PATH="$3"
-  read -r -a extra_artifacts <<< "$4"
+  REPO="$4"
+  read -r -a extra_artifacts <<< "$5"
   local add_cmd=""
   local tmpdir
   tmpdir=$(mktemp -d)
@@ -64,7 +65,7 @@ function add_extra_artifacts_to_tar_images() {
     docker load -i "${TAR_PATH}"
 
     cat >Dockerfile <<EOF
-FROM istio/${IMAGE_NAME}:${TAG}
+FROM ${REPO}/${IMAGE_NAME}:${TAG}
 ${add_cmd}
 EOF
 
