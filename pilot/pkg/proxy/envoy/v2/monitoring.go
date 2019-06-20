@@ -46,22 +46,16 @@ var (
 	pushTimeoutFailures      = stats.Int64("pilot_xds_push_timeout_failures", "Pilot push timeout failures after repeated attempts.", stats.UnitDimensionless)
 
 	// Covers xds_builderr and xds_senderr for xds in {lds, rds, cds, eds}.
-	pushes             = stats.Int64("pilot_xds_pushes", "Pilot build and send errors for lds, rds, cds and eds.", stats.UnitDimensionless)
-	cdsPushCtx         = typeContext("cds")
-	cdsSendErrPushCtx  = typeContext("cds_senderr")
-	cdsBuildErrPushCtx = typeContext("cds_builderr")
-	edsPushCtx         = typeContext("eds")
-	edsSendErrPushCtx  = typeContext("eds_senderr")
-	ldsPushCtx         = typeContext("lds")
-	ldsSendErrPushCtx  = typeContext("lds_senderr")
-	ldsBuildErrPushCtx = typeContext("lds_builderr")
-	rdsPushCtx         = typeContext("rds")
-	rdsSendErrPushCtx  = typeContext("rds_senderr")
-	rdsBuildErrPushCtx = typeContext("rds_builderr")
+	pushes = stats.Int64("pilot_xds_pushes", "Pilot build and send errors for lds, rds, cds and eds.", stats.UnitDimensionless)
+	// values for pushes
+	cdsPushCtx, cdsSendErrPushCtx, cdsBuildErrPushCtx context.Context
+	edsPushCtx, edsSendErrPushCtx                     context.Context
+	ldsPushCtx, ldsSendErrPushCtx, ldsBuildErrPushCtx context.Context
+	rdsPushCtx, rdsSendErrPushCtx, rdsBuildErrPushCtx context.Context
 
-	pushErrors       = stats.Int64("pilot_xds_push_errors", "Number of errors (timeouts) pushing to sidecars.", stats.UnitDimensionless)
-	unrecoverableCtx = typeContext("unrecoverable")
-	retryCtx         = typeContext("retry")
+	pushErrors = stats.Int64("pilot_xds_push_errors", "Number of errors (timeouts) pushing to sidecars.", stats.UnitDimensionless)
+	// values for pushErrors
+	unrecoverableCtx, retryCtx context.Context
 
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesConvergeDelay     = stats.Float64("pilot_proxy_convergence_time", "Delay between config change and all proxies converging.", stats.UnitDimensionless)
@@ -69,11 +63,9 @@ var (
 	pushContextErrors        = stats.Int64("pilot_xds_push_context_errors", "Number of errors (timeouts) initiating push context.", stats.UnitDimensionless)
 	totalXDSInternalErrors   = stats.Int64("pilot_total_xds_internal_errors", "Total number of internal XDS errors in pilot.", stats.UnitDimensionless)
 
-	inboundUpdates     = stats.Int64("pilot_inbound_updates", "Total number of updates received by pilot.", stats.UnitDimensionless)
-	configUpdatesCtx   = typeContext("config")
-	edsUpdatesCtx      = typeContext("eds")
-	svcUpdatesCtx      = typeContext("svc")
-	workloadUpdatesCtx = typeContext("workload")
+	inboundUpdates = stats.Int64("pilot_inbound_updates", "Total number of updates received by pilot.", stats.UnitDimensionless)
+	// values for inboundUpdates
+	configUpdatesCtx, edsUpdatesCtx, svcUpdatesCtx, workloadUpdatesCtx context.Context
 )
 
 func increment(measures ...stats.Measure) {
@@ -168,4 +160,25 @@ func init() {
 	); err != nil {
 		panic(err)
 	}
+
+	// contexts must be built after the tag keys have been created
+	cdsPushCtx = typeContext("cds")
+	cdsSendErrPushCtx = typeContext("cds_senderr")
+	cdsBuildErrPushCtx = typeContext("cds_builderr")
+	edsPushCtx = typeContext("eds")
+	edsSendErrPushCtx = typeContext("eds_senderr")
+	ldsPushCtx = typeContext("lds")
+	ldsSendErrPushCtx = typeContext("lds_senderr")
+	ldsBuildErrPushCtx = typeContext("lds_builderr")
+	rdsPushCtx = typeContext("rds")
+	rdsSendErrPushCtx = typeContext("rds_senderr")
+	rdsBuildErrPushCtx = typeContext("rds_builderr")
+
+	unrecoverableCtx = typeContext("unrecoverable")
+	retryCtx = typeContext("retry")
+
+	configUpdatesCtx = typeContext("config")
+	edsUpdatesCtx = typeContext("eds")
+	svcUpdatesCtx = typeContext("svc")
+	workloadUpdatesCtx = typeContext("workload")
 }
