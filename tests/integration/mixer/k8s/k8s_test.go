@@ -16,9 +16,11 @@ package mixer
 
 import (
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 )
@@ -36,6 +38,17 @@ func TestK8sDeployment(t *testing.T) {
 		_, err := istio.Deploy(ctx, &cfg)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
+		}
+
+		env := ctx.Environment().(*kube.Environment)
+
+		// Ensure that we can loop-through at least ten times while all pods in the ready.
+		for i := 0; i < 20; i++ {
+			if _, err := env.CheckPodsAreReady(env.NewPodFetch(cfg.IstioNamespace)); err != nil {
+				t.Fatalf("Error waiting for pods: %v", err)
+			}
+
+			time.Sleep(3 * time.Second)
 		}
 	})
 }
