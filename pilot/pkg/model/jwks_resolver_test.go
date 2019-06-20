@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_model/go"
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model/test"
 )
@@ -291,6 +292,64 @@ func TestJwtPubKeyRefreshWithNetworkError(t *testing.T) {
 
 	// The lastRefreshedTime should not change the refresh failed due to network error.
 	verifyKeyLastRefreshedTime(t, r, ms, false /* wantChanged */)
+}
+
+func TestJwtPubKeyMetric(t *testing.T) {
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
+	defer r.Close()
+
+	ms, err := test.StartNewServer()
+	defer ms.Stop()
+	if err != nil {
+		t.Fatal("failed to start a mock server")
+	}
+	ms.ReturnErrorForFirstNumHits = 1
+
+	getCounter := func(success bool) float64 {
+		metric := &io_prometheus_client.Metric{}
+		if success {
+			if err := networkFetchSuccessCounter.Write(metric); err != nil {
+				t.Fatalf("failed to get counter: %v", err)
+			}
+		} else {
+			if err := networkFetchFailCounter.Write(metric); err != nil {
+				t.Fatalf("failed to get counter: %v", err)
+			}
+		}
+		return metric.GetCounter().GetValue()
+	}
+	successBefore := getCounter(true)
+	failBefore := getCounter(false)
+
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+	cases := []struct {
+		in                string
+		expectedJwtPubkey string
+	}{
+		{
+			in:                mockCertURL,
+			expectedJwtPubkey: "",
+		},
+		{
+			in:                mockCertURL,
+			expectedJwtPubkey: test.JwtPubKey1,
+		},
+	}
+	for _, c := range cases {
+		pk, _ := r.GetPublicKey(c.in)
+		if c.expectedJwtPubkey != pk {
+			t.Errorf("GetPublicKey(%+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
+		}
+	}
+
+	successAfter := getCounter(true)
+	failAfter := getCounter(false)
+	if successBefore >= successAfter {
+		t.Errorf("the success counter is not incremented")
+	}
+	if failBefore >= failAfter {
+		t.Errorf("the fail counter is not incremented")
+	}
 }
 
 func startMockServer(t *testing.T) *test.MockOpenIDDiscoveryServer {
