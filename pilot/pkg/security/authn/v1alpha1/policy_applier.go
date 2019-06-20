@@ -112,12 +112,12 @@ func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAut
 	var requirements []*envoy_jwt.JwtRequirement
 	providers := map[string]*envoy_jwt.JwtProvider{}
 	for i, policyJwt := range policyJwts {
+		// TODO(yangminzhu): Support RCToken when its API is finalized.
 		provider := &envoy_jwt.JwtProvider{
-			Issuer:               policyJwt.Issuer,
-			Audiences:            policyJwt.Audiences,
-			ForwardPayloadHeader: outputLocationForJwtIssuer(policyJwt.Issuer),
-			Forward:              true,
-			PayloadInMetadata:    policyJwt.Issuer,
+			Issuer:            policyJwt.Issuer,
+			Audiences:         policyJwt.Audiences,
+			Forward:           true,
+			PayloadInMetadata: policyJwt.Issuer,
 		}
 
 		for _, location := range policyJwt.JwtHeaders {
