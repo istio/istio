@@ -45,6 +45,8 @@ ingress:
     #     - kiali.local
 
 dashboard:
+  auth:
+    strategy: login # Can be anonymous, login, or openshift
   secretName: kiali # You must create a secret with this name - one is not provided out-of-box.
   viewOnlyMode: false # Bind the service account to a role with only read access
   grafanaURL:  # If you have Grafana installed and it is accessible to client browsers, then set this to its external URL. Kiali will redirect users to this URL when Grafana metrics are to be shown.
