@@ -1992,6 +1992,14 @@ func TestValidateHTTPRetry(t *testing.T) {
 			PerTryTimeout: &types.Duration{Seconds: 2},
 			RetryOn:       "5xx,gateway-error",
 		}, valid: true},
+		{name: "disable retries", in: &networking.HTTPRetry{
+			Attempts: 0,
+		}, valid: true},
+		{name: "invalid, retry policy configured but attempts set to zero", in: &networking.HTTPRetry{
+			Attempts:      0,
+			PerTryTimeout: &types.Duration{Seconds: 2},
+			RetryOn:       "5xx,gateway-error",
+		}, valid: false},
 		{name: "valid default", in: &networking.HTTPRetry{
 			Attempts: 10,
 		}, valid: true},
