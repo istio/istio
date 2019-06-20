@@ -20,11 +20,10 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/resource"
 	util "istio.io/istio/tests/integration/mixer"
 )
 
-func validateIPRule(t *testing.T, ctx resource.Context) {
+func validateIPRule(t *testing.T) {
 	t.Helper()
 	if galInst == nil {
 		t.Fatalf("galley not setup")
@@ -64,14 +63,14 @@ func validateIPRule(t *testing.T, ctx resource.Context) {
 }
 
 func TestWhiteListing(t *testing.T) {
-	framework.Run(t, func(ctx framework.TestContext) {
-		validateIPRule(t, ctx)
+	framework.Run(t, func(_ framework.TestContext) {
+		validateIPRule(t)
 	})
 }
 
 func TestWhiteListingTCP(t *testing.T) {
 	// re-validate after marking productpage port 9080 TCP
-	framework.Run(t, func(ctx framework.TestContext) {
+	framework.Run(t, func(_ framework.TestContext) {
 		if galInst == nil {
 			t.Fatalf("galley not setup")
 		}
@@ -100,6 +99,6 @@ spec:
   - port: 9080
     name: http`)
 
-		validateIPRule(t, ctx)
+		validateIPRule(t)
 	})
 }
