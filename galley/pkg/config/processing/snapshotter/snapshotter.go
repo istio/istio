@@ -26,7 +26,7 @@ import (
 // Snapshotter is a processor that handles input events and creates snapshotImpl collections.
 type Snapshotter struct {
 	accumulators map[collection.Name]*accumulator
-	selector     *event.Selector
+	selector     event.Selector
 	xforms       []event.Transformer
 	settings     []SnapshotOptions
 
@@ -92,7 +92,7 @@ func NewSnapshotter(xforms []event.Transformer, settings []SnapshotOptions) *Sna
 
 	for _, xform := range xforms {
 		for _, i := range xform.Inputs() {
-			s.selector.Select(i, xform)
+			s.selector = event.AddToSelector(s.selector, i, xform)
 		}
 
 		for _, o := range xform.Outputs() {

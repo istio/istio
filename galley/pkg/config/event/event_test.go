@@ -246,3 +246,37 @@ func TestEvent_UpdateForResource(t *testing.T) {
 	}
 	g.Expect(e).To(Equal(expected))
 }
+
+func TestEvent_HasSource(t *testing.T) {
+	g := NewGomegaWithT(t)
+	e := Event{
+		Kind:   Deleted,
+		Source: collection.NewName("boo"),
+	}
+	g.Expect(e.IsSource(collection.NewName("boo"))).To(BeTrue())
+	g.Expect(e.IsSource(collection.NewName("noo"))).To(BeFalse())
+}
+
+func TestEvent_WithSource(t *testing.T) {
+	g := NewGomegaWithT(t)
+	oldCol := collection.NewName("boo")
+	e := Event{
+		Kind:   Deleted,
+		Source: oldCol,
+	}
+	newCol := collection.NewName("far")
+	a := e.WithSource(newCol)
+	g.Expect(a.Source).To(Equal(newCol))
+	g.Expect(e.Source).To(Equal(oldCol))
+}
+
+func TestEvent_WithSource_Reset(t *testing.T) {
+	g := NewGomegaWithT(t)
+	e := Event{
+		Kind:   Reset,
+	}
+	newCol := collection.NewName("far")
+	a := e.WithSource(newCol)
+	g.Expect(a.Source).To(Equal(collection.EmptyName))
+	g.Expect(e.Source).To(Equal(collection.EmptyName))
+}

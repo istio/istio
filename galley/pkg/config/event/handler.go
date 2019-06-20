@@ -19,6 +19,22 @@ type Handler interface {
 	Handle(e Event)
 }
 
+// SentinelHandler is a special handler that does nothing with the event. It is useful to avoid
+// nil checks on Handler fields. Specialized operations, such as CombineHandlers recognize SentinelHandlers
+// and elide them when merging.
+func SentinelHandler() Handler {
+	return &sentinelInstance
+}
+
+var sentinelInstance sentinelHandler
+
+type sentinelHandler struct{}
+
+var _ Handler = &sentinelHandler{}
+
+// Handle implements Handler
+func (s *sentinelHandler) Handle(_ Event) {}
+
 // HandlerFromFn returns a new Handler, based on the Handler function.
 func HandlerFromFn(fn func(e Event)) Handler {
 	return &fnHandler{

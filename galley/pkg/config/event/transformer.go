@@ -15,6 +15,8 @@
 package event
 
 import (
+	"sync/atomic"
+
 	"istio.io/istio/galley/pkg/config/collection"
 )
 
@@ -37,4 +39,94 @@ type Transformer interface {
 
 	// Outputs for this transformer
 	Outputs() collection.Names
+}
+
+// FnTransform is a base type for handling common Transformer operations.
+type FnTransform struct {
+	in       collection.Names
+	out      collection.Names
+	selector Selector
+	startFn  func()
+	stopFn   func()
+	handleFn func(e Event, h Handler)
+	syncCtr  int32
+}
+
+// Inputs partially implements Transformer
+func (t *FnTransform) Inputs() collection.Names {
+	return t.in
+}
+
+// Outputs partially implements Transformer
+func (t *FnTransform) Outputs() collection.Names {
+	return t.out
+}
+
+// Start implements Transformer
+func (t *FnTransform) Start() {
+	scope.Debug("FnTransform.Start")
+	if t.selector == nil {
+		t.selector = NewSelector()
+	}
+
+	atomic.StoreInt32(&t.syncCtr, int32(len(t.in)))
+
+	if t.startFn != nil {
+		t.startFn()
+	}
+}
+
+// Stop implements Transformer
+func (t *FnTransform) Stop() {
+	scope.Debug("FnTransform.Stop")
+	if t.stopFn != nil {
+		t.stopFn()
+	}
+}
+
+// Select partially implements Transformer
+func (t *FnTransform) Select(c collection.Name, h Handler) {
+	scope.Debugf("FnTransform.Select: %v => %T", c, h)
+	t.selector = AddToSelector(t.selector, c, h)
+}
+
+// Handle partially implements Transformer
+func (t *FnTransform) Handle(e Event) {
+	if e.Kind == Reset {
+		t.selector.Broadcast(e)
+		return
+	}
+
+	if !e.IsSourceAny(t.in...) {
+		scope.Warnf("Event with unexpected source received: %v", e)
+		return
+	}
+
+	if e.Kind == FullSync {
+		for {
+			old := atomic.LoadInt32(&t.syncCtr)
+			swapped := atomic.CompareAndSwapInt32(&t.syncCtr, old, old-1)
+			if swapped {
+				if old == 1 {
+					// Limit reached to 0.
+					t.selector.Broadcast(e)
+				}
+				break
+			}
+		}
+		return
+	}
+
+	t.handleFn(e, t.selector)
+}
+
+// NewFnTransform returns a Transformer based on the given start, stop and input event handler functions.
+func NewFnTransform(inputs, outputs collection.Names, startFn, stopFn func(), fn func(e Event, handler Handler)) *FnTransform {
+	return &FnTransform{
+		in:       inputs,
+		out:      outputs,
+		startFn:  startFn,
+		stopFn:   stopFn,
+		handleFn: fn,
+	}
 }

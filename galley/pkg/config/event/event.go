@@ -32,8 +32,35 @@ type Event struct {
 	Entry *resource.Entry
 }
 
+// IsSource checks whether the event has the appropriate source and returns false if it does not.
+func (e *Event) IsSource(s collection.Name) bool {
+	return e.Source == s
+}
+
+// IsSourceAny checks whether the event has the appropriate source and returns false if it does not.
+func (e *Event) IsSourceAny(names ...collection.Name) bool {
+	for _, n := range names {
+		if n == e.Source {
+			return true
+		}
+	}
+
+	return false
+}
+
+// WithSource returns a new event with the source changed to the given collection.Name, if the event.Kind != Reset.
+func (e *Event) WithSource(s collection.Name) Event {
+	if e.Kind == Reset {
+		return *e
+	}
+
+	r := *e
+	r.Source = s
+	return r
+}
+
 // Clone creates a deep clone of the event.
-func (e Event) Clone() Event {
+func (e *Event) Clone() Event {
 	entry := e.Entry
 	if entry != nil {
 		entry = entry.Clone()

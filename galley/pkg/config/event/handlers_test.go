@@ -87,3 +87,37 @@ func TestHandlers_Handle_Multiple_MultipleEvents(t *testing.T) {
 	g.Expect(h1.Events()).To(Equal(expected))
 	g.Expect(h2.Events()).To(Equal(expected))
 }
+
+func TestHandlers_CombineHandlers_SentinelFirst(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	h1 := event.SentinelHandler()
+	h2 := &fixtures.Accumulator{}
+	hs := event.CombineHandlers(h1, h2)
+
+	g.Expect(hs).To(BeAssignableToTypeOf(&fixtures.Accumulator{}))
+
+	hs.Handle(data.Event1Col1AddItem1)
+	hs.Handle(data.Event2Col1AddItem2)
+
+	expected := []event.Event{data.Event1Col1AddItem1, data.Event2Col1AddItem2}
+
+	g.Expect(h2.Events()).To(Equal(expected))
+}
+
+func TestHandlers_CombineHandlers_SentinelSecond(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	h1 := &fixtures.Accumulator{}
+	h2 := event.SentinelHandler()
+	hs := event.CombineHandlers(h1, h2)
+
+	g.Expect(hs).To(BeAssignableToTypeOf(&fixtures.Accumulator{}))
+
+	hs.Handle(data.Event1Col1AddItem1)
+	hs.Handle(data.Event2Col1AddItem2)
+
+	expected := []event.Event{data.Event1Col1AddItem1, data.Event2Col1AddItem2}
+
+	g.Expect(h1.Events()).To(Equal(expected))
+}
