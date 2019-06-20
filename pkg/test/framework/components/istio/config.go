@@ -125,6 +125,10 @@ type Config struct {
 
 	// Overrides for the Helm values file.
 	Values map[string]string
+
+	// Do not wait for the validation webhook before completing the deployment. This is useful for
+	// doing deployments without Galley.
+	DoNotWaitForValidationWebhook bool
 }
 
 // Is mtls enabled. Check in Values flag and Values file.
