@@ -109,6 +109,8 @@ type Args struct {
 
 	// keep-alive options for the MCP gRPC Server.
 	KeepAlive *keepalive.Options
+
+	UseOldRuntime bool
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.

@@ -27,12 +27,23 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/ctrlz/fw"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 	"istio.io/pkg/probe"
 	"istio.io/pkg/version"
 
+	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/processing"
+	monitoring2 "istio.io/istio/galley/pkg/config/processing/monitoring"
+	"istio.io/istio/galley/pkg/config/processor"
+	metadata2 "istio.io/istio/galley/pkg/config/processor/metadata"
+	schema2 "istio.io/istio/galley/pkg/config/schema"
+	fsSource2 "istio.io/istio/galley/pkg/config/source/kube/fs"
+	kubeSource2 "istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/metadata"
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
@@ -57,6 +68,8 @@ import (
 
 var scope = log.RegisterScope("server", "Galley server debugging", 0)
 
+var useOldRuntime = env.RegisterBoolVar("GALLEY_OLD_RUNTIME", false, "Use the old runtime implementation for Galley")
+
 // Server is the main entry point into the Galley code.
 type Server struct {
 	serveWG       sync.WaitGroup
@@ -69,6 +82,9 @@ type Server struct {
 	controlZ      *ctrlz.Server
 	stopCh        chan struct{}
 	callOut       *callout
+
+	runtime       *processing.Runtime
+	useOldRuntime bool
 }
 
 type patchTable struct {
@@ -111,55 +127,120 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		}
 	}()
 
-	mesh, err := p.newMeshConfigCache(a.MeshConfigFile)
+	distributor := snapshot.New(groups.IndexFunction)
+
+	msh, err := p.newMeshConfigCache(a.MeshConfigFile)
 	if err != nil {
 		return nil, err
 	}
-	converterCfg := &converter.Config{
-		Mesh:         mesh,
-		DomainSuffix: a.DomainSuffix,
-	}
-
-	sourceSchema := getSourceSchema(a)
-
-	var src runtime.Source
-	if a.ConfigPath != "" {
-		src, err = p.fsNew(a.ConfigPath, sourceSchema, converterCfg)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		k, err := p.newKubeFromConfigFile(a.KubeConfig)
-		if err != nil {
-			return nil, err
-		}
-		var found []schema.ResourceSpec
-
-		if !a.DisableResourceReadyCheck {
-			found, err = p.verifyResourceTypesPresence(k, sourceSchema.All())
-		} else {
-			found, err = p.findSupportedResources(k, sourceSchema.All())
-		}
-		if err != nil {
-			return nil, err
-		}
-		sourceSchema = schema.New(found...)
-		src, err = p.newSource(k, a.ResyncPeriod, sourceSchema, converterCfg)
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	types := getMCPTypes(a)
+	s.useOldRuntime = useOldRuntime.Get() || a.UseOldRuntime
+	if !s.useOldRuntime {
 
-	processorCfg := runtime.Config{
-		DomainSuffix:             a.DomainSuffix,
-		Mesh:                     mesh,
-		Schema:                   types,
-		SynthesizeServiceEntries: a.EnableServiceDiscovery,
+		resources, err := getSourceResources(a)
+		if err != nil {
+			return nil, err
+		}
+
+		var src event.Source
+		if a.ConfigPath != "" {
+			src, err = fsSource2.New(a.ConfigPath, resources)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			clnt, err := p.newKubeFromConfigFile(a.KubeConfig)
+			if err != nil {
+				return nil, err
+			}
+
+			o := kubeSource2.Options{
+				Client:       clnt,
+				Resources:    resources,
+				ResyncPeriod: a.ResyncPeriod,
+			}
+			src, err = kubeSource2.New(o)
+			if err != nil {
+				return nil, err
+			}
+
+			//var found []schema.ResourceSpec
+			// if !a.DisableResourceReadyCheck {
+			// 	found, err = p.verifyResourceTypesPresence(k, sourceSchema.All())
+			// } else {
+			// 	found, err = p.findSupportedResources(k, sourceSchema.All())
+			// }
+			// if err != nil {
+			// 	return nil, err
+			// }
+			// sourceSchema = schema.New(found...)
+			// src, err = p.newSource(k, a.ResyncPeriod, sourceSchema, converterCfg)
+			// if err != nil {
+			// 	return nil, err
+			// }
+		}
+
+		meshSrc, err := meshcfg.NewFS(a.MeshConfigFile)
+		if err != nil {
+			return nil, err
+		}
+
+		reporter, err := monitoring2.Get()
+		if err != nil {
+			return nil, err
+		}
+		s.runtime, err = processor.Initialize(
+			metadata2.MustGet(), a.DomainSuffix, []event.Source{src, meshSrc}, distributor, reporter)
+		if err != nil {
+			return nil, err
+		}
+
+	} else {
+
+		converterCfg := &converter.Config{
+			Mesh:         msh,
+			DomainSuffix: a.DomainSuffix,
+		}
+
+		sourceSchema := getSourceSchema(a)
+
+		var src runtime.Source
+		if a.ConfigPath != "" {
+			src, err = p.fsNew(a.ConfigPath, sourceSchema, converterCfg)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			k, err := p.newKubeFromConfigFile(a.KubeConfig)
+			if err != nil {
+				return nil, err
+			}
+			var found []schema.ResourceSpec
+			if !a.DisableResourceReadyCheck {
+				found, err = p.verifyResourceTypesPresence(k, sourceSchema.All())
+			} else {
+				found, err = p.findSupportedResources(k, sourceSchema.All())
+			}
+			if err != nil {
+				return nil, err
+			}
+			sourceSchema = schema.New(found...)
+			src, err = p.newSource(k, a.ResyncPeriod, sourceSchema, converterCfg)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		processorCfg := runtime.Config{
+			DomainSuffix:             a.DomainSuffix,
+			Mesh:                     msh,
+			Schema:                   types,
+			SynthesizeServiceEntries: a.EnableServiceDiscovery,
+		}
+		distributor := snapshot.New(groups.IndexFunction)
+		s.processor = runtime.NewProcessor(src, distributor, &processorCfg)
 	}
-	distributor := snapshot.New(groups.IndexFunction)
-	s.processor = runtime.NewProcessor(src, distributor, &processorCfg)
 
 	var grpcOptions []grpc.ServerOption
 	grpcOptions = append(grpcOptions,
@@ -284,21 +365,41 @@ func getMCPTypes(a *Args) *resource.Schema {
 	return b.Build()
 }
 
+func getSourceResources(a *Args) ([]schema2.KubeResource, error) {
+	m, err := metadata2.Get()
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: We should generalize this once server code is refactored
+	ks := m.Sources()[0].(*schema2.KubeSource)
+
+	var result []schema2.KubeResource
+	for _, r := range ks.Resources() {
+		if !isKindExcluded(a, r.Kind) {
+			result = append(result, r)
+		}
+	}
+	return result, nil
+}
+
 // Run enables Galley to start receiving gRPC requests on its main API port.
 func (s *Server) Run() {
 	s.serveWG.Add(1)
 	go func() {
 		defer s.serveWG.Done()
-		err := s.processor.Start()
-		if err != nil {
+		if !s.useOldRuntime {
+			s.runtime.Start()
+		} else if err := s.processor.Start(); err != nil {
 			scope.Errorf("Galley Server unexpectedly terminated: %v", err)
 			return
+
 		}
 
 		l := s.getListener()
 		if l != nil {
 			// start serving
-			err = s.grpcServer.Serve(l)
+			err := s.grpcServer.Serve(l)
 			if err != nil {
 				scope.Errorf("Galley Server unexpectedly terminated: %v", err)
 			}
@@ -345,6 +446,10 @@ func (s *Server) Close() error {
 
 	if s.processor != nil {
 		s.processor.Stop()
+	}
+
+	if s.runtime != nil {
+		s.runtime.Stop()
 	}
 
 	s.listenerMutex.Lock()
