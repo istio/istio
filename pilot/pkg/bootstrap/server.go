@@ -402,7 +402,6 @@ func (s *Server) initMesh(args *PilotArgs) error {
 				s.mesh = mesh
 				if s.EnvoyXdsServer != nil {
 					s.EnvoyXdsServer.Env.Mesh = mesh
-					s.EnvoyXdsServer.ConfigUpdate(true)
 				}
 			}
 		})

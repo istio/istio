@@ -27,7 +27,6 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
@@ -709,8 +708,8 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 			l = filteredCLA
 		}
 
-		// If location prioritized load balancing is enabled, prioritize endpoints.
-		if features.EnableLocalityLoadBalancing() {
+		// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
+		if s.Env.Mesh.LocalityLbSetting != nil {
 			// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
 			clonedCLA := util.CloneClusterLoadAssignment(l)
 			l = &clonedCLA

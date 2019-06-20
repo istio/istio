@@ -16,13 +16,15 @@ package features
 
 import (
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/pkg/log"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -108,14 +110,6 @@ var (
 		return time.Second * time.Duration(duration)
 	}
 
-	// EnableLocalityLoadBalancing provides an option to enable the LocalityLoadBalancerSetting feature
-	// as well as prioritizing the sending of traffic to a local locality. Set the environment variable to any value to enable.
-	// This is an experimental feature.
-	enableLocalityLoadBalancingVar = env.RegisterStringVar("PILOT_ENABLE_LOCALITY_LOAD_BALANCING", "", "")
-	EnableLocalityLoadBalancing    = func() bool {
-		return len(enableLocalityLoadBalancingVar.Get()) != 0
-	}
-
 	enableFallthroughRouteVar = env.RegisterBoolVar(
 		"PILOT_ENABLE_FALLTHROUGH_ROUTE",
 		true,
@@ -169,4 +163,11 @@ var (
 
 	// DefaultPortHTTPProxy is used as for HTTP PROXY mode. Can be overridden by ProxyHttpPort in mesh config.
 	DefaultPortHTTPProxy = 15002
+
+	// featureLock protects featureGate.
+	featureLock sync.RWMutex
+	// featureGate records the enabled/disabled features.
+	featureGate = map[string]bool{
+		meshconfig.FeatureName_LOCALITY_AWARE_ROUTING.String(): true,
+	}
 )
