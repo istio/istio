@@ -25,6 +25,8 @@ import (
 	"github.com/spf13/cobra/doc"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/caclient"
@@ -149,12 +151,13 @@ func fatalf(template string, args ...interface{}) {
 func init() {
 	flags := rootCmd.Flags()
 	// General configuration.
-	flags.StringVar(&opts.listenedNamespaces, "listened-namespace", "", "deprecated")
+	flags.StringVar(&opts.listenedNamespaces, "listened-namespace", metav1.NamespaceAll, "deprecated")
 	if err := flags.MarkDeprecated("listened-namespace", "please use --listened-namespaces instead"); err != nil {
 		panic(err)
 	}
 
-	flags.StringVar(&opts.listenedNamespaces, "listened-namespaces", "",
+	// Default to NamespaceAll, which equals to "". Kuberentes library will then watch all the namespace.
+	flags.StringVar(&opts.listenedNamespaces, "listened-namespaces", metav1.NamespaceAll,
 		"Select the namespaces for the Citadel to listen to, separated by comma. If unspecified, Citadel tries to use the ${"+
 			cmd.ListenedNamespaceKey+"} environment variable. If neither is set, Citadel listens to all namespaces.")
 	flags.StringVar(&opts.istioCaStorageNamespace, "citadel-storage-namespace", "istio-system", "Namespace where "+

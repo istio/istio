@@ -42,58 +42,60 @@ option (gogoproto.gostring_all) = false;
 // Example config usage:
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
-// kind: solarwinds
+// kind: handler
 // metadata:
-//   name: handler
+//   name: solarwinds
 //   namespace: istio-system
 // spec:
-//   appoptics_access_token: <APPOPTICS SAMPLE TOKEN>
-//   papertrail_url: <PAPERTRAIL URL>
-//   papertrail_local_retention_duration: <RETENTION PERIOD FOR LOGS LOCALLY, Optional>
-//   metrics:
-//     requestcount.metric.istio-system:
-//       label_names:
-//       - source_service
-//       - source_version
-//       - destination_service
-//       - destination_version
-//       - response_code
-//     requestduration.metric.istio-system:
-//       label_names:
-//       - source_service
-//       - source_version
-//       - destination_service
-//       - destination_version
-//       - response_code
-//     requestsize.metric.istio-system:
-//       label_names:
-//       - source_service
-//       - source_version
-//       - destination_service
-//       - destination_version
-//       - response_code
-//     responsesize.metric.istio-system:
-//       label_names:
-//       - source_service
-//       - source_version
-//       - destination_service
-//       - destination_version
-//       - response_code
-//     tcpbytesent.metric.istio-system:
-//       label_names:
-//       - source_service
-//       - source_version
-//       - destination_service
-//       - destination_version
-//     tcpbytereceived.metric.istio-system:
-//       label_names:
-//       - source_service
-//       - source_version
-//       - destination_service
-//       - destination_version
-//   logs:
-//     solarwindslogentry.logentry.istio-system:
-//       payloadTemplate: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "2006-01-02T15:04:05Z07:00") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
+//   compiledAdapter: solarwinds
+//   params:
+//     appoptics_access_token: <APPOPTICS SAMPLE TOKEN>
+//     papertrail_url: <PAPERTRAIL URL>
+//     papertrail_local_retention_duration: <RETENTION PERIOD FOR LOGS LOCALLY, Optional>
+//     metrics:
+//       requestcount.metric.istio-system:
+//         label_names:
+//         - source_service
+//         - source_version
+//         - destination_service
+//         - destination_version
+//         - response_code
+//       requestduration.metric.istio-system:
+//         label_names:
+//         - source_service
+//         - source_version
+//         - destination_service
+//         - destination_version
+//         - response_code
+//       requestsize.metric.istio-system:
+//         label_names:
+//         - source_service
+//         - source_version
+//         - destination_service
+//         - destination_version
+//         - response_code
+//       responsesize.metric.istio-system:
+//         label_names:
+//         - source_service
+//         - source_version
+//         - destination_service
+//         - destination_version
+//         - response_code
+//       tcpbytesent.metric.istio-system:
+//         label_names:
+//         - source_service
+//         - source_version
+//         - destination_service
+//         - destination_version
+//       tcpbytereceived.metric.istio-system:
+//         label_names:
+//         - source_service
+//         - source_version
+//         - destination_service
+//         - destination_version
+//     logs:
+//       solarwindslogentry.logentry.istio-system:
+//         payloadTemplate: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "2006-01-02T15:04:05Z07:00") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
 // ```
 message Params {
     // AppOptics Access Token needed to send metrics to AppOptics. If no access token is given then metrics

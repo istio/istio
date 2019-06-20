@@ -19,6 +19,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/pkg/log"
 )
@@ -57,7 +58,7 @@ func register() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			ns, _ := handleNamespaces(namespace)
+			ns := handlers.HandleNamespace(namespace, defaultNamespace)
 			return kube.RegisterEndpoint(client, ns, svcName, ip, portsList, labels, annotations)
 		},
 	}

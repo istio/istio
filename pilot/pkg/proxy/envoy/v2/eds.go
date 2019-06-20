@@ -95,7 +95,7 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 }
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
-func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32, network string) *endpoint.LbEndpoint {
+func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32, network string, weight uint32) *endpoint.LbEndpoint {
 	var addr core.Address
 	switch family {
 	case model.AddressFamilyTCP:
@@ -113,7 +113,14 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 		addr = core.Address{Address: &core.Address_Pipe{Pipe: &core.Pipe{Path: address}}}
 	}
 
+	epWeight := weight
+	if epWeight == 0 {
+		epWeight = 1
+	}
 	ep := &endpoint.LbEndpoint{
+		LoadBalancingWeight: &types.UInt32Value{
+			Value: epWeight,
+		},
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 			Endpoint: &endpoint.Endpoint{
 				Address: &addr,
@@ -133,8 +140,17 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpo
 	if err != nil {
 		return nil, err
 	}
+
 	addr := util.GetNetworkEndpointAddress(e)
+
+	epWeight := e.LbWeight
+	if epWeight == 0 {
+		epWeight = 1
+	}
 	ep := &endpoint.LbEndpoint{
+		LoadBalancingWeight: &types.UInt32Value{
+			Value: epWeight,
+		},
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 			Endpoint: &endpoint.Endpoint{
 				Address: &addr,
@@ -331,8 +347,12 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	}
 
 	for i := 0; i < len(locEps); i++ {
+		var weight uint32
+		for _, ep := range locEps[i].LbEndpoints {
+			weight += ep.LoadBalancingWeight.GetValue()
+		}
 		locEps[i].LoadBalancingWeight = &types.UInt32Value{
-			Value: uint32(len(locEps[i].LbEndpoints)),
+			Value: weight,
 		}
 	}
 	// There is a chance multiple goroutines will update the cluster at the same time.
@@ -354,7 +374,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 
 // SvcUpdate is a callback from service discovery when service info changes.
 func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, _ map[uint32]string) {
-	inboundUpdates.With(prometheus.Labels{"type": "svc"}).Add(1)
+	inboundServiceUpdates.Add(1)
 	pc := s.globalPushContext()
 	pl := model.PortList{}
 	for k, v := range ports {
@@ -418,7 +438,7 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 
 // WorkloadUpdate is called when workload labels/annotations are updated.
 func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ map[string]string) {
-	inboundUpdates.With(prometheus.Labels{"type": "workload"}).Add(1)
+	inboundWorkloadUpdates.Add(1)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if labels == nil {
@@ -478,9 +498,8 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ 
 // It replaces InstancesByPort in model - instead of iterating over all endpoints it uses
 // the hostname-keyed map. And it avoids the conversion from Endpoint to ServiceEntry to envoy
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
-func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
-	istioEndpoints []*model.IstioEndpoint) error {
-	inboundUpdates.With(prometheus.Labels{"type": "eds"}).Add(1)
+func (s *DiscoveryServer) EDSUpdate(shard, serviceName string, istioEndpoints []*model.IstioEndpoint) error {
+	inboundEDSUpdates.Add(1)
 	s.edsUpdate(shard, serviceName, istioEndpoints, false)
 	return nil
 }
@@ -745,10 +764,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 	err := con.send(response)
 	if err != nil {
 		adsLog.Warnf("EDS: Send failure %s: %v", con.ConID, err)
-		pushes.With(prometheus.Labels{"type": "eds_senderr"}).Add(1)
+		edsSendErrPushes.Add(1)
 		return err
 	}
-	pushes.With(prometheus.Labels{"type": "eds"}).Add(1)
+	edsPushes.Add(1)
 
 	if edsUpdatedServices == nil {
 		adsLog.Infof("EDS: PUSH for node:%s clusters:%d endpoints:%d empty:%v",
@@ -922,7 +941,7 @@ func buildLocalityLbEndpointsFromShards(
 				localityEpMap[ep.Locality] = locLbEps
 			}
 			if ep.EnvoyEndpoint == nil {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network)
+				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network, ep.LbWeight)
 			}
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *ep.EnvoyEndpoint)
 
@@ -932,8 +951,12 @@ func buildLocalityLbEndpointsFromShards(
 
 	locEps := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
+		var weight uint32
+		for _, ep := range locLbEps.LbEndpoints {
+			weight += ep.LoadBalancingWeight.GetValue()
+		}
 		locLbEps.LoadBalancingWeight = &types.UInt32Value{
-			Value: uint32(len(locLbEps.LbEndpoints)),
+			Value: weight,
 		}
 		locEps = append(locEps, *locLbEps)
 	}

@@ -70,6 +70,6 @@ if [[ -n "${CIRCLE_PR_NUMBER:-}" ]]; then
     | tee >(go-junit-report > "${GOPATH}"/out/tests/junit.xml)
 else
   # Upload to codecov.io in post submit only for visualization
-  bash <(curl -s https://codecov.io/bash) -f /go/out/codecov/pr/coverage.cov
+  bash <(curl -s https://codecov.io/bash) -f "${GOPATH}/out/codecov/pr/coverage.cov"
 fi
 

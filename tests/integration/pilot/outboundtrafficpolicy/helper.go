@@ -162,21 +162,24 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 			}
 			for _, tc := range cases {
 				t.Run(tc.name, func(t *testing.T) {
-					resp, err := client.Call(echo.CallOptions{
-						Target:   dest,
-						PortName: tc.portName,
-						Scheme:   scheme.HTTP,
-					})
-					if err != nil && len(expected[tc.portName]) != 0 {
-						t.Fatalf("request failed: %v", err)
-					}
-					codes := make([]string, 0, len(resp))
-					for _, r := range resp {
-						codes = append(codes, r.Code)
-					}
-					if !reflect.DeepEqual(codes, expected[tc.portName]) {
-						t.Errorf("got codes %v, expected %v", codes, expected[tc.portName])
-					}
+					retry.UntilSuccessOrFail(t, func() error {
+						resp, err := client.Call(echo.CallOptions{
+							Target:   dest,
+							PortName: tc.portName,
+							Scheme:   scheme.HTTP,
+						})
+						if err != nil && len(expected[tc.portName]) != 0 {
+							return fmt.Errorf("request failed: %v", err)
+						}
+						codes := make([]string, 0, len(resp))
+						for _, r := range resp {
+							codes = append(codes, r.Code)
+						}
+						if !reflect.DeepEqual(codes, expected[tc.portName]) {
+							return fmt.Errorf("got codes %v, expected %v", codes, expected[tc.portName])
+						}
+						return nil
+					}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 				})
 			}
 		})

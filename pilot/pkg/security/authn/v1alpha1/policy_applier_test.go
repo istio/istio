@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/proto"
 )
 
@@ -643,12 +644,12 @@ func TestOnInboundFilterChains(t *testing.T) {
 					TLSContext: &auth.DownstreamTlsContext{
 						CommonTlsContext: &auth.CommonTlsContext{
 							TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
-								constructSDSConfig(model.SDSDefaultResourceName, "/tmp/sdsuds.sock"),
+								constructSDSConfig(authn_model.SDSDefaultResourceName, "/tmp/sdsuds.sock"),
 							},
 							ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
 								CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 									DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
-									ValidationContextSdsSecretConfig: constructSDSConfig(model.SDSRootResourceName, "/tmp/sdsuds.sock"),
+									ValidationContextSdsSecretConfig: constructSDSConfig(authn_model.SDSRootResourceName, "/tmp/sdsuds.sock"),
 								},
 							},
 							AlpnProtocols: []string{"h2", "http/1.1"},
@@ -738,7 +739,7 @@ func constructSDSConfig(name, sdsudspath string) *auth.SdsSecretConfig {
 							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 								GoogleGrpc: &core.GrpcService_GoogleGrpc{
 									TargetUri:  sdsudspath,
-									StatPrefix: model.SDSStatPrefix,
+									StatPrefix: authn_model.SDSStatPrefix,
 									ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
 										CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
 											LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},

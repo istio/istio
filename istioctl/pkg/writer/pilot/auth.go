@@ -15,7 +15,6 @@
 package pilot
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
@@ -29,14 +28,7 @@ type TLSCheckWriter struct {
 	Writer io.Writer
 }
 
-func (t *TLSCheckWriter) setupTLSCheckPrint(authDebug []byte) (*tabwriter.Writer, []v2.AuthenticationDebug, error) {
-	var dat []v2.AuthenticationDebug
-	if err := json.Unmarshal(authDebug, &dat); err != nil {
-		return nil, nil, err
-	}
-	if len(dat) < 1 {
-		return nil, nil, fmt.Errorf("nothing to output")
-	}
+func (t *TLSCheckWriter) setupTLSCheckPrint(dat []v2.AuthenticationDebug) (*tabwriter.Writer, []v2.AuthenticationDebug) {
 	sort.Slice(dat, func(i, j int) bool {
 		if dat[i].Host == dat[j].Host {
 			return dat[i].Port < dat[j].Port
@@ -45,15 +37,12 @@ func (t *TLSCheckWriter) setupTLSCheckPrint(authDebug []byte) (*tabwriter.Writer
 	})
 	w := new(tabwriter.Writer).Init(t.Writer, 0, 8, 5, ' ', 0)
 	fmt.Fprintln(w, "HOST:PORT\tSTATUS\tSERVER\tCLIENT\tAUTHN POLICY\tDESTINATION RULE")
-	return w, dat, nil
+	return w, dat
 }
 
 // PrintAll takes a Pilot authenticationz response and outputs them using a tabwriter
-func (t *TLSCheckWriter) PrintAll(authDebug []byte) error {
-	w, fullAuth, err := t.setupTLSCheckPrint(authDebug)
-	if err != nil {
-		return err
-	}
+func (t *TLSCheckWriter) PrintAll(dat []v2.AuthenticationDebug) error {
+	w, fullAuth := t.setupTLSCheckPrint(dat)
 	for _, entry := range fullAuth {
 		tlsCheckPrintln(w, entry)
 	}
@@ -61,11 +50,8 @@ func (t *TLSCheckWriter) PrintAll(authDebug []byte) error {
 }
 
 // PrintSingle takes a Pilot authenticationz response and outputs them using a tabwriter filtering for a specific service
-func (t *TLSCheckWriter) PrintSingle(authDebug []byte, service string) error {
-	w, fullAuth, err := t.setupTLSCheckPrint(authDebug)
-	if err != nil {
-		return err
-	}
+func (t *TLSCheckWriter) PrintSingle(dat []v2.AuthenticationDebug, service string) error {
+	w, fullAuth := t.setupTLSCheckPrint(dat)
 	for _, entry := range fullAuth {
 		if entry.Host == service {
 			tlsCheckPrintln(w, entry)

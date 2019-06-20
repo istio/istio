@@ -40,6 +40,10 @@ import (
 	"istio.io/pkg/log"
 )
 
+var (
+	cacheLog = log.RegisterScope("cacheLog", "cache debugging", 0)
+)
+
 const (
 	// The size of a private key for a leaf certificate.
 	keySize = 2048
@@ -162,8 +166,9 @@ type SecretCache struct {
 	// close channel.
 	closing chan bool
 
-	rootCertMutex *sync.Mutex
-	rootCert      []byte
+	rootCertMutex      *sync.Mutex
+	rootCert           []byte
+	rootCertExpireTime time.Time
 }
 
 // NewSecretCache creates a new secret cache.
@@ -197,13 +202,15 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		ResourceName: resourceName,
 	}
 
+	conIDresourceNamePrefix := cacheLogPrefix(connectionID, resourceName)
 	if resourceName != RootCertReqResourceName {
 		// If working as Citadel agent, send request for normal key/cert pair.
 		// If working as ingress gateway agent, fetch key/cert or root cert from SecretFetcher. Resource name for
 		// root cert ends with "-cacert".
 		ns, err := sc.generateSecret(ctx, token, resourceName, time.Now())
 		if err != nil {
-			log.Errorf("Failed to generate secret for proxy %q: %v", connectionID, err)
+			cacheLog.Errorf("%s failed to generate secret for proxy: %v",
+				conIDresourceNamePrefix, err)
 			return nil, err
 		}
 
@@ -227,7 +234,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	}
 
 	if sc.rootCert == nil {
-		log.Errorf("Failed to get root cert for proxy %q", connectionID)
+		cacheLog.Errorf("%s failed to get root cert for proxy", conIDresourceNamePrefix)
 		return nil, errors.New("failed to get root cert")
 
 	}
@@ -236,11 +243,13 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	ns = &model.SecretItem{
 		ResourceName: resourceName,
 		RootCert:     sc.rootCert,
+		ExpireTime:   sc.rootCertExpireTime,
 		Token:        token,
 		CreatedTime:  t,
 		Version:      t.String(),
 	}
 	sc.secrets.Store(key, *ns)
+	cacheLog.Debugf("%s successfully generate secret for proxy", conIDresourceNamePrefix)
 	return ns, nil
 }
 
@@ -285,13 +294,16 @@ func (sc *SecretCache) ShouldWaitForIngressGatewaySecret(connectionID, resourceN
 		sc.secrets.Store(key, *dummySecret)
 	}
 
+	conIDresourceNamePrefix := cacheLogPrefix(connectionID, resourceName)
 	// If node agent works as ingress gateway agent, searches for kubernetes secret and verify secret
 	// is not empty.
-	log.Debugf("SecretCache Calling SecretFetcher to search for secret %s", resourceName)
+	cacheLog.Debugf("%s calling SecretFetcher to search for secret %s",
+		conIDresourceNamePrefix, resourceName)
 	_, exist := sc.fetcher.FindIngressGatewaySecret(resourceName)
 	// If kubernetes secret does not exist, need to wait for secret.
 	if !exist {
-		log.Warnf("SecretFetcher cannot find secret %s for SecretCache", resourceName)
+		cacheLog.Warnf("%s SecretFetcher cannot find secret %s from cache",
+			conIDresourceNamePrefix, resourceName)
 		return true
 	}
 
@@ -309,21 +321,23 @@ func (sc *SecretCache) DeleteSecret(connectionID, resourceName string) {
 
 func (sc *SecretCache) callbackWithTimeout(connectionID string, secretName string, secret *model.SecretItem) {
 	c := make(chan struct{})
+	conIDresourceNamePrefix := cacheLogPrefix(connectionID, secretName)
 	go func() {
 		defer close(c)
 		if sc.notifyCallback != nil {
 			if err := sc.notifyCallback(connectionID, secretName, secret); err != nil {
-				log.Errorf("Failed to notify secret change for proxy %q: %v", connectionID, err)
+				cacheLog.Errorf("%s failed to notify secret change for proxy: %v",
+					conIDresourceNamePrefix, err)
 			}
 		} else {
-			log.Warnf("secret cache notify callback isn't set")
+			cacheLog.Warnf("%s secret cache notify callback isn't set", conIDresourceNamePrefix)
 		}
 	}()
 	select {
 	case <-c:
 		return // completed normally
 	case <-time.After(notifyK8sSecretTimeout):
-		log.Warnf("Notify secret change for proxy %q got timeout", connectionID)
+		cacheLog.Warnf("%s notify secret change for proxy got timeout", conIDresourceNamePrefix)
 	}
 }
 
@@ -357,6 +371,8 @@ func (sc *SecretCache) DeleteK8sSecret(secretName string) {
 		if key.ResourceName == secretName {
 			connectionID := key.ConnectionID
 			sc.secrets.Delete(key)
+			conIDresourceNamePrefix := cacheLogPrefix(connectionID, secretName)
+			cacheLog.Debugf("%s secret cache is deleted", conIDresourceNamePrefix)
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -405,6 +421,8 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 					}
 				}
 				secretMap.Store(key, newSecret)
+				conIDresourceNamePrefix := cacheLogPrefix(connectionID, secretName)
+				cacheLog.Debugf("%s secret cache is updated", conIDresourceNamePrefix)
 				sc.callbackWithTimeout(connectionID, secretName, newSecret)
 			}()
 			// Currently only one ingress gateway is running, therefore there is at most one cache entry.
@@ -430,7 +448,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		return
 	}
 
-	log.Debug("Refresh job running")
+	cacheLog.Debug("Refresh job running")
 
 	var secretMap sync.Map
 	wg := sync.WaitGroup{}
@@ -439,6 +457,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		e := v.(model.SecretItem)
 		connectionID := key.ConnectionID
 		resourceName := key.ResourceName
+		conIDresourceNamePrefix := cacheLogPrefix(connectionID, resourceName)
 
 		// only refresh root cert if updateRootFlag is set to true.
 		if updateRootFlag {
@@ -451,11 +470,13 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			ns := &model.SecretItem{
 				ResourceName: resourceName,
 				RootCert:     sc.rootCert,
+				ExpireTime:   sc.rootCertExpireTime,
 				Token:        e.Token,
 				CreatedTime:  t,
 				Version:      t.String(),
 			}
 			secretMap.Store(key, ns)
+			cacheLog.Debugf("%s secret cache is updated", conIDresourceNamePrefix)
 			sc.callbackWithTimeout(connectionID, resourceName, ns)
 
 			return true
@@ -480,7 +501,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 
 			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
 			if sc.isTokenExpired() {
-				log.Debugf("Token for %q expired for proxy %q", resourceName, connectionID)
+				cacheLog.Debugf("%s token expired", conIDresourceNamePrefix)
 
 				sc.callbackWithTimeout(key.ConnectionID, key.ResourceName, nil /*nil indicates close the streaming connection to proxy*/)
 
@@ -490,19 +511,19 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				log.Debugf("Token for %q is still valid for proxy %q, use it to generate key/cert", resourceName, connectionID)
+				cacheLog.Debugf("%s token is still valid, reuse token to generate key/cert", conIDresourceNamePrefix)
 
 				// If token is still valid, re-generated the secret and push change to proxy.
 				// Most likey this code path may not necessary, since TTL of cert is much longer than token.
 				// When cert has expired, we could make it simple by assuming token has already expired.
 				ns, err := sc.generateSecret(context.Background(), e.Token, resourceName, now)
 				if err != nil {
-					log.Errorf("Failed to generate secret for proxy %q: %v", connectionID, err)
+					cacheLog.Errorf("%s failed to rotate secret: %v", conIDresourceNamePrefix, err)
 					return
 				}
 
 				secretMap.Store(key, ns)
-
+				cacheLog.Debugf("%s secret cache is updated", conIDresourceNamePrefix)
 				sc.callbackWithTimeout(connectionID, key.ResourceName, ns)
 
 			}()
@@ -521,32 +542,49 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 	})
 }
 
+// generateGatewaySecret returns secret for ingress gateway proxy.
+func (sc *SecretCache) generateGatewaySecret(token, resourceName string, t time.Time) (*model.SecretItem, error) {
+	secretItem, exist := sc.fetcher.FindIngressGatewaySecret(resourceName)
+	if !exist {
+		return nil, fmt.Errorf("cannot find secret %s for ingress gateway", resourceName)
+	}
+
+	if strings.HasSuffix(resourceName, secretfetcher.IngressGatewaySdsCaSuffix) {
+		certExpireTime, err := parseCertAndGetExpiryTimestamp(secretItem.RootCert)
+		if err != nil {
+			cacheLog.Warnf("ingress gateway secret %v contains a certificate that fails to parse: %v",
+				resourceName, err)
+		}
+		return &model.SecretItem{
+			ResourceName: resourceName,
+			RootCert:     secretItem.RootCert,
+			ExpireTime:   certExpireTime,
+			Token:        token,
+			CreatedTime:  t,
+			Version:      t.String(),
+		}, nil
+	}
+	certExpireTime, err := parseCertAndGetExpiryTimestamp(secretItem.CertificateChain)
+	if err != nil {
+		cacheLog.Warnf("ingress gateway secret %v contains a certificate that fails to parse: %v",
+			resourceName, err)
+	}
+	return &model.SecretItem{
+		CertificateChain: secretItem.CertificateChain,
+		ExpireTime:       certExpireTime,
+		PrivateKey:       secretItem.PrivateKey,
+		ResourceName:     resourceName,
+		Token:            token,
+		CreatedTime:      t,
+		Version:          t.String(),
+	}, nil
+}
+
 func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName string, t time.Time) (*model.SecretItem, error) {
 	// If node agent works as ingress gateway agent, searches for kubernetes secret instead of sending
 	// CSR to CA.
 	if !sc.fetcher.UseCaClient {
-		secretItem, exist := sc.fetcher.FindIngressGatewaySecret(resourceName)
-		if !exist {
-			return nil, fmt.Errorf("cannot find secret %s for ingress gateway", resourceName)
-		}
-
-		if strings.HasSuffix(resourceName, secretfetcher.IngressGatewaySdsCaSuffix) {
-			return &model.SecretItem{
-				ResourceName: resourceName,
-				RootCert:     secretItem.RootCert,
-				Token:        token,
-				CreatedTime:  t,
-				Version:      t.String(),
-			}, nil
-		}
-		return &model.SecretItem{
-			CertificateChain: secretItem.CertificateChain,
-			PrivateKey:       secretItem.PrivateKey,
-			ResourceName:     resourceName,
-			Token:            token,
-			CreatedTime:      t,
-			Version:          t.String(),
-		}, nil
+		return sc.generateGatewaySecret(token, resourceName, t)
 	}
 
 	// call authentication provider specific plugins to exchange token if necessary.
@@ -556,7 +594,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		for _, p := range sc.configOptions.Plugins {
 			exchangedToken, _, err = p.ExchangeToken(ctx, sc.configOptions.TrustDomain, exchangedToken)
 			if err != nil {
-				log.Errorf("failed to exchange token: %v", err)
+				cacheLog.Errorf("failed to exchange token: %v", err)
 				return nil, err
 			}
 		}
@@ -566,7 +604,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	// otherwise just use sdsrequest.resourceName as csr host name.
 	csrHostName, err := constructCSRHostName(sc.configOptions.TrustDomain, token)
 	if err != nil {
-		log.Warnf("failed to extract host name from jwt: %v, fallback to SDS request resource name", err)
+		cacheLog.Warnf("failed to extract host name from jwt: %v, fallback to SDS request resource name", err)
 		csrHostName = resourceName
 	}
 	options := util.CertOptions{
@@ -577,12 +615,12 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	// Generate the cert/key, send CSR to CA.
 	csrPEM, keyPEM, err := util.GenCSR(options)
 	if err != nil {
-		log.Errorf("Failed to generated key cert for %q: %v", resourceName, err)
+		cacheLog.Errorf("Failed to generated key cert for %q: %v", resourceName, err)
 		return nil, err
 	}
 
 	backOffInMilliSec := rand.Int63n(sc.configOptions.InitialBackoff)
-	log.Debugf("Wait for %d millisec for initial CSR", backOffInMilliSec)
+	cacheLog.Debugf("Wait for %d millisec for initial CSR", backOffInMilliSec)
 	// Add a jitter to initial CSR to avoid thundering herd problem.
 	time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
 	startTime := time.Now()
@@ -597,45 +635,39 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 
 		// If non-retryable error, fail the request by returning err
 		if !isRetryableErr(status.Code(err)) {
-			log.Errorf("CSR for %q hit non-retryable error %v", resourceName, err)
+			cacheLog.Errorf("CSR for %q hit non-retryable error %v", resourceName, err)
 			return nil, err
 		}
 
 		// If reach envoy timeout, fail the request by returning err
 		if startTime.Add(time.Millisecond * envoyDefaultTimeoutInMilliSec).Before(time.Now()) {
-			log.Errorf("CSR retry timeout for %q: %v", resourceName, err)
+			cacheLog.Errorf("CSR retry timeout for %q: %v", resourceName, err)
 			return nil, err
 		}
 
 		retry++
 		backOffInMilliSec = rand.Int63n(retry * initialBackOffIntervalInMilliSec)
 		time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
-		log.Warnf("CSR failed for %q: %v, retry in %d millisec", resourceName, err, backOffInMilliSec)
+		cacheLog.Warnf("CSR failed for %q: %v, retry in %d millisec", resourceName, err, backOffInMilliSec)
 	}
 
-	log.Debugf("CSR response certificate chain %+v \n", certChainPEM)
+	cacheLog.Debugf("CSR response certificate chain %+v \n", certChainPEM)
 
 	certChain := []byte{}
 	for _, c := range certChainPEM {
 		certChain = append(certChain, []byte(c)...)
 	}
 
-	// Cert exipre time by default is createTime + sc.configOptions.SecretTTL.
+	// Cert expire time by default is createTime + sc.configOptions.SecretTTL.
 	// Citadel respects SecretTTL that passed to it and use it decide TTL of cert it issued.
 	// Some customer CA may override TTL param that's passed to it.
 	expireTime := t.Add(sc.configOptions.SecretTTL)
 	if !sc.configOptions.SkipValidateCert {
-		block, _ := pem.Decode(certChain)
-		if block == nil {
-			log.Errorf("Failed to decode certificate %+v for %q", certChainPEM, resourceName)
-			return nil, errors.New("failed to decode certificate")
+		if expireTime, err = parseCertAndGetExpiryTimestamp(certChain); err != nil {
+			cacheLog.Errorf("Failed to extract expire time from certificate %+v for resource "+
+				"%q: %v", certChainPEM, resourceName, err)
+			return nil, fmt.Errorf("failed to extract expiry timestamp from server certificate: %v", err)
 		}
-		cert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			log.Errorf("Failed to parse certificate %+v for %q: %v", certChainPEM, resourceName, err)
-			return nil, errors.New("failed to parse certificate")
-		}
-		expireTime = cert.NotAfter
 	}
 
 	length := len(certChainPEM)
@@ -643,12 +675,19 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	rootCertChanged := !bytes.Equal(sc.rootCert, []byte(certChainPEM[length-1]))
 	if sc.rootCert == nil || rootCertChanged {
 		sc.rootCertMutex.Lock()
-		sc.rootCert = []byte(certChainPEM[length-1])
+		rootCertExpireTime, err := parseCertAndGetExpiryTimestamp([]byte(certChainPEM[length-1]))
+		if sc.configOptions.SkipValidateCert || err == nil {
+			sc.rootCert = []byte(certChainPEM[length-1])
+			sc.rootCertExpireTime = rootCertExpireTime
+		} else {
+			cacheLog.Errorf("Failed to parse root certificate: %v", err)
+			rootCertChanged = false
+		}
 		sc.rootCertMutex.Unlock()
 	}
 
 	if rootCertChanged {
-		log.Info("Root cert has changed")
+		cacheLog.Info("Root cert has changed")
 		sc.rotate(true /*updateRootFlag*/)
 	}
 
@@ -661,6 +700,22 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		ExpireTime:       expireTime,
 		Version:          t.String(),
 	}, nil
+}
+
+// parseCertAndGetExpiryTimestamp parses certificate and returns cert expire time, or return error
+// if fails to parse certificate.
+func parseCertAndGetExpiryTimestamp(certByte []byte) (time.Time, error) {
+	block, _ := pem.Decode(certByte)
+	if block == nil {
+		cacheLog.Errorf("Failed to decode certificate")
+		return time.Time{}, fmt.Errorf("failed to decode certificate")
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		cacheLog.Errorf("Failed to parse certificate: %v", err)
+		return time.Time{}, fmt.Errorf("failed to parse certificate: %v", err)
+	}
+	return cert.NotAfter, nil
 }
 
 func (sc *SecretCache) shouldRefresh(s *model.SecretItem) bool {
@@ -724,4 +779,10 @@ func isRetryableErr(c codes.Code) bool {
 		return true
 	}
 	return false
+}
+
+// cacheLogPrefix returns a unified log prefix.
+func cacheLogPrefix(conID, resourceName string) string {
+	lPrefix := fmt.Sprintf("CONNECTION ID: %s, RESOURCE NAME: %s, EVENT:", conID, resourceName)
+	return lPrefix
 }

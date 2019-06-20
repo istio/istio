@@ -111,7 +111,7 @@ func ValidatePort(port int) error {
 	return fmt.Errorf("port number %d must be in the range 1..65535", port)
 }
 
-// ValidatePort checks if all ports are in range [0, 65535]
+// ValidatePorts checks if all ports are in range [0, 65535]
 func ValidatePorts(ports []int32) bool {
 	for _, port := range ports {
 		if ValidatePort(int(port)) != nil {
@@ -1239,6 +1239,10 @@ func ValidateMixerAttributes(msg proto.Message) error {
 	}
 	var errs error
 	for k, v := range in.Attributes {
+		if v == nil {
+			errs = multierror.Append(errs, errors.New("an attribute cannot be empty"))
+			continue
+		}
 		switch val := v.Value.(type) {
 		case *mpb.Attributes_AttributeValue_StringValue:
 			if val.StringValue == "" {
@@ -1371,6 +1375,10 @@ func ValidateQuotaSpec(_, _ string, msg proto.Message) error {
 	for _, rule := range in.Rules {
 		for _, match := range rule.Match {
 			for name, clause := range match.Clause {
+				if clause == nil {
+					errs = multierror.Append(errs, errors.New("a clause cannot be empty"))
+					continue
+				}
 				switch matchType := clause.MatchType.(type) {
 				case *mccpb.StringMatch_Exact:
 					if matchType.Exact == "" {
@@ -1477,6 +1485,14 @@ func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) err
 		}
 	}
 	for _, method := range in.Origins {
+		if method == nil {
+			errs = multierror.Append(errs, errors.New("origin cannot be empty"))
+			continue
+		}
+		if method.Jwt == nil {
+			errs = multierror.Append(errs, errors.New("jwt cannot be empty"))
+			continue
+		}
 		if _, jwtExist := jwtIssuers[method.Jwt.Issuer]; jwtExist {
 			errs = appendErrors(errs, fmt.Errorf("jwt with issuer %q already defined", method.Jwt.Issuer))
 		} else {
@@ -1548,7 +1564,7 @@ func hasExistingFirstClassFieldInRole(constraintKey string, rule *rbac.AccessRul
 	return false
 }
 
-// ValidateServiceRoleBinding checks that ServiceRoleBinding is well-formed.
+// checkServiceRoleBinding checks that ServiceRoleBinding is well-formed.
 func checkServiceRoleBinding(in *rbac.ServiceRoleBinding) error {
 	var errs error
 	if len(in.Subjects) == 0 {
@@ -1827,6 +1843,9 @@ func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualServi
 	for _, match := range tls.Match {
 		errs = appendErrors(errs, validateTLSMatch(match, context))
 	}
+	if len(tls.Route) == 0 {
+		errs = appendErrors(errs, errors.New("TLS route is required"))
+	}
 	errs = appendErrors(errs, validateRouteDestinations(tls.Route))
 	return
 }
@@ -1878,6 +1897,9 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 	}
 	for _, match := range tcp.Match {
 		errs = appendErrors(errs, validateTCPMatch(match))
+	}
+	if len(tcp.Route) == 0 {
+		errs = appendErrors(errs, errors.New("TCP route is required"))
 	}
 	errs = appendErrors(errs, validateRouteDestinations(tcp.Route))
 	return
@@ -2262,9 +2284,14 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 		return
 	}
 
-	if retries.Attempts <= 0 {
-		errs = multierror.Append(errs, errors.New("attempts must be positive"))
+	if retries.Attempts < 0 {
+		errs = multierror.Append(errs, errors.New("attempts cannot be negative"))
 	}
+
+	if retries.Attempts == 0 && (retries.PerTryTimeout != nil || retries.RetryOn != "") {
+		errs = appendErrors(errs, errors.New("http retry policy configured when attempts are set to 0 (disabled)"))
+	}
+
 	if retries.PerTryTimeout != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(retries.PerTryTimeout))
 	}

@@ -41,12 +41,14 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 //
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
-// kind: rbac
+// kind: handler
 // metadata:
 //   name: rbachandler
 //   namespace: istio-system
 // spec:
-//   config_store_url: "fs:///tmp/testdata/config"
+//   compiledAdapter: rbac
+//   params:
+//     config_store_url: "fs:///tmp/testdata/config"
 // ```
 type Params struct {
 	// URL for the config store. It is used to initiate a new Store instance.

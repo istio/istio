@@ -26,6 +26,8 @@ import (
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -35,10 +37,15 @@ var _ Instance = &nativeComponent{}
 var _ io.Closer = &nativeComponent{}
 var _ Native = &nativeComponent{}
 
+var (
+	pilotCertDir = env.IstioSrc + "/tests/testdata/certs/pilot"
+)
+
 // Native is the interface for an native pilot server.
 type Native interface {
 	Instance
 	GetDiscoveryAddress() *net.TCPAddr
+	GetSecureDiscoveryAddress() *net.TCPAddr
 }
 
 type nativeComponent struct {
@@ -57,7 +64,7 @@ func newNative(ctx resource.Context, config Config) (Instance, error) {
 		return nil, errors.New("galley must be provided")
 	}
 
-	env := ctx.Environment().(*native.Environment)
+	e := ctx.Environment().(*native.Environment)
 	instance := &nativeComponent{
 		environment: ctx.Environment().(*native.Environment),
 		stopChan:    make(chan struct{}),
@@ -65,12 +72,16 @@ func newNative(ctx resource.Context, config Config) (Instance, error) {
 	}
 	instance.id = ctx.TrackResource(instance)
 
+	// Override the default pilot cert dir.
+	// TODO(nmittler): We should eventually replace this hack.
+	bootstrap.PilotCertDir = pilotCertDir
+
 	// Dynamically assign all ports.
 	options := envoy.DiscoveryServiceOptions{
 		HTTPAddr:       ":0",
 		MonitoringAddr: ":0",
 		GrpcAddr:       ":0",
-		SecureGrpcAddr: "",
+		SecureGrpcAddr: ":0",
 	}
 
 	tmpMesh := model.DefaultMeshConfig()
@@ -80,9 +91,14 @@ func newNative(ctx resource.Context, config Config) (Instance, error) {
 	}
 
 	bootstrapArgs := bootstrap.PilotArgs{
-		Namespace:        env.SystemNamespace,
+		Namespace:        e.SystemNamespace,
 		DiscoveryOptions: options,
-		MeshConfig:       mesh,
+		Config: bootstrap.ConfigArgs{
+			ControllerOptions: controller.Options{
+				DomainSuffix: e.Domain,
+			},
+		},
+		MeshConfig: mesh,
 		// Use the config store for service entries as well.
 		Service: bootstrap.ServiceArgs{
 			// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
@@ -144,4 +160,9 @@ func (c *nativeComponent) Close() (err error) {
 // GetDiscoveryAddress gets the discovery address for pilot.
 func (c *nativeComponent) GetDiscoveryAddress() *net.TCPAddr {
 	return c.server.GRPCListeningAddr.(*net.TCPAddr)
+}
+
+// GetSecureDiscoveryAddress gets the discovery address for pilot.
+func (c *nativeComponent) GetSecureDiscoveryAddress() *net.TCPAddr {
+	return c.server.SecureGRPCListeningAddr.(*net.TCPAddr)
 }

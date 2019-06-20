@@ -92,7 +92,4 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["nodeagent.env.VAULT_ROLE"] = "istio-cert"
 	cfg.Values["nodeagent.env.VAULT_SIGN_CSR_PATH"] = "istio_ca/sign/istio-pki-role"
 	cfg.Values["nodeagent.env.VAULT_TLS_ROOT_CERT"] = tlsRootCert
-
-	// TODO(https://github.com/istio/istio/issues/14084) remove this
-	cfg.Values["pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE"] = "0"
 }

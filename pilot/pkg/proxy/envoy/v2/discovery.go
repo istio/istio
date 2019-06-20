@@ -19,8 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
@@ -29,7 +27,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/features/pilot"
 )
 
@@ -92,7 +91,7 @@ type DiscoveryServer struct {
 	ConfigController model.ConfigStoreCache
 
 	// KubeController provides readiness info (if initial sync is complete)
-	KubeController *kube.Controller
+	KubeController *controller.Controller
 
 	// rate limiter for sending updates during full ads push.
 	rateLimiter *rate.Limiter
@@ -175,7 +174,7 @@ func NewDiscoveryServer(
 	env *model.Environment,
 	generator core.ConfigGenerator,
 	ctl model.Controller,
-	kuebController *kube.Controller,
+	kuebController *controller.Controller,
 	configCache model.ConfigStoreCache) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                     env,
@@ -202,7 +201,7 @@ func NewDiscoveryServer(
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
-	model.JwtKeyResolver.PushFunc = out.ClearCache
+	authn_model.JwtKeyResolver.PushFunc = out.ClearCache
 
 	if configCache != nil {
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
@@ -372,7 +371,7 @@ func (s *DiscoveryServer) clearCache() {
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 // It replaces the 'clear cache' from v1.
 func (s *DiscoveryServer) ConfigUpdate(full bool) {
-	inboundUpdates.With(prometheus.Labels{"type": "config"}).Add(1)
+	inboundConfigUpdates.Add(1)
 	s.updateChannel <- &updateReq{full: full}
 }
 

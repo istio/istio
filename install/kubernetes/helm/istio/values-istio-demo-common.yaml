@@ -12,12 +12,12 @@ global:
 
   disablePolicyChecks: false
 
-  sidecarInjectorWebhook:
-    enabled: true
-    # If true, webhook or istioctl injector will rewrite PodSpec for liveness
-    # health check to redirect request to sidecar. This makes liveness check work
-    # even when mTLS is enabled.
-    rewriteAppHTTPProbe: false
+sidecarInjectorWebhook:
+  enabled: true
+  # If true, webhook or istioctl injector will rewrite PodSpec for liveness
+  # health check to redirect request to sidecar. This makes liveness check work
+  # even when mTLS is enabled.
+  rewriteAppHTTPProbe: false
 
 pilot:
   traceSampling: 100.0
@@ -25,9 +25,6 @@ pilot:
     requests:
       cpu: 10m
       memory: 100Mi
-    limits:
-      cpu: 100m
-      memory: 200Mi
 
 mixer:
   policy:
@@ -36,18 +33,12 @@ mixer:
       requests:
         cpu: 10m
         memory: 100Mi
-      limits:
-        cpu: 100m
-        memory: 100Mi
 
   telemetry:
     enabled: true
     resources:
       requests:
         cpu: 50m
-        memory: 100Mi
-      limits:
-        cpu: 100m
         memory: 100Mi
  
   adapters:
@@ -70,9 +61,6 @@ gateways:
       requests:
         cpu: 10m
         memory: 40Mi
-      limits:
-        cpu: 100m
-        memory: 128Mi
 
   istio-egressgateway:
     enabled: true
@@ -80,6 +68,3 @@ gateways:
       requests:
         cpu: 10m
         memory: 40Mi
-      limits:
-        cpu: 100m
-        memory: 128Mi

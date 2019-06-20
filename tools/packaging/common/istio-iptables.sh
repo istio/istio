@@ -52,8 +52,6 @@ function usage() {
   echo '  -t: Unit testing, only functions are loaded and no other instructions are executed.'
   # shellcheck disable=SC2016
   echo ''
-  # shellcheck disable=SC2016
-  echo 'Using environment variables in $ISTIO_SIDECAR_CONFIG (default: /var/lib/istio/envoy/sidecar.env)'
 }
 
 function dump {
@@ -119,21 +117,6 @@ function isIPv6() {
 
 # Use a comma as the separator for multi-value arguments.
 IFS=,
-
-# The cluster env can be used for common cluster settings, pushed to all VMs in the cluster.
-# This allows separating per-machine settings (the list of inbound ports, local path overrides) from cluster wide
-# settings (CIDR range)
-ISTIO_CLUSTER_CONFIG=${ISTIO_CLUSTER_CONFIG:-/var/lib/istio/envoy/cluster.env}
-if [ -r "${ISTIO_CLUSTER_CONFIG}" ]; then
-  # shellcheck disable=SC1090
-  . "${ISTIO_CLUSTER_CONFIG}"
-fi
-
-ISTIO_SIDECAR_CONFIG=${ISTIO_SIDECAR_CONFIG:-/var/lib/istio/envoy/sidecar.env}
-if [ -r "${ISTIO_SIDECAR_CONFIG}" ]; then
-  # shellcheck disable=SC1090
-  . "${ISTIO_SIDECAR_CONFIG}"
-fi
 
 # TODO: load all files from a directory, similar with ufw, to make it easier for automated install scripts
 # Ideally we should generate ufw (and similar) configs as well, in case user already has an iptables solution.

@@ -516,6 +516,47 @@ func TestHostnamesSortOrder(t *testing.T) {
 	}
 }
 
+func BenchmarkParseSubsetKey(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		ParseSubsetKey("outbound|80|v1|example.com")
+		ParseSubsetKey("outbound_.8080_.v1_.foo.example.org")
+	}
+}
+
+func TestParseSubsetKey(t *testing.T) {
+	tests := []struct {
+		input      string
+		direction  TrafficDirection
+		subsetName string
+		hostname   Hostname
+		port       int
+	}{
+		{"outbound|80|v1|example.com", TrafficDirectionOutbound, "v1", "example.com", 80},
+		{"", "", "", "", 0},
+		{"|||", "", "", "", 0},
+		{"outbound_.8080_.v1_.foo.example.org", TrafficDirectionOutbound, "v1", "foo.example.org", 8080},
+		{"inbound_.8080_.v1_.foo.example.org", TrafficDirectionInbound, "v1", "foo.example.org", 8080},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			d, s, h, p := ParseSubsetKey(tt.input)
+			if d != tt.direction {
+				t.Errorf("Expected direction %v got %v", tt.direction, d)
+			}
+			if s != tt.subsetName {
+				t.Errorf("Expected subset %v got %v", tt.subsetName, s)
+			}
+			if h != tt.hostname {
+				t.Errorf("Expected hostname %v got %v", tt.hostname, h)
+			}
+			if p != tt.port {
+				t.Errorf("Expected direction %v got %v", tt.port, p)
+			}
+		})
+	}
+}
+
 func BenchmarkSort(b *testing.B) {
 	unsorted := Hostnames{"foo.com", "bar.com", "*.com", "*.foo.com", "*", "baz.bar.com"}
 
