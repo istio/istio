@@ -62,7 +62,7 @@ const (
 
 var (
 	// TODO: Remove after fully migrate to Envoy JWT filter.
-	useEnvoyJWTFilterEnv = env.RegisterBoolVar("AUTHN_USE_ENVOY_JWT_FILTER", false,
+	useEnvoyJWTFilterEnv = env.RegisterBoolVar("AUTHN_USE_ENVOY_JWT_FILTER", true,
 		"Use the Envoy JWT filter instead of Istio JWT filter for JWT verification")
 )
 
