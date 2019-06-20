@@ -120,7 +120,7 @@ func (s *Store) checkAndCreateCaches(
 
 	resources, err := d.ServerResourcesForGroupVersion(groupVersion)
 	if err != nil {
-		log.Debugf("Failed to obtain resources for CRD: %v", err)
+		log.Warnf("Failed to obtain resources for CRD: %v", err)
 		return kinds
 	}
 	s.cacheMutex.Lock()
@@ -129,6 +129,8 @@ func (s *Store) checkAndCreateCaches(
 			continue
 		}
 		if _, ok := kindsSet[res.Kind]; ok {
+			res.Group = ConfigAPIGroup
+			res.Version = ConfigAPIVersion
 			cl := lwBuilder.build(res)
 			informer := cache.NewSharedInformer(
 				&cache.ListWatch{
