@@ -88,8 +88,8 @@ INT_FLAGS ?= \
 	--istio.test.ci \
 	--istio.test.nocleanup \
 	--istio.test.kube.deploy=false \
-	--istio.test.kube.systemNamespace ${ISTIO_CONTROL_NS} \
-	--istio.test.kube.istioNamespace ${ISTIO_CONTROL_NS} \
+	--istio.test.kube.systemNamespace ${ISTIO_SYSTEM_NS} \
+	--istio.test.kube.istioNamespace ${ISTIO_SYSTEM_NS} \
 	--istio.test.kube.configNamespace ${ISTIO_CONTROL_NS} \
 	--istio.test.kube.telemetryNamespace ${ISTIO_TELEMETRY_NS} \
 	--istio.test.kube.policyNamespace ${ISTIO_POLICY_NS} \
