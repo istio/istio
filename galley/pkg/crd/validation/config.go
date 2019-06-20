@@ -187,6 +187,10 @@ func rebuildWebhookConfigHelper(
 		if webhookConfig.Webhooks[i].NamespaceSelector == nil {
 			webhookConfig.Webhooks[i].NamespaceSelector = &metav1.LabelSelector{}
 		}
+		if webhookConfig.Webhooks[i].SideEffects == nil {
+			sideEffects := v1beta1.SideEffectClassNoneOnDryRun
+			webhookConfig.Webhooks[i].SideEffects = &sideEffects
+		}
 	}
 
 	// the webhook name is fixed at startup time

@@ -36,6 +36,8 @@ import (
 var (
 	failurePolicyFailVal = admissionregistrationv1beta1.Fail
 	failurePolicyFail    = &failurePolicyFailVal
+	sideEffectsVal       = admissionregistrationv1beta1.SideEffectClassNoneOnDryRun
+	sideEffects          = &sideEffectsVal
 )
 
 func TestValidatingWebhookConfig(t *testing.T) {
@@ -85,6 +87,7 @@ func TestValidatingWebhookConfig(t *testing.T) {
 				},
 				FailurePolicy:     failurePolicyFail,
 				NamespaceSelector: &metav1.LabelSelector{},
+				SideEffects:       sideEffects,
 			},
 			{
 				Name: "hook-bar",
@@ -121,6 +124,7 @@ func TestValidatingWebhookConfig(t *testing.T) {
 				},
 				FailurePolicy:     failurePolicyFail,
 				NamespaceSelector: &metav1.LabelSelector{},
+				SideEffects:       sideEffects,
 			},
 		},
 	}
@@ -128,6 +132,7 @@ func TestValidatingWebhookConfig(t *testing.T) {
 	missingDefaults := want.DeepCopyObject().(*admissionregistrationv1beta1.ValidatingWebhookConfiguration)
 	missingDefaults.Webhooks[0].NamespaceSelector = nil
 	missingDefaults.Webhooks[0].FailurePolicy = nil
+	missingDefaults.Webhooks[0].SideEffects = nil
 
 	ts := []struct {
 		name    string
