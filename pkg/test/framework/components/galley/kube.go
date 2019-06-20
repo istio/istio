@@ -184,6 +184,13 @@ func (c *kubeComponent) DeleteConfig(ns namespace.Instance, yamlText ...string) 
 	}
 
 	for _, txt := range yamlText {
+
+		if nsName != "" {
+			if txt, err = yml.ApplyNamespace(txt, nsName); err != nil {
+				return err
+			}
+		}
+
 		err := c.environment.Accessor.DeleteContents(nsName, txt)
 		if err != nil {
 			return err
