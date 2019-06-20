@@ -81,11 +81,11 @@ var (
 	closeChan = make(chan bool)
 
 	networkFetchSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "pilot_jwks_resolver_network_fetch_success",
+		Name: "pilot_jwks_resolver_network_fetch_success_total",
 		Help: "Total number of successfully network fetch by pilot jwks resolver",
 	})
 	networkFetchFailCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "pilot_jwks_resolver_network_fetch_fail",
+		Name: "pilot_jwks_resolver_network_fetch_fail_total",
 		Help: "Total number of failed network fetch by pilot jwks resolver",
 	})
 )
