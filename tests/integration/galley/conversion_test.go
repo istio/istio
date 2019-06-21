@@ -67,7 +67,7 @@ func TestConversion(t *testing.T) {
 								cfg.MeshConfig = string(mc)
 							}
 
-							gal = galley.NewOrFail(t, ctx, cfg)
+							gal = galley.NewNativeGalleyOrFail(t, ctx, cfg)
 						}
 
 						t.Logf("==== Running iter: %d\n", i)

@@ -85,3 +85,29 @@ func NewOrFail(t test.Failer, c resource.Context, cfg Config) Instance {
 	}
 	return i
 }
+
+// NewNativeGalleyOrFail sets up Galley in native environment with given configuration
+func NewNativeGalleyOrFail(t test.Failer, ctx resource.Context, cfg Config) Instance {
+	if ctx.Environment().EnvironmentName() != environment.Native {
+		t.Fatalf("galley.NewNativeGalleyOrFail", resource.UnsupportedEnvironment(ctx.Environment()))
+	}
+	i, err := newNative(ctx, cfg)
+	if err != nil {
+		t.Fatalf("galley.NewNativeGalleyOrFail: %v", err)
+	}
+	return i
+}
+
+// GetGalleyHandleInKubernetesOrFail gets a handle to the Galley instance running in Kubernetes
+// by means of a port-forwarder. If it fails, then the test must fail.
+func GetGalleyHandleInKubernetesOrFail(t test.Failer, ctx resource.Context) Instance {
+	if ctx.Environment().EnvironmentName() != environment.Kube {
+		t.Fatalf("galley.GetGalleyHandleInKubernetesOrFail: %v",
+			resource.UnsupportedEnvironment(ctx.Environment()))
+	}
+	i, err := newKube(ctx, Config{})
+	if err != nil {
+		t.Fatalf("galley.GetGalleyHandleInKubernetesOrFail: %v", err)
+	}
+	return i
+}

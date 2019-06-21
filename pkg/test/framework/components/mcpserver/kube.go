@@ -62,6 +62,8 @@ spec:
 	appName = "mcp-sinkserver"
 )
 
+// kubeComponent represents the MCP server component
+// running in Kubernetes environment
 type kubeComponent struct {
 	id resource.ID
 
@@ -74,7 +76,9 @@ type kubeComponent struct {
 	svcAddress string
 }
 
-func newKube(ctx resource.Context) (Instance, error) {
+// NewKube sets up MCP server component in Kubernetes environment.
+// It returns the handle to the component if successful, else an error
+func newKube(ctx resource.Context, cfg SinkConfig) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
 	c := &kubeComponent{
 		ctx:     ctx,
@@ -131,6 +135,7 @@ func newKube(ctx resource.Context) (Instance, error) {
 	}
 	pod := pods[0]
 
+	// Fetch MCP sink server to get the port in which it is listening
 	var svc *kubeApiCore.Service
 	if svc, _, err = env.WaitUntilServiceEndpointsAreReady(c.namespace.Name(), appName); err != nil {
 		scopes.CI.Infof("Error waiting for MCPServer (Sink) service to be available: %v", err)
@@ -143,6 +148,8 @@ func newKube(ctx resource.Context) (Instance, error) {
 		return nil, err
 	}
 
+	// Start the forwarder. Now the component will be accessible from the test to make
+	// calls to retrieve collections.
 	if err = c.forwarder.Start(); err != nil {
 		scopes.CI.Infof("Error starting PortForwarder for MCP Server (Sink): %v", err)
 		return nil, err
@@ -159,10 +166,16 @@ func newKube(ctx resource.Context) (Instance, error) {
 	return c, nil
 }
 
+// Address returns the address of the MCP sink server endpoint. In case of native, it returns the actual
+// host and port address. In Kubernetes mode, it returns service URL which can be DNS resolved in the form
+// mcp-sinkserver.<namespace>.svc.cluster.local:port. This is required by Galley which also runs inside
+// Kubernetes cluster.
 func (c *kubeComponent) Address() string {
 	return c.svcAddress
 }
 
+// GetCollectionStateOrFail fetches the given collection. This is purely for testing purposes and in both
+// native and kubernetes environments it is called from the test.
 func (c *kubeComponent) GetCollectionStateOrFail(t test.Failer, collection string) []*sink.Object {
 	t.Helper()
 	resources, err := c.client.GetCollectionState(collection)
@@ -172,10 +185,12 @@ func (c *kubeComponent) GetCollectionStateOrFail(t test.Failer, collection strin
 	return resources
 }
 
+// ID returns the ID of this resource
 func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }
 
+// Close closes the forwarder connection.
 func (c *kubeComponent) Close() (err error) {
 	if c.forwarder != nil {
 		err = c.forwarder.Close()

@@ -15,6 +15,8 @@
 package mcpserver
 
 import (
+	"errors"
+
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -39,7 +41,7 @@ func NewSink(ctx resource.Context, cfg SinkConfig) (i Instance, err error) {
 		i, err = newSinkNative(ctx, cfg)
 	})
 	ctx.Environment().Case(environment.Kube, func() {
-		i, err = newKube(ctx)
+		i, err = newKube(ctx, cfg)
 	})
 	return
 }
@@ -50,6 +52,25 @@ func NewSinkOrFail(t test.Failer, c resource.Context, cfg SinkConfig) Instance {
 	i, err := NewSink(c, cfg)
 	if err != nil {
 		t.Fatalf("mcpserver.NewOrFail: %v", err)
+	}
+	return i
+}
+
+// GetSinkHandle gets handle to the MCP sink instance
+func GetSinkHandle(c resource.Context) (Instance, error) {
+	mcpInstance, ok := c.Settings().MiscSettings["mcp-instance"].(Instance)
+	if !ok {
+		return nil, errors.New("cannot obtain handle to mcp-sinkserver")
+	}
+	return mcpInstance, nil
+}
+
+// GetSinkHandleOrFail returns handle to MCP sink instance or fails the test if not found
+func GetSinkHandleOrFail(t test.Failer, c resource.Context) Instance {
+	t.Helper()
+	i, err := GetSinkHandle(c)
+	if err != nil {
+		t.Fatalf("mcpserver.GetSinkHandleOrFail: %v", err)
 	}
 	return i
 }

@@ -56,6 +56,9 @@ type Settings struct {
 
 	// The label selector, in parsed form.
 	Selector label.Selector
+
+	// MiscSettings represents miscellaneous settings in the form of key-value pairs
+	MiscSettings map[string]interface{}
 }
 
 // RunDir is the name of the dir to output, for this particular run.
@@ -81,8 +84,9 @@ func (s *Settings) Clone() *Settings {
 // DefaultSettings returns a default settings instance.
 func DefaultSettings() *Settings {
 	return &Settings{
-		Environment: environment.DefaultName().String(),
-		RunID:       uuid.New(),
+		Environment:  environment.DefaultName().String(),
+		RunID:        uuid.New(),
+		MiscSettings: make(map[string]interface{}),
 	}
 }
 
