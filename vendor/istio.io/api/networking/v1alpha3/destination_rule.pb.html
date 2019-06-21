@@ -77,7 +77,7 @@ spec:
 <h2 id="ConnectionPoolSettings">ConnectionPoolSettings</h2>
 <section>
 <p>Connection pool settings for an upstream host. The settings apply to
-each individual host in the upstream service.  See Envoy&rsquo;s <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/circuit_breaking">circuit
+each individual host in the upstream service.  See Envoy&rsquo;s <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/circuit_breaking">circuit
 breaker</a>
 for more details. Connection pool settings can be applied at the TCP
 level as well as at HTTP level.</p>
@@ -340,13 +340,13 @@ Default is to use the OS level configuration
 <p>REQUIRED. The name of a service from the service registry. Service
 names are looked up from the platform&rsquo;s service registry (e.g.,
 Kubernetes services, Consul services, etc.) and from the hosts
-declared by <a href="/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry">ServiceEntries</a>. Rules defined for
+declared by <a href="https://istio.io/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry">ServiceEntries</a>. Rules defined for
 services that do not exist in the service registry will be ignored.</p>
 
 <p><em>Note for Kubernetes users</em>: When short names are used (e.g. &ldquo;reviews&rdquo;
 instead of &ldquo;reviews.default.svc.cluster.local&rdquo;), Istio will interpret
 the short name based on the namespace of the rule, not the service. A
-rule in the &ldquo;default&rdquo; namespace containing a host &ldquo;reviews will be
+rule in the &ldquo;default&rdquo; namespace containing a host &ldquo;reviews&rdquo; will be
 interpreted as &ldquo;reviews.default.svc.cluster.local&rdquo;, irrespective of
 the actual namespace associated with the reviews service. <em>To avoid
 potential misconfigurations, it is recommended to always use fully
@@ -405,7 +405,7 @@ defines an export to all namespaces.</p>
 <section>
 <p>Load balancing policies to apply for a specific destination. See Envoy&rsquo;s
 load balancing
-<a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/load_balancing">documentation</a>
+<a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancing">documentation</a>
 for more details.</p>
 
 <p>For example, the following rule uses a round robin load balancing policy
@@ -622,7 +622,7 @@ TCP services.  For HTTP services, hosts that continually return 5xx
 errors for API calls are ejected from the pool for a pre-defined period
 of time. For TCP services, connection timeouts or connection
 failures to a given host counts as an error when measuring the
-consecutive errors metric. See Envoy&rsquo;s <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/outlier">outlier
+consecutive errors metric. See Envoy&rsquo;s <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/outlier">outlier
 detection</a>
 for more details.</p>
 
@@ -721,7 +721,7 @@ across all hosts in the pool (healthy and unhealthy).  The default is 50%.</p>
 <section>
 <p>A subset of endpoints of a service. Subsets can be used for scenarios
 like A/B testing, or routing to a specific version of a service. Refer
-to <a href="/docs/reference/config/networking/v1alpha3/virtual-service/#VirtualService">VirtualService</a> documentation for examples of using
+to <a href="https://istio.io/docs/reference/config/networking/v1alpha3/virtual-service/#VirtualService">VirtualService</a> documentation for examples of using
 subsets in these scenarios. In addition, traffic policies defined at the
 service-level can be overridden at a subset-level. The following rule
 uses a round robin load balancing policy for all traffic going to a
