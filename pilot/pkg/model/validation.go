@@ -1752,7 +1752,7 @@ func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
 	}
 
 	// AuthN policy target (host)name must be a shortname
-	if !IsDNS1123Label(target.Name) {
+	if len(target.Labels) == 0 && !IsDNS1123Label(target.Name) {
 		errs = multierror.Append(errs, fmt.Errorf("target name %q must be a valid label", target.Name))
 	}
 

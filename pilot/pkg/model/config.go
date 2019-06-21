@@ -923,12 +923,12 @@ func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service,
 			for _, dest := range policy.Targets {
 				// When labels is specified, use labels to match the policy. Otherwise, fallback to use host name.
 				if len(dest.Labels) != 0 {
-					log.Debugf("found label selector on auth policy (%s/%s): %s", dest.Labels, spec.Namespace, spec.Name)
+					log.Debugf("found label selector in auth policy %s/%s: %s", spec.Namespace, spec.Name, dest.Labels)
 					destLabels := Labels(dest.Labels)
 					if !destLabels.SubsetOf(labels) {
 						continue
 					}
-					log.Debugf("matched auth policy (%s/%s) with workload: %s", spec.Namespace, spec.Name, labels)
+					log.Debugf("matched auth policy %s/%s with workload: %s", spec.Namespace, spec.Name, labels)
 				} else if service.Hostname != ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta) {
 					continue
 				}

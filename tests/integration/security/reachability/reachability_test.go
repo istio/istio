@@ -47,10 +47,11 @@ func TestReachability(t *testing.T) {
 			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
 			ns := namespace.NewOrFail(ctx, ctx, "reachability", true)
 
-			var a, b, headless, naked echo.Instance
+			var a, b, c, headless, naked echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
 				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
 				With(&headless, util.EchoConfig("headless", ns, false, nil, g, p)).
 				With(&naked, util.EchoConfig("naked", ns, false, echo.NewAnnotations().
 					SetBool(echo.SidecarInject, false), g, p)).
@@ -174,22 +175,34 @@ func TestReachability(t *testing.T) {
 						return opts.PortName != "http"
 					},
 				},
+				{
+					configFile:          "labels-mtls-on.yaml",
+					namespace:           ns,
+					requiredEnvironment: environment.Kube,
+					include: func(src echo.Instance, opts echo.CallOptions) bool {
+						return src == a && (opts.Target == b || opts.Target == c)
+					},
+					expectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Only app C is enabled with mTLS using label selector.
+						return opts.Target == c
+					},
+				},
 			}
 
-			for _, c := range testCases {
-				testName := strings.TrimSuffix(c.configFile, filepath.Ext(c.configFile))
+			for _, tc := range testCases {
+				testName := strings.TrimSuffix(tc.configFile, filepath.Ext(tc.configFile))
 				test := ctx.NewSubTest(testName)
 
-				if c.requiredEnvironment != "" {
-					test.RequiresEnvironment(c.requiredEnvironment)
+				if tc.requiredEnvironment != "" {
+					test.RequiresEnvironment(tc.requiredEnvironment)
 				}
 
 				test.Run(func(ctx framework.TestContext) {
 					// Apply the policy.
-					policyYAML := file.AsStringOrFail(ctx, filepath.Join("testdata", c.configFile))
-					g.ApplyConfigOrFail(ctx, c.namespace, policyYAML)
+					policyYAML := file.AsStringOrFail(ctx, filepath.Join("testdata", tc.configFile))
+					g.ApplyConfigOrFail(ctx, tc.namespace, policyYAML)
 					ctx.WhenDone(func() error {
-						return g.DeleteConfig(ctx, c.namespace.Name(), policyYAML)
+						return g.DeleteConfig(ctx, tc.namespace.Name(), policyYAML)
 					})
 
 					// Give some time for the policy propagate.
@@ -197,19 +210,19 @@ func TestReachability(t *testing.T) {
 					time.Sleep(10 * time.Second)
 
 					for _, src := range []echo.Instance{a, b, headless, naked} {
-						for _, dest := range []echo.Instance{a, b, headless, naked} {
+						for _, dest := range []echo.Instance{a, b, c, headless, naked} {
 							for _, opts := range callOptions {
 								// Copy the loop variables so they won't change for the subtests.
 								src := src
 								dest := dest
 								opts := opts
-								onPreRun := c.onRun
+								onPreRun := tc.onRun
 
 								// Set the target on the call options.
 								opts.Target = dest
 
-								if c.include(src, opts) {
-									expectSuccess := c.expectSuccess(src, opts)
+								if tc.include(src, opts) {
+									expectSuccess := tc.expectSuccess(src, opts)
 
 									subTestName := fmt.Sprintf("%s->%s://%s:%s",
 										src.Config().Service,

@@ -3739,6 +3739,22 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			},
 			valid: true,
 		},
+		{
+			name:       "Target labels",
+			configName: someName,
+			in: &authn.Policy{
+				Targets: []*authn.TargetSelector{
+					{
+						// Name should be ignored if Labels is used.
+						Name: "foo.bar",
+						Labels: Labels{
+							"app": "sleep",
+						},
+					},
+				},
+			},
+			valid: true,
+		},
 	}
 	for _, c := range cases {
 		if got := ValidateAuthenticationPolicy(c.configName, someNamespace, c.in); (got == nil) != c.valid {
