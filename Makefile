@@ -194,7 +194,7 @@ ifeq ($(USE_LOCAL_PROXY),1)
   endif
 endif
 
-GO_VERSION_REQUIRED:=1.10
+GO_VERSION_REQUIRED:=1.12
 
 HUB?=istio
 ifeq ($(HUB),)
