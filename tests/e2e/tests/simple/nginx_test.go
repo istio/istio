@@ -134,8 +134,8 @@ func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port
 		AppYamlTemplate: util.GetResourcePath(appYamlTmpl),
 		KubeInject:      injectProxy,
 		Template: map[string]string{
-			"Hub":             tc.Kube.TestHub(),
-			"Tag":             tc.Kube.TestTag(),
+			"Hub":             tc.Kube.AppHub(),
+			"Tag":             tc.Kube.AppTag(),
 			"service":         serviceName,
 			"perServiceAuth":  strconv.FormatBool(perServiceAuth),
 			"deployment":      deploymentName,

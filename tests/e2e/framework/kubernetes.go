@@ -100,8 +100,8 @@ var (
 	mixerTag           = flag.String("mixer_tag", os.Getenv("TAG"), "Mixer tag")
 	pilotHub           = flag.String("pilot_hub", os.Getenv("HUB"), "Pilot hub")
 	pilotTag           = flag.String("pilot_tag", os.Getenv("TAG"), "Pilot tag")
-	testHub            = flag.String("test_hub", os.Getenv("HUB"), "Test hub")
-	testTag            = flag.String("test_tag", os.Getenv("TAG"), "Test tag")
+	appHub             = flag.String("app_hub", os.Getenv("HUB"), "Test application hub")
+	appTag             = flag.String("app_tag", os.Getenv("TAG"), "Test application tag")
 	proxyHub           = flag.String("proxy_hub", os.Getenv("HUB"), "Proxy hub")
 	proxyTag           = flag.String("proxy_tag", os.Getenv("TAG"), "Proxy tag")
 	caHub              = flag.String("ca_hub", os.Getenv("HUB"), "Ca hub")
@@ -435,14 +435,14 @@ func (k *KubeInfo) PilotTag() string {
 	return *pilotTag
 }
 
-// PilotHub exposes the Docker hub used for the test image.
-func (k *KubeInfo) TestHub() string {
-	return *testHub
+// AppHub exposes the Docker hub used for the test application image.
+func (k *KubeInfo) AppHub() string {
+	return *appHub
 }
 
-// PilotTag exposes the Docker tag used for the pilot image.
-func (k *KubeInfo) TestTag() string {
-	return *testTag
+// AppTag exposes the Docker tag used for the test application image.
+func (k *KubeInfo) AppTag() string {
+	return *appTag
 }
 
 // ProxyHub exposes the Docker hub used for the proxy image.
