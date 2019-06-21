@@ -118,7 +118,7 @@ run-test.integration.kube.presubmit:
 
 	set -o pipefail; \
 	cd ${GOPATH}/src/istio.io/istio; \
-	${GO} test -v ${INT_TARGETS} --istio.test.select -customsetup,+presubmit ${INT_FLAGS} 2>&1 | tee ${GOPATH}/out/logs/$@.log
+	${GO} test -v ${INT_TARGETS} --istio.test.select -customsetup,-flaky ${INT_FLAGS} 2>&1 | tee ${GOPATH}/out/logs/$@.log
 
 run-stability:
 	 ISTIO_ENV=${ISTIO_CONTROL_NS} bin/iop test stability ${GOPATH}/src/istio.io/tools/perf/stability/allconfig ${IOP_OPTS}
