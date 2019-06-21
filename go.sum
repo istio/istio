@@ -316,6 +316,8 @@ github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORN
 github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
 github.com/kr/text v0.1.0 h1:45sCR5RtlFHMR4UwH9sdQ5TC8v0qDQCHnXt+kaKSTVE=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
+github.com/lestrrat-go/jwx v0.9.0 h1:Fnd0EWzTm0kFrBPzE/PEPp9nzllES5buMkksPMjEKpM=
+github.com/lestrrat-go/jwx v0.9.0/go.mod h1:iEoxlYfZjvoGpuWwxUz+eR5e6KTJGsaRcy/YNA/UnBk=
 github.com/lib/pq v1.1.1 h1:sJZmqHoEaY7f+NPP8pgLB/WxulyR3fewgCM2qaSlBb4=
 github.com/lib/pq v1.1.1/go.mod h1:5WUZQaWbwv1U+lTReE5YruASi9Al49XbQIvNi/34Woo=
 github.com/lukechampine/freeze v0.0.0-20160818180733-f514e08ae5a0 h1:KECTNPxXKDU7JE/3m381o20SmGJJfMfG1+hqLrP68WY=
