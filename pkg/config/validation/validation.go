@@ -28,7 +28,7 @@ import (
 	xdsUtil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -2333,6 +2333,11 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 		return errors.New("rewrite must specify URI, authority, or both")
 	}
 	return nil
+}
+
+// ValidateSyntheticServiceEntry validates a synthetic service entry.
+func ValidateSyntheticServiceEntry(_, _ string, config proto.Message) (errs error) {
+	return ValidateServiceEntry("", "", config)
 }
 
 // ValidateServiceEntry validates a service entry.

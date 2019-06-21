@@ -135,6 +135,7 @@ var ignoredCRDs = []string{
 	"/v1/Service",
 	"extensions/v1beta1/Ingress",
 	"apps/v1/Deployment",
+	"networking.istio.io/v1alpha3/SyntheticServiceEntry",
 
 	// Legacy Mixer CRDs are ignored
 	"config.istio.io/v1alpha2/cloudwatch",

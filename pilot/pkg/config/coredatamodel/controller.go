@@ -34,12 +34,14 @@ import (
 	"istio.io/istio/pkg/mcp/sink"
 )
 
-var errUnsupported = errors.New("this operation is not supported by mcp controller")
+var (
+	errUnsupported = errors.New("this operation is not supported by mcp controller")
+)
 
 const ledgerLogf = "error tracking pilot config versions for coredatamodel distribution: %v"
 
 // CoreDataModel is a combined interface for ConfigStoreCache
-// MCP Updater and ServiceDiscovery
+// and MCP Updater
 type CoreDataModel interface {
 	model.ConfigStoreCache
 	sink.Updater
@@ -47,9 +49,10 @@ type CoreDataModel interface {
 
 // Options stores the configurable attributes of a Control
 type Options struct {
-	DomainSuffix              string
-	ClearDiscoveryServerCache func(configType string)
-	ConfigLedger              ledger.Ledger
+	ClusterID    string
+	DomainSuffix string
+	XDSUpdater   model.XDSUpdater
+	ConfigLedger ledger.Ledger
 }
 
 // Controller is a temporary storage for the changes received
@@ -59,24 +62,31 @@ type Controller struct {
 	// keys [type][namespace][name]
 	configStore             map[string]map[string]map[string]*model.Config
 	descriptorsByCollection map[string]schema.Instance
-	options                 Options
+	options                 *Options
 	eventHandlers           map[string][]func(model.Config, model.Event)
 	ledger                  ledger.Ledger
+	supportedConfig         schema.Set
 
 	syncedMu sync.Mutex
 	synced   map[string]bool
 }
 
 // NewController provides a new CoreDataModel controller
-func NewController(options Options) CoreDataModel {
+func NewController(options *Options) CoreDataModel {
+	var supportedCfg schema.Set
 	descriptorsByMessageName := make(map[string]schema.Instance, len(schemas.Istio))
 	synced := make(map[string]bool)
 	for _, descriptor := range schemas.Istio {
+		// do not register SSE as there is a dedicated controller
+		if descriptor.Collection == schemas.SyntheticServiceEntry.Collection {
+			continue
+		}
 		// don't register duplicate descriptors for the same collection
 		if _, ok := descriptorsByMessageName[descriptor.Collection]; !ok {
 			descriptorsByMessageName[descriptor.Collection] = descriptor
 			synced[descriptor.Collection] = false
 		}
+		supportedCfg = append(supportedCfg, descriptor)
 	}
 
 	return &Controller{
@@ -86,13 +96,14 @@ func NewController(options Options) CoreDataModel {
 		eventHandlers:           make(map[string][]func(model.Config, model.Event)),
 		synced:                  synced,
 		ledger:                  options.ConfigLedger,
+		supportedConfig:         supportedCfg,
 	}
 }
 
 // ConfigDescriptor returns all the ConfigDescriptors that this
 // controller is responsible for
 func (c *Controller) ConfigDescriptor() schema.Set {
-	return schemas.Istio
+	return c.supportedConfig
 }
 
 // List returns all the config that is stored by type and namespace
@@ -130,7 +141,7 @@ func (c *Controller) List(typ, namespace string) (out []model.Config, err error)
 // corresponding config
 func (c *Controller) Apply(change *sink.Change) error {
 	descriptor, ok := c.descriptorsByCollection[change.Collection]
-	if !ok {
+	if !ok || change.Collection == schemas.SyntheticServiceEntry.Collection {
 		return fmt.Errorf("apply type not supported %s", change.Collection)
 	}
 
@@ -138,10 +149,6 @@ func (c *Controller) Apply(change *sink.Change) error {
 	if !valid {
 		return fmt.Errorf("descriptor type not supported %s", descriptor.Type)
 	}
-
-	c.syncedMu.Lock()
-	c.synced[change.Collection] = true
-	c.syncedMu.Unlock()
 
 	// innerStore is [namespace][name]
 	innerStore := make(map[string]map[string]*model.Config)
@@ -207,13 +214,16 @@ func (c *Controller) Apply(change *sink.Change) error {
 	prevStore = c.configStore[descriptor.Type]
 	c.configStore[descriptor.Type] = innerStore
 	c.configStoreMu.Unlock()
+	c.sync(change.Collection)
 
 	if descriptor.Type == schemas.ServiceEntry.Type {
 		c.serviceEntryEvents(innerStore, prevStore)
-	} else {
-		c.options.ClearDiscoveryServerCache(descriptor.Type)
+	} else if c.options.XDSUpdater != nil {
+		c.options.XDSUpdater.ConfigUpdate(&model.PushRequest{
+			Full:               true,
+			ConfigTypesUpdated: map[string]struct{}{descriptor.Type: {}},
+		})
 	}
-
 	return nil
 }
 
@@ -275,6 +285,12 @@ func (c *Controller) Create(config model.Config) (revision string, err error) {
 // Delete is not implemented
 func (c *Controller) Delete(typ, name, namespace string) error {
 	return errUnsupported
+}
+
+func (c *Controller) sync(collection string) {
+	c.syncedMu.Lock()
+	c.synced[collection] = true
+	c.syncedMu.Unlock()
 }
 
 func (c *Controller) serviceEntryEvents(currentStore, prevStore map[string]map[string]*model.Config) {
