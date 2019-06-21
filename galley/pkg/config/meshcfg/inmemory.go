@@ -55,26 +55,18 @@ func (s *InMemorySource) Dispatch(handler event.Handler) {
 // Start implements event.InMemorySource
 func (s *InMemorySource) Start() {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	if s.started {
 		// Already started
-		s.mu.Unlock()
 		return
 	}
 	s.started = true
 
 	if s.synced {
-		go s.sendInitialEvents()
-	} else {
-		s.mu.Unlock()
+		s.send(event.Added)
+		s.send(event.FullSync)
 	}
-}
-
-func (s *InMemorySource) sendInitialEvents() {
-	// Lock must be held when entering this go routine
-	s.send(event.Added)
-	s.send(event.FullSync)
-	s.mu.Unlock()
 }
 
 // Stop implements event.InMemorySource
@@ -87,25 +79,21 @@ func (s *InMemorySource) Stop() {
 // Set new meshconfig
 func (s *InMemorySource) Set(cfg *v1alpha1.MeshConfig) {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	cfg = proto.Clone(cfg).(*v1alpha1.MeshConfig)
 	s.current = cfg
 
 	if s.started {
-		go func() {
-			if !s.synced {
-				s.send(event.Added)
-				s.send(event.FullSync)
-			} else {
-				s.send(event.Reset)
-			}
-			s.synced = true
-			s.mu.Unlock()
-		}()
-	} else {
-		s.synced = true
-		s.mu.Unlock()
+		if !s.synced {
+			s.send(event.Added)
+			s.send(event.FullSync)
+		} else {
+			s.send(event.Reset)
+		}
 	}
+
+	s.synced = true
 }
 
 // IsSynced indicates that the InMemorySource has been given a Mesh config at least once.
