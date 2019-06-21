@@ -65,14 +65,19 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *mcp.Metadata
 	}
 
 	spec := service.Item.(*coreV1.ServiceSpec)
-
-	resolution := networking.ServiceEntry_STATIC
 	location := networking.ServiceEntry_MESH_INTERNAL
 	endpoints := convertExternalServiceEndpoints(spec, service.Metadata)
+	var resolution networking.ServiceEntry_Resolution
+	// Resolution STATIC must have endpoints
+	if len(endpoints) != 0 {
+		resolution = networking.ServiceEntry_STATIC
+	}
 
 	// Check for an external service
+	host := serviceHostname(service.ID.FullName, i.domain)
 	externalName := ""
-	if spec.Type == coreV1.ServiceTypeExternalName && spec.ExternalName != "" {
+	err := model.ValidateFQDN(host)
+	if err == nil && spec.Type == coreV1.ServiceTypeExternalName && spec.ExternalName != "" {
 		externalName = spec.ExternalName
 		resolution = networking.ServiceEntry_DNS
 		location = networking.ServiceEntry_MESH_EXTERNAL
@@ -83,7 +88,8 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *mcp.Metadata
 	if spec.ClusterIP != "" && spec.ClusterIP != coreV1.ClusterIPNone {
 		addr = spec.ClusterIP
 	}
-	if addr == model.UnspecifiedIP && externalName == "" {
+	// Resolution NONE must not have endpoints
+	if len(endpoints) == 0 && addr == model.UnspecifiedIP && externalName == "" {
 		// Headless services should not be load balanced
 		resolution = networking.ServiceEntry_NONE
 	}
@@ -93,11 +99,12 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *mcp.Metadata
 		ports = append(ports, convertPort(port))
 	}
 
-	host := serviceHostname(service.ID.FullName, i.domain)
-
 	// Store everything in the ServiceEntry.
 	out.Hosts = []string{host}
-	out.Addresses = []string{addr}
+	// CIDR addrs are only allowed for NONE/STATIC resolution types
+	if resolution != networking.ServiceEntry_DNS {
+		out.Addresses = []string{addr}
+	}
 	out.Resolution = resolution
 	out.Location = location
 	out.Ports = ports
