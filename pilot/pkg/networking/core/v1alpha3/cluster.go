@@ -27,16 +27,17 @@ import (
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/pkg/features/pilot"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
+	"istio.io/istio/pilot/pkg/features"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -331,7 +332,7 @@ func updateEds(cluster *apiv2.Cluster) {
 			ConfigSourceSpecifier: &core.ConfigSource_Ads{
 				Ads: &core.AggregatedConfigSource{},
 			},
-			InitialFetchTimeout: pilot.InitialFetchTimeout,
+			InitialFetchTimeout: features.InitialFetchTimeout,
 		},
 	}
 }
