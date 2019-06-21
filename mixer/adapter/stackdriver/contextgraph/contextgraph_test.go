@@ -102,6 +102,7 @@ func TestBuild(t *testing.T) {
 		projectID: "myid",
 		zone:      "myzone",
 		cluster:   "mycluster",
+		cfg:       &config.Params{ProjectId: "myid"},
 	}
 
 	mEnv := env.NewEnv(t)
