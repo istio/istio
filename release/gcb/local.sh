@@ -43,3 +43,4 @@ popd || return
 docker_tag_images  "${DOCKER_HUB}" "${NEW_VERSION}" "${artifacts}"
 docker_push_images "${DOCKER_HUB}" "${NEW_VERSION}" "${artifacts}"
 
+fix_values_yaml ${NEW_VERSION} ${DOCKER_HUB}

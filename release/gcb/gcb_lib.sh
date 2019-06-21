@@ -142,3 +142,48 @@ function make_istio() {
     "${EXTRA_ARTIFACTS:-$PWD/LICENSES.txt}"
 }
 
+fix_values_yaml() {
+  local VERSION="$1"
+  local DOCKER_HUB="$2"
+  update_helm "istio-${VERSION}-linux.tar.gz" ${VERSION} ${DOCKER_HUB}
+  update_helm "istio-${VERSION}-osx.tar.gz" ${VERSION} ${DOCKER_HUB}
+  update_helm "istio-${VERSION}-win.zip" ${VERSION} ${DOCKER_HUB}
+}
+
+function update_helm() {
+  local tarball_name="$1"
+  local VERSION="$2"
+  local DOCKER_HUB="$3"
+  if [[ ${tarball_name} == *.zip ]]; then
+    local unzip_cmd="unzip -q"
+    local zip_cmd="zip -q -r"
+  else
+    local unzip_cmd="tar -zxf"
+    local zip_cmd="tar -zcf"
+  fi
+
+  eval    "$unzip_cmd"     "${tarball_name}"
+  rm                       "${tarball_name}"
+  # Update version string in yaml files.
+  sed -i "s|hub: gcr.io/istio-release|hub: ${DOCKER_HUB}|g" ./"istio-${VERSION}"/install/kubernetes/helm/istio*/values.yaml
+  sed -i "s|tag: .*-latest-daily|tag: ${VERSION}|g"         ./"istio-${VERSION}"/install/kubernetes/helm/istio*/values.yaml
+  current_tag=$(grep "appVersion" ./"istio-${VERSION}"/install/kubernetes/helm/istio/Chart.yaml  | cut -d ' ' -f2)
+  if [ "${current_tag}" != "${VERSION}" ]; then
+    find . -type f -exec sed -i "s/tag: ${current_tag}/tag: ${VERSION}/g" {} \;
+    find . -type f -exec sed -i "s/version: ${current_tag}/version: ${VERSION}/g" {} \;
+    find . -type f -exec sed -i "s/appVersion: ${current_tag}/appVersion: ${VERSION}/g" {} \;
+    find . -type f -exec sed -i "s/istio-release\/releases\/${current_tag}/istio-release\/releases\/${VERSION}/g" {} \;
+  fi
+
+  # replace prerelease with release location for istio.io repo
+  if [ "${CB_PIPELINE_TYPE}" = "monthly" ]; then
+    sed -i.bak "s:istio-prerelease/daily-build.*$:istio-release/releases/${VERSION}/charts:g" ./"istio-${VERSION}"/install/kubernetes/helm/istio/README.md
+    rm -rf ./"istio-${VERSION}"/install/kubernetes/helm/istio/README.md.bak
+    echo "Done replacing pre-released charts with released charts for istio.io repo"
+  fi
+  eval "$zip_cmd" "${tarball_name}" "istio-${VERSION}"
+  sha256sum       "${tarball_name}" > "${tarball_name}.sha256"
+  rm  -rf "istio-${VERSION}"
+}
+
+
