@@ -20,8 +20,6 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
-	"istio.io/istio/pkg/features/pilot"
-
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	accesslogconfig "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
@@ -29,6 +27,8 @@ import (
 	mysql_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mysql_proxy/v1alpha1"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+
+	"istio.io/istio/pilot/pkg/features"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -181,7 +181,7 @@ func buildNetworkFiltersStack(node *model.Proxy, port *model.Port, tcpFilter *li
 	case model.ProtocolMongo:
 		filterstack = append(filterstack, buildMongoFilter(statPrefix, util.IsProxyVersionGE11(node)), *tcpFilter)
 	case model.ProtocolMySQL:
-		if util.IsProxyVersionGE11(node) && pilot.EnableMysqlFilter() {
+		if util.IsProxyVersionGE11(node) && features.EnableMysqlFilter() {
 			filterstack = append(filterstack, buildMySQLFilter(statPrefix, util.IsProxyVersionGE11(node)))
 		}
 		filterstack = append(filterstack, *tcpFilter)

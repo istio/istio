@@ -28,10 +28,11 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/pkg/log"
+
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/features/pilot"
-	"istio.io/pkg/log"
 )
 
 // controller is a collection of synchronized resource watchers.
@@ -205,7 +206,7 @@ func (c *controller) HasSynced() bool {
 
 func (c *controller) Run(stop <-chan struct{}) {
 	go func() {
-		if pilot.EnableWaitCacheSync {
+		if features.EnableWaitCacheSync {
 			cache.WaitForCacheSync(stop, c.HasSynced)
 		}
 		c.queue.Run(stop)
