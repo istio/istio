@@ -41,7 +41,7 @@ func convert(key Key, spec map[string]interface{}, target proto.Message) error {
 		return err
 	}
 	if err = jsonpb.Unmarshal(bytes.NewReader(jsonData), target); err != nil {
-		log.Warnf("%s unable to unmarshal: %s, %s", key, err.Error(), string(jsonData))
+		log.Errorf("%s unable to unmarshal: %s, %s", key, err.Error(), string(jsonData))
 	}
 
 	return err

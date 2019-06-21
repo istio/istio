@@ -16,11 +16,13 @@ package crd
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"reflect"
 	"strings"
 
+	"github.com/gogo/protobuf/jsonpb"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -37,6 +39,14 @@ func ConvertObject(schema model.ProtoSchema, object IstioObject, domain string) 
 		return nil, err
 	}
 	meta := object.GetObjectMeta()
+
+	jsonData, err := json.Marshal(object.GetSpec())
+	if err != nil {
+		return nil, err
+	}
+	if err = jsonpb.Unmarshal(bytes.NewReader(jsonData), data); err != nil {
+		return nil, fmt.Errorf("%s unable to unmarshal: %s, %s", meta.Name, err.Error(), string(jsonData))
+	}
 
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
