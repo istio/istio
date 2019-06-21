@@ -47,7 +47,7 @@ func TestConvert(t *testing.T) {
 	if _, err := ConvertConfig(model.VirtualService, model.Config{}); err == nil {
 		t.Errorf("expected error for converting empty config")
 	}
-	if _, err := ConvertObject(model.VirtualService, &IstioKind{Spec: map[string]interface{}{"x": 1}}, "local"); err != nil {
+	if _, err := ConvertObject(model.VirtualService, &IstioKind{Spec: map[string]interface{}{"hosts": [1]string{"foo"}}}, "local"); err != nil {
 		t.Errorf("error for converting object: %s", err)
 	}
 	config := model.Config{
