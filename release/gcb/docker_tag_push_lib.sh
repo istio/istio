@@ -124,7 +124,10 @@ function docker_push_images() {
   local OUT_PATH
   OUT_PATH="$3"
   echo "pushing to ${DST_HUB}/image:${DST_TAG}"
-  add_docker_creds "${DST_HUB}"
+
+  if [ -z "${LOCAL_BUILD+x}" ]; then
+    add_docker_creds "${DST_HUB}"
+  fi
 
   for TAR_PATH in "${OUT_PATH}"/docker/*.tar.gz; do
     BASE_NAME=$(basename "$TAR_PATH")
