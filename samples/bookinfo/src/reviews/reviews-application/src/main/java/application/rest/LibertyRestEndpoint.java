@@ -44,6 +44,8 @@ public class LibertyRestEndpoint extends Application {
     private final static String services_domain = System.getenv("SERVICES_DOMAIN") == null ? "" : ("." + System.getenv("SERVICES_DOMAIN"));
     private final static String ratings_hostname = System.getenv("RATINGS_HOSTNAME") == null ? "ratings" : System.getenv("RATINGS_HOSTNAME");
     private final static String ratings_service = "http://" + ratings_hostname + services_domain + ":9080/ratings";
+    // HTTP headers to propagate for distributed tracing are documented at
+    // https://istio.io/docs/tasks/telemetry/distributed-tracing/overview/#trace-context-propagation
     private final static String[] headers_to_proagate = {"x-request-id","x-b3-traceid","x-b3-spanid","x-b3-sampled","x-b3-flags",
       "x-ot-span-context","x-datadog-trace-id","x-datadog-parent-id","x-datadog-sampled", "end-user","user-agent"};
 
@@ -96,7 +98,7 @@ public class LibertyRestEndpoint extends Application {
       Invocation.Builder builder = ratingsTarget.request(MediaType.APPLICATION_JSON);
       for (String header : headers_to_proagate) {
         String value = requestHeaders.getHeaderString(header);
-        if(value != null) {
+        if (value != null) {
           builder.header(header,value);
         }
       }

@@ -57,12 +57,12 @@ do
 done
 
 #Build docker images
-src/build-services.sh "${VERSION}" "$PREFIX"
+src/build-services.sh "${VERSION}" "${PREFIX}"
 
 #get all the new image names and tags
 for v in ${VERSION} "latest"
 do
-  IMAGES+=$(docker images -f reference="$PREFIX/examples-bookinfo*:$v" --format "{{.Repository}}:$v")
+  IMAGES+=$(docker images -f reference="${PREFIX}/examples-bookinfo*:$v" --format "{{.Repository}}:$v")
   IMAGES+=" "
 done
 
