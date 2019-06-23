@@ -406,6 +406,7 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 					newSecret = &model.SecretItem{
 						ResourceName: secretName,
 						RootCert:     ns.RootCert,
+						CRL:          ns.CRL,
 						Token:        oldSecret.Token,
 						CreatedTime:  ns.CreatedTime,
 						Version:      ns.Version,
@@ -558,6 +559,7 @@ func (sc *SecretCache) generateGatewaySecret(token, resourceName string, t time.
 		return &model.SecretItem{
 			ResourceName: resourceName,
 			RootCert:     secretItem.RootCert,
+			CRL:          secretItem.CRL,
 			ExpireTime:   certExpireTime,
 			Token:        token,
 			CreatedTime:  t,

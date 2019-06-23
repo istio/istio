@@ -492,14 +492,31 @@ func sdsDiscoveryResponse(s *model.SecretItem, conID, resourceName string) (*xds
 		Name: s.ResourceName,
 	}
 	if s.RootCert != nil {
-		secret.Type = &authapi.Secret_ValidationContext{
-			ValidationContext: &authapi.CertificateValidationContext{
-				TrustedCa: &core.DataSource{
-					Specifier: &core.DataSource_InlineBytes{
-						InlineBytes: s.RootCert,
+		if s.CRL != nil {
+			secret.Type = &authapi.Secret_ValidationContext{
+				ValidationContext: &authapi.CertificateValidationContext{
+					TrustedCa: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: s.RootCert,
+						},
+					},
+					Crl: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: s.CRL,
+						},
 					},
 				},
-			},
+			}
+		} else {
+			secret.Type = &authapi.Secret_ValidationContext{
+				ValidationContext: &authapi.CertificateValidationContext{
+					TrustedCa: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: s.RootCert,
+						},
+					},
+				},
+			}
 		}
 	} else {
 		secret.Type = &authapi.Secret_TlsCertificate{

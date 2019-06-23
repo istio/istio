@@ -24,6 +24,8 @@ type SecretItem struct {
 
 	RootCert []byte
 
+	CRL []byte
+
 	// ResourceName passed from envoy SDS discovery request.
 	// "ROOTCA" for root cert request, "default" for key/cert request.
 	ResourceName string

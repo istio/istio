@@ -45,6 +45,8 @@ const (
 	genericScrtKey = "key"
 	// The ID/name for the CA certificate in kubernetes generic secret.
 	genericScrtCaCert = "cacert"
+	// The ID/name for the CRL in kubernetes generic secret.
+	genericScrtCRL = "crl"
 
 	// The ID/name for the certificate chain in kubernetes tls secret.
 	tlsScrtCert = "tls.crt"
@@ -196,22 +198,24 @@ func isIngressGatewaySecret(scrt *v1.Secret) bool {
 
 // extractCertAndKey extracts key, certificate and root certificate, and indicates whether
 // these key and certificate are empty.
-func extractCertAndKey(scrt *v1.Secret) (cert, key, root []byte, valid bool) {
+func extractCertAndKey(scrt *v1.Secret) (cert, key, root []byte, crl []byte, valid bool) {
 	certAndKeyExist := false
 	if len(scrt.Data[genericScrtCert]) > 0 {
 		cert = scrt.Data[genericScrtCert]
 		key = scrt.Data[genericScrtKey]
 		root = scrt.Data[genericScrtCaCert]
+		crl = scrt.Data[genericScrtCRL]
 	} else {
 		cert = scrt.Data[tlsScrtCert]
 		key = scrt.Data[tlsScrtKey]
 		root = []byte{}
+		crl = []byte{}
 	}
 	// root could be empty if ingress gateway only accepts TLS.
 	if len(cert) > 0 && len(key) > 0 {
 		certAndKeyExist = true
 	}
-	return cert, key, root, certAndKeyExist
+	return cert, key, root, crl, certAndKeyExist
 }
 
 func (sf *SecretFetcher) scrtAdded(obj interface{}) {
@@ -228,7 +232,7 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 	}
 
 	t := time.Now()
-	newCert, newKey, newRoot, valid := extractCertAndKey(scrt)
+	newCert, newKey, newRoot, newCrl, valid := extractCertAndKey(scrt)
 	if !valid {
 		secretFetcherLog.Warnf("Secret object: %v has empty field, skip adding secret", resourceName)
 		return
@@ -255,6 +259,7 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 		nsRoot := &model.SecretItem{
 			ResourceName: rootCertResourceName,
 			RootCert:     newRoot,
+			CRL:          newCrl,
 			CreatedTime:  t,
 			Version:      t.String(),
 		}
@@ -315,13 +320,13 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 		return
 	}
 
-	oldCert, oldKey, oldRoot, _ := extractCertAndKey(oscrt)
-	newCert, newKey, newRoot, valid := extractCertAndKey(nscrt)
+	oldCert, oldKey, oldRoot, oldCrl, _ := extractCertAndKey(oscrt)
+	newCert, newKey, newRoot, newCrl, valid := extractCertAndKey(nscrt)
 	if !valid {
 		secretFetcherLog.Warnf("Secret object: %v has empty field, skip update", newScrtName)
 		return
 	}
-	if bytes.Equal(oldCert, newCert) && bytes.Equal(oldKey, newKey) && bytes.Equal(oldRoot, newRoot) {
+	if bytes.Equal(oldCert, newCert) && bytes.Equal(oldKey, newKey) && bytes.Equal(oldRoot, newRoot) && bytes.Equal(oldCrl, newCrl) {
 		secretFetcherLog.Debugf("secret %s does not change, skip update", oldScrtName)
 		return
 	}
@@ -348,6 +353,7 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 		nsRoot := &model.SecretItem{
 			ResourceName: rootCertResourceName,
 			RootCert:     newRoot,
+			CRL:          newCrl,
 			CreatedTime:  t,
 			Version:      t.String(),
 		}
