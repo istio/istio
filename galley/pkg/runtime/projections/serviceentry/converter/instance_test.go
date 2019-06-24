@@ -141,17 +141,10 @@ func TestServiceDefaults(t *testing.T) {
 func TestServiceResolution(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	nonFQDNSvcID := resource.VersionedKey{
-		Key: resource.Key{
-			Collection: metadata2.K8sCoreV1Services.Collection,
-			FullName:   resource.FullNameFromNamespaceAndName("", ""),
-		},
-		Version: resource.Version(version),
-	}
-
 	externalName := "myexternalsvc"
 	tests := []struct {
 		name       string
+		endpoints  *resource.Entry
 		service    *resource.Entry
 		resolution networking.ServiceEntry_Resolution
 	}{
@@ -184,14 +177,87 @@ func TestServiceResolution(t *testing.T) {
 		},
 		{
 			name: "STATIC resolution",
+			endpoints: &resource.Entry{
+				ID: endpointsID,
+				Metadata: resource.Metadata{
+					CreateTime: tnow,
+				},
+				Item: &coreV1.Endpoints{
+					ObjectMeta: metaV1.ObjectMeta{},
+					Subsets: []coreV1.EndpointSubset{
+						{
+							Addresses: []coreV1.EndpointAddress{
+								{
+									IP: "10.0.0.1",
+								},
+							},
+							Ports: []coreV1.EndpointPort{
+								{
+									Name:     "http",
+									Protocol: coreV1.ProtocolTCP,
+									Port:     80,
+								},
+							},
+						},
+					},
+				},
+			},
 			service: &resource.Entry{
-				ID: nonFQDNSvcID,
+				ID: serviceID,
 				Metadata: resource.Metadata{
 					CreateTime: tnow,
 				},
 				Item: &coreV1.ServiceSpec{
-					Type:         coreV1.ServiceTypeExternalName,
-					ExternalName: externalName,
+					ClusterIP: model.UnspecifiedIP,
+				},
+			},
+			resolution: networking.ServiceEntry_STATIC,
+		},
+		{
+			name: "STATIC resolution",
+			endpoints: &resource.Entry{
+				ID: endpointsID,
+				Metadata: resource.Metadata{
+					CreateTime: tnow,
+				},
+				Item: &coreV1.Endpoints{
+					ObjectMeta: metaV1.ObjectMeta{},
+					Subsets: []coreV1.EndpointSubset{
+						{
+							Addresses: []coreV1.EndpointAddress{
+								{
+									IP: "10.0.0.1",
+								},
+								{
+									IP: "10.0.0.2",
+								},
+								{
+									IP: "10.0.0.3",
+								},
+							},
+							Ports: []coreV1.EndpointPort{
+								{
+									Name:     "http",
+									Protocol: coreV1.ProtocolTCP,
+									Port:     80,
+								},
+								{
+									Name:     "https",
+									Protocol: coreV1.ProtocolTCP,
+									Port:     443,
+								},
+							},
+						},
+					},
+				},
+			},
+			service: &resource.Entry{
+				ID: serviceID,
+				Metadata: resource.Metadata{
+					CreateTime: tnow,
+				},
+				Item: &coreV1.ServiceSpec{
+					Type: coreV1.ServiceTypeNodePort,
 					Ports: []coreV1.ServicePort{
 						{
 							Name:     "http",
@@ -207,11 +273,15 @@ func TestServiceResolution(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, actual := doConvert(t, tt.service, nil, newPodCache())
+			_, actual := doConvert(t, tt.service, tt.endpoints, newPodCache())
 			g.Expect(actual.Resolution).To(Equal(tt.resolution))
 			switch tt.resolution {
 			case networking.ServiceEntry_DNS:
 				g.Expect(len(actual.Addresses)).To(Equal(0))
+				for _, host := range actual.Hosts {
+					g.Expect(model.ValidateFQDN(host)).To(BeNil())
+
+				}
 			case networking.ServiceEntry_STATIC:
 				g.Expect(len(actual.Endpoints)).ToNot(BeZero())
 			}

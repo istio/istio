@@ -50,11 +50,8 @@ func New(domain string, pods pod.Cache) *Instance {
 // ServiceEntry is passed as an argument (out) in order to enable object reuse in the future.
 func (i *Instance) Convert(service *resource.Entry, endpoints *resource.Entry, outMeta *mcp.Metadata,
 	out *networking.ServiceEntry) error {
-	if err := i.convertService(service, outMeta, out); err != nil {
-		return err
-	}
 	i.convertEndpoints(endpoints, outMeta, out)
-	return nil
+	return i.convertService(service, outMeta, out)
 }
 
 // convertService applies the k8s Service to the output.
@@ -66,7 +63,11 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *mcp.Metadata
 
 	spec := service.Item.(*coreV1.ServiceSpec)
 	location := networking.ServiceEntry_MESH_INTERNAL
-	endpoints := convertExternalServiceEndpoints(spec, service.Metadata)
+	endpoints := out.Endpoints
+	if len(endpoints) == 0 {
+		endpoints = convertExternalServiceEndpoints(spec, service.Metadata)
+	}
+
 	var resolution networking.ServiceEntry_Resolution
 	// Resolution STATIC must have endpoints
 	if len(endpoints) != 0 {
@@ -74,10 +75,8 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *mcp.Metadata
 	}
 
 	// Check for an external service
-	host := serviceHostname(service.ID.FullName, i.domain)
 	externalName := ""
-	err := model.ValidateFQDN(host)
-	if err == nil && spec.Type == coreV1.ServiceTypeExternalName && spec.ExternalName != "" {
+	if spec.Type == coreV1.ServiceTypeExternalName && spec.ExternalName != "" {
 		externalName = spec.ExternalName
 		resolution = networking.ServiceEntry_DNS
 		location = networking.ServiceEntry_MESH_EXTERNAL
@@ -88,16 +87,21 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *mcp.Metadata
 	if spec.ClusterIP != "" && spec.ClusterIP != coreV1.ClusterIPNone {
 		addr = spec.ClusterIP
 	}
-	// Resolution NONE must not have endpoints
-	if len(endpoints) == 0 && addr == model.UnspecifiedIP && externalName == "" {
+	if addr == model.UnspecifiedIP && externalName == "" {
 		// Headless services should not be load balanced
 		resolution = networking.ServiceEntry_NONE
+	}
+	// Resolution NONE must not have endpoints
+	if resolution == networking.ServiceEntry_NONE && len(endpoints) != 0 {
+		resolution = networking.ServiceEntry_STATIC
 	}
 
 	ports := make([]*networking.Port, 0, len(spec.Ports))
 	for _, port := range spec.Ports {
 		ports = append(ports, convertPort(port))
 	}
+
+	host := serviceHostname(service.ID.FullName, i.domain)
 
 	// Store everything in the ServiceEntry.
 	out.Hosts = []string{host}
