@@ -47,6 +47,13 @@ var (
 		Entry:  EntryN1I1V1,
 	}
 
+	// Event1Col1DeleteItem2 is a testing event
+	Event1Col1DeleteItem2 = event.Event{
+		Kind:   event.Deleted,
+		Source: Collection1,
+		Entry:  EntryN2I2V2,
+	}
+
 	// Event1Col1Synced is a testing event
 	Event1Col1Synced = event.Event{
 		Kind:   event.FullSync,
