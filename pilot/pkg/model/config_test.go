@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/proto"
@@ -939,6 +940,54 @@ func TestIstioConfigStore_ServiceEntries(t *testing.T) {
 	}
 }
 
+func TestIstioConfigStore_Gateway(t *testing.T) {
+	workloadLabels := model.LabelsCollection{}
+	now := time.Now()
+	gw1 := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:              "name1",
+			Namespace:         "zzz",
+			CreationTimestamp: now,
+		},
+		Spec: &networking.Gateway{},
+	}
+	gw2 := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:              "name1",
+			Namespace:         "aaa",
+			CreationTimestamp: now,
+		},
+		Spec: &networking.Gateway{},
+	}
+	gw3 := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:              "name1",
+			Namespace:         "ns2",
+			CreationTimestamp: now.Add(time.Second * -1),
+		},
+		Spec: &networking.Gateway{},
+	}
+
+	l := &fakeStore{
+		cfg: map[string][]model.Config{
+			model.Gateway.Type: {gw1, gw2, gw3},
+		},
+	}
+	ii := model.MakeIstioStore(l)
+
+	// Gateways should be returned in a stable order
+	expectedConfig := []model.Config{
+		gw3, // first config by timestamp
+		gw2, // timestamp match with gw1, but name comes first
+		gw1, // timestamp match with gw2, but name comes last
+	}
+	cfgs := ii.Gateways(workloadLabels)
+
+	if !reflect.DeepEqual(expectedConfig, cfgs) {
+		t.Errorf("Got different Config, Excepted:\n%v\n, Got: \n%v\n", expectedConfig, cfgs)
+	}
+}
+
 func TestIstioConfigStore_EnvoyFilter(t *testing.T) {
 	ns := "ns1"
 	workloadLabels := model.LabelsCollection{}
@@ -1058,4 +1107,25 @@ func TestIstioConfigStore_HTTPAPISpecByDestination(t *testing.T) {
 	if len(cfgs) != 1 {
 		t.Fatalf("did not find 1 matched HTTPAPISpec, \n%v", cfgs)
 	}
+}
+
+func TestDeepCopy(t *testing.T) {
+	config := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:              "name1",
+			Namespace:         "zzz",
+			CreationTimestamp: time.Now(),
+		},
+		Spec: &networking.Gateway{},
+	}
+
+	copied := config.DeepCopy()
+
+	if !(config.Spec.String() == copied.Spec.String() &&
+		config.Namespace == copied.Namespace &&
+		config.Name == copied.Name &&
+		config.CreationTimestamp == copied.CreationTimestamp) {
+		t.Fatalf("cloned config is not identical")
+	}
+
 }

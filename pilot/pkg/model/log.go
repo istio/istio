@@ -15,7 +15,7 @@
 package model
 
 import (
-	istiolog "istio.io/istio/pkg/log"
+	istiolog "istio.io/pkg/log"
 )
 
 var log = istiolog.RegisterScope("model", "model", 0)

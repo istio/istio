@@ -17,18 +17,18 @@ package util
 import (
 	"errors"
 	"io/ioutil"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/pmezard/go-difflib/difflib"
+
+	"istio.io/pkg/env"
 )
 
 // Refresh controls whether to update the golden artifacts instead.
 // It is set using the environment variable REFRESH_GOLDEN.
 func Refresh() bool {
-	v, exists := os.LookupEnv("REFRESH_GOLDEN")
-	return exists && v == "true"
+	return env.RegisterBoolVar("REFRESH_GOLDEN", false, "").Get()
 }
 
 // Compare compares two byte slices. It returns an error with a

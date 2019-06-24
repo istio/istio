@@ -66,7 +66,7 @@ To uninstall/delete the `istio-init` release but continue to track the release:
 
 To uninstall/delete the `istio-init` release completely and make its name free for later use:
     ```
-    $ helm delete istio-init --purge
+    $ helm delete --purge istio-init
     ```
 
 > Warning: Deleting CRDs will delete any configuration that you have made to Istio.

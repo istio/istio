@@ -37,7 +37,7 @@ import (
 	"k8s.io/client-go/transport/spdy"
 
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/version"
+	"istio.io/pkg/version"
 )
 
 var (
@@ -140,7 +140,7 @@ func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, 
 	if len(pilots) == 0 {
 		return nil, errors.New("unable to find any Pilot instances")
 	}
-	cmd := []string{"sh", "-c", fmt.Sprintf("GODEBUG= %s request %s %s %s", pilotDiscoveryPath, method, path, string(body))}
+	cmd := []string{pilotDiscoveryPath, "request", method, path, string(body)}
 	result := map[string][]byte{}
 	for _, pilot := range pilots {
 		res, err := client.ExtractExecResult(pilot.Name, pilot.Namespace, discoveryContainer, cmd)
@@ -166,7 +166,7 @@ func (client *Client) PilotDiscoveryDo(pilotNamespace, method, path string, body
 	if len(pilots) == 0 {
 		return nil, errors.New("unable to find any Pilot instances")
 	}
-	cmd := []string{"sh", "-c", fmt.Sprintf("GODEBUG= %s request %s %s %s", pilotDiscoveryPath, method, path, string(body))}
+	cmd := []string{pilotDiscoveryPath, "request", method, path, string(body)}
 	return client.ExtractExecResult(pilots[0].Name, pilots[0].Namespace, discoveryContainer, cmd)
 }
 
@@ -184,10 +184,10 @@ func (client *Client) EnvoyDo(podName, podNamespace, method, path string, body [
 func (client *Client) ExtractExecResult(podName, podNamespace, container string, cmd []string) ([]byte, error) {
 	stdout, stderr, err := client.PodExec(podName, podNamespace, container, cmd)
 	if err != nil {
+		if stderr.String() != "" {
+			return nil, fmt.Errorf("error execing into %v/%v %v container: %v\n%s", podName, podNamespace, container, err, stderr.String())
+		}
 		return nil, fmt.Errorf("error execing into %v/%v %v container: %v", podName, podNamespace, container, err)
-	}
-	if stderr.String() != "" {
-		fmt.Printf("Warning! error execing into %v/%v %v container: %v\n", podName, podNamespace, container, stderr.String())
 	}
 	return stdout.Bytes(), nil
 }
@@ -251,7 +251,7 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 		return nil, err
 	}
 	if len(pods) == 0 {
-		return nil, errors.New("unable to find any Istio pod in namespace " + namespace)
+		return nil, fmt.Errorf("unable to determine control plane version - no Istio pods in namespace %q", namespace)
 	}
 
 	labelToPodDetail := map[string]podDetail{

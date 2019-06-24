@@ -37,7 +37,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -61,6 +61,7 @@ type Webhook struct {
 	sidecarConfig          *Config
 	sidecarTemplateVersion string
 	meshConfig             *meshconfig.MeshConfig
+	valuesConfig           string
 
 	healthCheckInterval time.Duration
 	healthCheckFile     string
@@ -75,19 +76,25 @@ type Webhook struct {
 	cert       *tls.Certificate
 }
 
-func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, error) {
+func loadConfig(injectFile, meshFile, valuesFile string) (*Config, *meshconfig.MeshConfig, string, error) {
 	data, err := ioutil.ReadFile(injectFile)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 	var c Config
 	if err := yaml.Unmarshal(data, &c); err != nil {
 		log.Warnf("Failed to parse injectFile %s", string(data))
-		return nil, nil, err
+		return nil, nil, "", err
 	}
+
+	valuesConfig, err := ioutil.ReadFile(valuesFile)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
 	meshConfig, err := cmd.ReadMeshConfig(meshFile)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 
 	log.Infof("New configuration: sha256sum %x", sha256.Sum256(data))
@@ -96,7 +103,7 @@ func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, e
 	log.Infof("NeverInjectSelector: %v", c.NeverInjectSelector)
 	log.Infof("Template: |\n  %v", strings.Replace(c.Template, "\n", "\n  ", -1))
 
-	return &c, meshConfig, nil
+	return &c, meshConfig, string(valuesConfig), nil
 }
 
 // WebhookParameters configures parameters for the sidecar injection
@@ -131,7 +138,7 @@ type WebhookParameters struct {
 
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
 func NewWebhook(p WebhookParameters) (*Webhook, error) {
-	sidecarConfig, meshConfig, err := loadConfig(p.ConfigFile, p.MeshFile)
+	sidecarConfig, meshConfig, valuesConfig, err := loadConfig(p.ConfigFile, p.MeshFile, p.ValuesFile)
 	if err != nil {
 		return nil, err
 	}
@@ -162,6 +169,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		meshConfig:             meshConfig,
 		configFile:             p.ConfigFile,
 		valuesFile:             p.ValuesFile,
+		valuesConfig:           valuesConfig,
 		meshFile:               p.MeshFile,
 		watcher:                watcher,
 		healthCheckInterval:    p.HealthCheckInterval,
@@ -201,7 +209,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 		select {
 		case <-timerC:
 			timerC = nil
-			sidecarConfig, meshConfig, err := loadConfig(wh.configFile, wh.meshFile)
+			sidecarConfig, meshConfig, valuesConfig, err := loadConfig(wh.configFile, wh.meshFile, wh.valuesFile)
 			if err != nil {
 				log.Errorf("update error: %v", err)
 				break
@@ -215,6 +223,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			}
 			wh.mu.Lock()
 			wh.sidecarConfig = sidecarConfig
+			wh.valuesConfig = valuesConfig
 			wh.sidecarTemplateVersion = version
 			wh.meshConfig = meshConfig
 			wh.cert = &pair
@@ -562,13 +571,8 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 			FSGroup: &grp,
 		}
 	}
-	valuesConfig, err := ioutil.ReadFile(wh.valuesFile)
-	if err != nil {
-		log.Errorf("failed to read values file: err=%v\n", err)
-		return toAdmissionResponse(err)
-	}
 
-	spec, status, err := InjectionData(wh.sidecarConfig.Template, string(valuesConfig), wh.sidecarTemplateVersion, &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
+	spec, status, err := InjectionData(wh.sidecarConfig.Template, wh.valuesConfig, wh.sidecarTemplateVersion, &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
 	if err != nil {
 		log.Infof("Injection data: err=%v spec=%v\n", err, status)
 		return toAdmissionResponse(err)
@@ -637,10 +641,10 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	resp, err := json.Marshal(response)
 	if err != nil {
 		log.Errorf("Could not encode response: %v", err)
-		http.Error(w, fmt.Sprintf("could encode response: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("could not encode response: %v", err), http.StatusInternalServerError)
 	}
 	if _, err := w.Write(resp); err != nil {
 		log.Errorf("Could not write response: %v", err)
-		http.Error(w, fmt.Sprintf("could write response: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
 	}
 }

@@ -21,16 +21,21 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // Registry specifies the collection of service registry related interfaces
 type Registry struct {
-	Name      serviceregistry.ServiceRegistry
+	// Name is the type of the registry - Kubernetes, Consul, etc.
+	Name serviceregistry.ServiceRegistry
+	// ClusterID is used when multiple registries of the same type are used,
+	// for example in the case of K8S multicluster.
 	ClusterID string
 	model.Controller
 	model.ServiceDiscovery
 }
+
+// TODO: rename Name to Type and ClusterID to Name ?
 
 var (
 	clusterAddressesMutex sync.Mutex
@@ -136,13 +141,20 @@ func (c *Controller) Services() ([]*model.Service, error) {
 					services = append(services, sp)
 				}
 
+				sp.Mutex.Lock()
 				// If the registry has a cluster ID, keep track of the cluster and the
 				// local address inside the cluster.
 				if sp.ClusterVIPs == nil {
 					sp.ClusterVIPs = make(map[string]string)
 				}
-				sp.Mutex.Lock()
 				sp.ClusterVIPs[r.ClusterID] = s.Address
+
+				if s.Attributes.ClusterExternalAddresses != nil && len(s.Attributes.ClusterExternalAddresses[r.ClusterID]) > 0 {
+					if sp.Attributes.ClusterExternalAddresses == nil {
+						sp.Attributes.ClusterExternalAddresses = make(map[string][]string)
+					}
+					sp.Attributes.ClusterExternalAddresses[r.ClusterID] = s.Attributes.ClusterExternalAddresses[r.ClusterID]
+				}
 				sp.Mutex.Unlock()
 			}
 		}
@@ -234,7 +246,32 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 
 	if len(out) > 0 {
 		if errs != nil {
-			log.Warnf("GetProxyServiceInstances() found match but encountered an error: %v", errs)
+			log.Debugf("GetProxyServiceInstances() found match but encountered an error: %v", errs)
+		}
+		return out, nil
+	}
+
+	return out, errs
+}
+
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCollection, error) {
+	out := make(model.LabelsCollection, 0)
+	var errs error
+	// It doesn't make sense for a single proxy to be found in more than one registry.
+	// TODO: if otherwise, warning or else what to do about it.
+	for _, r := range c.GetRegistries() {
+		labels, err := r.GetProxyWorkloadLabels(proxy)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+		} else if len(labels) > 0 {
+			out = append(out, labels...)
+			break
+		}
+	}
+
+	if len(out) > 0 {
+		if errs != nil {
+			log.Warnf("GetProxyWorkloadLabels() found match but encountered an error: %v", errs)
 		}
 		return out, nil
 	}

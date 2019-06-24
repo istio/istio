@@ -35,7 +35,7 @@ UPGRADE_TEST_LOCAL="${UPGRADE_TEST_LOCAL:-}"
 #
 # Expects HUB, SOURCE_VERSION, TARGET_VERSION, SOURCE_RELEASE_PATH, and TARGET_RELEASE_PATH as inputs.
 
-echo "Testing upgrade and downgrade between ${HUB}/${SOURCE_VERSION} and ${HUB}/${TARGET_VERSION}"
+echo "Testing upgrade and downgrade between ${SOURCE_HUB}/${SOURCE_VERSION} and ${TARGET_HUB}/${TARGET_VERSION}"
 
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
@@ -62,7 +62,8 @@ fi
 # Install fortio which is needed by the upgrade test.
 go get fortio.org/fortio
 
-
 # Kick off tests
-"${ROOT}/tests/upgrade/test_crossgrade.sh" --from_hub="${HUB}" --from_tag="${SOURCE_VERSION}" --from_path="istio-${SOURCE_VERSION}" --to_hub="${HUB}" --to_tag="${TARGET_VERSION}" --to_path="istio-${TARGET_VERSION}" --cloud="GKE"
-
+"${ROOT}/tests/upgrade/test_crossgrade.sh" \
+  --from_hub="${SOURCE_HUB}" --from_tag="${SOURCE_VERSION}" --from_path="istio-${SOURCE_VERSION}" \
+  --to_hub="${TARGET_HUB}" --to_tag="${TARGET_VERSION}" --to_path="istio-${TARGET_VERSION}" \
+  --cloud="GKE"

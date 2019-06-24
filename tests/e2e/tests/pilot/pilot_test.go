@@ -31,9 +31,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/kube/inject"
 	util2 "istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -388,7 +388,6 @@ func getApp(deploymentName, serviceName string, replicas, port1, port2, port3, p
 			"port5":           strconv.Itoa(port5),
 			"port6":           strconv.Itoa(port6),
 			"version":         version,
-			"istioNamespace":  tc.Kube.Namespace,
 			"injectProxy":     strconv.FormatBool(injectProxy),
 			"headless":        strconv.FormatBool(headless),
 			"serviceAccount":  strconv.FormatBool(serviceAccount),
@@ -428,7 +427,7 @@ func ClientRequestForError(cluster, app, url string, count int) error {
 	}
 
 	pod := pods[0]
-	cmd := fmt.Sprintf("client -url %s -count %d", url, count)
+	cmd := fmt.Sprintf("client --url %s --count %d", url, count)
 	_, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true, tc.Kube.Clusters[cluster])
 	return err
 }
@@ -444,7 +443,7 @@ func ClientRequest(cluster, app, url string, count int, extra string) ClientResp
 	}
 
 	pod := pods[0]
-	cmd := fmt.Sprintf("client -url %s -count %d %s", url, count, extra)
+	cmd := fmt.Sprintf("client --url %s --count %d %s", url, count, extra)
 	request, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true, tc.Kube.Clusters[cluster])
 	if err != nil {
 		log.Errorf("client request error %v for %s in %s from %s cluster", err, url, app, cluster)

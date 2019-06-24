@@ -22,9 +22,10 @@ import (
 	"sort"
 	"strings"
 
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/helm"
+	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 const (
@@ -37,10 +38,6 @@ metadata:
 `
 )
 
-const (
-	yamlSeparator = "\n---\n"
-)
-
 func generateIstioYaml(helmDir string, cfg Config) (string, error) {
 	generatedYaml, err := renderIstioTemplate(helmDir, cfg)
 	if err != nil {
@@ -50,7 +47,7 @@ func generateIstioYaml(helmDir string, cfg Config) (string, error) {
 	// TODO: This is Istio deployment specific. We may need to remove/reconcile this as a parameter
 	// when we support Helm deployment of non-Istio artifacts.
 	namespaceData := fmt.Sprintf(namespaceTemplate, cfg.SystemNamespace)
-	generatedYaml = test.JoinConfigs(namespaceData, generatedYaml)
+	generatedYaml = yml.JoinString(namespaceData, generatedYaml)
 
 	return generatedYaml, nil
 }
@@ -70,27 +67,23 @@ func renderIstioTemplate(helmDir string, cfg Config) (string, error) {
 }
 
 func splitIstioYaml(istioYaml string) (string, string) {
-	installYaml := ""
-	configureYaml := ""
-
-	parts := strings.Split(istioYaml, yamlSeparator)
+	allParts := yml.SplitString(istioYaml)
+	installParts := make([]string, 0, len(allParts))
+	configureParts := make([]string, 0, len(allParts))
 
 	// Make the regular expression multi-line and anchor to the beginning of the line.
 	r := regexp.MustCompile(`(?m)^apiVersion: *.*istio\.io.*`)
 
-	for _, p := range parts {
+	for _, p := range allParts {
 		if r.Match([]byte(p)) {
-			if configureYaml != "" {
-				configureYaml += yamlSeparator
-			}
-			configureYaml += p
+			configureParts = append(configureParts, p)
 		} else {
-			if installYaml != "" {
-				installYaml += yamlSeparator
-			}
-			installYaml += p
+			installParts = append(installParts, p)
 		}
 	}
+
+	installYaml := yml.JoinString(installParts...)
+	configureYaml := yml.JoinString(configureParts...)
 
 	return installYaml, configureYaml
 }
@@ -113,13 +106,16 @@ func generateCRDYaml(crdFilesDir string) (string, error) {
 	sort.Strings(crdFiles)
 
 	// Get Joined Crds Yaml file
-	prevContent := ""
+	parts := make([]string, 0, len(crdFiles))
 	for _, yamlFileName := range crdFiles {
-		content, err := test.ReadConfigFile(path.Join(crdFilesDir, yamlFileName))
+		content, err := file.AsString(path.Join(crdFilesDir, yamlFileName))
 		if err != nil {
 			return "", err
 		}
-		prevContent = test.JoinConfigs(content, prevContent)
+		parts = append(parts, content)
 	}
+
+	prevContent := yml.JoinString(parts...)
+
 	return prevContent, nil
 }

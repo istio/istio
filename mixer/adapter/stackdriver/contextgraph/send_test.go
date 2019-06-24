@@ -20,8 +20,8 @@ import (
 	"time"
 
 	gax "github.com/googleapis/gax-go"
-	contextgraphpb "google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
 
+	contextgraphpb "istio.io/istio/mixer/adapter/stackdriver/internal/google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
 	env "istio.io/istio/mixer/pkg/adapter/test"
 )
 

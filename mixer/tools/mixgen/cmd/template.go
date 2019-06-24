@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 	gotemplate "text/template"
@@ -27,6 +26,7 @@ import (
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
+	"istio.io/pkg/env"
 )
 
 func templateCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Command {
@@ -81,7 +81,7 @@ spec:
 		fatalf("template in invalid: %v", err)
 	}
 
-	goPath := os.Getenv("GOPATH")
+	goPath := env.RegisterStringVar("GOPATH", "", "Specifies directories outside of $GOROOT that contain the source for Go projects and their binaries.").Get()
 	tmplObj := &templateCRVar{
 		Name:       name,
 		Namespace:  ns,

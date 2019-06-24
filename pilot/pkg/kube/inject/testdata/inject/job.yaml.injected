@@ -7,7 +7,10 @@ spec:
   template:
     metadata:
       annotations:
+        sidecar.istio.io/interceptionMode: REDIRECT
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
+        traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
       name: pi
     spec:
@@ -37,6 +40,8 @@ spec:
         - 1m0s
         - --discoveryAddress
         - istio-pilot:15010
+        - --dnsRefreshRate
+        - 300s
         - --connectTimeout
         - 1s
         - --proxyAdminPort
@@ -72,6 +77,7 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
+        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -89,7 +95,7 @@ spec:
         resources:
           limits:
             cpu: "2"
-            memory: 128Mi
+            memory: 1Gi
           requests:
             cpu: 100m
             memory: 128Mi
@@ -132,6 +138,7 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+          runAsNonRoot: false
           runAsUser: 0
       restartPolicy: Never
       volumes:

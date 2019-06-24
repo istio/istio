@@ -35,8 +35,8 @@ import (
 	"istio.io/istio/mixer/adapter/stackdriver/config"
 	"istio.io/istio/mixer/adapter/stackdriver/helper"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/template/logentry"
+	"istio.io/pkg/pool"
 )
 
 type (
@@ -102,7 +102,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		// Try to fill project id with Metadata if it is not provided.
 		cfg.ProjectId = md.ProjectID
 	}
-	client, err := b.makeClient(context.Background(), cfg.ProjectId, helper.ToOpts(cfg)...)
+	client, err := b.makeClient(context.Background(), cfg.ProjectId, helper.ToOpts(cfg, env.Logger())...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create stackdriver logging client: %v", err)
 	}
@@ -110,7 +110,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		_ = logger.Errorf("Stackdriver logger failed with: %v", err)
 	}
 
-	syncClient, err := b.makeSyncClient(context.Background(), cfg.ProjectId, helper.ToOpts(cfg)...)
+	syncClient, err := b.makeSyncClient(context.Background(), cfg.ProjectId, helper.ToOpts(cfg, env.Logger())...)
 	if err != nil {
 		_ = logger.Errorf("failed to create stackdriver sink logging client: %v", err)
 		syncClient = nil

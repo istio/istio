@@ -34,4 +34,4 @@ cd "${ROOT}"
 # Integration/e2e tests in the other scripts are run against GKE or real clusters.
 JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml" \
 T="-v" \
-make build localTestEnv test
+make build localTestEnv test version-test

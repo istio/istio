@@ -20,7 +20,7 @@ import (
 	"os"
 	"sync"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -187,7 +187,7 @@ func (t *testCleanup) cleanup() {
 }
 
 // Save test logs to tmp dir
-// Fetch and save cluster pod logs using kuebctl
+// Fetch and save cluster pod logs using kubectl
 // Logs are uploaded during test tear down
 func (c *CommonConfig) saveLogs(r int) error {
 	// Logs are fetched even if skip_cleanup is called - the namespace is left around.

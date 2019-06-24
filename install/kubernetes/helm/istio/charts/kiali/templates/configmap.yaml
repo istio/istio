@@ -11,12 +11,17 @@ metadata:
 data:
   config.yaml: |
     istio_namespace: {{ .Release.Namespace }}
+    auth:
+      strategy: "login"
     server:
       port: 20001
+{{- if .Values.contextPath }}
+      web_root: {{ .Values.contextPath }}
+{{- end }}
     external_services:
-      istio:
-        url_service_version: http://istio-pilot:8080/version
-      jaeger:
+      tracing:
         url: {{ .Values.dashboard.jaegerURL }}
       grafana:
         url: {{ .Values.dashboard.grafanaURL }}
+      prometheus:
+        url: {{ .Values.prometheusAddr }}

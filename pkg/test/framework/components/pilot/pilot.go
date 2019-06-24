@@ -16,15 +16,27 @@ package pilot
 
 import (
 	"fmt"
-	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/environment"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
+	meshConfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/resource"
+)
+
+// TypeURL for making discovery requests.
+type TypeURL string
+
+const (
+	typeURLPrefix                 = "type.googleapis.com/envoy.api.v2."
+	Listener              TypeURL = typeURLPrefix + "Listener"
+	Cluster               TypeURL = typeURLPrefix + "Cluster"
+	ClusterLoadAssignment TypeURL = typeURLPrefix + "ClusterLoadAssignment"
+	Route                 TypeURL = typeURLPrefix + "RouteConfiguration"
 )
 
 // Instance of Pilot
@@ -32,8 +44,12 @@ type Instance interface {
 	resource.Resource
 
 	CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error)
+	CallDiscoveryOrFail(t test.Failer, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryResponse
+
 	StartDiscovery(req *xdsapi.DiscoveryRequest) error
+	StartDiscoveryOrFail(t test.Failer, req *xdsapi.DiscoveryRequest)
 	WatchDiscovery(duration time.Duration, accept func(*xdsapi.DiscoveryResponse) (bool, error)) error
+	WatchDiscoveryOrFail(t test.Failer, duration time.Duration, accept func(*xdsapi.DiscoveryResponse) (bool, error))
 }
 
 // Structured config for the Pilot component
@@ -41,6 +57,10 @@ type Config struct {
 	fmt.Stringer
 	// If set then pilot takes a dependency on the referenced Galley instance
 	Galley galley.Instance
+
+	// The MeshConfig to be used for Pilot in native environment. In Kube environment this can be
+	// configured with Helm.
+	MeshConfig *meshConfig.MeshConfig
 }
 
 // New returns a new instance of echo.
@@ -56,10 +76,20 @@ func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 }
 
 // NewOrFail returns a new Pilot instance, or fails test.
-func NewOrFail(t *testing.T, c resource.Context, config Config) Instance {
+func NewOrFail(t test.Failer, c resource.Context, config Config) Instance {
 	i, err := New(c, config)
 	if err != nil {
 		t.Fatalf("pilot.NewOrFail: %v", err)
 	}
 	return i
+}
+
+// NewDiscoveryRequest is a utility method for creating a new request for the given node and type.
+func NewDiscoveryRequest(nodeID string, typeURL TypeURL) *xdsapi.DiscoveryRequest {
+	return &xdsapi.DiscoveryRequest{
+		Node: &xdscore.Node{
+			Id: nodeID,
+		},
+		TypeUrl: string(typeURL),
+	}
 }

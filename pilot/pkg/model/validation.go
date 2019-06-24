@@ -111,7 +111,7 @@ func ValidatePort(port int) error {
 	return fmt.Errorf("port number %d must be in the range 1..65535", port)
 }
 
-// ValidatePort checks if all ports are in range [0, 65535]
+// ValidatePorts checks if all ports are in range [0, 65535]
 func ValidatePorts(ports []int32) bool {
 	for _, port := range ports {
 		if ValidatePort(int(port)) != nil {
@@ -286,7 +286,11 @@ func validateDNS1123Labels(domain string) error {
 	if _, err := strconv.Atoi(topLevelDomain); err == nil {
 		return fmt.Errorf("domain name %q invalid (top level domain %q cannot be all-numeric)", domain, topLevelDomain)
 	}
-	for _, label := range parts {
+	for i, label := range parts {
+		// Allow the last part to be empty, for unambiguous names like `istio.io.`
+		if i == len(parts)-1 && label == "" {
+			return nil
+		}
 		if !IsDNS1123Label(label) {
 			return fmt.Errorf("domain name %q invalid (label %q invalid)", domain, label)
 		}
@@ -425,7 +429,11 @@ func ValidateUnixAddress(addr string) error {
 }
 
 // ValidateGateway checks gateway specifications
-func ValidateGateway(_, _ string, msg proto.Message) (errs error) {
+func ValidateGateway(name, _ string, msg proto.Message) (errs error) {
+	// Gateway name must conform to the DNS label format (no dots)
+	if !IsDNS1123Label(name) {
+		errs = appendErrors(errs, fmt.Errorf("invalid gateway name: %q", name))
+	}
 	value, ok := msg.(*networking.Gateway)
 	if !ok {
 		errs = appendErrors(errs, fmt.Errorf("cannot cast to gateway: %#v", msg))
@@ -1199,6 +1207,12 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 		}
 	}
 
+	if config.EnvoyAccessLogServiceAddress != "" {
+		if err := ValidateProxyAddress(config.EnvoyAccessLogServiceAddress); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy access log service address %q:", config.EnvoyAccessLogServiceAddress)))
+		}
+	}
+
 	if err := ValidatePort(int(config.ProxyAdminPort)); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy admin port:"))
 	}
@@ -1225,6 +1239,10 @@ func ValidateMixerAttributes(msg proto.Message) error {
 	}
 	var errs error
 	for k, v := range in.Attributes {
+		if v == nil {
+			errs = multierror.Append(errs, errors.New("an attribute cannot be empty"))
+			continue
+		}
 		switch val := v.Value.(type) {
 		case *mpb.Attributes_AttributeValue_StringValue:
 			if val.StringValue == "" {
@@ -1357,6 +1375,10 @@ func ValidateQuotaSpec(_, _ string, msg proto.Message) error {
 	for _, rule := range in.Rules {
 		for _, match := range rule.Match {
 			for name, clause := range match.Clause {
+				if clause == nil {
+					errs = multierror.Append(errs, errors.New("a clause cannot be empty"))
+					continue
+				}
 				switch matchType := clause.MatchType.(type) {
 				case *mccpb.StringMatch_Exact:
 					if matchType.Exact == "" {
@@ -1463,6 +1485,14 @@ func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) err
 		}
 	}
 	for _, method := range in.Origins {
+		if method == nil {
+			errs = multierror.Append(errs, errors.New("origin cannot be empty"))
+			continue
+		}
+		if method.Jwt == nil {
+			errs = multierror.Append(errs, errors.New("jwt cannot be empty"))
+			continue
+		}
 		if _, jwtExist := jwtIssuers[method.Jwt.Issuer]; jwtExist {
 			errs = appendErrors(errs, fmt.Errorf("jwt with issuer %q already defined", method.Jwt.Issuer))
 		} else {
@@ -1534,7 +1564,7 @@ func hasExistingFirstClassFieldInRole(constraintKey string, rule *rbac.AccessRul
 	return false
 }
 
-// ValidateServiceRoleBinding checks that ServiceRoleBinding is well-formed.
+// checkServiceRoleBinding checks that ServiceRoleBinding is well-formed.
 func checkServiceRoleBinding(in *rbac.ServiceRoleBinding) error {
 	var errs error
 	if len(in.Subjects) == 0 {
@@ -1569,7 +1599,6 @@ func checkServiceRoleBinding(in *rbac.ServiceRoleBinding) error {
 		errs = appendErrors(errs, fmt.Errorf("exactly one of `roleRef`, `role`, or `actions` must be specified"))
 	}
 	if in.RoleRef != nil {
-		rbacLog.Warnf("`roleRef` is deprecated. Please use `role` instead")
 		expectKind := "ServiceRole"
 		if in.RoleRef.Kind != expectKind {
 			errs = appendErrors(errs, fmt.Errorf("kind set to %q, currently the only supported value is %q",
@@ -1814,6 +1843,9 @@ func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualServi
 	for _, match := range tls.Match {
 		errs = appendErrors(errs, validateTLSMatch(match, context))
 	}
+	if len(tls.Route) == 0 {
+		errs = appendErrors(errs, errors.New("TLS route is required"))
+	}
 	errs = appendErrors(errs, validateRouteDestinations(tls.Route))
 	return
 }
@@ -1865,6 +1897,9 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 	}
 	for _, match := range tcp.Match {
 		errs = appendErrors(errs, validateTCPMatch(match))
+	}
+	if len(tcp.Route) == 0 {
+		errs = appendErrors(errs, errors.New("TCP route is required"))
 	}
 	errs = appendErrors(errs, validateRouteDestinations(tcp.Route))
 	return
@@ -2068,7 +2103,26 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 		return
 	}
 
-	// TODO: additional validation for AllowOrigin?
+	for _, host := range policy.AllowOrigin {
+		if host != "*" {
+			host = strings.TrimPrefix(host, "https://")
+			host = strings.TrimPrefix(host, "http://")
+			parts := strings.Split(host, ":")
+			if len(parts) > 2 {
+				errs = appendErrors(errs, fmt.Errorf("CORS Allow Origin must be '*' or of [http[s]://]host[:port] format"))
+			} else {
+				if len(parts) == 2 {
+					if port, err := strconv.Atoi(parts[1]); err != nil {
+						errs = appendErrors(errs, fmt.Errorf("port in CORS Allow Origin is not a number: %s", parts[1]))
+					} else {
+						errs = ValidatePort(port)
+					}
+					host = parts[0]
+				}
+				errs = appendErrors(errs, ValidateFQDN(host))
+			}
+		}
+	}
 
 	for _, method := range policy.AllowMethods {
 		errs = appendErrors(errs, validateHTTPMethod(method))
@@ -2088,8 +2142,6 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 			errs = multierror.Append(errs, errors.New("max_age duration is accurate only to seconds precision"))
 		}
 	}
-
-	// TODO: additional validation for AllowCredentials?
 
 	return
 }
@@ -2167,7 +2219,12 @@ func validateDestination(destination *networking.Destination) (errs error) {
 		return
 	}
 
-	errs = appendErrors(errs, ValidateWildcardDomain(destination.Host))
+	host := destination.Host
+	if host == "*" {
+		errs = appendErrors(errs, fmt.Errorf("invalid destintation host %s", host))
+	} else {
+		errs = appendErrors(errs, ValidateWildcardDomain(host))
+	}
 	if destination.Subset != "" {
 		errs = appendErrors(errs, validateSubsetName(destination.Subset))
 	}
@@ -2227,9 +2284,14 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 		return
 	}
 
-	if retries.Attempts <= 0 {
-		errs = multierror.Append(errs, errors.New("attempts must be positive"))
+	if retries.Attempts < 0 {
+		errs = multierror.Append(errs, errors.New("attempts cannot be negative"))
 	}
+
+	if retries.Attempts == 0 && (retries.PerTryTimeout != nil || retries.RetryOn != "") {
+		errs = appendErrors(errs, errors.New("http retry policy configured when attempts are set to 0 (disabled)"))
+	}
+
 	if retries.PerTryTimeout != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(retries.PerTryTimeout))
 	}

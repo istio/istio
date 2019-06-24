@@ -1,40 +1,4 @@
 {
-  "__inputs": [
-    {
-      "name": "DS_PROMETHEUS",
-      "label": "Prometheus",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "prometheus",
-      "pluginName": "Prometheus"
-    }
-  ],
-  "__requires": [
-    {
-      "type": "grafana",
-      "id": "grafana",
-      "name": "Grafana",
-      "version": "5.2.3"
-    },
-    {
-      "type": "panel",
-      "id": "graph",
-      "name": "Graph",
-      "version": "5.0.0"
-    },
-    {
-      "type": "datasource",
-      "id": "prometheus",
-      "name": "Prometheus",
-      "version": "5.0.0"
-    },
-    {
-      "type": "panel",
-      "id": "text",
-      "name": "Text",
-      "version": "5.0.0"
-    }
-  ],
   "annotations": {
     "list": [
       {
@@ -51,24 +15,21 @@
   "editable": false,
   "gnetId": null,
   "graphTooltip": 1,
-  "id": null,
+  "id": 6,
   "links": [],
   "panels": [
     {
-      "content": "<center><h2>Deployed Versions</h2></center>",
+      "collapsed": false,
       "gridPos": {
-        "h": 3,
+        "h": 1,
         "w": 24,
         "x": 0,
         "y": 0
       },
-      "height": "40",
-      "id": 58,
-      "links": [],
-      "mode": "html",
-      "title": "",
-      "transparent": true,
-      "type": "text"
+      "id": 60,
+      "panels": [],
+      "title": "Deployed Versions",
+      "type": "row"
     },
     {
       "aliasColors": {},
@@ -81,7 +42,7 @@
         "h": 5,
         "w": 24,
         "x": 0,
-        "y": 3
+        "y": 1
       },
       "id": 56,
       "legend": {
@@ -116,6 +77,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Pilot Versions",
       "tooltip": {
@@ -155,20 +117,17 @@
       }
     },
     {
-      "content": "<center><h2>Resource Usage</h2></center>",
+      "collapsed": false,
       "gridPos": {
-        "h": 3,
+        "h": 1,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 6
       },
-      "height": "40",
-      "id": 29,
-      "links": [],
-      "mode": "html",
-      "title": "",
-      "transparent": true,
-      "type": "text"
+      "id": 62,
+      "panels": [],
+      "title": "Resource Usage",
+      "type": "row"
     },
     {
       "aliasColors": {},
@@ -181,7 +140,7 @@
         "h": 7,
         "w": 6,
         "x": 0,
-        "y": 11
+        "y": 7
       },
       "id": 5,
       "legend": {
@@ -285,6 +244,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Memory",
       "tooltip": {
@@ -334,7 +294,7 @@
         "h": 7,
         "w": 6,
         "x": 6,
-        "y": 11
+        "y": 7
       },
       "id": 6,
       "legend": {
@@ -360,7 +320,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"}[1m]))",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"}[1m]))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -369,7 +329,7 @@
           "step": 2
         },
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"}[1m])) by (container_name)",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"}[1m])) by (container_name)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -389,6 +349,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "CPU",
       "tooltip": {
@@ -438,7 +399,7 @@
         "h": 7,
         "w": 6,
         "x": 12,
-        "y": 11
+        "y": 7
       },
       "id": 7,
       "legend": {
@@ -484,6 +445,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Disk",
       "tooltip": {
@@ -534,7 +496,7 @@
         "h": 7,
         "w": 6,
         "x": 18,
-        "y": 11
+        "y": 7
       },
       "id": 4,
       "legend": {
@@ -570,6 +532,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Goroutines",
       "tooltip": {
@@ -609,19 +572,238 @@
       }
     },
     {
-      "content": "<center><h2>xDS</h2></center>",
+      "collapsed": false,
       "gridPos": {
-        "h": 3,
+        "h": 1,
         "w": 24,
         "x": 0,
-        "y": 18
+        "y": 14
       },
-      "id": 28,
+      "id": 58,
+      "panels": [],
+      "title": "Pilot Push Information",
+      "type": "row"
+    },
+    {
+      "aliasColors": {},
+      "bars": true,
+      "dashLength": 10,
+      "dashes": false,
+      "description": "Shows pilot pushes",
+      "fill": 1,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
+      "id": 622,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": false,
+      "linewidth": 1,
       "links": [],
-      "mode": "html",
-      "title": "",
-      "transparent": true,
-      "type": "text"
+      "nullPointMode": "null as zero",
+      "paceLength": 10,
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": true,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "sum(rate(pilot_xds_pushes{type!~\".*_senderr\"}[1m])) by (type)",
+          "format": "time_series",
+          "instant": false,
+          "interval": "",
+          "intervalFactor": 1,
+          "legendFormat": "{{ type }}",
+          "refId": "B",
+          "step": 2
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Pilot Pushes",
+      "tooltip": {
+        "shared": false,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": [
+          "total"
+        ]
+      },
+      "yaxes": [
+        {
+          "format": "ops",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "Captures a variety of pilot errors",
+      "fill": 1,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "id": 67,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "label_replace(sum(pilot_xds_cds_reject{job=\"pilot\"}) by (node, err), \"node\", \"$1\", \"node\", \".*~.*~(.*)~.*\")",
+          "format": "time_series",
+          "hide": false,
+          "intervalFactor": 1,
+          "legendFormat": "Rejected CDS Configs - {{ node }}: {{ err }}",
+          "refId": "C"
+        },
+        {
+          "expr": "pilot_xds_eds_reject{job=\"pilot\"}",
+          "format": "time_series",
+          "hide": false,
+          "intervalFactor": 1,
+          "legendFormat": "Rejected EDS Configs",
+          "refId": "D"
+        },
+        {
+          "expr": "rate(pilot_xds_write_timeout{job=\"pilot\"}[1m])",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Write Timeouts",
+          "refId": "F"
+        },
+        {
+          "expr": "rate(pilot_xds_push_timeout{job=\"pilot\"}[1m])",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Push Timeouts",
+          "refId": "G"
+        },
+        {
+          "expr": "sum(rate(pilot_xds_push_errors{job=\"pilot\"}[1m]))",
+          "format": "time_series",
+          "hide": false,
+          "intervalFactor": 1,
+          "legendFormat": "Push Errors ({{ type }})",
+          "refId": "I"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Pilot Errors",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "id": 64,
+      "panels": [],
+      "title": "xDS",
+      "type": "row"
     },
     {
       "aliasColors": {},
@@ -634,7 +816,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 21
+        "y": 24
       },
       "id": 40,
       "legend": {
@@ -670,6 +852,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Updates",
       "tooltip": {
@@ -719,7 +902,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 21
+        "y": 24
       },
       "id": 42,
       "legend": {
@@ -755,6 +938,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Failures",
       "tooltip": {
@@ -804,7 +988,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 21
+        "y": 24
       },
       "id": 41,
       "legend": {
@@ -840,6 +1024,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Active Connections",
       "tooltip": {
@@ -889,7 +1074,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 27
+        "y": 30
       },
       "id": 45,
       "legend": {
@@ -945,6 +1130,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Conflicts",
       "tooltip": {
@@ -994,7 +1180,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 27
+        "y": 30
       },
       "id": 47,
       "legend": {
@@ -1087,6 +1273,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "ADS Monitoring",
       "tooltip": {
@@ -1136,7 +1323,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 27
+        "y": 30
       },
       "id": 49,
       "legend": {
@@ -1171,6 +1358,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Rejected CDS Configs",
       "tooltip": {
@@ -1220,7 +1408,7 @@
         "h": 7,
         "w": 8,
         "x": 0,
-        "y": 35
+        "y": 38
       },
       "id": 52,
       "legend": {
@@ -1255,6 +1443,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Rejected EDS Configs",
       "tooltip": {
@@ -1304,7 +1493,7 @@
         "h": 7,
         "w": 8,
         "x": 8,
-        "y": 35
+        "y": 38
       },
       "id": 54,
       "legend": {
@@ -1339,6 +1528,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Rejected LDS Configs",
       "tooltip": {
@@ -1388,7 +1578,7 @@
         "h": 7,
         "w": 8,
         "x": 16,
-        "y": 35
+        "y": 38
       },
       "id": 53,
       "legend": {
@@ -1423,6 +1613,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Rejected RDS Configs",
       "tooltip": {
@@ -1474,7 +1665,7 @@
         "h": 7,
         "w": 8,
         "x": 0,
-        "y": 42
+        "y": 45
       },
       "id": 51,
       "legend": {
@@ -1514,6 +1705,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "EDS Instances",
       "tooltip": {
@@ -1554,7 +1746,7 @@
     }
   ],
   "refresh": "5s",
-  "schemaVersion": 16,
+  "schemaVersion": 18,
   "style": "dark",
   "tags": [],
   "templating": {
@@ -1591,5 +1783,6 @@
   },
   "timezone": "browser",
   "title": "Istio Pilot Dashboard",
-  "version": 4
+  "uid": "3--MLVZZk",
+  "version": 1
 }

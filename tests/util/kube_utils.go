@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -33,20 +34,23 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"golang.org/x/net/context/ctxhttp"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const (
 	podFailedGet = "Failed_Get"
 	// The index of STATUS field in kubectl CLI output.
-	statusField          = 2
-	defaultClusterSubnet = "24"
+	statusField            = 2
+	defaultClusterSubnet   = "24"
+	defaultClusterSubnetv6 = "128"
 
 	// NodePortServiceType NodePort type of Kubernetes Service
 	NodePortServiceType = "NodePort"
 
 	// LoadBalancerServiceType LoadBalancer type of Kubernetes Service
 	LoadBalancerServiceType = "LoadBalancer"
+
+	ingressHTTPServicePort = "80"
 )
 
 var (
@@ -131,6 +135,17 @@ func DeleteDeployment(d string, n string, kubeconfig string) error {
 	return err
 }
 
+// LabelNamespace will add a label to the kubernetes namespace
+func LabelNamespace(n, label, kubeconfig string) error {
+	if _, err := Shell("kubectl label namespace %s %s --kubeconfig=%s", n, label, kubeconfig); err != nil {
+		if !strings.Contains(err.Error(), "AlreadyExists") {
+			return err
+		}
+	}
+	log.Infof("label %s added to namespace %s", label, n)
+	return nil
+}
+
 // NamespaceDeleted check if a kubernete namespace is deleted
 func NamespaceDeleted(n string, kubeconfig string) (bool, error) {
 	output, err := ShellSilent("kubectl get namespace %s -o name --kubeconfig=%s", n, kubeconfig)
@@ -166,6 +181,12 @@ func kubeCommand(subCommand, namespace, yamlFileName string, kubeconfig string) 
 // KubeApply kubectl apply from file
 func KubeApply(namespace, yamlFileName string, kubeconfig string) error {
 	_, err := Shell(kubeCommand("apply", namespace, yamlFileName, kubeconfig))
+	return err
+}
+
+// KubeCommand executes the given kubectl command with the given yaml file
+func KubeCommand(command, namespace, yamlFileName string, kubeconfig string) error {
+	_, err := Shell(kubeCommand(command, namespace, yamlFileName, kubeconfig))
 	return err
 }
 
@@ -239,9 +260,18 @@ func GetClusterSubnet(kubeconfig string) (string, error) {
 	}
 	parts := strings.Split(cidr, "/")
 	if len(parts) != 2 {
-		// TODO(nmittler): Need a way to get the subnet on minikube. For now, just return a default value.
-		log.Info("unable to identify cluster subnet. running on minikube?")
-		return defaultClusterSubnet, nil
+		ip, _ := GetKubeMasterIP(kubeconfig)
+		addr := net.ParseIP(ip)
+		if addr == nil {
+			return "", fmt.Errorf("unable to determine the kubernetes service IP and cluster subnet")
+		}
+		if addr.To4() != nil {
+			// TODO(nmittler): Need a way to get the subnet on minikube. For now, just return a default value.
+			log.Info("unable to identify cluster subnet. running on minikube?")
+			return defaultClusterSubnet, nil
+		}
+		log.Info("unable to identify IPv6 cluster subnet")
+		return defaultClusterSubnetv6, nil
 	}
 	return parts[1], nil
 }
@@ -267,7 +297,7 @@ func getRetrier(serviceType string) Retrier {
 // GetIngress get istio ingress ip and port. Could relate to either Istio Ingress or to
 // Istio Ingress Gateway, by serviceName and podLabel. Handles two cases: when the Ingress/Ingress Gateway
 // Kubernetes Service is a LoadBalancer or NodePort (for tests within the  cluster, including for minikube)
-func GetIngress(serviceName, podLabel, namespace, kubeconfig string, serviceType string) (string, error) {
+func GetIngress(serviceName, podLabel, namespace, kubeconfig string, serviceType string, sanityCheck bool) (string, error) {
 
 	retry := getRetrier(serviceType)
 	var ingress string
@@ -299,6 +329,10 @@ func GetIngress(serviceName, podLabel, namespace, kubeconfig string, serviceType
 	ctx, cancel := context.WithTimeout(ctx, 300*time.Second)
 	defer cancel()
 
+	if !sanityCheck {
+		return ingress, nil
+	}
+
 	client := &http.Client{Timeout: 5 * time.Second}
 	ingressURL := fmt.Sprintf("http://%s", ingress)
 	log.Infof("Sanity checking %v", ingressURL)
@@ -326,8 +360,8 @@ func getServiceLoadBalancer(name, namespace, kubeconfig string) (string, error) 
 	}
 
 	ip = strings.Trim(ip, "'")
-	ri := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
-	if ri.FindString(ip) == "" {
+	addr := net.ParseIP(ip)
+	if addr == nil {
 		return "", errors.New("ingress ip not available yet")
 	}
 
@@ -344,8 +378,8 @@ func getServiceNodePort(serviceName, podLabel, namespace, kubeconfig string) (st
 	}
 
 	ip = strings.Trim(ip, "'")
-	ri := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
-	if ri.FindString(ip) == "" {
+	addr := net.ParseIP(ip)
+	if addr == nil {
 		return "", fmt.Errorf("the ip of %s is not available yet", serviceName)
 	}
 
@@ -354,13 +388,16 @@ func getServiceNodePort(serviceName, podLabel, namespace, kubeconfig string) (st
 		return "", err
 	}
 
+	if addr.To4() == nil {
+		return "[" + ip + "]" + ":" + port, nil
+	}
 	return ip + ":" + port, nil
 }
 
 func getServicePort(serviceName, namespace, kubeconfig string) (string, error) {
 	port, err := Shell(
-		"kubectl get svc %s -n %s -o jsonpath='{.spec.ports[0].nodePort}' --kubeconfig=%s",
-		serviceName, namespace, kubeconfig)
+		"kubectl get svc %s -n %s -o jsonpath='{.spec.ports[?(@.port==%s)].nodePort}' --kubeconfig=%s",
+		serviceName, namespace, ingressHTTPServicePort, kubeconfig)
 
 	if err != nil {
 		return "", err
@@ -874,6 +911,18 @@ func DeleteMultiClusterSecret(namespace string, remoteKubeConfig string, localKu
 		log.Errorf("Failed to delete secret %s: %v", secretName, err)
 	} else {
 		log.Infof("Deleted secret %s", secretName)
+	}
+	return err
+}
+
+// ReplaceInConfigMap will modify an existing configmap with the provided sed expression
+func ReplaceInConfigMap(namespace string, configmapName string, sedExpression string, kubeconfig string) error {
+	_, err := ShellMuteOutput("kubectl get configmap/%s -n %s --kubeconfig=%s -o yaml | sed \"%s\" | kubectl replace --kubeconfig=%s -f -",
+		configmapName, namespace, kubeconfig, sedExpression, kubeconfig)
+	if err != nil {
+		log.Errorf("Failed to edit the configmap %s: %v", configmapName, err)
+	} else {
+		log.Infof("Configmap %s updated with sed expression %s", configmapName, sedExpression)
 	}
 	return err
 }

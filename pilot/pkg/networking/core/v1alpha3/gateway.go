@@ -19,6 +19,8 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/istio/pkg/features/pilot"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -32,8 +34,9 @@ import (
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/log"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/proto"
+	"istio.io/pkg/log"
 )
 
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node *model.Proxy, push *model.PushContext) ([]*xdsapi.Listener, error) {
@@ -47,13 +50,14 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 
 	gatewaysForWorkload := env.Gateways(workloadLabels)
 	if len(gatewaysForWorkload) == 0 {
-		log.Debuga("buildGatewayListeners: no gateways for router", node.ID)
+		log.Debuga("buildGatewayListeners: no gateways for router ", node.ID)
 		return []*xdsapi.Listener{}, nil
 	}
 
 	mergedGateway := model.MergeGateways(gatewaysForWorkload...)
 	log.Debugf("buildGatewayListeners: gateways after merging: %v", mergedGateway)
 
+	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	errs := &multierror.Error{}
 	listeners := make([]*xdsapi.Listener, 0, len(mergedGateway.Servers))
 	for portNumber, servers := range mergedGateway.Servers {
@@ -62,7 +66,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		opts := buildListenerOpts{
 			env:        env,
 			proxy:      node,
-			bind:       WildcardAddress,
+			bind:       actualWildcard,
 			port:       int(portNumber),
 			bindToPort: true,
 		}
@@ -202,7 +206,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 
 	gateways := env.Gateways(workloadLabels)
 	if len(gateways) == 0 {
-		log.Debuga("buildGatewayRoutes: no gateways for router", node.ID)
+		log.Debuga("buildGatewayRoutes: no gateways for router ", node.ID)
 		return nil, nil
 	}
 
@@ -211,8 +215,17 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 
 	// make sure that there is some server listening on this port
 	if _, ok := merged.ServersByRouteName[routeName]; !ok {
-		log.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.ServersByRouteName)
-		return nil, fmt.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.ServersByRouteName)
+		log.Warnf("Gateway missing for route %s. This is normal if gateway was recently deleted. Have %v", routeName, merged.ServersByRouteName)
+
+		// If the flag is set, send Envoy an error, blocking all routes from being sent. This flag
+		// is intended only to support legacy behavior and should be removed in the future.
+		if pilot.DisablePartialRouteResponse {
+			return nil, fmt.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.ServersByRouteName)
+		}
+
+		// This can happen when a gateway has recently been deleted. Envoy will still request route
+		// information due to the draining of listeners, so we should not return an error.
+		return nil, nil
 	}
 
 	servers := merged.ServersByRouteName[routeName]
@@ -315,6 +328,13 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	node *model.Proxy, server *networking.Server, routeName string) *filterChainOpts {
 
 	serverProto := model.ParseProtocol(server.Port.Protocol)
+
+	httpProtoOpts := &core.Http1ProtocolOptions{}
+
+	if pilot.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
+		httpProtoOpts.AcceptHttp_10 = true
+	}
+
 	// Are we processing plaintext servers or HTTPS servers?
 	// If plain text, we have to combine all servers into a single listener
 	if serverProto.IsHTTP() {
@@ -337,7 +357,8 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 						Uri:     true,
 						Dns:     true,
 					},
-					ServerName: EnvoyServerName,
+					ServerName:          EnvoyServerName,
+					HttpProtocolOptions: httpProtoOpts,
 				},
 			},
 		}
@@ -371,7 +392,8 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 					Uri:     true,
 					Dns:     true,
 				},
-				ServerName: EnvoyServerName,
+				ServerName:          EnvoyServerName,
+				HttpProtocolOptions: httpProtoOpts,
 			},
 		},
 	}
@@ -393,7 +415,7 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
 		// SDS config for gateway to fetch key/cert at gateway agent.
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			model.ConstructSdsSecretConfigForGatewayListener(server.Tls.CredentialName, model.IngressGatewaySdsUdsPath),
+			authn_model.ConstructSdsSecretConfigForGatewayListener(server.Tls.CredentialName, authn_model.IngressGatewaySdsUdsPath),
 		}
 		// If tls mode is MUTUAL, create SDS config for gateway to fetch certificate validation context
 		// at gateway agent. Otherwise, use the static certificate validation context config.
@@ -401,8 +423,8 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 					DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
-					ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfigForGatewayListener(
-						server.Tls.CredentialName+model.IngressGatewaySdsCaSuffix, model.IngressGatewaySdsUdsPath),
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfigForGatewayListener(
+						server.Tls.CredentialName+authn_model.IngressGatewaySdsCaSuffix, authn_model.IngressGatewaySdsUdsPath),
 				},
 			}
 		} else if len(server.Tls.SubjectAltNames) > 0 {

@@ -178,21 +178,7 @@ func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.O
 
 		scopes.CI.Infof("Checking pods ready...")
 
-		fetched, err := fetchFunc()
-		if err != nil {
-			scopes.CI.Infof("Failed retrieving pods: %v", err)
-			return nil, false, err
-		}
-
-		for i, p := range fetched {
-			msg := "Ready"
-			if e := CheckPodReady(&p); e != nil {
-				msg = e.Error()
-				err = multierror.Append(err, fmt.Errorf("%s/%s: %s", p.Namespace, p.Name, msg))
-			}
-			scopes.CI.Infof("  [%2d] %45s %15s (%v)", i, p.Name, p.Status.Phase, msg)
-		}
-
+		fetched, err := a.CheckPodsAreReady(fetchFunc)
 		if err != nil {
 			return nil, false, err
 		}
@@ -201,6 +187,32 @@ func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.O
 	}, newRetryOptions(opts...)...)
 
 	return pods, err
+}
+
+// CheckPodsAreReady checks wehther the pods that are selected by the given function is in ready state or not.
+func (a *Accessor) CheckPodsAreReady(fetchFunc PodFetchFunc) ([]kubeApiCore.Pod, error) {
+	scopes.CI.Infof("Checking pods ready...")
+
+	fetched, err := fetchFunc()
+	if err != nil {
+		scopes.CI.Infof("Failed retrieving pods: %v", err)
+		return nil, err
+	}
+
+	for i, p := range fetched {
+		msg := "Ready"
+		if e := CheckPodReady(&p); e != nil {
+			msg = e.Error()
+			err = multierror.Append(err, fmt.Errorf("%s/%s: %s", p.Namespace, p.Name, msg))
+		}
+		scopes.CI.Infof("  [%2d] %45s %15s (%v)", i, p.Name, p.Status.Phase, msg)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return fetched, nil
 }
 
 // WaitUntilPodsAreDeleted waits until the pod with the name/namespace no longer exist.
@@ -264,8 +276,9 @@ func (a *Accessor) WaitUntilDaemonSetIsReady(ns string, name string, opts ...ret
 
 // WaitUntilServiceEndpointsAreReady will wait until the service with the given name/namespace is present, and have at least
 // one usable endpoint.
-func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string, opts ...retry.Option) (*kubeApiCore.Service, error) {
+func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string, opts ...retry.Option) (*kubeApiCore.Service, *kubeApiCore.Endpoints, error) {
 	var service *kubeApiCore.Service
+	var endpoints *kubeApiCore.Endpoints
 	err := retry.UntilSuccess(func() error {
 
 		s, err := a.GetService(ns, name)
@@ -273,28 +286,29 @@ func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string, opt
 			return err
 		}
 
-		endpoints, err := a.GetEndpoints(ns, name, kubeApiMeta.GetOptions{})
+		eps, err := a.GetEndpoints(ns, name, kubeApiMeta.GetOptions{})
 		if err != nil {
 			return err
 		}
-		if len(endpoints.Subsets) == 0 {
+		if len(eps.Subsets) == 0 {
 			return fmt.Errorf("%s/%v endpoint not ready: no subsets", ns, name)
 		}
 
-		for _, subset := range endpoints.Subsets {
+		for _, subset := range eps.Subsets {
 			if len(subset.Addresses) > 0 && len(subset.NotReadyAddresses) == 0 {
 				service = s
+				endpoints = eps
 				return nil
 			}
 		}
 		return fmt.Errorf("%s/%v endpoint not ready: no ready addresses", ns, name)
-	}, opts...)
+	}, newRetryOptions(opts...)...)
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return service, nil
+	return service, endpoints, nil
 }
 
 // DeleteValidatingWebhook deletes the validating webhook with the given name.
@@ -346,14 +360,48 @@ func (a *Accessor) GetSecret(ns string) kubeClientCore.SecretInterface {
 	return a.set.CoreV1().Secrets(ns)
 }
 
+// CreateSecret takes the representation of a secret and creates it in the given namespace.
+// Returns an error if there is any.
+func (a *Accessor) CreateSecret(namespace string, secret *kubeApiCore.Secret) (err error) {
+	_, err = a.set.CoreV1().Secrets(namespace).Create(secret)
+	return err
+}
+
+// DeleteSecret deletes secret by name in namespace.
+func (a *Accessor) DeleteSecret(namespace, name string) (err error) {
+	var immediate int64
+	err = a.set.CoreV1().Secrets(namespace).Delete(name, &kubeApiMeta.DeleteOptions{GracePeriodSeconds: &immediate})
+	return err
+}
+
 // GetEndpoints returns the endpoints for the given service.
 func (a *Accessor) GetEndpoints(ns, service string, options kubeApiMeta.GetOptions) (*kubeApiCore.Endpoints, error) {
 	return a.set.CoreV1().Endpoints(ns).Get(service, options)
 }
 
 // CreateNamespace with the given name. Also adds an "istio-testing" annotation.
-func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string, injectionEnabled bool) error {
+func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string) error {
 	scopes.Framework.Debugf("Creating namespace: %s", ns)
+
+	n := a.newNamespace(ns, istioTestingAnnotation)
+
+	_, err := a.set.CoreV1().Namespaces().Create(&n)
+	return err
+}
+
+func (a *Accessor) CreateNamespaceWithInjectionEnabled(ns string, istioTestingAnnotation string, configNamespace string) error {
+	scopes.Framework.Debugf("Creating namespace with injection enabled: %s", ns)
+
+	n := a.newNamespace(ns, istioTestingAnnotation)
+
+	n.ObjectMeta.Labels["istio-injection"] = "enabled"
+	n.ObjectMeta.Labels["istio-env"] = configNamespace
+
+	_, err := a.set.CoreV1().Namespaces().Create(&n)
+	return err
+}
+
+func (a *Accessor) newNamespace(ns string, istioTestingAnnotation string) kubeApiCore.Namespace {
 	n := kubeApiCore.Namespace{
 		ObjectMeta: kubeApiMeta.ObjectMeta{
 			Name:   ns,
@@ -363,12 +411,7 @@ func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string, inj
 	if istioTestingAnnotation != "" {
 		n.ObjectMeta.Labels["istio-testing"] = istioTestingAnnotation
 	}
-	if injectionEnabled {
-		n.ObjectMeta.Labels["istio-injection"] = "enabled"
-	}
-
-	_, err := a.set.CoreV1().Namespaces().Create(&n)
-	return err
+	return n
 }
 
 // NamespaceExists returns true if the given namespace exists.
@@ -409,6 +452,16 @@ func (a *Accessor) WaitForNamespaceDeletion(ns string, opts ...retry.Option) err
 	return err
 }
 
+// GetNamespace returns the K8s namespaceresource with the given name.
+func (a *Accessor) GetNamespace(ns string) (*kubeApiCore.Namespace, error) {
+	n, err := a.set.CoreV1().Namespaces().Get(ns, kubeApiMeta.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return n, nil
+}
+
 // ApplyContents applies the given config contents using kubectl.
 func (a *Accessor) ApplyContents(namespace string, contents string) ([]string, error) {
 	return a.ctl.applyContents(namespace, contents)
@@ -430,8 +483,8 @@ func (a *Accessor) Delete(namespace string, filename string) error {
 }
 
 // Logs calls the logs command for the specified pod, with -c, if container is specified.
-func (a *Accessor) Logs(namespace string, pod string, container string) (string, error) {
-	return a.ctl.logs(namespace, pod, container)
+func (a *Accessor) Logs(namespace string, pod string, container string, previousLog bool) (string, error) {
+	return a.ctl.logs(namespace, pod, container, previousLog)
 }
 
 // Exec executes the provided command on the specified pod/container.

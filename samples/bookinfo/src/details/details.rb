@@ -79,7 +79,7 @@ end
 
 def fetch_details_from_external_service(isbn, id, headers)
     uri = URI.parse('https://www.googleapis.com/books/v1/volumes?q=isbn:' + isbn)
-    http = Net::HTTP.new(uri.host, uri.port)
+    http = Net::HTTP.new(uri.host, ENV['DO_NOT_ENCRYPT'] === 'true' ? 80:443)
     http.read_timeout = 5 # seconds
 
     # DO_NOT_ENCRYPT is used to configure the details service to use either

@@ -139,7 +139,7 @@ func TestPilotPluginTCP(t *testing.T) {
 	}
 
 	snapshots := cache.NewSnapshotCache(true, mock{}, nil)
-	snapshots.SetSnapshot(id, makeSnapshot(s, t))
+	snapshots.SetSnapshot(id, makeSnapshot(s, t, model.SidecarProxy))
 	server := xds.NewServer(snapshots, nil)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
 	go func() {
@@ -155,8 +155,14 @@ func TestPilotPluginTCP(t *testing.T) {
 	defer s.TearDown()
 
 	s.WaitEnvoyReady()
+	if _, _, err := env.HTTPGet(fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)); err != nil {
+		t.Errorf("Failed in request: %v", err)
+	}
+	s.VerifyCheck("tcp-inbound", checkAttributesOkInbound)
 
-	// Issues a GET echo request with 0 size body
+	// force a client-side policy check at ingress node type
+	snapshots.SetSnapshot(id, makeSnapshot(s, t, model.Router))
+	s.WaitEnvoyReady()
 	if _, _, err := env.HTTPGet(fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)); err != nil {
 		t.Errorf("Failed in request: %v", err)
 	}
@@ -172,6 +178,9 @@ func (mock) ID(*core.Node) string {
 	return id
 }
 func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, error) {
+	return nil, nil
+}
+func (mock) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCollection, error) {
 	return nil, nil
 }
 func (mock) GetService(_ model.Hostname) (*model.Service, error) { return nil, nil }
@@ -198,9 +207,8 @@ var (
 	}
 	mesh = &model.Environment{
 		Mesh: &meshconfig.MeshConfig{
-			MixerCheckServer:            "mixer_server:9091",
-			MixerReportServer:           "mixer_server:9091",
-			EnableClientSidePolicyCheck: true,
+			MixerCheckServer:  "mixer_server:9091",
+			MixerReportServer: "mixer_server:9091",
 		},
 		ServiceDiscovery: mock{},
 	}
@@ -208,26 +216,6 @@ var (
 		ServiceByHostname: map[model.Hostname]*model.Service{
 			model.Hostname("svc.ns3"): &svc,
 		},
-	}
-	serverParams = plugin.InputParams{
-		ListenerProtocol: plugin.ListenerProtocolTCP,
-		Env:              mesh,
-		Node: &model.Proxy{
-			ID:   "pod1.ns1",
-			Type: model.SidecarProxy,
-		},
-		ServiceInstance: &model.ServiceInstance{Service: &svc},
-		Push:            &pushContext,
-	}
-	clientParams = plugin.InputParams{
-		ListenerProtocol: plugin.ListenerProtocolTCP,
-		Env:              mesh,
-		Node: &model.Proxy{
-			ID:   "pod2.ns2",
-			Type: model.SidecarProxy,
-		},
-		Service: &svc,
-		Push:    &pushContext,
 	}
 )
 
@@ -249,11 +237,32 @@ func makeListener(port uint16, cluster string) *v2.Listener {
 	}
 }
 
-func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
+func makeSnapshot(s *env.TestSetup, t *testing.T, node model.NodeType) cache.Snapshot {
 	clientListener := makeListener(s.Ports().ClientProxyPort, "outbound|||svc.ns3")
 	serverListener := makeListener(s.Ports().ServerProxyPort, "inbound|||backend")
 
 	p := mixer.NewPlugin()
+
+	serverParams := plugin.InputParams{
+		ListenerProtocol: plugin.ListenerProtocolTCP,
+		Env:              mesh,
+		Node: &model.Proxy{
+			ID:   "pod1.ns1",
+			Type: node,
+		},
+		ServiceInstance: &model.ServiceInstance{Service: &svc},
+		Push:            &pushContext,
+	}
+	clientParams := plugin.InputParams{
+		ListenerProtocol: plugin.ListenerProtocolTCP,
+		Env:              mesh,
+		Node: &model.Proxy{
+			ID:   "pod2.ns2",
+			Type: node,
+		},
+		Service: &svc,
+		Push:    &pushContext,
+	}
 
 	serverMutable := plugin.MutableObjects{Listener: serverListener, FilterChains: []plugin.FilterChain{{}}}
 	if err := p.OnInboundListener(&serverParams, &serverMutable); err != nil {
@@ -268,6 +277,6 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 	clientListener.FilterChains[0].Filters = append(clientMutable.FilterChains[0].TCP, clientListener.FilterChains[0].Filters...)
 
 	return cache.Snapshot{
-		Listeners: cache.NewResources("tcp", []cache.Resource{clientListener, serverListener}),
+		Listeners: cache.NewResources(string(node), []cache.Resource{clientListener, serverListener}),
 	}
 }

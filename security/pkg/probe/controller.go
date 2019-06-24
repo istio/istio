@@ -22,13 +22,13 @@ import (
 
 	"google.golang.org/grpc"
 
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/probe"
 	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	pb "istio.io/istio/security/proto"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 const (

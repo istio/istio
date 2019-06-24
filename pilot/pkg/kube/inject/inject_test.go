@@ -82,10 +82,22 @@ func TestIntoResourceFile(t *testing.T) {
 		debugMode                    bool
 		privileged                   bool
 		tproxy                       bool
+		podDNSSearchNamespaces       []string
 	}{
-		// "testdata/hello.yaml" is tested in http_test.go (with debug)
+		//"testdata/hello.yaml" is tested in http_test.go (with debug)
 		{
 			in:                           "hello.yaml",
+			want:                         "hello.yaml.injected",
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
+		//verifies that the sidecar will not be injected again for an injected yaml
+		{
+			in:                           "hello.yaml.injected",
 			want:                         "hello.yaml.injected",
 			includeIPRanges:              DefaultIncludeIPRanges,
 			includeInboundPorts:          DefaultIncludeInboundPorts,
@@ -479,6 +491,22 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
 		},
+		{
+			// Verifies that global.podDNSSearchNamespaces are applied properly
+			in:                           "hello.yaml",
+			want:                         "hello-template-in-values.yaml.injected",
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			kubevirtInterfaces:           "net1,net2",
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			podDNSSearchNamespaces: []string{
+				"global",
+				"{{ valueOrDefault .DeploymentMeta.Namespace \"default\" }}.global",
+			},
+		},
 	}
 
 	for i, c := range cases {
@@ -519,6 +547,7 @@ func TestIntoResourceFile(t *testing.T) {
 				ReadinessPeriodSeconds:       c.readinessPeriodSeconds,
 				ReadinessFailureThreshold:    c.readinessFailureThreshold,
 				RewriteAppHTTPProbe:          false,
+				PodDNSSearchNamespaces:       c.podDNSSearchNamespaces,
 			}
 			if c.imagePullPolicy != "" {
 				params.ImagePullPolicy = c.imagePullPolicy
@@ -720,6 +749,10 @@ func TestInvalidAnnotations(t *testing.T) {
 		{
 			annotation: "excludeinboundports",
 			in:         "traffic-annotations-bad-excludeinboundports.yaml",
+		},
+		{
+			annotation: "excludeoutboundports",
+			in:         "traffic-annotations-bad-excludeoutboundports.yaml",
 		},
 	}
 

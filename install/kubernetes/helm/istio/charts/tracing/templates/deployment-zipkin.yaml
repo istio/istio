@@ -37,6 +37,7 @@ spec:
       containers:
         - name: zipkin
           image: "{{ .Values.zipkin.hub }}/zipkin:{{ .Values.zipkin.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.zipkin.queryPort }}
           livenessProbe:
@@ -71,4 +72,11 @@ spec:
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+      {{- if .Values.tolerations }}
+      tolerations:
+{{ toYaml .Values.tolerations | indent 6 }}
+      {{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+      {{- end }}
 {{ end }}

@@ -6,6 +6,7 @@ replicaCount: 1
 image: sidecar_injector
 enableNamespacesByDefault: false
 nodeSelector: {}
+tolerations: []
 
 # Specify the pod anti-affinity that allows you to constrain which nodes
 # your pod is eligible to be scheduled based on labels on pods that are
@@ -25,10 +26,17 @@ nodeSelector: {}
 # This pod anti-affinity rule says that the pod requires not to be scheduled
 # onto a node if that node is already running a pod with label having key
 # “security” and value “S1”.
-podAntiAffinityLabelSelector: {}
-podAntiAffinityTermLabelSelector: {}
+podAntiAffinityLabelSelector: []
+podAntiAffinityTermLabelSelector: []
 
 # If true, webhook or istioctl injector will rewrite PodSpec for liveness
 # health check to redirect request to sidecar. This makes liveness check work
 # even when mTLS is enabled.
 rewriteAppHTTPProbe: false
+
+# You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
+# always skip the injection on pods that match that label selector, regardless of the global policy.
+# See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
+neverInjectSelector: []
+
+alwaysInjectSelector: []

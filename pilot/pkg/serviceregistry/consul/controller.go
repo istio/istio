@@ -22,7 +22,7 @@ import (
 	"github.com/hashicorp/consul/api"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // Controller communicates with Consul and monitors for changes
@@ -169,6 +169,37 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 				for _, ipAddress := range node.IPAddresses {
 					if ipAddress == addr {
 						out = append(out, convertInstance(endpoint))
+						break
+					}
+				}
+			}
+		}
+	}
+
+	return out, nil
+}
+
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCollection, error) {
+	data, err := c.getServices()
+	if err != nil {
+		return nil, err
+	}
+	out := make(model.LabelsCollection, 0)
+	for svcName := range data {
+		endpoints, err := c.getCatalogService(svcName, nil)
+		if err != nil {
+			return nil, err
+		}
+		for _, endpoint := range endpoints {
+			addr := endpoint.ServiceAddress
+			if addr == "" {
+				addr = endpoint.Address
+			}
+			if len(proxy.IPAddresses) > 0 {
+				for _, ipAddress := range proxy.IPAddresses {
+					if ipAddress == addr {
+						labels := convertLabels(endpoint.ServiceTags)
+						out = append(out, labels)
 						break
 					}
 				}

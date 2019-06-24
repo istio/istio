@@ -143,6 +143,7 @@ func TestApplyThrice(t *testing.T) {
 		if epoch == 1 {
 			go func() {
 				a.ConfigCh() <- good
+				time.Sleep(time.Second)
 				cancel()
 			}()
 		} else if epoch != 0 {

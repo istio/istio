@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mitchellh/copystructure"
+
 	"github.com/gogo/protobuf/proto"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -199,6 +201,10 @@ type ConfigDescriptor []ProtoSchema
 type ProtoSchema struct {
 	// ClusterScoped is true for resource in cluster-level.
 	ClusterScoped bool
+
+	// Name of the (go) object define the schema. Leave blank to infer from the 'Type' below.
+	// This field is used to generate Kube CRD types map (pilot/pkg/config/kube/crd/types.go).
+	SchemaObjectName string
 
 	// Type is the config proto type.
 	Type string
@@ -448,25 +454,27 @@ var (
 
 	// AuthenticationPolicy describes an authentication policy.
 	AuthenticationPolicy = ProtoSchema{
-		Type:        "policy",
-		Plural:      "policies",
-		Group:       "authentication",
-		Version:     "v1alpha1",
-		MessageName: "istio.authentication.v1alpha1.Policy",
-		Validate:    ValidateAuthenticationPolicy,
-		Collection:  metadata.IstioAuthenticationV1alpha1Policies.Collection.String(),
+		SchemaObjectName: "AuthenticationPolicy",
+		Type:             "policy",
+		Plural:           "policies",
+		Group:            "authentication",
+		Version:          "v1alpha1",
+		MessageName:      "istio.authentication.v1alpha1.Policy",
+		Validate:         ValidateAuthenticationPolicy,
+		Collection:       metadata.IstioAuthenticationV1alpha1Policies.Collection.String(),
 	}
 
 	// AuthenticationMeshPolicy describes an authentication policy at mesh level.
 	AuthenticationMeshPolicy = ProtoSchema{
-		ClusterScoped: true,
-		Type:          "mesh-policy",
-		Plural:        "mesh-policies",
-		Group:         "authentication",
-		Version:       "v1alpha1",
-		MessageName:   "istio.authentication.v1alpha1.Policy",
-		Validate:      ValidateAuthenticationPolicy,
-		Collection:    metadata.IstioAuthenticationV1alpha1Meshpolicies.Collection.String(),
+		ClusterScoped:    true,
+		SchemaObjectName: "AuthenticationMeshPolicy",
+		Type:             "mesh-policy",
+		Plural:           "mesh-policies",
+		Group:            "authentication",
+		Version:          "v1alpha1",
+		MessageName:      "istio.authentication.v1alpha1.Policy",
+		Validate:         ValidateAuthenticationPolicy,
+		Collection:       metadata.IstioAuthenticationV1alpha1Meshpolicies.Collection.String(),
 	}
 
 	// ServiceRole describes an RBAC service role.
@@ -664,6 +672,14 @@ func (store *istioConfigStore) ServiceEntries() []Config {
 // sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
 func sortConfigByCreationTime(configs []Config) []Config {
 	sort.SliceStable(configs, func(i, j int) bool {
+		// If creation time is the same, then behavior is nondeterministic. In this case, we can
+		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
+		// CreationTimestamp is stored in seconds, so this is not uncommon.
+		if configs[i].CreationTimestamp == configs[j].CreationTimestamp {
+			in := configs[i].Name + "." + configs[i].Namespace
+			jn := configs[j].Name + "." + configs[j].Namespace
+			return in < jn
+		}
 		return configs[i].CreationTimestamp.Before(configs[j].CreationTimestamp)
 	})
 	return configs
@@ -1043,4 +1059,16 @@ func SortQuotaSpec(specs []Config) {
 		jrule, _ := specs[j].Spec.(*mccpb.QuotaSpec)
 		return irule == nil || jrule == nil || (specs[i].Key() < specs[j].Key())
 	})
+}
+
+func (config Config) DeepCopy() Config {
+	copied, err := copystructure.Copy(config)
+	if err != nil {
+		// There are 2 locations where errors are generated in copystructure.Copy:
+		//  * The reflection walk over the structure fails, which should never happen
+		//  * A configurable copy function returns an error. This is only used for copying times, which never returns an error.
+		// Therefore, this should never happen
+		panic(err)
+	}
+	return copied.(Config)
 }

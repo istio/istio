@@ -1,3 +1,17 @@
+// Copyright 2019 Istio Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package loadbalancer
 
 import (
@@ -48,7 +62,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				env := buildEnvForClustersWithDistribute(tt.distribute)
 				cluster := buildFakeCluster()
-				ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
+				ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting, true)
 				weights := []int{}
 				for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 					weights = append(weights, int(localityEndpoint.LoadBalancingWeight.GetValue()))
@@ -64,7 +78,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		g := NewGomegaWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildFakeCluster()
-		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
+		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			if localityEndpoint.Locality.Region == locality.Region {
 				if localityEndpoint.Locality.Zone == locality.Zone {
@@ -90,7 +104,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		g := NewGomegaWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildSmallCluster()
-		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
+		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			if localityEndpoint.Locality.Region == locality.Region {
 				if localityEndpoint.Locality.Zone == locality.Zone {
@@ -116,7 +130,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		g := NewGomegaWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildSmallClusterWithNilLocalities()
-		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
+		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			if localityEndpoint.Locality == nil {
 				g.Expect(localityEndpoint.Priority).To(Equal(uint32(2)))
@@ -168,11 +182,11 @@ func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBala
 		},
 	}
 
-	configStore := &fakes.IstioConfigStore{}
+	configStore := fakes.IstioConfigStore{}
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
+		IstioConfigStore: configStore.Freeze(),
 		Mesh:             meshConfig,
 		MixerSAN:         []string{},
 	}
@@ -235,7 +249,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
+		IstioConfigStore: configStore.Freeze(),
 		Mesh:             meshConfig,
 		MixerSAN:         []string{},
 	}

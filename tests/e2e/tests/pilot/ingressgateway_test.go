@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 // maybeAddTLSForDestinationRule fills the DestinationRule template if the mTLS is turned on globally.
@@ -63,7 +63,7 @@ func TestGateway_HTTPIngress(t *testing.T) {
 	for cluster := range tc.Kube.Clusters {
 		runRetriableTest(t, "HTTPIngressGateway", defaultRetryBudget, func() error {
 			reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
-			resp := ClientRequest(cluster, "t", reqURL, 100, "-key Host -val uk.bookinfo.com:80")
+			resp := ClientRequest(cluster, "t", reqURL, 100, "--key Host --val uk.bookinfo.com:80")
 			count := make(map[string]int)
 			for _, elt := range resp.Version {
 				count[elt]++
@@ -98,7 +98,7 @@ func TestGateway_HTTPSIngress(t *testing.T) {
 	for cluster := range tc.Kube.Clusters {
 		runRetriableTest(t, "HTTPSIngressGateway", defaultRetryBudget, func() error {
 			reqURL := fmt.Sprintf("https://%s.%s/c", ingressGatewayServiceName, istioNamespace)
-			resp := ClientRequest(cluster, "t", reqURL, 100, "-key Host -val uk.bookinfo.com")
+			resp := ClientRequest(cluster, "t", reqURL, 100, "--key Host --val uk.bookinfo.com")
 			count := make(map[string]int)
 			for _, elt := range resp.Version {
 				count[elt]++
@@ -133,7 +133,7 @@ func TestGateway_TCPIngress(t *testing.T) {
 	for cluster := range tc.Kube.Clusters {
 		runRetriableTest(t, "TCPIngressGateway", defaultRetryBudget, func() error {
 			reqURL := fmt.Sprintf("http://%s.%s:31400/c", ingressGatewayServiceName, istioNamespace)
-			resp := ClientRequest(cluster, "t", reqURL, 100, "-key Host -val uk.bookinfo.com")
+			resp := ClientRequest(cluster, "t", reqURL, 100, "--key Host --val uk.bookinfo.com")
 			count := make(map[string]int)
 			for _, elt := range resp.Version {
 				count[elt]++
@@ -220,7 +220,7 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 			defer wg.Done()
 			reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
 			// 500 requests @20 qps = 25s. This is the minimum required to cover all rule changes below.
-			resp = ClientRequest(clusterc, "t", reqURL, 500, "-key Host -val uk.bookinfo.com -qps 20")
+			resp = ClientRequest(clusterc, "t", reqURL, 500, "--key Host --val uk.bookinfo.com --qps 20")
 		}()
 	}
 
@@ -285,7 +285,7 @@ func TestVirtualServiceMergingAtGateway(t *testing.T) {
 	for cluster := range tc.Kube.Clusters {
 		runRetriableTest(t, "VirtualServiceMergingAtGateway-route1", defaultRetryBudget, func() error {
 			reqURL := fmt.Sprintf("http://%s.%s/route1", ingressGatewayServiceName, istioNamespace)
-			resp := ClientRequest(cluster, "t", reqURL, 10, "-key Host -val uk.bookinfo.com:80")
+			resp := ClientRequest(cluster, "t", reqURL, 10, "--key Host --val uk.bookinfo.com:80")
 			count := make(map[string]int)
 			for _, elt := range resp.Version {
 				count[elt]++
@@ -299,7 +299,7 @@ func TestVirtualServiceMergingAtGateway(t *testing.T) {
 
 		runRetriableTest(t, "VirtualServiceMergingAtGateway-route2", defaultRetryBudget, func() error {
 			reqURL := fmt.Sprintf("http://%s.%s/route2", ingressGatewayServiceName, istioNamespace)
-			resp := ClientRequest(cluster, "t", reqURL, 10, "-key Host -val uk.bookinfo.com:80")
+			resp := ClientRequest(cluster, "t", reqURL, 10, "--key Host --val uk.bookinfo.com:80")
 			count := make(map[string]int)
 			for _, elt := range resp.Version {
 				count[elt]++

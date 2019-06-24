@@ -106,12 +106,6 @@ input:
       section: MONITORING
       boolean_group: MONITORING_GROUP
 
-    - name: enableServiceGraph
-      title: Enable ServiceGraph for deployment visualization
-      tooltip: Enable ServiceGraph on the cluster
-      section: MONITORING
-      boolean_group: MONITORING_GROUP
-
   sections:
     - name: server
       title: Baseline GKE Cluster config

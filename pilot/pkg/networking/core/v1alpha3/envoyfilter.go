@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // We process EnvoyFilter CRDs after calling all plugins and building the listener with the required filter chains
@@ -115,15 +115,8 @@ func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
 // is undefined.
 func getUserFiltersForWorkload(in *plugin.InputParams) *networking.EnvoyFilter {
 	env := in.Env
-	// collect workload labels
-	workloadInstances := in.ProxyInstances
 
-	var workloadLabels model.LabelsCollection
-	for _, w := range workloadInstances {
-		workloadLabels = append(workloadLabels, w.Labels)
-	}
-
-	f := env.EnvoyFilter(workloadLabels)
+	f := env.EnvoyFilter(in.Node.WorkloadLabels)
 	if f != nil {
 		return f.Spec.(*networking.EnvoyFilter)
 	}

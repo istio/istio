@@ -24,8 +24,8 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/sink"
+	"istio.io/pkg/log"
 )
 
 var errUnsupported = errors.New("this operation is not supported by mcp controller")
@@ -125,7 +125,7 @@ func (c *Controller) Apply(change *sink.Change) error {
 
 	schema, valid := c.ConfigDescriptor().GetByType(descriptor.Type)
 	if !valid {
-		return fmt.Errorf("descriptor type not supported %s", change.Collection)
+		return fmt.Errorf("descriptor type not supported %s", descriptor.Type)
 	}
 
 	c.syncedMu.Lock()
@@ -275,14 +275,10 @@ func (c *Controller) serviceEntryEvents(currentStore, prevStore map[string]map[s
 		}
 	}
 
-	// remove
+	// delete
 	for namespace, prevByName := range prevStore {
 		for name, prevConfig := range prevByName {
-			if byNamespace, ok := currentStore[namespace]; ok {
-				if _, ok := byNamespace[name]; !ok {
-					dispatch(*prevConfig, model.EventDelete)
-				}
-			} else {
+			if _, ok := currentStore[namespace][name]; !ok {
 				dispatch(*prevConfig, model.EventDelete)
 			}
 		}

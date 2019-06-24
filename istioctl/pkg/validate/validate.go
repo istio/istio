@@ -18,195 +18,320 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"strings"
 
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-
+	yaml "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/kubernetes/pkg/kubectl/genericclioptions"
-	"k8s.io/kubernetes/pkg/kubectl/genericclioptions/resource"
 
+	mixercrd "istio.io/istio/mixer/pkg/config/crd"
+	mixerstore "istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/runtime/config/constant"
+	mixervalidate "istio.io/istio/mixer/pkg/validate"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/pkg/log"
 )
-
-// TODO use k8s.io/cli-runtime when we switch to v1.12 k8s dependency
-// k8s.io/cli-runtime was created for k8s v.12. Prior to that release,
-// the genericclioptions packages are organized under kubectl.
 
 var (
-	// Expect YAML to only include these top-level fields
-	validFields = map[string]bool{
-		"apiVersion": true,
-		"kind":       true,
-		"metadata":   true,
-		"spec":       true,
-		"status":     true,
+	mixerAPIVersion = "config.istio.io/v1alpha2"
+
+	errMissingFilename = errors.New(`error: you must specify resources by --filename.
+Example resource specifications include:
+   '-f rsrc.yaml'
+   '--filename=rsrc.json'`)
+	errKindNotSupported = errors.New("kind is not supported")
+
+	validFields = map[string]struct{}{
+		"apiVersion": {},
+		"kind":       {},
+		"metadata":   {},
+		"spec":       {},
+		"status":     {},
 	}
+
+	validMixerKinds = map[string]struct{}{
+		constant.RulesKind:             {},
+		constant.AdapterKind:           {},
+		constant.TemplateKind:          {},
+		constant.HandlerKind:           {},
+		constant.InstanceKind:          {},
+		constant.AttributeManifestKind: {},
+	}
+	istioDeploymentLabel = []string{
+		"app",
+		"version",
+	}
+	serviceProtocolUDP = "UDP"
 )
 
-/*
+type validator struct {
+	mixerValidator mixerstore.BackendValidator
+}
 
-TODO(https://github.com/istio/istio/issues/4887)
-
-Reusing the existing mixer validation code pulls in all of the mixer
-adapter packages into istioctl. Not only is this not ideal (see
-issue), but it also breaks the istioctl build on windows as some mixer
-adapters use linux specific packges (e.g. syslog).
-
-func createMixerValidator() store.BackendValidator {
-	info := generatedTmplRepo.SupportedTmplInfo
-	templates := make(map[string]*template.Info, len(info))
-	for k := range info {
-		t := info[k]
-		templates[k] = &t
+func checkFields(un *unstructured.Unstructured) error {
+	var errs error
+	for key := range un.Object {
+		if _, ok := validFields[key]; !ok {
+			errs = multierror.Append(errs, fmt.Errorf("unknown field %q", key))
+		}
 	}
-	adapters := config.AdapterInfoMap(adapter.Inventory(), template.NewRepository(info).SupportsTemplate)
-	return store.NewValidator(nil, runtimeConfig.KindMap(adapters, templates))
+	return errs
 }
 
-var mixerValidator = createMixerValidator()
-
-type validateArgs struct {
-	filenames []string
-	// TODO validateObjectStream namespace/object?
-}
-
-func (args validateArgs) validate() error {
-	var errs *multierror.Error
-	if len(args.filenames) == 0 {
-		errs = multierror.Append(errs, errors.New("no filenames set (see --filename/-f)"))
-	}
-	return errs.ErrorOrNil()
-}
-*/
-
-func validateResource(un *unstructured.Unstructured) error {
+func (v *validator) validateResource(istioNamespace string, un *unstructured.Unstructured) error {
 	schema, exists := model.IstioConfigTypes.GetByType(crd.CamelCaseToKebabCase(un.GetKind()))
 	if exists {
 		obj, err := crd.ConvertObjectFromUnstructured(schema, un, "")
 		if err != nil {
 			return fmt.Errorf("cannot parse proto message: %v", err)
 		}
+		if err = checkFields(un); err != nil {
+			return err
+		}
 		return schema.Validate(obj.Name, obj.Namespace, obj.Spec)
 	}
-	return fmt.Errorf("%s.%s validation is not supported", un.GetKind(), un.GetAPIVersion())
-	/*
-		TODO(https://github.com/istio/istio/issues/4887)
 
-		ev := &store.BackendEvent{
-			Key: store.Key{
+	if v.mixerValidator != nil && un.GetAPIVersion() == mixerAPIVersion {
+		if !v.mixerValidator.SupportsKind(un.GetKind()) {
+			return errKindNotSupported
+		}
+		if err := checkFields(un); err != nil {
+			return err
+		}
+		if _, ok := validMixerKinds[un.GetKind()]; !ok {
+			log.Warnf("deprecated Mixer kind %q, please use %q or %q instead", un.GetKind(),
+				constant.HandlerKind, constant.InstanceKind)
+		}
+
+		return v.mixerValidator.Validate(&mixerstore.BackendEvent{
+			Type: mixerstore.Update,
+			Key: mixerstore.Key{
 				Name:      un.GetName(),
 				Namespace: un.GetNamespace(),
 				Kind:      un.GetKind(),
 			},
-			Value: mixerCrd.ToBackEndResource(un),
-		}
-		return mixerValidator.Validate(ev)
-	*/
-}
-
-var errMissingResource = errors.New(`error: you must specify resources by --filename.
-Example resource specifications include:
-   '-f rsrc.yaml'
-   '--filename=rsrc.json'`)
-
-func validateObjects(restClientGetter resource.RESTClientGetter, options resource.FilenameOptions, writer io.Writer) error {
-	// resource.Builder{} validates most of the CLI flags consistent
-	// with kubectl which is good. Unfortunately, it also assumes
-	// resources can be specified as '<resource> <name>' which is
-	// bad. We don't don't for file-based configuration validation. If
-	// a filename is missing, resource.Builder{} prints a warning
-	// referencing '<resource> <name>' which would be confusing to the
-	// user. Avoid this confusion by checking for missing filenames
-	// are ourselves for invoking the builder.
-	if len(options.Filenames) == 0 {
-		return errMissingResource
+			Value: mixercrd.ToBackEndResource(un),
+		})
 	}
-
-	r := resource.NewBuilder(restClientGetter).
-		Unstructured().
-		FilenameParam(false, &options).
-		Flatten().
-		Local().
-		Do()
-	if err := r.Err(); err != nil {
-		return err
-	}
-
 	var errs error
-	_ = r.Visit(func(info *resource.Info, err error) error {
-		if err != nil {
-			return err
-		}
-		content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
-		if err != nil {
-			errs = multierror.Append(errs, err)
-			return nil
-		}
-
-		un := &unstructured.Unstructured{Object: content}
-		for key := range content {
-			if _, ok := validFields[key]; !ok {
-				errs = multierror.Append(errs, fmt.Errorf("%s: Unknown field %q on %s resource %s namespace %q",
-					info.Source, key, un.GetObjectKind().GroupVersionKind(), un.GetName(), un.GetNamespace()))
+	if un.IsList() {
+		un.EachListItem(func(item runtime.Object) error { // nolint: errcheck
+			castItem := item.(*unstructured.Unstructured)
+			if castItem.GetKind() == "Service" {
+				err := v.validateServicePortPrefix(istioNamespace, castItem)
+				if err != nil {
+					errs = multierror.Append(errs, err)
+				}
 			}
-		}
-
-		if err := validateResource(un); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("error validating resource (%v Name=%v Namespace=%v): %v",
-				un.GetObjectKind().GroupVersionKind(), un.GetName(), un.GetNamespace(), err))
-		}
-		return nil
-	})
+			if castItem.GetKind() == "Deployment" {
+				v.validateDeploymentLabel(istioNamespace, castItem)
+			}
+			return nil
+		})
+	}
 
 	if errs != nil {
 		return errs
 	}
-	for _, fname := range options.Filenames {
-		fmt.Fprintf(writer, "%q is valid\n", fname)
+	if un.GetKind() == "Service" {
+		return v.validateServicePortPrefix(istioNamespace, un)
+	}
+
+	if un.GetKind() == "Deployment" {
+		v.validateDeploymentLabel(istioNamespace, un)
+		return nil
 	}
 	return nil
 }
 
-func strPtr(val string) *string {
-	return &val
+func (v *validator) validateServicePortPrefix(istioNamespace string, un *unstructured.Unstructured) error {
+	var errs error
+	if un.GetNamespace() == handleNamespace(istioNamespace) {
+		return nil
+	}
+	spec := un.Object["spec"].(map[string]interface{})
+	if _, ok := spec["ports"]; ok {
+		ports := spec["ports"].([]interface{})
+		for _, port := range ports {
+			p := port.(map[string]interface{})
+			if p["protocol"] != nil && strings.EqualFold(p["protocol"].(string), serviceProtocolUDP) {
+				continue
+			}
+			if p["name"] == nil {
+				errs = multierror.Append(errs, fmt.Errorf("service %q has an unnamed port. This is not recommended,"+
+					" see https://istio.io/docs/setup/kubernetes/prepare/requirements/", fmt.Sprintf("%s/%s/:",
+					un.GetName(), un.GetNamespace())))
+				continue
+			}
+			if servicePortPrefixed(p["name"].(string)) {
+				errs = multierror.Append(errs, fmt.Errorf("service %q port %q does not follow the Istio naming convention."+
+					" See https://istio.io/docs/setup/kubernetes/prepare/requirements/", fmt.Sprintf("%s/%s/:",
+					un.GetName(), un.GetNamespace()), p["name"].(string)))
+			}
+		}
+	}
+	if errs != nil {
+		return errs
+	}
+	return nil
 }
 
-func boolPtr(val bool) *bool {
-	return &val
+func (v *validator) validateDeploymentLabel(istioNamespace string, un *unstructured.Unstructured) {
+	if un.GetNamespace() == handleNamespace(istioNamespace) {
+		return
+	}
+	labels := un.GetLabels()
+	for _, l := range istioDeploymentLabel {
+		if _, ok := labels[l]; !ok {
+			log.Warnf("deployment %q may not provide Istio metrics and telemetry without label %q."+
+				" See https://istio.io/docs/setup/kubernetes/prepare/requirements/ \n", fmt.Sprintf("%s/%s:",
+				un.GetName(), un.GetNamespace()), l)
+		}
+	}
+}
+
+func (v *validator) validateFile(istioNamespace *string, reader io.Reader) error {
+	decoder := yaml.NewDecoder(reader)
+	var errs error
+	for {
+		// YAML allows non-string keys and the produces generic keys for nested fields
+		raw := make(map[interface{}]interface{})
+		err := decoder.Decode(&raw)
+		if err == io.EOF {
+			return errs
+		}
+		if err != nil {
+			errs = multierror.Append(errs, err)
+			return errs
+		}
+		if len(raw) == 0 {
+			continue
+		}
+		out := transformInterfaceMap(raw)
+		un := unstructured.Unstructured{Object: out}
+		err = v.validateResource(*istioNamespace, &un)
+		if err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("%s/%s/%s:",
+				un.GetKind(), un.GetNamespace(), un.GetName())))
+		}
+	}
+}
+
+func validateFiles(istioNamespace *string, filenames []string, referential bool, writer io.Writer) error {
+	if len(filenames) == 0 {
+		return errMissingFilename
+	}
+
+	v := &validator{
+		mixerValidator: mixervalidate.NewDefaultValidator(referential),
+	}
+
+	var errs, err error
+	var reader io.Reader
+	for _, filename := range filenames {
+		if filename == "-" {
+			reader = os.Stdin
+		} else {
+			reader, err = os.Open(filename)
+		}
+		if err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("cannot read file %q: %v", filename, err))
+			continue
+		}
+		err = v.validateFile(istioNamespace, reader)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	if errs != nil {
+		return errs
+	}
+	for _, fname := range filenames {
+		if fname == "-" {
+			fmt.Fprintf(writer, "validation succeed\n")
+			break
+		} else {
+			fmt.Fprintf(writer, "%q is valid\n", fname)
+		}
+	}
+
+	return nil
 }
 
 // NewValidateCommand creates a new command for validating Istio k8s resources.
-func NewValidateCommand() *cobra.Command {
-	var (
-		kubeConfigFlags = &genericclioptions.ConfigFlags{
-			Context:    strPtr(""),
-			Namespace:  strPtr(""),
-			KubeConfig: strPtr(""),
-		}
-
-		filenames     = []string{}
-		fileNameFlags = &genericclioptions.FileNameFlags{
-			Filenames: &filenames,
-			Recursive: boolPtr(true),
-		}
-	)
+func NewValidateCommand(istioNamespace *string) *cobra.Command {
+	var filenames []string
+	var referential bool
 
 	c := &cobra.Command{
-		Use:     "validate -f FILENAME [options]",
-		Short:   "Validate Istio policy and rules",
-		Example: `istioctl validate -f bookinfo-gateway.yaml`,
-		Args:    cobra.NoArgs,
+		Use:   "validate -f FILENAME [options]",
+		Short: "Validate Istio policy and rules",
+		Example: `
+		# Validate bookinfo-gateway.yaml
+		istioctl validate -f bookinfo-gateway.yaml
+		
+		# Validate current deployments under 'default' namespace within the cluster
+		kubectl get deployments -o yaml |istioctl validate -f -
+
+		# Validate current services under 'default' namespace within the cluster
+		kubectl get services -o yaml |istioctl validate -f -
+`,
+		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			return validateObjects(kubeConfigFlags, fileNameFlags.ToOptions(), c.OutOrStderr())
+			return validateFiles(istioNamespace, filenames, referential, c.OutOrStderr())
 		},
 	}
 
 	flags := c.PersistentFlags()
-	kubeConfigFlags.AddFlags(flags)
-	fileNameFlags.AddFlags(flags)
+	flags.StringSliceVarP(&filenames, "filename", "f", nil, "Names of files to validate")
+	flags.BoolVarP(&referential, "referential", "x", true, "Enable structural validation for policy and telemetry")
 
 	return c
+}
+
+func transformInterfaceArray(in []interface{}) []interface{} {
+	out := make([]interface{}, len(in))
+	for i, v := range in {
+		out[i] = transformMapValue(v)
+	}
+	return out
+}
+
+func transformInterfaceMap(in map[interface{}]interface{}) map[string]interface{} {
+	out := make(map[string]interface{}, len(in))
+	for k, v := range in {
+		out[fmt.Sprintf("%v", k)] = transformMapValue(v)
+	}
+	return out
+}
+
+func transformMapValue(in interface{}) interface{} {
+	switch v := in.(type) {
+	case []interface{}:
+		return transformInterfaceArray(v)
+	case map[interface{}]interface{}:
+		return transformInterfaceMap(v)
+	default:
+		return v
+	}
+}
+
+func servicePortPrefixed(n string) bool {
+	i := strings.IndexByte(n, '-')
+	if i >= 0 {
+		n = n[:i]
+	}
+	protocol := model.ParseProtocol(n)
+	return protocol == model.ProtocolUnsupported
+}
+func handleNamespace(istioNamespace string) string {
+	if istioNamespace == "" {
+		istioNamespace = controller.IstioNamespace
+	}
+	return istioNamespace
 }

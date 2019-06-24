@@ -26,7 +26,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	networking_core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	authn_plugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
+	authn_alpha1 "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 )
@@ -69,6 +69,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 type SyncStatus struct {
 	ProxyID         string `json:"proxy,omitempty"`
 	ProxyVersion    string `json:"proxy_version,omitempty"`
+	IstioVersion    string `json:"istio_version,omitempty"`
 	ClusterSent     string `json:"cluster_sent,omitempty"`
 	ClusterAcked    string `json:"cluster_acked,omitempty"`
 	ListenerSent    string `json:"listener_sent,omitempty"`
@@ -88,9 +89,11 @@ func Syncz(w http.ResponseWriter, _ *http.Request) {
 		con.mu.RLock()
 		if con.modelNode != nil {
 			proxyVersion, _ := con.modelNode.GetProxyVersion()
+			istioVersion, _ := con.modelNode.GetIstioVersion()
 			syncz = append(syncz, SyncStatus{
 				ProxyID:         con.modelNode.ID,
 				ProxyVersion:    proxyVersion,
+				IstioVersion:    istioVersion,
 				ClusterSent:     con.ClusterNonceSent,
 				ClusterAcked:    con.ClusterNonceAcked,
 				ListenerSent:    con.ListenerNonceSent,
@@ -343,7 +346,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 			var serverProtocol, clientProtocol authProtocol
 			if authnConfig != nil {
 				policy := authnConfig.Spec.(*authn.Policy)
-				mtls := authn_plugin.GetMutualTLS(policy)
+				mtls := authn_alpha1.GetMutualTLS(policy)
 				serverProtocol = getServerAuthProtocol(mtls)
 			} else {
 				serverProtocol = getServerAuthProtocol(nil)
@@ -425,7 +428,6 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
-		w.WriteHeader(http.StatusOK)
 		return
 	}
 	w.WriteHeader(http.StatusBadRequest)

@@ -532,3 +532,62 @@ func TestIsHTTPFilterChain(t *testing.T) {
 		t.Errorf("tcp filter chain detected as http filter chain")
 	}
 }
+
+var (
+	listener80 = &v2.Listener{Address: BuildAddress("0.0.0.0", 80)}
+	listener81 = &v2.Listener{Address: BuildAddress("0.0.0.0", 81)}
+	listenerip = &v2.Listener{Address: BuildAddress("1.1.1.1", 80)}
+)
+
+func BenchmarkGetByAddress(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		GetByAddress([]*v2.Listener{
+			listener80,
+			listener81,
+			listenerip,
+		}, listenerip.Address)
+	}
+}
+
+func TestGetByAddress(t *testing.T) {
+	tests := []struct {
+		name      string
+		listeners []*v2.Listener
+		address   core.Address
+		expected  *v2.Listener
+	}{
+		{
+			"no listeners",
+			[]*v2.Listener{},
+			BuildAddress("0.0.0.0", 80),
+			nil,
+		},
+		{
+			"single listener",
+			[]*v2.Listener{
+				listener80,
+			},
+			BuildAddress("0.0.0.0", 80),
+			listener80,
+		},
+		{
+			"multiple listeners",
+			[]*v2.Listener{
+				listener81,
+				listenerip,
+				listener80,
+			},
+			BuildAddress("0.0.0.0", 80),
+			listener80,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GetByAddress(tt.listeners, tt.address)
+			if got != tt.expected {
+				t.Errorf("Got %v, expected %v", got, tt.expected)
+			}
+		})
+	}
+}

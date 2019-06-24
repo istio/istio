@@ -52,7 +52,7 @@ message Metadata {
   //
   // Namespace resources fully qualified name is of the form:
   //
-  //    "/<k8s namespace>/<k8s resource name>"
+  //    "<k8s namespace>/<k8s resource name>"
   //
   // Cluster scoped resources are located at the root of the hierarchy and are of the form:
   //

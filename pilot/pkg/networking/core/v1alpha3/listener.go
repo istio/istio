@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"encoding/json"
 	"fmt"
+
 	"net"
 	"reflect"
 	"sort"
@@ -27,7 +28,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
+	accesslogconfig "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
@@ -41,9 +42,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/features/pilot"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -54,6 +57,9 @@ const (
 
 	// VirtualListenerName is the name for traffic capture listener
 	VirtualListenerName = "virtual"
+
+	// VirtualListenerName is the name for traffic capture listener
+	VirtualInboundListenerName = "virtualInbound"
 
 	// WildcardAddress binds to all IP addresses
 	WildcardAddress = "0.0.0.0"
@@ -78,6 +84,12 @@ const (
 
 	// EnvoyServerName for istio's envoy
 	EnvoyServerName = "istio-envoy"
+
+	httpEnvoyAccessLogName = "http_envoy_accesslog"
+
+	// EnvoyAccessLogCluster is the cluster name that has details for server implementing Envoy ALS.
+	// This cluster is created in bootstrap.
+	EnvoyAccessLogCluster = "envoy_accesslog_service"
 )
 
 var (
@@ -108,16 +120,20 @@ var (
 			"upstream_transport_failure_reason": {Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_TRANSPORT_FAILURE_REASON%"}},
 		},
 	}
+
+	// ProxyInboundListenPort is the dedicated inbound traffic capture port for sidecar proxy.
+	// See also `MeshConfig.ProxyListenPort`.
+	ProxyInboundListenPort = uint32(env.RegisterIntVar("ProxyInboundListenPort", 15006, "").Get())
 )
 
-func buildAccessLog(fl *fileaccesslog.FileAccessLog, env *model.Environment) {
+func buildAccessLog(fl *accesslogconfig.FileAccessLog, env *model.Environment) {
 	switch env.Mesh.AccessLogEncoding {
 	case meshconfig.MeshConfig_TEXT:
 		formatString := EnvoyTextLogFormat
 		if env.Mesh.AccessLogFormat != "" {
 			formatString = env.Mesh.AccessLogFormat
 		}
-		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
+		fl.AccessLogFormat = &accesslogconfig.FileAccessLog_Format{
 			Format: formatString,
 		}
 	case meshconfig.MeshConfig_JSON:
@@ -144,7 +160,7 @@ func buildAccessLog(fl *fileaccesslog.FileAccessLog, env *model.Environment) {
 		if jsonLog == nil {
 			jsonLog = EnvoyJSONLogFormat
 		}
-		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_JsonFormat{
+		fl.AccessLogFormat = &accesslogconfig.FileAccessLog_JsonFormat{
 			JsonFormat: jsonLog,
 		}
 	default:
@@ -175,7 +191,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(env *model.Environment, nod
 	switch node.Type {
 	case model.SidecarProxy:
 		return configgen.buildSidecarListeners(env, node, push)
-	case model.Router, model.Ingress:
+	case model.Router:
 		return configgen.buildGatewayListeners(env, node, push)
 	}
 	return nil, nil
@@ -194,53 +210,69 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 	actualWildcard, actualLocalHostAddress := getActualWildcardAndLocalHost(node)
 
 	if mesh.ProxyListenPort > 0 {
-		inbound := configgen.buildSidecarInboundListeners(env, node, push, proxyInstances)
-		outbound := configgen.buildSidecarOutboundListeners(env, node, push, proxyInstances)
+		// Notes that the the else branch works for both split and non-split cases.
+		// TODO(silentdai): remove `if` branch once split behavior is well verified
+		if !node.IsInboundCaptureAllPorts() {
+			inbound := configgen.buildSidecarInboundListeners(env, node, push, proxyInstances)
+			outbound := configgen.buildSidecarOutboundListeners(env, node, push, proxyInstances)
 
-		listeners = append(listeners, inbound...)
-		listeners = append(listeners, outbound...)
+			listeners = append(listeners, inbound...)
+			listeners = append(listeners, outbound...)
 
-		listeners = configgen.generateManagementListeners(node, noneMode, env, listeners)
+			listeners = configgen.generateManagementListeners(node, noneMode, env, listeners)
 
-		tcpProxy := &tcp_proxy.TcpProxy{
-			StatPrefix:       util.BlackHoleCluster,
-			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
-		}
-
-		if mesh.OutboundTrafficPolicy.Mode == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY {
-			// We need a passthrough filter to fill in the filter stack for orig_dst listener
-			tcpProxy = &tcp_proxy.TcpProxy{
-				StatPrefix:       util.PassthroughCluster,
-				ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
+			tcpProxy := &tcp_proxy.TcpProxy{
+				StatPrefix:       util.BlackHoleCluster,
+				ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 			}
-		}
-		var transparent *google_protobuf.BoolValue
-		if node.GetInterceptionMode() == model.InterceptionTproxy {
-			transparent = proto.BoolTrue
-		}
 
-		filter := listener.Filter{
-			Name: xdsutil.TCPProxy,
-		}
+			if mesh.OutboundTrafficPolicy.Mode == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY {
+				// We need a passthrough filter to fill in the filter stack for orig_dst listener
+				tcpProxy = &tcp_proxy.TcpProxy{
+					StatPrefix:       util.PassthroughCluster,
+					ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
+				}
+			}
 
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
-		} else {
-			filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
-		}
+			setAccessLog(env, node, tcpProxy)
 
-		// add an extra listener that binds to the port that is the recipient of the iptables redirect
-		listeners = append(listeners, &xdsapi.Listener{
-			Name:           VirtualListenerName,
-			Address:        util.BuildAddress(actualWildcard, uint32(mesh.ProxyListenPort)),
-			Transparent:    transparent,
-			UseOriginalDst: proto.BoolTrue,
-			FilterChains: []listener.FilterChain{
-				{
-					Filters: []listener.Filter{filter},
+			var transparent *google_protobuf.BoolValue
+			if node.GetInterceptionMode() == model.InterceptionTproxy {
+				transparent = proto.BoolTrue
+			}
+
+			filter := listener.Filter{
+				Name: xdsutil.TCPProxy,
+			}
+
+			if util.IsXDSMarshalingToAnyEnabled(node) {
+				filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
+			} else {
+				filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
+			}
+
+			// add an extra listener that binds to the port that is the recipient of the iptables redirect
+			listeners = append(listeners, &xdsapi.Listener{
+				Name:           VirtualListenerName,
+				Address:        util.BuildAddress(actualWildcard, uint32(mesh.ProxyListenPort)),
+				Transparent:    transparent,
+				UseOriginalDst: proto.BoolTrue,
+				FilterChains: []listener.FilterChain{
+					{
+						Filters: []listener.Filter{filter},
+					},
 				},
-			},
-		})
+			})
+		} else {
+			// Any build order change need a careful code review
+			listeners = NewListenerBuilder(node).
+				buildSidecarInboundListeners(configgen, env, node, push, proxyInstances).
+				buildSidecarOutboundListeners(configgen, env, node, push, proxyInstances).
+				buildManagementListeners(configgen, env, node, push, proxyInstances).
+				buildVirtualListener(env, node).
+				buildVirtualInboundListener(env, node).
+				getListeners()
+		}
 	}
 
 	httpProxyPort := mesh.ProxyHttpPort
@@ -321,8 +353,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 
 	sidecarScope := node.SidecarScope
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
-
-	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 
 	if sidecarScope == nil || !sidecarScope.HasCustomIngressListeners {
 		// There is no user supplied sidecarScope for this namespace
@@ -410,9 +440,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			}
 
 			bind := ingressListener.Bind
-			// if bindToPort is true, we set the bind address if empty to 0.0.0.0 - this is an inbound port.
+			// if bindToPort is true, we set the bind address if empty to instance unicast IP - this is an inbound port.
+			// if no global unicast IP is available, then default to wildcard IP - 0.0.0.0 or ::
 			if len(bind) == 0 && bindToPort {
-				bind = actualWildcard
+				bind = getSidecarInboundBindIP(node)
 			} else if len(bind) == 0 {
 				// auto infer the IP from the proxyInstances
 				// We assume all endpoints in the proxy instances have the same IP
@@ -485,45 +516,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 		return nil
 	}
 
-	allChains := []plugin.FilterChain{}
-	var httpOpts *httpListenerOpts
-	var tcpNetworkFilters []listener.Filter
-
-	switch pluginParams.ListenerProtocol {
-	case plugin.ListenerProtocolHTTP:
-		httpOpts = &httpListenerOpts{
-			routeConfig: configgen.buildSidecarInboundHTTPRouteConfig(pluginParams.Env, pluginParams.Node,
-				pluginParams.Push, pluginParams.ServiceInstance),
-			rds:              "", // no RDS for inbound traffic
-			useRemoteAddress: false,
-			direction:        http_conn.INGRESS,
-			connectionManager: &http_conn.HttpConnectionManager{
-				// Append and forward client cert to backend.
-				ForwardClientCertDetails: http_conn.APPEND_FORWARD,
-				SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
-					Subject: &google_protobuf.BoolValue{Value: true},
-					Uri:     true,
-					Dns:     true,
-				},
-				ServerName: EnvoyServerName,
-			},
-		}
-		// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
-		if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol.IsHTTP2() {
-			httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
-			if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol == model.ProtocolGRPCWeb {
-				httpOpts.addGRPCWebFilter = true
-			}
-		}
-
-	case plugin.ListenerProtocolTCP:
-		tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Env, pluginParams.Node, pluginParams.ServiceInstance)
-
-	default:
-		log.Warnf("Unsupported inbound protocol %v for port %#v", pluginParams.ListenerProtocol,
-			pluginParams.ServiceInstance.Endpoint.ServicePort)
-		return nil
-	}
+	var allChains []plugin.FilterChain
 
 	for _, p := range configgen.Plugins {
 		chains := p.OnInboundFilterChains(pluginParams)
@@ -543,6 +536,45 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 		allChains = []plugin.FilterChain{{}}
 	}
 	for _, chain := range allChains {
+		var httpOpts *httpListenerOpts
+		var tcpNetworkFilters []listener.Filter
+
+		switch pluginParams.ListenerProtocol {
+		case plugin.ListenerProtocolHTTP:
+			httpOpts = &httpListenerOpts{
+				routeConfig: configgen.buildSidecarInboundHTTPRouteConfig(pluginParams.Env, pluginParams.Node,
+					pluginParams.Push, pluginParams.ServiceInstance),
+				rds:              "", // no RDS for inbound traffic
+				useRemoteAddress: false,
+				direction:        http_conn.INGRESS,
+				connectionManager: &http_conn.HttpConnectionManager{
+					// Append and forward client cert to backend.
+					ForwardClientCertDetails: http_conn.APPEND_FORWARD,
+					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+						Subject: &google_protobuf.BoolValue{Value: true},
+						Uri:     true,
+						Dns:     true,
+					},
+					ServerName: EnvoyServerName,
+				},
+			}
+			// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
+			if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol.IsHTTP2() {
+				httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
+				if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol == model.ProtocolGRPCWeb {
+					httpOpts.addGRPCWebFilter = true
+				}
+			}
+
+		case plugin.ListenerProtocolTCP:
+			tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Env, pluginParams.Node, pluginParams.ServiceInstance)
+
+		default:
+			log.Warnf("Unsupported inbound protocol %v for port %#v", pluginParams.ListenerProtocol,
+				pluginParams.ServiceInstance.Endpoint.ServicePort)
+			return nil
+		}
+
 		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
 			httpOpts:        httpOpts,
 			networkFilters:  tcpNetworkFilters,
@@ -746,18 +778,26 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					Name:     egressListener.IstioListener.Port.Name,
 				}
 
-				// If capture mode is NONE i.e. bindToPort is true, we will only bind to
-				// loopback IP. If captureMode is not NONE, i.e. bindToPort is false, then
+				// If capture mode is NONE i.e., bindToPort is true, and
+				// Bind IP + Port is specified, we will bind to the specified IP and Port.
+				// This specified IP is ideally expected to be a loopback IP.
+				//
+				// If capture mode is NONE i.e., bindToPort is true, and
+				// only Port is specified, we will bind to the default loopback IP
+				// 127.0.0.1 and the specified Port.
+				//
+				// If capture mode is NONE, i.e., bindToPort is true, and
+				// only Bind IP is specified, we will bind to the specified IP
+				// for each port as defined in the service registry.
+				//
+				// If captureMode is not NONE, i.e., bindToPort is false, then
 				// we will bind to user specified IP (if any) or to the VIPs of services in
 				// this egress listener.
-				bind := ""
-				if bindToPort {
+				bind := egressListener.IstioListener.Bind
+				if bindToPort && bind == "" {
 					bind = actualLocalHostAddress
-				} else {
-					bind = egressListener.IstioListener.Bind
-					if len(bind) == 0 {
-						bind = actualWildcard
-					}
+				} else if len(bind) == 0 {
+					bind = actualWildcard
 				}
 
 				for _, service := range services {
@@ -812,7 +852,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				}
 
 				bind := ""
-				if bindToPort {
+				if egressListener.IstioListener != nil && egressListener.IstioListener.Bind != "" {
+					bind = egressListener.IstioListener.Bind
+				}
+				if bindToPort && bind == "" {
 					bind = actualLocalHostAddress
 				}
 				for _, service := range services {
@@ -960,7 +1003,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 			rdsName = fmt.Sprintf("%d", pluginParams.Port.Port)
 		}
 		httpOpts := &httpListenerOpts{
-			useRemoteAddress: false,
+			// Set useRemoteAddress to true for side car outbound listeners so that it picks up the localhost address of the sender,
+			// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers
+			// such as "x-envoy-upstream-rq-timeout-ms" set by the calling application.
+			useRemoteAddress: true,
 			direction:        http_conn.EGRESS,
 			rds:              rdsName,
 		}
@@ -1078,6 +1124,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	// Lets build the new listener with the filter chains. In the end, we will
 	// merge the filter chains with any existing listener on the same port/bind point
 	l := buildListener(listenerOpts)
+	appendListenerFallthroughRoute(l, &listenerOpts, pluginParams.Node)
+
 	mutable := &plugin.MutableObjects{
 		Listener:     l,
 		FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
@@ -1208,6 +1256,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	}
 }
 
+// TODO(silentdai): duplicate with listener_builder.go. Remove this one once split is verified.
 func (configgen *ConfigGeneratorImpl) generateManagementListeners(node *model.Proxy, noneMode bool,
 	env *model.Environment, listeners []*xdsapi.Listener) []*xdsapi.Listener {
 	// Do not generate any management port listeners if the user has specified a SidecarScope object
@@ -1234,10 +1283,10 @@ func (configgen *ConfigGeneratorImpl) generateManagementListeners(node *model.Pr
 		// non overlapping listeners only.
 		for i := range mgmtListeners {
 			m := mgmtListeners[i]
-			l := util.GetByAddress(listeners, m.Address.String())
+			l := util.GetByAddress(listeners, m.Address)
 			if l != nil {
-				log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
-					m.Name, m.Address.String(), l.Name, l.Address.String())
+				log.Warnf("Omitting listener for management address %s due to collision with service listener %s",
+					m.Name, l.Name)
 				continue
 			}
 			listeners = append(listeners, m)
@@ -1264,6 +1313,10 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 
 	if managementIP == "" {
 		managementIP = "127.0.0.1"
+		addr := net.ParseIP(node.IPAddresses[0])
+		if addr != nil && addr.To4() == nil {
+			managementIP = "::1"
+		}
 	}
 
 	// NOTE: We should not generate inbound listeners when the proxy does not have any IPtables traffic capture
@@ -1391,6 +1444,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.HttpFilters = filters
 	connectionManager.StatPrefix = httpOpts.statPrefix
+	connectionManager.NormalizePath = proto.BoolTrue
 	if httpOpts.useRemoteAddress {
 		connectionManager.UseRemoteAddress = proto.BoolTrue
 	} else {
@@ -1400,10 +1454,13 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 	// Allow websocket upgrades
 	websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
 	connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
+
+	idleTimeout, err := time.ParseDuration(node.Metadata[model.NodeMetadataIdleTimeout])
+	if idleTimeout > 0 && err == nil {
+		connectionManager.IdleTimeout = &idleTimeout
+	}
+
 	notimeout := 0 * time.Second
-	// Setting IdleTimeout to 0 seems to break most tests, causing
-	// envoy to disconnect.
-	// connectionManager.IdleTimeout = &notimeout
 	connectionManager.StreamIdleTimeout = &notimeout
 
 	if httpOpts.rds != "" {
@@ -1413,6 +1470,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 					ConfigSourceSpecifier: &core.ConfigSource_Ads{
 						Ads: &core.AggregatedConfigSource{},
 					},
+					InitialFetchTimeout: pilot.InitialFetchTimeout,
 				},
 				RouteConfigName: httpOpts.rds,
 			},
@@ -1423,7 +1481,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 	}
 
 	if env.Mesh.AccessLogFile != "" {
-		fl := &fileaccesslog.FileAccessLog{
+		fl := &accesslogconfig.FileAccessLog{
 			Path: env.Mesh.AccessLogFile,
 		}
 
@@ -1441,11 +1499,38 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
 		}
 
-		connectionManager.AccessLog = []*accesslog.AccessLog{acc}
+		connectionManager.AccessLog = append(connectionManager.AccessLog, acc)
+	}
+
+	if env.Mesh.EnableEnvoyAccessLogService {
+		fl := &accesslogconfig.HttpGrpcAccessLogConfig{
+			CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
+				LogName: httpEnvoyAccessLogName,
+				GrpcService: &core.GrpcService{
+					TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+						EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+							ClusterName: EnvoyAccessLogCluster,
+						},
+					},
+				},
+			},
+		}
+
+		acc := &accesslog.AccessLog{
+			Name: xdsutil.HTTPGRPCAccessLog,
+		}
+
+		if util.IsXDSMarshalingToAnyEnabled(node) {
+			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
+		} else {
+			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
+		}
+
+		connectionManager.AccessLog = append(connectionManager.AccessLog, acc)
 	}
 
 	if env.Mesh.EnableTracing {
-		tc := model.GetTraceConfig()
+		tc := authn_model.GetTraceConfig()
 		connectionManager.Tracing = &http_conn.HttpConnectionManager_Tracing{
 			OperationName: httpOpts.direction,
 			ClientSampling: &envoy_type.Percent{
@@ -1552,6 +1637,44 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	}
 }
 
+// appendListenerFallthroughRoute adds a filter that will match all traffic and direct to the
+// PassthroughCluster. This should be appended as the final filter or it will mask the others.
+// This allows external https traffic, even when port the port (usually 443) is in use by another service.
+func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts, node *model.Proxy) {
+	// If traffic policy is REGISTRY_ONLY, the traffic will already be blocked, so no action is needed.
+	if pilot.EnableFallthroughRoute() &&
+		opts.env.Mesh.OutboundTrafficPolicy.Mode == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY {
+
+		wildcardMatch := &listener.FilterChainMatch{}
+		for _, fc := range l.FilterChains {
+			if fc.FilterChainMatch == nil || fc.FilterChainMatch == wildcardMatch {
+				// We can only have one wildcard match. If the filter chain already has one, skip it
+				// This happens in the case of HTTP, which will get a fallthrough route added later,
+				// or TCP, which is not supported
+				return
+			}
+		}
+		tcpFilter := listener.Filter{
+			Name: xdsutil.TCPProxy,
+		}
+		config := &tcp_proxy.TcpProxy{
+			StatPrefix:       util.PassthroughCluster,
+			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
+		}
+		if util.IsXDSMarshalingToAnyEnabled(node) {
+			tcpFilter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+		} else {
+			tcpFilter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+		}
+
+		opts.filterChainOpts = append(opts.filterChainOpts, &filterChainOpts{
+			networkFilters: []listener.Filter{tcpFilter},
+		})
+		l.FilterChains = append(l.FilterChains, listener.FilterChain{FilterChainMatch: wildcardMatch})
+
+	}
+}
+
 // buildCompleteFilterChain adds the provided TCP and HTTP filters to the provided Listener and serializes them.
 //
 // TODO: should we change this from []plugins.FilterChains to [][]listener.Filter, [][]*http_conn.HttpFilter?
@@ -1624,17 +1747,35 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 }
 
 // getActualWildcardAndLocalHost will return corresponding Wildcard and LocalHost
-// depending on value of proxy's IPAddresses first element
+// depending on value of proxy's IPAddresses. This function checks each element
+// and if there is at least one ipv4 address other than 127.0.0.1, it will use ipv4 address,
+// if all addresses are ipv6  addresses then ipv6 address will be used to get wildcard and local host address.
 func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
-	// Check only first ip address in IPAddresses slice
-	addr := net.ParseIP(node.IPAddresses[0])
-
-	switch {
-	case addr != nil && addr.To4() != nil:
-		return WildcardAddress, LocalhostAddress
-	case addr != nil && addr.To4() == nil:
-		return WildcardIPv6Address, LocalhostIPv6Address
-	default:
-		return WildcardAddress, LocalhostAddress
+	for i := 0; i < len(node.IPAddresses); i++ {
+		addr := net.ParseIP(node.IPAddresses[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if addr.To4() != nil {
+			return WildcardAddress, LocalhostAddress
+		}
 	}
+	return WildcardIPv6Address, LocalhostIPv6Address
+}
+
+// getSidecarInboundBindIP returns the IP that the proxy can bind to along with the sidecar specified port.
+// It looks for an unicast address, if none found, then the default wildcard address is used.
+// This will make the inbound listener bind to instance_ip:port instead of 0.0.0.0:port where applicable.
+func getSidecarInboundBindIP(node *model.Proxy) string {
+	defaultInboundIP, _ := getActualWildcardAndLocalHost(node)
+	for _, ipAddr := range node.IPAddresses {
+		ip := net.ParseIP(ipAddr)
+		// Return the IP if its a global unicast address.
+		if ip != nil && ip.IsGlobalUnicast() {
+			return ip.String()
+		}
+	}
+	return defaultInboundIP
 }

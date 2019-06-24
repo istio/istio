@@ -60,6 +60,18 @@ var _templatesConfigHtml = []byte(`{{ define "content" }}
         margin: 0;
         padding: 0;
     }
+
+    .modal-dialog-content {
+        background-color: #5a5a5a;
+    }
+    .modal-dialog-content-body {
+        white-space: pre-wrap;
+        width: 500px;
+        word-break: break-all;
+    }
+    .unsync_error {
+        background-color: red;
+    }
     </style>
 
     <nav class="navbar navbar-expand-lg navbar-dark">
@@ -73,6 +85,25 @@ var _templatesConfigHtml = []byte(`{{ define "content" }}
             </ul>
         </div>
     </nav>
+
+    <div class="modal fade" id="mcpResourceModal" tabindex="-1" role="dialog" aria-labelledby="mcpResourceModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content modal-dialog-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="mcpResourceModalLabel"></h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body modal-dialog-content-body" id="mcpResourceBody">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div>
         <table id="recent-requests-table">
             <thead>
@@ -80,6 +111,7 @@ var _templatesConfigHtml = []byte(`{{ define "content" }}
                 <th>Collection</th>
                 <th>Version</th>
                 <th>Resources</th>
+                <th>Connections</th>
             </tr>
             </thead>
 
@@ -145,11 +177,32 @@ var _templatesConfigHtml = []byte(`{{ define "content" }}
                         var c3_ul = document.createElement("ul");
                         for (var j = 0; j < data.Snapshots[i].Names.length; j++) {
                             var c3_li = document.createElement("li");
-                            c3_li.innerText =  data.Snapshots[i].Names[j];
+                            var c3_li_a = document.createElement("a");
+                            c3_li_a.dataId = data.Snapshots[i].Collection;
+                            c3_li_a.href = "#";
+                            c3_li_a.onclick = function(e) {
+                                popupResource(group, this.dataId, this.innerText);
+                                e.preventDefault();
+                            }
+                            c3_li_a.innerText =  data.Snapshots[i].Names[j];
+                            c3_li.appendChild(c3_li_a);
                             c3_ul.appendChild(c3_li);
                         }
                         c3.appendChild(c3_ul)
                         row.appendChild(c3);
+
+                        var c4 = document.createElement("td");
+                        var c4_ul = document.createElement("ul");
+                        for (var addr in data.Snapshots[i].Synced) {
+                            var c4_li = document.createElement("li");
+                            c4_li.innerText =  addr + " " + (data.Snapshots[i].Synced[addr] ? "Synced": "Unsynced");
+                            if (!data.Snapshots[i].Synced[addr]) {
+                                c4_li.className = "unsync_error";
+                            } 
+                            c4_ul.appendChild(c4_li);
+                        }
+                        c4.appendChild(c4_ul)
+                        row.appendChild(c4);
 
                         tbody.appendChild(row)
                     }
@@ -168,6 +221,31 @@ var _templatesConfigHtml = []byte(`{{ define "content" }}
 
     refreshRecentRequests(defaultGroup);
     window.setInterval(refreshRecentRequests(defaultGroup), 1000);
+
+    function popupResource(group, collection, name) {
+
+        var url = window.location.protocol + "//" + window.location.host + "/configj/resource?group="+group+"&collection="+collection+"&name="+name;
+
+        var ajax = new XMLHttpRequest();
+        ajax.onload = onload;
+        ajax.onerror = onerror;
+        ajax.open("GET", url, true);
+        ajax.send();
+
+        function onload() {
+            if (this.status == 200) { // request succeeded
+                var data = JSON.parse(this.responseText);
+
+                document.getElementById("mcpResourceModalLabel").innerText = name;
+                document.getElementById("mcpResourceBody").innerText = JSON.stringify(data, null, 4);
+                $("#mcpResourceModal").modal()
+            }
+        }
+
+        function onerror(e) {
+            console.error(e);
+        }
+    }
 
 </script>
 

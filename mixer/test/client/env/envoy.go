@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/env"
+	ev "istio.io/pkg/env"
 )
 
 // Envoy stores data for Envoy process
@@ -41,10 +42,7 @@ func (s *TestSetup) NewEnvoy() (*Envoy, error) {
 		return nil, err
 	}
 
-	debugLevel := os.Getenv("ENVOY_DEBUG")
-	if len(debugLevel) == 0 {
-		debugLevel = "info"
-	}
+	debugLevel := ev.RegisterStringVar("ENVOY_DEBUG", "info", "Specifies the debug level for Envoy.").Get()
 
 	baseID := ""
 	args := []string{"-c", confPath,
@@ -71,7 +69,7 @@ func (s *TestSetup) NewEnvoy() (*Envoy, error) {
 	}
 	/* #nosec */
 	envoyPath := filepath.Join(env.IstioBin, "envoy")
-	if path, exists := os.LookupEnv("ENVOY_PATH"); exists {
+	if path, exists := ev.RegisterStringVar("ENVOY_PATH", "", "Specifies the path to an Envoy binary.").Lookup(); exists {
 		envoyPath = path
 	}
 	cmd := exec.Command(envoyPath, args...)

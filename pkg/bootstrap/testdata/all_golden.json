@@ -3,7 +3,7 @@
     "id": "sidecar~1.2.3.4~foo~bar",
     "cluster": "istio-proxy",
     "locality": {},
-    "metadata": {"ISTIO_META_INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","istio":"sidecar"}
+    "metadata": {"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","istio":"sidecar"}
   },
   "stats_config": {
     "use_all_default_tags": false,
@@ -112,6 +112,7 @@
       {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
+        "dns_refresh_rate": "60s",
         "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "7s",
         "lb_policy": "ROUND_ROBIN",
@@ -175,6 +176,7 @@
       {
         "name": "zipkin",
         "type": "STRICT_DNS",
+        "dns_refresh_rate": "60s",
         "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -189,13 +191,31 @@
       {
         "name": "envoy_metrics_service",
         "type": "STRICT_DNS",
+        "dns_refresh_rate": "60s",
         "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
+        "http2_protocol_options": {},
         "hosts": [
           {
             "socket_address": {"address": "metrics-service", "port_value": 15000}
           }
+        ]
+      }
+
+      ,
+      {
+        "name": "envoy_accesslog_service",
+        "type": "STRICT_DNS",
+        "dns_refresh_rate": "60s",
+        "dns_lookup_family": "V4_ONLY",
+        "connect_timeout": "1s",
+        "lb_policy": "ROUND_ROBIN",
+        "http2_protocol_options": {},
+        "hosts": [
+           {
+             "socket_address": {"address": "accesslog-service", "port_value": 15000}
+           }
         ]
       }
       

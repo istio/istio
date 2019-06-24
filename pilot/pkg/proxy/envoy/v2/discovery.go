@@ -27,7 +27,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/features/pilot"
 )
 
@@ -90,7 +91,7 @@ type DiscoveryServer struct {
 	ConfigController model.ConfigStoreCache
 
 	// KubeController provides readiness info (if initial sync is complete)
-	KubeController *kube.Controller
+	KubeController *controller.Controller
 
 	// rate limiter for sending updates during full ads push.
 	rateLimiter *rate.Limiter
@@ -128,6 +129,12 @@ type DiscoveryServer struct {
 
 	// mutex used for config update scheduling (former cache update mutex)
 	updateMutex sync.RWMutex
+
+	// mutex used for protecting proxyUpdates
+	proxyUpdatesMutex sync.RWMutex
+	// proxies that need full push during the new push epoch
+	// the key is the proxy ip address
+	proxyUpdates map[string]struct{}
 }
 
 // updateReq includes info about the requested update.
@@ -167,16 +174,17 @@ func NewDiscoveryServer(
 	env *model.Environment,
 	generator core.ConfigGenerator,
 	ctl model.Controller,
-	kuebController *kube.Controller,
+	kubeController *controller.Controller,
 	configCache model.ConfigStoreCache) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                     env,
 		ConfigGenerator:         generator,
 		ConfigController:        configCache,
-		KubeController:          kuebController,
+		KubeController:          kubeController,
 		EndpointShardsByService: map[string]*EndpointShards{},
 		WorkloadsByID:           map[string]*Workload{},
 		edsUpdates:              map[string]struct{}{},
+		proxyUpdates:            map[string]struct{}{},
 		concurrentPushLimit:     make(chan struct{}, 20), // TODO(hzxuzhonghu): support configuration
 		updateChannel:           make(chan *updateReq, 10),
 	}
@@ -193,7 +201,7 @@ func NewDiscoveryServer(
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
-	model.JwtKeyResolver.PushFunc = out.ClearCache
+	authn_model.JwtKeyResolver.PushFunc = out.ClearCache
 
 	if configCache != nil {
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
@@ -242,7 +250,7 @@ func (s *DiscoveryServer) periodicRefresh(stopCh <-chan struct{}) {
 	for {
 		select {
 		case <-ticker.C:
-			adsLog.Debugf("ADS: periodic push of envoy configs %s", versionInfo())
+			adsLog.Debugf("ADS: Periodic push of envoy configs version:%s", versionInfo())
 			s.AdsPushAll(versionInfo(), s.globalPushContext(), true, nil)
 		case <-stopCh:
 			return
@@ -276,7 +284,6 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 // to avoid direct dependencies.
 func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]struct{}) {
 	if !full {
-		adsLog.Infof("XDS Incremental Push EDS:%d", len(edsUpdates))
 		go s.AdsPushAll(versionInfo(), s.globalPushContext(), false, edsUpdates)
 		return
 	}
@@ -291,17 +298,12 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]struct{}) {
 	push := model.NewPushContext()
 	err := push.InitContext(s.Env)
 	if err != nil {
-		adsLog.Errorf("XDS: failed to update services %v", err)
+		adsLog.Errorf("XDS: Failed to update services: %v", err)
 		// We can't push if we can't read the data - stick with previous version.
 		pushContextErrors.Inc()
 		return
 	}
 
-	if err = s.ConfigGenerator.BuildSharedPushState(s.Env, push); err != nil {
-		adsLog.Errorf("XDS: Failed to rebuild share state in configgen: %v", err)
-		totalXDSInternalErrors.Add(1)
-		return
-	}
 	if err := s.updateServiceShards(push); err != nil {
 		return
 	}
@@ -369,6 +371,7 @@ func (s *DiscoveryServer) clearCache() {
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 // It replaces the 'clear cache' from v1.
 func (s *DiscoveryServer) ConfigUpdate(full bool) {
+	inboundConfigUpdates.Add(1)
 	s.updateChannel <- &updateReq{full: full}
 }
 
@@ -382,7 +385,6 @@ func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
 	var startDebounce time.Time
 	var lastConfigUpdateTime time.Time
 
-	configUpdateCounter := 0
 	pushCounter := 0
 
 	debouncedEvents := 0
@@ -397,7 +399,6 @@ func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
 				startDebounce = lastConfigUpdateTime
 			}
 			debouncedEvents++
-			configUpdateCounter++
 			// fullPush is sticky if any debounced event requires a fullPush
 			if r.full {
 				fullPush = true

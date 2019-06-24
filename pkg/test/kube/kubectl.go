@@ -25,9 +25,9 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
+	"istio.io/istio/pkg/test/util/yml"
 
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -83,7 +83,7 @@ func (c *kubectl) applyInternal(namespace string, files []string) error {
 	for _, f := range files {
 		command := fmt.Sprintf("kubectl apply %s %s -f %s", c.configArg(), namespaceArg(namespace), f)
 		scopes.CI.Infof("Applying YAML: %s", command)
-		s, err := shell.Execute(command)
+		s, err := shell.Execute(true, command)
 		if err != nil {
 			scopes.CI.Infof("(FAILED) Executing kubectl: %s (err: %v): %s", command, err, s)
 			return fmt.Errorf("%v: %s", err, s)
@@ -115,7 +115,8 @@ func (c *kubectl) delete(namespace string, filename string) error {
 func (c *kubectl) deleteInternal(namespace string, files []string) (err error) {
 	for i := len(files) - 1; i >= 0; i-- {
 		scopes.CI.Infof("Deleting YAML file: %s", files[i])
-		s, e := shell.Execute("kubectl delete --ignore-not-found %s %s -f %s", c.configArg(), namespaceArg(namespace), files[i])
+		s, e := shell.Execute(true,
+			"kubectl delete --ignore-not-found %s %s -f %s", c.configArg(), namespaceArg(namespace), files[i])
 		if e != nil {
 			return multierror.Append(err, fmt.Errorf("%v: %s", e, s))
 		}
@@ -124,11 +125,11 @@ func (c *kubectl) deleteInternal(namespace string, files []string) (err error) {
 }
 
 // logs calls the logs command for the specified pod, with -c, if container is specified.
-func (c *kubectl) logs(namespace string, pod string, container string) (string, error) {
-	cmd := fmt.Sprintf("kubectl logs %s %s %s %s",
-		c.configArg(), namespaceArg(namespace), pod, containerArg(container))
+func (c *kubectl) logs(namespace string, pod string, container string, previousLog bool) (string, error) {
+	cmd := fmt.Sprintf("kubectl logs %s %s %s %s %s",
+		c.configArg(), namespaceArg(namespace), pod, containerArg(container), previousLogArg(previousLog))
 
-	s, err := shell.Execute(cmd)
+	s, err := shell.Execute(true, cmd)
 
 	if err == nil {
 		return s, nil
@@ -138,7 +139,10 @@ func (c *kubectl) logs(namespace string, pod string, container string) (string, 
 }
 
 func (c *kubectl) exec(namespace, pod, container, command string) (string, error) {
-	return shell.Execute("kubectl exec %s %s %s %s -- %s ", pod, namespaceArg(namespace), containerArg(container), c.configArg(), command)
+	// Don't use combined output. The stderr and stdout streams are updated asynchronously and stderr can
+	// corrupt the JSON output.
+	return shell.Execute(false, "kubectl exec %s %s %s %s -- %s ",
+		pod, namespaceArg(namespace), containerArg(container), c.configArg(), command)
 }
 
 func (c *kubectl) configArg() string {
@@ -205,7 +209,7 @@ func (c *kubectl) writeContentsToTempFile(contents string) (filename string, err
 }
 
 func (c *kubectl) splitContentsToFiles(content, filenamePrefix string) ([]string, error) {
-	cfgs := test.SplitConfigs(content)
+	cfgs := yml.SplitString(content)
 
 	namespacesAndCrds := &yamlDoc{
 		docType: namespacesAndCRDs,
@@ -276,6 +280,13 @@ func containerArg(container string) string {
 	return ""
 }
 
+func previousLogArg(previous bool) string {
+	if previous {
+		return fmt.Sprintf("-p")
+	}
+	return ""
+}
+
 func filenameWithoutExtension(fullPath string) string {
 	_, f := filepath.Split(fullPath)
 	return strings.TrimSuffix(f, filepath.Ext(fullPath))
@@ -294,7 +305,7 @@ type yamlDoc struct {
 }
 
 func (d *yamlDoc) append(c string) {
-	d.content = test.JoinConfigs(d.content, c)
+	d.content = yml.JoinString(d.content, c)
 }
 
 func (d *yamlDoc) toTempFile(workDir, fileNamePrefix string) (string, error) {

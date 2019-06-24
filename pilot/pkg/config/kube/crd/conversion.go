@@ -26,7 +26,7 @@ import (
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // ConvertObject converts an IstioObject k8s-style object to the
@@ -90,7 +90,7 @@ func ConvertConfig(schema model.ProtoSchema, config model.Config) (IstioObject, 
 	if namespace == "" {
 		namespace = meta_v1.NamespaceDefault
 	}
-	out := knownTypes[schema.Type].object.DeepCopyObject().(IstioObject)
+	out := KnownTypes[schema.Type].Object.DeepCopyObject().(IstioObject)
 	out.SetObjectMeta(meta_v1.ObjectMeta{
 		Name:            config.Name,
 		Namespace:       namespace,

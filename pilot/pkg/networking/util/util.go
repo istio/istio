@@ -36,7 +36,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/features/pilot"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -188,9 +188,9 @@ func LocalityLbWeightNormalize(endpoints []endpoint.LocalityLbEndpoints) []endpo
 
 // GetByAddress returns a listener by its address
 // TODO(mostrowski): consider passing map around to save iteration.
-func GetByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
+func GetByAddress(listeners []*xdsapi.Listener, addr core.Address) *xdsapi.Listener {
 	for _, listener := range listeners {
-		if listener != nil && listener.Address.String() == addr {
+		if listener != nil && listener.Address.Equal(addr) {
 			return listener
 		}
 	}
@@ -264,6 +264,9 @@ func ResolveHostsInNetworksConfig(config *meshconfig.MeshNetworks) {
 			gwIP := net.ParseIP(gw.GetAddress())
 			if gwIP == nil {
 				addrs, err := net.LookupHost(gw.GetAddress())
+				if err != nil {
+					log.Warnf("error resolving host %#v: %v", gw.GetAddress(), err)
+				}
 				if err == nil && len(addrs) > 0 {
 					gw.Gw = &meshconfig.Network_IstioNetworkGateway_Address{
 						Address: addrs[0],

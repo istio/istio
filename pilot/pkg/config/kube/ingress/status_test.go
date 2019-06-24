@@ -28,6 +28,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 )
 
 var (
@@ -126,7 +127,7 @@ func makeStatusSyncer(t *testing.T, client kubernetes.Interface) (*StatusSyncer,
 	// Restore env settings
 	defer setAndRestoreEnv(t, oldEnvs)
 
-	return NewStatusSyncer(&mesh, client, testNamespace, kube.ControllerOptions{
+	return NewStatusSyncer(&mesh, client, testNamespace, kubecontroller.Options{
 		WatchedNamespace: testNamespace,
 		ResyncPeriod:     resync,
 	})

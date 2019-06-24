@@ -153,11 +153,11 @@ func TestReport(t *testing.T) {
       "annotations": [
         {
           "timestamp": 1136239444900000,
-          "value": "RECV"
+          "value": "Received 128 bytes"
         },
         {
           "timestamp": 1136239445000000,
-          "value": "SENT"
+          "value": "Sent 512 bytes"
         }
       ],
       "duration": 100000,
@@ -176,7 +176,7 @@ func TestReport(t *testing.T) {
         "http.path": "/foo/bar",
         "http.status_code": "200",
         "http.user_agent": "xxx",
-        "opencensus.status_description": "\"OK\"",
+        "opencensus.status_description": "OK",
         "principal": "unknown",
         "source.version": "v1"
       },

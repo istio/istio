@@ -20,6 +20,13 @@ istio-ingressgateway:
     image: node-agent-k8s
     # Namespace SDS watches for TLS secrets, if set to empty it watches the namespace the gateway is deployed to.
     sdsSecretsNamespace: ""
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 2000m
+        memory: 1024Mi
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
@@ -34,7 +41,7 @@ istio-ingressgateway:
       memory: 128Mi
     limits:
       cpu: 2000m
-      memory: 256Mi
+      memory: 1024Mi
   cpu:
     targetAverageUtilization: 80
   loadBalancerIP: ""
@@ -46,6 +53,12 @@ istio-ingressgateway:
   #externalTrafficPolicy: Local #change to Local to preserve source IP or Cluster for default behaviour or leave commented out
   ports:
     ## You can add custom gateway ports
+    # Note that AWS ELB will by default perform health checks on the first port
+    # on this list. Setting this to the health check port will ensure that health
+    # checks always work. https://github.com/istio/istio/issues/12503
+  - port: 15020
+    targetPort: 15020
+    name: status-port
   - port: 80
     targetPort: 80
     name: http2
@@ -75,9 +88,6 @@ istio-ingressgateway:
   - port: 15443
     targetPort: 15443
     name: tls
-  - port: 15020
-    targetPort: 15020
-    name: status-port
   #### MESH EXPANSION PORTS  ########
   # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
   # to pilot/citadel if global.meshExpansion settings are enabled.
@@ -107,12 +117,22 @@ istio-ingressgateway:
     secretName: istio-ingressgateway-ca-certs
     mountPath: /etc/istio/ingressgateway-ca-certs
   ### Advanced options ############
+
+  # Ports to explicitly check for readiness. If configured, the readiness check will expect a
+  # listener on these ports. A comma separated list is expected, such as "80,443".
+  #
+  # Warning: If you do not have a gateway configured for the ports provided, this check will always
+  # fail. This is intended for use cases where you always expect to have a listener on the port,
+  # such as 80 or 443 in typical setups.
+  applicationPorts: ""
+
   env:
     # A gateway with this mode ensures that pilot generates an additional
     # set of clusters for internal services but without Istio mTLS, to
     # enable cross cluster routing.
     ISTIO_META_ROUTER_MODE: "sni-dnat"
   nodeSelector: {}
+  tolerations: []
 
   # Specify the pod anti-affinity that allows you to constrain which nodes
   # your pod is eligible to be scheduled based on labels on pods that are
@@ -132,8 +152,8 @@ istio-ingressgateway:
   # This pod anti-affinity rule says that the pod requires not to be scheduled
   # onto a node if that node is already running a pod with label having key
   # “security” and value “S1”.
-  podAntiAffinityLabelSelector: {}
-  podAntiAffinityTermLabelSelector: {}
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
 
 istio-egressgateway:
   enabled: false
@@ -188,6 +208,7 @@ istio-egressgateway:
     # enable cross cluster routing.
     ISTIO_META_ROUTER_MODE: "sni-dnat"
   nodeSelector: {}
+  tolerations: []
   
   # Specify the pod anti-affinity that allows you to constrain which nodes
   # your pod is eligible to be scheduled based on labels on pods that are
@@ -207,8 +228,8 @@ istio-egressgateway:
   # This pod anti-affinity rule says that the pod requires not to be scheduled
   # onto a node if that node is already running a pod with label having key
   # “security” and value “S1”.
-  podAntiAffinityLabelSelector: {}
-  podAntiAffinityTermLabelSelector: {}
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
 
 # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
 # for mesh expansion. It exposes the mtls ports for Pilot,CA as well
@@ -258,3 +279,4 @@ istio-ilbgateway:
     secretName: istio-ilbgateway-ca-certs
     mountPath: /etc/istio/ilbgateway-ca-certs
   nodeSelector: {}
+  tolerations: []

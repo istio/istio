@@ -121,9 +121,13 @@ message VirtualService {
   // dots in the name). In such a scenario, the FQDN of the host would be
   // derived based on the underlying platform.
   //
-  // **A host name can be defined by only one VirtualService**. A single
-  // VirtualService can be used to describe traffic properties for multiple
-  // HTTP and TCP ports.
+  // A single VirtualService can be used to describe all the traffic
+  // properties of the corresponding hosts, including those for multiple
+  // HTTP and TCP ports. Alternatively, the traffic properties of a host
+  // can be defined using more than one VirtualService, with certain
+  // caveats. Refer to the
+  // [Operations Guide](https://istio.io/docs/ops/traffic-management/deploy-guidelines/#multiple-virtual-services-and-destination-rules-for-the-same-host)
+  // for details.
   //
   // *Note for Kubernetes users*: When short names are used (e.g. "reviews"
   // instead of "reviews.default.svc.cluster.local"), Istio will interpret
@@ -199,7 +203,7 @@ message VirtualService {
 // registry. Istio's service registry is composed of all the services found
 // in the platform's service registry (e.g., Kubernetes services, Consul
 // services), as well as services declared through the
-// [ServiceEntry](/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry) resource.
+// [ServiceEntry](https://istio.io/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry) resource.
 //
 // *Note for Kubernetes users*: When short names are used (e.g. "reviews"
 // instead of "reviews.default.svc.cluster.local"), Istio will interpret
@@ -324,7 +328,7 @@ message Destination {
   // REQUIRED. The name of a service from the service registry. Service
   // names are looked up from the platform's service registry (e.g.,
   // Kubernetes services, Consul services, etc.) and from the hosts
-  // declared by [ServiceEntry](/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry). Traffic forwarded to
+  // declared by [ServiceEntry](https://istio.io/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry). Traffic forwarded to
   // destinations that are not found in either of the two, will be dropped.
   //
   // *Note for Kubernetes users*: When short names are used (e.g. "reviews"
@@ -541,6 +545,7 @@ message TCPRoute {
 //           exact: jason
 //       uri:
 //         prefix: "/ratings/v2/"
+//       ignoreUriCase: true
 //     route:
 //     - destination:
 //         host: ratings.prod.svc.cluster.local
@@ -557,6 +562,8 @@ message HTTPMatchRequest {
   //
   // - `regex: "value"` for ECMAscript style regex-based match
   //
+  // **Note:** Case-insensitive matching could be enabled via the
+  // `ignore_uri_case` flag.
   StringMatch uri = 1;
 
   // URI Scheme
@@ -635,6 +642,12 @@ message HTTPMatchRequest {
   //
   // **Note:** `prefix` matching is currently not supported.
   map<string, StringMatch> query_params = 9;
+
+  // Flag to specify whether the URI matching should be case-insensitive.
+  //
+  // **Note:** The case will be ignored only in the case of `exact` and `prefix`
+  // URI matches.
+  bool ignore_uri_case = 10;
 }
 
 // Each routing rule is associated with one or more service versions (see
@@ -1037,7 +1050,7 @@ message HTTPFaultInjection {
   //     fault:
   //       delay:
   //         percentage:
-  //           value: 0.001
+  //           value: 0.1
   //         fixedDelay: 5s
   // ```
   //
@@ -1083,7 +1096,7 @@ message HTTPFaultInjection {
   //     fault:
   //       abort:
   //         percentage:
-  //           value: 0.001
+  //           value: 0.1
   //         httpStatus: 400
   // ```
   //

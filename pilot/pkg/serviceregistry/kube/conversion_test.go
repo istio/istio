@@ -31,6 +31,7 @@ import (
 
 var (
 	domainSuffix = "company.com"
+	clusterID    = "test-cluster"
 )
 
 func TestConvertProtocol(t *testing.T) {
@@ -155,7 +156,7 @@ func TestServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := convertService(localSvc, domainSuffix)
+	service := ConvertService(localSvc, domainSuffix, clusterID)
 	if service == nil {
 		t.Errorf("could not convert service")
 	}
@@ -173,9 +174,9 @@ func TestServiceConversion(t *testing.T) {
 		t.Error("service should not be external")
 	}
 
-	if service.Hostname != serviceHostname(serviceName, namespace, domainSuffix) {
+	if service.Hostname != ServiceHostname(serviceName, namespace, domainSuffix) {
 		t.Errorf("service hostname incorrect => %q, want %q",
-			service.Hostname, serviceHostname(serviceName, namespace, domainSuffix))
+			service.Hostname, ServiceHostname(serviceName, namespace, domainSuffix))
 	}
 
 	if service.Address != ip {
@@ -225,7 +226,7 @@ func TestServiceConversionWithEmptyServiceAccountsAnnotation(t *testing.T) {
 		},
 	}
 
-	service := convertService(localSvc, domainSuffix)
+	service := ConvertService(localSvc, domainSuffix, clusterID)
 	if service == nil {
 		t.Errorf("could not convert service")
 	}
@@ -258,7 +259,7 @@ func TestExternalServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := convertService(extSvc, domainSuffix)
+	service := ConvertService(extSvc, domainSuffix, clusterID)
 	if service == nil {
 		t.Errorf("could not convert external service")
 	}
@@ -272,9 +273,9 @@ func TestExternalServiceConversion(t *testing.T) {
 		t.Error("service should be external")
 	}
 
-	if service.Hostname != serviceHostname(serviceName, namespace, domainSuffix) {
+	if service.Hostname != ServiceHostname(serviceName, namespace, domainSuffix) {
 		t.Errorf("service hostname incorrect => %q, want %q",
-			service.Hostname, serviceHostname(serviceName, namespace, domainSuffix))
+			service.Hostname, ServiceHostname(serviceName, namespace, domainSuffix))
 	}
 }
 
@@ -302,7 +303,7 @@ func TestExternalClusterLocalServiceConversion(t *testing.T) {
 
 	domainSuffix := "cluster.local"
 
-	service := convertService(extSvc, domainSuffix)
+	service := ConvertService(extSvc, domainSuffix, clusterID)
 	if service == nil {
 		t.Errorf("could not convert external service")
 	}
@@ -316,9 +317,67 @@ func TestExternalClusterLocalServiceConversion(t *testing.T) {
 		t.Error("ExternalName service (even if .cluster.local) should be external")
 	}
 
-	if service.Hostname != serviceHostname(serviceName, namespace, domainSuffix) {
+	if service.Hostname != ServiceHostname(serviceName, namespace, domainSuffix) {
 		t.Errorf("service hostname incorrect => %q, want %q",
-			service.Hostname, serviceHostname(serviceName, namespace, domainSuffix))
+			service.Hostname, ServiceHostname(serviceName, namespace, domainSuffix))
+	}
+}
+
+func TestLBServiceConversion(t *testing.T) {
+	serviceName := "service1"
+	namespace := "default"
+
+	addresses := []v1.LoadBalancerIngress{
+		{
+			IP: "127.68.32.112",
+		},
+		{
+			IP: "127.68.32.113",
+		},
+	}
+
+	extSvc := v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceName,
+			Namespace: namespace,
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: v1.ProtocolTCP,
+				},
+			},
+			Type: v1.ServiceTypeLoadBalancer,
+		},
+		Status: v1.ServiceStatus{
+			LoadBalancer: v1.LoadBalancerStatus{
+				Ingress: addresses,
+			},
+		},
+	}
+
+	service := ConvertService(extSvc, domainSuffix, clusterID)
+	if service == nil {
+		t.Errorf("could not convert external service")
+	}
+
+	if len(service.Attributes.ClusterExternalAddresses[clusterID]) == 0 {
+		t.Errorf("no load balancer addresses found")
+	}
+
+	for i, addr := range addresses {
+		var want string
+		if len(addr.IP) > 0 {
+			want = addr.IP
+		} else {
+			want = addr.Hostname
+		}
+		got := service.Attributes.ClusterExternalAddresses[clusterID][i]
+		if got != want {
+			t.Errorf("Expected address %s but got %s", want, got)
+		}
 	}
 }
 
@@ -396,7 +455,7 @@ func TestProbesToPortsConversion(t *testing.T) {
 			podSpec.Containers[0].LivenessProbe.Handler = handler1
 			podSpec.Containers[0].ReadinessProbe.Handler = handler2
 
-			mgmtPorts, err := convertProbesToPorts(podSpec)
+			mgmtPorts, err := ConvertProbesToPorts(podSpec)
 			if err != nil {
 				t.Errorf("Failed to convert Probes to Ports: %v", err)
 			}
@@ -418,7 +477,7 @@ func TestSecureNamingSANCustomIdentity(t *testing.T) {
 	pod.Annotations = make(map[string]string)
 	pod.Annotations[IdentityPodAnnotation] = identity
 
-	san := secureNamingSAN(pod)
+	san := SecureNamingSAN(pod)
 
 	expectedSAN := fmt.Sprintf("spiffe://%v/%v", spiffe.GetTrustDomain(), identity)
 
@@ -439,7 +498,7 @@ func TestSecureNamingSAN(t *testing.T) {
 	pod.Namespace = ns
 	pod.Spec.ServiceAccountName = sa
 
-	san := secureNamingSAN(pod)
+	san := SecureNamingSAN(pod)
 
 	expectedSAN := fmt.Sprintf("spiffe://%v/ns/%v/sa/%v", spiffe.GetTrustDomain(), ns, sa)
 

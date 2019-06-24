@@ -53,7 +53,7 @@ spec:
 {{- else }}
           image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy_init.image }}:{{ $.Values.global.tag }}"
 {{- end }}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           command:
             - /bin/sh
           args:
@@ -72,6 +72,12 @@ spec:
           image: "{{ $.Values.global.hub }}/{{ $spec.sds.image }}:{{ $.Values.global.tag }}"
 {{- end }}
           imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          resources:
+{{- if $spec.sds.resources }}
+{{ toYaml $spec.sds.resources | indent 12 }}
+{{- else }}
+{{ toYaml $.Values.global.defaultResources | indent 12 }}
+{{- end }}
           env:
           - name: "ENABLE_WORKLOAD_SDS"
             value: "false"
@@ -113,6 +119,9 @@ spec:
         {{- if $.Values.global.proxy.logLevel }}
           - --proxyLogLevel={{ $.Values.global.proxy.logLevel }}
         {{- end}}
+        {{- if $.Values.global.proxy.componentLogLevel }}
+          - --proxyComponentLogLevel={{ $.Values.global.proxy.componentLogLevel }}
+        {{- end}}
         {{- if $.Values.global.logging.level }}
           - --log_output_level={{ $.Values.global.logging.level }}
         {{- end}}
@@ -140,6 +149,10 @@ spec:
           - --envoyMetricsServiceAddress
           - {{ $.Values.global.proxy.envoyMetricsService.host }}:{{ $.Values.global.proxy.envoyMetricsService.port }}
         {{- end }}
+        {{- if $.Values.global.proxy.envoyAccessLogService.enabled }}
+          - --envoyAccessLogServiceAddress
+          - {{ $.Values.global.proxy.envoyAccessLogService.host }}:{{ $.Values.global.proxy.envoyAccessLogService.port }}
+        {{- end }}
           - --proxyAdminPort
           - "15000"
           - --statusPort
@@ -161,6 +174,10 @@ spec:
           - istio-pilot.{{ $.Values.global.istioNamespace }}:15010
           {{- else }}
           - istio-pilot:15010
+          {{- end }}
+          {{- if $spec.applicationPorts }}
+          - --applicationPorts
+          - "{{ $spec.applicationPorts }}"
           {{- end }}
         {{- end }}
         {{- if $.Values.global.trustDomain }}
@@ -232,7 +249,7 @@ spec:
           volumeMounts:
           {{- if $.Values.global.sds.enabled }}
           - name: sdsudspath
-            mountPath: /var/run/sds/uds_path
+            mountPath: /var/run/sds
             readOnly: true
           {{- if $.Values.global.sds.useTrustworthyJwt }}
           - name: istio-token
@@ -266,8 +283,7 @@ spec:
       {{- if $.Values.global.sds.enabled }}
       - name: sdsudspath
         hostPath:
-          path: /var/run/sds/uds_path
-          type: Socket
+          path: /var/run/sds
       {{- if $.Values.global.sds.useTrustworthyJwt }}
       - name: istio-token
         projected:
@@ -297,6 +313,13 @@ spec:
       affinity:
       {{- include "gatewaynodeaffinity" (dict "root" $ "nodeSelector" $spec.nodeSelector) | indent 6 }}
       {{- include "gatewaypodAntiAffinity" (dict "podAntiAffinityLabelSelector" $spec.podAntiAffinityLabelSelector "podAntiAffinityTermLabelSelector" $spec.podAntiAffinityTermLabelSelector) | indent 6 }}
+      {{- if $spec.tolerations }}
+      tolerations:
+{{ toYaml $spec.tolerations | indent 6 }}
+      {{- else if $.Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml $.Values.global.defaultTolerations | indent 6 }}
+      {{- end }}
 ---
 {{- end }}
 {{- end }}

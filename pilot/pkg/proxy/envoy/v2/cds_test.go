@@ -28,6 +28,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 )
 
 func TestCDS(t *testing.T) {
@@ -85,8 +86,8 @@ func TestSetTokenPathForSdsFromProxyMetadata(t *testing.T) {
 										{
 											TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 												GoogleGrpc: &core.GrpcService_GoogleGrpc{
-													CredentialsFactoryName: model.FileBasedMetadataPlugName,
-													CallCredentials:        model.ConstructgRPCCallCredentials(sdsTokenPath, model.K8sSAJwtTokenHeaderKey),
+													CredentialsFactoryName: authn_model.FileBasedMetadataPlugName,
+													CallCredentials:        authn_model.ConstructgRPCCallCredentials(sdsTokenPath, authn_model.K8sSAJwtTokenHeaderKey),
 												},
 											},
 										},
@@ -107,8 +108,8 @@ func TestSetTokenPathForSdsFromProxyMetadata(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														CredentialsFactoryName: model.FileBasedMetadataPlugName,
-														CallCredentials:        model.ConstructgRPCCallCredentials(sdsTokenPath, model.K8sSAJwtTokenHeaderKey),
+														CredentialsFactoryName: authn_model.FileBasedMetadataPlugName,
+														CallCredentials:        authn_model.ConstructgRPCCallCredentials(sdsTokenPath, authn_model.K8sSAJwtTokenHeaderKey),
 													},
 												},
 											},
@@ -136,8 +137,8 @@ func TestSetTokenPathForSdsFromProxyMetadata(t *testing.T) {
 										{
 											TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 												GoogleGrpc: &core.GrpcService_GoogleGrpc{
-													CredentialsFactoryName: model.FileBasedMetadataPlugName,
-													CallCredentials:        model.ConstructgRPCCallCredentials(defaultTokenPath, model.K8sSAJwtTokenHeaderKey),
+													CredentialsFactoryName: authn_model.FileBasedMetadataPlugName,
+													CallCredentials:        authn_model.ConstructgRPCCallCredentials(defaultTokenPath, authn_model.K8sSAJwtTokenHeaderKey),
 												},
 											},
 										},
@@ -159,7 +160,7 @@ func TestSetTokenPathForSdsFromProxyMetadata(t *testing.T) {
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
 														CredentialsFactoryName: "envoy.grpc_credentials.file_based_metadata",
-														CallCredentials:        model.ConstructgRPCCallCredentials(defaultTokenPath, model.K8sSAJwtTokenHeaderKey),
+														CallCredentials:        authn_model.ConstructgRPCCallCredentials(defaultTokenPath, authn_model.K8sSAJwtTokenHeaderKey),
 													},
 												},
 											},
@@ -179,78 +180,5 @@ func TestSetTokenPathForSdsFromProxyMetadata(t *testing.T) {
 	if !proto.Equal(cluster, clusterExpected) {
 		t.Errorf("The cluster after setting SDS token path is not as expected! Expected:\n%v, actual:\n%v",
 			proto.MarshalTextString(clusterExpected), proto.MarshalTextString(cluster))
-	}
-}
-
-func TestCopyClusters(t *testing.T) {
-	defaultTokenPath := "the-default-sds-token-path"
-
-	cluster1 := &xdsapi.Cluster{
-		TlsContext: &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
-					{
-						SdsConfig: &core.ConfigSource{
-							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-								ApiConfigSource: &core.ApiConfigSource{
-									ApiType: core.ApiConfigSource_GRPC,
-									GrpcServices: []*core.GrpcService{
-										{
-											TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-												GoogleGrpc: &core.GrpcService_GoogleGrpc{
-													CredentialsFactoryName: "envoy.grpc_credentials.file_based_metadata",
-													CallCredentials:        model.ConstructgRPCCallCredentials(defaultTokenPath, model.K8sSAJwtTokenHeaderKey),
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	cluster2 := &xdsapi.Cluster{
-		TlsContext: &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
-					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
-							SdsConfig: &core.ConfigSource{
-								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-									ApiConfigSource: &core.ApiConfigSource{
-										ApiType: core.ApiConfigSource_GRPC,
-										GrpcServices: []*core.GrpcService{
-											{
-												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														CredentialsFactoryName: "envoy.grpc_credentials.file_based_metadata",
-														CallCredentials:        model.ConstructgRPCCallCredentials(defaultTokenPath, model.K8sSAJwtTokenHeaderKey),
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	clustersCopied := v2.CopyClusters([]*xdsapi.Cluster{cluster1, cluster2})
-
-	if len(clustersCopied) != 2 {
-		t.Error("The copying of clusters failed!")
-	} else if !proto.Equal(cluster1, clustersCopied[0]) {
-		t.Errorf("The copied cluster 1 is different from the actual cluster. Expected:\n%v, actual:\n%v",
-			proto.MarshalTextString(cluster1), proto.MarshalTextString(clustersCopied[0]))
-	} else if !proto.Equal(cluster2, clustersCopied[1]) {
-		t.Errorf("The copied cluster 2 is different from the actual cluster. Expected:\n%v, actual:\n%v",
-			proto.MarshalTextString(cluster2), proto.MarshalTextString(clustersCopied[1]))
 	}
 }

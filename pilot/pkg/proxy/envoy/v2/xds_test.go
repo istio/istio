@@ -106,7 +106,7 @@ func startEnvoy(t *testing.T) {
 		"NodeID":  nodeID,
 		"BaseDir": env.IstioSrc + "/tests/testdata/local",
 		// Same value used in the real template
-		"meta_json_str": fmt.Sprintf(`"BASE": "%s"`, env.IstioSrc+"/tests/testdata/local"),
+		"meta_json_str": fmt.Sprintf(`"BASE": "%s", ISTIO_PROXY_VERSION: 1.1.3`, env.IstioSrc+"/tests/testdata/local"),
 	}
 
 	// Mixer will push stats every 1 sec
@@ -123,10 +123,6 @@ func sidecarID(ip, deployment string) string {
 
 func gatewayID(ip string) string { //nolint: unparam
 	return fmt.Sprintf("router~%s~istio-gateway-644fc65469-96dzt.istio-system~istio-system.svc.cluster.local", ip)
-}
-
-func ingressID(ip string) string {
-	return fmt.Sprintf("ingress~%s~istio-ingress-7cd767fcb4-kl6gt.pilot-noauth-system~pilot-noauth-system.svc.cluster.local", ip)
 }
 
 // initLocalPilotTestEnv creates a local, in process Pilot with XDSv2 support and a set

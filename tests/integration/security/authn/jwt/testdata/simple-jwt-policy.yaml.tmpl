@@ -1,0 +1,13 @@
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: "simple-jwt-policy-for-b"
+  namespace: {{ .Namespace }}
+spec:
+  targets:
+  - name: b
+  origins:
+  - jwt:
+      issuer: "testing@secure.istio.io"
+      jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.1/security/tools/jwt/samples/jwks.json"
+  principalBinding: USE_ORIGIN

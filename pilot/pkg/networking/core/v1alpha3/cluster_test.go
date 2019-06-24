@@ -305,12 +305,45 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	g.Expect(cluster.ConnectTimeout).To(Equal(time.Duration(10000000001)))
 }
 
+func TestBuildGatewayClustersWithRingHashLbDefaultMinRingSize(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	ttl := time.Nanosecond * 100
+	clusters, err := buildTestClusters("*.example.org", 0, model.Router, nil, testMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+			TrafficPolicy: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+						ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+							HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+								HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+									Name: "hash-cookie",
+									Ttl:  &ttl,
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	g.Expect(len(clusters)).To(Equal(3))
+
+	cluster := clusters[0]
+	g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_RING_HASH))
+	g.Expect(cluster.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(1024)))
+	g.Expect(cluster.Name).To(Equal("outbound|8080||*.example.org"))
+	g.Expect(cluster.ConnectTimeout).To(Equal(time.Duration(10000000001)))
+}
+
 func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig.MeshConfig) *model.Environment {
 	configStore := &fakes.IstioConfigStore{}
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
+		IstioConfigStore: configStore.Freeze(),
 		Mesh:             &mesh,
 	}
 
@@ -340,6 +373,72 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	cluster = clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
 	g.Expect(cluster.TlsContext.GetSni()).To(Equal("outbound_.8080_.foobar_.foo.example.org"))
+}
+
+func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T) {
+	expectedClientKeyPath := "/clientKeyFromNodeMetadata.pem"
+	expectedClientCertPath := "/clientCertFromNodeMetadata.pem"
+	expectedRootCertPath := "/clientRootCertFromNodeMetadata.pem"
+
+	g := NewGomegaWithT(t)
+
+	envoyMetadata := map[string]string{
+		model.NodeMetadataTLSClientCertChain: expectedClientCertPath,
+		model.NodeMetadataTLSClientKey:       expectedClientKeyPath,
+		model.NodeMetadataTLSClientRootCert:  expectedRootCertPath,
+	}
+
+	destRule := &networking.DestinationRule{
+		Host: "*.example.org",
+		TrafficPolicy: &networking.TrafficPolicy{
+			Tls: &networking.TLSSettings{
+				Mode:              networking.TLSSettings_MUTUAL,
+				ClientCertificate: "/defaultCert.pem",
+				PrivateKey:        "/defaultPrivateKey.pem",
+				CaCertificates:    "/defaultCaCert.pem",
+			},
+		},
+		Subsets: []*networking.Subset{
+			{
+				Name:   "foobar",
+				Labels: map[string]string{"foo": "bar"},
+				TrafficPolicy: &networking.TrafficPolicy{
+					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+						{
+							Port: &networking.PortSelector{
+								Port: &networking.PortSelector_Number{Number: 8080},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	clusters, err := buildTestClustersWithProxyMetadata("foo.example.org", model.ClientSideLB, model.SidecarProxy,
+		nil, testMesh, destRule, envoyMetadata)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	g.Expect(clusters).To(HaveLen(5))
+
+	expectedOutboundClusterCount := 2
+	actualOutboundClusterCount := 0
+
+	for _, c := range clusters {
+		if strings.Contains(c.Name, "outbound") {
+			actualOutboundClusterCount++
+			tlsContext := c.TlsContext.CommonTlsContext
+			g.Expect(tlsContext).NotTo(BeNil())
+
+			tlsCerts := tlsContext.TlsCertificates
+			g.Expect(tlsCerts).To(HaveLen(1))
+
+			g.Expect(tlsCerts[0].PrivateKey.GetFilename()).To(Equal(expectedClientKeyPath))
+			g.Expect(tlsCerts[0].CertificateChain.GetFilename()).To(Equal(expectedClientCertPath))
+			g.Expect(tlsContext.GetValidationContext().TrustedCa.GetFilename()).To(Equal(expectedRootCertPath))
+		}
+	}
+	g.Expect(actualOutboundClusterCount).To(Equal(expectedOutboundClusterCount))
 }
 
 func buildSniTestClusters(sniValue string) ([]*apiv2.Cluster, error) {
@@ -733,7 +832,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	}
 }
 
-func TestClusterDiscoveryTypeAndLbPolicy(t *testing.T) {
+func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	clusters, err := buildTestClusters("*.example.org", model.Passthrough, model.SidecarProxy, nil, testMesh,
@@ -754,4 +853,83 @@ func TestClusterDiscoveryTypeAndLbPolicy(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
 	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
+}
+
+func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	clusters, err := buildTestClusters("*.example.org", model.ClientSideLB, model.SidecarProxy, nil, testMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+			TrafficPolicy: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_PASSTHROUGH,
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 5,
+				},
+			},
+		})
+
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
+	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
+	g.Expect(clusters[0].EdsClusterConfig).To(BeNil())
+}
+
+func TestPassthroughClusterMaxConnections(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	configgen := NewConfigGenerator([]plugin.Plugin{})
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+	env := newTestEnvironment(serviceDiscovery, testMesh)
+	proxy := &model.Proxy{}
+
+	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	for _, cluster := range clusters {
+		if cluster.Name == "PassthroughCluster" {
+			fmt.Println(cluster.CircuitBreakers)
+			g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
+			g.Expect(cluster.CircuitBreakers.Thresholds[0].MaxConnections.Value).To(Equal(uint32(102400)))
+		}
+	}
+}
+
+func TestRedisProtocolCluster(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	configgen := NewConfigGenerator([]plugin.Plugin{})
+
+	proxy := &model.Proxy{}
+
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+
+	servicePort := &model.Port{
+		Name:     "redis-port",
+		Port:     6379,
+		Protocol: model.ProtocolRedis,
+	}
+	service := &model.Service{
+		Hostname:    model.Hostname("redis.com"),
+		Address:     "1.1.1.1",
+		ClusterVIPs: make(map[string]string),
+		Ports:       model.PortList{servicePort},
+		Resolution:  model.ClientSideLB,
+	}
+
+	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
+
+	env := newTestEnvironment(serviceDiscovery, testMesh)
+
+	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
+	g.Expect(err).NotTo(HaveOccurred())
+	for _, cluster := range clusters {
+		if cluster.Name == "outbound|6379||redis.com" {
+			g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_MAGLEV))
+		}
+	}
 }

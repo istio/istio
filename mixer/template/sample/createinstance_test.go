@@ -27,13 +27,12 @@ import (
 	istio_mixer_v1_config "istio.io/api/policy/v1beta1"
 	pb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	sample_apa "istio.io/istio/mixer/template/sample/apa"
 	sample_check "istio.io/istio/mixer/template/sample/check"
 	sample_quota "istio.io/istio/mixer/template/sample/quota"
 	sample_report "istio.io/istio/mixer/template/sample/report"
+	"istio.io/pkg/attribute"
 )
 
 // struct for declaring a test case for testing CreateInstance calls.
@@ -191,7 +190,7 @@ func TestCreateInstanceBuilder(t *testing.T) {
 
 	for _, tst := range tests {
 		t.Run(tst.name, func(tt *testing.T) {
-			expb := compiled.NewBuilder(ast.NewFinder(defaultAttributeInfos))
+			expb := compiled.NewBuilder(attribute.NewFinder(defaultAttributeInfos))
 			builder, e := SupportedTmplInfo[tst.template].CreateInstanceBuilder("instance1", tst.param, expb)
 			assertErr(tt, "CreateInstanceBuilder", tst.expectCreateError, e)
 			if tst.expectCreateError != "" {

@@ -29,8 +29,10 @@ import (
 	"syscall"
 	"time"
 
+	"istio.io/istio/pilot/pkg/model"
+
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -41,7 +43,7 @@ const (
 	readyPath = "/healthz/ready"
 	// KubeAppProberEnvName is the name of the command line flag for pilot agent to pass app prober config.
 	// The json encoded string to pass app HTTP probe information from injector(istioctl or webhook).
-	// For example, --ISTIO_KUBE_APP_PROBERS='{"/app-health/httpbin/livez":{"path": "/hello", "port": 8080}.
+	// For example, ISTIO_KUBE_APP_PROBERS='{"/app-health/httpbin/livez":{"path": "/hello", "port": 8080}.
 	// indicates that httpbin container liveness prober port is 8080 and probing path is /hello.
 	// This environment variable should never be set manually.
 	KubeAppProberEnvName = "ISTIO_KUBE_APP_PROBERS"
@@ -59,11 +61,13 @@ type KubeAppProbers map[string]*corev1.HTTPGetAction
 
 // Config for the status server.
 type Config struct {
+	LocalHostAddr    string
 	StatusPort       uint16
 	AdminPort        uint16
 	ApplicationPorts []uint16
 	// KubeAppHTTPProbers is a json with Kubernetes application HTTP prober config encoded.
 	KubeAppHTTPProbers string
+	NodeType           model.NodeType
 }
 
 // Server provides an endpoint for handling status probes.
@@ -80,8 +84,10 @@ func NewServer(config Config) (*Server, error) {
 	s := &Server{
 		statusPort: config.StatusPort,
 		ready: &ready.Probe{
+			LocalHostAddr:    config.LocalHostAddr,
 			AdminPort:        config.AdminPort,
 			ApplicationPorts: config.ApplicationPorts,
+			NodeType:         config.NodeType,
 		},
 	}
 	if config.KubeAppHTTPProbers == "" {
@@ -117,9 +123,7 @@ func (s *Server) Run(ctx context.Context) {
 
 	// Add the handler for ready probes.
 	mux.HandleFunc(readyPath, s.handleReadyProbe)
-	mux.HandleFunc("/", s.handleAppProbe)
-
-	mux.HandleFunc("/app-health", s.handleAppProbe)
+	mux.HandleFunc("/app-health/", s.handleAppProbe)
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))
 	if err != nil {
@@ -200,9 +204,9 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 	}
 	var url string
 	if prober.Scheme == corev1.URISchemeHTTPS {
-		url = fmt.Sprintf("https://127.0.0.1:%v%s", prober.Port.IntValue(), prober.Path)
+		url = fmt.Sprintf("https://localhost:%v%s", prober.Port.IntValue(), prober.Path)
 	} else {
-		url = fmt.Sprintf("http://127.0.0.1:%v%s", prober.Port.IntValue(), prober.Path)
+		url = fmt.Sprintf("http://localhost:%v%s", prober.Port.IntValue(), prober.Path)
 	}
 	appReq, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -210,8 +214,12 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	for _, header := range prober.HTTPHeaders {
-		appReq.Header[header.Name] = []string{header.Value}
+
+	// Forward incoming headers to the application.
+	for name, values := range req.Header {
+		newValues := make([]string, len(values))
+		copy(newValues, values)
+		appReq.Header[name] = newValues
 	}
 
 	// Send the request.
