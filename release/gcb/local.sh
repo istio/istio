@@ -25,7 +25,7 @@ echo "gopath is $GOPATH"
 CURRENT_BRANCH=$(git symbolic-ref --short HEAD)
 BRANCH=${BRANCH:-$CURRENT_BRANCH}
 export BRANCH
-export CB_VERIFY_CONSISTENCY=true
+#export CB_VERIFY_CONSISTENCY=true
 echo "Delete old builds"
 rm -r "${artifacts}" || echo
 mkdir -p "${artifacts}"
@@ -43,4 +43,6 @@ popd || return
 docker_tag_images  "${DOCKER_HUB}" "${NEW_VERSION}" "${artifacts}"
 docker_push_images "${DOCKER_HUB}" "${NEW_VERSION}" "${artifacts}"
 
-fix_values_yaml ${NEW_VERSION} ${DOCKER_HUB}
+pushd "${artifacts}" || exit
+  fix_values_yaml ${NEW_VERSION} ${DOCKER_HUB}
+popd || exit

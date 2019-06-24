@@ -151,6 +151,9 @@ fix_values_yaml() {
 }
 
 function update_helm() {
+  if [ -z "${LOCAL_BUILD+x}" ]; then
+    gsutil -q cp "gs://${CB_GCS_BUILD_PATH}/${tarball_name}" .
+  fi
   local tarball_name="$1"
   local VERSION="$2"
   local DOCKER_HUB="$3"
@@ -184,6 +187,11 @@ function update_helm() {
   eval "$zip_cmd" "${tarball_name}" "istio-${VERSION}"
   sha256sum       "${tarball_name}" > "${tarball_name}.sha256"
   rm  -rf "istio-${VERSION}"
+  if [ -z "${LOCAL_BUILD+x}" ]; then
+    gsutil -q cp "${tarball_name}"        "gs://${CB_GCS_BUILD_PATH}/${tarball_name}"
+    gsutil -q cp "${tarball_name}.sha256" "gs://${CB_GCS_BUILD_PATH}/${tarball_name}.sha256"
+    echo "DONE fixing gs://${CB_GCS_BUILD_PATH}/${tarball_name} with hub: ${CB_DOCKER_HUB} tag: ${CB_VERSION}"
+  fi
 }
 
 
