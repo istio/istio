@@ -34,6 +34,7 @@ import (
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/proto"
 	"istio.io/pkg/log"
 )
@@ -327,6 +328,13 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	node *model.Proxy, server *networking.Server, routeName string) *filterChainOpts {
 
 	serverProto := model.ParseProtocol(server.Port.Protocol)
+
+	httpProtoOpts := &core.Http1ProtocolOptions{}
+
+	if pilot.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
+		httpProtoOpts.AcceptHttp_10 = true
+	}
+
 	// Are we processing plaintext servers or HTTPS servers?
 	// If plain text, we have to combine all servers into a single listener
 	if serverProto.IsHTTP() {
@@ -349,7 +357,8 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 						Uri:     true,
 						Dns:     true,
 					},
-					ServerName: EnvoyServerName,
+					ServerName:          EnvoyServerName,
+					HttpProtocolOptions: httpProtoOpts,
 				},
 			},
 		}
@@ -383,7 +392,8 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 					Uri:     true,
 					Dns:     true,
 				},
-				ServerName: EnvoyServerName,
+				ServerName:          EnvoyServerName,
+				HttpProtocolOptions: httpProtoOpts,
 			},
 		},
 	}
@@ -405,7 +415,7 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
 		// SDS config for gateway to fetch key/cert at gateway agent.
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			model.ConstructSdsSecretConfigForGatewayListener(server.Tls.CredentialName, model.IngressGatewaySdsUdsPath),
+			authn_model.ConstructSdsSecretConfigForGatewayListener(server.Tls.CredentialName, authn_model.IngressGatewaySdsUdsPath),
 		}
 		// If tls mode is MUTUAL, create SDS config for gateway to fetch certificate validation context
 		// at gateway agent. Otherwise, use the static certificate validation context config.
@@ -413,8 +423,8 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 					DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
-					ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfigForGatewayListener(
-						server.Tls.CredentialName+model.IngressGatewaySdsCaSuffix, model.IngressGatewaySdsUdsPath),
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfigForGatewayListener(
+						server.Tls.CredentialName+authn_model.IngressGatewaySdsCaSuffix, authn_model.IngressGatewaySdsUdsPath),
 				},
 			}
 		} else if len(server.Tls.SubjectAltNames) > 0 {

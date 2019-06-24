@@ -29,11 +29,12 @@ import (
 //
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
-// kind: checknothing
+// kind: instance
 // metadata:
 //   name: denyrequest
 //   namespace: istio-system
 // spec:
+//   compiledTemplate: checknothing
 // ```
 
 // Fully qualified name of the template

@@ -93,7 +93,7 @@ distribution of traffic to endpoints based on the localities of where the
 traffic originates and where it will terminate. These localities are
 specified using arbitrary labels that designate a hierarchy of localities in
 &lbrace;region}/&lbrace;zone}/&lbrace;sub-zone} form. For additional detail refer to
-<a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight">Locality Weight</a>
+<a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/locality_weight">Locality Weight</a>
 The following example shows how to setup locality weights mesh-wide.</p>
 
 <p>Given a mesh with workloads and their service deployed to &ldquo;us-west/zone1/<em>&rdquo;
@@ -150,7 +150,7 @@ and similarly us-west should failover to us-east.</p>
 <td>
 <p>Optional: only one of distribute or failover can be set.
 Explicitly specify loadbalancing weight across different zones and geographical locations.
-Refer to <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight">Locality weighted load balancing</a>
+Refer to <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/locality_weight">Locality weighted load balancing</a>
 If empty, the locality weight is set according to the endpoints number within it.</p>
 
 </td>

@@ -87,7 +87,7 @@ function create_linux_archive() {
   ${CP} "${OUTPUT_PATH}/${ISTIOCTL_SUBDIR}/istioctl-linux" "${istioctl_path}"
   chmod 755 "${istioctl_path}"
 
-  ${TAR} --owner releng --group releng -czf \
+  env GZIP=-9 "${TAR}" --owner releng --group releng -czf \
     "${OUTPUT_PATH}/istio-${VER_STRING}-linux.tar.gz" "istio-${VER_STRING}" \
     || error_exit 'Could not create linux archive'
   rm "${istioctl_path}"
@@ -99,7 +99,7 @@ function create_osx_archive() {
   ${CP} "${OUTPUT_PATH}/${ISTIOCTL_SUBDIR}/istioctl-osx" "${istioctl_path}"
   chmod 755 "${istioctl_path}"
 
-  ${TAR} --owner releng --group releng -czf \
+  env GZIP=-9 "${TAR}" --owner releng --group releng -czf \
     "${OUTPUT_PATH}/istio-${VER_STRING}-osx.tar.gz" "istio-${VER_STRING}" \
     || error_exit 'Could not create osx archive'
   rm "${istioctl_path}"
@@ -170,6 +170,11 @@ rm -rf "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/test-values/"
 
 ls -l  "${COMMON_FILES_DIR}/install/kubernetes/helm/istio"
 
+TEMP_DIR=$(mktemp -d)
+pushd "${TEMP_DIR}"
+  git clone -b "${CB_BRANCH}" https://github.com/istio/cni.git
+  cp -r cni/deployments/kubernetes/install/helm/istio-cni "${COMMON_FILES_DIR}/install/kubernetes/helm"
+popd
 # Changing dir such that tar and zip files are
 # created with right hiereachy
 pushd "${COMMON_FILES_DIR}/.."

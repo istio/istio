@@ -124,7 +124,8 @@ func init() {
 
 func TestMain(m *testing.M) {
 	framework.NewSuite("locality_prioritized_failover_loadbalancing", m).
-		Label(label.CustomSetup).
+		// TODO(https://github.com/istio/istio/issues/13812) remove flaky labels
+		Label(label.CustomSetup, label.Flaky).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
@@ -147,9 +148,6 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["pilot.autoscaleEnabled"] = "false"
 	cfg.Values["global.localityLbSetting.failover[0].from"] = "region"
 	cfg.Values["global.localityLbSetting.failover[0].to"] = "closeregion"
-
-	// TODO(https://github.com/istio/istio/issues/14084) remove this
-	cfg.Values["pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE"] = "0"
 }
 
 func echoConfig(ns namespace.Instance, name string) echo.Config {

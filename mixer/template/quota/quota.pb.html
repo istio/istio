@@ -13,16 +13,18 @@ number_of_entries: 1
 <p>Example config:</p>
 
 <pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
-kind: quota
+kind: instance
 metadata:
   name: requestcount
   namespace: istio-system
 spec:
-  dimensions:
-    source: source.name | &quot;unknown&quot;
-    sourceVersion: source.labels[&quot;version&quot;] | &quot;unknown&quot;
-    destination: destination.labels[&quot;app&quot;] | destination.service.host | &quot;unknown&quot;
-    destinationVersion: destination.labels[&quot;version&quot;] | &quot;unknown&quot;
+  compiledTemplate: quota
+  params:
+    dimensions:
+      source: source.name | &quot;unknown&quot;
+      sourceVersion: source.labels[&quot;version&quot;] | &quot;unknown&quot;
+      destination: destination.labels[&quot;app&quot;] | destination.service.host | &quot;unknown&quot;
+      destinationVersion: destination.labels[&quot;version&quot;] | &quot;unknown&quot;
 </code></pre>
 
 <h2 id="Template">Template</h2>

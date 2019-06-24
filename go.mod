@@ -119,7 +119,8 @@ require (
 	github.com/keybase/go-crypto v0.0.0-20190416182011-b785b22cc757 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lib/pq v1.1.1 // indirect
-	github.com/mitchellh/copystructure v1.0.0 // indirect
+	github.com/lukechampine/freeze v0.0.0-20160818180733-f514e08ae5a0
+	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-homedir v0.0.0-20161203194507-b8bc1bf76747
 	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
@@ -184,8 +185,8 @@ require (
 	gopkg.in/stack.v1 v1.7.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 	gotest.tools v2.2.0+incompatible // indirect
-	istio.io/api v0.0.0-20190515205759-982e5c3888c6
-	istio.io/pkg v0.0.0-20190516214103-40b7bf4c7321
+	istio.io/api v0.0.0-20190620164021-251533346f33
+	istio.io/pkg v0.0.0-20190603185215-940899ee7e72
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471
 	k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87
 	k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628

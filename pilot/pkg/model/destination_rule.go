@@ -27,7 +27,7 @@ import (
 func (ps *PushContext) combineSingleDestinationRule(
 	combinedDestRuleHosts []Hostname,
 	combinedDestRuleMap map[Hostname]*combinedDestinationRule,
-	destRuleConfig Config) ([]Hostname, map[Hostname]*combinedDestinationRule) {
+	destRuleConfig Config) []Hostname {
 	rule := destRuleConfig.Spec.(*networking.DestinationRule)
 	resolvedHost := ResolveShortnameToFQDN(rule.Host, destRuleConfig.ConfigMeta)
 
@@ -50,7 +50,7 @@ func (ps *PushContext) combineSingleDestinationRule(
 		if combinedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
 			combinedRule.TrafficPolicy = rule.TrafficPolicy
 		}
-		return combinedDestRuleHosts, combinedDestRuleMap
+		return combinedDestRuleHosts
 	}
 
 	combinedDestRuleMap[resolvedHost] = &combinedDestinationRule{
@@ -62,5 +62,5 @@ func (ps *PushContext) combineSingleDestinationRule(
 	}
 	combinedDestRuleHosts = append(combinedDestRuleHosts, resolvedHost)
 
-	return combinedDestRuleHosts, combinedDestRuleMap
+	return combinedDestRuleHosts
 }

@@ -27,17 +27,28 @@ if [ "x${ISTIO_VERSION}" = "x" ] ; then
 fi
 
 if [ "x${ISTIO_VERSION}" = "x" ] ; then
-  echo "Unable to get latest Istio version. Set ISTIO_VERSION env var and re-run. For example: export ISTIO_VERSION=1.0.4"
+  printf "Unable to get latest Istio version. Set ISTIO_VERSION env var and re-run. For example: export ISTIO_VERSION=1.0.4"
   exit;
 fi
 
 NAME="istio-$ISTIO_VERSION"
 URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-${OSEXT}.tar.gz"
-echo "Downloading $NAME from $URL ..."
-curl -L "$URL" | tar xz
-# TODO: change this so the version is in the tgz/directory name (users trying multiple versions)
-echo "Downloaded into $NAME:"
-ls "$NAME"
+printf "Downloading %s from %s ..." "$NAME" "$URL"
+curl -L "$URL" | tar xz 
+printf ""
+printf "Istio %s Download Complete!\n" "$ISTIO_VERSION"
+printf "\n"
+printf "Istio has been successfully downloaded into the %s folder on your system.\n" "$NAME"
+printf "\n"
 BINDIR="$(cd "$NAME/bin" && pwd)"
-echo "Add $BINDIR to your path; e.g copy paste in your shell and/or ~/.profile:"
-echo "export PATH=\"\$PATH:$BINDIR\""
+printf "Next Steps:\n"
+printf "See https://istio.io/docs/setup/kubernetes/install/ to add Istio to your Kubernetes cluster.\n"
+printf "\n"
+printf "To configure the istioctl client tool for your workstation,\n"
+printf "add the %s directory to your environment path variable with:\n" "$BINDIR"
+printf "\t export PATH=\"\$PATH:%s\"\n" "$BINDIR"
+printf "\n"
+printf "Begin the Istio pre-installation verification check by running:\n"
+printf "\t istioctl verify-install \n"
+printf "\n"
+printf "Need more information? Visit https://istio.io/docs/setup/kubernetes/install/ \n"

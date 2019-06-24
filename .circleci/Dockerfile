@@ -66,3 +66,10 @@ RUN cd /tmp && \
     sudo mv linux-amd64/helm /usr/local/bin && \
     rm -rf helm.tgz linux-amd64
 
+# Install protoc for protoc-gen-* testing
+RUN cd /tmp && \
+    curl -Lo /tmp/protoc.zip https://github.com/google/protobuf/releases/download/v3.8.0/protoc-3.8.0-linux-x86_64.zip && \
+    unzip protoc.zip -d protoc3 && \
+    sudo mv protoc3/bin/* /usr/local/bin/ && \
+    sudo mv protoc3/include/* /usr/local/include/ && \
+    rm -rf protoc.zip protoc3

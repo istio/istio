@@ -28,6 +28,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 )
 
 func TestCDS(t *testing.T) {
@@ -85,8 +86,8 @@ func TestSetTokenPathForSdsFromProxyMetadata(t *testing.T) {
 										{
 											TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 												GoogleGrpc: &core.GrpcService_GoogleGrpc{
-													CredentialsFactoryName: model.FileBasedMetadataPlugName,
-													CallCredentials:        model.ConstructgRPCCallCredentials(sdsTokenPath, model.K8sSAJwtTokenHeaderKey),
+													CredentialsFactoryName: authn_model.FileBasedMetadataPlugName,
+													CallCredentials:        authn_model.ConstructgRPCCallCredentials(sdsTokenPath, authn_model.K8sSAJwtTokenHeaderKey),
 												},
 											},
 										},
@@ -107,8 +108,8 @@ func TestSetTokenPathForSdsFromProxyMetadata(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														CredentialsFactoryName: model.FileBasedMetadataPlugName,
-														CallCredentials:        model.ConstructgRPCCallCredentials(sdsTokenPath, model.K8sSAJwtTokenHeaderKey),
+														CredentialsFactoryName: authn_model.FileBasedMetadataPlugName,
+														CallCredentials:        authn_model.ConstructgRPCCallCredentials(sdsTokenPath, authn_model.K8sSAJwtTokenHeaderKey),
 													},
 												},
 											},
@@ -136,8 +137,8 @@ func TestSetTokenPathForSdsFromProxyMetadata(t *testing.T) {
 										{
 											TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 												GoogleGrpc: &core.GrpcService_GoogleGrpc{
-													CredentialsFactoryName: model.FileBasedMetadataPlugName,
-													CallCredentials:        model.ConstructgRPCCallCredentials(defaultTokenPath, model.K8sSAJwtTokenHeaderKey),
+													CredentialsFactoryName: authn_model.FileBasedMetadataPlugName,
+													CallCredentials:        authn_model.ConstructgRPCCallCredentials(defaultTokenPath, authn_model.K8sSAJwtTokenHeaderKey),
 												},
 											},
 										},
@@ -159,7 +160,7 @@ func TestSetTokenPathForSdsFromProxyMetadata(t *testing.T) {
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
 														CredentialsFactoryName: "envoy.grpc_credentials.file_based_metadata",
-														CallCredentials:        model.ConstructgRPCCallCredentials(defaultTokenPath, model.K8sSAJwtTokenHeaderKey),
+														CallCredentials:        authn_model.ConstructgRPCCallCredentials(defaultTokenPath, authn_model.K8sSAJwtTokenHeaderKey),
 													},
 												},
 											},

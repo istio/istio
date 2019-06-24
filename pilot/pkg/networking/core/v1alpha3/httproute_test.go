@@ -416,27 +416,25 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		testSidecarRDSVHosts(t, c.name, services, c.sidecarConfig, c.virtualServiceConfigs,
-			c.routeName, c.expectedHosts, c.fallthroughRoute, c.registryOnly)
+		t.Run(c.name, func(t *testing.T) {
+			testSidecarRDSVHosts(t, services, c.sidecarConfig, c.virtualServiceConfigs,
+				c.routeName, c.expectedHosts, c.fallthroughRoute, c.registryOnly)
+		})
 	}
 }
 
-func testSidecarRDSVHosts(t *testing.T, testName string, services []*model.Service,
+func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	sidecarConfig *model.Config, virtualServices []*model.Config, routeName string,
 	expectedHosts map[string]map[string]bool, fallthroughRoute bool, registryOnly bool) {
 	t.Helper()
 	p := &fakePlugin{}
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
-	env := buildListenerEnv(services)
+	env := buildListenerEnvWithVirtualServices(services, virtualServices)
 
 	if err := env.PushContext.InitContext(&env); err != nil {
-		t.Fatalf("testSidecarRDSVhosts(%s): failed to initialize push context", testName)
+		t.Fatalf("failed to initialize push context")
 	}
-	for _, virtualService := range virtualServices {
-		env.PushContext.AddVirtualServiceForTesting(virtualService)
-	}
-
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
@@ -452,7 +450,7 @@ func testSidecarRDSVHosts(t *testing.T, testName string, services []*model.Servi
 
 	route := configgen.buildSidecarOutboundHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, routeName)
 	if route == nil {
-		t.Fatalf("testSidecarRDSVhosts(%s): got nil route for %s", testName, routeName)
+		t.Fatalf("got nil route for %s", routeName)
 	}
 
 	expectedNumberOfRoutes := len(expectedHosts)
@@ -460,18 +458,17 @@ func testSidecarRDSVHosts(t *testing.T, testName string, services []*model.Servi
 	for _, vhost := range route.VirtualHosts {
 		numberOfRoutes += len(vhost.Routes)
 		if _, found := expectedHosts[vhost.Name]; !found {
-			t.Fatalf("testSidecarRDSVhosts(%s): unexpected vhost block %s for route %s", testName,
+			t.Fatalf("unexpected vhost block %s for route %s",
 				vhost.Name, routeName)
 		}
 		for _, domain := range vhost.Domains {
 			if !expectedHosts[vhost.Name][domain] {
-				t.Fatalf("testSidecarRDSVhosts(%s): unexpected vhost domain %s in vhost %s, for route %s",
-					testName, domain, vhost.Name, routeName)
+				t.Fatalf("unexpected vhost domain %s in vhost %s, for route %s", domain, vhost.Name, routeName)
 			}
 		}
 	}
 	if (expectedNumberOfRoutes >= 0) && (numberOfRoutes != expectedNumberOfRoutes) {
-		t.Errorf("testSidecarRDSVhosts(%s): expected: %v, Got: %v", testName, expectedNumberOfRoutes, numberOfRoutes)
+		t.Errorf("Wrong number of routes. expected: %v, Got: %v", expectedNumberOfRoutes, numberOfRoutes)
 	}
 }
 

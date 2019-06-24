@@ -231,15 +231,9 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
                  then printf "go version $(GO_VERSION_REQUIRED)+ required, found: "; $(GO) version; exit 1; fi
 	@touch ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
 
-# Ensure expected GOPATH setup
-.PHONY: check-tree
-check-tree:
-	@if [ ! "$(ISTIO_GO)" -ef "$(GO_TOP)/src/istio.io/istio" ]; then \
-		echo Not building in expected path \'GOPATH/src/istio.io/istio\'. Make sure to clone Istio into that path. Istio root="$(ISTIO_GO)", GO_TOP="$(GO_TOP)" ; \
-		exit 1; fi
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
-init: check-tree check-go-version $(ISTIO_OUT)/istio_is_init
+init: check-go-version $(ISTIO_OUT)/istio_is_init
 	mkdir -p ${OUT_DIR}/logs
 
 # Sync is the same as init in release branch. In master this pulls from master.
@@ -294,10 +288,18 @@ fmt:
 buildcache:
 	GOBUILDFLAGS=-i $(MAKE) build
 
+JUNIT_LINT_TEST_XML ?= $(ISTIO_OUT)/junit_lint-tests.xml
 # Existence of build cache .a files actually affects the results of
 # some linters; they need to exist.
-lint: buildcache
-	SKIP_INIT=1 bin/linters.sh
+lint: $(JUNIT_REPORT) buildcache
+	mkdir -p $(dir $(JUNIT_LINT_TEST_XML))
+	set -o pipefail; \
+	SKIP_INIT=1 bin/linters.sh \
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_LINT_TEST_XML))
+
+
+shellcheck:
+	bin/check_shell_scripts.sh
 
 # @todo gometalinter targets?
 
@@ -322,15 +324,15 @@ $(foreach ITEM,$(PILOT_GO_BINS_SHORT),$(eval $(call pilotbuild,$(ITEM))))
 
 .PHONY: istioctl
 istioctl ${ISTIO_OUT}/istioctl:
-	bin/gobuild.sh ${ISTIO_OUT}/istioctl ./istioctl/cmd/istioctl
+	LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh ${ISTIO_OUT}/istioctl ./istioctl/cmd/istioctl
 
 # Non-static istioctls. These are typically a build artifact.
 ${ISTIO_OUT}/istioctl-linux: depend
-	STATIC=0 GOOS=linux   bin/gobuild.sh $@ ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=linux  LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/istioctl-osx: depend
-	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=darwin LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/istioctl-win.exe: depend
-	STATIC=0 GOOS=windows bin/gobuild.sh $@ ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=windows LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 
 # generate the istioctl completion files
 ${ISTIO_OUT}/istioctl.bash: istioctl
@@ -376,6 +378,11 @@ ${ISTIO_OUT}/sdsclient:
 # Build will rebuild the go binaries.
 build: depend $(PILOT_GO_BINS_SHORT) mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
 
+.PHONY: version-test
+# Do not run istioctl since is different (connects to kubernetes)
+version-test:
+	go test ./tests/version/... -v --base-dir ${ISTIO_OUT} --binaries="$(PILOT_GO_BINS_SHORT) mixc mixs mixgen node_agent node_agent_k8s istio_ca galley sdsclient"
+
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
 # while the ones that follow need slight adjustments to their names.
@@ -404,6 +411,10 @@ pilot: pilot-discovery
 .PHONY: node_agent istio_ca
 node_agent istio_ca:
 	bin/gobuild.sh ${ISTIO_OUT}/$@ ./security/cmd/$(@F)
+
+.PHONY: istio-iptables
+istio-iptables:
+	bin/gobuild.sh ${ISTIO_OUT}/$@ ./tools/istio-iptables
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
@@ -516,14 +527,15 @@ security-test:
 	go test ${T} ./security/cmd/...
 
 .PHONY: common-test
-common-test:
+common-test: istio-iptables
 	go test ${T} ./pkg/...
 	# Execute bash shell unit tests scripts
 	./tests/scripts/scripts_test.sh
+	./tests/scripts/istio-iptables-test.sh
 
 .PHONY: selected-pkg-test
 selected-pkg-test:
-	find ${WHAT} -name "*_test.go"|xargs -i dirname {}|uniq|xargs -i go test ${T} {}
+	find ${WHAT} -name "*_test.go" | xargs -I {} dirname {} | uniq | xargs -I {} go test ${T} ./{}
 
 #-----------------------------------------------------------------------------
 # Target: coverage

@@ -8,11 +8,12 @@
 //
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
-// kind: reportnothing
+// kind: instance
 // metadata:
 //   name: reportrequest
 //   namespace: istio-system
 // spec:
+//   compiledTemplate: reportnothing
 // ```
 //
 // ReportNothing represents an empty block of data that is used for Report-capable

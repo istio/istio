@@ -1,0 +1,11 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: foo
+  annotations:
+    kubernetes.io/ingress.class: "cls"
+
+spec:
+  backend:
+    serviceName: "testsvc"
+    servicePort: "80"

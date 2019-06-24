@@ -26,7 +26,9 @@ import (
 	"fortio.org/fortio/periodic"
 
 	"istio.io/istio/pkg/test/framework/components/ingress"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/tests/util"
 )
 
@@ -48,10 +50,15 @@ func GetReporterCodeLabel() string {
 	return reporterLabel
 }
 
-func VisitProductPage(ingress ingress.Instance, timeout time.Duration, wantStatus int, t *testing.T) error {
+func VisitProductPage(ing ingress.Instance, timeout time.Duration, wantStatus int, t *testing.T) error {
 	start := time.Now()
+	endpointIP := ing.HTTPAddress()
 	for {
-		response, err := ingress.Call("/productpage")
+		response, err := ing.Call(ingress.CallOptions{
+			Host:     "",
+			Path:     "/productpage",
+			CallType: ingress.PlainText,
+			Address:  endpointIP})
 		if err != nil {
 			t.Logf("Unable to connect to product page: %v", err)
 		}
@@ -126,7 +133,7 @@ func PromDumpWithAttributes(prometheus prometheus.Instance, metric string, attri
 func SendTraffic(ingress ingress.Instance, t *testing.T, msg, url string, calls int64) *fhttp.HTTPRunnerResults {
 	t.Log(msg)
 	if url == "" {
-		url = fmt.Sprintf("%s/productpage", ingress.Address())
+		url = fmt.Sprintf("%s/productpage", ingress.HTTPAddress())
 	}
 
 	// run at a high enough QPS (here 10) to ensure that enough
@@ -162,6 +169,31 @@ func SendTrafficAndWaitForExpectedStatus(ingress ingress.Instance, t *testing.T,
 		// Verify you get specified http return code.
 		if float64(res.RetCodes[httpStatusCode]) == 0 {
 			return fmt.Errorf("could not get %v status", httpStatusCode)
+		}
+		return nil
+	}
+
+	if _, err := retry.Retry(context.Background(), retryFn); err != nil {
+		t.Fatalf("Failed with err: %v", err)
+	}
+}
+
+func GetAndValidateAccessLog(ns namespace.Instance, t *testing.T, labelSelector, container string, validate func(string) error) {
+	retry := util.Retrier{
+		BaseDelay: 15 * time.Second,
+		Retries:   3,
+		MaxDelay:  30 * time.Second,
+	}
+
+	retryFn := func(_ context.Context, i int) error {
+		content, err := shell.Execute(false, "kubectl logs -n %s -l %s -c %s ",
+			ns.Name(), labelSelector, container)
+		if err != nil {
+			return fmt.Errorf("unable to get access logs from mixer: %v , content %v", err, content)
+		}
+		err = validate(content)
+		if err != nil {
+			return fmt.Errorf("error validating content %v ", err)
 		}
 		return nil
 	}

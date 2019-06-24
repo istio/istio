@@ -25,7 +25,9 @@ syntax = "proto3";
 // the following standard fields:
 //
 //   * services: a list of services.
-//   * methods: HTTP methods. In the case of gRPC, this field is ignored because the value is always "POST".
+//   * methods: A list of HTTP methods. You can set the value to `*` to include all HTTP methods.
+//              This field should not be set for TCP services. The policy will be ignored.
+//              For gRPC services, only `POST` is allowed; other methods will result in denying services.
 //   * paths: HTTP paths or gRPC methods. Note that gRPC methods should be
 //     presented in the form of "/packageName.serviceName/methodName" and are case sensitive.
 //
@@ -141,6 +143,7 @@ message AccessRule {
   // For example, the host "test.abc.com" matches "test.abc.com" (exact match),
   // or "*.abc.com" (prefix match), or "test.abc.*" (suffix match).
   // If not specified, it matches to any host.
+  // This field should not be set for TCP services. The policy will be ignored.
   repeated string hosts = 5;
 
   // $hide_from_docs
@@ -154,6 +157,7 @@ message AccessRule {
   // the path "/books/review" matches "/books/review" (exact match),
   // or "/books/*" (prefix match), or "*/review" (suffix match).
   // If not specified, it matches to any path.
+  // This field should not be set for TCP services. The policy will be ignored.
   repeated string paths = 2;
 
   // $hide_from_docs
@@ -161,8 +165,9 @@ message AccessRule {
   repeated string not_paths = 7;
 
   // Optional. A list of HTTP methods (e.g., "GET", "POST").
-  // It is ignored in gRPC case because the value is always "POST".
-  // If not specified, it matches to any methods.
+  // If not specified or specified as "*", it matches to any methods.
+  // This field should not be set for TCP services. The policy will be ignored.
+  // For gRPC services, only `POST` is allowed; other methods will result in denying services.
   repeated string methods = 3;
 
   // $hide_from_docs

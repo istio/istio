@@ -636,18 +636,19 @@ func TestValidateMeshConfig(t *testing.T) {
 
 func TestValidateProxyConfig(t *testing.T) {
 	valid := &meshconfig.ProxyConfig{
-		ConfigPath:                 "/etc/istio/proxy",
-		BinaryPath:                 "/usr/local/bin/envoy",
-		DiscoveryAddress:           "istio-pilot.istio-system:15010",
-		ProxyAdminPort:             15000,
-		DrainDuration:              types.DurationProto(45 * time.Second),
-		ParentShutdownDuration:     types.DurationProto(60 * time.Second),
-		ConnectTimeout:             types.DurationProto(10 * time.Second),
-		ServiceCluster:             "istio-proxy",
-		StatsdUdpAddress:           "istio-statsd-prom-bridge.istio-system:9125",
-		EnvoyMetricsServiceAddress: "metrics-service.istio-system:15000",
-		ControlPlaneAuthPolicy:     1,
-		Tracing:                    nil,
+		ConfigPath:                   "/etc/istio/proxy",
+		BinaryPath:                   "/usr/local/bin/envoy",
+		DiscoveryAddress:             "istio-pilot.istio-system:15010",
+		ProxyAdminPort:               15000,
+		DrainDuration:                types.DurationProto(45 * time.Second),
+		ParentShutdownDuration:       types.DurationProto(60 * time.Second),
+		ConnectTimeout:               types.DurationProto(10 * time.Second),
+		ServiceCluster:               "istio-proxy",
+		StatsdUdpAddress:             "istio-statsd-prom-bridge.istio-system:9125",
+		EnvoyMetricsServiceAddress:   "metrics-service.istio-system:15000",
+		EnvoyAccessLogServiceAddress: "accesslog-service.istio-system:15000",
+		ControlPlaneAuthPolicy:       1,
+		Tracing:                      nil,
 	}
 
 	modify := func(config *meshconfig.ProxyConfig, fieldSetter func(*meshconfig.ProxyConfig)) *meshconfig.ProxyConfig {
@@ -724,6 +725,11 @@ func TestValidateProxyConfig(t *testing.T) {
 		{
 			name:    "envoy metrics service address invalid",
 			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.EnvoyMetricsServiceAddress = "metrics-service.istio-system" }),
+			isValid: false,
+		},
+		{
+			name:    "envoy access log service address invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.EnvoyAccessLogServiceAddress = "accesslog-service.istio-system" }),
 			isValid: false,
 		},
 		{
@@ -944,17 +950,18 @@ func TestValidateProxyConfig(t *testing.T) {
 	}
 
 	invalid := meshconfig.ProxyConfig{
-		ConfigPath:                 "",
-		BinaryPath:                 "",
-		DiscoveryAddress:           "10.0.0.100",
-		ProxyAdminPort:             0,
-		DrainDuration:              types.DurationProto(-1 * time.Second),
-		ParentShutdownDuration:     types.DurationProto(-1 * time.Second),
-		ConnectTimeout:             types.DurationProto(-1 * time.Second),
-		ServiceCluster:             "",
-		StatsdUdpAddress:           "10.0.0.100",
-		EnvoyMetricsServiceAddress: "metrics-service",
-		ControlPlaneAuthPolicy:     -1,
+		ConfigPath:                   "",
+		BinaryPath:                   "",
+		DiscoveryAddress:             "10.0.0.100",
+		ProxyAdminPort:               0,
+		DrainDuration:                types.DurationProto(-1 * time.Second),
+		ParentShutdownDuration:       types.DurationProto(-1 * time.Second),
+		ConnectTimeout:               types.DurationProto(-1 * time.Second),
+		ServiceCluster:               "",
+		StatsdUdpAddress:             "10.0.0.100",
+		EnvoyMetricsServiceAddress:   "metrics-service",
+		EnvoyAccessLogServiceAddress: "accesslog-service",
+		ControlPlaneAuthPolicy:       -1,
 		Tracing: &meshconfig.Tracing{
 			Tracer: &meshconfig.Tracing_Zipkin_{
 				Zipkin: &meshconfig.Tracing_Zipkin{
@@ -971,7 +978,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.Errors) != 12 {
+			if len(err.Errors) != 13 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -1163,6 +1170,15 @@ func TestValidateHTTPAPISpec(t *testing.T) {
 			},
 			valid: true,
 		},
+		{
+			name: "invalid attribute (nil)",
+			in: &mccpb.HTTPAPISpec{
+				Attributes: &mpb.Attributes{
+					Attributes: map[string]*mpb.Attributes_AttributeValue{"": nil},
+				},
+			},
+			valid: false,
+		},
 	}
 	for _, c := range cases {
 		if got := ValidateHTTPAPISpec(someName, someNamespace, c.in); (got == nil) != c.valid {
@@ -1324,6 +1340,19 @@ func TestValidateQuotaSpec(t *testing.T) {
 				}},
 			},
 			valid: true,
+		},
+		{
+			name: "regression test - nil clause",
+			in: &mccpb.QuotaSpec{
+				Rules: []*mccpb.QuotaRule{{
+					Match: []*mccpb.AttributeMatch{{
+						Clause: map[string]*mccpb.StringMatch{
+							"": nil,
+						},
+					}},
+				}},
+			},
+			valid: false,
 		},
 	}
 	for _, c := range cases {
@@ -2033,6 +2062,14 @@ func TestValidateHTTPRetry(t *testing.T) {
 			PerTryTimeout: &types.Duration{Seconds: 2},
 			RetryOn:       "5xx,gateway-error",
 		}, valid: true},
+		{name: "disable retries", in: &networking.HTTPRetry{
+			Attempts: 0,
+		}, valid: true},
+		{name: "invalid, retry policy configured but attempts set to zero", in: &networking.HTTPRetry{
+			Attempts:      0,
+			PerTryTimeout: &types.Duration{Seconds: 2},
+			RetryOn:       "5xx,gateway-error",
+		}, valid: false},
 		{name: "valid default", in: &networking.HTTPRetry{
 			Attempts: 10,
 		}, valid: true},
@@ -2643,6 +2680,25 @@ func TestValidateVirtualService(t *testing.T) {
 				RemoveResponseHeaders: []string{"unwantedHeader", "secretStuff"},
 			}},
 		}, valid: true},
+		{name: "missing tcp route", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Tcp: []*networking.TCPRoute{{
+				Match: []*networking.L4MatchAttributes{
+					{Port: 999},
+				},
+			}},
+		}, valid: false},
+		{name: "missing tls route", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Tls: []*networking.TLSRoute{{
+				Match: []*networking.TLSMatchAttributes{
+					{
+						Port:     999,
+						SniHosts: []string{"foo.bar"},
+					},
+				},
+			}},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
@@ -3729,6 +3785,22 @@ func TestValidateAuthenticationMeshPolicy(t *testing.T) {
 				}},
 			},
 			valid: true,
+		},
+		{
+			name:       "empty origin",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn.Policy{
+				Origins: []*authn.OriginAuthenticationMethod{{}},
+			},
+			valid: false,
+		},
+		{
+			name:       "nil origin",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn.Policy{
+				Origins: []*authn.OriginAuthenticationMethod{nil},
+			},
+			valid: false,
 		},
 	}
 	for _, c := range cases {
