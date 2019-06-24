@@ -25,10 +25,10 @@ import (
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/features/pilot"
 )
 
 var (
@@ -70,8 +70,8 @@ const (
 )
 
 func init() {
-	DebounceAfter = pilot.DebounceAfter
-	DebounceMax = pilot.DebounceMax
+	DebounceAfter = features.DebounceAfter
+	DebounceMax = features.DebounceMax
 }
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
@@ -211,10 +211,10 @@ func NewDiscoveryServer(
 		}
 	}
 
-	out.DebugConfigs = pilot.DebugConfigs
+	out.DebugConfigs = features.DebugConfigs
 
-	pushThrottle := pilot.PushThrottle
-	pushBurst := pilot.PushBurst
+	pushThrottle := features.PushThrottle
+	pushBurst := features.PushBurst
 
 	adsLog.Infof("Starting ADS server with rateLimiter=%d burst=%d", pushThrottle, pushBurst)
 	out.rateLimiter = rate.NewLimiter(rate.Limit(pushThrottle), pushBurst)
@@ -240,7 +240,7 @@ func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
 // ( will be removed after change detection is implemented, to double check all changes are
 // captured)
 func (s *DiscoveryServer) periodicRefresh(stopCh <-chan struct{}) {
-	periodicRefreshDuration := pilot.RefreshDuration
+	periodicRefreshDuration := features.RefreshDuration
 	if periodicRefreshDuration == 0 {
 		return
 	}

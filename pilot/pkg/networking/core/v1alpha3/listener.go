@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"encoding/json"
 	"fmt"
-
 	"net"
 	"reflect"
 	"sort"
@@ -39,13 +38,14 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/proto"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -276,7 +276,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 
 	httpProxyPort := mesh.ProxyHttpPort
 	if httpProxyPort == 0 && noneMode { // make sure http proxy is enabled for 'none' interception.
-		httpProxyPort = int32(pilot.DefaultPortHTTPProxy)
+		httpProxyPort = int32(features.DefaultPortHTTPProxy)
 	}
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
 	if httpProxyPort > 0 {
@@ -286,7 +286,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		httpOpts := &core.Http1ProtocolOptions{
 			AllowAbsoluteUrl: proto.BoolTrue,
 		}
-		if pilot.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
+		if features.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
 			httpOpts.AcceptHttp_10 = true
 		}
 
@@ -1011,7 +1011,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 			rds:              rdsName,
 		}
 
-		if pilot.HTTP10 || pluginParams.Node.Metadata[model.NodeMetadataHTTP10] == "1" {
+		if features.HTTP10 || pluginParams.Node.Metadata[model.NodeMetadataHTTP10] == "1" {
 			httpOpts.connectionManager = &http_conn.HttpConnectionManager{
 				HttpProtocolOptions: &core.Http1ProtocolOptions{
 					AcceptHttp_10: true,
@@ -1470,7 +1470,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 					ConfigSourceSpecifier: &core.ConfigSource_Ads{
 						Ads: &core.AggregatedConfigSource{},
 					},
-					InitialFetchTimeout: pilot.InitialFetchTimeout,
+					InitialFetchTimeout: features.InitialFetchTimeout,
 				},
 				RouteConfigName: httpOpts.rds,
 			},
@@ -1642,7 +1642,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 // This allows external https traffic, even when port the port (usually 443) is in use by another service.
 func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts, node *model.Proxy) {
 	// If traffic policy is REGISTRY_ONLY, the traffic will already be blocked, so no action is needed.
-	if pilot.EnableFallthroughRoute() &&
+	if features.EnableFallthroughRoute() &&
 		opts.env.Mesh.OutboundTrafficPolicy.Mode == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY {
 
 		wildcardMatch := &listener.FilterChainMatch{}

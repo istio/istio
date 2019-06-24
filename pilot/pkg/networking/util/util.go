@@ -34,9 +34,10 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/features/pilot"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
 )
 
 const (
@@ -249,7 +250,7 @@ func IsProxyVersionGE11(node *model.Proxy) bool {
 
 // IsXDSMarshalingToAnyEnabled controls whether "marshaling to Any" feature is enabled.
 func IsXDSMarshalingToAnyEnabled(node *model.Proxy) bool {
-	return IsProxyVersionGE11(node) && !pilot.DisableXDSMarshalingToAny()
+	return IsProxyVersionGE11(node) && !features.DisableXDSMarshalingToAny()
 }
 
 // ResolveHostsInNetworksConfig will go through the Gateways addresses for all
