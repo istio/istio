@@ -257,11 +257,11 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 	sf.secrets.Delete(rootCertResourceName)
 	if len(newRoot) > 0 {
 		nsRoot := &model.SecretItem{
-			ResourceName: rootCertResourceName,
-			RootCert:     newRoot,
-			CRL:          newCrl,
-			CreatedTime:  t,
-			Version:      t.String(),
+			ResourceName:              rootCertResourceName,
+			RootCert:                  newRoot,
+			CertificateRevocationList: newCrl,
+			CreatedTime:               t,
+			Version:                   t.String(),
 		}
 		sf.secrets.Store(rootCertResourceName, *nsRoot)
 		secretFetcherLog.Debugf("secret %s is added", rootCertResourceName)
@@ -351,11 +351,11 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	sf.secrets.Delete(rootCertResourceName)
 	if len(newRoot) > 0 {
 		nsRoot := &model.SecretItem{
-			ResourceName: rootCertResourceName,
-			RootCert:     newRoot,
-			CRL:          newCrl,
-			CreatedTime:  t,
-			Version:      t.String(),
+			ResourceName:              rootCertResourceName,
+			RootCert:                  newRoot,
+			CertificateRevocationList: newCrl,
+			CreatedTime:               t,
+			Version:                   t.String(),
 		}
 		sf.secrets.Store(rootCertResourceName, *nsRoot)
 		secretFetcherLog.Infof("secret %s is updated", rootCertResourceName)
