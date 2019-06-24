@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package v1alpha1;
+package v1alpha2;
 
 import "k8s.io/api/core/v1/generated.proto";
 import "k8s.io/api/autoscaling/v1/generated.proto";
@@ -23,13 +23,13 @@ import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
 
 /*
 IstioControlPlane is a schema for both defining and overlaying Istio control plane installations.
-The Istio operator uses a compiled-in InstallSpec as default installation values, along with compiled-in install charts.
-Running the operator with an empty user defined InstallSpec results in an installation with default values, using the
+The Istio operator uses a compiled-in InstallSpec as default controlplane values, along with compiled-in install charts.
+Running the operator with an empty user defined InstallSpec results in an controlplane with default values, using the
 default charts.
 
 The simplest install specialization is to point the user InstallSpec baseValuesPath to a different values file, for
-example an Istio minimal installation, which will use the values associated with the minimal installation profile for
-Istio. All Istio installation profiles are compiled in to the operator, wrapped inside InstallSpec's
+example an Istio minimal controlplane, which will use the values associated with the minimal controlplane profile for
+Istio. All Istio controlplane profiles are compiled in to the operator, wrapped inside InstallSpec's
 CommonComponentSpec/ValueOverrides field.
 
 Further specialization are possible at three levels:
@@ -37,7 +37,7 @@ Further specialization are possible at three levels:
 1. New APIs defined in this file
 
 Feature API: this API groups an Istio install by features and allows enabling/disabling the features, selecting base
-installation profiles, as well as some additional high level settings that are feature specific. Each feature contains
+controlplane profiles, as well as some additional high level settings that are feature specific. Each feature contains
 one or more components, which correspond to Istio components (Pods) in the cluster.
 
 k8s API: this API is a pass through to k8s resource settings for Istio k8s resources. It allows customizing Istio k8s
@@ -153,7 +153,7 @@ message IstioControlPlane {
 // The spec is a used to define a customization of the default values that are supplied with an Istio charts release.
 // It is grouped at the top level by feature, where behavior of Istio functional areas is specified.
 // Each feature contains components, where k8s resource level defaults can be overridden.
-// Because the spec is a customization API, specifying an empty InstallSpec results in a default Istio installation.
+// Because the spec is a customization API, specifying an empty InstallSpec results in a default Istio controlplane.
 message IstioControlPlaneSpec {
     // Prefix added to all namespaces for any installed component.
     string default_namespace_prefix = 5;
@@ -166,18 +166,17 @@ message IstioControlPlaneSpec {
     ConfigManagementFeatureSpec config_management = 29;
     AutoInjectionFeatureSpec auto_injection = 30;
 
-    // Ingress/egress gateway installation and configuration.
-    repeated IngressGatewaySpec ingress_gateway = 30;
-    repeated EgressGatewaySpec egress_gateway = 31;
+    // Ingress/egress gateway controlplane and configuration.
+    repeated IngressGatewaySpec ingress_gateway = 31;
+    repeated EgressGatewaySpec egress_gateway = 32;
 
-    // Global k8s defaults. Can be overridden per component.
-    KubernetesResourcesSpec k8s_defaults = 80;
-
+ 	// Kustomize style overrides for default global values.yaml.
+	// Values map[string]interface{} `protobuf:"bytes,6,opt,name=values" json:"values,omitempty"`
     // URL for the base spec. e.g.
     //   istio-minimal.yaml (looks in default dir)
     //   file://var/istio/install/values/custom/custom-install.yaml
     // Uses compiled in default install spec by default.
-    string base_spec_path = 100;
+    string base_profile_path = 100;
     // URL for the install package. e.g.
     //   http://github.com/istio/istio/releases/install/1.1.2
     //   http://github.com/istio/istio/releases/install/lts
@@ -365,6 +364,7 @@ message GalleyComponentSpec {
 }
 
 // Configuration common to all components.
+// +k8s:deepcopy-gen=false
 message CommonComponentSpec {
     // Selects whether this component is installed.
     google.protobuf.BoolValue enabled = 1;
@@ -381,48 +381,53 @@ message CommonComponentSpec {
     }
     LogLevel debug = 3;
 
+
+
     // Kubernetes resource spec.
     KubernetesResourcesSpec k8s = 80;
 
     // Kustomize style overrides for default values.yaml.
-    // ValuesOverrides map[string]interface{} `protobuf:"bytes,6,opt,name=data" json:"valuesOverrides,omitempty"`
+    // Values map[string]interface{} `protobuf:"bytes,6,opt,name=values" json:"values,omitempty"`
     // Kustomize style overrides for default values.yaml, without validation i.e. items here do not have to conform to
     // built-in values schema. Used for cases where forked templates are used with added parameters.
-    // UnvalidatedValuesOverrides map[string]interface{} `protobuf:"bytes,6,opt,name=data" json:"unvalidatedValuesOverrides,omitempty"`
+    // UnvalidatedValues map[string]interface{} `protobuf:"bytes,6,opt,name=data" json:"unvalidatedValues,omitempty"`
 }
 
 // KubernetesResourcesConfig is a common set of k8s resource configs for components.
 message KubernetesResourcesSpec {
-    // k8s resources settings.
-    // https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-    Resources resources = 1;
-    // k8s readinessProbe settings.
-    // https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
-    k8s.io.api.core.v1.Probe readiness_probe = 2;
-    // k8s Deployment replicas setting.
-    // https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
-    uint32 replica_count = 3;
-    // k8s HorizontalPodAutoscaler settings.
-    // https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-    k8s.io.api.autoscaling.v1.HorizontalPodAutoscalerSpec hpa_spec = 4;
-    // k8s PodDisruptionBudget settings.
-    // https://kubernetes.io/docs/concepts/workloads/pods/disruptions/#how-disruption-budgets-work
-    PodDisruptionBudgetSpec pod_disruption_budget = 5;
-    // k8s pod annotations.
-    // https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-    map<string, string> pod_annotations = 6;
-    // k8s nodeSelector.
-    // https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-    map<string, string> node_selector = 7;
     // k8s affinity.
     // https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
-    k8s.io.api.core.v1.Affinity affinity = 8;
+    k8s.io.api.core.v1.Affinity affinity = 1;
+    // Deployment environment variables.
+    // https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/
+    k8s.io.api.core.v1.EnvVar env = 2;
+    // k8s HorizontalPodAutoscaler settings.
+    // https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+    k8s.io.api.autoscaling.v1.HorizontalPodAutoscalerSpec hpa_spec = 3;
     // k8s imagePullPolicy.
     // https://kubernetes.io/docs/concepts/containers/images/
-    string image_pull_policy = 9;
+    string image_pull_policy = 4;
+    // k8s nodeSelector.
+    // https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+    map<string, string> node_selector = 5;
+    // k8s PodDisruptionBudget settings.
+    // https://kubernetes.io/docs/concepts/workloads/pods/disruptions/#how-disruption-budgets-work
+    PodDisruptionBudgetSpec pod_disruption_budget = 6;
+    // k8s pod annotations.
+    // https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+    map<string, string> pod_annotations = 7;
     // k8s priority_class_name. Default for all resources unless overridden.
     // https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
-    string priority_class_name = 10;
+    string priority_class_name = 8;
+    // k8s readinessProbe settings.
+    // https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+    k8s.io.api.core.v1.Probe readiness_probe = 9;
+    // k8s Deployment replicas setting.
+    // https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
+    uint32 replica_count = 10;
+    // k8s resources settings.
+    // https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+    Resources resources = 11;
 
     // Overlays for k8s resources in rendered manifests.
     repeated k8sObjectOverlay overlays = 100;
