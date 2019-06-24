@@ -125,44 +125,6 @@ jobs:
       - store_artifacts:
           path: /tmp
 
-  e2e-pilot-noauth-v1alpha3-v2-non-mcp:
-    <<: *integrationDefaults
-    environment:
-      - GOPATH: /go
-      - KUBECONFIG: /go/out/minikube.conf
-      - TEST_ENV: minikube-none
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - <<: *markJobStartsOnGCS
-      - run: make sync
-      - run: bin/testEnvRootMinikube.sh start
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.all generate_e2e_yaml
-      - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
-      - run:
-          no_output_timeout: 20m
-          command: |
-            E2E_ARGS="--use_mcp=false" \
-            make test/local/noauth/e2e_pilotv2
-      - <<: *recordZeroExitCodeIfTestPassed
-      - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *markJobFinishesOnGCS
-      - store_test_results:
-          path: /go/out/tests
-      - store_artifacts:
-          path: /go/out/logs
-      - store_artifacts:
-          path: /tmp
-
   build:
     <<: *defaults
     resource_class: xlarge
@@ -205,10 +167,6 @@ workflows:
             - test
             - build
       - e2e-pilot-auth-v1alpha3-v2:
-          requires:
-            - test
-            - build
-      - e2e-pilot-noauth-v1alpha3-v2-non-mcp:
           requires:
             - test
             - build
