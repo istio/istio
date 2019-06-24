@@ -74,5 +74,5 @@ else
 fi
 
 if [[ -n "${ARTIFACTS_DIR:-}" ]]; then
-  cp ${REPORT_PATH}/coverage.cov ${ARTIFACTS_DIR}
+  cp "${REPORT_PATH}/coverage.cov" "${ARTIFACTS_DIR}"
 fi
