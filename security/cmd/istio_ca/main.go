@@ -271,6 +271,8 @@ var (
 )
 
 func runCA() {
+	verifyCommandLineOptions()
+
 	if err := log.Configure(opts.loggingOptions); err != nil {
 		fatalf("Failed to configure logging (%v)", err)
 	}
@@ -282,13 +284,9 @@ func runCA() {
 		if opts.listenedNamespaces == "" {
 			opts.listenedNamespaces = value
 		}
-		// Use environment variable for istioCaStorageNamespace if it exists
-		opts.istioCaStorageNamespace = value
 	}
 
 	listenedNamespaces := strings.Split(opts.listenedNamespaces, ",")
-
-	verifyCommandLineOptions()
 
 	var webhooks map[string]*controller.DNSNameEntry
 	if opts.appendDNSNames {
