@@ -327,6 +327,13 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	node *model.Proxy, server *networking.Server, routeName string) *filterChainOpts {
 
 	serverProto := model.ParseProtocol(server.Port.Protocol)
+
+	httpProtoOpts := &core.Http1ProtocolOptions{}
+
+	if pilot.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
+		httpProtoOpts.AcceptHttp_10 = true
+	}
+
 	// Are we processing plaintext servers or HTTPS servers?
 	// If plain text, we have to combine all servers into a single listener
 	if serverProto.IsHTTP() {
@@ -349,7 +356,8 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 						Uri:     true,
 						Dns:     true,
 					},
-					ServerName: EnvoyServerName,
+					ServerName:          EnvoyServerName,
+					HttpProtocolOptions: httpProtoOpts,
 				},
 			},
 		}
@@ -383,7 +391,8 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 					Uri:     true,
 					Dns:     true,
 				},
-				ServerName: EnvoyServerName,
+				ServerName:          EnvoyServerName,
+				HttpProtocolOptions: httpProtoOpts,
 			},
 		},
 	}
