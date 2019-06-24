@@ -796,7 +796,7 @@ func (m *ConfigSource) GetTlsSettings() *v1alpha3.TLSSettings {
 // traffic originates and where it will terminate. These localities are
 // specified using arbitrary labels that designate a hierarchy of localities in
 // {region}/{zone}/{sub-zone} form. For additional detail refer to
-// [Locality Weight](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight)
+// [Locality Weight](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/locality_weight)
 // The following example shows how to setup locality weights mesh-wide.
 //
 // Given a mesh with workloads and their service deployed to "us-west/zone1/*"
@@ -841,7 +841,7 @@ func (m *ConfigSource) GetTlsSettings() *v1alpha3.TLSSettings {
 type LocalityLoadBalancerSetting struct {
 	// Optional: only one of distribute or failover can be set.
 	// Explicitly specify loadbalancing weight across different zones and geographical locations.
-	// Refer to [Locality weighted load balancing](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight)
+	// Refer to [Locality weighted load balancing](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/locality_weight)
 	// If empty, the locality weight is set according to the endpoints number within it.
 	Distribute []*LocalityLoadBalancerSetting_Distribute `protobuf:"bytes,1,rep,name=distribute,proto3" json:"distribute,omitempty"`
 	// Optional: only failover or distribute can be set.
