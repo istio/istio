@@ -27,14 +27,38 @@ workload instsance, preference will be given to the resource with a
 workloadSelector that selects this workload instance, over a Sidecar resource
 without any workloadSelector.</p>
 
-<p>NOTE: <em><em>Each namespace can have only one Sidecar resource without any
+<p>NOTE 1: <em><em>Each namespace can have only one Sidecar resource without any
 workload selector</em></em>. The behavior of the system is undefined if more
 than one selector-less Sidecar resources exist in a given namespace. The
 behavior of the system is undefined if two or more Sidecar resources
 with a workload selector select the same workload instance.</p>
 
-<p>The example below declares a Sidecar resource in the prod-us1 namespace
-that configures the sidecars in the namespace to allow egress traffic to
+<p>NOTE 2: <em><em>A sidecar resource in the config <a href="https://istio.io/docs/reference/config/istio.mesh.v1alpha1/#MeshConfig">root
+namespace</a>
+will be applied by default to all namespaces without a sidecar
+resource.</em></em>. This global default sidecar resource should not have
+any workload selector.</p>
+
+<p>The example below declares a global default Sidecar resource in the
+root namespace called <code>istio-config</code>, that configures sidecars in
+all namespaces to allow egress traffic only to other workloads in
+the same namespace, and to services in the istio-system namespace.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: default
+  namespace: istio-config
+spec:
+  egress:
+  - hosts:
+    - &quot;./*&quot;
+    - &quot;istio-system/*&quot;
+</code></pre>
+
+<p>The example below declares a Sidecar resource in the prod-us1
+namespace that overrides the global default defined above, and
+configures the sidecars in the namespace to allow egress traffic to
 public services in the prod-us1, prod-apis, and the istio-system
 namespaces.</p>
 
@@ -413,8 +437,8 @@ reach every service in the mesh that is visible to this namespace.</p>
 </section>
 <h2 id="WorkloadSelector">WorkloadSelector</h2>
 <section>
-<p>WorkloadSelector specifies the criteria used to determine if the Gateway
-or Sidecar resource can be applied to a proxy. The matching criteria
+<p>WorkloadSelector specifies the criteria used to determine if the Gateway,
+Sidecar, or EnvoyFilter resource can be applied to a proxy. The matching criteria
 includes the metadata associated with a proxy, workload instance info such as
 labels attached to the pod/VM, or any other info that the proxy provides
 to Istio during the initial handshake. If multiple conditions are

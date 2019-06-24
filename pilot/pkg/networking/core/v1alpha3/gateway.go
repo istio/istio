@@ -134,7 +134,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 
 		pluginParams := &plugin.InputParams{
 			ListenerProtocol: listenerProtocol,
-			ListenerCategory: networking.EnvoyFilter_ListenerMatch_GATEWAY,
+			ListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_GATEWAY,
 			Env:              env,
 			Node:             node,
 			ProxyInstances:   workloadInstances,
