@@ -109,6 +109,18 @@ required = [
     name = "k8s.io/gengo"
     non-go = false
 
+  [[prune.project]]
+    name = "k8s.io/api"
+    non-go = false
+
+  [[prune.project]]
+    name = "k8s.io/apimachinery"
+    non-go = false
+
+  [[prune.project]]
+    name = "github.com/gogo/protobuf"
+    non-go = false
+
 [[constraint]]
   name = "istio.io/pkg"
   revision = "9332430ad747c06f4e0c5e090d75db327bf9ca80"
