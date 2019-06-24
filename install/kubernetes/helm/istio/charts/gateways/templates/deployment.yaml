@@ -305,10 +305,13 @@ spec:
       affinity:
       {{- include "gatewaynodeaffinity" (dict "root" $ "nodeSelector" $spec.nodeSelector) | indent 6 }}
       {{- include "gatewaypodAntiAffinity" (dict "podAntiAffinityLabelSelector" $spec.podAntiAffinityLabelSelector "podAntiAffinityTermLabelSelector" $spec.podAntiAffinityTermLabelSelector) | indent 6 }}
-{{- if $spec.tolerations }}
+      {{- if $spec.tolerations }}
       tolerations:
 {{ toYaml $spec.tolerations | indent 6 }}
-{{- end }}
+      {{- else if $.Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml $.Values.global.defaultTolerations | indent 6 }}
+      {{- end }}
 ---
 {{- end }}
 {{- end }}
