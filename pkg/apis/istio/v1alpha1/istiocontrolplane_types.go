@@ -131,7 +131,7 @@ type Condition struct {
 	LastTransitionTime metav1.Time     `json:"lastTransitionTime,omitempty"`
 }
 
-// GetCondition removes a condition for the list of conditions
+// GetCondition returns a condition for the list of conditions
 func (s *IstioControlPlaneStatus) GetCondition(conditionType ConditionType) Condition {
 	if s == nil {
 		return Condition{Type: conditionType, Status: ConditionStatusUnknown}
