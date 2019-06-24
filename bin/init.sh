@@ -111,7 +111,7 @@ function download_envoy_if_necessary () {
   fi
 }
 
-# Included for support on mac.
+# Included for support on macOS.
 function realpath () {
   python -c "import os; print(os.path.realpath('$1'))"
 }
@@ -139,8 +139,8 @@ ISTIO_ENVOY_LINUX_RELEASE_DIR=${ISTIO_ENVOY_LINUX_RELEASE_DIR:-"${OUT_DIR}/linux
 ISTIO_ENVOY_LINUX_RELEASE_NAME=${ISTIO_ENVOY_LINUX_RELEASE_NAME:-"envoy-${ISTIO_ENVOY_LINUX_VERSION}"}
 ISTIO_ENVOY_LINUX_RELEASE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH:-"${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_LINUX_RELEASE_NAME}"}
 
-# Envoy mac/darwin vars. Normally set by the makefile.
-# TODO Change url when official envoy release for MAC is available
+# Envoy macOS vars. Normally set by the makefile.
+# TODO Change url when official envoy release for macOS is available
 ISTIO_ENVOY_MACOS_VERSION=${ISTIO_ENVOY_MACOS_VERSION:-1.0.2}
 ISTIO_ENVOY_MACOS_RELEASE_URL=${ISTIO_ENVOY_MACOS_RELEASE_URL:-https://github.com/istio/proxy/releases/download/${ISTIO_ENVOY_MACOS_VERSION}/istio-proxy-${ISTIO_ENVOY_MACOS_VERSION}-macos.tar.gz}
 # Variables for the extracted debug/release Envoy artifacts.
@@ -167,7 +167,7 @@ if [[ ${USE_LOCAL_PROXY} == 1 ]] ; then
       ISTIO_ENVOY_LINUX_DEBUG_PATH=${ISTIO_ENVOY_LINUX_LOCAL_PATH}
       ISTIO_ENVOY_LINUX_RELEASE_PATH=${ISTIO_ENVOY_LINUX_LOCAL_PATH}
     else
-      echo "Warning: The specified local OSX Envoy will not be included by Docker images. Set ISTIO_ENVOY_LINUX_LOCAL_PATH to specify a custom Linux build."
+      echo "Warning: The specified local macOS Envoy will not be included by Docker images. Set ISTIO_ENVOY_LINUX_LOCAL_PATH to specify a custom Linux build."
     fi
   else
     ISTIO_ENVOY_LINUX_DEBUG_PATH=${ISTIO_ENVOY_LOCAL_PATH}
@@ -188,7 +188,7 @@ download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_DEBUG_URL}" "$ISTIO_ENVOY_LINUX
 download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_RELEASE_URL}" "$ISTIO_ENVOY_LINUX_RELEASE_PATH"
 
 if [[ "$LOCAL_OS" == "Darwin" ]]; then
-  # Download and extract the Envoy mac release binary
+  # Download and extract the Envoy macOS release binary
   download_envoy_if_necessary "${ISTIO_ENVOY_MACOS_RELEASE_URL}" "$ISTIO_ENVOY_MACOS_RELEASE_PATH"
   ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_MACOS_RELEASE_PATH}
 else
