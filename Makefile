@@ -529,6 +529,7 @@ security-test:
 .PHONY: common-test
 common-test: istio-iptables
 	go test ${T} ./pkg/...
+	go test ${T} ./tests/common/...
 	# Execute bash shell unit tests scripts
 	./tests/scripts/scripts_test.sh
 	./tests/scripts/istio-iptables-test.sh
