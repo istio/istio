@@ -25,4 +25,3 @@ package basicmeta
 
 //go:generate goimports -w -local istio.io "$GOPATH/src/istio.io/istio/galley/pkg/config/testing/basicmeta/collections.gen.go"
 //go:generate goimports -w -local istio.io "$GOPATH/src/istio.io/istio/galley/pkg/config/testing/basicmeta/staticinit.gen.go"
-

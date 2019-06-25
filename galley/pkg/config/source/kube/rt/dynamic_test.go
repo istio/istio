@@ -33,7 +33,7 @@ func TestParseDynamic(t *testing.T) {
 	g := NewGomegaWithT(t)
 	input, err := yaml.ToJSON([]byte(data.YamlN1I1V1))
 	g.Expect(err).To(BeNil())
-	objMeta, objResource := parseDynamic(t, []byte(input), "Kind1")
+	objMeta, objResource := parseDynamic(t, input, "Kind1")
 
 	// Just validate a couple of things...
 	_, ok := objResource.(*types.Struct)
@@ -43,7 +43,6 @@ func TestParseDynamic(t *testing.T) {
 	g.Expect(objMeta.GetNamespace()).To(Equal("n1"))
 	g.Expect(objMeta.GetName()).To(Equal("i1"))
 }
-
 
 func TestExtractObjectDynamic(t *testing.T) {
 	for _, r := range basicmeta.MustGet().KubeSource().Resources() {

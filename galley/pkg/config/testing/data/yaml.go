@@ -95,5 +95,4 @@ spec:
 	YamlNonStringKey = `
 23: true
 `
-
 )

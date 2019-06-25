@@ -76,11 +76,12 @@ func UpdateFor(source collection.Name, r *resource.Entry) Event {
 func DeleteForResource(source collection.Name, r *resource.Entry) Event {
 	return Event{Kind: Deleted, Source: source, Entry: r}
 }
+
 // DeleteFor creates a Delete event for the given source and name.
 func DeleteFor(source collection.Name, name resource.Name, v resource.Version) Event {
 	return Event{Kind: Deleted, Source: source, Entry: &resource.Entry{
 		Metadata: resource.Metadata{
-			Name: name,
+			Name:    name,
 			Version: v,
 		},
 	}}

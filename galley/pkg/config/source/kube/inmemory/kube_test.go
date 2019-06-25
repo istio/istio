@@ -32,7 +32,7 @@ import (
 func TestKubeSource_ApplyContent(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s, acc := setupKubeSource(g)
+	s, acc := setupKubeSource()
 	defer s.Stop()
 
 	err := s.ApplyContent("foo", data.YamlN1I1V1)
@@ -54,7 +54,7 @@ func TestKubeSource_ApplyContent(t *testing.T) {
 func TestKubeSource_ApplyContent_Unchanged0Add1(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s, acc := setupKubeSource(g)
+	s, acc := setupKubeSource()
 	defer s.Stop()
 
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlN2I2V1))
@@ -92,7 +92,7 @@ func TestKubeSource_ApplyContent_Unchanged0Add1(t *testing.T) {
 func TestKubeSource_RemoveContent(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s, acc := setupKubeSource(g)
+	s, acc := setupKubeSource()
 	defer s.Stop()
 
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlN2I2V1))
@@ -133,7 +133,7 @@ func TestKubeSource_RemoveContent(t *testing.T) {
 func TestKubeSource_Clear(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s, acc := setupKubeSource(g)
+	s, acc := setupKubeSource()
 	defer s.Stop()
 
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlN2I2V1))
@@ -166,7 +166,7 @@ func TestKubeSource_Clear(t *testing.T) {
 func TestKubeSource_UnparseableSegment(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s, _ := setupKubeSource(g)
+	s, _ := setupKubeSource()
 	defer s.Stop()
 
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, "	\n", data.YamlN2I2V1))
@@ -181,7 +181,7 @@ func TestKubeSource_UnparseableSegment(t *testing.T) {
 func TestKubeSource_Unrecognized(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s, _ := setupKubeSource(g)
+	s, _ := setupKubeSource()
 	defer s.Stop()
 
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlUnrecognized))
@@ -195,7 +195,7 @@ func TestKubeSource_Unrecognized(t *testing.T) {
 func TestKubeSource_Unparseable(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s, _ := setupKubeSource(g)
+	s, _ := setupKubeSource()
 	defer s.Stop()
 
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlUnparseableResource))
@@ -209,7 +209,7 @@ func TestKubeSource_Unparseable(t *testing.T) {
 func TestKubeSource_NonStringKey(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s, _ := setupKubeSource(g)
+	s, _ := setupKubeSource()
 	defer s.Stop()
 
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlNonStringKey))
@@ -223,7 +223,7 @@ func TestKubeSource_NonStringKey(t *testing.T) {
 func TestKubeSource_Service(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s, _ := setupKubeSourceWithK8sMeta(g)
+	s, _ := setupKubeSourceWithK8sMeta()
 	defer s.Stop()
 
 	err := s.ApplyContent("foo", builtin.GetService())
@@ -234,7 +234,7 @@ func TestKubeSource_Service(t *testing.T) {
 	g.Expect(actual[0].Metadata.Name).To(Equal(resource.NewName("kube-system", "kube-dns")))
 }
 
-func setupKubeSource(g *GomegaWithT) (*KubeSource, *fixtures.Accumulator) {
+func setupKubeSource() (*KubeSource, *fixtures.Accumulator) {
 	s := NewKube(basicmeta.MustGet().KubeSource().Resources())
 
 	acc := &fixtures.Accumulator{}
@@ -244,7 +244,7 @@ func setupKubeSource(g *GomegaWithT) (*KubeSource, *fixtures.Accumulator) {
 	return s, acc
 }
 
-func setupKubeSourceWithK8sMeta(g *GomegaWithT) (*KubeSource, *fixtures.Accumulator) {
+func setupKubeSourceWithK8sMeta() (*KubeSource, *fixtures.Accumulator) {
 	s := NewKube(k8smeta.MustGet().KubeSource().Resources())
 
 	acc := &fixtures.Accumulator{}

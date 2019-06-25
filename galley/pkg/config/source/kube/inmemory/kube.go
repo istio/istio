@@ -158,10 +158,8 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 		}
 	}
 
-	if oldKeys != nil {
-		for k, col := range oldKeys {
-			s.source.Get(col).Remove(k.fullName)
-		}
+	for k, col := range oldKeys {
+		s.source.Get(col).Remove(k.fullName)
 	}
 	s.byFile[name] = newKeys
 
@@ -169,7 +167,7 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 }
 
 // RemoveContent removes the content for the given name
-func (s KubeSource) RemoveContent(name string) {
+func (s *KubeSource) RemoveContent(name string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
