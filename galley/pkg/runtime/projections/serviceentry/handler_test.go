@@ -938,10 +938,9 @@ func (b *serviceEntryBuilder) PodLabels(podLabels map[string]string) *serviceEnt
 func (b *serviceEntryBuilder) Build() *networking.ServiceEntry {
 	ns, n := b.serviceName.InterpretAsNamespaceAndName()
 	entry := &networking.ServiceEntry{
-		Hosts:      []string{host(ns, n)},
-		Addresses:  []string{clusterIP},
-		Resolution: networking.ServiceEntry_STATIC,
-		Location:   networking.ServiceEntry_MESH_INTERNAL,
+		Hosts:     []string{host(ns, n)},
+		Addresses: []string{clusterIP},
+		Location:  networking.ServiceEntry_MESH_INTERNAL,
 		Ports: []*networking.Port{
 			{
 				Name:     "http",
@@ -962,6 +961,10 @@ func (b *serviceEntryBuilder) Build() *networking.ServiceEntry {
 			Locality: localityFor(b.region, b.zone),
 			Labels:   b.podLabels,
 		})
+	}
+
+	if len(entry.Endpoints) != 0 {
+		entry.Resolution = networking.ServiceEntry_STATIC
 	}
 
 	return entry
