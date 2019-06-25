@@ -100,12 +100,12 @@ func substituteValues(patterns []string, varName string, values []string) []stri
 }
 
 // setStatsOptions configures stats inclusion list based on annotations.
-func setStatsOptions(opts map[string]interface{}, meta map[string]string, nodeIPs []string) {
+func setStatsOptions(opts map[string]interface{}, meta map[string]interface{}, nodeIPs []string) {
 
 	setStatsOption := func(metaKey string, optKey string, required string) {
 		var inclusionOption []string
 		if inclusionPatterns, ok := meta[metaKey]; ok {
-			inclusionOption = strings.Split(inclusionPatterns, ",")
+			inclusionOption = strings.Split(inclusionPatterns.(string), ",")
 		}
 
 		if len(required) > 0 {
@@ -218,9 +218,9 @@ func StoreHostPort(host, port, field string, opts map[string]interface{}) {
 	opts[field] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", host, port)
 }
 
-type setMetaFunc func(m map[string]string, key string, val string)
+type setMetaFunc func(m map[string]interface{}, key string, val string)
 
-func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[string]string) {
+func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[string]interface{}) {
 	metaPrefixLen := len(prefix)
 	for _, env := range envs {
 		if strings.HasPrefix(env, prefix) {
@@ -236,18 +236,60 @@ func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[str
 	}
 }
 
+type istioMetadata struct {
+	IP             string            `json:"ip"`
+	Labels         map[string]string `json:"labels"`
+	Name           string            `json:"name"`
+	Namespace      string            `json:"namespace"`
+	ServiceAccount string            `json:"service_account"`
+}
+
+func parseEnvVar(varStr string) (string, string) {
+	parts := strings.SplitN(varStr, "=", 2)
+	if len(parts) != 2 {
+		return varStr, ""
+	}
+	return parts[0], parts[1]
+}
+
+func jsonStringToMap(jsonStr string) (m map[string]string) {
+	err := json.Unmarshal([]byte(jsonStr), &m)
+	if err != nil {
+		log.Warnf("Env variable with value %q failed json unmarshal: %v", jsonStr, err)
+	}
+	return
+}
+
+func extractIstioMetadata(envVars []string) istioMetadata {
+	im := istioMetadata{}
+	for _, varStr := range envVars {
+		name, val := parseEnvVar(varStr)
+		switch name {
+		case "INSTANCE_IP":
+			im.IP = val
+		case "ISTIO_METAJSON_LABELS":
+			im.Labels = jsonStringToMap(val)
+		case "POD_NAME":
+			im.Name = val
+		case "POD_NAMESPACE":
+			im.Namespace = val
+		}
+	}
+	return im
+}
+
 // getNodeMetaData function uses an environment variable contract
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
-func getNodeMetaData(envs []string) map[string]string {
-	meta := map[string]string{}
+func getNodeMetaData(envs []string) map[string]interface{} {
+	meta := map[string]interface{}{}
 
-	extractMetadata(envs, IstioMetaPrefix, func(m map[string]string, key string, val string) {
+	extractMetadata(envs, IstioMetaPrefix, func(m map[string]interface{}, key string, val string) {
 		m[key] = val
 	}, meta)
 
-	extractMetadata(envs, IstioMetaJSONPrefix, func(m map[string]string, key string, val string) {
+	extractMetadata(envs, IstioMetaJSONPrefix, func(m map[string]interface{}, key string, val string) {
 		err := json.Unmarshal([]byte(val), &m)
 		if err != nil {
 			log.Warnf("Env variable %s [%s] failed json unmarshal: %v", key, val, err)
@@ -255,7 +297,19 @@ func getNodeMetaData(envs []string) map[string]string {
 	}, meta)
 	meta["istio"] = "sidecar"
 
+	meta["istio.io/metadata"] = extractIstioMetadata(envs)
+
 	return meta
+}
+
+func stringMap(in map[string]interface{}) map[string]string {
+	out := make(map[string]string, len(in))
+	for k, v := range in {
+		if s, ok := v.(string); ok {
+			out[k] = s
+		}
+	}
+	return out
 }
 
 var overrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP", "", "")
@@ -311,7 +365,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	// Support passing extra info from node environment as metadata
 	meta := getNodeMetaData(localEnv)
 
-	localityOverride := model.GetLocalityOrDefault("", meta)
+	localityOverride := model.GetLocalityOrDefault("", stringMap(meta))
 	l := util.ConvertLocality(localityOverride)
 	if l == nil {
 		// Populate the platform locality if available.
