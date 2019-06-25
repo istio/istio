@@ -1,0 +1,35 @@
+constraints:
+  - collection: istio/policy/v1beta1/attributemanifests
+    check:
+      - exactlyOne:
+          - equals: {
+            "Body": {
+              "attributes": {
+                "attr.bool": {
+                  "value_type": 4
+                },
+                "attr.double": {
+                  "value_type": 3
+                },
+                "attr.int64": {
+                  "value_type": 2
+                },
+                "attr.string": {
+                  "value_type": 1
+                },
+                "destination.name": {
+                  "value_type": 1
+                },
+                "response.count": {
+                  "value_type": 2
+                },
+                "source.name": {
+                  "value_type": 1
+                }
+              }
+            },
+            "Metadata": {
+              "name": "{{.Namespace}}/istio-proxy"
+            },
+            "TypeURL": "type.googleapis.com/istio.policy.v1beta1.AttributeManifest"
+          }

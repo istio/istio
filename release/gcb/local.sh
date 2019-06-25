@@ -25,7 +25,7 @@ echo "gopath is $GOPATH"
 CURRENT_BRANCH=$(git symbolic-ref --short HEAD)
 BRANCH=${BRANCH:-$CURRENT_BRANCH}
 export BRANCH
-#export CB_VERIFY_CONSISTENCY=true
+export CB_VERIFY_CONSISTENCY=true
 echo "Delete old builds"
 rm -rf "${artifacts}" || echo
 mkdir -p "${artifacts}"

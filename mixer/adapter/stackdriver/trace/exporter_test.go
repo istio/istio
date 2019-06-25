@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
-	"istio.io/istio/mixer/pkg/runtime/testing/data"
+	testenv "istio.io/istio/mixer/pkg/adapter/test"
 )
 
 func TestGetStackdriverExporter(t *testing.T) {
@@ -30,18 +30,14 @@ func TestGetStackdriverExporter(t *testing.T) {
 	params.Creds = &config.Params_ServiceAccountPath{
 		ServiceAccountPath: "testdata/serviceaccount.json",
 	}
-	_, err := getStackdriverExporter(ctx, &testEnv{}, &params)
+	_, err := getStackdriverExporter(ctx, testenv.NewEnv(t), &params)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Try to call getStackdriverExporter again with the same project ID: this should work.
-	_, err = getStackdriverExporter(ctx, &testEnv{}, &params)
+	_, err = getStackdriverExporter(ctx, testenv.NewEnv(t), &params)
 	if err != nil {
 		t.Fatal(err)
 	}
-}
-
-type testEnv struct {
-	data.FakeEnv
 }

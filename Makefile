@@ -297,6 +297,10 @@ lint: $(JUNIT_REPORT) buildcache
 	SKIP_INIT=1 bin/linters.sh \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_LINT_TEST_XML))
 
+
+shellcheck:
+	bin/check_shell_scripts.sh
+
 # @todo gometalinter targets?
 
 #-----------------------------------------------------------------------------
