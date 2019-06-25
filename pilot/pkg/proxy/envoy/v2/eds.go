@@ -25,6 +25,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
+	"go.opencensus.io/tag"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
@@ -333,14 +334,14 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 		instances, err := s.Env.ServiceDiscovery.InstancesByPort(hostname, port, labels)
 		if err != nil {
 			adsLog.Errorf("endpoints for service cluster %q returned error %v", clusterName, err)
-			increment(totalXDSInternalErrors)
+			totalXDSInternalErrors.Increment()
 			return err
 		}
 		if len(instances) == 0 {
 			push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
 			adsLog.Debugf("EDS: Cluster %q (host:%s ports:%v labels:%v) has no instances", clusterName, hostname, port, labels)
 		}
-		recordWith(clusterContext(clusterName), edsInstances, int64(len(instances)))
+		edsInstances.WithTags(tag.Upsert(clusterTag, clusterName)).Record(int64(len(instances)))
 		locEps = localityLbEndpointsFromInstances(instances)
 	}
 
@@ -372,7 +373,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 
 // SvcUpdate is a callback from service discovery when service info changes.
 func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, _ map[uint32]string) {
-	incrementWith(svcUpdatesCtx, inboundUpdates)
+	inboundServiceUpdates.Increment()
 	pc := s.globalPushContext()
 	pl := model.PortList{}
 	for k, v := range ports {
@@ -436,7 +437,7 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 
 // WorkloadUpdate is called when workload labels/annotations are updated.
 func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ map[string]string) {
-	incrementWith(workloadUpdatesCtx, inboundUpdates)
+	inboundWorkloadUpdates.Increment()
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if labels == nil {
@@ -497,7 +498,7 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ 
 // the hostname-keyed map. And it avoids the conversion from Endpoint to ServiceEntry to envoy
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
 func (s *DiscoveryServer) EDSUpdate(shard, serviceName string, istioEndpoints []*model.IstioEndpoint) error {
-	incrementWith(edsUpdatesCtx, inboundUpdates)
+	inboundEDSUpdates.Increment()
 	s.edsUpdate(shard, serviceName, istioEndpoints, false)
 	return nil
 }
@@ -594,7 +595,7 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint)
 		if err != nil {
 			adsLog.Errorf("EDS: Unexpected pilot model endpoint v1 to v2 conversion: %v", err)
-			increment(totalXDSInternalErrors)
+			totalXDSInternalErrors.Increment()
 			continue
 		}
 		locality := instance.GetLocality()
@@ -624,7 +625,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterLegacy(push *model.PushContex
 	clusterName string) *xdsapi.ClusterLoadAssignment {
 	c := s.getEdsCluster(clusterName)
 	if c == nil {
-		increment(totalXDSInternalErrors)
+		totalXDSInternalErrors.Increment()
 		adsLog.Errorf("cluster %s was nil skipping it.", clusterName)
 		return nil
 	}
@@ -633,7 +634,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterLegacy(push *model.PushContex
 	if l == nil { // fresh cluster
 		if err := s.updateCluster(push, clusterName, c); err != nil {
 			adsLog.Errorf("error returned from updateCluster for cluster name %s, skipping it.", clusterName)
-			increment(totalXDSInternalErrors)
+			totalXDSInternalErrors.Increment()
 			return nil
 		}
 		l = loadAssignment(c)
@@ -762,10 +763,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 	err := con.send(response)
 	if err != nil {
 		adsLog.Warnf("EDS: Send failure %s: %v", con.ConID, err)
-		incrementWith(edsSendErrPushCtx, pushes)
+		edsSendErrPushes.Increment()
 		return err
 	}
-	incrementWith(edsPushCtx, pushes)
+	edsPushes.Increment()
 
 	if edsUpdatedServices == nil {
 		adsLog.Infof("EDS: PUSH for node:%s clusters:%d endpoints:%d empty:%v",
@@ -964,7 +965,7 @@ func buildLocalityLbEndpointsFromShards(
 	if len(locEps) == 0 {
 		push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
 	}
-	recordWith(clusterContext(clusterName), edsInstances, int64(len(locEps)))
+	edsInstances.WithTags(tag.Upsert(clusterTag, clusterName)).Record(int64(len(locEps)))
 
 	return locEps
 }

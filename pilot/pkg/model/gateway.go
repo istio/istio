@@ -15,15 +15,14 @@
 package model
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
-	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/monitoring"
 )
 
 // MergedGateway describes a set of gateways for a workload merged into a single logical gateway.
@@ -49,34 +48,33 @@ type MergedGateway struct {
 }
 
 var (
-	typeTag tag.Key
-	nameTag tag.Key
+	typeTag, typeTagErr = tag.NewKey("type")
+	nameTag, nameTagErr = tag.NewKey("name")
 
-	totalRejectedConfigs = stats.Int64(
-		"pilot_total_rejected_configs", "Total number of configs that Pilot had to reject or ignore.",
-		stats.UnitDimensionless)
+	totalRejectedConfigs, totalRejectedConfigsView = monitoring.NewInt64AndView(
+		"pilot_total_rejected_configs",
+		"Total number of configs that Pilot had to reject or ignore.",
+		view.Sum(),
+		typeTag, nameTag,
+	)
 )
 
 func init() {
-	var err error
-	if typeTag, err = tag.NewKey("type"); err != nil {
-		panic(err)
+	if typeTagErr != nil {
+		panic(typeTagErr)
 	}
-	if nameTag, err = tag.NewKey("event"); err != nil {
-		panic(err)
-	}
-	nameTypeTagKeys := []tag.Key{typeTag, nameTag}
 
-	if err := view.Register(
-		&view.View{Measure: totalRejectedConfigs, TagKeys: nameTypeTagKeys, Aggregation: view.Sum()},
-	); err != nil {
+	if nameTagErr != nil {
+		panic(nameTagErr)
+	}
+
+	if err := view.Register(totalRejectedConfigsView); err != nil {
 		panic(err)
 	}
 }
 
-func rejectConfig(gateway string) {
-	ctx, _ := tag.New(context.Background(), tag.Upsert(typeTag, "gateway"), tag.Upsert(nameTag, gateway))
-	stats.Record(ctx, totalRejectedConfigs.M(1))
+func recordRejectedConfig(gateway string) {
+	totalRejectedConfigs.WithTags(tag.Upsert(typeTag, "gateway"), tag.Upsert(nameTag, gateway)).Increment()
 }
 
 // MergeGateways combines multiple gateways targeting the same workload into a single logical Gateway.
@@ -115,7 +113,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 				}
 				if duplicateHosts := checkDuplicates(s.Hosts, tlsHostsByPort[s.Port.Number]); len(duplicateHosts) != 0 {
 					log.Debugf("skipping server on gateway %s, duplicate host names: %v", gatewayName, duplicateHosts)
-					rejectConfig(gatewayName)
+					recordRejectedConfig(gatewayName)
 					continue
 				}
 			}
@@ -132,14 +130,14 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 					if currentProto != protocol || !protocol.IsHTTP() {
 						log.Debugf("skipping server on gateway %s port %s.%d.%s: conflict with existing server %s.%d.%s",
 							config.Name, s.Port.Name, s.Port.Number, s.Port.Protocol, p[0].Port.Name, p[0].Port.Number, p[0].Port.Protocol)
-						rejectConfig(gatewayName)
+						recordRejectedConfig(gatewayName)
 						continue
 					}
 					routeName := gatewayRDSRouteName(s, config)
 					if routeName == "" {
 						log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
 							config.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
-						rejectConfig(gatewayName)
+						recordRejectedConfig(gatewayName)
 						continue
 					}
 					serversByRouteName[routeName] = append(serversByRouteName[routeName], s)
@@ -152,7 +150,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 						if routeName == "" {
 							log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
 								config.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
-							rejectConfig(gatewayName)
+							recordRejectedConfig(gatewayName)
 							continue
 						}
 
@@ -165,7 +163,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 						if _, exists := serversByRouteName[routeName]; exists {
 							log.Infof("skipping server on gateway %s port %s.%d.%s: non unique port name for HTTPS port",
 								config.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
-							rejectConfig(gatewayName)
+							recordRejectedConfig(gatewayName)
 							continue
 						}
 						serversByRouteName[routeName] = []*networking.Server{s}

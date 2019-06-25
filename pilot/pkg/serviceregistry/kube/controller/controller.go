@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -26,7 +25,6 @@ import (
 	"time"
 
 	"github.com/yl2chen/cidranger"
-	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	v1 "k8s.io/api/core/v1"
@@ -38,6 +36,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/pkg/log"
@@ -63,33 +62,34 @@ const (
 )
 
 var (
-	typeTag  tag.Key
-	eventTag tag.Key
+	typeTag, typeTagErr   = tag.NewKey("type")
+	eventTag, eventTagErr = tag.NewKey("event")
 
 	// experiment on getting some monitoring on config errors.
-	k8sEvents = stats.Int64("pilot_k8s_reg_events", "Events from k8s registry.", stats.UnitDimensionless)
+	k8sEvents, k8sEventsView = monitoring.NewInt64AndView(
+		"pilot_k8s_reg_events",
+		"Events from k8s registry.",
+		view.Sum(),
+		typeTag, eventTag,
+	)
 )
 
 func init() {
-	var err error
-	if typeTag, err = tag.NewKey("type"); err != nil {
-		panic(err)
+	if typeTagErr != nil {
+		panic(typeTagErr)
 	}
-	if eventTag, err = tag.NewKey("event"); err != nil {
-		panic(err)
-	}
-	eventTagKeys := []tag.Key{typeTag, eventTag}
 
-	if err := view.Register(
-		&view.View{Measure: k8sEvents, TagKeys: eventTagKeys, Aggregation: view.Sum()},
-	); err != nil {
+	if eventTagErr != nil {
+		panic(eventTagErr)
+	}
+
+	if err := view.Register(k8sEventsView); err != nil {
 		panic(err)
 	}
 }
 
 func incrementEvent(kind, event string) {
-	ctx, _ := tag.New(context.Background(), tag.Upsert(typeTag, kind), tag.Upsert(eventTag, event))
-	stats.Record(ctx, k8sEvents.M(1))
+	k8sEvents.WithTags(tag.Upsert(typeTag, kind), tag.Upsert(eventTag, event)).Increment()
 }
 
 // Options stores the configurable attributes of a Controller.

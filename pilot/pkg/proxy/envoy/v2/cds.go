@@ -59,10 +59,10 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 	err = con.send(response)
 	if err != nil {
 		adsLog.Warnf("CDS: Send failure %s: %v", con.ConID, err)
-		incrementWith(cdsSendErrPushCtx, pushes)
+		cdsSendErrPushes.Increment()
 		return err
 	}
-	incrementWith(cdsPushCtx, pushes)
+	cdsPushes.Increment()
 
 	// The response can't be easily read due to 'any' marshaling.
 	adsLog.Infof("CDS: PUSH for node:%s clusters:%d services:%d version:%s",
@@ -74,7 +74,7 @@ func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.Pus
 	rawClusters, err := s.ConfigGenerator.BuildClusters(s.Env, node, push)
 	if err != nil {
 		adsLog.Warnf("CDS: Failed to generate clusters for node:%s: %v", node.ID, err)
-		incrementWith(cdsBuildErrPushCtx, pushes)
+		cdsBuildErrPushes.Increment()
 		return nil, err
 	}
 
@@ -82,7 +82,8 @@ func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.Pus
 		if err = c.Validate(); err != nil {
 			retErr := fmt.Errorf("CDS: Generated invalid cluster for node %v: %v", node, err)
 			adsLog.Errorf("CDS: Generated invalid cluster for node:%s: %v, %v", node.ID, err, c)
-			incrementWith(cdsBuildErrPushCtx, pushes, totalXDSInternalErrors)
+			cdsBuildErrPushes.Increment()
+			totalXDSInternalErrors.Increment()
 			// Generating invalid clusters is a bug.
 			// Panic instead of trying to recover from that, since we can't
 			// assume anything about the state.

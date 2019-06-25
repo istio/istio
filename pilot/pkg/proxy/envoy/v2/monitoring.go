@@ -14,171 +14,193 @@
 package v2
 
 import (
-	"context"
-
-	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
+
+	"istio.io/istio/pilot/pkg/monitoring"
 )
 
 var (
-	nodeTag    tag.Key
-	errTag     tag.Key
-	clusterTag tag.Key
-	typeTag    tag.Key
+	errTag, errTagErr         = tag.NewKey("err")
+	clusterTag, clusterTagErr = tag.NewKey("cluster")
+	nodeTag, nodeTagErr       = tag.NewKey("node")
+	typeTag, typeTagErr       = tag.NewKey("type")
 
-	// experiment on getting some monitoring on config errors.
-	cdsReject       = stats.Int64("pilot_xds_cds_reject", "Pilot rejected CSD configs.", stats.UnitDimensionless)
-	edsReject       = stats.Int64("pilot_xds_eds_reject", "Pilot rejected EDS.", stats.UnitDimensionless)
-	edsInstances    = stats.Int64("pilot_xds_eds_instances", "Instances for each cluster, as of last push. Zero instances is an error.", stats.UnitDimensionless)
-	ldsReject       = stats.Int64("pilot_xds_lds_reject", "Pilot rejected LDS.", stats.UnitDimensionless)
-	rdsReject       = stats.Int64("pilot_xds_rds_reject", "Pilot rejected RDS.", stats.UnitDimensionless)
-	rdsExpiredNonce = stats.Int64("pilot_rds_expired_nonce", "Total number of RDS messages with an expired nonce.", stats.UnitDimensionless)
-	totalXDSRejects = stats.Int64("pilot_total_xds_rejects", "Total number of XDS responses from pilot rejected by proxy.", stats.UnitDimensionless)
-	monServices     = stats.Int64("pilot_services", "Total services known to pilot.", stats.UnitDimensionless)
+	cdsReject, cdsRejectView = monitoring.NewInt64AndView(
+		"pilot_xds_cds_reject",
+		"Pilot rejected CSD configs.",
+		view.LastValue(),
+		nodeTag, errTag)
+
+	edsReject, edsRejectView = monitoring.NewInt64AndView(
+		"pilot_xds_eds_reject",
+		"Pilot rejected EDS.",
+		view.LastValue(),
+		nodeTag, errTag)
+
+	edsInstances, edsInstancesView = monitoring.NewInt64AndView(
+		"pilot_xds_eds_instances",
+		"Instances for each cluster, as of last push. Zero instances is an error.",
+		view.LastValue(),
+		clusterTag)
+
+	ldsReject, ldsRejectView = monitoring.NewInt64AndView(
+		"pilot_xds_lds_reject",
+		"Pilot rejected LDS.",
+		view.LastValue(),
+		nodeTag, errTag)
+
+	rdsReject, rdsRejectView = monitoring.NewInt64AndView(
+		"pilot_xds_rds_reject",
+		"Pilot rejected RDS.",
+		view.LastValue(),
+		nodeTag, errTag)
+
+	rdsExpiredNonce, rdsExpiredNonceView = monitoring.NewInt64AndView(
+		"pilot_rds_expired_nonce",
+		"Total number of RDS messages with an expired nonce.",
+		view.Sum())
+
+	totalXDSRejects, totalXDSRejectsView = monitoring.NewInt64AndView(
+		"pilot_total_xds_rejects",
+		"Total number of XDS responses from pilot rejected by proxy.",
+		view.Sum())
+
+	monServices, monServicesView = monitoring.NewInt64AndView(
+		"pilot_services",
+		"Total services known to pilot.",
+		view.LastValue())
 
 	// TODO: Update all the resource stats in separate routine
 	// virtual services, destination rules, gateways, etc.
-	monVServices             = stats.Int64("pilot_virt_services", "Total virtual services known to pilot.", stats.UnitDimensionless)
-	xdsClients               = stats.Int64("pilot_xds", "Number of endpoints connected to this pilot using XDS.", stats.UnitDimensionless)
-	xdsResponseWriteTimeouts = stats.Int64("pilot_xds_write_timeout", "Pilot XDS response write timeouts.", stats.UnitDimensionless)
-	pushTimeouts             = stats.Int64("pilot_xds_push_timeout", "Pilot push timeout, will retry.", stats.UnitDimensionless)
-	pushTimeoutFailures      = stats.Int64("pilot_xds_push_timeout_failures", "Pilot push timeout failures after repeated attempts.", stats.UnitDimensionless)
+	monVServices, monVServicesView = monitoring.NewInt64AndView(
+		"pilot_virt_services",
+		"Total virtual services known to pilot.",
+		view.LastValue())
+
+	xdsClients, xdsClientsView = monitoring.NewInt64AndView(
+		"pilot_xds",
+		"Number of endpoints connected to this pilot using XDS.",
+		view.LastValue())
+
+	xdsResponseWriteTimeouts, xdsResponseWriteTimeoutsView = monitoring.NewInt64AndView(
+		"pilot_xds_write_timeout",
+		"Pilot XDS response write timeouts.",
+		view.Sum())
+
+	pushTimeouts, pushTimeoutsView = monitoring.NewInt64AndView(
+		"pilot_xds_push_timeout",
+		"Pilot push timeout, will retry.",
+		view.Sum())
+
+	pushTimeoutFailures, pushTimeoutFailuresView = monitoring.NewInt64AndView(
+		"pilot_xds_push_timeout_failures",
+		"Pilot push timeout failures after repeated attempts.",
+		view.Sum())
 
 	// Covers xds_builderr and xds_senderr for xds in {lds, rds, cds, eds}.
-	pushes = stats.Int64("pilot_xds_pushes", "Pilot build and send errors for lds, rds, cds and eds.", stats.UnitDimensionless)
-	// values for pushes
-	cdsPushCtx, cdsSendErrPushCtx, cdsBuildErrPushCtx context.Context
-	edsPushCtx, edsSendErrPushCtx                     context.Context
-	ldsPushCtx, ldsSendErrPushCtx, ldsBuildErrPushCtx context.Context
-	rdsPushCtx, rdsSendErrPushCtx, rdsBuildErrPushCtx context.Context
+	pushes, pushesView = monitoring.NewInt64AndView(
+		"pilot_xds_pushes",
+		"Pilot build and send errors for lds, rds, cds and eds.",
+		view.Sum(),
+		typeTag)
 
-	pushErrors = stats.Int64("pilot_xds_push_errors", "Number of errors (timeouts) pushing to sidecars.", stats.UnitDimensionless)
-	// values for pushErrors
-	unrecoverableCtx, retryCtx context.Context
+	cdsPushes         = pushes.WithTags(tag.Upsert(typeTag, "cds"))
+	cdsSendErrPushes  = pushes.WithTags(tag.Upsert(typeTag, "cds_senderr"))
+	cdsBuildErrPushes = pushes.WithTags(tag.Upsert(typeTag, "cds_builderr"))
+	edsPushes         = pushes.WithTags(tag.Upsert(typeTag, "eds"))
+	edsSendErrPushes  = pushes.WithTags(tag.Upsert(typeTag, "eds_senderr"))
+	ldsPushes         = pushes.WithTags(tag.Upsert(typeTag, "lds"))
+	ldsSendErrPushes  = pushes.WithTags(tag.Upsert(typeTag, "lds_senderr"))
+	ldsBuildErrPushes = pushes.WithTags(tag.Upsert(typeTag, "lds_builderr"))
+	rdsPushes         = pushes.WithTags(tag.Upsert(typeTag, "rds"))
+	rdsSendErrPushes  = pushes.WithTags(tag.Upsert(typeTag, "rds_senderr"))
+	rdsBuildErrPushes = pushes.WithTags(tag.Upsert(typeTag, "rds_builderr"))
+
+	pushErrors, pushErrorsView = monitoring.NewInt64AndView(
+		"pilot_xds_push_errors",
+		"Number of errors (timeouts) pushing to sidecars.",
+		view.Sum(),
+		typeTag)
+
+	unrecoverableErrs = pushErrors.WithTags(tag.Upsert(typeTag, "unrecoverable"))
+	retryErrs         = pushErrors.WithTags(tag.Upsert(typeTag, "retry"))
 
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
-	proxiesConvergeDelay     = stats.Float64("pilot_proxy_convergence_time", "Delay between config change and all proxies converging.", stats.UnitDimensionless)
-	proxiesConvergenceBounds = view.Distribution(1, 3, 5, 10, 20, 30, 50, 100)
-	pushContextErrors        = stats.Int64("pilot_xds_push_context_errors", "Number of errors (timeouts) initiating push context.", stats.UnitDimensionless)
-	totalXDSInternalErrors   = stats.Int64("pilot_total_xds_internal_errors", "Total number of internal XDS errors in pilot.", stats.UnitDimensionless)
+	proxiesConvergeDelay, proxiesConvergeDelayView = monitoring.NewFloat64AndView(
+		"pilot_proxy_convergence_time",
+		"Delay between config change and all proxies converging.",
+		view.Distribution(1, 3, 5, 10, 20, 30, 50, 100),
+	)
 
-	inboundUpdates = stats.Int64("pilot_inbound_updates", "Total number of updates received by pilot.", stats.UnitDimensionless)
-	// values for inboundUpdates
-	configUpdatesCtx, edsUpdatesCtx, svcUpdatesCtx, workloadUpdatesCtx context.Context
+	pushContextErrors, pushContextErrorsView = monitoring.NewInt64AndView(
+		"pilot_xds_push_context_errors",
+		"Number of errors (timeouts) initiating push context.",
+		view.Sum())
+
+	totalXDSInternalErrors, totalXDSInternalErrorsView = monitoring.NewInt64AndView(
+		"pilot_total_xds_internal_errors",
+		"Total number of internal XDS errors in pilot.",
+		view.Sum())
+
+	inboundUpdates, inboundUpdatesView = monitoring.NewInt64AndView(
+		"pilot_inbound_updates",
+		"Total number of updates received by pilot.",
+		view.Sum(),
+		typeTag)
+
+	inboundConfigUpdates   = inboundUpdates.WithTags(tag.Upsert(typeTag, "config"))
+	inboundEDSUpdates      = inboundUpdates.WithTags(tag.Upsert(typeTag, "eds"))
+	inboundServiceUpdates  = inboundUpdates.WithTags(tag.Upsert(typeTag, "svc"))
+	inboundWorkloadUpdates = inboundUpdates.WithTags(tag.Upsert(typeTag, "workload"))
 )
 
-func increment(measures ...stats.Measure) {
-	incrementWith(context.Background(), measures...)
-}
-
-func incrementWith(ctx context.Context, measures ...stats.Measure) {
-	for _, m := range measures {
-		switch v := m.(type) {
-		case *stats.Int64Measure:
-			recordWith(ctx, v, 1)
-		case *stats.Float64Measure:
-			recordFloatWith(ctx, v, 1)
-		}
-	}
-}
-
-func recordFloat(measure *stats.Float64Measure, value float64) {
-	recordFloatWith(context.Background(), measure, value)
-}
-
-func recordFloatWith(ctx context.Context, measure *stats.Float64Measure, value float64) {
-	stats.Record(ctx, measure.M(value))
-}
-
-func record(measure *stats.Int64Measure, value int64) {
-	recordWith(context.Background(), measure, value)
-}
-
-func recordWith(ctx context.Context, measure *stats.Int64Measure, value int64) {
-	stats.Record(ctx, measure.M(value))
-}
-
-func incrementXDSRejects(measure stats.Measure, node, errCode string) {
-	ctx, _ := tag.New(context.Background(), tag.Upsert(nodeTag, node), tag.Upsert(errTag, errCode))
-	incrementWith(ctx, measure, totalXDSRejects)
-}
-
-func typeContext(kind string) context.Context {
-	ctx, _ := tag.New(context.Background(), tag.Upsert(typeTag, kind))
-	return ctx
-}
-
-func clusterContext(cluster string) context.Context {
-	ctx, _ := tag.New(context.Background(), tag.Upsert(clusterTag, cluster))
-	return ctx
+func incrementXDSRejects(stat *monitoring.Int64, node, errCode string) {
+	stat.WithTags(tag.Upsert(nodeTag, node), tag.Upsert(errTag, errCode)).Increment()
+	totalXDSRejects.Increment()
 }
 
 func init() {
-	var err error
-	if typeTag, err = tag.NewKey("type"); err != nil {
-		panic(err)
-	}
-	if errTag, err = tag.NewKey("err"); err != nil {
-		panic(err)
-	}
-	if clusterTag, err = tag.NewKey("cluster"); err != nil {
-		panic(err)
-	}
-	if nodeTag, err = tag.NewKey("node"); err != nil {
-		panic(err)
-	}
-	xdsTagKeys := []tag.Key{nodeTag, errTag}
-	clusterTagKeys := []tag.Key{clusterTag}
-	typeTagKeys := []tag.Key{typeTag}
 
-	if err := view.Register(
-		&view.View{Measure: cdsReject, TagKeys: xdsTagKeys, Aggregation: view.LastValue()},
-		&view.View{Measure: edsReject, TagKeys: xdsTagKeys, Aggregation: view.LastValue()},
-		&view.View{Measure: ldsReject, TagKeys: xdsTagKeys, Aggregation: view.LastValue()},
-		&view.View{Measure: rdsReject, TagKeys: xdsTagKeys, Aggregation: view.LastValue()},
-		&view.View{Measure: edsInstances, TagKeys: clusterTagKeys, Aggregation: view.LastValue()},
-
-		&view.View{Measure: rdsExpiredNonce, Aggregation: view.Sum()},
-		&view.View{Measure: totalXDSRejects, Aggregation: view.Sum()},
-
-		&view.View{Measure: monServices, Aggregation: view.LastValue()},
-		&view.View{Measure: monVServices, Aggregation: view.LastValue()},
-		&view.View{Measure: xdsClients, Aggregation: view.LastValue()},
-		&view.View{Measure: xdsResponseWriteTimeouts, Aggregation: view.Sum()},
-		&view.View{Measure: pushTimeouts, Aggregation: view.Sum()},
-		&view.View{Measure: pushTimeoutFailures, Aggregation: view.Sum()},
-
-		&view.View{Measure: pushes, TagKeys: typeTagKeys, Aggregation: view.Sum()},
-		&view.View{Measure: pushErrors, TagKeys: typeTagKeys, Aggregation: view.Sum()},
-		&view.View{Measure: inboundUpdates, TagKeys: typeTagKeys, Aggregation: view.Sum()},
-
-		&view.View{Measure: pushContextErrors, Aggregation: view.Sum()},
-		&view.View{Measure: totalXDSInternalErrors, Aggregation: view.Sum()},
-
-		&view.View{Measure: proxiesConvergeDelay, Aggregation: proxiesConvergenceBounds},
-	); err != nil {
-		panic(err)
+	if errTagErr != nil {
+		panic(errTagErr)
 	}
 
-	// contexts must be built after the tag keys have been created
-	cdsPushCtx = typeContext("cds")
-	cdsSendErrPushCtx = typeContext("cds_senderr")
-	cdsBuildErrPushCtx = typeContext("cds_builderr")
-	edsPushCtx = typeContext("eds")
-	edsSendErrPushCtx = typeContext("eds_senderr")
-	ldsPushCtx = typeContext("lds")
-	ldsSendErrPushCtx = typeContext("lds_senderr")
-	ldsBuildErrPushCtx = typeContext("lds_builderr")
-	rdsPushCtx = typeContext("rds")
-	rdsSendErrPushCtx = typeContext("rds_senderr")
-	rdsBuildErrPushCtx = typeContext("rds_builderr")
+	if clusterTagErr != nil {
+		panic(clusterTagErr)
+	}
 
-	unrecoverableCtx = typeContext("unrecoverable")
-	retryCtx = typeContext("retry")
+	if nodeTagErr != nil {
+		panic(nodeTagErr)
+	}
 
-	configUpdatesCtx = typeContext("config")
-	edsUpdatesCtx = typeContext("eds")
-	svcUpdatesCtx = typeContext("svc")
-	workloadUpdatesCtx = typeContext("workload")
+	if typeTagErr != nil {
+		panic(typeTagErr)
+	}
+
+	views := []*view.View{
+		cdsRejectView,
+		edsRejectView,
+		ldsRejectView,
+		rdsRejectView,
+		edsInstancesView,
+		rdsExpiredNonceView,
+		totalXDSRejectsView,
+		monServicesView,
+		monVServicesView,
+		xdsClientsView,
+		xdsResponseWriteTimeoutsView,
+		pushTimeoutsView,
+		pushTimeoutFailuresView,
+		pushesView,
+		pushErrorsView,
+		proxiesConvergeDelayView,
+		pushContextErrorsView,
+		totalXDSInternalErrorsView,
+		inboundUpdatesView,
+	}
+
+	if err := view.Register(views...); err != nil {
+		panic(err)
+	}
 }

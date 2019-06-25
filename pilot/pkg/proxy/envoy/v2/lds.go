@@ -37,10 +37,10 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 	err = con.send(response)
 	if err != nil {
 		adsLog.Warnf("LDS: Send failure %s: %v", con.ConID, err)
-		incrementWith(ldsSendErrPushCtx, pushes)
+		ldsSendErrPushes.Increment()
 		return err
 	}
-	incrementWith(ldsPushCtx, pushes)
+	ldsPushes.Increment()
 
 	adsLog.Infof("LDS: PUSH for node:%s listeners:%d", con.modelNode.ID, len(rawListeners))
 	return nil
@@ -50,7 +50,7 @@ func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.P
 	rawListeners, err := s.ConfigGenerator.BuildListeners(s.Env, con.modelNode, push)
 	if err != nil {
 		adsLog.Warnf("LDS: Failed to generate listeners for node:%s: %v", con.modelNode.ID, err)
-		incrementWith(ldsBuildErrPushCtx, pushes)
+		ldsBuildErrPushes.Increment()
 		return nil, err
 	}
 
@@ -58,7 +58,7 @@ func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.P
 		if err = l.Validate(); err != nil {
 			retErr := fmt.Errorf("LDS: Generated invalid listener for node %v: %v", con.modelNode, err)
 			adsLog.Errorf("LDS: Generated invalid listener for node:%s: %v, %v", con.modelNode.ID, err, l)
-			incrementWith(ldsBuildErrPushCtx, pushes)
+			ldsBuildErrPushes.Increment()
 			// Generating invalid listeners is a bug.
 			// Panic instead of trying to recover from that, since we can't
 			// assume anything about the state.
@@ -78,7 +78,7 @@ func ldsDiscoveryResponse(ls []*xdsapi.Listener, version string) *xdsapi.Discove
 	for _, ll := range ls {
 		if ll == nil {
 			adsLog.Errora("Nil listener ", ll)
-			increment(totalXDSInternalErrors)
+			totalXDSInternalErrors.Increment()
 			continue
 		}
 		lr, _ := types.MarshalAny(ll)

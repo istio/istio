@@ -227,7 +227,7 @@ func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 			}
 			*errP = err
 			adsLog.Errorf("ADS: %q %s terminated with error: %v", con.PeerAddr, con.ConID, err)
-			increment(totalXDSInternalErrors)
+			totalXDSInternalErrors.Increment()
 			return
 		}
 		select {
@@ -356,7 +356,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					if routeNonceSent != "" && routeNonceSent != discReq.ResponseNonce {
 						adsLog.Debugf("ADS:RDS: Expired nonce received %s %s (%v), sent %s, received %s",
 							peerAddr, con.ConID, con.modelNode, routeNonceSent, discReq.ResponseNonce)
-						increment(rdsExpiredNonce)
+						rdsExpiredNonce.Increment()
 						continue
 					}
 					if discReq.VersionInfo == routeVersionInfoSent {
@@ -605,7 +605,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			pushEv.push.Mutex.Lock()
 			pushEv.push.End = time.Now()
 			pushEv.push.Mutex.Unlock()
-			recordFloat(proxiesConvergeDelay, time.Since(pushEv.push.Start).Seconds())
+			proxiesConvergeDelay.Record(time.Since(pushEv.push.Start).Seconds())
 			out, _ := pushEv.push.JSON()
 			adsLog.Infof("Push finished: %v %s",
 				time.Since(pushEv.push.Start), string(out))
@@ -671,7 +671,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 
 	adsLog.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d",
 		version, len(push.Services(nil)), adsClientCount())
-	record(monServices, int64(len(push.Services(nil))))
+	monServices.Record(int64(len(push.Services(nil))))
 
 	t0 := time.Now()
 
@@ -691,7 +691,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 	for clusterName, edsCluster := range cMap {
 		if err := s.updateCluster(push, clusterName, edsCluster); err != nil {
 			adsLog.Errorf("updateCluster failed with clusterName %s", clusterName)
-			increment(totalXDSInternalErrors)
+			totalXDSInternalErrors.Increment()
 		}
 	}
 	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
@@ -779,7 +779,7 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 			case <-timer.C:
 				// This may happen to some clients if the other side is in a bad state and can't receive.
 				// The tests were catching this - one of the client was not reading.
-				increment(pushTimeouts)
+				pushTimeouts.Increment()
 				if lastPushFailure.IsZero() {
 					lastPushFailure = time.Now()
 
@@ -787,13 +787,13 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 				if time.Since(lastPushFailure) > 10*time.Second {
 					adsLog.Warnf("Repeated failure to push %s", client.ConID)
 					// unfortunately grpc go doesn't allow closing (unblocking) the stream.
-					incrementWith(unrecoverableCtx, pushErrors, pushTimeoutFailures)
+					unrecoverableErrs.Increment()
+					pushTimeoutFailures.Increment()
 					return
 				}
 
 				adsLog.Warnf("Failed to push, client busy %s", client.ConID)
-				incrementWith(retryCtx, pushErrors)
-
+				retryErrs.Increment()
 				goto Retry
 			}
 		}()
@@ -807,7 +807,7 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 	adsClientsMutex.Lock()
 	defer adsClientsMutex.Unlock()
 	adsClients[conID] = con
-	record(xdsClients, int64(len(adsClients)))
+	xdsClients.Record(int64(len(adsClients)))
 	if con.modelNode != nil {
 		if _, ok := adsSidecarIDConnectionsMap[con.modelNode.ID]; !ok {
 			adsSidecarIDConnectionsMap[con.modelNode.ID] = map[string]*XdsConnection{conID: con}
@@ -827,12 +827,12 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 
 	if _, exist := adsClients[conID]; !exist {
 		adsLog.Errorf("ADS: Removing connection for non-existing node:%v.", conID)
-		increment(totalXDSInternalErrors)
+		totalXDSInternalErrors.Increment()
 	} else {
 		delete(adsClients, conID)
 	}
 
-	record(xdsClients, int64(len(adsClients)))
+	xdsClients.Record(int64(len(adsClients)))
 	if con.modelNode != nil {
 		delete(adsSidecarIDConnectionsMap[con.modelNode.ID], conID)
 		if len(adsSidecarIDConnectionsMap[con.modelNode.ID]) == 0 {
@@ -871,7 +871,7 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 	case <-t.C:
 		// TODO: wait for ACK
 		adsLog.Infof("Timeout writing %s", conn.ConID)
-		increment(xdsResponseWriteTimeouts)
+		xdsResponseWriteTimeouts.Increment()
 		return errors.New("timeout sending")
 	case err := <-done:
 		t.Stop()
