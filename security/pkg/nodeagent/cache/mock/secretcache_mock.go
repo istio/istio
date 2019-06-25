@@ -24,14 +24,14 @@ import (
 	"time"
 )
 
-type MockCAClient struct {
+type CAClient struct {
 	signInvokeCount uint64
 	mockCertChain1st []string
 	mockCertChainRemain []string
 }
 
-func NewMockCAClient(mockCertChain1st, mockCertChainRemain []string) *MockCAClient {
-	cl := MockCAClient{
+func NewMockCAClient(mockCertChain1st, mockCertChainRemain []string) *CAClient {
+	cl := CAClient{
 		mockCertChain1st:mockCertChain1st,
 		mockCertChainRemain: mockCertChainRemain,
 	}
@@ -39,7 +39,7 @@ func NewMockCAClient(mockCertChain1st, mockCertChainRemain []string) *MockCAClie
 	return &cl
 }
 
-func (c *MockCAClient) CSRSign(ctx context.Context, csrPEM []byte, exchangedToken string,
+func (c *CAClient) CSRSign(ctx context.Context, csrPEM []byte, exchangedToken string,
 		certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
 	// Mock CSRSign failure errors to force Citadel agent to retry.
 	// 50% chance of failure.
@@ -60,14 +60,14 @@ func (c *MockCAClient) CSRSign(ctx context.Context, csrPEM []byte, exchangedToke
 	return c.mockCertChainRemain, nil
 }
 
-type MockTokenExchangeServer struct {
+type TokenExchangeServer struct {
 }
 
-func NewMockTokenExchangeServer() *MockTokenExchangeServer {
-	return &MockTokenExchangeServer{}
+func NewMockTokenExchangeServer() *TokenExchangeServer {
+	return &TokenExchangeServer{}
 }
 
-func (s *MockTokenExchangeServer) ExchangeToken(context.Context, string, string) (string, time.Time, int, error) {
+func (s *TokenExchangeServer) ExchangeToken(context.Context, string, string) (string, time.Time, int, error) {
 	// Mock ExchangeToken failure errors to force Citadel agent to retry.
 	// 50% chance of failure.
 	if rand.Intn(2) != 0 {
