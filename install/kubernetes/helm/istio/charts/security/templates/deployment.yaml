@@ -11,7 +11,7 @@ metadata:
     release: {{ .Release.Name }}
     istio: citadel
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       istio: citadel
@@ -59,6 +59,9 @@ spec:
           {{- end }}
           {{- if .Values.global.trustDomain }}
             - --trust-domain={{ .Values.global.trustDomain }}
+          {{- end }}
+          {{- if .Values.workloadCertTtl }}
+            - --workload-cert-ttl={{ .Values.workloadCertTtl }}
           {{- end }}
           {{- if .Values.citadelHealthCheck }}
             - --liveness-probe-path=/tmp/ca.liveness # path to the liveness health check status file

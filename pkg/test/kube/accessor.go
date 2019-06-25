@@ -178,21 +178,7 @@ func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.O
 
 		scopes.CI.Infof("Checking pods ready...")
 
-		fetched, err := fetchFunc()
-		if err != nil {
-			scopes.CI.Infof("Failed retrieving pods: %v", err)
-			return nil, false, err
-		}
-
-		for i, p := range fetched {
-			msg := "Ready"
-			if e := CheckPodReady(&p); e != nil {
-				msg = e.Error()
-				err = multierror.Append(err, fmt.Errorf("%s/%s: %s", p.Namespace, p.Name, msg))
-			}
-			scopes.CI.Infof("  [%2d] %45s %15s (%v)", i, p.Name, p.Status.Phase, msg)
-		}
-
+		fetched, err := a.CheckPodsAreReady(fetchFunc)
 		if err != nil {
 			return nil, false, err
 		}
@@ -201,6 +187,32 @@ func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.O
 	}, newRetryOptions(opts...)...)
 
 	return pods, err
+}
+
+// CheckPodsAreReady checks wehther the pods that are selected by the given function is in ready state or not.
+func (a *Accessor) CheckPodsAreReady(fetchFunc PodFetchFunc) ([]kubeApiCore.Pod, error) {
+	scopes.CI.Infof("Checking pods ready...")
+
+	fetched, err := fetchFunc()
+	if err != nil {
+		scopes.CI.Infof("Failed retrieving pods: %v", err)
+		return nil, err
+	}
+
+	for i, p := range fetched {
+		msg := "Ready"
+		if e := CheckPodReady(&p); e != nil {
+			msg = e.Error()
+			err = multierror.Append(err, fmt.Errorf("%s/%s: %s", p.Namespace, p.Name, msg))
+		}
+		scopes.CI.Infof("  [%2d] %45s %15s (%v)", i, p.Name, p.Status.Phase, msg)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return fetched, nil
 }
 
 // WaitUntilPodsAreDeleted waits until the pod with the name/namespace no longer exist.

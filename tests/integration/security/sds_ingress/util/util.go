@@ -183,9 +183,9 @@ func VisitProductPage(ing ingress.Instance, host string, callType ingress.CallTy
 			t.Logf("Got %d response from product page!", status)
 			return nil
 		} else if status != exRsp.ResponseCode {
-			t.Errorf("expected response code %d but got %d", exRsp.ResponseCode, status)
+			t.Logf("expected response code %d but got %d", exRsp.ResponseCode, status)
 		} else {
-			t.Errorf("expected response error message %s but got %s", exRsp.ErrorMessage, err.Error())
+			t.Logf("expected response error message %s but got %s", exRsp.ErrorMessage, err.Error())
 		}
 
 		if time.Since(start) > timeout {

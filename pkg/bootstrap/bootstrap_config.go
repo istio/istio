@@ -322,10 +322,21 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 		opts["sub_zone"] = l.SubZone
 	}
 
+	// Remove duplicate nodeIPs, but preserve the original ordering.
+	ipSet := make(map[string]struct{})
+	newNodeIPs := make([]string, 0, len(nodeIPs))
+	for _, ip := range nodeIPs {
+		if _, ok := ipSet[ip]; !ok {
+			ipSet[ip] = struct{}{}
+			newNodeIPs = append(newNodeIPs, ip)
+		}
+	}
+	nodeIPs = newNodeIPs
+
 	setStatsOptions(opts, meta, nodeIPs)
 
 	// Support multiple network interfaces
-	meta["ISTIO_META_INSTANCE_IPS"] = strings.Join(nodeIPs, ",")
+	meta[model.NodeMetadataInstanceIPs] = strings.Join(nodeIPs, ",")
 
 	ba, err := json.Marshal(meta)
 	if err != nil {

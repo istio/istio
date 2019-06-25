@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
+	"istio.io/istio/security/pkg/server/monitoring"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -125,6 +126,9 @@ const (
 	// example value format like "10"
 	InitialBackoff     = "INITIAL_BACKOFF_MSEC"
 	InitialBackoffFlag = "initialBackoff"
+
+	MonitoringPort  = "MONITORING_PORT"
+	EnableProfiling = "ENABLE_PROFILING"
 )
 
 var (
@@ -134,11 +138,10 @@ var (
 	gatewaySecretChan       chan struct{}
 	loggingOptions          = log.DefaultOptions()
 	ctrlzOptions            = ctrlz.DefaultOptions()
-
 	// rootCmd defines the command for node agent.
 	rootCmd = &cobra.Command{
 		Use:   "nodeagent",
-		Short: "Node agent",
+		Short: "Citadel agent",
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
@@ -169,12 +172,34 @@ var (
 				return fmt.Errorf("failed to create sds service")
 			}
 
+			monitorErrCh := make(chan error)
+			// Start the monitoring server.
+			if monitoringPortEnv > 0 {
+				monitor, mErr := monitoring.NewMonitor(monitoringPortEnv, enableProfilingEnv)
+				if mErr != nil {
+					return fmt.Errorf("unable to setup monitoring: %v", mErr)
+				}
+				go monitor.Start(monitorErrCh)
+				log.Info("citadel agent monitor has started.")
+				defer monitor.Close()
+			}
+
+			go exitOnMonitorServerError(monitorErrCh)
+
 			cmd.WaitSignal(stop)
 
 			return nil
 		},
 	}
 )
+
+// exitOnMonitorServerError shuts down Citadel agent when monitor server stops and returns an error.
+func exitOnMonitorServerError(errCh <-chan error) {
+	if err := <-errCh; err != nil {
+		log.Errorf("Monitoring server error: %v, terminate", err)
+		os.Exit(-1)
+	}
+}
 
 // newSecretCache creates the cache for workload secrets and/or gateway secrets.
 // Although currently not used, Citadel Agent can serve both workload and gateway secrets at the same time.
@@ -238,6 +263,10 @@ var (
 	secretRotationIntervalEnv          = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
 	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute, "").Get()
 	initialBackoffEnv                  = env.RegisterIntVar(InitialBackoff, 10, "").Get()
+	monitoringPortEnv                  = env.RegisterIntVar(MonitoringPort, 15014,
+		"The port number for monitoring Citadel agent").Get()
+	enableProfilingEnv = env.RegisterBoolVar(EnableProfiling, true,
+		"Enabling profiling when monitoring Citadel agent").Get()
 )
 
 func applyEnvVars(cmd *cobra.Command) {
@@ -418,8 +447,6 @@ func main() {
 		Section: "node_agent_k8s CLI",
 		Manual:  "Istio Node K8s Agent",
 	}))
-
-	// TODO: need integration with ctrlz?
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Errora(err)

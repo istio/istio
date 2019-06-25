@@ -17,15 +17,24 @@ package helper
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 
 	gapiopts "google.golang.org/api/option"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
+	testenv "istio.io/istio/mixer/pkg/adapter/test"
 )
 
 func TestToOpts(t *testing.T) {
+	testSvcAcctFile, err := ioutil.TempFile("", "serviceAccount.json")
+	if err != nil {
+		t.Fatalf("cannot create a temp file for testing: %v", err)
+	}
+	svcAcctFilePath := testSvcAcctFile.Name()
+	defer os.Remove(svcAcctFilePath)
 	tests := []struct {
 		name string
 		cfg  *config.Params
@@ -35,18 +44,24 @@ func TestToOpts(t *testing.T) {
 		{"api key", &config.Params{Creds: &config.Params_ApiKey{}}, []gapiopts.ClientOption{gapiopts.WithAPIKey("")}},
 		{"app creds", &config.Params{Creds: &config.Params_AppCredentials{}}, []gapiopts.ClientOption{}},
 		{"service account",
+			&config.Params{Creds: &config.Params_ServiceAccountPath{ServiceAccountPath: svcAcctFilePath}},
+			[]gapiopts.ClientOption{gapiopts.WithCredentialsFile(svcAcctFilePath)}},
+		{"service account file not found",
+			&config.Params{Creds: &config.Params_ServiceAccountPath{ServiceAccountPath: "/some/non/existent/path"}},
+			[]gapiopts.ClientOption{}},
+		{"service account empty",
 			&config.Params{Creds: &config.Params_ServiceAccountPath{}},
-			[]gapiopts.ClientOption{gapiopts.WithCredentialsFile("")}},
+			[]gapiopts.ClientOption{}},
 		{"endpoint",
 			&config.Params{Endpoint: "foo.bar"},
 			[]gapiopts.ClientOption{gapiopts.WithEndpoint("")}},
 		{"endpoint + svc account",
 			&config.Params{Endpoint: "foo.bar", Creds: &config.Params_ServiceAccountPath{}},
-			[]gapiopts.ClientOption{gapiopts.WithEndpoint(""), gapiopts.WithCredentialsFile("")}},
+			[]gapiopts.ClientOption{gapiopts.WithEndpoint("")}},
 	}
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			opts := ToOpts(tt.cfg)
+			opts := ToOpts(tt.cfg, testenv.NewEnv(t).Logger())
 			if len(opts) != len(tt.out) {
 				t.Errorf("len(toOpts(%v)) = %d, expected %d", tt.cfg, len(opts), len(tt.out))
 			}

@@ -38,6 +38,8 @@ github.com/DataDog/datadog-go/statsd
 github.com/Masterminds/semver
 # github.com/Masterminds/sprig v2.14.1+incompatible
 github.com/Masterminds/sprig
+# github.com/Microsoft/go-winio v0.4.12
+github.com/Microsoft/go-winio
 # github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6
 github.com/alicebob/gopher-json
 # github.com/alicebob/miniredis v0.0.0-20180201100744-9d52b1fc8da9
@@ -104,6 +106,33 @@ github.com/davecgh/go-spew/spew
 github.com/dchest/siphash
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
 github.com/dgrijalva/jwt-go
+# github.com/docker/distribution v2.7.1+incompatible
+github.com/docker/distribution/reference
+github.com/docker/distribution/digestset
+# github.com/docker/docker v1.13.1
+github.com/docker/docker/api/types
+github.com/docker/docker/api/types/container
+github.com/docker/docker/api/types/network
+github.com/docker/docker/client
+github.com/docker/docker/pkg/stdcopy
+github.com/docker/docker/api/types/filters
+github.com/docker/docker/api/types/mount
+github.com/docker/docker/api/types/registry
+github.com/docker/docker/api/types/swarm
+github.com/docker/docker/api/types/blkiodev
+github.com/docker/docker/api/types/strslice
+github.com/docker/docker/api/types/events
+github.com/docker/docker/api/types/reference
+github.com/docker/docker/api/types/time
+github.com/docker/docker/api/types/versions
+github.com/docker/docker/api/types/volume
+github.com/docker/docker/pkg/tlsconfig
+# github.com/docker/go-connections v0.4.0
+github.com/docker/go-connections/nat
+github.com/docker/go-connections/sockets
+github.com/docker/go-connections/tlsconfig
+# github.com/docker/go-units v0.4.0
+github.com/docker/go-units
 # github.com/docker/spdystream v0.0.0-20170912183627-bc6354cbbc29
 github.com/docker/spdystream
 github.com/docker/spdystream/spdy
@@ -362,6 +391,8 @@ github.com/open-policy-agent/opa/storage
 github.com/open-policy-agent/opa/storage/inmem
 github.com/open-policy-agent/opa/topdown
 github.com/open-policy-agent/opa/topdown/builtins
+# github.com/opencontainers/go-digest v1.0.0-rc1
+github.com/opencontainers/go-digest
 # github.com/openshift/api v0.0.0-20190322043348-8741ff068a47
 github.com/openshift/api/apps/v1
 # github.com/opentracing/opentracing-go v1.0.2
@@ -534,7 +565,9 @@ golang.org/x/net/publicsuffix
 golang.org/x/net/internal/timeseries
 golang.org/x/net/http2/hpack
 golang.org/x/net/http/httpguts
+golang.org/x/net/proxy
 golang.org/x/net/html/charset
+golang.org/x/net/internal/socks
 golang.org/x/net/html
 golang.org/x/net/html/atom
 # golang.org/x/oauth2 v0.0.0-20190226205417-e64efc72b421
@@ -679,7 +712,7 @@ gopkg.in/square/go-jose.v2/cipher
 gopkg.in/stack.v1
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
-# istio.io/api v0.0.0-20190604023128-6f137ab2ce6d
+# istio.io/api v0.0.0-20190624184750-868535377704
 istio.io/api/mesh/v1alpha1
 istio.io/api/authentication/v1alpha1
 istio.io/api/mixer/v1/config/client
@@ -691,7 +724,7 @@ istio.io/api/envoy/config/filter/http/authn/v2alpha1
 istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1
 istio.io/api/mixer/adapter/model/v1beta1
 istio.io/api/mixer/v1
-# istio.io/pkg v0.0.0-20190603185215-940899ee7e72
+# istio.io/pkg v0.0.0-20190624144336-268695a9d878
 istio.io/pkg/collateral
 istio.io/pkg/log
 istio.io/pkg/probe
