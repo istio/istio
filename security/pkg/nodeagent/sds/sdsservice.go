@@ -492,7 +492,7 @@ func sdsDiscoveryResponse(s *model.SecretItem, conID, resourceName string) (*xds
 		Name: s.ResourceName,
 	}
 	if s.RootCert != nil {
-		validationContext :=  &authapi.CertificateValidationContext{
+		validationContext := &authapi.CertificateValidationContext{
 			TrustedCa: &core.DataSource{
 				Specifier: &core.DataSource_InlineBytes{
 					InlineBytes: s.RootCert,
