@@ -173,7 +173,8 @@ var (
 	// than nothing.
 	// TODO: add dimensions - namespace of rule, service, rule name
 	invalidOutboundListeners = monitoring.NewGauge(
-		monitoring.MetricOpts{"pilot_invalid_out_listeners", "Number of invalid outbound listeners."},
+		"pilot_invalid_out_listeners",
+		"Number of invalid outbound listeners.",
 	)
 )
 

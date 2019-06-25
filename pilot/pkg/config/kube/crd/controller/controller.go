@@ -57,12 +57,14 @@ var (
 
 	// experiment on getting some monitoring on config errors.
 	k8sEvents = monitoring.NewSum(
-		monitoring.MetricOpts{"pilot_k8s_cfg_events", "Events from k8s config."},
+		"pilot_k8s_cfg_events",
+		"Events from k8s config.",
 		typeTag, eventTag,
 	)
 
 	k8sErrors = monitoring.NewGauge(
-		monitoring.MetricOpts{"pilot_k8s_object_errors", "Errors converting k8s CRDs"},
+		"pilot_k8s_object_errors",
+		"Errors converting k8s CRDs",
 		typeTag, eventTag,
 	)
 

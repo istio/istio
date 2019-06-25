@@ -66,7 +66,8 @@ var (
 
 	// experiment on getting some monitoring on config errors.
 	k8sEvents = monitoring.NewSum(
-		monitoring.MetricOpts{"pilot_k8s_reg_events", "Events from k8s registry."},
+		"pilot_k8s_reg_events",
+		"Events from k8s registry.",
 		typeTag, eventTag,
 	)
 )

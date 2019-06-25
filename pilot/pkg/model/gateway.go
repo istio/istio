@@ -51,7 +51,8 @@ var (
 	nameTag = monitoring.MustCreateTagKey("name")
 
 	totalRejectedConfigs = monitoring.NewSum(
-		monitoring.MetricOpts{"pilot_total_rejected_configs", "Total number of configs that Pilot had to reject or ignore."},
+		"pilot_total_rejected_configs",
+		"Total number of configs that Pilot had to reject or ignore.",
 		typeTag, nameTag,
 	)
 )

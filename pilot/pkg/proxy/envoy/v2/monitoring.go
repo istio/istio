@@ -26,66 +26,81 @@ var (
 	typeTag    = monitoring.MustCreateTagKey("type")
 
 	cdsReject = monitoring.NewGauge(
-		monitoring.MetricOpts{"pilot_xds_cds_reject", "Pilot rejected CSD configs."},
+		"pilot_xds_cds_reject",
+		"Pilot rejected CSD configs.",
 		nodeTag, errTag,
 	)
 
 	edsReject = monitoring.NewGauge(
-		monitoring.MetricOpts{"pilot_xds_eds_reject", "Pilot rejected EDS."},
+		"pilot_xds_eds_reject",
+		"Pilot rejected EDS.",
 		nodeTag, errTag,
 	)
 
 	edsInstances = monitoring.NewGauge(
-		monitoring.MetricOpts{"pilot_xds_eds_instances", "Instances for each cluster, as of last push. Zero instances is an error."},
+		"pilot_xds_eds_instances",
+		"Instances for each cluster, as of last push. Zero instances is an error.",
 		clusterTag,
 	)
 
 	ldsReject = monitoring.NewGauge(
-		monitoring.MetricOpts{"pilot_xds_lds_reject", "Pilot rejected LDS."},
+		"pilot_xds_lds_reject",
+		"Pilot rejected LDS.",
 		nodeTag, errTag,
 	)
 
 	rdsReject = monitoring.NewGauge(
-		monitoring.MetricOpts{"pilot_xds_rds_reject", "Pilot rejected RDS."},
-		nodeTag, errTag)
+		"pilot_xds_rds_reject",
+		"Pilot rejected RDS.",
+		nodeTag, errTag,
+	)
 
 	rdsExpiredNonce = monitoring.NewSum(
-		monitoring.MetricOpts{"pilot_rds_expired_nonce", "Total number of RDS messages with an expired nonce."},
+		"pilot_rds_expired_nonce",
+		"Total number of RDS messages with an expired nonce.",
 	)
 
 	totalXDSRejects = monitoring.NewSum(
-		monitoring.MetricOpts{"pilot_total_xds_rejects", "Total number of XDS responses from pilot rejected by proxy."},
+		"pilot_total_xds_rejects",
+		"Total number of XDS responses from pilot rejected by proxy.",
 	)
 
 	monServices = monitoring.NewGauge(
-		monitoring.MetricOpts{"pilot_services", "Total services known to pilot."},
+		"pilot_services",
+		"Total services known to pilot.",
 	)
 
 	// TODO: Update all the resource stats in separate routine
 	// virtual services, destination rules, gateways, etc.
 	monVServices = monitoring.NewGauge(
-		monitoring.MetricOpts{"pilot_virt_services", "Total virtual services known to pilot."},
+		"pilot_virt_services",
+		"Total virtual services known to pilot.",
 	)
 
 	xdsClients = monitoring.NewGauge(
-		monitoring.MetricOpts{"pilot_xds", "Number of endpoints connected to this pilot using XDS."},
+		"pilot_xds",
+		"Number of endpoints connected to this pilot using XDS.",
 	)
 
 	xdsResponseWriteTimeouts = monitoring.NewSum(
-		monitoring.MetricOpts{"pilot_xds_write_timeout", "Pilot XDS response write timeouts."},
+		"pilot_xds_write_timeout",
+		"Pilot XDS response write timeouts.",
 	)
 
 	pushTimeouts = monitoring.NewSum(
-		monitoring.MetricOpts{"pilot_xds_push_timeout", "Pilot push timeout, will retry."},
+		"pilot_xds_push_timeout",
+		"Pilot push timeout, will retry.",
 	)
 
 	pushTimeoutFailures = monitoring.NewSum(
-		monitoring.MetricOpts{"pilot_xds_push_timeout_failures", "Pilot push timeout failures after repeated attempts."},
+		"pilot_xds_push_timeout_failures",
+		"Pilot push timeout failures after repeated attempts.",
 	)
 
 	// Covers xds_builderr and xds_senderr for xds in {lds, rds, cds, eds}.
 	pushes = monitoring.NewSum(
-		monitoring.MetricOpts{"pilot_xds_pushes", "Pilot build and send errors for lds, rds, cds and eds."},
+		"pilot_xds_pushes",
+		"Pilot build and send errors for lds, rds, cds and eds.",
 		typeTag,
 	)
 
@@ -102,7 +117,8 @@ var (
 	rdsBuildErrPushes = pushes.WithTags(tag.Upsert(typeTag, "rds_builderr"))
 
 	pushErrors = monitoring.NewSum(
-		monitoring.MetricOpts{"pilot_xds_push_errors", "Number of errors (timeouts) pushing to sidecars."},
+		"pilot_xds_push_errors",
+		"Number of errors (timeouts) pushing to sidecars.",
 		typeTag,
 	)
 
@@ -111,20 +127,24 @@ var (
 
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesConvergeDelay = monitoring.NewDistribution(
-		monitoring.MetricOpts{"pilot_proxy_convergence_time", "Delay between config change and all proxies converging."},
+		"pilot_proxy_convergence_time",
+		"Delay between config change and all proxies converging.",
 		[]float64{1, 3, 5, 10, 20, 30, 50, 100},
 	)
 
 	pushContextErrors = monitoring.NewSum(
-		monitoring.MetricOpts{"pilot_xds_push_context_errors", "Number of errors (timeouts) initiating push context."},
+		"pilot_xds_push_context_errors",
+		"Number of errors (timeouts) initiating push context.",
 	)
 
 	totalXDSInternalErrors = monitoring.NewSum(
-		monitoring.MetricOpts{"pilot_total_xds_internal_errors", "Total number of internal XDS errors in pilot."},
+		"pilot_total_xds_internal_errors",
+		"Total number of internal XDS errors in pilot.",
 	)
 
 	inboundUpdates = monitoring.NewSum(
-		monitoring.MetricOpts{"pilot_inbound_updates", "Total number of updates received by pilot."},
+		"pilot_inbound_updates",
+		"Total number of updates received by pilot.",
 		typeTag,
 	)
 

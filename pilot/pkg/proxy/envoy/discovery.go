@@ -36,17 +36,20 @@ var (
 	buildTag  = monitoring.MustCreateTagKey("build_version")
 
 	callCounter = monitoring.NewSum(
-		monitoring.MetricOpts{"pilot_discovery_calls", "Individual method calls in Pilot"},
+		"pilot_discovery_calls",
+		"Individual method calls in Pilot",
 		methodTag, buildTag,
 	)
 
 	errorCounter = monitoring.NewSum(
-		monitoring.MetricOpts{"pilot_discovery_errors", "Errors encountered during a given method call within Pilot"},
+		"pilot_discovery_errors",
+		"Errors encountered during a given method call within Pilot",
 		methodTag, buildTag,
 	)
 
 	resourceCounter = monitoring.NewDistribution(
-		monitoring.MetricOpts{"pilot_discovery_resources", "Returned resource counts per method by Pilot"},
+		"pilot_discovery_resources",
+		"Returned resource counts per method by Pilot",
 		[]float64{0, 10, 20, 30, 40, 50, 75, 100, 150, 250, 500, 1000, 10000},
 		methodTag, buildTag,
 	)
@@ -188,7 +191,7 @@ func (ds *DiscoveryService) ListAllEndpoints(_ *restful.Request, response *restf
 		incErrors(methodName)
 		log.Warna(err)
 	} else {
-		observeResources(methodName, uint32(len(services)))
+		observeResources(methodName, float64(len(services)))
 	}
 }
 
@@ -200,8 +203,8 @@ func incErrors(methodName string) {
 	errorCounter.WithTags(tag.Upsert(buildTag, buildVersion), tag.Upsert(methodTag, methodName)).Increment()
 }
 
-func observeResources(methodName string, count uint32) {
-	resourceCounter.WithTags(tag.Upsert(buildTag, buildVersion), tag.Upsert(methodTag, methodName)).Increment()
+func observeResources(methodName string, count float64) {
+	resourceCounter.WithTags(tag.Upsert(buildTag, buildVersion), tag.Upsert(methodTag, methodName)).Record(count)
 }
 
 func errorResponse(methodName string, r *restful.Response, status int, msg string) {

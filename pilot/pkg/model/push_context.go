@@ -184,7 +184,8 @@ var (
 	// we can't figure out the labels. It may be a transient problem, if endpoint is processed before
 	// pod.
 	EndpointNoPod = monitoring.NewGauge(
-		monitoring.MetricOpts{"endpoint_no_pod", "Endpoints without an associated pod."},
+		"endpoint_no_pod",
+		"Endpoints without an associated pod.",
 	)
 
 	// ProxyStatusNoService represents proxies not selected by any service
@@ -193,82 +194,68 @@ var (
 	// the sidecar calls.
 	// Updated by GetProxyServiceInstances
 	ProxyStatusNoService = monitoring.NewGauge(
-		monitoring.MetricOpts{"pilot_no_ip", "Pods not found in the endpoint table, possibly invalid."},
+		"pilot_no_ip",
+		"Pods not found in the endpoint table, possibly invalid.",
 	)
 
 	// ProxyStatusEndpointNotReady represents proxies found not be ready.
 	// Updated by GetProxyServiceInstances. Normal condition when starting
 	// an app with readiness, error if it doesn't change to 0.
 	ProxyStatusEndpointNotReady = monitoring.NewGauge(
-		monitoring.MetricOpts{"pilot_endpoint_not_ready", "Endpoint found in unready state."},
+		"pilot_endpoint_not_ready",
+		"Endpoint found in unready state.",
 	)
 
 	// ProxyStatusConflictOutboundListenerTCPOverHTTP metric tracks number of
 	// wildcard TCP listeners that conflicted with existing wildcard HTTP listener on same port
 	ProxyStatusConflictOutboundListenerTCPOverHTTP = monitoring.NewGauge(
-		monitoring.MetricOpts{
-			"pilot_conflict_outbound_listener_tcp_over_current_http",
-			"Number of conflicting wildcard tcp listeners with current wildcard http listener.",
-		},
+		"pilot_conflict_outbound_listener_tcp_over_current_http",
+		"Number of conflicting wildcard tcp listeners with current wildcard http listener.",
 	)
 
 	// ProxyStatusConflictOutboundListenerTCPOverTCP metric tracks number of
 	// TCP listeners that conflicted with existing TCP listeners on same port
 	ProxyStatusConflictOutboundListenerTCPOverTCP = monitoring.NewGauge(
-		monitoring.MetricOpts{
-			"pilot_conflict_outbound_listener_tcp_over_current_tcp",
-			"Number of conflicting tcp listeners with current tcp listener.",
-		},
+		"pilot_conflict_outbound_listener_tcp_over_current_tcp",
+		"Number of conflicting tcp listeners with current tcp listener.",
 	)
 
 	// ProxyStatusConflictOutboundListenerHTTPOverTCP metric tracks number of
 	// wildcard HTTP listeners that conflicted with existing wildcard TCP listener on same port
 	ProxyStatusConflictOutboundListenerHTTPOverTCP = monitoring.NewGauge(
-		monitoring.MetricOpts{
-			"pilot_conflict_outbound_listener_http_over_current_tcp",
-			"Number of conflicting wildcard http listeners with current wildcard tcp listener.",
-		},
+		"pilot_conflict_outbound_listener_http_over_current_tcp",
+		"Number of conflicting wildcard http listeners with current wildcard tcp listener.",
 	)
 
 	// ProxyStatusConflictInboundListener tracks cases of multiple inbound
 	// listeners - 2 services selecting the same port of the pod.
 	ProxyStatusConflictInboundListener = monitoring.NewGauge(
-		monitoring.MetricOpts{
-			"pilot_conflict_inbound_listener",
-			"Number of conflicting inbound listeners.",
-		},
+		"pilot_conflict_inbound_listener",
+		"Number of conflicting inbound listeners.",
 	)
 
 	// DuplicatedClusters tracks duplicate clusters seen while computing CDS
 	DuplicatedClusters = monitoring.NewGauge(
-		monitoring.MetricOpts{
-			"pilot_duplicate_envoy_clusters",
-			"Duplicate envoy clusters caused by service entries with same hostname",
-		},
+		"pilot_duplicate_envoy_clusters",
+		"Duplicate envoy clusters caused by service entries with same hostname",
 	)
 
 	// ProxyStatusClusterNoInstances tracks clusters (services) without workloads.
 	ProxyStatusClusterNoInstances = monitoring.NewGauge(
-		monitoring.MetricOpts{
-			"pilot_eds_no_instances",
-			"Number of clusters without instances.",
-		},
+		"pilot_eds_no_instances",
+		"Number of clusters without instances.",
 	)
 
 	// DuplicatedDomains tracks rejected VirtualServices due to duplicated hostname.
 	DuplicatedDomains = monitoring.NewGauge(
-		monitoring.MetricOpts{
-			"pilot_vservice_dup_domain",
-			"Virtual services with dup domains.",
-		},
+		"pilot_vservice_dup_domain",
+		"Virtual services with dup domains.",
 	)
 
 	// DuplicatedSubsets tracks duplicate subsets that we rejected while merging multiple destination rules for same host
 	DuplicatedSubsets = monitoring.NewGauge(
-		monitoring.MetricOpts{
-			"pilot_destrule_subsets",
-			"Duplicate subsets across destination rules for same host",
-		},
+		"pilot_destrule_subsets",
+		"Duplicate subsets across destination rules for same host",
 	)
 
 	// LastPushStatus preserves the metrics and data collected during lasts global push.
