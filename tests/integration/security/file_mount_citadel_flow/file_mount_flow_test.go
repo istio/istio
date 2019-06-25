@@ -15,23 +15,24 @@
 package file_mount_citadel_flow
 
 import (
-"testing"
-"time"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"testing"
+	"time"
 
-"istio.io/istio/tests/integration/security/util"
+	"istio.io/istio/tests/integration/security/util"
 
-"istio.io/istio/pkg/test/echo/common/scheme"
-"istio.io/istio/pkg/test/framework"
-"istio.io/istio/pkg/test/framework/components/echo"
-"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-"istio.io/istio/pkg/test/framework/components/environment"
-"istio.io/istio/pkg/test/framework/components/istio"
-"istio.io/istio/pkg/test/framework/components/namespace"
-"istio.io/istio/pkg/test/util/retry"
-"istio.io/istio/tests/integration/security/util/connection"
+	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/tests/integration/security/util/connection"
 )
 
-func TestSdsCitadelCaFlow(t *testing.T) {
+func TestFileMountCitadelCaFlow(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 			Run(func(ctx framework.TestContext) {
@@ -39,7 +40,7 @@ func TestSdsCitadelCaFlow(t *testing.T) {
 				istioCfg := istio.DefaultConfigOrFail(t, ctx)
 
 				namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-				ns := namespace.NewOrFail(t, ctx, "sds-citadel-flow", true)
+				ns := namespace.NewOrFail(t, ctx, "file-mount-citadel-flow", true)
 
 				var a, b echo.Instance
 				echoboot.NewBuilderOrFail(t, ctx).
@@ -64,6 +65,15 @@ func TestSdsCitadelCaFlow(t *testing.T) {
 
 				for _, checker := range checkers {
 					retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
+				}
+
+				// Verify that Citadel Agent is not deployed.
+				env := ctx.Environment().(*kube.Environment)
+				pods, err := env.GetPods(ns.Name(), "istio=nodeagent")
+				if err != nil {
+					t.Logf("pod size: %d, show error: %v", len(pods), err)
+				} else {
+					t.Logf("pod size: %d", len(pods))
 				}
 			})
 }
