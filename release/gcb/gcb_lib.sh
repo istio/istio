@@ -194,4 +194,43 @@ function update_helm() {
   fi
 }
 
+function create_charts() {
+  local VERSION="$1"
+  local OUTPUT="$2"
+  local HELM_DIR="$3"
+  local HELM_BUILD_DIR="$4"
+  local BRANCH="$5"
+  local DOCKER_HUB="$6"
+  tar -zxf "istio-${VERSION}-linux.tar.gz"
+  mkdir -vp "$OUTPUT/istio"
+  cp -R "./istio-${VERSION}/install" "${OUTPUT}/istio/install"
+
+  pushd "$OUTPUT"
+      git clone -b "${BRANCH}" https://github.com/istio/cni.git
+      sed -i "s|hub: gcr.io/istio-release|hub: ${DOCKER_HUB}|g" cni/deployments/kubernetes/install/helm/istio-cni/values.yaml
+      sed -i "s|tag: .*-latest-daily|tag: ${VERSION}|g" cni/deployments/kubernetes/install/helm/istio-cni/values.yaml
+  popd
+
+  # Charts to extract from repos
+  CHARTS=(
+    "${OUTPUT}/istio/install/kubernetes/helm/istio"
+    "${OUTPUT}/istio/install/kubernetes/helm/istio-init"
+    "${OUTPUT}/cni/deployments/kubernetes/install/helm/istio-cni"
+  )
+
+  # Prepare helm setup
+  mkdir -vp "${HELM_DIR}"
+  HELM="helm --home ${HELM_DIR}"
+  $HELM init --client-only
+
+  # Create a package for each charts and build the repo index.
+  mkdir -vp "${HELM_BUILD_DIR}"
+  for CHART_PATH in "${CHARTS[@]}"
+  do
+      $HELM package "$CHART_PATH" -d "$HELM_BUILD_DIR"
+  done
+
+  $HELM repo index "$HELM_BUILD_DIR"
+}
+
 

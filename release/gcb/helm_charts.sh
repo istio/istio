@@ -9,7 +9,9 @@ set -x
 
 # shellcheck disable=SC1091
 source "/workspace/gcb_env.sh"
-
+SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+# shellcheck source=release/gcb/gcb_lib.sh
+source "${SCRIPTPATH}/gcb_lib.sh"
 
 WORK_DIR=$(mktemp -d)
 HELM_DIR=$(mktemp -d)
@@ -19,40 +21,11 @@ echo HELM_DIR = "$HELM_DIR"
 
 # Helm setup
 HELM_BUILD_DIR="/workspace/charts"
-HELM="helm --home $HELM_DIR"
 
 # Copy Istio release files to WORK_DIR
 gsutil cp  "gs://${CB_GCS_BUILD_PATH}/istio-${CB_VERSION}-linux.tar.gz" .
-tar -zxf "istio-${CB_VERSION}-linux.tar.gz"
-mkdir -vp "$WORK_DIR/istio"
-cp -R "./istio-${CB_VERSION}/install" "$WORK_DIR/istio/install"
 
-pushd "$WORK_DIR"
-    git clone -b "${CB_BRANCH}" https://github.com/istio/cni.git
-    sed -i "s|hub: gcr.io/istio-release|hub: ${CB_DOCKER_HUB}|g" cni/deployments/kubernetes/install/helm/istio-cni/values.yaml
-    sed -i "s|tag: .*-latest-daily|tag: ${CB_VERSION}|g" cni/deployments/kubernetes/install/helm/istio-cni/values.yaml
-popd
-
-
-# Charts to extract from repos
-CHARTS=(
-  "${WORK_DIR}/istio/install/kubernetes/helm/istio"
-  "${WORK_DIR}/istio/install/kubernetes/helm/istio-init"
-  "${WORK_DIR}/cni/deployments/kubernetes/install/helm/istio-cni"
-)
-
-# Prepare helm setup
-mkdir -vp "$HELM_DIR"
-$HELM init --client-only
-
-# Create a package for each charts and build the repo index.
-mkdir -vp "$HELM_BUILD_DIR"
-for CHART_PATH in "${CHARTS[@]}"
-do
-    $HELM package "$CHART_PATH" -d "$HELM_BUILD_DIR"
-done
-
-$HELM repo index "$HELM_BUILD_DIR"
+create_charts $CB_VERSION $WORK_DIR $HELM_DIR $HELM_BUILD_DIR ${CB_BRANCH} ${CB_DOCKER_HUB}
 
 # Copy output to GCS bucket.
 gsutil -qm cp -r "${HELM_BUILD_DIR}/*" "gs://${CB_GCS_BUILD_PATH}/charts/"

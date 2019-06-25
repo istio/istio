@@ -27,7 +27,7 @@ BRANCH=${BRANCH:-$CURRENT_BRANCH}
 export BRANCH
 #export CB_VERIFY_CONSISTENCY=true
 echo "Delete old builds"
-rm -r "${artifacts}" || echo
+rm -rf "${artifacts}" || echo
 mkdir -p "${artifacts}"
 
 pushd "${ROOT}/../tools" || exit
@@ -45,4 +45,13 @@ docker_push_images "${DOCKER_HUB}" "${NEW_VERSION}" "${artifacts}"
 
 pushd "${artifacts}" || exit
   fix_values_yaml ${NEW_VERSION} ${DOCKER_HUB}
+popd || exit
+
+
+pushd "${artifacts}" || exit
+  create_charts $NEW_VERSION $artifacts $artifacts/helm $artifacts/charts ${BRANCH} ${DOCKER_HUB}
+  rm -r $artifacts/helm 
+  rm -rf $artifacts/cni
+  rm -r $artifacts/istio
+  rm -r $artifacts/istio-${NEW_VERSION}
 popd || exit
