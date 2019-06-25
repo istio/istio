@@ -231,7 +231,8 @@ func buildOutboundAutoPassthroughFilterStack(env *model.Environment, node *model
 // configuring the Redis proxy.
 func buildRedisFilter(statPrefix, clusterName string, isXDSMarshalingToAnyEnabled bool) listener.Filter {
 	config := &redis_proxy.RedisProxy{
-		StatPrefix: statPrefix, // redis stats are prefixed with redis.<statPrefix> by Envoy
+		LatencyInMicros: true,       // redis latency stats are captured in micro seconds which is typically the case.
+		StatPrefix:      statPrefix, // redis stats are prefixed with redis.<statPrefix> by Envoy
 		Settings: &redis_proxy.RedisProxy_ConnPoolSettings{
 			OpTimeout: &redisOpTimeout, // TODO: Make this user configurable
 		},
