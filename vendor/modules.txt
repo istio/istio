@@ -121,7 +121,6 @@ github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2
 github.com/envoyproxy/go-control-plane/pkg/util
 github.com/envoyproxy/go-control-plane/envoy/api/v2/core
 github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint
-github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha
 github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster
 github.com/envoyproxy/go-control-plane/envoy/api/v2/route
 github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2
@@ -137,6 +136,7 @@ github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha
 github.com/envoyproxy/go-control-plane/envoy/type/matcher
 github.com/envoyproxy/go-control-plane/envoy/config/filter/http/health_check/v2
 github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2
+github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha
 github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2
 github.com/envoyproxy/go-control-plane/envoy/service/tap/v2alpha
 github.com/envoyproxy/go-control-plane/pkg/cache
@@ -451,6 +451,9 @@ github.com/spf13/viper
 github.com/spiffe/go-spiffe/tls
 github.com/spiffe/go-spiffe/spiffe
 github.com/spiffe/go-spiffe/uri
+# github.com/spiffe/spire/proto/spire v0.0.0-20190625194617-6858207e5650
+github.com/spiffe/spire/proto/spire/api/node
+github.com/spiffe/spire/proto/spire/common
 # github.com/stretchr/testify v1.3.0
 github.com/stretchr/testify/assert
 # github.com/tinylib/msgp v1.0.2

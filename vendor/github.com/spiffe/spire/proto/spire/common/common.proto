@@ -1,0 +1,113 @@
+syntax = "proto3";
+package spire.common;
+option go_package = "github.com/spiffe/spire/proto/spire/common";
+
+/** Represents an empty message */
+message Empty {}
+
+/** A type which contains attestation data for specific platform. */
+message AttestationData {
+    /** Type of attestation to perform. */
+    string type = 1;
+    /** The attestation data. */
+    bytes data = 2;
+}
+
+/** A type which describes the conditions under which a registration
+entry is matched. */
+message Selector {
+    /** A selector type represents the type of attestation used in attesting
+    the entity (Eg: AWS, K8). */
+    string type = 1;
+    /** The value to be attested. */
+    string value = 2;
+}
+
+/** Represents a type with a list of Selector. */
+message Selectors {
+    /** A list of Selector. */
+    repeated Selector entries = 1;
+}
+
+/* Represents an attested SPIRE agent */
+message AttestedNode {
+    // Node SPIFFE ID
+    string spiffe_id = 1;
+
+    // Attestation data type
+    string attestation_data_type = 2;
+
+    // Node certificate serial number
+    string cert_serial_number = 3;
+
+    // Node certificate not_after (seconds since unix epoch)
+    int64 cert_not_after = 4;
+}
+
+/** This is a curated record that the Server uses to set up and
+manage the various registered nodes and workloads that are controlled by it. */
+message RegistrationEntry {
+    /** A list of selectors. */
+    repeated Selector selectors = 1;
+    /** The SPIFFE ID of an entity that is authorized to attest the validity
+    of a selector */
+    string parent_id = 2;
+    /** The SPIFFE ID is a structured string used to identify a resource or
+    caller. It is defined as a URI comprising a “trust domain” and an
+    associated path. */
+    string spiffe_id = 3;
+    /** Time to live. */
+    int32 ttl = 4;
+    /** A list of federated trust domain SPIFFE IDs. */
+    repeated string federates_with = 5;
+    /** Entry ID */
+    string entry_id = 6;
+    /** Whether or not the workload is an admin workload. Admin workloads
+    can use their SVID's to authenticate with the Registration API, for
+    example. */
+    bool admin = 7;
+    /** To enable signing CA CSR in upstream spire server  */
+    bool downstream = 8;
+    /** Expiration of this entry, in seconds from epoch */
+    int64 entryExpiry = 9;
+    /** DNS entries */
+    repeated string dns_names = 10;
+}
+
+/** A list of registration entries. */
+message RegistrationEntries {
+    /** A list of RegistrationEntry. */
+    repeated RegistrationEntry entries = 1;
+}
+
+/** Certificate represents a ASN.1/DER encoded X509 certificate */
+message Certificate {
+    bytes der_bytes = 1;
+}
+
+/** PublicKey represents a PKIX encoded public key */
+message PublicKey {
+    /** PKIX encoded key data */
+    bytes pkix_bytes = 1;
+
+    /** key identifier */
+    string kid = 2;
+
+    /** not after (seconds since unix epoch, 0 means "never expires") */
+    int64 not_after = 3;
+}
+
+message Bundle {
+    /** the SPIFFE ID of the trust domain the bundle belongs to */
+    string trust_domain_id = 1;
+
+    /** list of root CA certificates */
+    repeated Certificate root_cas = 2;
+
+    /** list of JWT signing keys */
+    repeated PublicKey jwt_signing_keys = 3;
+
+    /** refresh hint is a hint, in seconds, on how often a bundle consumer
+     * should poll for bundle updates */
+    int64 refresh_hint = 4;
+}

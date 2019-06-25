@@ -157,6 +157,7 @@ require (
 	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.3.2
 	github.com/spiffe/go-spiffe v0.0.0-20181210192309-b261e4202fec
+	github.com/spiffe/spire/proto/spire v0.0.0-20190625194617-6858207e5650
 	github.com/stretchr/testify v1.3.0
 	github.com/tinylib/msgp v1.0.2 // indirect
 	github.com/uber/jaeger-client-go v0.0.0-20190228190846-ecf2d03a9e80

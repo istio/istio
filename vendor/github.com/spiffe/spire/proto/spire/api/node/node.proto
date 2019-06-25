@@ -1,0 +1,152 @@
+/* The Node API is exposed by the Spire Server to Node Agents.  A node
+agent uses this API to attest the node it is running on, to retrieve the
+list of identities that are allowed to run on that node, and to retrieve
+SVIDs by presenting certificate signing requests to the Spire Server. */
+
+syntax = "proto3";
+package spire.api.node;
+option go_package = "github.com/spiffe/spire/proto/spire/api/node";
+
+import "spire/common/common.proto";
+
+/** Trust domain bundle */
+message Bundle {
+    // bundle identifier, i.e. the SPIFFE ID for the trust domain
+    string id = 1;
+
+    // bundle data (ASN.1 encoded X.509 certificates)
+    bytes ca_certs = 2;
+}
+
+// A type which contains the "Spiffe Verifiable Identity Document" and
+// a TTL indicating when the SVID expires.
+message X509SVID {
+    // X509 SVID and intermediates necessary to form a chain of trust back
+    // to a root CA in the bundle.
+    bytes cert_chain = 3;
+
+    // SVID expiration timestamp (in seconds since Unix epoch)
+    int64 expires_at = 2;
+}
+
+// A message returned by the Spire Server, which includes a map of signed SVIDs and
+//a list of all current Registration Entries which are relevant to the caller SPIFFE ID.
+message X509SVIDUpdate {
+    // A map containing SVID values keyed by:
+    //  - SPIFFE ID in message 'AttestResponse'        (Map[SPIFFE_ID] => SVID)
+    //  - Entry  ID in message 'FetchX509SVIDResponse' (Map[Entry_ID]  => SVID)
+    map<string, X509SVID> svids = 1;
+
+    // A type representing a curated record that the Spire Server uses to set up
+    // and manage the various registered nodes and workloads that are controlled by it.
+    repeated spire.common.RegistrationEntry registration_entries = 3;
+
+    // Trust bundles associated with the SVIDs, keyed by trust domain SPIFFE
+    // ID. Bundles included are the trust bundle for the server trust domain
+    // and any federated trust domain bundles applicable to the SVIDs.
+    // Supersedes the deprecated `bundle` field.
+    map<string, spire.common.Bundle> bundles = 5;
+}
+
+// JSR is a JWT SVID signing request.
+message JSR {
+     // SPIFFE ID of the workload
+    string spiffe_id = 1;
+
+    // List of intended audience
+    repeated string audience = 2;
+
+    // Time-to-live in seconds. If unspecified the JWT SVID will be assigned
+    // a default time-to-live by the server.
+    int32 ttl = 3;
+}
+
+// JWTSVID is a signed JWT-SVID with fields lifted out for convenience.
+message JWTSVID {
+    // JWT-SVID JWT token
+    string token = 1;
+
+    // SVID expiration timestamp (seconds since Unix epoch)
+    int64 expires_at = 2;
+
+    // SVID issuance timestamp (seconds since Unix epoch)
+    int64 issued_at = 3;
+}
+
+// Represents a request to attest the node.
+message AttestRequest {
+    // A type which contains attestation data for specific platform.
+    spire.common.AttestationData attestation_data = 1;
+
+    // Certificate signing request.
+    bytes csr = 2;
+
+    // Attestation challenge response
+    bytes response = 3;
+}
+
+// Represents a response that contains  map of signed SVIDs and an array of
+// all current Registration Entries which are relevant to the caller SPIFFE ID
+message AttestResponse {
+    // It includes a map of signed SVIDs and an array of all current
+    // Registration Entries which are relevant to the caller SPIFFE ID.
+    X509SVIDUpdate svid_update = 1;
+
+    // This is a challenge issued by the server to the node. If populated, the
+    // node is expected to respond with another AttestRequest with the response.
+    // This field is mutually exclusive with the update field.
+    bytes challenge = 2;
+}
+
+// Represents a request with a list of CSR.
+message FetchX509SVIDRequest {
+    // A list of CSRs (deprecated, use `csrs` map instead)
+    repeated bytes DEPRECATED_csrs = 2;
+
+    // A map of CSRs keyed by entry ID
+    map<string, bytes> csrs = 3;
+}
+
+// Represents a response that contains  map of signed SVIDs and an array
+// of all current Registration Entries which are relevant to the caller SPIFFE ID.
+message FetchX509SVIDResponse {
+    // It includes a map of signed SVIDs and an array of all current Registration
+    // Entries which are relevant to the caller SPIFFE ID.
+    X509SVIDUpdate svid_update = 1;
+}
+
+message FetchJWTSVIDRequest {
+    // The JWT signing request
+    JSR jsr = 1;
+}
+
+message FetchJWTSVIDResponse {
+    // The signed JWT-SVID
+    JWTSVID svid = 1;
+}
+
+message FetchX509CASVIDRequest {
+    bytes csr = 1;
+}
+
+message FetchX509CASVIDResponse {
+    X509SVID svid = 1;
+
+    spire.common.Bundle bundle = 2;
+}
+
+service Node {
+    // Attest the node, get base node SVID.
+    rpc Attest(stream AttestRequest) returns (stream AttestResponse);
+
+    // Get Workload, Node Agent certs and CA trust bundles. Also used for rotation
+    // Base Node SVID or the Registered Node SVID used for this call)
+    // List can be empty to allow Node Agent cache refresh).
+    rpc FetchX509SVID(stream FetchX509SVIDRequest) returns (stream FetchX509SVIDResponse);
+
+    // Fetches a signed JWT-SVID for a workload intended for a specific audience.
+    rpc FetchJWTSVID(FetchJWTSVIDRequest) returns (FetchJWTSVIDResponse);
+
+    // Fetches an X509 CA SVID for a downstream SPIRE server.
+    rpc FetchX509CASVID(FetchX509CASVIDRequest) returns (FetchX509CASVIDResponse);
+}
