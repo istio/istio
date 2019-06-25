@@ -14,7 +14,9 @@ the following standard fields:</p>
 
 <ul>
 <li>services: a list of services.</li>
-<li>methods: HTTP methods. In the case of gRPC, this field is ignored because the value is always &ldquo;POST&rdquo;.</li>
+<li>methods: A list of HTTP methods. You can set the value to <code>*</code> to include all HTTP methods.
+         This field should not be set for TCP services. The policy will be ignored.
+         For gRPC services, only <code>POST</code> is allowed; other methods will result in denying services.</li>
 <li>paths: HTTP paths or gRPC methods. Note that gRPC methods should be
 presented in the form of &ldquo;/packageName.serviceName/methodName&rdquo; and are case sensitive.</li>
 </ul>
@@ -109,7 +111,8 @@ gRPC methods must be presented as fully-qualified name in the form of
 Exact match, prefix match, and suffix match are supported. For example,
 the path &ldquo;/books/review&rdquo; matches &ldquo;/books/review&rdquo; (exact match),
 or &ldquo;/books/<em>&rdquo; (prefix match), or &ldquo;</em>/review&rdquo; (suffix match).
-If not specified, it matches to any path.</p>
+If not specified, it matches to any path.
+This field should not be set for TCP services. The policy will be ignored.</p>
 
 </td>
 </tr>
@@ -118,8 +121,9 @@ If not specified, it matches to any path.</p>
 <td><code>string[]</code></td>
 <td>
 <p>Optional. A list of HTTP methods (e.g., &ldquo;GET&rdquo;, &ldquo;POST&rdquo;).
-It is ignored in gRPC case because the value is always &ldquo;POST&rdquo;.
-If not specified, it matches to any methods.</p>
+If not specified or specified as &ldquo;*&rdquo;, it matches to any methods.
+This field should not be set for TCP services. The policy will be ignored.
+For gRPC services, only <code>POST</code> is allowed; other methods will result in denying services.</p>
 
 </td>
 </tr>

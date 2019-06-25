@@ -425,19 +425,22 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 
 type ServiceEntry struct {
 	// REQUIRED. The hosts associated with the ServiceEntry. Could be a DNS
-	// name with wildcard prefix (external services only). For HTTP traffic
-	// the HTTP Host/Authority header will be matched against the hosts field.
-	// For HTTPs or TLS traffic containing Server Name Indication (SNI), the SNI value
-	// will be matched against the hosts field. For all other protocols
-	// the hosts will be ignored, and the port and addresses fields
-	// will be used if present. Note that when resolution is set to type DNS
+	// name with wildcard prefix.
+	//
+	// 1. The hosts field is used to select matching hosts in VirtualServices and DestinationRules.
+	// 2. For HTTP traffic the HTTP Host/Authority header will be matched against the hosts field.
+	// 3. For HTTPs or TLS traffic containing Server Name Indication (SNI), the SNI value
+	// will be matched against the hosts field.
+	//
+	// Note that when resolution is set to type DNS
 	// and no endpoints are specified, the host field will be used as the DNS name
 	// of the endpoint to route traffic to.
 	Hosts []string `protobuf:"bytes,1,rep,name=hosts,proto3" json:"hosts,omitempty"`
 	// The virtual IP addresses associated with the service. Could be CIDR
-	// prefix. For HTTP traffic the addresses field will be ignored and
-	// the destination will be identified based on the HTTP Host/Authority
-	// header. If one or more IP addresses are specified,
+	// prefix. For HTTP traffic, generated route configurations will include http route
+	// domains for both the `addresses` and `hosts` field values and the destination will
+	// be identified based on the HTTP Host/Authority header.
+	// If one or more IP addresses are specified,
 	// the incoming traffic will be identified as belonging to this service
 	// if the destination IP matches the IP/CIDRs specified in the addresses
 	// field. If the Addresses field is empty, traffic will be identified
@@ -484,7 +487,7 @@ type ServiceEntry struct {
 	ExportTo []string `protobuf:"bytes,7,rep,name=export_to,json=exportTo,proto3" json:"export_to,omitempty"`
 	// The list of subject alternate names allowed for workload instances that
 	// implement this service. This information is used to enforce
-	// [secure-naming](/docs/concepts/security/#secure-naming).
+	// [secure-naming](https://istio.io/docs/concepts/security/#secure-naming).
 	// If specified, the proxy will verify that the server
 	// certificate's subject alternate name matches one of the specified values.
 	SubjectAltNames      []string `protobuf:"bytes,8,rep,name=subject_alt_names,json=subjectAltNames,proto3" json:"subject_alt_names,omitempty"`

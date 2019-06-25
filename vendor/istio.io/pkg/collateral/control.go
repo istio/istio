@@ -736,8 +736,8 @@ func (g *generator) genAnnotations(root *cobra.Command) {
 }
 
 func (g *generator) genMetrics() {
-	g.emit(`<h2 id=\"metrics\">Exported Metrics</h2>
-<table class=\"metrics\">
+	g.emit(`<h2 id="metrics">Exported metrics</h2>
+<table class="metrics">
 <thead>
 <tr><th>Metric Name</th><th>Type</th><th>Description</th></tr>
 </thead>

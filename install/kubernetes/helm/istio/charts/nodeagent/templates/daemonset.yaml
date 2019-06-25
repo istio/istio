@@ -62,3 +62,5 @@ spec:
       tolerations:
 {{ toYaml .Values.global.defaultTolerations | indent 6 }}
       {{- end }}
+  updateStrategy:
+    type: RollingUpdate
