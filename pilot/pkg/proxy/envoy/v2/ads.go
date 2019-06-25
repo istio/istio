@@ -671,7 +671,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 
 	adsLog.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d",
 		version, len(push.Services(nil)), adsClientCount())
-	monServices.Record(int64(len(push.Services(nil))))
+	monServices.Record(float64(len(push.Services(nil))))
 
 	t0 := time.Now()
 
@@ -807,7 +807,7 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 	adsClientsMutex.Lock()
 	defer adsClientsMutex.Unlock()
 	adsClients[conID] = con
-	xdsClients.Record(int64(len(adsClients)))
+	xdsClients.Record(float64(len(adsClients)))
 	if con.modelNode != nil {
 		if _, ok := adsSidecarIDConnectionsMap[con.modelNode.ID]; !ok {
 			adsSidecarIDConnectionsMap[con.modelNode.ID] = map[string]*XdsConnection{conID: con}
@@ -832,7 +832,7 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 		delete(adsClients, conID)
 	}
 
-	xdsClients.Record(int64(len(adsClients)))
+	xdsClients.Record(float64(len(adsClients)))
 	if con.modelNode != nil {
 		delete(adsSidecarIDConnectionsMap[con.modelNode.ID], conID)
 		if len(adsSidecarIDConnectionsMap[con.modelNode.ID]) == 0 {

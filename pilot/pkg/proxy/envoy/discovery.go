@@ -20,7 +20,6 @@ import (
 	"sort"
 
 	restful "github.com/emicklei/go-restful"
-	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -33,40 +32,28 @@ var (
 	// Save the build version information.
 	buildVersion = version.Info.String()
 
-	methodTag, methodTagErr = tag.NewKey("method")
-	buildTag, buildTagErr   = tag.NewKey("build_version")
+	methodTag = monitoring.MustCreateTagKey("method")
+	buildTag  = monitoring.MustCreateTagKey("build_version")
 
-	callCounter, callCounterView = monitoring.NewInt64AndView(
-		"pilot_discovery_calls",
-		"Individual method calls in Pilot",
-		view.Sum(),
-		methodTag, buildTag)
+	callCounter = monitoring.NewSum(
+		monitoring.MetricOpts{"pilot_discovery_calls", "Individual method calls in Pilot"},
+		methodTag, buildTag,
+	)
 
-	errorCounter, errorCounterView = monitoring.NewInt64AndView(
-		"pilot_discovery_errors",
-		"Errors encountered during a given method call within Pilot",
-		view.Sum(),
-		methodTag, buildTag)
+	errorCounter = monitoring.NewSum(
+		monitoring.MetricOpts{"pilot_discovery_errors", "Errors encountered during a given method call within Pilot"},
+		methodTag, buildTag,
+	)
 
-	resourceCounter, resourceCounterView = monitoring.NewInt64AndView(
-		"pilot_discovery_resources",
-		"Returned resource counts per method by Pilot",
-		view.Distribution(0, 10, 20, 30, 40, 50, 75, 100, 150, 250, 500, 1000, 10000),
-		methodTag, buildTag)
+	resourceCounter = monitoring.NewDistribution(
+		monitoring.MetricOpts{"pilot_discovery_resources", "Returned resource counts per method by Pilot"},
+		[]float64{0, 10, 20, 30, 40, 50, 75, 100, 150, 250, 500, 1000, 10000},
+		methodTag, buildTag,
+	)
 )
 
 func init() {
-
-	if methodTagErr != nil {
-		panic(methodTagErr)
-	}
-	if buildTagErr != nil {
-		panic(buildTagErr)
-	}
-
-	if err := view.Register(callCounterView, errorCounterView, resourceCounterView); err != nil {
-		panic(err)
-	}
+	monitoring.MustRegisterViews(callCounter, errorCounter, resourceCounter)
 }
 
 // DiscoveryService publishes services, clusters, and routes for all proxies

@@ -15,16 +15,13 @@
 package model
 
 import (
-	"context"
 	"encoding/json"
 	"sort"
 	"sync"
 	"time"
 
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
-
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/monitoring"
 )
 
 // PushContext tracks the status of a push - metrics and errors.
@@ -154,30 +151,14 @@ type ProxyPushStatus struct {
 	Message string `json:"message,omitempty"`
 }
 
-// PushMetric wraps an OpenCensus measure.
-type PushMetric struct {
-	*stats.Int64Measure
-}
-
 type combinedDestinationRule struct {
 	subsets map[string]struct{} // list of subsets seen so far
 	// We are not doing ports
 	config *Config
 }
 
-func newPushMetric(name, help string) *PushMetric {
-	metric := stats.Int64(name, help, stats.UnitDimensionless)
-	pm := &PushMetric{metric}
-	metrics = append(metrics, pm)
-	return pm
-}
-
-func (p *PushMetric) record(val int64) {
-	stats.Record(context.Background(), p.M(val))
-}
-
 // Add will add an case to the metric.
-func (ps *PushContext) Add(metric *PushMetric, key string, proxy *Proxy, msg string) {
+func (ps *PushContext) Add(metric monitoring.Metric, key string, proxy *Proxy, msg string) {
 	if ps == nil {
 		log.Infof("Metric without context %s %v %s", key, proxy, msg)
 		return
@@ -202,9 +183,8 @@ var (
 	// EndpointNoPod tracks endpoints without an associated pod. This is an error condition, since
 	// we can't figure out the labels. It may be a transient problem, if endpoint is processed before
 	// pod.
-	EndpointNoPod = newPushMetric(
-		"endpoint_no_pod",
-		"Endpoints without an associated pod.",
+	EndpointNoPod = monitoring.NewGauge(
+		monitoring.MetricOpts{"endpoint_no_pod", "Endpoints without an associated pod."},
 	)
 
 	// ProxyStatusNoService represents proxies not selected by any service
@@ -212,69 +192,83 @@ var (
 	// It can also be an error, for example in cases the Endpoint list of a service was not updated by the time
 	// the sidecar calls.
 	// Updated by GetProxyServiceInstances
-	ProxyStatusNoService = newPushMetric(
-		"pilot_no_ip",
-		"Pods not found in the endpoint table, possibly invalid.",
+	ProxyStatusNoService = monitoring.NewGauge(
+		monitoring.MetricOpts{"pilot_no_ip", "Pods not found in the endpoint table, possibly invalid."},
 	)
 
 	// ProxyStatusEndpointNotReady represents proxies found not be ready.
 	// Updated by GetProxyServiceInstances. Normal condition when starting
 	// an app with readiness, error if it doesn't change to 0.
-	ProxyStatusEndpointNotReady = newPushMetric(
-		"pilot_endpoint_not_ready",
-		"Endpoint found in unready state.",
+	ProxyStatusEndpointNotReady = monitoring.NewGauge(
+		monitoring.MetricOpts{"pilot_endpoint_not_ready", "Endpoint found in unready state."},
 	)
 
 	// ProxyStatusConflictOutboundListenerTCPOverHTTP metric tracks number of
 	// wildcard TCP listeners that conflicted with existing wildcard HTTP listener on same port
-	ProxyStatusConflictOutboundListenerTCPOverHTTP = newPushMetric(
-		"pilot_conflict_outbound_listener_tcp_over_current_http",
-		"Number of conflicting wildcard tcp listeners with current wildcard http listener.",
+	ProxyStatusConflictOutboundListenerTCPOverHTTP = monitoring.NewGauge(
+		monitoring.MetricOpts{
+			"pilot_conflict_outbound_listener_tcp_over_current_http",
+			"Number of conflicting wildcard tcp listeners with current wildcard http listener.",
+		},
 	)
 
 	// ProxyStatusConflictOutboundListenerTCPOverTCP metric tracks number of
 	// TCP listeners that conflicted with existing TCP listeners on same port
-	ProxyStatusConflictOutboundListenerTCPOverTCP = newPushMetric(
-		"pilot_conflict_outbound_listener_tcp_over_current_tcp",
-		"Number of conflicting tcp listeners with current tcp listener.",
+	ProxyStatusConflictOutboundListenerTCPOverTCP = monitoring.NewGauge(
+		monitoring.MetricOpts{
+			"pilot_conflict_outbound_listener_tcp_over_current_tcp",
+			"Number of conflicting tcp listeners with current tcp listener.",
+		},
 	)
 
 	// ProxyStatusConflictOutboundListenerHTTPOverTCP metric tracks number of
 	// wildcard HTTP listeners that conflicted with existing wildcard TCP listener on same port
-	ProxyStatusConflictOutboundListenerHTTPOverTCP = newPushMetric(
-		"pilot_conflict_outbound_listener_http_over_current_tcp",
-		"Number of conflicting wildcard http listeners with current wildcard tcp listener.",
+	ProxyStatusConflictOutboundListenerHTTPOverTCP = monitoring.NewGauge(
+		monitoring.MetricOpts{
+			"pilot_conflict_outbound_listener_http_over_current_tcp",
+			"Number of conflicting wildcard http listeners with current wildcard tcp listener.",
+		},
 	)
 
 	// ProxyStatusConflictInboundListener tracks cases of multiple inbound
 	// listeners - 2 services selecting the same port of the pod.
-	ProxyStatusConflictInboundListener = newPushMetric(
-		"pilot_conflict_inbound_listener",
-		"Number of conflicting inbound listeners.",
+	ProxyStatusConflictInboundListener = monitoring.NewGauge(
+		monitoring.MetricOpts{
+			"pilot_conflict_inbound_listener",
+			"Number of conflicting inbound listeners.",
+		},
 	)
 
 	// DuplicatedClusters tracks duplicate clusters seen while computing CDS
-	DuplicatedClusters = newPushMetric(
-		"pilot_duplicate_envoy_clusters",
-		"Duplicate envoy clusters caused by service entries with same hostname",
+	DuplicatedClusters = monitoring.NewGauge(
+		monitoring.MetricOpts{
+			"pilot_duplicate_envoy_clusters",
+			"Duplicate envoy clusters caused by service entries with same hostname",
+		},
 	)
 
 	// ProxyStatusClusterNoInstances tracks clusters (services) without workloads.
-	ProxyStatusClusterNoInstances = newPushMetric(
-		"pilot_eds_no_instances",
-		"Number of clusters without instances.",
+	ProxyStatusClusterNoInstances = monitoring.NewGauge(
+		monitoring.MetricOpts{
+			"pilot_eds_no_instances",
+			"Number of clusters without instances.",
+		},
 	)
 
 	// DuplicatedDomains tracks rejected VirtualServices due to duplicated hostname.
-	DuplicatedDomains = newPushMetric(
-		"pilot_vservice_dup_domain",
-		"Virtual services with dup domains.",
+	DuplicatedDomains = monitoring.NewGauge(
+		monitoring.MetricOpts{
+			"pilot_vservice_dup_domain",
+			"Virtual services with dup domains.",
+		},
 	)
 
 	// DuplicatedSubsets tracks duplicate subsets that we rejected while merging multiple destination rules for same host
-	DuplicatedSubsets = newPushMetric(
-		"pilot_destrule_subsets",
-		"Duplicate subsets across destination rules for same host",
+	DuplicatedSubsets = monitoring.NewGauge(
+		monitoring.MetricOpts{
+			"pilot_destrule_subsets",
+			"Duplicate subsets across destination rules for same host",
+		},
 	)
 
 	// LastPushStatus preserves the metrics and data collected during lasts global push.
@@ -285,24 +279,24 @@ var (
 	LastPushMutex sync.Mutex
 
 	// All metrics we registered.
-	metrics []*PushMetric
+	metrics = []monitoring.Metric{
+		EndpointNoPod,
+		ProxyStatusNoService,
+		ProxyStatusEndpointNotReady,
+		ProxyStatusConflictOutboundListenerTCPOverHTTP,
+		ProxyStatusConflictOutboundListenerTCPOverTCP,
+		ProxyStatusConflictOutboundListenerHTTPOverTCP,
+		ProxyStatusConflictInboundListener,
+		DuplicatedClusters,
+		ProxyStatusClusterNoInstances,
+		DuplicatedDomains,
+		DuplicatedSubsets,
+	}
 )
 
 func init() {
-	if err := view.Register(
-		&view.View{Measure: EndpointNoPod.Int64Measure, Aggregation: view.LastValue()},
-		&view.View{Measure: ProxyStatusNoService.Int64Measure, Aggregation: view.LastValue()},
-		&view.View{Measure: ProxyStatusEndpointNotReady.Int64Measure, Aggregation: view.LastValue()},
-		&view.View{Measure: ProxyStatusConflictOutboundListenerTCPOverHTTP.Int64Measure, Aggregation: view.LastValue()},
-		&view.View{Measure: ProxyStatusConflictOutboundListenerTCPOverTCP.Int64Measure, Aggregation: view.LastValue()},
-		&view.View{Measure: ProxyStatusConflictOutboundListenerHTTPOverTCP.Int64Measure, Aggregation: view.LastValue()},
-		&view.View{Measure: ProxyStatusConflictInboundListener.Int64Measure, Aggregation: view.LastValue()},
-		&view.View{Measure: DuplicatedClusters.Int64Measure, Aggregation: view.LastValue()},
-		&view.View{Measure: ProxyStatusClusterNoInstances.Int64Measure, Aggregation: view.LastValue()},
-		&view.View{Measure: DuplicatedDomains.Int64Measure, Aggregation: view.LastValue()},
-		&view.View{Measure: DuplicatedSubsets.Int64Measure, Aggregation: view.LastValue()},
-	); err != nil {
-		panic(err)
+	for _, m := range metrics {
+		monitoring.MustRegisterViews(m)
 	}
 }
 
@@ -356,7 +350,7 @@ func (ps *PushContext) UpdateMetrics() {
 
 	for _, pm := range metrics {
 		mmap := ps.ProxyStatus[pm.Name()]
-		pm.record((int64(len(mmap))))
+		pm.Record(float64(len(mmap)))
 	}
 }
 

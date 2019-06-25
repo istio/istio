@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/yl2chen/cidranger"
-	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -62,30 +61,18 @@ const (
 )
 
 var (
-	typeTag, typeTagErr   = tag.NewKey("type")
-	eventTag, eventTagErr = tag.NewKey("event")
+	typeTag  = monitoring.MustCreateTagKey("type")
+	eventTag = monitoring.MustCreateTagKey("event")
 
 	// experiment on getting some monitoring on config errors.
-	k8sEvents, k8sEventsView = monitoring.NewInt64AndView(
-		"pilot_k8s_reg_events",
-		"Events from k8s registry.",
-		view.Sum(),
+	k8sEvents = monitoring.NewSum(
+		monitoring.MetricOpts{"pilot_k8s_reg_events", "Events from k8s registry."},
 		typeTag, eventTag,
 	)
 )
 
 func init() {
-	if typeTagErr != nil {
-		panic(typeTagErr)
-	}
-
-	if eventTagErr != nil {
-		panic(eventTagErr)
-	}
-
-	if err := view.Register(k8sEventsView); err != nil {
-		panic(err)
-	}
+	monitoring.MustRegisterViews(k8sEvents)
 }
 
 func incrementEvent(kind, event string) {

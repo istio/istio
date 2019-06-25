@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
@@ -36,12 +35,11 @@ import (
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
@@ -174,15 +172,13 @@ var (
 	// TODO: gauge should be reset on refresh, not the best way to represent errors but better
 	// than nothing.
 	// TODO: add dimensions - namespace of rule, service, rule name
-	invalidOutboundListeners = stats.Int64("pilot_invalid_out_listeners",
-		"Number of invalid outbound listeners.",
-		stats.UnitDimensionless)
+	invalidOutboundListeners = monitoring.NewGauge(
+		monitoring.MetricOpts{"pilot_invalid_out_listeners", "Number of invalid outbound listeners."},
+	)
 )
 
 func init() {
-	if err := view.Register(&view.View{Measure: invalidOutboundListeners, Aggregation: view.LastValue()}); err != nil {
-		panic(err)
-	}
+	monitoring.MustRegisterViews(invalidOutboundListeners)
 }
 
 // ListenersALPNProtocols denotes the the list of ALPN protocols that the listener
@@ -636,7 +632,7 @@ func protocolName(p model.Protocol) string {
 }
 
 type outboundListenerConflict struct {
-	metric          *model.PushMetric
+	metric          monitoring.Metric
 	node            *model.Proxy
 	listenerName    string
 	currentProtocol model.Protocol
@@ -901,12 +897,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	// Now validate all the listeners. Collate the tcp listeners first and then the HTTP listeners
 	// TODO: This is going to be bad for caching as the order of listeners in tcpListeners or httpListeners is not
 	// guaranteed.
-	invalid := 0
+	invalid := 0.0
 	for name, l := range listenerMap {
 		if err := l.listener.Validate(); err != nil {
 			log.Warnf("buildSidecarOutboundListeners: error validating listener %s (type %v): %v", name, l.servicePort.Protocol, err)
 			invalid++
-			stats.Record(context.Background(), invalidOutboundListeners.M(int64(invalid)))
+			invalidOutboundListeners.Record(invalid)
 			continue
 		}
 		if l.servicePort.Protocol.IsTCP() {

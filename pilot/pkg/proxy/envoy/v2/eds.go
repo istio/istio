@@ -341,7 +341,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 			push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
 			adsLog.Debugf("EDS: Cluster %q (host:%s ports:%v labels:%v) has no instances", clusterName, hostname, port, labels)
 		}
-		edsInstances.WithTags(tag.Upsert(clusterTag, clusterName)).Record(int64(len(instances)))
+		edsInstances.WithTags(tag.Upsert(clusterTag, clusterName)).Record(float64(len(instances)))
 		locEps = localityLbEndpointsFromInstances(instances)
 	}
 
@@ -965,7 +965,7 @@ func buildLocalityLbEndpointsFromShards(
 	if len(locEps) == 0 {
 		push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
 	}
-	edsInstances.WithTags(tag.Upsert(clusterTag, clusterName)).Record(int64(len(locEps)))
+	edsInstances.WithTags(tag.Upsert(clusterTag, clusterName)).Record(float64(len(locEps)))
 
 	return locEps
 }

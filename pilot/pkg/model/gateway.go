@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"strings"
 
-	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -48,29 +47,17 @@ type MergedGateway struct {
 }
 
 var (
-	typeTag, typeTagErr = tag.NewKey("type")
-	nameTag, nameTagErr = tag.NewKey("name")
+	typeTag = monitoring.MustCreateTagKey("type")
+	nameTag = monitoring.MustCreateTagKey("name")
 
-	totalRejectedConfigs, totalRejectedConfigsView = monitoring.NewInt64AndView(
-		"pilot_total_rejected_configs",
-		"Total number of configs that Pilot had to reject or ignore.",
-		view.Sum(),
+	totalRejectedConfigs = monitoring.NewSum(
+		monitoring.MetricOpts{"pilot_total_rejected_configs", "Total number of configs that Pilot had to reject or ignore."},
 		typeTag, nameTag,
 	)
 )
 
 func init() {
-	if typeTagErr != nil {
-		panic(typeTagErr)
-	}
-
-	if nameTagErr != nil {
-		panic(nameTagErr)
-	}
-
-	if err := view.Register(totalRejectedConfigsView); err != nil {
-		panic(err)
-	}
+	monitoring.MustRegisterViews(totalRejectedConfigs)
 }
 
 func recordRejectedConfig(gateway string) {

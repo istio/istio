@@ -22,7 +22,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -52,22 +51,18 @@ type cacheHandler struct {
 }
 
 var (
-	typeTag, typeTagErr   = tag.NewKey("type")
-	eventTag, eventTagErr = tag.NewKey("event")
-	nameTag, nameTagErr   = tag.NewKey("name")
+	typeTag  = monitoring.MustCreateTagKey("type")
+	eventTag = monitoring.MustCreateTagKey("event")
+	nameTag  = monitoring.MustCreateTagKey("name")
 
 	// experiment on getting some monitoring on config errors.
-	k8sEvents, k8sEventsView = monitoring.NewInt64AndView(
-		"pilot_k8s_cfg_events",
-		"Events from k8s config.",
-		view.Sum(),
+	k8sEvents = monitoring.NewSum(
+		monitoring.MetricOpts{"pilot_k8s_cfg_events", "Events from k8s config."},
 		typeTag, eventTag,
 	)
 
-	k8sErrors, k8sErrorsView = monitoring.NewInt64AndView(
-		"pilot_k8s_object_errors",
-		"Errors converting k8s CRDs",
-		view.LastValue(),
+	k8sErrors = monitoring.NewGauge(
+		monitoring.MetricOpts{"pilot_k8s_object_errors", "Errors converting k8s CRDs"},
 		typeTag, eventTag,
 	)
 
@@ -77,22 +72,7 @@ var (
 )
 
 func init() {
-
-	if typeTagErr != nil {
-		panic(typeTagErr)
-	}
-
-	if nameTagErr != nil {
-		panic(nameTagErr)
-	}
-
-	if eventTagErr != nil {
-		panic(eventTagErr)
-	}
-
-	if err := view.Register(k8sEventsView, k8sErrorsView); err != nil {
-		panic(err)
-	}
+	monitoring.MustRegisterViews(k8sEvents, k8sErrors)
 }
 
 // NewController creates a new Kubernetes controller for CRDs
