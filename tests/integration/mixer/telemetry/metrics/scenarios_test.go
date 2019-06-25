@@ -180,7 +180,7 @@ func TestTcpMetric(t *testing.T) {
 				bookinfo.NetworkingTCPDbRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 			)
 			defer g.DeleteConfigOrFail(
-        t,
+				t,
 				bookinfoNs,
 				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 				bookinfo.NetworkingTCPDbRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
