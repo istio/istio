@@ -32,7 +32,7 @@ import (
 	"strings"
 
 	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
-	policyproto "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
+	policyproto "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
