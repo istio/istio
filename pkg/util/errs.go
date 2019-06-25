@@ -92,7 +92,6 @@ func ToString(errors []error) string {
 // EqualErrors reports whether a and b are equal, regardless of ordering.
 func EqualErrors(a, b Errors) bool {
 	if len(a) != len(b) {
-		fmt.Printf("%d != %d\n", len(a), len(b))
 		return false
 	}
 	m := make(map[string]bool)
