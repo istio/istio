@@ -174,10 +174,10 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 			MaxConnectionAgeGrace: a.KeepAlive.MaxServerConnectionAgeGrace,
 		}),
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
-			MinTime: time.Minute,
+			MinTime:             time.Minute,
 			PermitWithoutStream: true,
 		}),
-		)
+	)
 
 	s.stopCh = make(chan struct{})
 	var checker source.AuthChecker = server.NewAllowAllChecker()
