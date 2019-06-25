@@ -222,15 +222,15 @@ function create_charts() {
   # Prepare helm setup
   mkdir -vp "${HELM_DIR}"
   HELM="helm --home ${HELM_DIR}"
-  "${HELM}" init --client-only
+  ${HELM} init --client-only
 
   # Create a package for each charts and build the repo index.
   mkdir -vp "${HELM_BUILD_DIR}"
   for CHART_PATH in "${CHARTS[@]}"
   do
-      $HELM package "${CHART_PATH}" -d "${HELM_BUILD_DIR}"
+      ${HELM} package "${CHART_PATH}" -d "${HELM_BUILD_DIR}"
   done
 
-  "${HELM}" repo index "${HELM_BUILD_DIR}"
+  ${HELM} repo index "${HELM_BUILD_DIR}"
 }
 

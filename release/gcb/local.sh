@@ -23,9 +23,8 @@ export GOPATH
 echo "gopath is $GOPATH"
 
 CURRENT_BRANCH=$(git symbolic-ref --short HEAD)
-BRANCH=${BRANCH:-$CURRENT_BRANCH}
-export BRANCH
-export CB_VERIFY_CONSISTENCY=true
+CNI_BRANCH=${CNI_BRANCH:-$CURRENT_BRANCH}
+export CB_VERIFY_CONSISTENCY=${VERIFY_CONSISTENCY:-true}
 echo "Delete old builds"
 rm -rf "${artifacts}" || echo
 mkdir -p "${artifacts}"
@@ -37,7 +36,7 @@ popd || return
 
 pushd "${ROOT}" || exit
   create_manifest_check_consistency "${artifacts}/manifest.txt"
-  make_istio "${artifacts}" "${DOCKER_HUB}" "${DOCKER_HUB}" "${NEW_VERSION}" "${BRANCH}"
+  make_istio "${artifacts}" "${DOCKER_HUB}" "${DOCKER_HUB}" "${NEW_VERSION}" "${CNI_BRANCH}"
 popd || return
 
 docker_tag_images  "${DOCKER_HUB}" "${NEW_VERSION}" "${artifacts}"
@@ -48,7 +47,7 @@ pushd "${artifacts}" || exit
 popd || exit
 
 pushd "${artifacts}" || exit
-  create_charts "${NEW_VERSION}" "${artifacts}" "${artifacts}"/helm "${artifacts}"/charts "${BRANCH}" "${DOCKER_HUB}"
+  create_charts "${NEW_VERSION}" "${artifacts}" "${artifacts}"/helm "${artifacts}"/charts "${CNI_BRANCH}" "${DOCKER_HUB}"
   rm -r "${artifacts}"/helm 
   rm -rf "${artifacts}"/cni
   rm -r "${artifacts}"/istio
