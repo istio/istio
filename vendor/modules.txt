@@ -716,7 +716,7 @@ gopkg.in/square/go-jose.v2/cipher
 gopkg.in/stack.v1
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
-# istio.io/api v0.0.0-20190624184750-868535377704
+# istio.io/api v0.0.0-20190624184750-868535377704 => github.com/dgn/api v0.0.0-20190625120522-901f17fefb6e
 istio.io/api/mesh/v1alpha1
 istio.io/api/authentication/v1alpha1
 istio.io/api/mixer/v1/config/client
