@@ -59,10 +59,10 @@ var (
 	}
 
 	fakeSecretRootCert = &model.SecretItem{
-		RootCert:     fakeRootCert,
-		CRL:          fakeCRL,
-		ResourceName: cache.RootCertReqResourceName,
-		Version:      time.Now().String(),
+		RootCert:                  fakeRootCert,
+		CertificateRevocationList: fakeCRL,
+		ResourceName:              cache.RootCertReqResourceName,
+		Version:                   time.Now().String(),
 	}
 )
 

@@ -404,12 +404,12 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 				var newSecret *model.SecretItem
 				if strings.HasSuffix(secretName, secretfetcher.IngressGatewaySdsCaSuffix) {
 					newSecret = &model.SecretItem{
-						ResourceName: secretName,
-						RootCert:     ns.RootCert,
-						CRL:          ns.CRL,
-						Token:        oldSecret.Token,
-						CreatedTime:  ns.CreatedTime,
-						Version:      ns.Version,
+						ResourceName:              secretName,
+						RootCert:                  ns.RootCert,
+						CertificateRevocationList: ns.CertificateRevocationList,
+						Token:                     oldSecret.Token,
+						CreatedTime:               ns.CreatedTime,
+						Version:                   ns.Version,
 					}
 				} else {
 					newSecret = &model.SecretItem{
@@ -557,13 +557,13 @@ func (sc *SecretCache) generateGatewaySecret(token, resourceName string, t time.
 				resourceName, err)
 		}
 		return &model.SecretItem{
-			ResourceName: resourceName,
-			RootCert:     secretItem.RootCert,
-			CRL:          secretItem.CRL,
-			ExpireTime:   certExpireTime,
-			Token:        token,
-			CreatedTime:  t,
-			Version:      t.String(),
+			ResourceName:              resourceName,
+			RootCert:                  secretItem.RootCert,
+			CertificateRevocationList: secretItem.CertificateRevocationList,
+			ExpireTime:                certExpireTime,
+			Token:                     token,
+			CreatedTime:               t,
+			Version:                   t.String(),
 		}, nil
 	}
 	certExpireTime, err := parseCertAndGetExpiryTimestamp(secretItem.CertificateChain)
