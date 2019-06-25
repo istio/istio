@@ -15,9 +15,10 @@
 package file_mount_citadel_flow
 
 import (
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 
 	"istio.io/istio/tests/integration/security/util"
 
@@ -35,45 +36,46 @@ import (
 func TestFileMountCitadelCaFlow(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
-			Run(func(ctx framework.TestContext) {
+		Run(func(ctx framework.TestContext) {
 
-				istioCfg := istio.DefaultConfigOrFail(t, ctx)
+			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 
-				namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-				ns := namespace.NewOrFail(t, ctx, "file-mount-citadel-flow", true)
+			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+			ns := namespace.NewOrFail(t, ctx, "file-mount-citadel-flow", true)
 
-				var a, b echo.Instance
-				echoboot.NewBuilderOrFail(t, ctx).
-					With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
-					With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
-					BuildOrFail(t)
+			var a, b echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				BuildOrFail(t)
 
-				checkers := []connection.Checker{
-					{
-						From: a,
-						Options: echo.CallOptions{
-							Target:   b,
-							PortName: "http",
-							Scheme:   scheme.HTTP,
-						},
-						ExpectSuccess: true,
+			checkers := []connection.Checker{
+				{
+					From: a,
+					Options: echo.CallOptions{
+						Target:   b,
+						PortName: "http",
+						Scheme:   scheme.HTTP,
 					},
-				}
+					ExpectSuccess: true,
+				},
+			}
 
-				// Sleep 10 seconds for the policy to take effect.
-				time.Sleep(10 * time.Second)
+			// Sleep 10 seconds for the policy to take effect.
+			time.Sleep(10 * time.Second)
 
-				for _, checker := range checkers {
-					retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
-				}
+			for _, checker := range checkers {
+				retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
+			}
 
-				// Verify that Citadel Agent is not deployed.
-				env := ctx.Environment().(*kube.Environment)
-				pods, err := env.GetPods(ns.Name(), "istio=nodeagent")
-				if err != nil {
-					t.Logf("pod size: %d, show error: %v", len(pods), err)
-				} else {
-					t.Logf("pod size: %d", len(pods))
-				}
-			})
+			// Verify that Citadel Agent is not deployed.
+			env := ctx.Environment().(*kube.Environment)
+			pods, err := env.GetPods(ns.Name(), "istio=nodeagent")
+			if err != nil {
+				t.Errorf("fail to get pods for Citadel Agent: %v", err)
+			}
+			if len(pods) > 0 {
+				t.Errorf("unexpected Citadel Agent pods are deployed. Number of pods: %d", len(pods))
+			}
+		})
 }
