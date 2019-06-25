@@ -104,7 +104,10 @@ var (
 
 func getDefaultIstioTop() string {
 	// Assume it is run inside istio.io/istio
-	current, _ := os.Getwd()
+	current, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
 	idx := strings.Index(current, "/src/istio.io/istio")
 	if idx > 0 {
 		return current[0:idx]

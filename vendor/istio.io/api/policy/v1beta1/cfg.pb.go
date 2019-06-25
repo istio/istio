@@ -306,7 +306,7 @@ type Rule struct {
 	//
 	// * an empty match evaluates to `true`
 	// * `true`, a boolean literal; a rule with this match will always be executed
-	// * `match(destination.service.host, "ratings.*)` selects any request targeting a service whose
+	// * `match(destination.service.host, "ratings.*")` selects any request targeting a service whose
 	// name starts with "ratings"
 	// * `attr1 == "20" && attr2 == "30"` logical AND, OR, and NOT are also available
 	Match string `protobuf:"bytes,1,opt,name=match,proto3" json:"match,omitempty"`

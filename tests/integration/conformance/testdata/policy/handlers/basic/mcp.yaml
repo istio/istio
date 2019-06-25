@@ -1,0 +1,40 @@
+constraints:
+  - collection: istio/policy/v1beta1/handlers
+    check:
+      - exactlyOne:
+          - equals: {
+            "Body": {
+              "compiled_adapter": "listchecker",
+              "params": {
+                "fields": {
+                  "blacklist": {
+                    "Kind": {
+                      "BoolValue": false
+                    }
+                  },
+                  "overrides": {
+                    "Kind": {
+                      "ListValue": {
+                        "values": [
+                        {
+                          "Kind": {
+                            "StringValue": "v1"
+                          }
+                        },
+                        {
+                          "Kind": {
+                            "StringValue": "v2"
+                          }
+                        }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "Metadata": {
+              "name": "{{.Namespace}}/staticversion"
+            },
+            "TypeURL": "type.googleapis.com/istio.policy.v1beta1.Handler"
+          }

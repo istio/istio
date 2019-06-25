@@ -98,7 +98,7 @@ docker.proxy_debug: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxy_debug: tools/packaging/common/envoy_bootstrap_drain.json
 docker.proxy_debug: install/gcp/bootstrap/gcp_envoy_bootstrap.json
 docker.proxy_debug: $(ISTIO_DOCKER)/ca-certificates.tgz
-docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
+docker.proxy_debug: ${ISTIO_ENVOY_LINUX_DEBUG_PATH}
 docker.proxy_debug: $(ISTIO_OUT)/pilot-agent
 docker.proxy_debug: pilot/docker/Dockerfile.proxyv2
 docker.proxy_debug: pilot/docker/envoy_pilot.yaml.tmpl
@@ -107,9 +107,9 @@ docker.proxy_debug: pilot/docker/envoy_telemetry.yaml.tmpl
 	$(DOCKER_RULE)
 
 # The file must be named 'envoy', depends on the release.
-${ISTIO_ENVOY_RELEASE_DIR}/envoy: ${ISTIO_ENVOY_RELEASE_PATH}
+${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy: ${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
-	cp ${ISTIO_ENVOY_RELEASE_PATH} ${ISTIO_ENVOY_RELEASE_DIR}/envoy
+	cp ${ISTIO_ENVOY_LINUX_RELEASE_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy
 
 # Default proxy image.
 docker.proxyv2: BUILD_PRE=chmod 755 envoy pilot-agent &&
@@ -118,7 +118,7 @@ docker.proxyv2: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_drain.json
 docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
 docker.proxyv2: $(ISTIO_DOCKER)/ca-certificates.tgz
-docker.proxyv2: $(ISTIO_ENVOY_RELEASE_DIR)/envoy
+docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
 docker.proxyv2: $(ISTIO_OUT)/pilot-agent
 docker.proxyv2: pilot/docker/Dockerfile.proxyv2
 docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
@@ -133,7 +133,7 @@ docker.proxytproxy: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxytproxy: tools/packaging/common/envoy_bootstrap_drain.json
 docker.proxytproxy: install/gcp/bootstrap/gcp_envoy_bootstrap.json
 docker.proxytproxy: $(ISTIO_DOCKER)/ca-certificates.tgz
-docker.proxytproxy: $(ISTIO_ENVOY_RELEASE_DIR)/envoy
+docker.proxytproxy: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
 docker.proxytproxy: $(ISTIO_OUT)/pilot-agent
 docker.proxytproxy: pilot/docker/Dockerfile.proxytproxy
 docker.proxytproxy: pilot/docker/envoy_pilot.yaml.tmpl
@@ -228,8 +228,8 @@ docker.node-agent-test: $(ISTIO_DOCKER)/node_agent.key
 # 4. This rule runs $(BUILD_PRE) prior to any docker build and only if specified as a dependency variable
 # 5. This rule finally runs docker build passing $(BUILD_ARGS) to docker if they are specified as a dependency variable
 
-# DOCKER_BUILD_VARIANTS:=default distroless
-DOCKER_BUILD_VARIANTS:=default
+# DOCKER_BUILD_VARIANTS ?=default distroless
+DOCKER_BUILD_VARIANTS ?=default
 DEFAULT_DISTRIBUTION=default
 DOCKER_RULE=$(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp -r $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ && $(BUILD_PRE) docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(VARIANT) -t $(HUB)/$(subst docker.,,$@):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
 
@@ -243,9 +243,16 @@ docker.all: $(DOCKER_TARGETS)
 
 # create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix
 DOCKER_TAR_TARGETS:=
-$(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT) | $(ISTIO_DOCKER_TAR) ; \
-   time (docker save -o ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT)).tar $(HUB)/$(subst docker.,,$(TGT)):$(TAG) && \
-         gzip ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT)).tar)))
+$(foreach TGT,$(filter-out docker.app,$(DOCKER_TARGETS)),$(eval tar.$(TGT): $(TGT) | $(ISTIO_DOCKER_TAR) ; \
+         $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time ( \
+		     docker save -o ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(subst -$(DEFAULT_DISTRIBUTION),,-$(VARIANT)).tar $(HUB)/$(subst docker.,,$(TGT)):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) && \
+             gzip ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(subst -$(DEFAULT_DISTRIBUTION),,-$(VARIANT)).tar \
+			   ); \
+		  )))
+
+tar.docker.app: docker.app | $(ISTIO_DOCKER_TAR)
+	time ( docker save -o ${ISTIO_DOCKER_TAR}/app.tar $(HUB)/app:$(TAG) && \
+             gzip ${ISTIO_DOCKER_TAR}/app.tar )
 
 # create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix DOCKER_TAR_TARGETS:=
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
@@ -262,12 +269,22 @@ $(foreach TGT,$(filter-out docker.app,$(DOCKER_TARGETS)),$(eval push.$(TGT): | $
 push.docker.app: docker.app
 	time (docker push $(HUB)/app:$(TAG))
 
+define run_vulnerability_scanning
+        $(eval RESULTS_DIR := vulnerability_scan_results)
+        $(eval CURL_RESPONSE := $(shell curl -s --create-dirs -o $(RESULTS_DIR)/$(1) -w "%{http_code}" http://imagescanner.cloud.ibm.com/scan?image="docker.io/$(2)")) \
+        $(if $(filter $(CURL_RESPONSE), 200), (mv $(RESULTS_DIR)/$(1) $(RESULTS_DIR)/$(1).json))
+endef
+
 # create a DOCKER_PUSH_TARGETS that's each of DOCKER_TARGETS with a push. prefix
 DOCKER_PUSH_TARGETS:=
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 
 # Will build and push docker images.
 docker.push: $(DOCKER_PUSH_TARGETS)
+
+# Scan images for security vulnerabilities using the ImageScanner tool
+docker.scan_images: $(DOCKER_PUSH_TARGETS)
+	$(foreach TGT,$(DOCKER_TARGETS),$(call run_vulnerability_scanning,$(subst docker.,,$(TGT)),$(HUB)/$(subst docker.,,$(TGT)):$(TAG)))
 
 # Base image for 'debug' containers.
 # You can run it first to use local changes (or guarantee it is built from scratch)
@@ -289,3 +306,40 @@ docker.basedebug_deb:
 # Job run from the nightly cron to publish an up-to-date xenial with the debug tools.
 docker.push.basedebug: docker.basedebug
 	docker push istionightly/base_debug:latest
+
+# Build a dev environment Docker image.
+DEV_IMAGE_NAME = istio/dev:$(USER)
+DEV_CONTAINER_NAME = istio-dev
+DEV_GO_VERSION = 1.12.5
+tools/docker-dev/image-built: tools/docker-dev/Dockerfile
+	@echo "building \"$(DEV_IMAGE_NAME)\" Docker image"
+	@docker build \
+		--build-arg goversion="$(DEV_GO_VERSION)" \
+		--build-arg user="${shell id -un}" \
+		--build-arg group="${shell id -gn}" \
+		--build-arg uid="${shell id -u}" \
+		--build-arg gid="${shell id -g}" \
+		--tag "$(DEV_IMAGE_NAME)" - < tools/docker-dev/Dockerfile
+	@touch $@
+
+# Start a dev environment Docker container.
+.PHONY = dev-shell clean-dev-shell
+dev-shell: tools/docker-dev/image-built
+	@if test -z "$(shell docker ps -a -q -f name=$(DEV_CONTAINER_NAME))"; then \
+	    echo "starting \"$(DEV_CONTAINER_NAME)\" Docker container"; \
+		docker run --detach \
+			--name "$(DEV_CONTAINER_NAME)" \
+			--volume "$(GOPATH):/home/$(USER)/go:consistent" \
+			--volume "$(HOME)/.config/gcloud:/home/$(USER)/.config/gcloud:cached" \
+			--volume "$(HOME)/.kube:/home/$(USER)/.kube:cached" \
+			--volume /var/run/docker.sock:/var/run/docker.sock \
+			"$(DEV_IMAGE_NAME)" \
+			'while true; do sleep 60; done';  fi
+	@echo "executing shell in \"$(DEV_CONTAINER_NAME)\" Docker container"
+	@docker exec --tty --interactive "$(DEV_CONTAINER_NAME)" /bin/bash
+
+clean-dev-shell:
+	docker rm -f "$(DEV_CONTAINER_NAME)" || true
+	if test -n "$(shell docker images -q $(DEV_IMAGE_NAME))"; then \
+		docker rmi -f "$(shell docker images -q $(DEV_IMAGE_NAME))" || true; fi
+	rm -f tools/docker-dev/image-built

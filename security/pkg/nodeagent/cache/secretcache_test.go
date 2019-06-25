@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -205,7 +206,12 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 	testConnID := "proxy1-id"
 	_, err := sc.GenerateSecret(context.Background(), testConnID, testResourceName, "jwtToken1")
 	if err != nil {
-		t.Fatalf("Failed to get secrets: %v", err)
+		t.Fatalf("Failed to get secrets for %q: %v", testConnID, err)
+	}
+
+	for i := 0; i < 10; i++ {
+		id := "proxy-id" + strconv.Itoa(i)
+		sc.GenerateSecret(context.Background(), id, testResourceName, "jwtToken1")
 	}
 
 	// Wait until key rotation job run to update cached secret.

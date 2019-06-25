@@ -31,7 +31,9 @@ const (
 
 func randomBase64String(length int) string {
 	buff := make([]byte, length)
-	_, _ = rand.Read(buff)
+	if _, err := rand.Read(buff); err != nil {
+		panic(err)
+	}
 	str := base64.URLEncoding.EncodeToString(buff)
 	return str[:length]
 }
@@ -58,6 +60,9 @@ func pb2Json(pb proto.Message) string {
 	m := jsonpb.Marshaler{
 		Indent: "  ",
 	}
-	str, _ := m.MarshalToString(pb)
+	str, err := m.MarshalToString(pb)
+	if err != nil {
+		panic(err)
+	}
 	return str
 }

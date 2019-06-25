@@ -77,9 +77,8 @@ func VisitProductPage(ing ingress.Instance, timeout time.Duration, wantStatus in
 	}
 }
 
-func ValidateMetric(t *testing.T, prometheus prometheus.Instance, query, metricName string) {
+func ValidateMetric(t *testing.T, prometheus prometheus.Instance, query, metricName string, want float64) {
 	got, err := getMetric(t, prometheus, query, metricName)
-	want := float64(1)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
