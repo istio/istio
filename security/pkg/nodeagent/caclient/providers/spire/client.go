@@ -32,8 +32,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
+	spireNode "github.com/spiffe/spire/proto/spire/api/node"
+	spireCommon "github.com/spiffe/spire/proto/spire/common"
+
 	clientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
-	spireIntegration "istio.io/istio/security/proto/providers/spire"
 	"istio.io/pkg/log"
 )
 
@@ -46,7 +48,7 @@ type spireClient struct {
 	serverAddr  string
 	trustDomain string
 
-	client       spireIntegration.NodeClient
+	client       spireNode.NodeClient
 	clientConn   *grpc.ClientConn
 	latestBundle string
 	mutex        *sync.Mutex
@@ -86,7 +88,7 @@ func (c *spireClient) CSRSign(ctx context.Context, csrPEM []byte, token string,
 		log.Errorf("Failed to parse attestable SPIRE data %v", err)
 		return nil, errors.New("failed to parse attestable SPIRE data")
 	}
-	attestationData := &spireIntegration.AttestationData{
+	attestationData := &spireCommon.AttestationData{
 		Data: data,
 		Type: "istio",
 	}
@@ -107,7 +109,7 @@ func (c *spireClient) CSRSign(ctx context.Context, csrPEM []byte, token string,
 		return nil, errors.New("spiffe id from CSR is not valid")
 	}
 
-	attestReq := &spireIntegration.AttestRequest{
+	attestReq := &spireNode.AttestRequest{
 		Csr:             certRequest.Raw,
 		AttestationData: attestationData,
 	}
@@ -283,7 +285,7 @@ func (c *spireClient) createNodeClient(bundle []byte) error {
 	}
 
 	c.clientConn = conn
-	c.client = spireIntegration.NewNodeClient(conn)
+	c.client = spireNode.NewNodeClient(conn)
 
 	return nil
 }

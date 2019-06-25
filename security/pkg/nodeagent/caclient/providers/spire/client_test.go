@@ -36,7 +36,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	spireIntegration "istio.io/istio/security/proto/providers/spire"
+	spireNode "github.com/spiffe/spire/proto/spire/api/node"
+	spireCommon "github.com/spiffe/spire/proto/spire/common"
 )
 
 const (
@@ -487,8 +488,23 @@ type mockSpireNodeServer struct {
 	TrustDomain string
 }
 
+func (s mockSpireNodeServer) FetchX509SVID(spireNode.Node_FetchX509SVIDServer) error {
+	return nil
+}
+
+func (s mockSpireNodeServer) FetchJWTSVID(context.Context,
+	*spireNode.FetchJWTSVIDRequest) (*spireNode.FetchJWTSVIDResponse, error) {
+	return &spireNode.FetchJWTSVIDResponse{}, nil
+}
+
+func (s mockSpireNodeServer) FetchX509CASVID(context.Context,
+	*spireNode.FetchX509CASVIDRequest) (*spireNode.FetchX509CASVIDResponse, error) {
+
+	return &spireNode.FetchX509CASVIDResponse{}, nil
+}
+
 // Attest mock attestation logic to verify attestation requests
-func (s mockSpireNodeServer) Attest(stream spireIntegration.Node_AttestServer) error {
+func (s mockSpireNodeServer) Attest(stream spireNode.Node_AttestServer) error {
 	if s.CertSpiffeID == "" {
 		s.CertSpiffeID = defaultCertificateSpiffeID
 	}
@@ -516,28 +532,28 @@ func (s mockSpireNodeServer) Attest(stream spireIntegration.Node_AttestServer) e
 		return fmt.Errorf("could not unmarshal istio attested data: %v", err)
 	}
 
-	svids := make(map[string]*spireIntegration.X509SVID)
+	svids := make(map[string]*spireNode.X509SVID)
 	for _, svid := range s.Svids {
 
-		svids[s.CertSpiffeID] = &spireIntegration.X509SVID{
+		svids[s.CertSpiffeID] = &spireNode.X509SVID{
 			CertChain: svid,
 		}
 	}
 
-	bundles := make(map[string]*spireIntegration.Bundle)
+	bundles := make(map[string]*spireCommon.Bundle)
 	if len(s.CAs) > 0 {
-		var roots []*spireIntegration.Certificate
+		var roots []*spireCommon.Certificate
 		for _, ca := range s.CAs {
-			roots = append(roots, &spireIntegration.Certificate{DerBytes: ca})
+			roots = append(roots, &spireCommon.Certificate{DerBytes: ca})
 		}
 
-		bundles[s.TrustDomain] = &spireIntegration.Bundle{
+		bundles[s.TrustDomain] = &spireCommon.Bundle{
 			RootCas: roots,
 		}
 	}
 
-	resp := &spireIntegration.AttestResponse{
-		SvidUpdate: &spireIntegration.X509SVIDUpdate{
+	resp := &spireNode.AttestResponse{
+		SvidUpdate: &spireNode.X509SVIDUpdate{
 			Svids:   svids,
 			Bundles: bundles,
 		},
@@ -572,7 +588,7 @@ func createTestServer(t *testing.T, bootstrapCert *x509.Certificate, cert *x509.
 			ClientAuth: tls.VerifyClientCertIfGiven,
 		})))
 
-	spireIntegration.RegisterNodeServer(s, server)
+	spireNode.RegisterNodeServer(s, server)
 	go s.Serve(lis)
 
 	return s, lis.Addr().String()
