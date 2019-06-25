@@ -414,10 +414,22 @@ func (s *server) DeltaAggregatedResources(_ discovery.AggregatedDiscoveryService
 	return errors.New("not implemented")
 }
 
+func (s *server) DeltaEndpoints(_ v2.EndpointDiscoveryService_DeltaEndpointsServer) error {
+	return errors.New("not implemented")
+}
+
 func (s *server) DeltaClusters(_ v2.ClusterDiscoveryService_DeltaClustersServer) error {
 	return errors.New("not implemented")
 }
 
 func (s *server) DeltaRoutes(_ v2.RouteDiscoveryService_DeltaRoutesServer) error {
+	return errors.New("not implemented")
+}
+
+func (s *server) DeltaListeners(_ v2.ListenerDiscoveryService_DeltaListenersServer) error {
+	return errors.New("not implemented")
+}
+
+func (s *server) DeltaSecrets(_ discovery.SecretDiscoveryService_DeltaSecretsServer) error {
 	return errors.New("not implemented")
 }

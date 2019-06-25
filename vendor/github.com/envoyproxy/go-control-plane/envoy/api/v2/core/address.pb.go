@@ -121,10 +121,11 @@ type SocketAddress struct {
 	//	*SocketAddress_PortValue
 	//	*SocketAddress_NamedPort
 	PortSpecifier isSocketAddress_PortSpecifier `protobuf_oneof:"port_specifier"`
-	// The name of the resolver. This must have been registered with Envoy. If this is
-	// empty, a context dependent default applies. If address is a hostname this
-	// should be set for resolution other than DNS. If the address is a concrete
-	// IP address, no resolution will occur.
+	// The name of the custom resolver. This must have been registered with Envoy. If
+	// this is empty, a context dependent default applies. If the address is a concrete
+	// IP address, no resolution will occur. If address is a hostname this
+	// should be set for resolution other than DNS. Specifying a custom resolver with
+	// *STRICT_DNS* or *LOGICAL_DNS* will generate an error at runtime.
 	ResolverName string `protobuf:"bytes,5,opt,name=resolver_name,json=resolverName,proto3" json:"resolver_name,omitempty"`
 	// When binding to an IPv6 address above, this enables `IPv4 compatibility
 	// <https://tools.ietf.org/html/rfc3493#page-11>`_. Binding to ``::`` will
