@@ -84,13 +84,13 @@ func mockCreateInterfaceFromClusterConfig(_ *clientcmdapi.Config) (kubernetes.In
 
 func verifyControllerDeleted(t *testing.T, timeoutName string) {
 	pkgtest.NewEventualOpts(10*time.Millisecond, 5*time.Second).Eventually(t, timeoutName, func() bool {
-		return atomic.AddInt32(&testDeleteControllerCalled, 0) == 1
+		return atomic.LoadInt32(&testDeleteControllerCalled) == 1
 	})
 }
 
 func verifyControllerCreated(t *testing.T, timeoutName string) {
 	pkgtest.NewEventualOpts(10*time.Millisecond, 5*time.Second).Eventually(t, timeoutName, func() bool {
-		return atomic.AddInt32(&testCreateControllerCalled, 0) == 1
+		return atomic.LoadInt32(&testCreateControllerCalled) == 1
 	})
 }
 
@@ -117,7 +117,7 @@ func Test_SecretController(t *testing.T) {
 
 	verifyControllerCreated(t, "Create remote secret controller")
 
-	if atomic.AddInt32(&testDeleteControllerCalled, 0) == 1 {
+	if atomic.LoadInt32(&testDeleteControllerCalled) == 1 {
 		t.Fatalf("Test failed on create secret, delete callback function called")
 	}
 
@@ -134,7 +134,7 @@ func Test_SecretController(t *testing.T) {
 	verifyControllerDeleted(t, "delete remote secret controller")
 
 	// Test
-	if atomic.AddInt32(&testCreateControllerCalled, 0) == 1 {
+	if atomic.LoadInt32(&testCreateControllerCalled) == 1 {
 		t.Fatalf("Test failed on delete secret, create callback function called")
 	}
 }
