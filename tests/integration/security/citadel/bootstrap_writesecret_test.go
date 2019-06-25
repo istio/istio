@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/label"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework"
@@ -42,7 +43,9 @@ const (
 // it should not generate a new cert and overwrite the existing secret. Instead, the Citadel pod should
 // immediately exit with error.
 func TestCitadelBootstrapKubernetes(t *testing.T) {
-	framework.NewTest(t).Run(func(ctx framework.TestContext) {
+	framework.NewTest(t).
+		Label(label.CustomSetup). // test depends on the clusterrole name being "istio-citadel-istio-system"
+		Run(func(ctx framework.TestContext) {
 		ns := namespace.ClaimOrFail(t, ctx, ist.Settings().IstioNamespace)
 		namespaceTmpl := map[string]string{
 			"Namespace": ns.Name(),
