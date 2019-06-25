@@ -183,7 +183,7 @@ func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	_, _ = w.Write([]byte("OK"))
 	log.Infof("handling %s, and notify pilot-agent to exit", quitPath)
 	notifyExit()
 }
