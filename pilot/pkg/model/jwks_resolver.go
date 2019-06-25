@@ -152,26 +152,37 @@ func NewJwksResolver(evictionDuration, refreshInterval time.Duration) *JwksResol
 		},
 	}
 
-	caCert, err := ioutil.ReadFile(publicRootCABundlePath)
-	if err == nil {
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
-		ret.secureHTTPClient = &http.Client{
-			Timeout: jwksHTTPTimeOutInSec * time.Second,
-			Transport: &http.Transport{
-				DisableKeepAlives: true,
-				TLSClientConfig: &tls.Config{
-					RootCAs: caCertPool,
-				},
-			},
-		}
-	}
-
 	atomic.StoreUint64(&ret.refreshJobKeyChangedCount, 0)
 	atomic.StoreUint64(&ret.refreshJobFetchFailedCount, 0)
 	go ret.refresher()
 
 	return ret
+}
+
+func (r *JwksResolver) InitializeSecureClient(usePublicRootCABundle bool, customRootCA string) {
+	caCertPool := x509.NewCertPool()
+	if usePublicRootCABundle {
+		caCert, err := ioutil.ReadFile(publicRootCABundlePath)
+		if err == nil {
+			if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
+				log.Warnf("Failed to read public RootCA bundle from file %v", publicRootCABundlePath)
+			}
+		}
+	}
+	if customRootCA != "" {
+		if ok := caCertPool.AppendCertsFromPEM([]byte(customRootCA)); !ok {
+			log.Warnf("Failed to read custom CA PEM from mesh config")
+		}
+	}
+	r.secureHTTPClient = &http.Client{
+		Timeout: jwksHTTPTimeOutInSec * time.Second,
+		Transport: &http.Transport{
+			DisableKeepAlives: true,
+			TLSClientConfig: &tls.Config{
+				RootCAs: caCertPool,
+			},
+		},
+	}
 }
 
 // Set jwks_uri through openID discovery if it's not set in auth policy.
