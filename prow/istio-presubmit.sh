@@ -42,5 +42,5 @@ if [[ -n $(git diff) ]]; then
 fi
 
 # Upload images - needed by the subsequent tests
-time ISTIO_DOCKER_HUB="gcr.io/istio-testing" make push HUB="gcr.io/istio-testing" TAG="${GIT_SHA}" DOCKER_BUILD_VARIANTS="default distroless"
+time ISTIO_DOCKER_HUB="gcr.io/istio-testing" make push HUB="gcr.io/istio-testing" TAG="${GIT_SHA}"
 

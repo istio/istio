@@ -43,7 +43,6 @@ export PILOT_CLUSTER="${PILOT_CLUSTER:-}"
 export USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
 export CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 export HUB=${HUB:-"gcr.io/istio-testing"}
-
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 if [[ $HUB == *"istio-testing"* ]]; then
@@ -78,7 +77,7 @@ make init
 
 if [[ $HUB == *"istio-testing"* ]]; then
   # upload images
-  time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}"
+  time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}" DOCKER_BUILD_VARIANTS="${VARIANT:-default}"
 fi
 
 setup_e2e_cluster
