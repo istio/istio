@@ -68,8 +68,8 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["nodeagent.env.CA_PROVIDER"] = "Citadel"
 	cfg.Values["nodeagent.env.CA_ADDR"] = "istio-citadel:8060"
 	cfg.Values["nodeagent.env.VALID_TOKEN"] = "true"
-	// Disable SDS but keep SDS config flags set, to verify that SDS
-	// is not enabled even those SDS config values are not equal to default ones.
+	// Disable SDS but keep SDS config flags set, to verify that file mount key/certificates are in
+	// use when those SDS config values are set.
 	cfg.Values["global.sds.enabled"] = "false"
 	cfg.Values["global.sds.udsPath"] = "unix:/var/run/sds/uds_path"
 	cfg.Values["global.sds.useNormalJwt"] = "true"
