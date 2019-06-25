@@ -25,7 +25,7 @@ HELM_BUILD_DIR="/workspace/charts"
 # Copy Istio release files to WORK_DIR
 gsutil cp  "gs://${CB_GCS_BUILD_PATH}/istio-${CB_VERSION}-linux.tar.gz" .
 
-create_charts $CB_VERSION $WORK_DIR $HELM_DIR $HELM_BUILD_DIR ${CB_BRANCH} ${CB_DOCKER_HUB}
+create_charts "${CB_VERSION}" "${WORK_DIR}" "${HELM_DIR}" "${HELM_BUILD_DIR}" "${CB_BRANCH}" "${CB_DOCKER_HUB}"
 
 # Copy output to GCS bucket.
 gsutil -qm cp -r "${HELM_BUILD_DIR}/*" "gs://${CB_GCS_BUILD_PATH}/charts/"

@@ -20,6 +20,7 @@
 #shellcheck disable=SC2164
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 # shellcheck source=release/gcb/docker_tag_push_lib.sh
+#shellcheck disable=SC1091
 source "${SCRIPTPATH}/docker_tag_push_lib.sh"
 
 #sets GITHUB_KEYFILE to github auth file
@@ -145,9 +146,9 @@ function make_istio() {
 fix_values_yaml() {
   local VERSION="$1"
   local DOCKER_HUB="$2"
-  update_helm "istio-${VERSION}-linux.tar.gz" ${VERSION} ${DOCKER_HUB}
-  update_helm "istio-${VERSION}-osx.tar.gz" ${VERSION} ${DOCKER_HUB}
-  update_helm "istio-${VERSION}-win.zip" ${VERSION} ${DOCKER_HUB}
+  update_helm "istio-${VERSION}-linux.tar.gz" "${VERSION}" "${DOCKER_HUB}"
+  update_helm "istio-${VERSION}-osx.tar.gz" "${VERSION}" "${DOCKER_HUB}"
+  update_helm "istio-${VERSION}-win.zip" "${VERSION}" "${DOCKER_HUB}"
 }
 
 function update_helm() {
@@ -202,7 +203,7 @@ function create_charts() {
   local BRANCH="$5"
   local DOCKER_HUB="$6"
   tar -zxf "istio-${VERSION}-linux.tar.gz"
-  mkdir -vp "$OUTPUT/istio"
+  mkdir -vp "${OUTPUT}/istio"
   cp -R "./istio-${VERSION}/install" "${OUTPUT}/istio/install"
 
   pushd "$OUTPUT"
@@ -221,15 +222,15 @@ function create_charts() {
   # Prepare helm setup
   mkdir -vp "${HELM_DIR}"
   HELM="helm --home ${HELM_DIR}"
-  $HELM init --client-only
+  "${HELM}" init --client-only
 
   # Create a package for each charts and build the repo index.
   mkdir -vp "${HELM_BUILD_DIR}"
   for CHART_PATH in "${CHARTS[@]}"
   do
-      $HELM package "$CHART_PATH" -d "$HELM_BUILD_DIR"
+      $HELM package "${CHART_PATH}" -d "${HELM_BUILD_DIR}"
   done
 
-  $HELM repo index "$HELM_BUILD_DIR"
+  "${HELM}" repo index "${HELM_BUILD_DIR}"
 }
 

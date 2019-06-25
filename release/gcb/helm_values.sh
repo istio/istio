@@ -22,7 +22,7 @@ cd    modification-tmp || exit 2
 ls -l
 pwd
 
-fix_values_yaml ${CB_VERSION} ${CB_DOCKER_HUB}
+fix_values_yaml "${CB_VERSION}" "${CB_DOCKER_HUB}"
 
 #filename | sha256 hash
 #-------- | -----------

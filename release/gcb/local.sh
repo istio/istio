@@ -44,14 +44,13 @@ docker_tag_images  "${DOCKER_HUB}" "${NEW_VERSION}" "${artifacts}"
 docker_push_images "${DOCKER_HUB}" "${NEW_VERSION}" "${artifacts}"
 
 pushd "${artifacts}" || exit
-  fix_values_yaml ${NEW_VERSION} ${DOCKER_HUB}
+  fix_values_yaml "${NEW_VERSION}" "${DOCKER_HUB}"
 popd || exit
 
-
 pushd "${artifacts}" || exit
-  create_charts $NEW_VERSION $artifacts $artifacts/helm $artifacts/charts ${BRANCH} ${DOCKER_HUB}
-  rm -r $artifacts/helm 
-  rm -rf $artifacts/cni
-  rm -r $artifacts/istio
-  rm -r $artifacts/istio-${NEW_VERSION}
+  create_charts "${NEW_VERSION}" "${artifacts}" "${artifacts}"/helm "${artifacts}"/charts "${BRANCH}" "${DOCKER_HUB}"
+  rm -r "${artifacts}"/helm 
+  rm -rf "${artifacts}"/cni
+  rm -r "${artifacts}"/istio
+  rm -r "${artifacts}"/istio-"${NEW_VERSION}"
 popd || exit
