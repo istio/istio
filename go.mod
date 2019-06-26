@@ -118,6 +118,7 @@ require (
 	github.com/juju/testing v0.0.0-20190429233213-dfc56b8c09fc // indirect
 	github.com/keybase/go-crypto v0.0.0-20190416182011-b785b22cc757 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
+	github.com/lestrrat-go/jwx v0.9.0
 	github.com/lib/pq v1.1.1 // indirect
 	github.com/lukechampine/freeze v0.0.0-20160818180733-f514e08ae5a0
 	github.com/mitchellh/copystructure v1.0.0
