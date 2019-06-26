@@ -25,11 +25,10 @@ import (
 
 type (
 	// Metric collects numerical observations. These observations are aggregated and exported
-	// to OpenCensus views.
+	// to views.
 	Metric interface {
-
-		// Increment records a value of 1 for the current measure. For view.Count and view.Sum
-		// aggregations, this is equivalent to adding 1 to the current value.
+		// Increment records a value of 1 for the current measure. For Sums,
+		// this is equivalent to adding 1 to the current value.
 		Increment()
 
 		// Name returns the name value of a Metric
@@ -38,26 +37,38 @@ type (
 		// Record makes an observation of the provided value for the given measure.
 		Record(value float64)
 
-		// WithTags creates a new Metric, with the tag mutations provided. This allows creating
+		// WithTags creates a new Metric, with the TagValues provided. This allows creating
 		// a set of pre-dimensioned data for recording and export purposes.
-		WithTags(tags ...tag.Mutator) Metric
+		WithTags(tagValues ...TagValue) Metric
 
-		// View returns the OpenCensus view structure to which this Metric is being exported.
+		// View returns the OpenCensus view to which this Metric is being exported.
 		View() *view.View
 	}
+
+	// A Tag provides a named dimension for a Metric (also known as a label).
+	Tag tag.Key
+
+	// A TagValue represents a Tag with a specific value. It is used to record
+	// values for a Metric.
+	TagValue tag.Mutator
 )
 
-// MustCreateTagKey will attempt to create a new OpenCensus tag key. If
+// Value creates a new TagValue for the Tag.
+func (t Tag) Value(value string) TagValue {
+	return tag.Upsert(tag.Key(t), value)
+}
+
+// MustCreateTag will attempt to create a new Tag. If
 // creation fails, then this method will panic.
-func MustCreateTagKey(key string) tag.Key {
+func MustCreateTag(key string) Tag {
 	k, err := tag.NewKey(key)
 	if err != nil {
 		panic(fmt.Errorf("could not create tag key %q: %v", key, err))
 	}
-	return k
+	return Tag(k)
 }
 
-// MustRegisterViews is a helper function that will ensure that the OpenCensus views created
+// MustRegisterViews is a helper function that will ensure that the views created
 // for the provided Metrics are registered. If the view for a metric fails to register,
 // this method will panic.
 func MustRegisterViews(metrics ...Metric) {
@@ -70,24 +81,24 @@ func MustRegisterViews(metrics ...Metric) {
 
 // NewSum creates a new Metric with an aggregation type of Sum. That means that data collected
 // by the new Metric will be summed before export.
-func NewSum(name, description string, tagKeys ...tag.Key) Metric {
-	return newMetric(name, description, view.Sum(), tagKeys...)
+func NewSum(name, description string, tags ...Tag) Metric {
+	return newMetric(name, description, view.Sum(), tags...)
 }
 
 // NewGauge creates a new Metric with an aggregation type of LastValue. That means that data collected
 // by the new Metric will export only the last recorded value.
-func NewGauge(name, description string, tagKeys ...tag.Key) Metric {
-	return newMetric(name, description, view.LastValue(), tagKeys...)
+func NewGauge(name, description string, tags ...Tag) Metric {
+	return newMetric(name, description, view.LastValue(), tags...)
 }
 
 // NewDistribution creates a new Metric with an aggregration type of Distribution. This means that the
 // data collected by the Metric will be collected and exported as a histogram, with the specified bounds.
-func NewDistribution(name, description string, bounds []float64, tagKeys ...tag.Key) Metric {
-	return newMetric(name, description, view.Distribution(bounds...), tagKeys...)
+func NewDistribution(name, description string, bounds []float64, tags ...Tag) Metric {
+	return newMetric(name, description, view.Distribution(bounds...), tags...)
 }
 
-func newMetric(name, description string, aggregation *view.Aggregation, tagKeys ...tag.Key) Metric {
-	return newFloat64Metric(name, description, aggregation, tagKeys...)
+func newMetric(name, description string, aggregation *view.Aggregation, tags ...Tag) Metric {
+	return newFloat64Metric(name, description, aggregation, tags...)
 }
 
 type float64Metric struct {
@@ -97,11 +108,15 @@ type float64Metric struct {
 	view *view.View
 }
 
-func newFloat64Metric(name, description string, aggregation *view.Aggregation, tagKeys ...tag.Key) *float64Metric {
+func newFloat64Metric(name, description string, aggregation *view.Aggregation, tags ...Tag) *float64Metric {
 	measure := stats.Float64(name, description, stats.UnitDimensionless)
+	tagKeys := make([]tag.Key, 0, len(tags))
+	for _, t := range tags {
+		tagKeys = append(tagKeys, tag.Key(t))
+	}
 	return &float64Metric{
 		measure,
-		make([]tag.Mutator, 0, len(tagKeys)),
+		make([]tag.Mutator, 0, len(tags)),
 		&view.View{Measure: measure, TagKeys: tagKeys, Aggregation: aggregation},
 	}
 }
@@ -118,10 +133,13 @@ func (f *float64Metric) Record(value float64) {
 	stats.RecordWithTags(context.Background(), f.tags, f.M(value)) //nolint:errcheck
 }
 
-func (f *float64Metric) WithTags(tags ...tag.Mutator) Metric {
-	t := make([]tag.Mutator, 0, len(f.tags)+len(tags))
+func (f *float64Metric) WithTags(tagValues ...TagValue) Metric {
+	t := make([]tag.Mutator, 0, len(f.tags)+len(tagValues))
 	copy(t, f.tags)
-	return &float64Metric{f.Float64Measure, append(t, tags...), f.view}
+	for _, tagValue := range tagValues {
+		t = append(t, tag.Mutator(tagValue))
+	}
+	return &float64Metric{f.Float64Measure, t, f.view}
 }
 
 func (f *float64Metric) View() *view.View {

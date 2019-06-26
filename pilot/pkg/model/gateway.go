@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"strings"
 
-	"go.opencensus.io/tag"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/monitoring"
 )
@@ -47,8 +45,8 @@ type MergedGateway struct {
 }
 
 var (
-	typeTag = monitoring.MustCreateTagKey("type")
-	nameTag = monitoring.MustCreateTagKey("name")
+	typeTag = monitoring.MustCreateTag("type")
+	nameTag = monitoring.MustCreateTag("name")
 
 	totalRejectedConfigs = monitoring.NewSum(
 		"pilot_total_rejected_configs",
@@ -62,7 +60,7 @@ func init() {
 }
 
 func recordRejectedConfig(gateway string) {
-	totalRejectedConfigs.WithTags(tag.Upsert(typeTag, "gateway"), tag.Upsert(nameTag, gateway)).Increment()
+	totalRejectedConfigs.WithTags(typeTag.Value("gateway"), nameTag.Value(gateway)).Increment()
 }
 
 // MergeGateways combines multiple gateways targeting the same workload into a single logical Gateway.

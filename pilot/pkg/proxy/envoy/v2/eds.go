@@ -25,7 +25,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
-	"go.opencensus.io/tag"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
@@ -341,7 +340,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 			push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
 			adsLog.Debugf("EDS: Cluster %q (host:%s ports:%v labels:%v) has no instances", clusterName, hostname, port, labels)
 		}
-		edsInstances.WithTags(tag.Upsert(clusterTag, clusterName)).Record(float64(len(instances)))
+		edsInstances.WithTags(clusterTag.Value(clusterName)).Record(float64(len(instances)))
 		locEps = localityLbEndpointsFromInstances(instances)
 	}
 
@@ -965,7 +964,7 @@ func buildLocalityLbEndpointsFromShards(
 	if len(locEps) == 0 {
 		push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
 	}
-	edsInstances.WithTags(tag.Upsert(clusterTag, clusterName)).Record(float64(len(locEps)))
+	edsInstances.WithTags(clusterTag.Value(clusterName)).Record(float64(len(locEps)))
 
 	return locEps
 }

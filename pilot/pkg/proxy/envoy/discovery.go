@@ -20,7 +20,6 @@ import (
 	"sort"
 
 	restful "github.com/emicklei/go-restful"
-	"go.opencensus.io/tag"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/monitoring"
@@ -32,8 +31,8 @@ var (
 	// Save the build version information.
 	buildVersion = version.Info.String()
 
-	methodTag = monitoring.MustCreateTagKey("method")
-	buildTag  = monitoring.MustCreateTagKey("build_version")
+	methodTag = monitoring.MustCreateTag("method")
+	buildTag  = monitoring.MustCreateTag("build_version")
 
 	callCounter = monitoring.NewSum(
 		"pilot_discovery_calls",
@@ -196,15 +195,15 @@ func (ds *DiscoveryService) ListAllEndpoints(_ *restful.Request, response *restf
 }
 
 func incCalls(methodName string) {
-	callCounter.WithTags(tag.Upsert(buildTag, buildVersion), tag.Upsert(methodTag, methodName)).Increment()
+	callCounter.WithTags(buildTag.Value(buildVersion), methodTag.Value(methodName)).Increment()
 }
 
 func incErrors(methodName string) {
-	errorCounter.WithTags(tag.Upsert(buildTag, buildVersion), tag.Upsert(methodTag, methodName)).Increment()
+	errorCounter.WithTags(buildTag.Value(buildVersion), methodTag.Value(methodName)).Increment()
 }
 
 func observeResources(methodName string, count float64) {
-	resourceCounter.WithTags(tag.Upsert(buildTag, buildVersion), tag.Upsert(methodTag, methodName)).Record(count)
+	resourceCounter.WithTags(buildTag.Value(buildVersion), methodTag.Value(methodName)).Record(count)
 }
 
 func errorResponse(methodName string, r *restful.Response, status int, msg string) {

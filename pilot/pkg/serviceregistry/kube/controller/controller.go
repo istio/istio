@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/yl2chen/cidranger"
-	"go.opencensus.io/tag"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
@@ -61,8 +60,8 @@ const (
 )
 
 var (
-	typeTag  = monitoring.MustCreateTagKey("type")
-	eventTag = monitoring.MustCreateTagKey("event")
+	typeTag  = monitoring.MustCreateTag("type")
+	eventTag = monitoring.MustCreateTag("event")
 
 	// experiment on getting some monitoring on config errors.
 	k8sEvents = monitoring.NewSum(
@@ -77,7 +76,7 @@ func init() {
 }
 
 func incrementEvent(kind, event string) {
-	k8sEvents.WithTags(tag.Upsert(typeTag, kind), tag.Upsert(eventTag, event)).Increment()
+	k8sEvents.WithTags(typeTag.Value(kind), eventTag.Value(event)).Increment()
 }
 
 // Options stores the configurable attributes of a Controller.

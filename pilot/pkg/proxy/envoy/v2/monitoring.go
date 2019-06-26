@@ -14,16 +14,14 @@
 package v2
 
 import (
-	"go.opencensus.io/tag"
-
 	"istio.io/istio/pilot/pkg/monitoring"
 )
 
 var (
-	errTag     = monitoring.MustCreateTagKey("err")
-	clusterTag = monitoring.MustCreateTagKey("cluster")
-	nodeTag    = monitoring.MustCreateTagKey("node")
-	typeTag    = monitoring.MustCreateTagKey("type")
+	errTag     = monitoring.MustCreateTag("err")
+	clusterTag = monitoring.MustCreateTag("cluster")
+	nodeTag    = monitoring.MustCreateTag("node")
+	typeTag    = monitoring.MustCreateTag("type")
 
 	cdsReject = monitoring.NewGauge(
 		"pilot_xds_cds_reject",
@@ -104,17 +102,17 @@ var (
 		typeTag,
 	)
 
-	cdsPushes         = pushes.WithTags(tag.Upsert(typeTag, "cds"))
-	cdsSendErrPushes  = pushes.WithTags(tag.Upsert(typeTag, "cds_senderr"))
-	cdsBuildErrPushes = pushes.WithTags(tag.Upsert(typeTag, "cds_builderr"))
-	edsPushes         = pushes.WithTags(tag.Upsert(typeTag, "eds"))
-	edsSendErrPushes  = pushes.WithTags(tag.Upsert(typeTag, "eds_senderr"))
-	ldsPushes         = pushes.WithTags(tag.Upsert(typeTag, "lds"))
-	ldsSendErrPushes  = pushes.WithTags(tag.Upsert(typeTag, "lds_senderr"))
-	ldsBuildErrPushes = pushes.WithTags(tag.Upsert(typeTag, "lds_builderr"))
-	rdsPushes         = pushes.WithTags(tag.Upsert(typeTag, "rds"))
-	rdsSendErrPushes  = pushes.WithTags(tag.Upsert(typeTag, "rds_senderr"))
-	rdsBuildErrPushes = pushes.WithTags(tag.Upsert(typeTag, "rds_builderr"))
+	cdsPushes         = pushes.WithTags(typeTag.Value("cds"))
+	cdsSendErrPushes  = pushes.WithTags(typeTag.Value("cds_senderr"))
+	cdsBuildErrPushes = pushes.WithTags(typeTag.Value("cds_builderr"))
+	edsPushes         = pushes.WithTags(typeTag.Value("eds"))
+	edsSendErrPushes  = pushes.WithTags(typeTag.Value("eds_senderr"))
+	ldsPushes         = pushes.WithTags(typeTag.Value("lds"))
+	ldsSendErrPushes  = pushes.WithTags(typeTag.Value("lds_senderr"))
+	ldsBuildErrPushes = pushes.WithTags(typeTag.Value("lds_builderr"))
+	rdsPushes         = pushes.WithTags(typeTag.Value("rds"))
+	rdsSendErrPushes  = pushes.WithTags(typeTag.Value("rds_senderr"))
+	rdsBuildErrPushes = pushes.WithTags(typeTag.Value("rds_builderr"))
 
 	pushErrors = monitoring.NewSum(
 		"pilot_xds_push_errors",
@@ -122,8 +120,8 @@ var (
 		typeTag,
 	)
 
-	unrecoverableErrs = pushErrors.WithTags(tag.Upsert(typeTag, "unrecoverable"))
-	retryErrs         = pushErrors.WithTags(tag.Upsert(typeTag, "retry"))
+	unrecoverableErrs = pushErrors.WithTags(typeTag.Value("unrecoverable"))
+	retryErrs         = pushErrors.WithTags(typeTag.Value("retry"))
 
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesConvergeDelay = monitoring.NewDistribution(
@@ -148,14 +146,14 @@ var (
 		typeTag,
 	)
 
-	inboundConfigUpdates   = inboundUpdates.WithTags(tag.Upsert(typeTag, "config"))
-	inboundEDSUpdates      = inboundUpdates.WithTags(tag.Upsert(typeTag, "eds"))
-	inboundServiceUpdates  = inboundUpdates.WithTags(tag.Upsert(typeTag, "svc"))
-	inboundWorkloadUpdates = inboundUpdates.WithTags(tag.Upsert(typeTag, "workload"))
+	inboundConfigUpdates   = inboundUpdates.WithTags(typeTag.Value("config"))
+	inboundEDSUpdates      = inboundUpdates.WithTags(typeTag.Value("eds"))
+	inboundServiceUpdates  = inboundUpdates.WithTags(typeTag.Value("svc"))
+	inboundWorkloadUpdates = inboundUpdates.WithTags(typeTag.Value("workload"))
 )
 
 func incrementXDSRejects(metric monitoring.Metric, node, errCode string) {
-	metric.WithTags(tag.Upsert(nodeTag, node), tag.Upsert(errTag, errCode)).Increment()
+	metric.WithTags(nodeTag.Value(node), errTag.Value(errCode)).Increment()
 	totalXDSRejects.Increment()
 }
 
