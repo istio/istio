@@ -15,6 +15,7 @@
 package framework
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -637,6 +638,33 @@ func (k *KubeInfo) GetAppPods(cluster string) map[string][]string {
 		}
 	}
 	return newMap
+}
+
+// CheckJobSucceeded checks whether the job succeeded.
+func (k *KubeInfo) CheckJobSucceeded(cluster, jobName string) error {
+	retry := util.Retrier{
+		BaseDelay: 5 * time.Second,
+		MaxDelay:  5 * time.Second,
+		Retries:   5,
+	}
+
+	retryFn := func(_ context.Context, i int) error {
+		ret, err := util.IsJobSucceeded(k.Namespace, jobName, k.Clusters[cluster])
+		if err != nil {
+			log.Errorf("Failed to get retrieve the app pods for namespace %s", k.Namespace)
+			return err
+		}
+		if !ret {
+			return fmt.Errorf("job %s not succeeded", jobName)
+		}
+		return nil
+	}
+	ctx := context.Background()
+	_, err := retry.Retry(ctx, retryFn)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // GetRoutes gets routes from the pod or returns error
