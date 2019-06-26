@@ -25,8 +25,8 @@ import (
 	"testing"
 	"time"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"istio.io/istio/security/pkg/nodeagent/cache/mock"
+	"istio.io/istio/security/pkg/nodeagent/plugin"
 
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
@@ -87,7 +87,15 @@ var (
 )
 
 func TestWorkloadAgentGenerateSecret(t *testing.T) {
-	fakeCACli := newMockCAClient()
+	testWorkloadAgentGenerateSecret(t, false)
+}
+
+func TestWorkloadAgentGenerateSecretWithPluginProvider(t *testing.T) {
+	testWorkloadAgentGenerateSecret(t, true)
+}
+
+func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
+	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain)
 	opt := Options{
 		SecretTTL:        time.Minute,
 		RotationInterval: 300 * time.Microsecond,
@@ -95,6 +103,12 @@ func TestWorkloadAgentGenerateSecret(t *testing.T) {
 		InitialBackoff:   10,
 		SkipValidateCert: true,
 	}
+
+	if isUsingPluginProvider {
+		fakePlugin := mock.NewMockTokenExchangeServer()
+		opt.Plugins = []plugin.Plugin{fakePlugin}
+	}
+
 	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: true,
 		CaClient:    fakeCACli,
@@ -183,7 +197,7 @@ func TestWorkloadAgentGenerateSecret(t *testing.T) {
 }
 
 func TestWorkloadAgentRefreshSecret(t *testing.T) {
-	fakeCACli := newMockCAClient()
+	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain)
 	opt := Options{
 		SecretTTL:        200 * time.Microsecond,
 		RotationInterval: 200 * time.Microsecond,
@@ -710,7 +724,7 @@ func checkBool(t *testing.T, name string, got bool, want bool) {
 }
 
 func TestSetAlwaysValidTokenFlag(t *testing.T) {
-	fakeCACli := newMockCAClient()
+	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain)
 	opt := Options{
 		SecretTTL:            200 * time.Microsecond,
 		RotationInterval:     200 * time.Microsecond,
@@ -770,31 +784,6 @@ func verifySecret(gotSecret *model.SecretItem, expectedSecret *model.SecretItem)
 
 func notifyCb(_ string, _ string, _ *model.SecretItem) error {
 	return nil
-}
-
-type mockCAClient struct {
-	signInvokeCount uint64
-}
-
-func newMockCAClient() *mockCAClient {
-	cl := mockCAClient{}
-	atomic.StoreUint64(&cl.signInvokeCount, 0)
-	return &cl
-}
-
-func (c *mockCAClient) CSRSign(ctx context.Context, csrPEM []byte, subjectID string,
-	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
-	if atomic.LoadUint64(&c.signInvokeCount) == 0 {
-		atomic.AddUint64(&c.signInvokeCount, 1)
-		return nil, status.Error(codes.Internal, "some internal error")
-	}
-
-	if atomic.LoadUint64(&c.signInvokeCount) == 1 {
-		atomic.AddUint64(&c.signInvokeCount, 1)
-		return mockCertChain1st, nil
-	}
-
-	return mockCertChainRemain, nil
 }
 
 func convertToBytes(ss []string) []byte {
