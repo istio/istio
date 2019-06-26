@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pilot
+package features
 
 import (
-	"os"
 	"strconv"
 	"time"
 
@@ -142,14 +141,26 @@ var (
 	// DisablePartialRouteResponse provides an option to disable a partial route response. This
 	// will cause Pilot to send an error if any routes are invalid. The default behavior (without
 	// this flag) is to just skip the invalid route.
-	DisablePartialRouteResponse = os.Getenv("PILOT_DISABLE_PARTIAL_ROUTE_RESPONSE") == "1"
+	DisablePartialRouteResponse = env.RegisterBoolVar(
+		"PILOT_DISABLE_PARTIAL_ROUTE_RESPONSE",
+		false,
+		"DisablePartialRouteResponse provides an option to disable a partial route response. This "+
+			"will cause Pilot to send an error if any routes are invalid. The default behavior (without "+
+			"this flag) is to just skip the invalid route.")
 
 	// DisableEmptyRouteResponse provides an option to disable a partial route response. This
 	// will cause Pilot to ignore a route request if Pilot generates a nil route (due to an error).
 	// This may cause Envoy to wait forever for the route, blocking listeners from receiving traffic.
 	// The default behavior (without this flag set) is to explicitly send an empty route. This
 	// will break routing for that particular route, but allow others on the same listener to work.
-	DisableEmptyRouteResponse = os.Getenv("PILOT_DISABLE_EMPTY_ROUTE_RESPONSE") == "1"
+	DisableEmptyRouteResponse = env.RegisterBoolVar(
+		"PILOT_DISABLE_EMPTY_ROUTE_RESPONSE",
+		false,
+		"DisableEmptyRouteResponse provides an option to disable a partial route response. This "+
+			"will cause Pilot to ignore a route request if Pilot generates a nil route (due to an error). "+
+			"This may cause Envoy to wait forever for the route, blocking listeners from receiving traffic. "+
+			"The default behavior (without this flag set) is to explicitly send an empty route. This "+
+			"will break routing for that particular route, but allow others on the same listener to work.")
 
 	// DisableXDSMarshalingToAny provides an option to disable the "xDS marshaling to Any" feature ("on" by default).
 	disableXDSMarshalingToAnyVar = env.RegisterStringVar("PILOT_DISABLE_XDS_MARSHALING_TO_ANY", "", "")
