@@ -17,8 +17,8 @@ package mock
 import (
 	"context"
 	"fmt"
-	"github.com/gogo/status"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"math/rand"
 	"sync/atomic"
 	"time"
