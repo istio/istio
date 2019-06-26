@@ -173,6 +173,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 			MaxConnectionAge:      a.KeepAlive.MaxServerConnectionAge,
 			MaxConnectionAgeGrace: a.KeepAlive.MaxServerConnectionAgeGrace,
 		}),
+		// Relax keepalive enforcement policy requirements to avoid dropping connections due to too many pings.
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
 			MinTime:             time.Minute,
 			PermitWithoutStream: true,
