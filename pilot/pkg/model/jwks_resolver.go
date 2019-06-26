@@ -159,6 +159,7 @@ func NewJwksResolver(evictionDuration, refreshInterval time.Duration) *JwksResol
 	return ret
 }
 
+// InitializeSecureClient sets up an HTTPS client to be used for resolving jwks_uri
 func (r *JwksResolver) InitializeSecureClient(usePublicRootCABundle bool, customRootCA string) {
 	caCertPool := x509.NewCertPool()
 	if usePublicRootCABundle {
@@ -171,7 +172,7 @@ func (r *JwksResolver) InitializeSecureClient(usePublicRootCABundle bool, custom
 	}
 	if customRootCA != "" {
 		if ok := caCertPool.AppendCertsFromPEM([]byte(customRootCA)); !ok {
-			log.Warnf("Failed to read custom CA PEM from mesh config")
+			log.Warnf("Failed to read custom CA PEM")
 		}
 	}
 	r.secureHTTPClient = &http.Client{
