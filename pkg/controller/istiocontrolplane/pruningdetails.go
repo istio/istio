@@ -17,10 +17,9 @@ package istiocontrolplane
 import (
 	"strconv"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha1"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"istio.io/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/operator/pkg/helmreconciler"
 )
 
