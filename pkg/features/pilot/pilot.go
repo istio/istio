@@ -179,7 +179,7 @@ var (
 	useRemoteAddress = env.RegisterBoolVar(
 		"PILOT_USE_REMOTE_ADDRESS",
 		false,
-		"seRemoteAddress sets useRemoteAddress to true for side car outbound listeners.")
+		"UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners.")
 )
 
 var (
