@@ -685,7 +685,7 @@ func (sc *SecretCache) isTokenExpired() bool {
 // Prior to sending the request, it also sleep random millisecond to avoid thundering herd problem.
 func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte, providedExchangedToken, resourceName string, isCSR bool) ([]string, error) {
 	backOffInMilliSec := rand.Int63n(sc.configOptions.InitialBackoff)
-	cacheLog.Debugf("Wait for %d millisec for initial CSR", backOffInMilliSec)
+	cacheLog.Debugf("Wait for %d millisec", backOffInMilliSec)
 	// Add a jitter to initial CSR to avoid thundering herd problem.
 	time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
 
@@ -740,19 +740,17 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte, 
 // getExchangedToken gets the exchanged token for the CSR. The token is either the k8s jwt token of the
 // workload or another token from a plug in provider.
 func (sc *SecretCache) getExchangedToken(ctx context.Context, k8sJwtToken string) (string, error) {
-	exchangedTokens := []string{k8sJwtToken}
-	var err error
-	if sc.configOptions.Plugins != nil && len(sc.configOptions.Plugins) > 0 {
-		// Currently the only plugin is GoogleTokenExchange, so we only extract the first possible plugin.
-		if len(sc.configOptions.Plugins) > 1 {
-			cacheLog.Error("found more than one plugin")
-			return "", err
-		}
-		exchangedTokens, err = sc.sendRetriableRequest(ctx, nil, k8sJwtToken, "", false)
-		if err != nil || len(exchangedTokens) == 0 {
-			cacheLog.Errorf("failed to exchange token: %v", err)
-			return "", err
-		}
+	if sc.configOptions.Plugins == nil || len(sc.configOptions.Plugins) == 0 {
+		return k8sJwtToken, nil
+	}
+	if len(sc.configOptions.Plugins) > 1 {
+		cacheLog.Error("found more than one plugin")
+		return "", fmt.Errorf("found more than one plugin")
+	}
+	exchangedTokens, err := sc.sendRetriableRequest(ctx, nil, k8sJwtToken, "", false)
+	if err != nil || len(exchangedTokens) == 0 {
+		cacheLog.Errorf("failed to exchange token: %v", err)
+		return "", err
 	}
 	return exchangedTokens[0], nil
 }

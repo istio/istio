@@ -17,22 +17,24 @@ package mock
 import (
 	"context"
 	"fmt"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
 	"math/rand"
 	"sync/atomic"
 	"time"
 )
 
 type CAClient struct {
-	signInvokeCount uint64
-	mockCertChain1st []string
+	signInvokeCount     uint64
+	mockCertChain1st    []string
 	mockCertChainRemain []string
 }
 
 func NewMockCAClient(mockCertChain1st, mockCertChainRemain []string) *CAClient {
 	cl := CAClient{
-		mockCertChain1st:mockCertChain1st,
+		mockCertChain1st:    mockCertChain1st,
 		mockCertChainRemain: mockCertChainRemain,
 	}
 	atomic.StoreUint64(&cl.signInvokeCount, 0)
