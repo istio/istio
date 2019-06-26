@@ -104,13 +104,13 @@ goVerMinor := $(shell echo $(goVerNum) | awk '{split($$0, a, ".")}; {print a[2]}
 gcflagsPattern := $(shell ( [ $(goVerMajor) -ge 1 ] && [ ${goVerMinor} -ge 10 ] ) && echo 'all=' || echo '')
 
 ifeq ($(origin DEBUG), undefined)
-BUILDTYPE_DIR:=release
+  BUILDTYPE_DIR:=release
 else ifeq ($(DEBUG),0)
-BUILDTYPE_DIR:=release
+  BUILDTYPE_DIR:=release
 else
-BUILDTYPE_DIR:=debug
-export GCFLAGS:=$(gcflagsPattern)-N -l
-$(info $(H) Build with debugger information)
+  BUILDTYPE_DIR:=debug
+  export GCFLAGS:=$(gcflagsPattern)-N -l
+  $(info $(H) Build with debugger information)
 endif
 
 # Optional file including user-specific settings (HUB, TAG, etc)
@@ -127,11 +127,12 @@ GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 export ISTIO_BIN=$(GO_TOP)/bin
 # Using same package structure as pkg/
 export OUT_DIR=$(GO_TOP)/out
-export ISTIO_OUT:=$(GO_TOP)/out/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
+export ISTIO_OUT:=$(OUT_DIR)/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
+export ISTIO_OUT_LINUX:=$(OUT_DIR)/linux_amd64/$(BUILDTYPE_DIR)
 export HELM=$(ISTIO_OUT)/helm
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
-ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
+ISTIO_DOCKER:=${ISTIO_OUT_LINUX}/docker_temp
 # Config file used for building istio:proxy container.
 DOCKER_PROXY_CFG?=Dockerfile.proxy
 
@@ -139,10 +140,10 @@ DOCKER_PROXY_CFG?=Dockerfile.proxy
 # ISTIO_DOCKER results in slowdown, all files (including multiple copies of envoy) will be
 # copied to the docker temp container - even if you add only a tiny file, >1G of data will
 # be copied, for each docker image.
-DOCKER_BUILD_TOP:=${ISTIO_OUT}/docker_build
+DOCKER_BUILD_TOP:=${ISTIO_OUT_LINUX}/docker_build
 
 # dir where tar.gz files from docker.save are stored
-ISTIO_DOCKER_TAR:=${ISTIO_OUT}/docker
+ISTIO_DOCKER_TAR:=${ISTIO_OUT_LINUX}/docker
 
 # Populate the git version for istio/proxy (i.e. Envoy)
 ifeq ($(PROXY_REPO_SHA),)
@@ -265,8 +266,8 @@ sync: init
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
 # seems to be about obtaining a new version of the 3rd party libraries).
-$(ISTIO_OUT)/istio_is_init: bin/init.sh istio.deps | ${ISTIO_OUT}
-	ISTIO_OUT=${ISTIO_OUT} bin/init.sh
+$(ISTIO_OUT)/istio_is_init: bin/init.sh istio.deps | $(ISTIO_OUT)
+	ISTIO_OUT=$(ISTIO_OUT) bin/init.sh
 	touch $(ISTIO_OUT)/istio_is_init
 
 # init.sh downloads envoy
@@ -279,7 +280,11 @@ ${ISTIO_ENVOY_MACOS_RELEASE_PATH}: init
 # Developers must manually run `dep ensure` if adding new deps
 depend: init | $(ISTIO_OUT)
 
-$(ISTIO_OUT) $(ISTIO_BIN):
+OUTPUT_DIRS = $(ISTIO_OUT) $(ISTIO_BIN)
+ifneq ($(ISTIO_OUT),$(ISTIO_OUT_LINUX))
+  OUTPUT_DIRS += $(ISTIO_OUT_LINUX)
+endif
+$(OUTPUT_DIRS):
 	@mkdir -p $@
 
 # Used by CI for automatic go code generation and generates a git diff of the generated files against HEAD.
@@ -334,29 +339,44 @@ shellcheck:
 # gobuild script uses custom linker flag to set the variables.
 # Params: OUT VERSION_PKG SRC
 
-PILOT_GO_BINS:=${ISTIO_OUT}/pilot-discovery ${ISTIO_OUT}/pilot-agent \
-               ${ISTIO_OUT}/sidecar-injector
-PILOT_GO_BINS_SHORT:=pilot-discovery pilot-agent sidecar-injector
-define pilotbuild
-$(1):
-	bin/gobuild.sh ${ISTIO_OUT}/$(1) ./pilot/cmd/$(1)
+RELEASE_LDFLAGS='-extldflags -static -s -w'
+DEBUG_LDFLAGS='-extldflags "-static"'
 
-${ISTIO_OUT}/$(1):
-	bin/gobuild.sh ${ISTIO_OUT}/$(1) ./pilot/cmd/$(1)
+# Generates build both native and linux (needed by Docker) targets for an application
+# Params:
+# $(1): The base name for the generated target. If the name specified is "app", then targets will be generated for:
+#   app, $(ISTIO_OUT)/app and additionally $(ISTIO_OUT_LINUX)/app if GOOS != linux.
+# $(2): The path to the source directory for the application
+# $(3): The value for LDFLAGS
+define genTargetsForNativeAndDocker
+$(ISTIO_OUT)/$(1):
+	STATIC=0 GOOS=$(GOOS) GOARCH=amd64 LDFLAGS=$(3) bin/gobuild.sh $(ISTIO_OUT)/$(1) $(2)
+
+.PHONY: $(1)
+$(1): $(ISTIO_OUT)/$(1)
+
+ifneq ($(ISTIO_OUT),$(ISTIO_OUT_LINUX))
+$(ISTIO_OUT_LINUX)/$(1):
+	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS=$(3) bin/gobuild.sh $(ISTIO_OUT_LINUX)/$(1) $(2)
+endif
+
 endef
-$(foreach ITEM,$(PILOT_GO_BINS_SHORT),$(eval $(call pilotbuild,$(ITEM))))
 
-.PHONY: istioctl
-istioctl ${ISTIO_OUT}/istioctl:
-	LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh ${ISTIO_OUT}/istioctl ./istioctl/cmd/istioctl
+# Build targets for Pilot
+PILOT_GO_BINS:=pilot-discovery pilot-agent sidecar-injector
+$(foreach ITEM,$(PILOT_GO_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./pilot/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
+
+# Builds targets for istioctl
+ISTIOCTL_BINS:=istioctl
+$(foreach ITEM,$(ISTIOCTL_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./istioctl/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
 
 # Non-static istioctls. These are typically a build artifact.
 ${ISTIO_OUT}/istioctl-linux: depend
-	STATIC=0 GOOS=linux  LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh $@ ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=linux LDFLAGS=$(RELEASE_LDFLAGS) bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/istioctl-osx: depend
-	STATIC=0 GOOS=darwin LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh $@ ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=darwin LDFLAGS=$(RELEASE_LDFLAGS) bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/istioctl-win.exe: depend
-	STATIC=0 GOOS=windows LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh $@ ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=windows LDFLAGS=$(RELEASE_LDFLAGS) bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 
 # generate the istioctl completion files
 ${ISTIO_OUT}/istioctl.bash: istioctl
@@ -367,45 +387,40 @@ ${ISTIO_OUT}/_istioctl: istioctl
 	${ISTIO_OUT}/istioctl collateral --zsh && \
 	mv _istioctl ${ISTIO_OUT}/_istioctl
 
-MIXER_GO_BINS:=${ISTIO_OUT}/mixs ${ISTIO_OUT}/mixc
-mixc:
-	bin/gobuild.sh ${ISTIO_OUT}/mixc ./mixer/cmd/mixc
-mixs:
-	bin/gobuild.sh ${ISTIO_OUT}/mixs ./mixer/cmd/mixs
+# Build targets for Mixer
+MIXER_GO_BINS:=mixs mixc
+$(foreach ITEM,$(MIXER_GO_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./mixer/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
 
-$(MIXER_GO_BINS):
-	bin/gobuild.sh $@ ./mixer/cmd/$(@F)
+# Build targets for Mixgen
+MIXGEN_GO_BINS:=mixgen
+$(foreach ITEM,$(MIXGEN_GO_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./mixer/tools/$(ITEM),$(RELEASE_LDFLAGS))))
 
-MIXGEN_GO_BINS:=${ISTIO_OUT}/mixgen
-mixgen:
-	bin/gobuild.sh ${ISTIO_OUT}/mixgen ./mixer/tools/mixgen
+# Build targets for Galley
+GALLEY_GO_BINS:=galley
+$(foreach ITEM,$(GALLEY_GO_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./galley/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
 
-$(MIXGEN_GO_BINS):
-	bin/gobuild.sh $@ ./mixer/tools/$(@F)
+# Build targets for security
+SECURITY_GO_BINS:=node_agent node_agent_k8s istio_ca
+$(foreach ITEM,$(SECURITY_GO_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./security/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
 
-.PHONY: galley
-GALLEY_GO_BINS:=${ISTIO_OUT}/galley
-galley:
-	bin/gobuild.sh ${ISTIO_OUT}/galley ./galley/cmd/galley
+# Build targets for security tools
+SECURITY_TOOLS_GO_BINS:=sdsclient
+$(foreach ITEM,$(SECURITY_TOOLS_GO_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./security/tools/$(ITEM),$(RELEASE_LDFLAGS))))
 
-$(GALLEY_GO_BINS):
-	bin/gobuild.sh $@ ./galley/cmd/$(@F)
-
-SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/node_agent_k8s ${ISTIO_OUT}/istio_ca
-$(SECURITY_GO_BINS):
-	bin/gobuild.sh $@ ./security/cmd/$(@F)
-
-${ISTIO_OUT}/sdsclient:
-	bin/gobuild.sh $@ ./security/tools/sdsclient
+BUILD_BINS:=$(PILOT_GO_BINS) mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
+LINUX_BUILD_BINS:=$(foreach buildBin,$(BUILD_BINS),$(ISTIO_OUT_LINUX)/$(buildBin))
 
 .PHONY: build
 # Build will rebuild the go binaries.
-build: depend $(PILOT_GO_BINS_SHORT) mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
+build: depend $(BUILD_BINS)
+
+.PHONY: build-linux
+build-linux: depend $(LINUX_BUILD_BINS)
 
 .PHONY: version-test
 # Do not run istioctl since is different (connects to kubernetes)
 version-test:
-	go test ./tests/version/... -v --base-dir ${ISTIO_OUT} --binaries="$(PILOT_GO_BINS_SHORT) mixc mixs mixgen node_agent node_agent_k8s istio_ca galley sdsclient"
+	go test ./tests/version/... -v --base-dir ${ISTIO_OUT} --binaries="$(PILOT_GO_BINS) mixc mixs mixgen node_agent node_agent_k8s istio_ca galley sdsclient"
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -414,27 +429,10 @@ version-test:
 # This is intended for developer use - will rebuild the package.
 
 .PHONY: citadel
-citadel:
-	bin/gobuild.sh ${ISTIO_OUT}/istio_ca ./security/cmd/istio_ca
-
-.PHONY: node-agent
-node-agent:
-	bin/gobuild.sh ${ISTIO_OUT}/node-agent ./security/cmd/node_agent
-
-.PHONY: node_agent_k8s
-node_agent_k8s:
-	bin/gobuild.sh ${ISTIO_OUT}/node_agent_k8s ./security/cmd/node_agent_k8s
-
-.PHONY: sdsclient
-sdsclient:
-	bin/gobuild.sh ${ISTIO_OUT}/sdsclient ./security/tools/sdsclient
+citadel: istio_ca
 
 .PHONY: pilot
 pilot: pilot-discovery
-
-.PHONY: node_agent istio_ca
-node_agent istio_ca:
-	bin/gobuild.sh ${ISTIO_OUT}/$@ ./security/cmd/$(@F)
 
 .PHONY: istio-iptables
 istio-iptables:
@@ -502,22 +500,22 @@ GOTEST_PARALLEL ?= '-test.parallel=1'
 # This is passed to mixer and other tests to limit how many builds are used.
 # In CircleCI, set in "Project Settings" -> "Environment variables" as "-p 2" if you don't have xlarge machines
 GOTEST_P ?=
-GOSTATIC = -ldflags '-extldflags "-static"'
 
-TEST_APP_BINS:=${ISTIO_OUT}/pkg-test-echo-cmd-server ${ISTIO_OUT}/pkg-test-echo-cmd-client
-.PHONY: $(TEST_APP_BINS)
-$(TEST_APP_BINS):
-	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/$(subst -,/,$(@F))
+TEST_APP_BINS:=server client
+$(foreach ITEM,$(TEST_APP_BINS),$(eval $(call genTargetsForNativeAndDocker,pkg-test-echo-cmd-$(ITEM),./pkg/test/echo/cmd/$(ITEM),$(DEBUG_LDFLAGS))))
 
-MIXER_TEST_BINS:=${ISTIO_OUT}/mixer-test-policybackend
-.PHONY: $(MIXER_TEST_BINS)
-$(MIXER_TEST_BINS):
-	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/$(subst -,/,$(@F))
+MIXER_TEST_BINS:=policybackend
+$(foreach ITEM,$(MIXER_TEST_BINS),$(eval $(call genTargetsForNativeAndDocker,mixer-test-$(ITEM),./mixer/test/$(ITEM),$(DEBUG_LDFLAGS))))
 
-hyperistio:
-	CGO_ENABLED=0 go build ${GOSTATIC} -o ${ISTIO_OUT}/hyperistio istio.io/istio/tools/hyperistio
+ISTIO_TOOLS_BINS:=hyperistio
+$(foreach ITEM,$(ISTIO_TOOLS_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./tools/$(ITEM),$(DEBUG_LDFLAGS))))
 
-test-bins: $(TEST_APP_BINS) $(MIXER_TEST_BINS)
+TEST_BINS:=$(foreach ITEM,$(TEST_APP_BINS),$(ISTIO_OUT)/pkg-test-echo-cmd-$(ITEM)) $(foreach ITEM,$(MIXER_TEST_BINS),$(ISTIO_OUT)/mixer-test-$(ITEM))
+LINUX_TEST_BINS:=$(foreach ITEM,$(TEST_APP_BINS),$(ISTIO_OUT_LINUX)/pkg-test-echo-cmd-$(ITEM)) $(foreach ITEM,$(MIXER_TEST_BINS),$(ISTIO_OUT_LINUX)/mixer-test-$(ITEM))
+
+test-bins: $(TEST_BINS)
+
+test-bins-linux: $(LINUX_TEST_BINS)
 
 localTestEnv: test-bins
 	bin/testEnvLocalK8S.sh ensure
