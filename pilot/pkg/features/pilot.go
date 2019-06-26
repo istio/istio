@@ -143,7 +143,7 @@ var (
 	// this flag) is to just skip the invalid route.
 	DisablePartialRouteResponse = env.RegisterBoolVar(
 		"PILOT_DISABLE_PARTIAL_ROUTE_RESPONSE",
-		true,
+		false,
 		"DisablePartialRouteResponse provides an option to disable a partial route response. This "+
 			"will cause Pilot to send an error if any routes are invalid. The default behavior (without "+
 			"this flag) is to just skip the invalid route.")
@@ -155,7 +155,7 @@ var (
 	// will break routing for that particular route, but allow others on the same listener to work.
 	DisableEmptyRouteResponse = env.RegisterBoolVar(
 		"PILOT_DISABLE_EMPTY_ROUTE_RESPONSE",
-		true,
+		false,
 		"DisableEmptyRouteResponse provides an option to disable a partial route response. This "+
 			"will cause Pilot to ignore a route request if Pilot generates a nil route (due to an error). "+
 			"This may cause Envoy to wait forever for the route, blocking listeners from receiving traffic. "+
