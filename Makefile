@@ -44,6 +44,7 @@ api_protos := $(shell find $(api_path) -type f -name '*.proto' | sort)
 api_pb_gos := $(api_protos:.proto=.pb.go)
 
 generate-api-go: $(api_pb_gos)
+	patch pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go < pkg/apis/istio/v1alpha2/fixup_go_structs.patch
 
 $(api_pb_gos): $(api_protos)
 	@$(docker_gen) $(gogofast_plugin) $^
