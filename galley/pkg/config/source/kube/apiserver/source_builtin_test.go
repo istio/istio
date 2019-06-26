@@ -109,7 +109,7 @@ func TestNodes(t *testing.T) {
 	// Start the source.
 	s := newOrFail(t, k, k8smeta.MustGet().KubeSource().Resources())
 	acc := start(s)
-	//defer s.Stop()
+	defer s.Stop()
 
 	g.Eventually(acc.Events).Should(HaveLen(6))
 	for i := 0; i < 6; i++ {
@@ -177,7 +177,7 @@ func TestPods(t *testing.T) {
 	// Start the source.
 	s := newOrFail(t, k, k8smeta.MustGet().KubeSource().Resources())
 	acc := start(s)
-	//defer s.Stop()
+	defer s.Stop()
 
 	g.Eventually(acc.Events).Should(HaveLen(6))
 	for i := 0; i < 6; i++ {
@@ -255,7 +255,7 @@ func TestServices(t *testing.T) {
 	// Start the source.
 	s := newOrFail(t, k, k8smeta.MustGet().KubeSource().Resources())
 	acc := start(s)
-	//defer s.Stop()
+	defer s.Stop()
 
 	g.Eventually(acc.Events).Should(HaveLen(6))
 	for i := 0; i < 6; i++ {
@@ -328,7 +328,7 @@ func TestEndpoints(t *testing.T) {
 	// Start the source.
 	s := newOrFail(t, k, k8smeta.MustGet().KubeSource().Resources())
 	acc := start(s)
-	//defer s.Stop()
+	defer s.Stop()
 
 	g.Eventually(acc.Events).Should(HaveLen(6))
 	for i := 0; i < 6; i++ {
