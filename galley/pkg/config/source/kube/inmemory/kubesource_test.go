@@ -235,7 +235,7 @@ func TestKubeSource_Service(t *testing.T) {
 }
 
 func setupKubeSource() (*KubeSource, *fixtures.Accumulator) {
-	s := NewKube(basicmeta.MustGet().KubeSource().Resources())
+	s := NewKubeSource(basicmeta.MustGet().KubeSource().Resources())
 
 	acc := &fixtures.Accumulator{}
 	s.Dispatch(acc)
@@ -245,7 +245,7 @@ func setupKubeSource() (*KubeSource, *fixtures.Accumulator) {
 }
 
 func setupKubeSourceWithK8sMeta() (*KubeSource, *fixtures.Accumulator) {
-	s := NewKube(k8smeta.MustGet().KubeSource().Resources())
+	s := NewKubeSource(k8smeta.MustGet().KubeSource().Resources())
 
 	acc := &fixtures.Accumulator{}
 	s.Dispatch(acc)

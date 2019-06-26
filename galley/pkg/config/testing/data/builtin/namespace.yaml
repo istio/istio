@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    istio-injection: disabled
+  name: somens
+spec:
+  finalizers:
+    - kubernetes
+status:
+  phase: Active

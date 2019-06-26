@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/util/pb"
 )
 
 func (p *Provider) getDynamicAdapter(r schema.KubeResource) *Adapter {
@@ -45,7 +46,7 @@ func (p *Provider) getDynamicAdapter(r schema.KubeResource) *Adapter {
 			}
 
 			pr := r.Collection.NewProtoInstance()
-			if err := unmarshalProto(pr, u.Object["spec"]); err != nil {
+			if err := pb.UnmarshalData(pr, u.Object["spec"]); err != nil {
 				return nil, err
 			}
 

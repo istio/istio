@@ -12,45 +12,48 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package rt
+package pb
 
 import (
-	"reflect"
 	"testing"
 
 	gogoTypes "github.com/gogo/protobuf/types"
-
-	"istio.io/istio/galley/pkg/config/collection"
+	. "github.com/onsi/gomega"
 )
 
 func TestToProto_Success(t *testing.T) {
-	spec := map[string]interface{}{}
+	g := NewGomegaWithT(t)
 
-	s, err := collection.NewSpec("foo", "", "google.protobuf.Empty")
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
+	data := map[string]interface{}{
+		"foo": "bar",
+		"boo": "baz",
 	}
 
-	p, err := toProto(s, spec)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	p := &gogoTypes.Struct{}
+	err := UnmarshalData(p, data)
+	g.Expect(err).To(BeNil())
+	expected := &gogoTypes.Struct{
+		Fields: map[string]*gogoTypes.Value{
+			"foo": {
+				Kind: &gogoTypes.Value_StringValue{StringValue: "bar"},
+			},
+			"boo": {
+				Kind: &gogoTypes.Value_StringValue{StringValue: "baz"},
+			},
+		},
 	}
 
-	var expected = &gogoTypes.Empty{}
-	if !reflect.DeepEqual(p, expected) {
-		t.Fatalf("Mismatch\nExpected:\n%+v\nActual:\n%+v\n", expected, p)
-	}
+	g.Expect(p).To(Equal(expected))
 }
 
 func TestToProto_Error(t *testing.T) {
-	spec := map[string]interface{}{
+	g := NewGomegaWithT(t)
+
+	data := map[string]interface{}{
 		"value": 23,
 	}
 
-	s, _ := collection.NewSpec("foo", "", "google.protobuf.Any")
-
-	_, err := toProto(s, spec)
-	if err == nil {
-		t.Fatalf("expected error not found")
-	}
+	p := &gogoTypes.Any{}
+	err := UnmarshalData(p, data)
+	g.Expect(err).NotTo(BeNil())
 }

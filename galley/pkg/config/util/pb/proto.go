@@ -12,32 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package rt
+package pb
 
 import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	yaml2 "gopkg.in/yaml.v2"
-
-	"istio.io/istio/galley/pkg/config/collection"
 )
 
-func toProto(spec collection.Spec, data interface{}) (proto.Message, error) {
-	pb := spec.NewProtoInstance()
-	if err := unmarshalProto(pb, data); err != nil {
-		return nil, err
-	}
-
-	return pb, nil
-}
-
-func unmarshalProto(pb proto.Message, data interface{}) error {
+// UnmarshalData data into the proto.
+func UnmarshalData(pb proto.Message, data interface{}) error {
 	js, err := toJSON(data)
-	if err != nil {
-		return err
+	if err == nil {
+		err = jsonpb.UnmarshalString(js, pb)
 	}
-	return jsonpb.UnmarshalString(js, pb)
+	return err
 }
 
 func toJSON(data interface{}) (string, error) {

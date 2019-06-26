@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package client
+package kube
 
 import (
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -31,40 +31,40 @@ type Interfaces interface {
 	KubeClient() (kubernetes.Interface, error)
 }
 
-type kube struct {
+type interfaces struct {
 	cfg *rest.Config
 }
 
-var _ Interfaces = &kube{}
+var _ Interfaces = &interfaces{}
 
-// NewKubeFromConfigFile returns a new instance of Interfaces.
-func NewKubeFromConfigFile(kubeconfig string) (Interfaces, error) {
+// NewInterfacesFromConfigFile returns a new instance of Interfaces.
+func NewInterfacesFromConfigFile(kubeconfig string) (Interfaces, error) {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewKube(config), nil
+	return NewInterfaces(config), nil
 }
 
-// NewKube returns a new instance of Interfaces.
-func NewKube(cfg *rest.Config) Interfaces {
-	return &kube{
+// NewInterfaces returns a new instance of Interfaces.
+func NewInterfaces(cfg *rest.Config) Interfaces {
+	return &interfaces{
 		cfg: cfg,
 	}
 }
 
 // DynamicInterface returns a new dynamic.Interface for the specified API Group/Version.
-func (k *kube) DynamicInterface() (dynamic.Interface, error) {
+func (k *interfaces) DynamicInterface() (dynamic.Interface, error) {
 	return dynamic.NewForConfig(k.cfg)
 }
 
 // APIExtensionsClientset returns a new apiextensions clientset
-func (k *kube) APIExtensionsClientset() (clientset.Interface, error) {
+func (k *interfaces) APIExtensionsClientset() (clientset.Interface, error) {
 	return clientset.NewForConfig(k.cfg)
 }
 
 // KubeClient returns a new kubernetes Interface client.
-func (k *kube) KubeClient() (kubernetes.Interface, error) {
+func (k *interfaces) KubeClient() (kubernetes.Interface, error) {
 	return kubernetes.NewForConfig(k.cfg)
 }

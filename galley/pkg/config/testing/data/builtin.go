@@ -36,3 +36,8 @@ func GetPod() string {
 func GetService() string {
 	return string(MustAsset("builtin/service.yaml"))
 }
+
+// GetNamespace returns Namespace test data
+func GetNamespace() string {
+	return string(MustAsset("builtin/namespace.yaml"))
+}

@@ -35,7 +35,7 @@ func TestParse(t *testing.T) {
 		g := NewGomegaWithT(t)
 		input := builtin.GetEndpoints()
 
-		objMeta, objResource := parse(t, []byte(input), "Endpoints")
+		objMeta, objResource := parse(t, []byte(input), "", "Endpoints")
 
 		// Just validate a couple of things...
 		_, ok := objResource.(*coreV1.Endpoints)
@@ -45,11 +45,39 @@ func TestParse(t *testing.T) {
 		g.Expect(objMeta.GetName()).To(Equal("kube-dns"))
 	})
 
+	t.Run("Namespace", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		input := builtin.GetNamespace()
+
+		objMeta, objResource := parse(t, []byte(input), "", "Namespace")
+
+		// Just validate a couple of things...
+		_, ok := objResource.(*coreV1.NamespaceSpec)
+		if !ok {
+			t.Fatal("failed casting item to Namespace")
+		}
+		g.Expect(objMeta.GetName()).To(Equal("somens"))
+	})
+
+	t.Run("Ingress", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		input := builtin.GetIngress()
+
+		objMeta, objResource := parse(t, []byte(input), "extensions", "Ingress")
+
+		// Just validate a couple of things...
+		_, ok := objResource.(*v1beta1.IngressSpec)
+		if !ok {
+			t.Fatal("failed casting item to IngressSpec")
+		}
+		g.Expect(objMeta.GetName()).To(Equal("secured-ingress"))
+	})
+
 	t.Run("Node", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 		input := builtin.GetNode()
 
-		objMeta, objResource := parse(t, []byte(input), "Node")
+		objMeta, objResource := parse(t, []byte(input), "", "Node")
 
 		// Just validate a couple of things...
 		_, ok := objResource.(*coreV1.NodeSpec)
@@ -63,7 +91,7 @@ func TestParse(t *testing.T) {
 		g := NewGomegaWithT(t)
 		input := builtin.GetPod()
 
-		objMeta, objResource := parse(t, []byte(input), "Pod")
+		objMeta, objResource := parse(t, []byte(input), "", "Pod")
 
 		// Just validate a couple of things...
 		_, ok := objResource.(*coreV1.Pod)
@@ -77,7 +105,7 @@ func TestParse(t *testing.T) {
 		g := NewGomegaWithT(t)
 		input := builtin.GetService()
 
-		objMeta, objResource := parse(t, []byte(input), "Service")
+		objMeta, objResource := parse(t, []byte(input), "", "Service")
 
 		// Just validate a couple of things...
 		_, ok := objResource.(*coreV1.ServiceSpec)
@@ -129,12 +157,12 @@ func TestExtractResource(t *testing.T) {
 	}
 }
 
-func parse(t *testing.T, input []byte, kind string) (metaV1.Object, proto.Message) {
+func parse(t *testing.T, input []byte, group, kind string) (metaV1.Object, proto.Message) {
 	t.Helper()
 	g := NewGomegaWithT(t)
 
 	pr := rt.DefaultProvider()
-	a := pr.GetAdapter(k8smeta.MustGet().KubeSource().Resources().MustFind("", kind))
+	a := pr.GetAdapter(k8smeta.MustGet().KubeSource().Resources().MustFind(group, kind))
 	obj, err := a.ParseJSON(input)
 	g.Expect(err).To(BeNil())
 

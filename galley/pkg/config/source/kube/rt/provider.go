@@ -24,7 +24,7 @@ import (
 	"k8s.io/client-go/informers"
 
 	"istio.io/istio/galley/pkg/config/schema"
-	"istio.io/istio/galley/pkg/config/source/kube/client"
+	"istio.io/istio/galley/pkg/config/source/kube"
 )
 
 var (
@@ -41,7 +41,7 @@ type Provider struct {
 	mu sync.Mutex
 
 	resyncPeriod time.Duration
-	interfaces   client.Interfaces
+	interfaces   kube.Interfaces
 	known        map[string]*Adapter
 
 	informers        informers.SharedInformerFactory
@@ -49,7 +49,7 @@ type Provider struct {
 }
 
 // NewProvider returns a new instance of Provider.
-func NewProvider(interfaces client.Interfaces, resyncPeriod time.Duration) *Provider {
+func NewProvider(interfaces kube.Interfaces, resyncPeriod time.Duration) *Provider {
 	p := &Provider{
 		resyncPeriod: resyncPeriod,
 		interfaces:   interfaces,

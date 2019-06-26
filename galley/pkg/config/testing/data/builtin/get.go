@@ -34,8 +34,6 @@ var (
 
 	// ServicesCollection for testing
 	ServicesCollection = collection.NewName("k8s/services")
-
-
 )
 
 // GetEndpoints returns Endpoints test data
@@ -56,4 +54,14 @@ func GetPod() string {
 // GetService returns Service test data
 func GetService() string {
 	return string(data.MustAsset("builtin/service.yaml"))
+}
+
+// GetNamespace returns Namespace test data
+func GetNamespace() string {
+	return string(data.MustAsset("builtin/namespace.yaml"))
+}
+
+// GetIngress returns Ingress test data
+func GetIngress() string {
+	return string(data.MustAsset("builtin/ingress.yaml"))
 }

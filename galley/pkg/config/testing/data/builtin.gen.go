@@ -2,6 +2,8 @@
 // sources:
 // builtin/endpoints.yaml
 // builtin/get.go
+// builtin/ingress.yaml
+// builtin/namespace.yaml
 // builtin/node.yaml
 // builtin/pod.yaml
 // builtin/service.yaml
@@ -140,28 +142,36 @@ var (
 
 	// ServicesCollection for testing
 	ServicesCollection = collection.NewName("k8s/services")
-
-
 )
 
 // GetEndpoints returns Endpoints test data
 func GetEndpoints() string {
-	return string(data.MustAsset("testdata/endpoints.yaml"))
+	return string(data.MustAsset("builtin/endpoints.yaml"))
 }
 
 // GetNode returns Node test data
 func GetNode() string {
-	return string(data.MustAsset("testdata/node.yaml"))
+	return string(data.MustAsset("builtin/node.yaml"))
 }
 
 // GetPod returns Pod test data
 func GetPod() string {
-	return string(data.MustAsset("testdata/pod.yaml"))
+	return string(data.MustAsset("builtin/pod.yaml"))
 }
 
 // GetService returns Service test data
 func GetService() string {
-	return string(data.MustAsset("testdata/service.yaml"))
+	return string(data.MustAsset("builtin/service.yaml"))
+}
+
+// GetNamespace returns Namespace test data
+func GetNamespace() string {
+	return string(data.MustAsset("builtin/namespace.yaml"))
+}
+
+// GetIngress returns Ingress test data
+func GetIngress() string {
+	return string(data.MustAsset("builtin/ingress.yaml"))
 }
 `)
 
@@ -176,6 +186,75 @@ func builtinGetGo() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "builtin/get.go", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _builtinIngressYaml = []byte(`apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: secured-ingress
+  annotations:
+    kubernetes.io/ingress.class: "istio"
+spec:
+  tls:
+    - secretName: istio-ingress-certs
+  rules:
+    - http:
+        paths:
+          - path: /http
+            backend:
+              serviceName: a
+              servicePort: http
+          - path: /pasta
+            backend:
+              serviceName: b
+              servicePort: 8080
+          - path: /.*
+            backend:
+              serviceName: a
+              servicePort: grpc
+`)
+
+func builtinIngressYamlBytes() ([]byte, error) {
+	return _builtinIngressYaml, nil
+}
+
+func builtinIngressYaml() (*asset, error) {
+	bytes, err := builtinIngressYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "builtin/ingress.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _builtinNamespaceYaml = []byte(`apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    istio-injection: disabled
+  name: somens
+spec:
+  finalizers:
+    - kubernetes
+status:
+  phase: Active
+`)
+
+func builtinNamespaceYamlBytes() ([]byte, error) {
+	return _builtinNamespaceYaml, nil
+}
+
+func builtinNamespaceYaml() (*asset, error) {
+	bytes, err := builtinNamespaceYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "builtin/namespace.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -793,6 +872,8 @@ func AssetNames() []string {
 var _bindata = map[string]func() (*asset, error){
 	"builtin/endpoints.yaml": builtinEndpointsYaml,
 	"builtin/get.go": builtinGetGo,
+	"builtin/ingress.yaml": builtinIngressYaml,
+	"builtin/namespace.yaml": builtinNamespaceYaml,
 	"builtin/node.yaml": builtinNodeYaml,
 	"builtin/pod.yaml": builtinPodYaml,
 	"builtin/service.yaml": builtinServiceYaml,
@@ -841,6 +922,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"builtin": &bintree{nil, map[string]*bintree{
 		"endpoints.yaml": &bintree{builtinEndpointsYaml, map[string]*bintree{}},
 		"get.go": &bintree{builtinGetGo, map[string]*bintree{}},
+		"ingress.yaml": &bintree{builtinIngressYaml, map[string]*bintree{}},
+		"namespace.yaml": &bintree{builtinNamespaceYaml, map[string]*bintree{}},
 		"node.yaml": &bintree{builtinNodeYaml, map[string]*bintree{}},
 		"pod.yaml": &bintree{builtinPodYaml, map[string]*bintree{}},
 		"service.yaml": &bintree{builtinServiceYaml, map[string]*bintree{}},

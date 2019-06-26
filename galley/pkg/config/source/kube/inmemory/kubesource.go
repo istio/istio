@@ -21,8 +21,9 @@ import (
 	"sync"
 
 	"github.com/ghodss/yaml"
-	"istio.io/pkg/log"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
+
+	"istio.io/pkg/log"
 
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
@@ -72,8 +73,8 @@ type kubeResourceKey struct {
 
 var _ event.Source = &KubeSource{}
 
-// NewKube returns a new in-memory Source that works with Kubernetes resources.
-func NewKube(resources schema.KubeResources) *KubeSource {
+// NewKubeSource returns a new in-memory Source that works with Kubernetes resources.
+func NewKubeSource(resources schema.KubeResources) *KubeSource {
 	name := fmt.Sprintf("kube-inmemory-%d", inMemoryKubeNameDiscriminator)
 	inMemoryKubeNameDiscriminator++
 

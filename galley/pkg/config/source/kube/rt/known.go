@@ -35,12 +35,7 @@ func (p *Provider) initKnownAdapters() {
 
 	p.known = map[string]*Adapter{
 		asTypesKey("", "Service"): {
-			extractObject: func(o interface{}) metav1.Object {
-				if obj, ok := o.(metav1.Object); ok {
-					return obj
-				}
-				return nil
-			},
+			extractObject: defaultExtractObject,
 			extractResource: func(o interface{}) (proto.Message, error) {
 				if obj, ok := o.(*v1.Service); ok {
 					return &obj.Spec, nil
@@ -66,43 +61,7 @@ func (p *Provider) initKnownAdapters() {
 		},
 
 		asTypesKey("", "Namespace"): {
-			extractObject: func(o interface{}) metav1.Object {
-				if obj, ok := o.(metav1.Object); ok {
-					return obj
-				}
-				return nil
-			},
-			extractResource: func(o interface{}) (proto.Message, error) {
-				if obj, ok := o.(*v1.Namespace); ok {
-					return &obj.Spec, nil
-				}
-				return nil, fmt.Errorf("unable to convert to v1.Namespace: %v", reflect.TypeOf(o))
-			},
-			newInformer: func() (cache.SharedIndexInformer, error) {
-				informer, err := p.sharedInformerFactory()
-				if err != nil {
-					return nil, err
-				}
-
-				return informer.Core().V1().Namespaces().Informer(), nil
-			},
-			parseJSON: func(input []byte) (interface{}, error) {
-				out := &v1.Namespace{}
-				if _, _, err := deserializer.Decode(input, nil, out); err != nil {
-					return nil, err
-				}
-				return out, nil
-			},
-			isBuiltIn: true,
-		},
-
-		asTypesKey("", "Namespace"): {
-			extractObject: func(o interface{}) metav1.Object {
-				if obj, ok := o.(metav1.Object); ok {
-					return obj
-				}
-				return nil
-			},
+			extractObject: defaultExtractObject,
 			extractResource: func(o interface{}) (proto.Message, error) {
 				if obj, ok := o.(*v1.Namespace); ok {
 					return &obj.Spec, nil
@@ -128,12 +87,7 @@ func (p *Provider) initKnownAdapters() {
 		},
 
 		asTypesKey("", "Node"): {
-			extractObject: func(o interface{}) metav1.Object {
-				if obj, ok := o.(metav1.Object); ok {
-					return obj
-				}
-				return nil
-			},
+			extractObject: defaultExtractObject,
 			extractResource: func(o interface{}) (proto.Message, error) {
 				if obj, ok := o.(*v1.Node); ok {
 					return &obj.Spec, nil
@@ -159,12 +113,7 @@ func (p *Provider) initKnownAdapters() {
 		},
 
 		asTypesKey("", "Pod"): {
-			extractObject: func(o interface{}) metav1.Object {
-				if obj, ok := o.(metav1.Object); ok {
-					return obj
-				}
-				return nil
-			},
+			extractObject: defaultExtractObject,
 			extractResource: func(o interface{}) (proto.Message, error) {
 				if obj, ok := o.(*v1.Pod); ok {
 					return obj, nil
@@ -190,12 +139,7 @@ func (p *Provider) initKnownAdapters() {
 		},
 
 		asTypesKey("", "Endpoints"): {
-			extractObject: func(o interface{}) metav1.Object {
-				if obj, ok := o.(metav1.Object); ok {
-					return obj
-				}
-				return nil
-			},
+			extractObject: defaultExtractObject,
 			extractResource: func(o interface{}) (proto.Message, error) {
 				// TODO(nmittler): This copies ObjectMeta since Endpoints have no spec.
 				if obj, ok := o.(*v1.Endpoints); ok {
@@ -221,12 +165,7 @@ func (p *Provider) initKnownAdapters() {
 			isBuiltIn: true,
 		},
 		asTypesKey("extensions", "Ingress"): {
-			extractObject: func(o interface{}) metav1.Object {
-				if obj, ok := o.(metav1.Object); ok {
-					return obj
-				}
-				return nil
-			},
+			extractObject: defaultExtractObject,
 			extractResource: func(o interface{}) (proto.Message, error) {
 				if obj, ok := o.(*v1beta1.Ingress); ok {
 					return &obj.Spec, nil
@@ -258,4 +197,11 @@ func asTypesKey(group, kind string) string {
 		return kind
 	}
 	return fmt.Sprintf("%s/%s", group, kind)
+}
+
+func defaultExtractObject(o interface{}) metav1.Object {
+	if obj, ok := o.(metav1.Object); ok {
+		return obj
+	}
+	return nil
 }
