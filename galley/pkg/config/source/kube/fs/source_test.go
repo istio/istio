@@ -314,7 +314,7 @@ func startOrFail(t *testing.T, s event.Source) *fixtures.Accumulator {
 	return acc
 }
 
-func withVersion(r *resource.Entry, v string) *resource.Entry {
+func withVersion(r *resource.Entry, v string) *resource.Entry { // nolint:unparam
 	r = r.Clone()
 	r.Metadata.Version = resource.Version(v)
 	return r

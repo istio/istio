@@ -275,7 +275,7 @@ func TestSameNameDifferentKind(t *testing.T) {
 	s.Start()
 	defer s.Stop()
 
-	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlN1I1V1_Kind2))
+	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlN1I1V1Kind2))
 	g.Expect(err).To(BeNil())
 
 	g.Expect(acc.Events()).To(HaveLen(4))
