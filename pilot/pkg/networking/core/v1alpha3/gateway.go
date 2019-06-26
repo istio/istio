@@ -220,7 +220,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 
 		// If the flag is set, send Envoy an error, blocking all routes from being sent. This flag
 		// is intended only to support legacy behavior and should be removed in the future.
-		if features.DisablePartialRouteResponse {
+		if features.DisablePartialRouteResponse.Get() {
 			return nil, fmt.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.ServersByRouteName)
 		}
 

@@ -72,7 +72,7 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.Push
 
 			// Don't send an empty route, instead ignore the request. This may cause Envoy to block
 			// listeners waiting for this route
-			if features.DisableEmptyRouteResponse {
+			if features.DisableEmptyRouteResponse.Get() {
 				continue
 			}
 
