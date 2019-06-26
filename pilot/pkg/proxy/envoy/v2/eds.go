@@ -28,6 +28,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
+
+	"istio.io/istio/pilot/pkg/features"
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -35,7 +37,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pkg/features/pilot"
 )
 
 // EDS returns the list of endpoints (IP:port and in future labels) associated with a real
@@ -718,7 +719,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 
 		var l *xdsapi.ClusterLoadAssignment
 		// decide which to use based on presence of Sidecar.
-		if sidecarScope == nil || sidecarScope.Config == nil || len(pilot.DisableEDSIsolation) != 0 {
+		if sidecarScope == nil || sidecarScope.Config == nil || len(features.DisableEDSIsolation) != 0 {
 			l = s.loadAssignmentsForClusterLegacy(push, clusterName)
 		} else {
 			l = s.loadAssignmentsForClusterIsolated(con.modelNode, push, clusterName)
@@ -742,7 +743,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 		}
 
 		// If location prioritized load balancing is enabled, prioritize endpoints.
-		if pilot.EnableLocalityLoadBalancing() {
+		if features.EnableLocalityLoadBalancing() {
 			// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
 			clonedCLA := util.CloneClusterLoadAssignment(l)
 			l = &clonedCLA
