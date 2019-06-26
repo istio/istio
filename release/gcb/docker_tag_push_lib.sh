@@ -92,10 +92,10 @@ function docker_tag_images() {
     docker load -i "${TAR_PATH}"
     DOCKER_OUT=$(docker load -i "${TAR_PATH}")
     SRC_HUB=$(echo "$DOCKER_OUT" | cut -f 2 -d : | xargs dirname)
-    SRC_TAG=$(echo "$DOCKER_OUT" | cut -f 3 -d :)
+    SRC_TAG_WITH_VARIANT=$(echo "$DOCKER_OUT" | cut -f 3 -d :)
 
 
-    docker tag "${SRC_HUB}/${IMAGE_NAME}:${SRC_TAG}${VARIANT_NAME}" \
+    docker tag "${SRC_HUB}/${IMAGE_NAME}:${SRC_TAG_WITH_VARIANT}" \
                 "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}${VARIANT_NAME}"
   done
 }

@@ -461,6 +461,20 @@ func GetAppPods(n string, kubeconfig string) (map[string][]string, error) {
 	return m, nil
 }
 
+// IsJobSucceeded checks whether a job for the given namespace succeeded
+func IsJobSucceeded(n, name string, kubeconfig string) (bool, error) {
+	succeed, err := Shell("kubectl -n %s get job  %s -o jsonpath='{.status.succeeded}' --kubeconfig=%s", n, name, kubeconfig)
+	if err != nil {
+		log.Warnf("could not get %s job: %v", name, err)
+		return false, err
+	}
+
+	if len(succeed) != 0 {
+		return true, nil
+	}
+	return false, nil
+}
+
 // GetPodLabelValues gets a map of pod name to label value for the given label and namespace
 func GetPodLabelValues(n, label string, kubeconfig string) (map[string]string, error) {
 	// This will return a table where c0=pod_name and c1=label_value.
