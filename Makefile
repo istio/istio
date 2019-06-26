@@ -68,3 +68,7 @@ include Makefile.common.mk
 # Coverage tests
 coverage:
 	scripts/codecov.sh
+
+vfsgen:
+	go generate ./cmd/main.go
+
