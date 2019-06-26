@@ -182,7 +182,7 @@ func (c *controller) createInformer(
 }
 
 func incrementEvent(kind, event string) {
-	k8sEvents.WithTags(typeTag.Value(kind), eventTag.Value(event)).Increment()
+	k8sEvents.With(typeTag.Value(kind), eventTag.Value(event)).Increment()
 }
 
 func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
@@ -288,7 +288,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 	oldMap := InvalidCRDs.Load()
 	if oldMap != nil {
 		oldMap.(*sync.Map).Range(func(key, value interface{}) bool {
-			k8sErrors.WithTags(nameTag.Value(key.(string))).Record(1)
+			k8sErrors.With(nameTag.Value(key.(string))).Record(1)
 			return true
 		})
 	}
@@ -310,7 +310,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 			// the rest should still be processed.
 			// TODO: find a way to reset and represent the error !!
 			newErrors.Store(key, err)
-			k8sErrors.WithTags(nameTag.Value(key)).Record(1)
+			k8sErrors.With(nameTag.Value(key)).Record(1)
 		} else {
 			out = append(out, *config)
 		}

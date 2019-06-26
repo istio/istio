@@ -76,7 +76,7 @@ func init() {
 }
 
 func incrementEvent(kind, event string) {
-	k8sEvents.WithTags(typeTag.Value(kind), eventTag.Value(event)).Increment()
+	k8sEvents.With(typeTag.Value(kind), eventTag.Value(event)).Increment()
 }
 
 // Options stores the configurable attributes of a Controller.

@@ -60,7 +60,7 @@ func init() {
 }
 
 func recordRejectedConfig(gateway string) {
-	totalRejectedConfigs.WithTags(typeTag.Value("gateway"), nameTag.Value(gateway)).Increment()
+	totalRejectedConfigs.With(typeTag.Value("gateway"), nameTag.Value(gateway)).Increment()
 }
 
 // MergeGateways combines multiple gateways targeting the same workload into a single logical Gateway.

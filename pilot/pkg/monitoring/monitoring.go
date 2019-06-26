@@ -37,9 +37,9 @@ type (
 		// Record makes an observation of the provided value for the given measure.
 		Record(value float64)
 
-		// WithTags creates a new Metric, with the TagValues provided. This allows creating
+		// With creates a new Metric, with the TagValues provided. This allows creating
 		// a set of pre-dimensioned data for recording and export purposes.
-		WithTags(tagValues ...TagValue) Metric
+		With(tagValues ...TagValue) Metric
 
 		// View returns the OpenCensus view to which this Metric is being exported.
 		View() *view.View
@@ -133,7 +133,7 @@ func (f *float64Metric) Record(value float64) {
 	stats.RecordWithTags(context.Background(), f.tags, f.M(value)) //nolint:errcheck
 }
 
-func (f *float64Metric) WithTags(tagValues ...TagValue) Metric {
+func (f *float64Metric) With(tagValues ...TagValue) Metric {
 	t := make([]tag.Mutator, 0, len(f.tags)+len(tagValues))
 	copy(t, f.tags)
 	for _, tagValue := range tagValues {

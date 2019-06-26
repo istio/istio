@@ -195,15 +195,15 @@ func (ds *DiscoveryService) ListAllEndpoints(_ *restful.Request, response *restf
 }
 
 func incCalls(methodName string) {
-	callCounter.WithTags(buildTag.Value(buildVersion), methodTag.Value(methodName)).Increment()
+	callCounter.With(buildTag.Value(buildVersion), methodTag.Value(methodName)).Increment()
 }
 
 func incErrors(methodName string) {
-	errorCounter.WithTags(buildTag.Value(buildVersion), methodTag.Value(methodName)).Increment()
+	errorCounter.With(buildTag.Value(buildVersion), methodTag.Value(methodName)).Increment()
 }
 
 func observeResources(methodName string, count float64) {
-	resourceCounter.WithTags(buildTag.Value(buildVersion), methodTag.Value(methodName)).Record(count)
+	resourceCounter.With(buildTag.Value(buildVersion), methodTag.Value(methodName)).Record(count)
 }
 
 func errorResponse(methodName string, r *restful.Response, status int, msg string) {

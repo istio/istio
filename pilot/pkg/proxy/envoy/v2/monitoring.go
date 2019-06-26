@@ -102,17 +102,17 @@ var (
 		typeTag,
 	)
 
-	cdsPushes         = pushes.WithTags(typeTag.Value("cds"))
-	cdsSendErrPushes  = pushes.WithTags(typeTag.Value("cds_senderr"))
-	cdsBuildErrPushes = pushes.WithTags(typeTag.Value("cds_builderr"))
-	edsPushes         = pushes.WithTags(typeTag.Value("eds"))
-	edsSendErrPushes  = pushes.WithTags(typeTag.Value("eds_senderr"))
-	ldsPushes         = pushes.WithTags(typeTag.Value("lds"))
-	ldsSendErrPushes  = pushes.WithTags(typeTag.Value("lds_senderr"))
-	ldsBuildErrPushes = pushes.WithTags(typeTag.Value("lds_builderr"))
-	rdsPushes         = pushes.WithTags(typeTag.Value("rds"))
-	rdsSendErrPushes  = pushes.WithTags(typeTag.Value("rds_senderr"))
-	rdsBuildErrPushes = pushes.WithTags(typeTag.Value("rds_builderr"))
+	cdsPushes         = pushes.With(typeTag.Value("cds"))
+	cdsSendErrPushes  = pushes.With(typeTag.Value("cds_senderr"))
+	cdsBuildErrPushes = pushes.With(typeTag.Value("cds_builderr"))
+	edsPushes         = pushes.With(typeTag.Value("eds"))
+	edsSendErrPushes  = pushes.With(typeTag.Value("eds_senderr"))
+	ldsPushes         = pushes.With(typeTag.Value("lds"))
+	ldsSendErrPushes  = pushes.With(typeTag.Value("lds_senderr"))
+	ldsBuildErrPushes = pushes.With(typeTag.Value("lds_builderr"))
+	rdsPushes         = pushes.With(typeTag.Value("rds"))
+	rdsSendErrPushes  = pushes.With(typeTag.Value("rds_senderr"))
+	rdsBuildErrPushes = pushes.With(typeTag.Value("rds_builderr"))
 
 	pushErrors = monitoring.NewSum(
 		"pilot_xds_push_errors",
@@ -120,8 +120,8 @@ var (
 		typeTag,
 	)
 
-	unrecoverableErrs = pushErrors.WithTags(typeTag.Value("unrecoverable"))
-	retryErrs         = pushErrors.WithTags(typeTag.Value("retry"))
+	unrecoverableErrs = pushErrors.With(typeTag.Value("unrecoverable"))
+	retryErrs         = pushErrors.With(typeTag.Value("retry"))
 
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesConvergeDelay = monitoring.NewDistribution(
@@ -146,14 +146,14 @@ var (
 		typeTag,
 	)
 
-	inboundConfigUpdates   = inboundUpdates.WithTags(typeTag.Value("config"))
-	inboundEDSUpdates      = inboundUpdates.WithTags(typeTag.Value("eds"))
-	inboundServiceUpdates  = inboundUpdates.WithTags(typeTag.Value("svc"))
-	inboundWorkloadUpdates = inboundUpdates.WithTags(typeTag.Value("workload"))
+	inboundConfigUpdates   = inboundUpdates.With(typeTag.Value("config"))
+	inboundEDSUpdates      = inboundUpdates.With(typeTag.Value("eds"))
+	inboundServiceUpdates  = inboundUpdates.With(typeTag.Value("svc"))
+	inboundWorkloadUpdates = inboundUpdates.With(typeTag.Value("workload"))
 )
 
 func incrementXDSRejects(metric monitoring.Metric, node, errCode string) {
-	metric.WithTags(nodeTag.Value(node), errTag.Value(errCode)).Increment()
+	metric.With(nodeTag.Value(node), errTag.Value(errCode)).Increment()
 	totalXDSRejects.Increment()
 }
 
