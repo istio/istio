@@ -183,6 +183,14 @@ var (
 		"PILOT_ENABLE_REDIS_FILTER",
 		false,
 		"EnableRedisFilter enables injection of `envoy.filters.network.redis_proxy` in the filter chain.")
+
+	// UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners so that it picks up the localhost
+	// address of the sender, which is an internal address, so that trusted headers are not sanitized.
+	UseRemoteAddress = useRemoteAddress.Get
+	useRemoteAddress = env.RegisterBoolVar(
+		"PILOT_USE_REMOTE_ADDRESS",
+		false,
+		"seRemoteAddress sets useRemoteAddress to true for side car outbound listeners.")
 )
 
 var (
