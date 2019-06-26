@@ -3172,7 +3172,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 		in    proto.Message
 		error string
 	}{
-		{name: "empty filters", in: &networking.EnvoyFilter{}, error: "missing filters"},
+		{name: "empty filters", in: &networking.EnvoyFilter{}, error: ""},
 
 		{name: "missing relativeTo", in: &networking.EnvoyFilter{
 			Filters: []*networking.EnvoyFilter_Filter{
