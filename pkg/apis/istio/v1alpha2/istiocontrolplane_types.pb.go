@@ -251,7 +251,7 @@ type IstioControlPlaneSpec struct {
 	IngressGateway []*IngressGatewaySpec `protobuf:"bytes,31,rep,name=ingress_gateway,json=ingressGateway,proto3" json:"ingress_gateway,omitempty"`
 	EgressGateway  []*EgressGatewaySpec  `protobuf:"bytes,32,rep,name=egress_gateway,json=egressGateway,proto3" json:"egress_gateway,omitempty"`
 	// Kustomize style overrides for default global values.yaml.
-	// Values map[string]interface{} `protobuf:"bytes,6,opt,name=values" json:"values,omitempty"`
+	Values map[string]interface{} `protobuf:"bytes,6,opt,name=values" json:"values,omitempty"`
 	// URL for the base spec. e.g.
 	//   istio-minimal.yaml (looks in default dir)
 	//   file://var/istio/install/values/custom/custom-install.yaml
@@ -1614,6 +1614,8 @@ type CommonComponentSpec struct {
 	Debug     CommonComponentSpec_LogLevel `protobuf:"varint,3,opt,name=debug,proto3,enum=v1alpha2.CommonComponentSpec_LogLevel" json:"debug,omitempty"`
 	// Kubernetes resource spec.
 	K8S                  *KubernetesResourcesSpec `protobuf:"bytes,80,opt,name=k8s,proto3" json:"k8s,omitempty"`
+	Values               map[string]interface{}   `protobuf:"bytes,6,opt,name=values" json:"values,omitempty"`
+	UnvalidatedValues    map[string]interface{}   `protobuf:"bytes,6,opt,name=unvalidatedValues" json:"unvalidatedValues,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
 	XXX_sizecache        int32                    `json:"-"`
@@ -2326,6 +2328,7 @@ type K8SObjectOverlay_PathValue struct {
 	// Where b:c is a list element selector of the form key:value and :f is a list selector of the form :value.
 	// All path intermediate nodes must exist.
 	Path                 string   `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Value                interface{} `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
