@@ -64,7 +64,7 @@ var (
 	k8sErrors = monitoring.NewGauge(
 		"pilot_k8s_object_errors",
 		"Errors converting k8s CRDs",
-		typeTag, eventTag,
+		nameTag,
 	)
 
 	// InvalidCRDs contains a sync.Map keyed by the namespace/name of the entry, and has the error as value.
