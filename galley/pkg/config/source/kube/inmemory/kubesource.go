@@ -143,7 +143,6 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 	newKeys := make(map[kubeResourceKey]collection.Name)
 
 	for _, r := range resources {
-
 		key := r.newKey()
 
 		oldSha, found := s.shas[key]

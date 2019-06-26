@@ -15,7 +15,7 @@
 package basicmeta
 
 // Embed the core metadata file containing the collections as a resource
-//go:generate go-bindata --nocompress --nometadata --pkg basicmeta -o basicmeta.gen.go basicmeta.yaml
+//go:generate go-bindata --nocompress --nometadata --pkg basicmeta -o basicmeta.gen.go basicmeta.yaml basicmeta2.yaml
 
 // Create static initializers file
 //go:generate go run $GOPATH/src/istio.io/istio/galley/pkg/config/schema/codegen/tools/staticinit.main.go basicmeta basicmeta.yaml staticinit.gen.go
