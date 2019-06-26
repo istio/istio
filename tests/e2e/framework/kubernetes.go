@@ -655,7 +655,7 @@ func (k *KubeInfo) CheckJobSucceeded(cluster, jobName string) error {
 			return err
 		}
 		if !ret {
-			return fmt.Errorf("Job %s not succeeded", jobName)
+			return fmt.Errorf("job %s not succeeded", jobName)
 		}
 		return nil
 	}
