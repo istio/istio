@@ -460,9 +460,9 @@ func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, ser
 	}
 
 	// enable use remote address to true
-	os.Setenv("PILOT_USE_REMOTE_ADDRESS", "true")
+	os.Setenv("PILOT_SIDECAR_USE_REMOTE_ADDRESS", "true")
 
-	defer os.Unsetenv("PILOT_USE_REMOTE_ADDRESS")
+	defer os.Unsetenv("PILOT_SIDECAR_USE_REMOTE_ADDRESS")
 
 	listeners := buildOutboundListeners(p, sidecarConfig, nil, services...)
 

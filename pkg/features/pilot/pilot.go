@@ -177,7 +177,7 @@ var (
 	// address of the sender, which is an internal address, so that trusted headers are not sanitized.
 	UseRemoteAddress = useRemoteAddress.Get
 	useRemoteAddress = env.RegisterBoolVar(
-		"PILOT_USE_REMOTE_ADDRESS",
+		"PILOT_SIDECAR_USE_REMOTE_ADDRESS",
 		false,
 		"UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners.")
 )
