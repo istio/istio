@@ -59,7 +59,9 @@ run-test-knative: install-crds
 	  -n knative-serving --for=condition=available --timeout=${WAIT_TIMEOUT}
 
 	kubectl apply --filename test/knative/service.yaml
-	kubectl wait routes helloworld-go --for=condition=ready --timeout=${WAIT_TIMEOUT}
+	# The route may take some small period of time to be create, so we cannot just directly wait on it
+	until timeout ${WAIT_TIMEOUT} kubectl wait routes helloworld-go --for=condition=ready --timeout=${WAIT_TIMEOUT}; do echo "waiting for route"; done
+
 
 # TODO: pass meshConfigFile, injectConfigFile, valuesFile to test, or skip the kube-inject and do it manually (better)
 # Test won't work otherwise
