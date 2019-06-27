@@ -556,7 +556,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 	values := map[string]interface{}{}
 	if err := yaml.Unmarshal([]byte(valuesConfig), &values); err != nil {
 		log.Infof("Failed to parse values config: %v [%v]\n", err, valuesConfig)
-		return nil, "", err
+		return nil, "", multierror.Prefix(err, "could not parse configuration values:")
 	}
 
 	data := SidecarTemplateData{
@@ -603,8 +603,10 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 
 	var sic SidecarInjectionSpec
 	if err := yaml.Unmarshal(bbuf.Bytes(), &sic); err != nil {
-		log.Warnf("Failed to unmarshall template %v %s", err, bbuf.String())
-		return nil, "", err
+		// This usually means an invalid injector template; we can't check
+		// the template itself because it is merely a string.
+		log.Warnf("Failed to unmarshal template %v %s", err, bbuf.String())
+		return nil, "", multierror.Prefix(err, "failed parsing generated injected YAML (check Istio sidecar injector configuration):")
 	}
 
 	// set sidecar --concurrency
