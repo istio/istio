@@ -10,7 +10,7 @@ metadata:
     release: {{ .Release.Name }}
 
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicaCount }}
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -57,6 +57,9 @@ spec:
           {{- end }}
           {{- if .Values.security.trustDomain }}
             - --trust-domain={{ .Values.security.trustDomain }}
+          {{- end }}
+          {{- if .Values.workloadCertTtl }}
+            - --workload-cert-ttl={{ .Values.workloadCertTtl }}
           {{- end }}
           livenessProbe:
             httpGet:
