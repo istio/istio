@@ -45,6 +45,7 @@ endif
 
 E2E_TIMEOUT ?= 25
 
+
 # If set outside, it appears it is not possible to modify the variable.
 E2E_ARGS ?=
 
@@ -52,16 +53,20 @@ ISTIOCTL_BIN ?= ${ISTIO_OUT}/istioctl
 
 DEFAULT_EXTRA_E2E_ARGS = ${MINIKUBE_FLAGS}
 DEFAULT_EXTRA_E2E_ARGS += --istioctl=${ISTIOCTL_BIN}
-DEFAULT_EXTRA_E2E_ARGS += --mixer_tag=${TAG}
-DEFAULT_EXTRA_E2E_ARGS += --pilot_tag=${TAG}
-DEFAULT_EXTRA_E2E_ARGS += --proxy_tag=${TAG}
-DEFAULT_EXTRA_E2E_ARGS += --ca_tag=${TAG}
-DEFAULT_EXTRA_E2E_ARGS += --galley_tag=${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --mixer_tag=${TAG_VARIANT}
+DEFAULT_EXTRA_E2E_ARGS += --pilot_tag=${TAG_VARIANT}
+DEFAULT_EXTRA_E2E_ARGS += --proxy_tag=${TAG_VARIANT}
+DEFAULT_EXTRA_E2E_ARGS += --ca_tag=${TAG_VARIANT}
+DEFAULT_EXTRA_E2E_ARGS += --galley_tag=${TAG_VARIANT}
+DEFAULT_EXTRA_E2E_ARGS += --sidecar_injector_tag=${TAG_VARIANT}
+DEFAULT_EXTRA_E2E_ARGS += --app_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --mixer_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --pilot_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --proxy_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --ca_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --galley_hub=${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --sidecar_injector_hub=${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --app_hub=${HUB}
 
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
@@ -252,7 +257,7 @@ helm/install:
 	  install/kubernetes/helm/istio-init \
 	  --name istio-system-init --namespace istio-system \
 	  --set global.hub=${HUB} \
-	  --set global.tag=${TAG} \
+	  --set global.tag=${TAG_VARIANT} \
 	  --set global.imagePullPolicy=Always \
 	  ${HELM_ARGS}
 	sleep 10
@@ -260,7 +265,7 @@ helm/install:
 	  install/kubernetes/helm/istio \
 	  --name istio-system --namespace istio-system \
 	  --set global.hub=${HUB} \
-	  --set global.tag=${TAG} \
+	  --set global.tag=${TAG_VARIANT} \
 	  --set global.imagePullPolicy=Always \
 	  ${HELM_ARGS}
 
@@ -269,7 +274,7 @@ helm/install:
 helm/upgrade:
 	${HELM} upgrade \
 	  --set global.hub=${HUB} \
-	  --set global.tag=${TAG} \
+	  --set global.tag=${TAG_VARIANT} \
 	  --set global.imagePullPolicy=Always \
 	  ${HELM_ARGS} \
 	  istio-system install/kubernetes/helm/istio
