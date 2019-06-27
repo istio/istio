@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	"go.uber.org/atomic"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/proxy"
@@ -48,6 +49,7 @@ type envoy struct {
 	opts           map[string]interface{}
 	nodeIPs        []string
 	dnsRefreshRate string
+	processNum     *atomic.Int32
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -69,6 +71,7 @@ func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string,
 		pilotSAN:       pilotSAN,
 		nodeIPs:        nodeIPs,
 		dnsRefreshRate: dnsRefreshRate,
+		processNum:     atomic.NewInt32(0),
 	}
 }
 
@@ -140,9 +143,18 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	if err := cmd.Start(); err != nil {
 		return err
 	}
+	// record envoy process number
+	e.processNum.Inc()
 	done := make(chan error, 1)
 	go func() {
-		done <- cmd.Wait()
+		err := cmd.Wait()
+		e.processNum.Dec()
+		if err == nil {
+			if e.processNum.Load() == 0 {
+				err = fmt.Errorf("envoy process is killed, maybe by SIGTERM")
+			}
+		}
+		done <- err
 	}()
 
 	select {
