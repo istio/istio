@@ -19,6 +19,8 @@ import (
 	"reflect"
 	"testing"
 
+	"go.uber.org/atomic"
+
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -33,6 +35,7 @@ func TestEnvoyArgs(t *testing.T) {
 		extraArgs:      []string{"-l", "trace", "--component-log-level", "misc:error"},
 		nodeIPs:        []string{"10.75.2.9", "192.168.11.18"},
 		dnsRefreshRate: "60s",
+		processNum:     atomic.NewInt32(0),
 	}
 	testProxy := NewProxy(
 		config,
