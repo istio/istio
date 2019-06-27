@@ -21,7 +21,7 @@
 # It does not upload to a registry.
 docker: build-linux test-bins-linux docker.all
 
-DOCKER_TARGETS:=docker.pilot docker.proxy_debug docker.proxytproxy docker.proxyv2 docker.app docker.test_policybackend \
+DOCKER_TARGETS:=docker.pilot docker.proxy_debug docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
 	docker.proxy_init docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
@@ -52,6 +52,9 @@ DOCKER_FILES_FROM_ISTIO_OUT:=pkg-test-echo-cmd-client pkg-test-echo-cmd-server \
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT_LINUX)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT_LINUX)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
+# rule for the test certs.
+$(ISTIO_DOCKER)/certs:
+	cp -a tests/testdata/certs $(ISTIO_DOCKER)/.
 
 # tell make which files are copied from the source tree and generate rules to copy them to the proper location:
 # TODO(sdake)                      $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES)
@@ -148,13 +151,12 @@ docker.pilot: pilot/docker/Dockerfile.pilot
 	$(DOCKER_RULE)
 
 # Test application
-docker.app: tests/docker/Dockerfile.app
+docker.app: pkg/test/echo/docker/Dockerfile.app
 docker.app: $(ISTIO_OUT_LINUX)/pkg-test-echo-cmd-client
 docker.app: $(ISTIO_OUT_LINUX)/pkg-test-echo-cmd-server
-docker.app: tests/testdata/certs/cert.crt
-docker.app: tests/testdata/certs/cert.key
+docker.app: $(ISTIO_DOCKER)/certs
 	mkdir -p $(ISTIO_DOCKER)/testapp
-	cp $^ $(ISTIO_DOCKER)/testapp
+	cp -r $^ $(ISTIO_DOCKER)/testapp
 ifeq ($(DEBUG_IMAGE),1)
 	# It is extremely helpful to debug from the test app. The savings in size are not worth the
 	# developer pain
@@ -163,6 +165,27 @@ ifeq ($(DEBUG_IMAGE),1)
 endif
 	time (cd $(ISTIO_DOCKER)/testapp && \
 		docker build -t $(HUB)/app:$(TAG) -f Dockerfile.app .)
+
+
+# Test application bundled with the sidecar (for non-k8s).
+docker.app_sidecar: tools/packaging/common/envoy_bootstrap_v2.json
+docker.app_sidecar: tools/packaging/common/envoy_bootstrap_drain.json
+docker.app_sidecar: tools/packaging/common/istio-iptables.sh
+docker.app_sidecar: tools/packaging/common/istio-start.sh
+docker.app_sidecar: tools/packaging/common/istio-node-agent-start.sh
+docker.app_sidecar: tools/packaging/deb/postinst.sh
+docker.app_sidecar: pkg/test/echo/docker/echo-start.sh
+docker.app_sidecar: $(ISTIO_DOCKER)/certs
+docker.app_sidecar: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
+docker.app_sidecar: $(ISTIO_OUT)/pilot-agent
+docker.app_sidecar: $(ISTIO_OUT)/node_agent
+docker.app_sidecar: $(ISTIO_OUT)/pkg-test-echo-cmd-client
+docker.app_sidecar: $(ISTIO_OUT)/pkg-test-echo-cmd-server
+docker.app_sidecar: pkg/test/echo/docker/Dockerfile.app_sidecar
+docker.app_sidecar: pilot/docker/envoy_pilot.yaml.tmpl
+docker.app_sidecar: pilot/docker/envoy_policy.yaml.tmpl
+docker.app_sidecar: pilot/docker/envoy_telemetry.yaml.tmpl
+	$(DOCKER_RULE)
 
 # Test policy backend for mixer integration
 docker.test_policybackend: mixer/docker/Dockerfile.test_policybackend
