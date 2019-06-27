@@ -57,9 +57,10 @@ const (
 )
 
 type IngressCredential struct {
-	PrivateKey string
-	ServerCert string
-	CaCert     string
+	PrivateKey                string
+	ServerCert                string
+	CaCert                    string
+	CertificateRevocationList string
 }
 
 var IngressCredentialA = IngressCredential{
@@ -71,6 +72,19 @@ var IngressCredentialB = IngressCredential{
 	PrivateKey: TLSServerKeyB,
 	ServerCert: TLSServerCertB,
 	CaCert:     CaCertB,
+}
+// Leverages the same Server certificates as "A", but uses a CA that has a CRL that revokes TLSClientCertC.
+// Used for testing Certificate Revocation Lists
+var IngressCredentialCWithoutCRL = IngressCredential{
+	PrivateKey:                TLSServerKeyA,
+	ServerCert:                TLSServerCertA,
+	CaCert:                    CaCertC,
+}
+var IngressCredentialCWithCRL = IngressCredential{
+	PrivateKey:                TLSServerKeyA,
+	ServerCert:                TLSServerCertA,
+	CaCert:                    CaCertC,
+	CertificateRevocationList: CertificateRevocationListC,
 }
 
 // CreateIngressKubeSecret reads credential names from credNames and key/cert from ingressCred,
