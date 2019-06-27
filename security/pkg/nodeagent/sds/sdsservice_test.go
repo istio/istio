@@ -45,7 +45,7 @@ var (
 	fakePushCertificateChain = []byte{03}
 	fakePushPrivateKey       = []byte{04}
 
-	fakeCRL = []byte{05}
+	fakeCertificateRevocationList = []byte{05}
 
 	fakeCredentialToken = "faketoken"
 	testResourceName    = "default"
@@ -60,7 +60,7 @@ var (
 
 	fakeSecretRootCert = &model.SecretItem{
 		RootCert:                  fakeRootCert,
-		CertificateRevocationList: fakeCRL,
+		CertificateRevocationList: fakeCertificateRevocationList,
 		ResourceName:              cache.RootCertReqResourceName,
 		Version:                   time.Now().String(),
 	}
@@ -195,7 +195,7 @@ func sendRequestForRootCertAndVerifyResponse(t *testing.T, cb secretCallback, so
 	if err != nil {
 		t.Fatalf("failed to get root cert through SDS")
 	}
-	verifySDSSResponseForRootCert(t, resp, fakeRootCert, fakeCRL)
+	verifySDSSResponseForRootCert(t, resp, fakeRootCert, fakeCertificateRevocationList)
 }
 
 func sendRequestAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxyID string, testInvalidResourceNames bool) {
@@ -390,7 +390,7 @@ func verifySDSSResponse(t *testing.T, resp *api.DiscoveryResponse, expectedPriva
 	}
 }
 
-func verifySDSSResponseForRootCert(t *testing.T, resp *api.DiscoveryResponse, expectedRootCert []byte, expectedCRL []byte) {
+func verifySDSSResponseForRootCert(t *testing.T, resp *api.DiscoveryResponse, expectedRootCert []byte, expectedCertificateRevocationList []byte) {
 	var pb authapi.Secret
 	if err := types.UnmarshalAny(&resp.Resources[0], &pb); err != nil {
 		t.Fatalf("UnmarshalAny SDS response failed: %v", err)
@@ -407,7 +407,7 @@ func verifySDSSResponseForRootCert(t *testing.T, resp *api.DiscoveryResponse, ex
 				},
 				Crl: &core.DataSource{
 					Specifier: &core.DataSource_InlineBytes{
-						InlineBytes: expectedCRL,
+						InlineBytes: expectedCertificateRevocationList,
 					},
 				},
 			},
