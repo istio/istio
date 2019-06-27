@@ -1,0 +1,36 @@
+---
+ignore: |
+  /tests/e2e/tests/pilot/testdata/networking/v1alpha3/rule-503test-destinationrule-c.yaml
+  /tests/e2e/tests/pilot/testdata/networking/v1alpha3/destination-rule-c.yaml
+  /tests/e2e/tests/pilot/testdata/networking/v1alpha3/rule-503test-destinationrule-c-add-subset.yaml
+  /tests/e2e/tests/pilot/testdata/networking/v1alpha3/rule-503test-destinationrule-c-del-subset.yaml
+  /tests/e2e/tests/pilot/testdata/networking/v1alpha3/destination-rule-c-private.yaml
+
+rules:
+  braces: disable
+  brackets: disable
+  colons:
+    ignore: |
+      /galley/tools/gen-meta/metadata.yaml
+  commas: disable
+  comments:
+    level: warning
+  comments-indentation:
+    level: warning
+  document-end: disable
+  document-start:
+    level: warning
+  empty-lines: disable
+  empty-values: enable
+  hyphens: enable
+  indentation: disable
+  key-duplicates: enable
+  key-ordering: disable
+  line-length: disable
+  new-line-at-end-of-file: disable
+  new-lines: enable
+  octal-values: enable
+  quoted-strings: disable
+  trailing-spaces: disable
+  truthy:
+    level: warning
