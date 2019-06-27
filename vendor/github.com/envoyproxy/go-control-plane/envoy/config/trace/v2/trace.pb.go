@@ -11,6 +11,7 @@ import (
 	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	proto "github.com/gogo/protobuf/proto"
 	types "github.com/gogo/protobuf/types"
+	v1 "istio.io/gogo-genproto/opencensus/proto/trace/v1"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 )
@@ -25,6 +26,37 @@ var _ = math.Inf
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+
+type OpenCensusConfig_TraceContext int32
+
+const (
+	// W3C Trace-Context format "traceparent:" header.
+	OpenCensusConfig_trace_context OpenCensusConfig_TraceContext = 0
+	// Binary "grpc-trace-bin:" header.
+	OpenCensusConfig_grpc_trace_bin OpenCensusConfig_TraceContext = 1
+	// "X-Cloud-Trace-Context:" header.
+	OpenCensusConfig_cloud_trace_context OpenCensusConfig_TraceContext = 2
+)
+
+var OpenCensusConfig_TraceContext_name = map[int32]string{
+	0: "trace_context",
+	1: "grpc_trace_bin",
+	2: "cloud_trace_context",
+}
+
+var OpenCensusConfig_TraceContext_value = map[string]int32{
+	"trace_context":       0,
+	"grpc_trace_bin":      1,
+	"cloud_trace_context": 2,
+}
+
+func (x OpenCensusConfig_TraceContext) String() string {
+	return proto.EnumName(OpenCensusConfig_TraceContext_name, int32(x))
+}
+
+func (OpenCensusConfig_TraceContext) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_0785d24fc8ab55c7, []int{5, 0}
+}
 
 // The tracing configuration specifies global
 // settings for the HTTP tracer used by Envoy. The configuration is defined by
@@ -87,6 +119,7 @@ type Tracing_Http struct {
 	// - *envoy.zipkin*
 	// - *envoy.dynamic.ot*
 	// - *envoy.tracers.datadog*
+	// - *envoy.tracers.opencensus*
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Trace driver specific configuration which depends on the driver being instantiated.
 	// See the trace drivers for examples:
@@ -95,6 +128,7 @@ type Tracing_Http struct {
 	// - :ref:`ZipkinConfig <envoy_api_msg_config.trace.v2.ZipkinConfig>`
 	// - :ref:`DynamicOtConfig <envoy_api_msg_config.trace.v2.DynamicOtConfig>`
 	// - :ref:`DatadogConfig <envoy_api_msg_config.trace.v2.DatadogConfig>`
+	// - :ref:`OpenCensusConfig <envoy_api_msg_config.trace.v2.OpenCensusConfig>`
 	//
 	// Types that are valid to be assigned to ConfigType:
 	//	*Tracing_Http_Config
@@ -516,6 +550,132 @@ func (m *DatadogConfig) GetServiceName() string {
 	return ""
 }
 
+// Configuration for the OpenCensus tracer.
+// [#proto-status: experimental]
+type OpenCensusConfig struct {
+	// Configures tracing, e.g. the sampler, max number of annotations, etc.
+	TraceConfig *v1.TraceConfig `protobuf:"bytes,1,opt,name=trace_config,json=traceConfig,proto3" json:"trace_config,omitempty"`
+	// Enables the stdout exporter if set to true. This is intended for debugging
+	// purposes.
+	StdoutExporterEnabled bool `protobuf:"varint,2,opt,name=stdout_exporter_enabled,json=stdoutExporterEnabled,proto3" json:"stdout_exporter_enabled,omitempty"`
+	// Enables the Stackdriver exporter if set to true. The project_id must also
+	// be set.
+	StackdriverExporterEnabled bool `protobuf:"varint,3,opt,name=stackdriver_exporter_enabled,json=stackdriverExporterEnabled,proto3" json:"stackdriver_exporter_enabled,omitempty"`
+	// The Cloud project_id to use for Stackdriver tracing.
+	StackdriverProjectId string `protobuf:"bytes,4,opt,name=stackdriver_project_id,json=stackdriverProjectId,proto3" json:"stackdriver_project_id,omitempty"`
+	// Enables the Zipkin exporter if set to true. The url and service name must
+	// also be set.
+	ZipkinExporterEnabled bool `protobuf:"varint,5,opt,name=zipkin_exporter_enabled,json=zipkinExporterEnabled,proto3" json:"zipkin_exporter_enabled,omitempty"`
+	// The URL to Zipkin, e.g. "http://127.0.0.1:9411/api/v2/spans"
+	ZipkinUrl string `protobuf:"bytes,6,opt,name=zipkin_url,json=zipkinUrl,proto3" json:"zipkin_url,omitempty"`
+	// The Zipkin service name.
+	ZipkinServiceName string `protobuf:"bytes,7,opt,name=zipkin_service_name,json=zipkinServiceName,proto3" json:"zipkin_service_name,omitempty"`
+	// List of incoming trace context headers we will accept. First one found
+	// wins.
+	IncomingTraceContext []OpenCensusConfig_TraceContext `protobuf:"varint,8,rep,packed,name=incoming_trace_context,json=incomingTraceContext,proto3,enum=envoy.config.trace.v2.OpenCensusConfig_TraceContext" json:"incoming_trace_context,omitempty"`
+	// List of outgoing trace context headers we will produce.
+	OutgoingTraceContext []OpenCensusConfig_TraceContext `protobuf:"varint,9,rep,packed,name=outgoing_trace_context,json=outgoingTraceContext,proto3,enum=envoy.config.trace.v2.OpenCensusConfig_TraceContext" json:"outgoing_trace_context,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                        `json:"-"`
+	XXX_unrecognized     []byte                          `json:"-"`
+	XXX_sizecache        int32                           `json:"-"`
+}
+
+func (m *OpenCensusConfig) Reset()         { *m = OpenCensusConfig{} }
+func (m *OpenCensusConfig) String() string { return proto.CompactTextString(m) }
+func (*OpenCensusConfig) ProtoMessage()    {}
+func (*OpenCensusConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0785d24fc8ab55c7, []int{5}
+}
+func (m *OpenCensusConfig) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *OpenCensusConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_OpenCensusConfig.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *OpenCensusConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OpenCensusConfig.Merge(m, src)
+}
+func (m *OpenCensusConfig) XXX_Size() int {
+	return m.Size()
+}
+func (m *OpenCensusConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_OpenCensusConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_OpenCensusConfig proto.InternalMessageInfo
+
+func (m *OpenCensusConfig) GetTraceConfig() *v1.TraceConfig {
+	if m != nil {
+		return m.TraceConfig
+	}
+	return nil
+}
+
+func (m *OpenCensusConfig) GetStdoutExporterEnabled() bool {
+	if m != nil {
+		return m.StdoutExporterEnabled
+	}
+	return false
+}
+
+func (m *OpenCensusConfig) GetStackdriverExporterEnabled() bool {
+	if m != nil {
+		return m.StackdriverExporterEnabled
+	}
+	return false
+}
+
+func (m *OpenCensusConfig) GetStackdriverProjectId() string {
+	if m != nil {
+		return m.StackdriverProjectId
+	}
+	return ""
+}
+
+func (m *OpenCensusConfig) GetZipkinExporterEnabled() bool {
+	if m != nil {
+		return m.ZipkinExporterEnabled
+	}
+	return false
+}
+
+func (m *OpenCensusConfig) GetZipkinUrl() string {
+	if m != nil {
+		return m.ZipkinUrl
+	}
+	return ""
+}
+
+func (m *OpenCensusConfig) GetZipkinServiceName() string {
+	if m != nil {
+		return m.ZipkinServiceName
+	}
+	return ""
+}
+
+func (m *OpenCensusConfig) GetIncomingTraceContext() []OpenCensusConfig_TraceContext {
+	if m != nil {
+		return m.IncomingTraceContext
+	}
+	return nil
+}
+
+func (m *OpenCensusConfig) GetOutgoingTraceContext() []OpenCensusConfig_TraceContext {
+	if m != nil {
+		return m.OutgoingTraceContext
+	}
+	return nil
+}
+
 // Configuration structure.
 type TraceServiceConfig struct {
 	// The upstream gRPC cluster that hosts the metrics service.
@@ -529,7 +689,7 @@ func (m *TraceServiceConfig) Reset()         { *m = TraceServiceConfig{} }
 func (m *TraceServiceConfig) String() string { return proto.CompactTextString(m) }
 func (*TraceServiceConfig) ProtoMessage()    {}
 func (*TraceServiceConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0785d24fc8ab55c7, []int{5}
+	return fileDescriptor_0785d24fc8ab55c7, []int{6}
 }
 func (m *TraceServiceConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -566,57 +726,76 @@ func (m *TraceServiceConfig) GetGrpcService() *core.GrpcService {
 }
 
 func init() {
+	proto.RegisterEnum("envoy.config.trace.v2.OpenCensusConfig_TraceContext", OpenCensusConfig_TraceContext_name, OpenCensusConfig_TraceContext_value)
 	proto.RegisterType((*Tracing)(nil), "envoy.config.trace.v2.Tracing")
 	proto.RegisterType((*Tracing_Http)(nil), "envoy.config.trace.v2.Tracing.Http")
 	proto.RegisterType((*LightstepConfig)(nil), "envoy.config.trace.v2.LightstepConfig")
 	proto.RegisterType((*ZipkinConfig)(nil), "envoy.config.trace.v2.ZipkinConfig")
 	proto.RegisterType((*DynamicOtConfig)(nil), "envoy.config.trace.v2.DynamicOtConfig")
 	proto.RegisterType((*DatadogConfig)(nil), "envoy.config.trace.v2.DatadogConfig")
+	proto.RegisterType((*OpenCensusConfig)(nil), "envoy.config.trace.v2.OpenCensusConfig")
 	proto.RegisterType((*TraceServiceConfig)(nil), "envoy.config.trace.v2.TraceServiceConfig")
 }
 
 func init() { proto.RegisterFile("envoy/config/trace/v2/trace.proto", fileDescriptor_0785d24fc8ab55c7) }
 
 var fileDescriptor_0785d24fc8ab55c7 = []byte{
-	// 603 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x54, 0xcd, 0x4e, 0x14, 0x4d,
-	0x14, 0xa5, 0x86, 0xf9, 0xe0, 0xe3, 0xce, 0x90, 0x81, 0x52, 0x03, 0x4e, 0x74, 0x82, 0x83, 0x31,
-	0x2e, 0x4c, 0x77, 0x18, 0xa3, 0xe2, 0xd2, 0x01, 0x15, 0x8d, 0x3f, 0xa4, 0x21, 0x2e, 0xd8, 0x74,
-	0x6a, 0xaa, 0x8b, 0xa6, 0x42, 0x53, 0x55, 0xa9, 0xae, 0x19, 0xe9, 0x9d, 0x6b, 0x1f, 0xc3, 0xc7,
-	0x70, 0xe5, 0xd2, 0xa5, 0x8f, 0x60, 0xd8, 0x18, 0xf7, 0x3e, 0x80, 0xa9, 0x9f, 0x11, 0x64, 0x58,
-	0x98, 0xb0, 0xab, 0xba, 0xe7, 0x9c, 0xfb, 0x73, 0xba, 0x6e, 0xc3, 0x2d, 0x26, 0x46, 0xb2, 0x8a,
-	0xa9, 0x14, 0xfb, 0x3c, 0x8f, 0x8d, 0x26, 0x94, 0xc5, 0xa3, 0x9e, 0x3f, 0x44, 0x4a, 0x4b, 0x23,
-	0xf1, 0x35, 0x47, 0x89, 0x3c, 0x25, 0xf2, 0xc8, 0xa8, 0xd7, 0xbe, 0xed, 0x95, 0x44, 0x71, 0x2b,
-	0xa0, 0x52, 0xb3, 0x38, 0xd7, 0x8a, 0xa6, 0x25, 0xd3, 0x23, 0x3e, 0x16, 0xb7, 0xaf, 0xe7, 0x52,
-	0xe6, 0x05, 0x8b, 0xdd, 0x6d, 0x30, 0xdc, 0x8f, 0x89, 0xa8, 0x02, 0x74, 0xe3, 0x3c, 0x54, 0x1a,
-	0x3d, 0xa4, 0x26, 0xa0, 0x9d, 0xf3, 0xe8, 0x7b, 0x4d, 0x94, 0x62, 0xba, 0x0c, 0xf8, 0xd2, 0x88,
-	0x14, 0x3c, 0x23, 0x86, 0xc5, 0xe3, 0x83, 0x07, 0xba, 0x3f, 0x10, 0xcc, 0xee, 0x6a, 0x42, 0xb9,
-	0xc8, 0xf1, 0x23, 0xa8, 0x1f, 0x18, 0xa3, 0x96, 0xd1, 0x0a, 0xba, 0xdb, 0xe8, 0xad, 0x46, 0x17,
-	0x4e, 0x12, 0x05, 0x76, 0xb4, 0x65, 0x8c, 0x4a, 0x9c, 0xa0, 0xfd, 0x09, 0x41, 0xdd, 0x5e, 0xf1,
-	0x4d, 0xa8, 0x0b, 0x72, 0xc4, 0x5c, 0x86, 0xb9, 0xfe, 0xdc, 0xe7, 0x9f, 0x5f, 0xa6, 0xeb, 0xba,
-	0xb6, 0x82, 0x12, 0x17, 0xc6, 0x6b, 0x30, 0xe3, 0xb3, 0x2d, 0xd7, 0x5c, 0x89, 0xa5, 0xc8, 0xb7,
-	0x1d, 0x8d, 0xdb, 0x8e, 0x76, 0xdc, 0x50, 0x5b, 0x53, 0x49, 0x20, 0xe2, 0xc7, 0xd0, 0x34, 0x95,
-	0x62, 0x59, 0x1a, 0x84, 0xd3, 0x4e, 0x78, 0x75, 0x42, 0xf8, 0x44, 0x54, 0x5b, 0x53, 0x49, 0xc3,
-	0x71, 0x37, 0x1c, 0xb5, 0x3f, 0x0f, 0x0d, 0x2f, 0x4a, 0x6d, 0xb4, 0xfb, 0x01, 0x41, 0xeb, 0x15,
-	0xcf, 0x0f, 0x4c, 0x69, 0x98, 0xf2, 0x14, 0xfc, 0x10, 0x16, 0xa9, 0x2c, 0x0a, 0x46, 0x8d, 0xd4,
-	0x29, 0x2d, 0x86, 0xa5, 0x61, 0x7a, 0xb2, 0xf9, 0x85, 0x3f, 0x9c, 0x0d, 0x4f, 0xc1, 0x0f, 0x60,
-	0x91, 0x50, 0xca, 0xca, 0x32, 0x35, 0xf2, 0x90, 0x89, 0x74, 0x9f, 0x17, 0xcc, 0xcd, 0xf4, 0x97,
-	0xae, 0xe5, 0x39, 0xbb, 0x96, 0xf2, 0x8c, 0x17, 0xac, 0xfb, 0x0b, 0x41, 0x73, 0x8f, 0xab, 0x43,
-	0x2e, 0x2e, 0x59, 0x7f, 0x1d, 0xf0, 0xa9, 0x8e, 0x89, 0x4c, 0x49, 0x2e, 0xcc, 0x64, 0x03, 0xa7,
-	0xc9, 0x9f, 0x06, 0x0e, 0xbe, 0x03, 0x2d, 0xf7, 0x25, 0x53, 0x9e, 0xa5, 0x6b, 0xbd, 0xf5, 0x01,
-	0x37, 0xce, 0xd2, 0xff, 0x93, 0x79, 0x17, 0x7e, 0x91, 0xf9, 0x20, 0x7e, 0x09, 0x57, 0xca, 0x03,
-	0xa2, 0x59, 0x96, 0x96, 0x8a, 0x08, 0xeb, 0xbe, 0x61, 0xc7, 0x66, 0xb9, 0xee, 0xec, 0x6f, 0x4f,
-	0xd8, 0xdf, 0x97, 0xb2, 0x78, 0x47, 0x8a, 0x21, 0x4b, 0x16, 0xbd, 0x6c, 0x47, 0x11, 0x3b, 0xa4,
-	0x15, 0x75, 0x73, 0x68, 0x6d, 0x56, 0x82, 0x1c, 0x71, 0xfa, 0xd6, 0x84, 0xc1, 0x57, 0x61, 0xb6,
-	0xe0, 0x03, 0x4d, 0x74, 0x35, 0x39, 0xee, 0x18, 0xc1, 0xf1, 0x3f, 0x3e, 0x97, 0xf1, 0x63, 0xe9,
-	0x0e, 0x61, 0x7e, 0x93, 0x18, 0x92, 0xc9, 0xfc, 0x92, 0xfe, 0xde, 0x83, 0x66, 0x58, 0xcc, 0xd4,
-	0xbd, 0xe7, 0x09, 0x67, 0x1b, 0x01, 0x7e, 0x43, 0x8e, 0x58, 0x97, 0x02, 0xb6, 0x4b, 0xc1, 0x76,
-	0x7c, 0x2c, 0xd4, 0x7e, 0x0d, 0xcd, 0xb3, 0x1b, 0x1e, 0xb6, 0xaa, 0x13, 0xb6, 0x8a, 0x28, 0x6e,
-	0x97, 0xc9, 0xfe, 0x08, 0xa2, 0xe7, 0x5a, 0xd1, 0xa0, 0xed, 0x83, 0xad, 0xf1, 0xdf, 0x47, 0x54,
-	0x5b, 0x40, 0x49, 0x23, 0x3f, 0x03, 0x6c, 0x7c, 0x3d, 0xe9, 0xa0, 0x6f, 0x27, 0x1d, 0xf4, 0xfd,
-	0xa4, 0x83, 0x60, 0x95, 0x4b, 0x9f, 0x48, 0x69, 0x79, 0x5c, 0x5d, 0xbc, 0xa9, 0x7d, 0x70, 0x5d,
-	0x6d, 0x5b, 0xb3, 0xb6, 0xd1, 0x5e, 0x6d, 0xd4, 0x1b, 0xcc, 0x38, 0xe7, 0xee, 0xff, 0x0e, 0x00,
-	0x00, 0xff, 0xff, 0x70, 0x7c, 0x05, 0x5e, 0xc8, 0x04, 0x00, 0x00,
+	// 867 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x55, 0x4d, 0x6f, 0x1b, 0x45,
+	0x18, 0xce, 0x3a, 0xce, 0x87, 0x5f, 0x3b, 0x8d, 0x3d, 0x49, 0x1b, 0x63, 0xb5, 0x56, 0x70, 0x50,
+	0xd5, 0x43, 0xb5, 0x56, 0x4c, 0x29, 0xe5, 0x06, 0x4e, 0x03, 0x09, 0x82, 0x36, 0xda, 0x14, 0x0e,
+	0xbd, 0xac, 0xc6, 0xb3, 0x93, 0xcd, 0x34, 0x9b, 0x99, 0xd1, 0xec, 0xac, 0x89, 0x39, 0x71, 0xe6,
+	0x67, 0xf0, 0x33, 0x10, 0x07, 0x8e, 0x1c, 0xf9, 0x09, 0x28, 0x17, 0xc4, 0x9d, 0x1f, 0x80, 0x76,
+	0x66, 0x36, 0xfe, 0xd8, 0x20, 0x55, 0xca, 0x6d, 0xf7, 0x7d, 0x9e, 0xe7, 0xfd, 0x7e, 0x77, 0xe1,
+	0x43, 0xca, 0xc7, 0x62, 0xd2, 0x27, 0x82, 0x9f, 0xb1, 0xb8, 0xaf, 0x15, 0x26, 0xb4, 0x3f, 0x1e,
+	0xd8, 0x07, 0x5f, 0x2a, 0xa1, 0x05, 0xba, 0x6f, 0x28, 0xbe, 0xa5, 0xf8, 0x16, 0x19, 0x0f, 0x3a,
+	0x1f, 0x59, 0x25, 0x96, 0x2c, 0x17, 0x10, 0xa1, 0x68, 0x3f, 0x56, 0x92, 0x84, 0x29, 0x55, 0x63,
+	0x56, 0x88, 0x3b, 0x4f, 0x85, 0xa4, 0x9c, 0x50, 0x9e, 0x66, 0x69, 0xdf, 0x58, 0x8a, 0x18, 0xfb,
+	0xf6, 0x21, 0x74, 0x6e, 0x2d, 0xfb, 0x83, 0x58, 0x88, 0x38, 0xa1, 0x96, 0x39, 0xca, 0xce, 0xfa,
+	0x98, 0x4f, 0x1c, 0xf4, 0x70, 0x11, 0x4a, 0xb5, 0xca, 0x88, 0x76, 0x68, 0x77, 0x11, 0xfd, 0x41,
+	0x61, 0x29, 0xa9, 0x4a, 0x1d, 0xbe, 0x33, 0xc6, 0x09, 0x8b, 0xb0, 0xa6, 0xfd, 0xe2, 0xc1, 0x02,
+	0xbd, 0xbf, 0x3d, 0x58, 0x7b, 0xa3, 0x30, 0x61, 0x3c, 0x46, 0x9f, 0x42, 0xf5, 0x5c, 0x6b, 0xd9,
+	0xf6, 0x76, 0xbd, 0x27, 0xf5, 0xc1, 0x9e, 0x7f, 0x6b, 0xdd, 0xbe, 0x63, 0xfb, 0x47, 0x5a, 0xcb,
+	0xc0, 0x08, 0x3a, 0xbf, 0x78, 0x50, 0xcd, 0x5f, 0xd1, 0x23, 0xa8, 0x72, 0x7c, 0x49, 0x8d, 0x87,
+	0xda, 0xb0, 0xf6, 0xeb, 0x3f, 0xbf, 0x2f, 0x57, 0x55, 0x65, 0xd7, 0x0b, 0x8c, 0x19, 0xed, 0xc3,
+	0xaa, 0xf5, 0xd6, 0xae, 0x98, 0x10, 0x3b, 0xbe, 0x4d, 0xdb, 0x2f, 0xd2, 0xf6, 0x4f, 0x4d, 0x51,
+	0x47, 0x4b, 0x81, 0x23, 0xa2, 0xcf, 0xa0, 0xa1, 0x27, 0x92, 0x46, 0xae, 0x4f, 0xed, 0x65, 0x23,
+	0xdc, 0x2e, 0x09, 0xbf, 0xe0, 0x93, 0xa3, 0xa5, 0xa0, 0x6e, 0xb8, 0x07, 0x86, 0x3a, 0xdc, 0x80,
+	0xba, 0x15, 0x85, 0xb9, 0xb5, 0xf7, 0x93, 0x07, 0x9b, 0xdf, 0xb0, 0xf8, 0x5c, 0xa7, 0x9a, 0x4a,
+	0x4b, 0x41, 0xcf, 0xa1, 0x45, 0x44, 0x92, 0x50, 0xa2, 0x85, 0x0a, 0x49, 0x92, 0xa5, 0x9a, 0xaa,
+	0x72, 0xf2, 0xcd, 0x1b, 0xce, 0x81, 0xa5, 0xa0, 0x4f, 0xa0, 0x85, 0x09, 0xa1, 0x69, 0x1a, 0x6a,
+	0x71, 0x41, 0x79, 0x78, 0xc6, 0x12, 0x6a, 0x6a, 0x9a, 0xd3, 0x6d, 0x5a, 0xce, 0x9b, 0x9c, 0xf2,
+	0x25, 0x4b, 0x68, 0xef, 0x5f, 0x0f, 0x1a, 0x6f, 0x99, 0xbc, 0x60, 0xfc, 0x8e, 0xf1, 0x5f, 0x00,
+	0x9a, 0xea, 0x28, 0x8f, 0xa4, 0x60, 0x5c, 0x97, 0x13, 0x98, 0x3a, 0x3f, 0x74, 0x1c, 0xf4, 0x18,
+	0x36, 0xed, 0xde, 0xb1, 0x28, 0xdc, 0x1f, 0xbc, 0x18, 0x31, 0x6d, 0x5a, 0xba, 0x1e, 0x6c, 0x18,
+	0xf3, 0x71, 0x64, 0x8d, 0xe8, 0x6b, 0xd8, 0x4a, 0xcf, 0xb1, 0xa2, 0x51, 0x98, 0x4a, 0xcc, 0xf3,
+	0xee, 0x6b, 0x7a, 0xa5, 0xdb, 0x55, 0xd3, 0xfe, 0x4e, 0xa9, 0xfd, 0x43, 0x21, 0x92, 0xef, 0x71,
+	0x92, 0xd1, 0xa0, 0x65, 0x65, 0xa7, 0x12, 0xe7, 0x45, 0xe6, 0xa2, 0x5e, 0x0c, 0x9b, 0x2f, 0x27,
+	0x1c, 0x5f, 0x32, 0xf2, 0x5a, 0xbb, 0xc2, 0xf7, 0x60, 0x2d, 0x61, 0x23, 0x85, 0xd5, 0xa4, 0x5c,
+	0x6e, 0x81, 0xa0, 0xfe, 0x7b, 0xae, 0x4b, 0xb1, 0x2c, 0xbd, 0x0c, 0x36, 0x5e, 0x62, 0x8d, 0x23,
+	0x11, 0xdf, 0xb1, 0xbf, 0x4f, 0xa1, 0xe1, 0xce, 0x38, 0x34, 0xfb, 0x5c, 0xea, 0x6c, 0xdd, 0xc1,
+	0xaf, 0xf0, 0x25, 0xed, 0xfd, 0xb6, 0x02, 0xcd, 0xd7, 0x92, 0xf2, 0x03, 0x73, 0xe6, 0x2e, 0xf4,
+	0x31, 0x34, 0x66, 0x0f, 0xdc, 0x1d, 0xd5, 0x63, 0x7f, 0xfa, 0x3d, 0xb0, 0x65, 0x14, 0x87, 0xb5,
+	0x6f, 0x0e, 0x8b, 0x5a, 0x75, 0x50, 0xd7, 0xd3, 0x17, 0xf4, 0x1c, 0x76, 0x52, 0x1d, 0x89, 0x4c,
+	0x87, 0xf4, 0x4a, 0x0a, 0xa5, 0x69, 0x3e, 0x73, 0x3c, 0x4a, 0x68, 0x64, 0x12, 0x5b, 0x0f, 0xee,
+	0x5b, 0xf8, 0xd0, 0xa1, 0x87, 0x16, 0x44, 0x9f, 0xc3, 0xc3, 0x54, 0x63, 0x72, 0x11, 0x29, 0x36,
+	0xce, 0x35, 0x8b, 0x62, 0x3b, 0xf8, 0xce, 0x0c, 0x67, 0xd1, 0xc3, 0x33, 0x78, 0x30, 0xeb, 0x41,
+	0x2a, 0xf1, 0x8e, 0x12, 0x1d, 0xb2, 0xc8, 0x2c, 0x42, 0x2d, 0xd8, 0x9e, 0x41, 0x4f, 0x2c, 0x78,
+	0x1c, 0xe5, 0xf9, 0xfe, 0x68, 0xb6, 0xbc, 0x1c, 0x72, 0xc5, 0xe6, 0x6b, 0xe1, 0xc5, 0x68, 0x8f,
+	0x00, 0x9c, 0x2e, 0x53, 0x49, 0x7b, 0xd5, 0x44, 0xa8, 0x59, 0xcb, 0x77, 0x2a, 0x41, 0x3e, 0x6c,
+	0x39, 0x78, 0x6e, 0x36, 0x6b, 0x86, 0xd7, 0xb2, 0xd0, 0xe9, 0x74, 0x2c, 0xe8, 0x1d, 0x3c, 0x60,
+	0x9c, 0x88, 0x4b, 0xc6, 0xe3, 0xf0, 0x66, 0x14, 0x66, 0x8b, 0xd7, 0x77, 0x97, 0x9f, 0xdc, 0x1b,
+	0x3c, 0xfb, 0x9f, 0x0f, 0xdc, 0xe2, 0x28, 0x6f, 0x06, 0x93, 0x6b, 0x83, 0xed, 0xc2, 0xe7, 0xac,
+	0x35, 0x8f, 0x25, 0x32, 0x1d, 0x8b, 0x72, 0xac, 0xda, 0x5d, 0x62, 0x15, 0x3e, 0x67, 0xad, 0xbd,
+	0x57, 0xd0, 0x98, 0x8b, 0xdd, 0x82, 0x8d, 0xb9, 0x90, 0xcd, 0x25, 0x84, 0xe0, 0x9e, 0xf9, 0x17,
+	0x59, 0xfb, 0x88, 0xf1, 0xa6, 0x87, 0x76, 0x60, 0x8b, 0x24, 0x22, 0x8b, 0xe6, 0xf3, 0x6b, 0x56,
+	0x7a, 0x04, 0x90, 0xf1, 0xe7, 0x7a, 0xe7, 0x96, 0xee, 0x5b, 0x68, 0xcc, 0xfe, 0xce, 0xdc, 0xfe,
+	0x76, 0x5d, 0x1d, 0x58, 0xb2, 0x3c, 0xfd, 0xfc, 0xaf, 0xe7, 0x7f, 0xa5, 0x24, 0x71, 0xda, 0x21,
+	0xe4, 0x27, 0xb2, 0xf2, 0xb3, 0x57, 0x69, 0x7a, 0x41, 0x3d, 0x9e, 0x01, 0x0e, 0xfe, 0xb8, 0xee,
+	0x7a, 0x7f, 0x5e, 0x77, 0xbd, 0xbf, 0xae, 0xbb, 0x1e, 0xec, 0x31, 0x61, 0x1d, 0x49, 0x25, 0xae,
+	0x26, 0xb7, 0xf7, 0x66, 0x08, 0x26, 0xab, 0x93, 0xfc, 0x48, 0x4e, 0xbc, 0xb7, 0x95, 0xf1, 0x60,
+	0xb4, 0x6a, 0x2e, 0xe6, 0xe3, 0xff, 0x02, 0x00, 0x00, 0xff, 0xff, 0x0e, 0x33, 0xc0, 0xdc, 0xb5,
+	0x07, 0x00, 0x00,
 }
 
 func (m *Tracing) Marshal() (dAtA []byte, err error) {
@@ -868,6 +1047,119 @@ func (m *DatadogConfig) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *OpenCensusConfig) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *OpenCensusConfig) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.TraceConfig != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintTrace(dAtA, i, uint64(m.TraceConfig.Size()))
+		n7, err := m.TraceConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n7
+	}
+	if m.StdoutExporterEnabled {
+		dAtA[i] = 0x10
+		i++
+		if m.StdoutExporterEnabled {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.StackdriverExporterEnabled {
+		dAtA[i] = 0x18
+		i++
+		if m.StackdriverExporterEnabled {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if len(m.StackdriverProjectId) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintTrace(dAtA, i, uint64(len(m.StackdriverProjectId)))
+		i += copy(dAtA[i:], m.StackdriverProjectId)
+	}
+	if m.ZipkinExporterEnabled {
+		dAtA[i] = 0x28
+		i++
+		if m.ZipkinExporterEnabled {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if len(m.ZipkinUrl) > 0 {
+		dAtA[i] = 0x32
+		i++
+		i = encodeVarintTrace(dAtA, i, uint64(len(m.ZipkinUrl)))
+		i += copy(dAtA[i:], m.ZipkinUrl)
+	}
+	if len(m.ZipkinServiceName) > 0 {
+		dAtA[i] = 0x3a
+		i++
+		i = encodeVarintTrace(dAtA, i, uint64(len(m.ZipkinServiceName)))
+		i += copy(dAtA[i:], m.ZipkinServiceName)
+	}
+	if len(m.IncomingTraceContext) > 0 {
+		dAtA9 := make([]byte, len(m.IncomingTraceContext)*10)
+		var j8 int
+		for _, num := range m.IncomingTraceContext {
+			for num >= 1<<7 {
+				dAtA9[j8] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j8++
+			}
+			dAtA9[j8] = uint8(num)
+			j8++
+		}
+		dAtA[i] = 0x42
+		i++
+		i = encodeVarintTrace(dAtA, i, uint64(j8))
+		i += copy(dAtA[i:], dAtA9[:j8])
+	}
+	if len(m.OutgoingTraceContext) > 0 {
+		dAtA11 := make([]byte, len(m.OutgoingTraceContext)*10)
+		var j10 int
+		for _, num := range m.OutgoingTraceContext {
+			for num >= 1<<7 {
+				dAtA11[j10] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j10++
+			}
+			dAtA11[j10] = uint8(num)
+			j10++
+		}
+		dAtA[i] = 0x4a
+		i++
+		i = encodeVarintTrace(dAtA, i, uint64(j10))
+		i += copy(dAtA[i:], dAtA11[:j10])
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
 func (m *TraceServiceConfig) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -887,11 +1179,11 @@ func (m *TraceServiceConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintTrace(dAtA, i, uint64(m.GrpcService.Size()))
-		n7, err := m.GrpcService.MarshalTo(dAtA[i:])
+		n12, err := m.GrpcService.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n7
+		i += n12
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -1047,6 +1339,57 @@ func (m *DatadogConfig) Size() (n int) {
 	l = len(m.ServiceName)
 	if l > 0 {
 		n += 1 + l + sovTrace(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *OpenCensusConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.TraceConfig != nil {
+		l = m.TraceConfig.Size()
+		n += 1 + l + sovTrace(uint64(l))
+	}
+	if m.StdoutExporterEnabled {
+		n += 2
+	}
+	if m.StackdriverExporterEnabled {
+		n += 2
+	}
+	l = len(m.StackdriverProjectId)
+	if l > 0 {
+		n += 1 + l + sovTrace(uint64(l))
+	}
+	if m.ZipkinExporterEnabled {
+		n += 2
+	}
+	l = len(m.ZipkinUrl)
+	if l > 0 {
+		n += 1 + l + sovTrace(uint64(l))
+	}
+	l = len(m.ZipkinServiceName)
+	if l > 0 {
+		n += 1 + l + sovTrace(uint64(l))
+	}
+	if len(m.IncomingTraceContext) > 0 {
+		l = 0
+		for _, e := range m.IncomingTraceContext {
+			l += sovTrace(uint64(e))
+		}
+		n += 1 + sovTrace(uint64(l)) + l
+	}
+	if len(m.OutgoingTraceContext) > 0 {
+		l = 0
+		for _, e := range m.OutgoingTraceContext {
+			l += sovTrace(uint64(e))
+		}
+		n += 1 + sovTrace(uint64(l)) + l
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1836,6 +2179,390 @@ func (m *DatadogConfig) Unmarshal(dAtA []byte) error {
 			}
 			m.ServiceName = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTrace(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTrace
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthTrace
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *OpenCensusConfig) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTrace
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: OpenCensusConfig: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: OpenCensusConfig: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TraceConfig", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTrace
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTrace
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.TraceConfig == nil {
+				m.TraceConfig = &v1.TraceConfig{}
+			}
+			if err := m.TraceConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StdoutExporterEnabled", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.StdoutExporterEnabled = bool(v != 0)
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StackdriverExporterEnabled", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.StackdriverExporterEnabled = bool(v != 0)
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StackdriverProjectId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTrace
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTrace
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.StackdriverProjectId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ZipkinExporterEnabled", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.ZipkinExporterEnabled = bool(v != 0)
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ZipkinUrl", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTrace
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTrace
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ZipkinUrl = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ZipkinServiceName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTrace
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTrace
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ZipkinServiceName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 8:
+			if wireType == 0 {
+				var v OpenCensusConfig_TraceContext
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowTrace
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					v |= OpenCensusConfig_TraceContext(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				m.IncomingTraceContext = append(m.IncomingTraceContext, v)
+			} else if wireType == 2 {
+				var packedLen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowTrace
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					packedLen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if packedLen < 0 {
+					return ErrInvalidLengthTrace
+				}
+				postIndex := iNdEx + packedLen
+				if postIndex < 0 {
+					return ErrInvalidLengthTrace
+				}
+				if postIndex > l {
+					return io.ErrUnexpectedEOF
+				}
+				var elementCount int
+				if elementCount != 0 && len(m.IncomingTraceContext) == 0 {
+					m.IncomingTraceContext = make([]OpenCensusConfig_TraceContext, 0, elementCount)
+				}
+				for iNdEx < postIndex {
+					var v OpenCensusConfig_TraceContext
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowTrace
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						v |= OpenCensusConfig_TraceContext(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					m.IncomingTraceContext = append(m.IncomingTraceContext, v)
+				}
+			} else {
+				return fmt.Errorf("proto: wrong wireType = %d for field IncomingTraceContext", wireType)
+			}
+		case 9:
+			if wireType == 0 {
+				var v OpenCensusConfig_TraceContext
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowTrace
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					v |= OpenCensusConfig_TraceContext(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				m.OutgoingTraceContext = append(m.OutgoingTraceContext, v)
+			} else if wireType == 2 {
+				var packedLen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowTrace
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					packedLen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if packedLen < 0 {
+					return ErrInvalidLengthTrace
+				}
+				postIndex := iNdEx + packedLen
+				if postIndex < 0 {
+					return ErrInvalidLengthTrace
+				}
+				if postIndex > l {
+					return io.ErrUnexpectedEOF
+				}
+				var elementCount int
+				if elementCount != 0 && len(m.OutgoingTraceContext) == 0 {
+					m.OutgoingTraceContext = make([]OpenCensusConfig_TraceContext, 0, elementCount)
+				}
+				for iNdEx < postIndex {
+					var v OpenCensusConfig_TraceContext
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowTrace
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						v |= OpenCensusConfig_TraceContext(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					m.OutgoingTraceContext = append(m.OutgoingTraceContext, v)
+				}
+			} else {
+				return fmt.Errorf("proto: wrong wireType = %d for field OutgoingTraceContext", wireType)
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipTrace(dAtA[iNdEx:])

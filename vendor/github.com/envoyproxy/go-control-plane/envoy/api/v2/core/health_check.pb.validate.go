@@ -84,6 +84,21 @@ func (m *HealthCheck) Validate() error {
 	}
 
 	{
+		tmp := m.GetInitialJitter()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return HealthCheckValidationError{
+					field:  "InitialJitter",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
+	{
 		tmp := m.GetIntervalJitter()
 
 		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
