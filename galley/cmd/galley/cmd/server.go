@@ -24,12 +24,10 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"istio.io/istio/galley/pkg/crd/validation"
 	"istio.io/istio/galley/pkg/server"
 	"istio.io/istio/galley/pkg/server/settings"
 	istiocmd "istio.io/istio/pkg/cmd"
 	"istio.io/pkg/log"
-	"istio.io/pkg/probe"
 )
 
 var (
@@ -40,9 +38,7 @@ var (
 func serverCmd() *cobra.Command {
 
 	var (
-		serverArgs               = settings.DefaultArgs()
-		livenessProbeController  probe.Controller
-		readinessProbeController probe.Controller
+		serverArgs = settings.DefaultArgs()
 	)
 
 	serverCmd := &cobra.Command{
@@ -68,13 +64,6 @@ func serverCmd() *cobra.Command {
 				}
 			})
 
-			if serverArgs.Liveness.IsValid() {
-				livenessProbeController = probe.NewFileController(&serverArgs.Liveness)
-			}
-			if serverArgs.Readiness.IsValid() {
-				readinessProbeController = probe.NewFileController(&serverArgs.Readiness)
-			}
-
 			// validation tls args fall back to server arg values
 			// since the default value for these flags is an empty string, zero length indicates not set
 			if len(serverArgs.ValidationArgs.CACertFile) < 1 {
@@ -95,21 +84,14 @@ func serverCmd() *cobra.Command {
 				log.Fatalf("Invalid validationArgs: %v", err)
 			}
 
-			if serverArgs.EnableServer {
-				go server.RunServer(serverArgs, livenessProbeController, readinessProbeController)
+			s := server.New(serverArgs)
+			if err := s.Start(); err != nil {
+				log.Fatalf("Error creating server: %v", err)
 			}
-			if serverArgs.ValidationArgs.EnableValidation {
-				go validation.RunValidation(serverArgs.ValidationArgs, serverArgs.KubeConfig, livenessProbeController, readinessProbeController)
-			}
+
 			galleyStop := make(chan struct{})
-			go server.StartSelfMonitoring(galleyStop, serverArgs.MonitoringPort)
-
-			if serverArgs.EnableProfiling {
-				go server.StartProfiling(galleyStop, serverArgs.PprofPort)
-			}
-
-			go server.StartProbeCheck(livenessProbeController, readinessProbeController, galleyStop)
 			istiocmd.WaitSignal(galleyStop)
+			s.Stop()
 		},
 	}
 
