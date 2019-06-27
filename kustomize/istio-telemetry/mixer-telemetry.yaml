@@ -475,7 +475,7 @@ spec:
                 - s390x      
       containers:
       - name: mixer
-        image: "istionightly/mixer:nightly-master"
+        image: "gcr.io/istio-release/mixer:master-latest-daily"
         imagePullPolicy: Always
         ports:
         - containerPort: 15014
@@ -520,7 +520,7 @@ spec:
           periodSeconds: 5
 
       - name: istio-proxy
-        image: "istionightly/proxyv2:nightly-master"
+        image: "gcr.io/istio-release/proxyv2:master-latest-daily"
         imagePullPolicy: Always
         ports:
         - containerPort: 9091
@@ -595,6 +595,10 @@ spec:
         name: cpu
         targetAverageUtilization: 80
 ---
+
+---
+# Source: mixer-telemetry/templates/stackdriver.yaml
+
 
 ---
 # Source: mixer-telemetry/templates/config.yaml

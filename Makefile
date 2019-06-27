@@ -51,8 +51,8 @@ export GOPATH
 # TAG of the last stable release of istio. Used for upgrade testing and to verify istioctl.
 # TODO: make sure a '1.1' tag is applied to latest minor release, or have a manifest we can download
 STABLE_TAG = 1.1.0
-HUB ?= istionightly
-TAG ?= nightly-master
+HUB ?= gcr.io/istio-release
+TAG ?= master-latest-daily
 export HUB
 export TAG
 EXTRA ?= --set global.hub=${HUB} --set global.tag=${TAG}

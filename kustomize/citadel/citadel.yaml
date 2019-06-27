@@ -100,7 +100,7 @@ spec:
       serviceAccountName: istio-citadel11-service-account
       containers:
         - name: citadel
-          image: "istionightly/citadel:nightly-master"
+          image: "gcr.io/istio-release/citadel:master-latest-daily"
           imagePullPolicy: Always
           args:
             - --append-dns-names=true

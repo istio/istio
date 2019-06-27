@@ -246,6 +246,11 @@ data:
             - quotas
             - reportnothings
             - tracespans
+            - adapters
+            - handlers
+            - instances
+            - templates
+            - zipkins
         failurePolicy: Fail
         sideEffects: None
 
@@ -374,7 +379,7 @@ spec:
       serviceAccountName: istio-galley-service-account
       containers:
         - name: galley
-          image: "istionightly/galley:nightly-master"
+          image: "gcr.io/istio-release/galley:master-latest-daily"
           imagePullPolicy: Always
           ports:
           - containerPort: 443
@@ -430,7 +435,7 @@ spec:
               cpu: 100m
             
         - name: istio-proxy
-          image: "istionightly/proxyv2:nightly-master"
+          image: "gcr.io/istio-release/proxyv2:master-latest-daily"
           imagePullPolicy: Always
           ports:
           - containerPort: 9902
