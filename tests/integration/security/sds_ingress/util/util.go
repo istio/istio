@@ -76,9 +76,9 @@ var IngressCredentialB = IngressCredential{
 // IngressCredentialCWithoutCRL uses server certificates "A", but a new client CA.  Used in conjunction
 // with IngressCredentialCWithCRL to test Certificate Revocation Lists.
 var IngressCredentialCWithoutCRL = IngressCredential{
-	PrivateKey:                TLSServerKeyA,
-	ServerCert:                TLSServerCertA,
-	CaCert:                    CaCertC,
+	PrivateKey: TLSServerKeyA,
+	ServerCert: TLSServerCertA,
+	CaCert:     CaCertC,
 }
 // IngressCredentialCWithCRL uses server certificates "A", but a new client CA that has a used CRL that
 // revokes TLSClientCertC.
