@@ -308,6 +308,21 @@ func (m *LocalityLbEndpoints) Validate() error {
 		}
 	}
 
+	{
+		tmp := m.GetProximity()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return LocalityLbEndpointsValidationError{
+					field:  "Proximity",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
 	return nil
 }
 

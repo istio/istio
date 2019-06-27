@@ -377,6 +377,8 @@ func (m *DeltaDiscoveryResponse) Validate() error {
 
 	}
 
+	// no validation rules for TypeUrl
+
 	// no validation rules for Nonce
 
 	return nil
