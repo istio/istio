@@ -3,9 +3,13 @@
 #
 security:
   enabled: true
+  replicaCount: 1
   image: citadel
   selfSigned: true # indicate if self-signed CA is used.
   trustDomain: cluster.local # indicate the domain used in SPIFFE identity URL
+
+  # 90*24hour = 2160h
+  workloadCertTtl: 2160h
 
   # Galley, pilot in each 'profile' must have a DNS cert.
   dnsCerts:
