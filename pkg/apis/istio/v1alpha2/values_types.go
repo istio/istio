@@ -34,7 +34,6 @@ type Values struct {
 	Pilot           *PilotConfig           `json:"pilot,omitempty"`
 	Prometheus      *PrometheusConfig      `json:"prometheus,omitempty"`
 	Security        *SecurityConfig        `json:"security,omitempty"`
-	ServiceGraph    *ServiceGraphConfig    `json:"servicegraph,omitempty"`
 	SidecarInjector *SidecarInjectorConfig `json:"sidecarInjectorWebhook,omitempty"`
 	Tracing         *TracingConfig         `json:"tracing,omitempty"`
 }
@@ -502,18 +501,6 @@ type SecurityConfig struct {
 	DNSCerts         map[string]string      `json:"dnsCerts,omitempty"`
 	CreateMeshPolicy *bool                  `json:"createMeshPolicy,omitempty"`
 	NodeSelector     map[string]interface{} `json:"nodeSelector,omitempty"`
-}
-
-// ServiceGraphConfig is described in istio.io documentation.
-type ServiceGraphConfig struct {
-	Enabled        *bool                  `json:"enabled,omitempty"`
-	ReplicaCount   *uint8                 `json:"replicaCount,omitempty"`
-	Image          *string                `json:"image,omitempty"`
-	NodeSelector   map[string]interface{} `json:"nodeSelector,omitempty"`
-	Annotations    map[string]interface{} `json:"annotations,omitempty"`
-	Service        *ServiceConfig         `json:"service,omitempty"`
-	Ingress        *AddonIngressConfig    `json:"ingress,omitempty"`
-	PrometheusAddr *string                `json:"prometheusAddr,omitempty"`
 }
 
 // SidecarInjectorConfig is described in istio.io documentation.
