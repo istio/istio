@@ -242,7 +242,7 @@ the default disabled, test it, and move the default from istio-system to istio-c
 
 ```bash
     # ENABLE_CNI is set to true if istio-cni is installed
-    iop istio-control istio-autoinject $IBASE/istio-control/istio-autoinject --set enableNamespacesByDefault=true \
+    iop istio-control istio-autoinject $IBASE/istio-control/istio-autoinject --set sidecarInjectorWebhook.enableNamespacesByDefault=true \
         --set istio_cni.enabled=${ENABLE_CNI}
 
     # Second auto-inject using master version of istio
