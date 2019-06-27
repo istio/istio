@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	defaultProbeCheckInterval = 2 * time.Second
-	defaultLivenessProbeFilePath = "/healthLiveness"
+	defaultProbeCheckInterval     = 2 * time.Second
+	defaultLivenessProbeFilePath  = "/healthLiveness"
 	defaultReadinessProbeFilePath = "/healthReadiness"
 
 	defaultConfigMapFolder  = "/etc/config/"
