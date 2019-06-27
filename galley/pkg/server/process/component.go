@@ -27,7 +27,7 @@ type Component interface {
 
 type component struct {
 	startFn func() error
-	stopFn func()
+	stopFn  func()
 }
 
 // Start implements Component
@@ -42,8 +42,8 @@ func (c *component) Stop() {
 
 // ComponentFromFns creates a component from functions.
 func ComponentFromFns(startFn func() error, stopFn func()) Component {
-	return &component {
+	return &component{
 		startFn: startFn,
-		stopFn: stopFn,
+		stopFn:  stopFn,
 	}
 }
