@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,10 +18,6 @@ package cache
 import (
 	"bytes"
 	"context"
-	"crypto/x509"
-	"encoding/base64"
-	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -31,7 +27,6 @@ import (
 	"time"
 
 	"github.com/gogo/status"
-	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
@@ -588,16 +583,9 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	}
 
 	// call authentication provider specific plugins to exchange token if necessary.
-	exchangedToken := token
-	var err error
-	if sc.configOptions.Plugins != nil && len(sc.configOptions.Plugins) > 0 {
-		for _, p := range sc.configOptions.Plugins {
-			exchangedToken, _, err = p.ExchangeToken(ctx, sc.configOptions.TrustDomain, exchangedToken)
-			if err != nil {
-				cacheLog.Errorf("failed to exchange token: %v", err)
-				return nil, err
-			}
-		}
+	exchangedToken, err := sc.getExchangedToken(ctx, token)
+	if err != nil {
+		return nil, err
 	}
 
 	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep
@@ -619,36 +607,9 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		return nil, err
 	}
 
-	backOffInMilliSec := rand.Int63n(sc.configOptions.InitialBackoff)
-	cacheLog.Debugf("Wait for %d millisec for initial CSR", backOffInMilliSec)
-	// Add a jitter to initial CSR to avoid thundering herd problem.
-	time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
-	startTime := time.Now()
-	var retry int64
-	var certChainPEM []string
-	for {
-		certChainPEM, err = sc.fetcher.CaClient.CSRSign(
-			ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
-		if err == nil {
-			break
-		}
-
-		// If non-retryable error, fail the request by returning err
-		if !isRetryableErr(status.Code(err)) {
-			cacheLog.Errorf("CSR for %q hit non-retryable error %v", resourceName, err)
-			return nil, err
-		}
-
-		// If reach envoy timeout, fail the request by returning err
-		if startTime.Add(time.Millisecond * envoyDefaultTimeoutInMilliSec).Before(time.Now()) {
-			cacheLog.Errorf("CSR retry timeout for %q: %v", resourceName, err)
-			return nil, err
-		}
-
-		retry++
-		backOffInMilliSec = rand.Int63n(retry * initialBackOffIntervalInMilliSec)
-		time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
-		cacheLog.Warnf("CSR failed for %q: %v, retry in %d millisec", resourceName, err, backOffInMilliSec)
+	certChainPEM, err := sc.sendRetriableRequest(ctx, csrPEM, exchangedToken, resourceName, true)
+	if err != nil {
+		return nil, err
 	}
 
 	cacheLog.Debugf("CSR response certificate chain %+v \n", certChainPEM)
@@ -702,22 +663,6 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	}, nil
 }
 
-// parseCertAndGetExpiryTimestamp parses certificate and returns cert expire time, or return error
-// if fails to parse certificate.
-func parseCertAndGetExpiryTimestamp(certByte []byte) (time.Time, error) {
-	block, _ := pem.Decode(certByte)
-	if block == nil {
-		cacheLog.Errorf("Failed to decode certificate")
-		return time.Time{}, fmt.Errorf("failed to decode certificate")
-	}
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		cacheLog.Errorf("Failed to parse certificate: %v", err)
-		return time.Time{}, fmt.Errorf("failed to parse certificate: %v", err)
-	}
-	return cert.NotAfter, nil
-}
-
 func (sc *SecretCache) shouldRefresh(s *model.SecretItem) bool {
 	// secret should be refreshed before it expired, SecretRefreshGraceDuration is the grace period;
 	return time.Now().After(s.ExpireTime.Add(-sc.configOptions.SecretRefreshGraceDuration))
@@ -736,53 +681,76 @@ func (sc *SecretCache) isTokenExpired() bool {
 	return false
 }
 
-func constructCSRHostName(trustDomain, token string) (string, error) {
-	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep,
-	strs := strings.Split(token, ".")
-	if len(strs) != 3 {
-		return "", fmt.Errorf("invalid k8s jwt token")
+// sendRetriableRequest sends retriable requests for either CSR or ExchangeToken.
+// Prior to sending the request, it also sleep random millisecond to avoid thundering herd problem.
+func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte, providedExchangedToken, resourceName string, isCSR bool) ([]string, error) {
+	backOffInMilliSec := rand.Int63n(sc.configOptions.InitialBackoff)
+	cacheLog.Debugf("Wait for %d millisec", backOffInMilliSec)
+	// Add a jitter to initial CSR to avoid thundering herd problem.
+	time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
+
+	startTime := time.Now()
+	var retry int64
+	var certChainPEM []string
+	exchangedToken := providedExchangedToken
+	var requestErrorString string
+	var err error
+
+	// Keep trying until no error or timeout.
+	for {
+		var httpRespCode int
+		if isCSR {
+			requestErrorString = fmt.Sprintf("CSR for %q", resourceName)
+			certChainPEM, err = sc.fetcher.CaClient.CSRSign(
+				ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
+		} else {
+			requestErrorString = "Token exchange"
+			p := sc.configOptions.Plugins[0]
+			exchangedToken, _, httpRespCode, err = p.ExchangeToken(ctx, sc.configOptions.TrustDomain, exchangedToken)
+		}
+
+		if err == nil {
+			break
+		}
+
+		// If non-retryable error, fail the request by returning err
+		if !isRetryableErr(status.Code(err), httpRespCode, isCSR) {
+			cacheLog.Errorf("%s hit non-retryable error %v", requestErrorString, err)
+			return nil, err
+		}
+
+		// If reach envoy timeout, fail the request by returning err
+		if startTime.Add(time.Millisecond * envoyDefaultTimeoutInMilliSec).Before(time.Now()) {
+			cacheLog.Errorf("%s retry timed out %v", requestErrorString, err)
+			return nil, err
+		}
+
+		retry++
+		backOffInMilliSec = rand.Int63n(retry * initialBackOffIntervalInMilliSec)
+		time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
+		cacheLog.Warnf("%s failed with error: %v, retry in %d millisec", requestErrorString, err, backOffInMilliSec)
 	}
 
-	payload := strs[1]
-	if l := len(payload) % 4; l > 0 {
-		payload += strings.Repeat("=", 4-l)
+	if isCSR {
+		return certChainPEM, nil
 	}
-	dp, err := base64.URLEncoding.DecodeString(payload)
-	if err != nil {
-		return "", fmt.Errorf("invalid k8s jwt token: %v", err)
-	}
-
-	var jp k8sJwtPayload
-	if err = json.Unmarshal(dp, &jp); err != nil {
-		return "", fmt.Errorf("invalid k8s jwt token: %v", err)
-	}
-
-	// sub field in jwt should be in format like: system:serviceaccount:foo:bar
-	ss := strings.Split(jp.Sub, ":")
-	if len(ss) != 4 {
-		return "", fmt.Errorf("invalid sub field in k8s jwt token")
-	}
-	ns := ss[2] //namespace
-	sa := ss[3] //service account
-
-	domain := "cluster.local"
-	if trustDomain != "" {
-		domain = trustDomain
-	}
-
-	return fmt.Sprintf(identityTemplate, domain, ns, sa), nil
+	return []string{exchangedToken}, nil
 }
 
-func isRetryableErr(c codes.Code) bool {
-	switch c {
-	case codes.Canceled, codes.DeadlineExceeded, codes.ResourceExhausted, codes.Aborted, codes.Internal, codes.Unavailable:
-		return true
+// getExchangedToken gets the exchanged token for the CSR. The token is either the k8s jwt token of the
+// workload or another token from a plug in provider.
+func (sc *SecretCache) getExchangedToken(ctx context.Context, k8sJwtToken string) (string, error) {
+	if sc.configOptions.Plugins == nil || len(sc.configOptions.Plugins) == 0 {
+		return k8sJwtToken, nil
 	}
-	return false
-}
-
-// cacheLogPrefix returns a unified log prefix.
-func cacheLogPrefix(conID, resourceName string) string {
-	lPrefix := fmt.Sprintf("CONNECTION ID: %s, RESOURCE NAME: %s, EVENT:", conID, resourceName)
-	return lPrefix
+	if len(sc.configOptions.Plugins) > 1 {
+		cacheLog.Error("found more than one plugin")
+		return "", fmt.Errorf("found more than one plugin")
+	}
+	exchangedTokens, err := sc.sendRetriableRequest(ctx, nil, k8sJwtToken, "", false)
+	if err != nil || len(exchangedTokens) == 0 {
+		cacheLog.Errorf("failed to exchange token: %v", err)
+		return "", err
+	}
+	return exchangedTokens[0], nil
 }

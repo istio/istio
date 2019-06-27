@@ -15,7 +15,7 @@
 package model
 
 import (
-	"istio.io/istio/pkg/features/pilot"
+	"istio.io/istio/pilot/pkg/features"
 )
 
 // Default trace sampling, if not provided in env var.
@@ -27,7 +27,7 @@ var (
 
 // Return trace sampling if set correctly, or default if not.
 func getTraceSampling() float64 {
-	f := pilot.TraceSampling
+	f := features.TraceSampling
 	if f < 0.0 || f > 100.0 {
 		log.Warnf("PILOT_TRACE_SAMPLING out of range: %v", f)
 		return traceSamplingDefault

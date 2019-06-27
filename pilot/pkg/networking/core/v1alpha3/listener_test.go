@@ -212,6 +212,7 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 		buildService("test3.com", wildcardIP, model.ProtocolHTTP, tnow.Add(2*time.Second))}
 	testOutboundListenerConfigWithSidecar(t, services...)
 	testOutboundListenerConfigWithSidecarWithCaptureModeNone(t, services...)
+	testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t, services...)
 }
 
 func TestGetActualWildcardAndLocalHost(t *testing.T) {
@@ -424,6 +425,57 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 
 	if listener := findListenerByPort(listeners, 9000); !isHTTPListener(listener) {
 		t.Fatalf("expected HTTP listener on port 9000, found TCP\n%v", listener)
+	} else {
+		f := listener.FilterChains[0].Filters[0]
+		config, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+		if useRemoteAddress, exists := config.Fields["use_remote_address"]; exists {
+			if exists && useRemoteAddress.GetBoolValue() {
+				t.Fatalf("expected useRemoteAddress false, found true %v", listener)
+			}
+		}
+	}
+}
+
+func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, services ...*model.Service) {
+	t.Helper()
+	p := &fakePlugin{}
+	sidecarConfig := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   9000,
+						Protocol: "HTTP",
+						Name:     "uds",
+					},
+					Bind:  "1.1.1.1",
+					Hosts: []string{"*/*"},
+				},
+			},
+		},
+	}
+
+	// enable use remote address to true
+	os.Setenv("PILOT_SIDECAR_USE_REMOTE_ADDRESS", "true")
+
+	defer os.Unsetenv("PILOT_SIDECAR_USE_REMOTE_ADDRESS")
+
+	listeners := buildOutboundListeners(p, sidecarConfig, nil, services...)
+
+	if listener := findListenerByPort(listeners, 9000); !isHTTPListener(listener) {
+		t.Fatalf("expected HTTP listener on port 9000, found TCP\n%v", listener)
+	} else {
+		f := listener.FilterChains[0].Filters[0]
+		config, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+		if useRemoteAddress, exists := config.Fields["use_remote_address"]; exists {
+			if !exists || !useRemoteAddress.GetBoolValue() {
+				t.Fatalf("expected useRemoteAddress true, found false %v", listener)
+			}
+		}
 	}
 }
 

@@ -69,8 +69,8 @@ func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
 				// ListenerProtocol defaults to ALL. But if user specified listener protocol TCP, then
 				// skip this filter chain as its a HTTP filter chain
 				if f.ListenerMatch != nil &&
-					!(f.ListenerMatch.ListenerProtocol == networking.EnvoyFilter_ListenerMatch_ALL ||
-						f.ListenerMatch.ListenerProtocol == networking.EnvoyFilter_ListenerMatch_HTTP) {
+					!(f.ListenerMatch.ListenerProtocol == networking.EnvoyFilter_DeprecatedListenerMatch_ALL ||
+						f.ListenerMatch.ListenerProtocol == networking.EnvoyFilter_DeprecatedListenerMatch_HTTP) {
 					continue
 				}
 
@@ -91,8 +91,8 @@ func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
 				// ListenerProtocol defaults to ALL. But if user specified listener protocol HTTP, then
 				// skip this filter chain as its a TCP filter chain
 				if f.ListenerMatch != nil &&
-					!(f.ListenerMatch.ListenerProtocol == networking.EnvoyFilter_ListenerMatch_ALL ||
-						f.ListenerMatch.ListenerProtocol == networking.EnvoyFilter_ListenerMatch_TCP) {
+					!(f.ListenerMatch.ListenerProtocol == networking.EnvoyFilter_DeprecatedListenerMatch_ALL ||
+						f.ListenerMatch.ListenerProtocol == networking.EnvoyFilter_DeprecatedListenerMatch_TCP) {
 					continue
 				}
 
@@ -140,7 +140,7 @@ func getListenerIPAddress(address *core.Address) net.IP {
 }
 
 func listenerMatch(in *plugin.InputParams, listenerIP net.IP,
-	matchCondition *networking.EnvoyFilter_ListenerMatch) bool {
+	matchCondition *networking.EnvoyFilter_DeprecatedListenerMatch) bool {
 	if matchCondition == nil {
 		return true
 	}
@@ -158,7 +158,7 @@ func listenerMatch(in *plugin.InputParams, listenerIP net.IP,
 	}
 
 	// case ANY implies do not care about proxy type or direction
-	if matchCondition.ListenerType != networking.EnvoyFilter_ListenerMatch_ANY {
+	if matchCondition.ListenerType != networking.EnvoyFilter_DeprecatedListenerMatch_ANY {
 		// check if the current listener category matches with the user specified type
 		if matchCondition.ListenerType != in.ListenerCategory {
 			return false
@@ -166,12 +166,12 @@ func listenerMatch(in *plugin.InputParams, listenerIP net.IP,
 
 		// Check if the node's role matches properly with the listener category
 		switch matchCondition.ListenerType {
-		case networking.EnvoyFilter_ListenerMatch_GATEWAY:
+		case networking.EnvoyFilter_DeprecatedListenerMatch_GATEWAY:
 			if in.Node.Type != model.Router {
 				return false // We don't care about direction for gateways
 			}
-		case networking.EnvoyFilter_ListenerMatch_SIDECAR_INBOUND,
-			networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND:
+		case networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
+			networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND:
 			if in.Node.Type != model.SidecarProxy {
 				return false
 			}
