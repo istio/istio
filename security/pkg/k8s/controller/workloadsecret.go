@@ -65,7 +65,7 @@ const (
 
 // DNSNameEntry stores the service name and namespace to construct the DNS id.
 // Service accounts matching the ServiceName and Namespace will have additional DNS SANs:
-// ServiceName.Namespace.svc, ServiceName.Namespace and optionall CustomDomain.
+// ServiceName.Namespace.svc, ServiceName.Namespace and optional CustomDomain.
 // This is intended for control plane and trusted services.
 type DNSNameEntry struct {
 	// ServiceName is the name of the service account to match

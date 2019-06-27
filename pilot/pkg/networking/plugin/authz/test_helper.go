@@ -17,7 +17,7 @@ package authz
 import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	policy "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
+	policy "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/gogo/protobuf/types"
 

@@ -20,48 +20,43 @@ import (
 	"sort"
 
 	restful "github.com/emicklei/go-restful"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
-)
-
-const (
-	metricsNamespace   = "pilot"
-	metricsSubsystem   = "discovery"
-	metricLabelMethod  = "method"
-	metricBuildVersion = "build_version"
 )
 
 var (
 	// Save the build version information.
 	buildVersion = version.Info.String()
 
-	callCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: metricsNamespace,
-			Subsystem: metricsSubsystem,
-			Name:      "calls",
-			Help:      "Counter of individual method calls in Pilot",
-		}, []string{metricLabelMethod, metricBuildVersion})
-	errorCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: metricsNamespace,
-			Subsystem: metricsSubsystem,
-			Name:      "errors",
-			Help:      "Counter of errors encountered during a given method call within Pilot",
-		}, []string{metricLabelMethod, metricBuildVersion})
-	resourceBuckets = []float64{0, 10, 20, 30, 40, 50, 75, 100, 150, 250, 500, 1000, 10000}
-	resourceCounter = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Namespace: metricsNamespace,
-			Subsystem: metricsSubsystem,
-			Name:      "resources",
-			Help:      "Histogram of returned resource counts per method by Pilot",
-			Buckets:   resourceBuckets,
-		}, []string{metricLabelMethod, metricBuildVersion})
+	methodTag = monitoring.MustCreateTag("method")
+	buildTag  = monitoring.MustCreateTag("build_version")
+
+	callCounter = monitoring.NewSum(
+		"pilot_discovery_calls",
+		"Individual method calls in Pilot",
+		methodTag, buildTag,
+	)
+
+	errorCounter = monitoring.NewSum(
+		"pilot_discovery_errors",
+		"Errors encountered during a given method call within Pilot",
+		methodTag, buildTag,
+	)
+
+	resourceCounter = monitoring.NewDistribution(
+		"pilot_discovery_resources",
+		"Returned resource counts per method by Pilot",
+		[]float64{0, 10, 20, 30, 40, 50, 75, 100, 150, 250, 500, 1000, 10000},
+		methodTag, buildTag,
+	)
 )
+
+func init() {
+	monitoring.MustRegisterViews(callCounter, errorCounter, resourceCounter)
+}
 
 // DiscoveryService publishes services, clusters, and routes for all proxies
 type DiscoveryService struct {
@@ -195,29 +190,20 @@ func (ds *DiscoveryService) ListAllEndpoints(_ *restful.Request, response *restf
 		incErrors(methodName)
 		log.Warna(err)
 	} else {
-		observeResources(methodName, uint32(len(services)))
+		observeResources(methodName, float64(len(services)))
 	}
 }
 
 func incCalls(methodName string) {
-	callCounter.With(prometheus.Labels{
-		metricLabelMethod:  methodName,
-		metricBuildVersion: buildVersion,
-	}).Inc()
+	callCounter.With(buildTag.Value(buildVersion), methodTag.Value(methodName)).Increment()
 }
 
 func incErrors(methodName string) {
-	errorCounter.With(prometheus.Labels{
-		metricLabelMethod:  methodName,
-		metricBuildVersion: buildVersion,
-	}).Inc()
+	errorCounter.With(buildTag.Value(buildVersion), methodTag.Value(methodName)).Increment()
 }
 
-func observeResources(methodName string, count uint32) {
-	resourceCounter.With(prometheus.Labels{
-		metricLabelMethod:  methodName,
-		metricBuildVersion: buildVersion,
-	}).Observe(float64(count))
+func observeResources(methodName string, count float64) {
+	resourceCounter.With(buildTag.Value(buildVersion), methodTag.Value(methodName)).Record(count)
 }
 
 func errorResponse(methodName string, r *restful.Response, status int, msg string) {

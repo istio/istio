@@ -99,7 +99,7 @@ function make_istio() {
   rm -r "${ISTIO_OUT}/docker" || true
   BUILD_DOCKER_TARGETS=(docker.save)
 
-  CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} make "${BUILD_DOCKER_TARGETS[@]}"
+  CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} DOCKER_BUILD_VARIANTS="default distroless" make "${BUILD_DOCKER_TARGETS[@]}"
 
   # preserve the source from the root of the code
   pushd "${ROOT}/../../../.." || exit

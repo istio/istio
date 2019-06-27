@@ -20,9 +20,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/monitoring"
 )
 
 // PushContext tracks the status of a push - metrics and errors.
@@ -152,33 +151,14 @@ type ProxyPushStatus struct {
 	Message string `json:"message,omitempty"`
 }
 
-// PushMetric wraps a prometheus metric.
-type PushMetric struct {
-	Name  string
-	gauge prometheus.Gauge
-}
-
 type combinedDestinationRule struct {
 	subsets map[string]struct{} // list of subsets seen so far
 	// We are not doing ports
 	config *Config
 }
 
-func newPushMetric(name, help string) *PushMetric {
-	pm := &PushMetric{
-		gauge: prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: name,
-			Help: help,
-		}),
-		Name: name,
-	}
-	prometheus.MustRegister(pm.gauge)
-	metrics = append(metrics, pm)
-	return pm
-}
-
 // Add will add an case to the metric.
-func (ps *PushContext) Add(metric *PushMetric, key string, proxy *Proxy, msg string) {
+func (ps *PushContext) Add(metric monitoring.Metric, key string, proxy *Proxy, msg string) {
 	if ps == nil {
 		log.Infof("Metric without context %s %v %s", key, proxy, msg)
 		return
@@ -186,10 +166,10 @@ func (ps *PushContext) Add(metric *PushMetric, key string, proxy *Proxy, msg str
 	ps.proxyStatusMutex.Lock()
 	defer ps.proxyStatusMutex.Unlock()
 
-	metricMap, f := ps.ProxyStatus[metric.Name]
+	metricMap, f := ps.ProxyStatus[metric.Name()]
 	if !f {
 		metricMap = map[string]ProxyPushStatus{}
-		ps.ProxyStatus[metric.Name] = metricMap
+		ps.ProxyStatus[metric.Name()] = metricMap
 	}
 	ev := ProxyPushStatus{Message: msg}
 	if proxy != nil {
@@ -203,7 +183,7 @@ var (
 	// EndpointNoPod tracks endpoints without an associated pod. This is an error condition, since
 	// we can't figure out the labels. It may be a transient problem, if endpoint is processed before
 	// pod.
-	EndpointNoPod = newPushMetric(
+	EndpointNoPod = monitoring.NewGauge(
 		"endpoint_no_pod",
 		"Endpoints without an associated pod.",
 	)
@@ -213,7 +193,7 @@ var (
 	// It can also be an error, for example in cases the Endpoint list of a service was not updated by the time
 	// the sidecar calls.
 	// Updated by GetProxyServiceInstances
-	ProxyStatusNoService = newPushMetric(
+	ProxyStatusNoService = monitoring.NewGauge(
 		"pilot_no_ip",
 		"Pods not found in the endpoint table, possibly invalid.",
 	)
@@ -221,59 +201,59 @@ var (
 	// ProxyStatusEndpointNotReady represents proxies found not be ready.
 	// Updated by GetProxyServiceInstances. Normal condition when starting
 	// an app with readiness, error if it doesn't change to 0.
-	ProxyStatusEndpointNotReady = newPushMetric(
+	ProxyStatusEndpointNotReady = monitoring.NewGauge(
 		"pilot_endpoint_not_ready",
 		"Endpoint found in unready state.",
 	)
 
 	// ProxyStatusConflictOutboundListenerTCPOverHTTP metric tracks number of
 	// wildcard TCP listeners that conflicted with existing wildcard HTTP listener on same port
-	ProxyStatusConflictOutboundListenerTCPOverHTTP = newPushMetric(
+	ProxyStatusConflictOutboundListenerTCPOverHTTP = monitoring.NewGauge(
 		"pilot_conflict_outbound_listener_tcp_over_current_http",
 		"Number of conflicting wildcard tcp listeners with current wildcard http listener.",
 	)
 
 	// ProxyStatusConflictOutboundListenerTCPOverTCP metric tracks number of
 	// TCP listeners that conflicted with existing TCP listeners on same port
-	ProxyStatusConflictOutboundListenerTCPOverTCP = newPushMetric(
+	ProxyStatusConflictOutboundListenerTCPOverTCP = monitoring.NewGauge(
 		"pilot_conflict_outbound_listener_tcp_over_current_tcp",
 		"Number of conflicting tcp listeners with current tcp listener.",
 	)
 
 	// ProxyStatusConflictOutboundListenerHTTPOverTCP metric tracks number of
 	// wildcard HTTP listeners that conflicted with existing wildcard TCP listener on same port
-	ProxyStatusConflictOutboundListenerHTTPOverTCP = newPushMetric(
+	ProxyStatusConflictOutboundListenerHTTPOverTCP = monitoring.NewGauge(
 		"pilot_conflict_outbound_listener_http_over_current_tcp",
 		"Number of conflicting wildcard http listeners with current wildcard tcp listener.",
 	)
 
 	// ProxyStatusConflictInboundListener tracks cases of multiple inbound
 	// listeners - 2 services selecting the same port of the pod.
-	ProxyStatusConflictInboundListener = newPushMetric(
+	ProxyStatusConflictInboundListener = monitoring.NewGauge(
 		"pilot_conflict_inbound_listener",
 		"Number of conflicting inbound listeners.",
 	)
 
 	// DuplicatedClusters tracks duplicate clusters seen while computing CDS
-	DuplicatedClusters = newPushMetric(
+	DuplicatedClusters = monitoring.NewGauge(
 		"pilot_duplicate_envoy_clusters",
 		"Duplicate envoy clusters caused by service entries with same hostname",
 	)
 
 	// ProxyStatusClusterNoInstances tracks clusters (services) without workloads.
-	ProxyStatusClusterNoInstances = newPushMetric(
+	ProxyStatusClusterNoInstances = monitoring.NewGauge(
 		"pilot_eds_no_instances",
 		"Number of clusters without instances.",
 	)
 
 	// DuplicatedDomains tracks rejected VirtualServices due to duplicated hostname.
-	DuplicatedDomains = newPushMetric(
+	DuplicatedDomains = monitoring.NewGauge(
 		"pilot_vservice_dup_domain",
 		"Virtual services with dup domains.",
 	)
 
 	// DuplicatedSubsets tracks duplicate subsets that we rejected while merging multiple destination rules for same host
-	DuplicatedSubsets = newPushMetric(
+	DuplicatedSubsets = monitoring.NewGauge(
 		"pilot_destrule_subsets",
 		"Duplicate subsets across destination rules for same host",
 	)
@@ -286,8 +266,26 @@ var (
 	LastPushMutex sync.Mutex
 
 	// All metrics we registered.
-	metrics []*PushMetric
+	metrics = []monitoring.Metric{
+		EndpointNoPod,
+		ProxyStatusNoService,
+		ProxyStatusEndpointNotReady,
+		ProxyStatusConflictOutboundListenerTCPOverHTTP,
+		ProxyStatusConflictOutboundListenerTCPOverTCP,
+		ProxyStatusConflictOutboundListenerHTTPOverTCP,
+		ProxyStatusConflictInboundListener,
+		DuplicatedClusters,
+		ProxyStatusClusterNoInstances,
+		DuplicatedDomains,
+		DuplicatedSubsets,
+	}
 )
+
+func init() {
+	for _, m := range metrics {
+		monitoring.MustRegisterViews(m)
+	}
+}
 
 // NewPushContext creates a new PushContext structure to track push status.
 func NewPushContext() *PushContext {
@@ -338,12 +336,8 @@ func (ps *PushContext) UpdateMetrics() {
 	defer ps.proxyStatusMutex.RUnlock()
 
 	for _, pm := range metrics {
-		mmap, f := ps.ProxyStatus[pm.Name]
-		if f {
-			pm.gauge.Set(float64(len(mmap)))
-		} else {
-			pm.gauge.Set(0)
-		}
+		mmap := ps.ProxyStatus[pm.Name()]
+		pm.Record(float64(len(mmap)))
 	}
 }
 

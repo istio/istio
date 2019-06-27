@@ -30,8 +30,6 @@ setup_and_export_git_sha
 
 cd "${ROOT}"
 
-mkdir -p /go/out/tests
-trap "go-junit-report </go/out/tests/build-log.txt > /go/out/tests/junit.xml" EXIT
-make localTestEnv
-set -o pipefail
-make -k pilot-racetest mixer-racetest security-racetest T=-v | tee -a /go/out/tests/build-log.txt
+JUNIT_RACE_TEST_XML="${ARTIFACTS_DIR}/junit_race-tests.xml" \
+T="-v" \
+make localTestEnv racetest

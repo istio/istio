@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"strings"
 
-	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
+	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 	envoy_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 
 	"istio.io/istio/pilot/pkg/networking/plugin/authz/matcher"
