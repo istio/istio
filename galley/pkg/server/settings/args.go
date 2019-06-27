@@ -40,7 +40,7 @@ const (
 )
 
 // Args contains the startup arguments to instantiate Galley.
-type Args struct {
+type Args struct { // nolint:maligned
 	// The path to kube configuration file.
 	KubeConfig string
 
