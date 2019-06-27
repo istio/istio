@@ -305,6 +305,12 @@ func pilotQueryFilterFn(queries []string) []string {
 		if strings.Contains(query, "_reject") {
 			continue
 		}
+		if strings.Contains(query, "_timeout") {
+			continue
+		}
+		if strings.Contains(query, "_virt_services") {
+			continue
+		}
 		filtered = append(filtered, query)
 	}
 	return filtered
