@@ -207,6 +207,7 @@ data:
     
 
   values.yaml: |-
+    appNamespaces: []
     autoscaleEnabled: true
     autoscaleMax: 5
     autoscaleMin: 1
@@ -250,6 +251,10 @@ data:
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: ""
     #
+    # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
+    reportBatchMaxEntries: 100
+    # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
+    reportBatchMaxTime: 1s
     mixerReportServer: istio-telemetry.istio-telemetry.svc.cluster.local:9091
     mixerCheckServer: istio-policy.istio-policy.svc.cluster.local:9091
 
@@ -263,7 +268,14 @@ data:
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
     sdsUdsPath: 
-    #
+
+    outboundTrafficPolicy:
+      mode: ALLOW_ANY
+
+    localityLbSetting:
+      {}
+      
+
     defaultConfig:
       #
       # TCP connection timeout between Envoy & the application, and between Envoys.
@@ -403,7 +415,7 @@ metadata:
     release: istio-micro-istio-discovery
     istio: pilot
   annotations:
-    checksum/config-volume:  ee4ab4746f87e00fbbd4a6d09fd4c7c2946ac83c06f4601a422e5fa443e526d0
+    checksum/config-volume:  dc8df904a9925f4267d882d8e08bac9b52d7e0a15653e566eed896600d529696
 spec:
   strategy:
     rollingUpdate:
@@ -416,7 +428,6 @@ spec:
     metadata:
       labels:
         app: pilot
-        release: istio-micro-istio-discovery
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
@@ -426,7 +437,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
         - name: discovery
-          image: "istionightly/pilot:nightly-master"
+          image: "gcr.io/istio-release/pilot:master-latest-daily"
           imagePullPolicy: Always
           args:
           - "discovery"

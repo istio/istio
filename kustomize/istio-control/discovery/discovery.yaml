@@ -207,6 +207,7 @@ data:
     
 
   values.yaml: |-
+    appNamespaces: []
     autoscaleEnabled: true
     autoscaleMax: 5
     autoscaleMin: 1
@@ -249,6 +250,10 @@ data:
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: ""
     #
+    # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
+    reportBatchMaxEntries: 100
+    # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
+    reportBatchMaxTime: 1s
     mixerReportServer: istio-telemetry.istio-telemetry.svc.cluster.local:15004
     mixerCheckServer: istio-policy.istio-policy.svc.cluster.local:15004
 
@@ -264,7 +269,14 @@ data:
     sdsUdsPath: 
     config_sources:
     - address: localhost:15019
-    #
+
+    outboundTrafficPolicy:
+      mode: ALLOW_ANY
+
+    localityLbSetting:
+      {}
+      
+
     defaultConfig:
       #
       # TCP connection timeout between Envoy & the application, and between Envoys.
@@ -404,7 +416,7 @@ metadata:
     release: istio-control-istio-discovery
     istio: pilot
   annotations:
-    checksum/config-volume:  f5608eb625ac0b08c5335fb4a92c5eaf337e72916f468045707cfc7523c27ce7
+    checksum/config-volume:  c20ce28acd114c762cba065c6107f355d66db3e93c5e73d37fe13bfb62846449
 spec:
   strategy:
     rollingUpdate:
@@ -417,7 +429,6 @@ spec:
     metadata:
       labels:
         app: pilot
-        release: istio-control-istio-discovery
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
@@ -427,7 +438,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
         - name: discovery
-          image: "istionightly/pilot:nightly-master"
+          image: "gcr.io/istio-release/pilot:master-latest-daily"
           imagePullPolicy: Always
           args:
           - "discovery"
@@ -477,7 +488,7 @@ spec:
           - name: config-volume
             mountPath: /etc/istio/config
         - name: istio-proxy
-          image: "istionightly/proxyv2:nightly-master"
+          image: "gcr.io/istio-release/proxyv2:master-latest-daily"
           imagePullPolicy: Always
           ports:
           - containerPort: 15011

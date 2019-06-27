@@ -125,9 +125,12 @@ data:
     {{- end }}
     {{- end }}
 
+    outboundTrafficPolicy:
+      mode: {{ .Values.global.outboundTrafficPolicy.mode }}
+
     localityLbSetting:
 {{ toYaml .Values.global.localityLbSetting | indent 6 }}
-    #
+
     defaultConfig:
       #
       # TCP connection timeout between Envoy & the application, and between Envoys.
