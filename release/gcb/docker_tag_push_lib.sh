@@ -126,10 +126,6 @@ function docker_push_images() {
     add_docker_creds "${DST_HUB}"
   fi
 
-  if [ -z "${LOCAL_BUILD+x}" ]; then
-    add_docker_creds "${DST_HUB}"
-  fi
-
   for TAR_PATH in "${OUT_PATH}"/docker/*.tar.gz; do
     # if no docker/ directory or directory has no tar files
     if [[ "${TAR_PATH}" == "${OUT_PATH}/docker/*.tar.gz" ]]; then

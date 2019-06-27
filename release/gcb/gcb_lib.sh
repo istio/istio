@@ -19,7 +19,6 @@
 
 #shellcheck disable=SC2164
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-# shellcheck source=release/gcb/docker_tag_push_lib.sh
 #shellcheck disable=SC1091
 source "${SCRIPTPATH}/docker_tag_push_lib.sh"
 
