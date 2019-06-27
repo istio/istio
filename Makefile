@@ -207,6 +207,13 @@ ifeq ($(TAG),)
   $(error "TAG cannot be empty")
 endif
 
+VARIANT :=
+ifeq ($(VARIANT),)
+  TAG_VARIANT:=${TAG}
+else
+  TAG_VARIANT:=${TAG}-${VARIANT}
+endif
+
 PULL_POLICY ?= IfNotPresent
 ifeq ($(TAG),latest)
   PULL_POLICY = Always
@@ -686,7 +693,7 @@ istio-init.yaml: $(HELM) $(HOME)/.helm
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
 	$(HELM) template --name=istio --namespace=istio-system \
-		--set global.tag=${TAG} \
+		--set global.tag=${TAG_VARIANT} \
 		--set global.hub=${HUB} \
 		install/kubernetes/helm/istio-init >> install/kubernetes/$@
 
@@ -702,7 +709,7 @@ istio-demo.yaml istio-demo-auth.yaml istio-remote.yaml istio-minimal.yaml: $(HEL
 	$(HELM) template \
 		--name=istio \
 		--namespace=istio-system \
-		--set global.tag=${TAG} \
+		--set global.tag=${TAG_VARIANT} \
 		--set global.hub=${HUB} \
 		--set global.imagePullPolicy=$(PULL_POLICY) \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
@@ -739,7 +746,7 @@ $(e2e_files): $(HELM) $(HOME)/.helm istio-init.yaml
 	$(HELM) template \
 		--name=istio \
 		--namespace=istio-system \
-		--set global.tag=${TAG} \
+		--set global.tag=${TAG_VARIANT} \
 		--set global.hub=${HUB} \
 		--set global.imagePullPolicy=$(PULL_POLICY) \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \

@@ -378,8 +378,8 @@ func getApp(deploymentName, serviceName string, replicas, port1, port2, port3, p
 	return framework.App{
 		AppYamlTemplate: "testdata/app.yaml.tmpl",
 		Template: map[string]string{
-			"Hub":             tc.Kube.PilotHub(),
-			"Tag":             tc.Kube.PilotTag(),
+			"Hub":             tc.Kube.AppHub(),
+			"Tag":             tc.Kube.AppTag(),
 			"service":         serviceName,
 			"deployment":      deploymentName,
 			"replicas":        strconv.Itoa(replicas),
