@@ -19,7 +19,7 @@
 
 #shellcheck disable=SC2164
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-#shellcheck disable=SC1091
+#shellcheck disable=SC1090
 source "${SCRIPTPATH}/docker_tag_push_lib.sh"
 
 #sets GITHUB_KEYFILE to github auth file
