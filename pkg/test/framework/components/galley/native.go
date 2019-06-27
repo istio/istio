@@ -26,7 +26,10 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/pkg/appsignals"
+
 	"istio.io/istio/galley/pkg/server"
+	"istio.io/istio/galley/pkg/server/args"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
@@ -34,7 +37,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/yml"
-	"istio.io/pkg/appsignals"
 )
 
 var (
@@ -268,7 +270,7 @@ func (c *nativeComponent) reset() error {
 }
 
 func (c *nativeComponent) restart() error {
-	a := server.DefaultArgs()
+	a := settings.DefaultArgs()
 	a.Insecure = true
 	a.EnableServer = true
 	a.DisableResourceReadyCheck = true

@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/groups"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/galley/pkg/source/fs"
 	kubeSource "istio.io/istio/galley/pkg/source/kube"
 	"istio.io/istio/galley/pkg/source/kube/builtin"
@@ -96,11 +97,11 @@ func defaultPatchTable() patchTable {
 }
 
 // New returns a new instance of a Server.
-func New(a *Args) (*Server, error) {
+func New(a *settings.Args) (*Server, error) {
 	return newServer(a, defaultPatchTable())
 }
 
-func newServer(a *Args, p patchTable) (*Server, error) {
+func newServer(a *settings.Args, p patchTable) (*Server, error) {
 	var err error
 	s := &Server{}
 
@@ -245,7 +246,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	return s, nil
 }
 
-func getSourceSchema(a *Args) *schema.Instance {
+func getSourceSchema(a *settings.Args) *schema.Instance {
 	b := schema.NewBuilder()
 	for _, spec := range kubeMeta.Types.All() {
 
@@ -264,7 +265,7 @@ func getSourceSchema(a *Args) *schema.Instance {
 	return b.Build()
 }
 
-func isKindExcluded(a *Args, kind string) bool {
+func isKindExcluded(a *settings.Args, kind string) bool {
 	for _, excludedKind := range a.ExcludedResourceKinds {
 		if kind == excludedKind {
 			return true
@@ -273,7 +274,7 @@ func isKindExcluded(a *Args, kind string) bool {
 	return false
 }
 
-func getMCPTypes(a *Args) *resource.Schema {
+func getMCPTypes(a *settings.Args) *resource.Schema {
 	b := resource.NewSchemaBuilder()
 	b.RegisterSchema(metadata.Types)
 	b.Register(
@@ -314,7 +315,7 @@ func (s *Server) Run() {
 		s.serveWG.Add(1)
 		go func() {
 			defer s.serveWG.Done()
-			s.callOut.Run()
+			s.callOut.run()
 		}()
 	}
 }
@@ -365,7 +366,7 @@ func (s *Server) Close() error {
 	}
 
 	if s.callOut != nil {
-		s.callOut.Close()
+		s.callOut.stop()
 	}
 
 	if s.grpcServer != nil || s.callOut != nil {
@@ -379,7 +380,7 @@ func (s *Server) Close() error {
 }
 
 //RunServer start Galley Server mode
-func RunServer(sa *Args, livenessProbeController,
+func RunServer(sa *settings.Args, livenessProbeController,
 	readinessProbeController probe.Controller) {
 	log.Infof("Galley started with %s", sa)
 	s, err := New(sa)

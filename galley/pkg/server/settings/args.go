@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,20 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package server
+package settings
 
 import (
 	"bytes"
 	"fmt"
 	"time"
 
+	"istio.io/istio/galley/pkg/crd/validation"
 	"istio.io/istio/galley/pkg/source/kube/builtin"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/probe"
 )
 
 const (
+	defaultProbeCheckInterval = 2 * time.Second
+	defaultLivenessProbeFilePath = "/healthLiveness"
+	defaultReadinessProbeFilePath = "/healthReadiness"
+
 	defaultConfigMapFolder  = "/etc/config/"
 	defaultMeshConfigFolder = "/etc/mesh-config/"
 	defaultAccessListFile   = defaultConfigMapFolder + "accesslist.yaml"
@@ -109,11 +115,21 @@ type Args struct {
 
 	// keep-alive options for the MCP gRPC Server.
 	KeepAlive *keepalive.Options
+
+	ValidationArgs *validation.WebhookParameters
+
+	Liveness        probe.Options
+	Readiness       probe.Options
+	MonitoringPort  uint
+	EnableProfiling bool
+	PprofPort       uint
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
 func DefaultArgs() *Args {
 	return &Args{
+		ResyncPeriod:                0,
+		KubeConfig:                  "",
 		APIAddress:                  "tcp://0.0.0.0:9901",
 		MaxReceivedMessageSize:      1024 * 1024,
 		MaxConcurrentStreams:        1024,
@@ -131,6 +147,18 @@ func DefaultArgs() *Args {
 		ExcludedResourceKinds:       defaultExcludedResourceKinds(),
 		SinkMeta:                    make([]string, 0),
 		KeepAlive:                   keepalive.DefaultOption(),
+		ValidationArgs:              validation.DefaultArgs(),
+		MonitoringPort:              15014,
+		EnableProfiling:             false,
+		PprofPort:                   9094,
+		Liveness: probe.Options{
+			Path:           defaultLivenessProbeFilePath,
+			UpdateInterval: defaultProbeCheckInterval,
+		},
+		Readiness: probe.Options{
+			Path:           defaultReadinessProbeFilePath,
+			UpdateInterval: defaultProbeCheckInterval,
+		},
 	}
 }
 
