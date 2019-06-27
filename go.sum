@@ -96,7 +96,6 @@ github.com/dchest/siphash v1.1.0 h1:1Rs9eTUlZLPBEvV+2sTaM8O0NWn0ppbgqS7p11aWawI=
 github.com/dchest/siphash v1.1.0/go.mod h1:q+IRvb2gOSrUnYoPqHiyHXS0FOBBOdl6tONBlVnOnt4=
 github.com/denisenkom/go-mssqldb v0.0.0-20190423183735-731ef375ac02 h1:PS3xfVPa8N84AzoWZHFCbA0+ikz4f4skktfjQoNMsgk=
 github.com/denisenkom/go-mssqldb v0.0.0-20190423183735-731ef375ac02/go.mod h1:zAg7JM8CkOJ43xKXIj7eRO9kmWm/TW578qo+oDO6tuM=
-github.com/dgn/api v0.0.0-20190624184750-868535377704 h1:tCa27sjnyFGwZbKesWmyYC+dtqrQP/iIB1WCmk1Iufk=
 github.com/dgn/api v0.0.0-20190625120522-901f17fefb6e h1:GYpgPfiKVhbE+CCFv3kwTzIsgPE0qrHXbgoP/j1DJnQ=
 github.com/dgn/api v0.0.0-20190625120522-901f17fefb6e/go.mod h1:dd3iZO5jxE/X2EMvIotvnwBmkMnPHuJRUGCnDD7wkkE=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible h1:7qlOGliEKZXTDg6OTjfoBKDXWrumCAMpl/TFQ4/5kLM=
@@ -613,9 +612,6 @@ gotest.tools v2.2.0+incompatible/go.mod h1:DsYFclhRJ6vuDpmuTbkuFWG+y2sxOXAzmJt81
 honnef.co/go/tools v0.0.0-20180728063816-88497007e858/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
-istio.io/api v0.0.0-20190515205759-982e5c3888c6/go.mod h1:hhLFQmpHia8zgaM37vb2ml9iS5NfNfqZGRt1pS9aVEo=
-istio.io/api v0.0.0-20190624184750-868535377704 h1:qBZFOGp+JPssiYslKqsPWTK7ZZoiUJrBeFEomEHKMv8=
-istio.io/api v0.0.0-20190624184750-868535377704/go.mod h1:hhLFQmpHia8zgaM37vb2ml9iS5NfNfqZGRt1pS9aVEo=
 istio.io/gogo-genproto v0.0.0-20190124151557-6d926a6e6feb/go.mod h1:eIDJ6jNk/IeJz6ODSksHl5Aiczy5JUq6vFhJWI5OtiI=
 istio.io/gogo-genproto v0.0.0-20190614210408-e88dc8b0e4db h1:a++JUbz/eKj16759379pFBhuoiSxUTmnut6ITM/9FEs=
 istio.io/gogo-genproto v0.0.0-20190614210408-e88dc8b0e4db/go.mod h1:eIDJ6jNk/IeJz6ODSksHl5Aiczy5JUq6vFhJWI5OtiI=
