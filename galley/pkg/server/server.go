@@ -68,6 +68,10 @@ func New(a *settings.Args) *Server {
 		prof := components.NewProfiling(a.PprofPort)
 		s.host.Add(prof)
 	}
+	grpc.EnableTracing = a.EnableGRPCTracing
+	s.grpcServer = grpc.NewServer(grpcOptions...)
+
+	s.reporter = p.mcpMetricReporter("galley")
 
 	clz := components.NewCtrlz(a.IntrospectionOptions, topics...)
 	s.host.Add(clz)
