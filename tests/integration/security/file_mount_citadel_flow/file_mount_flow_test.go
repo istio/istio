@@ -33,7 +33,11 @@ import (
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
-func TestFileMountCitadelCaFlow(t *testing.T) {
+// TestFileMountCredentialsCitadelCaFlow enables mTLS for workloads and each workload sidecar
+// fetches key/certificate from mounted file. The workloads' key/certificate are provisioned by
+// Citadel CA. Verifies that workloads are able to communicate over mTLS, and that key/certificate
+// are not provisioned through Citadel Agent.
+func TestFileMountCredentialsCitadelCaFlow(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {

@@ -33,8 +33,8 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	// Integration test for the SDS Citadel CA flow, as well as mutual TLS
-	// with the certificates issued by the SDS Citadel CA flow.
+	// Integration test for the filemount Citadel CA flow, as well as mutual TLS
+	// with the certificates issued by the Citadel CA flow.
 	framework.
 		NewSuite("file_mount_citadel_flow_test", m).
 		Label(label.CustomSetup).
