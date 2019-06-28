@@ -28,7 +28,7 @@ spec:
   selector:
     app: ratings
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ratings-v1
