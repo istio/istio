@@ -122,6 +122,9 @@ data:
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
     trustDomain: {{ .Values.global.trustDomain }}
 
+    authnJwksUseDefaultRootCa: {{ .Values.pilot.jwksUseDefaultRootCa }}
+    authnJwksCustomRootCa: {{ .Values.pilot.jwksCustomRootCa | quote }}
+
     # Set the default behavior of the sidecar for handling outbound traffic from the application:
     # ALLOW_ANY - outbound traffic to unknown destinations will be allowed, in case there are no
     #   services or ServiceEntries for the destination port
