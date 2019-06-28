@@ -48,7 +48,7 @@ spec:
         {{- end }}
         - name: "Trust_Domain"
           value: "{{ .Values.global.trustDomain }}"
-        - name: ISTIO_META_CONFIG_NAMESPACE
+        - name: NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
