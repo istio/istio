@@ -240,7 +240,7 @@ func (a *Accessor) WaitUntilPodsAreDeleted(fetchFunc PodFetchFunc, opts ...retry
 func (a *Accessor) WaitUntilDeploymentIsReady(ns string, name string, opts ...retry.Option) error {
 	_, err := retry.Do(func() (interface{}, bool, error) {
 
-		deployment, err := a.set.ExtensionsV1beta1().Deployments(ns).Get(name, kubeApiMeta.GetOptions{})
+		deployment, err := a.set.AppsV1().Deployments(ns).Get(name, kubeApiMeta.GetOptions{})
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				return nil, true, err
@@ -259,7 +259,7 @@ func (a *Accessor) WaitUntilDeploymentIsReady(ns string, name string, opts ...re
 func (a *Accessor) WaitUntilDaemonSetIsReady(ns string, name string, opts ...retry.Option) error {
 	_, err := retry.Do(func() (interface{}, bool, error) {
 
-		daemonSet, err := a.set.ExtensionsV1beta1().DaemonSets(ns).Get(name, kubeApiMeta.GetOptions{})
+		daemonSet, err := a.set.AppsV1().DaemonSets(ns).Get(name, kubeApiMeta.GetOptions{})
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				return nil, true, err
