@@ -25,12 +25,16 @@ spec:
   selector:
     app: tcp-echo
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tcp-echo-v1
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: tcp-echo
+      version: v1
   template:
     metadata:
       labels:
@@ -45,12 +49,16 @@ spec:
         ports:
         - containerPort: 9000
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tcp-echo-v2
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: tcp-echo
+      version: v2
   template:
     metadata:
       labels:
