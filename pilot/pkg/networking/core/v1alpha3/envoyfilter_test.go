@@ -16,7 +16,11 @@ package v1alpha3
 
 import (
 	"net"
+	"reflect"
 	"testing"
+
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -154,6 +158,108 @@ func TestListenerMatch(t *testing.T) {
 		ret := listenerMatch(tc.inputParams, tc.listenerIP, tc.matchCondition)
 		if tc.result != ret {
 			t.Errorf("%s: expecting %v but got %v", tc.name, tc.result, ret)
+		}
+	}
+}
+
+func TestUpdateFilter(t *testing.T) {
+	testCases := []struct {
+		name         string
+		inputFilters []string
+		expected     []string
+		envoyFilter  *networking.EnvoyFilter_Filter
+	}{
+		{
+			name: "delete before insert HTTPFilters",
+			envoyFilter: &networking.EnvoyFilter_Filter{
+				InsertPosition: &networking.EnvoyFilter_InsertPosition{
+					Index: networking.EnvoyFilter_InsertPosition_FIRST,
+				},
+				FilterType: networking.EnvoyFilter_Filter_HTTP,
+				FilterName: "envoy.router",
+			},
+			inputFilters: []string{"envoy.cors", "envoy.fault", "envoy.router"},
+			expected:     []string{"envoy.router", "envoy.cors", "envoy.fault"},
+		},
+		{
+			name: "delete before insert networkFilters",
+			envoyFilter: &networking.EnvoyFilter_Filter{
+				InsertPosition: &networking.EnvoyFilter_InsertPosition{
+					Index: networking.EnvoyFilter_InsertPosition_FIRST,
+				},
+				FilterType: networking.EnvoyFilter_Filter_NETWORK,
+				FilterName: "envoy.tcp_proxy",
+			},
+			inputFilters: []string{"envoy.ratelimit", "envoy.tcp_proxy"},
+			expected:     []string{"envoy.tcp_proxy", "envoy.ratelimit"},
+		},
+		{
+			name: "insert HTTPFilters",
+			envoyFilter: &networking.EnvoyFilter_Filter{
+				InsertPosition: &networking.EnvoyFilter_InsertPosition{
+					Index: networking.EnvoyFilter_InsertPosition_LAST,
+				},
+				FilterType: networking.EnvoyFilter_Filter_HTTP,
+				FilterName: "envoy.add",
+			},
+			inputFilters: []string{"envoy.cors", "envoy.fault"},
+			expected:     []string{"envoy.cors", "envoy.fault", "envoy.add"},
+		},
+		{
+			name: "insert networkFilters",
+			envoyFilter: &networking.EnvoyFilter_Filter{
+				InsertPosition: &networking.EnvoyFilter_InsertPosition{
+					Index: networking.EnvoyFilter_InsertPosition_LAST,
+				},
+				FilterType: networking.EnvoyFilter_Filter_NETWORK,
+				FilterName: "envoy.add",
+			},
+			inputFilters: []string{"envoy.http_connection_manager"},
+			expected:     []string{"envoy.http_connection_manager", "envoy.add"},
+		},
+	}
+
+	for _, tc := range testCases {
+		ret := make([]string, 0)
+		if tc.envoyFilter.FilterType == networking.EnvoyFilter_Filter_HTTP {
+			HTTPFilters := make([]*http_conn.HttpFilter, 0)
+			for _, in := range tc.inputFilters {
+				HTTPFilters = append(HTTPFilters, &http_conn.HttpFilter{
+					Name: in,
+				})
+			}
+			filterChain := &listener.FilterChain{
+				Filters: []listener.Filter{
+					{
+						Name: "envoy.http_connection_manager",
+					},
+				},
+			}
+			hcm := &http_conn.HttpConnectionManager{
+				HttpFilters: HTTPFilters,
+			}
+			updateHTTPFilter("fake", filterChain, hcm, tc.envoyFilter, false)
+			for _, filter := range hcm.GetHttpFilters() {
+				ret = append(ret, filter.Name)
+			}
+		} else {
+			networkFilters := make([]listener.Filter, 0)
+			for _, in := range tc.inputFilters {
+				networkFilters = append(networkFilters, listener.Filter{
+					Name: in,
+				})
+			}
+			filterChain := &listener.FilterChain{
+				Filters: networkFilters,
+			}
+			updateNetworkFilter("fake", filterChain, tc.envoyFilter)
+			for _, filter := range filterChain.Filters {
+				ret = append(ret, filter.Name)
+			}
+		}
+
+		if !reflect.DeepEqual(ret, tc.expected) {
+			t.Errorf("%s: expecting %v, but got %v", tc.name, tc.expected, ret)
 		}
 	}
 }

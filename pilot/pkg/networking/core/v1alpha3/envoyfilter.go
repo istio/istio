@@ -74,14 +74,14 @@ func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
 					continue
 				}
 
-				// Now that the match condition is true, insert the filter if compatible
+				// Now that the match condition is true, update the filter if compatible
 				// http listener, http filter case
 				if f.FilterType == networking.EnvoyFilter_Filter_HTTP {
-					// Insert into http connection manager
-					insertHTTPFilter(listener.Name, &listener.FilterChains[cnum], httpConnectionManagers[cnum], f, util.IsXDSMarshalingToAnyEnabled(in.Node))
+					// update http connection manager
+					updateHTTPFilter(listener.Name, &listener.FilterChains[cnum], httpConnectionManagers[cnum], f, util.IsXDSMarshalingToAnyEnabled(in.Node))
 				} else {
 					// http listener, tcp filter
-					insertNetworkFilter(listener.Name, &listener.FilterChains[cnum], f)
+					updateNetworkFilter(listener.Name, &listener.FilterChains[cnum], f)
 				}
 			} else {
 				// The listener match logic does not take into account the listener protocol
@@ -104,7 +104,7 @@ func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
 						f.FilterName)
 					continue
 				}
-				insertNetworkFilter(listener.Name, &listener.FilterChains[cnum], f)
+				updateNetworkFilter(listener.Name, &listener.FilterChains[cnum], f)
 			}
 		}
 	}
@@ -212,6 +212,29 @@ func listenerMatch(in *plugin.InputParams, listenerIP net.IP,
 	return true
 }
 
+// Delete filter before insert, if envoyFilter has already existed in httpFilters
+func updateHTTPFilter(listenerName string, filterChain *listener.FilterChain, hcm *http_conn.HttpConnectionManager,
+	envoyFilter *networking.EnvoyFilter_Filter, isXDSMarshalingToAnyEnabled bool) {
+	deleteFilter := func(index int) {
+		hcm.HttpFilters = append(hcm.HttpFilters[:index], hcm.HttpFilters[index+1:]...)
+	}
+
+	hasFilter := func(name string) (exists bool, index int) {
+		for i, filter := range hcm.HttpFilters {
+			if filter.Name == name {
+				return true, i
+			}
+		}
+		return false, -1
+	}
+
+	if exists, index := hasFilter(envoyFilter.FilterName); exists {
+		deleteFilter(index)
+	}
+
+	insertHTTPFilter(listenerName, filterChain, hcm, envoyFilter, isXDSMarshalingToAnyEnabled)
+}
+
 func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hcm *http_conn.HttpConnectionManager,
 	envoyFilter *networking.EnvoyFilter_Filter, isXDSMarshalingToAnyEnabled bool) {
 	filter := &http_conn.HttpFilter{
@@ -265,6 +288,29 @@ func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hc
 	filterChain.Filters[len(filterChain.Filters)-1] = filterStruct
 	log.Infof("EnvoyFilters: Rebuilt HTTP Connection Manager %s (from %d filters to %d filters)",
 		listenerName, oldLen, len(hcm.HttpFilters))
+}
+
+// Delete filter before insert, if envoyFilter has already existed in networkFilters
+func updateNetworkFilter(listenerName string, filterChain *listener.FilterChain,
+	envoyFilter *networking.EnvoyFilter_Filter) {
+	deleteFilter := func(index int) {
+		filterChain.Filters = append(filterChain.Filters[:index], filterChain.Filters[index+1:]...)
+	}
+
+	hasFilter := func(name string) (exists bool, index int) {
+		for i, filter := range filterChain.Filters {
+			if filter.Name == name {
+				return true, i
+			}
+		}
+		return false, -1
+	}
+
+	if exists, index := hasFilter(envoyFilter.FilterName); exists {
+		deleteFilter(index)
+	}
+
+	insertNetworkFilter(listenerName, filterChain, envoyFilter)
 }
 
 func insertNetworkFilter(listenerName string, filterChain *listener.FilterChain,
