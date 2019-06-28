@@ -739,7 +739,8 @@ func TestLocalityLB(t *testing.T) {
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
+					ConsecutiveErrors:  5,
+					MinHealthPercent:   10,
 				},
 			},
 		})
@@ -748,6 +749,7 @@ func TestLocalityLB(t *testing.T) {
 	if clusters[0].CommonLbConfig == nil {
 		t.Errorf("CommonLbConfig should be set for cluster %+v", clusters[0])
 	}
+	g.Expect(clusters[0].CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
 
 	g.Expect(len(clusters[0].LoadAssignment.Endpoints)).To(Equal(3))
 	for _, localityLbEndpoint := range clusters[0].LoadAssignment.Endpoints {
