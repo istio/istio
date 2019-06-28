@@ -28,12 +28,16 @@ spec:
   selector:
     app: c
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: c-v1
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: c
+      version: v1
   template:
     metadata:
       labels:
@@ -93,12 +97,16 @@ spec:
 {{end}}
 ---
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: c-v2
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: c
+      version: v2
   template:
     metadata:
       labels:
