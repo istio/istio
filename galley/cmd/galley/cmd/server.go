@@ -20,18 +20,16 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"istio.io/pkg/probe"
-
-	"github.com/spf13/cobra"
-
-	"istio.io/pkg/log"
 
 	"istio.io/istio/galley/pkg/crd/validation"
 	"istio.io/istio/galley/pkg/server"
 	"istio.io/istio/galley/pkg/server/settings"
 	istiocmd "istio.io/istio/pkg/cmd"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 var (
