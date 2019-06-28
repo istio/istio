@@ -38,7 +38,7 @@ const (
 	maxRetries    = 100
 )
 
-var namespace = env.RegisterStringVar("NAMESPACE", "istio-system", "namespace istio control plane run in").Get()
+var namespace = env.RegisterStringVar("NAMESPACE", "istio-system", "namespace that nodeagent/citadel run in").Get()
 
 type configMap interface {
 	GetCATLSRootCert() (string, error)
