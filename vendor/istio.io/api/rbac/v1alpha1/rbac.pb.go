@@ -8,7 +8,9 @@
 // the following standard fields:
 //
 //   * services: a list of services.
-//   * methods: HTTP methods. In the case of gRPC, this field is ignored because the value is always "POST".
+//   * methods: A list of HTTP methods. You can set the value to `*` to include all HTTP methods.
+//              This field should not be set for TCP services. The policy will be ignored.
+//              For gRPC services, only `POST` is allowed; other methods will result in denying services.
 //   * paths: HTTP paths or gRPC methods. Note that gRPC methods should be
 //     presented in the form of "/packageName.serviceName/methodName" and are case sensitive.
 //
@@ -347,6 +349,7 @@ type AccessRule struct {
 	// For example, the host "test.abc.com" matches "test.abc.com" (exact match),
 	// or "*.abc.com" (prefix match), or "test.abc.*" (suffix match).
 	// If not specified, it matches to any host.
+	// This field should not be set for TCP services. The policy will be ignored.
 	Hosts []string `protobuf:"bytes,5,rep,name=hosts,proto3" json:"hosts,omitempty"`
 	// $hide_from_docs
 	// Optional. A list of HTTP hosts that must not be matched.
@@ -358,13 +361,15 @@ type AccessRule struct {
 	// the path "/books/review" matches "/books/review" (exact match),
 	// or "/books/*" (prefix match), or "*/review" (suffix match).
 	// If not specified, it matches to any path.
+	// This field should not be set for TCP services. The policy will be ignored.
 	Paths []string `protobuf:"bytes,2,rep,name=paths,proto3" json:"paths,omitempty"`
 	// $hide_from_docs
 	// Optional. A list of HTTP paths or gRPC methods that must not be matched.
 	NotPaths []string `protobuf:"bytes,7,rep,name=not_paths,json=notPaths,proto3" json:"not_paths,omitempty"`
 	// Optional. A list of HTTP methods (e.g., "GET", "POST").
-	// It is ignored in gRPC case because the value is always "POST".
-	// If not specified, it matches to any methods.
+	// If not specified or specified as "*", it matches to any methods.
+	// This field should not be set for TCP services. The policy will be ignored.
+	// For gRPC services, only `POST` is allowed; other methods will result in denying services.
 	Methods []string `protobuf:"bytes,3,rep,name=methods,proto3" json:"methods,omitempty"`
 	// $hide_from_docs
 	// Optional. A list of HTTP methods that must not be matched.

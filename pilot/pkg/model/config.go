@@ -724,8 +724,8 @@ func (store *istioConfigStore) EnvoyFilter(workloadLabels LabelsCollection) *Con
 		filter := config.Spec.(*networking.EnvoyFilter)
 		// if there is no workload selector, the filter applies to all workloads
 		// if there is a workload selector, check for matching workload labels
-		if filter.GetWorkloadLabels() != nil {
-			workloadSelector := Labels(filter.GetWorkloadLabels())
+		if filter.WorkloadLabels != nil {
+			workloadSelector := Labels(filter.WorkloadLabels)
 			if !workloadLabels.IsSupersetOf(workloadSelector) {
 				continue
 			}

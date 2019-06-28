@@ -93,7 +93,7 @@ distribution of traffic to endpoints based on the localities of where the
 traffic originates and where it will terminate. These localities are
 specified using arbitrary labels that designate a hierarchy of localities in
 &lbrace;region}/&lbrace;zone}/&lbrace;sub-zone} form. For additional detail refer to
-<a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight">Locality Weight</a>
+<a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/locality_weight">Locality Weight</a>
 The following example shows how to setup locality weights mesh-wide.</p>
 
 <p>Given a mesh with workloads and their service deployed to &ldquo;us-west/zone1/<em>&rdquo;
@@ -150,7 +150,7 @@ and similarly us-west should failover to us-east.</p>
 <td>
 <p>Optional: only one of distribute or failover can be set.
 Explicitly specify loadbalancing weight across different zones and geographical locations.
-Refer to <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight">Locality weighted load balancing</a>
+Refer to <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/locality_weight">Locality weighted load balancing</a>
 If empty, the locality weight is set according to the endpoints number within it.</p>
 
 </td>
@@ -487,6 +487,78 @@ can be configured for a single control plane.</p>
 <p>The trust domain corresponds to the trust root of a system.
 Refer to <a href="https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain">SPIFEE-ID</a>
 Fallback to old identity format(without trust domain) if not set.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-default_service_export_to">
+<td><code>defaultServiceExportTo</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>The default value for the ServiceEntry.export_to field and services
+imported through container registry integrations, e.g. this applies to
+Kubernetes Service resources. The value is a list of namespace names and
+reserved namespace aliases. The allowed namespace aliases are:</p>
+
+<ul>
+<li>- All Namespaces
+. - Current Namespace
+~ - No Namespace</li>
+</ul>
+
+<p>If not set the system will use &ldquo;*&rdquo; as the default value which implies that
+services are exported to all namespaces.</p>
+
+<p>&lsquo;All namespaces&rsquo; is a reasonable default for implementations that don&rsquo;t
+need to restrict access or visibility of services across namespace
+boundaries. If that requirement is present it is generally good practice to
+make the default &lsquo;Current namespace&rsquo; so that services are only visible
+within their own namespaces by default. Operators can then expand the
+visibility of services to other namespaces as needed. Use of &lsquo;No Namespace&rsquo;
+is expected to be rare but can have utility for deployments where
+dependency management needs to be precise even within the scope of a single
+namespace.</p>
+
+<p>For further discussion see the reference documentation for ServiceEntry,
+Sidecar, and Gateway.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-default_virtual_service_export_to">
+<td><code>defaultVirtualServiceExportTo</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>The default value for the VirtualService.export<em>to field. Has the same
+syntax as &lsquo;default</em>service<em>export</em>to&rsquo;.</p>
+
+<p>If not set the system will use &ldquo;*&rdquo; as the default value which implies that
+virtual services are exported to all namespaces</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-default_destination_rule_export_to">
+<td><code>defaultDestinationRuleExportTo</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>The default value for the DestinationRule.export<em>to field. Has the same
+syntax as &lsquo;default</em>service<em>export</em>to&rsquo;.</p>
+
+<p>If not set the system will use &ldquo;*&rdquo; as the default value which implies that
+destination rules are exported to all namespaces</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-root_namespace">
+<td><code>rootNamespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>The namespace to treat as the administrative root namespace for
+Istio configuration. When processing a leaf namespace Istio will search for
+declarations in that namespace first and if none are found it will
+search in the root namespace. Any matching declaration found in the root
+namespace is processed as if it were declared in the leaf namespace.</p>
+
+<p>The precise semantics of this processing are documented on each resource
+type.</p>
 
 </td>
 </tr>

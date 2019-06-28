@@ -42,12 +42,16 @@ spec:
   peers:
     - mtls:
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: d
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: d
+      version: per-svc-auth
   template:
     metadata:
       labels:

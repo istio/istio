@@ -22,14 +22,39 @@
 // workloadSelector that selects this workload instance, over a Sidecar resource
 // without any workloadSelector.
 //
-// NOTE: *_Each namespace can have only one Sidecar resource without any
+// NOTE 1: *_Each namespace can have only one Sidecar resource without any
 // workload selector_*. The behavior of the system is undefined if more
 // than one selector-less Sidecar resources exist in a given namespace. The
 // behavior of the system is undefined if two or more Sidecar resources
 // with a workload selector select the same workload instance.
 //
-// The example below declares a Sidecar resource in the prod-us1 namespace
-// that configures the sidecars in the namespace to allow egress traffic to
+// NOTE 2: *_A sidecar resource in the config [root
+// namespace](https://istio.io/docs/reference/config/istio.mesh.v1alpha1/#MeshConfig)
+// will be applied by default to all namespaces without a sidecar
+// resource._*. This global default sidecar resource should not have
+// any workload selector.
+//
+// The example below declares a global default Sidecar resource in the
+// root namespace called `istio-config`, that configures sidecars in
+// all namespaces to allow egress traffic only to other workloads in
+// the same namespace, and to services in the istio-system namespace.
+//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: Sidecar
+// metadata:
+//   name: default
+//   namespace: istio-config
+// spec:
+//   egress:
+//   - hosts:
+//     - "./*"
+//     - "istio-system/*"
+//```
+//
+// The example below declares a Sidecar resource in the prod-us1
+// namespace that overrides the global default defined above, and
+// configures the sidecars in the namespace to allow egress traffic to
 // public services in the prod-us1, prod-apis, and the istio-system
 // namespaces.
 //
@@ -103,7 +128,7 @@
 //       app: productpage
 //   ingress:
 //   - port:
-//       number: 9080 # binds to 0.0.0.0:9080
+//       number: 9080 # binds to proxy_instance_ip:9080 (0.0.0.0:9080, if no unicast IP is available for the instance)
 //       protocol: HTTP
 //       name: somename
 //     defaultEndpoint: 127.0.0.1:8080
@@ -512,8 +537,8 @@ func (m *IstioEgressListener) GetHosts() []string {
 	return nil
 }
 
-// WorkloadSelector specifies the criteria used to determine if the Gateway
-// or Sidecar resource can be applied to a proxy. The matching criteria
+// WorkloadSelector specifies the criteria used to determine if the Gateway,
+// Sidecar, or EnvoyFilter resource can be applied to a proxy. The matching criteria
 // includes the metadata associated with a proxy, workload instance info such as
 // labels attached to the pod/VM, or any other info that the proxy provides
 // to Istio during the initial handshake. If multiple conditions are

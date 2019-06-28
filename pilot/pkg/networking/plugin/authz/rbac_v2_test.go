@@ -24,7 +24,7 @@ import (
 	authn_v1alpha1 "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	policy "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
+	policy "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"

@@ -23,8 +23,7 @@ spec:
   gateways:
   - httpbin-gateway
   http:
-  - match:
-    route:
+  - route:
     - destination:
         host: httpbin
         port:
