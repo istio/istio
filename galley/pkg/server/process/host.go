@@ -45,8 +45,7 @@ func (h *Host) Start() error {
 		return errors.New("process.Host: already started")
 	}
 
-	for i := 0; i < len(h.components); i++ {
-		c := h.components[i]
+	for i, c := range h.components {
 		if err := c.Start(); err != nil {
 			// Component startup failed. Stop already started components.
 			for j := i - 1; j >= 0; j-- {
