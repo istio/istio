@@ -58,7 +58,7 @@ func defaultCalloutPT() calloutPatchTable {
 	return calloutPatchTable{
 		grpcDial:        grpc.Dial,
 		sourceNewClient: func(c mcp.ResourceSinkClient, o *source.Options) mcpClient { return source.NewClient(c, o) },
-		connClose:       func(c *grpc.ClientConn) { c.Close() },
+		connClose:       func(c *grpc.ClientConn) { _ = c.Close() },
 	}
 }
 
@@ -107,7 +107,7 @@ func newCalloutPT(address, auth string, metadata []string, so *source.Options,
 	}, nil
 }
 
-func (c *callout) Run() {
+func (c *callout) run() {
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
 
@@ -126,7 +126,7 @@ func (c *callout) Run() {
 	mcpClient.Run(ctx)
 }
 
-func (c *callout) Close() {
+func (c *callout) stop() {
 	if c.cancel != nil {
 		c.cancel()
 	}

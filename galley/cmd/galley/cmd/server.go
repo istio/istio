@@ -19,23 +19,20 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/spf13/cobra"
-
 	"istio.io/istio/galley/pkg/crd/validation"
 	"istio.io/istio/galley/pkg/server"
+	"istio.io/istio/galley/pkg/server/settings"
 	istiocmd "istio.io/istio/pkg/cmd"
 	"istio.io/pkg/log"
 	"istio.io/pkg/probe"
 )
 
 var (
-	resyncPeriod   time.Duration
-	kubeConfig     string
 	loggingOptions = log.DefaultOptions()
 )
 
@@ -43,15 +40,9 @@ var (
 func serverCmd() *cobra.Command {
 
 	var (
-		serverArgs               = server.DefaultArgs()
-		validationArgs           = validation.DefaultArgs()
-		livenessProbeOptions     probe.Options
-		readinessProbeOptions    probe.Options
+		serverArgs               = settings.DefaultArgs()
 		livenessProbeController  probe.Controller
 		readinessProbeController probe.Controller
-		monitoringPort           uint
-		enableProfiling          bool
-		pprofPort                uint
 	)
 
 	serverCmd := &cobra.Command{
@@ -77,47 +68,44 @@ func serverCmd() *cobra.Command {
 				}
 			})
 
-			serverArgs.KubeConfig = kubeConfig
-			serverArgs.ResyncPeriod = resyncPeriod
-
-			if livenessProbeOptions.IsValid() {
-				livenessProbeController = probe.NewFileController(&livenessProbeOptions)
+			if serverArgs.Liveness.IsValid() {
+				livenessProbeController = probe.NewFileController(&serverArgs.Liveness)
 			}
-			if readinessProbeOptions.IsValid() {
-				readinessProbeController = probe.NewFileController(&readinessProbeOptions)
+			if serverArgs.Readiness.IsValid() {
+				readinessProbeController = probe.NewFileController(&serverArgs.Readiness)
 			}
 
 			// validation tls args fall back to server arg values
 			// since the default value for these flags is an empty string, zero length indicates not set
-			if len(validationArgs.CACertFile) < 1 {
-				validationArgs.CACertFile = serverArgs.CredentialOptions.CACertificateFile
+			if len(serverArgs.ValidationArgs.CACertFile) < 1 {
+				serverArgs.ValidationArgs.CACertFile = serverArgs.CredentialOptions.CACertificateFile
 			}
-			if len(validationArgs.CertFile) < 1 {
-				validationArgs.CertFile = serverArgs.CredentialOptions.CertificateFile
+			if len(serverArgs.ValidationArgs.CertFile) < 1 {
+				serverArgs.ValidationArgs.CertFile = serverArgs.CredentialOptions.CertificateFile
 			}
-			if len(validationArgs.KeyFile) < 1 {
-				validationArgs.KeyFile = serverArgs.CredentialOptions.KeyFile
+			if len(serverArgs.ValidationArgs.KeyFile) < 1 {
+				serverArgs.ValidationArgs.KeyFile = serverArgs.CredentialOptions.KeyFile
 			}
 
-			if !serverArgs.EnableServer && !validationArgs.EnableValidation {
+			if !serverArgs.EnableServer && !serverArgs.ValidationArgs.EnableValidation {
 				log.Fatala("Galley must be running under at least one mode: server or validation")
 			}
 
-			if err := validationArgs.Validate(); err != nil {
+			if err := serverArgs.ValidationArgs.Validate(); err != nil {
 				log.Fatalf("Invalid validationArgs: %v", err)
 			}
 
 			if serverArgs.EnableServer {
 				go server.RunServer(serverArgs, livenessProbeController, readinessProbeController)
 			}
-			if validationArgs.EnableValidation {
-				go validation.RunValidation(validationArgs, kubeConfig, livenessProbeController, readinessProbeController)
+			if serverArgs.ValidationArgs.EnableValidation {
+				go validation.RunValidation(serverArgs.ValidationArgs, serverArgs.KubeConfig, livenessProbeController, readinessProbeController)
 			}
 			galleyStop := make(chan struct{})
-			go server.StartSelfMonitoring(galleyStop, monitoringPort)
+			go server.StartSelfMonitoring(galleyStop, serverArgs.MonitoringPort)
 
-			if enableProfiling {
-				go server.StartProfiling(galleyStop, pprofPort)
+			if serverArgs.EnableProfiling {
+				go server.StartProfiling(galleyStop, serverArgs.PprofPort)
 			}
 
 			go server.StartProbeCheck(livenessProbeController, readinessProbeController, galleyStop)
@@ -126,9 +114,9 @@ func serverCmd() *cobra.Command {
 	}
 
 	serverCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
-	serverCmd.PersistentFlags().StringVar(&kubeConfig, "kubeconfig", "",
+	serverCmd.PersistentFlags().StringVar(&serverArgs.KubeConfig, "kubeconfig", serverArgs.KubeConfig,
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
-	serverCmd.PersistentFlags().DurationVar(&resyncPeriod, "resyncPeriod", 0,
+	serverCmd.PersistentFlags().DurationVar(&serverArgs.ResyncPeriod, "resyncPeriod", serverArgs.ResyncPeriod,
 		"Resync period for rescanning Kubernetes resources")
 	serverCmd.PersistentFlags().StringVar(&serverArgs.CredentialOptions.CertificateFile, "tlsCertFile", "/etc/certs/cert-chain.pem",
 		"File containing the x509 Certificate for HTTPS.")
@@ -136,18 +124,18 @@ func serverCmd() *cobra.Command {
 		"File containing the x509 private key matching --tlsCertFile.")
 	serverCmd.PersistentFlags().StringVar(&serverArgs.CredentialOptions.CACertificateFile, "caCertFile", "/etc/certs/root-cert.pem",
 		"File containing the caBundle that signed the cert/key specified by --tlsCertFile and --tlsKeyFile.")
-	serverCmd.PersistentFlags().StringVar(&livenessProbeOptions.Path, "livenessProbePath", server.DefaultLivenessProbeFilePath,
+	serverCmd.PersistentFlags().StringVar(&serverArgs.Liveness.Path, "livenessProbePath", serverArgs.Liveness.Path,
 		"Path to the file for the Galley liveness probe.")
-	serverCmd.PersistentFlags().DurationVar(&livenessProbeOptions.UpdateInterval, "livenessProbeInterval", server.DefaultProbeCheckInterval,
+	serverCmd.PersistentFlags().DurationVar(&serverArgs.Liveness.UpdateInterval, "livenessProbeInterval", serverArgs.Liveness.UpdateInterval,
 		"Interval of updating file for the Galley liveness probe.")
-	serverCmd.PersistentFlags().StringVar(&readinessProbeOptions.Path, "readinessProbePath", server.DefaultReadinessProbeFilePath,
+	serverCmd.PersistentFlags().StringVar(&serverArgs.Readiness.Path, "readinessProbePath", serverArgs.Readiness.Path,
 		"Path to the file for the Galley readiness probe.")
-	serverCmd.PersistentFlags().DurationVar(&readinessProbeOptions.UpdateInterval, "readinessProbeInterval", server.DefaultProbeCheckInterval,
+	serverCmd.PersistentFlags().DurationVar(&serverArgs.Readiness.UpdateInterval, "readinessProbeInterval", serverArgs.Readiness.UpdateInterval,
 		"Interval of updating file for the Galley readiness probe.")
-	serverCmd.PersistentFlags().UintVar(&monitoringPort, "monitoringPort", 15014,
+	serverCmd.PersistentFlags().UintVar(&serverArgs.MonitoringPort, "monitoringPort", serverArgs.MonitoringPort,
 		"Port to use for exposing self-monitoring information")
-	serverCmd.PersistentFlags().UintVar(&pprofPort, "pprofPort", 9094, "Port to use for exposing profiling")
-	serverCmd.PersistentFlags().BoolVar(&enableProfiling, "enableProfiling", false,
+	serverCmd.PersistentFlags().UintVar(&serverArgs.PprofPort, "pprofPort", serverArgs.PprofPort, "Port to use for exposing profiling")
+	serverCmd.PersistentFlags().BoolVar(&serverArgs.EnableProfiling, "enableProfiling", serverArgs.EnableProfiling,
 		"Enable profiling for Galley")
 
 	// server config
@@ -182,30 +170,30 @@ func serverCmd() *cobra.Command {
 		"Enable service discovery processing in Galley")
 
 	// validation config
-	serverCmd.PersistentFlags().StringVar(&validationArgs.WebhookConfigFile,
+	serverCmd.PersistentFlags().StringVar(&serverArgs.ValidationArgs.WebhookConfigFile,
 		"validation-webhook-config-file", "",
 		"File that contains k8s validatingwebhookconfiguration yaml. Required if enable-validation is true.")
-	serverCmd.PersistentFlags().UintVar(&validationArgs.Port, "validation-port", 443,
+	serverCmd.PersistentFlags().UintVar(&serverArgs.ValidationArgs.Port, "validation-port", 443,
 		"HTTPS port of the validation service. Must be 443 if service has more than one port ")
-	serverCmd.PersistentFlags().BoolVar(&validationArgs.EnableValidation, "enable-validation", validationArgs.EnableValidation,
+	serverCmd.PersistentFlags().BoolVar(&serverArgs.ValidationArgs.EnableValidation, "enable-validation", serverArgs.ValidationArgs.EnableValidation,
 		"Run galley validation mode")
-	serverCmd.PersistentFlags().StringVar(&validationArgs.DeploymentAndServiceNamespace, "deployment-namespace", "istio-system",
+	serverCmd.PersistentFlags().StringVar(&serverArgs.ValidationArgs.DeploymentAndServiceNamespace, "deployment-namespace", "istio-system",
 		"Namespace of the deployment for the validation pod")
-	serverCmd.PersistentFlags().StringVar(&validationArgs.DeploymentName, "deployment-name", "istio-galley",
+	serverCmd.PersistentFlags().StringVar(&serverArgs.ValidationArgs.DeploymentName, "deployment-name", "istio-galley",
 		"Name of the deployment for the validation pod")
-	serverCmd.PersistentFlags().StringVar(&validationArgs.ServiceName, "service-name", "istio-galley",
+	serverCmd.PersistentFlags().StringVar(&serverArgs.ValidationArgs.ServiceName, "service-name", "istio-galley",
 		"Name of the validation service running in the same namespace as the deployment")
-	serverCmd.PersistentFlags().StringVar(&validationArgs.WebhookName, "webhook-name", "istio-galley",
+	serverCmd.PersistentFlags().StringVar(&serverArgs.ValidationArgs.WebhookName, "webhook-name", "istio-galley",
 		"Name of the k8s validatingwebhookconfiguration")
 
 	// Hidden, file only flags for validation specific TLS
-	serverCmd.PersistentFlags().StringVar(&validationArgs.CertFile, "validation.tls.clientCertificate", "",
+	serverCmd.PersistentFlags().StringVar(&serverArgs.ValidationArgs.CertFile, "validation.tls.clientCertificate", "",
 		"File containing the x509 Certificate for HTTPS validation.")
 	_ = serverCmd.PersistentFlags().MarkHidden("validation.tls.clientCertificate")
-	serverCmd.PersistentFlags().StringVar(&validationArgs.KeyFile, "validation.tls.privateKey", "",
+	serverCmd.PersistentFlags().StringVar(&serverArgs.ValidationArgs.KeyFile, "validation.tls.privateKey", "",
 		"File containing the x509 private key matching --validation.tls.clientCertificate.")
 	_ = serverCmd.PersistentFlags().MarkHidden("validation.tls.privateKey")
-	serverCmd.PersistentFlags().StringVar(&validationArgs.CACertFile, "validation.tls.caCertificates", "",
+	serverCmd.PersistentFlags().StringVar(&serverArgs.ValidationArgs.CACertFile, "validation.tls.caCertificates", "",
 		"File containing the caBundle that signed the cert/key specified by --validation.tls.clientCertificate and --validation.tls.privateKey.")
 	_ = serverCmd.PersistentFlags().MarkHidden("validation.tls.caCertificates")
 

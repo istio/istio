@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime"
+	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/galley/pkg/source/kube/client"
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
 	"istio.io/istio/galley/pkg/source/kube/schema"
@@ -51,7 +52,7 @@ loop:
 
 		e := errors.New("err")
 
-		args := DefaultArgs()
+		args := settings.DefaultArgs()
 		args.APIAddress = "tcp://0.0.0.0:0"
 		args.Insecure = true
 
@@ -81,7 +82,7 @@ loop:
 }
 
 func TestNewServer(t *testing.T) {
-	args := DefaultArgs()
+	args := settings.DefaultArgs()
 	args.APIAddress = "tcp://0.0.0.0:0"
 	args.Insecure = true
 
@@ -166,7 +167,7 @@ func TestServer_Basic(t *testing.T) {
 		return specs, nil
 	}
 
-	args := DefaultArgs()
+	args := settings.DefaultArgs()
 	args.APIAddress = "tcp://0.0.0.0:0"
 	args.Insecure = true
 	s, err := newServer(args, p)
