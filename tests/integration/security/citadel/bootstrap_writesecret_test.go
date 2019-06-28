@@ -22,6 +22,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pkg/test/framework/label"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -42,81 +44,83 @@ const (
 // it should not generate a new cert and overwrite the existing secret. Instead, the Citadel pod should
 // immediately exit with error.
 func TestCitadelBootstrapKubernetes(t *testing.T) {
-	framework.NewTest(t).Run(func(ctx framework.TestContext) {
-		ns := namespace.ClaimOrFail(t, ctx, ist.Settings().IstioNamespace)
-		namespaceTmpl := map[string]string{
-			"Namespace": ns.Name(),
-		}
+	framework.NewTest(t).
+		Label(label.CustomSetup). // test depends on the clusterrole name being "istio-citadel-istio-system"
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.ClaimOrFail(t, ctx, ist.Settings().IstioNamespace)
+			namespaceTmpl := map[string]string{
+				"Namespace": ns.Name(),
+			}
 
-		// Apply the RBAC policy to prevent Citadel from reading the CA-root secret.
-		policies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
-			file.AsStringOrFail(t, noReadRBACConfigTmpl))
+			// Apply the RBAC policy to prevent Citadel from reading the CA-root secret.
+			policies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
+				file.AsStringOrFail(t, noReadRBACConfigTmpl))
 
-		g.ApplyConfigOrFail(t, ns, policies...)
+			g.ApplyConfigOrFail(t, ns, policies...)
 
-		// Sleep 10 seconds for the policy to take effect.
-		time.Sleep(10 * time.Second)
+			// Sleep 10 seconds for the policy to take effect.
+			time.Sleep(10 * time.Second)
 
-		// Retrieve Citadel CA-root secret. Keep it for later comparison.
-		env := ctx.Environment().(*kube.Environment)
-		secrets := env.GetSecret(ns.Name())
-		citadelSecret, err := secrets.Get(ca.CASecret, metav1.GetOptions{})
-		if err != nil {
-			t.Fatal("Failed to retrieve Citadel CA-root secret.")
-		}
+			// Retrieve Citadel CA-root secret. Keep it for later comparison.
+			env := ctx.Environment().(*kube.Environment)
+			secrets := env.GetSecret(ns.Name())
+			citadelSecret, err := secrets.Get(ca.CASecret, metav1.GetOptions{})
+			if err != nil {
+				t.Fatal("Failed to retrieve Citadel CA-root secret.")
+			}
 
-		// Delete Citadel pod, a new pod will be started.
-		pods, err := env.GetPods(ns.Name(), "istio=citadel")
-		if err != nil {
-			t.Fatal("Failed to get Citadel pods.")
-		}
-		env.DeletePod(ns.Name(), pods[0].GetName())
+			// Delete Citadel pod, a new pod will be started.
+			pods, err := env.GetPods(ns.Name(), "istio=citadel")
+			if err != nil {
+				t.Fatal("Failed to get Citadel pods.")
+			}
+			env.DeletePod(ns.Name(), pods[0].GetName())
 
-		// Sleep 60 seconds for the recreated Citadel to detect the write error and exit.
-		time.Sleep(60 * time.Second)
+			// Sleep 60 seconds for the recreated Citadel to detect the write error and exit.
+			time.Sleep(60 * time.Second)
 
-		pods, err = env.GetPods(ns.Name(), "istio=citadel")
-		if err != nil {
-			t.Fatalf("failed to get Citadel pod")
-		}
-		cl, cErr := env.Logs(ns.Name(), pods[0].Name, "citadel", false /* previousLog */)
-		pl, pErr := env.Logs(ns.Name(), pods[0].Name, "citadel", true /* previousLog */)
-		expectedErr := []string{"Failed to write secret to CA", "Failed to create a self-signed Citadel"}
-		if cl != "" && cErr == nil && strings.Contains(cl, expectedErr[0]) && strings.Contains(cl, expectedErr[1]) {
-			// Found the strings in the current log.
-		} else if pl != "" && pErr == nil && strings.Contains(pl, expectedErr[0]) && strings.Contains(pl, expectedErr[1]) {
-			// Found the strings in the previous log.
-		} else {
-			t.Errorf("log does not match, expected strings %s and %s not found in logs. Current log: %s, previous log: %s",
-				expectedErr[0], expectedErr[1], cl, pl)
-		}
+			pods, err = env.GetPods(ns.Name(), "istio=citadel")
+			if err != nil {
+				t.Fatalf("failed to get Citadel pod")
+			}
+			cl, cErr := env.Logs(ns.Name(), pods[0].Name, "citadel", false /* previousLog */)
+			pl, pErr := env.Logs(ns.Name(), pods[0].Name, "citadel", true /* previousLog */)
+			expectedErr := []string{"Failed to write secret to CA", "Failed to create a self-signed Citadel"}
+			if cl != "" && cErr == nil && strings.Contains(cl, expectedErr[0]) && strings.Contains(cl, expectedErr[1]) {
+				// Found the strings in the current log.
+			} else if pl != "" && pErr == nil && strings.Contains(pl, expectedErr[0]) && strings.Contains(pl, expectedErr[1]) {
+				// Found the strings in the previous log.
+			} else {
+				t.Errorf("log does not match, expected strings %s and %s not found in logs. Current log: %s, previous log: %s",
+					expectedErr[0], expectedErr[1], cl, pl)
+			}
 
-		// Verify that the CA-root secret remains intact.
-		currentSecret, err := secrets.Get(ca.CASecret, metav1.GetOptions{})
-		if err != nil {
-			t.Fatal("Failed to retrieve Citadel CA-root secret.")
-		}
-		if !reflect.DeepEqual(citadelSecret, currentSecret) {
-			t.Fatal("Citadel CA-root secret is changed!")
-		}
+			// Verify that the CA-root secret remains intact.
+			currentSecret, err := secrets.Get(ca.CASecret, metav1.GetOptions{})
+			if err != nil {
+				t.Fatal("Failed to retrieve Citadel CA-root secret.")
+			}
+			if !reflect.DeepEqual(citadelSecret, currentSecret) {
+				t.Fatal("Citadel CA-root secret is changed!")
+			}
 
-		// Recover the normal setup for other tests.
-		// Recover the normal RBAC policy.
-		policies = tmpl.EvaluateAllOrFail(t, namespaceTmpl,
-			file.AsStringOrFail(t, normalRBACConfigTmpl))
+			// Recover the normal setup for other tests.
+			// Recover the normal RBAC policy.
+			policies = tmpl.EvaluateAllOrFail(t, namespaceTmpl,
+				file.AsStringOrFail(t, normalRBACConfigTmpl))
 
-		g.ApplyConfigOrFail(t, ns, policies...)
+			g.ApplyConfigOrFail(t, ns, policies...)
 
-		// Sleep 10 seconds for the policy to take effect.
-		time.Sleep(10 * time.Second)
+			// Sleep 10 seconds for the policy to take effect.
+			time.Sleep(10 * time.Second)
 
-		// Delete Citadel pod, a new pod will be started.
-		pods, err = env.GetPods(ns.Name(), "istio=citadel")
-		if err != nil {
-			t.Fatal("Failed to get Citadel pods.")
-		}
-		env.DeletePod(ns.Name(), pods[0].GetName())
-		// Sleep 10 seconds for the Citadel pod to recreate.
-		time.Sleep(10 * time.Second)
-	})
+			// Delete Citadel pod, a new pod will be started.
+			pods, err = env.GetPods(ns.Name(), "istio=citadel")
+			if err != nil {
+				t.Fatal("Failed to get Citadel pods.")
+			}
+			env.DeletePod(ns.Name(), pods[0].GetName())
+			// Sleep 10 seconds for the Citadel pod to recreate.
+			time.Sleep(10 * time.Second)
+		})
 }

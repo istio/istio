@@ -395,7 +395,6 @@ func (a *Accessor) CreateNamespaceWithInjectionEnabled(ns string, istioTestingAn
 	n := a.newNamespace(ns, istioTestingAnnotation)
 
 	n.ObjectMeta.Labels["istio-injection"] = "enabled"
-	n.ObjectMeta.Labels["istio-env"] = configNamespace
 
 	_, err := a.set.CoreV1().Namespaces().Create(&n)
 	return err
