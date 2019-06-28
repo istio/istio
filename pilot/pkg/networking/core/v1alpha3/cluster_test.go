@@ -739,8 +739,8 @@ func TestLocalityLB(t *testing.T) {
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors:  5,
-					MinHealthPercent:   10,
+					ConsecutiveErrors: 5,
+					MinHealthPercent:  10,
 				},
 			},
 		})
