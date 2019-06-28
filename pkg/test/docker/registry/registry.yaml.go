@@ -75,7 +75,7 @@ spec:
     port: {{ .Port }}
     protocol: TCP
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: kube-registry-proxy
@@ -83,6 +83,9 @@ metadata:
   labels:
     k8s-app: kube-registry
 spec:
+  selector:
+    matchLabels:
+      k8s-app: kube-registry-proxy
   template:
     metadata:
       labels:

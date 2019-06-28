@@ -26,12 +26,15 @@ spec:
   selector:
     app: iperf3-raw
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: iperf3-raw
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: iperf3-raw
   template:
     metadata:
       labels:
