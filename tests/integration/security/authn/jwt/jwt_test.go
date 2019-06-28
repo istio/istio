@@ -41,6 +41,9 @@ const (
 )
 
 func TestAuthnJwt(t *testing.T) {
+	testIssuer1Token := jwt.TokenIssuer1
+	testIssuer2Token := jwt.TokenIssuer2
+
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, "authn-jwt", true)
@@ -67,7 +70,7 @@ func TestAuthnJwt(t *testing.T) {
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+										authHeaderKey: {"Bearer " + testIssuer1Token},
 									},
 								},
 							},
@@ -111,7 +114,7 @@ func TestAuthnJwt(t *testing.T) {
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+										authHeaderKey: {"Bearer " + testIssuer1Token},
 									},
 								},
 							},
@@ -168,7 +171,7 @@ func TestAuthnJwt(t *testing.T) {
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+										authHeaderKey: {"Bearer " + testIssuer1Token},
 									},
 								},
 							},
@@ -207,7 +210,7 @@ func TestAuthnJwt(t *testing.T) {
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+										authHeaderKey: {"Bearer " + testIssuer1Token},
 									},
 								},
 							},
@@ -238,7 +241,7 @@ func TestAuthnJwt(t *testing.T) {
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenIssuer2},
+										authHeaderKey: {"Bearer " + testIssuer2Token},
 									},
 								},
 							},
@@ -252,7 +255,7 @@ func TestAuthnJwt(t *testing.T) {
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+										authHeaderKey: {"Bearer " + testIssuer1Token},
 									},
 								},
 							},
@@ -267,7 +270,7 @@ func TestAuthnJwt(t *testing.T) {
 									Path:     "/testing-istio-jwt",
 									Scheme:   scheme.HTTP,
 									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + "invalid token"},
+										authHeaderKey: {"Bearer " + jwt.TokenInvalid},
 									},
 								},
 							},
@@ -282,7 +285,7 @@ func TestAuthnJwt(t *testing.T) {
 									Scheme:   scheme.HTTP,
 									Path:     "/testing-istio-jwt",
 									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+										authHeaderKey: {"Bearer " + testIssuer1Token},
 									},
 								},
 							},
@@ -297,7 +300,7 @@ func TestAuthnJwt(t *testing.T) {
 									Scheme:   scheme.HTTP,
 									Path:     "/testing-istio-jwt",
 									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenIssuer2},
+										authHeaderKey: {"Bearer " + testIssuer2Token},
 									},
 								},
 							},

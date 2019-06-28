@@ -38,8 +38,8 @@ const (
 )
 
 func TestRBACV1Group(t *testing.T) {
-	JwtWithClaim1 := jwt.TokenIssuer1
-	JwtWithClaim2 := jwt.TokenIssuer2
+	testIssuer1Token := jwt.TokenIssuer1
+	testIssuer2Token := jwt.TokenIssuer2
 
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
@@ -65,7 +65,7 @@ func TestRBACV1Group(t *testing.T) {
 							Path:     "/xyz",
 						},
 					},
-					Jwt:           JwtWithClaim2,
+					Jwt:           testIssuer2Token,
 					ExpectAllowed: false,
 				},
 				{
@@ -78,7 +78,7 @@ func TestRBACV1Group(t *testing.T) {
 							Path:     "/xyz",
 						},
 					},
-					Jwt:           JwtWithClaim1,
+					Jwt:           testIssuer1Token,
 					ExpectAllowed: true,
 				},
 				{
@@ -91,7 +91,7 @@ func TestRBACV1Group(t *testing.T) {
 							Path:     "/xyz",
 						},
 					},
-					Jwt:           JwtWithClaim2,
+					Jwt:           testIssuer2Token,
 					ExpectAllowed: false,
 				},
 				{
@@ -104,7 +104,7 @@ func TestRBACV1Group(t *testing.T) {
 							Path:     "/xyz",
 						},
 					},
-					Jwt:           JwtWithClaim1,
+					Jwt:           testIssuer1Token,
 					ExpectAllowed: true,
 				},
 			}
