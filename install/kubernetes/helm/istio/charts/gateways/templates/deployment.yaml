@@ -234,6 +234,9 @@ spec:
           {{- if $spec.sds.enabled }}
           - name: ISTIO_META_USER_SDS
             value: "true"
+          - name: ISTIO_METAJSON_STATS
+            value: |
+              {"sidecar.istio.io/statsInclusionSuffixes": "ssl_context_update_by_sds"}
           {{- end }}
           {{- end }}
           {{- if $spec.env }}
