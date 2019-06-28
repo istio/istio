@@ -911,8 +911,10 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		s.kubeRegistry.InitNetworkLookup(s.meshNetworks)
 		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
 	}
-	// Initialize Root CAs for JWKSResolver from config values
-	authn_model.JwtKeyResolver.InitializeSecureClient(s.mesh.AuthnJwksUseDefaultRootCa, s.mesh.AuthnJwksCustomRootCa)
+	// Initialize custom Root CAs for JWKSResolver from config values
+	log.Infof("Initializing secure client for JWKSResolver")
+	authn_model.JwtKeyResolver.InitializeSecureClient(s.mesh.AuthnJwksUseDefaultRootCa,
+		s.mesh.AuthnJwksCustomRootCa)
 
 
 	// Implement EnvoyXdsServer grace shutdown
