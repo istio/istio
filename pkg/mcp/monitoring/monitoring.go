@@ -22,7 +22,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/monitoring"
 	testing "istio.io/istio/pkg/mcp/testing/monitoring"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -35,8 +34,6 @@ const (
 )
 
 var (
-	scope = log.RegisterScope("mcp", "mcp debugging", 0)
-
 	collectionTag   = monitoring.MustCreateTag(collection)
 	errorCodeTag    = monitoring.MustCreateTag(errorCode)
 	errorTag        = monitoring.MustCreateTag(errorStr)
