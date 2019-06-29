@@ -34,6 +34,7 @@ import (
 )
 
 func TestSdsVaultCaFlow(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/15230")
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
