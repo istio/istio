@@ -1764,7 +1764,7 @@ func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
 }
 
 // ValidateVirtualService checks that a v1alpha3 route rule is well-formed.
-func ValidateVirtualService(_, _ string, msg proto.Message) (errs error) {
+func ValidateVirtualService(_, namespace string, msg proto.Message) (errs error) {
 	virtualService, ok := msg.(*networking.VirtualService)
 	if !ok {
 		return errors.New("cannot cast to virtual service")
@@ -1801,10 +1801,12 @@ func ValidateVirtualService(_, _ string, msg proto.Message) (errs error) {
 		}
 	}
 
-	// Check for duplicate hosts
-	// Duplicates include literal duplicates as well as wildcard duplicates
-	// E.g., *.foo.com, and *.com are duplicates in the same virtual service
 	if allHostsValid {
+		svcShortNames := make([]string, 0)
+		svcFQDNs := make([]string, 0)
+		// Check for duplicate hosts
+		// Duplicates include literal duplicates as well as wildcard duplicates
+		// E.g., *.foo.com, and *.com are duplicates in the same virtual service
 		for i := 0; i < len(virtualService.Hosts); i++ {
 			hostI := Hostname(virtualService.Hosts[i])
 			for j := i + 1; j < len(virtualService.Hosts); j++ {
@@ -1813,6 +1815,25 @@ func ValidateVirtualService(_, _ string, msg proto.Message) (errs error) {
 					errs = appendErrors(errs, fmt.Errorf("duplicate hosts in virtual service: %s & %s", hostI, hostJ))
 				}
 			}
+
+			if !strings.Contains(virtualService.Hosts[i], ".") {
+				svcShortNames = append(svcShortNames, virtualService.Hosts[i])
+			} else if strings.Contains(virtualService.Hosts[i], "."+namespace+"."+"svc") {
+				svcFQDNs = append(svcFQDNs, virtualService.Hosts[i])
+			}
+		}
+
+		// Check for multi services short name.
+		if len(svcShortNames) > 1 {
+			errs = appendErrors(errs, fmt.Errorf("multi service names specified in virtual service hosts: %v", virtualService.Hosts))
+		}
+		// Check multi services FQDN
+		if len(svcFQDNs) > 1 {
+			errs = appendErrors(errs, fmt.Errorf("multi service fqdn specified in virtual service hosts: %v", virtualService.Hosts))
+		}
+		// Check for service short name with service FQDN
+		if len(svcShortNames) > 0 && len(svcFQDNs) > 0 {
+			errs = appendErrors(errs, fmt.Errorf("both service name and fqdn specified in virtual service hosts: %v", virtualService.Hosts))
 		}
 	}
 
