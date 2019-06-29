@@ -2606,6 +2606,30 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: false},
+		{name: "multi short names", in: &networking.VirtualService{
+			Hosts: []string{"svc1", "svc2"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
+		{name: "multi services FQDN", in: &networking.VirtualService{
+			Hosts: []string{"svc1.default.svc.cluster.local", "svc2.default.svc.cluster.local"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
+		{name: "both service shotname and service FQDN specified", in: &networking.VirtualService{
+			Hosts: []string{"svc1", "svc2.default.svc.cluster.local"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
 		{name: "no tcp or http routing", in: &networking.VirtualService{
 			Hosts: []string{"foo.bar"},
 		}, valid: false},
@@ -2703,7 +2727,7 @@ func TestValidateVirtualService(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := ValidateVirtualService("", "", tc.in); (err == nil) != tc.valid {
+			if err := ValidateVirtualService("", "default", tc.in); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})
