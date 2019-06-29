@@ -41,7 +41,7 @@ var (
 
 	// ExampleVirtualService is an example V2 route rule
 	ExampleVirtualService = &networking.VirtualService{
-		Hosts: []string{"prod", "test"},
+		Hosts: []string{"prod.com", "test.com"},
 		Http: []*networking.HTTPRoute{
 			{
 				Route: []*networking.HTTPRouteDestination{
