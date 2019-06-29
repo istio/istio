@@ -360,7 +360,8 @@ $(ISTIO_OUT)/$(1):
 	STATIC=0 GOOS=$(GOOS) GOARCH=amd64 LDFLAGS=$(3) bin/gobuild.sh $(ISTIO_OUT)/$(1) $(2)
 
 .PHONY: $(1)
-$(1): $(ISTIO_OUT)/$(1)
+$(1):
+	STATIC=0 GOOS=$(GOOS) GOARCH=amd64 LDFLAGS=$(3) bin/gobuild.sh $(ISTIO_OUT)/$(1) $(2)
 
 ifneq ($(ISTIO_OUT),$(ISTIO_OUT_LINUX))
 $(ISTIO_OUT_LINUX)/$(1):
