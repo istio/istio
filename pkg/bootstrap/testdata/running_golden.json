@@ -16,7 +16,8 @@
       "POD_NAME":"svc-0-0-0-6944fb884d-4pgx8",
       "istio":"sidecar",
       "istio.io/insecurepath":"{\"paths\":[\"/metrics\",\"/live\"]}",
-      "istio-locality": "region.zone.sub_zone"
+      "istio-locality": "region.zone.sub_zone",
+      "istio.io/metadata": {}
     }
   },
   "stats_config": {

@@ -77,7 +77,7 @@ func TestGolden(t *testing.T) {
 
 	cases := []struct {
 		base                       string
-		labels                     map[string]string
+		envVars                    map[string]string
 		annotations                map[string]string
 		expectLightstepAccessToken bool
 		stats                      stats
@@ -94,13 +94,13 @@ func TestGolden(t *testing.T) {
 		},
 		{
 			base: "running",
-			labels: map[string]string{
-				"ISTIO_PROXY_SHA":     "istio-proxy:sha",
-				"INTERCEPTION_MODE":   "REDIRECT",
-				"ISTIO_PROXY_VERSION": "istio-proxy:version",
-				"ISTIO_VERSION":       "release-3.1",
-				"POD_NAME":            "svc-0-0-0-6944fb884d-4pgx8",
-				"istio-locality":      "region.zone.sub_zone",
+			envVars: map[string]string{
+				"ISTIO_META_ISTIO_PROXY_SHA":     "istio-proxy:sha",
+				"ISTIO_META_INTERCEPTION_MODE":   "REDIRECT",
+				"ISTIO_META_ISTIO_PROXY_VERSION": "istio-proxy:version",
+				"ISTIO_META_ISTIO_VERSION":       "release-3.1",
+				"ISTIO_META_POD_NAME":            "svc-0-0-0-6944fb884d-4pgx8",
+				"ISTIO_META_istio-locality":      "region.zone.sub_zone",
 			},
 			annotations: map[string]string{
 				"istio.io/insecurepath": "{\"paths\":[\"/metrics\",\"/live\"]}",
@@ -221,7 +221,11 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("unable to load proxy config: %s\n%v", c.base, err)
 			}
 
-			_, localEnv := createEnv(t, c.labels, c.annotations)
+			_, localEnv := createEnv(t, map[string]string{}, c.annotations)
+			for k, v := range c.envVars {
+				localEnv = append(localEnv, k+"="+v)
+			}
+
 			fn, err := WriteBootstrap(cfg, "sidecar~1.2.3.4~foo~bar", 0, []string{
 				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, nil, localEnv,
 				[]string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6", "10.4.4.4"}, "60s")
@@ -614,18 +618,28 @@ func TestNodeMetadata(t *testing.T) {
 		"istio.io/enable": "{20: 20}",
 	}
 
+	wantMap := map[string]interface{}{
+		"istio": "sidecar",
+		"istio.io/metadata": istioMetadata{
+			Labels: labels,
+		},
+	}
+
 	_, envs := createEnv(t, labels, nil)
 	nm := getNodeMetaData(envs)
 
-	if !reflect.DeepEqual(nm, labels) {
-		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, labels)
+	if !reflect.DeepEqual(nm, wantMap) {
+		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, wantMap)
 	}
 
-	merged, envs := createEnv(t, labels, anno)
+	_, envs = createEnv(t, labels, anno)
+	for k, v := range anno {
+		wantMap[k] = v
+	}
 
 	nm = getNodeMetaData(envs)
-	if !reflect.DeepEqual(nm, merged) {
-		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, merged)
+	if !reflect.DeepEqual(nm, wantMap) {
+		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, wantMap)
 	}
 
 	t.Logf("envs => %v\nnm=> %v", envs, nm)
@@ -637,8 +651,8 @@ func TestNodeMetadata(t *testing.T) {
 	}, envs)
 
 	nm = getNodeMetaData(envs)
-	if !reflect.DeepEqual(nm, merged) {
-		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, merged)
+	if !reflect.DeepEqual(nm, wantMap) {
+		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, wantMap)
 	}
 }
 

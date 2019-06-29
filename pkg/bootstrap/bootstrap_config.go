@@ -223,25 +223,36 @@ type setMetaFunc func(m map[string]interface{}, key string, val string)
 func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[string]interface{}) {
 	metaPrefixLen := len(prefix)
 	for _, env := range envs {
-		if strings.HasPrefix(env, prefix) {
-			v := env[metaPrefixLen:]
-			parts := strings.SplitN(v, "=", 2)
-			if len(parts) != 2 {
-				continue
-			}
-			metaKey, metaVal := parts[0], parts[1]
-
-			set(meta, metaKey, metaVal)
+		if !shouldExtract(env, prefix) {
+			continue
 		}
+		v := env[metaPrefixLen:]
+		if !isEnvVar(v) {
+			continue
+		}
+		metaKey, metaVal := parseEnvVar(v)
+		set(meta, metaKey, metaVal)
 	}
 }
 
 type istioMetadata struct {
-	IP             string            `json:"ip"`
-	Labels         map[string]string `json:"labels"`
-	Name           string            `json:"name"`
-	Namespace      string            `json:"namespace"`
-	ServiceAccount string            `json:"service_account"`
+	CanonicalService string            `json:"canonical_service,omitempty"`
+	IP               string            `json:"ip,omitempty"`
+	Labels           map[string]string `json:"labels,omitempty"`
+	Name             string            `json:"name,omitempty"`
+	Namespace        string            `json:"namespace,omitempty"`
+	ServiceAccount   string            `json:"service_account,omitempty"`
+}
+
+func shouldExtract(envVar, prefix string) bool {
+	if strings.HasPrefix(envVar, "ISTIO_METAJSON_LABELS") {
+		return false
+	}
+	return strings.HasPrefix(envVar, prefix)
+}
+
+func isEnvVar(str string) bool {
+	return strings.Contains(str, "=")
 }
 
 func parseEnvVar(varStr string) (string, string) {
@@ -268,7 +279,11 @@ func extractIstioMetadata(envVars []string) istioMetadata {
 		case "INSTANCE_IP":
 			im.IP = val
 		case "ISTIO_METAJSON_LABELS":
-			im.Labels = jsonStringToMap(val)
+			m := jsonStringToMap(val)
+			im.Labels = m
+			if svc, found := m["istioService"]; found {
+				im.CanonicalService = svc
+			}
 		case "POD_NAME":
 			im.Name = val
 		case "POD_NAMESPACE":
