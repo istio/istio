@@ -28,9 +28,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	authn "istio.io/api/authentication/v1alpha1"
+	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/pkg/cache"
 )
 
@@ -81,14 +80,14 @@ var (
 	// Close channel
 	closeChan = make(chan bool)
 
-	networkFetchSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "pilot_jwks_resolver_network_fetch_success_total",
-		Help: "Total number of successfully network fetch by pilot jwks resolver",
-	})
-	networkFetchFailCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "pilot_jwks_resolver_network_fetch_fail_total",
-		Help: "Total number of failed network fetch by pilot jwks resolver",
-	})
+	networkFetchSuccessCounter = monitoring.NewSum(
+		"pilot_jwks_resolver_network_fetch_success_total",
+		"Total number of successfully network fetch by pilot jwks resolver",
+	)
+	networkFetchFailCounter = monitoring.NewSum(
+		"pilot_jwks_resolver_network_fetch_fail_total",
+		"Total number of failed network fetch by pilot jwks resolver",
+	)
 )
 
 // jwtPubKeyEntry is a single cached entry for jwt public key.
@@ -132,8 +131,7 @@ type JwksResolver struct {
 }
 
 func init() {
-	prometheus.MustRegister(networkFetchSuccessCounter)
-	prometheus.MustRegister(networkFetchFailCounter)
+	monitoring.MustRegisterViews(networkFetchSuccessCounter, networkFetchFailCounter)
 }
 
 // NewJwksResolver creates new instance of JwksResolver.
@@ -290,10 +288,10 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 		resp, err := client.Get(uri)
 		defer func() {
 			if e != nil {
-				networkFetchFailCounter.Inc()
+				networkFetchFailCounter.Increment()
 				return
 			}
-			networkFetchSuccessCounter.Inc()
+			networkFetchSuccessCounter.Increment()
 			_ = resp.Body.Close()
 		}()
 		if err != nil {

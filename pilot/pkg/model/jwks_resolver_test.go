@@ -19,8 +19,7 @@ import (
 	"testing"
 	"time"
 
-	dto "github.com/prometheus/client_model/go"
-
+	"go.opencensus.io/stats/view"
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model/test"
 )
@@ -295,6 +294,18 @@ func TestJwtPubKeyRefreshWithNetworkError(t *testing.T) {
 	verifyKeyLastRefreshedTime(t, r, ms, false /* wantChanged */)
 }
 
+func getCounterValue(counterName string, t *testing.T) float64 {
+	counterValue := 0.0
+	if data, err := view.RetrieveData(counterName); err == nil {
+		if len(data) != 0 {
+			counterValue = data[0].Data.(*view.SumData).Value
+		}
+	} else {
+		t.Fatalf("failed to get value for counter %s: %v", counterName, err)
+	}
+	return counterValue
+}
+
 func TestJwtPubKeyMetric(t *testing.T) {
 	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 	defer r.Close()
@@ -306,21 +317,8 @@ func TestJwtPubKeyMetric(t *testing.T) {
 	}
 	ms.ReturnErrorForFirstNumHits = 1
 
-	getCounter := func(success bool) float64 {
-		metric := &dto.Metric{}
-		if success {
-			if err := networkFetchSuccessCounter.Write(metric); err != nil {
-				t.Fatalf("failed to get counter: %v", err)
-			}
-		} else {
-			if err := networkFetchFailCounter.Write(metric); err != nil {
-				t.Fatalf("failed to get counter: %v", err)
-			}
-		}
-		return metric.GetCounter().GetValue()
-	}
-	successBefore := getCounter(true)
-	failBefore := getCounter(false)
+	successValueBefore := getCounterValue(networkFetchSuccessCounter.Name(), t)
+	failValueBefore := getCounterValue(networkFetchFailCounter.Name(), t)
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
 	cases := []struct {
@@ -343,12 +341,12 @@ func TestJwtPubKeyMetric(t *testing.T) {
 		}
 	}
 
-	successAfter := getCounter(true)
-	failAfter := getCounter(false)
-	if successBefore >= successAfter {
+	successValueAfter := getCounterValue(networkFetchSuccessCounter.Name(), t)
+	failValueAfter := getCounterValue(networkFetchFailCounter.Name(), t)
+	if successValueBefore >= successValueAfter {
 		t.Errorf("the success counter is not incremented")
 	}
-	if failBefore >= failAfter {
+	if failValueBefore >= failValueAfter {
 		t.Errorf("the fail counter is not incremented")
 	}
 }
