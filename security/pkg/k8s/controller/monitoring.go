@@ -55,7 +55,7 @@ var (
 		Namespace: "citadel",
 		Subsystem: "secret_controller",
 		Name:      "csr_sign_err_count",
-		Help:      "The number of erorrs occurred when signing the CSR.",
+		Help:      "The number of errors occurred when signing the CSR.",
 	}, []string{errorlabel})
 )
 
