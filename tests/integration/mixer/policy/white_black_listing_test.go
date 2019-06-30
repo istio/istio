@@ -40,7 +40,7 @@ func TestWhiteListing(t *testing.T) {
 		g.ApplyConfigOrFail(
 			t,
 			bookinfoNs,
-			bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+			bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 			bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		)
 		defer g.DeleteConfigOrFail(
@@ -51,7 +51,7 @@ func TestWhiteListing(t *testing.T) {
 		defer g.DeleteConfigOrFail(
 			t,
 			bookinfoNs,
-			bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+			bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 			bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		)
 
