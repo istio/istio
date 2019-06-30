@@ -32,6 +32,13 @@ import (
 	"istio.io/pkg/log"
 )
 
+const (
+	// HelmValuesEnabledSubpath is the subpath from the component root to the enabled parameter.
+	HelmValuesEnabledSubpath = "enabled"
+	// HelmValuesNamespaceSubpath is the subpath from the component root to the namespace parameter.
+	HelmValuesNamespaceSubpath = "namespace"
+)
+
 var (
 	// DebugPackage controls detailed debug output for this package.
 	DebugPackage = false
@@ -47,8 +54,8 @@ type Translator struct {
 	APIMapping map[string]*Translation
 	// KubernetesMapping defines mappings from an IstioControlPlane API paths to k8s resource paths.
 	KubernetesMapping map[string]*Translation
-	// FeatureComponentToValues maps from feature and component names to value paths in values.yaml schema.
-	FeatureComponentToValues map[name.FeatureName]map[name.ComponentName]componentValuePaths
+	// ToFeature maps a component to its parent feature.
+	ToFeature map[name.ComponentName]name.FeatureName
 	// ComponentMaps is a set of mappings for each Istio component.
 	ComponentMaps map[name.ComponentName]*ComponentMaps
 }
@@ -61,8 +68,8 @@ type ComponentMaps struct {
 	ContainerName string
 	// HelmSubdir is a mapping between a component name and the subdirectory of the component Chart.
 	HelmSubdir string
-	// ToHelmValuesNames is the baseYAML component name used in values YAML files in component charts.
-	ToHelmValuesNames string
+	// ToHelmValuesTreeRoot is the tree root in values YAML files for the component.
+	ToHelmValuesTreeRoot string
 	// AlwaysEnabled controls whether a component can be turned off through IstioControlPlaneSpec.
 	AlwaysEnabled bool
 }
@@ -76,26 +83,24 @@ type Translation struct {
 	translationFunc TranslationFunc
 }
 
-// componentValuePaths is a group of paths that exists in both IstioControlPlane and values.yaml.
-type componentValuePaths struct {
-	enabled   string
-	namespace string
-}
-
 var (
 	// Translators is a map of minor versions to Translator for that version.
 	// TODO: this should probably be moved out to a config file that's versioned.
 	Translators = map[version.MinorVersion]*Translator{
 		version.NewMinorVersion(1, 2): {
 			APIMapping: map[string]*Translation{
-				"Hub":         {"global.hub", nil},
-				"Tag":         {"global.tag", nil},
-				"K8SDefaults": {"global.resources", nil},
+				"Hub":                    {"global.hub", nil},
+				"Tag":                    {"global.tag", nil},
+				"K8SDefaults":            {"global.resources", nil},
+				"DefaultNamespacePrefix": {"global.istioNamespace", nil},
 
 				"TrafficManagement.Components.Proxy.Common.Values": {"global.proxy", nil},
 
-				"PolicyTelemetry.PolicyCheckFailOpen":       {"global.policyCheckFailOpen", nil},
-				"PolicyTelemetry.OutboundTrafficPolicyMode": {"global.outboundTrafficPolicy.mode", nil},
+				"Policy.PolicyCheckFailOpen":       {"global.policyCheckFailOpen", nil},
+				"Policy.OutboundTrafficPolicyMode": {"global.outboundTrafficPolicy.mode", nil},
+				"Policy.Components.Namespace":      {"global.policyNamespace", nil},
+
+				"Telemetry.Components.Namespace": {"global.telemetryNamespace", nil},
 
 				"Security.ControlPlaneMtls.Value":    {"global.controlPlaneSecurityEnabled", nil},
 				"Security.DataPlaneMtlsStrict.Value": {"global.mtls.enabled", nil},
@@ -113,112 +118,85 @@ var (
 				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.ReplicaCount":        {"[Deployment:{{.ResourceName}}].spec.replicas", nil},
 				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.Resources":           {"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].resources", nil},
 			},
+			ToFeature: map[name.ComponentName]name.FeatureName{
+				name.IstioBaseComponentName:       name.IstioBaseFeatureName,
+				name.PilotComponentName:           name.TrafficManagementFeatureName,
+				name.GalleyComponentName:          name.ConfigManagementFeatureName,
+				name.SidecarInjectorComponentName: name.AutoInjectionFeatureName,
+				name.PolicyComponentName:          name.PolicyFeatureName,
+				name.TelemetryComponentName:       name.TelemetryFeatureName,
+				name.CitadelComponentName:         name.SecurityFeatureName,
+				name.CertManagerComponentName:     name.SecurityFeatureName,
+				name.NodeAgentComponentName:       name.SecurityFeatureName,
+				name.IngressComponentName:         name.GatewayFeatureName,
+				name.EgressComponentName:          name.GatewayFeatureName,
+			},
 			ComponentMaps: map[name.ComponentName]*ComponentMaps{
 				name.IstioBaseComponentName: {
-					ToHelmValuesNames: "global",
-					HelmSubdir:        "crds",
-					AlwaysEnabled:     true,
+					ToHelmValuesTreeRoot: "global",
+					HelmSubdir:           "crds",
+					AlwaysEnabled:        true,
 				},
 				name.PilotComponentName: {
-					ResourceName:      "istio-pilot",
-					ContainerName:     "discovery",
-					HelmSubdir:        "istio-control/istio-discovery",
-					ToHelmValuesNames: "pilot",
+					ResourceName:         "istio-pilot",
+					ContainerName:        "discovery",
+					HelmSubdir:           "istio-control/istio-discovery",
+					ToHelmValuesTreeRoot: "pilot",
 				},
 
 				name.GalleyComponentName: {
-					ResourceName:      "istio-galley",
-					ContainerName:     "galley",
-					HelmSubdir:        "istio-control/istio-config",
-					ToHelmValuesNames: "galley",
+					ResourceName:         "istio-galley",
+					ContainerName:        "galley",
+					HelmSubdir:           "istio-control/istio-config",
+					ToHelmValuesTreeRoot: "galley",
 				},
 				name.SidecarInjectorComponentName: {
-					ResourceName:      "istio-sidecar-injector",
-					ContainerName:     "sidecar-injector-webhook",
-					HelmSubdir:        "istio-control/istio-autoinject",
-					ToHelmValuesNames: "sidecarInjectorWebhook",
+					ResourceName:         "istio-sidecar-injector",
+					ContainerName:        "sidecar-injector-webhook",
+					HelmSubdir:           "istio-control/istio-autoinject",
+					ToHelmValuesTreeRoot: "sidecarInjectorWebhook",
 				},
 				name.PolicyComponentName: {
-					ResourceName:      "istio-policy",
-					ContainerName:     "mixer",
-					HelmSubdir:        "istio-policy",
-					ToHelmValuesNames: "mixer.policy",
+					ResourceName:         "istio-policy",
+					ContainerName:        "mixer",
+					HelmSubdir:           "istio-policy",
+					ToHelmValuesTreeRoot: "mixer.policy",
 				},
 				name.TelemetryComponentName: {
-					ResourceName:      "istio-telemetry",
-					ContainerName:     "mixer",
-					HelmSubdir:        "istio-telemetry/mixer-telemetry",
-					ToHelmValuesNames: "mixer.telemetry",
+					ResourceName:         "istio-telemetry",
+					ContainerName:        "mixer",
+					HelmSubdir:           "istio-telemetry/mixer-telemetry",
+					ToHelmValuesTreeRoot: "mixer.telemetry",
 				},
 				name.CitadelComponentName: {
-					ResourceName:      "istio-citadel",
-					ContainerName:     "citadel",
-					HelmSubdir:        "security/citadel",
-					ToHelmValuesNames: "citadel",
+					ResourceName:         "istio-citadel",
+					ContainerName:        "citadel",
+					HelmSubdir:           "security/citadel",
+					ToHelmValuesTreeRoot: "citadel",
 				},
 				name.NodeAgentComponentName: {
-					ResourceName:      "istio-nodeagent",
-					ContainerName:     "nodeagent",
-					HelmSubdir:        "security/nodeagent",
-					ToHelmValuesNames: "nodeAgent",
+					ResourceName:         "istio-nodeagent",
+					ContainerName:        "nodeagent",
+					HelmSubdir:           "security/nodeagent",
+					ToHelmValuesTreeRoot: "nodeagent",
 				},
 				name.CertManagerComponentName: {
-					ResourceName:      "certmanager",
-					ContainerName:     "certmanager",
-					HelmSubdir:        "security/certmanager",
-					ToHelmValuesNames: "certManager",
+					ResourceName:         "certmanager",
+					ContainerName:        "certmanager",
+					HelmSubdir:           "security/certmanager",
+					ToHelmValuesTreeRoot: "certmanager",
 				},
 				name.IngressComponentName: {
-					ResourceName:      "istio-ingressgateway",
-					ContainerName:     "istio-proxy",
-					HelmSubdir:        "gateways/istio-ingress",
-					ToHelmValuesNames: "gateways.istio-ingressgateway",
+					ResourceName:         "istio-ingressgateway",
+					ContainerName:        "istio-proxy",
+					HelmSubdir:           "gateways/istio-ingress",
+					ToHelmValuesTreeRoot: "gateways.istio-ingressgateway",
 				},
 				name.EgressComponentName: {
-					ResourceName:      "istio-egressgateway",
-					ContainerName:     "istio-proxy",
-					HelmSubdir:        "gateways/istio-egress",
-					ToHelmValuesNames: "gateways.istio-egressgateway",
-				},
-			},
-			FeatureComponentToValues: map[name.FeatureName]map[name.ComponentName]componentValuePaths{
-				name.TrafficManagementFeatureName: {
-					name.PilotComponentName: {
-						enabled:   "pilot.enabled",
-						namespace: "global.istioNamespace",
-					},
-				},
-				name.PolicyFeatureName: {
-					name.PolicyComponentName: {
-						enabled:   "mixer.policy.enabled",
-						namespace: "global.policyNamespace",
-					},
-				},
-				name.ConfigManagementFeatureName: {
-					name.GalleyComponentName: {
-						enabled: "galley.enabled",
-					},
-				},
-				name.TelemetryFeatureName: {
-					name.TelemetryComponentName: {
-						enabled:   "mixer.telemetry.enabled",
-						namespace: "global.telemetryNamespace",
-					},
-				},
-				// TODO: check if these really should be settable.
-				name.SecurityFeatureName: {
-					name.NodeAgentComponentName: {
-						enabled:   "nodeagent.enabled",
-						namespace: "global.istioNamespace",
-					},
-					name.CertManagerComponentName: {
-						enabled:   "certmanager.enabled",
-						namespace: "global.istioNamespace",
-					},
-					name.CitadelComponentName: {
-						enabled:   "security.enabled",
-						namespace: "global.istioNamespace",
-					},
+					ResourceName:         "istio-egressgateway",
+					ContainerName:        "istio-proxy",
+					HelmSubdir:           "gateways/istio-egress",
+					ToHelmValuesTreeRoot: "gateways.istio-egressgateway",
 				},
 			},
 		},
@@ -250,6 +228,10 @@ func (t *Translator) OverlayK8sSettings(yml string, icp *v1alpha2.IstioControlPl
 		}
 		if mstr, ok := m.(string); ok && mstr == "" {
 			log.Infof("path %s is empty string, skip mapping.", inPath)
+			continue
+		}
+		if mint, ok := util.ToIntValue(m); ok && mint == 0 {
+			log.Infof("path %s is int 0, skip mapping.", inPath)
 			continue
 		}
 		overlayYAML, err := yaml.Marshal(m)
@@ -339,7 +321,7 @@ func (t *Translator) ProtoToValues(ii *v1alpha2.IstioControlPlaneSpec) (string, 
 // ValuesOverlaysToHelmValues translates from component value overlays to helm value overlay paths.
 func (t *Translator) ValuesOverlaysToHelmValues(in map[string]interface{}, cname name.ComponentName) map[string]interface{} {
 	out := make(map[string]interface{})
-	toPath := t.ComponentMaps[cname].ToHelmValuesNames
+	toPath := t.ComponentMaps[cname].ToHelmValuesTreeRoot
 	if toPath == "" {
 		log.Errorf("missing translation path for %s in ValuesOverlaysToHelmValues", cname)
 		return nil
@@ -352,6 +334,18 @@ func (t *Translator) ValuesOverlaysToHelmValues(in map[string]interface{}, cname
 		pv = pv[1:]
 	}
 	cur[pv[0]] = in
+	return out
+}
+
+// ToComponent returns the Components under the featureName feature.
+// TODO: should do this once only, create a NewTranslator and do it there.
+func (t *Translator) ToComponent(featureName name.FeatureName) []name.ComponentName {
+	var out []name.ComponentName
+	for c, f := range t.ToFeature {
+		if f == featureName {
+			out = append(out, c)
+		}
+	}
 	return out
 }
 
@@ -428,18 +422,16 @@ func (t *Translator) protoToValues(structPtr interface{}, root map[string]interf
 // setEnablementAndNamespaces translates the enablement and namespace value of each component in the baseYAML values
 // tree, based on feature/component inheritance relationship.
 func (t *Translator) setEnablementAndNamespaces(root map[string]interface{}, ii *v1alpha2.IstioControlPlaneSpec) error {
-	for fn, f := range t.FeatureComponentToValues {
-		for cn, c := range f {
-			if c.enabled != "" {
-				if err := setTree(root, util.PathFromString(c.enabled), name.IsComponentEnabled(fn, cn, ii)); err != nil {
-					return err
-				}
-			}
-			if c.namespace != "" {
-				if err := setTree(root, util.PathFromString(c.namespace), name.Namespace(fn, cn, ii)); err != nil {
-					return err
-				}
-			}
+	for cn, c := range t.ComponentMaps {
+		enabled := c.AlwaysEnabled
+		if !c.AlwaysEnabled {
+			enabled = name.IsComponentEnabled(t.ToFeature[cn], cn, ii)
+		}
+		if err := setTree(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesEnabledSubpath), enabled); err != nil {
+			return err
+		}
+		if err := setTree(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesNamespaceSubpath), name.Namespace(t.ToFeature[cn], cn, ii)); err != nil {
+			return err
 		}
 	}
 	return nil

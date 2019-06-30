@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-telemetry
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-telemetry
+    istio: mixer
+    release: {{ .Release.Name }}
+spec:
+  ports:
+  - name: grpc-mixer
+    port: 9091
+  - name: grpc-mixer-mtls
+    port: 15004
+  - name: http-monitoring
+    port: 15014
+  - name: prometheus
+    port: 42422
+  selector:
+    app: istio-telemetry
+{{- if .Values.mixer.telemetry.sessionAffinityEnabled }}
+  sessionAffinity: ClientIP
+{{- end }}
+---

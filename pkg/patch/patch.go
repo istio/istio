@@ -95,7 +95,6 @@ import (
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/manifest"
 	"istio.io/operator/pkg/util"
-
 	"istio.io/pkg/log"
 )
 
@@ -150,6 +149,12 @@ func YAMLManifestPatch(baseYAML string, namespace string, overlays []*v1alpha2.K
 		bo := bom[k]
 		if bo == nil {
 			// TODO: error log overlays with no matches in any component.
+			os := ""
+			for k2 := range bom {
+				os += k2 + "\n"
+			}
+			log.Errorf("Overlay for %s does not match any object in output manifest:\n%s\n\nAvailable objects are:\n%s\n",
+				k, pretty.Sprint(oo), os)
 			continue
 		}
 		patched, err := applyPatches(bo, oo)

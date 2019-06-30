@@ -37,26 +37,47 @@ func TestProtoToValuesV12(t *testing.T) {
 	}{
 		{
 			desc: "nil success",
+			yamlStr: `
+defaultNamespacePrefix: istio-system
+`,
 			want: `
 certmanager:
   enabled: false
+  namespace: istio-system
+citadel:
+  enabled: false
+  namespace: istio-system
 galley:
   enabled: false
+  namespace: istio-system
+gateways:
+  istio-egressgateway:
+    enabled: false
+    namespace: istio-system
+  istio-ingressgateway:
+    enabled: false
+    namespace: istio-system
 global:
-  istioNamespace: ""
-  policyNamespace: ""
-  telemetryNamespace: ""
+  enabled: true
+  namespace: istio-system
+  istioNamespace: istio-system
 mixer:
   policy:
     enabled: false
+    namespace: istio-system
   telemetry:
     enabled: false
+    namespace: istio-system
 nodeagent:
   enabled: false
+  namespace: istio-system
 pilot:
   enabled: false
-security:
+  namespace: istio-system
+sidecarInjectorWebhook:
   enabled: false
+  namespace: istio-system
+
 `,
 		},
 		{
@@ -65,32 +86,46 @@ security:
 hub: docker.io/istio
 tag: 1.2.3
 defaultNamespacePrefix: istio-system
-security:
-  components:
-    namespace: istio-security
 `,
 			want: `
 certmanager:
   enabled: false
+  namespace: istio-system
+citadel:
+  enabled: false
+  namespace: istio-system
 galley:
   enabled: false
+  namespace: istio-system
+gateways:
+  istio-egressgateway:
+    enabled: false
+    namespace: istio-system
+  istio-ingressgateway:
+    enabled: false
+    namespace: istio-system
 global:
+  enabled: true
   hub: docker.io/istio
   istioNamespace: istio-system
-  policyNamespace: istio-system
+  namespace: istio-system
   tag: 1.2.3
-  telemetryNamespace: istio-system
 mixer:
   policy:
     enabled: false
+    namespace: istio-system
   telemetry:
     enabled: false
+    namespace: istio-system
 nodeagent:
   enabled: false
+  namespace: istio-system
 pilot:
   enabled: false
-security:
+  namespace: istio-system
+sidecarInjectorWebhook:
   enabled: false
+  namespace: istio-system
 
 `,
 		},
@@ -106,26 +141,43 @@ security:
 			want: `
 certmanager:
   enabled: true
+  namespace: istio-system
+citadel:
+  enabled: true
+  namespace: istio-system
 galley:
   enabled: false
+  namespace: istio-system
+gateways:
+  istio-egressgateway:
+    enabled: false
+    namespace: istio-system
+  istio-ingressgateway:
+    enabled: false
+    namespace: istio-system
 global:
-  istioNamespace: istio-system
-  policyNamespace: istio-system
-  telemetryNamespace: istio-system
   controlPlaneSecurityEnabled: true
+  enabled: true
+  istioNamespace: istio-system
   mtls:
     enabled: false
+  namespace: istio-system
 mixer:
   policy:
     enabled: false
+    namespace: istio-system
   telemetry:
     enabled: false
+    namespace: istio-system
 nodeagent:
   enabled: true
+  namespace: istio-system
 pilot:
   enabled: false
-security:
-  enabled: true
+  namespace: istio-system
+sidecarInjectorWebhook:
+  enabled: false
+  namespace: istio-system
 `,
 		},
 	}

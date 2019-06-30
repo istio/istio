@@ -71,6 +71,11 @@ func NewObject(u *unstructured.Unstructured, json, yaml []byte) *Object {
 
 // Hash returns a unique, insecure hash based on kind, namespace and name.
 func Hash(kind, namespace, name string) string {
+	switch kind {
+	// TODO: replace strings with k8s const.
+	case "ClusterRole", "ClusterRoleBinding":
+		namespace = ""
+	}
 	return strings.Join([]string{kind, namespace, name}, ":")
 }
 
@@ -156,6 +161,9 @@ func (o *Object) JSON() ([]byte, error) {
 
 // YAML returns a YAML representation of o, using an internal cache.
 func (o *Object) YAML() ([]byte, error) {
+	if o == nil {
+		return nil, nil
+	}
 	if o.yaml != nil {
 		return o.yaml, nil
 	}
@@ -228,13 +236,13 @@ func ParseObjectsFromYAMLManifest(manifest string) (Objects, error) {
 	var objects Objects
 
 	for _, yaml := range yamls {
-		o, err := ParseYAMLToObject([]byte(yaml))
-		if err != nil {
-			log.Infof("error decoding object: %s\n%s\n", err, yaml)
+		if strings.TrimSpace(yaml) == "" {
+			// helm charts sometimes emits blank objects with just a "disabled" comment.
 			continue
 		}
-
-		if o.GroupKind().Group == "" {
+		o, err := ParseYAMLToObject([]byte(yaml))
+		if err != nil {
+			log.Info(err.Error())
 			continue
 		}
 

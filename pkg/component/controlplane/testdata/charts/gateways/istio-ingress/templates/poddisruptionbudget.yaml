@@ -1,0 +1,18 @@
+{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: ingressgateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-ingressgateway
+    release: {{ .Release.Name }}
+    istio: ingressgateway
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: istio-ingressgateway
+      release: {{ .Release.Name }}
+      istio: ingressgateway
+{{- end }}

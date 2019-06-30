@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: zipkin
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.tracing.provider }}
+    release: {{ .Release.Name }}
+spec:
+  type: {{ .Values.tracing.service.type }}
+  ports:
+    - port: {{ .Values.tracing.service.externalPort }}
+      targetPort: 9411
+      protocol: TCP
+      name: {{ .Values.tracing.service.name }}
+  selector:
+    app: {{ .Values.tracing.provider }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: tracing
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- range $key, $val := .Values.tracing.service.annotations }}
+    {{ $key }}: {{ $val | quote }}
+    {{- end }}
+  labels:
+    app: {{ .Values.tracing.provider }}
+    release: {{ .Release.Name }}
+spec:
+  ports:
+    - name: http-query
+      port: 80
+      protocol: TCP
+{{ if eq .Values.tracing.provider "jaeger" }}
+      targetPort: 16686
+{{ else }}
+      targetPort: 9411
+{{ end}}
+  selector:
+    app: {{ .Values.tracing.provider }}
