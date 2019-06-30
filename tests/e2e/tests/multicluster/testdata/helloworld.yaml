@@ -11,7 +11,7 @@ spec:
   selector:
     app: helloworld
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: helloworld-v1
@@ -19,6 +19,10 @@ metadata:
     version: v1
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: helloworld
+      version: v1
   template:
     metadata:
       labels:
@@ -35,7 +39,7 @@ spec:
         ports:
         - containerPort: 5000
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: helloworld-v2
@@ -43,6 +47,10 @@ metadata:
     version: v2
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: helloworld
+      version: v2
   template:
     metadata:
       labels:

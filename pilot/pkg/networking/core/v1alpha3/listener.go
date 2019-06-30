@@ -34,7 +34,6 @@ import (
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
-	"github.com/prometheus/client_golang/prometheus"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -43,6 +42,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
@@ -172,14 +172,14 @@ var (
 	// TODO: gauge should be reset on refresh, not the best way to represent errors but better
 	// than nothing.
 	// TODO: add dimensions - namespace of rule, service, rule name
-	invalidOutboundListeners = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "pilot_invalid_out_listeners",
-		Help: "Number of invalid outbound listeners.",
-	})
+	invalidOutboundListeners = monitoring.NewGauge(
+		"pilot_invalid_out_listeners",
+		"Number of invalid outbound listeners.",
+	)
 )
 
 func init() {
-	prometheus.MustRegister(invalidOutboundListeners)
+	monitoring.MustRegisterViews(invalidOutboundListeners)
 }
 
 // ListenersALPNProtocols denotes the the list of ALPN protocols that the listener
@@ -633,7 +633,7 @@ func protocolName(p model.Protocol) string {
 }
 
 type outboundListenerConflict struct {
-	metric          *model.PushMetric
+	metric          monitoring.Metric
 	node            *model.Proxy
 	listenerName    string
 	currentProtocol model.Protocol
@@ -898,10 +898,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	// Now validate all the listeners. Collate the tcp listeners first and then the HTTP listeners
 	// TODO: This is going to be bad for caching as the order of listeners in tcpListeners or httpListeners is not
 	// guaranteed.
+	invalid := 0.0
 	for name, l := range listenerMap {
 		if err := l.listener.Validate(); err != nil {
 			log.Warnf("buildSidecarOutboundListeners: error validating listener %s (type %v): %v", name, l.servicePort.Protocol, err)
-			invalidOutboundListeners.Add(1)
+			invalid++
+			invalidOutboundListeners.Record(invalid)
 			continue
 		}
 		if l.servicePort.Protocol.IsTCP() {

@@ -300,7 +300,7 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]struct{}) {
 	if err != nil {
 		adsLog.Errorf("XDS: Failed to update services: %v", err)
 		// We can't push if we can't read the data - stick with previous version.
-		pushContextErrors.Inc()
+		pushContextErrors.Increment()
 		return
 	}
 
@@ -371,7 +371,7 @@ func (s *DiscoveryServer) clearCache() {
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 // It replaces the 'clear cache' from v1.
 func (s *DiscoveryServer) ConfigUpdate(full bool) {
-	inboundConfigUpdates.Add(1)
+	inboundConfigUpdates.Increment()
 	s.updateChannel <- &updateReq{full: full}
 }
 

@@ -27,7 +27,7 @@ var (
 		Namespace: "citadel",
 		Subsystem: "server",
 		Name:      "csr_count",
-		Help:      "The number of CSRs recerived by Citadel server.",
+		Help:      "The number of CSRs received by Citadel server.",
 	}, []string{})
 
 	authnErrorCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -41,7 +41,7 @@ var (
 		Namespace: "citadel",
 		Subsystem: "server",
 		Name:      "csr_parsing_err_count",
-		Help:      "The number of erorrs occurred when parsing the CSR.",
+		Help:      "The number of errors occurred when parsing the CSR.",
 	}, []string{})
 
 	idExtractionErrorCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -55,7 +55,7 @@ var (
 		Namespace: "citadel",
 		Subsystem: "server",
 		Name:      "csr_sign_err_count",
-		Help:      "The number of erorrs occurred when signing the CSR.",
+		Help:      "The number of errors occurred when signing the CSR.",
 	}, []string{errorlabel})
 
 	successCounts = prometheus.NewCounterVec(prometheus.CounterOpts{

@@ -854,11 +854,12 @@ func applyOutlierDetection(cluster *apiv2.Cluster, outlier *networking.OutlierDe
 
 func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettings, port *model.Port) {
 	if cluster.OutlierDetection != nil {
+		if cluster.CommonLbConfig == nil {
+			cluster.CommonLbConfig = &apiv2.Cluster_CommonLbConfig{}
+		}
 		// Locality weighted load balancing
-		cluster.CommonLbConfig = &apiv2.Cluster_CommonLbConfig{
-			LocalityConfigSpecifier: &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
-				LocalityWeightedLbConfig: &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
-			},
+		cluster.CommonLbConfig.LocalityConfigSpecifier = &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
+			LocalityWeightedLbConfig: &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
 		}
 	}
 

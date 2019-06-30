@@ -24,7 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -38,6 +37,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 )
 
@@ -61,15 +61,23 @@ const (
 )
 
 var (
+	typeTag  = monitoring.MustCreateTag("type")
+	eventTag = monitoring.MustCreateTag("event")
+
 	// experiment on getting some monitoring on config errors.
-	k8sEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "pilot_k8s_reg_events",
-		Help: "Events from k8s registry.",
-	}, []string{"type", "event"})
+	k8sEvents = monitoring.NewSum(
+		"pilot_k8s_reg_events",
+		"Events from k8s registry.",
+		typeTag, eventTag,
+	)
 )
 
 func init() {
-	prometheus.MustRegister(k8sEvents)
+	monitoring.MustRegisterViews(k8sEvents)
+}
+
+func incrementEvent(kind, event string) {
+	k8sEvents.With(typeTag.Value(kind), eventTag.Value(event)).Increment()
 }
 
 // Options stores the configurable attributes of a Controller.
@@ -190,19 +198,19 @@ func (c *Controller) createCacheHandler(informer cache.SharedIndexInformer, otyp
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
-				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
+				incrementEvent(otype, "add")
 				c.queue.Push(kube.Task{Handler: handler.Apply, Obj: obj, Event: model.EventAdd})
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
-					k8sEvents.With(prometheus.Labels{"type": otype, "event": "update"}).Add(1)
+					incrementEvent(otype, "update")
 					c.queue.Push(kube.Task{Handler: handler.Apply, Obj: cur, Event: model.EventUpdate})
 				} else {
-					k8sEvents.With(prometheus.Labels{"type": otype, "event": "updateSame"}).Add(1)
+					incrementEvent(otype, "updatesame")
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				k8sEvents.With(prometheus.Labels{"type": otype, "event": "delete"}).Add(1)
+				incrementEvent(otype, "delete")
 				c.queue.Push(kube.Task{Handler: handler.Apply, Obj: obj, Event: model.EventDelete})
 			},
 		})
@@ -217,7 +225,7 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
-				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
+				incrementEvent(otype, "add")
 				c.queue.Push(kube.Task{Handler: handler.Apply, Obj: obj, Event: model.EventAdd})
 			},
 			UpdateFunc: func(old, cur interface{}) {
@@ -226,14 +234,14 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 				curE := cur.(*v1.Endpoints)
 
 				if !reflect.DeepEqual(oldE.Subsets, curE.Subsets) {
-					k8sEvents.With(prometheus.Labels{"type": otype, "event": "update"}).Add(1)
+					incrementEvent(otype, "update")
 					c.queue.Push(kube.Task{Handler: handler.Apply, Obj: cur, Event: model.EventUpdate})
 				} else {
-					k8sEvents.With(prometheus.Labels{"type": otype, "event": "updateSame"}).Add(1)
+					incrementEvent(otype, "updatesame")
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				k8sEvents.With(prometheus.Labels{"type": otype, "event": "delete"}).Add(1)
+				incrementEvent(otype, "delete")
 				// Deleting the endpoints results in an empty set from EDS perspective - only
 				// deleting the service should delete the resources. The full sync replaces the
 				// maps.

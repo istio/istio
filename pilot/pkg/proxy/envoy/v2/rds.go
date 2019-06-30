@@ -45,10 +45,10 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 	err = con.send(response)
 	if err != nil {
 		adsLog.Warnf("RDS: Send failure for node:%v: %v", con.modelNode.ID, err)
-		rdsSendErrPushes.Add(1)
+		rdsSendErrPushes.Increment()
 		return err
 	}
-	rdsPushes.Add(1)
+	rdsPushes.Increment()
 
 	adsLog.Infof("RDS: PUSH for node:%s routes:%d", con.modelNode.ID, len(rawRoutes))
 	return nil
@@ -63,7 +63,7 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.Push
 		if err != nil {
 			retErr := fmt.Errorf("RDS: Failed to generate route %s for node %v: %v", routeName, con.modelNode, err)
 			adsLog.Warnf("RDS: Failed to generate routes for route:%s for node:%v: %v", routeName, con.modelNode.ID, err)
-			rdsBuildErrPushes.Add(1)
+			rdsBuildErrPushes.Increment()
 			return nil, retErr
 		}
 
@@ -87,7 +87,7 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.Push
 		if err = r.Validate(); err != nil {
 			retErr := fmt.Errorf("RDS: Generated invalid route %s for node %v: %v", routeName, con.modelNode, err)
 			adsLog.Errorf("RDS: Generated invalid routes for route:%s for node:%v: %v, %v", routeName, con.modelNode.ID, err, r)
-			rdsBuildErrPushes.Add(1)
+			rdsBuildErrPushes.Increment()
 			// Generating invalid routes is a bug.
 			// Panic instead of trying to recover from that, since we can't
 			// assume anything about the state.
