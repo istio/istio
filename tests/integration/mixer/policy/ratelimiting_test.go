@@ -73,7 +73,7 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 			defer deleteConfigOrFail(t, config, g, ctx)
 			util.AllowRuleSync(t)
 
-			res := util.SendTraffic(ing, t, "Sending traffic...", "", 300)
+			res := util.SendTraffic(ing, t, "Sending traffic...", "", "", 300)
 			totalReqs := float64(res.DurationHistogram.Count)
 			succReqs := float64(res.RetCodes[http.StatusOK])
 			got429s := float64(res.RetCodes[http.StatusTooManyRequests])
@@ -137,7 +137,7 @@ func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService
 		prior429s, prior200s := util.FetchRequestCount(t, prom, destinationService, "",
 			bookInfoNameSpaceStr, 0)
 
-		res := util.SendTraffic(ing, t, "Sending traffic...", "", 300)
+		res := util.SendTraffic(ing, t, "Sending traffic...", "", "", 300)
 		totalReqs := res.DurationHistogram.Count
 		succReqs := float64(res.RetCodes[http.StatusOK])
 		badReqs := res.RetCodes[http.StatusBadRequest]
@@ -258,7 +258,7 @@ func setupComponentsOrFail(t *testing.T, ctx resource.Context) (bookinfoNs names
 	g.ApplyConfigOrFail(
 		t,
 		bookinfoNs,
-		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+		bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 	)
 
@@ -271,7 +271,7 @@ func deleteComponentsOrFail(t *testing.T, ctx resource.Context, g galley.Instanc
 	defer g.DeleteConfigOrFail(
 		t,
 		bookinfoNs,
-		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+		bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
 }
 
