@@ -1,0 +1,45 @@
+{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
+{{ if $gateway.certificates }}
+---
+# Auto-generate Certmanager Issuer and certificate requests.
+# Requires 'email' to be set, for Let's Encrypt use.
+
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Issuer
+metadata:
+  name: letsencrypt
+  namespace: {{ .Release.Namespace }}
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: {{ $gateway.email }}
+    privateKeySecretRef:
+      name: letsencrypt
+    http01: {}
+---
+
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: istio-ingressgateway-certs
+  namespace: {{ .Release.Namespace }}
+spec:
+  secretName: istio-ingressgateway-certs
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer
+  commonName: {{ $gateway.commonName }}
+  dnsNames:
+{{- range $key := $gateway.certificates }}
+  - {{ $key }}
+{{- end }}
+  acme:
+    config:
+    - http01:
+        ingressClass: istio
+      domains:
+{{- range $key := $gateway.certificates }}
+      - {{ $key }}
+{{- end }}
+{{- end }}
+

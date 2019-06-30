@@ -21,7 +21,6 @@ package component
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/ghodss/yaml"
 
@@ -31,7 +30,6 @@ import (
 	"istio.io/operator/pkg/patch"
 	"istio.io/operator/pkg/translate"
 	"istio.io/operator/pkg/util"
-
 	"istio.io/pkg/log"
 )
 
@@ -441,6 +439,7 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 		return "", err
 	}
 	my += helm.YAMLSeparator + "\n"
+	log.Infof("Initial manifest with merged values:\n%s\n", my)
 
 	// Add the k8s resources from IstioControlPlaneSpec.
 	my, err = c.Translator.OverlayK8sSettings(my, c.InstallSpec, c.FeatureName, c.name)
@@ -461,9 +460,18 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 		log.Info("K8S.Overlays not found\n")
 		return my, nil
 	}
-	kyo, _ := yaml.Marshal(overlays)
+	kyo, err := yaml.Marshal(overlays)
+	if err != nil {
+		return "", err
+	}
 	log.Infof("Applying kubernetes overlay: \n%s\n", kyo)
-	return patch.YAMLManifestPatch(my, name.Namespace(c.FeatureName, c.name, c.InstallSpec), overlays)
+	ret, err := patch.YAMLManifestPatch(my, name.Namespace(c.FeatureName, c.name, c.InstallSpec), overlays)
+	if err != nil {
+		return "", err
+	}
+
+	log.Infof("After overlay: \n%s\n", ret)
+	return ret, nil
 }
 
 // mergeTrees overlays global values, component values and unvalidatedValues (in that order) over the YAML tree in
@@ -500,8 +508,8 @@ func mergeTrees(apiValues string, globalVals, values, unvalidatedValues map[stri
 // createHelmRenderer creates a helm renderer for the component defined by c and returns a ptr to it.
 func createHelmRenderer(c *CommonComponentFields) (helm.TemplateRenderer, error) {
 	icp := c.InstallSpec
-	return helm.NewHelmRenderer(filepath.Join(icp.CustomPackagePath,
-		c.Translator.ComponentMaps[c.name].HelmSubdir), icp.BaseProfilePath, string(c.name),
+	return helm.NewHelmRenderer(icp.CustomPackagePath+"/"+c.Translator.ComponentMaps[c.name].HelmSubdir,
+		icp.BaseProfilePath, string(c.name),
 		name.Namespace(c.FeatureName, c.name, c.InstallSpec))
 }
 

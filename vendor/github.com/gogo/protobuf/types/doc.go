@@ -32,5 +32,4 @@
 /*
 Package types contains code for interacting with well-known types.
 */
-// +k8s:deepcopy-gen=package 
 package types

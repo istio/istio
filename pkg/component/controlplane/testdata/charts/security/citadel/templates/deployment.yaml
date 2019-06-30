@@ -1,0 +1,90 @@
+# istio CA watching all namespaces
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-citadel11
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: citadel
+    istio: citadel
+    release: {{ .Release.Name }}
+
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: citadel
+        istio: citadel
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-citadel11-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+      containers:
+        - name: citadel
+          image: "{{ .Values.global.hub }}/{{ .Values.security.image }}:{{ .Values.global.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args:
+            - --append-dns-names=true
+            - --grpc-port=8060
+          # global.tag may contain something like "release-1.1-latest-daily". Assume >1.2 if we cannot extract semver version.
+          {{- if regexFind "[0-9]+\\.[0-9]+\\.[0-9]+" .Values.global.tag | default "1.3.0" | semverCompare "<1.2" }}
+            - --grpc-hostname=citadel
+          {{- else}}
+            - --grpc-host-identities=citadel
+          {{- end}}
+            - --citadel-storage-namespace={{ .Release.Namespace }}
+          {{- if .Values.kustomize }}
+            - --custom-dns-names=$(CITADEL_DNS)
+          {{- else }}
+            - --custom-dns-names={{ range $k,$v := .Values.security.dnsCerts }}{{ $k }}:{{ $v }},{{ end }}
+          {{- end }}
+          {{- if .Values.security.selfSigned }}
+            - --self-signed-ca=true
+          {{- else }}
+            - --self-signed-ca=false
+            - --signing-cert=/etc/cacerts/ca-cert.pem
+            - --signing-key=/etc/cacerts/ca-key.pem
+            - --root-cert=/etc/cacerts/root-cert.pem
+            - --cert-chain=/etc/cacerts/cert-chain.pem
+          {{- end }}
+          {{- if .Values.security.trustDomain }}
+            - --trust-domain={{ .Values.security.trustDomain }}
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /version
+              port: 15014
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+{{- if .Values.security.resources }}
+{{ toYaml .Values.security.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+{{- if not .Values.security.selfSigned }}
+          volumeMounts:
+          - name: cacerts
+            mountPath: /etc/cacerts
+            readOnly: true
+      volumes:
+      - name: cacerts
+        secret:
+         secretName: cacerts
+         optional: true
+{{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.security.tolerations }}
+      tolerations:
+{{ toYaml .Values.security.tolerations | indent 6 }}
+{{- end }}

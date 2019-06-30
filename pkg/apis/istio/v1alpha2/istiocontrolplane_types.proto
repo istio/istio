@@ -19,7 +19,7 @@ package v1alpha2;
 import "k8s.io/api/core/v1/generated.proto";
 import "k8s.io/api/autoscaling/v1/generated.proto";
 import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
-import "google/protobuf/wrappers.proto";
+import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
 
 /*
 IstioControlPlane is a schema for both defining and overlaying Istio control plane installations.
@@ -165,10 +165,7 @@ message IstioControlPlaneSpec {
     SecurityFeatureSpec security = 28;
     ConfigManagementFeatureSpec config_management = 29;
     AutoInjectionFeatureSpec auto_injection = 30;
-
-    // Ingress/egress gateway controlplane and configuration.
-    repeated IngressGatewaySpec ingress_gateway = 31;
-    repeated EgressGatewaySpec egress_gateway = 32;
+    GatewayFeatureSpec gateways = 31;
 
  	// Kustomize style overrides for default global values.yaml.
 	// Values map[string]interface{} `protobuf:"bytes,6,opt,name=values" json:"values,omitempty"`
@@ -312,6 +309,23 @@ message AutoInjectionFeatureSpec {
     Components components = 50;
 }
 
+// Configuration options for gateway feature.
+message GatewayFeatureSpec {
+    // Selects whether gateway feature is installed. Must be set for any sub-component to be installed.
+    google.protobuf.BoolValue enabled = 1;
+
+    message Components {
+        // Namespace that auto injections components are installed into.
+        string namespace = 1;
+
+        // Ingress/egress gateway controlplane and configuration.
+        repeated IngressGatewayComponentSpec ingress_gateway = 31;
+        repeated EgressGatewayComponentSpec egress_gateway = 32;
+    }
+
+    Components components = 50;
+}
+
 // Configuration options for the pilot component.
 message PilotComponentSpec {
     CommonComponentSpec common = 1;
@@ -434,7 +448,7 @@ message KubernetesResourcesSpec {
 }
 
 // Configuration options for ingress gateways.
-message IngressGatewaySpec {
+message IngressGatewayComponentSpec {
     // Common gateway configuration.
     GatewayConfig gateway = 10;
 
@@ -460,7 +474,7 @@ message IngressGatewaySpec {
 }
 
 // Configuration options for egress gateways.
-message EgressGatewaySpec {
+message EgressGatewayComponentSpec {
     // Common gateway configuration.
     GatewayConfig gateway = 10;
 }

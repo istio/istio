@@ -56,7 +56,7 @@ func NewHelmRenderer(helmBaseDir, profile, componentName, namespace string) (Tem
 	}
 	switch {
 	case util.IsFilePath(helmBaseDir):
-		return NewFileTemplateRenderer(helmBaseDir, globalValues, componentName, namespace), nil
+		return NewFileTemplateRenderer(util.GetLocalFilePath(helmBaseDir), globalValues, componentName, namespace), nil
 	default:
 		return NewVFSRenderer(helmBaseDir, globalValues, componentName, namespace), nil
 	}

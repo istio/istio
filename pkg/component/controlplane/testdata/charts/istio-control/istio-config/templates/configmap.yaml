@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-galley-configuration
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+data:
+  validatingwebhookconfiguration.yaml: |-
+    {{- include "validatingwebhookconfiguration.yaml.tpl" . | indent 4}}
+---

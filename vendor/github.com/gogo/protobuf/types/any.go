@@ -78,7 +78,6 @@ func MarshalAny(pb proto.Message) (*Any, error) {
 //   var x ptypes.DynamicAny
 //   if err := ptypes.UnmarshalAny(a, &x); err != nil { ... }
 //   fmt.Printf("unmarshaled message: %v", x.Message)
-// +k8s:deepcopy-gen=false
 type DynamicAny struct {
 	proto.Message
 }

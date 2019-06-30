@@ -22,7 +22,6 @@ import (
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/util"
-
 	"istio.io/pkg/log"
 )
 
@@ -43,6 +42,7 @@ const (
 	SecurityFeatureName          FeatureName = "Security"
 	ConfigManagementFeatureName  FeatureName = "ConfigManagement"
 	AutoInjectionFeatureName     FeatureName = "AutoInjection"
+	GatewayFeatureName           FeatureName = "Gateway"
 )
 
 // ComponentName is a component name string, typed to constrain allowed values.
@@ -130,6 +130,10 @@ func Namespace(featureName FeatureName, componentName ComponentName, controlPlan
 	defaultNamespace, ok := defaultNamespaceI.(string)
 	if !ok {
 		log.Errorf("CustomPackagePath has bad type %T, expect string", defaultNamespaceI)
+		return ""
+	}
+	if defaultNamespace == "" {
+		log.Error("can't find any default for DefaultNamespacePrefix")
 		return ""
 	}
 

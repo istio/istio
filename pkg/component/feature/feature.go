@@ -61,7 +61,6 @@ func NewTrafficManagementFeature(opts *Options) *TrafficManagementFeature {
 	}
 	cff.components = []component.IstioComponent{
 		component.NewPilotComponent(newComponentOptions(cff, name.TrafficManagementFeatureName)),
-		component.NewSidecarInjectorComponent(newComponentOptions(cff, name.TrafficManagementFeatureName)),
 	}
 
 	return &TrafficManagementFeature{

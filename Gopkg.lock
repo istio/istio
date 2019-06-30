@@ -280,7 +280,8 @@
   name = "github.com/gogo/protobuf"
   packages = [
     "proto",
-    "sortkeys"
+    "sortkeys",
+    "types"
   ]
   revision = "ba06b47c162d49f2af050fb4c75bcbc86a159d5c"
   version = "v1.2.1"
@@ -737,6 +738,18 @@
   packages = ["diffmatchpatch"]
   revision = "1744e2970ca51c86172c8190fadad617561ed6e7"
   version = "v1.0.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/shurcooL/httpfs"
+  packages = ["vfsutil"]
+  revision = "6a4d4a70508bfeac7afc814c5e4345e1c640b6b2"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/shurcooL/vfsgen"
+  packages = ["."]
+  revision = "6a9ea43bcacdf716a5c1b38efff722c07adf0069"
 
 [[projects]]
   name = "github.com/sirupsen/logrus"
@@ -1618,6 +1631,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "884144c1465f0c1865b2ce37ac6d3031857298747e087e2538a128dd4e9555d9"
+  inputs-digest = "212e62681eb7486ea8b24c86a3f2399b3096bb954462f28c24aeb48bb5ccf299"
   solver-name = "gps-cdcl"
   solver-version = 1
