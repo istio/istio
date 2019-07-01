@@ -80,7 +80,7 @@ func TestSingleMTLSGateway_SecretRotation(t *testing.T) {
 
 			// key/cert rotation
 			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialB)
-			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingB, 1, 10*time.Second)
+			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingB, 2, 10*time.Second)
 			if err != nil {
 				t.Errorf("sds update stats does not match: %v", err)
 			}
