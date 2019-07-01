@@ -22,7 +22,6 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -213,7 +212,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 
 	if features.EnableFallthroughRoute() {
 		// This needs to be the last virtual host, as routes are evaluated in order.
-		if env.Mesh.OutboundTrafficPolicy.Mode == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY {
+		if isAllowAny(node) {
 			virtualHosts = append(virtualHosts, route.VirtualHost{
 				Name:    "allow_any",
 				Domains: []string{"*"},

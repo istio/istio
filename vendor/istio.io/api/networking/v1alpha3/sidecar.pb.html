@@ -4,7 +4,7 @@ description: Configuration affecting network reachability of a sidecar.
 location: https://istio.io/docs/reference/config/networking/v1alpha3/sidecar.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 5
+number_of_entries: 7
 ---
 <p><code>Sidecar</code> describes the configuration of the sidecar proxy that mediates
 inbound and outbound communication to the workload instance it is attached to. By
@@ -387,6 +387,65 @@ connections. Format should be 127.0.0.1:PORT or <code>unix:///path/to/socket</co
 </tbody>
 </table>
 </section>
+<h2 id="OutboundTrafficPolicy">OutboundTrafficPolicy</h2>
+<section>
+<p>OutboundTrafficPolicy sets the default behavior of the sidecar for
+handling outbound traffic from the application.
+If your application uses one or more external
+services that are not known apriori, setting the policy to ALLOW<em>ANY
+will cause the sidecars to route any unknown traffic originating from
+the application to its requested destination.  Users are strongly
+encouraged to use ServiceEntries to explicitly declare any external
+dependencies, instead of using allow</em>any, so that traffic to these
+services can be monitored.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="OutboundTrafficPolicy-mode">
+<td><code>mode</code></td>
+<td><code><a href="#OutboundTrafficPolicy-Mode">OutboundTrafficPolicy.Mode</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="OutboundTrafficPolicy-Mode">OutboundTrafficPolicy.Mode</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="OutboundTrafficPolicy-Mode-REGISTRY_ONLY">
+<td><code>REGISTRY_ONLY</code></td>
+<td>
+<p>outbound traffic will be restricted to services defined in the
+service registry as well as those defined through ServiceEntries</p>
+
+</td>
+</tr>
+<tr id="OutboundTrafficPolicy-Mode-ALLOW_ANY">
+<td><code>ALLOW_ANY</code></td>
+<td>
+<p>outbound traffic to unknown destinations will be allowed, in case
+there are no services or ServiceEntries for the destination port</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="Sidecar">Sidecar</h2>
 <section>
 <table class="message-fields">
@@ -429,6 +488,18 @@ workload instance is associated with a service.</p>
 outbound traffic from the attached workload instance to other services in the
 mesh. If omitted, Istio will automatically configure the sidecar to be able to
 reach every service in the mesh that is visible to this namespace.</p>
+
+</td>
+</tr>
+<tr id="Sidecar-outbound_traffic_policy">
+<td><code>outboundTrafficPolicy</code></td>
+<td><code><a href="#OutboundTrafficPolicy">OutboundTrafficPolicy</a></code></td>
+<td>
+<p>This allows to configure the outbound traffic policy.
+If your application uses one or more external
+services that are not known apriori, setting the policy to ALLOW_ANY
+will cause the sidecars to route any unknown traffic originating from
+the application to its requested destination.</p>
 
 </td>
 </tr>

@@ -226,7 +226,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 				ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 			}
 
-			if mesh.OutboundTrafficPolicy.Mode == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY {
+			if isAllowAny(node) {
 				// We need a passthrough filter to fill in the filter stack for orig_dst listener
 				tcpProxy = &tcp_proxy.TcpProxy{
 					StatPrefix:       util.PassthroughCluster,
@@ -1644,8 +1644,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 // This allows external https traffic, even when port the port (usually 443) is in use by another service.
 func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts, node *model.Proxy) {
 	// If traffic policy is REGISTRY_ONLY, the traffic will already be blocked, so no action is needed.
-	if features.EnableFallthroughRoute() &&
-		opts.env.Mesh.OutboundTrafficPolicy.Mode == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY {
+	if features.EnableFallthroughRoute() && isAllowAny(node) {
 
 		wildcardMatch := &listener.FilterChainMatch{}
 		for _, fc := range l.FilterChains {

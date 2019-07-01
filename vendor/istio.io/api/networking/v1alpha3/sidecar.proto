@@ -245,6 +245,13 @@ message Sidecar {
   // mesh. If omitted, Istio will automatically configure the sidecar to be able to
   // reach every service in the mesh that is visible to this namespace.
   repeated IstioEgressListener egress = 3;
+
+  // This allows to configure the outbound traffic policy.
+  // If your application uses one or more external
+  // services that are not known apriori, setting the policy to ALLOW_ANY
+  // will cause the sidecars to route any unknown traffic originating from
+  // the application to its requested destination.
+  OutboundTrafficPolicy outbound_traffic_policy = 4;
 }
 
 // IstioIngressListener specifies the properties of an inbound
@@ -344,6 +351,28 @@ message WorkloadSelector {
   // when connecting to Pilot, such as X509 fields, tenant IDs, JWT,
   // etc. This has nothing to do with the request level authN etc.
 }
+
+// OutboundTrafficPolicy sets the default behavior of the sidecar for
+// handling outbound traffic from the application.
+// If your application uses one or more external
+// services that are not known apriori, setting the policy to ALLOW_ANY
+// will cause the sidecars to route any unknown traffic originating from
+// the application to its requested destination.  Users are strongly
+// encouraged to use ServiceEntries to explicitly declare any external
+// dependencies, instead of using allow_any, so that traffic to these
+// services can be monitored.
+message OutboundTrafficPolicy {
+  enum Mode {
+    // outbound traffic will be restricted to services defined in the
+    // service registry as well as those defined through ServiceEntries
+    REGISTRY_ONLY = 0;
+    // outbound traffic to unknown destinations will be allowed, in case
+    // there are no services or ServiceEntries for the destination port
+    ALLOW_ANY = 1;
+  }
+  Mode mode = 1;
+}
+
 
 // CaptureMode describes how traffic to a listener is expected to be
 // captured. Applicable only when the listener is bound to an IP.
