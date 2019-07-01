@@ -75,6 +75,7 @@ var (
 
 	// required stats are used by readiness checks.
 	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc"
+	requiredEnvoyStatsMatcherInclusionSuffix = "ssl_context_update_by_sds"
 )
 
 // substituteValues substitutes variables known to the boostrap like pod_ip.
@@ -121,7 +122,7 @@ func setStatsOptions(opts map[string]interface{}, meta map[string]string, nodeIP
 
 	setStatsOption(EnvoyStatsMatcherInclusionPrefixes, envoyStatsMatcherInclusionPrefixOption, requiredEnvoyStatsMatcherInclusionPrefixes)
 
-	setStatsOption(EnvoyStatsMatcherInclusionSuffixes, envoyStatsMatcherInclusionSuffixOption, "")
+	setStatsOption(EnvoyStatsMatcherInclusionSuffixes, envoyStatsMatcherInclusionSuffixOption, requiredEnvoyStatsMatcherInclusionSuffix)
 
 	setStatsOption(EnvoyStatsMatcherInclusionRegexps, envoyStatsMatcherInclusionRegexpOption, "")
 }
