@@ -68,7 +68,8 @@ func TestSingleMTLSGateway_SecretRotation(t *testing.T) {
 			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialA)
 			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 			ingB := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
-			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingB, 1, 10*time.Second)
+			// Expect 2 SDS updates, one for the server key/cert update, and one for the CA cert update.
+			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingB, 2, 10*time.Second)
 			if err != nil {
 				t.Errorf("sds update stats does not match: %v", err)
 			}
@@ -80,7 +81,8 @@ func TestSingleMTLSGateway_SecretRotation(t *testing.T) {
 
 			// key/cert rotation
 			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialB)
-			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingB, 2, 10*time.Second)
+			// Expect 2 more SDS updates, one for the server key/cert update, and one for the CA cert update.
+			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingB, 4, 10*time.Second)
 			if err != nil {
 				t.Errorf("sds update stats does not match: %v", err)
 			}

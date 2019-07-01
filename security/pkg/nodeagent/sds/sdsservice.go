@@ -441,12 +441,12 @@ func addConn(k cache.ConnKey, conn *sdsConnection) {
 func pushSDS(con *sdsConnection) error {
 	con.mutex.RLock()
 	conID := con.conID
-	secret := *con.secret
+	secret := con.secret
 	resourceName := con.ResourceName
 	con.mutex.RUnlock()
 
 	conIDresourceNamePrefix := sdsLogPrefix(conID, resourceName)
-	response, err := sdsDiscoveryResponse(&secret, conID, resourceName)
+	response, err := sdsDiscoveryResponse(secret, conID, resourceName)
 	if err != nil {
 		sdsServiceLog.Errorf("%s failed to construct response for SDS push: %v", conIDresourceNamePrefix, err)
 		return err
