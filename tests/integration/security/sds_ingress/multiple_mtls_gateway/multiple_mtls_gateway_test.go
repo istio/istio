@@ -52,7 +52,7 @@ func testMultiMtlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:
 		Istio: inst,
 	})
 	// Expect 2 SDS updates for each listener, one for server key/cert, and one for CA cert.
-	err := ingressutil.WaitUntilGatewaySdsStatsGE(t, ing, 2 * len(credNames), 10*time.Second)
+	err := ingressutil.WaitUntilGatewaySdsStatsGE(t, ing, 2*len(credNames), 10*time.Second)
 	if err != nil {
 		t.Errorf("sds update stats does not match: %v", err)
 	}
