@@ -134,7 +134,7 @@ func makeNodeContext(obj interface{}) *pathContext {
 // Each overlay has the format described in the K8SObjectOverlay definition.
 // It returns the patched manifest YAML.
 func YAMLManifestPatch(baseYAML string, namespace string, overlays []*v1alpha2.K8SObjectOverlay) (string, error) {
-	baseObjs, err := manifest.ParseObjectsFromYAMLManifest(baseYAML)
+	baseObjs, err := manifest.ParseK8sObjectsFromYAMLManifest(baseYAML)
 	if err != nil {
 		return "", err
 	}
@@ -193,7 +193,7 @@ func YAMLManifestPatch(baseYAML string, namespace string, overlays []*v1alpha2.K
 
 // applyPatches applies the given patches against the given object. It returns the resulting patched YAML if successful,
 // or a list of errors otherwise.
-func applyPatches(base *manifest.Object, patches []*v1alpha2.K8SObjectOverlay_PathValue) (outYAML []byte, errs util.Errors) {
+func applyPatches(base *manifest.K8sObject, patches []*v1alpha2.K8SObjectOverlay_PathValue) (outYAML []byte, errs util.Errors) {
 	bo := make(map[interface{}]interface{})
 	by, err := base.YAML()
 	if err != nil {

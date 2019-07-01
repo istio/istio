@@ -38,9 +38,9 @@ const (
 	YAMLSeparator = "\n---\n"
 )
 
-// Object is an in-memory representation of a k8s object, used for moving between different representations
+// K8sObject is an in-memory representation of a k8s object, used for moving between different representations
 // (Unstructured, JSON, YAML) with cached rendering.
-type Object struct {
+type K8sObject struct {
 	object *unstructured.Unstructured
 
 	Group     string
@@ -52,9 +52,9 @@ type Object struct {
 	yaml []byte
 }
 
-// NewObject creates a new Object and returns a ptr to it.
-func NewObject(u *unstructured.Unstructured, json, yaml []byte) *Object {
-	o := &Object{
+// NewK8sObject creates a new K8sObject and returns a ptr to it.
+func NewK8sObject(u *unstructured.Unstructured, json, yaml []byte) *K8sObject {
+	o := &K8sObject{
 		object: u,
 		json:   json,
 		yaml:   yaml,
@@ -84,17 +84,17 @@ func HashNameKind(kind, name string) string {
 	return strings.Join([]string{kind, name}, ":")
 }
 
-// ObjectsFromUnstructuredSlice returns an Objects ptr type from a slice of Unstructured.
-func ObjectsFromUnstructuredSlice(objs []*unstructured.Unstructured) (Objects, error) {
-	var ret Objects
+// K8sObjectsFromUnstructuredSlice returns an Objects ptr type from a slice of Unstructured.
+func K8sObjectsFromUnstructuredSlice(objs []*unstructured.Unstructured) (K8sObjects, error) {
+	var ret K8sObjects
 	for _, o := range objs {
-		ret = append(ret, NewObject(o, nil, nil))
+		ret = append(ret, NewK8sObject(o, nil, nil))
 	}
 	return ret, nil
 }
 
-// ParseJSONToObject parses JSON to an Object.
-func ParseJSONToObject(json []byte) (*Object, error) {
+// ParseJSONToK8sObject parses JSON to an K8sObject.
+func ParseJSONToK8sObject(json []byte) (*K8sObject, error) {
 	o, _, err := unstructured.UnstructuredJSONScheme.Decode(json, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing json into unstructured object: %v", err)
@@ -105,11 +105,11 @@ func ParseJSONToObject(json []byte) (*Object, error) {
 		return nil, fmt.Errorf("parsed unexpected type %T", o)
 	}
 
-	return NewObject(u, json, nil), nil
+	return NewK8sObject(u, json, nil), nil
 }
 
-// ParseYAMLToObject parses YAML to an Object.
-func ParseYAMLToObject(yaml []byte) (*Object, error) {
+// ParseYAMLToK8sObject parses YAML to an Object.
+func ParseYAMLToK8sObject(yaml []byte) (*K8sObject, error) {
 	r := bytes.NewReader(yaml)
 	decoder := k8syaml.NewYAMLOrJSONDecoder(r, 1024)
 
@@ -118,36 +118,36 @@ func ParseYAMLToObject(yaml []byte) (*Object, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error decoding object: %v", err)
 	}
-	return NewObject(out, nil, yaml), nil
+	return NewK8sObject(out, nil, yaml), nil
 }
 
 // UnstructuredObject exposes the raw object, primarily for testing
-func (o *Object) UnstructuredObject() *unstructured.Unstructured {
+func (o *K8sObject) UnstructuredObject() *unstructured.Unstructured {
 	return o.object
 }
 
-// GroupKind returns the GroupKind for o.
-func (o *Object) GroupKind() schema.GroupKind {
+// GroupKind returns the GroupKind for the K8sObject
+func (o *K8sObject) GroupKind() schema.GroupKind {
 	return o.object.GroupVersionKind().GroupKind()
 }
 
-// GroupVersionKind returns the GroupVersionKind for o.
-func (o *Object) GroupVersionKind() schema.GroupVersionKind {
+// GroupVersionKind returns the GroupVersionKind for the K8sObject
+func (o *K8sObject) GroupVersionKind() schema.GroupVersionKind {
 	return o.object.GroupVersionKind()
 }
 
-// Hash returns a unique hash for o.
-func (o *Object) Hash() string {
+// Hash returns a unique hash for the K8sObject
+func (o *K8sObject) Hash() string {
 	return Hash(o.Kind, o.Namespace, o.Name)
 }
 
-// HashNameKind returns a hash for o based on name and kind only.
-func (o *Object) HashNameKind() string {
+// HashNameKind returns a hash for the K8sObject based on the name and kind only.
+func (o *K8sObject) HashNameKind() string {
 	return HashNameKind(o.Kind, o.Name)
 }
 
-// JSON returns a JSON representation of o, using an internal cache.
-func (o *Object) JSON() ([]byte, error) {
+// JSON returns a JSON representation of the K8sObject, using an internal cache.
+func (o *K8sObject) JSON() ([]byte, error) {
 	if o.json != nil {
 		return o.json, nil
 	}
@@ -159,8 +159,8 @@ func (o *Object) JSON() ([]byte, error) {
 	return b, nil
 }
 
-// YAML returns a YAML representation of o, using an internal cache.
-func (o *Object) YAML() ([]byte, error) {
+// YAML returns a YAML representation of the K8sObject, using an internal cache.
+func (o *K8sObject) YAML() ([]byte, error) {
 	if o == nil {
 		return nil, nil
 	}
@@ -181,17 +181,18 @@ func (o *Object) YAML() ([]byte, error) {
 	return y, nil
 }
 
-// YAMLDebugString returns a YAML representation of o, or an error string if the object cannot be rendered to YAML.
-func (o *Object) YAMLDebugString() string {
+// YAMLDebugString returns a YAML representation of the K8sObject, or an error string if the K8sObject cannot be rendered to YAML.
+func (o *K8sObject) YAMLDebugString() (string, error) {
 	y, err := o.YAML()
 	if err != nil {
-		return fmt.Sprint(err)
+		return "", err
 	}
-	return string(y)
+	return string(y), nil
 }
 
-// AddLabels adds labels to o.
-func (o *Object) AddLabels(labels map[string]string) {
+// AddLabels adds labels to the K8sObject.
+// This method will override the value if there is already label with the same key.
+func (o *K8sObject) AddLabels(labels map[string]string) {
 	merged := make(map[string]string)
 	for k, v := range o.object.GetLabels() {
 		merged[k] = v
@@ -207,11 +208,11 @@ func (o *Object) AddLabels(labels map[string]string) {
 	o.yaml = nil
 }
 
-// Objects holds a collection of objects, so that we can filter / sequence them
-type Objects []*Object
+// K8sObjects holds a collection of k8s objects, so that we can filter / sequence them
+type K8sObjects []*K8sObject
 
-// ParseObjectsFromYAMLManifest returns an Objects represetation of manifest.
-func ParseObjectsFromYAMLManifest(manifest string) (Objects, error) {
+// ParseK8sObjectsFromYAMLManifest returns a K8sObjects represetation of manifest.
+func ParseK8sObjectsFromYAMLManifest(manifest string) (K8sObjects, error) {
 	var b bytes.Buffer
 
 	var yamls []string
@@ -233,14 +234,14 @@ func ParseObjectsFromYAMLManifest(manifest string) (Objects, error) {
 	}
 	yamls = append(yamls, b.String())
 
-	var objects Objects
+	var objects K8sObjects
 
 	for _, yaml := range yamls {
 		if strings.TrimSpace(yaml) == "" {
 			// helm charts sometimes emits blank objects with just a "disabled" comment.
 			continue
 		}
-		o, err := ParseYAMLToObject([]byte(yaml))
+		o, err := ParseYAMLToK8sObject([]byte(yaml))
 		if err != nil {
 			log.Info(err.Error())
 			continue
@@ -252,8 +253,8 @@ func ParseObjectsFromYAMLManifest(manifest string) (Objects, error) {
 	return objects, nil
 }
 
-// JSONManifest returns a JSON representation of Objects os.
-func (os Objects) JSONManifest() (string, error) {
+// JSONManifest returns a JSON representation of K8sObjects os.
+func (os K8sObjects) JSONManifest() (string, error) {
 	var b bytes.Buffer
 
 	for i, item := range os {
@@ -276,9 +277,9 @@ func (os Objects) JSONManifest() (string, error) {
 	return b.String(), nil
 }
 
-// Sort will order the items in Objects in order of score, group, kind, name.  The intent is to
-// have a deterministic ordering in which Objects are applied.
-func (os Objects) Sort(score func(o *Object) int) {
+// Sort will order the items in K8sObjects in order of score, group, kind, name.  The intent is to
+// have a deterministic ordering in which K8sObjects are applied.
+func (os K8sObjects) Sort(score func(o *K8sObject) int) {
 	sort.Slice(os, func(i, j int) bool {
 		iScore := score(os[i])
 		jScore := score(os[j])
@@ -295,26 +296,26 @@ func (os Objects) Sort(score func(o *Object) int) {
 	})
 }
 
-// ToMap returns a map of Object hash to Object.
-func (os Objects) ToMap() map[string]*Object {
-	ret := make(map[string]*Object)
+// ToMap returns a map of K8sObject hash to K8sObject.
+func (os K8sObjects) ToMap() map[string]*K8sObject {
+	ret := make(map[string]*K8sObject)
 	for _, oo := range os {
 		ret[oo.Hash()] = oo
 	}
 	return ret
 }
 
-// ToNameKindMap returns a map of Object name/kind hash to Object.
-func (os Objects) ToNameKindMap() map[string]*Object {
-	ret := make(map[string]*Object)
+// ToNameKindMap returns a map of K8sObject name/kind hash to K8sObject.
+func (os K8sObjects) ToNameKindMap() map[string]*K8sObject {
+	ret := make(map[string]*K8sObject)
 	for _, oo := range os {
 		ret[oo.HashNameKind()] = oo
 	}
 	return ret
 }
 
-// YAML returns a YAML representation of o, using an internal cache.
-func (os Objects) YAML() (string, error) {
+// YAML returns a YAML representation of os, using an internal cache.
+func (os K8sObjects) YAML() (string, error) {
 	var sb strings.Builder
 	for _, o := range os {
 		oy, err := o.YAML()
