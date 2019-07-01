@@ -288,14 +288,8 @@ func WaitUntilGatewaySdsStatsGE(t *testing.T, ing ingress.Instance, expectedUpda
 	sdsUpdates := 0
 	hasSdsStats := false
 	for {
-		//pods, err := env.GetPods(ns.Name(), "istio=ingressgateway")
-		//gatewayStats, err := env.GetProxyStats(ns.Name(), pods[0].Name, "istio-proxy")
-		//if err != nil {
-		//	t.Logf("unable to get ingress gateway stats: %v", err)
-		//}
 		gatewayStats, err := ing.ProxyStats()
 		if err == nil {
-			t.Logf("dump stats:\n %v", gatewayStats)
 			sdsUpdates, hasSdsStats = gatewayStats["listener.0.0.0.0_443.server_ssl_socket_factory.ssl_context_update_by_sds"]
 			if hasSdsStats && sdsUpdates >= expectedUpdates {
 				t.Logf("ingress gateway SDS updates meets expectation. got %v vs expected %v", sdsUpdates, expectedUpdates)
