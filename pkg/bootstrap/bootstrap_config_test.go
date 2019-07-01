@@ -273,6 +273,11 @@ func checkStatsMatcher(t *testing.T, got, want *v2.Bootstrap, stats stats) {
 	} else {
 		stats.prefixes += "," + requiredEnvoyStatsMatcherInclusionPrefixes
 	}
+	if stats.suffixes == "" {
+		stats.suffixes = requiredEnvoyStatsMatcherInclusionSuffix
+	} else {
+		stats.suffixes += "," + requiredEnvoyStatsMatcherInclusionSuffix
+	}
 
 	if err := gsm.Validate(); err != nil {
 		t.Fatalf("Generated invalid matcher: %v", err)
