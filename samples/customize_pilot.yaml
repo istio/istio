@@ -1,5 +1,5 @@
-#baseProfilePath: file:///usr/local/google/home/mostrowski/go/src/github.com/ostromart/istio-installer/data/profiles/default.yaml
-#customPackagePath: file:///usr/local/google/home/mostrowski/go/src/github.com/ostromart/istio-installer/data/charts/
+#baseProfilePath: file:///usr/local/google/home/mostrowski/go/src/istio.io/operator/data/profiles/default.yaml
+#customPackagePath: file:///usr/local/google/home/mostrowski/go/src/istio.io/operator/data/charts/
 trafficManagement:
   enabled: true
   components:

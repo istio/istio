@@ -17,7 +17,7 @@ syntax = "proto3";
 package v1alpha2;
 
 import "k8s.io/api/core/v1/generated.proto";
-import "k8s.io/api/autoscaling/v1/generated.proto";
+import "k8s.io/api/autoscaling/v2beta1/generated.proto";
 import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
 import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
 
@@ -173,7 +173,7 @@ message IstioControlPlaneSpec {
     //   istio-minimal.yaml (looks in default dir)
     //   file://var/istio/install/values/custom/custom-install.yaml
     // Uses compiled in default install spec by default.
-    string base_profile_path = 100;
+    string profile = 100;
     // URL for the install package. e.g.
     //   http://github.com/istio/istio/releases/install/1.1.2
     //   http://github.com/istio/istio/releases/install/lts
@@ -183,9 +183,9 @@ message IstioControlPlaneSpec {
     // Root for docker image paths e.g. docker.io/istio-release.
     // Releases are published to docker hub under 'istio' project.
     // Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
-    string hub = 103;
+    string hub = 110;
     // Version tag for docker images e.g. 1.0.6
-    string tag = 104;
+    string tag = 111;
 }
 
 // Configuration options for traffic management.
@@ -414,10 +414,10 @@ message KubernetesResourcesSpec {
     k8s.io.api.core.v1.Affinity affinity = 1;
     // Deployment environment variables.
     // https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/
-    k8s.io.api.core.v1.EnvVar env = 2;
+    repeated k8s.io.api.core.v1.EnvVar env = 2;
     // k8s HorizontalPodAutoscaler settings.
     // https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-    k8s.io.api.autoscaling.v1.HorizontalPodAutoscalerSpec hpa_spec = 3;
+    k8s.io.api.autoscaling.v2beta1.HorizontalPodAutoscalerSpec hpa_spec = 3;
     // k8s imagePullPolicy.
     // https://kubernetes.io/docs/concepts/containers/images/
     string image_pull_policy = 4;
@@ -637,7 +637,7 @@ message TestKube {
 
     Resources resources = 80;
     k8s.io.api.core.v1.Probe readiness_probe = 81;
-    k8s.io.api.autoscaling.v1.HorizontalPodAutoscalerSpec hpa_spec = 86;
+    k8s.io.api.autoscaling.v2beta1.HorizontalPodAutoscalerSpec hpa_spec = 86;
     PodDisruptionBudgetSpec pod_disruption_budget = 87;
     k8s.io.api.core.v1.Affinity affinity = 8;
 

@@ -29,6 +29,7 @@ import (
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/manifest"
+	"istio.io/operator/pkg/name"
 	"istio.io/operator/pkg/translate"
 	"istio.io/operator/pkg/version"
 )
@@ -169,7 +170,7 @@ trafficManagement:
 		t.Run(tt.desc, func(t *testing.T) {
 			var is v1alpha2.IstioControlPlaneSpec
 			spec := `customPackagePath: "file://` + helmChartTestDir + `"` + "\n"
-			spec += `baseProfilePath: "file://` + helmChartTestDir + `/global.yaml"` + "\n"
+			spec += `profile: "file://` + helmChartTestDir + `/global.yaml"` + "\n"
 			spec += tt.installSpec
 			err := unmarshalWithJSONPB(spec, &is)
 			if err != nil {
@@ -189,7 +190,7 @@ trafficManagement:
 			if err != nil {
 				t.Fatal(err)
 			}
-			diff, err := ManifestDiff(got, want)
+			diff, err := ManifestDiff(manifestMapToStr(got), want)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -199,6 +200,14 @@ trafficManagement:
 
 		})
 	}
+}
+
+func manifestMapToStr(mm name.ManifestMap) string {
+	out := ""
+	for _, m := range mm {
+		out += m
+	}
+	return out
 }
 
 func unmarshalWithJSONPB(y string, out proto.Message) error {

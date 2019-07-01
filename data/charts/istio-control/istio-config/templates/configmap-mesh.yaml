@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-mesh-galley
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+data:
+
+
+  mesh: |-
+{{ toYaml .Values.galley.mesh | indent 4 }}
+---

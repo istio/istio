@@ -1,0 +1,70 @@
+{{ if eq .Values.tracing.provider "zipkin" }}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-tracing
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: zipkin
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    matchLabels:
+      app: zipkin
+  template:
+    metadata:
+      labels:
+        app: zipkin
+        release: {{ .Release.Name }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+    spec:
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+{{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+{{- end }}
+{{- end }}
+      containers:
+        - name: zipkin
+          image: "{{ .Values.tracing.zipkin.hub }}/zipkin:{{ .Values.tracing.zipkin.tag }}"
+          ports:
+            - containerPort: {{ .Values.tracing.zipkin.queryPort }}
+          livenessProbe:
+            initialDelaySeconds: {{ .Values.tracing.zipkin.probeStartupDelay }}
+            tcpSocket:
+              port: {{ .Values.tracing.zipkin.queryPort }}
+          readinessProbe:
+            initialDelaySeconds: {{ .Values.tracing.zipkin.probeStartupDelay }}
+            httpGet:
+              path: /health
+              port: {{ .Values.tracing.zipkin.queryPort }}
+          resources:
+{{- if .Values.tracing.zipkin.resources }}
+{{ toYaml .Values.tracing.zipkin.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: QUERY_PORT
+              value: "{{ .Values.tracing.zipkin.queryPort }}"
+            - name: JAVA_OPTS
+              value: "-XX:ConcGCThreads={{ .Values.tracing.zipkin.node.cpus }} -XX:ParallelGCThreads={{ .Values.tracing.zipkin.node.cpus }} -Djava.util.concurrent.ForkJoinPool.common.parallelism={{ .Values.tracing.zipkin.node.cpus }} -Xms{{ .Values.tracing.zipkin.javaOptsHeap }}M -Xmx{{ .Values.tracing.zipkin.javaOptsHeap }}M -XX:+UseG1GC -server"
+            - name: STORAGE_METHOD
+              value: "mem"
+            - name: ZIPKIN_STORAGE_MEM_MAXSPANS
+              value: "{{ .Values.tracing.zipkin.maxSpans }}"
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
+{{ end }}

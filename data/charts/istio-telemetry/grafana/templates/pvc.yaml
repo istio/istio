@@ -1,0 +1,16 @@
+{{- if .Values.grafana.persist }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: istio-grafana-pvc
+  labels:
+    app: grafana
+    release: {{ .Release.Name }}
+spec:
+  storageClassName: {{ .Values.grafana.storageClassName }}
+  accessModes:
+    - {{ .Values.grafana.accessMode }}
+  resources:
+    requests:
+      storage: 5Gi
+{{- end }}

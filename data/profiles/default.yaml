@@ -1,0 +1,281 @@
+hub: docker.io/istio
+tag: 1.1.4
+
+# Traffic management feature
+trafficManagement:
+  enabled: true
+  components:
+    namespace: istio-control
+
+    pilot:
+      common:
+        k8s:
+          env:
+          - name: GODEBUG
+            value: "gctrace=1"
+          hpaSpec:
+            maxReplicas: 5
+            minReplicas: 1
+            scaleTargetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: istio-pilot
+            metrics:
+              - type: Resource
+                resource:
+                  name: cpu
+                  targetAverageUtilization: 80
+          replicaCount: 1
+          readinessProbe:
+            handler: {}
+# FIME: what's the problem here?
+#            httpGet:
+#              path: /ready
+#              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2048Mi
+
+        values:
+          image: pilot
+          traceSampling: 1.0
+          configNamespace: istio-config
+          keepaliveMaxServerConnectionAge: 30m
+          configMap: true
+          ingress:
+            ingressService: istio-ingressgateway
+            ingressControllerMode: "OFF"
+            ingressClass: istio
+          telemetry:
+            enabled: true
+          policy:
+            enabled: false
+          useMCP: true
+
+    proxy:
+      common:
+        values:
+          image: proxyv2
+          clusterDomain: "cluster.local"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 2000m
+              memory: 128Mi
+          concurrency: 2
+          accessLogEncoding: TEXT
+          logLevel: warning
+          componentLogLevel: "misc:error"
+          dnsRefreshRate: 300s
+          privileged: false
+          enableCoreDump: false
+          statusPort: 15020
+          readinessInitialDelaySeconds: 1
+          readinessPeriodSeconds: 2
+          readinessFailureThreshold: 30
+          includeIPRanges: "*"
+          autoInject: enabled
+          tracer: "zipkin"
+
+# Policy feature
+policy:
+  enabled: true
+  components:
+    namespace: istio-policy
+    policy:
+      common:
+        k8s:
+          replicaCount: 1
+          hpaSpec:
+            maxReplicas: 5
+            minReplicas: 1
+            scaleTargetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: istio-pilot
+            metrics:
+              - type: Resource
+                resource:
+                  name: cpu
+                  targetAverageUtilization: 80
+          env:
+            - name: GODEBUG
+              value: "gctrace=1"
+        values:
+          image: mixer
+          adapters:
+            kubernetesenv:
+              enabled: true
+
+# Telemetry feature
+telemetry:
+  enabled: true
+  components:
+    namespace: istio-telemetry
+    telemetry:
+      common:
+        k8s:
+          env:
+          - name: GODEBUG
+            value: "gctrace=1"
+          - name: GOMAXPROCS
+            value: "6"
+          hpaSpec:
+            maxReplicas: 5
+            minReplicas: 1
+            scaleTargetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: istio-pilot
+            metrics:
+              - type: Resource
+                resource:
+                  name: cpu
+                  targetAverageUtilization: 80
+          replicaCount: 1
+          resources:
+            requests:
+              cpu: 1000m
+              memory: 1G
+            limits:
+              cpu: 4800m
+              memory: 4G
+        values:
+          image: mixer
+          sessionAffinityEnabled: false
+          loadshedding:
+            mode: enforce
+            latencyThreshold: 100ms
+          adapters:
+            stdio:
+              enabled: false
+              outputAsJson: false
+            prometheus:
+              enabled: true
+              metricsExpiryDuration: 10m
+            kubernetesenv:
+              enabled: true
+            stackdriver:
+              enabled: false
+            useAdapterCRDs: false
+
+# Security feature
+security:
+  enabled: true
+  components:
+    namespace: istio-security
+
+    citadel:
+      common:
+        values:
+          image: citadel
+          selfSigned: true # indicate if self-signed CA is used.
+          trustDomain: cluster.local # indicate the domain used in SPIFFE identity URL
+          dnsCerts:
+            istio-sidecar-injector-service-account.istio-remote: istio-sidecar-injector.istio-remote.svc
+            istio-sidecar-injector-service-account.istio-pilot11: istio-sidecar-injector.istio-pilot11.svc
+            istio-sidecar-injector-service-account.istio-control: istio-sidecar-injector.istio-control.svc
+            istio-sidecar-injector-service-account.istio-master: istio-sidecar-injector.istio-master.svc
+            istio-sidecar-injector-service-account.istio-control-master: istio-sidecar-injector.istio-control-master.svc
+            istio-galley-service-account.istio-pilot11: istio-galley.istio-pilot11.svc
+            istio-galley-service-account.istio-control: istio-galley.istio-control.svc
+            istio-galley-service-account.istio-master: istio-galley.istio-master.svc
+            istio-galley-service-account.istio-control-master: istio-galley.istio-control-master.svc
+            istio-galley-service-account.istio-config: istio-galley.istio-config.svc
+
+    certManager:
+      common:
+        values:
+          replicaCount: 1
+          hub: quay.io/jetstack
+          tag: v0.6.2
+
+    nodeAgent:
+      common:
+        values:
+          image: node-agent-k8s
+          env:
+            CA_PROVIDER: ""
+            CA_ADDR: ""
+            Plugins: ""
+
+# Config management feature
+configManagement:
+  enabled: true
+  components:
+    namespace: istio-control
+    galley:
+      common:
+        k8s:
+          replicaCount: 1
+          resources:
+            requests:
+              cpu: 100m
+
+# Auto injection feature
+autoInjection:
+  enabled: true
+  components:
+    namespace: istio-control
+    injector:
+      common:
+        values:
+          replicaCount: 1
+          image: sidecar_injector
+          enableNamespacesByDefault: false
+          rewriteAppHTTPProbe: false
+          selfSigned: false
+
+# Global values passed through to helm global.yaml.
+values:
+  logging:
+    level: "default:info"
+  k8sIngress:
+    enabled: false
+    gatewayName: ingressgateway
+    enableHttps: false
+  proxy_init:
+    image: proxy_init
+  imagePullPolicy: Always
+  controlPlaneSecurityEnabled: true
+  disablePolicyChecks: true
+  policyCheckFailOpen: false
+  enableTracing: true
+  mtls:
+    enabled: false
+  arch:
+    amd64: 2
+    s390x: 2
+    ppc64le: 2
+  oneNamespace: false
+  configValidation: true
+  defaultResources:
+    requests:
+      cpu: 10m
+  defaultPodDisruptionBudget:
+    enabled: true
+  useMCP: true
+  outboundTrafficPolicy:
+    mode: ALLOW_ANY
+# TODO: remove requirement to set these to nil values. This is an issue with helm charts.
+  sds:
+    enabled: false
+    udsPath: ""
+    useTrustworthyJwt: false
+    useNormalJwt: false
+  tracer:
+    lightstep:
+      address: ""
+      accessToken: ""
+      secure: true
+      cacertPath: ""
+    zipkin:
+      address: ""
+    datadog:
+      address: "$(HOST_IP):8126"

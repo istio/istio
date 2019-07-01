@@ -1,0 +1,46 @@
+{{ if eq .Values.tracing.provider "jaeger" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-query
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- range $key, $val := .Values.tracing.service.annotations }}
+    {{ $key }}: {{ $val | quote }}
+    {{- end }}
+  labels:
+    app: jaeger
+    jaeger-infra: jaeger-service
+    release: {{ .Release.Name }}
+spec:
+  ports:
+    - name: query-http
+      port: 16686
+      protocol: TCP
+      targetPort: 16686
+  selector:
+    app: jaeger
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-collector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: jaeger
+    jaeger-infra: collector-service
+    release: {{ .Release.Name }}
+spec:
+  ports:
+  - name: jaeger-collector-tchannel
+    port: 14267
+    protocol: TCP
+    targetPort: 14267
+  - name: jaeger-collector-http
+    port: 14268
+    targetPort: 14268
+    protocol: TCP
+  selector:
+    app: jaeger
+  type: ClusterIP
+{{ end }}

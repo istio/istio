@@ -1,0 +1,74 @@
+# Template for telemetry addon gateways
+{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
+{{ range $addon := $gateway.telemetry_addon_gateways }}
+{{ if $addon.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-{{ $addon.name }}-gateway
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ $addon.name }}
+    release: {{ $.Release.Name }}
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http-{{ $addon.name }}
+        protocol: HTTP
+      hosts:
+        - "*"
+   {{- if $addon.tls }}
+    - port:
+        number: 443
+        name: https-{{ $addon.name }}
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE
+        serverCertificate: /etc/istio/ingressgateway-certs/tls.crt
+        privateKey: /etc/istio/ingressgateway-certs/tls.key
+      hosts:
+        - "*"
+  {{- end }}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: {{ $addon.name }}-virtual-service
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ $addon.name }}
+    release: {{ $.Release.Name }}
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - istio-{{ $addon.name }}-gateway
+  http:
+    - match:
+        - uri:
+            prefix: /{{ $addon.name}}
+      route:
+        - destination:
+            host: {{ $addon.name }}.{{ $.Release.Namespace }}.svc.{{ $.Values.global.proxy.clusterDomain }}
+            port:
+              number: {{ $addon.desPort }}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: {{ $addon.name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ $addon.name }}
+    release: {{ $.Release.Name }}
+spec:
+  host: {{ $addon.name }}.{{ $.Release.Namespace }}.svc.{{ $.Values.global.proxy.clusterDomain }}
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+{{- end }}
+{{- end }}

@@ -15,8 +15,6 @@
 package feature
 
 import (
-	"strings"
-
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/component/component"
 	"istio.io/operator/pkg/name"
@@ -29,7 +27,7 @@ type IstioFeature interface {
 	// Run starts the Istio feature operation. Must be called before feature can be used.
 	Run() error
 	// RenderManifest returns a manifest string rendered against the IstioControlPlane parameters.
-	RenderManifest() (string, util.Errors)
+	RenderManifest() (name.ManifestMap, util.Errors)
 }
 
 // Options are options for IstioFeature.
@@ -46,6 +44,36 @@ type CommonFeatureFields struct {
 	Options
 	// components is a slice of components that are part of the feature.
 	components []component.IstioComponent
+}
+
+// BaseFeature is the base feature, containing essential Istio base items.
+type BaseFeature struct {
+	// CommonFeatureFields is the struct shared among all features.
+	CommonFeatureFields
+}
+
+// NewBaseFeature creates a new BaseFeature and returns a pointer to it.
+func NewBaseFeature(opts *Options) *BaseFeature {
+	cff := &CommonFeatureFields{
+		Options: *opts,
+	}
+	cff.components = []component.IstioComponent{
+		component.NewCRDComponent(newComponentOptions(cff, name.IstioBaseFeatureName)),
+	}
+
+	return &BaseFeature{
+		CommonFeatureFields: *cff,
+	}
+}
+
+// Run implements the IstioFeature interface.
+func (f *BaseFeature) Run() error {
+	return runComponents(f.components)
+}
+
+// RenderManifest implements the IstioFeature interface.
+func (f *BaseFeature) RenderManifest() (name.ManifestMap, util.Errors) {
+	return renderComponents(f.components)
 }
 
 // TrafficManagementFeature is the traffic management feature.
@@ -74,7 +102,7 @@ func (f *TrafficManagementFeature) Run() error {
 }
 
 // RenderManifest implements the IstioFeature interface.
-func (f *TrafficManagementFeature) RenderManifest() (string, util.Errors) {
+func (f *TrafficManagementFeature) RenderManifest() (name.ManifestMap, util.Errors) {
 	return renderComponents(f.components)
 }
 
@@ -104,7 +132,7 @@ func (f *SecurityFeature) Run() error {
 }
 
 // RenderManifest implements the IstioFeature interface.
-func (f *SecurityFeature) RenderManifest() (string, util.Errors) {
+func (f *SecurityFeature) RenderManifest() (name.ManifestMap, util.Errors) {
 	return renderComponents(f.components)
 }
 
@@ -132,7 +160,7 @@ func (f *PolicyFeature) Run() error {
 }
 
 // RenderManifest implements the IstioFeature interface.
-func (f *PolicyFeature) RenderManifest() (string, util.Errors) {
+func (f *PolicyFeature) RenderManifest() (name.ManifestMap, util.Errors) {
 	return renderComponents(f.components)
 }
 
@@ -160,7 +188,7 @@ func NewTelemetryFeature(opts *Options) *TelemetryFeature {
 }
 
 // RenderManifest implements the IstioFeature interface.
-func (f *TelemetryFeature) RenderManifest() (string, util.Errors) {
+func (f *TelemetryFeature) RenderManifest() (name.ManifestMap, util.Errors) {
 	return renderComponents(f.components)
 }
 
@@ -188,7 +216,7 @@ func (f *ConfigManagementFeature) Run() error {
 }
 
 // RenderManifest implements the IstioFeature interface.
-func (f *ConfigManagementFeature) RenderManifest() (string, util.Errors) {
+func (f *ConfigManagementFeature) RenderManifest() (name.ManifestMap, util.Errors) {
 	return renderComponents(f.components)
 }
 
@@ -216,7 +244,7 @@ func (f *AutoInjectionFeature) Run() error {
 }
 
 // RenderManifest implements the IstioFeature interface.
-func (f *AutoInjectionFeature) RenderManifest() (string, util.Errors) {
+func (f *AutoInjectionFeature) RenderManifest() (name.ManifestMap, util.Errors) {
 	return renderComponents(f.components)
 }
 
@@ -240,16 +268,15 @@ func runComponents(cs []component.IstioComponent) error {
 }
 
 // renderComponents calls render manifest for all components in a feature and concatenates the outputs.
-func renderComponents(cs []component.IstioComponent) (manifest string, errsOut util.Errors) {
-	var sb strings.Builder
+func renderComponents(cs []component.IstioComponent) (manifests name.ManifestMap, errsOut util.Errors) {
+	manifests = make(name.ManifestMap)
 	for _, c := range cs {
-		s, err := c.RenderManifest()
+		m, err := c.RenderManifest()
 		errsOut = util.AppendErr(errsOut, err)
-		_, err = sb.WriteString(s)
-		errsOut = util.AppendErr(errsOut, err)
+		manifests[c.Name()] = m
 	}
 	if len(errsOut) > 0 {
-		return "", errsOut
+		return nil, errsOut
 	}
-	return sb.String(), nil
+	return
 }

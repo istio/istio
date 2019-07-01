@@ -1,0 +1,59 @@
+#
+# addon kiali
+#
+kiali:
+  enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `true`.
+  replicaCount: 1
+  hub: docker.io/kiali
+  tag: v0.19
+  contextPath: /kiali # The root context path to access the Kiali UI.
+  nodeSelector: {}
+
+  # Specify the pod anti-affinity that allows you to constrain which nodes
+  # your pod is eligible to be scheduled based on labels on pods that are
+  # already running on the node rather than based on labels on nodes.
+  # There are currently two types of anti-affinity:
+  #    "requiredDuringSchedulingIgnoredDuringExecution"
+  #    "preferredDuringSchedulingIgnoredDuringExecution"
+  # which denote “hard” vs. “soft” requirements, you can define your values
+  # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
+  # correspondingly.
+  # For example:
+  # podAntiAffinityLabelSelector:
+  # - key: security
+  #   operator: In
+  #   values: S1,S2
+  #   topologyKey: "kubernetes.io/hostname"
+  # This pod anti-affinity rule says that the pod requires not to be scheduled
+  # onto a node if that node is already running a pod with label having key
+  # “security” and value “S1”.
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
+
+  ingress:
+    enabled: false
+    ## Used to create an Ingress record.
+    hosts:
+      - kiali.local
+    annotations:
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+    tls:
+    # Secrets must be manually created in the namespace.
+    # - secretName: kiali-tls
+    #   hosts:
+    #     - kiali.local
+
+  dashboard:
+    secretName: kiali # You must create a secret with this name - one is not provided out-of-box.
+    usernameKey: username # This is the key name within the secret whose value is the actual username.
+    passphraseKey: passphrase # This is the key name within the secret whose value is the actual passphrase.
+    viewOnlyMode: false # Bind the service account to a role with only read access
+    grafanaURL:  # If you have Grafana installed and it is accessible to client browsers, then set this to its external URL. Kiali will redirect users to this URL when Grafana metrics are to be shown.
+    jaegerURL:  # If you have Jaeger installed and it is accessible to client browsers, then set this property to its external URL. Kiali will redirect users to this URL when Jaeger tracing is to be shown.
+
+  # Optional: prometheus may be deployed in a different namespace
+  prometheusNamespace:
+
+  # When true, a secret will be created with a default username and password. Useful for demos.
+  createDemoSecret: true

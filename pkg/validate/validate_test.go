@@ -45,11 +45,15 @@ func TestUnmarshalKubernetes(t *testing.T) {
 hpaSpec:
   maxReplicas: 10
   minReplicas: 1
-  targetCPUUtilizationPercentage: 80
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: php-apache
+    name: istio-pilot
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: 80
 `,
 		},
 		{
@@ -204,9 +208,14 @@ trafficManagement:
               name: php-apache
             minReplicas: 1
             maxReplicas: 10
-            targetCPUUtilizationPercentage: 80
+            metrics:
+              - type: Resource
+                resource:
+                  name: cpu
+                  targetAverageUtilization: 80
           nodeSelector:
             disktype: ssd
+
 `,
 		},
 		{
