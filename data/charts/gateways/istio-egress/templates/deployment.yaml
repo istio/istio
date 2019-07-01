@@ -1,0 +1,265 @@
+{{ $gateway := index .Values "gateways" "istio-egressgateway" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-egressgateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-egressgateway
+    istio: egressgateway
+    release: {{ .Release.Name }}
+spec:
+{{- if not $gateway.autoscaleEnabled }}
+{{- if $gateway.replicaCount }}
+  replicas: {{ $gateway.replicaCount }}
+{{- else }}
+  replicas: 1
+{{- end }}
+{{- end }}
+  selector:
+    matchLabels:
+      app: istio-egressgateway
+      istio: egressgateway
+  template:
+    metadata:
+      labels:
+        app: istio-egressgateway
+        istio: egressgateway
+{{- if eq .Release.Namespace "istio-system"}}
+        heritage: Tiller
+        release: istio
+        chart: gateways
+{{- end }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+{{- if $gateway.podAnnotations }}
+{{ toYaml $gateway.podAnnotations | indent 8 }}
+{{ end }}
+    spec:
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+{{- if .Values.global.proxy.enableCoreDump }}
+      initContainers:
+        - name: enable-core-dump
+{{- if contains "/" .Values.global.proxy_init.image }}
+          image: "{{ .Values.global.proxy_init.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image | default "proxy_init" }}:{{ .Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+          args:
+            - -c
+            - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
+          securityContext:
+            privileged: true
+{{- end }}
+      containers:
+        - name: istio-proxy
+{{- if contains "/" .Values.global.proxy.image }}
+          image: "{{ .Values.global.proxy.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+          ports:
+            {{- range $key, $val := $gateway.ports }}
+            - containerPort: {{ $val.port }}
+            {{- end }}
+            {{- range $key, $val := $gateway.meshExpansionPorts }}
+            - containerPort: {{ $val.port }}
+            {{- end }}
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+          args:
+          - proxy
+          - router
+          - --domain
+          - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
+        {{- if .Values.global.proxy.logLevel }}
+          - --proxyLogLevel={{ .Values.global.proxy.logLevel }}
+        {{- end}}
+        {{- if .Values.global.proxy.componentLogLevel }}
+          - --proxyComponentLogLevel={{ .Values.global.proxy.componentLogLevel }}
+        {{- end}}
+        {{- if .Values.global.logging.level }}
+          - --log_output_level={{ .Values.global.logging.level }}
+        {{- end}}
+          - --drainDuration
+          - '45s' #drainDuration
+          - --parentShutdownDuration
+          - '1m0s' #parentShutdownDuration
+          - --connectTimeout
+          - '10s' #connectTimeout
+          - --serviceCluster
+          - istio-egressgateway
+          - --zipkinAddress
+        {{- if .Values.global.tracer.zipkin.address }}
+          - {{ .Values.global.tracer.zipkin.address }}
+        {{- else if .Values.global.telemetryNamespace }}
+          - zipkin.{{ .Values.global.telemetryNamespace }}:9411
+        {{- else }}
+          - zipkin:9411
+        {{- end }}
+          - --proxyAdminPort
+          - "15000"
+          - --statusPort
+          - "15020"
+        {{- if .Values.global.controlPlaneSecurityEnabled }}
+          - --controlPlaneAuthPolicy
+          - MUTUAL_TLS
+          - --discoveryAddress
+          {{- if .Values.global.istioNamespace }}
+          - istio-pilot.{{ .Values.global.istioNamespace }}:15011
+          {{- else }}
+          - istio-pilot:15011
+          {{- end }}
+        {{- else }}
+          - --controlPlaneAuthPolicy
+          - NONE
+          - --discoveryAddress
+          {{- if .Values.global.istioNamespace }}
+          - istio-pilot.{{ .Values.global.istioNamespace }}:15010
+          {{- else }}
+          - istio-pilot:15010
+          {{- end }}
+        {{- end }}
+        {{- if .Values.global.trustDomain }}
+          - --trust-domain={{ .Values.global.trustDomain }}
+        {{- end }}
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15020
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+{{- if $gateway.resources }}
+{{ toYaml $gateway.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+          env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: INSTANCE_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.hostIP
+          - name: ISTIO_META_POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: ISTIO_META_CONFIG_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          {{- if $gateway.sds }}
+          {{- if $gateway.sds.enabled }}
+          - name: ISTIO_META_USER_SDS
+            value: "true"
+          {{- end }}
+          {{- end }}
+          {{- if $gateway.env }}
+          {{- range $key, $val := $gateway.env }}
+          - name: {{ $key }}
+            value: {{ $val }}
+          {{- end }}
+          {{ end }}
+{{- if $gateway.podAnnotations }}
+          - name: "ISTIO_METAJSON_ANNOTATIONS"
+            value: |
+{{ toJson $gateway.podAnnotations | indent 16}}
+{{ end }}
+          volumeMounts:
+          {{ if .Values.global.sds.enabled }}
+          - name: sdsudspath
+            mountPath: /var/run/sds/uds_path
+            readOnly: true
+          {{- if .Values.global.sds.useTrustworthyJwt }}
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+          {{- end }}
+          {{- end }}
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+          {{- range $gateway.secretVolumes }}
+          - name: {{ .name }}
+            mountPath: {{ .mountPath | quote }}
+            readOnly: true
+          {{- end }}
+{{- if $gateway.additionalContainers }}
+{{ toYaml $gateway.additionalContainers | indent 8 }}
+{{- end }}
+      volumes:
+      {{- if .Values.global.sds.enabled }}
+      - name: sdsudspath
+        hostPath:
+          path: /var/run/sds/uds_path
+          type: Socket
+      {{- if .Values.global.sds.useTrustworthyJwt }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: {{ .Values.global.trustDomain }}
+      {{- end }}
+      {{- end }}
+      {{ if .Values.global.sds.enabled }}
+      - name: sdsudspath
+        hostPath:
+          path: /var/run/sds
+      {{- end }}
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+          optional: true
+      {{- range $gateway.secretVolumes }}
+      - name: {{ .name }}
+        secret:
+          secretName: {{ .secretName | quote }}
+          optional: true
+      {{- end }}
+      {{- range $gateway.configVolumes }}
+      - name: {{ .name }}
+        configMap:
+          name: {{ .configMapName | quote }}
+          optional: true
+      {{- end }}
+      affinity:
+      {{- include "nodeaffinity" (dict "global" .Values.global "nodeSelector" $gateway.nodeSelector) | indent 6 }}
+      {{- include "podAntiAffinity" $gateway | indent 6 }}
+{{- if $gateway.tolerations }}
+      tolerations:
+{{ toYaml $gateway.tolerations | indent 6 }}
+{{- end }}

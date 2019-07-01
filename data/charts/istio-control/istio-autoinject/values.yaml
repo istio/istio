@@ -1,0 +1,58 @@
+sidecarInjectorWebhook:
+  # sidecar-injector webhook configuration.
+  # If down, new pods will fail to start or restart for a short time, but they will
+  # retry.
+  replicaCount: 1
+
+  image: sidecar_injector
+
+  # This enables injection of sidecar in all namespaces,
+  # with the exception of namespaces with "istio-injection:disabled" annotation
+  # Only one environment should have this enabled.
+  enableNamespacesByDefault: false
+
+  # If true, webhook or istioctl injector will rewrite PodSpec for liveness
+  # health check to redirect request to sidecar. This makes liveness check work
+  # even when mTLS is enabled.
+  rewriteAppHTTPProbe: false
+
+  # If true, a self-signed CA will created in order to issue a certificate that
+  # will be used to authenticate the workload respondible for handling
+  # the sidecar-injector webhook.
+  selfSigned: false
+
+  nodeSelector: {}
+  tolerations: []
+
+  # Specify the pod anti-affinity that allows you to constrain which nodes
+  # your pod is eligible to be scheduled based on labels on pods that are
+  # already running on the node rather than based on labels on nodes.
+  # There are currently two types of anti-affinity:
+  #    "requiredDuringSchedulingIgnoredDuringExecution"
+  #    "preferredDuringSchedulingIgnoredDuringExecution"
+  # which denote “hard” vs. “soft” requirements, you can define your values
+  # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
+  # correspondingly.
+  # For example:
+  # podAntiAffinityLabelSelector:
+  # - key: security
+  #   operator: In
+  #   values: S1,S2
+  #   topologyKey: "kubernetes.io/hostname"
+  # This pod anti-affinity rule says that the pod requires not to be scheduled
+  # onto a node if that node is already running a pod with label having key
+  # “security” and value “S1”.
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
+
+  # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
+  # always skip the injection on pods that match that label selector, regardless of the global policy.
+  # See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
+
+  neverInjectSelector: []
+  alwaysInjectSelector: []
+
+# If set, no iptable init will be added. It assumes CNI is installed.
+# TODO: rename to 'enableIptables' or add 'interceptionMode: CNI'
+istio_cni:
+  enabled: false

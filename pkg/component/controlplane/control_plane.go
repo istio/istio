@@ -16,10 +16,10 @@ package controlplane
 
 import (
 	"fmt"
-	"strings"
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/component/feature"
+	"istio.io/operator/pkg/name"
 	"istio.io/operator/pkg/translate"
 	"istio.io/operator/pkg/util"
 )
@@ -38,6 +38,7 @@ func NewIstioControlPlane(installSpec *v1alpha2.IstioControlPlaneSpec, translato
 	}
 	return &IstioControlPlane{
 		features: []feature.IstioFeature{
+			feature.NewBaseFeature(opts),
 			feature.NewTrafficManagementFeature(opts),
 			feature.NewSecurityFeature(opts),
 			feature.NewPolicyFeature(opts),
@@ -60,19 +61,30 @@ func (i *IstioControlPlane) Run() error {
 }
 
 // RenderManifest returns a manifest rendered against
-func (i *IstioControlPlane) RenderManifest() (manifest string, errsOut util.Errors) {
+func (i *IstioControlPlane) RenderManifest() (manifests name.ManifestMap, errsOut util.Errors) {
 	if !i.started {
-		return "", util.NewErrs(fmt.Errorf("istioControlPlane must be Run before calling RenderManifest"))
+		return nil, util.NewErrs(fmt.Errorf("istioControlPlane must be Run before calling RenderManifest"))
 	}
-	var sb strings.Builder
+
+	manifests = make(name.ManifestMap)
 	for _, f := range i.features {
-		s, errs := f.RenderManifest()
+		ms, errs := f.RenderManifest()
+		manifests = mergeManifestMaps(manifests, ms)
 		errsOut = util.AppendErrs(errsOut, errs)
-		_, err := sb.WriteString(s)
-		errsOut = util.AppendErr(errsOut, err)
 	}
 	if len(errsOut) > 0 {
-		return "", errsOut
+		return nil, errsOut
 	}
-	return sb.String(), nil
+	return
+}
+
+func mergeManifestMaps(a, b name.ManifestMap) name.ManifestMap {
+	out := make(name.ManifestMap)
+	for k, v := range a {
+		out[k] = v
+	}
+	for k, v := range b {
+		out[k] = v
+	}
+	return out
 }

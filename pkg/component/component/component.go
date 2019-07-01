@@ -457,7 +457,6 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 		return "", err
 	}
 	if !found {
-		log.Info("K8S.Overlays not found\n")
 		return my, nil
 	}
 	kyo, err := yaml.Marshal(overlays)
@@ -509,8 +508,7 @@ func mergeTrees(apiValues string, globalVals, values, unvalidatedValues map[stri
 func createHelmRenderer(c *CommonComponentFields) (helm.TemplateRenderer, error) {
 	icp := c.InstallSpec
 	return helm.NewHelmRenderer(icp.CustomPackagePath+"/"+c.Translator.ComponentMaps[c.name].HelmSubdir,
-		icp.BaseProfilePath, string(c.name),
-		name.Namespace(c.FeatureName, c.name, c.InstallSpec))
+		icp.Profile, string(c.name), name.Namespace(c.FeatureName, c.name, c.InstallSpec))
 }
 
 // disabledYAMLStr returns the YAML comment string that the given component is disabled.

@@ -1,0 +1,33 @@
+Sidecar injector (optional): if disabled, manual injection or other tools need to be used.
+
+Sidecar injection in each profile can be selected by labeling the namespace with the appropriate profile.
+
+The new label is 'istio-env' and the value is the namespace where the injector is installed.
+
+Note that it is possible to install a profile with only the injector app - using remote Pilot and MCP.
+
+```
+    # New style, using the istio-pilot11 profile
+    kubectl create ns fortio
+    kubectl label ns fortio istio-env=istio-control
+
+    # Second pilot profile
+    kubectl create ns fortio-test
+    kubectl label ns fortio istio-env=istio-master
+
+    # Old-style, using istio-system and Istio 1.0 or 1.1 default installations.
+    kubectl create ns fortio-istio-system
+    kubectl label ns fortio istio-injection=enabled
+```
+
+# Uninstall
+
+After uninstalling, you should cleanup the global CRD using:
+
+```bash
+
+  kubectl delete MutatingWebhookConfiguration istio-sidecar-injector-istio-control
+
+```
+
+Any app using the uninstalled istio-env label will no longer be auto-injected once the config is deleted.

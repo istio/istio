@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-policy
+    istio: mixer
+    release: {{ .Release.Name }}
+spec:
+  ports:
+  - name: grpc-mixer
+    port: 9091
+  - name: grpc-mixer-mtls
+    port: 15004
+  - name: http-policy-monitoring
+    port: 15014
+  selector:
+    app: istio-policy
+{{- if .Values.mixer.policy.sessionAffinityEnabled }}
+  sessionAffinity: ClientIP
+{{- end }}
+---
+

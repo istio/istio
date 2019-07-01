@@ -1,0 +1,38 @@
+{{- if .Values.grafana.ingress.enabled -}}
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: grafana
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: grafana
+    release: {{ .Release.Name }}
+  annotations:
+    {{- range $key, $value := .Values.grafana.ingress.annotations }}
+      {{ $key }}: {{ $value | quote }}
+    {{- end }}
+spec:
+  rules:
+{{- if .Values.grafana.ingress.hosts }}
+    {{- range $host := .Values.grafana.ingress.hosts }}
+    - host: {{ $host }}
+      http:
+        paths:
+          - path: {{ if $.Values.grafana.contextPath }} {{ $.Values.grafana.contextPath }} {{ else }} / {{ end }}
+            backend:
+              serviceName: grafana
+              servicePort: 3000
+    {{- end -}}
+{{- else }}
+    - http:
+        paths:
+          - path: {{ if .Values.grafana.contextPath }} {{ .Values.grafana.contextPath }} {{ else }} / {{ end }}
+            backend:
+              serviceName: grafana
+              servicePort: 3000
+{{- end }}
+  {{- if .Values.grafana.ingress.tls }}
+  tls:
+{{ toYaml .Values.grafana.ingress.tls | indent 4 }}
+  {{- end -}}
+{{- end -}}

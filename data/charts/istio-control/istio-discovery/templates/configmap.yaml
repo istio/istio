@@ -1,0 +1,20 @@
+{{- if .Values.pilot.configMap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+data:
+
+  meshNetworks: |-
+    # Network config
+{{ toYaml .Values.pilot.meshNetworks | indent 4 }}
+
+  values.yaml: |-
+{{ toYaml .Values.pilot | indent 4 }}
+
+---
+
+{{- end }}

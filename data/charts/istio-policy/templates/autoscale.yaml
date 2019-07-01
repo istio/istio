@@ -1,0 +1,23 @@
+{{- if .Values.mixer.policy.autoscaleMin }}
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: istio-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-policy
+    release: {{ .Release.Name }}
+spec:
+    maxReplicas: {{ .Values.mixer.policy.autoscaleMax }}
+    minReplicas: {{ .Values.mixer.policy.autoscaleMin }}
+    scaleTargetRef:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: istio-policy
+    metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: {{ .Values.mixer.policy.cpu.targetAverageUtilization }}
+---
+{{- end }}

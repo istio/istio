@@ -19,14 +19,15 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"istio.io/operator/pkg/util"
-
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/engine"
 	"k8s.io/helm/pkg/proto/hapi/chart"
 	"k8s.io/helm/pkg/timeconv"
+
+	"istio.io/operator/pkg/util"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -67,6 +68,7 @@ func NewHelmRenderer(helmBaseDir, profile, componentName, namespace string) (Tem
 func ReadValuesYAML(profile string) (string, error) {
 	var err error
 	var globalValues string
+	log.Infof("ReadValuesYAML for profile name: %s", profile)
 
 	// Get global values from profile.
 	switch {
@@ -75,7 +77,9 @@ func ReadValuesYAML(profile string) (string, error) {
 			return "", err
 		}
 	case util.IsFilePath(profile):
-		if globalValues, err = readFile(util.GetLocalFilePath(profile)); err != nil {
+		path := util.GetLocalFilePath(profile)
+		log.Infof("Loading values from local filesystem at path %s", path)
+		if globalValues, err = readFile(path); err != nil {
 			return "", err
 		}
 	default:
@@ -131,6 +135,9 @@ func OverlayYAML(base, overlay string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("yamlToJSON error in overlay: %s\n%s", err, oj)
 	}
+	if overlay == "" {
+		oj = []byte("{}")
+	}
 
 	merged, err := jsonpatch.MergePatch(bj, oj)
 	if err != nil {
@@ -142,6 +149,21 @@ func OverlayYAML(base, overlay string) (string, error) {
 	}
 
 	return string(my), nil
+}
+
+func FilenameFromProfile(profile string) (string, error) {
+	switch {
+	case profile == "":
+		return DefaultProfileFilename, nil
+	case util.IsFilePath(profile):
+		return util.GetLocalFilePath(profile), nil
+	default:
+		if _, ok := ProfileNames[profile]; ok {
+			return BuiltinProfileToFilename(profile), nil
+		}
+	}
+
+	return "", fmt.Errorf("bad profile string: %s", profile)
 }
 
 func readFile(path string) (string, error) {
