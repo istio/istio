@@ -445,6 +445,10 @@ func pushSDS(con *sdsConnection) error {
 	resourceName := con.ResourceName
 	con.mutex.RUnlock()
 
+	if con == nil || secret == nil {
+		return fmt.Errorf("sdsConnection %v and secret %v should not be nil", con, secret)
+	}
+
 	conIDresourceNamePrefix := sdsLogPrefix(conID, resourceName)
 	response, err := sdsDiscoveryResponse(secret, conID, resourceName)
 	if err != nil {
