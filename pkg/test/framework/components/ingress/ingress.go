@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gogo/protobuf/proto"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -90,6 +92,9 @@ type Instance interface {
 	//  Call makes a call through ingress.
 	Call(options CallOptions) (CallResponse, error)
 	CallOrFail(t test.Failer, options CallOptions) CallResponse
+
+	// ProxyStats returns proxy stats, or error if failure happens.
+	ProxyStats() (map[string]int, error)
 }
 
 type Config struct {

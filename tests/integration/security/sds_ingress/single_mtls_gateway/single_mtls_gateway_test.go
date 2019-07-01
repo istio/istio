@@ -67,8 +67,11 @@ func TestSingleMTLSGateway_SecretRotation(t *testing.T) {
 			// Add kubernetes secret to provision key/cert for ingress gateway.
 			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialA)
 			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
-			time.Sleep(3 * time.Second)
 			ingB := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
+			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingB, 1, 10*time.Second)
+			if err != nil {
+				t.Errorf("sds update stats does not match: %v", err)
+			}
 			err = ingressutil.VisitProductPage(ingB, host, ingress.Mtls, tlsContext, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {
@@ -77,9 +80,10 @@ func TestSingleMTLSGateway_SecretRotation(t *testing.T) {
 
 			// key/cert rotation
 			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialB)
-			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
-			time.Sleep(3 * time.Second)
-
+			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingB, 1, 10*time.Second)
+			if err != nil {
+				t.Errorf("sds update stats does not match: %v", err)
+			}
 			// Use old CA cert to set up SSL connection would fail.
 			err = ingressutil.VisitProductPage(ingB, host, ingress.Mtls, tlsContext, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"}, t)

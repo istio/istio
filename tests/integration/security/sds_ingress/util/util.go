@@ -283,27 +283,30 @@ func DeployBookinfo(t *testing.T, ctx framework.TestContext, g galley.Instance, 
 // and returns if server_ssl_socket_factory.ssl_context_update_by_sds >= expectedUpdates, or timeouts
 // after duration seconds, whichever comes first. Returns an error indicating that stats do not meet
 // expectation but timeout.
-func WaitUntilGatewaySdsStatsGE(t *testing.T, ctx framework.TestContext, ns namespace.Instance, expectedUpdates int, timeout time.Duration) error {
+func WaitUntilGatewaySdsStatsGE(t *testing.T, ing ingress.Instance, expectedUpdates int, timeout time.Duration) error {
 	start := time.Now()
-	env := ctx.Environment().(*kube.Environment)
 	sdsUpdates := 0
 	hasSdsStats := false
 	for {
-
-		pods, err := env.GetPods(ns.Name(), "istio=ingressgateway")
-		gatewayStats, err := env.GetProxyStats(ns.Name(), pods[0].Name, "istio-proxy")
-		if err != nil {
-			t.Logf("unable to get ingress gateway stats: %v", err)
+		//pods, err := env.GetPods(ns.Name(), "istio=ingressgateway")
+		//gatewayStats, err := env.GetProxyStats(ns.Name(), pods[0].Name, "istio-proxy")
+		//if err != nil {
+		//	t.Logf("unable to get ingress gateway stats: %v", err)
+		//}
+		gatewayStats, err := ing.ProxyStats()
+		if err == nil {
+			t.Logf("dump stats:\n %v", gatewayStats)
+			sdsUpdates, hasSdsStats = gatewayStats["listener.0.0.0.0_443.server_ssl_socket_factory.ssl_context_update_by_sds"]
+			if hasSdsStats && sdsUpdates >= expectedUpdates {
+				t.Logf("ingress gateway SDS updates meets expectation. got %v vs expected %v", sdsUpdates, expectedUpdates)
+				return nil
+			}
+			if time.Since(start) > timeout {
+				return fmt.Errorf("sds stats does not meet expection in %v: Last stats: %v", timeout, sdsUpdates)
+			}
+		} else {
+			t.Logf("unable to get ingress gateway proxy stats: %v", err)
 		}
-		sdsUpdates, hasSdsStats = gatewayStats["listener.0.0.0.0_443.server_ssl_socket_factory.ssl_context_update_by_sds"]
-		if hasSdsStats && sdsUpdates >= expectedUpdates {
-			t.Logf("ingress gateway SDS updates meets expectation. got %v vs expected %v", sdsUpdates, expectedUpdates)
-			return nil
-		}
-		if time.Since(start) > timeout {
-			return fmt.Errorf("sds stats does not meet expection in %v: Last stats: %v", timeout, sdsUpdates)
-		}
-
 		time.Sleep(3 * time.Second)
 	}
 }
