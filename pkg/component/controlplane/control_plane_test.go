@@ -251,11 +251,11 @@ func YAMLDiff(a, b string) string {
 }
 
 func ManifestDiff(a, b string) (string, error) {
-	ao, err := manifest.ParseObjectsFromYAMLManifest(a)
+	ao, err := manifest.ParseK8sObjectsFromYAMLManifest(a)
 	if err != nil {
 		return "", err
 	}
-	bo, err := manifest.ParseObjectsFromYAMLManifest(b)
+	bo, err := manifest.ParseK8sObjectsFromYAMLManifest(b)
 	if err != nil {
 		return "", err
 	}

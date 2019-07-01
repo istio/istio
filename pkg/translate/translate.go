@@ -205,7 +205,7 @@ var (
 
 // OverlayK8sSettings overlays k8s settings from icp over the manifest objects, based on t's translation mappings.
 func (t *Translator) OverlayK8sSettings(yml string, icp *v1alpha2.IstioControlPlaneSpec, featureName name.FeatureName, componentName name.ComponentName) (string, error) {
-	objects, err := manifest.ParseObjectsFromYAMLManifest(yml)
+	objects, err := manifest.ParseK8sObjectsFromYAMLManifest(yml)
 	if err != nil {
 		return "", err
 	}
@@ -263,7 +263,7 @@ func (t *Translator) OverlayK8sSettings(yml string, icp *v1alpha2.IstioControlPl
 		}
 		dbgPrint("baseYAML:\n%s\n, overlayYAML:\n%s\n, mergedYAML:\n%s\n", string(baseYAML), string(overlayYAML), string(mergedYAML))
 
-		mergedObj, err := manifest.ParseYAMLToObject(mergedYAML)
+		mergedObj, err := manifest.ParseYAMLToK8sObject(mergedYAML)
 		if err != nil {
 			return "", err
 		}

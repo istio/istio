@@ -178,7 +178,7 @@ func versionString(version version.Version) string {
 }
 
 func applyManifest(componentName name.ComponentName, manifestStr string, version version.Version, dryRun, verbose bool) error {
-	objects, err := ParseObjectsFromYAMLManifest(manifestStr)
+	objects, err := ParseK8sObjectsFromYAMLManifest(manifestStr)
 	if err != nil {
 		return err
 	}
@@ -226,8 +226,8 @@ func applyManifest(componentName name.ComponentName, manifestStr string, version
 	return nil
 }
 
-func defaultObjectOrder() func(o *Object) int {
-	return func(o *Object) int {
+func defaultObjectOrder() func(o *K8sObject) int {
+	return func(o *K8sObject) int {
 		gk := o.Group + "/" + o.Kind
 		switch gk {
 		// Create CRDs asap - both because they are slow and because we will likely create instances of them soon
@@ -263,8 +263,8 @@ func defaultObjectOrder() func(o *Object) int {
 	}
 }
 
-func cRDKindObjects(objects Objects) Objects {
-	var ret Objects
+func cRDKindObjects(objects K8sObjects) K8sObjects {
+	var ret K8sObjects
 	for _, o := range objects {
 		if o.Kind == "CustomResourceDefinition" {
 			ret = append(ret, o)
@@ -273,7 +273,7 @@ func cRDKindObjects(objects Objects) Objects {
 	return ret
 }
 
-func waitForCRDs(objects Objects, dryRun bool) error {
+func waitForCRDs(objects K8sObjects, dryRun bool) error {
 	if dryRun {
 		logAndPrint("Not waiting for CRDs in dry run mode.")
 		return nil
