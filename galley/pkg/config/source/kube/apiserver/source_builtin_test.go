@@ -69,7 +69,7 @@ func TestBasic(t *testing.T) {
 	// Start the source.
 	s := newOrFail(t, k, k8smeta.MustGet().KubeSource().Resources())
 	acc := start(s)
-	// defer s.Stop()
+	defer s.Stop()
 
 	g.Eventually(acc.Events).Should(HaveLen(6))
 	for i := 0; i < 6; i++ {
