@@ -14,6 +14,7 @@
 package apiserver_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/gogo/protobuf/types"
@@ -139,6 +140,59 @@ func TestEvents(t *testing.T) {
 		event.DeleteForResource(basicmeta.Collection1, toEntry(obj))))
 }
 
+func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	k := &mock.Kube{}
+	k.AddResponse(nil, errors.New("no cheese found"))
+
+	r := basicmeta.MustGet().KubeSource().Resources()
+
+	// Create and start the source
+	s := newOrFail(t, k, r)
+	// Start/stop when informer is not created. It should not crash or cause errors.
+	acc := start(s)
+
+	// we should get a full sync event, even if the watcher doesn't properly start.
+	g.Eventually(acc.Events).Should(ConsistOf(
+		event.FullSyncFor(basicmeta.Collection1),
+	))
+
+	s.Stop()
+
+	acc.Clear()
+
+	// Now start properly and get events
+	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
+	k.AddResponse(cl, nil)
+	w := mockWatch(cl)
+
+	s.Start()
+
+	obj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "testdata.istio.io/v1alpha1",
+			"kind":       "Kind1",
+			"metadata": map[string]interface{}{
+				"name":            "i1",
+				"namespace":       "ns",
+				"resourceVersion": "v1",
+			},
+			"spec": map[string]interface{}{},
+		},
+	}
+	obj = obj.DeepCopy()
+
+	w.Send(watch.Event{Type: watch.Added, Object: obj})
+
+	defer s.Stop()
+
+	g.Eventually(acc.Events).Should(ConsistOf(
+		event.FullSyncFor(basicmeta.Collection1),
+		event.AddFor(basicmeta.Collection1, toEntry(obj)),
+	))
+}
+
 func newOrFail(t *testing.T, ifaces kube.Interfaces, r schema.KubeResources) *apiserver.Source {
 	t.Helper()
 	o := apiserver.Options{
@@ -164,7 +218,7 @@ func start(s *apiserver.Source) *fixtures.Accumulator {
 	return acc
 }
 
-func createMocks() (*mock.Watch, kube.Interfaces) {
+func createMocks() (*mock.Watch, *mock.Kube) {
 	k := &mock.Kube{}
 	cl := fakeClient(k)
 	w := mockWatch(cl)

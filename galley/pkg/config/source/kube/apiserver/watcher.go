@@ -15,7 +15,7 @@
 package apiserver
 
 import (
-	"context"
+	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -26,65 +26,78 @@ import (
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/stats"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/tombstone"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
-	"istio.io/istio/galley/pkg/util"
 )
 
 type watcher struct {
+	mu sync.Mutex
+
 	adapter  *rt.Adapter
 	resource schema.KubeResource
 
-	worker *util.Worker
-
 	handler event.Handler
 
-	informer cache.SharedIndexInformer
+	done chan struct{}
 }
 
 func newWatcher(r schema.KubeResource, a *rt.Adapter) *watcher {
 	return &watcher{
 		resource: r,
 		adapter:  a,
-		worker:   util.NewWorker("watcher", scope),
 	}
 }
 
 func (w *watcher) start() {
-	_ = w.worker.Start(nil, func(ctx context.Context) {
-		scope.Debugf("Starting watcher for %q (%q)", w.resource.Collection.Name, w.resource.CanonicalResourceName())
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.done != nil {
+		panic("watcher.start: already started")
+	}
 
-		var err error
-		w.informer, err = w.adapter.NewInformer()
-		if err != nil {
-			// TODO
-		}
+	scope.Debugf("Starting watcher for %q (%q)", w.resource.Collection.Name, w.resource.CanonicalResourceName())
 
-		w.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) { w.handleEvent(event.Added, obj) },
-			UpdateFunc: func(old, new interface{}) {
-				if w.adapter.IsEqual(old, new) {
-					// Periodic resync will send update events for all known resources.
-					// Two different versions of the same resource will always have different RVs.
-					return
-				}
+	informer, err := w.adapter.NewInformer()
+	if err != nil {
+		scope.Errorf("unable to start watcher for %q: %v", w.resource.CanonicalResourceName(), err)
+		w.handler.Handle(event.FullSyncFor(w.resource.Collection.Name))
+		return
+	}
 
-				w.handleEvent(event.Updated, new)
-			},
-			DeleteFunc: func(obj interface{}) { w.handleEvent(event.Deleted, obj) },
-		})
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) { w.handleEvent(event.Added, obj) },
+		UpdateFunc: func(old, new interface{}) {
+			if w.adapter.IsEqual(old, new) {
+				// Periodic resync will send update events for all known resources.
+				// Two different versions of the same resource will always have different RVs.
+				return
+			}
 
-		// Send the FullSync event after the cache syncs.
-		go func() {
-			_ = cache.WaitForCacheSync(ctx.Done(), w.informer.HasSynced)
-			w.handler.Handle(event.FullSyncFor(w.resource.Collection.Name))
-		}()
-
-		// Start CRD shared informer and wait for it to exit.
-		w.informer.Run(ctx.Done())
+			w.handleEvent(event.Updated, new)
+		},
+		DeleteFunc: func(obj interface{}) { w.handleEvent(event.Deleted, obj) },
 	})
+
+	done := make(chan struct{})
+	w.done = done
+
+	// Send the FullSync event after the cache syncs.
+	go func() {
+		_ = cache.WaitForCacheSync(done, informer.HasSynced)
+		if w.handler != nil {
+			w.handler.Handle(event.FullSyncFor(w.resource.Collection.Name))
+		}
+	}()
+
+	// Start CRD shared informer and wait for it to exit.
+	go informer.Run(done)
 }
 
 func (w *watcher) stop() {
-	w.worker.Stop()
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.done != nil {
+		close(w.done)
+		w.done = nil
+	}
 }
 
 func (w *watcher) dispatch(h event.Handler) {
