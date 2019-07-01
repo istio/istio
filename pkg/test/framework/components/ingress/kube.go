@@ -285,11 +285,11 @@ func (c *kubeComponent) CallOrFail(t test.Failer, options CallOptions) CallRespo
 
 func (c *kubeComponent) ProxyStats() (map[string]int, error) {
 	var stats map[string]int
-	statsJson, err := c.adminRequest("stats?format=json")
+	statsJSON, err := c.adminRequest("stats?format=json")
 	if err != nil {
 		return stats, fmt.Errorf("failed to get response from admin port: %v", err)
 	}
-	return c.unmarshalStats(statsJson)
+	return c.unmarshalStats(statsJSON)
 }
 
 // adminRequest makes a call to admin port at ingress gateway proxy and returns error on request failure.
