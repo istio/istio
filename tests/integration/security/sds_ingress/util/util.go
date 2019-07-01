@@ -292,7 +292,8 @@ func WaitUntilGatewaySdsStatsGE(t *testing.T, ing ingress.Instance, expectedUpda
 		if err == nil {
 			sdsUpdates, hasSdsStats = gatewayStats["listener.0.0.0.0_443.server_ssl_socket_factory.ssl_context_update_by_sds"]
 			if hasSdsStats && sdsUpdates >= expectedUpdates {
-				t.Logf("ingress gateway SDS updates meets expectation. got %v vs expected %v", sdsUpdates, expectedUpdates)
+				t.Logf("ingress gateway SDS updates meets expectation within %v. got %v vs expected %v",
+					time.Since(start)-timeout, sdsUpdates, expectedUpdates)
 				return nil
 			}
 			if time.Since(start) > timeout {
