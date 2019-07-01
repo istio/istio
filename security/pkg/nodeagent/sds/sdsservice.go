@@ -483,15 +483,15 @@ func pushSDS(con *sdsConnection) error {
 func sdsDiscoveryResponse(s *model.SecretItem, conID, resourceName string) (*xdsapi.DiscoveryResponse, error) {
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl:     SecretType,
-		VersionInfo: s.Version,
-		Nonce:       s.Version,
 	}
 	conIDresourceNamePrefix := sdsLogPrefix(conID, resourceName)
 	if s == nil {
-		sdsServiceLog.Errorf("%s got nil secret for proxy", conIDresourceNamePrefix)
+		sdsServiceLog.Warnf("%s got nil secret for proxy", conIDresourceNamePrefix)
 		return resp, nil
 	}
 
+	resp.VersionInfo = s.Version
+	resp.Nonce = s.Version
 	secret := &authapi.Secret{
 		Name: s.ResourceName,
 	}
