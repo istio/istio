@@ -9,6 +9,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
  && rm -rf /var/lib/apt/lists/*
 
 ADD istio-iptables.sh /usr/local/bin/
+ENTRYPOINT ["/usr/local/bin/istio-iptables.sh"]
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
 FROM gcr.io/distroless/cc as distroless
@@ -18,8 +19,8 @@ COPY --from=default /lib/xtables/ /lib/xtables
 COPY --from=default /lib/x86_64-linux-gnu/ /lib/x86_64-linux-gnu
 COPY --from=default /etc/iproute2 /etc/iproute2
 
-ADD istio-iptables /usr/local/bin/istio-iptables.sh
+ADD istio-iptables /usr/local/bin/istio-iptables
+ENTRYPOINT ["/usr/local/bin/istio-iptables"]
 
 # This will build the final image based on either default or distroless from above
 FROM ${BASE_DISTRIBUTION}
-ENTRYPOINT ["/usr/local/bin/istio-iptables.sh"]
