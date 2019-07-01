@@ -566,7 +566,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 				}
 			}
 
-			if pilot.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
+			if features.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
 				httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
 					AcceptHttp_10: true,
 				}
