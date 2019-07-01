@@ -461,18 +461,22 @@ func pushSDS(con *sdsConnection) error {
 	}
 
 	// Update metrics after push to avoid adding latency to SDS push.
-	if secret.RootCert != nil {
-		sdsServiceLog.Infof("%s pushed root cert to proxy\n", conIDresourceNamePrefix)
-		sdsServiceLog.Debugf("%s pushed root cert %+v to proxy\n", conIDresourceNamePrefix,
-			string(secret.RootCert))
-		sdsMetrics.rootCertExpiryTimestamp.WithLabelValues(metricLabelName).Set(
-			float64(secret.ExpireTime.Unix()))
+	if secret != nil {
+		if secret.RootCert != nil {
+			sdsServiceLog.Infof("%s pushed root cert to proxy\n", conIDresourceNamePrefix)
+			sdsServiceLog.Debugf("%s pushed root cert %+v to proxy\n", conIDresourceNamePrefix,
+				string(secret.RootCert))
+			sdsMetrics.rootCertExpiryTimestamp.WithLabelValues(metricLabelName).Set(
+				float64(secret.ExpireTime.Unix()))
+		} else {
+			sdsServiceLog.Infof("%s pushed key/cert pair to proxy\n", conIDresourceNamePrefix)
+			sdsServiceLog.Debugf("%s pushed certificate chain %+v to proxy\n",
+				conIDresourceNamePrefix, string(secret.CertificateChain))
+			sdsMetrics.serverCertExpiryTimestamp.WithLabelValues(metricLabelName).Set(
+				float64(secret.ExpireTime.Unix()))
+		}
 	} else {
-		sdsServiceLog.Infof("%s pushed key/cert pair to proxy\n", conIDresourceNamePrefix)
-		sdsServiceLog.Debugf("%s pushed certificate chain %+v to proxy\n",
-			conIDresourceNamePrefix, string(secret.CertificateChain))
-		sdsMetrics.serverCertExpiryTimestamp.WithLabelValues(metricLabelName).Set(
-			float64(secret.ExpireTime.Unix()))
+		sdsServiceLog.Infof("%s pushed empty secret resource to proxy\n", conIDresourceNamePrefix)
 	}
 	sdsMetrics.pushPerConn.WithLabelValues(metricLabelName).Inc()
 	sdsMetrics.pendingPushPerConn.WithLabelValues(metricLabelName).Dec()
@@ -482,7 +486,7 @@ func pushSDS(con *sdsConnection) error {
 
 func sdsDiscoveryResponse(s *model.SecretItem, conID, resourceName string) (*xdsapi.DiscoveryResponse, error) {
 	resp := &xdsapi.DiscoveryResponse{
-		TypeUrl:     SecretType,
+		TypeUrl: SecretType,
 	}
 	conIDresourceNamePrefix := sdsLogPrefix(conID, resourceName)
 	if s == nil {
