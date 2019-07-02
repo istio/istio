@@ -73,18 +73,14 @@
           "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container_name=~\"citadel\", pod_name=~\"istio-citadel-.*\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
+          "legendFormat": "Citadel CPU usage rate",
           "refId": "A"
-        },
-        {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container_name=~\"citadel\", pod_name=~\"istio-citadel-.*\"}[1m])) by (container_name)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "refId": "B"
         },
         {
           "expr": "irate(process_cpu_seconds_total{job=\"citadel\"}[1m])",
           "format": "time_series",
           "intervalFactor": 1,
+          "legendFormat": "Citadel CPU usage irate",
           "refId": "C"
         }
       ],
@@ -168,6 +164,7 @@
           "expr": "go_goroutines{job=\"citadel\"}",
           "format": "time_series",
           "intervalFactor": 1,
+          "legendFormat": "Goroutines",
           "refId": "A"
         }
       ],
@@ -252,36 +249,35 @@
           "expr": "process_virtual_memory_bytes{job=\"citadel\"}",
           "format": "time_series",
           "intervalFactor": 1,
+          "legendFormat": "Virtual Memory",
           "refId": "A"
         },
         {
           "expr": "process_resident_memory_bytes{job=\"citadel\"}",
           "format": "time_series",
           "intervalFactor": 1,
+          "legendFormat": "Resident Memory",
           "refId": "B"
         },
         {
           "expr": "go_memstats_heap_sys_bytes{job=\"citadel\"}",
           "format": "time_series",
           "intervalFactor": 1,
+          "legendFormat": "Heap Memory Total",
           "refId": "C"
-        },
-        {
-          "expr": "go_memstats_heap_alloc_bytes{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "refId": "D"
         },
         {
           "expr": "go_memstats_alloc_bytes{job=\"citadel\"}",
           "format": "time_series",
           "intervalFactor": 1,
+          "legendFormat": "Heap Memory Allocated",
           "refId": "E"
         },
         {
           "expr": "go_memstats_heap_inuse_bytes{job=\"citadel\"}",
           "format": "time_series",
           "intervalFactor": 1,
+          "legendFormat": "Heap Inuse",
           "refId": "F"
         }
       ],
@@ -376,10 +372,10 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "citadel_server_csr_count{job=\"citadel\"}\t",
+          "expr": "citadel_server_csr_count{job=\"citadel\"}",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "",
+          "legendFormat": "CSR Request Count",
           "refId": "A"
         }
       ],
@@ -464,6 +460,7 @@
           "expr": "citadel_server_success_cert_issuance_count{job=\"citadel\"}",
           "format": "time_series",
           "intervalFactor": 1,
+          "legendFormat": "Certificates Issued",
           "refId": "A"
         }
       ],
@@ -560,9 +557,10 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "citadel_secret_controller_csr_err_count{job=\"citadel\"}\t",
+          "expr": "citadel_secret_controller_csr_err_count{job=\"citadel\"}",
           "format": "time_series",
           "intervalFactor": 1,
+          "legendFormat": "CSR Creation Error Count",
           "refId": "A"
         }
       ],
@@ -646,6 +644,7 @@
           "expr": "citadel_server_csr_parsing_err_count{job=\"citadel\"}\t",
           "format": "time_series",
           "intervalFactor": 1,
+          "legendFormat": "CSR Parse Error Count",
           "refId": "A"
         }
       ],
@@ -730,6 +729,7 @@
           "expr": "citadel_server_authentication_failure_count{job=\"citadel\"}\t",
           "format": "time_series",
           "intervalFactor": 1,
+          "legendFormat": "Authentication Failure Count",
           "refId": "A"
         }
       ],
@@ -827,7 +827,7 @@
           "expr": "citadel_secret_controller_svc_acc_created_cert_count{job=\"citadel\"}",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "",
+          "legendFormat": "SA Secrets Created",
           "refId": "A"
         }
       ],
@@ -913,7 +913,7 @@
           "expr": "citadel_secret_controller_secret_deleted_cert_count{job=\"citadel\"}",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "",
+          "legendFormat": "SA Secrets Recreated",
           "refId": "A"
         }
       ],
@@ -999,7 +999,7 @@
           "expr": "citadel_secret_controller_svc_acc_deleted_cert_count{job=\"citadel\"}",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "",
+          "legendFormat": "SA Secrets Deleted",
           "refId": "A"
         }
       ],
