@@ -143,21 +143,6 @@ func TestReachability(t *testing.T) {
 						}
 						return true
 					},
-					onRun: func(ctx framework.TestContext, src echo.Instance, opts echo.CallOptions) {
-						// The native implementation has some limitations that we need to account for.
-						ctx.Environment().Case(environment.Native, func() {
-							if src == naked && opts.Target == naked {
-								// naked->naked should always work.
-								return
-							}
-
-							switch opts.Scheme {
-							case scheme.WebSocket, scheme.GRPC:
-								// TODO(https://github.com/istio/istio/issues/13754)
-								ctx.Skipf("https://github.com/istio/istio/issues/13754")
-							}
-						})
-					},
 					expectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
 					},
@@ -189,7 +174,7 @@ func TestReachability(t *testing.T) {
 					policyYAML := file.AsStringOrFail(ctx, filepath.Join("testdata", c.configFile))
 					g.ApplyConfigOrFail(ctx, c.namespace, policyYAML)
 					ctx.WhenDone(func() error {
-						return g.DeleteConfig(ctx, c.namespace.Name(), policyYAML)
+						return g.DeleteConfig(c.namespace, policyYAML)
 					})
 
 					// Give some time for the policy propagate.
