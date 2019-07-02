@@ -398,16 +398,28 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 
 				var newSecret *model.SecretItem
 				if strings.HasSuffix(secretName, secretfetcher.IngressGatewaySdsCaSuffix) {
+					certExpireTime, err := parseCertAndGetExpiryTimestamp(ns.RootCert)
+					if err != nil {
+						cacheLog.Warnf("kubernetes secret %v contains a certificate that fails to parse: %v",
+							secretName, err)
+					}
 					newSecret = &model.SecretItem{
 						ResourceName: secretName,
 						RootCert:     ns.RootCert,
+						ExpireTime:   certExpireTime,
 						Token:        oldSecret.Token,
 						CreatedTime:  ns.CreatedTime,
 						Version:      ns.Version,
 					}
 				} else {
+					certExpireTime, err := parseCertAndGetExpiryTimestamp(ns.CertificateChain)
+					if err != nil {
+						cacheLog.Warnf("kubernetes secret %v contains a certificate that fails to parse: %v",
+							secretName, err)
+					}
 					newSecret = &model.SecretItem{
 						CertificateChain: ns.CertificateChain,
+						ExpireTime:       certExpireTime,
 						PrivateKey:       ns.PrivateKey,
 						ResourceName:     secretName,
 						Token:            oldSecret.Token,
