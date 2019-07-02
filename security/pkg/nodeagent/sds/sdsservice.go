@@ -369,6 +369,9 @@ func NotifyProxy(conID, resourceName string, secret *model.SecretItem) error {
 	conn.secret = secret
 	conn.mutex.Unlock()
 
+	sdsServiceLog.Infof("***************get called to push\nkey: %v \nsecret: %v",
+		key, secret)
+
 	conn.pushChannel <- &sdsEvent{}
 	return nil
 }
