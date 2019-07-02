@@ -24,7 +24,8 @@ type SecretItem struct {
 
 	RootCert []byte
 
-	// Certificate Revocation List used by envoy when the RootCert is provided
+	// Certificate Revocation List (CRL) used by envoy when the RootCert is provided.
+	// When a RootCert is not provided we aren't using MTLS so a CRL cannot be used.
 	CertificateRevocationList []byte
 
 	// ResourceName passed from envoy SDS discovery request.
