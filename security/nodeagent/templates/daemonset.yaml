@@ -44,6 +44,10 @@ spec:
           {{- end }}
             - name: "Trust_Domain"
               value: "{{ .Values.global.trustDomain }}"
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
       volumes:
         - name: sdsudspath
           hostPath:
