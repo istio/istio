@@ -75,7 +75,7 @@ type Container struct {
 
 // NewContainer creates and starts a new Container instance.
 func NewContainer(dockerClient *client.Client, config ContainerConfig) (*Container, error) {
-	if config.Network != nil {
+	if config.Network == nil {
 		return nil, fmt.Errorf("container must be associated with a network")
 	}
 	networkName := config.Network.Name

@@ -46,10 +46,10 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # generates rules like the following:
 # $(ISTIO_DOCKER)/pilot-agent: $(ISTIO_OUT_LINUX)/pilot-agent | $(ISTIO_DOCKER)
 # 	cp $(ISTIO_OUT_LINUX)/$FILE $(ISTIO_DOCKER)/($FILE)
-DOCKER_FILES_FROM_ISTIO_OUT:=pkg-test-echo-cmd-client pkg-test-echo-cmd-server \
+DOCKER_FILES_FROM_ISTIO_OUT_LINUX:=pkg-test-echo-cmd-client pkg-test-echo-cmd-server \
                              pilot-discovery pilot-agent sidecar-injector mixs mixgen \
                              istio_ca node_agent node_agent_k8s galley istio-iptables
-$(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
+$(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT_LINUX), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT_LINUX)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT_LINUX)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
 # rule for the test certs.
@@ -176,12 +176,13 @@ docker.app_sidecar: tools/packaging/common/istio-start.sh
 docker.app_sidecar: tools/packaging/common/istio-node-agent-start.sh
 docker.app_sidecar: tools/packaging/deb/postinst.sh
 docker.app_sidecar: pkg/test/echo/docker/echo-start.sh
+docker.app_sidecar: $(ISTIO_DOCKER)/ca-certificates.tgz
 docker.app_sidecar: $(ISTIO_DOCKER)/certs
 docker.app_sidecar: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
-docker.app_sidecar: $(ISTIO_OUT)/pilot-agent
-docker.app_sidecar: $(ISTIO_OUT)/node_agent
-docker.app_sidecar: $(ISTIO_OUT)/pkg-test-echo-cmd-client
-docker.app_sidecar: $(ISTIO_OUT)/pkg-test-echo-cmd-server
+docker.app_sidecar: $(ISTIO_OUT_LINUX)/pilot-agent
+docker.app_sidecar: $(ISTIO_OUT_LINUX)/node_agent
+docker.app_sidecar: $(ISTIO_OUT_LINUX)/pkg-test-echo-cmd-client
+docker.app_sidecar: $(ISTIO_OUT_LINUX)/pkg-test-echo-cmd-server
 docker.app_sidecar: pkg/test/echo/docker/Dockerfile.app_sidecar
 docker.app_sidecar: pilot/docker/envoy_pilot.yaml.tmpl
 docker.app_sidecar: pilot/docker/envoy_policy.yaml.tmpl
