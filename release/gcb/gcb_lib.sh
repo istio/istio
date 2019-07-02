@@ -151,9 +151,6 @@ fix_values_yaml() {
 }
 
 function update_helm() {
-  if [ -z "${LOCAL_BUILD+x}" ]; then
-    gsutil -q cp "gs://${CB_GCS_BUILD_PATH}/${tarball_name}" .
-  fi
   local tarball_name="$1"
   local VERSION="$2"
   local DOCKER_HUB="$3"
@@ -164,7 +161,9 @@ function update_helm() {
     local unzip_cmd="tar -zxf"
     local zip_cmd="tar -zcf"
   fi
-
+  if [ -z "${LOCAL_BUILD+x}" ]; then
+    gsutil -q cp "gs://${CB_GCS_BUILD_PATH}/${tarball_name}" .
+  fi
   eval    "$unzip_cmd"     "${tarball_name}"
   rm                       "${tarball_name}"
   # Update version string in yaml files.
