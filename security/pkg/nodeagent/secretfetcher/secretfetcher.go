@@ -274,10 +274,10 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 	sf.secrets.Delete(rootCertResourceName)
 	if len(newCertAndKey.root) > 0 {
 		nsRoot := &model.SecretItem{
-			ResourceName:              rootCertResourceName,
-			RootCert:                  newCertAndKey.root,
-			CreatedTime:               t,
-			Version:                   t.String(),
+			ResourceName: rootCertResourceName,
+			RootCert:     newCertAndKey.root,
+			CreatedTime:  t,
+			Version:      t.String(),
 		}
 		if len(newCertAndKey.crl) > 0 {
 			nsRoot.CertificateRevocationList = newCertAndKey.crl
@@ -371,10 +371,10 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	sf.secrets.Delete(rootCertResourceName)
 	if len(newCertAndKey.root) > 0 {
 		nsRoot := &model.SecretItem{
-			ResourceName:              rootCertResourceName,
-			RootCert:                  newCertAndKey.root,
-			CreatedTime:               t,
-			Version:                   t.String(),
+			ResourceName: rootCertResourceName,
+			RootCert:     newCertAndKey.root,
+			CreatedTime:  t,
+			Version:      t.String(),
 		}
 		if len(newCertAndKey.crl) > 0 {
 			nsRoot.CertificateRevocationList = newCertAndKey.crl
