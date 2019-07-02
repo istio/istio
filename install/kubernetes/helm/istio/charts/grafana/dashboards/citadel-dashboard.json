@@ -39,8 +39,8 @@
       "description": "CPU usage across Citadel instances.",
       "fill": 1,
       "gridPos": {
-        "h": 7,
-        "w": 5,
+        "h": 6,
+        "w": 8,
         "x": 0,
         "y": 1
       },
@@ -130,96 +130,12 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "fill": 1,
-      "gridPos": {
-        "h": 7,
-        "w": 5,
-        "x": 5,
-        "y": 1
-      },
-      "id": 14,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "go_goroutines{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Goroutines",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Goroutines",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
       "description": "Citadel process memory statistics.",
       "fill": 1,
       "gridPos": {
-        "h": 7,
-        "w": 5,
-        "x": 10,
+        "h": 6,
+        "w": 8,
+        "x": 8,
         "y": 1
       },
       "id": 12,
@@ -323,12 +239,96 @@
       }
     },
     {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "fill": 1,
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 1
+      },
+      "id": 14,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "go_goroutines{job=\"citadel\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Goroutines",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Goroutines",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 7
       },
       "id": 28,
       "panels": [],
@@ -343,10 +343,10 @@
       "description": "Total number of CSR requests made to Citadel.",
       "fill": 1,
       "gridPos": {
-        "h": 6,
-        "w": 5,
+        "h": 5,
+        "w": 12,
         "x": 0,
-        "y": 9
+        "y": 8
       },
       "id": 30,
       "legend": {
@@ -428,10 +428,10 @@
       "description": "The number of certificates issuances that have succeeded.",
       "fill": 1,
       "gridPos": {
-        "h": 6,
-        "w": 5,
-        "x": 5,
-        "y": 9
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 8
       },
       "id": 32,
       "legend": {
@@ -511,7 +511,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 15
+        "y": 13
       },
       "id": 23,
       "panels": [],
@@ -526,10 +526,10 @@
       "description": "The number of errors occurred when creating the CSR.",
       "fill": 1,
       "gridPos": {
-        "h": 6,
-        "w": 5,
+        "h": 5,
+        "w": 8,
         "x": 0,
-        "y": 16
+        "y": 14
       },
       "id": 20,
       "legend": {
@@ -612,10 +612,10 @@
       "dashes": false,
       "fill": 1,
       "gridPos": {
-        "h": 6,
-        "w": 5,
-        "x": 5,
-        "y": 16
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 14
       },
       "id": 24,
       "legend": {
@@ -641,7 +641,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "citadel_server_csr_parsing_err_count{job=\"citadel\"}\t",
+          "expr": "citadel_server_csr_parsing_err_count{job=\"citadel\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "CSR Parse Error Count",
@@ -697,10 +697,10 @@
       "description": "The number of authentication failures.",
       "fill": 1,
       "gridPos": {
-        "h": 6,
-        "w": 5,
-        "x": 10,
-        "y": 16
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 14
       },
       "id": 26,
       "legend": {
@@ -780,7 +780,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 22
+        "y": 19
       },
       "id": 4,
       "panels": [],
@@ -795,10 +795,10 @@
       "description": "The number of certificates created due to service account creation.",
       "fill": 1,
       "gridPos": {
-        "h": 6,
-        "w": 5,
+        "h": 5,
+        "w": 8,
         "x": 0,
-        "y": 23
+        "y": 20
       },
       "id": 2,
       "legend": {
@@ -878,15 +878,15 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "description": "The number of certificates recreated due to secret deletion (service account still exists).",
+      "description": "The number of certificates deleted due to service account deletion.",
       "fill": 1,
       "gridPos": {
-        "h": 6,
-        "w": 5,
-        "x": 5,
-        "y": 23
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 20
       },
-      "id": 6,
+      "id": 16,
       "legend": {
         "avg": false,
         "current": false,
@@ -910,10 +910,10 @@
       "steppedLine": true,
       "targets": [
         {
-          "expr": "citadel_secret_controller_secret_deleted_cert_count{job=\"citadel\"}",
+          "expr": "citadel_secret_controller_svc_acc_deleted_cert_count{job=\"citadel\"}",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "SA Secrets Recreated",
+          "legendFormat": "SA Secrets Deleted",
           "refId": "A"
         }
       ],
@@ -921,7 +921,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Service Account Secrets Recreated (due to errant deletion)",
+      "title": "Service Account Secrets Deleted (due to SA deletion)",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -964,15 +964,15 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "description": "The number of certificates deleted due to service account deletion.",
+      "description": "The number of certificates recreated due to secret deletion (service account still exists).",
       "fill": 1,
       "gridPos": {
-        "h": 6,
-        "w": 5,
-        "x": 10,
-        "y": 23
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 20
       },
-      "id": 16,
+      "id": 6,
       "legend": {
         "avg": false,
         "current": false,
@@ -996,10 +996,10 @@
       "steppedLine": true,
       "targets": [
         {
-          "expr": "citadel_secret_controller_svc_acc_deleted_cert_count{job=\"citadel\"}",
+          "expr": "citadel_secret_controller_secret_deleted_cert_count{job=\"citadel\"}",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "SA Secrets Deleted",
+          "legendFormat": "SA Secrets Recreated",
           "refId": "A"
         }
       ],
@@ -1007,7 +1007,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Service Account Secrets Deleted (due to SA deletion)",
+      "title": "Service Account Secrets Recreated (due to errant deletion)",
       "tooltip": {
         "shared": true,
         "sort": 0,
