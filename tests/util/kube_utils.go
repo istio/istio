@@ -195,7 +195,7 @@ func KubeGetYaml(namespace, resource, name string, kubeconfig string) (string, e
 	if namespace == "" {
 		namespace = "default"
 	}
-	cmd := fmt.Sprintf("kubectl get %s %s -n %s -o yaml --kubeconfig=%s --export", resource, name, namespace, kubeconfig)
+	cmd := fmt.Sprintf("kubectl get %s %s -n %s -o yaml --kubeconfig=%s", resource, name, namespace, kubeconfig)
 
 	return Shell(cmd)
 }
