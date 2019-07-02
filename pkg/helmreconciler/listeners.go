@@ -419,7 +419,7 @@ func (l *DefaultRenderingListener) EndReconcile(instance runtime.Object, err err
 // rendered resources.
 // pruneDetails are the PruningDetails (owner labels and owner annotations) to be applied to the resources
 func NewPruningMarkingsDecorator(pruneDetails PruningDetails) RenderingListener {
-	return &pruningMarkingsDecorator{DefaultRenderingListener: &DefaultRenderingListener{}}
+	return &pruningMarkingsDecorator{DefaultRenderingListener: &DefaultRenderingListener{}, pruningDetails: pruneDetails}
 }
 
 type pruningMarkingsDecorator struct {
