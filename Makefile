@@ -443,8 +443,9 @@ citadel: istio_ca
 pilot: pilot-discovery
 
 .PHONY: istio-iptables
-istio-iptables:
-	bin/gobuild.sh ${ISTIO_OUT}/$@ ./tools/istio-iptables
+istio-iptables: ${ISTIO_OUT}/istio-iptables
+${ISTIO_OUT}/istio-iptables:
+	bin/gobuild.sh $@ ./tools/istio-iptables
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
