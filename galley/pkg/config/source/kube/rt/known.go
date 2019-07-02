@@ -41,7 +41,7 @@ func (p *Provider) initKnownAdapters() {
 				if obj, ok := o.(*v1.Service); ok {
 					return &obj.Spec, nil
 				}
-				return nil, fmt.Errorf("unable to convert to v1.Service: %v", reflect.TypeOf(o))
+				return nil, fmt.Errorf("unable to convert to v1.Service: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
 				informer, err := p.sharedInformerFactory()
@@ -68,7 +68,7 @@ func (p *Provider) initKnownAdapters() {
 				if obj, ok := o.(*v1.Namespace); ok {
 					return &obj.Spec, nil
 				}
-				return nil, fmt.Errorf("unable to convert to v1.Namespace: %v", reflect.TypeOf(o))
+				return nil, fmt.Errorf("unable to convert to v1.Namespace: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
 				informer, err := p.sharedInformerFactory()
@@ -95,7 +95,7 @@ func (p *Provider) initKnownAdapters() {
 				if obj, ok := o.(*v1.Node); ok {
 					return &obj.Spec, nil
 				}
-				return nil, fmt.Errorf("unable to convert to v1.Node: %v", reflect.TypeOf(o))
+				return nil, fmt.Errorf("unable to convert to v1.Node: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
 				informer, err := p.sharedInformerFactory()
@@ -122,7 +122,7 @@ func (p *Provider) initKnownAdapters() {
 				if obj, ok := o.(*v1.Pod); ok {
 					return obj, nil
 				}
-				return nil, fmt.Errorf("unable to convert to v1.Pod: %v", reflect.TypeOf(o))
+				return nil, fmt.Errorf("unable to convert to v1.Pod: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
 				informer, err := p.sharedInformerFactory()
@@ -150,7 +150,7 @@ func (p *Provider) initKnownAdapters() {
 				if obj, ok := o.(*v1.Endpoints); ok {
 					return obj, nil
 				}
-				return nil, fmt.Errorf("unable to convert to v1.Endpoints: %v", reflect.TypeOf(o))
+				return nil, fmt.Errorf("unable to convert to v1.Endpoints: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
 				informer, err := p.sharedInformerFactory()
@@ -171,9 +171,8 @@ func (p *Provider) initKnownAdapters() {
 				r1, ok1 := o1.(*v1.Endpoints)
 				r2, ok2 := o2.(*v1.Endpoints)
 				if !ok1 || !ok2 {
-					msg := fmt.Sprintf("error decoding kube endpoints during update, o1 type: %v, o2 type: %v",
-						reflect.TypeOf(o1),
-						reflect.TypeOf(o2))
+					msg := fmt.Sprintf("error decoding kube endpoints during update, o1 type: %T, o2 type: %T",
+						o1, o2)
 					scope.Error(msg)
 					stats.RecordEventError(msg)
 					return false
@@ -190,7 +189,7 @@ func (p *Provider) initKnownAdapters() {
 				if obj, ok := o.(*v1beta1.Ingress); ok {
 					return &obj.Spec, nil
 				}
-				return nil, fmt.Errorf("unable to convert to v1beta1.Ingress: %v", reflect.TypeOf(o))
+				return nil, fmt.Errorf("unable to convert to v1beta1.Ingress: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
 				informer, err := p.sharedInformerFactory()

@@ -107,7 +107,6 @@ func (w *Worker) Stop() {
 		w.stateLock.Unlock()
 		return
 	}
-	w.started = false
 	w.stopped = true
 	w.stateLock.Unlock()
 
