@@ -45,6 +45,9 @@ type IstioRenderingListener struct {
 	*helmreconciler.CompositeRenderingListener
 }
 
+var _ helmreconciler.RenderingListener = &IstioRenderingListener{}
+var _ helmreconciler.ReconcilerListener = &IstioRenderingListener{}
+
 // NewIstioRenderingListener returns a new IstioRenderingListener, which is a composite that includes IstioStatusUpdater
 // and IstioChartCustomizerListener.
 func NewIstioRenderingListener(instance *v1alpha1.IstioControlPlane) *IstioRenderingListener {
@@ -135,6 +138,7 @@ type IstioChartCustomizerListener struct {
 }
 
 var _ helmreconciler.RenderingListener = &IstioChartCustomizerListener{}
+var _ helmreconciler.ReconcilerListener = &IstioChartCustomizerListener{}
 
 // NewChartCustomizerListener returns a new IstioChartCustomizerListener
 func NewChartCustomizerListener() *IstioChartCustomizerListener {
@@ -149,6 +153,8 @@ func NewChartCustomizerListener() *IstioChartCustomizerListener {
 type IstioChartCustomizerFactory struct {
 	*helmreconciler.DefaultChartCustomizerFactory
 }
+
+var _ helmreconciler.ChartCustomizerFactory = &IstioChartCustomizerFactory{}
 
 // NewChartCustomizer returns a new ChartCustomizer for the specific chart.
 // Currently, an IstioDefaultChartCustomizer is returned for all charts except: kiali
@@ -178,11 +184,11 @@ func NewIstioDefaultChartCustomizer(chartName, chartAnnotationKey string) *Istio
 // EndChart waits for any deployments or stateful sets that were created to become ready
 func (c *IstioDefaultChartCustomizer) EndChart(chartName string) error {
 	// ignore any errors.  things should settle out
-	c.waitForDeployments()
+	c.waitForResources()
 	return nil
 }
 
-func (c *IstioDefaultChartCustomizer) waitForDeployments() {
+func (c *IstioDefaultChartCustomizer) waitForResources() {
 	if statefulSets, ok := c.NewResourcesByKind["StatefulSet"]; ok {
 		for _, statefulSet := range statefulSets {
 			c.waitForDeployment(statefulSet)
@@ -191,6 +197,59 @@ func (c *IstioDefaultChartCustomizer) waitForDeployments() {
 	if deployments, ok := c.NewResourcesByKind["Deployment"]; ok {
 		for _, deployment := range deployments {
 			c.waitForDeployment(deployment)
+		}
+	}
+	if daemonSets, ok := c.NewResourcesByKind["DaemonSet"]; ok {
+		for _, daemonSet := range daemonSets {
+			c.waitForDeployment(daemonSet)
+		}
+	}
+	if services, ok := c.NewResourcesByKind["Service"]; ok {
+		for _, service := range services {
+			c.waitForService(service)
+		}
+	}
+}
+
+func (c *IstioDefaultChartCustomizer) serviceReady(svc *corev1.Service) bool {
+	// ExternalName Services are external to cluster so they should not be checked
+	if svc.Spec.Type == corev1.ServiceTypeExternalName {
+		return true
+	}
+	// Check if services except the headless services have the IP set
+	if svc.Spec.ClusterIP != corev1.ClusterIPNone && svc.Spec.ClusterIP == "" {
+		c.Reconciler.GetLogger().Info(fmt.Sprintf("Service is not ready: %s/%s", svc.GetNamespace(), svc.GetName()))
+		return false
+	}
+	// Check if the service has a LoadBalancer with an Ingress ready
+	if svc.Spec.Type == corev1.ServiceTypeLoadBalancer && svc.Status.LoadBalancer.Ingress == nil {
+		c.Reconciler.GetLogger().Info(fmt.Sprintf("Service is not ready: %s/%s", svc.GetNamespace(), svc.GetName()))
+		return false
+	}
+	return true
+}
+
+func (c *IstioDefaultChartCustomizer) waitForService(object runtime.Object) {
+	logger := c.Reconciler.GetLogger()
+	gvk := object.GetObjectKind().GroupVersionKind()
+	objectAccessor, err := meta.Accessor(object)
+	if err != nil {
+		logger.Error(err, fmt.Sprintf("could not get object accessor for %s", gvk.Kind))
+		return
+	}
+	name := objectAccessor.GetName()
+	service, ok := object.(*corev1.Service)
+	if ok {
+		logger.Info("waiting for service to become ready", name)
+		err = wait.ExponentialBackoff(wait.Backoff{
+			Duration: finalizerRemovalBackoffDuration,
+			Steps:    finalizerRemovalBackoffSteps,
+			Factor:   finalizerRemovalBackoffFactor,
+		}, func() (bool, error) {
+			return c.serviceReady(service), nil
+		})
+		if err != nil {
+			logger.Error(nil, "service failed to become ready in a timely manner", name)
 		}
 	}
 }
