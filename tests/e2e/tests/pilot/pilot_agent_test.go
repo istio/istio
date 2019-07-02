@@ -16,6 +16,10 @@ package pilot
 
 import (
 	"testing"
+	"time"
+
+	"istio.io/istio/tests/e2e/framework"
+	"istio.io/istio/tests/util"
 )
 
 func TestJobComplete(t *testing.T) {
@@ -25,5 +29,25 @@ func TestJobComplete(t *testing.T) {
 		if err := tc.Kube.CheckJobSucceeded(cluster, jobName); err != nil {
 			t.Errorf("Job %s not completed successfully", jobName)
 		}
+	}
+}
+
+func TestRestartEnvoy(t *testing.T) {
+	podName := "a"
+
+	kubeconfig := tc.Kube.Clusters[framework.PrimaryCluster]
+	ns := tc.Kube.Namespace
+
+	_, err := util.Shell("kubectl -n %s exec %s -c istio-proxy --kubeconfig=%s -- pkill envoy", ns, podName, kubeconfig)
+	if err != nil {
+		t.Errorf("failed kill envoy: %v", err)
+	}
+
+	// restart has a backoff retry
+	time.Sleep(1 * time.Second)
+
+	_, err = util.Shell("kubectl -n %s exec %s -c istio-proxy --kubeconfig=%s -- pidof envoy", ns, podName, kubeconfig)
+	if err != nil {
+		t.Errorf("envoy process not found: %v", err)
 	}
 }

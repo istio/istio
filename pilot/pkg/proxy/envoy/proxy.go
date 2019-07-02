@@ -151,7 +151,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 		e.processNum.Dec()
 		if err == nil {
 			if e.processNum.Load() == 0 {
-				err = fmt.Errorf("envoy process is killed, maybe by SIGTERM")
+				err = fmt.Errorf("envoy process is killed, maybe by SIGTERM from outside")
 			}
 		}
 		done <- err
