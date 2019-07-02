@@ -176,7 +176,7 @@ func newServer(a *settings.Args, p patchTable) (*Server, error) {
 		}),
 		// Relax keepalive enforcement policy requirements to avoid dropping connections due to too many pings.
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
-			MinTime:             time.Minute,
+			MinTime:             30 * time.Second,
 			PermitWithoutStream: true,
 		}),
 	)
