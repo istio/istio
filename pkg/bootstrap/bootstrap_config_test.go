@@ -623,6 +623,8 @@ func TestNodeMetadata(t *testing.T) {
 		"istio.io/metadata": istioMetadata{
 			Labels: labels,
 		},
+		"l1": "v1",
+		"l2": "v2",
 	}
 
 	_, envs := createEnv(t, labels, nil)

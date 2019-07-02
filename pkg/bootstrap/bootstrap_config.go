@@ -236,18 +236,20 @@ func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[str
 }
 
 type istioMetadata struct {
-	CanonicalService string            `json:"canonical_service,omitempty"`
-	IP               string            `json:"ip,omitempty"`
-	Labels           map[string]string `json:"labels,omitempty"`
-	Name             string            `json:"name,omitempty"`
-	Namespace        string            `json:"namespace,omitempty"`
-	ServiceAccount   string            `json:"service_account,omitempty"`
+	CanonicalTelemetryService string            `json:"canonical_telemetry_service,omitempty"`
+	IP                        string            `json:"ip,omitempty"`
+	Labels                    map[string]string `json:"labels,omitempty"`
+	Name                      string            `json:"name,omitempty"`
+	Namespace                 string            `json:"namespace,omitempty"`
+	ServiceAccount            string            `json:"service_account,omitempty"`
 }
 
 func shouldExtract(envVar, prefix string) bool {
-	if strings.HasPrefix(envVar, "ISTIO_METAJSON_LABELS") {
-		return false
-	}
+	// this will allow transition from current method of exposition in the future
+	// Example:
+	// if strings.HasPrefix(envVar, "ISTIO_METAJSON_LABELS") {
+	// 	return false
+	// }
 	return strings.HasPrefix(envVar, prefix)
 }
 
@@ -281,8 +283,8 @@ func extractIstioMetadata(envVars []string) istioMetadata {
 		case "ISTIO_METAJSON_LABELS":
 			m := jsonStringToMap(val)
 			im.Labels = m
-			if svc, found := m["istioService"]; found {
-				im.CanonicalService = svc
+			if svc, found := m["istioTelemetryService"]; found {
+				im.CanonicalTelemetryService = svc
 			}
 		case "POD_NAME":
 			im.Name = val
