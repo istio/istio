@@ -46,7 +46,7 @@ function setup_and_export_git_sha() {
     # Use the current commit.
     GIT_SHA="$(git rev-parse --verify HEAD)"
     export GIT_SHA
-    export ARTIFACTS_DIR="${ARTIFACTS_DIR:-`mktemp -d`}"
+    export ARTIFACTS_DIR="${ARTIFACTS_DIR:-$(mktemp -d)}"
   fi
   GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
   export GIT_BRANCH
