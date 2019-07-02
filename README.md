@@ -7,6 +7,8 @@
 
 # Istio
 
+DNM: test of commit: 8d263a7e07347c389b834bee82ad4bf8d31864d8
+
 An open platform to connect, manage, and secure microservices.
 
 - For in-depth information about how to use Istio, visit [istio.io](https://istio.io)                                   
