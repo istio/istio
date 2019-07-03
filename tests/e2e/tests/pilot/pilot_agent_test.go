@@ -33,20 +33,29 @@ func TestJobComplete(t *testing.T) {
 }
 
 func TestRestartEnvoy(t *testing.T) {
-	podName := "a"
+	app := "a"
 
 	kubeconfig := tc.Kube.Clusters[framework.PrimaryCluster]
 	ns := tc.Kube.Namespace
 
-	_, err := util.Shell("kubectl -n %s exec %s -c istio-proxy --kubeconfig=%s -- pkill envoy", ns, podName, kubeconfig)
+	pods := tc.Kube.GetAppPods(framework.PrimaryCluster)[app]
+	if len(pods) == 0 {
+		t.Errorf("Missing pod names for app %q from %s cluster", app, framework.PrimaryCluster)
+		return
+	}
+
+	pod := pods[0]
+
+	_, err := util.Shell("kubectl -n %s exec %s -c istio-proxy --kubeconfig=%s -- pkill envoy", ns, pod, kubeconfig)
 	if err != nil {
 		t.Errorf("failed kill envoy: %v", err)
+		return
 	}
 
 	// restart has a backoff retry
 	time.Sleep(1 * time.Second)
 
-	_, err = util.Shell("kubectl -n %s exec %s -c istio-proxy --kubeconfig=%s -- pidof envoy", ns, podName, kubeconfig)
+	_, err = util.Shell("kubectl -n %s exec %s -c istio-proxy --kubeconfig=%s -- pidof envoy", ns, pod, kubeconfig)
 	if err != nil {
 		t.Errorf("envoy process not found: %v", err)
 	}
