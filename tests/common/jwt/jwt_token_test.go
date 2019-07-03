@@ -55,9 +55,9 @@ func TestSampleJwtToken(t *testing.T) {
 			token: TokenIssuer1,
 			wantClaims: map[string]interface{}{
 				"groups": []interface{}{"group-1"},
-				"iss":   "test-issuer-1@istio.io",
-				"sub":   "sub-1",
-				"exp":   4715782722.0,
+				"iss":    "test-issuer-1@istio.io",
+				"sub":    "sub-1",
+				"exp":    4715782722.0,
 			},
 		},
 		{
@@ -65,9 +65,9 @@ func TestSampleJwtToken(t *testing.T) {
 			token: TokenIssuer2,
 			wantClaims: map[string]interface{}{
 				"groups": []interface{}{"group-2"},
-				"iss":   "test-issuer-2@istio.io",
-				"sub":   "sub-2",
-				"exp":   4715782783.0,
+				"iss":    "test-issuer-2@istio.io",
+				"sub":    "sub-2",
+				"exp":    4715782783.0,
 			},
 		},
 		{
@@ -75,9 +75,9 @@ func TestSampleJwtToken(t *testing.T) {
 			token: TokenExpired,
 			wantClaims: map[string]interface{}{
 				"groups": []interface{}{"group-1"},
-				"iss":   "test-issuer-1@istio.io",
-				"sub":   "sub-1",
-				"exp":   1562182856.0,
+				"iss":    "test-issuer-1@istio.io",
+				"sub":    "sub-1",
+				"exp":    1562182856.0,
 			},
 		},
 		{
