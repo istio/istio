@@ -34,6 +34,7 @@ import (
 	ca "istio.io/istio/security/pkg/nodeagent/caclient"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	"istio.io/istio/security/pkg/nodeagent/model"
+	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -235,9 +236,15 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 	}
 	// If there is secret with the same resource name, delete that secret now.
 	sf.secrets.Delete(resourceName)
+	certExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(newCert)
+	if err != nil {
+		secretFetcherLog.Warnf("kubernetes secret %v contains a server certificate that fails " +
+			"to parse: %v", resourceName, err)
+	}
 	ns := &model.SecretItem{
 		ResourceName:     resourceName,
 		CertificateChain: newCert,
+		ExpireTime:       certExpireTime,
 		PrivateKey:       newKey,
 		CreatedTime:      t,
 		Version:          t.String(),
@@ -252,9 +259,15 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 	// If there is root cert secret with the same resource name, delete that secret now.
 	sf.secrets.Delete(rootCertResourceName)
 	if len(newRoot) > 0 {
+		certExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(newRoot)
+		if err != nil {
+			secretFetcherLog.Warnf("kubernetes secret %v contains a root certificate that fails " +
+				"to parse: %v", resourceName, err)
+		}
 		nsRoot := &model.SecretItem{
 			ResourceName: rootCertResourceName,
 			RootCert:     newRoot,
+			ExpireTime:   certExpireTime,
 			CreatedTime:  t,
 			Version:      t.String(),
 		}

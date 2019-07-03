@@ -15,32 +15,12 @@
 package cache
 
 import (
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
-	"strings"
-	"time"
-
 	"google.golang.org/grpc/codes"
+	"strings"
 )
-
-// parseCertAndGetExpiryTimestamp parses certificate and returns cert expire time, or return error
-// if fails to parse certificate.
-func parseCertAndGetExpiryTimestamp(certByte []byte) (time.Time, error) {
-	block, _ := pem.Decode(certByte)
-	if block == nil {
-		cacheLog.Errorf("Failed to decode certificate")
-		return time.Time{}, fmt.Errorf("failed to decode certificate")
-	}
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		cacheLog.Errorf("Failed to parse certificate: %v", err)
-		return time.Time{}, fmt.Errorf("failed to parse certificate: %v", err)
-	}
-	return cert.NotAfter, nil
-}
 
 func constructCSRHostName(trustDomain, token string) (string, error) {
 	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep,
