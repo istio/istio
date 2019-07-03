@@ -28,9 +28,11 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	protobuf "github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	istio_jwt "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
