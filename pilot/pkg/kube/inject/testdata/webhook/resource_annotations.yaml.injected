@@ -55,6 +55,10 @@ spec:
         - NONE
         - --statusPort
         - "15020"
+        - --adminPort
+        - "15021"
+        - --adminPort
+        - "15021"
         - --applicationPorts
         - "80"
         - --concurrency

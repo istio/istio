@@ -202,6 +202,10 @@ global:
     # Default port for Pilot agent health checks. A value of 0 will disable health checking.
     statusPort: 15020
 
+    # Default port for Pilot agent administrative command handling. A value of 0 will disable providing admin interface.
+    # Note: it is exposed only on localhost for security.
+    adminPort: 15021
+
     # The initial delay for readiness probes in seconds.
     readinessInitialDelaySeconds: 1
 

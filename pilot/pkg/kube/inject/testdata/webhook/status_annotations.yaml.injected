@@ -58,6 +58,8 @@ spec:
         - NONE
         - --statusPort
         - "123"
+        - --adminPort
+        - "15021"
         - --applicationPorts
         - 1,2,3
         - --concurrency

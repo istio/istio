@@ -77,6 +77,8 @@ items:
           - NONE
           - --statusPort
           - "15020"
+          - --adminPort
+          - "15021"
           - --applicationPorts
           - ""
           - --concurrency

@@ -79,7 +79,8 @@ var (
 		annotations.Register("sidecar.istio.io/statsInclusionRegexps", "").Name:                alwaysValidFunc,
 		annotations.Register("sidecar.istio.io/userVolume", "").Name:                           alwaysValidFunc,
 		annotations.Register("sidecar.istio.io/userVolumeMount", "").Name:                      alwaysValidFunc,
-		annotations.Register("status.sidecar.istio.io/port", "").Name:                          validateStatusPort,
+		annotations.Register("status.sidecar.istio.io/port", "").Name:                          validatePort,
+		annotations.Register("admin.sidecar.istio.io/port", "").Name:                           validatePort,
 		annotations.Register("readiness.status.sidecar.istio.io/initialDelaySeconds", "").Name: validateUInt32,
 		annotations.Register("readiness.status.sidecar.istio.io/periodSeconds", "").Name:       validateUInt32,
 		annotations.Register("readiness.status.sidecar.istio.io/failureThreshold", "").Name:    validateUInt32,
@@ -399,10 +400,10 @@ func ValidateExcludeOutboundPorts(ports string) error {
 	return validatePortList("excludeOutboundPorts", ports)
 }
 
-// validateStatusPort validates the statusPort parameter
-func validateStatusPort(port string) error {
+// validatePort validates the statusPort parameter
+func validatePort(port string) error {
 	if _, e := parsePort(port); e != nil {
-		return fmt.Errorf("excludeInboundPorts invalid: %v", e)
+		return fmt.Errorf("port invalid: %v", e)
 	}
 	return nil
 }
@@ -923,9 +924,13 @@ func annotation(meta metav1.ObjectMeta, name string, defaultValue interface{}) s
 	return value
 }
 
-func excludeInboundPort(port interface{}, excludedInboundPorts string) string {
-	portStr := strings.TrimSpace(fmt.Sprint(port))
-	if len(portStr) == 0 || portStr == "0" {
+func excludeInboundPort(port1 interface{}, port2 interface{}, excludedInboundPorts string) string {
+	portStr1 := strings.TrimSpace(fmt.Sprint(port1))
+	portStr2 := strings.TrimSpace(fmt.Sprint(port2))
+
+	port1Empty := len(portStr1) == 0 || portStr1 == "0"
+	port2Empty := len(portStr2) == 0 || portStr2 == "0"
+	if port1Empty && port2Empty {
 		// Nothing to do.
 		return excludedInboundPorts
 	}
@@ -934,18 +939,26 @@ func excludeInboundPort(port interface{}, excludedInboundPorts string) string {
 	ports := splitPorts(excludedInboundPorts)
 	outPorts := make([]string, 0, len(ports))
 	for _, port := range ports {
-		if port == portStr {
-			// The port is already excluded.
-			return excludedInboundPorts
-		}
 		port = strings.TrimSpace(port)
-		if len(port) > 0 {
+		if len(port) > 0 && port != "0" {
+			// The port is already excluded.
+			if port == portStr1 {
+				continue
+			}
+			if port == portStr2 {
+				continue
+			}
 			outPorts = append(outPorts, port)
 		}
 	}
 
 	// The port was not already excluded - exclude it now.
-	outPorts = append(outPorts, portStr)
+	if !port1Empty {
+		outPorts = append(outPorts, portStr1)
+	}
+	if !port2Empty {
+		outPorts = append(outPorts, portStr2)
+	}
 	return strings.Join(outPorts, ",")
 }
 
