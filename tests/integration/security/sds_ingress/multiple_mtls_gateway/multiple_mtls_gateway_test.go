@@ -48,11 +48,14 @@ func testMultiMtlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:
 	ingressutil.DeployBookinfo(t, ctx, g, ingressutil.MultiMTLSGateway)
 
 	ingressutil.CreateIngressKubeSecret(t, ctx, credNames, ingress.Mtls, ingressutil.IngressCredentialA)
-	// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
-	time.Sleep(3 * time.Second)
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{
 		Istio: inst,
 	})
+	// Expect 2 SDS updates for each listener, one for server key/cert, and one for CA cert.
+	err := ingressutil.WaitUntilGatewaySdsStatsGE(t, ing, 2*len(credNames), 10*time.Second)
+	if err != nil {
+		t.Errorf("sds update stats does not match: %v", err)
+	}
 	tlsContext := ingressutil.TLSContext{
 		CaCert:     ingressutil.CaCertA,
 		PrivateKey: ingressutil.TLSClientKeyA,
