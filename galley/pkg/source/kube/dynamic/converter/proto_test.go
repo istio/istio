@@ -57,3 +57,24 @@ func TestToProto_Error(t *testing.T) {
 		t.Fatalf("expected error not found")
 	}
 }
+
+func TestToProto_IgnoreExtraFields(t *testing.T) {
+	spec := map[string]interface{}{
+		"value": 23,
+	}
+
+	b := resource.NewSchemaBuilder()
+	b.Register("foo", "type.googleapis.com/google.protobuf.Empty")
+	s := b.Build()
+	i := s.Get("foo")
+
+	p, err := toProto(i, spec)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var expected = &gogoTypes.Empty{}
+	if !reflect.DeepEqual(p, expected) {
+		t.Fatalf("Mismatch\nExpected:\n%+v\nActual:\n%+v\n", expected, p)
+	}
+}

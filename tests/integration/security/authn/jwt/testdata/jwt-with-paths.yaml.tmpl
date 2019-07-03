@@ -9,8 +9,8 @@ spec:
   - name: b
   origins:
   - jwt:
-      issuer: "testing@secure.istio.io"
-      jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.1/security/tools/jwt/samples/jwks.json"
+      issuer: "test-issuer-1@istio.io"
+      jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
       trigger_rules:
       - excluded_paths:
         - exact: /health_check
@@ -29,8 +29,8 @@ spec:
   - name: c
   origins:
   - jwt:
-      issuer: "testing@secure.istio.io"
-      jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.1/security/tools/jwt/samples/jwks.json"
+      issuer: "test-issuer-1@istio.io"
+      jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
       trigger_rules:
       - included_paths:
         - suffix: confidential
