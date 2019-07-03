@@ -134,6 +134,7 @@ const (
 	DefaultVerbosity                    = 2
 	DefaultImagePullPolicy              = "IfNotPresent"
 	DefaultStatusPort                   = 15020
+	DefaultAdminPort                    = 15021
 	DefaultReadinessInitialDelaySeconds = 1
 	DefaultReadinessPeriodSeconds       = 2
 	DefaultReadinessFailureThreshold    = 30
@@ -219,6 +220,7 @@ type Params struct {
 	SidecarProxyUID              uint64                 `json:"sidecarProxyUID"`
 	Mesh                         *meshconfig.MeshConfig `json:"-"`
 	StatusPort                   int                    `json:"statusPort"`
+	AdminPort                    int                    `json:"adminPort"`
 	ReadinessInitialDelaySeconds uint32                 `json:"readinessInitialDelaySeconds"`
 	ReadinessPeriodSeconds       uint32                 `json:"readinessPeriodSeconds"`
 	ReadinessFailureThreshold    uint32                 `json:"readinessFailureThreshold"`
@@ -254,6 +256,7 @@ func (p *Params) intoHelmValues() map[string]string {
 		"global.proxy.privileged":                    strconv.FormatBool(p.Privileged),
 		"global.imagePullPolicy":                     p.ImagePullPolicy,
 		"global.proxy.statusPort":                    strconv.Itoa(p.StatusPort),
+		"global.proxy.adminPort":                     strconv.Itoa(p.AdminPort),
 		"global.proxy.tracer":                        p.Tracer,
 		"global.proxy.readinessInitialDelaySeconds":  strconv.Itoa(int(p.ReadinessInitialDelaySeconds)),
 		"global.proxy.readinessPeriodSeconds":        strconv.Itoa(int(p.ReadinessPeriodSeconds)),

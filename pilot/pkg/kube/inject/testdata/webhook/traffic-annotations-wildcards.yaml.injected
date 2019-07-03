@@ -133,7 +133,7 @@ spec:
         - -b
         - '*'
         - -d
-        - 4,5,6,15020
+        - 4,5,6,15020,15021
         env:
         - name: INBOUND_CAPTURE_PORT
           value: "15006"

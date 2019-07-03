@@ -17,11 +17,12 @@ package admin
 import (
 	"context"
 	"fmt"
-	"istio.io/pkg/log"
 	"net"
 	"net/http"
 	"os"
 	"syscall"
+
+	"istio.io/pkg/log"
 )
 
 const (
@@ -63,8 +64,6 @@ func (s *Server) Run(ctx context.Context) {
 	go func() {
 		if err := http.Serve(l, mux); err != nil {
 			log.Errora(err)
-			// If the server errors then pilot-agent can never pass readiness or liveness probes
-			// Therefore, trigger graceful termination by sending SIGTERM to the binary pid
 			notifyExit()
 		}
 	}()

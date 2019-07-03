@@ -14,7 +14,7 @@ spec:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
-        traffic.sidecar.istio.io/excludeInboundPorts: 4,5,6,15020
+        traffic.sidecar.istio.io/excludeInboundPorts: 4,5,6,15020,15021
         traffic.sidecar.istio.io/excludeOutboundIPRanges: 10.96.0.2/24,10.96.0.3/24
         traffic.sidecar.istio.io/includeInboundPorts: '*'
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
@@ -138,7 +138,7 @@ spec:
         - -b
         - '*'
         - -d
-        - 4,5,6,15020
+        - 4,5,6,15020,15021
         env:
         - name: INBOUND_CAPTURE_PORT
           value: "15006"

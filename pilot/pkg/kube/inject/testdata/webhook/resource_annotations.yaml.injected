@@ -57,8 +57,6 @@ spec:
         - "15020"
         - --adminPort
         - "15021"
-        - --adminPort
-        - "15021"
         - --applicationPorts
         - "80"
         - --concurrency
@@ -130,7 +128,7 @@ spec:
         - -b
         - "80"
         - -d
-        - "15020"
+        - 15020,15021
         image: gcr.io/istio-release/proxy_init:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init

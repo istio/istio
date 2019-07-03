@@ -127,7 +127,7 @@ spec:
         - -b
         - "80"
         - -d
-        - "15020"
+        - 15020,15021
         image: gcr.io/istio-release/proxy_init:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init
