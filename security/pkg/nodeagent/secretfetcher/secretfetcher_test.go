@@ -113,6 +113,53 @@ var (
 		},
 		Type: "test-tls-secret",
 	}
+
+	k8sKeyE               = []byte("k8sKeyE private fake")
+	k8sCertChainE         = []byte("E chain cert fake")
+	k8sCaCertE            = []byte("E cert root fake")
+	k8sCrlE               = []byte("E certificate revocation list fake")
+	k8sSecretNameE        = "test-scrtE"
+	k8sTestGenericSecretE = &v1.Secret{
+		Data: map[string][]byte{
+			genericScrtCert:   k8sCertChainE,
+			genericScrtKey:    k8sKeyE,
+			genericScrtCaCert: k8sCaCertE,
+			genericScrtCRL:    k8sCrlE,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      k8sSecretNameE,
+			Namespace: "test-namespace",
+		},
+		Type: "test-secret",
+	}
+
+	k8sCrlF = []byte("F certificate revocation list fake")
+	k8sTestGenericSecretF = &v1.Secret{
+		Data: map[string][]byte{
+			genericScrtCert:   k8sCertChainE,
+			genericScrtKey:    k8sKeyE,
+			genericScrtCaCert: k8sCaCertE,
+			genericScrtCRL:    k8sCrlF,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      k8sSecretNameE,
+			Namespace: "test-namespace",
+		},
+		Type: "test-secret",
+	}
+
+	k8sTestGenericSecretG = &v1.Secret{
+		Data: map[string][]byte{
+			genericScrtCert:   k8sCertChainE,
+			genericScrtKey:    k8sKeyE,
+			genericScrtCRL:    k8sCrlE,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      k8sSecretNameE,
+			Namespace: "test-namespace",
+		},
+		Type: "test-secret",
+	}
 )
 
 type expectedSecret struct {
@@ -267,6 +314,89 @@ func TestSecretFetcherInvalidSecret(t *testing.T) {
 	casecret, ok := gSecretFetcher.FindIngressGatewaySecret(k8sSecretNameA + IngressGatewaySdsCaSuffix)
 	if !ok || !bytes.Equal(k8sCaCertB, casecret.RootCert) {
 		t.Errorf("root cert verification error: expected %v but got %v", k8sCaCertB, secret.RootCert)
+	}
+}
+
+// TestSecretFetcherEmptySecret verifies that CRLs are updated and not stored when there is no root CA.
+func TestSecretFetcherCrlSecret(t *testing.T) {
+	gSecretFetcher := &SecretFetcher{
+		UseCaClient: false,
+		DeleteCache: func(secretName string) {},
+		UpdateCache: func(secretName string, ns model.SecretItem) {},
+	}
+	gSecretFetcher.InitWithKubeClient(fake.NewSimpleClientset().CoreV1())
+	if gSecretFetcher.UseCaClient {
+		t.Error("secretFetcher should not use ca client")
+	}
+	ch := make(chan struct{})
+	gSecretFetcher.Run(ch)
+
+	gSecretFetcher.scrtAdded(k8sTestGenericSecretE)
+
+	// Add test secret and verify that CA and CRL are stored.
+	expectedAddedSecrets := []expectedSecret{
+		{
+			exist: true,
+			secret: &model.SecretItem{
+				ResourceName:     k8sSecretNameE,
+				CertificateChain: k8sCertChainE,
+				PrivateKey:       k8sKeyE,
+			},
+		},
+		{
+			exist: true,
+			secret: &model.SecretItem{
+				ResourceName:              k8sSecretNameE + IngressGatewaySdsCaSuffix,
+				RootCert:                  k8sCaCertE,
+				CertificateRevocationList: k8sCrlE,
+			},
+		},
+	}
+	var secretVersionOne string
+	testAddSecret(t, gSecretFetcher, k8sTestGenericSecretE, expectedAddedSecrets, &secretVersionOne)
+
+	// Update test secret and verify CRL has changed.
+	expectedUpdateCRLSecrets := []expectedSecret{
+		{
+			exist: true,
+			secret: &model.SecretItem{
+				ResourceName:     k8sSecretNameE,
+				CertificateChain: k8sCertChainE,
+				PrivateKey:       k8sKeyE,
+			},
+		},
+		{
+			exist: true,
+			secret: &model.SecretItem{
+				ResourceName:              k8sSecretNameE + IngressGatewaySdsCaSuffix,
+				RootCert:                  k8sCaCertE,
+				CertificateRevocationList: k8sCrlF,
+			},
+		},
+	}
+
+	var secretVersionTwo string
+	testUpdateSecret(t, gSecretFetcher, k8sTestGenericSecretE, k8sTestGenericSecretF, expectedUpdateCRLSecrets, &secretVersionTwo)
+	if secretVersionTwo == secretVersionOne {
+		t.Errorf("updated secret should have different version")
+	}
+
+	// Update test secret and verify that CA and CRL are no longer stored.
+	expectedRemovedCASecrets := []expectedSecret{
+		{
+			exist: true,
+			secret: &model.SecretItem{
+				ResourceName:     k8sSecretNameE,
+				CertificateChain: k8sCertChainE,
+				PrivateKey:       k8sKeyE,
+			},
+		},
+	}
+
+	var secretVersionThree string
+	testUpdateSecret(t, gSecretFetcher, k8sTestGenericSecretF, k8sTestGenericSecretG, expectedRemovedCASecrets, &secretVersionThree)
+	if secretVersionTwo == secretVersionOne || secretVersionThree == secretVersionOne {
+		t.Errorf("updated secret should have different version")
 	}
 }
 
