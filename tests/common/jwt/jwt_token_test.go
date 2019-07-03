@@ -17,6 +17,7 @@ package jwt
 import (
 	"encoding/json"
 	"io/ioutil"
+	"reflect"
 	"testing"
 
 	"github.com/lestrrat-go/jwx/jwa"
@@ -53,30 +54,30 @@ func TestSampleJwtToken(t *testing.T) {
 			name:  "TokenIssuer1",
 			token: TokenIssuer1,
 			wantClaims: map[string]interface{}{
-				"group": "group-1",
+				"group": []interface{}{"group-1"},
 				"iss":   "test-issuer-1@istio.io",
 				"sub":   "sub-1",
-				"exp":   4714747295,
+				"exp":   4715722451.0,
 			},
 		},
 		{
 			name:  "TokenIssuer2",
 			token: TokenIssuer2,
 			wantClaims: map[string]interface{}{
-				"group": "group-2",
+				"group": []interface{}{"group-2"},
 				"iss":   "test-issuer-2@istio.io",
 				"sub":   "sub-2",
-				"exp":   4714747389,
+				"exp":   4715722463.0,
 			},
 		},
 		{
 			name:  "TokenExpired",
 			token: TokenExpired,
 			wantClaims: map[string]interface{}{
-				"group": "group-1",
+				"group": []interface{}{"group-1"},
 				"iss":   "test-issuer-1@istio.io",
 				"sub":   "sub-1",
-				"exp":   1561146548,
+				"exp":   1562123706.0,
 			},
 		},
 		{
@@ -106,28 +107,13 @@ func TestSampleJwtToken(t *testing.T) {
 		}
 
 		for k, v := range tc.wantClaims {
-			switch v.(type) {
-			case string:
-				got, ok := claims[k].(string)
-				if ok {
-					if got != v {
-						t.Errorf("%s: claim %q got value %q but want %q", tc.name, k, got, v)
-					}
-				} else {
-					t.Errorf("%s: claim %q got type %T but want string", tc.name, k, claims[k])
+			got, ok := claims[k].(interface{})
+			if ok {
+				if !reflect.DeepEqual(got, v) {
+					t.Errorf("%s: claim %q got value %v but want %v", tc.name, k, got, v)
 				}
-			case int:
-				got, ok := claims[k].(float64)
-				gotInt := int(got)
-				if ok {
-					if gotInt != v {
-						t.Errorf("%s: claim %q got value %d but want %d", tc.name, k, gotInt, v)
-					}
-				} else {
-					t.Errorf("%s: claim %q got type %T but want float64", tc.name, k, claims[k])
-				}
-			default:
-				t.Fatalf("unknown claim %q of type %T", k, v)
+			} else {
+				t.Errorf("%s: want claim %s but not found", tc.name, k)
 			}
 		}
 	}
