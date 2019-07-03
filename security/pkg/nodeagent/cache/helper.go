@@ -18,8 +18,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"google.golang.org/grpc/codes"
 	"strings"
+
+	"google.golang.org/grpc/codes"
 )
 
 func constructCSRHostName(trustDomain, token string) (string, error) {

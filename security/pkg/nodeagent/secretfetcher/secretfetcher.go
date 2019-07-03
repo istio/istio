@@ -239,7 +239,7 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 
 	certExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(newCert)
 	if err != nil {
-		secretFetcherLog.Warnf("kubernetes secret %v contains a server certificate that fails " +
+		secretFetcherLog.Warnf("kubernetes secret %v contains a server certificate that fails "+
 			"to parse: %v", resourceName, err)
 	}
 	ns := &model.SecretItem{
@@ -262,7 +262,7 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 	if len(newRoot) > 0 {
 		certExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(newRoot)
 		if err != nil {
-			secretFetcherLog.Warnf("kubernetes secret %v contains a root certificate that fails " +
+			secretFetcherLog.Warnf("kubernetes secret %v contains a root certificate that fails "+
 				"to parse: %v", resourceName, err)
 		}
 		nsRoot := &model.SecretItem{
@@ -343,8 +343,8 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 
 	certExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(newCert)
 	if err != nil {
-		secretFetcherLog.Warnf("kubernetes secret %v contains a server certificate that fails " +
-				"to parse: %v", newScrtName, err)
+		secretFetcherLog.Warnf("kubernetes secret %v contains a server certificate that fails "+
+			"to parse: %v", newScrtName, err)
 	}
 	t := time.Now()
 	ns := &model.SecretItem{
@@ -367,8 +367,8 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	if len(newRoot) > 0 {
 		certExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(newRoot)
 		if err != nil {
-			secretFetcherLog.Warnf("kubernetes secret %v contains a root certificate that fails " +
-					"to parse: %v", newScrtName, err)
+			secretFetcherLog.Warnf("kubernetes secret %v contains a root certificate that fails "+
+				"to parse: %v", newScrtName, err)
 		}
 		nsRoot := &model.SecretItem{
 			ResourceName: rootCertResourceName,
