@@ -234,14 +234,39 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 		secretFetcherLog.Warnf("Secret object: %v has empty field, skip adding secret", resourceName)
 		return
 	}
-	// If there is secret with the same resource name, delete that secret now.
-	sf.secrets.Delete(resourceName)
 
 	certExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(newCert)
 	if err != nil {
-		secretFetcherLog.Warnf("kubernetes secret %v contains a server certificate that fails "+
-			"to parse: %v", resourceName, err)
+		secretFetcherLog.Warnf("skip loading secret. Kubernetes secret %v contains a server " +
+			"certificate that fails to parse: %v", resourceName, err)
+		return
 	}
+	rootCertResourceName := resourceName + IngressGatewaySdsCaSuffix
+	if len(newRoot) > 0 {
+		rootCertExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(newRoot)
+		if err != nil {
+			secretFetcherLog.Warnf("skip loading secret. Kubernetes secret %v contains a root " +
+					"certificate that fails to parse: %v", resourceName, err)
+			return
+		}
+		// If there is root cert secret with the same resource name, delete that secret now.
+		sf.secrets.Delete(rootCertResourceName)
+		nsRoot := &model.SecretItem{
+			ResourceName: rootCertResourceName,
+			RootCert:     newRoot,
+			ExpireTime:   rootCertExpireTime,
+			CreatedTime:  t,
+			Version:      t.String(),
+		}
+		sf.secrets.Store(rootCertResourceName, *nsRoot)
+		secretFetcherLog.Debugf("secret %s is added", rootCertResourceName)
+		if sf.AddCache != nil {
+			sf.AddCache(rootCertResourceName, *nsRoot)
+		}
+	}
+
+	// If there is secret with the same resource name, delete that secret now.
+	sf.secrets.Delete(resourceName)
 	ns := &model.SecretItem{
 		ResourceName:     resourceName,
 		CertificateChain: newCert,
@@ -254,29 +279,6 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 	secretFetcherLog.Debugf("secret %s is added", resourceName)
 	if sf.AddCache != nil {
 		sf.AddCache(resourceName, *ns)
-	}
-
-	rootCertResourceName := resourceName + IngressGatewaySdsCaSuffix
-	// If there is root cert secret with the same resource name, delete that secret now.
-	sf.secrets.Delete(rootCertResourceName)
-	if len(newRoot) > 0 {
-		certExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(newRoot)
-		if err != nil {
-			secretFetcherLog.Warnf("kubernetes secret %v contains a root certificate that fails "+
-				"to parse: %v", resourceName, err)
-		}
-		nsRoot := &model.SecretItem{
-			ResourceName: rootCertResourceName,
-			RootCert:     newRoot,
-			ExpireTime:   certExpireTime,
-			CreatedTime:  t,
-			Version:      t.String(),
-		}
-		sf.secrets.Store(rootCertResourceName, *nsRoot)
-		secretFetcherLog.Debugf("secret %s is added", rootCertResourceName)
-		if sf.AddCache != nil {
-			sf.AddCache(rootCertResourceName, *nsRoot)
-		}
 	}
 }
 
@@ -325,28 +327,53 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	}
 
 	if !isIngressGatewaySecret(nscrt) {
-		secretFetcherLog.Debugf("secret %s is not an ingress gateway secret, skip update", newScrtName)
+		secretFetcherLog.Debugf("kubernetes secret %s is not an ingress gateway secret, skip update", newScrtName)
 		return
 	}
 
 	oldCert, oldKey, oldRoot, _ := extractCertAndKey(oscrt)
 	newCert, newKey, newRoot, valid := extractCertAndKey(nscrt)
 	if !valid {
-		secretFetcherLog.Warnf("Secret object: %v has empty field, skip update", newScrtName)
+		secretFetcherLog.Warnf("skip updating secret. Kubernetes secret: %s has empty field", newScrtName)
 		return
 	}
 	if bytes.Equal(oldCert, newCert) && bytes.Equal(oldKey, newKey) && bytes.Equal(oldRoot, newRoot) {
-		secretFetcherLog.Debugf("secret %s does not change, skip update", oldScrtName)
+		secretFetcherLog.Debugf("skip updating secret. Kubernetes secret %s does not change", oldScrtName)
 		return
 	}
-	sf.secrets.Delete(oldScrtName)
 
 	certExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(newCert)
 	if err != nil {
-		secretFetcherLog.Warnf("kubernetes secret %v contains a server certificate that fails "+
-			"to parse: %v", newScrtName, err)
+		secretFetcherLog.Warnf("skip updating secret. Kubernetes secret %s contains a server " +
+			"certificate that fails to parse: %v", newScrtName, err)
+		return
 	}
 	t := time.Now()
+	rootCertResourceName := newScrtName + IngressGatewaySdsCaSuffix
+	if len(newRoot) > 0 {
+		rootCertExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(newRoot)
+		if err != nil {
+			secretFetcherLog.Warnf("skip updating secret. Kubernetes secret %v contains a root " +
+					"certificate that fails to parse: %v", newScrtName, err)
+			return
+		}
+		// If there is root cert secret with the same resource name, delete that secret now.
+		sf.secrets.Delete(rootCertResourceName)
+		nsRoot := &model.SecretItem{
+			ResourceName: rootCertResourceName,
+			RootCert:     newRoot,
+			ExpireTime:   rootCertExpireTime,
+			CreatedTime:  t,
+			Version:      t.String(),
+		}
+		sf.secrets.Store(rootCertResourceName, *nsRoot)
+		secretFetcherLog.Infof("secret %s is updated", rootCertResourceName)
+		if sf.UpdateCache != nil {
+			sf.UpdateCache(rootCertResourceName, *nsRoot)
+		}
+	}
+
+	sf.secrets.Delete(oldScrtName)
 	ns := &model.SecretItem{
 		ResourceName:     newScrtName,
 		CertificateChain: newCert,
@@ -359,29 +386,6 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	secretFetcherLog.Infof("secret %s is updated", newScrtName)
 	if sf.UpdateCache != nil {
 		sf.UpdateCache(newScrtName, *ns)
-	}
-
-	rootCertResourceName := newScrtName + IngressGatewaySdsCaSuffix
-	// If there is root cert secret with the same resource name, delete that secret now.
-	sf.secrets.Delete(rootCertResourceName)
-	if len(newRoot) > 0 {
-		certExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(newRoot)
-		if err != nil {
-			secretFetcherLog.Warnf("kubernetes secret %v contains a root certificate that fails "+
-				"to parse: %v", newScrtName, err)
-		}
-		nsRoot := &model.SecretItem{
-			ResourceName: rootCertResourceName,
-			RootCert:     newRoot,
-			ExpireTime:   certExpireTime,
-			CreatedTime:  t,
-			Version:      t.String(),
-		}
-		sf.secrets.Store(rootCertResourceName, *nsRoot)
-		secretFetcherLog.Infof("secret %s is updated", rootCertResourceName)
-		if sf.UpdateCache != nil {
-			sf.UpdateCache(rootCertResourceName, *nsRoot)
-		}
 	}
 }
 
