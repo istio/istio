@@ -547,28 +547,18 @@ func (sc *SecretCache) generateGatewaySecret(token, resourceName string, t time.
 	}
 
 	if strings.HasSuffix(resourceName, secretfetcher.IngressGatewaySdsCaSuffix) {
-		certExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(secretItem.RootCert)
-		if err != nil {
-			cacheLog.Warnf("ingress gateway secret %v contains a certificate that fails to parse: %v",
-				resourceName, err)
-		}
 		return &model.SecretItem{
 			ResourceName: resourceName,
 			RootCert:     secretItem.RootCert,
-			ExpireTime:   certExpireTime,
+			ExpireTime:   secretItem.ExpireTime,
 			Token:        token,
 			CreatedTime:  t,
 			Version:      t.String(),
 		}, nil
 	}
-	certExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(secretItem.CertificateChain)
-	if err != nil {
-		cacheLog.Warnf("ingress gateway secret %v contains a certificate that fails to parse: %v",
-			resourceName, err)
-	}
 	return &model.SecretItem{
 		CertificateChain: secretItem.CertificateChain,
-		ExpireTime:       certExpireTime,
+		ExpireTime:       secretItem.ExpireTime,
 		PrivateKey:       secretItem.PrivateKey,
 		ResourceName:     resourceName,
 		Token:            token,
