@@ -236,6 +236,7 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 	}
 	// If there is secret with the same resource name, delete that secret now.
 	sf.secrets.Delete(resourceName)
+
 	certExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(newCert)
 	if err != nil {
 		secretFetcherLog.Warnf("kubernetes secret %v contains a server certificate that fails " +
@@ -340,10 +341,16 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	}
 	sf.secrets.Delete(oldScrtName)
 
+	certExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(newCert)
+	if err != nil {
+		secretFetcherLog.Warnf("kubernetes secret %v contains a server certificate that fails " +
+				"to parse: %v", newScrtName, err)
+	}
 	t := time.Now()
 	ns := &model.SecretItem{
 		ResourceName:     newScrtName,
 		CertificateChain: newCert,
+		ExpireTime:       certExpireTime,
 		PrivateKey:       newKey,
 		CreatedTime:      t,
 		Version:          t.String(),
@@ -358,9 +365,15 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	// If there is root cert secret with the same resource name, delete that secret now.
 	sf.secrets.Delete(rootCertResourceName)
 	if len(newRoot) > 0 {
+		certExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(newRoot)
+		if err != nil {
+			secretFetcherLog.Warnf("kubernetes secret %v contains a root certificate that fails " +
+					"to parse: %v", newScrtName, err)
+		}
 		nsRoot := &model.SecretItem{
 			ResourceName: rootCertResourceName,
 			RootCert:     newRoot,
+			ExpireTime:   certExpireTime,
 			CreatedTime:  t,
 			Version:      t.String(),
 		}
