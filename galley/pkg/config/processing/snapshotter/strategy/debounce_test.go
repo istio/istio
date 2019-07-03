@@ -24,7 +24,7 @@ import (
 func TestStrategy_StartStop(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s := NewDebounce(&NoopReporter{}, time.Minute, time.Millisecond*500)
+	s := NewDebounce(time.Minute, time.Millisecond*500)
 
 	called := false
 	s.Start(func() {
@@ -43,7 +43,7 @@ func TestStrategy_StartStop(t *testing.T) {
 func TestStrategy_DoubleStart(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s := NewDebounce(&NoopReporter{}, time.Minute, time.Millisecond*500)
+	s := NewDebounce(time.Minute, time.Millisecond*500)
 
 	called := false
 	s.Start(func() {
@@ -60,7 +60,7 @@ func TestStrategy_DoubleStart(t *testing.T) {
 func TestStrategy_DoubleStop(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s := NewDebounce(&NoopReporter{}, time.Hour, time.Millisecond*500)
+	s := NewDebounce(time.Hour, time.Millisecond*500)
 
 	called := false
 	s.Start(func() {
@@ -75,7 +75,7 @@ func TestStrategy_DoubleStop(t *testing.T) {
 func TestStrategy_ChangeBeforeStart(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s := NewDebounce(&NoopReporter{}, time.Millisecond*100, time.Millisecond)
+	s := NewDebounce(time.Millisecond*100, time.Millisecond)
 	s.OnChange()
 	s.OnChange()
 
@@ -92,7 +92,7 @@ func TestStrategy_ChangeBeforeStart(t *testing.T) {
 func TestStrategy_FireEvent(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s := NewDebounce(&NoopReporter{}, time.Millisecond*200, time.Millisecond*100)
+	s := NewDebounce(time.Millisecond*200, time.Millisecond*100)
 
 	called := false
 	s.Start(func() {
@@ -109,7 +109,7 @@ func TestStrategy_FireEvent(t *testing.T) {
 func TestStrategy_StopBeforeMaxTimeout(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s := NewDebounce(&NoopReporter{}, time.Second*5, time.Second)
+	s := NewDebounce(time.Second*5, time.Second)
 
 	called := false
 	s.Start(func() {
@@ -126,7 +126,7 @@ func TestStrategy_StopBeforeMaxTimeout(t *testing.T) {
 func TestStrategy_ChangeBeforeQuiesce(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s := NewDebounce(&NoopReporter{}, time.Second*5, time.Second)
+	s := NewDebounce(time.Second*5, time.Second)
 
 	called := false
 	s.Start(func() {
@@ -145,7 +145,7 @@ func TestStrategy_ChangeBeforeQuiesce(t *testing.T) {
 func TestStrategy_MaxTimeout(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s := NewDebounce(&NoopReporter{}, time.Second, time.Millisecond*500)
+	s := NewDebounce(time.Second, time.Millisecond*500)
 
 	called := false
 	s.Start(func() {
@@ -163,7 +163,7 @@ func TestStrategy_MaxTimeout(t *testing.T) {
 
 func TestStrategy_NewWithDefaults(t *testing.T) {
 	g := NewGomegaWithT(t)
-	s := NewDebounceWithDefaults(&NoopReporter{})
+	s := NewDebounceWithDefaults()
 	g.Expect(s.quiesceDuration).To(Equal(defaultQuiesceDuration))
 	g.Expect(s.maxWaitDuration).To(Equal(defaultMaxWaitDuration))
 }

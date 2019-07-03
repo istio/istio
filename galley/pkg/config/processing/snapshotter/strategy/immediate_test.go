@@ -22,7 +22,7 @@ import (
 
 func TestNewImmediate(t *testing.T) {
 	g := NewGomegaWithT(t)
-	s := NewImmediate(&NoopReporter{})
+	s := NewImmediate()
 
 	var changed bool
 	onChange := func() {

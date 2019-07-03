@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
+	"istio.io/istio/galley/pkg/runtime/monitoring"
 )
 
 // Snapshotter is a processor that handles input events and creates snapshot collections.
@@ -28,7 +29,6 @@ type Snapshotter struct {
 	selector     *event.Selector
 	xforms       []event.Transformer
 	options      []SnapshotOption
-	reporter     SnapshotReporter
 
 	// lastEventTime records the last time an event was received.
 	lastEventTime time.Time
@@ -50,7 +50,6 @@ type accumulator struct {
 	syncCount    int
 	collection   *collection.Instance
 	strategies   []strategy.Instance
-	reporter     SnapshotReporter
 }
 
 // Handle implements event.Handler
@@ -58,10 +57,10 @@ func (a *accumulator) Handle(e event.Event) {
 	switch e.Kind {
 	case event.Added, event.Updated:
 		a.collection.Set(e.Entry)
-		a.reporter.RecordStateTypeCount(e.Source.String(), a.collection.Size())
+		monitoring.RecordStateTypeCount(e.Source.String(), a.collection.Size())
 	case event.Deleted:
 		a.collection.Remove(e.Entry.Metadata.Name)
-		a.reporter.RecordStateTypeCount(e.Source.String(), a.collection.Size())
+		monitoring.RecordStateTypeCount(e.Source.String(), a.collection.Size())
 	case event.FullSync:
 		a.syncCount++
 	default:
@@ -82,13 +81,12 @@ func (a *accumulator) reset() {
 }
 
 // NewSnapshotter returns a new Snapshotter.
-func NewSnapshotter(xforms []event.Transformer, options []SnapshotOption, r SnapshotReporter) *Snapshotter {
+func NewSnapshotter(xforms []event.Transformer, options []SnapshotOption) *Snapshotter {
 	s := &Snapshotter{
 		accumulators:  make(map[collection.Name]*accumulator),
 		selector:      event.NewSelector(),
 		xforms:        xforms,
 		options:       options,
-		reporter:      r,
 		lastEventTime: time.Now(),
 	}
 
@@ -102,7 +100,6 @@ func NewSnapshotter(xforms []event.Transformer, options []SnapshotOption, r Snap
 			if !found {
 				a = &accumulator{
 					collection: collection.New(o),
-					reporter:   s.reporter,
 				}
 				s.accumulators[o] = a
 			}
@@ -153,7 +150,7 @@ func (s *Snapshotter) publish(o SnapshotOption) {
 	sn := &snapshot{set: set}
 
 	now := time.Now()
-	s.reporter.RecordProcessorSnapshotPublished(s.pendingEvents, now.Sub(s.lastSnapshotTime))
+	monitoring.RecordProcessorSnapshotPublished(s.pendingEvents, now.Sub(s.lastSnapshotTime))
 	s.lastSnapshotTime = now
 	s.pendingEvents = 0
 	o.Distributor.SetSnapshot(o.Group, sn)
@@ -177,7 +174,7 @@ func (s *Snapshotter) Stop() {
 // Handle implements Processor
 func (s *Snapshotter) Handle(e event.Event) {
 	now := time.Now()
-	s.reporter.RecordProcessorEventProcessed(now.Sub(s.lastEventTime))
+	monitoring.RecordProcessorEventProcessed(now.Sub(s.lastEventTime))
 	s.lastEventTime = now
 	s.pendingEvents++
 	s.selector.Handle(e)

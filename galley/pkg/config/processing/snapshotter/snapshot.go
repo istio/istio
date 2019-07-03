@@ -36,7 +36,7 @@ func (s *snapshot) Resources(col string) []*mcp.Resource {
 	result := make([]*mcp.Resource, 0, c.Size())
 
 	s.set.Collection(collection.NewName(col)).ForEach(func(e *resource.Entry) {
-		// TODO: eagerly serialize and cache.
+		// TODO: We should add (LRU based) caching of serialized content here.
 		r, err := resource.Serialize(e)
 		if err != nil {
 			scope.Errorf("Unable to serialize resource.Entry: %v", err)

@@ -111,12 +111,12 @@ func (r *Runtime) run() {
 loop:
 	for {
 		sid := atomic.AddInt32(&r.sessionID, 1)
-		se := newSession(sid, r.options)
+		se, done := newSession(sid, r.options)
 		r.session.Store(se)
 		se.start()
 
 		select {
-		case <-se.done:
+		case <-done:
 
 		case <-r.stopCh:
 			se.stop()

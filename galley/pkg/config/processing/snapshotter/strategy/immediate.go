@@ -16,12 +16,13 @@ package strategy
 
 import (
 	"sync/atomic"
+
+	"istio.io/istio/galley/pkg/runtime/monitoring"
 )
 
 // Immediate is a snapshotting strategy for creating snapshots immediately, as events arrive.
 type Immediate struct {
-	reporter Reporter
-	handler  atomic.Value
+	handler atomic.Value
 }
 
 func sentinelOnSnapshot() {}
@@ -29,10 +30,8 @@ func sentinelOnSnapshot() {}
 var _ Instance = &Immediate{}
 
 // NewImmediate returns a new Immediate.
-func NewImmediate(r Reporter) *Immediate {
-	i := &Immediate{
-		reporter: r,
-	}
+func NewImmediate() *Immediate {
+	i := &Immediate{}
 	i.handler.Store(OnSnapshotFn(sentinelOnSnapshot))
 
 	return i
@@ -53,6 +52,6 @@ func (i *Immediate) OnChange() {
 	scope.Debug("Immediate.OnChange")
 	fn := i.handler.Load().(OnSnapshotFn)
 
-	i.reporter.RecordStrategyOnChange()
+	monitoring.RecordStrategyOnChange()
 	fn()
 }

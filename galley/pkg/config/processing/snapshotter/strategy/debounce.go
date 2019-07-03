@@ -17,6 +17,9 @@ package strategy
 import (
 	"sync"
 	"time"
+
+	// TODO: Referencing this package directly, as duplicating it would cause conflicts.
+	"istio.io/istio/galley/pkg/runtime/monitoring"
 )
 
 const (
@@ -39,24 +42,21 @@ type Debounce struct {
 	changeCh chan struct{}
 	stopCh   chan struct{}
 	doneCh   chan struct{}
-
-	reporter DebounceReporter
 }
 
 var _ Instance = &Debounce{}
 
 // NewDebounceWithDefaults creates a new debounce strategy with default values.
-func NewDebounceWithDefaults(r DebounceReporter) *Debounce {
-	return NewDebounce(r, defaultMaxWaitDuration, defaultQuiesceDuration)
+func NewDebounceWithDefaults() *Debounce {
+	return NewDebounce(defaultMaxWaitDuration, defaultQuiesceDuration)
 }
 
 // NewDebounce creates a new debounce strategy with the given values.
-func NewDebounce(r DebounceReporter, maxWaitDuration, quiesceDuration time.Duration) *Debounce {
+func NewDebounce(maxWaitDuration, quiesceDuration time.Duration) *Debounce {
 	return &Debounce{
 		maxWaitDuration: maxWaitDuration,
 		quiesceDuration: quiesceDuration,
 		changeCh:        make(chan struct{}, 1),
-		reporter:        r,
 	}
 }
 
@@ -105,7 +105,7 @@ mainloop:
 			break mainloop
 
 		case <-d.changeCh:
-			d.reporter.RecordStrategyOnChange()
+			monitoring.RecordStrategyOnChange()
 			// fallthrough to start the timer.
 		}
 
@@ -119,19 +119,19 @@ mainloop:
 				break mainloop
 
 			case <-d.changeCh:
-				d.reporter.RecordStrategyOnChange()
+				monitoring.RecordStrategyOnChange()
 
 				quiesceTimer.Stop()
 				drainTimeCh(quiesceTimer.C)
 				quiesceTimer.Reset(d.quiesceDuration)
-				d.reporter.RecordTimerReset()
+				monitoring.RecordOnTimer(false, false, true)
 
 			case <-quiesceTimer.C:
-				d.reporter.RecordOnQuiesceTimer()
+				monitoring.RecordOnTimer(false, true, false)
 				break loop
 
 			case <-maxDurationTimer.C:
-				d.reporter.RecordOnMaxTimer()
+				monitoring.RecordOnTimer(true, false, false)
 				break loop
 			}
 		}

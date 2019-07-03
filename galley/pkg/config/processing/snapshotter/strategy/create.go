@@ -22,16 +22,12 @@ const (
 )
 
 // Create a strategy with the given name.
-func Create(name string, r DebounceReporter) (Instance, error) {
-	if r == nil {
-		r = &NoopReporter{}
-	}
-
+func Create(name string) (Instance, error) {
 	switch name {
 	case debounce:
-		return NewDebounceWithDefaults(r), nil
+		return NewDebounceWithDefaults(), nil
 	case immediate:
-		return NewImmediate(r), nil
+		return NewImmediate(), nil
 	default:
 		return nil, fmt.Errorf("unknown strategy: %q", name)
 	}

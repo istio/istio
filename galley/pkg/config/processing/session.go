@@ -43,7 +43,7 @@ type session struct {
 	done    chan struct{}
 }
 
-func newSession(id int32, o RuntimeOptions) *session {
+func newSession(id int32, o RuntimeOptions) (*session, chan struct{}) {
 	s := &session{
 		id:      id,
 		options: o,
@@ -53,7 +53,7 @@ func newSession(id int32, o RuntimeOptions) *session {
 	}
 
 	s.buffer.Dispatch(o.Processor)
-	return s
+	return s, s.done
 }
 
 func (s *session) handle(e event.Event) {
