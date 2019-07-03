@@ -56,7 +56,7 @@ func (p *Probe) Start() error {
 	return nil
 }
 
-// Stop implements process.Monitoring
+// Stop implements process.Component
 func (p *Probe) Stop() {
 	if p.running {
 		if p.controller != nil {
