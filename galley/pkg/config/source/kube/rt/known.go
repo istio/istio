@@ -20,12 +20,13 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"k8s.io/api/extensions/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/galley/pkg/config/source/kube/apiserver/stats"
 )
 
 func (p *Provider) initKnownAdapters() {
@@ -40,7 +41,7 @@ func (p *Provider) initKnownAdapters() {
 				if obj, ok := o.(*v1.Service); ok {
 					return &obj.Spec, nil
 				}
-				return nil, fmt.Errorf("unable to convert to v1.Service: %v", reflect.TypeOf(o))
+				return nil, fmt.Errorf("unable to convert to v1.Service: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
 				informer, err := p.sharedInformerFactory()
@@ -57,6 +58,7 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
+			isEqual:   resourceVersionsMatch,
 			isBuiltIn: true,
 		},
 
@@ -66,7 +68,7 @@ func (p *Provider) initKnownAdapters() {
 				if obj, ok := o.(*v1.Namespace); ok {
 					return &obj.Spec, nil
 				}
-				return nil, fmt.Errorf("unable to convert to v1.Namespace: %v", reflect.TypeOf(o))
+				return nil, fmt.Errorf("unable to convert to v1.Namespace: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
 				informer, err := p.sharedInformerFactory()
@@ -83,6 +85,7 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
+			isEqual:   resourceVersionsMatch,
 			isBuiltIn: true,
 		},
 
@@ -92,7 +95,7 @@ func (p *Provider) initKnownAdapters() {
 				if obj, ok := o.(*v1.Node); ok {
 					return &obj.Spec, nil
 				}
-				return nil, fmt.Errorf("unable to convert to v1.Node: %v", reflect.TypeOf(o))
+				return nil, fmt.Errorf("unable to convert to v1.Node: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
 				informer, err := p.sharedInformerFactory()
@@ -109,6 +112,7 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
+			isEqual:   resourceVersionsMatch,
 			isBuiltIn: true,
 		},
 
@@ -118,7 +122,7 @@ func (p *Provider) initKnownAdapters() {
 				if obj, ok := o.(*v1.Pod); ok {
 					return obj, nil
 				}
-				return nil, fmt.Errorf("unable to convert to v1.Pod: %v", reflect.TypeOf(o))
+				return nil, fmt.Errorf("unable to convert to v1.Pod: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
 				informer, err := p.sharedInformerFactory()
@@ -135,6 +139,7 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
+			isEqual:   resourceVersionsMatch,
 			isBuiltIn: true,
 		},
 
@@ -145,7 +150,7 @@ func (p *Provider) initKnownAdapters() {
 				if obj, ok := o.(*v1.Endpoints); ok {
 					return obj, nil
 				}
-				return nil, fmt.Errorf("unable to convert to v1.Endpoints: %v", reflect.TypeOf(o))
+				return nil, fmt.Errorf("unable to convert to v1.Endpoints: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
 				informer, err := p.sharedInformerFactory()
@@ -153,7 +158,7 @@ func (p *Provider) initKnownAdapters() {
 					return nil, err
 				}
 
-				return informer.Core().V1().Services().Informer(), nil
+				return informer.Core().V1().Endpoints().Informer(), nil
 			},
 			parseJSON: func(input []byte) (interface{}, error) {
 				out := &v1.Endpoints{}
@@ -162,6 +167,20 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
+			isEqual: func(o1 interface{}, o2 interface{}) bool {
+				r1, ok1 := o1.(*v1.Endpoints)
+				r2, ok2 := o2.(*v1.Endpoints)
+				if !ok1 || !ok2 {
+					msg := fmt.Sprintf("error decoding kube endpoints during update, o1 type: %T, o2 type: %T",
+						o1, o2)
+					scope.Error(msg)
+					stats.RecordEventError(msg)
+					return false
+				}
+				// Endpoint updates can be noisy. Make sure that the subsets have actually changed.
+				return reflect.DeepEqual(r1.Subsets, r2.Subsets)
+			},
+
 			isBuiltIn: true,
 		},
 		asTypesKey("extensions", "Ingress"): {
@@ -170,7 +189,7 @@ func (p *Provider) initKnownAdapters() {
 				if obj, ok := o.(*v1beta1.Ingress); ok {
 					return &obj.Spec, nil
 				}
-				return nil, fmt.Errorf("unable to convert to v1beta1.Ingress: %v", reflect.TypeOf(o))
+				return nil, fmt.Errorf("unable to convert to v1beta1.Ingress: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
 				informer, err := p.sharedInformerFactory()
@@ -187,6 +206,7 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
+			isEqual:   resourceVersionsMatch,
 			isBuiltIn: true,
 		},
 	}

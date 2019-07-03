@@ -16,7 +16,6 @@ package schema
 
 import (
 	"fmt"
-	"reflect"
 
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/schema/ast"
@@ -127,7 +126,10 @@ type KubeResources []KubeResource
 
 // CanonicalResourceName of the resource.
 func (i KubeResource) CanonicalResourceName() string {
-	return fmt.Sprintf("%s.%s/%s", i.Group, i.Version, i.Kind)
+	if i.Group == "" {
+		return "core/" + i.Version + "/" + i.Kind
+	}
+	return i.Group + "/" + i.Version + "/" + i.Kind
 }
 
 // Collections returns the name of collections for this set of resources
@@ -245,7 +247,7 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 			sources = append(sources, src)
 
 		default:
-			return nil, fmt.Errorf("unrecognized source type: %v", reflect.TypeOf(s))
+			return nil, fmt.Errorf("unrecognized source type: %T", s)
 		}
 	}
 
@@ -271,7 +273,7 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 			transforms = append(transforms, tr)
 
 		default:
-			return nil, fmt.Errorf("unrecognized transform type: %v", reflect.TypeOf(t))
+			return nil, fmt.Errorf("unrecognized transform type: %T", t)
 		}
 	}
 
