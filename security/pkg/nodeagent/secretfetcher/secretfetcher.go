@@ -237,7 +237,7 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 
 	certExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(newCert)
 	if err != nil {
-		secretFetcherLog.Warnf("skip loading secret. Kubernetes secret %v contains a server " +
+		secretFetcherLog.Warnf("skip loading secret. Kubernetes secret %v contains a server "+
 			"certificate that fails to parse: %v", resourceName, err)
 		return
 	}
@@ -245,8 +245,8 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 	if len(newRoot) > 0 {
 		rootCertExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(newRoot)
 		if err != nil {
-			secretFetcherLog.Warnf("skip loading secret. Kubernetes secret %v contains a root " +
-					"certificate that fails to parse: %v", resourceName, err)
+			secretFetcherLog.Warnf("skip loading secret. Kubernetes secret %v contains a root "+
+				"certificate that fails to parse: %v", resourceName, err)
 			return
 		}
 		// If there is root cert secret with the same resource name, delete that secret now.
@@ -344,7 +344,7 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 
 	certExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(newCert)
 	if err != nil {
-		secretFetcherLog.Warnf("skip updating secret. Kubernetes secret %s contains a server " +
+		secretFetcherLog.Warnf("skip updating secret. Kubernetes secret %s contains a server "+
 			"certificate that fails to parse: %v", newScrtName, err)
 		return
 	}
@@ -353,8 +353,8 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	if len(newRoot) > 0 {
 		rootCertExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(newRoot)
 		if err != nil {
-			secretFetcherLog.Warnf("skip updating secret. Kubernetes secret %v contains a root " +
-					"certificate that fails to parse: %v", newScrtName, err)
+			secretFetcherLog.Warnf("skip updating secret. Kubernetes secret %v contains a root "+
+				"certificate that fails to parse: %v", newScrtName, err)
 			return
 		}
 		// If there is root cert secret with the same resource name, delete that secret now.
