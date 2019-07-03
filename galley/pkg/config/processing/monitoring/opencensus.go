@@ -196,13 +196,3 @@ func (r *reporter) Close() error {
 	}
 	return nil
 }
-
-// func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) *view.View {
-// 	return &view.View{
-// 		Name:        measure.Name(),
-// 		Description: measure.Description(),
-// 		Measure:     measure,
-// 		TagKeys:     keys,
-// 		Aggregation: aggregation,
-// 	}
-// }

@@ -63,7 +63,7 @@ func (s *session) handle(e event.Event) {
 		case inactive:
 			s.mu.Unlock()
 
-		default: // nolint:gocritic
+		default: // nolint:gocritic nolint:stylecheck
 			scope.Warnf("Invalid session state: %v", s.state)
 			fallthrough
 
@@ -126,7 +126,7 @@ func (s *session) handleMeshEvent(e event.Event) {
 		s.mu.Unlock()
 		return
 
-	default: // nolint:gocritic
+	default: // nolint:gocritic nolint:stylecheck
 		scope.Warnf("Runtime.handleMeshEvent: mesh event in unsupported state '%v': %+v", s.state, e)
 		s.mu.Unlock()
 		return

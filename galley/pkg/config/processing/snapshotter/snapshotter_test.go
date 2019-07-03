@@ -133,7 +133,6 @@ func TestSnapshotter_SnapshotMismatch(t *testing.T) {
 	g.Expect(sn).To(BeNil())
 }
 
-
 //
 // import (
 // 	"testing"

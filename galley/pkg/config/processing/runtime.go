@@ -23,20 +23,10 @@ import (
 	"istio.io/istio/galley/pkg/config/event"
 )
 
-// ProcessorOptions are options that are passed to event.Processors
+// ProcessorOptions are options that are passed to event.Processors during startup.
 type ProcessorOptions struct {
 	MeshConfig   *v1alpha1.MeshConfig
 	DomainSuffix string
-}
-
-// Runtime is a config processing runtime.
-type Runtime struct {
-	mu        sync.RWMutex
-	sessionId int32
-	options   RuntimeOptions
-	stopCh    chan struct{}
-	waitCh    chan struct{}
-	session   atomic.Value
 }
 
 // RuntimeOptions is options for Runtime
@@ -56,6 +46,16 @@ func (o *RuntimeOptions) Clone() RuntimeOptions {
 		Processor:    o.Processor,
 		DomainSuffix: o.DomainSuffix,
 	}
+}
+
+// Runtime is the config processing runtime.
+type Runtime struct {
+	mu        sync.RWMutex
+	sessionID int32
+	options   RuntimeOptions
+	stopCh    chan struct{}
+	waitCh    chan struct{}
+	session   atomic.Value
 }
 
 // NewRuntime returns a new instance of a processing.Runtime.
@@ -102,15 +102,15 @@ func (r *Runtime) Stop() {
 	r.waitCh = nil
 }
 
-// CurrentSessionID returns the current session id. This is mainly used for testing/debugging.
+// CurrentSessionID is a numeric identifier of internal processor state. It is used for debugging purposes.
 func (r *Runtime) CurrentSessionID() int32 {
-	return atomic.LoadInt32(&r.sessionId)
+	return atomic.LoadInt32(&r.sessionID)
 }
 
 func (r *Runtime) run() {
 loop:
 	for {
-		sid := atomic.AddInt32(&r.sessionId, 1)
+		sid := atomic.AddInt32(&r.sessionID, 1)
 		se := newSession(sid, r.options)
 		r.session.Store(se)
 		se.start()

@@ -192,7 +192,7 @@ func TestRuntime_MeshConfig_Causing_Restart(t *testing.T) {
 		event.FullSyncFor(coll),
 	))
 
-	oldSessionId := f.rt.CurrentSessionID()
+	oldSessionID := f.rt.CurrentSessionID()
 
 	f.p.acc.Clear()
 
@@ -202,7 +202,7 @@ func TestRuntime_MeshConfig_Causing_Restart(t *testing.T) {
 	f.meshsrc.Set(mcfg)
 	g.Eventually(f.p.acc.Events).Should(HaveLen(4))
 
-	g.Eventually(f.rt.CurrentSessionID).Should(Equal(oldSessionId + 1))
+	g.Eventually(f.rt.CurrentSessionID).Should(Equal(oldSessionID + 1))
 }
 
 func TestRuntime_Event_Before_Start(t *testing.T) {
@@ -266,7 +266,7 @@ func (t *testProcessor) HasStarted() bool {
 	return t.started
 }
 
-func meshConfigEntry(m *v1alpha1.MeshConfig) *resource.Entry {
+func meshConfigEntry(m *v1alpha1.MeshConfig) *resource.Entry { // nolint:interfacer
 	return &resource.Entry{
 		Metadata: resource.Metadata{
 			Name: resource.NewName("istio-system", "meshconfig"),

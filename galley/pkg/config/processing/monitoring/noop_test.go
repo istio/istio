@@ -15,6 +15,7 @@
 package monitoring
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -28,6 +29,6 @@ func TestNoopReporter(t *testing.T) {
 	n.RecordProcessorEventProcessed(time.Second)
 	n.RecordProcessorSnapshotPublished(0, time.Second)
 	n.RecordStateTypeCount("", 0)
-	n.RecordStateTypeCountWithContext(nil, 0)
+	n.RecordStateTypeCountWithContext(context.TODO(), 0)
 	n.RecordTimerReset()
 }

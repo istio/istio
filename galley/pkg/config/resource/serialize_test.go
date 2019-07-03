@@ -198,7 +198,7 @@ func TestDeserialize_Any_Error(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	b := make([]byte, len(env.Body.Value) + 1)
+	b := make([]byte, len(env.Body.Value)+1)
 	b[0] = 0xFA
 	copy(b[1:], env.Body.Value)
 	env.Body.Value = b
@@ -368,7 +368,7 @@ func parseStruct(s string) *types.Struct {
 	return p
 }
 
-func boxAny(p *types.Struct) *types.Any {
+func boxAny(p *types.Struct) *types.Any { // nolint:interfacer
 	a, err := types.MarshalAny(p)
 	if err != nil {
 		panic(fmt.Errorf("unable to marshal to any: %v", err))
