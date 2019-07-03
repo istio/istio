@@ -150,9 +150,9 @@ var (
 
 	k8sTestGenericSecretG = &v1.Secret{
 		Data: map[string][]byte{
-			genericScrtCert:   k8sCertChainE,
-			genericScrtKey:    k8sKeyE,
-			genericScrtCRL:    k8sCrlE,
+			genericScrtCert: k8sCertChainE,
+			genericScrtKey:  k8sKeyE,
+			genericScrtCRL:  k8sCrlE,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sSecretNameE,
