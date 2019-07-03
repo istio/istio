@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package server
+package components
 
 import (
 	"io/ioutil"
@@ -22,8 +22,9 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	"istio.io/istio/pkg/mcp/server"
 	"istio.io/pkg/filewatcher"
+
+	"istio.io/istio/pkg/mcp/server"
 )
 
 func TestWatchAccessList_Basic(t *testing.T) {
