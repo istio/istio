@@ -78,7 +78,7 @@ The quick start describes how to install and use the operator `iop` CLI command.
 ```bash
 git clone https://istio.io/operator.git
 cd operator
-go build -o $GOPATH/bin ./cmd/iop.go
+go build -o $GOPATH/bin/iop ./cmd/iop.go
 ```
 
 ### Flags
