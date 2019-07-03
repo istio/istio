@@ -133,7 +133,7 @@ var (
 		Type: "test-secret",
 	}
 
-	k8sCrlF = []byte("F certificate revocation list fake")
+	k8sCrlF               = []byte("F certificate revocation list fake")
 	k8sTestGenericSecretF = &v1.Secret{
 		Data: map[string][]byte{
 			genericScrtCert:   k8sCertChainE,
