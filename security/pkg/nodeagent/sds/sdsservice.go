@@ -239,6 +239,9 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 
 			secret, err := s.st.GenerateSecret(ctx, conID, resourceName, token)
+			sdsServiceLog.Infof("***************GenerateSecret returns \nkey: %v \nsecret: %v",
+				key, secret)
+
 			if err != nil {
 				sdsServiceLog.Errorf("%s failed to get secret for proxy %q from secret cache: %v",
 					conIDresourceNamePrefix, discReq.Node.Id, err)
