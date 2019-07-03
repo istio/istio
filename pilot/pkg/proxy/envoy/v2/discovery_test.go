@@ -2,6 +2,9 @@ package v2
 
 import (
 	"context"
+	"fmt"
+	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -9,44 +12,127 @@ import (
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/pkg/log"
 )
 
 func mockNeedsPush(node *model.Proxy) bool {
 	return true
 }
 
-func TestSendPushes(t *testing.T) {
-	stopCh := make(chan struct{})
-	semaphore := make(chan struct{}, 2)
-	queue := NewPushQueue()
-	proxies := make([]*XdsConnection, 0, 100)
-	for p := 0; p < 100; p++ {
+func createProxies(n int) []*XdsConnection {
+	proxies := make([]*XdsConnection, 0, n)
+	for p := 0; p < n; p++ {
 		proxies = append(proxies, &XdsConnection{
-			ConID:       "1",
+			ConID:       fmt.Sprintf("proxy-%v", p),
 			pushChannel: make(chan *XdsEvent),
 			stream:      &fakeStream{},
 		})
-		proxy := proxies[p]
+	}
+	return proxies
+}
+
+func wgDoneOrTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
+	c := make(chan struct{})
+	go func() {
+		wg.Wait()
+		c <- struct{}{}
+	}()
+	select {
+	case <-c:
+		return true
+	case <-time.After(timeout):
+		return false
+	}
+}
+
+func TestSendPushesManyPushes(t *testing.T) {
+	stopCh := make(chan struct{})
+	semaphore := make(chan struct{}, 2)
+	queue := NewPushQueue()
+
+	proxies := createProxies(5)
+
+	pushes := make(map[string]int)
+	pushesMu := &sync.Mutex{}
+
+	for _, proxy := range proxies {
+		proxy := proxy
+		// Start receive thread
 		go func() {
 			for {
 				p := <-proxy.pushChannel
-				<-semaphore
-				log.Errorf("howardjohn: %v", p)
+				p.done()
+				pushesMu.Lock()
+				pushes[proxy.ConID]++
+				pushesMu.Unlock()
 			}
 		}()
 	}
-
 	go doSendPushes(stopCh, semaphore, queue, mockNeedsPush)
 
-	queue.Add(proxies[0], &PushInformation{})
-	time.Sleep(time.Second * 1)
+	for push := 0; push < 100; push++ {
+		for _, proxy := range proxies {
+			queue.Add(proxy, &PushInformation{})
+		}
+		time.Sleep(time.Millisecond * 10)
+	}
+	for queue.Pending() > 0 {
+		time.Sleep(time.Millisecond)
+	}
+	pushesMu.Lock()
+	defer pushesMu.Unlock()
+	for proxy, numPushes := range pushes {
+		if numPushes == 0 {
+			t.Fatalf("Proxy %v had 0 pushes", proxy)
+		}
+	}
+}
 
-	queue.Add(proxies[0], &PushInformation{})
-	time.Sleep(time.Second * 1)
+func TestSendPushesSinglePush(t *testing.T) {
+	stopCh := make(chan struct{})
+	semaphore := make(chan struct{}, 2)
+	queue := NewPushQueue()
 
-	queue.Add(proxies[0], &PushInformation{})
-	time.Sleep(time.Second * 1)
+	proxies := createProxies(5)
+
+	wg := &sync.WaitGroup{}
+	wg.Add(5)
+
+	pushes := make(map[string]int)
+	pushesMu := &sync.Mutex{}
+
+	for _, proxy := range proxies {
+		proxy := proxy
+		// Start receive thread
+		go func() {
+			for {
+				p := <-proxy.pushChannel
+				p.done()
+				pushesMu.Lock()
+				pushes[proxy.ConID]++
+				pushesMu.Unlock()
+				wg.Done()
+			}
+		}()
+	}
+	go doSendPushes(stopCh, semaphore, queue, mockNeedsPush)
+
+	for _, proxy := range proxies {
+		queue.Add(proxy, &PushInformation{})
+	}
+
+	if !wgDoneOrTimeout(wg, time.Second) {
+		t.Fatalf("Expected 5 pushes but got %v", len(pushes))
+	}
+	expected := map[string]int{
+		"proxy-0": 1,
+		"proxy-1": 1,
+		"proxy-2": 1,
+		"proxy-3": 1,
+		"proxy-4": 1,
+	}
+	if !reflect.DeepEqual(expected, pushes) {
+		t.Fatalf("Expected pushes %+v, got %+v", expected, pushes)
+	}
 }
 
 type fakeStream struct {

@@ -623,7 +623,7 @@ func adsClientCount() int {
 
 // AdsPushAll will send updates to all nodes, for a full config or incremental EDS.
 func AdsPushAll(s *DiscoveryServer) {
-	s.Push(true, nil)
+	s.AdsPushAll(versionInfo(), s.globalPushContext(), true, nil)
 }
 
 // AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
