@@ -575,6 +575,9 @@ func compareSecret(t *testing.T, secret, expectedSecret *model.SecretItem) {
 	if !bytes.Equal(expectedSecret.RootCert, secret.RootCert) {
 		t.Errorf("root cert verification error: expected %v but got %v", expectedSecret.RootCert, secret.RootCert)
 	}
+	if !bytes.Equal(expectedSecret.CertificateRevocationList, secret.CertificateRevocationList) {
+		t.Errorf("certificate revocation list verification error: expected %v but got %v", expectedSecret.CertificateRevocationList, secret.CertificateRevocationList)
+	}
 }
 
 func testAddSecret(t *testing.T, sf *SecretFetcher, k8ssecret *v1.Secret, expectedSecrets []expectedSecret, version *string) {
