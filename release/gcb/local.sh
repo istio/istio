@@ -2,8 +2,19 @@
 set -x
 set -o errexit
 
-# shellcheck disable=SC1091
-source gcb_lib.sh
+SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+# shellcheck source=release/gcb/gcb_lib.sh disable=1091
+source "${SCRIPTPATH}/gcb_lib.sh"
+
+function check_dependencies() {
+  for dependency in "tools" "api" "proxy"; do
+    if [ ! -d "$SCRIPTPATH/../../../$dependency" ]; then
+      echo "Repo missing: istio.io/$dependency."
+      exit 1
+    fi
+  done
+}
+check_dependencies
 ROOT=$(cd "$(git rev-parse --show-cdup)" && pwd || return)
 artifacts="$HOME/output/local"
 export NEW_VERSION=${TAG:-}

@@ -26,7 +26,7 @@ source "${SCRIPTPATH}/docker_tag_push_lib.sh"
 function github_keys() {
   GITHUB_KEYFILE="${GITHUB_TOKEN_FILE}"
   export GITHUB_KEYFILE
-  
+
   if [[ -n "$CB_TEST_GITHUB_TOKEN_FILE_PATH" ]]; then
     local LOCAL_DIR
     LOCAL_DIR="$(mktemp -d /tmp/github.XXXX)"
