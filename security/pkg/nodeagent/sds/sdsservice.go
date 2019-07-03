@@ -239,9 +239,6 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 
 			secret, err := s.st.GenerateSecret(ctx, conID, resourceName, token)
-			sdsServiceLog.Infof("***************GenerateSecret returns \nkey: %v \nsecret: %v",
-				key, secret)
-
 			if err != nil {
 				sdsServiceLog.Errorf("%s failed to get secret for proxy %q from secret cache: %v",
 					conIDresourceNamePrefix, discReq.Node.Id, err)
@@ -371,9 +368,6 @@ func NotifyProxy(conID, resourceName string, secret *model.SecretItem) error {
 	conn.mutex.Lock()
 	conn.secret = secret
 	conn.mutex.Unlock()
-
-	sdsServiceLog.Infof("***************get called to push\nkey: %v \nsecret: %v",
-		key, secret)
 
 	conn.pushChannel <- &sdsEvent{}
 	return nil
