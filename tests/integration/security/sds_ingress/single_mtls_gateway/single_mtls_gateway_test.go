@@ -108,9 +108,13 @@ func TestSingleMTLSGateway_SecretRotation(t *testing.T) {
 
 			// add a certificate revocation list (CRL) that revokes the client certificate
 			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialCWithCRL)
-			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
-			time.Sleep(3 * time.Second)
 			ingD := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
+			// Expect 2 SDS updates, one for the server key/cert update, and one for the CA/CRL update.
+			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingD, 2, 10*time.Second)
+			if err != nil {
+				t.Errorf("sds update stats does not match: %v", err)
+			}
+			// Use server CA and revoked client certificate to set up SSL connection.
 			tlsContextC := ingressutil.TLSContext{
 				CaCert:     ingressutil.CaCertA,
 				PrivateKey: ingressutil.TLSClientKeyC,
@@ -124,9 +128,13 @@ func TestSingleMTLSGateway_SecretRotation(t *testing.T) {
 
 			// remove the certificate revocation list (CRL) that was revoking the client certificate
 			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialCWithoutCRL)
-			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
-			time.Sleep(3 * time.Second)
 			ingE := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
+			// Expect 2 SDS updates, one for the server key/cert update, and one for the CA/CRL update.
+			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingE, 2, 10*time.Second)
+			if err != nil {
+				t.Errorf("sds update stats does not match: %v", err)
+			}
+			// Use server CA and client certificate again now that the revoking CRL is not in place to set up SSL connection.
 			err = ingressutil.VisitProductPage(ingE, host, ingress.Mtls, tlsContextC, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {

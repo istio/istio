@@ -475,6 +475,11 @@ func pushSDS(con *sdsConnection) error {
 			string(secret.RootCert))
 		sdsMetrics.rootCertExpiryTimestamp.WithLabelValues(metricLabelName).Set(
 			float64(secret.ExpireTime.Unix()))
+		if secret.CertificateRevocationList != nil {
+			sdsServiceLog.Infof("%s pushed certificate revocation list (CRL) to proxy\n", conIDresourceNamePrefix)
+			sdsServiceLog.Debugf("%s pushed certificate revocation list (CRL) %+v to proxy\n", conIDresourceNamePrefix,
+				string(secret.CertificateRevocationList))
+		}
 	} else {
 		sdsServiceLog.Infof("%s pushed key/cert pair to proxy\n", conIDresourceNamePrefix)
 		sdsServiceLog.Debugf("%s pushed certificate chain %+v to proxy\n",
