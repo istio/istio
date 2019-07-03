@@ -57,6 +57,12 @@ const (
 
 	// EnvoyTLSInspectorFilterName is the name for Envoy TLS sniffing listener filter.
 	EnvoyTLSInspectorFilterName = "envoy.listener.tls_inspector"
+
+	// The default header name for an exchanged token.
+	exchangedTokenHeaderName = "ingress-authorization"
+
+	// The default header prefix for an exchanged token.
+	exchangedTokenHeaderPrefix = "istio"
 )
 
 // GetMutualTLS returns pointer to mTLS params if the policy use mTLS for (peer) authentication.
@@ -113,7 +119,6 @@ func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAut
 	var requirements []*envoy_jwt.JwtRequirement
 	providers := map[string]*envoy_jwt.JwtProvider{}
 	for i, policyJwt := range policyJwts {
-		// TODO(yangminzhu): Support RCToken when its API is finalized.
 		provider := &envoy_jwt.JwtProvider{
 			Issuer:            policyJwt.Issuer,
 			Audiences:         policyJwt.Audiences,
@@ -122,9 +127,13 @@ func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAut
 		}
 
 		for _, location := range policyJwt.JwtHeaders {
-			provider.FromHeaders = append(provider.FromHeaders, &envoy_jwt.JwtHeader{
+			header := &envoy_jwt.JwtHeader{
 				Name: location,
-			})
+			}
+			if location == exchangedTokenHeaderName {
+				header.ValuePrefix = exchangedTokenHeaderPrefix
+			}
+			provider.FromHeaders = append(provider.FromHeaders, header)
 		}
 		provider.FromParams = policyJwt.JwtParams
 

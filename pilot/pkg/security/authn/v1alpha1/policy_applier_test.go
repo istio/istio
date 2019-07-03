@@ -253,8 +253,9 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 				Origins: []*authn.OriginAuthenticationMethod{
 					{
 						Jwt: &authn.Jwt{
-							Issuer:  "issuer",
-							JwksUri: jwksURI,
+							Issuer:     "issuer",
+							JwksUri:    jwksURI,
+							JwtHeaders: []string{exchangedTokenHeaderName, "custom"},
 						},
 					},
 				},
@@ -298,6 +299,15 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 						},
 						Forward:           true,
 						PayloadInMetadata: "issuer",
+						FromHeaders: []*envoy_jwt.JwtHeader{
+							{
+								Name:        exchangedTokenHeaderName,
+								ValuePrefix: exchangedTokenHeaderPrefix,
+							},
+							{
+								Name: "custom",
+							},
+						},
 					},
 				},
 			},
