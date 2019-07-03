@@ -12,7 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package validation
+package process
 
-//go:generate $GOPATH/src/istio.io/istio/bin/go-bindata.sh --nocompress --nometadata --pkg validation -o dataset.gen.go dataset/...
-//go:generate goimports -w dataset.gen.go
+import (
+	"errors"
+	"testing"
+
+	. "github.com/onsi/gomega"
+)
+
+func TestComponentFromFns(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	var started bool
+	var stopped bool
+	var startErr error
+	c := ComponentFromFns(
+		func() error {
+			started = true
+			return startErr
+		},
+		func() {
+			stopped = true
+		})
+
+	err := c.Start()
+	g.Expect(err).To(BeNil())
+	g.Expect(started).To(BeTrue())
+
+	c.Stop()
+	g.Expect(stopped).To(BeTrue())
+
+	startErr = errors.New("some error")
+	err = c.Start()
+	g.Expect(err).NotTo(BeNil())
+}

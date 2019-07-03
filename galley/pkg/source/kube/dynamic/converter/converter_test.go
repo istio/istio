@@ -144,7 +144,7 @@ func TestIdentity(t *testing.T) {
 
 func TestIdentity_Error(t *testing.T) {
 	b := resource.NewSchemaBuilder()
-	b.Register("foo", "type.googleapis.com/google.protobuf.Empty")
+	b.Register("foo", "type.googleapis.com/google.protobuf.Any")
 	s := b.Build()
 
 	info := s.Get("foo")
@@ -163,6 +163,27 @@ func TestIdentity_Error(t *testing.T) {
 	_, err := identity(nil, info, key, "", u)
 	if err == nil {
 		t.Fatal("Expected error not found")
+	}
+}
+
+func TestIdentity_IgnoreExtraValue(t *testing.T) {
+	b := resource.NewSchemaBuilder()
+	b.Register("foo", "type.googleapis.com/google.protobuf.Empty")
+	s := b.Build()
+
+	info := s.Get("foo")
+
+	u := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"extra": "value",
+		},
+	}
+
+	key := resource.FullNameFromNamespaceAndName("", "Key")
+
+	_, err := identity(nil, info, key, "", u)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
 	}
 }
 
