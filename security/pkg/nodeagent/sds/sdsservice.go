@@ -439,14 +439,22 @@ func addConn(k cache.ConnKey, conn *sdsConnection) {
 }
 
 func pushSDS(con *sdsConnection) error {
+	if con == nil {
+		return fmt.Errorf("sdsConnection passed into pushSDS() should not be nil")
+	}
+
 	con.mutex.RLock()
 	conID := con.conID
-	secret := *con.secret
+	secret := con.secret
 	resourceName := con.ResourceName
 	con.mutex.RUnlock()
 
+	if secret == nil {
+		return fmt.Errorf("sdsConnection %v passed into pushSDS() contains nil secret", con)
+	}
+
 	conIDresourceNamePrefix := sdsLogPrefix(conID, resourceName)
-	response, err := sdsDiscoveryResponse(&secret, conID, resourceName)
+	response, err := sdsDiscoveryResponse(secret, conID, resourceName)
 	if err != nil {
 		sdsServiceLog.Errorf("%s failed to construct response for SDS push: %v", conIDresourceNamePrefix, err)
 		return err
@@ -482,16 +490,16 @@ func pushSDS(con *sdsConnection) error {
 
 func sdsDiscoveryResponse(s *model.SecretItem, conID, resourceName string) (*xdsapi.DiscoveryResponse, error) {
 	resp := &xdsapi.DiscoveryResponse{
-		TypeUrl:     SecretType,
-		VersionInfo: s.Version,
-		Nonce:       s.Version,
+		TypeUrl: SecretType,
 	}
 	conIDresourceNamePrefix := sdsLogPrefix(conID, resourceName)
 	if s == nil {
-		sdsServiceLog.Errorf("%s got nil secret for proxy", conIDresourceNamePrefix)
+		sdsServiceLog.Warnf("%s got nil secret for proxy", conIDresourceNamePrefix)
 		return resp, nil
 	}
 
+	resp.VersionInfo = s.Version
+	resp.Nonce = s.Version
 	secret := &authapi.Secret{
 		Name: s.ResourceName,
 	}

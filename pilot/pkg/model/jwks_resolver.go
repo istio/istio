@@ -29,6 +29,7 @@ import (
 	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/pkg/cache"
 )
 
@@ -78,6 +79,15 @@ var (
 
 	// Close channel
 	closeChan = make(chan bool)
+
+	networkFetchSuccessCounter = monitoring.NewSum(
+		"pilot_jwks_resolver_network_fetch_success_total",
+		"Total number of successfully network fetch by pilot jwks resolver",
+	)
+	networkFetchFailCounter = monitoring.NewSum(
+		"pilot_jwks_resolver_network_fetch_fail_total",
+		"Total number of failed network fetch by pilot jwks resolver",
+	)
 )
 
 // jwtPubKeyEntry is a single cached entry for jwt public key.
@@ -118,6 +128,10 @@ type JwksResolver struct {
 
 	// How many times refresh job failed to fetch the public key from network, used in unit test.
 	refreshJobFetchFailedCount uint64
+}
+
+func init() {
+	monitoring.MustRegisterViews(networkFetchSuccessCounter, networkFetchFailCounter)
 }
 
 // NewJwksResolver creates new instance of JwksResolver.
@@ -270,14 +284,19 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 		client = r.secureHTTPClient
 	}
 
-	getPublicKey := func() ([]byte, error) {
+	getPublicKey := func() (b []byte, e error) {
 		resp, err := client.Get(uri)
+		defer func() {
+			if e != nil {
+				networkFetchFailCounter.Increment()
+				return
+			}
+			networkFetchSuccessCounter.Increment()
+			_ = resp.Body.Close()
+		}()
 		if err != nil {
 			return nil, err
 		}
-		defer func() {
-			_ = resp.Body.Close()
-		}()
 
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {

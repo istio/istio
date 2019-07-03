@@ -15,6 +15,7 @@
 package api
 
 import (
+	"istio.io/istio/pkg/test/framework/core"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -24,4 +25,5 @@ type Context interface {
 	TrackResource(r resource.Resource) resource.ID
 	CreateDirectory(name string) (string, error)
 	CreateTmpDirectory(prefix string) (string, error)
+	Settings() *core.Settings
 }

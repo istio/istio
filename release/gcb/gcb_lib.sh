@@ -19,7 +19,7 @@
 
 #shellcheck disable=SC2164
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-# shellcheck source=release/gcb/docker_tag_push_lib.sh
+#shellcheck disable=SC1090
 source "${SCRIPTPATH}/docker_tag_push_lib.sh"
 
 #sets GITHUB_KEYFILE to github auth file
@@ -140,5 +140,95 @@ function make_istio() {
     "${OUTPUT_PATH}" \
     "${REPO[1]}" \
     "${EXTRA_ARTIFACTS:-$PWD/LICENSES.txt}"
+}
+
+fix_values_yaml() {
+  local VERSION="$1"
+  local DOCKER_HUB="$2"
+  update_helm "istio-${VERSION}-linux.tar.gz" "${VERSION}" "${DOCKER_HUB}"
+  update_helm "istio-${VERSION}-osx.tar.gz" "${VERSION}" "${DOCKER_HUB}"
+  update_helm "istio-${VERSION}-win.zip" "${VERSION}" "${DOCKER_HUB}"
+}
+
+function update_helm() {
+  local tarball_name="$1"
+  local VERSION="$2"
+  local DOCKER_HUB="$3"
+  if [[ ${tarball_name} == *.zip ]]; then
+    local unzip_cmd="unzip -q"
+    local zip_cmd="zip -q -r"
+  else
+    local unzip_cmd="tar -zxf"
+    local zip_cmd="tar -zcf"
+  fi
+  if [ -z "${LOCAL_BUILD+x}" ]; then
+    gsutil -q cp "gs://${CB_GCS_BUILD_PATH}/${tarball_name}" .
+  fi
+  eval    "$unzip_cmd"     "${tarball_name}"
+  rm                       "${tarball_name}"
+  # Update version string in yaml files.
+  sed -i "s|hub: gcr.io/istio-release|hub: ${DOCKER_HUB}|g" ./"istio-${VERSION}"/install/kubernetes/helm/istio*/values.yaml
+  sed -i "s|tag: .*-latest-daily|tag: ${VERSION}|g"         ./"istio-${VERSION}"/install/kubernetes/helm/istio*/values.yaml
+  current_tag=$(grep "appVersion" ./"istio-${VERSION}"/install/kubernetes/helm/istio/Chart.yaml  | cut -d ' ' -f2)
+  if [ "${current_tag}" != "${VERSION}" ]; then
+    find . -type f -exec sed -i "s/tag: ${current_tag}/tag: ${VERSION}/g" {} \;
+    find . -type f -exec sed -i "s/version: ${current_tag}/version: ${VERSION}/g" {} \;
+    find . -type f -exec sed -i "s/appVersion: ${current_tag}/appVersion: ${VERSION}/g" {} \;
+    find . -type f -exec sed -i "s/istio-release\/releases\/${current_tag}/istio-release\/releases\/${VERSION}/g" {} \;
+  fi
+
+  # replace prerelease with release location for istio.io repo
+  if [ "${CB_PIPELINE_TYPE}" = "monthly" ]; then
+    sed -i.bak "s:istio-prerelease/daily-build.*$:istio-release/releases/${VERSION}/charts:g" ./"istio-${VERSION}"/install/kubernetes/helm/istio/README.md
+    rm -rf ./"istio-${VERSION}"/install/kubernetes/helm/istio/README.md.bak
+    echo "Done replacing pre-released charts with released charts for istio.io repo"
+  fi
+  eval "$zip_cmd" "${tarball_name}" "istio-${VERSION}"
+  sha256sum       "${tarball_name}" > "${tarball_name}.sha256"
+  rm  -rf "istio-${VERSION}"
+  if [ -z "${LOCAL_BUILD+x}" ]; then
+    gsutil -q cp "${tarball_name}"        "gs://${CB_GCS_BUILD_PATH}/${tarball_name}"
+    gsutil -q cp "${tarball_name}.sha256" "gs://${CB_GCS_BUILD_PATH}/${tarball_name}.sha256"
+    echo "DONE fixing gs://${CB_GCS_BUILD_PATH}/${tarball_name} with hub: ${CB_DOCKER_HUB} tag: ${CB_VERSION}"
+  fi
+}
+
+function create_charts() {
+  local VERSION="$1"
+  local OUTPUT="$2"
+  local HELM_DIR="$3"
+  local HELM_BUILD_DIR="$4"
+  local BRANCH="$5"
+  local DOCKER_HUB="$6"
+  tar -zxf "istio-${VERSION}-linux.tar.gz"
+  mkdir -vp "${OUTPUT}/istio"
+  cp -R "./istio-${VERSION}/install" "${OUTPUT}/istio/install"
+
+  pushd "$OUTPUT"
+      git clone -b "${BRANCH}" https://github.com/istio/cni.git
+      sed -i "s|hub: gcr.io/istio-release|hub: ${DOCKER_HUB}|g" cni/deployments/kubernetes/install/helm/istio-cni/values.yaml
+      sed -i "s|tag: .*-latest-daily|tag: ${VERSION}|g" cni/deployments/kubernetes/install/helm/istio-cni/values.yaml
+  popd
+
+  # Charts to extract from repos
+  CHARTS=(
+    "${OUTPUT}/istio/install/kubernetes/helm/istio"
+    "${OUTPUT}/istio/install/kubernetes/helm/istio-init"
+    "${OUTPUT}/cni/deployments/kubernetes/install/helm/istio-cni"
+  )
+
+  # Prepare helm setup
+  mkdir -vp "${HELM_DIR}"
+  HELM="helm --home ${HELM_DIR}"
+  ${HELM} init --client-only
+
+  # Create a package for each charts and build the repo index.
+  mkdir -vp "${HELM_BUILD_DIR}"
+  for CHART_PATH in "${CHARTS[@]}"
+  do
+      ${HELM} package "${CHART_PATH}" -d "${HELM_BUILD_DIR}"
+  done
+
+  ${HELM} repo index "${HELM_BUILD_DIR}"
 }
 

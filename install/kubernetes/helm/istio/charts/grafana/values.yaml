@@ -36,7 +36,7 @@ tolerations: []
 # There are currently two types of anti-affinity:
 #    "requiredDuringSchedulingIgnoredDuringExecution"
 #    "preferredDuringSchedulingIgnoredDuringExecution"
-# which denote “hard” vs. “soft” requirements, you can define your values
+# which denote "hard" vs. "soft" requirements, you can define your values
 # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
 # correspondingly.
 # For example:
@@ -47,7 +47,7 @@ tolerations: []
 #   topologyKey: "kubernetes.io/hostname"
 # This pod anti-affinity rule says that the pod requires not to be scheduled
 # onto a node if that node is already running a pod with label having key
-# “security” and value “S1”.
+# "security" and value "S1".
 podAntiAffinityLabelSelector: []
 podAntiAffinityTermLabelSelector: []
 
@@ -64,24 +64,24 @@ datasources:
   datasources.yaml:
     apiVersion: 1
     datasources:
-    - name: Prometheus
-      type: prometheus
-      orgId: 1
-      url: http://prometheus:9090
-      access: proxy
-      isDefault: true
-      jsonData:
-        timeInterval: 5s
-      editable: true
+      - name: Prometheus
+        type: prometheus
+        orgId: 1
+        url: http://prometheus:9090
+        access: proxy
+        isDefault: true
+        jsonData:
+          timeInterval: 5s
+        editable: true
 
 dashboardProviders:
   dashboardproviders.yaml:
     apiVersion: 1
     providers:
-    - name: 'istio'
-      orgId: 1
-      folder: 'istio'
-      type: file
-      disableDeletion: false
-      options:
-        path: /var/lib/grafana/dashboards/istio
+      - name: 'istio'
+        orgId: 1
+        folder: 'istio'
+        type: file
+        disableDeletion: false
+        options:
+          path: /var/lib/grafana/dashboards/istio

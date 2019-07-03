@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package native
+package docker
 
 import (
 	"sync"
@@ -62,20 +62,49 @@ func (b *builder) Build() error {
 }
 
 func (b *builder) BuildOrFail(t test.Failer) {
+	t.Helper()
 	if err := b.Build(); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func (b *builder) newInstances() ([]echo.Instance, error) {
-	instances := make([]echo.Instance, 0, len(b.configs))
-	for _, cfg := range b.configs {
-		inst, err := newInstance(b.ctx, cfg)
-		if err != nil {
-			return nil, err
-		}
-		instances = append(instances, inst)
+	wg := sync.WaitGroup{}
+	aggregateErrMux := &sync.Mutex{}
+	var aggregateErr error
+
+	instances := make([]echo.Instance, len(b.configs))
+	for index, cfg := range b.configs {
+		index := index
+		cfg := cfg
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			inst, err := newInstance(b.ctx, cfg)
+			if err != nil {
+				aggregateErrMux.Lock()
+				aggregateErr = multierror.Append(aggregateErr, err)
+				aggregateErrMux.Unlock()
+				return
+			}
+			instances[index] = inst
+		}()
 	}
+
+	wg.Wait()
+
+	if aggregateErr != nil {
+		// Close any instances that were successfully created.
+		for _, inst := range instances {
+			if inst != nil {
+				_ = inst.(*instance).Close()
+			}
+		}
+		return nil, aggregateErr
+	}
+
 	return instances, nil
 }
 
@@ -90,6 +119,7 @@ func (b *builder) waitUntilAllCallable(instances []echo.Instance) error {
 		source := inst
 		go func() {
 			defer wg.Done()
+
 			if err := source.WaitUntilCallable(instances...); err != nil {
 				aggregateErrMux.Lock()
 				aggregateErr = multierror.Append(aggregateErr, err)

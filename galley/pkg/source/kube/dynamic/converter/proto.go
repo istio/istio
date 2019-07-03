@@ -15,6 +15,8 @@
 package converter
 
 import (
+	"strings"
+
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -37,7 +39,9 @@ func toproto(pb proto.Message, data interface{}) error {
 	if err != nil {
 		return err
 	}
-	return jsonpb.UnmarshalString(js, pb)
+	// Unknown fields are simply dropped, instead of triggering an error
+	um := &jsonpb.Unmarshaler{AllowUnknownFields: true}
+	return um.Unmarshal(strings.NewReader(js), pb)
 }
 
 func toJSON(data interface{}) (string, error) {

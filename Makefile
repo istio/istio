@@ -360,7 +360,8 @@ $(ISTIO_OUT)/$(1):
 	STATIC=0 GOOS=$(GOOS) GOARCH=amd64 LDFLAGS=$(3) bin/gobuild.sh $(ISTIO_OUT)/$(1) $(2)
 
 .PHONY: $(1)
-$(1): $(ISTIO_OUT)/$(1)
+$(1):
+	STATIC=0 GOOS=$(GOOS) GOARCH=amd64 LDFLAGS=$(3) bin/gobuild.sh $(ISTIO_OUT)/$(1) $(2)
 
 ifneq ($(ISTIO_OUT),$(ISTIO_OUT_LINUX))
 $(ISTIO_OUT_LINUX)/$(1):
@@ -442,8 +443,9 @@ citadel: istio_ca
 pilot: pilot-discovery
 
 .PHONY: istio-iptables
-istio-iptables:
-	bin/gobuild.sh ${ISTIO_OUT}/$@ ./tools/istio-iptables
+istio-iptables: ${ISTIO_OUT}/istio-iptables
+${ISTIO_OUT}/istio-iptables:
+	bin/gobuild.sh $@ ./tools/istio-iptables
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all

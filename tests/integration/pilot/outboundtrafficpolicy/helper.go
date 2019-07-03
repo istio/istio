@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
@@ -104,7 +103,6 @@ func createSidecarScope(t *testing.T, appsNamespace namespace.Instance, serviceN
 func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := galley.NewOrFail(t, ctx, galley.Config{})
 			p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
