@@ -41,8 +41,6 @@ import (
 const (
 	// readyPath is for the pilot agent readiness itself.
 	readyPath = "/healthz/ready"
-	// quitPath is to notify the pilot agent to quit.
-	quitPath = "/quitquitquit"
 	// KubeAppProberEnvName is the name of the command line flag for pilot agent to pass app prober config.
 	// The json encoded string to pass app HTTP probe information from injector(istioctl or webhook).
 	// For example, ISTIO_KUBE_APP_PROBERS='{"/app-health/httpbin/livez":{"path": "/hello", "port": 8080}.
@@ -125,7 +123,6 @@ func (s *Server) Run(ctx context.Context) {
 
 	// Add the handler for ready probes.
 	mux.HandleFunc(readyPath, s.handleReadyProbe)
-	mux.HandleFunc(quitPath, s.handleQuit)
 	mux.HandleFunc("/app-health/", s.handleAppProbe)
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))
@@ -175,17 +172,6 @@ func (s *Server) handleReadyProbe(w http.ResponseWriter, _ *http.Request) {
 		s.lastProbeSuccessful = true
 	}
 	s.mutex.Unlock()
-}
-
-func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("OK"))
-	log.Infof("handling %s, and notify pilot-agent to exit", quitPath)
-	notifyExit()
 }
 
 func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {

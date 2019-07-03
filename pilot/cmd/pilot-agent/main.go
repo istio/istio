@@ -38,6 +38,7 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
+	"istio.io/istio/pilot/cmd/pilot-agent/admin"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -53,6 +54,7 @@ var (
 	proxyIP          string
 	registry         serviceregistry.ServiceRegistry
 	statusPort       uint16
+	adminPort        uint16
 	applicationPorts []string
 
 	// proxy config flags (named identically)
@@ -344,15 +346,16 @@ var (
 				cancel()
 				wg.Wait()
 			}()
+
+			localHostAddr := "127.0.0.1"
+			if proxyIPv6 {
+				localHostAddr = "[::1]"
+			}
 			// If a status port was provided, start handling status probes.
 			if statusPort > 0 {
 				parsedPorts, err := parseApplicationPorts()
 				if err != nil {
 					return err
-				}
-				localHostAddr := "127.0.0.1"
-				if proxyIPv6 {
-					localHostAddr = "[::1]"
 				}
 				prober := kubeAppProberNameVar.Get()
 				statusServer, err := status.NewServer(status.Config{
@@ -367,6 +370,15 @@ var (
 					return err
 				}
 				go waitForCompletion(ctx, statusServer.Run)
+			}
+
+			// If a admin port is provided, start handling administrative commands.
+			if adminPort > 0 {
+				adminServer, err := admin.NewServer(localHostAddr, adminPort)
+				if err != nil {
+					return err
+				}
+				go waitForCompletion(ctx, adminServer.Run)
 			}
 
 			log.Infof("PilotSAN %#v", pilotSAN)
@@ -493,6 +505,8 @@ func init() {
 
 	proxyCmd.PersistentFlags().Uint16Var(&statusPort, "statusPort", 0,
 		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
+	proxyCmd.PersistentFlags().Uint16Var(&adminPort, "adminPort", 0,
+		"HTTP Port on which to serve administrative commands. If zero, agent admin will not be provided.")
 	proxyCmd.PersistentFlags().StringSliceVar(&applicationPorts, "applicationPorts", []string{},
 		"Ports exposed by the application. Used to determine that Envoy is configured and ready to receive traffic.")
 
