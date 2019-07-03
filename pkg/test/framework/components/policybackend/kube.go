@@ -60,8 +60,8 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-		  app: {{.app}}
-		  version: {{.version}}
+      app: {{.app}}
+      version: {{.version}}
   template:
     metadata:
       labels:
