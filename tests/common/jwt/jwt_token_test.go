@@ -54,30 +54,30 @@ func TestSampleJwtToken(t *testing.T) {
 			name:  "TokenIssuer1",
 			token: TokenIssuer1,
 			wantClaims: map[string]interface{}{
-				"group": []interface{}{"group-1"},
+				"groups": []interface{}{"group-1"},
 				"iss":   "test-issuer-1@istio.io",
 				"sub":   "sub-1",
-				"exp":   4715722451.0,
+				"exp":   4715782722.0,
 			},
 		},
 		{
 			name:  "TokenIssuer2",
 			token: TokenIssuer2,
 			wantClaims: map[string]interface{}{
-				"group": []interface{}{"group-2"},
+				"groups": []interface{}{"group-2"},
 				"iss":   "test-issuer-2@istio.io",
 				"sub":   "sub-2",
-				"exp":   4715722463.0,
+				"exp":   4715782783.0,
 			},
 		},
 		{
 			name:  "TokenExpired",
 			token: TokenExpired,
 			wantClaims: map[string]interface{}{
-				"group": []interface{}{"group-1"},
+				"groups": []interface{}{"group-1"},
 				"iss":   "test-issuer-1@istio.io",
 				"sub":   "sub-1",
-				"exp":   1562123706.0,
+				"exp":   1562182856.0,
 			},
 		},
 		{
@@ -107,7 +107,7 @@ func TestSampleJwtToken(t *testing.T) {
 		}
 
 		for k, v := range tc.wantClaims {
-			got, ok := claims[k].(interface{})
+			got, ok := claims[k]
 			if ok {
 				if !reflect.DeepEqual(got, v) {
 					t.Errorf("%s: claim %q got value %v but want %v", tc.name, k, got, v)
