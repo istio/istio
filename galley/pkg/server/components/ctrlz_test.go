@@ -51,7 +51,7 @@ func TestCtrlz_Error(t *testing.T) {
 
 	// Expect this one to fail
 	c2 := NewCtrlz(o)
-	err = c1.Start()
+	err = c2.Start()
 	g.Expect(err).NotTo(BeNil())
 	defer c2.Stop()
 }
