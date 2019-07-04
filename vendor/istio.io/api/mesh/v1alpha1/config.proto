@@ -306,14 +306,12 @@ message MeshConfig {
   // It can be enabled by destination using the destinationRule.trafficPolicy.connectionPool.http.h2UpgradePolicy override.
   H2UpgradePolicy h2_upgrade_policy = 41;
 
-  // Whether the JWKSResolver should use the default RootCA bundle (defaults to true)
-  bool authn_jwks_use_default_root_ca = 42;
 
   // Specify certificates of trusted CAs for JWKS retrieval here, in PEM format
-  string authn_jwks_custom_root_ca = 43;
+  string authn_jwks_custom_root_ca = 42;
 
   // $hide_from_docs
-  // Next available field number: 44
+  // Next available field number: 43
 }
 
 // ConfigSource describes information about a configuration store inside a
