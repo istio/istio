@@ -147,12 +147,15 @@ function make_istio() {
   # long list of space-delimited filepaths --- and each artifact would get
   # injected into the Docker image.
   go run tools/license/get_dep_licenses.go --branch "${BRANCH}" > LICENSES.txt
+  # Get hash of current with revision (e.g. c2bc0d223739c841c5e810c6c439562aa9d67f5f-dirty)
+  git describe --dirty --match=NeverMatch --always --abbrev=40 > COMMIT_HASH.txt
+
   add_extra_artifacts_to_tar_images \
     "${DOCKER_HUB}" \
     "${TAG}" \
     "${OUTPUT_PATH}" \
     "${REL_DOCKER_HUB}" \
-    "${EXTRA_ARTIFACTS:-$PWD/LICENSES.txt}"
+    "${EXTRA_ARTIFACTS:-$PWD/LICENSES.txt $PWD/COMMIT_HASH.txt}"
 }
 
 fix_values_yaml() {
