@@ -5,31 +5,33 @@
 # Istio Installer
 
 Istio installer is a modular, 'a-la-carte' installer for Istio. It is based on a
-fork of istio helm templates, refactored to increase modularity and isolation.
+fork of the Istio helm templates, refactored to increase modularity and isolation.
 
 Goals:
 - Improve upgrade experience: users should be able to gradually roll upgrades, with proper
-canary for Istio components. It should be possible to deploy a new version while keeping the
+canary deployments for Istio components. It should be possible to deploy a new version while keeping the
 stable version in place and gradually migrate apps to the new version.
 
 - More flexibility: the new installer allows multiple 'environments', allowing applications to select
 a set of control plane settings and components. While the entire mesh respects the same APIs and config,
-apps may target different instances and variants of Istio.
+apps may target different 'environments' which contain different instances and variants of Istio.
 
-- Better security: separate istio components in different namespaces, allowing different teams or
-roles to manage different parts of Istio. For example a security team would maintain the
+- Better security: separate Istio components reside in different namespaces, allowing different teams or
+roles to manage different parts of Istio. For example, a security team would maintain the
 root CA and policy, a telemetry team may only have access to Mixer-telemetry and Prometheus,
-and a different team may maintain the control plane components (which are very security sensitive).
+and a different team may maintain the control plane components (which are highly security sensitive).
 
 The install is organized in 'environments' - each environment consists of a set of components
 in different namespaces that are configured to work together. Regardless of 'environment',
-workloads can talk with each other and follow the Istio configs, but each environment
-can use different versions and different defaults.
+workloads can talk with each other and obey the Istio configuration resources, but each environment
+can use different Istio versions and different configuration defaults.
 
-Kube-inject or the automatic injector are used to select the environment. The the later,
-the namespace label 'istio-env:NAME_OF_ENV' is used instead of 'istio-injected:true'.
-The name of the environment is defined as the namespace where the corresponding control plane is
-running. Pod annotations can also select a different control plane.
+`istioctl kube-inject` or the automatic sidecar injector are used to select the environment.
+In the case of the sidecar injector, the namespace label `istio-env: <NAME_OF_ENV>` is used instead
+of the conventional `istio-injected: true`. The name of the environment is defined as the namespace
+where the corresponding control plane components (config, discovery, auto-injection) are running.
+In the examples below, by default this is the `istio-control` namespace. Pod annotations can also
+be used to select a different 'environment'.
 
 # Installing
 
@@ -43,27 +45,27 @@ should be locked down and restricted.  The new installer allows multiple instanc
 policy/control/telemetry - so testing/staging of new settings and versions can be performed
 by a different role than the prod version.
 
-The target is production users who want to select, tune and understand each binary that
-gets deployed, and select which combination to use.
+The intended users of this repo are users running Istio in production who want to select, tune
+and understand each binary that gets deployed, and select which combination to use.
 
-Note that each component can be installed in parallel with an existing Istio 1.0 or 1.1 install in
-Istio-system. The new components will not interfere with existing apps, but can interoperate
+Note: each component can be installed in parallel with an existing Istio 1.0 or 1.1 install in
+`istio-system`. The new components will not interfere with existing apps, but can interoperate
 and it is possible to gradually move apps from Istio 1.0/1.1 to the new environments and
 across environments ( for example canary -> prod )
 
-Note - there are still some cluster roles that may need to be fixed, most likely cluster permissions
+Note: there are still some cluster roles that may need to be fixed, most likely cluster permissions
 will need to move to the security component.
 
 # Everything is Optional
 
-Each component in the new installer is optional. User can install the component defined in the new installer,
-use the equivalent component in istio-system, configured with the official installer, or use a different
+Each component in the new installer is optional. Users can install the component defined in the new installer,
+use the equivalent component in `istio-system`, configured with the official installer, or use a different
 version or implementation.
 
 For example you may use your own Prometheus and Graphana installs, or you may use a specialized/custom
 certificate provisioning tool, or use components that are centrally managed and running in a different cluster.
 
-This is work in progress - building on top of the multi-cluster installer.
+This is a work in progress - building on top of the multi-cluster installer.
 
 As an extreme, the goal is to be possible to run Istio workloads in a cluster without installing any Istio component
 in that cluster. Currently the minimum we require is the security provider (node agent or citadel).
@@ -75,34 +77,34 @@ The new installer recommends isolating components in different namespaces with d
 Recommended mode:
 
 Singleton:
-- istio-system: root CA and cert provisioning components.
-- istio-cni: optional CNI (avoids requiring root/netadmin from workload pods)
+- `istio-system`: root CA and cert provisioning components.
+- `istio-cni`: optional CNI (avoids requiring root/netadmin from workload pods)
 
 Multi-environment components:
-- istio-control: config, discovery, auto-inject. All impact the generated config including enforcement of policies
+- `istio-control`: config, discovery, auto-inject. All impact the generated config including enforcement of policies
 and secure naming.
-- istio-telemetry: mixer, kiali, tracing providers, graphana, prometheus. Custom install of prometheus, graphana can
+- `istio-telemetry`: mixer, kiali, tracing providers, graphana, prometheus. Custom install of prometheus, graphana can
 be used instead in dedicated namespaces.
-- istio-policy
-- istio-gateways - production domains should be in a separate namespace, to restrict access. It is possible to
+- `istio-policy`
+- `istio-gateways` - production domains should be in a separate namespace, to restrict access. It is possible to
 segregate gateways by the team that control access to the domain. Access to the gateway namespace provides access
 to certificates and control over domain delegation. The optional egress gateway provides control over outbound
 traffic.
 
 In addition, it is recommended to have a second set of the multi-environment components to use
-for canary/testing new versions. In this doc I'll use a "istio-master" based set:
-- istio-master: config, discovery, etc
-- istio-telemetry-master
-- istio-gateway-master
-- istio-policy-master
+for canary/testing new versions. In this doc we will use an environment based on the `istio-master` namespace:
+- `istio-master`: config, discovery, etc
+- `istio-telemetry-master`
+- `istio-gateway-master`
+- `istio-policy-master`
 ...
 
 
 # Installing
 
-For each component, there are 2 styles of installing, using 'helm + tiller' or 'helm template + kubectl apply --prune'.
+For each component, there are 2 styles of installing, using 'helm + tiller' or '`helm template` + `kubectl apply --prune`'.
 
-Using 'kubectl --prune' is recommended:
+Using `kubectl --prune` is recommended:
 
 ```bash
 
@@ -117,10 +119,10 @@ Using helm:
 helm upgrade --namespace $NAMESPACE -n $COMPONENT $CONFIGDIR -f global.yaml
 ```
 
-The doc will use the "iop $NAMESPACE $COMPONENT $CONFIGDIR" helper from env.sh - which is the equivalent
-with the commands above.
+The doc will use the `iop $NAMESPACE $COMPONENT $CONFIGDIR` helper from `env.sh` - which is the equivalent
+to the commands above.
 
-In the instructions below, $IBASE refers to the working tree of this repo.
+In the instructions below, `$IBASE` refers to the working tree of this repo.
 
 ## Common options
 
@@ -147,23 +149,23 @@ or
 
 ## Install Security
 
-Security should be installed in istio-system, since it needs access to the root CA.
+Security should be installed in `istio-system`, since it needs access to the root CA.
 For upgrades from the official installer, it is recommended to install the security component in
-istio-system, install the other components in different namespaces, migrate all workloads - and
+`istio-system`, install the other components in different namespaces, migrate all workloads - and
 at the end uninstall the official installer, and lock down istio-system.
 
-This is currently required if any MTLS is used. In future other Spifee implementations can be used, and
+This is currently required if any mTLS is used. In future other Spifee implementations can be used, and
 it is possible to use other tools that create the expected certificates for Istio.
 
 ```bash
 iop istio-system citadel $IBASE/security/citadel
 ```
 
-**Important options**: the 'dnsCerts' list allows associating DNS certs with specific service accounts.
+**Important options**: the `dnsCerts` list allows associating DNS certs with specific service accounts.
 This should be used if you plan to use Galley or Sidecar injector in different namespaces.
-By default it supports "istio-control", "istio-master" namespaces used in the examples.
+By default it supports `istio-control`, `istio-master` namespaces used in the examples.
 
-Access to the security namespace and istio-system should be highly restricted.
+Access to the security namespace and `istio-system` should be highly restricted.
 
 ## Install Istio-CNI
 
@@ -186,7 +188,7 @@ TODO. It is possible to add Istio-CNI later, and gradually migrate.
 
 ## Install Control plane
 
-Control plane contains 3 components.
+The control plane contains 3 components.
 
 ### Config (Galley)
 
@@ -228,16 +230,16 @@ and it is recommended to have Pilot running in each region and in multiple avail
 
 ### Auto-injection
 
-This is optional - kube-inject can be used instead.
+This is optional - `istioctl kube-inject` can be used instead.
 
-If installed, namespaces can select the injector by setting 'istio-env' label on the namespace.
+If installed, namespaces can select the injector by setting the `istio-env` label on the namespace.
 
-Only one auto-injector environment should have enableNamespacesByDefault=true, which will apply that environment
-to any namespace without an explicit istio-env label.
+Only one auto-injector environment should have `enableNamespacesByDefault=true`, which will apply that environment
+to any namespace without an explicit `istio-env` label.
 
-If istio-system has set 'enableNamespaceByDefault' you must set 'istio-inject: disabled' label to prevent
-istio-system from taking over. In this case, it is recommended to first install istio-control autoinject with
-the default disabled, test it, and move the default from istio-system to istio-control.
+If `istio-system` has set `enableNamespaceByDefault` you must set `istio-inject: disabled` label to prevent
+istio-system from taking over. In this case, it is recommended to first install `istio-control` autoinject with
+the default disabled, test it, and move the default from `istio-system` to `istio-control`.
 
 
 ```bash
