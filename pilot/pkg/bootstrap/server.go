@@ -913,8 +913,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	}
 	// Initialize custom Root CAs for JWKSResolver from config values
 	log.Infof("Initializing secure client for JWKSResolver")
-	authn_model.JwtKeyResolver.InitializeSecureClient(s.mesh.AuthnJwksUseDefaultRootCa,
-		s.mesh.AuthnJwksCustomRootCa)
+	authn_model.JwtKeyResolver.InitializeSecureClient(s.mesh.AuthnJwksCustomRootCa)
 
 
 	// Implement EnvoyXdsServer grace shutdown

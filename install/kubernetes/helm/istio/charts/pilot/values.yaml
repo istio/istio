@@ -23,7 +23,6 @@ cpu:
 nodeSelector: {}
 tolerations: []
 
-jwksUseDefaultRootCa: true
 jwksCustomRootCa: ""
 
 # Specify the pod anti-affinity that allows you to constrain which nodes

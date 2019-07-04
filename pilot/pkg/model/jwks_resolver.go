@@ -160,14 +160,12 @@ func NewJwksResolver(evictionDuration, refreshInterval time.Duration) *JwksResol
 }
 
 // InitializeSecureClient sets up an HTTPS client to be used for resolving jwks_uri
-func (r *JwksResolver) InitializeSecureClient(usePublicRootCABundle bool, customRootCA string) {
+func (r *JwksResolver) InitializeSecureClient(customRootCA string) {
 	caCertPool := x509.NewCertPool()
-	if usePublicRootCABundle {
-		caCert, err := ioutil.ReadFile(publicRootCABundlePath)
-		if err == nil {
-			if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
-				log.Warnf("Failed to read public RootCA bundle from file %v", publicRootCABundlePath)
-			}
+	caCert, err := ioutil.ReadFile(publicRootCABundlePath)
+	if err == nil {
+		if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
+			log.Warnf("Failed to read public RootCA bundle from file %v", publicRootCABundlePath)
 		}
 	}
 	if customRootCA != "" {
