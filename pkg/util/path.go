@@ -39,7 +39,7 @@ var (
 type Path []string
 
 // PathFromString converts a string path of form a.b.c to a string slice representation.
-func PathFromString(path string) []string {
+func PathFromString(path string) Path {
 	path = filepath.Clean(path)
 	path = strings.TrimPrefix(path, PathSeparator)
 	path = strings.TrimSuffix(path, PathSeparator)
@@ -56,6 +56,19 @@ func PathFromString(path string) []string {
 // String converts a string slice path representation of form ["a", "b", "c"] to a string representation like "a.b.c".
 func (p Path) String() string {
 	return strings.Join(p, PathSeparator)
+}
+
+// ToYAMLPathString converts a path string such that the first letter of each path element is lower case.
+func ToYAMLPathString(path string) string {
+	p := PathFromString(path)
+	for i := range p {
+		p[i] = firstCharToLowerCase(p[i])
+	}
+	return p.String()
+}
+
+func firstCharToLowerCase(s string) string {
+	return strings.ToLower(s[0:1]) + s[1:]
 }
 
 // IsValidPathElement reports whether pe is a valid path element.

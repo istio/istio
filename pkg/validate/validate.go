@@ -22,6 +22,7 @@ import (
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/util"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -35,16 +36,19 @@ var (
 	}
 
 	// requiredValues lists all the values that must be non-empty.
-	requiredValues = map[string]bool{}
+	requiredValues = map[string]bool{
+		"DefaultNamespacePrefix": true,
+	}
 )
 
 // CheckIstioControlPlaneSpec validates the values in the given Installer spec, using the field map defaultValidations to
 // call the appropriate validation function.
-func CheckIstioControlPlaneSpec(is *v1alpha2.IstioControlPlaneSpec) util.Errors {
-	return validate(defaultValidations, is, nil)
+func CheckIstioControlPlaneSpec(is *v1alpha2.IstioControlPlaneSpec, checkRequired bool) util.Errors {
+	log.Infof("Validating IstioControlPlaneSpec")
+	return validate(defaultValidations, is, nil, checkRequired)
 }
 
-func validate(validations map[string]ValidatorFunc, structPtr interface{}, path util.Path) (errs util.Errors) {
+func validate(validations map[string]ValidatorFunc, structPtr interface{}, path util.Path, checkRequired bool) (errs util.Errors) {
 	dbgPrint("validate with path %s, %v (%T)", path, structPtr, structPtr)
 	if structPtr == nil {
 		return nil
@@ -76,16 +80,16 @@ func validate(validations map[string]ValidatorFunc, structPtr interface{}, path 
 		dbgPrint("Checking field %s", fieldName)
 		switch kind {
 		case reflect.Struct:
-			errs = util.AppendErrs(errs, validate(validations, fieldValue.Addr().Interface(), append(path, fieldName)))
+			errs = util.AppendErrs(errs, validate(validations, fieldValue.Addr().Interface(), append(path, fieldName), checkRequired))
 		case reflect.Map:
 			newPath := append(path, fieldName)
 			for _, key := range fieldValue.MapKeys() {
 				nnp := append(newPath, key.String())
-				errs = util.AppendErrs(errs, validateLeaf(validations, nnp, fieldValue.MapIndex(key)))
+				errs = util.AppendErrs(errs, validateLeaf(validations, nnp, fieldValue.MapIndex(key), checkRequired))
 			}
 		case reflect.Slice:
 			for i := 0; i < fieldValue.Len(); i++ {
-				errs = util.AppendErrs(errs, validate(validations, fieldValue.Index(i).Interface(), path))
+				errs = util.AppendErrs(errs, validate(validations, fieldValue.Index(i).Interface(), path, checkRequired))
 			}
 		case reflect.Ptr:
 			if util.IsNilOrInvalidValue(fieldValue.Elem()) {
@@ -93,24 +97,26 @@ func validate(validations map[string]ValidatorFunc, structPtr interface{}, path 
 			}
 			newPath := append(path, fieldName)
 			if fieldValue.Elem().Kind() == reflect.Struct {
-				errs = util.AppendErrs(errs, validate(validations, fieldValue.Interface(), newPath))
+				errs = util.AppendErrs(errs, validate(validations, fieldValue.Interface(), newPath, checkRequired))
 			} else {
-				errs = util.AppendErrs(errs, validateLeaf(validations, newPath, fieldValue))
+				errs = util.AppendErrs(errs, validateLeaf(validations, newPath, fieldValue, checkRequired))
 			}
 		default:
 			if structElems.Field(i).CanInterface() {
-				errs = util.AppendErrs(errs, validateLeaf(validations, append(path, fieldName), fieldValue.Interface()))
+				errs = util.AppendErrs(errs, validateLeaf(validations, append(path, fieldName), fieldValue.Interface(), checkRequired))
 			}
 		}
 	}
 	return errs
 }
 
-func validateLeaf(validations map[string]ValidatorFunc, path util.Path, val interface{}) util.Errors {
+func validateLeaf(validations map[string]ValidatorFunc, path util.Path, val interface{}, checkRequired bool) util.Errors {
 	pstr := path.String()
 	dbgPrintC("validate %s:%v(%T) ", pstr, val, val)
-	if !requiredValues[pstr] && (util.IsValueNil(val) || util.IsEmptyString(val)) {
-		// TODO(mostrowski): handle required fields.
+	if util.IsValueNil(val) || util.IsEmptyString(val) {
+		if checkRequired && requiredValues[pstr] {
+			return util.NewErrs(fmt.Errorf("field %s is required but not set", util.ToYAMLPathString(pstr)))
+		}
 		dbgPrint("validate %s: OK (empty value)", pstr)
 		return nil
 	}

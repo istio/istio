@@ -24,6 +24,9 @@ import (
 	"sync"
 	"time"
 
+	// For kubeclient GCP auth
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -46,15 +49,37 @@ const (
 	// cRDPollTimeout is the maximum wait time for all CRDs to be created.
 	cRDPollTimeout = 60 * time.Second
 
-	// operatorLabelStr indicates Istio operator is managing this resource.
-	operatorLabelStr = "istio-operator-managed"
 	// operatorReconcileStr indicates that the operator will reconcile the resource.
 	operatorReconcileStr = "Reconcile"
-	// istioComponentLabelStr indicates which Istio component a resource belongs to.
-	istioComponentLabelStr = "istio-component"
-	// istioVersionLabelStr indicates which Istio version
-	istioVersionLabelStr = "istio-version"
 )
+
+var (
+	// operatorLabelStr indicates Istio operator is managing this resource.
+	operatorLabelStr = name.OperatorAPINamespace + "/managed"
+	// istioComponentLabelStr indicates which Istio component a resource belongs to.
+	istioComponentLabelStr = name.OperatorAPINamespace + "/component"
+	// istioVersionLabelStr indicates the Istio version of the installation.
+	istioVersionLabelStr = name.OperatorAPINamespace + "/version"
+)
+
+// CompositeOutput is used to capture errors and stdout/stderr outputs for a command, per component.
+type CompositeOutput struct {
+	// Stdout is the stdout output.
+	Stdout map[name.ComponentName]string
+	// Stderr is the stderr output.
+	Stderr map[name.ComponentName]string
+	// Error is the error output.
+	Err map[name.ComponentName]error
+}
+
+// NewCompositeOutput creates a new CompositeOutput and returns a ptr to it.
+func NewCompositeOutput() *CompositeOutput {
+	return &CompositeOutput{
+		Stdout: make(map[name.ComponentName]string),
+		Stderr: make(map[name.ComponentName]string),
+		Err:    make(map[name.ComponentName]error),
+	}
+}
 
 type componentNameToListMap map[name.ComponentName][]name.ComponentName
 type componentTree map[name.ComponentName]interface{}
@@ -92,6 +117,7 @@ func init() {
 
 }
 
+// RenderToDir writes manifests to a local filesystem directory tree.
 func RenderToDir(manifests name.ManifestMap, outputDir string, dryRun, verbose bool) error {
 	logAndPrint("Component dependencies tree: \n%s", installTreeString())
 	logAndPrint("Rendering manifests to output dir %s", outputDir)
@@ -133,21 +159,22 @@ func renderRecursive(manifests name.ManifestMap, installTree componentTree, outp
 	return nil
 }
 
-func ApplyAll(manifests name.ManifestMap, version version.Version, dryRun, verbose bool) error {
+// ApplyAll applies all given manifests using kubectl client.
+func ApplyAll(manifests name.ManifestMap, version version.Version, dryRun, verbose bool) (*CompositeOutput, error) {
 	logAndPrint("Applying manifests for these components:")
 	for c := range manifests {
 		log.Infof("- %s", c)
 	}
 	logAndPrint("Component dependencies tree: \n%s", installTreeString())
 	if err := initK8SRestClient(); err != nil {
-		return err
+		return nil, err
 	}
-	applyRecursive(manifests, version, dryRun, verbose)
-	return nil
+	return applyRecursive(manifests, version, dryRun, verbose), nil
 }
 
-func applyRecursive(manifests name.ManifestMap, version version.Version, dryRun, verbose bool) {
+func applyRecursive(manifests name.ManifestMap, version version.Version, dryRun, verbose bool) *CompositeOutput {
 	var wg sync.WaitGroup
+	out := NewCompositeOutput()
 	for c, m := range manifests {
 		c := c
 		m := m
@@ -158,10 +185,8 @@ func applyRecursive(manifests name.ManifestMap, version version.Version, dryRun,
 				<-s
 				logAndPrint("Parent dependency for %s has unblocked, proceeding.", c)
 			}
-			if err := applyManifest(c, m, version, dryRun, verbose); err != nil {
-				log.Error(err.Error())
-				return
-			}
+			out.Stdout[c], out.Stderr[c], out.Err[c] = applyManifest(c, m, version, dryRun, verbose)
+
 			// Signal all the components that depend on us.
 			for _, ch := range componentDependencies[c] {
 				logAndPrint("unblocking child dependency %s.", ch)
@@ -171,22 +196,23 @@ func applyRecursive(manifests name.ManifestMap, version version.Version, dryRun,
 		}()
 	}
 	wg.Wait()
+	return out
 }
 
 func versionString(version version.Version) string {
 	return version.String()
 }
 
-func applyManifest(componentName name.ComponentName, manifestStr string, version version.Version, dryRun, verbose bool) error {
+func applyManifest(componentName name.ComponentName, manifestStr string, version version.Version, dryRun, verbose bool) (string, string, error) {
 	objects, err := ParseK8sObjectsFromYAMLManifest(manifestStr)
 	if err != nil {
-		return err
+		return "", "", err
 	}
 	if len(objects) == 0 {
-		return nil
+		return "", "", nil
 	}
 
-	namespace := ""
+	namespace, stdoutCRD, stderrCRD := "", "", ""
 	for _, o := range objects {
 		o.AddLabels(map[string]string{istioComponentLabelStr: string(componentName)})
 		o.AddLabels(map[string]string{operatorLabelStr: operatorReconcileStr})
@@ -198,32 +224,36 @@ func applyManifest(componentName name.ComponentName, manifestStr string, version
 	}
 	objects.Sort(defaultObjectOrder())
 
-	extraArgs := []string{"--force", "--prune", "--selector", fmt.Sprintf("%s=%s", operatorLabelStr, operatorReconcileStr)}
+	// TODO; add "--prune" back
+	extraArgs := []string{"--force", "--selector", fmt.Sprintf("%s=%s", operatorLabelStr, operatorReconcileStr)}
+
+	logAndPrint("kubectl applying manifest for component %s", componentName)
 
 	crdObjects := cRDKindObjects(objects)
+	if len(crdObjects) > 0 {
+		mcrd, err := crdObjects.JSONManifest()
+		if err != nil {
+			return "", "", err
+		}
 
-	mcrd, err := crdObjects.JSONManifest()
-	if err != nil {
-		return err
+		stdoutCRD, stderrCRD, err = kubectl.Apply(dryRun, verbose, namespace, mcrd, extraArgs...)
+		if err != nil {
+			// Not all Istio components are robust to not yet created CRDs.
+			if err := waitForCRDs(objects, dryRun); err != nil {
+				return stdoutCRD, stderrCRD, err
+			}
+		}
 	}
 
-	if err := kubectl.Apply(dryRun, verbose, namespace, mcrd, extraArgs...); err != nil {
-		return err
-	}
-	// Not all Istio components are robust to not yet created CRDs.
-	if err := waitForCRDs(objects, dryRun); err != nil {
-		return err
-	}
-
+	log.Infof("Applying the following manifest:\n%s", manifestStr)
+	stdout, stderr := "", ""
 	m, err := objects.JSONManifest()
 	if err != nil {
-		return err
+		return stdoutCRD, stderrCRD, err
 	}
-	if err := kubectl.Apply(dryRun, verbose, namespace, m, extraArgs...); err != nil {
-		return err
-	}
-
-	return nil
+	stdout, stderr, err = kubectl.Apply(dryRun, verbose, namespace, m, extraArgs...)
+	logAndPrint("finished applying manifest for component %s", componentName)
+	return stdoutCRD + "\n" + stdout, stderrCRD + "\n" + stderr, err
 }
 
 func defaultObjectOrder() func(o *K8sObject) int {
@@ -257,7 +287,6 @@ func defaultObjectOrder() func(o *K8sObject) int {
 			return 10000
 
 		default:
-			log.Error("unknown group / kind")
 			return 1000
 		}
 	}
@@ -282,7 +311,7 @@ func waitForCRDs(objects K8sObjects, dryRun bool) error {
 	logAndPrint("Waiting for CRDs to be applied.")
 	cs, err := apiextensionsclient.NewForConfig(k8sRESTConfig)
 	if err != nil {
-		return err
+		return fmt.Errorf("k8s client error: %s", err)
 	}
 
 	var crdNames []string
@@ -317,8 +346,8 @@ func waitForCRDs(objects K8sObjects, dryRun bool) error {
 	})
 
 	if errPoll != nil {
-		logAndPrint("failed to verify CRD creation")
-		return errPoll
+		logAndPrint("failed to verify CRD creation; %s", errPoll)
+		return fmt.Errorf("failed to verify CRD creation: %s", errPoll)
 	}
 
 	logAndPrint("CRDs applied.")

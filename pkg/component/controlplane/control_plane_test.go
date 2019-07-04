@@ -58,6 +58,7 @@ func TestRenderInstallationSuccess(t *testing.T) {
 		{
 			desc: "all_off",
 			installSpec: `
+defaultNamespacePrefix: istio-system
 trafficManagement:
   enabled: false
 policy:

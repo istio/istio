@@ -421,20 +421,34 @@ func (t *Translator) protoToValues(structPtr interface{}, root map[string]interf
 
 // setEnablementAndNamespaces translates the enablement and namespace value of each component in the baseYAML values
 // tree, based on feature/component inheritance relationship.
-func (t *Translator) setEnablementAndNamespaces(root map[string]interface{}, ii *v1alpha2.IstioControlPlaneSpec) error {
+func (t *Translator) setEnablementAndNamespaces(root map[string]interface{}, icp *v1alpha2.IstioControlPlaneSpec) error {
 	for cn, c := range t.ComponentMaps {
-		enabled := c.AlwaysEnabled
-		if !c.AlwaysEnabled {
-			enabled = name.IsComponentEnabled(t.ToFeature[cn], cn, ii)
-		}
-		if err := setTree(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesEnabledSubpath), enabled); err != nil {
+		e, err := t.IsComponentEnabled(cn, icp)
+		if err != nil {
 			return err
 		}
-		if err := setTree(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesNamespaceSubpath), name.Namespace(t.ToFeature[cn], cn, ii)); err != nil {
+		if err := setTree(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesEnabledSubpath), e); err != nil {
+			return err
+		}
+
+		ns, err := name.Namespace(t.ToFeature[cn], cn, icp)
+		if err != nil {
+			return err
+		}
+		if err := setTree(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesNamespaceSubpath), ns); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// IsComponentEnabled reports whether the component with name cn is enabled, according to the translations in t,
+// and the contents of ocp.
+func (t *Translator) IsComponentEnabled(cn name.ComponentName, icp *v1alpha2.IstioControlPlaneSpec) (bool, error) {
+	if t.ComponentMaps[cn].AlwaysEnabled {
+		return true, nil
+	}
+	return name.IsComponentEnabledInSpec(t.ToFeature[cn], cn, icp)
 }
 
 // insertLeaf inserts a leaf with value into root at path, which is first mapped using t.APIMapping.

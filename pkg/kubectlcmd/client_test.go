@@ -15,7 +15,6 @@
 package kubectlcmd
 
 import (
-	"errors"
 	"io/ioutil"
 	"os/exec"
 	"reflect"
@@ -55,11 +54,6 @@ func TestKubectlApply(t *testing.T) {
 			expectArgs: []string{"kubectl", "apply", "-n", "kube-system", "-f", "-"},
 		},
 		{
-			name:       "error propagation",
-			expectArgs: []string{"kubectl", "apply", "-f", "-"},
-			err:        errors.New("error"),
-		},
-		{
 			name:       "manifest with prune",
 			namespace:  "kube-system",
 			manifest:   "heynow",
@@ -72,7 +66,7 @@ func TestKubectlApply(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cs := collector{Error: test.err}
 			kubectl := &Client{cmdSite: &cs}
-			err := kubectl.Apply(false, false, test.namespace, test.manifest, test.args...)
+			_, _, err := kubectl.Apply(false, false, test.namespace, test.manifest, test.args...)
 
 			if test.err != nil && err == nil {
 				t.Error("expected error to occur")
