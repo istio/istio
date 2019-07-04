@@ -49,14 +49,18 @@ const (
 	terminating = sessionState("terminating")
 )
 
-type session struct {
-	mu         sync.Mutex
-	id         int32
-	options    RuntimeOptions
+type session struct { // nolint:maligned
+	mu sync.Mutex
+
+	id      int32
+	options RuntimeOptions
+	buffer  *event.Buffer
+
+	state sessionState
+
+	// mesh config state
 	meshCfg    *v1alpha1.MeshConfig
 	meshSynced bool
-	buffer     *event.Buffer
-	state      sessionState
 
 	doneCh chan struct{}
 }
@@ -96,13 +100,13 @@ func (s *session) startSources() {
 	}
 	scope.Debugf("session source start complete")
 
-	// check the state again. During startup we might have received mesh config, or got signalled for stop.
+	// check the state again. During startup we might have received mesh config, or got signaled for stop.
 	var terminate bool
 	s.mu.Lock()
 	switch s.state {
 	case starting:
-		// This is the expected state. Depending on whether we received mesh config, or not we can transition to the
-		// next state.
+		// This is the expected state. Depending on whether we received mesh config or not we can transition to the
+		// buffering, or processing states.
 		s.transitionTo(buffering)
 		if s.meshSynced {
 			s.startProcessing()

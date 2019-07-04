@@ -263,7 +263,7 @@ func TestRuntime_Reset_WhileStarting(t *testing.T) {
 
 	oldSessionID := f.rt.currentSessionID()
 
-	f.mockSrc.h.Handle(event.Event{Kind:event.Reset})
+	f.mockSrc.h.Handle(event.Event{Kind: event.Reset})
 
 	f.mockSrc.releaseStart()
 

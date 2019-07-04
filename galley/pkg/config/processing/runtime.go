@@ -49,7 +49,7 @@ func (o *RuntimeOptions) Clone() RuntimeOptions {
 }
 
 // Runtime is the config processing runtime.
-type Runtime struct {
+type Runtime struct { // nolint:maligned
 	mu sync.RWMutex
 
 	// counter for session id. The current value reflects the processing session's id.
