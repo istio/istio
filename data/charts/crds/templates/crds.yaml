@@ -1,3 +1,12 @@
+# To prevent accidental injection into istio-system.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Release.Namespace }}
+  labels:
+    istio-operator-managed: Reconcile
+    istio-injection: disabled
+---
 {{ .Files.Get "files/crd-10.yaml" }}
 {{ .Files.Get "files/crd-11.yaml" }}
 {{ .Files.Get "files/crd-12.yaml" }}

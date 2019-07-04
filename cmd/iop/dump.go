@@ -70,7 +70,7 @@ func dumpProfile(args *rootArgs) {
 	if err := util.UnmarshalWithJSONPB(overlayYAML, overlayICPS); err != nil {
 		log.Fatalf("Could not unmarshal the input file: %s\n\nOriginal YAML:\n%s\n", err, overlayYAML)
 	}
-	if errs := validate.CheckIstioControlPlaneSpec(overlayICPS); len(errs) != 0 {
+	if errs := validate.CheckIstioControlPlaneSpec(overlayICPS, false); len(errs) != 0 {
 		log.Fatalf("Input file failed validation with the following errors: %s\n\nOriginal YAML:\n%s\n", errs, overlayYAML)
 	}
 

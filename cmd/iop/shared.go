@@ -17,6 +17,7 @@
 package iop
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 
@@ -70,51 +71,60 @@ func genManifests(args *rootArgs) (name.ManifestMap, error) {
 	// Start with unmarshaling and validating the user CR (which is an overlay on the base profile).
 	overlayICPS := &v1alpha2.IstioControlPlaneSpec{}
 	if err := util.UnmarshalWithJSONPB(overlayYAML, overlayICPS); err != nil {
-		log.Fatalf(err.Error())
+		return nil, err
 	}
-	if errs := validate.CheckIstioControlPlaneSpec(overlayICPS); len(errs) != 0 {
-		log.Fatalf(errs.ToError().Error())
+	if errs := validate.CheckIstioControlPlaneSpec(overlayICPS, false); len(errs) != 0 {
+		return nil, errs.ToError()
 	}
 
 	// Now read the base profile specified in the user spec. If nothing specified, use default.
 	baseYAML, err := helm.ReadValuesYAML(overlayICPS.Profile)
 	if err != nil {
-		log.Fatalf(err.Error())
+		return nil, err
 	}
 	// Unmarshal and validate the base CR.
 	baseICPS := &v1alpha2.IstioControlPlaneSpec{}
 	if err := util.UnmarshalWithJSONPB(baseYAML, baseICPS); err != nil {
-		log.Fatalf(err.Error())
+		return nil, err
 	}
-	if errs := validate.CheckIstioControlPlaneSpec(baseICPS); len(errs) != 0 {
-		log.Fatalf(errs.ToError().Error())
+	if errs := validate.CheckIstioControlPlaneSpec(baseICPS, true); len(errs) != 0 {
+		return nil, err
 	}
 
 	mergedYAML, err := helm.OverlayYAML(baseYAML, overlayYAML)
 	if err != nil {
-		log.Fatalf(err.Error())
+		return nil, err
 	}
 
 	// Now unmarshal and validate the combined base profile and user CR overlay.
 	mergedcps := &v1alpha2.IstioControlPlaneSpec{}
 	if err := util.UnmarshalWithJSONPB(mergedYAML, mergedcps); err != nil {
-		log.Fatalf(err.Error())
+		return nil, err
 	}
-	if errs := validate.CheckIstioControlPlaneSpec(mergedcps); len(errs) != 0 {
-		log.Fatalf(errs.ToError().Error())
+	if errs := validate.CheckIstioControlPlaneSpec(mergedcps, true); len(errs) != 0 {
+		return nil, errs.ToError()
 	}
 
 	if yd := util.YAMLDiff(mergedYAML, util.ToYAMLWithJSONPB(mergedcps)); yd != "" {
-		log.Fatalf("Validated YAML differs from input: \n%s", yd)
+		return nil, fmt.Errorf("validated YAML differs from input: \n%s", yd)
 	}
 
 	// TODO: remove version hard coding.
 	cp := controlplane.NewIstioControlPlane(mergedcps, translate.Translators[version.NewMinorVersion(1, 2)])
 	if err := cp.Run(); err != nil {
-		log.Fatalf(err.Error())
+		return nil, err
 	}
 
 	manifests, errs := cp.RenderManifest()
 
 	return manifests, errs.ToError()
+}
+
+// TODO: this really doesn't belong here. Figure out if it's generally needed and possibly move to istio.io/pkg/log.
+func logAndPrintf(args *rootArgs, v ...interface{}) {
+	s := fmt.Sprintf(v[0].(string), v[1:]...)
+	if !args.logToStdErr {
+		fmt.Println(s)
+	}
+	log.Infof(s)
 }

@@ -17,12 +17,12 @@ package iop
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"istio.io/operator/pkg/manifest"
 	"istio.io/operator/pkg/version"
-	"istio.io/pkg/log"
 )
 
 func installCmd(rootArgs *rootArgs) *cobra.Command {
@@ -46,10 +46,28 @@ func installManifests(args *rootArgs) {
 
 	manifests, err := genManifests(args)
 	if err != nil {
-		log.Fatalf(err.Error())
+		logAndPrintf(args, "%s", err)
+		os.Exit(1)
 	}
 
-	if err := manifest.ApplyAll(manifests, version.NewVersion("", 1, 2, 0, ""), args.dryRun, args.verbose); err != nil {
-		log.Fatalf(err.Error())
+	out, err := manifest.ApplyAll(manifests, version.NewVersion("", 1, 2, 0, ""), args.dryRun, args.verbose)
+	if err != nil {
+		logAndPrintf(args, "%s", err)
+		os.Exit(1)
+	}
+
+	for cn := range manifests {
+
+		cs := fmt.Sprintf("CompositeOutput for component %s:", cn)
+		logAndPrintf(args, "\n%s\n%s", cs, strings.Repeat("=", len(cs)))
+		if out.Err[cn] != nil {
+			logAndPrintf(args, "Errors: %s\n", out.Err[cn])
+		}
+		if strings.TrimSpace(out.Stderr[cn]) != "" {
+			logAndPrintf(args, "Error strings:\n%s\n", out.Stderr[cn])
+		}
+		if strings.TrimSpace(out.Stdout[cn]) != "" {
+			logAndPrintf(args, "Command output:\n%s\n", out.Stdout[cn])
+		}
 	}
 }

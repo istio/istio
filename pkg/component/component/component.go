@@ -380,7 +380,11 @@ func runComponent(c *CommonComponentFields) error {
 
 // renderManifest renders the manifest for the component defined by c and returns the resulting string.
 func renderManifest(c *CommonComponentFields) (string, error) {
-	if !name.IsComponentEnabled(c.FeatureName, c.name, c.InstallSpec) {
+	e, err := c.Translator.IsComponentEnabled(c.name, c.InstallSpec)
+	if err != nil {
+		return "", err
+	}
+	if !e {
 		return disabledYAMLStr(c.name), nil
 	}
 
@@ -464,7 +468,11 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 		return "", err
 	}
 	log.Infof("Applying kubernetes overlay: \n%s\n", kyo)
-	ret, err := patch.YAMLManifestPatch(my, name.Namespace(c.FeatureName, c.name, c.InstallSpec), overlays)
+	ns, err := name.Namespace(c.FeatureName, c.name, c.InstallSpec)
+	if err != nil {
+		return "", err
+	}
+	ret, err := patch.YAMLManifestPatch(my, ns, overlays)
 	if err != nil {
 		return "", err
 	}
@@ -507,8 +515,12 @@ func mergeTrees(apiValues string, globalVals, values, unvalidatedValues map[stri
 // createHelmRenderer creates a helm renderer for the component defined by c and returns a ptr to it.
 func createHelmRenderer(c *CommonComponentFields) (helm.TemplateRenderer, error) {
 	icp := c.InstallSpec
+	ns, err := name.Namespace(c.FeatureName, c.name, c.InstallSpec)
+	if err != nil {
+		return nil, err
+	}
 	return helm.NewHelmRenderer(icp.CustomPackagePath+"/"+c.Translator.ComponentMaps[c.name].HelmSubdir,
-		icp.Profile, string(c.name), name.Namespace(c.FeatureName, c.name, c.InstallSpec))
+		icp.Profile, string(c.name), ns)
 }
 
 // disabledYAMLStr returns the YAML comment string that the given component is disabled.
