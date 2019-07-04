@@ -132,7 +132,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, port int,
 		return nil, err
 	}
 
-	instances := []*model.ServiceInstance{}
+	var instances []*model.ServiceInstance
 	for _, endpoint := range endpoints {
 		instance := convertInstance(endpoint)
 		if labels.HasSubsetOf(instance.Labels) && portMatch(instance, port) {
