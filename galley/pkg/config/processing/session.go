@@ -84,7 +84,6 @@ func (s *session) start() {
 		panic(fmt.Sprintf("invalid state: %s (expecting inactive)", s.state))
 	}
 	s.transitionTo(starting)
-	s.state = starting
 
 	go s.startSources()
 }
@@ -169,7 +168,7 @@ func (s *session) terminate() {
 		close(s.doneCh)
 		s.doneCh = nil
 	}
-	s.state = inactive
+	s.transitionTo(inactive)
 	s.mu.Unlock()
 }
 
@@ -208,7 +207,7 @@ func (s *session) handle(e event.Event) {
 
 	case starting:
 		// set the state to terminating and let the startup code complete startup steps and deal with termination.
-		s.state = terminating
+		s.transitionTo(terminating)
 
 	case buffering, processing:
 		s.transitionTo(terminating)
