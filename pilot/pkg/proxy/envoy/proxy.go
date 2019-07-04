@@ -151,7 +151,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 		e.processNum.Dec()
 		if err == nil {
 			if e.processNum.Load() == 0 {
-				err = fmt.Errorf("Envoy process was killed unexpectedly by something other than pilot-agent")
+				err = fmt.Errorf("envoy process was killed unexpectedly by something other than pilot-agent")
 			}
 		}
 		done <- err
