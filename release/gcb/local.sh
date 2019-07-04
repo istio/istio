@@ -6,15 +6,30 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 # shellcheck source=release/gcb/gcb_lib.sh disable=1091
 source "${SCRIPTPATH}/gcb_lib.sh"
 
-function check_dependencies() {
-  for dependency in "tools" "api" "proxy"; do
+function check_prerequisites() {
+  for dependency in "tools" "api" "proxy" "cni"; do
     if [ ! -d "$SCRIPTPATH/../../../$dependency" ]; then
       echo "Repo missing: istio.io/$dependency."
       exit 1
     fi
   done
+
+  # On mac, brew install gnu-tar gnu-cp
+  if [ "$(uname -s)" = Darwin ]; then
+    if [ ! "$(command -v gtar)" ]; then
+      echo "Could not find gtar."
+      exit 1
+    fi
+    if [ ! "$(command -v gcp)" ]; then
+      echo "Could not find gcp."
+      exit 1
+    fi
+    export CP="gcp"
+    export TAR="gtar"
+  fi
 }
-check_dependencies
+
+check_prerequisites
 ROOT=$(cd "$(git rev-parse --show-cdup)" && pwd || return)
 artifacts="$HOME/output/local"
 export NEW_VERSION=${TAG:-}

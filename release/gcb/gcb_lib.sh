@@ -84,6 +84,7 @@ function make_istio() {
   export TAG
   local BRANCH=$5
   ISTIO_OUT=$(make DEBUG=0 where-is-out)
+  ISTIO_OUT_LINUX=$(GOOS=linux make DEBUG=0 where-is-out)
   VERSION="${TAG}"
   export VERSION
   IFS='/' read -ra REPO <<< "$REL_DOCKER_HUB"
@@ -109,7 +110,7 @@ function make_istio() {
   cp        "${ISTIO_OUT}"/archive/istioctl*.zip    "${OUTPUT_PATH}/"
   cp        "${ISTIO_OUT}"/archive/istioctl*.sha256 "${OUTPUT_PATH}/"
 
-  rm -r "${ISTIO_OUT}/docker" || true
+  rm -r "${ISTIO_OUT_LINUX}/docker" || true
   BUILD_DOCKER_TARGETS=(docker.save)
 
   CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} DOCKER_BUILD_VARIANTS="default distroless" make "${BUILD_DOCKER_TARGETS[@]}"
@@ -125,7 +126,7 @@ function make_istio() {
     fi
   popd || exit
 
-  cp -r "${ISTIO_OUT}/docker" "${OUTPUT_PATH}/"
+  cp -r "${ISTIO_OUT_LINUX}/docker" "${OUTPUT_PATH}/"
 
   # log where git thinks the build might be dirty
   git status
