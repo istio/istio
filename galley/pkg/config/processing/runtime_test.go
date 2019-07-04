@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package processing_test
+package processing
 
 import (
 	"sync"
@@ -27,14 +27,11 @@ import (
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
-	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 )
-
-var scope = log.RegisterScope("processing", "", 0)
 
 func init() {
 	scope.SetOutputLevel(log.DebugLevel)
@@ -193,7 +190,7 @@ func TestRuntime_MeshConfig_Causing_Restart(t *testing.T) {
 		event.FullSyncFor(coll),
 	))
 
-	oldSessionID := f.rt.CurrentSessionID()
+	oldSessionID := f.rt.currentSessionID()
 
 	f.p.acc.Clear()
 
@@ -201,7 +198,7 @@ func TestRuntime_MeshConfig_Causing_Restart(t *testing.T) {
 	mcfg.IngressClass = "ing"
 
 	f.meshsrc.Set(mcfg)
-	g.Eventually(f.rt.CurrentSessionID).Should(Equal(oldSessionID + 1))
+	g.Eventually(f.rt.currentSessionID).Should(Equal(oldSessionID + 1))
 	g.Eventually(f.p.acc.Events).Should(HaveLen(4))
 }
 
@@ -221,7 +218,7 @@ func TestRuntime_Event_Before_Start(t *testing.T) {
 	g.Consistently(f.p.acc.Events).Should(HaveLen(0))
 }
 
-func TestRuntime_Stop_Before_Start_Completes(t *testing.T) {
+func TestRuntime_Stop_WhileStarting(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	f := newFixture()
@@ -230,27 +227,105 @@ func TestRuntime_Stop_Before_Start_Completes(t *testing.T) {
 	f.init()
 
 	// Wait until mockSrc.Start is called, but block it from completing.
-	f.mockSrc.startWG.Add(1)
-	f.mockSrc.mu.Lock()
-	f.rt.Start()
-	f.mockSrc.startCalled.Wait()
-	f.mockSrc.mu.Unlock()
+	f.mockSrc.blockStart()
 
-	// Call Stop, while Start is blocked
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		wg.Done()
-		f.rt.Stop()
-	}()
-	wg.Wait()
+	f.rt.Start()
+
+	g.Eventually(f.rt.currentSessionState).Should(Equal(starting))
+	g.Eventually(f.mockSrc.hasStarted).Should(BeTrue())
+
+	go f.rt.Stop()
+
+	g.Eventually(f.rt.currentSessionState).Should(Equal(terminating))
 
 	// release Start call. Things should cleanup and release.
-	f.mockSrc.startWG.Done()
+	f.mockSrc.releaseStart()
 
 	// Once Stop returns, both started and stopped should be
-	g.Eventually(func() bool { return f.mockSrc.started }).Should(BeTrue())
-	g.Eventually(func() bool { return f.mockSrc.stopped }).Should(BeTrue())
+	g.Eventually(f.mockSrc.hasStopped).Should(BeTrue())
+}
+
+func TestRuntime_Reset_WhileStarting(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	f := newFixture()
+	f.meshsrc = nil
+	f.src = nil
+	f.init()
+
+	// Wait until mockSrc.Start is called, but block it from completing.
+	f.mockSrc.blockStart()
+
+	f.rt.Start()
+
+	g.Eventually(f.rt.currentSessionState).Should(Equal(starting))
+	g.Eventually(f.mockSrc.hasStarted).Should(BeTrue())
+
+	oldSessionID := f.rt.currentSessionID()
+
+	f.mockSrc.h.Handle(event.Event{Kind:event.Reset})
+
+	f.mockSrc.releaseStart()
+
+	g.Eventually(f.rt.currentSessionID).Should(Equal(oldSessionID + 1))
+
+	g.Eventually(f.rt.currentSessionState).Should(Equal(buffering))
+	g.Consistently(f.p.acc.Events).Should(BeEmpty())
+
+	f.rt.Stop()
+}
+
+func TestRuntime_MeshEvent_WhileBuffering(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	f := newFixture()
+	f.meshsrc = nil
+	f.src = nil
+	f.init()
+
+	f.rt.Start()
+	g.Eventually(f.rt.currentSessionState).Should(Equal(buffering))
+
+	f.mockSrc.h.Handle(event.DeleteFor(meshcfg.IstioMeshconfig, meshcfg.ResourceName, resource.Version("vxx")))
+
+	g.Consistently(f.rt.currentSessionState).Should(Equal(buffering))
+
+	f.mockSrc.h.Handle(event.FullSyncFor(meshcfg.IstioMeshconfig))
+
+	g.Eventually(f.rt.currentSessionState).Should(Equal(processing))
+
+	f.rt.Stop()
+}
+
+func TestRuntime_MeshEvent_WhileRunning(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	f := initFixture()
+	f.rt.Start()
+	defer f.rt.Stop()
+
+	f.meshsrc.Set(meshcfg.Default())
+	g.Eventually(f.p.acc.Events).Should(ConsistOf(
+		event.FullSyncFor(basicmeta.Collection1),
+		event.FullSyncFor(meshcfg.IstioMeshconfig),
+		event.AddFor(meshcfg.IstioMeshconfig, meshConfigEntry(meshcfg.Default())),
+	))
+
+	oldSessionID := f.rt.currentSessionID()
+	f.p.acc.Clear()
+
+	// Send a mesh event out-of-band
+	f.mockSrc.h.Handle(event.DeleteFor(meshcfg.IstioMeshconfig, meshcfg.ResourceName, resource.Version("vxx")))
+
+	g.Eventually(f.rt.currentSessionID).Should(Equal(oldSessionID + 1))
+	g.Eventually(f.p.acc.Events).Should(ConsistOf(
+		event.DeleteFor(meshcfg.IstioMeshconfig, meshcfg.ResourceName, resource.Version("vxx")), // event from previous incarnation.
+		event.FullSyncFor(basicmeta.Collection1),
+		event.FullSyncFor(meshcfg.IstioMeshconfig),
+		event.AddFor(meshcfg.IstioMeshconfig, meshConfigEntry(meshcfg.Default())),
+	))
+
+	g.Eventually(f.p.HasStarted).Should(BeTrue())
 }
 
 type fixture struct {
@@ -258,7 +333,7 @@ type fixture struct {
 	src     *inmemory.KubeSource
 	mockSrc *testSource
 	p       *testProcessor
-	rt      *processing.Runtime
+	rt      *Runtime
 }
 
 func newFixture() *fixture {
@@ -292,13 +367,13 @@ func (f *fixture) init() {
 		srcs = append(srcs, f.mockSrc)
 	}
 
-	o := processing.RuntimeOptions{
+	o := RuntimeOptions{
 		DomainSuffix: "local.svc",
 		Sources:      srcs,
 		Processor:    f.p,
 	}
 
-	f.rt = processing.NewRuntime(o)
+	f.rt = NewRuntime(o)
 }
 
 type testSource struct {
@@ -325,7 +400,29 @@ func (s *testSource) Start() {
 }
 
 func (s *testSource) Stop() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.stopped = true
+}
+
+func (s *testSource) blockStart() {
+	s.startWG.Add(1)
+}
+
+func (s *testSource) releaseStart() {
+	s.startWG.Done()
+}
+
+func (s *testSource) hasStarted() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.started
+}
+
+func (s *testSource) hasStopped() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.stopped
 }
 
 type testProcessor struct {

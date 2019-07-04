@@ -15,7 +15,7 @@
 package snapshotter
 
 import (
-	"fmt"
+	"strconv"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/config/collection"
@@ -55,5 +55,5 @@ func (s *snapshot) Version(col string) string {
 		return ""
 	}
 	g := coll.Generation()
-	return fmt.Sprintf("%s/%d", col, g)
+	return col + "/" + strconv.FormatInt(g, 10)
 }

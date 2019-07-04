@@ -72,7 +72,7 @@ func (d *Debounce) Start(fn OnSnapshotFn) {
 	d.stopCh = make(chan struct{})
 	d.doneCh = make(chan struct{})
 
-	// Drain the changeCh, to avoid events froma previous incarnation.
+	// Drain the changeCh, to avoid events from a previous incarnation.
 	drainCh(d.changeCh)
 
 	go d.run(d.stopCh, d.doneCh, fn)

@@ -106,37 +106,54 @@ func (r *Runtime) Stop() {
 	}
 	close(r.stopCh)
 	r.wg.Wait()
+
 	r.stopCh = nil
 }
 
-// CurrentSessionID is a numeric identifier of internal processor state. It is used for debugging purposes.
-func (r *Runtime) CurrentSessionID() int32 {
+// currentSessionID is a numeric identifier of internal processor state. It is used for debugging purposes.
+func (r *Runtime) currentSessionID() int32 {
+	var id int32
 	se := r.session.Load()
-	if se == nil {
-		return 0
+	if se != nil {
+		s := se.(*session)
+		id = s.id
 	}
-	s := se.(*session)
-	return s.id
+	return id
+}
+
+// currentSessionState is the state of the internal processor state. It is used for debugging purposes.
+func (r *Runtime) currentSessionState() sessionState {
+	var state sessionState
+	se := r.session.Load()
+	if se != nil {
+		s := se.(*session)
+		state = s.state
+	}
+	return state
 }
 
 func (r *Runtime) run(stopCh chan struct{}) {
 loop:
 	for {
 		sid := atomic.AddInt32(&r.sessionIDCtr, 1)
+		scope.Infof("Runtime.run: Starting new session id:%d", sid)
 		se, done := newSession(sid, r.options)
 		r.session.Store(se)
 		se.start()
 
 		select {
 		case <-done:
+			scope.Infof("Runtime.run: Completing session: id:%d", sid)
 
 		case <-stopCh:
+			scope.Infof("Runtime.run: Stopping session: id%d", sid)
 			se.stop()
 			break loop
 		}
 	}
 
 	r.wg.Done()
+	scope.Info("Runtime.run: Exiting...")
 }
 
 func (r *Runtime) handle(e event.Event) {
