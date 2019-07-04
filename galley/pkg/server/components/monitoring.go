@@ -99,6 +99,8 @@ func NewMonitoring(port uint) process.Component {
 				lis = nil // listener is closed by the server
 			}
 
+			// listener may not be nil if the initialization failed before the server could be
+			// started.
 			if lis != nil {
 				if err := lis.Close(); err != nil {
 					scope.Errorf("Listener terminated with error: %v", err)
