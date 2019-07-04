@@ -52,6 +52,9 @@ spec:
             - --healthCheckFile=/health
             - --webhookConfigName=istio-sidecar-injector-{{ .Release.Namespace }}
             - --log_output_level=debug
+          {{- if .Values.global.logAsJson }}
+            - --log_as_json
+          {{- end }}
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config

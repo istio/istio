@@ -61,6 +61,9 @@ spec:
 {{- if .Values.global.logging.level }}
           - --log_output_level={{ .Values.global.logging.level }}
 {{- end}}
+{{- if .Values.global.logAsJson }}
+          - --log_as_json
+{{- end }}
           - --domain
           - {{ .Values.global.proxy.clusterDomain }}
 {{- if .Values.global.oneNamespace }}
@@ -152,6 +155,9 @@ spec:
         {{- end }}
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
+        {{- end }}
+        {{- if .Values.global.logAsJson }}
+          - --log_as_json
         {{- end }}
           env:
           - name: POD_NAME

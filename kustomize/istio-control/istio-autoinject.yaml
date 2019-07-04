@@ -38,10 +38,10 @@ data:
     policy: enabled
     alwaysInjectSelector:
       []
-      
+
     neverInjectSelector:
       []
-      
+
     template: |
       rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
       {{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
@@ -203,6 +203,9 @@ data:
       {{- end }}
       {{- if .Values.global.trustDomain }}
         - --trust-domain={{ .Values.global.trustDomain }}
+      {{- end }}
+      {{- if .Values.global.logAsJson }}
+        - --log_as_json
       {{- end }}
         env:
         - name: POD_NAME
@@ -389,7 +392,7 @@ data:
           - {{ . }}
           {{- end }}
       {{- end }}
-    
+
 
 ---
 # Source: istio-autoinject/templates/serviceaccount.yaml
@@ -534,7 +537,7 @@ spec:
           resources:
             requests:
               cpu: 10m
-            
+
       volumes:
       - name: config-volume
         configMap:
@@ -550,7 +553,7 @@ spec:
             path: config
           - key: values
             path: values
-      affinity:      
+      affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
@@ -582,7 +585,7 @@ spec:
               - key: beta.kubernetes.io/arch
                 operator: In
                 values:
-                - s390x      
+                - s390x
 
 ---
 # Source: istio-autoinject/templates/mutatingwebhook.yaml
