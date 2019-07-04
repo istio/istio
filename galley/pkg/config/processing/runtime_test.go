@@ -15,6 +15,7 @@
 package processing_test
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/gogo/protobuf/types"
@@ -42,7 +43,7 @@ func init() {
 func TestRuntime_Startup_NoMeshConfig(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	f := newFixture()
+	f := initFixture()
 	f.rt.Start()
 	defer f.rt.Stop()
 
@@ -60,7 +61,7 @@ func TestRuntime_Startup_NoMeshConfig(t *testing.T) {
 func TestRuntime_Startup_MeshConfig_Arrives_No_Resources(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	f := newFixture()
+	f := initFixture()
 	f.rt.Start()
 	defer f.rt.Stop()
 
@@ -78,7 +79,7 @@ func TestRuntime_Startup_MeshConfig_Arrives_No_Resources(t *testing.T) {
 func TestRuntime_Startup_MeshConfig_Arrives(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	f := newFixture()
+	f := initFixture()
 	f.rt.Start()
 	defer f.rt.Stop()
 
@@ -104,7 +105,7 @@ func TestRuntime_Startup_MeshConfig_Arrives(t *testing.T) {
 func TestRuntime_Startup_Stop(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	f := newFixture()
+	f := initFixture()
 	f.rt.Start()
 
 	coll := basicmeta.Collection1
@@ -125,7 +126,7 @@ func TestRuntime_Startup_Stop(t *testing.T) {
 func TestRuntime_Start_Start_Stop(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	f := newFixture()
+	f := initFixture()
 	f.rt.Start()
 	f.rt.Start() // Double start
 
@@ -146,7 +147,7 @@ func TestRuntime_Start_Start_Stop(t *testing.T) {
 func TestRuntime_Start_Stop_Stop(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	f := newFixture()
+	f := initFixture()
 	f.rt.Start()
 
 	coll := basicmeta.Collection1
@@ -168,7 +169,7 @@ func TestRuntime_Start_Stop_Stop(t *testing.T) {
 func TestRuntime_MeshConfig_Causing_Restart(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	f := newFixture()
+	f := initFixture()
 	f.rt.Start()
 	defer f.rt.Stop()
 
@@ -200,15 +201,14 @@ func TestRuntime_MeshConfig_Causing_Restart(t *testing.T) {
 	mcfg.IngressClass = "ing"
 
 	f.meshsrc.Set(mcfg)
-	g.Eventually(f.p.acc.Events).Should(HaveLen(4))
-
 	g.Eventually(f.rt.CurrentSessionID).Should(Equal(oldSessionID + 1))
+	g.Eventually(f.p.acc.Events).Should(HaveLen(4))
 }
 
 func TestRuntime_Event_Before_Start(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	f := newFixture()
+	f := initFixture()
 
 	coll := basicmeta.Collection1
 	r := &resource.Entry{
@@ -221,9 +221,42 @@ func TestRuntime_Event_Before_Start(t *testing.T) {
 	g.Consistently(f.p.acc.Events).Should(HaveLen(0))
 }
 
+func TestRuntime_Stop_Before_Start_Completes(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	f := newFixture()
+	f.meshsrc = nil
+	f.src = nil
+	f.init()
+
+	// Wait until mockSrc.Start is called, but block it from completing.
+	f.mockSrc.startWG.Add(1)
+	f.mockSrc.mu.Lock()
+	f.rt.Start()
+	f.mockSrc.startCalled.Wait()
+	f.mockSrc.mu.Unlock()
+
+	// Call Stop, while Start is blocked
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		wg.Done()
+		f.rt.Stop()
+	}()
+	wg.Wait()
+
+	// release Start call. Things should cleanup and release.
+	f.mockSrc.startWG.Done()
+
+	// Once Stop returns, both started and stopped should be
+	g.Eventually(func() bool { return f.mockSrc.started }).Should(BeTrue())
+	g.Eventually(func() bool { return f.mockSrc.stopped }).Should(BeTrue())
+}
+
 type fixture struct {
 	meshsrc *meshcfg.InMemorySource
 	src     *inmemory.KubeSource
+	mockSrc *testSource
 	p       *testProcessor
 	rt      *processing.Runtime
 }
@@ -232,17 +265,67 @@ func newFixture() *fixture {
 	f := &fixture{
 		meshsrc: meshcfg.NewInmemory(),
 		src:     inmemory.NewKubeSource(basicmeta.MustGet().KubeSource().Resources()),
+		mockSrc: &testSource{},
 		p:       &testProcessor{},
+	}
+
+	f.mockSrc.startCalled = sync.NewCond(&f.mockSrc.mu)
+	return f
+}
+
+func initFixture() *fixture {
+	f := newFixture()
+	f.init()
+	return f
+}
+
+func (f *fixture) init() {
+	var srcs []event.Source
+
+	if f.meshsrc != nil {
+		srcs = append(srcs, f.meshsrc)
+	}
+	if f.src != nil {
+		srcs = append(srcs, f.src)
+	}
+	if f.mockSrc != nil {
+		srcs = append(srcs, f.mockSrc)
 	}
 
 	o := processing.RuntimeOptions{
 		DomainSuffix: "local.svc",
-		Sources:      []event.Source{f.meshsrc, f.src},
+		Sources:      srcs,
 		Processor:    f.p,
 	}
 
 	f.rt = processing.NewRuntime(o)
-	return f
+}
+
+type testSource struct {
+	mu          sync.Mutex
+	h           event.Handler
+	startCalled *sync.Cond
+	startWG     sync.WaitGroup
+	started     bool
+	stopped     bool
+}
+
+var _ event.Source = &testSource{}
+
+func (s *testSource) Dispatch(handler event.Handler) {
+	s.h = event.CombineHandlers(s.h, handler)
+}
+
+func (s *testSource) Start() {
+	s.mu.Lock()
+	s.startCalled.Broadcast()
+	s.started = true
+	s.mu.Unlock()
+	s.startWG.Wait()
+}
+
+func (s *testSource) Stop() {
+	s.stopped = true
 }
 
 type testProcessor struct {

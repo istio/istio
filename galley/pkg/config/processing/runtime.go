@@ -50,12 +50,21 @@ func (o *RuntimeOptions) Clone() RuntimeOptions {
 
 // Runtime is the config processing runtime.
 type Runtime struct {
-	mu        sync.RWMutex
-	sessionID int32
-	options   RuntimeOptions
-	stopCh    chan struct{}
-	waitCh    chan struct{}
-	session   atomic.Value
+	mu sync.RWMutex
+
+	// counter for session id. The current value reflects the processing session's id.
+	sessionIDCtr int32
+
+	// runtime options that was passed as parameters to the command-line.
+	options RuntimeOptions
+
+	// stopCh is used send stop signal completion to the background go-routine.
+	stopCh chan struct{}
+
+	// wg is used to synchronize the completion of Stop call with the completion of the background
+	// go routine.
+	wg      sync.WaitGroup
+	session atomic.Value
 }
 
 // NewRuntime returns a new instance of a processing.Runtime.
@@ -82,9 +91,9 @@ func (r *Runtime) Start() {
 		return
 	}
 	r.stopCh = make(chan struct{})
-	r.waitCh = make(chan struct{})
 
-	go r.run()
+	r.wg.Add(1)
+	go r.run(r.stopCh)
 }
 
 // Stop the Processor
@@ -96,21 +105,24 @@ func (r *Runtime) Stop() {
 		return
 	}
 	close(r.stopCh)
-
-	<-r.waitCh
+	r.wg.Wait()
 	r.stopCh = nil
-	r.waitCh = nil
 }
 
 // CurrentSessionID is a numeric identifier of internal processor state. It is used for debugging purposes.
 func (r *Runtime) CurrentSessionID() int32 {
-	return atomic.LoadInt32(&r.sessionID)
+	se := r.session.Load()
+	if se == nil {
+		return 0
+	}
+	s := se.(*session)
+	return s.id
 }
 
-func (r *Runtime) run() {
+func (r *Runtime) run(stopCh chan struct{}) {
 loop:
 	for {
-		sid := atomic.AddInt32(&r.sessionID, 1)
+		sid := atomic.AddInt32(&r.sessionIDCtr, 1)
 		se, done := newSession(sid, r.options)
 		r.session.Store(se)
 		se.start()
@@ -118,12 +130,13 @@ loop:
 		select {
 		case <-done:
 
-		case <-r.stopCh:
+		case <-stopCh:
 			se.stop()
 			break loop
 		}
 	}
-	close(r.waitCh)
+
+	r.wg.Done()
 }
 
 func (r *Runtime) handle(e event.Event) {
