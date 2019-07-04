@@ -87,7 +87,6 @@ function make_istio() {
   ISTIO_OUT_LINUX=$(GOOS=linux make DEBUG=0 where-is-out)
   VERSION="${TAG}"
   export VERSION
-  IFS='/' read -ra REPO <<< "$REL_DOCKER_HUB"
   MAKE_TARGETS=(istio-archive)
   MAKE_TARGETS+=(sidecar.deb)
   
@@ -152,7 +151,7 @@ function make_istio() {
     "${DOCKER_HUB}" \
     "${TAG}" \
     "${OUTPUT_PATH}" \
-    "${REPO[1]}" \
+    "${REL_DOCKER_HUB}" \
     "${EXTRA_ARTIFACTS:-$PWD/LICENSES.txt}"
 }
 
