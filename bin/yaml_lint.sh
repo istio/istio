@@ -25,12 +25,7 @@ cd "$ROOTDIR"
 
 PKGS=${PKGS:-"."}
 if [[ -z ${YAML_FILES} ]];then
-    YAML_FILES=$(find "${PKGS}" -type f -name '*.yaml' | grep -v ./vendor | grep -v -E "\/templates\/" | grep -v -E "template")
+    find "${PKGS}" -type f -name '*.yaml' | grep -v ./vendor | grep -v -E "\/templates\/" | grep -v -E "template" | xargs yamllint -c ./bin/yamllintrules
 fi
- 
-for YAML_FILE in ${YAML_FILES}; do
-        echo "${YAML_FILE}"
-        yamllint -c ./bin/yamllintrules "${YAML_FILE}"
-done
 
 exit $?
