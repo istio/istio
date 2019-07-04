@@ -93,6 +93,8 @@ function startMinikubeNone() {
          --extra-config=apiserver.enable-admission-plugins="NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota"
     sudo -E minikube update-context
     sudo chown -R "$(id -u)" "$KUBECONFIG" "$HOME/.minikube"
+    # workaround method to enable pod can direct traffic to itself via a service 
+    sudo ip link set docker0 promisc on
 }
 
 function stopMinikube() {
