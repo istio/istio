@@ -8,7 +8,7 @@ replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
 
 replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538-2789fed3109c
 
-replace istio.io/api => github.com/dgn/api v0.0.0-20190625120522-901f17fefb6e
+replace istio.io/api => github.com/dgn/api v0.0.0-20190704140313-23b1e3bbebc9
 
 require (
 	cloud.google.com/go v0.37.4
