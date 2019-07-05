@@ -2221,7 +2221,7 @@ func validateDestination(destination *networking.Destination) (errs error) {
 
 	host := destination.Host
 	if host == "*" {
-		errs = appendErrors(errs, fmt.Errorf("invalid destintation host %s", host))
+		errs = appendErrors(errs, fmt.Errorf("invalid destination host %s", host))
 	} else {
 		errs = appendErrors(errs, ValidateWildcardDomain(host))
 	}
