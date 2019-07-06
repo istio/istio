@@ -86,13 +86,6 @@ gateways:
     #serviceAnnotations:
     #    cloud.google.com/load-balancer-type: "internal"
 
-    # Use SDS for ingress secrets.
-    sds:
-      enabled: false
-      # SDS server that watches kubernetes secrets and provisions credentials to ingress gateway.
-      # This server runs in the same pod as ingress gateway.
-      image: node-agent-k8s
-
     podAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
 
