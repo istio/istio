@@ -371,13 +371,14 @@ func getServiceLoadBalancer(name, namespace, kubeconfig string) (string, error) 
 		if ip == "localhost" {
 			ip = "127.0.0.1"
 		}
-	} else {
-		ip = strings.Trim(ip, "'")
-		addr := net.ParseIP(ip)
-		if addr == nil {
-			return "", errors.New("ingress ip not available yet")
-		}
 	}
+
+	ip = strings.Trim(ip, "'")
+	addr := net.ParseIP(ip)
+	if addr == nil {
+		return "", errors.New("ingress ip not available yet")
+	}
+
 	return ip, nil
 }
 

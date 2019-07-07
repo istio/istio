@@ -15,186 +15,58 @@
 package server
 
 import (
-	"errors"
-	"net"
-	"sync"
+	"io/ioutil"
+	"os"
+	"path"
 	"testing"
-	"time"
 
-	"istio.io/istio/galley/pkg/meshconfig"
-	"istio.io/istio/galley/pkg/runtime"
+	. "github.com/onsi/gomega"
+
 	"istio.io/istio/galley/pkg/server/settings"
-	"istio.io/istio/galley/pkg/source/kube/client"
-	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
-	"istio.io/istio/galley/pkg/source/kube/schema"
-	"istio.io/istio/galley/pkg/testing/mock"
-	"istio.io/istio/pkg/mcp/monitoring"
-	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
-func TestNewServer_Errors(t *testing.T) {
+func TestServer(t *testing.T) {
+	g := NewGomegaWithT(t)
 
-loop:
-	for i := 0; ; i++ {
-		p := defaultPatchTable()
-		mk := mock.NewKube()
-		p.newKubeFromConfigFile = func(string) (client.Interfaces, error) { return mk, nil }
-		p.newSource = func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error) {
-			return runtime.NewInMemorySource(), nil
-		}
-		p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
-		p.fsNew = func(string, *schema.Instance, *converter.Config) (runtime.Source, error) {
-			return runtime.NewInMemorySource(), nil
-		}
-		p.mcpMetricReporter = func(string) monitoring.Reporter {
-			return nil
-		}
+	rootDir, err := ioutil.TempDir(os.TempDir(), t.Name())
+	g.Expect(err).To(BeNil())
 
-		e := errors.New("err")
+	meshDir := path.Join(rootDir, "meshcfg")
+	meshFile := path.Join(meshDir, "mesh.yaml")
+	configDir := path.Join(rootDir, "cfg")
+	accessListDir := path.Join(rootDir, "access")
+	accessListFile := path.Join(accessListDir, "access.yaml")
 
-		args := settings.DefaultArgs()
-		args.APIAddress = "tcp://0.0.0.0:0"
-		args.Insecure = true
+	err = os.Mkdir(meshDir, os.ModePerm)
+	g.Expect(err).To(BeNil())
 
-		switch i {
-		case 0:
-			p.newKubeFromConfigFile = func(string) (client.Interfaces, error) { return nil, e }
-		case 1:
-			p.newSource = func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error) {
-				return nil, e
-			}
-		case 2:
-			p.netListen = func(network, address string) (net.Listener, error) { return nil, e }
-		case 3:
-			p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return nil, e }
-		case 4:
-			args.ConfigPath = "aaa"
-			p.fsNew = func(string, *schema.Instance, *converter.Config) (runtime.Source, error) { return nil, e }
-		default:
-			break loop
-		}
+	err = os.Mkdir(configDir, os.ModePerm)
+	g.Expect(err).To(BeNil())
 
-		_, err := newServer(args, p)
-		if err == nil {
-			t.Fatalf("Expected error not found for i=%d", i)
-		}
-	}
-}
+	err = os.Mkdir(accessListDir, os.ModePerm)
+	g.Expect(err).To(BeNil())
 
-func TestNewServer(t *testing.T) {
-	args := settings.DefaultArgs()
-	args.APIAddress = "tcp://0.0.0.0:0"
-	args.Insecure = true
+	err = ioutil.WriteFile(meshFile, nil, os.ModePerm)
+	g.Expect(err).To(BeNil())
 
-	// filter out schemas for excluded kinds
-	sourceResourceSchemas := getSourceSchema(args).All()
+	a := settings.DefaultArgs()
+	a.MeshConfigFile = meshFile
+	a.ConfigPath = configDir
+	a.AccessListFile = accessListFile
+	a.Insecure = true
+	a.ValidationArgs.EnableValidation = false
+	a.EnableProfiling = true
 
-	p := defaultPatchTable()
-	mk := mock.NewKube()
-	p.newKubeFromConfigFile = func(string) (client.Interfaces, error) { return mk, nil }
+	s := New(a)
 
-	var gotSourceSchemas []schema.ResourceSpec
-	p.newSource = func(_ client.Interfaces, _ time.Duration, si *schema.Instance, _ *converter.Config) (runtime.Source, error) {
-		gotSourceSchemas = si.All()
-		return runtime.NewInMemorySource(), nil
-	}
-	p.mcpMetricReporter = func(s string) monitoring.Reporter {
-		return mcptestmon.NewInMemoryStatsContext()
-	}
-	p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
-	p.fsNew = func(string, *schema.Instance, *converter.Config) (runtime.Source, error) {
-		return runtime.NewInMemorySource(), nil
-	}
-	p.verifyResourceTypesPresence = func(_ client.Interfaces, specs []schema.ResourceSpec) ([]schema.ResourceSpec, error) {
-		return specs, nil
-	}
+	g.Expect(s.Address()).To(BeNil())
 
-	partialResourceList := sourceResourceSchemas[:len(sourceResourceSchemas)/2]
-	p.findSupportedResources = func(interfaces client.Interfaces, _ []schema.ResourceSpec) ([]schema.ResourceSpec, error) {
-		return partialResourceList, nil
-	}
+	err = s.Start()
+	g.Expect(err).To(BeNil())
 
-	tests := []struct {
-		name                      string
-		wantSourceSchemas         []schema.ResourceSpec
-		disableResourceReadyCheck bool
-	}{
-		{
-			name:              "Simple",
-			wantSourceSchemas: sourceResourceSchemas,
-		},
-		{
-			name:                      "DisableResourceReadyCheck",
-			disableResourceReadyCheck: true,
-			wantSourceSchemas:         partialResourceList,
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(tt *testing.T) {
-			args.DisableResourceReadyCheck = test.disableResourceReadyCheck
-			s, err := newServer(args, p)
-			if err != nil {
-				tt.Fatalf("Unexpected error creating service: %v", err)
-			}
-			_ = s.Close()
+	g.Expect(s.Address()).NotTo(BeNil())
+	s.Stop()
+	g.Expect(s.Address()).To(BeNil())
 
-			if len(gotSourceSchemas) != len(test.wantSourceSchemas) {
-				tt.Fatalf("wrong number of resource sourceResourceSchemas found: got %v want %v \n gotSchemas %v\nwantSchemas %v",
-					len(gotSourceSchemas), len(test.wantSourceSchemas), gotSourceSchemas, test.wantSourceSchemas)
-			}
-
-			for j := range gotSourceSchemas {
-				if gotSourceSchemas[j].CanonicalResourceName() != test.wantSourceSchemas[j].CanonicalResourceName() {
-					tt.Fatalf("wrong resource found: got %v want %v", gotSourceSchemas[j], test.wantSourceSchemas[j])
-				}
-			}
-		})
-	}
-}
-
-func TestServer_Basic(t *testing.T) {
-	p := defaultPatchTable()
-	mk := mock.NewKube()
-	p.newKubeFromConfigFile = func(string) (client.Interfaces, error) { return mk, nil }
-	p.newSource = func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error) {
-		return runtime.NewInMemorySource(), nil
-	}
-	p.mcpMetricReporter = func(s string) monitoring.Reporter {
-		return mcptestmon.NewInMemoryStatsContext()
-	}
-	p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
-	p.verifyResourceTypesPresence = func(_ client.Interfaces, specs []schema.ResourceSpec) ([]schema.ResourceSpec, error) {
-		return specs, nil
-	}
-
-	args := settings.DefaultArgs()
-	args.APIAddress = "tcp://0.0.0.0:0"
-	args.Insecure = true
-	s, err := newServer(args, p)
-	if err != nil {
-		t.Fatalf("Unexpected error creating service: %v", err)
-	}
-
-	// ensure that it does not crash
-	addr := s.Address()
-	if addr == nil {
-		t.Fatalf("expected address not found")
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-		s.Run()
-	}()
-
-	wg.Wait()
-	_ = s.Close()
-
-	// ensure that it does not crash
-	addr = s.Address()
-	if addr != nil {
-		t.Fatalf("unexpected address found")
-	}
+	s.Stop() // Do not panic
 }

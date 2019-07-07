@@ -49,6 +49,9 @@ spec:
   - jwt:
       issuer: "test-issuer-1@istio.io"
       jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+  - jwt:
+      issuer: "test-issuer-2@istio.io"
+      jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
   principalBinding: USE_ORIGIN
 ---
 apiVersion: "rbac.istio.io/v1alpha1"
