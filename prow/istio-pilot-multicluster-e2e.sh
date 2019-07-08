@@ -24,4 +24,4 @@ export CLUSTERREG_DIR
 
 echo 'Running pilot multi-cluster e2e tests'
 date
-./prow/e2e-suite.sh --timeout 50 --cluster_registry_dir="$CLUSTERREG_DIR" --single_test e2e_pilotv2_v1alpha3 "$@"
+./prow/e2e-suite.sh --timeout 90m --cluster_registry_dir="$CLUSTERREG_DIR" --single_test e2e_pilotv2_v1alpha3 "$@"
