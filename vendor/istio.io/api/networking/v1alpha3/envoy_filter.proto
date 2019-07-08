@@ -558,17 +558,13 @@ message EnvoyFilter {
   };
 
   message EnvoyConfigObjectMatch {
-    oneof object_types {
-      ListenerMatch listener = 1;
-      RouteConfigurationMatch route_configuration = 3;
-      ClusterMatch cluster = 5;
-    }
-  };
-
-  // Match conditions for selecting an object to patch.
-  message EnvoyFilterMatchCondition {
     PatchContext context = 1;
-    EnvoyConfigObjectMatch match = 2;
+
+    oneof object_types {
+      ListenerMatch listener = 2;
+      RouteConfigurationMatch route_configuration = 3;
+      ClusterMatch cluster = 4;
+    }
   };
 
   // Changes to be made to various envoy config objects.
