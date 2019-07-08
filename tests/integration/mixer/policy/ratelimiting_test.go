@@ -40,12 +40,12 @@ import (
 )
 
 var (
-	ist               istio.Instance
-	bookinfoNamespace *namespace.Instance
-	galInst           *galley.Instance
-	redInst           *redis.Instance
-	ingInst           *ingress.Instance
-	promInst          *prometheus.Instance
+	ist        istio.Instance
+	bookinfoNs namespace.Instance
+	g          galley.Instance
+	red        redis.Instance
+	ing        ingress.Instance
+	prom       prometheus.Instance
 )
 
 func TestRateLimiting_RedisQuotaFixedWindow(t *testing.T) {
@@ -64,9 +64,6 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			destinationService := "productpage"
-
-			bookinfoNs, g, red, ing, prom := setupComponentsOrFail(t, ctx)
-			defer deleteComponentsOrFail(t, ctx, g, bookinfoNs)
 			bookInfoNameSpaceStr := bookinfoNs.Name()
 			config := setupConfigOrFail(t, bookinfo.ProductPageRedisRateLimit, bookInfoNameSpaceStr,
 				red, g, ctx)
@@ -117,8 +114,6 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 
 func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService string) {
 	framework.Run(t, func(ctx framework.TestContext) {
-		bookinfoNs, g, red, ing, prom := setupComponentsOrFail(t, ctx)
-		defer deleteComponentsOrFail(t, ctx, g, bookinfoNs)
 		g.ApplyConfigOrFail(
 			t,
 			bookinfoNs,
@@ -134,8 +129,9 @@ func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService
 
 		// This is the number of requests we allow to be missing to be reported, so as to make test stable.
 		errorInRequestReportingAllowed := 5.0
+		_ = util.SendTraffic(ing, t, "Sending traffic...", "", "", 300)
 		prior429s, prior200s := util.FetchRequestCount(t, prom, destinationService, "",
-			bookInfoNameSpaceStr, 0)
+			bookInfoNameSpaceStr, 300)
 
 		res := util.SendTraffic(ing, t, "Sending traffic...", "", "", 300)
 		totalReqs := res.DurationHistogram.Count
@@ -230,51 +226,6 @@ func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService
 	})
 }
 
-func setupComponentsOrFail(t *testing.T, ctx resource.Context) (bookinfoNs namespace.Instance, g galley.Instance,
-	red redis.Instance, ing ingress.Instance, prom prometheus.Instance) {
-	if bookinfoNamespace == nil {
-		t.Fatalf("bookinfo namespace not allocated in setup")
-	}
-	bookinfoNs = *bookinfoNamespace
-	if galInst == nil {
-		t.Fatalf("galley not setup")
-	}
-	g = *galInst
-	if redInst == nil {
-		t.Fatalf("redis not setup")
-	}
-	red = *redInst
-	if ingInst == nil {
-		t.Fatalf("ingress not setup")
-	}
-	ing = *ingInst
-	if promInst == nil {
-		t.Fatalf("prometheus not setup")
-	}
-	prom = *promInst
-
-	g.ApplyConfigOrFail(t, bookinfoNs,
-		bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
-	g.ApplyConfigOrFail(
-		t,
-		bookinfoNs,
-		bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-	)
-
-	return
-}
-
-func deleteComponentsOrFail(t *testing.T, ctx resource.Context, g galley.Instance, bookinfoNs namespace.Instance) {
-	defer g.DeleteConfigOrFail(t, bookinfoNs,
-		bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
-	defer g.DeleteConfigOrFail(
-		t,
-		bookinfoNs,
-		bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
-}
-
 func setupConfigOrFail(t *testing.T, config bookinfo.ConfigFile, bookInfoNameSpaceStr string,
 	red redis.Instance, g galley.Instance, ctx resource.Context) string {
 	p := path.Join(env.BookInfoRoot, string(config))
@@ -308,38 +259,57 @@ func TestMain(m *testing.M) {
 		Run()
 }
 
-func testsetup(ctx resource.Context) error {
-	bookinfoNs, err := namespace.New(ctx, "istio-bookinfo", true)
+func testsetup(ctx resource.Context) (err error) {
+	bookinfoNs, err = namespace.New(ctx, "istio-bookinfo", true)
 	if err != nil {
-		return err
+		return
 	}
-	bookinfoNamespace = &bookinfoNs
-	if _, err := bookinfo.Deploy(ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo}); err != nil {
-		return err
+	if _, err = bookinfo.Deploy(ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo}); err != nil {
+		return
 	}
-	g, err := galley.New(ctx, galley.Config{})
+	g, err = galley.New(ctx, galley.Config{})
 	if err != nil {
-		return err
+		return
 	}
-	galInst = &g
 	if _, err = mixer.New(ctx, mixer.Config{Galley: g}); err != nil {
-		return err
+		return
 	}
-	red, err := redis.New(ctx)
+	red, err = redis.New(ctx)
 	if err != nil {
-		return err
+		return
 	}
-	redInst = &red
-	ing, err := ingress.New(ctx, ingress.Config{Istio: ist})
+	ing, err = ingress.New(ctx, ingress.Config{Istio: ist})
 	if err != nil {
-		return err
+		return
 	}
-	ingInst = &ing
-	prom, err := prometheus.New(ctx)
+	prom, err = prometheus.New(ctx)
 	if err != nil {
-		return err
+		return
 	}
-	promInst = &prom
+
+	bookinfoGatewayFile, err := bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespace(bookinfoNs.Name())
+	if err != nil {
+		return
+	}
+	destinationRule, err := bookinfo.GetDestinationRuleConfigFile(ctx)
+	if err != nil {
+		return
+	}
+	destinationRuleFile, err := destinationRule.LoadWithNamespace(bookinfoNs.Name())
+	if err != nil {
+		return
+	}
+	virtualServiceFile, err := bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespace(bookinfoNs.Name())
+	if err != nil {
+		return
+	}
+	err = g.ApplyConfig(bookinfoNs,
+		bookinfoGatewayFile,
+		destinationRuleFile,
+		virtualServiceFile)
+	if err != nil {
+		return
+	}
 
 	return nil
 }
