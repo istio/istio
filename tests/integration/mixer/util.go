@@ -188,7 +188,7 @@ func GetAndValidateAccessLog(ns namespace.Instance, t *testing.T, labelSelector,
 	}
 
 	retryFn := func(_ context.Context, i int) error {
-		content, err := shell.Execute(false, "kubectl logs -n %s -l %s -c %s ",
+		content, err := shell.Execute(false, "kubectl logs -n %s -l %s -c %s --tail=-1",
 			ns.Name(), labelSelector, container)
 		if err != nil {
 			return fmt.Errorf("unable to get access logs from mixer: %v , content %v", err, content)
