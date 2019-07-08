@@ -5,6 +5,7 @@ import (
 	nacos_model "github.com/nacos-group/nacos-sdk-go/model"
 	istio_model "istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/log"
+	"sort"
 	"strings"
 )
 
@@ -127,6 +128,26 @@ func convertProtocol(name string) istio_model.Protocol {
 		return istio_model.ProtocolTCP
 	}
 	return protocol
+}
+
+func sortServices(services []nacos_model.Service) {
+	sort.Slice(services, func(i, j int) bool { return services[i].Name < services[j].Name })
+	for _, service := range services {
+		sortInstances(service.Hosts)
+	}
+}
+
+func sortInstances(instances []nacos_model.Instance) {
+	sort.Slice(instances, func(i, j int) bool {
+
+		if instances[i].Ip == instances[j].Ip {
+			if instances[i].Port == instances[j].Port {
+				return instances[i].InstanceId < instances[j].InstanceId
+			}
+			return instances[i].Port < instances[j].Port
+		}
+		return instances[i].Ip < instances[j].Ip
+	})
 }
 
 // 根据serviceName 组装成 hostName

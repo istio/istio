@@ -1,11 +1,11 @@
 package nacos
 
 import (
-	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
-	"github.com/nacos-group/nacos-sdk-go/vo"
+	nacos_model "github.com/nacos-group/nacos-sdk-go/model"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/log"
+	"reflect"
 	"time"
 )
 
@@ -14,19 +14,31 @@ type instanceHandler func(*model.ServiceInstance, model.Event)
 
 // Controller communicates with Consul and monitors for changes
 type Controller struct {
-	client           *naming_client.INamingClient
+	client           *Client
 	serviceHandlers  []serviceHandler
 	instanceHandlers []instanceHandler
+	duration         time.Duration
 }
 
 // NewController creates a new Nacos controller
-func NewController(addr string) (*Controller, error) {
-	client, err := CreateNacosServiceClient(addr)
+func NewController(addr string, duration time.Duration) (*Controller, error) {
+	client, err := NewClient(addr)
 	return &Controller{
 		client:           client,
 		serviceHandlers:  make([]serviceHandler, 0),
 		instanceHandlers: make([]instanceHandler, 0),
+		duration:         duration,
 	}, err
+}
+
+func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+	c.serviceHandlers = append(c.serviceHandlers, f)
+	return nil
+}
+
+func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+	c.instanceHandlers = append(c.instanceHandlers, f)
+	return nil
 }
 
 //==================ServiceDiscovery Interface //
@@ -41,7 +53,7 @@ func NewController(addr string) (*Controller, error) {
 
 // 获取所有的Service信息
 func (c *Controller) Services() ([]*model.Service, error) {
-	servicesInfo, err := (*c.client).GetAllServicesInfo(vo.GetAllServiceInfoParam{Clusters: []string{CLUSTER_NAME}, NameSpace: NAMESPACE, GroupName: GROUP_NAME})
+	servicesInfo, err := c.client.getAllServices()
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +74,7 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 		return nil, err
 	}
 
-	service, err := (*c.client).GetService(vo.GetServiceParam{Clusters: []string{CLUSTER_NAME}, ServiceName: name, GroupName: GROUP_NAME})
+	service, err := c.client.getService(name)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +93,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, port int,
 		log.Infof("parseHostname(%s) => error %v", hostname, err)
 		return nil, err
 	}
-	service, err := (*c.client).GetService(vo.GetServiceParam{Clusters: []string{CLUSTER_NAME}, ServiceName: name, GroupName: GROUP_NAME})
+	service, err := c.client.getService(name)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +111,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, port int,
 // GetProxyServiceInstances lists service instances co-located with a given proxy
 // 查询边车代理所在节点上的服务实例
 func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
-	data, err := (*c.client).GetAllServicesInfo(vo.GetAllServiceInfoParam{Clusters: []string{CLUSTER_NAME}, NameSpace: NAMESPACE, GroupName: GROUP_NAME})
+	data, err := c.client.getAllServices()
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +136,7 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 
 //启动Controller的主循环，对Service 的变化进行分发
 func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCollection, error) {
-	data, err := (*c.client).GetAllServicesInfo(vo.GetAllServiceInfoParam{Clusters: []string{CLUSTER_NAME}, NameSpace: NAMESPACE, GroupName: GROUP_NAME})
+	data, err := c.client.getAllServices()
 	if err != nil {
 		return nil, err
 	}
@@ -184,21 +196,158 @@ func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []in
 
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
-	c.ad
+	cacheServices := make([]nacos_model.Service, 0)
+	ticker := time.NewTicker(c.duration)
+	for {
+		select {
+		case <-ticker.C:
+			services, err := c.client.getAllServices()
+			if err != nil {
+				log.Warnf("periodic Eureka poll failed: %v", err)
+				continue
+			}
 
-	for  {
+			addedService, deletedService, existServiceMap := getChangedServices(cacheServices, services)
 
+			// 控制新增Service
+			if len(addedService) > 0 {
+				for _, h := range c.serviceHandlers {
+					for _, data := range addedService {
+						go h(convertService(data), model.EventAdd)
+					}
+				}
+			}
+
+			// 控制被删除Service
+			if len(deletedService) > 0 {
+				for _, h := range c.serviceHandlers {
+					for _, data := range deletedService {
+						go h(convertService(data), model.EventDelete)
+					}
+				}
+			}
+
+			// 目前根据instance是否变化来判断Service是否Update
+
+			if existServiceMap != nil && len(existServiceMap) > 0 {
+				for newData, oldData := range existServiceMap {
+					addedInstance, deletedInstance, existInstanceMap := getChangedInstances(oldData.Hosts, newData.Hosts)
+
+					var changed bool
+					if addedInstance != nil && len(addedInstance) > 0 {
+						changed = true
+						for _, h := range c.instanceHandlers {
+							for _, data := range addedInstance {
+								go h(convertInstance(data), model.EventAdd)
+							}
+						}
+					}
+					if deletedService != nil && len(deletedService) > 0 {
+						changed = true
+						for _, h := range c.instanceHandlers {
+							for _, data := range deletedInstance {
+								go h(convertInstance(data), model.EventDelete)
+							}
+						}
+					}
+
+					if existInstanceMap != nil && len(existInstanceMap) > 0 {
+						//判断实例是否发生变化
+						for newInstance, oldInstance := range existInstanceMap {
+							if !reflect.DeepEqual(newInstance.Metadata, oldInstance.Metadata) {
+								changed = true
+								for _, h := range c.instanceHandlers {
+									go h(convertInstance(newInstance), model.EventUpdate)
+								}
+							}
+						}
+					}
+
+					if changed {
+						for _, h := range c.serviceHandlers {
+							go h(convertService(newData), model.EventUpdate)
+						}
+					}
+				}
+			}
+		case <-stop:
+			ticker.Stop()
+			return
+		}
 	}
 }
+func getChangedServices(oldCache []nacos_model.Service, newCache []nacos_model.Service) ([]nacos_model.Service, []nacos_model.Service, map[nacos_model.Service]nacos_model.Service) {
+	if len(oldCache) == 0 {
+		return newCache, []nacos_model.Service{}, map[nacos_model.Service]nacos_model.Service{}
+	}
+	if len(newCache) == 0 {
+		return []nacos_model.Service{}, oldCache, map[nacos_model.Service]nacos_model.Service{}
+	}
 
-// AppendServiceHandler implements a service catalog operation
-func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	c.serviceHandlers = append(c.serviceHandlers, f)
-	return nil
+	mapService := make(map[string]nacos_model.Service, 0)
+	for _, data := range oldCache {
+		mapService[data.Name] = data
+	}
+
+	addedResult := make([]nacos_model.Service, 0)
+	existResult := make([]nacos_model.Service, 0)
+	existResultMap := make(map[string]nacos_model.Service, 0)
+	for _, data := range newCache {
+		data, ok := mapService[data.Name]
+		if ok {
+			existResult = append(existResult, data)
+			existResultMap[data.Name] = data
+		} else {
+			addedResult = append(addedResult, data)
+		}
+	}
+
+	deletedResult := make(map[nacos_model.Service]nacos_model.Service, 0)
+	for _, oldData := range oldCache {
+		newData, ok := existResultMap[oldData.Name]
+		if ok {
+			continue
+		}
+		deletedResult[newData] = oldData
+	}
+
+	return addedResult, existResult, deletedResult
 }
 
-// AppendInstanceHandler implements a service catalog operation
-func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	c.instanceHandlers = append(c.instanceHandlers, f)
-	return nil
+func getChangedInstances(oldCache []nacos_model.Instance, newCache []nacos_model.Instance) ([]nacos_model.Instance, []nacos_model.Instance, map[nacos_model.Instance]nacos_model.Instance) {
+	if len(oldCache) == 0 {
+		return newCache, []nacos_model.Instance{}, map[nacos_model.Instance]nacos_model.Instance{}
+	}
+	if len(newCache) == 0 {
+		return []nacos_model.Instance{}, oldCache, map[nacos_model.Instance]nacos_model.Instance{}
+	}
+
+	mapService := make(map[string]nacos_model.Instance, 0)
+	for _, data := range oldCache {
+		mapService[data.InstanceId] = data
+	}
+
+	addedResult := make([]nacos_model.Instance, 0)
+	existResult := make([]nacos_model.Instance, 0)
+	existResultMap := make(map[string]nacos_model.Instance, 0)
+	for _, data := range newCache {
+		data, ok := mapService[data.InstanceId]
+		if ok {
+			existResult = append(existResult, data)
+			existResultMap[data.InstanceId] = data
+		} else {
+			addedResult = append(addedResult, data)
+		}
+	}
+
+	deletedResult := make(map[nacos_model.Instance]nacos_model.Instance, 0)
+	for _, oldData := range oldCache {
+		newData, ok := existResultMap[oldData.InstanceId]
+		if ok {
+			continue
+		}
+		deletedResult[newData] = oldData
+	}
+
+	return addedResult, existResult, deletedResult
 }

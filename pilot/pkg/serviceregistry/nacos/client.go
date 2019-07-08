@@ -5,11 +5,27 @@ import (
 	"github.com/nacos-group/nacos-sdk-go/clients"
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 	"github.com/nacos-group/nacos-sdk-go/common/constant"
+	"github.com/nacos-group/nacos-sdk-go/model"
+	"github.com/nacos-group/nacos-sdk-go/vo"
+	"sort"
 	"strconv"
 	"strings"
 )
 
-func CreateNacosServiceClient(addr string) (client *naming_client.INamingClient, err error) {
+type Client struct {
+	client   *naming_client.INamingClient
+	services map[string]*model.Service
+}
+
+func NewClient(addr string) (client *Client, err error) {
+	nacosClient, err := createNacosClient(addr)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{client: nacosClient}, nil
+}
+
+func createNacosClient(addr string) (client *naming_client.INamingClient, err error) {
 	if addr == "" {
 		return nil, errors.New("输入的地址有误")
 	}
@@ -54,6 +70,23 @@ func CreateNacosServiceClient(addr string) (client *naming_client.INamingClient,
 	return &namingClient, err
 }
 
-func (client *naming_client.INamingClient) addServiceChangedHandler() {
+func (nc *Client) getAllServices() ([]model.Service, error) {
+	return (*nc.client).GetAllServicesInfo(vo.GetAllServiceInfoParam{Clusters: []string{CLUSTER_NAME}, NameSpace: NAMESPACE, GroupName: GROUP_NAME})
+}
 
+func (nc *Client) getAllServicesName() ([]string, error) {
+	data, err := nc.getAllServices()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]string, 0)
+	for _, service := range data {
+		result = append(result, service.Name)
+	}
+	sort.Strings(result)
+	return result, nil
+}
+
+func (nc *Client) getService(serviceName string) (model.Service, error) {
+	return (*nc.client).GetService(vo.GetServiceParam{Clusters: []string{CLUSTER_NAME}, ServiceName: serviceName, GroupName: GROUP_NAME})
 }
