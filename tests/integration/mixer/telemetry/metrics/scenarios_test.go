@@ -86,7 +86,7 @@ func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValu
 
 	// Warm up
 	url := fmt.Sprintf("%s/productpage", ing.HTTPAddress())
-	res := util.SendTraffic(ing, t, "Sending traffic", url,10)
+	res := util.SendTraffic(ing, t, "Sending traffic", url, "", 10)
 	if res.RetCodes[200] < 1 {
 		t.Fatalf("unable to retrieve 200 from product page: %v", res.RetCodes)
 	}
@@ -101,7 +101,7 @@ func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValu
 	}
 	t.Logf("Baseline established: initial = %v", initial)
 
-	res = util.SendTraffic(ing, t, "Sending traffic", url, 10)
+	res = util.SendTraffic(ing, t, "Sending traffic", url, "", 10)
 	if res.RetCodes[200] < 1 {
 		t.Fatalf("unable to retrieve 200 from product page: %v", res.RetCodes)
 	}
@@ -186,7 +186,7 @@ func TestTcpMetric(t *testing.T) {
 			util.AllowRuleSync(t)
 
 			url := fmt.Sprintf("%s/productpage", ing.HTTPAddress())
-			res := util.SendTraffic(ing, t, "Sending traffic", url, 10)
+			res := util.SendTraffic(ing, t, "Sending traffic", url, "", 10)
 			if res.RetCodes[200] < 1 {
 				t.Fatalf("unable to retrieve 200 from product page: %v", res.RetCodes)
 			}
