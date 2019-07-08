@@ -57,22 +57,15 @@ var (
 	}
 )
 
-// WebhookConfig implements the validating admission webhook for validating Istio configuration.
-type WebhookConfig struct {
-	mu                            sync.RWMutex
-	cert                          *tls.Certificate
-	keyCertWatcher                *fsnotify.Watcher
-	configWatcher                 *fsnotify.Watcher
-	certFile                      string
-	keyFile                       string
-	caFile                        string
-	webhookConfigFile             string
-	clientset                     clientset.Interface
-	webhookName                   string
-	deploymentAndServiceNamespace string
-	deploymentName                string
-	ownerRefs                     []v1.OwnerReference
-	webhookConfiguration          *v1beta1.ValidatingWebhookConfiguration
+// WebhookConfigController implements the validating admission webhook for validating Istio configuration.
+type WebhookConfigController struct {
+	mu                   sync.RWMutex
+	cert                 *tls.Certificate
+	keyCertWatcher       *fsnotify.Watcher
+	configWatcher        *fsnotify.Watcher
+	webhookParameters    *WebhookParameters
+	ownerRefs            []v1.OwnerReference
+	webhookConfiguration *v1beta1.ValidatingWebhookConfiguration
 
 	// test hook for informers
 	createInformerWebhookSource createInformerWebhookSource
@@ -80,10 +73,10 @@ type WebhookConfig struct {
 
 // Run an informer that watches the current webhook configuration
 // for changes.
-func (whc *WebhookConfig) monitorWebhookChanges(stopC <-chan struct{}) chan struct{} {
+func (whc *WebhookConfigController) monitorWebhookChanges(stopC <-chan struct{}) chan struct{} {
 	webhookChangedCh := make(chan struct{}, 1000)
 	_, controller := cache.NewInformer(
-		whc.createInformerWebhookSource(whc.clientset, whc.webhookName),
+		whc.createInformerWebhookSource(whc.webhookParameters.Clientset, whc.webhookParameters.WebhookName),
 		&v1beta1.ValidatingWebhookConfiguration{},
 		0,
 		cache.ResourceEventHandlerFuncs{
@@ -106,14 +99,14 @@ func (whc *WebhookConfig) monitorWebhookChanges(stopC <-chan struct{}) chan stru
 	return webhookChangedCh
 }
 
-func (whc *WebhookConfig) createOrUpdateWebhookConfig() {
+func (whc *WebhookConfigController) createOrUpdateWebhookConfig() {
 	if whc.webhookConfiguration == nil {
 		scope.Error("validatingwebhookconfiguration update failed: no configuration loaded")
 		reportValidationConfigUpdateError(errors.New("no configuration loaded"))
 		return
 	}
 
-	client := whc.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
+	client := whc.webhookParameters.Clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
 	updated, err := createOrUpdateWebhookConfigHelper(client, whc.webhookConfiguration)
 	if err != nil {
 		scope.Errorf("%v validatingwebhookconfiguration update failed: %v", whc.webhookConfiguration.Name, err)
@@ -155,11 +148,11 @@ func createOrUpdateWebhookConfigHelper(
 }
 
 // Rebuild the validatingwebhookconfiguration and save for subsequent calls to createOrUpdateWebhookConfig.
-func (whc *WebhookConfig) rebuildWebhookConfig() error {
+func (whc *WebhookConfigController) rebuildWebhookConfig() error {
 	webhookConfig, err := rebuildWebhookConfigHelper(
-		whc.caFile,
-		whc.webhookConfigFile,
-		whc.webhookName,
+		whc.webhookParameters.CACertFile,
+		whc.webhookParameters.WebhookConfigFile,
+		whc.webhookParameters.WebhookName,
 		whc.ownerRefs)
 	if err != nil {
 		reportValidationConfigLoadError(err)
@@ -256,8 +249,8 @@ func rebuildWebhookConfigHelper(
 }
 
 // Reload the server's cert/key for TLS from file.
-func (whc *WebhookConfig) reloadKeyCert() {
-	pair, err := tls.LoadX509KeyPair(whc.certFile, whc.keyFile)
+func (whc *WebhookConfigController) reloadKeyCert() {
+	pair, err := tls.LoadX509KeyPair(whc.webhookParameters.CertFile, whc.webhookParameters.KeyFile)
 	if err != nil {
 		reportValidationCertKeyUpdateError(err)
 		scope.Errorf("Cert/Key reload error: %v", err)
@@ -271,8 +264,8 @@ func (whc *WebhookConfig) reloadKeyCert() {
 	scope.Info("Cert and Key reloaded")
 }
 
-// NewWebhookConfig manages validating webhook configuration.
-func NewWebhookConfig(p WebhookParameters) (*WebhookConfig, error) {
+// NewWebhookConfigController manages validating webhook configuration.
+func NewWebhookConfigController(p WebhookParameters) (*WebhookConfigController, error) {
 	pair, err := tls.LoadX509KeyPair(p.CertFile, p.KeyFile)
 	if err != nil {
 		return nil, err
@@ -309,24 +302,20 @@ func NewWebhookConfig(p WebhookParameters) (*WebhookConfig, error) {
 		}
 	}
 
-	whc := &WebhookConfig{
-		keyCertWatcher:                certKeyWatcher,
-		configWatcher:                 configWatcher,
-		certFile:                      p.CertFile,
-		keyFile:                       p.KeyFile,
-		cert:                          &pair,
-		caFile:                        p.CACertFile,
-		webhookConfigFile:             p.WebhookConfigFile,
-		clientset:                     p.Clientset,
-		webhookName:                   p.WebhookName,
-		deploymentName:                p.DeploymentName,
-		deploymentAndServiceNamespace: p.DeploymentAndServiceNamespace,
-		createInformerWebhookSource:   defaultCreateInformerWebhookSource,
+	whc := &WebhookConfigController{
+		keyCertWatcher:              certKeyWatcher,
+		configWatcher:               configWatcher,
+		webhookParameters:           &p,
+		cert:                        &pair,
+		createInformerWebhookSource: defaultCreateInformerWebhookSource,
 	}
 
-	if galleyDeployment, err := whc.clientset.AppsV1().Deployments(whc.deploymentAndServiceNamespace).Get(whc.deploymentName, v1.GetOptions{}); err != nil { // nolint: lll
-		scope.Warnf("Could not find %s/%s deployment to set ownerRef. The validatingwebhookconfiguration must be deleted manually",
-			whc.deploymentAndServiceNamespace, whc.deploymentName)
+	if galleyDeployment, err := whc.webhookParameters.Clientset.AppsV1().
+		Deployments(whc.webhookParameters.DeploymentAndServiceNamespace).
+		Get(whc.webhookParameters.DeploymentName, v1.GetOptions{}); err != nil {
+		scope.Warnf("Could not find %s/%s deployment to set ownerRef. "+
+			"The validatingwebhookconfiguration must be deleted manually",
+			whc.webhookParameters.DeploymentAndServiceNamespace, whc.webhookParameters.DeploymentName)
 	} else {
 		whc.ownerRefs = []v1.OwnerReference{
 			*v1.NewControllerRef(
@@ -340,7 +329,7 @@ func NewWebhookConfig(p WebhookParameters) (*WebhookConfig, error) {
 }
 
 //reconcile monitors the keycert and webhook configuration changes, rebuild and reconcile the configuration
-func (whc *WebhookConfig) reconcile(stopCh <-chan struct{}) {
+func (whc *WebhookConfigController) reconcile(stopCh <-chan struct{}) {
 	defer whc.keyCertWatcher.Close() // nolint: errcheck
 	defer whc.configWatcher.Close()  // nolint: errcheck
 
@@ -391,8 +380,9 @@ func (whc *WebhookConfig) reconcile(stopCh <-chan struct{}) {
 	}
 }
 
-// ReconcileWebhookConfiguration reconciles the ValidatingWebhookConfiguration
-func ReconcileWebhookConfiguration(webhookServerReady chan struct{}, stopCh <-chan struct{}, kubeConfig string, vc *WebhookParameters) {
+// ReconcileWebhookConfiguration reconciles the ValidatingWebhookConfiguration when the webhook server is ready
+func ReconcileWebhookConfiguration(webhookServerReady, stopCh <-chan struct{},
+	vc *WebhookParameters, kubeConfig string) {
 
 	clientset, err := kube.CreateClientset(kubeConfig, "")
 	if err != nil {
@@ -400,7 +390,7 @@ func ReconcileWebhookConfiguration(webhookServerReady chan struct{}, stopCh <-ch
 	}
 	vc.Clientset = clientset
 
-	whc, err := NewWebhookConfig(*vc)
+	whc, err := NewWebhookConfigController(*vc)
 	if err != nil {
 		log.Fatalf("cannot create validation webhook config: %v", err)
 	}
@@ -408,9 +398,7 @@ func ReconcileWebhookConfiguration(webhookServerReady chan struct{}, stopCh <-ch
 	if vc.EnableValidation {
 		//wait for galley endpoint to be available before register ValidatingWebhookConfiguration
 		<-webhookServerReady
-		whc.reconcile(stopCh)
-	} else {
-		whc.reconcile(stopCh)
 	}
+	whc.reconcile(stopCh)
 
 }

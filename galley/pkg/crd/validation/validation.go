@@ -72,7 +72,7 @@ func webhookHTTPSHandlerReady(client httpClient, vc *WebhookParameters) error {
 }
 
 //RunValidation start running Galley validation mode
-func RunValidation(ready chan struct{}, vc *WebhookParameters, kubeConfig string,
+func RunValidation(ready, stopCh chan struct{}, vc *WebhookParameters, kubeConfig string,
 	livenessProbeController, readinessProbeController probe.Controller) {
 	log.Infof("Galley validation started with\n%s", vc)
 	mixerValidator := mixervalidate.NewDefaultValidator(false)
@@ -93,9 +93,6 @@ func RunValidation(ready chan struct{}, vc *WebhookParameters, kubeConfig string
 		validationLivenessProbe.RegisterProbe(livenessProbeController, "validationLiveness")
 		defer validationLivenessProbe.SetAvailable(errors.New("stopped"))
 	}
-
-	// Create the stop channel for all of the servers.
-	stop := make(chan struct{})
 
 	if readinessProbeController != nil {
 		validationReadinessProbe := probe.NewProbe()
@@ -127,7 +124,7 @@ func RunValidation(ready chan struct{}, vc *WebhookParameters, kubeConfig string
 					}
 				}
 				select {
-				case <-stop:
+				case <-stopCh:
 					validationReadinessProbe.SetAvailable(errors.New("stopped"))
 					return
 				case <-time.After(httpsHandlerReadinessFreq):
@@ -137,10 +134,10 @@ func RunValidation(ready chan struct{}, vc *WebhookParameters, kubeConfig string
 		}()
 	}
 
-	go wh.Run(ready, stop)
+	go wh.Run(ready, stopCh)
 	defer wh.Stop()
 
-	cmd.WaitSignal(stop)
+	cmd.WaitSignal(stopCh)
 }
 
 // isDNS1123Label tests for a string that conforms to the definition of a label in

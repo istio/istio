@@ -43,11 +43,11 @@ var (
 	failurePolicyFail    = &failurePolicyFailVal
 )
 
-func createTestWebhookConfig(
+func createTestWebhookConfigController(
 	t testing.TB,
 	cl clientset.Interface,
 	fakeWebhookSource cache.ListerWatcher,
-	config *admissionregistrationv1beta1.ValidatingWebhookConfiguration) (*WebhookConfig, func()) {
+	config *admissionregistrationv1beta1.ValidatingWebhookConfiguration) (*WebhookConfigController, func()) {
 
 	t.Helper()
 	dir, err := ioutil.TempDir("", "galley_validation_webhook")
@@ -105,10 +105,10 @@ func createTestWebhookConfig(
 		ServiceName:                   dummyDeployment.Name,
 		DeploymentAndServiceNamespace: dummyDeployment.Namespace,
 	}
-	whc, err := NewWebhookConfig(options)
+	whc, err := NewWebhookConfigController(options)
 	if err != nil {
 		cleanup()
-		t.Fatalf("NewWebhookConfig() failed: %v", err)
+		t.Fatalf("NewWebhookConfigController() failed: %v", err)
 	}
 
 	whc.createInformerWebhookSource = func(cl clientset.Interface, name string) cache.ListerWatcher {
@@ -236,13 +236,14 @@ func TestValidatingWebhookConfig(t *testing.T) {
 
 	for _, tc := range ts {
 		t.Run(tc.name, func(t *testing.T) {
-			whc, cancel := createTestWebhookConfig(t,
+			whc, cancel := createTestWebhookConfigController(t,
 				fake.NewSimpleClientset(dummyDeployment, tc.configs.DeepCopyObject()),
 				createFakeWebhookSource(), want)
 			defer cancel()
 
 			client := fake.NewSimpleClientset(tc.configs.DeepCopyObject())
-			config, err := rebuildWebhookConfigHelper(whc.caFile, whc.webhookConfigFile, whc.webhookName, whc.ownerRefs)
+			config, err := rebuildWebhookConfigHelper(whc.webhookParameters.CACertFile,
+				whc.webhookParameters.WebhookConfigFile, whc.webhookParameters.WebhookName, whc.ownerRefs)
 			if err != nil {
 				t.Fatalf("Got unexpected error: %v", err)
 			}
@@ -374,7 +375,7 @@ func initValidatingWebhookConfiguration() *admissionregistrationv1beta1.Validati
 	}
 }
 
-func checkCert(t *testing.T, whc *WebhookConfig, cert, key []byte) bool {
+func checkCert(t *testing.T, whc *WebhookConfigController, cert, key []byte) bool {
 	t.Helper()
 	actual := whc.cert
 	expected, err := tls.X509KeyPair(cert, key)
@@ -385,7 +386,7 @@ func checkCert(t *testing.T, whc *WebhookConfig, cert, key []byte) bool {
 }
 
 func TestReloadCert(t *testing.T) {
-	whc, cleanup := createTestWebhookConfig(t,
+	whc, cleanup := createTestWebhookConfigController(t,
 		fake.NewSimpleClientset(),
 		createFakeWebhookSource(),
 		dummyConfig)
@@ -395,13 +396,13 @@ func TestReloadCert(t *testing.T) {
 	go whc.reconcile(stop)
 	checkCert(t, whc, testcerts.ServerCert, testcerts.ServerKey)
 	// Update cert/key files.
-	if err := ioutil.WriteFile(whc.certFile, testcerts.RotatedCert, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(whc.webhookParameters.CertFile, testcerts.RotatedCert, 0644); err != nil { // nolint: vetshadow
 		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", whc.certFile, err)
+		t.Fatalf("WriteFile(%v) failed: %v", whc.webhookParameters.CertFile, err)
 	}
-	if err := ioutil.WriteFile(whc.keyFile, testcerts.RotatedKey, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(whc.webhookParameters.KeyFile, testcerts.RotatedKey, 0644); err != nil { // nolint: vetshadow
 		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", whc.keyFile, err)
+		t.Fatalf("WriteFile(%v) failed: %v", whc.webhookParameters.KeyFile, err)
 	}
 	g := gomega.NewGomegaWithT(t)
 	g.Eventually(func() bool {
@@ -463,13 +464,13 @@ func TestInitialConfigLoadError(t *testing.T) {
 		}
 	}()
 
-	whc, cleanup := createTestWebhookConfig(t,
+	whc, cleanup := createTestWebhookConfigController(t,
 		fake.NewSimpleClientset(),
 		createFakeWebhookSource(),
 		dummyConfig)
 	defer cleanup()
 
-	whc.webhookConfigFile = ""
+	whc.webhookParameters.WebhookConfigFile = ""
 	whc.webhookConfiguration = nil
 	if err := whc.rebuildWebhookConfig(); err == nil {
 		t.Fatal("unexpected success: rebuildWebhookConfig() should have failed given invalid config files")
