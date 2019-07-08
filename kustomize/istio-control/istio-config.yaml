@@ -125,7 +125,7 @@ data:
 
   mesh: |-
     {}
-    
+
 
 ---
 # Source: istio-config/templates/configmap.yaml
@@ -137,7 +137,7 @@ metadata:
   labels:
     release: istio-control-istio-config
 data:
-  validatingwebhookconfiguration.yaml: |-    
+  validatingwebhookconfiguration.yaml: |-
     apiVersion: admissionregistration.k8s.io/v1beta1
     kind: ValidatingWebhookConfiguration
     metadata:
@@ -295,7 +295,7 @@ rules:
   resourceNames: ["istio-galley"]
   verbs: ["get"]
 - apiGroups: [""]
-  resources: ["pods", "nodes", "services", "endpoints"]
+  resources: ["pods", "nodes", "services", "endpoints", "namespaces"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["extensions"]
   resources: ["ingresses"]
@@ -433,7 +433,7 @@ spec:
           resources:
             requests:
               cpu: 100m
-            
+
         - name: istio-proxy
           image: "gcr.io/istio-release/proxyv2:master-latest-daily"
           imagePullPolicy: Always
@@ -470,7 +470,7 @@ spec:
             requests:
               cpu: 100m
               memory: 128Mi
-            
+
 
           volumeMounts:
           - name: istio-certs
@@ -495,7 +495,7 @@ spec:
         configMap:
           name: istio-mesh-galley
 
-      affinity:      
+      affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
@@ -527,7 +527,7 @@ spec:
               - key: beta.kubernetes.io/arch
                 operator: In
                 values:
-                - s390x      
+                - s390x
 
 ---
 # Source: istio-config/templates/validatingwebhookconfiguration.yaml.tpl
