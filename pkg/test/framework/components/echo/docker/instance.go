@@ -88,7 +88,6 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 		cfg: cfg,
 		ctx: ctx,
 	}
-	i.id = ctx.TrackResource(i)
 
 	defer func() {
 		if err != nil {

@@ -105,6 +105,10 @@ func (b *builder) newInstances() ([]echo.Instance, error) {
 		return nil, aggregateErr
 	}
 
+	for _, inst := range instances {
+		b.ctx.TrackResource(inst)
+	}
+
 	return instances, nil
 }
 
