@@ -77,7 +77,7 @@ make init
 
 if [[ $HUB == *"istio-testing"* ]]; then
   # upload images
-  time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}" DOCKER_BUILD_VARIANTS="${VARIANT:-default}"
+  time ISTIO_DOCKER_HUB="${HUB}" make docker.push HUB="${HUB}" TAG="${TAG}" DOCKER_BUILD_VARIANTS="${VARIANT:-default}"
 fi
 echo "Setup cluster."
 date
