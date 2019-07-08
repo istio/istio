@@ -1965,6 +1965,12 @@ func TestValidateHTTPFaultInjectionAbort(t *testing.T) {
 				HttpStatus: 9000,
 			},
 		}, valid: false},
+		{name: "invalid low http status", in: &networking.HTTPFaultInjection_Abort{
+			Percent: 20,
+			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
+				HttpStatus: 100,
+			},
+		}, valid: false},
 		{name: "valid percentage", in: &networking.HTTPFaultInjection_Abort{
 			Percentage: &networking.Percent{
 				Value: 0.001,
