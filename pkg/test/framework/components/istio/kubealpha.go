@@ -8,6 +8,7 @@ import (
 	"path"
 	"sync"
 
+	"github.com/hashicorp/go-multierror"
 	"istio.io/istio/pkg/test/deployment"
 	ienv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -39,7 +40,6 @@ type installerComponent struct {
 	settings    Config
 	ctx         resource.Context
 	environment *kube.Environment
-	deployment  *deployment.Instance
 }
 
 var _ io.Closer = &installerComponent{}
@@ -56,11 +56,12 @@ func (i *installerComponent) Settings() Config {
 }
 
 func (i *installerComponent) Close() error {
-
 	if !i.settings.DeployIstio {
 		return nil
 	}
+	errchan := make(chan error)
 	wg := &sync.WaitGroup{}
+
 	for _, ns := range getNamespaces(i.settings) {
 		ns := ns
 		wg.Add(1)
@@ -69,11 +70,21 @@ func (i *installerComponent) Close() error {
 			if err == nil {
 				err = i.environment.Accessor.WaitForNamespaceDeletion(ns)
 			}
+			if err != nil {
+				errchan<-err
+			}
 			wg.Done()
 		}()
 	}
 	wg.Wait()
-	return nil
+
+	close(errchan)
+	var err error
+	for e := range errchan {
+		err = multierror.Append(err, e)
+	}
+
+	return err
 }
 
 func (i *installerComponent) Dump() {
@@ -141,7 +152,7 @@ func deployAlphaInstall(ctx resource.Context, env *kube.Environment, cfg Config)
 	}
 
 	// First, generate CRDs.
-	crdYaml, err := generateCRDYaml(path.Join(ienv.IstioAlphaInstallDir, "crds/files"))
+	crdYaml, err := generateCRDYaml(path.Join(ienv.InstallDir, "crds/files"))
 	if err != nil {
 		return nil, err
 	}

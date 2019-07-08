@@ -46,12 +46,12 @@ func applyAlphaInstall(accessor *kube.Accessor, helmDir string, ns string, chart
 		return err
 	}
 
-	valuesFile := []string{path.Join(env.IstioAlphaInstallDir, "global.yaml"), path.Join(env.IstioAlphaInstallDir, cfg.ValuesFile)}
+	valuesFile := []string{path.Join(env.InstallDir, "global.yaml"), path.Join(env.InstallDir, cfg.ValuesFile)}
 	name := chart[strings.LastIndex(chart, "/")+1:]
 
 	// todo(howardjohn): do we need to add namespaces to values?
 	renderedYaml, err := helm.Template(
-		helmDir, path.Join(env.IstioAlphaInstallDir, chart), name, ns, valuesFile, cfg.Values)
+		helmDir, path.Join(env.InstallDir, chart), name, ns, valuesFile, cfg.Values)
 	if err != nil {
 		return err
 	}

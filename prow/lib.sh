@@ -116,6 +116,16 @@ function clone_cni() {
   fi
 }
 
+function clone_installer() {
+  # Clone the CNI repo so the CNI artifacts can be built.
+  if [[ "$PWD" == "${GOPATH}/src/istio.io/istio" ]]; then
+      TMP_DIR=$PWD
+      cd ../ || return
+      git clone -b integ-test "https://github.com/howardjohn/istio-installer.git"
+      cd "${TMP_DIR}" || return
+  fi
+}
+
 function check_kind() {
   echo "Checking KinD is installed..."
   if ! kind --help > /dev/null; then

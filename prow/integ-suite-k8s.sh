@@ -76,6 +76,7 @@ if [[ $HUB == *"istio-testing"* ]]; then
   time ISTIO_DOCKER_HUB="${HUB}" make docker.push HUB="${HUB}" TAG="${TAG}"
 fi
 
+clone_installer
 get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
 setup_cluster
 

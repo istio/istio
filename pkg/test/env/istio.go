@@ -89,8 +89,8 @@ var (
 
 	CrdsFilesDir = path.Join(ChartsDir, "istio-init/files")
 
-	// IstioAlphaInstallDir specifies the base directory for the alpha installer
-	IstioAlphaInstallDir = path.Join(GOPATH.ValueOrDefault(build.Default.GOPATH), "/src/istio.io/installer")
+	// InstallDir specifies the base directory for the alpha installer
+	InstallDir = path.Join(GOPATH.ValueOrDefault(build.Default.GOPATH), "/src/istio.io/installer")
 
 	// BookInfoRoot is the root folder for the bookinfo samples
 	BookInfoRoot = path.Join(IstioRoot, "samples/bookinfo")
