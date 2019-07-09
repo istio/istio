@@ -79,17 +79,27 @@ if [[ $HUB == *"istio-testing"* ]]; then
   # upload images
   time ISTIO_DOCKER_HUB="${HUB}" make docker.push HUB="${HUB}" TAG="${TAG}" DOCKER_BUILD_VARIANTS="${VARIANT:-default}"
 fi
-echo "Setup cluster."
-date
-setup_e2e_cluster
+
+if [[ "${SETUP_CLUSTER:-true}" == true ]]; then
+  echo "Setup cluster."
+  date
+  setup_e2e_cluster
+  # e2e tests on prow use clusters borrowed from boskos, which cleans up the
+  # clusters. There is no need to cleanup in the test jobs.
+  E2E_ARGS+=("--skip_cleanup")
+else
+  if [[ -z $KUBECONFIG ]]; then
+    echo "Please specify a KUBECONFIG to run the tests."
+    exit 1
+  fi
+  ARTIFACTS_DIR=${ARTIFACTS_DIR:-/tmp}
+fi
+
 if [[ "${ENABLE_ISTIO_CNI:-false}" == true ]]; then
    cni_run_daemon
 fi
 
 E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
-# e2e tests on prow use clusters borrowed from boskos, which cleans up the
-# clusters. There is no need to cleanup in the test jobs.
-E2E_ARGS+=("--skip_cleanup")
 
 echo "Run test."
 date
