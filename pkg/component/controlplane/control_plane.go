@@ -45,6 +45,7 @@ func NewIstioControlPlane(installSpec *v1alpha2.IstioControlPlaneSpec, translato
 			feature.NewTelemetryFeature(opts),
 			feature.NewConfigManagementFeature(opts),
 			feature.NewAutoInjectionFeature(opts),
+			feature.NewGatewayFeature(opts),
 		},
 	}
 }
