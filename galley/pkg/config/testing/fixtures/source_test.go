@@ -26,10 +26,10 @@ func TestSource(t *testing.T) {
 	s := &Source{}
 
 	s.Start()
-	g.Expect(s.started).To(gomega.BeTrue())
+	g.Expect(s.running).To(gomega.BeTrue())
 
 	s.Stop()
-	g.Expect(s.started).To(gomega.BeFalse())
+	g.Expect(s.running).To(gomega.BeFalse())
 }
 
 func TestSource_Dispatch(t *testing.T) {

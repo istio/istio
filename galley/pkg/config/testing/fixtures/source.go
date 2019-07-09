@@ -19,7 +19,7 @@ import "istio.io/istio/galley/pkg/config/event"
 // Source is a test implementation of event.Source
 type Source struct {
 	Handlers event.Handler
-	started  bool
+	running  bool
 }
 
 var _ event.Source = &Source{}
@@ -31,10 +31,15 @@ func (s *Source) Dispatch(h event.Handler) {
 
 // Start implements event.Source
 func (s *Source) Start() {
-	s.started = true
+	s.running = true
 }
 
 // Stop implements event.Source
 func (s *Source) Stop() {
-	s.started = false
+	s.running = false
+}
+
+// Running indicates whether the Source is currently running or not.
+func (s *Source) Running() bool {
+	return s.running
 }
