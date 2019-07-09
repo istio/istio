@@ -11,7 +11,7 @@ test-demo-simple:
 
 # Run the 'install demo' test. Should run with a valid kube config and cluster - KIND or real.
 run-test-demo: ${TMPDIR}
-	kubectl apply -k github.com/istio/installer/crds
+	kubectl apply -k crds
 	kubectl apply -k test/demo	
 	kubectl wait deployments istio-citadel11 -n ${ISTIO_SYSTEM_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
 	kubectl wait deployments istio-galley istio-pilot -n ${ISTIO_CONTROL_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
@@ -19,7 +19,7 @@ run-test-demo: ${TMPDIR}
 	kubectl wait deployments istio-ingressgateway -n ${ISTIO_INGRESS_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
 	kubectl wait deployments istio-telemetry prometheus grafana -n ${ISTIO_TELEMETRY_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
 
-	# Verify that we can kube-inject using files ( there is no injector in this config )
+	# Verify that we can kube-inject using files
 	kubectl create ns demo || true
 	istioctl kube-inject -f test/simple/servicesToBeInjected.yaml \
 		-n demo \
