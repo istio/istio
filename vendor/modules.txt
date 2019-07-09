@@ -161,14 +161,13 @@ github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2
 github.com/envoyproxy/go-control-plane/envoy/type
 github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2
-github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha
+github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2
 github.com/envoyproxy/go-control-plane/envoy/type/matcher
 github.com/envoyproxy/go-control-plane/envoy/config/filter/http/health_check/v2
 github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2
 github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha
 github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2
 github.com/envoyproxy/go-control-plane/envoy/service/tap/v2alpha
-github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2
 github.com/envoyproxy/go-control-plane/pkg/cache
 github.com/envoyproxy/go-control-plane/pkg/server
 github.com/envoyproxy/go-control-plane/envoy/config/metrics/v2
@@ -350,15 +349,13 @@ github.com/json-iterator/go
 # github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515
 github.com/kr/logfmt
 # github.com/lestrrat-go/jwx v0.9.0
-github.com/lestrrat-go/jwx/jws
-github.com/lestrrat-go/jwx/jwt
-github.com/lestrrat-go/jwx/internal/option
 github.com/lestrrat-go/jwx/jwa
 github.com/lestrrat-go/jwx/jwk
+github.com/lestrrat-go/jwx/jws
+github.com/lestrrat-go/jwx/internal/base64
+github.com/lestrrat-go/jwx/internal/option
 github.com/lestrrat-go/jwx/jws/sign
 github.com/lestrrat-go/jwx/jws/verify
-github.com/lestrrat-go/jwx/jwt/internal/types
-github.com/lestrrat-go/jwx/internal/base64
 # github.com/lukechampine/freeze v0.0.0-20160818180733-f514e08ae5a0
 github.com/lukechampine/freeze
 # github.com/magiconair/properties v1.8.0
@@ -716,7 +713,7 @@ gopkg.in/square/go-jose.v2/cipher
 gopkg.in/stack.v1
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
-# istio.io/api v0.0.0-20190624184750-868535377704
+# istio.io/api v0.0.0-20190708200418-70f6e4eada00
 istio.io/api/mesh/v1alpha1
 istio.io/api/authentication/v1alpha1
 istio.io/api/mixer/v1/config/client
@@ -737,8 +734,8 @@ istio.io/pkg/probe
 istio.io/pkg/version
 istio.io/pkg/filewatcher
 istio.io/pkg/timedfn
-istio.io/pkg/ctrlz
 istio.io/pkg/ctrlz/fw
+istio.io/pkg/ctrlz
 istio.io/pkg/env
 istio.io/pkg/appsignals
 istio.io/pkg/pool
