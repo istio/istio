@@ -17,6 +17,7 @@ package sds
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strconv"
@@ -116,6 +117,21 @@ type sdsservice struct {
 	closing chan bool
 }
 
+type sdsclientdebug struct {
+	ConnectionID string `json:"connection_id"`
+	ProxyID      string `json:"proxy"`
+	ResourceName string `json:"resource_name"`
+
+	// fields from secret item
+	CertificateChain string `json:"certificate_chain"`
+	RootCert         string `json:"root_cert"`
+	CreatedTime      string `json:"created_time"`
+	ExpireTime       string `json:"expire_time"`
+}
+type sdsdebug struct {
+	Clients []sdsclientdebug `json:"clients"`
+}
+
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
 func newSDSService(st cache.SecretManager, skipTokenVerification bool, recycleInterval time.Duration) *sdsservice {
 	if st == nil {
@@ -137,6 +153,38 @@ func newSDSService(st cache.SecretManager, skipTokenVerification bool, recycleIn
 // register adds the SDS handle to the grpc server
 func (s *sdsservice) register(rpcs *grpc.Server) {
 	sds.RegisterSecretDiscoveryServiceServer(rpcs, s)
+}
+
+// DebugInfo serializes the current sds client data into JSON for the debug endpoint
+func (s *sdsservice) DebugInfo() (string, error) {
+	sdsClientsMutex.RLock()
+	defer sdsClientsMutex.RUnlock()
+
+	clientDebug := make([]sdsclientdebug, 0)
+	for connKey, conn := range sdsClients {
+		conn.mutex.RLock()
+		c := sdsclientdebug{
+			ConnectionID:     connKey.ConnectionID,
+			ProxyID:          conn.proxyID,
+			ResourceName:     conn.ResourceName,
+			CertificateChain: string(conn.secret.CertificateChain),
+			RootCert:         string(conn.secret.RootCert),
+			CreatedTime:      conn.secret.CreatedTime.Format(time.RFC3339),
+			ExpireTime:       conn.secret.ExpireTime.Format(time.RFC3339),
+		}
+		clientDebug = append(clientDebug, c)
+		conn.mutex.RUnlock()
+	}
+
+	debug := sdsdebug{
+		Clients: clientDebug,
+	}
+	debugJSON, err := json.MarshalIndent(debug, " ", "	")
+	if err != nil {
+		return "", err
+	}
+
+	return string(debugJSON), nil
 }
 
 func (s *sdsservice) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecretsServer) error {

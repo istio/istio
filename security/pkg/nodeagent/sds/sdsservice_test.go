@@ -14,8 +14,11 @@
 package sds
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"sync"
@@ -511,3 +514,72 @@ func (ms *mockSecretStore) DeleteSecret(conID, resourceName string) {
 func (ms *mockSecretStore) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string) bool {
 	return false
 }
+
+func TestDebugEndpoints(t *testing.T) {
+
+	tests := []struct {
+		proxies []string
+	}{
+		{proxies: []string{}},
+		{proxies: []string{"sidecar~127.0.0.1~id2~local", "sidecar~127.0.0.1~id3~local"}},
+		{proxies: []string{"sidecar~127.0.0.1~id4~local"}},
+	}
+
+	for _, tc := range tests {
+		socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
+		arg := Options{
+			EnableIngressGatewaySDS: false,
+			EnableWorkloadSDS:       true,
+			RecycleInterval:         2 * time.Second,
+			WorkloadUDSPath:         socket,
+		}
+		st := &mockSecretStore{
+			checkToken: true,
+		}
+
+		sdsClients = map[cache.ConnKey]*sdsConnection{}
+		server, err := NewServer(arg, st, nil)
+		if err != nil {
+			t.Fatalf("failed to start grpc server for sds: %v", err)
+		}
+
+		for _, proxy := range tc.proxies {
+			sendRequestAndVerifyResponse(t, sdsRequestStream, arg.WorkloadUDSPath, proxy, false)
+		}
+
+		workloadRequest, _ := http.NewRequest(http.MethodGet, "/debug/sds/workload", nil)
+		response := httptest.NewRecorder()
+
+		server.workloadSds.debugHTTPHandler(response, workloadRequest)
+		workloadDebugResponse := &sdsdebug{}
+		if err := json.Unmarshal(response.Body.Bytes(), workloadDebugResponse); err != nil {
+			t.Fatalf("debug JSON unmarshalling failed: %v", err)
+		}
+
+		clientCount := len(workloadDebugResponse.Clients)
+		if clientCount != len(tc.proxies) {
+			t.Errorf("response should contain %d client, found %d", len(tc.proxies), clientCount)
+		}
+
+		// check whether debug endpoint returned the registered proxies
+		for _, p := range tc.proxies {
+			found := false
+			for _, c := range workloadDebugResponse.Clients {
+				if p == c.ProxyID {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				t.Errorf("expected to debug endpoint to contain %s, but did not", p)
+			}
+		}
+
+		server.Stop()
+	}
+}
+
+// make helper function that takes (proxyname, socket, opts) and makes DiscoveryRequest
+// figure out what a discovery request is and if it's needed to become a client, even?
+// confirmed from L236 that disc req is where the addClient gets called
