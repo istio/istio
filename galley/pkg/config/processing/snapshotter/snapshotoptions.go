@@ -19,14 +19,14 @@ import (
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
 )
 
-// SnapshotOption is options for a single snapshot target.
-type SnapshotOption struct {
+// SnapshotOptions is settings for a single snapshotImpl target.
+type SnapshotOptions struct {
 	Distributor Distributor
 
-	// The group name for the snapshot.
+	// The group name for the snapshotImpl.
 	Group string
 
-	// The publishing strategy for the snapshot.
+	// The publishing strategy for the snapshotImpl.
 	Strategy strategy.Instance
 
 	// The set of collections to Snapshot.

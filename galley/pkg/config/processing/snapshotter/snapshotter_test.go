@@ -44,7 +44,7 @@ func TestSnapshotter_Basic(t *testing.T) {
 
 	d := NewInMemoryDistributor()
 
-	options := []SnapshotOption{
+	options := []SnapshotOptions{
 		{
 			Collections: []collection.Name{data.Collection2},
 			Strategy:    strategy.NewImmediate(),
@@ -114,7 +114,7 @@ func TestSnapshotter_SnapshotMismatch(t *testing.T) {
 
 	d := NewInMemoryDistributor()
 
-	options := []SnapshotOption{
+	options := []SnapshotOptions{
 		{
 			Collections: []collection.Name{data.Collection3},
 			Strategy:    strategy.NewImmediate(),

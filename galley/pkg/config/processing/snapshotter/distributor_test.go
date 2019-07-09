@@ -27,7 +27,7 @@ func TestDistributor_SetSnapshot(t *testing.T) {
 	s := b.Build()
 	d.SetSnapshot("foo", s)
 	if _, ok := d.snapshots["foo"]; !ok {
-		t.Fatal("The snapshot should have been set")
+		t.Fatal("The snapshotImpl should have been set")
 	}
 }
 

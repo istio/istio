@@ -20,17 +20,17 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/resource"
-	sn "istio.io/istio/pkg/mcp/snapshot"
+	"istio.io/istio/pkg/mcp/snapshot"
 )
 
-type snapshot struct {
+type snapshotImpl struct {
 	set *collection.Set
 }
 
-var _ sn.Snapshot = &snapshot{}
+var _ snapshot.Snapshot = &snapshotImpl{}
 
-// Resources implements snapshot.Snapshot
-func (s *snapshot) Resources(col string) []*mcp.Resource {
+// Resources implements snapshotImpl.Snapshot
+func (s *snapshotImpl) Resources(col string) []*mcp.Resource {
 	c := s.set.Collection(collection.NewName(col))
 
 	result := make([]*mcp.Resource, 0, c.Size())
@@ -48,8 +48,8 @@ func (s *snapshot) Resources(col string) []*mcp.Resource {
 	return result
 }
 
-// Version implements snapshot.Snapshot
-func (s *snapshot) Version(col string) string {
+// Version implements snapshotImpl.Snapshot
+func (s *snapshotImpl) Version(col string) string {
 	coll := s.set.Collection(collection.NewName(col))
 	if coll == nil {
 		return ""

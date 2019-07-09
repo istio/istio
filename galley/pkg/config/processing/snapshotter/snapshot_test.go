@@ -29,7 +29,7 @@ func TestSnapshot_Basics(t *testing.T) {
 
 	set := collection.NewSet([]collection.Name{data.Collection1})
 	set.Collection(data.Collection1).Set(data.EntryN1I1V1)
-	sn := &snapshot{set: set}
+	sn := &snapshotImpl{set: set}
 
 	resources := sn.Resources(data.Collection1.String())
 	g.Expect(resources).To(HaveLen(1))
@@ -49,7 +49,7 @@ func TestSnapshot_SerializeError(t *testing.T) {
 	e := data.Event1Col1AddItem1.Entry.Clone()
 	e.Item = nil
 	set.Collection(data.Collection1).Set(e)
-	sn := &snapshot{set: set}
+	sn := &snapshotImpl{set: set}
 
 	resources := sn.Resources(data.Collection1.String())
 	g.Expect(resources).To(HaveLen(0))
@@ -60,7 +60,7 @@ func TestSnapshot_WrongCollection(t *testing.T) {
 
 	set := collection.NewSet([]collection.Name{data.Collection1})
 	set.Collection(data.Collection1).Set(data.Event1Col1AddItem1.Entry)
-	sn := &snapshot{set: set}
+	sn := &snapshotImpl{set: set}
 
 	g.Expect(sn.Version("foo")).To(Equal(""))
 }

@@ -17,18 +17,18 @@ package snapshotter
 import (
 	"sync"
 
-	sn "istio.io/istio/pkg/mcp/snapshot"
+	"istio.io/istio/pkg/mcp/snapshot"
 )
 
-// Distributor interface abstracts the snapshot distribution mechanism. Typically, this is implemented by the MCP layer.
+// Distributor interface abstracts the snapshotImpl distribution mechanism. Typically, this is implemented by the MCP layer.
 type Distributor interface {
-	SetSnapshot(name string, snapshot sn.Snapshot)
+	SetSnapshot(name string, s snapshot.Snapshot)
 }
 
 // InMemoryDistributor is an in-memory Distributor implementation.
 type InMemoryDistributor struct {
 	snapshotsLock sync.Mutex
-	snapshots     map[string]sn.Snapshot
+	snapshots     map[string]snapshot.Snapshot
 }
 
 var _ Distributor = &InMemoryDistributor{}
@@ -36,21 +36,21 @@ var _ Distributor = &InMemoryDistributor{}
 // NewInMemoryDistributor returns a new instance of InMemoryDistributor
 func NewInMemoryDistributor() *InMemoryDistributor {
 	return &InMemoryDistributor{
-		snapshots: make(map[string]sn.Snapshot),
+		snapshots: make(map[string]snapshot.Snapshot),
 	}
 }
 
 // SetSnapshot is an implementation of Distributor.SetSnapshot
-func (d *InMemoryDistributor) SetSnapshot(name string, snapshot sn.Snapshot) {
+func (d *InMemoryDistributor) SetSnapshot(name string, s snapshot.Snapshot) {
 	d.snapshotsLock.Lock()
 	defer d.snapshotsLock.Unlock()
 
-	scope.Infof("InmemoryDistributor.SetSnapshot: %s: %v", name, snapshot)
-	d.snapshots[name] = snapshot
+	scope.Infof("InmemoryDistributor.SetSnapshot: %s: %v", name, s)
+	d.snapshots[name] = s
 }
 
-// GetSnapshot get the snapshot of the specified name
-func (d *InMemoryDistributor) GetSnapshot(name string) sn.Snapshot {
+// GetSnapshot get the snapshotImpl of the specified name
+func (d *InMemoryDistributor) GetSnapshot(name string) snapshot.Snapshot {
 	d.snapshotsLock.Lock()
 	defer d.snapshotsLock.Unlock()
 	if s, ok := d.snapshots[name]; ok {

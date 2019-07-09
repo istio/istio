@@ -23,12 +23,12 @@ import (
 	"istio.io/istio/galley/pkg/runtime/monitoring"
 )
 
-// Snapshotter is a processor that handles input events and creates snapshot collections.
+// Snapshotter is a processor that handles input events and creates snapshotImpl collections.
 type Snapshotter struct {
 	accumulators map[collection.Name]*accumulator
 	selector     *event.Selector
 	xforms       []event.Transformer
-	options      []SnapshotOption
+	settings     []SnapshotOptions
 
 	// lastEventTime records the last time an event was received.
 	lastEventTime time.Time
@@ -36,7 +36,7 @@ type Snapshotter struct {
 	// pendingEvents counts the number of events awaiting publishing.
 	pendingEvents int64
 
-	// lastSnapshotTime records the last time a snapshot was published.
+	// lastSnapshotTime records the last time a snapshotImpl was published.
 	lastSnapshotTime time.Time
 }
 
@@ -81,12 +81,12 @@ func (a *accumulator) reset() {
 }
 
 // NewSnapshotter returns a new Snapshotter.
-func NewSnapshotter(xforms []event.Transformer, options []SnapshotOption) *Snapshotter {
+func NewSnapshotter(xforms []event.Transformer, settings []SnapshotOptions) *Snapshotter {
 	s := &Snapshotter{
 		accumulators:  make(map[collection.Name]*accumulator),
 		selector:      event.NewSelector(),
 		xforms:        xforms,
-		options:       options,
+		settings:      settings,
 		lastEventTime: time.Now(),
 	}
 
@@ -108,11 +108,11 @@ func NewSnapshotter(xforms []event.Transformer, options []SnapshotOption) *Snaps
 		}
 	}
 
-	for _, o := range options {
+	for _, o := range settings {
 		for _, c := range o.Collections {
 			a := s.accumulators[c]
 			if a == nil {
-				scope.Errorf("NewSnapshotter: Unrecognized collection in SnapshotOption: %v (Group: %s)", c, o.Group)
+				scope.Errorf("NewSnapshotter: Unrecognized collection in SnapshotOptions: %v (Group: %s)", c, o.Group)
 				continue
 			}
 
@@ -129,7 +129,7 @@ func (s *Snapshotter) Start(o interface{}) {
 		x.Start(o)
 	}
 
-	for _, o := range s.options {
+	for _, o := range s.settings {
 		// Capture the iteration variable in a local
 		opt := o
 		o.Strategy.Start(func() {
@@ -138,7 +138,7 @@ func (s *Snapshotter) Start(o interface{}) {
 	}
 }
 
-func (s *Snapshotter) publish(o SnapshotOption) {
+func (s *Snapshotter) publish(o SnapshotOptions) {
 	var collections []*collection.Instance
 
 	for _, n := range o.Collections {
@@ -147,7 +147,7 @@ func (s *Snapshotter) publish(o SnapshotOption) {
 	}
 
 	set := collection.NewSetFromCollections(collections)
-	sn := &snapshot{set: set}
+	sn := &snapshotImpl{set: set}
 
 	now := time.Now()
 	monitoring.RecordProcessorSnapshotPublished(s.pendingEvents, now.Sub(s.lastSnapshotTime))
@@ -158,7 +158,7 @@ func (s *Snapshotter) publish(o SnapshotOption) {
 
 // Stop implements Processor
 func (s *Snapshotter) Stop() {
-	for _, o := range s.options {
+	for _, o := range s.settings {
 		o.Strategy.Stop()
 	}
 

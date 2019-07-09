@@ -25,14 +25,14 @@ type Immediate struct {
 	handler atomic.Value
 }
 
-func sentinelOnSnapshot() {}
+var sentinelOnSnapshot OnSnapshotFn = func() {}
 
 var _ Instance = &Immediate{}
 
 // NewImmediate returns a new Immediate.
 func NewImmediate() *Immediate {
 	i := &Immediate{}
-	i.handler.Store(OnSnapshotFn(sentinelOnSnapshot))
+	i.handler.Store(sentinelOnSnapshot)
 
 	return i
 }
@@ -44,7 +44,7 @@ func (i *Immediate) Start(handler OnSnapshotFn) {
 
 // Stop implements processing.Debounce
 func (i *Immediate) Stop() {
-	i.handler.Store(OnSnapshotFn(sentinelOnSnapshot))
+	i.handler.Store(sentinelOnSnapshot)
 }
 
 // OnChange implements processing.Debounce
