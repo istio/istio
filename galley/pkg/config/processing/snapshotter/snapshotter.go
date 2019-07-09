@@ -124,9 +124,9 @@ func NewSnapshotter(xforms []event.Transformer, settings []SnapshotOptions) *Sna
 }
 
 // Start implements Processor
-func (s *Snapshotter) Start(o interface{}) {
+func (s *Snapshotter) Start() {
 	for _, x := range s.xforms {
-		x.Start(o)
+		x.Start()
 	}
 
 	for _, o := range s.settings {

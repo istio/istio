@@ -337,11 +337,12 @@ type fixture struct {
 }
 
 func newFixture() *fixture {
+	p := &testProcessor{}
 	f := &fixture{
 		meshsrc: meshcfg.NewInmemory(),
 		src:     inmemory.NewKubeSource(basicmeta.MustGet().KubeSource().Resources()),
 		mockSrc: &testSource{},
-		p:       &testProcessor{},
+		p:       p,
 	}
 
 	f.mockSrc.startCalled = sync.NewCond(&f.mockSrc.mu)
@@ -368,9 +369,9 @@ func (f *fixture) init() {
 	}
 
 	o := RuntimeOptions{
-		DomainSuffix: "local.svc",
-		Source:       event.MergeSources(srcs...),
-		Processor:    f.p,
+		DomainSuffix:      "local.svc",
+		Source:            event.MergeSources(srcs...),
+		ProcessorProvider: func(_ ProcessorOptions) event.Processor { return f.p },
 	}
 
 	f.rt = NewRuntime(o)
@@ -434,7 +435,7 @@ func (t *testProcessor) Handle(e event.Event) {
 	t.acc.Handle(e)
 }
 
-func (t *testProcessor) Start(_ interface{}) {
+func (t *testProcessor) Start() {
 	t.started = true
 }
 

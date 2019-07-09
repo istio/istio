@@ -83,7 +83,8 @@ type session struct { // nolint:maligned
 	meshCfg    *v1alpha1.MeshConfig
 	meshSynced bool
 
-	doneCh chan struct{}
+	processor event.Processor
+	doneCh    chan struct{}
 }
 
 // newSession creates a new config processing session state. It returns the session, as well as a channel
@@ -97,7 +98,6 @@ func newSession(id int32, o RuntimeOptions) (*session, chan struct{}) {
 		doneCh:  make(chan struct{}),
 	}
 
-	s.buffer.Dispatch(o.Processor)
 	return s, s.doneCh
 }
 
@@ -180,7 +180,9 @@ func (s *session) terminate() {
 	scope.Debug("session.terminate: stopping buffer...")
 	s.buffer.Stop()
 	scope.Debug("session.terminate: stopping processor...")
-	s.options.Processor.Stop()
+	if s.processor != nil {
+		s.processor.Stop()
+	}
 	scope.Debug("session.terminate: stopping sources...")
 	s.options.Source.Stop()
 
@@ -205,7 +207,9 @@ func (s *session) startProcessing() {
 		DomainSuffix: s.options.DomainSuffix,
 		MeshConfig:   proto.Clone(s.meshCfg).(*v1alpha1.MeshConfig),
 	}
-	s.options.Processor.Start(o)
+	s.processor = s.options.ProcessorProvider(o)
+	s.buffer.Dispatch(s.processor)
+	s.processor.Start()
 	s.transitionTo(processing)
 	go s.buffer.Process()
 }

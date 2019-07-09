@@ -54,16 +54,14 @@ func TestSnapshotter_Basic(t *testing.T) {
 	}
 
 	s := NewSnapshotter([]event.Transformer{tr}, options)
-	s.Start(struct{}{})
+	s.Start()
 
 	g.Expect(tr.Started).To(BeTrue())
-	// Options should be plumbed-in.
-	g.Expect(tr.Options).To(Equal(struct{}{}))
 
 	s.Stop()
 	g.Expect(tr.Started).To(BeFalse())
 
-	s.Start(struct{}{})
+	s.Start()
 
 	sn := d.GetSnapshot("default")
 	g.Expect(sn).To(BeNil())
@@ -124,7 +122,7 @@ func TestSnapshotter_SnapshotMismatch(t *testing.T) {
 	}
 
 	s := NewSnapshotter([]event.Transformer{tr}, options)
-	s.Start(nil)
+	s.Start()
 
 	s.Handle(data.Event1Col1AddItem1)
 	s.Handle(data.Event1Col1Synced)

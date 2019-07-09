@@ -18,30 +18,22 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/galley/pkg/config/event"
 )
 
-// ProcessorOptions are options that are passed to event.Processors during startup.
-type ProcessorOptions struct {
-	MeshConfig   *v1alpha1.MeshConfig
-	DomainSuffix string
-}
-
 // RuntimeOptions is options for Runtime
 type RuntimeOptions struct {
-	Source       event.Source
-	Processor    event.Processor
-	DomainSuffix string
+	Source            event.Source
+	ProcessorProvider ProcessorProvider
+	DomainSuffix      string
 }
 
 // Clone returns a cloned copy of the RuntimeOptions.
 func (o *RuntimeOptions) Clone() RuntimeOptions {
 	return RuntimeOptions{
-		Source:       o.Source,
-		Processor:    o.Processor,
-		DomainSuffix: o.DomainSuffix,
+		Source:            o.Source,
+		ProcessorProvider: o.ProcessorProvider,
+		DomainSuffix:      o.DomainSuffix,
 	}
 }
 

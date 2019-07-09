@@ -26,6 +26,6 @@ package event
 type Processor interface {
 	Handler
 
-	Start(options interface{})
+	Start()
 	Stop()
 }
