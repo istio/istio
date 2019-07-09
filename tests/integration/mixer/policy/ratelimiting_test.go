@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/components/redis"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	util "istio.io/istio/tests/integration/mixer"
 )
@@ -59,8 +58,6 @@ func TestRateLimiting_RedisQuotaRollingWindow(t *testing.T) {
 func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 	framework.
 		NewTest(t).
-		// TODO(https://github.com/istio/istio/issues/12750)
-		Label(label.Flaky).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			destinationService := "productpage"
