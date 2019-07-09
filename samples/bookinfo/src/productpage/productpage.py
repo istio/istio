@@ -182,7 +182,7 @@ def getForwardHeaders(request):
     if 'user' in session:
         headers['end-user'] = session['user']
 
-    incoming_headers = ['x-request-id']
+    incoming_headers = ['x-request-id', 'x-datadog-trace-id', 'x-datadog-parent-id', 'x-datadog-sampled']
 
     # Add user-agent to headers manually
     if 'user-agent' in request.headers:

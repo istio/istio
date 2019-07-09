@@ -23,7 +23,6 @@ import javax.json.JsonReader;
 import javax.ws.rs.ApplicationPath;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
 import javax.ws.rs.Path;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -32,6 +31,8 @@ import javax.ws.rs.client.Invocation.Builder;
 import javax.ws.rs.client.ResponseProcessingException;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Application;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
@@ -43,6 +44,10 @@ public class LibertyRestEndpoint extends Application {
     private final static String services_domain = System.getenv("SERVICES_DOMAIN") == null ? "" : ("." + System.getenv("SERVICES_DOMAIN"));
     private final static String ratings_hostname = System.getenv("RATINGS_HOSTNAME") == null ? "ratings" : System.getenv("RATINGS_HOSTNAME");
     private final static String ratings_service = "http://" + ratings_hostname + services_domain + ":9080/ratings";
+    // HTTP headers to propagate for distributed tracing are documented at
+    // https://istio.io/docs/tasks/telemetry/distributed-tracing/overview/#trace-context-propagation
+    private final static String[] headers_to_proagate = {"x-request-id","x-b3-traceid","x-b3-spanid","x-b3-sampled","x-b3-flags",
+      "x-ot-span-context","x-datadog-trace-id","x-datadog-parent-id","x-datadog-sampled", "end-user","user-agent"};
 
     private String getJsonResponse (String productId, int starsReviewer1, int starsReviewer2) {
     	String result = "{";
@@ -83,8 +88,7 @@ public class LibertyRestEndpoint extends Application {
     	return result;
     }
     
-    private JsonObject getRatings(String productId, String user, String useragent, String xreq, String xtraceid, String xspanid,
-                                  String xparentspanid, String xsampled, String xflags, String xotspan){
+    private JsonObject getRatings(String productId, HttpHeaders requestHeaders) {
       ClientBuilder cb = ClientBuilder.newBuilder();
       String timeout = star_color.equals("black") ? "10000" : "2500";
       cb.property("com.ibm.ws.jaxrs.client.connection.timeout", timeout);
@@ -92,32 +96,11 @@ public class LibertyRestEndpoint extends Application {
       Client client = cb.build();
       WebTarget ratingsTarget = client.target(ratings_service + "/" + productId);
       Invocation.Builder builder = ratingsTarget.request(MediaType.APPLICATION_JSON);
-      if(xreq!=null) {
-        builder.header("x-request-id",xreq);
-      }
-      if(xtraceid!=null) {
-        builder.header("x-b3-traceid",xtraceid);
-      }
-      if(xspanid!=null) {
-        builder.header("x-b3-spanid",xspanid);
-      }
-      if(xparentspanid!=null) {
-        builder.header("x-b3-parentspanid",xparentspanid);
-      }
-      if(xsampled!=null) {
-        builder.header("x-b3-sampled",xsampled);
-      }
-      if(xflags!=null) {
-        builder.header("x-b3-flags",xflags);
-      }
-      if(xotspan!=null) {
-        builder.header("x-ot-span-context",xotspan);
-      }
-      if(user!=null) {
-        builder.header("end-user", user);
-      }
-      if(useragent!=null) {
-        builder.header("user-agent", useragent);
+      for (String header : headers_to_proagate) {
+        String value = requestHeaders.getHeaderString(header);
+        if (value != null) {
+          builder.header(header,value);
+        }
       }
       Response r = builder.get();
       int statusCode = r.getStatusInfo().getStatusCode();
@@ -141,21 +124,12 @@ public class LibertyRestEndpoint extends Application {
 
     @GET
     @Path("/reviews/{productId}")
-    public Response bookReviewsById(@PathParam("productId") int productId,
-                                    @HeaderParam("end-user") String user,
-                                    @HeaderParam("user-agent") String useragent,
-                                    @HeaderParam("x-request-id") String xreq,
-                                    @HeaderParam("x-b3-traceid") String xtraceid,
-                                    @HeaderParam("x-b3-spanid") String xspanid,
-                                    @HeaderParam("x-b3-parentspanid") String xparentspanid,
-                                    @HeaderParam("x-b3-sampled") String xsampled,
-                                    @HeaderParam("x-b3-flags") String xflags,
-                                    @HeaderParam("x-ot-span-context") String xotspan) {
+    public Response bookReviewsById(@PathParam("productId") int productId, @Context HttpHeaders requestHeaders) {
       int starsReviewer1 = -1;
       int starsReviewer2 = -1;
 
       if (ratings_enabled) {
-        JsonObject ratingsResponse = getRatings(Integer.toString(productId), user, useragent, xreq, xtraceid, xspanid, xparentspanid, xsampled, xflags, xotspan);
+        JsonObject ratingsResponse = getRatings(Integer.toString(productId), requestHeaders);
         if (ratingsResponse != null) {
           if (ratingsResponse.containsKey("ratings")) {
             JsonObject ratings = ratingsResponse.getJsonObject("ratings");
