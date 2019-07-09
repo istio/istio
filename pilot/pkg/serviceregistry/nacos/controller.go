@@ -12,7 +12,7 @@ import (
 type serviceHandler func(*model.Service, model.Event)
 type instanceHandler func(*model.ServiceInstance, model.Event)
 
-// Controller communicates with Consul and monitors for changes
+
 type Controller struct {
 	client           *Client
 	serviceHandlers  []serviceHandler
@@ -20,7 +20,6 @@ type Controller struct {
 	duration         time.Duration
 }
 
-// NewController creates a new Nacos controller
 func NewController(addr string, duration time.Duration) (*Controller, error) {
 	client, err := NewClient(addr)
 	return &Controller{
@@ -31,27 +30,6 @@ func NewController(addr string, duration time.Duration) (*Controller, error) {
 	}, err
 }
 
-func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	c.serviceHandlers = append(c.serviceHandlers, f)
-	return nil
-}
-
-func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	c.instanceHandlers = append(c.instanceHandlers, f)
-	return nil
-}
-
-//==================ServiceDiscovery Interface //
-// Services() ([]*Service, error)
-// GetService(hostname Hostname) (*Service, error)
-// InstancesByPort(hostname Hostname, servicePort int, labels LabelsCollection) ([]*ServiceInstance, error)
-// GetProxyServiceInstances(*Proxy) ([]*ServiceInstance, error)
-// GetProxyWorkloadLabels(*Proxy) (LabelsCollection, error)
-// ManagementPorts(addr string) PortList
-// WorkloadHealthCheckInfo(addr string) ProbeList
-// GetIstioServiceAccounts(hostname Hostname, ports []int) []string
-
-// 获取所有的Service信息
 func (c *Controller) Services() ([]*model.Service, error) {
 	servicesInfo, err := c.client.getAllServices()
 	if err != nil {
@@ -64,8 +42,6 @@ func (c *Controller) Services() ([]*model.Service, error) {
 	return nil, nil
 }
 
-// GetService retrieves a service by host name if it exists
-// 根据hostName查询对应的Service是否存在
 func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
 	// Get actual service by name
 	name, err := parseHostname(hostname)
@@ -82,9 +58,6 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 	return convertService(service), nil
 }
 
-// InstancesByPort retrieves instances for a service that match
-// any of the supplied labels. All instances match an empty tag list.
-// 根据主机名，服务端口和标签查询服务实例
 func (c *Controller) InstancesByPort(hostname model.Hostname, port int,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	// Get actual service by name
@@ -108,8 +81,6 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, port int,
 	return instances, nil
 }
 
-// GetProxyServiceInstances lists service instances co-located with a given proxy
-// 查询边车代理所在节点上的服务实例
 func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
 	data, err := c.client.getAllServices()
 	if err != nil {
@@ -134,7 +105,6 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 	return out, nil
 }
 
-//启动Controller的主循环，对Service 的变化进行分发
 func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCollection, error) {
 	data, err := c.client.getAllServices()
 	if err != nil {
@@ -160,23 +130,14 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCol
 	return out, nil
 }
 
-// ManagementPorts retrieves set of health check ports by instance IP.
-// This does not apply to Consul service registry, as Consul does not
-// manage the service instances. In future, when we integrate Nomad, we
-// might revisit this function.
 func (c *Controller) ManagementPorts(addr string) model.PortList {
 	return nil
 }
 
-// WorkloadHealthCheckInfo retrieves set of health check info by instance IP.
-// This does not apply to Consul service registry, as Consul does not
-// manage the service instances. In future, when we integrate Nomad, we
-// might revisit this function.
 func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 	return nil
 }
 
-// GetIstioServiceAccounts implements model.ServiceAccounts operation TODO
 func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
 	// Need to get service account of service registered with consul
 	// Currently Consul does not have service account or equivalent concept
@@ -189,12 +150,6 @@ func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []in
 	}
 }
 
-//=================== Controller Interface =============//
-// AppendServiceHandler(f func(*Service, Event)) error
-// AppendInstanceHandler(f func(*ServiceInstance, Event)) error
-// Run(stop <-chan struct{})
-
-// Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
 	cacheServices := make([]nacos_model.Service, 0)
 	ticker := time.NewTicker(c.duration)
@@ -276,6 +231,17 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		}
 	}
 }
+
+func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+	c.serviceHandlers = append(c.serviceHandlers, f)
+	return nil
+}
+
+func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+	c.instanceHandlers = append(c.instanceHandlers, f)
+	return nil
+}
+
 func getChangedServices(oldCache []nacos_model.Service, newCache []nacos_model.Service) ([]nacos_model.Service, []nacos_model.Service, map[nacos_model.Service]nacos_model.Service) {
 	if len(oldCache) == 0 {
 		return newCache, []nacos_model.Service{}, map[nacos_model.Service]nacos_model.Service{}
@@ -313,7 +279,6 @@ func getChangedServices(oldCache []nacos_model.Service, newCache []nacos_model.S
 
 	return addedResult, existResult, deletedResult
 }
-
 func getChangedInstances(oldCache []nacos_model.Instance, newCache []nacos_model.Instance) ([]nacos_model.Instance, []nacos_model.Instance, map[nacos_model.Instance]nacos_model.Instance) {
 	if len(oldCache) == 0 {
 		return newCache, []nacos_model.Instance{}, map[nacos_model.Instance]nacos_model.Instance{}
