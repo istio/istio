@@ -78,6 +78,10 @@ func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	if r.URL.Path != quitPath {
+		http.Error(w, "request url path not right", http.StatusNotFound)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
 	log.Infof("handling %s, and notify pilot-agent to exit", quitPath)
