@@ -191,6 +191,14 @@ var (
 		"PILOT_SIDECAR_USE_REMOTE_ADDRESS",
 		false,
 		"UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners.")
+
+	// UseIstioJWTFilter enables to use Istio JWT filter as a fall back. Pilot injects the Istio JWT
+	// filter to the filter chains if this is set to true.
+	// TODO(yangminzhu): Remove after fully migrate to Envoy JWT filter.
+	UseIstioJWTFilter = env.RegisterBoolVar(
+		"USE_ISTIO_JWT_FILTER",
+		false,
+		"Use the Istio JWT filter for JWT token verification.")
 )
 
 var (
