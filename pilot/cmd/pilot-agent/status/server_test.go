@@ -291,10 +291,8 @@ func TestHandleQuit(t *testing.T) {
 				case <-time.After(time.Second):
 					t.Fatalf("Failed to receive expected SIGTERM")
 				}
-			} else {
-				if len(termChannel) != 0 {
-					t.Fatalf("A SIGTERM was sent when it should not have been")
-				}
+			} else if len(termChannel) != 0 {
+				t.Fatalf("A SIGTERM was sent when it should not have been")
 			}
 		})
 	}
