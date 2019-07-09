@@ -1633,7 +1633,6 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 			BindToPort: proto.BoolFalse,
 		}
 	}
-
 	return &xdsapi.Listener{
 		// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy
 		// doesn't like
@@ -1699,11 +1698,11 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 		opt := opts.filterChainOpts[i]
 		mutable.Listener.FilterChains[i].Metadata = opt.metadata
 
+		// we are building a network filter chain (no http connection manager) for this filter chain
+		// In HTTP, we need to have mixer, RBAC, etc. upfront so that they can enforce policies immediately
+		// For network filters such as mysql, mongo, etc., we need the filter codec upfront. Data from this
+		// codec is used by RBAC or mixer later.
 		if opt.httpOpts == nil {
-			// we are building a network filter chain (no http connection manager) for this filter chain
-			// In HTTP, we need to have mixer, RBAC, etc. upfront so that they can enforce policies immediately
-			// For network filters such as mysql, mongo, etc., we need the filter codec upfront. Data from this
-			// codec is used by RBAC or mixer later.
 
 			if len(opt.networkFilters) > 0 {
 				// this is the terminating filter
@@ -1712,33 +1711,29 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 				for n := 0; n < len(opt.networkFilters)-1; n++ {
 					mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, opt.networkFilters[n])
 				}
-
-				if len(chain.TCP) > 0 {
-					mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
-				}
+				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
 				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, lastNetworkFilter)
+			} else {
+				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
 			}
 			log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), mutable.Listener.Name, i)
 		} else {
 			// Add the TCP filters first.. and then the HTTP connection manager
-			if len(chain.TCP) > 0 {
-				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
+			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
+
+			opt.httpOpts.statPrefix = mutable.Listener.Name
+			httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams.Node, opts.env, opt.httpOpts, chain.HTTP)
+			filter := listener.Filter{
+				Name: xdsutil.HTTPConnectionManager,
 			}
-			if opt.httpOpts != nil {
-				opt.httpOpts.statPrefix = mutable.Listener.Name
-				httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams.Node, opts.env, opt.httpOpts, chain.HTTP)
-				filter := listener.Filter{
-					Name: xdsutil.HTTPConnectionManager,
-				}
-				if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
-					filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])}
-				} else {
-					filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
-				}
-				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
-				log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",
-					len(httpConnectionManagers[i].HttpFilters), mutable.Listener.Name, i)
+			if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
+				filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])}
+			} else {
+				filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
 			}
+			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
+			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",
+				len(httpConnectionManagers[i].HttpFilters), mutable.Listener.Name, i)
 		}
 	}
 

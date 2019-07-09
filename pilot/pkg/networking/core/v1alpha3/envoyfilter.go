@@ -181,12 +181,6 @@ func listenerMatch(in *plugin.InputParams, listenerIP net.IP,
 	// Listener protocol will be matched as we try to insert the filters
 
 	if len(matchCondition.Address) > 0 {
-		if listenerIP == nil {
-			// We failed to parse the listener IP address.
-			// It could be a unix domain socket or something else.
-			// Since we have some addresses to match against, this nil IP is considered as a mismatch
-			return false
-		}
 		matched := false
 		// if any of the addresses here match, return true
 		for _, address := range matchCondition.Address {
