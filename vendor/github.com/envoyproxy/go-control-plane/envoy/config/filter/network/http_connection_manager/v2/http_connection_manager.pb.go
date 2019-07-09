@@ -1741,6 +1741,10 @@ func _ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_OneofSiz
 // Specifies a header field's key value pair to match on.
 type ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElement struct {
 	// The separator between key and value (e.g., '=' separates 'k=v;...').
+	// If an element is an empty string, the element is ignored.
+	// If an element contains no separator, the whole element is parsed as key and the
+	// fragment value is an empty string.
+	// If there are multiple values for a matched key, the first value is returned.
 	Separator string `protobuf:"bytes,1,opt,name=separator,proto3" json:"separator,omitempty"`
 	// The key to match on.
 	Key                  string   `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
@@ -1849,32 +1853,8 @@ func (m *ScopedRds) GetScopedRdsConfigSource() core.ConfigSource {
 }
 
 type HttpFilter struct {
-	// The name of the filter to instantiate. The name must match a supported
-	// filter. The built-in filters are:
-	//
-	// [#comment:TODO(mattklein123): Auto generate the following list]
-	// * :ref:`envoy.buffer <config_http_filters_buffer>`
-	// * :ref:`envoy.cors <config_http_filters_cors>`
-	// * :ref:`envoy.ext_authz <config_http_filters_ext_authz>`
-	// * :ref:`envoy.fault <config_http_filters_fault_injection>`
-	// * :ref:`envoy.filters.http.csrf <config_http_filters_csrf>`
-	// * :ref:`envoy.filters.http.header_to_metadata <config_http_filters_header_to_metadata>`
-	// * :ref:`envoy.filters.http.grpc_http1_reverse_bridge \
-	//   <config_http_filters_grpc_http1_reverse_bridge>`
-	// * :ref:`envoy.filters.http.jwt_authn <config_http_filters_jwt_authn>`
-	// * :ref:`envoy.filters.http.rbac <config_http_filters_rbac>`
-	// * :ref:`envoy.filters.http.tap <config_http_filters_tap>`
-	// * :ref:`envoy.gzip <config_http_filters_gzip>`
-	// * :ref:`envoy.http_dynamo_filter <config_http_filters_dynamo>`
-	// * :ref:`envoy.grpc_http1_bridge <config_http_filters_grpc_bridge>`
-	// * :ref:`envoy.grpc_json_transcoder <config_http_filters_grpc_json_transcoder>`
-	// * :ref:`envoy.grpc_web <config_http_filters_grpc_web>`
-	// * :ref:`envoy.health_check <config_http_filters_health_check>`
-	// * :ref:`envoy.ip_tagging <config_http_filters_ip_tagging>`
-	// * :ref:`envoy.lua <config_http_filters_lua>`
-	// * :ref:`envoy.rate_limit <config_http_filters_rate_limit>`
-	// * :ref:`envoy.router <config_http_filters_router>`
-	// * :ref:`envoy.squash <config_http_filters_squash>`
+	// The name of the filter to instantiate. The name must match a
+	// :ref:`supported filter <config_http_filters>`.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Filter specific configuration which depends on the filter being instantiated. See the supported
 	// filters for further documentation.
