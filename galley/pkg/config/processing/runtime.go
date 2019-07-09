@@ -48,7 +48,13 @@ func (o *RuntimeOptions) Clone() RuntimeOptions {
 	}
 }
 
-// Runtime is the config processing runtime.
+// Runtime is the top-level config processing machinery. Through runtime options, it takes in a set of Sources and
+// a Processor. Once started, Runtime will go through a startup phase, where it waits for MeshConfig to arrive before
+// starting the Processor. If, the Runtime receives any event.RESET events, or if there is a change to the MeshConfig,
+// then the Runtime will stop the processor and sources and will restart them again.
+//
+// Internally, Runtime uses the session type to implement this stateful behavior. The session handles state transitions
+// and is responsible for starting/stopping the Sources, Processors, in the correct order.
 type Runtime struct { // nolint:maligned
 	mu sync.RWMutex
 
@@ -81,7 +87,7 @@ func NewRuntime(o RuntimeOptions) *Runtime {
 	return r
 }
 
-// Start the Processor
+// Start the Runtime
 func (r *Runtime) Start() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -96,7 +102,7 @@ func (r *Runtime) Start() {
 	go r.run(r.stopCh)
 }
 
-// Stop the Processor
+// Stop the Runtime
 func (r *Runtime) Stop() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -110,7 +116,7 @@ func (r *Runtime) Stop() {
 	r.stopCh = nil
 }
 
-// currentSessionID is a numeric identifier of internal processor state. It is used for debugging purposes.
+// currentSessionID is a numeric identifier of internal Runtime state. It is used for debugging purposes.
 func (r *Runtime) currentSessionID() int32 {
 	var id int32
 	se := r.session.Load()
@@ -121,7 +127,7 @@ func (r *Runtime) currentSessionID() int32 {
 	return id
 }
 
-// currentSessionState is the state of the internal processor state. It is used for debugging purposes.
+// currentSessionState is the state of the internal Runtime state. It is used for debugging purposes.
 func (r *Runtime) currentSessionState() sessionState {
 	var state sessionState
 	se := r.session.Load()

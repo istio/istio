@@ -29,26 +29,47 @@ type sessionState string
 
 const (
 	// The session is inactive. This is both the initial, and the terminal state of the session.
-	// allowed transitions are: starting
+	// Allowed transitions are: starting
 	inactive = sessionState("inactive")
 
-	// The session is starting up. In this phase, the sources are being initialized.
-	// allowed transitions are: buffering, terminating
+	// The session is starting up. In this phase, the sources are being initialized. The starting session is an explicit
+	// state, since it is possible to get lifecycle events during the startup of sources. Having an explicit state for
+	// startup enables handling such lifecycle events appropriately.
+	// Allowed transitions are: buffering, terminating
 	starting = sessionState("starting")
 
-	// The session is buffering events until a mesh configuration can arrive.
-	// allowed transitions are: processing, terminating
+	// The session is buffering events until a mesh configuration arrives.
+	// Allowed transitions are: processing, terminating
 	buffering = sessionState("buffering")
 
 	// The session is in full execution mode, processing events.
-	// allowed transitions are: terminating
+	// Allowed transitions are: terminating
 	processing = sessionState("processing")
 
 	// The session is terminating. It will ignore all incoming events, while processors & sources are being stopped.
-	// allowed transitions are: inactive
+	// Allowed transitions are: inactive
 	terminating = sessionState("terminating")
 )
 
+// session represents a config processing session. It is a stateful controller type whose main responsibility is to manage
+// state transitions and react to the events that impact lifecycle.
+//
+// A session starts with an external request (through the start() method, called by Runtime) which puts the session into
+// the "starting" state. During this phase, the Sources are started, and the events from Sources  start to come in. Once
+// all sources are started, the session transitions to the "buffering" state.
+//
+// In "buffering" (and also in "starting") state, the incoming events are selectively buffered, until a usable mesh
+// configuration is received. Once received, the buffered events start getting processed.
+//
+// The main difference between buffering & starting states is how life-cycle events (such as a stop() call from
+// Runtime, or a received reset event) are handled. In starting state, the cleanup is performed right within the context
+// of the startup call.
+//
+// Once a mesh config is received, the state transitions to the "processing" state, where the processor is initialized
+// and buffered events starts getting processed. This is a steady-state, and persists until a life-cycle event occurs
+// (i.e. an explicit stop call from Runtime, a Reset event, or a change in mesh config). Once such a life-cycle event
+// occurs, the state transitions to "terminating", and teardown operations take place (i.e. stop Processor, stop
+// Sources etc.).
 type session struct { // nolint:maligned
 	mu sync.Mutex
 
@@ -66,7 +87,7 @@ type session struct { // nolint:maligned
 }
 
 // newSession creates a new config processing session state. It returns the session, as well as a channel
-// that will be closed upon completion of the session activity.
+// that will be closed upon termination of the session.
 func newSession(id int32, o RuntimeOptions) (*session, chan struct{}) {
 	s := &session{
 		id:      id,
