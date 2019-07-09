@@ -31,18 +31,15 @@ type ProcessorOptions struct {
 
 // RuntimeOptions is options for Runtime
 type RuntimeOptions struct {
-	Sources      []event.Source
+	Source       event.Source
 	Processor    event.Processor
 	DomainSuffix string
 }
 
 // Clone returns a cloned copy of the RuntimeOptions.
 func (o *RuntimeOptions) Clone() RuntimeOptions {
-	sources := make([]event.Source, len(o.Sources))
-	copy(sources, o.Sources)
-
 	return RuntimeOptions{
-		Sources:      sources,
+		Source:       o.Source,
 		Processor:    o.Processor,
 		DomainSuffix: o.DomainSuffix,
 	}
@@ -81,9 +78,8 @@ func NewRuntime(o RuntimeOptions) *Runtime {
 	}
 
 	h := event.HandlerFromFn(r.handle)
-	for _, s := range o.Sources {
-		s.Dispatch(h)
-	}
+	o.Source.Dispatch(h)
+
 	return r
 }
 

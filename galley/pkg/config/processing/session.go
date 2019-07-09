@@ -115,10 +115,9 @@ func (s *session) start() {
 
 func (s *session) startSources() {
 	scope.Debug("session starting sources...")
-	// start sources after relinquishing lock. This avoids deadlocks.
-	for _, src := range s.options.Sources {
-		src.Start()
-	}
+	// start source after relinquishing lock. This avoids deadlocks.
+	s.options.Source.Start()
+
 	scope.Debugf("session source start complete")
 
 	// check the state again. During startup we might have received mesh config, or got signaled for stop.
@@ -183,9 +182,7 @@ func (s *session) terminate() {
 	scope.Debug("session.terminate: stopping processor...")
 	s.options.Processor.Stop()
 	scope.Debug("session.terminate: stopping sources...")
-	for _, s := range s.options.Sources {
-		s.Stop()
-	}
+	s.options.Source.Stop()
 
 	scope.Debug("session.terminate: signalling session termination...")
 	s.mu.Lock()
