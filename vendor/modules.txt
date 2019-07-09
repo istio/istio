@@ -165,6 +165,7 @@ github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2
 github.com/envoyproxy/go-control-plane/envoy/type/matcher
 github.com/envoyproxy/go-control-plane/envoy/config/filter/http/health_check/v2
 github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2
+github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha
 github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha
 github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2
 github.com/envoyproxy/go-control-plane/envoy/service/tap/v2alpha
