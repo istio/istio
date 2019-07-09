@@ -23,7 +23,7 @@ func TestJobComplete(t *testing.T) {
 
 	for cluster := range tc.Kube.Clusters {
 		if err := tc.Kube.CheckJobSucceeded(cluster, jobName); err != nil {
-			t.Errorf("Job %s not completed successfully", jobName)
+			t.Errorf("Cluster %s Job %s not completed successfully", cluster, jobName)
 		}
 	}
 }

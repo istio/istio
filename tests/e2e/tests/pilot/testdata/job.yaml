@@ -21,5 +21,5 @@ spec:
       containers:
         - name: test
           image: pstauffer/curl
-          command: ["sh", "-c", "sleep 5;curl -X POST http://127.0.0.1:15020/quitquitquit"]
+          command: ["sh", "-c", "while :; do sleep 1s; ret=`curl -o /dev/null -s -w %{http_code} -X POST http://127.0.0.1:15020/quitquitquit`; if  [ $ret -eq 200 ]; then break; fi; done"]
       restartPolicy: Never
