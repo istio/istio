@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/env"
-	"istio.io/pkg/log"
 )
 
 type handler struct{}
@@ -260,9 +259,7 @@ func TestHandleQuit(t *testing.T) {
 			expected: http.StatusForbidden,
 		},
 	}
-	for _, scope := range log.Scopes() {
-		scope.SetLogCallers(true)
-	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Need to stop SIGTERM from killing the whole test run
