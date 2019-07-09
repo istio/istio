@@ -655,9 +655,9 @@ func (k *KubeInfo) GetAppPods(cluster string) map[string][]string {
 // CheckJobSucceeded checks whether the job succeeded.
 func (k *KubeInfo) CheckJobSucceeded(cluster, jobName string) error {
 	retry := util.Retrier{
-		BaseDelay: 5 * time.Second,
-		MaxDelay:  5 * time.Second,
-		Retries:   5,
+		BaseDelay: 2 * time.Second,
+		MaxDelay:  3 * time.Second,
+		Retries:   10,
 	}
 
 	retryFn := func(_ context.Context, i int) error {
