@@ -391,14 +391,14 @@ func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string) err
 
 // CreateNamespaceWithInjectionEnabled with the given name and have sidecar-injection enabled.
 func (a *Accessor) CreateNamespaceWithInjectionEnabled(ns string, istioTestingAnnotation string,
-	configNamespace string, enableNamespacesByDefault bool) error {
+	configNamespace string, useCustomSidecarInjector bool) error {
 	scopes.Framework.Debugf("Creating namespace with injection enabled: %s", ns)
 
 	n := a.newNamespace(ns, istioTestingAnnotation)
 
 	n.ObjectMeta.Labels["istio-injection"] = "enabled"
 
-	if !enableNamespacesByDefault {
+	if useCustomSidecarInjector {
 		n.ObjectMeta.Labels["istio-env"] = configNamespace
 	}
 

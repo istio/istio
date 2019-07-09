@@ -46,8 +46,7 @@ func init() {
 		"Helm values file. This can be an absolute path or relative to chartDir. Only valid when deploying Istio.")
 	flag.StringVar(&helmValues, "istio.test.kube.helm.values", helmValues,
 		"Manual overrides for Helm values file. Only valid when deploying Istio.")
-	flag.BoolVar(&settingsFromCommandline.EnableNamespacesByDefault, "istio.test.kube.enableNamespacesByDefault",
-		settingsFromCommandline.EnableNamespacesByDefault, "Specifies sidecar injection for all namespaces "+
-			"with the exception of namespaces with istio-injection:disabled annotation")
+	flag.BoolVar(&settingsFromCommandline.UseCustomSidecarInjector, "istio.test.kube.useCustomSidecarInjector",
+		settingsFromCommandline.UseCustomSidecarInjector, "Inject the sidecar from the specified namespace with label istio-env: namespace.")
 
 }

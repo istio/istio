@@ -75,7 +75,7 @@ func claimKube(ctx resource.Context, name string) (Instance, error) {
 
 	if !env.Accessor.NamespaceExists(name) {
 		if err := env.CreateNamespaceWithInjectionEnabled(name, "istio-test",
-			cfg.ConfigNamespace, cfg.EnableNamespacesByDefault); err != nil {
+			cfg.ConfigNamespace, cfg.UseCustomSidecarInjector); err != nil {
 			return nil, err
 		}
 
@@ -100,7 +100,7 @@ func newKube(ctx resource.Context, prefix string, inject bool) (Instance, error)
 			return nil, err
 		}
 		err = env.CreateNamespaceWithInjectionEnabled(ns, "istio-test",
-			cfg.ConfigNamespace, cfg.EnableNamespacesByDefault)
+			cfg.ConfigNamespace, cfg.UseCustomSidecarInjector)
 		if err != nil {
 			return nil, err
 		}

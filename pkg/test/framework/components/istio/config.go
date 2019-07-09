@@ -63,21 +63,21 @@ var (
 	helmValues string
 
 	settingsFromCommandline = &Config{
-		ChartRepo:                 DefaultIstioChartRepo,
-		SystemNamespace:           DefaultSystemNamespace,
-		IstioNamespace:            DefaultSystemNamespace,
-		ConfigNamespace:           DefaultSystemNamespace,
-		TelemetryNamespace:        DefaultSystemNamespace,
-		PolicyNamespace:           DefaultSystemNamespace,
-		IngressNamespace:          DefaultSystemNamespace,
-		EgressNamespace:           DefaultSystemNamespace,
-		DeployIstio:               true,
-		DeployTimeout:             0,
-		UndeployTimeout:           0,
-		ChartDir:                  env.IstioChartDir,
-		CrdsFilesDir:              env.CrdsFilesDir,
-		ValuesFile:                E2EValuesFile,
-		EnableNamespacesByDefault: false,
+		ChartRepo:                DefaultIstioChartRepo,
+		SystemNamespace:          DefaultSystemNamespace,
+		IstioNamespace:           DefaultSystemNamespace,
+		ConfigNamespace:          DefaultSystemNamespace,
+		TelemetryNamespace:       DefaultSystemNamespace,
+		PolicyNamespace:          DefaultSystemNamespace,
+		IngressNamespace:         DefaultSystemNamespace,
+		EgressNamespace:          DefaultSystemNamespace,
+		DeployIstio:              true,
+		DeployTimeout:            0,
+		UndeployTimeout:          0,
+		ChartDir:                 env.IstioChartDir,
+		CrdsFilesDir:             env.CrdsFilesDir,
+		ValuesFile:               E2EValuesFile,
+		UseCustomSidecarInjector: false,
 	}
 )
 
@@ -131,8 +131,9 @@ type Config struct {
 	// doing deployments without Galley.
 	SkipWaitForValidationWebhook bool
 
-	// EnableNamespacesByDefault enables injection of sidecar in all namespaces if it is true
-	EnableNamespacesByDefault bool
+	// UseCustomSidecarInjector allows injecting the sidecar from the specified namespace.
+	// if the value is false, use the default sidecar injection instead.
+	UseCustomSidecarInjector bool
 }
 
 // Is mtls enabled. Check in Values flag and Values file.
@@ -290,7 +291,7 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("CrdsFilesDir:                 %s\n", c.CrdsFilesDir)
 	result += fmt.Sprintf("ValuesFile:                   %s\n", c.ValuesFile)
 	result += fmt.Sprintf("SkipWaitForValidationWebhook: %v\n", c.SkipWaitForValidationWebhook)
-	result += fmt.Sprintf("EnableNamespacesByDefault:    %v\n", c.EnableNamespacesByDefault)
+	result += fmt.Sprintf("UseCustomSidecarInjector:     %v\n", c.UseCustomSidecarInjector)
 
 	return result
 }
