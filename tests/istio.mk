@@ -208,6 +208,12 @@ test/local/auth/e2e_sds_pilotv2: out_dir generate_e2e_yaml_coredump
 	# Run the pilot controller tests
 	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/controller ${CAPTURE_LOG}
 
+e2e_cloudfoundry: init out_dir
+	iptables -t nat -A OUTPUT -d 127.1.1.1/32 -p tcp -j REDIRECT --to-port 15001
+	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/pilot/cloudfoundry ${T} \
+		${CAPTURE_LOG}
+	iptables -t nat -F
+
 test/local/cloudfoundry/e2e_pilotv2: out_dir
 	sudo apt update
 	sudo apt install -y iptables
