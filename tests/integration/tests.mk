@@ -5,9 +5,11 @@
 # The following flags (in addition to ${V}) can be specified on the command-line, or the environment. This
 # is primarily used by the CI systems.
 
+PULL_POLICY ?= Always
+
 # $(CI) specifies that the test is running in a CI system. This enables CI specific logging.
 _INTEGRATION_TEST_CIMODE_FLAG =
-_INTEGRATION_TEST_PULL_POLICY = Always
+_INTEGRATION_TEST_PULL_POLICY = ${PULL_POLICY}
 ifneq ($(CI),)
 	_INTEGRATION_TEST_CIMODE_FLAG = --istio.test.ci
 	_INTEGRATION_TEST_PULL_POLICY = IfNotPresent      # Using Always in CircleCI causes pull issues as images are local.
@@ -23,6 +25,8 @@ _INTEGRATION_TEST_INGRESS_FLAG =
 ifeq (${TEST_ENV},minikube)
     _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikube
 else ifeq (${TEST_ENV},minikube-none)
+    _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikube
+else ifeq (${TEST_ENV},kind)
     _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikube
 endif
 
