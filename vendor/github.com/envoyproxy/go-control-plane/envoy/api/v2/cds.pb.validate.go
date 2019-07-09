@@ -263,6 +263,8 @@ func (m *Cluster) Validate() error {
 
 	}
 
+	// no validation rules for RespectDnsTtl
+
 	if _, ok := Cluster_DnsLookupFamily_name[int32(m.GetDnsLookupFamily())]; !ok {
 		return ClusterValidationError{
 			field:  "DnsLookupFamily",
@@ -949,6 +951,8 @@ func (m *Cluster_LbSubsetConfig) Validate() error {
 	// no validation rules for ScaleLocalityWeight
 
 	// no validation rules for PanicModeAny
+
+	// no validation rules for ListAsAny
 
 	return nil
 }

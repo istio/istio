@@ -157,10 +157,10 @@ func (m *LbEndpoint) Validate() error {
 
 	if wrapper := m.GetLoadBalancingWeight(); wrapper != nil {
 
-		if val := wrapper.GetValue(); val < 1 || val > 128 {
+		if wrapper.GetValue() < 1 {
 			return LbEndpointValidationError{
 				field:  "LoadBalancingWeight",
-				reason: "value must be inside range [1, 128]",
+				reason: "value must be greater than or equal to 1",
 			}
 		}
 
@@ -292,10 +292,10 @@ func (m *LocalityLbEndpoints) Validate() error {
 
 	if wrapper := m.GetLoadBalancingWeight(); wrapper != nil {
 
-		if val := wrapper.GetValue(); val < 1 || val > 128 {
+		if wrapper.GetValue() < 1 {
 			return LocalityLbEndpointsValidationError{
 				field:  "LoadBalancingWeight",
-				reason: "value must be inside range [1, 128]",
+				reason: "value must be greater than or equal to 1",
 			}
 		}
 
