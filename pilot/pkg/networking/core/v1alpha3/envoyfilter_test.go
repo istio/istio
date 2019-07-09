@@ -39,8 +39,8 @@ func TestListenerMatch(t *testing.T) {
 		name           string
 		inputParams    *plugin.InputParams
 		listenerIP     net.IP
-		matchCondition *networking.EnvoyFilter_ListenerMatch
-		direction      networking.EnvoyFilter_ListenerMatch_ListenerType
+		matchCondition *networking.EnvoyFilter_DeprecatedListenerMatch
+		direction      networking.EnvoyFilter_DeprecatedListenerMatch_ListenerType
 		result         bool
 	}{
 		{
@@ -51,45 +51,45 @@ func TestListenerMatch(t *testing.T) {
 		{
 			name:           "match by port",
 			inputParams:    inputParams,
-			matchCondition: &networking.EnvoyFilter_ListenerMatch{PortNumber: 80},
+			matchCondition: &networking.EnvoyFilter_DeprecatedListenerMatch{PortNumber: 80},
 			result:         true,
 		},
 		{
 			name:           "match by port name prefix",
 			inputParams:    inputParams,
-			matchCondition: &networking.EnvoyFilter_ListenerMatch{PortNamePrefix: "http"},
+			matchCondition: &networking.EnvoyFilter_DeprecatedListenerMatch{PortNamePrefix: "http"},
 			result:         true,
 		},
 		{
 			name:           "match by listener type",
 			inputParams:    inputParams,
-			direction:      networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
-			matchCondition: &networking.EnvoyFilter_ListenerMatch{ListenerType: networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND},
+			direction:      networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
+			matchCondition: &networking.EnvoyFilter_DeprecatedListenerMatch{ListenerType: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND},
 			result:         true,
 		},
 		{
 			name:           "match by listener protocol",
 			inputParams:    inputParams,
-			matchCondition: &networking.EnvoyFilter_ListenerMatch{ListenerProtocol: networking.EnvoyFilter_ListenerMatch_HTTP},
+			matchCondition: &networking.EnvoyFilter_DeprecatedListenerMatch{ListenerProtocol: networking.EnvoyFilter_DeprecatedListenerMatch_HTTP},
 			result:         true,
 		},
 		{
 			name:           "match by listener address with CIDR",
 			inputParams:    inputParams,
 			listenerIP:     net.ParseIP("10.10.10.10"),
-			matchCondition: &networking.EnvoyFilter_ListenerMatch{Address: []string{"10.10.10.10/24", "192.168.0.1/24"}},
+			matchCondition: &networking.EnvoyFilter_DeprecatedListenerMatch{Address: []string{"10.10.10.10/24", "192.168.0.1/24"}},
 			result:         true,
 		},
 		{
 			name:        "match outbound sidecar http listeners on 10.10.10.0/24:80, with port name prefix http-*",
 			inputParams: inputParams,
 			listenerIP:  net.ParseIP("10.10.10.10"),
-			direction:   networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
-			matchCondition: &networking.EnvoyFilter_ListenerMatch{
+			direction:   networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
+			matchCondition: &networking.EnvoyFilter_DeprecatedListenerMatch{
 				PortNumber:       80,
 				PortNamePrefix:   "http",
-				ListenerType:     networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
-				ListenerProtocol: networking.EnvoyFilter_ListenerMatch_HTTP,
+				ListenerType:     networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
+				ListenerProtocol: networking.EnvoyFilter_DeprecatedListenerMatch_HTTP,
 				Address:          []string{"10.10.10.0/24"},
 			},
 			result: true,
@@ -98,12 +98,12 @@ func TestListenerMatch(t *testing.T) {
 			name:        "does not match: outbound sidecar http listeners on 10.10.10.0/24:80, with port name prefix tcp-*",
 			inputParams: inputParams,
 			listenerIP:  net.ParseIP("10.10.10.10"),
-			direction:   networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
-			matchCondition: &networking.EnvoyFilter_ListenerMatch{
+			direction:   networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
+			matchCondition: &networking.EnvoyFilter_DeprecatedListenerMatch{
 				PortNumber:       80,
 				PortNamePrefix:   "tcp",
-				ListenerType:     networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
-				ListenerProtocol: networking.EnvoyFilter_ListenerMatch_HTTP,
+				ListenerType:     networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
+				ListenerProtocol: networking.EnvoyFilter_DeprecatedListenerMatch_HTTP,
 				Address:          []string{"10.10.10.0/24"},
 			},
 			result: false,
@@ -111,11 +111,11 @@ func TestListenerMatch(t *testing.T) {
 		{
 			name:        "does not match: inbound sidecar http listeners with port name prefix http-*",
 			inputParams: inputParams,
-			direction:   networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
-			matchCondition: &networking.EnvoyFilter_ListenerMatch{
+			direction:   networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
+			matchCondition: &networking.EnvoyFilter_DeprecatedListenerMatch{
 				PortNamePrefix:   "http",
-				ListenerType:     networking.EnvoyFilter_ListenerMatch_SIDECAR_INBOUND,
-				ListenerProtocol: networking.EnvoyFilter_ListenerMatch_HTTP,
+				ListenerType:     networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
+				ListenerProtocol: networking.EnvoyFilter_DeprecatedListenerMatch_HTTP,
 			},
 			result: false,
 		},
@@ -123,12 +123,12 @@ func TestListenerMatch(t *testing.T) {
 			name:        "does not match: outbound gateway http listeners on 10.10.10.0/24:80, with port name prefix http-*",
 			inputParams: inputParams,
 			listenerIP:  net.ParseIP("10.10.10.10"),
-			direction:   networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
-			matchCondition: &networking.EnvoyFilter_ListenerMatch{
+			direction:   networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
+			matchCondition: &networking.EnvoyFilter_DeprecatedListenerMatch{
 				PortNumber:       80,
 				PortNamePrefix:   "http",
-				ListenerType:     networking.EnvoyFilter_ListenerMatch_GATEWAY,
-				ListenerProtocol: networking.EnvoyFilter_ListenerMatch_HTTP,
+				ListenerType:     networking.EnvoyFilter_DeprecatedListenerMatch_GATEWAY,
+				ListenerProtocol: networking.EnvoyFilter_DeprecatedListenerMatch_HTTP,
 				Address:          []string{"10.10.10.0/24"},
 			},
 			result: false,
@@ -137,12 +137,12 @@ func TestListenerMatch(t *testing.T) {
 			name:        "does not match: outbound sidecar listeners on 172.16.0.1/16:80, with port name prefix http-*",
 			inputParams: inputParams,
 			listenerIP:  net.ParseIP("10.10.10.10"),
-			direction:   networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
-			matchCondition: &networking.EnvoyFilter_ListenerMatch{
+			direction:   networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
+			matchCondition: &networking.EnvoyFilter_DeprecatedListenerMatch{
 				PortNumber:       80,
 				PortNamePrefix:   "http",
-				ListenerType:     networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
-				ListenerProtocol: networking.EnvoyFilter_ListenerMatch_HTTP,
+				ListenerType:     networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
+				ListenerProtocol: networking.EnvoyFilter_DeprecatedListenerMatch_HTTP,
 				Address:          []string{"172.16.0.1/16"},
 			},
 			result: false,

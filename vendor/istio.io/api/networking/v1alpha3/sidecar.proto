@@ -37,18 +37,43 @@ import "networking/v1alpha3/gateway.proto";
 // namespace, selected using the workloadSelector. In the absence of a
 // workloadSelector, it will apply to all workload instances in the same
 // namespace. When determining the Sidecar resource to be applied to a
-// workload instsance, preference will be given to the resource with a
+// workload instance, preference will be given to the resource with a
 // workloadSelector that selects this workload instance, over a Sidecar resource
 // without any workloadSelector.
 //
-// NOTE: *_Each namespace can have only one Sidecar resource without any
+// NOTE 1: *_Each namespace can have only one Sidecar resource without any
 // workload selector_*. The behavior of the system is undefined if more
 // than one selector-less Sidecar resources exist in a given namespace. The
 // behavior of the system is undefined if two or more Sidecar resources
 // with a workload selector select the same workload instance.
 //
-// The example below declares a Sidecar resource in the prod-us1 namespace
-// that configures the sidecars in the namespace to allow egress traffic to
+// NOTE 2: *_A sidecar resource in the config [root
+// namespace](https://istio.io/docs/reference/config/istio.mesh.v1alpha1/#MeshConfig)
+// will be applied by default to all namespaces without a sidecar
+// resource._*. This global default sidecar resource should not have
+// any workload selector.
+//
+// The example below declares a global default Sidecar resource in the
+// root namespace called `istio-config`, that configures sidecars in
+// all namespaces to allow egress traffic only to other workloads in
+// the same namespace, and to services in the istio-system namespace.
+//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: Sidecar
+// metadata:
+//   name: default
+//   namespace: istio-config
+// spec:
+//   egress:
+//   - hosts:
+//     - "./*"
+//     - "istio-system/*"
+//```
+//
+// The example below declares a Sidecar resource in the prod-us1
+// namespace that overrides the global default defined above, and
+// configures the sidecars in the namespace to allow egress traffic to
 // public services in the prod-us1, prod-apis, and the istio-system
 // namespaces.
 //
@@ -122,7 +147,7 @@ import "networking/v1alpha3/gateway.proto";
 //       app: productpage
 //   ingress:
 //   - port:
-//       number: 9080 # binds to 0.0.0.0:9080
+//       number: 9080 # binds to proxy_instance_ip:9080 (0.0.0.0:9080, if no unicast IP is available for the instance)
 //       protocol: HTTP
 //       name: somename
 //     defaultEndpoint: 127.0.0.1:8080
@@ -220,6 +245,13 @@ message Sidecar {
   // mesh. If omitted, Istio will automatically configure the sidecar to be able to
   // reach every service in the mesh that is visible to this namespace.
   repeated IstioEgressListener egress = 3;
+
+  // This allows to configure the outbound traffic policy.
+  // If your application uses one or more external
+  // services that are not known apriori, setting the policy to ALLOW_ANY
+  // will cause the sidecars to route any unknown traffic originating from
+  // the application to its requested destination.
+  OutboundTrafficPolicy outbound_traffic_policy = 4;
 }
 
 // IstioIngressListener specifies the properties of an inbound
@@ -300,8 +332,8 @@ message IstioEgressListener {
   repeated string hosts = 4;
 }
 
-// WorkloadSelector specifies the criteria used to determine if the Gateway
-// or Sidecar resource can be applied to a proxy. The matching criteria
+// WorkloadSelector specifies the criteria used to determine if the Gateway,
+// Sidecar, or EnvoyFilter resource can be applied to a proxy. The matching criteria
 // includes the metadata associated with a proxy, workload instance info such as
 // labels attached to the pod/VM, or any other info that the proxy provides
 // to Istio during the initial handshake. If multiple conditions are
@@ -319,6 +351,28 @@ message WorkloadSelector {
   // when connecting to Pilot, such as X509 fields, tenant IDs, JWT,
   // etc. This has nothing to do with the request level authN etc.
 }
+
+// OutboundTrafficPolicy sets the default behavior of the sidecar for
+// handling outbound traffic from the application.
+// If your application uses one or more external
+// services that are not known apriori, setting the policy to ALLOW_ANY
+// will cause the sidecars to route any unknown traffic originating from
+// the application to its requested destination.  Users are strongly
+// encouraged to use ServiceEntries to explicitly declare any external
+// dependencies, instead of using allow_any, so that traffic to these
+// services can be monitored.
+message OutboundTrafficPolicy {
+  enum Mode {
+    // outbound traffic will be restricted to services defined in the
+    // service registry as well as those defined through ServiceEntries
+    REGISTRY_ONLY = 0;
+    // outbound traffic to unknown destinations will be allowed, in case
+    // there are no services or ServiceEntries for the destination port
+    ALLOW_ANY = 1;
+  }
+  Mode mode = 1;
+}
+
 
 // CaptureMode describes how traffic to a listener is expected to be
 // captured. Applicable only when the listener is bound to an IP.

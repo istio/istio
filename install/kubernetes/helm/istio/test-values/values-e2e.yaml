@@ -68,3 +68,6 @@ mixer:
       enabled: true
   kiali:
     enabled: true
+
+sidecarInjectorWebhook:
+  rewriteAppHTTPProbe: true

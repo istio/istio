@@ -343,7 +343,7 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
+		IstioConfigStore: configStore.Freeze(),
 		Mesh:             &mesh,
 	}
 
@@ -740,6 +740,7 @@ func TestLocalityLB(t *testing.T) {
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
 					ConsecutiveErrors: 5,
+					MinHealthPercent:  10,
 				},
 			},
 		})
@@ -748,6 +749,7 @@ func TestLocalityLB(t *testing.T) {
 	if clusters[0].CommonLbConfig == nil {
 		t.Errorf("CommonLbConfig should be set for cluster %+v", clusters[0])
 	}
+	g.Expect(clusters[0].CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
 
 	g.Expect(len(clusters[0].LoadAssignment.Endpoints)).To(Equal(3))
 	for _, localityLbEndpoint := range clusters[0].LoadAssignment.Endpoints {
@@ -895,6 +897,41 @@ func TestPassthroughClusterMaxConnections(t *testing.T) {
 			fmt.Println(cluster.CircuitBreakers)
 			g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
 			g.Expect(cluster.CircuitBreakers.Thresholds[0].MaxConnections.Value).To(Equal(uint32(102400)))
+		}
+	}
+}
+
+func TestRedisProtocolCluster(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	configgen := NewConfigGenerator([]plugin.Plugin{})
+
+	proxy := &model.Proxy{}
+
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+
+	servicePort := &model.Port{
+		Name:     "redis-port",
+		Port:     6379,
+		Protocol: model.ProtocolRedis,
+	}
+	service := &model.Service{
+		Hostname:    model.Hostname("redis.com"),
+		Address:     "1.1.1.1",
+		ClusterVIPs: make(map[string]string),
+		Ports:       model.PortList{servicePort},
+		Resolution:  model.ClientSideLB,
+	}
+
+	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
+
+	env := newTestEnvironment(serviceDiscovery, testMesh)
+
+	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
+	g.Expect(err).NotTo(HaveOccurred())
+	for _, cluster := range clusters {
+		if cluster.Name == "outbound|6379||redis.com" {
+			g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_MAGLEV))
 		}
 	}
 }

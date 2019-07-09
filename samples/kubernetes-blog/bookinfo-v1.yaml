@@ -28,12 +28,16 @@ spec:
   selector:
     app: details
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: details-v1
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: details
+      version: v1
   template:
     metadata:
       labels:
@@ -63,12 +67,16 @@ spec:
   selector:
     app: reviews
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: reviews-v1
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: reviews
+      version: v1
   template:
     metadata:
       labels:
@@ -77,7 +85,7 @@ spec:
     spec:
       containers:
       - name: reviews
-        image: istio/examples-bookinfo-reviews-v1:0.2.3
+        image: docker.io/istio/examples-bookinfo-reviews-v1:0.2.3
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
@@ -98,12 +106,16 @@ spec:
   selector:
     app: productpage
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: productpage-v1
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: productpage
+      version: v1
   template:
     metadata:
       labels:
@@ -112,7 +124,7 @@ spec:
     spec:
       containers:
       - name: productpage
-        image: istio/examples-bookinfo-productpage-v1:0.2.3
+        image: docker.io/istio/examples-bookinfo-productpage-v1:0.2.3
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080

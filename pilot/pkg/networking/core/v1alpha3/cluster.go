@@ -27,15 +27,17 @@ import (
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/pkg/features/pilot"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
+	"istio.io/istio/pilot/pkg/features"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/pkg/log"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 )
 
 const (
@@ -152,7 +154,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			discoveryType := convertResolution(service.Resolution)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			serviceAccounts := push.ServiceAccounts[service.Hostname][port.Port]
-			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy)
+			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, port)
 
 			setUpstreamProtocol(defaultCluster, port)
 			clusters = append(clusters, defaultCluster)
@@ -184,7 +186,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					if discoveryType != apiv2.Cluster_EDS && len(subset.Labels) != 0 {
 						lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []model.Labels{subset.Labels})
 					}
-					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy)
+					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
 					setUpstreamProtocol(subsetCluster, port)
 
 					opts := buildClusterOpts{
@@ -254,7 +256,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 			discoveryType := convertResolution(service.Resolution)
 
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy)
+			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
 			defaultCluster.TlsContext = nil
 			clusters = append(clusters, defaultCluster)
 
@@ -278,7 +280,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 					if discoveryType != apiv2.Cluster_EDS && len(subset.Labels) != 0 {
 						lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []model.Labels{subset.Labels})
 					}
-					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy)
+					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
 					subsetCluster.TlsContext = nil
 
 					opts = buildClusterOpts{
@@ -330,7 +332,7 @@ func updateEds(cluster *apiv2.Cluster) {
 			ConfigSourceSpecifier: &core.ConfigSource_Ads{
 				Ads: &core.AggregatedConfigSource{},
 			},
-			InitialFetchTimeout: pilot.InitialFetchTimeout,
+			InitialFetchTimeout: features.InitialFetchTimeout,
 		},
 	}
 }
@@ -454,7 +456,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 				ManagementClusterHostname, port.Port)
 			localityLbEndpoints := buildInboundLocalityLbEndpoints(actualLocalHost, port.Port)
 			mgmtCluster := buildDefaultCluster(env, clusterName, apiv2.Cluster_STATIC, localityLbEndpoints,
-				model.TrafficDirectionInbound, proxy)
+				model.TrafficDirectionInbound, proxy, nil)
 			setUpstreamProtocol(mgmtCluster, port)
 			clusters = append(clusters, mgmtCluster)
 		}
@@ -484,6 +486,9 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			} else {
 				// parse the ip, port. Validation guarantees presence of :
 				parts := strings.Split(ingressListener.DefaultEndpoint, ":")
+				if len(parts) < 2 {
+					continue
+				}
 				if port, err = strconv.Atoi(parts[1]); err != nil {
 					continue
 				}
@@ -564,7 +569,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 		instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(pluginParams.Bind, instance.Endpoint.Port)
 	localCluster := buildDefaultCluster(pluginParams.Env, clusterName, apiv2.Cluster_STATIC, localityLbEndpoints,
-		model.TrafficDirectionInbound, pluginParams.Node)
+		model.TrafficDirectionInbound, pluginParams.Node, nil)
 	setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
 	// call plugins
 	for _, p := range configgen.Plugins {
@@ -706,7 +711,7 @@ func applyTrafficPolicy(opts buildClusterOpts) {
 
 	applyConnectionPool(opts.env, opts.cluster, connectionPool, opts.direction)
 	applyOutlierDetection(opts.cluster, outlierDetection)
-	applyLoadBalancer(opts.cluster, loadBalancer)
+	applyLoadBalancer(opts.cluster, loadBalancer, opts.port)
 	if opts.clusterMode != SniDnatClusterMode {
 		tls = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.sni, opts.proxy)
 		applyUpstreamTLSSettings(opts.env, opts.cluster, tls, opts.proxy.Metadata)
@@ -847,16 +852,24 @@ func applyOutlierDetection(cluster *apiv2.Cluster, outlier *networking.OutlierDe
 	}
 }
 
-func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettings) {
+func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettings, port *model.Port) {
 	if cluster.OutlierDetection != nil {
+		if cluster.CommonLbConfig == nil {
+			cluster.CommonLbConfig = &apiv2.Cluster_CommonLbConfig{}
+		}
 		// Locality weighted load balancing
-		cluster.CommonLbConfig = &apiv2.Cluster_CommonLbConfig{
-			LocalityConfigSpecifier: &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
-				LocalityWeightedLbConfig: &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
-			},
+		cluster.CommonLbConfig.LocalityConfigSpecifier = &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
+			LocalityWeightedLbConfig: &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
 		}
 	}
+
 	if lb == nil {
+		return
+	}
+
+	// Redis protocol must be defaulted with MAGLEV to benefit from client side sharding.
+	if port != nil && port.Protocol == model.ProtocolRedis {
+		cluster.LbPolicy = apiv2.Cluster_MAGLEV
 		return
 	}
 
@@ -866,7 +879,6 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 		return
 	}
 
-	// TODO: MAGLEV
 	switch lb.GetSimple() {
 	case networking.LoadBalancerSettings_LEAST_CONN:
 		cluster.LbPolicy = apiv2.Cluster_LEAST_REQUEST
@@ -997,12 +1009,13 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 			}
 		} else {
 			cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, env.Mesh.SdsUdsPath, env.Mesh.EnableSdsTokenMount, env.Mesh.SdsUseK8SSaJwt, metadata))
+				authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName,
+					env.Mesh.SdsUdsPath, env.Mesh.EnableSdsTokenMount, env.Mesh.SdsUseK8SSaJwt, metadata))
 
 			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 					DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: tls.SubjectAltNames},
-					ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName, env.Mesh.SdsUdsPath,
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, env.Mesh.SdsUdsPath,
 						env.Mesh.EnableSdsTokenMount, env.Mesh.SdsUseK8SSaJwt, metadata),
 				},
 			}
@@ -1070,7 +1083,7 @@ func buildDefaultPassthroughCluster(env *model.Environment) *apiv2.Cluster {
 }
 
 func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv2.Cluster_DiscoveryType,
-	localityLbEndpoints []endpoint.LocalityLbEndpoints, direction model.TrafficDirection, proxy *model.Proxy) *apiv2.Cluster {
+	localityLbEndpoints []endpoint.LocalityLbEndpoints, direction model.TrafficDirection, proxy *model.Proxy, port *model.Port) *apiv2.Cluster {
 	cluster := &apiv2.Cluster{
 		Name:                 name,
 		ClusterDiscoveryType: &apiv2.Cluster_Type{Type: discoveryType},
@@ -1094,7 +1107,7 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv
 		env:             env,
 		cluster:         cluster,
 		policy:          defaultTrafficPolicy,
-		port:            nil,
+		port:            port,
 		serviceAccounts: nil,
 		sni:             "",
 		clusterMode:     DefaultClusterMode,

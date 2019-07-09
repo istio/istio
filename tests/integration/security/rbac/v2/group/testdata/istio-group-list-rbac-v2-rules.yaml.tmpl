@@ -10,8 +10,11 @@ spec:
   - name: b
   origins:
   - jwt:
-      issuer: "testing@secure.istio.io"
-      jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.1/security/tools/jwt/samples/jwks.json"
+      issuer: "test-issuer-1@istio.io"
+      jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+  - jwt:
+      issuer: "test-issuer-2@istio.io"
+      jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
   principalBinding: USE_ORIGIN
 ---
 apiVersion: "rbac.istio.io/v1alpha1"
@@ -31,7 +34,7 @@ metadata:
 spec:
   allow:
   - subjects:
-    - groups: ["group1"]
+    - groups: ["group-1"]
     roleRef:
       kind: ServiceRole
       name: "b-viewer"
@@ -45,8 +48,11 @@ spec:
   - name: c
   origins:
   - jwt:
-      issuer: "testing@secure.istio.io"
-      jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.1/security/tools/jwt/samples/jwks.json"
+      issuer: "test-issuer-1@istio.io"
+      jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+  - jwt:
+      issuer: "test-issuer-2@istio.io"
+      jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
   principalBinding: USE_ORIGIN
 ---
 apiVersion: "rbac.istio.io/v1alpha1"
@@ -67,7 +73,7 @@ spec:
   allow:
   - subjects:
     - properties:
-        request.auth.claims[scope]: "scope1"
+        request.auth.claims[sub]: "sub-1"
     roleRef:
       kind: ServiceRole
       name: "c-viewer"

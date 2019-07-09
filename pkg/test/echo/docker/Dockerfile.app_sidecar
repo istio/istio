@@ -1,0 +1,26 @@
+FROM istionightly/base_debug
+
+# Add CA certificates for SSL connections.
+# obtained from debian ca-certs deb using fetch_cacerts.sh
+ADD ca-certificates.tgz /
+
+# Install the certs.
+COPY certs/                           /var/lib/istio/
+COPY certs/default/*                  /etc/certs/
+
+# Install the sidecar components
+COPY envoy                            /usr/local/bin/envoy
+COPY pilot-agent                      /usr/local/bin/pilot-agent
+COPY node_agent                       /usr/local/bin/node_agent
+COPY istio-start.sh                   /usr/local/bin/istio-start.sh
+COPY istio-node-agent-start.sh        /usr/local/bin/istio-node-agent-start.sh
+COPY istio-iptables.sh                /usr/local/bin/istio-iptables.sh
+COPY postinst.sh                      /usr/local/bin/postinst.sh
+COPY envoy_bootstrap_v2.json          /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
+COPY envoy_bootstrap_drain.json       /var/lib/istio/envoy/envoy_bootstrap_drain.json
+
+# Install the Echo application
+COPY echo-start.sh /usr/local/bin/echo-start.sh
+COPY pkg-test-echo-cmd-client /usr/local/bin/client
+COPY pkg-test-echo-cmd-server /usr/local/bin/server
+ENTRYPOINT ["/usr/local/bin/echo-start.sh"]

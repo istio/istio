@@ -137,7 +137,98 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
-
+	sidecarConfigWithRegistryOnly := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						// A port that is not in any of the services
+						Number:   9000,
+						Protocol: "HTTP",
+						Name:     "something",
+					},
+					Bind:  "1.1.1.1",
+					Hosts: []string{"*/bookinfo.com"},
+				},
+				{
+					Port: &networking.Port{
+						// Unix domain socket listener
+						Number:   0,
+						Protocol: "HTTP",
+						Name:     "something",
+					},
+					Bind:  "unix://foo/bar/baz",
+					Hosts: []string{"*/bookinfo.com"},
+				},
+				{
+					Port: &networking.Port{
+						// A port that is in one of the services
+						Number:   8080,
+						Protocol: "HTTP",
+						Name:     "foo",
+					},
+					Hosts: []string{"default/bookinfo.com", "not-default/test.com"},
+				},
+				{
+					// Wildcard egress importing from all namespaces
+					Hosts: []string{"*/*"},
+				},
+			},
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
+			},
+		},
+	}
+	sidecarConfigWithAllowAny := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						// A port that is not in any of the services
+						Number:   9000,
+						Protocol: "HTTP",
+						Name:     "something",
+					},
+					Bind:  "1.1.1.1",
+					Hosts: []string{"*/bookinfo.com"},
+				},
+				{
+					Port: &networking.Port{
+						// Unix domain socket listener
+						Number:   0,
+						Protocol: "HTTP",
+						Name:     "something",
+					},
+					Bind:  "unix://foo/bar/baz",
+					Hosts: []string{"*/bookinfo.com"},
+				},
+				{
+					Port: &networking.Port{
+						// A port that is in one of the services
+						Number:   8080,
+						Protocol: "HTTP",
+						Name:     "foo",
+					},
+					Hosts: []string{"default/bookinfo.com", "not-default/test.com"},
+				},
+				{
+					// Wildcard egress importing from all namespaces
+					Hosts: []string{"*/*"},
+				},
+			},
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+			},
+		},
+	}
 	virtualServiceSpec1 := &networking.VirtualService{
 		Hosts:    []string{"test-private-2.com"},
 		Gateways: []string{"mesh"},
@@ -284,6 +375,39 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			},
 		},
 		{
+			name:                  "sidecar config with fallthrough and registry only and allow any mesh config",
+			routeName:             "80",
+			sidecarConfig:         sidecarConfigWithRegistryOnly,
+			virtualServiceConfigs: nil,
+			expectedHosts: map[string]map[string]bool{
+				"test-private.com:80": {
+					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
+				},
+				"block_all": {
+					"*": true,
+				},
+			},
+			fallthroughRoute: true,
+			registryOnly:     false,
+		},
+		{
+			name:                  "sidecar config with fallthrough and allow any and registry only mesh config",
+			routeName:             "80",
+			sidecarConfig:         sidecarConfigWithAllowAny,
+			virtualServiceConfigs: nil,
+			expectedHosts: map[string]map[string]bool{
+				"test-private.com:80": {
+					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
+				},
+				"allow_any": {
+					"*": true,
+				},
+			},
+			fallthroughRoute: true,
+			registryOnly:     false,
+		},
+
+		{
 			name:                  "wildcard egress importing from all namespaces: 9999",
 			routeName:             "9999",
 			sidecarConfig:         sidecarConfig,
@@ -416,27 +540,28 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		testSidecarRDSVHosts(t, c.name, services, c.sidecarConfig, c.virtualServiceConfigs,
-			c.routeName, c.expectedHosts, c.fallthroughRoute, c.registryOnly)
+		t.Run(c.name, func(t *testing.T) {
+			testSidecarRDSVHosts(t, services, c.sidecarConfig, c.virtualServiceConfigs,
+				c.routeName, c.expectedHosts, c.fallthroughRoute, c.registryOnly)
+		})
 	}
 }
 
-func testSidecarRDSVHosts(t *testing.T, testName string, services []*model.Service,
+func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	sidecarConfig *model.Config, virtualServices []*model.Config, routeName string,
 	expectedHosts map[string]map[string]bool, fallthroughRoute bool, registryOnly bool) {
 	t.Helper()
 	p := &fakePlugin{}
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
-	env := buildListenerEnv(services)
+	env := buildListenerEnvWithVirtualServices(services, virtualServices)
 
 	if err := env.PushContext.InitContext(&env); err != nil {
-		t.Fatalf("testSidecarRDSVhosts(%s): failed to initialize push context", testName)
+		t.Fatalf("failed to initialize push context")
 	}
-	for _, virtualService := range virtualServices {
-		env.PushContext.AddVirtualServiceForTesting(virtualService)
+	if registryOnly {
+		env.Mesh.OutboundTrafficPolicy = &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY}
 	}
-
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
@@ -446,13 +571,10 @@ func testSidecarRDSVHosts(t *testing.T, testName string, services []*model.Servi
 	if fallthroughRoute {
 		os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "1")
 	}
-	if registryOnly {
-		env.Mesh.OutboundTrafficPolicy = &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY}
-	}
 
 	route := configgen.buildSidecarOutboundHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, routeName)
 	if route == nil {
-		t.Fatalf("testSidecarRDSVhosts(%s): got nil route for %s", testName, routeName)
+		t.Fatalf("got nil route for %s", routeName)
 	}
 
 	expectedNumberOfRoutes := len(expectedHosts)
@@ -460,18 +582,17 @@ func testSidecarRDSVHosts(t *testing.T, testName string, services []*model.Servi
 	for _, vhost := range route.VirtualHosts {
 		numberOfRoutes += len(vhost.Routes)
 		if _, found := expectedHosts[vhost.Name]; !found {
-			t.Fatalf("testSidecarRDSVhosts(%s): unexpected vhost block %s for route %s", testName,
+			t.Fatalf("unexpected vhost block %s for route %s",
 				vhost.Name, routeName)
 		}
 		for _, domain := range vhost.Domains {
 			if !expectedHosts[vhost.Name][domain] {
-				t.Fatalf("testSidecarRDSVhosts(%s): unexpected vhost domain %s in vhost %s, for route %s",
-					testName, domain, vhost.Name, routeName)
+				t.Fatalf("unexpected vhost domain %s in vhost %s, for route %s", domain, vhost.Name, routeName)
 			}
 		}
 	}
 	if (expectedNumberOfRoutes >= 0) && (numberOfRoutes != expectedNumberOfRoutes) {
-		t.Errorf("testSidecarRDSVhosts(%s): expected: %v, Got: %v", testName, expectedNumberOfRoutes, numberOfRoutes)
+		t.Errorf("Wrong number of routes. expected: %v, Got: %v", expectedNumberOfRoutes, numberOfRoutes)
 	}
 }
 

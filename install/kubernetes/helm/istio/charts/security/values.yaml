@@ -2,11 +2,17 @@
 # security configuration
 #
 enabled: true
+replicaCount: 1
 image: citadel
 selfSigned: true # indicate if self-signed CA is used.
 createMeshPolicy: true
 nodeSelector: {}
 tolerations: []
+# Enable health checking on the Citadel CSR signing API.
+# https://istio.io/docs/tasks/security/health-check/
+citadelHealthCheck: false
+# 90*24hour = 2160h
+workloadCertTtl: 2160h
 
 # Specify the pod anti-affinity that allows you to constrain which nodes
 # your pod is eligible to be scheduled based on labels on pods that are
@@ -14,7 +20,7 @@ tolerations: []
 # There are currently two types of anti-affinity:
 #    "requiredDuringSchedulingIgnoredDuringExecution"
 #    "preferredDuringSchedulingIgnoredDuringExecution"
-# which denote “hard” vs. “soft” requirements, you can define your values
+# which denote "hard" vs. "soft" requirements, you can define your values
 # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
 # correspondingly.
 # For example:
@@ -25,6 +31,6 @@ tolerations: []
 #   topologyKey: "kubernetes.io/hostname"
 # This pod anti-affinity rule says that the pod requires not to be scheduled
 # onto a node if that node is already running a pod with label having key
-# “security” and value “S1”.
+# "security" and value "S1".
 podAntiAffinityLabelSelector: []
 podAntiAffinityTermLabelSelector: []

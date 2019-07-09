@@ -1,3 +1,17 @@
+// Copyright 2019 Istio Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // Package sdsc includes a lightweight testing client to interact with SDS.
 package sdsc
 
@@ -17,7 +31,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	"istio.io/istio/pilot/pkg/model"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	sdscache "istio.io/istio/security/pkg/nodeagent/cache"
 	agent_sds "istio.io/istio/security/pkg/nodeagent/sds"
 )
@@ -40,12 +54,12 @@ type ClientOptions struct {
 // constructSDSRequest returns the context for the outbound request to include necessary
 func constructSDSRequestContext() (context.Context, error) {
 	// Read from the designated location for Kubernetes JWT.
-	content, err := ioutil.ReadFile(model.K8sSAJwtFileName)
+	content, err := ioutil.ReadFile(authn_model.K8sSAJwtFileName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the token file %v", err)
 	}
 	md := metadata.New(map[string]string{
-		model.K8sSAJwtTokenHeaderKey: string(content),
+		authn_model.K8sSAJwtTokenHeaderKey: string(content),
 	})
 	return metadata.NewOutgoingContext(context.Background(), md), nil
 }

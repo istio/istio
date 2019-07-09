@@ -25,41 +25,6 @@ import (
 
 func TestWhiteListing(t *testing.T) {
 	framework.Run(t, func(ctx framework.TestContext) {
-		t.Skipf("https://github.com/istio/istio/issues/13845")
-		if galInst == nil {
-			t.Fatalf("galley not setup")
-		}
-		g := *galInst
-		if bookinfoNamespace == nil {
-			t.Fatalf("bookinfo namespace not allocated in setup")
-		}
-		bookinfoNs := *bookinfoNamespace
-		g.ApplyConfigOrFail(
-			t,
-			bookinfoNs,
-			bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
-		g.ApplyConfigOrFail(
-			t,
-			bookinfoNs,
-			bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-			bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-		)
-		defer g.DeleteConfigOrFail(
-			t,
-			bookinfoNs,
-			bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()),
-		)
-		defer g.DeleteConfigOrFail(
-			t,
-			bookinfoNs,
-			bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-			bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-		)
-
-		if ingInst == nil {
-			t.Fatalf("ingress not setup")
-		}
-		ing := *ingInst
 		// Verify you can access productpage right now.
 		util.SendTrafficAndWaitForExpectedStatus(ing, t, "Sending traffic...", "", 2, http.StatusOK)
 
@@ -71,6 +36,8 @@ func TestWhiteListing(t *testing.T) {
 			t,
 			bookinfoNs,
 			bookinfo.PolicyDenyIPRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
+		util.AllowRuleSync(t)
+
 		// Verify you can't access productpage now.
 		util.SendTrafficAndWaitForExpectedStatus(ing, t, "Sending traffic...", "", 30, http.StatusForbidden)
 	})

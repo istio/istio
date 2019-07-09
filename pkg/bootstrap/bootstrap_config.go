@@ -27,6 +27,8 @@ import (
 	"text/template"
 	"time"
 
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/pkg/annotations"
 
 	"github.com/gogo/protobuf/types"
@@ -73,6 +75,7 @@ var (
 
 	// required stats are used by readiness checks.
 	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc"
+	requiredEnvoyStatsMatcherInclusionSuffix   = "ssl_context_update_by_sds"
 )
 
 // substituteValues substitutes variables known to the boostrap like pod_ip.
@@ -119,7 +122,7 @@ func setStatsOptions(opts map[string]interface{}, meta map[string]string, nodeIP
 
 	setStatsOption(EnvoyStatsMatcherInclusionPrefixes, envoyStatsMatcherInclusionPrefixOption, requiredEnvoyStatsMatcherInclusionPrefixes)
 
-	setStatsOption(EnvoyStatsMatcherInclusionSuffixes, envoyStatsMatcherInclusionSuffixOption, "")
+	setStatsOption(EnvoyStatsMatcherInclusionSuffixes, envoyStatsMatcherInclusionSuffixOption, requiredEnvoyStatsMatcherInclusionSuffix)
 
 	setStatsOption(EnvoyStatsMatcherInclusionRegexps, envoyStatsMatcherInclusionRegexpOption, "")
 }
@@ -301,22 +304,40 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["cluster"] = config.ServiceCluster
 	opts["nodeID"] = node
 
-	// Populate the platform locality if available.
-	l := platform.GetPlatformLocality()
+	// Support passing extra info from node environment as metadata
+	meta := getNodeMetaData(localEnv)
+
+	localityOverride := model.GetLocalityOrDefault("", meta)
+	l := util.ConvertLocality(localityOverride)
+	if l == nil {
+		// Populate the platform locality if available.
+		l = platform.GetPlatformLocality()
+	}
 	if l.Region != "" {
 		opts["region"] = l.Region
 	}
 	if l.Zone != "" {
 		opts["zone"] = l.Zone
 	}
+	if l.SubZone != "" {
+		opts["sub_zone"] = l.SubZone
+	}
 
-	// Support passing extra info from node environment as metadata
-	meta := getNodeMetaData(localEnv)
+	// Remove duplicate nodeIPs, but preserve the original ordering.
+	ipSet := make(map[string]struct{})
+	newNodeIPs := make([]string, 0, len(nodeIPs))
+	for _, ip := range nodeIPs {
+		if _, ok := ipSet[ip]; !ok {
+			ipSet[ip] = struct{}{}
+			newNodeIPs = append(newNodeIPs, ip)
+		}
+	}
+	nodeIPs = newNodeIPs
 
 	setStatsOptions(opts, meta, nodeIPs)
 
 	// Support multiple network interfaces
-	meta["ISTIO_META_INSTANCE_IPS"] = strings.Join(nodeIPs, ",")
+	meta[model.NodeMetadataInstanceIPs] = strings.Join(nodeIPs, ",")
 
 	ba, err := json.Marshal(meta)
 	if err != nil {
@@ -401,6 +422,14 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 			return "", err
 		}
 		StoreHostPort(h, p, "envoy_metrics_service", opts)
+	}
+
+	if config.EnvoyAccessLogServiceAddress != "" {
+		h, p, err = GetHostPort("envoy accesslog service", config.EnvoyAccessLogServiceAddress)
+		if err != nil {
+			return "", err
+		}
+		StoreHostPort(h, p, "envoy_accesslog_service", opts)
 	}
 
 	fout, err := os.Create(fname)

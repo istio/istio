@@ -8,12 +8,14 @@
 //
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
-// kind: listentry
+// kind: instance
 // metadata:
 //   name: appversion
 //   namespace: istio-system
 // spec:
-//   value: source.labels["version"]
+//   compiledTemplate: listentry
+//   params:
+//     value: source.labels["version"]
 // ```
 //
 // The `listentry` template is used to verify the presence/absence of a string

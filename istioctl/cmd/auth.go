@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/istioctl/pkg/auth"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
+	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
@@ -73,7 +74,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 					return fmt.Errorf("failed to get config dump from file %s: %s", configDumpFile, err)
 				}
 			} else if len(args) == 1 {
-				podName, podNamespace := inferPodInfo(args[0], handleNamespace())
+				podName, podNamespace := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 				configDump, err = getConfigDumpFromPod(podName, podNamespace)
 				if err != nil {
 					return fmt.Errorf("failed to get config dump from pod %s", args[0])
@@ -92,8 +93,9 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 	}
 
 	upgradeCmd = &cobra.Command{
-		Use:   "upgrade",
-		Short: "Upgrade Istio Authorization Policy from version v1 to v2",
+		Hidden: true,
+		Use:    "upgrade",
+		Short:  "Upgrade Istio Authorization Policy from version v1 to v2",
 		Long: `Upgrade converts Istio authorization policy from version v1 to v2. It requires access to Kubernetes
 service definition in order to translate the service name specified in the ServiceRole to the corresponding
 workload labels in the AuthorizationPolicy. The service definition could be provided either from the current

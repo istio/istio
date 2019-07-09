@@ -15,11 +15,9 @@
 package group
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -27,81 +25,37 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
-	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/tests/common/jwt"
 	"istio.io/istio/tests/integration/security/rbac/util"
+	securityUtil "istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
 const (
 	rbacClusterConfigTmpl  = "testdata/istio-clusterrbacconfig.yaml.tmpl"
 	rbacGroupListRulesTmpl = "testdata/istio-group-list-rbac-v2-rules.yaml.tmpl"
-	// groupsScopeJwt contains the claims:
-	// "groups": ["group1", "group2"],
-	// "scope": ["scope1", "scope2"].
-	groupsScopeJwt = "eyJhbGciOiJSUzI1NiIsImtpZCI6IkRIRmJwb0lVcXJZOHQyenBBMnFYZkNtcj" +
-		"VWTzVaRXI0UnpIVV8tZW52dlEiLCJ0eXAiOiJKV1QifQ.eyJleHAiOjM1MzczOTExMDQsImdyb3VwcyI6WyJncm91cD" +
-		"EiLCJncm91cDIiXSwiaWF0IjoxNTM3MzkxMTA0LCJpc3MiOiJ0ZXN0aW5nQHNlY3VyZS5pc3Rpby5pbyIsInNjb3BlI" +
-		"jpbInNjb3BlMSIsInNjb3BlMiJdLCJzdWIiOiJ0ZXN0aW5nQHNlY3VyZS5pc3Rpby5pbyJ9.EdJnEZSH6X8hcyEii7c" +
-		"8H5lnhgjB5dwo07M5oheC8Xz8mOllyg--AHCFWHybM48reunF--oGaG6IXVngCEpVF0_P5DwsUoBgpPmK1JOaKN6_pe" +
-		"9sh0ZwTtdgK_RP01PuI7kUdbOTlkuUi2AO-qUyOm7Art2POzo36DLQlUXv8Ad7NBOqfQaKjE9ndaPWT7aexUsBHxmgi" +
-		"Gbz1SyLH879f7uHYPbPKlpHU6P9S-DaKnGLaEchnoKnov7ajhrEhGXAQRukhDPKUHO9L30oPIr5IJllEQfHYtt6IZvl" +
-		"NUGeLUcif3wpry1R5tBXRicx2sXMQ7LyuDremDbcNy_iE76Upg"
-	// noGroupScopeJwt contains no groups and scope claims.
-	noGroupScopeJwt = "eyJhbGciOiJSUzI1NiIsImtpZCI6IkRIRmJwb0lVcXJZOHQyenBBMnFYZkNtcj" +
-		"VWTzVaRXI0UnpIVV8tZW52dlEiLCJ0eXAiOiJKV1QifQ.eyJleHAiOjQ2ODU5ODk3MDAsImZvbyI6ImJhciIsImlhdC" +
-		"I6MTUzMjM4OTcwMCwiaXNzIjoidGVzdGluZ0BzZWN1cmUuaXN0aW8uaW8iLCJzdWIiOiJ0ZXN0aW5nQHNlY3VyZS5pc" +
-		"3Rpby5pbyJ9.CfNnxWP2tcnR9q0vxyxweaF3ovQYHYZl82hAUsn21bwQd9zP7c-LS9qd_vpdLG4Tn1A15NxfCjp5f7Q" +
-		"NBUo-KC9PJqYpgGbaXhaGx7bEdFWjcwv3nZzvc7M__ZpaCERdwU7igUmJqYGBYQ51vr2njU9ZimyKkfDe3axcyiBZde" +
-		"7G6dabliUosJvvKOPcKIWPccCgefSj_GNfwIip3-SsFdlR7BtbVUcqR-yv-XOxJ3Uc1MI0tz3uMiiZcyPV7sNCU4KRn" +
-		"emRIMHVOfuvHsU60_GhGbiSFzgPTAa9WTltbnarTbxudb_YEOx12JiwYToeX0DCPb43W1tzIBxgm8NxUg"
 )
 
 func TestRBACV2Group(t *testing.T) {
+	JwtWithClaim1 := jwt.TokenIssuer1
+	JwtWithClaim2 := jwt.TokenIssuer2
+
 	framework.NewTest(t).
 		// TODO(lei-tang): add the test to the native environment
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
 			ns := namespace.NewOrFail(t, ctx, "rbacv2-group-test", true)
-			ports := []echo.Port{
-				{
-					Name:        "http",
-					Protocol:    model.ProtocolHTTP,
-					ServicePort: 80,
-				},
-			}
 
 			var a, b, c echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, echo.Config{
-					Service:        "a",
-					Namespace:      ns,
-					ServiceAccount: true,
-					Ports:          ports,
-					Galley:         g,
-					Pilot:          p,
-				}).
-				With(&b, echo.Config{
-					Service:        "b",
-					Namespace:      ns,
-					Ports:          ports,
-					ServiceAccount: true,
-					Galley:         g,
-					Pilot:          p,
-				}).
-				With(&c, echo.Config{
-					Service:        "c",
-					Namespace:      ns,
-					Ports:          ports,
-					ServiceAccount: true,
-					Galley:         g,
-					Pilot:          p,
-				}).
+				With(&a, securityUtil.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, securityUtil.EchoConfig("b", ns, false, nil, g, p)).
+				With(&c, securityUtil.EchoConfig("c", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
 			cases := []util.TestCase{
-				// Port 80 is where HTTP is served
 				{
 					Request: connection.Checker{
 						From: a,
@@ -112,7 +66,7 @@ func TestRBACV2Group(t *testing.T) {
 							Path:     "/xyz",
 						},
 					},
-					Jwt:           noGroupScopeJwt,
+					Jwt:           JwtWithClaim2,
 					ExpectAllowed: false,
 				},
 				{
@@ -125,7 +79,7 @@ func TestRBACV2Group(t *testing.T) {
 							Path:     "/xyz",
 						},
 					},
-					Jwt:           groupsScopeJwt,
+					Jwt:           JwtWithClaim1,
 					ExpectAllowed: true,
 				},
 				{
@@ -138,7 +92,7 @@ func TestRBACV2Group(t *testing.T) {
 							Path:     "/xyz",
 						},
 					},
-					Jwt:           noGroupScopeJwt,
+					Jwt:           JwtWithClaim2,
 					ExpectAllowed: false,
 				},
 				{
@@ -151,7 +105,7 @@ func TestRBACV2Group(t *testing.T) {
 							Path:     "/xyz",
 						},
 					},
-					Jwt:           groupsScopeJwt,
+					Jwt:           JwtWithClaim1,
 					ExpectAllowed: true,
 				},
 			}
@@ -170,16 +124,6 @@ func TestRBACV2Group(t *testing.T) {
 			// TODO(lei-tang): programmatically check that policies have taken effect instead.
 			time.Sleep(60 * time.Second)
 
-			for _, tc := range cases {
-				testName := fmt.Sprintf("%s->%s:%s%s[%v]",
-					tc.Request.From.Config().Service,
-					tc.Request.Options.Target.Config().Service,
-					tc.Request.Options.PortName,
-					tc.Request.Options.Path,
-					tc.ExpectAllowed)
-				t.Run(testName, func(t *testing.T) {
-					retry.UntilSuccessOrFail(t, tc.CheckRBACRequest, retry.Delay(10*time.Second), retry.Timeout(120*time.Second))
-				})
-			}
+			util.RunRBACTest(t, cases)
 		})
 }

@@ -288,6 +288,28 @@ func TestStreamSecretsPush(t *testing.T) {
 	}
 	verifySDSSResponse(t, resp, fakePrivateKey, fakeCertificateChain)
 
+	go func() {
+		conn2, err := setupConnection(socket)
+		if err != nil {
+			t.Errorf("failed to setup connection to socket %q", socket)
+		}
+		defer conn2.Close()
+		sdsClient2 := sds.NewSecretDiscoveryServiceClient(conn2)
+		stream2, err := sdsClient2.StreamSecrets(ctx)
+		if err != nil {
+			t.Errorf("StreamSecrets failed: %v", err)
+		}
+		req2 := &api.DiscoveryRequest{
+			ResourceNames: []string{testResourceName},
+			Node: &core.Node{
+				Id: "sidecar~127.0.0.1~id3~local",
+			},
+		}
+		if err = stream2.Send(req2); err != nil {
+			t.Errorf("stream.Send failed: %v", err)
+		}
+	}()
+
 	// simulate logic in constructConnectionID() function.
 	conID := proxyID + "-1"
 

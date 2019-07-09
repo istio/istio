@@ -24,13 +24,13 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/kube/secretcontroller"
 	"istio.io/pkg/log"
 )
 
 type kubeController struct {
-	rc     *kube.Controller
+	rc     *controller.Controller
 	stopCh chan struct{}
 }
 
@@ -85,7 +85,7 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 	var remoteKubeController kubeController
 	remoteKubeController.stopCh = stopCh
 	m.m.Lock()
-	kubectl := kube.NewController(clientset, kube.ControllerOptions{
+	kubectl := controller.NewController(clientset, controller.Options{
 		WatchedNamespace: m.WatchedNamespace,
 		ResyncPeriod:     m.ResyncPeriod,
 		DomainSuffix:     m.DomainSuffix,

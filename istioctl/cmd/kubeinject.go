@@ -170,7 +170,7 @@ func injectCommand() *cobra.Command {
 kube-inject manually injects the Envoy sidecar into Kubernetes
 workloads. Unsupported resources are left unmodified so it is safe to
 run kube-inject over a single file that contains multiple Service,
-ConfigMap, Deployment, etc. definitions for a complex application. Its
+ConfigMap, Deployment, etc. definitions for a complex application. It's
 best to do this when the resource is initially created.
 
 k8s.io/docs/concepts/workloads/pods/pod-overview/#pod-templates is
@@ -181,11 +181,6 @@ added as necessary.
 The Istio project is continually evolving so the Istio sidecar
 configuration may change unannounced. When in doubt re-run istioctl
 kube-inject on deployments to get the most up-to-date changes.
-
-To override the sidecar injection template from kubernetes configmap
-'istio-inject', the parameters --injectConfigFile or --injectConfigMapName
-can be used. Either of options would typically be used with the
-file/configmap created with a new Istio release.
 `,
 		Example: `
 # Update resources on the fly before applying.
@@ -198,9 +193,15 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml
 # Update an existing deployment.
 kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 
-# Create a persistent version of the deployment with Envoy sidecar
-# injected configuration from Kubernetes configmap 'istio-inject'
-istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConfigMapName istio-inject
+# Capture cluster configuration for later use with kube-inject
+kubectl -n istio-system get cm istio-sidecar-injector  -o jsonpath="{.data.config}" > /tmp/inj-template.tmpl
+kubectl -n istio-system get cm istio -o jsonpath="{.data.mesh}" > /tmp/mesh.yaml
+kubectl -n istio-system get cm istio-sidecar-injector -o jsonpath="{.data.values}" > /tmp/values.json
+# Use kube-inject based on captured configuration
+istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
+	--injectConfigFile /tmp/inj-template.tmpl \
+	--meshConfigFile /tmp/mesh.yaml \
+	--valuesFile /tmp/values.json
 `,
 		RunE: func(c *cobra.Command, _ []string) (err error) {
 			if err = validateFlags(); err != nil {
@@ -270,7 +271,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 				}
 				var config inject.Config
 				if err := yaml.Unmarshal(injectionConfig, &config); err != nil {
-					return err
+					return multierr.Append(fmt.Errorf("loading --injectConfigFile"), err)
 				}
 				sidecarTemplate = config.Template
 			} else if sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig); err != nil {

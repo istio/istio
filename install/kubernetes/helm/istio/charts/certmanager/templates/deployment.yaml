@@ -9,7 +9,7 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       app: certmanager
@@ -55,7 +55,7 @@ spec:
       {{- end }}
       {{- if .Values.podDnsConfig }}
       dnsConfig:
-      {{ toYaml .Values.podDnsConfig | indent 8 }}
+{{ toYaml .Values.podDnsConfig | indent 8 }}
       {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

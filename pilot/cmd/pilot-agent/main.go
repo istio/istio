@@ -33,18 +33,19 @@ import (
 	"github.com/spf13/cobra/doc"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/collateral"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
+
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/spiffe"
-	"istio.io/pkg/collateral"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 var (
@@ -55,33 +56,34 @@ var (
 	applicationPorts []string
 
 	// proxy config flags (named identically)
-	configPath                 string
-	controlPlaneBootstrap      bool
-	binaryPath                 string
-	serviceCluster             string
-	drainDuration              time.Duration
-	parentShutdownDuration     time.Duration
-	discoveryAddress           string
-	zipkinAddress              string
-	lightstepAddress           string
-	lightstepAccessToken       string
-	lightstepSecure            bool
-	lightstepCacertPath        string
-	datadogAgentAddress        string
-	connectTimeout             time.Duration
-	statsdUDPAddress           string
-	envoyMetricsServiceAddress string
-	proxyAdminPort             uint16
-	controlPlaneAuthPolicy     string
-	customConfigFile           string
-	proxyLogLevel              string
-	proxyComponentLogLevel     string
-	dnsRefreshRate             string
-	concurrency                int
-	templateFile               string
-	disableInternalTelemetry   bool
-	tlsCertsToWatch            []string
-	loggingOptions             = log.DefaultOptions()
+	configPath                   string
+	controlPlaneBootstrap        bool
+	binaryPath                   string
+	serviceCluster               string
+	drainDuration                time.Duration
+	parentShutdownDuration       time.Duration
+	discoveryAddress             string
+	zipkinAddress                string
+	lightstepAddress             string
+	lightstepAccessToken         string
+	lightstepSecure              bool
+	lightstepCacertPath          string
+	datadogAgentAddress          string
+	connectTimeout               time.Duration
+	statsdUDPAddress             string
+	envoyMetricsServiceAddress   string
+	envoyAccessLogServiceAddress string
+	proxyAdminPort               uint16
+	controlPlaneAuthPolicy       string
+	customConfigFile             string
+	proxyLogLevel                string
+	proxyComponentLogLevel       string
+	dnsRefreshRate               string
+	concurrency                  int
+	templateFile                 string
+	disableInternalTelemetry     bool
+	tlsCertsToWatch              []string
+	loggingOptions               = log.DefaultOptions()
 
 	wg sync.WaitGroup
 
@@ -135,9 +137,9 @@ var (
 			}
 
 			// Obtain all the IPs from the node
-			if ipAddr, ok := proxy.GetPrivateIPs(context.Background()); ok {
-				log.Infof("Obtained private IP %v", ipAddr)
-				role.IPAddresses = append(role.IPAddresses, ipAddr...)
+			if ipAddrs, ok := proxy.GetPrivateIPs(context.Background()); ok {
+				log.Infof("Obtained private IP %v", ipAddrs)
+				role.IPAddresses = append(role.IPAddresses, ipAddrs...)
 			}
 
 			// No IP addresses provided, append 127.0.0.1 for ipv4 and ::1 for ipv6
@@ -183,6 +185,7 @@ var (
 			proxyConfig.ConnectTimeout = types.DurationProto(connectTimeout)
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
 			proxyConfig.EnvoyMetricsServiceAddress = envoyMetricsServiceAddress
+			proxyConfig.EnvoyAccessLogServiceAddress = envoyAccessLogServiceAddress
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
 
@@ -369,7 +372,7 @@ var (
 			log.Infof("PilotSAN %#v", pilotSAN)
 
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses, dnsRefreshRate)
-			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, pilot.TerminationDrainDuration())
+			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, features.TerminationDrainDuration())
 			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.ConfigCh())
 
 			go waitForCompletion(ctx, agent.Run)
@@ -528,6 +531,8 @@ func init() {
 		"IP Address and Port of a statsd UDP listener (e.g. 10.75.241.127:9125)")
 	proxyCmd.PersistentFlags().StringVar(&envoyMetricsServiceAddress, "envoyMetricsServiceAddress", values.EnvoyMetricsServiceAddress,
 		"Host and Port of an Envoy Metrics Service API implementation (e.g. metrics-service:15000)")
+	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceAddress, "envoyAccessLogServiceAddress", values.EnvoyAccessLogServiceAddress,
+		"Host and Port of an Envoy gRPC Access Log Service API implementation (e.g. accesslog-service.istio-system:15000)")
 	proxyCmd.PersistentFlags().Uint16Var(&proxyAdminPort, "proxyAdminPort", uint16(values.ProxyAdminPort),
 		"Port on which Envoy should listen for administrative commands")
 	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",

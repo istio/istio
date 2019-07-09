@@ -19,23 +19,25 @@ import (
 	"strconv"
 	"strings"
 
-	"istio.io/istio/pkg/features/pilot"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pilot/pkg/features"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/proto"
-	"istio.io/pkg/log"
 )
 
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node *model.Proxy, push *model.PushContext) ([]*xdsapi.Listener, error) {
@@ -133,7 +135,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 
 		pluginParams := &plugin.InputParams{
 			ListenerProtocol: listenerProtocol,
-			ListenerCategory: networking.EnvoyFilter_ListenerMatch_GATEWAY,
+			ListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_GATEWAY,
 			Env:              env,
 			Node:             node,
 			ProxyInstances:   workloadInstances,
@@ -218,7 +220,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 
 		// If the flag is set, send Envoy an error, blocking all routes from being sent. This flag
 		// is intended only to support legacy behavior and should be removed in the future.
-		if pilot.DisablePartialRouteResponse {
+		if features.DisablePartialRouteResponse.Get() {
 			return nil, fmt.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.ServersByRouteName)
 		}
 
@@ -327,6 +329,13 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	node *model.Proxy, server *networking.Server, routeName string) *filterChainOpts {
 
 	serverProto := model.ParseProtocol(server.Port.Protocol)
+
+	httpProtoOpts := &core.Http1ProtocolOptions{}
+
+	if features.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
+		httpProtoOpts.AcceptHttp_10 = true
+	}
+
 	// Are we processing plaintext servers or HTTPS servers?
 	// If plain text, we have to combine all servers into a single listener
 	if serverProto.IsHTTP() {
@@ -349,7 +358,8 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 						Uri:     true,
 						Dns:     true,
 					},
-					ServerName: EnvoyServerName,
+					ServerName:          EnvoyServerName,
+					HttpProtocolOptions: httpProtoOpts,
 				},
 			},
 		}
@@ -383,7 +393,8 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 					Uri:     true,
 					Dns:     true,
 				},
-				ServerName: EnvoyServerName,
+				ServerName:          EnvoyServerName,
+				HttpProtocolOptions: httpProtoOpts,
 			},
 		},
 	}
@@ -405,7 +416,7 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
 		// SDS config for gateway to fetch key/cert at gateway agent.
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			model.ConstructSdsSecretConfigForGatewayListener(server.Tls.CredentialName, model.IngressGatewaySdsUdsPath),
+			authn_model.ConstructSdsSecretConfigForGatewayListener(server.Tls.CredentialName, authn_model.IngressGatewaySdsUdsPath),
 		}
 		// If tls mode is MUTUAL, create SDS config for gateway to fetch certificate validation context
 		// at gateway agent. Otherwise, use the static certificate validation context config.
@@ -413,8 +424,8 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 					DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
-					ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfigForGatewayListener(
-						server.Tls.CredentialName+model.IngressGatewaySdsCaSuffix, model.IngressGatewaySdsUdsPath),
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfigForGatewayListener(
+						server.Tls.CredentialName+authn_model.IngressGatewaySdsCaSuffix, authn_model.IngressGatewaySdsUdsPath),
 				},
 			}
 		} else if len(server.Tls.SubjectAltNames) > 0 {

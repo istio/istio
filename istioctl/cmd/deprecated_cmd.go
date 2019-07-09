@@ -42,7 +42,9 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/config/kube/crd/controller"
 	"istio.io/istio/pilot/pkg/model"
 	kubecfg "istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -128,7 +130,7 @@ var (
 				return errors.New("nothing to create")
 			}
 			for _, config := range varr {
-				if config.Namespace, err = handleNamespaces(config.Namespace); err != nil {
+				if config.Namespace, err = handlers.HandleNamespaces(config.Namespace, namespace, defaultNamespace); err != nil {
 					return err
 				}
 
@@ -199,7 +201,7 @@ var (
 				return errors.New("nothing to replace")
 			}
 			for _, config := range varr {
-				if config.Namespace, err = handleNamespaces(config.Namespace); err != nil {
+				if config.Namespace, err = handlers.HandleNamespaces(config.Namespace, namespace, defaultNamespace); err != nil {
 					return err
 				}
 
@@ -320,7 +322,7 @@ istioctl get virtualservice bookinfo
 			if getAllNamespaces {
 				ns = v1.NamespaceAll
 			} else {
-				ns, _ = handleNamespaces(namespace)
+				ns = handlers.HandleNamespace(namespace, defaultNamespace)
 			}
 
 			var errs error
@@ -391,10 +393,7 @@ istioctl delete virtualservice bookinfo
 				if err != nil {
 					return err
 				}
-				ns, err := handleNamespaces(namespace)
-				if err != nil {
-					return err
-				}
+				ns := handlers.HandleNamespace(namespace, defaultNamespace)
 				for i := 1; i < len(args); i++ {
 					if err := configClient.Delete(typ.Type, args[i], ns); err != nil {
 						errs = multierror.Append(errs,
@@ -419,7 +418,7 @@ istioctl delete virtualservice bookinfo
 				return errors.New("nothing to delete")
 			}
 			for _, config := range varr {
-				if config.Namespace, err = handleNamespaces(config.Namespace); err != nil {
+				if config.Namespace, err = handlers.HandleNamespaces(config.Namespace, namespace, defaultNamespace); err != nil {
 					return err
 				}
 
@@ -732,7 +731,7 @@ func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configLis
 }
 
 func newClient() (model.ConfigStore, error) {
-	return crd.NewClient(kubeconfig, configContext, model.IstioConfigTypes, "")
+	return controller.NewClient(kubeconfig, configContext, model.IstioConfigTypes, "")
 }
 
 func supportedTypes(configClient model.ConfigStore) []string {
@@ -746,7 +745,7 @@ func supportedTypes(configClient model.ConfigStore) []string {
 func preprocMixerConfig(configs []crd.IstioKind) error {
 	var err error
 	for i, config := range configs {
-		if configs[i].Namespace, err = handleNamespaces(config.Namespace); err != nil {
+		if configs[i].Namespace, err = handlers.HandleNamespaces(config.Namespace, namespace, defaultNamespace); err != nil {
 			return err
 		}
 		if config.APIVersion == "" {
@@ -886,21 +885,4 @@ func init() {
 	getCmd.PersistentFlags().BoolVar(&getAllNamespaces, "all-namespaces", false,
 		"If present, list the requested object(s) across all namespaces. Namespace in current "+
 			"context is ignored even if specified with --namespace.")
-}
-
-func handleNamespaces(objectNamespace string) (string, error) {
-	if objectNamespace != "" && namespace != "" && namespace != objectNamespace {
-		return "", fmt.Errorf(`the namespace from the provided object "%s" does `+
-			`not match the namespace "%s". You must pass '--namespace=%s' to perform `+
-			`this operation`, objectNamespace, namespace, objectNamespace)
-	}
-
-	if namespace != "" {
-		return namespace, nil
-	}
-
-	if objectNamespace != "" {
-		return objectNamespace, nil
-	}
-	return defaultNamespace, nil
 }

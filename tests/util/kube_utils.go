@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -39,8 +40,9 @@ import (
 const (
 	podFailedGet = "Failed_Get"
 	// The index of STATUS field in kubectl CLI output.
-	statusField          = 2
-	defaultClusterSubnet = "24"
+	statusField            = 2
+	defaultClusterSubnet   = "24"
+	defaultClusterSubnetv6 = "128"
 
 	// NodePortServiceType NodePort type of Kubernetes Service
 	NodePortServiceType = "NodePort"
@@ -193,7 +195,7 @@ func KubeGetYaml(namespace, resource, name string, kubeconfig string) (string, e
 	if namespace == "" {
 		namespace = "default"
 	}
-	cmd := fmt.Sprintf("kubectl get %s %s -n %s -o yaml --kubeconfig=%s --export", resource, name, namespace, kubeconfig)
+	cmd := fmt.Sprintf("kubectl get %s %s -n %s -o yaml --kubeconfig=%s", resource, name, namespace, kubeconfig)
 
 	return Shell(cmd)
 }
@@ -258,9 +260,18 @@ func GetClusterSubnet(kubeconfig string) (string, error) {
 	}
 	parts := strings.Split(cidr, "/")
 	if len(parts) != 2 {
-		// TODO(nmittler): Need a way to get the subnet on minikube. For now, just return a default value.
-		log.Info("unable to identify cluster subnet. running on minikube?")
-		return defaultClusterSubnet, nil
+		ip, _ := GetKubeMasterIP(kubeconfig)
+		addr := net.ParseIP(ip)
+		if addr == nil {
+			return "", fmt.Errorf("unable to determine the kubernetes service IP and cluster subnet")
+		}
+		if addr.To4() != nil {
+			// TODO(nmittler): Need a way to get the subnet on minikube. For now, just return a default value.
+			log.Info("unable to identify cluster subnet. running on minikube?")
+			return defaultClusterSubnet, nil
+		}
+		log.Info("unable to identify IPv6 cluster subnet")
+		return defaultClusterSubnetv6, nil
 	}
 	return parts[1], nil
 }
@@ -348,9 +359,23 @@ func getServiceLoadBalancer(name, namespace, kubeconfig string) (string, error) 
 		return "", err
 	}
 
+	if ip == "" {
+		// This block is used for docker-desktop kubernetes
+		ip, err = ShellSilent(
+			"kubectl get svc %s -n %s -o jsonpath='{.status.loadBalancer.ingress[*].hostname}' --kubeconfig=%s",
+			name, namespace, kubeconfig)
+
+		if err != nil {
+			return "", err
+		}
+		if ip == "localhost" {
+			ip = "127.0.0.1"
+		}
+	}
+
 	ip = strings.Trim(ip, "'")
-	ri := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
-	if ri.FindString(ip) == "" {
+	addr := net.ParseIP(ip)
+	if addr == nil {
 		return "", errors.New("ingress ip not available yet")
 	}
 
@@ -367,8 +392,8 @@ func getServiceNodePort(serviceName, podLabel, namespace, kubeconfig string) (st
 	}
 
 	ip = strings.Trim(ip, "'")
-	ri := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
-	if ri.FindString(ip) == "" {
+	addr := net.ParseIP(ip)
+	if addr == nil {
 		return "", fmt.Errorf("the ip of %s is not available yet", serviceName)
 	}
 
@@ -377,6 +402,9 @@ func getServiceNodePort(serviceName, podLabel, namespace, kubeconfig string) (st
 		return "", err
 	}
 
+	if addr.To4() == nil {
+		return "[" + ip + "]" + ":" + port, nil
+	}
 	return ip + ":" + port, nil
 }
 
@@ -445,6 +473,20 @@ func GetAppPods(n string, kubeconfig string) (map[string][]string, error) {
 		m[app] = append(m[app], podName)
 	}
 	return m, nil
+}
+
+// IsJobSucceeded checks whether a job for the given namespace succeeded
+func IsJobSucceeded(n, name string, kubeconfig string) (bool, error) {
+	succeed, err := Shell("kubectl -n %s get job  %s -o jsonpath='{.status.succeeded}' --kubeconfig=%s", n, name, kubeconfig)
+	if err != nil {
+		log.Warnf("could not get %s job: %v", name, err)
+		return false, err
+	}
+
+	if len(succeed) != 0 {
+		return true, nil
+	}
+	return false, nil
 }
 
 // GetPodLabelValues gets a map of pod name to label value for the given label and namespace

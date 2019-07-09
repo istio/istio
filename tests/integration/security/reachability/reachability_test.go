@@ -21,7 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/tests/integration/security/util"
+
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -48,11 +49,11 @@ func TestReachability(t *testing.T) {
 
 			var a, b, headless, naked echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, config("a", ns, false, nil)).
-				With(&b, config("b", ns, false, nil)).
-				With(&headless, config("headless", ns, true, nil)).
-				With(&naked, config("naked", ns, false, echo.NewAnnotations().
-					SetBool(echo.SidecarInject, false))).
+				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				With(&headless, util.EchoConfig("headless", ns, false, nil, g, p)).
+				With(&naked, util.EchoConfig("naked", ns, false, echo.NewAnnotations().
+					SetBool(echo.SidecarInject, false), g, p)).
 				BuildOrFail(ctx)
 
 			callOptions := []echo.CallOptions{
@@ -142,21 +143,6 @@ func TestReachability(t *testing.T) {
 						}
 						return true
 					},
-					onRun: func(ctx framework.TestContext, src echo.Instance, opts echo.CallOptions) {
-						// The native implementation has some limitations that we need to account for.
-						ctx.Environment().Case(environment.Native, func() {
-							if src == naked && opts.Target == naked {
-								// naked->naked should always work.
-								return
-							}
-
-							switch opts.Scheme {
-							case scheme.WebSocket, scheme.GRPC:
-								// TODO(https://github.com/istio/istio/issues/13754)
-								ctx.Skipf("https://github.com/istio/istio/issues/13754")
-							}
-						})
-					},
 					expectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
 					},
@@ -188,7 +174,7 @@ func TestReachability(t *testing.T) {
 					policyYAML := file.AsStringOrFail(ctx, filepath.Join("testdata", c.configFile))
 					g.ApplyConfigOrFail(ctx, c.namespace, policyYAML)
 					ctx.WhenDone(func() error {
-						return g.DeleteConfig(ctx, c.namespace.Name(), policyYAML)
+						return g.DeleteConfig(c.namespace, policyYAML)
 					})
 
 					// Give some time for the policy propagate.
@@ -236,30 +222,4 @@ func TestReachability(t *testing.T) {
 				})
 			}
 		})
-}
-
-func config(name string, ns namespace.Instance, headless bool, annos echo.Annotations) echo.Config {
-	return echo.Config{
-		Service:        name,
-		Namespace:      ns,
-		ServiceAccount: true,
-		Headless:       headless,
-		Annotations:    annos,
-		Ports: []echo.Port{
-			{
-				Name:     "http",
-				Protocol: model.ProtocolHTTP,
-			},
-			{
-				Name:     "tcp",
-				Protocol: model.ProtocolTCP,
-			},
-			{
-				Name:     "grpc",
-				Protocol: model.ProtocolGRPC,
-			},
-		},
-		Galley: g,
-		Pilot:  p,
-	}
 }

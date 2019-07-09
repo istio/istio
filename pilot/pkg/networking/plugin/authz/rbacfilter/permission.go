@@ -17,7 +17,7 @@ package rbacfilter
 import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	rbac_config "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
+	rbac_config "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 	envoy_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 )
 

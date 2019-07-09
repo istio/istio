@@ -86,13 +86,17 @@ spec:
 
 # TODO: use UDS
 
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fortio
   namespace: none
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: fortio
+      version: v1
   template:
     metadata:
       labels:
@@ -132,13 +136,17 @@ spec:
             memory: "1G"
 ---
 
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fortio-cli
   namespace: none
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: fortio-cli
+      version: v1
   template:
     metadata:
       labels:

@@ -1,3 +1,17 @@
+// Copyright 2019 Istio Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package outboundtrafficpolicy
 
 import (
@@ -15,11 +29,9 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
 )
@@ -91,9 +103,6 @@ func createSidecarScope(t *testing.T, appsNamespace namespace.Instance, serviceN
 func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 	framework.
 		NewTest(t).
-		// TODO(https://github.com/istio/istio/issues/13813)
-		Label(label.Flaky).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := galley.NewOrFail(t, ctx, galley.Config{})
 			p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
@@ -151,21 +160,24 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 			}
 			for _, tc := range cases {
 				t.Run(tc.name, func(t *testing.T) {
-					resp, err := client.Call(echo.CallOptions{
-						Target:   dest,
-						PortName: tc.portName,
-						Scheme:   scheme.HTTP,
-					})
-					if err != nil && len(expected[tc.portName]) != 0 {
-						t.Fatalf("request failed: %v", err)
-					}
-					codes := make([]string, 0, len(resp))
-					for _, r := range resp {
-						codes = append(codes, r.Code)
-					}
-					if !reflect.DeepEqual(codes, expected[tc.portName]) {
-						t.Errorf("got codes %v, expected %v", codes, expected[tc.portName])
-					}
+					retry.UntilSuccessOrFail(t, func() error {
+						resp, err := client.Call(echo.CallOptions{
+							Target:   dest,
+							PortName: tc.portName,
+							Scheme:   scheme.HTTP,
+						})
+						if err != nil && len(expected[tc.portName]) != 0 {
+							return fmt.Errorf("request failed: %v", err)
+						}
+						codes := make([]string, 0, len(resp))
+						for _, r := range resp {
+							codes = append(codes, r.Code)
+						}
+						if !reflect.DeepEqual(codes, expected[tc.portName]) {
+							return fmt.Errorf("got codes %v, expected %v", codes, expected[tc.portName])
+						}
+						return nil
+					}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 				})
 			}
 		})

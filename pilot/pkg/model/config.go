@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mitchellh/copystructure"
+
 	"github.com/gogo/protobuf/proto"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -722,13 +724,12 @@ func (store *istioConfigStore) EnvoyFilter(workloadLabels LabelsCollection) *Con
 		filter := config.Spec.(*networking.EnvoyFilter)
 		// if there is no workload selector, the filter applies to all workloads
 		// if there is a workload selector, check for matching workload labels
-		if filter.GetWorkloadLabels() != nil {
-			workloadSelector := Labels(filter.GetWorkloadLabels())
+		if filter.WorkloadLabels != nil {
+			workloadSelector := Labels(filter.WorkloadLabels)
 			if !workloadLabels.IsSupersetOf(workloadSelector) {
 				continue
 			}
 		}
-		mergedFilterConfig.WorkloadLabels = make(map[string]string)
 		mergedFilterConfig.Filters = append(mergedFilterConfig.Filters, filter.Filters...)
 	}
 
@@ -1057,4 +1058,16 @@ func SortQuotaSpec(specs []Config) {
 		jrule, _ := specs[j].Spec.(*mccpb.QuotaSpec)
 		return irule == nil || jrule == nil || (specs[i].Key() < specs[j].Key())
 	})
+}
+
+func (config Config) DeepCopy() Config {
+	copied, err := copystructure.Copy(config)
+	if err != nil {
+		// There are 2 locations where errors are generated in copystructure.Copy:
+		//  * The reflection walk over the structure fails, which should never happen
+		//  * A configurable copy function returns an error. This is only used for copying times, which never returns an error.
+		// Therefore, this should never happen
+		panic(err)
+	}
+	return copied.(Config)
 }

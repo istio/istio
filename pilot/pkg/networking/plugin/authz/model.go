@@ -17,7 +17,7 @@ package authz
 import (
 	"fmt"
 
-	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
+	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
 

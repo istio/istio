@@ -11,12 +11,16 @@ spec:
   selector:
     app: badhealth
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: badhealth
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: badhealth
+      version: v1
   template:
     metadata:
       labels:
@@ -46,12 +50,16 @@ spec:
 
 ---
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: badlive
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: badhealth
+      version: v1
   template:
     metadata:
       labels:

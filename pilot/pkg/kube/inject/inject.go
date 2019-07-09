@@ -151,6 +151,7 @@ const (
 type SidecarInjectionSpec struct {
 	// RewriteHTTPProbe indicates whether Kubernetes HTTP prober in the PodSpec
 	// will be rewritten to be redirected by pilot agent.
+	PodRedirectAnnot    map[string]string             `yaml:"podRedirectAnnot"`
 	RewriteAppHTTPProbe bool                          `yaml:"rewriteAppHTTPProbe"`
 	InitContainers      []corev1.Container            `yaml:"initContainers"`
 	Containers          []corev1.Container            `yaml:"containers"`
@@ -555,7 +556,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 	values := map[string]interface{}{}
 	if err := yaml.Unmarshal([]byte(valuesConfig), &values); err != nil {
 		log.Infof("Failed to parse values config: %v [%v]\n", err, valuesConfig)
-		return nil, "", err
+		return nil, "", multierror.Prefix(err, "could not parse configuration values:")
 	}
 
 	data := SidecarTemplateData{
@@ -602,8 +603,10 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 
 	var sic SidecarInjectionSpec
 	if err := yaml.Unmarshal(bbuf.Bytes(), &sic); err != nil {
-		log.Warnf("Failed to unmarshall template %v %s", err, bbuf.String())
-		return nil, "", err
+		// This usually means an invalid injector template; we can't check
+		// the template itself because it is merely a string.
+		log.Warnf("Failed to unmarshal template %v %s", err, bbuf.String())
+		return nil, "", multierror.Prefix(err, "failed parsing generated injected YAML (check Istio sidecar injector configuration):")
 	}
 
 	// set sidecar --concurrency
@@ -775,6 +778,15 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 		fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled\n", metadata.Name) //nolint: errcheck
 		return out, nil
 	}
+	//skip injection for injected pods
+	if len(podSpec.Containers) > 1 {
+		for _, c := range podSpec.Containers {
+			if c.Name == ProxyContainerName {
+				fmt.Fprintf(os.Stderr, "Skipping injection because %q has injected %q sidecar already\n", metadata.Name, ProxyContainerName) //nolint: errcheck
+				return out, nil
+			}
+		}
+	}
 
 	spec, status, err := InjectionData(
 		sidecarTemplate,
@@ -813,6 +825,11 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	if metadata.Annotations == nil {
 		metadata.Annotations = make(map[string]string)
 	}
+
+	if len(spec.PodRedirectAnnot) != 0 {
+		rewriteCniPodSPec(metadata.Annotations, spec)
+	}
+
 	metadata.Annotations[annotationStatus] = status
 
 	return out, nil
@@ -965,4 +982,25 @@ func potentialPodName(metadata *metav1.ObjectMeta) string {
 		return metadata.GenerateName + "***** (actual name not yet known)"
 	}
 	return ""
+}
+
+// rewriteCniPodSPec will check if values from the sidecar injector Helm
+// values need to be inserted as Pod annotations so the CNI will apply
+// the proper redirection rules.
+func rewriteCniPodSPec(annotations map[string]string, spec *SidecarInjectionSpec) {
+
+	if spec == nil {
+		return
+	}
+	if len(spec.PodRedirectAnnot) == 0 {
+		return
+	}
+	for k := range annotationRegistry {
+		if spec.PodRedirectAnnot[k] != "" {
+			if annotations[k] == spec.PodRedirectAnnot[k] {
+				continue
+			}
+			annotations[k] = spec.PodRedirectAnnot[k]
+		}
+	}
 }

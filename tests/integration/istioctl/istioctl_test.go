@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -40,7 +39,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("istioctl_integration_test", m).
 		RequireEnvironment(environment.Kube).
-		Label(label.Presubmit).
 
 		// Deploy Istio
 		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).

@@ -103,9 +103,6 @@ type Config struct {
 	// The namespace in which istio egressgateway is deployed
 	EgressNamespace string
 
-	// Indicates that the test should deploy Istio into the target Kubernetes cluster before running tests.
-	DeployIstio bool
-
 	// DeployTimeout the timeout for deploying Istio.
 	DeployTimeout time.Duration
 
@@ -125,6 +122,13 @@ type Config struct {
 
 	// Overrides for the Helm values file.
 	Values map[string]string
+
+	// Indicates that the test should deploy Istio into the target Kubernetes cluster before running tests.
+	DeployIstio bool
+
+	// Do not wait for the validation webhook before completing the deployment. This is useful for
+	// doing deployments without Galley.
+	SkipWaitForValidationWebhook bool
 }
 
 // Is mtls enabled. Check in Values flag and Values file.

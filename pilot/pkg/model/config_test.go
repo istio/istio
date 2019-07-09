@@ -1018,7 +1018,6 @@ func TestIstioConfigStore_EnvoyFilter(t *testing.T) {
 	}
 	ii := model.MakeIstioStore(l)
 	mergedFilterConfig := &networking.EnvoyFilter{
-		WorkloadLabels: make(map[string]string),
 		Filters: []*networking.EnvoyFilter_Filter{
 			{
 				InsertPosition: &networking.EnvoyFilter_InsertPosition{
@@ -1107,4 +1106,25 @@ func TestIstioConfigStore_HTTPAPISpecByDestination(t *testing.T) {
 	if len(cfgs) != 1 {
 		t.Fatalf("did not find 1 matched HTTPAPISpec, \n%v", cfgs)
 	}
+}
+
+func TestDeepCopy(t *testing.T) {
+	config := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:              "name1",
+			Namespace:         "zzz",
+			CreationTimestamp: time.Now(),
+		},
+		Spec: &networking.Gateway{},
+	}
+
+	copied := config.DeepCopy()
+
+	if !(config.Spec.String() == copied.Spec.String() &&
+		config.Namespace == copied.Namespace &&
+		config.Name == copied.Name &&
+		config.CreationTimestamp == copied.CreationTimestamp) {
+		t.Fatalf("cloned config is not identical")
+	}
+
 }

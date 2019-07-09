@@ -14,7 +14,10 @@ spec:
   template:
     metadata:
       annotations:
+        sidecar.istio.io/interceptionMode: REDIRECT
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
+        traffic.sidecar.istio.io/includeInboundPorts: "80"
       creationTimestamp: null
       labels:
         app: hello

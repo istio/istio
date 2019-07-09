@@ -1,3 +1,17 @@
+// Copyright 2019 Istio Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package v1alpha3
 
 import (
@@ -7,7 +21,7 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/proto"
@@ -190,8 +204,7 @@ func newTCPProxyListenerFilter(env *model.Environment, node *model.Proxy, isInbo
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 	}
 
-	if env.Mesh.OutboundTrafficPolicy.Mode == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY ||
-		isInboundListener {
+	if isAllowAny(node) || isInboundListener {
 		// We need a passthrough filter to fill in the filter stack for orig_dst listener
 		tcpProxy = &tcp_proxy.TcpProxy{
 			StatPrefix:       util.PassthroughCluster,
@@ -210,4 +223,8 @@ func newTCPProxyListenerFilter(env *model.Environment, node *model.Proxy, isInbo
 		filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
 	}
 	return &filter
+}
+
+func isAllowAny(node *model.Proxy) bool {
+	return node.SidecarScope.OutboundTrafficPolicy != nil && node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY
 }

@@ -45,6 +45,16 @@ telemetry:
       cpu: 4800m
       memory: 4G
 
+  # Set reportBatchMaxEntries to 0 to use the default batching behavior (i.e., every 100 requests). 
+  # A positive value indicates the number of requests that are batched before telemetry data 
+  # is sent to the mixer server
+  reportBatchMaxEntries: 100
+
+  # Set reportBatchMaxTime to 0 to use the default batching behavior (i.e., every 1 second). 
+  # A positive time value indicates the maximum wait time since the last request will telemetry data 
+  # be batched before being sent to the mixer server
+  reportBatchMaxTime: 1s
+
 podAnnotations: {}
 nodeSelector: {}
 tolerations: []
@@ -55,7 +65,7 @@ tolerations: []
 # There are currently two types of anti-affinity:
 #    "requiredDuringSchedulingIgnoredDuringExecution"
 #    "preferredDuringSchedulingIgnoredDuringExecution"
-# which denote “hard” vs. “soft” requirements, you can define your values
+# which denote "hard" vs. "soft" requirements, you can define your values
 # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
 # correspondingly.
 # For example:
@@ -66,7 +76,7 @@ tolerations: []
 #   topologyKey: "kubernetes.io/hostname"
 # This pod anti-affinity rule says that the pod requires not to be scheduled
 # onto a node if that node is already running a pod with label having key
-# “security” and value “S1”.
+# "security" and value "S1".
 podAntiAffinityLabelSelector: []
 podAntiAffinityTermLabelSelector: []
 

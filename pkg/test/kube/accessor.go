@@ -178,21 +178,7 @@ func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.O
 
 		scopes.CI.Infof("Checking pods ready...")
 
-		fetched, err := fetchFunc()
-		if err != nil {
-			scopes.CI.Infof("Failed retrieving pods: %v", err)
-			return nil, false, err
-		}
-
-		for i, p := range fetched {
-			msg := "Ready"
-			if e := CheckPodReady(&p); e != nil {
-				msg = e.Error()
-				err = multierror.Append(err, fmt.Errorf("%s/%s: %s", p.Namespace, p.Name, msg))
-			}
-			scopes.CI.Infof("  [%2d] %45s %15s (%v)", i, p.Name, p.Status.Phase, msg)
-		}
-
+		fetched, err := a.CheckPodsAreReady(fetchFunc)
 		if err != nil {
 			return nil, false, err
 		}
@@ -201,6 +187,32 @@ func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.O
 	}, newRetryOptions(opts...)...)
 
 	return pods, err
+}
+
+// CheckPodsAreReady checks wehther the pods that are selected by the given function is in ready state or not.
+func (a *Accessor) CheckPodsAreReady(fetchFunc PodFetchFunc) ([]kubeApiCore.Pod, error) {
+	scopes.CI.Infof("Checking pods ready...")
+
+	fetched, err := fetchFunc()
+	if err != nil {
+		scopes.CI.Infof("Failed retrieving pods: %v", err)
+		return nil, err
+	}
+
+	for i, p := range fetched {
+		msg := "Ready"
+		if e := CheckPodReady(&p); e != nil {
+			msg = e.Error()
+			err = multierror.Append(err, fmt.Errorf("%s/%s: %s", p.Namespace, p.Name, msg))
+		}
+		scopes.CI.Infof("  [%2d] %45s %15s (%v)", i, p.Name, p.Status.Phase, msg)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return fetched, nil
 }
 
 // WaitUntilPodsAreDeleted waits until the pod with the name/namespace no longer exist.
@@ -228,7 +240,7 @@ func (a *Accessor) WaitUntilPodsAreDeleted(fetchFunc PodFetchFunc, opts ...retry
 func (a *Accessor) WaitUntilDeploymentIsReady(ns string, name string, opts ...retry.Option) error {
 	_, err := retry.Do(func() (interface{}, bool, error) {
 
-		deployment, err := a.set.ExtensionsV1beta1().Deployments(ns).Get(name, kubeApiMeta.GetOptions{})
+		deployment, err := a.set.AppsV1().Deployments(ns).Get(name, kubeApiMeta.GetOptions{})
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				return nil, true, err
@@ -247,7 +259,7 @@ func (a *Accessor) WaitUntilDeploymentIsReady(ns string, name string, opts ...re
 func (a *Accessor) WaitUntilDaemonSetIsReady(ns string, name string, opts ...retry.Option) error {
 	_, err := retry.Do(func() (interface{}, bool, error) {
 
-		daemonSet, err := a.set.ExtensionsV1beta1().DaemonSets(ns).Get(name, kubeApiMeta.GetOptions{})
+		daemonSet, err := a.set.AppsV1().DaemonSets(ns).Get(name, kubeApiMeta.GetOptions{})
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				return nil, true, err
@@ -348,6 +360,20 @@ func (a *Accessor) GetSecret(ns string) kubeClientCore.SecretInterface {
 	return a.set.CoreV1().Secrets(ns)
 }
 
+// CreateSecret takes the representation of a secret and creates it in the given namespace.
+// Returns an error if there is any.
+func (a *Accessor) CreateSecret(namespace string, secret *kubeApiCore.Secret) (err error) {
+	_, err = a.set.CoreV1().Secrets(namespace).Create(secret)
+	return err
+}
+
+// DeleteSecret deletes secret by name in namespace.
+func (a *Accessor) DeleteSecret(namespace, name string) (err error) {
+	var immediate int64
+	err = a.set.CoreV1().Secrets(namespace).Delete(name, &kubeApiMeta.DeleteOptions{GracePeriodSeconds: &immediate})
+	return err
+}
+
 // GetEndpoints returns the endpoints for the given service.
 func (a *Accessor) GetEndpoints(ns, service string, options kubeApiMeta.GetOptions) (*kubeApiCore.Endpoints, error) {
 	return a.set.CoreV1().Endpoints(ns).Get(service, options)
@@ -369,7 +395,6 @@ func (a *Accessor) CreateNamespaceWithInjectionEnabled(ns string, istioTestingAn
 	n := a.newNamespace(ns, istioTestingAnnotation)
 
 	n.ObjectMeta.Labels["istio-injection"] = "enabled"
-	n.ObjectMeta.Labels["istio-env"] = configNamespace
 
 	_, err := a.set.CoreV1().Namespaces().Create(&n)
 	return err
@@ -457,8 +482,8 @@ func (a *Accessor) Delete(namespace string, filename string) error {
 }
 
 // Logs calls the logs command for the specified pod, with -c, if container is specified.
-func (a *Accessor) Logs(namespace string, pod string, container string) (string, error) {
-	return a.ctl.logs(namespace, pod, container)
+func (a *Accessor) Logs(namespace string, pod string, container string, previousLog bool) (string, error) {
+	return a.ctl.logs(namespace, pod, container, previousLog)
 }
 
 // Exec executes the provided command on the specified pod/container.

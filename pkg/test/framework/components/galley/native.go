@@ -24,9 +24,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	"istio.io/pkg/appsignals"
 
 	"istio.io/istio/galley/pkg/server"
+	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
@@ -34,7 +35,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/yml"
-	"istio.io/pkg/appsignals"
 )
 
 var (
@@ -199,6 +199,23 @@ func (c *nativeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string
 	})
 }
 
+// SetMeshConfig implements Instance
+func (c *nativeComponent) SetMeshConfig(meshCfg string) error {
+	if err := ioutil.WriteFile(c.meshConfigFile, []byte(meshCfg), os.ModePerm); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// SetMeshConfigOrFail implements Instance
+func (c *nativeComponent) SetMeshConfigOrFail(t test.Failer, meshCfg string) {
+	t.Helper()
+	if err := c.SetMeshConfig(meshCfg); err != nil {
+		t.Fatalf("galley.SetMeshConfigOrFail: %v", err)
+	}
+}
+
 // WaitForSnapshot implements Galley.WaitForSnapshot.
 func (c *nativeComponent) WaitForSnapshot(collection string, validator SnapshotValidatorFunc) error {
 	return c.client.waitForSnapshot(collection, validator)
@@ -251,7 +268,7 @@ func (c *nativeComponent) reset() error {
 }
 
 func (c *nativeComponent) restart() error {
-	a := server.DefaultArgs()
+	a := settings.DefaultArgs()
 	a.Insecure = true
 	a.EnableServer = true
 	a.DisableResourceReadyCheck = true
@@ -259,8 +276,10 @@ func (c *nativeComponent) restart() error {
 	a.MeshConfigFile = c.meshConfigFile
 	// To prevent ctrlZ port collision between galley/pilot&mixer
 	a.IntrospectionOptions.Port = 0
+	a.MonitoringPort = 0
 	a.ExcludedResourceKinds = nil
 	a.EnableServiceDiscovery = true
+	a.ValidationArgs.EnableValidation = false
 
 	// Bind to an arbitrary port.
 	a.APIAddress = "tcp://0.0.0.0:0"
@@ -270,15 +289,13 @@ func (c *nativeComponent) restart() error {
 		a.SinkAuthMode = "NONE"
 	}
 
-	s, err := server.New(a)
-	if err != nil {
+	s := server.New(a)
+	if err := s.Start(); err != nil {
 		scopes.Framework.Errorf("Error starting Galley: %v", err)
 		return err
 	}
 
 	c.server = s
-
-	go s.Run()
 
 	// TODO: This is due to Galley start-up being racy. We should go back to the "Start" based model where
 	// return from s.Start() guarantees that all the setup is complete.
@@ -288,7 +305,7 @@ func (c *nativeComponent) restart() error {
 		address: fmt.Sprintf("tcp://%s", s.Address().String()),
 	}
 
-	if err = c.client.waitForStartup(); err != nil {
+	if err := c.client.waitForStartup(); err != nil {
 		return err
 	}
 
@@ -304,10 +321,7 @@ func (c *nativeComponent) Close() (err error) {
 	}
 	if c.server != nil {
 		scopes.Framework.Debugf("%s closing server", c.id)
-		err = multierror.Append(c.server.Close()).ErrorOrNil()
-		if err != nil {
-			scopes.Framework.Infof("Error while Galley server close during reset: %v", err)
-		}
+		c.server.Stop()
 		c.server = nil
 	}
 

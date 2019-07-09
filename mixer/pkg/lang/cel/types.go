@@ -30,7 +30,6 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 
 	"istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/il"
 	"istio.io/istio/mixer/pkg/lang"
 	"istio.io/pkg/attribute"
 )
@@ -126,7 +125,7 @@ func convertValue(typ v1beta1.ValueType, value interface{}) ref.Val {
 		d := value.(time.Duration)
 		return types.Duration{Duration: ptypes.DurationProto(d)}
 	case v1beta1.STRING_MAP:
-		sm := value.(il.StringMap)
+		sm := value.(attribute.StringMap)
 		return stringMapValue{value: sm}
 	case v1beta1.IP_ADDRESS:
 		return wrapperValue{typ: typ, bytes: value.([]byte)}
@@ -203,7 +202,7 @@ const (
 )
 
 type stringMapValue struct {
-	value il.StringMap
+	value attribute.StringMap
 }
 
 func (v stringMapValue) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {

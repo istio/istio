@@ -44,7 +44,9 @@ require (
 	github.com/dchest/siphash v1.1.0 // indirect
 	github.com/denisenkom/go-mssqldb v0.0.0-20190423183735-731ef375ac02 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
-	github.com/docker/go-connections v0.4.0 // indirect
+	github.com/docker/distribution v2.7.1+incompatible // indirect
+	github.com/docker/docker v1.13.1
+	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/docker/spdystream v0.0.0-20170912183627-bc6354cbbc29 // indirect
 	github.com/dropbox/godropbox v0.0.0-20190501155911-5749d3b71cbe // indirect
@@ -53,7 +55,7 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20190421051319-9d40249d3c2f // indirect
 	github.com/elazarl/goproxy/ext v0.0.0-20190421051319-9d40249d3c2f // indirect
 	github.com/emicklei/go-restful v2.6.0+incompatible
-	github.com/envoyproxy/go-control-plane v0.8.0
+	github.com/envoyproxy/go-control-plane v0.8.2
 	github.com/evanphx/json-patch v3.0.0+incompatible
 	github.com/facebookgo/stack v0.0.0-20160209184415-751773369052 // indirect
 	github.com/facebookgo/stackerr v0.0.0-20150612192056-c2fcf88613f4 // indirect
@@ -116,8 +118,10 @@ require (
 	github.com/juju/testing v0.0.0-20190429233213-dfc56b8c09fc // indirect
 	github.com/keybase/go-crypto v0.0.0-20190416182011-b785b22cc757 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
+	github.com/lestrrat-go/jwx v0.9.0
 	github.com/lib/pq v1.1.1 // indirect
-	github.com/mitchellh/copystructure v1.0.0 // indirect
+	github.com/lukechampine/freeze v0.0.0-20160818180733-f514e08ae5a0
+	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-homedir v0.0.0-20161203194507-b8bc1bf76747
 	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
@@ -178,12 +182,12 @@ require (
 	gopkg.in/logfmt.v0 v0.3.0 // indirect
 	gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce // indirect
 	gopkg.in/ory-am/dockertest.v3 v3.3.4 // indirect
-	gopkg.in/square/go-jose.v2 v2.0.0-20180411045311-89060dee6a84 // indirect
+	gopkg.in/square/go-jose.v2 v2.0.0-20180411045311-89060dee6a84
 	gopkg.in/stack.v1 v1.7.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 	gotest.tools v2.2.0+incompatible // indirect
-	istio.io/api v0.0.0-20190522004026-1dffc8d3d26d
-	istio.io/pkg v0.0.0-20190516214103-40b7bf4c7321
+	istio.io/api v0.0.0-20190708200418-70f6e4eada00
+	istio.io/pkg v0.0.0-20190624144336-268695a9d878
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471
 	k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87
 	k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628
@@ -192,5 +196,5 @@ require (
 	k8s.io/helm v2.9.1+incompatible
 	k8s.io/klog v0.3.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20180216212618-50ae88d24ede // indirect
-	sigs.k8s.io/yaml v1.1.0 // indirect
+	sigs.k8s.io/yaml v1.1.0
 )

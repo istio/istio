@@ -135,6 +135,15 @@ global:
     enableHttps: false
 
   proxy:
+    # Configuration for the proxy init container
+    init:
+      resources:
+        limits:
+          cpu: 100m
+          memory: 50Mi
+        requests:
+          cpu: 10m
+          memory: 10Mi
     image: proxyv2
 
     # cluster domain. Default value is "cluster.local".
@@ -165,6 +174,12 @@ global:
 
     # Configure the access log for sidecar to JSON or TEXT.
     accessLogEncoding: TEXT
+
+    # Configure envoy gRPC access log service.
+    envoyAccessLogService:
+      enabled: false
+      host: # example: accesslog-service.istio-system
+      port: # example: 15000
 
     # Log level for proxy, applies to gateways and sidecars.  If left empty, "warning" is used.
     # Expected values are: trace|debug|info|warning|error|critical|off
@@ -301,12 +316,8 @@ global:
     # destination rules or service annotations.
     enabled: false
 
-  # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
-  # to use for pulling any images in pods that reference this ServiceAccount.
-  # For components that don't use ServiceAccounts (i.e. grafana, servicegraph, tracing)
-  # ImagePullSecrets will be added to the corresponding Deployment(StatefulSet) objects.
-  # Must be set for any cluster configured with private docker registry.
-  imagePullSecrets:
+  # Lists the secrets you need to use to pull Istio images from a private registry.
+  imagePullSecrets: []
     # - private-registry-key
 
   # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
@@ -356,7 +367,7 @@ global:
   # ingress gateway
   meshExpansion:
     enabled: false
-    # If set to true, the pilot and citadel mtls and the plain text pilot ports
+    # If set to true, the pilot and citadel mtls and the plaintext pilot ports
     # will be exposed on an internal gateway
     useILB: false
 
