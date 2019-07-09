@@ -248,6 +248,35 @@ func (f *AutoInjectionFeature) RenderManifest() (name.ManifestMap, util.Errors) 
 	return renderComponents(f.components)
 }
 
+// GatewayFeature is the istio gateways feature.
+type GatewayFeature struct {
+	CommonFeatureFields
+}
+
+// NewGatewayFeature creates a new GatewayFeature and returns a pointer to it.
+func NewGatewayFeature(opts *Options) *GatewayFeature {
+	cff := &CommonFeatureFields{
+		Options: *opts,
+	}
+	cff.components = []component.IstioComponent{
+		component.NewIngressComponent(newComponentOptions(cff, name.GatewayFeatureName)),
+		component.NewEgressComponent(newComponentOptions(cff, name.GatewayFeatureName)),
+	}
+	return &GatewayFeature{
+		CommonFeatureFields: *cff,
+	}
+}
+
+// Run implements the IstioFeature interface.
+func (f *GatewayFeature) Run() error {
+	return runComponents(f.components)
+}
+
+// RenderManifest implements the IstioFeature interface.
+func (f *GatewayFeature) RenderManifest() (name.ManifestMap, util.Errors) {
+	return renderComponents(f.components)
+}
+
 // newComponentOptions creates a component.ComponentOptions ptr from the given parameters.
 func newComponentOptions(cff *CommonFeatureFields, featureName name.FeatureName) *component.Options {
 	return &component.Options{

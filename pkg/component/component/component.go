@@ -364,6 +364,72 @@ func (c *SidecarInjectorComponent) Name() name.ComponentName {
 	return c.CommonComponentFields.name
 }
 
+// IngressComponent is the ingress gateway component.
+type IngressComponent struct {
+	*CommonComponentFields
+}
+
+// NewIngressComponent creates a new IngressComponent and returns a pointer to it.
+func NewIngressComponent(opts *Options) *IngressComponent {
+	return &IngressComponent{
+		&CommonComponentFields{
+			Options: opts,
+			name:    name.IngressComponentName,
+		},
+	}
+}
+
+// Run implements the IstioComponent interface.
+func (c *IngressComponent) Run() error {
+	return runComponent(c.CommonComponentFields)
+}
+
+// RenderManifest implements the IstioComponent interface.
+func (c *IngressComponent) RenderManifest() (string, error) {
+	if !c.started {
+		return "", fmt.Errorf("component %s not started in RenderManifest", c.Name())
+	}
+	return renderManifest(c.CommonComponentFields)
+}
+
+// Name implements the IstioComponent interface.
+func (c *IngressComponent) Name() name.ComponentName {
+	return c.CommonComponentFields.name
+}
+
+// EgressComponent is the egress gateway component.
+type EgressComponent struct {
+	*CommonComponentFields
+}
+
+// NewEgressComponent creates a new IngressComponent and returns a pointer to it.
+func NewEgressComponent(opts *Options) *EgressComponent {
+	return &EgressComponent{
+		&CommonComponentFields{
+			Options: opts,
+			name:    name.EgressComponentName,
+		},
+	}
+}
+
+// Run implements the IstioComponent interface.
+func (c *EgressComponent) Run() error {
+	return runComponent(c.CommonComponentFields)
+}
+
+// RenderManifest implements the IstioComponent interface.
+func (c *EgressComponent) RenderManifest() (string, error) {
+	if !c.started {
+		return "", fmt.Errorf("component %s not started in RenderManifest", c.Name())
+	}
+	return renderManifest(c.CommonComponentFields)
+}
+
+// Name implements the IstioComponent interface.
+func (c *EgressComponent) Name() name.ComponentName {
+	return c.CommonComponentFields.name
+}
+
 // runComponent performs startup tasks for the component defined by the given CommonComponentFields.
 func runComponent(c *CommonComponentFields) error {
 	r, err := createHelmRenderer(c)
