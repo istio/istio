@@ -1,5 +1,5 @@
 # istio CA watching all namespaces
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel11
@@ -10,6 +10,9 @@ metadata:
     release: {{ .Release.Name }}
 
 spec:
+  selector:
+    matchLabels:
+      istio: citadel
   replicas: {{ .Values.replicaCount }}
   strategy:
     rollingUpdate:
