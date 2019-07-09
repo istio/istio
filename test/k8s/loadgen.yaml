@@ -6,11 +6,14 @@
 # Will generate 10 QPS - replace with other value if needed.
 
 
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: loader
 spec:
+  selector:
+    matchLabels:
+      app: loader
   replicas: 1
   template:
     metadata:

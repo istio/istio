@@ -15,13 +15,16 @@ spec:
   selector:
     component: "etcd"
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: "etcd"
   labels:
     component: "etcd"
 spec:
+  selector:
+    matchLabels:
+      component: "etcd"
   serviceName: "etcd"
   # changing replicas value will require a manual etcdctl member remove/add
   # command (remove before decreasing and add after increasing)
