@@ -95,7 +95,9 @@ function make_istio() {
   sha256sum "${ISTIO_OUT}/istio-sidecar.deb" > "${OUTPUT_PATH}/deb/istio-sidecar.deb.sha256"
   cp        "${ISTIO_OUT}/istio-sidecar.deb"   "${OUTPUT_PATH}/deb/"
   cp        "${ISTIO_OUT}"/archive/istio-*z*   "${OUTPUT_PATH}/"
-  
+  cp        "${ISTIO_OUT}"/archive/istioctl*.tar.gz "${OUTPUT_PATH}/"
+  cp        "${ISTIO_OUT}"/archive/istioctl*.zip "${OUTPUT_PATH}/"
+
   rm -r "${ISTIO_OUT}/docker" || true
   BUILD_DOCKER_TARGETS=(docker.save)
 
