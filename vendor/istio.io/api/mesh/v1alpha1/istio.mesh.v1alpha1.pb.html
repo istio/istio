@@ -4,7 +4,7 @@ description: Configuration affecting the service mesh as a whole.
 location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 22
+number_of_entries: 23
 ---
 <p>Configuration affecting the service mesh as a whole.</p>
 
@@ -1269,6 +1269,14 @@ For pilot/mixer, it&rsquo;s passed as arguments to istio-proxy container in pilo
 
 </td>
 </tr>
+<tr id="Tracing-stackdriver" class="oneof">
+<td><code>stackdriver</code></td>
+<td><code><a href="#Tracing-Stackdriver">Tracing.Stackdriver (oneof)</a></code></td>
+<td>
+<p>Use a Stackdriver tracer.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -1341,6 +1349,23 @@ For pilot/mixer, it&rsquo;s passed as arguments to istio-proxy container in pilo
 
 </td>
 </tr>
+</tbody>
+</table>
+</section>
+<h2 id="Tracing-Stackdriver">Tracing.Stackdriver</h2>
+<section>
+<p>Stackdriver defines configuration for a Stackdriver tracer.
+See <a href="https://github.com/census-instrumentation/opencensus-proto/blob/master/src/opencensus/proto/trace/v1/trace_config.proto">Opencensus trace config</a> for details.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
 </tbody>
 </table>
 </section>
