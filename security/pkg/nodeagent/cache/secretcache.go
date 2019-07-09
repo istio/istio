@@ -575,8 +575,13 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	}
 
 	// call authentication provider specific plugins to exchange token if necessary.
+	numOutgoingRequests.WithTags(RequestType.Value(TokenExchange)).Increment()
+	timeBeforeTokenExchange := time.Now()
 	exchangedToken, err := sc.getExchangedToken(ctx, token)
+	tokenExchangeLatency := float64(time.Since(timeBeforeTokenExchange).Nanoseconds()) / float64(time.Millisecond)
+	outgoingLatency.WithTags(RequestType.Value(TokenExchange)).Record(tokenExchangeLatency)
 	if err != nil {
+		numFailedOutgoingRequests.WithTags(RequestType.Value(TokenExchange)).Increment()
 		return nil, err
 	}
 
@@ -599,8 +604,13 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		return nil, err
 	}
 
+	numOutgoingRequests.WithTags(RequestType.Value(CSR)).Increment()
+	timeBeforeCSR := time.Now()
 	certChainPEM, err := sc.sendRetriableRequest(ctx, csrPEM, exchangedToken, resourceName, true)
+	csrLatency := float64(time.Since(timeBeforeCSR).Nanoseconds()) / float64(time.Millisecond)
+	outgoingLatency.WithTags(RequestType.Value(CSR)).Record(csrLatency)
 	if err != nil {
+		numFailedOutgoingRequests.WithTags(RequestType.Value(CSR)).Increment()
 		return nil, err
 	}
 
@@ -721,6 +731,13 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte, 
 		backOffInMilliSec = rand.Int63n(retry * initialBackOffIntervalInMilliSec)
 		time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
 		cacheLog.Warnf("%s failed with error: %v, retry in %d millisec", requestErrorString, err, backOffInMilliSec)
+
+		// Record retry metrics.
+		if isCSR {
+			numOutgoingRetries.WithTags(RequestType.Value(CSR)).Increment()
+		} else {
+			numOutgoingRetries.WithTags(RequestType.Value(TokenExchange)).Increment()
+		}
 	}
 
 	if isCSR {
