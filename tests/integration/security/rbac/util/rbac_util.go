@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"testing"
 	"time"
 
 	"istio.io/istio/pkg/test/echo/common/response"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util/connection"
 )
@@ -96,7 +96,7 @@ func (tc TestCase) CheckRBACRequest() error {
 	return nil
 }
 
-func RunRBACTest(t *testing.T, cases []TestCase) {
+func RunRBACTest(t framework.TestContext, cases []TestCase) {
 	for _, tc := range cases {
 		testName := fmt.Sprintf("%s->%s:%s%s[%v]",
 			tc.Request.From.Config().Service,
@@ -104,8 +104,8 @@ func RunRBACTest(t *testing.T, cases []TestCase) {
 			tc.Request.Options.PortName,
 			tc.Request.Options.Path,
 			tc.ExpectAllowed)
-		t.Run(testName, func(t *testing.T) {
-			retry.UntilSuccessOrFail(t, tc.CheckRBACRequest, retry.Delay(time.Second), retry.Timeout(10*time.Second))
+		t.NewSubTest(testName).RunParallel(func(ctx framework.TestContext) {
+			retry.UntilSuccessOrFail(ctx, tc.CheckRBACRequest, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 		})
 	}
 }

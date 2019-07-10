@@ -123,6 +123,6 @@ func TestRBACV1Group(t *testing.T) {
 			// TODO: query pilot or app to know instead of sleep.
 			time.Sleep(60 * time.Second)
 
-			util.RunRBACTest(t, cases)
+			util.RunRBACTest(ctx, cases)
 		})
 }

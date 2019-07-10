@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/environment"
 	securityUtil "istio.io/istio/tests/integration/security/util"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -25,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -202,6 +202,6 @@ func TestRBACV2Extended(t *testing.T) {
 			// TODO(pitlv2109): Check to make sure policies have been created instead.
 			time.Sleep(60 * time.Second)
 
-			util.RunRBACTest(t, cases)
+			util.RunRBACTest(ctx, cases)
 		})
 }

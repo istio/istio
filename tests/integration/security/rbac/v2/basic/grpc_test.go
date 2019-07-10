@@ -18,13 +18,13 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/tests/integration/security/util"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -98,6 +98,6 @@ func TestRBACV2GRPC(t *testing.T) {
 			// Sleep 60 seconds for the policy to take effect.
 			// TODO: Check to make sure policies have been created instead.
 			time.Sleep(60 * time.Second)
-			rbacUtil.RunRBACTest(t, cases)
+			rbacUtil.RunRBACTest(ctx, cases)
 		})
 }

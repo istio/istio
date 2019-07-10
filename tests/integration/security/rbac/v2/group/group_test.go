@@ -124,6 +124,6 @@ func TestRBACV2Group(t *testing.T) {
 			// TODO(lei-tang): programmatically check that policies have taken effect instead.
 			time.Sleep(60 * time.Second)
 
-			util.RunRBACTest(t, cases)
+			util.RunRBACTest(ctx, cases)
 		})
 }
