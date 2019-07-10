@@ -124,6 +124,27 @@ jobs:
           path: /go/out/logs
       - store_artifacts:
           path: /tmp
+  test:
+    <<: *defaults
+    environment:
+      KUBECONFIG: /go/src/istio.io/istio/.circleci/config
+    resource_class: xlarge
+    steps:
+      - checkout
+      - <<: *markJobStartsOnGCS
+      - run: make sync
+      - run:
+          command: |
+            mkdir -p /go/out/tests
+            export PATH=$GOPATH/bin:$PATH
+            make localTestEnv
+            set -o pipefail
+            make test T=-v | tee -a /go/out/tests/build-log.txt
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
+      - store_test_results:
+          path: /go/out/tests
 
   build:
     <<: *defaults
