@@ -32,10 +32,10 @@ import (
 )
 
 const (
-	googleCAName = "GoogleCA"
-	citadelName  = "Citadel"
-	vaultCAName  = "VaultCA"
-	spireName    = "Spire"
+	googleCAName  = "GoogleCA"
+	citadelName   = "Citadel"
+	vaultCAName   = "VaultCA"
+	spireName     = "Spire"
 	retryInterval = time.Second * 2
 	maxRetries    = 100
 )
