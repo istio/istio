@@ -59,4 +59,6 @@ function build_kind_images(){
 
 build_kind_images
 
+export JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml"
+export T="-v"
 make "$@"
