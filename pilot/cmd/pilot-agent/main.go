@@ -48,6 +48,13 @@ import (
 	"istio.io/istio/pkg/spiffe"
 )
 
+const (
+	// TODO(quanlin): move udspath/tokenpath to env variable.
+	sdsUDSPath         = "/var/run/sds/uds_path"
+	jwtPath            = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	trustworthyJWTPath = "var/run/secrets/tokens/istio-token"
+)
+
 var (
 	role             = &model.Proxy{Metadata: map[string]string{}}
 	proxyIP          string
@@ -278,11 +285,20 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
+			// check if SDS UDS path and token path exist, if both exist, requests key/cert
+			// using SDS instead of secret mount.
+			sdsEnabled := waitForFile(sdsUDSPath, time.Minute)
+			sdsTokenPath := jwtPath
+			if _, err := os.Stat(trustworthyJWTPath); err == nil {
+				sdsTokenPath = trustworthyJWTPath
+			}
+
 			log.Infof("Monitored certs: %#v", tlsCertsToWatch)
 			// since Envoy needs the certs for mTLS, we wait for them to become available before starting it
-			if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
+			// skip waiting cert if sds is enabled, otherwise it takes long time for pod to start.
+			if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() && !sdsEnabled {
 				for _, cert := range tlsCertsToWatch {
-					waitForCerts(cert, 2*time.Minute)
+					waitForFile(cert, 2*time.Minute)
 				}
 			}
 
@@ -317,6 +333,15 @@ var (
 					if disableInternalTelemetry {
 						opts["DisableReportCalls"] = "true"
 					}
+
+					if sdsEnabled {
+						opts["sds_enabled"] = "true"
+						opts["sds_uds_path"] = sdsUDSPath
+						opts["sds_token_path"] = sdsTokenPath
+					}
+
+					log.Debugf("sdsenabled %+v, uds path %q, token path %q", opts["sds_enabled"], opts["sds_uds_path"], opts["sds_token_path"])
+
 					tmpl, err := template.ParseFiles(templateFile)
 					if err != nil {
 						return err
@@ -371,7 +396,7 @@ var (
 
 			log.Infof("PilotSAN %#v", pilotSAN)
 
-			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses, dnsRefreshRate)
+			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses, dnsRefreshRate, sdsEnabled, sdsUDSPath, sdsTokenPath)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, features.TerminationDrainDuration())
 			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.ConfigCh())
 
@@ -572,7 +597,7 @@ func init() {
 	}))
 }
 
-func waitForCerts(fname string, maxWait time.Duration) {
+func waitForFile(fname string, maxWait time.Duration) bool {
 	log.Infof("waiting %v for %s", maxWait, fname)
 
 	logDelay := 1 * time.Second
@@ -582,17 +607,17 @@ func waitForCerts(fname string, maxWait time.Duration) {
 	for {
 		_, err := os.Stat(fname)
 		if err == nil {
-			return
+			return true
 		}
 		if !os.IsNotExist(err) { // another error (e.g., permission) - likely no point in waiting longer
 			log.Errora("error while waiting for certificates", err.Error())
-			return
+			return false
 		}
 
 		now := time.Now()
 		if now.After(endWait) {
 			log.Warna("certificates still not available after", maxWait)
-			break
+			return false
 		}
 		if now.After(nextLog) {
 			log.Infof("waiting for certificates")

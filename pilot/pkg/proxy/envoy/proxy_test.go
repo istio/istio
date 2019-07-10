@@ -33,6 +33,9 @@ func TestEnvoyArgs(t *testing.T) {
 		extraArgs:      []string{"-l", "trace", "--component-log-level", "misc:error"},
 		nodeIPs:        []string{"10.75.2.9", "192.168.11.18"},
 		dnsRefreshRate: "60s",
+		sdsEnabled:     true,
+		sdsUDSPath:     "sdsudspath",
+		sdsTokenPath:   "sdstokenpath",
 	}
 	testProxy := NewProxy(
 		config,
@@ -42,6 +45,9 @@ func TestEnvoyArgs(t *testing.T) {
 		nil,
 		[]string{"10.75.2.9", "192.168.11.18"},
 		"60s",
+		true,
+		"sdsudspath",
+		"sdstokenpath",
 	)
 	if !reflect.DeepEqual(testProxy, test) {
 		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxy, test)

@@ -331,7 +331,6 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 
 func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
 	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string, platEnv platform.Environment) (string, error) {
-
 	if opts == nil {
 		opts = map[string]interface{}{}
 	}
@@ -413,6 +412,17 @@ func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoc
 
 	// Support multiple network interfaces
 	meta[model.NodeMetadataInstanceIPs] = strings.Join(nodeIPs, ",")
+
+	if sdsEnabled {
+		opts["sds_enabled"] = "true"
+		opts["sds_uds_path"] = sdsUdsPath
+		opts["sds_token_path"] = sdsTokenPath
+
+		meta[model.NodeMetadataSdsTokenPath] = sdsTokenPath
+		meta[model.NodeMetadataSdsUDSPath] = sdsUdsPath
+	}
+
+	log.Debugf("sdsenabled %+v, uds path %q, token path %q", opts["sds_enabled"], opts["sds_uds_path"], opts["sds_token_path"])
 
 	ba, err := json.Marshal(meta)
 	if err != nil {
