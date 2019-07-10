@@ -35,7 +35,7 @@ template: |
     - "-k"
     - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
     {{ end -}}
-    imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
     resources:
       requests:
         cpu: 10m
@@ -67,7 +67,7 @@ template: |
   {{- else }}
     image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
   {{- end }}
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
     resources: {}
     securityContext:
       runAsUser: 0
@@ -214,7 +214,7 @@ template: |
     - name: ISTIO_META_SDS_TOKEN_PATH
       value: "{{ .Values.global.sds.customTokenDirectory -}}/sdstoken"
     {{- end }}
-    imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
     {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
     readinessProbe:
       httpGet:
