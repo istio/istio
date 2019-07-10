@@ -1,3 +1,0 @@
-package testy
-
-func a() {}
