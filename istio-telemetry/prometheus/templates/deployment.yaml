@@ -27,7 +27,7 @@ spec:
       containers:
         - name: prometheus
           image: "{{ .Values.prometheus.hub }}/prometheus:{{ .Values.prometheus.tag }}"
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           args:
             - '--storage.tsdb.retention={{ .Values.prometheus.retention }}'
             - '--config.file=/etc/prometheus/prometheus.yml'

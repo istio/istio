@@ -31,7 +31,7 @@ spec:
 {{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.nodeagent.image }}:{{ .Values.global.tag }}"
 {{- end }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           args:
           {{- if .Values.global.logAsJson }}
             - --log_as_json

@@ -36,7 +36,7 @@ spec:
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.grafana.image.repository }}:{{ .Values.grafana.image.tag }}"
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           ports:
           - containerPort: 3000
           readinessProbe:

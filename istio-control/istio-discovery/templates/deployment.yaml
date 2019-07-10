@@ -135,7 +135,7 @@ spec:
 {{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
 {{- end }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           ports:
           - containerPort: 15011
           args:

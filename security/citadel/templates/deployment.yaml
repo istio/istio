@@ -33,7 +33,7 @@ spec:
       containers:
         - name: citadel
           image: "{{ .Values.global.hub }}/{{ .Values.security.image }}:{{ .Values.global.tag }}"
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           args:
             - --append-dns-names=true
             - --grpc-port=8060
