@@ -14,7 +14,7 @@
 
 package cache
 
-import "istio.io/istio/security/pkg/monitoring"
+import "istio.io/pkg/monitoring"
 
 const (
 	TokenExchange = "token_exchange"
@@ -22,7 +22,7 @@ const (
 )
 
 var (
-	RequestType = monitoring.MustCreateTag("request_type")
+	RequestType = monitoring.MustCreateLabel("request_type")
 )
 
 // Metrics for outgoing requests from citadel agent to external services such as token exchange server or a CA.
@@ -32,26 +32,26 @@ var (
 		"outgoing_latency",
 		"The latency of "+
 			"outgoing requests (e.g. to a token exchange server, CA, etc.) in milliseconds.",
-		RequestType)
+		monitoring.WithLabels(RequestType), monitoring.WithUnit(monitoring.Milliseconds))
 
-	numOutgoingRequests = monitoring.NewCount(
+	numOutgoingRequests = monitoring.NewSum(
 		"num_outgoing_requests",
 		"Number of total outgoing requests (e.g. to a token exchange server, CA, etc.)",
-		RequestType)
+		monitoring.WithLabels(RequestType))
 
-	numOutgoingRetries = monitoring.NewCount(
+	numOutgoingRetries = monitoring.NewSum(
 		"num_outgoing_retries",
 		"Number of outgoing retry requests (e.g. to a token exchange server, CA, etc.)",
-		RequestType)
+		monitoring.WithLabels(RequestType))
 
-	numFailedOutgoingRequests = monitoring.NewCount(
+	numFailedOutgoingRequests = monitoring.NewSum(
 		"num_failed_outgoing_requests",
 		"Number of failed outgoing requests (e.g. to a token exchange server, CA, etc.)",
-		RequestType)
+		monitoring.WithLabels(RequestType))
 )
 
 func init() {
-	monitoring.MustRegisterViews(
+	monitoring.MustRegister(
 		outgoingLatency,
 		numOutgoingRequests,
 		numOutgoingRetries,
