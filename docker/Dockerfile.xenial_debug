@@ -12,11 +12,14 @@ RUN apt-get update && \
     apt-get install --no-install-recommends -y \
       ca-certificates \
       curl \
+      gdb \
       iptables \
       iproute2 \
       iputils-ping \
       knot-dnsutils \
       netcat \
+      pstack \
+      strace \
       tcpdump \
       net-tools \
       lsof \
