@@ -265,5 +265,7 @@ func notifyExit() {
 	if err != nil {
 		log.Errora(err)
 	}
-	log.Errora(p.Signal(syscall.SIGTERM))
+	if err := p.Signal(syscall.SIGTERM); err != nil {
+		log.Errorf("failed to send SIGTERM to self: %v", err)
+	}
 }
