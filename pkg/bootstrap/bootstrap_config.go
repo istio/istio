@@ -15,6 +15,7 @@
 package bootstrap
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,6 +27,9 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	"github.com/pkg/errors"
+	"golang.org/x/oauth2/google"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -405,6 +409,19 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 				return "", err
 			}
 			StoreHostPort(h, p, "datadog", opts)
+		case *meshconfig.Tracing_Stackdriver_:
+			var cred *google.Credentials
+			// in-cluster credentials are fetched by using the GCE metadata server.
+			// You may also specify environment variable GOOGLE_APPLICATION_CREDENTIALS to point a GCP credentials file.
+			if cred, err = google.FindDefaultCredentials(context.Background()); err != nil {
+				return "", errors.Errorf("Unable to process Stackdriver tracer: %v", err)
+			}
+			opts["stackdriver"] = true
+			opts["stackdriverProjectID"] = cred.ProjectID
+			opts["stackdriverDebug"] = tracer.Stackdriver.Debug
+			setOptsWithDefaults(tracer.Stackdriver.MaxNumberOfAnnotations, "stackdriverMaxAnnotations", opts, 200)
+			setOptsWithDefaults(tracer.Stackdriver.MaxNumberOfAttributes, "stackdriverMaxAttributes", opts, 200)
+			setOptsWithDefaults(tracer.Stackdriver.MaxNumberOfMessageEvents, "stackdriverMaxEvents", opts, 200)
 		}
 	}
 
@@ -441,6 +458,14 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	// Execute needs some sort of io.Writer
 	err = t.Execute(fout, opts)
 	return fname, err
+}
+
+func setOptsWithDefaults(src *types.Int64Value, name string, opts map[string]interface{}, defaultVal int64) {
+	val := defaultVal
+	if src != nil {
+		val = src.Value
+	}
+	opts[name] = val
 }
 
 // isIPv6Proxy check the addresses slice and returns true for a valid IPv6 address
