@@ -21,7 +21,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-prometheus"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -46,8 +46,8 @@ const (
 )
 
 type authenticator interface {
-	AuthenticatorType() string
 	Authenticate(ctx context.Context) (*authenticate.Caller, error)
+	AuthenticatorType() string
 }
 
 // Server implements IstioCAService and IstioCertificateService and provides the services on the
