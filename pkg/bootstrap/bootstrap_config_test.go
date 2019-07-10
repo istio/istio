@@ -102,9 +102,8 @@ func TestGolden(t *testing.T) {
 				"ISTIO_META_POD_NAME":            "svc-0-0-0-6944fb884d-4pgx8",
 				"POD_NAME":                       "svc-0-0-0-6944fb884d-4pgx8",
 				"POD_NAMESPACE":                  "test",
-				"ISTIO_META_istio-locality":      "region.zone.sub_zone",
 				"INSTANCE_IP":                    "10.10.10.1",
-				"ISTIO_METAJSON_LABELS":          `{"version": "v1alpha1", "app": "test"}`,
+				"ISTIO_METAJSON_LABELS":          `{"version": "v1alpha1", "app": "test", "istio-locality":"regionA.zoneB.sub_zoneC"}`,
 			},
 			annotations: map[string]string{
 				"istio.io/insecurepath": "{\"paths\":[\"/metrics\",\"/live\"]}",
