@@ -370,7 +370,7 @@ func (f *fixture) init() {
 
 	o := RuntimeOptions{
 		DomainSuffix:      "local.svc",
-		Source:            event.MergeSources(srcs...),
+		Source:            event.CombineSources(srcs...),
 		ProcessorProvider: func(_ ProcessorOptions) event.Processor { return f.p },
 	}
 

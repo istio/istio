@@ -33,16 +33,15 @@ type Source interface {
 	Stop()
 }
 
-// compositeSource is an aggregated set of Sources.
-type sources struct {
+type combinedSources struct {
 	mu      sync.Mutex
 	sources []Source
 }
 
-var _ Source = &sources{}
+var _ Source = &combinedSources{}
 
 // Start implements Source
-func (s *sources) Start() {
+func (s *combinedSources) Start() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, src := range s.sources {
@@ -51,7 +50,7 @@ func (s *sources) Start() {
 }
 
 // Stop implements Source
-func (s *sources) Stop() {
+func (s *combinedSources) Stop() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, src := range s.sources {
@@ -60,7 +59,7 @@ func (s *sources) Stop() {
 }
 
 // Dispatch implements Source
-func (s *sources) Dispatch(h Handler) {
+func (s *combinedSources) Dispatch(h Handler) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, src := range s.sources {
@@ -68,9 +67,9 @@ func (s *sources) Dispatch(h Handler) {
 	}
 }
 
-// mergesources combines multiple sources and returns it as a single Source
-func MergeSources(s ...Source) Source {
-	return &sources{
+// CombineSources combines multiple combinedSources and returns it as a single Source
+func CombineSources(s ...Source) Source {
+	return &combinedSources{
 		sources: s,
 	}
 }

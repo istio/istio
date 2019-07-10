@@ -29,7 +29,7 @@ func TestMergeSources_Basic(t *testing.T) {
 	s1 := &fixtures.Source{}
 	s2 := &fixtures.Source{}
 
-	s := event.MergeSources(s1, s2)
+	s := event.CombineSources(s1, s2)
 
 	h := &fixtures.Accumulator{}
 	s.Dispatch(h)
@@ -52,9 +52,9 @@ func TestMergeSources_Composite(t *testing.T) {
 	s1 := &fixtures.Source{}
 	s2a := &fixtures.Source{}
 	s2b := &fixtures.Source{}
-	s2 := event.MergeSources(s2a, s2b)
+	s2 := event.CombineSources(s2a, s2b)
 
-	s := event.MergeSources(s1, s2)
+	s := event.CombineSources(s1, s2)
 
 	h := &fixtures.Accumulator{}
 	s.Dispatch(h)
