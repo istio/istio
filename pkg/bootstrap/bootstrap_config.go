@@ -319,16 +319,6 @@ func getNodeMetaData(envs []string) map[string]interface{} {
 	return meta
 }
 
-func stringMap(in map[string]interface{}) map[string]string {
-	out := make(map[string]string, len(in))
-	for k, v := range in {
-		if s, ok := v.(string); ok {
-			out[k] = s
-		}
-	}
-	return out
-}
-
 var overrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP", "", "")
 
 // WriteBootstrap generates an envoy config based on config and epoch, and returns the filename.
@@ -382,7 +372,10 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	// Support passing extra info from node environment as metadata
 	meta := getNodeMetaData(localEnv)
 
-	localityOverride := model.GetLocalityOrDefault("", stringMap(meta))
+	localityOverride := ""
+	if locality, ok := meta[model.LocalityLabel].(string); ok {
+		localityOverride = model.GetLocalityOrDefault(locality, localityOverride)
+	}
 	l := util.ConvertLocality(localityOverride)
 	if l == nil {
 		// Populate the platform locality if available.

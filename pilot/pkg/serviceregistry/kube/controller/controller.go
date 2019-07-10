@@ -330,7 +330,7 @@ func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 		return ""
 	}
 	locality := fmt.Sprintf("%v/%v", region, zone)
-	return model.GetLocalityOrDefault(locality, pod.Labels)
+	return model.GetLocalityOrDefault(pod.Labels[model.LocalityLabel], locality)
 }
 
 // ManagementPorts implements a service catalog operation
