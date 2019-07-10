@@ -21,7 +21,7 @@ import (
 	"net"
 	"time"
 
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/grpc-ecosystem/go-grpc-prometheus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -46,6 +46,7 @@ const (
 )
 
 type authenticator interface {
+	AuthenticatorType() string
 	Authenticate(ctx context.Context) (*authenticate.Caller, error)
 }
 
@@ -61,6 +62,7 @@ type Server struct {
 	forCA          bool
 	port           int
 	monitoring     monitoringMetrics
+	sdsEnabled     bool
 }
 
 // CreateCertificate handles an incoming certificate signing request (CSR). It does
@@ -197,7 +199,9 @@ func (s *Server) Run() error {
 }
 
 // New creates a new instance of `IstioCAServiceServer`.
-func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []string, port int, trustDomain string) (*Server, error) {
+func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []string, port int,
+	trustDomain string, sdsEnabled bool) (*Server, error) {
+
 	if len(hostlist) == 0 {
 		return nil, fmt.Errorf("failed to create grpc server hostlist empty")
 	}
@@ -224,7 +228,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 			log.Errorf("failed to create JWT authenticator (error %v)", err)
 		} else {
 			authenticators = append(authenticators, jwtAuthenticator)
-			log.Infof("added generatl JWT authenticator")
+			log.Infof("added general JWT authenticator")
 		}
 	}
 
@@ -240,6 +244,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 		forCA:          forCA,
 		port:           port,
 		monitoring:     newMonitoringMetrics(),
+		sdsEnabled:     sdsEnabled,
 	}
 	return server, nil
 }
@@ -289,13 +294,19 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 	return &cert, nil
 }
 
+// authenticate goes through a list of authenticator (provided client cert, k8s jwt, and ID token)
+// and authenticates if one of them is valid.
 func (s *Server) authenticate(ctx context.Context) *authenticate.Caller {
 	// TODO: apply different authenticators in specific order / according to configuration.
 	var errMsg string
 	for id, authn := range s.authenticators {
+		// If SDS is not enabled, authenticate will not perform k8s jwt authentication.
+		if !s.sdsEnabled && authn.AuthenticatorType() == authenticate.KubeJWTAuthenticatorType {
+			continue
+		}
 		u, err := authn.Authenticate(ctx)
 		if err != nil {
-			errMsg += fmt.Sprintf("Authenticator#%d error: %v. ", id, err)
+			errMsg += fmt.Sprintf("Authenticator %s at index %d got error: %v. ", authn.AuthenticatorType(), id, err)
 		}
 		if u != nil && err == nil {
 			log.Debugf("Authentication successful through auth source %v", u.AuthSource)
