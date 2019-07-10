@@ -121,7 +121,7 @@ function clone_installer() {
   if [[ "$PWD" == "${GOPATH}/src/istio.io/istio" ]]; then
       TMP_DIR=$PWD
       cd ../ || return
-      git clone -b integ-test "https://github.com/howardjohn/istio-installer.git"
+      git clone -b integ-test "https://github.com/howardjohn/istio-installer.git" installer
       cd "${TMP_DIR}" || return
   fi
 }
