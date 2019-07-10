@@ -89,8 +89,7 @@ func DateTimeProperty() *Schema {
 
 // MapProperty creates a map property
 func MapProperty(property *Schema) *Schema {
-	return &Schema{SchemaProps: SchemaProps{Type: []string{"object"},
-		AdditionalProperties: &SchemaOrBool{Allows: true, Schema: property}}}
+	return &Schema{SchemaProps: SchemaProps{Type: []string{"object"}, AdditionalProperties: &SchemaOrBool{Allows: true, Schema: property}}}
 }
 
 // RefProperty creates a ref property
@@ -155,6 +154,54 @@ func (r *SchemaURL) fromMap(v map[string]interface{}) error {
 	}
 	return nil
 }
+
+// type ExtraSchemaProps map[string]interface{}
+
+// // JSONSchema represents a structure that is a json schema draft 04
+// type JSONSchema struct {
+// 	SchemaProps
+// 	ExtraSchemaProps
+// }
+
+// // MarshalJSON marshal this to JSON
+// func (s JSONSchema) MarshalJSON() ([]byte, error) {
+// 	b1, err := json.Marshal(s.SchemaProps)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	b2, err := s.Ref.MarshalJSON()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	b3, err := s.Schema.MarshalJSON()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	b4, err := json.Marshal(s.ExtraSchemaProps)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return swag.ConcatJSON(b1, b2, b3, b4), nil
+// }
+
+// // UnmarshalJSON marshal this from JSON
+// func (s *JSONSchema) UnmarshalJSON(data []byte) error {
+// 	var sch JSONSchema
+// 	if err := json.Unmarshal(data, &sch.SchemaProps); err != nil {
+// 		return err
+// 	}
+// 	if err := json.Unmarshal(data, &sch.Ref); err != nil {
+// 		return err
+// 	}
+// 	if err := json.Unmarshal(data, &sch.Schema); err != nil {
+// 		return err
+// 	}
+// 	if err := json.Unmarshal(data, &sch.ExtraSchemaProps); err != nil {
+// 		return err
+// 	}
+// 	*s = sch
+// 	return nil
+// }
 
 // SchemaProps describes a JSON schema (draft 4)
 type SchemaProps struct {
@@ -304,7 +351,7 @@ func (s *Schema) AddType(tpe, format string) *Schema {
 
 // CollectionOf a fluent builder method for an array parameter
 func (s *Schema) CollectionOf(items Schema) *Schema {
-	s.Type = []string{jsonArray}
+	s.Type = []string{"array"}
 	s.Items = &SchemaOrArray{Schema: &items}
 	return s
 }
