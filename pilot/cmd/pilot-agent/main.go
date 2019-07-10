@@ -612,17 +612,17 @@ func waitForFile(fname string, maxWait time.Duration) bool {
 			return true
 		}
 		if !os.IsNotExist(err) { // another error (e.g., permission) - likely no point in waiting longer
-			log.Errora("error while waiting for certificates", err.Error())
+			log.Errora("error while waiting for file", err.Error())
 			return false
 		}
 
 		now := time.Now()
 		if now.After(endWait) {
-			log.Warna("certificates still not available after", maxWait)
+			log.Warna("file still not available after", maxWait)
 			return false
 		}
 		if now.After(nextLog) {
-			log.Infof("waiting for certificates")
+			log.Infof("waiting for file")
 			logDelay *= 2
 			nextLog.Add(logDelay)
 		}

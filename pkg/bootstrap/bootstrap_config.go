@@ -413,13 +413,9 @@ func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoc
 	// Support multiple network interfaces
 	meta[model.NodeMetadataInstanceIPs] = strings.Join(nodeIPs, ",")
 
-	if sdsEnabled {
-		opts["sds_enabled"] = "true"
-		opts["sds_uds_path"] = sdsUdsPath
-		opts["sds_token_path"] = sdsTokenPath
-
-		meta[model.NodeMetadataSdsTokenPath] = sdsTokenPath
-		meta[model.NodeMetadataSdsUDSPath] = sdsUdsPath
+	if meta[model.NodeMetadataSdsUDSPath] != "" {
+		opts["sds_uds_path"] = meta[model.NodeMetadataSdsUDSPath]
+		opts["sds_token_path"] = meta[model.NodeMetadataSdsTokenPath]
 	}
 
 	log.Debugf("sdsenabled %+v, uds path %q, token path %q", opts["sds_enabled"], opts["sds_uds_path"], opts["sds_token_path"])

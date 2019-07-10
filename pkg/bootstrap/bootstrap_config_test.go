@@ -84,10 +84,17 @@ func TestGolden(t *testing.T) {
 		setup                      func()
 		teardown                   func()
 		check                      func(got *v2.Bootstrap, t *testing.T)
+		sdsEnabled                 bool
+		sdsUDSPath                 string
+		sdsTokenPath               string
 	}{
 		{
-			base: "auth",
+			base:         "auth",
+			sdsEnabled:   true,
+			sdsUDSPath:   "sdsudspath",
+			sdsTokenPath: "sdstokenpath",
 		},
+
 		{
 			base: "default",
 		},
