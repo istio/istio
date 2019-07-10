@@ -318,12 +318,10 @@ func TestRuntime_MeshEvent_WhileRunning(t *testing.T) {
 	f.mockSrc.h.Handle(event.DeleteFor(meshcfg.IstioMeshconfig, meshcfg.ResourceName, resource.Version("vxx")))
 
 	g.Eventually(f.rt.currentSessionID).Should(Equal(oldSessionID + 1))
-	g.Eventually(f.p.acc.Events).Should(ConsistOf(
-		event.DeleteFor(meshcfg.IstioMeshconfig, meshcfg.ResourceName, resource.Version("vxx")), // event from previous incarnation.
-		event.FullSyncFor(basicmeta.Collection1),
-		event.FullSyncFor(meshcfg.IstioMeshconfig),
-		event.AddFor(meshcfg.IstioMeshconfig, meshConfigEntry(meshcfg.Default())),
-	))
+	g.Eventually(f.p.acc.Events).Should(And(
+		ContainElement(event.FullSyncFor(basicmeta.Collection1)),
+		ContainElement(event.FullSyncFor(meshcfg.IstioMeshconfig)),
+		ContainElement(event.AddFor(meshcfg.IstioMeshconfig, meshConfigEntry(meshcfg.Default())))))
 
 	g.Eventually(f.p.HasStarted).Should(BeTrue())
 }
