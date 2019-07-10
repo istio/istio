@@ -18,7 +18,7 @@ spec:
 {{- end }}
   containers:
     - name: "{{ .Values.provider }}-test"
-      image: {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
+      image: pstauffer/curl:v1.0.3
       imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
       command: ['curl']
       {{- if eq .Values.provider "jaeger" }}
