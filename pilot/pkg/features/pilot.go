@@ -40,7 +40,7 @@ var (
 	// Default is 100%, not recommended for production use.
 	TraceSampling = env.RegisterFloatVar("PILOT_TRACE_SAMPLING", 100.0, "").Get()
 
-	// PushThrottle limits the number of concurrent pushes allowed. Default is 100 pushes per second.
+	// PushThrottle limits the number of concurrent pushes allowed. Default is 100 concurrent pushes.
 	// On larger machines you can increase this to get faster push.
 	PushThrottle = env.RegisterIntVar("PILOT_PUSH_THROTTLE", 100, "").Get()
 

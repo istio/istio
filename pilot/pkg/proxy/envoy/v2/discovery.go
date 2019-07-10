@@ -452,7 +452,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 			semaphore <- struct{}{}
 
 			// Get the next proxy to push. This will block if there are no updates required.
-			client, info := queue.Remove()
+			client, info := queue.Dequeue()
 
 			go func() {
 				edsUpdates := info.edsUpdatedServices

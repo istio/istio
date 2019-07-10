@@ -30,7 +30,10 @@ func NewPushQueue() *PushQueue {
 	}
 }
 
-func (p *PushQueue) Add(proxy *XdsConnection, pushInfo *PushInformation) {
+// Add will mark a proxy as pending a push. If it is already pending, pushInfo will be merged.
+// edsUpdatedServices will be added together, and full will be set if either were full
+func (p *PushQueue) Enqueue(proxy *XdsConnection, pushInfo *PushInformation) {
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	info, exists := p.connections[proxy]
@@ -38,14 +41,17 @@ func (p *PushQueue) Add(proxy *XdsConnection, pushInfo *PushInformation) {
 		p.connections[proxy] = pushInfo
 		p.order = append(p.order, proxy)
 	} else {
-		if info.edsUpdatedServices == nil && len(pushInfo.edsUpdatedServices) != 0 {
-			info.edsUpdatedServices = map[string]struct{}{}
-		}
 		info.push = pushInfo.push
 		info.full = info.full || pushInfo.full
+
+		edsUpdates := map[string]struct{}{}
 		for endpoint := range pushInfo.edsUpdatedServices {
-			info.edsUpdatedServices[endpoint] = struct{}{}
+			edsUpdates[endpoint] = struct{}{}
 		}
+		for endpoint := range info.edsUpdatedServices {
+			edsUpdates[endpoint] = struct{}{}
+		}
+		info.edsUpdatedServices = edsUpdates
 	}
 	select {
 	case p.signal <- struct{}{}:
@@ -64,7 +70,8 @@ func (p *PushQueue) waitForPendingPush() {
 	}
 }
 
-func (p *PushQueue) Remove() (*XdsConnection, *PushInformation) {
+// Remove a proxy from the queue. If there are no proxies ready to be removed, this will block
+func (p *PushQueue) Dequeue() (*XdsConnection, *PushInformation) {
 	p.waitForPendingPush()
 
 	p.mu.Lock()
@@ -76,6 +83,7 @@ func (p *PushQueue) Remove() (*XdsConnection, *PushInformation) {
 	return head, info
 }
 
+// Get number of pending proxies
 func (p *PushQueue) Pending() int {
 	p.mu.Lock()
 	defer p.mu.Unlock()

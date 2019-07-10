@@ -51,15 +51,6 @@ var (
 	// SendTimeout is the max time to wait for a ADS send to complete. This helps detect
 	// clients in a bad state (not reading). In future it may include checking for ACK
 	SendTimeout = 5 * time.Second
-
-	// PushTimeout is the time to wait for a push on a client. Pilot iterates over
-	// clients and pushes them serially for now, to avoid large CPU/memory spikes.
-	// We measure and reports cases where pushing a client takes longer.
-	PushTimeout = 5 * time.Second
-)
-
-var (
-	timeZero time.Time
 )
 
 // DiscoveryStream is a common interface for EDS and ADS. It also has a
@@ -124,9 +115,6 @@ type XdsConnection struct {
 	// added will be true if at least one discovery request was received, and the connection
 	// is added to the map of active.
 	added bool
-
-	// pushMutex prevents 2 overlapping pushes for this connection.
-	pushMutex sync.Mutex
 }
 
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
@@ -193,9 +181,10 @@ type XdsEvent struct {
 	// Only EDS for the listed clusters will be sent.
 	edsUpdatedServices map[string]struct{}
 
+	// Push context to use for the push.
 	push *model.PushContext
 
-	// function to call once a push is finished. If this is not
+	// function to call once a push is finished. This must be called or future changes may be blocked.
 	done func()
 }
 
@@ -575,19 +564,13 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 
 	adsLog.Infof("Pushing %v", con.ConID)
 
-	// Prevent 2 overlapping pushes.
-	con.pushMutex.Lock()
-	defer con.pushMutex.Unlock()
-
-	defer func() {
-		proxiesConvergeDelay.Record(time.Since(pushEv.push.Start).Seconds())
-	}()
 	// check version, suppress if changed.
 	currentVersion := versionInfo()
 
 	if con.CDSWatch {
 		err := s.pushCds(con, pushEv.push, currentVersion)
 		if err != nil {
+			proxiesConvergeDelayCdsErrors.Record(time.Since(pushEv.push.Start).Seconds())
 			return err
 		}
 	}
@@ -595,21 +578,25 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	if len(con.Clusters) > 0 {
 		err := s.pushEds(pushEv.push, con, currentVersion, nil)
 		if err != nil {
+			proxiesConvergeDelayEdsErrors.Record(time.Since(pushEv.push.Start).Seconds())
 			return err
 		}
 	}
 	if con.LDSWatch {
 		err := s.pushLds(con, pushEv.push, currentVersion)
 		if err != nil {
+			proxiesConvergeDelayLdsErrors.Record(time.Since(pushEv.push.Start).Seconds())
 			return err
 		}
 	}
 	if len(con.Routes) > 0 {
 		err := s.pushRoute(con, pushEv.push, currentVersion)
 		if err != nil {
+			proxiesConvergeDelayRdsErrors.Record(time.Since(pushEv.push.Start).Seconds())
 			return err
 		}
 	}
+	proxiesConvergeDelay.Record(time.Since(pushEv.push.Start).Seconds())
 	return nil
 }
 
@@ -684,7 +671,7 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 		adsLog.Infof("Starting new push while %v were still pending", currentlyPending)
 	}
 	for _, p := range pending {
-		s.pushQueue.Add(p, &PushInformation{edsUpdates, push, full})
+		s.pushQueue.Enqueue(p, &PushInformation{edsUpdates, push, full})
 	}
 }
 

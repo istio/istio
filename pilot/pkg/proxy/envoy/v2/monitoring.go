@@ -132,6 +132,10 @@ var (
 		"Delay between config change and all proxies converging.",
 		[]float64{1, 3, 5, 10, 20, 30, 50, 100},
 	)
+	proxiesConvergeDelayCdsErrors = proxiesConvergeDelay.With(errTag.Value("cds"))
+	proxiesConvergeDelayEdsErrors = proxiesConvergeDelay.With(errTag.Value("eds"))
+	proxiesConvergeDelayRdsErrors = proxiesConvergeDelay.With(errTag.Value("rds"))
+	proxiesConvergeDelayLdsErrors = proxiesConvergeDelay.With(errTag.Value("lds"))
 
 	pushContextErrors = monitoring.NewSum(
 		"pilot_xds_push_context_errors",
@@ -187,6 +191,10 @@ func init() {
 		pushes,
 		pushErrors,
 		proxiesConvergeDelay,
+		proxiesConvergeDelayCdsErrors,
+		proxiesConvergeDelayEdsErrors,
+		proxiesConvergeDelayRdsErrors,
+		proxiesConvergeDelayLdsErrors,
 		pushContextErrors,
 		totalXDSInternalErrors,
 		inboundUpdates,
