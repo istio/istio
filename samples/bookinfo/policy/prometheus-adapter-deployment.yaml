@@ -14,13 +14,17 @@ spec:
   selector:
     app: prometheusadapter
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheusadapter
   namespace: istio-system
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: prometheusadapter
+      version: v1
   template:
     metadata:
       labels:

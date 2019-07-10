@@ -57,13 +57,6 @@ func (m *Listener) Validate() error {
 		}
 	}
 
-	if len(m.GetFilterChains()) < 1 {
-		return ListenerValidationError{
-			field:  "FilterChains",
-			reason: "value must contain at least 1 item(s)",
-		}
-	}
-
 	for idx, item := range m.GetFilterChains() {
 		_, _ = idx, item
 

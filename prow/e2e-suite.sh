@@ -43,7 +43,6 @@ export PILOT_CLUSTER="${PILOT_CLUSTER:-}"
 export USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
 export CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 export HUB=${HUB:-"gcr.io/istio-testing"}
-
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 if [[ $HUB == *"istio-testing"* ]]; then
@@ -61,6 +60,9 @@ for ((i=1; i<=$#; i++)); do
         --timeout) ((i++)); E2E_TIMEOUT=${!i}
         continue
         ;;
+        --variant) ((i++)); VARIANT="${!i}"
+        continue
+        ;;
     esac
     E2E_ARGS+=( "${!i}" )
 done
@@ -75,9 +77,10 @@ make init
 
 if [[ $HUB == *"istio-testing"* ]]; then
   # upload images
-  time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}"
+  time ISTIO_DOCKER_HUB="${HUB}" make docker.push HUB="${HUB}" TAG="${TAG}" DOCKER_BUILD_VARIANTS="${VARIANT:-default}"
 fi
-
+echo "Setup cluster."
+date
 setup_e2e_cluster
 if [[ "${ENABLE_ISTIO_CNI:-false}" == true ]]; then
    cni_run_daemon
@@ -88,7 +91,9 @@ E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
 # clusters. There is no need to cleanup in the test jobs.
 E2E_ARGS+=("--skip_cleanup")
 
+echo "Run test."
+date
 time ISTIO_DOCKER_HUB=$HUB \
   E2E_ARGS="${E2E_ARGS[*]}" \
   JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit.xml" \
-  make with_junit_report TARGET="${SINGLE_TEST}" ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}
+  make with_junit_report TARGET="${SINGLE_TEST}" ${VARIANT:+ VARIANT="${VARIANT}"} ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}

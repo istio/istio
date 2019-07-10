@@ -23,7 +23,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/envoyproxy/go-control-plane/pkg/util"
+
 	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
+	tracev2 "github.com/envoyproxy/go-control-plane/envoy/config/trace/v2"
+
+	ocv1 "istio.io/gogo-genproto/opencensus/proto/trace/v1"
+
 	"github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
@@ -64,6 +70,11 @@ var (
 // cp $TOP/out/linux_amd64/release/bootstrap/tracing_lightstep/envoy-rev0.json pkg/bootstrap/testdata/tracing_lightstep_golden.json
 // cp $TOP/out/linux_amd64/release/bootstrap/tracing_zipkin/envoy-rev0.json pkg/bootstrap/testdata/tracing_zipkin_golden.json
 func TestGolden(t *testing.T) {
+	out := env.ISTIO_OUT.Value() // defined in the makefile
+	if out == "" {
+		out = "/tmp"
+	}
+
 	cases := []struct {
 		base                       string
 		labels                     map[string]string
@@ -71,6 +82,9 @@ func TestGolden(t *testing.T) {
 		expectLightstepAccessToken bool
 		stats                      stats
 		checkLocality              bool
+		setup                      func()
+		teardown                   func()
+		check                      func(got *v2.Bootstrap, t *testing.T)
 	}{
 		{
 			base: "auth",
@@ -102,6 +116,58 @@ func TestGolden(t *testing.T) {
 		},
 		{
 			base: "tracing_datadog",
+		},
+		{
+			base: "tracing_stackdriver",
+			setup: func() {
+				credPath := out + "/sd_cred.json"
+				if err := ioutil.WriteFile(credPath, []byte(`{"type": "service_account", "project_id": "my-sd-project"}`), os.ModePerm); err != nil {
+					t.Fatalf("unable write file: %v", err)
+				}
+				_ = os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", credPath)
+			},
+			teardown: func() {
+				credPath := out + "/sd_cred.json"
+				_ = os.Unsetenv("GOOGLE_APPLICATION_CREDENTIALS")
+				_ = os.Remove(credPath)
+			},
+			check: func(got *v2.Bootstrap, t *testing.T) {
+				cfg := got.Tracing.Http.GetConfig()
+				sdMsg := tracev2.OpenCensusConfig{}
+				if err := util.StructToMessage(cfg, &sdMsg); err != nil {
+					t.Fatalf("unable to parse: %v %v", cfg, err)
+				}
+
+				want := tracev2.OpenCensusConfig{
+					TraceConfig: &ocv1.TraceConfig{
+						Sampler: &ocv1.TraceConfig_ConstantSampler{
+							ConstantSampler: &ocv1.ConstantSampler{
+								Decision: ocv1.ConstantSampler_ALWAYS_PARENT,
+							},
+						},
+						MaxNumberOfAttributes:    200,
+						MaxNumberOfAnnotations:   201,
+						MaxNumberOfMessageEvents: 201,
+						MaxNumberOfLinks:         200,
+					},
+					StackdriverExporterEnabled: true,
+					StdoutExporterEnabled:      true,
+					StackdriverProjectId:       "my-sd-project",
+					IncomingTraceContext: []tracev2.OpenCensusConfig_TraceContext{
+						tracev2.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
+						tracev2.OpenCensusConfig_TRACE_CONTEXT,
+						tracev2.OpenCensusConfig_GRPC_TRACE_BIN},
+					OutgoingTraceContext: []tracev2.OpenCensusConfig_TraceContext{
+						tracev2.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
+						tracev2.OpenCensusConfig_TRACE_CONTEXT,
+						tracev2.OpenCensusConfig_GRPC_TRACE_BIN},
+				}
+
+				p, equal := diff.PrettyDiff(sdMsg, want)
+				if !equal {
+					t.Fatalf("t diff: %v\ngot: %v\nwant: %v\n", p, sdMsg, want)
+				}
+			},
 		},
 		{
 			// Specify zipkin/statsd address, similar with the default config in v1 tests
@@ -141,16 +207,18 @@ func TestGolden(t *testing.T) {
 		},
 	}
 
-	out := env.ISTIO_OUT.Value() // defined in the makefile
-	if out == "" {
-		out = "/tmp"
-	}
-
 	for _, c := range cases {
 		t.Run("Bootstrap-"+c.base, func(t *testing.T) {
+			if c.setup != nil {
+				c.setup()
+			}
+			if c.teardown != nil {
+				defer c.teardown()
+			}
+
 			cfg, err := loadProxyConfig(c.base, out, t)
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("unable to load proxy config: %s\n%v", c.base, err)
 			}
 
 			_, localEnv := createEnv(t, c.labels, c.annotations)
@@ -201,20 +269,30 @@ func TestGolden(t *testing.T) {
 			}
 
 			if err = goldenM.Validate(); err != nil {
-				t.Fatalf("invalid golder: %v", err)
+				t.Fatalf("invalid golden %s: %v", c.base, err)
 			}
 
 			jreal, err := yaml.YAMLToJSON(read)
 
 			if err != nil {
-				t.Fatalf("unable to convert: %v", err)
+				t.Fatalf("unable to convert: %s (%s) %v", c.base, fn, err)
 			}
 
 			if err = jsonpb.UnmarshalString(string(jreal), &realM); err != nil {
 				t.Fatalf("invalid json %v\n%s", err, string(read))
 			}
 
+			if err = realM.Validate(); err != nil {
+				t.Fatalf("invalid generated file %s: %v", c.base, err)
+			}
+
 			checkStatsMatcher(t, &realM, &goldenM, c.stats)
+
+			if c.check != nil {
+				c.check(&realM, t)
+			}
+
+			checkOpencensusConfig(t, &realM, &goldenM)
 
 			if !reflect.DeepEqual(realM, goldenM) {
 				s, _ := diff.PrettyDiff(realM, goldenM)
@@ -239,7 +317,6 @@ func TestGolden(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func checkListStringMatcher(t *testing.T, got *matcher.ListStringMatcher, want string, typ string) {
@@ -265,6 +342,21 @@ func checkListStringMatcher(t *testing.T, got *matcher.ListStringMatcher, want s
 	}
 }
 
+func checkOpencensusConfig(t *testing.T, got, want *v2.Bootstrap) {
+	if want.Tracing == nil {
+		return
+	}
+
+	if want.Tracing.Http.Name != "envoy.tracers.opencensus" {
+		return
+	}
+
+	if !reflect.DeepEqual(got.Tracing.Http, want.Tracing.Http) {
+		p, _ := diff.PrettyDiff(got.Tracing.Http, want.Tracing.Http)
+		t.Fatalf("t diff: %v\ngot:\n %v\nwant:\n %v\n", p, got.Tracing.Http, want.Tracing.Http)
+	}
+}
+
 func checkStatsMatcher(t *testing.T, got, want *v2.Bootstrap, stats stats) {
 	gsm := got.GetStatsConfig().GetStatsMatcher()
 
@@ -272,6 +364,12 @@ func checkStatsMatcher(t *testing.T, got, want *v2.Bootstrap, stats stats) {
 		stats.prefixes = requiredEnvoyStatsMatcherInclusionPrefixes
 	} else {
 		stats.prefixes += "," + requiredEnvoyStatsMatcherInclusionPrefixes
+	}
+
+	if stats.suffixes == "" {
+		stats.suffixes = requiredEnvoyStatsMatcherInclusionSuffix
+	} else {
+		stats.suffixes += "," + requiredEnvoyStatsMatcherInclusionSuffix
 	}
 
 	if err := gsm.Validate(); err != nil {

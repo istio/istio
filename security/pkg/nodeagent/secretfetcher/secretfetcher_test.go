@@ -18,17 +18,114 @@ import (
 	"bytes"
 	"testing"
 
-	"istio.io/istio/security/pkg/nodeagent/model"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"istio.io/istio/security/pkg/nodeagent/model"
+	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 )
 
 var (
+	k8sTestCertChainA = []byte(`-----BEGIN CERTIFICATE-----
+MIIFPzCCAyegAwIBAgIDEAISMA0GCSqGSIb3DQEBCwUAMEQxCzAJBgNVBAYTAlVT
+MQ8wDQYDVQQIDAZEZW5pYWwxDDAKBgNVBAoMA0RpczEWMBQGA1UEAwwNKi5leGFt
+cGxlLmNvbTAeFw0xOTA1MjkyMzEzMjFaFw0yOTA1MjYyMzEzMjFaMFoxCzAJBgNV
+BAYTAlVTMQ8wDQYDVQQIDAZEZW5pYWwxFDASBgNVBAcMC1NwcmluZ2ZpZWxkMQww
+CgYDVQQKDANEaXMxFjAUBgNVBAMMDSouZXhhbXBsZS5jb20wggEiMA0GCSqGSIb3
+DQEBAQUAA4IBDwAwggEKAoIBAQC7M6icT8vcZ3KZpTZW3zOUGBpJCRG5HKfclyZ7
+ONY9Dnc/3+nESJ0vqIOnV7/NbqjWoJYQ8v1xoUPRvAKA6nVSXmvHEfOuq0LofYFP
+DoC0o6WWi6VslZEOtf87jzcGLbLbBkBLbmd5/LWp5zw4Bexe0YHKSnsObcCphleN
+DeCaPA73Z9YzDEL53PLyH0emuXKyx+lsDcijv+ualVu4HACpeo354Df3XzyxH3TT
+5+sLLBVf4ZsyFsP/VtZYwP9PCWepgPH0l1ekPN7AE8MQQmddJUjTFepnRaVMvwmt
+dWirp/S1TVYawGLIN/SlX+BHvKPvcd0GXxKm8AjdHD2q7ZxtAgMBAAGjggEiMIIB
+HjAJBgNVHRMEAjAAMBEGCWCGSAGG+EIBAQQEAwIGQDAzBglghkgBhvhCAQ0EJhYk
+T3BlblNTTCBHZW5lcmF0ZWQgU2VydmVyIENlcnRpZmljYXRlMB0GA1UdDgQWBBQW
+ljUOEibJ9/dJ8dw1UOV8Wcg18TCBhAYDVR0jBH0we4AU44b/zezM4Uz3S6WXtXN+
+cQoj46WhXqRcMFoxCzAJBgNVBAYTAlVTMQ8wDQYDVQQIDAZEZW5pYWwxFDASBgNV
+BAcMC1NwcmluZ2ZpZWxkMQwwCgYDVQQKDANEaXMxFjAUBgNVBAMMDSouZXhhbXBs
+ZS5jb22CAxACEjAOBgNVHQ8BAf8EBAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwEw
+DQYJKoZIhvcNAQELBQADggIBABpv2bmPbl3meDpLQ2cSH9QoDitkYBMxwp7cL6GA
+4Orv6SPbE+PIiijpSSMKbbtMgliL8eJwxAjyPUms0djtH2hvDLZXnRmCVHm4+SOy
+CSU7PofELigd1B9w9BRQ183AWzClvtKoS/fVq8szHtLVy+5rgj6bigskdis6lnyN
+NzcXusi2Rp+BmcrNRsfin223dbrEG5qeJqTOniEtHyrIzFUYUK9RGtdSVq/k4+0m
+DQuG9yK7oqrhL5aSzIs89RD5ofDadhBZJx6OukIppO3aqDJPt8JKI72hhaJc0YNG
+CgbluqC2CCZK0BA9JB9c4WGDwr+yvmXxXTO/z5Tk27Pac3vVyEGV4Se5bG1ZT5it
+ctsLyKXW/GMWe55T3A5u/0ebvIM7VRquGq4khFq/Rm5uRJhkYBG2j40SHSoIZGV7
+bsQR2ucH//EOyWHN96JGrkKV9QaeK/+kV0u7rvqTbzMDKjp2dH0UxTEE7ToHczam
+iNNYj8XTzQ7BsqQY5Ti1N2MKxfzgtmik+3BEP42pr9RS9d4PCE/SxF6DOEcP9nZc
+5FbxAztiqK6WRZoXegLKEYylA/kT6BKk/M42jJ7SWH76f+Breylo28w+XRX01DPu
+3YtkgFZMmdf6fdZLgo3uOUP2aBUZYneHNMDDmt+/VqyykwpHLBeeJ4cAXikmWQQY
+rMx/
+-----END CERTIFICATE-----`)
+	k8sTestCertChainExpireTimeA, _ = nodeagentutil.ParseCertAndGetExpiryTimestamp(k8sTestCertChainA)
+	k8sTestCaCertA                 = []byte(`-----BEGIN CERTIFICATE-----
+MIIFgTCCA2mgAwIBAgIDEAISMA0GCSqGSIb3DQEBCwUAMFoxCzAJBgNVBAYTAlVT
+MQ8wDQYDVQQIDAZEZW5pYWwxFDASBgNVBAcMC1NwcmluZ2ZpZWxkMQwwCgYDVQQK
+DANEaXMxFjAUBgNVBAMMDSouZXhhbXBsZS5jb20wHhcNMTkwNTI5MjMxMzE5WhcN
+MzkwNTI0MjMxMzE5WjBEMQswCQYDVQQGEwJVUzEPMA0GA1UECAwGRGVuaWFsMQww
+CgYDVQQKDANEaXMxFjAUBgNVBAMMDSouZXhhbXBsZS5jb20wggIiMA0GCSqGSIb3
+DQEBAQUAA4ICDwAwggIKAoICAQDH9KuhyhG+uhwXda576gUnklaAmQNDmAA/NBP+
+qbx3MQIwDcfthikVaEvHPs1i6Roh8x35svenyq6ig2JE6Db77mq6/AvyrEuB2itw
+aeB20KqVxm2jKc8gQMiJOoYzaTElceCLXSwM2zxxefiXkk7UcyH8o3tWHyQHuGqB
+nqQa2FD/mlP6Jf4vxVnYVjab4k8ytFxqvWQGIqr1+qw3lY0dpNFetvSX0JUYzrtB
+2RB5l1n6GeFfBBgzi8cLmBNLdHP8fpjb6J3uo2vGzMFKGAIP4MdO56XEPTYqXTxm
+0Iw5uAOSf8ZxFhSToUZoOCPE3EKQh7EUyKn+bJSvDiIcXKwTMBMqoaLefx0yTfPS
+hkv1wWMVZ4uLGvJ2epgSLMk3vTKycDMa1qVAL5+Kl4+W39LU/mq3I5NSATZVvwrk
+SMGouLAMfc14hMfi/qw4vIhvxrulnkCkNdoLY75suUhaOgcvCeLD7XaBgeglfmCk
+Mn7ewI+dPkEgQqbqSy72nul5URubNO5e+fQ5LlwoOUX22iA0YJ/98KrutWMIq1GB
++ZM23ZPzgL1OQOgPBzf3GacyWoQMZl57apJPVUeMoakuqdiVefR0w3LxsMXusXIs
+FgtNIpj7/i7vc+CSnd1yp2cUFe3Lagg9jflSNEanR/rQoTxyOnjl4Q4zxtrhTIND
+ylqDcQIDAQABo2YwZDAdBgNVHQ4EFgQU44b/zezM4Uz3S6WXtXN+cQoj46UwHwYD
+VR0jBBgwFoAUVQpCveVxgNI3RhgPgillGF75pwkwEgYDVR0TAQH/BAgwBgEB/wIB
+ADAOBgNVHQ8BAf8EBAMCAYYwDQYJKoZIhvcNAQELBQADggIBAAO1OOyIMjcFqBWB
+svy/2lg87mGRhVnOlx8eeDw47Xrq2H665EgTxKefwpCe5w2vWvijiPenag6BGqbH
+M7bwVoMf5i9ETtUihsFybST7QRQV8uaDk/uL5mLgZ5qucM+Uk1P3Y7Y4JiRxvLLn
+0FRKTWfvQnql3KLdeHQ0nYKoiHIlLfrcVI9hDxHEs75ZJ/4OHMzyUDK+idQu2UXW
+nY6Mydh1oMQ07vfbuzix7OntJB5/aP+XO5cTfqhUE68sXFHOuJrEidHO+Ec3nLib
+kEN1hOhN2z3PGOisyg4GVrbz24y5NxEhE8qfFFjBDdHHLw42EjuZtVBIh0Ubh5d9
+jxN1QUW0MdH0B3prb4D+ptab9LxZLe0prfv/iDqfVgtDZUrZG2xaqe9/aX85SMLn
+4nx42zDBnNkgRaVAc5oC/WT4IhbJG2YlWZ4ZymvoLl4ZrKms983qcg6cK++MZYz/
+ggC4eqSXqApQ99FA/j/c9Is3iMuWArhpVqe+sNjcD3+Fudhra91GxYAr6R+HubJV
+hFI0ryZ+QphOSQMPi+ai5SWidwu2k7nzCwIQ7IkBBlwnjpVsZYtPXOdb4vf36ojU
+rc8cdnePDG810YTvyE+nullZVnvQ4biHckIueMLdcxvg0H7BwI4rUFHxwckyRrHO
+0kR1qoe1f8jDvCzcFeImPQ2BR4FW
+-----END CERTIFICATE-----`)
+	k8sTestCaCertExpireTimeA, _ = nodeagentutil.ParseCertAndGetExpiryTimestamp(k8sTestCaCertA)
+	k8sTestCertChainB           = []byte(`-----BEGIN CERTIFICATE-----
+MIIFPzCCAyegAwIBAgIDEAISMA0GCSqGSIb3DQEBCwUAMEQxCzAJBgNVBAYTAlVT
+MQ8wDQYDVQQIDAZEZW5pYWwxDDAKBgNVBAoMA0RpczEWMBQGA1UEAwwNKi5leGFt
+cGxlLmNvbTAeFw0xOTA1MjkyMzE0NDJaFw0yOTA1MjYyMzE0NDJaMFoxCzAJBgNV
+BAYTAlVTMQ8wDQYDVQQIDAZEZW5pYWwxFDASBgNVBAcMC1NwcmluZ2ZpZWxkMQww
+CgYDVQQKDANEaXMxFjAUBgNVBAMMDSouZXhhbXBsZS5jb20wggEiMA0GCSqGSIb3
+DQEBAQUAA4IBDwAwggEKAoIBAQC2VeRleiVMqw/1zcMZrWJmML0nTdYaNliI7WIj
+wQvZ+k05D469nClWg7vZ4whOK9lxIHzjWyxSC5FUFqX+NrKm3XbFo9/9u33GCjdO
+2gaTr/zCter0a0kPsL5n9KwUkXseRMcrQyV39vl6c9Oecnr1LBhIvg1Z9iwFZsgS
+aE8/NMZbsFALQx6EdiltG8lmz4jNPMAd2XS0MnKyO4EGXkkOvkthhf5kJ4KoGtVa
+fhZUyActPeUYnaEspXxHE3ANerZPJs+Waykzt9oXpgplyQAmEPTzX3EttCLs0qH7
+ZpdceYsOxSm06ea1G46yMzEoQMH5OLkmjfeohngDITa8ELy9AgMBAAGjggEiMIIB
+HjAJBgNVHRMEAjAAMBEGCWCGSAGG+EIBAQQEAwIGQDAzBglghkgBhvhCAQ0EJhYk
+T3BlblNTTCBHZW5lcmF0ZWQgU2VydmVyIENlcnRpZmljYXRlMB0GA1UdDgQWBBQ+
+DNEDMyYWywiYdD8or9ScBq2JdDCBhAYDVR0jBH0we4AURfQW0owHXQLtnkMvKDSx
+CY4Wy5qhXqRcMFoxCzAJBgNVBAYTAlVTMQ8wDQYDVQQIDAZEZW5pYWwxFDASBgNV
+BAcMC1NwcmluZ2ZpZWxkMQwwCgYDVQQKDANEaXMxFjAUBgNVBAMMDSouZXhhbXBs
+ZS5jb22CAxACEjAOBgNVHQ8BAf8EBAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwEw
+DQYJKoZIhvcNAQELBQADggIBAAv98L5UBqLla4cpLQJQnW/iz9U0biLYRc80JLJY
+50kZ2gsQeGxAd3XLzlgjh95z64JCaFO2XRcpNlEvJ0knAQby8UzBEvDYUDJXlG0p
+4WDXndZDqXq3xMs3HHADT42KOLXKu1xcPZ/JyInLdZXnB4lMDIiPk2Kb/w6J+aIV
+/jMMosxoEiOr1Rzv34xRNys/HpxFsItwJwUmMzXyM1eLDQPnvklt52va3WdZw6Ki
+N1+KCxrbKCxBhTB1itvOAHX3KC7UTt0k0fP7pDc6lranc3hmDRgGIBy5vW+hrtZy
+BGMJ/9jT+LWaBBAhhWQOYT0ILC/FmgUipC6kzB6KJrcDsrAxyr+lCxB0qy2HBtnm
+s/geO3f6Z7cXLirwNi2SY6+D2jNbguJzvX43x/UNa4qUvXRi5tj/TwDth9M6jEnH
+6ml+13liI8QX4+79ODgePt6VjxR71+KSd+51Qcwn1oajr80KoI0NhuuP4ZCBV53K
+5Njz6XvJsPMgeVAIRmt3P+gOCW8kQrX6Qgb1fIvSrqR7vLpmybRQcvPt+k/T3m1F
+VTkSsST68aOXCmHFLNA/6QB/OUatQYSr+O5iGz99xPEyz4EvHN5ZqTf51d+kyUje
+zXsMLXBLCRwYz2U8y1FCcdOvCqDixneworIrBYDmoSafGUceSGQZOCN6ajW7fujg
+FWy1
+-----END CERTIFICATE-----`)
 	k8sKeyA               = []byte("fake private k8sKeyA")
-	k8sCertChainA         = []byte("fake cert chain A")
-	k8sCaCertA            = []byte("fake root cert A")
+	k8sCertChainA         = k8sTestCertChainA
+	k8sCaCertA            = k8sTestCaCertA
 	k8sSecretNameA        = "test-scrtA"
 	k8sTestGenericSecretA = &v1.Secret{
 		Data: map[string][]byte{
@@ -55,8 +152,8 @@ var (
 	}
 
 	k8sKeyB               = []byte("k8sKeyB private fake")
-	k8sCertChainB         = []byte("B chain cert fake")
-	k8sCaCertB            = []byte("B cert root fake")
+	k8sCertChainB         = k8sTestCertChainA
+	k8sCaCertB            = k8sTestCaCertA
 	k8sTestGenericSecretB = &v1.Secret{
 		Data: map[string][]byte{
 			genericScrtCert:   k8sCertChainB,
@@ -71,7 +168,7 @@ var (
 	}
 
 	k8sKeyC           = []byte("fake private k8sKeyC")
-	k8sCertChainC     = []byte("fake cert chain C")
+	k8sCertChainC     = k8sTestCertChainA
 	k8sSecretNameC    = "test-scrtC"
 	k8sTestTLSSecretC = &v1.Secret{
 		Data: map[string][]byte{
@@ -86,7 +183,7 @@ var (
 	}
 
 	k8sKeyD           = []byte("fake private k8sKeyD")
-	k8sCertChainD     = []byte("fake cert chain D")
+	k8sCertChainD     = k8sTestCertChainA
 	k8sTestTLSSecretD = &v1.Secret{
 		Data: map[string][]byte{
 			tlsScrtCert: k8sCertChainD,
@@ -101,7 +198,7 @@ var (
 
 	k8sSecretFallbackScrt    = "fallback-scrt"
 	k8sFallbackKey           = []byte("fallback fake private key")
-	k8sFallbackCertChain     = []byte("fallback fake cert chain")
+	k8sFallbackCertChain     = k8sTestCertChainB
 	k8sTestTLSFallbackSecret = &v1.Secret{
 		Data: map[string][]byte{
 			tlsScrtCert: k8sFallbackCertChain,
@@ -149,6 +246,7 @@ func TestSecretFetcher(t *testing.T) {
 			secret: &model.SecretItem{
 				ResourceName:     k8sSecretNameA,
 				CertificateChain: k8sCertChainA,
+				ExpireTime:       k8sTestCertChainExpireTimeA,
 				PrivateKey:       k8sKeyA,
 			},
 		},
@@ -157,6 +255,7 @@ func TestSecretFetcher(t *testing.T) {
 			secret: &model.SecretItem{
 				ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix,
 				RootCert:     k8sCaCertA,
+				ExpireTime:   k8sTestCaCertExpireTimeA,
 			},
 		},
 	}
@@ -190,6 +289,7 @@ func TestSecretFetcher(t *testing.T) {
 			secret: &model.SecretItem{
 				ResourceName:     k8sSecretNameA,
 				CertificateChain: k8sCertChainB,
+				ExpireTime:       k8sTestCertChainExpireTimeA,
 				PrivateKey:       k8sKeyB,
 			},
 		},
@@ -198,6 +298,7 @@ func TestSecretFetcher(t *testing.T) {
 			secret: &model.SecretItem{
 				ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix,
 				RootCert:     k8sCaCertB,
+				ExpireTime:   k8sTestCaCertExpireTimeA,
 			},
 		},
 	}
@@ -236,6 +337,7 @@ func TestSecretFetcherInvalidSecret(t *testing.T) {
 			secret: &model.SecretItem{
 				ResourceName:     k8sSecretNameA,
 				CertificateChain: k8sCertChainB,
+				ExpireTime:       k8sTestCertChainExpireTimeA,
 				PrivateKey:       k8sKeyB,
 			},
 		},
@@ -244,6 +346,7 @@ func TestSecretFetcherInvalidSecret(t *testing.T) {
 			secret: &model.SecretItem{
 				ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix,
 				RootCert:     k8sCaCertB,
+				ExpireTime:   k8sTestCaCertExpireTimeA,
 			},
 		},
 	}
@@ -329,6 +432,7 @@ func TestSecretFetcherSkipSecret(t *testing.T) {
 			secret: &model.SecretItem{
 				ResourceName:     k8sSecretNameA,
 				CertificateChain: k8sCertChainB,
+				ExpireTime:       k8sTestCertChainExpireTimeA,
 				PrivateKey:       k8sKeyB,
 			},
 		},
@@ -337,6 +441,7 @@ func TestSecretFetcherSkipSecret(t *testing.T) {
 			secret: &model.SecretItem{
 				ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix,
 				RootCert:     k8sCaCertB,
+				ExpireTime:   k8sTestCaCertExpireTimeA,
 			},
 		},
 	}
@@ -403,6 +508,7 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 			secret: &model.SecretItem{
 				ResourceName:     k8sSecretNameC,
 				CertificateChain: k8sCertChainC,
+				ExpireTime:       k8sTestCertChainExpireTimeA,
 				PrivateKey:       k8sKeyC,
 			},
 		},
@@ -439,6 +545,7 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 			secret: &model.SecretItem{
 				ResourceName:     k8sSecretNameC,
 				CertificateChain: k8sCertChainD,
+				ExpireTime:       k8sTestCertChainExpireTimeA,
 				PrivateKey:       k8sKeyD,
 			},
 		},
@@ -497,6 +604,7 @@ func TestSecretFetcherUsingFallbackIngressSecret(t *testing.T) {
 			secret: &model.SecretItem{
 				ResourceName:     k8sSecretNameA,
 				CertificateChain: k8sCertChainA,
+				ExpireTime:       k8sTestCertChainExpireTimeA,
 				PrivateKey:       k8sKeyA,
 			},
 		},
@@ -505,6 +613,7 @@ func TestSecretFetcherUsingFallbackIngressSecret(t *testing.T) {
 			secret: &model.SecretItem{
 				ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix,
 				RootCert:     k8sCaCertA,
+				ExpireTime:   k8sTestCaCertExpireTimeA,
 			},
 		},
 	}
@@ -544,6 +653,7 @@ func TestSecretFetcherUsingFallbackIngressSecret(t *testing.T) {
 			secret: &model.SecretItem{
 				ResourceName:     k8sSecretNameA,
 				CertificateChain: k8sCertChainB,
+				ExpireTime:       k8sTestCertChainExpireTimeA,
 				PrivateKey:       k8sKeyB,
 			},
 		},
@@ -552,6 +662,7 @@ func TestSecretFetcherUsingFallbackIngressSecret(t *testing.T) {
 			secret: &model.SecretItem{
 				ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix,
 				RootCert:     k8sCaCertB,
+				ExpireTime:   k8sTestCaCertExpireTimeA,
 			},
 		},
 	}

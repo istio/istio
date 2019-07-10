@@ -168,6 +168,21 @@ func (m *ClusterStatus) Validate() error {
 
 	}
 
+	{
+		tmp := m.GetLocalOriginSuccessRateEjectionThreshold()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return ClusterStatusValidationError{
+					field:  "LocalOriginSuccessRateEjectionThreshold",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -299,6 +314,25 @@ func (m *HostStatus) Validate() error {
 
 	// no validation rules for Weight
 
+	// no validation rules for Hostname
+
+	// no validation rules for Priority
+
+	{
+		tmp := m.GetLocalOriginSuccessRate()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return HostStatusValidationError{
+					field:  "LocalOriginSuccessRate",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -369,6 +403,10 @@ func (m *HostHealthStatus) Validate() error {
 	// no validation rules for FailedOutlierCheck
 
 	// no validation rules for FailedActiveDegradedCheck
+
+	// no validation rules for PendingDynamicRemoval
+
+	// no validation rules for PendingActiveHc
 
 	// no validation rules for EdsHealthStatus
 

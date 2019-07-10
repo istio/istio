@@ -22,18 +22,19 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pkg/features/pilot"
-	"istio.io/pkg/log"
 )
 
 // controller is a collection of synchronized resource watchers.
@@ -50,16 +51,22 @@ type cacheHandler struct {
 }
 
 var (
-	// experiment on getting some monitoring on config errors.
-	k8sEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "pilot_k8s_cfg_events",
-		Help: "Events from k8s config.",
-	}, []string{"type", "event"})
+	typeTag  = monitoring.MustCreateTag("type")
+	eventTag = monitoring.MustCreateTag("event")
+	nameTag  = monitoring.MustCreateTag("name")
 
-	k8sErrors = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pilot_k8s_object_errors",
-		Help: "Errors converting k8s CRDs",
-	}, []string{"name"})
+	// experiment on getting some monitoring on config errors.
+	k8sEvents = monitoring.NewSum(
+		"pilot_k8s_cfg_events",
+		"Events from k8s config.",
+		typeTag, eventTag,
+	)
+
+	k8sErrors = monitoring.NewGauge(
+		"pilot_k8s_object_errors",
+		"Errors converting k8s CRDs",
+		nameTag,
+	)
 
 	// InvalidCRDs contains a sync.Map keyed by the namespace/name of the entry, and has the error as value.
 	// It can be used by tools like ctrlz to display the errors.
@@ -67,8 +74,7 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(k8sEvents)
-	prometheus.MustRegister(k8sErrors)
+	monitoring.MustRegisterViews(k8sEvents, k8sErrors)
 }
 
 // NewController creates a new Kubernetes controller for CRDs
@@ -156,24 +162,28 @@ func (c *controller) createInformer(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
-				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
+				incrementEvent(otype, "add")
 				c.queue.Push(kube.NewTask(handler.Apply, obj, model.EventAdd))
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
-					k8sEvents.With(prometheus.Labels{"type": otype, "event": "update"}).Add(1)
+					incrementEvent(otype, "update")
 					c.queue.Push(kube.NewTask(handler.Apply, cur, model.EventUpdate))
 				} else {
-					k8sEvents.With(prometheus.Labels{"type": otype, "event": "updateSame"}).Add(1)
+					incrementEvent(otype, "updatesame")
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				k8sEvents.With(prometheus.Labels{"type": otype, "event": "delete"}).Add(1)
+				incrementEvent(otype, "delete")
 				c.queue.Push(kube.NewTask(handler.Apply, obj, model.EventDelete))
 			},
 		})
 
 	return cacheHandler{informer: informer, handler: handler}
+}
+
+func incrementEvent(kind, event string) {
+	k8sEvents.With(typeTag.Value(kind), eventTag.Value(event)).Increment()
 }
 
 func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
@@ -207,7 +217,7 @@ func (c *controller) HasSynced() bool {
 
 func (c *controller) Run(stop <-chan struct{}) {
 	go func() {
-		if pilot.EnableWaitCacheSync {
+		if features.EnableWaitCacheSync {
 			cache.WaitForCacheSync(stop, c.HasSynced)
 		}
 		c.queue.Run(stop)
@@ -279,7 +289,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 	oldMap := InvalidCRDs.Load()
 	if oldMap != nil {
 		oldMap.(*sync.Map).Range(func(key, value interface{}) bool {
-			k8sErrors.With(prometheus.Labels{"name": key.(string)}).Set(1)
+			k8sErrors.With(nameTag.Value(key.(string))).Record(1)
 			return true
 		})
 	}
@@ -301,7 +311,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 			// the rest should still be processed.
 			// TODO: find a way to reset and represent the error !!
 			newErrors.Store(key, err)
-			k8sErrors.With(prometheus.Labels{"name": key}).Set(1)
+			k8sErrors.With(nameTag.Value(key)).Record(1)
 		} else {
 			out = append(out, *config)
 		}

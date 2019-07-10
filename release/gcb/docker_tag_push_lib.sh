@@ -92,10 +92,10 @@ function docker_tag_images() {
     docker load -i "${TAR_PATH}"
     DOCKER_OUT=$(docker load -i "${TAR_PATH}")
     SRC_HUB=$(echo "$DOCKER_OUT" | cut -f 2 -d : | xargs dirname)
-    SRC_TAG=$(echo "$DOCKER_OUT" | cut -f 3 -d :)
+    SRC_TAG_WITH_VARIANT=$(echo "$DOCKER_OUT" | cut -f 3 -d :)
 
 
-    docker tag "${SRC_HUB}/${IMAGE_NAME}:${SRC_TAG}${VARIANT_NAME}" \
+    docker tag "${SRC_HUB}/${IMAGE_NAME}:${SRC_TAG_WITH_VARIANT}" \
                 "${DST_HUB}/${IMAGE_NAME}:${DST_TAG}${VARIANT_NAME}"
   done
 }
@@ -145,10 +145,11 @@ function set_image_vars() {
   TAR_NAME="${BASE_NAME%.*}"
   IMAGE_NAME="${TAR_NAME%.*}"
   VARIANT_NAME=""
-  #check if it is a build variant (e.g. distroless)
+  #check if it is a build variant (e.g. sidecar_injector-distroless)
   case "${IMAGE_NAME}" in
     *-distroless)
-      VARIANT_NAME="-${IMAGE_NAME##*-}"
+      # in case of a distroless tar file, we remove the "-distroless" from the image name
+      VARIANT_NAME="-distroless"
       IMAGE_NAME="${IMAGE_NAME%${VARIANT_NAME}}"
       ;;
   esac

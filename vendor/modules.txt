@@ -139,7 +139,7 @@ github.com/docker/spdystream/spdy
 # github.com/emicklei/go-restful v2.6.0+incompatible
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
-# github.com/envoyproxy/go-control-plane v0.8.0
+# github.com/envoyproxy/go-control-plane v0.8.2
 github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha
 github.com/envoyproxy/go-control-plane/envoy/api/v2
 github.com/envoyproxy/go-control-plane/envoy/api/v2/auth
@@ -161,20 +161,22 @@ github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2
 github.com/envoyproxy/go-control-plane/envoy/type
 github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2
-github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha
+github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2
 github.com/envoyproxy/go-control-plane/envoy/type/matcher
 github.com/envoyproxy/go-control-plane/envoy/config/filter/http/health_check/v2
 github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2
+github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha
 github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha
 github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2
 github.com/envoyproxy/go-control-plane/envoy/service/tap/v2alpha
 github.com/envoyproxy/go-control-plane/pkg/cache
 github.com/envoyproxy/go-control-plane/pkg/server
+github.com/envoyproxy/go-control-plane/envoy/config/trace/v2
 github.com/envoyproxy/go-control-plane/envoy/config/metrics/v2
 github.com/envoyproxy/go-control-plane/envoy/config/overload/v2alpha
-github.com/envoyproxy/go-control-plane/envoy/config/trace/v2
+github.com/envoyproxy/go-control-plane/envoy/data/tap/v2alpha
 github.com/envoyproxy/go-control-plane/pkg/log
-# github.com/envoyproxy/protoc-gen-validate v0.0.14
+# github.com/envoyproxy/protoc-gen-validate v0.0.0-20190405222122-d6164de49109
 github.com/envoyproxy/protoc-gen-validate/validate
 # github.com/evanphx/json-patch v3.0.0+incompatible
 github.com/evanphx/json-patch
@@ -348,6 +350,14 @@ github.com/jmespath/go-jmespath
 github.com/json-iterator/go
 # github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515
 github.com/kr/logfmt
+# github.com/lestrrat-go/jwx v0.9.0
+github.com/lestrrat-go/jwx/jwa
+github.com/lestrrat-go/jwx/jwk
+github.com/lestrrat-go/jwx/jws
+github.com/lestrrat-go/jwx/internal/base64
+github.com/lestrrat-go/jwx/internal/option
+github.com/lestrrat-go/jwx/jws/sign
+github.com/lestrrat-go/jwx/jws/verify
 # github.com/lukechampine/freeze v0.0.0-20160818180733-f514e08ae5a0
 github.com/lukechampine/freeze
 # github.com/magiconair/properties v1.8.0
@@ -464,7 +474,7 @@ github.com/signalfx/golib/event
 github.com/signalfx/golib/log
 github.com/signalfx/golib/timekeeper
 github.com/signalfx/golib/eventcounter
-# github.com/spf13/afero v1.1.2
+# github.com/spf13/afero v1.2.2
 github.com/spf13/afero
 github.com/spf13/afero/mem
 # github.com/spf13/cast v1.3.0
@@ -712,7 +722,7 @@ gopkg.in/square/go-jose.v2/cipher
 gopkg.in/stack.v1
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
-# istio.io/api v0.0.0-20190624184750-868535377704
+# istio.io/api v0.0.0-20190708200418-70f6e4eada00
 istio.io/api/mesh/v1alpha1
 istio.io/api/authentication/v1alpha1
 istio.io/api/mixer/v1/config/client
@@ -724,6 +734,8 @@ istio.io/api/envoy/config/filter/http/authn/v2alpha1
 istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1
 istio.io/api/mixer/adapter/model/v1beta1
 istio.io/api/mixer/v1
+# istio.io/gogo-genproto v0.0.0-20190614210408-e88dc8b0e4db
+istio.io/gogo-genproto/opencensus/proto/trace/v1
 # istio.io/pkg v0.0.0-20190624144336-268695a9d878
 istio.io/pkg/collateral
 istio.io/pkg/log
@@ -731,8 +743,8 @@ istio.io/pkg/probe
 istio.io/pkg/version
 istio.io/pkg/filewatcher
 istio.io/pkg/timedfn
-istio.io/pkg/ctrlz
 istio.io/pkg/ctrlz/fw
+istio.io/pkg/ctrlz
 istio.io/pkg/env
 istio.io/pkg/appsignals
 istio.io/pkg/pool

@@ -50,11 +50,8 @@ func New(domain string, pods pod.Cache) *Instance {
 // ServiceEntry is passed as an argument (out) in order to enable object reuse in the future.
 func (i *Instance) Convert(service *resource.Entry, endpoints *resource.Entry, outMeta *mcp.Metadata,
 	out *networking.ServiceEntry) error {
-	if err := i.convertService(service, outMeta, out); err != nil {
-		return err
-	}
 	i.convertEndpoints(endpoints, outMeta, out)
-	return nil
+	return i.convertService(service, outMeta, out)
 }
 
 // convertService applies the k8s Service to the output.
@@ -65,10 +62,17 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *mcp.Metadata
 	}
 
 	spec := service.Item.(*coreV1.ServiceSpec)
-
-	resolution := networking.ServiceEntry_STATIC
 	location := networking.ServiceEntry_MESH_INTERNAL
-	endpoints := convertExternalServiceEndpoints(spec, service.Metadata)
+	endpoints := out.Endpoints
+	if len(endpoints) == 0 {
+		endpoints = convertExternalServiceEndpoints(spec, service.Metadata)
+	}
+
+	var resolution networking.ServiceEntry_Resolution
+	// Resolution STATIC must have endpoints
+	if len(endpoints) != 0 {
+		resolution = networking.ServiceEntry_STATIC
+	}
 
 	// Check for an external service
 	externalName := ""
@@ -87,6 +91,10 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *mcp.Metadata
 		// Headless services should not be load balanced
 		resolution = networking.ServiceEntry_NONE
 	}
+	// Resolution NONE must not have endpoints
+	if resolution == networking.ServiceEntry_NONE && len(endpoints) != 0 {
+		resolution = networking.ServiceEntry_STATIC
+	}
 
 	ports := make([]*networking.Port, 0, len(spec.Ports))
 	for _, port := range spec.Ports {
@@ -97,7 +105,10 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *mcp.Metadata
 
 	// Store everything in the ServiceEntry.
 	out.Hosts = []string{host}
-	out.Addresses = []string{addr}
+	// CIDR addrs are only allowed for NONE/STATIC resolution types
+	if resolution != networking.ServiceEntry_DNS {
+		out.Addresses = []string{addr}
+	}
 	out.Resolution = resolution
 	out.Location = location
 	out.Ports = ports

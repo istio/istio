@@ -21,7 +21,7 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/proto"
@@ -204,8 +204,7 @@ func newTCPProxyListenerFilter(env *model.Environment, node *model.Proxy, isInbo
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 	}
 
-	if env.Mesh.OutboundTrafficPolicy.Mode == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY ||
-		isInboundListener {
+	if isAllowAny(node) || isInboundListener {
 		// We need a passthrough filter to fill in the filter stack for orig_dst listener
 		tcpProxy = &tcp_proxy.TcpProxy{
 			StatPrefix:       util.PassthroughCluster,
@@ -224,4 +223,8 @@ func newTCPProxyListenerFilter(env *model.Environment, node *model.Proxy, isInbo
 		filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
 	}
 	return &filter
+}
+
+func isAllowAny(node *model.Proxy) bool {
+	return node.SidecarScope.OutboundTrafficPolicy != nil && node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY
 }

@@ -76,14 +76,22 @@ function check_samples() {
     echo 'Samples OK'
 }
 
+function run_yaml_lint(){
+    echo 'Checking yaml files with yamllint'
+    bin/yaml_lint.sh
+    echo 'yamllint check passed'
+}
+
 ensure_pilot_types
 check_licenses
 run_adapter_lint
 run_test_lint
 run_envvar_lint
 run_helm_lint
+run_yaml_lint
 check_grafana_dashboards
 check_samples
+
 
 "${WORKSPACE}/scripts/run_golangci.sh"
 "${WORKSPACE}/scripts/check_license.sh"

@@ -597,6 +597,113 @@ var _ interface {
 	ErrorName() string
 } = RoutesConfigDumpValidationError{}
 
+// Validate checks the field values on ScopedRoutesConfigDump with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *ScopedRoutesConfigDump) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	for idx, item := range m.GetInlineScopedRouteConfigs() {
+		_, _ = idx, item
+
+		{
+			tmp := item
+
+			if v, ok := interface{}(&tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return ScopedRoutesConfigDumpValidationError{
+						field:  fmt.Sprintf("InlineScopedRouteConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
+				}
+			}
+		}
+
+	}
+
+	for idx, item := range m.GetDynamicScopedRouteConfigs() {
+		_, _ = idx, item
+
+		{
+			tmp := item
+
+			if v, ok := interface{}(&tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return ScopedRoutesConfigDumpValidationError{
+						field:  fmt.Sprintf("DynamicScopedRouteConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
+				}
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// ScopedRoutesConfigDumpValidationError is the validation error returned by
+// ScopedRoutesConfigDump.Validate if the designated constraints aren't met.
+type ScopedRoutesConfigDumpValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ScopedRoutesConfigDumpValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ScopedRoutesConfigDumpValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ScopedRoutesConfigDumpValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ScopedRoutesConfigDumpValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ScopedRoutesConfigDumpValidationError) ErrorName() string {
+	return "ScopedRoutesConfigDumpValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ScopedRoutesConfigDumpValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sScopedRoutesConfigDump.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ScopedRoutesConfigDumpValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ScopedRoutesConfigDumpValidationError{}
+
 // Validate checks the field values on ListenersConfigDump_StaticListener with
 // the rules defined in the proto definition for this message. If any rules
 // are violated, an error is returned.
@@ -1190,3 +1297,225 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = RoutesConfigDump_DynamicRouteConfigValidationError{}
+
+// Validate checks the field values on
+// ScopedRoutesConfigDump_InlineScopedRouteConfigs with the rules defined in
+// the proto definition for this message. If any rules are violated, an error
+// is returned.
+func (m *ScopedRoutesConfigDump_InlineScopedRouteConfigs) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for Name
+
+	for idx, item := range m.GetScopedRouteConfigs() {
+		_, _ = idx, item
+
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return ScopedRoutesConfigDump_InlineScopedRouteConfigsValidationError{
+						field:  fmt.Sprintf("ScopedRouteConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
+				}
+			}
+		}
+
+	}
+
+	{
+		tmp := m.GetLastUpdated()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return ScopedRoutesConfigDump_InlineScopedRouteConfigsValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// ScopedRoutesConfigDump_InlineScopedRouteConfigsValidationError is the
+// validation error returned by
+// ScopedRoutesConfigDump_InlineScopedRouteConfigs.Validate if the designated
+// constraints aren't met.
+type ScopedRoutesConfigDump_InlineScopedRouteConfigsValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ScopedRoutesConfigDump_InlineScopedRouteConfigsValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ScopedRoutesConfigDump_InlineScopedRouteConfigsValidationError) Reason() string {
+	return e.reason
+}
+
+// Cause function returns cause value.
+func (e ScopedRoutesConfigDump_InlineScopedRouteConfigsValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ScopedRoutesConfigDump_InlineScopedRouteConfigsValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ScopedRoutesConfigDump_InlineScopedRouteConfigsValidationError) ErrorName() string {
+	return "ScopedRoutesConfigDump_InlineScopedRouteConfigsValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ScopedRoutesConfigDump_InlineScopedRouteConfigsValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sScopedRoutesConfigDump_InlineScopedRouteConfigs.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ScopedRoutesConfigDump_InlineScopedRouteConfigsValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ScopedRoutesConfigDump_InlineScopedRouteConfigsValidationError{}
+
+// Validate checks the field values on
+// ScopedRoutesConfigDump_DynamicScopedRouteConfigs with the rules defined in
+// the proto definition for this message. If any rules are violated, an error
+// is returned.
+func (m *ScopedRoutesConfigDump_DynamicScopedRouteConfigs) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for Name
+
+	// no validation rules for VersionInfo
+
+	for idx, item := range m.GetScopedRouteConfigs() {
+		_, _ = idx, item
+
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError{
+						field:  fmt.Sprintf("ScopedRouteConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
+				}
+			}
+		}
+
+	}
+
+	{
+		tmp := m.GetLastUpdated()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError is the
+// validation error returned by
+// ScopedRoutesConfigDump_DynamicScopedRouteConfigs.Validate if the designated
+// constraints aren't met.
+type ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError) Field() string {
+	return e.field
+}
+
+// Reason function returns reason value.
+func (e ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError) Reason() string {
+	return e.reason
+}
+
+// Cause function returns cause value.
+func (e ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError) ErrorName() string {
+	return "ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sScopedRoutesConfigDump_DynamicScopedRouteConfigs.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ScopedRoutesConfigDump_DynamicScopedRouteConfigsValidationError{}
