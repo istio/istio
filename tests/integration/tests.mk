@@ -70,7 +70,6 @@ test.integration.new.installer: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
 	$(GO) test -p 1 ${T} ${NEW_INSTALLER_TARGETS} ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
-	--istio.test.nocleanup \
 	--istio.test.kube.deploy=false \
 	--istio.test.select -postsubmit,-flaky,-customsetup \
 	--istio.test.kube.minikube \
