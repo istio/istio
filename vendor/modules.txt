@@ -139,7 +139,7 @@ github.com/docker/spdystream/spdy
 # github.com/emicklei/go-restful v2.6.0+incompatible
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
-# github.com/envoyproxy/go-control-plane v0.8.1
+# github.com/envoyproxy/go-control-plane v0.8.2
 github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha
 github.com/envoyproxy/go-control-plane/envoy/api/v2
 github.com/envoyproxy/go-control-plane/envoy/api/v2/auth
@@ -165,16 +165,18 @@ github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2
 github.com/envoyproxy/go-control-plane/envoy/type/matcher
 github.com/envoyproxy/go-control-plane/envoy/config/filter/http/health_check/v2
 github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2
+github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha
 github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha
 github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2
 github.com/envoyproxy/go-control-plane/envoy/service/tap/v2alpha
 github.com/envoyproxy/go-control-plane/pkg/cache
 github.com/envoyproxy/go-control-plane/pkg/server
+github.com/envoyproxy/go-control-plane/envoy/config/trace/v2
 github.com/envoyproxy/go-control-plane/envoy/config/metrics/v2
 github.com/envoyproxy/go-control-plane/envoy/config/overload/v2alpha
-github.com/envoyproxy/go-control-plane/envoy/config/trace/v2
+github.com/envoyproxy/go-control-plane/envoy/data/tap/v2alpha
 github.com/envoyproxy/go-control-plane/pkg/log
-# github.com/envoyproxy/protoc-gen-validate v0.0.14
+# github.com/envoyproxy/protoc-gen-validate v0.0.0-20190405222122-d6164de49109
 github.com/envoyproxy/protoc-gen-validate/validate
 # github.com/evanphx/json-patch v3.0.0+incompatible
 github.com/evanphx/json-patch
@@ -472,7 +474,7 @@ github.com/signalfx/golib/event
 github.com/signalfx/golib/log
 github.com/signalfx/golib/timekeeper
 github.com/signalfx/golib/eventcounter
-# github.com/spf13/afero v1.1.2
+# github.com/spf13/afero v1.2.2
 github.com/spf13/afero
 github.com/spf13/afero/mem
 # github.com/spf13/cast v1.3.0

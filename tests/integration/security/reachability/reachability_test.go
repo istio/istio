@@ -162,6 +162,7 @@ func TestReachability(t *testing.T) {
 			}
 
 			for _, c := range testCases {
+				c := c
 				testName := strings.TrimSuffix(c.configFile, filepath.Ext(c.configFile))
 				test := ctx.NewSubTest(testName)
 
