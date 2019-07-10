@@ -53,15 +53,15 @@ type authenticator interface {
 // Server implements IstioCAService and IstioCertificateService and provides the services on the
 // specified port.
 type Server struct {
-	authenticators []authenticator
-	authorizer     authorizer
-	serverCertTTL  time.Duration
-	ca             ca.CertificateAuthority
-	certificate    *tls.Certificate
-	hostnames      []string
-	forCA          bool
-	port           int
 	monitoring     monitoringMetrics
+	authenticators []authenticator
+	hostnames      []string
+	authorizer     authorizer
+	ca             ca.CertificateAuthority
+	serverCertTTL  time.Duration
+	certificate    *tls.Certificate
+	port           int
+	forCA          bool
 	sdsEnabled     bool
 }
 
