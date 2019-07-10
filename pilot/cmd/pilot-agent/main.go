@@ -396,7 +396,9 @@ var (
 
 			log.Infof("PilotSAN %#v", pilotSAN)
 
-			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses, dnsRefreshRate, sdsEnabled, sdsUDSPath, sdsTokenPath)
+			envoyProxy := envoy.NewProxy(
+				proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel,
+				pilotSAN, role.IPAddresses, dnsRefreshRate, sdsEnabled, sdsUDSPath, sdsTokenPath)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, features.TerminationDrainDuration())
 			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.ConfigCh())
 
