@@ -76,6 +76,29 @@ func TestGetInboundListeningPorts(t *testing.T) {
 		wantPorts  map[uint16]bool
 	}{
 		{
+			name:       "SidecarProxy with non-Json output",
+			nodeType:   model.SidecarProxy,
+			ipPrefixes: []string{"10.0.0.1", "10.0.0.2", "1004:"},
+			listeners: `["10.0.0.1:1001","10.0.0.1:1002","10.0.0.2:2001","10.0.0.2:2002","10.0.0.3:3001","[1004::ffff]:4001"]`,
+			wantPorts: map[uint16]bool{
+				1001: true,
+				1002: true,
+				2001: true,
+				2002: true,
+				4001: true,
+			},
+		},
+		{
+			name:       "Router with non-Json output",
+			nodeType:   model.Router,
+			ipPrefixes: []string{"10.0.0.1", "10.0.0.2"},
+			listeners: `["10.0.0.1:1001","10.0.0.2:2001","0.0.0.0:80","0.0.0.0:90"`,
+			wantPorts: map[uint16]bool{
+				80: true,
+				90: true,
+			},
+		},
+		{
 			name:       "SidecarProxy",
 			nodeType:   model.SidecarProxy,
 			ipPrefixes: []string{"10.0.0.1", "10.0.0.2", "1004:"},

@@ -17,11 +17,13 @@ package util
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/gogo/protobuf/jsonpb"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -29,6 +31,48 @@ import (
 var (
 	ipPrefixes = getLocalIPPrefixes()
 )
+
+// convertInboundListeningPortsOutput converts the non-Json listener output to the Listeners admin API.
+// This is needed for backward compatibility in case the Pilot-agent is talking to old version Envoy
+// that doesn't support to dump its listeners in Json format.
+func convertInboundListeningPortsOutput(buf string) (*admin.Listeners, error) {
+	// Clean the input string to remove surrounding brackets
+	input := strings.Trim(strings.TrimSpace(buf), "[]")
+	// Get the individual listener strings.
+	listeners := strings.Split(input, ",")
+	parsedListeners := &admin.Listeners{}
+	for _, l := range listeners {
+		// Remove quotes around the string
+		l = strings.Trim(strings.TrimSpace(l), "\"")
+
+		ipAddrParts := strings.Split(l, ":")
+		if len(ipAddrParts) < 2 {
+			return nil, fmt.Errorf("failed parsing address: %s", l)
+		}
+		// Before checking if listener is local, removing port portion of the address
+		ipAddr := strings.TrimSuffix(l, ":"+ipAddrParts[len(ipAddrParts)-1])
+		portStr := ipAddrParts[len(ipAddrParts)-1]
+		port, err := strconv.ParseUint(portStr, 10, 16)
+		if err != nil {
+			return nil, multierror.Prefix(err, fmt.Sprintf("failed parsing port: %s", l))
+		}
+
+		parsedListeners.ListenerStatuses = append(parsedListeners.ListenerStatuses, &admin.ListenerStatus{
+			LocalAddress: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						Address: ipAddr,
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: uint32(port),
+						},
+					},
+				},
+			},
+		})
+	}
+
+	return parsedListeners, nil
+}
 
 // GetInboundListeningPorts returns a map of inbound ports for which Envoy has active listeners.
 func GetInboundListeningPorts(localHostAddr string, adminPort uint16, nodeType model.NodeType) (map[uint16]bool, string, error) {
@@ -38,8 +82,14 @@ func GetInboundListeningPorts(localHostAddr string, adminPort uint16, nodeType m
 	}
 
 	listeners := &admin.Listeners{}
-	if err := jsonpb.Unmarshal(buf, listeners); err != nil {
-		return nil, "", fmt.Errorf("failed parsing Envoy listeners %s: %s", buf, err)
+	bufStr := buf.String()
+	if err := jsonpb.UnmarshalString(bufStr, listeners); err != nil {
+		// Try again to convert the output to the Listeners admin API in case there is any version mismatch
+		// between pilot-agent and Envoy.
+		listeners, err = convertInboundListeningPortsOutput(bufStr)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed parsing Envoy listeners %s: %s", buf, err)
+		}
 	}
 	ports := make(map[uint16]bool)
 	for _, l := range listeners.ListenerStatuses {
