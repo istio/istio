@@ -20,7 +20,7 @@ This repo reorganizes the current [Helm installation parameters](https://istio.i
 K8s settings like resources, auto scaling, pod disruption budgets etc.
 - The configuration API that currently uses the
 [Helm installation parameters](https://istio.io/docs/reference/config/installation-options/) for backwards
-compatibility. This API is for managing This API the Istio control plane configuration settings.
+compatibility. This API is for managing the Istio control plane configuration settings.
 
 Some parameters will temporarily exist in both APIs - for example, setting K8s resources currently can be done through
 either API above. However, the Istio community recommends using the first API as it is more consistent, is validated,
@@ -44,7 +44,7 @@ In the new API, the same profile would be selected through a CustomResource (CR)
 ```yaml
 # sds-install-cr.yaml
 
-apiVersion: install.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 metadata:
   name: istio-operator-config
@@ -188,7 +188,7 @@ trafficManagement:
   namespace: istio-control-custom
 ```
 
-The traffic management feature comprises Pilot, AutoInjection and Proxy components. Each of these components has K8s
+The traffic management feature comprises Pilot and Proxy components. Each of these components has K8s
 settings, and these can be overridden from the defaults using official K8s APIs (rather than Istio defined schemas):
 
 ```yaml
@@ -237,9 +237,8 @@ profile. Here's an example of overriding some global level default values:
 ```yaml
 profile: sds
 values:
-  global:
-    logging:
-      level: "default:warning" # override from info
+  logging:
+    level: "default:warning" # override from info
 ```
 
 Since from 1.3 Helm charts are split up per component, values overrides should be specified under the appropriate component e.g.
@@ -248,8 +247,9 @@ Since from 1.3 Helm charts are split up per component, values overrides should b
 trafficManagement:
   components:
     pilot:
-      values:
-        traceSampling: 0.1 # override from 1.0
+      common:
+        values:
+          traceSampling: 0.1 # override from 1.0
 ```
 
 ### Advanced K8s resource overlays
