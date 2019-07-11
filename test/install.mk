@@ -157,6 +157,10 @@ install-prometheus-operator:
 	kubectl -n ${PROM_OP_NS} wait --for=condition=available --timeout=${WAIT_TIMEOUT} deploy/prometheus-operator
 	# kubectl wait is problematic, as the CRDs may not exist before the command is issued.
 	until timeout ${WAIT_TIMEOUT} kubectl get crds/prometheuses.monitoring.coreos.com; do echo "Waiting for CRDs to be created..."; done
+	until timeout ${WAIT_TIMEOUT} kubectl get crds/alertmanagers.monitoring.coreos.com; do echo "Waiting for CRDs to be created..."; done
+	until timeout ${WAIT_TIMEOUT} kubectl get crds/podmonitors.monitoring.coreos.com; do echo "Waiting for CRDs to be created..."; done
+	until timeout ${WAIT_TIMEOUT} kubectl get crds/prometheusrules.monitoring.coreos.com; do echo "Waiting for CRDs to be created..."; done
+	until timeout ${WAIT_TIMEOUT} kubectl get crds/servicemonitors.monitoring.coreos.com; do echo "Waiting for CRDs to be created..."; done
 
 
 # This target expects that the prometheus operator (and its CRDs have already been installed).
