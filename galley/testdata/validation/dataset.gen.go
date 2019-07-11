@@ -260,6 +260,7 @@ kind: HTTPAPISpecBinding
 metadata:
   name: invalid-http-api-spec-binding
 spec:
+  services:
 `)
 
 func datasetConfigV1alpha2HttpapispecbindingInvalidYamlBytes() ([]byte, error) {
@@ -310,6 +311,7 @@ kind: QuotaSpec
 metadata:
   name: invalid-quota-spec
 spec:
+  quota:
 `)
 
 func datasetConfigV1alpha2QuotaspecInvalidYamlBytes() ([]byte, error) {
@@ -362,7 +364,7 @@ kind: QuotaSpecBinding
 metadata:
   name: valid-quota-spec-binding
 spec:
-`)
+  services:`)
 
 func datasetConfigV1alpha2QuotaspecbindingInvalidYamlBytes() ([]byte, error) {
 	return _datasetConfigV1alpha2QuotaspecbindingInvalidYaml, nil

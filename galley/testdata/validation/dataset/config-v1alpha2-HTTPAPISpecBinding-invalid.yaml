@@ -3,3 +3,4 @@ kind: HTTPAPISpecBinding
 metadata:
   name: invalid-http-api-spec-binding
 spec:
+  services:
