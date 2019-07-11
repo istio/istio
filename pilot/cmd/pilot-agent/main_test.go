@@ -111,17 +111,14 @@ func TestPilotDefaultDomainKubernetes(t *testing.T) {
 	role.DNSDomain = ""
 	registry = serviceregistry.KubernetesRegistry
 	os.Setenv("POD_NAMESPACE", "default")
-	//
 
 	domain := getDNSDomain(role.DNSDomain)
 
 	g.Expect(domain).To(gomega.Equal("default.svc.cluster.local"))
 	os.Unsetenv("POD_NAMESPACE")
-	//os.Unsetenv("SDS_ENABLED")
 }
 
 func TestGetSDSData(t *testing.T) {
-
 	g := gomega.NewGomegaWithT(t)
 	enabled, path := getSDSData()
 	g.Expect(path).To(gomega.Equal(""))
