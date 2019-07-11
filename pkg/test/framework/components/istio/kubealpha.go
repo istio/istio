@@ -17,22 +17,28 @@ import (
 )
 
 func getNamespaces(cfg Config) []string {
-	allNamespace := []string{}
+	// Store in map to dedupe
+	allNamespace := map[string]struct{}{}
 	for _, c := range cfg.InstallComponents {
 		switch c {
 		case Base:
-			allNamespace = append(allNamespace, cfg.IstioNamespace, cfg.ConfigNamespace)
+			allNamespace[cfg.IstioNamespace] = struct{}{}
+			allNamespace[cfg.ConfigNamespace] = struct{}{}
 		case Ingress:
-			allNamespace = append(allNamespace, cfg.IngressNamespace)
+			allNamespace[cfg.IngressNamespace] = struct{}{}
 		case Egress:
-			allNamespace = append(allNamespace, cfg.EgressNamespace)
+			allNamespace[cfg.EgressNamespace] = struct{}{}
 		case Telemetry:
-			allNamespace = append(allNamespace, cfg.TelemetryNamespace)
+			allNamespace[cfg.TelemetryNamespace] = struct{}{}
 		case Policy:
-			allNamespace = append(allNamespace, cfg.PolicyNamespace)
+			allNamespace[cfg.PolicyNamespace] = struct{}{}
 		}
 	}
-	return allNamespace
+	result := []string{}
+	for ns := range allNamespace {
+		result = append(result, ns)
+	}
+	return result
 }
 
 type installerComponent struct {
@@ -59,19 +65,21 @@ func (i *installerComponent) Close() error {
 	if !i.settings.DeployIstio {
 		return nil
 	}
-	errchan := make(chan error)
+	namespaces := getNamespaces(i.settings)
+	errchan := make(chan error, len(namespaces))
 	wg := &sync.WaitGroup{}
-
-	for _, ns := range getNamespaces(i.settings) {
+	for _, ns := range namespaces {
 		ns := ns
 		wg.Add(1)
 		go func() {
 			err := i.environment.Accessor.DeleteNamespace(ns)
+
 			if err == nil {
 				err = i.environment.Accessor.WaitForNamespaceDeletion(ns)
 			}
+
 			if err != nil {
-				errchan<-err
+				errchan <- err
 			}
 			wg.Done()
 		}()
