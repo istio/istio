@@ -84,15 +84,13 @@ func TestGolden(t *testing.T) {
 		setup                      func()
 		teardown                   func()
 		check                      func(got *v2.Bootstrap, t *testing.T)
-		sdsEnabled                 bool
-		sdsUDSPath                 string
-		sdsTokenPath               string
 	}{
 		{
-			base:         "auth",
-			sdsEnabled:   true,
-			sdsUDSPath:   "sdsudspath",
-			sdsTokenPath: "sdstokenpath",
+			base: "auth",
+			labels: map[string]string{
+				"SDS_TOKEN_PATH": "sdstokenpath",
+				"SDS_UDS_PATH":   "sdsudspath",
+			},
 		},
 
 		{
@@ -117,7 +115,7 @@ func TestGolden(t *testing.T) {
 			checkLocality: true,
 		},
 		{
-			base:                       "tracing_lightstep",
+			base: "tracing_lightstep",
 			expectLightstepAccessToken: true,
 		},
 		{

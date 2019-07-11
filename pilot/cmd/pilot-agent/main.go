@@ -52,7 +52,7 @@ const (
 	// TODO(quanlin): move udspath/tokenpath to env variable.
 	sdsUDSPath         = "/var/run/sds/uds_path"
 	jwtPath            = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-	trustworthyJWTPath = "var/run/secrets/tokens/istio-token"
+	trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
 )
 
 var (
@@ -288,7 +288,7 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
-			sdsEnabled, sdsTokenPath := getSDSData()
+			sdsEnabled, sdsTokenPath := detectSds()
 			log.Infof("Monitored certs: %#v", tlsCertsToWatch)
 			// since Envoy needs the certs for mTLS, we wait for them to become available before starting it
 			// skip waiting cert if sds is enabled, otherwise it takes long time for pod to start.
@@ -335,8 +335,6 @@ var (
 						opts["sds_uds_path"] = sdsUDSPath
 						opts["sds_token_path"] = sdsTokenPath
 					}
-
-					log.Debugf("sdsenabled %+v, uds path %q, token path %q", opts["sds_enabled"], opts["sds_uds_path"], opts["sds_token_path"])
 
 					tmpl, err := template.ParseFiles(templateFile)
 					if err != nil {
@@ -392,9 +390,7 @@ var (
 
 			log.Infof("PilotSAN %#v", pilotSAN)
 
-			envoyProxy := envoy.NewProxy(
-				proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel,
-				pilotSAN, role.IPAddresses, dnsRefreshRate, sdsEnabled, sdsUDSPath, sdsTokenPath)
+			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses, dnsRefreshRate)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, features.TerminationDrainDuration())
 			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.ConfigCh())
 
@@ -475,7 +471,7 @@ func getDNSDomain(domain string) string {
 
 // check if SDS UDS path and token path exist, if both exist, requests key/cert
 // using SDS instead of secret mount.
-func getSDSData() (bool, string) {
+func detectSds() (bool, string) {
 	if !sdsEnabledVar.Get() {
 		return false, ""
 	}
@@ -489,7 +485,11 @@ func getSDSData() (bool, string) {
 		return true, trustworthyJWTPath
 	}
 
-	return true, jwtPath
+	if _, err := os.Stat(jwtPath); err == nil {
+		return true, jwtPath
+	}
+
+	return false, ""
 }
 
 func parseApplicationPorts() ([]uint16, error) {
