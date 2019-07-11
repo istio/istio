@@ -99,6 +99,9 @@ var (
 	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
 	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
+
+	sdsUdsWaitTimeout = time.Minute
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -285,14 +288,7 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
-			// check if SDS UDS path and token path exist, if both exist, requests key/cert
-			// using SDS instead of secret mount.
-			sdsEnabled := waitForFile(sdsUDSPath, time.Minute)
-			sdsTokenPath := jwtPath
-			if _, err := os.Stat(trustworthyJWTPath); err == nil {
-				sdsTokenPath = trustworthyJWTPath
-			}
-
+			sdsEnabled, sdsTokenPath := getSDSData()
 			log.Infof("Monitored certs: %#v", tlsCertsToWatch)
 			// since Envoy needs the certs for mTLS, we wait for them to become available before starting it
 			// skip waiting cert if sds is enabled, otherwise it takes long time for pod to start.
@@ -475,6 +471,27 @@ func getDNSDomain(domain string) string {
 		}
 	}
 	return domain
+}
+
+// check if SDS UDS path and token path exist, if both exist, requests key/cert
+// using SDS instead of secret mount.
+func getSDSData() (bool, string) {
+	sdsEnabled := sdsEnabledVar.Get()
+	sdsTokenPath := ""
+	if sdsEnabled {
+		// If sdsenabled env var is set but uds doesn't exist, treat sds as disabled.
+		if !waitForFile(sdsUDSPath, sdsUdsWaitTimeout) {
+			return false, ""
+		}
+
+		if _, err := os.Stat(trustworthyJWTPath); err == nil {
+			sdsTokenPath = trustworthyJWTPath
+		} else {
+			sdsTokenPath = jwtPath
+		}
+	}
+
+	return sdsEnabled, sdsTokenPath
 }
 
 func parseApplicationPorts() ([]uint16, error) {

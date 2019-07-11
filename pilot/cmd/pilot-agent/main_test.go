@@ -17,6 +17,7 @@ package main
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
 
@@ -110,11 +111,32 @@ func TestPilotDefaultDomainKubernetes(t *testing.T) {
 	role.DNSDomain = ""
 	registry = serviceregistry.KubernetesRegistry
 	os.Setenv("POD_NAMESPACE", "default")
+	//
 
 	domain := getDNSDomain(role.DNSDomain)
 
 	g.Expect(domain).To(gomega.Equal("default.svc.cluster.local"))
 	os.Unsetenv("POD_NAMESPACE")
+	//os.Unsetenv("SDS_ENABLED")
+}
+
+func TestGetSDSData(t *testing.T) {
+
+	g := gomega.NewGomegaWithT(t)
+	enabled, path := getSDSData()
+	g.Expect(path).To(gomega.Equal(""))
+	g.Expect(enabled).To(gomega.Equal(false))
+
+	sdsUdsWaitTimeout = 100 * time.Millisecond
+	defer func() {
+		sdsUdsWaitTimeout = time.Minute
+	}()
+
+	os.Setenv("SDS_ENABLED", "true")
+	enabled, path = getSDSData()
+	g.Expect(path).To(gomega.Equal(""))
+	g.Expect(enabled).To(gomega.Equal(false))
+	os.Unsetenv("SDS_ENABLED")
 }
 
 func TestPilotDefaultDomainConsul(t *testing.T) {
