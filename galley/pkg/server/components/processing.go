@@ -130,7 +130,7 @@ func (p *Processing) Start() (err error) {
 	grpc.EnableTracing = p.args.EnableGRPCTracing
 	p.grpcServer = grpc.NewServer(grpcOptions...)
 
-	p.reporter = mcpMetricReporter("galley/mcp/source")
+	p.reporter = mcpMetricReporter("galley")
 
 	options := &source.Options{
 		Watcher:            p.distributor,

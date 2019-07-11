@@ -20,8 +20,8 @@ import (
 
 	"google.golang.org/grpc/codes"
 
-	"istio.io/istio/pilot/pkg/monitoring"
 	testing "istio.io/istio/pkg/mcp/testing/monitoring"
+	"istio.io/pkg/monitoring"
 )
 
 const (
@@ -34,60 +34,61 @@ const (
 )
 
 var (
-	collectionTag   = monitoring.MustCreateTag(collection)
-	errorCodeTag    = monitoring.MustCreateTag(errorCode)
-	errorTag        = monitoring.MustCreateTag(errorStr)
-	connectionIDTag = monitoring.MustCreateTag(connectionID)
-	codeTag         = monitoring.MustCreateTag(code)
-	componentTag    = monitoring.MustCreateTag(component)
+	collectionTag   = monitoring.MustCreateLabel(collection)
+	errorCodeTag    = monitoring.MustCreateLabel(errorCode)
+	errorTag        = monitoring.MustCreateLabel(errorStr)
+	connectionIDTag = monitoring.MustCreateLabel(connectionID)
+	codeTag         = monitoring.MustCreateLabel(code)
+	componentTag    = monitoring.MustCreateLabel(component)
 
 	// currentStreamCount is a measure of the number of connected clients.
 	currentStreamCount = monitoring.NewGauge(
 		"istio_mcp_clients_total",
 		"The number of streams currently connected.",
-		componentTag,
+		monitoring.WithLabels(componentTag),
 	)
 
 	// requestSizesBytes is a distribution of incoming message sizes.
-	requestSizesBytes = monitoring.NewBytesDistribution(
+	requestSizesBytes = monitoring.NewDistribution(
 		"istio_mcp_message_sizes_bytes",
 		"Size of messages received from clients.",
 		[]float64{1, 4, 16, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864, 268435456, 1073741824},
-		componentTag, collectionTag, connectionIDTag,
+		monitoring.WithLabels(componentTag, collectionTag, connectionIDTag),
+		monitoring.WithUnit(monitoring.Bytes),
 	)
 
 	// requestAcksTotal is a measure of the number of received ACK requests.
 	requestAcksTotal = monitoring.NewSum(
 		"istio_mcp_request_acks_total",
 		"The number of request acks received by the source.",
-		componentTag, collectionTag, connectionIDTag,
+		monitoring.WithLabels(componentTag, collectionTag, connectionIDTag),
 	)
 
 	// requestNacksTotal is a measure of the number of received NACK requests.
 	requestNacksTotal = monitoring.NewSum(
 		"istio_mcp_request_nacks_total",
 		"The number of request nacks received by the source.",
-		componentTag, collectionTag, connectionIDTag, codeTag,
+		monitoring.WithLabels(componentTag, collectionTag, connectionIDTag, codeTag),
 	)
 
 	// sendFailuresTotal is a measure of the number of network send failures.
 	sendFailuresTotal = monitoring.NewSum(
 		"istio_mcp_send_failures_total",
 		"The number of send failures in the source.",
-		componentTag, errorCodeTag, errorTag,
+		monitoring.WithLabels(componentTag, errorCodeTag, errorTag),
 	)
 
 	// recvFailuresTotal is a measure of the number of network recv failures.
 	recvFailuresTotal = monitoring.NewSum(
 		"istio_mcp_recv_failures_total",
 		"The number of recv failures in the source.",
-		componentTag, errorCodeTag, errorTag,
+		monitoring.WithLabels(componentTag, errorCodeTag, errorTag),
 	)
 
 	streamCreateSuccessTotal = monitoring.NewSum(
 		"istio_mcp_reconnections",
 		"The number of times the sink has reconnected.",
-		componentTag,
+		monitoring.WithLabels(componentTag),
 	)
 )
 
@@ -201,7 +202,7 @@ func NewStatsContext(componentName string) *StatsContext {
 }
 
 func init() {
-	monitoring.MustRegisterViews(
+	monitoring.MustRegister(
 		currentStreamCount,
 		requestSizesBytes,
 		requestAcksTotal,
