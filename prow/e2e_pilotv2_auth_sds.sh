@@ -27,6 +27,10 @@ set -u
 # Print commands
 set -x
 
+# shellcheck source=prow/lib.sh
+source "${ROOT}/prow/lib.sh"
+setup_and_export_git_sha
+
 # Hijack unit test -- just to avoid needing changes to test-infra for this experiment
 
 # Upload images - needed by the subsequent tests
