@@ -51,7 +51,7 @@ spec:
 {{- if contains "/" $.Values.global.proxy_init.image }}
           image: "{{ $.Values.global.proxy_init.image }}"
 {{- else }}
-          image: ubuntu:xenial
+          image: {{ $.Values.global.proxy.enableCoreDumpImage }}
 {{- end }}
           imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           command:
