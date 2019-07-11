@@ -29,5 +29,5 @@ source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
 cd "${ROOT}"
-
+export GO111MODULE=on
 make lint
