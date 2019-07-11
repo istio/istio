@@ -48,16 +48,9 @@ type envoy struct {
 	opts           map[string]interface{}
 	nodeIPs        []string
 	dnsRefreshRate string
-	//sdsEnabled     bool
-	//sdsUDSPath     string
-	//sdsTokenPath   string
 }
 
 // NewProxy creates an instance of the proxy control commands
-/*
-func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string,
-	componentLogLevel string, pilotSAN []string, nodeIPs []string, dnsRefreshRate string, sdsEnabled bool, sdsUDSPath, sdsTokenPath string) proxy.Proxy {
-*/
 func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string,
 	componentLogLevel string, pilotSAN []string, nodeIPs []string, dnsRefreshRate string) proxy.Proxy {
 	// inject tracing flag for higher levels
