@@ -476,22 +476,20 @@ func getDNSDomain(domain string) string {
 // check if SDS UDS path and token path exist, if both exist, requests key/cert
 // using SDS instead of secret mount.
 func getSDSData() (bool, string) {
-	sdsEnabled := sdsEnabledVar.Get()
-	sdsTokenPath := ""
-	if sdsEnabled {
-		// If sdsenabled env var is set but uds doesn't exist, treat sds as disabled.
-		if !waitForFile(sdsUDSPath, sdsUdsWaitTimeout) {
-			return false, ""
-		}
-
-		if _, err := os.Stat(trustworthyJWTPath); err == nil {
-			sdsTokenPath = trustworthyJWTPath
-		} else {
-			sdsTokenPath = jwtPath
-		}
+	if !sdsEnabledVar.Get() {
+		return false, ""
 	}
 
-	return sdsEnabled, sdsTokenPath
+	// If sdsenabled env var is set but uds doesn't exist, treat sds as disabled.
+	if !waitForFile(sdsUDSPath, sdsUdsWaitTimeout) {
+		return false, ""
+	}
+
+	if _, err := os.Stat(trustworthyJWTPath); err == nil {
+		return true, trustworthyJWTPath
+	}
+
+	return true, jwtPath
 }
 
 func parseApplicationPorts() ([]uint16, error) {
