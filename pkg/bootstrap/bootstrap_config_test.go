@@ -117,7 +117,7 @@ func TestGolden(t *testing.T) {
 			checkLocality: true,
 		},
 		{
-			base: "tracing_lightstep",
+			base:                       "tracing_lightstep",
 			expectLightstepAccessToken: true,
 		},
 		{
