@@ -27,8 +27,3 @@ set -e
 set -u
 # Print commands
 set -x
-
-# Hijack unit test -- just to avoid needing changes to test-infra for this experiment
-
-# Upload images - needed by the subsequent tests
-time ISTIO_DOCKER_HUB="gcr.io/istio-testing" make push HUB="gcr.io/istio-testing" TAG="${GIT_SHA}"

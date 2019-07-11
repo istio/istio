@@ -27,6 +27,7 @@ set -u
 # Print commands
 set -x
 
-# Run tests with auth enabled through SDS
-#echo 'Running pilot e2e tests (v1alpha3, auth through sds)'
-./prow/e2e-suite.sh --single_test e2e_pilotv2_auth_sds
+# Hijack unit test -- just to avoid needing changes to test-infra for this experiment
+
+# Upload images - needed by the subsequent tests
+time ISTIO_DOCKER_HUB="gcr.io/istio-testing" make push HUB="gcr.io/istio-testing" TAG="${GIT_SHA}"
