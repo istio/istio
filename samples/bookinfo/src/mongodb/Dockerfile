@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM mongo
+FROM mongo:4.0
 RUN mkdir -p /app/data/
 COPY ratings_data.json /app/data/
 COPY script.sh /docker-entrypoint-initdb.d/

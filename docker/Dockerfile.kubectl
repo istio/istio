@@ -1,3 +1,4 @@
+# hadolint ignore=DL3006
 FROM istionightly/base_debug
 # Image for post install jobs
 

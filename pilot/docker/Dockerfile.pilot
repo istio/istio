@@ -2,14 +2,17 @@
 ARG BASE_DISTRIBUTION=default
 
 # The following section is used as base image if BASE_DISTRIBUTION=default
+# hadolint ignore=DL3006
 FROM istionightly/base_debug as default
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
-FROM gcr.io/distroless/static as distroless
+# hadolint ignore=DL3007
+FROM gcr.io/distroless/static:latest as distroless
 
 # This will build the final image based on either default or distroless from above
+# hadolint ignore=DL3006
 FROM ${BASE_DISTRIBUTION}
 
-ADD pilot-discovery /usr/local/bin/
-ADD cacert.pem /cacert.pem
+COPY pilot-discovery /usr/local/bin/
+COPY cacert.pem /cacert.pem
 ENTRYPOINT ["/usr/local/bin/pilot-discovery"]

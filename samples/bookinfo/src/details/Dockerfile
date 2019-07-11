@@ -24,4 +24,4 @@ ENV ENABLE_EXTERNAL_BOOK_SERVICE ${enable_external_book_service:-false}
 EXPOSE 9080
 WORKDIR /opt/microservices
 
-CMD ruby details.rb 9080
+CMD ["ruby", "details.rb", "9080"]

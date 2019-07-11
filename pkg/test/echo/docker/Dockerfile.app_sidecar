@@ -1,3 +1,4 @@
+# hadolint ignore=DL3006
 FROM istionightly/base_debug
 
 # Add CA certificates for SSL connections.

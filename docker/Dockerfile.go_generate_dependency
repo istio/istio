@@ -1,7 +1,9 @@
 FROM alpine:3.7 as go_generate_dependency_builder
+# hadolint ignore=DL3018
 RUN apk add --no-cache build-base git
 
 RUN apk update
+# hadolint ignore=DL3018
 RUN apk add --no-cache go>1.12
 ENV GOPATH=/go \
     PATH=/go/bin/:$PATH
