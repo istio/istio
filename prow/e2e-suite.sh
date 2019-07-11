@@ -76,8 +76,8 @@ fi
 make init
 
 function check_images_exist() {
-  for image in pilot node-agent-k8s foo; do
-    DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect "$HUB/$image:$TAG" > /dev/null
+  for image in pilot node-agent-k8s; do
+    DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect "$HUB/$image:$TAG" > /dev/null || return 1
    done
 }
 
