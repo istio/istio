@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Find Dockerfiles running an apt-get update but no uprade
-
 BASE_DIR="$(cd "$(dirname "${0}")" && pwd -P)"
 ISTIO_ROOT="$(cd "$(dirname "${BASE_DIR}")" && pwd -P)"
 CD_TMPFILE=$(mktemp /tmp/check_dockerfile.XXXXXX)
