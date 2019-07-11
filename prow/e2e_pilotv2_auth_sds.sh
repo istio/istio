@@ -19,6 +19,9 @@
 #        e2e_pilotv2_auth_sds         #
 #                                     #
 #######################################
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+ROOT=$(dirname "$WD")
 
 # Exit immediately for non zero status
 set -e
@@ -32,6 +35,8 @@ source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
 # Hijack unit test -- just to avoid needing changes to test-infra for this experiment
+
+make init
 
 # Upload images - needed by the subsequent tests
 time ISTIO_DOCKER_HUB="gcr.io/istio-testing" make push HUB="gcr.io/istio-testing" TAG="${GIT_SHA}"
