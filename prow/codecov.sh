@@ -30,5 +30,5 @@ setup_and_export_git_sha
 
 cd "${ROOT}"
 
-make localTestEnv build
+make localTestEnv
 MAXPROCS=6 bin/codecov_diff.sh
