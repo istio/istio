@@ -28,5 +28,7 @@ set -u
 # Print commands
 set -x
 
-echo 'Running Simple test with rbac, auth Tests'
-./prow/e2e-suite.sh --auth_enable --use_mcp=false --single_test e2e_simple --installer helm "$@"
+# Hijack unit test -- just to avoid needing changes to test-infra for this experiment
+
+# Upload images - needed by the subsequent tests
+time ISTIO_DOCKER_HUB="gcr.io/istio-testing" make push HUB="gcr.io/istio-testing" TAG="${GIT_SHA}"
