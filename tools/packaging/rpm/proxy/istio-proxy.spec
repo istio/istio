@@ -21,12 +21,6 @@ License:        ASL 2.0
 URL:            https://%{provider_prefix}
 
 BuildRequires:  ninja-build
-BuildRequires:  devtoolset-6-gcc
-BuildRequires:  devtoolset-6-gcc-c++
-BuildRequires:  devtoolset-6-libatomic-devel
-BuildRequires:  devtoolset-6-libstdc++-devel
-BuildRequires:  devtoolset-6-runtime
-BuildRequires:  golang
 BuildRequires:  perl
 BuildRequires:  binutils
 BuildRequires:  cmake3
@@ -54,6 +48,8 @@ istio-proxy is the proxy required by the Istio Pilot Agent that talks to Istio p
 %setup -q -n %{name}
 
 %build
+export CC=clang
+export CXX=clang++
 bazel --output_base=/builder/bazel_cache --output_user_root=/builder/bazel_cache/root  build //...
 bazel shutdown
 

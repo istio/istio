@@ -17,7 +17,9 @@ cp -r "${PKG_DIR}" "${WORK_DIR}"
 mv "${WORK_DIR}"/packaging/common/* "${RPM_DIR}"
 
 # shellcheck disable=SC1091
-source /opt/rh/devtoolset-6/enable
+source /opt/rh/rh-git218/enable
+# shellcheck disable=SC1091
+source /opt/rh/llvm-toolset-7/enable
 
 cd /builder || exit 1
 git clone  https://github.com/istio/proxy.git istio-proxy
