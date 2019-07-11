@@ -4,6 +4,8 @@ jobs:
   build:
     docker:
       - image: gcr.io/istio-testing/circleci:2019-04-22
+    environment:
+      GO111MODULE: "on"
     working_directory: /go/src/istio.io/operator
     steps:
       - checkout
@@ -14,6 +16,8 @@ jobs:
   lint:
     docker:
       - image: gcr.io/istio-testing/circleci:2019-04-22
+    environment:
+      GO111MODULE: "on"
     working_directory: /go/src/istio.io/operator
     steps:
       - checkout
@@ -24,6 +28,8 @@ jobs:
   test:
     docker:
       - image: gcr.io/istio-testing/circleci:2019-04-22
+    environment:
+      GO111MODULE: "on"
     working_directory: /go/src/istio.io/operator
     steps:
       - checkout
@@ -34,6 +40,8 @@ jobs:
   codecov:
     docker:
       - image: gcr.io/istio-testing/circleci:2019-04-22
+    environment:
+      GO111MODULE: "on"
     working_directory: /go/src/istio.io/operator
     steps:
       - checkout
