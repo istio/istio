@@ -75,10 +75,21 @@ fi
 
 make init
 
-if [[ $HUB == *"istio-testing"* ]]; then
-  # upload images
-  time ISTIO_DOCKER_HUB="${HUB}" make docker.push HUB="${HUB}" TAG="${TAG}" DOCKER_BUILD_VARIANTS="${VARIANT:-default}"
-fi
+function check_images_exist() {
+  for image in pilot node-agent-k8s foo; do
+    DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect "$HUB/$image:$TAG" > /dev/null
+   done
+}
+
+n=0
+# Attempt for up to 15 minutes
+until [ $n -ge 200 ]
+do
+  check_images_exist && break
+  n=$[$n+1]
+  sleep 15
+done
+
 echo "Setup cluster."
 date
 setup_e2e_cluster

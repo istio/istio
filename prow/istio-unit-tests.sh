@@ -30,8 +30,7 @@ setup_and_export_git_sha
 
 cd "${ROOT}"
 
-# Unit tests are run against a local apiserver and etcd.
-# Integration/e2e tests in the other scripts are run against GKE or real clusters.
-JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml" \
-T="-v" \
-make build localTestEnv test version-test
+# Hijack unit test -- just to avoid needing changes to test-infra for this experiment
+
+# Upload images - needed by the subsequent tests
+time ISTIO_DOCKER_HUB="gcr.io/istio-testing" make push HUB="gcr.io/istio-testing" TAG="${GIT_SHA}"
