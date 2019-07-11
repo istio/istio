@@ -742,6 +742,10 @@ istio.io/pkg/ctrlz
 istio.io/pkg/env
 istio.io/pkg/cache
 istio.io/pkg/attribute
+<<<<<<< HEAD
+=======
+istio.io/pkg/annotations
+>>>>>>> fix(go mod update): update istio.io/pkg and run tidy
 istio.io/pkg/monitoring
 istio.io/pkg/collateral/metrics
 istio.io/pkg/ctrlz/assets
