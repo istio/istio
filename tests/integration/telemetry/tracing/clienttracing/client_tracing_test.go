@@ -46,7 +46,7 @@ func TestClientTracing(t *testing.T) {
 			ingress := tracing.GetIngressInstance()
 			// Send test traffic with a trace header.
 			id := uuid.NewV4().String()
-			url := fmt.Sprintf("http://%s/productpage", ingress.HTTPAddress())
+			url := fmt.Sprintf("%s/productpage", ingress.HTTPAddress())
 			extraHeader := fmt.Sprintf("%s: %s", traceHeader, id)
 			// Send test traffic. QPS is restricted to 10, so this will send ~20secs worth of traffic.
 			// We want a multiple of 5secs worth of traffic, given default envoy flush times on the zipkin driver.
