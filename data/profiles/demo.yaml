@@ -14,18 +14,6 @@ trafficManagement:
           env:
           - name: GODEBUG
             value: "gctrace=1"
-          hpaSpec:
-            maxReplicas: 5
-            minReplicas: 1
-            scaleTargetRef:
-              apiVersion: apps/v1
-              kind: Deployment
-              name: istio-pilot
-            metrics:
-              - type: Resource
-                resource:
-                  name: cpu
-                  targetAverageUtilization: 80
           replicaCount: 1
           readinessProbe:
             handler: {}
@@ -38,12 +26,13 @@ trafficManagement:
             timeoutSeconds: 5
           resources:
             requests:
-              cpu: 500m
-              memory: 2048Mi
+              cpu: 10m
+              memory: 100Mi
 
         values:
           image: pilot
-          traceSampling: 1.0
+          autoscaleEnabled: false
+          traceSampling: 100.0
           configNamespace: istio-config
           keepaliveMaxServerConnectionAge: 30m
           configMap: true
@@ -64,12 +53,10 @@ trafficManagement:
           clusterDomain: "cluster.local"
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 2000m
-              memory: 128Mi
+              cpu: 10m
+              memory: 40Mi
           concurrency: 2
+          accessLogFile: "/dev/stdout"
           accessLogEncoding: TEXT
           logLevel: warning
           componentLogLevel: "misc:error"
@@ -93,23 +80,16 @@ policy:
       common:
         k8s:
           replicaCount: 1
-          hpaSpec:
-            maxReplicas: 5
-            minReplicas: 1
-            scaleTargetRef:
-              apiVersion: apps/v1
-              kind: Deployment
-              name: istio-pilot
-            metrics:
-              - type: Resource
-                resource:
-                  name: cpu
-                  targetAverageUtilization: 80
+          resources:
+            requests:
+              cpu: 10m
+              memory: 100Mi
           env:
             - name: GODEBUG
               value: "gctrace=1"
         values:
           image: mixer
+          autoscaleEnabled: false
           adapters:
             kubernetesenv:
               enabled: true
@@ -127,35 +107,21 @@ telemetry:
             value: "gctrace=1"
           - name: GOMAXPROCS
             value: "6"
-          hpaSpec:
-            maxReplicas: 5
-            minReplicas: 1
-            scaleTargetRef:
-              apiVersion: apps/v1
-              kind: Deployment
-              name: istio-pilot
-            metrics:
-              - type: Resource
-                resource:
-                  name: cpu
-                  targetAverageUtilization: 80
           replicaCount: 1
           resources:
             requests:
-              cpu: 1000m
-              memory: 1G
-            limits:
-              cpu: 4800m
-              memory: 4G
+              cpu: 50m
+              memory: 100Mi
         values:
           image: mixer
+          autoscaleEnabled: false
           sessionAffinityEnabled: false
           loadshedding:
             mode: enforce
             latencyThreshold: 100ms
           adapters:
             stdio:
-              enabled: false
+              enabled: true
               outputAsJson: false
             prometheus:
               enabled: true
@@ -169,6 +135,8 @@ telemetry:
 # Security feature
 security:
   enabled: true
+  controlPlaneMtls: false
+  dataPlaneMtlsStrict: false
   components:
     namespace: istio-security
 
@@ -231,24 +199,15 @@ gateways:
     ingressGateway:
     - gateway:
         common:
-          enabled: true
           namespace: istio-ingress
           k8s:
             replicaCount: 1
-            hpaSpec:
-              maxReplicas: 5
-              minReplicas: 1
-              scaleTargetRef:
-                apiVersion: apps/v1
-                kind: Deployment
-                name: istio-ingressgateway
-              metrics:
-              - type: Resource
-                resource:
-                  name: cpu
-                  targetAverageUtilization: 80
+            resources:
+              requests:
+                cpu: 10m
+                memory: 40Mi
           values:
-            autoscaleEnabled: true
+            autoscaleEnabled: false
             # Debug level for envoy. Can be set to 'debug'
             debug: info
             domain: ""
@@ -346,24 +305,15 @@ gateways:
     egressGateway:
     - gateway:
         common:
-          enabled: false
           namespace: istio-egress
           k8s:
             replicaCount: 1
-            hpaSpec:
-              maxReplicas: 5
-              minReplicas: 1
-              scaleTargetRef:
-                apiVersion: apps/v1
-                kind: Deployment
-                name: istio-egressgateway
-              metrics:
-                - type: Resource
-                  resource:
-                    name: cpu
-                    targetAverageUtilization: 80
+            resources:
+              requests:
+                cpu: 10m
+                memory: 40Mi
           values:
-            autoscaleEnabled: true
+            autoscaleEnabled: false
             # Enable cross-cluster access using SNI matching.
             # Make sure you set suffix if deploying multiple egress gateways.
             zvpn:
@@ -417,7 +367,7 @@ values:
     image: proxy_init
   imagePullPolicy: Always
   controlPlaneSecurityEnabled: true
-  disablePolicyChecks: true
+  disablePolicyChecks: false
   policyCheckFailOpen: false
   enableTracing: true
   mtls:
