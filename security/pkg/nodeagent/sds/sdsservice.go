@@ -379,6 +379,9 @@ func recycleConnection(conID, resourceName string) {
 		ResourceName: resourceName,
 	}
 
+	sdsClientsMutex.Lock()
+	defer sdsClientsMutex.Unlock()
+
 	// Only add connection key to staledClientKeys if it's not there already.
 	// The recycleConnection function may be triggered more than once for each connection key.
 	// https://github.com/istio/istio/issues/15306#issuecomment-509783105
@@ -386,8 +389,6 @@ func recycleConnection(conID, resourceName string) {
 		return
 	}
 
-	sdsClientsMutex.Lock()
-	defer sdsClientsMutex.Unlock()
 	staledClientKeys[key] = true
 
 	metricLabelName := generateResourcePerConnLabel(resourceName, conID)
