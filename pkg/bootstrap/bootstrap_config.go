@@ -283,9 +283,7 @@ func extractIstioMetadata(envVars []string) istioMetadata {
 		case "ISTIO_METAJSON_LABELS":
 			m := jsonStringToMap(val)
 			im.Labels = m
-			if svc, found := m["istioTelemetryService"]; found {
-				im.CanonicalTelemetryService = svc
-			}
+			im.CanonicalTelemetryService = m["istioTelemetryService"]
 		case "POD_NAME":
 			im.Name = val
 		case "POD_NAMESPACE":
@@ -373,8 +371,8 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	meta := getNodeMetaData(localEnv)
 
 	localityOverride := ""
-	if locality, ok := meta[model.LocalityLabel].(string); ok {
-		localityOverride = model.GetLocalityOrDefault(locality, localityOverride)
+	if locality, ok := meta[model.LocalityLabel]; ok {
+		localityOverride = model.GetLocalityOrDefault(locality.(string), localityOverride)
 	}
 	l := util.ConvertLocality(localityOverride)
 	if l == nil {
