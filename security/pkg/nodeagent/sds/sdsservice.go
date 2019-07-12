@@ -55,7 +55,7 @@ const (
 
 var (
 	sdsClients       = map[cache.ConnKey]*sdsConnection{}
-	staledClientKeys []cache.ConnKey
+	staledClientKeys = map[cache.ConnKey]bool{}
 	sdsClientsMutex  sync.RWMutex
 
 	// Tracks connections, increment on each new connection.
@@ -340,12 +340,12 @@ func (s *sdsservice) clearStaledClients() {
 	sdsClientsMutex.Lock()
 	defer sdsClientsMutex.Unlock()
 
-	for _, k := range staledClientKeys {
-		sdsServiceLog.Debugf("remove staled clients %+v", k)
-		delete(sdsClients, k)
+	for connKey := range staledClientKeys {
+		sdsServiceLog.Debugf("remove staled clients %+v", connKey)
+		delete(sdsClients, connKey)
+		delete(staledClientKeys, connKey)
 	}
 
-	staledClientKeys = staledClientKeys[:0]
 	sdsMetrics.staleConn.Reset()
 	sdsMetrics.totalStaleConn.Set(0)
 }
@@ -374,6 +374,22 @@ func NotifyProxy(conID, resourceName string, secret *model.SecretItem) error {
 }
 
 func recycleConnection(conID, resourceName string) {
+	key := cache.ConnKey{
+		ConnectionID: conID,
+		ResourceName: resourceName,
+	}
+
+	// Only add connection key to staledClientKeys if it's not there already.
+	// The recycleConnection function may be triggered more than once for each connection key.
+	// https://github.com/istio/istio/issues/15306#issuecomment-509783105
+	if _, found := staledClientKeys[key]; found {
+		return
+	}
+
+	sdsClientsMutex.Lock()
+	defer sdsClientsMutex.Unlock()
+	staledClientKeys[key] = true
+
 	metricLabelName := generateResourcePerConnLabel(resourceName, conID)
 	sdsMetrics.pushPerConn.DeleteLabelValues(metricLabelName)
 	sdsMetrics.pendingPushPerConn.DeleteLabelValues(metricLabelName)
@@ -381,14 +397,6 @@ func recycleConnection(conID, resourceName string) {
 	sdsMetrics.staleConn.WithLabelValues(metricLabelName).Inc()
 	sdsMetrics.totalStaleConn.Inc()
 	sdsMetrics.totalActiveConn.Dec()
-	key := cache.ConnKey{
-		ConnectionID: conID,
-		ResourceName: resourceName,
-	}
-
-	sdsClientsMutex.Lock()
-	defer sdsClientsMutex.Unlock()
-	staledClientKeys = append(staledClientKeys, key)
 }
 
 func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (string /*resourceName*/, error) {
