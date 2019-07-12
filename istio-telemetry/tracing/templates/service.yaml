@@ -15,6 +15,7 @@ spec:
       name: {{ .Values.tracing.service.name }}
   selector:
     app: {{ .Values.tracing.provider }}
+---
 apiVersion: v1
 kind: Service
 metadata:
