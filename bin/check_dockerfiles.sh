@@ -21,7 +21,7 @@ HL_TMPFILE=$(mktemp /tmp/hadolint.XXXXXX)
 
 find "${ISTIO_ROOT}" -name 'Dockerfile*' | \
 while read -r f; do
-  docker run --rm -i hadolint/hadolint < "$f" > "${HL_TMPFILE}"
+  docker run --rm -i hadolint/hadolint:v1.17.1 < "$f" > "${HL_TMPFILE}"
   if [ "" != "$(cat "${HL_TMPFILE}")" ]
   then
     {
