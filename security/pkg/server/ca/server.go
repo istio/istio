@@ -62,7 +62,6 @@ type Server struct {
 	certificate    *tls.Certificate
 	port           int
 	forCA          bool
-	sdsEnabled     bool
 }
 
 // CreateCertificate handles an incoming certificate signing request (CSR). It does
@@ -211,12 +210,15 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 	authenticators := []authenticator{&authenticate.ClientCertAuthenticator{}}
 	log.Info("added client certificate authenticator")
 
-	authenticator, err := authenticate.NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath, trustDomain)
-	if err == nil {
-		authenticators = append(authenticators, authenticator)
-		log.Info("added K8s JWT authenticator")
-	} else {
-		log.Warnf("failed to add create JWT authenticator: %v", err)
+	// Only add k8s jwt authenticator if SDS is enabled.
+	if sdsEnabled {
+		authenticator, err := authenticate.NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath, trustDomain)
+		if err == nil {
+			authenticators = append(authenticators, authenticator)
+			log.Info("added K8s JWT authenticator")
+		} else {
+			log.Warnf("failed to add create JWT authenticator: %v", err)
+		}
 	}
 
 	// Temporarily disable ID token authenticator by resetting the hostlist.
@@ -244,7 +246,6 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 		forCA:          forCA,
 		port:           port,
 		monitoring:     newMonitoringMetrics(),
-		sdsEnabled:     sdsEnabled,
 	}
 	return server, nil
 }
@@ -294,16 +295,12 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 	return &cert, nil
 }
 
-// authenticate goes through a list of authenticator (provided client cert, k8s jwt, and ID token)
+// authenticate goes through a list of authenticators (provided client cert, k8s jwt, and ID token)
 // and authenticates if one of them is valid.
 func (s *Server) authenticate(ctx context.Context) *authenticate.Caller {
 	// TODO: apply different authenticators in specific order / according to configuration.
 	var errMsg string
 	for id, authn := range s.authenticators {
-		// If SDS is not enabled, authenticate will not perform k8s jwt authentication.
-		if !s.sdsEnabled && authn.AuthenticatorType() == authenticate.KubeJWTAuthenticatorType {
-			continue
-		}
 		u, err := authn.Authenticate(ctx)
 		if err != nil {
 			errMsg += fmt.Sprintf("Authenticator %s at index %d got error: %v. ", authn.AuthenticatorType(), id, err)
