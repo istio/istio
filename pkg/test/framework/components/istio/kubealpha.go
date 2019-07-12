@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/test/deployment"
 	ienv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"

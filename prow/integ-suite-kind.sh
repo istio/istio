@@ -45,6 +45,7 @@ export HUB=${HUB:-"kindtest"}
 export TAG="${TAG:-${GIT_SHA}}"
 
 make init
+clone_installer
 
 # Build just the images needed for the tests
 for image in pilot proxyv2 proxy_init app test_policybackend mixer citadel galley sidecar_injector kubectl node-agent-k8s; do
