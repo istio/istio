@@ -1,30 +1,6 @@
 version: 2
 
 jobs:
-  build:
-    docker:
-      - image: gcr.io/istio-testing/circleci:2019-04-22
-    environment:
-      GO111MODULE: "on"
-    working_directory: /go/src/istio.io/operator
-    steps:
-      - checkout
-      - run:
-          name: Building
-          command: go build ./...
-
-  lint:
-    docker:
-      - image: gcr.io/istio-testing/circleci:2019-04-22
-    environment:
-      GO111MODULE: "on"
-    working_directory: /go/src/istio.io/operator
-    steps:
-      - checkout
-      - run:
-          name: Linting
-          command: make lint
-
   test:
     docker:
       - image: gcr.io/istio-testing/circleci:2019-04-22
@@ -37,26 +13,8 @@ jobs:
           name: Running unit tests
           command: go test -race ./...
 
-  codecov:
-    docker:
-      - image: gcr.io/istio-testing/circleci:2019-04-22
-    environment:
-      GO111MODULE: "on"
-    working_directory: /go/src/istio.io/operator
-    steps:
-      - checkout
-      - run:
-          name: codecov diff check
-          command: |
-            cd /go/src/istio.io/operator
-            MAXPROCS=6 script/codecov_diff.sh
-      - store_artifacts:
-          path: /go/out/codecov
-
 workflows:
   version: 2
   all:
     jobs:
-      - build
       - test
-      - lint
