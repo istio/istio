@@ -12,7 +12,7 @@ data:
   config.yaml: |
     istio_namespace: {{ .Release.Namespace }}
     auth:
-      strategy: "login"
+      strategy: {{ .Values.dashboard.auth.strategy }}
     server:
       port: 20001
 {{- if .Values.contextPath }}
