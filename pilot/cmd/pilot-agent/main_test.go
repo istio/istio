@@ -120,7 +120,7 @@ func TestPilotDefaultDomainKubernetes(t *testing.T) {
 
 func TestDetectSds(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	enabled, path := detectSds()
+	enabled, path := detectSds(false, false)
 	g.Expect(path).To(gomega.Equal(""))
 	g.Expect(enabled).To(gomega.Equal(false))
 
@@ -130,7 +130,7 @@ func TestDetectSds(t *testing.T) {
 	}()
 
 	os.Setenv("SDS_ENABLED", "true")
-	enabled, path = detectSds()
+	enabled, path = detectSds(true, true)
 	g.Expect(path).To(gomega.Equal(""))
 	g.Expect(enabled).To(gomega.Equal(false))
 	os.Unsetenv("SDS_ENABLED")

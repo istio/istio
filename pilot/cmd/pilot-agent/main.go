@@ -99,7 +99,6 @@ var (
 	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
 	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
-	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -288,11 +287,13 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
-			sdsEnabled, sdsTokenPath := detectSds()
+			controlPlaneAuthEnabled := controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
+			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled)
 			log.Infof("Monitored certs: %#v", tlsCertsToWatch)
+
 			// since Envoy needs the certs for mTLS, we wait for them to become available before starting it
 			// skip waiting cert if sds is enabled, otherwise it takes long time for pod to start.
-			if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() && !sdsEnabled {
+			if controlPlaneAuthEnabled && !sdsEnabled {
 				for _, cert := range tlsCertsToWatch {
 					waitForFile(cert, 2*time.Minute)
 				}
@@ -471,14 +472,19 @@ func getDNSDomain(domain string) string {
 
 // check if SDS UDS path and token path exist, if both exist, requests key/cert
 // using SDS instead of secret mount.
-func detectSds() (bool, string) {
-	if !sdsEnabledVar.Get() {
-		return false, ""
-	}
-
-	// If sdsenabled env var is set but uds doesn't exist, treat sds as disabled.
-	if !waitForFile(sdsUDSPath, sdsUdsWaitTimeout) {
-		return false, ""
+func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool) (bool, string) {
+	// controlplane components like pilot/mixer/galley have sidecar
+	// they start almost same time as sds server; wait since there is a chance
+	// when pilot-agent start, the uds file doesn't exist.
+	if controlPlaneBootstrap && controlPlaneAuthEnabled {
+		if !waitForFile(sdsUDSPath, sdsUdsWaitTimeout) {
+			return false, ""
+		}
+	} else {
+		// treat sds as disabled if uds path isn't set.
+		if _, err := os.Stat(sdsUDSPath); err != nil {
+			return false, ""
+		}
 	}
 
 	if _, err := os.Stat(trustworthyJWTPath); err == nil {
