@@ -36,7 +36,7 @@ func TestProtoToValuesV12(t *testing.T) {
 		wantErr string
 	}{
 		{
-			desc: "nil success",
+			desc: "default success",
 			yamlStr: `
 defaultNamespacePrefix: istio-system
 `,
