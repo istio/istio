@@ -191,22 +191,23 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(env *model.Environment, nod
 	push *model.PushContext) ([]*xdsapi.Listener, error) {
 	var listeners []*xdsapi.Listener
 	var err error
+	var builder *ListenerBuilder
 
 	switch node.Type {
 	case model.SidecarProxy:
-		listeners = configgen.buildSidecarListeners(env, node, push)
+		builder = configgen.buildSidecarListeners(env, node, push)
 	case model.Router:
-		listeners = configgen.buildGatewayListeners(env, node, push)
+		builder = configgen.buildGatewayListeners(env, node, push)
 	}
 
-	listeners = applyListenerConfigPatches(listeners, env, node.WorkloadLabels)
+	listeners = applyListenerConfigPatches(builder, env, node.WorkloadLabels)
 
 	return listeners, err
 }
 
 // buildSidecarListeners produces a list of listeners for sidecar proxies
 func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environment, node *model.Proxy,
-	push *model.PushContext) []*xdsapi.Listener {
+	push *model.PushContext) *ListenerBuilder {
 	mesh := env.Mesh
 
 	proxyInstances := node.ServiceInstances
@@ -338,7 +339,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
 
-	return builder.getListeners()
+	return builder
 }
 
 // buildSidecarInboundListeners creates listeners for the server-side (inbound)

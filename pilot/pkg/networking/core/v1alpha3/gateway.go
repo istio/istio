@@ -40,7 +40,8 @@ import (
 	"istio.io/istio/pkg/proto"
 )
 
-func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node *model.Proxy, push *model.PushContext) []*xdsapi.Listener {
+func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
+	builder := NewListenerBuilder(node)
 	// collect workload labels
 	workloadInstances := node.ServiceInstances
 
@@ -52,7 +53,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 	gatewaysForWorkload := env.Gateways(workloadLabels)
 	if len(gatewaysForWorkload) == 0 {
 		log.Debuga("buildGatewayListeners: no gateways for router ", node.ID)
-		return []*xdsapi.Listener{}
+		return builder
 	}
 
 	mergedGateway := model.MergeGateways(gatewaysForWorkload...)
@@ -179,7 +180,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 
 	if len(listeners) == 0 {
 		log.Error("buildGatewayListeners: Have zero listeners")
-		return []*xdsapi.Listener{}
+		return builder
 	}
 
 	validatedListeners := make([]*xdsapi.Listener, 0, len(mergedGateway.Servers))
@@ -191,7 +192,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		validatedListeners = append(validatedListeners, l)
 	}
 
-	return validatedListeners
+	builder.gatewayListeners = validatedListeners
+	return builder
 }
 
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
