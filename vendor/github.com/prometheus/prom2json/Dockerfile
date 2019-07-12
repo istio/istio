@@ -1,3 +1,2 @@
-# No other revision than latest is available
-# hadolint ignore=DL3007
-FROM        sdurrheimer/alpine-golang-make-onbuild:latest
+FROM        sdurrheimer/alpine-golang-make-onbuild
+MAINTAINER  The Prometheus Authors <prometheus-developers@googlegroups.com>

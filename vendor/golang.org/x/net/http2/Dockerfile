@@ -8,22 +8,16 @@
 
 FROM ubuntu:trusty
 
-# hadolint ignore=DL3005,DL3008
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends \
-       git-core build-essential wget && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    apt-get install -y git-core build-essential wget
 
-# hadolint ignore=DL3008
 RUN apt-get install -y --no-install-recommends \
        autotools-dev libtool pkg-config zlib1g-dev \
        libcunit1-dev libssl-dev libxml2-dev libevent-dev \
-       automake autoconf && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+       automake autoconf
 
 # The list of packages nghttp2 recommends for h2load:
-# hadolint ignore=DL3008
 RUN apt-get install -y --no-install-recommends make binutils \
         autoconf automake autotools-dev \
         libtool pkg-config zlib1g-dev libcunit1-dev libssl-dev libxml2-dev \
@@ -32,8 +26,7 @@ RUN apt-get install -y --no-install-recommends make binutils \
 
 # Note: setting NGHTTP2_VER before the git clone, so an old git clone isn't cached:
 ENV NGHTTP2_VER 895da9a
-WORKDIR /root
-RUN git clone https://github.com/tatsuhiro-t/nghttp2.git
+RUN cd /root && git clone https://github.com/tatsuhiro-t/nghttp2.git
 
 WORKDIR /root/nghttp2
 RUN git reset --hard $NGHTTP2_VER

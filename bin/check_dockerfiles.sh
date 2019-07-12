@@ -19,7 +19,7 @@ ISTIO_ROOT="$(cd "$(dirname "${BASE_DIR}")" && pwd -P)"
 CD_TMPFILE=$(mktemp /tmp/check_dockerfile.XXXXXX)
 HL_TMPFILE=$(mktemp /tmp/hadolint.XXXXXX)
 
-find "${ISTIO_ROOT}" -name 'Dockerfile*' | \
+find "${ISTIO_ROOT}" -path "${ISTIO_ROOT}/vendor" -prune -o -name 'Dockerfile*' | \
 while read -r f; do
   docker run --rm -i hadolint/hadolint:v1.17.1 < "$f" > "${HL_TMPFILE}"
   if [ "" != "$(cat "${HL_TMPFILE}")" ]
