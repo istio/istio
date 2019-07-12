@@ -33,6 +33,8 @@ func getNamespaces(cfg Config) []string {
 			allNamespace[cfg.TelemetryNamespace] = struct{}{}
 		case Policy:
 			allNamespace[cfg.PolicyNamespace] = struct{}{}
+		case Tracing:
+			allNamespace[cfg.TelemetryNamespace] = struct{}{}
 		}
 	}
 	result := []string{}
@@ -232,6 +234,12 @@ func deployAlphaInstall(ctx resource.Context, env *kube.Environment, cfg Config)
 
 	if _, f := components[Policy]; f {
 		if err := applyAlphaInstall(env.Accessor, helmWorkDir, cfg.PolicyNamespace, "istio-policy", cfg); err != nil {
+			return nil, err
+		}
+	}
+
+	if _, f := components[Tracing]; f {
+		if err := applyAlphaInstall(env.Accessor, helmWorkDir, cfg.PolicyNamespace, "istio-telemetry/tracing", cfg); err != nil {
 			return nil, err
 		}
 	}
