@@ -98,7 +98,7 @@ global:
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			root := util.Tree{}
+			root := make(map[string]interface{})
 			err := yaml.Unmarshal([]byte(tt.yamlStr), &root)
 			if err != nil {
 				t.Fatalf("yaml.Unmarshal(%s): got error %s", tt.desc, err)

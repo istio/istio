@@ -16,26 +16,12 @@ package util
 
 import (
 	"strings"
-
-	"gopkg.in/yaml.v2"
 )
 
 const (
 	// LocalFilePrefix is a prefix for local files.
 	LocalFilePrefix = "file:///"
 )
-
-// Tree is a tree.
-type Tree map[string]interface{}
-
-// String implements the Stringer interface method.
-func (t Tree) String() string {
-	y, err := yaml.Marshal(t)
-	if err != nil {
-		return err.Error()
-	}
-	return string(y)
-}
 
 // IsFilePath reports whether the given URL is a local file path.
 func IsFilePath(path string) bool {

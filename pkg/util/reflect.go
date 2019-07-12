@@ -209,21 +209,6 @@ func IsEmptyString(value interface{}) bool {
 	return false
 }
 
-// AppendToSlicePtr inserts value into parent which must be a slice ptr.
-func AppendToSlicePtr(parentSlice interface{}, value interface{}) error {
-	dbgPrint("AppendToSlicePtr slice=\n%s\nvalue=\n%v", pretty.Sprint(parentSlice), value)
-	pv := reflect.ValueOf(parentSlice)
-	v := reflect.ValueOf(value)
-
-	if !IsSliceInterfacePtr(parentSlice) {
-		return fmt.Errorf("appendToSlicePtr parent type is %T, must be *[]interface{}", parentSlice)
-	}
-
-	pv.Elem().Set(reflect.Append(pv.Elem(), v))
-
-	return nil
-}
-
 // DeleteFromSlicePtr deletes an entry at index from the parent, which must be a slice ptr.
 func DeleteFromSlicePtr(parentSlice interface{}, index int) error {
 	dbgPrint("DeleteFromSlicePtr index=%d, slice=\n%s", index, pretty.Sprint(parentSlice))
@@ -238,8 +223,7 @@ func DeleteFromSlicePtr(parentSlice interface{}, index int) error {
 		pvv = pvv.Elem()
 	}
 
-	ns := reflect.AppendSlice(pvv.Slice(0, index), pvv.Slice(index+1, pvv.Len()))
-	pv.Elem().Set(ns)
+	pv.Elem().Set(reflect.AppendSlice(pvv.Slice(0, index), pvv.Slice(index+1, pvv.Len())))
 
 	return nil
 }
@@ -291,7 +275,7 @@ func InsertIntoMap(parentMap interface{}, key interface{}, value interface{}) er
 // ToIntValue returns 0, false if val is not a number type, otherwise it returns the int value of val.
 func ToIntValue(val interface{}) (int, bool) {
 	if IsValueNil(val) {
-		return 0, false
+		return 0, true
 	}
 	v := reflect.ValueOf(val)
 	switch v.Kind() {
