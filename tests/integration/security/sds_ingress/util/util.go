@@ -214,6 +214,12 @@ func VisitProductPage(ing ingress.Instance, host string, callType ingress.CallTy
 // from ingressCred.
 func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string,
 	ingressType ingress.CallType, ingressCred IngressCredential) {
+	DeleteSecrets(t, ctx, credNames)
+	CreateIngressKubeSecret(t, ctx, credNames, ingressType, ingressCred)
+}
+
+// DeleteSecrets deletes kubernetes secrets by name in credNames.
+func DeleteSecrets(t *testing.T, ctx framework.TestContext, credNames []string) {
 	istioCfg := istio.DefaultConfigOrFail(t, ctx)
 	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
@@ -239,8 +245,6 @@ func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string,
 			}
 		}
 	}
-
-	CreateIngressKubeSecret(t, ctx, credNames, ingressType, ingressCred)
 }
 
 // DeployBookinfo deploys bookinfo application, and deploys gateway with various type.
@@ -302,19 +306,30 @@ func WaitUntilGatewaySdsStatsGE(t *testing.T, ing ingress.Instance, expectedUpda
 	sdsUpdates := 0
 	for {
 		if time.Since(start) > timeout {
-			return fmt.Errorf("sds stats does not meet expection in %v: Last stats: %v", timeout, sdsUpdates)
+			return fmt.Errorf("sds stats does not meet expection in %v: Expected %v, Last stats: %v",
+				timeout, expectedUpdates, sdsUpdates)
 		}
-		gatewayStats, err := ing.ProxyStats()
-		if err == nil {
-			sdsUpdates, hasSdsStats := gatewayStats["listener.0.0.0.0_443.server_ssl_socket_factory.ssl_context_update_by_sds"]
-			if hasSdsStats && sdsUpdates >= expectedUpdates {
-				t.Logf("ingress gateway SDS updates meets expectation within %v. got %v vs expected %v",
-					time.Since(start), sdsUpdates, expectedUpdates)
-				return nil
-			}
+		sdsUpdates, err := GetGatewaySdsStats(ing)
+		if err == nil && sdsUpdates >= expectedUpdates {
+			t.Logf("ingress gateway SDS updates meets expectation within %v. got %v vs expected %v",
+				time.Since(start), sdsUpdates, expectedUpdates)
+			return nil
 		} else {
-			t.Logf("unable to get ingress gateway proxy stats: %v", err)
+			t.Logf("sds stats does not match (get %d vs expected %d), error: %v", sdsUpdates,
+				expectedUpdates, err)
 		}
 		time.Sleep(3 * time.Second)
 	}
+}
+
+// GetGatewaySdsStats returns sds stats from gateway proxy or error on failures.
+func GetGatewaySdsStats(ing ingress.Instance) (int, error) {
+	gatewayStats, err := ing.ProxyStats()
+	if err == nil {
+		sdsUpdates, hasSdsStats := gatewayStats["listener.0.0.0.0_443.server_ssl_socket_factory.ssl_context_update_by_sds"]
+		if hasSdsStats {
+			return sdsUpdates, nil
+		}
+	}
+	return 0, fmt.Errorf("unable to get ingress gateway proxy sds stats: %v", err)
 }
