@@ -410,7 +410,7 @@ func IsHTTPFilterChain(filterChain listener.FilterChain) bool {
 
 // MergeAnyWithStruct merges a given struct into the given Any typed message by dynamically inferring the
 // type of Any, converting the struct into the inferred type, merging the two messages, and then
-// marshalling the merged message back into Any.
+// marshaling the merged message back into Any.
 func MergeAnyWithStruct(any *types.Any, pbStruct *types.Struct) (*types.Any, error) {
 	// Assuming that Pilot is compiled with this type [which should always be the case]
 	var err error
