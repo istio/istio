@@ -219,7 +219,7 @@ func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string,
 }
 
 // DeleteSecrets deletes kubernetes secrets by name in credNames.
-func DeleteSecrets(t *testing.T, ctx framework.TestContext, credNames []string) {
+func DeleteSecrets(t *testing.T, ctx framework.TestContext, credNames []string) { // nolint:interfacer
 	istioCfg := istio.DefaultConfigOrFail(t, ctx)
 	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor

@@ -285,9 +285,8 @@ func extractK8sSecretIntoSecretItem(scrt *v1.Secret, t time.Time) (serverItem, c
 
 	// Try to extract CA cert from k8s secret.
 	caCert, caCertExist := extractCACert(scrt, true /* fromCompoundSecret */)
-	rootCertExpireTime := time.Time{}
 	if caCertExist {
-		rootCertExpireTime, err = nodeagentutil.ParseCertAndGetExpiryTimestamp(caCert)
+		rootCertExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(caCert)
 		if err != nil {
 			secretFetcherLog.Warnf("skip loading secret. Kubernetes secret %v contains a root "+
 				"certificate that fails to parse: %v", resourceName, err)
