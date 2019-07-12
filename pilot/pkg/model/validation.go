@@ -588,8 +588,8 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 		return fmt.Errorf("cannot cast to envoy filter")
 	}
 
-	if len(rule.Filters) == 0 {
-		return fmt.Errorf("envoy filter: missing filters")
+	if len(rule.Filters) > 0 {
+		log.Warn("envoy filter: Filters is deprecated. use configPatches instead")
 	}
 
 	for _, f := range rule.Filters {
@@ -613,6 +613,7 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 		}
 	}
 
+	// TODO: add validation for configPatches
 	return
 }
 

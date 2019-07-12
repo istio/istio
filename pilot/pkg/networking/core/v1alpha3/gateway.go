@@ -40,7 +40,7 @@ import (
 	"istio.io/istio/pkg/proto"
 )
 
-func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node *model.Proxy, push *model.PushContext) ([]*xdsapi.Listener, error) {
+func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node *model.Proxy, push *model.PushContext) []*xdsapi.Listener {
 	// collect workload labels
 	workloadInstances := node.ServiceInstances
 
@@ -52,7 +52,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 	gatewaysForWorkload := env.Gateways(workloadLabels)
 	if len(gatewaysForWorkload) == 0 {
 		log.Debuga("buildGatewayListeners: no gateways for router ", node.ID)
-		return []*xdsapi.Listener{}, nil
+		return []*xdsapi.Listener{}
 	}
 
 	mergedGateway := model.MergeGateways(gatewaysForWorkload...)
@@ -134,13 +134,13 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		}
 
 		pluginParams := &plugin.InputParams{
-			ListenerProtocol: listenerProtocol,
-			ListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_GATEWAY,
-			Env:              env,
-			Node:             node,
-			ProxyInstances:   workloadInstances,
-			Push:             push,
-			ServiceInstance:  si,
+			ListenerProtocol:           listenerProtocol,
+			DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_GATEWAY,
+			Env:                        env,
+			Node:                       node,
+			ProxyInstances:             workloadInstances,
+			Push:                       push,
+			ServiceInstance:            si,
 			Port: &model.Port{
 				Name:     servers[0].Port.Name,
 				Port:     int(portNumber),
@@ -179,7 +179,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 
 	if len(listeners) == 0 {
 		log.Error("buildGatewayListeners: Have zero listeners")
-		return []*xdsapi.Listener{}, nil
+		return []*xdsapi.Listener{}
 	}
 
 	validatedListeners := make([]*xdsapi.Listener, 0, len(mergedGateway.Servers))
@@ -191,7 +191,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		validatedListeners = append(validatedListeners, l)
 	}
 
-	return validatedListeners, nil
+	return validatedListeners
 }
 
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,

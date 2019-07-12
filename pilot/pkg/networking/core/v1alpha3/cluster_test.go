@@ -232,7 +232,8 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolutio
 	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
 	serviceDiscovery.InstancesByPortReturns(instances, nil)
 
-	env := newTestEnvironment(serviceDiscovery, mesh)
+	configStore := &fakes.IstioConfigStore{}
+	env := newTestEnvironment(serviceDiscovery, mesh, configStore.Freeze())
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
 			Type:    model.DestinationRule.Type,
@@ -338,12 +339,10 @@ func TestBuildGatewayClustersWithRingHashLbDefaultMinRingSize(t *testing.T) {
 	g.Expect(cluster.ConnectTimeout).To(Equal(time.Duration(10000000001)))
 }
 
-func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig.MeshConfig) *model.Environment {
-	configStore := &fakes.IstioConfigStore{}
-
+func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig.MeshConfig, configStore model.IstioConfigStore) *model.Environment {
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore.Freeze(),
+		IstioConfigStore: configStore,
 		Mesh:             &mesh,
 	}
 
@@ -821,7 +820,8 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
 	serviceDiscovery.InstancesByPortReturns(instances, nil)
 
-	env := newTestEnvironment(serviceDiscovery, testMesh)
+	configStore := &fakes.IstioConfigStore{}
+	env := newTestEnvironment(serviceDiscovery, testMesh, configStore.Freeze())
 
 	localityLbEndpoints := buildLocalityLbEndpoints(env, model.GetNetworkView(nil), service, 8080, nil)
 	g.Expect(len(localityLbEndpoints)).To(Equal(2))
@@ -886,7 +886,8 @@ func TestPassthroughClusterMaxConnections(t *testing.T) {
 
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 	serviceDiscovery := &fakes.ServiceDiscovery{}
-	env := newTestEnvironment(serviceDiscovery, testMesh)
+	configStore := &fakes.IstioConfigStore{}
+	env := newTestEnvironment(serviceDiscovery, testMesh, configStore.Freeze())
 	proxy := &model.Proxy{}
 
 	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
@@ -925,7 +926,8 @@ func TestRedisProtocolCluster(t *testing.T) {
 
 	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
 
-	env := newTestEnvironment(serviceDiscovery, testMesh)
+	configStore := &fakes.IstioConfigStore{}
+	env := newTestEnvironment(serviceDiscovery, testMesh, configStore.Freeze())
 
 	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(err).NotTo(HaveOccurred())
