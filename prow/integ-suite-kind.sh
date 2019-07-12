@@ -34,10 +34,6 @@ source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 setup_kind_cluster
 
-echo 'Build'
-(cd "${ROOT}"; make build)
-
-
 # KinD will not have a LoadBalancer, so we need to disable it
 export TEST_ENV=kind
 
@@ -54,10 +50,10 @@ make docker
 function build_kind_images(){
 	# Archived local images and load it into KinD's docker daemon
 	# Kubernetes in KinD can only access local images from its docker daemon.
-	docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name e2e-suite load docker-image
+	docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 -P16 kind --loglevel debug --name e2e-suite load docker-image
 }
 
-build_kind_images
+time build_kind_images
 
 export JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml"
 export T="-v"
