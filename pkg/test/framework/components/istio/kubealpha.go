@@ -17,33 +17,6 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 )
 
-func getNamespaces(cfg Config) []string {
-	// Store in map to dedupe
-	allNamespace := map[string]struct{}{}
-	for _, c := range cfg.InstallComponents {
-		switch c {
-		case Base:
-			allNamespace[cfg.IstioNamespace] = struct{}{}
-			allNamespace[cfg.ConfigNamespace] = struct{}{}
-		case Ingress:
-			allNamespace[cfg.IngressNamespace] = struct{}{}
-		case Egress:
-			allNamespace[cfg.EgressNamespace] = struct{}{}
-		case Telemetry:
-			allNamespace[cfg.TelemetryNamespace] = struct{}{}
-		case Policy:
-			allNamespace[cfg.PolicyNamespace] = struct{}{}
-		case Tracing:
-			allNamespace[cfg.TelemetryNamespace] = struct{}{}
-		}
-	}
-	result := []string{}
-	for ns := range allNamespace {
-		result = append(result, ns)
-	}
-	return result
-}
-
 type installerComponent struct {
 	id          resource.ID
 	settings    Config
@@ -68,7 +41,7 @@ func (i *installerComponent) Close() error {
 	if !i.settings.DeployIstio {
 		return nil
 	}
-	namespaces := getNamespaces(i.settings)
+	namespaces := GetDeployedNamespaces(i.settings)
 	errchan := make(chan error, len(namespaces))
 	wg := &sync.WaitGroup{}
 	for _, ns := range namespaces {
@@ -106,7 +79,7 @@ func (i *installerComponent) Dump() {
 		scopes.CI.Errorf("Unable to create directory for dumping Istio contents: %v", err)
 		return
 	}
-	for _, ns := range getNamespaces(i.settings) {
+	for _, ns := range GetDeployedNamespaces(i.settings) {
 		deployment.DumpPodState(d, ns, i.environment.Accessor)
 		deployment.DumpPodEvents(d, ns, i.environment.Accessor)
 

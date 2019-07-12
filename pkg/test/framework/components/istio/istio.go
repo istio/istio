@@ -31,6 +31,44 @@ type Instance interface {
 // SetupConfigFn is a setup function that specifies the overrides of the configuration to deploy Istio.
 type SetupConfigFn func(cfg *Config)
 
+func GetDeployedNamespaces(cfg Config) []string {
+	// Store in map to dedupe
+	allNamespace := map[string]struct{}{}
+
+	if cfg.AlphaInstaller {
+		for _, c := range cfg.InstallComponents {
+			switch c {
+			case Base:
+				allNamespace[cfg.IstioNamespace] = struct{}{}
+				allNamespace[cfg.ConfigNamespace] = struct{}{}
+			case Ingress:
+				allNamespace[cfg.IngressNamespace] = struct{}{}
+			case Egress:
+				allNamespace[cfg.EgressNamespace] = struct{}{}
+			case Telemetry:
+				allNamespace[cfg.TelemetryNamespace] = struct{}{}
+			case Policy:
+				allNamespace[cfg.PolicyNamespace] = struct{}{}
+			case Tracing:
+				allNamespace[cfg.TelemetryNamespace] = struct{}{}
+			}
+		}
+	} else {
+		allNamespace[cfg.IstioNamespace] = struct{}{}
+		allNamespace[cfg.ConfigNamespace] = struct{}{}
+		allNamespace[cfg.IngressNamespace] = struct{}{}
+		allNamespace[cfg.EgressNamespace] = struct{}{}
+		allNamespace[cfg.TelemetryNamespace] = struct{}{}
+		allNamespace[cfg.PolicyNamespace] = struct{}{}
+	}
+
+	result := []string{}
+	for ns := range allNamespace {
+		result = append(result, ns)
+	}
+	return result
+}
+
 // Setup is a setup function that will deploy Istio on Kubernetes environment
 func Setup(i *Instance, cfn SetupConfigFn, components ...InstallComponent) resource.SetupFn {
 	return func(ctx resource.Context) error {

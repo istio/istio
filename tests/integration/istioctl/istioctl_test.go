@@ -22,10 +22,8 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -54,8 +52,11 @@ func TestVersion(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			g := galley.NewOrFail(t, ctx, galley.Config{})
-			_ = pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
+			for _, ns := range istio.GetDeployedNamespaces(i.Settings()) {
+				if _, err := env.WaitUntilPodsAreReady(env.NewPodFetch(ns)); err != nil {
+					t.Fatalf("pods failed to deploy in namespace %v", ns)
+				}
+			}
 
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 

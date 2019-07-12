@@ -32,7 +32,12 @@ set -x
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
-setup_kind_cluster
+
+function load_kind_images(){
+	# Archived local images and load it into KinD's docker daemon
+	# Kubernetes in KinD can only access local images from its docker daemon.
+	docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 -P16 kind --loglevel debug --name e2e-suite load docker-image
+}
 
 # KinD will not have a LoadBalancer, so we need to disable it
 export TEST_ENV=kind
@@ -41,25 +46,23 @@ export TEST_ENV=kind
 # See https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster
 export PULL_POLICY=IfNotPresent
 
-export HUB=${HUB:-"kindtest"}
-export TAG="${TAG:-${GIT_SHA}}"
+# HUB does not need to be a real hub, this is never pushed as it will be directly loaded
+export HUB="${HUB:-"istio-kind"}"
+export TAG="${TAG:-"istio-kind"}"
 
 make init
 clone_installer
+setup_kind_cluster
 
 # Build just the images needed for the tests
 for image in pilot proxyv2 proxy_init app test_policybackend mixer citadel galley sidecar_injector kubectl node-agent-k8s; do
    make docker.${image}
 done
 
-function build_kind_images(){
-	# Archived local images and load it into KinD's docker daemon
-	# Kubernetes in KinD can only access local images from its docker daemon.
-	docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 -P16 kind --loglevel debug --name e2e-suite load docker-image
-}
+load_kind_images
 
-time build_kind_images
 
 export JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml"
 export T="-v"
+export CI="true"
 make "$@"

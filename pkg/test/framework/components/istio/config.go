@@ -130,9 +130,6 @@ type Config struct {
 	// The namespace in which istio egressgateway is deployed
 	EgressNamespace string
 
-	// Indicates that the test should deploy Istio using the alpha installer.
-	AlphaInstaller bool
-
 	// Indicates which components to install for the test. Use only if AlphaInstaller=true.
 	InstallComponents []InstallComponent
 
@@ -158,6 +155,9 @@ type Config struct {
 
 	// Indicates that the test should deploy Istio into the target Kubernetes cluster before running tests.
 	DeployIstio bool
+
+	// Indicates that the test should deploy Istio using the alpha installer.
+	AlphaInstaller bool
 
 	// Do not wait for the validation webhook before completing the deployment. This is useful for
 	// doing deployments without Galley.
