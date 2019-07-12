@@ -58,7 +58,7 @@ export TAG
 EXTRA ?= --set global.hub=${HUB} --set global.tag=${TAG}
 OUT ?= ${GOPATH}/out
 
-BUILD_IMAGE ?= istionightly/kind:v1.14.1-1
+BUILD_IMAGE ?= istionightly/ci:2019-07-01
 
 GO ?= go
 
@@ -176,7 +176,7 @@ prepare:
 		-v /var/run/docker.sock:/var/run/docker.sock  \
 		-e GOPATH=${GOPATH} \
 		-it --entrypoint /bin/bash --rm \
-		istionightly/kind:v1.14.1-1 -c \
+		$(BUILD_IMAGE) -c \
 		"/usr/local/bin/kind create cluster --loglevel debug --name ${KIND_CLUSTER} --wait 60s ${KIND_CONFIG} --image $(BUILD_IMAGE)"
 
 	#kind create cluster --loglevel debug --name ${KIND_CLUSTER} --wait 60s ${KIND_CONFIG} --image $(BUILD_IMAGE)
@@ -194,7 +194,7 @@ clean:
 		-v /var/run/docker.sock:/var/run/docker.sock  \
 		-e GOPATH=${GOPATH} \
 		-it --entrypoint /bin/bash --rm \
-		istionightly/kind:v1.14.1-1 -c \
+		$(BUILD_IMAGE) -c \
 		"/usr/local/bin/kind delete cluster --name ${KIND_CLUSTER}" 2>&1 || true
 	#kind delete cluster --name ${KIND_CLUSTER} 2>&1 || true
 
