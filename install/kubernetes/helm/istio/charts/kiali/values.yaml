@@ -6,6 +6,7 @@ replicaCount: 1
 hub: quay.io/kiali
 tag: v0.20
 contextPath: /kiali # The root context path to access the Kiali UI.
+authStrategy: login # authentication mechanism for accessing Kiali, options include login, anonymous and openshift.
 nodeSelector: {}
 tolerations: []
 
