@@ -52,10 +52,10 @@ trafficManagement:
             ingressControllerMode: "OFF"
             ingressClass: istio
           telemetry:
-            enabled: true
+            enabled: false
           policy:
             enabled: false
-          useMCP: true
+          useMCP: false
 
     proxy:
       common:
@@ -86,7 +86,7 @@ trafficManagement:
 
 # Policy feature
 policy:
-  enabled: true
+  enabled: false
   components:
     namespace: istio-policy
     policy:
@@ -116,7 +116,7 @@ policy:
 
 # Telemetry feature
 telemetry:
-  enabled: true
+  enabled: false
   components:
     namespace: istio-telemetry
     telemetry:
@@ -168,7 +168,7 @@ telemetry:
 
 # Security feature
 security:
-  enabled: true
+  enabled: false
   components:
     namespace: istio-security
 
@@ -199,7 +199,7 @@ security:
 
 # Config management feature
 configManagement:
-  enabled: true
+  enabled: false
   components:
     namespace: istio-control
     galley:
@@ -212,7 +212,7 @@ configManagement:
 
 # Auto injection feature
 autoInjection:
-  enabled: true
+  enabled: false
   components:
     namespace: istio-control
     injector:
@@ -226,7 +226,7 @@ autoInjection:
 
 # Istio Gateway feature
 gateways:
-  enabled: true
+  enabled: false
   components:
     ingressGateway:
     - gateway:
