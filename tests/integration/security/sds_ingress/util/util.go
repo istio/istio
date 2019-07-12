@@ -304,7 +304,7 @@ func DeployBookinfo(t *testing.T, ctx framework.TestContext, g galley.Instance, 
 func WaitUntilGatewaySdsStatsGE(t *testing.T, ing ingress.Instance, expectedUpdates int, timeout time.Duration) error {
 	start := time.Now()
 	sdsUpdates := 0
-	err := fmt.Errorf("")
+	err := fmt.Errorf("stats not found")
 	for {
 		if time.Since(start) > timeout {
 			return fmt.Errorf("sds stats does not meet expection in %v: Expected %v, Last stats: %v",
@@ -328,7 +328,7 @@ func WaitUntilGatewayActiveListenerStatsGE(t *testing.T, ing ingress.Instance, e
 	timeout time.Duration) error {
 	start := time.Now()
 	activeListeners := 0
-	err := fmt.Errorf("")
+	err := fmt.Errorf("stats not found")
 	for {
 		if time.Since(start) > timeout {
 			return fmt.Errorf("active listener stats does not meet expection in %v: Expected %v, "+
