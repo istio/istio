@@ -289,11 +289,11 @@ var (
 
 			controlPlaneAuthEnabled := controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled)
-			log.Infof("Monitored certs: %#v", tlsCertsToWatch)
 
 			// since Envoy needs the certs for mTLS, we wait for them to become available before starting it
 			// skip waiting cert if sds is enabled, otherwise it takes long time for pod to start.
-			if controlPlaneAuthEnabled && !sdsEnabled {
+			if controlPlaneBootstrap && !sdsEnabled {
+				log.Infof("Monitored certs: %#v", tlsCertsToWatch)
 				for _, cert := range tlsCertsToWatch {
 					waitForFile(cert, 2*time.Minute)
 				}
@@ -490,7 +490,6 @@ func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool) (bool, strin
 	if _, err := os.Stat(trustworthyJWTPath); err == nil {
 		return true, trustworthyJWTPath
 	}
-
 	if _, err := os.Stat(jwtPath); err == nil {
 		return true, jwtPath
 	}

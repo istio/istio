@@ -119,21 +119,38 @@ func TestPilotDefaultDomainKubernetes(t *testing.T) {
 }
 
 func TestDetectSds(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	enabled, path := detectSds(false, false)
-	g.Expect(path).To(gomega.Equal(""))
-	g.Expect(enabled).To(gomega.Equal(false))
-
 	sdsUdsWaitTimeout = 100 * time.Millisecond
 	defer func() {
 		sdsUdsWaitTimeout = time.Minute
 	}()
 
-	os.Setenv("SDS_ENABLED", "true")
-	enabled, path = detectSds(true, true)
-	g.Expect(path).To(gomega.Equal(""))
-	g.Expect(enabled).To(gomega.Equal(false))
-	os.Unsetenv("SDS_ENABLED")
+	g := gomega.NewGomegaWithT(t)
+	tests := []struct {
+		controlPlaneBootstrap   bool
+		controlPlaneAuthEnabled bool
+	}{
+		{
+			controlPlaneBootstrap:   true,
+			controlPlaneAuthEnabled: false,
+		},
+		{
+			controlPlaneBootstrap:   false,
+			controlPlaneAuthEnabled: true,
+		},
+		{
+			controlPlaneBootstrap:   false,
+			controlPlaneAuthEnabled: true,
+		},
+		{
+			controlPlaneBootstrap:   true,
+			controlPlaneAuthEnabled: true,
+		},
+	}
+	for _, tt := range tests {
+		enabled, path := detectSds(tt.controlPlaneBootstrap, tt.controlPlaneAuthEnabled)
+		g.Expect(path).To(gomega.Equal(""))
+		g.Expect(enabled).To(gomega.Equal(false))
+	}
 }
 
 func TestPilotDefaultDomainConsul(t *testing.T) {
