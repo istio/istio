@@ -57,13 +57,17 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 			ingressutil.CreateIngressKubeSecret(t, ctx, credCaName, ingress.Mtls, ingressutil.IngressCredentialCaCertA)
 			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.Mtls,
 				ingressutil.IngressCredentialServerKeyCertA)
-			// Do not provide private key and server certificate for ingress gateway. Connection creation should fail.
-			ingA := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
 
+			ingA := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
 			// Expect 2 SDS updates, one for the server key/cert update, and one for the CA cert update.
 			err := ingressutil.WaitUntilGatewaySdsStatsGE(t, ingA, 2, 10*time.Second)
 			if err != nil {
 				t.Errorf("sds update stats does not match: %v", err)
+			}
+			// Expect 2 active listeners, one listens on 443 and the other listens on 15090
+			err = ingressutil.WaitUntilGatewayActiveListenerStatsGE(t, ingA, 2, 10*time.Second)
+			if err != nil {
+				t.Errorf("total active listener stats does not match: %v", err)
 			}
 			tlsContext := ingressutil.TLSContext{
 				CaCert:     ingressutil.CaCertA,
@@ -87,7 +91,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 			err = ingressutil.VisitProductPage(ingA, host, ingress.Mtls, tlsContext, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"}, t)
 			if err != nil {
-				t.Errorf("unable to retrieve 404 from product page at host %s: %v", host, err)
+				t.Errorf("unable to retrieve 0 from product page at host %s: %v", host, err)
 			}
 
 			// key/cert rotation using matched server key/cert.

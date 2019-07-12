@@ -57,6 +57,11 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 			if err != nil {
 				t.Errorf("sds update stats does not match: %v", err)
 			}
+			// Expect 2 active listeners, one listens on 443 and the other listens on 15090
+			err = ingressutil.WaitUntilGatewayActiveListenerStatsGE(t, ingA, 2, 10*time.Second)
+			if err != nil {
+				t.Errorf("total active listener stats does not match: %v", err)
+			}
 			tlsContext := ingressutil.TLSContext{CaCert: ingressutil.CaCertA}
 			err = ingressutil.VisitProductPage(ingA, host, ingress.TLS, tlsContext, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)

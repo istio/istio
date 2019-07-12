@@ -304,29 +304,54 @@ func DeployBookinfo(t *testing.T, ctx framework.TestContext, g galley.Instance, 
 func WaitUntilGatewaySdsStatsGE(t *testing.T, ing ingress.Instance, expectedUpdates int, timeout time.Duration) error {
 	start := time.Now()
 	sdsUpdates := 0
+	err := fmt.Errorf("")
 	for {
 		if time.Since(start) > timeout {
 			return fmt.Errorf("sds stats does not meet expection in %v: Expected %v, Last stats: %v",
 				timeout, expectedUpdates, sdsUpdates)
 		}
-		sdsUpdates, err := GetGatewaySdsStats(ing)
+		sdsUpdates, err = GetStatsByName(t, ing, "listener.0.0.0.0_443.server_ssl_socket_factory.ssl_context_update_by_sds")
 		if err == nil && sdsUpdates >= expectedUpdates {
 			t.Logf("ingress gateway SDS updates meets expectation within %v. got %v vs expected %v",
 				time.Since(start), sdsUpdates, expectedUpdates)
 			return nil
-		} else {
-			t.Logf("sds stats does not match (get %d vs expected %d), error: %v", sdsUpdates,
-				expectedUpdates, err)
 		}
+		t.Logf("sds stats does not match (get %d vs expected %d), error: %v", sdsUpdates,
+			expectedUpdates, err)
 		time.Sleep(3 * time.Second)
 	}
 }
 
-// GetGatewaySdsStats returns sds stats from gateway proxy or error on failures.
-func GetGatewaySdsStats(ing ingress.Instance) (int, error) {
+// WaitUntilGatewayActiveListenerStatsGE checks gateway stats for total number of active listener
+// and returns if listener_manager.total_listeners_active >= expectedListeners
+func WaitUntilGatewayActiveListenerStatsGE(t *testing.T, ing ingress.Instance, expectedListeners int,
+	timeout time.Duration) error {
+	start := time.Now()
+	activeListeners := 0
+	err := fmt.Errorf("")
+	for {
+		if time.Since(start) > timeout {
+			return fmt.Errorf("active listener stats does not meet expection in %v: Expected %v, "+
+				"Last stats: %v", timeout, expectedListeners, activeListeners)
+		}
+		activeListeners, err = GetStatsByName(t, ing, "listener_manager.total_listeners_active")
+		if err == nil && activeListeners >= expectedListeners {
+			t.Logf("ingress gateway total number active listeners meets expectation within %v. "+
+				"got %v vs expected %v", time.Since(start), activeListeners, expectedListeners)
+			return nil
+		}
+		t.Logf("total active listener stats does not match (get %d vs expected %d), error: %v",
+			activeListeners, expectedListeners, err)
+		time.Sleep(3 * time.Second)
+	}
+}
+
+// GetGatewaySdsStats fetches stats from gateway proxy and finds specific stats by name. Returns
+// error on failures.
+func GetStatsByName(t *testing.T, ing ingress.Instance, statsName string) (int, error) {
 	gatewayStats, err := ing.ProxyStats()
 	if err == nil {
-		sdsUpdates, hasSdsStats := gatewayStats["listener.0.0.0.0_443.server_ssl_socket_factory.ssl_context_update_by_sds"]
+		sdsUpdates, hasSdsStats := gatewayStats[statsName]
 		if hasSdsStats {
 			return sdsUpdates, nil
 		}

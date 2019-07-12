@@ -52,16 +52,21 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.SingleMTLSGateway)
 
 			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
-			tlsContext := ingressutil.TLSContext{
-				CaCert:     ingressutil.CaCertA,
-				PrivateKey: ingressutil.TLSClientKeyA,
-				Cert:       ingressutil.TLSClientCertA,
-			}
 			ingA := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
 			// Expect 2 SDS updates, one for the server key/cert update, and one for the CA cert update.
 			err := ingressutil.WaitUntilGatewaySdsStatsGE(t, ingA, 2, 10*time.Second)
 			if err != nil {
 				t.Errorf("sds update stats does not match: %v", err)
+			}
+			// Expect 2 active listeners, one listens on 443 and the other listens on 15090
+			err = ingressutil.WaitUntilGatewayActiveListenerStatsGE(t, ingA, 2, 10*time.Second)
+			if err != nil {
+				t.Errorf("total active listener stats does not match: %v", err)
+			}
+			tlsContext := ingressutil.TLSContext{
+				CaCert:     ingressutil.CaCertA,
+				PrivateKey: ingressutil.TLSClientKeyA,
+				Cert:       ingressutil.TLSClientCertA,
 			}
 			err = ingressutil.VisitProductPage(ingA, host, ingress.Mtls, tlsContext, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
