@@ -67,10 +67,24 @@ var IngressCredentialA = IngressCredential{
 	ServerCert: TLSServerCertA,
 	CaCert:     CaCertA,
 }
+var IngressCredentialServerKeyCertA = IngressCredential{
+	PrivateKey: TLSServerKeyA,
+	ServerCert: TLSServerCertA,
+}
+var IngressCredentialCaCertA = IngressCredential{
+	CaCert: CaCertA,
+}
 var IngressCredentialB = IngressCredential{
 	PrivateKey: TLSServerKeyB,
 	ServerCert: TLSServerCertB,
 	CaCert:     CaCertB,
+}
+var IngressCredentialServerKeyCertB = IngressCredential{
+	PrivateKey: TLSServerKeyB,
+	ServerCert: TLSServerCertB,
+}
+var IngressCredentialCaCertB = IngressCredential{
+	CaCert: CaCertB,
 }
 
 // CreateIngressKubeSecret reads credential names from credNames and key/cert from ingressCred,

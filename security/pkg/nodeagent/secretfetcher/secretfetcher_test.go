@@ -123,11 +123,44 @@ VTkSsST68aOXCmHFLNA/6QB/OUatQYSr+O5iGz99xPEyz4EvHN5ZqTf51d+kyUje
 zXsMLXBLCRwYz2U8y1FCcdOvCqDixneworIrBYDmoSafGUceSGQZOCN6ajW7fujg
 FWy1
 -----END CERTIFICATE-----`)
-	k8sKeyA               = []byte("fake private k8sKeyA")
-	k8sCertChainA         = k8sTestCertChainA
-	k8sCaCertA            = k8sTestCaCertA
-	k8sSecretNameA        = "test-scrtA"
-	k8sTestGenericSecretA = &v1.Secret{
+	k8sTestCaCertB = []byte(`-----BEGIN CERTIFICATE-----
+MIIFgTCCA2mgAwIBAgIDEAISMA0GCSqGSIb3DQEBCwUAMFoxCzAJBgNVBAYTAlVT
+MQ8wDQYDVQQIDAZEZW5pYWwxFDASBgNVBAcMC1NwcmluZ2ZpZWxkMQwwCgYDVQQK
+DANEaXMxFjAUBgNVBAMMDSouZXhhbXBsZS5jb20wHhcNMTkwNTI5MjMxNDM5WhcN
+MzkwNTI0MjMxNDM5WjBEMQswCQYDVQQGEwJVUzEPMA0GA1UECAwGRGVuaWFsMQww
+CgYDVQQKDANEaXMxFjAUBgNVBAMMDSouZXhhbXBsZS5jb20wggIiMA0GCSqGSIb3
+DQEBAQUAA4ICDwAwggIKAoICAQDIFHI/+8ZhJJPuktwXLG9ejV8R3MRS7+0KvJut
+SEZASZbE+x4/bvrxy7Y3ZmoY8W7r/HxAqj9xmvfmqo355Ix4PqK2S/v2jiVpLf5o
+DTEtOI63SSLUvrOdmhjnQz+ZMqLZCWCIQcCXSCfhBWWRyH+iOpAcaLOOaoZI/qCR
+FCqOCmxh3k9Kthex7gwTNCqaZ+jrhq603HrfZ7DtRolAX7oz4ucDC9qraVvGx6MO
+nNh5E0qvOHhuZ1sExWyG9NqEkPaqfDeK0svsiHPWdm6jvo0r/8DiDKeda+MvM1C/
+ZQxB+paH0qmTqxnsA3AngP1w3NzGvHxCXFwnV3D5iMTayohpc0dyZuaGUMKWKj5R
+jq0LwteB1uAyyhEz2SG8qJL+QbawM1qxK1EjJOFvk/pdTnN7HzDc/+bklUnYBbbd
+vdaF+JAdYpDEZlMrHTVfeY7kMM9TbHQbmsmNoUr/GHzDCqoiEa22DITJwSRf2rUe
+VISsvGCyXBSyUilK5dUWmFl7AXprpMBIKQL9X50Ssfx3rs2mWGEP0YySFRn0zrxl
+wg1yBygh8HC+HGNaMdXZDGXeSJzITQI1anngHhkOaOh29UEGM2k5SNiWOZxQEV4J
+L5BBjaJBCifAZcCZd3sPkxmVurZi9vAVc9JT+Avkg4UuDu/HWYpeE302S3l5QSKI
+eVeNEwIDAQABo2YwZDAdBgNVHQ4EFgQURfQW0owHXQLtnkMvKDSxCY4Wy5owHwYD
+VR0jBBgwFoAUd3dG9VBzLMLYT6z3+LT/U3p1SpswEgYDVR0TAQH/BAgwBgEB/wIB
+ADAOBgNVHQ8BAf8EBAMCAYYwDQYJKoZIhvcNAQELBQADggIBAIUilHtj2m5qV+xc
+ElVY3Gsv0mhxHNbEkG+EgOoWd1QWjvz58gkddgGxAb5mJYM5FSdw4yoSIuUYy6F0
+dXxAElWFplNiPY46OJ2/MwINGNZWfkI7jxVCYanHXGJa5llVpPNhLpJEVGt8FOkd
+nLu2ZKCLLSAOC9Z3R/FNxF4HiAuN8Z3OYX7jtaUSdgPogsjzsuWWxuy5Rs8A8hM4
+483UfakoHjLtXAzbdQ1sA7k8YvY3u1t2b3x9jDEcHmz2FYX+N0BtzgSsZvLxrT9b
+wUC+g4Lspl/Lnp8Jrg8k/DQdcC1g0rVMi5nLNtHbH/2j502Na/TDtPANfAlf9gcd
+9TjLsxqax8L7vXvrrcvnJTDZZVjA3NQhDV5EFuwjcSoUq02p7c63FYChNNCdEjKs
+8MA+jH97xafhR6TvxW9R9BTcIwrrJmgmQ+b2hz9sqlE1ZDT4Biy4bUQiAvRTuSxX
+ch+jNPLD3kyfDEixhE1+5luutC77b98qc3KWsG6l3XDQQf/YZ6h6iIkZsXorGtxg
+sLcSOZBc3XyP5twMeOw2ZOMC0qLupFL2MBEmKerlHo5ehQpW16KBHWn1HxFL8j24
+PAsalRNQlxxWYCEYsf60TIUSqtyt1P5G7S40Rn3CP9SnoX6Q3E0POxEGFe3SStAY
+oCvHkuhGyVKRT4Ddff4gfbvMPlls
+-----END CERTIFICATE-----`)
+	k8sTestCaCertExpireTimeB, _ = nodeagentutil.ParseCertAndGetExpiryTimestamp(k8sTestCaCertB)
+	k8sKeyA                     = []byte("fake private k8sKeyA")
+	k8sCertChainA               = k8sTestCertChainA
+	k8sCaCertA                  = k8sTestCaCertA
+	k8sSecretNameA              = "test-scrtA"
+	k8sTestGenericSecretA       = &v1.Secret{
 		Data: map[string][]byte{
 			genericScrtCert:   k8sCertChainA,
 			genericScrtKey:    k8sKeyA,
@@ -209,6 +242,31 @@ FWy1
 			Namespace: "test-namespace",
 		},
 		Type: "test-tls-secret",
+	}
+
+	k8sCASecretNameE        = "test-scrtE-cacert"
+	k8sCaCertE              = k8sTestCaCertA
+	k8sTestGenericCASecretE = &v1.Secret{
+		Data: map[string][]byte{
+			genericScrtCaCert: k8sCaCertE,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      k8sCASecretNameE,
+			Namespace: "test-namespace",
+		},
+		Type: "test-ca-secret",
+	}
+
+	k8sCaCertF       = k8sTestCaCertB
+	k8sTestCASecretF = &v1.Secret{
+		Data: map[string][]byte{
+			tlsScrtCert: k8sCaCertF,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      k8sCASecretNameE,
+			Namespace: "test-namespace",
+		},
+		Type: "test-tls-ca-secret",
 	}
 )
 
@@ -307,6 +365,46 @@ func TestSecretFetcher(t *testing.T) {
 	if secretVersionThree == secretVersionTwo || secretVersionThree == secretVersionOne {
 		t.Errorf("updated secret should have different version")
 	}
+
+	// Add test ca only secret and verify that cacert is stored.
+	expectedAddedCASecrets := []expectedSecret{
+		{
+			exist: true,
+			secret: &model.SecretItem{
+				ResourceName: k8sCASecretNameE,
+				RootCert:     k8sCaCertE,
+				ExpireTime:   k8sTestCaCertExpireTimeA,
+			},
+		},
+	}
+	var secretVersionFour string
+	testAddSecret(t, gSecretFetcher, k8sTestGenericCASecretE, expectedAddedCASecrets, &secretVersionFour)
+
+	// Update test ca only secret and verify that cacert is stored and version number is different.
+	expectedUpdateCASecrets := []expectedSecret{
+		{
+			exist: true,
+			secret: &model.SecretItem{
+				ResourceName: k8sCASecretNameE,
+				RootCert:     k8sCaCertF,
+				ExpireTime:   k8sTestCaCertExpireTimeB,
+			},
+		},
+	}
+	var secretVersionFive string
+	testUpdateSecret(t, gSecretFetcher, k8sTestGenericCASecretE, k8sTestCASecretF, expectedUpdateCASecrets, &secretVersionFive)
+	if secretVersionFive == secretVersionFour {
+		t.Errorf("updated secret should have different version")
+	}
+
+	// Delete test ca secret and verify that its cacert is removed from local store.
+	expectedDeletedCASecrets := []expectedSecret{
+		{
+			exist:  false,
+			secret: &model.SecretItem{ResourceName: k8sCASecretNameE},
+		},
+	}
+	testDeleteSecret(t, gSecretFetcher, k8sTestGenericCASecretE, expectedDeletedCASecrets)
 }
 
 // TestSecretFetcherInvalidSecret verifies that if a secret does not have key or cert, secret fetcher

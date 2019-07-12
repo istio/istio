@@ -31,14 +31,16 @@ var (
 	host     = "bookinfo1.example.com"
 )
 
-// TestSingleMTLSGateway_SecretRotation tests a single mTLS ingress gateway with SDS enabled.
+// TestSingleMTLSGateway_CompoundSecretRotation tests a single mTLS ingress gateway with SDS enabled.
 // Verifies behavior in these scenarios.
 // (1) when kubernetes secret is not provisioned, which means private key and server certificate
 // are not available. Verifies that listener is not up and connection creation get rejected.
-// (2) A valid kubernetes secret with key/cert is added later, verifies that SSL connection termination is working properly.
+// (2) A valid kubernetes secret with key/cert is added later, verifies that SSL connection
+// termination is working properly.
 // (3) After key/cert rotation, client needs to pick new CA cert to complete SSL connection. Old CA
 // cert will cause the SSL connection fail.
-func TestSingleMTLSGateway_SecretRotation(t *testing.T) {
+// The kubernetes secret is a compound secret which contains server key/cert and client CA cert.
+func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 	framework.
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
@@ -104,6 +106,78 @@ func TestSingleMTLSGateway_SecretRotation(t *testing.T) {
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {
 				t.Errorf("unable to retrieve 200 from product page at host %s: %v", host, err)
+			}
+		})
+}
+
+// TestSingleMTLSGateway_ServerKeyCertRotation tests a single mTLS ingress gateway with SDS enabled.
+// Verifies behavior in these scenarios.
+// (1) create two kubernetes secrets to provision server key/cert and client CA cert, and
+// verify that mTLS connection could establish to deliver HTTPS request.
+// (2) replace kubernetes secret to rotate server key/cert, and verify that mTLS connection could
+// not establish because the new server key/cert does not match client CA cert.
+// (3) do another key/cert rotation to use the correct server key/cert this time, and verify that
+// mTLS connection could establish to deliver HTTPS request.
+func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
+	framework.
+		NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			// TODO(JimmyCYJ): Add support into ingress package to test TLS/mTLS ingress gateway in Minikube
+			//  environment https://github.com/istio/istio/issues/14180.
+			if ctx.Environment().(*kube.Environment).Settings().Minikube {
+				t.Skip("https://github.com/istio/istio/issues/14180")
+			}
+
+			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.SingleMTLSGateway)
+
+			// Add two kubernetes secrets to provision server key/cert and client CA cert for ingress gateway.
+			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialCaCertA)
+			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialServerKeyCertA)
+			// Do not provide private key and server certificate for ingress gateway. Connection creation should fail.
+			ingA := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
+			// Expect 2 SDS updates, one for the server key/cert update, and one for the CA cert update.
+			err := ingressutil.WaitUntilGatewaySdsStatsGE(t, ingA, 2, 10*time.Second)
+			if err != nil {
+				t.Errorf("sds update stats does not match: %v", err)
+			}
+			tlsContext := ingressutil.TLSContext{
+				CaCert:     ingressutil.CaCertA,
+				PrivateKey: ingressutil.TLSClientKeyA,
+				Cert:       ingressutil.TLSClientCertA,
+			}
+			err = ingressutil.VisitProductPage(ingA, host, ingress.Mtls, tlsContext, 30*time.Second,
+				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
+			if err != nil {
+				t.Errorf("unable to retrieve code 200 from product page at host %s: %v", host, err)
+			}
+
+			// key/cert rotation using mis-matched server key/cert.
+			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialServerKeyCertB)
+			// Expect 1 more SDS updates for the server key/cert update.
+			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingA, 3, 10*time.Second)
+			if err != nil {
+				t.Errorf("sds update stats does not match: %v", err)
+			}
+			// Use old CA cert to set up SSL connection would fail.
+			err = ingressutil.VisitProductPage(ingA, host, ingress.Mtls, tlsContext, 30*time.Second,
+				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"}, t)
+			if err != nil {
+				t.Errorf("unable to retrieve 404 from product page at host %s: %v", host, err)
+			}
+
+			// key/cert rotation using matched server key/cert.
+			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialServerKeyCertA)
+			// Expect 1 more SDS updates for the server key/cert update.
+			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingA, 4, 10*time.Second)
+			if err != nil {
+				t.Errorf("sds update stats does not match: %v", err)
+			}
+			// Use old CA cert to set up SSL connection would succeed this time.
+			err = ingressutil.VisitProductPage(ingA, host, ingress.Mtls, tlsContext, 30*time.Second,
+				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
+			if err != nil {
+				t.Errorf("unable to retrieve code 200 from product page at host %s: %v", host, err)
 			}
 		})
 }
