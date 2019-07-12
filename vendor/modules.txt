@@ -522,18 +522,18 @@ github.com/yuin/gopher-lua/parse
 github.com/yuin/gopher-lua/ast
 github.com/yuin/gopher-lua/pm
 # go.opencensus.io v0.21.0
-go.opencensus.io/stats
 go.opencensus.io/stats/view
+go.opencensus.io/stats
 go.opencensus.io/tag
 go.opencensus.io/trace
 go.opencensus.io/plugin/ochttp
 go.opencensus.io/plugin/ochttp/propagation/b3
 go.opencensus.io/plugin/ocgrpc
 go.opencensus.io/metric/metricdata
-go.opencensus.io/stats/internal
+go.opencensus.io/metric/metricexport
 go.opencensus.io/internal/tagencoding
 go.opencensus.io/metric/metricproducer
-go.opencensus.io/metric/metricexport
+go.opencensus.io/stats/internal
 go.opencensus.io/internal
 go.opencensus.io/trace/internal
 go.opencensus.io/trace/tracestate
@@ -729,7 +729,8 @@ istio.io/api/mixer/adapter/model/v1beta1
 istio.io/api/mixer/v1
 # istio.io/gogo-genproto v0.0.0-20190614210408-e88dc8b0e4db
 istio.io/gogo-genproto/opencensus/proto/trace/v1
-# istio.io/pkg v0.0.0-20190624144336-268695a9d878
+# istio.io/pkg v0.0.0-20190710182420-c26792dead42
+istio.io/pkg/monitoring
 istio.io/pkg/collateral
 istio.io/pkg/log
 istio.io/pkg/probe
