@@ -24,6 +24,7 @@ import (
 	"github.com/gogo/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -38,6 +39,10 @@ type serverHarness struct {
 
 func (h *serverHarness) EstablishResourceStream(ctx context.Context, opts ...grpc.CallOption) (mcp.ResourceSource_EstablishResourceStreamServer, error) { // nolint: lll
 	return h, h.openError()
+}
+
+func (*serverHarness) SendHeader(metadata.MD) error {
+	return nil
 }
 
 // avoid ambiguity between grpc.ServerStream and test.sourceTestHarness
