@@ -13,16 +13,16 @@ FROM docker:latest as docker
 ############################################
 # Image to create go binaries
 FROM golang:1.12.5 as golang
-ENV     GO111MODULE=on
-ENV     GOPROXY=https://proxy.golang.org
+ENV GO111MODULE=on
 
-# IMPORTANT: kind releases may or may not work with the 1.14.1 kindest/node tag.
-# We want to create images with multiple k8s versions.
-# Use latest since there is not a specific release to match the current kindest/node:v1.14.1 image
-RUN GO111MODULE="on" go get -u sigs.k8s.io/kind@master
+# IMPORTANT: kind releases may or may not work with other kindest/node images.
+# When updating, make sure you update the kindest/node version as well
+# The KinD release notes will include the safe images to use
+RUN go get -u sigs.k8s.io/kind@v0.4.0
 
 # Used to upload test results to test grid
-RUN go get -u istio.io/test-infra/toolbox/ci2gubernator
+# TODO add -u flag back to ci2gubernator once it works correctly. For now it is failing
+RUN go get istio.io/test-infra/toolbox/ci2gubernator
 RUN go get -u github.com/jstemmer/go-junit-report
 
 # get helm binary - do here to limit to only binary in final image
@@ -35,12 +35,12 @@ RUN chmod +x /usr/local/bin/repo
 
 # create istioctl from `master`, assuming that's what the builder had locally
 # ignores `The command '/bin/sh -c go get -d istio.io/istio' returned a non-zero code: 1`
-RUN go get -d istio.io/istio || true   
+RUN git clone https://github.com/istio/istio /go/src/istio.io/istio
 RUN cd /go/src/istio.io/istio && make istioctl
 
 ############################################
 # Main image
-FROM  kindest/node:v1.14.1
+FROM kindest/node:v1.15.0
 
 # Environment variables used in the build.
 ENV     GOROOT=/usr/local/go
