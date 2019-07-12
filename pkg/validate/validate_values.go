@@ -29,7 +29,7 @@ var (
 )
 
 // CheckValues validates the values in the given tree, which follows the Istio values.yaml schema.
-func CheckValues(root util.Tree) util.Errors {
+func CheckValues(root map[string]interface{}) util.Errors {
 	return validateValues(defaultValuesValidations, root, nil)
 }
 
@@ -41,13 +41,10 @@ func validateValues(validations map[string]ValidatorFunc, node interface{}, path
 		errs = util.AppendErrs(errs, vf(path, node))
 	}
 
-	nn, ok := node.(util.Tree)
+	nn, ok := node.(map[string]interface{})
 	if !ok {
-		nn, ok = node.(map[string]interface{})
-		if !ok {
-			// Leaf, nothing more to recurse.
-			return
-		}
+		// Leaf, nothing more to recurse.
+		return errs
 	}
 	for k, v := range nn {
 		errs = util.AppendErrs(errs, validateValues(validations, v, append(path, k)))

@@ -22,12 +22,11 @@ import (
 )
 
 const (
-	kvSeparatorRune = ':'
-
 	// PathSeparator is the separator between path elements.
 	PathSeparator = "."
 	// KVSeparator is the separator between the key and value in a key/value path element,
-	KVSeparator = string(kvSeparatorRune)
+	KVSeparator     = string(kvSeparatorRune)
+	kvSeparatorRune = ':'
 )
 
 var (
@@ -65,10 +64,6 @@ func ToYAMLPathString(path string) string {
 		p[i] = firstCharToLowerCase(p[i])
 	}
 	return p.String()
-}
-
-func firstCharToLowerCase(s string) string {
-	return strings.ToLower(s[0:1]) + s[1:]
 }
 
 // IsValidPathElement reports whether pe is a valid path element.
@@ -147,4 +142,8 @@ func splitEscaped(s string, r rune) []string {
 	}
 	out = append(out, s[prevIdx:])
 	return out
+}
+
+func firstCharToLowerCase(s string) string {
+	return strings.ToLower(s[0:1]) + s[1:]
 }
