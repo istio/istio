@@ -512,7 +512,7 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 	log.Infof("Initial manifest with merged values:\n%s\n", my)
 
 	// Add the k8s resources from IstioControlPlaneSpec.
-	my, err = c.Translator.OverlayK8sSettings(my, c.InstallSpec, c.FeatureName, c.name)
+	my, err = c.Translator.OverlayK8sSettings(my, c.InstallSpec, c.name)
 	if err != nil {
 		log.Errorf("Error in OverlayK8sSettings: %s", err)
 		return "", err

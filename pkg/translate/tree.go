@@ -33,12 +33,14 @@ func setTree(root interface{}, path util.Path, value interface{}) error {
 // setTreeInternal sets the YAML path in the given Tree to the given value, creating any required intermediate nodes.
 // Slices are passed along with the parent map and the key to the slice so the map can be added to for new slice
 // entries.
+// TODO: there's some duplication between here and patch package. The latter is more general but does not support
+// creating missing intermediate nodes. Investigate if these can be merged.
 func setTreeInternal(root interface{}, path util.Path, value interface{}, parentMap *map[string]interface{}, keyToChild string) error {
-	dbgPrint("setTree %s:%v", path, value)
 	if len(path) == 0 {
 		return fmt.Errorf("path cannot be empty")
 	}
 
+	dbgPrint("setTree %s:%v", path, value)
 	pe := path[0]
 	switch {
 	case util.IsSlice(root):
@@ -66,10 +68,10 @@ func setTreeInternal(root interface{}, path util.Path, value interface{}, parent
 				return setTreeInternal(sv, path[1:], value, nil, "")
 			}
 		}
+		// KV not found, create a new slice entry with the given KV and proceed into it.
 		dbgPrint("no matching kv for %s:%s, create node", k, v)
 		nn := map[string]interface{}{k: v}
-		newSlice := append(sli, nn)
-		(*parentMap)[keyToChild] = newSlice
+		(*parentMap)[keyToChild] = append(sli, nn)
 		if len(path) == 1 {
 			return nil
 		}
@@ -77,7 +79,7 @@ func setTreeInternal(root interface{}, path util.Path, value interface{}, parent
 	case util.IsMap(root):
 		r := root.(map[string]interface{})
 		if len(path) == 1 {
-			dbgPrint("set node %s:%s", r[pe], value)
+			dbgPrint("set value %v -> %v", r[pe], value)
 			r[pe] = value
 			return nil
 		}
