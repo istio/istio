@@ -109,7 +109,10 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	// DO NOT CALL PLUGINS for these two clusters.
 	clusters = append(clusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env))
 
-	return normalizeClusters(push, proxy, clusters), nil
+	clusters = normalizeClusters(push, proxy, clusters)
+	clusters = applyClusterConfigPatches(clusters, env, proxy.WorkloadLabels)
+
+	return clusters, nil
 }
 
 // resolves cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.

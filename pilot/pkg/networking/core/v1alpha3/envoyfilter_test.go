@@ -16,12 +16,238 @@ package v1alpha3
 
 import (
 	"net"
+	"reflect"
 	"testing"
+
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 )
+
+func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) *fakes.IstioConfigStore {
+	return &fakes.IstioConfigStore{
+		EnvoyFilterStub: func(workloadLabels model.LabelsCollection) *model.Config {
+			return &model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Name:      "test-envoyfilter",
+					Namespace: "not-default",
+				},
+				Spec: &networking.EnvoyFilter{
+					ConfigPatches: configPatches,
+				},
+			}
+		},
+	}
+
+}
+
+func buildListenerPatches(config string) []*networking.EnvoyFilter_EnvoyConfigObjectPatch {
+	return []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER,
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value: &types.Value{
+					Kind: &types.Value_StringValue{StringValue: config},
+				},
+			},
+		},
+	}
+}
+
+func TestApplyListenerConfigPatches(t *testing.T) {
+	listenerConfig := `{"address": { "pipe": { "path": "some-path" } }, "filter_chains": [{"filters": [{"name": "envoy.ratelimit"}]}]}`
+	invalidConfig := `{"address": { "non-existent-field": { "path": "some-path" } }, "filter_chains": [{"filters": [{"name": "envoy.ratelimit"}]}]}`
+
+	testCases := []struct {
+		name      string
+		listeners []*xdsapi.Listener
+		patches   []*networking.EnvoyFilter_EnvoyConfigObjectPatch
+		labels    model.LabelsCollection
+		result    []*xdsapi.Listener
+	}{
+		{
+			name:      "successfully adds a listener",
+			listeners: make([]*xdsapi.Listener, 0),
+			patches:   buildListenerPatches(listenerConfig),
+			labels:    model.LabelsCollection{},
+			result: []*xdsapi.Listener{
+				{
+					Address: core.Address{
+						Address: &core.Address_Pipe{
+							Pipe: &core.Pipe{
+								Path: "some-path",
+							},
+						},
+					},
+					FilterChains: []listener.FilterChain{
+						{
+							Filters: []listener.Filter{
+								{
+									Name: "envoy.ratelimit",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:      "does not add a listener with invalid config",
+			listeners: make([]*xdsapi.Listener, 0),
+			patches:   buildListenerPatches(invalidConfig),
+			labels:    model.LabelsCollection{},
+			result:    []*xdsapi.Listener{},
+		},
+		{
+			name:      "does not merge listener",
+			listeners: make([]*xdsapi.Listener, 0),
+			patches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_LISTENER,
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_MERGE,
+						Value: &types.Value{
+							Kind: &types.Value_StringValue{StringValue: listenerConfig},
+						},
+					},
+				},
+			},
+			labels: model.LabelsCollection{},
+			result: []*xdsapi.Listener{},
+		},
+		{
+			name:      "does not add new listener with empty patch",
+			listeners: make([]*xdsapi.Listener, 0),
+			patches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_LISTENER,
+				},
+			},
+			labels: model.LabelsCollection{},
+			result: []*xdsapi.Listener{},
+		},
+		{
+			name: "does not remove listener",
+			listeners: []*xdsapi.Listener{
+				{
+					Address: core.Address{
+						Address: &core.Address_Pipe{
+							Pipe: &core.Pipe{
+								Path: "some-path",
+							},
+						},
+					},
+					FilterChains: []listener.FilterChain{
+						{
+							Filters: []listener.Filter{
+								{
+									Name: "envoy.ratelimit",
+								},
+							},
+						},
+					},
+				},
+			},
+			patches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_LISTENER,
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+						Value: &types.Value{
+							Kind: &types.Value_StringValue{StringValue: listenerConfig},
+						},
+					},
+				},
+			},
+			labels: model.LabelsCollection{},
+			result: []*xdsapi.Listener{
+				{
+					Address: core.Address{
+						Address: &core.Address_Pipe{
+							Pipe: &core.Pipe{
+								Path: "some-path",
+							},
+						},
+					},
+					FilterChains: []listener.FilterChain{
+						{
+							Filters: []listener.Filter{
+								{
+									Name: "envoy.ratelimit",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		serviceDiscovery := &fakes.ServiceDiscovery{}
+		env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(tc.patches))
+
+		ret := applyListenerConfigPatches(tc.listeners, env, tc.labels)
+		if !reflect.DeepEqual(tc.result, ret) {
+			t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.result, ret)
+		}
+	}
+}
+
+func buildClusterPatches(config string) []*networking.EnvoyFilter_EnvoyConfigObjectPatch {
+	return []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{
+			ApplyTo: networking.EnvoyFilter_CLUSTER,
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value: &types.Value{
+					Kind: &types.Value_StringValue{StringValue: config},
+				},
+			},
+		},
+	}
+}
+
+func TestApplyClusterConfigPatches(t *testing.T) {
+	clusterConfig := `{"name":"some-cluster"}`
+
+	testCases := []struct {
+		name     string
+		clusters []*xdsapi.Cluster
+		patches  []*networking.EnvoyFilter_EnvoyConfigObjectPatch
+		labels   model.LabelsCollection
+		result   []*xdsapi.Cluster
+	}{
+		{
+			name:     "successfully adds a cluster",
+			clusters: make([]*xdsapi.Cluster, 0),
+			patches:  buildClusterPatches(clusterConfig),
+			labels:   model.LabelsCollection{},
+			result: []*xdsapi.Cluster{
+				{
+					Name: "some-cluster",
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		serviceDiscovery := &fakes.ServiceDiscovery{}
+		env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(tc.patches))
+
+		ret := applyClusterConfigPatches(tc.clusters, env, tc.labels)
+		if !reflect.DeepEqual(tc.result, ret) {
+			t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.result, ret)
+		}
+	}
+}
 
 func TestListenerMatch(t *testing.T) {
 	inputParams := &plugin.InputParams{
@@ -150,7 +376,7 @@ func TestListenerMatch(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc.inputParams.ListenerCategory = tc.direction
+		tc.inputParams.DeprecatedListenerCategory = tc.direction
 		ret := listenerMatch(tc.inputParams, tc.listenerIP, tc.matchCondition)
 		if tc.result != ret {
 			t.Errorf("%s: expecting %v but got %v", tc.name, tc.result, ret)
