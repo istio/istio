@@ -49,7 +49,6 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 
 	mux.HandleFunc("/ready", s.ready)
 
-	mux.HandleFunc("/debug/edsz", s.edsz)
 	mux.HandleFunc("/debug/adsz", s.adsz)
 	mux.HandleFunc("/debug/cdsz", cdsz)
 	mux.HandleFunc("/debug/syncz", Syncz)
@@ -67,18 +66,17 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 
 // SyncStatus is the synchronization status between Pilot and a given Envoy
 type SyncStatus struct {
-	ProxyID         string `json:"proxy,omitempty"`
-	ProxyVersion    string `json:"proxy_version,omitempty"`
-	IstioVersion    string `json:"istio_version,omitempty"`
-	ClusterSent     string `json:"cluster_sent,omitempty"`
-	ClusterAcked    string `json:"cluster_acked,omitempty"`
-	ListenerSent    string `json:"listener_sent,omitempty"`
-	ListenerAcked   string `json:"listener_acked,omitempty"`
-	RouteSent       string `json:"route_sent,omitempty"`
-	RouteAcked      string `json:"route_acked,omitempty"`
-	EndpointSent    string `json:"endpoint_sent,omitempty"`
-	EndpointAcked   string `json:"endpoint_acked,omitempty"`
-	EndpointPercent int    `json:"endpoint_percent,omitempty"`
+	ProxyID       string `json:"proxy,omitempty"`
+	ProxyVersion  string `json:"proxy_version,omitempty"`
+	IstioVersion  string `json:"istio_version,omitempty"`
+	ClusterSent   string `json:"cluster_sent,omitempty"`
+	ClusterAcked  string `json:"cluster_acked,omitempty"`
+	ListenerSent  string `json:"listener_sent,omitempty"`
+	ListenerAcked string `json:"listener_acked,omitempty"`
+	RouteSent     string `json:"route_sent,omitempty"`
+	RouteAcked    string `json:"route_acked,omitempty"`
+	EndpointSent  string `json:"endpoint_sent,omitempty"`
+	EndpointAcked string `json:"endpoint_acked,omitempty"`
 }
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
@@ -91,18 +89,17 @@ func Syncz(w http.ResponseWriter, _ *http.Request) {
 			proxyVersion, _ := con.modelNode.GetProxyVersion()
 			istioVersion, _ := con.modelNode.GetIstioVersion()
 			syncz = append(syncz, SyncStatus{
-				ProxyID:         con.modelNode.ID,
-				ProxyVersion:    proxyVersion,
-				IstioVersion:    istioVersion,
-				ClusterSent:     con.ClusterNonceSent,
-				ClusterAcked:    con.ClusterNonceAcked,
-				ListenerSent:    con.ListenerNonceSent,
-				ListenerAcked:   con.ListenerNonceAcked,
-				RouteSent:       con.RouteNonceSent,
-				RouteAcked:      con.RouteNonceAcked,
-				EndpointSent:    con.EndpointNonceSent,
-				EndpointAcked:   con.EndpointNonceAcked,
-				EndpointPercent: con.EndpointPercent,
+				ProxyID:       con.modelNode.ID,
+				ProxyVersion:  proxyVersion,
+				IstioVersion:  istioVersion,
+				ClusterSent:   con.ClusterNonceSent,
+				ClusterAcked:  con.ClusterNonceAcked,
+				ListenerSent:  con.ListenerNonceSent,
+				ListenerAcked: con.ListenerNonceAcked,
+				RouteSent:     con.RouteNonceSent,
+				RouteAcked:    con.RouteNonceAcked,
+				EndpointSent:  con.EndpointNonceSent,
+				EndpointAcked: con.EndpointNonceAcked,
 			})
 		}
 		con.mu.RUnlock()
@@ -492,39 +489,6 @@ func (s *DiscoveryServer) ready(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	w.WriteHeader(200)
-}
-
-// edsz implements a status and debug interface for EDS.
-// It is mapped to /debug/edsz on the monitor port (15014).
-func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
-	_ = req.ParseForm()
-	w.Header().Add("Content-Type", "application/json")
-
-	if req.Form.Get("push") != "" {
-		AdsPushAll(s)
-	}
-
-	edsClusterMutex.RLock()
-	comma := false
-	if len(edsClusters) > 0 {
-		fmt.Fprintln(w, "[")
-		for _, eds := range edsClusters {
-			if comma {
-				fmt.Fprint(w, ",\n")
-			} else {
-				comma = true
-			}
-			jsonm := &jsonpb.Marshaler{Indent: "  "}
-			dbgString, _ := jsonm.MarshalToString(eds.LoadAssignment)
-			if _, err := w.Write([]byte(dbgString)); err != nil {
-				return
-			}
-		}
-		fmt.Fprintln(w, "]")
-	} else {
-		w.WriteHeader(404)
-	}
-	edsClusterMutex.RUnlock()
 }
 
 // cdsz implements a status and debug interface for CDS.

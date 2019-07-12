@@ -71,13 +71,6 @@ var (
 	// Default is 10s, Example: "300ms", "10s" or "2h45m".
 	DebounceMax = env.RegisterDurationVar("PILOT_DEBOUNCE_MAX", 10*time.Second, "").Get()
 
-	// DisableEDSIsolation provides an option to disable the feature
-	// of EDS isolation which is enabled by default from Istio 1.1 and
-	// go back to the legacy behavior of previous releases.
-	// If not set, Pilot will return the endpoints for a proxy in an isolated namespace.
-	// Set the environment variable to any value to disable.
-	DisableEDSIsolation = env.RegisterStringVar("PILOT_DISABLE_EDS_ISOLATION", "", "").Get()
-
 	// BaseDir is the base directory for locating configs.
 	// File based certificates are located under $BaseDir/etc/certs/. If not set, the original 1.0 locations will
 	// be used, "/"

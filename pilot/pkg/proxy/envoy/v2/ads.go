@@ -107,7 +107,6 @@ type XdsConnection struct {
 	RouteNonceSent, RouteNonceAcked       string
 	RouteVersionInfoSent                  string
 	EndpointNonceSent, EndpointNonceAcked string
-	EndpointPercent                       int
 
 	// current list of clusters monitored by the client
 	Clusters []string
@@ -424,24 +423,11 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						adsLog.Debugf("ADS:EDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
 						if discReq.ResponseNonce != "" {
 							con.mu.Lock()
-							edsClusterMutex.RLock()
 							con.EndpointNonceAcked = discReq.ResponseNonce
-							if len(edsClusters) != 0 {
-								con.EndpointPercent = int((float64(len(clusters)) / float64(len(edsClusters))) * float64(100))
-							}
-							edsClusterMutex.RUnlock()
 							con.mu.Unlock()
 						}
 						continue
 					}
-				}
-
-				for _, cn := range con.Clusters {
-					s.removeEdsCon(cn, con.ConID)
-				}
-
-				for _, cn := range clusters {
-					s.addEdsCon(cn, con.ConID, con)
 				}
 
 				con.Clusters = clusters
@@ -533,6 +519,8 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	// Set the sidecarScope associated with this proxy if its a sidecar.
 	if nt.Type == model.SidecarProxy {
 		nt.SetSidecarScope(s.globalPushContext())
+	} else {
+		nt.SidecarScope = model.DefaultSidecarScopeForNamespace(s.globalPushContext(), nt.ConfigNamespace)
 	}
 
 	con.mu.Lock()
@@ -662,12 +650,7 @@ func AdsPushAll(s *DiscoveryServer) {
 // AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
-func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
-	full bool, edsUpdates map[string]struct{}) {
-	if !full {
-		s.edsIncremental(version, push, edsUpdates)
-		return
-	}
+func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext, full bool, edsUpdates map[string]struct{}) {
 
 	adsLog.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d",
 		version, len(push.Services(nil)), adsClientCount())
@@ -675,27 +658,8 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 
 	t0 := time.Now()
 
-	// First update all cluster load assignments. This is computed for each cluster once per config change
-	// instead of once per endpoint.
-	edsClusterMutex.Lock()
-	// Create a temp map to avoid locking the add/remove
-	cMap := make(map[string]*EdsCluster, len(edsClusters))
-	for k, v := range edsClusters {
-		cMap[k] = v
-	}
-	edsClusterMutex.Unlock()
-
-	// UpdateCluster updates the cluster with a mutex, this code is safe ( but computing
-	// the update may be duplicated if multiple goroutines compute at the same time).
-	// In general this code is called from the 'event' callback that is throttled.
-	for clusterName, edsCluster := range cMap {
-		if err := s.updateCluster(push, clusterName, edsCluster); err != nil {
-			adsLog.Errorf("updateCluster failed with clusterName %s", clusterName)
-			totalXDSInternalErrors.Increment()
-		}
-	}
 	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
-	s.startPush(version, push, true, nil)
+	s.startPush(version, push, full, edsUpdates)
 }
 
 // Send a signal to all connections, with a push event.
@@ -820,10 +784,6 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	adsClientsMutex.Lock()
 	defer adsClientsMutex.Unlock()
-
-	for _, c := range con.Clusters {
-		s.removeEdsCon(c, conID)
-	}
 
 	if _, exist := adsClients[conID]; !exist {
 		adsLog.Errorf("ADS: Removing connection for non-existing node:%v.", conID)

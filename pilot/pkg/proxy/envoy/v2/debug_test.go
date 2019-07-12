@@ -183,9 +183,6 @@ func verifySyncStatus(t *testing.T, nodeID string, wantSent, wantAcked bool) {
 				if (ss.EndpointAcked != "") != wantAcked {
 					errorHandler("wanted EndpointAcked set %v got %v for %v", wantAcked, ss.EndpointAcked, nodeID)
 				}
-				if (ss.EndpointPercent != 0) != wantAcked {
-					errorHandler("wanted EndpointPercent set %v got %v for %v", wantAcked, ss.EndpointPercent, nodeID)
-				}
 				return
 			}
 		}

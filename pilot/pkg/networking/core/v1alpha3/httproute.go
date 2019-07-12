@@ -109,32 +109,27 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 
 	// Get the list of services that correspond to this egressListener from the sidecarScope
 	sidecarScope := node.SidecarScope
-	// sidecarScope should never be nil
-	if sidecarScope != nil && sidecarScope.Config != nil {
-		// this is a user supplied sidecar scope. Get the services from the egress listener
-		egressListener := sidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
-		// We should never be getting a nil egress listener because the code that setup this RDS
-		// call obviously saw an egress listener
-		if egressListener == nil {
-			return nil
-		}
 
-		services = egressListener.Services()
-		// To maintain correctness, we should only use the virtualservices for
-		// this listener and not all virtual services accessible to this proxy.
-		virtualServices = egressListener.VirtualServices()
-
-		// When generating RDS for ports created via the SidecarScope, we treat
-		// these ports as HTTP proxy style ports. All services attached to this listener
-		// must feature in this RDS route irrespective of the service port.
-		if egressListener.IstioListener != nil && egressListener.IstioListener.Port != nil {
-			listenerPort = 0
-		}
-	} else {
-		meshGateway := map[string]bool{model.IstioMeshGateway: true}
-		services = push.Services(node)
-		virtualServices = push.VirtualServices(node, meshGateway)
+	// this is a user supplied sidecar scope. Get the services from the egress listener
+	egressListener := sidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
+	// We should never be getting a nil egress listener because the code that setup this RDS
+	// call obviously saw an egress listener
+	if egressListener == nil {
+		return nil
 	}
+
+	services = egressListener.Services()
+	// To maintain correctness, we should only use the virtualservices for
+	// this listener and not all virtual services accessible to this proxy.
+	virtualServices = egressListener.VirtualServices()
+
+	// When generating RDS for ports created via the SidecarScope, we treat
+	// these ports as HTTP proxy style ports. All services attached to this listener
+	// must feature in this RDS route irrespective of the service port.
+	if egressListener.IstioListener != nil && egressListener.IstioListener.Port != nil {
+		listenerPort = 0
+	}
+
 
 	nameToServiceMap := make(map[model.Hostname]*model.Service)
 	for _, svc := range services {
