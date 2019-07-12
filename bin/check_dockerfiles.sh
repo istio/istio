@@ -26,9 +26,11 @@ while read -r f; do
   docker run --rm -i hadolint/hadolint < "$f" > "${HL_TMPFILE}"
   if [ "" != "$(cat "${HL_TMPFILE}")" ]
   then
-      echo "$f:" >> "${CD_TMPFILE}"
-      cut -d":" -f2- < "${HL_TMPFILE}" >> "${CD_TMPFILE}"
-      echo >> "${CD_TMPFILE}"
+    {
+      echo "$f:"
+      cut -d":" -f2- < "${HL_TMPFILE}"
+      echo
+    } >> "${CD_TMPFILE}"
   fi
 done
 
