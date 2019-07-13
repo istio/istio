@@ -288,11 +288,11 @@ var (
 			}
 
 			controlPlaneAuthEnabled := controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
-			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled)
+			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled, sdsUDSPath, trustworthyJWTPath, jwtPath)
 
 			// since Envoy needs the certs for mTLS, we wait for them to become available before starting it
 			// skip waiting cert if sds is enabled, otherwise it takes long time for pod to start.
-			if controlPlaneBootstrap && !sdsEnabled {
+			if controlPlaneAuthEnabled && !sdsEnabled {
 				log.Infof("Monitored certs: %#v", tlsCertsToWatch)
 				for _, cert := range tlsCertsToWatch {
 					waitForFile(cert, 2*time.Minute)
@@ -472,26 +472,38 @@ func getDNSDomain(domain string) string {
 
 // check if SDS UDS path and token path exist, if both exist, requests key/cert
 // using SDS instead of secret mount.
-func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool) (bool, string) {
-	// controlplane components like pilot/mixer/galley have sidecar
-	// they start almost same time as sds server; wait since there is a chance
-	// when pilot-agent start, the uds file doesn't exist.
-	if controlPlaneBootstrap && controlPlaneAuthEnabled {
-		if !waitForFile(sdsUDSPath, sdsUdsWaitTimeout) {
+func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, preferJwtpath, jwtpath string) (bool, string) {
+	if !controlPlaneBootstrap {
+		// workload sidecar
+		// treat sds as disabled if uds path isn't set.
+		if _, err := os.Stat(udspath); err != nil {
 			return false, ""
 		}
-	} else {
-		// treat sds as disabled if uds path isn't set.
-		if _, err := os.Stat(sdsUDSPath); err != nil {
-			return false, ""
+		if _, err := os.Stat(preferJwtpath); err == nil {
+			return true, preferJwtpath
+		}
+		if _, err := os.Stat(jwtpath); err == nil {
+			return true, jwtpath
 		}
 	}
 
-	if _, err := os.Stat(trustworthyJWTPath); err == nil {
-		return true, trustworthyJWTPath
+	// for controlplane sidecar, if controlplanesecurity isn't enabled
+	// doens't matter what to return since sds won't be used.
+	if !controlPlaneAuthEnabled {
+		return false, ""
 	}
-	if _, err := os.Stat(jwtPath); err == nil {
-		return true, jwtPath
+
+	// controlplane components like pilot/mixer/galley have sidecar
+	// they start almost same time as sds server; wait since there is a chance
+	// when pilot-agent start, the uds file doesn't exist.
+	if !waitForFile(udspath, sdsUdsWaitTimeout) {
+		return false, ""
+	}
+	if _, err := os.Stat(preferJwtpath); err == nil {
+		return true, preferJwtpath
+	}
+	if _, err := os.Stat(jwtpath); err == nil {
+		return true, jwtpath
 	}
 
 	return false, ""
