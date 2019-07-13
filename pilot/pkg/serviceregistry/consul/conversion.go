@@ -37,7 +37,7 @@ func convertLabels(labels []string) model.Labels {
 		if len(vals) > 1 {
 			out[vals[0]] = vals[1]
 		} else {
-			log.Warnf("Tag %v ignored since it is not of form key|value", tag)
+			log.Debugf("Tag %v ignored since it is not of form key|value", tag)
 		}
 	}
 	return out
