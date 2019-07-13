@@ -541,6 +541,7 @@ func TestGetInstanceByCacheAfterChanged(t *testing.T) {
 		}
 	}
 
+	ts.Lock.Lock()
 	ts.Reviews = []*api.CatalogService{
 		{
 			Node:           "istio-node",
@@ -553,6 +554,8 @@ func TestGetInstanceByCacheAfterChanged(t *testing.T) {
 			ServicePort:    9081,
 		},
 	}
+	ts.Lock.Unlock()
+
 	time.Sleep(2 * time.Second)
 	instances, err = controller.InstancesByPort(hostname, 0, model.LabelsCollection{})
 	if err != nil {
