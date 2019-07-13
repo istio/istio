@@ -848,10 +848,10 @@ func CheckDeploymentsReady(ns string, kubeconfig string) (int, error) {
 	notReady := 0
 	for _, line := range strings.Split(out, "\n") {
 		flds := strings.Fields(line)
-		if len(flds) < 2 {
+		if len(flds) < 1 {
 			continue
 		}
-		if flds[1] == "0" { // no replicas ready
+		if len(flds) == 1 || flds[1] == "0" { // no replicas ready
 			notReady++
 		}
 	}
