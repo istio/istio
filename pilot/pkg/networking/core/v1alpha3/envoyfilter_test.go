@@ -242,7 +242,7 @@ func TestApplyClusterConfigPatches(t *testing.T) {
 		serviceDiscovery := &fakes.ServiceDiscovery{}
 		env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(tc.patches))
 
-		ret := applyClusterConfigPatches(tc.clusters, env, tc.labels)
+		ret := addRemoveUserClusters(networking.EnvoyFilter_GATEWAY, tc.clusters, env, tc.labels)
 		if !reflect.DeepEqual(tc.result, ret) {
 			t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.result, ret)
 		}

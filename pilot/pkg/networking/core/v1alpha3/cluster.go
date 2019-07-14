@@ -77,40 +77,49 @@ func getDefaultCircuitBreakerThresholds(direction model.TrafficDirection) *v2Clu
 // Cluster type based on resolution
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
 func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) ([]*apiv2.Cluster, error) {
+	var inboundClusters, outboundClusters []*apiv2.Cluster
 	clusters := make([]*apiv2.Cluster, 0)
 	instances := proxy.ServiceInstances
 
-	clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
+	outboundClusters = configgen.buildOutboundClusters(env, proxy, push)
 
 	// compute the proxy's locality. See if we have a CDS cache for that locality.
 	// If not, compute one.
 	locality := proxy.Locality
 	if locality != nil {
-		applyLocalityLBSetting(locality, clusters, env.Mesh.LocalityLbSetting, false)
+		applyLocalityLBSetting(locality, outboundClusters, env.Mesh.LocalityLbSetting, false)
 	}
+	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
+	// DO NOT CALL PLUGINS for these two clusters.
+	outboundClusters = append(outboundClusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env))
 
 	switch proxy.Type {
 	case model.SidecarProxy:
+		outboundClusters = patchGeneratedClusters(networking.EnvoyFilter_SIDECAR_OUTBOUND, outboundClusters, env, proxy.WorkloadLabels)
 		// Let ServiceDiscovery decide which IP and Port are used for management if
 		// there are multiple IPs
 		managementPorts := make([]*model.Port, 0)
 		for _, ip := range proxy.IPAddresses {
 			managementPorts = append(managementPorts, env.ManagementPorts(ip)...)
 		}
-		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, push, instances, managementPorts)...)
+		inboundClusters = configgen.buildInboundClusters(env, proxy, push, instances, managementPorts)
+		inboundClusters = patchGeneratedClusters(networking.EnvoyFilter_SIDECAR_INBOUND, inboundClusters, env, proxy.WorkloadLabels)
 
-	default: // Gateways
-		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
-			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
+	case model.Router:
+		if proxy.GetRouterMode() == model.SniDnatRouter {
+			outboundClusters = append(outboundClusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
 		}
+		outboundClusters = patchGeneratedClusters(networking.EnvoyFilter_GATEWAY, outboundClusters, env, proxy.WorkloadLabels)
 	}
 
-	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
-	// DO NOT CALL PLUGINS for these two clusters.
-	clusters = append(clusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env))
-
+	clusters = append(clusters, outboundClusters...)
+	clusters = append(clusters, inboundClusters...)
+	if proxy.Type == model.Router {
+		clusters = addRemoveUserClusters(networking.EnvoyFilter_GATEWAY, clusters, env, proxy.WorkloadLabels)
+	} else {
+		clusters = addRemoveUserClusters(networking.EnvoyFilter_SIDECAR_OUTBOUND, clusters, env, proxy.WorkloadLabels)
+	}
 	clusters = normalizeClusters(push, proxy, clusters)
-	clusters = applyClusterConfigPatches(clusters, env, proxy.WorkloadLabels)
 
 	return clusters, nil
 }
