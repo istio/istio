@@ -312,13 +312,13 @@ func DumpGatewayLogOnTestFailure(t *testing.T, ctx framework.TestContext) {
 		if err != nil {
 			t.Logf("failed to get ingress gateway proxy log: %v", err)
 		} else {
-			t.Log("Dump ingress gateway proxy log\n%s", proxyLog)
+			t.Logf("dump ingress gateway proxy log\n%s", proxyLog)
 		}
 		agentLog, err := GetGatewayLog(t, ctx, "ingress-sds")
 		if err != nil {
 			t.Logf("failed to get ingress gateway agent log: %v", err)
 		} else {
-			t.Logf("Dump ingress gateway agent log\n%s", agentLog)
+			t.Logf("dump ingress gateway agent log\n%s", agentLog)
 		}
 	}
 }
