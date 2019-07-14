@@ -65,9 +65,17 @@ collections:
     proto:        "google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
 
+#  - name:         "collection12"
+#    proto:        "google.protobuf.Struct"
+#    protoPackage: "github.com/gogo/protobuf/types"
+
   - name:         "collection2"
     proto:        "google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
+
+#  - name:         "collectionOpts"
+#    proto:        "google.protobuf.Struct"
+#    protoPackage: "github.com/gogo/protobuf/types"
 
 # Configuration for input sources
 sources:
@@ -80,6 +88,19 @@ sources:
         plural:       "Kind1s"
         group:        "testdata.istio.io"
         version:      "v1alpha1"
+
+#      - collection:   "collection12"
+#        kind:         "Kind2"
+#        plural:       "Kind2s"
+#        group:        "testdata.istio.io"
+#        version:      "v1alpha2"
+#
+#      - collection:   "collectionOpts"
+#        kind:         "OptionalKind"
+#        plural:       "OptionalKinds"
+#        group:        "testdata2.istio.io"
+#        version:      "v1"
+#        optional:     true
 
 
 # Transform specific configurations
@@ -153,6 +174,7 @@ sources:
         plural:       "Kind2s"
         group:        "testdata.istio.io"
         version:      "v1alpha1"
+        optional:     true
 
 
 # Transform specific configurations

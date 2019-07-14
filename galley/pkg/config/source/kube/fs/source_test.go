@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+
 	"istio.io/pkg/appsignals"
 
 	"istio.io/istio/galley/pkg/config/event"

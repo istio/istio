@@ -40,6 +40,11 @@ func TestSnapshot_Basics(t *testing.T) {
 
 	v := sn.Version(data.Collection1.String())
 	g.Expect(v).To(Equal("collection1/1"))
+
+	expected := `[0] collection1 (@collection1/1)
+  [0] n1/i1
+`
+	g.Expect(sn.String()).To(Equal(expected))
 }
 
 func TestSnapshot_SerializeError(t *testing.T) {

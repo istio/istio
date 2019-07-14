@@ -54,6 +54,7 @@ type accumulator struct {
 
 // Handle implements event.Handler
 func (a *accumulator) Handle(e event.Event) {
+	scope.Infoa(">>> accumulator.Handle: ", e)
 	switch e.Kind {
 	case event.Added, event.Updated:
 		a.collection.Set(e.Entry)
@@ -153,6 +154,8 @@ func (s *Snapshotter) publish(o SnapshotOptions) {
 	monitoring.RecordProcessorSnapshotPublished(s.pendingEvents, now.Sub(s.lastSnapshotTime))
 	s.lastSnapshotTime = now
 	s.pendingEvents = 0
+	scope.Infoa("Publishing snapshot for Group: ", o.Group)
+	scope.Debuga(sn)
 	o.Distributor.SetSnapshot(o.Group, sn)
 }
 

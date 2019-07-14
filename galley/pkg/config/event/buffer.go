@@ -48,7 +48,7 @@ func WithBuffer(s Dispatcher) *Buffer {
 // Handle implements Handler
 func (b *Buffer) Handle(e Event) {
 	b.mu.Lock()
-	scope.Debugf(">>> Buffer.Handle: %v", e)
+	scope.Debuga("Buffer.Handle: ", e)
 	b.queue.add(e)
 	b.cond.Broadcast()
 	b.mu.Unlock()
@@ -87,7 +87,7 @@ func (b *Buffer) Process() {
 		// lock must be held when entering the for loop (whether from beginning, or through loop continuation).
 		// this makes locking/unlocking slightly more efficient.
 		if !b.processing {
-			scope.Debug(">>> Buffer.Process: exiting")
+			scope.Debug("Buffer.Process: exiting")
 			b.mu.Unlock()
 			return
 		}
@@ -96,11 +96,12 @@ func (b *Buffer) Process() {
 		if !ok {
 			scope.Debug("Buffer.Process: no more items to process, waiting")
 			b.cond.Wait()
+			scope.Debug("Buffer.Process: completed wait")
 			continue
 		}
 
 		if b.handler != nil {
-			scope.Debugf(">>> Buffer.Process: dispatching %v", e)
+			scope.Debuga("Buffer.Process: dispatching: ", e)
 			b.mu.Unlock()
 			b.handler.Handle(e)
 			b.mu.Lock()

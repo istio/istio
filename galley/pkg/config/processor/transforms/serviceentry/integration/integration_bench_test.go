@@ -122,10 +122,6 @@ func BenchmarkEndpointChurn(b *testing.B) {
 
 	processor.Start()
 
-	// if err := processor.AwaitFullSync(5 * time.Second); err != nil {
-	// 	b.Fatal(err)
-	// }
-
 	lenUpdateEvents := len(updateEntries)
 	updateIndex := 0
 	version := uint64(1)
@@ -352,10 +348,7 @@ func newSource(b *testing.B, ifaces kube.Interfaces, resources schema.KubeResour
 		ResyncPeriod: 0,
 		Resources:    resources,
 	}
-	src, err := apiserver.New(o)
-	if err != nil {
-		b.Fatal(err)
-	}
+	src := apiserver.New(o)
 	if src == nil {
 		b.Fatal("Expected non nil source")
 	}

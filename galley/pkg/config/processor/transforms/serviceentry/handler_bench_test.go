@@ -165,7 +165,7 @@ func BenchmarkEndpointChurn(b *testing.B) {
 	}
 }
 
-func loadNodesAndPods(handler event.Transformer) {
+func loadNodesAndPods(handler event.Handler) {
 	saIndex := 0
 	for i, ip := range ips {
 

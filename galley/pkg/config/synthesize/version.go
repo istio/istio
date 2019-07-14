@@ -27,7 +27,7 @@ import (
 // in versions, otherwise function panics.
 func Version(prefix string, versions ...resource.Version) resource.Version {
 	i := 0
-	return VersionIter(prefix, func()(n resource.Name, v resource.Version, ok bool) {
+	return VersionIter(prefix, func() (n resource.Name, v resource.Version, ok bool) {
 		if i < len(versions) {
 			v = versions[i]
 			i++

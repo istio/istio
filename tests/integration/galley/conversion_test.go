@@ -17,7 +17,6 @@ package galley
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"istio.io/istio/galley/testdata/conversion"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -99,10 +98,6 @@ func runTest(t *testing.T, ctx resource.Context, fset *conversion.FileSet, gal g
 	if err = gal.ClearConfig(); err != nil {
 		t.Fatalf("unable to clear config from Galley: %v", err)
 	}
-
-	// TODO: This is because of subsequent events confusing the filesystem code.
-	// We should do Ctrlz trigger based approach.
-	time.Sleep(time.Second)
 
 	if err = gal.ApplyConfig(ns, string(input)); err != nil {
 		t.Fatalf("unable to apply config to Galley: %v", err)

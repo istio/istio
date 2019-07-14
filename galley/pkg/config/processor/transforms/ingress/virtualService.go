@@ -62,19 +62,13 @@ func newVirtualServiceXform(o processing.ProcessorOptions) event.Transformer {
 // Start implements processing.Transformer
 func (g *virtualServiceXform) start() {
 	g.vsByHost = make(map[string]*syntheticVirtualService)
-	// g.hostsByIngress = make(map[resource.Name]map[string]struct{})
-
 	g.ingresses = make(map[resource.Name]*resource.Entry)
-	// g.vs = make(map[resource.Name]*resource.Entry)
 }
 
 // Stop implements processing.Transformer
 func (g *virtualServiceXform) stop() {
 	g.vsByHost = nil
-	// g.hostsByIngress = nil
-
 	g.ingresses = nil
-	// g.vs = nil
 }
 
 // Handle implements event.Handler

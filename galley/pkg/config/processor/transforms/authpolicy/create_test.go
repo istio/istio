@@ -317,7 +317,7 @@ func input() *resource.Entry {
 			Peers: []*authn.PeerAuthenticationMethod{
 				{
 					Params: &authn.PeerAuthenticationMethod_Mtls{
-						Mtls: nil,  // This is what the conversion is all about...
+						Mtls: nil, // This is what the conversion is all about...
 					},
 				},
 			},

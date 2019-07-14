@@ -149,11 +149,13 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 		if !found || oldSha != r.sha {
 			s.versionCtr++
 			r.entry.Metadata.Version = resource.Version(fmt.Sprintf("v%d", s.versionCtr))
+			scope.Debuga("KubeSource.ApplyContent: Set: ", r.spec.Collection.Name, r.entry.Metadata.Name)
 			s.source.Get(r.spec.Collection.Name).Set(r.entry)
 			s.shas[key] = r.sha
 		}
 		newKeys[key] = r.spec.Collection.Name
 		if oldKeys != nil {
+			scope.Debuga("KubeSource.ApplyContent: Delete: ", r.spec.Collection.Name, key)
 			delete(oldKeys, key)
 		}
 	}
