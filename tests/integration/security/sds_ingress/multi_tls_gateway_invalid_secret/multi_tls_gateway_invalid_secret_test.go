@@ -163,5 +163,6 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 						c.name, c.expectedResponse.ResponseCode, c.hostName, err)
 				}
 			}
+			ingressutil.DumpGatewayLogOnTestFailure(t, ctx)
 		})
 }

@@ -95,5 +95,6 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 			if err != nil {
 				t.Errorf("unable to retrieve 200 from product page at host %s: %v", host, err)
 			}
+			ingressutil.DumpGatewayLogOnTestFailure(t, ctx)
 		})
 }

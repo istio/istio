@@ -304,3 +304,37 @@ func WaitUntilGatewaySdsStatsGE(t *testing.T, ing ingress.Instance, expectedUpda
 		time.Sleep(3 * time.Second)
 	}
 }
+
+// DumpGatewayLogOnTestFailure prints ingress gateway proxy log and gateway agent log on test failure.
+func DumpGatewayLogOnTestFailure(t *testing.T, ctx framework.TestContext) {
+	if t.Failed() {
+		proxyLog, err := GetGatewayLog(t, ctx, "istio-proxy")
+		if err != nil {
+			t.Logf("failed to get ingress gateway proxy log: %v", err)
+		} else {
+			t.Log("Dump ingress gateway proxy log\n%s", proxyLog)
+		}
+		agentLog, err := GetGatewayLog(t, ctx, "ingress-sds")
+		if err != nil {
+			t.Logf("failed to get ingress gateway agent log: %v", err)
+		} else {
+			t.Logf("Dump ingress gateway agent log\n%s", agentLog)
+		}
+	}
+}
+
+// GetGatewayLog returns specified container log from ingress gateway pod.
+func GetGatewayLog(t *testing.T, ctx framework.TestContext, containerName string) (string, error) {
+	env := ctx.Environment().(*kube.Environment)
+	istioCfg := istio.DefaultConfigOrFail(t, ctx)
+	ns := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+	pods, err := env.GetPods(ns.Name(), "istio=ingressgateway")
+	if err != nil {
+		return "", err
+	}
+	cl, err := env.Logs(ns.Name(), pods[0].Name, containerName, false /* previousLog */)
+	if err != nil {
+		return "", err
+	}
+	return cl, nil
+}

@@ -65,6 +65,7 @@ func testMultiTLSGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 			t.Errorf("unable to retrieve 200 from product page at host %s: %v", h, err)
 		}
 	}
+	ingressutil.DumpGatewayLogOnTestFailure(t, ctx)
 }
 
 func TestTlsGateways(t *testing.T) {
