@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 FROM mongo:4.0
-RUN mkdir -p /app/data/
+WORKDIR /app/data/
 COPY ratings_data.json /app/data/
 COPY script.sh /docker-entrypoint-initdb.d/
 RUN chmod +x /docker-entrypoint-initdb.d/script.sh

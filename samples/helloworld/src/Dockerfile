@@ -14,7 +14,7 @@
 
 FROM python:2-onbuild
 
-RUN mkdir -p /opt/microservices
+WORKDIR /opt/microservices
 COPY app.py /opt/microservices/
 
 EXPOSE 5000
