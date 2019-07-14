@@ -15,12 +15,14 @@
 package v1alpha3
 
 import (
+	"fmt"
 	"net"
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/jsonpb"
@@ -303,6 +305,40 @@ func insertNetworkFilter(listenerName string, filterChain *listener.FilterChain,
 		listenerName, oldLen, len(filterChain.Filters))
 }
 
+func buildXDSObjectFromValue(applyTo networking.EnvoyFilter_ApplyTo, value *types.Value) (proto.Message, error) {
+	var obj proto.Message
+	switch applyTo {
+	case networking.EnvoyFilter_CLUSTER:
+		obj = &xdsapi.Cluster{}
+	case networking.EnvoyFilter_LISTENER:
+		obj = &xdsapi.Listener{}
+	case networking.EnvoyFilter_ROUTE_CONFIGURATION:
+		obj = &xdsapi.RouteConfiguration{}
+	case networking.EnvoyFilter_FILTER_CHAIN:
+		obj = &listener.FilterChain{}
+	case networking.EnvoyFilter_HTTP_FILTER:
+		obj = &http_conn.HttpFilter{}
+	case networking.EnvoyFilter_NETWORK_FILTER:
+		obj = &listener.Filter{}
+	case networking.EnvoyFilter_VIRTUAL_HOST:
+		obj = &route.VirtualHost{}
+	default:
+		return nil, fmt.Errorf("unknown object type")
+	}
+
+	val := value.GetStringValue()
+	if val != "" {
+		jsonum := &jsonpb.Unmarshaler{}
+		r := strings.NewReader(val)
+		err := jsonum.Unmarshal(r, obj)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return obj, nil
+}
+
 func applyClusterConfigPatches(env *model.Environment, proxy *model.Proxy,
 	push *model.PushContext, clusters []*xdsapi.Cluster) []*xdsapi.Cluster {
 	// TODO: multiple envoy filters per workload
@@ -345,7 +381,7 @@ func applyClusterConfigPatches(env *model.Environment, proxy *model.Proxy,
 			continue
 		}
 
-		userChanges, err := buildClusterFromEnvoyConfig(cp.Patch.Value)
+		userChanges, err := buildXDSObjectFromValue(cp.ApplyTo, cp.Patch.Value)
 		if err != nil {
 			//log.Warnf("Failed to unmarshal provided value into cluster")
 			continue
@@ -376,12 +412,12 @@ func applyClusterConfigPatches(env *model.Environment, proxy *model.Proxy,
 			continue
 		}
 
-		newCluster, err := buildClusterFromEnvoyConfig(cp.Patch.Value)
+		newCluster, err := buildXDSObjectFromValue(cp.ApplyTo, cp.Patch.Value)
 		if err != nil {
 			// log.Warnf("Failed to unmarshal provided value into cluster")
 			continue
 		}
-		clusters = append(clusters, newCluster)
+		clusters = append(clusters, newCluster.(*xdsapi.Cluster))
 	}
 
 	if clustersRemoved {
@@ -396,21 +432,6 @@ func applyClusterConfigPatches(env *model.Environment, proxy *model.Proxy,
 	}
 
 	return clusters
-}
-
-func buildClusterFromEnvoyConfig(value *types.Value) (*xdsapi.Cluster, error) {
-	cluster := xdsapi.Cluster{}
-	val := value.GetStringValue()
-	if val != "" {
-		jsonum := &jsonpb.Unmarshaler{}
-		r := strings.NewReader(val)
-		err := jsonum.Unmarshal(r, &cluster)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &cluster, nil
 }
 
 func applyListenerConfigPatches(listeners []*xdsapi.Listener, env *model.Environment, labels model.LabelsCollection) []*xdsapi.Listener {
