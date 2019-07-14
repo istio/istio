@@ -303,12 +303,35 @@ func insertNetworkFilter(listenerName string, filterChain *listener.FilterChain,
 		listenerName, oldLen, len(filterChain.Filters))
 }
 
-func patchGeneratedClusters(proxyContext networking.EnvoyFilter_PatchContext, clusters []*xdsapi.Cluster,
-	env *model.Environment, labels model.LabelsCollection) []*xdsapi.Cluster {
+func applyClusterConfigPatches(env *model.Environment, proxy *model.Proxy,
+	push *model.PushContext, clusters []*xdsapi.Cluster) []*xdsapi.Cluster {
 	// TODO: multiple envoy filters per workload
-	filterCRD := getUserFiltersForWorkload(env, labels)
+	filterCRD := getUserFiltersForWorkload(env, proxy.WorkloadLabels)
 	if filterCRD == nil {
 		return clusters
+	}
+
+	// remove cluster if there is operation is remove, and matches
+	clustersRemoved := false
+
+	// First process remove operations, then the merge and finally the add.
+	// If add is done before remove, then remove could end up deleting a cluster that
+	// was added by the user.
+	for _, cp := range filterCRD.ConfigPatches {
+		if cp.Patch == nil || cp.ApplyTo != networking.EnvoyFilter_CLUSTER {
+			continue
+		}
+
+		if cp.Patch.Operation != networking.EnvoyFilter_Patch_REMOVE {
+			continue
+		}
+
+		for i := range clusters {
+			if matchApproximateContext(proxy, cp.Match) && clusterMatch(clusters[i], cp.Match) {
+				clusters[i] = nil
+				clustersRemoved = true
+			}
+		}
 	}
 
 	// TODO: Create a EnvoyFilterContext struct, just like SidecarContext
@@ -317,31 +340,26 @@ func patchGeneratedClusters(proxyContext networking.EnvoyFilter_PatchContext, cl
 		if cp.Patch == nil || cp.ApplyTo != networking.EnvoyFilter_CLUSTER {
 			continue
 		}
-		userChanges, err := buildClusterFromEnvoyConfig(cp.Patch.Value)
-		if err != nil {
-			log.Warnf("Failed to unmarshal provided value into cluster")
+
+		if cp.Patch.Operation != networking.EnvoyFilter_Patch_MERGE {
 			continue
 		}
 
-		// proto merge if op is Merge
-		// ignore insert_before/after/add/remove
-		if cp.Patch.Operation == networking.EnvoyFilter_Patch_MERGE {
-			for _, cluster := range clusters {
-				if matchExactContext(proxyContext, cp.Match) && clusterMatch(cluster, cp.Match) {
-					proto.Merge(cluster, userChanges)
-				}
+		userChanges, err := buildClusterFromEnvoyConfig(cp.Patch.Value)
+		if err != nil {
+			//log.Warnf("Failed to unmarshal provided value into cluster")
+			continue
+		}
+
+		for i := range clusters {
+			if clusters[i] == nil {
+				// deleted by the remove operation
+				continue
+			}
+			if matchExactContext(proxy, clusters[i], cp.Match) && clusterMatch(clusters[i], cp.Match) {
+					proto.Merge(clusters[i], userChanges)
 			}
 		}
-	}
-
-	return clusters
-}
-
-func addRemoveUserClusters(proxyContext networking.EnvoyFilter_PatchContext, clusters []*xdsapi.Cluster,
-	env *model.Environment, labels model.LabelsCollection) []*xdsapi.Cluster {
-	filterCRD := getUserFiltersForWorkload(env, labels)
-	if filterCRD == nil {
-		return clusters
 	}
 
 	// Add cluster if there is operation is add, and patch context matches
@@ -354,35 +372,16 @@ func addRemoveUserClusters(proxyContext networking.EnvoyFilter_PatchContext, clu
 			continue
 		}
 
-		if !matchApproximateContext(proxyContext, cp.Match) {
+		if !matchApproximateContext(proxy, cp.Match) {
 			continue
 		}
 
-		newCluster, err := buildClusterFromEnvoyConfig(cp.GetPatch().GetValue())
+		newCluster, err := buildClusterFromEnvoyConfig(cp.Patch.Value)
 		if err != nil {
-			log.Warnf("Failed to unmarshal provided value into cluster")
+			// log.Warnf("Failed to unmarshal provided value into cluster")
 			continue
 		}
 		clusters = append(clusters, newCluster)
-	}
-
-	// remove cluster if there is operation is remove, and matches
-	clustersRemoved := false
-	for _, cp := range filterCRD.ConfigPatches {
-		if cp.Patch == nil || cp.ApplyTo != networking.EnvoyFilter_CLUSTER {
-			continue
-		}
-
-		if cp.Patch.Operation != networking.EnvoyFilter_Patch_REMOVE {
-			continue
-		}
-
-		for i := range clusters {
-			if matchApproximateContext(proxyContext, cp.Match) && clusterMatch(clusters[i], cp.Match) {
-				clusters[i] = nil
-				clustersRemoved = true
-			}
-		}
 	}
 
 	if clustersRemoved {
@@ -395,6 +394,7 @@ func addRemoveUserClusters(proxyContext networking.EnvoyFilter_PatchContext, clu
 		}
 		clusters = trimmedClusters
 	}
+
 	return clusters
 }
 
@@ -456,7 +456,7 @@ func buildListenerFromEnvoyConfig(value *types.Value) (*xdsapi.Listener, error) 
 
 // Matches if context is any, or if proxy is gateway and context is gateway,
 // or if proxy is sidecar and context is sidecar_inbound or outbound
-func matchApproximateContext(proxyContext networking.EnvoyFilter_PatchContext,
+func matchApproximateContext(proxy *model.Proxy,
 	matchCondition *networking.EnvoyFilter_EnvoyConfigObjectMatch) bool {
 	if matchCondition == nil {
 		return true
@@ -466,23 +466,22 @@ func matchApproximateContext(proxyContext networking.EnvoyFilter_PatchContext,
 		return true
 	}
 
-	if matchCondition.Context == networking.EnvoyFilter_GATEWAY {
-		if proxyContext == networking.EnvoyFilter_GATEWAY {
+	if proxy.Type == model.Router {
+		if matchCondition.Context == networking.EnvoyFilter_GATEWAY {
 			return true
-		} else {
-			return false
 		}
+		return false
 	}
 
-	// match context is a sidecar
-	if proxyContext == networking.EnvoyFilter_GATEWAY {
+	// we now have a sidecar proxy.
+	if matchCondition.Context == networking.EnvoyFilter_GATEWAY {
 		return false
 	}
 
 	return true
 }
 
-func matchExactContext(proxyContext networking.EnvoyFilter_PatchContext,
+func matchExactContext(proxy *model.Proxy, cluster *xdsapi.Cluster,
 	matchCondition *networking.EnvoyFilter_EnvoyConfigObjectMatch) bool {
 	if matchCondition == nil {
 		return true
@@ -492,7 +491,30 @@ func matchExactContext(proxyContext networking.EnvoyFilter_PatchContext,
 		return true
 	}
 
-	return matchCondition.Context == proxyContext
+	if proxy.Type == model.Router {
+		if matchCondition.Context == networking.EnvoyFilter_GATEWAY {
+			return true
+		}
+		return false
+	}
+
+	// we now have a sidecar proxy.
+	if matchCondition.Context == networking.EnvoyFilter_GATEWAY {
+		return false
+	}
+
+	if matchCondition.Context == networking.EnvoyFilter_SIDECAR_INBOUND {
+		if 	strings.HasPrefix(cluster.Name, string(model.TrafficDirectionInbound)) {
+			return true
+		}
+		return false
+	}
+
+	// we have sidecar_outbound context. Check if cluster is outbound
+	if 	strings.HasPrefix(cluster.Name, string(model.TrafficDirectionOutbound)) {
+		return true
+	}
+	return false
 }
 
 func clusterMatch(cluster *xdsapi.Cluster, matchCondition *networking.EnvoyFilter_EnvoyConfigObjectMatch) bool {
