@@ -25,7 +25,8 @@ import (
 
 const (
 	// identityTemplate is the SPIFFE format template of the identity.
-	identityTemplate = "spiffe://%s/ns/%s/sa/%s"
+	identityTemplate         = "spiffe://%s/ns/%s/sa/%s"
+	KubeJWTAuthenticatorType = "KubeJWTAuthenticator"
 )
 
 type tokenReviewClient interface {
@@ -55,6 +56,10 @@ func NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath, trustDomain s
 	}, nil
 }
 
+func (a *KubeJWTAuthenticator) AuthenticatorType() string {
+	return KubeJWTAuthenticatorType
+}
+
 // Authenticate authenticates the call using the K8s JWT from the context.
 // The returned Caller.Identities is in SPIFFE format.
 func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*Caller, error) {
@@ -69,8 +74,10 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*Caller, error
 	if len(id) != 2 {
 		return nil, fmt.Errorf("failed to parse the JWT. Validation result length is not 2, but %d", len(id))
 	}
+	callerNamespace := id[0]
+	callerServiceAccount := id[1]
 	return &Caller{
 		AuthSource: AuthSourceIDToken,
-		Identities: []string{fmt.Sprintf(identityTemplate, a.trustDomain, id[0], id[1])},
+		Identities: []string{fmt.Sprintf(identityTemplate, a.trustDomain, callerNamespace, callerServiceAccount)},
 	}, nil
 }
