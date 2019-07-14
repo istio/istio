@@ -30,14 +30,15 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pkg/errors"
+
 	"golang.org/x/oauth2/google"
 
+	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/spiffe"
-	"istio.io/pkg/annotations"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -56,11 +57,6 @@ const (
 
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
 
-	// statsMatchers give the operator control over Envoy stats collection.
-	EnvoyStatsMatcherInclusionPrefixes = "sidecar.istio.io/statsInclusionPrefixes"
-	EnvoyStatsMatcherInclusionSuffixes = "sidecar.istio.io/statsInclusionSuffixes"
-	EnvoyStatsMatcherInclusionRegexps  = "sidecar.istio.io/statsInclusionRegexps"
-
 	// Options are used in the boostrap template.
 	envoyStatsMatcherInclusionPrefixOption = "inclusionPrefix"
 	envoyStatsMatcherInclusionSuffixOption = "inclusionSuffix"
@@ -68,13 +64,6 @@ const (
 )
 
 var (
-	_ = annotations.Register(EnvoyStatsMatcherInclusionPrefixes,
-		"Specifies the comma separated list of prefixes of the stats to be emitted by Envoy.")
-	_ = annotations.Register(EnvoyStatsMatcherInclusionSuffixes,
-		"Specifies the comma separated list of suffixes of the stats to be emitted by Envoy.")
-	_ = annotations.Register(EnvoyStatsMatcherInclusionRegexps,
-		"Specifies the comma separated list of regexes the stats should match to be emitted by Envoy.")
-
 	// required stats are used by readiness checks.
 	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc"
 	requiredEnvoyStatsMatcherInclusionSuffix   = "ssl_context_update_by_sds"
@@ -121,12 +110,11 @@ func setStatsOptions(opts map[string]interface{}, meta map[string]interface{}, n
 			opts[optKey] = inclusionOption
 		}
 	}
+	setStatsOption(annotation.SidecarStatsInclusionPrefixes.Name, envoyStatsMatcherInclusionPrefixOption, requiredEnvoyStatsMatcherInclusionPrefixes)
 
-	setStatsOption(EnvoyStatsMatcherInclusionPrefixes, envoyStatsMatcherInclusionPrefixOption, requiredEnvoyStatsMatcherInclusionPrefixes)
+	setStatsOption(annotation.SidecarStatsInclusionSuffixes.Name, envoyStatsMatcherInclusionSuffixOption, requiredEnvoyStatsMatcherInclusionSuffix)
 
-	setStatsOption(EnvoyStatsMatcherInclusionSuffixes, envoyStatsMatcherInclusionSuffixOption, requiredEnvoyStatsMatcherInclusionSuffix)
-
-	setStatsOption(EnvoyStatsMatcherInclusionRegexps, envoyStatsMatcherInclusionRegexpOption, "")
+	setStatsOption(annotation.SidecarStatsInclusionRegexps.Name, envoyStatsMatcherInclusionRegexpOption, "")
 }
 
 func defaultPilotSan() []string {
@@ -220,11 +208,11 @@ type setMetaFunc func(m map[string]interface{}, key string, val string)
 
 func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[string]interface{}) {
 	metaPrefixLen := len(prefix)
-	for _, env := range envs {
-		if !shouldExtract(env, prefix) {
+	for _, e := range envs {
+		if !shouldExtract(e, prefix) {
 			continue
 		}
-		v := env[metaPrefixLen:]
+		v := e[metaPrefixLen:]
 		if !isEnvVar(v) {
 			continue
 		}

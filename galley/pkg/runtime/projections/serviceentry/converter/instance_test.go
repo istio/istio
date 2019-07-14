@@ -22,6 +22,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 
+	"istio.io/api/annotation"
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	metadata2 "istio.io/istio/galley/pkg/metadata"
@@ -30,7 +31,6 @@ import (
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -297,7 +297,7 @@ func TestServiceExportTo(t *testing.T) {
 		Metadata: resource.Metadata{
 			CreateTime: tnow,
 			Annotations: resource.Annotations{
-				kube.ServiceExportAnnotation: "c, a, b",
+				annotation.NetworkingExportTo.Name: "c, a, b",
 			},
 		},
 		Item: &coreV1.ServiceSpec{
@@ -309,8 +309,8 @@ func TestServiceExportTo(t *testing.T) {
 		Name:       service.ID.FullName.String(),
 		CreateTime: tnowMcp,
 		Annotations: resource.Annotations{
-			kube.ServiceExportAnnotation: "c, a, b",
-			annotations.ServiceVersion:   "v1",
+			annotation.NetworkingExportTo.Name: "c, a, b",
+			annotations.ServiceVersion:         "v1",
 		},
 	}
 

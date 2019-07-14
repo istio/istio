@@ -33,6 +33,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	diff "gopkg.in/d4l3k/messagediff.v1"
 
+	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	ocv1 "istio.io/gogo-genproto/opencensus/proto/trace/v1"
 	"istio.io/istio/pkg/bootstrap/platform"
@@ -391,12 +392,12 @@ func checkStatsMatcher(t *testing.T, got, want *v2.Bootstrap, stats stats) {
 	want.StatsConfig.StatsMatcher = nil
 
 	// remove StatsMatcher metadata from matching
-	delete(got.Node.Metadata.Fields, EnvoyStatsMatcherInclusionPrefixes)
-	delete(want.Node.Metadata.Fields, EnvoyStatsMatcherInclusionPrefixes)
-	delete(got.Node.Metadata.Fields, EnvoyStatsMatcherInclusionSuffixes)
-	delete(want.Node.Metadata.Fields, EnvoyStatsMatcherInclusionSuffixes)
-	delete(got.Node.Metadata.Fields, EnvoyStatsMatcherInclusionRegexps)
-	delete(want.Node.Metadata.Fields, EnvoyStatsMatcherInclusionRegexps)
+	delete(got.Node.Metadata.Fields, annotation.SidecarStatsInclusionPrefixes.Name)
+	delete(want.Node.Metadata.Fields, annotation.SidecarStatsInclusionPrefixes.Name)
+	delete(got.Node.Metadata.Fields, annotation.SidecarStatsInclusionSuffixes.Name)
+	delete(want.Node.Metadata.Fields, annotation.SidecarStatsInclusionSuffixes.Name)
+	delete(got.Node.Metadata.Fields, annotation.SidecarStatsInclusionRegexps.Name)
+	delete(want.Node.Metadata.Fields, annotation.SidecarStatsInclusionRegexps.Name)
 }
 
 type regexReplacement struct {

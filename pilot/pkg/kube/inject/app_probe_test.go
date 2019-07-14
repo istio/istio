@@ -16,6 +16,8 @@ package inject
 import (
 	"testing"
 
+	"istio.io/api/annotation"
+
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -78,25 +80,25 @@ func TestShouldRewriteAppHTTPProbers(t *testing.T) {
 		{
 			name:                 "RewriteAppHTTPProbe-set-in-annotations",
 			sidecarInjectionSpec: SidecarInjectionSpec{RewriteAppHTTPProbe: false},
-			annotations:          map[string]string{annotationRewriteAppHTTPProbers: "true"},
+			annotations:          map[string]string{annotation.SidecarRewriteAppHTTPProbers.Name: "true"},
 			expected:             true,
 		},
 		{
 			name:                 "RewriteAppHTTPProbe-set-in-sidecar-injection-spec-&-annotations",
 			sidecarInjectionSpec: SidecarInjectionSpec{RewriteAppHTTPProbe: true},
-			annotations:          map[string]string{annotationRewriteAppHTTPProbers: "true"},
+			annotations:          map[string]string{annotation.SidecarRewriteAppHTTPProbers.Name: "true"},
 			expected:             true,
 		},
 		{
 			name:                 "RewriteAppHTTPProbe-set-in-annotations",
 			sidecarInjectionSpec: SidecarInjectionSpec{RewriteAppHTTPProbe: false},
-			annotations:          map[string]string{annotationRewriteAppHTTPProbers: "false"},
+			annotations:          map[string]string{annotation.SidecarRewriteAppHTTPProbers.Name: "false"},
 			expected:             false,
 		},
 		{
 			name:                 "RewriteAppHTTPProbe-set-in-sidecar-injection-spec-&-annotations",
 			sidecarInjectionSpec: SidecarInjectionSpec{RewriteAppHTTPProbe: true},
-			annotations:          map[string]string{annotationRewriteAppHTTPProbers: "false"},
+			annotations:          map[string]string{annotation.SidecarRewriteAppHTTPProbers.Name: "false"},
 			expected:             false,
 		},
 	} {

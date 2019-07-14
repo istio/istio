@@ -17,12 +17,12 @@ package integration
 import (
 	"fmt"
 
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
-
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/api/annotation"
 	"istio.io/istio/tests/integration_old/framework"
 	"istio.io/pkg/log"
+
+	coreV1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 type (
@@ -91,13 +91,13 @@ func (env *NodeAgentTestEnv) GetComponents() []framework.Component {
 				env.ClientSet,
 				env.NameSpace,
 				"istio-citadel",
-				v1.ServiceTypeClusterIP,
+				coreV1.ServiceTypeClusterIP,
 				8060,
 				map[string]string{
 					"pod-group": citadelWithGivenCertificate + podGroupPostfix,
 				},
 				map[string]string{
-					kube.KubeServiceAccountsOnVMAnnotation: "nodeagent.google.com",
+					annotation.KubernetesServiceAccounts.Name: "nodeagent.google.com",
 				},
 			),
 			NewKubernetesPod(
@@ -112,7 +112,7 @@ func (env *NodeAgentTestEnv) GetComponents() []framework.Component {
 				env.ClientSet,
 				env.NameSpace,
 				nodeAgentService,
-				v1.ServiceTypeLoadBalancer,
+				coreV1.ServiceTypeLoadBalancer,
 				8080,
 				map[string]string{
 					"pod-group": nodeAgent + podGroupPostfix,

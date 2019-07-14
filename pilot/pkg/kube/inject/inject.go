@@ -30,11 +30,15 @@ import (
 	"strings"
 	"text/template"
 
-	"istio.io/pkg/annotations"
-
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
+
+	"istio.io/api/annotation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/log"
+
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,19 +46,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/pkg/log"
 )
 
 type annotationValidationFunc func(value string) error
-
-const (
-	annotationPolicy                = "sidecar.istio.io/inject"
-	annotationStatus                = "sidecar.istio.io/status"
-	annotationRewriteAppHTTPProbers = "sidecar.istio.io/rewriteAppHTTPProbers"
-)
 
 // per-sidecar policy and status
 var (
@@ -63,33 +57,32 @@ var (
 	}
 
 	annotationRegistry = map[string]annotationValidationFunc{
-		annotations.Register(annotationPolicy, "").Name: alwaysValidFunc,
-		annotations.Register(annotationStatus, "").Name: alwaysValidFunc,
-		annotations.Register(annotationRewriteAppHTTPProbers,
-			"Rewrite HTTP readiness and liveness probes to be redirected to istio-proxy sidecar").Name: alwaysValidFunc,
-		annotations.Register("sidecar.istio.io/controlPlaneAuthPolicy", "").Name:               alwaysValidFunc,
-		annotations.Register("sidecar.istio.io/discoveryAddress", "").Name:                     alwaysValidFunc,
-		annotations.Register("sidecar.istio.io/proxyImage", "").Name:                           alwaysValidFunc,
-		annotations.Register("sidecar.istio.io/proxyCPU", "").Name:                             alwaysValidFunc,
-		annotations.Register("sidecar.istio.io/proxyMemory", "").Name:                          alwaysValidFunc,
-		annotations.Register("sidecar.istio.io/interceptionMode", "").Name:                     validateInterceptionMode,
-		annotations.Register("sidecar.istio.io/bootstrapOverride", "").Name:                    alwaysValidFunc,
-		annotations.Register("sidecar.istio.io/statsInclusionPrefixes", "").Name:               alwaysValidFunc,
-		annotations.Register("sidecar.istio.io/statsInclusionSuffixes", "").Name:               alwaysValidFunc,
-		annotations.Register("sidecar.istio.io/statsInclusionRegexps", "").Name:                alwaysValidFunc,
-		annotations.Register("sidecar.istio.io/userVolume", "").Name:                           alwaysValidFunc,
-		annotations.Register("sidecar.istio.io/userVolumeMount", "").Name:                      alwaysValidFunc,
-		annotations.Register("status.sidecar.istio.io/port", "").Name:                          validateStatusPort,
-		annotations.Register("readiness.status.sidecar.istio.io/initialDelaySeconds", "").Name: validateUInt32,
-		annotations.Register("readiness.status.sidecar.istio.io/periodSeconds", "").Name:       validateUInt32,
-		annotations.Register("readiness.status.sidecar.istio.io/failureThreshold", "").Name:    validateUInt32,
-		annotations.Register("readiness.status.sidecar.istio.io/applicationPorts", "").Name:    validateReadinessApplicationPorts,
-		annotations.Register("traffic.sidecar.istio.io/includeOutboundIPRanges", "").Name:      ValidateIncludeIPRanges,
-		annotations.Register("traffic.sidecar.istio.io/excludeOutboundIPRanges", "").Name:      ValidateExcludeIPRanges,
-		annotations.Register("traffic.sidecar.istio.io/includeInboundPorts", "").Name:          ValidateIncludeInboundPorts,
-		annotations.Register("traffic.sidecar.istio.io/excludeInboundPorts", "").Name:          ValidateExcludeInboundPorts,
-		annotations.Register("traffic.sidecar.istio.io/excludeOutboundPorts", "").Name:         ValidateExcludeOutboundPorts,
-		annotations.Register("traffic.sidecar.istio.io/kubevirtInterfaces", "").Name:           alwaysValidFunc,
+		annotation.SidecarInject.Name:                             alwaysValidFunc,
+		annotation.SidecarStatus.Name:                             alwaysValidFunc,
+		annotation.SidecarRewriteAppHTTPProbers.Name:              alwaysValidFunc,
+		annotation.SidecarControlPlaneAuthPolicy.Name:             alwaysValidFunc,
+		annotation.SidecarDiscoveryAddress.Name:                   alwaysValidFunc,
+		annotation.SidecarProxyImage.Name:                         alwaysValidFunc,
+		annotation.SidecarProxyCPU.Name:                           alwaysValidFunc,
+		annotation.SidecarProxyMemory.Name:                        alwaysValidFunc,
+		annotation.SidecarInterceptionMode.Name:                   validateInterceptionMode,
+		annotation.SidecarBootstrapOverride.Name:                  alwaysValidFunc,
+		annotation.SidecarStatsInclusionPrefixes.Name:             alwaysValidFunc,
+		annotation.SidecarStatsInclusionSuffixes.Name:             alwaysValidFunc,
+		annotation.SidecarStatsInclusionRegexps.Name:              alwaysValidFunc,
+		annotation.SidecarUserVolume.Name:                         alwaysValidFunc,
+		annotation.SidecarUserVolumeMount.Name:                    alwaysValidFunc,
+		annotation.SidecarStatusPort.Name:                         validateStatusPort,
+		annotation.SidecarStatusReadinessInitialDelaySeconds.Name: validateUInt32,
+		annotation.SidecarStatusReadinessPeriodSeconds.Name:       validateUInt32,
+		annotation.SidecarStatusReadinessFailureThreshold.Name:    validateUInt32,
+		annotation.SidecarStatusReadinessApplicationPorts.Name:    validateReadinessApplicationPorts,
+		annotation.SidecarTrafficIncludeOutboundIPRanges.Name:     ValidateIncludeIPRanges,
+		annotation.SidecarTrafficExcludeOutboundIPRanges.Name:     ValidateExcludeIPRanges,
+		annotation.SidecarTrafficIncludeInboundPorts.Name:         ValidateIncludeInboundPorts,
+		annotation.SidecarTrafficExcludeInboundPorts.Name:         ValidateExcludeInboundPorts,
+		annotation.SidecarTrafficExcludeOutboundPorts.Name:        ValidateExcludeOutboundPorts,
+		annotation.SidecarTrafficKubevirtInterfaces.Name:          alwaysValidFunc,
 	}
 )
 
@@ -131,7 +124,6 @@ const (
 const (
 	DefaultSidecarProxyUID              = uint64(1337)
 	DefaultVerbosity                    = 2
-	DefaultImagePullPolicy              = "IfNotPresent"
 	DefaultStatusPort                   = 15020
 	DefaultReadinessInitialDelaySeconds = 1
 	DefaultReadinessPeriodSeconds       = 2
@@ -431,14 +423,14 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 		}
 	}
 
-	annotations := metadata.GetAnnotations()
-	if annotations == nil {
-		annotations = map[string]string{}
+	annos := metadata.GetAnnotations()
+	if annos == nil {
+		annos = map[string]string{}
 	}
 
 	var useDefault bool
 	var inject bool
-	switch strings.ToLower(annotations[annotationPolicy]) {
+	switch strings.ToLower(annos[annotation.SidecarInject.Name]) {
 	// http://yaml.org/type/bool.html
 	case "y", "yes", "true", "on":
 		inject = true
@@ -502,7 +494,7 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 		// Build a log message for the annotations.
 		annotationStr := ""
 		for name := range annotationRegistry {
-			value, ok := annotations[name]
+			value, ok := annos[name]
 			if !ok {
 				value = "(unset)"
 			}
@@ -575,7 +567,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 		"includeInboundPorts": includeInboundPorts,
 		"kubevirtInterfaces":  kubevirtInterfaces,
 		"applicationPorts":    applicationPorts,
-		"annotation":          annotation,
+		"annotation":          getAnnotation,
 		"valueOrDefault":      valueOrDefault,
 		"toJSON":              toJSON,
 		"toJson":              toJSON, // Used by, e.g. Istio 1.0.5 template sidecar-injector-configmap.yaml
@@ -775,14 +767,16 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	// affect the network provider within the cluster causing
 	// additional pod failures.
 	if podSpec.HostNetwork {
-		fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled\n", metadata.Name) //nolint: errcheck
+		_, _ = fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled\n",
+			metadata.Name)
 		return out, nil
 	}
 	//skip injection for injected pods
 	if len(podSpec.Containers) > 1 {
 		for _, c := range podSpec.Containers {
 			if c.Name == ProxyContainerName {
-				fmt.Fprintf(os.Stderr, "Skipping injection because %q has injected %q sidecar already\n", metadata.Name, ProxyContainerName) //nolint: errcheck
+				_, _ = fmt.Fprintf(os.Stderr, "Skipping injection because %q has injected %q sidecar already\n",
+					metadata.Name, ProxyContainerName)
 				return out, nil
 			}
 		}
@@ -830,7 +824,7 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 		rewriteCniPodSPec(metadata.Annotations, spec)
 	}
 
-	metadata.Annotations[annotationStatus] = status
+	metadata.Annotations[annotation.SidecarStatus.Name] = status
 
 	return out, nil
 }
@@ -915,7 +909,7 @@ func toYaml(value interface{}) string {
 	return string(y)
 }
 
-func annotation(meta metav1.ObjectMeta, name string, defaultValue interface{}) string {
+func getAnnotation(meta metav1.ObjectMeta, name string, defaultValue interface{}) string {
 	value, ok := meta.Annotations[name]
 	if !ok {
 		value = fmt.Sprint(defaultValue)

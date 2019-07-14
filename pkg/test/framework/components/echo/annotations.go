@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"istio.io/api/annotation"
 )
 
 type AnnotationType string
@@ -34,30 +36,26 @@ type Annotation struct {
 }
 
 var (
-	// TODO: Keep this list up-to-date with pilot/pkg/kube/inject/inject.go
+	SidecarInject                         = workloadAnnotation(annotation.SidecarInject.Name, "true")
+	SidecarStatus                         = workloadAnnotation(annotation.SidecarStatus.Name, "")
+	SidecarRewriteAppHTTPProbers          = workloadAnnotation(annotation.SidecarRewriteAppHTTPProbers.Name, "")
+	SidecarProxyImage                     = workloadAnnotation(annotation.SidecarProxyImage.Name, "")
+	SidecarInterceptionMode               = workloadAnnotation(annotation.SidecarInterceptionMode.Name, "")
+	SidecarStatusPort                     = workloadAnnotation(annotation.SidecarStatusPort.Name, "")
+	SidecarReadinessInitialDelaySeconds   = workloadAnnotation(annotation.SidecarStatusReadinessInitialDelaySeconds.Name, "")
+	SidecarReadinessPeriodSeconds         = workloadAnnotation(annotation.SidecarStatusReadinessPeriodSeconds.Name, "")
+	SidecarReadinessFailoverThreshold     = workloadAnnotation(annotation.SidecarStatusReadinessFailureThreshold.Name, "")
+	SidecarApplicationPorts               = workloadAnnotation(annotation.SidecarStatusReadinessApplicationPorts.Name, "")
+	SidecarTrafficIncludeOutboundIPRanges = workloadAnnotation(annotation.SidecarTrafficIncludeOutboundIPRanges.Name, "")
+	SidecarTrafficExcludeOutboundIPRanges = workloadAnnotation(annotation.SidecarTrafficExcludeOutboundIPRanges.Name, "")
+	SidecarTrafficIncludeInboundPorts     = workloadAnnotation(annotation.SidecarTrafficIncludeInboundPorts.Name, "")
+	SidecarTrafficExcludeInboundPorts     = workloadAnnotation(annotation.SidecarTrafficExcludeInboundPorts.Name, "")
+	SidecarTrafficKubeVirtInterfaces      = workloadAnnotation(annotation.SidecarTrafficKubevirtInterfaces.Name, "")
 
-	SidecarInject                         = workloadAnnotation("sidecar.istio.io/inject", "true")
-	SidecarStatus                         = workloadAnnotation("sidecar.istio.io/status", "")
-	SidecarRewriteAppHTTPProbers          = workloadAnnotation("sidecar.istio.io/rewriteAppHTTPProbers", "")
-	SidecarProxyImage                     = workloadAnnotation("sidecar.istio.io/proxyImage", "")
-	SidecarInterceptionMode               = workloadAnnotation("sidecar.istio.io/interceptionMode", "")
-	SidecarStatusPort                     = workloadAnnotation("status.sidecar.istio.io/port", "")
-	SidecarReadinessInitialDelaySeconds   = workloadAnnotation("readiness.status.sidecar.istio.io/initialDelaySeconds", "")
-	SidecarReadinessPeriodSeconds         = workloadAnnotation("readiness.status.sidecar.istio.io/periodSeconds", "")
-	SidecarReadinessFailoverThreshold     = workloadAnnotation("readiness.status.sidecar.istio.io/failureThreshold", "")
-	SidecarApplicationPorts               = workloadAnnotation("readiness.status.sidecar.istio.io/applicationPorts", "")
-	SidecarTrafficIncludeOutboundIPRanges = workloadAnnotation("traffic.sidecar.istio.io/includeOutboundIPRanges", "")
-	SidecarTrafficExcludeOutboundIPRanges = workloadAnnotation("traffic.sidecar.istio.io/excludeOutboundIPRanges", "")
-	SidecarTrafficIncludeInboundPorts     = workloadAnnotation("traffic.sidecar.istio.io/includeInboundPorts", "")
-	SidecarTrafficExcludeInboundPorts     = workloadAnnotation("traffic.sidecar.istio.io/excludeInboundPorts", "")
-	SidecarTrafficKubeVirtInterfaces      = workloadAnnotation("traffic.sidecar.istio.io/kubevirtInterfaces", "")
-
-	// TODO: Keep this list up-to-date with pilot/pkg/serviceregistry/kube/conversion.go
-
-	KubeServiceAccountsOnVMA = serviceAnnotation("alpha.istio.io/kubernetes-serviceaccounts", "")
-	CanonicalServiceAccounts = serviceAnnotation("alpha.istio.io/canonical-serviceaccounts", "")
-	ServiceExport            = serviceAnnotation("networking.istio.io/exportTo", "")
-	WorkloadIdentity         = workloadAnnotation("alpha.istio.io/identity", "")
+	KubeServiceAccountsOnVMA = serviceAnnotation(annotation.KubernetesServiceAccounts.Name, "")
+	CanonicalServiceAccounts = serviceAnnotation(annotation.CanonicalServiceAccounts.Name, "")
+	ServiceExport            = serviceAnnotation(annotation.NetworkingExportTo.Name, "")
+	WorkloadIdentity         = workloadAnnotation(annotation.Identity.Name, "")
 )
 
 type AnnotationValue struct {

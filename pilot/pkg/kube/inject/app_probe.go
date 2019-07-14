@@ -23,11 +23,12 @@ import (
 	"strconv"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
+	"istio.io/api/annotation"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/pkg/log"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -46,7 +47,7 @@ var (
 // ShouldRewriteAppHTTPProbers returns if we should rewrite apps' probers config.
 func ShouldRewriteAppHTTPProbers(annotations map[string]string, spec *SidecarInjectionSpec) bool {
 	if annotations != nil {
-		if value, ok := annotations[annotationRewriteAppHTTPProbers]; ok {
+		if value, ok := annotations[annotation.SidecarRewriteAppHTTPProbers.Name]; ok {
 			if isSetInAnnotation, err := strconv.ParseBool(value); err == nil {
 				return isSetInAnnotation
 			}

@@ -21,8 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/pkg/annotations"
-
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
@@ -605,36 +603,9 @@ const (
 	// NodeMetadataTLSClientRootCert is the absolute path to client root cert file
 	NodeMetadataTLSClientRootCert = "TLS_CLIENT_ROOT_CERT"
 
-	// NodeMetadataPolicyCheck determines the policy for behavior when unable to connect to mixer
-	// If not set, FAIL_CLOSE is set, rejecting requests.
-	NodeMetadataPolicyCheck = "policy.istio.io/check"
-
-	// NodeMetadataPolicyCheckRetries is the max number of retries on transport error to mixer
-	// If not set, this will be 0, indicating no retries.
-	NodeMetadataPolicyCheckRetries = "policy.istio.io/checkRetries"
-
-	// NodeMetadataPolicyCheckBaseRetryWaitTime for base time to wait between retries, will be adjusted by backoff and jitter.
-	// In duration format. If not set, this will be 80ms.
-	NodeMetadataPolicyCheckBaseRetryWaitTime = "policy.istio.io/checkBaseRetryWaitTime"
-
-	// NodeMetadataPolicyCheckMaxRetryWaitTime for max time to wait between retries
-	// In duration format. If not set, this will be 1000ms.
-	NodeMetadataPolicyCheckMaxRetryWaitTime = "policy.istio.io/checkMaxRetryWaitTime"
-
 	// NodeMetadataIdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
 	// If not set, no timeout is set.
 	NodeMetadataIdleTimeout = "IDLE_TIMEOUT"
-)
-
-var (
-	_ = annotations.Register(NodeMetadataPolicyCheck,
-		"Determines the policy for behavior when unable to connect to Mixer. If not set, FAIL_CLOSE is set, rejecting requests.")
-	_ = annotations.Register(NodeMetadataPolicyCheckRetries,
-		"The maximum number of retries on transport errors to Mixer. If not set, this will be 0, indicating no retries.")
-	_ = annotations.Register(NodeMetadataPolicyCheckBaseRetryWaitTime,
-		"Base time to wait between retries, will be adjusted by backoff and jitter. In duration format. If not set, this will be 80ms.")
-	_ = annotations.Register(NodeMetadataPolicyCheckMaxRetryWaitTime,
-		"Maximum time to wait between retries to Mixer. In duration format. If not set, this will be 1000ms.")
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and

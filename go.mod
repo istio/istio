@@ -10,7 +10,6 @@ replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538
 
 require (
 	cloud.google.com/go v0.37.4
-	code.cloudfoundry.org/copilot v0.0.0-20180808174356-6bade2a0677a
 	contrib.go.opencensus.io/exporter/prometheus v0.1.0
 	contrib.go.opencensus.io/exporter/stackdriver v0.6.0
 	contrib.go.opencensus.io/exporter/zipkin v0.1.1
@@ -186,7 +185,7 @@ require (
 	gopkg.in/stack.v1 v1.7.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 	gotest.tools v2.2.0+incompatible // indirect
-	istio.io/api v0.0.0-20190716171133-115cae561388
+	istio.io/api v0.0.0-20190716182821-d90184ef5a47
 	istio.io/gogo-genproto v0.0.0-20190614210408-e88dc8b0e4db
 	istio.io/pkg v0.0.0-20190710182420-c26792dead42
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471

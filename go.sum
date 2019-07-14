@@ -3,8 +3,6 @@ cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMT
 cloud.google.com/go v0.34.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 cloud.google.com/go v0.37.4 h1:glPeL3BQJsbF6aIIYfZizMwc5LTYz250bDMjttbBGAU=
 cloud.google.com/go v0.37.4/go.mod h1:NHPJ89PdicEuT9hdPXMROBD91xc5uRDxsMtSB16k7hw=
-code.cloudfoundry.org/copilot v0.0.0-20180808174356-6bade2a0677a h1:+wgboRul4rDtF76z1Y1FtVQ2+xLwGtZ5ZpOqoVbCPec=
-code.cloudfoundry.org/copilot v0.0.0-20180808174356-6bade2a0677a/go.mod h1:QTyGqKzbhvM1hZajwj2hDJSitop0S1sWnJAmXRjvqcE=
 contrib.go.opencensus.io/exporter/prometheus v0.1.0 h1:SByaIoWwNgMdPSgl5sMqM2KDE5H/ukPWBRo314xiDvg=
 contrib.go.opencensus.io/exporter/prometheus v0.1.0/go.mod h1:cGFniUXGZlKRjzOyuZJ6mgB+PgBcCIa79kEKR8YCW+A=
 contrib.go.opencensus.io/exporter/stackdriver v0.6.0 h1:U0FQWsZU3aO8W+BrZc88T8fdd24qe3Phawa9V9oaVUE=
@@ -613,8 +611,8 @@ honnef.co/go/tools v0.0.0-20180728063816-88497007e858/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 istio.io/api v0.0.0-20190515205759-982e5c3888c6/go.mod h1:hhLFQmpHia8zgaM37vb2ml9iS5NfNfqZGRt1pS9aVEo=
-istio.io/api v0.0.0-20190716171133-115cae561388 h1:6ZanA/X/ulO3qz4HHHhe9vyqbwih+jrCIkdzeTLo8wc=
-istio.io/api v0.0.0-20190716171133-115cae561388/go.mod h1:hhLFQmpHia8zgaM37vb2ml9iS5NfNfqZGRt1pS9aVEo=
+istio.io/api v0.0.0-20190716182821-d90184ef5a47 h1:aTfqvytJfCKvZaIr/8jnqBM7uLWLVbyZQQplSL6glvA=
+istio.io/api v0.0.0-20190716182821-d90184ef5a47/go.mod h1:hhLFQmpHia8zgaM37vb2ml9iS5NfNfqZGRt1pS9aVEo=
 istio.io/gogo-genproto v0.0.0-20190614210408-e88dc8b0e4db h1:a++JUbz/eKj16759379pFBhuoiSxUTmnut6ITM/9FEs=
 istio.io/gogo-genproto v0.0.0-20190614210408-e88dc8b0e4db/go.mod h1:eIDJ6jNk/IeJz6ODSksHl5Aiczy5JUq6vFhJWI5OtiI=
 istio.io/pkg v0.0.0-20190710182420-c26792dead42 h1:2GOb5IEH8Q4tbv4sw6OabHV/xcRK4qQD5lLieiYe64s=
