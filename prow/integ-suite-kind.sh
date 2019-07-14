@@ -47,13 +47,17 @@ export TAG="${TAG:-${GIT_SHA}}"
 make init
 make docker
 
-function build_kind_images(){
+function load_kind_images(){
 	# Archived local images and load it into KinD's docker daemon
 	# Kubernetes in KinD can only access local images from its docker daemon.
 	docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 -P16 kind --loglevel debug --name e2e-suite load docker-image
 }
 
-time build_kind_images
+# In the CI the cluster will be using the same docker context as the docker images are built
+# So we don't need to load the images. For local runs, this can be useful.
+if [[ "${LOAD_IMAGES}" != "" ]]; then
+  time load_kind_images
+ fi
 
 export JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml"
 export T="-v"
