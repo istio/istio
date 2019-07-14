@@ -15,7 +15,9 @@
 package snapshotter
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/config/collection"
@@ -56,4 +58,18 @@ func (s *snapshotImpl) Version(col string) string {
 	}
 	g := coll.Generation()
 	return col + "/" + strconv.FormatInt(g, 10)
+}
+
+// String implements io.Stringer
+func (s *snapshotImpl) String() string {
+	var b strings.Builder
+
+	for i, n := range s.set.Names() {
+		b.WriteString(fmt.Sprintf("[%d] %s (@%s)\n", i, n.String(), s.Version(n.String())))
+		for j, e := range s.Resources(n.String()) {
+			b.WriteString(fmt.Sprintf("  [%d] %s\n", j, e.Metadata.Name))
+		}
+	}
+
+	return b.String()
 }

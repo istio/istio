@@ -668,7 +668,7 @@ func TestReceiveEndpointsBeforeService(t *testing.T) {
 	rt, src, dst, acc := newHandler()
 	defer rt.Stop()
 
-	syncEvents := []event.Event {
+	syncEvents := []event.Event{
 		event.FullSyncFor(metadata.K8SCoreV1Nodes),
 		event.FullSyncFor(metadata.K8SCoreV1Pods),
 		event.FullSyncFor(metadata.K8SCoreV1Services),

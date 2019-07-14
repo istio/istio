@@ -352,10 +352,7 @@ func newSource(b *testing.B, ifaces kube.Interfaces, resources schema.KubeResour
 		ResyncPeriod: 0,
 		Resources:    resources,
 	}
-	src, err := apiserver.New(o)
-	if err != nil {
-		b.Fatal(err)
-	}
+	src := apiserver.New(o)
 	if src == nil {
 		b.Fatal("Expected non nil source")
 	}

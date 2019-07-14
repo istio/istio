@@ -73,5 +73,4 @@ var (
 		Source: Collection2,
 		Entry:  EntryN1I1V1,
 	}
-
 )

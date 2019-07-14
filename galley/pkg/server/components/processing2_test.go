@@ -16,26 +16,30 @@ package components
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
+	"path"
 	"testing"
-	"time"
 
 	. "github.com/onsi/gomega"
+	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic/fake"
 
-	"istio.io/istio/galley/pkg/meshconfig"
-	"istio.io/istio/galley/pkg/runtime"
+	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/processing"
+	"istio.io/istio/galley/pkg/config/processing/snapshotter"
+	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/galley/pkg/source/kube/client"
-	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
-	"istio.io/istio/galley/pkg/source/kube/schema"
-	sourceSchema "istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/testing/mock"
 	"istio.io/istio/pkg/mcp/monitoring"
 	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
-func TestProcessing_StartErrors(t *testing.T) {
+func TestProcessing2_StartErrors(t *testing.T) {
 	g := NewGomegaWithT(t)
 	defer resetPatchTable()
 loop:
@@ -43,86 +47,88 @@ loop:
 		resetPatchTable()
 		mk := mock.NewKube()
 		newKubeFromConfigFile = func(string) (client.Interfaces, error) { return mk, nil }
-		newSource = func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error) {
-			return runtime.NewInMemorySource(), nil
-		}
-		newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
-		fsNew = func(string, *schema.Instance, *converter.Config) (runtime.Source, error) {
-			return runtime.NewInMemorySource(), nil
-		}
-		mcpMetricReporter = func(string) monitoring.Reporter {
-			return nil
-		}
-		verifyResourceTypesPresence = func(k client.Interfaces, specs []sourceSchema.ResourceSpec) ([]sourceSchema.ResourceSpec, error) {
-			return specs, nil
-		}
+		checkResourceTypesPresence = func(_ kube.Interfaces, _ schema.KubeResources) error { return nil }
 
 		e := fmt.Errorf("err%d", i)
+
+		tmpDir, err := ioutil.TempDir(os.TempDir(), t.Name())
+		g.Expect(err).To(BeNil())
+
+		meshCfgDir := path.Join(tmpDir, "meshcfg")
+		err = os.Mkdir(meshCfgDir, os.ModePerm)
+		g.Expect(err).To(BeNil())
+
+		meshCfgFile := path.Join(tmpDir, "meshcfg.yaml")
+		_, err = os.Create(meshCfgFile)
+		g.Expect(err).To(BeNil())
 
 		args := settings.DefaultArgs()
 		args.APIAddress = "tcp://0.0.0.0:0"
 		args.Insecure = true
+		args.MeshConfigFile = meshCfgFile
 
 		switch i {
 		case 0:
 			newKubeFromConfigFile = func(string) (client.Interfaces, error) { return nil, e }
 		case 1:
-			newSource = func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error) {
-				return nil, e
-			}
+			meshcfgNewFS = func(path string) (event.Source, error) { return nil, e }
 		case 2:
-			netListen = func(network, address string) (net.Listener, error) { return nil, e }
-		case 3:
-			newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return nil, e }
-		case 4:
-			args.ConfigPath = "aaa"
-			fsNew = func(string, *schema.Instance, *converter.Config) (runtime.Source, error) { return nil, e }
-		case 5:
-			args.DisableResourceReadyCheck = true
-			findSupportedResources = func(_ client.Interfaces, _ []sourceSchema.ResourceSpec) ([]sourceSchema.ResourceSpec, error) {
+			processorInitialize = func(_ *schema.Metadata, _ string, _ event.Source, _ snapshotter.Distributor) (*processing.Runtime, error) {
 				return nil, e
 			}
-		case 6:
+		case 3:
 			args.Insecure = false
 			args.AccessListFile = os.TempDir()
-		case 7:
+		case 4:
 			args.Insecure = false
 			args.AccessListFile = "invalid file"
+		case 5:
+			args.SinkAddress = "localhost:8080"
+			args.SinkAuthMode = "foo"
+		case 6:
+			netListen = func(network, address string) (net.Listener, error) { return nil, e }
+		case 7:
+			checkResourceTypesPresence = func(_ kube.Interfaces, _ schema.KubeResources) error { return e }
+		case 8:
+			args.ConfigPath = "aaa"
+			fsNew2 = func(_ string, _ schema.KubeResources) (event.Source, error) { return nil, e }
 		default:
 			break loop
+
 		}
 
-		p := NewProcessing(args)
-		err := p.Start()
+		p := NewProcessing2(args)
+		err = p.Start()
 		g.Expect(err).NotTo(BeNil())
 		t.Logf("%d) err: %v", i, err)
 		p.Stop()
 	}
 }
 
-func TestServer_Basic(t *testing.T) {
+func TestProcessing2_Basic(t *testing.T) {
 	g := NewGomegaWithT(t)
 	resetPatchTable()
 	defer resetPatchTable()
 
 	mk := mock.NewKube()
+	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
+
+	mk.AddResponse(cl, nil)
 	newKubeFromConfigFile = func(string) (client.Interfaces, error) { return mk, nil }
-	newSource = func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error) {
-		return runtime.NewInMemorySource(), nil
-	}
 	mcpMetricReporter = func(s string) monitoring.Reporter {
 		return mcptestmon.NewInMemoryStatsContext()
 	}
-	newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
-	verifyResourceTypesPresence = func(_ client.Interfaces, specs []schema.ResourceSpec) ([]schema.ResourceSpec, error) {
-		return specs, nil
-	}
+	checkResourceTypesPresence = func(_ kube.Interfaces, _ schema.KubeResources) error { return nil }
+	// 	newSource = func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error) {
+	// 		return runtime.NewInMemorySource(), nil
+	// 	}
+	meshcfgNewFS = func(path string) (event.Source, error) { return meshcfg.NewInmemory(), nil }
 
 	args := settings.DefaultArgs()
 	args.APIAddress = "tcp://0.0.0.0:0"
 	args.Insecure = true
 
-	p := NewProcessing(args)
+	p := NewProcessing2(args)
 	err := p.Start()
 	g.Expect(err).To(BeNil())
 

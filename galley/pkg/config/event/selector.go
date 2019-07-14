@@ -67,7 +67,7 @@ var _ Selector = &selector{}
 
 // Handle implements Handler
 func (s *selector) Handle(e Event) {
-	scope.Infoa(">>> Selector.Handle: ", e)
+	scope.Debuga(">>> Selector.Handle: ", e)
 	h, found := s.handlers[e.Source]
 	if found {
 		h.Handle(e)

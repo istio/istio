@@ -34,13 +34,15 @@ func Create(mapping map[collection.Name]collection.Name) []event.Transformer {
 	var result []event.Transformer
 
 	for k, v := range mapping {
+		from := k
+		to := v
 		xform := event.NewFnTransform(
-			collection.Names{k},
-			collection.Names{v},
+			collection.Names{from},
+			collection.Names{to},
 			nil,
 			nil,
 			func(e event.Event, h event.Handler) {
-				e = e.WithSource(v)
+				e = e.WithSource(to)
 				h.Handle(e)
 			})
 		result = append(result, xform)

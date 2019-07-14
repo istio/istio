@@ -123,6 +123,8 @@ type Args struct { // nolint:maligned
 	MonitoringPort  uint
 	EnableProfiling bool
 	PprofPort       uint
+
+	UseOldProcessor bool
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.

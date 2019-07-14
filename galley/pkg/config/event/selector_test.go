@@ -149,7 +149,8 @@ func TestSelector_Multi_Unknown_Panic(t *testing.T) {
 }
 
 type unknownSelector struct{}
+
 var _ event.Selector = &unknownSelector{}
 
-func (u *unknownSelector) Handle(e event.Event){}
-func (u *unknownSelector) Broadcast(e event.Event){}
+func (u *unknownSelector) Handle(e event.Event)    {}
+func (u *unknownSelector) Broadcast(e event.Event) {}

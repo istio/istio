@@ -76,3 +76,17 @@ func TestSet_Clone(t *testing.T) {
 	c = s.Collection(collection.NewName("foobar"))
 	g.Expect(c).To(BeNil())
 }
+
+
+func TestSet_Names(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	s1 := collection.New(data.Collection1)
+	s2 := collection.New(data.Collection2)
+
+	s := collection.NewSetFromCollections([]*collection.Instance{s1, s2})
+	names := s.Names()
+	g.Expect(names).To(ConsistOf(
+		data.Collection1,
+		data.Collection2))
+}
