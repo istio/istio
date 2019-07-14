@@ -36,6 +36,9 @@ spec:
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
+          {{- if .Values.global.sds.enabled }}
+            - --sds-enabled=true
+          {{- end }}
             - --append-dns-names=true
             - --grpc-port=8060
             - --grpc-hostname=citadel
