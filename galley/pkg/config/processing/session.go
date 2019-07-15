@@ -289,7 +289,7 @@ func (s *session) applyMeshEvent(e event.Event) {
 	// reset case is already handled by the time call arrives here.
 
 	default:
-		panic(fmt.Errorf("Runtime.handleMeshEvent: unrecognized event kind: %v", e.Kind))
+		panic(fmt.Errorf("session.handleMeshEvent: unrecognized event kind: %v", e.Kind))
 	}
 }
 
