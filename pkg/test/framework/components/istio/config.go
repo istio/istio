@@ -63,21 +63,21 @@ var (
 	helmValues string
 
 	settingsFromCommandline = &Config{
-		ChartRepo:                DefaultIstioChartRepo,
-		SystemNamespace:          DefaultSystemNamespace,
-		IstioNamespace:           DefaultSystemNamespace,
-		ConfigNamespace:          DefaultSystemNamespace,
-		TelemetryNamespace:       DefaultSystemNamespace,
-		PolicyNamespace:          DefaultSystemNamespace,
-		IngressNamespace:         DefaultSystemNamespace,
-		EgressNamespace:          DefaultSystemNamespace,
-		DeployIstio:              true,
-		DeployTimeout:            0,
-		UndeployTimeout:          0,
-		ChartDir:                 env.IstioChartDir,
-		CrdsFilesDir:             env.CrdsFilesDir,
-		ValuesFile:               E2EValuesFile,
-		UseCustomSidecarInjector: false,
+		ChartRepo:                      DefaultIstioChartRepo,
+		SystemNamespace:                DefaultSystemNamespace,
+		IstioNamespace:                 DefaultSystemNamespace,
+		ConfigNamespace:                DefaultSystemNamespace,
+		TelemetryNamespace:             DefaultSystemNamespace,
+		PolicyNamespace:                DefaultSystemNamespace,
+		IngressNamespace:               DefaultSystemNamespace,
+		EgressNamespace:                DefaultSystemNamespace,
+		DeployIstio:                    true,
+		DeployTimeout:                  0,
+		UndeployTimeout:                0,
+		ChartDir:                       env.IstioChartDir,
+		CrdsFilesDir:                   env.CrdsFilesDir,
+		ValuesFile:                     E2EValuesFile,
+		CustomSidecarInjectorNamespace: "",
 	}
 )
 
@@ -131,9 +131,9 @@ type Config struct {
 	// doing deployments without Galley.
 	SkipWaitForValidationWebhook bool
 
-	// UseCustomSidecarInjector allows injecting the sidecar from the specified namespace.
-	// if the value is false, use the default sidecar injection instead.
-	UseCustomSidecarInjector bool
+	// CustomSidecarInjectorNamespace allows injecting the sidecar from the specified namespace.
+	// if the value is "", use the default sidecar injection instead.
+	CustomSidecarInjectorNamespace string
 }
 
 // Is mtls enabled. Check in Values flag and Values file.
@@ -275,23 +275,23 @@ func parseHelmValues() (map[string]string, error) {
 func (c *Config) String() string {
 	result := ""
 
-	result += fmt.Sprintf("SystemNamespace:              %s\n", c.SystemNamespace)
-	result += fmt.Sprintf("IstioNamespace:               %s\n", c.IstioNamespace)
-	result += fmt.Sprintf("ConfigNamespace:              %s\n", c.ConfigNamespace)
-	result += fmt.Sprintf("TelemetryNamespace:           %s\n", c.TelemetryNamespace)
-	result += fmt.Sprintf("PolicyNamespace:              %s\n", c.PolicyNamespace)
-	result += fmt.Sprintf("IngressNamespace:             %s\n", c.IngressNamespace)
-	result += fmt.Sprintf("EgressNamespace:              %s\n", c.EgressNamespace)
-	result += fmt.Sprintf("DeployIstio:                  %v\n", c.DeployIstio)
-	result += fmt.Sprintf("DeployTimeout:                %s\n", c.DeployTimeout.String())
-	result += fmt.Sprintf("UndeployTimeout:              %s\n", c.UndeployTimeout.String())
-	result += fmt.Sprintf("Values:                       %v\n", c.Values)
-	result += fmt.Sprintf("ChartRepo:                    %s\n", c.ChartRepo)
-	result += fmt.Sprintf("ChartDir:                     %s\n", c.ChartDir)
-	result += fmt.Sprintf("CrdsFilesDir:                 %s\n", c.CrdsFilesDir)
-	result += fmt.Sprintf("ValuesFile:                   %s\n", c.ValuesFile)
-	result += fmt.Sprintf("SkipWaitForValidationWebhook: %v\n", c.SkipWaitForValidationWebhook)
-	result += fmt.Sprintf("UseCustomSidecarInjector:     %v\n", c.UseCustomSidecarInjector)
+	result += fmt.Sprintf("SystemNamespace:                %s\n", c.SystemNamespace)
+	result += fmt.Sprintf("IstioNamespace:                 %s\n", c.IstioNamespace)
+	result += fmt.Sprintf("ConfigNamespace:                %s\n", c.ConfigNamespace)
+	result += fmt.Sprintf("TelemetryNamespace:             %s\n", c.TelemetryNamespace)
+	result += fmt.Sprintf("PolicyNamespace:                %s\n", c.PolicyNamespace)
+	result += fmt.Sprintf("IngressNamespace:               %s\n", c.IngressNamespace)
+	result += fmt.Sprintf("EgressNamespace:                %s\n", c.EgressNamespace)
+	result += fmt.Sprintf("DeployIstio:                    %v\n", c.DeployIstio)
+	result += fmt.Sprintf("DeployTimeout:                  %s\n", c.DeployTimeout.String())
+	result += fmt.Sprintf("UndeployTimeout:                %s\n", c.UndeployTimeout.String())
+	result += fmt.Sprintf("Values:                         %v\n", c.Values)
+	result += fmt.Sprintf("ChartRepo:                      %s\n", c.ChartRepo)
+	result += fmt.Sprintf("ChartDir:                       %s\n", c.ChartDir)
+	result += fmt.Sprintf("CrdsFilesDir:                   %s\n", c.CrdsFilesDir)
+	result += fmt.Sprintf("ValuesFile:                     %s\n", c.ValuesFile)
+	result += fmt.Sprintf("SkipWaitForValidationWebhook:   %v\n", c.SkipWaitForValidationWebhook)
+	result += fmt.Sprintf("CustomSidecarInjectorNamespace: %s\n", c.CustomSidecarInjectorNamespace)
 
 	return result
 }
