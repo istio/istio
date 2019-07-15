@@ -87,7 +87,7 @@ go build -o $GOPATH/bin/iop ./cmd/iop.go
 The `iop` command supports the following flags:
 
 - `logtostderr`: log to console (by default logs go to ./iop.go).
-- `dry-run`: console output only, nothing applied to cluster or written to files (default is true for now).
+- `dry-run`: console output only, nothing applied to cluster or written to files (**default is true until the tool is robust enough**).
 - `verbose`: display entire manifest contents and other debug info (default is false).
 
 ### Quick tour of CLI commands 
@@ -112,6 +112,7 @@ levels representing a child dependency, use the following command:
 iop manifest -o istio_manifests
 ```
 
+(Note that the default dry-run setting only writes the intended actions to log.)
 Use depth first search to traverse the created directory hierarchy when applying your YAML files. This is needed for
 correct sequencing of dependencies. Child manifest directories must wait for their parent directory to be fully applied,
 but not their sibling manifest directories.
