@@ -267,9 +267,7 @@ func (c *Controller) HasSynced() bool {
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
 	go func() {
-		if features.EnableWaitCacheSync {
-			cache.WaitForCacheSync(stop, c.HasSynced)
-		}
+		cache.WaitForCacheSync(stop, c.HasSynced)
 		c.queue.Run(stop)
 	}()
 
