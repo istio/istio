@@ -22,29 +22,41 @@ func getWithTimeout(p *PushQueue) *XdsConnection {
 	}
 }
 
+func ExpectTimeout(t *testing.T, p *PushQueue) {
+	t.Helper()
+	done := make(chan struct{})
+	go func() {
+		p.Dequeue()
+		done <- struct{}{}
+	}()
+	select {
+	case <-done:
+		t.Fatalf("Expected timeout")
+	case <-time.After(time.Millisecond * 500):
+	}
+}
+
+func ExpectDequeue(t *testing.T, p *PushQueue, expected *XdsConnection) {
+	t.Helper()
+	result := make(chan *XdsConnection)
+	go func() {
+		con, _ := p.Dequeue()
+		result <- con
+	}()
+	select {
+	case got := <-result:
+		if got != expected {
+			t.Fatalf("Expected proxy %v, got %v", expected, got)
+		}
+	case <-time.After(time.Millisecond * 500):
+		t.Fatalf("Timed out")
+	}
+}
+
 func TestProxyQueue(t *testing.T) {
 	proxies := make([]*XdsConnection, 0, 100)
 	for p := 0; p < 100; p++ {
 		proxies = append(proxies, &XdsConnection{ConID: string(p)})
-	}
-
-	ExpectTimeout := func(p *PushQueue) {
-		done := make(chan struct{})
-		go func() {
-			p.Dequeue()
-			done <- struct{}{}
-		}()
-		select {
-		case <-done:
-			t.Fatalf("Expected timeout")
-		case <-time.After(time.Millisecond * 500):
-		}
-	}
-
-	ExpectPop := func(p *PushQueue, expected *XdsConnection) {
-		if got, _ := p.Dequeue(); got != expected {
-			t.Fatalf("Expected proxy %v, got %v", expected, got)
-		}
 	}
 
 	t.Run("simple add and remove", func(t *testing.T) {
@@ -52,16 +64,16 @@ func TestProxyQueue(t *testing.T) {
 		p.Enqueue(proxies[0], &PushInformation{})
 		p.Enqueue(proxies[1], &PushInformation{})
 
-		ExpectPop(p, proxies[0])
-		ExpectPop(p, proxies[1])
+		ExpectDequeue(t, p, proxies[0])
+		ExpectDequeue(t, p, proxies[1])
 	})
 
 	t.Run("remove too many", func(t *testing.T) {
 		p := NewPushQueue()
 		p.Enqueue(proxies[0], &PushInformation{})
 
-		ExpectPop(p, proxies[0])
-		ExpectTimeout(p)
+		ExpectDequeue(t, p, proxies[0])
+		ExpectTimeout(t, p)
 	})
 
 	t.Run("add multiple times", func(t *testing.T) {
@@ -70,18 +82,18 @@ func TestProxyQueue(t *testing.T) {
 		p.Enqueue(proxies[1], &PushInformation{})
 		p.Enqueue(proxies[0], &PushInformation{})
 
-		ExpectPop(p, proxies[0])
-		ExpectPop(p, proxies[1])
-		ExpectTimeout(p)
+		ExpectDequeue(t, p, proxies[0])
+		ExpectDequeue(t, p, proxies[1])
+		ExpectTimeout(t, p)
 	})
 
 	t.Run("add and remove", func(t *testing.T) {
 		p := NewPushQueue()
 		p.Enqueue(proxies[0], &PushInformation{})
-		ExpectPop(p, proxies[0])
+		ExpectDequeue(t, p, proxies[0])
 		p.Enqueue(proxies[0], &PushInformation{})
-		ExpectPop(p, proxies[0])
-		ExpectTimeout(p)
+		ExpectDequeue(t, p, proxies[0])
+		ExpectTimeout(t, p)
 	})
 
 	t.Run("remove should block", func(t *testing.T) {
@@ -89,7 +101,7 @@ func TestProxyQueue(t *testing.T) {
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
 		go func() {
-			ExpectPop(p, proxies[0])
+			ExpectDequeue(t, p, proxies[0])
 			wg.Done()
 		}()
 		time.Sleep(time.Millisecond * 50)
@@ -106,12 +118,13 @@ func TestProxyQueue(t *testing.T) {
 			respChannel <- getWithTimeout(p)
 			wg.Done()
 		}()
+		time.Sleep(time.Millisecond * 50)
+		p.Enqueue(proxies[0], &PushInformation{})
 		go func() {
 			respChannel <- getWithTimeout(p)
 			wg.Done()
 		}()
-		time.Sleep(time.Millisecond * 50)
-		p.Enqueue(proxies[0], &PushInformation{})
+
 		wg.Wait()
 		timeouts := 0
 		close(respChannel)

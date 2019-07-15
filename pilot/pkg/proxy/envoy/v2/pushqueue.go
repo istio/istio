@@ -17,16 +17,18 @@ type PushInformation struct {
 }
 
 type PushQueue struct {
-	mu          sync.RWMutex
+	mu          *sync.RWMutex
+	cond        *sync.Cond
 	connections map[*XdsConnection]*PushInformation
 	order       []*XdsConnection
-	signal      chan struct{}
 }
 
 func NewPushQueue() *PushQueue {
+	mu := &sync.RWMutex{}
 	return &PushQueue{
+		mu:          mu,
 		connections: make(map[*XdsConnection]*PushInformation),
-		signal:      make(chan struct{}),
+		cond:        sync.NewCond(mu),
 	}
 }
 
@@ -53,28 +55,16 @@ func (p *PushQueue) Enqueue(proxy *XdsConnection, pushInfo *PushInformation) {
 		}
 		info.edsUpdatedServices = edsUpdates
 	}
-	select {
-	case p.signal <- struct{}{}:
-	default:
-	}
-}
-
-func (p *PushQueue) waitForPendingPush() {
-	p.mu.RLock()
-	pending := len(p.order)
-	if pending == 0 {
-		p.mu.RUnlock()
-		<-p.signal
-	} else {
-		p.mu.RUnlock()
-	}
+	p.cond.Broadcast()
 }
 
 // Remove a proxy from the queue. If there are no proxies ready to be removed, this will block
 func (p *PushQueue) Dequeue() (*XdsConnection, *PushInformation) {
-	p.waitForPendingPush()
-
 	p.mu.Lock()
+	if len(p.order) == 0 {
+		p.cond.Wait()
+	}
+
 	defer p.mu.Unlock()
 	head := p.order[0]
 	p.order = p.order[1:]
