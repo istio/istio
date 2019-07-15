@@ -1,7 +1,6 @@
 package v2
 
 import (
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -152,10 +151,7 @@ func TestProxyQueue(t *testing.T) {
 		go func() {
 			expect := 0
 			for {
-				got, _ := p.Dequeue()
-				if got != proxies[expect] {
-					errs <- fmt.Errorf("expected proxy %v got %v", proxies[expect], got)
-				}
+				ExpectDequeue(t, p, proxies[expect])
 				expect++
 				if expect == len(proxies) {
 					wg.Done()

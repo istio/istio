@@ -55,13 +55,14 @@ func (p *PushQueue) Enqueue(proxy *XdsConnection, pushInfo *PushInformation) {
 		}
 		info.edsUpdatedServices = edsUpdates
 	}
-	p.cond.Broadcast()
+	p.cond.Signal()
 }
 
 // Remove a proxy from the queue. If there are no proxies ready to be removed, this will block
 func (p *PushQueue) Dequeue() (*XdsConnection, *PushInformation) {
 	p.mu.Lock()
-	if len(p.order) == 0 {
+	// Block until there is one to remove. Enqueue will signal when one is added.
+	for len(p.order) == 0 {
 		p.cond.Wait()
 	}
 
