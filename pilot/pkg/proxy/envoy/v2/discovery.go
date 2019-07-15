@@ -15,7 +15,6 @@
 package v2
 
 import (
-	"encoding/json"
 	"strconv"
 	"sync"
 	"time"
@@ -265,7 +264,7 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 			if model.LastPushStatus != push {
 				model.LastPushStatus = push
 				push.UpdateMetrics()
-				out, _ := json.MarshalIndent(model.LastPushStatus.ProxyStatus, "", "  ")
+				out, _ := model.LastPushStatus.JSON()
 				adsLog.Infof("Push Status: %s", string(out))
 			}
 			model.LastPushMutex.Unlock()
