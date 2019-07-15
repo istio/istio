@@ -26,6 +26,7 @@ import (
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic/fake"
 
+	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/processing"
@@ -46,6 +47,9 @@ loop:
 	for i := 0; ; i++ {
 		resetPatchTable()
 		mk := mock.NewKube()
+		cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
+		mk.AddResponse(cl, nil)
+
 		newKubeFromConfigFile = func(string) (client.Interfaces, error) { return mk, nil }
 		checkResourceTypesPresence = func(_ kube.Interfaces, _ schema.KubeResources) error { return nil }
 
@@ -73,7 +77,12 @@ loop:
 		case 1:
 			meshcfgNewFS = func(path string) (event.Source, error) { return nil, e }
 		case 2:
-			processorInitialize = func(_ *schema.Metadata, _ string, _ event.Source, _ snapshotter.Distributor) (*processing.Runtime, error) {
+			processorInitialize = func(
+				_ *schema.Metadata,
+				_ string, _ event.Source,
+				_ snapshotter.Distributor,
+				_ analysis.Analyzers,
+				_ processing.StatusReporter) (*processing.Runtime, error) {
 				return nil, e
 			}
 		case 3:
@@ -112,8 +121,8 @@ func TestProcessing2_Basic(t *testing.T) {
 
 	mk := mock.NewKube()
 	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
-
 	mk.AddResponse(cl, nil)
+
 	newKubeFromConfigFile = func(string) (client.Interfaces, error) { return mk, nil }
 	mcpMetricReporter = func(s string) monitoring.Reporter {
 		return mcptestmon.NewInMemoryStatsContext()

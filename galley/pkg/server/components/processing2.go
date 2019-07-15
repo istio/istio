@@ -30,12 +30,14 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 
+	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
+	"istio.io/istio/galley/pkg/config/source/kube/reporter"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/galley/pkg/runtime/groups"
 	"istio.io/istio/galley/pkg/server/process"
@@ -83,6 +85,7 @@ func NewProcessing2(a *settings.Args) *Processing2 {
 func (p *Processing2) Start() (err error) {
 	var mesh event.Source
 	var src event.Source
+	var reporter processing.StatusReporter
 
 	if mesh, err = meshcfgNewFS(p.args.MeshConfigFile); err != nil {
 		return
@@ -92,11 +95,13 @@ func (p *Processing2) Start() (err error) {
 
 	kubeResources := p.disableExcludedKubeResources(m)
 
-	if src, err = p.createSource(kubeResources); err != nil {
+	if src, reporter, err = p.createSourceAndReporter(kubeResources); err != nil {
 		return
 	}
 
-	if p.runtime, err = processorInitialize(m, p.args.DomainSuffix, event.CombineSources(mesh, src), p.distributor); err != nil {
+	a := analyzers.All()
+	if p.runtime, err = processorInitialize(
+		m, p.args.DomainSuffix, event.CombineSources(mesh, src), p.distributor, a, reporter); err != nil {
 		return
 	}
 
@@ -254,11 +259,14 @@ func (p *Processing2) getServerGrpcOptions() []grpc.ServerOption {
 	return grpcOptions
 }
 
-func (p *Processing2) createSource(resources schema.KubeResources) (src event.Source, err error) {
+func (p *Processing2) createSourceAndReporter(resources schema.KubeResources) (
+	src event.Source, rep processing.StatusReporter, err error) {
+
 	if p.args.ConfigPath != "" {
 		if src, err = fsNew2(p.args.ConfigPath, resources); err != nil {
 			return
 		}
+		rep = &processing.InMemoryStatusReporter{}
 	} else {
 		var k kube.Interfaces
 		if k, err = newKubeFromConfigFile(p.args.KubeConfig); err != nil {
@@ -276,6 +284,9 @@ func (p *Processing2) createSource(resources schema.KubeResources) (src event.So
 			Resources:    resources,
 		}
 		src = apiserver.New(o)
+
+		if rep, err = reporter.New(k, resources); err != nil {
+		}
 	}
 	return
 }

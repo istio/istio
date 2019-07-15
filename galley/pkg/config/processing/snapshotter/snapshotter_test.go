@@ -19,8 +19,10 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
@@ -53,7 +55,7 @@ func TestSnapshotter_Basic(t *testing.T) {
 		},
 	}
 
-	s := NewSnapshotter([]event.Transformer{tr}, options)
+	s := NewSnapshotter([]event.Transformer{tr}, options, analyzers.All(), &processing.InMemoryStatusReporter{})
 	s.Start()
 
 	g.Expect(tr.Started).To(BeTrue())
@@ -121,7 +123,7 @@ func TestSnapshotter_SnapshotMismatch(t *testing.T) {
 		},
 	}
 
-	s := NewSnapshotter([]event.Transformer{tr}, options)
+	s := NewSnapshotter([]event.Transformer{tr}, options, analyzers.All(), &processing.InMemoryStatusReporter{})
 	s.Start()
 
 	s.Handle(data.Event1Col1AddItem1)

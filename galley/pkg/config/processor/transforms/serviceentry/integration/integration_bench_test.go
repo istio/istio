@@ -21,7 +21,9 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
@@ -115,7 +117,7 @@ func BenchmarkEndpointChurn(b *testing.B) {
 	m := metadata.MustGet()
 	src := newSource(b, ki, m.KubeSource().Resources())
 	distributor := newFakeDistributor(b.N)
-	processor, err := processor.Initialize(m, domainSuffix, src, distributor)
+	processor, err := processor.Initialize(m, domainSuffix, src, distributor, analyzers.All(), &processing.InMemoryStatusReporter{})
 	if err != nil {
 		b.Fatal(err)
 	}

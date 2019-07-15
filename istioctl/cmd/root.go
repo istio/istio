@@ -108,7 +108,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(convertIngress())
 	experimentalCmd.AddCommand(dashboard())
 	experimentalCmd.AddCommand(metricsCmd)
-
+	experimentalCmd.AddCommand(Analyze())
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",
 		Section: "istioctl CLI",

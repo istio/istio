@@ -29,6 +29,7 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
@@ -792,7 +793,7 @@ func newHandler() (*processing.Runtime, *fixtures.Source, *snapshotter.InMemoryD
 					Distributor: dst,
 				},
 			}
-			return snapshotter.NewSnapshotter(xforms, settings)
+			return snapshotter.NewSnapshotter(xforms, settings, analyzers.All(), &processing.InMemoryStatusReporter{})
 		},
 	}
 	p := processing.NewRuntime(o)

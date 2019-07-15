@@ -15,6 +15,7 @@
 package processor
 
 import (
+	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
@@ -31,7 +32,10 @@ func Initialize(
 	m *schema.Metadata,
 	domainSuffix string,
 	source event.Source,
-	distributor snapshotter.Distributor) (*processing.Runtime, error) {
+	distributor snapshotter.Distributor,
+	analyzers analysis.Analyzers,
+	statusReporter processing.StatusReporter,
+	) (*processing.Runtime, error) {
 
 	var options []snapshotter.SnapshotOptions
 	for _, s := range m.Snapshots() {
@@ -51,7 +55,7 @@ func Initialize(
 
 	provider := func(o processing.ProcessorOptions) event.Processor {
 		xforms := createTransforms(o, m)
-		return snapshotter.NewSnapshotter(xforms, options)
+		return snapshotter.NewSnapshotter(xforms, options, analyzers, statusReporter)
 	}
 
 	rtOpt := processing.RuntimeOptions{

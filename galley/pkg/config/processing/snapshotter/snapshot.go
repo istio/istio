@@ -37,7 +37,7 @@ func (s *snapshotImpl) Resources(col string) []*mcp.Resource {
 
 	result := make([]*mcp.Resource, 0, c.Size())
 
-	s.set.Collection(collection.NewName(col)).ForEach(func(e *resource.Entry) {
+	s.set.Collection(collection.NewName(col)).ForEach(func(e *resource.Entry) bool {
 		// TODO: We should add (LRU based) caching of serialized content here.
 		r, err := resource.Serialize(e)
 		if err != nil {
@@ -45,6 +45,7 @@ func (s *snapshotImpl) Resources(col string) []*mcp.Resource {
 		} else {
 			result = append(result, r)
 		}
+		return true
 	})
 
 	return result

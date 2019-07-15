@@ -18,12 +18,28 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	schema2 "k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema"
 )
 
 // ToResourceEntry converts the given object and proto to a resource.Entry
-func ToResourceEntry(object metav1.Object, item proto.Message) *resource.Entry {
+func ToResourceEntry(object metav1.Object, r *schema.KubeResource, item proto.Message) *resource.Entry {
+	var o *Origin
+	if r != nil {
+		o = &Origin{
+			Namespace: object.GetNamespace(),
+			Name:      object.GetName(),
+			Version:   object.GetResourceVersion(),
+			GVR: schema2.GroupVersionResource{
+				Group:    r.Group,
+				Version:  r.Version,
+				Resource: r.Plural,
+			},
+		}
+	}
+
 	return &resource.Entry{
 		Metadata: resource.Metadata{
 			Name:        resource.NewName(object.GetNamespace(), object.GetName()),
@@ -32,6 +48,7 @@ func ToResourceEntry(object metav1.Object, item proto.Message) *resource.Entry {
 			Labels:      object.GetLabels(),
 			CreateTime:  object.GetCreationTimestamp().Time,
 		},
-		Item: item,
+		Item:   item,
+		Origin: o,
 	}
 }

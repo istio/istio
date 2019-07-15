@@ -23,6 +23,13 @@ import (
 type Entry struct {
 	Metadata Metadata
 	Item     proto.Message
+	Origin   Origin
+}
+
+// Origin is a source-specific origin locator for an error message. It is set & used by the configuration sources
+// to route the error message correctly.
+type Origin interface {
+	FriendlyName() string
 }
 
 // IsEmpty returns true if the resource Entry.Item is nil.
