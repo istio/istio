@@ -55,6 +55,20 @@ tracing:
     node:
       cpus: 2
 
+  opencensus:
+    hub: docker.io/omnition
+    tag: 0.1.9
+    resources:
+      limits:
+        cpu: 1
+        memory: 2Gi
+      requests:
+        cpu: 200m
+        memory: 400Mi
+    exporters:
+      stackdriver:
+        enable_tracing: true
+
   service:
     annotations: {}
     name: http
