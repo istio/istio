@@ -485,6 +485,8 @@ func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, pre
 		if _, err := os.Stat(jwtpath); err == nil {
 			return true, jwtpath
 		}
+
+		return false, ""
 	}
 
 	// for controlplane sidecar, if controlplanesecurity isn't enabled
