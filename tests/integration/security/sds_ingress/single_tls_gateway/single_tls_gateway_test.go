@@ -58,7 +58,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 				t.Errorf("sds update stats does not match: %v", err)
 			}
 			// Expect 2 active listeners, one listens on 443 and the other listens on 15090
-			err = ingressutil.WaitUntilGatewayActiveListenerStatsGE(t, ingA, 2, 10*time.Second)
+			err = ingressutil.WaitUntilGatewayActiveListenerStatsGE(t, ingA, 2, 20*time.Second)
 			if err != nil {
 				t.Errorf("total active listener stats does not match: %v", err)
 			}
@@ -76,14 +76,14 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 				t.Errorf("sds update stats does not match: %v", err)
 			}
 
-			// Use old CA cert to set up SSL connection would fail.
+			// Client use old server CA cert to set up SSL connection would fail.
 			err = ingressutil.VisitProductPage(ingA, host, ingress.TLS, tlsContext, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"}, t)
 			if err != nil {
 				t.Errorf("unable to retrieve 404 from product page at host %s: %v", host, err)
 			}
 
-			// Use new CA cert to set up SSL connection.
+			// Client use new server CA cert to set up SSL connection.
 			tlsContext = ingressutil.TLSContext{CaCert: ingressutil.CaCertB}
 			ingB := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
 			err = ingressutil.VisitProductPage(ingB, host, ingress.TLS, tlsContext, 30*time.Second,

@@ -250,7 +250,7 @@ func extractK8sSecretIntoSecretItem(scrt *v1.Secret, t time.Time) (serverItem, c
 			return nil, nil, isCAOnlySecret
 		}
 
-		cans := &model.SecretItem{
+		certificateAuthorityNewSecret := &model.SecretItem{
 			ResourceName:                  resourceName,
 			CreatedTime:                   t,
 			Version:                       t.String(),
@@ -259,7 +259,7 @@ func extractK8sSecretIntoSecretItem(scrt *v1.Secret, t time.Time) (serverItem, c
 			ExpireTime:                    rootCertExpireTime,
 		}
 
-		return nil, cans, isCAOnlySecret
+		return nil, certificateAuthorityNewSecret, isCAOnlySecret
 	}
 
 	// Extract server key/cert from k8s secret.
@@ -274,7 +274,7 @@ func extractK8sSecretIntoSecretItem(scrt *v1.Secret, t time.Time) (serverItem, c
 			"certificate that fails to parse: %v", resourceName, err)
 		return nil, nil, isCAOnlySecret
 	}
-	ns := &model.SecretItem{
+	newSecret := &model.SecretItem{
 		ResourceName:     resourceName,
 		CreatedTime:      t,
 		Version:          t.String(),
@@ -292,7 +292,7 @@ func extractK8sSecretIntoSecretItem(scrt *v1.Secret, t time.Time) (serverItem, c
 				"certificate that fails to parse: %v", resourceName, err)
 			return nil, nil, isCAOnlySecret
 		}
-		cans := &model.SecretItem{
+		certificateAuthorityNewSecret := &model.SecretItem{
 			ResourceName:                  resourceName + IngressGatewaySdsCaSuffix,
 			CreatedTime:                   t,
 			Version:                       t.String(),
@@ -300,10 +300,10 @@ func extractK8sSecretIntoSecretItem(scrt *v1.Secret, t time.Time) (serverItem, c
 			ExpireTime:                    rootCertExpireTime,
 			RootCertOwnedByCompoundSecret: true,
 		}
-		return ns, cans, isCAOnlySecret
+		return newSecret, certificateAuthorityNewSecret, isCAOnlySecret
 	}
 
-	return ns, nil, isCAOnlySecret
+	return newSecret, nil, isCAOnlySecret
 }
 
 func (sf *SecretFetcher) scrtAdded(obj interface{}) {
@@ -320,34 +320,34 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 	}
 
 	t := time.Now()
-	ns, cans, isCaOnly := extractK8sSecretIntoSecretItem(scrt, t)
+	newSecret, certificateAuthorityNewSecret, isCaOnly := extractK8sSecretIntoSecretItem(scrt, t)
 
 	// Load CA cert from CA only k8s secret and update cache.
-	if isCaOnly && cans != nil {
-		sf.secrets.Delete(cans.ResourceName)
-		sf.secrets.Store(cans.ResourceName, *cans)
-		secretFetcherLog.Debugf("secret %s is added as a client CA cert", cans.ResourceName)
+	if isCaOnly && certificateAuthorityNewSecret != nil {
+		sf.secrets.Delete(certificateAuthorityNewSecret.ResourceName)
+		sf.secrets.Store(certificateAuthorityNewSecret.ResourceName, *certificateAuthorityNewSecret)
+		secretFetcherLog.Debugf("secret %s is added as a client CA cert", certificateAuthorityNewSecret.ResourceName)
 		if sf.AddCache != nil {
-			sf.AddCache(cans.ResourceName, *cans)
+			sf.AddCache(certificateAuthorityNewSecret.ResourceName, *certificateAuthorityNewSecret)
 		}
 		return
 	}
 
-	if ns != nil {
+	if newSecret != nil {
 		// Load server key/cert from k8s secret and update cache.
-		sf.secrets.Delete(ns.ResourceName)
-		sf.secrets.Store(ns.ResourceName, *ns)
-		secretFetcherLog.Debugf("secret %s is added as a server certificate", ns.ResourceName)
+		sf.secrets.Delete(newSecret.ResourceName)
+		sf.secrets.Store(newSecret.ResourceName, *newSecret)
+		secretFetcherLog.Debugf("secret %s is added as a server certificate", newSecret.ResourceName)
 		if sf.AddCache != nil {
-			sf.AddCache(ns.ResourceName, *ns)
+			sf.AddCache(newSecret.ResourceName, *newSecret)
 		}
-		if cans != nil {
+		if certificateAuthorityNewSecret != nil {
 			// Load client CA cert from compound k8s secret and update cache.
-			sf.secrets.Delete(cans.ResourceName)
-			sf.secrets.Store(cans.ResourceName, *cans)
-			secretFetcherLog.Debugf("secret %s is added as a client CA cert (from a compound Secret)", cans.ResourceName)
+			sf.secrets.Delete(certificateAuthorityNewSecret.ResourceName)
+			sf.secrets.Store(certificateAuthorityNewSecret.ResourceName, *certificateAuthorityNewSecret)
+			secretFetcherLog.Debugf("secret %s is added as a client CA cert (from a compound Secret)", certificateAuthorityNewSecret.ResourceName)
 			if sf.AddCache != nil {
-				sf.AddCache(cans.ResourceName, *cans)
+				sf.AddCache(certificateAuthorityNewSecret.ResourceName, *certificateAuthorityNewSecret)
 			}
 		}
 	}
