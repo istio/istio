@@ -31,6 +31,7 @@ import (
 // A stateful listener builder
 type ListenerBuilder struct {
 	node                   *model.Proxy
+	gatewayListeners       []*xdsapi.Listener
 	inboundListeners       []*xdsapi.Listener
 	outboundListeners      []*xdsapi.Listener
 	managementListeners    []*xdsapi.Listener
@@ -169,33 +170,37 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environme
 }
 
 func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
-	nInbound, nOutbound, nManagement := len(builder.inboundListeners), len(builder.outboundListeners), len(builder.managementListeners)
-	nVirtual, nVirtualInbound := 0, 0
-	if builder.virtualListener != nil {
-		nVirtual = 1
-	}
-	if builder.virtualInboundListener != nil {
-		nVirtualInbound = 1
-	}
-	nListener := nInbound + nOutbound + nManagement + nVirtual + nVirtualInbound
+	if builder.node.Type == model.SidecarProxy {
+		nInbound, nOutbound, nManagement := len(builder.inboundListeners), len(builder.outboundListeners), len(builder.managementListeners)
+		nVirtual, nVirtualInbound := 0, 0
+		if builder.virtualListener != nil {
+			nVirtual = 1
+		}
+		if builder.virtualInboundListener != nil {
+			nVirtualInbound = 1
+		}
+		nListener := nInbound + nOutbound + nManagement + nVirtual + nVirtualInbound
 
-	listeners := make([]*xdsapi.Listener, 0, nListener)
-	listeners = append(listeners, builder.inboundListeners...)
-	listeners = append(listeners, builder.outboundListeners...)
-	listeners = append(listeners, builder.managementListeners...)
-	if builder.virtualListener != nil {
-		listeners = append(listeners, builder.virtualListener)
-	}
-	if builder.virtualInboundListener != nil {
-		listeners = append(listeners, builder.virtualInboundListener)
+		listeners := make([]*xdsapi.Listener, 0, nListener)
+		listeners = append(listeners, builder.inboundListeners...)
+		listeners = append(listeners, builder.outboundListeners...)
+		listeners = append(listeners, builder.managementListeners...)
+		if builder.virtualListener != nil {
+			listeners = append(listeners, builder.virtualListener)
+		}
+		if builder.virtualInboundListener != nil {
+			listeners = append(listeners, builder.virtualInboundListener)
+		}
+
+		log.Debugf("Build %d listeners for node %s including %d inbound, %d outbound, %d management, %d virtual and %d virtual inbound listeners",
+			nListener,
+			builder.node.ID,
+			nInbound, nOutbound, nManagement,
+			nVirtual, nVirtualInbound)
+		return listeners
 	}
 
-	log.Debugf("Build %d listeners for node %s including %d inbound, %d outbound, %d management, %d virtual and %d virtual inbound listeners",
-		nListener,
-		builder.node.ID,
-		nInbound, nOutbound, nManagement,
-		nVirtual, nVirtualInbound)
-	return listeners
+	return builder.gatewayListeners
 }
 
 func newTCPProxyListenerFilter(env *model.Environment, node *model.Proxy, isInboundListener bool) *listener.Filter {

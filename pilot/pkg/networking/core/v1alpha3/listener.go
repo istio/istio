@@ -191,22 +191,23 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(env *model.Environment, nod
 	push *model.PushContext) ([]*xdsapi.Listener, error) {
 	var listeners []*xdsapi.Listener
 	var err error
+	var builder *ListenerBuilder
 
 	switch node.Type {
 	case model.SidecarProxy:
-		listeners = configgen.buildSidecarListeners(env, node, push)
+		builder = configgen.buildSidecarListeners(env, node, push)
 	case model.Router:
-		listeners = configgen.buildGatewayListeners(env, node, push)
+		builder = configgen.buildGatewayListeners(env, node, push)
 	}
 
-	listeners = applyListenerPatches(listeners, env, node.WorkloadLabels)
+	listeners = applyListenerConfigPatches(builder, env, node.WorkloadLabels)
 
 	return listeners, err
 }
 
 // buildSidecarListeners produces a list of listeners for sidecar proxies
 func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environment, node *model.Proxy,
-	push *model.PushContext) []*xdsapi.Listener {
+	push *model.PushContext) *ListenerBuilder {
 	mesh := env.Mesh
 
 	proxyInstances := node.ServiceInstances
@@ -215,6 +216,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 
 	actualWildcard, actualLocalHostAddress := getActualWildcardAndLocalHost(node)
 
+	builder := NewListenerBuilder(node)
 	if mesh.ProxyListenPort > 0 {
 		// Notes that the the else branch works for both split and non-split cases.
 		// TODO(silentdai): remove `if` branch once split behavior is well verified
@@ -222,10 +224,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			inbound := configgen.buildSidecarInboundListeners(env, node, push, proxyInstances)
 			outbound := configgen.buildSidecarOutboundListeners(env, node, push, proxyInstances)
 
-			listeners = append(listeners, inbound...)
-			listeners = append(listeners, outbound...)
-
-			listeners = configgen.generateManagementListeners(node, noneMode, env, listeners)
+			builder.inboundListeners = inbound
+			builder.outboundListeners = outbound
+			builder.managementListeners = configgen.generateManagementListeners(node, noneMode, env, listeners)
 
 			tcpProxy := &tcp_proxy.TcpProxy{
 				StatPrefix:       util.BlackHoleCluster,
@@ -258,7 +259,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			}
 
 			// add an extra listener that binds to the port that is the recipient of the iptables redirect
-			listeners = append(listeners, &xdsapi.Listener{
+			builder.virtualListener = &xdsapi.Listener{
 				Name:           VirtualListenerName,
 				Address:        util.BuildAddress(actualWildcard, uint32(mesh.ProxyListenPort)),
 				Transparent:    transparent,
@@ -268,16 +269,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 						Filters: []listener.Filter{filter},
 					},
 				},
-			})
+			}
 		} else {
 			// Any build order change need a careful code review
-			listeners = NewListenerBuilder(node).
+			builder = NewListenerBuilder(node).
 				buildSidecarInboundListeners(configgen, env, node, push, proxyInstances).
 				buildSidecarOutboundListeners(configgen, env, node, push, proxyInstances).
 				buildManagementListeners(configgen, env, node, push, proxyInstances).
 				buildVirtualListener(env, node).
-				buildVirtualInboundListener(env, node).
-				getListeners()
+				buildVirtualInboundListener(env, node)
 		}
 	}
 
@@ -334,12 +334,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		if err := buildCompleteFilterChain(pluginParams, mutable, opts); err != nil {
 			log.Warna("buildSidecarListeners ", err.Error())
 		} else {
-			listeners = append(listeners, l)
+			builder.outboundListeners = append(builder.outboundListeners, l)
 		}
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
 
-	return listeners
+	return builder
 }
 
 // buildSidecarInboundListeners creates listeners for the server-side (inbound)

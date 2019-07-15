@@ -430,7 +430,8 @@ func applyClusterPatches(env *model.Environment, proxy *model.Proxy,
 	return clusters
 }
 
-func applyListenerPatches(listeners []*xdsapi.Listener, env *model.Environment, labels model.LabelsCollection) []*xdsapi.Listener {
+func applyListenerConfigPatches(builder *ListenerBuilder, env *model.Environment, labels model.LabelsCollection) []*xdsapi.Listener {
+	listeners := builder.getListeners()
 	filterCRD := getUserFiltersForWorkload(env, labels)
 	if filterCRD == nil {
 		return listeners

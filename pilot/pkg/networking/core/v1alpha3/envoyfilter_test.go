@@ -193,8 +193,10 @@ func TestApplyListenerConfigPatches(t *testing.T) {
 	for _, tc := range testCases {
 		serviceDiscovery := &fakes.ServiceDiscovery{}
 		env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(tc.patches))
+		builder := NewListenerBuilder(&model.Proxy{Type: model.SidecarProxy})
+		builder.inboundListeners = tc.listeners
 
-		ret := applyListenerPatches(tc.listeners, env, tc.labels)
+		ret := applyListenerConfigPatches(builder, env, tc.labels)
 		if !reflect.DeepEqual(tc.result, ret) {
 			t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.result, ret)
 		}
