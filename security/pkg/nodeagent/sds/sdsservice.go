@@ -618,11 +618,11 @@ func receiveThread(con *sdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 			conIDresourceNamePrefix := sdsLogPrefix(con.conID, con.ResourceName)
 			con.mutex.RUnlock()
 			if status.Code(err) == codes.Canceled || err == io.EOF {
-				sdsServiceLog.Infof("%s connection terminated: %v", conIDresourceNamePrefix, err)
+				sdsServiceLog.Infof("%s connection is terminated: %v", conIDresourceNamePrefix, err)
 				return
 			}
 			*errP = err
-			sdsServiceLog.Errorf("%s connection terminated with errors %v", conIDresourceNamePrefix, err)
+			sdsServiceLog.Errorf("%s connection is terminated with errors %v", conIDresourceNamePrefix, err)
 			return
 		}
 		reqChannel <- req
