@@ -91,4 +91,3 @@ func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.Pus
 	}
 	return rawClusters, nil
 }
-

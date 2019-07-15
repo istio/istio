@@ -340,7 +340,7 @@ func buildXDSObjectFromValue(applyTo networking.EnvoyFilter_ApplyTo, value *type
 }
 
 func applyClusterConfigPatches(env *model.Environment, proxy *model.Proxy,
-	push *model.PushContext, clusters []*xdsapi.Cluster) []*xdsapi.Cluster {
+	_ *model.PushContext, clusters []*xdsapi.Cluster) []*xdsapi.Cluster {
 	// TODO: multiple envoy filters per workload
 	filterCRD := getUserFiltersForWorkload(env, proxy.WorkloadLabels)
 	if filterCRD == nil {
@@ -383,7 +383,6 @@ func applyClusterConfigPatches(env *model.Environment, proxy *model.Proxy,
 
 		userChanges, err := buildXDSObjectFromValue(cp.ApplyTo, cp.Patch.Value)
 		if err != nil {
-			//log.Warnf("Failed to unmarshal provided value into cluster")
 			continue
 		}
 
@@ -393,7 +392,7 @@ func applyClusterConfigPatches(env *model.Environment, proxy *model.Proxy,
 				continue
 			}
 			if matchExactContext(proxy, clusters[i], cp.Match) && clusterMatch(clusters[i], cp.Match) {
-					proto.Merge(clusters[i], userChanges)
+				proto.Merge(clusters[i], userChanges)
 			}
 		}
 	}
@@ -414,7 +413,6 @@ func applyClusterConfigPatches(env *model.Environment, proxy *model.Proxy,
 
 		newCluster, err := buildXDSObjectFromValue(cp.ApplyTo, cp.Patch.Value)
 		if err != nil {
-			// log.Warnf("Failed to unmarshal provided value into cluster")
 			continue
 		}
 		clusters = append(clusters, newCluster.(*xdsapi.Cluster))
@@ -449,7 +447,6 @@ func applyListenerConfigPatches(listeners []*xdsapi.Listener, env *model.Environ
 			if cp.GetPatch().GetOperation() == networking.EnvoyFilter_Patch_ADD {
 				newListener, err := buildListenerFromEnvoyConfig(cp.GetPatch().GetValue())
 				if err != nil {
-					log.Warnf("Failed to unmarshal provided value into listener")
 					continue
 				}
 				listeners = append(listeners, newListener)
@@ -488,10 +485,7 @@ func matchApproximateContext(proxy *model.Proxy,
 	}
 
 	if proxy.Type == model.Router {
-		if matchCondition.Context == networking.EnvoyFilter_GATEWAY {
-			return true
-		}
-		return false
+		return matchCondition.Context == networking.EnvoyFilter_GATEWAY
 	}
 
 	// we now have a sidecar proxy.
@@ -513,10 +507,7 @@ func matchExactContext(proxy *model.Proxy, cluster *xdsapi.Cluster,
 	}
 
 	if proxy.Type == model.Router {
-		if matchCondition.Context == networking.EnvoyFilter_GATEWAY {
-			return true
-		}
-		return false
+		return matchCondition.Context == networking.EnvoyFilter_GATEWAY
 	}
 
 	// we now have a sidecar proxy.
@@ -525,17 +516,11 @@ func matchExactContext(proxy *model.Proxy, cluster *xdsapi.Cluster,
 	}
 
 	if matchCondition.Context == networking.EnvoyFilter_SIDECAR_INBOUND {
-		if 	strings.HasPrefix(cluster.Name, string(model.TrafficDirectionInbound)) {
-			return true
-		}
-		return false
+		return strings.HasPrefix(cluster.Name, string(model.TrafficDirectionInbound))
 	}
 
 	// we have sidecar_outbound context. Check if cluster is outbound
-	if 	strings.HasPrefix(cluster.Name, string(model.TrafficDirectionOutbound)) {
-		return true
-	}
-	return false
+	return strings.HasPrefix(cluster.Name, string(model.TrafficDirectionOutbound))
 }
 
 func clusterMatch(cluster *xdsapi.Cluster, matchCondition *networking.EnvoyFilter_EnvoyConfigObjectMatch) bool {
@@ -549,11 +534,7 @@ func clusterMatch(cluster *xdsapi.Cluster, matchCondition *networking.EnvoyFilte
 	}
 
 	if cMatch.Name != "" {
-		if cMatch.Name != cluster.Name {
-			return false
-		}
-		// cluster name matched. Nothing else matters.
-		return true
+		return cMatch.Name == cluster.Name
 	}
 
 	_, subset, host, port := model.ParseSubsetKey(cluster.Name)
