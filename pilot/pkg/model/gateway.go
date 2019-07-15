@@ -302,12 +302,13 @@ func ParseGatewayRDSRouteName(name string) (portNumber int, portName, gateway st
 		if len(parts) == 2 {
 			portNumber, _ = strconv.Atoi(parts[1])
 		}
-	} else if strings.HasPrefix(name,"https.") {
+	} else if strings.HasPrefix(name, "https.") {
 		if len(parts) == 5 {
 			portNumber, _ = strconv.Atoi(parts[1])
+			portName = parts[2]
+			// gateway name should be ns/name
+			gateway = parts[4] + "/" + parts[3]
 		}
-		portName = parts[2]
-		gateway = parts[3] + "/" + parts[4]
 	}
 	return
 }

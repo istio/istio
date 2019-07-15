@@ -363,7 +363,7 @@ func applyClusterPatches(env *model.Environment, proxy *model.Proxy,
 		}
 
 		for i := range clusters {
-			if matchApproximateContext(proxy, cp.Match) && clusterMatch(clusters[i], cp.Match) {
+			if clusterMatch(proxy, clusters[i], cp.Match, cp.Patch.Operation) {
 				clusters[i] = nil
 				clustersRemoved = true
 			}
@@ -391,12 +391,7 @@ func applyClusterPatches(env *model.Environment, proxy *model.Proxy,
 				// deleted by the remove operation
 				continue
 			}
-			// this is the default direction
-			trafficDirection := model.TrafficDirectionOutbound
-			if strings.HasPrefix(clusters[i].Name, string(model.TrafficDirectionInbound)) {
-				trafficDirection = model.TrafficDirectionInbound
-			}
-			if matchExactContext(proxy, trafficDirection, cp.Match) && clusterMatch(clusters[i], cp.Match) {
+			if clusterMatch(proxy, clusters[i], cp.Match, cp.Patch.Operation) {
 				proto.Merge(clusters[i], userChanges)
 			}
 		}
@@ -412,7 +407,7 @@ func applyClusterPatches(env *model.Environment, proxy *model.Proxy,
 			continue
 		}
 
-		if matchApproximateContext(proxy, cp.Match) {
+		if clusterMatch(proxy, nil, cp.Match, cp.Patch.Operation) {
 			newCluster, err := buildXDSObjectFromValue(cp.ApplyTo, cp.Patch.Value)
 			if err != nil {
 				continue
@@ -544,7 +539,6 @@ func applyRouteConfigurationPatches(pluginParams *plugin.InputParams,
 				continue
 			}
 			routeConfiguration.VirtualHosts = append(routeConfiguration.VirtualHosts, *newVirtualHost.(*route.VirtualHost))
-
 		}
 	}
 
@@ -562,63 +556,44 @@ func applyRouteConfigurationPatches(pluginParams *plugin.InputParams,
 	return routeConfiguration
 }
 
-// Matches if context is any, or if proxy is gateway and context is gateway,
-// or if proxy is sidecar and context is sidecar_inbound or outbound
-func matchApproximateContext(proxy *model.Proxy,
-	matchCondition *networking.EnvoyFilter_EnvoyConfigObjectMatch) bool {
+func clusterMatch(proxy *model.Proxy, cluster *xdsapi.Cluster,
+	matchCondition *networking.EnvoyFilter_EnvoyConfigObjectMatch, operation networking.EnvoyFilter_Patch_Operation) bool {
 	if matchCondition == nil {
 		return true
 	}
 
-	if matchCondition.Context == networking.EnvoyFilter_ANY {
-		return true
+	getClusterContext := func(proxy *model.Proxy, cluster *xdsapi.Cluster) networking.EnvoyFilter_PatchContext {
+		if proxy.Type == model.Router {
+			return networking.EnvoyFilter_GATEWAY
+		}
+		if strings.HasPrefix(cluster.Name, string(model.TrafficDirectionInbound)) {
+			return networking.EnvoyFilter_SIDECAR_INBOUND
+		}
+		return networking.EnvoyFilter_SIDECAR_OUTBOUND
 	}
 
-	if proxy.Type == model.Router {
-		return matchCondition.Context == networking.EnvoyFilter_GATEWAY
+	patchContextToProxyType := func(context networking.EnvoyFilter_PatchContext) model.NodeType {
+		if context == networking.EnvoyFilter_GATEWAY {
+			return model.Router
+		}
+		return model.SidecarProxy
 	}
 
-	// we now have a sidecar proxy.
-	if matchCondition.Context == networking.EnvoyFilter_GATEWAY {
-		return false
+	// For cluster adds, cluster param will be nil. In this case, we simply have to match
+	// between gateways and sidecar contexts. No inbound/outbound
+	if operation == networking.EnvoyFilter_Patch_ADD {
+		if matchCondition.Context == networking.EnvoyFilter_ANY {
+			return true
+		}
+
+		return patchContextToProxyType(matchCondition.Context) == proxy.Type
 	}
 
-	return true
-}
-
-// matches if context is any, or by specific proxy context, i.e.
-// gateway to gateway, sidecar_inbound to sidecar + inbound direction,
-// and sidecar_outbound to sidecar + outbound direction
-func matchExactContext(proxy *model.Proxy, direction model.TrafficDirection,
-	matchCondition *networking.EnvoyFilter_EnvoyConfigObjectMatch) bool {
-	if matchCondition == nil {
-		return true
-	}
-
-	if matchCondition.Context == networking.EnvoyFilter_ANY {
-		return true
-	}
-
-	if proxy.Type == model.Router {
-		return matchCondition.Context == networking.EnvoyFilter_GATEWAY
-	}
-
-	// we now have a sidecar proxy.
-	if matchCondition.Context == networking.EnvoyFilter_GATEWAY {
-		return false
-	}
-
-	if matchCondition.Context == networking.EnvoyFilter_SIDECAR_INBOUND {
-		return direction == model.TrafficDirectionInbound
-	}
-
-	// we have sidecar_outbound context. Check if cluster is outbound
-	return direction == model.TrafficDirectionOutbound
-}
-
-func clusterMatch(cluster *xdsapi.Cluster, matchCondition *networking.EnvoyFilter_EnvoyConfigObjectMatch) bool {
-	if matchCondition == nil {
-		return true
+	// cluster is not nil. This is for merge and remove ops
+	if matchCondition.Context != networking.EnvoyFilter_ANY {
+		if matchCondition.Context != getClusterContext(proxy, cluster) {
+			return false
+		}
 	}
 
 	cMatch := matchCondition.GetCluster()
@@ -699,7 +674,9 @@ func routeConfigurationMatch(rc *xdsapi.RouteConfiguration, vh *route.VirtualHos
 	if cMatch.Gateway != "" && cMatch.Gateway != gateway {
 		return false
 	}
-	return true
+
+	// all gateway fields have matched for the rds. Check for virtual host match if any
+	return virtualHostMatch(cMatch.Vhost, vh)
 }
 
 func virtualHostMatch(match *networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch,

@@ -21,9 +21,9 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/types"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
@@ -201,53 +201,154 @@ func TestApplyListenerConfigPatches(t *testing.T) {
 	}
 }
 
-func buildClusterPatches(config string) []*networking.EnvoyFilter_EnvoyConfigObjectPatch {
-	return []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+func TestApplyClusterConfigPatches(t *testing.T) {
+	configPatches := []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{
+			ApplyTo: networking.EnvoyFilter_CLUSTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value: &types.Value{
+					Kind: &types.Value_StringValue{StringValue: `{"name":"new-cluster1"}`},
+				},
+			},
+		},
 		{
 			ApplyTo: networking.EnvoyFilter_CLUSTER,
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_ADD,
 				Value: &types.Value{
-					Kind: &types.Value_StringValue{StringValue: config},
+					Kind: &types.Value_StringValue{StringValue: `{"name":"new-cluster2"}`},
+				},
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_CLUSTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+					Cluster: &networking.EnvoyFilter_ClusterMatch{
+						Service: "gateway.com",
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{Operation: networking.EnvoyFilter_Patch_REMOVE},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_CLUSTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+					Cluster: &networking.EnvoyFilter_ClusterMatch{
+						PortNumber: 9999,
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{Operation: networking.EnvoyFilter_Patch_REMOVE},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_CLUSTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_ANY,
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value: &types.Value{
+					Kind: &types.Value_StringValue{StringValue: `{"dns_lookup_family":"V6_ONLY"}`},
+				},
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_CLUSTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_ANY,
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value: &types.Value{
+					Kind: &types.Value_StringValue{StringValue: `{"lb_policy":"RING_HASH"}`},
 				},
 			},
 		},
 	}
-}
 
-func TestApplyClusterConfigPatches(t *testing.T) {
-	clusterConfig := `{"name":"some-cluster"}`
+	sidecarInput := []*xdsapi.Cluster{
+		{Name: "cluster1", DnsLookupFamily: xdsapi.Cluster_V4_ONLY, LbPolicy: xdsapi.Cluster_ROUND_ROBIN},
+		{Name: "cluster2",
+			Http2ProtocolOptions: &core.Http2ProtocolOptions{
+				AllowConnect:  true,
+				AllowMetadata: true,
+			}, LbPolicy: xdsapi.Cluster_MAGLEV,
+		},
+		{Name: "inbound|9999||mgmtCluster"},
+	}
+	sidecarOutput := []*xdsapi.Cluster{
+		{Name: "cluster1", DnsLookupFamily: xdsapi.Cluster_V6_ONLY, LbPolicy: xdsapi.Cluster_RING_HASH},
+		{Name: "cluster2",
+			Http2ProtocolOptions: &core.Http2ProtocolOptions{
+				AllowConnect:  true,
+				AllowMetadata: true,
+			}, LbPolicy: xdsapi.Cluster_RING_HASH, DnsLookupFamily: xdsapi.Cluster_V6_ONLY,
+		},
+		{Name: "new-cluster1"},
+		{Name: "new-cluster2"},
+	}
+
+	gatewayInput := []*xdsapi.Cluster{
+		{Name: "cluster1", DnsLookupFamily: xdsapi.Cluster_V4_ONLY, LbPolicy: xdsapi.Cluster_ROUND_ROBIN},
+		{Name: "cluster2",
+			Http2ProtocolOptions: &core.Http2ProtocolOptions{
+				AllowConnect:  true,
+				AllowMetadata: true,
+			}, LbPolicy: xdsapi.Cluster_MAGLEV,
+		},
+		{Name: "inbound|9999||mgmtCluster"},
+		{Name: "outbound|443||gateway.com"},
+	}
+	gatewayOutput := []*xdsapi.Cluster{
+		{Name: "cluster1", DnsLookupFamily: xdsapi.Cluster_V6_ONLY, LbPolicy: xdsapi.Cluster_RING_HASH},
+		{Name: "cluster2",
+			Http2ProtocolOptions: &core.Http2ProtocolOptions{
+				AllowConnect:  true,
+				AllowMetadata: true,
+			}, LbPolicy: xdsapi.Cluster_RING_HASH, DnsLookupFamily: xdsapi.Cluster_V6_ONLY,
+		},
+		{Name: "inbound|9999||mgmtCluster", DnsLookupFamily: xdsapi.Cluster_V6_ONLY, LbPolicy: xdsapi.Cluster_RING_HASH},
+		{Name: "new-cluster2"},
+	}
 
 	testCases := []struct {
-		name     string
-		clusters []*xdsapi.Cluster
-		patches  []*networking.EnvoyFilter_EnvoyConfigObjectPatch
-		labels   model.LabelsCollection
-		result   []*xdsapi.Cluster
+		name   string
+		input  []*xdsapi.Cluster
+		proxy  *model.Proxy
+		output []*xdsapi.Cluster
 	}{
 		{
-			name:     "successfully adds a cluster",
-			clusters: make([]*xdsapi.Cluster, 0),
-			patches:  buildClusterPatches(clusterConfig),
-			labels:   model.LabelsCollection{},
-			result: []*xdsapi.Cluster{
-				{
-					Name: "some-cluster",
-				},
-			},
+			name:   "sidecar cds patch",
+			input:  sidecarInput,
+			proxy:  &model.Proxy{Type: model.SidecarProxy},
+			output: sidecarOutput,
+		},
+		{
+			name:   "gateway cds patch",
+			input:  gatewayInput,
+			proxy:  &model.Proxy{Type: model.Router},
+			output: gatewayOutput,
 		},
 	}
 
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
+
 	for _, tc := range testCases {
-		serviceDiscovery := &fakes.ServiceDiscovery{}
-		env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(tc.patches))
-		proxy := &model.Proxy{
-			Type: model.SidecarProxy,
-		}
-		ret := applyClusterPatches(env, proxy, nil, tc.clusters)
-		if !reflect.DeepEqual(tc.result, ret) {
-			t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.result, ret)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			ret := applyClusterPatches(env, tc.proxy, nil, tc.input)
+			if !reflect.DeepEqual(tc.output, ret) {
+				t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.output, ret)
+			}
+		})
 	}
 }
 
@@ -383,5 +484,626 @@ func TestListenerMatch(t *testing.T) {
 		if tc.result != ret {
 			t.Errorf("%s: expecting %v but got %v", tc.name, tc.result, ret)
 		}
+	}
+}
+
+func Test_virtualHostMatch(t *testing.T) {
+	type args struct {
+		match *networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch
+		vh    *route.VirtualHost
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "match & vh is nil",
+			args: args{},
+			want: true,
+		},
+		{
+			name: "match is nil",
+			args: args{
+				vh: &route.VirtualHost{
+					Name: "scooby",
+				},
+			},
+			want: true,
+		},
+		{
+			name: "vh is nil",
+			args: args{
+				match: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{},
+			},
+			want: false,
+		},
+		{
+			name: "full match",
+			args: args{
+				vh: &route.VirtualHost{
+					Name: "scooby",
+				},
+				match: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+					Name: "scooby",
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := virtualHostMatch(tt.args.match, tt.args.vh); got != tt.want {
+				t.Errorf("virtualHostMatch() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_routeConfigurationMatch(t *testing.T) {
+	type args struct {
+		rc             *xdsapi.RouteConfiguration
+		vh             *route.VirtualHost
+		pluginParams   *plugin.InputParams
+		matchCondition *networking.EnvoyFilter_EnvoyConfigObjectMatch
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "nil match",
+			args: args{},
+			want: true,
+		},
+		{
+			name: "context mismatch",
+			args: args{
+				pluginParams: &plugin.InputParams{
+					ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				},
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networking.EnvoyFilter_GATEWAY,
+				},
+			},
+			want: false,
+		},
+		{
+			name: "nil route match",
+			args: args{
+				pluginParams: &plugin.InputParams{
+					ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				},
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				},
+			},
+			want: true,
+		},
+		{
+			name: "rc name mismatch",
+			args: args{
+				pluginParams: &plugin.InputParams{
+					ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				},
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+						RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{Name: "scooby.80"},
+					},
+				},
+				rc: &xdsapi.RouteConfiguration{Name: "scooby.90"},
+			},
+			want: false,
+		},
+		{
+			name: "vh name mismatch",
+			args: args{
+				pluginParams: &plugin.InputParams{
+					ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				},
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+						RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+							Name: "scooby.80",
+							Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+								Name: "scoobydoo",
+							},
+						},
+					},
+				},
+				rc: &xdsapi.RouteConfiguration{Name: "scooby.80"},
+				vh: &route.VirtualHost{Name: "scrappy"},
+			},
+			want: false,
+		},
+		{
+			name: "sidecar port match, vh name match",
+			args: args{
+				pluginParams: &plugin.InputParams{
+					ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+					Port:             &model.Port{Port: 80},
+					Node:             &model.Proxy{Type: model.SidecarProxy},
+				},
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+						RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+							PortNumber: 80,
+							Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+								Name: "scoobydoo",
+							},
+						},
+					},
+				},
+				rc: &xdsapi.RouteConfiguration{Name: "80"},
+				vh: &route.VirtualHost{Name: "scoobydoo"},
+			},
+			want: true,
+		},
+		{
+			name: "sidecar port mismatch",
+			args: args{
+				pluginParams: &plugin.InputParams{
+					ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+					Port:             &model.Port{Port: 80},
+					Node:             &model.Proxy{Type: model.SidecarProxy},
+				},
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networking.EnvoyFilter_ANY,
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+						RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+							PortNumber: 90,
+							Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+								Name: "scoobydoo",
+							},
+						},
+					},
+				},
+				rc: &xdsapi.RouteConfiguration{Name: "80"},
+				vh: &route.VirtualHost{Name: "scoobydoo"},
+			},
+			want: false,
+		},
+		{
+			name: "gateway fields match",
+			args: args{
+				pluginParams: &plugin.InputParams{
+					ListenerCategory: networking.EnvoyFilter_GATEWAY,
+					Node:             &model.Proxy{Type: model.Router},
+				},
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networking.EnvoyFilter_GATEWAY,
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+						RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+							PortNumber: 443,
+							PortName:   "app1",
+							Gateway:    "ns1/gw1",
+							Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+								Name: "scoobydoo",
+							},
+						},
+					},
+				},
+				rc: &xdsapi.RouteConfiguration{Name: "https.443.app1.gw1.ns1"},
+				vh: &route.VirtualHost{Name: "scoobydoo"},
+			},
+			want: true,
+		},
+		{
+			name: "gateway fields mismatch",
+			args: args{
+				pluginParams: &plugin.InputParams{
+					ListenerCategory: networking.EnvoyFilter_GATEWAY,
+					Node:             &model.Proxy{Type: model.Router},
+				},
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networking.EnvoyFilter_GATEWAY,
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+						RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+							PortNumber: 443,
+							PortName:   "app1",
+							Gateway:    "ns1/gw1",
+							Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+								Name: "scoobydoo",
+							},
+						},
+					},
+				},
+				rc: &xdsapi.RouteConfiguration{Name: "http.80"},
+				vh: &route.VirtualHost{Name: "scoobydoo"},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := routeConfigurationMatch(tt.args.rc, tt.args.vh, tt.args.pluginParams, tt.args.matchCondition); got != tt.want {
+				t.Errorf("routeConfigurationMatch() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_clusterMatch(t *testing.T) {
+	type args struct {
+		proxy          *model.Proxy
+		cluster        *xdsapi.Cluster
+		matchCondition *networking.EnvoyFilter_EnvoyConfigObjectMatch
+		operation      networking.EnvoyFilter_Patch_Operation
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "nil match",
+			args: args{},
+			want: true,
+		},
+		{
+			name: "add op match with gateway",
+			args: args{
+				proxy:          &model.Proxy{Type: model.Router},
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_GATEWAY},
+				operation:      networking.EnvoyFilter_Patch_ADD,
+			},
+			want: true,
+		},
+		{
+			name: "add op match with sidecar",
+			args: args{
+				proxy:          &model.Proxy{Type: model.SidecarProxy},
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_SIDECAR_INBOUND},
+				operation:      networking.EnvoyFilter_Patch_ADD,
+			},
+			want: true,
+		},
+		{
+			name: "add op mismatch with gateway",
+			args: args{
+				proxy:          &model.Proxy{Type: model.Router},
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_SIDECAR_OUTBOUND},
+				operation:      networking.EnvoyFilter_Patch_ADD,
+			},
+			want: false,
+		},
+		{
+			name: "merge op mismatch with gateway",
+			args: args{
+				proxy:          &model.Proxy{Type: model.Router},
+				cluster:        &xdsapi.Cluster{Name: "somecluster"},
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_SIDECAR_OUTBOUND},
+				operation:      networking.EnvoyFilter_Patch_MERGE,
+			},
+			want: false,
+		},
+		{
+			name: "merge op match with gateway",
+			args: args{
+				proxy:          &model.Proxy{Type: model.Router},
+				cluster:        &xdsapi.Cluster{Name: "somecluster"},
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_GATEWAY},
+				operation:      networking.EnvoyFilter_Patch_MERGE,
+			},
+			want: true,
+		},
+		{
+			name: "merge op match with sidecar inbound",
+			args: args{
+				proxy:          &model.Proxy{Type: model.SidecarProxy},
+				cluster:        &xdsapi.Cluster{Name: "inbound|80|v1|foo.com"},
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_SIDECAR_INBOUND},
+				operation:      networking.EnvoyFilter_Patch_MERGE,
+			},
+			want: true,
+		},
+		{
+			name: "merge op mismatch with sidecar outbound",
+			args: args{
+				proxy:          &model.Proxy{Type: model.SidecarProxy},
+				cluster:        &xdsapi.Cluster{Name: "outbound|80|v1|foo.com"},
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_SIDECAR_INBOUND},
+				operation:      networking.EnvoyFilter_Patch_MERGE,
+			},
+			want: false,
+		},
+		{
+			name: "name mismatch",
+			args: args{
+				proxy:     &model.Proxy{Type: model.SidecarProxy},
+				operation: networking.EnvoyFilter_Patch_MERGE,
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+						Cluster: &networking.EnvoyFilter_ClusterMatch{Name: "scooby"},
+					},
+				},
+				cluster: &xdsapi.Cluster{Name: "scrappy"},
+			},
+			want: false,
+		},
+		{
+			name: "subset mismatch",
+			args: args{
+				proxy:     &model.Proxy{Type: model.SidecarProxy},
+				operation: networking.EnvoyFilter_Patch_MERGE,
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+						Cluster: &networking.EnvoyFilter_ClusterMatch{
+							PortNumber: 80,
+							Service:    "foo.bar",
+							Subset:     "v1",
+						},
+					},
+				},
+				cluster: &xdsapi.Cluster{Name: "outbound|80|v2|foo.bar"},
+			},
+			want: false,
+		},
+		{
+			name: "service mismatch",
+			args: args{
+				proxy:     &model.Proxy{Type: model.SidecarProxy},
+				operation: networking.EnvoyFilter_Patch_MERGE,
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+						Cluster: &networking.EnvoyFilter_ClusterMatch{
+							PortNumber: 80,
+							Service:    "foo.bar",
+							Subset:     "v1",
+						},
+					},
+				},
+				cluster: &xdsapi.Cluster{Name: "outbound|80|v1|google.com"},
+			},
+			want: false,
+		},
+		{
+			name: "port mismatch",
+			args: args{
+				proxy:     &model.Proxy{Type: model.SidecarProxy},
+				operation: networking.EnvoyFilter_Patch_MERGE,
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+						Cluster: &networking.EnvoyFilter_ClusterMatch{
+							PortNumber: 80,
+							Service:    "foo.bar",
+							Subset:     "v1",
+						},
+					},
+				},
+				cluster: &xdsapi.Cluster{Name: "outbound|90|v1|foo.bar"},
+			},
+			want: false,
+		},
+		{
+			name: "full match",
+			args: args{
+				proxy:     &model.Proxy{Type: model.SidecarProxy},
+				operation: networking.EnvoyFilter_Patch_MERGE,
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+						Cluster: &networking.EnvoyFilter_ClusterMatch{
+							PortNumber: 80,
+							Service:    "foo.bar",
+							Subset:     "v1",
+						},
+					},
+				},
+				cluster: &xdsapi.Cluster{Name: "outbound|80|v1|foo.bar"},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := clusterMatch(tt.args.proxy, tt.args.cluster, tt.args.matchCondition, tt.args.operation); got != tt.want {
+				t.Errorf("clusterMatch() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_applyRouteConfigurationPatches(t *testing.T) {
+	configPatches := []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{
+			ApplyTo: networking.EnvoyFilter_ROUTE_CONFIGURATION,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+					RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+						PortNumber: 80,
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value: &types.Value{
+					Kind: &types.Value_StringValue{StringValue: `{"request_headers_to_remove":["h3", "h4"]}`},
+				},
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_VIRTUAL_HOST,
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value: &types.Value{
+					Kind: &types.Value_StringValue{StringValue: `{"name":"new-vhost"}`},
+				},
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_VIRTUAL_HOST,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+					RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+						Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+							Name: "vhost1",
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{Operation: networking.EnvoyFilter_Patch_REMOVE},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_VIRTUAL_HOST,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+					RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+						Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+							Name: "vhost2",
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{Operation: networking.EnvoyFilter_Patch_REMOVE},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_VIRTUAL_HOST,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_ANY,
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value: &types.Value{
+					Kind: &types.Value_StringValue{StringValue: `{"domains":["domain:80"]}`},
+				},
+			},
+		},
+	}
+
+	sidecarOutboundRC := &xdsapi.RouteConfiguration{
+		Name: "80",
+		VirtualHosts: []route.VirtualHost{
+			{
+				Name:    "foo.com",
+				Domains: []string{"domain"},
+			},
+		},
+		RequestHeadersToRemove: []string{"h1", "h2"},
+	}
+	patchedSidecarOutputRC := &xdsapi.RouteConfiguration{
+		Name: "80",
+		VirtualHosts: []route.VirtualHost{
+			{
+				Name:    "foo.com",
+				Domains: []string{"domain", "domain:80"},
+			},
+			{
+				Name: "new-vhost",
+			},
+		},
+		RequestHeadersToRemove: []string{"h1", "h2", "h3", "h4"},
+	}
+	sidecarInboundRC := &xdsapi.RouteConfiguration{
+		Name: "inbound|http|80",
+		VirtualHosts: []route.VirtualHost{
+			{
+				Name:    "vhost2",
+				Domains: []string{"domain"},
+			},
+		},
+	}
+	patchedSidecarInboundRC := &xdsapi.RouteConfiguration{
+		Name: "inbound|http|80",
+		VirtualHosts: []route.VirtualHost{
+			{
+				Name: "new-vhost",
+			},
+		},
+	}
+
+	gatewayRC := &xdsapi.RouteConfiguration{
+		Name: "80",
+		VirtualHosts: []route.VirtualHost{
+			{
+				Name:    "vhost1",
+				Domains: []string{"domain"},
+			},
+			{
+				Name:    "gateway",
+				Domains: []string{"gateway"},
+			},
+		},
+	}
+	patchedGatewayRC := &xdsapi.RouteConfiguration{
+		Name: "80",
+		VirtualHosts: []route.VirtualHost{
+			{
+				Name:    "gateway",
+				Domains: []string{"gateway", "domain:80"},
+			},
+			{
+				Name: "new-vhost",
+			},
+		},
+	}
+
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
+
+	sidecarOutbundPluginParams := &plugin.InputParams{
+		ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+		Env:              env,
+		Node:             &model.Proxy{Type: model.SidecarProxy},
+		Port:             &model.Port{Port: 80},
+	}
+	sidecarInboundPluginParams := &plugin.InputParams{
+		ListenerCategory: networking.EnvoyFilter_SIDECAR_INBOUND,
+		Env:              env,
+		Node:             &model.Proxy{Type: model.SidecarProxy},
+		Port:             &model.Port{Port: 80},
+	}
+	gatewayPluginParams := &plugin.InputParams{
+		ListenerCategory: networking.EnvoyFilter_GATEWAY,
+		Env:              env,
+		Node:             &model.Proxy{Type: model.Router},
+	}
+
+	type args struct {
+		pluginParams       *plugin.InputParams
+		routeConfiguration *xdsapi.RouteConfiguration
+	}
+	tests := []struct {
+		name string
+		args args
+		want *xdsapi.RouteConfiguration
+	}{
+		{
+			name: "sidecar outbound rds patch",
+			args: args{
+				pluginParams:       sidecarOutbundPluginParams,
+				routeConfiguration: sidecarOutboundRC,
+			},
+			want: patchedSidecarOutputRC,
+		},
+		{
+			name: "sidecar inbound rc patch",
+			args: args{
+				pluginParams:       sidecarInboundPluginParams,
+				routeConfiguration: sidecarInboundRC,
+			},
+			want: patchedSidecarInboundRC,
+		},
+		{
+			name: "gateway rds patch",
+			args: args{
+				pluginParams:       gatewayPluginParams,
+				routeConfiguration: gatewayRC,
+			},
+			want: patchedGatewayRC,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := applyRouteConfigurationPatches(tt.args.pluginParams, tt.args.routeConfiguration); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("applyRouteConfigurationPatches() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
