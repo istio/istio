@@ -67,7 +67,7 @@ type Resource struct {
 	Version    string `json:"version"`
 	Kind       string `json:"kind"`
 	Plural     string `json:"plural"`
-	Optional   bool   `json:"optional"` // TODO: Reconsider this
+	Optional   bool   `json:"optional"`
 	Disabled   bool   `json:"disabled"`
 }
 

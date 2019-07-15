@@ -24,6 +24,99 @@ var (
 	// IstioConfigV1Alpha2Httpapispecs is the name of collection istio/config/v1alpha2/httpapispecs
 	IstioConfigV1Alpha2Httpapispecs = collection.NewName("istio/config/v1alpha2/httpapispecs")
 
+	// IstioConfigV1Alpha2LegacyApikeys is the name of collection istio/config/v1alpha2/legacy/apikeys
+	IstioConfigV1Alpha2LegacyApikeys = collection.NewName("istio/config/v1alpha2/legacy/apikeys")
+
+	// IstioConfigV1Alpha2LegacyAuthorizations is the name of collection istio/config/v1alpha2/legacy/authorizations
+	IstioConfigV1Alpha2LegacyAuthorizations = collection.NewName("istio/config/v1alpha2/legacy/authorizations")
+
+	// IstioConfigV1Alpha2LegacyBypasses is the name of collection istio/config/v1alpha2/legacy/bypasses
+	IstioConfigV1Alpha2LegacyBypasses = collection.NewName("istio/config/v1alpha2/legacy/bypasses")
+
+	// IstioConfigV1Alpha2LegacyChecknothings is the name of collection istio/config/v1alpha2/legacy/checknothings
+	IstioConfigV1Alpha2LegacyChecknothings = collection.NewName("istio/config/v1alpha2/legacy/checknothings")
+
+	// IstioConfigV1Alpha2LegacyCirconuses is the name of collection istio/config/v1alpha2/legacy/circonuses
+	IstioConfigV1Alpha2LegacyCirconuses = collection.NewName("istio/config/v1alpha2/legacy/circonuses")
+
+	// IstioConfigV1Alpha2LegacyCloudwatches is the name of collection istio/config/v1alpha2/legacy/cloudwatches
+	IstioConfigV1Alpha2LegacyCloudwatches = collection.NewName("istio/config/v1alpha2/legacy/cloudwatches")
+
+	// IstioConfigV1Alpha2LegacyDeniers is the name of collection istio/config/v1alpha2/legacy/deniers
+	IstioConfigV1Alpha2LegacyDeniers = collection.NewName("istio/config/v1alpha2/legacy/deniers")
+
+	// IstioConfigV1Alpha2LegacyDogstatsds is the name of collection istio/config/v1alpha2/legacy/dogstatsds
+	IstioConfigV1Alpha2LegacyDogstatsds = collection.NewName("istio/config/v1alpha2/legacy/dogstatsds")
+
+	// IstioConfigV1Alpha2LegacyEdges is the name of collection istio/config/v1alpha2/legacy/edges
+	IstioConfigV1Alpha2LegacyEdges = collection.NewName("istio/config/v1alpha2/legacy/edges")
+
+	// IstioConfigV1Alpha2LegacyFluentds is the name of collection istio/config/v1alpha2/legacy/fluentds
+	IstioConfigV1Alpha2LegacyFluentds = collection.NewName("istio/config/v1alpha2/legacy/fluentds")
+
+	// IstioConfigV1Alpha2LegacyKubernetesenvs is the name of collection istio/config/v1alpha2/legacy/kubernetesenvs
+	IstioConfigV1Alpha2LegacyKubernetesenvs = collection.NewName("istio/config/v1alpha2/legacy/kubernetesenvs")
+
+	// IstioConfigV1Alpha2LegacyKuberneteses is the name of collection istio/config/v1alpha2/legacy/kuberneteses
+	IstioConfigV1Alpha2LegacyKuberneteses = collection.NewName("istio/config/v1alpha2/legacy/kuberneteses")
+
+	// IstioConfigV1Alpha2LegacyListcheckers is the name of collection istio/config/v1alpha2/legacy/listcheckers
+	IstioConfigV1Alpha2LegacyListcheckers = collection.NewName("istio/config/v1alpha2/legacy/listcheckers")
+
+	// IstioConfigV1Alpha2LegacyListentries is the name of collection istio/config/v1alpha2/legacy/listentries
+	IstioConfigV1Alpha2LegacyListentries = collection.NewName("istio/config/v1alpha2/legacy/listentries")
+
+	// IstioConfigV1Alpha2LegacyLogentries is the name of collection istio/config/v1alpha2/legacy/logentries
+	IstioConfigV1Alpha2LegacyLogentries = collection.NewName("istio/config/v1alpha2/legacy/logentries")
+
+	// IstioConfigV1Alpha2LegacyMemquotas is the name of collection istio/config/v1alpha2/legacy/memquotas
+	IstioConfigV1Alpha2LegacyMemquotas = collection.NewName("istio/config/v1alpha2/legacy/memquotas")
+
+	// IstioConfigV1Alpha2LegacyMetrics is the name of collection istio/config/v1alpha2/legacy/metrics
+	IstioConfigV1Alpha2LegacyMetrics = collection.NewName("istio/config/v1alpha2/legacy/metrics")
+
+	// IstioConfigV1Alpha2LegacyNoops is the name of collection istio/config/v1alpha2/legacy/noops
+	IstioConfigV1Alpha2LegacyNoops = collection.NewName("istio/config/v1alpha2/legacy/noops")
+
+	// IstioConfigV1Alpha2LegacyOpas is the name of collection istio/config/v1alpha2/legacy/opas
+	IstioConfigV1Alpha2LegacyOpas = collection.NewName("istio/config/v1alpha2/legacy/opas")
+
+	// IstioConfigV1Alpha2LegacyPrometheuses is the name of collection istio/config/v1alpha2/legacy/prometheuses
+	IstioConfigV1Alpha2LegacyPrometheuses = collection.NewName("istio/config/v1alpha2/legacy/prometheuses")
+
+	// IstioConfigV1Alpha2LegacyQuotas is the name of collection istio/config/v1alpha2/legacy/quotas
+	IstioConfigV1Alpha2LegacyQuotas = collection.NewName("istio/config/v1alpha2/legacy/quotas")
+
+	// IstioConfigV1Alpha2LegacyRbacs is the name of collection istio/config/v1alpha2/legacy/rbacs
+	IstioConfigV1Alpha2LegacyRbacs = collection.NewName("istio/config/v1alpha2/legacy/rbacs")
+
+	// IstioConfigV1Alpha2LegacyRedisquotas is the name of collection istio/config/v1alpha2/legacy/redisquotas
+	IstioConfigV1Alpha2LegacyRedisquotas = collection.NewName("istio/config/v1alpha2/legacy/redisquotas")
+
+	// IstioConfigV1Alpha2LegacyReportnothings is the name of collection istio/config/v1alpha2/legacy/reportnothings
+	IstioConfigV1Alpha2LegacyReportnothings = collection.NewName("istio/config/v1alpha2/legacy/reportnothings")
+
+	// IstioConfigV1Alpha2LegacySignalfxs is the name of collection istio/config/v1alpha2/legacy/signalfxs
+	IstioConfigV1Alpha2LegacySignalfxs = collection.NewName("istio/config/v1alpha2/legacy/signalfxs")
+
+	// IstioConfigV1Alpha2LegacySolarwindses is the name of collection istio/config/v1alpha2/legacy/solarwindses
+	IstioConfigV1Alpha2LegacySolarwindses = collection.NewName("istio/config/v1alpha2/legacy/solarwindses")
+
+	// IstioConfigV1Alpha2LegacyStackdrivers is the name of collection istio/config/v1alpha2/legacy/stackdrivers
+	IstioConfigV1Alpha2LegacyStackdrivers = collection.NewName("istio/config/v1alpha2/legacy/stackdrivers")
+
+	// IstioConfigV1Alpha2LegacyStatsds is the name of collection istio/config/v1alpha2/legacy/statsds
+	IstioConfigV1Alpha2LegacyStatsds = collection.NewName("istio/config/v1alpha2/legacy/statsds")
+
+	// IstioConfigV1Alpha2LegacyStdios is the name of collection istio/config/v1alpha2/legacy/stdios
+	IstioConfigV1Alpha2LegacyStdios = collection.NewName("istio/config/v1alpha2/legacy/stdios")
+
+	// IstioConfigV1Alpha2LegacyTracespans is the name of collection istio/config/v1alpha2/legacy/tracespans
+	IstioConfigV1Alpha2LegacyTracespans = collection.NewName("istio/config/v1alpha2/legacy/tracespans")
+
+	// IstioConfigV1Alpha2LegacyZipkins is the name of collection istio/config/v1alpha2/legacy/zipkins
+	IstioConfigV1Alpha2LegacyZipkins = collection.NewName("istio/config/v1alpha2/legacy/zipkins")
+
 	// IstioConfigV1Alpha2Templates is the name of collection istio/config/v1alpha2/templates
 	IstioConfigV1Alpha2Templates = collection.NewName("istio/config/v1alpha2/templates")
 
@@ -93,8 +186,38 @@ var (
 	// K8SConfigIstioIoV1Alpha2Adapters is the name of collection k8s/config.istio.io/v1alpha2/adapters
 	K8SConfigIstioIoV1Alpha2Adapters = collection.NewName("k8s/config.istio.io/v1alpha2/adapters")
 
+	// K8SConfigIstioIoV1Alpha2Apikeys is the name of collection k8s/config.istio.io/v1alpha2/apikeys
+	K8SConfigIstioIoV1Alpha2Apikeys = collection.NewName("k8s/config.istio.io/v1alpha2/apikeys")
+
 	// K8SConfigIstioIoV1Alpha2Attributemanifests is the name of collection k8s/config.istio.io/v1alpha2/attributemanifests
 	K8SConfigIstioIoV1Alpha2Attributemanifests = collection.NewName("k8s/config.istio.io/v1alpha2/attributemanifests")
+
+	// K8SConfigIstioIoV1Alpha2Authorizations is the name of collection k8s/config.istio.io/v1alpha2/authorizations
+	K8SConfigIstioIoV1Alpha2Authorizations = collection.NewName("k8s/config.istio.io/v1alpha2/authorizations")
+
+	// K8SConfigIstioIoV1Alpha2Bypasses is the name of collection k8s/config.istio.io/v1alpha2/bypasses
+	K8SConfigIstioIoV1Alpha2Bypasses = collection.NewName("k8s/config.istio.io/v1alpha2/bypasses")
+
+	// K8SConfigIstioIoV1Alpha2Checknothings is the name of collection k8s/config.istio.io/v1alpha2/checknothings
+	K8SConfigIstioIoV1Alpha2Checknothings = collection.NewName("k8s/config.istio.io/v1alpha2/checknothings")
+
+	// K8SConfigIstioIoV1Alpha2Circonuses is the name of collection k8s/config.istio.io/v1alpha2/circonuses
+	K8SConfigIstioIoV1Alpha2Circonuses = collection.NewName("k8s/config.istio.io/v1alpha2/circonuses")
+
+	// K8SConfigIstioIoV1Alpha2Cloudwatches is the name of collection k8s/config.istio.io/v1alpha2/cloudwatches
+	K8SConfigIstioIoV1Alpha2Cloudwatches = collection.NewName("k8s/config.istio.io/v1alpha2/cloudwatches")
+
+	// K8SConfigIstioIoV1Alpha2Deniers is the name of collection k8s/config.istio.io/v1alpha2/deniers
+	K8SConfigIstioIoV1Alpha2Deniers = collection.NewName("k8s/config.istio.io/v1alpha2/deniers")
+
+	// K8SConfigIstioIoV1Alpha2Dogstatsds is the name of collection k8s/config.istio.io/v1alpha2/dogstatsds
+	K8SConfigIstioIoV1Alpha2Dogstatsds = collection.NewName("k8s/config.istio.io/v1alpha2/dogstatsds")
+
+	// K8SConfigIstioIoV1Alpha2Edges is the name of collection k8s/config.istio.io/v1alpha2/edges
+	K8SConfigIstioIoV1Alpha2Edges = collection.NewName("k8s/config.istio.io/v1alpha2/edges")
+
+	// K8SConfigIstioIoV1Alpha2Fluentds is the name of collection k8s/config.istio.io/v1alpha2/fluentds
+	K8SConfigIstioIoV1Alpha2Fluentds = collection.NewName("k8s/config.istio.io/v1alpha2/fluentds")
 
 	// K8SConfigIstioIoV1Alpha2Handlers is the name of collection k8s/config.istio.io/v1alpha2/handlers
 	K8SConfigIstioIoV1Alpha2Handlers = collection.NewName("k8s/config.istio.io/v1alpha2/handlers")
@@ -108,17 +231,80 @@ var (
 	// K8SConfigIstioIoV1Alpha2Instances is the name of collection k8s/config.istio.io/v1alpha2/instances
 	K8SConfigIstioIoV1Alpha2Instances = collection.NewName("k8s/config.istio.io/v1alpha2/instances")
 
+	// K8SConfigIstioIoV1Alpha2Kubernetesenvs is the name of collection k8s/config.istio.io/v1alpha2/kubernetesenvs
+	K8SConfigIstioIoV1Alpha2Kubernetesenvs = collection.NewName("k8s/config.istio.io/v1alpha2/kubernetesenvs")
+
+	// K8SConfigIstioIoV1Alpha2Kuberneteses is the name of collection k8s/config.istio.io/v1alpha2/kuberneteses
+	K8SConfigIstioIoV1Alpha2Kuberneteses = collection.NewName("k8s/config.istio.io/v1alpha2/kuberneteses")
+
+	// K8SConfigIstioIoV1Alpha2Listcheckers is the name of collection k8s/config.istio.io/v1alpha2/listcheckers
+	K8SConfigIstioIoV1Alpha2Listcheckers = collection.NewName("k8s/config.istio.io/v1alpha2/listcheckers")
+
+	// K8SConfigIstioIoV1Alpha2Listentries is the name of collection k8s/config.istio.io/v1alpha2/listentries
+	K8SConfigIstioIoV1Alpha2Listentries = collection.NewName("k8s/config.istio.io/v1alpha2/listentries")
+
+	// K8SConfigIstioIoV1Alpha2Logentries is the name of collection k8s/config.istio.io/v1alpha2/logentries
+	K8SConfigIstioIoV1Alpha2Logentries = collection.NewName("k8s/config.istio.io/v1alpha2/logentries")
+
+	// K8SConfigIstioIoV1Alpha2Memquotas is the name of collection k8s/config.istio.io/v1alpha2/memquotas
+	K8SConfigIstioIoV1Alpha2Memquotas = collection.NewName("k8s/config.istio.io/v1alpha2/memquotas")
+
+	// K8SConfigIstioIoV1Alpha2Metrics is the name of collection k8s/config.istio.io/v1alpha2/metrics
+	K8SConfigIstioIoV1Alpha2Metrics = collection.NewName("k8s/config.istio.io/v1alpha2/metrics")
+
+	// K8SConfigIstioIoV1Alpha2Noops is the name of collection k8s/config.istio.io/v1alpha2/noops
+	K8SConfigIstioIoV1Alpha2Noops = collection.NewName("k8s/config.istio.io/v1alpha2/noops")
+
+	// K8SConfigIstioIoV1Alpha2Opas is the name of collection k8s/config.istio.io/v1alpha2/opas
+	K8SConfigIstioIoV1Alpha2Opas = collection.NewName("k8s/config.istio.io/v1alpha2/opas")
+
+	// K8SConfigIstioIoV1Alpha2Prometheuses is the name of collection k8s/config.istio.io/v1alpha2/prometheuses
+	K8SConfigIstioIoV1Alpha2Prometheuses = collection.NewName("k8s/config.istio.io/v1alpha2/prometheuses")
+
+	// K8SConfigIstioIoV1Alpha2Quotas is the name of collection k8s/config.istio.io/v1alpha2/quotas
+	K8SConfigIstioIoV1Alpha2Quotas = collection.NewName("k8s/config.istio.io/v1alpha2/quotas")
+
 	// K8SConfigIstioIoV1Alpha2Quotaspecbindings is the name of collection k8s/config.istio.io/v1alpha2/quotaspecbindings
 	K8SConfigIstioIoV1Alpha2Quotaspecbindings = collection.NewName("k8s/config.istio.io/v1alpha2/quotaspecbindings")
 
 	// K8SConfigIstioIoV1Alpha2Quotaspecs is the name of collection k8s/config.istio.io/v1alpha2/quotaspecs
 	K8SConfigIstioIoV1Alpha2Quotaspecs = collection.NewName("k8s/config.istio.io/v1alpha2/quotaspecs")
 
+	// K8SConfigIstioIoV1Alpha2Rbacs is the name of collection k8s/config.istio.io/v1alpha2/rbacs
+	K8SConfigIstioIoV1Alpha2Rbacs = collection.NewName("k8s/config.istio.io/v1alpha2/rbacs")
+
+	// K8SConfigIstioIoV1Alpha2Redisquotas is the name of collection k8s/config.istio.io/v1alpha2/redisquotas
+	K8SConfigIstioIoV1Alpha2Redisquotas = collection.NewName("k8s/config.istio.io/v1alpha2/redisquotas")
+
+	// K8SConfigIstioIoV1Alpha2Reportnothings is the name of collection k8s/config.istio.io/v1alpha2/reportnothings
+	K8SConfigIstioIoV1Alpha2Reportnothings = collection.NewName("k8s/config.istio.io/v1alpha2/reportnothings")
+
 	// K8SConfigIstioIoV1Alpha2Rules is the name of collection k8s/config.istio.io/v1alpha2/rules
 	K8SConfigIstioIoV1Alpha2Rules = collection.NewName("k8s/config.istio.io/v1alpha2/rules")
 
+	// K8SConfigIstioIoV1Alpha2Signalfxs is the name of collection k8s/config.istio.io/v1alpha2/signalfxs
+	K8SConfigIstioIoV1Alpha2Signalfxs = collection.NewName("k8s/config.istio.io/v1alpha2/signalfxs")
+
+	// K8SConfigIstioIoV1Alpha2Solarwindses is the name of collection k8s/config.istio.io/v1alpha2/solarwindses
+	K8SConfigIstioIoV1Alpha2Solarwindses = collection.NewName("k8s/config.istio.io/v1alpha2/solarwindses")
+
+	// K8SConfigIstioIoV1Alpha2Stackdrivers is the name of collection k8s/config.istio.io/v1alpha2/stackdrivers
+	K8SConfigIstioIoV1Alpha2Stackdrivers = collection.NewName("k8s/config.istio.io/v1alpha2/stackdrivers")
+
+	// K8SConfigIstioIoV1Alpha2Statsds is the name of collection k8s/config.istio.io/v1alpha2/statsds
+	K8SConfigIstioIoV1Alpha2Statsds = collection.NewName("k8s/config.istio.io/v1alpha2/statsds")
+
+	// K8SConfigIstioIoV1Alpha2Stdios is the name of collection k8s/config.istio.io/v1alpha2/stdios
+	K8SConfigIstioIoV1Alpha2Stdios = collection.NewName("k8s/config.istio.io/v1alpha2/stdios")
+
 	// K8SConfigIstioIoV1Alpha2Templates is the name of collection k8s/config.istio.io/v1alpha2/templates
 	K8SConfigIstioIoV1Alpha2Templates = collection.NewName("k8s/config.istio.io/v1alpha2/templates")
+
+	// K8SConfigIstioIoV1Alpha2Tracespans is the name of collection k8s/config.istio.io/v1alpha2/tracespans
+	K8SConfigIstioIoV1Alpha2Tracespans = collection.NewName("k8s/config.istio.io/v1alpha2/tracespans")
+
+	// K8SConfigIstioIoV1Alpha2Zipkins is the name of collection k8s/config.istio.io/v1alpha2/zipkins
+	K8SConfigIstioIoV1Alpha2Zipkins = collection.NewName("k8s/config.istio.io/v1alpha2/zipkins")
 
 	// K8SCoreV1Endpoints is the name of collection k8s/core/v1/endpoints
 	K8SCoreV1Endpoints = collection.NewName("k8s/core/v1/endpoints")
@@ -180,6 +366,37 @@ func CollectionNames() []collection.Name {
 		IstioConfigV1Alpha2Adapters,
 		IstioConfigV1Alpha2Httpapispecbindings,
 		IstioConfigV1Alpha2Httpapispecs,
+		IstioConfigV1Alpha2LegacyApikeys,
+		IstioConfigV1Alpha2LegacyAuthorizations,
+		IstioConfigV1Alpha2LegacyBypasses,
+		IstioConfigV1Alpha2LegacyChecknothings,
+		IstioConfigV1Alpha2LegacyCirconuses,
+		IstioConfigV1Alpha2LegacyCloudwatches,
+		IstioConfigV1Alpha2LegacyDeniers,
+		IstioConfigV1Alpha2LegacyDogstatsds,
+		IstioConfigV1Alpha2LegacyEdges,
+		IstioConfigV1Alpha2LegacyFluentds,
+		IstioConfigV1Alpha2LegacyKubernetesenvs,
+		IstioConfigV1Alpha2LegacyKuberneteses,
+		IstioConfigV1Alpha2LegacyListcheckers,
+		IstioConfigV1Alpha2LegacyListentries,
+		IstioConfigV1Alpha2LegacyLogentries,
+		IstioConfigV1Alpha2LegacyMemquotas,
+		IstioConfigV1Alpha2LegacyMetrics,
+		IstioConfigV1Alpha2LegacyNoops,
+		IstioConfigV1Alpha2LegacyOpas,
+		IstioConfigV1Alpha2LegacyPrometheuses,
+		IstioConfigV1Alpha2LegacyQuotas,
+		IstioConfigV1Alpha2LegacyRbacs,
+		IstioConfigV1Alpha2LegacyRedisquotas,
+		IstioConfigV1Alpha2LegacyReportnothings,
+		IstioConfigV1Alpha2LegacySignalfxs,
+		IstioConfigV1Alpha2LegacySolarwindses,
+		IstioConfigV1Alpha2LegacyStackdrivers,
+		IstioConfigV1Alpha2LegacyStatsds,
+		IstioConfigV1Alpha2LegacyStdios,
+		IstioConfigV1Alpha2LegacyTracespans,
+		IstioConfigV1Alpha2LegacyZipkins,
 		IstioConfigV1Alpha2Templates,
 		IstioMeshV1Alpha1MeshConfig,
 		IstioMixerV1ConfigClientQuotaspecbindings,
@@ -203,15 +420,46 @@ func CollectionNames() []collection.Name {
 		K8SAuthenticationIstioIoV1Alpha1Meshpolicies,
 		K8SAuthenticationIstioIoV1Alpha1Policies,
 		K8SConfigIstioIoV1Alpha2Adapters,
+		K8SConfigIstioIoV1Alpha2Apikeys,
 		K8SConfigIstioIoV1Alpha2Attributemanifests,
+		K8SConfigIstioIoV1Alpha2Authorizations,
+		K8SConfigIstioIoV1Alpha2Bypasses,
+		K8SConfigIstioIoV1Alpha2Checknothings,
+		K8SConfigIstioIoV1Alpha2Circonuses,
+		K8SConfigIstioIoV1Alpha2Cloudwatches,
+		K8SConfigIstioIoV1Alpha2Deniers,
+		K8SConfigIstioIoV1Alpha2Dogstatsds,
+		K8SConfigIstioIoV1Alpha2Edges,
+		K8SConfigIstioIoV1Alpha2Fluentds,
 		K8SConfigIstioIoV1Alpha2Handlers,
 		K8SConfigIstioIoV1Alpha2Httpapispecbindings,
 		K8SConfigIstioIoV1Alpha2Httpapispecs,
 		K8SConfigIstioIoV1Alpha2Instances,
+		K8SConfigIstioIoV1Alpha2Kubernetesenvs,
+		K8SConfigIstioIoV1Alpha2Kuberneteses,
+		K8SConfigIstioIoV1Alpha2Listcheckers,
+		K8SConfigIstioIoV1Alpha2Listentries,
+		K8SConfigIstioIoV1Alpha2Logentries,
+		K8SConfigIstioIoV1Alpha2Memquotas,
+		K8SConfigIstioIoV1Alpha2Metrics,
+		K8SConfigIstioIoV1Alpha2Noops,
+		K8SConfigIstioIoV1Alpha2Opas,
+		K8SConfigIstioIoV1Alpha2Prometheuses,
+		K8SConfigIstioIoV1Alpha2Quotas,
 		K8SConfigIstioIoV1Alpha2Quotaspecbindings,
 		K8SConfigIstioIoV1Alpha2Quotaspecs,
+		K8SConfigIstioIoV1Alpha2Rbacs,
+		K8SConfigIstioIoV1Alpha2Redisquotas,
+		K8SConfigIstioIoV1Alpha2Reportnothings,
 		K8SConfigIstioIoV1Alpha2Rules,
+		K8SConfigIstioIoV1Alpha2Signalfxs,
+		K8SConfigIstioIoV1Alpha2Solarwindses,
+		K8SConfigIstioIoV1Alpha2Stackdrivers,
+		K8SConfigIstioIoV1Alpha2Statsds,
+		K8SConfigIstioIoV1Alpha2Stdios,
 		K8SConfigIstioIoV1Alpha2Templates,
+		K8SConfigIstioIoV1Alpha2Tracespans,
+		K8SConfigIstioIoV1Alpha2Zipkins,
 		K8SCoreV1Endpoints,
 		K8SCoreV1Namespaces,
 		K8SCoreV1Nodes,

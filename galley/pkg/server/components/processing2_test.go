@@ -88,6 +88,7 @@ loop:
 		case 6:
 			netListen = func(network, address string) (net.Listener, error) { return nil, e }
 		case 7:
+			args.DisableResourceReadyCheck = false
 			checkResourceTypesPresence = func(_ kube.Interfaces, _ schema.KubeResources) error { return e }
 		case 8:
 			args.ConfigPath = "aaa"

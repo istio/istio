@@ -49,7 +49,7 @@ func (p *Adapter) ExtractResource(o interface{}) (proto.Message, error) {
 }
 
 // NewInformer creates a new k8s informer for resources of this type.
-func (p *Adapter) NewInformer() (cache.SharedIndexInformer, error) {
+func (p *Adapter) NewInformer() (cache.SharedInformer, error) {
 	return p.newInformer()
 }
 
