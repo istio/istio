@@ -57,6 +57,8 @@ func (w *watcher) start() {
 	informer, err := w.adapter.NewInformer()
 	if err != nil {
 		scope.Errorf("unable to start watcher for %q: %v", w.resource.CanonicalResourceName(), err)
+		// Send a FullSync event, even if the informer is not available. This will ensure that the processing backend
+		// will still work, in absence of CRDs.
 		w.handler.Handle(event.FullSyncFor(w.resource.Collection.Name))
 		return
 	}
