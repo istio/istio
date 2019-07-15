@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pilot/pkg/serviceregistry/nacos"
 	"net"
 	"net/http"
 	"net/url"
@@ -158,6 +159,12 @@ type ConfigArgs struct {
 	Controller model.ConfigStoreCache
 }
 
+// NacosArgs provides configuration for the Nacos service registry
+type NacosArgs struct {
+	Address  string
+	Interval time.Duration
+}
+
 // ConsulArgs provides configuration for the Consul service registry.
 type ConsulArgs struct {
 	Config    string
@@ -169,6 +176,7 @@ type ConsulArgs struct {
 type ServiceArgs struct {
 	Registries []string
 	Consul     ConsulArgs
+	Nacos      NacosArgs
 }
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
@@ -826,6 +834,10 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			if err := s.initConsulRegistry(serviceControllers, args); err != nil {
 				return err
 			}
+		case serviceregistry.NacosRegistry:
+			if err := s.initNacosRegistry(serviceControllers, args); err != nil {
+				return err
+			}
 		case serviceregistry.MCPRegistry:
 			log.Infof("no-op: get service info from MCP ServiceEntries.")
 		default:
@@ -1042,6 +1054,23 @@ func (s *Server) initConsulRegistry(serviceControllers *aggregate.Controller, ar
 			Name:             serviceregistry.ConsulRegistry,
 			ServiceDiscovery: conctl,
 			Controller:       conctl,
+		})
+
+	return nil
+}
+
+func (s *Server) initNacosRegistry(serviceControllers *aggregate.Controller, args *PilotArgs) error {
+	log.Infof("Nacos url: %v", args.Service.Nacos.Address)
+	nacosController, nacosError := nacos.NewController(
+		args.Service.Nacos.Address, args.Service.Nacos.Interval)
+	if nacosError != nil {
+		return fmt.Errorf("failed to create Nacos controller: %v", nacosError)
+	}
+	serviceControllers.AddRegistry(
+		aggregate.Registry{
+			Name:             serviceregistry.NacosRegistry,
+			ServiceDiscovery: nacosController,
+			Controller:       nacosController,
 		})
 
 	return nil

@@ -24,6 +24,8 @@ const (
 	KubernetesRegistry ServiceRegistry = "Kubernetes"
 	// ConsulRegistry is a service registry backed by Consul
 	ConsulRegistry ServiceRegistry = "Consul"
+	// NacosRegistry is a service registry backend by Nacos
+	NacosRegistry ServiceRegistry = "Nacos"
 	// MCPRegistry is a service registry backed by MCP ServiceEntries
 	MCPRegistry ServiceRegistry = "MCP"
 )
