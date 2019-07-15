@@ -483,29 +483,15 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 
 			// Check we received all pushes
 			log.Println("Waiting for pushes ", id)
-			if inc {
-				// If incremental, the pushes may be merged so we may not get nPushes pushes
-				_, err := adsc.Wait("eds", 15*time.Second)
-				atomic.AddInt32(&rcvPush, 1)
-				if err != nil {
-					log.Println("Recv failed", err, id)
-					errChan <- fmt.Errorf("failed to receive a response in 15 s %v %v",
-						err, id)
-					return
-				}
-			} else {
-				for j := 0; j < nPushes; j++ {
-					// The time must be larger than write timeout: if we run all tests
-					// and some are leaving uncleaned state the push will be slower.
-					_, err := adsc.Wait("eds", 15*time.Second)
-					atomic.AddInt32(&rcvPush, 1)
-					if err != nil {
-						log.Println("Recv failed", err, id, j)
-						errChan <- fmt.Errorf("failed to receive a response in 15 s %v %v %v",
-							err, id, j)
-						return
-					}
-				}
+
+			// Pushes may be merged so we may not get nPushes pushes
+			_, err = adsc.Wait("eds", 15*time.Second)
+			atomic.AddInt32(&rcvPush, 1)
+			if err != nil {
+				log.Println("Recv failed", err, id)
+				errChan <- fmt.Errorf("failed to receive a response in 15 s %v %v",
+					err, id)
+				return
 			}
 
 			log.Println("Received all pushes ", id)

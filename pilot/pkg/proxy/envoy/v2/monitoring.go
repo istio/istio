@@ -88,16 +88,6 @@ var (
 		"Pilot XDS response write timeouts.",
 	)
 
-	pushTimeouts = monitoring.NewSum(
-		"pilot_xds_push_timeout",
-		"Pilot push timeout, will retry.",
-	)
-
-	pushTimeoutFailures = monitoring.NewSum(
-		"pilot_xds_push_timeout_failures",
-		"Pilot push timeout failures after repeated attempts.",
-	)
-
 	// Covers xds_builderr and xds_senderr for xds in {lds, rds, cds, eds}.
 	pushes = monitoring.NewSum(
 		"pilot_xds_pushes",
@@ -116,15 +106,6 @@ var (
 	rdsPushes         = pushes.With(typeTag.Value("rds"))
 	rdsSendErrPushes  = pushes.With(typeTag.Value("rds_senderr"))
 	rdsBuildErrPushes = pushes.With(typeTag.Value("rds_builderr"))
-
-	pushErrors = monitoring.NewSum(
-		"pilot_xds_push_errors",
-		"Number of errors (timeouts) pushing to sidecars.",
-		typeTag,
-	)
-
-	unrecoverableErrs = pushErrors.With(typeTag.Value("unrecoverable"))
-	retryErrs         = pushErrors.With(typeTag.Value("retry"))
 
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesConvergeDelay = monitoring.NewDistribution(
@@ -186,10 +167,7 @@ func init() {
 		monVServices,
 		xdsClients,
 		xdsResponseWriteTimeouts,
-		pushTimeouts,
-		pushTimeoutFailures,
 		pushes,
-		pushErrors,
 		proxiesConvergeDelay,
 		proxiesConvergeDelayCdsErrors,
 		proxiesConvergeDelayEdsErrors,
