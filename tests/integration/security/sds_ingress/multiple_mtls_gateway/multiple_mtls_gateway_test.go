@@ -53,10 +53,13 @@ func testMultiMtlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:
 	})
 	// Expect 2 SDS updates for each listener, one for server key/cert, and one for CA cert.
 	err := ingressutil.WaitUntilGatewaySdsStatsGE(t, ing, 2*len(credNames), 10*time.Second)
-	// Expect 6 active listeners, five listens on 443 and the other listens on 15090
-	err = ingressutil.WaitUntilGatewayActiveListenerStatsGE(t, ing, len(credNames)+1, 20*time.Second)
 	if err != nil {
 		t.Errorf("sds update stats does not match: %v", err)
+	}
+	// Expect 2 active listeners, one listens on 443 and the other listens on 15090
+	err = ingressutil.WaitUntilGatewayActiveListenerStatsGE(t, ing, 2, 20*time.Second)
+	if err != nil {
+		t.Errorf("total active listener stats does not match: %v", err)
 	}
 	tlsContext := ingressutil.TLSContext{
 		CaCert:     ingressutil.CaCertA,
