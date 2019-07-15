@@ -55,7 +55,7 @@ function load_kind_images(){
 
 # In the CI the cluster will be using the same docker context as the docker images are built
 # So we don't need to load the images. For local runs, this can be useful.
-if [[ "${LOAD_IMAGES}" != "" ]]; then
+if [[ "${LOAD_IMAGES:-}" != "" ]]; then
   time load_kind_images
  fi
 
