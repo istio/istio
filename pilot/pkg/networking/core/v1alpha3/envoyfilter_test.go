@@ -194,7 +194,7 @@ func TestApplyListenerConfigPatches(t *testing.T) {
 		serviceDiscovery := &fakes.ServiceDiscovery{}
 		env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(tc.patches))
 
-		ret := applyListenerConfigPatches(tc.listeners, env, tc.labels)
+		ret := applyListenerPatches(tc.listeners, env, tc.labels)
 		if !reflect.DeepEqual(tc.result, ret) {
 			t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.result, ret)
 		}
@@ -244,7 +244,7 @@ func TestApplyClusterConfigPatches(t *testing.T) {
 		proxy := &model.Proxy{
 			Type: model.SidecarProxy,
 		}
-		ret := applyClusterConfigPatches(env, proxy, nil, tc.clusters)
+		ret := applyClusterPatches(env, proxy, nil, tc.clusters)
 		if !reflect.DeepEqual(tc.result, ret) {
 			t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.result, ret)
 		}
@@ -379,7 +379,7 @@ func TestListenerMatch(t *testing.T) {
 
 	for _, tc := range testCases {
 		tc.inputParams.DeprecatedListenerCategory = tc.direction
-		ret := listenerMatch(tc.inputParams, tc.listenerIP, tc.matchCondition)
+		ret := deprecatedListenerMatch(tc.inputParams, tc.listenerIP, tc.matchCondition)
 		if tc.result != ret {
 			t.Errorf("%s: expecting %v but got %v", tc.name, tc.result, ret)
 		}

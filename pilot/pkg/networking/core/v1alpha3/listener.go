@@ -199,7 +199,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(env *model.Environment, nod
 		listeners = configgen.buildGatewayListeners(env, node, push)
 	}
 
-	listeners = applyListenerConfigPatches(listeners, env, node.WorkloadLabels)
+	listeners = applyListenerPatches(listeners, env, node.WorkloadLabels)
 
 	return listeners, err
 }
@@ -1746,9 +1746,9 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 	if !opts.skipUserFilters {
 		// NOTE: we have constructed the HTTP connection manager filter above and we are passing the whole filter chain
 		// EnvoyFilter crd could choose to replace the HTTP ConnectionManager that we built or can choose to add
-		// more filters to the HTTP filter chain. In the latter case, the insertUserFilters function will
+		// more filters to the HTTP filter chain. In the latter case, the deprecatedInsertUserFilters function will
 		// overwrite the HTTP connection manager in the filter chain after inserting the new filters
-		return insertUserFilters(pluginParams, mutable.Listener, httpConnectionManagers)
+		return deprecatedInsertUserFilters(pluginParams, mutable.Listener, httpConnectionManagers)
 	}
 
 	return nil

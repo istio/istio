@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -290,6 +291,25 @@ func gatewayRDSRouteName(server *networking.Server, config Config) string {
 	}
 
 	return ""
+}
+
+// ParseGatewayRDSRouteName is used by the EnvoyFilter patching logic to match
+// a specific route configuration to patch.
+func ParseGatewayRDSRouteName(name string) (portNumber int, portName, gateway string) {
+	parts := strings.Split(name, ".")
+	if strings.HasPrefix(name, "http.") {
+		// this is a http gateway. Parse port number and return empty string for rest
+		if len(parts) == 2 {
+			portNumber, _ = strconv.Atoi(parts[1])
+		}
+	} else if strings.HasPrefix(name,"https.") {
+		if len(parts) == 5 {
+			portNumber, _ = strconv.Atoi(parts[1])
+		}
+		portName = parts[2]
+		gateway = parts[3] + "/" + parts[4]
+	}
+	return
 }
 
 // convert ./host to currentNamespace/Host
