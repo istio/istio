@@ -16,6 +16,7 @@ spec:
   selector:
     app: {{ .Values.tracing.provider }}
 ---
+{{- if ne .Values.tracing.provider "opencensus"}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -40,3 +41,4 @@ spec:
 {{ end}}
   selector:
     app: {{ .Values.tracing.provider }}
+{{- end }}
