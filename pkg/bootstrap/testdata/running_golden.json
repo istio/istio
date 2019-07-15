@@ -16,6 +16,8 @@
       "ISTIO_PROXY_VERSION":"istio-proxy:version",
       "ISTIO_VERSION":"release-3.1",
       "POD_NAME":"svc-0-0-0-6944fb884d-4pgx8",
+      "SDS_TOKEN_PATH":"sdstokenpath", 
+      "SDS_UDS_PATH":"sdsudspath",
       "istio":"sidecar",
       "istio.io/insecurepath":"{\"paths\":[\"/metrics\",\"/live\"]}",
       "istio-locality": "regionA.zoneB.sub_zoneC",

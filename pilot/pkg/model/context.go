@@ -585,10 +585,10 @@ const (
 
 	// NodeMetadataSdsTokenPath specifies the path of the SDS token used by the Envoy proxy.
 	// If not set, Pilot uses the default SDS token path.
-	NodeMetadataSdsTokenPath = "SDS_TOKEN_PATH"
+	NodeMetadataSdsTokenPath = "ISTIO_META_SDS_TOKEN_PATH"
 
 	// NodeMetadataSdsTokenPath specifies the unix domain socket(UDS) path which Envoy proxy uses to talk to SDS server.
-	NodeMetadataSdsUDSPath = "SDS_UDS_PATH"
+	NodeMetadataSdsUDSPath = "ISTIO_META_SDS_UDS_PATH"
 
 	// NodeMetadataTLSServerCertChain is the absolute path to server cert-chain file
 	NodeMetadataTLSServerCertChain = "TLS_SERVER_CERT_CHAIN"

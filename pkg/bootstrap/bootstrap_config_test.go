@@ -87,12 +87,7 @@ func TestGolden(t *testing.T) {
 	}{
 		{
 			base: "auth",
-			labels: map[string]string{
-				"SDS_TOKEN_PATH": "sdstokenpath",
-				"SDS_UDS_PATH":   "sdsudspath",
-			},
 		},
-
 		{
 			base: "default",
 		},
@@ -104,6 +99,8 @@ func TestGolden(t *testing.T) {
 				"ISTIO_META_ISTIO_PROXY_VERSION": "istio-proxy:version",
 				"ISTIO_META_ISTIO_VERSION":       "release-3.1",
 				"ISTIO_META_POD_NAME":            "svc-0-0-0-6944fb884d-4pgx8",
+				"ISTIO_META_SDS_TOKEN_PATH":      "sdstokenpath",
+				"ISTIO_META_SDS_UDS_PATH":        "sdsudspath",
 				"POD_NAME":                       "svc-0-0-0-6944fb884d-4pgx8",
 				"POD_NAMESPACE":                  "test",
 				"INSTANCE_IP":                    "10.10.10.1",
