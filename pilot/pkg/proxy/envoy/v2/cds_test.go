@@ -56,3 +56,124 @@ func TestCDS(t *testing.T) {
 
 	// TODO: dynamic checks ( see EDS )
 }
+<<<<<<< HEAD
+=======
+
+func TestSetTokenPathForSdsFromProxyMetadata(t *testing.T) {
+	defaultTokenPath := "the-default-sds-token-path"
+	sdsTokenPath := "the-sds-token-path-in-metadata"
+	node := &model.Proxy{
+		Metadata: map[string]string{
+			"ISTIO_META_SDS_TOKEN_PATH": sdsTokenPath,
+		},
+	}
+	clusterExpected := &xdsapi.Cluster{
+		TlsContext: &auth.UpstreamTlsContext{
+			CommonTlsContext: &auth.CommonTlsContext{
+				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+					{
+						SdsConfig: &core.ConfigSource{
+							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+								ApiConfigSource: &core.ApiConfigSource{
+									ApiType: core.ApiConfigSource_GRPC,
+									GrpcServices: []*core.GrpcService{
+										{
+											TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+												GoogleGrpc: &core.GrpcService_GoogleGrpc{
+													CredentialsFactoryName: authn_model.FileBasedMetadataPlugName,
+													CallCredentials:        authn_model.ConstructgRPCCallCredentials(sdsTokenPath, authn_model.K8sSAJwtTokenHeaderKey),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+							SdsConfig: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType: core.ApiConfigSource_GRPC,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+													GoogleGrpc: &core.GrpcService_GoogleGrpc{
+														CredentialsFactoryName: authn_model.FileBasedMetadataPlugName,
+														CallCredentials:        authn_model.ConstructgRPCCallCredentials(sdsTokenPath, authn_model.K8sSAJwtTokenHeaderKey),
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	cluster := &xdsapi.Cluster{
+		TlsContext: &auth.UpstreamTlsContext{
+			CommonTlsContext: &auth.CommonTlsContext{
+				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+					{
+						SdsConfig: &core.ConfigSource{
+							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+								ApiConfigSource: &core.ApiConfigSource{
+									ApiType: core.ApiConfigSource_GRPC,
+									GrpcServices: []*core.GrpcService{
+										{
+											TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+												GoogleGrpc: &core.GrpcService_GoogleGrpc{
+													CredentialsFactoryName: authn_model.FileBasedMetadataPlugName,
+													CallCredentials:        authn_model.ConstructgRPCCallCredentials(defaultTokenPath, authn_model.K8sSAJwtTokenHeaderKey),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+							SdsConfig: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType: core.ApiConfigSource_GRPC,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+													GoogleGrpc: &core.GrpcService_GoogleGrpc{
+														CredentialsFactoryName: "envoy.grpc_credentials.file_based_metadata",
+														CallCredentials:        authn_model.ConstructgRPCCallCredentials(defaultTokenPath, authn_model.K8sSAJwtTokenHeaderKey),
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	v2.SetTokenPathForSdsFromProxyMetadata(cluster, node)
+
+	// The SDS token path should have been set based on the proxy metadata
+	if !proto.Equal(cluster, clusterExpected) {
+		t.Errorf("The cluster after setting SDS token path is not as expected! Expected:\n%v, actual:\n%v",
+			proto.MarshalTextString(clusterExpected), proto.MarshalTextString(cluster))
+	}
+}
+>>>>>>> unit test

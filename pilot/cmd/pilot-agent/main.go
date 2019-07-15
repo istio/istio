@@ -332,7 +332,6 @@ var (
 					}
 
 					if sdsEnabled {
-						opts["sds_enabled"] = "true"
 						opts["sds_uds_path"] = sdsUDSPath
 						opts["sds_token_path"] = sdsTokenPath
 					}
