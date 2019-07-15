@@ -15,13 +15,10 @@ package v2_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"testing"
 	"time"
 
-	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -172,77 +169,6 @@ func TestAdsClusterUpdate(t *testing.T) {
 
 	cluster2 := "outbound|80||adsclusterupdate2.default.svc.cluster.local"
 	sendEDSReqAndVerify(cluster2)
-}
-
-func TestAdsUpdate(t *testing.T) {
-	server, tearDown := initLocalPilotTestEnv(t)
-	defer tearDown()
-
-	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cancel()
-
-	// Old style cluster.
-	// TODO: convert tests (except eds) to new style.
-	server.EnvoyXdsServer.MemRegistry.AddService("adsupdate.default.svc.cluster.local", &model.Service{
-		Hostname: "adsupdate.default.svc.cluster.local",
-		Address:  "10.11.0.1",
-		Ports:    testPorts(0),
-	})
-	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
-		"http-main", 2080, "10.2.0.1", 1080)
-
-	err = sendEDSReq([]string{"outbound|2080||adsupdate.default.svc.cluster.local"}, sidecarID("1.1.1.1", "app3"), edsstr)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	res1, err := adsReceive(edsstr, 5*time.Second)
-	if err != nil {
-		t.Fatal("Recv failed", err)
-	}
-
-	if res1.TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
-		t.Error("Expecting type.googleapis.com/envoy.api.v2.ClusterLoadAssignment got ", res1.TypeUrl)
-	}
-	if res1.Resources[0].TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
-		t.Error("Expecting type.googleapis.com/envoy.api.v2.ClusterLoadAssignment got ", res1.Resources[0].TypeUrl)
-	}
-	cla, err := getLoadAssignment(res1)
-	if err != nil {
-		t.Fatal("Invalid EDS response ", err)
-	}
-	// TODO: validate VersionInfo and nonce once we settle on a scheme
-
-	ep := cla.Endpoints
-	if len(ep) == 0 {
-		t.Fatal("No endpoints")
-	}
-	lbe := ep[0].LbEndpoints
-	if len(lbe) == 0 {
-		t.Fatal("No lb endpoints")
-	}
-	if lbe[0].GetEndpoint().Address.GetSocketAddress().Address != "10.2.0.1" {
-		t.Error("Expecting 10.2.0.1 got ", lbe[0].GetEndpoint().Address.GetSocketAddress().Address)
-	}
-	strResponse, _ := model.ToJSONWithIndent(res1, " ")
-	_ = ioutil.WriteFile(env.IstioOut+"/edsv2_sidecar.json", []byte(strResponse), 0644)
-
-	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
-		"http-main", 2080, "10.1.7.1", 1080)
-
-	// will trigger recompute and push for all clients - including some that may be closing
-	// This reproduced the 'push on closed connection' bug.
-	v2.AdsPushAll(server.EnvoyXdsServer)
-
-	res1, err = adsReceive(edsstr, 5*time.Second)
-	if err != nil {
-		t.Fatal("Recv2 failed", err)
-	}
-	strResponse, _ = model.ToJSONWithIndent(res1, " ")
-	_ = ioutil.WriteFile(env.IstioOut+"/edsv2_update.json", []byte(strResponse), 0644)
 }
 
 func TestEnvoyRDSProtocolError(t *testing.T) {

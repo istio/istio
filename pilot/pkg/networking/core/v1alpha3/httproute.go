@@ -130,7 +130,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		listenerPort = 0
 	}
 
-
 	nameToServiceMap := make(map[model.Hostname]*model.Service)
 	for _, svc := range services {
 		if listenerPort == 0 {
