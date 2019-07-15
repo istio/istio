@@ -29,7 +29,7 @@ type Distributor interface {
 
 // InMemoryDistributor is an in-memory distributor implementation.
 type InMemoryDistributor struct {
-	snapshotsLock sync.Mutex
+	snapshotsLock sync.RWMutex
 	snapshots     map[string]sn.Snapshot
 	listenersLock sync.Mutex
 	listeners     []*listenerEntry
@@ -73,8 +73,8 @@ func (d *InMemoryDistributor) ClearSnapshot(name string) {
 
 // GetSnapshot get the snapshot of the specified name
 func (d *InMemoryDistributor) GetSnapshot(name string) sn.Snapshot {
-	d.snapshotsLock.Lock()
-	defer d.snapshotsLock.Unlock()
+	d.snapshotsLock.RLock()
+	defer d.snapshotsLock.RUnlock()
 	if s, ok := d.snapshots[name]; ok {
 		return s
 	}
@@ -83,6 +83,8 @@ func (d *InMemoryDistributor) GetSnapshot(name string) sn.Snapshot {
 
 // NumSnapshots returns the current number of snapshots.
 func (d *InMemoryDistributor) NumSnapshots() int {
+	d.snapshotsLock.RLock()
+	defer d.snapshotsLock.RUnlock()
 	return len(d.snapshots)
 }
 

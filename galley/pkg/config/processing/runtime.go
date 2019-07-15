@@ -29,12 +29,8 @@ type RuntimeOptions struct {
 }
 
 // Clone returns a cloned copy of the RuntimeOptions.
-func (o *RuntimeOptions) Clone() RuntimeOptions {
-	return RuntimeOptions{
-		Source:            o.Source,
-		ProcessorProvider: o.ProcessorProvider,
-		DomainSuffix:      o.DomainSuffix,
-	}
+func (o RuntimeOptions) Clone() RuntimeOptions {
+	return o
 }
 
 // Runtime is the top-level config processing machinery. Through runtime options, it takes in a set of Sources and
@@ -53,7 +49,7 @@ type Runtime struct { // nolint:maligned
 	// runtime options that was passed as parameters to the command-line.
 	options RuntimeOptions
 
-	// stopCh is used send stop signal completion to the background go-routine.
+	// stopCh is used to send stop signal completion to the background go-routine.
 	stopCh chan struct{}
 
 	// wg is used to synchronize the completion of Stop call with the completion of the background

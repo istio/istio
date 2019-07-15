@@ -161,7 +161,7 @@ func (s *session) stop() {
 		terminate = true
 
 	default:
-		scope.Warnf("session.stop: Invalid state: %v", s.state)
+		panic(fmt.Errorf("session.stop: Invalid state: %v", s.state))
 	}
 	s.mu.Unlock()
 	if terminate {
@@ -267,7 +267,7 @@ func (s *session) handleMeshEvent(e event.Event) {
 		}
 
 	default:
-		scope.Warnf("session.handleMeshEvent: mesh event in unsupported state '%v': %+v", s.state, e)
+		panic(fmt.Errorf("session.handleMeshEvent: mesh event in unsupported state '%v': %+v", s.state, e))
 	}
 
 	s.mu.Unlock()
@@ -283,13 +283,13 @@ func (s *session) applyMeshEvent(e event.Event) {
 		scope.Debugf("session.handleMeshEvent: received a delete mesh config event: %v", e)
 		s.meshCfg = meshcfg.Default()
 	case event.FullSync:
-		scope.Infof("session.applyMeshEvent meshSynced: %v => %v", s.meshSynced, true)
+		scope.Debugf("session.applyMeshEvent meshSynced: %v => %v", s.meshSynced, true)
 		s.meshSynced = true
 
 	// reset case is already handled by the time call arrives here.
 
 	default:
-		scope.Errorf("Runtime.handleMeshEvent: unrecognized event kind: %v", e.Kind)
+		panic(fmt.Errorf("Runtime.handleMeshEvent: unrecognized event kind: %v", e.Kind))
 	}
 }
 

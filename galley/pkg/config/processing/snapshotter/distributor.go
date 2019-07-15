@@ -45,7 +45,7 @@ func (d *InMemoryDistributor) SetSnapshot(name string, s snapshot.Snapshot) {
 	d.snapshotsLock.Lock()
 	defer d.snapshotsLock.Unlock()
 
-	scope.Infof("InmemoryDistributor.SetSnapshot: %s: %v", name, s)
+	scope.Debugf("InmemoryDistributor.SetSnapshot: %s: %v", name, s)
 	d.snapshots[name] = s
 }
 

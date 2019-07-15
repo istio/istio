@@ -15,6 +15,7 @@
 package snapshotter
 
 import (
+	"fmt"
 	"time"
 
 	"istio.io/istio/galley/pkg/config/collection"
@@ -64,8 +65,7 @@ func (a *accumulator) Handle(e event.Event) {
 	case event.FullSync:
 		a.syncCount++
 	default:
-		scope.Errorf("accumulator.Handle: unhandled event type: %v", e.Kind)
-		return
+		panic(fmt.Errorf("accumulator.Handle: unhandled event type: %v", e.Kind))
 	}
 
 	if a.syncCount >= a.reqSyncCount {
@@ -81,7 +81,7 @@ func (a *accumulator) reset() {
 }
 
 // NewSnapshotter returns a new Snapshotter.
-func NewSnapshotter(xforms []event.Transformer, settings []SnapshotOptions) *Snapshotter {
+func NewSnapshotter(xforms []event.Transformer, settings []SnapshotOptions) (*Snapshotter, error) {
 	s := &Snapshotter{
 		accumulators:  make(map[collection.Name]*accumulator),
 		selector:      event.NewSelector(),
@@ -112,15 +112,14 @@ func NewSnapshotter(xforms []event.Transformer, settings []SnapshotOptions) *Sna
 		for _, c := range o.Collections {
 			a := s.accumulators[c]
 			if a == nil {
-				scope.Errorf("NewSnapshotter: Unrecognized collection in SnapshotOptions: %v (Group: %s)", c, o.Group)
-				continue
+				return nil, fmt.Errorf("unrecognized collection in SnapshotOptions: %v (Group: %s)", c, o.Group)
 			}
 
 			a.strategies = append(a.strategies, o.Strategy)
 		}
 	}
 
-	return s
+	return s, nil
 }
 
 // Start implements Processor

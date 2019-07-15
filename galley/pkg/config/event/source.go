@@ -33,15 +33,15 @@ type Source interface {
 	Stop()
 }
 
-type combinedSources struct {
+type compositeSource struct {
 	mu      sync.Mutex
 	sources []Source
 }
 
-var _ Source = &combinedSources{}
+var _ Source = &compositeSource{}
 
 // Start implements Source
-func (s *combinedSources) Start() {
+func (s *compositeSource) Start() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, src := range s.sources {
@@ -50,7 +50,7 @@ func (s *combinedSources) Start() {
 }
 
 // Stop implements Source
-func (s *combinedSources) Stop() {
+func (s *compositeSource) Stop() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, src := range s.sources {
@@ -59,7 +59,7 @@ func (s *combinedSources) Stop() {
 }
 
 // Dispatch implements Source
-func (s *combinedSources) Dispatch(h Handler) {
+func (s *compositeSource) Dispatch(h Handler) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, src := range s.sources {
@@ -67,9 +67,9 @@ func (s *combinedSources) Dispatch(h Handler) {
 	}
 }
 
-// CombineSources combines multiple combinedSources and returns it as a single Source
+// CombineSources combines multiple Sources and returns it as a single Source
 func CombineSources(s ...Source) Source {
-	return &combinedSources{
+	return &compositeSource{
 		sources: s,
 	}
 }

@@ -53,7 +53,8 @@ func TestSnapshotter_Basic(t *testing.T) {
 		},
 	}
 
-	s := NewSnapshotter([]event.Transformer{tr}, options)
+	s, err := NewSnapshotter([]event.Transformer{tr}, options)
+	g.Expect(err).To(BeNil())
 	s.Start()
 
 	g.Expect(tr.Started).To(BeTrue())
@@ -121,7 +122,8 @@ func TestSnapshotter_SnapshotMismatch(t *testing.T) {
 		},
 	}
 
-	s := NewSnapshotter([]event.Transformer{tr}, options)
+	s, err := NewSnapshotter([]event.Transformer{tr}, options)
+	g.Expect(err).To(BeNil())
 	s.Start()
 
 	s.Handle(data.Event1Col1AddItem1)
