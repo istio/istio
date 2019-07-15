@@ -248,7 +248,10 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 		switch v := s.(type) {
 		case *ast.KubeSource:
 			var resources []*KubeResource
-			for _, r := range v.Resources {
+			for i, r := range v.Resources {
+				if r == nil {
+					return nil, fmt.Errorf("invalid KubeResource entry at position: %d", i)
+				}
 				col, ok := collections.Lookup(r.Collection)
 				if !ok {
 					return nil, fmt.Errorf("collection not found: %v", r.Collection)

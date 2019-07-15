@@ -284,6 +284,256 @@ collections:
     proto:        "istio.rbac.v1alpha1.ServiceRole"
     protoPackage: "istio.io/api/rbac/v1alpha1"
 
+    # Keep Legacy Mixer CRD related collections separate, as these will be gone soon.
+  - name:          "k8s/config.istio.io/v1alpha2/apikeys"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/apikeys"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/authorizations"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/authorizations"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/bypasses"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/bypasses"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/checknothings"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/checknothings"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/circonuses"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/circonuses"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/cloudwatches"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/cloudwatches"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/deniers"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/deniers"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/dogstatsds"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/dogstatsds"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/edges"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/edges"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/fluentds"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/fluentds"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/kuberneteses"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/kuberneteses"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/kubernetesenvs"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/kubernetesenvs"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/listcheckers"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/listcheckers"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/listentries"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/listentries"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/logentries"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/logentries"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/memquotas"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/memquotas"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/metrics"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/metrics"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/noops"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/noops"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/opas"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/opas"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/prometheuses"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/prometheuses"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/quotas"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/quotas"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/rbacs"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/rbacs"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/redisquotas"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/redisquotas"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/reportnothings"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/reportnothings"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/signalfxs"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/signalfxs"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/solarwindses"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/solarwindses"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/stackdrivers"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/stackdrivers"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/statsds"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/statsds"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/stdios"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/stdios"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/tracespans"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/tracespans"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "k8s/config.istio.io/v1alpha2/zipkins"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+  - name:          "istio/config/v1alpha2/legacy/zipkins"
+    proto:         "google.protobuf.Struct"
+    protoPackage:  "github.com/gogo/protobuf/types"
+
+
 # The snapshots to generate
 snapshots:
   - name: "default"
@@ -315,6 +565,39 @@ snapshots:
       - "istio/rbac/v1alpha1/serviceroles"
       - "k8s/core/v1/namespaces"
       - "k8s/core/v1/services"
+      # Legacy Mixer CRDs
+      - "istio/config/v1alpha2/legacy/apikeys"
+      - "istio/config/v1alpha2/legacy/authorizations"
+      - "istio/config/v1alpha2/legacy/bypasses"
+      - "istio/config/v1alpha2/legacy/checknothings"
+      - "istio/config/v1alpha2/legacy/circonuses"
+      - "istio/config/v1alpha2/legacy/cloudwatches"
+      - "istio/config/v1alpha2/legacy/deniers"
+      - "istio/config/v1alpha2/legacy/dogstatsds"
+      - "istio/config/v1alpha2/legacy/edges"
+      - "istio/config/v1alpha2/legacy/fluentds"
+      - "istio/config/v1alpha2/legacy/kuberneteses"
+      - "istio/config/v1alpha2/legacy/kubernetesenvs"
+      - "istio/config/v1alpha2/legacy/listcheckers"
+      - "istio/config/v1alpha2/legacy/listentries"
+      - "istio/config/v1alpha2/legacy/logentries"
+      - "istio/config/v1alpha2/legacy/memquotas"
+      - "istio/config/v1alpha2/legacy/metrics"
+      - "istio/config/v1alpha2/legacy/noops"
+      - "istio/config/v1alpha2/legacy/opas"
+      - "istio/config/v1alpha2/legacy/prometheuses"
+      - "istio/config/v1alpha2/legacy/quotas"
+      - "istio/config/v1alpha2/legacy/rbacs"
+      - "istio/config/v1alpha2/legacy/redisquotas"
+      - "istio/config/v1alpha2/legacy/reportnothings"
+      - "istio/config/v1alpha2/legacy/signalfxs"
+      - "istio/config/v1alpha2/legacy/solarwindses"
+      - "istio/config/v1alpha2/legacy/stackdrivers"
+      - "istio/config/v1alpha2/legacy/statsds"
+      - "istio/config/v1alpha2/legacy/stdios"
+      - "istio/config/v1alpha2/legacy/tracespans"
+      - "istio/config/v1alpha2/legacy/zipkins"
+
   - name: "syntheticServiceEntry"
     strategy: immediate
     collections:
@@ -500,6 +783,224 @@ sources:
       group:         "authentication.istio.io"
       version:       "v1alpha1"
 
+    # Legacy Mixer CRD Types
+    - collection:    "k8s/config.istio.io/v1alpha2/apikeys"
+      kind:          "apikey"
+      plural:        "apikeys"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/authorizations"
+      kind:          "authorization"
+      plural:        "authorizations"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/bypasses"
+      kind:          "bypass"
+      plural:        "bypasses"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/checknothings"
+      kind:          "checknothing"
+      plural:        "checknothings"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/circonuses"
+      kind:          "circonus"
+      plural:        "circonuses"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/cloudwatches"
+      kind:          "cloudwatch"
+      plural:        "cloudwatches"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/deniers"
+      kind:          "denier"
+      plural:        "deniers"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/dogstatsds"
+      kind:          "dogstatsd"
+      plural:        "dogstatsds"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/edges"
+      kind:          "edge"
+      plural:        "edges"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/fluentds"
+      kind:          "fluentd"
+      plural:        "fluentds"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/kuberneteses"
+      kind:          "kubernetes"
+      plural:        "kuberneteses"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/kubernetesenvs"
+      kind:          "kubernetesenv"
+      plural:        "kubernetesenvs"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/listcheckers"
+      kind:          "listchecker"
+      plural:        "listcheckers"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/listentries"
+      kind:          "listentry"
+      plural:        "listentries"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/logentries"
+      kind:          "logentry"
+      plural:        "logentries"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/memquotas"
+      kind:          "memquota"
+      plural:        "memquotas"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/metrics"
+      kind:          "metric"
+      plural:        "metrics"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/noops"
+      kind:          "noop"
+      plural:        "noops"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/opas"
+      kind:          "opa"
+      plural:        "opas"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/prometheuses"
+      kind:          "prometheus"
+      plural:        "prometheuses"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/quotas"
+      kind:          "quota"
+      plural:        "quotas"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/rbacs"
+      kind:          "rbac"
+      plural:        "rbacs"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/redisquotas"
+      kind:          "redisquota"
+      plural:        "redisquotas"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/reportnothings"
+      kind:          "reportnothing"
+      plural:        "reportnothings"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/signalfxs"
+      kind:          "signalfx"
+      plural:        "signalfxs"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/solarwindses"
+      kind:          "solarwinds"
+      plural:        "solarwindses"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/stackdrivers"
+      kind:          "stackdriver"
+      plural:        "stackdrivers"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/statsds"
+      kind:          "statsd"
+      plural:        "statsds"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/stdios"
+      kind:          "stdio"
+      plural:        "stdios"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/tracespans"
+      kind:          "tracespan"
+      plural:        "tracespans"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
+    - collection:    "k8s/config.istio.io/v1alpha2/zipkins"
+      kind:          "zipkin"
+      plural:        "zipkins"
+      group:         "config.istio.io"
+      version:       "v1alpha2"
+      optional:      true
+
 # Transform specific configurations
 transforms:
   - type: direct
@@ -529,11 +1030,38 @@ transforms:
       "k8s/core/v1/services":                              "k8s/core/v1/services"
       "istio/mesh/v1alpha1/MeshConfig":                    "istio/mesh/v1alpha1/MeshConfig"
 
-      #      "k8s/rbac.istio.io/v1alpha3/clusterrbacconfigs":     "istio/rbac.istio.io/v1alpha3/clusterrbacconfigs"
-      #      "k8s/rbac.istio.io/v1alpha3/policy":                 "istio/rbac.istio.io/v1alpha3/policy"
-
-      #      "k8s/authentication.istio.io/v1alpha1/meshpolicies": "istio/authentication/v1alpha1/meshpolicies"
-      #      "k8s/authentication.istio.io/v1alpha1/policies":     "istio/authentication/v1alpha1/policies"
+      # Legacy Mixer CRD mappings
+      "k8s/config.istio.io/v1alpha2/apikeys":              "istio/config/v1alpha2/legacy/apikeys"
+      "k8s/config.istio.io/v1alpha2/authorizations":       "istio/config/v1alpha2/legacy/authorizations"
+      "k8s/config.istio.io/v1alpha2/bypasses":             "istio/config/v1alpha2/legacy/bypasses"
+      "k8s/config.istio.io/v1alpha2/checknothings":        "istio/config/v1alpha2/legacy/checknothings"
+      "k8s/config.istio.io/v1alpha2/circonuses":           "istio/config/v1alpha2/legacy/circonuses"
+      "k8s/config.istio.io/v1alpha2/cloudwatches":         "istio/config/v1alpha2/legacy/cloudwatches"
+      "k8s/config.istio.io/v1alpha2/deniers":              "istio/config/v1alpha2/legacy/deniers"
+      "k8s/config.istio.io/v1alpha2/dogstatsds":           "istio/config/v1alpha2/legacy/dogstatsds"
+      "k8s/config.istio.io/v1alpha2/edges":                "istio/config/v1alpha2/legacy/edges"
+      "k8s/config.istio.io/v1alpha2/fluentds":             "istio/config/v1alpha2/legacy/fluentds"
+      "k8s/config.istio.io/v1alpha2/kuberneteses":         "istio/config/v1alpha2/legacy/kuberneteses"
+      "k8s/config.istio.io/v1alpha2/kubernetesenvs":       "istio/config/v1alpha2/legacy/kubernetesenvs"
+      "k8s/config.istio.io/v1alpha2/listcheckers":         "istio/config/v1alpha2/legacy/listcheckers"
+      "k8s/config.istio.io/v1alpha2/listentries":          "istio/config/v1alpha2/legacy/listentries"
+      "k8s/config.istio.io/v1alpha2/logentries":           "istio/config/v1alpha2/legacy/logentries"
+      "k8s/config.istio.io/v1alpha2/memquotas":            "istio/config/v1alpha2/legacy/memquotas"
+      "k8s/config.istio.io/v1alpha2/metrics":              "istio/config/v1alpha2/legacy/metrics"
+      "k8s/config.istio.io/v1alpha2/noops":                "istio/config/v1alpha2/legacy/noops"
+      "k8s/config.istio.io/v1alpha2/opas":                 "istio/config/v1alpha2/legacy/opas"
+      "k8s/config.istio.io/v1alpha2/prometheuses":         "istio/config/v1alpha2/legacy/prometheuses"
+      "k8s/config.istio.io/v1alpha2/quotas":               "istio/config/v1alpha2/legacy/quotas"
+      "k8s/config.istio.io/v1alpha2/rbacs":                "istio/config/v1alpha2/legacy/rbacs"
+      "k8s/config.istio.io/v1alpha2/redisquotas":          "istio/config/v1alpha2/legacy/redisquotas"
+      "k8s/config.istio.io/v1alpha2/reportnothings":       "istio/config/v1alpha2/legacy/reportnothings"
+      "k8s/config.istio.io/v1alpha2/signalfxs":            "istio/config/v1alpha2/legacy/signalfxs"
+      "k8s/config.istio.io/v1alpha2/solarwindses":         "istio/config/v1alpha2/legacy/solarwindses"
+      "k8s/config.istio.io/v1alpha2/stackdrivers":         "istio/config/v1alpha2/legacy/stackdrivers"
+      "k8s/config.istio.io/v1alpha2/statsds":              "istio/config/v1alpha2/legacy/statsds"
+      "k8s/config.istio.io/v1alpha2/stdios":               "istio/config/v1alpha2/legacy/stdios"
+      "k8s/config.istio.io/v1alpha2/tracespans":           "istio/config/v1alpha2/legacy/tracespans"
+      "k8s/config.istio.io/v1alpha2/zipkins":              "istio/config/v1alpha2/legacy/zipkins"
 `)
 
 func metadataYamlBytes() ([]byte, error) {
