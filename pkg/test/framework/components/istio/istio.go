@@ -51,6 +51,8 @@ func GetDeployedNamespaces(cfg Config) []string {
 				allNamespace[cfg.PolicyNamespace] = struct{}{}
 			case Tracing:
 				allNamespace[cfg.TelemetryNamespace] = struct{}{}
+			case Nodeagent:
+				allNamespace[cfg.IstioNamespace] = struct{}{}
 			}
 		}
 	} else {

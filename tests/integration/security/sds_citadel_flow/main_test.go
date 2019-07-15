@@ -38,7 +38,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("sds_citadel_flow_test", m).
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
+		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig, istio.Nodeagent)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
 				return err

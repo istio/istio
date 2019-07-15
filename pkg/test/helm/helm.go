@@ -51,6 +51,7 @@ func Template(homeDir, template, name, namespace string, valuesFiles []string, v
 		}
 		p = append(p, "--set", fmt.Sprintf("%s=%s", k, v))
 	}
+
 	out, err := shell.ExecuteArgs(nil, true, "helm", p[1:]...)
 	if err != nil {
 		scopes.Framework.Errorf("helm template: %v, out:%q", err, out)

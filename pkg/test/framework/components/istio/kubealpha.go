@@ -185,6 +185,12 @@ func deployAlphaInstall(ctx resource.Context, env *kube.Environment, cfg Config)
 		}
 	}
 
+	if _, f := components[Nodeagent]; f {
+		if err := applyAlphaInstall(env.Accessor, helmWorkDir, cfg.IstioNamespace, "security/nodeagent", cfg); err != nil {
+			return nil, err
+		}
+	}
+
 	if _, f := components[Ingress]; f {
 		if err := applyAlphaInstall(env.Accessor, helmWorkDir, cfg.IngressNamespace, "gateways/istio-ingress", cfg); err != nil {
 			return nil, err

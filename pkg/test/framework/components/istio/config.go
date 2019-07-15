@@ -105,6 +105,9 @@ const (
 
 	// Tracing will install zipkins
 	Tracing
+
+	// Nodeagent will the SDS nodeagent
+	Nodeagent
 )
 
 // Config provide kube-specific Config from flags.
