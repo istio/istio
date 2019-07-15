@@ -208,17 +208,18 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 		case discReq, ok := <-reqChannel:
 			if !ok {
 				// Remote side closed connection.
+				sdsServiceLog.Errorf("Remote side closed connection")
 				return receiveError
 			}
 
 			if discReq.Node == nil {
-				sdsServiceLog.Errorf("Invalid discovery request with no node")
+				sdsServiceLog.Errorf("Close connection. Invalid discovery request with no node")
 				return fmt.Errorf("invalid discovery request with no node")
 			}
 
 			resourceName, err := parseDiscoveryRequest(discReq)
 			if err != nil {
-				sdsServiceLog.Errorf("Failed to parse discovery request: %v", err)
+				sdsServiceLog.Errorf("Close connection. Failed to parse discovery request: %v", err)
 				return err
 			}
 
@@ -251,8 +252,8 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				ctx = stream.Context()
 				t, err := getCredentialToken(ctx)
 				if err != nil {
-					sdsServiceLog.Errorf("%s failed to get credential token from incoming request: %v",
-						conIDresourceNamePrefix, err)
+					sdsServiceLog.Errorf("%s Close connection. Failed to get credential token from "+
+						"incoming request: %v", conIDresourceNamePrefix, err)
 					return err
 				}
 				token = t
@@ -289,8 +290,8 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 
 			secret, err := s.st.GenerateSecret(ctx, conID, resourceName, token)
 			if err != nil {
-				sdsServiceLog.Errorf("%s failed to get secret for proxy %q from secret cache: %v",
-					conIDresourceNamePrefix, discReq.Node.Id, err)
+				sdsServiceLog.Errorf("%s Close connection. Failed to get secret for proxy %q from "+
+					"secret cache: %v", conIDresourceNamePrefix, discReq.Node.Id, err)
 				return err
 			}
 
@@ -303,7 +304,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			con.mutex.Unlock()
 
 			if err := pushSDS(con); err != nil {
-				sdsServiceLog.Errorf("%s failed to push key/cert to proxy %q: %v",
+				sdsServiceLog.Errorf("%s Close connection. Failed to push key/cert to proxy %q: %v",
 					conIDresourceNamePrefix, discReq.Node.Id, err)
 				return err
 			}
@@ -328,11 +329,11 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				// When nodeagent stops stream by sending envoy error response, it's Ok not to remove secret
 				// from secret cache because cache has auto-evication.
 				sdsServiceLog.Debugf("%s close connection for proxy %q", conIDresourceNamePrefix, proxyID)
-				return fmt.Errorf("%s connection to proxy %q closed", conIDresourceNamePrefix, conID)
+				return fmt.Errorf("%s Close connection to proxy %q", conIDresourceNamePrefix, conID)
 			}
 
 			if err := pushSDS(con); err != nil {
-				sdsServiceLog.Errorf("%s failed to push key/cert to proxy %q: %v",
+				sdsServiceLog.Errorf("%s Close connection. Failed to push key/cert to proxy %q: %v",
 					conIDresourceNamePrefix, proxyID, err)
 				return err
 			}
@@ -617,7 +618,7 @@ func receiveThread(con *sdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 			conIDresourceNamePrefix := sdsLogPrefix(con.conID, con.ResourceName)
 			con.mutex.RUnlock()
 			if status.Code(err) == codes.Canceled || err == io.EOF {
-				sdsServiceLog.Infof("%s connection terminated %v", conIDresourceNamePrefix, err)
+				sdsServiceLog.Infof("%s connection terminated: %v", conIDresourceNamePrefix, err)
 				return
 			}
 			*errP = err
