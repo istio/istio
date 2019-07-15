@@ -83,16 +83,6 @@ func TestSnapshotter_Basic(t *testing.T) {
 	g.Expect(sn).NotTo(BeNil())
 	g.Expect(sn.Version(data.Collection2.String())).To(Equal("collection2/4"))
 	g.Expect(sn.Resources(data.Collection2.String())).To(HaveLen(0))
-
-	// Erroneous event
-	e := data.Event1Col1DeleteItem1
-	e.Kind = event.None
-	s.Handle(e)
-
-	sn = d.GetSnapshot("default")
-	g.Expect(sn).NotTo(BeNil())
-	g.Expect(sn.Version(data.Collection2.String())).To(Equal("collection2/4"))
-	g.Expect(sn.Resources(data.Collection2.String())).To(HaveLen(0))
 }
 
 func TestSnapshotter_SnapshotMismatch(t *testing.T) {

@@ -240,7 +240,7 @@ func (s *session) handle(e event.Event) {
 		go s.terminate()
 
 	default:
-		scope.Warnf("Invalid session state: %v", s.state)
+		panic(fmt.Errorf("session.handle: invalid session state: %v", s.state))
 	}
 	s.mu.Unlock()
 }
