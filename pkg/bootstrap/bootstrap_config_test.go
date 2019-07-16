@@ -430,7 +430,7 @@ func correctForEnvDifference(in []byte, excludeLocality bool) []byte {
 	replacements = append(replacements,
 		regexReplacement{
 			// allow '.' to include '\n` and remove the final carriage return and tab
-			pattern:     regexp.MustCompile(`((?s)"platform_metadata": {.+},)\n\s+`),
+			pattern:     regexp.MustCompile(`((?s)"platform_metadata": {[^}]+})`),
 			replacement: []byte{},
 		},
 	)
