@@ -25,7 +25,6 @@ type Transformer struct {
 	Started           bool
 	InputCollections  collection.Names
 	OutputCollections collection.Names
-	Options           interface{}
 
 	fn func(tr *Transformer, e event.Event)
 }
@@ -43,14 +42,12 @@ func NewTransformer(inputs, outputs collection.Names, handlerFn func(tr *Transfo
 }
 
 // Start implements event.Transformer
-func (t *Transformer) Start(options interface{}) {
-	t.Options = options
+func (t *Transformer) Start() {
 	t.Started = true
 }
 
 // Stop implements event.Transformer
 func (t *Transformer) Stop() {
-	t.Options = nil
 	t.Started = false
 }
 

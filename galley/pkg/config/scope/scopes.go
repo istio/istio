@@ -12,34 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package fixtures
+package scope
 
-import (
-	"testing"
+import "istio.io/pkg/log"
 
-	"github.com/onsi/gomega"
+var (
+	// Processing is a logging scope used by configuration processing pipeline.
+	Processing = log.RegisterScope("processing", "Scope for configuration processing runtime", 0)
+
+	// Source is a logging scope for config event sources.
+	Source = log.RegisterScope("source", "Scope for configuration event sources", 0)
 )
-
-func TestSource(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	s := &Source{}
-
-	s.Start()
-	g.Expect(s.running).To(gomega.BeTrue())
-
-	s.Stop()
-	g.Expect(s.running).To(gomega.BeFalse())
-}
-
-func TestSource_Dispatch(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	a := &Accumulator{}
-
-	s := &Source{}
-	s.Dispatch(a)
-	s.Start()
-
-	g.Expect(s.Handlers).To(gomega.Equal(a))
-}

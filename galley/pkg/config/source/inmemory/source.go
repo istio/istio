@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/scope"
 )
 
 var inMemoryNameDiscriminator int64
@@ -40,7 +41,7 @@ func New(collections collection.Names) *Source {
 	name := fmt.Sprintf("inmemory-%d", inMemoryNameDiscriminator)
 	inMemoryNameDiscriminator++
 
-	scope.Debugf("Creating new in-memory source (collections: %d)", len(collections))
+	scope.Source.Debugf("Creating new in-memory source (collections: %d)", len(collections))
 
 	s := &Source{
 		collections: make(map[collection.Name]*Collection),

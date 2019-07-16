@@ -12,20 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package event
+package strategy
 
-// Processor is a config event processor.
-//
-// - Start and Stop can be called multiple times, idempotently.
-// - A processor can keep internal state after it is started, but it *must* not carry state over
-// between multiple start/stop calls.
-// - It must complete all its internal initialization, by the time Start call returns. That is,
-// the callers will assume that events can be sent (be be processed) after Start returns.
-// - Processor may still receive events after Stop is called. These events must be discarded.
-//
-type Processor interface {
-	Handler
+import "fmt"
 
-	Start()
-	Stop()
+const (
+	debounce  = "debounce"
+	immediate = "immediate"
+)
+
+// Create a strategy with the given name.
+func Create(name string) (Instance, error) {
+	switch name {
+	case debounce:
+		return NewDebounceWithDefaults(), nil
+	case immediate:
+		return NewImmediate(), nil
+	default:
+		return nil, fmt.Errorf("unknown strategy: %q", name)
+	}
 }

@@ -12,34 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package fixtures
+package processing
 
 import (
-	"testing"
+	"istio.io/api/mesh/v1alpha1"
 
-	"github.com/onsi/gomega"
+	"istio.io/istio/galley/pkg/config/event"
 )
 
-func TestSource(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	s := &Source{}
-
-	s.Start()
-	g.Expect(s.running).To(gomega.BeTrue())
-
-	s.Stop()
-	g.Expect(s.running).To(gomega.BeFalse())
+// ProcessorOptions are options that are passed to event.Processors during startup.
+type ProcessorOptions struct {
+	MeshConfig   *v1alpha1.MeshConfig
+	DomainSuffix string
 }
 
-func TestSource_Dispatch(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	a := &Accumulator{}
-
-	s := &Source{}
-	s.Dispatch(a)
-	s.Start()
-
-	g.Expect(s.Handlers).To(gomega.Equal(a))
-}
+// ProcessorProvider returns a new Processor instance for the given ProcessorOptions.
+type ProcessorProvider func(o ProcessorOptions) event.Processor

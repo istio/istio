@@ -12,10 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package event
+package snapshotter
 
 import (
-	"istio.io/pkg/log"
+	"istio.io/istio/galley/pkg/config/collection"
+	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
 )
 
-var scope = log.RegisterScope("event", "", 0)
+// SnapshotOptions is settings for a single snapshotImpl target.
+type SnapshotOptions struct {
+	Distributor Distributor
+
+	// The group name for the snapshotImpl.
+	Group string
+
+	// The publishing strategy for the snapshotImpl.
+	Strategy strategy.Instance
+
+	// The set of collections to Snapshot.
+	Collections []collection.Name
+}

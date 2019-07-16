@@ -23,6 +23,7 @@ import (
 	"istio.io/pkg/filewatcher"
 
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/scope"
 )
 
 // For overriding in tests
@@ -56,7 +57,7 @@ func NewFS(path string) (*FsSource, error) {
 	c.reload()
 	// If we were not able to load mesh config, start with the default.
 	if !c.inmemory.IsSynced() {
-		scope.Infof("Unable to load up mesh config, using default...")
+		scope.Processing.Infof("Unable to load up mesh config, using default values (path: %s)", path)
 		c.inmemory.Set(Default())
 	}
 
@@ -76,9 +77,9 @@ func (c *FsSource) Start() {
 
 // Stop implements event.Source
 func (c *FsSource) Stop() {
-	scope.Debugf("meshcfg.FsSource.Stop >>>")
+	scope.Processing.Debugf("meshcfg.FsSource.Stop >>>")
 	c.inmemory.Stop()
-	scope.Debugf("meshcfg.FsSource.Stop <<<")
+	scope.Processing.Debugf("meshcfg.FsSource.Stop <<<")
 }
 
 // Dispatch implements event.Source
@@ -89,24 +90,24 @@ func (c *FsSource) Dispatch(h event.Handler) {
 func (c *FsSource) reload() {
 	by, err := ioutil.ReadFile(c.path)
 	if err != nil {
-		scope.Errorf("Error loading mesh config (path: %s): %v", c.path, err)
+		scope.Processing.Errorf("Error loading mesh config (path: %s): %v", c.path, err)
 		return
 	}
 
 	js, err := yamlToJSON(by)
 	if err != nil {
-		scope.Errorf("Error converting mesh config Yaml to JSON: %v", err)
+		scope.Processing.Errorf("Error converting mesh config Yaml to JSON (path: %s): %v", c.path, err)
 		return
 	}
 
 	cfg := Default()
 	if err = jsonpb.UnmarshalString(string(js), cfg); err != nil {
-		scope.Errorf("Error reading mesh config as json: %v", err)
+		scope.Processing.Errorf("Error reading mesh config as JSON (path: %s): %v", c.path, err)
 		return
 	}
 
 	c.inmemory.Set(cfg)
-	scope.Infof("Reloaded mesh config: \n%s\n", string(by))
+	scope.Processing.Infof("Reloaded mesh config (path: %s): \n%s\n", c.path, string(by))
 }
 
 // Close closes this cache.

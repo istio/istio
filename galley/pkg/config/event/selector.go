@@ -16,6 +16,7 @@ package event
 
 import (
 	"istio.io/istio/galley/pkg/config/collection"
+	"istio.io/istio/galley/pkg/config/scope"
 )
 
 // Selector distributes events to multiple different handlers, based on collection name.
@@ -34,12 +35,12 @@ func NewSelector() *Selector {
 
 // Handle implements handler
 func (s *Selector) Handle(e Event) {
-	scope.Debugf(">>> Selector.Handle: %+v", e)
+	scope.Processing.Debugf(">>> Selector.Handle: %+v", e)
 	h, found := s.handlers[e.Source]
 	if found {
 		h.Handle(e)
 	} else {
-		scope.Debugf("!!! Selector.Handle: No handler for event, dropping: %v", e)
+		scope.Processing.Debugf("!!! Selector.Handle: No handler for event, dropping: %v", e)
 	}
 }
 

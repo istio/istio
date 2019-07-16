@@ -14,6 +14,8 @@
 
 package event
 
+import "sync"
+
 // Source is an event source for a single collection.
 //
 // - A Source can be started/stopped multiple times, idempotently.
@@ -29,4 +31,45 @@ type Source interface {
 
 	// Stop sending events.
 	Stop()
+}
+
+type compositeSource struct {
+	mu      sync.Mutex
+	sources []Source
+}
+
+var _ Source = &compositeSource{}
+
+// Start implements Source
+func (s *compositeSource) Start() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, src := range s.sources {
+		src.Start()
+	}
+}
+
+// Stop implements Source
+func (s *compositeSource) Stop() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, src := range s.sources {
+		src.Stop()
+	}
+}
+
+// Dispatch implements Source
+func (s *compositeSource) Dispatch(h Handler) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, src := range s.sources {
+		src.Dispatch(h)
+	}
+}
+
+// CombineSources combines multiple Sources and returns it as a single Source
+func CombineSources(s ...Source) Source {
+	return &compositeSource{
+		sources: s,
+	}
 }

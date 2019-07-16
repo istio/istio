@@ -12,20 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package event
+package strategy
 
-// Processor is a config event processor.
-//
-// - Start and Stop can be called multiple times, idempotently.
-// - A processor can keep internal state after it is started, but it *must* not carry state over
-// between multiple start/stop calls.
-// - It must complete all its internal initialization, by the time Start call returns. That is,
-// the callers will assume that events can be sent (be be processed) after Start returns.
-// - Processor may still receive events after Stop is called. These events must be discarded.
-//
-type Processor interface {
-	Handler
-
-	Start()
+// Instance is a strategy for publishing snapshots. It listens to to the given snapshotters
+// and creates snapshots that get published to the given Distributor.
+type Instance interface {
+	Start(fn OnSnapshotFn)
+	OnChange()
 	Stop()
 }
+
+// OnSnapshotFn is called to indicate that the snapshot
+type OnSnapshotFn func()

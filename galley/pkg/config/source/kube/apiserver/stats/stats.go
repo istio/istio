@@ -21,7 +21,7 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/galley/pkg/config/scope"
 )
 
 const (
@@ -30,8 +30,6 @@ const (
 	kind       = "kind"
 	errorStr   = "error"
 )
-
-var scope = log.RegisterScope("source", "", 0)
 
 var (
 	// APIVersionTag holds the API version of the resource.
@@ -68,7 +66,7 @@ var (
 func RecordEventError(msg string) {
 	ctx, ctxErr := tag.New(context.Background(), tag.Insert(ErrorTag, msg))
 	if ctxErr != nil {
-		scope.Errorf("error creating context to record handleEvent error")
+		scope.Source.Errorf("error creating context to record handleEvent error")
 	} else {
 		stats.Record(ctx, sourceEventError.M(1))
 	}

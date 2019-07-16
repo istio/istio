@@ -12,8 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package inmemory
+package strategy
 
-import "istio.io/pkg/log"
+import (
+	"reflect"
+	"testing"
 
-var scope = log.RegisterScope("source", "", 0)
+	. "github.com/onsi/gomega"
+)
+
+func TestCreate_Immediate(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	s, err := Create(immediate)
+	g.Expect(err).To(BeNil())
+
+	g.Expect(reflect.TypeOf(s)).To(Equal(reflect.TypeOf(&Immediate{})))
+}
+
+func TestCreate_Debounce(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	s, err := Create(debounce)
+	g.Expect(err).To(BeNil())
+
+	g.Expect(reflect.TypeOf(s)).To(Equal(reflect.TypeOf(&Debounce{})))
+}
+
+func TestCreate_Unknown(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	_, err := Create("foo")
+	g.Expect(err).NotTo(BeNil())
+}

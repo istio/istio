@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/stats"
 )
 
@@ -173,7 +174,7 @@ func (p *Provider) initKnownAdapters() {
 				if !ok1 || !ok2 {
 					msg := fmt.Sprintf("error decoding kube endpoints during update, o1 type: %T, o2 type: %T",
 						o1, o2)
-					scope.Error(msg)
+					scope.Source.Error(msg)
 					stats.RecordEventError(msg)
 					return false
 				}

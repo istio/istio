@@ -12,10 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package meshcfg
+package strategy
 
 import (
-	"istio.io/pkg/log"
+	"testing"
+
+	. "github.com/onsi/gomega"
 )
 
-var scope = log.RegisterScope("processing", "", 0)
+func TestNewImmediate(t *testing.T) {
+	g := NewGomegaWithT(t)
+	s := NewImmediate()
+
+	var changed bool
+	onChange := func() {
+		changed = true
+	}
+	g.Expect(changed).To(BeFalse())
+	s.Start(onChange)
+	s.OnChange()
+	g.Expect(changed).To(BeTrue())
+
+	changed = false
+	s.Stop()
+	s.OnChange()
+	g.Expect(changed).To(BeFalse())
+}

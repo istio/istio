@@ -12,34 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package fixtures
+package strategy
 
 import (
-	"testing"
-
-	"github.com/onsi/gomega"
+	"istio.io/pkg/log"
 )
 
-func TestSource(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	s := &Source{}
-
-	s.Start()
-	g.Expect(s.running).To(gomega.BeTrue())
-
-	s.Stop()
-	g.Expect(s.running).To(gomega.BeFalse())
-}
-
-func TestSource_Dispatch(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	a := &Accumulator{}
-
-	s := &Source{}
-	s.Dispatch(a)
-	s.Start()
-
-	g.Expect(s.Handlers).To(gomega.Equal(a))
-}
+var scope = log.RegisterScope("processing", "", 0)
