@@ -23,8 +23,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -315,7 +313,8 @@ func applyClusterConfigPatches(clusters []*xdsapi.Cluster, env *model.Environmen
 
 		if cp.GetMatch() == nil && cp.GetApplyTo() == networking.EnvoyFilter_CLUSTER {
 			if cp.GetPatch().GetOperation() == networking.EnvoyFilter_Patch_ADD {
-				newCluster, err := buildClusterFromEnvoyConfig(cp.GetPatch().GetValue())
+				newCluster := &xdsapi.Cluster{}
+				err := xdsutil.StructToMessage(cp.Patch.Value, newCluster)
 				if err != nil {
 					log.Warnf("Failed to unmarshal provided value into cluster")
 					continue
@@ -326,21 +325,6 @@ func applyClusterConfigPatches(clusters []*xdsapi.Cluster, env *model.Environmen
 	}
 
 	return clusters
-}
-
-func buildClusterFromEnvoyConfig(value *types.Value) (*xdsapi.Cluster, error) {
-	cluster := xdsapi.Cluster{}
-	val := value.GetStringValue()
-	if val != "" {
-		jsonum := &jsonpb.Unmarshaler{}
-		r := strings.NewReader(val)
-		err := jsonum.Unmarshal(r, &cluster)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &cluster, nil
 }
 
 func applyListenerConfigPatches(builder *ListenerBuilder, env *model.Environment, labels model.LabelsCollection) []*xdsapi.Listener {
@@ -357,7 +341,8 @@ func applyListenerConfigPatches(builder *ListenerBuilder, env *model.Environment
 
 		if cp.GetMatch() == nil && cp.GetApplyTo() == networking.EnvoyFilter_LISTENER {
 			if cp.GetPatch().GetOperation() == networking.EnvoyFilter_Patch_ADD {
-				newListener, err := buildListenerFromEnvoyConfig(cp.GetPatch().GetValue())
+				newListener := &xdsapi.Listener{}
+				err := xdsutil.StructToMessage(cp.Patch.Value, newListener)
 				if err != nil {
 					log.Warnf("Failed to unmarshal provided value into listener")
 					continue
@@ -368,19 +353,4 @@ func applyListenerConfigPatches(builder *ListenerBuilder, env *model.Environment
 	}
 
 	return listeners
-}
-
-func buildListenerFromEnvoyConfig(value *types.Value) (*xdsapi.Listener, error) {
-	listener := xdsapi.Listener{}
-	val := value.GetStringValue()
-	if val != "" {
-		jsonum := &jsonpb.Unmarshaler{}
-		r := strings.NewReader(val)
-		err := jsonum.Unmarshal(r, &listener)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &listener, nil
 }

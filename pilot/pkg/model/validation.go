@@ -666,6 +666,10 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 				}
 			}
 		}
+		// ensure that the struct is valid
+		if _, err := buildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value); err != nil {
+			errs = appendErrors(errs, err)
+		}
 	}
 
 	return

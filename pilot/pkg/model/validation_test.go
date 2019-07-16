@@ -3233,7 +3233,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 			},
 		}, error: "missing filter config"},
 
-		{name: "happy filter config", in: &networking.EnvoyFilter{
+		{name: "deprecated happy filter config", in: &networking.EnvoyFilter{
 			Filters: []*networking.EnvoyFilter_Filter{
 				{
 					InsertPosition: &networking.EnvoyFilter_InsertPosition{
@@ -3283,7 +3283,9 @@ func TestValidateEnvoyFilter(t *testing.T) {
 				{
 					ApplyTo: networking.EnvoyFilter_LISTENER,
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{},
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+							Cluster: &networking.EnvoyFilter_ClusterMatch{},
+						},
 					},
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_REMOVE,
@@ -3296,7 +3298,9 @@ func TestValidateEnvoyFilter(t *testing.T) {
 				{
 					ApplyTo: networking.EnvoyFilter_VIRTUAL_HOST,
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{},
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+							Cluster: &networking.EnvoyFilter_ClusterMatch{},
+						},
 					},
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_REMOVE,
@@ -3309,7 +3313,9 @@ func TestValidateEnvoyFilter(t *testing.T) {
 				{
 					ApplyTo: networking.EnvoyFilter_CLUSTER,
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{},
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking.EnvoyFilter_ListenerMatch{},
+						},
 					},
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_REMOVE,
@@ -3317,6 +3323,50 @@ func TestValidateEnvoyFilter(t *testing.T) {
 				},
 			},
 		}, error: "envoy filter: applyTo for cluster class objects cannot have non cluster match"},
+		{name: "invalid patch value", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_CLUSTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+							Cluster: &networking.EnvoyFilter_ClusterMatch{},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_ADD,
+						Value: &types.Struct{
+							Fields:               map[string]*types.Value{
+								"foo" : {
+									Kind:                 &types.Value_BoolValue{BoolValue: false},
+								},
+							},
+						},
+					},
+				},
+			},
+		}, error: `envoy filter: unknown field "foo" in v2.Cluster`},
+		{name: "happy config", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_CLUSTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+							Cluster: &networking.EnvoyFilter_ClusterMatch{},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_ADD,
+						Value: &types.Struct{
+							Fields:               map[string]*types.Value{
+								"lb_policy" : {
+									Kind:                 &types.Value_StringValue{StringValue: "RING_HASH"},
+								},
+							},
+						},
+					},
+				},
+			},
+		}, error: ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

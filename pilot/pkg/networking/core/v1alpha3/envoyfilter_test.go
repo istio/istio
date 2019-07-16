@@ -15,8 +15,10 @@
 package v1alpha3
 
 import (
+	"github.com/gogo/protobuf/jsonpb"
 	"net"
 	"reflect"
+	"strings"
 	"testing"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -48,17 +50,23 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 }
 
 func buildListenerPatches(config string) []*networking.EnvoyFilter_EnvoyConfigObjectPatch {
+	val := &types.Struct{}
+	jsonpb.Unmarshal(strings.NewReader(config), val)
 	return []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 		{
 			ApplyTo: networking.EnvoyFilter_LISTENER,
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_ADD,
-				Value: &types.Value{
-					Kind: &types.Value_StringValue{StringValue: config},
-				},
+				Value: val,
 			},
 		},
 	}
+}
+
+func buildPatchStruct(config string) *types.Struct {
+	val := &types.Struct{}
+	jsonpb.Unmarshal(strings.NewReader(config), val)
+	return val
 }
 
 func TestApplyListenerConfigPatches(t *testing.T) {
@@ -113,9 +121,7 @@ func TestApplyListenerConfigPatches(t *testing.T) {
 					ApplyTo: networking.EnvoyFilter_LISTENER,
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_MERGE,
-						Value: &types.Value{
-							Kind: &types.Value_StringValue{StringValue: listenerConfig},
-						},
+						Value: buildPatchStruct(listenerConfig),
 					},
 				},
 			},
@@ -160,9 +166,7 @@ func TestApplyListenerConfigPatches(t *testing.T) {
 					ApplyTo: networking.EnvoyFilter_LISTENER,
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_REMOVE,
-						Value: &types.Value{
-							Kind: &types.Value_StringValue{StringValue: listenerConfig},
-						},
+						Value: buildPatchStruct(listenerConfig),
 					},
 				},
 			},
@@ -204,14 +208,14 @@ func TestApplyListenerConfigPatches(t *testing.T) {
 }
 
 func buildClusterPatches(config string) []*networking.EnvoyFilter_EnvoyConfigObjectPatch {
+	val := &types.Struct{}
+	jsonpb.Unmarshal(strings.NewReader(config), val)
 	return []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 		{
 			ApplyTo: networking.EnvoyFilter_CLUSTER,
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_ADD,
-				Value: &types.Value{
-					Kind: &types.Value_StringValue{StringValue: config},
-				},
+				Value: val,
 			},
 		},
 	}
