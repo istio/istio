@@ -15,11 +15,12 @@
 package v1alpha3
 
 import (
-	"github.com/gogo/protobuf/jsonpb"
 	"net"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/gogo/protobuf/jsonpb"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -57,7 +58,7 @@ func buildListenerPatches(config string) []*networking.EnvoyFilter_EnvoyConfigOb
 			ApplyTo: networking.EnvoyFilter_LISTENER,
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_ADD,
-				Value: val,
+				Value:     val,
 			},
 		},
 	}
@@ -121,7 +122,7 @@ func TestApplyListenerConfigPatches(t *testing.T) {
 					ApplyTo: networking.EnvoyFilter_LISTENER,
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_MERGE,
-						Value: buildPatchStruct(listenerConfig),
+						Value:     buildPatchStruct(listenerConfig),
 					},
 				},
 			},
@@ -166,7 +167,7 @@ func TestApplyListenerConfigPatches(t *testing.T) {
 					ApplyTo: networking.EnvoyFilter_LISTENER,
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_REMOVE,
-						Value: buildPatchStruct(listenerConfig),
+						Value:     buildPatchStruct(listenerConfig),
 					},
 				},
 			},
@@ -215,7 +216,7 @@ func buildClusterPatches(config string) []*networking.EnvoyFilter_EnvoyConfigObj
 			ApplyTo: networking.EnvoyFilter_CLUSTER,
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_ADD,
-				Value: val,
+				Value:     val,
 			},
 		},
 	}

@@ -3335,9 +3335,9 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_ADD,
 						Value: &types.Struct{
-							Fields:               map[string]*types.Value{
-								"foo" : {
-									Kind:                 &types.Value_BoolValue{BoolValue: false},
+							Fields: map[string]*types.Value{
+								"foo": {
+									Kind: &types.Value_BoolValue{BoolValue: false},
 								},
 							},
 						},
@@ -3357,9 +3357,9 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_ADD,
 						Value: &types.Struct{
-							Fields:               map[string]*types.Value{
-								"lb_policy" : {
-									Kind:                 &types.Value_StringValue{StringValue: "RING_HASH"},
+							Fields: map[string]*types.Value{
+								"lb_policy": {
+									Kind: &types.Value_StringValue{StringValue: "RING_HASH"},
 								},
 							},
 						},

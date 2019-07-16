@@ -303,7 +303,7 @@ func NewPushContext() *PushContext {
 			hosts:    make([]Hostname, 0),
 			destRule: map[Hostname]*combinedDestinationRule{},
 		},
-		sidecarsByNamespace: map[string][]*SidecarScope{},
+		sidecarsByNamespace:     map[string][]*SidecarScope{},
 		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{},
 
 		ServiceByHostname:     map[Hostname]*Service{},

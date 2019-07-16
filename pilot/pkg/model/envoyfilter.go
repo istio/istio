@@ -15,28 +15,31 @@ package model
 
 import (
 	"fmt"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	networking "istio.io/api/networking/v1alpha3"
-	"github.com/gogo/protobuf/types"
-	"github.com/gogo/protobuf/proto"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 // EnvoyFilterWrapper is a wrapper for the EnvoyFilter api object with pre-processed data
 type EnvoyFilterWrapper struct {
 	workloadSelector Labels
-	ConfigPatches []*EnvoyFilterConfigPatchWrapper
+	ConfigPatches    []*EnvoyFilterConfigPatchWrapper
 }
 
 // EnvoyFilterConfigPatchWrapper is a wrapper over the EnvoyFilter ConfigPatch api object
+// fields are ordered such that this struct is aligned
 type EnvoyFilterConfigPatchWrapper struct {
-	ApplyTo networking.EnvoyFilter_ApplyTo
-	Match *networking.EnvoyFilter_EnvoyConfigObjectMatch
+	Value     proto.Message
+	Match     *networking.EnvoyFilter_EnvoyConfigObjectMatch
+	ApplyTo   networking.EnvoyFilter_ApplyTo
 	Operation networking.EnvoyFilter_Patch_Operation
-	Value proto.Message
 }
 
 // convertToEnvoyFilterWrapper converts from EnvoyFilter config to EnvoyFilterWrapper object
@@ -50,8 +53,8 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 	out.ConfigPatches = make([]*EnvoyFilterConfigPatchWrapper, len(localEnvoyFilter.ConfigPatches))
 	for _, cp := range localEnvoyFilter.ConfigPatches {
 		cpw := &EnvoyFilterConfigPatchWrapper{
-			ApplyTo: cp.ApplyTo,
-			Match: cp.Match,
+			ApplyTo:   cp.ApplyTo,
+			Match:     cp.Match,
 			Operation: cp.Patch.Operation,
 		}
 		// there wont be an error here because validation catches mismatched types
