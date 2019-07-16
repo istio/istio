@@ -21,7 +21,6 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 )
 
 // clusters aggregate a DiscoveryResponse for pushing.
