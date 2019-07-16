@@ -1984,7 +1984,10 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	errs = appendErrors(errs, validateHTTPFaultInjection(http.Fault))
 
 	for _, match := range http.Match {
-		for name := range match.Headers {
+		for name, header := range match.Headers {
+			if header == nil {
+				errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
+			}
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 		}
 
