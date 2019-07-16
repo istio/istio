@@ -508,14 +508,15 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	comma := false
 	if len(edsClusters) > 0 {
 		fmt.Fprintln(w, "[")
-		for _, eds := range edsClusters {
+		for cluster := range edsClusters {
 			if comma {
 				fmt.Fprint(w, ",\n")
 			} else {
 				comma = true
 			}
+			cla := s.loadAssignmentsForClusterLegacy(s.globalPushContext(), cluster)
 			jsonm := &jsonpb.Marshaler{Indent: "  "}
-			dbgString, _ := jsonm.MarshalToString(eds.LoadAssignment)
+			dbgString, _ := jsonm.MarshalToString(cla)
 			if _, err := w.Write([]byte(dbgString)); err != nil {
 				return
 			}

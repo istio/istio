@@ -319,22 +319,9 @@ func testUdsEndpoints(_ *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 
 // Update
 func edsUpdates(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
-
 	// Old style (non-incremental)
-	server.EnvoyXdsServer.MemRegistry.AddInstance(edsIncSvc, &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: "127.0.0.3",
-			Port:    int(testEnv.Ports().BackendPort),
-			ServicePort: &model.Port{
-				Name:     "http-main",
-				Port:     8080,
-				Protocol: model.ProtocolHTTP,
-			},
-			Locality: "az",
-		},
-		ServiceAccount: "hello-sa",
-		Labels:         map[string]string{"version": "v1"},
-	})
+	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc,
+		newEndpointWithAccount("127.0.0.3", "hello-sa", "v1"))
 
 	v2.AdsPushAll(server.EnvoyXdsServer)
 	// will trigger recompute and push

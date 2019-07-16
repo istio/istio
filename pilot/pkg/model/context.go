@@ -205,8 +205,14 @@ func (node *Proxy) GetRouterMode() RouterMode {
 // Listener generation code will still use the SidecarScope object directly
 // as it needs the set of services for each listener port.
 func (node *Proxy) SetSidecarScope(ps *PushContext) {
-	labels := node.WorkloadLabels
-	node.SidecarScope = ps.getSidecarScope(node, labels)
+	if node.Type == SidecarProxy {
+		labels := node.WorkloadLabels
+		node.SidecarScope = ps.getSidecarScope(node, labels)
+	} else {
+		// Gateways should just have a default scope with egress: */*
+		node.SidecarScope = DefaultSidecarScopeForNamespace(ps, node.ConfigNamespace)
+	}
+
 }
 
 func (node *Proxy) SetServiceInstances(env *Environment) error {

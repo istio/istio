@@ -429,7 +429,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 
 	_, actualLocalHost := getActualWildcardAndLocalHost(proxy)
 
-	if sidecarScope == nil || !sidecarScope.HasCustomIngressListeners {
+	if !sidecarScope.HasCustomIngressListeners {
 		// No user supplied sidecar scope or the user supplied one has no ingress listeners
 
 		// We should not create inbound listeners in NONE mode based on the service instances

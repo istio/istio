@@ -524,10 +524,8 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 		return err
 	}
 
-	// Set the sidecarScope associated with this proxy if its a sidecar.
-	if nt.Type == model.SidecarProxy {
-		nt.SetSidecarScope(s.globalPushContext())
-	}
+	// Set the sidecarScope associated with this proxy
+	nt.SetSidecarScope(s.globalPushContext())
 
 	con.mu.Lock()
 	con.modelNode = nt
@@ -576,13 +574,11 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		}
 	}
 
-	// Precompute the sidecar scope associated with this proxy if its a sidecar type.
+	// Precompute the sidecar scope associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
-	if con.modelNode.Type == model.SidecarProxy {
-		con.modelNode.SetSidecarScope(pushEv.push)
-	}
+	con.modelNode.SetSidecarScope(pushEv.push)
 
 	adsLog.Infof("Pushing %v", con.ConID)
 
