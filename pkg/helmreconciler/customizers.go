@@ -19,7 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/helm/pkg/manifest"
 
-	"istio.io/operator/pkg/controller/common"
+	"istio.io/operator/pkg/util"
 )
 
 // SimpleRenderingCustomizer provides the basics needed for a RenderingCustomizer composed of static instances.
@@ -216,7 +216,7 @@ func (l *DefaultChartCustomizerListener) EndChart(chartName string) error {
 
 // ResourceDeleted looks up the ChartCustomizer for the object that was deleted and invokes its ResourceDeleted method.
 func (l *DefaultChartCustomizerListener) ResourceDeleted(deleted runtime.Object) error {
-	if chartName, ok := common.GetAnnotation(deleted, l.ChartAnnotationKey); ok && len(chartName) > 0 {
+	if chartName, ok := util.GetAnnotation(deleted, l.ChartAnnotationKey); ok && len(chartName) > 0 {
 		customizer := l.GetOrCreateCustomizer(chartName)
 		return customizer.ResourceDeleted(deleted)
 	}
@@ -273,7 +273,7 @@ func (c *DefaultChartCustomizer) BeginChart(chart string, manifests []manifest.M
 func (c *DefaultChartCustomizer) BeginResource(obj runtime.Object) (runtime.Object, error) {
 	var err error
 	if len(c.ChartName) > 0 && len(c.ChartAnnotationKey) > 0 {
-		err = common.SetAnnotation(obj, c.ChartAnnotationKey, c.ChartName)
+		err = util.SetAnnotation(obj, c.ChartAnnotationKey, c.ChartName)
 	}
 	return obj, err
 }

@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	istiov1alpha1 "istio.io/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/operator/pkg/controller/common"
 	"istio.io/operator/pkg/helmreconciler"
 )
 
@@ -119,7 +118,7 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 
 	deleted := instance.GetDeletionTimestamp() != nil
 	finalizers := instance.GetFinalizers()
-	finalizerIndex := common.IndexOf(finalizers, finalizer)
+	finalizerIndex := indexOf(finalizers, finalizer)
 
 	if deleted {
 		if finalizerIndex < 0 {
@@ -143,7 +142,7 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 			reqLogger.Info("confilict during finalizer removal, retrying")
 			_ = r.client.Get(context.TODO(), request.NamespacedName, instance)
 			finalizers = instance.GetFinalizers()
-			finalizerIndex = common.IndexOf(finalizers, finalizer)
+			finalizerIndex = indexOf(finalizers, finalizer)
 			finalizers = append(finalizers[:finalizerIndex], finalizers[finalizerIndex+1:]...)
 			instance.SetFinalizers(finalizers)
 			finalizerError = r.client.Update(context.TODO(), instance)
@@ -175,4 +174,13 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 	}
 
 	return reconcile.Result{}, err
+}
+
+func indexOf(l []string, s string) int {
+	for i, elem := range l {
+		if elem == s {
+			return i
+		}
+	}
+	return -1
 }

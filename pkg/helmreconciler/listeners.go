@@ -22,7 +22,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/helm/pkg/manifest"
 
-	"istio.io/operator/pkg/controller/common"
+	"istio.io/operator/pkg/util"
 )
 
 // CompositeRenderingListener is an implementation of RenderingListener which is composed of an array of listeners.
@@ -430,13 +430,13 @@ type pruningMarkingsDecorator struct {
 // BeginResource applies owner labels and annotations to the object
 func (d *pruningMarkingsDecorator) BeginResource(obj runtime.Object) (runtime.Object, error) {
 	for key, value := range d.pruningDetails.GetOwnerLabels() {
-		err := common.SetLabel(obj, key, value)
+		err := util.SetLabel(obj, key, value)
 		if err != nil {
 			return obj, err
 		}
 	}
 	for key, value := range d.pruningDetails.GetOwnerAnnotations() {
-		err := common.SetAnnotation(obj, key, value)
+		err := util.SetAnnotation(obj, key, value)
 		if err != nil {
 			return obj, err
 		}
