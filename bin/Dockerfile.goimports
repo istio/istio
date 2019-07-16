@@ -6,7 +6,6 @@ RUN apk add --update --no-cache git bash    && \
     git checkout 379209517ffe               && \
     go build -o /goimports ./cmd/goimports
 
-# hadolint ignore=DL3006
 FROM alpine:3.10
 ENV GOPATH=/go
 COPY --from=build /goimports /goimports
