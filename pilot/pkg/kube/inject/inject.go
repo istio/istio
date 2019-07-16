@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/log"
 
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -767,6 +768,12 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 		metadata = &pod.ObjectMeta
 		deploymentMetadata = &pod.ObjectMeta
 		podSpec = &pod.Spec
+	case *appsv1.Deployment: // Added to be explicit about the most expected case
+		deploy := v
+		typeMeta = &deploy.TypeMeta
+		deploymentMetadata = &deploy.ObjectMeta
+		metadata = &deploy.Spec.Template.ObjectMeta
+		podSpec = &deploy.Spec.Template.Spec
 	default:
 		// `in` is a pointer to an Object. Dereference it.
 		outValue := reflect.ValueOf(out).Elem()

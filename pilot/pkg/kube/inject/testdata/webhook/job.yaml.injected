@@ -79,6 +79,10 @@ spec:
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_META_INCLUDE_INBOUND_PORTS
+        - name: ISTIO_META_WORKLOAD_NAME
+          value: pi
+        - name: ISTIO_META_OWNER
+          value: kubernetes://api/v1/namespaces/default/pod/pi
         image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
