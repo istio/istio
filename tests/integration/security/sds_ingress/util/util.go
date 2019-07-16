@@ -67,10 +67,24 @@ var IngressCredentialA = IngressCredential{
 	ServerCert: TLSServerCertA,
 	CaCert:     CaCertA,
 }
+var IngressCredentialServerKeyCertA = IngressCredential{
+	PrivateKey: TLSServerKeyA,
+	ServerCert: TLSServerCertA,
+}
+var IngressCredentialCaCertA = IngressCredential{
+	CaCert: CaCertA,
+}
 var IngressCredentialB = IngressCredential{
 	PrivateKey: TLSServerKeyB,
 	ServerCert: TLSServerCertB,
 	CaCert:     CaCertB,
+}
+var IngressCredentialServerKeyCertB = IngressCredential{
+	PrivateKey: TLSServerKeyB,
+	ServerCert: TLSServerCertB,
+}
+var IngressCredentialCaCertB = IngressCredential{
+	CaCert: CaCertB,
 }
 
 // CreateIngressKubeSecret reads credential names from credNames and key/cert from ingressCred,
@@ -200,6 +214,12 @@ func VisitProductPage(ing ingress.Instance, host string, callType ingress.CallTy
 // from ingressCred.
 func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string,
 	ingressType ingress.CallType, ingressCred IngressCredential) {
+	DeleteSecrets(t, ctx, credNames)
+	CreateIngressKubeSecret(t, ctx, credNames, ingressType, ingressCred)
+}
+
+// DeleteSecrets deletes kubernetes secrets by name in credNames.
+func DeleteSecrets(t *testing.T, ctx framework.TestContext, credNames []string) { // nolint:interfacer
 	istioCfg := istio.DefaultConfigOrFail(t, ctx)
 	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
@@ -225,8 +245,6 @@ func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string,
 			}
 		}
 	}
-
-	CreateIngressKubeSecret(t, ctx, credNames, ingressType, ingressCred)
 }
 
 // DeployBookinfo deploys bookinfo application, and deploys gateway with various type.
@@ -286,21 +304,57 @@ func DeployBookinfo(t *testing.T, ctx framework.TestContext, g galley.Instance, 
 func WaitUntilGatewaySdsStatsGE(t *testing.T, ing ingress.Instance, expectedUpdates int, timeout time.Duration) error {
 	start := time.Now()
 	sdsUpdates := 0
+	var err error
 	for {
 		if time.Since(start) > timeout {
-			return fmt.Errorf("sds stats does not meet expection in %v: Last stats: %v", timeout, sdsUpdates)
+			return fmt.Errorf("sds stats does not meet expection in %v: Expected %v, Last stats: %v",
+				timeout, expectedUpdates, sdsUpdates)
 		}
-		gatewayStats, err := ing.ProxyStats()
-		if err == nil {
-			sdsUpdates, hasSdsStats := gatewayStats["listener.0.0.0.0_443.server_ssl_socket_factory.ssl_context_update_by_sds"]
-			if hasSdsStats && sdsUpdates >= expectedUpdates {
-				t.Logf("ingress gateway SDS updates meets expectation within %v. got %v vs expected %v",
-					time.Since(start), sdsUpdates, expectedUpdates)
-				return nil
-			}
-		} else {
-			t.Logf("unable to get ingress gateway proxy stats: %v", err)
+		sdsUpdates, err = GetStatsByName(t, ing, "listener.0.0.0.0_443.server_ssl_socket_factory.ssl_context_update_by_sds")
+		if err == nil && sdsUpdates >= expectedUpdates {
+			t.Logf("ingress gateway SDS updates meets expectation within %v. got %v vs expected %v",
+				time.Since(start), sdsUpdates, expectedUpdates)
+			return nil
 		}
+		t.Logf("sds stats does not match (get %d vs expected %d), error: %v", sdsUpdates,
+			expectedUpdates, err)
 		time.Sleep(3 * time.Second)
 	}
+}
+
+// WaitUntilGatewayActiveListenerStatsGE checks gateway stats for total number of active listener
+// and returns if listener_manager.total_listeners_active >= expectedListeners
+func WaitUntilGatewayActiveListenerStatsGE(t *testing.T, ing ingress.Instance, expectedListeners int,
+	timeout time.Duration) error {
+	start := time.Now()
+	activeListeners := 0
+	var err error
+	for {
+		if time.Since(start) > timeout {
+			return fmt.Errorf("active listener stats does not meet expection in %v: Expected %v, "+
+				"Last stats: %v", timeout, expectedListeners, activeListeners)
+		}
+		activeListeners, err = GetStatsByName(t, ing, "listener_manager.total_listeners_active")
+		if err == nil && activeListeners >= expectedListeners {
+			t.Logf("ingress gateway total number active listeners meets expectation within %v. "+
+				"got %v vs expected %v", time.Since(start), activeListeners, expectedListeners)
+			return nil
+		}
+		t.Logf("total active listener stats does not match (get %d vs expected %d), error: %v",
+			activeListeners, expectedListeners, err)
+		time.Sleep(3 * time.Second)
+	}
+}
+
+// GetGatewaySdsStats fetches stats from gateway proxy and finds specific stats by name. Returns
+// error on failures.
+func GetStatsByName(t *testing.T, ing ingress.Instance, statsName string) (int, error) {
+	gatewayStats, err := ing.ProxyStats()
+	if err == nil {
+		sdsUpdates, hasSdsStats := gatewayStats[statsName]
+		if hasSdsStats {
+			return sdsUpdates, nil
+		}
+	}
+	return 0, fmt.Errorf("unable to get ingress gateway proxy sds stats: %v", err)
 }
