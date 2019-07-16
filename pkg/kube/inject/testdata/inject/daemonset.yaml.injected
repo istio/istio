@@ -89,6 +89,13 @@ spec:
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"hello","tier":"backend","track":"stable"}
+        - name: ISTIO_META_WORKLOAD_NAME
+          value: hello
+        - name: ISTIO_META_OWNER
+          value: kubernetes://api/apps/v1/namespaces/default/daemonset/hello
+        - name: ISTIO_METAJSON_PORTS_TO_CONTAINERS
+          value: |
+            {"80":"hello"}
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
