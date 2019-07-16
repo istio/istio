@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
+	"istio.io/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 
@@ -332,4 +333,56 @@ func (os K8sObjects) YAML() (string, error) {
 		}
 	}
 	return sb.String(), nil
+}
+
+//ManifestDiff compares and generates the diff between two manifest strings
+func ManifestsDiff(a, b string) (string, error) {
+	ao, err := ParseK8sObjectsFromYAMLManifest(a)
+	if err != nil {
+		return "", err
+	}
+	bo, err := ParseK8sObjectsFromYAMLManifest(b)
+	if err != nil {
+		return "", err
+	}
+	aom, bom := ao.ToMap(), bo.ToMap()
+	var sb strings.Builder
+	for ak, av := range aom {
+		ay, err := av.YAML()
+		if err != nil {
+			return "", err
+		}
+		dif := ""
+		k := ""
+		if bom[ak] == nil {
+			fmt.Printf("cannot find %s from first manifest in second manifest\n", ak)
+			dif = util.YAMLDiff(string(ay), "")
+		} else {
+			by, err := bom[ak].YAML()
+			if err != nil {
+				return "", err
+			}
+			k = string(by)
+			dif = util.YAMLDiff(string(ay), string(by))
+		}
+		if dif != "" {
+			fmt.Println(k)
+			sb.WriteString("\n\nObject " + ak + " has diffs:\n\n")
+			sb.WriteString(dif)
+		}
+	}
+	for bk, bv := range bom {
+		if aom[bk] == nil {
+			by, err := bv.YAML()
+			if err != nil {
+				return "", err
+			}
+			dif := util.YAMLDiff(string(by), "")
+			if dif != "" {
+				sb.WriteString("\n\nObject " + bk + " is missing:\n\n")
+				sb.WriteString(dif)
+			}
+		}
+	}
+	return sb.String(), err
 }
