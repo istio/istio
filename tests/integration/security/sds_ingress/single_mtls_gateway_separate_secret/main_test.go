@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package singlemtlsgateway
+package singlemtlsgatewayseparatesecret
 
 import (
 	"testing"
@@ -35,7 +35,7 @@ var (
 func TestMain(m *testing.M) {
 	// Integration test for the ingress SDS Gateway flow.
 	framework.
-		NewSuite("sds_ingress_single_mtls_gateway_test", m).
+		NewSuite("sds_ingress_single_mtls_gateway_separate_secret_test", m).
 		Label(label.CustomSetup).
 		Label(label.Flaky).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).

@@ -709,12 +709,21 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string
 		// Log the description; if we fail to get the logs it may help
 		describeCmd := fmt.Sprintf("kubectl -n %s describe pod %s --kubeconfig=%s",
 			namespace, pod, kubeconfig)
-		describeOutput, errDescribe := Shell(describeCmd)
+		describeOutput, errDescribe := ShellMuteOutput(describeCmd)
 		if errDescribe != nil {
 			log.Warnf("Error getting description for pod %s: %v\n", pod, errDescribe)
 			// don't bail, keep going
 		} else {
-			log.Info(describeOutput)
+			filePath := filepath.Join(tempDir, fmt.Sprintf("%s_describe.log", pod))
+			f, err := os.Create(filePath)
+			if err != nil {
+				log.Warnf("Error creating %s for pod %s: %v\n", filePath, pod, err)
+				return err
+			}
+			if _, err = f.WriteString(fmt.Sprintf("%s\n", describeOutput)); err != nil {
+				log.Warnf("Error writing log dump to %s for pod %s/%s: %v\n", filePath, namespace, pod, err)
+				return err
+			}
 		}
 
 		cmd := fmt.Sprintf(

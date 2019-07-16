@@ -220,12 +220,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	if _, ok := merged.ServersByRouteName[routeName]; !ok {
 		log.Warnf("Gateway missing for route %s. This is normal if gateway was recently deleted. Have %v", routeName, merged.ServersByRouteName)
 
-		// If the flag is set, send Envoy an error, blocking all routes from being sent. This flag
-		// is intended only to support legacy behavior and should be removed in the future.
-		if features.DisablePartialRouteResponse.Get() {
-			return nil, fmt.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.ServersByRouteName)
-		}
-
 		// This can happen when a gateway has recently been deleted. Envoy will still request route
 		// information due to the draining of listeners, so we should not return an error.
 		return nil, nil
