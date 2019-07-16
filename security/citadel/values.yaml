@@ -13,8 +13,8 @@ security:
 
   # Galley, pilot in each 'profile' must have a DNS cert.
   dnsCerts:
-    #istio-pilot-service-account.istio-control: istio-pilot-service-account.istio-control
-    #istio-pilot-service-account.istio-pilot11: istio-pilot-service-account.istio-system
+    istio-pilot-service-account.istio-control: istio-pilot-service-account.istio-control
+    istio-pilot-service-account.istio-pilot11: istio-pilot-service-account.istio-system
 
     istio-sidecar-injector-service-account.istio-remote: istio-sidecar-injector.istio-remote.svc
     istio-sidecar-injector-service-account.istio-pilot11: istio-sidecar-injector.istio-pilot11.svc
