@@ -666,7 +666,7 @@ gopkg.in/square/go-jose.v2/json
 gopkg.in/stack.v1
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
-# istio.io/api v0.0.0-20190517041403-820986f2947c
+# istio.io/api v0.0.0-20190522004026-1dffc8d3d26d
 istio.io/api/mesh/v1alpha1
 istio.io/api/authentication/v1alpha1
 istio.io/api/mixer/v1/config/client
