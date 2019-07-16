@@ -235,16 +235,22 @@ type istioMetadata struct {
 	Labels                    map[string]string `json:"labels,omitempty"`
 	Name                      string            `json:"name,omitempty"`
 	Namespace                 string            `json:"namespace,omitempty"`
+	Owner                     string            `json:"owner,omitempty"`
+	PortsToContainers         map[string]string `json:"ports_to_containers,omitempty"`
 	ServiceAccount            string            `json:"service_account,omitempty"`
+<<<<<<< HEAD
 	PlatformMetadata          map[string]string `json:"platform_metadata,omitempty"`
+=======
+	WorkloadName              string            `json:"workload_name,omitempty"`
+>>>>>>> feat(node metadata): add bits to extract metadata via sidecar injector
 }
 
 func shouldExtract(envVar, prefix string) bool {
-	// this will allow transition from current method of exposition in the future
-	// Example:
-	// if strings.HasPrefix(envVar, "ISTIO_METAJSON_LABELS") {
-	// 	return false
-	// }
+	if strings.HasPrefix(envVar, "ISTIO_META_OWNER") ||
+		strings.HasPrefix(envVar, "ISTIO_META_WORKLOAD") ||
+		strings.HasPrefix(envVar, "ISTIO_METAJSON_PORTS") {
+		return false
+	}
 	return strings.HasPrefix(envVar, prefix)
 }
 
@@ -283,6 +289,13 @@ func extractIstioMetadata(envVars []string, plat platform.Environment) istioMeta
 			im.Name = val
 		case "POD_NAMESPACE":
 			im.Namespace = val
+		case "ISTIO_META_OWNER":
+			im.Owner = val
+		case "ISTIO_META_WORKLOAD_NAME":
+			im.WorkloadName = val
+		case "ISTIO_METAJSON_PORTS_TO_CONTAINERS":
+			m := jsonStringToMap(val)
+			im.PortsToContainers = m
 		}
 	}
 	if plat != nil {

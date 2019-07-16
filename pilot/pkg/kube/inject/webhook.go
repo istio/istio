@@ -588,7 +588,21 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		}
 	}
 
-	spec, iStatus, err := InjectionData(wh.sidecarConfig.Template, wh.valuesConfig, wh.sidecarTemplateVersion, &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
+	// TODO(dougreid): add safety? we know that it is a Pod, given that we try to make everything into a corev1 pod
+	typeMetadata := &metav1.TypeMeta{
+		Kind:       "pod",
+		APIVersion: "v1",
+	}
+
+	// try to capture more useful namespace/name info for deployments, etc.
+	// TODO(dougreid): expand to enable lookup of OWNERs recursively a la kubernetesenv
+	deployMeta := pod.ObjectMeta.DeepCopy()
+	deployMeta.Namespace = req.Namespace
+	if deployMeta.Name == "" {
+		deployMeta.Name = strings.SplitN(podName, "-", 2)[0]
+	}
+
+	spec, iStatus, err := InjectionData(wh.sidecarConfig.Template, wh.valuesConfig, wh.sidecarTemplateVersion, typeMetadata, deployMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
 	if err != nil {
 		handleError(fmt.Sprintf("Injection data: err=%v spec=%v\n", err, iStatus))
 		return toAdmissionResponse(err)

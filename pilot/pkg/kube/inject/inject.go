@@ -155,6 +155,7 @@ type SidecarInjectionSpec struct {
 // SidecarTemplateData is the data object to which the templated
 // version of `SidecarInjectionSpec` is applied.
 type SidecarTemplateData struct {
+	TypeMeta       *metav1.TypeMeta
 	DeploymentMeta *metav1.ObjectMeta
 	ObjectMeta     *metav1.ObjectMeta
 	Spec           *corev1.PodSpec
@@ -535,7 +536,7 @@ func flippedContains(needle, haystack string) bool {
 }
 
 // InjectionData renders sidecarTemplate with valuesConfig.
-func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
+func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *metav1.TypeMeta, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
 	metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (
 	*SidecarInjectionSpec, string, error) {
 
@@ -557,6 +558,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 	}
 
 	data := SidecarTemplateData{
+		TypeMeta:       typeMetadata,
 		DeploymentMeta: deploymentMetadata,
 		ObjectMeta:     metadata,
 		Spec:           spec,
@@ -582,6 +584,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 		"indent":              indent,
 		"directory":           directory,
 		"contains":            flippedContains,
+		"toLower":             strings.ToLower,
 	}
 
 	// Need to use FuncMap and SidecarTemplateData context
@@ -592,6 +595,16 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 		}
 
 		return bbuf.String()
+	}
+
+	funcMap["portsToContainers"] = func(podSpec *corev1.PodSpec) map[string]string {
+		out := map[string]string{}
+		for _, container := range podSpec.Containers {
+			for _, cPort := range container.Ports {
+				out[strconv.Itoa(int(cPort.ContainerPort))] = container.Name
+			}
+		}
+		return out
 	}
 
 	bbuf, err := parseTemplate(sidecarTemplate, funcMap, data)
@@ -712,6 +725,7 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	var deploymentMetadata *metav1.ObjectMeta
 	var metadata *metav1.ObjectMeta
 	var podSpec *corev1.PodSpec
+	var typeMeta *metav1.TypeMeta
 
 	// Handle Lists
 	if list, ok := out.(*corev1.List); ok {
@@ -743,17 +757,21 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	switch v := out.(type) {
 	case *v2alpha1.CronJob:
 		job := v
+		typeMeta = &job.TypeMeta
 		metadata = &job.Spec.JobTemplate.ObjectMeta
 		deploymentMetadata = &job.ObjectMeta
 		podSpec = &job.Spec.JobTemplate.Spec.Template.Spec
 	case *corev1.Pod:
 		pod := v
+		typeMeta = &pod.TypeMeta
 		metadata = &pod.ObjectMeta
 		deploymentMetadata = &pod.ObjectMeta
 		podSpec = &pod.Spec
 	default:
 		// `in` is a pointer to an Object. Dereference it.
 		outValue := reflect.ValueOf(out).Elem()
+
+		typeMeta = outValue.FieldByName("TypeMeta").Addr().Interface().(*metav1.TypeMeta)
 
 		deploymentMetadata = outValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
 
@@ -797,6 +815,7 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 		sidecarTemplate,
 		valuesConfig,
 		sidecarTemplateVersionHash(sidecarTemplate),
+		typeMeta,
 		deploymentMetadata,
 		podSpec,
 		metadata,
