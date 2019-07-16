@@ -17,12 +17,14 @@ package v1alpha3
 import (
 	"net"
 	"reflect"
+	"strings"
 	"testing"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -49,17 +51,24 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 }
 
 func buildListenerPatches(config string) []*networking.EnvoyFilter_EnvoyConfigObjectPatch {
+	val := &types.Struct{}
+	jsonpb.Unmarshal(strings.NewReader(config), val)
+
 	return []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 		{
 			ApplyTo: networking.EnvoyFilter_LISTENER,
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_ADD,
-				Value: &types.Value{
-					Kind: &types.Value_StringValue{StringValue: config},
-				},
+				Value:     val,
 			},
 		},
 	}
+}
+
+func buildPatchStruct(config string) *types.Struct {
+	val := &types.Struct{}
+	jsonpb.Unmarshal(strings.NewReader(config), val)
+	return val
 }
 
 func TestApplyListenerConfigPatches(t *testing.T) {
@@ -114,9 +123,7 @@ func TestApplyListenerConfigPatches(t *testing.T) {
 					ApplyTo: networking.EnvoyFilter_LISTENER,
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_MERGE,
-						Value: &types.Value{
-							Kind: &types.Value_StringValue{StringValue: listenerConfig},
-						},
+						Value:     buildPatchStruct(listenerConfig),
 					},
 				},
 			},
@@ -161,9 +168,7 @@ func TestApplyListenerConfigPatches(t *testing.T) {
 					ApplyTo: networking.EnvoyFilter_LISTENER,
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_REMOVE,
-						Value: &types.Value{
-							Kind: &types.Value_StringValue{StringValue: listenerConfig},
-						},
+						Value:     buildPatchStruct(listenerConfig),
 					},
 				},
 			},
@@ -213,18 +218,14 @@ func TestApplyClusterConfigPatches(t *testing.T) {
 			},
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_ADD,
-				Value: &types.Value{
-					Kind: &types.Value_StringValue{StringValue: `{"name":"new-cluster1"}`},
-				},
+				Value:     buildPatchStruct(`{"name":"new-cluster1"}`),
 			},
 		},
 		{
 			ApplyTo: networking.EnvoyFilter_CLUSTER,
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_ADD,
-				Value: &types.Value{
-					Kind: &types.Value_StringValue{StringValue: `{"name":"new-cluster2"}`},
-				},
+				Value:     buildPatchStruct(`{"name":"new-cluster2"}`),
 			},
 		},
 		{
@@ -258,9 +259,7 @@ func TestApplyClusterConfigPatches(t *testing.T) {
 			},
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
-				Value: &types.Value{
-					Kind: &types.Value_StringValue{StringValue: `{"dns_lookup_family":"V6_ONLY"}`},
-				},
+				Value:     buildPatchStruct(`{"dns_lookup_family":"V6_ONLY"}`),
 			},
 		},
 		{
@@ -270,9 +269,7 @@ func TestApplyClusterConfigPatches(t *testing.T) {
 			},
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
-				Value: &types.Value{
-					Kind: &types.Value_StringValue{StringValue: `{"lb_policy":"RING_HASH"}`},
-				},
+				Value:     buildPatchStruct(`{"lb_policy":"RING_HASH"}`),
 			},
 		},
 	}
@@ -924,18 +921,14 @@ func Test_applyRouteConfigurationPatches(t *testing.T) {
 			},
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
-				Value: &types.Value{
-					Kind: &types.Value_StringValue{StringValue: `{"request_headers_to_remove":["h3", "h4"]}`},
-				},
+				Value:     buildPatchStruct(`{"request_headers_to_remove":["h3", "h4"]}`),
 			},
 		},
 		{
 			ApplyTo: networking.EnvoyFilter_VIRTUAL_HOST,
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_ADD,
-				Value: &types.Value{
-					Kind: &types.Value_StringValue{StringValue: `{"name":"new-vhost"}`},
-				},
+				Value:     buildPatchStruct(`{"name":"new-vhost"}`),
 			},
 		},
 		{
@@ -973,9 +966,7 @@ func Test_applyRouteConfigurationPatches(t *testing.T) {
 			},
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
-				Value: &types.Value{
-					Kind: &types.Value_StringValue{StringValue: `{"domains":["domain:80"]}`},
-				},
+				Value:     buildPatchStruct(`{"domains":["domain:80"]}`),
 			},
 		},
 	}

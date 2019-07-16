@@ -25,7 +25,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
@@ -305,7 +304,7 @@ func deprecatedInsertNetworkFilter(listenerName string, filterChain *listener.Fi
 		listenerName, oldLen, len(filterChain.Filters))
 }
 
-func buildXDSObjectFromValue(applyTo networking.EnvoyFilter_ApplyTo, value *types.Value) (proto.Message, error) {
+func buildXDSObjectFromValue(applyTo networking.EnvoyFilter_ApplyTo, value *types.Struct) (proto.Message, error) {
 	var obj proto.Message
 	switch applyTo {
 	case networking.EnvoyFilter_CLUSTER:
@@ -326,17 +325,8 @@ func buildXDSObjectFromValue(applyTo networking.EnvoyFilter_ApplyTo, value *type
 		return nil, fmt.Errorf("unknown object type")
 	}
 
-	val := value.GetStringValue()
-	if val != "" {
-		jsonum := &jsonpb.Unmarshaler{}
-		r := strings.NewReader(val)
-		err := jsonum.Unmarshal(r, obj)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return obj, nil
+	err := xdsutil.StructToMessage(value, obj)
+	return obj, err
 }
 
 func applyClusterPatches(env *model.Environment, proxy *model.Proxy,
