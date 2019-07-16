@@ -501,7 +501,7 @@
           "refId": "B"
         },
         {
-          "expr": "go_goroutines{job=\"galley\"}/istio_mcp_clients_total{component=\"galley\"}",
+          "expr": "go_goroutines{job=\"galley\"}/sum(istio_mcp_clients_total{component=\"galley\"}) without (component)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "avg_goroutines_per_client",
