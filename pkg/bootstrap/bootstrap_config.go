@@ -28,18 +28,16 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2/google"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/pkg/annotations"
-
-	"github.com/gogo/protobuf/types"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/pkg/annotations"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )

@@ -23,21 +23,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/pkg/util"
-	"istio.io/istio/pkg/bootstrap/platform"
-
 	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
 	tracev2 "github.com/envoyproxy/go-control-plane/envoy/config/trace/v2"
-
-	ocv1 "istio.io/gogo-genproto/opencensus/proto/trace/v1"
-
 	"github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	diff "gopkg.in/d4l3k/messagediff.v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	ocv1 "istio.io/gogo-genproto/opencensus/proto/trace/v1"
+	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -429,6 +426,14 @@ func correctForEnvDifference(in []byte, excludeLocality bool) []byte {
 				replacement: []byte("\"region\": \"\""),
 			})
 	}
+	// get rid of any platform-specific metadata
+	replacements = append(replacements,
+		regexReplacement{
+			// allow '.' to include '\n` and remove the final carriage return and tab
+			pattern:     regexp.MustCompile(`((?s)"platform_metadata": {.+},)\n\s+`),
+			replacement: []byte{},
+		},
+	)
 
 	out := in
 	for _, r := range replacements {
