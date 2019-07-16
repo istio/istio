@@ -325,6 +325,13 @@ var overrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP", "", "")
 // TODO: in v2 some of the LDS ports (port, http_port) should be configured in the bootstrap.
 func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
 	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string) (string, error) {
+	// currently, only the GCP Platform is supported, so this is hardcorded and the writeBootstrapForPlatform method is private.
+	return writeBootstrapForPlatform(config, node, epoch, pilotSAN, opts, localEnv, nodeIPs, dnsRefreshRate, platform.NewGCP())
+}
+
+func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
+	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string, platEnv platform.Environment) (string, error) {
+
 	if opts == nil {
 		opts = map[string]interface{}{}
 	}
@@ -369,10 +376,8 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["cluster"] = config.ServiceCluster
 	opts["nodeID"] = node
 
-	// GCP is only current supported platform.
-	plat := platform.NewGCP()
 	// Support passing extra info from node environment as metadata
-	meta := getNodeMetaData(localEnv, plat)
+	meta := getNodeMetaData(localEnv, platEnv)
 
 	localityOverride := ""
 	if locality, ok := meta[model.LocalityLabel]; ok {
@@ -381,7 +386,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	l := util.ConvertLocality(localityOverride)
 	if l == nil {
 		// Populate the platform locality if available.
-		l = plat.Locality()
+		l = platEnv.Locality()
 	}
 	if l.Region != "" {
 		opts["region"] = l.Region
