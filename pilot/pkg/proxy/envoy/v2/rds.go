@@ -21,7 +21,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/proto"
 )
@@ -69,12 +68,6 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.Push
 
 		if r == nil {
 			adsLog.Warnf("RDS: Got nil value for route:%s for node:%v", routeName, con.modelNode)
-
-			// Don't send an empty route, instead ignore the request. This may cause Envoy to block
-			// listeners waiting for this route
-			if features.DisableEmptyRouteResponse.Get() {
-				continue
-			}
 
 			// Explicitly send an empty route configuration
 			r = &xdsapi.RouteConfiguration{
