@@ -12,66 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package common
+package util
 
 import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 )
-
-// IndexOf is a helper function returning the index of the specified string in the specified slice or -1 if not found.
-func IndexOf(l []string, s string) int {
-	for i, elem := range l {
-		if elem == s {
-			return i
-		}
-	}
-	return -1
-}
-
-// HasLabel is a helper function returning true if the specified object contains the specified label.
-func HasLabel(resource runtime.Object, label string) bool {
-	labels, err := meta.NewAccessor().Labels(resource)
-	if err != nil {
-		// if we can't access labels, then it doesn't have this label
-		return false
-	}
-	if labels == nil {
-		return false
-	}
-	_, ok := labels[label]
-	return ok
-}
-
-// DeleteLabel is a helper function which deletes the specified label from the specified object.
-func DeleteLabel(resource runtime.Object, label string) {
-	resourceAccessor, err := meta.Accessor(resource)
-	if err != nil {
-		// if we can't access labels, then it doesn't have this label, so nothing to delete
-		return
-	}
-	labels := resourceAccessor.GetLabels()
-	if labels == nil {
-		return
-	}
-	delete(labels, label)
-	resourceAccessor.SetLabels(labels)
-}
-
-// SetLabel is a helper function which sets the specified label and value on the specified object.
-func SetLabel(resource runtime.Object, label, value string) error {
-	resourceAccessor, err := meta.Accessor(resource)
-	if err != nil {
-		return err
-	}
-	labels := resourceAccessor.GetLabels()
-	if labels == nil {
-		labels = map[string]string{}
-	}
-	labels[label] = value
-	resourceAccessor.SetLabels(labels)
-	return nil
-}
 
 // HasAnnotation is a helper function returning true if the specified object contains the specified annotation.
 func HasAnnotation(resource runtime.Object, annotation string) bool {
