@@ -466,6 +466,9 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 			if s.kubeRegistry != nil {
 				s.kubeRegistry.InitNetworkLookup(meshNetworks)
 			}
+			if s.multicluster != nil {
+				s.multicluster.ReloadNetworkLookup(meshNetworks)
+			}
 			if s.EnvoyXdsServer != nil {
 				s.EnvoyXdsServer.Env.MeshNetworks = meshNetworks
 				s.EnvoyXdsServer.ConfigUpdate(true)

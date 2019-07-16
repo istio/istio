@@ -131,3 +131,18 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 
 	return nil
 }
+
+// Hot reload mesh networks for remote clusters
+func (m *Multicluster) ReloadNetworkLookup(meshNetworks *meshconfig.MeshNetworks) error {
+	m.m.Lock()
+	defer m.m.Unlock()
+
+	m.meshNetworks = meshNetworks
+	for _, controller := range m.remoteKubeControllers {
+		if controller != nil && controller.rc != nil {
+			controller.rc.InitNetworkLookup(meshNetworks)
+		}
+	}
+
+	return nil
+}
