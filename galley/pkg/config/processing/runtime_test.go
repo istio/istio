@@ -20,7 +20,6 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
-
 	"istio.io/pkg/log"
 
 	"istio.io/api/mesh/v1alpha1"
@@ -28,13 +27,14 @@ import (
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 )
 
 func init() {
-	scope.SetOutputLevel(log.DebugLevel)
+	scope.Processing.SetOutputLevel(log.DebugLevel)
 }
 
 func TestRuntime_Startup_NoMeshConfig(t *testing.T) {

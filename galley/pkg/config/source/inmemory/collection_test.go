@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 )
@@ -44,11 +45,11 @@ func TestCollection_Start_Empty(t *testing.T) {
 func TestCollection_Start_Element(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	old := scope.GetOutputLevel()
+	old := scope.Source.GetOutputLevel()
 	defer func() {
-		scope.SetOutputLevel(old)
+		scope.Source.SetOutputLevel(old)
 	}()
-	scope.SetOutputLevel(log.DebugLevel)
+	scope.Source.SetOutputLevel(log.DebugLevel)
 
 	col := NewCollection(data.Collection1)
 	acc := &fixtures.Accumulator{}

@@ -20,6 +20,7 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
 
@@ -39,7 +40,7 @@ func (s *snapshotImpl) Resources(col string) []*mcp.Resource {
 		// TODO: We should add (LRU based) caching of serialized content here.
 		r, err := resource.Serialize(e)
 		if err != nil {
-			scope.Errorf("Unable to serialize resource.Entry: %v", err)
+			scope.Processing.Errorf("Unable to serialize resource.Entry: %v", err)
 		} else {
 			result = append(result, r)
 		}

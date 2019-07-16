@@ -23,12 +23,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/pkg/log"
-
+	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/stats"
 )
-
-var scope = log.RegisterScope("source", "", 0)
 
 // Adapter provides core functions that are necessary to interact with a Kubernetes resource.
 type Adapter struct {
@@ -84,7 +81,7 @@ func resourceVersionsMatch(o1 interface{}, o2 interface{}) bool {
 		msg := fmt.Sprintf("error decoding kube objects during update, o1 type: %v, o2 type: %v",
 			reflect.TypeOf(o1),
 			reflect.TypeOf(o2))
-		scope.Error(msg)
+		scope.Source.Error(msg)
 		stats.RecordEventError(msg)
 		return false
 	}

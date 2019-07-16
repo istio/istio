@@ -23,14 +23,12 @@ import (
 	"syscall"
 
 	"istio.io/pkg/appsignals"
-	"istio.io/pkg/log"
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 )
-
-var scope = log.RegisterScope("source", "", 0)
 
 var (
 	supportedExtensions = map[string]bool{
@@ -85,7 +83,7 @@ func (s *source) Start() {
 			select {
 			case trigger := <-c:
 				if trigger.Signal == syscall.SIGUSR1 {
-					scope.Infof("[%s] Triggering reload in response to: %v", s.name, trigger.Source)
+					scope.Source.Infof("[%s] Triggering reload in response to: %v", s.name, trigger.Source)
 					s.reload()
 				}
 			case <-s.done:
@@ -97,8 +95,8 @@ func (s *source) Start() {
 
 // Stop implements processor.Source.
 func (s *source) Stop() {
-	scope.Debugf("fs.Source.Stop >>>")
-	defer scope.Debugf("fs.Source.Stop <<<")
+	scope.Source.Debugf("fs.Source.Stop >>>")
+	defer scope.Source.Debugf("fs.Source.Stop <<<")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.done == nil {
@@ -119,7 +117,7 @@ func (s *source) reload() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	scope.Debugf("[%s] Begin reloading files...", s.name)
+	scope.Source.Debugf("[%s] Begin reloading files...", s.name)
 	names := s.s.ContentNames()
 
 	err := filepath.Walk(s.root, func(path string, info os.FileInfo, err error) error {
@@ -131,31 +129,31 @@ func (s *source) reload() {
 			return nil
 		}
 
-		scope.Infof("[%s] Discovered file: %q", s.name, path)
+		scope.Source.Infof("[%s] Discovered file: %q", s.name, path)
 
 		data, err := ioutil.ReadFile(path)
 		if err != nil {
-			scope.Infof("[%s] Error reading file %q: %v", s.name, path, err)
+			scope.Source.Infof("[%s] Error reading file %q: %v", s.name, path, err)
 			return err
 		}
 
 		if err := s.s.ApplyContent(path, string(data)); err != nil {
-			scope.Errorf("[%s] Error applying file contents(%q): %v", s.name, path, err)
+			scope.Source.Errorf("[%s] Error applying file contents(%q): %v", s.name, path, err)
 		}
 		delete(names, path)
 		return nil
 	})
 
 	if err != nil {
-		scope.Errorf("Error walking path during reload: %v", err)
+		scope.Source.Errorf("Error walking path during reload: %v", err)
 		return
 	}
 
 	for n := range names {
-		scope.Infof("Removing the contents of the file %q", n)
+		scope.Source.Infof("Removing the contents of the file %q", n)
 
 		s.s.RemoveContent(n)
 	}
 
-	scope.Debugf("[%s] Completed reloading files...", s.name)
+	scope.Source.Debugf("[%s] Completed reloading files...", s.name)
 }

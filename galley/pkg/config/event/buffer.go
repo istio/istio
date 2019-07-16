@@ -16,6 +16,8 @@ package event
 
 import (
 	"sync"
+
+	"istio.io/istio/galley/pkg/config/scope"
 )
 
 // Buffer is a growing event buffer.
@@ -48,7 +50,7 @@ func WithBuffer(s Dispatcher) *Buffer {
 // Handle implements Handler
 func (b *Buffer) Handle(e Event) {
 	b.mu.Lock()
-	scope.Debugf(">>> Buffer.Handle: %v", e)
+	scope.Processing.Debugf(">>> Buffer.Handle: %v", e)
 	b.queue.add(e)
 	b.cond.Broadcast()
 	b.mu.Unlock()
@@ -87,20 +89,20 @@ func (b *Buffer) Process() {
 		// lock must be held when entering the for loop (whether from beginning, or through loop continuation).
 		// this makes locking/unlocking slightly more efficient.
 		if !b.processing {
-			scope.Debug(">>> Buffer.Process: exiting")
+			scope.Processing.Debug(">>> Buffer.Process: exiting")
 			b.mu.Unlock()
 			return
 		}
 
 		e, ok := b.queue.pop()
 		if !ok {
-			scope.Debug("Buffer.Process: no more items to process, waiting")
+			scope.Processing.Debug("Buffer.Process: no more items to process, waiting")
 			b.cond.Wait()
 			continue
 		}
 
 		if b.handler != nil {
-			scope.Debugf(">>> Buffer.Process: dispatching %v", e)
+			scope.Processing.Debugf(">>> Buffer.Process: dispatching %v", e)
 			b.mu.Unlock()
 			b.handler.Handle(e)
 			b.mu.Lock()

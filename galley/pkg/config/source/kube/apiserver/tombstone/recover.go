@@ -21,12 +21,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/pkg/log"
-
+	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/stats"
 )
-
-var scope = log.RegisterScope("source", "", 0)
 
 // RecoverResource from a kubernetes tombstone (cache.DeletedFinalStateUnknown). Returns the resource or nil if
 // recovery failed.
@@ -35,7 +32,7 @@ func RecoverResource(obj interface{}) metav1.Object {
 	var ok bool
 	if tombstone, ok = obj.(cache.DeletedFinalStateUnknown); !ok {
 		msg := fmt.Sprintf("error decoding object, invalid type: %v", reflect.TypeOf(obj))
-		scope.Error(msg)
+		scope.Source.Error(msg)
 		stats.RecordEventError(msg)
 		return nil
 	}
@@ -44,11 +41,11 @@ func RecoverResource(obj interface{}) metav1.Object {
 	if objectMeta, ok = tombstone.Obj.(metav1.Object); !ok {
 		msg := fmt.Sprintf("error decoding object tombstone, invalid type: %v",
 			reflect.TypeOf(tombstone.Obj))
-		scope.Error(msg)
+		scope.Source.Error(msg)
 		stats.RecordEventError(msg)
 		return nil
 	}
 
-	scope.Infof("Recovered deleted object '%s' from tombstone", objectMeta.GetName())
+	scope.Source.Infof("Recovered deleted object '%s' from tombstone", objectMeta.GetName())
 	return objectMeta
 }

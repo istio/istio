@@ -17,6 +17,7 @@ package snapshotter
 import (
 	"sync"
 
+	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
 
@@ -45,7 +46,7 @@ func (d *InMemoryDistributor) SetSnapshot(name string, s snapshot.Snapshot) {
 	d.snapshotsLock.Lock()
 	defer d.snapshotsLock.Unlock()
 
-	scope.Debugf("InmemoryDistributor.SetSnapshot: %s: %v", name, s)
+	scope.Processing.Debugf("InmemoryDistributor.SetSnapshot: %s: %v", name, s)
 	d.snapshots[name] = s
 }
 

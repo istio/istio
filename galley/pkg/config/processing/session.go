@@ -23,6 +23,7 @@ import (
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/scope"
 )
 
 type sessionState string
@@ -114,11 +115,11 @@ func (s *session) start() {
 }
 
 func (s *session) startSources() {
-	scope.Debug("session starting sources...")
+	scope.Processing.Debug("session starting sources...")
 	// start source after relinquishing lock. This avoids deadlocks.
 	s.options.Source.Start()
 
-	scope.Debugf("session source start complete")
+	scope.Processing.Debugf("session source start complete")
 
 	// check the state again. During startup we might have received mesh config, or got signaled for stop.
 	var terminate bool
@@ -147,7 +148,7 @@ func (s *session) startSources() {
 }
 
 func (s *session) stop() {
-	scope.Debug("session.stop()")
+	scope.Processing.Debug("session.stop()")
 
 	var terminate bool
 	s.mu.Lock()
@@ -177,16 +178,16 @@ func (s *session) terminate() {
 	}
 	s.mu.Unlock()
 
-	scope.Debug("session.terminate: stopping buffer...")
+	scope.Processing.Debug("session.terminate: stopping buffer...")
 	s.buffer.Stop()
-	scope.Debug("session.terminate: stopping processor...")
+	scope.Processing.Debug("session.terminate: stopping processor...")
 	if s.processor != nil {
 		s.processor.Stop()
 	}
-	scope.Debug("session.terminate: stopping sources...")
+	scope.Processing.Debug("session.terminate: stopping sources...")
 	s.options.Source.Stop()
 
-	scope.Debug("session.terminate: signalling session termination...")
+	scope.Processing.Debug("session.terminate: signalling session termination...")
 	s.mu.Lock()
 	if s.doneCh != nil {
 		close(s.doneCh)
@@ -253,7 +254,7 @@ func (s *session) handleMeshEvent(e event.Event) {
 		// nothing to do
 
 	case processing:
-		scope.Infof("session.handleMeshEvent: Mesh event received during running state, restarting: %+v", e)
+		scope.Processing.Infof("session.handleMeshEvent: Mesh event received during running state, restarting: %+v", e)
 		s.transitionTo(terminating)
 		go s.terminate()
 
@@ -277,13 +278,13 @@ func (s *session) applyMeshEvent(e event.Event) {
 	// Apply the meshconfig changes directly to the internal state.
 	switch e.Kind {
 	case event.Added, event.Updated:
-		scope.Debugf("session.handleMeshEvent: received an add/update mesh config event: %v", e)
+		scope.Processing.Infof("session.handleMeshEvent: received an add/update mesh config event: %v", e)
 		s.meshCfg = proto.Clone(e.Entry.Item).(*v1alpha1.MeshConfig)
 	case event.Deleted:
-		scope.Debugf("session.handleMeshEvent: received a delete mesh config event: %v", e)
+		scope.Processing.Infof("session.handleMeshEvent: received a delete mesh config event: %v", e)
 		s.meshCfg = meshcfg.Default()
 	case event.FullSync:
-		scope.Debugf("session.applyMeshEvent meshSynced: %v => %v", s.meshSynced, true)
+		scope.Processing.Infof("session.applyMeshEvent meshSynced: %v => %v", s.meshSynced, true)
 		s.meshSynced = true
 
 	// reset case is already handled by the time call arrives here.
@@ -294,6 +295,6 @@ func (s *session) applyMeshEvent(e event.Event) {
 }
 
 func (s *session) transitionTo(st sessionState) {
-	scope.Infof("session[%d] %q => %q", s.id, s.state, st)
+	scope.Processing.Infof("session[%d] %q => %q", s.id, s.state, st)
 	s.state = st
 }

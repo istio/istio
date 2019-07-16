@@ -12,8 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package inmemory
+package scope
 
 import "istio.io/pkg/log"
 
-var scope = log.RegisterScope("source", "", 0)
+var (
+	// Processing is a logging scope used by configuration processing pipeline.
+	Processing = log.RegisterScope("processing", "Scope for configuration processing runtime", 0)
+
+
+	// Source is a logging scope for config event sources.
+	Source = log.RegisterScope("source", "Scope for configuration event sources", 0)
+)

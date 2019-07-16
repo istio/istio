@@ -23,18 +23,15 @@ import (
 	"github.com/ghodss/yaml"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/inmemory"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/galley/pkg/config/util/kubeyaml"
 )
-
-var scope = log.RegisterScope("source", "", 0)
 
 var inMemoryKubeNameDiscriminator int64
 
@@ -189,8 +186,8 @@ func parseContent(r schema.KubeResources, name, yamlText string) []kubeResource 
 
 		r, err := parseChunk(r, chunk)
 		if err != nil {
-			scope.Errorf("Error processing %s[%d]: %v", name, i, err)
-			scope.Debugf("Offending Yaml chunk: %v", string(chunk))
+			scope.Source.Errorf("Error processing %s[%d]: %v", name, i, err)
+			scope.Source.Debugf("Offending Yaml chunk: %v", string(chunk))
 			continue
 		}
 

@@ -26,11 +26,10 @@ import (
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
 	"istio.io/istio/galley/pkg/testing/mock"
 )
-
-var scope = log.RegisterScope("source", "", 0)
 
 const (
 	name      = "fakeResource"
@@ -409,11 +408,11 @@ func toResource(objectMeta metav1.Object, item proto.Message) *resource.Entry {
 }
 
 func setDebugLogLevel() log.Level {
-	prev := scope.GetOutputLevel()
-	scope.SetOutputLevel(log.DebugLevel)
+	prev := scope.Source.GetOutputLevel()
+	scope.Source.SetOutputLevel(log.DebugLevel)
 	return prev
 }
 
 func restoreLogLevel(level log.Level) {
-	scope.SetOutputLevel(level)
+	scope.Source.SetOutputLevel(level)
 }

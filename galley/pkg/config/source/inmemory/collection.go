@@ -15,7 +15,6 @@
 package inmemory
 
 import (
-	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -23,6 +22,7 @@ import (
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/scope"
 )
 
 // Collection is an in-memory collection that implements event.Source
@@ -38,7 +38,7 @@ var _ event.Source = &Collection{}
 
 // NewCollection returns a new in-memory collection.
 func NewCollection(c collection.Name) *Collection {
-	scope.Debuga("  Creating in-memory collection: ", c)
+	scope.Source.Debuga("  Creating in-memory collection: ", c)
 
 	return &Collection{
 		collection: c,
@@ -69,8 +69,8 @@ func (c *Collection) Stop() {
 
 // Dispatch an event handler to receive resource events.
 func (c *Collection) Dispatch(handler event.Handler) {
-	if scope.DebugEnabled() {
-		scope.Debugf("Collection.Dispatch: (collection: %-50v, handler: %v)", c.collection, reflect.TypeOf(handler))
+	if scope.Source.DebugEnabled() {
+		scope.Source.Debugf("Collection.Dispatch: (collection: %-50v, handler: %T)", c.collection, handler)
 	}
 
 	c.handler = event.CombineHandlers(c.handler, handler)
@@ -115,8 +115,8 @@ func (c *Collection) Clear() {
 }
 
 func (c *Collection) dispatchEvent(e event.Event) {
-	if scope.DebugEnabled() {
-		scope.Debugf(">>> Collection.dispatchEvent: (col: %-50s): %v", c.collection, e)
+	if scope.Source.DebugEnabled() {
+		scope.Source.Debugf(">>> Collection.dispatchEvent: (col: %-50s): %v", c.collection, e)
 	}
 	if c.handler != nil {
 		c.handler.Handle(e)

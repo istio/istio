@@ -19,6 +19,7 @@ import (
 	"sync/atomic"
 
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/scope"
 )
 
 // RuntimeOptions is options for Runtime
@@ -77,7 +78,7 @@ func (r *Runtime) Start() {
 	defer r.mu.Unlock()
 
 	if r.stopCh != nil {
-		scope.Warnf("Runtime.Start: already started")
+		scope.Processing.Warnf("Runtime.Start: already started")
 		return
 	}
 	r.stopCh = make(chan struct{})
@@ -126,24 +127,24 @@ func (r *Runtime) run(stopCh chan struct{}) {
 loop:
 	for {
 		sid := atomic.AddInt32(&r.sessionIDCtr, 1)
-		scope.Infof("Runtime.run: Starting new session id:%d", sid)
+		scope.Processing.Infof("Runtime.run: Starting new session id:%d", sid)
 		se, done := newSession(sid, r.options)
 		r.session.Store(se)
 		se.start()
 
 		select {
 		case <-done:
-			scope.Infof("Runtime.run: Completing session: id:%d", sid)
+			scope.Processing.Infof("Runtime.run: Completing session: id:%d", sid)
 
 		case <-stopCh:
-			scope.Infof("Runtime.run: Stopping session: id%d", sid)
+			scope.Processing.Infof("Runtime.run: Stopping session: id%d", sid)
 			se.stop()
 			break loop
 		}
 	}
 
 	r.wg.Done()
-	scope.Info("Runtime.run: Exiting...")
+	scope.Processing.Info("Runtime.run: Exiting...")
 }
 
 func (r *Runtime) handle(e event.Event) {

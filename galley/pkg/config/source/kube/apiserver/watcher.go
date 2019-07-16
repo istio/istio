@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/stats"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/tombstone"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
@@ -53,11 +54,11 @@ func (w *watcher) start() {
 		panic("watcher.start: already started")
 	}
 
-	scope.Debugf("Starting watcher for %q (%q)", w.resource.Collection.Name, w.resource.CanonicalResourceName())
+	scope.Source.Debugf("Starting watcher for %q (%q)", w.resource.Collection.Name, w.resource.CanonicalResourceName())
 
 	informer, err := w.adapter.NewInformer()
 	if err != nil {
-		scope.Errorf("unable to start watcher for %q: %v", w.resource.CanonicalResourceName(), err)
+		scope.Source.Errorf("unable to start watcher for %q: %v", w.resource.CanonicalResourceName(), err)
 		w.handler.Handle(event.FullSyncFor(w.resource.Collection.Name))
 		return
 	}
@@ -109,7 +110,7 @@ func (w *watcher) handleEvent(c event.Kind, obj interface{}) {
 	if !ok {
 		if obj = tombstone.RecoverResource(obj); object != nil {
 			// Tombstone recovery failed.
-			scope.Warnf("Unable to extract object for event: %v", obj)
+			scope.Source.Warnf("Unable to extract object for event: %v", obj)
 			return
 		}
 	}
@@ -117,7 +118,7 @@ func (w *watcher) handleEvent(c event.Kind, obj interface{}) {
 	object = w.adapter.ExtractObject(obj)
 	res, err := w.adapter.ExtractResource(obj)
 	if err != nil {
-		scope.Warnf("unable to extract resource: %v: %e", obj, err)
+		scope.Source.Warnf("unable to extract resource: %v: %e", obj, err)
 		return
 	}
 
@@ -139,7 +140,7 @@ func (w *watcher) handleEvent(c event.Kind, obj interface{}) {
 	}
 
 	if w.handler != nil {
-		scope.Debugf("Sending event: [%v] from: %s", e, w.resource.Collection.Name)
+		scope.Source.Debugf("Sending event: [%v] from: %s", e, w.resource.Collection.Name)
 		w.handler.Handle(e)
 	}
 	stats.RecordEventSuccess()
