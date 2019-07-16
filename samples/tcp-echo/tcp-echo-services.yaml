@@ -25,12 +25,16 @@ spec:
   selector:
     app: tcp-echo
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tcp-echo-v1
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: tcp-echo
+      version: v1
   template:
     metadata:
       labels:
@@ -39,18 +43,22 @@ spec:
     spec:
       containers:
       - name: tcp-echo
-        image: istio/tcp-echo-server:1.1
+        image: docker.io/istio/tcp-echo-server:1.1
         imagePullPolicy: IfNotPresent
         args: [ "9000", "one" ]
         ports:
         - containerPort: 9000
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tcp-echo-v2
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: tcp-echo
+      version: v2
   template:
     metadata:
       labels:
@@ -59,7 +67,7 @@ spec:
     spec:
       containers:
       - name: tcp-echo
-        image: istio/tcp-echo-server:1.1
+        image: docker.io/istio/tcp-echo-server:1.1
         imagePullPolicy: IfNotPresent
         args: [ "9000", "two" ]
         ports:

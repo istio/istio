@@ -588,8 +588,8 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 		return fmt.Errorf("cannot cast to envoy filter")
 	}
 
-	if len(rule.Filters) == 0 {
-		return fmt.Errorf("envoy filter: missing filters")
+	if len(rule.Filters) > 0 {
+		log.Warn("envoy filter: Filters is deprecated. use configPatches instead")
 	}
 
 	for _, f := range rule.Filters {
@@ -613,6 +613,7 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 		}
 	}
 
+	// TODO: add validation for configPatches
 	return
 }
 
@@ -2190,8 +2191,8 @@ func validateHTTPFaultInjectionAbort(abort *networking.HTTPFaultInjection_Abort)
 }
 
 func validateHTTPStatus(status int32) error {
-	if status < 0 || status > 600 {
-		return fmt.Errorf("HTTP status %d is not in range 0-600", status)
+	if status < 200 || status > 600 {
+		return fmt.Errorf("HTTP status %d is not in range 200-599", status)
 	}
 	return nil
 }
@@ -2221,7 +2222,7 @@ func validateDestination(destination *networking.Destination) (errs error) {
 
 	host := destination.Host
 	if host == "*" {
-		errs = appendErrors(errs, fmt.Errorf("invalid destintation host %s", host))
+		errs = appendErrors(errs, fmt.Errorf("invalid destination host %s", host))
 	} else {
 		errs = appendErrors(errs, ValidateWildcardDomain(host))
 	}

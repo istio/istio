@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,9 +17,10 @@ package util
 import (
 	"fmt"
 	"net"
-	"strconv"
 	"strings"
 
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	"github.com/gogo/protobuf/jsonpb"
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -31,28 +32,24 @@ var (
 
 // GetInboundListeningPorts returns a map of inbound ports for which Envoy has active listeners.
 func GetInboundListeningPorts(localHostAddr string, adminPort uint16, nodeType model.NodeType) (map[uint16]bool, string, error) {
-	buf, err := doHTTPGet(fmt.Sprintf("http://%s:%d/listeners", localHostAddr, adminPort))
+	buf, err := doHTTPGet(fmt.Sprintf("http://%s:%d/listeners?format=json", localHostAddr, adminPort))
 	if err != nil {
 		return nil, "", multierror.Prefix(err, "failed retrieving Envoy listeners:")
 	}
 
-	// Clean the input string to remove surrounding brackets
-	input := strings.Trim(strings.TrimSpace(buf.String()), "[]")
-
-	// Get the individual listener strings.
-	listeners := strings.Split(input, ",")
+	listeners := &admin.Listeners{}
+	if err := jsonpb.Unmarshal(buf, listeners); err != nil {
+		return nil, "", fmt.Errorf("failed parsing Envoy listeners %s: %s", buf, err)
+	}
 	ports := make(map[uint16]bool)
-	for _, l := range listeners {
-		// Remove quotes around the string
-		l = strings.Trim(strings.TrimSpace(l), "\"")
-
-		ipAddrParts := strings.Split(l, ":")
-		if len(ipAddrParts) < 2 {
-			return nil, "", fmt.Errorf("failed parsing Envoy listener: %s", l)
+	for _, l := range listeners.ListenerStatuses {
+		socketAddr := l.LocalAddress.GetSocketAddress()
+		if socketAddr == nil {
+			// Only care about socket address, ignore pipe.
+			continue
 		}
-		// Before checking if listener is local, removing port portion of the address
-		ipAddr := strings.TrimSuffix(l, ":"+ipAddrParts[len(ipAddrParts)-1])
 
+		ipAddr := socketAddr.GetAddress()
 		switch nodeType {
 		// For gateways, we will not listen on a local host, instead on 0.0.0.0
 		case model.Router:
@@ -65,16 +62,11 @@ func GetInboundListeningPorts(localHostAddr string, adminPort uint16, nodeType m
 			}
 		}
 
-		portStr := ipAddrParts[len(ipAddrParts)-1]
-		port, err := strconv.ParseUint(portStr, 10, 16)
-		if err != nil {
-			return nil, "", multierror.Prefix(err, fmt.Sprintf("failed parsing port for Envoy listener: %s", l))
-		}
-
+		port := socketAddr.GetPortValue()
 		ports[uint16(port)] = true
 	}
 
-	return ports, input, nil
+	return ports, buf.String(), nil
 }
 
 func isLocalListener(l string) bool {

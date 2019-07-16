@@ -20,7 +20,7 @@ about: Report a bug to help us improve Istio
 [ ] Security
 [ ] Test and Release
 [ ] User Experience
-[ ] Developer Infrastrcture
+[ ] Developer Infrastructure
 
 **Expected behavior**
 

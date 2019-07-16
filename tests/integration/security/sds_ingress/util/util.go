@@ -183,9 +183,9 @@ func VisitProductPage(ing ingress.Instance, host string, callType ingress.CallTy
 			t.Logf("Got %d response from product page!", status)
 			return nil
 		} else if status != exRsp.ResponseCode {
-			t.Errorf("expected response code %d but got %d", exRsp.ResponseCode, status)
+			t.Logf("expected response code %d but got %d", exRsp.ResponseCode, status)
 		} else {
-			t.Errorf("expected response error message %s but got %s", exRsp.ErrorMessage, err.Error())
+			t.Logf("expected response error message %s but got %s", exRsp.ErrorMessage, err.Error())
 		}
 
 		if time.Since(start) > timeout {
@@ -277,4 +277,30 @@ func DeployBookinfo(t *testing.T, ctx framework.TestContext, g galley.Instance, 
 	time.Sleep(3 * time.Second)
 	// Restore the bookinfo root to original value.
 	env.BookInfoRoot = originBookInfoRoot
+}
+
+// WaitUntilGatewaySdsStatsGE checks gateway stats server_ssl_socket_factory.ssl_context_update_by_sds
+// and returns if server_ssl_socket_factory.ssl_context_update_by_sds >= expectedUpdates, or timeouts
+// after duration seconds, whichever comes first. Returns an error indicating that stats do not meet
+// expectation but timeout.
+func WaitUntilGatewaySdsStatsGE(t *testing.T, ing ingress.Instance, expectedUpdates int, timeout time.Duration) error {
+	start := time.Now()
+	sdsUpdates := 0
+	for {
+		if time.Since(start) > timeout {
+			return fmt.Errorf("sds stats does not meet expection in %v: Last stats: %v", timeout, sdsUpdates)
+		}
+		gatewayStats, err := ing.ProxyStats()
+		if err == nil {
+			sdsUpdates, hasSdsStats := gatewayStats["listener.0.0.0.0_443.server_ssl_socket_factory.ssl_context_update_by_sds"]
+			if hasSdsStats && sdsUpdates >= expectedUpdates {
+				t.Logf("ingress gateway SDS updates meets expectation within %v. got %v vs expected %v",
+					time.Since(start), sdsUpdates, expectedUpdates)
+				return nil
+			}
+		} else {
+			t.Logf("unable to get ingress gateway proxy stats: %v", err)
+		}
+		time.Sleep(3 * time.Second)
+	}
 }

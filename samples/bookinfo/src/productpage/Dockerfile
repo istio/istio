@@ -32,6 +32,9 @@ ENV FLOOD_FACTOR ${flood_factor:-0}
 EXPOSE 9080
 WORKDIR /opt/microservices
 RUN python -m unittest discover
-CMD touch /opt/microservices/microservice.log && \
-    tail -f /opt/microservices/microservice.log & \
+RUN chmod 775 /opt/microservices && \
+    touch /opt/microservices/microservice.log && \
+    chmod 664 /opt/microservices/microservice.log
+
+CMD tail -f /opt/microservices/microservice.log & \
     python productpage.py 9080

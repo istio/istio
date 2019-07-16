@@ -87,8 +87,8 @@ func (c *Controller) DeleteRegistry(clusterID string) {
 
 // GetRegistries returns a copy of all registries
 func (c *Controller) GetRegistries() []Registry {
-	c.storeLock.Lock()
-	defer c.storeLock.Unlock()
+	c.storeLock.RLock()
+	defer c.storeLock.RUnlock()
 
 	return c.registries
 }

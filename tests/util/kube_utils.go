@@ -195,7 +195,7 @@ func KubeGetYaml(namespace, resource, name string, kubeconfig string) (string, e
 	if namespace == "" {
 		namespace = "default"
 	}
-	cmd := fmt.Sprintf("kubectl get %s %s -n %s -o yaml --kubeconfig=%s --export", resource, name, namespace, kubeconfig)
+	cmd := fmt.Sprintf("kubectl get %s %s -n %s -o yaml --kubeconfig=%s", resource, name, namespace, kubeconfig)
 
 	return Shell(cmd)
 }
@@ -359,6 +359,20 @@ func getServiceLoadBalancer(name, namespace, kubeconfig string) (string, error) 
 		return "", err
 	}
 
+	if ip == "" {
+		// This block is used for docker-desktop kubernetes
+		ip, err = ShellSilent(
+			"kubectl get svc %s -n %s -o jsonpath='{.status.loadBalancer.ingress[*].hostname}' --kubeconfig=%s",
+			name, namespace, kubeconfig)
+
+		if err != nil {
+			return "", err
+		}
+		if ip == "localhost" {
+			ip = "127.0.0.1"
+		}
+	}
+
 	ip = strings.Trim(ip, "'")
 	addr := net.ParseIP(ip)
 	if addr == nil {
@@ -459,6 +473,20 @@ func GetAppPods(n string, kubeconfig string) (map[string][]string, error) {
 		m[app] = append(m[app], podName)
 	}
 	return m, nil
+}
+
+// IsJobSucceeded checks whether a job for the given namespace succeeded
+func IsJobSucceeded(n, name string, kubeconfig string) (bool, error) {
+	succeed, err := Shell("kubectl -n %s get job  %s -o jsonpath='{.status.succeeded}' --kubeconfig=%s", n, name, kubeconfig)
+	if err != nil {
+		log.Warnf("could not get %s job: %v", name, err)
+		return false, err
+	}
+
+	if len(succeed) != 0 {
+		return true, nil
+	}
+	return false, nil
 }
 
 // GetPodLabelValues gets a map of pod name to label value for the given label and namespace
@@ -820,10 +848,10 @@ func CheckDeploymentsReady(ns string, kubeconfig string) (int, error) {
 	notReady := 0
 	for _, line := range strings.Split(out, "\n") {
 		flds := strings.Fields(line)
-		if len(flds) < 2 {
+		if len(flds) < 1 {
 			continue
 		}
-		if flds[1] == "0" { // no replicas ready
+		if len(flds) == 1 || flds[1] == "0" { // no replicas ready
 			notReady++
 		}
 	}

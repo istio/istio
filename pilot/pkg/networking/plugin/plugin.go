@@ -68,7 +68,10 @@ type InputParams struct {
 	// a HTTP connection manager with TLS context, while the other could be a tcp proxy with sni
 	ListenerProtocol ListenerProtocol
 	// ListenerCategory is the type of listener (sidecar_inbound, sidecar_outbound, gateway). Must be set
-	ListenerCategory networking.EnvoyFilter_ListenerMatch_ListenerType
+	ListenerCategory networking.EnvoyFilter_PatchContext
+
+	// TODO: Remove me when listener match is in place
+	DeprecatedListenerCategory networking.EnvoyFilter_DeprecatedListenerMatch_ListenerType
 
 	// Env is the model environment. Must be set.
 	Env *model.Environment

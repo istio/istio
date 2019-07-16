@@ -23,7 +23,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"istio.io/istio/tests/util"
+	testUtil "istio.io/istio/pkg/test/util"
+	testsUtil "istio.io/istio/tests/util"
 	"istio.io/pkg/log"
 )
 
@@ -101,11 +102,11 @@ func (i *Istioctl) Install() error {
 		}
 		homeDir := usr.HomeDir
 
-		istioctlSuffix, err := util.GetOsExt()
+		istioctlSuffix, err := testsUtil.GetOsExt()
 		if err != nil {
 			return err
 		}
-		if err = util.HTTPDownload(i.binaryPath, i.remotePath+"/istioctl-"+istioctlSuffix); err != nil {
+		if err = testUtil.HTTPDownload(i.binaryPath, i.remotePath+"/istioctl-"+istioctlSuffix); err != nil {
 			log.Error("Failed to download istioctl")
 			return err
 		}
@@ -123,7 +124,7 @@ func (i *Istioctl) Install() error {
 
 func (i *Istioctl) run(format string, args ...interface{}) (res string, err error) {
 	format = i.binaryPath + " " + format
-	if res, err = util.ShellMuteOutput(format, args...); err != nil {
+	if res, err = testsUtil.ShellMuteOutput(format, args...); err != nil {
 		log.Errorf("istioctl %s failed", args)
 		return "", err
 	}

@@ -32,6 +32,7 @@ import (
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/stackdriver/config"
 	"istio.io/istio/mixer/adapter/stackdriver/helper"
+	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/adapter/test"
 	metrict "istio.io/istio/mixer/template/metric"
 )
@@ -47,7 +48,7 @@ func (f *fakebuf) Record(in []*monitoringpb.TimeSeries) {
 func (*fakebuf) Close() error { return nil }
 
 var clientFunc = func(err error) createClientFunc {
-	return func(cfg *config.Params) (*monitoring.MetricClient, error) {
+	return func(cfg *config.Params, logger adapter.Logger) (*monitoring.MetricClient, error) {
 		return nil, err
 	}
 }
@@ -411,7 +412,7 @@ func TestRecord(t *testing.T) {
 
 func TestProjectID(t *testing.T) {
 	createClientFn := func(pid string) createClientFunc {
-		return func(cfg *config.Params) (*monitoring.MetricClient, error) {
+		return func(cfg *config.Params, logger adapter.Logger) (*monitoring.MetricClient, error) {
 			if cfg.ProjectId != pid {
 				return nil, fmt.Errorf("wanted %v got %v", pid, cfg.ProjectId)
 			}

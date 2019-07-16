@@ -38,6 +38,8 @@ github.com/DataDog/datadog-go/statsd
 github.com/Masterminds/semver
 # github.com/Masterminds/sprig v2.14.1+incompatible
 github.com/Masterminds/sprig
+# github.com/Microsoft/go-winio v0.4.12
+github.com/Microsoft/go-winio
 # github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6
 github.com/alicebob/gopher-json
 # github.com/alicebob/miniredis v0.0.0-20180201100744-9d52b1fc8da9
@@ -104,13 +106,40 @@ github.com/davecgh/go-spew/spew
 github.com/dchest/siphash
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
 github.com/dgrijalva/jwt-go
+# github.com/docker/distribution v2.7.1+incompatible
+github.com/docker/distribution/reference
+github.com/docker/distribution/digestset
+# github.com/docker/docker v1.13.1
+github.com/docker/docker/api/types
+github.com/docker/docker/api/types/container
+github.com/docker/docker/api/types/network
+github.com/docker/docker/client
+github.com/docker/docker/pkg/stdcopy
+github.com/docker/docker/api/types/filters
+github.com/docker/docker/api/types/mount
+github.com/docker/docker/api/types/registry
+github.com/docker/docker/api/types/swarm
+github.com/docker/docker/api/types/blkiodev
+github.com/docker/docker/api/types/strslice
+github.com/docker/docker/api/types/events
+github.com/docker/docker/api/types/reference
+github.com/docker/docker/api/types/time
+github.com/docker/docker/api/types/versions
+github.com/docker/docker/api/types/volume
+github.com/docker/docker/pkg/tlsconfig
+# github.com/docker/go-connections v0.4.0
+github.com/docker/go-connections/nat
+github.com/docker/go-connections/sockets
+github.com/docker/go-connections/tlsconfig
+# github.com/docker/go-units v0.4.0
+github.com/docker/go-units
 # github.com/docker/spdystream v0.0.0-20170912183627-bc6354cbbc29
 github.com/docker/spdystream
 github.com/docker/spdystream/spdy
 # github.com/emicklei/go-restful v2.6.0+incompatible
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
-# github.com/envoyproxy/go-control-plane v0.8.0
+# github.com/envoyproxy/go-control-plane v0.8.2
 github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha
 github.com/envoyproxy/go-control-plane/envoy/api/v2
 github.com/envoyproxy/go-control-plane/envoy/api/v2/auth
@@ -121,7 +150,6 @@ github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2
 github.com/envoyproxy/go-control-plane/pkg/util
 github.com/envoyproxy/go-control-plane/envoy/api/v2/core
 github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint
-github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha
 github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster
 github.com/envoyproxy/go-control-plane/envoy/api/v2/route
 github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2
@@ -133,19 +161,22 @@ github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2
 github.com/envoyproxy/go-control-plane/envoy/type
 github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2
-github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha
+github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2
 github.com/envoyproxy/go-control-plane/envoy/type/matcher
 github.com/envoyproxy/go-control-plane/envoy/config/filter/http/health_check/v2
 github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2
+github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha
+github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha
 github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2
 github.com/envoyproxy/go-control-plane/envoy/service/tap/v2alpha
 github.com/envoyproxy/go-control-plane/pkg/cache
 github.com/envoyproxy/go-control-plane/pkg/server
+github.com/envoyproxy/go-control-plane/envoy/config/trace/v2
 github.com/envoyproxy/go-control-plane/envoy/config/metrics/v2
 github.com/envoyproxy/go-control-plane/envoy/config/overload/v2alpha
-github.com/envoyproxy/go-control-plane/envoy/config/trace/v2
+github.com/envoyproxy/go-control-plane/envoy/data/tap/v2alpha
 github.com/envoyproxy/go-control-plane/pkg/log
-# github.com/envoyproxy/protoc-gen-validate v0.0.14
+# github.com/envoyproxy/protoc-gen-validate v0.0.0-20190405222122-d6164de49109
 github.com/envoyproxy/protoc-gen-validate/validate
 # github.com/evanphx/json-patch v3.0.0+incompatible
 github.com/evanphx/json-patch
@@ -319,6 +350,14 @@ github.com/jmespath/go-jmespath
 github.com/json-iterator/go
 # github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515
 github.com/kr/logfmt
+# github.com/lestrrat-go/jwx v0.9.0
+github.com/lestrrat-go/jwx/jwa
+github.com/lestrrat-go/jwx/jwk
+github.com/lestrrat-go/jwx/jws
+github.com/lestrrat-go/jwx/internal/base64
+github.com/lestrrat-go/jwx/internal/option
+github.com/lestrrat-go/jwx/jws/sign
+github.com/lestrrat-go/jwx/jws/verify
 # github.com/lukechampine/freeze v0.0.0-20160818180733-f514e08ae5a0
 github.com/lukechampine/freeze
 # github.com/magiconair/properties v1.8.0
@@ -362,6 +401,8 @@ github.com/open-policy-agent/opa/storage
 github.com/open-policy-agent/opa/storage/inmem
 github.com/open-policy-agent/opa/topdown
 github.com/open-policy-agent/opa/topdown/builtins
+# github.com/opencontainers/go-digest v1.0.0-rc1
+github.com/opencontainers/go-digest
 # github.com/openshift/api v0.0.0-20190322043348-8741ff068a47
 github.com/openshift/api/apps/v1
 # github.com/opentracing/opentracing-go v1.0.2
@@ -433,7 +474,7 @@ github.com/signalfx/golib/event
 github.com/signalfx/golib/log
 github.com/signalfx/golib/timekeeper
 github.com/signalfx/golib/eventcounter
-# github.com/spf13/afero v1.1.2
+# github.com/spf13/afero v1.2.2
 github.com/spf13/afero
 github.com/spf13/afero/mem
 # github.com/spf13/cast v1.3.0
@@ -481,18 +522,18 @@ github.com/yuin/gopher-lua/parse
 github.com/yuin/gopher-lua/ast
 github.com/yuin/gopher-lua/pm
 # go.opencensus.io v0.21.0
-go.opencensus.io/stats
 go.opencensus.io/stats/view
+go.opencensus.io/stats
 go.opencensus.io/tag
 go.opencensus.io/trace
 go.opencensus.io/plugin/ochttp
 go.opencensus.io/plugin/ochttp/propagation/b3
 go.opencensus.io/plugin/ocgrpc
 go.opencensus.io/metric/metricdata
-go.opencensus.io/stats/internal
+go.opencensus.io/metric/metricexport
 go.opencensus.io/internal/tagencoding
 go.opencensus.io/metric/metricproducer
-go.opencensus.io/metric/metricexport
+go.opencensus.io/stats/internal
 go.opencensus.io/internal
 go.opencensus.io/trace/internal
 go.opencensus.io/trace/tracestate
@@ -527,7 +568,9 @@ golang.org/x/net/publicsuffix
 golang.org/x/net/internal/timeseries
 golang.org/x/net/http2/hpack
 golang.org/x/net/http/httpguts
+golang.org/x/net/proxy
 golang.org/x/net/html/charset
+golang.org/x/net/internal/socks
 golang.org/x/net/html
 golang.org/x/net/html/atom
 # golang.org/x/oauth2 v0.0.0-20190226205417-e64efc72b421
@@ -672,7 +715,7 @@ gopkg.in/square/go-jose.v2/cipher
 gopkg.in/stack.v1
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
-# istio.io/api v0.0.0-20190604023128-6f137ab2ce6d
+# istio.io/api v0.0.0-20190708200418-70f6e4eada00
 istio.io/api/mesh/v1alpha1
 istio.io/api/authentication/v1alpha1
 istio.io/api/mixer/v1/config/client
@@ -684,15 +727,18 @@ istio.io/api/envoy/config/filter/http/authn/v2alpha1
 istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1
 istio.io/api/mixer/adapter/model/v1beta1
 istio.io/api/mixer/v1
-# istio.io/pkg v0.0.0-20190603185215-940899ee7e72
+# istio.io/gogo-genproto v0.0.0-20190614210408-e88dc8b0e4db
+istio.io/gogo-genproto/opencensus/proto/trace/v1
+# istio.io/pkg v0.0.0-20190710182420-c26792dead42
+istio.io/pkg/monitoring
 istio.io/pkg/collateral
 istio.io/pkg/log
 istio.io/pkg/probe
 istio.io/pkg/version
 istio.io/pkg/filewatcher
 istio.io/pkg/timedfn
-istio.io/pkg/ctrlz
 istio.io/pkg/ctrlz/fw
+istio.io/pkg/ctrlz
 istio.io/pkg/env
 istio.io/pkg/appsignals
 istio.io/pkg/pool

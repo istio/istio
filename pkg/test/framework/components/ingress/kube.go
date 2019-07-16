@@ -17,6 +17,7 @@ package ingress
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -34,6 +35,9 @@ const (
 	serviceName           = "istio-ingressgateway"
 	istioLabel            = "ingressgateway"
 	DefaultRequestTimeout = 1 * time.Minute
+
+	proxyContainerName = "istio-proxy"
+	proxyAdminPort     = 15000
 )
 
 var (
@@ -80,9 +84,18 @@ func getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, e
 			return nil, false, fmt.Errorf("no ports found in service: %s/%s", ns, "istio-ingressgateway")
 		}
 
-		port := svc.Spec.Ports[0].NodePort
+		var nodePort int32
+		for _, svcPort := range svc.Spec.Ports {
+			if svcPort.Protocol == "TCP" && svcPort.Port == 80 {
+				nodePort = svcPort.NodePort
+				break
+			}
+		}
+		if nodePort == 0 {
+			return nil, false, fmt.Errorf("no port 80 found in service: %s/%s", ns, "istio-ingressgateway")
+		}
 
-		return fmt.Sprintf("http://%s:%d", ip, port), true, nil
+		return fmt.Sprintf("http://%s:%d", ip, nodePort), true, nil
 	}
 
 	// Otherwise, get the load balancer IP.
@@ -268,4 +281,50 @@ func (c *kubeComponent) CallOrFail(t test.Failer, options CallOptions) CallRespo
 		t.Fatal(err)
 	}
 	return resp
+}
+
+func (c *kubeComponent) ProxyStats() (map[string]int, error) {
+	var stats map[string]int
+	statsJSON, err := c.adminRequest("stats?format=json")
+	if err != nil {
+		return stats, fmt.Errorf("failed to get response from admin port: %v", err)
+	}
+	return c.unmarshalStats(statsJSON)
+}
+
+// adminRequest makes a call to admin port at ingress gateway proxy and returns error on request failure.
+func (c *kubeComponent) adminRequest(path string) (string, error) {
+	pods, err := c.env.GetPods(c.namespace, "istio=ingressgateway")
+	if err != nil {
+		return "", fmt.Errorf("unable to get ingress gateway stats: %v", err)
+	}
+	podNs, podName := pods[0].Namespace, pods[0].Name
+	// Exec onto the pod and make a curl request to the admin port
+	command := fmt.Sprintf("curl http://127.0.0.1:%d/%s", proxyAdminPort, path)
+	return c.env.Accessor.Exec(podNs, podName, proxyContainerName, command)
+}
+
+type statEntry struct {
+	Name  string `json:"name"`
+	Value int    `json:"value"`
+}
+
+type stats struct {
+	StatList []statEntry `json:"stats"`
+}
+
+// unmarshalStats unmarshals Envoy stats from JSON format into a map, where stats name is
+// key, and stats value is value.
+func (c *kubeComponent) unmarshalStats(statsJSON string) (map[string]int, error) {
+	statsMap := make(map[string]int)
+
+	var statsArray stats
+	if err := json.Unmarshal([]byte(statsJSON), &statsArray); err != nil {
+		return statsMap, fmt.Errorf("unable to unmarshal stats from json: %v", err)
+	}
+
+	for _, v := range statsArray.StatList {
+		statsMap[v.Name] = v.Value
+	}
+	return statsMap, nil
 }

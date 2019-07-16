@@ -263,6 +263,8 @@ func (m *Cluster) Validate() error {
 
 	}
 
+	// no validation rules for RespectDnsTtl
+
 	if _, ok := Cluster_DnsLookupFamily_name[int32(m.GetDnsLookupFamily())]; !ok {
 		return ClusterValidationError{
 			field:  "DnsLookupFamily",
@@ -950,6 +952,8 @@ func (m *Cluster_LbSubsetConfig) Validate() error {
 
 	// no validation rules for PanicModeAny
 
+	// no validation rules for ListAsAny
+
 	return nil
 }
 
@@ -1292,6 +1296,8 @@ func (m *Cluster_CommonLbConfig) Validate() error {
 		}
 	}
 
+	// no validation rules for IgnoreNewHostsUntilFirstHc
+
 	switch m.LocalityConfigSpecifier.(type) {
 
 	case *Cluster_CommonLbConfig_ZoneAwareLbConfig_:
@@ -1395,6 +1401,13 @@ var _ interface {
 func (m *Cluster_LbSubsetConfig_LbSubsetSelector) Validate() error {
 	if m == nil {
 		return nil
+	}
+
+	if _, ok := Cluster_LbSubsetConfig_LbSubsetSelector_LbSubsetSelectorFallbackPolicy_name[int32(m.GetFallbackPolicy())]; !ok {
+		return Cluster_LbSubsetConfig_LbSubsetSelectorValidationError{
+			field:  "FallbackPolicy",
+			reason: "value must be one of the defined enum values",
+		}
 	}
 
 	return nil
