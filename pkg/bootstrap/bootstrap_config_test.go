@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/envoyproxy/go-control-plane/pkg/util"
+	"istio.io/istio/pkg/bootstrap/platform"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
 	tracev2 "github.com/envoyproxy/go-control-plane/envoy/config/trace/v2"
@@ -624,14 +625,15 @@ func TestNodeMetadata(t *testing.T) {
 	wantMap := map[string]interface{}{
 		"istio": "sidecar",
 		"istio.io/metadata": istioMetadata{
-			Labels: labels,
+			Labels:           labels,
+			PlatformMetadata: map[string]string{"some_env": "foo", "other_env": "bar"},
 		},
 		"l1": "v1",
 		"l2": "v2",
 	}
 
 	_, envs := createEnv(t, labels, nil)
-	nm := getNodeMetaData(envs)
+	nm := getNodeMetaData(envs, &fakePlatform{})
 
 	if !reflect.DeepEqual(nm, wantMap) {
 		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, wantMap)
@@ -642,7 +644,7 @@ func TestNodeMetadata(t *testing.T) {
 		wantMap[k] = v
 	}
 
-	nm = getNodeMetaData(envs)
+	nm = getNodeMetaData(envs, &fakePlatform{})
 	if !reflect.DeepEqual(nm, wantMap) {
 		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, wantMap)
 	}
@@ -655,7 +657,7 @@ func TestNodeMetadata(t *testing.T) {
 		return s
 	}, envs)
 
-	nm = getNodeMetaData(envs)
+	nm = getNodeMetaData(envs, &fakePlatform{})
 	if !reflect.DeepEqual(nm, wantMap) {
 		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, wantMap)
 	}
@@ -669,7 +671,7 @@ func TestNodeMetadataEncodeEnvWithIstioMetaPrefix(t *testing.T) {
 		notIstioMetaKey + "=bar",
 		anIstioMetaKey + "=baz",
 	}
-	nm := getNodeMetaData(envs)
+	nm := getNodeMetaData(envs, nil)
 	if _, ok := nm[notIstioMetaKey]; ok {
 		t.Fatalf("%s should not be encoded in node metadata", notIstioMetaKey)
 	}
@@ -688,4 +690,12 @@ func mergeMap(to map[string]string, from map[string]string) {
 	for k, v := range from {
 		to[k] = v
 	}
+}
+
+type fakePlatform struct {
+	platform.Environment
+}
+
+func (f *fakePlatform) Metadata() map[string]string {
+	return map[string]string{"some_env": "foo", "other_env": "bar"}
 }

@@ -242,6 +242,7 @@ type istioMetadata struct {
 	Name                      string            `json:"name,omitempty"`
 	Namespace                 string            `json:"namespace,omitempty"`
 	ServiceAccount            string            `json:"service_account,omitempty"`
+	PlatformMetadata          map[string]string `json:"platform_metadata,omitempty"`
 }
 
 func shouldExtract(envVar, prefix string) bool {
@@ -273,7 +274,7 @@ func jsonStringToMap(jsonStr string) (m map[string]string) {
 	return
 }
 
-func extractIstioMetadata(envVars []string) istioMetadata {
+func extractIstioMetadata(envVars []string, plat platform.Environment) istioMetadata {
 	im := istioMetadata{}
 	for _, varStr := range envVars {
 		name, val := parseEnvVar(varStr)
@@ -290,6 +291,9 @@ func extractIstioMetadata(envVars []string) istioMetadata {
 			im.Namespace = val
 		}
 	}
+	if plat != nil {
+		im.PlatformMetadata = plat.Metadata()
+	}
 	return im
 }
 
@@ -297,7 +301,7 @@ func extractIstioMetadata(envVars []string) istioMetadata {
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
-func getNodeMetaData(envs []string) map[string]interface{} {
+func getNodeMetaData(envs []string, plat platform.Environment) map[string]interface{} {
 	meta := map[string]interface{}{}
 
 	extractMetadata(envs, IstioMetaPrefix, func(m map[string]interface{}, key string, val string) {
@@ -312,7 +316,7 @@ func getNodeMetaData(envs []string) map[string]interface{} {
 	}, meta)
 	meta["istio"] = "sidecar"
 
-	meta["istio.io/metadata"] = extractIstioMetadata(envs)
+	meta["istio.io/metadata"] = extractIstioMetadata(envs, plat)
 
 	return meta
 }
@@ -367,8 +371,10 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["cluster"] = config.ServiceCluster
 	opts["nodeID"] = node
 
+	// GCP is only current supported platform.
+	plat := platform.NewGCP()
 	// Support passing extra info from node environment as metadata
-	meta := getNodeMetaData(localEnv)
+	meta := getNodeMetaData(localEnv, plat)
 
 	localityOverride := ""
 	if locality, ok := meta[model.LocalityLabel]; ok {
@@ -377,7 +383,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	l := util.ConvertLocality(localityOverride)
 	if l == nil {
 		// Populate the platform locality if available.
-		l = platform.GetPlatformLocality()
+		l = plat.Locality()
 	}
 	if l.Region != "" {
 		opts["region"] = l.Region
