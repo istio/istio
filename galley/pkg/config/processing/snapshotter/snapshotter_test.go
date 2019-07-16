@@ -112,6 +112,6 @@ func TestSnapshotter_SnapshotMismatch(t *testing.T) {
 		},
 	}
 
-	s, err := NewSnapshotter([]event.Transformer{tr}, options)
+	_, err := NewSnapshotter([]event.Transformer{tr}, options)
 	g.Expect(err).NotTo(BeNil())
 }
