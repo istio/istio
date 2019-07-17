@@ -329,7 +329,7 @@ func buildXDSObjectFromValue(applyTo networking.EnvoyFilter_ApplyTo, value *type
 	return obj, err
 }
 
-func applyClusterPatches(env *model.Environment, proxy *model.Proxy,
+func applyClusterPatches(_ *model.Environment, proxy *model.Proxy,
 	push *model.PushContext, clusters []*xdsapi.Cluster) []*xdsapi.Cluster {
 
 	envoyFilterWrappers := push.EnvoyFilters(proxy)
