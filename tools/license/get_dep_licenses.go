@@ -285,7 +285,7 @@ func main() {
 
 	// Get sorted list of licensePaths
 	var keys []string
-	for lp, _ := range licensePath {
+	for lp := range licensePath {
 		keys = append(keys, lp)
 	}
 	sort.Strings(keys)
@@ -296,6 +296,10 @@ func main() {
 	var licenses, exact, inexact LicenseInfos
 	for _, key := range keys {
 		lp := licensePath[key]
+		if lp == "" {
+			missingList = append(missingList, key)
+			continue
+		}
 		linfo := &LicenseInfo{}
 		if matchDetail || summary || check {
 			// This requires the external licensee program.
@@ -361,7 +365,7 @@ func main() {
 			fmt.Println("===========================================================")
 			// Get sorted list of paths
 			var keys []string
-			for k, _ := range unknownMap {
+			for k := range unknownMap {
 				keys = append(keys, k)
 			}
 			sort.Strings(keys)
