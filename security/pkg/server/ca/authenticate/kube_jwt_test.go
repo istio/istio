@@ -185,3 +185,46 @@ func TestAuthenticate(t *testing.T) {
 		}
 	}
 }
+
+func TestAuthenticatorType(t *testing.T) {
+	testCases := []struct {
+		Name                      string
+		ExpectedAuthenticatorType string
+		ExpectedFailure           bool
+	}{
+		{
+			Name:                      "Correct type",
+			ExpectedAuthenticatorType: KubeJWTAuthenticatorType,
+			ExpectedFailure:           false,
+		},
+		{
+			Name:                      "Incorrect type",
+			ExpectedAuthenticatorType: ClientCertAuthenticatorType,
+			ExpectedFailure:           true,
+		},
+	}
+
+	caCertFileContent := []byte("CACERT")
+	jwtFileContent := []byte("JWT")
+	trustDomain := "testdomain.com"
+	url := "https://server/url"
+
+	kubeJwtAuthenticator := &KubeJWTAuthenticator{
+		client:      tokenreview.NewK8sSvcAcctAuthn(url, caCertFileContent, string(jwtFileContent)),
+		trustDomain: trustDomain,
+	}
+
+	for _, tc := range testCases {
+		want, got := tc.ExpectedAuthenticatorType, kubeJwtAuthenticator.AuthenticatorType()
+		if tc.ExpectedFailure {
+			if want == got {
+				t.Errorf("%s failed. Want: %s, got: %s", tc.Name, want, got)
+			}
+		} else {
+			if want != got {
+				t.Errorf("%s failed. Want: %s, got: %s", tc.Name, want, got)
+			}
+		}
+	}
+
+}
