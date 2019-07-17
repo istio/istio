@@ -10,7 +10,6 @@ replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538
 
 require (
 	cloud.google.com/go v0.37.4
-	code.cloudfoundry.org/copilot v0.0.0-20180808174356-6bade2a0677a
 	contrib.go.opencensus.io/exporter/prometheus v0.1.0
 	contrib.go.opencensus.io/exporter/stackdriver v0.6.0
 	contrib.go.opencensus.io/exporter/zipkin v0.1.1
