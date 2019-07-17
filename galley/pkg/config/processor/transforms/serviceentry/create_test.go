@@ -742,18 +742,6 @@ func TestReceiveEndpointsBeforeService(t *testing.T) {
 	})
 }
 
-func TestAddServiceWithUnknownEventKindShouldNotPanic(t *testing.T) {
-	rt, src, _, l := newHandler()
-	defer rt.Stop()
-
-	src.Handlers.Handle(event.Event{
-		Kind:   event.None,
-		Source: serviceCollection,
-		Entry:  entryForService(serviceName, createTime, "v1"),
-	})
-	expectNotifications(t, l, 0)
-}
-
 func TestAddEndpointsWithUnknownEventKindShouldNotPanic(t *testing.T) {
 	rt, src, _, acc := newHandler()
 	defer rt.Stop()

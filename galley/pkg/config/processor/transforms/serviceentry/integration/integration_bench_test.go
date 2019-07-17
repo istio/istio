@@ -15,7 +15,6 @@
 package integration
 
 import (
-	"fmt"
 	"strconv"
 	"sync"
 	"testing"
@@ -120,11 +119,8 @@ func BenchmarkEndpointChurn(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	processor.Start()
-
-	// if err := processor.AwaitFullSync(5 * time.Second); err != nil {
-	// 	b.Fatal(err)
-	// }
+	distributor.waitForSnapshot()
+	go processor.Start()
 
 	lenUpdateEvents := len(updateEntries)
 	updateIndex := 0
@@ -266,6 +262,8 @@ type fakeDistributor struct {
 	endpointsCreation int
 	complete          int
 	counter           int
+
+	snapshotCond *sync.Cond
 }
 
 func newFakeDistributor(numUpdates int) *fakeDistributor {
@@ -274,11 +272,19 @@ func newFakeDistributor(numUpdates int) *fakeDistributor {
 		endpointsCreation: 2,
 		complete:          2 + numUpdates,
 		cond:              sync.NewCond(&sync.Mutex{}),
+		snapshotCond:      sync.NewCond(&sync.Mutex{}),
 	}
 }
 
+func (d *fakeDistributor) waitForSnapshot() {
+	d.snapshotCond.L.Lock()
+	d.snapshotCond.Wait()
+	d.snapshotCond.L.Unlock()
+}
+
 func (d *fakeDistributor) SetSnapshot(name string, s snapshot.Snapshot) {
-	fmt.Printf("------ %v\n", name)
+	d.cond.Broadcast()
+
 	d.counter++
 	if d.counter == d.serviceCreation || d.counter == d.endpointsCreation || d.counter == d.complete {
 		d.cond.L.Lock()
