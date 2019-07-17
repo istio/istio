@@ -37,7 +37,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -55,10 +54,10 @@ const (
 	// RDSHttpProxy is the special name for HTTP PROXY route
 	RDSHttpProxy = "http_proxy"
 
-	// VirtualListenerName is the name for traffic capture listener
-	VirtualListenerName = "virtual"
+	// VirtualOutboundListenerName is the name for traffic capture listener
+	VirtualOutboundListenerName = "virtualOutbound"
 
-	// VirtualListenerName is the name for traffic capture listener
+	// VirtualOutboundListenerName is the name for traffic capture listener
 	VirtualInboundListenerName = "virtualInbound"
 
 	// WildcardAddress binds to all IP addresses
@@ -90,6 +89,10 @@ const (
 	// EnvoyAccessLogCluster is the cluster name that has details for server implementing Envoy ALS.
 	// This cluster is created in bootstrap.
 	EnvoyAccessLogCluster = "envoy_accesslog_service"
+
+	// ProxyInboundListenPort is the port on which all inbound traffic to the pod/vm will be captured to
+	// TODO: allow configuration through mesh config
+	ProxyInboundListenPort = 15006
 )
 
 var (
@@ -120,10 +123,6 @@ var (
 			"upstream_transport_failure_reason": {Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_TRANSPORT_FAILURE_REASON%"}},
 		},
 	}
-
-	// ProxyInboundListenPort is the dedicated inbound traffic capture port for sidecar proxy.
-	// See also `MeshConfig.ProxyListenPort`.
-	ProxyInboundListenPort = uint32(env.RegisterIntVar("ProxyInboundListenPort", 15006, "").Get())
 )
 
 func buildAccessLog(fl *accesslogconfig.FileAccessLog, env *model.Environment) {
@@ -212,73 +211,17 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 
 	proxyInstances := node.ServiceInstances
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
-	listeners := make([]*xdsapi.Listener, 0)
-
-	actualWildcard, actualLocalHostAddress := getActualWildcardAndLocalHost(node)
+	_, actualLocalHostAddress := getActualWildcardAndLocalHost(node)
 
 	builder := NewListenerBuilder(node)
 	if mesh.ProxyListenPort > 0 {
-		// Notes that the the else branch works for both split and non-split cases.
-		// TODO(silentdai): remove `if` branch once split behavior is well verified
-		if !node.IsInboundCaptureAllPorts() {
-			inbound := configgen.buildSidecarInboundListeners(env, node, push, proxyInstances)
-			outbound := configgen.buildSidecarOutboundListeners(env, node, push, proxyInstances)
-
-			builder.inboundListeners = inbound
-			builder.outboundListeners = outbound
-			builder.managementListeners = configgen.generateManagementListeners(node, noneMode, env, listeners)
-
-			tcpProxy := &tcp_proxy.TcpProxy{
-				StatPrefix:       util.BlackHoleCluster,
-				ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
-			}
-
-			if isAllowAny(node) {
-				// We need a passthrough filter to fill in the filter stack for orig_dst listener
-				tcpProxy = &tcp_proxy.TcpProxy{
-					StatPrefix:       util.PassthroughCluster,
-					ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
-				}
-			}
-
-			setAccessLog(env, node, tcpProxy)
-
-			var transparent *google_protobuf.BoolValue
-			if node.GetInterceptionMode() == model.InterceptionTproxy {
-				transparent = proto.BoolTrue
-			}
-
-			filter := listener.Filter{
-				Name: xdsutil.TCPProxy,
-			}
-
-			if util.IsXDSMarshalingToAnyEnabled(node) {
-				filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
-			} else {
-				filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
-			}
-
-			// add an extra listener that binds to the port that is the recipient of the iptables redirect
-			builder.virtualListener = &xdsapi.Listener{
-				Name:           VirtualListenerName,
-				Address:        util.BuildAddress(actualWildcard, uint32(mesh.ProxyListenPort)),
-				Transparent:    transparent,
-				UseOriginalDst: proto.BoolTrue,
-				FilterChains: []listener.FilterChain{
-					{
-						Filters: []listener.Filter{filter},
-					},
-				},
-			}
-		} else {
 			// Any build order change need a careful code review
 			builder = NewListenerBuilder(node).
 				buildSidecarInboundListeners(configgen, env, node, push, proxyInstances).
 				buildSidecarOutboundListeners(configgen, env, node, push, proxyInstances).
 				buildManagementListeners(configgen, env, node, push, proxyInstances).
-				buildVirtualListener(env, node).
+				buildVirtualOutboundListener(env, node).
 				buildVirtualInboundListener(env, node)
-		}
 	}
 
 	httpProxyPort := mesh.ProxyHttpPort
@@ -317,8 +260,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			skipUserFilters: true,
 		}
 		l := buildListener(opts)
-		// TODO: plugins for HTTP_PROXY mode, envoyfilter needs another listener match for SIDECAR_HTTP_PROXY
-		// there is no mixer for http_proxy
+		// TODO: plugins for HTTP_PROXY mode, there is no mixer for http_proxy
 		mutable := &plugin.MutableObjects{
 			Listener:     l,
 			FilterChains: []plugin.FilterChain{{}},
@@ -336,7 +278,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		} else {
 			builder.outboundListeners = append(builder.outboundListeners, l)
 		}
-		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
 
 	return builder
@@ -1655,7 +1596,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 // This allows external https traffic, even when port the port (usually 443) is in use by another service.
 func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts, node *model.Proxy) {
 	// If traffic policy is REGISTRY_ONLY, the traffic will already be blocked, so no action is needed.
-	if features.EnableFallthroughRoute() && isAllowAny(node) {
+	if features.EnableFallthroughRoute() && isAllowAnyOutbound(node) {
 
 		wildcardMatch := &listener.FilterChainMatch{}
 		for _, fc := range l.FilterChains {

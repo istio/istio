@@ -12,6 +12,8 @@ initContainers:
   args:
   - "-p"
   - "15001"
+  - "-z"
+  - "15006"
   - "-u"
   - 1337
   - "-m"
@@ -49,11 +51,6 @@ initContainers:
     privileged: true
     {{- end }}
   restartPolicy: Always
-  env:
-  {{- if contains "*" (annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` "") }}
-  - name: INBOUND_CAPTURE_PORT
-    value: 15006
-  {{- end }}
 {{- end }}
 {{  end -}}
 {{- if eq .Values.global.proxy.enableCoreDump true }}

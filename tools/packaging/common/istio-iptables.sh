@@ -23,6 +23,7 @@ function usage() {
   echo ''
   # shellcheck disable=SC2016
   echo '  -p: Specify the envoy port to which redirect all TCP traffic (default $ENVOY_PORT = 15001)'
+  echo '  -z: Port to which all inbound TCP traffic to the pod/VM should be redirected to. For REDIRECT only (default $INBOUND_CAPTURE_PORT = 15006)'
   echo '  -u: Specify the UID of the user for which the redirection is not'
   echo '      applied. Typically, this is the UID of the proxy container'
   # shellcheck disable=SC2016
@@ -122,6 +123,7 @@ IFS=,
 # Ideally we should generate ufw (and similar) configs as well, in case user already has an iptables solution.
 
 PROXY_PORT=${ENVOY_PORT:-15001}
+INBOUND_CAPTURE_PORT=${INBOUND_CAPTURE_PORT:-15006}
 PROXY_UID=
 PROXY_GID=
 INBOUND_INTERCEPTION_MODE=${ISTIO_INBOUND_INTERCEPTION_MODE}
@@ -134,10 +136,13 @@ OUTBOUND_IP_RANGES_EXCLUDE=${ISTIO_SERVICE_EXCLUDE_CIDR-}
 OUTBOUND_PORTS_EXCLUDE=${ISTIO_LOCAL_OUTBOUND_PORTS_EXCLUDE-}
 KUBEVIRT_INTERFACES=
 
-while getopts ":p:u:g:m:b:d:o:i:x:k:h:t" opt; do
+while getopts ":p:z:u:g:m:b:d:o:i:x:k:h:t" opt; do
   case ${opt} in
     p)
       PROXY_PORT=${OPTARG}
+      ;;
+    z)
+      INBOUND_CAPTURE_PORT=${OPTARG}
       ;;
     u)
       PROXY_UID=${OPTARG}
@@ -280,6 +285,7 @@ fi
 echo "Environment:"
 echo "------------"
 echo "ENVOY_PORT=${ENVOY_PORT-}"
+echo "INBOUND_CAPTURE_PORT=${INBOUND_CAPTURE_PORT-}"
 echo "ISTIO_INBOUND_INTERCEPTION_MODE=${ISTIO_INBOUND_INTERCEPTION_MODE-}"
 echo "ISTIO_INBOUND_TPROXY_MARK=${ISTIO_INBOUND_TPROXY_MARK-}"
 echo "ISTIO_INBOUND_TPROXY_ROUTE_TABLE=${ISTIO_INBOUND_TPROXY_ROUTE_TABLE-}"
@@ -291,7 +297,7 @@ echo
 echo "Variables:"
 echo "----------"
 echo "PROXY_PORT=${PROXY_PORT}"
-echo "INBOUND_CAPTURE_PORT=${INBOUND_CAPTURE_PORT:-$PROXY_PORT}"
+echo "INBOUND_CAPTURE_PORT=${INBOUND_CAPTURE_PORT}"
 echo "PROXY_UID=${PROXY_UID}"
 echo "INBOUND_INTERCEPTION_MODE=${INBOUND_INTERCEPTION_MODE}"
 echo "INBOUND_TPROXY_MARK=${INBOUND_TPROXY_MARK}"
@@ -304,8 +310,6 @@ echo "OUTBOUND_PORTS_EXCLUDE=${OUTBOUND_PORTS_EXCLUDE}"
 echo "KUBEVIRT_INTERFACES=${KUBEVIRT_INTERFACES}"
 echo "ENABLE_INBOUND_IPV6=${ENABLE_INBOUND_IPV6}"
 echo
-
-INBOUND_CAPTURE_PORT=${INBOUND_CAPTURE_PORT:-$PROXY_PORT}
 
 set -o errexit
 set -o nounset

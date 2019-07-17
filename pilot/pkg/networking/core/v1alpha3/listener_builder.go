@@ -116,7 +116,7 @@ func (builder *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl,
 	return builder
 }
 
-func (builder *ListenerBuilder) buildVirtualListener(
+func (builder *ListenerBuilder) buildVirtualOutboundListener(
 	env *model.Environment, node *model.Proxy) *ListenerBuilder {
 
 	var isTransparentProxy *google_protobuf.BoolValue
@@ -128,7 +128,7 @@ func (builder *ListenerBuilder) buildVirtualListener(
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	builder.virtualListener = &xdsapi.Listener{
-		Name:           VirtualListenerName,
+		Name:           VirtualOutboundListenerName,
 		Address:        util.BuildAddress(actualWildcard, uint32(env.Mesh.ProxyListenPort)),
 		Transparent:    isTransparentProxy,
 		UseOriginalDst: proto.BoolTrue,
@@ -141,12 +141,9 @@ func (builder *ListenerBuilder) buildVirtualListener(
 	return builder
 }
 
+// TProxy uses only the virtual outbound listener on 15001 for both directions
+// but we still ship the no-op virtual inbound listener, so that the code flow is same across REDIRECT and TPROXY.
 func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environment, node *model.Proxy) *ListenerBuilder {
-	shouldSplitInOutBound := node.IsInboundCaptureAllPorts()
-	if !shouldSplitInOutBound {
-		log.Debugf("Inbound and outbound listeners are united in for node %s", node.ID)
-		return builder
-	}
 	var isTransparentProxy *google_protobuf.BoolValue
 	if node.GetInterceptionMode() == model.InterceptionTproxy {
 		isTransparentProxy = proto.BoolTrue
@@ -209,7 +206,7 @@ func newTCPProxyListenerFilter(env *model.Environment, node *model.Proxy, isInbo
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 	}
 
-	if isAllowAny(node) || isInboundListener {
+	if isAllowAnyOutbound(node) || isInboundListener {
 		// We need a passthrough filter to fill in the filter stack for orig_dst listener
 		tcpProxy = &tcp_proxy.TcpProxy{
 			StatPrefix:       util.PassthroughCluster,
@@ -230,6 +227,6 @@ func newTCPProxyListenerFilter(env *model.Environment, node *model.Proxy, isInbo
 	return &filter
 }
 
-func isAllowAny(node *model.Proxy) bool {
+func isAllowAnyOutbound(node *model.Proxy) bool {
 	return node.SidecarScope.OutboundTrafficPolicy != nil && node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY
 }

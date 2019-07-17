@@ -673,12 +673,3 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 
 	return InterceptionRedirect
 }
-
-// Inbound capture listener capture all port mode only supports iptables REDIRECT
-func (node *Proxy) IsInboundCaptureAllPorts() bool {
-	if node.GetInterceptionMode() != InterceptionRedirect {
-		return false
-	}
-	capturePorts, ok := node.Metadata[IstioIncludeInboundPorts]
-	return ok && strings.Contains(capturePorts, AllPortsLiteral)
-}
