@@ -4,7 +4,7 @@ description: Describes the rules used to configure Mixer's policy and telemetry 
 location: https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 25
+number_of_entries: 26
 ---
 <p>Describes the rules used to configure Mixer&rsquo;s policy and telemetry features.</p>
 
@@ -1240,6 +1240,34 @@ adapter to optionally modify the headers.</p>
 </tbody>
 </table>
 </section>
+<h2 id="StringMap">StringMap</h2>
+<section>
+<p>An instance field of type StringMap denotes that the expression for the field must evaluate to
+<a href="#ValueType-STRING_MAP">ValueType.STRING_MAP</a></p>
+
+<p>Objects of type StringMap are also passed to the adapters during request-time for the instance fields of
+type StringMap</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="StringMap-value">
+<td><code>value</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>StringMap encoded as a map of strings</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="TimeStamp">TimeStamp</h2>
 <section>
 <p>An instance field of type TimeStamp denotes that the expression for the field must evaluate to
@@ -1495,6 +1523,14 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 <td><code><a href="#Uri">Uri (oneof)</a></code></td>
 <td>
 <p>Used for values of type Uri</p>
+
+</td>
+</tr>
+<tr id="Value-string_map_value" class="oneof">
+<td><code>stringMapValue</code></td>
+<td><code><a href="#StringMap">StringMap (oneof)</a></code></td>
+<td>
+<p>Used for values of type STRING_MAP</p>
 
 </td>
 </tr>

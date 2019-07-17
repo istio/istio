@@ -112,3 +112,52 @@ func makeConfig(name, namespace, host, portName, portProtocol string, portNumber
 	}
 	return c
 }
+
+func TestParseGatewayRDSRouteName(t *testing.T) {
+	type args struct {
+		name string
+	}
+	tests := []struct {
+		name           string
+		args           args
+		wantPortNumber int
+		wantPortName   string
+		wantGateway    string
+	}{
+		{
+			name:           "invalid rds name",
+			args:           args{"https.scooby.dooby.doo"},
+			wantPortNumber: 0,
+			wantPortName:   "",
+			wantGateway:    "",
+		},
+		{
+			name:           "gateway http rds name",
+			args:           args{"http.80"},
+			wantPortNumber: 80,
+			wantPortName:   "",
+			wantGateway:    "",
+		},
+		{
+			name:           "https rds name",
+			args:           args{"https.443.app1.gw1.ns1"},
+			wantPortNumber: 443,
+			wantPortName:   "app1",
+			wantGateway:    "ns1/gw1",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotPortNumber, gotPortName, gotGateway := ParseGatewayRDSRouteName(tt.args.name)
+			if gotPortNumber != tt.wantPortNumber {
+				t.Errorf("ParseGatewayRDSRouteName() gotPortNumber = %v, want %v", gotPortNumber, tt.wantPortNumber)
+			}
+			if gotPortName != tt.wantPortName {
+				t.Errorf("ParseGatewayRDSRouteName() gotPortName = %v, want %v", gotPortName, tt.wantPortName)
+			}
+			if gotGateway != tt.wantGateway {
+				t.Errorf("ParseGatewayRDSRouteName() gotGateway = %v, want %v", gotGateway, tt.wantGateway)
+			}
+		})
+	}
+}

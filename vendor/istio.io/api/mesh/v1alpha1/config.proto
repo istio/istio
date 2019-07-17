@@ -306,8 +306,11 @@ message MeshConfig {
   // It can be enabled by destination using the destinationRule.trafficPolicy.connectionPool.http.h2UpgradePolicy override.
   H2UpgradePolicy h2_upgrade_policy = 41;
 
+  // Optional: Features is used to enable/disable specific features.
+  repeated Feature features = 42;
+
   // $hide_from_docs
-  // Next available field number: 42
+  // Next available field number: 43
 }
 
 // ConfigSource describes information about a configuration store inside a
@@ -418,4 +421,20 @@ message LocalityLoadBalancerSetting{
   // Should be used together with OutlierDetection to detect unhealthy endpoints.
   // Note: if no OutlierDetection specified, this will not take effect.
   repeated Failover failover = 2;
+}
+
+// FeatureName describes the features which are currently supported.
+enum FeatureName {
+  // The locality aware routing feature.
+  // It is enabled by default in release 1.13.
+  LOCALITY_AWARE_ROUTING = 0;
+}
+
+// Feature specify to enable or disable a specific feature.
+message Feature {
+  // Feature is the name of the feature.
+  FeatureName feature = 1;
+
+  // Specify true to enable the feature or false to disable the feature.
+  bool enable = 2;
 }

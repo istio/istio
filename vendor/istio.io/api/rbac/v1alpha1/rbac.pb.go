@@ -123,10 +123,10 @@ func (EnforcementMode) EnumDescriptor() ([]byte, []int) {
 type RbacConfig_Mode int32
 
 const (
-	// Disable Istio RBAC completely, any other config in RbacConfig will be ignored and Istio RBAC policies
-	// will not be enforced.
+	// Disable Istio RBAC completely, Istio RBAC policies will not be enforced.
 	RbacConfig_OFF RbacConfig_Mode = 0
-	// Enable Istio RBAC for all services and namespaces.
+	// Enable Istio RBAC for all services and namespaces. Note Istio RBAC is deny-by-default
+	// which means all requests will be denied if it's not allowed by RBAC rules.
 	RbacConfig_ON RbacConfig_Mode = 1
 	// Enable Istio RBAC only for services and namespaces specified in the inclusion field. Any other
 	// services and namespaces not in the inclusion field will not be enforced by Istio RBAC policies.
@@ -891,19 +891,16 @@ func (m *RoleRef) GetName() string {
 	return ""
 }
 
-// $hide_from_docs
-// RbacConfig is deprecated.  RbacConfig defined the global config to control Istio RBAC behavior.
-// This Custom Resource is a singleton where only one Custom Resource should be created globally in
-// the mesh and the namespace should be the same to other Istio components, which usually is `istio-system`.
-// Note: This is enforced in both `istioctl` and server side, new Custom Resource will be rejected if found any
-// existing one, the user should either delete the existing one or change the existing one directly.
+// RbacConfig implements the ClusterRbaConfig Custom Resource Definition for controlling Istio RBAC behavior.
+// The ClusterRbaConfig Custom Resource is a singleton where only one ClusterRbaConfig should be created
+// globally in the mesh and the namespace should be the same to other Istio components, which usually is `istio-system`.
 //
-// Below is an example of an `RbacConfig` resource called `istio-rbac-config` which enables Istio RBAC for all
+// Below is an example of an `ClusterRbacConfig` resource called `istio-rbac-config` which enables Istio RBAC for all
 // services in the default namespace.
 //
 // ```yaml
 // apiVersion: "rbac.istio.io/v1alpha1"
-// kind: RbacConfig
+// kind: ClusterRbacConfig
 // metadata:
 //   name: default
 //   namespace: istio-system
