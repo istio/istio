@@ -28,18 +28,16 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2/google"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/pkg/annotations"
-
-	"github.com/gogo/protobuf/types"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/pkg/annotations"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -242,6 +240,7 @@ type istioMetadata struct {
 	Name                      string            `json:"name,omitempty"`
 	Namespace                 string            `json:"namespace,omitempty"`
 	ServiceAccount            string            `json:"service_account,omitempty"`
+	PlatformMetadata          map[string]string `json:"platform_metadata,omitempty"`
 }
 
 func shouldExtract(envVar, prefix string) bool {
@@ -273,7 +272,7 @@ func jsonStringToMap(jsonStr string) (m map[string]string) {
 	return
 }
 
-func extractIstioMetadata(envVars []string) istioMetadata {
+func extractIstioMetadata(envVars []string, plat platform.Environment) istioMetadata {
 	im := istioMetadata{}
 	for _, varStr := range envVars {
 		name, val := parseEnvVar(varStr)
@@ -290,6 +289,9 @@ func extractIstioMetadata(envVars []string) istioMetadata {
 			im.Namespace = val
 		}
 	}
+	if plat != nil {
+		im.PlatformMetadata = plat.Metadata()
+	}
 	return im
 }
 
@@ -297,7 +299,7 @@ func extractIstioMetadata(envVars []string) istioMetadata {
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
-func getNodeMetaData(envs []string) map[string]interface{} {
+func getNodeMetaData(envs []string, plat platform.Environment) map[string]interface{} {
 	meta := map[string]interface{}{}
 
 	extractMetadata(envs, IstioMetaPrefix, func(m map[string]interface{}, key string, val string) {
@@ -312,7 +314,7 @@ func getNodeMetaData(envs []string) map[string]interface{} {
 	}, meta)
 	meta["istio"] = "sidecar"
 
-	meta["istio.io/metadata"] = extractIstioMetadata(envs)
+	meta["istio.io/metadata"] = extractIstioMetadata(envs, plat)
 
 	return meta
 }
@@ -323,6 +325,13 @@ var overrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP", "", "")
 // TODO: in v2 some of the LDS ports (port, http_port) should be configured in the bootstrap.
 func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
 	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string) (string, error) {
+	// currently, only the GCP Platform is supported, so this is hardcorded and the writeBootstrapForPlatform method is private.
+	return writeBootstrapForPlatform(config, node, epoch, pilotSAN, opts, localEnv, nodeIPs, dnsRefreshRate, platform.NewGCP())
+}
+
+func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
+	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string, platEnv platform.Environment) (string, error) {
+
 	if opts == nil {
 		opts = map[string]interface{}{}
 	}
@@ -368,7 +377,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["nodeID"] = node
 
 	// Support passing extra info from node environment as metadata
-	meta := getNodeMetaData(localEnv)
+	meta := getNodeMetaData(localEnv, platEnv)
 
 	localityOverride := ""
 	if locality, ok := meta[model.LocalityLabel]; ok {
@@ -377,7 +386,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	l := util.ConvertLocality(localityOverride)
 	if l == nil {
 		// Populate the platform locality if available.
-		l = platform.GetPlatformLocality()
+		l = platEnv.Locality()
 	}
 	if l.Region != "" {
 		opts["region"] = l.Region
