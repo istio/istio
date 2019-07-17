@@ -1,0 +1,36 @@
+apiVersion: batch/v2alpha1
+kind: CronJob
+metadata:
+  creationTimestamp: null
+  name: hellocron
+spec:
+  jobTemplate:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+        sidecar.istio.io/interceptionMode: REDIRECT
+        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
+        traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
+      creationTimestamp: null
+    spec:
+      template:
+        metadata:
+          creationTimestamp: null
+        spec:
+          containers:
+          - args:
+            - /bin/sh
+            - -c
+            - date; echo Hello from the Kubernetes cluster
+            image: busybox
+            name: hello
+            resources: {}
+          restartPolicy: OnFailure
+          volumes:
+          - name: istio-certs
+            secret:
+              optional: true
+              secretName: istio.default
+  schedule: '*/1 * * * *'
+status: {}
+---
