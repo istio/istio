@@ -272,6 +272,9 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	if cfg == "" {
 		cfg = config.ProxyBootstrapTemplatePath
 	}
+	if _, err := os.Stat(cfg); os.IsNotExist(err) {
+		cfg = DefaultCfgDir
+	}
 	if cfg == "" {
 		cfg = DefaultCfgDir
 	}
@@ -305,6 +308,12 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 
 	// Support passing extra info from node environment as metadata
 	meta := getNodeMetaData(localEnv)
+
+	// Make sure the metadata is also available as part of the bootstrap generation, which was the original
+	// behavior. This avoids the need to add redundant code.
+	for k, v := range meta {
+		opts[k] = v
+	}
 
 	localityOverride := model.GetLocalityOrDefault("", meta)
 	l := util.ConvertLocality(localityOverride)
