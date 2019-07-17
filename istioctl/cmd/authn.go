@@ -38,7 +38,7 @@ and check if TLS settings are compatible between them.
 # Check settings for pod "foo-656bd7df7c-5zp4s" in namespace default:
 istioctl authn tls-check foo-656bd7df7c-5zp4s.default
 
-# Check settings for pod "foo-656bd7df7c-5zp4s" in namespace default, filtered on destintation
+# Check settings for pod "foo-656bd7df7c-5zp4s" in namespace default, filtered on destination
 service "bar" :
 istioctl authn tls-check foo-656bd7df7c-5zp4s.default bar
 `,

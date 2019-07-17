@@ -84,6 +84,21 @@ func (m *TapConfig) Validate() error {
 		}
 	}
 
+	{
+		tmp := m.GetTapEnabled()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return TapConfigValidationError{
+					field:  "TapEnabled",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -603,6 +618,23 @@ func (m *OutputSink) Validate() error {
 			}
 		}
 
+	case *OutputSink_StreamingGrpc:
+
+		{
+			tmp := m.GetStreamingGrpc()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return OutputSinkValidationError{
+						field:  "StreamingGrpc",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
+				}
+			}
+		}
+
 	default:
 		return OutputSinkValidationError{
 			field:  "OutputSinkType",
@@ -806,6 +838,97 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = FilePerTapSinkValidationError{}
+
+// Validate checks the field values on StreamingGrpcSink with the rules defined
+// in the proto definition for this message. If any rules are violated, an
+// error is returned.
+func (m *StreamingGrpcSink) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for TapId
+
+	if m.GetGrpcService() == nil {
+		return StreamingGrpcSinkValidationError{
+			field:  "GrpcService",
+			reason: "value is required",
+		}
+	}
+
+	{
+		tmp := m.GetGrpcService()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return StreamingGrpcSinkValidationError{
+					field:  "GrpcService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// StreamingGrpcSinkValidationError is the validation error returned by
+// StreamingGrpcSink.Validate if the designated constraints aren't met.
+type StreamingGrpcSinkValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e StreamingGrpcSinkValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e StreamingGrpcSinkValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e StreamingGrpcSinkValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e StreamingGrpcSinkValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e StreamingGrpcSinkValidationError) ErrorName() string {
+	return "StreamingGrpcSinkValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e StreamingGrpcSinkValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sStreamingGrpcSink.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = StreamingGrpcSinkValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = StreamingGrpcSinkValidationError{}
 
 // Validate checks the field values on MatchPredicate_MatchSet with the rules
 // defined in the proto definition for this message. If any rules are

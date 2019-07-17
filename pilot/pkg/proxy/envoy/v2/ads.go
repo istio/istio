@@ -524,12 +524,6 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 		return err
 	}
 
-	// If the proxy has no service instances and its a gateway, kill the XDS connection as we cannot
-	// serve any gateway config if we dont know the proxy's service instances
-	if nt.Type == model.Router && (nt.ServiceInstances == nil || len(nt.ServiceInstances) == 0) {
-		return errors.New("gateway has no associated service instances")
-	}
-
 	// Set the sidecarScope associated with this proxy if its a sidecar.
 	if nt.Type == model.SidecarProxy {
 		nt.SetSidecarScope(s.globalPushContext())

@@ -50,19 +50,19 @@ type Multicluster struct {
 // NewMulticluster initializes data structure to store multicluster information
 // It also starts the secret controller
 func NewMulticluster(kc kubernetes.Interface, secretNamespace string,
-	watchedNamespace string, domainSuffix string, resycnPeriod time.Duration,
+	watchedNamespace string, domainSuffix string, resyncPeriod time.Duration,
 	serviceController *aggregate.Controller, xds model.XDSUpdater, meshNetworks *meshconfig.MeshNetworks) (*Multicluster, error) {
 
 	remoteKubeController := make(map[string]*kubeController)
-	if resycnPeriod == 0 {
+	if resyncPeriod == 0 {
 		// make sure a resync time of 0 wasn't passed in.
-		resycnPeriod = 30 * time.Second
+		resyncPeriod = 30 * time.Second
 		log.Info("Resync time was configured to 0, resetting to 30")
 	}
 	mc := &Multicluster{
 		WatchedNamespace:      watchedNamespace,
 		DomainSuffix:          domainSuffix,
-		ResyncPeriod:          resycnPeriod,
+		ResyncPeriod:          resyncPeriod,
 		serviceController:     serviceController,
 		XDSUpdater:            xds,
 		remoteKubeControllers: remoteKubeController,
@@ -130,4 +130,17 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 	}
 
 	return nil
+}
+
+// Hot reload mesh networks for remote clusters
+func (m *Multicluster) ReloadNetworkLookup(meshNetworks *meshconfig.MeshNetworks) {
+	m.m.Lock()
+	defer m.m.Unlock()
+
+	m.meshNetworks = meshNetworks
+	for _, controller := range m.remoteKubeControllers {
+		if controller != nil && controller.rc != nil {
+			controller.rc.InitNetworkLookup(meshNetworks)
+		}
+	}
 }

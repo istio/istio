@@ -15,6 +15,7 @@
 syntax = "proto3";
 
 import "google/protobuf/duration.proto";
+import "google/protobuf/wrappers.proto";
 
 package istio.mesh.v1alpha1;
 
@@ -66,6 +67,26 @@ message Tracing {
     string address = 1;
   }
 
+  // Stackdriver defines configuration for a Stackdriver tracer.
+  // See [Opencensus trace config](https://github.com/census-instrumentation/opencensus-proto/blob/master/src/opencensus/proto/trace/v1/trace_config.proto) for details.
+  message Stackdriver {
+    // debug enables trace output to stdout.
+    // $hide_from_docs
+    bool debug = 1;
+    // The global default max number of attributes per span.
+    // default is 200.
+    // $hide_from_docs
+    google.protobuf.Int64Value max_number_of_attributes = 2;
+    // The global default max number of annotation events per span.
+    // default is 200.
+    // $hide_from_docs
+    google.protobuf.Int64Value max_number_of_annotations = 3;
+    // The global default max number of message events per span.
+    // default is 200.
+    // $hide_from_docs
+    google.protobuf.Int64Value max_number_of_message_events = 4;
+  }
+
   // The tracer implementation to be used by Envoy.
   oneof tracer {
     // Use a Zipkin tracer.
@@ -74,6 +95,8 @@ message Tracing {
     Lightstep lightstep = 2;
     // Use a Datadog tracer.
     Datadog datadog = 3;
+    // Use a Stackdriver tracer.
+    Stackdriver stackdriver = 4;
   }
 }
 

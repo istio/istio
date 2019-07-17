@@ -1921,7 +1921,7 @@ func TestValidateHTTPStatus(t *testing.T) {
 		valid bool
 	}{
 		{-100, false},
-		{0, true},
+		{0, false},
 		{200, true},
 		{600, true},
 		{601, false},
@@ -1963,6 +1963,12 @@ func TestValidateHTTPFaultInjectionAbort(t *testing.T) {
 			Percent: 20,
 			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
 				HttpStatus: 9000,
+			},
+		}, valid: false},
+		{name: "invalid low http status", in: &networking.HTTPFaultInjection_Abort{
+			Percent: 20,
+			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
+				HttpStatus: 100,
 			},
 		}, valid: false},
 		{name: "valid percentage", in: &networking.HTTPFaultInjection_Abort{
@@ -2469,6 +2475,16 @@ func TestValidateHTTPRoute(t *testing.T) {
 							"",
 						},
 					},
+				},
+			}},
+		}, valid: false},
+		{name: "null header match", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{{
+				Headers: map[string]*networking.StringMatch{
+					"header": nil,
 				},
 			}},
 		}, valid: false},
@@ -3166,7 +3182,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 		in    proto.Message
 		error string
 	}{
-		{name: "empty filters", in: &networking.EnvoyFilter{}, error: "missing filters"},
+		{name: "empty filters", in: &networking.EnvoyFilter{}, error: ""},
 
 		{name: "missing relativeTo", in: &networking.EnvoyFilter{
 			Filters: []*networking.EnvoyFilter_Filter{

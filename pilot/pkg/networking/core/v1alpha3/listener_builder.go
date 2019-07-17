@@ -21,7 +21,7 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/proto"
@@ -31,6 +31,7 @@ import (
 // A stateful listener builder
 type ListenerBuilder struct {
 	node                   *model.Proxy
+	gatewayListeners       []*xdsapi.Listener
 	inboundListeners       []*xdsapi.Listener
 	outboundListeners      []*xdsapi.Listener
 	managementListeners    []*xdsapi.Listener
@@ -169,33 +170,37 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environme
 }
 
 func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
-	nInbound, nOutbound, nManagement := len(builder.inboundListeners), len(builder.outboundListeners), len(builder.managementListeners)
-	nVirtual, nVirtualInbound := 0, 0
-	if builder.virtualListener != nil {
-		nVirtual = 1
-	}
-	if builder.virtualInboundListener != nil {
-		nVirtualInbound = 1
-	}
-	nListener := nInbound + nOutbound + nManagement + nVirtual + nVirtualInbound
+	if builder.node.Type == model.SidecarProxy {
+		nInbound, nOutbound, nManagement := len(builder.inboundListeners), len(builder.outboundListeners), len(builder.managementListeners)
+		nVirtual, nVirtualInbound := 0, 0
+		if builder.virtualListener != nil {
+			nVirtual = 1
+		}
+		if builder.virtualInboundListener != nil {
+			nVirtualInbound = 1
+		}
+		nListener := nInbound + nOutbound + nManagement + nVirtual + nVirtualInbound
 
-	listeners := make([]*xdsapi.Listener, 0, nListener)
-	listeners = append(listeners, builder.inboundListeners...)
-	listeners = append(listeners, builder.outboundListeners...)
-	listeners = append(listeners, builder.managementListeners...)
-	if builder.virtualListener != nil {
-		listeners = append(listeners, builder.virtualListener)
-	}
-	if builder.virtualInboundListener != nil {
-		listeners = append(listeners, builder.virtualInboundListener)
+		listeners := make([]*xdsapi.Listener, 0, nListener)
+		listeners = append(listeners, builder.inboundListeners...)
+		listeners = append(listeners, builder.outboundListeners...)
+		listeners = append(listeners, builder.managementListeners...)
+		if builder.virtualListener != nil {
+			listeners = append(listeners, builder.virtualListener)
+		}
+		if builder.virtualInboundListener != nil {
+			listeners = append(listeners, builder.virtualInboundListener)
+		}
+
+		log.Debugf("Build %d listeners for node %s including %d inbound, %d outbound, %d management, %d virtual and %d virtual inbound listeners",
+			nListener,
+			builder.node.ID,
+			nInbound, nOutbound, nManagement,
+			nVirtual, nVirtualInbound)
+		return listeners
 	}
 
-	log.Debugf("Build %d listeners for node %s including %d inbound, %d outbound, %d management, %d virtual and %d virtual inbound listeners",
-		nListener,
-		builder.node.ID,
-		nInbound, nOutbound, nManagement,
-		nVirtual, nVirtualInbound)
-	return listeners
+	return builder.gatewayListeners
 }
 
 func newTCPProxyListenerFilter(env *model.Environment, node *model.Proxy, isInboundListener bool) *listener.Filter {
@@ -204,8 +209,7 @@ func newTCPProxyListenerFilter(env *model.Environment, node *model.Proxy, isInbo
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 	}
 
-	if env.Mesh.OutboundTrafficPolicy.Mode == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY ||
-		isInboundListener {
+	if isAllowAny(node) || isInboundListener {
 		// We need a passthrough filter to fill in the filter stack for orig_dst listener
 		tcpProxy = &tcp_proxy.TcpProxy{
 			StatPrefix:       util.PassthroughCluster,
@@ -224,4 +228,8 @@ func newTCPProxyListenerFilter(env *model.Environment, node *model.Proxy, isInbo
 		filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
 	}
 	return &filter
+}
+
+func isAllowAny(node *model.Proxy) bool {
+	return node.SidecarScope.OutboundTrafficPolicy != nil && node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY
 }

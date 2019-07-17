@@ -13,13 +13,10 @@ rules:
     ignore: |
       /galley/tools/gen-meta/metadata.yaml
   commas: disable
-  comments:
-    level: warning
-  comments-indentation:
-    level: warning
+  comments: disable
+  comments-indentation: disable
   document-end: disable
-  document-start:
-    level: warning
+  document-start: disable
   empty-lines: disable
   empty-values: enable
   hyphens: enable
@@ -32,5 +29,4 @@ rules:
   octal-values: enable
   quoted-strings: disable
   trailing-spaces: disable
-  truthy:
-    level: warning
+  truthy: disable

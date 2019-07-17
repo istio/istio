@@ -137,7 +137,98 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
-
+	sidecarConfigWithRegistryOnly := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						// A port that is not in any of the services
+						Number:   9000,
+						Protocol: "HTTP",
+						Name:     "something",
+					},
+					Bind:  "1.1.1.1",
+					Hosts: []string{"*/bookinfo.com"},
+				},
+				{
+					Port: &networking.Port{
+						// Unix domain socket listener
+						Number:   0,
+						Protocol: "HTTP",
+						Name:     "something",
+					},
+					Bind:  "unix://foo/bar/baz",
+					Hosts: []string{"*/bookinfo.com"},
+				},
+				{
+					Port: &networking.Port{
+						// A port that is in one of the services
+						Number:   8080,
+						Protocol: "HTTP",
+						Name:     "foo",
+					},
+					Hosts: []string{"default/bookinfo.com", "not-default/test.com"},
+				},
+				{
+					// Wildcard egress importing from all namespaces
+					Hosts: []string{"*/*"},
+				},
+			},
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
+			},
+		},
+	}
+	sidecarConfigWithAllowAny := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						// A port that is not in any of the services
+						Number:   9000,
+						Protocol: "HTTP",
+						Name:     "something",
+					},
+					Bind:  "1.1.1.1",
+					Hosts: []string{"*/bookinfo.com"},
+				},
+				{
+					Port: &networking.Port{
+						// Unix domain socket listener
+						Number:   0,
+						Protocol: "HTTP",
+						Name:     "something",
+					},
+					Bind:  "unix://foo/bar/baz",
+					Hosts: []string{"*/bookinfo.com"},
+				},
+				{
+					Port: &networking.Port{
+						// A port that is in one of the services
+						Number:   8080,
+						Protocol: "HTTP",
+						Name:     "foo",
+					},
+					Hosts: []string{"default/bookinfo.com", "not-default/test.com"},
+				},
+				{
+					// Wildcard egress importing from all namespaces
+					Hosts: []string{"*/*"},
+				},
+			},
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+			},
+		},
+	}
 	virtualServiceSpec1 := &networking.VirtualService{
 		Hosts:    []string{"test-private-2.com"},
 		Gateways: []string{"mesh"},
@@ -283,6 +374,39 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"test.com:8080":     {"test.com:8080": true, "8.8.8.8:8080": true},
 			},
 		},
+		{
+			name:                  "sidecar config with fallthrough and registry only and allow any mesh config",
+			routeName:             "80",
+			sidecarConfig:         sidecarConfigWithRegistryOnly,
+			virtualServiceConfigs: nil,
+			expectedHosts: map[string]map[string]bool{
+				"test-private.com:80": {
+					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
+				},
+				"block_all": {
+					"*": true,
+				},
+			},
+			fallthroughRoute: true,
+			registryOnly:     false,
+		},
+		{
+			name:                  "sidecar config with fallthrough and allow any and registry only mesh config",
+			routeName:             "80",
+			sidecarConfig:         sidecarConfigWithAllowAny,
+			virtualServiceConfigs: nil,
+			expectedHosts: map[string]map[string]bool{
+				"test-private.com:80": {
+					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
+				},
+				"allow_any": {
+					"*": true,
+				},
+			},
+			fallthroughRoute: true,
+			registryOnly:     false,
+		},
+
 		{
 			name:                  "wildcard egress importing from all namespaces: 9999",
 			routeName:             "9999",
@@ -435,6 +559,9 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	if err := env.PushContext.InitContext(&env); err != nil {
 		t.Fatalf("failed to initialize push context")
 	}
+	if registryOnly {
+		env.Mesh.OutboundTrafficPolicy = &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY}
+	}
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
@@ -443,9 +570,6 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "0")
 	if fallthroughRoute {
 		os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "1")
-	}
-	if registryOnly {
-		env.Mesh.OutboundTrafficPolicy = &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY}
 	}
 
 	route := configgen.buildSidecarOutboundHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, routeName)

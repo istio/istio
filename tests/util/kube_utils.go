@@ -371,13 +371,14 @@ func getServiceLoadBalancer(name, namespace, kubeconfig string) (string, error) 
 		if ip == "localhost" {
 			ip = "127.0.0.1"
 		}
-	} else {
-		ip = strings.Trim(ip, "'")
-		addr := net.ParseIP(ip)
-		if addr == nil {
-			return "", errors.New("ingress ip not available yet")
-		}
 	}
+
+	ip = strings.Trim(ip, "'")
+	addr := net.ParseIP(ip)
+	if addr == nil {
+		return "", errors.New("ingress ip not available yet")
+	}
+
 	return ip, nil
 }
 
@@ -708,12 +709,21 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string
 		// Log the description; if we fail to get the logs it may help
 		describeCmd := fmt.Sprintf("kubectl -n %s describe pod %s --kubeconfig=%s",
 			namespace, pod, kubeconfig)
-		describeOutput, errDescribe := Shell(describeCmd)
+		describeOutput, errDescribe := ShellMuteOutput(describeCmd)
 		if errDescribe != nil {
 			log.Warnf("Error getting description for pod %s: %v\n", pod, errDescribe)
 			// don't bail, keep going
 		} else {
-			log.Info(describeOutput)
+			filePath := filepath.Join(tempDir, fmt.Sprintf("%s_describe.log", pod))
+			f, err := os.Create(filePath)
+			if err != nil {
+				log.Warnf("Error creating %s for pod %s: %v\n", filePath, pod, err)
+				return err
+			}
+			if _, err = f.WriteString(fmt.Sprintf("%s\n", describeOutput)); err != nil {
+				log.Warnf("Error writing log dump to %s for pod %s/%s: %v\n", filePath, namespace, pod, err)
+				return err
+			}
 		}
 
 		cmd := fmt.Sprintf(
@@ -847,10 +857,10 @@ func CheckDeploymentsReady(ns string, kubeconfig string) (int, error) {
 	notReady := 0
 	for _, line := range strings.Split(out, "\n") {
 		flds := strings.Fields(line)
-		if len(flds) < 2 {
+		if len(flds) < 1 {
 			continue
 		}
-		if flds[1] == "0" { // no replicas ready
+		if len(flds) == 1 || flds[1] == "0" { // no replicas ready
 			notReady++
 		}
 	}

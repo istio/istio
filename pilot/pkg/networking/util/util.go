@@ -407,3 +407,34 @@ func IsHTTPFilterChain(filterChain listener.FilterChain) bool {
 	}
 	return false
 }
+
+// MergeAnyWithStruct merges a given struct into the given Any typed message by dynamically inferring the
+// type of Any, converting the struct into the inferred type, merging the two messages, and then
+// marshaling the merged message back into Any.
+func MergeAnyWithStruct(any *types.Any, pbStruct *types.Struct) (*types.Any, error) {
+	// Assuming that Pilot is compiled with this type [which should always be the case]
+	var err error
+	var x types.DynamicAny
+
+	// First get an object of type used by this message
+	if err = types.UnmarshalAny(any, &x); err != nil {
+		return nil, err
+	}
+
+	// Create a typed copy. We will convert the user's struct to this type
+	temp := proto.Clone(x.Message)
+	temp.Reset()
+	if err = xdsutil.StructToMessage(pbStruct, temp); err != nil {
+		return nil, err
+	}
+
+	// Merge the two typed protos
+	proto.Merge(x.Message, temp)
+	var retVal *types.Any
+	// Convert the merged proto back to any
+	if retVal, err = types.MarshalAny(x.Message); err != nil {
+		return nil, err
+	}
+
+	return retVal, nil
+}

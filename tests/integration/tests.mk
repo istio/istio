@@ -5,9 +5,11 @@
 # The following flags (in addition to ${V}) can be specified on the command-line, or the environment. This
 # is primarily used by the CI systems.
 
+PULL_POLICY ?= Always
+
 # $(CI) specifies that the test is running in a CI system. This enables CI specific logging.
 _INTEGRATION_TEST_CIMODE_FLAG =
-_INTEGRATION_TEST_PULL_POLICY = Always
+_INTEGRATION_TEST_PULL_POLICY = ${PULL_POLICY}
 ifneq ($(CI),)
 	_INTEGRATION_TEST_CIMODE_FLAG = --istio.test.ci
 	_INTEGRATION_TEST_PULL_POLICY = IfNotPresent      # Using Always in CircleCI causes pull issues as images are local.
@@ -23,6 +25,8 @@ _INTEGRATION_TEST_INGRESS_FLAG =
 ifeq (${TEST_ENV},minikube)
     _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikube
 else ifeq (${TEST_ENV},minikube-none)
+    _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikube
+else ifeq (${TEST_ENV},kind)
     _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikube
 endif
 
@@ -66,7 +70,6 @@ test.integration.new.installer: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
 	$(GO) test -p 1 ${T} ${NEW_INSTALLER_TARGETS} ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
-	--istio.test.nocleanup \
 	--istio.test.kube.deploy=false \
 	--istio.test.select -postsubmit,-flaky,-customsetup \
 	--istio.test.kube.minikube \

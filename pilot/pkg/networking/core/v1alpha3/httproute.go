@@ -22,9 +22,9 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
@@ -74,18 +74,22 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 		ValidateClusters: proto.BoolFalse,
 	}
 
+	in := &plugin.InputParams{
+		ListenerProtocol: plugin.ListenerProtocolHTTP,
+		ListenerCategory: networking.EnvoyFilter_SIDECAR_INBOUND,
+		Env:              env,
+		Node:             node,
+		ServiceInstance:  instance,
+		Service:          instance.Service,
+		Port:             instance.Endpoint.ServicePort,
+		Push:             push,
+	}
+
 	for _, p := range configgen.Plugins {
-		in := &plugin.InputParams{
-			ListenerProtocol: plugin.ListenerProtocolHTTP,
-			Env:              env,
-			Node:             node,
-			ServiceInstance:  instance,
-			Service:          instance.Service,
-			Push:             push,
-		}
 		p.OnInboundRouteConfiguration(in, r)
 	}
 
+	r = applyRouteConfigurationPatches(in, r)
 	return r
 }
 
@@ -101,6 +105,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		// we have a port whose name is http_proxy or unix:///foo/bar
 		// check for both.
 		if routeName != RDSHttpProxy && !strings.HasPrefix(routeName, model.UnixAddressPrefix) {
+			// TODO: This is potentially one place where envoyFilter ADD operation can be helpful if the
+			// user wants to ship a custom RDS. But at this point, the match semantics are murky. We have no
+			// object to match upon. This needs more thought. For now, we will continue to return nil for
+			// unknown routes
 			return nil
 		}
 	}
@@ -213,7 +221,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 
 	if features.EnableFallthroughRoute() {
 		// This needs to be the last virtual host, as routes are evaluated in order.
-		if env.Mesh.OutboundTrafficPolicy.Mode == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY {
+		if isAllowAny(node) {
 			virtualHosts = append(virtualHosts, route.VirtualHost{
 				Name:    "allow_any",
 				Domains: []string{"*"},
@@ -256,17 +264,25 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		ValidateClusters: proto.BoolFalse,
 	}
 
-	// call plugins
-	for _, p := range configgen.Plugins {
-		in := &plugin.InputParams{
-			ListenerProtocol: plugin.ListenerProtocolHTTP,
-			Env:              env,
-			Node:             node,
-			Push:             push,
-		}
-		p.OnOutboundRouteConfiguration(in, out)
+	pluginParams := &plugin.InputParams{
+		ListenerProtocol: plugin.ListenerProtocolHTTP,
+		ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+		Env:              env,
+		Node:             node,
+		Push:             push,
+		Port: &model.Port{
+			Name:     "",
+			Port:     listenerPort,
+			Protocol: model.ProtocolHTTP,
+		},
 	}
 
+	// call plugins
+	for _, p := range configgen.Plugins {
+		p.OnOutboundRouteConfiguration(pluginParams, out)
+	}
+
+	out = applyRouteConfigurationPatches(pluginParams, out)
 	return out
 }
 

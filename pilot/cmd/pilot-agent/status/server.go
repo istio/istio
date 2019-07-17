@@ -177,14 +177,28 @@ func (s *Server) handleReadyProbe(w http.ResponseWriter, _ *http.Request) {
 	s.mutex.Unlock()
 }
 
+func isRequestFromLocalhost(r *http.Request) bool {
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return false
+	}
+
+	userIP := net.ParseIP(ip)
+	return userIP.IsLoopback()
+}
+
 func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
+	if !isRequestFromLocalhost(r) {
+		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
+		return
+	}
 	if r.Method != "POST" {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
-	log.Infof("handling %s, and notify pilot-agent to exit", quitPath)
+	log.Infof("handling %s, notifying pilot-agent to exit", quitPath)
 	notifyExit()
 }
 
@@ -251,5 +265,7 @@ func notifyExit() {
 	if err != nil {
 		log.Errora(err)
 	}
-	log.Errora(p.Signal(syscall.SIGTERM))
+	if err := p.Signal(syscall.SIGTERM); err != nil {
+		log.Errorf("failed to send SIGTERM to self: %v", err)
+	}
 }

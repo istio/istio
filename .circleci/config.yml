@@ -70,28 +70,6 @@ markJobFinishesOnGCS: &markJobFinishesOnGCS
       make dumpsys || true
 
 jobs:
-  e2e-pilot-cloudfoundry-v1alpha3-v2:
-    <<: *integrationDefaults
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - attach_workspace:
-          at: /go
-      - run: make sync
-      - run:
-          no_output_timeout: 20m
-          command: |
-            export PATH=$GOPATH/bin:$PATH
-            make localTestEnv
-            make test/local/cloudfoundry/e2e_pilotv2
-      - <<: *recordZeroExitCodeIfTestPassed
-      - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *markJobFinishesOnGCS
-      - store_artifacts:
-          path: /go/out/logs
-      - store_artifacts:
-          path: /tmp
-
   e2e-pilot-auth-v1alpha3-v2:
     <<: *integrationDefaults
     steps:
@@ -124,6 +102,27 @@ jobs:
           path: /go/out/logs
       - store_artifacts:
           path: /tmp
+  test:
+    <<: *defaults
+    environment:
+      KUBECONFIG: /go/src/istio.io/istio/.circleci/config
+    resource_class: xlarge
+    steps:
+      - checkout
+      - <<: *markJobStartsOnGCS
+      - run: make sync
+      - run:
+          command: |
+            mkdir -p /go/out/tests
+            export PATH=$GOPATH/bin:$PATH
+            make localTestEnv
+            set -o pipefail
+            make test T=-v | tee -a /go/out/tests/build-log.txt
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
+      - store_test_results:
+          path: /go/out/tests
 
   build:
     <<: *defaults
@@ -144,11 +143,6 @@ jobs:
 
 workflows:
   version: 2
-  all:
-    jobs:
-      # The cloudfoundry test is not yet migrated to prow yet
-      - e2e-pilot-cloudfoundry-v1alpha3-v2
-
   # Ran nightly to check against prow tests
   nightly:
     triggers:
@@ -162,10 +156,6 @@ workflows:
     jobs:
       - test
       - build
-      - e2e-simple:
-          requires:
-            - test
-            - build
       - e2e-pilot-auth-v1alpha3-v2:
           requires:
             - test

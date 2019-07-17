@@ -16,9 +16,11 @@ package model
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
+	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 )
 
@@ -263,6 +265,141 @@ func TestCreateSidecarScope(t *testing.T) {
 				}
 			}
 			// TODO destination rule
+		})
+	}
+}
+
+func TestSidecarOutboundTrafficPolicy(t *testing.T) {
+
+	configWithoutOutboundTrafficPolicy := &Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{},
+	}
+	configRegistryOnly := &Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
+			},
+		},
+	}
+	configAllowAny := &Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+			},
+		},
+	}
+
+	meshConfigWithRegistryOnly, err := ApplyMeshConfigDefaults(`
+outboundTrafficPolicy: 
+  mode: REGISTRY_ONLY
+`)
+	if err != nil {
+		t.Fatalf("unexpected error reading test mesh config: %v", err)
+	}
+
+	tests := []struct {
+		name                  string
+		meshConfig            v1alpha1.MeshConfig
+		sidecar               *Config
+		outboundTrafficPolicy *networking.OutboundTrafficPolicy
+	}{
+		{
+			name:       "default MeshConfig, no Sidecar",
+			meshConfig: DefaultMeshConfig(),
+			sidecar:    nil,
+			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+			},
+		},
+		{
+			name:       "default MeshConfig, sidecar without OutboundTrafficPolicy",
+			meshConfig: DefaultMeshConfig(),
+			sidecar:    configWithoutOutboundTrafficPolicy,
+			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+			},
+		},
+		{
+			name:       "default MeshConfig, Sidecar with registry only",
+			meshConfig: DefaultMeshConfig(),
+			sidecar:    configRegistryOnly,
+			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
+			},
+		},
+		{
+			name:       "default MeshConfig, Sidecar with allow any",
+			meshConfig: DefaultMeshConfig(),
+			sidecar:    configAllowAny,
+			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+			},
+		},
+		{
+			name:       "MeshConfig registry only, no Sidecar",
+			meshConfig: *meshConfigWithRegistryOnly,
+			sidecar:    nil,
+			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
+			},
+		},
+		{
+			name:       "MeshConfig registry only, sidecar without OutboundTrafficPolicy",
+			meshConfig: *meshConfigWithRegistryOnly,
+			sidecar:    configWithoutOutboundTrafficPolicy,
+			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
+			},
+		},
+		{
+			name:       "MeshConfig registry only, Sidecar with registry only",
+			meshConfig: *meshConfigWithRegistryOnly,
+			sidecar:    configRegistryOnly,
+			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
+			},
+		},
+		{
+			name:       "MeshConfig registry only, Sidecar with allow any",
+			meshConfig: *meshConfigWithRegistryOnly,
+			sidecar:    configAllowAny,
+			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ps := NewPushContext()
+			ps.Env = &Environment{
+				Mesh: &test.meshConfig,
+			}
+
+			var sidecarScope *SidecarScope
+			if test.sidecar == nil {
+				sidecarScope = DefaultSidecarScopeForNamespace(ps, "not-default")
+			} else {
+				sidecarScope = ConvertToSidecarScope(ps, test.sidecar, test.sidecar.Namespace)
+			}
+
+			if !reflect.DeepEqual(test.outboundTrafficPolicy, sidecarScope.OutboundTrafficPolicy) {
+				t.Errorf("Unexpected sidecar outbound traffic, want %v, found %v",
+					test.outboundTrafficPolicy, sidecarScope.OutboundTrafficPolicy)
+			}
+
 		})
 	}
 }

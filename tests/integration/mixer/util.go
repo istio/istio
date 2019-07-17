@@ -188,7 +188,8 @@ func GetAndValidateAccessLog(ns namespace.Instance, t *testing.T, labelSelector,
 	}
 
 	retryFn := func(_ context.Context, i int) error {
-		content, err := shell.Execute(false, "kubectl logs -n %s -l %s -c %s ",
+		// Different kubectl versions seem to return different amounts of logs. To ensure we get them all, set tail to a large number
+		content, err := shell.Execute(false, "kubectl logs -n %s -l %s -c %s --tail=10000000",
 			ns.Name(), labelSelector, container)
 		if err != nil {
 			return fmt.Errorf("unable to get access logs from mixer: %v , content %v", err, content)

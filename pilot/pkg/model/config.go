@@ -730,7 +730,6 @@ func (store *istioConfigStore) EnvoyFilter(workloadLabels LabelsCollection) *Con
 				continue
 			}
 		}
-		mergedFilterConfig.WorkloadLabels = make(map[string]string)
 		mergedFilterConfig.Filters = append(mergedFilterConfig.Filters, filter.Filters...)
 	}
 

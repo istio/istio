@@ -728,11 +728,16 @@ func (m *RuntimeLayer) Validate() error {
 		return nil
 	}
 
-	// no validation rules for Name
+	if len(m.GetName()) < 1 {
+		return RuntimeLayerValidationError{
+			field:  "Name",
+			reason: "value length must be at least 1 bytes",
+		}
+	}
 
 	switch m.LayerSpecifier.(type) {
 
-	case *RuntimeLayer_StaticLayer_:
+	case *RuntimeLayer_StaticLayer:
 
 		{
 			tmp := m.GetStaticLayer()
@@ -783,16 +788,16 @@ func (m *RuntimeLayer) Validate() error {
 			}
 		}
 
-	case *RuntimeLayer_TdsLayer_:
+	case *RuntimeLayer_RtdsLayer_:
 
 		{
-			tmp := m.GetTdsLayer()
+			tmp := m.GetRtdsLayer()
 
 			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
 
 				if err := v.Validate(); err != nil {
 					return RuntimeLayerValidationError{
-						field:  "TdsLayer",
+						field:  "RtdsLayer",
 						reason: "embedded message failed validation",
 						cause:  err,
 					}
@@ -1253,88 +1258,6 @@ var _ interface {
 	ErrorName() string
 } = ClusterManager_OutlierDetectionValidationError{}
 
-// Validate checks the field values on RuntimeLayer_StaticLayer with the rules
-// defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
-func (m *RuntimeLayer_StaticLayer) Validate() error {
-	if m == nil {
-		return nil
-	}
-
-	{
-		tmp := m.GetValue()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return RuntimeLayer_StaticLayerValidationError{
-					field:  "Value",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
-// RuntimeLayer_StaticLayerValidationError is the validation error returned by
-// RuntimeLayer_StaticLayer.Validate if the designated constraints aren't met.
-type RuntimeLayer_StaticLayerValidationError struct {
-	field  string
-	reason string
-	cause  error
-	key    bool
-}
-
-// Field function returns field value.
-func (e RuntimeLayer_StaticLayerValidationError) Field() string { return e.field }
-
-// Reason function returns reason value.
-func (e RuntimeLayer_StaticLayerValidationError) Reason() string { return e.reason }
-
-// Cause function returns cause value.
-func (e RuntimeLayer_StaticLayerValidationError) Cause() error { return e.cause }
-
-// Key function returns key value.
-func (e RuntimeLayer_StaticLayerValidationError) Key() bool { return e.key }
-
-// ErrorName returns error name.
-func (e RuntimeLayer_StaticLayerValidationError) ErrorName() string {
-	return "RuntimeLayer_StaticLayerValidationError"
-}
-
-// Error satisfies the builtin error interface
-func (e RuntimeLayer_StaticLayerValidationError) Error() string {
-	cause := ""
-	if e.cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.cause)
-	}
-
-	key := ""
-	if e.key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sRuntimeLayer_StaticLayer.%s: %s%s",
-		key,
-		e.field,
-		e.reason,
-		cause)
-}
-
-var _ error = RuntimeLayer_StaticLayerValidationError{}
-
-var _ interface {
-	Field() string
-	Reason() string
-	Key() bool
-	Cause() error
-	ErrorName() string
-} = RuntimeLayer_StaticLayerValidationError{}
-
 // Validate checks the field values on RuntimeLayer_DiskLayer with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, an error is returned.
@@ -1344,6 +1267,8 @@ func (m *RuntimeLayer_DiskLayer) Validate() error {
 	}
 
 	// no validation rules for SymlinkRoot
+
+	// no validation rules for Subdirectory
 
 	// no validation rules for AppendServiceCluster
 
@@ -1473,10 +1398,10 @@ var _ interface {
 	ErrorName() string
 } = RuntimeLayer_AdminLayerValidationError{}
 
-// Validate checks the field values on RuntimeLayer_TdsLayer with the rules
+// Validate checks the field values on RuntimeLayer_RtdsLayer with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, an error is returned.
-func (m *RuntimeLayer_TdsLayer) Validate() error {
+func (m *RuntimeLayer_RtdsLayer) Validate() error {
 	if m == nil {
 		return nil
 	}
@@ -1484,13 +1409,13 @@ func (m *RuntimeLayer_TdsLayer) Validate() error {
 	// no validation rules for Name
 
 	{
-		tmp := m.GetTdsConfig()
+		tmp := m.GetRtdsConfig()
 
 		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
 
 			if err := v.Validate(); err != nil {
-				return RuntimeLayer_TdsLayerValidationError{
-					field:  "TdsConfig",
+				return RuntimeLayer_RtdsLayerValidationError{
+					field:  "RtdsConfig",
 					reason: "embedded message failed validation",
 					cause:  err,
 				}
@@ -1501,9 +1426,9 @@ func (m *RuntimeLayer_TdsLayer) Validate() error {
 	return nil
 }
 
-// RuntimeLayer_TdsLayerValidationError is the validation error returned by
-// RuntimeLayer_TdsLayer.Validate if the designated constraints aren't met.
-type RuntimeLayer_TdsLayerValidationError struct {
+// RuntimeLayer_RtdsLayerValidationError is the validation error returned by
+// RuntimeLayer_RtdsLayer.Validate if the designated constraints aren't met.
+type RuntimeLayer_RtdsLayerValidationError struct {
 	field  string
 	reason string
 	cause  error
@@ -1511,24 +1436,24 @@ type RuntimeLayer_TdsLayerValidationError struct {
 }
 
 // Field function returns field value.
-func (e RuntimeLayer_TdsLayerValidationError) Field() string { return e.field }
+func (e RuntimeLayer_RtdsLayerValidationError) Field() string { return e.field }
 
 // Reason function returns reason value.
-func (e RuntimeLayer_TdsLayerValidationError) Reason() string { return e.reason }
+func (e RuntimeLayer_RtdsLayerValidationError) Reason() string { return e.reason }
 
 // Cause function returns cause value.
-func (e RuntimeLayer_TdsLayerValidationError) Cause() error { return e.cause }
+func (e RuntimeLayer_RtdsLayerValidationError) Cause() error { return e.cause }
 
 // Key function returns key value.
-func (e RuntimeLayer_TdsLayerValidationError) Key() bool { return e.key }
+func (e RuntimeLayer_RtdsLayerValidationError) Key() bool { return e.key }
 
 // ErrorName returns error name.
-func (e RuntimeLayer_TdsLayerValidationError) ErrorName() string {
-	return "RuntimeLayer_TdsLayerValidationError"
+func (e RuntimeLayer_RtdsLayerValidationError) ErrorName() string {
+	return "RuntimeLayer_RtdsLayerValidationError"
 }
 
 // Error satisfies the builtin error interface
-func (e RuntimeLayer_TdsLayerValidationError) Error() string {
+func (e RuntimeLayer_RtdsLayerValidationError) Error() string {
 	cause := ""
 	if e.cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.cause)
@@ -1540,14 +1465,14 @@ func (e RuntimeLayer_TdsLayerValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sRuntimeLayer_TdsLayer.%s: %s%s",
+		"invalid %sRuntimeLayer_RtdsLayer.%s: %s%s",
 		key,
 		e.field,
 		e.reason,
 		cause)
 }
 
-var _ error = RuntimeLayer_TdsLayerValidationError{}
+var _ error = RuntimeLayer_RtdsLayerValidationError{}
 
 var _ interface {
 	Field() string
@@ -1555,4 +1480,4 @@ var _ interface {
 	Key() bool
 	Cause() error
 	ErrorName() string
-} = RuntimeLayer_TdsLayerValidationError{}
+} = RuntimeLayer_RtdsLayerValidationError{}

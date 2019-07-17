@@ -3,3 +3,4 @@ kind: QuotaSpecBinding
 metadata:
   name: valid-quota-spec-binding
 spec:
+  services:
