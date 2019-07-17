@@ -394,6 +394,7 @@ func applyClusterPatches(env *model.Environment, proxy *model.Proxy,
 				clusters = append(clusters, cp.Value.(*xdsapi.Cluster))
 			}
 		}
+		clusters = trimmedClusters
 	}
 
 	if clustersRemoved {

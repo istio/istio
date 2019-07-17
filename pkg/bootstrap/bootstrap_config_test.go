@@ -23,20 +23,19 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/pkg/util"
-
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
 	tracev2 "github.com/envoyproxy/go-control-plane/envoy/config/trace/v2"
-
-	ocv1 "istio.io/gogo-genproto/opencensus/proto/trace/v1"
-
 	"github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	diff "gopkg.in/d4l3k/messagediff.v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	ocv1 "istio.io/gogo-genproto/opencensus/proto/trace/v1"
+	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -229,9 +228,9 @@ func TestGolden(t *testing.T) {
 				localEnv = append(localEnv, k+"="+v)
 			}
 
-			fn, err := WriteBootstrap(cfg, "sidecar~1.2.3.4~foo~bar", 0, []string{
+			fn, err := writeBootstrapForPlatform(cfg, "sidecar~1.2.3.4~foo~bar", 0, []string{
 				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, nil, localEnv,
-				[]string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6", "10.4.4.4"}, "60s")
+				[]string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6", "10.4.4.4"}, "60s", &fakePlatform{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -621,17 +620,20 @@ func TestNodeMetadata(t *testing.T) {
 		"istio.io/enable": "{20: 20}",
 	}
 
+	plat := &fakePlatform{meta: map[string]string{"some_env": "foo", "other_env": "bar"}}
+
 	wantMap := map[string]interface{}{
 		"istio": "sidecar",
 		"istio.io/metadata": istioMetadata{
-			Labels: labels,
+			Labels:           labels,
+			PlatformMetadata: map[string]string{"some_env": "foo", "other_env": "bar"},
 		},
 		"l1": "v1",
 		"l2": "v2",
 	}
 
 	_, envs := createEnv(t, labels, nil)
-	nm := getNodeMetaData(envs)
+	nm := getNodeMetaData(envs, plat)
 
 	if !reflect.DeepEqual(nm, wantMap) {
 		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, wantMap)
@@ -642,7 +644,7 @@ func TestNodeMetadata(t *testing.T) {
 		wantMap[k] = v
 	}
 
-	nm = getNodeMetaData(envs)
+	nm = getNodeMetaData(envs, plat)
 	if !reflect.DeepEqual(nm, wantMap) {
 		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, wantMap)
 	}
@@ -655,7 +657,7 @@ func TestNodeMetadata(t *testing.T) {
 		return s
 	}, envs)
 
-	nm = getNodeMetaData(envs)
+	nm = getNodeMetaData(envs, plat)
 	if !reflect.DeepEqual(nm, wantMap) {
 		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, wantMap)
 	}
@@ -669,7 +671,7 @@ func TestNodeMetadataEncodeEnvWithIstioMetaPrefix(t *testing.T) {
 		notIstioMetaKey + "=bar",
 		anIstioMetaKey + "=baz",
 	}
-	nm := getNodeMetaData(envs)
+	nm := getNodeMetaData(envs, nil)
 	if _, ok := nm[notIstioMetaKey]; ok {
 		t.Fatalf("%s should not be encoded in node metadata", notIstioMetaKey)
 	}
@@ -688,4 +690,18 @@ func mergeMap(to map[string]string, from map[string]string) {
 	for k, v := range from {
 		to[k] = v
 	}
+}
+
+type fakePlatform struct {
+	platform.Environment
+
+	meta map[string]string
+}
+
+func (f *fakePlatform) Metadata() map[string]string {
+	return f.meta
+}
+
+func (f *fakePlatform) Locality() *core.Locality {
+	return &core.Locality{}
 }
