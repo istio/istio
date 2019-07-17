@@ -20,6 +20,6 @@ spec:
     spec:
       containers:
         - name: test
-          image: pstauffer/curl
+          image: pstauffer/curl:v1.0.3
           command: ["sh", "-c", "while :; do sleep 1s; ret=`curl -o /dev/null -s -w %{http_code} -X POST http://127.0.0.1:15020/quitquitquit`; if  [ $ret -eq 200 ]; then break; fi; done"]
       restartPolicy: Never
