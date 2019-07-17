@@ -346,6 +346,7 @@ func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoc
 		cfg = config.ProxyBootstrapTemplatePath
 	}
 	if _, err := os.Stat(cfg); os.IsNotExist(err) {
+		log.Warnf("Custom template %s not found, fallback to default %s", cfg, DefaultCfgDir)
 		cfg = DefaultCfgDir
 	}
 	if cfg == "" {
