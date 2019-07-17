@@ -537,7 +537,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 func (sc *SecretCache) generateGatewaySecret(token string, sdsConnCtx ConnKey, t time.Time) (*model.SecretItem, error) {
 	secretItem, exist := sc.fetcher.FindIngressGatewaySecret(sdsConnCtx.ResourceName)
 	if !exist {
-		return nil, fmt.Errorf("cannot find secret %s for ingress gateway SDS request %+v", sdsConnCtx)
+		return nil, fmt.Errorf("cannot find secret for ingress gateway SDS request %+v", sdsConnCtx)
 	}
 
 	if strings.HasSuffix(sdsConnCtx.ResourceName, secretfetcher.IngressGatewaySdsCaSuffix) {
@@ -681,7 +681,8 @@ func (sc *SecretCache) isTokenExpired() bool {
 
 // sendRetriableRequest sends retriable requests for either CSR or ExchangeToken.
 // Prior to sending the request, it also sleep random millisecond to avoid thundering herd problem.
-func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte, providedExchangedToken string, sdsConnCtx ConnKey, isCSR bool) ([]string, error) {
+func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
+	providedExchangedToken string, sdsConnCtx ConnKey, isCSR bool) ([]string, error) {
 	backOffInMilliSec := rand.Int63n(sc.configOptions.InitialBackoff)
 	cacheLog.Debugf("Wait for %d millisec", backOffInMilliSec)
 	// Add a jitter to initial CSR to avoid thundering herd problem.
