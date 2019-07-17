@@ -200,8 +200,8 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 
 	conIDresourceNamePrefix := cacheLogPrefix(connectionID, resourceName)
 	if resourceName != RootCertReqResourceName {
-		// If working as Citadel agent, send request for normal sdsConnCtx/cert pair.
-		// If working as ingress gateway agent, fetch sdsConnCtx/cert or root cert from SecretFetcher. Resource name for
+		// If working as Citadel agent, send request for normal key/cert pair.
+		// If working as ingress gateway agent, fetch key/cert or root cert from SecretFetcher. Resource name for
 		// root cert ends with "-cacert".
 		ns, err := sc.generateSecret(ctx, token, sdsConnCtx, time.Now())
 		if err != nil {
