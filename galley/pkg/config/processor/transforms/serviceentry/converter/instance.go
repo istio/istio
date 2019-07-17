@@ -19,15 +19,14 @@ import (
 	"strconv"
 	"strings"
 
-	networking "istio.io/api/networking/v1alpha3"
+	coreV1 "k8s.io/api/core/v1"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/annotations"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-
-	coreV1 "k8s.io/api/core/v1"
 )
 
 // Instance of the converter.
@@ -144,6 +143,8 @@ func (i *Instance) convertEndpoints(endpoints *resource.Entry, outMeta *resource
 	// Store the subject alternate names in a set to avoid duplicates.
 	subjectAltNameSet := make(map[string]struct{})
 	eps := make([]*networking.ServiceEntry_Endpoint, 0)
+
+	// TODO: Add pooling support for strings.Builder and put it in pkg/pool
 
 	// A builder for the annotation for not-ready addresses. The ServiceEntry does not support not ready addresses,
 	// so we send them as an annotation instead.

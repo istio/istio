@@ -82,8 +82,8 @@ func TestTransformer_Selection(t *testing.T) {
 
 	accBoo := &fixtures.Accumulator{}
 	accBaz := &fixtures.Accumulator{}
-	xform.Select(boo, accBoo)
-	xform.Select(baz, accBaz)
+	xform.DispatchFor(boo, accBoo)
+	xform.DispatchFor(baz, accBaz)
 
 	xform.Start()
 
@@ -120,7 +120,7 @@ func TestTransformer_InvalidEvent(t *testing.T) {
 	)
 
 	acc := &fixtures.Accumulator{}
-	xform.Select(bar, acc)
+	xform.DispatchFor(bar, acc)
 
 	xform.Start()
 
@@ -152,9 +152,9 @@ func TestTransformer_Reset(t *testing.T) {
 	)
 
 	accBar := &fixtures.Accumulator{} // it is a trap!
-	xform.Select(bar, accBar)
+	xform.DispatchFor(bar, accBar)
 	accBaz := &fixtures.Accumulator{}
-	xform.Select(baz, accBaz)
+	xform.DispatchFor(baz, accBaz)
 
 	xform.Start()
 
@@ -196,8 +196,8 @@ func TestTransformer_FullSync(t *testing.T) {
 
 	accBoo := &fixtures.Accumulator{}
 	accBaz := &fixtures.Accumulator{}
-	xform.Select(boo, accBoo)
-	xform.Select(baz, accBaz)
+	xform.DispatchFor(boo, accBoo)
+	xform.DispatchFor(baz, accBaz)
 
 	xform.Start()
 

@@ -18,14 +18,12 @@ import (
 	"reflect"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	"istio.io/pkg/log"
 
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/scope"
 )
-
-var scope = log.RegisterScope("processing", "", 0)
 
 // Create a new Direct transformer.
 func Create() []event.Transformer {
@@ -54,7 +52,7 @@ func handler(destination collection.Name) func(e event.Event, h event.Handler) {
 		if e.Entry != nil && e.Entry.Item != nil {
 			policy, ok := e.Entry.Item.(*authn.Policy)
 			if !ok {
-				scope.Errorf("unexpected proto found when converting authn.Policy: %v", reflect.TypeOf(e.Entry.Item))
+				scope.Processing.Errorf("unexpected proto found when converting authn.Policy: %v", reflect.TypeOf(e.Entry.Item))
 				return
 			}
 

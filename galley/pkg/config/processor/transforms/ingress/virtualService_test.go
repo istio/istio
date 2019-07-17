@@ -288,7 +288,7 @@ func setupVS(g *GomegaWithT, o processing.ProcessorOptions) (event.Transformer, 
 	acc := &fixtures.Accumulator{}
 	xform := xforms[1]
 	src.Dispatch(xform)
-	xform.Select(metadata.IstioNetworkingV1Alpha3Virtualservices, acc)
+	xform.DispatchFor(metadata.IstioNetworkingV1Alpha3Virtualservices, acc)
 
 	return xform, src, acc
 }

@@ -86,7 +86,7 @@ func (g *gatewayXform) handle(e event.Event, h event.Handler) {
 		h.Handle(evt)
 
 	default:
-		scope.Errorf("gatewayXform.handle: unknown event: %v", e)
+		panic(fmt.Errorf("gatewayXform.handle: unknown event: %v", e))
 	}
 }
 

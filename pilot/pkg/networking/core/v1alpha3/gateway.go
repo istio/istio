@@ -648,7 +648,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 	return filterChains
 }
 
-// Select the virtualService's hosts that match the ones specified in the gateway server's hosts
+// DispatchFor the virtualService's hosts that match the ones specified in the gateway server's hosts
 // based on the wildcard hostname match and the namespace match
 func pickMatchingGatewayHosts(gatewayServerHosts map[model.Hostname]bool, virtualService model.Config) map[string]model.Hostname {
 	matchingHosts := make(map[string]model.Hostname)

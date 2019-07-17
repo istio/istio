@@ -15,6 +15,8 @@
 package annotations
 
 const (
+	// TODO: Move annotations to istio/api and use from there
+
 	// ServiceVersion provides the raw resource version from the most recent k8s Service update. This will always
 	// be available for synthetic service entries.
 	ServiceVersion = "networking.istio.io/serviceVersion"

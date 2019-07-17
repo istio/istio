@@ -15,13 +15,9 @@
 package serviceentry
 
 import (
-	"istio.io/pkg/log"
-
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
 )
-
-var scope = log.RegisterScope("processor", "", 0)
 
 // Create transformer for Synthetic Service entries
 func Create(o processing.ProcessorOptions) []event.Transformer {

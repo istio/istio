@@ -16,6 +16,8 @@ package annotations
 
 import "istio.io/pkg/annotations"
 
+// TODO: Move annotations to istio/api and use from there
+
 // IngressClass is the annotation on Ingress resources for the class of controllers responsible for it
 var IngressClass = annotations.Register(
 	"kubernetes.io/ingress.class",

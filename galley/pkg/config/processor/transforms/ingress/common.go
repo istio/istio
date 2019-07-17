@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/processor/transforms/ingress/annotations"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/scope"
 )
 
 const (
@@ -63,18 +64,18 @@ func shouldProcessIngress(m *meshconfig.MeshConfig, r *resource.Entry) bool {
 
 	switch m.IngressControllerMode {
 	case meshconfig.MeshConfig_OFF:
-		scope.Debugf("Skipping ingress due to Ingress Controller Mode OFF (%s)", r.Metadata.Name)
+		scope.Processing.Debugf("Skipping ingress due to Ingress Controller Mode OFF (%s)", r.Metadata.Name)
 		return false
 	case meshconfig.MeshConfig_STRICT:
 		result := exists && class == m.IngressClass
-		scope.Debugf("Checking ingress class w/ Strict (%s): %v", r.Metadata.Name, result)
+		scope.Processing.Debugf("Checking ingress class w/ Strict (%s): %v", r.Metadata.Name, result)
 		return result
 	case meshconfig.MeshConfig_DEFAULT:
 		result := !exists || class == m.IngressClass
-		scope.Debugf("Checking ingress class w/ Default (%s): %v", r.Metadata.Name, result)
+		scope.Processing.Debugf("Checking ingress class w/ Default (%s): %v", r.Metadata.Name, result)
 		return result
 	default:
-		scope.Warnf("invalid i synchronization mode: %v", m.IngressControllerMode)
+		scope.Processing.Warnf("invalid ingress controller mode: %v", m.IngressControllerMode)
 		return false
 	}
 }

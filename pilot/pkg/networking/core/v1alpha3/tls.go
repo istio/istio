@@ -65,7 +65,7 @@ func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels model.LabelsCollect
 	return gatewayMatch && labelMatch && portMatch
 }
 
-// Select the config pertaining to the service being processed.
+// DispatchFor the config pertaining to the service being processed.
 func getConfigsForHost(host model.Hostname, configs []model.Config) []model.Config {
 	svcConfigs := make([]model.Config, 0)
 	for index := range configs {

@@ -53,7 +53,7 @@ const (
 	LanguageRuntimeAnnotation = "policy.istio.io/lang"
 )
 
-var _ = annotations.Register(LanguageRuntimeAnnotation, "Select a language runtime")
+var _ = annotations.Register(LanguageRuntimeAnnotation, "DispatchFor a language runtime")
 
 var langVar = env.RegisterStringVar("ISTIO_LANG", "", "Selects the attribute expression langauge runtime for Mixer.")
 

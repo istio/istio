@@ -292,7 +292,7 @@ func setupGW(g *GomegaWithT, o processing.ProcessorOptions) (event.Transformer, 
 	acc := &fixtures.Accumulator{}
 	xform := xforms[0]
 	src.Dispatch(xform)
-	xform.Select(metadata.IstioNetworkingV1Alpha3Gateways, acc)
+	xform.DispatchFor(metadata.IstioNetworkingV1Alpha3Gateways, acc)
 
 	xform.Start()
 

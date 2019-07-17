@@ -23,6 +23,7 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/processor/transforms/ingress/annotations"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/synthesize"
 )
 
@@ -105,9 +106,9 @@ func (s *syntheticVirtualService) isEmpty() bool {
 }
 
 func (s *syntheticVirtualService) generateEntry(domainSuffix string) *resource.Entry {
-	// Ingress allows ingressAdapter single host - if missing '*' is assumed
-	// We need to merge all rules with ingressAdapter particular host across
-	// all ingresses, and return ingressAdapter separate VirtualService for each
+	// Ingress allows a single host - if missing '*' is assumed
+	// We need to merge all rules with a particular host across
+	// all ingresses, and return a separate VirtualService for each
 	// host.
 
 	first := s.ingresses[0]
@@ -129,7 +130,7 @@ func (s *syntheticVirtualService) generateEntry(domainSuffix string) *resource.E
 		ingress := ing.Item.(*v1beta1.IngressSpec)
 		for _, rule := range ingress.Rules {
 			if rule.HTTP == nil {
-				scope.Infof("invalid ingress rule %s:%s for host %q, no paths defined", namespace, name, rule.Host)
+				scope.Processing.Errorf("invalid ingress rule %s:%s for host %q, no paths defined", namespace, name, rule.Host)
 				continue
 			}
 
@@ -141,7 +142,7 @@ func (s *syntheticVirtualService) generateEntry(domainSuffix string) *resource.E
 
 				httpRoute := ingressBackendToHTTPRoute(&path.Backend, namespace, domainSuffix)
 				if httpRoute == nil {
-					scope.Infof("invalid ingress rule %s:%s for host %q, no backend defined for path", namespace, name, rule.Host)
+					scope.Processing.Errorf("invalid ingress rule %s:%s for host %q, no backend defined for path", namespace, name, rule.Host)
 					continue
 				}
 				httpRoute.Match = []*v1alpha3.HTTPMatchRequest{httpMatch}
@@ -154,7 +155,7 @@ func (s *syntheticVirtualService) generateEntry(domainSuffix string) *resource.E
 		// Matches * and "/". Currently not supported - would conflict
 		// with any other explicit VirtualService.
 		if ingress.Backend != nil {
-			scope.Infof("Ignore default wildcard ingress, use VirtualService %s:%s",
+			scope.Processing.Infof("Ignore default wildcard ingress, use VirtualService %s:%s",
 				namespace, name)
 		}
 	}

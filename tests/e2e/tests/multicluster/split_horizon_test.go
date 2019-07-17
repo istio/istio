@@ -124,12 +124,12 @@ func setTestConfig() error {
 			IstioInjection: true,
 			YamlFiles: []yamlFile{
 				{
-					// Select the service from the yaml file
+					// DispatchFor the service from the yaml file
 					Name:         "testdata/helloworld.yaml",
 					LabelSeletor: "app=helloworld",
 				},
 				{
-					// Select the v1 deployment from the yaml file
+					// DispatchFor the v1 deployment from the yaml file
 					Name:         "testdata/helloworld.yaml",
 					LabelSeletor: "version=v1",
 				},
@@ -148,12 +148,12 @@ func setTestConfig() error {
 			IstioInjection: true,
 			YamlFiles: []yamlFile{
 				{
-					// Select the service from the yaml file
+					// DispatchFor the service from the yaml file
 					Name:         "testdata/helloworld.yaml",
 					LabelSeletor: "app=helloworld",
 				},
 				{
-					// Select the v2 deployment from the yaml file
+					// DispatchFor the v2 deployment from the yaml file
 					Name:         "testdata/helloworld.yaml",
 					LabelSeletor: "version=v2",
 				},

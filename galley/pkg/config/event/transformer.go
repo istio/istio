@@ -32,8 +32,8 @@ import (
 type Transformer interface {
 	Processor
 
-	// Select registers the given handler for a particular output collection.
-	Select(c collection.Name, h Handler)
+	// DispatchFor registers the given handler for a particular output collection.
+	DispatchFor(c collection.Name, h Handler)
 
 	// Inputs for this transformer
 	Inputs() collection.Names
@@ -46,7 +46,7 @@ type Transformer interface {
 type FnTransform struct {
 	in       collection.Names
 	out      collection.Names
-	selector Selector
+	selector Router
 	startFn  func()
 	stopFn   func()
 	handleFn func(e Event, h Handler)
@@ -67,7 +67,7 @@ func (t *FnTransform) Outputs() collection.Names {
 func (t *FnTransform) Start() {
 	scope.Processing.Debug("FnTransform.Start")
 	if t.selector == nil {
-		t.selector = NewSelector()
+		t.selector = NewRouter()
 	}
 
 	atomic.StoreInt32(&t.syncCtr, int32(len(t.in)))
@@ -85,13 +85,13 @@ func (t *FnTransform) Stop() {
 	}
 }
 
-// Select partially implements Transformer
-func (t *FnTransform) Select(c collection.Name, h Handler) {
-	scope.Processing.Debugf("FnTransform.Select: %v => %T", c, h)
-	t.selector = AddToSelector(t.selector, c, h)
+// DispatchFor implements Transformer
+func (t *FnTransform) DispatchFor(c collection.Name, h Handler) {
+	scope.Processing.Debugf("FnTransform.DispatchFor: %v => %T", c, h)
+	t.selector = AddToRouter(t.selector, c, h)
 }
 
-// Handle partially implements Transformer
+// Handle implements Transformer
 func (t *FnTransform) Handle(e Event) {
 	if e.Kind == Reset {
 		t.selector.Broadcast(e)

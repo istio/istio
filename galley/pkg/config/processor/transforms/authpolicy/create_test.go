@@ -302,7 +302,7 @@ func setup(g *GomegaWithT, i int) (event.Transformer, *fixtures.Source, *fixture
 	src := &fixtures.Source{}
 	acc := &fixtures.Accumulator{}
 	src.Dispatch(xforms[i])
-	xforms[i].Select(xforms[i].Outputs()[0], acc)
+	xforms[i].DispatchFor(xforms[i].Outputs()[0], acc)
 
 	return xforms[i], src, acc
 }

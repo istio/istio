@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/converter"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/runtime/monitoring"
 )
 
@@ -51,10 +52,8 @@ type transformer struct {
 	fullSyncCtr int
 
 	// The version number for the current State of the object. Every time mcpResources or versions change,
-	// the version number also change
+	// the version number also changes
 	version int64
-
-	// 	mcpResources map[resource.FullName]*mcp.Resource
 }
 
 var _ event.Transformer = &transformer{}
@@ -79,7 +78,7 @@ func (t *transformer) Start() {
 	statsCtx, err := tag.New(context.Background(), tag.Insert(monitoring.CollectionTag,
 		metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.String()))
 	if err != nil {
-		scope.Errorf("Error creating monitoring context for counting state: %v", err)
+		scope.Processing.Errorf("Error creating monitoring context for counting state: %v", err)
 		statsCtx = nil
 	}
 	t.statsCtx = statsCtx
@@ -94,8 +93,8 @@ func (t *transformer) Stop() {
 	t.endpoints = nil
 }
 
-// Select implements event.Transformer
-func (t *transformer) Select(c collection.Name, h event.Handler) {
+// DispatchFor implements event.Transformer
+func (t *transformer) DispatchFor(c collection.Name, h event.Handler) {
 	switch c {
 	case metadata.IstioNetworkingV1Alpha3SyntheticServiceentries:
 		t.handler = event.CombineHandlers(t.handler, h)
@@ -154,7 +153,7 @@ func (t *transformer) Handle(e event.Event) {
 		// Update the pod cache.
 		t.podHandler.Handle(e)
 	default:
-		scope.Warnf("received event with unexpected collection: %v", e.Source)
+		panic(fmt.Errorf("received event with unexpected collection: %v", e.Source))
 	}
 }
 
@@ -180,7 +179,7 @@ func (t *transformer) handleEndpointsEvent(e event.Event) {
 
 		t.doUpdate(name)
 	default:
-		scope.Errorf("unknown event kind: %v", e.Kind)
+		panic(fmt.Errorf("unknown event kind: %v", e.Kind))
 	}
 }
 
@@ -200,7 +199,7 @@ func (t *transformer) handleServiceEvent(e event.Event) {
 		t.sendDelete(name)
 
 	default:
-		scope.Errorf("unknown event kind: %v", e.Kind)
+		panic(fmt.Errorf("unknown event kind: %v", e.Kind))
 	}
 }
 
@@ -225,7 +224,6 @@ func (t *transformer) doUpdate(name resource.Name) {
 }
 
 func (t *transformer) dispatch(e event.Event) {
-	scope.Debugf("serviceentry.transformer: <== %v", e)
 	if t.handler != nil {
 		t.handler.Handle(e)
 	}
@@ -296,8 +294,7 @@ func (t *transformer) deleteEndpointIPs(name resource.Name, endpoints *resource.
 }
 
 func (t *transformer) deleteEndpointIP(name resource.Name, ip string) {
-	names := t.ipToName[ip]
-	if names != nil {
+	if names := t.ipToName[ip]; names != nil {
 		// Remove the name from the names map for this IP.
 		delete(names, name)
 		if len(names) == 0 {
@@ -325,7 +322,7 @@ func (t *transformer) toMcpResource(service *resource.Entry, endpoints *resource
 	}
 	se := networking.ServiceEntry{}
 	if err := t.converter.Convert(service, endpoints, &meta, &se); err != nil {
-		scope.Errorf("error converting to ServiceEntry: %v", err)
+		scope.Processing.Errorf("error converting to ServiceEntry: %v", err)
 		return nil, false
 	}
 

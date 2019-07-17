@@ -19,19 +19,18 @@ import (
 	"strings"
 	"sync"
 
-	"k8s.io/apimachinery/pkg/util/intstr"
-
 	"k8s.io/api/extensions/v1beta1"
 	ingress "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/scope"
 )
 
 type virtualServiceXform struct {
@@ -83,7 +82,7 @@ func (g *virtualServiceXform) handle(e event.Event, h event.Handler) {
 	switch e.Kind {
 	case event.Added, event.Updated:
 		if !shouldProcessIngress(g.options.MeshConfig, e.Entry) {
-			scope.Debugf("virtualServiceXform: Skipping ingress event: %v", e)
+			scope.Processing.Debugf("virtualServiceXform: Skipping ingress event: %v", e)
 			return
 		}
 
@@ -97,8 +96,7 @@ func (g *virtualServiceXform) handle(e event.Event, h event.Handler) {
 		}
 
 	default:
-		scope.Errorf("virtualServiceXForm.handle: unknown event: %v", e)
-		return
+		panic(fmt.Errorf("virtualServiceXForm.handle: unknown event: %v", e))
 	}
 }
 
