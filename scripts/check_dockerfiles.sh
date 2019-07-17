@@ -1,5 +1,12 @@
 #!/bin/sh
 
+# WARNING: DO NOT EDIT, THIS FILE IS PROBABLY A COPY
+#
+# The original version of this file is located in the https://github.com/istio/common-files repo.
+# If you're looking at this file in a different repo and want to make a change, please go to the
+# common-files repo, make the change there and check it in. Then come back to this repo and run
+# "make updatecommon".
+
 # Copyright 2019 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,18 +21,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-BASE_DIR="$(cd "$(dirname "${0}")" && pwd -P)"
-ISTIO_ROOT="$(cd "$(dirname "${BASE_DIR}")" && pwd -P)"
+set -e
+
+SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ROOTDIR=$(dirname "${SCRIPTPATH}")
+cd "${ROOTDIR}"
+
 CD_TMPFILE=$(mktemp /tmp/check_dockerfile.XXXXXX)
 HL_TMPFILE=$(mktemp /tmp/hadolint.XXXXXX)
 
-find "${ISTIO_ROOT}" -path "${ISTIO_ROOT}/vendor" -prune -o -name 'Dockerfile*' | \
-while read -r f; do
-  docker run --rm -i hadolint/hadolint:v1.17.1 < "$f" > "${HL_TMPFILE}"
+for df in $(find "${ROOTDIR}" -path "${ROOTDIR}/vendor" -prune -o -name 'Dockerfile*'); do
+  docker run --rm -i hadolint/hadolint:v1.17.1 < "$df" > "${HL_TMPFILE}"
   if [ "" != "$(cat "${HL_TMPFILE}")" ]
   then
     {
-      echo "$f:"
+      echo "$df:"
       cut -d":" -f2- < "${HL_TMPFILE}"
       echo
     } >> "${CD_TMPFILE}"
