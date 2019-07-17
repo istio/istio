@@ -18,9 +18,9 @@ import (
 	"sort"
 	"strings"
 
-	"istio.io/api/networking/v1alpha3"
 	"k8s.io/api/extensions/v1beta1"
 
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/processor/transforms/ingress/annotations"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/synthesize"

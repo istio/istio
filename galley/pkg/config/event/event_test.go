@@ -284,7 +284,7 @@ func TestEvent_WithSource(t *testing.T) {
 func TestEvent_WithSource_Reset(t *testing.T) {
 	g := NewGomegaWithT(t)
 	e := Event{
-		Kind:   Reset,
+		Kind: Reset,
 	}
 	newCol := collection.NewName("far")
 	a := e.WithSource(newCol)

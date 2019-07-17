@@ -168,7 +168,6 @@ func TestTransformer_Reset(t *testing.T) {
 	))
 }
 
-
 func TestTransformer_FullSync(t *testing.T) {
 	g := NewGomegaWithT(t)
 

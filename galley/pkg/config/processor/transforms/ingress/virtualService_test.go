@@ -24,13 +24,7 @@ import (
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
-	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
-)
-
-var (
-	virtualServiceAdapter = rt.DefaultProvider().GetAdapter(metadata.MustGet().KubeSource().Resources().MustFind(
-		"networking.istio.io", "VirtualService"))
 )
 
 func TestVirtualService_Input_Output(t *testing.T) {

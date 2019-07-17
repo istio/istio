@@ -668,7 +668,7 @@ func TestReceiveEndpointsBeforeService(t *testing.T) {
 	rt, src, dst, acc := newHandler()
 	defer rt.Stop()
 
-	syncEvents := []event.Event {
+	syncEvents := []event.Event{
 		event.FullSyncFor(metadata.K8SCoreV1Nodes),
 		event.FullSyncFor(metadata.K8SCoreV1Pods),
 		event.FullSyncFor(metadata.K8SCoreV1Services),
@@ -1240,7 +1240,12 @@ func toJSON(t *testing.T, obj interface{}) string {
 	return string(out)
 }
 
-func expectResource(t *testing.T, dst *snapshotter.InMemoryDistributor, expectedVersion int, expectedMetadata *mcp.Metadata, expectedBody *networking.ServiceEntry) {
+func expectResource(
+	t *testing.T,
+	dst *snapshotter.InMemoryDistributor,
+	expectedVersion int,
+	expectedMetadata *mcp.Metadata,
+	expectedBody *networking.ServiceEntry) {
 	t.Helper()
 	g := NewGomegaWithT(t)
 

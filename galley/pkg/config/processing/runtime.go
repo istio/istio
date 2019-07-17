@@ -86,7 +86,7 @@ func (r *Runtime) Start() {
 	r.wg.Add(1)
 	startedCh := make(chan struct{})
 	go r.run(startedCh, r.stopCh)
-	<- startedCh
+	<-startedCh
 }
 
 // Stop the Runtime

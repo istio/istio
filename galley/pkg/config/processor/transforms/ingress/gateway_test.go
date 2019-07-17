@@ -31,9 +31,6 @@ import (
 var (
 	ingressAdapter = rt.DefaultProvider().GetAdapter(metadata.MustGet().KubeSource().Resources().MustFind(
 		"extensions", "Ingress"))
-
-	gatewayAdapter = rt.DefaultProvider().GetAdapter(metadata.MustGet().KubeSource().Resources().MustFind(
-		"networking.istio.io", "Gateway"))
 )
 
 func TestGateway_Input_Output(t *testing.T) {

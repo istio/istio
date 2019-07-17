@@ -16,6 +16,7 @@ package serviceentry
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"go.opencensus.io/tag"
@@ -132,12 +133,11 @@ func (t *transformer) Handle(e event.Event) {
 		t.dispatch(event.Event{Kind: event.Reset})
 		return
 
-	default: // nolint:gocritic
-		scope.Errorf("transformer.Handle: Unexpected event received: %v", e)
-		return
-
 	case event.Added, event.Updated, event.Deleted:
 		// fallthrough
+
+	default:
+		panic(fmt.Errorf("transformer.Handle: Unexpected event received: %v", e))
 	}
 
 	switch e.Source {

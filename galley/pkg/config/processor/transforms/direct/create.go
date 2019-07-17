@@ -15,19 +15,9 @@
 package direct
 
 import (
-	"istio.io/pkg/log"
-
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
 )
-
-var scope = log.RegisterScope("processing", "", 0)
-
-type xformer struct {
-	source      collection.Name
-	destination collection.Name
-	handler     event.Handler
-}
 
 // Create a new Direct transformer.
 func Create(mapping map[collection.Name]collection.Name) []event.Transformer {
