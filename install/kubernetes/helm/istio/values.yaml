@@ -199,6 +199,9 @@ global:
     # If set, newly injected sidecars will have core dumps enabled.
     enableCoreDump: false
 
+    # Image used to enable core dumps. This is only used, when "enableCoreDump" is set to true.
+    enableCoreDumpImage: ubuntu:xenial
+
     # Default port for Pilot agent health checks. A value of 0 will disable health checking.
     statusPort: 15020
 
