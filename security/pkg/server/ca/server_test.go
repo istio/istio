@@ -92,6 +92,10 @@ type mockAuthenticator struct {
 	errMsg     string
 }
 
+func (authn *mockAuthenticator) AuthenticatorType() string {
+	return "mockAuthenticator"
+}
+
 func (authn *mockAuthenticator) Authenticate(ctx context.Context) (*authenticate.Caller, error) {
 	if len(authn.errMsg) > 0 {
 		return nil, fmt.Errorf("%v", authn.errMsg)
@@ -422,7 +426,7 @@ func TestRun(t *testing.T) {
 			// K8s JWT authenticator is added in k8s env.
 			tc.expectedAuthenticatorsLen = tc.expectedAuthenticatorsLen + 1
 		}
-		server, err := New(tc.ca, time.Hour, false, tc.hostname, tc.port, "testdomain.com")
+		server, err := New(tc.ca, time.Hour, false, tc.hostname, tc.port, "testdomain.com", true)
 		if err == nil {
 			err = server.Run()
 		}

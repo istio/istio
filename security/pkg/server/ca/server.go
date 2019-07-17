@@ -46,20 +46,21 @@ const (
 
 type authenticator interface {
 	Authenticate(ctx context.Context) (*authenticate.Caller, error)
+	AuthenticatorType() string
 }
 
 // Server implements IstioCAService and IstioCertificateService and provides the services on the
 // specified port.
 type Server struct {
-	authenticators []authenticator
-	authorizer     authorizer
-	serverCertTTL  time.Duration
-	ca             ca.CertificateAuthority
-	certificate    *tls.Certificate
-	hostnames      []string
-	forCA          bool
-	port           int
 	monitoring     monitoringMetrics
+	authenticators []authenticator
+	hostnames      []string
+	authorizer     authorizer
+	ca             ca.CertificateAuthority
+	serverCertTTL  time.Duration
+	certificate    *tls.Certificate
+	port           int
+	forCA          bool
 }
 
 // CreateCertificate handles an incoming certificate signing request (CSR). It does
@@ -182,7 +183,9 @@ func (s *Server) Run() error {
 }
 
 // New creates a new instance of `IstioCAServiceServer`.
-func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []string, port int, trustDomain string) (*Server, error) {
+func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []string, port int,
+	trustDomain string, sdsEnabled bool) (*Server, error) {
+
 	if len(hostlist) == 0 {
 		return nil, fmt.Errorf("failed to create grpc server hostlist empty")
 	}
@@ -192,12 +195,15 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 	authenticators := []authenticator{&authenticate.ClientCertAuthenticator{}}
 	log.Info("added client certificate authenticator")
 
-	authenticator, err := authenticate.NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath, trustDomain)
-	if err == nil {
-		authenticators = append(authenticators, authenticator)
-		log.Info("added K8s JWT authenticator")
-	} else {
-		log.Warnf("failed to add create JWT authenticator: %v", err)
+	// Only add k8s jwt authenticator if SDS is enabled.
+	if sdsEnabled {
+		authenticator, err := authenticate.NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath, trustDomain)
+		if err == nil {
+			authenticators = append(authenticators, authenticator)
+			log.Info("added K8s JWT authenticator")
+		} else {
+			log.Warnf("failed to add create JWT authenticator: %v", err)
+		}
 	}
 
 	// Temporarily disable ID token authenticator by resetting the hostlist.
@@ -209,7 +215,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 			log.Errorf("failed to create JWT authenticator (error %v)", err)
 		} else {
 			authenticators = append(authenticators, jwtAuthenticator)
-			log.Infof("added generatl JWT authenticator")
+			log.Infof("added general JWT authenticator")
 		}
 	}
 	return &Server{
@@ -269,13 +275,15 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 	return &cert, nil
 }
 
+// authenticate goes through a list of authenticators (provided client cert, k8s jwt, and ID token)
+// and authenticates if one of them is valid.
 func (s *Server) authenticate(ctx context.Context) *authenticate.Caller {
 	// TODO: apply different authenticators in specific order / according to configuration.
 	var errMsg string
 	for id, authn := range s.authenticators {
 		u, err := authn.Authenticate(ctx)
 		if err != nil {
-			errMsg += fmt.Sprintf("Authenticator#%d error: %v. ", id, err)
+			errMsg += fmt.Sprintf("Authenticator %s at index %d got error: %v. ", authn.AuthenticatorType(), id, err)
 		}
 		if u != nil && err == nil {
 			log.Debugf("Authentication successful through auth source %v", u.AuthSource)
