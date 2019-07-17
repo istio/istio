@@ -27,20 +27,24 @@ import (
 
 func TestWhiteListing(t *testing.T) {
 	framework.NewTest(t).Label(label.Flaky).Run(func(ctx framework.TestContext) {
+		util.ValidateBookInfoGatewayIsSetup(t, prom, bookinfoNs)
 		// Verify you can access productpage right now.
-		util.SendTrafficAndWaitForExpectedStatus(ing, t, "Sending traffic...", "", 2, http.StatusOK)
+		_ = util.SendTrafficAndWaitForExpectedStatus(ing, t, "Sending traffic...", "", 2, http.StatusOK)
 
 		g.ApplyConfigOrFail(
 			t,
 			bookinfoNs,
 			bookinfo.PolicyDenyIPRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
-		defer g.DeleteConfigOrFail(
-			t,
-			bookinfoNs,
-			bookinfo.PolicyDenyIPRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
+		defer func() {
+			g.DeleteConfigOrFail(
+				t,
+				bookinfoNs,
+				bookinfo.PolicyDenyIPRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
+			util.AllowRuleSync(t)
+		}()
 		util.AllowRuleSync(t)
 
 		// Verify you can't access productpage now.
-		util.SendTrafficAndWaitForExpectedStatus(ing, t, "Sending traffic...", "", 30, http.StatusForbidden)
+		_ = util.SendTrafficAndWaitForExpectedStatus(ing, t, "Sending traffic...", "", 30, http.StatusForbidden)
 	})
 }

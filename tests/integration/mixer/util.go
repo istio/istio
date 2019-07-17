@@ -166,14 +166,15 @@ func SendTraffic(ingress ingress.Instance, t *testing.T, msg, url, extraHeader s
 }
 
 func SendTrafficAndWaitForExpectedStatus(ingress ingress.Instance, t *testing.T, msg, url string, calls int64,
-	httpStatusCode int) {
+	httpStatusCode int) (res *fhttp.HTTPRunnerResults) {
 	retry := util.Retrier{
 		BaseDelay: 15 * time.Second,
 		Retries:   3,
+		MaxDelay:  30 * time.Second,
 	}
 
 	retryFn := func(_ context.Context, i int) error {
-		res := SendTraffic(ingress, t, msg, url, "", calls)
+		res = SendTraffic(ingress, t, msg, url, "", calls)
 		// Verify you get specified http return code.
 		if float64(res.RetCodes[httpStatusCode]) == 0 {
 			return fmt.Errorf("could not get %v status", httpStatusCode)
@@ -184,6 +185,7 @@ func SendTrafficAndWaitForExpectedStatus(ingress ingress.Instance, t *testing.T,
 	if _, err := retry.Retry(context.Background(), retryFn); err != nil {
 		t.Fatalf("Failed with err: %v", err)
 	}
+	return res
 }
 
 func GetAndValidateAccessLog(ns namespace.Instance, t *testing.T, labelSelector, container string, validate func(string) error) {
@@ -213,13 +215,13 @@ func GetAndValidateAccessLog(ns namespace.Instance, t *testing.T, labelSelector,
 }
 
 func FetchRequestCount(t *testing.T, prometheus prometheus.Instance, service, additionalLabels, namespace string,
-	totalReqExpected float64) (prior429s float64, prior200s float64) {
-	var err error
+	totalReqExpected float64) (prior429s float64, prior200s float64, err error) {
 	t.Log("Establishing metrics baseline for test...")
 
 	retry := util.Retrier{
 		BaseDelay: 30 * time.Second,
-		Retries:   2,
+		Retries:   5,
+		MaxDelay:  45 * time.Second,
 	}
 	metricName := "istio_requests_total"
 
@@ -244,7 +246,7 @@ func FetchRequestCount(t *testing.T, prometheus prometheus.Instance, service, ad
 	if _, err := retry.Retry(context.Background(), retryFn); err != nil {
 		t.Logf("prometheus values for %s:\n%s", metricName, PromDump(prometheus, metricName))
 		t.Logf("could not find istio_requests_total  (msg: %v)", err)
-		return 0, 0
+		return 0, 0, err
 	}
 
 	query := fmt.Sprintf("istio_requests_total{%s=\"%s\",%s=\"%s\",%s=\"%s\",%s}", destLabel, Fqdn(service, namespace),
@@ -266,10 +268,40 @@ func FetchRequestCount(t *testing.T, prometheus prometheus.Instance, service, ad
 	}
 	t.Logf("Baseline established: prior200s = %f, prior429s = %f", prior200s, prior429s)
 
-	return prior429s, prior200s
+	return prior429s, prior200s, nil
 }
 
 func AllowRuleSync(t *testing.T) {
 	t.Log("Sleeping to allow rules to take effect...")
 	time.Sleep(15 * time.Second)
+}
+
+func AllowPrometheusSync(t *testing.T) {
+	t.Log("Sleeping to allow prometheus...")
+	time.Sleep(15 * time.Second)
+}
+
+func ValidateBookInfoGatewayIsSetup(t *testing.T, prometheus prometheus.Instance, ns namespace.Instance) {
+	query := fmt.Sprintf("sum(galley_istio_networking_gateways{namespace=\"%s\"})", ns.Name())
+
+	retry := util.Retrier{
+		BaseDelay: 10 * time.Second,
+		Retries:   3,
+		MaxDelay:  30 * time.Second,
+	}
+
+	retryFn := func(_ context.Context, i int) error {
+		got, err := getMetric(t, prometheus, query, "galley_istio_networking_gateways")
+		if err != nil {
+			return fmt.Errorf("%v", err)
+		}
+		if got < 1 {
+			return fmt.Errorf("need 1 entry for networking gateways")
+		}
+		return nil
+	}
+
+	if _, err := retry.Retry(context.Background(), retryFn); err != nil {
+		t.Fatalf("Failed with err: %v", err)
+	}
 }
