@@ -535,6 +535,8 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
 		}
 	}
 
+	out.CaseSensitive = &types.BoolValue{Value: !in.IgnoreUriCase}
+
 	if in.Method != nil {
 		matcher := translateHeaderMatch(HeaderMethod, in.Method)
 		out.Headers = append(out.Headers, &matcher)

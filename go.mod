@@ -182,7 +182,7 @@ require (
 	gopkg.in/stack.v1 v1.7.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 	gotest.tools v2.2.0+incompatible // indirect
-	istio.io/api v0.0.0-20190517041403-820986f2947c
+	istio.io/api v0.0.0-20190522004026-1dffc8d3d26d
 	istio.io/pkg v0.0.0-20190612170818-730a2b1683f9
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471
 	k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87
