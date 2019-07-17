@@ -363,11 +363,9 @@ func (sc *SecretCache) DeleteK8sSecret(secretName string) {
 	wg := sync.WaitGroup{}
 	sc.secrets.Range(func(k interface{}, v interface{}) bool {
 		sdsConnCtx := k.(ConnKey)
-
 		if sdsConnCtx.ResourceName == secretName {
-			connectionID := sdsConnCtx.ConnectionID
 			sc.secrets.Delete(sdsConnCtx)
-			conIDresourceNamePrefix := cacheLogPrefix(connectionID, secretName)
+			conIDresourceNamePrefix := cacheLogPrefix(sdsConnCtx.ConnectionID, secretName)
 			cacheLog.Debugf("%s secret cache is deleted", conIDresourceNamePrefix)
 			wg.Add(1)
 			go func() {
@@ -392,7 +390,6 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 		sdsConnCtx := k.(ConnKey)
 		oldSecret := v.(model.SecretItem)
 		if sdsConnCtx.ResourceName == secretName {
-			connectionID := sdsConnCtx.ConnectionID
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -418,7 +415,7 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 					}
 				}
 				secretMap.Store(sdsConnCtx, newSecret)
-				conIDresourceNamePrefix := cacheLogPrefix(connectionID, secretName)
+				conIDresourceNamePrefix := cacheLogPrefix(sdsConnCtx.ConnectionID, secretName)
 				cacheLog.Debugf("%s secret cache is updated", conIDresourceNamePrefix)
 				sc.callbackWithTimeout(sdsConnCtx, newSecret)
 			}()
