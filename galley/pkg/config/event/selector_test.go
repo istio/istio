@@ -24,38 +24,132 @@ import (
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 )
 
-func TestSelector_Basic(t *testing.T) {
+func TestSelector_Empty(t *testing.T) {
+	s := event.NewSelector()
+	// No crash
+	s.Handle(data.Event1Col1AddItem1)
+	s.Broadcast(data.Event1Col1DeleteItem1)
+}
+
+func TestSelector_Single_Handle(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	s := event.NewSelector()
 	acc := &fixtures.Accumulator{}
-	s.Select(data.Collection1, acc)
+	s = event.AddToSelector(s, data.Collection1, acc)
 	s.Handle(data.Event1Col1AddItem1)
 
 	g.Expect(acc.Events()).To(HaveLen(1))
 }
 
-func TestSelector_NoMatch(t *testing.T) {
+func TestSelector_Single_Handle_AddToNil(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	var s event.Selector
+	acc := &fixtures.Accumulator{}
+	s = event.AddToSelector(s, data.Collection1, acc)
+	s.Handle(data.Event1Col1AddItem1)
+
+	g.Expect(acc.Events()).To(HaveLen(1))
+}
+
+func TestSelector_Single_Handle_NoMatch(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	s := event.NewSelector()
 	acc := &fixtures.Accumulator{}
-	s.Select(data.Collection2, acc)
+	s = event.AddToSelector(s, data.Collection2, acc)
 	s.Handle(data.Event1Col1AddItem1)
 
 	g.Expect(acc.Events()).To(HaveLen(0))
 }
 
-func TestSelector_MultiDispatch(t *testing.T) {
+func TestSelector_Single_MultiListener(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	s := event.NewSelector()
 	acc1 := &fixtures.Accumulator{}
 	acc2 := &fixtures.Accumulator{}
-	s.Select(data.Collection1, acc1)
-	s.Select(data.Collection1, acc2)
+	s = event.AddToSelector(s, data.Collection1, acc1)
+	s = event.AddToSelector(s, data.Collection1, acc2)
 	s.Handle(data.Event1Col1AddItem1)
 
 	g.Expect(acc1.Events()).To(HaveLen(1))
 	g.Expect(acc2.Events()).To(HaveLen(1))
 }
+
+func TestSelector_Single_Broadcast(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	s := event.NewSelector()
+	acc := &fixtures.Accumulator{}
+	s = event.AddToSelector(s, data.Collection1, acc)
+	s.Broadcast(event.Event{Kind: event.Reset})
+
+	g.Expect(acc.Events()).To(HaveLen(1))
+}
+
+func TestSelector_Multi_Handle(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	s := event.NewSelector()
+	acc1 := &fixtures.Accumulator{}
+	acc2 := &fixtures.Accumulator{}
+	acc3 := &fixtures.Accumulator{}
+	s = event.AddToSelector(s, data.Collection1, acc1)
+	s = event.AddToSelector(s, data.Collection2, acc2)
+	s = event.AddToSelector(s, data.Collection3, acc3)
+	s.Handle(data.Event1Col1AddItem1)
+	s.Handle(data.Event3Col2AddItem1)
+
+	g.Expect(acc1.Events()).To(HaveLen(1))
+	g.Expect(acc2.Events()).To(HaveLen(1))
+	g.Expect(acc3.Events()).To(HaveLen(0))
+}
+
+func TestSelector_Multi_NoTarget(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	s := event.NewSelector()
+	acc1 := &fixtures.Accumulator{}
+	acc2 := &fixtures.Accumulator{}
+	s = event.AddToSelector(s, data.Collection1, acc1)
+	s = event.AddToSelector(s, data.Collection3, acc2)
+	s.Handle(data.Event3Col2AddItem1)
+
+	g.Expect(acc1.Events()).To(HaveLen(0))
+	g.Expect(acc2.Events()).To(HaveLen(0))
+}
+
+func TestSelector_Multi_Broadcast(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	s := event.NewSelector()
+	acc1 := &fixtures.Accumulator{}
+	acc2 := &fixtures.Accumulator{}
+	acc3 := &fixtures.Accumulator{}
+	s = event.AddToSelector(s, data.Collection1, acc1)
+	s = event.AddToSelector(s, data.Collection2, acc2)
+	s = event.AddToSelector(s, data.Collection3, acc3)
+	s.Broadcast(event.Event{Kind: event.Reset})
+
+	g.Expect(acc1.Events()).To(HaveLen(1))
+	g.Expect(acc2.Events()).To(HaveLen(1))
+	g.Expect(acc3.Events()).To(HaveLen(1))
+}
+
+func TestSelector_Multi_Unknown_Panic(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	defer func() {
+		r := recover()
+		g.Expect(r).ToNot(BeNil())
+	}()
+	_ = event.AddToSelector(&unknownSelector{}, data.Collection3, &fixtures.Accumulator{})
+}
+
+type unknownSelector struct{}
+var _ event.Selector = &unknownSelector{}
+
+func (u *unknownSelector) Handle(e event.Event){}
+func (u *unknownSelector) Broadcast(e event.Event){}

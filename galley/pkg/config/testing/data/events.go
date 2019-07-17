@@ -66,4 +66,12 @@ var (
 		Source: Collection1,
 		Entry:  EntryN2I2V2,
 	}
+
+	// Event3Col2AddItem1 is a testing event
+	Event3Col2AddItem1 = event.Event{
+		Kind:   event.Added,
+		Source: Collection2,
+		Entry:  EntryN1I1V1,
+	}
+
 )

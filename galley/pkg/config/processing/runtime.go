@@ -84,7 +84,9 @@ func (r *Runtime) Start() {
 	r.stopCh = make(chan struct{})
 
 	r.wg.Add(1)
-	go r.run(r.stopCh)
+	startedCh := make(chan struct{})
+	go r.run(startedCh, r.stopCh)
+	<- startedCh
 }
 
 // Stop the Runtime
@@ -123,7 +125,7 @@ func (r *Runtime) currentSessionState() sessionState {
 	return state
 }
 
-func (r *Runtime) run(stopCh chan struct{}) {
+func (r *Runtime) run(startedCh, stopCh chan struct{}) {
 loop:
 	for {
 		sid := atomic.AddInt32(&r.sessionIDCtr, 1)
@@ -131,6 +133,11 @@ loop:
 		se, done := newSession(sid, r.options)
 		r.session.Store(se)
 		se.start()
+
+		if startedCh != nil {
+			close(startedCh)
+			startedCh = nil
+		}
 
 		select {
 		case <-done:
