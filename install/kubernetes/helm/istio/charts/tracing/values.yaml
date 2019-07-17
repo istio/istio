@@ -31,6 +31,13 @@ podAntiAffinityTermLabelSelector: []
 jaeger:
   hub: docker.io/jaegertracing
   tag: 1.9
+  resources:
+    limits:
+      cpu: 300m
+      memory: 900Mi
+    requests:
+      cpu: 150m
+      memory: 900Mi
   memory:
     max_traces: 50000
 

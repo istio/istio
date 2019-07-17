@@ -49,7 +49,11 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
+{{- end }}
       {{- if .Values.podDnsPolicy }}
       dnsPolicy: {{ .Values.podDnsPolicy }}
       {{- end }}

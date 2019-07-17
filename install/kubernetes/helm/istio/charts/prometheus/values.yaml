@@ -6,6 +6,13 @@ replicaCount: 1
 hub: docker.io/prom
 tag: v2.8.0
 retention: 6h
+resources:
+  limits:
+    cpu: 1000m
+    memory: 4Gi
+  requests:
+    cpu: 100m
+    memory: 128Mi
 nodeSelector: {}
 tolerations: []
 

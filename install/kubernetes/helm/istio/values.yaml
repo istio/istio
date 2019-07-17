@@ -386,10 +386,10 @@ global:
   defaultResources:
     requests:
       cpu: 10m
-    #   memory: 128Mi
-    # limits:
-    #   cpu: 100m
-    #   memory: 128Mi
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
 
   # enable pod distruption budget for the control plane, which is used to
   # ensure Istio control plane components are gradually upgraded or recovered.

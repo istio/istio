@@ -15,6 +15,9 @@ resources:
   requests:
     cpu: 500m
     memory: 2048Mi
+  limits:
+    cpu: 4800m
+    memory: 4G
 env:
   PILOT_PUSH_THROTTLE: 100
   GODEBUG: gctrace=1
