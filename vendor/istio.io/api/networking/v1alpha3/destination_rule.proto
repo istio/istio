@@ -159,13 +159,9 @@ message TrafficPolicy {
 
   // Traffic policies that apply to specific ports of the service
   message PortTrafficPolicy {
-    // Specifies the port name or number of a port on the destination service
+    // Specifies the number of a port on the destination service
     // on which this policy is being applied.
     //
-    // Names must comply with DNS label syntax (rfc1035) and therefore cannot
-    // collide with numbers. If there are multiple ports on a service with
-    // the same protocol the names should be of the form <protocol-name>-<DNS
-    // label>.
     PortSelector port = 1;
 
     // Settings controlling the load balancer algorithms.

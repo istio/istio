@@ -108,9 +108,8 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 	// DO NOT CALL PLUGINS for these two clusters.
 	clusters = append(clusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env))
-
+	clusters = applyClusterPatches(env, proxy, push, clusters)
 	clusters = normalizeClusters(push, proxy, clusters)
-	clusters = applyClusterConfigPatches(clusters, env, proxy.WorkloadLabels)
 
 	return clusters, nil
 }
