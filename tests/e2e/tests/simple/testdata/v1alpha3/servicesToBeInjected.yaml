@@ -27,6 +27,16 @@ spec:
     - "*"
 ---
 apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: echosrv
+spec:
+  host: 'echosrv.istio-system.svc.cluster.local'
+  trafficPolicy:
+    tls:
+      mode: DISABLE​
+---
+apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: echosrv
