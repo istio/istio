@@ -85,12 +85,6 @@ type PushContext struct {
 	// Env has a pointer to the shared environment used to create the snapshot.
 	Env *Environment `json:"-"`
 
-	// ServicePortByHostname is used to keep track of service name and port mapping.
-	// This is needed because ADS names use port numbers, while endpoints use
-	// port names. The key is the service name. If a service or port are not found,
-	// the endpoint needs to be re-evaluated later (eventual consistency)
-	ServicePortByHostname map[Hostname]PortList `json:"-"`
-
 	// ServiceAccounts contains a map of hostname and port to service accounts.
 	ServiceAccounts map[Hostname]map[int][]string `json:"-"`
 
@@ -303,11 +297,10 @@ func NewPushContext() *PushContext {
 		},
 		sidecarsByNamespace: map[string][]*SidecarScope{},
 
-		ServiceByHostname:     map[Hostname]*Service{},
-		ProxyStatus:           map[string]map[string]ProxyPushStatus{},
-		ServicePortByHostname: map[Hostname]PortList{},
-		ServiceAccounts:       map[Hostname]map[int][]string{},
-		Start:                 time.Now(),
+		ServiceByHostname: map[Hostname]*Service{},
+		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
+		ServiceAccounts:   map[Hostname]map[int][]string{},
+		Start:             time.Now(),
 	}
 }
 
@@ -617,7 +610,6 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 			}
 		}
 		ps.ServiceByHostname[s.Hostname] = s
-		ps.ServicePortByHostname[s.Hostname] = s.Ports
 	}
 
 	ps.initServiceAccounts(env, allServices)
