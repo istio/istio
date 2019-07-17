@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -39,9 +40,10 @@ type saValidationRequest struct {
 
 // K8sSvcAcctAuthn authenticates a k8s service account (JWT) through the k8s TokenReview API.
 type K8sSvcAcctAuthn struct {
-	apiServerAddr string
-	callerToken   string
-	httpClient    *http.Client
+	apiServerAddr    string
+	callerToken      string
+	legacyJwtAllowed bool
+	httpClient       *http.Client
 }
 
 // NewK8sSvcAcctAuthn creates a new authenticator for authenticating k8s JWTs.
@@ -49,7 +51,7 @@ type K8sSvcAcctAuthn struct {
 // apiServerAddr: the URL of k8s API Server
 // apiServerCert: the CA certificate of k8s API Server
 // callerToken: the JWT of the caller to authenticate to k8s API server
-func NewK8sSvcAcctAuthn(apiServerAddr string, apiServerCert []byte, callerToken string) *K8sSvcAcctAuthn {
+func NewK8sSvcAcctAuthn(apiServerAddr string, apiServerCert []byte, callerToken string, legacyJwtAllowed bool) *K8sSvcAcctAuthn {
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(apiServerCert)
 	// Set the TLS certificate
@@ -67,9 +69,10 @@ func NewK8sSvcAcctAuthn(apiServerAddr string, apiServerCert []byte, callerToken 
 	}
 
 	return &K8sSvcAcctAuthn{
-		apiServerAddr: apiServerAddr,
-		callerToken:   callerToken,
-		httpClient:    httpClient,
+		apiServerAddr:    apiServerAddr,
+		callerToken:      callerToken,
+		legacyJwtAllowed: legacyJwtAllowed,
+		httpClient:       httpClient,
 	}
 }
 
@@ -103,6 +106,17 @@ func (authn *K8sSvcAcctAuthn) reviewServiceAccountAtK8sAPIServer(targetToken str
 // Otherwise, return the error.
 // targetToken: the JWT of the K8s service account to be reviewed
 func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(targetToken string) ([]string, error) {
+	// If legacy JWTs are not allowed, check if the jwt is trustworthy.
+	if !authn.legacyJwtAllowed {
+		isTrustworthyJwt, err := isTrustworthyJwt(targetToken)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check if jwt is trustworthy: %v", err)
+		}
+		if !isTrustworthyJwt {
+			return nil, fmt.Errorf("legacy JWTs are not allowed and the provided jwt is not trustworthy")
+		}
+	}
+
 	resp, err := authn.reviewServiceAccountAtK8sAPIServer(targetToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get a token review response: %v", err)
@@ -124,7 +138,7 @@ func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(targetToken string) ([]string, erro
 		return nil, fmt.Errorf("unmarshal response body returns an error: %v", err)
 	}
 	if tokenReview.Status.Error != "" {
-		return nil, fmt.Errorf("the service account authentication returns an error: %v" + tokenReview.Status.Error)
+		return nil, fmt.Errorf("the service account authentication returns an error: %v", tokenReview.Status.Error)
 	}
 	// An example SA token:
 	// {"alg":"RS256","typ":"JWT"}
@@ -169,4 +183,32 @@ func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(targetToken string) ([]string, erro
 	saName := subStrings[3]
 
 	return []string{namespace, saName}, nil
+}
+
+// isTrustworthyJwt checks if a jwt is a trustworthy jwt type.
+func isTrustworthyJwt(jwt string) (bool, error) {
+	type trustWorthyJwtPayload struct {
+		Aud []string `json:"aud"`
+		Exp int      `json:"exp"`
+	}
+
+	jwtSplit := strings.Split(jwt, ".")
+	if len(jwtSplit) != 3 {
+		return false, fmt.Errorf("jwt may be invalid: %s", jwt)
+	}
+	payload := jwtSplit[1]
+
+	payloadBytes, err := base64.RawStdEncoding.DecodeString(payload)
+	if err != nil {
+		return false, fmt.Errorf("failed to decode jwt: %v", err.Error())
+	}
+
+	structuredPayload := &trustWorthyJwtPayload{}
+	err = json.Unmarshal(payloadBytes, &structuredPayload)
+	if err != nil {
+		return false, fmt.Errorf("failed to unmarshal jwt: %v", err.Error())
+	}
+	// Trustworthy JWTs are JWTs with expiration and audiences, whereas legacy JWTs do not have these
+	// fields.
+	return structuredPayload.Aud != nil && structuredPayload.Exp > 0, nil
 }

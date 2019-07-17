@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 	caCertFileContent := []byte("CACERT")
 	jwtFileContent := []byte("JWT")
 	trustDomain := "testdomain.com"
+	legacyJwtAllowed := false
 	url := "https://server/url"
 	if err := ioutil.WriteFile(validCACertPath, caCertFileContent, 0777); err != nil {
 		t.Errorf("Failed to write to testing CA cert file: %v", err)
@@ -77,7 +78,7 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		authenticator, err := NewKubeJWTAuthenticator(url, tc.caCertPath, tc.jwtPath, trustDomain)
+		authenticator, err := NewKubeJWTAuthenticator(url, tc.caCertPath, tc.jwtPath, trustDomain, legacyJwtAllowed)
 		if len(tc.expectedErrMsg) > 0 {
 			if err == nil {
 				t.Errorf("Case %s: Succeeded. Error expected: %v", id, err)
@@ -90,7 +91,7 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 			t.Errorf("Case %s: Unexpected Error: %v", id, err)
 		}
 		expectedAuthenticator := &KubeJWTAuthenticator{
-			client:      tokenreview.NewK8sSvcAcctAuthn(url, caCertFileContent, string(jwtFileContent)),
+			client:      tokenreview.NewK8sSvcAcctAuthn(url, caCertFileContent, string(jwtFileContent), legacyJwtAllowed),
 			trustDomain: trustDomain,
 		}
 		if !reflect.DeepEqual(authenticator, expectedAuthenticator) {

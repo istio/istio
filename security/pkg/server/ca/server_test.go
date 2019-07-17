@@ -453,7 +453,7 @@ func TestRun(t *testing.T) {
 			// K8s JWT authenticator is added in k8s env.
 			tc.expectedAuthenticatorsLen++
 		}
-		server, err := New(tc.ca, time.Hour, false, tc.hostname, tc.port, "testdomain.com", true)
+		server, err := New(tc.ca, time.Hour, false, tc.hostname, tc.port, "testdomain.com", true, true)
 		if err == nil {
 			err = server.Run()
 		}

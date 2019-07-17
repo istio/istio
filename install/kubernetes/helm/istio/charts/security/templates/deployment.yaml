@@ -46,6 +46,9 @@ spec:
           {{- if .Values.global.sds.enabled }}
             - --sds-enabled=true
           {{- end }}
+          {{- if .Values.global.sds.legacyJwtAllowed }}
+            - --legacy-jwt-allowed=true
+          {{- end }}
             - --append-dns-names=true
             - --grpc-port=8060
             - --citadel-storage-namespace={{ .Release.Namespace }}

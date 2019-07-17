@@ -9,7 +9,9 @@ global:
   sds:
     enabled: true
     udsPath: "unix:/var/run/sds/uds_path"
-    useNormalJwt: true
+    useNormalJwt: false
+    useTrustworthyJwt: true
+    legacyJwtAllowed: false
 
 nodeagent:
   enabled: true
