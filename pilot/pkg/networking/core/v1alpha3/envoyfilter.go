@@ -330,79 +330,69 @@ func buildXDSObjectFromValue(applyTo networking.EnvoyFilter_ApplyTo, value *type
 }
 
 func applyClusterPatches(env *model.Environment, proxy *model.Proxy,
-	_ *model.PushContext, clusters []*xdsapi.Cluster) []*xdsapi.Cluster {
-	// TODO: multiple envoy filters per workload
-	filterCRD := getUserFiltersForWorkload(env, proxy.WorkloadLabels)
-	if filterCRD == nil {
-		return clusters
-	}
+	push *model.PushContext, clusters []*xdsapi.Cluster) []*xdsapi.Cluster {
 
-	// remove cluster if there is operation is remove, and matches
+	envoyFilterWrappers := push.EnvoyFilters(proxy)
 	clustersRemoved := false
-
-	// First process remove operations, then the merge and finally the add.
-	// If add is done before remove, then remove could end up deleting a cluster that
-	// was added by the user.
-	for _, cp := range filterCRD.ConfigPatches {
-		if cp.Patch == nil || cp.ApplyTo != networking.EnvoyFilter_CLUSTER {
-			continue
-		}
-
-		if cp.Patch.Operation != networking.EnvoyFilter_Patch_REMOVE {
-			continue
-		}
-
-		for i := range clusters {
-			if clusterMatch(proxy, clusters[i], cp.Match, cp.Patch.Operation) {
-				clusters[i] = nil
-				clustersRemoved = true
-			}
-		}
-	}
-
-	// TODO: Create a EnvoyFilterContext struct, just like SidecarContext
-	// pre-process the values and convert them into appropriate structs when initializing the push context
-	for _, cp := range filterCRD.ConfigPatches {
-		if cp.Patch == nil || cp.ApplyTo != networking.EnvoyFilter_CLUSTER {
-			continue
-		}
-
-		if cp.Patch.Operation != networking.EnvoyFilter_Patch_MERGE {
-			continue
-		}
-
-		userChanges, err := buildXDSObjectFromValue(cp.ApplyTo, cp.Patch.Value)
-		if err != nil {
-			continue
-		}
-
-		for i := range clusters {
-			if clusters[i] == nil {
-				// deleted by the remove operation
+	for _, efw := range envoyFilterWrappers {
+		// First process remove operations, then the merge and finally the add.
+		// If add is done before remove, then remove could end up deleting a cluster that
+		// was added by the user.
+		for _, cp := range efw.ConfigPatches {
+			if cp.ApplyTo != networking.EnvoyFilter_CLUSTER {
 				continue
 			}
-			if clusterMatch(proxy, clusters[i], cp.Match, cp.Patch.Operation) {
-				proto.Merge(clusters[i], userChanges)
-			}
-		}
-	}
 
-	// Add cluster if the operation is add, and patch context matches
-	for _, cp := range filterCRD.ConfigPatches {
-		if cp.Patch == nil || cp.ApplyTo != networking.EnvoyFilter_CLUSTER {
-			continue
-		}
-
-		if cp.Patch.Operation != networking.EnvoyFilter_Patch_ADD {
-			continue
-		}
-
-		if clusterMatch(proxy, nil, cp.Match, cp.Patch.Operation) {
-			newCluster, err := buildXDSObjectFromValue(cp.ApplyTo, cp.Patch.Value)
-			if err != nil {
+			if cp.Operation != networking.EnvoyFilter_Patch_REMOVE {
 				continue
 			}
-			clusters = append(clusters, newCluster.(*xdsapi.Cluster))
+
+			for i := range clusters {
+				if clusters[i] == nil {
+					// deleted by the remove operation
+					continue
+				}
+
+				if clusterMatch(proxy, clusters[i], cp.Match, cp.Operation) {
+					clusters[i] = nil
+					clustersRemoved = true
+				}
+			}
+		}
+
+		for _, cp := range efw.ConfigPatches {
+			if cp.ApplyTo != networking.EnvoyFilter_CLUSTER {
+				continue
+			}
+
+			if cp.Operation != networking.EnvoyFilter_Patch_MERGE {
+				continue
+			}
+
+			for i := range clusters {
+				if clusters[i] == nil {
+					// deleted by the remove operation
+					continue
+				}
+				if clusterMatch(proxy, clusters[i], cp.Match, cp.Operation) {
+					proto.Merge(clusters[i], cp.Value)
+				}
+			}
+		}
+
+		// Add cluster if the operation is add, and patch context matches
+		for _, cp := range efw.ConfigPatches {
+			if cp.ApplyTo != networking.EnvoyFilter_CLUSTER {
+				continue
+			}
+
+			if cp.Operation != networking.EnvoyFilter_Patch_ADD {
+				continue
+			}
+
+			if clusterMatch(proxy, nil, cp.Match, cp.Operation) {
+				clusters = append(clusters, cp.Value.(*xdsapi.Cluster))
+			}
 		}
 	}
 
@@ -416,7 +406,6 @@ func applyClusterPatches(env *model.Environment, proxy *model.Proxy,
 		}
 		clusters = trimmedClusters
 	}
-
 	return clusters
 }
 
@@ -454,85 +443,84 @@ func applyRouteConfigurationPatches(pluginParams *plugin.InputParams,
 		return routeConfiguration
 	}
 
-	// remove & add are not applicable for route configuration but applicable for virtual hosts
-	// remove virtual host if there is operation is remove, and matches
 	virtualHostsRemoved := false
+	envoyFilterWrappers := pluginParams.Push.EnvoyFilters(pluginParams.Node)
+	for _, efw := range envoyFilterWrappers {
+		// remove & add are not applicable for route configuration but applicable for virtual hosts
+		// remove virtual host if there is operation is remove, and matches
 
-	// First process remove operations, then the merge and finally the add.
-	// If add is done before remove, then remove could end up deleting a vhost that
-	// was added by the user.
-	for _, cp := range filterCRD.ConfigPatches {
-		if cp.Patch == nil || cp.ApplyTo != networking.EnvoyFilter_VIRTUAL_HOST {
-			continue
-		}
-
-		if cp.Patch.Operation != networking.EnvoyFilter_Patch_REMOVE {
-			continue
-		}
-
-		// iterate through all virtual hosts in a route and remove ones that match
-		for i := range routeConfiguration.VirtualHosts {
-			if routeConfigurationMatch(routeConfiguration, &routeConfiguration.VirtualHosts[i], pluginParams, cp.Match) {
-				// set name to empty. We remove virtual hosts with empty names later in this function
-				routeConfiguration.VirtualHosts[i].Name = ""
-				virtualHostsRemoved = true
+		// First process remove operations, then the merge and finally the add.
+		// If add is done before remove, then remove could end up deleting a vhost that
+		// was added by the user.
+		for _, cp := range efw.ConfigPatches {
+			if cp.ApplyTo != networking.EnvoyFilter_VIRTUAL_HOST {
+				continue
 			}
-		}
-	}
 
-	// TODO: Create a EnvoyFilterContext struct, just like SidecarContext
-	// pre-process the values and convert them into appropriate structs when initializing the push context
-	for _, cp := range filterCRD.ConfigPatches {
-		if cp.Patch == nil ||
-			(cp.ApplyTo != networking.EnvoyFilter_ROUTE_CONFIGURATION &&
-				cp.ApplyTo != networking.EnvoyFilter_VIRTUAL_HOST) {
-			continue
-		}
-
-		if cp.Patch.Operation != networking.EnvoyFilter_Patch_MERGE {
-			continue
-		}
-
-		userChanges, err := buildXDSObjectFromValue(cp.ApplyTo, cp.Patch.Value)
-		if err != nil {
-			continue
-		}
-
-		// if applying the merge at routeConfiguration level, then do standard proto merge
-		if cp.ApplyTo == networking.EnvoyFilter_ROUTE_CONFIGURATION {
-			if routeConfigurationMatch(routeConfiguration, nil, pluginParams, cp.Match) {
-				proto.Merge(routeConfiguration, userChanges)
+			if cp.Operation != networking.EnvoyFilter_Patch_REMOVE {
+				continue
 			}
-		} else {
-			// This is for a specific virtual host. We have to iterate through all the vhosts in a route,
-			// and match the specific virtual host to merge
+
+			// iterate through all virtual hosts in a route and remove ones that match
 			for i := range routeConfiguration.VirtualHosts {
+				if routeConfiguration.VirtualHosts[i].Name == "" {
+					// removed by another envoy filter
+					continue
+				}
 				if routeConfigurationMatch(routeConfiguration, &routeConfiguration.VirtualHosts[i], pluginParams, cp.Match) {
-					proto.Merge(&routeConfiguration.VirtualHosts[i], userChanges)
+					// set name to empty. We remove virtual hosts with empty names later in this function
+					routeConfiguration.VirtualHosts[i].Name = ""
+					virtualHostsRemoved = true
 				}
 			}
 		}
-	}
 
-	// Add virtual host if the operation is add, and patch context matches
-	for _, cp := range filterCRD.ConfigPatches {
-		if cp.Patch == nil || cp.ApplyTo != networking.EnvoyFilter_VIRTUAL_HOST {
-			continue
-		}
-
-		if cp.Patch.Operation != networking.EnvoyFilter_Patch_ADD {
-			continue
-		}
-
-		if routeConfigurationMatch(routeConfiguration, nil, pluginParams, cp.Match) {
-			newVirtualHost, err := buildXDSObjectFromValue(cp.ApplyTo, cp.Patch.Value)
-			if err != nil {
+		for _, cp := range efw.ConfigPatches {
+			if cp.ApplyTo != networking.EnvoyFilter_ROUTE_CONFIGURATION &&
+				cp.ApplyTo != networking.EnvoyFilter_VIRTUAL_HOST {
 				continue
 			}
-			routeConfiguration.VirtualHosts = append(routeConfiguration.VirtualHosts, *newVirtualHost.(*route.VirtualHost))
+
+			if cp.Operation != networking.EnvoyFilter_Patch_MERGE {
+				continue
+			}
+
+			// if applying the merge at routeConfiguration level, then do standard proto merge
+			if cp.ApplyTo == networking.EnvoyFilter_ROUTE_CONFIGURATION {
+				if routeConfigurationMatch(routeConfiguration, nil, pluginParams, cp.Match) {
+					proto.Merge(routeConfiguration, cp.Value)
+				}
+			} else {
+				// This is for a specific virtual host. We have to iterate through all the vhosts in a route,
+				// and match the specific virtual host to merge
+				for i := range routeConfiguration.VirtualHosts {
+					if routeConfiguration.VirtualHosts[i].Name == "" {
+						// removed by another envoy filter
+						continue
+					}
+
+					if routeConfigurationMatch(routeConfiguration, &routeConfiguration.VirtualHosts[i], pluginParams, cp.Match) {
+						proto.Merge(&routeConfiguration.VirtualHosts[i], cp.Value)
+					}
+				}
+			}
+		}
+
+		// Add virtual host if the operation is add, and patch context matches
+		for _, cp := range efw.ConfigPatches {
+			if cp.ApplyTo != networking.EnvoyFilter_VIRTUAL_HOST {
+				continue
+			}
+
+			if cp.Operation != networking.EnvoyFilter_Patch_ADD {
+				continue
+			}
+
+			if routeConfigurationMatch(routeConfiguration, nil, pluginParams, cp.Match) {
+				routeConfiguration.VirtualHosts = append(routeConfiguration.VirtualHosts, *cp.Value.(*route.VirtualHost))
+			}
 		}
 	}
-
 	if virtualHostsRemoved {
 		trimmedVirtualHosts := make([]route.VirtualHost, 0, len(routeConfiguration.VirtualHosts))
 		for _, virtualHost := range routeConfiguration.VirtualHosts {
@@ -543,7 +531,6 @@ func applyRouteConfigurationPatches(pluginParams *plugin.InputParams,
 		}
 		routeConfiguration.VirtualHosts = trimmedVirtualHosts
 	}
-
 	return routeConfiguration
 }
 

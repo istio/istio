@@ -35,6 +35,22 @@ import (
 
 func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) *fakes.IstioConfigStore {
 	return &fakes.IstioConfigStore{
+		ListStub: func(typ, namespace string) (configs []model.Config, e error) {
+			if typ == "envoy-filter" {
+				configs = []model.Config{
+					{
+						ConfigMeta: model.ConfigMeta{
+							Name:      "test-envoyfilter",
+							Namespace: "not-default",
+						},
+						Spec: &networking.EnvoyFilter{
+							ConfigPatches: configPatches,
+						},
+					},
+				}
+			}
+			return
+		},
 		EnvoyFilterStub: func(workloadLabels model.LabelsCollection) *model.Config {
 			return &model.Config{
 				ConfigMeta: model.ConfigMeta{
@@ -47,7 +63,6 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 			}
 		},
 	}
-
 }
 
 func buildListenerPatches(config string) []*networking.EnvoyFilter_EnvoyConfigObjectPatch {
@@ -208,7 +223,7 @@ func TestApplyListenerConfigPatches(t *testing.T) {
 	}
 }
 
-func TestApplyClusterConfigPatches(t *testing.T) {
+func TestApplyClusterPatches(t *testing.T) {
 	configPatches := []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 		{
 			ApplyTo: networking.EnvoyFilter_CLUSTER,
@@ -327,23 +342,24 @@ func TestApplyClusterConfigPatches(t *testing.T) {
 		{
 			name:   "sidecar cds patch",
 			input:  sidecarInput,
-			proxy:  &model.Proxy{Type: model.SidecarProxy},
+			proxy:  &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"},
 			output: sidecarOutput,
 		},
 		{
 			name:   "gateway cds patch",
 			input:  gatewayInput,
-			proxy:  &model.Proxy{Type: model.Router},
+			proxy:  &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"},
 			output: gatewayOutput,
 		},
 	}
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
-
+	push := model.NewPushContext()
+	push.InitContext(env)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ret := applyClusterPatches(env, tc.proxy, nil, tc.input)
+			ret := applyClusterPatches(env, tc.proxy, push, tc.input)
 			if !reflect.DeepEqual(tc.output, ret) {
 				t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.output, ret)
 			}
@@ -1039,23 +1055,28 @@ func Test_applyRouteConfigurationPatches(t *testing.T) {
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
+	push := model.NewPushContext()
+	push.InitContext(env)
 
 	sidecarOutbundPluginParams := &plugin.InputParams{
 		ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
 		Env:              env,
-		Node:             &model.Proxy{Type: model.SidecarProxy},
+		Node:             &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"},
 		Port:             &model.Port{Port: 80},
+		Push:             push,
 	}
 	sidecarInboundPluginParams := &plugin.InputParams{
 		ListenerCategory: networking.EnvoyFilter_SIDECAR_INBOUND,
 		Env:              env,
-		Node:             &model.Proxy{Type: model.SidecarProxy},
+		Node:             &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"},
 		Port:             &model.Port{Port: 80},
+		Push:             push,
 	}
 	gatewayPluginParams := &plugin.InputParams{
 		ListenerCategory: networking.EnvoyFilter_GATEWAY,
 		Env:              env,
-		Node:             &model.Proxy{Type: model.Router},
+		Node:             &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"},
+		Push:             push,
 	}
 
 	type args struct {

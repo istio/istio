@@ -988,7 +988,7 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) error {
 	return nil
 }
 
-func (ps *PushContext) EnvoyFilters(proxy *Proxy, workloadLabels LabelsCollection) []*EnvoyFilterWrapper {
+func (ps *PushContext) EnvoyFilters(proxy *Proxy) []*EnvoyFilterWrapper {
 	// this should never happen
 	if proxy == nil {
 		return nil
@@ -1001,14 +1001,14 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy, workloadLabels LabelsCollectio
 		// if there is no workload selector, the config applies to all workloads
 		// if there is a workload selector, check for matching workload labels
 		for _, efw := range ps.envoyFiltersByNamespace[ps.Env.Mesh.RootNamespace] {
-			if efw.workloadSelector == nil || workloadLabels.IsSupersetOf(efw.workloadSelector) {
+			if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
 				out = append(out, efw)
 			}
 		}
 	}
 
 	for _, efw := range ps.envoyFiltersByNamespace[proxy.ConfigNamespace] {
-		if efw.workloadSelector == nil || workloadLabels.IsSupersetOf(efw.workloadSelector) {
+		if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
 			out = append(out, efw)
 		}
 	}
