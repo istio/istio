@@ -16,11 +16,11 @@ package v1alpha3
 
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -36,6 +36,66 @@ type ListenerBuilder struct {
 	managementListeners    []*xdsapi.Listener
 	virtualListener        *xdsapi.Listener
 	virtualInboundListener *xdsapi.Listener
+	useInboundFilterChain  bool
+	useOutboundFilterChain bool
+}
+
+func reduceInboundListenerToFilters(listeners []*xdsapi.Listener) (chains []*listener.FilterChain, needTls bool) {
+	needTls = false
+	chains = make([]*listener.FilterChain, 0)
+	for _, l := range listeners {
+		for _, c := range l.FilterChains {
+			chain := c
+			mergeFilterChainFromInboundListener(&chain, l, &needTls)
+			chains = append(chains, &chain)
+		}
+	}
+	// TODO: sort
+	return
+}
+
+func (builder *ListenerBuilder) aggregateVirtualInboundListener(env *model.Environment, node *model.Proxy) *ListenerBuilder {
+	ip := getSidecarInboundBindIP(node)
+
+	var isTransparentProxy *google_protobuf.BoolValue
+	if node.GetInterceptionMode() == model.InterceptionTproxy {
+		isTransparentProxy = proto.BoolTrue
+	}
+	tcpProxyFilter := newTCPProxyListenerFilter(env, node, true)
+	filterChains, needTls := reduceInboundListenerToFilters(builder.inboundListeners)
+	builder.virtualInboundListener = &xdsapi.Listener{
+		Name:        VirtualInboundListenerName,
+		Address:     util.BuildAddress(ip, ProxyInboundListenPort),
+		Transparent: isTransparentProxy,
+		ListenerFilters: []listener.ListenerFilter{
+			{
+				Name: "envoy.listener.original_dst",
+			},
+		},
+		// Deprecated by envoyproxy. Replaced
+		// 1. filter chains in this listener
+		// 2. explicit original_dst listener filter
+		// UseOriginalDst: proto.BoolTrue,
+		FilterChains: []listener.FilterChain{
+			{
+				Filters: []listener.Filter{*tcpProxyFilter},
+			},
+		},
+	}
+
+	builder.virtualInboundListener.FilterChains = make([]listener.FilterChain, 0, len(filterChains)+2)
+	for _, c := range filterChains {
+		builder.virtualInboundListener.FilterChains =
+			append(builder.virtualInboundListener.FilterChains, *c)
+	}
+	if needTls {
+		builder.virtualInboundListener.ListenerFilters =
+			append(builder.virtualInboundListener.ListenerFilters, listener.ListenerFilter{
+				Name: "envoy.listener.tls_inspector",
+			})
+	}
+	// TODO(silentdai): default inbound chain tcpProxy or something else
+	return builder
 }
 
 func NewListenerBuilder(node *model.Proxy) *ListenerBuilder {
@@ -122,7 +182,6 @@ func (builder *ListenerBuilder) buildVirtualListener(
 	if node.GetInterceptionMode() == model.InterceptionTproxy {
 		isTransparentProxy = proto.BoolTrue
 	}
-
 	tcpProxyFilter := newTCPProxyListenerFilter(env, node, false)
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
@@ -146,6 +205,10 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environme
 		log.Debugf("Inbound and outbound listeners are united in for node %s", node.ID)
 		return builder
 	}
+	// TODO(silentdai) use feature
+	if true {
+		return builder.aggregateVirtualInboundListener(env, node)
+	}
 	var isTransparentProxy *google_protobuf.BoolValue
 	if node.GetInterceptionMode() == model.InterceptionTproxy {
 		isTransparentProxy = proto.BoolTrue
@@ -166,6 +229,31 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environme
 		},
 	}
 	return builder
+}
+
+// Inbound listener only
+func mergeFilterChainFromInboundListener(chain *listener.FilterChain, l *xdsapi.Listener, needTls *bool) {
+	if chain.FilterChainMatch == nil {
+		chain.FilterChainMatch = &listener.FilterChainMatch{}
+	}
+	listenerAddress := l.Address
+	if sockAddr := listenerAddress.GetSocketAddress(); sockAddr != nil {
+		chain.FilterChainMatch.DestinationPort = &google_protobuf.UInt32Value{Value: sockAddr.GetPortValue()}
+		if cidr := util.ConvertAddressToCidr(sockAddr.GetAddress()); cidr != nil {
+			if chain.FilterChainMatch.PrefixRanges != nil && len(chain.FilterChainMatch.PrefixRanges) != 1 {
+				log.Debugf("Inbound listener %s neither 0 or 1 PrefixRanges", sockAddr.GetAddress())
+			}
+			chain.FilterChainMatch.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(sockAddr.GetAddress())}
+		}
+	}
+	if !*needTls {
+		for _, filter := range l.ListenerFilters {
+			if filter.Name == envoyListenerTLSInspector {
+				*needTls = true
+				break
+			}
+		}
+	}
 }
 
 func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {

@@ -206,6 +206,7 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 		}
 	}
 }
+
 func TestInboundListenerConfig_HTTP(t *testing.T) {
 	for _, p := range []*model.Proxy{&proxy, &proxyHTTP10} {
 		// Add a service and verify it's config
