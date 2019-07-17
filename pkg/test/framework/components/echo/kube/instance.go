@@ -37,7 +37,7 @@ import (
 const (
 	tcpHealthPort         = 3333
 	httpReadinessPort     = 8080
-	defaultDomain         = "svc.cluster.local"
+	defaultDomain         = "cluster.local"
 	noSidecarWaitDuration = 10 * time.Second
 )
 

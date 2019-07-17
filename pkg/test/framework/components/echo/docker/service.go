@@ -38,7 +38,7 @@ metadata:
     version: {{ .Version }}
 spec:
   hosts:
-  - {{ .ServiceName }}.{{ .Namespace }}.{{ .Domain }}
+  - {{ .ServiceName }}.{{ .Namespace }}.svc.{{ .Domain }}
   ports:
   {{ range $i, $p := .Ports -}}
   - number: {{ $p.ServicePort }} 

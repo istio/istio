@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
@@ -86,8 +85,6 @@ type VirtualServiceConfig struct {
 
 func TestMain(m *testing.M) {
 	framework.NewSuite("traffic_shifting", m).
-		RequireEnvironment(environment.Kube).
-		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
 		Run()
 }
@@ -103,7 +100,6 @@ func TestTrafficShifting(t *testing.T) {
 
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
 			g, _ = galley.New(ctx, galley.Config{})
@@ -182,7 +178,7 @@ func CheckVirtualServiceConfig(target echo.Instance, port echo.Port, weight int3
 
 func clusterName(target echo.Instance, port echo.Port) string {
 	cfg := target.Config()
-	return fmt.Sprintf("outbound|%d||%s.%s.%s", port.ServicePort, cfg.Service, cfg.Namespace.Name(), cfg.Domain)
+	return fmt.Sprintf("outbound|%d||%s.%s.svc.%s", port.ServicePort, cfg.Service, cfg.Namespace.Name(), cfg.Domain)
 }
 
 func echoConfig(ns namespace.Instance, name string) echo.Config {
