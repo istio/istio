@@ -215,13 +215,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 
 	builder := NewListenerBuilder(node)
 	if mesh.ProxyListenPort > 0 {
-			// Any build order change need a careful code review
-			builder = NewListenerBuilder(node).
-				buildSidecarInboundListeners(configgen, env, node, push, proxyInstances).
-				buildSidecarOutboundListeners(configgen, env, node, push, proxyInstances).
-				buildManagementListeners(configgen, env, node, push, proxyInstances).
-				buildVirtualOutboundListener(env, node).
-				buildVirtualInboundListener(env, node)
+		// Any build order change need a careful code review
+		builder = NewListenerBuilder(node).
+			buildSidecarInboundListeners(configgen, env, node, push, proxyInstances).
+			buildSidecarOutboundListeners(configgen, env, node, push, proxyInstances).
+			buildManagementListeners(configgen, env, node, push, proxyInstances).
+			buildVirtualOutboundListener(env, node).
+			buildVirtualInboundListener(env, node)
 	}
 
 	httpProxyPort := mesh.ProxyHttpPort
