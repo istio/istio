@@ -1,17 +1,17 @@
-// Copyright 2019 Istio Authors
+// // Copyright 2019 Istio Authors
+// //
+// // Licensed under the Apache License, Version 2.0 (the "License");
+// // you may not use this file except in compliance with the License.
+// // You may obtain a copy of the License at
+// //
+// //     http://www.apache.org/licenses/LICENSE-2.0
+// //
+// // Unless required by applicable law or agreed to in writing, software
+// // distributed under the License is distributed on an "AS IS" BASIS,
+// // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// // See the License for the specific language governing permissions and
+// // limitations under the License.
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package pod_test
 
 import (
@@ -20,13 +20,13 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/galley/pkg/runtime/processing"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
-	"istio.io/istio/galley/pkg/runtime/resource"
-
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
+	"istio.io/istio/galley/pkg/config/resource"
 )
 
 const (
@@ -42,14 +42,7 @@ const (
 )
 
 var (
-	fullName = resource.FullNameFromNamespaceAndName(namespace, podName)
-
-	id = resource.VersionedKey{
-		Key: resource.Key{
-			Collection: metadata.K8sCoreV1Pods.Collection,
-			FullName:   fullName,
-		},
-	}
+	fullName = resource.NewName(namespace, podName)
 
 	labels = map[string]string{
 		"l1": "v1",
@@ -66,15 +59,17 @@ func TestPodLifecycle(t *testing.T) {
 	}
 
 	// Add the node.
-	h.Handle(resource.Event{
-		Kind:  resource.Added,
-		Entry: nodeEntry(region, zone),
+	h.Handle(event.Event{
+		Kind:   event.Added,
+		Source: metadata.K8SCoreV1Nodes,
+		Entry:  nodeEntry(region, zone),
 	})
 
 	t.Run("Add", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-		h.Handle(resource.Event{
-			Kind: resource.Added,
+		h.Handle(event.Event{
+			Kind:   event.Added,
+			Source: metadata.K8SCoreV1Pods,
 			Entry: newPodEntryBuilder().
 				IP(ip).
 				Labels(labels).
@@ -99,8 +94,9 @@ func TestPodLifecycle(t *testing.T) {
 
 	t.Run("NoChange", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-		h.Handle(resource.Event{
-			Kind: resource.Updated,
+		h.Handle(event.Event{
+			Kind:   event.Updated,
+			Source: metadata.K8SCoreV1Pods,
 			Entry: newPodEntryBuilder().
 				IP(ip).
 				Labels(labels).
@@ -130,8 +126,9 @@ func TestPodLifecycle(t *testing.T) {
 			"l3": "v3",
 			"l4": "v4",
 		}
-		h.Handle(resource.Event{
-			Kind: resource.Updated,
+		h.Handle(event.Event{
+			Kind:   event.Updated,
+			Source: metadata.K8SCoreV1Pods,
 			Entry: newPodEntryBuilder().
 				IP(ip).
 				Labels(labels).
@@ -156,8 +153,9 @@ func TestPodLifecycle(t *testing.T) {
 
 	t.Run("Delete", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-		h.Handle(resource.Event{
-			Kind: resource.Deleted,
+		h.Handle(event.Event{
+			Kind:   event.Deleted,
+			Source: metadata.K8SCoreV1Pods,
 			Entry: newPodEntryBuilder().
 				IP(ip).
 				Labels(labels).
@@ -184,13 +182,15 @@ func TestNodeLifecycle(t *testing.T) {
 	l := &listener{}
 	c, h := pod.NewCache(l.asListener())
 
-	applyEvents(l, h, []resource.Event{
+	applyEvents(l, h, []event.Event{
 		{
-			Kind:  resource.Added,
-			Entry: nodeEntry(region, zone),
+			Kind:   event.Added,
+			Source: metadata.K8SCoreV1Nodes,
+			Entry:  nodeEntry(region, zone),
 		},
 		{
-			Kind: resource.Added,
+			Kind:   event.Added,
+			Source: metadata.K8SCoreV1Pods,
 			Entry: newPodEntryBuilder().
 				IP(ip).
 				Labels(labels).
@@ -199,8 +199,9 @@ func TestNodeLifecycle(t *testing.T) {
 				ServiceAccountName(serviceAccountName).Build(),
 		},
 		{
-			Kind:  resource.Deleted,
-			Entry: nodeEntry(region, zone),
+			Kind:   event.Deleted,
+			Source: metadata.K8SCoreV1Nodes,
+			Entry:  nodeEntry(region, zone),
 		},
 	})
 
@@ -223,9 +224,10 @@ func TestNodeAddedAfterPod(t *testing.T) {
 	l := &listener{}
 	c, h := pod.NewCache(l.asListener())
 
-	applyEvents(l, h, []resource.Event{
+	applyEvents(l, h, []event.Event{
 		{
-			Kind: resource.Added,
+			Kind:   event.Added,
+			Source: metadata.K8SCoreV1Pods,
 			Entry: newPodEntryBuilder().
 				IP(ip).
 				Labels(labels).
@@ -234,8 +236,9 @@ func TestNodeAddedAfterPod(t *testing.T) {
 				ServiceAccountName(serviceAccountName).Build(),
 		},
 		{
-			Kind:  resource.Added,
-			Entry: nodeEntry(region, zone),
+			Kind:   event.Added,
+			Source: metadata.K8SCoreV1Nodes,
+			Entry:  nodeEntry(region, zone),
 		},
 	})
 
@@ -258,13 +261,15 @@ func TestNodeWithOnlyRegion(t *testing.T) {
 	l := &listener{}
 	c, h := pod.NewCache(l.asListener())
 
-	applyEvents(l, h, []resource.Event{
+	applyEvents(l, h, []event.Event{
 		{
-			Kind:  resource.Added,
-			Entry: nodeEntry(region, ""),
+			Kind:   event.Added,
+			Source: metadata.K8SCoreV1Nodes,
+			Entry:  nodeEntry(region, ""),
 		},
 		{
-			Kind: resource.Added,
+			Kind:   event.Added,
+			Source: metadata.K8SCoreV1Pods,
 			Entry: newPodEntryBuilder().
 				IP(ip).
 				Phase(coreV1.PodPending).
@@ -291,13 +296,15 @@ func TestNodeWithNoLocality(t *testing.T) {
 	l := &listener{}
 	c, h := pod.NewCache(l.asListener())
 
-	applyEvents(l, h, []resource.Event{
+	applyEvents(l, h, []event.Event{
 		{
-			Kind:  resource.Added,
-			Entry: nodeEntry("", ""),
+			Kind:   event.Added,
+			Source: metadata.K8SCoreV1Nodes,
+			Entry:  nodeEntry("", ""),
 		},
 		{
-			Kind: resource.Added,
+			Kind:   event.Added,
+			Source: metadata.K8SCoreV1Pods,
 			Entry: newPodEntryBuilder().
 				IP(ip).
 				Phase(coreV1.PodPending).
@@ -323,10 +330,14 @@ func TestNoNamespaceAndNoServiceAccount(t *testing.T) {
 	c, h := pod.NewCache(l.asListener())
 
 	g := NewGomegaWithT(t)
-	h.Handle(resource.Event{
-		Kind: resource.Added,
-		Entry: resource.Entry{
-			ID: id,
+	h.Handle(event.Event{
+		Kind:   event.Added,
+		Source: metadata.K8SCoreV1Pods,
+		Entry: &resource.Entry{
+			Metadata: resource.Metadata{
+				Name:    fullName,
+				Version: resource.Version("v1"),
+			},
 			Item: &coreV1.Pod{
 				ObjectMeta: metaV1.ObjectMeta{
 					Name:      podName,
@@ -358,14 +369,13 @@ func TestWrongCollectionShouldNotPanic(t *testing.T) {
 	l := &listener{}
 	_, h := pod.NewCache(l.asListener())
 
-	h.Handle(resource.Event{
-		Kind: resource.Added,
-		Entry: resource.Entry{
-			ID: resource.VersionedKey{
-				Key: resource.Key{
-					Collection: metadata.K8sCoreV1Services.Collection,
-					FullName:   resource.FullNameFromNamespaceAndName("ns", "myservice"),
-				},
+	h.Handle(event.Event{
+		Kind:   event.Added,
+		Source: metadata.K8SCoreV1Services,
+		Entry: &resource.Entry{
+			Metadata: resource.Metadata{
+				Name:    resource.NewName("ns", "myservice"),
+				Version: resource.Version("v1"),
 			},
 			Item: &coreV1.Service{},
 		},
@@ -380,8 +390,9 @@ func TestInvalidPodPhase(t *testing.T) {
 	for _, phase := range []coreV1.PodPhase{coreV1.PodSucceeded, coreV1.PodFailed, coreV1.PodUnknown} {
 		t.Run(string(phase), func(t *testing.T) {
 			g := NewGomegaWithT(t)
-			h.Handle(resource.Event{
-				Kind: resource.Added,
+			h.Handle(event.Event{
+				Kind:   event.Added,
+				Source: metadata.K8SCoreV1Services,
 				Entry: newPodEntryBuilder().
 					IP(ip).
 					Labels(labels).
@@ -401,9 +412,10 @@ func TestUpdateWithInvalidPhaseShouldDelete(t *testing.T) {
 	l := &listener{}
 	c, h := pod.NewCache(l.asListener())
 
-	applyEvents(l, h, []resource.Event{
+	applyEvents(l, h, []event.Event{
 		{
-			Kind: resource.Added,
+			Kind:   event.Added,
+			Source: metadata.K8SCoreV1Pods,
 			Entry: newPodEntryBuilder().
 				IP(ip).
 				Labels(labels).
@@ -412,7 +424,8 @@ func TestUpdateWithInvalidPhaseShouldDelete(t *testing.T) {
 				ServiceAccountName(serviceAccountName).Build(),
 		},
 		{
-			Kind: resource.Updated,
+			Kind:   event.Updated,
+			Source: metadata.K8SCoreV1Pods,
 			Entry: newPodEntryBuilder().
 				IP(ip).
 				Labels(labels).
@@ -439,9 +452,10 @@ func TestDeleteWithNoItemShouldUseFullName(t *testing.T) {
 	l := &listener{}
 	c, h := pod.NewCache(l.asListener())
 
-	applyEvents(l, h, []resource.Event{
+	applyEvents(l, h, []event.Event{
 		{
-			Kind: resource.Added,
+			Kind:   event.Added,
+			Source: metadata.K8SCoreV1Pods,
 			Entry: newPodEntryBuilder().
 				IP(ip).
 				Labels(labels).
@@ -450,9 +464,13 @@ func TestDeleteWithNoItemShouldUseFullName(t *testing.T) {
 				ServiceAccountName(serviceAccountName).Build(),
 		},
 		{
-			Kind: resource.Deleted,
-			Entry: resource.Entry{
-				ID: id,
+			Kind:   event.Deleted,
+			Source: metadata.K8SCoreV1Pods,
+			Entry: &resource.Entry{
+				Metadata: resource.Metadata{
+					Name:    fullName,
+					Version: resource.Version("v1"),
+				},
 			},
 		},
 	})
@@ -466,8 +484,9 @@ func TestDeleteNotFoundShouldNotPanic(t *testing.T) {
 	_, h := pod.NewCache(l.asListener())
 
 	// Delete it, but with a nil Item to force a lookup by fullName.
-	h.Handle(resource.Event{
-		Kind: resource.Deleted,
+	h.Handle(event.Event{
+		Kind:   event.Deleted,
+		Source: metadata.K8SCoreV1Services,
 		Entry: newPodEntryBuilder().
 			IP(ip).
 			Labels(labels).
@@ -482,10 +501,13 @@ func TestDeleteNotFoundWithMissingItemShouldNotPanic(t *testing.T) {
 	_, h := pod.NewCache(l.asListener())
 
 	// Delete it, but with a nil Item to force a lookup by fullName.
-	h.Handle(resource.Event{
-		Kind: resource.Deleted,
-		Entry: resource.Entry{
-			ID: id,
+	h.Handle(event.Event{
+		Kind:   event.Deleted,
+		Source: metadata.K8SCoreV1Pods,
+		Entry: &resource.Entry{
+			Metadata: resource.Metadata{
+				Name: fullName,
+			},
 		},
 	})
 }
@@ -494,15 +516,16 @@ func TestPodWithNoIPShouldBeIgnored(t *testing.T) {
 	l := &listener{}
 	_, h := pod.NewCache(l.asListener())
 
-	h.Handle(resource.Event{
-		Kind: resource.Added,
+	h.Handle(event.Event{
+		Kind:   event.Added,
+		Source: metadata.K8SCoreV1Pods,
 		Entry: newPodEntryBuilder().
 			Phase(coreV1.PodPending).Build(),
 	})
 	l.assertNone(t)
 }
 
-func applyEvents(l *listener, h processing.Handler, events []resource.Event) {
+func applyEvents(l *listener, h event.Handler, events []event.Event) {
 	for _, event := range events {
 		l.reset()
 		h.Handle(event)
@@ -546,9 +569,11 @@ func (b *podEntryBuilder) Phase(phase coreV1.PodPhase) *podEntryBuilder {
 	return b
 }
 
-func (b *podEntryBuilder) Build() resource.Entry {
-	return resource.Entry{
-		ID: id,
+func (b *podEntryBuilder) Build() *resource.Entry {
+	return &resource.Entry{
+		Metadata: resource.Metadata{
+			Name: fullName,
+		},
 		Item: &coreV1.Pod{
 			ObjectMeta: metaV1.ObjectMeta{
 				Name:      podName,
@@ -567,22 +592,17 @@ func (b *podEntryBuilder) Build() resource.Entry {
 	}
 }
 
-func nodeEntry(region, zone string) resource.Entry {
-	labels := make(resource.Labels)
+func nodeEntry(region, zone string) *resource.Entry {
+	labels := make(resource.StringMap)
 	if region != "" {
 		labels[pod.LabelZoneRegion] = region
 	}
 	if zone != "" {
 		labels[pod.LabelZoneFailureDomain] = zone
 	}
-	return resource.Entry{
-		ID: resource.VersionedKey{
-			Key: resource.Key{
-				Collection: metadata.K8sCoreV1Nodes.Collection,
-				FullName:   resource.FullNameFromNamespaceAndName("", nodeName),
-			},
-		},
+	return &resource.Entry{
 		Metadata: resource.Metadata{
+			Name:   resource.NewName("", nodeName),
 			Labels: labels,
 		},
 	}

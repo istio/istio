@@ -19,16 +19,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 
-	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	metadata2 "istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/annotations"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/converter"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
-	"istio.io/istio/galley/pkg/runtime/resource"
+
+	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/annotations"
+	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/converter"
+	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
+	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 
@@ -45,32 +43,9 @@ const (
 )
 
 var (
-	fullName = resource.FullNameFromNamespaceAndName(namespace, serviceName)
+	fullName = resource.NewName(namespace, serviceName)
 
-	tnow    = time.Now()
-	tnowMcp = func() *types.Timestamp {
-		t, err := types.TimestampProto(tnow)
-		if err != nil {
-			panic(err)
-		}
-		return t
-	}()
-
-	serviceID = resource.VersionedKey{
-		Key: resource.Key{
-			Collection: metadata2.K8sCoreV1Services.Collection,
-			FullName:   fullName,
-		},
-		Version: resource.Version(version),
-	}
-
-	endpointsID = resource.VersionedKey{
-		Key: resource.Key{
-			Collection: metadata2.K8sCoreV1Endpoints.Collection,
-			FullName:   fullName,
-		},
-		Version: resource.Version(version),
-	}
+	tnow = time.Now()
 
 	podLabels = map[string]string{
 		"pl1": "v1",
@@ -82,14 +57,16 @@ func TestServiceDefaults(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	service := &resource.Entry{
-		ID: serviceID,
 		Metadata: resource.Metadata{
+			Name:    fullName,
+			Version: version,
+
 			CreateTime: tnow,
-			Labels: resource.Labels{
+			Labels: resource.StringMap{
 				"l1": "v1",
 				"l2": "v2",
 			},
-			Annotations: resource.Annotations{
+			Annotations: resource.StringMap{
 				"a1": "v1",
 				"a2": "v2",
 			},
@@ -106,14 +83,14 @@ func TestServiceDefaults(t *testing.T) {
 		},
 	}
 
-	expectedMeta := mcp.Metadata{
-		Name:       service.ID.FullName.String(),
-		CreateTime: tnowMcp,
-		Labels: resource.Labels{
+	expectedMeta := resource.Metadata{
+		Name:       service.Metadata.Name,
+		CreateTime: tnow,
+		Labels: resource.StringMap{
 			"l1": "v1",
 			"l2": "v2",
 		},
-		Annotations: resource.Annotations{
+		Annotations: resource.StringMap{
 			"a1":                       "v1",
 			"a2":                       "v2",
 			annotations.ServiceVersion: version,
@@ -142,10 +119,11 @@ func TestServiceExportTo(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	service := &resource.Entry{
-		ID: serviceID,
 		Metadata: resource.Metadata{
+			Name:       fullName,
+			Version:    resource.Version("v1"),
 			CreateTime: tnow,
-			Annotations: resource.Annotations{
+			Annotations: resource.StringMap{
 				kube.ServiceExportAnnotation: "c, a, b",
 			},
 		},
@@ -154,10 +132,10 @@ func TestServiceExportTo(t *testing.T) {
 		},
 	}
 
-	expectedMeta := mcp.Metadata{
-		Name:       service.ID.FullName.String(),
-		CreateTime: tnowMcp,
-		Annotations: resource.Annotations{
+	expectedMeta := resource.Metadata{
+		Name:       fullName,
+		CreateTime: tnow,
+		Annotations: resource.StringMap{
 			kube.ServiceExportAnnotation: "c, a, b",
 			annotations.ServiceVersion:   "v1",
 		},
@@ -182,14 +160,9 @@ func TestNoNamespaceShouldUseDefault(t *testing.T) {
 
 	ip := "10.0.0.1"
 	service := &resource.Entry{
-		ID: resource.VersionedKey{
-			Key: resource.Key{
-				Collection: metadata2.K8sCoreV1Services.Collection,
-				FullName:   resource.FullNameFromNamespaceAndName("", serviceName),
-			},
-			Version: resource.Version("v1"),
-		},
 		Metadata: resource.Metadata{
+			Name:       resource.NewName("", serviceName),
+			Version:    resource.Version("v1"),
 			CreateTime: tnow,
 		},
 		Item: &coreV1.ServiceSpec{
@@ -197,10 +170,10 @@ func TestNoNamespaceShouldUseDefault(t *testing.T) {
 		},
 	}
 
-	expectedMeta := mcp.Metadata{
-		Name:       service.ID.FullName.String(),
-		CreateTime: tnowMcp,
-		Annotations: resource.Annotations{
+	expectedMeta := resource.Metadata{
+		Name:       service.Metadata.Name,
+		CreateTime: tnow,
+		Annotations: resource.StringMap{
 			annotations.ServiceVersion: "v1",
 		},
 	}
@@ -252,8 +225,9 @@ func TestServicePorts(t *testing.T) {
 			g := NewGomegaWithT(t)
 
 			service := &resource.Entry{
-				ID: serviceID,
 				Metadata: resource.Metadata{
+					Name:       fullName,
+					Version:    resource.Version("v1"),
 					CreateTime: tnow,
 				},
 				Item: &coreV1.ServiceSpec{
@@ -268,10 +242,10 @@ func TestServicePorts(t *testing.T) {
 				},
 			}
 
-			expectedMeta := mcp.Metadata{
-				Name:       service.ID.FullName.String(),
-				CreateTime: tnowMcp,
-				Annotations: resource.Annotations{
+			expectedMeta := resource.Metadata{
+				Name:       service.Metadata.Name,
+				CreateTime: tnow,
+				Annotations: resource.StringMap{
 					annotations.ServiceVersion: version,
 				},
 			}
@@ -316,8 +290,9 @@ func TestClusterIPWithNoResolution(t *testing.T) {
 			g := NewGomegaWithT(t)
 
 			service := &resource.Entry{
-				ID: serviceID,
 				Metadata: resource.Metadata{
+					Name:       fullName,
+					Version:    resource.Version("v1"),
 					CreateTime: tnow,
 				},
 				Item: &coreV1.ServiceSpec{
@@ -325,10 +300,10 @@ func TestClusterIPWithNoResolution(t *testing.T) {
 				},
 			}
 
-			expectedMeta := mcp.Metadata{
-				Name:       service.ID.FullName.String(),
-				CreateTime: tnowMcp,
-				Annotations: resource.Annotations{
+			expectedMeta := resource.Metadata{
+				Name:       service.Metadata.Name,
+				CreateTime: tnow,
+				Annotations: resource.StringMap{
 					annotations.ServiceVersion: version,
 				},
 			}
@@ -353,8 +328,9 @@ func TestExternalService(t *testing.T) {
 
 	externalName := "myexternalsvc"
 	service := &resource.Entry{
-		ID: serviceID,
 		Metadata: resource.Metadata{
+			Name:       fullName,
+			Version:    resource.Version("v1"),
 			CreateTime: tnow,
 		},
 		Item: &coreV1.ServiceSpec{
@@ -370,10 +346,10 @@ func TestExternalService(t *testing.T) {
 		},
 	}
 
-	expectedMeta := mcp.Metadata{
-		Name:       service.ID.FullName.String(),
-		CreateTime: tnowMcp,
-		Annotations: resource.Annotations{
+	expectedMeta := resource.Metadata{
+		Name:       service.Metadata.Name,
+		CreateTime: tnow,
+		Annotations: resource.StringMap{
 			annotations.ServiceVersion: version,
 		},
 	}
@@ -408,15 +384,16 @@ func TestEndpointsWithNoSubsets(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	endpoints := &resource.Entry{
-		ID: endpointsID,
 		Metadata: resource.Metadata{
+			Name:       fullName,
+			Version:    resource.Version("v1"),
 			CreateTime: tnow,
 		},
 		Item: &coreV1.Endpoints{},
 	}
 
-	expectedMeta := mcp.Metadata{
-		Annotations: resource.Annotations{
+	expectedMeta := resource.Metadata{
+		Annotations: resource.StringMap{
 			annotations.EndpointsVersion: version,
 		},
 	}
@@ -442,29 +419,30 @@ func TestEndpoints(t *testing.T) {
 		ip1: {
 			NodeName:           "node1",
 			Locality:           l1,
-			FullName:           resource.FullNameFromNamespaceAndName(namespace, "pod1"),
+			FullName:           resource.NewName(namespace, "pod1"),
 			ServiceAccountName: "sa1",
 			Labels:             podLabels,
 		},
 		ip2: {
 			NodeName:           "node2",
 			Locality:           l2,
-			FullName:           resource.FullNameFromNamespaceAndName(namespace, "pod2"),
+			FullName:           resource.NewName(namespace, "pod2"),
 			ServiceAccountName: "sa2",
 			Labels:             podLabels,
 		},
 		ip3: {
 			NodeName:           "node1", // Also on node1
 			Locality:           l1,
-			FullName:           resource.FullNameFromNamespaceAndName(namespace, "pod3"),
+			FullName:           resource.NewName(namespace, "pod3"),
 			ServiceAccountName: "sa1", // Same service account as pod1 to test duplicates.
 			Labels:             podLabels,
 		},
 	}
 
 	endpoints := &resource.Entry{
-		ID: endpointsID,
 		Metadata: resource.Metadata{
+			Name:       fullName,
+			Version:    resource.Version("v1"),
 			CreateTime: tnow,
 		},
 		Item: &coreV1.Endpoints{
@@ -510,8 +488,8 @@ func TestEndpoints(t *testing.T) {
 		},
 	}
 
-	expectedMeta := mcp.Metadata{
-		Annotations: resource.Annotations{
+	expectedMeta := resource.Metadata{
+		Annotations: resource.StringMap{
 			annotations.EndpointsVersion: version,
 			annotations.NotReadyEndpoints: fmt.Sprintf("%s:%d,%s:%d,%s:%d,%s:%d,%s:%d,%s:%d",
 				ip1, 80,
@@ -567,8 +545,9 @@ func TestEndpointsPodNotFound(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	endpoints := &resource.Entry{
-		ID: endpointsID,
 		Metadata: resource.Metadata{
+			Name:       fullName,
+			Version:    resource.Version("v1"),
 			CreateTime: tnow,
 		},
 		Item: &coreV1.Endpoints{
@@ -592,8 +571,8 @@ func TestEndpointsPodNotFound(t *testing.T) {
 		},
 	}
 
-	expectedMeta := mcp.Metadata{
-		Annotations: resource.Annotations{
+	expectedMeta := resource.Metadata{
+		Annotations: resource.StringMap{
 			annotations.EndpointsVersion: version,
 		},
 	}
@@ -621,15 +600,16 @@ func TestEndpointsNodeNotFound(t *testing.T) {
 	cache := fakePodCache{
 		ip: {
 			NodeName:           "node1",
-			FullName:           resource.FullNameFromNamespaceAndName(namespace, "pod1"),
+			FullName:           resource.NewName(namespace, "pod1"),
 			ServiceAccountName: "sa1",
 			Labels:             podLabels,
 		},
 	}
 
 	endpoints := &resource.Entry{
-		ID: endpointsID,
 		Metadata: resource.Metadata{
+			Name:       fullName,
+			Version:    resource.Version("v1"),
 			CreateTime: tnow,
 		},
 		Item: &coreV1.Endpoints{
@@ -652,8 +632,8 @@ func TestEndpointsNodeNotFound(t *testing.T) {
 		},
 	}
 
-	expectedMeta := mcp.Metadata{
-		Annotations: resource.Annotations{
+	expectedMeta := resource.Metadata{
+		Annotations: resource.StringMap{
 			annotations.EndpointsVersion: version,
 		},
 	}
@@ -676,7 +656,7 @@ func TestEndpointsNodeNotFound(t *testing.T) {
 	g.Expect(actual).To(Equal(expected))
 }
 
-func doConvert(t *testing.T, service *resource.Entry, endpoints *resource.Entry, pods pod.Cache) (mcp.Metadata, networking.ServiceEntry) {
+func doConvert(t *testing.T, service *resource.Entry, endpoints *resource.Entry, pods pod.Cache) (resource.Metadata, networking.ServiceEntry) {
 	actualMeta := newMetadata()
 	actual := newServiceEntry()
 	c := newInstance(pods)
@@ -694,8 +674,8 @@ func newServiceEntry() *networking.ServiceEntry {
 	return &networking.ServiceEntry{}
 }
 
-func newMetadata() *mcp.Metadata {
-	return &mcp.Metadata{
+func newMetadata() *resource.Metadata {
+	return &resource.Metadata{
 		Annotations: make(map[string]string),
 	}
 }

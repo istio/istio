@@ -18,16 +18,16 @@ import (
 	"fmt"
 	"reflect"
 
-	"istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/galley/pkg/runtime/processing"
-	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/pkg/spiffe"
 
 	coreV1 "k8s.io/api/core/v1"
 )
 
 var _ Cache = &cacheImpl{}
-var _ processing.Handler = &cacheImpl{}
+var _ event.Handler = &cacheImpl{}
 
 // k8s well known labels
 const (
@@ -38,7 +38,7 @@ const (
 // Info for a Pod.
 type Info struct {
 	IP       string
-	FullName resource.FullName
+	FullName resource.Name
 	Labels   map[string]string
 	Locality string
 
@@ -61,7 +61,7 @@ type Cache interface {
 }
 
 // NewCache creates a cache and its update handler
-func NewCache(listener Listener) (Cache, processing.Handler) {
+func NewCache(listener Listener) (Cache, event.Handler) {
 	c := &cacheImpl{
 		pods:               make(map[string]Info),
 		nodeNameToLocality: make(map[string]string),
@@ -76,30 +76,32 @@ type cacheImpl struct {
 	nodeNameToLocality map[string]string
 }
 
+// GetPodByIP looks up and returns pod info based on ip.
 func (pc *cacheImpl) GetPodByIP(ip string) (Info, bool) {
 	pod, ok := pc.pods[ip]
 	return pod, ok
 }
 
-func (pc *cacheImpl) Handle(event resource.Event) {
-	switch event.Entry.ID.Collection {
-	case metadata.K8sCoreV1Nodes.Collection:
-		pc.handleNode(event)
-	case metadata.K8sCoreV1Pods.Collection:
-		pc.handlePod(event)
+// Handle implmenets event.Handler
+func (pc *cacheImpl) Handle(e event.Event) {
+	switch e.Source {
+	case metadata.K8SCoreV1Nodes:
+		pc.handleNode(e)
+	case metadata.K8SCoreV1Pods:
+		pc.handlePod(e)
 	default:
 		return
 	}
 }
 
-func (pc *cacheImpl) handleNode(event resource.Event) {
+func (pc *cacheImpl) handleNode(e event.Event) {
 	// Nodes don't have namespaces.
-	_, nodeName := event.Entry.ID.FullName.InterpretAsNamespaceAndName()
+	_, nodeName := e.Entry.Metadata.Name.InterpretAsNamespaceAndName()
 
-	switch event.Kind {
-	case resource.Added, resource.Updated:
+	switch e.Kind {
+	case event.Added, event.Updated:
 		// Just update the node information directly
-		labels := event.Entry.Metadata.Labels
+		labels := e.Entry.Metadata.Labels
 
 		region := labels[LabelZoneRegion]
 		zone := labels[LabelZoneFailureDomain]
@@ -112,7 +114,7 @@ func (pc *cacheImpl) handleNode(event resource.Event) {
 			// Update the pods.
 			pc.updatePodLocality(nodeName, newLocality)
 		}
-	case resource.Deleted:
+	case event.Deleted:
 		if _, ok := pc.nodeNameToLocality[nodeName]; ok {
 			delete(pc.nodeNameToLocality, nodeName)
 
@@ -122,10 +124,10 @@ func (pc *cacheImpl) handleNode(event resource.Event) {
 	}
 }
 
-func (pc *cacheImpl) handlePod(event resource.Event) {
-	switch event.Kind {
-	case resource.Added, resource.Updated:
-		pod := event.Entry.Item.(*coreV1.Pod)
+func (pc *cacheImpl) handlePod(e event.Event) {
+	switch e.Kind {
+	case event.Added, event.Updated:
+		pod := e.Entry.Item.(*coreV1.Pod)
 
 		ip := pod.Status.PodIP
 		if ip == "" {
@@ -142,7 +144,7 @@ func (pc *cacheImpl) handlePod(event resource.Event) {
 			serviceAccountName := kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.Namespace)
 			pod := Info{
 				IP:                 ip,
-				FullName:           event.Entry.ID.FullName,
+				FullName:           e.Entry.Metadata.Name,
 				NodeName:           nodeName,
 				Locality:           locality,
 				Labels:             pod.Labels,
@@ -154,14 +156,14 @@ func (pc *cacheImpl) handlePod(event resource.Event) {
 			// delete if the pod switched to other states and is in the cache
 			pc.deletePod(ip)
 		}
-	case resource.Deleted:
+	case event.Deleted:
 		var ip string
-		if pod, ok := event.Entry.Item.(*coreV1.Pod); ok {
+		if pod, ok := e.Entry.Item.(*coreV1.Pod); ok {
 			ip = pod.Status.PodIP
 		} else {
 			// The resource was either not available or failed parsing. Look it up by brute force.
 			for podIP, info := range pc.pods {
-				if info.FullName == event.Entry.ID.FullName {
+				if info.FullName == e.Entry.Metadata.Name {
 					ip = podIP
 					break
 				}

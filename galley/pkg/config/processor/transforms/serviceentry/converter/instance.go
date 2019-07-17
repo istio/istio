@@ -19,13 +19,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gogo/protobuf/types"
-
-	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/annotations"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
-	"istio.io/istio/galley/pkg/runtime/resource"
+
+	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/annotations"
+	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
+	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 
@@ -48,20 +46,18 @@ func New(domain string, pods pod.Cache) *Instance {
 
 // Convert applies the conversion function from k8s Service and Endpoints to ServiceEntry. The
 // ServiceEntry is passed as an argument (out) in order to enable object reuse in the future.
-func (i *Instance) Convert(service *resource.Entry, endpoints *resource.Entry, outMeta *mcp.Metadata,
+func (i *Instance) Convert(service *resource.Entry, endpoints *resource.Entry, outMeta *resource.Metadata,
 	out *networking.ServiceEntry) error {
-	if err := i.convertService(service, outMeta, out); err != nil {
-		return err
-	}
+	i.convertService(service, outMeta, out)
 	i.convertEndpoints(endpoints, outMeta, out)
 	return nil
 }
 
 // convertService applies the k8s Service to the output.
-func (i *Instance) convertService(service *resource.Entry, outMeta *mcp.Metadata, out *networking.ServiceEntry) error {
+func (i *Instance) convertService(service *resource.Entry, outMeta *resource.Metadata, out *networking.ServiceEntry) {
 	if service == nil {
 		// For testing only. Production code will always provide a non-nil service.
-		return nil
+		return
 	}
 
 	spec := service.Item.(*coreV1.ServiceSpec)
@@ -93,7 +89,7 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *mcp.Metadata
 		ports = append(ports, convertPort(port))
 	}
 
-	host := serviceHostname(service.ID.FullName, i.domain)
+	host := serviceHostname(service.Metadata.Name, i.domain)
 
 	// Store everything in the ServiceEntry.
 	out.Hosts = []string{host}
@@ -105,34 +101,20 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *mcp.Metadata
 	out.ExportTo = convertExportTo(service.Metadata.Annotations)
 
 	// Convert Metadata
-	outMeta.Name = service.ID.FullName.String()
-	outMeta.Labels = service.Metadata.Labels
+	outMeta.Name = service.Metadata.Name
+	outMeta.Labels = service.Metadata.Labels.Clone()
 
 	// Convert the creation time.
-	createTime, err := types.TimestampProto(service.Metadata.CreateTime)
-	if err != nil {
-		return err
-	}
-	outMeta.CreateTime = createTime
+	outMeta.CreateTime = service.Metadata.CreateTime
 
 	// Update the annotations.
-	outMeta.Annotations = getOrCreateStringMap(outMeta.Annotations)
-	for k, v := range service.Metadata.Annotations {
-		outMeta.Annotations[k] = v
-	}
+	outMeta.Annotations = service.Metadata.Annotations.CloneOrCreate()
+
 	// Add an annotation for the version of the service resource.
-	outMeta.Annotations[annotations.ServiceVersion] = string(service.ID.Version)
-	return nil
+	outMeta.Annotations[annotations.ServiceVersion] = string(service.Metadata.Version)
 }
 
-func getOrCreateStringMap(in map[string]string) map[string]string {
-	if in != nil {
-		return in
-	}
-	return make(map[string]string)
-}
-
-func convertExportTo(annotations resource.Annotations) []string {
+func convertExportTo(annotations resource.StringMap) []string {
 	var exportTo map[string]struct{}
 	if annotations[kube.ServiceExportAnnotation] != "" {
 		exportTo = make(map[string]struct{})
@@ -153,7 +135,7 @@ func convertExportTo(annotations resource.Annotations) []string {
 }
 
 // convertEndpoints applies the k8s Endpoints to the output.
-func (i *Instance) convertEndpoints(endpoints *resource.Entry, outMeta *mcp.Metadata, out *networking.ServiceEntry) {
+func (i *Instance) convertEndpoints(endpoints *resource.Entry, outMeta *resource.Metadata, out *networking.ServiceEntry) {
 	if endpoints == nil {
 		return
 	}
@@ -223,8 +205,8 @@ func (i *Instance) convertEndpoints(endpoints *resource.Entry, outMeta *mcp.Meta
 	out.SubjectAltNames = subjectAltNames
 
 	// Add an annotation for the version of the Endpoints resource.
-	outMeta.Annotations = getOrCreateStringMap(outMeta.Annotations)
-	outMeta.Annotations[annotations.EndpointsVersion] = string(endpoints.ID.Version)
+	outMeta.Annotations = outMeta.Annotations.CloneOrCreate()
+	outMeta.Annotations[annotations.EndpointsVersion] = string(endpoints.Metadata.Version)
 
 	// Add an annotation for any "not ready" endpoints.
 	if notReadyBuilder.Len() > 0 {
@@ -254,7 +236,7 @@ func convertExternalServiceEndpoints(
 }
 
 // serviceHostname produces FQDN for a k8s service
-func serviceHostname(fullName resource.FullName, domainSuffix string) string {
+func serviceHostname(fullName resource.Name, domainSuffix string) string {
 	namespace, name := fullName.InterpretAsNamespaceAndName()
 	if namespace == "" {
 		namespace = coreV1.NamespaceDefault

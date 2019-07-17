@@ -24,16 +24,25 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	. "github.com/onsi/gomega"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/galley/pkg/runtime/processing"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/annotations"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
-	"istio.io/istio/galley/pkg/runtime/resource"
+
+	"istio.io/istio/galley/pkg/config/collection"
+	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/processing"
+	"istio.io/istio/galley/pkg/config/processing/snapshotter"
+	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
+	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry"
+	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/annotations"
+	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
+	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/mcp/snapshot"
 
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,125 +60,155 @@ const (
 )
 
 var (
-	serviceName = name(namespace, "svc1")
+	serviceName = resource.NewName(namespace, "svc1")
 	createTime  = time.Now()
 
-	nodeCollection         = metadata.K8sCoreV1Nodes.Collection
-	podCollection          = metadata.K8sCoreV1Pods.Collection
-	serviceCollection      = metadata.K8sCoreV1Services.Collection
-	endpointsCollection    = metadata.K8sCoreV1Endpoints.Collection
-	serviceEntryCollection = metadata.IstioNetworkingV1alpha3SyntheticServiceentries.Collection
-	serviceAnnotations     = resource.Annotations{
+	nodeCollection         = metadata.K8SCoreV1Nodes
+	podCollection          = metadata.K8SCoreV1Pods
+	serviceCollection      = metadata.K8SCoreV1Services
+	endpointsCollection    = metadata.K8SCoreV1Endpoints
+	serviceEntryCollection = metadata.IstioNetworkingV1Alpha3SyntheticServiceentries
+	serviceAnnotations     = resource.StringMap{
 		"ak1": "av1",
 	}
-	serviceLabels = resource.Labels{
+	serviceLabels = resource.StringMap{
 		"lk1": "lv1",
 	}
-	podLabels = resource.Labels{
+	podLabels = resource.StringMap{
 		"pk1": "pv1",
 	}
 )
 
 func TestInvalidCollectionShouldNotPanic(t *testing.T) {
-	h, _ := newHandler()
-	h.Handle(resource.Event{
-		Kind: resource.Added,
-		Entry: resource.Entry{
-			ID: id(metadata.IstioNetworkingV1alpha3Gateways.Collection, name("ns", "svc1"), "123"),
+	rt, src, _, _ := newHandler()
+	defer rt.Stop()
+	src.Handlers.Handle(event.Event{
+		Kind:   event.Added,
+		Source: metadata.IstioNetworkingV1Alpha3Gateways,
+		Entry: &resource.Entry{
+			Metadata: resource.Metadata{
+				Name:    resource.NewName("ns", "svc1"),
+				Version: resource.Version("123"),
+			},
 		},
 	})
 }
 
 func TestLifecycle(t *testing.T) {
 	expectedVersion := 0
-	var service resource.Entry
+	var service *resource.Entry
 	var endpoints *resource.Entry
 
 	stages := []stage{
 		{
+			name:  "NodeSync",
+			event: event.FullSyncFor(metadata.K8SCoreV1Nodes),
+		},
+		{
+			name:  "PodSync",
+			event: event.FullSyncFor(metadata.K8SCoreV1Pods),
+		},
+		{
+			name:  "ServiceSync",
+			event: event.FullSyncFor(metadata.K8SCoreV1Services),
+		},
+		{
+			name:  "EndpointSync",
+			event: event.FullSyncFor(metadata.K8SCoreV1Endpoints),
+			validator: func(ctx pipelineContext) {
+				expectNotifications(ctx.t, ctx.acc, 1)
+			},
+		},
+		{
 			name: "AddNode",
-			event: resource.Event{
-				Kind:  resource.Added,
-				Entry: nodeEntry(),
+			event: event.Event{
+				Kind:   event.Added,
+				Source: nodeCollection,
+				Entry:  nodeEntry(),
 			},
 			validator: func(ctx pipelineContext) {
-				expectNotifications(ctx.t, ctx.l, 0)
+				expectNotifications(ctx.t, ctx.acc, 0)
 			},
 		},
 		{
 			name: "AddPod1",
-			event: resource.Event{
-				Kind:  resource.Added,
-				Entry: podEntry(name(namespace, "pod1"), pod1IP, "sa1"),
+			event: event.Event{
+				Kind:   event.Added,
+				Source: podCollection,
+				Entry:  podEntry(resource.NewName(namespace, "pod1"), pod1IP, "sa1"),
 			},
 			validator: func(ctx pipelineContext) {
-				expectNotifications(ctx.t, ctx.l, 0)
+				expectNotifications(ctx.t, ctx.acc, 0)
 			},
 		},
 		{
 			name: "AddPod2",
-			event: resource.Event{
-				Kind:  resource.Added,
-				Entry: podEntry(name(namespace, "pod2"), pod2IP, "sa2"),
+			event: event.Event{
+				Kind:   event.Added,
+				Source: podCollection,
+				Entry:  podEntry(resource.NewName(namespace, "pod2"), pod2IP, "sa2"),
 			},
 			validator: func(ctx pipelineContext) {
-				expectNotifications(ctx.t, ctx.l, 0)
+				expectNotifications(ctx.t, ctx.acc, 0)
 			},
 		},
 		{
 			name: "AddService",
-			event: resource.Event{
-				Kind:  resource.Added,
-				Entry: entryForService(serviceName, createTime, "v1"),
+			event: event.Event{
+				Kind:   event.Added,
+				Source: serviceCollection,
+				Entry:  entryForService(serviceName, createTime, "v1"),
 			},
 			validator: func(ctx pipelineContext) {
 				service = entryForService(serviceName, createTime, "v1")
 
-				expectNotifications(ctx.t, ctx.l, 1)
+				expectNotifications(ctx.t, ctx.acc, 1)
+				expectedVersion++
 				expectedMetadata := newMetadataBuilder(service, endpoints).
 					CreateTime(createTime).
 					Version(expectedVersion).
 					Labels(serviceLabels).
 					Build()
-				expectedVersion++
 				expectedBody := newServiceEntryBuilder().
 					ServiceName(serviceName).
 					Region(region).
 					Zone(zone).
 					PodLabels(podLabels).
 					Build()
-				expectResource(ctx.t, ctx.h, expectedVersion, expectedMetadata, expectedBody)
+				expectResource(ctx.t, ctx.dst, expectedVersion, expectedMetadata, expectedBody)
 			},
 		},
 		{
 			name: "UpdateService",
-			event: resource.Event{
-				Kind:  resource.Updated,
-				Entry: entryForService(serviceName, createTime, "v2"),
+			event: event.Event{
+				Kind:   event.Updated,
+				Source: serviceCollection,
+				Entry:  entryForService(serviceName, createTime, "v2"),
 			},
 			validator: func(ctx pipelineContext) {
 				service = entryForService(serviceName, createTime, "v2")
 
-				expectNotifications(ctx.t, ctx.l, 1)
+				expectNotifications(ctx.t, ctx.acc, 1)
+				expectedVersion++
 				expectedMetadata := newMetadataBuilder(service, endpoints).
 					CreateTime(createTime).
 					Version(expectedVersion).
 					Labels(serviceLabels).
 					Build()
-				expectedVersion++
 				expectedBody := newServiceEntryBuilder().
 					ServiceName(serviceName).
 					Region(region).
 					Zone(zone).
 					PodLabels(podLabels).
 					Build()
-				expectResource(ctx.t, ctx.h, expectedVersion, expectedMetadata, expectedBody)
+				expectResource(ctx.t, ctx.dst, expectedVersion, expectedMetadata, expectedBody)
 			},
 		},
 		{
 			name: "AddEndpoints",
-			event: resource.Event{
-				Kind: resource.Added,
+			event: event.Event{
+				Kind:   event.Added,
+				Source: endpointsCollection,
 				Entry: newEndpointsEntryBuilder().
 					ServiceName(serviceName).
 					CreateTime(createTime).
@@ -186,15 +225,15 @@ func TestLifecycle(t *testing.T) {
 					IPs(pod1IP).
 					NotReadyIPs(pod2IP).
 					Build()
-				endpoints = &entry
+				endpoints = entry
 
+				expectedVersion++
 				expectedMetadata := newMetadataBuilder(service, endpoints).
 					CreateTime(createTime).
 					Version(expectedVersion).
 					Labels(serviceLabels).
 					NotReadyIPs(pod2IP).
 					Build()
-				expectedVersion++
 				expectedBody := newServiceEntryBuilder().
 					ServiceName(serviceName).
 					Region(region).
@@ -203,13 +242,14 @@ func TestLifecycle(t *testing.T) {
 					ServiceAccounts("sa1").
 					PodLabels(podLabels).
 					Build()
-				expectResource(ctx.t, ctx.h, expectedVersion, expectedMetadata, expectedBody)
+				expectResource(ctx.t, ctx.dst, expectedVersion, expectedMetadata, expectedBody)
 			},
 		},
 		{
 			name: "ExpandEndpoints",
-			event: resource.Event{
-				Kind: resource.Updated,
+			event: event.Event{
+				Kind:   event.Updated,
+				Source: endpointsCollection,
 				Entry: newEndpointsEntryBuilder().
 					ServiceName(serviceName).
 					CreateTime(createTime).
@@ -224,15 +264,15 @@ func TestLifecycle(t *testing.T) {
 					Version("v2").
 					IPs(pod1IP, pod2IP).
 					Build()
-				endpoints = &entry
+				endpoints = entry
 
-				expectNotifications(ctx.t, ctx.l, 1)
+				expectNotifications(ctx.t, ctx.acc, 1)
+				expectedVersion++
 				expectedMetadata := newMetadataBuilder(service, endpoints).
 					CreateTime(createTime).
 					Version(expectedVersion).
 					Labels(serviceLabels).
 					Build()
-				expectedVersion++
 				expectedBody := newServiceEntryBuilder().
 					ServiceName(serviceName).
 					Region(region).
@@ -241,13 +281,14 @@ func TestLifecycle(t *testing.T) {
 					ServiceAccounts("sa1", "sa2").
 					PodLabels(podLabels).
 					Build()
-				expectResource(ctx.t, ctx.h, expectedVersion, expectedMetadata, expectedBody)
+				expectResource(ctx.t, ctx.dst, expectedVersion, expectedMetadata, expectedBody)
 			},
 		},
 		{
 			name: "ContractEndpoints",
-			event: resource.Event{
-				Kind: resource.Updated,
+			event: event.Event{
+				Kind:   event.Updated,
+				Source: endpointsCollection,
 				Entry: newEndpointsEntryBuilder().
 					ServiceName(serviceName).
 					CreateTime(createTime).
@@ -264,16 +305,16 @@ func TestLifecycle(t *testing.T) {
 					IPs(pod2IP).
 					NotReadyIPs(pod1IP).
 					Build()
-				endpoints = &entry
+				endpoints = entry
 
-				expectNotifications(ctx.t, ctx.l, 1)
+				expectNotifications(ctx.t, ctx.acc, 1)
+				expectedVersion++
 				expectedMetadata := newMetadataBuilder(service, endpoints).
 					CreateTime(createTime).
 					Version(expectedVersion).
 					Labels(serviceLabels).
 					NotReadyIPs(pod1IP).
 					Build()
-				expectedVersion++
 				expectedBody := newServiceEntryBuilder().
 					ServiceName(serviceName).
 					Region(region).
@@ -282,13 +323,14 @@ func TestLifecycle(t *testing.T) {
 					ServiceAccounts("sa2").
 					PodLabels(podLabels).
 					Build()
-				expectResource(ctx.t, ctx.h, expectedVersion, expectedMetadata, expectedBody)
+				expectResource(ctx.t, ctx.dst, expectedVersion, expectedMetadata, expectedBody)
 			},
 		},
 		{
 			name: "DeleteEndpoints",
-			event: resource.Event{
-				Kind: resource.Deleted,
+			event: event.Event{
+				Kind:   event.Deleted,
+				Source: endpointsCollection,
 				Entry: newEndpointsEntryBuilder().
 					ServiceName(serviceName).
 					CreateTime(createTime).
@@ -298,33 +340,34 @@ func TestLifecycle(t *testing.T) {
 			},
 			validator: func(ctx pipelineContext) {
 				endpoints = nil
-				expectNotifications(ctx.t, ctx.l, 1)
+				expectNotifications(ctx.t, ctx.acc, 1)
+				expectedVersion++
 				expectedMetadata := newMetadataBuilder(service, endpoints).
 					CreateTime(createTime).
 					Version(expectedVersion).
 					Labels(serviceLabels).
 					Build()
-				expectedVersion++
 				expectedBody := newServiceEntryBuilder().
 					ServiceName(serviceName).
 					Region(region).
 					Zone(zone).
 					PodLabels(podLabels).
 					Build()
-				expectResource(ctx.t, ctx.h, expectedVersion, expectedMetadata, expectedBody)
+				expectResource(ctx.t, ctx.dst, expectedVersion, expectedMetadata, expectedBody)
 			},
 		},
 		{
 			name: "DeleteService",
-			event: resource.Event{
-				Kind:  resource.Deleted,
-				Entry: entryForService(serviceName, createTime, "v2"),
+			event: event.Event{
+				Kind:   event.Deleted,
+				Source: serviceCollection,
+				Entry:  entryForService(serviceName, createTime, "v2"),
 			},
 			validator: func(ctx pipelineContext) {
-				expectNotifications(ctx.t, ctx.l, 1)
+				expectNotifications(ctx.t, ctx.acc, 1)
 
 				expectedVersion++
-				expectEmptySnapshot(ctx.t, ctx.h, expectedVersion)
+				expectEmptySnapshot(ctx.t, ctx.dst, expectedVersion)
 			},
 		},
 	}
@@ -333,32 +376,55 @@ func TestLifecycle(t *testing.T) {
 }
 
 func TestAddOrder(t *testing.T) {
+	initialStages := []stage{
+		{
+			name:  "NodeSync",
+			event: event.FullSyncFor(metadata.K8SCoreV1Nodes),
+		},
+		{
+			name:  "PodSync",
+			event: event.FullSyncFor(metadata.K8SCoreV1Pods),
+		},
+		{
+			name:  "ServiceSync",
+			event: event.FullSyncFor(metadata.K8SCoreV1Services),
+		},
+		{
+			name:  "EndpointSync",
+			event: event.FullSyncFor(metadata.K8SCoreV1Endpoints),
+		},
+	}
+
 	stages := []stage{
 		{
 			name: "Node",
-			event: resource.Event{
-				Kind:  resource.Added,
-				Entry: nodeEntry(),
+			event: event.Event{
+				Kind:   event.Added,
+				Source: nodeCollection,
+				Entry:  nodeEntry(),
 			},
 		},
 		{
 			name: "Pod",
-			event: resource.Event{
-				Kind:  resource.Added,
-				Entry: podEntry(name(namespace, "pod1"), pod1IP, "sa1"),
+			event: event.Event{
+				Kind:   event.Added,
+				Source: podCollection,
+				Entry:  podEntry(resource.NewName(namespace, "pod1"), pod1IP, "sa1"),
 			},
 		},
 		{
 			name: "Service",
-			event: resource.Event{
-				Kind:  resource.Added,
-				Entry: entryForService(serviceName, createTime, "v1"),
+			event: event.Event{
+				Kind:   event.Added,
+				Source: serviceCollection,
+				Entry:  entryForService(serviceName, createTime, "v1"),
 			},
 		},
 		{
 			name: "Endpoints",
-			event: resource.Event{
-				Kind: resource.Added,
+			event: event.Event{
+				Kind:   event.Added,
+				Source: endpointsCollection,
 				Entry: newEndpointsEntryBuilder().
 					ServiceName(serviceName).
 					CreateTime(createTime).
@@ -371,7 +437,9 @@ func TestAddOrder(t *testing.T) {
 
 	// Iterate over all permutations of the events
 	for _, stageOrder := range getStagePermutations(stages) {
-		p := newPipeline(stageOrder)
+		p := newPipeline(append(initialStages, stageOrder...))
+		defer p.rt.Stop()
+
 		t.Run(p.name(), func(t *testing.T) {
 			var service *resource.Entry
 			var endpoints *resource.Entry
@@ -385,10 +453,10 @@ func TestAddOrder(t *testing.T) {
 				updateExpected := false
 				switch ctx.s.name {
 				case "Service":
-					service = &entry
+					service = entry
 					updateExpected = true
 				case "Endpoints":
-					endpoints = &entry
+					endpoints = entry
 					updateExpected = service != nil
 				case "Pod":
 					hasPod = true
@@ -396,18 +464,21 @@ func TestAddOrder(t *testing.T) {
 				case "Node":
 					hasNode = true
 					updateExpected = service != nil && endpoints != nil && hasPod
+				case "EndpointSync":
+					expectNotifications(ctx.t, ctx.acc, 1)
+					return
 				}
 
 				if !updateExpected {
-					expectNotifications(ctx.t, ctx.l, 0)
+					expectNotifications(ctx.t, ctx.acc, 0)
 				} else {
-					expectNotifications(ctx.t, ctx.l, 1)
-					expectedMetadata := newMetadataBuilder(*service, endpoints).
+					expectNotifications(ctx.t, ctx.acc, 1)
+					expectedVersion++
+					expectedMetadata := newMetadataBuilder(service.Clone(), endpoints).
 						CreateTime(createTime).
 						Version(expectedVersion).
 						Labels(serviceLabels).
 						Build()
-					expectedVersion++
 
 					seBuilder := newServiceEntryBuilder().ServiceName(serviceName)
 
@@ -423,7 +494,7 @@ func TestAddOrder(t *testing.T) {
 					}
 
 					expectedBody := seBuilder.Build()
-					expectResource(ctx.t, ctx.h, expectedVersion, expectedMetadata, expectedBody)
+					expectResource(ctx.t, ctx.dst, expectedVersion, expectedMetadata, expectedBody)
 				}
 			})
 		})
@@ -434,29 +505,25 @@ func TestDeleteOrder(t *testing.T) {
 	stages := []stage{
 		{
 			name: "Node",
-			event: resource.Event{
-				Kind:  resource.Deleted,
-				Entry: nodeEntry(),
+			event: event.Event{
+				Kind:   event.Deleted,
+				Source: nodeCollection,
+				Entry:  nodeEntry(),
 			},
 		},
 		{
 			name: "Pod",
-			event: resource.Event{
-				Kind:  resource.Deleted,
-				Entry: podEntry(name(namespace, "pod1"), pod1IP, "sa1"),
-			},
-		},
-		{
-			name: "Service",
-			event: resource.Event{
-				Kind:  resource.Deleted,
-				Entry: entryForService(serviceName, createTime, "v1"),
+			event: event.Event{
+				Kind:   event.Deleted,
+				Source: podCollection,
+				Entry:  podEntry(resource.NewName(namespace, "pod1"), pod1IP, "sa1"),
 			},
 		},
 		{
 			name: "Endpoints",
-			event: resource.Event{
-				Kind: resource.Deleted,
+			event: event.Event{
+				Kind:   event.Deleted,
+				Source: endpointsCollection,
 				Entry: newEndpointsEntryBuilder().
 					ServiceName(serviceName).
 					CreateTime(createTime).
@@ -465,27 +532,63 @@ func TestDeleteOrder(t *testing.T) {
 					Build(),
 			},
 		},
+		{
+			name: "Service",
+			event: event.Event{
+				Kind:   event.Deleted,
+				Source: serviceCollection,
+				Entry:  entryForService(serviceName, createTime, "v1"),
+			},
+		},
 	}
 
 	// Create the initialization stages, which will add all of the resources we're about to delete.
 	initStages := append([]stage{}, stages...)
 	for i, s := range initStages {
-		s.event.Kind = resource.Added
+		s.event.Kind = event.Added
 		initStages[i] = s
 	}
 
+	syncStages := []stage{
+		{
+			name:  "NodeSync",
+			event: event.FullSyncFor(metadata.K8SCoreV1Nodes),
+		},
+		{
+			name:  "PodSync",
+			event: event.FullSyncFor(metadata.K8SCoreV1Pods),
+		},
+		{
+			name:  "ServiceSync",
+			event: event.FullSyncFor(metadata.K8SCoreV1Services),
+		},
+		{
+			name:  "EndpointSync",
+			event: event.FullSyncFor(metadata.K8SCoreV1Endpoints),
+			validator: func(ctx pipelineContext) {
+				expectNotifications(ctx.t, ctx.acc, 1)
+			},
+		},
+	}
+
+	initStages = append(syncStages, initStages...)
+
 	for _, orderedStages := range getStagePermutations(stages) {
 		p := newPipeline(orderedStages)
+		defer p.rt.Stop()
 
 		t.Run(p.name(), func(t *testing.T) {
 			// Add all of the resources to the handler.
 			initPipeline := &pipeline{
 				stages: initStages,
-				h:      p.h, // Use the same handler
-				l:      p.l,
+				rt:     p.rt,
+				src:    p.src,
+				dst:    p.dst, // Use the same handler
+				acc:    p.acc,
 			}
 			t.Run("Initialize", func(t *testing.T) {
 				initPipeline.run(t, nil)
+				expectNotifications(t, p.acc, 1)
 			})
 
 			t.Run("Delete", func(t *testing.T) {
@@ -498,11 +601,11 @@ func TestDeleteOrder(t *testing.T) {
 					Version("v1").
 					IPs(pod1IP).
 					Build()
-				endpoints := &entry
+				endpoints := entry
 
 				hasPod := true
 				hasNode := true
-				expectedVersion := 2
+				expectedVersion := 1
 
 				// Re-run the pipeline, but deleting the resources.
 				p.run(t, func(ctx pipelineContext) {
@@ -524,20 +627,19 @@ func TestDeleteOrder(t *testing.T) {
 					}
 
 					if !updateExpected {
-						expectNotifications(ctx.t, ctx.l, 0)
+						expectNotifications(ctx.t, ctx.acc, 0)
 					} else {
-						expectNotifications(ctx.t, ctx.l, 1)
+						expectNotifications(ctx.t, ctx.acc, 1)
 
+						expectedVersion++
 						if service == nil {
-							expectedVersion++
-							expectEmptySnapshot(t, ctx.h, expectedVersion)
+							expectEmptySnapshot(t, ctx.dst, expectedVersion)
 						} else {
 							expectedMetadata := newMetadataBuilder(*service, endpoints).
 								CreateTime(createTime).
 								Version(expectedVersion).
 								Labels(serviceLabels).
 								Build()
-							expectedVersion++
 
 							seBuilder := newServiceEntryBuilder().ServiceName(serviceName)
 
@@ -553,7 +655,7 @@ func TestDeleteOrder(t *testing.T) {
 							}
 
 							expectedBody := seBuilder.Build()
-							expectResource(ctx.t, ctx.h, expectedVersion, expectedMetadata, expectedBody)
+							expectResource(ctx.t, ctx.dst, expectedVersion, expectedMetadata, expectedBody)
 						}
 					}
 				})
@@ -563,26 +665,41 @@ func TestDeleteOrder(t *testing.T) {
 }
 
 func TestReceiveEndpointsBeforeService(t *testing.T) {
-	h, l := newHandler()
+	rt, src, dst, acc := newHandler()
+	defer rt.Stop()
+
+	syncEvents := []event.Event {
+		event.FullSyncFor(metadata.K8SCoreV1Nodes),
+		event.FullSyncFor(metadata.K8SCoreV1Pods),
+		event.FullSyncFor(metadata.K8SCoreV1Services),
+		event.FullSyncFor(metadata.K8SCoreV1Endpoints),
+	}
+
+	for _, e := range syncEvents {
+		src.Handlers.Handle(e)
+	}
+	expectNotifications(t, acc, 1)
 
 	expectedVersion := 0
 	t.Run("AddNode", func(t *testing.T) {
-		h.Handle(resource.Event{
-			Kind:  resource.Added,
-			Entry: nodeEntry(),
+		src.Handlers.Handle(event.Event{
+			Kind:   event.Added,
+			Source: nodeCollection,
+			Entry:  nodeEntry(),
 		})
-		expectNotifications(t, l, 0)
+		expectNotifications(t, acc, 0)
 	})
 
 	t.Run("AddPod", func(t *testing.T) {
-		h.Handle(resource.Event{
-			Kind:  resource.Added,
-			Entry: podEntry(name(namespace, "pod1"), pod1IP, "sa1"),
+		src.Handlers.Handle(event.Event{
+			Kind:   event.Added,
+			Source: podCollection,
+			Entry:  podEntry(resource.NewName(namespace, "pod1"), pod1IP, "sa1"),
 		})
-		expectNotifications(t, l, 0)
+		expectNotifications(t, acc, 0)
 	})
 
-	var endpoints resource.Entry
+	var endpoints *resource.Entry
 	t.Run("AddEndpoints", func(t *testing.T) {
 		endpoints = newEndpointsEntryBuilder().
 			ServiceName(serviceName).
@@ -590,27 +707,29 @@ func TestReceiveEndpointsBeforeService(t *testing.T) {
 			Version("v1").
 			IPs(pod1IP).
 			Build()
-		h.Handle(resource.Event{
-			Kind:  resource.Added,
-			Entry: endpoints,
+		src.Handlers.Handle(event.Event{
+			Kind:   event.Added,
+			Source: endpointsCollection,
+			Entry:  endpoints,
 		})
-		expectNotifications(t, l, 0)
-		expectEmptySnapshot(t, h, expectedVersion)
+		expectNotifications(t, acc, 0)
+		expectEmptySnapshot(t, dst, expectedVersion)
 	})
 
 	t.Run("AddService", func(t *testing.T) {
 		service := entryForService(serviceName, createTime, "v1")
-		h.Handle(resource.Event{
-			Kind:  resource.Added,
-			Entry: service,
+		src.Handlers.Handle(event.Event{
+			Kind:   event.Added,
+			Source: serviceCollection,
+			Entry:  service,
 		})
-		expectNotifications(t, l, 1)
-		expectedMetadata := newMetadataBuilder(service, &endpoints).
+		expectNotifications(t, acc, 1)
+		expectedVersion++
+		expectedMetadata := newMetadataBuilder(service, endpoints).
 			CreateTime(createTime).
 			Version(expectedVersion).
 			Labels(serviceLabels).
 			Build()
-		expectedVersion++
 		expectedBody := newServiceEntryBuilder().
 			ServiceName(serviceName).
 			Region(region).
@@ -619,25 +738,28 @@ func TestReceiveEndpointsBeforeService(t *testing.T) {
 			ServiceAccounts("sa1").
 			PodLabels(podLabels).
 			Build()
-		expectResource(t, h, expectedVersion, expectedMetadata, expectedBody)
+		expectResource(t, dst, expectedVersion, expectedMetadata, expectedBody)
 	})
 }
 
 func TestAddServiceWithUnknownEventKindShouldNotPanic(t *testing.T) {
-	h, l := newHandler()
+	rt, src, _, l := newHandler()
+	defer rt.Stop()
 
-	h.Handle(resource.Event{
-		Kind:  resource.None,
-		Entry: entryForService(serviceName, createTime, "v1"),
+	src.Handlers.Handle(event.Event{
+		Kind:   event.None,
+		Source: serviceCollection,
+		Entry:  entryForService(serviceName, createTime, "v1"),
 	})
 	expectNotifications(t, l, 0)
 }
 
 func TestAddEndpointsWithUnknownEventKindShouldNotPanic(t *testing.T) {
-	h, l := newHandler()
+	rt, src, _, acc := newHandler()
+	defer rt.Stop()
 
-	h.Handle(resource.Event{
-		Kind: resource.None,
+	src.Handlers.Handle(event.Event{
+		Kind: event.None,
 		Entry: newEndpointsEntryBuilder().
 			ServiceName(serviceName).
 			CreateTime(createTime).
@@ -645,57 +767,59 @@ func TestAddEndpointsWithUnknownEventKindShouldNotPanic(t *testing.T) {
 			IPs(pod1IP).
 			Build(),
 	})
-	expectNotifications(t, l, 0)
+	expectNotifications(t, acc, 0)
 }
 
-var _ processing.Listener = &fakeListener{}
+func newHandler() (*processing.Runtime, *fixtures.Source, *snapshotter.InMemoryDistributor, *fixtures.Accumulator) {
+	a := &fixtures.Accumulator{}
 
-type fakeListener struct {
-	changed []resource.Collection
-}
+	src := &fixtures.Source{}
+	meshSrc := meshcfg.NewInmemory()
+	meshSrc.Set(meshcfg.Default())
 
-func (l *fakeListener) CollectionChanged(c resource.Collection) {
-	l.changed = append(l.changed, c)
-}
-
-func (l *fakeListener) reset() {
-	l.changed = l.changed[:0]
-}
-
-func newHandler() (*serviceentry.Handler, *fakeListener) {
-	l := &fakeListener{}
-	h := serviceentry.NewHandler(domain, l)
-	return h, l
-}
-
-func name(ns, name string) resource.FullName {
-	return resource.FullNameFromNamespaceAndName(ns, name)
-}
-
-func id(c resource.Collection, name resource.FullName, version string) resource.VersionedKey {
-	return resource.VersionedKey{
-		Key: resource.Key{
-			Collection: c,
-			FullName:   name,
+	dst := snapshotter.NewInMemoryDistributor()
+	o := processing.RuntimeOptions{
+		DomainSuffix: domain,
+		Source:       event.CombineSources(src, meshSrc),
+		ProcessorProvider: func(o processing.ProcessorOptions) event.Processor {
+			xforms := serviceentry.Create(o)
+			xforms[0].Select(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries, a)
+			settings := []snapshotter.SnapshotOptions{
+				{
+					Group:       "syntheticServiceEntry",
+					Collections: []collection.Name{metadata.IstioNetworkingV1Alpha3SyntheticServiceentries},
+					Strategy:    strategy.NewImmediate(),
+					Distributor: dst,
+				},
+			}
+			s, _ := snapshotter.NewSnapshotter(xforms, settings)
+			return s
 		},
-		Version: resource.Version(version),
 	}
+	p := processing.NewRuntime(o)
+	p.Start()
+
+	return p, src, dst, a
 }
 
-func nodeEntry() resource.Entry {
-	return resource.Entry{
-		ID: id(nodeCollection, name("", nodeName), "v1"),
+func nodeEntry() *resource.Entry {
+	return &resource.Entry{
 		Metadata: resource.Metadata{
-			Labels: localityLabels(region, zone),
+			Name:    resource.NewName("", nodeName),
+			Version: resource.Version("v1"),
+			Labels:  localityLabels(region, zone),
 		},
 		Item: &coreV1.NodeSpec{},
 	}
 }
 
-func podEntry(podName resource.FullName, ip, saName string) resource.Entry {
+func podEntry(podName resource.Name, ip, saName string) *resource.Entry {
 	ns, name := podName.InterpretAsNamespaceAndName()
-	return resource.Entry{
-		ID: id(podCollection, podName, "v1"),
+	return &resource.Entry{
+		Metadata: resource.Metadata{
+			Name:    podName,
+			Version: resource.Version("v1"),
+		},
 		Item: &coreV1.Pod{
 			ObjectMeta: metaV1.ObjectMeta{
 				Name:      name,
@@ -714,10 +838,11 @@ func podEntry(podName resource.FullName, ip, saName string) resource.Entry {
 	}
 }
 
-func entryForService(serviceName resource.FullName, createTime time.Time, version string) resource.Entry {
-	return resource.Entry{
-		ID: id(serviceCollection, serviceName, version),
+func entryForService(serviceName resource.Name, createTime time.Time, version string) *resource.Entry {
+	return &resource.Entry{
 		Metadata: resource.Metadata{
+			Name:        serviceName,
+			Version:     resource.Version(version),
 			CreateTime:  createTime,
 			Annotations: serviceAnnotations,
 			Labels:      serviceLabels,
@@ -736,7 +861,7 @@ func entryForService(serviceName resource.FullName, createTime time.Time, versio
 }
 
 type endpointsEntryBuilder struct {
-	serviceName resource.FullName
+	serviceName resource.Name
 	createTime  time.Time
 	version     string
 	ips         []string
@@ -747,7 +872,7 @@ func newEndpointsEntryBuilder() *endpointsEntryBuilder {
 	return &endpointsEntryBuilder{}
 }
 
-func (b *endpointsEntryBuilder) ServiceName(serviceName resource.FullName) *endpointsEntryBuilder {
+func (b *endpointsEntryBuilder) ServiceName(serviceName resource.Name) *endpointsEntryBuilder {
 	b.serviceName = serviceName
 	return b
 }
@@ -772,7 +897,7 @@ func (b *endpointsEntryBuilder) NotReadyIPs(ips ...string) *endpointsEntryBuilde
 	return b
 }
 
-func (b *endpointsEntryBuilder) Build() resource.Entry {
+func (b *endpointsEntryBuilder) Build() *resource.Entry {
 	ns, n := b.serviceName.InterpretAsNamespaceAndName()
 
 	eps := &coreV1.Endpoints{
@@ -806,9 +931,10 @@ func (b *endpointsEntryBuilder) Build() resource.Entry {
 		})
 	}
 
-	return resource.Entry{
-		ID: id(endpointsCollection, b.serviceName, b.version),
+	return &resource.Entry{
 		Metadata: resource.Metadata{
+			Name:        b.serviceName,
+			Version:     resource.Version(b.version),
 			CreateTime:  b.createTime,
 			Annotations: serviceAnnotations,
 		},
@@ -820,8 +946,8 @@ func host(namespace, serviceName string) string {
 	return fmt.Sprintf("%s.%s.svc.%s", serviceName, namespace, domain)
 }
 
-func localityLabels(region, zone string) resource.Labels {
-	labels := make(resource.Labels)
+func localityLabels(region, zone string) resource.StringMap {
+	labels := make(resource.StringMap)
 	if region != "" {
 		labels[pod.LabelZoneRegion] = region
 	}
@@ -832,7 +958,7 @@ func localityLabels(region, zone string) resource.Labels {
 }
 
 type metadataBuilder struct {
-	service     resource.Entry
+	service     *resource.Entry
 	endpoints   *resource.Entry
 	notReadyIPs []string
 
@@ -841,7 +967,7 @@ type metadataBuilder struct {
 	labels     map[string]string
 }
 
-func newMetadataBuilder(service resource.Entry, endpoints *resource.Entry) *metadataBuilder {
+func newMetadataBuilder(service *resource.Entry, endpoints *resource.Entry) *metadataBuilder {
 	return &metadataBuilder{
 		service:   service,
 		endpoints: endpoints,
@@ -875,9 +1001,9 @@ func (b *metadataBuilder) Build() *mcp.Metadata {
 	for k, v := range b.service.Metadata.Annotations {
 		annos[k] = v
 	}
-	annos[annotations.ServiceVersion] = string(b.service.ID.Version)
+	annos[annotations.ServiceVersion] = string(b.service.Metadata.Version)
 	if b.endpoints != nil {
-		annos[annotations.EndpointsVersion] = string(b.endpoints.ID.Version)
+		annos[annotations.EndpointsVersion] = string(b.endpoints.Metadata.Version)
 		if len(b.notReadyIPs) > 0 {
 			annos[annotations.NotReadyEndpoints] = notReadyAnnotation(b.notReadyIPs...)
 		}
@@ -893,7 +1019,7 @@ func (b *metadataBuilder) Build() *mcp.Metadata {
 }
 
 type serviceEntryBuilder struct {
-	serviceName     resource.FullName
+	serviceName     resource.Name
 	region          string
 	zone            string
 	ips             []string
@@ -905,7 +1031,7 @@ func newServiceEntryBuilder() *serviceEntryBuilder {
 	return &serviceEntryBuilder{}
 }
 
-func (b *serviceEntryBuilder) ServiceName(serviceName resource.FullName) *serviceEntryBuilder {
+func (b *serviceEntryBuilder) ServiceName(serviceName resource.Name) *serviceEntryBuilder {
 	b.serviceName = serviceName
 	return b
 }
@@ -971,29 +1097,34 @@ type validatorFunc func(ctx pipelineContext)
 
 type stage struct {
 	name      string
-	event     resource.Event
+	event     event.Event
 	validator validatorFunc
 }
 
 type pipelineContext struct {
-	t *testing.T
-	h *serviceentry.Handler
-	l *fakeListener
-	s stage
+	t   *testing.T
+	acc *fixtures.Accumulator
+	src *fixtures.Source
+	dst *snapshotter.InMemoryDistributor
+	s   stage
 }
 
 type pipeline struct {
 	stages []stage
-	h      *serviceentry.Handler
-	l      *fakeListener
+	rt     *processing.Runtime
+	acc    *fixtures.Accumulator
+	src    *fixtures.Source
+	dst    *snapshotter.InMemoryDistributor
 }
 
 func newPipeline(stages []stage) *pipeline {
-	h, l := newHandler()
+	rt, src, dst, acc := newHandler()
 	return &pipeline{
 		stages: append([]stage{}, stages...),
-		h:      h,
-		l:      l,
+		rt:     rt,
+		src:    src,
+		dst:    dst,
+		acc:    acc,
 	}
 }
 
@@ -1017,11 +1148,11 @@ func (p *pipeline) run(t *testing.T, globalValidator validatorFunc) {
 				t.Fatal("previous stage failed")
 			}
 
-			// Reset the listener.
-			p.l.reset()
+			// Clear the accumulator
+			p.acc.Clear()
 
 			// Handle the event.
-			p.h.Handle(s.event)
+			p.src.Handlers.Handle(s.event)
 
 			// If a global validator was supplied, use it. Otherwise use the stage validator.
 			v := globalValidator
@@ -1030,10 +1161,11 @@ func (p *pipeline) run(t *testing.T, globalValidator validatorFunc) {
 			}
 			if v != nil {
 				v(pipelineContext{
-					t: t,
-					h: p.h,
-					l: p.l,
-					s: s,
+					t:   t,
+					src: p.src,
+					dst: p.dst,
+					acc: p.acc,
+					s:   s,
 				})
 			}
 		})
@@ -1080,17 +1212,19 @@ func notReadyAnnotation(ips ...string) string {
 	return strings.Join(ips, ",")
 }
 
-func expectNotifications(t *testing.T, l *fakeListener, count int) {
+func expectNotifications(t *testing.T, a *fixtures.Accumulator, count int) {
 	t.Helper()
-	if len(l.changed) != count {
-		t.Fatalf("expected %d notifications, found %d", count, len(l.changed))
+	g := NewGomegaWithT(t)
+
+	if count == 0 {
+		g.Consistently(a.Events).Should(HaveLen(count))
+	} else {
+		g.Eventually(a.Events).Should(HaveLen(count))
 	}
-	for i, col := range l.changed {
-		if col != serviceEntryCollection {
-			t.Fatalf("expected event[%d]=%s to equal %s", i, toJSON(t, col), toJSON(t, serviceEntryCollection))
-		}
+	for _, e := range a.Events() {
+		g.Expect(e.Source).To(Equal(serviceEntryCollection))
 	}
-	l.reset()
+	a.Clear()
 }
 
 func toJSON(t *testing.T, obj interface{}) string {
@@ -1106,19 +1240,23 @@ func toJSON(t *testing.T, obj interface{}) string {
 	return string(out)
 }
 
-func expectResource(t *testing.T, h *serviceentry.Handler, expectedVersion int, expectedMetadata *mcp.Metadata, expectedBody *networking.ServiceEntry) {
+func expectResource(t *testing.T, dst *snapshotter.InMemoryDistributor, expectedVersion int, expectedMetadata *mcp.Metadata, expectedBody *networking.ServiceEntry) {
 	t.Helper()
-	s := h.BuildSnapshot()
+	g := NewGomegaWithT(t)
 
-	// Verify the version.
-	actualVersion := s.Version(serviceEntryCollection.String())
-	expectedVersionStr := strconv.Itoa(expectedVersion)
-	if actualVersion != expectedVersionStr {
-		t.Fatalf("expected snapshot version %s to equal %s", actualVersion, expectedVersionStr)
-	}
+	g.Eventually(func() snapshot.Snapshot {
+		return dst.GetSnapshot("syntheticServiceEntry")
+	}).ShouldNot(BeNil())
 
+	expectedVersionStr := fmt.Sprintf("istio/networking/v1alpha3/synthetic/serviceentries/%d", expectedVersion)
+	g.Eventually(func() string {
+		sn := dst.GetSnapshot("syntheticServiceEntry")
+		return sn.Version(serviceEntryCollection.String())
+	}).Should(Equal(expectedVersionStr))
+
+	sn := dst.GetSnapshot("syntheticServiceEntry")
 	// Extract out the resource.
-	rs := s.Resources(serviceEntryCollection.String())
+	rs := sn.Resources(serviceEntryCollection.String())
 	if len(rs) != 1 {
 		t.Fatalf("expected snapshot resource count %d to equal %d", len(rs), 1)
 	}
@@ -1138,18 +1276,21 @@ func expectResource(t *testing.T, h *serviceentry.Handler, expectedVersion int, 
 	}
 }
 
-func expectEmptySnapshot(t *testing.T, h *serviceentry.Handler, expectedVersion int) {
-	s := h.BuildSnapshot()
+func expectEmptySnapshot(t *testing.T, dst *snapshotter.InMemoryDistributor, expectedVersion int) {
+	t.Helper()
+	g := NewGomegaWithT(t)
 
-	// Verify the version changed.
-	actualVersion := s.Version(serviceEntryCollection.String())
-	expectedVersionStr := strconv.Itoa(expectedVersion)
-	if actualVersion != expectedVersionStr {
-		t.Fatalf("expected snapshot version %s to equal %s", actualVersion, expectedVersionStr)
-	}
+	g.Eventually(func() snapshot.Snapshot { return dst.GetSnapshot("syntheticServiceEntry") }).ShouldNot(BeNil())
+	expectedVersionStr := fmt.Sprintf("istio/networking/v1alpha3/synthetic/serviceentries/%d", expectedVersion)
+	g.Eventually(func() string {
+		sn := dst.GetSnapshot("syntheticServiceEntry")
+		return sn.Version(serviceEntryCollection.String())
+	}).Should(Equal(expectedVersionStr))
+
+	sn := dst.GetSnapshot("syntheticServiceEntry")
 
 	// Verify there are no resources in the snapshot.
-	rs := s.Resources(serviceEntryCollection.String())
+	rs := sn.Resources(serviceEntryCollection.String())
 	if len(rs) != 0 {
 		t.Fatalf("expected snapshot resource count %d to equal %d", len(rs), 0)
 	}

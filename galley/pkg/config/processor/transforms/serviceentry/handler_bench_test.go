@@ -18,11 +18,13 @@ import (
 	"strconv"
 	"testing"
 
-	"istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/galley/pkg/runtime/processing"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
-	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/processing"
+	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry"
+	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
+	"istio.io/istio/galley/pkg/config/resource"
 
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,14 +48,14 @@ var (
 		"serviceAccount2",
 		"serviceAccount3",
 	}
-	annos = resource.Annotations{
+	annos = resource.StringMap{
 		"Annotation1": "AnnotationValue1",
 		"Annotation2": "AnnotationValue2",
 		"Annotation3": "AnnotationValue3",
 		"Annotation4": "AnnotationValue4",
 		"Annotation5": "AnnotationValue5",
 	}
-	labels = resource.Labels{
+	labels = resource.StringMap{
 		"Label1": "LabelValue1",
 		"Label2": "LabelValue2",
 		"Label3": "LabelValue3",
@@ -72,20 +74,20 @@ func BenchmarkEndpointNoChange(b *testing.B) {
 	loadNodesAndPods(handler)
 
 	// Add the service.
-	handler.Handle(resource.Event{
-		Kind:  resource.Added,
+	handler.Handle(event.Event{
+		Kind:  event.Added,
 		Entry: newService(),
 	})
 
 	// Add the endpoints for all IPs.
-	handler.Handle(resource.Event{
-		Kind:  resource.Added,
+	handler.Handle(event.Event{
+		Kind:  event.Added,
 		Entry: newEndpoints(ips...),
 	})
 
 	// Create an update event with no changes to the endpoints.
-	updateEvent := resource.Event{
-		Kind:  resource.Updated,
+	updateEvent := event.Event{
+		Kind:  event.Updated,
 		Entry: newEndpoints(ips...),
 	}
 
@@ -94,7 +96,7 @@ func BenchmarkEndpointNoChange(b *testing.B) {
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
-		updateEvent.Entry.ID.Version = resource.Version(strconv.FormatUint(version, 10))
+		updateEvent.Entry.Metadata.Version = resource.Version(strconv.FormatUint(version, 10))
 		version++
 		handler.Handle(updateEvent)
 	}
@@ -109,19 +111,19 @@ func BenchmarkEndpointChurn(b *testing.B) {
 	loadNodesAndPods(handler)
 
 	// Add the service.
-	handler.Handle(resource.Event{
-		Kind:  resource.Added,
+	handler.Handle(event.Event{
+		Kind:  event.Added,
 		Entry: newService(),
 	})
 
 	// Add the endpoints for all IPs.
-	handler.Handle(resource.Event{
-		Kind:  resource.Added,
+	handler.Handle(event.Event{
+		Kind:  event.Added,
 		Entry: newEndpoints(ips...),
 	})
 
 	// Create a sequence of endpoint updates to simulate pod churn.
-	updateEntries := []resource.Entry{
+	updateEntries := []*resource.Entry{
 		// Slowly take away a few (the even indices).
 		newEndpoints(ips[1], ips[2], ips[3], ips[4], ips[5], ips[6], ips[7], ips[8], ips[9]),
 		newEndpoints(ips[1], ips[3], ips[4], ips[5], ips[6], ips[7], ips[8], ips[9]),
@@ -138,10 +140,10 @@ func BenchmarkEndpointChurn(b *testing.B) {
 	}
 
 	// Convert the entries to a list of update events.
-	updateEvents := make([]resource.Event, 0, len(updateEntries))
+	updateEvents := make([]event.Event, 0, len(updateEntries))
 	for _, entry := range updateEntries {
-		updateEvents = append(updateEvents, resource.Event{
-			Kind:  resource.Updated,
+		updateEvents = append(updateEvents, event.Event{
+			Kind:  event.Updated,
 			Entry: entry,
 		})
 	}
@@ -156,33 +158,28 @@ func BenchmarkEndpointChurn(b *testing.B) {
 		// Get the next update event.
 		update := updateEvents[updateIndex]
 		updateIndex = (updateIndex + 1) % lenUpdateEvents
-
-		update.Entry.ID.Version = resource.Version(strconv.FormatUint(version, 10))
+		update.Entry.Metadata.Version = resource.Version(strconv.FormatUint(version, 10))
 		version++
 
 		handler.Handle(update)
 	}
 }
 
-func loadNodesAndPods(handler processing.Handler) {
+func loadNodesAndPods(handler event.Transformer) {
 	saIndex := 0
 	for i, ip := range ips {
 
 		// Build the node.
 		nodeName := "node" + strconv.Itoa(i)
-		handler.Handle(resource.Event{
-			Kind: resource.Added,
-			Entry: resource.Entry{
-				ID: resource.VersionedKey{
-					Key: resource.Key{
-						FullName:   resource.FullNameFromNamespaceAndName("", nodeName),
-						Collection: metadata.K8sCoreV1Nodes.Collection,
-					},
-					Version: "0",
-				},
+		handler.Handle(event.Event{
+			Kind:   event.Added,
+			Source: metadata.K8SCoreV1Nodes,
+			Entry: &resource.Entry{
 				Metadata: resource.Metadata{
+					Name:       resource.NewName("", nodeName),
+					Version:    resource.Version("0"),
 					CreateTime: createTime,
-					Labels: resource.Labels{
+					Labels: resource.StringMap{
 						pod.LabelZoneRegion:        region,
 						pod.LabelZoneFailureDomain: zone,
 					},
@@ -195,17 +192,13 @@ func loadNodesAndPods(handler processing.Handler) {
 		podName := "pod" + strconv.Itoa(i)
 		serviceAccount := serviceAccounts[saIndex]
 		saIndex = (saIndex + 1) % len(serviceAccounts)
-		handler.Handle(resource.Event{
-			Kind: resource.Added,
-			Entry: resource.Entry{
-				ID: resource.VersionedKey{
-					Key: resource.Key{
-						FullName:   resource.FullNameFromNamespaceAndName(namespace, podName),
-						Collection: metadata.K8sCoreV1Pods.Collection,
-					},
-					Version: "0",
-				},
+		handler.Handle(event.Event{
+			Kind:   event.Added,
+			Source: metadata.K8SCoreV1Pods,
+			Entry: &resource.Entry{
 				Metadata: resource.Metadata{
+					Name:       resource.NewName(namespace, podName),
+					Version:    resource.Version("0"),
 					CreateTime: createTime,
 				},
 				Item: &coreV1.Pod{
@@ -227,16 +220,11 @@ func loadNodesAndPods(handler processing.Handler) {
 	}
 }
 
-func newService() resource.Entry {
-	return resource.Entry{
-		ID: resource.VersionedKey{
-			Key: resource.Key{
-				FullName:   resource.FullNameFromNamespaceAndName(namespace, benchServiceName),
-				Collection: metadata.K8sCoreV1Services.Collection,
-			},
-			Version: resource.Version("0"),
-		},
+func newService() *resource.Entry {
+	return &resource.Entry{
 		Metadata: resource.Metadata{
+			Name:        resource.NewName(namespace, benchServiceName),
+			Version:     resource.Version("0"),
 			CreateTime:  createTime,
 			Labels:      labels,
 			Annotations: annos,
@@ -265,22 +253,17 @@ func newService() resource.Entry {
 	}
 }
 
-func newEndpoints(ips ...string) resource.Entry {
+func newEndpoints(ips ...string) *resource.Entry {
 	addresses := make([]coreV1.EndpointAddress, 0, len(ips))
 	for _, ip := range ips {
 		addresses = append(addresses, coreV1.EndpointAddress{
 			IP: ip,
 		})
 	}
-	return resource.Entry{
-		ID: resource.VersionedKey{
-			Key: resource.Key{
-				FullName:   resource.FullNameFromNamespaceAndName(namespace, benchServiceName),
-				Collection: metadata.K8sCoreV1Endpoints.Collection,
-			},
-			Version: resource.Version("0"),
-		},
+	return &resource.Entry{
 		Metadata: resource.Metadata{
+			Name:        resource.NewName(namespace, benchServiceName),
+			Version:     resource.Version("0"),
 			CreateTime:  createTime,
 			Labels:      labels,
 			Annotations: annos,
@@ -319,10 +302,10 @@ func newEndpoints(ips ...string) resource.Entry {
 	}
 }
 
-func newBenchHandler() *serviceentry.Handler {
-	var handler *serviceentry.Handler
-	handler = serviceentry.NewHandler(domain, processing.ListenerFromFn(func(_ resource.Collection) {
-		_ = handler.BuildSnapshot()
-	}))
-	return handler
+func newBenchHandler() event.Transformer {
+	o := processing.ProcessorOptions{
+		DomainSuffix: domain,
+		MeshConfig:   meshcfg.Default(),
+	}
+	return serviceentry.Create(o)[0]
 }

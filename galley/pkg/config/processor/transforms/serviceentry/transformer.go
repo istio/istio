@@ -17,321 +17,297 @@ package serviceentry
 import (
 	"context"
 	"strconv"
-	"time"
-
-	"github.com/gogo/protobuf/types"
 
 	"go.opencensus.io/tag"
-
-	mcp "istio.io/api/mcp/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/galley/pkg/runtime/log"
-	"istio.io/istio/galley/pkg/runtime/monitoring"
-	"istio.io/istio/galley/pkg/runtime/processing"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/converter"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
-	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pkg/mcp/snapshot"
-
 	coreV1 "k8s.io/api/core/v1"
+
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/galley/pkg/config/collection"
+	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/processing"
+	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/converter"
+	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
+	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/runtime/monitoring"
 )
 
-var (
-	scope      = log.Scope
-	collection = metadata.IstioNetworkingV1alpha3SyntheticServiceentries.Collection
+type transformer struct {
+	options processing.ProcessorOptions
 
-	// Schema for types required to generate synthetic ServiceEntry projections.
-	Schema *resource.Schema
-)
-
-func init() {
-	b := resource.NewSchemaBuilder()
-	b.RegisterInfo(metadata.K8sCoreV1Pods)
-	b.RegisterInfo(metadata.K8sCoreV1Nodes)
-	b.RegisterInfo(metadata.K8sCoreV1Services)
-	b.RegisterInfo(metadata.K8sCoreV1Endpoints)
-	Schema = b.Build()
-}
-
-var _ processing.Handler = &Handler{}
-
-// Handler is a processing.Handler that generates snapshots containing synthetic ServiceEntry projections.
-type Handler struct {
 	converter *converter.Instance
 
-	listener processing.Listener
+	services  map[resource.Name]*resource.Entry
+	endpoints map[resource.Name]*resource.Entry
+	ipToName  map[string]map[resource.Name]struct{}
 
-	services  map[resource.FullName]resource.Entry
-	endpoints map[resource.FullName]resource.Entry
-	ipToName  map[string]map[resource.FullName]struct{}
+	podHandler  event.Handler
+	nodeHandler event.Handler
 
-	podHandler  processing.Handler
-	nodeHandler processing.Handler
+	handler  event.Handler
+	statsCtx context.Context
+
+	fullSyncCtr int
 
 	// The version number for the current State of the object. Every time mcpResources or versions change,
 	// the version number also change
-	version      int64
-	mcpResources map[resource.FullName]*mcp.Resource
+	version int64
 
-	// pendingEvents counts the number of events awaiting publishing.
-	pendingEvents int64
-
-	// lastSnapshotTime records the last time a snapshot was published.
-	lastSnapshotTime time.Time
-
-	statsCtx context.Context
+	// 	mcpResources map[resource.FullName]*mcp.Resource
 }
 
-// NewHandler creates a new Handler instance.
-func NewHandler(domain string, listener processing.Listener) *Handler {
-	handler := &Handler{
-		listener:     listener,
-		services:     make(map[resource.FullName]resource.Entry),
-		endpoints:    make(map[resource.FullName]resource.Entry),
-		ipToName:     make(map[string]map[resource.FullName]struct{}),
-		mcpResources: make(map[resource.FullName]*mcp.Resource),
-	}
+var _ event.Transformer = &transformer{}
+
+// Start implements event.Transformer
+func (t *transformer) Start() {
+	t.ipToName = make(map[string]map[resource.Name]struct{})
+	t.services = make(map[resource.Name]*resource.Entry)
+	t.endpoints = make(map[resource.Name]*resource.Entry)
 
 	podCache, cacheHandler := pod.NewCache(pod.Listener{
-		PodAdded:   handler.podUpdated,
-		PodUpdated: handler.podUpdated,
-		PodDeleted: handler.podUpdated,
+		PodAdded:   t.podUpdated,
+		PodUpdated: t.podUpdated,
+		PodDeleted: t.podUpdated,
 	})
 
-	handler.podHandler = cacheHandler
-	handler.nodeHandler = cacheHandler
+	t.podHandler = cacheHandler
+	t.nodeHandler = cacheHandler
 
-	handler.converter = converter.New(domain, podCache)
+	t.converter = converter.New(t.options.DomainSuffix, podCache)
 
 	statsCtx, err := tag.New(context.Background(), tag.Insert(monitoring.CollectionTag,
-		metadata.IstioNetworkingV1alpha3SyntheticServiceentries.Collection.String()))
+		metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.String()))
 	if err != nil {
-		log.Scope.Errorf("Error creating monitoring context for counting state: %v", err)
+		scope.Errorf("Error creating monitoring context for counting state: %v", err)
 		statsCtx = nil
 	}
-	handler.statsCtx = statsCtx
+	t.statsCtx = statsCtx
 
-	return handler
+	t.fullSyncCtr = len(t.Inputs())
 }
 
-// Handle incoming events and generate synthetic ServiceEntry projections.
-func (h *Handler) Handle(event resource.Event) {
-	switch event.Entry.ID.Collection {
-	case metadata.K8sCoreV1Endpoints.Collection:
+// Stop implements event.Transformer
+func (t *transformer) Stop() {
+	t.ipToName = nil
+	t.services = nil
+	t.endpoints = nil
+}
+
+// Select implements event.Transformer
+func (t *transformer) Select(c collection.Name, h event.Handler) {
+	switch c {
+	case metadata.IstioNetworkingV1Alpha3SyntheticServiceentries:
+		t.handler = event.CombineHandlers(t.handler, h)
+	}
+}
+
+// Inputs implements event.Transformer
+func (t *transformer) Inputs() collection.Names {
+	return collection.Names{
+		metadata.K8SCoreV1Endpoints,
+		metadata.K8SCoreV1Nodes,
+		metadata.K8SCoreV1Pods,
+		metadata.K8SCoreV1Services,
+	}
+}
+
+// Outputs implements event.Transformer
+func (t *transformer) Outputs() collection.Names {
+	return collection.Names{
+		metadata.IstioNetworkingV1Alpha3SyntheticServiceentries,
+	}
+}
+
+// Handle implements event.Transformer
+func (t *transformer) Handle(e event.Event) {
+	switch e.Kind {
+	case event.FullSync:
+		t.fullSyncCtr--
+		if t.fullSyncCtr == 0 {
+			t.dispatch(event.FullSyncFor(t.Outputs()[0]))
+		}
+		return
+
+	case event.Reset:
+		t.dispatch(event.Event{Kind: event.Reset})
+		return
+
+	default: // nolint:gocritic
+		scope.Errorf("transformer.Handle: Unexpected event received: %v", e)
+		return
+
+	case event.Added, event.Updated, event.Deleted:
+		// fallthrough
+	}
+
+	switch e.Source {
+	case metadata.K8SCoreV1Endpoints:
 		// Update the projections
-		h.handleEndpointsEvent(event)
-	case metadata.K8sCoreV1Services.Collection:
+		t.handleEndpointsEvent(e)
+	case metadata.K8SCoreV1Services:
 		// Update the projections
-		h.handleServiceEvent(event)
-	case metadata.K8sCoreV1Nodes.Collection:
+		t.handleServiceEvent(e)
+	case metadata.K8SCoreV1Nodes:
 		// Update the pod cache.
-		h.nodeHandler.Handle(event)
-	case metadata.K8sCoreV1Pods.Collection:
+		t.nodeHandler.Handle(e)
+	case metadata.K8SCoreV1Pods:
 		// Update the pod cache.
-		h.podHandler.Handle(event)
+		t.podHandler.Handle(e)
 	default:
-		scope.Warnf("received event with unexpected collection: %v", event.Entry.ID.Collection)
+		scope.Warnf("received event with unexpected collection: %v", e.Source)
 	}
 }
 
-func (h *Handler) podUpdated(p pod.Info) {
-	// Update the endpoints associated with this IP.
-	for name := range h.ipToName[p.IP] {
-		h.doUpdate(name)
-	}
-}
+func (t *transformer) handleEndpointsEvent(e event.Event) {
+	endpoints := e.Entry
+	name := e.Entry.Metadata.Name
 
-// Builds the snapshot of the current resources.
-func (h *Handler) BuildSnapshot() snapshot.Snapshot {
-	now := time.Now()
-	monitoring.RecordProcessorSnapshotPublished(h.pendingEvents, now.Sub(h.lastSnapshotTime))
-	h.lastSnapshotTime = now
-	h.pendingEvents = 0
-
-	b := snapshot.NewInMemoryBuilder()
-
-	// Copy the entries.
-	entries := make([]*mcp.Resource, 0, len(h.mcpResources))
-	for _, r := range h.mcpResources {
-		entries = append(entries, r)
-	}
-
-	// Create the collection resources on the Snapshot.
-	version := strconv.FormatInt(h.version, 10)
-	b.Set(collection.String(), version, entries)
-
-	return b.Build()
-}
-
-func (h *Handler) handleServiceEvent(event resource.Event) {
-	service := event.Entry
-	name := service.ID.FullName
-
-	switch event.Kind {
-	case resource.Added, resource.Updated:
-		// Store the service.
-		h.services[name] = service
-
-		h.doUpdate(name)
-	case resource.Deleted:
-		// Delete the Service and ServiceEntry
-		delete(h.services, name)
-		h.deleteMcpResource(name)
-		h.updateVersion()
-	default:
-		scope.Errorf("unknown event kind: %v", event.Kind)
-	}
-}
-
-func (h *Handler) handleEndpointsEvent(event resource.Event) {
-	endpoints := event.Entry
-	name := endpoints.ID.FullName
-
-	switch event.Kind {
-	case resource.Added, resource.Updated:
+	switch e.Kind {
+	case event.Added, event.Updated:
 		// Update the IPs for this endpoint.
-		h.updateEndpointIPs(name, endpoints)
+		t.updateEndpointIPs(name, endpoints)
 
 		// Store the endpoints.
-		h.endpoints[name] = endpoints
+		t.endpoints[name] = endpoints
 
-		h.doUpdate(name)
-	case resource.Deleted:
+		t.doUpdate(name)
+	case event.Deleted:
 		// Remove the IPs for this endpoint.
-		h.deleteEndpointIPs(name, endpoints)
+		t.deleteEndpointIPs(name, endpoints)
 
 		// The lifecycle of the ServiceEntry is bound to the service, so only delete the endpoints entry here.
-		delete(h.endpoints, name)
+		delete(t.endpoints, name)
 
-		h.doUpdate(name)
+		t.doUpdate(name)
 	default:
-		scope.Errorf("unknown event kind: %v", event.Kind)
+		scope.Errorf("unknown event kind: %v", e.Kind)
 	}
 }
 
-func (h *Handler) setMcpEntry(name resource.FullName, mcpEntry *mcp.Resource) {
-	h.mcpResources[name] = mcpEntry
-}
+func (t *transformer) handleServiceEvent(e event.Event) {
+	service := e.Entry
+	name := e.Entry.Metadata.Name
 
-func (h *Handler) deleteMcpResource(name resource.FullName) {
-	delete(h.mcpResources, name)
-}
+	switch e.Kind {
+	case event.Added, event.Updated:
+		// Store the service.
+		t.services[name] = service
 
-func (h *Handler) updateVersion() {
-	h.version++
-	monitoring.RecordStateTypeCountWithContext(h.statsCtx, len(h.mcpResources))
+		t.doUpdate(name)
+	case event.Deleted:
+		// Delete the Service and ServiceEntry
+		delete(t.services, name)
+		t.sendDelete(name)
 
-	if scope.DebugEnabled() {
-		scope.Debugf("in-memory state has changed:\n%v\n", h)
+	default:
+		scope.Errorf("unknown event kind: %v", e.Kind)
 	}
-	h.pendingEvents++
-	h.notifyChanged()
 }
 
-func (h *Handler) notifyChanged() {
-	h.listener.CollectionChanged(collection)
-}
-
-func (h *Handler) versionString() string {
-	return strconv.FormatInt(h.version, 10)
-}
-
-func (h *Handler) doUpdate(name resource.FullName) {
+func (t *transformer) doUpdate(name resource.Name) {
 	// Look up the service associated with the endpoints.
-	service, ok := h.services[name]
+	service, ok := t.services[name]
 	if !ok {
 		// No service, nothing to update.
 		return
 	}
 
 	// Get the associated endpoints, if available.
-	var endpoints *resource.Entry
-	if epEntry, ok := h.endpoints[name]; ok {
-		endpoints = &epEntry
-	}
+	endpoints := t.endpoints[name]
 
 	// Convert to an MCP resource to be used in the snapshot.
-	mcpEntry, ok := h.toMcpResource(&service, endpoints)
+	mcpEntry, ok := t.toMcpResource(service, endpoints)
 	if !ok {
 		return
 	}
-	h.setMcpEntry(name, mcpEntry)
-
-	h.updateVersion()
+	// TODO: Distinguish between add/update.
+	t.sendUpdate(mcpEntry)
 }
 
-func (h *Handler) toMcpResource(service *resource.Entry, endpoints *resource.Entry) (*mcp.Resource, bool) {
-	meta := mcp.Metadata{}
-	se := networking.ServiceEntry{}
-	if err := h.converter.Convert(service, endpoints, &meta, &se); err != nil {
-		scope.Errorf("error converting to ServiceEntry: %v", err)
-		return nil, false
+func (t *transformer) dispatch(e event.Event) {
+	scope.Debugf("serviceentry.transformer: <== %v", e)
+	if t.handler != nil {
+		t.handler.Handle(e)
 	}
-
-	// Set the version on the metadata.
-	meta.Version = h.versionString()
-
-	body, err := types.MarshalAny(&se)
-	if err != nil {
-		scope.Errorf("error serializing proto from source e: %v", se)
-		return nil, false
-	}
-
-	entry := &mcp.Resource{
-		Metadata: &meta,
-		Body:     body,
-	}
-
-	return entry, true
 }
 
-func (h *Handler) updateEndpointIPs(name resource.FullName, newRE resource.Entry) {
+func (t *transformer) sendDelete(name resource.Name) {
+	e := event.Event{
+		Kind:   event.Deleted,
+		Source: metadata.IstioNetworkingV1Alpha3SyntheticServiceentries,
+		Entry: &resource.Entry{
+			Metadata: resource.Metadata{
+				Name: name,
+			},
+		},
+	}
+
+	t.dispatch(e)
+}
+
+func (t *transformer) sendUpdate(r *resource.Entry) {
+	e := event.Event{
+		Kind:   event.Updated,
+		Source: metadata.IstioNetworkingV1Alpha3SyntheticServiceentries,
+		Entry:  r,
+	}
+
+	t.dispatch(e)
+}
+
+func (t *transformer) podUpdated(p pod.Info) {
+	// Update the endpoints associated with this IP.
+	for name := range t.ipToName[p.IP] {
+		t.doUpdate(name)
+	}
+}
+
+func (t *transformer) updateEndpointIPs(name resource.Name, newRE *resource.Entry) {
 	newIPs := getEndpointIPs(newRE)
 	var prevIPs map[string]struct{}
 
-	if prev, exists := h.endpoints[name]; exists {
+	if prev, exists := t.endpoints[name]; exists {
 		prevIPs = getEndpointIPs(prev)
 
 		// Delete any IPs missing from the new endpoints.
 		for prevIP := range prevIPs {
 			if _, exists := newIPs[prevIP]; !exists {
-				h.deleteEndpointIP(name, prevIP)
+				t.deleteEndpointIP(name, prevIP)
 			}
 		}
 	}
 
 	// Add/update
 	for newIP := range newIPs {
-		names := h.ipToName[newIP]
+		names := t.ipToName[newIP]
 		if names == nil {
-			names = make(map[resource.FullName]struct{})
-			h.ipToName[newIP] = names
+			names = make(map[resource.Name]struct{})
+			t.ipToName[newIP] = names
 		}
 		names[name] = struct{}{}
 	}
 }
 
-func (h *Handler) deleteEndpointIPs(name resource.FullName, endpoints resource.Entry) {
+func (t *transformer) deleteEndpointIPs(name resource.Name, endpoints *resource.Entry) {
 	ips := getEndpointIPs(endpoints)
 	for ip := range ips {
-		h.deleteEndpointIP(name, ip)
+		t.deleteEndpointIP(name, ip)
 	}
 }
 
-func (h *Handler) deleteEndpointIP(name resource.FullName, ip string) {
-	names := h.ipToName[ip]
+func (t *transformer) deleteEndpointIP(name resource.Name, ip string) {
+	names := t.ipToName[ip]
 	if names != nil {
 		// Remove the name from the names map for this IP.
 		delete(names, name)
 		if len(names) == 0 {
 			// There are no more endpoints using this IP. Delete the map.
-			delete(h.ipToName, ip)
+			delete(t.ipToName, ip)
 		}
 	}
 }
 
-func getEndpointIPs(entry resource.Entry) map[string]struct{} {
+func getEndpointIPs(entry *resource.Entry) map[string]struct{} {
 	ips := make(map[string]struct{})
 	endpoints := entry.Item.(*coreV1.Endpoints)
 	for _, subset := range endpoints.Subsets {
@@ -340,4 +316,30 @@ func getEndpointIPs(entry resource.Entry) map[string]struct{} {
 		}
 	}
 	return ips
+}
+
+func (t *transformer) toMcpResource(service *resource.Entry, endpoints *resource.Entry) (*resource.Entry, bool) {
+	meta := resource.Metadata{
+		Annotations: make(map[string]string),
+		Labels:      make(map[string]string),
+	}
+	se := networking.ServiceEntry{}
+	if err := t.converter.Convert(service, endpoints, &meta, &se); err != nil {
+		scope.Errorf("error converting to ServiceEntry: %v", err)
+		return nil, false
+	}
+
+	// Set the version on the metadata.
+	meta.Version = resource.Version(t.versionString())
+
+	entry := &resource.Entry{
+		Metadata: meta,
+		Item:     &se,
+	}
+	return entry, true
+}
+
+func (t *transformer) versionString() string {
+	t.version++
+	return strconv.FormatInt(t.version, 10)
 }

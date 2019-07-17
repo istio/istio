@@ -18,12 +18,11 @@ import (
 	"testing"
 	"time"
 
-	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	metadata2 "istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/converter"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
-	"istio.io/istio/galley/pkg/runtime/resource"
+
+	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/converter"
+	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
+	"istio.io/istio/galley/pkg/config/resource"
 
 	coreV1 "k8s.io/api/core/v1"
 )
@@ -46,23 +45,18 @@ func benchmarkService(b *testing.B, reuse bool) {
 	b.StopTimer()
 
 	service := &resource.Entry{
-		ID: resource.VersionedKey{
-			Key: resource.Key{
-				FullName:   resource.FullNameFromNamespaceAndName(benchNamespace, "someservice"),
-				Collection: metadata2.K8sCoreV1Services.Collection,
-			},
-			Version: resource.Version("v1"),
-		},
 		Metadata: resource.Metadata{
+			Name:       resource.NewName(benchNamespace, "someservice"),
+			Version:    resource.Version("v1"),
 			CreateTime: time.Now(),
-			Annotations: resource.Annotations{
+			Annotations: resource.StringMap{
 				"Annotation1": "AnnotationValue1",
 				"Annotation2": "AnnotationValue2",
 				"Annotation3": "AnnotationValue3",
 				"Annotation4": "AnnotationValue4",
 				"Annotation5": "AnnotationValue5",
 			},
-			Labels: resource.Labels{
+			Labels: resource.StringMap{
 				"Label1": "LabelValue1",
 				"Label2": "LabelValue2",
 				"Label3": "LabelValue3",
@@ -95,7 +89,7 @@ func benchmarkService(b *testing.B, reuse bool) {
 	c := converter.New(domainSuffix, nil)
 
 	// Create/init the output ServiceEntry if reuse is enabled.
-	var outMeta *mcp.Metadata
+	var outMeta *resource.Metadata
 	var out *networking.ServiceEntry
 	if reuse {
 		outMeta = newMetadata()
@@ -114,7 +108,7 @@ func benchmarkService(b *testing.B, reuse bool) {
 	}
 }
 
-func convertService(c *converter.Instance, service *resource.Entry, outMeta *mcp.Metadata, out *networking.ServiceEntry) error {
+func convertService(c *converter.Instance, service *resource.Entry, outMeta *resource.Metadata, out *networking.ServiceEntry) error {
 	if outMeta == nil {
 		outMeta = newMetadata()
 	}
@@ -198,23 +192,18 @@ func benchmarkEndpoints(b *testing.B, reuse bool) {
 	}
 
 	entry := &resource.Entry{
-		ID: resource.VersionedKey{
-			Key: resource.Key{
-				FullName:   resource.FullNameFromNamespaceAndName(benchNamespace, "someservice"),
-				Collection: metadata2.K8sCoreV1Endpoints.Collection,
-			},
-			Version: resource.Version("v1"),
-		},
 		Metadata: resource.Metadata{
+			Name:       resource.NewName(benchNamespace, "someservice"),
+			Version:    resource.Version("v1"),
 			CreateTime: time.Now(),
-			Annotations: resource.Annotations{
+			Annotations: resource.StringMap{
 				"Annotation1": "AnnotationValue1",
 				"Annotation2": "AnnotationValue2",
 				"Annotation3": "AnnotationValue3",
 				"Annotation4": "AnnotationValue4",
 				"Annotation5": "AnnotationValue5",
 			},
-			Labels: resource.Labels{
+			Labels: resource.StringMap{
 				"Label1": "LabelValue1",
 				"Label2": "LabelValue2",
 				"Label3": "LabelValue3",
@@ -228,7 +217,7 @@ func benchmarkEndpoints(b *testing.B, reuse bool) {
 	c := converter.New(domainSuffix, pods)
 
 	// Create/init the output ServiceEntry if reuse is enabled.
-	var outMeta *mcp.Metadata
+	var outMeta *resource.Metadata
 	var out *networking.ServiceEntry
 	if reuse {
 		outMeta = newMetadata()
@@ -247,7 +236,7 @@ func benchmarkEndpoints(b *testing.B, reuse bool) {
 	}
 }
 
-func convertEndpoints(c *converter.Instance, endpoints *resource.Entry, outMeta *mcp.Metadata, out *networking.ServiceEntry) error {
+func convertEndpoints(c *converter.Instance, endpoints *resource.Entry, outMeta *resource.Metadata, out *networking.ServiceEntry) error {
 	if outMeta == nil {
 		outMeta = newMetadata()
 	}
@@ -266,7 +255,7 @@ func min(a, b int) int {
 
 func addPod(pods fakePodCache, ip, serviceAccountName string) {
 	pods[ip] = pod.Info{
-		FullName:           resource.FullNameFromNamespaceAndName(benchNamespace, "SomePod"),
+		FullName:           resource.NewName(benchNamespace, "SomePod"),
 		NodeName:           "SomeNode",
 		Locality:           "locality",
 		ServiceAccountName: serviceAccountName,

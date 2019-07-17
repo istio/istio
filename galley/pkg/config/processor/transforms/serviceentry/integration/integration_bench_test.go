@@ -15,20 +15,20 @@
 package integration
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
 
-	"istio.io/istio/galley/pkg/meshconfig"
-	"istio.io/istio/galley/pkg/runtime"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
-	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/galley/pkg/source/kube"
-	"istio.io/istio/galley/pkg/source/kube/builtin"
-	"istio.io/istio/galley/pkg/source/kube/client"
-	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
-	"istio.io/istio/galley/pkg/source/kube/schema"
+	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/processor"
+	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
+	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/source/kube"
+	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/testing/mock"
 	"istio.io/istio/pkg/mcp/snapshot"
 
@@ -46,15 +46,6 @@ const (
 
 var (
 	createTime = time.Now()
-	mesh       = meshconfig.NewInMemory()
-	runtimeCfg = runtime.Config{
-		Mesh:         mesh,
-		DomainSuffix: domainSuffix,
-	}
-	converterCfg = converter.Config{
-		Mesh:         mesh,
-		DomainSuffix: domainSuffix,
-	}
 
 	ips = []string{
 		"10.0.0.1",
@@ -73,14 +64,14 @@ var (
 		"serviceAccount2",
 		"serviceAccount3",
 	}
-	annos = resource.Annotations{
+	annos = resource.StringMap{
 		"Annotation1": "AnnotationValue1",
 		"Annotation2": "AnnotationValue2",
 		"Annotation3": "AnnotationValue3",
 		"Annotation4": "AnnotationValue4",
 		"Annotation5": "AnnotationValue5",
 	}
-	labels = resource.Labels{
+	labels = resource.StringMap{
 		"Label1": "LabelValue1",
 		"Label2": "LabelValue2",
 		"Label3": "LabelValue3",
@@ -121,16 +112,19 @@ func BenchmarkEndpointChurn(b *testing.B) {
 		newEndpoints(ips...),
 	}
 
-	src := newSource(b, ki, builtin.GetSchema().All()...)
+	m := metadata.MustGet()
+	src := newSource(b, ki, m.KubeSource().Resources())
 	distributor := newFakeDistributor(b.N)
-	processor := runtime.NewProcessor(src, distributor, &runtimeCfg)
-	if err := processor.Start(); err != nil {
+	processor, err := processor.Initialize(m, domainSuffix, src, distributor)
+	if err != nil {
 		b.Fatal(err)
 	}
 
-	if err := processor.AwaitFullSync(5 * time.Second); err != nil {
-		b.Fatal(err)
-	}
+	processor.Start()
+
+	// if err := processor.AwaitFullSync(5 * time.Second); err != nil {
+	// 	b.Fatal(err)
+	// }
 
 	lenUpdateEvents := len(updateEntries)
 	updateIndex := 0
@@ -284,6 +278,7 @@ func newFakeDistributor(numUpdates int) *fakeDistributor {
 }
 
 func (d *fakeDistributor) SetSnapshot(name string, s snapshot.Snapshot) {
+	fmt.Printf("------ %v\n", name)
 	d.counter++
 	if d.counter == d.serviceCreation || d.counter == d.endpointsCreation || d.counter == d.complete {
 		d.cond.L.Lock()
@@ -342,7 +337,7 @@ func newEndpoints(ips ...string) coreV1.Endpoints {
 	}
 }
 
-func newKubeClient(b *testing.B, ki client.Interfaces) kubernetes.Interface {
+func newKubeClient(b *testing.B, ki kube.Interfaces) kubernetes.Interface {
 	b.Helper()
 	kubeClient, err := ki.KubeClient()
 	if err != nil {
@@ -351,8 +346,13 @@ func newKubeClient(b *testing.B, ki client.Interfaces) kubernetes.Interface {
 	return kubeClient
 }
 
-func newSource(b *testing.B, ki client.Interfaces, specs ...schema.ResourceSpec) runtime.Source {
-	src, err := kube.New(ki, 0, schema.New(specs...), &converterCfg)
+func newSource(b *testing.B, ifaces kube.Interfaces, resources schema.KubeResources) event.Source {
+	o := apiserver.Options{
+		Client:       ifaces,
+		ResyncPeriod: 0,
+		Resources:    resources,
+	}
+	src, err := apiserver.New(o)
 	if err != nil {
 		b.Fatal(err)
 	}
