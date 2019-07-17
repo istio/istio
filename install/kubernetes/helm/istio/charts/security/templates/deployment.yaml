@@ -46,7 +46,7 @@ spec:
           {{- if .Values.global.sds.enabled }}
             - --sds-enabled=true
           {{- end }}
-          {{- if .Values.global.sds.legacyJwtAllowed }}
+          {{- if .Values.global.sds.useNormalJwt }}
             - --legacy-jwt-allowed=true
           {{- end }}
             - --append-dns-names=true

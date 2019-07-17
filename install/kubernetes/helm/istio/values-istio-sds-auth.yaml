@@ -9,9 +9,10 @@ global:
   sds:
     enabled: true
     udsPath: "unix:/var/run/sds/uds_path"
+    # When sds is enabled, use trustworthy JWTs only.
+    # Trustworthy JWTs are available from Kubernetes 1.12 (beta) and later.
     useNormalJwt: false
     useTrustworthyJwt: true
-    legacyJwtAllowed: false
 
 nodeagent:
   enabled: true
