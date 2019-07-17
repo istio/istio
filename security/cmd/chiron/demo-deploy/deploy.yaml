@@ -1,0 +1,115 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-chiron-service-account
+  namespace: chiron
+  labels:
+    app: security
+    chart: security
+    heritage: Tiller
+    release: istio
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-chiron
+  labels:
+    app: security
+    chart: security
+    heritage: Tiller
+    release: istio
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create", "get", "update"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create", "get", "watch", "list", "update", "delete"]
+  - apiGroups: [""]
+    resources: ["serviceaccounts", "services"]
+    verbs: ["get", "watch", "list"]
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations"]
+    verbs: ["*"]
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["mutatingwebhookconfigurations"]
+    verbs: ["get", "list", "watch", "patch"]
+  - apiGroups:
+      - "certificates.k8s.io"
+    resources:
+      - "certificatesigningrequests"
+      - "certificatesigningrequests/approval"
+      - "certificatesigningrequests/status"
+    verbs:
+      - update
+      - create
+      - get
+      - delete
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-chiron
+  labels:
+    app: security
+    chart: security
+    heritage: Tiller
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-chiron
+subjects:
+  - kind: ServiceAccount
+    name: istio-chiron-service-account
+    namespace: chiron
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-chiron
+  namespace: chiron
+  labels:
+    app: security
+    chart: security
+    heritage: Tiller
+    release: istio
+    istio: chiron
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      istio: chiron
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: security
+        chart: security
+        heritage: Tiller
+        release: istio
+        istio: chiron
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-chiron-service-account
+      containers:
+        - name: chiron
+          image: "gcr.io/endpoints-authz-test1/chiron:chiron_develop_7_11_2019"
+          imagePullPolicy: Always
+          args:
+            - "--log_output_level"
+            - "debug"
+            - "--mutating-webhook-config-name"
+            - "protomutate"
+            - "--mutating-webhook-name"
+            - "protomutate.istio.io"
+          resources:
+            requests:
+              cpu: 10m

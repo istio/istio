@@ -1,0 +1,31 @@
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  labels:
+    app: protomutateWebhook
+    chart: protomutateWebhook
+    heritage: Tiller
+    release: istio
+  name: protomutate
+webhooks:
+- clientConfig:
+    caBundle: ""
+    service:
+      name: protomutate
+      namespace: istio-system
+      path: /inject
+  failurePolicy: Fail
+  name: protomutate.istio.io
+  namespaceSelector:
+    matchLabels:
+      istio-injection: enabled
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  sideEffects: Unknown
