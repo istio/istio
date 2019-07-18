@@ -55,8 +55,6 @@ var (
 )
 
 func TestHTTPCircuitBreakerThresholds(t *testing.T) {
-	g := NewGomegaWithT(t)
-
 	directionInfos := []struct {
 		direction    model.TrafficDirection
 		clusterIndex int
@@ -88,6 +86,7 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 			}
 			testName := fmt.Sprintf("%s-%s", directionInfo.direction, settingsName)
 			t.Run(testName, func(t *testing.T) {
+				g := NewGomegaWithT(t)
 				clusters, err := buildTestClusters("*.example.org", 0, model.SidecarProxy, nil, testMesh,
 					&networking.DestinationRule{
 						Host: "*.example.org",
@@ -232,16 +231,22 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolutio
 	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
 	serviceDiscovery.InstancesByPortReturns(instances, nil)
 
-	configStore := &fakes.IstioConfigStore{}
-	env := newTestEnvironment(serviceDiscovery, mesh, configStore.Freeze())
-	env.PushContext.SetDestinationRules([]model.Config{
-		{ConfigMeta: model.ConfigMeta{
-			Type:    model.DestinationRule.Type,
-			Version: model.DestinationRule.Version,
-			Name:    "acme",
+	configStore := &fakes.IstioConfigStore{
+		ListStub: func(typ, namespace string) (configs []model.Config, e error) {
+			if typ == model.DestinationRule.Type {
+				return []model.Config{
+					{ConfigMeta: model.ConfigMeta{
+						Type:    model.DestinationRule.Type,
+						Version: model.DestinationRule.Version,
+						Name:    "acme",
+					},
+						Spec: destRule,
+					}}, nil
+			}
+			return nil, nil
 		},
-			Spec: destRule,
-		}})
+	}
+	env := newTestEnvironment(serviceDiscovery, mesh, configStore.Freeze())
 
 	var proxy *model.Proxy
 	switch nodeType {
@@ -266,6 +271,7 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolutio
 	default:
 		panic(fmt.Sprintf("unsupported node type: %v", nodeType))
 	}
+	proxy.SetSidecarScope(env.PushContext)
 
 	proxy.ServiceInstances, _ = serviceDiscovery.GetProxyServiceInstances(proxy)
 
@@ -746,7 +752,7 @@ func TestLocalityLB(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	if clusters[0].CommonLbConfig == nil {
-		t.Errorf("CommonLbConfig should be set for cluster %+v", clusters[0])
+		t.Fatalf("CommonLbConfig should be set for cluster %+v", clusters[0])
 	}
 	g.Expect(clusters[0].CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
 
