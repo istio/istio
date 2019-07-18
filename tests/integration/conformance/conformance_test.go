@@ -130,14 +130,22 @@ func validateMCPState(ctx test.Failer, gal galley.Instance, ns namespace.Instanc
 			for _, rangeCheck := range coll.Check {
 				a := make([]interface{}, len(actuals))
 				for i, item := range actuals {
-					a[i] = item
+					// Deep copy the item so we can modify the metadata safely
+					itemCopy := &galley.SnapshotObject{}
+					metadata := *item.Metadata
+					itemCopy.Metadata = &metadata
+					itemCopy.Body = item.Body
+					itemCopy.TypeURL = item.TypeURL
+
+					a[i] = itemCopy
+
 					// Clear out for stable comparison.
-					item.Metadata.CreateTime = nil
-					item.Metadata.Version = ""
-					if item.Metadata.Annotations != nil {
-						delete(item.Metadata.Annotations, "kubectl.kubernetes.io/last-applied-configuration")
-						if len(item.Metadata.Annotations) == 0 {
-							item.Metadata.Annotations = nil
+					itemCopy.Metadata.CreateTime = nil
+					itemCopy.Metadata.Version = ""
+					if itemCopy.Metadata.Annotations != nil {
+						delete(itemCopy.Metadata.Annotations, "kubectl.kubernetes.io/last-applied-configuration")
+						if len(itemCopy.Metadata.Annotations) == 0 {
+							itemCopy.Metadata.Annotations = nil
 						}
 					}
 				}

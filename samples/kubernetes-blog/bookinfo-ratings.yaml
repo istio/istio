@@ -28,7 +28,7 @@ spec:
   selector:
     app: ratings
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ratings-v1
@@ -42,7 +42,7 @@ spec:
     spec:
       containers:
       - name: ratings
-        image: istio/examples-bookinfo-ratings-v1:0.2.3
+        image: docker.io/istio/examples-bookinfo-ratings-v1:0.2.3
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080

@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
+	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 )
@@ -395,12 +396,12 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-
 				var newSecret *model.SecretItem
 				if strings.HasSuffix(secretName, secretfetcher.IngressGatewaySdsCaSuffix) {
 					newSecret = &model.SecretItem{
 						ResourceName: secretName,
 						RootCert:     ns.RootCert,
+						ExpireTime:   ns.ExpireTime,
 						Token:        oldSecret.Token,
 						CreatedTime:  ns.CreatedTime,
 						Version:      ns.Version,
@@ -408,6 +409,7 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 				} else {
 					newSecret = &model.SecretItem{
 						CertificateChain: ns.CertificateChain,
+						ExpireTime:       ns.ExpireTime,
 						PrivateKey:       ns.PrivateKey,
 						ResourceName:     secretName,
 						Token:            oldSecret.Token,
@@ -545,28 +547,18 @@ func (sc *SecretCache) generateGatewaySecret(token, resourceName string, t time.
 	}
 
 	if strings.HasSuffix(resourceName, secretfetcher.IngressGatewaySdsCaSuffix) {
-		certExpireTime, err := parseCertAndGetExpiryTimestamp(secretItem.RootCert)
-		if err != nil {
-			cacheLog.Warnf("ingress gateway secret %v contains a certificate that fails to parse: %v",
-				resourceName, err)
-		}
 		return &model.SecretItem{
 			ResourceName: resourceName,
 			RootCert:     secretItem.RootCert,
-			ExpireTime:   certExpireTime,
+			ExpireTime:   secretItem.ExpireTime,
 			Token:        token,
 			CreatedTime:  t,
 			Version:      t.String(),
 		}, nil
 	}
-	certExpireTime, err := parseCertAndGetExpiryTimestamp(secretItem.CertificateChain)
-	if err != nil {
-		cacheLog.Warnf("ingress gateway secret %v contains a certificate that fails to parse: %v",
-			resourceName, err)
-	}
 	return &model.SecretItem{
 		CertificateChain: secretItem.CertificateChain,
-		ExpireTime:       certExpireTime,
+		ExpireTime:       secretItem.ExpireTime,
 		PrivateKey:       secretItem.PrivateKey,
 		ResourceName:     resourceName,
 		Token:            token,
@@ -583,8 +575,13 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	}
 
 	// call authentication provider specific plugins to exchange token if necessary.
+	numOutgoingRequests.With(RequestType.Value(TokenExchange)).Increment()
+	timeBeforeTokenExchange := time.Now()
 	exchangedToken, err := sc.getExchangedToken(ctx, token)
+	tokenExchangeLatency := float64(time.Since(timeBeforeTokenExchange).Nanoseconds()) / float64(time.Millisecond)
+	outgoingLatency.With(RequestType.Value(TokenExchange)).Record(tokenExchangeLatency)
 	if err != nil {
+		numFailedOutgoingRequests.With(RequestType.Value(TokenExchange)).Increment()
 		return nil, err
 	}
 
@@ -607,8 +604,13 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		return nil, err
 	}
 
+	numOutgoingRequests.With(RequestType.Value(CSR)).Increment()
+	timeBeforeCSR := time.Now()
 	certChainPEM, err := sc.sendRetriableRequest(ctx, csrPEM, exchangedToken, resourceName, true)
+	csrLatency := float64(time.Since(timeBeforeCSR).Nanoseconds()) / float64(time.Millisecond)
+	outgoingLatency.With(RequestType.Value(CSR)).Record(csrLatency)
 	if err != nil {
+		numFailedOutgoingRequests.With(RequestType.Value(CSR)).Increment()
 		return nil, err
 	}
 
@@ -624,7 +626,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	// Some customer CA may override TTL param that's passed to it.
 	expireTime := t.Add(sc.configOptions.SecretTTL)
 	if !sc.configOptions.SkipValidateCert {
-		if expireTime, err = parseCertAndGetExpiryTimestamp(certChain); err != nil {
+		if expireTime, err = nodeagentutil.ParseCertAndGetExpiryTimestamp(certChain); err != nil {
 			cacheLog.Errorf("Failed to extract expire time from certificate %+v for resource "+
 				"%q: %v", certChainPEM, resourceName, err)
 			return nil, fmt.Errorf("failed to extract expiry timestamp from server certificate: %v", err)
@@ -636,7 +638,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	rootCertChanged := !bytes.Equal(sc.rootCert, []byte(certChainPEM[length-1]))
 	if sc.rootCert == nil || rootCertChanged {
 		sc.rootCertMutex.Lock()
-		rootCertExpireTime, err := parseCertAndGetExpiryTimestamp([]byte(certChainPEM[length-1]))
+		rootCertExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp([]byte(certChainPEM[length-1]))
 		if sc.configOptions.SkipValidateCert || err == nil {
 			sc.rootCert = []byte(certChainPEM[length-1])
 			sc.rootCertExpireTime = rootCertExpireTime
@@ -729,6 +731,13 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte, 
 		backOffInMilliSec = rand.Int63n(retry * initialBackOffIntervalInMilliSec)
 		time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
 		cacheLog.Warnf("%s failed with error: %v, retry in %d millisec", requestErrorString, err, backOffInMilliSec)
+
+		// Record retry metrics.
+		if isCSR {
+			numOutgoingRetries.With(RequestType.Value(CSR)).Increment()
+		} else {
+			numOutgoingRetries.With(RequestType.Value(TokenExchange)).Increment()
+		}
 	}
 
 	if isCSR {

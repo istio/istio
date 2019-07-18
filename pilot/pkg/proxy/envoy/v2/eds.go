@@ -213,15 +213,15 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	labels := push.SubsetToLabels(nil, subsetName, hostname)
 
 	push.Mutex.Lock()
-	ports, f := push.ServicePortByHostname[hostname]
+	svc := push.ServiceByHostname[hostname]
 	push.Mutex.Unlock()
-	if !f {
+	if svc == nil {
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
 
 	// Check that there is a matching port
 	// We don't use the port though, as there could be multiple matches
-	svcPort, found := ports.GetByPort(clusterPort)
+	svcPort, found := svc.Ports.GetByPort(clusterPort)
 	if !found {
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
@@ -374,30 +374,6 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 // SvcUpdate is a callback from service discovery when service info changes.
 func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, _ map[uint32]string) {
 	inboundServiceUpdates.Increment()
-	pc := s.globalPushContext()
-	pl := model.PortList{}
-	for k, v := range ports {
-		pl = append(pl, &model.Port{
-			Port: int(v),
-			Name: k,
-		})
-	}
-	if cluster == string(serviceregistry.KubernetesRegistry) {
-		pc.Mutex.Lock()
-		pc.ServicePortByHostname[model.Hostname(hostname)] = pl
-		pc.Mutex.Unlock()
-	} else {
-		pc.Mutex.Lock()
-		ports, ok := pc.ServicePortByHostname[model.Hostname(hostname)]
-		pc.Mutex.Unlock()
-		if ok {
-			if !reflect.DeepEqual(ports, pl) {
-				adsLog.Warnf("service %s within cluster %s does not match the one in primary cluster", hostname, cluster)
-			}
-		} else {
-			adsLog.Debugf("service %s within cluster %s occurs before primary cluster, will only take services within primary cluster", hostname, cluster)
-		}
-	}
 }
 
 // Update clusters for an incremental EDS push, and initiate the push.
@@ -665,13 +641,14 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	labels := push.SubsetToLabels(proxy, subsetName, hostname)
 
 	push.Mutex.Lock()
-	portMap, f := push.ServicePortByHostname[hostname]
+	svc := push.ServiceByHostname[hostname]
 	push.Mutex.Unlock()
-	if !f {
+	if svc == nil {
 		// Shouldn't happen here - but just in case fallback
 		return s.loadAssignmentsForClusterLegacy(push, clusterName)
 	}
-	svcPort, f := portMap.GetByPort(port)
+
+	svcPort, f := svc.Ports.GetByPort(port)
 	if !f {
 		// Shouldn't happen here - but just in case fallback
 		return s.loadAssignmentsForClusterLegacy(push, clusterName)

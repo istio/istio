@@ -17,7 +17,6 @@ package metrics
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
@@ -48,7 +47,7 @@ var (
 func TestIngessToPrometheus_ServiceMetric(t *testing.T) {
 	framework.
 		NewTest(t).
-		// TODO(https://github.com/istio/istio/issues/12750)
+		// TODO(https://github.com/istio/istio/issues/14819)
 		Label(label.Flaky).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -62,8 +61,6 @@ func TestIngessToPrometheus_ServiceMetric(t *testing.T) {
 func TestIngessToPrometheus_IngressMetric(t *testing.T) {
 	framework.
 		NewTest(t).
-		// TODO(https://github.com/istio/istio/issues/12750)
-		Label(label.Flaky).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			label := "destination_service"
@@ -77,20 +74,21 @@ func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValu
 	g.ApplyConfigOrFail(
 		t,
 		bookinfoNs,
-		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+		bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 	)
 	defer g.DeleteConfigOrFail(t,
 		bookinfoNs,
-		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+		bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
 
 	util.AllowRuleSync(t)
 
 	// Warm up
-	err := util.VisitProductPage(ing, 30*time.Second, 200, t)
-	if err != nil {
-		t.Fatalf("unable to retrieve 200 from product page: %v", err)
+	url := fmt.Sprintf("%s/productpage", ing.HTTPAddress())
+	res := util.SendTraffic(ing, t, "Sending traffic", url, "", 10)
+	if res.RetCodes[200] < 1 {
+		t.Fatalf("unable to retrieve 200 from product page: %v", res.RetCodes)
 	}
 
 	label = tmpl.EvaluateOrFail(t, label, map[string]string{"TestNamespace": bookinfoNs.Name()})
@@ -103,9 +101,9 @@ func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValu
 	}
 	t.Logf("Baseline established: initial = %v", initial)
 
-	err = util.VisitProductPage(ing, 30*time.Second, 200, t)
-	if err != nil {
-		t.Fatalf("unable to retrieve 200 from product page: %v", err)
+	res = util.SendTraffic(ing, t, "Sending traffic", url, "", 10)
+	if res.RetCodes[200] < 1 {
+		t.Fatalf("unable to retrieve 200 from product page: %v", res.RetCodes)
 	}
 
 	final, err := prom.WaitForQuiesce(`istio_requests_total{%s=%q,response_code="200"}`, label, labelValue)
@@ -127,8 +125,9 @@ func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValu
 		t.Fatal(err)
 	}
 
-	if (f - i) < float64(1) {
-		t.Errorf("Bad metric value: got %f, want at least 1", f-i)
+	// We shold see 10 requests but giving an error of 1, to make test less flaky.
+	if (f - i) < float64(9) {
+		t.Errorf("Bad metric value: got %f, want at least 9", f-i)
 	}
 }
 
@@ -140,12 +139,12 @@ func TestStateMetrics(t *testing.T) {
 			g.ApplyConfigOrFail(
 				t,
 				bookinfoNs,
-				bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 				bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 			)
 			defer g.DeleteConfigOrFail(t,
 				bookinfoNs,
-				bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 				bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 			)
 
@@ -166,8 +165,6 @@ func TestStateMetrics(t *testing.T) {
 func TestTcpMetric(t *testing.T) {
 	framework.
 		NewTest(t).
-		// TODO(https://github.com/istio/istio/issues/12750)
-		Label(label.Flaky).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			_ = bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoRatingsv2})
@@ -176,20 +173,22 @@ func TestTcpMetric(t *testing.T) {
 			g.ApplyConfigOrFail(
 				t,
 				bookinfoNs,
-				bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 				bookinfo.NetworkingTCPDbRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 			)
-			defer g.DeleteConfigOrFail(t,
+			defer g.DeleteConfigOrFail(
+				t,
 				bookinfoNs,
-				bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 				bookinfo.NetworkingTCPDbRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 			)
 
 			util.AllowRuleSync(t)
 
-			err := util.VisitProductPage(ing, 30*time.Second, 200, t)
-			if err != nil {
-				t.Fatalf("unable to retrieve 200 from product page: %v", err)
+			url := fmt.Sprintf("%s/productpage", ing.HTTPAddress())
+			res := util.SendTraffic(ing, t, "Sending traffic", url, "", 10)
+			if res.RetCodes[200] < 1 {
+				t.Fatalf("unable to retrieve 200 from product page: %v", res.RetCodes)
 			}
 
 			query := fmt.Sprintf("sum(istio_tcp_sent_bytes_total{destination_app=\"%s\"})", "mongodb")

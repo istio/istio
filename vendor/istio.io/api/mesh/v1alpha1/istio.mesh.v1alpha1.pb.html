@@ -4,7 +4,7 @@ description: Configuration affecting the service mesh as a whole.
 location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 22
+number_of_entries: 25
 ---
 <p>Configuration affecting the service mesh as a whole.</p>
 
@@ -80,6 +80,61 @@ Use fs:/// to specify a file-based backend with absolute path to the directory.<
 <p>Use the tls_settings to specify the tls mode to use. If the MCP server
 uses Istio mutual TLS and shares the root CA with Pilot, specify the TLS
 mode as <code>ISTIO_MUTUAL</code>.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Feature">Feature</h2>
+<section>
+<p>Feature specify to enable or disable a specific feature.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Feature-feature">
+<td><code>feature</code></td>
+<td><code><a href="#FeatureName">FeatureName</a></code></td>
+<td>
+<p>Feature is the name of the feature.</p>
+
+</td>
+</tr>
+<tr id="Feature-enable">
+<td><code>enable</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Specify true to enable the feature or false to disable the feature.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="FeatureName">FeatureName</h2>
+<section>
+<p>FeatureName describes the features which are currently supported.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="FeatureName-LOCALITY_AWARE_ROUTING">
+<td><code>LOCALITY_AWARE_ROUTING</code></td>
+<td>
+<p>The locality aware routing feature.
+It is enabled by default in release 1.13.</p>
 
 </td>
 </tr>
@@ -616,6 +671,14 @@ defaults of istio::mixerclient::ReportOptions.</p>
 if sidecar is installed on all pods in the mesh, then this should be set to UPGRADE.
 If one or more services or namespaces do not have sidecar(s), then this should be set to DO<em>NOT</em>UPGRADE.
 It can be enabled by destination using the destinationRule.trafficPolicy.connectionPool.http.h2UpgradePolicy override.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-features">
+<td><code>features</code></td>
+<td><code><a href="#Feature">Feature[]</a></code></td>
+<td>
+<p>Optional: Features is used to enable/disable specific features.</p>
 
 </td>
 </tr>
@@ -1269,6 +1332,14 @@ For pilot/mixer, it&rsquo;s passed as arguments to istio-proxy container in pilo
 
 </td>
 </tr>
+<tr id="Tracing-stackdriver" class="oneof">
+<td><code>stackdriver</code></td>
+<td><code><a href="#Tracing-Stackdriver">Tracing.Stackdriver (oneof)</a></code></td>
+<td>
+<p>Use a Stackdriver tracer.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -1341,6 +1412,23 @@ For pilot/mixer, it&rsquo;s passed as arguments to istio-proxy container in pilo
 
 </td>
 </tr>
+</tbody>
+</table>
+</section>
+<h2 id="Tracing-Stackdriver">Tracing.Stackdriver</h2>
+<section>
+<p>Stackdriver defines configuration for a Stackdriver tracer.
+See <a href="https://github.com/census-instrumentation/opencensus-proto/blob/master/src/opencensus/proto/trace/v1/trace_config.proto">Opencensus trace config</a> for details.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
 </tbody>
 </table>
 </section>

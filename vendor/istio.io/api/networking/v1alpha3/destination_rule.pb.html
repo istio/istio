@@ -1045,13 +1045,8 @@ to fields omitted in port-level traffic policies.</p>
 <td><code>port</code></td>
 <td><code><a href="https://istio.io/docs/reference/config/networking/v1alpha3/virtual-service.html#PortSelector">PortSelector</a></code></td>
 <td>
-<p>Specifies the port name or number of a port on the destination service
+<p>Specifies the number of a port on the destination service
 on which this policy is being applied.</p>
-
-<p>Names must comply with DNS label syntax (rfc1035) and therefore cannot
-collide with numbers. If there are multiple ports on a service with
-the same protocol the names should be of the form &lt;protocol-name&gt;-&lt;DNS
-label&gt;.</p>
 
 </td>
 </tr>

@@ -40,7 +40,8 @@ import (
 	"istio.io/istio/pkg/proto"
 )
 
-func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node *model.Proxy, push *model.PushContext) ([]*xdsapi.Listener, error) {
+func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
+	builder := NewListenerBuilder(node)
 	// collect workload labels
 	workloadInstances := node.ServiceInstances
 
@@ -52,7 +53,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 	gatewaysForWorkload := env.Gateways(workloadLabels)
 	if len(gatewaysForWorkload) == 0 {
 		log.Debuga("buildGatewayListeners: no gateways for router ", node.ID)
-		return []*xdsapi.Listener{}, nil
+		return builder
 	}
 
 	mergedGateway := model.MergeGateways(gatewaysForWorkload...)
@@ -134,13 +135,13 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		}
 
 		pluginParams := &plugin.InputParams{
-			ListenerProtocol: listenerProtocol,
-			ListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_GATEWAY,
-			Env:              env,
-			Node:             node,
-			ProxyInstances:   workloadInstances,
-			Push:             push,
-			ServiceInstance:  si,
+			ListenerProtocol:           listenerProtocol,
+			DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_GATEWAY,
+			Env:                        env,
+			Node:                       node,
+			ProxyInstances:             workloadInstances,
+			Push:                       push,
+			ServiceInstance:            si,
 			Port: &model.Port{
 				Name:     servers[0].Port.Name,
 				Port:     int(portNumber),
@@ -179,7 +180,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 
 	if len(listeners) == 0 {
 		log.Error("buildGatewayListeners: Have zero listeners")
-		return []*xdsapi.Listener{}, nil
+		return builder
 	}
 
 	validatedListeners := make([]*xdsapi.Listener, 0, len(mergedGateway.Servers))
@@ -191,7 +192,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		validatedListeners = append(validatedListeners, l)
 	}
 
-	return validatedListeners, nil
+	builder.gatewayListeners = validatedListeners
+	return builder
 }
 
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
@@ -217,12 +219,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	// make sure that there is some server listening on this port
 	if _, ok := merged.ServersByRouteName[routeName]; !ok {
 		log.Warnf("Gateway missing for route %s. This is normal if gateway was recently deleted. Have %v", routeName, merged.ServersByRouteName)
-
-		// If the flag is set, send Envoy an error, blocking all routes from being sent. This flag
-		// is intended only to support legacy behavior and should be removed in the future.
-		if features.DisablePartialRouteResponse.Get() {
-			return nil, fmt.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.ServersByRouteName)
-		}
 
 		// This can happen when a gateway has recently been deleted. Envoy will still request route
 		// information due to the draining of listeners, so we should not return an error.
@@ -306,21 +302,26 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	util.SortVirtualHosts(virtualHosts)
 
 	routeCfg := &xdsapi.RouteConfiguration{
+		// Retain the routeName as its used by EnvoyFilter patching logic
 		Name:             routeName,
 		VirtualHosts:     virtualHosts,
 		ValidateClusters: proto.BoolFalse,
 	}
+
+	in := &plugin.InputParams{
+		ListenerProtocol: plugin.ListenerProtocolHTTP,
+		ListenerCategory: networking.EnvoyFilter_GATEWAY,
+		Env:              env,
+		Node:             node,
+		Push:             push,
+	}
+
 	// call plugins
 	for _, p := range configgen.Plugins {
-		in := &plugin.InputParams{
-			ListenerProtocol: plugin.ListenerProtocolHTTP,
-			Env:              env,
-			Node:             node,
-			Push:             push,
-		}
 		p.OnOutboundRouteConfiguration(in, routeCfg)
 	}
 
+	routeCfg = applyRouteConfigurationPatches(in, routeCfg)
 	return routeCfg, nil
 }
 

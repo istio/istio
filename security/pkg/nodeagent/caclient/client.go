@@ -26,18 +26,19 @@ import (
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
 	vault "istio.io/istio/security/pkg/nodeagent/caclient/providers/vault"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
 const (
-	googleCAName = "GoogleCA"
-	citadelName  = "Citadel"
-	vaultCAName  = "VaultCA"
-	ns           = "istio-system"
-
+	googleCAName  = "GoogleCA"
+	citadelName   = "Citadel"
+	vaultCAName   = "VaultCA"
 	retryInterval = time.Second * 2
 	maxRetries    = 100
 )
+
+var namespace = env.RegisterStringVar("NAMESPACE", "istio-system", "namespace that nodeagent/citadel run in").Get()
 
 type configMap interface {
 	GetCATLSRootCert() (string, error)
@@ -56,7 +57,7 @@ func NewCAClient(endpoint, caProviderName string, tlsFlag bool, tlsRootCert []by
 		if err != nil {
 			return nil, fmt.Errorf("could not create k8s clientset: %v", err)
 		}
-		controller := configmap.NewController(ns, cs.CoreV1())
+		controller := configmap.NewController(namespace, cs.CoreV1())
 		rootCert, err := getCATLSRootCertFromConfigMap(controller, retryInterval, maxRetries)
 		if err != nil {
 			return nil, err

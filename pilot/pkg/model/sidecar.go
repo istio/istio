@@ -81,6 +81,11 @@ type SidecarScope struct {
 	// sidecarScope object. Contains the outbound clusters only, indexed
 	// by localities
 	CDSOutboundClusters map[string][]*xdsapi.Cluster
+
+	// OutboundTrafficPolicy defines the outbound traffic policy for this sidecar.
+	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
+	// be forwarded.
+	OutboundTrafficPolicy *networking.OutboundTrafficPolicy
 }
 
 // IstioEgressListenerWrapper is a wrapper for
@@ -153,6 +158,12 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
 	}
 
+	if ps.Env.Mesh.OutboundTrafficPolicy != nil {
+		out.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
+			Mode: networking.OutboundTrafficPolicy_Mode(ps.Env.Mesh.OutboundTrafficPolicy.Mode),
+		}
+	}
+
 	return out
 }
 
@@ -195,6 +206,16 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	out.destinationRules = make(map[Hostname]*Config)
 	for _, s := range out.services {
 		out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
+	}
+
+	if r.OutboundTrafficPolicy == nil {
+		if ps.Env.Mesh.OutboundTrafficPolicy != nil {
+			out.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_Mode(ps.Env.Mesh.OutboundTrafficPolicy.Mode),
+			}
+		}
+	} else {
+		out.OutboundTrafficPolicy = r.OutboundTrafficPolicy
 	}
 
 	out.Config = sidecarConfig

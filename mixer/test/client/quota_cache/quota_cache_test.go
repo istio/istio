@@ -39,17 +39,6 @@ var expectedStats = map[string]int{
 	"http_mixer_filter.total_quota_cache_misses":      1,
 	"http_mixer_filter.total_quota_cache_hit_accepts": 9,
 	"http_mixer_filter.total_quota_cache_hit_denies":  10,
-	// remote_quota_calls = quota_cache_misses + quota_prefetch_calls
-	"http_mixer_filter.total_remote_quota_calls":          2,
-	"http_mixer_filter.total_remote_quota_accepts":        2,
-	"http_mixer_filter.total_remote_quota_denies":         0,
-	"http_mixer_filter.total_remote_quota_prefetch_calls": 1,
-	// Stats for RPCs to mixer policy server
-	"http_mixer_filter.total_remote_calls":             2,
-	"http_mixer_filter.total_remote_call_successes":    2,
-	"http_mixer_filter.total_remote_call_timeouts":     0,
-	"http_mixer_filter.total_remote_call_send_errors":  0,
-	"http_mixer_filter.total_remote_call_other_errors": 0,
 	// Report stats
 	"http_mixer_filter.total_remote_report_calls": 1,
 	"http_mixer_filter.total_report_calls":        20,
@@ -114,8 +103,10 @@ func TestQuotaCache(t *testing.T) {
 	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
 		// Because prefetch code may have some margin, actual number of check and quota calls are not
 		// determined.
+		s.VerifyStatsLT(respStats, "http_mixer_filter.total_remote_calls", 5)
 		s.VerifyStatsLT(respStats, "http_mixer_filter.total_remote_check_calls", 5)
 		s.VerifyStatsLT(respStats, "http_mixer_filter.total_remote_quota_calls", 5)
+		s.VerifyStatsLT(respStats, "http_mixer_filter.total_remote_quota_prefetch_calls", 5)
 		s.VerifyStatsLT(respStats, "http_mixer_filter.total_remote_report_calls", 5)
 	} else {
 		t.Errorf("Failed to get stats from Envoy %v", err)

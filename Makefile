@@ -288,9 +288,12 @@ ${ISTIO_ENVOY_MACOS_RELEASE_PATH}: init
 depend: init | $(ISTIO_OUT)
 
 OUTPUT_DIRS = $(ISTIO_OUT) $(ISTIO_BIN)
+DIRS_TO_CLEAN+=${ISTIO_OUT}
 ifneq ($(ISTIO_OUT),$(ISTIO_OUT_LINUX))
   OUTPUT_DIRS += $(ISTIO_OUT_LINUX)
+  DIRS_TO_CLEAN += $(ISTIO_OUT_LINUX)
 endif
+
 $(OUTPUT_DIRS):
 	@mkdir -p $@
 
@@ -360,7 +363,8 @@ $(ISTIO_OUT)/$(1):
 	STATIC=0 GOOS=$(GOOS) GOARCH=amd64 LDFLAGS=$(3) bin/gobuild.sh $(ISTIO_OUT)/$(1) $(2)
 
 .PHONY: $(1)
-$(1): $(ISTIO_OUT)/$(1)
+$(1):
+	STATIC=0 GOOS=$(GOOS) GOARCH=amd64 LDFLAGS=$(3) bin/gobuild.sh $(ISTIO_OUT)/$(1) $(2)
 
 ifneq ($(ISTIO_OUT),$(ISTIO_OUT_LINUX))
 $(ISTIO_OUT_LINUX)/$(1):
@@ -369,15 +373,11 @@ endif
 
 endef
 
-# Build targets for Pilot
-PILOT_GO_BINS:=pilot-discovery pilot-agent sidecar-injector
-$(foreach ITEM,$(PILOT_GO_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./pilot/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
-
-# Builds targets for istioctl
+# Build targets for istioctl
 ISTIOCTL_BINS:=istioctl
 $(foreach ITEM,$(ISTIOCTL_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./istioctl/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
 
-# Non-static istioctls. These are typically a build artifact.
+# Non-static istioctl targets. These are typically a build artifact.
 ${ISTIO_OUT}/istioctl-linux: depend
 	STATIC=0 GOOS=linux LDFLAGS=$(RELEASE_LDFLAGS) bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/istioctl-osx: depend
@@ -394,27 +394,35 @@ ${ISTIO_OUT}/_istioctl: istioctl
 	${ISTIO_OUT}/istioctl collateral --zsh && \
 	mv _istioctl ${ISTIO_OUT}/_istioctl
 
-# Build targets for Mixer
-MIXER_GO_BINS:=mixs mixc
-$(foreach ITEM,$(MIXER_GO_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./mixer/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
+# Build targets for apps under ./pilot/cmd
+PILOT_BINS:=pilot-discovery pilot-agent sidecar-injector
+$(foreach ITEM,$(PILOT_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./pilot/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
 
-# Build targets for Mixgen
-MIXGEN_GO_BINS:=mixgen
-$(foreach ITEM,$(MIXGEN_GO_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./mixer/tools/$(ITEM),$(RELEASE_LDFLAGS))))
+# Build targets for apps under ./mixer/cmd
+MIXER_BINS:=mixs mixc
+$(foreach ITEM,$(MIXER_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./mixer/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
 
-# Build targets for Galley
-GALLEY_GO_BINS:=galley
-$(foreach ITEM,$(GALLEY_GO_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./galley/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
+# Build targets for apps under ./mixer/tools
+MIXER_TOOLS_BINS:=mixgen
+$(foreach ITEM,$(MIXER_TOOLS_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./mixer/tools/$(ITEM),$(RELEASE_LDFLAGS))))
 
-# Build targets for security
-SECURITY_GO_BINS:=node_agent node_agent_k8s istio_ca
-$(foreach ITEM,$(SECURITY_GO_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./security/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
+# Build targets for apps under ./galley/cmd
+GALLEY_BINS:=galley
+$(foreach ITEM,$(GALLEY_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./galley/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
 
-# Build targets for security tools
-SECURITY_TOOLS_GO_BINS:=sdsclient
-$(foreach ITEM,$(SECURITY_TOOLS_GO_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./security/tools/$(ITEM),$(RELEASE_LDFLAGS))))
+# Build targets for apps under ./security/cmd
+SECURITY_BINS:=node_agent node_agent_k8s istio_ca
+$(foreach ITEM,$(SECURITY_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./security/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
 
-BUILD_BINS:=$(PILOT_GO_BINS) mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
+# Build targets for apps under ./security/tools
+SECURITY_TOOLS_BINS:=sdsclient
+$(foreach ITEM,$(SECURITY_TOOLS_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./security/tools/$(ITEM),$(RELEASE_LDFLAGS))))
+
+# Build targets for apps under ./tools
+ISTIO_TOOLS_BINS:=hyperistio istio-iptables
+$(foreach ITEM,$(ISTIO_TOOLS_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./tools/$(ITEM),$(DEBUG_LDFLAGS))))
+
+BUILD_BINS:=$(PILOT_BINS) mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
 LINUX_BUILD_BINS:=$(foreach buildBin,$(BUILD_BINS),$(ISTIO_OUT_LINUX)/$(buildBin))
 
 .PHONY: build
@@ -427,7 +435,7 @@ build-linux: depend $(LINUX_BUILD_BINS)
 .PHONY: version-test
 # Do not run istioctl since is different (connects to kubernetes)
 version-test:
-	go test ./tests/version/... -v --base-dir ${ISTIO_OUT} --binaries="$(PILOT_GO_BINS) mixc mixs mixgen node_agent node_agent_k8s istio_ca galley sdsclient"
+	go test ./tests/version/... -v --base-dir ${ISTIO_OUT} --binaries="$(PILOT_BINS) mixc mixs mixgen node_agent node_agent_k8s istio_ca galley sdsclient"
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -440,10 +448,6 @@ citadel: istio_ca
 
 .PHONY: pilot
 pilot: pilot-discovery
-
-.PHONY: istio-iptables
-istio-iptables:
-	bin/gobuild.sh ${ISTIO_OUT}/$@ ./tools/istio-iptables
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
@@ -513,9 +517,6 @@ $(foreach ITEM,$(TEST_APP_BINS),$(eval $(call genTargetsForNativeAndDocker,pkg-t
 
 MIXER_TEST_BINS:=policybackend
 $(foreach ITEM,$(MIXER_TEST_BINS),$(eval $(call genTargetsForNativeAndDocker,mixer-test-$(ITEM),./mixer/test/$(ITEM),$(DEBUG_LDFLAGS))))
-
-ISTIO_TOOLS_BINS:=hyperistio
-$(foreach ITEM,$(ISTIO_TOOLS_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./tools/$(ITEM),$(DEBUG_LDFLAGS))))
 
 TEST_BINS:=$(foreach ITEM,$(TEST_APP_BINS),$(ISTIO_OUT)/pkg-test-echo-cmd-$(ITEM)) $(foreach ITEM,$(MIXER_TEST_BINS),$(ISTIO_OUT)/mixer-test-$(ITEM))
 LINUX_TEST_BINS:=$(foreach ITEM,$(TEST_APP_BINS),$(ISTIO_OUT_LINUX)/pkg-test-echo-cmd-$(ITEM)) $(foreach ITEM,$(MIXER_TEST_BINS),$(ISTIO_OUT_LINUX)/mixer-test-$(ITEM))
@@ -644,8 +645,6 @@ common-racetest:
 # Target: clean
 #-----------------------------------------------------------------------------
 .PHONY: clean clean.go
-
-DIRS_TO_CLEAN+=${ISTIO_OUT}
 
 clean: clean.go
 	rm -rf $(DIRS_TO_CLEAN)
