@@ -894,7 +894,7 @@ func verifySecret(gotSecret *model.SecretItem, expectedSecret *model.SecretItem)
 	return nil
 }
 
-func notifyCb(_ string, _ string, _ *model.SecretItem) error {
+func notifyCb(_ ConnKey, _ *model.SecretItem) error {
 	return nil
 }
 
