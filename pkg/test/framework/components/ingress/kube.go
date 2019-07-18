@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	v1 "k8s.io/api/core/v1"
 	"net"
 	"net/http"
 	"time"
@@ -30,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+	v1 "k8s.io/api/core/v1"
 )
 
 const (
