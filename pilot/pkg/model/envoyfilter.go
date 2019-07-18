@@ -29,8 +29,10 @@ import (
 
 // EnvoyFilterWrapper is a wrapper for the EnvoyFilter api object with pre-processed data
 type EnvoyFilterWrapper struct {
-	workloadSelector Labels
-	ConfigPatches    []*EnvoyFilterConfigPatchWrapper
+	workloadSelector          Labels
+	ListenerPatches           []*EnvoyFilterConfigPatchWrapper
+	ClusterPatches            []*EnvoyFilterConfigPatchWrapper
+	RouteConfigurationPatches []*EnvoyFilterConfigPatchWrapper
 }
 
 // EnvoyFilterConfigPatchWrapper is a wrapper over the EnvoyFilter ConfigPatch api object
@@ -50,7 +52,9 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 	if localEnvoyFilter.WorkloadSelector != nil {
 		out.workloadSelector = Labels(localEnvoyFilter.WorkloadSelector.Labels)
 	}
-	out.ConfigPatches = make([]*EnvoyFilterConfigPatchWrapper, 0, len(localEnvoyFilter.ConfigPatches))
+	out.ListenerPatches = make([]*EnvoyFilterConfigPatchWrapper, 0, len(localEnvoyFilter.ConfigPatches))
+	out.ClusterPatches = make([]*EnvoyFilterConfigPatchWrapper, 0, len(localEnvoyFilter.ConfigPatches))
+	out.RouteConfigurationPatches = make([]*EnvoyFilterConfigPatchWrapper, 0, len(localEnvoyFilter.ConfigPatches))
 	for _, cp := range localEnvoyFilter.ConfigPatches {
 		cpw := &EnvoyFilterConfigPatchWrapper{
 			ApplyTo:   cp.ApplyTo,
@@ -59,7 +63,14 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 		}
 		// there wont be an error here because validation catches mismatched types
 		cpw.Value, _ = buildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value)
-		out.ConfigPatches = append(out.ConfigPatches, cpw)
+		switch cp.ApplyTo {
+		case networking.EnvoyFilter_CLUSTER:
+			out.ClusterPatches = append(out.ClusterPatches, cpw)
+		case networking.EnvoyFilter_ROUTE_CONFIGURATION, networking.EnvoyFilter_VIRTUAL_HOST:
+			out.RouteConfigurationPatches = append(out.RouteConfigurationPatches, cpw)
+		default:
+			out.ListenerPatches = append(out.ListenerPatches, cpw)
+		}
 	}
 	return out
 }

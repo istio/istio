@@ -685,6 +685,10 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 					errs = appendErrors(errs, fmt.Errorf("envoy filter: applyTo for http route class objects cannot have non route configuration match"))
 				}
 			}
+			// only merge is allowed on route configuration
+			if cp.ApplyTo == networking.EnvoyFilter_ROUTE_CONFIGURATION && cp.Patch.Operation != networking.EnvoyFilter_Patch_MERGE {
+				errs = appendErrors(errs, fmt.Errorf("envoy filter: only merge operation is allowed for route configuration"))
+			}
 
 		case networking.EnvoyFilter_CLUSTER:
 			if cp.Match != nil && cp.Match.ObjectTypes != nil {

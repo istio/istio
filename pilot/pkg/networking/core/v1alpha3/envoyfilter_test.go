@@ -214,7 +214,7 @@ func TestApplyClusterPatches(t *testing.T) {
 	}
 }
 
-func TestListenerMatch(t *testing.T) {
+func TestDeprecatedListenerMatch(t *testing.T) {
 	inputParams := &plugin.InputParams{
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
 		Node: &model.Proxy{
