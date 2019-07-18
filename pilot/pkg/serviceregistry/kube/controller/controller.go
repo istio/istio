@@ -33,11 +33,12 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config"
+	configKube "istio.io/istio/pkg/config/kube"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -125,9 +126,9 @@ type Controller struct {
 
 	sync.RWMutex
 	// servicesMap stores hostname ==> service, it is used to reduce convertService calls.
-	servicesMap map[model.Hostname]*model.Service
+	servicesMap map[config.Hostname]*model.Service
 	// externalNameSvcInstanceMap stores hostname ==> instance, is used to store instances for ExternalName k8s services
-	externalNameSvcInstanceMap map[model.Hostname][]*model.ServiceInstance
+	externalNameSvcInstanceMap map[config.Hostname][]*model.ServiceInstance
 
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
@@ -154,8 +155,8 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 		queue:                      kube.NewQueue(1 * time.Second),
 		ClusterID:                  options.ClusterID,
 		XDSUpdater:                 options.XDSUpdater,
-		servicesMap:                make(map[model.Hostname]*model.Service),
-		externalNameSvcInstanceMap: make(map[model.Hostname][]*model.ServiceInstance),
+		servicesMap:                make(map[config.Hostname]*model.Service),
+		externalNameSvcInstanceMap: make(map[config.Hostname][]*model.ServiceInstance),
 	}
 
 	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
@@ -305,7 +306,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 }
 
 // GetService implements a service catalog operation by hostname specified.
-func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
+func (c *Controller) GetService(hostname config.Hostname) (*model.Service, error) {
 	c.RLock()
 	defer c.RUnlock()
 	return c.servicesMap[hostname], nil
@@ -407,9 +408,9 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 }
 
 // InstancesByPort implements a service catalog operation
-func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
-	labelsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	name, namespace, err := kube.ParseHostname(hostname)
+func (c *Controller) InstancesByPort(hostname config.Hostname, reqSvcPort int,
+	labelsList config.LabelsCollection) ([]*model.ServiceInstance, error) {
+	name, namespace, err := configKube.ParseHostname(hostname)
 	if err != nil {
 		log.Infof("ParseHostname(%s) => error %v", hostname, err)
 		return nil, err
@@ -620,13 +621,13 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 	return out
 }
 
-func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCollection, error) {
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (config.LabelsCollection, error) {
 	// There is only one IP for kube registry
 	proxyIP := proxy.IPAddresses[0]
 
 	pod := c.pods.getPodByIP(proxyIP)
 	if pod != nil {
-		return model.LabelsCollection{pod.Labels}, nil
+		return config.LabelsCollection{pod.Labels}, nil
 	}
 	return nil, nil
 }
@@ -657,7 +658,7 @@ func (c *Controller) getEndpoints(ip string, endpointPort int32, svcPort *model.
 // hostname. Each service account is encoded according to the SPIFFE VSID spec.
 // For example, a service account named "bar" in namespace "foo" is encoded as
 // "spiffe://cluster.local/ns/foo/sa/bar".
-func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
+func (c *Controller) GetIstioServiceAccounts(hostname config.Hostname, ports []int) []string {
 	saSet := make(map[string]bool)
 
 	// Get the service accounts running the service, if it is deployed on VMs. This is retrieved
@@ -676,7 +677,7 @@ func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []in
 	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
 	// the service is deployed on, and the service accounts of the pods.
 	for _, port := range ports {
-		svcinstances, err := c.InstancesByPort(hostname, port, model.LabelsCollection{})
+		svcinstances, err := c.InstancesByPort(hostname, port, config.LabelsCollection{})
 		if err != nil {
 			log.Warnf("InstancesByPort(%s:%d) error: %v", hostname, port, err)
 			return nil
@@ -790,7 +791,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	hostname := kube.ServiceHostname(ep.Name, ep.Namespace, c.domainSuffix)
 
-	endpoints := []*model.IstioEndpoint{}
+	endpoints := make([]*model.IstioEndpoint, 0)
 	if event != model.EventDelete {
 		for _, ss := range ep.Subsets {
 			for _, ea := range ss.Addresses {
@@ -804,7 +805,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 					continue
 				}
 
-				labels := map[string]string(kube.ConvertLabels(pod.ObjectMeta))
+				labels := map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
 
 				uid := fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 
@@ -864,14 +865,14 @@ func (c *Controller) InitNetworkLookup(meshNetworks *meshconfig.MeshNetworks) {
 	for n, v := range meshNetworks.Networks {
 		for _, ep := range v.Endpoints {
 			if ep.GetFromCidr() != "" {
-				_, net, err := net.ParseCIDR(ep.GetFromCidr())
+				_, network, err := net.ParseCIDR(ep.GetFromCidr())
 				if err != nil {
 					log.Warnf("unable to parse CIDR %q for network %s", ep.GetFromCidr(), n)
 					continue
 				}
 				rangerEntry := namedRangerEntry{
 					name:    n,
-					network: *net,
+					network: *network,
 				}
 				_ = c.ranger.Insert(rangerEntry)
 			}

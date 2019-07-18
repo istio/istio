@@ -23,6 +23,7 @@ import (
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 )
 
 func TestNewServiceMetadata(t *testing.T) {
@@ -43,9 +44,9 @@ func TestNewServiceMetadata(t *testing.T) {
 			namespace: "test-ns",
 			serviceInstance: &model.ServiceInstance{
 				Service: &model.Service{
-					Hostname: model.Hostname("svc-name.test-ns"),
+					Hostname: config.Hostname("svc-name.test-ns"),
 				},
-				Labels:         model.Labels{"version": "v1"},
+				Labels:         config.Labels{"version": "v1"},
 				ServiceAccount: "spiffe://xyz.com/sa/service-account/ns/test-ns",
 			},
 			want: ServiceMetadata{
@@ -65,14 +66,17 @@ func TestNewServiceMetadata(t *testing.T) {
 
 		if tc.wantError != "" {
 			if err == nil || !strings.Contains(err.Error(), tc.wantError) {
-				t.Errorf("got error %q but want %q", err, tc.wantError)
+				t.Fatalf("got error %q but want %q", err, tc.wantError)
 			}
 		} else {
+			if err != nil {
+				t.Fatalf("unexpected error %q", err)
+			}
 			if !reflect.DeepEqual(*got, tc.want) {
-				t.Errorf("got %v but want %v", *got, tc.want)
+				t.Fatalf("got %v but want %v", *got, tc.want)
 			}
 			if got.GetNamespace() != tc.namespace {
-				t.Errorf("got namespace %s but want %s", got.GetNamespace(), tc.namespace)
+				t.Fatalf("got namespace %s but want %s", got.GetNamespace(), tc.namespace)
 			}
 		}
 	}
@@ -120,7 +124,7 @@ func TestModel_Generate(t *testing.T) {
 	serviceFoo := "foo.default.svc.cluster.local"
 	serviceInstance := &model.ServiceInstance{
 		Service: &model.Service{
-			Hostname: model.Hostname(serviceFoo),
+			Hostname: config.Hostname(serviceFoo),
 		},
 	}
 	serviceMetadata, _ := NewServiceMetadata("foo", "default", serviceInstance)

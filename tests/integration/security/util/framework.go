@@ -15,7 +15,7 @@
 package util
 
 import (
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -32,15 +32,15 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 		Ports: []echo.Port{
 			{
 				Name:     "http",
-				Protocol: model.ProtocolHTTP,
+				Protocol: config.ProtocolHTTP,
 			},
 			{
 				Name:     "tcp",
-				Protocol: model.ProtocolTCP,
+				Protocol: config.ProtocolTCP,
 			},
 			{
 				Name:     "grpc",
-				Protocol: model.ProtocolGRPC,
+				Protocol: config.ProtocolGRPC,
 			},
 		},
 		Galley: g,

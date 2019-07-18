@@ -19,7 +19,7 @@ import (
 	"strconv"
 	"strings"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/docker"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/reserveport"
@@ -54,9 +54,9 @@ func newPortMap(portMgr reserveport.PortManager, cfg echo.Config) (*portMap, err
 		})
 
 		switch p.Protocol {
-		case model.ProtocolHTTP:
+		case config.ProtocolHTTP:
 			hasHTTP = true
-		case model.ProtocolGRPC, model.ProtocolGRPCWeb:
+		case config.ProtocolGRPC, config.ProtocolGRPCWeb:
 			hasGRPC = true
 		}
 	}
@@ -108,7 +108,7 @@ func (m *portMap) toDocker() docker.PortMap {
 
 func (m *portMap) http() port {
 	for _, port := range m.ports {
-		if port.containerPort.Protocol == model.ProtocolHTTP {
+		if port.containerPort.Protocol == config.ProtocolHTTP {
 			return port
 		}
 	}
@@ -118,7 +118,7 @@ func (m *portMap) http() port {
 func (m *portMap) grpc() port {
 	for _, port := range m.ports {
 		switch port.containerPort.Protocol {
-		case model.ProtocolGRPC, model.ProtocolGRPCWeb:
+		case config.ProtocolGRPC, config.ProtocolGRPCWeb:
 			return port
 		}
 	}

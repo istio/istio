@@ -22,6 +22,7 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 )
 
 var (
@@ -191,7 +192,7 @@ func TestCreateSidecarScope(t *testing.T) {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			var found bool
 			ps := NewPushContext()
-			meshConfig := DefaultMeshConfig()
+			meshConfig := config.DefaultMeshConfig()
 			ps.Env = &Environment{
 				Mesh: &meshConfig,
 			}
@@ -221,7 +222,7 @@ func TestCreateSidecarScope(t *testing.T) {
 						for _, listeners := range sidecarScope.EgressListeners {
 							if sidecarScopeHosts, ok := listeners.listenerHosts[parts[0]]; ok {
 								for _, sidecarScopeHost := range sidecarScopeHosts {
-									if sidecarScopeHost == Hostname(parts[1]) &&
+									if sidecarScopeHost == config.Hostname(parts[1]) &&
 										listeners.IstioListener.Port == egress.Port {
 										found = true
 										break
@@ -301,7 +302,7 @@ func TestSidecarOutboundTrafficPolicy(t *testing.T) {
 		},
 	}
 
-	meshConfigWithRegistryOnly, err := ApplyMeshConfigDefaults(`
+	meshConfigWithRegistryOnly, err := config.ApplyMeshConfigDefaults(`
 outboundTrafficPolicy: 
   mode: REGISTRY_ONLY
 `)
@@ -317,7 +318,7 @@ outboundTrafficPolicy:
 	}{
 		{
 			name:       "default MeshConfig, no Sidecar",
-			meshConfig: DefaultMeshConfig(),
+			meshConfig: config.DefaultMeshConfig(),
 			sidecar:    nil,
 			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
@@ -325,7 +326,7 @@ outboundTrafficPolicy:
 		},
 		{
 			name:       "default MeshConfig, sidecar without OutboundTrafficPolicy",
-			meshConfig: DefaultMeshConfig(),
+			meshConfig: config.DefaultMeshConfig(),
 			sidecar:    configWithoutOutboundTrafficPolicy,
 			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
@@ -333,7 +334,7 @@ outboundTrafficPolicy:
 		},
 		{
 			name:       "default MeshConfig, Sidecar with registry only",
-			meshConfig: DefaultMeshConfig(),
+			meshConfig: config.DefaultMeshConfig(),
 			sidecar:    configRegistryOnly,
 			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
@@ -341,7 +342,7 @@ outboundTrafficPolicy:
 		},
 		{
 			name:       "default MeshConfig, Sidecar with allow any",
-			meshConfig: DefaultMeshConfig(),
+			meshConfig: config.DefaultMeshConfig(),
 			sidecar:    configAllowAny,
 			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,

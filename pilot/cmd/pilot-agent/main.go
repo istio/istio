@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -172,7 +173,7 @@ var (
 			// dedupe cert paths so we don't set up 2 watchers for the same file:
 			tlsCertsToWatch = dedupeStrings(tlsCertsToWatch)
 
-			proxyConfig := model.DefaultProxyConfig()
+			proxyConfig := config.DefaultProxyConfig()
 
 			// set all flags
 			proxyConfig.CustomConfigFile = customConfigFile
@@ -213,7 +214,7 @@ var (
 						// only support the default config, or env variable
 						ns = istioNamespaceVar.Get()
 						if ns == "" {
-							ns = model.IstioSystemNamespace
+							ns = config.IstioSystemNamespace
 						}
 					}
 				}
@@ -268,11 +269,11 @@ var (
 				}
 			}
 
-			if err := model.ValidateProxyConfig(&proxyConfig); err != nil {
+			if err := config.ValidateProxyConfig(&proxyConfig); err != nil {
 				return err
 			}
 
-			if out, err := model.ToYAML(&proxyConfig); err != nil {
+			if out, err := config.ToYAML(&proxyConfig); err != nil {
 				log.Infof("Failed to serialize to YAML: %v", err)
 			} else {
 				log.Infof("Effective config: %s", out)
@@ -497,7 +498,7 @@ func init() {
 		"Ports exposed by the application. Used to determine that Envoy is configured and ready to receive traffic.")
 
 	// Flags for proxy configuration
-	values := model.DefaultProxyConfig()
+	values := config.DefaultProxyConfig()
 	proxyCmd.PersistentFlags().StringVar(&configPath, "configPath", values.ConfigPath,
 		"Path to the generated configuration file directory")
 	proxyCmd.PersistentFlags().StringVar(&binaryPath, "binaryPath", values.BinaryPath,

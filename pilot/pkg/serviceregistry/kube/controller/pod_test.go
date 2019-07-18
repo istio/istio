@@ -25,6 +25,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config"
 )
 
 // Prepare k8s. This can be used in multiple tests, to
@@ -145,7 +146,7 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 	}
 
 	// Verify podCache
-	wantLabels := map[string]model.Labels{
+	wantLabels := map[string]config.Labels{
 		"128.0.0.1": {"app": "test-app"},
 		"128.0.0.2": {"app": "prod-app-1"},
 		"128.0.0.3": {"app": "prod-app-2"},
@@ -173,9 +174,9 @@ func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
 	handler := &kube.ChainHandler{}
 	c, _ := newFakeController(t)
-	cache := newPodCache(cacheHandler{handler: handler}, c)
+	podCache := newPodCache(cacheHandler{handler: handler}, c)
 
-	f := cache.event
+	f := podCache.event
 
 	ns := "default"
 	ip := "172.0.3.35"
@@ -187,7 +188,7 @@ func TestPodCacheEvents(t *testing.T) {
 		t.Error(err)
 	}
 
-	if pod, exists := cache.getPodKey(ip); !exists || pod != "default/pod1" {
+	if pod, exists := podCache.getPodKey(ip); !exists || pod != "default/pod1" {
 		t.Errorf("getPodKey => got %s, pod1 not found or incorrect", pod)
 	}
 
@@ -199,7 +200,7 @@ func TestPodCacheEvents(t *testing.T) {
 		t.Error(err)
 	}
 
-	if pod, exists := cache.getPodKey(ip); !exists || pod != "default/pod2" {
+	if pod, exists := podCache.getPodKey(ip); !exists || pod != "default/pod2" {
 		t.Errorf("getPodKey => got %s, pod2 not found or incorrect", pod)
 	}
 
@@ -207,7 +208,7 @@ func TestPodCacheEvents(t *testing.T) {
 		t.Error(err)
 	}
 
-	if pod, exists := cache.getPodKey(ip); !exists || pod != "default/pod2" {
+	if pod, exists := podCache.getPodKey(ip); !exists || pod != "default/pod2" {
 		t.Errorf("getPodKey => got %s, pod2 not found or incorrect", pod)
 	}
 
@@ -215,7 +216,7 @@ func TestPodCacheEvents(t *testing.T) {
 		t.Error(err)
 	}
 
-	if pod, exists := cache.getPodKey(ip); exists {
+	if pod, exists := podCache.getPodKey(ip); exists {
 		t.Errorf("getPodKey => got %s, want none", pod)
 	}
 }

@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/pkg/log"
 )
 
@@ -72,8 +73,8 @@ type VirtualHostWrapper struct {
 func BuildSidecarVirtualHostsFromConfigAndRegistry(
 	node *model.Proxy,
 	push *model.PushContext,
-	serviceRegistry map[model.Hostname]*model.Service,
-	proxyLabels model.LabelsCollection,
+	serviceRegistry map[config.Hostname]*model.Service,
+	proxyLabels config.LabelsCollection,
 	virtualServices []model.Config, listenPort int) []VirtualHostWrapper {
 
 	out := make([]VirtualHostWrapper, 0)
@@ -89,7 +90,7 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 	}
 
 	// compute services missing virtual service configs
-	missing := make(map[model.Hostname]bool)
+	missing := make(map[config.Hostname]bool)
 	for fqdn := range serviceRegistry {
 		missing[fqdn] = true
 	}
@@ -121,13 +122,13 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 // separateVSHostsAndServices splits the virtual service hosts into services (if they are found in the registry) and
 // plain non-registry hostnames
 func separateVSHostsAndServices(virtualService model.Config,
-	serviceRegistry map[model.Hostname]*model.Service) ([]string, []*model.Service) {
+	serviceRegistry map[config.Hostname]*model.Service) ([]string, []*model.Service) {
 	rule := virtualService.Spec.(*networking.VirtualService)
 	hosts := make([]string, 0)
 	servicesInVirtualService := make([]*model.Service, 0)
 	for _, host := range rule.Hosts {
 		// Say host is *.global
-		vsHostname := model.Hostname(host)
+		vsHostname := config.Hostname(host)
 		foundSvcMatch := false
 		// TODO: Optimize me. This is O(n2) or worse. Need to prune at top level in config
 		// Say we have services *.foo.global, *.bar.global
@@ -152,8 +153,8 @@ func buildSidecarVirtualHostsForVirtualService(
 	node *model.Proxy,
 	push *model.PushContext,
 	virtualService model.Config,
-	serviceRegistry map[model.Hostname]*model.Service,
-	proxyLabels model.LabelsCollection,
+	serviceRegistry map[config.Hostname]*model.Service,
+	proxyLabels config.LabelsCollection,
 	listenPort int) []VirtualHostWrapper {
 	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
 
@@ -180,7 +181,7 @@ func buildSidecarVirtualHostsForVirtualService(
 		// the current code is written.
 		serviceByPort[80] = nil
 	}
-	meshGateway := map[string]bool{model.IstioMeshGateway: true}
+	meshGateway := map[string]bool{config.IstioMeshGateway: true}
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
 	for port, portServices := range serviceByPort {
 		routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, listenPort, proxyLabels, meshGateway)
@@ -221,7 +222,7 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 		// If blackhole cluster is needed, do the check on the caller side. See gateway and tls.go for examples.
 	}
 
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, model.Hostname(destination.Host), port)
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, config.Hostname(destination.Host), port)
 }
 
 // BuildHTTPRoutesForVirtualService creates data plane HTTP routes from the virtual service spec.
@@ -236,9 +237,9 @@ func BuildHTTPRoutesForVirtualService(
 	node *model.Proxy,
 	push *model.PushContext,
 	virtualService model.Config,
-	serviceRegistry map[model.Hostname]*model.Service,
+	serviceRegistry map[config.Hostname]*model.Service,
 	listenPort int,
-	proxyLabels model.LabelsCollection,
+	proxyLabels config.LabelsCollection,
 	gatewayNames map[string]bool) ([]route.Route, error) {
 
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
@@ -276,7 +277,7 @@ allroutes:
 
 // sourceMatchHttp checks if the sourceLabels or the gateways in a match condition match with the
 // labels for the proxy or the gateway name for which we are generating a route
-func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.LabelsCollection, gatewayNames map[string]bool) bool {
+func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels config.LabelsCollection, gatewayNames map[string]bool) bool {
 	if match == nil {
 		return true
 	}
@@ -299,8 +300,8 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.Label
 func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
 	virtualService model.Config,
-	serviceRegistry map[model.Hostname]*model.Service,
-	proxyLabels model.LabelsCollection,
+	serviceRegistry map[config.Hostname]*model.Service,
+	proxyLabels config.LabelsCollection,
 	gatewayNames map[string]bool) *route.Route {
 
 	// When building routes, its okay if the target cluster cannot be
@@ -400,7 +401,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		out.ResponseHeadersToRemove = responseHeadersToRemove
 
 		if in.Mirror != nil {
-			n := GetDestinationCluster(in.Mirror, serviceRegistry[model.Hostname(in.Mirror.Host)], port)
+			n := GetDestinationCluster(in.Mirror, serviceRegistry[config.Hostname(in.Mirror.Host)], port)
 			action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{Cluster: n}
 		}
 
@@ -431,7 +432,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			responseHeadersToRemove = append(responseHeadersToRemove, dst.Headers.GetResponse().GetRemove()...)
 			responseHeadersToRemove = append(responseHeadersToRemove, dst.RemoveResponseHeaders...)
 
-			hostname := model.Hostname(dst.GetDestination().GetHost())
+			hostname := config.Hostname(dst.GetDestination().GetHost())
 			n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], port)
 
 			clusterWeight := &route.WeightedCluster_ClusterWeight{
@@ -803,7 +804,7 @@ func getHashPolicy(push *model.PushContext, node *model.Proxy, dst *networking.H
 	destination := dst.GetDestination()
 	destinationRule := push.DestinationRule(node,
 		&model.Service{
-			Hostname:   model.Hostname(destination.Host),
+			Hostname:   config.Hostname(destination.Host),
 			Attributes: model.ServiceAttributes{Namespace: configNamespace},
 		})
 	if destinationRule == nil {

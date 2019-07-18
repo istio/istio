@@ -17,10 +17,9 @@ import (
 	"io/ioutil"
 	"testing"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
-
-	"istio.io/istio/pilot/pkg/model"
 )
 
 func TestCDS(t *testing.T) {
@@ -43,7 +42,7 @@ func TestCDS(t *testing.T) {
 		return
 	}
 
-	strResponse, _ := model.ToJSONWithIndent(res, " ")
+	strResponse, _ := config.ToJSONWithIndent(res, " ")
 	_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", []byte(strResponse), 0644)
 
 	t.Log("CDS response", strResponse)

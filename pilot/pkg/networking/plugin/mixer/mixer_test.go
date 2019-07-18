@@ -25,7 +25,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	"istio.io/istio/pilot/pkg/model"
-	context "istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 )
 
 func TestTransportConfig(t *testing.T) {
@@ -36,7 +36,7 @@ func TestTransportConfig(t *testing.T) {
 	}{
 		{
 			// defaults set
-			mesh: context.DefaultMeshConfig(),
+			mesh: config.DefaultMeshConfig(),
 			node: model.Proxy{
 				Metadata: map[string]string{},
 			},
@@ -49,7 +49,7 @@ func TestTransportConfig(t *testing.T) {
 		},
 		{
 			// retry and retry times set
-			mesh: context.DefaultMeshConfig(),
+			mesh: config.DefaultMeshConfig(),
 			node: model.Proxy{
 				Metadata: map[string]string{
 					annotation.PolicyCheckRetries.Name:           "5",
@@ -66,7 +66,7 @@ func TestTransportConfig(t *testing.T) {
 		},
 		{
 			// just retry amount set
-			mesh: context.DefaultMeshConfig(),
+			mesh: config.DefaultMeshConfig(),
 			node: model.Proxy{
 				Metadata: map[string]string{
 					annotation.PolicyCheckRetries.Name: "1",
@@ -81,7 +81,7 @@ func TestTransportConfig(t *testing.T) {
 		},
 		{
 			// fail open from node metadata
-			mesh: context.DefaultMeshConfig(),
+			mesh: config.DefaultMeshConfig(),
 			node: model.Proxy{
 				Metadata: map[string]string{
 					annotation.PolicyCheck.Name: policyCheckDisable,

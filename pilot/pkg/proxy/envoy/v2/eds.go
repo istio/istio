@@ -27,15 +27,14 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/features"
-	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
+	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pkg/config"
 )
 
 // EDS returns the list of endpoints (IP:port and in future labels) associated with a real
@@ -198,7 +197,7 @@ func endpointMetadata(uid string, network string) *core.Metadata {
 func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName string,
 	edsCluster *EdsCluster) error {
 
-	var hostname model.Hostname
+	var hostname config.Hostname
 	var clusterPort int
 	var subsetName string
 	_, subsetName, hostname, clusterPort = model.ParseSubsetKey(clusterName)
@@ -285,15 +284,15 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 				continue
 			}
 
-			entries := []*model.IstioEndpoint{}
+			entries := make([]*model.IstioEndpoint, 0)
 			hostname := string(svc.Hostname)
 			for _, port := range svc.Ports {
-				if port.Protocol == model.ProtocolUDP {
+				if port.Protocol == config.ProtocolUDP {
 					continue
 				}
 
 				// This loses track of grouping (shards)
-				endpoints, err := registry.InstancesByPort(svc.Hostname, port.Port, model.LabelsCollection{})
+				endpoints, err := registry.InstancesByPort(svc.Hostname, port.Port, config.LabelsCollection{})
 				if err != nil {
 					return err
 				}
@@ -674,9 +673,9 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 // pushEds is pushing EDS updates for a single connection. Called the first time
 // a client connects, for incremental updates and for full periodic updates.
 func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, version string, edsUpdatedServices map[string]struct{}) error {
-	loadAssignments := []*xdsapi.ClusterLoadAssignment{}
+	loadAssignments := make([]*xdsapi.ClusterLoadAssignment, 0)
 	endpoints := 0
-	empty := []string{}
+	empty := make([]string, 0)
 
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
@@ -750,16 +749,16 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 
 // getDestinationRule gets the DestinationRule for a given hostname. As an optimization, this also gets the service port,
 // which is needed to access the traffic policy from the destination rule.
-func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname model.Hostname, clusterPort int) (*networkingapi.DestinationRule, *model.Port) {
+func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname config.Hostname, clusterPort int) (*networkingapi.DestinationRule, *model.Port) {
 	for _, service := range push.Services(proxy) {
 		if service.Hostname == hostname {
-			config := push.DestinationRule(proxy, service)
-			if config == nil {
+			cfg := push.DestinationRule(proxy, service)
+			if cfg == nil {
 				continue
 			}
 			for _, p := range service.Ports {
 				if p.Port == clusterPort {
-					return config.Spec.(*networkingapi.DestinationRule), p
+					return cfg.Spec.(*networkingapi.DestinationRule), p
 				}
 			}
 		}
@@ -884,7 +883,7 @@ func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, 
 func buildLocalityLbEndpointsFromShards(
 	shards *EndpointShards,
 	svcPort *model.Port,
-	labels model.LabelsCollection,
+	labels config.LabelsCollection,
 	clusterName string,
 	push *model.PushContext) []endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
@@ -898,7 +897,7 @@ func buildLocalityLbEndpointsFromShards(
 				continue
 			}
 			// Port labels
-			if !labels.HasSubsetOf(model.Labels(ep.Labels)) {
+			if !labels.HasSubsetOf(config.Labels(ep.Labels)) {
 				continue
 			}
 

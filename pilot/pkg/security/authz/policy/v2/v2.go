@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
+	"istio.io/istio/pkg/config"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -81,7 +82,7 @@ func (b *v2Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 		return &http_config.RBAC{Rules: rbac}
 	}
 	for _, authzPolicy := range authzConfigV2.AuthzPolicies {
-		workloadLabels := model.LabelsCollection{serviceMetadata.Labels}
+		workloadLabels := config.LabelsCollection{serviceMetadata.Labels}
 		policySelector := authzPolicy.Policy.WorkloadSelector.GetLabels()
 		if !(workloadLabels.IsSupersetOf(policySelector)) {
 			// Skip if the workload labels is not a superset of the policy selector (i.e. the workload
@@ -113,7 +114,7 @@ func roleForBinding(binding *istio_rbac.ServiceRoleBinding, namespace string, ap
 	} else if binding.Role != "" {
 		if strings.HasPrefix(binding.Role, rootNamespacePrefix) {
 			globalRoleName := strings.TrimPrefix(binding.Role, rootNamespacePrefix)
-			role = ap.RoleForNameAndNamespace(globalRoleName, model.DefaultMeshConfig().RootNamespace)
+			role = ap.RoleForNameAndNamespace(globalRoleName, config.DefaultMeshConfig().RootNamespace)
 		} else {
 			role = ap.RoleForNameAndNamespace(binding.Role, namespace)
 		}
