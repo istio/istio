@@ -124,6 +124,21 @@ function check_kind() {
   fi
 }
 
+function attempt_kind_creation() {
+  attempts=0
+  until [[ ${attempts} -ge 3 ]]
+  do
+    kind create cluster --name=e2e-suite --loglevel debug && break
+    attempts=$[$attempts+1]
+    echo "Could not setup KinD environment. Something wrong with KinD setup. Trying again."
+    sleep 1
+  done
+  if [[ ! $? ]]; then
+    echo "Could not set up KinD environment."
+    exit 1
+  fi
+}
+
 function setup_kind_cluster() {
   # Installing KinD
   check_kind
@@ -135,10 +150,8 @@ function setup_kind_cluster() {
   fi
 
   # Create KinD cluster
-  if ! (kind create cluster --name=e2e-suite); then
-    echo "Could not setup KinD environment. Something wrong with KinD setup. Please check your setup and try again."
-    exit 1
-  fi
+  attempt_kind_creation || exit 1
+
   KUBECONFIG="$(kind get kubeconfig-path --name="e2e-suite")"
   export KUBECONFIG
 }
