@@ -19,6 +19,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
@@ -45,6 +46,7 @@ type Server struct {
 	authCheck   AuthChecker
 	rateLimiter rate.Limit
 	src         *Source
+	metadata    metadata.MD
 }
 
 var _ mcp.ResourceSourceServer = &Server{}
@@ -53,6 +55,7 @@ var _ mcp.ResourceSourceServer = &Server{}
 type ServerOptions struct {
 	AuthChecker AuthChecker
 	RateLimiter rate.Limit
+	Metadata    metadata.MD
 }
 
 // NewServer creates a new instance of a MCP source server.
@@ -61,6 +64,7 @@ func NewServer(srcOptions *Options, serverOptions *ServerOptions) *Server {
 		src:         New(srcOptions),
 		authCheck:   serverOptions.AuthChecker,
 		rateLimiter: serverOptions.RateLimiter,
+		metadata:    serverOptions.Metadata,
 	}
 	return s
 }
@@ -84,6 +88,9 @@ func (s *Server) EstablishResourceStream(stream mcp.ResourceSource_EstablishReso
 		return status.Errorf(codes.Unauthenticated, "Authentication failure: %v", err)
 	}
 
+	if err := stream.SendHeader(s.metadata); err != nil {
+		return err
+	}
 	err := s.src.ProcessStream(stream)
 	code := status.Code(err)
 	if code == codes.OK || code == codes.Canceled || err == io.EOF {
