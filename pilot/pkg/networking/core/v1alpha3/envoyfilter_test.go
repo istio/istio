@@ -64,20 +64,6 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 	}
 }
 
-func buildListenerPatches(config string) []*networking.EnvoyFilter_EnvoyConfigObjectPatch {
-	val := &types.Struct{}
-	jsonpb.Unmarshal(strings.NewReader(config), val)
-	return []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-		{
-			ApplyTo: networking.EnvoyFilter_LISTENER,
-			Patch: &networking.EnvoyFilter_Patch{
-				Operation: networking.EnvoyFilter_Patch_ADD,
-				Value:     val,
-			},
-		},
-	}
-}
-
 func buildPatchStruct(config string) *types.Struct {
 	val := &types.Struct{}
 	jsonpb.Unmarshal(strings.NewReader(config), val)
@@ -462,6 +448,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 			args: args{
 				pluginParams: &plugin.InputParams{
 					ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+					Node:             &model.Proxy{Type: model.SidecarProxy},
 				},
 				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 					Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
@@ -478,6 +465,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 			args: args{
 				pluginParams: &plugin.InputParams{
 					ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+					Node:             &model.Proxy{Type: model.SidecarProxy},
 				},
 				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 					Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
