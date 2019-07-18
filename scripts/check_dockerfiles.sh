@@ -23,7 +23,7 @@
 
 set -e
 
-SCRIPTPATH="$( cd "$( dirname "$BASH_SOURCE[0]")" && pwd )"
+SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}")" && pwd )"
 ROOTDIR=$(dirname "${SCRIPTPATH}")
 cd "${ROOTDIR}"
 
