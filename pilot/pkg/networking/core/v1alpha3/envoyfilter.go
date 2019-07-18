@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"fmt"
 	"net"
 	"strings"
 
@@ -26,7 +25,6 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -304,31 +302,6 @@ func deprecatedInsertNetworkFilter(listenerName string, filterChain *listener.Fi
 		listenerName, oldLen, len(filterChain.Filters))
 }
 
-func buildXDSObjectFromValue(applyTo networking.EnvoyFilter_ApplyTo, value *types.Struct) (proto.Message, error) {
-	var obj proto.Message
-	switch applyTo {
-	case networking.EnvoyFilter_CLUSTER:
-		obj = &xdsapi.Cluster{}
-	case networking.EnvoyFilter_LISTENER:
-		obj = &xdsapi.Listener{}
-	case networking.EnvoyFilter_ROUTE_CONFIGURATION:
-		obj = &xdsapi.RouteConfiguration{}
-	case networking.EnvoyFilter_FILTER_CHAIN:
-		obj = &listener.FilterChain{}
-	case networking.EnvoyFilter_HTTP_FILTER:
-		obj = &http_conn.HttpFilter{}
-	case networking.EnvoyFilter_NETWORK_FILTER:
-		obj = &listener.Filter{}
-	case networking.EnvoyFilter_VIRTUAL_HOST:
-		obj = &route.VirtualHost{}
-	default:
-		return nil, fmt.Errorf("unknown object type")
-	}
-
-	err := xdsutil.StructToMessage(value, obj)
-	return obj, err
-}
-
 func applyClusterPatches(_ *model.Environment, proxy *model.Proxy,
 	push *model.PushContext, clusters []*xdsapi.Cluster) []*xdsapi.Cluster {
 
@@ -502,32 +475,6 @@ func applyListenerPatches(proxy *model.Proxy, push *model.PushContext, builder *
 	builder.outboundListeners = doListenerListOperation(networking.EnvoyFilter_SIDECAR_OUTBOUND, builder.outboundListeners)
 
 	return builder
-}
-
-func applyListenerConfigPatches(builder *ListenerBuilder, env *model.Environment, labels model.LabelsCollection) []*xdsapi.Listener {
-	listeners := builder.getListeners()
-	filterCRD := getUserFiltersForWorkload(env, labels)
-	if filterCRD == nil {
-		return listeners
-	}
-
-	for _, cp := range filterCRD.ConfigPatches {
-		if cp.GetPatch() == nil {
-			continue
-		}
-
-		if cp.GetMatch() == nil && cp.GetApplyTo() == networking.EnvoyFilter_LISTENER {
-			if cp.GetPatch().GetOperation() == networking.EnvoyFilter_Patch_ADD {
-				newListener, err := buildXDSObjectFromValue(networking.EnvoyFilter_LISTENER, cp.Patch.Value)
-				if err != nil {
-					continue
-				}
-				listeners = append(listeners, newListener.(*xdsapi.Listener))
-			}
-		}
-	}
-
-	return listeners
 }
 
 func applyRouteConfigurationPatches(pluginParams *plugin.InputParams,
