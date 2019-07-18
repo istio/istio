@@ -740,7 +740,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 	err := con.send(response)
 	if err != nil {
 		adsLog.Warnf("EDS: Send failure %s: %v", con.ConID, err)
-		edsSendErrPushes.Increment()
+		recordSendError(edsSendErrPushes, err)
 		return err
 	}
 	edsPushes.Increment()
