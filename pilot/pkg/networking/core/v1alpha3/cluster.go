@@ -844,7 +844,9 @@ func applyOutlierDetection(cluster *apiv2.Cluster, outlier *networking.OutlierDe
 
 	cluster.OutlierDetection = out
 
-	if outlier.MinHealthPercent > 0 {
+	// Set the healthy_panic_threshold field even if its value is 0.
+	// If not the field is set to the default value (50) in Envoy.
+	if outlier.MinHealthPercent >= 0 {
 		if cluster.CommonLbConfig == nil {
 			cluster.CommonLbConfig = &apiv2.Cluster_CommonLbConfig{}
 		}
