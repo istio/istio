@@ -26,31 +26,12 @@ import (
 )
 
 func TestCallout(t *testing.T) {
-	co, err := newCallout("foo", "NONE", []string{"foo=bar"}, &source.Options{})
+	co, err := newCallout("foo", "NONE", metadata.MD{"foo": []string{"bar"}}, &source.Options{})
 	if err != nil {
 		t.Errorf("Callout creation failed: %v", err)
 	}
 	if co.address != "foo" {
 		t.Error("Callout address not set")
-	}
-	if len(co.metadata) != 4 || co.metadata[0] != "foo" || co.metadata[1] != "bar" {
-		t.Errorf("Callout meta not set: %v", co.metadata)
-	}
-	_, err = newCallout("foo", "NONE", []string{"foo"}, &source.Options{})
-	if err == nil {
-		t.Error("did not error with malformed metadata, no =")
-	}
-	_, err = newCallout("foo", "NONE", []string{"foo="}, &source.Options{})
-	if err == nil {
-		t.Error("did not error with malformed metadata, no value")
-	}
-	_, err = newCallout("foo", "NONE", []string{"=foo"}, &source.Options{})
-	if err == nil {
-		t.Error("did not error with malformed metadata, no key")
-	}
-	_, err = newCallout("foo", "NONE", []string{"="}, &source.Options{})
-	if err == nil {
-		t.Error("did not error with malformed metadata, no key or value")
 	}
 }
 
@@ -84,7 +65,9 @@ func TestCalloutRun(t *testing.T) {
 			sourceNewClient: sourceNewClient,
 			connClose:       connClose,
 		},
-		metadata: make([]string, 2),
+		metadata: metadata.MD{
+			"foo": []string{"bar"},
+		},
 	}
 	co.run()
 
