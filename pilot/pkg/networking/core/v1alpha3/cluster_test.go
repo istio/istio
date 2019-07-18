@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -963,6 +964,11 @@ func TestRedisProtocolCluster(t *testing.T) {
 		Ports:       model.PortList{servicePort},
 		Resolution:  model.ClientSideLB,
 	}
+
+	// enable redis filter to true
+	os.Setenv("PILOT_ENABLE_REDIS_FILTER", "true")
+
+	defer os.Unsetenv("PILOT_ENABLE_REDIS_FILTER")
 
 	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
 
