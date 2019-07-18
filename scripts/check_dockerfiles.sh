@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # WARNING: DO NOT EDIT, THIS FILE IS PROBABLY A COPY
 #
@@ -23,7 +23,7 @@
 
 set -e
 
-SCRIPTPATH="$( cd "$( dirname "${0}")" && pwd -P)"
+SCRIPTPATH="$( cd "$( dirname "$BASH_SOURCE[0]")" && pwd )"
 ROOTDIR=$(dirname "${SCRIPTPATH}")
 cd "${ROOTDIR}"
 
