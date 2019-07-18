@@ -63,8 +63,11 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["global.mtls.enabled"] = "true"
 	cfg.Values["global.sds.enabled"] = "true"
 	cfg.Values["global.sds.udsPath"] = "unix:/var/run/sds/uds_path"
+	// TODO: Turn on trustworthy jwt when KinD supports it.
+	// https://github.com/istio/istio/issues/15607
 	// Trustworthy JWTs are available in Kubernetes 1.12 (beta) and later.
-	cfg.Values["global.sds.useTrustworthyJwt"] = "true"
+	//cfg.Values["global.sds.useTrustworthyJwt"] = "true"
+	cfg.Values["global.sds.useNormalJwt"] = "true"
 	cfg.Values["nodeagent.enabled"] = "true"
 	cfg.Values["nodeagent.image"] = "node-agent-k8s"
 	cfg.Values["nodeagent.env.CA_PROVIDER"] = "Citadel"

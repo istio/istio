@@ -210,7 +210,7 @@ func TestAuthenticatorType(t *testing.T) {
 	url := "https://server/url"
 
 	kubeJwtAuthenticator := &KubeJWTAuthenticator{
-		client:      tokenreview.NewK8sSvcAcctAuthn(url, caCertFileContent, string(jwtFileContent)),
+		client:      tokenreview.NewK8sSvcAcctAuthn(url, caCertFileContent, string(jwtFileContent), false),
 		trustDomain: trustDomain,
 	}
 
