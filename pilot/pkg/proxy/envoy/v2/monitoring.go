@@ -108,6 +108,13 @@ var (
 	rdsBuildErrPushes = pushes.With(typeTag.Value("rds_builderr"))
 
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
+	proxiesQueueTime = monitoring.NewDistribution(
+		"pilot_proxy_queue_time",
+		"Time a proxy is in the push queue before being dequeued.",
+		[]float64{.1, 1, 3, 5, 10, 20, 30},
+	)
+
+	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesConvergeDelay = monitoring.NewDistribution(
 		"pilot_proxy_convergence_time",
 		"Delay between config change and all proxies converging.",
@@ -169,6 +176,7 @@ func init() {
 		xdsResponseWriteTimeouts,
 		pushes,
 		proxiesConvergeDelay,
+		proxiesQueueTime,
 		proxiesConvergeDelayCdsErrors,
 		proxiesConvergeDelayEdsErrors,
 		proxiesConvergeDelayRdsErrors,

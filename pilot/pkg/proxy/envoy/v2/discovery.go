@@ -453,6 +453,8 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 			// Get the next proxy to push. This will block if there are no updates required.
 			client, info := queue.Dequeue()
 
+			proxiesQueueTime.Record(time.Since(info.push.Start).Seconds())
+
 			go func() {
 				edsUpdates := info.edsUpdatedServices
 				proxyFull := info.full || checkProxyNeedsFullPush(client.modelNode)
