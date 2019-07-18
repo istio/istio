@@ -25,7 +25,6 @@ import (
 
 	v2beta1 "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
-	_ "k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var (
@@ -60,13 +59,11 @@ var (
 								},
 							},
 							ReplicaCount: 1,
-							ReadinessProbe: &v1.Probe{
-								Handler: v1.Handler{},
-								// 	HTTPGet: &v1.HTTPGetAction{
-								// 		Path: "/ready",
-								// 		Port: intstr.FromInt(8080),
-								// 	},
-								// },
+							ReadinessProbe: &v1alpha2.ReadinessProbe{
+								HttpGet: &v1alpha2.HTTPGetAction{
+									Path: "/ready",
+									Port: v1alpha2.FromInt(8080),
+								},
 								InitialDelaySeconds: 5,
 								PeriodSeconds:       30,
 								TimeoutSeconds:      5,
@@ -166,11 +163,9 @@ trafficManagement:
                   targetAverageUtilization: 80
           replicaCount: 1
           readinessProbe:
-            handler: {}
-# TODO: uncomment the following lines after the jsonpb unmarshaling issue is resolved: https://github.com/istio/istio/issues/15366
-#            httpGet:
-#              path: /ready
-#              port: 8080
+            httpGet:
+              path: /ready
+              port: 8080
             initialDelaySeconds: 5
             periodSeconds: 30
             timeoutSeconds: 5

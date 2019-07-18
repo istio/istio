@@ -79,14 +79,29 @@ podDisruptionBudget:
 `,
 		},
 		{
-			desc: "readinessProbe",
+			desc: "readinessProbeWithPortNumber",
 			yamlStr: `
 readinessProbe:
   failureThreshold: 44
   initialDelaySeconds: 11
   periodSeconds: 22
   successThreshold: 33
-  handler: {}
+  httpGet:
+    path: /ready
+    port: 8080
+`,
+		},
+		{
+			desc: "readinessProbeWithPortName",
+			yamlStr: `
+readinessProbe:
+  failureThreshold: 44
+  initialDelaySeconds: 11
+  periodSeconds: 22
+  successThreshold: 33
+  httpGet:
+    path: /ready
+    port: http
 `,
 		},
 		{
@@ -197,6 +212,9 @@ trafficManagement:
               memory: "128Mi"
               cpu: "500m"
           readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
             initialDelaySeconds: 11
             periodSeconds: 22
             successThreshold: 33
