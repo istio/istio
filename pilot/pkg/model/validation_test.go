@@ -3293,6 +3293,92 @@ func TestValidateEnvoyFilter(t *testing.T) {
 				},
 			},
 		}, error: "envoy filter: applyTo for listener class objects cannot have non listener match"},
+		{name: "listener with invalid filter match", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_LISTENER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking.EnvoyFilter_ListenerMatch{
+								FilterChain:          &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Sni:                  "124",
+									Filter:               &networking.EnvoyFilter_ListenerMatch_FilterMatch{},
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "envoy filter: filter match has no name to match on"},
+		{name: "listener with sub filter match and invalid applyTo", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_LISTENER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking.EnvoyFilter_ListenerMatch{
+								FilterChain:          &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Filter:               &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+										Name: "random",
+										SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{},
+									},
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "envoy filter: subfilter match can be used with applyTo HTTP_FILTER only"},
+		{name: "listener with sub filter match and invalid filter name", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking.EnvoyFilter_ListenerMatch{
+								FilterChain:          &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Filter:               &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+										Name: "random",
+										SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{},
+									},
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "envoy filter: subfilter match requires filter match with envoy.http_connection_manager"},
+		{name: "listener with sub filter match and no sub filter name", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking.EnvoyFilter_ListenerMatch{
+								FilterChain:          &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Filter:               &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+										Name: "envoy.http_connection_manager",
+										SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{},
+									},
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "envoy filter: subfilter match has no name to match on"},
 		{name: "route configuration with invalid match", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
