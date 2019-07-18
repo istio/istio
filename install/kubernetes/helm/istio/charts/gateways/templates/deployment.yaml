@@ -48,11 +48,7 @@ spec:
 {{- if $.Values.global.proxy.enableCoreDump }}
       initContainers:
         - name: enable-core-dump
-{{- if contains "/" $.Values.global.proxy_init.image }}
-          image: "{{ $.Values.global.proxy_init.image }}"
-{{- else }}
-          image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy_init.image }}:{{ $.Values.global.tag }}"
-{{- end }}
+          image: {{ $.Values.global.proxy.enableCoreDumpImage }}
           imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           command:
             - /bin/sh
