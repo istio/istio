@@ -3300,9 +3300,9 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
 							Listener: &networking.EnvoyFilter_ListenerMatch{
-								FilterChain:          &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
-									Sni:                  "124",
-									Filter:               &networking.EnvoyFilter_ListenerMatch_FilterMatch{},
+								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Sni:    "124",
+									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{},
 								},
 							},
 						},
@@ -3320,9 +3320,9 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
 							Listener: &networking.EnvoyFilter_ListenerMatch{
-								FilterChain:          &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
-									Filter:               &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-										Name: "random",
+								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+										Name:      "random",
 										SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{},
 									},
 								},
@@ -3342,9 +3342,9 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
 							Listener: &networking.EnvoyFilter_ListenerMatch{
-								FilterChain:          &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
-									Filter:               &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-										Name: "random",
+								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+										Name:      "random",
 										SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{},
 									},
 								},
@@ -3364,9 +3364,9 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
 							Listener: &networking.EnvoyFilter_ListenerMatch{
-								FilterChain:          &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
-									Filter:               &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-										Name: "envoy.http_connection_manager",
+								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+										Name:      "envoy.http_connection_manager",
 										SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{},
 									},
 								},
