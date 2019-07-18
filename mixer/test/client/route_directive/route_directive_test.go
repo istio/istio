@@ -36,11 +36,6 @@ const mustBeEmpty = "Must-Be-Empty"
 // request body
 const requestBody = "HELLO WORLD"
 
-var expectedStats = map[string]int{
-	"http_mixer_filter.total_check_calls":        16,
-	"http_mixer_filter.total_remote_check_calls": 8,
-}
-
 func TestRouteDirective(t *testing.T) {
 	s := env.NewTestSetup(env.RouteDirectiveTest, t)
 	env.SetStatsUpdateInterval(s.MfConfig(), 1)
@@ -199,6 +194,23 @@ func TestRouteDirective(t *testing.T) {
 		request:  http.Header{mustBeEmpty: nil},
 		response: http.Header{"Istio-Response": []string{"case"}},
 	}, {
+		desc:   "multi-line set-cookie headers",
+		path:   "/set-cookie",
+		method: "GET",
+		status: rpc.Status{Code: int32(rpc.PERMISSION_DENIED), Message: "shish"},
+		directive: &v1.RouteDirective{
+			DirectResponseBody: "denied",
+			DirectResponseCode: 401,
+			ResponseHeaderOperations: []v1.HeaderOperation{
+				{Name: "Set-Cookie", Value: "c1=1", Operation: v1.APPEND},
+				{Name: "Set-Cookie", Value: "c2=2", Operation: v1.APPEND},
+			},
+		},
+		body:     "denied",
+		code:     401,
+		request:  http.Header{mustBeEmpty: nil},
+		response: http.Header{"Set-Cookie": []string{"c1=1", "c2=2"}},
+	}, {
 		desc:   "redirect",
 		path:   "/redirect",
 		method: "GET",
@@ -244,6 +256,11 @@ func TestRouteDirective(t *testing.T) {
 				compareHeaders(t, resp.Header, cs.response)
 			})
 		}
+	}
+
+	var expectedStats = map[string]int{
+		"http_mixer_filter.total_check_calls":        2 * len(testCases),
+		"http_mixer_filter.total_remote_check_calls": len(testCases),
 	}
 
 	s.VerifyStats(expectedStats)
