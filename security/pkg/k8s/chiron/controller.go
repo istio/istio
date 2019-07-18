@@ -98,23 +98,26 @@ const (
 var (
 	// WebhookServiceAccounts is service accounts for the webhooks.
 	WebhookServiceAccounts = []string{
-		// This is a service account created as a demo of the prototype
+		// This service account is the service account of a demo webhook.
+		// It is for running the prototype on the demo webhook.
 		"istio-protomutate-service-account",
 		// TODO (lei-tang): remove demo service account and enable the following webhook service accounts
 		// "istio-sidecar-injector-service-account",
 		// "istio-galley-service-account",
 	}
 
-	// WebhookServiceNames is service names of the webhooks. Each item corresponds to an item at the same index in WebhookServiceAccounts.
+	// WebhookServiceNames is service names of the webhooks. Each item corresponds to an item
+	// at the same index in WebhookServiceAccounts.
 	WebhookServiceNames = []string{
-		// This is a service name created as a demo of the prototype
+		// This is a service name of a demo webhook. It is for running the prototype on the demo webhook.
 		"protomutate",
 		// TODO (lei-tang): remove demo service name and enable the following webhook service names
 		//		"istio-sidecar-injector",
 		//		"istio-galley",
 	}
 
-	// WebhookServicePorts is service ports of the webhooks. Each item corresponds to an item at the same index in WebhookServiceNames.
+	// WebhookServicePorts is service ports of the webhooks. Each item corresponds to an item
+	// at the same index in WebhookServiceNames.
 	WebhookServicePorts = []int{
 		// This is a service port created as a demo of the prototype
 		443,
@@ -126,18 +129,11 @@ var (
 
 // WebhookController manages the service accounts' secrets that contains Istio keys and certificates.
 type WebhookController struct {
-	certTTL        time.Duration
 	k8sClient      *kubernetes.Clientset
 	core           corev1.CoreV1Interface
 	minGracePeriod time.Duration
 	// Length of the grace period for the certificate rotation.
 	gracePeriodRatio float32
-
-	// Whether the certificates are for dual-use clients (SAN+CN).
-	dualUse bool
-
-	// If true, generate a PKCS#8 private key.
-	pkcs8Key bool
 
 	// DNS-enabled serviceAccount.namespace to service pair
 	dnsNames map[string]*crl.DNSNameEntry
@@ -149,8 +145,6 @@ type WebhookController struct {
 	// Controller and store for secret objects.
 	scrtController cache.Controller
 	scrtStore      cache.Store
-
-	monitoring monitoringMetrics
 
 	certClient certclient.CertificatesV1beta1Interface
 
@@ -172,9 +166,8 @@ type WebhookController struct {
 }
 
 // NewWebhookController returns a pointer to a newly constructed WebhookController instance.
-func NewWebhookController(certTTL time.Duration,
-	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool, k8sClient *kubernetes.Clientset,
-	core corev1.CoreV1Interface, certClient certclient.CertificatesV1beta1Interface, pkcs8Key bool,
+func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration, k8sClient *kubernetes.Clientset,
+	core corev1.CoreV1Interface, certClient certclient.CertificatesV1beta1Interface,
 	dnsNames map[string]*crl.DNSNameEntry, nameSpace, mutatingWebhookConfigName, mutatingWebhookName string) (*WebhookController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
@@ -186,15 +179,11 @@ func NewWebhookController(certTTL time.Duration,
 	}
 
 	c := &WebhookController{
-		certTTL:                   certTTL,
 		gracePeriodRatio:          gracePeriodRatio,
 		minGracePeriod:            minGracePeriod,
-		dualUse:                   dualUse,
 		k8sClient:                 k8sClient,
 		core:                      core,
-		pkcs8Key:                  pkcs8Key,
 		dnsNames:                  dnsNames,
-		monitoring:                newMonitoringMetrics(),
 		certClient:                certClient,
 		namespace:                 nameSpace,
 		mutatingWebhookConfigName: mutatingWebhookConfigName,
@@ -322,7 +311,6 @@ func (wc *WebhookController) saAdded(obj interface{}) {
 		return
 	}
 	wc.upsertSecret(acct.GetName(), acct.GetNamespace())
-	wc.monitoring.ServiceAccountCreation.Inc()
 }
 
 // Handles the event where a webhook service account is deleted.
@@ -334,7 +322,6 @@ func (wc *WebhookController) saDeleted(obj interface{}) {
 		return
 	}
 	wc.deleteSecret(acct.GetName(), acct.GetNamespace())
-	wc.monitoring.ServiceAccountDeletion.Inc()
 }
 
 func (wc *WebhookController) upsertSecret(saName, saNamespace string) {
@@ -410,7 +397,6 @@ func (wc *WebhookController) scrtDeleted(obj interface{}) {
 		if wc.isWebhookSA(saName, scrt.GetNamespace()) {
 			log.Errorf("Re-create deleted Istio secret for existing service account %s.", saName)
 			wc.upsertSecret(saName, scrt.GetNamespace())
-			wc.monitoring.SecretDeletion.Inc()
 		}
 	}
 }
@@ -519,13 +505,12 @@ func (wc *WebhookController) GenKeyCertK8sCA(saName string, saNamespace string) 
 	options := util.CertOptions{
 		Host:       id,
 		RSAKeySize: keySize,
-		IsDualUse:  wc.dualUse,
-		PKCS8Key:   wc.pkcs8Key,
+		IsDualUse:  false,
+		PKCS8Key:   false,
 	}
 	csrPEM, keyPEM, err := util.GenCSR(options)
 	if err != nil {
 		log.Errorf("CSR generation error (%v)", err)
-		wc.monitoring.CSRError.Inc()
 		return nil, nil, err
 	}
 
@@ -798,7 +783,7 @@ func (wc *WebhookController) patchMutatingCertLoop(client *kubernetes.Clientset,
 	go controller.Run(stopCh)
 
 	go func() {
-		for _ = range shouldPatch {
+		for range shouldPatch {
 			doPatch(client, webhookConfigName, webhookName, wc.getCurCACert())
 		}
 	}()

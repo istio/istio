@@ -1,3 +1,17 @@
+// Copyright 2019 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
@@ -8,6 +22,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/security/pkg/cmd"
 	chiron "istio.io/istio/security/pkg/k8s/chiron"
@@ -16,7 +33,6 @@ import (
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
 var (
@@ -49,8 +65,6 @@ type cliOptions struct {
 	mutatingWebhookName string
 	// TODO (lei-tang): Add the name of the ValidatingWebhookConfiguration to manage
 
-	certTTL    time.Duration
-	maxCertTTL time.Duration
 	// The minimum grace period for cert rotation.
 	certMinGracePeriod time.Duration
 
@@ -65,9 +79,6 @@ type cliOptions struct {
 	// If certGracePeriodRatio is 0.2, and cert TTL is 24 hours, then the rotation will happen
 	// after 24*(1-0.2) hours since the cert is issued.
 	certGracePeriodRatio float32
-
-	// Whether to generate PKCS#8 private keys.
-	pkcs8Keys bool
 
 	// Enable profiling in monitoring
 	enableProfiling bool
@@ -102,16 +113,11 @@ func init() {
 	flags.BoolVar(&opts.enableProfiling, "enable-profiling", false, "Enabling profiling when monitoring Chiron.")
 
 	// Certificate issuance configuration.
-	flags.DurationVar(&opts.certTTL, "cert-ttl", cmd.DefaultWorkloadCertTTL,
-		"The TTL of issued certificates.")
-	flags.DurationVar(&opts.maxCertTTL, "max-cert-ttl", cmd.DefaultMaxWorkloadCertTTL,
-		"The max TTL of issued certificates.")
 	flags.Float32Var(&opts.certGracePeriodRatio, "cert-grace-period-ratio",
 		cmd.DefaultWorkloadCertGracePeriodRatio, "The certificate rotation grace period, as a ratio of the "+
 			"certificate TTL.")
 	flags.DurationVar(&opts.certMinGracePeriod, "cert-min-grace-period",
 		cmd.DefaultWorkloadMinCertGracePeriod, "The minimum certificate rotation grace period.")
-	flags.BoolVar(&opts.pkcs8Keys, "pkcs8-keys", false, "Whether to generate PKCS#8 private keys.")
 
 	// MutatingWebhook configuration
 	flags.StringVar(&opts.mutatingWebhookConfigName, "mutating-webhook-config-name", "istio-sidecar-injector",
@@ -125,11 +131,8 @@ func init() {
 	_ = flags.MarkHidden("kube-config")
 	_ = flags.MarkHidden("monitoring-port")
 	_ = flags.MarkHidden("enable-profiling")
-	_ = flags.MarkHidden("cert-ttl")
-	_ = flags.MarkHidden("max-cert-ttl")
 	_ = flags.MarkHidden("cert-grace-period-ratio")
 	_ = flags.MarkHidden("cert-min-grace-period")
-	_ = flags.MarkHidden("pkcs8-keys")
 	_ = flags.MarkHidden("mutating-webhook-config-name")
 	_ = flags.MarkHidden("mutating-webhook-name")
 
@@ -160,8 +163,6 @@ func runWebhookController() {
 		os.Exit(1)
 	}
 
-	log.Debug("run webhook controller")
-
 	webhooks := controller.ConstructCustomDNSNames(chiron.WebhookServiceAccounts,
 		chiron.WebhookServiceNames, opts.certificateNamespace, "")
 
@@ -173,9 +174,8 @@ func runWebhookController() {
 
 	stopCh := make(chan struct{})
 
-	sc, err := chiron.NewWebhookController(opts.certTTL,
-		opts.certGracePeriodRatio, opts.certMinGracePeriod, false,
-		k8sClient, k8sClient.CoreV1(), k8sClient.CertificatesV1beta1(), opts.pkcs8Keys, webhooks,
+	sc, err := chiron.NewWebhookController(opts.certGracePeriodRatio, opts.certMinGracePeriod,
+		k8sClient, k8sClient.CoreV1(), k8sClient.CertificatesV1beta1(), webhooks,
 		opts.certificateNamespace, opts.mutatingWebhookConfigName, opts.mutatingWebhookName)
 	if err != nil {
 		log.Errorf("failed to create webhook controller: %v", err)
@@ -199,7 +199,7 @@ func runWebhookController() {
 	}
 
 	// Blocking until receives error.
-	for _ = range monitorErrCh {
+	for range monitorErrCh {
 		// TODO: does the controller exit when receiving an error?
 		fatalf("monitoring server error: %v", err)
 	}
