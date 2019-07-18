@@ -21,6 +21,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/api/annotation"
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/annotations"
@@ -145,9 +146,9 @@ func getOrCreateStringMap(in map[string]string) map[string]string {
 
 func convertExportTo(annotations resource.Annotations) []string {
 	var exportTo map[string]struct{}
-	if annotations[kube.ServiceExportAnnotation] != "" {
+	if annotations[annotation.NetworkingExportTo.Name] != "" {
 		exportTo = make(map[string]struct{})
-		for _, e := range strings.Split(annotations[kube.ServiceExportAnnotation], ",") {
+		for _, e := range strings.Split(annotations[annotation.NetworkingExportTo.Name], ",") {
 			exportTo[strings.TrimSpace(e)] = struct{}{}
 		}
 	}
