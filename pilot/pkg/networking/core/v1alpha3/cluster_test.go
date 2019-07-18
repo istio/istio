@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -899,6 +900,42 @@ func TestPassthroughClusterMaxConnections(t *testing.T) {
 	}
 }
 
+func TestRedisProtocolClusterWithPassThroughResolution(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	configgen := NewConfigGenerator([]plugin.Plugin{})
+
+	proxy := &model.Proxy{}
+
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+
+	servicePort := &model.Port{
+		Name:     "redis-port",
+		Port:     6379,
+		Protocol: model.ProtocolRedis,
+	}
+	service := &model.Service{
+		Hostname:    model.Hostname("redis.com"),
+		Address:     "1.1.1.1",
+		ClusterVIPs: make(map[string]string),
+		Ports:       model.PortList{servicePort},
+		Resolution:  model.Passthrough,
+	}
+
+	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
+
+	env := newTestEnvironment(serviceDiscovery, testMesh)
+
+	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
+	g.Expect(err).NotTo(HaveOccurred())
+	for _, cluster := range clusters {
+		if cluster.Name == "outbound|6379||redis.com" {
+			g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
+			g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
+		}
+	}
+}
+
 func TestRedisProtocolCluster(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -925,10 +962,16 @@ func TestRedisProtocolCluster(t *testing.T) {
 
 	env := newTestEnvironment(serviceDiscovery, testMesh)
 
+	// enable redis filter to true
+	os.Setenv("PILOT_ENABLE_REDIS_FILTER", "true")
+
+	defer os.Unsetenv("PILOT_ENABLE_REDIS_FILTER")
+
 	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(err).NotTo(HaveOccurred())
 	for _, cluster := range clusters {
 		if cluster.Name == "outbound|6379||redis.com" {
+			g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_EDS}))
 			g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_MAGLEV))
 		}
 	}

@@ -789,15 +789,19 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 		return
 	}
 
-	// Redis protocol must be defaulted with MAGLEV to benefit from client side sharding.
-	if port != nil && port.Protocol == model.ProtocolRedis {
-		cluster.LbPolicy = apiv2.Cluster_MAGLEV
-		return
-	}
+	// The following order important. If cluster type has been identified as Original DST since Resolution is PassThrough,
+	// and port is named as redis-xxx we end up creating a cluster with type Original DST and LbPolicy as MAGLEV which would be
+	// rejected by Envoy.
 
 	// Original destination service discovery must be used with the original destination load balancer.
 	if cluster.GetClusterDiscoveryType().Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}) {
 		cluster.LbPolicy = apiv2.Cluster_ORIGINAL_DST_LB
+		return
+	}
+
+	// Redis protocol must be defaulted with MAGLEV to benefit from client side sharding.
+	if pilot.EnableRedisFilter() && port != nil && port.Protocol == model.ProtocolRedis {
+		cluster.LbPolicy = apiv2.Cluster_MAGLEV
 		return
 	}
 
