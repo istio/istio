@@ -108,7 +108,7 @@ func fromRawToObject(raw []byte) (runtime.Object, error) {
 	return obj, nil
 }
 
-// extractResourceFile uninjects the istio proxy into the specified
+// extractResourceFile uninjects the istio proxy from the specified
 // kubernetes YAML file.
 func extractResourceFile(in io.Reader, out io.Writer) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))
@@ -206,6 +206,7 @@ func handleAnnotations(annotations map[string]string) map[string]string {
 	return annotations
 }
 
+// extractObject extras the sidecar injection and return the uninjected object.
 func extractObject(in runtime.Object) (interface{}, error) {
 	out := in.DeepCopyObject()
 
@@ -262,6 +263,18 @@ func extractObject(in runtime.Object) (interface{}, error) {
 		podSpec = templateValue.FieldByName("Spec").Addr().Interface().(*corev1.PodSpec)
 	}
 
+	//skip uninjection for pods
+	sidecarInjected := false
+	for _, c := range podSpec.Containers {
+		if c.Name == proxyContainerName {
+			sidecarInjected = true
+		}
+	}
+	if !sidecarInjected {
+		log.Info("Skipping uninjection because there is no sidecar injected.")
+		return in, nil
+	}
+
 	podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, initContainerName)
 	podSpec.Containers = removeInjectedContainers(podSpec.Containers, proxyContainerName)
 
@@ -283,26 +296,19 @@ func uninjectCommand() *cobra.Command {
 		Short: "Uninject Envoy sidecar from Kubernetes pod resources",
 		Long: `
 
-kube-uninject manually uninjects the Envoy sidecar from Kubernetes
-workloads. Unsupported resources are left unmodified so it is safe to
-run kube-uninject over a single file that contains multiple Service,
-ConfigMap, Deployment, etc. definitions for a complex application. Its
-best to do this when the resource is initially created.
+kube-uninject is used to prevent Istio from adding a sidecar and
+also provides the inverse of "istioctl kube-inject -f".
 
-k8s.io/docs/concepts/workloads/pods/pod-overview/#pod-templates is
-updated for Job, DaemonSet, ReplicaSet, Pod and Deployment YAML resource
-documents. Support for additional pod-based resource types can be
-added as necessary.
 `,
 		Example: `
-# Update resources on the fly before applying.
-kubectl apply -f <(istioctl kube-uninject -f <resource.yaml>)
+# Update resources before applying.
+kubectl apply -f <(istioctl experimental kube-uninject -f <resource.yaml>)
 
 # Create a persistent version of the deployment by removing Envoy sidecar.
-istioctl kube-uninject -f deployment.yaml -o deployment-uninjected.yaml
+istioctl experimental kube-uninject -f deployment.yaml -o deployment-uninjected.yaml
 
 # Update an existing deployment.
-kubectl get deployment -o yaml | istioctl kube-uninject -f - | kubectl apply -f -
+kubectl get deployment -o yaml | istioctl experimental kube-uninject -f - | kubectl apply -f -
 `,
 		RunE: func(c *cobra.Command, _ []string) (err error) {
 
@@ -354,13 +360,6 @@ kubectl get deployment -o yaml | istioctl kube-uninject -f - | kubectl apply -f 
 			}
 
 			return extractResourceFile(reader, writer)
-		},
-		PersistentPreRunE: func(c *cobra.Command, args []string) error {
-			// istioctl kube-uninject is typically redirected to a .yaml file;
-			// the default for log messages should be stderr, not stdout
-			_ = c.Root().PersistentFlags().Set("log_target", "stderr")
-
-			return c.Parent().PersistentPreRunE(c, args)
 		},
 	}
 
