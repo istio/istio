@@ -329,6 +329,25 @@ func BuildSecret(saName, scrtName, namespace string, certChain, privateKey, root
 	}
 }
 
+// BuildSecretFromSecretName returns a secret struct, contents of which are filled with parameters passed in.
+func BuildSecretFromSecretName(scrtName, namespace string, certChain, privateKey, rootCert, caCert, caPrivateKey []byte, secretType v1.SecretType) *v1.Secret {
+	return &v1.Secret{
+		Data: map[string][]byte{
+			CertChainID:    certChain,
+			PrivateKeyID:   privateKey,
+			RootCertID:     rootCert,
+			caCertID:       caCert,
+			caPrivateKeyID: caPrivateKey,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: nil,
+			Name:        scrtName,
+			Namespace:   namespace,
+		},
+		Type: secretType,
+	}
+}
+
 func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert []byte) error {
 	certEncoded := base64.StdEncoding.EncodeToString(cert)
 	cmc := configmap.NewController(namespace, client)

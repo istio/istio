@@ -16,19 +16,18 @@ package main
 
 import (
 	"os"
+	"strings"
 	"time"
-
-	"istio.io/istio/security/pkg/server/monitoring"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	istiocmd "istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/security/pkg/cmd"
 	chiron "istio.io/istio/security/pkg/k8s/chiron"
-	"istio.io/istio/security/pkg/k8s/controller"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
@@ -59,10 +58,13 @@ type cliOptions struct {
 	// The namespace of the webhook certificates
 	certificateNamespace string
 	kubeConfigFile       string
-	// The name of the MutatingWebhookConfiguration to manage
-	mutatingWebhookConfigName string
-	// The name of the webhook in a webhook configuration
-	mutatingWebhookName string
+	// The names of the MutatingWebhookConfiguration to manage
+	// In prototype, only one is supported.
+	mutatingWebhookConfigNames string
+	// The names of the webhooks in webhook configurations
+	// In prototype, only one is supported.
+	mutatingWebhookNames string
+
 	// TODO (lei-tang): Add the name of the ValidatingWebhookConfiguration to manage
 
 	// The minimum grace period for cert rotation.
@@ -85,15 +87,6 @@ type cliOptions struct {
 
 	// Whether enable the webhook controller
 	enableController bool
-}
-
-func fatalf(template string, args ...interface{}) {
-	if len(args) > 0 {
-		log.Errorf(template, args...)
-	} else {
-		log.Errorf(template)
-	}
-	os.Exit(-1)
 }
 
 func init() {
@@ -120,10 +113,10 @@ func init() {
 		cmd.DefaultWorkloadMinCertGracePeriod, "The minimum certificate rotation grace period.")
 
 	// MutatingWebhook configuration
-	flags.StringVar(&opts.mutatingWebhookConfigName, "mutating-webhook-config-name", "istio-sidecar-injector",
-		"The name of the mutatingwebhookconfiguration resource in Kubernetes. Chiron will manage this resource.")
-	flags.StringVar(&opts.mutatingWebhookName, "mutating-webhook-name", "sidecar-injector.istio.io",
-		"The name of the webhook in mutatingwebhookconfiguration. Only the specified webhook will be managed by Chiron.")
+	flags.StringVar(&opts.mutatingWebhookConfigNames, "mutating-webhook-config-names", "istio-sidecar-injector",
+		"The names of the mutatingwebhookconfiguration resources in Kubernetes, separated by comma. Chiron will manage them.")
+	flags.StringVar(&opts.mutatingWebhookNames, "mutating-webhook-names", "sidecar-injector.istio.io",
+		"The names of the webhook in mutatingwebhookconfigurations, separated by comma. Only the specified webhooks will be managed by Chiron.")
 
 	// Hide the command line options for the prototype
 	_ = flags.MarkHidden("enable-controller")
@@ -163,20 +156,20 @@ func runWebhookController() {
 		os.Exit(1)
 	}
 
-	webhooks := controller.ConstructCustomDNSNames(chiron.WebhookServiceAccounts,
-		chiron.WebhookServiceNames, opts.certificateNamespace, "")
-
 	k8sClient, err := kube.CreateClientset(opts.kubeConfigFile, "")
 	if err != nil {
 		log.Errorf("could not create k8s clientset: %v", err)
 		os.Exit(1)
 	}
 
+	mutatingWebhookConfigNames := strings.Split(opts.mutatingWebhookConfigNames, ",")
+	mutatingWebhookNames := strings.Split(opts.mutatingWebhookNames, ",")
+
 	stopCh := make(chan struct{})
 
 	sc, err := chiron.NewWebhookController(opts.certGracePeriodRatio, opts.certMinGracePeriod,
-		k8sClient, k8sClient.CoreV1(), k8sClient.CertificatesV1beta1(), webhooks,
-		opts.certificateNamespace, opts.mutatingWebhookConfigName, opts.mutatingWebhookName)
+		k8sClient, k8sClient.CoreV1(), k8sClient.CertificatesV1beta1(),
+		opts.certificateNamespace, mutatingWebhookConfigNames, mutatingWebhookNames)
 	if err != nil {
 		log.Errorf("failed to create webhook controller: %v", err)
 		os.Exit(1)
@@ -186,21 +179,5 @@ func runWebhookController() {
 	sc.Run(stopCh)
 	defer sc.CaCertWatcher.Close()
 
-	monitorErrCh := make(chan error)
-	// Start the monitoring server.
-	if opts.monitoringPort > 0 {
-		monitor, mErr := monitoring.NewMonitor(opts.monitoringPort, opts.enableProfiling)
-		if mErr != nil {
-			fatalf("unable to setup monitoring: %v", mErr)
-		}
-		go monitor.Start(monitorErrCh)
-		log.Info("Chiron monitor has started.")
-		defer monitor.Close()
-	}
-
-	// Blocking until receives error.
-	for range monitorErrCh {
-		// TODO: does the controller exit when receiving an error?
-		fatalf("monitoring server error: %v", err)
-	}
+	istiocmd.WaitSignal(stopCh)
 }

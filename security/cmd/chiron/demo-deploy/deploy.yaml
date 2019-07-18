@@ -119,9 +119,10 @@ spec:
           args:
             - "--log_output_level"
             - "debug"
-            - "--mutating-webhook-config-name"
+            - "--enable-controller"
+            - "--mutating-webhook-config-names"
             - "protomutate"
-            - "--mutating-webhook-name"
+            - "--mutating-webhook-names"
             - "protomutate.istio.io"
           resources:
             requests:

@@ -36,7 +36,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	istioutil "istio.io/istio/pkg/util"
-	crl "istio.io/istio/security/pkg/k8s/controller"
 	"istio.io/istio/security/pkg/listwatch"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
@@ -83,34 +82,26 @@ const (
 )
 
 var (
-	// WebhookServiceAccounts is service accounts for the webhooks.
-	WebhookServiceAccounts = []string{
-		// This service account is the service account of a demo webhook.
-		// It is for running the prototype on the demo webhook.
-		"istio-protomutate-service-account",
-		// TODO (lei-tang): remove demo service account and enable the following webhook service accounts
-		// "istio-sidecar-injector-service-account",
-		// "istio-galley-service-account",
+	// TODO (lei-tang): the secret names, service names, ports may be moved to CLI.
+
+	// WebhookServiceNames is service names of the webhooks.
+	WebhookServiceNames = []string{
+		"istio-sidecar-injector",
+		"istio-galley",
 	}
 
-	// WebhookServiceNames is service names of the webhooks. Each item corresponds to an item
-	// at the same index in WebhookServiceAccounts.
-	WebhookServiceNames = []string{
-		// This is a service name of a demo webhook. It is for running the prototype on the demo webhook.
-		"protomutate",
-		// TODO (lei-tang): remove demo service name and enable the following webhook service names
-		//		"istio-sidecar-injector",
-		//		"istio-galley",
+	// WebhookSecretNames is secret names of the webhooks. Each item corresponds to an item
+	//at the same index in WebhookServiceNames.
+	WebhookSecretNames = []string{
+		"istio.istio-sidecar-injector-service-account",
+		"istio.istio-galley-service-account",
 	}
 
 	// WebhookServicePorts is service ports of the webhooks. Each item corresponds to an item
 	// at the same index in WebhookServiceNames.
 	WebhookServicePorts = []int{
-		// This is a service port created as a demo of the prototype
 		443,
-		// TODO (lei-tang): remove demo service port and enable the following webhook service ports
-		//	443,
-		//	443,
+		443,
 	}
 )
 
@@ -122,9 +113,6 @@ type WebhookController struct {
 	// Length of the grace period for the certificate rotation.
 	gracePeriodRatio float32
 
-	// DNS-enabled serviceAccount.namespace to service pair
-	dnsNames map[string]*crl.DNSNameEntry
-
 	// Controller and store for secret objects.
 	scrtController cache.Controller
 	scrtStore      cache.Store
@@ -134,10 +122,10 @@ type WebhookController struct {
 	// The namespace of the webhook certificates
 	namespace string
 
-	// MutatingWebhookConfiguration
-	mutatingWebhookConfigName string
-	// The name of the webhook in the MutatingWebhookConfiguration
-	mutatingWebhookName string
+	// The names of MutatingWebhookConfiguration
+	mutatingWebhookConfigNames []string
+	// The names of the webhook in the MutatingWebhookConfigurations
+	mutatingWebhookNames []string
 
 	// Watcher for the CA certificate
 	CaCertWatcher *fsnotify.Watcher
@@ -151,7 +139,7 @@ type WebhookController struct {
 // NewWebhookController returns a pointer to a newly constructed WebhookController instance.
 func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration, k8sClient *kubernetes.Clientset,
 	core corev1.CoreV1Interface, certClient certclient.CertificatesV1beta1Interface,
-	dnsNames map[string]*crl.DNSNameEntry, nameSpace, mutatingWebhookConfigName, mutatingWebhookName string) (*WebhookController, error) {
+	nameSpace string, mutatingWebhookConfigNames, mutatingWebhookNames []string) (*WebhookController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
@@ -162,15 +150,14 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 	}
 
 	c := &WebhookController{
-		gracePeriodRatio:          gracePeriodRatio,
-		minGracePeriod:            minGracePeriod,
-		k8sClient:                 k8sClient,
-		core:                      core,
-		dnsNames:                  dnsNames,
-		certClient:                certClient,
-		namespace:                 nameSpace,
-		mutatingWebhookConfigName: mutatingWebhookConfigName,
-		mutatingWebhookName:       mutatingWebhookName,
+		gracePeriodRatio:           gracePeriodRatio,
+		minGracePeriod:             minGracePeriod,
+		k8sClient:                  k8sClient,
+		core:                       core,
+		certClient:                 certClient,
+		namespace:                  nameSpace,
+		mutatingWebhookConfigNames: mutatingWebhookConfigNames,
+		mutatingWebhookNames:       mutatingWebhookNames,
 	}
 
 	caCert, err := readCACert()
@@ -224,16 +211,17 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 
 // Run starts the WebhookController until stopCh is notified.
 func (wc *WebhookController) Run(stopCh chan struct{}) {
-	// In the prototype, Chiron only manages one webhook.
-	// TODO (lei-tang): extend the prototype to manage all webhooks.
+	// Create secrets containing certificates for webhooks
+	for _, scrtName := range WebhookSecretNames {
+		wc.upsertSecret(scrtName, wc.namespace)
+	}
+
 	host := fmt.Sprintf("%s.%s", WebhookServiceNames[0], wc.namespace)
 	port := WebhookServicePorts[0]
+	// In the prototype, Chiron only patches one webhook.
+	// TODO (lei-tang): extend the prototype to manage all webhooks.
 	go wc.checkAndPatchMutatingWebhook(host, port, stopCh)
 
-	// Create secrets containing certificates for webhooks
-	for _, saName := range WebhookServiceAccounts {
-		wc.upsertSecret(saName, wc.namespace)
-	}
 	// Manage the secrets of webhooks
 	go wc.scrtController.Run(stopCh)
 
@@ -245,8 +233,8 @@ func (wc *WebhookController) Run(stopCh chan struct{}) {
 	go wc.watchCACert(stopCh)
 }
 
-func (wc *WebhookController) upsertSecret(saName, saNamespace string) {
-	secret := ca.BuildSecret(saName, crl.GetSecretName(saName), saNamespace, nil, nil, nil, nil, nil, IstioSecretType)
+func (wc *WebhookController) upsertSecret(secretName, secretNamespace string) {
+	secret := ca.BuildSecretFromSecretName(secretName, secretNamespace, nil, nil, nil, nil, nil, IstioSecretType)
 
 	_, exists, err := wc.scrtStore.Get(secret)
 	if err != nil {
@@ -258,11 +246,17 @@ func (wc *WebhookController) upsertSecret(saName, saNamespace string) {
 		return
 	}
 
+	svcName, found := wc.getServiceName(secretName)
+	if !found {
+		log.Errorf("failed to find the service name for the secret (%v) to insert", secretName)
+		return
+	}
+
 	// Now we know the secret does not exist yet. So we create a new one.
-	chain, key, err := GenKeyCertK8sCA(wc, saName, saNamespace)
+	chain, key, err := GenKeyCertK8sCA(wc, secretName, secretNamespace, svcName)
 	if err != nil {
-		log.Errorf("failed to generate key and certificate for service account %q in namespace %q (error %v)",
-			saName, saNamespace, err)
+		log.Errorf("failed to generate key and certificate for secret %v in namespace %v (error %v)",
+			secretName, secretNamespace, err)
 		return
 	}
 	secret.Data = map[string][]byte{
@@ -273,10 +267,10 @@ func (wc *WebhookController) upsertSecret(saName, saNamespace string) {
 
 	// We retry several times when create secret to mitigate transient network failures.
 	for i := 0; i < secretCreationRetry; i++ {
-		_, err = wc.core.Secrets(saNamespace).Create(secret)
+		_, err = wc.core.Secrets(secretNamespace).Create(secret)
 		if err == nil || errors.IsAlreadyExists(err) {
 			if errors.IsAlreadyExists(err) {
-				log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" already exists", saName, saNamespace)
+				log.Infof("Istio secret \"%s\" in namespace \"%s\" already exists", secretName, secretNamespace)
 			}
 			break
 		} else {
@@ -286,24 +280,12 @@ func (wc *WebhookController) upsertSecret(saName, saNamespace string) {
 	}
 
 	if err != nil && !errors.IsAlreadyExists(err) {
-		log.Errorf("Failed to create secret for service account \"%s\"  (error: %s), retries %v times",
-			saName, err, secretCreationRetry)
+		log.Errorf("Failed to create secret \"%s\" in namespace \"%s\" (error: %s), retries %v times",
+			secretName, secretNamespace, err, secretCreationRetry)
 		return
 	}
 
-	log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" has been created", saName, saNamespace)
-}
-
-func (wc *WebhookController) deleteSecret(saName, saNamespace string) {
-	err := wc.core.Secrets(saNamespace).Delete(crl.GetSecretName(saName), nil)
-	// kube-apiserver returns NotFound error when the secret is successfully deleted.
-	if err == nil || errors.IsNotFound(err) {
-		log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" has been deleted", saName, saNamespace)
-		return
-	}
-
-	log.Errorf("Failed to delete Istio secret for service account \"%s\" in namespace \"%s\" (error: %s)",
-		saName, saNamespace, err)
+	log.Infof("Istio secret \"%s\" in namespace \"%s\" has been created", secretName, secretNamespace)
 }
 
 func (wc *WebhookController) scrtDeleted(obj interface{}) {
@@ -313,12 +295,10 @@ func (wc *WebhookController) scrtDeleted(obj interface{}) {
 		return
 	}
 
-	saName := scrt.Annotations[ServiceAccountNameAnnotationKey]
-	if _, err := wc.core.ServiceAccounts(scrt.GetNamespace()).Get(saName, metav1.GetOptions{}); err == nil {
-		if wc.isWebhookSA(saName, scrt.GetNamespace()) {
-			log.Errorf("Re-create deleted Istio secret for existing service account %s.", saName)
-			wc.upsertSecret(saName, scrt.GetNamespace())
-		}
+	scrtName := scrt.Name
+	if wc.isWebhookSecret(scrtName, scrt.GetNamespace()) {
+		log.Errorf("Re-create deleted Istio secret for existing secret %s in namespace %s", scrtName, scrt.GetNamespace())
+		wc.upsertSecret(scrtName, scrt.GetNamespace())
 	}
 }
 
@@ -377,9 +357,14 @@ func (wc *WebhookController) scrtUpdated(oldObj, newObj interface{}) {
 // refreshSecret is an inner func to refresh cert secrets when necessary
 func (wc *WebhookController) refreshSecret(scrt *v1.Secret) error {
 	namespace := scrt.GetNamespace()
-	saName := scrt.Annotations[ServiceAccountNameAnnotationKey]
+	scrtName := scrt.Name
 
-	chain, key, err := GenKeyCertK8sCA(wc, saName, namespace)
+	svcName, found := wc.getServiceName(scrtName)
+	if !found {
+		return fmt.Errorf("failed to find the service name for the secret (%v) to refresh", scrtName)
+	}
+
+	chain, key, err := GenKeyCertK8sCA(wc, scrtName, namespace, svcName)
 	if err != nil {
 		return err
 	}
@@ -404,20 +389,10 @@ func (wc *WebhookController) cleanUpCertGen(csrName string) error {
 	return nil
 }
 
-// Return whether the input service account name is a Webhook service account
-func (wc *WebhookController) isWebhookSA(name, namespace string) bool {
-	for _, n := range WebhookServiceAccounts {
-		if n == name && namespace == wc.namespace {
-			return true
-		}
-	}
-	return false
-}
-
-// Return whether the input secret name is a webhook secret
+// Return whether the input secret name is a Webhook secret
 func (wc *WebhookController) isWebhookSecret(name, namespace string) bool {
-	for _, n := range WebhookServiceAccounts {
-		if crl.GetSecretName(n) == name && namespace == wc.namespace {
+	for _, n := range WebhookSecretNames {
+		if name == n && namespace == wc.namespace {
 			return true
 		}
 	}
@@ -440,13 +415,13 @@ func (wc *WebhookController) watchCACert(stopCh chan struct{}) {
 			if !bytes.Equal(caCert, wc.getCurCACert()) {
 				log.Debug("CA cert changed, update webhook certs and webhook configuration")
 				wc.setCurCACert(caCert)
-				// Update the webhook certificate
-				for _, name := range WebhookServiceAccounts {
+				// Update the webhook certificates
+				for _, name := range WebhookSecretNames {
 					wc.upsertSecret(name, wc.namespace)
 				}
 				// Patch the WebhookConfiguration
 				// TODO (lei-tang): extend the demo webhook to all webhooks
-				doPatch(wc.k8sClient, wc.mutatingWebhookConfigName, wc.mutatingWebhookName, wc.getCurCACert())
+				doPatch(wc.k8sClient, wc.mutatingWebhookConfigNames[0], wc.mutatingWebhookNames[0], wc.getCurCACert())
 			}
 		case event := <-wc.CaCertWatcher.Event:
 			// use a timer to debounce configuration updates
@@ -474,6 +449,16 @@ func (wc *WebhookController) setCurCACert(cert []byte) {
 	wc.mutex.Unlock()
 }
 
+// Get the service name for the secret. Return the service name and whether it is found.
+func (wc *WebhookController) getServiceName(secretName string) (string, bool) {
+	for i, name := range WebhookSecretNames {
+		if name == secretName {
+			return WebhookServiceNames[i], true
+		}
+	}
+	return "", false
+}
+
 func (wc *WebhookController) checkAndPatchMutatingWebhook(host string, port int, stopCh chan struct{}) {
 	// Check the webhook service status. Only configure webhook if the webhook service is available.
 	for {
@@ -491,7 +476,8 @@ func (wc *WebhookController) checkAndPatchMutatingWebhook(host string, port int,
 		}
 	}
 	// The webhook in the prototype is a mutating webhook.
-	err := wc.patchMutatingCertLoop(wc.k8sClient, wc.mutatingWebhookConfigName, wc.mutatingWebhookName, stopCh)
+	// TODO (lei-tang): extend the demo webhook to all webhooks.
+	err := wc.patchMutatingCertLoop(wc.k8sClient, wc.mutatingWebhookConfigNames[0], wc.mutatingWebhookNames[0], stopCh)
 	if err != nil {
 		// Abort if failed to patch the mutating webhook
 		log.Fatalf("failed to patch the mutating webhook: %v", err)

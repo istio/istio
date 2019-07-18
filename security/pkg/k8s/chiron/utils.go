@@ -22,9 +22,12 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/spiffe"
+
 	istioutil "istio.io/istio/pkg/util"
+
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
+
 	cert "k8s.io/api/certificates/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,25 +41,12 @@ import (
 // 3. Approve a CSR
 // 4. Read the signed certificate
 // 5. Clean up the artifacts (e.g., delete CSR)
-func GenKeyCertK8sCA(wc *WebhookController, saName string, saNamespace string) ([]byte, []byte, error) {
+func GenKeyCertK8sCA(wc *WebhookController, secretName string, secretNamespace, svcName string) ([]byte, []byte, error) {
 	// 1. Generate a CSR
-	id := ""
-	if wc.dnsNames != nil {
-		// Control plane components in same namespace.
-		if e, ok := wc.dnsNames[saName]; ok {
-			if e.Namespace == saNamespace {
-				// Example: istio-pilot.istio-system.svc, istio-pilot.istio-system
-				id += "," + fmt.Sprintf("%s.%s.svc", e.ServiceName, e.Namespace)
-				id += "," + fmt.Sprintf("%s.%s", e.ServiceName, e.Namespace)
-			}
-		}
-		// Custom adds more DNS entries using CLI
-		if e, ok := wc.dnsNames[saName+"."+saNamespace]; ok {
-			for _, d := range e.CustomDomains {
-				id += "," + d
-			}
-		}
-	}
+	// Construct the dns id from service name and name space.
+	// Example: istio-pilot.istio-system.svc, istio-pilot.istio-system
+	id := fmt.Sprintf("%s.%s.svc", svcName, secretNamespace)
+	id += "," + fmt.Sprintf("%s.%s", svcName, secretNamespace)
 	options := util.CertOptions{
 		Host:       id,
 		RSAKeySize: keySize,
@@ -70,7 +60,7 @@ func GenKeyCertK8sCA(wc *WebhookController, saName string, saNamespace string) (
 	}
 
 	// 2. Submit a CSR
-	csrName := fmt.Sprintf("domain-%s-ns-%s-sa-%s", spiffe.GetTrustDomain(), saNamespace, saName)
+	csrName := fmt.Sprintf("domain-%s-ns-%s-secret-%s", spiffe.GetTrustDomain(), secretNamespace, secretName)
 	k8sCSR := &cert.CertificateSigningRequest{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "certificates.k8s.io/v1beta1",
