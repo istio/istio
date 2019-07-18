@@ -241,13 +241,13 @@ func main() {
 	// First, make sure all the modules are downloaded into the cache
 	out, err := runBashWithModuleSupport("go", "mod", "download")
 	if err != nil {
-		log.Fatal(out)
+		log.Fatalf("go mod download failed: %s with output:\n%s", err, out)
 	}
 
 	// List all the modules using json as we want multiple fields (defined in Module struct)
-	out, err = runBashWithModuleSupport("go", "list", "-m", "-json", "-f", "{{ .Dir }}", "all")
+	out, err = runBashWithModuleSupport("go", "list", "-m", "-json", "all")
 	if err != nil {
-		log.Fatal(out)
+		log.Fatalf("go list module failed: %s with output:\n%s", err, out)
 	}
 
 	// Unmarshall json output
@@ -258,7 +258,7 @@ func main() {
 
 	err = json.Unmarshal([]byte(jsonified), &modules)
 	if err != nil {
-		log.Fatal(out)
+		log.Fatalf("Unmarshall failed: %s", err)
 	}
 
 	var missing []string
