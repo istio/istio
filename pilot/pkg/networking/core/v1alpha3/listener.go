@@ -1138,7 +1138,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	// Lets build the new listener with the filter chains. In the end, we will
 	// merge the filter chains with any existing listener on the same port/bind point
 	l := buildListener(listenerOpts)
-	appendListenerFallthroughRoute(l, &listenerOpts, pluginParams.Node)
+	appendListenerFallthroughRoute(l, &listenerOpts, pluginParams.Node, currentListenerEntry)
 
 	mutable := &plugin.MutableObjects{
 		Listener:     l,
@@ -1653,19 +1653,30 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 // appendListenerFallthroughRoute adds a filter that will match all traffic and direct to the
 // PassthroughCluster. This should be appended as the final filter or it will mask the others.
 // This allows external https traffic, even when port the port (usually 443) is in use by another service.
-func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts, node *model.Proxy) {
+func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts, node *model.Proxy, currentListenerEntry *outboundListenerEntry) {
 	// If traffic policy is REGISTRY_ONLY, the traffic will already be blocked, so no action is needed.
 	if features.EnableFallthroughRoute() && isAllowAny(node) {
 
 		wildcardMatch := &listener.FilterChainMatch{}
 		for _, fc := range l.FilterChains {
-			if fc.FilterChainMatch == nil || fc.FilterChainMatch == wildcardMatch {
+			if fc.FilterChainMatch == nil || reflect.DeepEqual(fc.FilterChainMatch, wildcardMatch) {
 				// We can only have one wildcard match. If the filter chain already has one, skip it
 				// This happens in the case of HTTP, which will get a fallthrough route added later,
 				// or TCP, which is not supported
 				return
 			}
 		}
+
+		if currentListenerEntry != nil {
+			for _, fc := range currentListenerEntry.listener.FilterChains {
+				if fc.FilterChainMatch == nil || reflect.DeepEqual(fc.FilterChainMatch, wildcardMatch) {
+					// We can only have one wildcard match. If the existing filter chain already has one, skip it
+					// This can happen when there are multiple https services
+					return
+				}
+			}
+		}
+
 		tcpFilter := listener.Filter{
 			Name: xdsutil.TCPProxy,
 		}
