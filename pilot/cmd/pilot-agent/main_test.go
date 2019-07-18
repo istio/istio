@@ -120,8 +120,10 @@ func TestPilotDefaultDomainKubernetes(t *testing.T) {
 
 func TestDetectSds(t *testing.T) {
 	sdsUdsWaitTimeout = 100 * time.Millisecond
+	os.Setenv("SDS_ENABLED", "true")
 	defer func() {
 		sdsUdsWaitTimeout = time.Minute
+		os.Unsetenv("SDS_ENABLED")
 	}()
 
 	g := gomega.NewGomegaWithT(t)
