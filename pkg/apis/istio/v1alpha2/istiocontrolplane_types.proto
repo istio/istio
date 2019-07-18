@@ -435,7 +435,8 @@ message KubernetesResourcesSpec {
     string priority_class_name = 8;
     // k8s readinessProbe settings.
     // https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
-    k8s.io.api.core.v1.Probe readiness_probe = 9;
+    // k8s.io.api.core.v1.Probe readiness_probe = 9;
+    ReadinessProbe readiness_probe = 9;
     // k8s Deployment replicas setting.
     // https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
     uint32 replica_count = 10;
@@ -618,6 +619,42 @@ message Resources {
     map<string, string> requests = 2;
 }
 
+// Mirrors k8s.io.api.core.v1.Probe for unmarshaling
+message ReadinessProbe {
+    ExecAction exec = 1;
+    HTTPGetAction httpGet = 2;
+    TCPSocketAction tcpSocket = 3;
+    int32 initial_delaySeconds = 4;
+    int32 timeout_seconds = 5;
+    int32 period_seconds = 6;
+    int32 success_threshold = 7;
+    int32 failure_threshold = 8;
+}
+
+// Mirrors k8s.io.api.core.v1.ExecAction for unmarshaling
+message ExecAction {
+    repeated string command = 1;
+}
+
+// Mirrors k8s.io.api.core.v1.HTTPGetAction for unmarshaling
+message HTTPGetAction {
+    string path = 1;
+    string host = 3;
+    string scheme = 4;
+    repeated HTTPHeader httpHeaders = 5;
+}
+
+// Mirrors k8s.io.api.core.v1.HTTPHeader for unmarshaling
+message HTTPHeader {
+    string name = 1;
+    string value = 2;
+}
+
+// Mirrors k8s.io.api.core.v1.TCPSocketAction for unmarshaling
+message TCPSocketAction {
+    string host = 2;
+}
+
 // Mirrors k8s.io.api.policy.v1beta1.PodDisruptionBudget for unmarshaling.
 message PodDisruptionBudgetSpec {
     uint32 min_available = 1;
@@ -636,7 +673,8 @@ message TestKube {
     map<string, string> env = 60;
 
     Resources resources = 80;
-    k8s.io.api.core.v1.Probe readiness_probe = 81;
+    //k8s.io.api.core.v1.Probe readiness_probe = 81;
+    ReadinessProbe readiness_probe = 81;
     k8s.io.api.autoscaling.v2beta1.HorizontalPodAutoscalerSpec hpa_spec = 86;
     PodDisruptionBudgetSpec pod_disruption_budget = 87;
     k8s.io.api.core.v1.Affinity affinity = 8;

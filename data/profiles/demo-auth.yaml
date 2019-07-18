@@ -16,11 +16,9 @@ trafficManagement:
             value: "gctrace=1"
           replicaCount: 1
           readinessProbe:
-            handler: {}
-# TODO: uncomment the following lines after the jsonpb unmarshaling issue is resolved: https://github.com/istio/istio/issues/15366
-#            httpGet:
-#              path: /ready
-#              port: 8080
+            httpGet:
+              path: /ready
+              port: 8080
             initialDelaySeconds: 5
             periodSeconds: 30
             timeoutSeconds: 5
