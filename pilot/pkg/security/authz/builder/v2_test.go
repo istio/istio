@@ -132,7 +132,7 @@ func TestBuilder_buildV2(t *testing.T) {
 			t.Fatalf("%s: failed to create builder", tc.name)
 		}
 
-		got := b.build(tc.forTCPFilter)
+		got := b.generateFilterConfig(tc.forTCPFilter)
 		gotStr := spew.Sdump(got)
 
 		if got.GetRules() == nil {

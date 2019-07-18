@@ -177,7 +177,7 @@ func TestBuilder_buildV1(t *testing.T) {
 		}
 		b.isGlobalPermissiveEnabled = tc.isGlobalPermissiveEnabled
 
-		got := b.build(tc.forTCPFilter)
+		got := b.generateFilterConfig(tc.forTCPFilter)
 		gotStr := spew.Sdump(got)
 
 		if tc.isGlobalPermissiveEnabled {

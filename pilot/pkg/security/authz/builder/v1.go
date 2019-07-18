@@ -56,11 +56,11 @@ func (b *Builder) buildV1(forTCPFilter bool) *http_config.RBAC {
 		}
 
 		role := roleConfig.Spec.(*istio_rbac.ServiceRole)
-		if policy := b.generate(role, enforcedBindings, forTCPFilter); policy != nil {
+		if policy := b.generatePolicy(role, enforcedBindings, forTCPFilter); policy != nil {
 			rbacLog.Debugf("generated policy for role: %s", roleName)
 			enforcedConfig.Policies[roleName] = policy
 		}
-		if policy := b.generate(role, permissiveBindings, forTCPFilter); policy != nil {
+		if policy := b.generatePolicy(role, permissiveBindings, forTCPFilter); policy != nil {
 			rbacLog.Debugf("generated permissive policy for role: %s", roleName)
 			permissiveConfig.Policies[roleName] = policy
 		}

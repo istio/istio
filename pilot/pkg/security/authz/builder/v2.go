@@ -70,7 +70,7 @@ func (b *Builder) buildV2(forTCPFilter bool) *http_config.RBAC {
 			// TODO: optimize for multiple bindings referring to the same role.
 			roleName, role := roleForBinding(binding, namespace, authzPolicies)
 			bindings := []*istio_rbac.ServiceRoleBinding{binding}
-			if policy := b.generate(role, bindings, forTCPFilter); policy != nil {
+			if policy := b.generatePolicy(role, bindings, forTCPFilter); policy != nil {
 				rbacLog.Debugf("generated policy for role: %s", roleName)
 				policyName := fmt.Sprintf("authz-[%s]-allow[%d]", authzPolicy.Name, i)
 				rbac.Policies[policyName] = policy

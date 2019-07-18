@@ -139,17 +139,15 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 
 		if tc.isXDSMarshalingToAnyEnabled {
 			if got.GetTypedConfig() == nil {
-				t.Fatalf("%s: want typed config when isXDSMarshalingToAnyEnabled is true", tc.name)
+				t.Errorf("%s: want typed config when isXDSMarshalingToAnyEnabled is true", tc.name)
 			}
 		} else {
 			rbacConfig := &http_config.RBAC{}
 			if got.GetConfig() == nil {
-				t.Fatalf("%s: want struct config when isXDSMarshalingToAnyEnabled is false", tc.name)
+				t.Errorf("%s: want struct config when isXDSMarshalingToAnyEnabled is false", tc.name)
 			} else if err := util.StructToMessage(got.GetConfig(), rbacConfig); err != nil {
-				t.Fatalf("%s: failed to convert struct to message: %s", tc.name, err)
-			}
-
-			if len(rbacConfig.GetRules().GetPolicies()) > 0 != tc.wantRuleWithPolicies {
+				t.Errorf("%s: failed to convert struct to message: %s", tc.name, err)
+			} else if len(rbacConfig.GetRules().GetPolicies()) > 0 != tc.wantRuleWithPolicies {
 				t.Errorf("%s: got rules with policies %v but want %v",
 					tc.name, len(rbacConfig.GetRules().GetPolicies()) > 0, tc.wantRuleWithPolicies)
 			}
@@ -205,32 +203,32 @@ func TestBuilder_BuildTCPFilter(t *testing.T) {
 
 		if tc.isXDSMarshalingToAnyEnabled {
 			if got.GetTypedConfig() == nil {
-				t.Fatalf("%s: want typed config when isXDSMarshalingToAnyEnabled is true", tc.name)
+				t.Errorf("%s: want typed config when isXDSMarshalingToAnyEnabled is true", tc.name)
 			}
 		} else {
 			rbacConfig := &tcp_config.RBAC{}
 			if got.GetConfig() == nil {
-				t.Fatalf("%s: want struct config when isXDSMarshalingToAnyEnabled is false", tc.name)
+				t.Errorf("%s: want struct config when isXDSMarshalingToAnyEnabled is false", tc.name)
 			} else if err := util.StructToMessage(got.GetConfig(), rbacConfig); err != nil {
-				t.Fatalf("%s: failed to convert struct to message: %s", tc.name, err)
-			}
+				t.Errorf("%s: failed to convert struct to message: %s", tc.name, err)
+			} else {
+				if rbacConfig.StatPrefix != authz_model.RBACTCPFilterStatPrefix {
+					t.Errorf("%s: got filter stat prefix %q but want %q",
+						tc.name, rbacConfig.StatPrefix, authz_model.RBACTCPFilterStatPrefix)
+				}
 
-			if rbacConfig.StatPrefix != authz_model.RBACTCPFilterStatPrefix {
-				t.Errorf("%s: got filter stat prefix %q but want %q",
-					tc.name, rbacConfig.StatPrefix, authz_model.RBACTCPFilterStatPrefix)
-			}
-
-			if len(rbacConfig.GetRules().GetPolicies()) > 0 != tc.wantRuleWithPolicies {
-				t.Errorf("%s: got rules with policies %v but want %v",
-					tc.name, len(rbacConfig.GetRules().GetPolicies()) > 0, tc.wantRuleWithPolicies)
-			}
-			if (rbacConfig.GetRules().GetPolicies() != nil) != tc.wantRules {
-				t.Errorf("%s: got rules %v but want %v",
-					tc.name, rbacConfig.GetRules().GetPolicies() != nil, tc.wantRules)
-			}
-			if (rbacConfig.GetShadowRules().GetPolicies() != nil) != tc.wantShadowRules {
-				t.Errorf("%s: got shadow rules %v but want %v",
-					tc.name, rbacConfig.GetShadowRules().GetPolicies() != nil, tc.wantShadowRules)
+				if len(rbacConfig.GetRules().GetPolicies()) > 0 != tc.wantRuleWithPolicies {
+					t.Errorf("%s: got rules with policies %v but want %v",
+						tc.name, len(rbacConfig.GetRules().GetPolicies()) > 0, tc.wantRuleWithPolicies)
+				}
+				if (rbacConfig.GetRules().GetPolicies() != nil) != tc.wantRules {
+					t.Errorf("%s: got rules %v but want %v",
+						tc.name, rbacConfig.GetRules().GetPolicies() != nil, tc.wantRules)
+				}
+				if (rbacConfig.GetShadowRules().GetPolicies() != nil) != tc.wantShadowRules {
+					t.Errorf("%s: got shadow rules %v but want %v",
+						tc.name, rbacConfig.GetShadowRules().GetPolicies() != nil, tc.wantShadowRules)
+				}
 			}
 		}
 	}
