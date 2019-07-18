@@ -789,7 +789,7 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 		return
 	}
 
-	// The following order important. If cluster type has been identified as Original DST because is Resolution is PassThrough,
+	// The following order important. If cluster type has been identified as Original DST since Resolution is PassThrough,
 	// and port is named as redis-xxx we end up creating a cluster with type Original DST and LbPolicy as MAGLEV which would be
 	// rejected by Envoy.
 
