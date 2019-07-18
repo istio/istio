@@ -85,6 +85,7 @@ type VirtualServiceConfig struct {
 
 func TestMain(m *testing.M) {
 	framework.NewSuite("traffic_shifting", m).
+		RequireEnvironment(environment.Kube).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
 		Run()
 }
@@ -100,6 +101,7 @@ func TestTrafficShifting(t *testing.T) {
 
 	framework.
 		NewTest(t).
+		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
 			g, _ = galley.New(ctx, galley.Config{})
