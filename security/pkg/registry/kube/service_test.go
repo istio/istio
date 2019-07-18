@@ -18,34 +18,34 @@ import (
 	"reflect"
 	"testing"
 
-	v1 "k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
-
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/api/annotation"
 	"istio.io/istio/security/pkg/registry"
+
+	coreV1 "k8s.io/api/core/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
-func createService(svcAcct string, canonicalSvcAcct string) *v1.Service {
-	return &v1.Service{
-		ObjectMeta: meta_v1.ObjectMeta{
+func createService(svcAcct string, canonicalSvcAcct string) *coreV1.Service {
+	return &coreV1.Service{
+		ObjectMeta: metaV1.ObjectMeta{
 			Annotations: map[string]string{
-				kube.KubeServiceAccountsOnVMAnnotation:  svcAcct,
-				kube.CanonicalServiceAccountsAnnotation: canonicalSvcAcct,
+				annotation.KubernetesServiceAccounts.Name: svcAcct,
+				annotation.CanonicalServiceAccounts.Name:  canonicalSvcAcct,
 			},
 		},
 	}
 }
 
 type servicePair struct {
-	oldSvc *v1.Service
-	newSvc *v1.Service
+	oldSvc *coreV1.Service
+	newSvc *coreV1.Service
 }
 
 func TestServiceController(t *testing.T) {
 	testCases := map[string]struct {
-		toAdd    *v1.Service
-		toDelete *v1.Service
+		toAdd    *coreV1.Service
+		toDelete *coreV1.Service
 		toUpdate *servicePair
 		mapping  map[string]string
 	}{

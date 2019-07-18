@@ -18,17 +18,17 @@ import (
 	"reflect"
 	"time"
 
+	"istio.io/api/annotation"
+	"istio.io/istio/security/pkg/listwatch"
+	"istio.io/istio/security/pkg/registry"
+	"istio.io/pkg/log"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
-
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/security/pkg/listwatch"
-	"istio.io/istio/security/pkg/registry"
-	"istio.io/pkg/log"
 )
 
 // ServiceController monitors the service definition changes in a namespace. If a
@@ -81,14 +81,14 @@ func (c *ServiceController) Run(stopCh chan struct{}) {
 
 func (c *ServiceController) serviceAdded(obj interface{}) {
 	svc := obj.(*v1.Service)
-	svcAcct, ok := svc.ObjectMeta.Annotations[kube.KubeServiceAccountsOnVMAnnotation]
+	svcAcct, ok := svc.ObjectMeta.Annotations[annotation.KubernetesServiceAccounts.Name]
 	if ok {
 		err := c.reg.AddMapping(svcAcct, svcAcct)
 		if err != nil {
 			log.Errorf("cannot add mapping %q -> %q to registry: %s", svcAcct, svcAcct, err.Error())
 		}
 	}
-	canonicalSvcAcct, ok := svc.ObjectMeta.Annotations[kube.CanonicalServiceAccountsAnnotation]
+	canonicalSvcAcct, ok := svc.ObjectMeta.Annotations[annotation.CanonicalServiceAccounts.Name]
 	if ok {
 		err := c.reg.AddMapping(canonicalSvcAcct, canonicalSvcAcct)
 		if err != nil {
@@ -99,14 +99,14 @@ func (c *ServiceController) serviceAdded(obj interface{}) {
 
 func (c *ServiceController) serviceDeleted(obj interface{}) {
 	svc := obj.(*v1.Service)
-	svcAcct, ok := svc.ObjectMeta.Annotations[kube.KubeServiceAccountsOnVMAnnotation]
+	svcAcct, ok := svc.ObjectMeta.Annotations[annotation.KubernetesServiceAccounts.Name]
 	if ok {
 		err := c.reg.DeleteMapping(svcAcct, svcAcct)
 		if err != nil {
 			log.Errorf("cannot delete mapping %q to %q from registry: %s", svcAcct, svcAcct, err.Error())
 		}
 	}
-	canonicalSvcAcct, ok := svc.ObjectMeta.Annotations[kube.CanonicalServiceAccountsAnnotation]
+	canonicalSvcAcct, ok := svc.ObjectMeta.Annotations[annotation.CanonicalServiceAccounts.Name]
 	if ok {
 		err := c.reg.DeleteMapping(canonicalSvcAcct, canonicalSvcAcct)
 		if err != nil {

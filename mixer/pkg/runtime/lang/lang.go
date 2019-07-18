@@ -16,11 +16,11 @@
 package lang
 
 import (
+	"istio.io/api/annotation"
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/lang/cel"
 	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/lang/compiled"
-	"istio.io/pkg/annotations"
 	"istio.io/pkg/attribute"
 	"istio.io/pkg/env"
 )
@@ -48,12 +48,7 @@ const (
 
 	// COMPAT is a hybrid with CEXL syntax but CEL semantics
 	COMPAT
-
-	// LanguageRuntimeAnnotation on config resources to select a language runtime
-	LanguageRuntimeAnnotation = "policy.istio.io/lang"
 )
-
-var _ = annotations.Register(LanguageRuntimeAnnotation, "Select a language runtime")
 
 var langVar = env.RegisterStringVar("ISTIO_LANG", "", "Selects the attribute expression langauge runtime for Mixer.")
 
@@ -62,7 +57,7 @@ func GetLanguageRuntime(annotations map[string]string) LanguageRuntime {
 	if override, has := langVar.Lookup(); has {
 		return fromString(override)
 	}
-	return fromString(annotations[LanguageRuntimeAnnotation])
+	return fromString(annotations[annotation.PolicyLang.Name])
 }
 
 func fromString(value string) LanguageRuntime {

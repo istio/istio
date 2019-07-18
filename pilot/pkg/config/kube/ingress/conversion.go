@@ -20,15 +20,16 @@ import (
 	"strconv"
 	"strings"
 
-	multierror "github.com/hashicorp/go-multierror"
-	"k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/pkg/log"
+
+	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // EncodeIngressRuleName encodes an ingress rule name for a given ingress resource name,
@@ -151,13 +152,13 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 
 		virtualService.Hosts = []string{host}
 
-		httpRoutes := []*networking.HTTPRoute{}
-		for _, path := range rule.HTTP.Paths {
+		httpRoutes := make([]*networking.HTTPRoute, 0)
+		for _, httpPath := range rule.HTTP.Paths {
 			httpMatch := &networking.HTTPMatchRequest{
-				Uri: createStringMatch(path.Path),
+				Uri: createStringMatch(httpPath.Path),
 			}
 
-			httpRoute := ingressBackendToHTTPRoute(&path.Backend, ingress.Namespace, domainSuffix)
+			httpRoute := ingressBackendToHTTPRoute(&httpPath.Backend, ingress.Namespace, domainSuffix)
 			if httpRoute == nil {
 				log.Infof("invalid ingress rule %s:%s for host %q, no backend defined for path", ingress.Namespace, ingress.Name, rule.Host)
 				continue
