@@ -317,11 +317,12 @@ func TestStreamSecretsPush(t *testing.T) {
 	conID := proxyID + "-1"
 
 	// Test push new secret to proxy.
-	if err = NotifyProxy(conID, req.ResourceNames[0], &model.SecretItem{
-		CertificateChain: fakePushCertificateChain,
-		PrivateKey:       fakePushPrivateKey,
-		ResourceName:     testResourceName,
-	}); err != nil {
+	if err = NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: req.ResourceNames[0]},
+		&model.SecretItem{
+			CertificateChain: fakePushCertificateChain,
+			PrivateKey:       fakePushPrivateKey,
+			ResourceName:     testResourceName,
+		}); err != nil {
 		t.Fatalf("failed to send push notificiation to proxy %q", conID)
 	}
 	resp, err = stream.Recv()
@@ -340,7 +341,7 @@ func TestStreamSecretsPush(t *testing.T) {
 	}
 
 	// Test push nil secret(indicates close the streaming connection) to proxy.
-	if err = NotifyProxy(conID, req.ResourceNames[0], nil); err != nil {
+	if err = NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: req.ResourceNames[0]}, nil); err != nil {
 		t.Fatalf("failed to send push notificiation to proxy %q", conID)
 	}
 	if _, err = stream.Recv(); err == nil {

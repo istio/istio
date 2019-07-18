@@ -403,18 +403,15 @@ func (s *sdsservice) clearStaledClients() {
 
 // NotifyProxy sends notification to proxy about secret update,
 // SDS will close streaming connection if secret is nil.
-func NotifyProxy(conID, resourceName string, secret *model.SecretItem) error {
-	key := cache.ConnKey{
-		ConnectionID: conID,
-		ResourceName: resourceName,
-	}
-
+func NotifyProxy(connKey cache.ConnKey, secret *model.SecretItem) error {
+	conIDresourceNamePrefix := sdsLogPrefix(connKey.ConnectionID, connKey.ResourceName)
 	sdsClientsMutex.Lock()
 	defer sdsClientsMutex.Unlock()
-	conn := sdsClients[key]
+	conn := sdsClients[connKey]
 	if conn == nil {
-		sdsServiceLog.Errorf("No connection with id %q can be found", conID)
-		return fmt.Errorf("no connection with id %q can be found", conID)
+		sdsServiceLog.Errorf("%s NotifyProxy failed. No connection with id %q can be found",
+			conIDresourceNamePrefix, connKey.ConnectionID)
+		return fmt.Errorf("no connection with id %q can be found", connKey.ConnectionID)
 	}
 	conn.mutex.Lock()
 	conn.secret = secret
