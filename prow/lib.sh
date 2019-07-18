@@ -128,15 +128,12 @@ function attempt_kind_creation() {
   attempts=0
   until [[ ${attempts} -ge 3 ]]
   do
-    kind create cluster --name=e2e-suite --loglevel debug && break
-    attempts=$[$attempts+1]
+    kind create cluster --name=e2e-suite --loglevel debug && return 0
+    attempts=$((attempts+1))
     echo "Could not setup KinD environment. Something wrong with KinD setup. Trying again."
-    sleep 1
   done
-  if [[ ! $? ]]; then
-    echo "Could not set up KinD environment."
-    exit 1
-  fi
+  echo "Could not set up KinD environment."
+  exit 1
 }
 
 function setup_kind_cluster() {
