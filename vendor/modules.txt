@@ -7,8 +7,6 @@ cloud.google.com/go/internal/version
 cloud.google.com/go/logging/apiv2
 cloud.google.com/go/logging/internal
 cloud.google.com/go/trace/apiv2
-# code.cloudfoundry.org/copilot v0.0.0-20180808174356-6bade2a0677a
-code.cloudfoundry.org/copilot/api
 # contrib.go.opencensus.io/exporter/prometheus v0.1.0
 contrib.go.opencensus.io/exporter/prometheus
 # contrib.go.opencensus.io/exporter/stackdriver v0.6.0
