@@ -394,7 +394,7 @@ func ValidateExcludeInboundPorts(ports string) error {
 	return validatePortList("excludeInboundPorts", ports)
 }
 
-// ValidateExcludeInboundPorts validates the excludeInboundPorts parameter
+// ValidateExcludeOutboundPorts validates the excludeInboundPorts parameter
 func ValidateExcludeOutboundPorts(ports string) error {
 	return validatePortList("excludeOutboundPorts", ports)
 }
@@ -661,7 +661,7 @@ func IntoResourceFile(sidecarTemplate string, valuesConfig string, meshconfig *m
 			return err
 		}
 
-		obj, err := fromRawToObject(raw)
+		obj, err := FromRawToObject(raw)
 		if err != nil && !runtime.IsNotRegisteredError(err) {
 			return err
 		}
@@ -689,7 +689,8 @@ func IntoResourceFile(sidecarTemplate string, valuesConfig string, meshconfig *m
 	return nil
 }
 
-func fromRawToObject(raw []byte) (runtime.Object, error) {
+// FromRawToObject is used to convert from raw to the runtime object
+func FromRawToObject(raw []byte) (runtime.Object, error) {
 	var typeMeta metav1.TypeMeta
 	if err := yaml.Unmarshal(raw, &typeMeta); err != nil {
 		return nil, err
@@ -719,7 +720,7 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 		result := list
 
 		for i, item := range list.Items {
-			obj, err := fromRawToObject(item.Raw)
+			obj, err := FromRawToObject(item.Raw)
 			if runtime.IsNotRegisteredError(err) {
 				continue
 			}

@@ -23,18 +23,15 @@ import (
 	"reflect"
 
 	"github.com/ghodss/yaml"
-	openshiftv1 "github.com/openshift/api/apps/v1"
 	"github.com/spf13/cobra"
 	"go.uber.org/multierr"
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 
+	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/pkg/log"
 )
 
@@ -48,39 +45,6 @@ const (
 	annotationRewriteAppHTTPProbers = "sidecar.istio.io/rewriteAppHTTPProbers"
 )
 
-var (
-	uninjectKinds = []struct {
-		groupVersion schema.GroupVersion
-		obj          runtime.Object
-		resource     string
-		apiPath      string
-	}{
-		{corev1.SchemeGroupVersion, &corev1.ReplicationController{}, "replicationcontrollers", "/api"},
-		{corev1.SchemeGroupVersion, &corev1.Pod{}, "pods", "/api"},
-
-		{appsv1.SchemeGroupVersion, &appsv1.Deployment{}, "deployments", "/apis"},
-		{appsv1.SchemeGroupVersion, &appsv1.DaemonSet{}, "daemonsets", "/apis"},
-		{appsv1.SchemeGroupVersion, &appsv1.ReplicaSet{}, "replicasets", "/apis"},
-
-		{batchv1.SchemeGroupVersion, &batchv1.Job{}, "jobs", "/apis"},
-		{v2alpha1.SchemeGroupVersion, &v2alpha1.CronJob{}, "cronjobs", "/apis"},
-
-		{appsv1.SchemeGroupVersion, &appsv1.StatefulSet{}, "statefulsets", "/apis"},
-
-		{corev1.SchemeGroupVersion, &corev1.List{}, "lists", "/apis"},
-
-		{openshiftv1.GroupVersion, &openshiftv1.DeploymentConfig{}, "deploymentconfigs", "/apis"},
-	}
-	uninjectScheme = runtime.NewScheme()
-)
-
-func init() {
-	for _, kind := range uninjectKinds {
-		uninjectScheme.AddKnownTypes(kind.groupVersion, kind.obj)
-		uninjectScheme.AddUnversionedTypes(kind.groupVersion, kind.obj)
-	}
-}
-
 func validateUninjectFlags() error {
 	var err error
 
@@ -88,24 +52,6 @@ func validateUninjectFlags() error {
 		err = multierr.Append(err, errors.New("filename not specified (see --filename or -f)"))
 	}
 	return err
-}
-
-func fromRawToObject(raw []byte) (runtime.Object, error) {
-	var typeMeta metav1.TypeMeta
-	if err := yaml.Unmarshal(raw, &typeMeta); err != nil {
-		return nil, err
-	}
-
-	gvk := schema.FromAPIVersionAndKind(typeMeta.APIVersion, typeMeta.Kind)
-	obj, err := uninjectScheme.New(gvk)
-	if err != nil {
-		return nil, err
-	}
-	if err = yaml.Unmarshal(raw, obj); err != nil {
-		return nil, err
-	}
-
-	return obj, nil
 }
 
 // extractResourceFile uninjects the istio proxy from the specified
@@ -121,7 +67,7 @@ func extractResourceFile(in io.Reader, out io.Writer) error {
 			return err
 		}
 
-		obj, err := fromRawToObject(raw)
+		obj, err := inject.FromRawToObject(raw)
 		if err != nil && !runtime.IsNotRegisteredError(err) {
 			return err
 		}
@@ -218,7 +164,7 @@ func extractObject(in runtime.Object) (interface{}, error) {
 		result := list
 
 		for i, item := range list.Items {
-			obj, err := fromRawToObject(item.Raw)
+			obj, err := inject.FromRawToObject(item.Raw)
 			if runtime.IsNotRegisteredError(err) {
 				continue
 			}
