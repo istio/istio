@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -960,6 +961,11 @@ func TestRedisProtocolCluster(t *testing.T) {
 	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
 
 	env := newTestEnvironment(serviceDiscovery, testMesh)
+
+	// enable redis filter to true
+	os.Setenv("PILOT_ENABLE_REDIS_FILTER", "true")
+
+	defer os.Unsetenv("PILOT_ENABLE_REDIS_FILTER")
 
 	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(err).NotTo(HaveOccurred())
