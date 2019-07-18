@@ -78,7 +78,7 @@ func (l ConfigFile) LoadGatewayFileWithNamespaceOrFail(t test.Failer, namespace 
 	return content
 }
 
-// LoadWithNamespaceOrFail loads a Book Info configuration file from the systemchanges it to be fit
+// LoadWithNamespaceOrFail loads a Book Info configuration file from the system, changes it to be fit
 // for the namespace provided and returns its contents.
 func (l ConfigFile) LoadWithNamespaceOrFail(t test.Failer, namespace string) string {
 	t.Helper()

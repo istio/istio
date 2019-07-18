@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"k8s.io/api/core/v1"
 	"net"
 	"net/http"
 	"time"
@@ -105,6 +106,24 @@ func getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, e
 	}
 
 	if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
+		if svc.Spec.Type == v1.ServiceTypeNodePort {
+			var iport int32
+			var ip string
+			for _, port := range svc.Spec.Ports {
+				if port.Name == "http2" {
+					iport = port.NodePort
+					break
+				}
+			}
+			pods, err := env.Accessor.GetPods(ns, fmt.Sprintf("istio=ingressgateway"))
+			if err == nil && len(pods) > 0 {
+				ip = pods[0].Status.HostIP
+			}
+			if iport > 0 && ip != "" {
+				return fmt.Sprintf("http://%s:%d", ip, iport), true, nil
+			}
+		}
+
 		return nil, false, fmt.Errorf("service ingress is not available yet: %s/%s", svc.Namespace, svc.Name)
 	}
 
