@@ -16,15 +16,16 @@ package builder
 
 import (
 	tcp_filter "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
-	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
+	"istio.io/istio/pilot/pkg/security/authz/policy"
+	"istio.io/istio/pilot/pkg/security/authz/policy/v1"
+	"istio.io/istio/pilot/pkg/security/authz/policy/v2"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -34,10 +35,8 @@ var (
 
 // Builder wraps all needed information for building the RBAC filter for a service.
 type Builder struct {
-	serviceMetadata             *authz_model.ServiceMetadata
-	authzPolicies               *model.AuthorizationPolicies
-	isGlobalPermissiveEnabled   bool // True if global RBAC config is in permissive mode.
 	isXDSMarshalingToAnyEnabled bool
+	generator                   policy.Generator
 }
 
 // NewBuilder creates a builder instance that can be used to build corresponding RBAC filter config.
@@ -64,17 +63,22 @@ func NewBuilder(serviceInstance *model.ServiceInstance, policies *model.Authoriz
 	rbacConfig := policies.RbacConfig
 	isGlobalPermissiveEnabled := rbacConfig != nil && rbacConfig.EnforcementMode == istio_rbac.EnforcementMode_PERMISSIVE
 
+	var generator policy.Generator
+	if policies.IsRbacV2 {
+		generator = v2.NewBuilder(serviceMetadata, policies, isGlobalPermissiveEnabled)
+	} else {
+		generator = v1.NewBuilder(serviceMetadata, policies, isGlobalPermissiveEnabled)
+	}
+
 	return &Builder{
-		serviceMetadata:             serviceMetadata,
-		authzPolicies:               policies,
-		isGlobalPermissiveEnabled:   isGlobalPermissiveEnabled,
 		isXDSMarshalingToAnyEnabled: isXDSMarshalingToAnyEnabled,
+		generator:                   generator,
 	}
 }
 
 // BuildHTTPFilter builds the RBAC HTTP filter.
 func (b *Builder) BuildHTTPFilter() *http_filter.HttpFilter {
-	rbacConfig := b.generateFilterConfig(false /* forTCPFilter */)
+	rbacConfig := b.generator.Generate(false /* forTCPFilter */)
 	httpConfig := http_filter.HttpFilter{
 		Name: authz_model.RBACHTTPFilterName,
 	}
@@ -92,7 +96,7 @@ func (b *Builder) BuildHTTPFilter() *http_filter.HttpFilter {
 func (b *Builder) BuildTCPFilter() *tcp_filter.Filter {
 	// The build function always return the config for HTTP filter, we need to extract the
 	// generated rules and set it in the config for TCP filter.
-	config := b.generateFilterConfig(true /* forTCPFilter */)
+	config := b.generator.Generate(true /* forTCPFilter */)
 	rbacConfig := &tcp_config.RBAC{
 		Rules:       config.Rules,
 		ShadowRules: config.ShadowRules,
@@ -110,24 +114,6 @@ func (b *Builder) BuildTCPFilter() *tcp_filter.Filter {
 
 	rbacLog.Debugf("built tcp filter config: %v", tcpConfig)
 	return &tcpConfig
-}
-
-// generateFilterConfig generates the RBAC Envoy filter config from the Istio RBAC policy.
-func (b *Builder) generateFilterConfig(forTCPFiler bool) *http_config.RBAC {
-	if b.authzPolicies.IsRbacV2 {
-		return b.buildV2(forTCPFiler)
-	}
-	return b.buildV1(forTCPFiler)
-}
-
-// generatePolicy generates a single RBAC Envoy policy from the Istio RBAC policy.
-func (b *Builder) generatePolicy(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding, forTCPFilter bool) *envoy_rbac.Policy {
-	if role == nil || len(bindings) == 0 {
-		return nil
-	}
-
-	m := authz_model.NewModel(role, bindings)
-	return m.Generate(b.serviceMetadata, forTCPFilter)
 }
 
 // isInRbacTargetList checks if a given service and namespace is included in the RbacConfig target.

@@ -12,17 +12,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package builder
+package v1
 
 import (
 	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
+	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
+	istiolog "istio.io/pkg/log"
 )
 
-// buildV1 builds the v1 policy to filter config.
-func (b *Builder) buildV1(forTCPFilter bool) *http_config.RBAC {
+var (
+	rbacLog = istiolog.RegisterScope("rbac", "rbac debugging", 0)
+)
+
+type v1Builder struct {
+	serviceMetadata           *authz_model.ServiceMetadata
+	authzPolicies             *model.AuthorizationPolicies
+	isGlobalPermissiveEnabled bool
+}
+
+func NewBuilder(
+	serviceMetadata *authz_model.ServiceMetadata,
+	authzPolicies *model.AuthorizationPolicies,
+	isGlobalPermissiveEnabled bool) *v1Builder {
+	return &v1Builder{
+		serviceMetadata:           serviceMetadata,
+		authzPolicies:             authzPolicies,
+		isGlobalPermissiveEnabled: isGlobalPermissiveEnabled,
+	}
+}
+
+func (b *v1Builder) Generate(forTCPFilter bool) *http_config.RBAC {
 	rbacLog.Debugf("building v1 policy")
 
 	enforcedConfig := &envoy_rbac.RBAC{
@@ -79,4 +102,13 @@ func (b *Builder) buildV1(forTCPFilter bool) *http_config.RBAC {
 		ret.ShadowRules = permissiveConfig
 	}
 	return ret
+}
+
+func (b *v1Builder) generatePolicy(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding, forTCPFilter bool) *envoy_rbac.Policy {
+	if role == nil || len(bindings) == 0 {
+		return nil
+	}
+
+	m := authz_model.NewModel(role, bindings)
+	return m.Generate(b.serviceMetadata, forTCPFilter)
 }

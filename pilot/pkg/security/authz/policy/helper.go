@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package builder
+package policy
 
 import (
 	"fmt"
@@ -26,9 +26,10 @@ import (
 	istio_rbac "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 )
 
-func newService(hostname string, labels map[string]string, t *testing.T) *model.ServiceInstance {
+func NewServiceMetadata(hostname string, labels map[string]string, t *testing.T) *authz_model.ServiceMetadata {
 	t.Helper()
 	splits := strings.Split(hostname, ".")
 	if len(splits) < 2 {
@@ -36,7 +37,8 @@ func newService(hostname string, labels map[string]string, t *testing.T) *model.
 	}
 	name := splits[0]
 	namespace := splits[1]
-	return &model.ServiceInstance{
+
+	serviceInstance := &model.ServiceInstance{
 		Service: &model.Service{
 			Attributes: model.ServiceAttributes{
 				Name:      name,
@@ -46,11 +48,29 @@ func newService(hostname string, labels map[string]string, t *testing.T) *model.
 		},
 		Labels: labels,
 	}
+
+	serviceMetadata, err := authz_model.NewServiceMetadata(name, namespace, serviceInstance)
+	if err != nil {
+		t.Fatalf("failed to initialize service instance: %s", err)
+	}
+
+	return serviceMetadata
 }
 
-func newAuthzPolicies(policies []*model.Config, t *testing.T) *model.AuthorizationPolicies {
+func NewAuthzPolicies(policies []*model.Config, t *testing.T) *model.AuthorizationPolicies {
 	t.Helper()
-	policies = append(policies, simpleClusterRbacConfig())
+
+	hasClusterRbacConfig := false
+	for _, p := range policies {
+		if p.Type == model.ClusterRbacConfig.Type {
+			hasClusterRbacConfig = true
+			break
+		}
+	}
+	if !hasClusterRbacConfig {
+		policies = append(policies, simpleClusterRbacConfig())
+	}
+
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 	for _, p := range policies {
 		if _, err := store.Create(*p); err != nil {
@@ -82,15 +102,15 @@ func simpleClusterRbacConfig() *model.Config {
 	return config
 }
 
-func roleTag(name string) string {
+func RoleTag(name string) string {
 	return fmt.Sprintf("MethodFromRole[%s]", name)
 }
 
-func simpleRole(name string, namespace string, service string) *model.Config {
+func SimpleRole(name string, namespace string, service string) *model.Config {
 	spec := &istio_rbac.ServiceRole{
 		Rules: []*istio_rbac.AccessRule{
 			{
-				Methods: []string{roleTag(name)},
+				Methods: []string{RoleTag(name)},
 			},
 		},
 	}
@@ -107,11 +127,11 @@ func simpleRole(name string, namespace string, service string) *model.Config {
 	}
 }
 
-func bindingTag(name string) string {
+func BindingTag(name string) string {
 	return fmt.Sprintf("UserFromBinding[%s]", name)
 }
 
-func simpleBinding(name string, namespace string, role string) *model.Config {
+func SimpleBinding(name string, namespace string, role string) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      model.ServiceRoleBinding.Type,
@@ -121,7 +141,7 @@ func simpleBinding(name string, namespace string, role string) *model.Config {
 		Spec: &istio_rbac.ServiceRoleBinding{
 			Subjects: []*istio_rbac.Subject{
 				{
-					User: bindingTag(name),
+					User: BindingTag(name),
 				},
 			},
 			RoleRef: &istio_rbac.RoleRef{
@@ -132,18 +152,18 @@ func simpleBinding(name string, namespace string, role string) *model.Config {
 	}
 }
 
-func simplePermissiveBinding(name string, namespace string, role string) *model.Config {
-	config := simpleBinding(name, namespace, role)
+func SimplePermissiveBinding(name string, namespace string, role string) *model.Config {
+	config := SimpleBinding(name, namespace, role)
 	binding := config.Spec.(*istio_rbac.ServiceRoleBinding)
 	binding.Mode = istio_rbac.EnforcementMode_PERMISSIVE
 	return config
 }
 
-func authzPolicyTag(name string) string {
+func AuthzPolicyTag(name string) string {
 	return fmt.Sprintf("UserFromPolicy[%s]", name)
 }
 
-func simpleAuthorizationPolicy(name string, namespace string, labels map[string]string, role string) *model.Config {
+func SimpleAuthorizationPolicy(name string, namespace string, labels map[string]string, role string) *model.Config {
 	config := &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      model.AuthorizationPolicy.Type,
@@ -158,7 +178,7 @@ func simpleAuthorizationPolicy(name string, namespace string, labels map[string]
 				{
 					Subjects: []*istio_rbac.Subject{
 						{
-							User: authzPolicyTag(name),
+							User: AuthzPolicyTag(name),
 						},
 					},
 					Role: role,
@@ -169,7 +189,7 @@ func simpleAuthorizationPolicy(name string, namespace string, labels map[string]
 	return config
 }
 
-func verify(got *envoy_rbac.RBAC, want map[string][]string) error {
+func Verify(got *envoy_rbac.RBAC, want map[string][]string) error {
 	var err error
 	if len(want) == 0 {
 		if len(got.GetPolicies()) != 0 {

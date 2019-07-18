@@ -51,7 +51,8 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 		return nil
 	}
 
-	return buildFilter(in, mutable)
+	buildFilter(in, mutable)
+	return nil
 }
 
 // OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
@@ -68,18 +69,19 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return nil
 	}
 
-	return buildFilter(in, mutable)
+	buildFilter(in, mutable)
+	return nil
 }
 
-func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 	if in.ServiceInstance == nil {
 		rbacLog.Errorf("nil service instance")
-		return nil
+		return
 	}
 
 	builder := authz_builder.NewBuilder(in.ServiceInstance, in.Push.AuthzPolicies, util.IsXDSMarshalingToAnyEnabled(in.Node))
 	if builder == nil {
-		return nil
+		return
 	}
 
 	switch in.ListenerProtocol {
@@ -117,7 +119,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 		}
 	}
 
-	return nil
+	return
 }
 
 // OnInboundCluster implements the Plugin interface method.

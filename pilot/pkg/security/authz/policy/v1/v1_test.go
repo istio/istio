@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package builder
+package v1
 
 import (
 	"testing"
@@ -20,6 +20,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/security/authz/policy"
 )
 
 func TestBuilder_buildV1(t *testing.T) {
@@ -27,7 +28,7 @@ func TestBuilder_buildV1(t *testing.T) {
 	namespaceA := "a"
 	serviceBar := "bar"
 	namespaceB := "b"
-	serviceFooInNamespaceA := newService("foo.a.svc.cluster.local", nil, t)
+	serviceFooInNamespaceA := policy.NewServiceMetadata("foo.a.svc.cluster.local", nil, t)
 	testCases := []struct {
 		name                      string
 		policies                  []*model.Config
@@ -42,124 +43,124 @@ func TestBuilder_buildV1(t *testing.T) {
 		{
 			name: "no role in namespace a",
 			policies: []*model.Config{
-				simpleRole("role", namespaceB, serviceFoo),
-				simpleBinding("binding", namespaceB, "role"),
+				policy.SimpleRole("role", namespaceB, serviceFoo),
+				policy.SimpleBinding("binding", namespaceB, "role"),
 			},
 		},
 		{
 			name: "no role matched for service foo",
 			policies: []*model.Config{
-				simpleRole("role", namespaceA, serviceBar),
-				simpleBinding("binding", namespaceA, "role"),
+				policy.SimpleRole("role", namespaceA, serviceBar),
+				policy.SimpleBinding("binding", namespaceA, "role"),
 			},
 		},
 		{
 			name: "no role matched for service foo: global permissive",
 			policies: []*model.Config{
-				simpleRole("role", namespaceA, serviceBar),
-				simpleBinding("binding", namespaceA, "role"),
+				policy.SimpleRole("role", namespaceA, serviceBar),
+				policy.SimpleBinding("binding", namespaceA, "role"),
 			},
 			isGlobalPermissiveEnabled: true,
 		},
 		{
 			name: "no binding for service foo",
 			policies: []*model.Config{
-				simpleRole("role-1", namespaceA, serviceFoo),
-				simpleRole("role-2", namespaceA, serviceBar),
-				simpleBinding("binding-2", namespaceA, "role-2"),
-				simpleRole("role-3", namespaceB, serviceFoo),
-				simpleBinding("binding-3", namespaceB, "role-3"),
+				policy.SimpleRole("role-1", namespaceA, serviceFoo),
+				policy.SimpleRole("role-2", namespaceA, serviceBar),
+				policy.SimpleBinding("binding-2", namespaceA, "role-2"),
+				policy.SimpleRole("role-3", namespaceB, serviceFoo),
+				policy.SimpleBinding("binding-3", namespaceB, "role-3"),
 			},
 		},
 		{
 			name: "one role and one binding",
 			policies: []*model.Config{
-				simpleRole("role", namespaceA, serviceFoo),
-				simpleBinding("binding", namespaceA, "role"),
+				policy.SimpleRole("role", namespaceA, serviceFoo),
+				policy.SimpleBinding("binding", namespaceA, "role"),
 			},
 			wantRules: map[string][]string{
-				"role": {roleTag("role"), bindingTag("binding")},
+				"role": {policy.RoleTag("role"), policy.BindingTag("binding")},
 			},
 		},
 		{
 			name: "one role and one binding: forTCPFilter",
 			policies: []*model.Config{
-				simpleRole("role", namespaceA, serviceFoo),
-				simpleBinding("binding", namespaceA, "role"),
+				policy.SimpleRole("role", namespaceA, serviceFoo),
+				policy.SimpleBinding("binding", namespaceA, "role"),
 			},
 			forTCPFilter: true,
 		},
 		{
 			name: "one role and one binding: permissive",
 			policies: []*model.Config{
-				simpleRole("role-1", namespaceA, serviceFoo),
-				simpleBinding("binding-1", namespaceA, "role-1"),
-				simpleRole("role-2", namespaceA, serviceFoo),
-				simplePermissiveBinding("binding-2", namespaceA, "role-2"),
+				policy.SimpleRole("role-1", namespaceA, serviceFoo),
+				policy.SimpleBinding("binding-1", namespaceA, "role-1"),
+				policy.SimpleRole("role-2", namespaceA, serviceFoo),
+				policy.SimplePermissiveBinding("binding-2", namespaceA, "role-2"),
 			},
 			wantRules: map[string][]string{
 				"role-1": {
-					roleTag("role-1"),
-					bindingTag("binding-1"),
+					policy.RoleTag("role-1"),
+					policy.BindingTag("binding-1"),
 				},
 			},
 			wantShadowRules: map[string][]string{
 				"role-2": {
-					roleTag("role-2"),
-					bindingTag("binding-2"),
+					policy.RoleTag("role-2"),
+					policy.BindingTag("binding-2"),
 				},
 			},
 		},
 		{
 			name: "one role and two bindings",
 			policies: []*model.Config{
-				simpleRole("role", namespaceA, serviceFoo),
-				simpleBinding("binding-1", namespaceA, "role"),
-				simpleBinding("binding-2", namespaceA, "role"),
+				policy.SimpleRole("role", namespaceA, serviceFoo),
+				policy.SimpleBinding("binding-1", namespaceA, "role"),
+				policy.SimpleBinding("binding-2", namespaceA, "role"),
 			},
 			wantRules: map[string][]string{
 				"role": {
-					roleTag("role"),
-					bindingTag("binding-1"),
-					bindingTag("binding-2"),
+					policy.RoleTag("role"),
+					policy.BindingTag("binding-1"),
+					policy.BindingTag("binding-2"),
 				},
 			},
 		},
 		{
 			name: "two roles and two bindings",
 			policies: []*model.Config{
-				simpleRole("role-1", namespaceA, serviceFoo),
-				simpleBinding("binding-1", namespaceA, "role-1"),
-				simpleRole("role-2", namespaceA, serviceFoo),
-				simpleBinding("binding-2", namespaceA, "role-2"),
+				policy.SimpleRole("role-1", namespaceA, serviceFoo),
+				policy.SimpleBinding("binding-1", namespaceA, "role-1"),
+				policy.SimpleRole("role-2", namespaceA, serviceFoo),
+				policy.SimpleBinding("binding-2", namespaceA, "role-2"),
 			},
 			wantRules: map[string][]string{
 				"role-1": {
-					roleTag("role-1"),
-					bindingTag("binding-1"),
+					policy.RoleTag("role-1"),
+					policy.BindingTag("binding-1"),
 				},
 				"role-2": {
-					roleTag("role-2"),
-					bindingTag("binding-2"),
+					policy.RoleTag("role-2"),
+					policy.BindingTag("binding-2"),
 				},
 			},
 		},
 		{
 			name: "two roles and two bindings: global permissive",
 			policies: []*model.Config{
-				simpleRole("role-1", namespaceA, serviceFoo),
-				simpleBinding("binding-1", namespaceA, "role-1"),
-				simpleRole("role-2", namespaceA, serviceFoo),
-				simpleBinding("binding-2", namespaceA, "role-2"),
+				policy.SimpleRole("role-1", namespaceA, serviceFoo),
+				policy.SimpleBinding("binding-1", namespaceA, "role-1"),
+				policy.SimpleRole("role-2", namespaceA, serviceFoo),
+				policy.SimpleBinding("binding-2", namespaceA, "role-2"),
 			},
 			wantShadowRules: map[string][]string{
 				"role-1": {
-					roleTag("role-1"),
-					bindingTag("binding-1"),
+					policy.RoleTag("role-1"),
+					policy.BindingTag("binding-1"),
 				},
 				"role-2": {
-					roleTag("role-2"),
-					bindingTag("binding-2"),
+					policy.RoleTag("role-2"),
+					policy.BindingTag("binding-2"),
 				},
 			},
 			isGlobalPermissiveEnabled: true,
@@ -167,17 +168,16 @@ func TestBuilder_buildV1(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		authzPolicies := newAuthzPolicies(tc.policies, t)
+		authzPolicies := policy.NewAuthzPolicies(tc.policies, t)
 		if authzPolicies == nil {
 			t.Fatalf("%s: failed to create authz policies", tc.name)
 		}
-		b := NewBuilder(serviceFooInNamespaceA, authzPolicies, false)
+		b := NewBuilder(serviceFooInNamespaceA, authzPolicies, tc.isGlobalPermissiveEnabled)
 		if b == nil {
 			t.Fatalf("%s: failed to create builder", tc.name)
 		}
-		b.isGlobalPermissiveEnabled = tc.isGlobalPermissiveEnabled
 
-		got := b.generateFilterConfig(tc.forTCPFilter)
+		got := b.Generate(tc.forTCPFilter)
 		gotStr := spew.Sdump(got)
 
 		if tc.isGlobalPermissiveEnabled {
@@ -188,10 +188,10 @@ func TestBuilder_buildV1(t *testing.T) {
 			t.Errorf("%s: rule must not be nil when global permissive is false", tc.name)
 		}
 
-		if err := verify(got.GetRules(), tc.wantRules); err != nil {
+		if err := policy.Verify(got.GetRules(), tc.wantRules); err != nil {
 			t.Errorf("%s: %s\n%s", tc.name, err, gotStr)
 		}
-		if err := verify(got.GetShadowRules(), tc.wantShadowRules); err != nil {
+		if err := policy.Verify(got.GetShadowRules(), tc.wantShadowRules); err != nil {
 			t.Errorf("%s: %s\n%s", tc.name, err, gotStr)
 		}
 	}

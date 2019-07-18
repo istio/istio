@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package builder
+package v2
 
 import (
 	"fmt"
@@ -23,6 +23,8 @@ import (
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
+	istiolog "istio.io/pkg/log"
 )
 
 const (
@@ -32,8 +34,28 @@ const (
 	rootNamespacePrefix = "/"
 )
 
-// buildV2 builds the v2 policy to filter config.
-func (b *Builder) buildV2(forTCPFilter bool) *http_config.RBAC {
+var (
+	rbacLog = istiolog.RegisterScope("rbac", "rbac debugging", 0)
+)
+
+type v2Builder struct {
+	serviceMetadata           *authz_model.ServiceMetadata
+	authzPolicies             *model.AuthorizationPolicies
+	isGlobalPermissiveEnabled bool
+}
+
+func NewBuilder(
+	serviceMetadata *authz_model.ServiceMetadata,
+	authzPolicies *model.AuthorizationPolicies,
+	isGlobalPermissiveEnabled bool) *v2Builder {
+	return &v2Builder{
+		serviceMetadata:           serviceMetadata,
+		authzPolicies:             authzPolicies,
+		isGlobalPermissiveEnabled: isGlobalPermissiveEnabled,
+	}
+}
+
+func (b *v2Builder) Generate(forTCPFilter bool) *http_config.RBAC {
 	rbacLog.Debugf("building v2 policy")
 
 	rbac := &envoy_rbac.RBAC{
@@ -100,4 +122,13 @@ func roleForBinding(binding *istio_rbac.ServiceRoleBinding, namespace string, ap
 		name = "%s-inline-role"
 	}
 	return name, role
+}
+
+func (b *v2Builder) generatePolicy(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding, forTCPFilter bool) *envoy_rbac.Policy {
+	if role == nil || len(bindings) == 0 {
+		return nil
+	}
+
+	m := authz_model.NewModel(role, bindings)
+	return m.Generate(b.serviceMetadata, forTCPFilter)
 }

@@ -15,6 +15,7 @@
 package builder
 
 import (
+	"strings"
 	"testing"
 
 	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
@@ -24,6 +25,7 @@ import (
 	istio_rbac "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
+	"istio.io/istio/pilot/pkg/security/authz/policy"
 )
 
 func newAuthzPolicyWithRbacConfig(mode istio_rbac.RbacConfig_Mode, include *istio_rbac.RbacConfig_Target,
@@ -35,6 +37,41 @@ func newAuthzPolicyWithRbacConfig(mode istio_rbac.RbacConfig_Mode, include *isti
 			Exclusion: exclude,
 		},
 	}
+}
+
+func newService(hostname string, labels map[string]string, t *testing.T) *model.ServiceInstance {
+	t.Helper()
+	splits := strings.Split(hostname, ".")
+	if len(splits) < 2 {
+		t.Fatalf("failed to initialize service instance: invalid hostname")
+	}
+	name := splits[0]
+	namespace := splits[1]
+	return &model.ServiceInstance{
+		Service: &model.Service{
+			Attributes: model.ServiceAttributes{
+				Name:      name,
+				Namespace: namespace,
+			},
+			Hostname: model.Hostname(hostname),
+		},
+		Labels: labels,
+	}
+}
+
+func simpleGlobalPermissiveMode() *model.Config {
+	config := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      model.ClusterRbacConfig.Type,
+			Name:      "default",
+			Namespace: "default",
+		},
+		Spec: &istio_rbac.RbacConfig{
+			Mode:            istio_rbac.RbacConfig_ON,
+			EnforcementMode: istio_rbac.EnforcementMode_PERMISSIVE,
+		},
+	}
+	return config
 }
 
 func TestIsRbacEnabled(t *testing.T) {
@@ -110,8 +147,8 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 
 	testCases := []struct {
 		name                        string
-		isXDSMarshalingToAnyEnabled bool
 		policies                    []*model.Config
+		isXDSMarshalingToAnyEnabled bool
 		wantRuleWithPolicies        bool
 	}{
 		{
@@ -121,16 +158,16 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 		{
 			name: "HTTP rule",
 			policies: []*model.Config{
-				simpleRole("role-1", "a", "bar"),
-				simpleBinding("binding-1", "a", "role-1"),
+				policy.SimpleRole("role-1", "a", "bar"),
+				policy.SimpleBinding("binding-1", "a", "role-1"),
 			},
 			wantRuleWithPolicies: true,
 		},
 	}
 
 	for _, tc := range testCases {
-		policy := newAuthzPolicies(tc.policies, t)
-		b := NewBuilder(service, policy, tc.isXDSMarshalingToAnyEnabled)
+		p := policy.NewAuthzPolicies(tc.policies, t)
+		b := NewBuilder(service, p, tc.isXDSMarshalingToAnyEnabled)
 
 		got := b.BuildHTTPFilter()
 		if got.Name != authz_model.RBACHTTPFilterName {
@@ -160,9 +197,8 @@ func TestBuilder_BuildTCPFilter(t *testing.T) {
 
 	testCases := []struct {
 		name                        string
-		isXDSMarshalingToAnyEnabled bool
-		isGlobalPermissiveEnabled   bool
 		policies                    []*model.Config
+		isXDSMarshalingToAnyEnabled bool
 		wantRules                   bool
 		wantRuleWithPolicies        bool
 		wantShadowRules             bool
@@ -174,8 +210,8 @@ func TestBuilder_BuildTCPFilter(t *testing.T) {
 		{
 			name: "HTTP rule",
 			policies: []*model.Config{
-				simpleRole("role-1", "a", "foo"),
-				simpleBinding("binding-1", "a", "role-1"),
+				policy.SimpleRole("role-1", "a", "foo"),
+				policy.SimpleBinding("binding-1", "a", "role-1"),
 			},
 			wantRules:            true,
 			wantRuleWithPolicies: false,
@@ -185,16 +221,17 @@ func TestBuilder_BuildTCPFilter(t *testing.T) {
 			wantRules: true,
 		},
 		{
-			name:                      "normal shadow rule",
-			isGlobalPermissiveEnabled: true,
-			wantShadowRules:           true,
+			name: "normal shadow rule",
+			policies: []*model.Config{
+				simpleGlobalPermissiveMode(),
+			},
+			wantShadowRules: true,
 		},
 	}
 
 	for _, tc := range testCases {
-		policy := newAuthzPolicies(tc.policies, t)
-		b := NewBuilder(service, policy, tc.isXDSMarshalingToAnyEnabled)
-		b.isGlobalPermissiveEnabled = tc.isGlobalPermissiveEnabled
+		p := policy.NewAuthzPolicies(tc.policies, t)
+		b := NewBuilder(service, p, tc.isXDSMarshalingToAnyEnabled)
 
 		got := b.BuildTCPFilter()
 		if got.Name != authz_model.RBACTCPFilterName {
