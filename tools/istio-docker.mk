@@ -21,6 +21,8 @@
 # It does not upload to a registry.
 docker: build-linux test-bins-linux docker.all
 
+docker-minimal: docker.pilot docker.proxyv2 docker.app docker.test_policybackend docker.mixer docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s
+
 DOCKER_TARGETS:=docker.pilot docker.proxy_debug docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
 	docker.proxy_init docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s
 
