@@ -22,7 +22,6 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
@@ -35,6 +34,22 @@ import (
 
 func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) *fakes.IstioConfigStore {
 	return &fakes.IstioConfigStore{
+		ListStub: func(typ, namespace string) (configs []model.Config, e error) {
+			if typ == "envoy-filter" {
+				configs = []model.Config{
+					{
+						ConfigMeta: model.ConfigMeta{
+							Name:      "test-envoyfilter",
+							Namespace: "not-default",
+						},
+						Spec: &networking.EnvoyFilter{
+							ConfigPatches: configPatches,
+						},
+					},
+				}
+			}
+			return
+		},
 		EnvoyFilterStub: func(workloadLabels model.LabelsCollection) *model.Config {
 			return &model.Config{
 				ConfigMeta: model.ConfigMeta{
@@ -47,22 +62,6 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 			}
 		},
 	}
-
-}
-
-func buildListenerPatches(config string) []*networking.EnvoyFilter_EnvoyConfigObjectPatch {
-	val := &types.Struct{}
-	jsonpb.Unmarshal(strings.NewReader(config), val)
-
-	return []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-		{
-			ApplyTo: networking.EnvoyFilter_LISTENER,
-			Patch: &networking.EnvoyFilter_Patch{
-				Operation: networking.EnvoyFilter_Patch_ADD,
-				Value:     val,
-			},
-		},
-	}
 }
 
 func buildPatchStruct(config string) *types.Struct {
@@ -71,145 +70,7 @@ func buildPatchStruct(config string) *types.Struct {
 	return val
 }
 
-func TestApplyListenerConfigPatches(t *testing.T) {
-	listenerConfig := `{"address": { "pipe": { "path": "some-path" } }, "filter_chains": [{"filters": [{"name": "envoy.ratelimit"}]}]}`
-	invalidConfig := `{"address": { "non-existent-field": { "path": "some-path" } }, "filter_chains": [{"filters": [{"name": "envoy.ratelimit"}]}]}`
-
-	testCases := []struct {
-		name      string
-		listeners []*xdsapi.Listener
-		patches   []*networking.EnvoyFilter_EnvoyConfigObjectPatch
-		labels    model.LabelsCollection
-		result    []*xdsapi.Listener
-	}{
-		{
-			name:      "successfully adds a listener",
-			listeners: make([]*xdsapi.Listener, 0),
-			patches:   buildListenerPatches(listenerConfig),
-			labels:    model.LabelsCollection{},
-			result: []*xdsapi.Listener{
-				{
-					Address: core.Address{
-						Address: &core.Address_Pipe{
-							Pipe: &core.Pipe{
-								Path: "some-path",
-							},
-						},
-					},
-					FilterChains: []listener.FilterChain{
-						{
-							Filters: []listener.Filter{
-								{
-									Name: "envoy.ratelimit",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:      "does not add a listener with invalid config",
-			listeners: make([]*xdsapi.Listener, 0),
-			patches:   buildListenerPatches(invalidConfig),
-			labels:    model.LabelsCollection{},
-			result:    []*xdsapi.Listener{},
-		},
-		{
-			name:      "does not merge listener",
-			listeners: make([]*xdsapi.Listener, 0),
-			patches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_MERGE,
-						Value:     buildPatchStruct(listenerConfig),
-					},
-				},
-			},
-			labels: model.LabelsCollection{},
-			result: []*xdsapi.Listener{},
-		},
-		{
-			name:      "does not add new listener with empty patch",
-			listeners: make([]*xdsapi.Listener, 0),
-			patches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
-				},
-			},
-			labels: model.LabelsCollection{},
-			result: []*xdsapi.Listener{},
-		},
-		{
-			name: "does not remove listener",
-			listeners: []*xdsapi.Listener{
-				{
-					Address: core.Address{
-						Address: &core.Address_Pipe{
-							Pipe: &core.Pipe{
-								Path: "some-path",
-							},
-						},
-					},
-					FilterChains: []listener.FilterChain{
-						{
-							Filters: []listener.Filter{
-								{
-									Name: "envoy.ratelimit",
-								},
-							},
-						},
-					},
-				},
-			},
-			patches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_REMOVE,
-						Value:     buildPatchStruct(listenerConfig),
-					},
-				},
-			},
-			labels: model.LabelsCollection{},
-			result: []*xdsapi.Listener{
-				{
-					Address: core.Address{
-						Address: &core.Address_Pipe{
-							Pipe: &core.Pipe{
-								Path: "some-path",
-							},
-						},
-					},
-					FilterChains: []listener.FilterChain{
-						{
-							Filters: []listener.Filter{
-								{
-									Name: "envoy.ratelimit",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		serviceDiscovery := &fakes.ServiceDiscovery{}
-		env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(tc.patches))
-		builder := NewListenerBuilder(&model.Proxy{Type: model.SidecarProxy})
-		builder.inboundListeners = tc.listeners
-
-		ret := applyListenerConfigPatches(builder, env, tc.labels)
-		if !reflect.DeepEqual(tc.result, ret) {
-			t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.result, ret)
-		}
-	}
-}
-
-func TestApplyClusterConfigPatches(t *testing.T) {
+func TestApplyClusterPatches(t *testing.T) {
 	configPatches := []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 		{
 			ApplyTo: networking.EnvoyFilter_CLUSTER,
@@ -328,23 +189,24 @@ func TestApplyClusterConfigPatches(t *testing.T) {
 		{
 			name:   "sidecar cds patch",
 			input:  sidecarInput,
-			proxy:  &model.Proxy{Type: model.SidecarProxy},
+			proxy:  &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"},
 			output: sidecarOutput,
 		},
 		{
 			name:   "gateway cds patch",
 			input:  gatewayInput,
-			proxy:  &model.Proxy{Type: model.Router},
+			proxy:  &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"},
 			output: gatewayOutput,
 		},
 	}
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
-
+	push := model.NewPushContext()
+	push.InitContext(env)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ret := applyClusterPatches(env, tc.proxy, nil, tc.input)
+			ret := applyClusterPatches(env, tc.proxy, push, tc.input)
 			if !reflect.DeepEqual(tc.output, ret) {
 				t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.output, ret)
 			}
@@ -586,6 +448,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 			args: args{
 				pluginParams: &plugin.InputParams{
 					ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+					Node:             &model.Proxy{Type: model.SidecarProxy},
 				},
 				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 					Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
@@ -602,6 +465,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 			args: args{
 				pluginParams: &plugin.InputParams{
 					ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+					Node:             &model.Proxy{Type: model.SidecarProxy},
 				},
 				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 					Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
@@ -1040,23 +904,28 @@ func Test_applyRouteConfigurationPatches(t *testing.T) {
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
+	push := model.NewPushContext()
+	push.InitContext(env)
 
 	sidecarOutbundPluginParams := &plugin.InputParams{
 		ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
 		Env:              env,
-		Node:             &model.Proxy{Type: model.SidecarProxy},
+		Node:             &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"},
 		Port:             &model.Port{Port: 80},
+		Push:             push,
 	}
 	sidecarInboundPluginParams := &plugin.InputParams{
 		ListenerCategory: networking.EnvoyFilter_SIDECAR_INBOUND,
 		Env:              env,
-		Node:             &model.Proxy{Type: model.SidecarProxy},
+		Node:             &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"},
 		Port:             &model.Port{Port: 80},
+		Push:             push,
 	}
 	gatewayPluginParams := &plugin.InputParams{
 		ListenerCategory: networking.EnvoyFilter_GATEWAY,
 		Env:              env,
-		Node:             &model.Proxy{Type: model.Router},
+		Node:             &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"},
+		Push:             push,
 	}
 
 	type args struct {
