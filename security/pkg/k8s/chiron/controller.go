@@ -16,10 +16,7 @@ package chiron
 
 import (
 	"bytes"
-	"crypto/x509"
 	"fmt"
-	"io/ioutil"
-	"net"
 	"path/filepath"
 	"sync"
 	"time"
@@ -28,7 +25,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/howeyc/fsnotify"
-	cert "k8s.io/api/certificates/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +35,6 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pkg/spiffe"
 	istioutil "istio.io/istio/pkg/util"
 	crl "istio.io/istio/security/pkg/k8s/controller"
 	"istio.io/istio/security/pkg/listwatch"
@@ -62,7 +57,6 @@ const (
 	// The key to specify corresponding service account in the annotation of K8s secrets.
 	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
 
-	secretNamePrefix = "istio."
 	// For debugging, set the resync period to be a shorter period.
 	secretResyncPeriod = 10 * time.Second
 	// secretResyncPeriod = time.Minute
@@ -86,13 +80,6 @@ const (
 
 	// The delay introduced to debounce the CA cert events
 	watchDebounceDelay = 100 * time.Millisecond
-)
-
-type NetStatus int
-
-const (
-	Reachable NetStatus = iota
-	UnReachable
 )
 
 var (
@@ -137,10 +124,6 @@ type WebhookController struct {
 
 	// DNS-enabled serviceAccount.namespace to service pair
 	dnsNames map[string]*crl.DNSNameEntry
-
-	// Controller and store for service account objects.
-	saController cache.Controller
-	saStore      cache.Store
 
 	// Controller and store for secret objects.
 	scrtController cache.Controller
@@ -199,23 +182,6 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 
 	namespaces := []string{nameSpace}
 
-	saLW := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				return core.ServiceAccounts(namespace).List(options)
-			},
-			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-				return core.ServiceAccounts(namespace).Watch(options)
-			},
-		}
-	})
-
-	rehf := cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.saAdded,
-		DeleteFunc: c.saDeleted,
-	}
-	c.saStore, c.saController = cache.NewInformer(saLW, &v1.ServiceAccount{}, time.Minute, rehf)
-
 	istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": IstioSecretType}).String()
 	scrtLW := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
 		return &cache.ListWatch{
@@ -258,74 +224,29 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 
 // Run starts the WebhookController until stopCh is notified.
 func (wc *WebhookController) Run(stopCh chan struct{}) {
-	log.Info("start running WebhookController")
-
 	// In the prototype, Chiron only manages one webhook.
 	// TODO (lei-tang): extend the prototype to manage all webhooks.
 	host := fmt.Sprintf("%s.%s", WebhookServiceNames[0], wc.namespace)
 	port := WebhookServicePorts[0]
+	go wc.checkAndPatchMutatingWebhook(host, port, stopCh)
 
-	// Check the webhook service status. Only configure webhook if the webhook service is available.
-	for {
-		netStatus := checkTCPStatus(host, port)
-		if netStatus == Reachable {
-			log.Info("the webhook service is reachable")
-			break
-		}
-		log.Debugf("the webhook service is unreachable, check again later ...")
-		time.Sleep(2 * time.Second)
+	// Create secrets containing certificates for webhooks
+	for _, saName := range WebhookServiceAccounts {
+		wc.upsertSecret(saName, wc.namespace)
 	}
-	// The webhook in the prototype is a mutating webhook.
-	err := wc.patchMutatingCertLoop(wc.k8sClient, wc.mutatingWebhookConfigName, wc.mutatingWebhookName, stopCh)
-	if err != nil {
-		// Abort if failed to patch the mutating webhook
-		log.Fatalf("failed to patch the mutating webhook: %v", err)
-	}
-
 	// Manage the secrets of webhooks
 	go wc.scrtController.Run(stopCh)
 
-	// saAdded calls upsertSecret to update and insert secret
+	// upsertSecret to update and insert secret
 	// it throws error if the secret cache is not synchronized, but the secret exists in the system
 	cache.WaitForCacheSync(stopCh, wc.scrtController.HasSynced)
-
-	// Manage the service accounts of webhooks
-	go wc.saController.Run(stopCh)
 
 	// Watch for the CA certificate updates
 	go wc.watchCACert(stopCh)
 }
 
-// GetSecretName returns the secret name for a given service account name.
-func GetSecretName(saName string) string {
-	return secretNamePrefix + saName
-}
-
-// Handles the event where a webhook service account is added.
-func (wc *WebhookController) saAdded(obj interface{}) {
-	acct := obj.(*v1.ServiceAccount)
-	log.Debugf("enter saAdded(), acct name: %v, acct namespace: %v", acct.GetName(), acct.GetNamespace())
-	if !wc.isWebhookSA(acct.GetName(), acct.GetNamespace()) {
-		// Only handle Webhook SA
-		// TODO (lei-tang): change Citadel to not handle Webhook SA
-		return
-	}
-	wc.upsertSecret(acct.GetName(), acct.GetNamespace())
-}
-
-// Handles the event where a webhook service account is deleted.
-func (wc *WebhookController) saDeleted(obj interface{}) {
-	acct := obj.(*v1.ServiceAccount)
-	log.Debugf("enter saDeleted(), acct name: %v, acct namespace: %v", acct.GetName(), acct.GetNamespace())
-	if !wc.isWebhookSA(acct.GetName(), acct.GetNamespace()) {
-		// Only handle Webhook SA
-		return
-	}
-	wc.deleteSecret(acct.GetName(), acct.GetNamespace())
-}
-
 func (wc *WebhookController) upsertSecret(saName, saNamespace string) {
-	secret := ca.BuildSecret(saName, GetSecretName(saName), saNamespace, nil, nil, nil, nil, nil, IstioSecretType)
+	secret := ca.BuildSecret(saName, crl.GetSecretName(saName), saNamespace, nil, nil, nil, nil, nil, IstioSecretType)
 
 	_, exists, err := wc.scrtStore.Get(secret)
 	if err != nil {
@@ -338,7 +259,7 @@ func (wc *WebhookController) upsertSecret(saName, saNamespace string) {
 	}
 
 	// Now we know the secret does not exist yet. So we create a new one.
-	chain, key, err := wc.GenKeyCertK8sCA(saName, saNamespace)
+	chain, key, err := GenKeyCertK8sCA(wc, saName, saNamespace)
 	if err != nil {
 		log.Errorf("failed to generate key and certificate for service account %q in namespace %q (error %v)",
 			saName, saNamespace, err)
@@ -374,7 +295,7 @@ func (wc *WebhookController) upsertSecret(saName, saNamespace string) {
 }
 
 func (wc *WebhookController) deleteSecret(saName, saNamespace string) {
-	err := wc.core.Secrets(saNamespace).Delete(GetSecretName(saName), nil)
+	err := wc.core.Secrets(saNamespace).Delete(crl.GetSecretName(saName), nil)
 	// kube-apiserver returns NotFound error when the secret is successfully deleted.
 	if err == nil || errors.IsNotFound(err) {
 		log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" has been deleted", saName, saNamespace)
@@ -458,7 +379,7 @@ func (wc *WebhookController) refreshSecret(scrt *v1.Secret) error {
 	namespace := scrt.GetNamespace()
 	saName := scrt.Annotations[ServiceAccountNameAnnotationKey]
 
-	chain, key, err := wc.GenKeyCertK8sCA(saName, namespace)
+	chain, key, err := GenKeyCertK8sCA(wc, saName, namespace)
 	if err != nil {
 		return err
 	}
@@ -469,199 +390,6 @@ func (wc *WebhookController) refreshSecret(scrt *v1.Secret) error {
 
 	_, err = wc.core.Secrets(namespace).Update(scrt)
 	return err
-}
-
-// Generate a certificate and key from k8s CA
-// Working flow:
-// 1. Generate a CSR
-// 2. Submit a CSR
-// 3. Approve a CSR
-// 4. Read the signed certificate
-// 5. Clean up the artifacts (e.g., delete CSR)
-func (wc *WebhookController) GenKeyCertK8sCA(saName string, saNamespace string) ([]byte, []byte, error) {
-	// 1. Generate a CSR
-	spiffeURI, err := spiffe.GenSpiffeURI(saNamespace, saName)
-	if err != nil {
-		log.Errorf("failed to generate a SPIFFE URI: %v", err)
-		return nil, nil, err
-	}
-	id := spiffeURI
-	if wc.dnsNames != nil {
-		// Control plane components in same namespace.
-		if e, ok := wc.dnsNames[saName]; ok {
-			if e.Namespace == saNamespace {
-				// Example: istio-pilot.istio-system.svc, istio-pilot.istio-system
-				id += "," + fmt.Sprintf("%s.%s.svc", e.ServiceName, e.Namespace)
-				id += "," + fmt.Sprintf("%s.%s", e.ServiceName, e.Namespace)
-			}
-		}
-		// Custom adds more DNS entries using CLI
-		if e, ok := wc.dnsNames[saName+"."+saNamespace]; ok {
-			for _, d := range e.CustomDomains {
-				id += "," + d
-			}
-		}
-	}
-	options := util.CertOptions{
-		Host:       id,
-		RSAKeySize: keySize,
-		IsDualUse:  false,
-		PKCS8Key:   false,
-	}
-	csrPEM, keyPEM, err := util.GenCSR(options)
-	if err != nil {
-		log.Errorf("CSR generation error (%v)", err)
-		return nil, nil, err
-	}
-
-	// 2. Submit a CSR
-	csrName := fmt.Sprintf("domain-%s-ns-%s-sa-%s", spiffe.GetTrustDomain(), saNamespace, saName)
-	k8sCSR := &cert.CertificateSigningRequest{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "certificates.k8s.io/v1beta1",
-			Kind:       "CertificateSigningRequest",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: csrName,
-		},
-		Spec: cert.CertificateSigningRequestSpec{
-			Request: csrPEM,
-			Groups:  []string{"system:authenticated"},
-			Usages: []cert.KeyUsage{
-				cert.UsageDigitalSignature,
-				cert.UsageKeyEncipherment,
-				cert.UsageServerAuth,
-				cert.UsageClientAuth,
-			},
-		},
-	}
-	r, err := wc.certClient.CertificateSigningRequests().Create(k8sCSR)
-	if err != nil {
-		if !errors.IsAlreadyExists(err) {
-			log.Debugf("failed to create CSR (%v): %v", csrName, err)
-			return nil, nil, err
-		}
-		//Otherwise, delete the existing CSR and create again
-		log.Debugf("delete an existing CSR: %v", csrName)
-		err = wc.certClient.CertificateSigningRequests().Delete(csrName, nil)
-		if err != nil {
-			log.Errorf("failed to delete CSR (%v): %v", csrName, err)
-			return nil, nil, err
-		}
-		log.Debugf("create CSR (%v) after the existing one was deleted", csrName)
-		r, err = wc.certClient.CertificateSigningRequests().Create(k8sCSR)
-		if err != nil {
-			log.Debugf("failed to create CSR (%v): %v", csrName, err)
-			return nil, nil, err
-		}
-	}
-	log.Debugf("CSR (%v) is created: %v", csrName, r)
-
-	// 3. Approve a CSR
-	log.Debugf("approve CSR (%v) ...", csrName)
-	r.Status.Conditions = append(r.Status.Conditions, cert.CertificateSigningRequestCondition{
-		Type:    cert.CertificateApproved,
-		Reason:  "k8s CSR is approved",
-		Message: "The CSR is approved",
-	})
-	reqApproval, err := wc.certClient.CertificateSigningRequests().UpdateApproval(r)
-	if err != nil {
-		log.Debugf("failed to approve CSR (%v): %v", csrName, err)
-		errCsr := wc.cleanUpCertGen(csrName)
-		if errCsr != nil {
-			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
-		}
-		return nil, nil, err
-	}
-	log.Debugf("CSR (%v) is approved: %v", csrName, reqApproval)
-
-	// 4. Read the signed certificate
-	var reqSigned *cert.CertificateSigningRequest
-	for i := 0; i < maxNumCertRead; i++ {
-		time.Sleep(certReadInterval)
-		reqSigned, err = wc.certClient.CertificateSigningRequests().Get(csrName, metav1.GetOptions{})
-		if err != nil {
-			log.Errorf("failed to get the CSR (%v): %v", csrName, err)
-			errCsr := wc.cleanUpCertGen(csrName)
-			if errCsr != nil {
-				log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
-			}
-			return nil, nil, err
-		}
-		if reqSigned.Status.Certificate != nil {
-			// Certificate is ready
-			break
-		}
-	}
-	var certPEM []byte
-	if reqSigned.Status.Certificate != nil {
-		log.Debugf("the length of the certificate is %v", len(reqSigned.Status.Certificate))
-		log.Debugf("the certificate for CSR (%v) is: %v", csrName, string(reqSigned.Status.Certificate))
-		certPEM = reqSigned.Status.Certificate
-	} else {
-		log.Errorf("failed to read the certificate for CSR (%v)", csrName)
-		// Output the first CertificateDenied condition, if any, in the status
-		for _, c := range r.Status.Conditions {
-			if c.Type == cert.CertificateDenied {
-				log.Errorf("CertificateDenied, name: %v, uid: %v, cond-type: %v, cond: %s",
-					r.Name, r.UID, c.Type, c.String())
-				break
-			}
-		}
-		errCsr := wc.cleanUpCertGen(csrName)
-		if errCsr != nil {
-			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
-		}
-		return nil, nil, fmt.Errorf("failed to read the certificate for CSR (%v)", csrName)
-	}
-	caCert := wc.getCurCACert()
-	// Verify the certificate chain before returning the certificate
-	roots := x509.NewCertPool()
-	if roots == nil {
-		errCsr := wc.cleanUpCertGen(csrName)
-		if errCsr != nil {
-			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
-		}
-		return nil, nil, fmt.Errorf("failed to create cert pool")
-	}
-	if ok := roots.AppendCertsFromPEM(caCert); !ok {
-		errCsr := wc.cleanUpCertGen(csrName)
-		if errCsr != nil {
-			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
-		}
-		return nil, nil, fmt.Errorf("failed to append CA certificate")
-	}
-	certParsed, err := util.ParsePemEncodedCertificate(certPEM)
-	if err != nil {
-		log.Errorf("failed to parse the certificate: %v", err)
-		errCsr := wc.cleanUpCertGen(csrName)
-		if errCsr != nil {
-			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
-		}
-		return nil, nil, fmt.Errorf("failed to parse the certificate: %v", err)
-	}
-	_, err = certParsed.Verify(x509.VerifyOptions{
-		Roots: roots,
-	})
-	if err != nil {
-		log.Errorf("failed to verify the certificate chain: %v", err)
-		errCsr := wc.cleanUpCertGen(csrName)
-		if errCsr != nil {
-			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
-		}
-		return nil, nil, fmt.Errorf("failed to verify the certificate chain: %v", err)
-	}
-	certChain := []byte{}
-	certChain = append(certChain, certPEM...)
-	certChain = append(certChain, caCert...)
-
-	// 5. Clean up the artifacts (e.g., delete CSR)
-	err = wc.cleanUpCertGen(csrName)
-	if err != nil {
-		log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
-	}
-	// If there is a failure of cleaning up CSR, the error is returned.
-	return certChain, keyPEM, err
 }
 
 // Clean up the CSR
@@ -689,7 +417,7 @@ func (wc *WebhookController) isWebhookSA(name, namespace string) bool {
 // Return whether the input secret name is a webhook secret
 func (wc *WebhookController) isWebhookSecret(name, namespace string) bool {
 	for _, n := range WebhookServiceAccounts {
-		if GetSecretName(n) == name && namespace == wc.namespace {
+		if crl.GetSecretName(n) == name && namespace == wc.namespace {
 			return true
 		}
 	}
@@ -746,6 +474,30 @@ func (wc *WebhookController) setCurCACert(cert []byte) {
 	wc.mutex.Unlock()
 }
 
+func (wc *WebhookController) checkAndPatchMutatingWebhook(host string, port int, stopCh chan struct{}) {
+	// Check the webhook service status. Only configure webhook if the webhook service is available.
+	for {
+		if isTCPReachable(host, port) {
+			log.Info("the webhook service is reachable")
+			break
+		}
+		select {
+		case <-stopCh:
+			log.Debugf("webhook controlller is stopped")
+			return
+		default:
+			log.Debugf("the webhook service is unreachable, check again later ...")
+			time.Sleep(2 * time.Second)
+		}
+	}
+	// The webhook in the prototype is a mutating webhook.
+	err := wc.patchMutatingCertLoop(wc.k8sClient, wc.mutatingWebhookConfigName, wc.mutatingWebhookName, stopCh)
+	if err != nil {
+		// Abort if failed to patch the mutating webhook
+		log.Fatalf("failed to patch the mutating webhook: %v", err)
+	}
+}
+
 func (wc *WebhookController) patchMutatingCertLoop(client *kubernetes.Clientset, webhookConfigName, webhookName string, stopCh <-chan struct{}) error {
 	// Chiron configures WebhookConfiguration
 	if err := istioutil.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
@@ -789,32 +541,4 @@ func (wc *WebhookController) patchMutatingCertLoop(client *kubernetes.Clientset,
 	}()
 
 	return nil
-}
-
-func readCACert() ([]byte, error) {
-	caCert, err := ioutil.ReadFile(caCertPath)
-	if err != nil {
-		log.Errorf("failed to read CA cert, cert. path: %v, error: %v", caCertPath, err)
-		return nil, fmt.Errorf("failed to read CA cert, cert. path: %v, error: %v", caCertPath, err)
-	}
-	return caCert, nil
-}
-
-func doPatch(client *kubernetes.Clientset, webhookConfigName, webhookName string, caCertPem []byte) {
-	if err := istioutil.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
-		webhookConfigName, webhookName, caCertPem); err != nil {
-		log.Errorf("Patch webhook failed: %v", err)
-	}
-}
-
-func checkTCPStatus(host string, port int) NetStatus {
-	addr := fmt.Sprintf("%s:%d", host, port)
-	conn, err := net.DialTimeout("tcp", addr, 1*time.Second)
-	if err != nil {
-		log.Debugf("DialTimeout() returns err: %v", err)
-		// No connection yet, so no need to conn.Close()
-		return UnReachable
-	}
-	defer conn.Close()
-	return Reachable
 }
