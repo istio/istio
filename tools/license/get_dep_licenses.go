@@ -117,10 +117,12 @@ var (
 	// knownUnknownLicenses are either missing or unknown to licensee, but were manually copied and /or reviewed
 	// and are considered ok, so the tool will not complain about these.
 	knownUnknownLicenses = map[string]bool{
-		"github.com/jmespath/go-jmespath":                   true,
-		"github.com/alicebob/gopher-json":                   true,
-		"github.com/dchest/siphash":                         true,
-		"github.com/signalfx/com_signalfx_metrics_protobuf": true,
+		// "github.com/jmespath/go-jmespath":                   true,  // Not in manual_append
+		// "github.com/alicebob/gopher-json":                   true,  // Not in manual_append
+		"github.com/dchest/siphash":                         true, // in manual_append
+		"github.com/signalfx/com_signalfx_metrics_protobuf": true, // in manual_append
+		"github.com/bmizerany/assert":                       true, // has license in README.md
+		"github.com/kr/logfmt":                              true, // Readme mentions MIT license
 	}
 	// Ignored modules
 	ignoredModules = []string{
@@ -134,14 +136,15 @@ var (
 	istioRoot = filepath.Join(root, istioSubdir)
 	// istioReleaseBranch is the branch to generate licenses for.
 	istioReleaseBranch = ""
-	// goModCache is the parent of the module cache
+	// goModCache is the module cache relative to root
+	goModCache = "/pkg/mod/"
 )
 
 // LicenseInfo describes a license.
 type LicenseInfo struct {
 	packageName       string
 	path              string
-	url               string
+	licensePath       string
 	licenseeOutput    string
 	licenseTypeString string
 	licenseText       string
@@ -312,7 +315,7 @@ func main() {
 		linfo.packageName = strings.TrimPrefix(key, istioSubdir+"/vendor/")
 		linfo.licenseText = readFile(lp)
 		linfo.path = lp
-		linfo.url = pathToURL(lp)
+		linfo.licensePath = getLicensePath(lp)
 		licenses = append(licenses, linfo)
 		ltypeStr := linfo.licenseTypeString
 		if linfo.exact {
@@ -395,7 +398,7 @@ func main() {
 			fmt.Printf("%s, MISSING\n", p)
 		}
 		for _, l := range append(inexact, exact...) {
-			fmt.Printf("%s,%s,%s,%s\n", l.packageName, l.url, l.licenseTypeString, l.confidence)
+			fmt.Printf("%s,%s,%s,%s\n", l.packageName, l.licensePath, l.licenseTypeString, l.confidence)
 		}
 		return
 	}
@@ -417,7 +420,7 @@ func main() {
 		fmt.Println("===========================================================")
 		for _, l := range inexact {
 			fmt.Printf("Package: %s\n", l.packageName)
-			fmt.Printf("URL: %s\n", l.url)
+			fmt.Printf("License Relative To Module Cache: %s\n", l.licensePath)
 			fmt.Printf("Match info:\n%s\n", l.licenseeOutput)
 			fmt.Printf("License text:\n%s\n", l.licenseText)
 			fmt.Println("-----------------------------------------------------------")
@@ -441,7 +444,7 @@ func main() {
 
 		for _, l := range append(exact, inexact...) {
 			fmt.Printf("Package: %s\n", l.packageName)
-			fmt.Printf("License URL: %s\n", l.url)
+			fmt.Printf("License Relative To Module Cache: %s\n", l.licensePath)
 			fmt.Printf("License text:\n%s\n", l.licenseText)
 			fmt.Println("-----------------------------------------------------------")
 		}
@@ -481,9 +484,14 @@ func runBashWithModuleSupport(args ...string) (string, error) {
 	return out.String(), nil
 }
 
-// pathToURL returns a URL to a path within Istio github code.
-func pathToURL(path string) string {
-	return strings.Replace(path, istioRoot, "https://github.com/istio/istio/blob/"+istioReleaseBranch, 1)
+// getLicensePath returns the license path relative to the Golang module cache.
+// It removes any of the path bup to and including the go mode cache (GOPATH/pkg/mod)
+func getLicensePath(path string) string {
+	index := strings.Index(path, goModCache)
+	if index < 0 {
+		return path
+	}
+	return path[index+len(goModCache):]
 }
 
 func readFile(path string) string {
