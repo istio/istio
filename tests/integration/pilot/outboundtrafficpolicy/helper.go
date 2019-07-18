@@ -185,7 +185,7 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 
 func clusterName(target echo.Instance, port echo.Port) string {
 	cfg := target.Config()
-	return fmt.Sprintf("outbound|%d||%s.%s.%s", port.ServicePort, cfg.Service, cfg.Namespace.Name(), cfg.Domain)
+	return fmt.Sprintf("outbound|%d||%s.%s.svc.%s", port.ServicePort, cfg.Service, cfg.Namespace.Name(), cfg.Domain)
 }
 
 // Wait for the destination to NOT be callable by the client. This allows us to simulate external traffic.
