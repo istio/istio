@@ -138,7 +138,7 @@ Istio has strong integration with certmanager.  Some operators may want to keep 
 CRDs in place and not have Istio modify them.  In this case, it is necessary to apply CRD files individually.
 
 ```bash
- kubectl apply -k github.com/istio/install/crds
+ kubectl apply -k github.com/istio/installer/crds
 ```
 
 or
