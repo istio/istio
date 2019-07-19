@@ -55,7 +55,6 @@ RUN GO111MODULE="on" GOROOT=/usr/local/go GOPATH=/home/${user}/go /usr/local/go/
 RUN curl -s -Lo - https://git.io/get_helm.sh | /bin/bash
 
 # Install gcloud and kubectl.
-# hadolint ignore=DL3008
 RUN echo "deb http://packages.cloud.google.com/apt cloud-sdk-$(lsb_release -c -s) main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
 && curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - \
 && apt-get update && apt-get -qqy install --no-install-recommends \
