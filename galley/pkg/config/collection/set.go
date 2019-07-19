@@ -14,6 +14,11 @@
 
 package collection
 
+import (
+	"sort"
+	"strings"
+)
+
 // Set of collections
 type Set struct {
 	collections map[Name]*Instance
@@ -58,4 +63,18 @@ func (s *Set) Clone() *Set {
 	return &Set{
 		collections: c,
 	}
+}
+
+// Names of the collections in the set.
+func (s *Set) Names() Names {
+	result := make([]Name, 0, len(s.collections))
+	for name := range s.collections {
+		result = append(result, name)
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return strings.Compare(result[i].String(), result[j].String()) < 0
+	})
+
+	return result
 }

@@ -34,7 +34,7 @@ type Source struct {
 var _ event.Source = &Source{}
 
 // New returns a new kube.Source.
-func New(o Options) (*Source, error) {
+func New(o Options) *Source {
 	s := &Source{
 		watchers: make(map[collection.Name]*watcher),
 		options:  o,
@@ -55,7 +55,7 @@ func New(o Options) (*Source, error) {
 		s.watchers[r.Collection.Name] = col
 	}
 
-	return s, nil
+	return s
 }
 
 // Dispatch implements processor.Source

@@ -50,7 +50,6 @@ func WithBuffer(s Dispatcher) *Buffer {
 // Handle implements Handler
 func (b *Buffer) Handle(e Event) {
 	b.mu.Lock()
-	scope.Processing.Debugf(">>> Buffer.Handle: %v", e)
 	b.queue.add(e)
 	b.cond.Broadcast()
 	b.mu.Unlock()
@@ -102,7 +101,6 @@ func (b *Buffer) Process() {
 		}
 
 		if b.handler != nil {
-			scope.Processing.Debugf(">>> Buffer.Process: dispatching %v", e)
 			b.mu.Unlock()
 			b.handler.Handle(e)
 			b.mu.Lock()

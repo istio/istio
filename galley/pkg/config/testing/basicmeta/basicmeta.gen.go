@@ -81,7 +81,6 @@ sources:
         group:        "testdata.istio.io"
         version:      "v1alpha1"
 
-
 # Transform specific configurations
 transforms:
   - type: direct
@@ -153,6 +152,7 @@ sources:
         plural:       "Kind2s"
         group:        "testdata.istio.io"
         version:      "v1alpha1"
+        optional:     true
 
 
 # Transform specific configurations

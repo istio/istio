@@ -68,7 +68,6 @@ var _ Router = &router{}
 
 // Handle implements Handler
 func (r *router) Handle(e Event) {
-	scope.Processing.Debuga(">>> Router.Handle: ", e)
 	h, found := r.handlers[e.Source]
 	if found {
 		h.Handle(e)

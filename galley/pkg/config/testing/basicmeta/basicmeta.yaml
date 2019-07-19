@@ -34,7 +34,6 @@ sources:
         group:        "testdata.istio.io"
         version:      "v1alpha1"
 
-
 # Transform specific configurations
 transforms:
   - type: direct

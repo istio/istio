@@ -123,6 +123,8 @@ type Args struct { // nolint:maligned
 	MonitoringPort  uint
 	EnableProfiling bool
 	PprofPort       uint
+
+	UseOldProcessor bool
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
@@ -151,6 +153,7 @@ func DefaultArgs() *Args {
 		MonitoringPort:              15014,
 		EnableProfiling:             false,
 		PprofPort:                   9094,
+		UseOldProcessor:             true,
 		Liveness: probe.Options{
 			Path:           defaultLivenessProbeFilePath,
 			UpdateInterval: defaultProbeCheckInterval,

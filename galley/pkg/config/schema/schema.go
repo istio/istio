@@ -16,6 +16,8 @@ package schema
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/schema/ast"
@@ -77,6 +79,28 @@ func (m *Metadata) DirectTransform() *DirectTransform {
 	}
 
 	panic("Metadata.DirectTransform: DirectTransform not found")
+}
+
+// SnapshottedCollectionNames returns an aggregate list of names of collections that are snapshotted.
+func (m *Metadata) SnapshottedCollectionNames() []string {
+	names := make(map[collection.Name]struct{})
+
+	for _, s := range m.snapshots {
+		for _, c := range s.Collections {
+			names[c] = struct{}{}
+		}
+	}
+
+	var result = make([]string, 0, len(names))
+	for name := range names {
+		result = append(result, name.String())
+	}
+
+	sort.SliceStable(result, func(i, j int) bool {
+		return strings.Compare(result[i], result[j]) < 0
+	})
+
+	return result
 }
 
 // Snapshot metadata. Describes the snapshots that should be produced.
