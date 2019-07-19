@@ -47,7 +47,8 @@ import (
 	"istio.io/pkg/log"
 )
 
-// Processing2 component.
+// Processing2 component is the main config processing component that will listen to a config source and publish
+// resources through an MCP server, or a dialout connection.
 type Processing2 struct {
 	args *settings.Args
 
@@ -123,7 +124,7 @@ func (p *Processing2) Start() (err error) {
 	options := &source.Options{
 		Watcher:            p.distributor,
 		Reporter:           p.reporter,
-		CollectionsOptions: source.CollectionOptionsFromSlice(m.SnapshottedCollectionNames()),
+		CollectionsOptions: source.CollectionOptionsFromSlice(m.AllCollectionsInSnapshots()),
 		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second, 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
 	}
 
