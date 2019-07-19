@@ -586,6 +586,9 @@ const (
 	// NodeMetadataSdsEnabled specifies whether SDS is enabled.
 	NodeMetadataSdsEnabled = "ISTIO_META_SDS"
 
+	// NodeMetadataSdsEnabled specifies whether trustworthy jwt is used to request key/cert through SDS>
+	NodeMetadataSdsTrustJwt = "ISTIO_META_TRUSTJWT"
+
 	// NodeMetadataSdsTokenPath specifies the path of the SDS token used by the Envoy proxy.
 	// If not set, Pilot uses the default SDS token path.
 	NodeMetadataSdsTokenPath = "SDS_TOKEN_PATH"
