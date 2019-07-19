@@ -113,7 +113,7 @@ spec:
 {{- else }}
           image: "{{ .Values.global.hub | default "gcr.io/istio-release" }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag | default "release-1.1-latest-daily" }}"
 {{- end }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           ports:
           - containerPort: 9902
           args:
@@ -126,6 +126,9 @@ spec:
           - MUTUAL_TLS
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
+        {{- end }}
+        {{- if .Values.global.logAsJson }}
+          - --log_as_json
         {{- end }}
           env:
           - name: POD_NAME

@@ -25,7 +25,7 @@ rules:
   resourceNames: ["istio-galley"]
   verbs: ["get"]
 - apiGroups: [""]
-  resources: ["pods", "nodes", "services", "endpoints"]
+  resources: ["pods", "nodes", "services", "endpoints", "namespaces"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["extensions"]
   resources: ["ingresses"]

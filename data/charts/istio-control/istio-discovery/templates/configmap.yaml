@@ -15,6 +15,185 @@ data:
   values.yaml: |-
 {{ toYaml .Values.pilot | indent 4 }}
 
----
+  mesh: |-
+    {{- if .Values.global.enableTracing }}
+    # Set enableTracing to false to disable request tracing.
+    enableTracing: {{ .Values.global.enableTracing }}
+    {{- end }}
 
+    # Set accessLogFile to empty string to disable access log.
+    accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
+    #
+
+    {{- if .Values.mixer.telemetry.reportBatchMaxEntries }}
+    # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
+    reportBatchMaxEntries: {{ .Values.mixer.telemetry.reportBatchMaxEntries }}
+    {{- end }}
+
+    {{- if .Values.mixer.telemetry.reportBatchMaxTime }}
+    # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
+    reportBatchMaxTime: {{ .Values.mixer.telemetry.reportBatchMaxTime }}
+    {{- end }}
+
+    {{- if .Values.pilot.telemetry.enabled }}
+    {{- if .Values.global.controlPlaneSecurityEnabled }}
+    mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.cluster.local:15004
+    {{- else }}
+    mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.cluster.local:9091
+    {{- end }}
+    {{- end }}
+
+    {{- if .Values.global.controlPlaneSecurityEnabled }}
+    mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.cluster.local:15004
+    {{- else }}
+    mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.cluster.local:9091
+    {{- end }}
+
+    {{- if .Values.pilot.authPolicy }}
+    authPolicy: {{ .Values.pilot.authPolicy }}
+    {{- end }}
+
+    {{- if .Values.pilot.policy.enabled }}
+
+    # Set the following variable to true to disable policy checks by the Mixer.
+    # Note that metrics will still be reported to the Mixer.
+    disablePolicyChecks: false
+
+    # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
+    # Default is false which means the traffic is denied when the client is unable to connect to Mixer.
+    policyCheckFailOpen: {{ .Values.global.policyCheckFailOpen }}
+
+    {{- else }}
+
+    disablePolicyChecks: true
+
+    {{- end }}
+
+
+    # This is the k8s ingress service name, update if you used a different name
+    {{- if .Values.pilot.ingress }}
+    {{- if .Values.pilot.ingress.ingressService }}
+    ingressService: "{{ .Values.pilot.ingress.ingressService }}"
+    ingressControllerMode: "{{ .Values.pilot.ingress.ingressControllerMode }}"
+    ingressClass: "{{ .Values.pilot.ingress.ingressClass }}"
+    {{- end }}
+    {{- end }}
+
+    {{- if .Values.global.sds.enabled }}
+    # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
+    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
+    sdsUdsPath: {{ .Values.global.sds.udsPath }}
+
+    # This flag is used by secret discovery service(SDS).
+    # If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount
+    # for k8s service account JWT, so that K8s API server mounts k8s service account JWT to envoy container, which
+    # will be used to generate key/cert eventually. This isn't supported for non-k8s case.
+    enableSdsTokenMount: {{ .Values.global.sds.useTrustworthyJwt }}
+
+    # This flag is used by secret discovery service(SDS).
+    # If set to true, envoy will fetch normal k8s service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token'
+    # (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod)
+    # and pass to sds server, which will be used to request key/cert eventually.
+    # this flag is ignored if enableSdsTokenMount is set.
+    # This isn't supported for non-k8s case.
+    sdsUseK8sSaJwt: {{ .Values.global.sds.useNormalJwt }}
+    {{- else }}
+    # Set expected values when SDS is disabled
+    # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
+    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
+    sdsUdsPath: ""
+    # This flag is used by secret discovery service(SDS).
+    # If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount
+    # for k8s service account JWT, so that K8s API server mounts k8s service account JWT to envoy container, which
+    # will be used to generate key/cert eventually. This isn't supported for non-k8s case.
+    enableSdsTokenMount: false
+    # This flag is used by secret discovery service(SDS).
+    # If set to true, envoy will fetch normal k8s service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token'
+    # (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod)
+    # and pass to sds server, which will be used to request key/cert eventually.
+    # this flag is ignored if enableSdsTokenMount is set.
+    # This isn't supported for non-k8s case.
+    sdsUseK8sSaJwt: false
+    {{- end }}
+
+    {{- if .Values.pilot.useMCP }}
+    config_sources:
+    {{- if .Values.global.controlPlaneSecurityEnabled }}
+    - address: localhost:15019
+    {{- else }}
+    - address: istio-galley:9901
+    {{- end }}
+    {{- end }}
+
+    outboundTrafficPolicy:
+      mode: {{ .Values.global.outboundTrafficPolicy.mode }}
+
+    localityLbSetting:
+{{ toYaml .Values.global.localityLbSetting | indent 6 }}
+
+    defaultConfig:
+      #
+      # TCP connection timeout between Envoy & the application, and between Envoys.
+      connectTimeout: 10s
+      #
+      ### ADVANCED SETTINGS #############
+      # Where should envoy's configuration be stored in the istio-proxy container
+      configPath: "/etc/istio/proxy"
+      # The pseudo service name used for Envoy.
+      serviceCluster: istio-proxy
+      # These settings that determine how long an old Envoy
+      # process should be kept alive after an occasional reload.
+      drainDuration: 45s
+      parentShutdownDuration: 1m0s
+      #
+      # Port where Envoy listens (on local host) for admin commands
+      # You can exec into the istio-proxy container in a pod and
+      # curl the admin port (curl http://localhost:15000/) to obtain
+      # diagnostic information from Envoy. See
+      # https://lyft.github.io/envoy/docs/operations/admin.html
+      # for more details
+      proxyAdminPort: 15000
+      #
+      # Set concurrency to a specific number to control the number of Proxy worker threads.
+      # If set to 0 (default), then start worker thread for each CPU thread/core.
+      concurrency: {{ .Values.global.proxy.concurrency }}
+      #
+      {{- if eq .Values.global.proxy.tracer "lightstep" }}
+      tracing:
+        lightstep:
+          # Address of the LightStep Satellite pool
+          address: {{ .Values.global.tracer.lightstep.address }}
+          # Access Token used to communicate with the Satellite pool
+          accessToken: {{ .Values.global.tracer.lightstep.accessToken }}
+          # Whether communication with the Satellite pool should be secure
+          secure: {{ .Values.global.tracer.lightstep.secure }}
+          # Path to the file containing the cacert to use when verifying TLS
+          cacertPath: {{ .Values.global.tracer.lightstep.cacertPath }}
+      {{- else if eq .Values.global.proxy.tracer "zipkin" }}
+      tracing:
+        zipkin:
+          # Address of the Zipkin collector
+        {{- if .Values.global.tracer.zipkin.address }}
+          address: {{ .Values.global.tracer.zipkin.address }}
+        {{- else }}
+          address: zipkin.{{ .Values.global.telemetryNamespace }}:9411
+        {{- end }}
+      {{- end }}
+
+    {{- if .Values.global.controlPlaneSecurityEnabled }}
+      #
+      # Mutual TLS authentication between sidecars and istio control plane.
+      controlPlaneAuthPolicy: MUTUAL_TLS
+      #
+      # Address where istio Pilot service is running
+      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15011
+    {{- else }}
+      #
+      # Mutual TLS authentication between sidecars and istio control plane.
+      controlPlaneAuthPolicy: NONE
+      #
+      # Address where istio Pilot service is running
+      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15010
+    {{- end }}
+---
 {{- end }}

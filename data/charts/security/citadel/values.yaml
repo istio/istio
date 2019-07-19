@@ -3,14 +3,18 @@
 #
 security:
   enabled: true
+  replicaCount: 1
   image: citadel
   selfSigned: true # indicate if self-signed CA is used.
   trustDomain: cluster.local # indicate the domain used in SPIFFE identity URL
 
+  # 90*24hour = 2160h
+  workloadCertTtl: 2160h
+
   # Galley, pilot in each 'profile' must have a DNS cert.
   dnsCerts:
-    #istio-pilot-service-account.istio-control: istio-pilot-service-account.istio-control
-    #istio-pilot-service-account.istio-pilot11: istio-pilot-service-account.istio-system
+    istio-pilot-service-account.istio-control: istio-pilot-service-account.istio-control
+    istio-pilot-service-account.istio-pilot11: istio-pilot-service-account.istio-system
 
     istio-sidecar-injector-service-account.istio-remote: istio-sidecar-injector.istio-remote.svc
     istio-sidecar-injector-service-account.istio-pilot11: istio-sidecar-injector.istio-pilot11.svc

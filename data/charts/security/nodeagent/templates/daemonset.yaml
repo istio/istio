@@ -31,7 +31,11 @@ spec:
 {{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.nodeagent.image }}:{{ .Values.global.tag }}"
 {{- end }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+          args:
+          {{- if .Values.global.logAsJson }}
+            - --log_as_json
+          {{- end }}
           volumeMounts:
             - mountPath: /var/run/sds
               name: sdsudspath
@@ -44,6 +48,10 @@ spec:
           {{- end }}
             - name: "Trust_Domain"
               value: "{{ .Values.global.trustDomain }}"
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
       volumes:
         - name: sdsudspath
           hostPath:
@@ -55,3 +63,5 @@ spec:
       tolerations:
 {{ toYaml .Values.nodeagent.tolerations | indent 6 }}
 {{- end }}
+  updateStrategy:
+    type: RollingUpdate
