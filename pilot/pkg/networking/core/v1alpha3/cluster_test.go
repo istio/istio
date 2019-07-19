@@ -718,9 +718,9 @@ func TestDisablePanicThresholdAsDefault(t *testing.T) {
 
 	outliers := []*networking.OutlierDetection{
 		// Unset MinHealthPercent
-		&networking.OutlierDetection{},
+		{},
 		// Explicitly set MinHealthPercent to 0
-		&networking.OutlierDetection{
+		{
 			MinHealthPercent: 0,
 		},
 	}
