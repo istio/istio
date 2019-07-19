@@ -131,7 +131,7 @@ func (p *Processing2) Start() (err error) {
 		p.callOut, err = newCallout(p.args.SinkAddress, p.args.SinkAuthMode, p.args.SinkMeta, options)
 		if err != nil {
 			p.callOut = nil
-			scope.Errorf("Callout could not be initialized: %v", err)
+			err = fmt.Errorf("callout could not be initialized: %v", err)
 			return
 		}
 	}
