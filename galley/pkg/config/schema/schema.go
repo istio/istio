@@ -81,8 +81,8 @@ func (m *Metadata) DirectTransform() *DirectTransform {
 	panic("Metadata.DirectTransform: DirectTransform not found")
 }
 
-// SnapshottedCollectionNames returns an aggregate list of names of collections that are snapshotted.
-func (m *Metadata) SnapshottedCollectionNames() []string {
+// AllCollectionsInSnapshots returns an aggregate list of names of collections that will appear in snapshots.
+func (m *Metadata) AllCollectionsInSnapshots() []string {
 	names := make(map[collection.Name]struct{})
 
 	for _, s := range m.snapshots {
