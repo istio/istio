@@ -33,6 +33,8 @@ import (
 )
 
 const (
+	// TODO: Move these to istio/api and use from there, once this code lands in master.
+
 	// IngressClassAnnotation is the annotation on ingress resources for the class of controllers
 	// responsible for it
 	IngressClassAnnotation = "kubernetes.io/ingress.class"

@@ -190,3 +190,16 @@ func TestCombineHandlers_MultipleHandlers(t *testing.T) {
 	g.Expect(received3).To(Equal(sent))
 	g.Expect(received4).To(Equal(sent))
 }
+
+func TestSentinelHandler(t *testing.T) {
+	h := SentinelHandler()
+	e := Event{
+		Kind: Added,
+		Entry: &resource.Entry{
+			Item: &types.Empty{},
+		},
+	}
+
+	// Does not crash
+	h.Handle(e)
+}

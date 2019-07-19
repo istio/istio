@@ -50,6 +50,14 @@ func CombineHandlers(h1 Handler, h2 Handler) Handler {
 		return h1
 	}
 
+	if _, ok := h1.(*sentinelHandler); ok {
+		return h2
+	}
+
+	if _, ok := h2.(*sentinelHandler); ok {
+		return h1
+	}
+
 	var r Handlers
 	if hs, ok := h1.(*Handlers); ok {
 		r.handlers = append(r.handlers, hs.handlers...)

@@ -56,8 +56,8 @@ func (t *Transformer) Handle(e event.Event) {
 	t.fn(t, e)
 }
 
-// Select implements event.Transformer
-func (t *Transformer) Select(c collection.Name, h event.Handler) {
+// DispatchFor implements event.Transformer
+func (t *Transformer) DispatchFor(c collection.Name, h event.Handler) {
 	handlers := t.Handlers[c]
 	handlers = event.CombineHandlers(handlers, h)
 	t.Handlers[c] = handlers

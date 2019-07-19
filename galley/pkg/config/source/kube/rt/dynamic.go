@@ -42,7 +42,7 @@ func (p *Provider) getDynamicAdapter(r schema.KubeResource) *Adapter {
 		extractResource: func(o interface{}) (proto.Message, error) {
 			u, ok := o.(*unstructured.Unstructured)
 			if !ok {
-				return nil, fmt.Errorf("extractResourc: not unstructured: %v", o)
+				return nil, fmt.Errorf("extractResource: not unstructured: %v", o)
 			}
 
 			pr := r.Collection.NewProtoInstance()
