@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	"istio.io/pkg/appsignals"
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/resource"
@@ -33,6 +32,7 @@ import (
 	"istio.io/istio/galley/pkg/config/testing/data/builtin"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
+	"istio.io/pkg/appsignals"
 )
 
 func TestNew(t *testing.T) {

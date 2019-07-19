@@ -15,7 +15,7 @@
 package mock
 
 import (
-	"errors"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 
 	"istio.io/istio/galley/pkg/source/kube/client"
 
@@ -31,13 +31,15 @@ type Kube struct {
 	response1 []interface{}
 	response2 []error
 
-	client kubernetes.Interface
+	client    kubernetes.Interface
+	clientset clientset.Interface
 }
 
 // NewKube returns a new instance of mock Kube.
 func NewKube() *Kube {
 	return &Kube{
-		client: newKubeInterface(),
+		client:    newKubeInterface(),
+		clientset: fake.NewSimpleClientset(),
 	}
 }
 
@@ -67,7 +69,7 @@ func (k *Kube) AddResponse(r1 interface{}, r2 error) {
 
 // APIExtensionsClientset returns a new apiextensions clientset
 func (k *Kube) APIExtensionsClientset() (clientset.Interface, error) {
-	return nil, errors.New("not supported")
+	return k.clientset, nil
 }
 
 func (k *Kube) KubeClient() (kubernetes.Interface, error) {

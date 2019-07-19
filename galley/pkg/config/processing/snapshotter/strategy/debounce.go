@@ -102,9 +102,11 @@ mainloop:
 	for {
 		select {
 		case <-stopCh:
+			scope.Debug("Debounce.run: stopping")
 			break mainloop
 
 		case <-d.changeCh:
+			scope.Debug("Debounce.run: change")
 			monitoring.RecordStrategyOnChange()
 			// fallthrough to start the timer.
 		}
@@ -116,9 +118,11 @@ mainloop:
 		for {
 			select {
 			case <-stopCh:
+				scope.Debug("Debounce.run: stopping")
 				break mainloop
 
 			case <-d.changeCh:
+				scope.Debug("Debounce.run: change")
 				monitoring.RecordStrategyOnChange()
 
 				quiesceTimer.Stop()
@@ -127,10 +131,12 @@ mainloop:
 				monitoring.RecordOnTimer(false, false, true)
 
 			case <-quiesceTimer.C:
+				scope.Debug("Debounce.run: quiesce timer")
 				monitoring.RecordOnTimer(false, true, false)
 				break loop
 
 			case <-maxDurationTimer.C:
+				scope.Debug("Debounce.run: maxDuration timer")
 				monitoring.RecordOnTimer(true, false, false)
 				break loop
 			}
@@ -140,6 +146,7 @@ mainloop:
 		drainTimeCh(quiesceTimer.C)
 		maxDurationTimer.Stop()
 		drainTimeCh(maxDurationTimer.C)
+		scope.Debug("Debounce.run: calling callback...")
 		fn()
 	}
 

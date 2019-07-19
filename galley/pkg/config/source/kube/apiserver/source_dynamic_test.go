@@ -200,10 +200,7 @@ func newOrFail(t *testing.T, ifaces kube.Interfaces, r schema.KubeResources) *ap
 		ResyncPeriod: 0,
 		Client:       ifaces,
 	}
-	s, err := apiserver.New(o)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	s := apiserver.New(o)
 	if s == nil {
 		t.Fatal("Expected non nil source")
 	}
