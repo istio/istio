@@ -96,7 +96,7 @@ func resourceTypesPresence(cs clientset.Interface, resources configSchema.KubeRe
 		scope.Source.Errorf("Expected resources (CRDs) not found: %v", notFound)
 		scope.Source.Error("To stop Galley from waiting for these resources (CRDs), consider using the --excludedResourceKinds flag")
 
-		return fmt.Errorf("%v: the following resource type(s) were not found: %v", err, notFound)
+		return fmt.Errorf("could not find resource type(s) %v: %v", notFound, err)
 	}
 
 	return nil
