@@ -45,7 +45,11 @@ export HUB=${HUB:-"kindtest"}
 export TAG="${TAG:-${GIT_SHA}}"
 
 make init
-make docker
+
+# Build just the images needed for the tests
+for image in pilot proxyv2 proxy_init app test_policybackend mixer citadel galley sidecar_injector kubectl node-agent-k8s; do
+   make docker.${image}
+done
 
 function build_kind_images(){
 	# Archived local images and load it into KinD's docker daemon
