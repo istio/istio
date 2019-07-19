@@ -52,7 +52,7 @@ func register() *cobra.Command {
 				svcName, ip, portsList)
 			if svcAcctAnn != "" {
 				annotations = append(annotations,
-					fmt.Sprintf("%s=%s", annotation.KubernetesServiceAccounts.Name, svcAcctAnn))
+					fmt.Sprintf("%s=%s", annotation.AlphaKubernetesServiceAccounts.Name, svcAcctAnn))
 			}
 			log.Infof("%d labels (%v) and %d annotations (%v)",
 				len(labels), labels, len(annotations), annotations)

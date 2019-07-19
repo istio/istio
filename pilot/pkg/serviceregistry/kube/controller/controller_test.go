@@ -425,8 +425,8 @@ func TestGetProxyServiceInstances(t *testing.T) {
 
 	createService(controller, "svc1", "nsa",
 		map[string]string{
-			annotation.KubernetesServiceAccounts.Name: k8sSaOnVM,
-			annotation.CanonicalServiceAccounts.Name:  canonicalSaOnVM},
+			annotation.AlphaKubernetesServiceAccounts.Name: k8sSaOnVM,
+			annotation.AlphaCanonicalServiceAccounts.Name:  canonicalSaOnVM},
 		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 	ev := fx.Wait("service")
 	if ev == nil {
@@ -448,8 +448,8 @@ func TestGetProxyServiceInstances(t *testing.T) {
 		svcName := fmt.Sprintf("svc-fake-%d", i)
 		createService(controller, svcName, "nsfake",
 			map[string]string{
-				annotation.KubernetesServiceAccounts.Name: k8sSaOnVM,
-				annotation.CanonicalServiceAccounts.Name:  canonicalSaOnVM},
+				annotation.AlphaKubernetesServiceAccounts.Name: k8sSaOnVM,
+				annotation.AlphaCanonicalServiceAccounts.Name:  canonicalSaOnVM},
 			[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 		fx.Wait("service")
 
@@ -508,8 +508,8 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 
 	createService(controller, "svc1", "nsA",
 		map[string]string{
-			annotation.KubernetesServiceAccounts.Name: k8sSaOnVM,
-			annotation.CanonicalServiceAccounts.Name:  canonicalSaOnVM},
+			annotation.AlphaKubernetesServiceAccounts.Name: k8sSaOnVM,
+			annotation.AlphaCanonicalServiceAccounts.Name:  canonicalSaOnVM},
 		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 	createService(controller, "svc2", "nsA", nil, []int32{8080}, map[string]string{"app": "staging-app"}, t)
 	<-fx.Events

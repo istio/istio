@@ -26,7 +26,6 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	metadata2 "istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/annotations"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/converter"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
@@ -114,9 +113,9 @@ func TestServiceDefaults(t *testing.T) {
 			"l2": "v2",
 		},
 		Annotations: resource.Annotations{
-			"a1":                       "v1",
-			"a2":                       "v2",
-			annotations.ServiceVersion: version,
+			"a1": "v1",
+			"a2": "v2",
+			annotation.AlphaNetworkingServiceVersion.Name: version,
 		},
 	}
 	expected := networking.ServiceEntry{
@@ -309,8 +308,8 @@ func TestServiceExportTo(t *testing.T) {
 		Name:       service.ID.FullName.String(),
 		CreateTime: tnowMcp,
 		Annotations: resource.Annotations{
-			annotation.NetworkingExportTo.Name: "c, a, b",
-			annotations.ServiceVersion:         "v1",
+			annotation.NetworkingExportTo.Name:            "c, a, b",
+			annotation.AlphaNetworkingServiceVersion.Name: "v1",
 		},
 	}
 
@@ -352,7 +351,7 @@ func TestNoNamespaceShouldUseDefault(t *testing.T) {
 		Name:       service.ID.FullName.String(),
 		CreateTime: tnowMcp,
 		Annotations: resource.Annotations{
-			annotations.ServiceVersion: "v1",
+			annotation.AlphaNetworkingServiceVersion.Name: "v1",
 		},
 	}
 
@@ -423,7 +422,7 @@ func TestServicePorts(t *testing.T) {
 				Name:       service.ID.FullName.String(),
 				CreateTime: tnowMcp,
 				Annotations: resource.Annotations{
-					annotations.ServiceVersion: version,
+					annotation.AlphaNetworkingServiceVersion.Name: version,
 				},
 			}
 			expected := networking.ServiceEntry{
@@ -480,7 +479,7 @@ func TestClusterIPWithNoResolution(t *testing.T) {
 				Name:       service.ID.FullName.String(),
 				CreateTime: tnowMcp,
 				Annotations: resource.Annotations{
-					annotations.ServiceVersion: version,
+					annotation.AlphaNetworkingServiceVersion.Name: version,
 				},
 			}
 			expected := networking.ServiceEntry{
@@ -525,7 +524,7 @@ func TestExternalService(t *testing.T) {
 		Name:       service.ID.FullName.String(),
 		CreateTime: tnowMcp,
 		Annotations: resource.Annotations{
-			annotations.ServiceVersion: version,
+			annotation.AlphaNetworkingServiceVersion.Name: version,
 		},
 	}
 	expected := networking.ServiceEntry{
@@ -567,7 +566,7 @@ func TestEndpointsWithNoSubsets(t *testing.T) {
 
 	expectedMeta := mcp.Metadata{
 		Annotations: resource.Annotations{
-			annotations.EndpointsVersion: version,
+			annotation.AlphaNetworkingEndpointsVersion.Name: version,
 		},
 	}
 	expected := networking.ServiceEntry{
@@ -662,8 +661,8 @@ func TestEndpoints(t *testing.T) {
 
 	expectedMeta := mcp.Metadata{
 		Annotations: resource.Annotations{
-			annotations.EndpointsVersion: version,
-			annotations.NotReadyEndpoints: fmt.Sprintf("%s:%d,%s:%d,%s:%d,%s:%d,%s:%d,%s:%d",
+			annotation.AlphaNetworkingEndpointsVersion.Name: version,
+			annotation.AlphaNetworkingNotReadyEndpoints.Name: fmt.Sprintf("%s:%d,%s:%d,%s:%d,%s:%d,%s:%d,%s:%d",
 				ip1, 80,
 				ip2, 80,
 				ip3, 80,
@@ -744,7 +743,7 @@ func TestEndpointsPodNotFound(t *testing.T) {
 
 	expectedMeta := mcp.Metadata{
 		Annotations: resource.Annotations{
-			annotations.EndpointsVersion: version,
+			annotation.AlphaNetworkingEndpointsVersion.Name: version,
 		},
 	}
 	expected := networking.ServiceEntry{
@@ -804,7 +803,7 @@ func TestEndpointsNodeNotFound(t *testing.T) {
 
 	expectedMeta := mcp.Metadata{
 		Annotations: resource.Annotations{
-			annotations.EndpointsVersion: version,
+			annotation.AlphaNetworkingEndpointsVersion.Name: version,
 		},
 	}
 	expected := networking.ServiceEntry{
