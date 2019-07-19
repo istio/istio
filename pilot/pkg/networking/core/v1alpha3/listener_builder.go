@@ -101,6 +101,8 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener(env *model.Envir
 func NewListenerBuilder(node *model.Proxy) *ListenerBuilder {
 	builder := &ListenerBuilder{
 		node: node,
+		// TODO(silentdai): new flag
+		useInboundFilterChain: node.IsInboundCaptureAllPorts(),
 	}
 	return builder
 }
@@ -206,7 +208,7 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environme
 		return builder
 	}
 	// TODO(silentdai) use feature
-	if true {
+	if builder.useInboundFilterChain {
 		return builder.aggregateVirtualInboundListener(env, node)
 	}
 	var isTransparentProxy *google_protobuf.BoolValue
@@ -278,7 +280,7 @@ func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
 		listeners = append(listeners, builder.virtualInboundListener)
 	}
 
-	log.Debugf("Build %d listeners for node %s including %d inbound, %d outbound, %d management, %d virtual and %d virtual inbound listeners",
+	log.Errorf("Build %d listeners for node %s including %d inbound, %d outbound, %d management, %d virtual and %d virtual inbound listeners",
 		nListener,
 		builder.node.ID,
 		nInbound, nOutbound, nManagement,
