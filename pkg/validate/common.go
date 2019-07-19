@@ -86,6 +86,7 @@ var (
 	ObjectNameRegexp = match(`[a-z0-9.-]{1,254}`)
 )
 
+// validateWithRegex checks whether the given value matches the regexp r.
 func validateWithRegex(path util.Path, val interface{}, r *regexp.Regexp) (errs util.Errors) {
 	switch {
 	case !isString(val):
@@ -99,6 +100,8 @@ func validateWithRegex(path util.Path, val interface{}, r *regexp.Regexp) (errs 
 	return errs
 }
 
+// validateStringList returns a validator function that works on a string list, using the supplied ValidatorFunc vf on
+// each element.
 func validateStringList(vf ValidatorFunc) ValidatorFunc {
 	return func(path util.Path, val interface{}) util.Errors {
 		dbgPrintC("validateStringList(")
@@ -117,6 +120,7 @@ func validateStringList(vf ValidatorFunc) ValidatorFunc {
 	}
 }
 
+// validatePortNumberString checks if val is a string with a valid port number.
 func validatePortNumberString(path util.Path, val interface{}) util.Errors {
 	dbgPrintC("validatePortNumberString %v: ", val)
 	if !isString(val) {
@@ -129,21 +133,23 @@ func validatePortNumberString(path util.Path, val interface{}) util.Errors {
 	return validatePortNumber(path, intV)
 }
 
+// validatePortNumber checks whether val is an integer representing a valid port number.
 func validatePortNumber(path util.Path, val interface{}) util.Errors {
 	return validateIntRange(path, val, 0, 65535)
 }
 
+// validateIntRange checks whether val is an integer in [min, max].
 func validateIntRange(path util.Path, val interface{}, min, max int64) util.Errors {
 	dbgPrintC("validateIntRange %s:%v in [%d, %d]?: ", path, val, min, max)
 	k := reflect.TypeOf(val).Kind()
 	var err error
 	switch {
-	case isIntKind(k):
+	case util.IsIntKind(k):
 		v := reflect.ValueOf(val).Int()
 		if v < min || v > max {
 			err = fmt.Errorf("value %s:%v falls outside range [%v, %v]", path, v, min, max)
 		}
-	case isUintKind(k):
+	case util.IsUintKind(k):
 		v := reflect.ValueOf(val).Uint()
 		if int64(v) < min || int64(v) > max {
 			err = fmt.Errorf("value %s:%v falls out side range [%v, %v]", path, v, min, max)
@@ -155,6 +161,7 @@ func validateIntRange(path util.Path, val interface{}, min, max int64) util.Erro
 	return util.NewErrs(err)
 }
 
+// validateCIDR checks whether val is a string with a valid CIDR.
 func validateCIDR(path util.Path, val interface{}) util.Errors {
 	dbgPrintC("validateCIDR (%s): ", val)
 	var err error
@@ -168,22 +175,6 @@ func validateCIDR(path util.Path, val interface{}) util.Errors {
 	}
 	printError(err)
 	return util.NewErrs(err)
-}
-
-func isIntKind(k reflect.Kind) bool {
-	switch k {
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return true
-	}
-	return false
-}
-
-func isUintKind(k reflect.Kind) bool {
-	switch k {
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return true
-	}
-	return false
 }
 
 func isString(val interface{}) bool {

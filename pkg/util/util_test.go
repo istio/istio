@@ -15,16 +15,14 @@
 package util
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
+	"k8s.io/api/autoscaling/v2beta1"
+	v1 "k8s.io/api/core/v1"
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
-
-	v2beta1 "k8s.io/api/autoscaling/v2beta1"
-	v1 "k8s.io/api/core/v1"
 )
 
 var (
@@ -231,28 +229,6 @@ func TestToYAMLWithJSONPB(t *testing.T) {
 			got := ToYAMLWithJSONPB(icp)
 			if !IsYAMLEqual(got, tt.want) || YAMLDiff(got, tt.want) != "" {
 				t.Errorf("TestToYAMLWithJSONPB(%s): got:\n%s\n\nwant:\n%s\nDiff:\n%s\n", tt.desc, got, tt.want, YAMLDiff(got, tt.want))
-			}
-		})
-	}
-}
-
-func TestUnmarshalWithJSONPB(t *testing.T) {
-	unmarshalWithJSONPBTests := []struct {
-		desc string
-		yaml string
-		want *v1alpha2.IstioControlPlaneSpec
-	}{
-		{"UnmarshalWithJSONPBToYAML", icpYaml, icp},
-	}
-
-	for _, tt := range unmarshalWithJSONPBTests {
-		t.Run(tt.desc, func(t *testing.T) {
-			got := &v1alpha2.IstioControlPlaneSpec{}
-			err := UnmarshalWithJSONPB(icpYaml, got)
-			if err != nil {
-				if !reflect.DeepEqual(got, tt.want) {
-					t.Errorf("TestUnmarshalWithJSONPB(%s): got:\n%v\n\nwant:\n%v", tt.desc, got, tt.want)
-				}
 			}
 		})
 	}

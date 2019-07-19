@@ -253,7 +253,6 @@ func TestIsTypeFuncs(t *testing.T) {
 			}
 		}
 	}
-
 }
 
 type interfaceContainer struct {
@@ -359,47 +358,55 @@ func TestInsertIntoMap(t *testing.T) {
 	}
 }
 
-func TestToIntValue(t *testing.T) {
+var (
+	allIntTypes     = []interface{}{int(-42), int8(-43), int16(-44), int32(-45), int64(-46)}
+	allUintTypes    = []interface{}{uint(42), uint8(43), uint16(44), uint32(45), uint64(46)}
+	allIntegerTypes = append(allIntTypes, allUintTypes...)
+	nonIntTypes     = []interface{}{nil, "", []int{}, map[string]bool{}}
+	allTypes        = append(allIntegerTypes, nonIntTypes...)
+)
+
+func TestIsInteger(t *testing.T) {
+
 	tests := []struct {
-		desc   string
-		in     interface{}
-		wantOk bool
-		want   int
+		desc     string
+		function func(v reflect.Kind) bool
+		want     []interface{}
 	}{
 		{
-			desc:   "nil success",
-			in:     nil,
-			wantOk: true,
-			want:   0,
+			desc:     "ints",
+			function: IsIntKind,
+			want:     allIntTypes,
 		},
 		{
-			desc:   "int8 success",
-			in:     int8(-42),
-			wantOk: true,
-			want:   -42,
-		},
-		{
-			desc:   "uint32 success",
-			in:     uint32(42),
-			wantOk: true,
-			want:   42,
-		},
-		{
-			desc:   "bed type fail",
-			in:     "42",
-			wantOk: false,
+			desc:     "uints",
+			function: IsUintKind,
+			want:     allUintTypes,
 		},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.desc, func(t *testing.T) {
-			got, ok := ToIntValue(tt.in)
-			if ok != tt.wantOk {
-				t.Errorf("%s: gotOk %v, wantOk %v", tt.desc, ok, tt.wantOk)
+		var got []interface{}
+		for _, v := range allTypes {
+			if tt.function(reflect.ValueOf(v).Kind()) {
+				got = append(got, v)
 			}
-			if got != tt.want {
-				t.Errorf("%s: got %v, want %v", tt.desc, got, tt.want)
-			}
-		})
+		}
+		if !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("%s: got %v, want %v", tt.desc, got, tt.want)
+		}
+	}
+}
+
+func TestToIntValue(t *testing.T) {
+	var got []int
+	for _, v := range allTypes {
+		if i, ok := ToIntValue(v); ok {
+			got = append(got, i)
+		}
+	}
+	want := []int{-42, -43, -44, -45, -46, 42, 43, 44, 45, 46}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
 	}
 }
