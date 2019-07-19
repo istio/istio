@@ -37,7 +37,7 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 	err = con.send(response)
 	if err != nil {
 		adsLog.Warnf("LDS: Send failure %s: %v", con.ConID, err)
-		ldsSendErrPushes.Increment()
+		recordSendError(ldsSendErrPushes, err)
 		return err
 	}
 	ldsPushes.Increment()

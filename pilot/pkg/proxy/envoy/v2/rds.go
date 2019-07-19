@@ -44,7 +44,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 	err = con.send(response)
 	if err != nil {
 		adsLog.Warnf("RDS: Send failure for node:%v: %v", con.modelNode.ID, err)
-		rdsSendErrPushes.Increment()
+		recordSendError(rdsSendErrPushes, err)
 		return err
 	}
 	rdsPushes.Increment()
