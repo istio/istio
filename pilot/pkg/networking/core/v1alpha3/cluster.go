@@ -846,7 +846,7 @@ func applyOutlierDetection(cluster *apiv2.Cluster, outlier *networking.OutlierDe
 
 	cluster.OutlierDetection = out
 
-	// Disable panic threshold by default as pod ejection not typically applicable in k8s environments
+	// Disable panic threshold by default as its not typically applicable in k8s environments
 	// with few pods per service. (see https://github.com/istio/istio/pull/15609)
 	// To do so, set the healthy_panic_threshold field even if its value is 0 (defaults to 50).
 	// FIXME: we can't distinguish between it being unset or being explicitly set to 0
