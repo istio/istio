@@ -48,12 +48,7 @@ import (
 	"istio.io/istio/pkg/spiffe"
 )
 
-const (
-	// TODO(quanlin): move udspath/tokenpath to env variable.
-	sdsUDSPath         = "/var/run/sds/uds_path"
-	jwtPath            = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-	trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
-)
+const jwtPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 
 var (
 	role             = &model.Proxy{Metadata: map[string]string{}}
@@ -94,12 +89,15 @@ var (
 
 	wg sync.WaitGroup
 
-	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
-	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
-	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
-	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
-	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
-	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
+	instanceIPVar            = env.RegisterStringVar("INSTANCE_IP", "", "")
+	podNameVar               = env.RegisterStringVar("POD_NAME", "", "")
+	podNamespaceVar          = env.RegisterStringVar("POD_NAMESPACE", "", "")
+	istioNamespaceVar        = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
+	kubeAppProberNameVar     = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	sdsEnabledVar            = env.RegisterBoolVar("SDS_ENABLED", false, "")
+	sdsUdsPathVar            = env.RegisterStringVar("SDS_UDS_PATH", "/var/run/sds/uds_path", "SDS unix domain socket path")
+	sdsTrustworthyJWTPathVar = env.RegisterStringVar("SDS_JWT_PATH", "/var/run/secrets/tokens/istio-token",
+		"path of token which is used for request key/cert through SDS")
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -289,7 +287,7 @@ var (
 			}
 
 			controlPlaneAuthEnabled := controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
-			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled, sdsUDSPath, trustworthyJWTPath, jwtPath)
+			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled, sdsUdsPathVar.Get(), sdsTrustworthyJWTPathVar.Get(), jwtPath)
 
 			// since Envoy needs the certs for mTLS, we wait for them to become available before starting it
 			// skip waiting cert if sds is enabled, otherwise it takes long time for pod to start.
@@ -300,10 +298,15 @@ var (
 				}
 			}
 
+			opts := make(map[string]interface{})
+			if sdsEnabled {
+				opts["sds_uds_path"] = sdsUdsPathVar.Get()
+				opts["sds_token_path"] = sdsTokenPath
+			}
+
 			// TODO: change Mixer and Pilot to use standard template and deprecate this custom bootstrap parser
 			if controlPlaneBootstrap {
 				if templateFile != "" && proxyConfig.CustomConfigFile == "" {
-					opts := make(map[string]string)
 					opts["PodName"] = podNameVar.Get()
 					opts["PodNamespace"] = podNamespaceVar.Get()
 					// Setting default to ipv4 local host, wildcard and dns policy
@@ -330,11 +333,6 @@ var (
 					}
 					if disableInternalTelemetry {
 						opts["DisableReportCalls"] = "true"
-					}
-
-					if sdsEnabled {
-						opts["sds_uds_path"] = sdsUDSPath
-						opts["sds_token_path"] = sdsTokenPath
 					}
 
 					tmpl, err := template.ParseFiles(templateFile)
@@ -391,7 +389,7 @@ var (
 
 			log.Infof("PilotSAN %#v", pilotSAN)
 
-			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses, dnsRefreshRate)
+			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses, dnsRefreshRate, opts)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, features.TerminationDrainDuration())
 			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.ConfigCh())
 

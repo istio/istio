@@ -52,7 +52,7 @@ type envoy struct {
 
 // NewProxy creates an instance of the proxy control commands
 func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string,
-	componentLogLevel string, pilotSAN []string, nodeIPs []string, dnsRefreshRate string) proxy.Proxy {
+	componentLogLevel string, pilotSAN []string, nodeIPs []string, dnsRefreshRate string, opts map[string]interface{}) proxy.Proxy {
 	// inject tracing flag for higher levels
 	var args []string
 	if logLevel != "" {
@@ -69,6 +69,7 @@ func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string,
 		pilotSAN:       pilotSAN,
 		nodeIPs:        nodeIPs,
 		dnsRefreshRate: dnsRefreshRate,
+		opts:           opts,
 	}
 }
 

@@ -413,9 +413,8 @@ func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoc
 	// Support multiple network interfaces
 	meta[model.NodeMetadataInstanceIPs] = strings.Join(nodeIPs, ",")
 
-	if meta[model.NodeMetadataSdsUDSPath] != "" {
-		opts["sds_uds_path"] = meta[model.NodeMetadataSdsUDSPath]
-		opts["sds_token_path"] = meta[model.NodeMetadataSdsTokenPath]
+	if opts["sds_uds_path"] != nil && opts["sds_token_path"] != nil {
+		meta[model.NodeMetadataSdsEnabled] = "1"
 	}
 
 	ba, err := json.Marshal(meta)
