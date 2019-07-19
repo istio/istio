@@ -30,8 +30,8 @@ func createService(svcAcct string, canonicalSvcAcct string) *coreV1.Service {
 	return &coreV1.Service{
 		ObjectMeta: metaV1.ObjectMeta{
 			Annotations: map[string]string{
-				annotation.KubernetesServiceAccounts.Name: svcAcct,
-				annotation.CanonicalServiceAccounts.Name:  canonicalSvcAcct,
+				annotation.AlphaKubernetesServiceAccounts.Name: svcAcct,
+				annotation.AlphaCanonicalServiceAccounts.Name:  canonicalSvcAcct,
 			},
 		},
 	}

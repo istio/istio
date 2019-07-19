@@ -134,9 +134,9 @@ func TestServiceConversion(t *testing.T) {
 			Name:      serviceName,
 			Namespace: namespace,
 			Annotations: map[string]string{
-				annotation.KubernetesServiceAccounts.Name: saA + "," + saB,
-				annotation.CanonicalServiceAccounts.Name:  saC + "," + saD,
-				"other/annotation":                        "test",
+				annotation.AlphaKubernetesServiceAccounts.Name: saA + "," + saB,
+				annotation.AlphaCanonicalServiceAccounts.Name:  saC + "," + saD,
+				"other/annotation": "test",
 			},
 			CreationTimestamp: metaV1.Time{Time: tnow},
 		},
@@ -476,7 +476,7 @@ func TestSecureNamingSANCustomIdentity(t *testing.T) {
 	identity := "foo"
 
 	pod.Annotations = make(map[string]string)
-	pod.Annotations[annotation.Identity.Name] = identity
+	pod.Annotations[annotation.AlphaIdentity.Name] = identity
 
 	san := SecureNamingSAN(pod)
 

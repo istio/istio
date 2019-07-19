@@ -312,14 +312,23 @@ associated <code>DestinationRule</code> in the same namespace will also be used.
 <p>The <code>dnsName</code> should be specified using FQDN format, optionally including
 a wildcard character in the left-most component (e.g., <code>prod/*.example.com</code>).
 Set the <code>dnsName</code> to <code>*</code> to select all services from the specified namespace
-(e.g.,<code>prod/*</code>). The <code>namespace</code> can also be set to <code>*</code> to select a particular
-service from any available namespace (e.g., &ldquo;*/foo.example.com&rdquo;).</p>
+(e.g., <code>prod/*</code>). The <code>namespace</code> can also be set to <code>*</code> to select a particular
+service from any available namespace (e.g., <code>*/foo.example.com</code>).</p>
 
 <p>NOTE: Only services and configuration artifacts exported to the sidecar&rsquo;s
 namespace (e.g., <code>exportTo</code> value of <code>*</code>) can be referenced.
 Private configurations (e.g., <code>exportTo</code> set to <code>.</code>) will
 not be available. Refer to the <code>exportTo</code> setting in <code>VirtualService</code>,
 <code>DestinationRule</code>, and <code>ServiceEntry</code> configurations for details.</p>
+
+<p><strong>WARNING:</strong> The list of egress hosts in a <code>Sidecar</code> must also include
+the Mixer control plane services if they are enabled. Envoy will not
+be able to reach them otherwise. For example, add host
+<code>istio-system/istio-telemetry.istio-system.svc.cluster.local</code> if telemetry
+is enabled, <code>istio-system/istio-policy.istio-system.svc.cluster.local</code> if
+policy is enabled, or add <code>istio-system/*</code> to allow all services in the
+<code>istio-system</code> namespace. This requirement is temporary and will be removed
+in a future Istio release.</p>
 
 </td>
 </tr>

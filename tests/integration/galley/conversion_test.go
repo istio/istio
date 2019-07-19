@@ -139,8 +139,8 @@ func syntheticServiceEntryValidator(ns string) galley.SnapshotValidatorFunc {
 		}
 
 		if err := v.Select("{.Metadata.annotations}").
-			Exists("{.['networking.istio.io/serviceVersion']}").
-			Exists("{.['networking.istio.io/endpointsVersion']}").
+			Exists("{.['networking.alpha.istio.io/serviceVersion']}").
+			Exists("{.['networking.alpha.istio.io/endpointsVersion']}").
 			Check(); err != nil {
 			return err
 		}
