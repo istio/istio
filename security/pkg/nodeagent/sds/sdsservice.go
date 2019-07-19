@@ -406,9 +406,9 @@ func (s *sdsservice) clearStaledClients() {
 func NotifyProxy(connKey cache.ConnKey, secret *model.SecretItem) error {
 	conIDresourceNamePrefix := sdsLogPrefix(connKey.ConnectionID, connKey.ResourceName)
 	sdsClientsMutex.Lock()
-	defer sdsClientsMutex.Unlock()
 	conn := sdsClients[connKey]
 	if conn == nil {
+		sdsClientsMutex.Unlock()
 		sdsServiceLog.Errorf("%s NotifyProxy failed. No connection with id %q can be found",
 			conIDresourceNamePrefix, connKey.ConnectionID)
 		return fmt.Errorf("no connection with id %q can be found", connKey.ConnectionID)
@@ -416,6 +416,7 @@ func NotifyProxy(connKey cache.ConnKey, secret *model.SecretItem) error {
 	conn.mutex.Lock()
 	conn.secret = secret
 	conn.mutex.Unlock()
+	sdsClientsMutex.Unlock()
 
 	conn.pushChannel <- &sdsEvent{}
 	return nil
@@ -599,7 +600,8 @@ func sdsDiscoveryResponse(s *model.SecretItem, conID, resourceName string) (*xds
 
 func newSDSConnection(stream discoveryStream) *sdsConnection {
 	return &sdsConnection{
-		pushChannel: make(chan *sdsEvent, 1),
+		// Make the channel size to be > 1 to avoid deadlock
+		pushChannel: make(chan *sdsEvent, 16),
 		Connect:     time.Now(),
 		stream:      stream,
 	}

@@ -103,6 +103,9 @@ type SecretFetcher struct {
 	// gateway-fallback as default name of fallback secret. If a fallback secret exists,
 	// FindIngressGatewaySecret returns this fallback secret when expected secret is not available.
 	FallbackSecretName string
+
+	secretNamespace string
+	coreV1          corev1.CoreV1Interface
 }
 
 func fatalf(template string, args ...interface{}) {
@@ -177,6 +180,10 @@ func (sf *SecretFetcher) InitWithKubeClient(core corev1.CoreV1Interface) { // no
 			DeleteFunc: sf.scrtDeleted,
 			UpdateFunc: sf.scrtUpdated,
 		})
+
+	sf.secretNamespace = namespace
+	sf.coreV1 = core
+
 }
 
 // isIngressGatewaySecret checks secret and decides whether this is a secret generated for ingress
@@ -443,6 +450,23 @@ func (sf *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.Secr
 	val, exist := sf.secrets.Load(key)
 	secretFetcherLog.Debugf("load secret %s from secret fetcher: %v", key, exist)
 	if !exist {
+		// In some case, we might not get the secret from watch. Try to directly obtain the secret from API call
+		// as a remedy. If we can find a secret, add it to the cache
+		if sf.coreV1 != nil {
+			if secret, err := sf.coreV1.Secrets(sf.secretNamespace).Get(key, metav1.GetOptions{}); err == nil {
+				log.Infof("Find secret %s by direct api call", key)
+				sf.AddSecret(secret)
+				val, exist = sf.secrets.Load(key)
+				if exist {
+					e := val.(model.SecretItem)
+					secretFetcherLog.Debugf("SecretFetcher return secret %s", key)
+					return e, true
+				}
+			} else {
+				log.Debugf("Fail to find secret %s by direct api call", key)
+			}
+		}
+
 		// Expected secret does not exist, try to find the fallback secret.
 		// TODO(JimmyCYJ): Add metrics to node agent to imply usage of fallback secret
 		secretFetcherLog.Warnf("Cannot find secret %s, searching for fallback secret %s", key, sf.FallbackSecretName)
