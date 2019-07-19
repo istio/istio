@@ -127,7 +127,7 @@ type Args struct { // nolint:maligned
 	UseOldProcessor bool
 }
 
-// DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
+// DefaultArgs allocates an Args struct initialized with Galley's default configuration.
 func DefaultArgs() *Args {
 	return &Args{
 		ResyncPeriod:                0,
