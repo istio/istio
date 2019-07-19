@@ -25,7 +25,7 @@ import (
 	"time"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-	"github.com/go-yaml/yaml"
+	"gopkg.in/yaml.v2"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
