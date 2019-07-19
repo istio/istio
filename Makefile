@@ -61,6 +61,10 @@ endif
 LOCAL_ARCH := $(shell uname -m)
 ifeq ($(LOCAL_ARCH),x86_64)
 GOARCH_LOCAL := amd64
+else ifeq ($(shell echo $(LOCAL_ARCH) | head -c 5),armv8)
+GOARCH_LOCAL := arm64
+else ifeq ($(shell echo $(LOCAL_ARCH) | head -c 3),arm)
+GOARCH_LOCAL := arm
 else
 GOARCH_LOCAL := $(LOCAL_ARCH)
 endif
