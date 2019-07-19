@@ -713,6 +713,33 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 	}
 }
 
+func TestDisablePanicThresholdAsDefault(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	outliers := []*networking.OutlierDetection{
+		// Unset MinHealthPercent
+		&networking.OutlierDetection{},
+		// Explicitly set MinHealthPercent to 0
+		&networking.OutlierDetection{
+			MinHealthPercent:  0,
+		},
+	}
+
+	for _, outlier := range outliers {
+		clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
+			&core.Locality{}, testMesh,
+			&networking.DestinationRule{
+				Host: "*.example.org",
+				TrafficPolicy: &networking.TrafficPolicy{
+					OutlierDetection: outlier,
+				},
+			})
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(clusters[0].CommonLbConfig.HealthyPanicThreshold).To(Not(BeNil()))
+		g.Expect(clusters[0].CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(0)))
+	}
+}
+
 func TestLocalityLB(t *testing.T) {
 	g := NewGomegaWithT(t)
 	// Distribute locality loadbalancing setting
