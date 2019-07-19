@@ -10,7 +10,10 @@ The Istio operator CLI is now suitable for developers to evaluate and experiment
 [unassigned open issue](https://github.com/istio/istio/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%2Fenvironments%2Foperator+no%3Aassignee),
 creating a [bug or feature request](https://github.com/istio/operator/blob/master/BUGS-AND-FEATURE-REQUESTS.md),
 or just coming to the weekly [Environments Working Group](https://github.com/istio/community/blob/master/WORKING-GROUPS.md)
-meeting to share your ideas.
+meeting to share your ideas. 
+
+This document is an overview of how the operator works from a user perspective. For more details about the design and
+architecture and a code overview, see [ARCHITECTURE.md](./ARCHITECTURE.md)
 
 ## Introduction
 
