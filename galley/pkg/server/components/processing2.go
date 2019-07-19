@@ -25,11 +25,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 
-	"istio.io/pkg/ctrlz/fw"
-	"istio.io/pkg/log"
-
 	mcp "istio.io/api/mcp/v1alpha1"
-
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
@@ -47,6 +43,8 @@ import (
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
+	"istio.io/pkg/ctrlz/fw"
+	"istio.io/pkg/log"
 )
 
 // Processing2 component.
