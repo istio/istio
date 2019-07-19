@@ -285,6 +285,18 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}
 		g.Expect(routes[0].GetRoute().GetHashPolicy()).To(gomega.ConsistOf(hashPolicy))
 	})
+
+	t.Run("for redirect code", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRedirect, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+
+		redirectAction, ok := routes[0].Action.(*envoyroute.Route_Redirect)
+		g.Expect(ok).NotTo(gomega.BeFalse())
+		g.Expect(redirectAction.Redirect.ResponseCode).To(gomega.Equal(envoyroute.RedirectAction_PERMANENT_REDIRECT))
+	})
 }
 
 func loadBalancerPolicy(name string) *networking.LoadBalancerSettings_ConsistentHash {
@@ -368,6 +380,27 @@ var virtualServicePlain = model.Config{
 						},
 						Weight: 100,
 					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithRedirect = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    model.VirtualService.Type,
+		Version: model.VirtualService.Version,
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
 				},
 			},
 		},

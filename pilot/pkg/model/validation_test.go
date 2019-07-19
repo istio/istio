@@ -2220,6 +2220,24 @@ func TestValidateHTTPRedirect(t *testing.T) {
 			valid: false,
 		},
 		{
+			name: "too small redirect code",
+			redirect: &networking.HTTPRedirect{
+				Uri:          "t",
+				Authority:    "",
+				RedirectCode: 299,
+			},
+			valid: false,
+		},
+		{
+			name: "too large redirect code",
+			redirect: &networking.HTTPRedirect{
+				Uri:          "t",
+				Authority:    "",
+				RedirectCode: 400,
+			},
+			valid: false,
+		},
+		{
 			name: "empty authority",
 			redirect: &networking.HTTPRedirect{
 				Uri:       "t",
@@ -2236,10 +2254,20 @@ func TestValidateHTTPRedirect(t *testing.T) {
 			valid: true,
 		},
 		{
+			name: "empty redirect code",
+			redirect: &networking.HTTPRedirect{
+				Uri:          "t",
+				Authority:    "t",
+				RedirectCode: 0,
+			},
+			valid: true,
+		},
+		{
 			name: "normal redirect",
 			redirect: &networking.HTTPRedirect{
-				Uri:       "t",
-				Authority: "t",
+				Uri:          "t",
+				Authority:    "t",
+				RedirectCode: 308,
 			},
 			valid: true,
 		},
