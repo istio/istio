@@ -97,7 +97,7 @@ func (env *NodeAgentTestEnv) GetComponents() []framework.Component {
 					"pod-group": citadelWithGivenCertificate + podGroupPostfix,
 				},
 				map[string]string{
-					annotation.KubernetesServiceAccounts.Name: "nodeagent.google.com",
+					annotation.AlphaKubernetesServiceAccounts.Name: "nodeagent.google.com",
 				},
 			),
 			NewKubernetesPod(

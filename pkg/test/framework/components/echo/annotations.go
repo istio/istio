@@ -52,10 +52,10 @@ var (
 	SidecarTrafficExcludeInboundPorts     = workloadAnnotation(annotation.SidecarTrafficExcludeInboundPorts.Name, "")
 	SidecarTrafficKubeVirtInterfaces      = workloadAnnotation(annotation.SidecarTrafficKubevirtInterfaces.Name, "")
 
-	KubeServiceAccountsOnVMA = serviceAnnotation(annotation.KubernetesServiceAccounts.Name, "")
-	CanonicalServiceAccounts = serviceAnnotation(annotation.CanonicalServiceAccounts.Name, "")
+	KubeServiceAccountsOnVMA = serviceAnnotation(annotation.AlphaKubernetesServiceAccounts.Name, "")
+	CanonicalServiceAccounts = serviceAnnotation(annotation.AlphaCanonicalServiceAccounts.Name, "")
 	ServiceExport            = serviceAnnotation(annotation.NetworkingExportTo.Name, "")
-	WorkloadIdentity         = workloadAnnotation(annotation.Identity.Name, "")
+	WorkloadIdentity         = workloadAnnotation(annotation.AlphaIdentity.Name, "")
 )
 
 type AnnotationValue struct {

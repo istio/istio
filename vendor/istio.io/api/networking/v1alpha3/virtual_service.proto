@@ -889,6 +889,10 @@ message HTTPRedirect {
   // On a redirect, overwrite the Authority/Host portion of the URL with
   // this value.
   string authority = 2;
+
+  // On a redirect, Specifies the HTTP status code to use in the redirect
+  // response. The default response code is MOVED_PERMANENTLY (301).
+  uint32 redirect_code = 3;
 }
 
 // HTTPRewrite can be used to rewrite specific parts of a HTTP request

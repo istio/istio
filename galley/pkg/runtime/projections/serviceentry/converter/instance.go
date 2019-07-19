@@ -24,7 +24,6 @@ import (
 	"istio.io/api/annotation"
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/annotations"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pilot/pkg/model"
@@ -133,7 +132,7 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *mcp.Metadata
 		outMeta.Annotations[k] = v
 	}
 	// Add an annotation for the version of the service resource.
-	outMeta.Annotations[annotations.ServiceVersion] = string(service.ID.Version)
+	outMeta.Annotations[annotation.AlphaNetworkingServiceVersion.Name] = string(service.ID.Version)
 	return nil
 }
 
@@ -236,11 +235,11 @@ func (i *Instance) convertEndpoints(endpoints *resource.Entry, outMeta *mcp.Meta
 
 	// Add an annotation for the version of the Endpoints resource.
 	outMeta.Annotations = getOrCreateStringMap(outMeta.Annotations)
-	outMeta.Annotations[annotations.EndpointsVersion] = string(endpoints.ID.Version)
+	outMeta.Annotations[annotation.AlphaNetworkingEndpointsVersion.Name] = string(endpoints.ID.Version)
 
 	// Add an annotation for any "not ready" endpoints.
 	if notReadyBuilder.Len() > 0 {
-		outMeta.Annotations[annotations.NotReadyEndpoints] = notReadyBuilder.String()
+		outMeta.Annotations[annotation.AlphaNetworkingNotReadyEndpoints.Name] = notReadyBuilder.String()
 	}
 }
 

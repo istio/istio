@@ -84,11 +84,11 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 	var exportTo map[model.Visibility]bool
 	serviceaccounts := make([]string, 0)
 	if svc.Annotations != nil {
-		if svc.Annotations[annotation.CanonicalServiceAccounts.Name] != "" {
-			serviceaccounts = append(serviceaccounts, strings.Split(svc.Annotations[annotation.CanonicalServiceAccounts.Name], ",")...)
+		if svc.Annotations[annotation.AlphaCanonicalServiceAccounts.Name] != "" {
+			serviceaccounts = append(serviceaccounts, strings.Split(svc.Annotations[annotation.AlphaCanonicalServiceAccounts.Name], ",")...)
 		}
-		if svc.Annotations[annotation.KubernetesServiceAccounts.Name] != "" {
-			for _, ksa := range strings.Split(svc.Annotations[annotation.KubernetesServiceAccounts.Name], ",") {
+		if svc.Annotations[annotation.AlphaKubernetesServiceAccounts.Name] != "" {
+			for _, ksa := range strings.Split(svc.Annotations[annotation.AlphaKubernetesServiceAccounts.Name], ",") {
 				serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace))
 			}
 		}
@@ -170,7 +170,7 @@ func kubeToIstioServiceAccount(saname string, ns string) string {
 func SecureNamingSAN(pod *coreV1.Pod) string {
 
 	//use the identity annotation
-	if identity, exist := pod.Annotations[annotation.Identity.Name]; exist {
+	if identity, exist := pod.Annotations[annotation.AlphaIdentity.Name]; exist {
 		return spiffe.GenCustomSpiffe(identity)
 	}
 
