@@ -445,6 +445,24 @@ func applyListenerPatches(proxy *model.Proxy, push *model.PushContext, builder *
 
 			if cp.Operation == networking.EnvoyFilter_Patch_ADD {
 				hcm.HttpFilters = append(hcm.HttpFilters, cp.Value.(*http_conn.HttpFilter))
+			} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
+				hcm.HttpFilters = append(hcm.HttpFilters, cp.Value.(*http_conn.HttpFilter))
+				for i := len(hcm.HttpFilters) - 2; i >= 1; i-- {
+					if !httpFilterMatch(hcm.HttpFilters[i], cp) {
+						hcm.HttpFilters[i-1], hcm.HttpFilters[i] = hcm.HttpFilters[i], hcm.HttpFilters[i-1]
+					} else {
+						break
+					}
+				}
+			} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
+				hcm.HttpFilters = append(hcm.HttpFilters, cp.Value.(*http_conn.HttpFilter))
+				for i := len(hcm.HttpFilters) - 2; i >= 1; i-- {
+					match := httpFilterMatch(hcm.HttpFilters[i], cp)
+					hcm.HttpFilters[i-1], hcm.HttpFilters[i] = hcm.HttpFilters[i], hcm.HttpFilters[i-1]
+					if match {
+						break
+					}
+				}
 			}
 		}
 		if httpFiltersRemoved {
@@ -491,6 +509,24 @@ func applyListenerPatches(proxy *model.Proxy, push *model.PushContext, builder *
 
 			if cp.Operation == networking.EnvoyFilter_Patch_ADD {
 				fc.Filters = append(fc.Filters, *cp.Value.(*xdslistener.Filter))
+			} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
+				fc.Filters = append(fc.Filters, *cp.Value.(*xdslistener.Filter))
+				for i := len(fc.Filters) - 2; i >= 1; i-- {
+					if !networkFilterMatch(&fc.Filters[i], cp) {
+						fc.Filters[i-1], fc.Filters[i] = fc.Filters[i], fc.Filters[i-1]
+					} else {
+						break
+					}
+				}
+			} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
+				fc.Filters = append(fc.Filters, *cp.Value.(*xdslistener.Filter))
+				for i := len(fc.Filters) - 2; i >= 1; i-- {
+					match := networkFilterMatch(&fc.Filters[i], cp)
+					fc.Filters[i-1], fc.Filters[i] = fc.Filters[i], fc.Filters[i-1]
+					if match {
+						break
+					}
+				}
 			}
 		}
 		if networkFiltersRemoved {
@@ -527,7 +563,9 @@ func applyListenerPatches(proxy *model.Proxy, push *model.PushContext, builder *
 				continue
 			}
 
-			if cp.Operation == networking.EnvoyFilter_Patch_ADD {
+			if cp.Operation == networking.EnvoyFilter_Patch_ADD ||
+				cp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER ||
+				cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
 				listener.FilterChains = append(listener.FilterChains, *cp.Value.(*xdslistener.FilterChain))
 			}
 		}
@@ -567,12 +605,29 @@ func applyListenerPatches(proxy *model.Proxy, push *model.PushContext, builder *
 			}
 			// adds at listener level
 			for _, cp := range efw.ListenerPatches {
-				// todo inserts
-				if cp.ApplyTo != networking.EnvoyFilter_LISTENER || cp.Operation != networking.EnvoyFilter_Patch_ADD {
+				if cp.ApplyTo != networking.EnvoyFilter_LISTENER || !listenerMatch(patchContext, nil, cp) {
 					continue
 				}
-				if listenerMatch(patchContext, nil, cp) {
+				if cp.Operation == networking.EnvoyFilter_Patch_ADD {
 					listeners = append(listeners, cp.Value.(*xdsapi.Listener))
+				} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
+					listeners = append(listeners, cp.Value.(*xdsapi.Listener))
+					for i := len(listeners) - 2; i >= 1; i-- {
+						if !listenerMatch(patchContext, listeners[i], cp) {
+							listeners[i-1], listeners[i] = listeners[i], listeners[i-1]
+						} else {
+							break
+						}
+					}
+				} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
+					listeners = append(listeners, cp.Value.(*xdsapi.Listener))
+					for i := len(listeners) - 2; i >= 1; i-- {
+						match := listenerMatch(patchContext, listeners[i], cp)
+						listeners[i-1], listeners[i] = listeners[i], listeners[i-1]
+						if match {
+							break
+						}
+					}
 				}
 			}
 		}

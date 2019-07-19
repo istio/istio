@@ -71,6 +71,10 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 		default:
 			out.ListenerPatches = append(out.ListenerPatches, cpw)
 		}
+		if cp.Match == nil {
+			// create a match all object
+			cpw.Match = &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_ANY}
+		}
 	}
 	return out
 }
