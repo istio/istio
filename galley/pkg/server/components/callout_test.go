@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package server
+package components
 
 import (
 	"context"
@@ -86,7 +86,7 @@ func TestCalloutRun(t *testing.T) {
 		},
 		metadata: make([]string, 2),
 	}
-	co.Run()
+	co.run()
 
 	if dialAddr != "foo" {
 		t.Error("Callout run did not dial address")

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,20 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package server
+package components
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
+
+	envvar "istio.io/pkg/env"
 
 	"istio.io/istio/pkg/mcp/server"
-	envvar "istio.io/pkg/env"
-	"istio.io/pkg/filewatcher"
 )
 
 type accessList struct {
@@ -34,8 +33,6 @@ type accessList struct {
 }
 
 var (
-	newFileWatcher         = filewatcher.NewWatcher
-	readFile               = ioutil.ReadFile
 	watchEventHandledProbe func()
 )
 

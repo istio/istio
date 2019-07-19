@@ -49,7 +49,7 @@ func GetRootCmd(args []string) *cobra.Command {
 			viper.SetConfigFile(cfgFile)
 			err := viper.ReadInConfig() // Find and read the config file
 			if err != nil {             // Handle errors reading the config file
-				os.Stderr.WriteString(fmt.Errorf("fatal error in config file: %s", err).Error())
+				_, _ = os.Stderr.WriteString(fmt.Errorf("fatal error in config file: %s", err).Error())
 				os.Exit(1)
 			}
 		}
