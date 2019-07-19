@@ -24,8 +24,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
-	"istio.io/istio/pilot/pkg/security/authz/policy/v1"
-	"istio.io/istio/pilot/pkg/security/authz/policy/v2"
+	v1 "istio.io/istio/pilot/pkg/security/authz/policy/v1"
+	v2 "istio.io/istio/pilot/pkg/security/authz/policy/v2"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -65,9 +65,9 @@ func NewBuilder(serviceInstance *model.ServiceInstance, policies *model.Authoriz
 
 	var generator policy.Generator
 	if policies.IsRbacV2 {
-		generator = v2.NewBuilder(serviceMetadata, policies, isGlobalPermissiveEnabled)
+		generator = v2.NewGenerator(serviceMetadata, policies, isGlobalPermissiveEnabled)
 	} else {
-		generator = v1.NewBuilder(serviceMetadata, policies, isGlobalPermissiveEnabled)
+		generator = v1.NewGenerator(serviceMetadata, policies, isGlobalPermissiveEnabled)
 	}
 
 	return &Builder{

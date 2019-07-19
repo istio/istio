@@ -21,6 +21,7 @@ import (
 	istio_rbac "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
+	"istio.io/istio/pilot/pkg/security/authz/policy"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -28,24 +29,24 @@ var (
 	rbacLog = istiolog.RegisterScope("rbac", "rbac debugging", 0)
 )
 
-type v1Builder struct {
+type v1Generator struct {
 	serviceMetadata           *authz_model.ServiceMetadata
 	authzPolicies             *model.AuthorizationPolicies
 	isGlobalPermissiveEnabled bool
 }
 
-func NewBuilder(
+func NewGenerator(
 	serviceMetadata *authz_model.ServiceMetadata,
 	authzPolicies *model.AuthorizationPolicies,
-	isGlobalPermissiveEnabled bool) *v1Builder {
-	return &v1Builder{
+	isGlobalPermissiveEnabled bool) policy.Generator {
+	return &v1Generator{
 		serviceMetadata:           serviceMetadata,
 		authzPolicies:             authzPolicies,
 		isGlobalPermissiveEnabled: isGlobalPermissiveEnabled,
 	}
 }
 
-func (b *v1Builder) Generate(forTCPFilter bool) *http_config.RBAC {
+func (b *v1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 	rbacLog.Debugf("building v1 policy")
 
 	enforcedConfig := &envoy_rbac.RBAC{
@@ -79,13 +80,13 @@ func (b *v1Builder) Generate(forTCPFilter bool) *http_config.RBAC {
 		}
 
 		role := roleConfig.Spec.(*istio_rbac.ServiceRole)
-		if policy := b.generatePolicy(role, enforcedBindings, forTCPFilter); policy != nil {
+		if p := b.generatePolicy(role, enforcedBindings, forTCPFilter); p != nil {
 			rbacLog.Debugf("generated policy for role: %s", roleName)
-			enforcedConfig.Policies[roleName] = policy
+			enforcedConfig.Policies[roleName] = p
 		}
-		if policy := b.generatePolicy(role, permissiveBindings, forTCPFilter); policy != nil {
+		if p := b.generatePolicy(role, permissiveBindings, forTCPFilter); p != nil {
 			rbacLog.Debugf("generated permissive policy for role: %s", roleName)
-			permissiveConfig.Policies[roleName] = policy
+			permissiveConfig.Policies[roleName] = p
 		}
 	}
 
@@ -104,7 +105,7 @@ func (b *v1Builder) Generate(forTCPFilter bool) *http_config.RBAC {
 	return ret
 }
 
-func (b *v1Builder) generatePolicy(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding, forTCPFilter bool) *envoy_rbac.Policy {
+func (b *v1Generator) generatePolicy(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding, forTCPFilter bool) *envoy_rbac.Policy {
 	if role == nil || len(bindings) == 0 {
 		return nil
 	}

@@ -172,7 +172,7 @@ func TestBuilder_buildV1(t *testing.T) {
 		if authzPolicies == nil {
 			t.Fatalf("%s: failed to create authz policies", tc.name)
 		}
-		b := NewBuilder(serviceFooInNamespaceA, authzPolicies, tc.isGlobalPermissiveEnabled)
+		b := NewGenerator(serviceFooInNamespaceA, authzPolicies, tc.isGlobalPermissiveEnabled)
 		if b == nil {
 			t.Fatalf("%s: failed to create builder", tc.name)
 		}

@@ -118,8 +118,6 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 			}
 		}
 	}
-
-	return
 }
 
 // OnInboundCluster implements the Plugin interface method.
