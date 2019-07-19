@@ -295,6 +295,9 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]struct{}) {
 	// PushContext is reset after a config change. Previous status is
 	// saved.
 	t0 := time.Now()
+	s.updateMutex.Lock()
+	s.Env.PushContext = nil
+
 	push := model.NewPushContext()
 	err := push.InitContext(s.Env)
 	if err != nil {
@@ -308,7 +311,6 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]struct{}) {
 		return
 	}
 
-	s.updateMutex.Lock()
 	s.Env.PushContext = push
 	s.updateMutex.Unlock()
 
