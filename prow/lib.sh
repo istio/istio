@@ -135,7 +135,7 @@ function setup_kind_cluster() {
   fi
 
   # Create KinD cluster
-  if ! (kind create cluster --name=e2e-suite --loglevel debug); then
+  if ! (kind create cluster --name=e2e-suite --loglevel debug --retain); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     kind export logs --name e2e-suite "${ARTIFACTS_DIR}/kind"
     exit 1
