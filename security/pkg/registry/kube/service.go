@@ -81,14 +81,14 @@ func (c *ServiceController) Run(stopCh chan struct{}) {
 
 func (c *ServiceController) serviceAdded(obj interface{}) {
 	svc := obj.(*v1.Service)
-	svcAcct, ok := svc.ObjectMeta.Annotations[annotation.KubernetesServiceAccounts.Name]
+	svcAcct, ok := svc.ObjectMeta.Annotations[annotation.AlphaKubernetesServiceAccounts.Name]
 	if ok {
 		err := c.reg.AddMapping(svcAcct, svcAcct)
 		if err != nil {
 			log.Errorf("cannot add mapping %q -> %q to registry: %s", svcAcct, svcAcct, err.Error())
 		}
 	}
-	canonicalSvcAcct, ok := svc.ObjectMeta.Annotations[annotation.CanonicalServiceAccounts.Name]
+	canonicalSvcAcct, ok := svc.ObjectMeta.Annotations[annotation.AlphaCanonicalServiceAccounts.Name]
 	if ok {
 		err := c.reg.AddMapping(canonicalSvcAcct, canonicalSvcAcct)
 		if err != nil {
@@ -99,14 +99,14 @@ func (c *ServiceController) serviceAdded(obj interface{}) {
 
 func (c *ServiceController) serviceDeleted(obj interface{}) {
 	svc := obj.(*v1.Service)
-	svcAcct, ok := svc.ObjectMeta.Annotations[annotation.KubernetesServiceAccounts.Name]
+	svcAcct, ok := svc.ObjectMeta.Annotations[annotation.AlphaKubernetesServiceAccounts.Name]
 	if ok {
 		err := c.reg.DeleteMapping(svcAcct, svcAcct)
 		if err != nil {
 			log.Errorf("cannot delete mapping %q to %q from registry: %s", svcAcct, svcAcct, err.Error())
 		}
 	}
-	canonicalSvcAcct, ok := svc.ObjectMeta.Annotations[annotation.CanonicalServiceAccounts.Name]
+	canonicalSvcAcct, ok := svc.ObjectMeta.Annotations[annotation.AlphaCanonicalServiceAccounts.Name]
 	if ok {
 		err := c.reg.DeleteMapping(canonicalSvcAcct, canonicalSvcAcct)
 		if err != nil {

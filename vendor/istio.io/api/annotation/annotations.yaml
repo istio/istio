@@ -14,26 +14,48 @@
 
 annotations:
   - name: alpha.istio.io/kubernetes-serviceaccounts
-    variableName: KubernetesServiceAccounts
+    variableName: AlphaKubernetesServiceAccounts
     description: Specifies the Kubernetes service accounts that are allowed to run this
       service on the VMs.
+      NOTE This API is Alpha and has no stability guarantees.
     deprecated: false
-    hidden: false
+    hidden: true
   - name: alpha.istio.io/canonical-serviceaccounts
-    variableName: CanonicalServiceAccounts
+    variableName: AlphaCanonicalServiceAccounts
     description: Specifies the non-Kubernetes service accounts that are allowed to
       run this service.
+      NOTE This API is Alpha and has no stability guarantees.
     deprecated: false
-    hidden: false
+    hidden: true
+  - name: alpha.istio.io/identity
+    description: Identity for the workload.
+      NOTE This API is Alpha and has no stability guarantees.
+    deprecated: false
+    hidden: true
+  - name: networking.alpha.istio.io/serviceVersion
+    description: Added to synthetic ServiceEntry resources to provide the raw resource
+      version from the most recent k8s Service update. This will always be available for
+      synthetic service entries.
+      NOTE This API is Alpha and has no stability guarantees.
+    deprecated: false
+    hidden: true
+  - name: networking.alpha.istio.io/endpointsVersion
+    description: Added to synthetic ServiceEntry resources to provide the raw resource
+      version from the most recent k8s Endpoints update (if available).
+      NOTE This API is Alpha and has no stability guarantees.
+    deprecated: false
+    hidden: true
+  - name: networking.alpha.istio.io/notReadyEndpoints
+    description: Added to synthetic ServiceEntry resources to provide the
+      'NotReadyAddresses' from the Kubernetes Endpoints resource. The value is a
+      comma-separated list of IP:port.
+      NOTE This API is Alpha and has no stability guarantees.
+    deprecated: false
+    hidden: true
   - name: networking.istio.io/exportTo
     description: Specifies the namespaces to which this service should be exported to.
       A value of '*' indicates it is reachable within the mesh '.' indicates it is
       reachable within its namespace.
-    deprecated: false
-    hidden: false
-  - name: alpha.istio.io/identity
-    variableName: Identity
-    description:
     deprecated: false
     hidden: false
   - name: sidecar.istio.io/inject
@@ -112,6 +134,14 @@ annotations:
   - name: status.sidecar.istio.io/port
     description: Specifies the HTTP status Port for the istio-proxy sidecar. If zero, the
       istio-proxy will not provide status.
+    deprecated: false
+    hidden: false
+  - name: sidecar.istio.io/logLevel
+    description: Specifies the log level for Envoy.
+    deprecated: false
+    hidden: false
+  - name: sidecar.istio.io/componentLogLevel
+    description: Specifies the component log level for Envoy.
     deprecated: false
     hidden: false
   - name: readiness.status.sidecar.istio.io/initialDelaySeconds

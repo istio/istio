@@ -33,4 +33,13 @@ message FilterConfig {
   // This information is added by pilot when construct and add Jwt and
   // authN filters.
   map<string, string> jwt_output_payload_locations = 2;
+
+  // Skips validating the peer's trust domain.
+  // By default, the istio authn filter will reject the request if the peer and
+  // the local service is not in the same trust domain.
+  // Set this field to true to skip the validation and allows peers from any
+  // trust domains.
+  // Note, the istio authn filter only validates the trust domain when mTLS is
+  // used, In other words, this field has no effect for plaintext traffic.
+  bool skip_validate_trust_domain = 3;
 }

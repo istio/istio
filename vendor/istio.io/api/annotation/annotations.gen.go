@@ -7,19 +7,60 @@
 package annotation
 
 var (
-	KubernetesServiceAccounts = Instance{
+	AlphaKubernetesServiceAccounts = Instance{
 		Name: "alpha.istio.io/kubernetes-serviceaccounts",
 		Description: "Specifies the Kubernetes service accounts that are " +
-			"allowed to run this service on the VMs.",
-		Hidden:     false,
+			"allowed to run this service on the VMs. NOTE This API is " +
+			"Alpha and has no stability guarantees.",
+		Hidden:     true,
 		Deprecated: false,
 	}
 
-	CanonicalServiceAccounts = Instance{
+	AlphaCanonicalServiceAccounts = Instance{
 		Name: "alpha.istio.io/canonical-serviceaccounts",
 		Description: "Specifies the non-Kubernetes service accounts that are " +
-			"allowed to run this service.",
-		Hidden:     false,
+			"allowed to run this service. NOTE This API is Alpha and " +
+			"has no stability guarantees.",
+		Hidden:     true,
+		Deprecated: false,
+	}
+
+	AlphaIdentity = Instance{
+		Name: "alpha.istio.io/identity",
+		Description: "Identity for the workload. NOTE This API is Alpha and has " +
+			"no stability guarantees.",
+		Hidden:     true,
+		Deprecated: false,
+	}
+
+	AlphaNetworkingServiceVersion = Instance{
+		Name: "networking.alpha.istio.io/serviceVersion",
+		Description: "Added to synthetic ServiceEntry resources to provide the " +
+			"raw resource version from the most recent k8s Service " +
+			"update. This will always be available for synthetic " +
+			"service entries. NOTE This API is Alpha and has no " +
+			"stability guarantees.",
+		Hidden:     true,
+		Deprecated: false,
+	}
+
+	AlphaNetworkingEndpointsVersion = Instance{
+		Name: "networking.alpha.istio.io/endpointsVersion",
+		Description: "Added to synthetic ServiceEntry resources to provide the " +
+			"raw resource version from the most recent k8s Endpoints " +
+			"update (if available). NOTE This API is Alpha and has no " +
+			"stability guarantees.",
+		Hidden:     true,
+		Deprecated: false,
+	}
+
+	AlphaNetworkingNotReadyEndpoints = Instance{
+		Name: "networking.alpha.istio.io/notReadyEndpoints",
+		Description: "Added to synthetic ServiceEntry resources to provide the " +
+			"'NotReadyAddresses' from the Kubernetes Endpoints " +
+			"resource. The value is a comma-separated list of IP:port. " +
+			"NOTE This API is Alpha and has no stability guarantees.",
+		Hidden:     true,
 		Deprecated: false,
 	}
 
@@ -31,13 +72,6 @@ var (
 			"namespace.",
 		Hidden:     false,
 		Deprecated: false,
-	}
-
-	Identity = Instance{
-		Name:        "alpha.istio.io/identity",
-		Description: "",
-		Hidden:      false,
-		Deprecated:  false,
 	}
 
 	SidecarInject = Instance{
@@ -171,6 +205,20 @@ var (
 			"status.",
 		Hidden:     false,
 		Deprecated: false,
+	}
+
+	SidecarLogLevel = Instance{
+		Name:        "sidecar.istio.io/logLevel",
+		Description: "Specifies the log level for Envoy.",
+		Hidden:      false,
+		Deprecated:  false,
+	}
+
+	SidecarComponentLogLevel = Instance{
+		Name:        "sidecar.istio.io/componentLogLevel",
+		Description: "Specifies the component log level for Envoy.",
+		Hidden:      false,
+		Deprecated:  false,
 	}
 
 	SidecarStatusReadinessInitialDelaySeconds = Instance{
