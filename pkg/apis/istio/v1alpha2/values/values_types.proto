@@ -1,0 +1,934 @@
+// Copyright 2019 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+
+syntax = 'proto3';
+
+import "google/protobuf/duration.proto";
+import "k8s.io/api/core/v1/generated.proto";
+
+package values;
+
+// Package-wide variables from generator "generated".
+option go_package = "v1alpha2";
+
+// AddonIngressConfig is described in istio.io documentation.
+message AddonIngressConfig {
+  bool enabled = 1;
+
+  repeated string hosts = 2;
+}
+
+// ArchConfig is described in istio.io documentation.
+message ArchConfig {
+  // Sets pod scheduling weight for amd64 arch
+  uint32 amd64 = 1;
+
+  // Sets pod scheduling weight for ppc64le arch.
+  uint32 ppc64le = 2;
+
+  // Sets pod scheduling weight for s390x arch.
+  uint32 s390x = 3;
+}
+
+// CNIConfig is described in istio.io documentation.
+message CNIConfig {
+  bool enabled = 1;
+}
+
+// CPUTargetUtilizationConfig is described in istio.io documentation.
+message CPUTargetUtilizationConfig {
+  int32 targetAverageUtilization = 1;
+}
+
+// CertManagerConfig is described in istio.io documentation.
+message CertManagerConfig {
+  bool enabled = 1;
+
+  string hub = 2;
+
+  // 	NodeSelector map[string]interface{} `json:"nodeSelector"`
+  k8s.io.api.core.v1.ResourceRequirements resources = 3;
+
+  string tag = 4;
+}
+
+// CoreDNSConfig is described in istio.io documentation.
+message CoreDNSConfig {
+  string coreDNSImage = 1;
+
+  string coreDNSPluginImage = 2;
+
+  bool enabled = 3;
+
+  // 	NodeSelector       map[string]interface{} `json:"nodeSelector,omitempty"`
+  uint32 replicaCount = 4;
+}
+
+// DefaultPodDisruptionBudgetConfig is described in istio.io documentation.
+message DefaultPodDisruptionBudgetConfig {
+  // k8s PodDisruptionBudget settings.
+  bool enabled = 1;
+}
+
+// DefaultResourcesConfig is described in istio.io documentation.
+message DefaultResourcesConfig {
+  // k8s resources settings.
+  ResourcesRequestsConfig requests = 1;
+}
+
+// EgressGatewayConfig is described in istio.io documentation.
+message EgressGatewayConfig {
+  bool autoscaleEnabled = 1;
+
+  uint32 autoscaleMax = 2;
+
+  uint32 autoscaleMin = 3;
+
+  string connectTimeout = 4;
+
+  CPUTargetUtilizationConfig cpu = 5;
+
+  google.protobuf.Duration drainDuration = 6;
+
+  bool enabled = 7;
+
+  map<string, string> env = 8;
+
+  GatewayLabelsConfig labels = 9;
+
+  map<string, string> nodeSelector = 10;
+
+  // 	PodAnnotations                   map[string]interface{}      `json:"podAnnotations,omitempty"`
+  // 	PodAntiAffinityLabelSelector     []map[string]interface{}    `json:"podAntiAffinityLabelSelector"`
+  // 	PodAntiAffinityTermLabelSelector []map[string]interface{}    `json:"podAntiAffinityTermLabelSelector"`
+  repeated PortsConfig ports = 11;
+
+  k8s.io.api.core.v1.ResourceRequirements resources = 12;
+
+  repeated SecretVolume secretVolumes = 13;
+
+  // 	ServiceAnnotations               map[string]interface{}      `json:"serviceAnnotations,omitempty"`
+  //    Type                             v1.ServiceType          `json:"type,omitempty"`
+  ZeroVPNConfig zvpn = 14;
+}
+
+// EnvoyMetricsConfig is described in istio.io documentation.
+message EnvoyMetricsConfig {
+  // Enables the Envoy Metrics Service.
+  bool enabled = 1;
+
+  // Sets the destination Envoy Metrics Service address in Envoy.
+  string host = 2;
+
+  // Sets the destination Envoy Metrics Service port in Envoy.
+  int32 port = 3;
+}
+
+// GalleyConfig is described in istio.io documentation.
+message GalleyConfig {
+  bool enabled = 1;
+
+  string image = 2;
+
+  map<string, string> mesh = 3;
+
+  // 	PodAntiAffinityLabelSelector     []map[string]interface{} `json:"podAntiAffinityLabelSelector"`
+  // 	PodAntiAffinityTermLabelSelector []map[string]interface{} `json:"podAntiAffinityTermLabelSelector"`
+  uint32 replicaCount = 4;
+
+  k8s.io.api.core.v1.ResourceRequirements resources = 5;
+}
+
+// GatewayLabelsConfig is described in istio.io documentation.
+message GatewayLabelsConfig {
+  string app = 1;
+
+  string istio = 2;
+}
+
+// GatewaysConfig is described in istio.io documentation.
+message GatewaysConfig {
+  EgressGatewayConfig istio_egressgateway = 1;
+
+  bool enabled = 2;
+
+  ILBGatewayConfig istio_ilbgateway = 3;
+
+  IngressGatewayConfig istio_ingressgateway = 4;
+}
+
+message GlobalConfig {
+  ArchConfig arch = 30;
+
+  // Configuration validation component namespace
+  string configNamespace = 1;
+
+  // Enables server-side validation of configuration.
+  bool configValidation = 2;
+
+  // Enables MTLS for control plane.
+  bool controlPlaneSecurityEnabled = 3;
+
+  // K8s NodeSelector
+  map<string, string> defaultNodeSelector = 31;
+
+  // k8s PodDisruptionBudget settings.
+  DefaultPodDisruptionBudgetConfig defaultPodDisruptionBudget = 4;
+
+  // Selects whether policy enforcement is installed.
+  bool disablePolicyChecks = 5;
+
+  DefaultResourcesConfig defaultResources = 6;
+
+  // Enable helm test
+  bool enableHelmTest = 7;
+
+  // Enables tracing.
+  bool enableTracing = 8;
+
+  // Root for docker image paths.
+  string hub = 9;
+
+  // ImagePullPolicy             v1.PullPolicy                 `json:"imagePullPolicy,omitempty"`
+  // Default namespace.
+  string istioNamespace = 10;
+
+  map<string, string> localityLbSetting = 32;
+
+  KubernetesIngressConfig k8sIngress = 11;
+
+  GlobalLoggingConfig logging = 12;
+
+  MeshExpansionConfig meshExpansion = 13;
+
+  map<string, string> meshNetworks = 33;
+
+  // Monitor port number for all control plane components.
+  uint32 monitoringPort = 14;
+
+  MTLSConfig mtls = 15;
+
+  MultiClusterConfig multiCluster = 16;
+
+  // Restricts the applications namespace that the controller manages.
+  bool oneNamespace = 17;
+
+  OutboundTrafficPolicyConfig outboundTrafficPolicy = 18;
+
+  // If set, allows traffic in cases when the mixer policy service cannot be reached.
+  bool policyCheckFailOpen = 19;
+
+  // Namespace of policy components
+  string policyNamespace = 20;
+
+  // k8s priorityClassName.
+  string priorityClassName = 21;
+
+  ProxyConfig proxy = 22;
+
+  ProxyInitConfig proxy_init = 23;
+
+  SDSConfig sds = 24;
+
+  // Version tag for docker images.
+  string tag = 25;
+
+  // Namespace of telemetry components
+  string telemetryNamespace = 26;
+
+  // test
+  TracerConfig tracer = 27;
+
+  // Specifies the trust domain that corresponds to the root cert of CA.
+  string trustDomain = 28;
+
+  // Selects use of Mesh Configuration Protocol to configure Pilot.
+  bool useMCP = 29;
+}
+
+// GlobalLoggingConfig is described in istio.io documentation.
+message GlobalLoggingConfig {
+  string level = 1;
+}
+
+// ILBGatewayConfig is described in istio.io documentation.
+message ILBGatewayConfig {
+  bool autoscaleEnabled = 1;
+
+  uint32 autoscaleMax = 2;
+
+  uint32 autoscaleMin = 3;
+
+  bool enabled = 4;
+
+  CPUTargetUtilizationConfig cpu = 5;
+
+  GatewayLabelsConfig labels = 6;
+
+  string loadBalancerIP = 7;
+
+  // 	NodeSelector       map[string]interface{}      `json:"nodeSelector,omitempty"`
+  // 	PodAnnotations     map[string]interface{}      `json:"podAnnotations,omitempty"`
+  repeated PortsConfig ports = 8;
+
+  k8s.io.api.core.v1.ResourceRequirements resources = 9;
+
+  repeated SecretVolume secretVolumes = 10;
+  //    ServiceAnnotations map[string]interface{}      `json:"serviceAnnotations,omitempty"`
+//      Type               v1.ServiceType          `json:"type,omitempty"`
+}
+
+// IngressGatewayConfig is described in istio.io documentation.
+message IngressGatewayConfig {
+  bool autoscaleEnabled = 1;
+
+  uint32 autoscaleMax = 2;
+
+  uint32 autoscaleMin = 3;
+
+  string connectTimeout = 4;
+
+  CPUTargetUtilizationConfig cpu = 5;
+
+  bool customService = 6;
+
+  string debug = 7;
+
+  string domain = 8;
+
+  google.protobuf.Duration drainDuration = 9;
+
+  bool enabled = 10;
+
+  map<string, string> env = 11;
+
+  repeated string externalIPs = 12;
+
+  bool k8sIngress = 13;
+
+  bool k8sIngressHttps = 14;
+
+  GatewayLabelsConfig labels = 15;
+
+  string loadBalancerIP = 16;
+
+  repeated string loadBalancerSourceRanges = 17;
+
+  repeated PortsConfig meshExpansionPorts = 18;
+
+  // 	NodeSelector                     map[string]interface{}      `json:"nodeSelector,omitempty"`
+  // 	PodAnnotations                   map[string]interface{}      `json:"podAnnotations,omitempty"`
+  // 	PodAntiAffinityLabelSelector     []map[string]interface{}    `json:"podAntiAffinityLabelSelector"`
+  // 	PodAntiAffinityTermLabelSelector []map[string]interface{}    `json:"podAntiAffinityTermLabelSelector"`
+  repeated PortsConfig ports = 19;
+
+  uint32 replicaCount = 20;
+
+  // 	Resources                        map[string]interface{}      `json:"resources,omitempty"`
+  IngressGatewaySdsConfig sds = 21;
+
+  repeated SecretVolume secretVolumes = 22;
+
+  // 	ServiceAnnotations               map[string]interface{}      `json:"serviceAnnotations,omitempty"`
+  //    Type                             v1.ServiceType          `json:"type,omitempty"`
+  IngressGatewayZvpnConfig zvpn = 23;
+}
+
+// IngressGatewaySdsConfig is described in istio.io documentation.
+message IngressGatewaySdsConfig {
+  bool enabled = 1;
+
+  string image = 2;
+}
+
+// IngressGatewayZvpnConfig is described in istio.io documentation.
+message IngressGatewayZvpnConfig {
+  bool enabled = 1;
+
+  string suffix = 2;
+}
+
+// KubernetesEnvMixerAdapterConfig is described in istio.io documentation.
+message KubernetesEnvMixerAdapterConfig {
+  bool enabled = 1;
+}
+
+// KubernetesIngressConfig represents the configuration for Kubernetes Ingress.
+message KubernetesIngressConfig {
+  // Enables gateway for legacy k8s Ingress.
+  bool enabled = 1;
+
+  // Enables gateway for legacy k8s Ingress.
+  bool enableHttps = 2;
+
+  // Sets the gateway name for legacy k8s Ingress.
+  string gatewayName = 3;
+}
+
+// LoadSheddingConfig configs when mixer starts rejecting grpc requests.
+message LoadSheddingConfig {
+  string latencyThreshold = 1;
+
+  enum mode {
+    DISABLED = 0;
+    LOG_ONLY = 1;
+    ENFORCE = 2;
+  }
+}
+
+// MTLSConfig is described in istio.io documentation.
+message MTLSConfig {
+  // Enables MTLS for service to service traffic.
+  bool enabled = 1;
+}
+
+// MeshExpansionConfig is described in istio.io documentation.
+message MeshExpansionConfig {
+  // Exposes Pilot and Citadel mTLS on the ingress gateway.
+  bool enabled = 1;
+
+  // Exposes Pilot and Citadel mTLS and the plain text Pilot ports on an internal gateway.
+  bool useILB = 2;
+}
+
+// MixerAdaptersConfig is described in istio.io documentation.
+message MixerAdaptersConfig {
+  KubernetesEnvMixerAdapterConfig kubernetesenv = 1;
+
+  PrometheusMixerAdapterConfig prometheus = 2;
+
+  StdioMixerAdapterConfig stdio = 3;
+
+  bool useAdapterCRDs = 4;
+}
+
+// MixerConfig is described in istio.io documentation.
+message MixerConfig {
+  MixerAdaptersConfig adapters = 1;
+
+  bool enabled = 2;
+
+  map<string, string> env = 3;
+
+  string image = 4;
+
+  MixerPolicyConfig policy = 5;
+
+  MixerTelemetryConfig telemetry = 6;
+}
+
+// MixerPolicyConfig is described in istio.io documentation.
+message MixerPolicyConfig {
+  bool autoscaleEnabled = 1;
+
+  uint32 autoscaleMax = 2;
+
+  uint32 autoscaleMin = 3;
+
+  CPUTargetUtilizationConfig cpu = 4;
+
+  bool enabled = 5;
+
+  string image = 6;
+
+  // 	PodAnnotations   map[string]interface{}      `json:"podAnnotations,omitempty"`
+  uint32 replicaCount = 7;
+}
+
+// MixerTelemetryConfig is described in istio.io documentation.
+message MixerTelemetryConfig {
+  MixerAdaptersConfig adapters = 1;
+
+  bool autoscaleEnabled = 2;
+
+  uint32 autoscaleMax = 3;
+
+  uint32 autoscaleMin = 4;
+
+  CPUTargetUtilizationConfig cpu = 5;
+
+  bool enabled = 6;
+
+  map<string, string> env = 7;
+
+  string image = 8;
+
+  LoadSheddingConfig loadshedding = 9;
+
+  // 	NodeSelector           map[string]interface{}     `json:"nodeSelector,omitempty"`
+  // 	PodAnnotations         map[string]interface{}     `json:"podAnnotations,omitempty"`
+  uint32 replicaCount = 10;
+
+  k8s.io.api.core.v1.ResourceRequirements resources = 11;
+
+  bool sessionAffinityEnabled = 12;
+}
+
+// MultiClusterConfig is described in istio.io documentation.
+message MultiClusterConfig {
+  // Enables the connection between two kubernetes clusters via their respective ingressgateway services. Use if the pods in each cluster cannot directly talk to one another.
+  bool enabled = 1;
+}
+
+// NodeAgentConfig is described in istio.io documentation.
+message NodeAgentConfig {
+  bool enabled = 1;
+
+  // 	Env          map[string]interface{} `json:"env,omitempty"`
+  string image = 2;
+}
+
+// OutboundTrafficPolicyConfig is described in istio.io documentation.
+message OutboundTrafficPolicyConfig {
+  // Specifies the sidecar's default behavior when handling outbound traffic from the application.
+  enum mode {
+    //outbound traffic to unknown destinations will be allowed, in case there are no services or ServiceEntries for the destination port
+    ALLOW_ANY = 0;
+    //restrict outbound traffic to services defined in the service registry as well as those defined through ServiceEntries
+    REGISTRY_ONLY = 1;
+  }
+}
+
+// PilotConfig is described in istio.io documentation.
+message PilotConfig {
+  bool enabled = 1;
+
+  bool autoscaleEnabled = 2;
+
+  uint32 autoscaleMin = 3;
+
+  uint32 autoscaleMax = 4;
+
+  uint32 replicaCount = 5;
+
+  string image = 6;
+
+  bool sidecar = 7;
+
+  double traceSampling = 8;
+
+  k8s.io.api.core.v1.ResourceRequirements resources = 9;
+
+  string configNamespace = 10;
+
+  CPUTargetUtilizationConfig cpu = 11;
+
+  // 	NodeSelector                     map[string]interface{}      `json:"nodeSelector,omitempty"`
+  google.protobuf.Duration keepaliveMaxServerConnectionAge = 12;
+
+  map<string, string> deploymentLabels = 13;
+
+  // 	MeshNetworks                     map[string]interface{}      `json:"meshNetworks,omitempty"`
+  // 	PodAntiAffinityLabelSelector     []map[string]interface{}    `json:"podAntiAffinityLabelSelector"`
+  // 	PodAntiAffinityTermLabelSelector []map[string]interface{}    `json:"podAntiAffinityTermLabelSelector"`
+  bool configMap = 14;
+
+  PilotIngressConfig ingress = 15;
+
+  bool useMCP = 16;
+
+  map<string, string> env = 17;
+
+  PilotPolicyConfig policy = 18;
+
+  PilotTelemetryConfig telemetry = 19;
+}
+
+// PilotIngressConfig is described in istio.io documentation.
+message PilotIngressConfig {
+  string ingressService = 1;
+
+  enum ingressControllerMode {
+    //all Ingress resources without annotation or with istio annotation.
+    DEFAULT = 0;
+    //only with istio annotation.
+    STRICT = 1;
+    //no ingress or sync.
+    OFF = 2;
+  }
+  //Value to set on "kubernetes.io/ingress.class" annotations to activate, if mode is STRICT
+  string ingressClass = 3;
+}
+
+// PilotPolicyConfig is described in istio.io documentation.
+message PilotPolicyConfig {
+  bool enabled = 1;
+}
+
+// PilotTelemetryConfig is described in istio.io documentation.
+message PilotTelemetryConfig {
+  bool enabled = 1;
+}
+
+// PortsConfig is described in istio.io documentation.
+message PortsConfig {
+  string name = 1;
+
+  int32 port = 2;
+
+  int32 nodePort = 3;
+
+  int32 targetPort = 4;
+}
+
+// PrometheusConfig is described in istio.io documentation.
+message PrometheusConfig {
+  bool createPrometheusResource = 1;
+
+  bool enabled = 2;
+
+  uint32 replicaCount = 3;
+
+  string hub = 4;
+
+  string tag = 5;
+
+  string retention = 6;
+
+  // 	NodeSelector             map[string]interface{}    `json:"nodeSelector,omitempty"`
+  google.protobuf.Duration scrapeInterval = 7;
+
+  string contextPath = 8;
+
+  AddonIngressConfig ingress = 9;
+
+  PrometheusServiceConfig service = 10;
+
+  PrometheusSecurityConfig security = 11;
+}
+
+// PrometheusMixerAdapterConfig is described in istio.io documentation.
+message PrometheusMixerAdapterConfig {
+  bool enabled = 1;
+
+  google.protobuf.Duration metricsExpiryDuration = 2;
+}
+
+// PrometheusSecurityConfig is described in istio.io documentation.
+message PrometheusSecurityConfig {
+  bool enabled = 1;
+}
+
+// PrometheusServiceConfig is described in istio.io documentation.
+message PrometheusServiceConfig {
+  // 	Annotations map[string]interface{}           `json:"annotations,omitempty"`
+  PrometheusServiceNodePortConfig nodePort = 1;
+}
+
+// PrometheusServiceNodePortConfig is described in istio.io documentation.
+message PrometheusServiceNodePortConfig {
+  bool enabled = 1;
+
+  uint32 port = 2;
+}
+
+// ProxyConfig specifies how proxies are configured within Istio.
+message ProxyConfig {
+  // Specifies the path to write the sidecar access log file.
+  string accessLogFile = 1;
+
+  // Configures how and what fields are displayed in sidecar access log.
+  string accessLogFormat = 2;
+
+  // Configure the access log for sidecar to JSON or TEXT
+  enum accessLogEncoding {
+    JSON = 0;
+    TEXT = 1;
+  }
+
+  enum autoInject {
+    ENABLED = 0;
+    DISABLED = 1;
+  }
+
+  // Domain for the cluster - defaults to .cluster.local, but k8s allows this to be customized, can be prod.example.com
+  string clusterDomain = 5;
+
+  string componentLogLevel = 6;
+
+  // Controls number of proxy worker threads.
+  uint32 concurrency = 7;
+
+  // Configures the DNS refresh rate for Envoy cluster of type STRICT_DNS.
+  google.protobuf.Duration dnsRefreshRate = 8;
+
+  // Enables core dumps for newly injected sidecars.
+  bool enableCoreDump = 9;
+
+  EnvoyMetricsConfig envoyMetricsService = 10;
+
+  EnvoyMetricsConfig envoyStatsd = 11;
+
+  // Specifies the Istio ingress ports not to capture.
+  string excludeInboundPorts = 12;
+
+  // Lists the excluded IP ranges of Istio egress traffic that the sidecar captures.
+  string excludeIPRanges = 13;
+
+  // Image name or path for the proxy.
+  string image = 14;
+
+  // Specifies the Istio ingress ports to capture.
+  string includeInboundPorts = 15;
+
+  // Lists the IP ranges of Istio egress traffic that the sidecar captures.
+  string includeIPRanges = 16;
+
+  string kubevirtInterfaces = 17;
+
+  string logLevel = 18;
+
+  bool privileged = 19;
+
+  // Sets the initial delay for readiness probes in seconds.
+  uint32 readinessInitialDelaySeconds = 20;
+
+  // Sets the interval between readiness probes in seconds.
+  uint32 readinessPeriodSeconds = 21;
+
+  // Sets the number of successive failed probes before indicating readiness failure.
+  uint32 readinessFailureThreshold = 22;
+
+  // Default port used for the Pilot agent's health checks.
+  uint32 statusPort = 23;
+
+  k8s.io.api.core.v1.ResourceRequirements resources = 24;
+
+  // Specifies which tracer to use.
+  enum tracer {
+    ZIPKIN = 0;
+    LIGHTSTEP = 1;
+    DATADOG = 2;
+  }
+}
+
+// ProxyInitConfig is described in istio.io documentation.
+message ProxyInitConfig {
+  string image = 1;
+}
+
+// ResourcesRequestsConfig is described in istio.io documentation.
+message ResourcesRequestsConfig {
+  string cpu = 1;
+
+  string memory = 2;
+}
+
+// SDSConfig is described in istio.io documentation.
+message SDSConfig {
+  bool enabled = 1;
+
+  // Specifies the Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.
+  string udsPath = 2;
+
+  // Enables SDS use of k8s sa normal JWT to request for certificates.
+  bool useNormalJwt = 3;
+
+  // Enables SDS use of trustworthy JWT to request for certificates.
+  bool useTrustworthyJwt = 4;
+}
+
+// SecretVolume is described in istio.io documentation.
+message SecretVolume {
+  string mountPath = 1;
+
+  string name = 2;
+
+  string secretName = 3;
+}
+
+// SecurityConfig is described in istio.io documentation.
+message SecurityConfig {
+  bool enabled = 1;
+
+  uint32 replicaCount = 2;
+
+  string image = 3;
+
+  bool selfSigned = 4;
+
+  string trustDomain = 5;
+
+  map<string, string> dnsCerts = 6;
+
+  bool createMeshPolicy = 7;
+}
+
+// ServiceConfig is described in istio.io documentation.
+message ServiceConfig {
+  // 	Annotations  map[string]interface{} `json:"annotations,omitempty"`
+  uint32 externalPort = 1;
+
+  string name = 2;
+  //    Type         v1.ServiceType     `json:"type,omitempty"`
+}
+
+// SidecarInjectorConfig is described in istio.io documentation.
+message SidecarInjectorConfig {
+  // 	AlwaysInjectSelector             []map[string]interface{} `json:"alwaysInjectSelector,omitempty"`
+  bool enabled = 1;
+
+  bool enableNamespacesByDefault = 2;
+
+  string image = 3;
+
+  // 	NodeSelector                     map[string]interface{}   `json:"nodeSelector,omitempty"`
+  // 	NeverInjectSelector              []map[string]interface{} `json:"neverInjectSelector,omitempty"`
+  // 	PodAntiAffinityLabelSelector     []map[string]interface{} `json:"podAntiAffinityLabelSelector"`
+  // 	PodAntiAffinityTermLabelSelector []map[string]interface{} `json:"podAntiAffinityTermLabelSelector"`
+  uint32 replicaCount = 4;
+
+  bool rewriteAppHTTPProbe = 5;
+
+  bool selfSigned = 6;
+}
+
+// StdioMixerAdapterConfig is described in istio.io documentation.
+message StdioMixerAdapterConfig {
+  bool enabled = 1;
+
+  bool outputAsJson = 2;
+}
+
+// TracerConfig is described in istio.io documentation.
+message TracerConfig {
+  TracerDatadogConfig datadog = 1;
+
+  TracerLightStepConfig lightstep = 2;
+
+  TracerZipkinConfig zipkin = 3;
+}
+
+// TracerDatadogConfig is described in istio.io documentation.
+message TracerDatadogConfig {
+  string address = 1;
+}
+
+// TracerLightStepConfig is described in istio.io documentation.
+message TracerLightStepConfig {
+  // Sets the lightstep satellite pool address.
+  string address = 1;
+
+  // Sets the lightstep access token.
+  string accessToken = 2;
+
+  // Sets path to the file containing the cacert to use when verifying TLS.
+  string cacertPath = 3;
+
+  // Enables lightstep secure connection.
+  bool secure = 4;
+}
+
+// TracerZipkinConfig is described in istio.io documentation.
+message TracerZipkinConfig {
+  // Specifies address in host:port format for reporting trace data in zipkin format.
+  string address = 1;
+}
+
+// TracingConfig is described in istio.io documentation.
+message TracingConfig {
+  bool enabled = 1;
+
+  TracingIngressConfig ingress = 2;
+
+  TracingJaegerConfig jaeger = 3;
+
+  // 	NodeSelector map[string]interface{} `json:"nodeSelector,omitempty"`
+  string provider = 4;
+
+  ServiceConfig service = 5;
+
+  TracingZipkinConfig zipkin = 6;
+}
+
+// TracingIngressConfig is described in istio.io documentation.
+message TracingIngressConfig {
+  bool enabled = 1;
+}
+
+// TracingJaegerConfig is described in istio.io documentation.
+message TracingJaegerConfig {
+  string hub = 1;
+
+  string tag = 2;
+
+  TracingJaegerMemoryConfig memory = 3;
+}
+
+// TracingJaegerMemoryConfig is described in istio.io documentation.
+message TracingJaegerMemoryConfig {
+  uint32 max_traces = 1;
+}
+
+// TracingZipkinConfig is described in istio.io documentation.
+message TracingZipkinConfig {
+  string hub = 1;
+
+  string tag = 2;
+
+  uint32 probeStartupDelay = 3;
+
+  uint32 queryPort = 4;
+
+  k8s.io.api.core.v1.ResourceRequirements resources = 5;
+
+  string javaOptsHeap = 6;
+
+  uint32 maxSpans = 7;
+
+  TracingZipkinNodeConfig node = 8;
+}
+
+// TracingZipkinNodeConfig is described in istio.io documentation.
+message TracingZipkinNodeConfig {
+  uint32 cpus = 1;
+}
+
+message Values {
+  CertManagerConfig certmanager = 1;
+
+  CNIConfig istio_cni = 2;
+
+  CoreDNSConfig istiocoredns = 3;
+
+  GalleyConfig galley = 4;
+
+  GatewaysConfig gateways = 5;
+
+  GlobalConfig global = 6;
+
+  // 	Grafana         map[string]interface{} `json:"grafana,omitempty"`
+  MixerConfig mixer = 7;
+
+  NodeAgentConfig nodeagent = 8;
+
+  PilotConfig pilot = 9;
+
+  PrometheusConfig prometheus = 10;
+
+  SecurityConfig security = 11;
+
+  SidecarInjectorConfig sidecarInjectorWebhook = 12;
+
+  TracingConfig tracing = 13;
+}
+
+// ZeroVPNConfig is described in istio.io documentation.
+message ZeroVPNConfig {
+  bool enabled = 1;
+
+  string suffix = 2;
+}
+
