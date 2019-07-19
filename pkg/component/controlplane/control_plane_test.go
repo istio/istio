@@ -15,20 +15,16 @@
 package controlplane
 
 import (
-	"bytes"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/ghodss/yaml"
-	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/jsonpb"
-
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
-	"istio.io/operator/pkg/manifest"
 	"istio.io/operator/pkg/name"
+	"istio.io/operator/pkg/object"
 	"istio.io/operator/pkg/translate"
+	"istio.io/operator/pkg/util"
 	"istio.io/operator/pkg/version"
 )
 
@@ -171,7 +167,7 @@ trafficManagement:
 			spec := `customPackagePath: "file://` + helmChartTestDir + `"` + "\n"
 			spec += `profile: "file://` + helmChartTestDir + `/global.yaml"` + "\n"
 			spec += tt.installSpec
-			err := unmarshalWithJSONPB(spec, &is)
+			err := util.UnmarshalWithJSONPB(spec, &is)
 			if err != nil {
 				t.Fatalf("yaml.Unmarshal(%s): got error %s", tt.desc, err)
 			}
@@ -189,7 +185,7 @@ trafficManagement:
 			if err != nil {
 				t.Fatal(err)
 			}
-			diff, err := manifest.ManifestsDiff(manifestMapToStr(got), want)
+			diff, err := object.ManifestDiff(manifestMapToStr(got), want)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -209,33 +205,7 @@ func manifestMapToStr(mm name.ManifestMap) string {
 	return out
 }
 
-func unmarshalWithJSONPB(y string, out proto.Message) error {
-	jb, err := yaml.YAMLToJSON([]byte(y))
-	if err != nil {
-		return err
-	}
-
-	u := jsonpb.Unmarshaler{}
-	err = u.Unmarshal(bytes.NewReader(jb), out)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func readFile(path string) (string, error) {
 	b, err := ioutil.ReadFile(filepath.Join(testDataDir, path))
 	return string(b), err
 }
-
-/*func ObjectsInManifest(mstr string) string {
-	ao, err := manifest.ParseObjectsFromYAMLManifest(mstr)
-	if err != nil {
-		return err.Error()
-	}
-	var out []string
-	for _, v := range ao {
-		out = append(out, v.Hash())
-	}
-	return strings.Join(out, "\n")
-}*/

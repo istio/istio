@@ -16,12 +16,31 @@ package util
 
 import (
 	"strings"
+
+	"github.com/ghodss/yaml"
 )
 
 const (
 	// LocalFilePrefix is a prefix for local files.
 	LocalFilePrefix = "file:///"
 )
+
+var (
+	// DebugPackage controls verbose debugging in this package. Used for offline debugging.
+	DebugPackage = false
+)
+
+// Tree is a tree.
+type Tree map[string]interface{}
+
+// String implements the Stringer interface method.
+func (t Tree) String() string {
+	y, err := yaml.Marshal(t)
+	if err != nil {
+		return err.Error()
+	}
+	return string(y)
+}
 
 // IsFilePath reports whether the given URL is a local file path.
 func IsFilePath(path string) bool {

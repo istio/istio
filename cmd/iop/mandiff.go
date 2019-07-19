@@ -23,7 +23,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/operator/pkg/manifest"
+	"istio.io/operator/pkg/object"
 	"istio.io/pkg/log"
 )
 
@@ -71,7 +71,7 @@ func compareManifestsFromFiles(rootArgs *rootArgs, args []string) {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
-	diff, err := manifest.ManifestsDiff(string(a), string(b))
+	diff, err := object.ManifestDiff(string(a), string(b))
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
@@ -121,7 +121,7 @@ func compareManifestsFromDirs(dirName1 string, dirName2 string) {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
-	diff, err := manifest.ManifestsDiff(mf1, mf2)
+	diff, err := object.ManifestDiff(mf1, mf2)
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(1)

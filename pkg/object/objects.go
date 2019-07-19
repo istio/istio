@@ -16,7 +16,7 @@
 Package manifest provides functions for going between in-memory k8s objects (unstructured.Unstructured) and their JSON
 or YAML representations.
 */
-package manifest
+package object
 
 import (
 	"bufio"
@@ -335,8 +335,7 @@ func (os K8sObjects) YAML() (string, error) {
 	return sb.String(), nil
 }
 
-//ManifestDiff compares and generates the diff between two manifest strings
-func ManifestsDiff(a, b string) (string, error) {
+func ManifestDiff(a, b string) (string, error) {
 	ao, err := ParseK8sObjectsFromYAMLManifest(a)
 	if err != nil {
 		return "", err
@@ -352,23 +351,14 @@ func ManifestsDiff(a, b string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		dif := ""
-		k := ""
-		if bom[ak] == nil {
-			fmt.Printf("cannot find %s from first manifest in second manifest\n", ak)
-			dif = util.YAMLDiff(string(ay), "")
-		} else {
-			by, err := bom[ak].YAML()
-			if err != nil {
-				return "", err
-			}
-			k = string(by)
-			dif = util.YAMLDiff(string(ay), string(by))
+		by, err := bom[ak].YAML()
+		if err != nil {
+			return "", err
 		}
-		if dif != "" {
-			fmt.Println(k)
-			sb.WriteString("\n\nObject " + ak + " has diffs:\n\n")
-			sb.WriteString(dif)
+		diff := util.YAMLDiff(string(ay), string(by))
+		if diff != "" {
+			writeStringSafe(sb, "\n\nObject "+ak+" has diffs:\n\n")
+			writeStringSafe(sb, diff)
 		}
 	}
 	for bk, bv := range bom {
@@ -377,12 +367,19 @@ func ManifestsDiff(a, b string) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			dif := util.YAMLDiff(string(by), "")
-			if dif != "" {
-				sb.WriteString("\n\nObject " + bk + " is missing:\n\n")
-				sb.WriteString(dif)
+			diff := util.YAMLDiff(string(by), "")
+			if diff != "" {
+				writeStringSafe(sb, "\n\nObject "+bk+" is missing:\n\n")
+				writeStringSafe(sb, diff)
 			}
 		}
 	}
 	return sb.String(), err
+}
+
+func writeStringSafe(sb strings.Builder, s string) {
+	_, err := sb.WriteString(s)
+	if err != nil {
+		log.Error(err.Error())
+	}
 }

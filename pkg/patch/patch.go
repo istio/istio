@@ -85,15 +85,16 @@ package patch
 
 import (
 	"fmt"
-	"reflect"
-	"regexp"
 	"strings"
+
+	"istio.io/operator/pkg/object"
+
+	"istio.io/operator/pkg/tpath"
 
 	"github.com/kr/pretty"
 	"gopkg.in/yaml.v2"
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
-	"istio.io/operator/pkg/manifest"
 	"istio.io/operator/pkg/util"
 	"istio.io/pkg/log"
 )
@@ -103,38 +104,11 @@ var (
 	DebugPackage = false
 )
 
-// pathContext provides a means for traversing a tree towards the root.
-type pathContext struct {
-	// parent in the parent of this pathContext.
-	parent *pathContext
-	// keyToChild is the key required to reach the child.
-	keyToChild interface{}
-	// node is the actual node in the data tree.
-	node interface{}
-}
-
-// String implements the Stringer interface.
-func (nc *pathContext) String() string {
-	ret := "\n--------------- NodeContext ------------------\n"
-	ret += fmt.Sprintf("parent.node=\n%s\n", pretty.Sprint(nc.parent.node))
-	ret += fmt.Sprintf("keyToChild=%v\n", nc.parent.keyToChild)
-	ret += fmt.Sprintf("node=\n%s\n", pretty.Sprint(nc.node))
-	ret += "----------------------------------------------\n"
-	return ret
-}
-
-// makeNodeContext returns a pathContext created from the given object.
-func makeNodeContext(obj interface{}) *pathContext {
-	return &pathContext{
-		node: obj,
-	}
-}
-
 // YAMLManifestPatch patches a base YAML in the given namespace with a list of overlays.
 // Each overlay has the format described in the K8SObjectOverlay definition.
 // It returns the patched manifest YAML.
 func YAMLManifestPatch(baseYAML string, namespace string, overlays []*v1alpha2.K8SObjectOverlay) (string, error) {
-	baseObjs, err := manifest.ParseK8sObjectsFromYAMLManifest(baseYAML)
+	baseObjs, err := object.ParseK8sObjectsFromYAMLManifest(baseYAML)
 	if err != nil {
 		return "", err
 	}
@@ -193,7 +167,7 @@ func YAMLManifestPatch(baseYAML string, namespace string, overlays []*v1alpha2.K
 
 // applyPatches applies the given patches against the given object. It returns the resulting patched YAML if successful,
 // or a list of errors otherwise.
-func applyPatches(base *manifest.K8sObject, patches []*v1alpha2.K8SObjectOverlay_PathValue) (outYAML []byte, errs util.Errors) {
+func applyPatches(base *object.K8sObject, patches []*v1alpha2.K8SObjectOverlay_PathValue) (outYAML []byte, errs util.Errors) {
 	bo := make(map[interface{}]interface{})
 	by, err := base.YAML()
 	if err != nil {
@@ -205,13 +179,12 @@ func applyPatches(base *manifest.K8sObject, patches []*v1alpha2.K8SObjectOverlay
 	}
 	for _, p := range patches {
 		dbgPrint("applying path=%s, value=%s\n", p.Path, p.Value)
-		path := util.PathFromString(p.Path)
-		inc, err := getNode(makeNodeContext(bo), path, path)
+		inc, _, err := tpath.GetPathContext(bo, util.PathFromString(p.Path))
 		if err != nil {
 			errs = util.AppendErr(errs, err)
 			continue
 		}
-		errs = util.AppendErr(errs, writeNode(inc, p.Value))
+		errs = util.AppendErr(errs, tpath.WritePathContext(inc, p.Value))
 	}
 	oy, err := yaml.Marshal(bo)
 	if err != nil {
@@ -220,177 +193,14 @@ func applyPatches(base *manifest.K8sObject, patches []*v1alpha2.K8SObjectOverlay
 	return oy, errs
 }
 
-// getNode returns the node which has the given patch from the source node given by nc.
-// It creates a tree of nodeContexts during the traversal so that parent structures can be updated if required.
-func getNode(nc *pathContext, fullPath, remainPath util.Path) (*pathContext, error) {
-	dbgPrint("getNode remainPath=%s, node=%s", remainPath, pretty.Sprint(nc.node))
-	if len(remainPath) == 0 {
-		dbgPrint("terminate with nc=%s", nc)
-		return nc, nil
-	}
-	pe := remainPath[0]
-
-	v := reflect.ValueOf(nc.node)
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-	if v.Kind() == reflect.Interface {
-		v = v.Elem()
-	}
-	ncNode := v.Interface()
-	// For list types, we need a key to identify the selected list item. This can be either a a value key of the
-	// form :matching_value in the case of a leaf list, or a matching key:value in the case of a non-leaf list.
-	if lst, ok := ncNode.([]interface{}); ok {
-		dbgPrint("list type")
-		for idx, le := range lst {
-			// non-leaf list, expect to match item by key:value.
-			if lm, ok := le.(map[interface{}]interface{}); ok {
-				k, v, err := util.PathKV(pe)
-				if err != nil {
-					return nil, fmt.Errorf("path %s: %s", fullPath, err)
-				}
-				if stringsEqual(lm[k], v) {
-					dbgPrint("found matching kv %v:%v", k, v)
-					nn := &pathContext{
-						parent: nc,
-						node:   lm,
-					}
-					nc.keyToChild = idx
-					nn.keyToChild = k
-					if len(remainPath) == 1 {
-						dbgPrint("KV terminate")
-						return nn, nil
-					}
-					return getNode(nn, fullPath, remainPath[1:])
-				}
-				continue
-			}
-			// leaf list, match based on value.
-			v, err := util.PathV(pe)
-			if err != nil {
-				return nil, fmt.Errorf("path %s: %s", fullPath, err)
-			}
-			if matchesRegex(v, le) {
-				dbgPrint("found matching key %v, index %d", le, idx)
-				nn := &pathContext{
-					parent: nc,
-					node:   le,
-				}
-				nc.keyToChild = idx
-				return getNode(nn, fullPath, remainPath[1:])
-			}
-		}
-		return nil, fmt.Errorf("path %s: element %s not found", fullPath, pe)
-	}
-
-	dbgPrint("interior node")
-	// non-list node.
-	if nnt, ok := nc.node.(map[interface{}]interface{}); ok {
-		nn := nnt[pe]
-		nnc := &pathContext{
-			parent: nc,
-			node:   nn,
-		}
-		if _, ok := nn.([]interface{}); ok {
-			// Slices must be passed by pointer for mutations.
-			nnc.node = &nn
-		}
-		nc.keyToChild = pe
-		return getNode(nnc, fullPath, remainPath[1:])
-	}
-
-	return nil, fmt.Errorf("leaf type %T in non-leaf node %s", nc.node, remainPath)
-}
-
-// writeNode writes the given value to the node in the given pathContext.
-func writeNode(nc *pathContext, value interface{}) error {
-	dbgPrint("writeNode pathContext=%s, value=%v", nc, value)
-
-	switch {
-	case value == nil:
-		dbgPrint("delete")
-		switch {
-		case nc.parent != nil && isSliceOrPtrInterface(nc.parent.node):
-			if err := util.DeleteFromSlicePtr(nc.parent.node, nc.parent.keyToChild.(int)); err != nil {
-				return err
-			}
-			// FIXME
-			if isMapOrInterface(nc.parent.parent.node) {
-				if err := util.InsertIntoMap(nc.parent.parent.node, nc.parent.parent.keyToChild, nc.parent.node); err != nil {
-					return err
-				}
-			}
-		}
-	default:
-		switch {
-		case isSliceOrPtrInterface(nc.parent.node):
-			idx := nc.parent.keyToChild.(int)
-			if idx == -1 {
-				dbgPrint("insert")
-
-			} else {
-				dbgPrint("update index %d\n", idx)
-				if err := util.UpdateSlicePtr(nc.parent.node, idx, value); err != nil {
-					return err
-				}
-			}
-		default:
-			dbgPrint("leaf update")
-			if isMapOrInterface(nc.parent.node) {
-				if err := util.InsertIntoMap(nc.parent.node, nc.parent.keyToChild, value); err != nil {
-					return err
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
 // objectOverrideMap converts oos, a slice of object overlays, into a map of the same overlays where the key is the
 // object manifest.Hash.
 func objectOverrideMap(oos []*v1alpha2.K8SObjectOverlay, namespace string) map[string][]*v1alpha2.K8SObjectOverlay_PathValue {
 	ret := make(map[string][]*v1alpha2.K8SObjectOverlay_PathValue)
 	for _, o := range oos {
-		ret[manifest.Hash(o.Kind, namespace, o.Name)] = o.Patches
+		ret[object.Hash(o.Kind, namespace, o.Name)] = o.Patches
 	}
 	return ret
-}
-
-func stringsEqual(a, b interface{}) bool {
-	return fmt.Sprint(a) == fmt.Sprint(b)
-}
-
-// matchesRegex reports whether str regex matches pattern.
-func matchesRegex(pattern, str interface{}) bool {
-	match, err := regexp.MatchString(fmt.Sprint(pattern), fmt.Sprint(str))
-	if err != nil {
-		log.Errorf("bad regex expression %s", fmt.Sprint(pattern))
-		return false
-	}
-	dbgPrint("%v regex %v? %v\n", pattern, str, match)
-	return match
-}
-
-// isSliceOrPtrInterface reports whether v is a slice, a ptr to slice or interface to slice.
-func isSliceOrPtrInterface(v interface{}) bool {
-	vv := reflect.ValueOf(v)
-	if vv.Kind() == reflect.Ptr {
-		vv = vv.Elem()
-	}
-	if vv.Kind() == reflect.Interface {
-		vv = vv.Elem()
-	}
-	return vv.Kind() == reflect.Slice
-}
-
-// isMapOrInterface reports whether v is a map, or interface to a map.
-func isMapOrInterface(v interface{}) bool {
-	vv := reflect.ValueOf(v)
-	if vv.Kind() == reflect.Interface {
-		vv = vv.Elem()
-	}
-	return vv.Kind() == reflect.Map
 }
 
 // dbgPrint prints v if the package global variable DebugPackage is set.

@@ -113,6 +113,6 @@ require (
 	k8s.io/utils v0.0.0-20190308190857-21c4ce38f2a7 // indirect
 	sigs.k8s.io/controller-runtime v0.1.10
 	sigs.k8s.io/testing_frameworks v0.1.1 // indirect
-	sigs.k8s.io/yaml v1.1.0 // indirect
+	sigs.k8s.io/yaml v1.1.0
 	vbom.ml/util v0.0.0-20180919145318-efcd4e0f9787 // indirect
 )
