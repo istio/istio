@@ -321,7 +321,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 		p.OnOutboundRouteConfiguration(in, routeCfg)
 	}
 
-	routeCfg = applyRouteConfigurationPatches(in, routeCfg)
 	return routeCfg, nil
 }
 

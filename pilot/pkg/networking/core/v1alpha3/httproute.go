@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/proto"
@@ -38,11 +39,21 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 	routeName string) (*xdsapi.RouteConfiguration, error) {
 	// TODO: Move all this out
 	proxyInstances := node.ServiceInstances
+	var rc *xdsapi.RouteConfiguration
+	var err error
 	switch node.Type {
 	case model.SidecarProxy:
-		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, routeName), nil
+		rc = configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, routeName)
+		if rc != nil {
+			rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, push, rc)
+		}
+		return rc, nil
 	case model.Router:
-		return configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, routeName)
+		rc, err = configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, routeName)
+		if rc != nil {
+			rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, push, rc)
+		}
+		return rc, err
 	}
 	return nil, nil
 }
@@ -89,7 +100,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 		p.OnInboundRouteConfiguration(in, r)
 	}
 
-	r = applyRouteConfigurationPatches(in, r)
+	r = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_INBOUND, in.Node, in.Push, r)
 	return r
 }
 
@@ -273,7 +284,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		p.OnOutboundRouteConfiguration(pluginParams, out)
 	}
 
-	out = applyRouteConfigurationPatches(pluginParams, out)
+	out = envoyfilter.ApplyRouteConfigurationPatches(pluginParams.ListenerCategory, pluginParams.Node, pluginParams.Push, out)
 	return out
 }
 
