@@ -85,7 +85,9 @@ func TestSendPushesManyPushes(t *testing.T) {
 
 	for push := 0; push < 100; push++ {
 		for _, proxy := range proxies {
-			queue.Enqueue(proxy, &PushInformation{})
+			queue.Enqueue(proxy, &PushInformation{
+				push: &model.PushContext{Start: time.Now()},
+			})
 		}
 		time.Sleep(time.Millisecond * 10)
 	}
