@@ -9,7 +9,9 @@ metadata:
 rules:
 - apiGroups: [""]
   resources: ["configmaps"]
+  resourceNames: ["istio-sidecar-injector"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["admissionregistration.k8s.io"]
   resources: ["mutatingwebhookconfigurations"]
+  resourceNames: ["istio-sidecar-injector-{{.Release.Namespace}}"]
   verbs: ["get", "list", "watch", "patch"]

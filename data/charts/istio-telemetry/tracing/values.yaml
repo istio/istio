@@ -36,7 +36,7 @@ tracing:
 
   zipkin:
     hub: docker.io/openzipkin
-    tag: 2
+    tag: 2.14.2
     probeStartupDelay: 200
     queryPort: 9411
     resources:
@@ -54,6 +54,20 @@ tracing:
     maxSpans: 500000
     node:
       cpus: 2
+
+  opencensus:
+    hub: docker.io/omnition
+    tag: 0.1.9
+    resources:
+      limits:
+        cpu: 1
+        memory: 2Gi
+      requests:
+        cpu: 200m
+        memory: 400Mi
+    exporters:
+      stackdriver:
+        enable_tracing: true
 
   service:
     annotations: {}

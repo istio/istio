@@ -35,7 +35,7 @@ template: |
     - "-k"
     - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
     {{ end -}}
-    imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
     resources:
       requests:
         cpu: 10m
@@ -67,7 +67,7 @@ template: |
   {{- else }}
     image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
   {{- end }}
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
     resources: {}
     securityContext:
       runAsUser: 0
@@ -160,6 +160,9 @@ template: |
   {{- if .Values.global.trustDomain }}
     - --trust-domain={{ .Values.global.trustDomain }}
   {{- end }}
+  {{- if .Values.global.logAsJson }}
+    - --log_as_json
+  {{- end }}
     env:
     - name: POD_NAME
       valueFrom:
@@ -211,7 +214,7 @@ template: |
     - name: ISTIO_META_SDS_TOKEN_PATH
       value: "{{ .Values.global.sds.customTokenDirectory -}}/sdstoken"
     {{- end }}
-    imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
     {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
     readinessProbe:
       httpGet:
@@ -261,7 +264,7 @@ template: |
     - mountPath: /etc/istio/proxy
       name: istio-envoy
     {{- if .Values.global.sds.enabled }}
-    - mountPath: /var/run/sds/uds_path
+    - mountPath: /var/run/sds
       name: sds-uds-path
       readOnly: true
     {{- if .Values.global.sds.useTrustworthyJwt }}
@@ -301,8 +304,7 @@ template: |
   {{- if .Values.global.sds.enabled }}
   - name: sds-uds-path
     hostPath:
-      path: /var/run/sds/uds_path
-      type: Socket
+      path: /var/run/sds
   {{- if .Values.global.sds.customTokenDirectory }}
   - name: custom-sds-token
     secret:
@@ -343,6 +345,6 @@ template: |
   dnsConfig:
     searches:
       {{- range .Values.global.podDNSSearchNamespaces }}
-      - {{ . }}
+      - {{ render . }}
       {{- end }}
   {{- end }}

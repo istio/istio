@@ -1,5 +1,5 @@
 # istio CA watching all namespaces
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel11
@@ -10,7 +10,10 @@ metadata:
     release: {{ .Release.Name }}
 
 spec:
-  replicas: 1
+  selector:
+    matchLabels:
+      istio: citadel
+  replicas: {{ .Values.replicaCount }}
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -30,7 +33,7 @@ spec:
       containers:
         - name: citadel
           image: "{{ .Values.global.hub }}/{{ .Values.security.image }}:{{ .Values.global.tag }}"
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           args:
             - --append-dns-names=true
             - --grpc-port=8060
@@ -57,6 +60,12 @@ spec:
           {{- end }}
           {{- if .Values.security.trustDomain }}
             - --trust-domain={{ .Values.security.trustDomain }}
+          {{- end }}
+          {{- if .Values.workloadCertTtl }}
+            - --workload-cert-ttl={{ .Values.workloadCertTtl }}
+          {{- end }}
+          {{- if .Values.global.logAsJson }}
+            - --log_as_json
           {{- end }}
           livenessProbe:
             httpGet:

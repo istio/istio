@@ -32,6 +32,18 @@ gateways:
       name: http2
     - port: 443
       name: https
+    - port: 15029
+      targetPort: 15029
+      name: kiali
+    - port: 15030
+      targetPort: 15030
+      name: prometheus
+    - port: 15031
+      targetPort: 15031
+      name: grafana
+    - port: 15032
+      targetPort: 15032
+      name: tracing
       # This is the port where sni routing happens
     - port: 15443
       targetPort: 15443
@@ -74,13 +86,6 @@ gateways:
     #serviceAnnotations:
     #    cloud.google.com/load-balancer-type: "internal"
 
-    # Use SDS for ingress secrets.
-    sds:
-      enabled: false
-      # SDS server that watches kubernetes secrets and provisions credentials to ingress gateway.
-      # This server runs in the same pod as ingress gateway.
-      image: node-agent-k8s
-
     podAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
 
@@ -118,16 +123,28 @@ gateways:
     telemetry_addon_gateways:
       tracing_gateway:
         name: tracing
+        port: 15032
         desPort: 80
         enabled: false
         tls: false
       kiali_gateway:
         name: kiali
+        port: 15029
         desPort: 20001
         enabled: false
         tls: false
-      # grafana_gateway
-      # prometheus_gateway
+      grafana_gateway:
+        name: grafana
+        port: 15031
+        desPort: 3000
+        enabled: false
+        tls: false
+      prometheus_gateway:
+        name: prometheus
+        port: 15030
+        desPort: 9090
+        enabled: false
+        tls: false
 
     # For Certmanager Issuer and Certificate generation
     # certificates: {}

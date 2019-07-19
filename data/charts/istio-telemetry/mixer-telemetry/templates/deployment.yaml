@@ -38,8 +38,7 @@ spec:
           optional: true
       {{- if .Values.global.sds.enabled }}
       - hostPath:
-          path: /var/run/sds/uds_path
-          type: Socket
+          path: /var/run/sds
         name: sds-uds-path
       {{- if .Values.global.sds.useTrustworthyJwt }}
       - name: istio-token
@@ -74,7 +73,7 @@ spec:
 {{- else }}
         image: "{{ .Values.global.hub }}/{{ .Values.mixer.telemetry.image }}:{{ .Values.global.tag }}"
 {{- end }}
-        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
         ports:
         - containerPort: 15014
         - containerPort: 42422
@@ -85,6 +84,9 @@ spec:
 {{- if .Values.global.logging.level }}
           - --log_output_level={{ .Values.global.logging.level }}
 {{- end}}
+{{- if .Values.global.logAsJson }}
+          - --log_as_json
+{{- end }}
 {{- if .Values.global.useMCP }}
     {{- if .Values.global.controlPlaneSecurityEnabled}}
           - --configStoreURL=mcp://localhost:15019
@@ -143,7 +145,7 @@ spec:
 {{- else }}
         image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
 {{- end }}
-        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
         ports:
         - containerPort: 9091
         - containerPort: 15004
@@ -167,6 +169,9 @@ spec:
       {{- end }}
       {{- if .Values.global.trustDomain }}
         - --trust-domain={{ .Values.global.trustDomain }}
+      {{- end }}
+      {{- if .Values.global.logAsJson }}
+        - --log_as_json
       {{- end }}
         env:
         - name: POD_NAME
@@ -198,7 +203,7 @@ spec:
           readOnly: true
         {{- if .Values.global.sds.enabled }}
         - name: sds-uds-path
-          mountPath: /var/run/sds/uds_path
+          mountPath: /var/run/sds
           readOnly: true
         {{- if .Values.global.sds.useTrustworthyJwt }}
         - name: istio-token

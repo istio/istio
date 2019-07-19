@@ -41,7 +41,7 @@ spec:
 {{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.sidecarInjectorWebhook.image | default "sidecar_injector" }}:{{ .Values.global.tag }}"
 {{- end }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           args:
             - --caCertFile=/etc/istio/certs/root-cert.pem
             - --tlsCertFile=/etc/istio/certs/cert-chain.pem
@@ -52,6 +52,9 @@ spec:
             - --healthCheckFile=/health
             - --webhookConfigName=istio-sidecar-injector-{{ .Release.Namespace }}
             - --log_output_level=debug
+          {{- if .Values.global.logAsJson }}
+            - --log_as_json
+          {{- end }}
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config

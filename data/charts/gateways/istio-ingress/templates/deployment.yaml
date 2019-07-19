@@ -48,7 +48,7 @@ spec:
 {{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag }}"
 {{- end }}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           command:
             - /bin/sh
           args:
@@ -65,7 +65,7 @@ spec:
 {{- else }}
           image: "{{ .Values.global.hub }}/{{ $gateway.sds.image }}:{{ .Values.global.tag }}"
 {{- end }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           env:
           - name: "ENABLE_WORKLOAD_SDS"
             value: "false"
@@ -111,6 +111,9 @@ spec:
         {{- if .Values.global.logging.level }}
           - --log_output_level={{ .Values.global.logging.level }}
         {{- end}}
+        {{- if .Values.global.logAsJson }}
+          - --log_as_json
+        {{- end }}
           - --drainDuration
           - '45s' #drainDuration
           - --parentShutdownDuration
@@ -226,7 +229,7 @@ spec:
           volumeMounts:
           {{ if .Values.global.sds.enabled }}
           - name: sdsudspath
-            mountPath: /var/run/sds/uds_path
+            mountPath: /var/run/sds
             readOnly: true
           {{- end }}
           {{- if .Values.global.sds.useTrustworthyJwt }}
@@ -256,8 +259,7 @@ spec:
       {{- if .Values.global.sds.enabled }}
       - name: sdsudspath
         hostPath:
-          path: /var/run/sds/uds_path
-          type: Socket
+          path: /var/run/sds
       {{- if .Values.global.sds.useTrustworthyJwt }}
       - name: istio-token
         projected:
