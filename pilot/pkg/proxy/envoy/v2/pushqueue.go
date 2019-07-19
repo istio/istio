@@ -16,6 +16,7 @@ package v2
 
 import (
 	"sync"
+	"time"
 
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -26,6 +27,9 @@ type PushInformation struct {
 	edsUpdatedServices map[string]struct{}
 
 	push *model.PushContext
+
+	// start represents the time a push was started.
+	start time.Time
 
 	full bool
 }
@@ -49,9 +53,9 @@ func NewPushQueue() *PushQueue {
 // Add will mark a proxy as pending a push. If it is already pending, pushInfo will be merged.
 // edsUpdatedServices will be added together, and full will be set if either were full
 func (p *PushQueue) Enqueue(proxy *XdsConnection, pushInfo *PushInformation) {
-
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	info, exists := p.connections[proxy]
 	if !exists {
 		p.connections[proxy] = pushInfo

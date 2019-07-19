@@ -184,6 +184,9 @@ type XdsEvent struct {
 	// Push context to use for the push.
 	push *model.PushContext
 
+	// start represents the time a push was started.
+	start time.Time
+
 	// function to call once a push is finished. This must be called or future changes may be blocked.
 	done func()
 }
@@ -570,7 +573,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	if con.CDSWatch {
 		err := s.pushCds(con, pushEv.push, currentVersion)
 		if err != nil {
-			proxiesConvergeDelayCdsErrors.Record(time.Since(pushEv.push.Start).Seconds())
+			proxiesConvergeDelayCdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
@@ -578,25 +581,25 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	if len(con.Clusters) > 0 {
 		err := s.pushEds(pushEv.push, con, currentVersion, nil)
 		if err != nil {
-			proxiesConvergeDelayEdsErrors.Record(time.Since(pushEv.push.Start).Seconds())
+			proxiesConvergeDelayEdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
 	if con.LDSWatch {
 		err := s.pushLds(con, pushEv.push, currentVersion)
 		if err != nil {
-			proxiesConvergeDelayLdsErrors.Record(time.Since(pushEv.push.Start).Seconds())
+			proxiesConvergeDelayLdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
 	if len(con.Routes) > 0 {
 		err := s.pushRoute(con, pushEv.push, currentVersion)
 		if err != nil {
-			proxiesConvergeDelayRdsErrors.Record(time.Since(pushEv.push.Start).Seconds())
+			proxiesConvergeDelayRdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
-	proxiesConvergeDelay.Record(time.Since(pushEv.push.Start).Seconds())
+	proxiesConvergeDelay.Record(time.Since(pushEv.start).Seconds())
 	return nil
 }
 
@@ -669,8 +672,9 @@ func (s *DiscoveryServer) startPush(push *model.PushContext, full bool, edsUpdat
 	if currentlyPending != 0 {
 		adsLog.Infof("Starting new push while %v were still pending", currentlyPending)
 	}
+	startTime := time.Now()
 	for _, p := range pending {
-		s.pushQueue.Enqueue(p, &PushInformation{edsUpdates, push, full})
+		s.pushQueue.Enqueue(p, &PushInformation{edsUpdates, push, startTime, full})
 	}
 }
 

@@ -453,7 +453,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 			// Get the next proxy to push. This will block if there are no updates required.
 			client, info := queue.Dequeue()
 
-			proxiesQueueTime.Record(time.Since(info.push.Start).Seconds())
+			proxiesQueueTime.Record(time.Since(info.start).Seconds())
 
 			go func() {
 				edsUpdates := info.edsUpdatedServices
@@ -469,6 +469,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 					push:               info.push,
 					edsUpdatedServices: edsUpdates,
 					done:               doneFunc,
+					start:              info.start,
 				}:
 					return
 				case <-client.stream.Context().Done(): // grpc stream was closed

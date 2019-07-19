@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -120,6 +121,34 @@ func TestProxyQueue(t *testing.T) {
 		time.Sleep(time.Millisecond * 50)
 		p.Enqueue(proxies[0], &PushInformation{})
 		wg.Wait()
+	})
+
+	t.Run("should merge PushInformation", func(t *testing.T) {
+		p := NewPushQueue()
+		firstTime := time.Now()
+		p.Enqueue(proxies[0], &PushInformation{
+			full:               false,
+			edsUpdatedServices: map[string]struct{}{"foo": {}},
+			start:              firstTime,
+		})
+
+		p.Enqueue(proxies[0], &PushInformation{
+			full:               false,
+			edsUpdatedServices: map[string]struct{}{"bar": {}},
+			start:              firstTime.Add(time.Second),
+		})
+		_, info := p.Dequeue()
+
+		if info.start != firstTime {
+			t.Errorf("Expected start time to be %v, got %v", firstTime, info.start)
+		}
+		expectedEds := map[string]struct{}{"foo": {}, "bar": {}}
+		if !reflect.DeepEqual(info.edsUpdatedServices, expectedEds) {
+			t.Errorf("Expected edsUpdatedServices to be %v, got %v", expectedEds, info.edsUpdatedServices)
+		}
+		if info.full != false {
+			t.Errorf("Expected full to be false, got true")
+		}
 	})
 
 	t.Run("two removes, one should block one should return", func(t *testing.T) {

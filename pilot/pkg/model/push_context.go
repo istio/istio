@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"sort"
 	"sync"
-	"time"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/monitoring"
@@ -34,10 +33,6 @@ type PushContext struct {
 	// ProxyStatus is keyed by the error code, and holds a map keyed
 	// by the ID.
 	ProxyStatus map[string]map[string]ProxyPushStatus
-
-	// Start represents the time of last config change that reset the
-	// push status.
-	Start time.Time
 
 	// Mutex is used to protect the below store.
 	// All data is set when the PushContext object is populated in `InitContext`,
@@ -302,7 +297,6 @@ func NewPushContext() *PushContext {
 		ServiceByHostname: map[Hostname]*Service{},
 		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:   map[Hostname]map[int][]string{},
-		Start:             time.Now(),
 	}
 }
 
