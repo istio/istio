@@ -102,7 +102,8 @@ func NewListenerBuilder(node *model.Proxy) *ListenerBuilder {
 	builder := &ListenerBuilder{
 		node: node,
 		// TODO(silentdai): new flag
-		useInboundFilterChain: node.IsInboundCaptureAllPorts(),
+		useInboundFilterChain:  node.IsInboundCaptureAllPorts(),
+		useOutboundFilterChain: node.IsInboundCaptureAllPorts(),
 	}
 	return builder
 }
@@ -209,7 +210,9 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environme
 	}
 	// TODO(silentdai) use feature
 	if builder.useInboundFilterChain {
-		return builder.aggregateVirtualInboundListener(env, node)
+		builder.aggregateVirtualInboundListener(env, node)
+		builder.inboundListeners = []*xdsapi.Listener{}
+		return builder
 	}
 	var isTransparentProxy *google_protobuf.BoolValue
 	if node.GetInterceptionMode() == model.InterceptionTproxy {
