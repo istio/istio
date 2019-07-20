@@ -2630,6 +2630,14 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: false},
+		{name: "multiple dns domains specified", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar", "foo.baz"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true},
 		{name: "no tcp or http routing", in: &networking.VirtualService{
 			Hosts: []string{"foo.bar"},
 		}, valid: false},
