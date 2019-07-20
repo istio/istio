@@ -128,3 +128,8 @@ func logAndPrintf(args *rootArgs, v ...interface{}) {
 	}
 	log.Infof(s)
 }
+
+func logAndFatalf(args *rootArgs, v ...interface{}) {
+	logAndPrintf(args, v...)
+	os.Exit(-1)
+}
