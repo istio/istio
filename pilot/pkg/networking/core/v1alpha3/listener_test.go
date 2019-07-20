@@ -810,12 +810,18 @@ type fakePlugin struct {
 	outboundListenerParams []*plugin.InputParams
 }
 
+var _ plugin.Plugin = (*fakePlugin)(nil)
+
 func (p *fakePlugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	p.outboundListenerParams = append(p.outboundListenerParams, in)
 	return nil
 }
 
 func (p *fakePlugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	return nil
+}
+
+func (p *fakePlugin) OnVirtualListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	return nil
 }
 

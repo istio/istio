@@ -86,18 +86,23 @@ func NewPlugin() plugin.Plugin {
 	return mixerplugin{}
 }
 
-// OnOutboundListener implements the Callbacks interface method.
-func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	if in.Env.Mesh.MixerCheckServer == "" && in.Env.Mesh.MixerReportServer == "" {
-		return nil
-	}
-
+func createOutboundListenerAttributes(in *plugin.InputParams) attributes {
 	attrs := attributes{
 		"source.uid":            attrUID(in.Node),
 		"source.namespace":      attrNamespace(in.Node),
 		"context.reporter.uid":  attrUID(in.Node),
 		"context.reporter.kind": attrStringValue("outbound"),
 	}
+	return attrs
+}
+
+// OnOutboundListener implements the Callbacks interface method.
+func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	if in.Env.Mesh.MixerCheckServer == "" && in.Env.Mesh.MixerReportServer == "" {
+		return nil
+	}
+
+	attrs := createOutboundListenerAttributes(in)
 
 	switch in.ListenerProtocol {
 	case plugin.ListenerProtocolHTTP:
@@ -173,6 +178,18 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 	}
 
 	return fmt.Errorf("unknown listener type %v in mixer.OnOutboundListener", in.ListenerProtocol)
+}
+
+// OnVirtualListener implements the Plugin interface method.
+func (mixerplugin) OnVirtualListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	if in.ListenerProtocol == plugin.ListenerProtocolTCP {
+		attrs := createOutboundListenerAttributes(in)
+		tcpFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service, in.Push)
+		for cnum := range mutable.FilterChains {
+			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+		}
+	}
+	return nil
 }
 
 // OnOutboundCluster implements the Plugin interface method.
