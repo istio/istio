@@ -47,9 +47,7 @@ export TAG="${TAG:-${GIT_SHA}}"
 make init
 
 # Build just the images needed for the tests
-for image in pilot proxyv2 proxy_init app test_policybackend mixer citadel galley sidecar_injector kubectl node-agent-k8s; do
-   make -j8 -Oline docker.${image}
-done
+time make -j8 -Oline docker.pilot docker.proxyv2 docker.proxy_init docker.app docker.test_policybackend docker.mixer docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s
 
 function build_kind_images(){
 	# Archived local images and load it into KinD's docker daemon
