@@ -29,7 +29,8 @@ import (
 )
 
 type specForSaValidationRequest struct {
-	Token string `json:"token"`
+	Token     string   `json:"token"`
+	Audiences []string `json:"audiences"`
 }
 
 type saValidationRequest struct {
@@ -82,7 +83,13 @@ func (authn *K8sSvcAcctAuthn) reviewServiceAccountAtK8sAPIServer(targetToken str
 	saReq := saValidationRequest{
 		APIVersion: "authentication.k8s.io/v1",
 		Kind:       "TokenReview",
-		Spec:       specForSaValidationRequest{Token: targetToken},
+		Spec: specForSaValidationRequest{
+			Token: targetToken,
+			// TODO: Also check for the JWT audiences. This feature is only available on Kubernetes from
+			//  v1.13 and above.
+			// If the audiences are not specified, the api server will use the audience of api server,
+			// which is also the issuer of the jwt.
+		},
 	}
 	saReqJSON, err := json.Marshal(saReq)
 	if err != nil {
