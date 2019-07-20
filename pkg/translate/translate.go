@@ -216,6 +216,7 @@ func NewTranslator(minorVersion version.MinorVersion) (*Translator, error) {
 		return nil, fmt.Errorf("no translator available for version %s", minorVersion)
 	}
 
+	t.featureToComponents = make(map[name.FeatureName][]name.ComponentName)
 	for c, f := range t.ToFeature {
 		t.featureToComponents[f] = append(t.featureToComponents[f], c)
 	}
@@ -445,6 +446,15 @@ func (t *Translator) IsComponentEnabled(cn name.ComponentName, icp *v1alpha2.Ist
 		return true, nil
 	}
 	return name.IsComponentEnabledInSpec(t.ToFeature[cn], cn, icp)
+}
+
+// AllComponentsNames returns a slice of all components used in t.
+func (t *Translator) AllComponentsNames() []name.ComponentName {
+	var out []name.ComponentName
+	for cn := range t.ComponentMaps {
+		out = append(out, cn)
+	}
+	return out
 }
 
 // insertLeaf inserts a leaf with value into root at path, which is first mapped using t.APIMapping.

@@ -444,6 +444,79 @@ func runComponent(c *CommonComponentFields) error {
 	return nil
 }
 
+// CompileHelmValues creates a Helm values.yaml config data tree from icp using the given translator.
+func CompileHelmValues(icp *v1alpha2.IstioControlPlaneSpec, translator *translate.Translator, componentName name.ComponentName) (string, error) {
+	globalVals, apiVals := make(map[string]interface{}), make(map[string]interface{})
+
+	// First, translate the IstioControlPlane API to helm Values.
+	apiValsStr, err := translator.ProtoToValues(icp)
+	if err != nil {
+		return "", err
+	}
+	err = yaml.Unmarshal([]byte(apiValsStr), &apiVals)
+	if err != nil {
+		return "", err
+	}
+	log.Infof("Values translated from IstioControlPlane API:\n%s", apiValsStr)
+
+	// Add global overlay from IstioControlPlaneSpec.Values.
+	_, err = name.SetFromPath(icp, "Values", &globalVals)
+	if err != nil {
+		return "", err
+	}
+	log.Infof("Untranslated values from IstioControlPlaneSpec.Values:\n%s", util.ToYAML(globalVals))
+	globalVals = translator.ValuesOverlaysToHelmValues(globalVals, name.IstioBaseComponentName)
+	log.Infof("Translated values from IstioControlPlaneSpec.Values:\n%s", util.ToYAML(globalVals))
+
+	mergedVals, err := overlayTrees(globalVals, apiVals)
+	if err != nil {
+		return "", err
+	}
+
+	cns := []name.ComponentName{componentName}
+	if componentName == "" {
+		cns = translator.AllComponentsNames()
+	}
+
+	for _, cn := range cns {
+		componentVals, componentValsUnvalidated := make(map[string]interface{}), make(map[string]interface{})
+		// Add overlay from IstioControlPlaneSpec.<Feature>.Components.<Component>.Common.ValuesOverrides.
+		pathToValues := fmt.Sprintf("%s.Components.%s.Common.Values", translator.ToFeature[cn], cn)
+		_, err = name.SetFromPath(icp, pathToValues, &componentVals)
+		if err != nil {
+			return "", err
+		}
+
+		// Add overlay from IstioControlPlaneSpec.<Feature>.Components.<Component>.Common.UnvalidatedValuesOverrides.
+		pathToUnvalidatedValues := fmt.Sprintf("%s.Components.%s.Common.UnvalidatedValues", translator.ToFeature[cn], cn)
+		_, err = name.SetFromPath(icp, pathToUnvalidatedValues, &componentValsUnvalidated)
+		if err != nil {
+			return "", err
+		}
+
+		log.Infof("Untranslated values from %s:\n%s", pathToValues, util.ToYAML(componentVals))
+		log.Infof("Untranslated values from %s:\n%s", pathToUnvalidatedValues, util.ToYAML(componentValsUnvalidated))
+
+		// Translate from path in the API to helm paths.
+		componentVals = translator.ValuesOverlaysToHelmValues(componentVals, cn)
+		componentValsUnvalidated = translator.ValuesOverlaysToHelmValues(componentValsUnvalidated, cn)
+
+		log.Infof("Translated values from %s:\n%s", pathToValues, util.ToYAML(componentVals))
+		log.Infof("Translated values from %s:\n%s", pathToUnvalidatedValues, util.ToYAML(componentValsUnvalidated))
+
+		mergedVals, err = overlayTrees(mergedVals, componentVals, componentValsUnvalidated)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	mergedYAML, err := yaml.Marshal(mergedVals)
+	if err != nil {
+		return "", err
+	}
+	return string(mergedYAML), err
+}
+
 // renderManifest renders the manifest for the component defined by c and returns the resulting string.
 func renderManifest(c *CommonComponentFields) (string, error) {
 	e, err := c.Translator.IsComponentEnabled(c.name, c.InstallSpec)
@@ -454,49 +527,7 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 		return disabledYAMLStr(c.name), nil
 	}
 
-	globalVals, vals, valsUnvalidated := make(map[string]interface{}), make(map[string]interface{}), make(map[string]interface{})
-
-	// First, translate the IstioControlPlane API to helm Values.
-	apiVals, err := c.Translator.ProtoToValues(c.InstallSpec)
-	if err != nil {
-		return "", err
-	}
-
-	// Add global overlay from IstioControlPlaneSpec.Values.
-	_, err = name.SetFromPath(c.Options.InstallSpec, "Values", &globalVals)
-	if err != nil {
-		return "", err
-	}
-
-	// Add overlay from IstioControlPlaneSpec.<Feature>.Components.<Component>.Common.ValuesOverrides.
-	pathToValues := fmt.Sprintf("%s.Components.%s.Common.Values", c.FeatureName, c.name)
-	_, err = name.SetFromPath(c.Options.InstallSpec, pathToValues, &vals)
-	if err != nil {
-		return "", err
-	}
-
-	// Add overlay from IstioControlPlaneSpec.<Feature>.Components.<Component>.Common.UnvalidatedValuesOverrides.
-	pathToUnvalidatedValues := fmt.Sprintf("%s.Components.%s.Common.UnvalidatedValues", c.FeatureName, c.name)
-	_, err = name.SetFromPath(c.Options.InstallSpec, pathToUnvalidatedValues, &valsUnvalidated)
-	if err != nil {
-		return "", err
-	}
-
-	log.Infof("Untranslated values from IstioControlPlaneSpec.Values:\n%s", util.ToYAML(globalVals))
-	log.Infof("Untranslated values from %s:\n%s", pathToValues, util.ToYAML(vals))
-	log.Infof("Untranslated values from %s:\n%s", pathToUnvalidatedValues, util.ToYAML(valsUnvalidated))
-
-	// Translate from path in the API to helm paths.
-	globalVals = c.Translator.ValuesOverlaysToHelmValues(globalVals, name.IstioBaseComponentName)
-	vals = c.Translator.ValuesOverlaysToHelmValues(vals, c.name)
-	valsUnvalidated = c.Translator.ValuesOverlaysToHelmValues(valsUnvalidated, c.name)
-
-	log.Infof("Values translated from IstioControlPlane API:\n%s", apiVals)
-	log.Infof("Translated values from IstioControlPlaneSpec.Values:\n%s", util.ToYAML(globalVals))
-	log.Infof("Translated values from %s:\n%s", pathToValues, util.ToYAML(vals))
-	log.Infof("Translated values from %s:\n%s", pathToUnvalidatedValues, util.ToYAML(valsUnvalidated))
-
-	mergedYAML, err := mergeTrees(apiVals, globalVals, vals, valsUnvalidated)
+	mergedYAML, err := CompileHelmValues(c.InstallSpec, c.Translator, c.name)
 	if err != nil {
 		return "", err
 	}
@@ -547,35 +578,32 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 	return ret, nil
 }
 
-// mergeTrees overlays global values, component values and unvalidatedValues (in that order) over the YAML tree in
-// apiValues and returns the result.
-// The merge operation looks something like this (later items are merged on top of earlier ones):
-// - values derived from translating IstioControlPlane to values
-// - values in top level IstioControlPlane
-// - values from component
-// - unvalidateValues from component
-func mergeTrees(apiValues string, globalVals, values, unvalidatedValues map[string]interface{}) (string, error) {
-	gy, err := yaml.Marshal(globalVals)
+// overlayTrees overlays component validated and unvalidated values over base.
+func overlayTrees(base map[string]interface{}, overlays ...map[string]interface{}) (map[string]interface{}, error) {
+	bby, err := yaml.Marshal(base)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	by, err := yaml.Marshal(values)
+	by := string(bby)
+
+	for _, o := range overlays {
+		oy, err := yaml.Marshal(o)
+		if err != nil {
+			return nil, err
+		}
+
+		by, err = helm.OverlayYAML(by, string(oy))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	out := make(map[string]interface{})
+	err = yaml.Unmarshal([]byte(by), &out)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	py, err := yaml.Marshal(unvalidatedValues)
-	if err != nil {
-		return "", err
-	}
-	yo, err := helm.OverlayYAML(apiValues, string(gy))
-	if err != nil {
-		return "", err
-	}
-	yyo, err := helm.OverlayYAML(yo, string(by))
-	if err != nil {
-		return "", err
-	}
-	return helm.OverlayYAML(yyo, string(py))
+	return out, nil
 }
 
 // createHelmRenderer creates a helm renderer for the component defined by c and returns a ptr to it.
