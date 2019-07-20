@@ -15,6 +15,7 @@
 package envoyfilter
 
 import (
+	"github.com/gogo/protobuf/proto"
 	"reflect"
 	"strings"
 	"testing"
@@ -244,6 +245,10 @@ func TestApplyListenerPatches(t *testing.T) {
 	push := model.NewPushContext()
 	push.InitContext(env)
 
+	temp := &xdsapi.Listener{
+		ListenerFilters: []listener.ListenerFilter{{Name: "foo"}},
+	}
+	proto.Merge(gatewayIn[0], temp)
 	type args struct {
 		patchContext networking.EnvoyFilter_PatchContext
 		proxy        *model.Proxy
