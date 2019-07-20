@@ -308,7 +308,7 @@ func pilotQueryFilterFn(queries []string) []string {
 		if strings.Contains(query, "pilot_xds_push_context_errors") {
 			continue
 		}
-		if strings.Contains(query, `pilot_xds_pushes{type!~"lds|cds|rds|eds"}`) {
+		if strings.Contains(query, `pilot_xds_pushes{type!~\"lds|cds|rds|eds\"}`) {
 			continue
 		}
 		if strings.Contains(query, "pilot_xds_eds_instances") {
