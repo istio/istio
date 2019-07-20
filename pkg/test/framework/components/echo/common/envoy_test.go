@@ -16,6 +16,7 @@ package common_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"testing"
@@ -26,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
+	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -152,31 +154,35 @@ func (e *config) Workloads() ([]echo.Workload, error) {
 	return []echo.Workload{e}, nil
 }
 
-func (e *config) ID() resource.ID {
+func (*config) ID() resource.ID {
 	panic("not implemented")
 }
 
-func (e *config) WorkloadsOrFail(t test.Failer) []echo.Workload {
+func (*config) WorkloadsOrFail(test.Failer) []echo.Workload {
 	panic("not implemented")
 }
 
-func (e *config) WaitUntilCallable(_ ...echo.Instance) error {
+func (*config) WaitUntilCallable(...echo.Instance) error {
 	panic("not implemented")
 }
 
-func (e *config) WaitUntilCallableOrFail(_ test.Failer, _ ...echo.Instance) {
+func (*config) WaitUntilCallableOrFail(test.Failer, ...echo.Instance) {
 	panic("not implemented")
 }
 
-func (e *config) Call(_ echo.CallOptions) (client.ParsedResponses, error) {
+func (*config) Call(echo.CallOptions) (client.ParsedResponses, error) {
 	panic("not implemented")
 }
 
-func (e *config) CallOrFail(_ test.Failer, _ echo.CallOptions) client.ParsedResponses {
+func (*config) CallOrFail(test.Failer, echo.CallOptions) client.ParsedResponses {
 	panic("not implemented")
 }
 
-func (e *config) Sidecar() echo.Sidecar {
+func (*config) Sidecar() echo.Sidecar {
+	panic("not implemented")
+}
+
+func (*config) ForwardEcho(context.Context, *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
 	panic("not implemented")
 }
 
