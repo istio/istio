@@ -23,6 +23,8 @@ import (
 
 	"istio.io/operator/pkg/manifest"
 	"istio.io/operator/pkg/version"
+
+	"istio.io/pkg/log"
 )
 
 func installCmd(rootArgs *rootArgs) *cobra.Command {
@@ -46,28 +48,26 @@ func installManifests(args *rootArgs) {
 
 	manifests, err := genManifests(args)
 	if err != nil {
-		logAndPrintf(args, "%s", err)
-		os.Exit(1)
+		log.Fatalf("Could not generate manifest: %v", err)
 	}
 
 	out, err := manifest.ApplyAll(manifests, version.NewVersion("", 1, 2, 0, ""), args.dryRun, args.verbose)
 	if err != nil {
-		logAndPrintf(args, "%s", err)
-		os.Exit(1)
+		log.Fatalf("Failed to apply manifest with kubectl client: %v", err)
 	}
 
 	for cn := range manifests {
 
 		cs := fmt.Sprintf("CompositeOutput for component %s:", cn)
-		logAndPrintf(args, "\n%s\n%s", cs, strings.Repeat("=", len(cs)))
+		log.Infof("\n%s\n%s", cs, strings.Repeat("=", len(cs)))
 		if out.Err[cn] != nil {
-			logAndPrintf(args, "Errors: %s\n", out.Err[cn])
+			log.Errorf("Error object: %s\n", out.Err[cn])
 		}
 		if strings.TrimSpace(out.Stderr[cn]) != "" {
-			logAndPrintf(args, "Error strings:\n%s\n", out.Stderr[cn])
+			log.Errorf("Error string:\n%s\n", out.Stderr[cn])
 		}
 		if strings.TrimSpace(out.Stdout[cn]) != "" {
-			logAndPrintf(args, "Command output:\n%s\n", out.Stdout[cn])
+			log.Infof("Output:\n%s\n", out.Stdout[cn])
 		}
 	}
 }

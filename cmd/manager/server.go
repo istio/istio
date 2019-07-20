@@ -17,7 +17,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -77,15 +76,13 @@ func serverCmd() *cobra.Command {
 func run() {
 	namespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {
-		log.Errora(err, "Failed to get watch namespace")
-		os.Exit(1)
+		log.Fatalf("Failed to get watch namespace: %v", err)
 	}
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
-		log.Errora(err, "")
-		os.Exit(1)
+		log.Fatalf("Could not get apiserver config: %v", err)
 	}
 
 	ctx := context.TODO()
@@ -93,8 +90,7 @@ func run() {
 	// Become the leader before proceeding
 	err = leader.Become(ctx, "istio-operator-lock")
 	if err != nil {
-		log.Errora(err, "")
-		os.Exit(1)
+		log.Fatalf("Could not become the leader: %v", err)
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components
@@ -103,35 +99,31 @@ func run() {
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 	})
 	if err != nil {
-		log.Errora(err, "")
-		os.Exit(1)
+		log.Fatalf("Could not create a controller manager: %v", err)
 	}
 
 	log.Info("Registering Components.")
 
 	// Setup Scheme for all resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Errora(err, "")
-		os.Exit(1)
+		log.Fatalf("Could not add manager scheme: %v", err)
 	}
 
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr); err != nil {
-		log.Errora(err, "")
-		os.Exit(1)
+		log.Fatalf("Could not add all controllers to operator manager: %v", err)
 	}
 
 	// Create Service object to expose the metrics port.
 	_, err = metrics.ExposeMetricsPort(ctx, metricsPort)
 	if err != nil {
-		log.Info(err.Error())
+		log.Errorf("Could not create a service to expose the metrics port: %v", err.Error())
 	}
 
 	log.Info("Starting the Cmd.")
 
 	// Start the Cmd
 	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
-		log.Errora(err, "Manager exited non-zero")
-		os.Exit(1)
+		log.Fatalf("Manager exited non-zero: %v", err)
 	}
 }

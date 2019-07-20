@@ -45,7 +45,7 @@ func writeManifests(args *rootArgs) {
 
 	manifests, err := genManifests(args)
 	if err != nil {
-		log.Fatalf(err.Error())
+		log.Fatalf("Could not generate manifests: %s", err)
 	}
 
 	if args.outFilename == "" {
@@ -54,10 +54,10 @@ func writeManifests(args *rootArgs) {
 		}
 	} else {
 		if err := os.MkdirAll(args.outFilename, os.ModePerm); err != nil {
-			log.Fatalf(err.Error())
+			log.Fatalf("Could not create output folder: %s", err)
 		}
 		if err := manifest.RenderToDir(manifests, args.outFilename, args.dryRun, args.verbose); err != nil {
-			log.Errorf(err.Error())
+			log.Errorf("Could not render manifests to output folder: %s", err)
 		}
 	}
 }

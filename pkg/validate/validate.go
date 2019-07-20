@@ -22,7 +22,6 @@ import (
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/util"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -44,7 +43,6 @@ var (
 // CheckIstioControlPlaneSpec validates the values in the given Installer spec, using the field map defaultValidations to
 // call the appropriate validation function.
 func CheckIstioControlPlaneSpec(is *v1alpha2.IstioControlPlaneSpec, checkRequired bool) util.Errors {
-	log.Infof("Validating IstioControlPlaneSpec")
 	return validate(defaultValidations, is, nil, checkRequired)
 }
 
@@ -154,7 +152,7 @@ func validateInstallPackagePath(path util.Path, val interface{}) util.Errors {
 	}
 
 	if _, err := url.ParseRequestURI(val.(string)); err != nil {
-		return util.NewErrs(fmt.Errorf("invalid value %s:%s", path, valStr))
+		return util.NewErrs(fmt.Errorf("invalid value %s: %s", path, valStr))
 	}
 
 	validPrefixes := []string{util.LocalFilePrefix}

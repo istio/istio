@@ -68,7 +68,11 @@ func NewHelmRenderer(helmBaseDir, profile, componentName, namespace string) (Tem
 func ReadValuesYAML(profile string) (string, error) {
 	var err error
 	var globalValues string
-	log.Infof("ReadValuesYAML for profile name: %s", profile)
+	if profile == "" {
+		log.Infof("ReadValuesYAML for profile name: [Empty]")
+	} else {
+		log.Infof("ReadValuesYAML for profile name: %s", profile)
+	}
 
 	// Get global values from profile.
 	switch {
