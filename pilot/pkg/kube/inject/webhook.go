@@ -28,16 +28,18 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
+
+	"istio.io/api/annotation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/cmd"
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/pkg/log"
+
 	"k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/cmd"
-	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -503,21 +505,21 @@ var (
 func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
 	var statusBytes []byte
 	if pod.ObjectMeta.Annotations != nil {
-		if value, ok := pod.ObjectMeta.Annotations[annotationStatus]; ok {
+		if value, ok := pod.ObjectMeta.Annotations[annotation.SidecarStatus.Name]; ok {
 			statusBytes = []byte(value)
 		}
 	}
 
 	// default case when injected pod has explicit status
-	var status SidecarInjectionStatus
-	if err := json.Unmarshal(statusBytes, &status); err == nil {
+	var iStatus SidecarInjectionStatus
+	if err := json.Unmarshal(statusBytes, &iStatus); err == nil {
 		// heuristic assumes status is valid if any of the resource
 		// lists is non-empty.
-		if len(status.InitContainers) != 0 ||
-			len(status.Containers) != 0 ||
-			len(status.Volumes) != 0 ||
-			len(status.ImagePullSecrets) != 0 {
-			return &status
+		if len(iStatus.InitContainers) != 0 ||
+			len(iStatus.Containers) != 0 ||
+			len(iStatus.Volumes) != 0 ||
+			len(iStatus.ImagePullSecrets) != 0 {
+			return &iStatus
 		}
 	}
 
@@ -572,13 +574,13 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		}
 	}
 
-	spec, status, err := InjectionData(wh.sidecarConfig.Template, wh.valuesConfig, wh.sidecarTemplateVersion, &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
+	spec, iStatus, err := InjectionData(wh.sidecarConfig.Template, wh.valuesConfig, wh.sidecarTemplateVersion, &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
 	if err != nil {
-		log.Infof("Injection data: err=%v spec=%v\n", err, status)
+		log.Infof("Injection data: err=%v spec=%v\n", err, iStatus)
 		return toAdmissionResponse(err)
 	}
 
-	annotations := map[string]string{annotationStatus: status}
+	annotations := map[string]string{annotation.SidecarStatus.Name: iStatus}
 
 	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec)
 	if err != nil {

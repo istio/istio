@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
-	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
 
@@ -162,7 +161,7 @@ func (s *Server) Stop() {
 
 	if s.debugServer != nil {
 		if err := s.debugServer.Shutdown(context.TODO()); err != nil {
-			log.Error("failed to shut down debug server")
+			sdsServiceLog.Error("failed to shut down debug server")
 		}
 	}
 }
@@ -192,7 +191,7 @@ func (s *Server) initDebugServer(port int) {
 
 	go func() {
 		err := s.debugServer.ListenAndServe()
-		log.Errorf("debug server failure: %s", err)
+		sdsServiceLog.Errorf("debug server failure: %s", err)
 	}()
 }
 
@@ -204,12 +203,12 @@ func (s *sdsservice) debugHTTPHandler(w http.ResponseWriter, req *http.Request) 
 		w.WriteHeader(http.StatusInternalServerError)
 		failureMessage := fmt.Sprintf("debug endpoint failure: %s", err)
 		if _, err := w.Write([]byte(failureMessage)); err != nil {
-			log.Errorf("debug endpoint failed to write error response: %s", err)
+			sdsServiceLog.Errorf("debug endpoint failed to write error response: %s", err)
 		}
 		return
 	}
 	if _, err := w.Write([]byte(workloadJSON)); err != nil {
-		log.Errorf("debug endpoint failed to write response: %s", err)
+		sdsServiceLog.Errorf("debug endpoint failed to write response: %s", err)
 	}
 }
 

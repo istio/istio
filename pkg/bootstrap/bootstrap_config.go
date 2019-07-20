@@ -28,16 +28,15 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pkg/errors"
+
 	"golang.org/x/oauth2/google"
 
+	"istio.io/api/annotation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/pkg/annotations"
-
-	"github.com/gogo/protobuf/types"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/env"
@@ -58,11 +57,6 @@ const (
 
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
 
-	// statsMatchers give the operator control over Envoy stats collection.
-	EnvoyStatsMatcherInclusionPrefixes = "sidecar.istio.io/statsInclusionPrefixes"
-	EnvoyStatsMatcherInclusionSuffixes = "sidecar.istio.io/statsInclusionSuffixes"
-	EnvoyStatsMatcherInclusionRegexps  = "sidecar.istio.io/statsInclusionRegexps"
-
 	// Options are used in the boostrap template.
 	envoyStatsMatcherInclusionPrefixOption = "inclusionPrefix"
 	envoyStatsMatcherInclusionSuffixOption = "inclusionSuffix"
@@ -70,13 +64,6 @@ const (
 )
 
 var (
-	_ = annotations.Register(EnvoyStatsMatcherInclusionPrefixes,
-		"Specifies the comma separated list of prefixes of the stats to be emitted by Envoy.")
-	_ = annotations.Register(EnvoyStatsMatcherInclusionSuffixes,
-		"Specifies the comma separated list of suffixes of the stats to be emitted by Envoy.")
-	_ = annotations.Register(EnvoyStatsMatcherInclusionRegexps,
-		"Specifies the comma separated list of regexes the stats should match to be emitted by Envoy.")
-
 	// required stats are used by readiness checks.
 	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc"
 	requiredEnvoyStatsMatcherInclusionSuffix   = "ssl_context_update_by_sds"
@@ -123,12 +110,11 @@ func setStatsOptions(opts map[string]interface{}, meta map[string]interface{}, n
 			opts[optKey] = inclusionOption
 		}
 	}
+	setStatsOption(annotation.SidecarStatsInclusionPrefixes.Name, envoyStatsMatcherInclusionPrefixOption, requiredEnvoyStatsMatcherInclusionPrefixes)
 
-	setStatsOption(EnvoyStatsMatcherInclusionPrefixes, envoyStatsMatcherInclusionPrefixOption, requiredEnvoyStatsMatcherInclusionPrefixes)
+	setStatsOption(annotation.SidecarStatsInclusionSuffixes.Name, envoyStatsMatcherInclusionSuffixOption, requiredEnvoyStatsMatcherInclusionSuffix)
 
-	setStatsOption(EnvoyStatsMatcherInclusionSuffixes, envoyStatsMatcherInclusionSuffixOption, requiredEnvoyStatsMatcherInclusionSuffix)
-
-	setStatsOption(EnvoyStatsMatcherInclusionRegexps, envoyStatsMatcherInclusionRegexpOption, "")
+	setStatsOption(annotation.SidecarStatsInclusionRegexps.Name, envoyStatsMatcherInclusionRegexpOption, "")
 }
 
 func defaultPilotSan() []string {
@@ -222,11 +208,11 @@ type setMetaFunc func(m map[string]interface{}, key string, val string)
 
 func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[string]interface{}) {
 	metaPrefixLen := len(prefix)
-	for _, env := range envs {
-		if !shouldExtract(env, prefix) {
+	for _, e := range envs {
+		if !shouldExtract(e, prefix) {
 			continue
 		}
-		v := env[metaPrefixLen:]
+		v := e[metaPrefixLen:]
 		if !isEnvVar(v) {
 			continue
 		}
@@ -242,6 +228,7 @@ type istioMetadata struct {
 	Name                      string            `json:"name,omitempty"`
 	Namespace                 string            `json:"namespace,omitempty"`
 	ServiceAccount            string            `json:"service_account,omitempty"`
+	PlatformMetadata          map[string]string `json:"platform_metadata,omitempty"`
 }
 
 func shouldExtract(envVar, prefix string) bool {
@@ -273,7 +260,7 @@ func jsonStringToMap(jsonStr string) (m map[string]string) {
 	return
 }
 
-func extractIstioMetadata(envVars []string) istioMetadata {
+func extractIstioMetadata(envVars []string, plat platform.Environment) istioMetadata {
 	im := istioMetadata{}
 	for _, varStr := range envVars {
 		name, val := parseEnvVar(varStr)
@@ -290,6 +277,9 @@ func extractIstioMetadata(envVars []string) istioMetadata {
 			im.Namespace = val
 		}
 	}
+	if plat != nil {
+		im.PlatformMetadata = plat.Metadata()
+	}
 	return im
 }
 
@@ -297,7 +287,7 @@ func extractIstioMetadata(envVars []string) istioMetadata {
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
-func getNodeMetaData(envs []string) map[string]interface{} {
+func getNodeMetaData(envs []string, plat platform.Environment) map[string]interface{} {
 	meta := map[string]interface{}{}
 
 	extractMetadata(envs, IstioMetaPrefix, func(m map[string]interface{}, key string, val string) {
@@ -312,7 +302,7 @@ func getNodeMetaData(envs []string) map[string]interface{} {
 	}, meta)
 	meta["istio"] = "sidecar"
 
-	meta["istio.io/metadata"] = extractIstioMetadata(envs)
+	meta["istio.io/metadata"] = extractIstioMetadata(envs, plat)
 
 	return meta
 }
@@ -323,6 +313,13 @@ var overrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP", "", "")
 // TODO: in v2 some of the LDS ports (port, http_port) should be configured in the bootstrap.
 func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
 	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string) (string, error) {
+	// currently, only the GCP Platform is supported, so this is hardcorded and the writeBootstrapForPlatform method is private.
+	return writeBootstrapForPlatform(config, node, epoch, pilotSAN, opts, localEnv, nodeIPs, dnsRefreshRate, platform.NewGCP())
+}
+
+func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
+	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string, platEnv platform.Environment) (string, error) {
+
 	if opts == nil {
 		opts = map[string]interface{}{}
 	}
@@ -368,7 +365,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["nodeID"] = node
 
 	// Support passing extra info from node environment as metadata
-	meta := getNodeMetaData(localEnv)
+	meta := getNodeMetaData(localEnv, platEnv)
 
 	localityOverride := ""
 	if locality, ok := meta[model.LocalityLabel]; ok {
@@ -377,7 +374,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	l := util.ConvertLocality(localityOverride)
 	if l == nil {
 		// Populate the platform locality if available.
-		l = platform.GetPlatformLocality()
+		l = platEnv.Locality()
 	}
 	if l.Region != "" {
 		opts["region"] = l.Region

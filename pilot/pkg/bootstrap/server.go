@@ -466,6 +466,9 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 			if s.kubeRegistry != nil {
 				s.kubeRegistry.InitNetworkLookup(meshNetworks)
 			}
+			if s.multicluster != nil {
+				s.multicluster.ReloadNetworkLookup(meshNetworks)
+			}
 			if s.EnvoyXdsServer != nil {
 				s.EnvoyXdsServer.Env.MeshNetworks = meshNetworks
 				s.EnvoyXdsServer.ConfigUpdate(true)
@@ -941,7 +944,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go func() {
-			if features.EnableWaitCacheSync && !s.waitForCacheSync(stop) {
+			if !s.waitForCacheSync(stop) {
 				return
 			}
 
@@ -993,7 +996,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			go func() {
-				if features.EnableWaitCacheSync && !s.waitForCacheSync(stop) {
+				if !s.waitForCacheSync(stop) {
 					return
 				}
 

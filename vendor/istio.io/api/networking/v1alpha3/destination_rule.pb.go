@@ -416,13 +416,9 @@ func (m *TrafficPolicy) GetPortLevelSettings() []*TrafficPolicy_PortTrafficPolic
 
 // Traffic policies that apply to specific ports of the service
 type TrafficPolicy_PortTrafficPolicy struct {
-	// Specifies the port name or number of a port on the destination service
+	// Specifies the number of a port on the destination service
 	// on which this policy is being applied.
 	//
-	// Names must comply with DNS label syntax (rfc1035) and therefore cannot
-	// collide with numbers. If there are multiple ports on a service with
-	// the same protocol the names should be of the form <protocol-name>-<DNS
-	// label>.
 	Port *PortSelector `protobuf:"bytes,1,opt,name=port,proto3" json:"port,omitempty"`
 	// Settings controlling the load balancer algorithms.
 	LoadBalancer *LoadBalancerSettings `protobuf:"bytes,2,opt,name=load_balancer,json=loadBalancer,proto3" json:"load_balancer,omitempty"`

@@ -504,14 +504,23 @@ type IstioEgressListener struct {
 	// The `dnsName` should be specified using FQDN format, optionally including
 	// a wildcard character in the left-most component (e.g., `prod/*.example.com`).
 	// Set the `dnsName` to `*` to select all services from the specified namespace
-	// (e.g.,`prod/*`). The `namespace` can also be set to `*` to select a particular
-	// service from any available namespace (e.g., "*/foo.example.com").
+	// (e.g., `prod/*`). The `namespace` can also be set to `*` to select a particular
+	// service from any available namespace (e.g., `*/foo.example.com`).
 	//
 	// NOTE: Only services and configuration artifacts exported to the sidecar's
 	// namespace (e.g., `exportTo` value of `*`) can be referenced.
 	// Private configurations (e.g., `exportTo` set to `.`) will
 	// not be available. Refer to the `exportTo` setting in `VirtualService`,
 	// `DestinationRule`, and `ServiceEntry` configurations for details.
+	//
+	// **WARNING:** The list of egress hosts in a `Sidecar` must also include
+	// the Mixer control plane services if they are enabled. Envoy will not
+	// be able to reach them otherwise. For example, add host
+	// `istio-system/istio-telemetry.istio-system.svc.cluster.local` if telemetry
+	// is enabled, `istio-system/istio-policy.istio-system.svc.cluster.local` if
+	// policy is enabled, or add `istio-system/*` to allow all services in the
+	// `istio-system` namespace. This requirement is temporary and will be removed
+	// in a future Istio release.
 	Hosts                []string `protobuf:"bytes,4,rep,name=hosts,proto3" json:"hosts,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`

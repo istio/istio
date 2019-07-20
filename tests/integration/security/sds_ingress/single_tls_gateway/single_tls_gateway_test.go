@@ -33,10 +33,9 @@ var (
 
 // TestSingleTlsGateway_SecretRotation tests a single TLS ingress gateway with SDS enabled.
 // Verifies behavior in these scenarios.
-// (1) when kubernetes secret is not provisioned, which means private key and server certificate
-// are not available. Verifies that listener is not up and connection creation get rejected.
-// (2) A valid kubernetes secret with key/cert is added later, verifies that SSL connection termination is working properly.
-// (3) After key/cert rotation, client needs to pick new CA cert to complete SSL connection. Old CA
+// (1) A valid kubernetes secret with key/cert is added, verifies that SSL connection termination
+// is working properly.
+// (2) After key/cert rotation, client needs to pick new CA cert to complete SSL connection. Old CA
 // cert will cause the SSL connection fail.
 func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 	framework.
@@ -49,25 +48,22 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 				t.Skip("https://github.com/istio/istio/issues/14180")
 			}
 
-			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.SingleTLSGateway)
-
-			// Do not provide private key and server certificate for ingress gateway. Connection creation should fail.
-			ingA := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
-			tlsContext := ingressutil.TLSContext{CaCert: ingressutil.CaCertA}
-			err := ingressutil.VisitProductPage(ingA, host, ingress.TLS, tlsContext, 30*time.Second,
-				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "connection refused"}, t)
-			if err != nil {
-				t.Errorf("unable to retrieve code 0 from product page at host %s: %v", host, err)
-			}
-
 			// Add kubernetes secret to provision key/cert for ingress gateway.
 			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.TLS, ingressutil.IngressCredentialA)
-			ingB := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
-			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingB, 1, 10*time.Second)
+			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.SingleTLSGateway)
+
+			ingA := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
+			err := ingressutil.WaitUntilGatewaySdsStatsGE(t, ingA, 1, 10*time.Second)
 			if err != nil {
 				t.Errorf("sds update stats does not match: %v", err)
 			}
-			err = ingressutil.VisitProductPage(ingB, host, ingress.TLS, tlsContext, 30*time.Second,
+			// Expect 2 active listeners, one listens on 443 and the other listens on 15090
+			err = ingressutil.WaitUntilGatewayActiveListenerStatsGE(t, ingA, 2, 20*time.Second)
+			if err != nil {
+				t.Errorf("total active listener stats does not match: %v", err)
+			}
+			tlsContext := ingressutil.TLSContext{CaCert: ingressutil.CaCertA}
+			err = ingressutil.VisitProductPage(ingA, host, ingress.TLS, tlsContext, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {
 				t.Errorf("unable to retrieve 200 from product page at host %s: %v", host, err)
@@ -75,22 +71,22 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 
 			// key/cert rotation
 			ingressutil.RotateSecrets(t, ctx, credName, ingress.TLS, ingressutil.IngressCredentialB)
-			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingB, 2, 10*time.Second)
+			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingA, 2, 10*time.Second)
 			if err != nil {
 				t.Errorf("sds update stats does not match: %v", err)
 			}
 
-			// Use old CA cert to set up SSL connection would fail.
-			err = ingressutil.VisitProductPage(ingB, host, ingress.TLS, tlsContext, 30*time.Second,
+			// Client use old server CA cert to set up SSL connection would fail.
+			err = ingressutil.VisitProductPage(ingA, host, ingress.TLS, tlsContext, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"}, t)
 			if err != nil {
 				t.Errorf("unable to retrieve 404 from product page at host %s: %v", host, err)
 			}
 
-			// Use new CA cert to set up SSL connection.
+			// Client use new server CA cert to set up SSL connection.
 			tlsContext = ingressutil.TLSContext{CaCert: ingressutil.CaCertB}
-			ingC := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
-			err = ingressutil.VisitProductPage(ingC, host, ingress.TLS, tlsContext, 30*time.Second,
+			ingB := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
+			err = ingressutil.VisitProductPage(ingB, host, ingress.TLS, tlsContext, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {
 				t.Errorf("unable to retrieve 200 from product page at host %s: %v", host, err)

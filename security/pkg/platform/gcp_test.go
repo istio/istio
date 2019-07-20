@@ -232,7 +232,7 @@ func TestGcpGetAgentCredentials(t *testing.T) {
 		expectedErr        string
 		expectedCredential []byte
 	}{
-		"Token abddef is exptected": {
+		"Token abddef is expected": {
 			token:              "abcdef",
 			tokenFetchErr:      "",
 			expectedErr:        "",
