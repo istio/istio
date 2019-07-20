@@ -48,7 +48,7 @@ make init
 
 # Build just the images needed for the tests
 for image in pilot proxyv2 proxy_init app test_policybackend mixer citadel galley sidecar_injector kubectl node-agent-k8s; do
-   make docker.${image}
+   make -j8 -Oline docker.${image}
 done
 
 function build_kind_images(){
