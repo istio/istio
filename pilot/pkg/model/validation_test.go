@@ -3278,6 +3278,31 @@ func TestValidateEnvoyFilter(t *testing.T) {
 				},
 			},
 		}, error: "envoy filter: missing patch value for non-remove operation"},
+		{name: "add with nil match", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_LISTENER,
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_ADD,
+						Value: &types.Struct{},
+					},
+				},
+			},
+		}, error: "envoy filter: missing match context for add operations"},
+		{name: "add with ANY context match", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_LISTENER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_ANY,
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
+						Value: &types.Struct{},
+					},
+				},
+			},
+		}, error: "envoy filter: add operations cannot use ANY match context"},
 		{name: "listener with invalid match", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3414,6 +3439,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 				{
 					ApplyTo: networking.EnvoyFilter_CLUSTER,
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_SIDECAR_INBOUND,
 						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
 							Cluster: &networking.EnvoyFilter_ClusterMatch{},
 						},
@@ -3436,6 +3462,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 				{
 					ApplyTo: networking.EnvoyFilter_CLUSTER,
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_SIDECAR_INBOUND,
 						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
 							Cluster: &networking.EnvoyFilter_ClusterMatch{},
 						},

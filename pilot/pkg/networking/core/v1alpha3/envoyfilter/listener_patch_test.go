@@ -15,8 +15,13 @@
 package envoyfilter
 
 import (
+	"reflect"
 	"strings"
+	"testing"
 
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 
@@ -73,7 +78,8 @@ func buildPatchStruct(config string) *types.Struct {
 	return val
 }
 
-func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig.MeshConfig, configStore model.IstioConfigStore) *model.Environment {
+func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig.MeshConfig,
+	configStore model.IstioConfigStore) *model.Environment {
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
@@ -84,4 +90,223 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig
 	_ = env.PushContext.InitContext(env)
 
 	return env
+}
+
+func TestApplyListenerPatches(t *testing.T) {
+	configPatches := []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value:     buildPatchStruct(`{"name":"new-outbound-listener1"}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 12345,
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REMOVE,
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 80,
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value:     buildPatchStruct(`{"listener_filters": [{"name":"foo"}]}`),
+			},
+		},
+	}
+
+	sidecarOutboundIn := []*xdsapi.Listener{
+		{
+			Name: "12345",
+			Address: core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 12345,
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "another-listener",
+		},
+	}
+
+	sidecarOutboundOut := []*xdsapi.Listener{
+		{
+			Name: "12345",
+			Address: core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 12345,
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "another-listener",
+		},
+		{
+			Name: "new-outbound-listener1",
+		},
+	}
+
+	sidecarInboundIn := []*xdsapi.Listener{
+		{
+			Name: "12345",
+			Address: core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 12345,
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "another-listener",
+		},
+	}
+
+	sidecarInboundOut := []*xdsapi.Listener{
+		{
+			Name: "another-listener",
+		},
+	}
+
+	gatewayIn := []*xdsapi.Listener{
+		{
+			Name: "80",
+			Address: core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 80,
+						},
+					},
+				},
+			},
+			FilterChains: []listener.FilterChain{{Filters: []listener.Filter{{Name: "network-filter"}}}},
+		},
+		{
+			Name: "another-listener",
+		},
+	}
+
+	gatewayOut := []*xdsapi.Listener{
+		{
+			Name: "80",
+			Address: core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 80,
+						},
+					},
+				},
+			},
+			ListenerFilters: []listener.ListenerFilter{{Name: "foo"}},
+			FilterChains:    []listener.FilterChain{{Filters: []listener.Filter{{Name: "network-filter"}}}},
+		},
+		{
+			Name: "another-listener",
+		},
+	}
+
+	sidecarProxy := &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"}
+	gatewayProxy := &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"}
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
+	push := model.NewPushContext()
+	push.InitContext(env)
+
+	type args struct {
+		patchContext networking.EnvoyFilter_PatchContext
+		proxy        *model.Proxy
+		push         *model.PushContext
+		listeners    []*xdsapi.Listener
+		skipAdds     bool
+	}
+	tests := []struct {
+		name string
+		args args
+		want []*xdsapi.Listener
+	}{
+		{
+			name: "gateway lds",
+			args: args{
+				patchContext: networking.EnvoyFilter_GATEWAY,
+				proxy:        gatewayProxy,
+				push:         push,
+				listeners:    gatewayIn,
+				skipAdds:     false,
+			},
+			want: gatewayOut,
+		},
+		{
+			name: "sidecar outbound lds",
+			args: args{
+				patchContext: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				proxy:        sidecarProxy,
+				push:         push,
+				listeners:    sidecarOutboundIn,
+				skipAdds:     false,
+			},
+			want: sidecarOutboundOut,
+		},
+		{
+			name: "sidecar outbound lds - skip adds",
+			args: args{
+				patchContext: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				proxy:        sidecarProxy,
+				push:         push,
+				listeners:    sidecarOutboundIn,
+				skipAdds:     true,
+			},
+			want: sidecarOutboundIn, // should be same
+		},
+		{
+			name: "sidecar inbound lds",
+			args: args{
+				patchContext: networking.EnvoyFilter_SIDECAR_INBOUND,
+				proxy:        sidecarProxy,
+				push:         push,
+				listeners:    sidecarInboundIn,
+				skipAdds:     false,
+			},
+			want: sidecarInboundOut,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ApplyListenerPatches(tt.args.patchContext, tt.args.proxy, tt.args.push,
+				tt.args.listeners, tt.args.skipAdds); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ApplyListenerPatches() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

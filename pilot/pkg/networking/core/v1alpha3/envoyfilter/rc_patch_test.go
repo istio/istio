@@ -30,7 +30,7 @@ import (
 func Test_virtualHostMatch(t *testing.T) {
 	type args struct {
 		cp *model.EnvoyFilterConfigPatchWrapper
-		vh    *route.VirtualHost
+		vh *route.VirtualHost
 	}
 	tests := []struct {
 		name string
@@ -216,7 +216,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 	}
 }
 
-func Test_applyRouteConfigurationPatches(t *testing.T) {
+func TestApplyRouteConfigurationPatches(t *testing.T) {
 	configPatches := []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 		{
 			ApplyTo: networking.EnvoyFilter_ROUTE_CONFIGURATION,

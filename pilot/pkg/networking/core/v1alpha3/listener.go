@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"encoding/json"
 	"fmt"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"net"
 	"reflect"
 	"sort"
@@ -44,6 +43,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/monitoring"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
@@ -889,12 +889,12 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(env *model.Environment, nod
 		FilterChains: []plugin.FilterChain{{}},
 	}
 	pluginParams := &plugin.InputParams{
-		ListenerProtocol:           plugin.ListenerProtocolHTTP,
-		ListenerCategory:           networking.EnvoyFilter_SIDECAR_OUTBOUND,
-		Env:                        env,
-		Node:                       node,
-		ProxyInstances:             proxyInstances,
-		Push:                       push,
+		ListenerProtocol: plugin.ListenerProtocolHTTP,
+		ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+		Env:              env,
+		Node:             node,
+		ProxyInstances:   proxyInstances,
+		Push:             push,
 	}
 	if err := buildCompleteFilterChain(pluginParams, mutable, opts); err != nil {
 		log.Warna("buildSidecarListeners ", err.Error())

@@ -183,9 +183,8 @@ func (builder *ListenerBuilder) patchListeners(push *model.PushContext) {
 		// temp array will either be empty [if virtual listener was removed] or will have a modified listener
 		if len(tempArray) == 0 {
 			return nil
-		} else {
-			return tempArray[0]
 		}
+		return tempArray[0]
 	}
 	builder.virtualListener = patchOneListener(builder.virtualListener)
 	builder.virtualInboundListener = patchOneListener(builder.virtualInboundListener)

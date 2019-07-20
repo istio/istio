@@ -641,6 +641,25 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing patch value for non-remove operation"))
 			continue
 		}
+
+		// Add operations should not use match context any as we will end up adding the same object in inbound/outbound directions
+		if cp.Match == nil && (cp.Patch.Operation == networking.EnvoyFilter_Patch_ADD ||
+			cp.Patch.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE ||
+			cp.Patch.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER) {
+			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing match context for add operations"))
+			continue
+		}
+
+		// Add operations should not use match context any as we will end up adding the same object in inbound/outbound directions
+		if cp.Match != nil && (cp.Patch.Operation == networking.EnvoyFilter_Patch_ADD ||
+			cp.Patch.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE ||
+			cp.Patch.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER) {
+			if cp.Match.Context == networking.EnvoyFilter_ANY {
+				errs = appendErrors(errs, fmt.Errorf("envoy filter: add operations cannot use ANY match context"))
+				continue
+			}
+		}
+
 		// ensure that applyTo, match and patch all line up
 		switch cp.ApplyTo {
 		case networking.EnvoyFilter_LISTENER,

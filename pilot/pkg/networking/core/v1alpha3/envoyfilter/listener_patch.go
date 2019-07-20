@@ -57,12 +57,11 @@ func doListenerListOperation(patchContext networking.EnvoyFilter_PatchContext,
 			continue
 		}
 		for _, cp := range efw.Patches[networking.EnvoyFilter_LISTENER] {
-			if !patchContextMatch(patchContext, cp) {
-				continue
-			}
-			if cp.Operation == networking.EnvoyFilter_Patch_ADD ||
-				cp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER ||
-				cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
+			if cp.Operation == networking.EnvoyFilter_Patch_ADD {
+				if !patchContextMatch(patchContext, cp) {
+					continue
+				}
+
 				listeners = append(listeners, cp.Value.(*xdsapi.Listener))
 			}
 		}
@@ -84,7 +83,7 @@ func doListenerOperation(patchContext networking.EnvoyFilter_PatchContext,
 	listener *xdsapi.Listener, listenersRemoved *bool) {
 	for _, cp := range patches[networking.EnvoyFilter_LISTENER] {
 		if !patchContextMatch(patchContext, cp) ||
-			!listenerMatch(patchContext, listener, cp) {
+			!listenerMatch(listener, cp) {
 			continue
 		}
 
@@ -112,14 +111,11 @@ func doFilterChainListOperation(patchContext networking.EnvoyFilter_PatchContext
 		doFilterChainOperation(patchContext, patches, listener, &fc, &filterChainsRemoved)
 	}
 	for _, cp := range patches[networking.EnvoyFilter_FILTER_CHAIN] {
-		if !patchContextMatch(patchContext, cp) ||
-			!listenerMatch(patchContext, listener, cp) {
-			continue
-		}
-
-		if cp.Operation == networking.EnvoyFilter_Patch_ADD ||
-			cp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER ||
-			cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
+		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
+			if !patchContextMatch(patchContext, cp) ||
+				!listenerMatch(listener, cp) {
+				continue
+			}
 			listener.FilterChains = append(listener.FilterChains, *cp.Value.(*xdslistener.FilterChain))
 		}
 	}
@@ -140,7 +136,7 @@ func doFilterChainOperation(patchContext networking.EnvoyFilter_PatchContext,
 	fc *xdslistener.FilterChain, filterChainRemoved *bool) {
 	for _, cp := range patches[networking.EnvoyFilter_FILTER_CHAIN] {
 		if !patchContextMatch(patchContext, cp) ||
-			!listenerMatch(patchContext, listener, cp) ||
+			!listenerMatch(listener, cp) ||
 			!filterChainMatch(fc, cp) {
 			continue
 		}
@@ -168,7 +164,7 @@ func doNetworkFilterListOperation(patchContext networking.EnvoyFilter_PatchConte
 	}
 	for _, cp := range patches[networking.EnvoyFilter_NETWORK_FILTER] {
 		if !patchContextMatch(patchContext, cp) ||
-			!listenerMatch(patchContext, listener, cp) ||
+			!listenerMatch(listener, cp) ||
 			!filterChainMatch(fc, cp) {
 			continue
 		}
@@ -212,7 +208,7 @@ func doNetworkFilterOperation(patchContext networking.EnvoyFilter_PatchContext,
 	filter *xdslistener.Filter, networkFilterRemoved *bool) {
 	for _, cp := range patches[networking.EnvoyFilter_NETWORK_FILTER] {
 		if !patchContextMatch(patchContext, cp) ||
-			!listenerMatch(patchContext, listener, cp) ||
+			!listenerMatch(listener, cp) ||
 			!filterChainMatch(fc, cp) ||
 			!networkFilterMatch(filter, cp) {
 			continue
@@ -255,7 +251,7 @@ func doHTTPFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
 	}
 	for _, cp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
 		if !patchContextMatch(patchContext, cp) ||
-			!listenerMatch(patchContext, listener, cp) ||
+			!listenerMatch(listener, cp) ||
 			!filterChainMatch(fc, cp) ||
 			!networkFilterMatch(filter, cp) {
 			continue
@@ -306,7 +302,7 @@ func doHTTPFilterOperation(patchContext networking.EnvoyFilter_PatchContext,
 	httpFilter *http_conn.HttpFilter, httpFilterRemoved *bool) {
 	for _, cp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
 		if !patchContextMatch(patchContext, cp) ||
-			!listenerMatch(patchContext, listener, cp) ||
+			!listenerMatch(listener, cp) ||
 			!filterChainMatch(fc, cp) ||
 			!networkFilterMatch(filter, cp) ||
 			!httpFilterMatch(httpFilter, cp) {
@@ -323,8 +319,7 @@ func doHTTPFilterOperation(patchContext networking.EnvoyFilter_PatchContext,
 	}
 }
 
-func listenerMatch(_ networking.EnvoyFilter_PatchContext, listener *xdsapi.Listener,
-	cp *model.EnvoyFilterConfigPatchWrapper) bool {
+func listenerMatch(listener *xdsapi.Listener, cp *model.EnvoyFilterConfigPatchWrapper) bool {
 	cMatch := cp.Match.GetListener()
 	if cMatch == nil {
 		return true

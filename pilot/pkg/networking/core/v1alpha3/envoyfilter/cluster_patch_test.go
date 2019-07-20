@@ -147,6 +147,9 @@ func TestApplyClusterPatches(t *testing.T) {
 		},
 		{
 			ApplyTo: networking.EnvoyFilter_CLUSTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+			},
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_ADD,
 				Value:     buildPatchStruct(`{"name":"new-cluster2"}`),
@@ -198,7 +201,7 @@ func TestApplyClusterPatches(t *testing.T) {
 		},
 	}
 
-	sidecarInput := []*xdsapi.Cluster{
+	sidecarOutboundIn := []*xdsapi.Cluster{
 		{Name: "cluster1", DnsLookupFamily: xdsapi.Cluster_V4_ONLY, LbPolicy: xdsapi.Cluster_ROUND_ROBIN},
 		{Name: "cluster2",
 			Http2ProtocolOptions: &core.Http2ProtocolOptions{
@@ -206,9 +209,9 @@ func TestApplyClusterPatches(t *testing.T) {
 				AllowMetadata: true,
 			}, LbPolicy: xdsapi.Cluster_MAGLEV,
 		},
-		{Name: "inbound|9999||mgmtCluster"},
 	}
-	sidecarOutput := []*xdsapi.Cluster{
+
+	sidecarOutboundOut := []*xdsapi.Cluster{
 		{Name: "cluster1", DnsLookupFamily: xdsapi.Cluster_V6_ONLY, LbPolicy: xdsapi.Cluster_RING_HASH},
 		{Name: "cluster2",
 			Http2ProtocolOptions: &core.Http2ProtocolOptions{
@@ -220,6 +223,14 @@ func TestApplyClusterPatches(t *testing.T) {
 		{Name: "new-cluster2"},
 	}
 
+	sidecarInboundIn := []*xdsapi.Cluster{
+		{Name: "cluster1", DnsLookupFamily: xdsapi.Cluster_V4_ONLY, LbPolicy: xdsapi.Cluster_ROUND_ROBIN},
+		{Name: "inbound|9999||mgmtCluster"},
+	}
+	sidecarInboundOut := []*xdsapi.Cluster{
+		{Name: "cluster1", DnsLookupFamily: xdsapi.Cluster_V6_ONLY, LbPolicy: xdsapi.Cluster_RING_HASH},
+	}
+
 	gatewayInput := []*xdsapi.Cluster{
 		{Name: "cluster1", DnsLookupFamily: xdsapi.Cluster_V4_ONLY, LbPolicy: xdsapi.Cluster_ROUND_ROBIN},
 		{Name: "cluster2",
@@ -228,7 +239,6 @@ func TestApplyClusterPatches(t *testing.T) {
 				AllowMetadata: true,
 			}, LbPolicy: xdsapi.Cluster_MAGLEV,
 		},
-		{Name: "inbound|9999||mgmtCluster"},
 		{Name: "outbound|443||gateway.com"},
 	}
 	gatewayOutput := []*xdsapi.Cluster{
@@ -239,25 +249,33 @@ func TestApplyClusterPatches(t *testing.T) {
 				AllowMetadata: true,
 			}, LbPolicy: xdsapi.Cluster_RING_HASH, DnsLookupFamily: xdsapi.Cluster_V6_ONLY,
 		},
-		{Name: "inbound|9999||mgmtCluster", DnsLookupFamily: xdsapi.Cluster_V6_ONLY, LbPolicy: xdsapi.Cluster_RING_HASH},
-		{Name: "new-cluster2"},
 	}
 
 	testCases := []struct {
 		name   string
 		input  []*xdsapi.Cluster
 		proxy  *model.Proxy
+		patchContext networking.EnvoyFilter_PatchContext
 		output []*xdsapi.Cluster
 	}{
 		{
-			name:   "sidecar cds patch",
-			input:  sidecarInput,
+			name:   "sidecar outbound cluster patch",
+			input:  sidecarOutboundIn,
 			proxy:  &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"},
-			output: sidecarOutput,
+			patchContext: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+			output: sidecarOutboundOut,
+		},
+		{
+			name:   "sidecar inbound cluster patch",
+			input:  sidecarInboundIn,
+			patchContext: networking.EnvoyFilter_SIDECAR_INBOUND,
+			proxy:  &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"},
+			output: sidecarInboundOut,
 		},
 		{
 			name:   "gateway cds patch",
 			input:  gatewayInput,
+			patchContext: networking.EnvoyFilter_GATEWAY,
 			proxy:  &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"},
 			output: gatewayOutput,
 		},
@@ -269,7 +287,7 @@ func TestApplyClusterPatches(t *testing.T) {
 	push.InitContext(env)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ret := ApplyClusterPatches(tc.proxy, push, tc.input)
+			ret := ApplyClusterPatches(tc.patchContext, tc.proxy, push, tc.input)
 			if !reflect.DeepEqual(tc.output, ret) {
 				t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.output, ret)
 			}
