@@ -37,7 +37,7 @@ type rootArgs struct {
 
 func addFlags(cmd *cobra.Command, rootArgs *rootArgs) {
 	cmd.PersistentFlags().StringVarP(&rootArgs.inFilename, "filename", "f", "",
-		"The path to the input IstioIstall CR. Uses in cluster value with kubectl if unset.")
+		"The path to the input IstioInstall CR. Uses in cluster value with kubectl if unset.")
 	cmd.PersistentFlags().StringVarP(&rootArgs.outFilename, "output", "o",
 		"", "Manifest output path.")
 	cmd.PersistentFlags().BoolVarP(&rootArgs.logToStdErr, "logtostderr", "",

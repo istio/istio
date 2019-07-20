@@ -19,10 +19,6 @@ import (
 	"io/ioutil"
 	"os"
 
-	"istio.io/operator/pkg/component/component"
-	"istio.io/operator/pkg/translate"
-	"istio.io/operator/pkg/version"
-
 	"gopkg.in/yaml.v2"
 
 	"istio.io/operator/pkg/tpath"
@@ -30,9 +26,13 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	"istio.io/operator/pkg/component/component"
 	"istio.io/operator/pkg/helm"
+	"istio.io/operator/pkg/translate"
 	"istio.io/operator/pkg/util"
 	"istio.io/operator/pkg/validate"
+	"istio.io/operator/pkg/version"
+	"istio.io/pkg/log"
 )
 
 type dumpArgs struct {
@@ -72,34 +72,34 @@ func dumpProfile(args *rootArgs, dumpArgs *dumpArgs) {
 	}
 
 	if args.inFilename != "" && dumpArgs.profile != "" {
-		logAndFatalf(args, "Cannot set both --profile and --filename")
+		log.Fatalf("Cannot set both --profile and --filename")
 	}
 
 	writer, err := getWriter(args)
 	if err != nil {
-		logAndFatalf(args, err.Error())
+		log.Fatalf("Could not create output writer: %s", err)
 	}
 	defer func() {
 		if err := writer.Close(); err != nil {
-			logAndFatalf(args, "Did not close output successfully: %v", err)
+			log.Fatalf("Did not close output successfully: %v", err)
 		}
 	}()
 
 	mergedYAML := ""
-	mergedcps := &v1alpha2.IstioControlPlaneSpec{}
+	mergedICPS := &v1alpha2.IstioControlPlaneSpec{}
 
 	switch {
 	case dumpArgs.profile != "":
 		mergedYAML, err = helm.ReadValuesYAML(dumpArgs.profile)
 		if err != nil {
-			logAndFatalf(args, err.Error())
+			log.Fatalf("Failed to read YAML from profile: %v", err)
 		}
 	default:
 		overlayYAML := ""
 		if args.inFilename != "" {
 			b, err := ioutil.ReadFile(args.inFilename)
 			if err != nil {
-				logAndFatalf(args, "Could not read values file %f: %s", args.inFilename, err)
+				log.Fatalf("Could not read from file %s: %v", args.inFilename, err)
 			}
 			overlayYAML = string(b)
 		}
@@ -107,55 +107,55 @@ func dumpProfile(args *rootArgs, dumpArgs *dumpArgs) {
 		// Start with unmarshaling and validating the user CR (which is an overlay on the base profile).
 		overlayICPS := &v1alpha2.IstioControlPlaneSpec{}
 		if err := util.UnmarshalWithJSONPB(overlayYAML, overlayICPS); err != nil {
-			logAndFatalf(args, "Could not unmarshal the input file: %s\n\nOriginal YAML:\n%s\n", err, overlayYAML)
+			log.Fatalf("Could not unmarshal the input file: %s\n\nOriginal YAML:\n%s\n", err, overlayYAML)
 		}
 		if errs := validate.CheckIstioControlPlaneSpec(overlayICPS, false); len(errs) != 0 {
-			logAndFatalf(args, "Input file failed validation with the following errors: %s\n\nOriginal YAML:\n%s\n", errs, overlayYAML)
+			log.Fatalf("Input file failed validation with the following errors: %s\n\nOriginal YAML:\n%s\n", errs, overlayYAML)
 		}
 
 		// Now read the base profile specified in the user spec.
 		fname, err := helm.FilenameFromProfile(overlayICPS.Profile)
 		if err != nil {
-			logAndFatalf(args, "Could not get filename from profile: %s", err)
+			log.Fatalf("Could not get filename from profile: %s", err)
 		}
 
 		baseYAML, err := helm.ReadValuesYAML(overlayICPS.Profile)
 		if err != nil {
-			logAndFatalf(args, "Could not read the profile values for %s: %s", fname, err)
+			log.Fatalf("Could not read the profile values for %s: %s", fname, err)
 		}
 
 		mergedYAML, err = helm.OverlayYAML(baseYAML, overlayYAML)
 		if err != nil {
-			logAndFatalf(args, "Could not overlay user config over base: %s", err)
+			log.Fatalf("Could not overlay user config over base: %s", err)
 		}
 		// Now unmarshal and validate the combined base profile and user CR overlay.
-		if err := util.UnmarshalWithJSONPB(mergedYAML, mergedcps); err != nil {
-			logAndFatalf(args, err.Error())
+		if err := util.UnmarshalWithJSONPB(mergedYAML, mergedICPS); err != nil {
+			log.Fatalf("Merged spec failed validation against IstioControlPlaneSpec: \n%v\n", mergedICPS)
 		}
-		if errs := validate.CheckIstioControlPlaneSpec(mergedcps, true); len(errs) != 0 {
-			logAndFatalf(args, err.Error())
+		if errs := validate.CheckIstioControlPlaneSpec(mergedICPS, true); len(errs) != 0 {
+			log.Fatalf(err.Error())
 		}
 	}
 
 	t, err := translate.NewTranslator(version.NewMinorVersion(1, 2))
 	if err != nil {
-		logAndFatalf(args, "%s", err)
+		log.Fatalf("Failed to create translator: %v", err)
 	}
 
 	if dumpArgs.helmValues {
-		mergedYAML, err = component.CompileHelmValues(mergedcps, t, "")
+		mergedYAML, err = component.CompileHelmValues(mergedICPS, t, "")
 		if err != nil {
-			logAndFatalf(args, err.Error())
+			log.Fatalf("Merged spec failed validation against IstioControlPlaneSpec: \n%v", mergedICPS)
 		}
 	}
 
 	finalYAML, err := getConfigSubtree(mergedYAML, dumpArgs.rootConfigNode)
 	if err != nil {
-		logAndFatalf(args, "%s", err)
+		log.Fatalf("Failed to get root config from merged YAML: %v", err)
 	}
 
 	if _, err := writer.WriteString(finalYAML); err != nil {
-		logAndFatalf(args, "Could not write values; %s", err)
+		log.Fatalf("Could not write values; %s", err)
 	}
 }
 

@@ -93,7 +93,7 @@ func validateWithRegex(path util.Path, val interface{}, r *regexp.Regexp) (errs 
 		errs = util.AppendErr(errs, fmt.Errorf("path %s has bad type %T, want string", path, val))
 
 	case len(r.FindString(val.(string))) != len(val.(string)):
-		errs = util.AppendErr(errs, fmt.Errorf("invalid value %s:%s", path, val))
+		errs = util.AppendErr(errs, fmt.Errorf("invalid value %s: %s", path, val))
 	}
 
 	printError(errs.ToError())

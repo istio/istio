@@ -125,7 +125,7 @@ func (h *VFSRenderer) loadChart() error {
 			Data: b,
 		}
 		bfs = append(bfs, bf)
-		log.Infof("loaded %s", bf.Name)
+		log.Infof("Chart loaded: %s", bf.Name)
 	}
 
 	h.chart, err = chartutil.LoadFiles(bfs)

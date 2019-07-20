@@ -34,6 +34,6 @@ func main() {
 		//		BuildTags:    "deploy_build",
 		VariableName: "Assets",
 	}); err != nil {
-		log.Fatalln(err)
+		log.Fatalln("vfsgen failed to generate code: ", err)
 	}
 }

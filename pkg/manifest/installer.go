@@ -165,7 +165,7 @@ func renderRecursive(manifests name.ManifestMap, installTree componentTree, outp
 func ApplyAll(manifests name.ManifestMap, version version.Version, dryRun, verbose bool) (*CompositeOutput, error) {
 	logAndPrint("Applying manifests for these components:")
 	for c := range manifests {
-		log.Infof("- %s", c)
+		logAndPrint("- %s", c)
 	}
 	logAndPrint("Component dependencies tree: \n%s", installTreeString())
 	if err := initK8SRestClient(); err != nil {

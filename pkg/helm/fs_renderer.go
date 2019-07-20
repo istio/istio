@@ -62,7 +62,7 @@ func (h *FileTemplateRenderer) Run() error {
 	go func() {
 		for range chartChanged {
 			if err := h.loadChart(); err != nil {
-				log.Error(err.Error())
+				log.Errorf("Failed to load chart: %v", err.Error())
 			}
 		}
 	}()

@@ -49,7 +49,7 @@ func (console) Run(c *exec.Cmd) error {
 // Apply runs the kubectl apply with the provided manifest argument
 func (c *Client) Apply(dryRun, verbose bool, namespace string, manifest string, extraArgs ...string) (string, string, error) {
 	if strings.TrimSpace(manifest) == "" {
-		log.Info("Empty manifest, not applying.")
+		log.Infof("Empty manifest, not applying.")
 		return "", "", nil
 	}
 

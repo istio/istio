@@ -301,12 +301,12 @@ func overlayK8s(baseYAML, overlayYAML []byte, path util.Path) ([]byte, error) {
 	base, overlayMap := make(map[string]interface{}), make(map[string]interface{})
 	var overlay interface{} = overlayMap
 	if err := yaml.Unmarshal(baseYAML, &base); err != nil {
-		return nil, fmt.Errorf("overlayK8s: %s for baseYAML:\n%s", err, baseYAML)
+		return nil, fmt.Errorf("failed to unmarshal in overlayK8s: %s for baseYAML:\n%s", err, baseYAML)
 	}
 	if err := yaml.Unmarshal(overlayYAML, &overlayMap); err != nil {
 		// May be a scalar type, try to unmarshal into interface instead.
 		if err := yaml.Unmarshal(overlayYAML, &overlay); err != nil {
-			return nil, fmt.Errorf("overlayK8s: %s for overlayYAML:\n%s", err, overlayYAML)
+			return nil, fmt.Errorf("failed to unmarshal in overlayK8s: %s for overlayYAML:\n%s", err, overlayYAML)
 		}
 	}
 	if err := tpath.WriteNode(base, path, overlay); err != nil {
@@ -518,13 +518,13 @@ func renderFeatureComponentPathTemplate(tmpl string, featureName name.FeatureNam
 	}
 	t, err := template.New("").Parse(tmpl)
 	if err != nil {
-		log.Error(err.Error())
+		log.Errorf("Failed to create template object, Error: %v. Template string: \n%s\n", err.Error(), tmpl)
 		return err.Error()
 	}
 	buf := new(bytes.Buffer)
 	err = t.Execute(buf, ts)
 	if err != nil {
-		log.Error(err.Error())
+		log.Errorf("Failed to execute template: %v", err.Error())
 		return err.Error()
 	}
 	return buf.String()
