@@ -91,7 +91,7 @@ func validateListenersNoConfig(t *testing.T, response *structpath.Instance) {
 	t.Run("iptables-forwarding-listener", func(t *testing.T) {
 		response.
 			Select("{.resources[?(@.address.socketAddress.portValue==15001)]}").
-			Equals("virtual", "{.name}").
+			Equals("virtualOutbound", "{.name}").
 			Equals("0.0.0.0", "{.address.socketAddress.address}").
 			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[*].name}").
 			Equals("PassthroughCluster", "{.filterChains[0].filters[0].config.cluster}").
