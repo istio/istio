@@ -39,7 +39,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 	for _, service := range servicesInfo {
 		result = append(result, convertService(service))
 	}
-	return nil, nil
+	return result, nil
 }
 
 func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
