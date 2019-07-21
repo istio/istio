@@ -83,7 +83,7 @@ proto_iscp_orig:
 proto_values:
 	protoc -I=${GOPATH}/src -I./pkg/apis/istio/v1alpha2/values --proto_path=pkg/apis/istio/v1alpha2/values --go_out=pkg/apis/istio/v1alpha2/values pkg/apis/istio/v1alpha2/values/values_types.proto
 	sed -i -e 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' pkg/apis/istio/v1alpha2/values/values_types.pb.go
-	patch pkg/apis/istio/v1alpha2/values/values_types.pb.go < pkg/apis/istio/v1alpha2/values/fixup_go_structs.patch
+	patch pkg/apis/istio/v1alpha2/values/values_types.pb.go < pkg/apis/istio/v1alpha2/values/fix_values_structs.patch
 
 proto_values_orig:
 	protoc -I=${GOPATH}/src -I./pkg/apis/istio/v1alpha2/values --proto_path=pkg/apis/istio/v1alpha2/values --go_out=pkg/apis/istio/v1alpha2/values pkg/apis/istio/v1alpha2/values/values_types.proto
