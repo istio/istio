@@ -7,8 +7,6 @@ cloud.google.com/go/internal/version
 cloud.google.com/go/logging/apiv2
 cloud.google.com/go/logging/internal
 cloud.google.com/go/trace/apiv2
-# code.cloudfoundry.org/copilot v0.0.0-20180808174356-6bade2a0677a
-code.cloudfoundry.org/copilot/api
 # contrib.go.opencensus.io/exporter/prometheus v0.1.0
 contrib.go.opencensus.io/exporter/prometheus
 # contrib.go.opencensus.io/exporter/stackdriver v0.6.0
@@ -150,8 +148,8 @@ github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2
 github.com/envoyproxy/go-control-plane/pkg/util
 github.com/envoyproxy/go-control-plane/envoy/api/v2/core
 github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint
-github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster
 github.com/envoyproxy/go-control-plane/envoy/api/v2/route
+github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster
 github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2
@@ -161,11 +159,11 @@ github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2
 github.com/envoyproxy/go-control-plane/envoy/type
 github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2
-github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2
-github.com/envoyproxy/go-control-plane/envoy/type/matcher
 github.com/envoyproxy/go-control-plane/envoy/config/filter/http/health_check/v2
 github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha
+github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2
+github.com/envoyproxy/go-control-plane/envoy/type/matcher
 github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha
 github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2
 github.com/envoyproxy/go-control-plane/envoy/service/tap/v2alpha
@@ -226,11 +224,11 @@ github.com/golang/glog
 # github.com/golang/groupcache v0.0.0-20180203143532-66deaeb636df
 github.com/golang/groupcache/lru
 # github.com/golang/protobuf v1.3.0
+github.com/golang/protobuf/ptypes/empty
 github.com/golang/protobuf/ptypes/timestamp
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes/struct
 github.com/golang/protobuf/ptypes/duration
-github.com/golang/protobuf/ptypes/empty
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/protoc-gen-go/descriptor
@@ -649,6 +647,7 @@ google.golang.org/appengine/internal/log
 google.golang.org/appengine/internal/remote_api
 google.golang.org/appengine/internal/socket
 # google.golang.org/genproto v0.0.0-20190404172233-64821d5d2107
+google.golang.org/genproto/googleapis/api/expr/v1alpha1
 google.golang.org/genproto/googleapis/api/metric
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/monitoring/v3
@@ -656,7 +655,6 @@ google.golang.org/genproto/googleapis/rpc/status
 google.golang.org/genproto/googleapis/api/monitoredres
 google.golang.org/genproto/googleapis/api/distribution
 google.golang.org/genproto/googleapis/api/label
-google.golang.org/genproto/googleapis/api/expr/v1alpha1
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/protobuf/field_mask
 google.golang.org/genproto/googleapis/logging/type
@@ -715,7 +713,7 @@ gopkg.in/square/go-jose.v2/cipher
 gopkg.in/stack.v1
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
-# istio.io/api v0.0.0-20190716171133-115cae561388
+# istio.io/api v0.0.0-20190718213450-0a0442bf8664
 istio.io/api/mesh/v1alpha1
 istio.io/api/authentication/v1alpha1
 istio.io/api/mixer/v1/config/client
@@ -723,6 +721,7 @@ istio.io/api/networking/v1alpha3
 istio.io/api/policy/v1beta1
 istio.io/api/rbac/v1alpha1
 istio.io/api/mcp/v1alpha1
+istio.io/api/annotation
 istio.io/api/envoy/config/filter/http/authn/v2alpha1
 istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1
 istio.io/api/mixer/adapter/model/v1beta1
@@ -743,8 +742,8 @@ istio.io/pkg/appsignals
 istio.io/pkg/pool
 istio.io/pkg/cache
 istio.io/pkg/attribute
-istio.io/pkg/annotations
 istio.io/pkg/monitoring
+istio.io/pkg/annotations
 istio.io/pkg/collateral/metrics
 istio.io/pkg/ctrlz/assets
 istio.io/pkg/ctrlz/topics

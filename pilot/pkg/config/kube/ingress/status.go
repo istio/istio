@@ -23,9 +23,9 @@ import (
 	"strings"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
+	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -96,10 +96,10 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 
 	informer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
-			ListFunc: func(opts meta_v1.ListOptions) (runtime.Object, error) {
+			ListFunc: func(opts metaV1.ListOptions) (runtime.Object, error) {
 				return client.ExtensionsV1beta1().Ingresses(options.WatchedNamespace).List(opts)
 			},
-			WatchFunc: func(opts meta_v1.ListOptions) (watch.Interface, error) {
+			WatchFunc: func(opts metaV1.ListOptions) (watch.Interface, error) {
 				return client.ExtensionsV1beta1().Ingresses(options.WatchedNamespace).Watch(opts)
 			},
 		},
@@ -140,14 +140,14 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 	broadcaster := record.NewBroadcaster()
 	hostname, _ := os.Hostname()
 
-	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{
+	recorder := broadcaster.NewRecorder(scheme.Scheme, coreV1.EventSource{
 		Component: "ingress-leader-elector",
 		Host:      hostname,
 	})
 	podName := podNameVar.Get()
 
 	lock := resourcelock.ConfigMapLock{
-		ConfigMapMeta: meta_v1.ObjectMeta{Namespace: pilotNamespace, Name: electionID},
+		ConfigMapMeta: metaV1.ObjectMeta{Namespace: pilotNamespace, Name: electionID},
 		Client:        client.CoreV1(),
 		LockConfig: resourcelock.ResourceLockConfig{
 			Identity:      podName,
@@ -184,7 +184,7 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 }
 
 // updateStatus updates ingress status with the list of IP
-func (s *StatusSyncer) updateStatus(status []v1.LoadBalancerIngress) error {
+func (s *StatusSyncer) updateStatus(status []coreV1.LoadBalancerIngress) error {
 	ingressStore := s.informer.GetStore()
 	for _, obj := range ingressStore.List() {
 		currIng := obj.(*v1beta1.Ingress)
@@ -216,15 +216,15 @@ func (s *StatusSyncer) updateStatus(status []v1.LoadBalancerIngress) error {
 // runningAddresses returns a list of IP addresses and/or FQDN where the
 // ingress controller is currently running
 func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
-	addrs := []string{}
+	addrs := make([]string, 0)
 
 	if s.ingressService != "" {
-		svc, err := s.client.CoreV1().Services(ingressNs).Get(s.ingressService, meta_v1.GetOptions{})
+		svc, err := s.client.CoreV1().Services(ingressNs).Get(s.ingressService, metaV1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
 
-		if svc.Spec.Type == v1.ServiceTypeExternalName {
+		if svc.Spec.Type == coreV1.ServiceTypeExternalName {
 			addrs = append(addrs, svc.Spec.ExternalName)
 			return addrs, nil
 		}
@@ -242,7 +242,7 @@ func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
 	}
 
 	// get information about all the pods running the ingress controller (gateway)
-	pods, err := s.client.CoreV1().Pods(ingressNamespace).List(meta_v1.ListOptions{
+	pods, err := s.client.CoreV1().Pods(ingressNamespace).List(metaV1.ListOptions{
 		// TODO: make it a const or maybe setting ( unless we remove k8s ingress support first)
 		LabelSelector: labels.SelectorFromSet(map[string]string{"app": "ingressgateway"}).String(),
 	})
@@ -252,18 +252,18 @@ func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
 
 	for _, pod := range pods.Items {
 		// only Running pods are valid
-		if pod.Status.Phase != v1.PodRunning {
+		if pod.Status.Phase != coreV1.PodRunning {
 			continue
 		}
 
 		// Find node external IP
-		node, err := s.client.CoreV1().Nodes().Get(pod.Spec.NodeName, meta_v1.GetOptions{})
+		node, err := s.client.CoreV1().Nodes().Get(pod.Spec.NodeName, metaV1.GetOptions{})
 		if err != nil {
 			continue
 		}
 
 		for _, address := range node.Status.Addresses {
-			if address.Type == v1.NodeExternalIP {
+			if address.Type == coreV1.NodeExternalIP {
 				if address.Address != "" && !addressInSlice(address.Address, addrs) {
 					addrs = append(addrs, address.Address)
 				}
@@ -285,20 +285,20 @@ func addressInSlice(addr string, list []string) bool {
 }
 
 // sliceToStatus converts a slice of IP and/or hostnames to LoadBalancerIngress
-func sliceToStatus(endpoints []string) []v1.LoadBalancerIngress {
-	lbi := []v1.LoadBalancerIngress{}
+func sliceToStatus(endpoints []string) []coreV1.LoadBalancerIngress {
+	lbi := make([]coreV1.LoadBalancerIngress, 0)
 	for _, ep := range endpoints {
 		if net.ParseIP(ep) == nil {
-			lbi = append(lbi, v1.LoadBalancerIngress{Hostname: ep})
+			lbi = append(lbi, coreV1.LoadBalancerIngress{Hostname: ep})
 		} else {
-			lbi = append(lbi, v1.LoadBalancerIngress{IP: ep})
+			lbi = append(lbi, coreV1.LoadBalancerIngress{IP: ep})
 		}
 	}
 
 	return lbi
 }
 
-func lessLoadBalancerIngress(addrs []v1.LoadBalancerIngress) func(int, int) bool {
+func lessLoadBalancerIngress(addrs []coreV1.LoadBalancerIngress) func(int, int) bool {
 	return func(a, b int) bool {
 		switch strings.Compare(addrs[a].Hostname, addrs[b].Hostname) {
 		case -1:
@@ -310,7 +310,7 @@ func lessLoadBalancerIngress(addrs []v1.LoadBalancerIngress) func(int, int) bool
 	}
 }
 
-func ingressSliceEqual(lhs, rhs []v1.LoadBalancerIngress) bool {
+func ingressSliceEqual(lhs, rhs []coreV1.LoadBalancerIngress) bool {
 	if len(lhs) != len(rhs) {
 		return false
 	}

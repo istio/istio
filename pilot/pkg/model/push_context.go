@@ -70,6 +70,8 @@ type PushContext struct {
 
 	// sidecars for each namespace
 	sidecarsByNamespace map[string][]*SidecarScope
+	// envoy filters for each namespace including global config namespace
+	envoyFiltersByNamespace map[string][]*EnvoyFilterWrapper
 	////////// END ////////
 
 	// The following data is either a global index or used in the inbound path.
@@ -295,7 +297,8 @@ func NewPushContext() *PushContext {
 			hosts:    make([]Hostname, 0),
 			destRule: map[Hostname]*combinedDestinationRule{},
 		},
-		sidecarsByNamespace: map[string][]*SidecarScope{},
+		sidecarsByNamespace:     map[string][]*SidecarScope{},
+		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{},
 
 		ServiceByHostname: map[Hostname]*Service{},
 		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
@@ -573,6 +576,10 @@ func (ps *PushContext) InitContext(env *Environment) error {
 
 	if err = ps.initAuthorizationPolicies(env); err != nil {
 		rbacLog.Errorf("failed to initialize authorization policies: %v", err)
+		return err
+	}
+
+	if err = ps.initEnvoyFilters(env); err != nil {
 		return err
 	}
 
@@ -859,6 +866,7 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 // SetDestinationRules is updates internal structures using a set of configs.
 // Split out of DestinationRule expensive conversions, computed once per push.
 // This also allows tests to inject a config without having the mock.
+// This will not work properly for Sidecars, which will precompute their destination rules on init
 func (ps *PushContext) SetDestinationRules(configs []Config) {
 	// Sort by time first. So if two destination rule have top level traffic policies
 	// we take the first one.
@@ -951,4 +959,51 @@ func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 		return err
 	}
 	return nil
+}
+
+// pre computes envoy filters per namespace
+func (ps *PushContext) initEnvoyFilters(env *Environment) error {
+	envoyFilterConfigs, err := env.List(EnvoyFilter.Type, NamespaceAll)
+	if err != nil {
+		return err
+	}
+
+	sortConfigByCreationTime(envoyFilterConfigs)
+
+	ps.envoyFiltersByNamespace = make(map[string][]*EnvoyFilterWrapper)
+	for _, envoyFilterConfig := range envoyFilterConfigs {
+		efw := convertToEnvoyFilterWrapper(&envoyFilterConfig)
+		if _, exists := ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace]; !exists {
+			ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = make([]*EnvoyFilterWrapper, 0)
+		}
+		ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = append(ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace], efw)
+	}
+	return nil
+}
+
+func (ps *PushContext) EnvoyFilters(proxy *Proxy) []*EnvoyFilterWrapper {
+	// this should never happen
+	if proxy == nil {
+		return nil
+	}
+	out := make([]*EnvoyFilterWrapper, 0)
+	// EnvoyFilters supports inheritance (global ones plus namespace local ones).
+	// First get all the filter configs from the config root namespace
+	// and then add the ones from proxy's own namespace
+	if ps.Env.Mesh.RootNamespace != "" && len(ps.envoyFiltersByNamespace[ps.Env.Mesh.RootNamespace]) > 0 {
+		// if there is no workload selector, the config applies to all workloads
+		// if there is a workload selector, check for matching workload labels
+		for _, efw := range ps.envoyFiltersByNamespace[ps.Env.Mesh.RootNamespace] {
+			if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
+				out = append(out, efw)
+			}
+		}
+	}
+
+	for _, efw := range ps.envoyFiltersByNamespace[proxy.ConfigNamespace] {
+		if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
+			out = append(out, efw)
+		}
+	}
+	return out
 }

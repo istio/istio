@@ -83,12 +83,14 @@ func batchTimeSeries(series []*monitoringpb.TimeSeries, tsLimit int) [][]*monito
 
 func (b *buffered) start(env adapter.Env, ticker *time.Ticker, quit chan struct{}) {
 	env.ScheduleDaemon(func() {
-		select {
-		case <-ticker.C:
-			b.mergeTimeSeries()
-			b.Send()
-		case <-quit:
-			return
+		for {
+			select {
+			case <-ticker.C:
+				b.mergeTimeSeries()
+				b.Send()
+			case <-quit:
+				return
+			}
 		}
 	})
 }

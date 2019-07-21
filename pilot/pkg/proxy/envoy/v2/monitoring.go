@@ -14,6 +14,9 @@
 package v2
 
 import (
+	"github.com/gogo/status"
+	"google.golang.org/grpc/codes"
+
 	"istio.io/istio/pilot/pkg/monitoring"
 )
 
@@ -151,6 +154,15 @@ var (
 	inboundServiceUpdates  = inboundUpdates.With(typeTag.Value("svc"))
 	inboundWorkloadUpdates = inboundUpdates.With(typeTag.Value("workload"))
 )
+
+func recordSendError(metric monitoring.Metric, err error) {
+	s, ok := status.FromError(err)
+	// Unavailable code will be sent when a connection is closing down. This is very normal,
+	// due to the XDS connection being dropped every 30 minutes, or a pod shutting down.
+	if !ok || s.Code() != codes.Unavailable {
+		metric.Increment()
+	}
+}
 
 func incrementXDSRejects(metric monitoring.Metric, node, errCode string) {
 	metric.With(nodeTag.Value(node), errTag.Value(errCode)).Increment()

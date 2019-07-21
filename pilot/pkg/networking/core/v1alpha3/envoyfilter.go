@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"fmt"
 	"net"
 	"strings"
 
@@ -26,7 +25,6 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -304,105 +302,70 @@ func deprecatedInsertNetworkFilter(listenerName string, filterChain *listener.Fi
 		listenerName, oldLen, len(filterChain.Filters))
 }
 
-func buildXDSObjectFromValue(applyTo networking.EnvoyFilter_ApplyTo, value *types.Struct) (proto.Message, error) {
-	var obj proto.Message
-	switch applyTo {
-	case networking.EnvoyFilter_CLUSTER:
-		obj = &xdsapi.Cluster{}
-	case networking.EnvoyFilter_LISTENER:
-		obj = &xdsapi.Listener{}
-	case networking.EnvoyFilter_ROUTE_CONFIGURATION:
-		obj = &xdsapi.RouteConfiguration{}
-	case networking.EnvoyFilter_FILTER_CHAIN:
-		obj = &listener.FilterChain{}
-	case networking.EnvoyFilter_HTTP_FILTER:
-		obj = &http_conn.HttpFilter{}
-	case networking.EnvoyFilter_NETWORK_FILTER:
-		obj = &listener.Filter{}
-	case networking.EnvoyFilter_VIRTUAL_HOST:
-		obj = &route.VirtualHost{}
-	default:
-		return nil, fmt.Errorf("unknown object type")
-	}
+func applyClusterPatches(_ *model.Environment, proxy *model.Proxy,
+	push *model.PushContext, clusters []*xdsapi.Cluster) []*xdsapi.Cluster {
 
-	err := xdsutil.StructToMessage(value, obj)
-	return obj, err
-}
-
-func applyClusterPatches(env *model.Environment, proxy *model.Proxy,
-	_ *model.PushContext, clusters []*xdsapi.Cluster) []*xdsapi.Cluster {
-	// TODO: multiple envoy filters per workload
-	filterCRD := getUserFiltersForWorkload(env, proxy.WorkloadLabels)
-	if filterCRD == nil {
-		return clusters
-	}
-
-	// remove cluster if there is operation is remove, and matches
+	envoyFilterWrappers := push.EnvoyFilters(proxy)
 	clustersRemoved := false
-
-	// First process remove operations, then the merge and finally the add.
-	// If add is done before remove, then remove could end up deleting a cluster that
-	// was added by the user.
-	for _, cp := range filterCRD.ConfigPatches {
-		if cp.Patch == nil || cp.ApplyTo != networking.EnvoyFilter_CLUSTER {
-			continue
-		}
-
-		if cp.Patch.Operation != networking.EnvoyFilter_Patch_REMOVE {
-			continue
-		}
-
-		for i := range clusters {
-			if clusterMatch(proxy, clusters[i], cp.Match, cp.Patch.Operation) {
-				clusters[i] = nil
-				clustersRemoved = true
-			}
-		}
-	}
-
-	// TODO: Create a EnvoyFilterContext struct, just like SidecarContext
-	// pre-process the values and convert them into appropriate structs when initializing the push context
-	for _, cp := range filterCRD.ConfigPatches {
-		if cp.Patch == nil || cp.ApplyTo != networking.EnvoyFilter_CLUSTER {
-			continue
-		}
-
-		if cp.Patch.Operation != networking.EnvoyFilter_Patch_MERGE {
-			continue
-		}
-
-		userChanges, err := buildXDSObjectFromValue(cp.ApplyTo, cp.Patch.Value)
-		if err != nil {
-			continue
-		}
-
-		for i := range clusters {
-			if clusters[i] == nil {
-				// deleted by the remove operation
+	for _, efw := range envoyFilterWrappers {
+		// First process remove operations, then the merge and finally the add.
+		// If add is done before remove, then remove could end up deleting a cluster that
+		// was added by the user.
+		for _, cp := range efw.ConfigPatches {
+			if cp.ApplyTo != networking.EnvoyFilter_CLUSTER {
 				continue
 			}
-			if clusterMatch(proxy, clusters[i], cp.Match, cp.Patch.Operation) {
-				proto.Merge(clusters[i], userChanges)
-			}
-		}
-	}
 
-	// Add cluster if the operation is add, and patch context matches
-	for _, cp := range filterCRD.ConfigPatches {
-		if cp.Patch == nil || cp.ApplyTo != networking.EnvoyFilter_CLUSTER {
-			continue
-		}
-
-		if cp.Patch.Operation != networking.EnvoyFilter_Patch_ADD {
-			continue
-		}
-
-		if clusterMatch(proxy, nil, cp.Match, cp.Patch.Operation) {
-			newCluster, err := buildXDSObjectFromValue(cp.ApplyTo, cp.Patch.Value)
-			if err != nil {
+			if cp.Operation != networking.EnvoyFilter_Patch_REMOVE {
 				continue
 			}
-			clusters = append(clusters, newCluster.(*xdsapi.Cluster))
+
+			for i := range clusters {
+				if clusters[i] == nil {
+					// deleted by the remove operation
+					continue
+				}
+
+				if clusterMatch(proxy, clusters[i], cp.Match, cp.Operation) {
+					clusters[i] = nil
+					clustersRemoved = true
+				}
+			}
+		}
+
+		for _, cp := range efw.ConfigPatches {
+			if cp.ApplyTo != networking.EnvoyFilter_CLUSTER {
+				continue
+			}
+
+			if cp.Operation != networking.EnvoyFilter_Patch_MERGE {
+				continue
+			}
+
+			for i := range clusters {
+				if clusters[i] == nil {
+					// deleted by the remove operation
+					continue
+				}
+				if clusterMatch(proxy, clusters[i], cp.Match, cp.Operation) {
+					proto.Merge(clusters[i], cp.Value)
+				}
+			}
+		}
+
+		// Add cluster if the operation is add, and patch context matches
+		for _, cp := range efw.ConfigPatches {
+			if cp.ApplyTo != networking.EnvoyFilter_CLUSTER {
+				continue
+			}
+
+			if cp.Operation != networking.EnvoyFilter_Patch_ADD {
+				continue
+			}
+
+			if clusterMatch(proxy, nil, cp.Match, cp.Operation) {
+				clusters = append(clusters, cp.Value.(*xdsapi.Cluster))
+			}
 		}
 	}
 
@@ -416,123 +379,185 @@ func applyClusterPatches(env *model.Environment, proxy *model.Proxy,
 		}
 		clusters = trimmedClusters
 	}
-
 	return clusters
 }
 
-func applyListenerConfigPatches(builder *ListenerBuilder, env *model.Environment, labels model.LabelsCollection) []*xdsapi.Listener {
-	listeners := builder.getListeners()
-	filterCRD := getUserFiltersForWorkload(env, labels)
-	if filterCRD == nil {
-		return listeners
-	}
-
-	for _, cp := range filterCRD.ConfigPatches {
-		if cp.GetPatch() == nil {
-			continue
-		}
-
-		if cp.GetMatch() == nil && cp.GetApplyTo() == networking.EnvoyFilter_LISTENER {
-			if cp.GetPatch().GetOperation() == networking.EnvoyFilter_Patch_ADD {
-				newListener, err := buildXDSObjectFromValue(networking.EnvoyFilter_LISTENER, cp.Patch.Value)
-				if err != nil {
-					continue
-				}
-				listeners = append(listeners, newListener.(*xdsapi.Listener))
+func applyListenerPatches(proxy *model.Proxy, push *model.PushContext, builder *ListenerBuilder) *ListenerBuilder {
+	envoyFilterWrappers := push.EnvoyFilters(proxy)
+	mergeRemoveListener := func(patchContext networking.EnvoyFilter_PatchContext,
+		listener *xdsapi.Listener, cp *model.EnvoyFilterConfigPatchWrapper, objectsRemoved *bool) {
+		if listenerMatch(patchContext, listener, cp) {
+			if cp.Operation == networking.EnvoyFilter_Patch_REMOVE {
+				listener.Name = ""
+				*objectsRemoved = true
+			} else if cp.Operation == networking.EnvoyFilter_Patch_MERGE {
+				proto.Merge(listener, cp.Value)
 			}
 		}
 	}
+	// utility function to remove deleted listeners and rebuild the array if needed.
+	rebuildListenerArray := func(listeners []*xdsapi.Listener) []*xdsapi.Listener {
+		tempArray := make([]*xdsapi.Listener, 0, len(listeners))
+		for _, l := range listeners {
+			if l.Name != "" {
+				tempArray = append(tempArray, l)
+			}
+		}
+		return tempArray
+	}
+	doListenerOperation := func(patchContext networking.EnvoyFilter_PatchContext, listener *xdsapi.Listener, objectsRemoved *bool) {
+		for _, efw := range envoyFilterWrappers {
+			for _, cp := range efw.ConfigPatches {
+				switch cp.ApplyTo {
+				case networking.EnvoyFilter_LISTENER:
+					if cp.Operation != networking.EnvoyFilter_Patch_REMOVE &&
+						cp.Operation != networking.EnvoyFilter_Patch_MERGE {
+						// we will add stuff in the end
+						continue
+					}
+					mergeRemoveListener(patchContext, listener, cp, objectsRemoved)
+				case networking.EnvoyFilter_FILTER_CHAIN:
+					// handle adds, removes, merges
+				case networking.EnvoyFilter_NETWORK_FILTER:
+					// handle  adds, inserts, removes, merges
+				case networking.EnvoyFilter_HTTP_FILTER:
+					// match on  http conn man and handle adds, inserts, removes, merges
+				}
+			}
+		}
+	}
+	doListenerListOperation := func(patchContext networking.EnvoyFilter_PatchContext, listeners []*xdsapi.Listener) []*xdsapi.Listener {
+		objectsRemoved := false
+		for _, listener := range listeners {
+			doListenerOperation(patchContext, listener, &objectsRemoved)
+		}
+		// now the adds at listener level
+		for _, efw := range envoyFilterWrappers {
+			for _, cp := range efw.ConfigPatches {
+				// todo inserts
+				if cp.ApplyTo != networking.EnvoyFilter_LISTENER || cp.Operation != networking.EnvoyFilter_Patch_ADD {
+					continue
+				}
+				if listenerMatch(patchContext, nil, cp) {
+					listeners = append(listeners, cp.Value.(*xdsapi.Listener))
+				}
+			}
+		}
+		if objectsRemoved {
+			return rebuildListenerArray(listeners)
+		}
+		return listeners
+	}
 
-	return listeners
+	if proxy.Type == model.Router {
+		builder.gatewayListeners = doListenerListOperation(networking.EnvoyFilter_GATEWAY, builder.gatewayListeners)
+		return builder
+	}
+
+	// this is all for sidecar
+	if builder.virtualInboundListener != nil {
+		removed := false
+		doListenerOperation(networking.EnvoyFilter_SIDECAR_INBOUND, builder.virtualInboundListener, &removed)
+		if removed {
+			builder.virtualInboundListener = nil
+		}
+	}
+	if builder.virtualListener != nil {
+		removed := false
+		doListenerOperation(networking.EnvoyFilter_SIDECAR_OUTBOUND, builder.virtualListener, &removed)
+		if removed {
+			builder.virtualListener = nil
+		}
+	}
+
+	builder.inboundListeners = doListenerListOperation(networking.EnvoyFilter_SIDECAR_INBOUND, builder.inboundListeners)
+	builder.managementListeners = doListenerListOperation(networking.EnvoyFilter_SIDECAR_INBOUND, builder.managementListeners)
+	builder.outboundListeners = doListenerListOperation(networking.EnvoyFilter_SIDECAR_OUTBOUND, builder.outboundListeners)
+
+	return builder
 }
 
 func applyRouteConfigurationPatches(pluginParams *plugin.InputParams,
 	routeConfiguration *xdsapi.RouteConfiguration) *xdsapi.RouteConfiguration {
-	// TODO: multiple envoy filters per workload
-	filterCRD := getUserFiltersForWorkload(pluginParams.Env, pluginParams.Node.WorkloadLabels)
-	if filterCRD == nil {
-		return routeConfiguration
-	}
 
-	// remove & add are not applicable for route configuration but applicable for virtual hosts
-	// remove virtual host if there is operation is remove, and matches
 	virtualHostsRemoved := false
+	envoyFilterWrappers := pluginParams.Push.EnvoyFilters(pluginParams.Node)
+	for _, efw := range envoyFilterWrappers {
+		// remove & add are not applicable for route configuration but applicable for virtual hosts
+		// remove virtual host if there is operation is remove, and matches
 
-	// First process remove operations, then the merge and finally the add.
-	// If add is done before remove, then remove could end up deleting a vhost that
-	// was added by the user.
-	for _, cp := range filterCRD.ConfigPatches {
-		if cp.Patch == nil || cp.ApplyTo != networking.EnvoyFilter_VIRTUAL_HOST {
-			continue
-		}
-
-		if cp.Patch.Operation != networking.EnvoyFilter_Patch_REMOVE {
-			continue
-		}
-
-		// iterate through all virtual hosts in a route and remove ones that match
-		for i := range routeConfiguration.VirtualHosts {
-			if routeConfigurationMatch(routeConfiguration, &routeConfiguration.VirtualHosts[i], pluginParams, cp.Match) {
-				// set name to empty. We remove virtual hosts with empty names later in this function
-				routeConfiguration.VirtualHosts[i].Name = ""
-				virtualHostsRemoved = true
+		// First process remove operations, then the merge and finally the add.
+		// If add is done before remove, then remove could end up deleting a vhost that
+		// was added by the user.
+		for _, cp := range efw.ConfigPatches {
+			if cp.ApplyTo != networking.EnvoyFilter_VIRTUAL_HOST {
+				continue
 			}
-		}
-	}
 
-	// TODO: Create a EnvoyFilterContext struct, just like SidecarContext
-	// pre-process the values and convert them into appropriate structs when initializing the push context
-	for _, cp := range filterCRD.ConfigPatches {
-		if cp.Patch == nil ||
-			(cp.ApplyTo != networking.EnvoyFilter_ROUTE_CONFIGURATION &&
-				cp.ApplyTo != networking.EnvoyFilter_VIRTUAL_HOST) {
-			continue
-		}
-
-		if cp.Patch.Operation != networking.EnvoyFilter_Patch_MERGE {
-			continue
-		}
-
-		userChanges, err := buildXDSObjectFromValue(cp.ApplyTo, cp.Patch.Value)
-		if err != nil {
-			continue
-		}
-
-		// if applying the merge at routeConfiguration level, then do standard proto merge
-		if cp.ApplyTo == networking.EnvoyFilter_ROUTE_CONFIGURATION {
-			if routeConfigurationMatch(routeConfiguration, nil, pluginParams, cp.Match) {
-				proto.Merge(routeConfiguration, userChanges)
+			if cp.Operation != networking.EnvoyFilter_Patch_REMOVE {
+				continue
 			}
-		} else {
-			// This is for a specific virtual host. We have to iterate through all the vhosts in a route,
-			// and match the specific virtual host to merge
+
+			// iterate through all virtual hosts in a route and remove ones that match
 			for i := range routeConfiguration.VirtualHosts {
+				if routeConfiguration.VirtualHosts[i].Name == "" {
+					// removed by another envoy filter
+					continue
+				}
 				if routeConfigurationMatch(routeConfiguration, &routeConfiguration.VirtualHosts[i], pluginParams, cp.Match) {
-					proto.Merge(&routeConfiguration.VirtualHosts[i], userChanges)
+					// set name to empty. We remove virtual hosts with empty names later in this function
+					routeConfiguration.VirtualHosts[i].Name = ""
+					virtualHostsRemoved = true
 				}
 			}
 		}
-	}
 
-	// Add virtual host if the operation is add, and patch context matches
-	for _, cp := range filterCRD.ConfigPatches {
-		if cp.Patch == nil || cp.ApplyTo != networking.EnvoyFilter_VIRTUAL_HOST {
-			continue
-		}
-
-		if cp.Patch.Operation != networking.EnvoyFilter_Patch_ADD {
-			continue
-		}
-
-		if routeConfigurationMatch(routeConfiguration, nil, pluginParams, cp.Match) {
-			newVirtualHost, err := buildXDSObjectFromValue(cp.ApplyTo, cp.Patch.Value)
-			if err != nil {
+		for _, cp := range efw.ConfigPatches {
+			if cp.ApplyTo != networking.EnvoyFilter_ROUTE_CONFIGURATION &&
+				cp.ApplyTo != networking.EnvoyFilter_VIRTUAL_HOST {
 				continue
 			}
-			routeConfiguration.VirtualHosts = append(routeConfiguration.VirtualHosts, *newVirtualHost.(*route.VirtualHost))
+
+			if cp.Operation != networking.EnvoyFilter_Patch_MERGE {
+				continue
+			}
+
+			// if applying the merge at routeConfiguration level, then do standard proto merge
+			if cp.ApplyTo == networking.EnvoyFilter_ROUTE_CONFIGURATION {
+				if routeConfigurationMatch(routeConfiguration, nil, pluginParams, cp.Match) {
+					proto.Merge(routeConfiguration, cp.Value)
+				}
+			} else {
+				// This is for a specific virtual host. We have to iterate through all the vhosts in a route,
+				// and match the specific virtual host to merge
+				for i := range routeConfiguration.VirtualHosts {
+					if routeConfiguration.VirtualHosts[i].Name == "" {
+						// removed by another envoy filter
+						continue
+					}
+
+					if routeConfigurationMatch(routeConfiguration, &routeConfiguration.VirtualHosts[i], pluginParams, cp.Match) {
+						proto.Merge(&routeConfiguration.VirtualHosts[i], cp.Value)
+					}
+				}
+			}
+		}
+
+		// Add virtual host if the operation is add, and patch context matches
+		for _, cp := range efw.ConfigPatches {
+			if cp.ApplyTo != networking.EnvoyFilter_VIRTUAL_HOST {
+				continue
+			}
+
+			if cp.Operation != networking.EnvoyFilter_Patch_ADD {
+				continue
+			}
+
+			if routeConfigurationMatch(routeConfiguration, nil, pluginParams, cp.Match) {
+				routeConfiguration.VirtualHosts = append(routeConfiguration.VirtualHosts, *cp.Value.(*route.VirtualHost))
+			}
 		}
 	}
-
 	if virtualHostsRemoved {
 		trimmedVirtualHosts := make([]route.VirtualHost, 0, len(routeConfiguration.VirtualHosts))
 		for _, virtualHost := range routeConfiguration.VirtualHosts {
@@ -543,7 +568,6 @@ func applyRouteConfigurationPatches(pluginParams *plugin.InputParams,
 		}
 		routeConfiguration.VirtualHosts = trimmedVirtualHosts
 	}
-
 	return routeConfiguration
 }
 
@@ -614,7 +638,76 @@ func clusterMatch(proxy *model.Proxy, cluster *xdsapi.Cluster,
 	return true
 }
 
-// routeConfigurationMatch(routeConfiguration, &routeConfiguration.VirtualHosts[i], pluginParams, cp.Match) {
+func listenerMatch(patchContext networking.EnvoyFilter_PatchContext, listener *xdsapi.Listener, cp *model.EnvoyFilterConfigPatchWrapper) bool {
+	if cp.Match == nil {
+		return true
+	}
+
+	// For listener adds, listener param will be nil. In this case, we simply have to match
+	// between gateways and sidecar contexts. No inbound/outbound
+	if cp.Operation == networking.EnvoyFilter_Patch_ADD {
+		return cp.Match.Context == patchContext || cp.Match.Context == networking.EnvoyFilter_ANY
+	}
+
+	// listener is not nil. This is for merge and remove ops
+	if cp.Match.Context != networking.EnvoyFilter_ANY {
+		if cp.Match.Context != patchContext {
+			return false
+		}
+	}
+
+	cMatch := cp.Match.GetListener()
+	if cMatch == nil {
+		return true
+	}
+
+	// FIXME: Ports on a listener can be 0. the API only takes uint32 for ports
+	// We should either make that field in API as a wrapper type or switch to int
+	if cMatch.PortNumber != 0 {
+		sockAddr := listener.Address.GetSocketAddress()
+		if sockAddr == nil || sockAddr.GetPortValue() != cMatch.PortNumber {
+			return false
+		}
+	}
+
+	if cMatch.Name != "" && cMatch.Name != listener.Name {
+		return false
+	}
+
+	if cp.ApplyTo == networking.EnvoyFilter_LISTENER {
+		// nothing more to match here.
+		return true
+	}
+
+	matchFound := true
+	if cMatch.FilterChain != nil {
+		matchFound = false
+		for _, fc := range listener.FilterChains {
+			if filterChainMatch(cMatch.FilterChain, fc.FilterChainMatch) {
+				matchFound = true
+				if cMatch.FilterChain.Filter != nil {
+					matchFound = false
+					for _, networkFilter := range fc.Filters {
+						// validation ensures that filter name is not empty
+						if networkFilter.Name == cMatch.FilterChain.Filter.Name {
+							matchFound = true
+							// subfilter match is not necessary at it applies only to HTTP_FILTER
+							// while here,  we are matching  only for listener/network_filter or filter_chain
+						}
+						if matchFound {
+							break
+						}
+					}
+				}
+			}
+			if matchFound {
+				break
+			}
+		}
+	}
+	return matchFound
+}
+
 func routeConfigurationMatch(rc *xdsapi.RouteConfiguration, vh *route.VirtualHost, pluginParams *plugin.InputParams,
 	matchCondition *networking.EnvoyFilter_EnvoyConfigObjectMatch) bool {
 	if matchCondition == nil {
@@ -632,16 +725,6 @@ func routeConfigurationMatch(rc *xdsapi.RouteConfiguration, vh *route.VirtualHos
 		return true
 	}
 
-	if cMatch.Name != "" {
-		if cMatch.Name == rc.Name {
-			// no need to check for other fields. Just check if
-			// the virtual host name matches
-			return virtualHostMatch(cMatch.Vhost, vh)
-		}
-		// name match is terminal
-		return false
-	}
-
 	// we match on the port number and virtual host for sidecars
 	// we match on port number, server port name, gateway name, plus virtual host for gateways
 	if pluginParams.Node.Type == model.SidecarProxy {
@@ -650,6 +733,11 @@ func routeConfigurationMatch(rc *xdsapi.RouteConfiguration, vh *route.VirtualHos
 		if cMatch.PortNumber != 0 && int(cMatch.PortNumber) != pluginParams.Port.Port {
 			return false
 		}
+
+		if cMatch.Name != "" && cMatch.Name != rc.Name {
+			return false
+		}
+
 		// ports have matched for the rds in sidecar. Check for virtual host match if any
 		return virtualHostMatch(cMatch.Vhost, vh)
 	}
@@ -663,6 +751,10 @@ func routeConfigurationMatch(rc *xdsapi.RouteConfiguration, vh *route.VirtualHos
 		return false
 	}
 	if cMatch.Gateway != "" && cMatch.Gateway != gateway {
+		return false
+	}
+
+	if cMatch.Name != "" && cMatch.Name != rc.Name {
 		return false
 	}
 
@@ -683,4 +775,32 @@ func virtualHostMatch(match *networking.EnvoyFilter_RouteConfigurationMatch_Virt
 	}
 	// check if virtual host names match
 	return match.Name == vh.Name
+}
+
+func filterChainMatch(match *networking.EnvoyFilter_ListenerMatch_FilterChainMatch, fc *listener.FilterChainMatch) bool {
+	if match == nil {
+		return true
+	}
+	if match.Sni != "" {
+		if fc == nil || len(fc.ServerNames) == 0 {
+			return false
+		}
+		sniMatched := false
+		for _, sni := range fc.ServerNames {
+			if sni == match.Sni {
+				sniMatched = true
+				break
+			}
+		}
+		if !sniMatched {
+			return false
+		}
+	}
+
+	if match.TransportProtocol != "" {
+		if fc == nil || fc.TransportProtocol != match.TransportProtocol {
+			return false
+		}
+	}
+	return true
 }

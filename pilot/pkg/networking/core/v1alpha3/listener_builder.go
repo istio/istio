@@ -70,9 +70,7 @@ func (builder *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl,
 	// Do not generate any management port listeners if the user has specified a SidecarScope object
 	// with ingress listeners. Specifying the ingress listener implies that the user wants
 	// to only have those specific listeners and nothing else, in the inbound path.
-	sidecarScope := node.SidecarScope
-	if sidecarScope != nil && sidecarScope.HasCustomIngressListeners ||
-		noneMode {
+	if node.SidecarScope.HasCustomIngressListeners || noneMode {
 		return builder
 	}
 	// Let ServiceDiscovery decide which IP and Port are used for management if
