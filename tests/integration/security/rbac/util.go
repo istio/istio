@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package rbac
 
 import (
 	"fmt"
@@ -105,7 +105,8 @@ func RunRBACTest(t *testing.T, cases []TestCase) {
 			tc.Request.Options.Path,
 			tc.ExpectAllowed)
 		t.Run(testName, func(t *testing.T) {
-			retry.UntilSuccessOrFail(t, tc.CheckRBACRequest, retry.Delay(time.Second), retry.Timeout(10*time.Second))
+			retry.UntilSuccessOrFail(t, tc.CheckRBACRequest,
+				retry.Delay(500*time.Millisecond), retry.Timeout(15*time.Second))
 		})
 	}
 }
