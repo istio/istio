@@ -57,7 +57,7 @@ func createNacosClient(addr string) (client *naming_client.INamingClient, err er
 
 	clientConfig := constant.ClientConfig{
 		TimeoutMs:      30 * 1000,
-		ListenInterval: 10 * 1000,
+		ListenInterval: 40 * 1000,
 		BeatInterval:   5 * 1000,
 		LogDir:         "nacos/logs",
 		CacheDir:       "nacos/cache",

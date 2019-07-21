@@ -39,7 +39,7 @@ func convertService(service nacos_model.Service) *istio_model.Service {
 		svcPorts = append(svcPorts, port)
 	}
 
-	hostName := serviceHostname(name)
+	hostName := serviceHostname(formatServiceName(name))
 	result := &istio_model.Service{
 		Hostname:     hostName,
 		Address:      istio_model.UnspecifiedIP,
@@ -83,7 +83,7 @@ func convertInstance(instance nacos_model.Instance) *istio_model.ServiceInstance
 		resolution = istio_model.DNSLB
 	}
 
-	hostname := serviceHostname(instance.ServiceName)
+	hostname := serviceHostname(formatServiceName(instance.ServiceName))
 	return &istio_model.ServiceInstance{
 		Endpoint: istio_model.NetworkEndpoint{
 			Address:     addr,
@@ -152,8 +152,6 @@ func sortInstances(instances []nacos_model.Instance) {
 
 // 根据serviceName 组装成 hostName
 func serviceHostname(name string) istio_model.Hostname {
-	// TODO include datacenter in Hostname?
-	// consul DNS uses "redis.service.us-east-1.consul" -> "[<optional_tag>].<svc>.service.[<optional_datacenter>].consul"
 	return istio_model.Hostname(fmt.Sprintf("%s.service.nacos", name))
 }
 
@@ -166,4 +164,12 @@ func parseHostname(hostname istio_model.Hostname) (name string, err error) {
 	}
 	name = parts[0]
 	return
+}
+
+func formatServiceName(serviceName string) string {
+	parts := strings.Split(string(serviceName), "@@")
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	return parts[1]
 }

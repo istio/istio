@@ -6,12 +6,12 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/log"
 	"reflect"
+	"strings"
 	"time"
 )
 
 type serviceHandler func(*model.Service, model.Event)
 type instanceHandler func(*model.ServiceInstance, model.Event)
-
 
 type Controller struct {
 	client           *Client
@@ -21,7 +21,7 @@ type Controller struct {
 }
 
 func NewController(addr string, duration time.Duration) (*Controller, error) {
-	client, err := NewClient(addr)
+	client, err := NewClient(strings.ReplaceAll(addr,"http://","" ))
 	return &Controller{
 		client:           client,
 		serviceHandlers:  make([]serviceHandler, 0),
@@ -158,73 +158,24 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		case <-ticker.C:
 			services, err := c.client.getAllServices()
 			if err != nil {
-				log.Warnf("periodic Eureka poll failed: %v", err)
+				log.Warnf("periodic Nacos poll failed: %v", err)
 				continue
 			}
-
-			addedService, deletedService, existServiceMap := getChangedServices(cacheServices, services)
-
-			// 控制新增Service
-			if len(addedService) > 0 {
+			sortServices(services)
+			if !reflect.DeepEqual(services, cacheServices) {
+				cacheServices = services
+				// TODO: feed with real events.
+				// The handlers are being fed dummy events. This is sufficient with simplistic
+				// handlers that invalidate the cache on any event but will not work with smarter
+				// handlers.
 				for _, h := range c.serviceHandlers {
-					for _, data := range addedService {
-						go h(convertService(data), model.EventAdd)
-					}
+					go h(&model.Service{}, model.EventAdd)
+				}
+				for _, h := range c.instanceHandlers {
+					go h(&model.ServiceInstance{}, model.EventAdd)
 				}
 			}
 
-			// 控制被删除Service
-			if len(deletedService) > 0 {
-				for _, h := range c.serviceHandlers {
-					for _, data := range deletedService {
-						go h(convertService(data), model.EventDelete)
-					}
-				}
-			}
-
-			// 目前根据instance是否变化来判断Service是否Update
-
-			if existServiceMap != nil && len(existServiceMap) > 0 {
-				for newData, oldData := range existServiceMap {
-					addedInstance, deletedInstance, existInstanceMap := getChangedInstances(oldData.Hosts, newData.Hosts)
-
-					var changed bool
-					if addedInstance != nil && len(addedInstance) > 0 {
-						changed = true
-						for _, h := range c.instanceHandlers {
-							for _, data := range addedInstance {
-								go h(convertInstance(data), model.EventAdd)
-							}
-						}
-					}
-					if deletedService != nil && len(deletedService) > 0 {
-						changed = true
-						for _, h := range c.instanceHandlers {
-							for _, data := range deletedInstance {
-								go h(convertInstance(data), model.EventDelete)
-							}
-						}
-					}
-
-					if existInstanceMap != nil && len(existInstanceMap) > 0 {
-						//判断实例是否发生变化
-						for newInstance, oldInstance := range existInstanceMap {
-							if !reflect.DeepEqual(newInstance.Metadata, oldInstance.Metadata) {
-								changed = true
-								for _, h := range c.instanceHandlers {
-									go h(convertInstance(newInstance), model.EventUpdate)
-								}
-							}
-						}
-					}
-
-					if changed {
-						for _, h := range c.serviceHandlers {
-							go h(convertService(newData), model.EventUpdate)
-						}
-					}
-				}
-			}
 		case <-stop:
 			ticker.Stop()
 			return
@@ -240,79 +191,4 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	c.instanceHandlers = append(c.instanceHandlers, f)
 	return nil
-}
-
-func getChangedServices(oldCache []nacos_model.Service, newCache []nacos_model.Service) ([]nacos_model.Service, []nacos_model.Service, map[nacos_model.Service]nacos_model.Service) {
-	if len(oldCache) == 0 {
-		return newCache, []nacos_model.Service{}, map[nacos_model.Service]nacos_model.Service{}
-	}
-	if len(newCache) == 0 {
-		return []nacos_model.Service{}, oldCache, map[nacos_model.Service]nacos_model.Service{}
-	}
-
-	mapService := make(map[string]nacos_model.Service, 0)
-	for _, data := range oldCache {
-		mapService[data.Name] = data
-	}
-
-	addedResult := make([]nacos_model.Service, 0)
-	existResult := make([]nacos_model.Service, 0)
-	existResultMap := make(map[string]nacos_model.Service, 0)
-	for _, data := range newCache {
-		data, ok := mapService[data.Name]
-		if ok {
-			existResult = append(existResult, data)
-			existResultMap[data.Name] = data
-		} else {
-			addedResult = append(addedResult, data)
-		}
-	}
-
-	deletedResult := make(map[nacos_model.Service]nacos_model.Service, 0)
-	for _, oldData := range oldCache {
-		newData, ok := existResultMap[oldData.Name]
-		if ok {
-			continue
-		}
-		deletedResult[newData] = oldData
-	}
-
-	return addedResult, existResult, deletedResult
-}
-func getChangedInstances(oldCache []nacos_model.Instance, newCache []nacos_model.Instance) ([]nacos_model.Instance, []nacos_model.Instance, map[nacos_model.Instance]nacos_model.Instance) {
-	if len(oldCache) == 0 {
-		return newCache, []nacos_model.Instance{}, map[nacos_model.Instance]nacos_model.Instance{}
-	}
-	if len(newCache) == 0 {
-		return []nacos_model.Instance{}, oldCache, map[nacos_model.Instance]nacos_model.Instance{}
-	}
-
-	mapService := make(map[string]nacos_model.Instance, 0)
-	for _, data := range oldCache {
-		mapService[data.InstanceId] = data
-	}
-
-	addedResult := make([]nacos_model.Instance, 0)
-	existResult := make([]nacos_model.Instance, 0)
-	existResultMap := make(map[string]nacos_model.Instance, 0)
-	for _, data := range newCache {
-		data, ok := mapService[data.InstanceId]
-		if ok {
-			existResult = append(existResult, data)
-			existResultMap[data.InstanceId] = data
-		} else {
-			addedResult = append(addedResult, data)
-		}
-	}
-
-	deletedResult := make(map[nacos_model.Instance]nacos_model.Instance, 0)
-	for _, oldData := range oldCache {
-		newData, ok := existResultMap[oldData.InstanceId]
-		if ok {
-			continue
-		}
-		deletedResult[newData] = oldData
-	}
-
-	return addedResult, existResult, deletedResult
 }
