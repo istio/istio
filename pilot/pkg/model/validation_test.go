@@ -3284,7 +3284,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					ApplyTo: networking.EnvoyFilter_LISTENER,
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_ADD,
-						Value: &types.Struct{},
+						Value:     &types.Struct{},
 					},
 				},
 			},
@@ -3298,7 +3298,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
-						Value: &types.Struct{},
+						Value:     &types.Struct{},
 					},
 				},
 			},

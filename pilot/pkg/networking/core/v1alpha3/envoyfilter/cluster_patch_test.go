@@ -252,32 +252,32 @@ func TestApplyClusterPatches(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name   string
-		input  []*xdsapi.Cluster
-		proxy  *model.Proxy
+		name         string
+		input        []*xdsapi.Cluster
+		proxy        *model.Proxy
 		patchContext networking.EnvoyFilter_PatchContext
-		output []*xdsapi.Cluster
+		output       []*xdsapi.Cluster
 	}{
 		{
-			name:   "sidecar outbound cluster patch",
-			input:  sidecarOutboundIn,
-			proxy:  &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"},
+			name:         "sidecar outbound cluster patch",
+			input:        sidecarOutboundIn,
+			proxy:        &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"},
 			patchContext: networking.EnvoyFilter_SIDECAR_OUTBOUND,
-			output: sidecarOutboundOut,
+			output:       sidecarOutboundOut,
 		},
 		{
-			name:   "sidecar inbound cluster patch",
-			input:  sidecarInboundIn,
+			name:         "sidecar inbound cluster patch",
+			input:        sidecarInboundIn,
 			patchContext: networking.EnvoyFilter_SIDECAR_INBOUND,
-			proxy:  &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"},
-			output: sidecarInboundOut,
+			proxy:        &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"},
+			output:       sidecarInboundOut,
 		},
 		{
-			name:   "gateway cds patch",
-			input:  gatewayInput,
+			name:         "gateway cds patch",
+			input:        gatewayInput,
 			patchContext: networking.EnvoyFilter_GATEWAY,
-			proxy:  &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"},
-			output: gatewayOutput,
+			proxy:        &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"},
+			output:       gatewayOutput,
 		},
 	}
 
