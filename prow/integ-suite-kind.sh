@@ -95,5 +95,6 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
   time build_kind_images
 fi
 
-
+export JUNIT_UNIT_TEST_XML="${ARTIFACTS}/junit.xml"
+export T="-v"
 make "${PARAMS[*]}"

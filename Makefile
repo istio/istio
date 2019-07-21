@@ -602,12 +602,11 @@ common-coverage:
 
 .PHONY: racetest
 
-JUNIT_RACE_TEST_XML ?= $(ISTIO_OUT)/junit_race-tests.xml
 RACE_TESTS ?= pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest
 racetest: $(JUNIT_REPORT)
-	mkdir -p $(dir $(JUNIT_RACE_TEST_XML))
+	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	$(MAKE) --keep-going $(RACE_TESTS) \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_RACE_TEST_XML))
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 .PHONY: pilot-racetest
 pilot-racetest: pilot-agent

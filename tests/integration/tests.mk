@@ -15,10 +15,10 @@ ifneq ($(CI),)
 	_INTEGRATION_TEST_PULL_POLICY = IfNotPresent      # Using Always in CircleCI causes pull issues as images are local.
 endif
 
-# In Prow, ARTIFACTS_DIR points to the location where Prow captures the artifacts from the tests
+# In Prow, ARTIFACTS points to the location where Prow captures the artifacts from the tests
 INTEGRATION_TEST_WORKDIR =
-ifneq ($(ARTIFACTS_DIR),)
-	INTEGRATION_TEST_WORKDIR = ${ARTIFACTS_DIR}
+ifneq ($(ARTIFACTS),)
+	INTEGRATION_TEST_WORKDIR = ${ARTIFACTS}
 endif
 
 _INTEGRATION_TEST_INGRESS_FLAG =
