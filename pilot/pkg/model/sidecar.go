@@ -278,17 +278,6 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 
 // ServiceForHostname returns the service associated with a given hostname following SidecarScope
 func (sc *SidecarScope) ServiceForHostname(hostname Hostname, serviceByHostname map[Hostname]map[string]*Service) *Service {
-	if sc == nil {
-		// No Sidecar scope. An arbitrary service will be chosen
-		for _, serviceByNamespace := range serviceByHostname {
-			for _, service := range serviceByNamespace {
-				if service.Hostname == hostname {
-					return service
-				}
-			}
-		}
-	}
-
 	// Search through in scope services. SidecarScope will already have scoped the services to ensure
 	// that the right service will be chosen here
 	for _, s := range sc.Services() {

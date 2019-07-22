@@ -189,6 +189,15 @@ func endpointMetadata(uid string, network string) *core.Metadata {
 	return metadata
 }
 
+// Determine Service associated with a hostname when there is no Sidecar scope. Which namepace the service comes from
+// is undefined, as we do not have enough information to make a smart decision
+func legacyServiceForHostname(hostname model.Hostname, serviceByHostname map[model.Hostname]map[string]*model.Service) *model.Service {
+	for _, service := range serviceByHostname[hostname] {
+		return service
+	}
+	return nil
+}
+
 // updateClusterInc computes an envoy cluster assignment from the service shards.
 // This happens when endpoints are updated.
 // TODO: this code is specific for 1.0 / pre-isolation. With config scoping, two sidecars can get
@@ -211,9 +220,8 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	// arbitrary destination rule's subset labels!
 	labels := push.SubsetToLabels(nil, subsetName, hostname)
 
-	var dummySidecarScope *model.SidecarScope
 	push.Mutex.Lock()
-	svc := dummySidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
+	svc := legacyServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
 	push.Mutex.Unlock()
 	if svc == nil {
 		return s.updateCluster(push, clusterName, edsCluster)
