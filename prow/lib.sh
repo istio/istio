@@ -125,23 +125,24 @@ function check_kind() {
 }
 
 function setup_kind_cluster() {
+  IMAGE="${1}"
   # Installing KinD
   check_kind
 
   # Delete any previous e2e KinD cluster
-  echo "Deleting previous KinD cluster with name=e2e-suite"
-  if ! (kind delete cluster --name=e2e-suite) > /dev/null; then
-  	echo "No Found existing kind cluster with name e2e-suite. Continue..."
+  echo "Deleting previous KinD cluster with name=istio-testing"
+  if ! (kind delete cluster --name=istio-testing) > /dev/null; then
+    echo "No existing kind cluster with name istio-testing. Continue..."
   fi
 
   # Create KinD cluster
-  if ! (kind create cluster --name=e2e-suite --loglevel debug --retain); then
+  if ! (kind create cluster --name=istio-testing --loglevel debug --retain --image "${IMAGE}"); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
-    kind export logs --name e2e-suite "${ARTIFACTS_DIR}/kind"
+    kind export logs --name istio-testing "${ARTIFACTS_DIR}/kind"
     exit 1
   fi
 
-  KUBECONFIG="$(kind get kubeconfig-path --name="e2e-suite")"
+  KUBECONFIG="$(kind get kubeconfig-path --name="istio-testing")"
   export KUBECONFIG
 }
 
