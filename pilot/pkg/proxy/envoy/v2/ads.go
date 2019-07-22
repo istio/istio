@@ -15,13 +15,11 @@
 package v2
 
 import (
-	"context"
 	"errors"
 	"io"
 	"reflect"
 	"sort"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
@@ -53,15 +51,6 @@ var (
 	// SendTimeout is the max time to wait for a ADS send to complete. This helps detect
 	// clients in a bad state (not reading). In future it may include checking for ACK
 	SendTimeout = 5 * time.Second
-
-	// PushTimeout is the time to wait for a push on a client. Pilot iterates over
-	// clients and pushes them serially for now, to avoid large CPU/memory spikes.
-	// We measure and reports cases where pushing a client takes longer.
-	PushTimeout = 5 * time.Second
-)
-
-var (
-	timeZero time.Time
 )
 
 // DiscoveryStream is a common interface for EDS and ADS. It also has a
@@ -126,9 +115,6 @@ type XdsConnection struct {
 	// added will be true if at least one discovery request was received, and the connection
 	// is added to the map of active.
 	added bool
-
-	// pushMutex prevents 2 overlapping pushes for this connection.
-	pushMutex sync.Mutex
 }
 
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
@@ -195,11 +181,14 @@ type XdsEvent struct {
 	// Only EDS for the listed clusters will be sent.
 	edsUpdatedServices map[string]struct{}
 
+	// Push context to use for the push.
 	push *model.PushContext
 
-	pending *int32
+	// start represents the time a push was started.
+	start time.Time
 
-	version string
+	// function to call once a push is finished. This must be called or future changes may be blocked.
+	done func()
 }
 
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
@@ -248,11 +237,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	}
 
 	t0 := time.Now()
-	// rate limit the herd, after restart all endpoints will reconnect to the
-	// poor new pilot and overwhelm it.
-	// TODO: instead of readiness probe, let endpoints connect and wait here for
-	// config to become stable. Will better spread the load.
-	_ = s.initRateLimiter.Wait(context.TODO())
 
 	// first call - lazy loading, in tests. This should not happen if readiness
 	// check works, since it assumes ClearCache is called (and as such PushContext
@@ -476,6 +460,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			// from it.
 
 			err := s.pushConnection(con, pushEv)
+			pushEv.done()
 			if err != nil {
 				return nil
 			}
@@ -552,7 +537,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
 		if len(con.Clusters) > 0 {
-			if err := s.pushEds(pushEv.push, con, pushEv.version, pushEv.edsUpdatedServices); err != nil {
+			if err := s.pushEds(pushEv.push, con, versionInfo(), pushEv.edsUpdatedServices); err != nil {
 				return err
 			}
 		}
@@ -582,57 +567,39 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 
 	adsLog.Infof("Pushing %v", con.ConID)
 
-	_ = s.rateLimiter.Wait(context.TODO()) // rate limit the actual push
-
-	// Prevent 2 overlapping pushes.
-	con.pushMutex.Lock()
-	defer con.pushMutex.Unlock()
-
-	defer func() {
-		n := atomic.AddInt32(pushEv.pending, -1)
-		if n <= 0 && pushEv.push.End == timeZero {
-			// Display again the push status
-			pushEv.push.Mutex.Lock()
-			pushEv.push.End = time.Now()
-			pushEv.push.Mutex.Unlock()
-			proxiesConvergeDelay.Record(time.Since(pushEv.push.Start).Seconds())
-			out, _ := pushEv.push.JSON()
-			adsLog.Infof("Push finished: %v %s",
-				time.Since(pushEv.push.Start), string(out))
-		}
-	}()
 	// check version, suppress if changed.
 	currentVersion := versionInfo()
-	if pushEv.version != currentVersion {
-		adsLog.Infof("Suppress push for %s at %s, push with newer version %s in progress", con.ConID, pushEv.version, currentVersion)
-		return nil
-	}
 
 	if con.CDSWatch {
-		err := s.pushCds(con, pushEv.push, pushEv.version)
+		err := s.pushCds(con, pushEv.push, currentVersion)
 		if err != nil {
+			proxiesConvergeDelayCdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
 
 	if len(con.Clusters) > 0 {
-		err := s.pushEds(pushEv.push, con, pushEv.version, nil)
+		err := s.pushEds(pushEv.push, con, currentVersion, nil)
 		if err != nil {
+			proxiesConvergeDelayEdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
 	if con.LDSWatch {
-		err := s.pushLds(con, pushEv.push, pushEv.version)
+		err := s.pushLds(con, pushEv.push, currentVersion)
 		if err != nil {
+			proxiesConvergeDelayLdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
 	if len(con.Routes) > 0 {
-		err := s.pushRoute(con, pushEv.push, pushEv.version)
+		err := s.pushRoute(con, pushEv.push, currentVersion)
 		if err != nil {
+			proxiesConvergeDelayRdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
+	proxiesConvergeDelay.Record(time.Since(pushEv.start).Seconds())
 	return nil
 }
 
@@ -685,12 +652,11 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 		}
 	}
 	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
-	s.startPush(version, push, true, nil)
+	s.startPush(push, true, nil)
 }
 
 // Send a signal to all connections, with a push event.
-func (s *DiscoveryServer) startPush(version string, push *model.PushContext, full bool,
-	edsUpdates map[string]struct{}) {
+func (s *DiscoveryServer) startPush(push *model.PushContext, full bool, edsUpdates map[string]struct{}) {
 
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
@@ -702,95 +668,14 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 	}
 	adsClientsMutex.RUnlock()
 
-	// This will trigger recomputing the config for each connected Envoy.
-	// It will include sending all configs that envoy is listening for, including EDS.
-	// TODO: get service, serviceinstances, configs once, to avoid repeated redundant calls.
-	// TODO: indicate the specific events, to only push what changed.
-
-	pendingPush := int32(len(pending))
-
-	tstart := time.Now()
-	// Will keep trying to push to sidecars until another push starts.
-	wg := sync.WaitGroup{}
-	for {
-
-		if len(pending) == 0 {
-			break
-		}
-		// Using non-blocking push has problems if 2 pushes happen too close to each other
-		client := pending[0]
-		pending = pending[1:]
-
-		// indicates whether to do a full push for the proxy
-		proxyFull := full
-		if !full {
-			s.proxyUpdatesMutex.Lock()
-			if _, ok := s.proxyUpdates[client.modelNode.IPAddresses[0]]; ok {
-				proxyFull = true
-				delete(s.proxyUpdates, client.modelNode.IPAddresses[0])
-			}
-			s.proxyUpdatesMutex.Unlock()
-		}
-
-		wg.Add(1)
-		s.concurrentPushLimit <- struct{}{}
-		go func() {
-			defer func() {
-				<-s.concurrentPushLimit
-				wg.Done()
-			}()
-
-			edsOnly := edsUpdates
-			if proxyFull {
-				edsOnly = nil
-			}
-			lastPushFailure := timeZero
-		Retry:
-			currentVersion := versionInfo()
-			// Stop attempting to push
-			if version != currentVersion && proxyFull {
-				adsLog.Infof("PushAll abort %s, push with newer version %s in progress %v", version, currentVersion, time.Since(tstart))
-				return
-			}
-			timer := time.NewTimer(PushTimeout)
-
-			select {
-			case client.pushChannel <- &XdsEvent{
-				push:               push,
-				pending:            &pendingPush,
-				version:            version,
-				edsUpdatedServices: edsOnly,
-			}:
-				if !timer.Stop() {
-					<-timer.C
-				}
-			case <-client.stream.Context().Done(): // grpc stream was closed
-				adsLog.Infof("Client closed connection %v", client.ConID)
-			case <-timer.C:
-				// This may happen to some clients if the other side is in a bad state and can't receive.
-				// The tests were catching this - one of the client was not reading.
-				pushTimeouts.Increment()
-				if lastPushFailure.IsZero() {
-					lastPushFailure = time.Now()
-
-				}
-				if time.Since(lastPushFailure) > 10*time.Second {
-					adsLog.Warnf("Repeated failure to push %s", client.ConID)
-					// unfortunately grpc go doesn't allow closing (unblocking) the stream.
-					unrecoverableErrs.Increment()
-					pushTimeoutFailures.Increment()
-					return
-				}
-
-				adsLog.Warnf("Failed to push, client busy %s", client.ConID)
-				retryErrs.Increment()
-				goto Retry
-			}
-		}()
+	currentlyPending := s.pushQueue.Pending()
+	if currentlyPending != 0 {
+		adsLog.Infof("Starting new push while %v were still pending", currentlyPending)
 	}
-
-	wg.Wait()
-	adsLog.Infof("PushAll done %s %v", version, time.Since(tstart))
+	startTime := time.Now()
+	for _, p := range pending {
+		s.pushQueue.Enqueue(p, &PushInformation{edsUpdates, push, startTime, full})
+	}
 }
 
 func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {

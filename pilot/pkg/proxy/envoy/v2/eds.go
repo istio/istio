@@ -408,7 +408,7 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 	}
 	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
 
-	s.startPush(version, push, false, edsUpdates)
+	s.startPush(push, false, edsUpdates)
 }
 
 // WorkloadUpdate is called when workload labels/annotations are updated.
