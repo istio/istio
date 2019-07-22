@@ -216,7 +216,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 }
 
 func TestApplyRouteConfigurationPatches(t *testing.T) {
-	t.Skipf("%s disabled due to https://github.com/gogo/protobuf/pull/569", t.Name())
+	t.Skip("disabled due to https://github.com/gogo/protobuf/pull/569")
 	configPatches := []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 		{
 			ApplyTo: networking.EnvoyFilter_ROUTE_CONFIGURATION,
