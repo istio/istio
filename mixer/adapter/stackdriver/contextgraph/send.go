@@ -92,23 +92,29 @@ func (e edge) ToProto() *contextgraphpb.Relationship {
 
 // splitBySize helps find the largest BatchRequest that is smaller than the max request size
 func splitBySizeEntity(msg *contextgraphpb.AssertBatchRequest) int {
-	curSize := proto.Size(msg)
-	curIndex := len(msg.EntityPresentAssertions) - 1
-	for curSize > maxReq {
-		curSize -= proto.Size(msg.EntityPresentAssertions[curIndex])
-		curIndex--
+	curSize := 0
+	curIndex := 0
+	for ; curIndex < len(msg.EntityPresentAssertions); curIndex++ {
+		curSize += proto.Size(msg.EntityPresentAssertions[curIndex])
+		if curSize >= maxReq {
+			curIndex--
+			break
+		}
 	}
-	return curIndex + 1
+	return curIndex
 }
 
 func splitBySizeRelationship(msg *contextgraphpb.AssertBatchRequest) int {
-	curSize := proto.Size(msg)
-	curIndex := len(msg.RelationshipPresentAssertions) - 1
-	for curSize > maxReq {
-		curSize -= proto.Size(msg.RelationshipPresentAssertions[curIndex])
-		curIndex--
+	curSize := 0
+	curIndex := 0
+	for ; curIndex < len(msg.RelationshipPresentAssertions); curIndex++ {
+		curSize += proto.Size(msg.RelationshipPresentAssertions[curIndex])
+		if curSize >= maxReq {
+			curIndex--
+			break
+		}
 	}
-	return curIndex + 1
+	return curIndex
 }
 
 func (h *handler) send(ctx context.Context, t time.Time, entitiesToSend []entity, edgesToSend []edge) error {

@@ -68,7 +68,7 @@ func BenchmarkSendBatch(b *testing.B) {
 }
 
 func TestSendBatch(t *testing.T) {
-	testSize := 20000
+	testSize := 21000
 	m := &mockBatchClient{
 		ABCalled:    0,
 		NumEntities: 0,
