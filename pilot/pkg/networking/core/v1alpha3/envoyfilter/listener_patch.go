@@ -32,8 +32,7 @@ func ApplyListenerPatches(patchContext networking.EnvoyFilter_PatchContext,
 	proxy *model.Proxy, push *model.PushContext, listeners []*xdsapi.Listener, skipAdds bool) []*xdsapi.Listener {
 
 	envoyFilterWrappers := push.EnvoyFilters(proxy)
-	doListenerListOperation(patchContext, envoyFilterWrappers, listeners, skipAdds)
-	return listeners
+	return doListenerListOperation(patchContext, envoyFilterWrappers, listeners, skipAdds)
 }
 
 func doListenerListOperation(patchContext networking.EnvoyFilter_PatchContext,
@@ -104,11 +103,11 @@ func doFilterChainListOperation(patchContext networking.EnvoyFilter_PatchContext
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdsapi.Listener) {
 	filterChainsRemoved := false
-	for _, fc := range listener.FilterChains {
+	for i, fc := range listener.FilterChains {
 		if fc.Filters == nil {
 			continue
 		}
-		doFilterChainOperation(patchContext, patches, listener, &fc, &filterChainsRemoved)
+		doFilterChainOperation(patchContext, patches, listener, &listener.FilterChains[i], &filterChainsRemoved)
 	}
 	for _, cp := range patches[networking.EnvoyFilter_FILTER_CHAIN] {
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
@@ -156,11 +155,11 @@ func doNetworkFilterListOperation(patchContext networking.EnvoyFilter_PatchConte
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdsapi.Listener, fc *xdslistener.FilterChain) {
 	networkFiltersRemoved := false
-	for _, filter := range fc.Filters {
+	for i, filter := range fc.Filters {
 		if filter.Name == "" {
 			continue
 		}
-		doNetworkFilterOperation(patchContext, patches, listener, fc, &filter, &networkFiltersRemoved)
+		doNetworkFilterOperation(patchContext, patches, listener, fc, &fc.Filters[i], &networkFiltersRemoved)
 	}
 	for _, cp := range patches[networking.EnvoyFilter_NETWORK_FILTER] {
 		if !patchContextMatch(patchContext, cp) ||
@@ -172,23 +171,50 @@ func doNetworkFilterListOperation(patchContext networking.EnvoyFilter_PatchConte
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
 			fc.Filters = append(fc.Filters, *cp.Value.(*xdslistener.Filter))
 		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
-			fc.Filters = append(fc.Filters, *cp.Value.(*xdslistener.Filter))
-			for i := len(fc.Filters) - 2; i >= 1; i-- {
-				if !networkFilterMatch(&fc.Filters[i], cp) {
-					fc.Filters[i-1], fc.Filters[i] = fc.Filters[i], fc.Filters[i-1]
-				} else {
+			// Insert after without a filter match is same as ADD in the end
+			if !hasNetworkFilterMatch(cp) {
+				fc.Filters = append(fc.Filters, *cp.Value.(*xdslistener.Filter))
+				continue
+			}
+			// find the matching filter first
+			insertPosition := -1
+			for i := 0; i < len(fc.Filters); i++ {
+				if networkFilterMatch(&fc.Filters[i], cp) {
+					insertPosition = i + 1
 					break
 				}
+			}
+
+			if insertPosition == -1 {
+				continue
+			}
+
+			fc.Filters = append(fc.Filters, *cp.Value.(*xdslistener.Filter))
+			if insertPosition < len(fc.Filters)-1 {
+				copy(fc.Filters[insertPosition+1:], fc.Filters[insertPosition:])
+				fc.Filters[insertPosition] = *cp.Value.(*xdslistener.Filter)
 			}
 		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
-			fc.Filters = append(fc.Filters, *cp.Value.(*xdslistener.Filter))
-			for i := len(fc.Filters) - 2; i >= 1; i-- {
-				match := networkFilterMatch(&fc.Filters[i], cp)
-				fc.Filters[i-1], fc.Filters[i] = fc.Filters[i], fc.Filters[i-1]
-				if match {
+			// insert before without a filter match is same as insert in the beginning
+			if !hasNetworkFilterMatch(cp) {
+				fc.Filters = append([]xdslistener.Filter{*cp.Value.(*xdslistener.Filter)}, fc.Filters...)
+				continue
+			}
+			// find the matching filter first
+			insertPosition := -1
+			for i := 0; i < len(fc.Filters); i++ {
+				if networkFilterMatch(&fc.Filters[i], cp) {
+					insertPosition = i
 					break
 				}
 			}
+
+			if insertPosition == -1 {
+				continue
+			}
+			fc.Filters = append(fc.Filters, *cp.Value.(*xdslistener.Filter))
+			copy(fc.Filters[insertPosition+1:], fc.Filters[insertPosition:])
+			fc.Filters[insertPosition] = *cp.Value.(*xdslistener.Filter)
 		}
 	}
 	if networkFiltersRemoved {
@@ -376,47 +402,54 @@ func filterChainMatch(fc *xdslistener.FilterChain, cp *model.EnvoyFilterConfigPa
 	return true
 }
 
-// We assume that the parent listener and filter chain have already been matched
-func networkFilterMatch(filter *xdslistener.Filter, cp *model.EnvoyFilterConfigPatchWrapper) bool {
+func hasNetworkFilterMatch(cp *model.EnvoyFilterConfigPatchWrapper) bool {
 	cMatch := cp.Match.GetListener()
 	if cMatch == nil {
-		return true
+		return false
 	}
 
 	fcMatch := cMatch.FilterChain
 	if fcMatch == nil {
-		return true
+		return false
 	}
 
 	match := fcMatch.Filter
 	if match == nil {
+		return false
+	}
+
+	return true
+}
+
+// We assume that the parent listener and filter chain have already been matched
+func networkFilterMatch(filter *xdslistener.Filter, cp *model.EnvoyFilterConfigPatchWrapper) bool {
+	if !hasNetworkFilterMatch(cp) {
 		return true
 	}
 
-	return match.Name == filter.Name
+	return cp.Match.GetListener().FilterChain.Filter.Name == filter.Name
+}
+
+func hasHTTPFilterMatch(cp *model.EnvoyFilterConfigPatchWrapper) bool {
+	if !hasNetworkFilterMatch(cp) {
+		return false
+	}
+
+	match := cp.Match.GetListener().FilterChain.Filter.SubFilter
+	if match == nil {
+		return false
+	}
+
+	return true
 }
 
 // We assume that the parent listener and filter chain, and network filter have already been matched
 func httpFilterMatch(filter *http_conn.HttpFilter, cp *model.EnvoyFilterConfigPatchWrapper) bool {
-	cMatch := cp.Match.GetListener()
-	if cMatch == nil {
+	if !hasHTTPFilterMatch(cp) {
 		return true
 	}
 
-	fcMatch := cMatch.FilterChain
-	if fcMatch == nil {
-		return true
-	}
-
-	nMatch := fcMatch.Filter
-	if nMatch == nil {
-		return true
-	}
-
-	match := nMatch.SubFilter
-	if match == nil {
-		return true
-	}
+	match := cp.Match.GetListener().FilterChain.Filter.SubFilter
 
 	return match.Name == filter.Name
 }

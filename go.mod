@@ -78,7 +78,7 @@ require (
 	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
 	github.com/google/btree v1.0.0 // indirect
 	github.com/google/cel-go v0.2.0
-	github.com/google/go-cmp v0.2.0
+	github.com/google/go-cmp v0.3.0
 	github.com/google/go-github v15.0.0+incompatible
 	github.com/google/go-querystring v0.0.0-20170111101155-53e6ce116135 // indirect
 	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf // indirect
