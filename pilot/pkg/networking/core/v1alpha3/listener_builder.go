@@ -29,6 +29,9 @@ import (
 )
 
 // A stateful listener builder
+// Support the below intentions
+// 1. Use separate inbound capture listener(:15006) and outbound capture listener(:15001)
+// 2. The above listeners use bind_to_port sub listeners or filter chains.
 type ListenerBuilder struct {
 	node                   *model.Proxy
 	inboundListeners       []*xdsapi.Listener
@@ -36,7 +39,9 @@ type ListenerBuilder struct {
 	managementListeners    []*xdsapi.Listener
 	virtualListener        *xdsapi.Listener
 	virtualInboundListener *xdsapi.Listener
-	useInboundFilterChain  bool
+	// true inbound listener use filter chain match
+	useInboundFilterChain bool
+	// Unimplemented
 	useOutboundFilterChain bool
 }
 
@@ -50,12 +55,11 @@ func reduceInboundListenerToFilters(listeners []*xdsapi.Listener) (chains []*lis
 			chains = append(chains, &chain)
 		}
 	}
-	// TODO: sort
+	// TODO(silentdai): sort
 	return
 }
 
 func (builder *ListenerBuilder) aggregateVirtualInboundListener(env *model.Environment, node *model.Proxy) *ListenerBuilder {
-	//ip := getSidecarInboundBindIP(node)
 	var isTransparentProxy *google_protobuf.BoolValue
 	if node.GetInterceptionMode() == model.InterceptionTproxy {
 		isTransparentProxy = proto.BoolTrue
@@ -77,6 +81,7 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener(env *model.Envir
 		// 1. filter chains in this listener
 		// 2. explicit original_dst listener filter
 		// UseOriginalDst: proto.BoolTrue,
+		// TODO(silentdai) remove the fallback tcp filter chain and integrate sniff filter chain
 		FilterChains: []listener.FilterChain{
 			{
 				Filters: []listener.Filter{*tcpProxyFilter},
@@ -95,14 +100,12 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener(env *model.Envir
 				Name: "envoy.listener.tls_inspector",
 			})
 	}
-	// TODO(silentdai): default inbound chain tcpProxy or something else
 	return builder
 }
 
 func NewListenerBuilder(node *model.Proxy) *ListenerBuilder {
 	builder := &ListenerBuilder{
-		node: node,
-		// TODO(silentdai): new flag
+		node:                   node,
 		useInboundFilterChain:  node.IsInboundCaptureAllPorts(),
 		useOutboundFilterChain: node.IsInboundCaptureAllPorts(),
 	}
