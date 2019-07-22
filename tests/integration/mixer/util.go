@@ -134,6 +134,7 @@ func SendTraffic(ingress ingress.Instance, t *testing.T, msg, url, extraHeader s
 	if url == "" {
 		url = fmt.Sprintf("%s/productpage", ingress.HTTPAddress())
 	}
+	t.Logf("Send traffic to url: %s", url)
 
 	// run at a high enough QPS (here 10) to ensure that enough
 	// traffic is generated to trigger 429s from the 1 QPS rate limit rule
@@ -149,7 +150,7 @@ func SendTraffic(ingress ingress.Instance, t *testing.T, msg, url, extraHeader s
 		},
 	}
 	if extraHeader != "" {
-		opts.HTTPOptions.AddAndValidateExtraHeader(extraHeader)
+		_ = opts.HTTPOptions.AddAndValidateExtraHeader(extraHeader)
 	}
 	// productpage should still return 200s when ratings is rate-limited.
 	res, err := fhttp.RunHTTPTest(&opts)

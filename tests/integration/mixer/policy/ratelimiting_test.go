@@ -130,9 +130,13 @@ func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService
 
 		// This is the number of requests we allow to be missing to be reported, so as to make test stable.
 		errorInRequestReportingAllowed := 5.0
-		_ = util.SendTraffic(ing, t, "Sending traffic...", "", "", 300)
+		priorRes := util.SendTraffic(ing, t, "Sending traffic...", "", "", 300)
+		// Only count successful requests.
 		prior429s, prior200s := util.FetchRequestCount(t, prom, destinationService, "",
-			bookInfoNameSpaceStr, 300)
+			bookInfoNameSpaceStr, float64(priorRes.RetCodes[http.StatusOK])-errorInRequestReportingAllowed)
+		if prior200s == 0 && prior429s == 0 {
+			t.Errorf("Could not find successes value for prior test.")
+		}
 
 		res := util.SendTraffic(ing, t, "Sending traffic...", "", "", 300)
 		totalReqs := res.DurationHistogram.Count
@@ -163,8 +167,9 @@ func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService
 				destinationService, callsToRatings, want200s)
 		}
 
+		// Only count successful requests.
 		got429s, got200s := util.FetchRequestCount(t, prom, destinationService, "", bookInfoNameSpaceStr,
-			prior429s+prior200s+300-errorInRequestReportingAllowed)
+			prior429s+prior200s+succReqs-errorInRequestReportingAllowed)
 		if got429s == 0 {
 			attributes := []string{fmt.Sprintf("%s=\"%s\"", util.GetDestinationLabel(),
 				util.Fqdn(destinationService, bookInfoNameSpaceStr)),
