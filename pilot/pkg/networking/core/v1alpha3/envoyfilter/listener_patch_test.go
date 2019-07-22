@@ -161,7 +161,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
-				Value: buildPatchStruct(`{listener_filters: nil}`),
+				Value:     buildPatchStruct(`{listener_filters: nil}`),
 			},
 		},
 		{
@@ -170,7 +170,7 @@ func TestApplyListenerPatches(t *testing.T) {
 				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
 				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
 					Listener: &networking.EnvoyFilter_ListenerMatch{
-						PortNumber: 80,
+						PortNumber:  80,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{TransportProtocol: "tls"},
 					},
 				},
@@ -222,7 +222,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Sni: "*.foo.com",
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-								Name: xdsutil.HTTPConnectionManager,
+								Name:      xdsutil.HTTPConnectionManager,
 								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter2"},
 							},
 						},

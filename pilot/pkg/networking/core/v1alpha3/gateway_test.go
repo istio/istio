@@ -488,10 +488,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			p := &fakePlugin{}
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 			env := buildEnv(t, tt.gateways, tt.virtualServices)
-			route, err := configgen.buildGatewayHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, tt.routeName)
-			if err != nil {
-				t.Error(err)
-			}
+			route := configgen.buildGatewayHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, tt.routeName)
 			vh := []string{}
 			for _, h := range route.VirtualHosts {
 				vh = append(vh, h.Name)

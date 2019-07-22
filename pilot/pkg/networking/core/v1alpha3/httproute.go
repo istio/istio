@@ -49,7 +49,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 		}
 		return rc, nil
 	case model.Router:
-		rc, err = configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, routeName)
+		rc = configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, routeName)
 		if rc != nil {
 			rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, push, rc)
 		}
