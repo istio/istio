@@ -410,7 +410,7 @@ fi
 if [ -z "${DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK-}" ]; then
   # Redirect app calls back to itself via Envoy when using the service VIP or endpoint
   # address, e.g. appN => Envoy (client) => Envoy (server) => appN.
-  iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -j ISTIO_REDIRECT
+  iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -j ISTIO_IN_REDIRECT
 fi
 
 for uid in ${PROXY_UID}; do
@@ -539,7 +539,7 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
 
   # Redirect app calls to back itself via Envoy when using the service VIP or endpoint
   # address, e.g. appN => Envoy (client) => Envoy (server) => appN.
-  ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -j ISTIO_REDIRECT
+  ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -j ISTIO_IN_REDIRECT
 
   for uid in ${PROXY_UID}; do
     # Avoid infinite loops. Don't redirect Envoy traffic directly back to
