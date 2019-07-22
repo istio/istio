@@ -43,6 +43,7 @@ func newWatcher(r schema.KubeResource, a *rt.Adapter) *watcher {
 	return &watcher{
 		resource: r,
 		adapter:  a,
+		handler:  event.SentinelHandler(),
 	}
 }
 
@@ -58,6 +59,8 @@ func (w *watcher) start() {
 	informer, err := w.adapter.NewInformer()
 	if err != nil {
 		scope.Source.Errorf("unable to start watcher for %q: %v", w.resource.CanonicalResourceName(), err)
+		// Send a FullSync event, even if the informer is not available. This will ensure that the processing backend
+		// will still work, in absence of CRDs.
 		w.handler.Handle(event.FullSyncFor(w.resource.Collection.Name))
 		return
 	}
@@ -81,8 +84,7 @@ func (w *watcher) start() {
 
 	// Send the FullSync event after the cache syncs.
 	go func() {
-		_ = cache.WaitForCacheSync(done, informer.HasSynced)
-		if w.handler != nil {
+		if cache.WaitForCacheSync(done, informer.HasSynced) {
 			w.handler.Handle(event.FullSyncFor(w.resource.Collection.Name))
 		}
 	}()
@@ -130,9 +132,7 @@ func (w *watcher) handleEvent(c event.Kind, obj interface{}) {
 		Entry:  r,
 	}
 
-	if w.handler != nil {
-		scope.Source.Debugf("Sending event: [%v] from: %s", e, w.resource.Collection.Name)
-		w.handler.Handle(e)
-	}
+	w.handler.Handle(e)
+
 	stats.RecordEventSuccess()
 }

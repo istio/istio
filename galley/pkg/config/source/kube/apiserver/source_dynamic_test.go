@@ -17,14 +17,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
-	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/dynamic/fake"
-
-	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
-	k8sTesting "k8s.io/client-go/testing"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/resource"
@@ -34,6 +28,15 @@ import (
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/galley/pkg/testing/mock"
+
+	"github.com/gogo/protobuf/types"
+	. "github.com/onsi/gomega"
+	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/dynamic/fake"
+	k8sTesting "k8s.io/client-go/testing"
 )
 
 func TestNewSource(t *testing.T) {
@@ -49,7 +52,7 @@ func TestNewSource(t *testing.T) {
 
 func TestStartTwice(t *testing.T) {
 	// Create the source
-	w, cl := createMocks()
+	w, _, cl := createMocks()
 	defer w.Stop()
 
 	r := basicmeta.MustGet().KubeSource().Resources()
@@ -65,7 +68,7 @@ func TestStartTwice(t *testing.T) {
 
 func TestStopTwiceShouldSucceed(t *testing.T) {
 	// Create the source
-	w, cl := createMocks()
+	w, _, cl := createMocks()
 	defer w.Stop()
 	r := basicmeta.MustGet().KubeSource().Resources()
 	s := newOrFail(t, cl, r)
@@ -80,10 +83,12 @@ func TestStopTwiceShouldSucceed(t *testing.T) {
 func TestEvents(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	w, cl := createMocks()
+	w, wcrd, cl := createMocks()
+	defer wcrd.Stop()
 	defer w.Stop()
 
 	r := basicmeta.MustGet().KubeSource().Resources()
+	addCrdEvents(wcrd, r)
 
 	// Create and start the source
 	s := newOrFail(t, cl, r)
@@ -140,13 +145,92 @@ func TestEvents(t *testing.T) {
 		event.DeleteForResource(basicmeta.Collection1, toEntry(obj))))
 }
 
+func TestEvents_CRDEventAfterFullSync(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	w, wcrd, cl := createMocks()
+	defer wcrd.Stop()
+	defer w.Stop()
+
+	r := basicmeta.MustGet().KubeSource().Resources()
+	addCrdEvents(wcrd, r)
+
+	// Create and start the source
+	s := newOrFail(t, cl, r)
+	acc := start(s)
+	defer s.Stop()
+
+	g.Eventually(acc.Events).Should(ConsistOf(
+		event.FullSyncFor(basicmeta.Collection1),
+	))
+
+	acc.Clear()
+	c := toCrd(r[0])
+	c.ResourceVersion = "v2"
+	wcrd.Send(watch.Event{
+		Type:   watch.Modified,
+		Object: c,
+	})
+
+	g.Eventually(acc.Events).Should(ContainElement(
+		event.Event{Kind: event.Reset},
+	))
+}
+
+func TestEvents_NonAddEvent(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	w, wcrd, cl := createMocks()
+	defer wcrd.Stop()
+	defer w.Stop()
+
+	r := basicmeta.MustGet().KubeSource().Resources()
+	addCrdEvents(wcrd, r)
+	c := toCrd(r[0])
+	c.ResourceVersion = "v2"
+	wcrd.Send(watch.Event{
+		Type:   watch.Modified,
+		Object: c,
+	})
+
+	// Create and start the source
+	s := newOrFail(t, cl, r)
+	acc := start(s)
+	defer s.Stop()
+
+	g.Eventually(acc.Events).Should(ContainElement(
+		event.Event{Kind: event.Reset},
+	))
+}
+
+func TestEvents_NoneForDisabled(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	w, wcrd, cl := createMocks()
+	defer wcrd.Stop()
+	defer w.Stop()
+
+	r := basicmeta.MustGet().KubeSource().Resources()
+	addCrdEvents(wcrd, r)
+
+	// Create and start the source
+	s := newOrFail(t, cl, r)
+	acc := start(s)
+	defer s.Stop()
+
+	g.Eventually(acc.Events).Should(BeEmpty())
+}
+
 func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	k := &mock.Kube{}
-	k.AddResponse(nil, errors.New("no cheese found"))
+	k := mock.NewKube()
+	wcrd := mockCrdWatch(k.APIExtClientSet)
 
 	r := basicmeta.MustGet().KubeSource().Resources()
+	addCrdEvents(wcrd, r)
+
+	k.AddResponse(nil, errors.New("no cheese found"))
 
 	// Create and start the source
 	s := newOrFail(t, k, r)
@@ -161,6 +245,10 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 	s.Stop()
 
 	acc.Clear()
+	wcrd.Stop()
+
+	wcrd = mockCrdWatch(k.APIExtClientSet)
+	addCrdEvents(wcrd, r)
 
 	// Now start properly and get events
 	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
@@ -215,12 +303,21 @@ func start(s *apiserver.Source) *fixtures.Accumulator {
 	return acc
 }
 
-func createMocks() (*mock.Watch, *mock.Kube) {
-	k := &mock.Kube{}
+func createMocks() (*mock.Watch, *mock.Watch, *mock.Kube) {
+	k := mock.NewKube()
 	cl := fakeClient(k)
 	w := mockWatch(cl)
+	wcrd := mockCrdWatch(k.APIExtClientSet)
+	return w, wcrd, k
+}
 
-	return w, k
+func addCrdEvents(w *mock.Watch, res []schema.KubeResource) {
+	for _, r := range res {
+		w.Send(watch.Event{
+			Object: toCrd(r),
+			Type:   watch.Added,
+		})
+	}
 }
 
 func fakeClient(k *mock.Kube) *fake.FakeDynamicClient {
@@ -230,6 +327,14 @@ func fakeClient(k *mock.Kube) *fake.FakeDynamicClient {
 }
 
 func mockWatch(cl *fake.FakeDynamicClient) *mock.Watch {
+	w := mock.NewWatch()
+	cl.PrependWatchReactor("*", func(_ k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
+		return true, w, nil
+	})
+	return w
+}
+
+func mockCrdWatch(cl *extfake.Clientset) *mock.Watch {
 	w := mock.NewWatch()
 	cl.PrependWatchReactor("*", func(_ k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
 		return true, w, nil
@@ -247,6 +352,29 @@ func toEntry(obj *unstructured.Unstructured) *resource.Entry {
 		},
 		Item: &types.Struct{
 			Fields: make(map[string]*types.Value),
+		},
+	}
+}
+
+func toCrd(r schema.KubeResource) *v1beta1.CustomResourceDefinition {
+	return &v1beta1.CustomResourceDefinition{
+		ObjectMeta: v1.ObjectMeta{
+			Name:            r.Plural + "." + r.Group,
+			ResourceVersion: "v1",
+		},
+
+		Spec: v1beta1.CustomResourceDefinitionSpec{
+			Group: r.Group,
+			Names: v1beta1.CustomResourceDefinitionNames{
+				Plural: r.Plural,
+				Kind:   r.Kind,
+			},
+			Versions: []v1beta1.CustomResourceDefinitionVersion{
+				{
+					Name: r.Version,
+				},
+			},
+			Scope: v1beta1.NamespaceScoped,
 		},
 	}
 }

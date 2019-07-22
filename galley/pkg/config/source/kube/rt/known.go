@@ -21,9 +21,11 @@ import (
 	"github.com/gogo/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
+	v1beta12 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/galley/pkg/config/scope"
@@ -202,6 +204,45 @@ func (p *Provider) initKnownAdapters() {
 			},
 			parseJSON: func(input []byte) (interface{}, error) {
 				out := &v1beta1.Ingress{}
+				if _, _, err := deserializer.Decode(input, nil, out); err != nil {
+					return nil, err
+				}
+				return out, nil
+			},
+			isEqual:   resourceVersionsMatch,
+			isBuiltIn: true,
+		},
+		asTypesKey("apiextensions.k8s.io", "CustomResourceDefinition"): {
+			extractObject: defaultExtractObject,
+			extractResource: func(o interface{}) (proto.Message, error) {
+				if obj, ok := o.(*v1beta12.CustomResourceDefinition); ok {
+					return &obj.Spec, nil
+				}
+				return nil, fmt.Errorf("unable to convert to v1beta1.Ingress: %T", o)
+			},
+			newInformer: func() (cache.SharedIndexInformer, error) {
+				ext, err := p.interfaces.APIExtensionsClientset()
+				if err != nil {
+					return nil, err
+				}
+				inf := cache.NewSharedIndexInformer(
+					&cache.ListWatch{
+						ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+							return ext.ApiextensionsV1beta1().CustomResourceDefinitions().List(options)
+						},
+						WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+							return ext.ApiextensionsV1beta1().CustomResourceDefinitions().Watch(options)
+						},
+					},
+					&v1beta12.CustomResourceDefinition{},
+					0,
+					cache.Indexers{})
+
+				return inf, nil
+
+			},
+			parseJSON: func(input []byte) (interface{}, error) {
+				out := &v1beta12.CustomResourceDefinition{}
 				if _, _, err := deserializer.Decode(input, nil, out); err != nil {
 					return nil, err
 				}
