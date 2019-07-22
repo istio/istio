@@ -120,6 +120,8 @@ spec:
       - args:
         - -p
         - "15001"
+        - -z
+        - "15006"
         - -u
         - "1337"
         - -m
@@ -132,9 +134,6 @@ spec:
         - '*'
         - -d
         - 4,5,6,15020
-        env:
-        - name: INBOUND_CAPTURE_PORT
-          value: "15006"
         image: gcr.io/istio-release/proxy_init:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init
