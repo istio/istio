@@ -20,6 +20,6 @@ set -u
 set -x
 set -e
 
-export JUNIT_RACE_TEST_XML="${ARTIFACTS:-$(mktemp -d)}/junit.xml"
+export JUNIT_UNIT_TEST_XML="${ARTIFACTS:-$(mktemp -d)}/junit.xml"
 export T="-v"
 make localTestEnv racetest
