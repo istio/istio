@@ -13,7 +13,7 @@ spec:
   selector:
     matchLabels:
       istio: citadel
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.security.replicaCount }}
   strategy:
     rollingUpdate:
       maxSurge: 1
