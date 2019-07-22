@@ -3,6 +3,16 @@
 # Includes components used in the demo, defaults to alpha3 rules.
 # Note: please only put common configuration for the demo profiles here.
 global:
+  istioNamespace: istio-system
+  configNamespace: istio-system
+  telemetryNamespace: istio-system
+  prometheusNamespace: istio-system
+  policyNamespace: istio-system
+
+  defaultPodDisruptionBudget:
+    enabled:
+      false
+
   proxy:
     accessLogFile: "/dev/stdout"
     resources:
