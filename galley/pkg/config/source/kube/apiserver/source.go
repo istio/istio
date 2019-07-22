@@ -242,6 +242,6 @@ func (s *Source) stop() {
 
 }
 
-func asKey(g, k string) string {
-	return g + "/" + k
+func asKey(group, kind string) string {
+	return group + "/" + kind
 }

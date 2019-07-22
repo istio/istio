@@ -66,7 +66,7 @@ func (k *Kube) AddResponse(r1 interface{}, r2 error) {
 	k.response2 = append(k.response2, r2)
 }
 
-// KubeClient implements client.Interfaces
+// APIExtensionsClientset implements client.Interfaces
 func (k *Kube) APIExtensionsClientset() (clientset.Interface, error) {
 	return k.APIExtClientSet, nil
 }
