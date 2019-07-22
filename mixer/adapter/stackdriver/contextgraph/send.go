@@ -16,6 +16,7 @@ package contextgraph
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -90,6 +91,25 @@ func (e edge) ToProto() *contextgraphpb.Relationship {
 	}
 }
 
+// splitBySize helps find the largest BatchRequest that is smaller than the max request size
+func splitBySizeEntity(msg *contextgraphpb.AssertBatchRequest) int {
+	full := msg.EntityPresentAssertions
+	tmp := *msg
+	return sort.Search(len(msg.EntityPresentAssertions), func(i int) bool {
+		tmp.EntityPresentAssertions = full[:i+1]
+		return proto.Size(&tmp) > maxReq
+	})
+}
+
+func splitBySizeRelationship(msg *contextgraphpb.AssertBatchRequest) int {
+	full := msg.RelationshipPresentAssertions
+	tmp := *msg
+	return sort.Search(len(msg.RelationshipPresentAssertions), func(i int) bool {
+		tmp.RelationshipPresentAssertions = full[:i+1]
+		return proto.Size(&tmp) > maxReq
+	})
+}
+
 func (h *handler) send(ctx context.Context, t time.Time, entitiesToSend []entity, edgesToSend []edge) error {
 	if (len(entitiesToSend) == 0) && (len(edgesToSend) == 0) {
 		h.env.Logger().Debugf("Nothing to send this tick")
@@ -144,33 +164,25 @@ func (h *handler) send(ctx context.Context, t time.Time, entitiesToSend []entity
 		}
 
 		for len(entReq.EntityPresentAssertions) > 0 {
-			sendNext := make([]*contextgraphpb.EntityPresentAssertion, 0)
-			for proto.Size(entReq) > maxReq {
-				sendNext = append(sendNext,
-					entReq.EntityPresentAssertions[len(entReq.EntityPresentAssertions)-1])
-				entReq.EntityPresentAssertions =
-					entReq.EntityPresentAssertions[:len(entReq.EntityPresentAssertions)-1]
-			}
+			split := splitBySizeEntity(entReq)
+			allRequests := entReq.EntityPresentAssertions
+			entReq.EntityPresentAssertions = allRequests[:split]
 			h.env.Logger().Debugf("Batch request size: %v", proto.Size(entReq))
 			if err := h.call(ctx, entReq); err != nil {
 				return err
 			}
-			entReq.EntityPresentAssertions = sendNext
+			entReq.EntityPresentAssertions = allRequests[split:]
 		}
 
 		for len(relReq.RelationshipPresentAssertions) > 0 {
-			sendNext := make([]*contextgraphpb.RelationshipPresentAssertion, 0)
-			for proto.Size(relReq) > maxReq {
-				sendNext = append(sendNext,
-					relReq.RelationshipPresentAssertions[len(relReq.RelationshipPresentAssertions)-1])
-				relReq.RelationshipPresentAssertions =
-					relReq.RelationshipPresentAssertions[:len(relReq.RelationshipPresentAssertions)-1]
-			}
+			split := splitBySizeRelationship(relReq)
+			allRequests := relReq.RelationshipPresentAssertions
+			relReq.RelationshipPresentAssertions = allRequests[:split]
 			h.env.Logger().Debugf("Batch request size: %v", proto.Size(relReq))
 			if err := h.call(ctx, relReq); err != nil {
 				return err
 			}
-			relReq.RelationshipPresentAssertions = sendNext
+			relReq.RelationshipPresentAssertions = allRequests[split:]
 		}
 	}
 	return nil
