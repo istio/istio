@@ -23,6 +23,7 @@ function usage() {
   echo ''
   # shellcheck disable=SC2016
   echo '  -p: Specify the envoy port to which redirect all TCP traffic (default $ENVOY_PORT = 15001)'
+  # shellcheck disable=SC2016
   echo '  -z: Port to which all inbound TCP traffic to the pod/VM should be redirected to. For REDIRECT only (default $INBOUND_CAPTURE_PORT = 15006)'
   echo '  -u: Specify the UID of the user for which the redirection is not'
   echo '      applied. Typically, this is the UID of the proxy container'
