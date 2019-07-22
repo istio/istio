@@ -16,7 +16,6 @@ package contextgraph
 
 import (
 	"context"
-	"sort"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -93,21 +92,23 @@ func (e edge) ToProto() *contextgraphpb.Relationship {
 
 // splitBySize helps find the largest BatchRequest that is smaller than the max request size
 func splitBySizeEntity(msg *contextgraphpb.AssertBatchRequest) int {
-	full := msg.EntityPresentAssertions
-	tmp := *msg
-	return sort.Search(len(msg.EntityPresentAssertions), func(i int) bool {
-		tmp.EntityPresentAssertions = full[:i+1]
-		return proto.Size(&tmp) > maxReq
-	})
+	curSize := proto.Size(msg)
+	curIndex := len(msg.EntityPresentAssertions) - 1
+	for curSize > maxReq {
+		curSize -= proto.Size(msg.EntityPresentAssertions[curIndex])
+		curIndex--
+	}
+	return curIndex + 1
 }
 
 func splitBySizeRelationship(msg *contextgraphpb.AssertBatchRequest) int {
-	full := msg.RelationshipPresentAssertions
-	tmp := *msg
-	return sort.Search(len(msg.RelationshipPresentAssertions), func(i int) bool {
-		tmp.RelationshipPresentAssertions = full[:i+1]
-		return proto.Size(&tmp) > maxReq
-	})
+	curSize := proto.Size(msg)
+	curIndex := len(msg.RelationshipPresentAssertions) - 1
+	for curSize > maxReq {
+		curSize -= proto.Size(msg.RelationshipPresentAssertions[curIndex])
+		curIndex--
+	}
+	return curIndex + 1
 }
 
 func (h *handler) send(ctx context.Context, t time.Time, entitiesToSend []entity, edgesToSend []edge) error {
