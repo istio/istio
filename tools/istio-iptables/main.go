@@ -212,7 +212,7 @@ func run(args []string, flagSet *flag.FlagSet) {
 	fmt.Println("Variables:")
 	fmt.Println("----------")
 	fmt.Printf("PROXY_PORT=%s\n", proxyPort)
-	fmt.Printf("INBOUND_CAPTURE_PORT=%s\n", inboundCapturePort)
+	fmt.Printf("PROXY_INBOUND_CAPTURE_PORT=%s\n", inboundCapturePort)
 	fmt.Printf("PROXY_UID=%s\n", proxyUID)
 	fmt.Printf("INBOUND_INTERCEPTION_MODE=%s\n", inboundInterceptionMode)
 	fmt.Printf("INBOUND_TPROXY_MARK=%s\n", inboundTProxyMark)
