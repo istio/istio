@@ -328,13 +328,31 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	}
 
 	if redirect := in.Redirect; redirect != nil {
-		out.Action = &route.Route_Redirect{
+		action := &route.Route_Redirect{
 			Redirect: &route.RedirectAction{
 				HostRedirect: redirect.Authority,
 				PathRewriteSpecifier: &route.RedirectAction_PathRedirect{
 					PathRedirect: redirect.Uri,
 				},
 			}}
+
+		switch in.Redirect.RedirectCode {
+		case 0, 301:
+			action.Redirect.ResponseCode = route.RedirectAction_MOVED_PERMANENTLY
+		case 302:
+			action.Redirect.ResponseCode = route.RedirectAction_FOUND
+		case 303:
+			action.Redirect.ResponseCode = route.RedirectAction_SEE_OTHER
+		case 307:
+			action.Redirect.ResponseCode = route.RedirectAction_TEMPORARY_REDIRECT
+		case 308:
+			action.Redirect.ResponseCode = route.RedirectAction_PERMANENT_REDIRECT
+		default:
+			log.Warnf("Redirect Code %d are not yet supported", in.Redirect.RedirectCode)
+			action = nil
+		}
+
+		out.Action = action
 	} else {
 		action := &route.RouteAction{
 			Cors:        translateCORSPolicy(in.CorsPolicy, node),

@@ -23,6 +23,8 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/label"
+
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
@@ -58,6 +60,8 @@ func TestRateLimiting_RedisQuotaRollingWindow(t *testing.T) {
 func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 	framework.
 		NewTest(t).
+		// TODO(https://github.com/istio/istio/issues/15686) deflake and remove label
+		Label(label.Flaky).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			destinationService := "productpage"
@@ -110,7 +114,7 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 }
 
 func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService string) {
-	framework.Run(t, func(ctx framework.TestContext) {
+	framework.NewTest(t).Label(label.Flaky).Run(func(ctx framework.TestContext) {
 		g.ApplyConfigOrFail(
 			t,
 			bookinfoNs,
