@@ -32,7 +32,7 @@ func NewValidation(kubeConfig string, params *validation.WebhookParameters, live
 			if params.EnableValidation {
 				go validation.RunValidation(webhookServerReady, stopCh, params, kubeConfig, liveness, readiness)
 			}
-			if !params.DisableReconcileWebhookConfiguration {
+			if params.EnableReconcileWebhookConfiguration {
 				go validation.ReconcileWebhookConfiguration(webhookServerReady, stopCh, params, kubeConfig)
 			}
 			return nil

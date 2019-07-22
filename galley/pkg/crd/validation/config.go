@@ -172,7 +172,10 @@ func deleteWebhookConfigHelper(
 		return false, err
 	}
 	err = client.Delete(webhookName, &v1.DeleteOptions{})
-	return true, err
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // Rebuild the validatingwebhookconfiguration and save for subsequent calls to createOrUpdateWebhookConfig.
@@ -388,11 +391,11 @@ func (whc *WebhookConfigController) reconcile(stopCh <-chan struct{}) {
 				whc.createOrUpdateWebhookConfig()
 			}
 		case <-webhookChangedCh:
-			if !whc.webhookParameters.EnableValidation {
-				whc.deleteWebhookConfig()
-			} else {
+			if whc.webhookParameters.EnableValidation {
 				// reconcile the desired configuration
 				whc.createOrUpdateWebhookConfig()
+			} else {
+				whc.deleteWebhookConfig()
 			}
 		case event, more := <-whc.keyCertWatcher.Event:
 			if more && (event.IsModify() || event.IsCreate()) && keyCertTimerC == nil {
