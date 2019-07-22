@@ -340,13 +340,13 @@ func updateEds(cluster *apiv2.Cluster) {
 }
 
 func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[string]bool, service *model.Service,
-	port int, labels config.LabelsCollection, proxy *model.Proxy) []endpoint.LocalityLbEndpoints {
+	port int, labels config.LabelsCollection) []endpoint.LocalityLbEndpoints {
 
 	if service.Resolution != model.DNSLB {
 		return nil
 	}
 
-	instances, err := proxy.SidecarScope.InstancesForService(env, service.Hostname, port, labels)
+	instances, err := env.InstancesByPort(service, port, labels)
 	if err != nil {
 		log.Errorf("failed to retrieve instances for %s: %v", service.Hostname, err)
 		return nil

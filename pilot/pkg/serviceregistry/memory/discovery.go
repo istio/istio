@@ -185,23 +185,22 @@ func (sd *ServiceDiscovery) GetService(hostname config.Hostname) (*model.Service
 }
 
 // InstancesByPort implements discovery interface
-func (sd *ServiceDiscovery) InstancesByPort(hostname config.Hostname, num int,
-	labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
+func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, num int,
+	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	if sd.InstancesError != nil {
 		return nil, sd.InstancesError
 	}
-	service, ok := sd.services[hostname]
-	if !ok {
+	if _, ok := sd.services[svc.Hostname]; !ok {
 		return nil, sd.InstancesError
 	}
 	out := make([]*model.ServiceInstance, 0)
-	if service.External() {
+	if svc.External() {
 		return out, sd.InstancesError
 	}
-	if port, ok := service.Ports.GetByPort(num); ok {
+	if port, ok := svc.Ports.GetByPort(num); ok {
 		for v := 0; v < sd.versions; v++ {
 			if labels.HasSubsetOf(map[string]string{"version": fmt.Sprintf("v%d", v)}) {
-				out = append(out, MakeInstance(service, port, v, "zone/region"))
+				out = append(out, MakeInstance(svc, port, v, "zone/region"))
 			}
 		}
 	}
@@ -260,8 +259,8 @@ func (sd *ServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList
 }
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
-func (sd *ServiceDiscovery) GetIstioServiceAccounts(hostname config.Hostname, ports []int) []string {
-	if hostname == "world.default.svc.cluster.local" {
+func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
+	if svc.Hostname == "world.default.svc.cluster.local" {
 		return []string{
 			spiffe.MustGenSpiffeURI("default", "serviceaccount1"),
 			spiffe.MustGenSpiffeURI("default", "serviceaccount2"),

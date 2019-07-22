@@ -241,18 +241,6 @@ func TestServices(t *testing.T) {
 	// 2 ports 1001, 2 IPs
 	createEndpoints(ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.10.1.1", "10.11.1.2"}, t)
 
-	test.Eventually(t, "successfully created endpoints", func() bool {
-		ep, anotherErr := sds.InstancesByPort(hostname, 80, nil)
-		if anotherErr != nil {
-			t.Errorf("error gettings instance by port: %v", anotherErr)
-			return false
-		}
-		if len(ep) == 2 {
-			return true
-		}
-		return false
-	})
-
 	svc, err := sds.GetService(hostname)
 	if err != nil {
 		t.Errorf("GetService(%q) encountered unexpected error: %v", hostname, err)
@@ -264,7 +252,19 @@ func TestServices(t *testing.T) {
 		t.Errorf("GetService(%q) => %q", hostname, svc.Hostname)
 	}
 
-	ep, err := sds.InstancesByPort(hostname, 80, nil)
+	test.Eventually(t, "successfully created endpoints", func() bool {
+		ep, anotherErr := sds.InstancesByPort(svc, 80, nil)
+		if anotherErr != nil {
+			t.Errorf("error gettings instance by port: %v", anotherErr)
+			return false
+		}
+		if len(ep) == 2 {
+			return true
+		}
+		return false
+	})
+
+	ep, err := sds.InstancesByPort(svc, 80, nil)
 	if err != nil {
 		t.Errorf("GetInstancesByPort() encountered unexpected error: %v", err)
 	}
@@ -527,7 +527,11 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	}
 
 	hostname := kube.ServiceHostname("svc1", "nsA", domainSuffix)
-	sa := controller.GetIstioServiceAccounts(hostname, []int{8080})
+	svc, err := controller.GetService(hostname)
+	if err != nil {
+		t.Fatalf("failed to get service: %v", err)
+	}
+	sa := controller.GetIstioServiceAccounts(svc, []int{8080})
 	sort.Strings(sa)
 	expected := []string{
 		canonicalSaOnVM,
@@ -539,7 +543,11 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	}
 
 	hostname = kube.ServiceHostname("svc2", "nsA", domainSuffix)
-	sa = controller.GetIstioServiceAccounts(hostname, []int{})
+	svc, err = controller.GetService(hostname)
+	if err != nil {
+		t.Fatalf("failed to get service: %v", err)
+	}
+	sa = controller.GetIstioServiceAccounts(svc, []int{})
 	if len(sa) != 0 {
 		t.Error("Failure: Expected to resolve 0 service accounts, but got: ", sa)
 	}
@@ -871,7 +879,7 @@ func TestController_ExternalNameService(t *testing.T) {
 		if svcList[i].Resolution != exp.Resolution {
 			t.Errorf("i=%v, Resolution=='%v', should be '%v'", i, svcList[i].Resolution, exp.Resolution)
 		}
-		instances, err := controller.InstancesByPort(svcList[i].Hostname, svcList[i].Ports[0].Port, config.LabelsCollection{})
+		instances, err := controller.InstancesByPort(svcList[i], svcList[i].Ports[0].Port, config.LabelsCollection{})
 		if err != nil {
 			t.Errorf("error getting instances by port: %s", err)
 			continue
@@ -903,7 +911,7 @@ func TestController_ExternalNameService(t *testing.T) {
 		t.Fatalf("Should have 0 services at this point")
 	}
 	for _, exp := range expectedSvcList {
-		instances, err := controller.InstancesByPort(exp.Hostname, exp.Ports[0].Port, config.LabelsCollection{})
+		instances, err := controller.InstancesByPort(exp, exp.Ports[0].Port, config.LabelsCollection{})
 		if err != nil {
 			t.Errorf("error getting instances by port: %s", err)
 			continue

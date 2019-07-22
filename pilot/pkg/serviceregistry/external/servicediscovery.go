@@ -149,18 +149,18 @@ func (d *ServiceEntryStore) WorkloadHealthCheckInfo(addr string) model.ProbeList
 
 // InstancesByPort retrieves instances for a service on the given ports with labels that
 // match any of the supplied labels. All instances match an empty tag list.
-func (d *ServiceEntryStore) InstancesByPort(hostname config.Hostname, port int,
-	labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
+func (d *ServiceEntryStore) InstancesByPort(svc *model.Service, port int,
+	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	d.update()
 
 	d.storeMutex.RLock()
 	defer d.storeMutex.RUnlock()
 	out := make([]*model.ServiceInstance, 0)
 
-	instances, found := d.instances[string(hostname)]
+	instances, found := d.instances[string(svc.Hostname)]
 	if found {
 		for _, instance := range instances {
-			if instance.Service.Hostname == hostname &&
+			if instance.Service.Hostname == svc.Hostname &&
 				labels.HasSubsetOf(instance.Labels) &&
 				portMatchSingle(instance, port) {
 				out = append(out, instance)
@@ -258,7 +258,7 @@ func (d *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) (config.L
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation TODOg
-func (d *ServiceEntryStore) GetIstioServiceAccounts(hostname config.Hostname, ports []int) []string {
+func (d *ServiceEntryStore) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
 	//for service entries, there is no istio auth, no service accounts, etc. It is just a
 	// service, with service instances, and dns.
 	return nil

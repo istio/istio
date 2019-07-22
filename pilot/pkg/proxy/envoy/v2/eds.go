@@ -293,15 +293,14 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 				continue
 			}
 
-			entries := make([]*model.IstioEndpoint, 0)
-			hostname := string(svc.Hostname)
+			entries := []*model.IstioEndpoint{}
 			for _, port := range svc.Ports {
 				if port.Protocol == config.ProtocolUDP {
 					continue
 				}
 
 				// This loses track of grouping (shards)
-				endpoints, err := registry.InstancesByPort(svc.Hostname, port.Port, config.LabelsCollection{})
+				endpoints, err := registry.InstancesByPort(svc, port.Port, config.LabelsCollection{})
 				if err != nil {
 					return err
 				}
@@ -323,7 +322,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 				}
 			}
 
-			s.edsUpdate(registry.ClusterID, hostname, entries, true)
+			s.edsUpdate(registry.ClusterID, string(svc.Hostname), entries, true)
 		}
 	}
 
@@ -340,12 +339,19 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	if direction == model.TrafficDirectionInbound ||
 		direction == model.TrafficDirectionOutbound {
 		labels := push.SubsetToLabels(nil, subsetName, hostname)
-		instances, err := s.Env.ServiceDiscovery.InstancesByPort(hostname, port, labels)
+		svc, err := s.Env.ServiceDiscovery.GetService(hostname)
+		var instances []*model.ServiceInstance
 		if err != nil {
-			adsLog.Errorf("endpoints for service cluster %q returned error %v", clusterName, err)
-			totalXDSInternalErrors.Increment()
-			return err
+			adsLog.Warnf("service lookup for hostname %v failed: %v", hostname, err)
+		} else {
+			instances, err = s.Env.ServiceDiscovery.InstancesByPort(svc, port, labels)
+			if err != nil {
+				adsLog.Errorf("endpoints for service cluster %q returned error %v", clusterName, err)
+				totalXDSInternalErrors.Increment()
+				return err
+			}
 		}
+
 		if len(instances) == 0 {
 			push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
 			adsLog.Debugf("EDS: Cluster %q (host:%s ports:%v labels:%v) has no instances", clusterName, hostname, port, labels)

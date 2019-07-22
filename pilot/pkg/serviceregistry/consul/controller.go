@@ -110,8 +110,8 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 
 // InstancesByPort retrieves instances for a service that match
 // any of the supplied labels. All instances match an empty tag list.
-func (c *Controller) InstancesByPort(hostname config.Hostname, port int,
-	labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
+func (c *Controller) InstancesByPort(svc *model.Service, port int,
+	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	c.cacheMutex.Lock()
 	defer c.cacheMutex.Unlock()
 
@@ -121,9 +121,9 @@ func (c *Controller) InstancesByPort(hostname config.Hostname, port int,
 	}
 
 	// Get actual service by name
-	name, err := parseHostname(hostname)
+	name, err := parseHostname(svc.Hostname)
 	if err != nil {
-		log.Infof("parseHostname(%s) => error %v", hostname, err)
+		log.Infof("parseHostname(%s) => error %v", svc.Hostname, err)
 		return nil, err
 	}
 
@@ -224,7 +224,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation TODO
-func (c *Controller) GetIstioServiceAccounts(hostname config.Hostname, ports []int) []string {
+func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
 	// Need to get service account of service registered with consul
 	// Currently Consul does not have service account or equivalent concept
 	// As a step-1, to enabling istio security in Consul, We assume all the services run in default service account
