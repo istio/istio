@@ -90,7 +90,6 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener(env *model.Envir
 		},
 	}
 
-	builder.virtualInboundListener.FilterChains = make([]listener.FilterChain, 0, len(filterChains)+2)
 	for _, c := range filterChains {
 		builder.virtualInboundListener.FilterChains =
 			append(builder.virtualInboundListener.FilterChains, *c)
@@ -106,9 +105,11 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener(env *model.Envir
 
 func NewListenerBuilder(node *model.Proxy) *ListenerBuilder {
 	builder := &ListenerBuilder{
-		node:                   node,
-		useInboundFilterChain:  node.IsInboundCaptureAllPorts(),
-		useOutboundFilterChain: node.IsInboundCaptureAllPorts(),
+		node: node,
+		// The extra inbound listener has no side effect for iptables that doesn't redirect to 15006
+		useInboundFilterChain: true,
+		// Not implemented
+		useOutboundFilterChain: true,
 	}
 	return builder
 }
