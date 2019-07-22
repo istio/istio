@@ -135,6 +135,7 @@ func Test_clusterMatch(t *testing.T) {
 }
 
 func TestApplyClusterPatches(t *testing.T) {
+	t.Skipf("%s disabled due to https://github.com/gogo/protobuf/pull/569", t.Name())
 	configPatches := []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 		{
 			ApplyTo: networking.EnvoyFilter_CLUSTER,
