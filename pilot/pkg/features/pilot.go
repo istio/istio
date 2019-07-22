@@ -16,12 +16,9 @@ package features
 
 import (
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/types"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -163,11 +160,4 @@ var (
 
 	// DefaultPortHTTPProxy is used as for HTTP PROXY mode. Can be overridden by ProxyHttpPort in mesh config.
 	DefaultPortHTTPProxy = 15002
-
-	// featureLock protects featureGate.
-	featureLock sync.RWMutex
-	// featureGate records the enabled/disabled features.
-	featureGate = map[string]bool{
-		meshconfig.FeatureName_LOCALITY_AWARE_ROUTING.String(): true,
-	}
 )
