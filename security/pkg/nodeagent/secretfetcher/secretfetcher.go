@@ -450,20 +450,19 @@ func (sf *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.Secr
 	val, exist := sf.secrets.Load(key)
 	secretFetcherLog.Debugf("load secret %s from secret fetcher: %v", key, exist)
 	if !exist {
-		// In some case, we might not get the secret from watch. Try to directly obtain the secret from API call
-		// as a remedy. If we can find a secret, add it to the cache
+		// Sometimes we see that a secret in installed but not in cache because watcher is in an
+		// obsolete state and wasn't reset promptly. We bail this case out by trying fetching
+		// the secret from API call. Since this is a rare case, to avoid complication, we don't add
+		// the secret back to cache as it is not a normal codepath. When watcher recovers, those secret
+		// shall be added back. Note that this approach only covers the TLS server key/cert fetching.
 		if sf.coreV1 != nil {
 			if secret, err := sf.coreV1.Secrets(sf.secretNamespace).Get(key, metav1.GetOptions{}); err == nil {
-				log.Infof("Find secret %s by direct api call", key)
-				sf.AddSecret(secret)
-				val, exist = sf.secrets.Load(key)
-				if exist {
-					e := val.(model.SecretItem)
-					secretFetcherLog.Debugf("SecretFetcher return secret %s", key)
-					return e, true
+				secretItem, _, _ := extractK8sSecretIntoSecretItem(secret, time.Now())
+				if secretItem != nil {
+					secretFetcherLog.Infof("Return secret %s found by direct api call", key)
+					return *secretItem, true
 				}
-			} else {
-				log.Debugf("Fail to find secret %s by direct api call", key)
+				secretFetcherLog.Infof("Fail to extract secret %s found by direct api call", key)
 			}
 		}
 

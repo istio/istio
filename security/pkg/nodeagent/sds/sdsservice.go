@@ -600,8 +600,7 @@ func sdsDiscoveryResponse(s *model.SecretItem, conID, resourceName string) (*xds
 
 func newSDSConnection(stream discoveryStream) *sdsConnection {
 	return &sdsConnection{
-		// Make the channel size to be > 1 to avoid deadlock
-		pushChannel: make(chan *sdsEvent, 16),
+		pushChannel: make(chan *sdsEvent, 1),
 		Connect:     time.Now(),
 		stream:      stream,
 	}
