@@ -15,16 +15,15 @@
 package envoyfilter
 
 import (
-	"reflect"
 	"testing"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/google/go-cmp/cmp"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 )
 
 func Test_virtualHostMatch(t *testing.T) {
@@ -298,7 +297,8 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 				Domains: []string{"domain", "domain:80"},
 			},
 			{
-				Name: "new-vhost",
+				Name:    "new-vhost",
+				Domains: []string{"domain:80"},
 			},
 		},
 		RequestHeadersToRemove: []string{"h1", "h2", "h3", "h4"},
@@ -316,7 +316,8 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 		Name: "inbound|http|80",
 		VirtualHosts: []route.VirtualHost{
 			{
-				Name: "new-vhost",
+				Name:    "new-vhost",
+				Domains: []string{"domain:80"},
 			},
 		},
 	}
@@ -342,7 +343,8 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 				Domains: []string{"gateway", "domain:80"},
 			},
 			{
-				Name: "new-vhost",
+				Name:    "new-vhost",
+				Domains: []string{"domain:80"},
 			},
 		},
 	}
@@ -352,29 +354,13 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 	push := model.NewPushContext()
 	push.InitContext(env)
 
-	sidecarOutbundPluginParams := &plugin.InputParams{
-		ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
-		Env:              env,
-		Node:             &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"},
-		Port:             &model.Port{Port: 80},
-		Push:             push,
-	}
-	sidecarInboundPluginParams := &plugin.InputParams{
-		ListenerCategory: networking.EnvoyFilter_SIDECAR_INBOUND,
-		Env:              env,
-		Node:             &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"},
-		Port:             &model.Port{Port: 80},
-		Push:             push,
-	}
-	gatewayPluginParams := &plugin.InputParams{
-		ListenerCategory: networking.EnvoyFilter_GATEWAY,
-		Env:              env,
-		Node:             &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"},
-		Push:             push,
-	}
+	sidecarNode := &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"}
+	gatewayNode := &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"}
 
 	type args struct {
-		pluginParams       *plugin.InputParams
+		patchContext       networking.EnvoyFilter_PatchContext
+		proxy              *model.Proxy
+		push               *model.PushContext
 		routeConfiguration *xdsapi.RouteConfiguration
 	}
 	tests := []struct {
@@ -385,7 +371,9 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 		{
 			name: "sidecar outbound rds patch",
 			args: args{
-				pluginParams:       sidecarOutbundPluginParams,
+				patchContext:       networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				proxy:              sidecarNode,
+				push:               push,
 				routeConfiguration: sidecarOutboundRC,
 			},
 			want: patchedSidecarOutputRC,
@@ -393,7 +381,9 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 		{
 			name: "sidecar inbound rc patch",
 			args: args{
-				pluginParams:       sidecarInboundPluginParams,
+				patchContext:       networking.EnvoyFilter_SIDECAR_INBOUND,
+				proxy:              sidecarNode,
+				push:               push,
 				routeConfiguration: sidecarInboundRC,
 			},
 			want: patchedSidecarInboundRC,
@@ -401,7 +391,9 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 		{
 			name: "gateway rds patch",
 			args: args{
-				pluginParams:       gatewayPluginParams,
+				patchContext:       networking.EnvoyFilter_GATEWAY,
+				proxy:              gatewayNode,
+				push:               push,
 				routeConfiguration: gatewayRC,
 			},
 			want: patchedGatewayRC,
@@ -409,9 +401,10 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ApplyRouteConfigurationPatches(tt.args.pluginParams.ListenerCategory, tt.args.pluginParams.Node,
-				tt.args.pluginParams.Push, tt.args.routeConfiguration); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("applyRouteConfigurationPatches() = %v, want %v", got, tt.want)
+			got := ApplyRouteConfigurationPatches(tt.args.patchContext, tt.args.proxy,
+				tt.args.push, tt.args.routeConfiguration)
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("ApplyListenerPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)
 			}
 		})
 	}

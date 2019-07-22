@@ -15,11 +15,11 @@
 package envoyfilter
 
 import (
-	"reflect"
 	"testing"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/google/go-cmp/cmp"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -133,6 +133,7 @@ func Test_clusterMatch(t *testing.T) {
 		})
 	}
 }
+
 func TestApplyClusterPatches(t *testing.T) {
 	configPatches := []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 		{
@@ -219,8 +220,8 @@ func TestApplyClusterPatches(t *testing.T) {
 				AllowMetadata: true,
 			}, LbPolicy: xdsapi.Cluster_RING_HASH, DnsLookupFamily: xdsapi.Cluster_V6_ONLY,
 		},
-		{Name: "new-cluster1"},
-		{Name: "new-cluster2"},
+		{Name: "new-cluster1", DnsLookupFamily: xdsapi.Cluster_V6_ONLY, LbPolicy: xdsapi.Cluster_RING_HASH},
+		{Name: "new-cluster2", DnsLookupFamily: xdsapi.Cluster_V6_ONLY, LbPolicy: xdsapi.Cluster_RING_HASH},
 	}
 
 	sidecarInboundIn := []*xdsapi.Cluster{
@@ -287,9 +288,9 @@ func TestApplyClusterPatches(t *testing.T) {
 	push.InitContext(env)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ret := ApplyClusterPatches(tc.patchContext, tc.proxy, push, tc.input)
-			if !reflect.DeepEqual(tc.output, ret) {
-				t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.output, ret)
+			got := ApplyClusterPatches(tc.patchContext, tc.proxy, push, tc.input)
+			if diff := cmp.Diff(tc.output, got); diff != "" {
+				t.Errorf("ApplyClusterPatches(): %s mismatch (-want +got):\n%s", tc.name, diff)
 			}
 		})
 	}

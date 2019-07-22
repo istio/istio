@@ -16,16 +16,15 @@ package envoyfilter
 
 import (
 	"fmt"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"strings"
 	"testing"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
@@ -35,6 +34,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
+	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 var (
@@ -62,31 +62,8 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 						},
 					})
 				}
-				configs = []model.Config{
-					{
-						ConfigMeta: model.ConfigMeta{
-							Name:      "test-envoyfilter",
-							Namespace: "not-default",
-						},
-						Spec: &networking.EnvoyFilter{
-							ConfigPatches: configPatches,
-						},
-					},
-				}
 			}
 			return
-		},
-		// This is for the deprecated stuff
-		EnvoyFilterStub: func(workloadLabels model.LabelsCollection) *model.Config {
-			return &model.Config{
-				ConfigMeta: model.ConfigMeta{
-					Name:      "test-envoyfilter",
-					Namespace: "not-default",
-				},
-				Spec: &networking.EnvoyFilter{
-					ConfigPatches: configPatches,
-				},
-			}
 		},
 	}
 }
@@ -393,9 +370,9 @@ func TestApplyListenerPatches(t *testing.T) {
 			ListenerFilters: []listener.ListenerFilter{{Name: "envoy.tls_inspector"}},
 			FilterChains: []listener.FilterChain{
 				{
-					FilterChainMatch: &listener.FilterChainMatch{ TransportProtocol: "tls"},
-					TlsContext: &auth.DownstreamTlsContext{},
-					Filters: []listener.Filter{{Name: "network-filter"}},
+					FilterChainMatch: &listener.FilterChainMatch{TransportProtocol: "tls"},
+					TlsContext:       &auth.DownstreamTlsContext{},
+					Filters:          []listener.Filter{{Name: "network-filter"}},
 				},
 				{
 					Filters: []listener.Filter{{Name: "network-filter"}},
@@ -447,7 +424,7 @@ func TestApplyListenerPatches(t *testing.T) {
 							Name: xdsutil.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
-									HttpFilters:                 []*http_conn.HttpFilter{
+									HttpFilters: []*http_conn.HttpFilter{
 										{Name: "http-filter1"},
 										{Name: "http-filter2"},
 									},
@@ -503,7 +480,7 @@ func TestApplyListenerPatches(t *testing.T) {
 							Name: xdsutil.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
-									HttpFilters:                 []*http_conn.HttpFilter{
+									HttpFilters: []*http_conn.HttpFilter{
 										{Name: "http-filter1"},
 										{Name: "http-filter2"},
 										{Name: "http-filter3"},
@@ -605,8 +582,8 @@ func TestApplyListenerPatches(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ApplyListenerPatches(tt.args.patchContext, tt.args.proxy, tt.args.push,
 				tt.args.listeners, tt.args.skipAdds)
-			if  diff := cmp.Diff(tt.want, got); diff != "" {
-				t.Errorf("ApplyListenerPatches() mismatch (-want +got):\n%s", diff)
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("ApplyListenerPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)
 			}
 		})
 	}
