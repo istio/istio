@@ -328,7 +328,6 @@ message EnvoyFilter {
     LISTENER = 1;
 
     // Applies the patch to the filter chain.
-    // $hide_from_docs
     FILTER_CHAIN = 2;
 
     // Applies the patch to the network filter chain, to modify an
@@ -342,11 +341,9 @@ message EnvoyFilter {
 
     // Applies the patch to the Route configuration (rds output) inside a HTTP
     // connection manager. This does not apply to the virtual host.
-    // $hide_from_docs
     ROUTE_CONFIGURATION = 5;
 
     // Applies the patch to a virtual host inside a route configuration.
-    // $hide_from_docs
     VIRTUAL_HOST = 6;
 
     // Applies the patch to a cluster in a CDS output. Also used to add new clusters.
@@ -471,8 +468,7 @@ message EnvoyFilter {
       string name = 1;
       // The next level filter within this filter to match
       // upon. Typically used for HTTP Connection Manager filters and
-      // Thrift filters. This field is REQUIRED when the apply to is
-      // HTTP_FILTER.
+      // Thrift filters.
       SubFilterMatch sub_filter = 2;
     };
 
@@ -507,8 +503,7 @@ message EnvoyFilter {
     string name = 4;
   };
 
-  // Patch specifies the JSON path in the generated proto and the
-  // content to merge/remove on the specific path.
+  // Patch specifies how the selected object should be modified.
   message Patch {
 
     // Operation denotes how the patch should be applied to the selected
@@ -516,18 +511,21 @@ message EnvoyFilter {
     enum Operation {
       INVALID = 0;
 
-      // Overlay the value onto the element selected by the path using
-      // json merge semantics. For primitive fields this is equivalent
-      // to ADD.
+      // Merge the provided config with the generated config using
+      // json merge semantics.
       MERGE = 1;
 
-      // For maps this will either add to the map or replace the value
-      // for the key. For fields this will replace the value.
+      // Add the provided config to an existing list (of listeners,
+      // clusters, virtual hosts, network filters, or http
+      // filters). This operation will be ignored when applyTo is set
+      // to ROUTE_CONFIGURATION.
       ADD = 2;
 
-      // Remove the selected elements from their parent. Does not
-      // require a value to be specified. When removing fields their
-      // values are reset to their intrinsic default.
+      // Remove the selected object from the list (of listeners,
+      // clusters, virtual hosts, network filters, or http
+      // filters). Does not require a value to be specified. This
+      // operation will be ignored when applyTo is set to
+      // ROUTE_CONFIGURATION.
       REMOVE = 3;
 
       // Insert operation on an array of named objects. This operation
@@ -552,9 +550,9 @@ message EnvoyFilter {
     // Determines how the patch should be applied.
     Operation operation = 1;
 
-    // The proto equivalent of JSON Value. This will be merged using
+    // The JSON config of the object being patched. This will be merged using
     // json merge semantics with the existing proto in the path.
-    google.protobuf.Value value = 2;
+    google.protobuf.Struct value = 2;
   };
 
   message EnvoyConfigObjectMatch {
@@ -576,7 +574,8 @@ message EnvoyFilter {
     // listeners, with a network filter selection on
     // envoy.http_connection_manager and a sub filter selection on the
     // HTTP filter relative to which the insertion should be
-    // performed.
+    // performed. Similarly, an applyTo on CLUSTER should have a match
+    // (if provided) on the cluster and not on a listener.
     ApplyTo apply_to = 1;
 
     // Match on listener/route configuration/cluster.

@@ -74,7 +74,7 @@ func (c Config) String() string {
 func (c Config) FQDN() string {
 	out := c.Service
 	if c.Namespace != nil {
-		out += "." + c.Namespace.Name()
+		out += "." + c.Namespace.Name() + ".svc"
 	}
 	if c.Domain != "" {
 		out += "." + c.Domain

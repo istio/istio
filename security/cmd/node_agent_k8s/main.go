@@ -122,6 +122,7 @@ const (
 
 	MonitoringPort  = "MONITORING_PORT"
 	EnableProfiling = "ENABLE_PROFILING"
+	DebugPort       = "DEBUG_PORT"
 )
 
 var (
@@ -249,6 +250,8 @@ var (
 	initialBackoffEnv                  = env.RegisterIntVar(InitialBackoff, 10, "").Get()
 	monitoringPortEnv                  = env.RegisterIntVar(MonitoringPort, 15014,
 		"The port number for monitoring Citadel agent").Get()
+	debugPortEnv = env.RegisterIntVar(DebugPort, 8080,
+		"Debug endpoints dump SDS configuration and connection data from this port").Get()
 	enableProfilingEnv = env.RegisterBoolVar(EnableProfiling, true,
 		"Enabling profiling when monitoring Citadel agent").Get()
 )
@@ -323,6 +326,8 @@ func applyEnvVars(cmd *cobra.Command) {
 	if !cmd.Flag(InitialBackoffFlag).Changed {
 		workloadSdsCacheOptions.InitialBackoff = int64(initialBackoffEnv)
 	}
+
+	serverOptions.DebugPort = debugPortEnv
 }
 
 func validateOptions() error {

@@ -14,6 +14,9 @@
 package v2
 
 import (
+	"github.com/gogo/status"
+	"google.golang.org/grpc/codes"
+
 	"istio.io/istio/pilot/pkg/monitoring"
 )
 
@@ -85,16 +88,6 @@ var (
 		"Pilot XDS response write timeouts.",
 	)
 
-	pushTimeouts = monitoring.NewSum(
-		"pilot_xds_push_timeout",
-		"Pilot push timeout, will retry.",
-	)
-
-	pushTimeoutFailures = monitoring.NewSum(
-		"pilot_xds_push_timeout_failures",
-		"Pilot push timeout failures after repeated attempts.",
-	)
-
 	// Covers xds_builderr and xds_senderr for xds in {lds, rds, cds, eds}.
 	pushes = monitoring.NewSum(
 		"pilot_xds_pushes",
@@ -114,14 +107,12 @@ var (
 	rdsSendErrPushes  = pushes.With(typeTag.Value("rds_senderr"))
 	rdsBuildErrPushes = pushes.With(typeTag.Value("rds_builderr"))
 
-	pushErrors = monitoring.NewSum(
-		"pilot_xds_push_errors",
-		"Number of errors (timeouts) pushing to sidecars.",
-		typeTag,
+	// only supported dimension is millis, unfortunately. default to unitdimensionless.
+	proxiesQueueTime = monitoring.NewDistribution(
+		"pilot_proxy_queue_time",
+		"Time a proxy is in the push queue before being dequeued.",
+		[]float64{.1, 1, 3, 5, 10, 20, 30},
 	)
-
-	unrecoverableErrs = pushErrors.With(typeTag.Value("unrecoverable"))
-	retryErrs         = pushErrors.With(typeTag.Value("retry"))
 
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesConvergeDelay = monitoring.NewDistribution(
@@ -129,6 +120,10 @@ var (
 		"Delay between config change and all proxies converging.",
 		[]float64{1, 3, 5, 10, 20, 30, 50, 100},
 	)
+	proxiesConvergeDelayCdsErrors = proxiesConvergeDelay.With(errTag.Value("cds"))
+	proxiesConvergeDelayEdsErrors = proxiesConvergeDelay.With(errTag.Value("eds"))
+	proxiesConvergeDelayRdsErrors = proxiesConvergeDelay.With(errTag.Value("rds"))
+	proxiesConvergeDelayLdsErrors = proxiesConvergeDelay.With(errTag.Value("lds"))
 
 	pushContextErrors = monitoring.NewSum(
 		"pilot_xds_push_context_errors",
@@ -152,6 +147,15 @@ var (
 	inboundWorkloadUpdates = inboundUpdates.With(typeTag.Value("workload"))
 )
 
+func recordSendError(metric monitoring.Metric, err error) {
+	s, ok := status.FromError(err)
+	// Unavailable code will be sent when a connection is closing down. This is very normal,
+	// due to the XDS connection being dropped every 30 minutes, or a pod shutting down.
+	if !ok || s.Code() != codes.Unavailable {
+		metric.Increment()
+	}
+}
+
 func incrementXDSRejects(metric monitoring.Metric, node, errCode string) {
 	metric.With(nodeTag.Value(node), errTag.Value(errCode)).Increment()
 	totalXDSRejects.Increment()
@@ -170,11 +174,13 @@ func init() {
 		monVServices,
 		xdsClients,
 		xdsResponseWriteTimeouts,
-		pushTimeouts,
-		pushTimeoutFailures,
 		pushes,
-		pushErrors,
 		proxiesConvergeDelay,
+		proxiesQueueTime,
+		proxiesConvergeDelayCdsErrors,
+		proxiesConvergeDelayEdsErrors,
+		proxiesConvergeDelayRdsErrors,
+		proxiesConvergeDelayLdsErrors,
 		pushContextErrors,
 		totalXDSInternalErrors,
 		inboundUpdates,

@@ -43,6 +43,9 @@ spec:
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
+          {{- if .Values.global.sds.enabled }}
+            - --sds-enabled=true
+          {{- end }}
             - --append-dns-names=true
             - --grpc-port=8060
             - --citadel-storage-namespace={{ .Release.Namespace }}

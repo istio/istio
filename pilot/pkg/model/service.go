@@ -392,19 +392,20 @@ type ServiceInstance struct {
 //
 // This is used by CDS/EDS to group the endpoints by locality.
 func (si *ServiceInstance) GetLocality() string {
-	return GetLocalityOrDefault(si.Endpoint.Locality, si.Labels)
+	return GetLocalityOrDefault(si.Labels[LocalityLabel], si.Endpoint.Locality)
 }
 
-// Gets the locality from the labels, or falls back to to a default locality if not found
-// Because Kubernetes labels don't support `/`, we replace "." with "/" as a workaround
-func GetLocalityOrDefault(defaultLocality string, labels map[string]string) string {
-	if labels != nil && labels[LocalityLabel] != "" {
+// GetLocalityOrDefault returns the locality from the supplied label, or falls back to
+// the supplied default locality if the supplied label is empty. Because Kubernetes
+// labels don't support `/`, we replace "." with "/" in the supplied label as a workaround.
+func GetLocalityOrDefault(label, defaultLocality string) string {
+	if len(label) > 0 {
 		// if there are /'s present we don't need to replace
-		if strings.Contains(labels[LocalityLabel], "/") {
-			return labels[LocalityLabel]
+		if strings.Contains(label, "/") {
+			return label
 		}
 		// replace "." with "/"
-		return strings.Replace(labels[LocalityLabel], k8sSeparator, "/", -1)
+		return strings.Replace(label, k8sSeparator, "/", -1)
 	}
 	return defaultLocality
 }

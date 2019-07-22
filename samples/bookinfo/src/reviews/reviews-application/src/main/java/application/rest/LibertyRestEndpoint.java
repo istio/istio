@@ -15,26 +15,23 @@
  *******************************************************************************/
 package application.rest;
 
-import java.io.StringReader;
 import javax.json.Json;
 import javax.json.JsonObject;
-import javax.json.JsonObjectBuilder;
 import javax.json.JsonReader;
-import javax.ws.rs.ApplicationPath;
-import javax.ws.rs.PathParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.ProcessingException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Invocation;
-import javax.ws.rs.client.Invocation.Builder;
-import javax.ws.rs.client.ResponseProcessingException;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Application;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import java.io.StringReader;
 
 @Path("/")
 public class LibertyRestEndpoint extends Application {
@@ -90,7 +87,7 @@ public class LibertyRestEndpoint extends Application {
     
     private JsonObject getRatings(String productId, HttpHeaders requestHeaders) {
       ClientBuilder cb = ClientBuilder.newBuilder();
-      String timeout = star_color.equals("black") ? "10000" : "2500";
+      Integer timeout = star_color.equals("black") ? 10000 : 2500;
       cb.property("com.ibm.ws.jaxrs.client.connection.timeout", timeout);
       cb.property("com.ibm.ws.jaxrs.client.receive.timeout", timeout);
       Client client = cb.build();
@@ -102,16 +99,21 @@ public class LibertyRestEndpoint extends Application {
           builder.header(header,value);
         }
       }
-      Response r = builder.get();
-      int statusCode = r.getStatusInfo().getStatusCode();
-      if (statusCode == Response.Status.OK.getStatusCode() ) {
-        StringReader stringReader = new StringReader(r.readEntity(String.class));
-        try (JsonReader jsonReader = Json.createReader(stringReader)) {
-           JsonObject j = jsonReader.readObject();
-           return j;
+      try {
+        Response r = builder.get();
+
+        int statusCode = r.getStatusInfo().getStatusCode();
+        if (statusCode == Response.Status.OK.getStatusCode()) {
+          try (StringReader stringReader = new StringReader(r.readEntity(String.class));
+               JsonReader jsonReader = Json.createReader(stringReader)) {
+            return jsonReader.readObject();
+          }
+        } else {
+          System.out.println("Error: unable to contact " + ratings_service + " got status of " + statusCode);
+          return null;
         }
-      }else{
-        System.out.println("Error: unable to contact "+ratings_service+" got status of "+statusCode);
+      } catch (ProcessingException e) {
+        System.err.println("Error: unable to contact " + ratings_service + " got exception " + e);
         return null;
       }
     }

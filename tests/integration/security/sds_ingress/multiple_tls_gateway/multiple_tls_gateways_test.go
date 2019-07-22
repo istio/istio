@@ -45,13 +45,18 @@ func testMultiTLSGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 		t.Skip("https://github.com/istio/istio/issues/14180")
 	}
 
+	ingressutil.CreateIngressKubeSecret(t, ctx, credNames, ingress.TLS, ingressutil.IngressCredentialA)
 	ingressutil.DeployBookinfo(t, ctx, g, ingressutil.MultiTLSGateway)
 
-	ingressutil.CreateIngressKubeSecret(t, ctx, credNames, ingress.TLS, ingressutil.IngressCredentialA)
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
 	err := ingressutil.WaitUntilGatewaySdsStatsGE(t, ing, len(credNames), 10*time.Second)
 	if err != nil {
 		t.Errorf("sds update stats does not match: %v", err)
+	}
+	// Expect two active listeners, one listens on 443 and the other listens on 15090
+	err = ingressutil.WaitUntilGatewayActiveListenerStatsGE(t, ing, 2, 20*time.Second)
+	if err != nil {
+		t.Errorf("total active listener stats does not match: %v", err)
 	}
 	tlsContext := ingressutil.TLSContext{
 		CaCert: ingressutil.CaCertA,

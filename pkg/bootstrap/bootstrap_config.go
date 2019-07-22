@@ -28,16 +28,15 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pkg/errors"
+
 	"golang.org/x/oauth2/google"
 
+	"istio.io/api/annotation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/pkg/annotations"
-
-	"github.com/gogo/protobuf/types"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/env"
@@ -58,11 +57,6 @@ const (
 
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
 
-	// statsMatchers give the operator control over Envoy stats collection.
-	EnvoyStatsMatcherInclusionPrefixes = "sidecar.istio.io/statsInclusionPrefixes"
-	EnvoyStatsMatcherInclusionSuffixes = "sidecar.istio.io/statsInclusionSuffixes"
-	EnvoyStatsMatcherInclusionRegexps  = "sidecar.istio.io/statsInclusionRegexps"
-
 	// Options are used in the boostrap template.
 	envoyStatsMatcherInclusionPrefixOption = "inclusionPrefix"
 	envoyStatsMatcherInclusionSuffixOption = "inclusionSuffix"
@@ -70,13 +64,6 @@ const (
 )
 
 var (
-	_ = annotations.Register(EnvoyStatsMatcherInclusionPrefixes,
-		"Specifies the comma separated list of prefixes of the stats to be emitted by Envoy.")
-	_ = annotations.Register(EnvoyStatsMatcherInclusionSuffixes,
-		"Specifies the comma separated list of suffixes of the stats to be emitted by Envoy.")
-	_ = annotations.Register(EnvoyStatsMatcherInclusionRegexps,
-		"Specifies the comma separated list of regexes the stats should match to be emitted by Envoy.")
-
 	// required stats are used by readiness checks.
 	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc"
 	requiredEnvoyStatsMatcherInclusionSuffix   = "ssl_context_update_by_sds"
@@ -100,12 +87,12 @@ func substituteValues(patterns []string, varName string, values []string) []stri
 }
 
 // setStatsOptions configures stats inclusion list based on annotations.
-func setStatsOptions(opts map[string]interface{}, meta map[string]string, nodeIPs []string) {
+func setStatsOptions(opts map[string]interface{}, meta map[string]interface{}, nodeIPs []string) {
 
 	setStatsOption := func(metaKey string, optKey string, required string) {
 		var inclusionOption []string
 		if inclusionPatterns, ok := meta[metaKey]; ok {
-			inclusionOption = strings.Split(inclusionPatterns, ",")
+			inclusionOption = strings.Split(inclusionPatterns.(string), ",")
 		}
 
 		if len(required) > 0 {
@@ -123,12 +110,11 @@ func setStatsOptions(opts map[string]interface{}, meta map[string]string, nodeIP
 			opts[optKey] = inclusionOption
 		}
 	}
+	setStatsOption(annotation.SidecarStatsInclusionPrefixes.Name, envoyStatsMatcherInclusionPrefixOption, requiredEnvoyStatsMatcherInclusionPrefixes)
 
-	setStatsOption(EnvoyStatsMatcherInclusionPrefixes, envoyStatsMatcherInclusionPrefixOption, requiredEnvoyStatsMatcherInclusionPrefixes)
+	setStatsOption(annotation.SidecarStatsInclusionSuffixes.Name, envoyStatsMatcherInclusionSuffixOption, requiredEnvoyStatsMatcherInclusionSuffix)
 
-	setStatsOption(EnvoyStatsMatcherInclusionSuffixes, envoyStatsMatcherInclusionSuffixOption, requiredEnvoyStatsMatcherInclusionSuffix)
-
-	setStatsOption(EnvoyStatsMatcherInclusionRegexps, envoyStatsMatcherInclusionRegexpOption, "")
+	setStatsOption(annotation.SidecarStatsInclusionRegexps.Name, envoyStatsMatcherInclusionRegexpOption, "")
 }
 
 func defaultPilotSan() []string {
@@ -218,42 +204,105 @@ func StoreHostPort(host, port, field string, opts map[string]interface{}) {
 	opts[field] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", host, port)
 }
 
-type setMetaFunc func(m map[string]string, key string, val string)
+type setMetaFunc func(m map[string]interface{}, key string, val string)
 
-func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[string]string) {
+func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[string]interface{}) {
 	metaPrefixLen := len(prefix)
-	for _, env := range envs {
-		if strings.HasPrefix(env, prefix) {
-			v := env[metaPrefixLen:]
-			parts := strings.SplitN(v, "=", 2)
-			if len(parts) != 2 {
-				continue
-			}
-			metaKey, metaVal := parts[0], parts[1]
+	for _, e := range envs {
+		if !shouldExtract(e, prefix) {
+			continue
+		}
+		v := e[metaPrefixLen:]
+		if !isEnvVar(v) {
+			continue
+		}
+		metaKey, metaVal := parseEnvVar(v)
+		set(meta, metaKey, metaVal)
+	}
+}
 
-			set(meta, metaKey, metaVal)
+type istioMetadata struct {
+	CanonicalTelemetryService string            `json:"canonical_telemetry_service,omitempty"`
+	IP                        string            `json:"ip,omitempty"`
+	Labels                    map[string]string `json:"labels,omitempty"`
+	Name                      string            `json:"name,omitempty"`
+	Namespace                 string            `json:"namespace,omitempty"`
+	ServiceAccount            string            `json:"service_account,omitempty"`
+	PlatformMetadata          map[string]string `json:"platform_metadata,omitempty"`
+}
+
+func shouldExtract(envVar, prefix string) bool {
+	// this will allow transition from current method of exposition in the future
+	// Example:
+	// if strings.HasPrefix(envVar, "ISTIO_METAJSON_LABELS") {
+	// 	return false
+	// }
+	return strings.HasPrefix(envVar, prefix)
+}
+
+func isEnvVar(str string) bool {
+	return strings.Contains(str, "=")
+}
+
+func parseEnvVar(varStr string) (string, string) {
+	parts := strings.SplitN(varStr, "=", 2)
+	if len(parts) != 2 {
+		return varStr, ""
+	}
+	return parts[0], parts[1]
+}
+
+func jsonStringToMap(jsonStr string) (m map[string]string) {
+	err := json.Unmarshal([]byte(jsonStr), &m)
+	if err != nil {
+		log.Warnf("Env variable with value %q failed json unmarshal: %v", jsonStr, err)
+	}
+	return
+}
+
+func extractIstioMetadata(envVars []string, plat platform.Environment) istioMetadata {
+	im := istioMetadata{}
+	for _, varStr := range envVars {
+		name, val := parseEnvVar(varStr)
+		switch name {
+		case "INSTANCE_IP":
+			im.IP = val
+		case "ISTIO_METAJSON_LABELS":
+			m := jsonStringToMap(val)
+			im.Labels = m
+			im.CanonicalTelemetryService = m["istioTelemetryService"]
+		case "POD_NAME":
+			im.Name = val
+		case "POD_NAMESPACE":
+			im.Namespace = val
 		}
 	}
+	if plat != nil {
+		im.PlatformMetadata = plat.Metadata()
+	}
+	return im
 }
 
 // getNodeMetaData function uses an environment variable contract
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
-func getNodeMetaData(envs []string) map[string]string {
-	meta := map[string]string{}
+func getNodeMetaData(envs []string, plat platform.Environment) map[string]interface{} {
+	meta := map[string]interface{}{}
 
-	extractMetadata(envs, IstioMetaPrefix, func(m map[string]string, key string, val string) {
+	extractMetadata(envs, IstioMetaPrefix, func(m map[string]interface{}, key string, val string) {
 		m[key] = val
 	}, meta)
 
-	extractMetadata(envs, IstioMetaJSONPrefix, func(m map[string]string, key string, val string) {
+	extractMetadata(envs, IstioMetaJSONPrefix, func(m map[string]interface{}, key string, val string) {
 		err := json.Unmarshal([]byte(val), &m)
 		if err != nil {
 			log.Warnf("Env variable %s [%s] failed json unmarshal: %v", key, val, err)
 		}
 	}, meta)
 	meta["istio"] = "sidecar"
+
+	meta["istio.io/metadata"] = extractIstioMetadata(envs, plat)
 
 	return meta
 }
@@ -264,6 +313,13 @@ var overrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP", "", "")
 // TODO: in v2 some of the LDS ports (port, http_port) should be configured in the bootstrap.
 func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
 	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string) (string, error) {
+	// currently, only the GCP Platform is supported, so this is hardcorded and the writeBootstrapForPlatform method is private.
+	return writeBootstrapForPlatform(config, node, epoch, pilotSAN, opts, localEnv, nodeIPs, dnsRefreshRate, platform.NewGCP())
+}
+
+func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
+	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string, platEnv platform.Environment) (string, error) {
+
 	if opts == nil {
 		opts = map[string]interface{}{}
 	}
@@ -309,13 +365,16 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["nodeID"] = node
 
 	// Support passing extra info from node environment as metadata
-	meta := getNodeMetaData(localEnv)
+	meta := getNodeMetaData(localEnv, platEnv)
 
-	localityOverride := model.GetLocalityOrDefault("", meta)
+	localityOverride := ""
+	if locality, ok := meta[model.LocalityLabel]; ok {
+		localityOverride = model.GetLocalityOrDefault(locality.(string), localityOverride)
+	}
 	l := util.ConvertLocality(localityOverride)
 	if l == nil {
 		// Populate the platform locality if available.
-		l = platform.GetPlatformLocality()
+		l = platEnv.Locality()
 	}
 	if l.Region != "" {
 		opts["region"] = l.Region

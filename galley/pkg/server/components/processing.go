@@ -24,9 +24,11 @@ import (
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
+	grpcMetadata "google.golang.org/grpc/metadata"
 
 	"istio.io/pkg/ctrlz/fw"
 	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 
@@ -50,6 +52,8 @@ import (
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
 )
+
+const versionMetadataKey = "config.source.version"
 
 // Processing component.
 type Processing struct {
@@ -135,8 +139,15 @@ func (p *Processing) Start() (err error) {
 		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second, 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
 	}
 
+	md := grpcMetadata.MD{
+		versionMetadataKey: []string{version.Info.Version},
+	}
+	if err := parseSinkMeta(p.args.SinkMeta, md); err != nil {
+		return err
+	}
+
 	if p.args.SinkAddress != "" {
-		p.callOut, err = newCallout(p.args.SinkAddress, p.args.SinkAuthMode, p.args.SinkMeta, options)
+		p.callOut, err = newCallout(p.args.SinkAddress, p.args.SinkAuthMode, md, options)
 		if err != nil {
 			p.callOut = nil
 			scope.Errorf("Callout could not be initialized: %v", err)
@@ -147,6 +158,7 @@ func (p *Processing) Start() (err error) {
 	serverOptions := &source.ServerOptions{
 		AuthChecker: checker,
 		RateLimiter: rate.NewLimiter(rate.Every(time.Second), 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
+		Metadata:    md,
 	}
 
 	p.mcpSource = source.NewServer(options, serverOptions)
@@ -369,4 +381,15 @@ func (p *Processing) Address() net.Addr {
 		return nil
 	}
 	return l.Addr()
+}
+
+func parseSinkMeta(pairs []string, md grpcMetadata.MD) error {
+	for _, p := range pairs {
+		kv := strings.Split(p, "=")
+		if len(kv) != 2 || kv[0] == "" || kv[1] == "" {
+			return fmt.Errorf("sinkMeta not in key=value format: %v", p)
+		}
+		md[kv[0]] = append(md[kv[0]], kv[1])
+	}
+	return nil
 }

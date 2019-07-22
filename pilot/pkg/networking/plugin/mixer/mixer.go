@@ -29,6 +29,7 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -276,8 +277,8 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 	}
 
 	// apply proxy-level overrides
-	if annotation, ok := node.Metadata[model.NodeMetadataPolicyCheck]; ok {
-		switch annotation {
+	if anno, ok := node.Metadata[annotation.PolicyCheck.Name]; ok {
+		switch anno {
 		case policyCheckEnable:
 			policy = mccpb.FAIL_CLOSE
 		case policyCheckEnableAllow, policyCheckDisable:
@@ -288,30 +289,30 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 	networkFailPolicy := &mccpb.NetworkFailPolicy{Policy: policy}
 
 	networkFailPolicy.MaxRetry = defaultRetries
-	if annotation, ok := node.Metadata[model.NodeMetadataPolicyCheckRetries]; ok {
-		retries, err := strconv.Atoi(annotation)
+	if anno, ok := node.Metadata[annotation.PolicyCheckRetries.Name]; ok {
+		retries, err := strconv.Atoi(anno)
 		if err != nil {
-			log.Warnf("unable to parse retry limit %q.", annotation)
+			log.Warnf("unable to parse retry limit %q.", anno)
 		} else {
 			networkFailPolicy.MaxRetry = uint32(retries)
 		}
 	}
 
 	networkFailPolicy.BaseRetryWait = defaultBaseRetryWaitTime
-	if annotation, ok := node.Metadata[model.NodeMetadataPolicyCheckBaseRetryWaitTime]; ok {
-		dur, err := time.ParseDuration(annotation)
+	if anno, ok := node.Metadata[annotation.PolicyCheckBaseRetryWaitTime.Name]; ok {
+		dur, err := time.ParseDuration(anno)
 		if err != nil {
-			log.Warnf("unable to parse base retry wait time %q.", annotation)
+			log.Warnf("unable to parse base retry wait time %q.", anno)
 		} else {
 			networkFailPolicy.BaseRetryWait = types.DurationProto(dur)
 		}
 	}
 
 	networkFailPolicy.MaxRetryWait = defaultMaxRetryWaitTime
-	if annotation, ok := node.Metadata[model.NodeMetadataPolicyCheckMaxRetryWaitTime]; ok {
-		dur, err := time.ParseDuration(annotation)
+	if anno, ok := node.Metadata[annotation.PolicyCheckMaxRetryWaitTime.Name]; ok {
+		dur, err := time.ParseDuration(anno)
 		if err != nil {
-			log.Warnf("unable to parse max retry wait time %q.", annotation)
+			log.Warnf("unable to parse max retry wait time %q.", anno)
 		} else {
 			networkFailPolicy.MaxRetryWait = types.DurationProto(dur)
 		}
@@ -575,7 +576,7 @@ func disablePolicyChecks(dir direction, mesh *meshconfig.MeshConfig, node *model
 	}
 
 	// override with proxy settings
-	if policy, ok := node.Metadata[model.NodeMetadataPolicyCheck]; ok {
+	if policy, ok := node.Metadata[annotation.PolicyCheck.Name]; ok {
 		switch policy {
 		case policyCheckDisable:
 			disable = true

@@ -20,8 +20,9 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/pkg/env"
 	"istio.io/pkg/log"
+
+	"istio.io/pkg/env"
 )
 
 var (
@@ -39,12 +40,9 @@ var (
 	// Default is 100%, not recommended for production use.
 	TraceSampling = env.RegisterFloatVar("PILOT_TRACE_SAMPLING", 100.0, "").Get()
 
-	// PushThrottle limits the qps of the actual push. Default is 10 pushes per second.
+	// PushThrottle limits the number of concurrent pushes allowed. Default is 100 concurrent pushes.
 	// On larger machines you can increase this to get faster push.
-	PushThrottle = env.RegisterIntVar("PILOT_PUSH_THROTTLE", 10, "").Get()
-
-	// PushBurst limits the burst of the actual push. Default is 100.
-	PushBurst = env.RegisterIntVar("PILOT_PUSH_BURST", 100, "").Get()
+	PushThrottle = env.RegisterIntVar("PILOT_PUSH_THROTTLE", 100, "").Get()
 
 	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
 	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
@@ -70,13 +68,6 @@ var (
 	// showing up with no break for this time, we'll trigger a push.
 	// Default is 10s, Example: "300ms", "10s" or "2h45m".
 	DebounceMax = env.RegisterDurationVar("PILOT_DEBOUNCE_MAX", 10*time.Second, "").Get()
-
-	// DisableEDSIsolation provides an option to disable the feature
-	// of EDS isolation which is enabled by default from Istio 1.1 and
-	// go back to the legacy behavior of previous releases.
-	// If not set, Pilot will return the endpoints for a proxy in an isolated namespace.
-	// Set the environment variable to any value to disable.
-	DisableEDSIsolation = env.RegisterStringVar("PILOT_DISABLE_EDS_ISOLATION", "", "").Get()
 
 	// BaseDir is the base directory for locating configs.
 	// File based certificates are located under $BaseDir/etc/certs/. If not set, the original 1.0 locations will
@@ -125,10 +116,6 @@ var (
 		return len(enableLocalityLoadBalancingVar.Get()) != 0
 	}
 
-	// EnableWaitCacheSync provides an option to specify whether it should wait
-	// for cache sync before Pilot bootstrap. Set env PILOT_ENABLE_WAIT_CACHE_SYNC = 0 to disable it.
-	EnableWaitCacheSync = env.RegisterStringVar("PILOT_ENABLE_WAIT_CACHE_SYNC", "", "").Get() != "0"
-
 	enableFallthroughRouteVar = env.RegisterBoolVar(
 		"PILOT_ENABLE_FALLTHROUGH_ROUTE",
 		true,
@@ -137,30 +124,6 @@ var (
 			"When REGISTRY_ONLY traffic policy is used, a 502 error is returned.",
 	)
 	EnableFallthroughRoute = enableFallthroughRouteVar.Get
-
-	// DisablePartialRouteResponse provides an option to disable a partial route response. This
-	// will cause Pilot to send an error if any routes are invalid. The default behavior (without
-	// this flag) is to just skip the invalid route.
-	DisablePartialRouteResponse = env.RegisterBoolVar(
-		"PILOT_DISABLE_PARTIAL_ROUTE_RESPONSE",
-		false,
-		"DisablePartialRouteResponse provides an option to disable a partial route response. This "+
-			"will cause Pilot to send an error if any routes are invalid. The default behavior (without "+
-			"this flag) is to just skip the invalid route.")
-
-	// DisableEmptyRouteResponse provides an option to disable a partial route response. This
-	// will cause Pilot to ignore a route request if Pilot generates a nil route (due to an error).
-	// This may cause Envoy to wait forever for the route, blocking listeners from receiving traffic.
-	// The default behavior (without this flag set) is to explicitly send an empty route. This
-	// will break routing for that particular route, but allow others on the same listener to work.
-	DisableEmptyRouteResponse = env.RegisterBoolVar(
-		"PILOT_DISABLE_EMPTY_ROUTE_RESPONSE",
-		false,
-		"DisableEmptyRouteResponse provides an option to disable a partial route response. This "+
-			"will cause Pilot to ignore a route request if Pilot generates a nil route (due to an error). "+
-			"This may cause Envoy to wait forever for the route, blocking listeners from receiving traffic. "+
-			"The default behavior (without this flag set) is to explicitly send an empty route. This "+
-			"will break routing for that particular route, but allow others on the same listener to work.")
 
 	// DisableXDSMarshalingToAny provides an option to disable the "xDS marshaling to Any" feature ("on" by default).
 	disableXDSMarshalingToAnyVar = env.RegisterStringVar("PILOT_DISABLE_XDS_MARSHALING_TO_ANY", "", "")

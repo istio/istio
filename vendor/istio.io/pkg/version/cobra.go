@@ -77,6 +77,7 @@ func CobraCommandWithOptions(options CobraOptions) *cobra.Command {
 			case "":
 				if short {
 					if remoteVersion != nil {
+						remoteVersion = coalesceVersions(remoteVersion)
 						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "client version: %s\n", version.ClientVersion.Version)
 						for _, remote := range *remoteVersion {
 							_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s version: %s\n", remote.Component, remote.Info.Version)
@@ -116,4 +117,32 @@ func CobraCommandWithOptions(options CobraOptions) *cobra.Command {
 	}
 
 	return cmd
+}
+
+func coalesceVersions(remoteVersion *MeshInfo) *MeshInfo {
+	if identicalVersions(*remoteVersion) {
+		return &MeshInfo{
+			ServerInfo{
+				Component: "control plane",
+				Info:      (*remoteVersion)[0].Info,
+			},
+		}
+	}
+
+	return remoteVersion
+}
+
+func identicalVersions(remoteVersion MeshInfo) bool {
+	exemplar := remoteVersion[0].Info
+	for i := 1; i < len(remoteVersion); i++ {
+		candidate := (remoteVersion)[i].Info
+		// Note that we don't compare GitRevision, BuildStatus,
+		// or DockerHub because released Istio versions may use the same version tag
+		// but differ in those fields.
+		if exemplar.GitTag != candidate.GitTag {
+			return false
+		}
+	}
+
+	return true
 }

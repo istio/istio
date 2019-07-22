@@ -319,22 +319,9 @@ func testUdsEndpoints(_ *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 
 // Update
 func edsUpdates(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
-
 	// Old style (non-incremental)
-	server.EnvoyXdsServer.MemRegistry.AddInstance(edsIncSvc, &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: "127.0.0.3",
-			Port:    int(testEnv.Ports().BackendPort),
-			ServicePort: &model.Port{
-				Name:     "http-main",
-				Port:     8080,
-				Protocol: model.ProtocolHTTP,
-			},
-			Locality: "az",
-		},
-		ServiceAccount: "hello-sa",
-		Labels:         map[string]string{"version": "v1"},
-	})
+	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc,
+		newEndpointWithAccount("127.0.0.3", "hello-sa", "v1"))
 
 	v2.AdsPushAll(server.EnvoyXdsServer)
 	// will trigger recompute and push
@@ -496,18 +483,17 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 
 			// Check we received all pushes
 			log.Println("Waiting for pushes ", id)
-			for j := 0; j < nPushes; j++ {
-				// The time must be larger than write timeout: if we run all tests
-				// and some are leaving uncleaned state the push will be slower.
-				_, err := adsc.Wait("eds", 15*time.Second)
-				atomic.AddInt32(&rcvPush, 1)
-				if err != nil {
-					log.Println("Recv failed", err, id, j)
-					errChan <- fmt.Errorf("failed to receive a response in 15 s %v %v %v",
-						err, id, j)
-					return
-				}
+
+			// Pushes may be merged so we may not get nPushes pushes
+			_, err = adsc.Wait("eds", 15*time.Second)
+			atomic.AddInt32(&rcvPush, 1)
+			if err != nil {
+				log.Println("Recv failed", err, id)
+				errChan <- fmt.Errorf("failed to receive a response in 15 s %v %v",
+					err, id)
+				return
 			}
+
 			log.Println("Received all pushes ", id)
 			atomic.AddInt32(&rcvClients, 1)
 
@@ -524,8 +510,6 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 	for j := 0; j < nPushes; j++ {
 		if inc {
 			// This will be throttled - we want to trigger a single push
-			//server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc,
-			//	newEndpointWithAccount("127.0.0.2", "hello-sa", "v1"))
 			updates := map[string]struct{}{
 				edsIncSvc: {},
 			}
