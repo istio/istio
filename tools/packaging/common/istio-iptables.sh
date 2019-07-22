@@ -123,7 +123,7 @@ IFS=,
 # Ideally we should generate ufw (and similar) configs as well, in case user already has an iptables solution.
 
 PROXY_PORT=${ENVOY_PORT:-15001}
-INBOUND_CAPTURE_PORT=${INBOUND_CAPTURE_PORT:-15006}
+PROXY_INBOUND_CAPTURE_PORT=${INBOUND_CAPTURE_PORT:-15006}
 PROXY_UID=
 PROXY_GID=
 INBOUND_INTERCEPTION_MODE=${ISTIO_INBOUND_INTERCEPTION_MODE}
@@ -142,7 +142,7 @@ while getopts ":p:z:u:g:m:b:d:o:i:x:k:h:t" opt; do
       PROXY_PORT=${OPTARG}
       ;;
     z)
-      INBOUND_CAPTURE_PORT=${OPTARG}
+      PROXY_INBOUND_CAPTURE_PORT=${OPTARG}
       ;;
     u)
       PROXY_UID=${OPTARG}
@@ -297,7 +297,7 @@ echo
 echo "Variables:"
 echo "----------"
 echo "PROXY_PORT=${PROXY_PORT}"
-echo "INBOUND_CAPTURE_PORT=${INBOUND_CAPTURE_PORT}"
+echo "PROXY_INBOUND_CAPTURE_PORT=${PROXY_INBOUND_CAPTURE_PORT}"
 echo "PROXY_UID=${PROXY_UID}"
 echo "INBOUND_INTERCEPTION_MODE=${INBOUND_INTERCEPTION_MODE}"
 echo "INBOUND_TPROXY_MARK=${INBOUND_TPROXY_MARK}"
@@ -325,7 +325,7 @@ iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port "${PROXY_PORT}"
 # Use this chain also for redirecting inbound traffic to the common Envoy port
 # when not using TPROXY.
 iptables -t nat -N ISTIO_IN_REDIRECT
-iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${INBOUND_CAPTURE_PORT}"
+iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${PROXY_INBOUND_CAPTURE_PORT}"
 
 # Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
 # to the local service. If not set, no inbound port will be intercepted by istio iptables.
@@ -501,7 +501,7 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
   # Use this chain also for redirecting inbound traffic to the common Envoy port
   # when not using TPROXY.
   ip6tables -t nat -N ISTIO_IN_REDIRECT
-  ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${INBOUND_CAPTURE_PORT}"
+  ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${PROXY_INBOUND_CAPTURE_PORT}"
 
   # Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
   # to the local service. If not set, no inbound port will be intercepted by istio iptables.
