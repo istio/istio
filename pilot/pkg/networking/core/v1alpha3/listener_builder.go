@@ -55,17 +55,18 @@ func reduceInboundListenerToFilters(listeners []*xdsapi.Listener) (chains []*lis
 }
 
 func (builder *ListenerBuilder) aggregateVirtualInboundListener(env *model.Environment, node *model.Proxy) *ListenerBuilder {
-	ip := getSidecarInboundBindIP(node)
-
+	//ip := getSidecarInboundBindIP(node)
 	var isTransparentProxy *google_protobuf.BoolValue
 	if node.GetInterceptionMode() == model.InterceptionTproxy {
 		isTransparentProxy = proto.BoolTrue
 	}
 	tcpProxyFilter := newTCPProxyListenerFilter(env, node, true)
 	filterChains, needTls := reduceInboundListenerToFilters(builder.inboundListeners)
+	actualWildcard, _ := getActualWildcardAndLocalHost(node)
+
 	builder.virtualInboundListener = &xdsapi.Listener{
 		Name:        VirtualInboundListenerName,
-		Address:     util.BuildAddress(ip, ProxyInboundListenPort),
+		Address:     util.BuildAddress(actualWildcard, ProxyInboundListenPort),
 		Transparent: isTransparentProxy,
 		ListenerFilters: []listener.ListenerFilter{
 			{
