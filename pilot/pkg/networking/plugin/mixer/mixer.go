@@ -236,7 +236,7 @@ func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeCon
 	for i := 0; i < len(routeConfiguration.VirtualHosts); i++ {
 		host := routeConfiguration.VirtualHosts[i]
 		for j := 0; j < len(host.Routes); j++ {
-			host.Routes[j] = modifyOutboundRouteConfig(in.Push, in, host.Routes[j])
+			host.Routes[j] = modifyOutboundRouteConfig(in.Push, in, host.Name, host.Routes[j])
 		}
 		routeConfiguration.VirtualHosts[i] = host
 	}
@@ -399,7 +399,23 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 	return out
 }
 
-func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, httpRoute route.Route) route.Route {
+func addFilterConfigToRoute(in *plugin.InputParams, httpRoute route.Route, attrs attributes, isXDSMarshalingToAnyEnabled bool) {
+	if isXDSMarshalingToAnyEnabled {
+		httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
+			DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
+			MixerAttributes:   &mpb.Attributes{Attributes: attrs},
+			ForwardAttributes: &mpb.Attributes{Attributes: attrs},
+		})
+	} else {
+		httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
+			DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
+			MixerAttributes:   &mpb.Attributes{Attributes: attrs},
+			ForwardAttributes: &mpb.Attributes{Attributes: attrs},
+		})
+	}
+}
+
+func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, virtualHostname string, httpRoute route.Route) route.Route {
 	isXDSMarshalingToAnyEnabled := util.IsXDSMarshalingToAnyEnabled(in.Node)
 
 	// default config, to be overridden by per-weighted cluster
@@ -417,20 +433,11 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 		switch upstreams := action.Route.ClusterSpecifier.(type) {
 		case *route.RouteAction_Cluster:
 			_, _, hostname, _ := model.ParseSubsetKey(upstreams.Cluster)
-			attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
-			if isXDSMarshalingToAnyEnabled {
-				httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
-					DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
-					MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-					ForwardAttributes: &mpb.Attributes{Attributes: attrs},
-				})
-			} else {
-				httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
-					DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
-					MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-					ForwardAttributes: &mpb.Attributes{Attributes: attrs},
-				})
+			if hostname == "" && upstreams.Cluster == util.PassthroughCluster {
+				hostname = util.PassthroughCluster
 			}
+			attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
+			addFilterConfigToRoute(in, httpRoute, attrs, isXDSMarshalingToAnyEnabled)
 
 		case *route.RouteAction_WeightedClusters:
 			for _, weighted := range upstreams.WeightedClusters.Clusters {
@@ -454,7 +461,13 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 		default:
 			log.Warn("Unknown cluster type in mixer#OnOutboundRouteConfiguration")
 		}
-	case *route.Route_Redirect, *route.Route_DirectResponse:
+	case *route.Route_DirectResponse:
+		if virtualHostname == "block_all" {
+			hostname := model.Hostname(util.BlackHoleCluster)
+			attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
+			addFilterConfigToRoute(in, httpRoute, attrs, isXDSMarshalingToAnyEnabled)
+		}
+	case *route.Route_Redirect:
 	default:
 		log.Warn("Unknown route type in mixer#OnOutboundRouteConfiguration")
 	}
