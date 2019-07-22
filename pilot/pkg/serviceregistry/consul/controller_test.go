@@ -548,7 +548,14 @@ func TestGetInstanceByCacheAfterChanged(t *testing.T) {
 	go controller.Run(make(chan struct{}))
 
 	hostname := serviceHostname("reviews")
-	instances, err := controller.InstancesByPort(hostname, 0, config.LabelsCollection{})
+	svc := &model.Service{
+		Hostname: hostname,
+		Attributes: model.ServiceAttributes{
+			Name:      "reviews",
+			Namespace: model.IstioDefaultConfigNamespace,
+		},
+	}
+	instances, err := controller.InstancesByPort(svc, 0, config.LabelsCollection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
@@ -578,7 +585,7 @@ func TestGetInstanceByCacheAfterChanged(t *testing.T) {
 	ts.Lock.Unlock()
 
 	time.Sleep(2 * time.Second)
-	instances, err = controller.InstancesByPort(hostname, 0, config.LabelsCollection{})
+	instances, err = controller.InstancesByPort(svc, 0, config.LabelsCollection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}

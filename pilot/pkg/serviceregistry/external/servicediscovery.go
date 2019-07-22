@@ -38,8 +38,8 @@ type ServiceEntryStore struct {
 	storeMutex sync.RWMutex
 
 	ip2instance map[string][]*model.ServiceInstance
-	// Endpoints table. Key is the fqdn of the service, ':', port
-	instances map[string][]*model.ServiceInstance
+	// Endpoints table. Key is the fqdn hostname and namespace
+	instances map[model.Hostname]map[string][]*model.ServiceInstance
 
 	changeMutex  sync.RWMutex
 	lastChange   time.Time
@@ -53,7 +53,7 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 		instanceHandlers: make([]instanceHandler, 0),
 		store:            store,
 		ip2instance:      map[string][]*model.ServiceInstance{},
-		instances:        map[string][]*model.ServiceInstance{},
+		instances:        map[model.Hostname]map[string][]*model.ServiceInstance{},
 		updateNeeded:     true,
 	}
 	if callbacks != nil {
@@ -157,7 +157,7 @@ func (d *ServiceEntryStore) InstancesByPort(svc *model.Service, port int,
 	defer d.storeMutex.RUnlock()
 	out := make([]*model.ServiceInstance, 0)
 
-	instances, found := d.instances[string(svc.Hostname)]
+	instances, found := d.instances[svc.Hostname][svc.Attributes.Namespace]
 	if found {
 		for _, instance := range instances {
 			if instance.Service.Hostname == svc.Hostname &&
@@ -181,18 +181,21 @@ func (d *ServiceEntryStore) update() {
 	}
 	d.changeMutex.RUnlock()
 
-	di := map[string][]*model.ServiceInstance{}
+	di := map[model.Hostname]map[string][]*model.ServiceInstance{}
 	dip := map[string][]*model.ServiceInstance{}
 
 	for _, cfg := range d.store.ServiceEntries() {
 		for _, instance := range convertInstances(cfg) {
-			key := string(instance.Service.Hostname)
-			out, found := di[key]
+
+			out, found := di[instance.Service.Hostname][instance.Service.Attributes.Namespace]
 			if !found {
 				out = []*model.ServiceInstance{}
 			}
 			out = append(out, instance)
-			di[key] = out
+			if _, f := di[instance.Service.Hostname]; !f {
+				di[instance.Service.Hostname] = map[string][]*model.ServiceInstance{}
+			}
+			di[instance.Service.Hostname][instance.Service.Attributes.Namespace] = out
 
 			byip, found := dip[instance.Endpoint.Address]
 			if !found {

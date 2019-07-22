@@ -90,7 +90,7 @@ func NewFakeXDS() *FakeXdsUpdater {
 	}
 }
 
-func (fx *FakeXdsUpdater) EDSUpdate(shard, hostname string, entry []*model.IstioEndpoint) error {
+func (fx *FakeXdsUpdater) EDSUpdate(shard, hostname string, namespace string, entry []*model.IstioEndpoint) error {
 	select {
 	case fx.Events <- XdsEvent{Type: "eds", ID: hostname}:
 	default:

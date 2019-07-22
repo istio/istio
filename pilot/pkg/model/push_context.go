@@ -114,7 +114,7 @@ type XDSUpdater interface {
 	// changed. For each cluster and hostname, the full list of active endpoints (including empty list)
 	// must be sent. The shard name is used as a key - current implementation is using the registry
 	// name.
-	EDSUpdate(shard, hostname string, entry []*IstioEndpoint) error
+	EDSUpdate(shard, hostname string, namespace string, entry []*IstioEndpoint) error
 
 	// SvcUpdate is called when a service port mapping definition is updated.
 	// This interface is WIP - labels, annotations and other changes to service may be

@@ -48,6 +48,7 @@ func TestServiceEntryStatic(t *testing.T) {
 		if err := p.StartDiscovery(req); err != nil {
 			t.Fatal(err)
 		}
+
 		if err := p.WatchDiscovery(time.Second*500, checkResultStatic); err != nil {
 			t.Error(err)
 		}
@@ -98,10 +99,11 @@ func checkResultStatic(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 
 func checkResultStaticListener(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 	expected := map[string]struct{}{
-		"1.1.1.1_80":  {},
-		"0.0.0.0_80":  {},
-		"5.5.5.5_443": {},
-		"virtual":     {},
+		"1.1.1.1_80":      {},
+		"0.0.0.0_80":      {},
+		"5.5.5.5_443":     {},
+		"virtualInbound":  {},
+		"virtualOutbound": {},
 	}
 
 	got := map[string]struct{}{}

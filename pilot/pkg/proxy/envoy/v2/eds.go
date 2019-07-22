@@ -189,7 +189,7 @@ func endpointMetadata(uid string, network string) *core.Metadata {
 	return metadata
 }
 
-// Determine Service associated with a hostname when there is no Sidecar scope. Which namepace the service comes from
+// Determine Service associated with a hostname when there is no Sidecar scope. Which namespace the service comes from
 // is undefined, as we do not have enough information to make a smart decision
 func legacyServiceForHostname(hostname model.Hostname, serviceByHostname map[model.Hostname]map[string]*model.Service) *model.Service {
 	for _, service := range serviceByHostname[hostname] {
@@ -236,7 +236,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 
 	s.mutex.RLock()
 	// The service was never updated - do the full update
-	se, f := s.EndpointShardsByService[string(hostname)]
+	se, f := s.EndpointShardsByService[string(hostname)][svc.Attributes.Namespace]
 	s.mutex.RUnlock()
 	if !f {
 		return s.updateCluster(push, clusterName, edsCluster)
@@ -322,7 +322,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 				}
 			}
 
-			s.edsUpdate(registry.ClusterID, string(svc.Hostname), entries, true)
+			s.edsUpdate(registry.ClusterID, string(svc.Hostname), svc.Attributes.Namespace, entries, true)
 		}
 	}
 
@@ -339,11 +339,12 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	if direction == model.TrafficDirectionInbound ||
 		direction == model.TrafficDirectionOutbound {
 		labels := push.SubsetToLabels(nil, subsetName, hostname)
-		svc, err := s.Env.ServiceDiscovery.GetService(hostname)
+		svc := legacyServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
 		var instances []*model.ServiceInstance
-		if err != nil {
-			adsLog.Warnf("service lookup for hostname %v failed: %v", hostname, err)
+		if svc == nil {
+			adsLog.Warnf("service lookup for hostname %v failed", hostname)
 		} else {
+			var err error
 			instances, err = s.Env.ServiceDiscovery.InstancesByPort(svc, port, labels)
 			if err != nil {
 				adsLog.Errorf("endpoints for service cluster %q returned error %v", clusterName, err)
@@ -488,15 +489,15 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ 
 // It replaces InstancesByPort in model - instead of iterating over all endpoints it uses
 // the hostname-keyed map. And it avoids the conversion from Endpoint to ServiceEntry to envoy
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
-func (s *DiscoveryServer) EDSUpdate(shard, serviceName string, istioEndpoints []*model.IstioEndpoint) error {
+func (s *DiscoveryServer) EDSUpdate(shard, serviceName string, namespace string, istioEndpoints []*model.IstioEndpoint) error {
 	inboundEDSUpdates.Increment()
-	s.edsUpdate(shard, serviceName, istioEndpoints, false)
+	s.edsUpdate(shard, serviceName, namespace, istioEndpoints, false)
 	return nil
 }
 
 // edsUpdate updates edsUpdates by shard, serviceName, IstioEndpoints,
 // and requests a full/eds push.
-func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
+func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
 	istioEndpoints []*model.IstioEndpoint, internal bool) {
 	// edsShardUpdate replaces a subset (shard) of endpoints, as result of an incremental
 	// update. The endpoint updates may be grouped by K8S clusters, other service registries
@@ -509,13 +510,13 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	// To prevent memory leak.
 	// Should delete the service EndpointShards, when endpoints deleted or service deleted.
 	if len(istioEndpoints) == 0 {
-		if s.EndpointShardsByService[serviceName] != nil {
-			s.EndpointShardsByService[serviceName].mutex.Lock()
-			delete(s.EndpointShardsByService[serviceName].Shards, shard)
-			svcShards := len(s.EndpointShardsByService[serviceName].Shards)
-			s.EndpointShardsByService[serviceName].mutex.Unlock()
+		if s.EndpointShardsByService[serviceName][namespace] != nil {
+			s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
+			delete(s.EndpointShardsByService[serviceName][namespace].Shards, shard)
+			svcShards := len(s.EndpointShardsByService[serviceName][namespace].Shards)
+			s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
 			if svcShards == 0 {
-				delete(s.EndpointShardsByService, serviceName)
+				delete(s.EndpointShardsByService[serviceName], namespace)
 			}
 		}
 		return
@@ -523,7 +524,10 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 
 	// Update the data structures for the service.
 	// 1. Find the 'per service' data
-	ep, f := s.EndpointShardsByService[serviceName]
+	if _, f := s.EndpointShardsByService[serviceName]; !f {
+		s.EndpointShardsByService[serviceName] = map[string]*EndpointShards{}
+	}
+	ep, f := s.EndpointShardsByService[serviceName][namespace]
 	if !f {
 		// This endpoint is for a service that was not previously loaded.
 		// Return an error to force a full sync, which will also cause the
@@ -532,7 +536,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 			Shards:          map[string][]*model.IstioEndpoint{},
 			ServiceAccounts: map[string]bool{},
 		}
-		s.EndpointShardsByService[serviceName] = ep
+		s.EndpointShardsByService[serviceName][namespace] = ep
 		if !internal {
 			adsLog.Infof("Full push, new service %s", serviceName)
 			requireFull = true
@@ -680,7 +684,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 
 	// The service was never updated - do the full update
 	s.mutex.RLock()
-	se, f := s.EndpointShardsByService[string(hostname)]
+	se, f := s.EndpointShardsByService[string(hostname)][svc.Attributes.Namespace]
 	s.mutex.RUnlock()
 	if !f {
 		// Shouldn't happen here - but just in case fallback

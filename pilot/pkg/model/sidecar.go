@@ -278,6 +278,14 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 
 // ServiceForHostname returns the service associated with a given hostname following SidecarScope
 func (sc *SidecarScope) ServiceForHostname(hostname Hostname, serviceByHostname map[Hostname]map[string]*Service) *Service {
+	// SidecarScope shouldn't be null here. If it is, we can't make a disambiguate the hostname to use for a namespace,
+	// so the selection must be undefined.
+	if sc == nil {
+		for _, service := range serviceByHostname[hostname] {
+			return service
+		}
+	}
+
 	// Search through in scope services. SidecarScope will already have scoped the services to ensure
 	// that the right service will be chosen here
 	for _, s := range sc.Services() {
@@ -286,29 +294,6 @@ func (sc *SidecarScope) ServiceForHostname(hostname Hostname, serviceByHostname 
 		}
 	}
 	return nil
-}
-
-// InstancesForService returns all matching ServiceInstances, respecting the SidecarScope
-// This means only instances for a single namespace will be returned.
-func (sc *SidecarScope) InstancesForService(env *Environment, hostname Hostname, port int, labels LabelsCollection) ([]*ServiceInstance, error) {
-	// Get all instances for the hostname, including ones that may be not imported
-	allInstances, err := env.InstancesByPort(hostname, port, labels)
-	if err != nil {
-		return nil, err
-	}
-
-	if sc == nil {
-		return allInstances, nil
-	}
-
-	var inScopeInstances []*ServiceInstance
-	// Filter down to just instances in services in the selected namespace
-	for _, i := range allInstances {
-		if sc.NamespaceForHostname[i.Service.Hostname] == i.Service.Attributes.Namespace {
-			inScopeInstances = append(inScopeInstances, i)
-		}
-	}
-	return inScopeInstances, nil
 }
 
 // Services returns the list of services imported across all egress listeners by this

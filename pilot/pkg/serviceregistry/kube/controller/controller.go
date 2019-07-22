@@ -421,7 +421,14 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	instances := c.externalNameSvcInstanceMap[svc.Hostname]
 	c.RUnlock()
 	if instances != nil {
-		return instances, nil
+		inScopeInstances := []*model.ServiceInstance{}
+		for _, i := range instances {
+			if i.Service.Attributes.Namespace == svc.Attributes.Namespace {
+				inScopeInstances = append(inScopeInstances, i)
+			}
+		}
+
+		return inScopeInstances, nil
 	}
 
 	item, exists, err := c.endpoints.informer.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
@@ -815,7 +822,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 		log.Infof("Handle EDS endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, addresses)
 	}
 
-	_ = c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
+	_ = c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), ep.Namespace, endpoints)
 }
 
 // namedRangerEntry for holding network's CIDR and name
