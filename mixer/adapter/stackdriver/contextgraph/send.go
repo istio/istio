@@ -97,7 +97,6 @@ func splitBySizeEntity(msg *contextgraphpb.AssertBatchRequest) int {
 	for ; curIndex < len(msg.EntityPresentAssertions); curIndex++ {
 		curSize += proto.Size(msg.EntityPresentAssertions[curIndex])
 		if curSize >= maxReq {
-			curIndex--
 			break
 		}
 	}
@@ -110,7 +109,6 @@ func splitBySizeRelationship(msg *contextgraphpb.AssertBatchRequest) int {
 	for ; curIndex < len(msg.RelationshipPresentAssertions); curIndex++ {
 		curSize += proto.Size(msg.RelationshipPresentAssertions[curIndex])
 		if curSize >= maxReq {
-			curIndex--
 			break
 		}
 	}
