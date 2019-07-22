@@ -413,12 +413,7 @@ func hasNetworkFilterMatch(cp *model.EnvoyFilterConfigPatchWrapper) bool {
 		return false
 	}
 
-	match := fcMatch.Filter
-	if match == nil {
-		return false
-	}
-
-	return true
+	return fcMatch.Filter != nil
 }
 
 // We assume that the parent listener and filter chain have already been matched
@@ -436,11 +431,7 @@ func hasHTTPFilterMatch(cp *model.EnvoyFilterConfigPatchWrapper) bool {
 	}
 
 	match := cp.Match.GetListener().FilterChain.Filter.SubFilter
-	if match == nil {
-		return false
-	}
-
-	return true
+	return match != nil
 }
 
 // We assume that the parent listener and filter chain, and network filter have already been matched
