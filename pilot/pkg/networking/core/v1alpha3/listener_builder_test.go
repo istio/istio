@@ -118,7 +118,7 @@ func TestVirtualListenerBuilder(t *testing.T) {
 
 	builder := NewListenerBuilder(&proxy)
 	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, &proxy, env.PushContext, instances).
-		buildVirtualListener(&env, &proxy).
+		buildVirtualOutboundListener(&env, &proxy).
 		getListeners()
 
 	// app port listener and virtual inbound listener
@@ -129,7 +129,7 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	// The rest attributes are verified in other tests
 	verifyInboundHTTPListenerServerName(t, listeners[0])
 
-	if !strings.HasPrefix(listeners[1].Name, VirtualListenerName) {
+	if !strings.HasPrefix(listeners[1].Name, VirtualOutboundListenerName) {
 		t.Fatalf("expect virtual listener, found %s", listeners[1].Name)
 	} else {
 		t.Logf("found virtual listener: %s", listeners[1].Name)
@@ -168,7 +168,7 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 
 	builder := NewListenerBuilder(&proxy)
 	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, &proxy, env.PushContext, instances).
-		buildVirtualListener(&env, &proxy).
+		buildVirtualOutboundListener(&env, &proxy).
 		buildVirtualInboundListener(&env, &proxy).
 		getListeners()
 
@@ -180,7 +180,7 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 	// The rest attributes are verified in other tests
 	verifyInboundHTTPListenerServerName(t, listeners[0])
 
-	if !strings.HasPrefix(listeners[1].Name, VirtualListenerName) {
+	if !strings.HasPrefix(listeners[1].Name, VirtualOutboundListenerName) {
 		t.Fatalf("expect virtual listener, found %s", listeners[1].Name)
 	} else {
 		t.Logf("found virtual listener: %s", listeners[1].Name)
