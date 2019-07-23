@@ -941,7 +941,7 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 	env := model.Environment{
 		PushContext:      model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore.Freeze(),
+		IstioConfigStore: configStore,
 		Mesh:             &mesh,
 	}
 
