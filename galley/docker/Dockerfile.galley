@@ -13,12 +13,10 @@ RUN addgroup --system --gid 1001 istio && \
 USER istio
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
-# hadolint ignore=DL3007
 FROM gcr.io/distroless/static:nonroot as distroless
 ADD galley /usr/local/bin/
 
 # This will build the final image based on either default or distroless from above
-# hadolint ignore=DL3006
 FROM ${BASE_DISTRIBUTION}
 
 ENTRYPOINT ["/usr/local/bin/galley"]
