@@ -23,12 +23,16 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o tcp-echo main.go
 ARG BASE_DISTRIBUTION=default
 
 # The following section is used as base image if BASE_DISTRIBUTION=default
+# No tag available https://hub.docker.com/_/scratch?tab=description
+# hadolint ignore=DL3006
 FROM scratch as default
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
-FROM gcr.io/distroless/static as distroless
+# hadolint ignore=DL3007
+FROM gcr.io/distroless/static:latest as distroless
 
 # This will build the final image based on either default or distroless from above
+# hadolint ignore=DL3006
 FROM ${BASE_DISTRIBUTION}
 WORKDIR /bin/
 # copy the tcp-echo binary to a separate container based on BASE_DISTRIBUTION

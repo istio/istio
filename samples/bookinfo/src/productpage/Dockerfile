@@ -36,5 +36,6 @@ RUN chmod 775 /opt/microservices && \
     touch /opt/microservices/microservice.log && \
     chmod 664 /opt/microservices/microservice.log
 
+# hadolint ignore=DL3025
 CMD tail -f /opt/microservices/microservice.log & \
     python productpage.py 9080

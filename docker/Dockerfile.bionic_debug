@@ -6,6 +6,7 @@ FROM ubuntu:bionic
 # If you occasionally need something on the container do
 # sudo apt-get update && apt-get whichever
 
+# hadolint ignore=DL3005,DL3008
 RUN apt-get update && \
     apt-get install --no-install-recommends -y \
       curl \

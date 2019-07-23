@@ -92,6 +92,6 @@ run_yaml_lint
 check_grafana_dashboards
 check_samples
 
-
 "${WORKSPACE}/scripts/run_golangci.sh"
 "${WORKSPACE}/scripts/check_license.sh"
+"${WORKSPACE}/scripts/check_dockerfiles.sh"
