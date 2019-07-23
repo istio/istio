@@ -38,7 +38,7 @@ set -x
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
-setup_kind_cluster
+setup_kind_cluster ""
 
 echo 'Build'
 (cd "${ROOT}"; make build)
@@ -77,7 +77,7 @@ make docker
 function build_kind_images(){
 	# Archived local images and load it into KinD's docker daemon
 	# Kubernetes in KinD can only access local images from its docker daemon.
-	docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name e2e-suite load docker-image
+	docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name istio-testing load docker-image
 }
 
 build_kind_images

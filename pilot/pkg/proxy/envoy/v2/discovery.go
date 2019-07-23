@@ -22,7 +22,6 @@ import (
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
-	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -93,14 +92,6 @@ type DiscoveryServer struct {
 	// KubeController provides readiness info (if initial sync is complete)
 	KubeController *controller.Controller
 
-	// rate limiter for sending updates during full ads push.
-	rateLimiter *rate.Limiter
-
-	// rate limiter for sending config to new connections.
-	// We want to have a larger limit for new connections because until configuration is sent the proxies
-	// will not be ready.
-	initRateLimiter *rate.Limiter
-
 	concurrentPushLimit chan struct{}
 
 	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
@@ -135,6 +126,8 @@ type DiscoveryServer struct {
 	// proxies that need full push during the new push epoch
 	// the key is the proxy ip address
 	proxyUpdates map[string]struct{}
+
+	pushQueue *PushQueue
 }
 
 // updateReq includes info about the requested update.
@@ -185,8 +178,9 @@ func NewDiscoveryServer(
 		WorkloadsByID:           map[string]*Workload{},
 		edsUpdates:              map[string]struct{}{},
 		proxyUpdates:            map[string]struct{}{},
-		concurrentPushLimit:     make(chan struct{}, 20), // TODO(hzxuzhonghu): support configuration
+		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
 		updateChannel:           make(chan *updateReq, 10),
+		pushQueue:               NewPushQueue(),
 	}
 
 	// Flush cached discovery responses whenever services, service
@@ -215,11 +209,8 @@ func NewDiscoveryServer(
 	out.DebugConfigs = features.DebugConfigs
 
 	pushThrottle := features.PushThrottle
-	pushBurst := features.PushBurst
 
-	adsLog.Infof("Starting ADS server with rateLimiter=%d burst=%d", pushThrottle, pushBurst)
-	out.rateLimiter = rate.NewLimiter(rate.Limit(pushThrottle), pushBurst)
-	out.initRateLimiter = rate.NewLimiter(rate.Limit(pushThrottle*2), pushBurst*2)
+	adsLog.Infof("Starting ADS server with pushThrottle=%d", pushThrottle)
 
 	return out
 }
@@ -235,6 +226,7 @@ func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
 	go s.handleUpdates(stopCh)
 	go s.periodicRefresh(stopCh)
 	go s.periodicRefreshMetrics(stopCh)
+	go s.sendPushes(stopCh)
 }
 
 // Singleton, refresh the cache - may not be needed if events work properly, just a failsafe
@@ -267,12 +259,16 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 		case <-ticker.C:
 			push := s.globalPushContext()
 			push.Mutex.Lock()
-			if push.End != timeZero {
-				model.LastPushMutex.Lock()
+
+			model.LastPushMutex.Lock()
+			if model.LastPushStatus != push {
 				model.LastPushStatus = push
-				model.LastPushMutex.Unlock()
+				push.UpdateMetrics()
+				out, _ := model.LastPushStatus.JSON()
+				adsLog.Infof("Push Status: %s", string(out))
 			}
-			push.UpdateMetrics()
+			model.LastPushMutex.Unlock()
+
 			push.Mutex.Unlock()
 		case <-stopCh:
 			return
@@ -427,4 +423,64 @@ func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
 			return
 		}
 	}
+}
+
+func (s *DiscoveryServer) checkProxyNeedsFullPush(node *model.Proxy) bool {
+	full := false
+	s.proxyUpdatesMutex.Lock()
+	if _, ok := s.proxyUpdates[node.IPAddresses[0]]; ok {
+		full = true
+		delete(s.proxyUpdates, node.IPAddresses[0])
+	}
+	s.proxyUpdatesMutex.Unlock()
+	return full
+}
+
+func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQueue, checkProxyNeedsFullPush func(node *model.Proxy) bool) {
+	// Signals that a push is done by reading from the semaphore, allowing another send on it.
+	doneFunc := func() {
+		<-semaphore
+	}
+	for {
+		select {
+		case <-stopCh:
+			return
+		default:
+			// We can send to it until it is full, then it will block until a pushes finishes and reads from it.
+			// This limits the number of pushes that can happen concurrently
+			semaphore <- struct{}{}
+
+			// Get the next proxy to push. This will block if there are no updates required.
+			client, info := queue.Dequeue()
+
+			proxiesQueueTime.Record(time.Since(info.start).Seconds())
+
+			go func() {
+				edsUpdates := info.edsUpdatedServices
+				proxyFull := info.full || checkProxyNeedsFullPush(client.modelNode)
+
+				if proxyFull {
+					// Setting this to nil will trigger a full push
+					edsUpdates = nil
+				}
+
+				select {
+				case client.pushChannel <- &XdsEvent{
+					push:               info.push,
+					edsUpdatedServices: edsUpdates,
+					done:               doneFunc,
+					start:              info.start,
+				}:
+					return
+				case <-client.stream.Context().Done(): // grpc stream was closed
+					doneFunc()
+					adsLog.Infof("Client closed connection %v", client.ConID)
+				}
+			}()
+		}
+	}
+}
+
+func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
+	doSendPushes(stopCh, s.concurrentPushLimit, s.pushQueue, s.checkProxyNeedsFullPush)
 }

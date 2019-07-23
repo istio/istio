@@ -2403,6 +2403,12 @@ func validateHTTPRedirect(redirect *networking.HTTPRedirect) error {
 	if redirect != nil && redirect.Uri == "" && redirect.Authority == "" {
 		return errors.New("redirect must specify URI, authority, or both")
 	}
+
+	if redirect != nil && redirect.RedirectCode != 0 {
+		if redirect.RedirectCode < 300 || redirect.RedirectCode > 399 {
+			return fmt.Errorf("%d is not a valid redirect code, must be 3xx", redirect.RedirectCode)
+		}
+	}
 	return nil
 }
 
