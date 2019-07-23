@@ -138,7 +138,9 @@ func createNamespaceForHostname(egress []*IstioEgressListenerWrapper) map[Hostna
 	var namespaceForHostname = make(map[Hostname]string)
 	for _, egress := range egress {
 		for _, svc := range egress.Services() {
-			namespaceForHostname[svc.Hostname] = svc.Attributes.Namespace
+			if _, f := namespaceForHostname[svc.Hostname]; !f {
+				namespaceForHostname[svc.Hostname] = svc.Attributes.Namespace
+			}
 		}
 	}
 	return namespaceForHostname
@@ -278,7 +280,7 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 
 // ServiceForHostname returns the service associated with a given hostname following SidecarScope
 func (sc *SidecarScope) ServiceForHostname(hostname Hostname, serviceByHostname map[Hostname]map[string]*Service) *Service {
-	// SidecarScope shouldn't be null here. If it is, we can't make a disambiguate the hostname to use for a namespace,
+	// SidecarScope shouldn't be null here. If it is, we can't disambiguate the hostname to use for a namespace,
 	// so the selection must be undefined.
 	if sc == nil {
 		for _, service := range serviceByHostname[hostname] {

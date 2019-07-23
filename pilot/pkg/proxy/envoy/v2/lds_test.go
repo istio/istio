@@ -501,7 +501,6 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-
 			adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 				Meta: map[string]string{
 					model.NodeMetadataConfigNamespace:   "consumerns",
@@ -515,7 +514,6 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-
 			defer adsResponse.Close()
 
 			adsResponse.DumpCfg = false

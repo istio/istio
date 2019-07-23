@@ -242,7 +242,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
 
-	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, labels, clusterName, push, hostname, nil)
+	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, labels, clusterName, push)
 	// There is a chance multiple goroutines will update the cluster at the same time.
 	// This could be prevented by a lock - but because the update may be slow, it may be
 	// better to accept the extra computations.
@@ -638,15 +638,6 @@ func (s *DiscoveryServer) loadAssignmentsForClusterLegacy(push *model.PushContex
 	return l
 }
 
-// inSidecarScope checks if a given endpoint should be made available to a proxy
-func inSidecarScope(ep *model.IstioEndpoint, hostname model.Hostname, proxy *model.Proxy) bool {
-	if proxy == nil || proxy.SidecarScope == nil {
-		return true
-	}
-
-	return proxy.SidecarScope.NamespaceForHostname[hostname] == ep.Attributes.Namespace
-}
-
 // loadAssignmentsForClusterIsolated return the endpoints for a proxy in an isolated namespace
 // Initial implementation is computing the endpoints on the flight - caching will be added as needed, based on
 // perf tests. The logic to compute is based on the current UpdateClusterInc
@@ -691,7 +682,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 		return s.loadAssignmentsForClusterLegacy(push, clusterName)
 	}
 
-	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, labels, clusterName, push, hostname, proxy)
+	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, labels, clusterName, push)
 
 	return &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
@@ -914,9 +905,7 @@ func buildLocalityLbEndpointsFromShards(
 	svcPort *model.Port,
 	labels config.LabelsCollection,
 	clusterName string,
-	push *model.PushContext,
-	hostname model.Hostname,
-	proxy *model.Proxy) []endpoint.LocalityLbEndpoints {
+	push *model.PushContext) []endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 
 	shards.mutex.Lock()
@@ -924,11 +913,6 @@ func buildLocalityLbEndpointsFromShards(
 	// for this cluster
 	for _, endpoints := range shards.Shards {
 		for _, ep := range endpoints {
-			// Endpoint shards will contain all endpoints for the hostname
-			// We need to filter these down to only those that should be imported by the SidecarScope.
-			if !inSidecarScope(ep, hostname, proxy) {
-				continue
-			}
 			if svcPort.Name != ep.ServicePortName {
 				continue
 			}
