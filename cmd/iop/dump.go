@@ -32,7 +32,6 @@ import (
 	"istio.io/operator/pkg/util"
 	"istio.io/operator/pkg/validate"
 	"istio.io/operator/pkg/version"
-	"istio.io/pkg/log"
 )
 
 type dumpArgs struct {
@@ -72,16 +71,16 @@ func dumpProfile(args *rootArgs, dumpArgs *dumpArgs) {
 	}
 
 	if args.inFilename != "" && dumpArgs.profile != "" {
-		log.Fatalf("Cannot set both --profile and --filename")
+		logAndFatalf(args, "Cannot set both --profile and --filename")
 	}
 
 	writer, err := getWriter(args)
 	if err != nil {
-		log.Fatalf("Could not create output writer: %s", err)
+		logAndFatalf(args, "Could not create output writer: %s", err)
 	}
 	defer func() {
 		if err := writer.Close(); err != nil {
-			log.Fatalf("Did not close output successfully: %v", err)
+			logAndFatalf(args, "Did not close output successfully: %v", err)
 		}
 	}()
 
@@ -92,14 +91,14 @@ func dumpProfile(args *rootArgs, dumpArgs *dumpArgs) {
 	case dumpArgs.profile != "":
 		mergedYAML, err = helm.ReadValuesYAML(dumpArgs.profile)
 		if err != nil {
-			log.Fatalf("Failed to read YAML from profile: %v", err)
+			logAndFatalf(args, "Failed to read YAML from profile: %v", err)
 		}
 	default:
 		overlayYAML := ""
 		if args.inFilename != "" {
 			b, err := ioutil.ReadFile(args.inFilename)
 			if err != nil {
-				log.Fatalf("Could not read from file %s: %v", args.inFilename, err)
+				logAndFatalf(args, "Could not read from file %s: %v", args.inFilename, err)
 			}
 			overlayYAML = string(b)
 		}
@@ -107,55 +106,55 @@ func dumpProfile(args *rootArgs, dumpArgs *dumpArgs) {
 		// Start with unmarshaling and validating the user CR (which is an overlay on the base profile).
 		overlayICPS := &v1alpha2.IstioControlPlaneSpec{}
 		if err := util.UnmarshalWithJSONPB(overlayYAML, overlayICPS); err != nil {
-			log.Fatalf("Could not unmarshal the input file: %s\n\nOriginal YAML:\n%s\n", err, overlayYAML)
+			logAndFatalf(args, "Could not unmarshal the input file: %s\n\nOriginal YAML:\n%s\n", err, overlayYAML)
 		}
 		if errs := validate.CheckIstioControlPlaneSpec(overlayICPS, false); len(errs) != 0 {
-			log.Fatalf("Input file failed validation with the following errors: %s\n\nOriginal YAML:\n%s\n", errs, overlayYAML)
+			logAndFatalf(args, "Input file failed validation with the following errors: %s\n\nOriginal YAML:\n%s\n", errs, overlayYAML)
 		}
 
 		// Now read the base profile specified in the user spec.
 		fname, err := helm.FilenameFromProfile(overlayICPS.Profile)
 		if err != nil {
-			log.Fatalf("Could not get filename from profile: %s", err)
+			logAndFatalf(args, "Could not get filename from profile: %s", err)
 		}
 
 		baseYAML, err := helm.ReadValuesYAML(overlayICPS.Profile)
 		if err != nil {
-			log.Fatalf("Could not read the profile values for %s: %s", fname, err)
+			logAndFatalf(args, "Could not read the profile values for %s: %s", fname, err)
 		}
 
 		mergedYAML, err = helm.OverlayYAML(baseYAML, overlayYAML)
 		if err != nil {
-			log.Fatalf("Could not overlay user config over base: %s", err)
+			logAndFatalf(args, "Could not overlay user config over base: %s", err)
 		}
 		// Now unmarshal and validate the combined base profile and user CR overlay.
 		if err := util.UnmarshalWithJSONPB(mergedYAML, mergedICPS); err != nil {
-			log.Fatalf("Merged spec failed validation against IstioControlPlaneSpec: \n%v\n", mergedICPS)
+			logAndFatalf(args, "Merged spec failed validation against IstioControlPlaneSpec: \n%v\n", mergedICPS)
 		}
 		if errs := validate.CheckIstioControlPlaneSpec(mergedICPS, true); len(errs) != 0 {
-			log.Fatalf(err.Error())
+			logAndFatalf(args, err.Error())
 		}
 	}
 
 	t, err := translate.NewTranslator(version.NewMinorVersion(1, 2))
 	if err != nil {
-		log.Fatalf("Failed to create translator: %v", err)
+		logAndFatalf(args, "Failed to create translator: %v", err)
 	}
 
 	if dumpArgs.helmValues {
 		mergedYAML, err = component.CompileHelmValues(mergedICPS, t, "")
 		if err != nil {
-			log.Fatalf("Merged spec failed validation against IstioControlPlaneSpec: \n%v", mergedICPS)
+			logAndFatalf(args, "Merged spec failed validation against IstioControlPlaneSpec: \n%v", mergedICPS)
 		}
 	}
 
 	finalYAML, err := getConfigSubtree(mergedYAML, dumpArgs.rootConfigNode)
 	if err != nil {
-		log.Fatalf("Failed to get root config from merged YAML: %v", err)
+		logAndFatalf(args, "Failed to get root config from merged YAML: %v", err)
 	}
 
 	if _, err := writer.WriteString(finalYAML); err != nil {
-		log.Fatalf("Could not write values; %s", err)
+		logAndFatalf(args, "Could not write values; %s", err)
 	}
 }
 

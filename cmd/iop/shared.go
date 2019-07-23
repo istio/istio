@@ -77,12 +77,10 @@ func genManifests(args *rootArgs) (name.ManifestMap, error) {
 	// Start with unmarshaling and validating the user CR (which is an overlay on the base profile).
 	overlayICPS := &v1alpha2.IstioControlPlaneSpec{}
 	if err := util.UnmarshalWithJSONPB(overlayYAML, overlayICPS); err != nil {
-		log.Errorf("Could not unmarshal the overlay YAML from file: %s", overlayFilenameLog)
-		return nil, err
+		return nil, fmt.Errorf("could not unmarshal the overlay YAML from file: %s, caused by: %v", overlayFilenameLog, err)
 	}
 	if errs := validate.CheckIstioControlPlaneSpec(overlayICPS, false); len(errs) != 0 {
-		log.Errorf("Overlay spec failed validation against IstioControlPlaneSpec: \n%v\n", overlayICPS)
-		return nil, errs.ToError()
+		return nil, fmt.Errorf("overlay spec failed validation against IstioControlPlaneSpec: \n%v\n, caused by: %v", overlayICPS, errs.ToError())
 	}
 
 	baseProfileName := overlayICPS.Profile
@@ -93,35 +91,29 @@ func genManifests(args *rootArgs) (name.ManifestMap, error) {
 	// Now read the base profile specified in the user spec. If nothing specified, use default.
 	baseYAML, err := helm.ReadValuesYAML(overlayICPS.Profile)
 	if err != nil {
-		log.Errorf("Error reading YAML from profile: %s", baseProfileName)
-		return nil, err
+		return nil, fmt.Errorf("error reading YAML from profile: %s, caused by: %v", baseProfileName, err)
 	}
 	// Unmarshal and validate the base CR.
 	baseICPS := &v1alpha2.IstioControlPlaneSpec{}
 	if err := util.UnmarshalWithJSONPB(baseYAML, baseICPS); err != nil {
-		log.Errorf("Could not unmarshal the base YAML from profile: %s", baseProfileName)
-		return nil, err
+		return nil, fmt.Errorf("could not unmarshal the base YAML from profile: %s, caused by: %v", baseProfileName, err)
 	}
 	if errs := validate.CheckIstioControlPlaneSpec(baseICPS, true); len(errs) != 0 {
-		log.Errorf("Base spec failed validation against IstioControlPlaneSpec: \n%v\n", baseICPS)
-		return nil, errs.ToError()
+		return nil, fmt.Errorf("base spec failed validation against IstioControlPlaneSpec: \n%v\n, caused by: %v", baseICPS, err)
 	}
 
 	mergedYAML, err := helm.OverlayYAML(baseYAML, overlayYAML)
 	if err != nil {
-		log.Errorf("Failed to merge base YAML (%s) and overlay YAML (%s)", baseProfileName, overlayFilenameLog)
-		return nil, err
+		return nil, fmt.Errorf("failed to merge base YAML (%s) and overlay YAML (%s), caused by: %v", baseProfileName, overlayFilenameLog, err)
 	}
 
 	// Now unmarshal and validate the combined base profile and user CR overlay.
 	mergedICPS := &v1alpha2.IstioControlPlaneSpec{}
 	if err := util.UnmarshalWithJSONPB(mergedYAML, mergedICPS); err != nil {
-		log.Errorf("Could not unmarshal the merged YAML: \n%s\n", mergedYAML)
-		return nil, err
+		return nil, fmt.Errorf("could not unmarshal the merged YAML: \n%s\n, caused by: %v", mergedYAML, err)
 	}
 	if errs := validate.CheckIstioControlPlaneSpec(mergedICPS, true); len(errs) != 0 {
-		log.Errorf("Merged spec failed validation against IstioControlPlaneSpec: \n%v\n", mergedICPS)
-		return nil, errs.ToError()
+		return nil, fmt.Errorf("merged spec failed validation against IstioControlPlaneSpec: \n%v\n, caused by: %v", mergedICPS, errs.ToError())
 	}
 
 	if yd := util.YAMLDiff(mergedYAML, util.ToYAMLWithJSONPB(mergedICPS)); yd != "" {
@@ -133,8 +125,7 @@ func genManifests(args *rootArgs) (name.ManifestMap, error) {
 	// TODO: remove version hard coding.
 	cp := controlplane.NewIstioControlPlane(mergedICPS, translate.Translators[version.NewMinorVersion(1, 2)])
 	if err := cp.Run(); err != nil {
-		log.Errorf("Failed to run Istio control plane with spec: \n%v\n", mergedICPS)
-		return nil, err
+		return nil, fmt.Errorf("failed to run Istio control plane with spec: \n%v\n, caused by: %v", mergedICPS, err)
 	}
 
 	manifests, errs := cp.RenderManifest()
@@ -142,4 +133,18 @@ func genManifests(args *rootArgs) (name.ManifestMap, error) {
 		return manifests, errs.ToError()
 	}
 	return manifests, nil
+}
+
+// TODO: this really doesn't belong here. Figure out if it's generally needed and possibly move to istio.io/pkg/log.
+func logAndPrintf(args *rootArgs, v ...interface{}) {
+	s := fmt.Sprintf(v[0].(string), v[1:]...)
+	if !args.logToStdErr {
+		fmt.Println(s)
+		log.Infof(s)
+	}
+}
+
+func logAndFatalf(args *rootArgs, v ...interface{}) {
+	logAndPrintf(args, v...)
+	os.Exit(-1)
 }
