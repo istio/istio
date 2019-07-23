@@ -138,7 +138,7 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 			},
 		},
 	}
-	configgen.buildSidecarVirtualOutboundListener(env, node, push, proxyInstances,
+	configgen.onVirtualOutboundListener(env, node, push, proxyInstances,
 		ipTablesListener)
 	builder.virtualListener = ipTablesListener
 	return builder

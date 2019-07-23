@@ -1210,9 +1210,8 @@ func (configgen *ConfigGeneratorImpl) generateManagementListeners(node *model.Pr
 	return listeners
 }
 
-// buildSidecarVirtualOutboundListener creates the outbound virtual listener
-// which receives traffic for IPTABLES redirect
-func (configgen *ConfigGeneratorImpl) buildSidecarVirtualOutboundListener(env *model.Environment,
+// onVirtualOutboundListener calls the plugin API for the outbound virtual listener
+func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Environment,
 	node *model.Proxy,
 	push *model.PushContext, proxyInstances []*model.ServiceInstance,
 	ipTablesListener *xdsapi.Listener) *xdsapi.Listener {
