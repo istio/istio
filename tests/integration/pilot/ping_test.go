@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package interception
+package pilot
 
 import (
 	"fmt"
@@ -25,42 +25,11 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util/connection"
 	"istio.io/pkg/log"
 )
-
-var (
-	ist istio.Instance
-	g   galley.Instance
-	p   pilot.Instance
-)
-
-func TestMain(m *testing.M) {
-	framework.
-		NewSuite("inbound_split_test", m).
-		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
-		Setup(func(ctx resource.Context) (err error) {
-			if g, err = galley.New(ctx, galley.Config{}); err != nil {
-				return err
-			}
-			if p, err = pilot.New(ctx, pilot.Config{
-				Galley: g,
-			}); err != nil {
-				return err
-			}
-			return nil
-		}).
-		Run()
-
-}
 
 type appConnectionPair struct {
 	src, dst echo.Instance
