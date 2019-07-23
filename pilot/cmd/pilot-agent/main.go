@@ -48,6 +48,8 @@ import (
 	"istio.io/istio/pkg/spiffe"
 )
 
+const jwtPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+
 var (
 	role             = &model.Proxy{Metadata: map[string]string{}}
 	proxyIP          string
@@ -87,11 +89,17 @@ var (
 
 	wg sync.WaitGroup
 
-	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
-	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
-	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
-	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
-	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	instanceIPVar            = env.RegisterStringVar("INSTANCE_IP", "", "")
+	podNameVar               = env.RegisterStringVar("POD_NAME", "", "")
+	podNamespaceVar          = env.RegisterStringVar("POD_NAMESPACE", "", "")
+	istioNamespaceVar        = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
+	kubeAppProberNameVar     = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	sdsEnabledVar            = env.RegisterBoolVar("SDS_ENABLED", false, "")
+	sdsUdsPathVar            = env.RegisterStringVar("SDS_UDS_PATH", "/var/run/sds/uds_path", "SDS unix domain socket path")
+	sdsTrustworthyJWTPathVar = env.RegisterStringVar("SDS_JWT_PATH", "/var/run/secrets/tokens/istio-token",
+		"path of token which is used for request key/cert through SDS")
+
+	sdsUdsWaitTimeout = time.Minute
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -278,18 +286,27 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
-			log.Infof("Monitored certs: %#v", tlsCertsToWatch)
+			controlPlaneAuthEnabled := controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
+			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled, sdsUdsPathVar.Get(), sdsTrustworthyJWTPathVar.Get(), jwtPath)
+
 			// since Envoy needs the certs for mTLS, we wait for them to become available before starting it
-			if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
+			// skip waiting cert if sds is enabled, otherwise it takes long time for pod to start.
+			if controlPlaneAuthEnabled && !sdsEnabled {
+				log.Infof("Monitored certs: %#v", tlsCertsToWatch)
 				for _, cert := range tlsCertsToWatch {
-					waitForCerts(cert, 2*time.Minute)
+					waitForFile(cert, 2*time.Minute)
 				}
+			}
+
+			opts := make(map[string]interface{})
+			if sdsEnabled {
+				opts["sds_uds_path"] = sdsUdsPathVar.Get()
+				opts["sds_token_path"] = sdsTokenPath
 			}
 
 			// TODO: change Mixer and Pilot to use standard template and deprecate this custom bootstrap parser
 			if controlPlaneBootstrap {
 				if templateFile != "" && proxyConfig.CustomConfigFile == "" {
-					opts := make(map[string]string)
 					opts["PodName"] = podNameVar.Get()
 					opts["PodNamespace"] = podNamespaceVar.Get()
 					// Setting default to ipv4 local host, wildcard and dns policy
@@ -317,6 +334,7 @@ var (
 					if disableInternalTelemetry {
 						opts["DisableReportCalls"] = "true"
 					}
+
 					tmpl, err := template.ParseFiles(templateFile)
 					if err != nil {
 						return err
@@ -371,7 +389,7 @@ var (
 
 			log.Infof("PilotSAN %#v", pilotSAN)
 
-			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses, dnsRefreshRate)
+			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses, dnsRefreshRate, opts)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, features.TerminationDrainDuration())
 			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.ConfigCh())
 
@@ -448,6 +466,51 @@ func getDNSDomain(domain string) string {
 		}
 	}
 	return domain
+}
+
+// check if SDS UDS path and token path exist, if both exist, requests key/cert
+// using SDS instead of secret mount.
+func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, preferJwtpath, jwtpath string) (bool, string) {
+	if !sdsEnabledVar.Get() {
+		return false, ""
+	}
+
+	if !controlPlaneBootstrap {
+		// workload sidecar
+		// treat sds as disabled if uds path isn't set.
+		if _, err := os.Stat(udspath); err != nil {
+			return false, ""
+		}
+		if _, err := os.Stat(preferJwtpath); err == nil {
+			return true, preferJwtpath
+		}
+		if _, err := os.Stat(jwtpath); err == nil {
+			return true, jwtpath
+		}
+
+		return false, ""
+	}
+
+	// for controlplane sidecar, if controlplanesecurity isn't enabled
+	// doens't matter what to return since sds won't be used.
+	if !controlPlaneAuthEnabled {
+		return false, ""
+	}
+
+	// controlplane components like pilot/mixer/galley have sidecar
+	// they start almost same time as sds server; wait since there is a chance
+	// when pilot-agent start, the uds file doesn't exist.
+	if !waitForFile(udspath, sdsUdsWaitTimeout) {
+		return false, ""
+	}
+	if _, err := os.Stat(preferJwtpath); err == nil {
+		return true, preferJwtpath
+	}
+	if _, err := os.Stat(jwtpath); err == nil {
+		return true, jwtpath
+	}
+
+	return false, ""
 }
 
 func parseApplicationPorts() ([]uint16, error) {
@@ -572,7 +635,7 @@ func init() {
 	}))
 }
 
-func waitForCerts(fname string, maxWait time.Duration) {
+func waitForFile(fname string, maxWait time.Duration) bool {
 	log.Infof("waiting %v for %s", maxWait, fname)
 
 	logDelay := 1 * time.Second
@@ -582,20 +645,20 @@ func waitForCerts(fname string, maxWait time.Duration) {
 	for {
 		_, err := os.Stat(fname)
 		if err == nil {
-			return
+			return true
 		}
 		if !os.IsNotExist(err) { // another error (e.g., permission) - likely no point in waiting longer
-			log.Errora("error while waiting for certificates", err.Error())
-			return
+			log.Errora("error while waiting for file", err.Error())
+			return false
 		}
 
 		now := time.Now()
 		if now.After(endWait) {
-			log.Warna("certificates still not available after", maxWait)
-			break
+			log.Warna("file still not available after", maxWait)
+			return false
 		}
 		if now.After(nextLog) {
-			log.Infof("waiting for certificates")
+			log.Infof("waiting for file")
 			logDelay *= 2
 			nextLog.Add(logDelay)
 		}

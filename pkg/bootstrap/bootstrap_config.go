@@ -319,7 +319,6 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 
 func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
 	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string, platEnv platform.Environment) (string, error) {
-
 	if opts == nil {
 		opts = map[string]interface{}{}
 	}
@@ -401,6 +400,19 @@ func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoc
 
 	// Support multiple network interfaces
 	meta[model.NodeMetadataInstanceIPs] = strings.Join(nodeIPs, ",")
+
+	if opts["sds_uds_path"] != nil && opts["sds_token_path"] != nil {
+		// sds is enabled
+		meta[model.NodeMetadataSdsEnabled] = "1"
+
+		if opts["sds_token_path"] == "/var/run/secrets/kubernetes.io/serviceaccount/token" {
+			// use default jwt.
+			meta[model.NodeMetadataSdsTrustJwt] = "0"
+		} else {
+			// use trustworthy jwt.
+			meta[model.NodeMetadataSdsTrustJwt] = "1"
+		}
+	}
 
 	ba, err := json.Marshal(meta)
 	if err != nil {
