@@ -461,12 +461,15 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 		default:
 			log.Warn("Unknown cluster type in mixer#OnOutboundRouteConfiguration")
 		}
+	// route.Route_DirectResponse is used for the BlackHole cluster configuration,
+	// hence adding the attributes for the mixer filter
 	case *route.Route_DirectResponse:
-		if virtualHostname == "block_all" {
+		if virtualHostname == util.BlackHoleRouteName {
 			hostname := model.Hostname(util.BlackHoleCluster)
 			attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
 			addFilterConfigToRoute(in, httpRoute, attrs, isXDSMarshalingToAnyEnabled)
 		}
+	// route.Route_Redirect is not used currently, so no attributes are added here
 	case *route.Route_Redirect:
 	default:
 		log.Warn("Unknown route type in mixer#OnOutboundRouteConfiguration")
