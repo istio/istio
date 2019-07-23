@@ -20,8 +20,8 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/kylelemons/godebug/diff"
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
