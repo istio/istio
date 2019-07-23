@@ -519,7 +519,7 @@ func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pil
 	env := pilot_model.Environment{
 		PushContext:      pilot_model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore.Freeze(),
+		IstioConfigStore: configStore,
 		Mesh:             &mesh,
 		MixerSAN:         []string{},
 	}

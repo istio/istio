@@ -247,7 +247,7 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolutio
 			return nil, nil
 		},
 	}
-	env := newTestEnvironment(serviceDiscovery, mesh, configStore.Freeze())
+	env := newTestEnvironment(serviceDiscovery, mesh, configStore)
 
 	var proxy *model.Proxy
 	switch nodeType {
@@ -855,7 +855,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	serviceDiscovery.InstancesByPortReturns(instances, nil)
 
 	configStore := &fakes.IstioConfigStore{}
-	env := newTestEnvironment(serviceDiscovery, testMesh, configStore.Freeze())
+	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
 	localityLbEndpoints := buildLocalityLbEndpoints(env, model.GetNetworkView(nil), service, 8080, nil)
 	g.Expect(len(localityLbEndpoints)).To(Equal(2))
@@ -921,7 +921,7 @@ func TestPassthroughClusterMaxConnections(t *testing.T) {
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 	configStore := &fakes.IstioConfigStore{}
-	env := newTestEnvironment(serviceDiscovery, testMesh, configStore.Freeze())
+	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 	proxy := &model.Proxy{}
 
 	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
@@ -962,7 +962,7 @@ func TestRedisProtocolWithPassThroughResolution(t *testing.T) {
 
 	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
 
-	env := newTestEnvironment(serviceDiscovery, testMesh, configStore.Freeze())
+	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
 	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(err).NotTo(HaveOccurred())
@@ -1005,7 +1005,7 @@ func TestRedisProtocolCluster(t *testing.T) {
 
 	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
 
-	env := newTestEnvironment(serviceDiscovery, testMesh, configStore.Freeze())
+	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
 	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(err).NotTo(HaveOccurred())
