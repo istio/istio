@@ -26,3 +26,6 @@ bin/protoc-gen-docs*
 *.orig
 build/_output/
 iop.log
+#mandiff output
+out/
+

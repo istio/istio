@@ -1,0 +1,81 @@
+# This is used to generate minimal demo mode. It is included from demo and demo-auth values.
+# It is shipped with the release, used for bookinfo or quick installation of istio.
+# Includes components used in the demo, defaults to alpha3 rules.
+# Note: please only put common configuration for the demo profiles here.    
+global:
+  proxy:
+    accessLogFile: "/dev/stdout"
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+
+  disablePolicyChecks: false
+
+  controlPlaneSecurityEnabled: true
+  mtls:
+    # Default setting for service-to-service mtls. Can be set explicitly using
+    # destination rules or service annotations.
+    enabled: true
+
+sidecarInjectorWebhook:
+  enabled: true
+  # If true, webhook or istioctl injector will rewrite PodSpec for liveness
+  # health check to redirect request to sidecar. This makes liveness check work
+  # even when mTLS is enabled.
+  rewriteAppHTTPProbe: false
+
+pilot:
+  autoscaleEnabled: false
+  traceSampling: 100.0
+  resources:
+    requests:
+      cpu: 10m
+      memory: 100Mi
+
+mixer:
+  policy:
+    enabled: true
+    autoscaleEnabled: false
+    resources:
+      requests:
+        cpu: 10m
+        memory: 100Mi
+
+  telemetry:
+    enabled: true
+    autoscaleEnabled: false
+    resources:
+      requests:
+        cpu: 50m
+        memory: 100Mi
+ 
+  adapters:
+    stdio:
+      enabled: true
+ 
+grafana:
+  enabled: true
+
+tracing:
+  enabled: true
+
+kiali:
+  enabled: true
+  createDemoSecret: true
+
+gateways:
+  istio-ingressgateway:
+    autoscaleEnabled: false
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+
+  istio-egressgateway:
+    enabled: true
+    autoscaleEnabled: false
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi

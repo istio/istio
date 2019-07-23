@@ -65,6 +65,9 @@ lint:
 fmt:
 	@scripts/run_gofmt.sh
 
+mandiff:
+	@scripts/run_mandiff.sh
+
 include Makefile.common.mk
 
 # Coverage tests
