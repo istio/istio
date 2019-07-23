@@ -45,7 +45,8 @@ api_path := pkg/apis/istio/v1alpha2
 api_protos := $(shell find $(api_path) -type f -name '*.proto' | sort)
 api_pb_gos := $(api_protos:.proto=.pb.go)
 
-.PHONY: default
+.PHONY: default lint mandiff coverage test build
+
 default: iop
 
 generate-api-go: $(api_pb_gos)
@@ -57,23 +58,29 @@ $(api_pb_gos): $(api_protos)
 clean-proto:
 	rm -f $(api_pb_gos)
 
+fmt:
+	@scripts/run_gofmt.sh
+
+
+include Makefile.common.mk
+
+# CI Targets
 lint:
 	# These PATH hacks are temporary until prow properly sets its paths
 	@PATH=${PATH}:${GOPATH}/bin scripts/check_license.sh
 	@PATH=${PATH}:${GOPATH}/bin scripts/run_golangci.sh
 
-fmt:
-	@scripts/run_gofmt.sh
-
 mandiff:
 	# These PATH hacks are temporary until prow properly sets its paths
 	@PATH=${PATH}:${GOPATH}/bin scripts/run_mandiff.sh
 
-include Makefile.common.mk
-
-# Coverage tests
 coverage:
-	scripts/codecov.sh
+	@scripts/codecov.sh
+
+test:
+	GO111MODULE=on go test -race ./...
+
+build: iop
 
 # get imported protos to $GOPATH
 get_dep_proto:
