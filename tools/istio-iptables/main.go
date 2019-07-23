@@ -333,7 +333,7 @@ func run(args []string, flagSet *flag.FlagSet) {
 	if env.RegisterStringVar("DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK", "", "").Get() == "" {
 		// Redirect app calls back to itself via Envoy when using the service VIP or endpoint
 		// address, e.g. appN => Envoy (client) => Envoy (server) => appN.
-		ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "127.0.0.1/32", "-j", "ISTIO_REDIRECT")
+		ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "127.0.0.1/32", "-j", "ISTIO_IN_REDIRECT")
 	}
 
 	for _, uid := range split(proxyUID) {
@@ -443,7 +443,7 @@ func run(args []string, flagSet *flag.FlagSet) {
 		}
 		// Redirect app calls to back itself via Envoy when using the service VIP or endpoint
 		// address, e.g. appN => Envoy (client) => Envoy (server) => appN.
-		ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "::1/128", "-j", "ISTIO_REDIRECT")
+		ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "::1/128", "-j", "ISTIO_IN_REDIRECT")
 
 		for _, uid := range split(proxyUID) {
 			// Avoid infinite loops. Don't redirect Envoy traffic directly back to
