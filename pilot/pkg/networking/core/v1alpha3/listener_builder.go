@@ -46,13 +46,13 @@ type ListenerBuilder struct {
 	useOutboundFilterChain bool
 }
 
-func reduceInboundListenerToFilters(listeners []*xdsapi.Listener) (chains []*listener.FilterChain, needTls bool) {
-	needTls = false
+func reduceInboundListenerToFilters(listeners []*xdsapi.Listener) (chains []*listener.FilterChain, needTLS bool) {
+	needTLS = false
 	chains = make([]*listener.FilterChain, 0)
 	for _, l := range listeners {
 		for _, c := range l.FilterChains {
 			chain := c
-			mergeFilterChainFromInboundListener(&chain, l, &needTls)
+			mergeFilterChainFromInboundListener(&chain, l, &needTLS)
 			chains = append(chains, &chain)
 		}
 	}
@@ -66,7 +66,7 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener(env *model.Envir
 		isTransparentProxy = proto.BoolTrue
 	}
 	tcpProxyFilter := newTCPProxyListenerFilter(env, node, true)
-	filterChains, needTls := reduceInboundListenerToFilters(builder.inboundListeners)
+	filterChains, needTLS := reduceInboundListenerToFilters(builder.inboundListeners)
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 
 	builder.virtualInboundListener = &xdsapi.Listener{
@@ -94,7 +94,7 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener(env *model.Envir
 		builder.virtualInboundListener.FilterChains =
 			append(builder.virtualInboundListener.FilterChains, *c)
 	}
-	if needTls {
+	if needTLS {
 		builder.virtualInboundListener.ListenerFilters =
 			append(builder.virtualInboundListener.ListenerFilters, listener.ListenerFilter{
 				Name: "envoy.listener.tls_inspector",
@@ -241,7 +241,7 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environme
 }
 
 // Inbound listener only
-func mergeFilterChainFromInboundListener(chain *listener.FilterChain, l *xdsapi.Listener, needTls *bool) {
+func mergeFilterChainFromInboundListener(chain *listener.FilterChain, l *xdsapi.Listener, needTLS *bool) {
 	if chain.FilterChainMatch == nil {
 		chain.FilterChainMatch = &listener.FilterChainMatch{}
 	}
@@ -255,29 +255,12 @@ func mergeFilterChainFromInboundListener(chain *listener.FilterChain, l *xdsapi.
 			chain.FilterChainMatch.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(sockAddr.GetAddress())}
 		}
 	}
-	if !*needTls {
+	if !*needTLS {
 		for _, filter := range l.ListenerFilters {
 			if filter.Name == envoyListenerTLSInspector {
-				*needTls = true
+				*needTLS = true
 				break
 			}
-		}
-	}
-}
-
-// Outbound listener only
-func mergeFilterChainFromOutboundListener(chain *listener.FilterChain, l *xdsapi.Listener) {
-	if chain.FilterChainMatch == nil {
-		chain.FilterChainMatch = &listener.FilterChainMatch{}
-	}
-	listenerAddress := l.Address
-	if sockAddr := listenerAddress.GetSocketAddress(); sockAddr != nil {
-		chain.FilterChainMatch.DestinationPort = &google_protobuf.UInt32Value{Value: sockAddr.GetPortValue()}
-		if cidr := util.ConvertAddressToCidr(sockAddr.GetAddress()); cidr != nil {
-			if chain.FilterChainMatch.PrefixRanges != nil && len(chain.FilterChainMatch.PrefixRanges) != 1 {
-				log.Errorf("Outbound listener %s has suspicious address matcher %s", sockAddr.GetAddress(), chain.FilterChainMatch.String())
-			}
-			chain.FilterChainMatch.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(sockAddr.GetAddress())}
 		}
 	}
 }
