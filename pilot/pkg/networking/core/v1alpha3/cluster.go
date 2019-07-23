@@ -846,11 +846,15 @@ func applyOutlierDetection(cluster *apiv2.Cluster, outlier *networking.OutlierDe
 
 	cluster.OutlierDetection = out
 
-	if outlier.MinHealthPercent > 0 {
+	// Disable panic threshold by default as its not typically applicable in k8s environments
+	// with few pods per service.
+	// To do so, set the healthy_panic_threshold field even if its value is 0 (defaults to 50).
+	// FIXME: we can't distinguish between it being unset or being explicitly set to 0
+	if outlier.MinHealthPercent >= 0 {
 		if cluster.CommonLbConfig == nil {
 			cluster.CommonLbConfig = &apiv2.Cluster_CommonLbConfig{}
 		}
-		cluster.CommonLbConfig.HealthyPanicThreshold = &envoy_type.Percent{Value: float64(outlier.MinHealthPercent)}
+		cluster.CommonLbConfig.HealthyPanicThreshold = &envoy_type.Percent{Value: float64(outlier.MinHealthPercent)} // defaults to 50
 	}
 }
 
