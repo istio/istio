@@ -66,7 +66,8 @@ fmt:
 	@scripts/run_gofmt.sh
 
 mandiff:
-	@scripts/run_mandiff.sh
+	# These PATH hacks are temporary until prow properly sets its paths
+	@PATH=${PATH}:${GOPATH}/bin scripts/run_mandiff.sh
 
 include Makefile.common.mk
 
