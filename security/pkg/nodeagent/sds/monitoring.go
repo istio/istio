@@ -18,6 +18,9 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
+// TODO: Create an endpoint in Citadel agent to expose metrics.
+// Previously exposed metrics: pending_push_per_connection, stale_conn_count_per_connection,
+// pushes_per_connection, push_errors_per_connection, pushed_root_cert_expiry_timestamp, pushed_server_cert_expiry_timestamp
 var (
 	// totalPushCounts records total number of SDS pushes since server starts serving.
 	totalPushCounts = monitoring.NewSum(
