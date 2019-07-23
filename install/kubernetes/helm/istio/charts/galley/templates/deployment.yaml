@@ -42,7 +42,7 @@ spec:
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
-          - containerPort: 443
+          - containerPort: {{ .Values.validationPort }}
           - containerPort: {{ .Values.global.monitoringPort }}
           - containerPort: 9901
           command:
@@ -68,6 +68,7 @@ spec:
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml
           - --monitoringPort={{ .Values.global.monitoringPort }}
+          - --validation-port={{ .Values.validationPort }}
 {{- if $.Values.global.logging.level }}
           - --log_output_level={{ $.Values.global.logging.level }}
 {{- end}}
@@ -105,10 +106,6 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
-          securityContext:
-            capabilities:
-              add:
-              - NET_BIND_SERVICE
       volumes:
       - name: certs
         secret:
@@ -119,10 +116,6 @@ spec:
       - name: mesh-config
         configMap:
           name: istio
-      securityContext:
-        sysctls:
-        - name: net.ipv4.ip_unprivileged_port_start
-          value: "0"
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}

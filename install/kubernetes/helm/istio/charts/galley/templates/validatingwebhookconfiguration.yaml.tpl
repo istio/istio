@@ -16,6 +16,7 @@ webhooks:
         name: istio-galley
         namespace: {{ .Release.Namespace }}
         path: "/admitpilot"
+        port: {{ .Values.validationPort }}
       caBundle: ""
     rules:
       - operations:
@@ -70,6 +71,7 @@ webhooks:
         name: istio-galley
         namespace: {{ .Release.Namespace }}
         path: "/admitmixer"
+        port: {{ .Values.validationPort }}
       caBundle: ""
     rules:
       - operations:
