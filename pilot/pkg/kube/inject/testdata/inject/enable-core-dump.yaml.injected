@@ -124,6 +124,8 @@ spec:
       - args:
         - -p
         - "15001"
+        - -z
+        - "15006"
         - -u
         - "1337"
         - -m
@@ -157,7 +159,7 @@ spec:
         - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
         command:
         - /bin/sh
-        image: docker.io/istio/proxy_init:unittest
+        image: ubuntu:xenial
         imagePullPolicy: IfNotPresent
         name: enable-core-dump
         resources: {}

@@ -15,6 +15,7 @@
 package framework
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -29,7 +30,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 
 	testKube "istio.io/istio/pkg/test/kube"
@@ -99,6 +100,8 @@ var (
 	mixerTag           = flag.String("mixer_tag", os.Getenv("TAG"), "Mixer tag")
 	pilotHub           = flag.String("pilot_hub", os.Getenv("HUB"), "Pilot hub")
 	pilotTag           = flag.String("pilot_tag", os.Getenv("TAG"), "Pilot tag")
+	appHub             = flag.String("app_hub", os.Getenv("HUB"), "Test application hub")
+	appTag             = flag.String("app_tag", os.Getenv("TAG"), "Test application tag")
 	proxyHub           = flag.String("proxy_hub", os.Getenv("HUB"), "Proxy hub")
 	proxyTag           = flag.String("proxy_tag", os.Getenv("TAG"), "Proxy tag")
 	caHub              = flag.String("ca_hub", os.Getenv("HUB"), "Ca hub")
@@ -432,6 +435,16 @@ func (k *KubeInfo) PilotTag() string {
 	return *pilotTag
 }
 
+// AppHub exposes the Docker hub used for the test application image.
+func (k *KubeInfo) AppHub() string {
+	return *appHub
+}
+
+// AppTag exposes the Docker tag used for the test application image.
+func (k *KubeInfo) AppTag() string {
+	return *appTag
+}
+
 // ProxyHub exposes the Docker hub used for the proxy image.
 func (k *KubeInfo) ProxyHub() string {
 	return *proxyHub
@@ -637,6 +650,33 @@ func (k *KubeInfo) GetAppPods(cluster string) map[string][]string {
 		}
 	}
 	return newMap
+}
+
+// CheckJobSucceeded checks whether the job succeeded.
+func (k *KubeInfo) CheckJobSucceeded(cluster, jobName string) error {
+	retry := util.Retrier{
+		BaseDelay: 1 * time.Second,
+		MaxDelay:  1 * time.Second,
+		Retries:   15,
+	}
+
+	retryFn := func(_ context.Context, i int) error {
+		ret, err := util.IsJobSucceeded(k.Namespace, jobName, k.Clusters[cluster])
+		if err != nil {
+			log.Errorf("Failed to get retrieve the app pods for namespace %s", k.Namespace)
+			return err
+		}
+		if !ret {
+			return fmt.Errorf("job %s not succeeded", jobName)
+		}
+		return nil
+	}
+	ctx := context.Background()
+	_, err := retry.Retry(ctx, retryFn)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // GetRoutes gets routes from the pod or returns error

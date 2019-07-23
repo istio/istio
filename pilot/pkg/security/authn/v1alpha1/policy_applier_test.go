@@ -15,20 +15,25 @@
 package v1alpha1
 
 import (
+	"os"
 	"reflect"
 	"testing"
 
-	"istio.io/istio/pkg/features/pilot"
-
+	"github.com/davecgh/go-spew/spew"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	protobuf "github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
-	jwtfilter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
+	istio_jwt "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
+
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -191,6 +196,13 @@ func TestCollectJwtSpecs(t *testing.T) {
 	}
 }
 
+func setUseIstioJWTFilter(value string, t *testing.T) {
+	err := os.Setenv("USE_ISTIO_JWT_FILTER", value)
+	if err != nil {
+		t.Fatalf("failed to set enable Istio JWT filter: %v", err)
+	}
+}
+
 func TestConvertPolicyToJwtConfig(t *testing.T) {
 	ms, err := test.StartNewServer()
 	if err != nil {
@@ -200,8 +212,10 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 	jwksURI := ms.URL + "/oauth2/v3/certs"
 
 	cases := []struct {
-		in       *authn.Policy
-		expected *jwtfilter.JwtAuthentication
+		in          *authn.Policy
+		useIstioJWT bool
+		wantName    string
+		wantConfig  protobuf.Message
 	}{
 		{
 			in: &authn.Policy{
@@ -215,27 +229,101 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 					},
 				},
 			},
-			expected: &jwtfilter.JwtAuthentication{
-				Rules: []*jwtfilter.JwtRule{
+			wantName:    "jwt-auth",
+			useIstioJWT: true,
+			wantConfig: &istio_jwt.JwtAuthentication{
+				Rules: []*istio_jwt.JwtRule{
 					{
-						JwksSourceSpecifier: &jwtfilter.JwtRule_LocalJwks{
-							LocalJwks: &jwtfilter.DataSource{
-								Specifier: &jwtfilter.DataSource_InlineString{
+						JwksSourceSpecifier: &istio_jwt.JwtRule_LocalJwks{
+							LocalJwks: &istio_jwt.DataSource{
+								Specifier: &istio_jwt.DataSource_InlineString{
 									InlineString: test.JwtPubKey1,
 								},
 							},
 						},
 						Forward:              true,
-						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709"},
+						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
+					},
 				},
 				AllowMissingOrFailed: true,
+			},
+		},
+		{
+			in: &authn.Policy{
+				Origins: []*authn.OriginAuthenticationMethod{
+					{
+						Jwt: &authn.Jwt{
+							Issuer:     "issuer",
+							JwksUri:    jwksURI,
+							JwtHeaders: []string{exchangedTokenHeaderName, "custom"},
+						},
+					},
+				},
+			},
+			wantName: "envoy.filters.http.jwt_authn",
+			wantConfig: &envoy_jwt.JwtAuthentication{
+				Rules: []*envoy_jwt.RequirementRule{
+					{
+						Match: &route.RouteMatch{
+							PathSpecifier: &route.RouteMatch_Prefix{
+								Prefix: "/",
+							},
+						},
+						Requires: &envoy_jwt.JwtRequirement{
+							RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+								RequiresAny: &envoy_jwt.JwtRequirementOrList{
+									Requirements: []*envoy_jwt.JwtRequirement{
+										{
+											RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+												ProviderName: "origins-0",
+											},
+										},
+										{
+											RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Providers: map[string]*envoy_jwt.JwtProvider{
+					"origins-0": {
+						Issuer: "issuer",
+						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
+							LocalJwks: &core.DataSource{
+								Specifier: &core.DataSource_InlineString{
+									InlineString: test.JwtPubKey1,
+								},
+							},
+						},
+						Forward:           true,
+						PayloadInMetadata: "issuer",
+						FromHeaders: []*envoy_jwt.JwtHeader{
+							{
+								Name:        exchangedTokenHeaderName,
+								ValuePrefix: exchangedTokenHeaderPrefix,
+							},
+							{
+								Name: "custom",
+							},
+						},
+					},
+				},
 			},
 		},
 	}
 
 	for _, c := range cases {
-		if got := convertPolicyToJwtConfig(c.in); !reflect.DeepEqual(c.expected, got) {
-			t.Errorf("ConvertPolicyToJwtConfig(%#v), got:\n%#v\nwanted:\n%#v\n", c.in, got, c.expected)
+		if c.useIstioJWT {
+			setUseIstioJWTFilter("true", t)
+		}
+		if gotName, gotCfg := convertPolicyToJwtConfig(c.in); gotName != c.wantName || !reflect.DeepEqual(c.wantConfig, gotCfg) {
+			t.Errorf("ConvertPolicyToJwtConfig(%#v), got:\n%s\n%#v\nwanted:\n%s\n%#v\n",
+				c.in, gotName, spew.Sdump(gotCfg), c.wantName, spew.Sdump(c.wantConfig))
+		}
+		if c.useIstioJWT {
+			setUseIstioJWTFilter("false", t)
 		}
 	}
 }
@@ -248,6 +336,10 @@ func TestBuildJwtFilter(t *testing.T) {
 
 	jwksURI := ms.URL + "/oauth2/v3/certs"
 
+	setUseIstioJWTFilter("true", t)
+	defer func() {
+		setUseIstioJWTFilter("false", t)
+	}()
 	cases := []struct {
 		in       *authn.Policy
 		expected *http_conn.HttpFilter
@@ -276,15 +368,15 @@ func TestBuildJwtFilter(t *testing.T) {
 				Name: "jwt-auth",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
 					TypedConfig: pilotutil.MessageToAny(
-						&jwtfilter.JwtAuthentication{
+						&istio_jwt.JwtAuthentication{
 							AllowMissingOrFailed: true,
-							Rules: []*jwtfilter.JwtRule{
+							Rules: []*istio_jwt.JwtRule{
 								{
 									Forward:              true,
 									ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
-									JwksSourceSpecifier: &jwtfilter.JwtRule_LocalJwks{
-										LocalJwks: &jwtfilter.DataSource{
-											Specifier: &jwtfilter.DataSource_InlineString{
+									JwksSourceSpecifier: &istio_jwt.JwtRule_LocalJwks{
+										LocalJwks: &istio_jwt.DataSource{
+											Specifier: &istio_jwt.DataSource_InlineString{
 												InlineString: test.JwtPubKey1,
 											},
 										},
@@ -428,7 +520,7 @@ func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
 	}
 	for _, c := range cases {
 		if got := convertPolicyToAuthNFilterConfig(c.in, model.SidecarProxy); !reflect.DeepEqual(c.expected, got) {
-			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
+			t.Errorf("Test case %s: wantConfig\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
 		}
 	}
 }
@@ -730,7 +822,7 @@ func constructSDSConfig(name, sdsudspath string) *auth.SdsSecretConfig {
 	return &auth.SdsSecretConfig{
 		Name: name,
 		SdsConfig: &core.ConfigSource{
-			InitialFetchTimeout: pilot.InitialFetchTimeout,
+			InitialFetchTimeout: features.InitialFetchTimeout,
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 				ApiConfigSource: &core.ApiConfigSource{
 					ApiType: core.ApiConfigSource_GRPC,

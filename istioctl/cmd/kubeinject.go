@@ -271,7 +271,7 @@ istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
 				}
 				var config inject.Config
 				if err := yaml.Unmarshal(injectionConfig, &config); err != nil {
-					return err
+					return multierr.Append(fmt.Errorf("loading --injectConfigFile"), err)
 				}
 				sidecarTemplate = config.Template
 			} else if sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig); err != nil {

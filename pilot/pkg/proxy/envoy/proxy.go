@@ -46,7 +46,6 @@ type envoy struct {
 	extraArgs      []string
 	pilotSAN       []string
 	opts           map[string]interface{}
-	errChan        chan error
 	nodeIPs        []string
 	dnsRefreshRate string
 }
@@ -141,17 +140,6 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-
-	// Set if the caller is monitoring envoy, for example in tests or if envoy runs in same
-	// container with the app.
-	if e.errChan != nil {
-		// Caller passed a channel, will wait itself for termination
-		go func() {
-			e.errChan <- cmd.Wait()
-		}()
-		return nil
-	}
-
 	done := make(chan error, 1)
 	go func() {
 		done <- cmd.Wait()

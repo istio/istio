@@ -364,6 +364,8 @@ func getApps() []framework.App {
 		getApp("d", "d", 1, 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false, true, true),
 		getApp("headless", "headless", 1, 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true, true, true),
 		getStatefulSet("statefulset", 19090, true),
+
+		getJob("test-job", true),
 	}
 }
 
@@ -376,8 +378,8 @@ func getApp(deploymentName, serviceName string, replicas, port1, port2, port3, p
 	return framework.App{
 		AppYamlTemplate: "testdata/app.yaml.tmpl",
 		Template: map[string]string{
-			"Hub":             tc.Kube.PilotHub(),
-			"Tag":             tc.Kube.PilotTag(),
+			"Hub":             tc.Kube.AppHub(),
+			"Tag":             tc.Kube.AppTag(),
 			"service":         serviceName,
 			"deployment":      deploymentName,
 			"replicas":        strconv.Itoa(replicas),
@@ -412,6 +414,18 @@ func getStatefulSet(service string, port int, injectProxy bool) framework.App {
 			"istioNamespace":  tc.Kube.Namespace,
 			"injectProxy":     strconv.FormatBool(injectProxy),
 			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
+		},
+		KubeInject: injectProxy,
+	}
+}
+
+func getJob(jobName string, injectProxy bool) framework.App {
+
+	// Return the config.
+	return framework.App{
+		AppYamlTemplate: "testdata/job.yaml",
+		Template: map[string]string{
+			"name": jobName,
 		},
 		KubeInject: injectProxy,
 	}

@@ -23,11 +23,14 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/pkg/log"
 
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+)
+
+const (
+	kubeIngressClassAnotations = "kubernetes.io/ingress.class"
 )
 
 var scope = log.RegisterScope("kube-converter", "Kubernetes conversion related packages", 0)
@@ -195,7 +198,7 @@ func kubeIngressResource(cfg *Config, _ resource.Info, name resource.FullName, _
 func shouldProcessIngress(cfg *Config, i *extensions.Ingress) bool {
 	class, exists := "", false
 	if i.Annotations != nil {
-		class, exists = i.Annotations[kube.IngressClassAnnotation]
+		class, exists = i.Annotations[kubeIngressClassAnotations]
 	}
 
 	mesh := cfg.Mesh.Get()

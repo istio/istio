@@ -18,11 +18,9 @@ import (
 	"encoding/json"
 	"sort"
 	"sync"
-	"time"
-
-	"github.com/prometheus/client_golang/prometheus"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/monitoring"
 )
 
 // PushContext tracks the status of a push - metrics and errors.
@@ -35,11 +33,6 @@ type PushContext struct {
 	// ProxyStatus is keyed by the error code, and holds a map keyed
 	// by the ID.
 	ProxyStatus map[string]map[string]ProxyPushStatus
-
-	// Start represents the time of last config change that reset the
-	// push status.
-	Start time.Time
-	End   time.Time
 
 	// Mutex is used to protect the below store.
 	// All data is set when the PushContext object is populated in `InitContext`,
@@ -71,6 +64,8 @@ type PushContext struct {
 
 	// sidecars for each namespace
 	sidecarsByNamespace map[string][]*SidecarScope
+	// envoy filters for each namespace including global config namespace
+	envoyFiltersByNamespace map[string][]*EnvoyFilterWrapper
 	////////// END ////////
 
 	// The following data is either a global index or used in the inbound path.
@@ -85,12 +80,6 @@ type PushContext struct {
 
 	// Env has a pointer to the shared environment used to create the snapshot.
 	Env *Environment `json:"-"`
-
-	// ServicePortByHostname is used to keep track of service name and port mapping.
-	// This is needed because ADS names use port numbers, while endpoints use
-	// port names. The key is the service name. If a service or port are not found,
-	// the endpoint needs to be re-evaluated later (eventual consistency)
-	ServicePortByHostname map[Hostname]PortList `json:"-"`
 
 	// ServiceAccounts contains a map of hostname and port to service accounts.
 	ServiceAccounts map[Hostname]map[int][]string `json:"-"`
@@ -152,33 +141,14 @@ type ProxyPushStatus struct {
 	Message string `json:"message,omitempty"`
 }
 
-// PushMetric wraps a prometheus metric.
-type PushMetric struct {
-	Name  string
-	gauge prometheus.Gauge
-}
-
 type combinedDestinationRule struct {
 	subsets map[string]struct{} // list of subsets seen so far
 	// We are not doing ports
 	config *Config
 }
 
-func newPushMetric(name, help string) *PushMetric {
-	pm := &PushMetric{
-		gauge: prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: name,
-			Help: help,
-		}),
-		Name: name,
-	}
-	prometheus.MustRegister(pm.gauge)
-	metrics = append(metrics, pm)
-	return pm
-}
-
 // Add will add an case to the metric.
-func (ps *PushContext) Add(metric *PushMetric, key string, proxy *Proxy, msg string) {
+func (ps *PushContext) Add(metric monitoring.Metric, key string, proxy *Proxy, msg string) {
 	if ps == nil {
 		log.Infof("Metric without context %s %v %s", key, proxy, msg)
 		return
@@ -186,10 +156,10 @@ func (ps *PushContext) Add(metric *PushMetric, key string, proxy *Proxy, msg str
 	ps.proxyStatusMutex.Lock()
 	defer ps.proxyStatusMutex.Unlock()
 
-	metricMap, f := ps.ProxyStatus[metric.Name]
+	metricMap, f := ps.ProxyStatus[metric.Name()]
 	if !f {
 		metricMap = map[string]ProxyPushStatus{}
-		ps.ProxyStatus[metric.Name] = metricMap
+		ps.ProxyStatus[metric.Name()] = metricMap
 	}
 	ev := ProxyPushStatus{Message: msg}
 	if proxy != nil {
@@ -203,7 +173,7 @@ var (
 	// EndpointNoPod tracks endpoints without an associated pod. This is an error condition, since
 	// we can't figure out the labels. It may be a transient problem, if endpoint is processed before
 	// pod.
-	EndpointNoPod = newPushMetric(
+	EndpointNoPod = monitoring.NewGauge(
 		"endpoint_no_pod",
 		"Endpoints without an associated pod.",
 	)
@@ -213,7 +183,7 @@ var (
 	// It can also be an error, for example in cases the Endpoint list of a service was not updated by the time
 	// the sidecar calls.
 	// Updated by GetProxyServiceInstances
-	ProxyStatusNoService = newPushMetric(
+	ProxyStatusNoService = monitoring.NewGauge(
 		"pilot_no_ip",
 		"Pods not found in the endpoint table, possibly invalid.",
 	)
@@ -221,21 +191,21 @@ var (
 	// ProxyStatusEndpointNotReady represents proxies found not be ready.
 	// Updated by GetProxyServiceInstances. Normal condition when starting
 	// an app with readiness, error if it doesn't change to 0.
-	ProxyStatusEndpointNotReady = newPushMetric(
+	ProxyStatusEndpointNotReady = monitoring.NewGauge(
 		"pilot_endpoint_not_ready",
 		"Endpoint found in unready state.",
 	)
 
 	// ProxyStatusConflictOutboundListenerTCPOverHTTP metric tracks number of
 	// wildcard TCP listeners that conflicted with existing wildcard HTTP listener on same port
-	ProxyStatusConflictOutboundListenerTCPOverHTTP = newPushMetric(
+	ProxyStatusConflictOutboundListenerTCPOverHTTP = monitoring.NewGauge(
 		"pilot_conflict_outbound_listener_tcp_over_current_http",
 		"Number of conflicting wildcard tcp listeners with current wildcard http listener.",
 	)
 
 	// ProxyStatusConflictOutboundListenerTCPOverTCP metric tracks number of
 	// TCP listeners that conflicted with existing TCP listeners on same port
-	ProxyStatusConflictOutboundListenerTCPOverTCP = newPushMetric(
+	ProxyStatusConflictOutboundListenerTCPOverTCP = monitoring.NewGauge(
 		"pilot_conflict_outbound_listener_tcp_over_current_tcp",
 		"Number of conflicting tcp listeners with current tcp listener.",
 	)
@@ -270,7 +240,7 @@ var (
 
 	// ProxyStatusConflictOutboundListenerHTTPOverTCP metric tracks number of
 	// wildcard HTTP listeners that conflicted with existing wildcard TCP listener on same port
-	ProxyStatusConflictOutboundListenerHTTPOverTCP = newPushMetric(
+	ProxyStatusConflictOutboundListenerHTTPOverTCP = monitoring.NewGauge(
 		"pilot_conflict_outbound_listener_http_over_current_tcp",
 		"Number of conflicting wildcard http listeners with current wildcard tcp listener.",
 	)
@@ -284,31 +254,31 @@ var (
 
 	// ProxyStatusConflictInboundListener tracks cases of multiple inbound
 	// listeners - 2 services selecting the same port of the pod.
-	ProxyStatusConflictInboundListener = newPushMetric(
+	ProxyStatusConflictInboundListener = monitoring.NewGauge(
 		"pilot_conflict_inbound_listener",
 		"Number of conflicting inbound listeners.",
 	)
 
 	// DuplicatedClusters tracks duplicate clusters seen while computing CDS
-	DuplicatedClusters = newPushMetric(
+	DuplicatedClusters = monitoring.NewGauge(
 		"pilot_duplicate_envoy_clusters",
 		"Duplicate envoy clusters caused by service entries with same hostname",
 	)
 
 	// ProxyStatusClusterNoInstances tracks clusters (services) without workloads.
-	ProxyStatusClusterNoInstances = newPushMetric(
+	ProxyStatusClusterNoInstances = monitoring.NewGauge(
 		"pilot_eds_no_instances",
 		"Number of clusters without instances.",
 	)
 
 	// DuplicatedDomains tracks rejected VirtualServices due to duplicated hostname.
-	DuplicatedDomains = newPushMetric(
+	DuplicatedDomains = monitoring.NewGauge(
 		"pilot_vservice_dup_domain",
 		"Virtual services with dup domains.",
 	)
 
 	// DuplicatedSubsets tracks duplicate subsets that we rejected while merging multiple destination rules for same host
-	DuplicatedSubsets = newPushMetric(
+	DuplicatedSubsets = monitoring.NewGauge(
 		"pilot_destrule_subsets",
 		"Duplicate subsets across destination rules for same host",
 	)
@@ -321,8 +291,26 @@ var (
 	LastPushMutex sync.Mutex
 
 	// All metrics we registered.
-	metrics []*PushMetric
+	metrics = []monitoring.Metric{
+		EndpointNoPod,
+		ProxyStatusNoService,
+		ProxyStatusEndpointNotReady,
+		ProxyStatusConflictOutboundListenerTCPOverHTTP,
+		ProxyStatusConflictOutboundListenerTCPOverTCP,
+		ProxyStatusConflictOutboundListenerHTTPOverTCP,
+		ProxyStatusConflictInboundListener,
+		DuplicatedClusters,
+		ProxyStatusClusterNoInstances,
+		DuplicatedDomains,
+		DuplicatedSubsets,
+	}
 )
+
+func init() {
+	for _, m := range metrics {
+		monitoring.MustRegisterViews(m)
+	}
+}
 
 // NewPushContext creates a new PushContext structure to track push status.
 func NewPushContext() *PushContext {
@@ -338,13 +326,12 @@ func NewPushContext() *PushContext {
 			hosts:    make([]Hostname, 0),
 			destRule: map[Hostname]*combinedDestinationRule{},
 		},
-		sidecarsByNamespace: map[string][]*SidecarScope{},
+		sidecarsByNamespace:     map[string][]*SidecarScope{},
+		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{},
 
-		ServiceByHostname:     map[Hostname]*Service{},
-		ProxyStatus:           map[string]map[string]ProxyPushStatus{},
-		ServicePortByHostname: map[Hostname]PortList{},
-		ServiceAccounts:       map[Hostname]map[int][]string{},
-		Start:                 time.Now(),
+		ServiceByHostname: map[Hostname]*Service{},
+		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
+		ServiceAccounts:   map[Hostname]map[int][]string{},
 	}
 }
 
@@ -373,12 +360,8 @@ func (ps *PushContext) UpdateMetrics() {
 	defer ps.proxyStatusMutex.RUnlock()
 
 	for _, pm := range metrics {
-		mmap, f := ps.ProxyStatus[pm.Name]
-		if f {
-			pm.gauge.Set(float64(len(mmap)))
-		} else {
-			pm.gauge.Set(0)
-		}
+		mmap := ps.ProxyStatus[pm.Name()]
+		pm.Record(float64(len(mmap)))
 	}
 }
 
@@ -624,6 +607,10 @@ func (ps *PushContext) InitContext(env *Environment) error {
 		return err
 	}
 
+	if err = ps.initEnvoyFilters(env); err != nil {
+		return err
+	}
+
 	// Must be initialized in the end
 	if err = ps.initSidecarScopes(env); err != nil {
 		return err
@@ -658,7 +645,6 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 			}
 		}
 		ps.ServiceByHostname[s.Hostname] = s
-		ps.ServicePortByHostname[s.Hostname] = s.Ports
 	}
 
 	ps.initServiceAccounts(env, allServices)
@@ -908,6 +894,7 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 // SetDestinationRules is updates internal structures using a set of configs.
 // Split out of DestinationRule expensive conversions, computed once per push.
 // This also allows tests to inject a config without having the mock.
+// This will not work properly for Sidecars, which will precompute their destination rules on init
 func (ps *PushContext) SetDestinationRules(configs []Config) {
 	// Sort by time first. So if two destination rule have top level traffic policies
 	// we take the first one.
@@ -1000,4 +987,51 @@ func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 		return err
 	}
 	return nil
+}
+
+// pre computes envoy filters per namespace
+func (ps *PushContext) initEnvoyFilters(env *Environment) error {
+	envoyFilterConfigs, err := env.List(EnvoyFilter.Type, NamespaceAll)
+	if err != nil {
+		return err
+	}
+
+	sortConfigByCreationTime(envoyFilterConfigs)
+
+	ps.envoyFiltersByNamespace = make(map[string][]*EnvoyFilterWrapper)
+	for _, envoyFilterConfig := range envoyFilterConfigs {
+		efw := convertToEnvoyFilterWrapper(&envoyFilterConfig)
+		if _, exists := ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace]; !exists {
+			ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = make([]*EnvoyFilterWrapper, 0)
+		}
+		ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = append(ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace], efw)
+	}
+	return nil
+}
+
+func (ps *PushContext) EnvoyFilters(proxy *Proxy) []*EnvoyFilterWrapper {
+	// this should never happen
+	if proxy == nil {
+		return nil
+	}
+	out := make([]*EnvoyFilterWrapper, 0)
+	// EnvoyFilters supports inheritance (global ones plus namespace local ones).
+	// First get all the filter configs from the config root namespace
+	// and then add the ones from proxy's own namespace
+	if ps.Env.Mesh.RootNamespace != "" && len(ps.envoyFiltersByNamespace[ps.Env.Mesh.RootNamespace]) > 0 {
+		// if there is no workload selector, the config applies to all workloads
+		// if there is a workload selector, check for matching workload labels
+		for _, efw := range ps.envoyFiltersByNamespace[ps.Env.Mesh.RootNamespace] {
+			if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
+				out = append(out, efw)
+			}
+		}
+	}
+
+	for _, efw := range ps.envoyFiltersByNamespace[proxy.ConfigNamespace] {
+		if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
+			out = append(out, efw)
+		}
+	}
+	return out
 }

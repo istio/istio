@@ -46,6 +46,7 @@ function setup_and_export_git_sha() {
     # Use the current commit.
     GIT_SHA="$(git rev-parse --verify HEAD)"
     export GIT_SHA
+    export ARTIFACTS_DIR="${ARTIFACTS_DIR:-$(mktemp -d)}"
   fi
   GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
   export GIT_BRANCH
@@ -124,21 +125,24 @@ function check_kind() {
 }
 
 function setup_kind_cluster() {
+  IMAGE="${1}"
   # Installing KinD
   check_kind
 
   # Delete any previous e2e KinD cluster
-  echo "Deleting previous KinD cluster with name=e2e-suite"
-  if ! (kind delete cluster --name=e2e-suite) > /dev/null; then
-  	echo "No Found existing kind cluster with name e2e-suite. Continue..."
+  echo "Deleting previous KinD cluster with name=istio-testing"
+  if ! (kind delete cluster --name=istio-testing) > /dev/null; then
+    echo "No existing kind cluster with name istio-testing. Continue..."
   fi
 
   # Create KinD cluster
-  if ! (kind create cluster --name=e2e-suite); then
-    echo "Could not setup KinD environment. Something wrong with KinD setup. Please check your setup and try again."
+  if ! (kind create cluster --name=istio-testing --loglevel debug --retain --image "${IMAGE}"); then
+    echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
+    kind export logs --name istio-testing "${ARTIFACTS_DIR}/kind"
     exit 1
   fi
-  KUBECONFIG="$(kind get kubeconfig-path --name="e2e-suite")"
+
+  KUBECONFIG="$(kind get kubeconfig-path --name="istio-testing")"
   export KUBECONFIG
 }
 

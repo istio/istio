@@ -22,11 +22,11 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
+	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -86,7 +86,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: pilot.InitialFetchTimeout,
+								InitialFetchTimeout: features.InitialFetchTimeout,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -128,7 +128,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: pilot.InitialFetchTimeout,
+								InitialFetchTimeout: features.InitialFetchTimeout,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -241,7 +241,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: pilot.InitialFetchTimeout,
+								InitialFetchTimeout: features.InitialFetchTimeout,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -268,7 +268,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 								Name: "ingress-sds-resource-name-cacert",
 								SdsConfig: &core.ConfigSource{
-									InitialFetchTimeout: pilot.InitialFetchTimeout,
+									InitialFetchTimeout: features.InitialFetchTimeout,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType: core.ApiConfigSource_GRPC,

@@ -33,7 +33,7 @@ import (
 
 const (
 	appName    = "zipkin"
-	tracesAPI  = "/api/v2/traces?limit=%d&spanName=%s"
+	tracesAPI  = "/api/v2/traces?limit=%d&spanName=%s&annotationQuery=%s"
 	zipkinPort = 9411
 )
 
@@ -88,17 +88,19 @@ func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }
 
-func (c *kubeComponent) QueryTraces(limit int, spanName string) ([]Trace, error) {
+func (c *kubeComponent) QueryTraces(limit int, spanName, annotationQuery string) ([]Trace, error) {
 	// Get 100 most recent traces
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
-	scopes.Framework.Debugf("make get call to zipkin api %v", c.address+fmt.Sprintf(tracesAPI, limit, spanName))
-	resp, err := client.Get(c.address + fmt.Sprintf(tracesAPI, limit, spanName))
+	scopes.Framework.Debugf("make get call to zipkin api %v", c.address+fmt.Sprintf(tracesAPI, limit, spanName, annotationQuery))
+	resp, err := client.Get(c.address + fmt.Sprintf(tracesAPI, limit, spanName, annotationQuery))
 	if err != nil {
+		scopes.Framework.Debugf("zipking err %v", err)
 		return nil, err
 	}
 	if resp.StatusCode != 200 {
+		scopes.Framework.Debugf("response err %v", resp.StatusCode)
 		return nil, fmt.Errorf("zipkin api returns non-ok: %v", resp.StatusCode)
 	}
 	defer resp.Body.Close()

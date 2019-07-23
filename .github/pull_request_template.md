@@ -1,11 +1,4 @@
----
-name: Pull Request
-about: Add some features, do some cleanup, or fix some bugs.
----
-
 Please provide a description for what this PR is for.
-
-<description>
 
 And to help us figure out who should review this PR, please 
 put an X in all the areas that this PR affects.
@@ -19,4 +12,4 @@ put an X in all the areas that this PR affects.
 [ ] Security
 [ ] Test and Release
 [ ] User Experience
-[ ] Developer Infrastrcture
+[ ] Developer Infrastructure

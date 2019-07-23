@@ -22,6 +22,10 @@
 // dataset/networking.istio.io/v1alpha3/gateway_expected.json
 // dataset/networking.istio.io/v1alpha3/synthetic/serviceEntry.yaml
 // dataset/networking.istio.io/v1alpha3/synthetic/serviceEntry_expected.json
+// dataset/networking.istio.io/v1alpha3/virtualService.yaml
+// dataset/networking.istio.io/v1alpha3/virtualServiceWithUnsupported.yaml
+// dataset/networking.istio.io/v1alpha3/virtualServiceWithUnsupported_expected.json
+// dataset/networking.istio.io/v1alpha3/virtualService_expected.json
 // DO NOT EDIT!
 
 package conversion
@@ -2061,6 +2065,180 @@ func datasetNetworkingIstioIoV1alpha3SyntheticServiceentry_expectedJson() (*asse
 	return a, nil
 }
 
+var _datasetNetworkingIstioIoV1alpha3VirtualserviceYaml = []byte(`apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: valid-virtual-service
+spec:
+  hosts:
+    - c
+  http:
+    - route:
+      - destination:
+          host: c
+          subset: v1
+        weight: 75
+      - destination:
+          host: c
+          subset: v2
+        weight: 25
+`)
+
+func datasetNetworkingIstioIoV1alpha3VirtualserviceYamlBytes() ([]byte, error) {
+	return _datasetNetworkingIstioIoV1alpha3VirtualserviceYaml, nil
+}
+
+func datasetNetworkingIstioIoV1alpha3VirtualserviceYaml() (*asset, error) {
+	bytes, err := datasetNetworkingIstioIoV1alpha3VirtualserviceYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/networking.istio.io/v1alpha3/virtualService.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _datasetNetworkingIstioIoV1alpha3VirtualservicewithunsupportedYaml = []byte(`apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: valid-virtual-service
+spec:
+  hosts:
+    - c
+  http:
+    - route:
+      - destination:
+          host: c
+          subset: v1
+          unsupportedExtraParam: true
+        weight: 75
+      - destination:
+          host: c
+          subset: v2
+        weight: 25
+        unsupportedExtraParam: true
+`)
+
+func datasetNetworkingIstioIoV1alpha3VirtualservicewithunsupportedYamlBytes() ([]byte, error) {
+	return _datasetNetworkingIstioIoV1alpha3VirtualservicewithunsupportedYaml, nil
+}
+
+func datasetNetworkingIstioIoV1alpha3VirtualservicewithunsupportedYaml() (*asset, error) {
+	bytes, err := datasetNetworkingIstioIoV1alpha3VirtualservicewithunsupportedYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/networking.istio.io/v1alpha3/virtualServiceWithUnsupported.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _datasetNetworkingIstioIoV1alpha3Virtualservicewithunsupported_expectedJson = []byte(`{
+  "istio/networking/v1alpha3/virtualservices": [
+    {
+      "Metadata": {
+        "name": "valid-virtual-service"
+      },
+      "Body": {
+        "hosts": [
+          "c"
+        ],
+        "http": [
+          {
+            "route": [
+              {
+                "destination": {
+                  "host": "c",
+                  "subset": "v1"
+                },
+                "weight": 75
+              },
+              {
+                "destination": {
+                  "host": "c",
+                  "subset": "v2"
+                },
+                "weight": 25
+              }
+            ]
+          }
+        ]
+      },
+      "TypeURL": "type.googleapis.com/istio.networking.v1alpha3.VirtualService"
+    }
+  ]
+}
+`)
+
+func datasetNetworkingIstioIoV1alpha3Virtualservicewithunsupported_expectedJsonBytes() ([]byte, error) {
+	return _datasetNetworkingIstioIoV1alpha3Virtualservicewithunsupported_expectedJson, nil
+}
+
+func datasetNetworkingIstioIoV1alpha3Virtualservicewithunsupported_expectedJson() (*asset, error) {
+	bytes, err := datasetNetworkingIstioIoV1alpha3Virtualservicewithunsupported_expectedJsonBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/networking.istio.io/v1alpha3/virtualServiceWithUnsupported_expected.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _datasetNetworkingIstioIoV1alpha3Virtualservice_expectedJson = []byte(`{
+  "istio/networking/v1alpha3/virtualservices": [
+    {
+      "Metadata": {
+        "name": "valid-virtual-service"
+      },
+      "Body": {
+        "hosts": [
+          "c"
+        ],
+        "http": [
+          {
+            "route": [
+              {
+                "destination": {
+                  "host": "c",
+                  "subset": "v1"
+                },
+                "weight": 75
+              },
+              {
+                "destination": {
+                  "host": "c",
+                  "subset": "v2"
+                },
+                "weight": 25
+              }
+            ]
+          }
+        ]
+      },
+      "TypeURL": "type.googleapis.com/istio.networking.v1alpha3.VirtualService"
+    }
+  ]
+}
+`)
+
+func datasetNetworkingIstioIoV1alpha3Virtualservice_expectedJsonBytes() ([]byte, error) {
+	return _datasetNetworkingIstioIoV1alpha3Virtualservice_expectedJson, nil
+}
+
+func datasetNetworkingIstioIoV1alpha3Virtualservice_expectedJson() (*asset, error) {
+	bytes, err := datasetNetworkingIstioIoV1alpha3Virtualservice_expectedJsonBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/networking.istio.io/v1alpha3/virtualService_expected.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 // Asset loads and returns the asset for the given name.
 // It returns an error if the asset could not be found or
 // could not be loaded.
@@ -2135,6 +2313,10 @@ var _bindata = map[string]func() (*asset, error){
 	"dataset/networking.istio.io/v1alpha3/gateway_expected.json": datasetNetworkingIstioIoV1alpha3Gateway_expectedJson,
 	"dataset/networking.istio.io/v1alpha3/synthetic/serviceEntry.yaml": datasetNetworkingIstioIoV1alpha3SyntheticServiceentryYaml,
 	"dataset/networking.istio.io/v1alpha3/synthetic/serviceEntry_expected.json": datasetNetworkingIstioIoV1alpha3SyntheticServiceentry_expectedJson,
+	"dataset/networking.istio.io/v1alpha3/virtualService.yaml": datasetNetworkingIstioIoV1alpha3VirtualserviceYaml,
+	"dataset/networking.istio.io/v1alpha3/virtualServiceWithUnsupported.yaml": datasetNetworkingIstioIoV1alpha3VirtualservicewithunsupportedYaml,
+	"dataset/networking.istio.io/v1alpha3/virtualServiceWithUnsupported_expected.json": datasetNetworkingIstioIoV1alpha3Virtualservicewithunsupported_expectedJson,
+	"dataset/networking.istio.io/v1alpha3/virtualService_expected.json": datasetNetworkingIstioIoV1alpha3Virtualservice_expectedJson,
 }
 
 // AssetDir returns the file names below a certain
@@ -2220,6 +2402,10 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"serviceEntry.yaml": &bintree{datasetNetworkingIstioIoV1alpha3SyntheticServiceentryYaml, map[string]*bintree{}},
 					"serviceEntry_expected.json": &bintree{datasetNetworkingIstioIoV1alpha3SyntheticServiceentry_expectedJson, map[string]*bintree{}},
 				}},
+				"virtualService.yaml": &bintree{datasetNetworkingIstioIoV1alpha3VirtualserviceYaml, map[string]*bintree{}},
+				"virtualServiceWithUnsupported.yaml": &bintree{datasetNetworkingIstioIoV1alpha3VirtualservicewithunsupportedYaml, map[string]*bintree{}},
+				"virtualServiceWithUnsupported_expected.json": &bintree{datasetNetworkingIstioIoV1alpha3Virtualservicewithunsupported_expectedJson, map[string]*bintree{}},
+				"virtualService_expected.json": &bintree{datasetNetworkingIstioIoV1alpha3Virtualservice_expectedJson, map[string]*bintree{}},
 			}},
 		}},
 	}},

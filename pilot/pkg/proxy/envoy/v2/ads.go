@@ -15,20 +15,17 @@
 package v2
 
 import (
-	"context"
 	"errors"
 	"io"
 	"reflect"
 	"sort"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/types"
-	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
@@ -54,160 +51,7 @@ var (
 	// SendTimeout is the max time to wait for a ADS send to complete. This helps detect
 	// clients in a bad state (not reading). In future it may include checking for ACK
 	SendTimeout = 5 * time.Second
-
-	// PushTimeout is the time to wait for a push on a client. Pilot iterates over
-	// clients and pushes them serially for now, to avoid large CPU/memory spikes.
-	// We measure and reports cases where pushing a client takes longer.
-	PushTimeout = 5 * time.Second
 )
-
-var (
-	timeZero time.Time
-)
-
-var (
-	// experiment on getting some monitoring on config errors.
-	cdsReject = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pilot_xds_cds_reject",
-		Help: "Pilot rejected CSD configs.",
-	}, []string{"node", "err"})
-
-	edsReject = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pilot_xds_eds_reject",
-		Help: "Pilot rejected EDS.",
-	}, []string{"node", "err"})
-
-	edsInstances = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pilot_xds_eds_instances",
-		Help: "Instances for each cluster, as of last push. Zero instances is an error.",
-	}, []string{"cluster"})
-
-	ldsReject = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pilot_xds_lds_reject",
-		Help: "Pilot rejected LDS.",
-	}, []string{"node", "err"})
-
-	rdsReject = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pilot_xds_rds_reject",
-		Help: "Pilot rejected RDS.",
-	}, []string{"node", "err"})
-
-	rdsExpiredNonce = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "pilot_rds_expired_nonce",
-		Help: "Total number of RDS messages with an expired nonce.",
-	})
-
-	totalXDSRejects = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "pilot_total_xds_rejects",
-		Help: "Total number of XDS responses from pilot rejected by proxy.",
-	})
-
-	monServices = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "pilot_services",
-		Help: "Total services known to pilot.",
-	})
-
-	// TODO: Update all the resource stats in separate routine
-	// virtual services, destination rules, gateways, etc.
-	monVServices = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "pilot_virt_services",
-		Help: "Total virtual services known to pilot.",
-	})
-
-	xdsClients = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "pilot_xds",
-		Help: "Number of endpoints connected to this pilot using XDS.",
-	})
-
-	xdsResponseWriteTimeouts = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "pilot_xds_write_timeout",
-		Help: "Pilot XDS response write timeouts.",
-	})
-
-	pushTimeouts = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "pilot_xds_push_timeout",
-		Help: "Pilot push timeout, will retry.",
-	})
-
-	pushTimeoutFailures = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "pilot_xds_push_timeout_failures",
-		Help: "Pilot push timeout failures after repeated attempts.",
-	})
-
-	// Covers xds_builderr and xds_senderr for xds in {lds, rds, cds, eds}.
-	pushes = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "pilot_xds_pushes",
-		Help: "Pilot build and send errors for lds, rds, cds and eds.",
-	}, []string{"type"})
-
-	cdsPushes         = pushes.WithLabelValues("cds")
-	cdsBuildErrPushes = pushes.WithLabelValues("cds_builderr")
-	cdsSendErrPushes  = pushes.WithLabelValues("cds_senderr")
-	edsPushes         = pushes.WithLabelValues("eds")
-	edsSendErrPushes  = pushes.WithLabelValues("eds_senderr")
-	ldsPushes         = pushes.WithLabelValues("lds")
-	ldsBuildErrPushes = pushes.WithLabelValues("lds_builderr")
-	ldsSendErrPushes  = pushes.WithLabelValues("lds_senderr")
-	rdsPushes         = pushes.WithLabelValues("rds")
-	rdsBuildErrPushes = pushes.WithLabelValues("rds_builderr")
-	rdsSendErrPushes  = pushes.WithLabelValues("rds_senderr")
-
-	pushErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "pilot_xds_push_errors",
-		Help: "Number of errors (timeouts) pushing to sidecars.",
-	}, []string{"type"})
-
-	unrecoverablePushErrors = pushErrors.WithLabelValues("unrecoverable")
-	retryPushErrors         = pushErrors.WithLabelValues("retry")
-
-	proxiesConvergeDelay = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Name:    "pilot_proxy_convergence_time",
-		Help:    "Delay between config change and all proxies converging.",
-		Buckets: []float64{1, 3, 5, 10, 20, 30, 50, 100},
-	})
-
-	pushContextErrors = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "pilot_xds_push_context_errors",
-		Help: "Number of errors (timeouts) initiating push context.",
-	})
-
-	totalXDSInternalErrors = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "pilot_total_xds_internal_errors",
-		Help: "Total number of internal XDS errors in pilot (check logs).",
-	})
-
-	inboundUpdates = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "pilot_inbound_updates",
-		Help: "Total number of updates received by pilot.",
-	}, []string{"type"})
-
-	inboundConfigUpdates   = inboundUpdates.WithLabelValues("config")
-	inboundEDSUpdates      = inboundUpdates.WithLabelValues("eds")
-	inboundServiceUpdates  = inboundUpdates.WithLabelValues("svc")
-	inboundWorkloadUpdates = inboundUpdates.WithLabelValues("workload")
-)
-
-func init() {
-	prometheus.MustRegister(cdsReject)
-	prometheus.MustRegister(edsReject)
-	prometheus.MustRegister(ldsReject)
-	prometheus.MustRegister(rdsReject)
-	prometheus.MustRegister(rdsExpiredNonce)
-	prometheus.MustRegister(totalXDSRejects)
-	prometheus.MustRegister(edsInstances)
-	prometheus.MustRegister(monServices)
-	prometheus.MustRegister(monVServices)
-	prometheus.MustRegister(xdsClients)
-	prometheus.MustRegister(xdsResponseWriteTimeouts)
-	prometheus.MustRegister(pushTimeouts)
-	prometheus.MustRegister(pushTimeoutFailures)
-	prometheus.MustRegister(pushes)
-	prometheus.MustRegister(pushErrors)
-	prometheus.MustRegister(proxiesConvergeDelay)
-	prometheus.MustRegister(pushContextErrors)
-	prometheus.MustRegister(totalXDSInternalErrors)
-	prometheus.MustRegister(inboundUpdates)
-}
 
 // DiscoveryStream is a common interface for EDS and ADS. It also has a
 // shorter name.
@@ -271,9 +115,6 @@ type XdsConnection struct {
 	// added will be true if at least one discovery request was received, and the connection
 	// is added to the map of active.
 	added bool
-
-	// pushMutex prevents 2 overlapping pushes for this connection.
-	pushMutex sync.Mutex
 }
 
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
@@ -340,11 +181,14 @@ type XdsEvent struct {
 	// Only EDS for the listed clusters will be sent.
 	edsUpdatedServices map[string]struct{}
 
+	// Push context to use for the push.
 	push *model.PushContext
 
-	pending *int32
+	// start represents the time a push was started.
+	start time.Time
 
-	version string
+	// function to call once a push is finished. This must be called or future changes may be blocked.
+	done func()
 }
 
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
@@ -372,7 +216,7 @@ func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 			}
 			*errP = err
 			adsLog.Errorf("ADS: %q %s terminated with error: %v", con.PeerAddr, con.ConID, err)
-			totalXDSInternalErrors.Add(1)
+			totalXDSInternalErrors.Increment()
 			return
 		}
 		select {
@@ -393,11 +237,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	}
 
 	t0 := time.Now()
-	// rate limit the herd, after restart all endpoints will reconnect to the
-	// poor new pilot and overwhelm it.
-	// TODO: instead of readiness probe, let endpoints connect and wait here for
-	// config to become stable. Will better spread the load.
-	_ = s.initRateLimiter.Wait(context.TODO())
 
 	// first call - lazy loading, in tests. This should not happen if readiness
 	// check works, since it assumes ClearCache is called (and as such PushContext
@@ -446,8 +285,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					if discReq.ErrorDetail != nil {
 						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 						errCode := codes.Code(discReq.ErrorDetail.Code)
-						cdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": errCode.String()}).Add(1)
-						totalXDSRejects.Add(1)
+						incrementXDSRejects(cdsReject, discReq.Node.Id, errCode.String())
 					} else if discReq.ResponseNonce != "" {
 						con.ClusterNonceAcked = discReq.ResponseNonce
 					}
@@ -470,8 +308,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					if discReq.ErrorDetail != nil {
 						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 						errCode := codes.Code(discReq.ErrorDetail.Code)
-						ldsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": errCode.String()}).Add(1)
-						totalXDSRejects.Add(1)
+						incrementXDSRejects(ldsReject, discReq.Node.Id, errCode.String())
 					} else if discReq.ResponseNonce != "" {
 						con.ListenerNonceAcked = discReq.ResponseNonce
 					}
@@ -490,8 +327,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if discReq.ErrorDetail != nil {
 					adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 					errCode := codes.Code(discReq.ErrorDetail.Code)
-					rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": errCode.String()}).Add(1)
-					totalXDSRejects.Add(1)
+					incrementXDSRejects(rdsReject, discReq.Node.Id, errCode.String())
 					continue
 				}
 				routes := discReq.GetResourceNames()
@@ -504,7 +340,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					if routeNonceSent != "" && routeNonceSent != discReq.ResponseNonce {
 						adsLog.Debugf("ADS:RDS: Expired nonce received %s %s (%v), sent %s, received %s",
 							peerAddr, con.ConID, con.modelNode, routeNonceSent, discReq.ResponseNonce)
-						rdsExpiredNonce.Inc()
+						rdsExpiredNonce.Increment()
 						continue
 					}
 					if discReq.VersionInfo == routeVersionInfoSent {
@@ -522,8 +358,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						if discReq.ErrorDetail != nil {
 							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 							errCode := codes.Code(discReq.ErrorDetail.Code)
-							rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": errCode.String()}).Add(1)
-							totalXDSRejects.Add(1)
+							incrementXDSRejects(rdsReject, discReq.Node.Id, errCode.String())
 						}
 						continue
 					} else if len(routes) == 0 {
@@ -549,8 +384,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if discReq.ErrorDetail != nil {
 					adsLog.Warnf("ADS:EDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 					errCode := codes.Code(discReq.ErrorDetail.Code)
-					edsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": errCode.String()}).Add(1)
-					totalXDSRejects.Add(1)
+					incrementXDSRejects(edsReject, discReq.Node.Id, errCode.String())
 					continue
 				}
 				clusters := discReq.GetResourceNames()
@@ -626,6 +460,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			// from it.
 
 			err := s.pushConnection(con, pushEv)
+			pushEv.done()
 			if err != nil {
 				return nil
 			}
@@ -674,16 +509,8 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 		return err
 	}
 
-	// If the proxy has no service instances and its a gateway, kill the XDS connection as we cannot
-	// serve any gateway config if we dont know the proxy's service instances
-	if nt.Type == model.Router && (nt.ServiceInstances == nil || len(nt.ServiceInstances) == 0) {
-		return errors.New("gateway has no associated service instances")
-	}
-
-	// Set the sidecarScope associated with this proxy if its a sidecar.
-	if nt.Type == model.SidecarProxy {
-		nt.SetSidecarScope(s.globalPushContext())
-	}
+	// Set the sidecarScope associated with this proxy
+	nt.SetSidecarScope(s.globalPushContext())
 
 	con.mu.Lock()
 	con.modelNode = nt
@@ -710,7 +537,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
 		if len(con.Clusters) > 0 {
-			if err := s.pushEds(pushEv.push, con, pushEv.version, pushEv.edsUpdatedServices); err != nil {
+			if err := s.pushEds(pushEv.push, con, versionInfo(), pushEv.edsUpdatedServices); err != nil {
 				return err
 			}
 		}
@@ -732,67 +559,47 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		}
 	}
 
-	// Precompute the sidecar scope associated with this proxy if its a sidecar type.
+	// Precompute the sidecar scope associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
-	if con.modelNode.Type == model.SidecarProxy {
-		con.modelNode.SetSidecarScope(pushEv.push)
-	}
+	con.modelNode.SetSidecarScope(pushEv.push)
 
 	adsLog.Infof("Pushing %v", con.ConID)
 
-	_ = s.rateLimiter.Wait(context.TODO()) // rate limit the actual push
-
-	// Prevent 2 overlapping pushes.
-	con.pushMutex.Lock()
-	defer con.pushMutex.Unlock()
-
-	defer func() {
-		n := atomic.AddInt32(pushEv.pending, -1)
-		if n <= 0 && pushEv.push.End == timeZero {
-			// Display again the push status
-			pushEv.push.Mutex.Lock()
-			pushEv.push.End = time.Now()
-			pushEv.push.Mutex.Unlock()
-			proxiesConvergeDelay.Observe(time.Since(pushEv.push.Start).Seconds())
-			out, _ := pushEv.push.JSON()
-			adsLog.Infof("Push finished: %v %s",
-				time.Since(pushEv.push.Start), string(out))
-		}
-	}()
 	// check version, suppress if changed.
 	currentVersion := versionInfo()
-	if pushEv.version != currentVersion {
-		adsLog.Infof("Suppress push for %s at %s, push with newer version %s in progress", con.ConID, pushEv.version, currentVersion)
-		return nil
-	}
 
 	if con.CDSWatch {
-		err := s.pushCds(con, pushEv.push, pushEv.version)
+		err := s.pushCds(con, pushEv.push, currentVersion)
 		if err != nil {
+			proxiesConvergeDelayCdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
 
 	if len(con.Clusters) > 0 {
-		err := s.pushEds(pushEv.push, con, pushEv.version, nil)
+		err := s.pushEds(pushEv.push, con, currentVersion, nil)
 		if err != nil {
+			proxiesConvergeDelayEdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
 	if con.LDSWatch {
-		err := s.pushLds(con, pushEv.push, pushEv.version)
+		err := s.pushLds(con, pushEv.push, currentVersion)
 		if err != nil {
+			proxiesConvergeDelayLdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
 	if len(con.Routes) > 0 {
-		err := s.pushRoute(con, pushEv.push, pushEv.version)
+		err := s.pushRoute(con, pushEv.push, currentVersion)
 		if err != nil {
+			proxiesConvergeDelayRdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
+	proxiesConvergeDelay.Record(time.Since(pushEv.start).Seconds())
 	return nil
 }
 
@@ -821,7 +628,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 
 	adsLog.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d",
 		version, len(push.Services(nil)), adsClientCount())
-	monServices.Set(float64(len(push.Services(nil))))
+	monServices.Record(float64(len(push.Services(nil))))
 
 	t0 := time.Now()
 
@@ -841,16 +648,15 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 	for clusterName, edsCluster := range cMap {
 		if err := s.updateCluster(push, clusterName, edsCluster); err != nil {
 			adsLog.Errorf("updateCluster failed with clusterName %s", clusterName)
-			totalXDSInternalErrors.Add(1)
+			totalXDSInternalErrors.Increment()
 		}
 	}
 	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
-	s.startPush(version, push, true, nil)
+	s.startPush(push, true, nil)
 }
 
 // Send a signal to all connections, with a push event.
-func (s *DiscoveryServer) startPush(version string, push *model.PushContext, full bool,
-	edsUpdates map[string]struct{}) {
+func (s *DiscoveryServer) startPush(push *model.PushContext, full bool, edsUpdates map[string]struct{}) {
 
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
@@ -862,103 +668,21 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 	}
 	adsClientsMutex.RUnlock()
 
-	// This will trigger recomputing the config for each connected Envoy.
-	// It will include sending all configs that envoy is listening for, including EDS.
-	// TODO: get service, serviceinstances, configs once, to avoid repeated redundant calls.
-	// TODO: indicate the specific events, to only push what changed.
-
-	pendingPush := int32(len(pending))
-
-	tstart := time.Now()
-	// Will keep trying to push to sidecars until another push starts.
-	wg := sync.WaitGroup{}
-	for {
-
-		if len(pending) == 0 {
-			break
-		}
-		// Using non-blocking push has problems if 2 pushes happen too close to each other
-		client := pending[0]
-		pending = pending[1:]
-
-		// indicates whether to do a full push for the proxy
-		proxyFull := full
-		if !full {
-			s.proxyUpdatesMutex.Lock()
-			if _, ok := s.proxyUpdates[client.modelNode.IPAddresses[0]]; ok {
-				proxyFull = true
-				delete(s.proxyUpdates, client.modelNode.IPAddresses[0])
-			}
-			s.proxyUpdatesMutex.Unlock()
-		}
-
-		wg.Add(1)
-		s.concurrentPushLimit <- struct{}{}
-		go func() {
-			defer func() {
-				<-s.concurrentPushLimit
-				wg.Done()
-			}()
-
-			edsOnly := edsUpdates
-			if proxyFull {
-				edsOnly = nil
-			}
-			lastPushFailure := timeZero
-		Retry:
-			currentVersion := versionInfo()
-			// Stop attempting to push
-			if version != currentVersion && proxyFull {
-				adsLog.Infof("PushAll abort %s, push with newer version %s in progress %v", version, currentVersion, time.Since(tstart))
-				return
-			}
-			timer := time.NewTimer(PushTimeout)
-
-			select {
-			case client.pushChannel <- &XdsEvent{
-				push:               push,
-				pending:            &pendingPush,
-				version:            version,
-				edsUpdatedServices: edsOnly,
-			}:
-				if !timer.Stop() {
-					<-timer.C
-				}
-			case <-client.stream.Context().Done(): // grpc stream was closed
-				adsLog.Infof("Client closed connection %v", client.ConID)
-			case <-timer.C:
-				// This may happen to some clients if the other side is in a bad state and can't receive.
-				// The tests were catching this - one of the client was not reading.
-				pushTimeouts.Add(1)
-				if lastPushFailure.IsZero() {
-					lastPushFailure = time.Now()
-
-				}
-				if time.Since(lastPushFailure) > 10*time.Second {
-					adsLog.Warnf("Repeated failure to push %s", client.ConID)
-					// unfortunately grpc go doesn't allow closing (unblocking) the stream.
-					unrecoverablePushErrors.Add(1)
-					pushTimeoutFailures.Add(1)
-					return
-				}
-
-				adsLog.Warnf("Failed to push, client busy %s", client.ConID)
-				retryPushErrors.Add(1)
-
-				goto Retry
-			}
-		}()
+	currentlyPending := s.pushQueue.Pending()
+	if currentlyPending != 0 {
+		adsLog.Infof("Starting new push while %v were still pending", currentlyPending)
 	}
-
-	wg.Wait()
-	adsLog.Infof("PushAll done %s %v", version, time.Since(tstart))
+	startTime := time.Now()
+	for _, p := range pending {
+		s.pushQueue.Enqueue(p, &PushInformation{edsUpdates, push, startTime, full})
+	}
 }
 
 func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 	adsClientsMutex.Lock()
 	defer adsClientsMutex.Unlock()
 	adsClients[conID] = con
-	xdsClients.Set(float64(len(adsClients)))
+	xdsClients.Record(float64(len(adsClients)))
 	if con.modelNode != nil {
 		if _, ok := adsSidecarIDConnectionsMap[con.modelNode.ID]; !ok {
 			adsSidecarIDConnectionsMap[con.modelNode.ID] = map[string]*XdsConnection{conID: con}
@@ -978,12 +702,12 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 
 	if _, exist := adsClients[conID]; !exist {
 		adsLog.Errorf("ADS: Removing connection for non-existing node:%v.", conID)
-		totalXDSInternalErrors.Add(1)
+		totalXDSInternalErrors.Increment()
 	} else {
 		delete(adsClients, conID)
 	}
 
-	xdsClients.Set(float64(len(adsClients)))
+	xdsClients.Record(float64(len(adsClients)))
 	if con.modelNode != nil {
 		delete(adsSidecarIDConnectionsMap[con.modelNode.ID], conID)
 		if len(adsSidecarIDConnectionsMap[con.modelNode.ID]) == 0 {
@@ -1022,7 +746,7 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 	case <-t.C:
 		// TODO: wait for ACK
 		adsLog.Infof("Timeout writing %s", conn.ConID)
-		xdsResponseWriteTimeouts.Add(1)
+		xdsResponseWriteTimeouts.Increment()
 		return errors.New("timeout sending")
 	case err := <-done:
 		t.Stop()

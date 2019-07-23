@@ -1921,7 +1921,7 @@ func TestValidateHTTPStatus(t *testing.T) {
 		valid bool
 	}{
 		{-100, false},
-		{0, true},
+		{0, false},
 		{200, true},
 		{600, true},
 		{601, false},
@@ -1963,6 +1963,12 @@ func TestValidateHTTPFaultInjectionAbort(t *testing.T) {
 			Percent: 20,
 			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
 				HttpStatus: 9000,
+			},
+		}, valid: false},
+		{name: "invalid low http status", in: &networking.HTTPFaultInjection_Abort{
+			Percent: 20,
+			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
+				HttpStatus: 100,
 			},
 		}, valid: false},
 		{name: "valid percentage", in: &networking.HTTPFaultInjection_Abort{
@@ -2214,6 +2220,24 @@ func TestValidateHTTPRedirect(t *testing.T) {
 			valid: false,
 		},
 		{
+			name: "too small redirect code",
+			redirect: &networking.HTTPRedirect{
+				Uri:          "t",
+				Authority:    "",
+				RedirectCode: 299,
+			},
+			valid: false,
+		},
+		{
+			name: "too large redirect code",
+			redirect: &networking.HTTPRedirect{
+				Uri:          "t",
+				Authority:    "",
+				RedirectCode: 400,
+			},
+			valid: false,
+		},
+		{
 			name: "empty authority",
 			redirect: &networking.HTTPRedirect{
 				Uri:       "t",
@@ -2230,10 +2254,20 @@ func TestValidateHTTPRedirect(t *testing.T) {
 			valid: true,
 		},
 		{
+			name: "empty redirect code",
+			redirect: &networking.HTTPRedirect{
+				Uri:          "t",
+				Authority:    "t",
+				RedirectCode: 0,
+			},
+			valid: true,
+		},
+		{
 			name: "normal redirect",
 			redirect: &networking.HTTPRedirect{
-				Uri:       "t",
-				Authority: "t",
+				Uri:          "t",
+				Authority:    "t",
+				RedirectCode: 308,
 			},
 			valid: true,
 		},
@@ -2469,6 +2503,16 @@ func TestValidateHTTPRoute(t *testing.T) {
 							"",
 						},
 					},
+				},
+			}},
+		}, valid: false},
+		{name: "null header match", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{{
+				Headers: map[string]*networking.StringMatch{
+					"header": nil,
 				},
 			}},
 		}, valid: false},
@@ -3166,7 +3210,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 		in    proto.Message
 		error string
 	}{
-		{name: "empty filters", in: &networking.EnvoyFilter{}, error: "missing filters"},
+		{name: "empty filters", in: &networking.EnvoyFilter{}, error: ""},
 
 		{name: "missing relativeTo", in: &networking.EnvoyFilter{
 			Filters: []*networking.EnvoyFilter_Filter{
@@ -3217,7 +3261,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 			},
 		}, error: "missing filter config"},
 
-		{name: "happy filter config", in: &networking.EnvoyFilter{
+		{name: "deprecated happy filter config", in: &networking.EnvoyFilter{
 			Filters: []*networking.EnvoyFilter_Filter{
 				{
 					InsertPosition: &networking.EnvoyFilter_InsertPosition{
@@ -3226,6 +3270,214 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					FilterType:   networking.EnvoyFilter_Filter_NETWORK,
 					FilterName:   "envoy.foo",
 					FilterConfig: &types.Struct{},
+				},
+			},
+		}, error: ""},
+		{name: "invalid applyTo", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: 0,
+				},
+			},
+		}, error: "envoy filter: missing applyTo"},
+		{name: "nil patch", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_LISTENER,
+					Patch:   nil,
+				},
+			},
+		}, error: "envoy filter: missing patch"},
+		{name: "invalid patch operation", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_LISTENER,
+					Patch:   &networking.EnvoyFilter_Patch{},
+				},
+			},
+		}, error: "envoy filter: missing patch operation"},
+		{name: "nil patch value", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_LISTENER,
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_ADD,
+					},
+				},
+			},
+		}, error: "envoy filter: missing patch value for non-remove operation"},
+		{name: "listener with invalid match", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_LISTENER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+							Cluster: &networking.EnvoyFilter_ClusterMatch{},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "envoy filter: applyTo for listener class objects cannot have non listener match"},
+		{name: "listener with invalid filter match", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_LISTENER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking.EnvoyFilter_ListenerMatch{
+								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Sni:    "124",
+									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{},
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "envoy filter: filter match has no name to match on"},
+		{name: "listener with sub filter match and invalid applyTo", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_LISTENER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking.EnvoyFilter_ListenerMatch{
+								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+										Name:      "random",
+										SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{},
+									},
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "envoy filter: subfilter match can be used with applyTo HTTP_FILTER only"},
+		{name: "listener with sub filter match and invalid filter name", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking.EnvoyFilter_ListenerMatch{
+								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+										Name:      "random",
+										SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{},
+									},
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "envoy filter: subfilter match requires filter match with envoy.http_connection_manager"},
+		{name: "listener with sub filter match and no sub filter name", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking.EnvoyFilter_ListenerMatch{
+								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+										Name:      "envoy.http_connection_manager",
+										SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{},
+									},
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "envoy filter: subfilter match has no name to match on"},
+		{name: "route configuration with invalid match", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_VIRTUAL_HOST,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+							Cluster: &networking.EnvoyFilter_ClusterMatch{},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "envoy filter: applyTo for http route class objects cannot have non route configuration match"},
+		{name: "cluster with invalid match", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_CLUSTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking.EnvoyFilter_ListenerMatch{},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "envoy filter: applyTo for cluster class objects cannot have non cluster match"},
+		{name: "invalid patch value", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_CLUSTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+							Cluster: &networking.EnvoyFilter_ClusterMatch{},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_ADD,
+						Value: &types.Struct{
+							Fields: map[string]*types.Value{
+								"foo": {
+									Kind: &types.Value_BoolValue{BoolValue: false},
+								},
+							},
+						},
+					},
+				},
+			},
+		}, error: `envoy filter: unknown field "foo" in v2.Cluster`},
+		{name: "happy config", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_CLUSTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+							Cluster: &networking.EnvoyFilter_ClusterMatch{},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_ADD,
+						Value: &types.Struct{
+							Fields: map[string]*types.Value{
+								"lb_policy": {
+									Kind: &types.Value_StringValue{StringValue: "RING_HASH"},
+								},
+							},
+						},
+					},
 				},
 			},
 		}, error: ""},

@@ -112,7 +112,7 @@ spec:
 ---
 # Source: redis/templates/redis-slave-deployment.yaml
 
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redis-release-slave
@@ -222,7 +222,7 @@ spec:
 
 ---
 # Source: redis/templates/redis-master-statefulset.yaml
-apiVersion: apps/v1beta2
+apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: redis-release-master

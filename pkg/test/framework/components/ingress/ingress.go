@@ -90,6 +90,9 @@ type Instance interface {
 	//  Call makes a call through ingress.
 	Call(options CallOptions) (CallResponse, error)
 	CallOrFail(t test.Failer, options CallOptions) CallResponse
+
+	// ProxyStats returns proxy stats, or error if failure happens.
+	ProxyStats() (map[string]int, error)
 }
 
 type Config struct {

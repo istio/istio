@@ -18,9 +18,10 @@ set -o errexit
 
 display_usage() {
     echo
-    echo "USAGE: ./build_push_update_images.sh <version> [-h|--help] [--scan-images]"
+    echo "USAGE: ./build_push_update_images.sh <version> [-h|--help] [--prefix=value] [--scan-images]"
     echo "	version : Version of the sample app images (Required)"
     echo "	-h|--help : Prints usage information"
+    echo "	--prefix: Use the value as the prefix for image names. By default, 'istio' is used"
     echo -e "	--scan-images : Enable security vulnerability scans for docker images \n\t\t\trelated to bookinfo sample apps. By default, this feature \n\t\t\tis disabled."
     exit 1
 }
@@ -31,36 +32,37 @@ if [[ -z "$1" ]] ; then
         display_usage
 else
 	VERSION="$1"
+	shift
 fi
 
 # Process the input arguments. By default, image scanning is disabled. 
-index=0
+PREFIX=istio
 ENABLE_IMAGE_SCAN=false
+echo "$@"
 for i in "$@"
 do
 	case "$i" in
-		"--scan-images" )
+		--prefix=* )
+		   PREFIX="${i#--prefix=}" ;;
+		--scan-images )
 		   ENABLE_IMAGE_SCAN=true ;;
 		-h|--help )
-                   echo
+		   echo
 		   echo "Build the docker images for bookinfo sample apps, push them to docker hub and update the yaml files."
 		   display_usage ;;
-                * )
-                   if [[ $index -ne 0 ]]; then
-                     echo "Unknown argument: $i"
-                     display_usage 
-		   fi;;
+		* )
+		   echo "Unknown argument: $i"
+		   display_usage ;;
 	esac
-  	((index++))
 done
 
 #Build docker images
-src/build-services.sh "${VERSION}"
+src/build-services.sh "${VERSION}" "${PREFIX}"
 
 #get all the new image names and tags
 for v in ${VERSION} "latest"
 do
-  IMAGES+=$(docker images -f reference=istio/examples-bookinfo*:"$v" --format "{{.Repository}}:$v")
+  IMAGES+=$(docker images -f reference="${PREFIX}/examples-bookinfo*:$v" --format "{{.Repository}}:$v")
   IMAGES+=" "
 done
 

@@ -19,7 +19,7 @@ spec:
 {{- end }}
   containers:
     - name: "{{ template "grafana.fullname" . }}-test"
-      image: {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
+      image: pstauffer/curl:v1.0.3
       imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
       command: ['curl']
       args: ['http://grafana:{{ .Values.grafana.service.externalPort }}']

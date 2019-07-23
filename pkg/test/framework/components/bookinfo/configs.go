@@ -127,17 +127,26 @@ func (l ConfigFile) LoadOrFail(t test.Failer) string {
 	return l.LoadWithNamespaceOrFail(t, "")
 }
 
-func GetDestinationRuleConfigFile(t test.Failer, ctx resource.Context) ConfigFile {
+func GetDestinationRuleConfigFileOrFail(t test.Failer, ctx resource.Context) ConfigFile {
 	t.Helper()
 
-	cfg, err := istio.DefaultConfig(ctx)
+	cfg, err := GetDestinationRuleConfigFile(ctx)
 	if err != nil {
 		t.Fatalf("bookinfo.GetDestinationRuleConfigFile: %v", err)
 	}
-	if cfg.IsMtlsEnabled() {
-		return NetworkingDestinationRuleAllMtls
+
+	return cfg
+}
+
+func GetDestinationRuleConfigFile(ctx resource.Context) (ConfigFile, error) {
+	cfg, err := istio.DefaultConfig(ctx)
+	if err != nil {
+		return "", fmt.Errorf("bookinfo.GetDestinationRuleConfigFile: %v", err)
 	}
-	return NetworkingDestinationRuleAll
+	if cfg.IsMtlsEnabled() {
+		return NetworkingDestinationRuleAllMtls, nil
+	}
+	return NetworkingDestinationRuleAll, nil
 }
 
 func replaceBookinfoAppAddressWithFQDNAddress(fileContent, namespace string) string {

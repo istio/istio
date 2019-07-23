@@ -73,7 +73,7 @@ fi
 make init
 
 if [[ $HUB == *"istio-testing"* ]]; then
-  time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}"
+  time ISTIO_DOCKER_HUB="${HUB}" make docker.push HUB="${HUB}" TAG="${TAG}"
 fi
 
 get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"

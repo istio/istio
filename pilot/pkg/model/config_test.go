@@ -1018,7 +1018,6 @@ func TestIstioConfigStore_EnvoyFilter(t *testing.T) {
 	}
 	ii := model.MakeIstioStore(l)
 	mergedFilterConfig := &networking.EnvoyFilter{
-		WorkloadLabels: make(map[string]string),
 		Filters: []*networking.EnvoyFilter_Filter{
 			{
 				InsertPosition: &networking.EnvoyFilter_InsertPosition{

@@ -236,9 +236,9 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 		return
 	}
 
-	// Expect 6 listeners : 1 orig_dst, 1 http inbound + 4 outbound (http, tcp1, istio-policy and istio-telemetry)
+	// Expect 6 listeners : 2 orig_dst, 1 http inbound + 4 outbound (http, tcp1, istio-policy and istio-telemetry)
 	// plus 2 extra due to the mem registry
-	if (len(adsResponse.HTTPListeners) + len(adsResponse.TCPListeners)) != 6 {
+	if (len(adsResponse.HTTPListeners) + len(adsResponse.TCPListeners)) != 7 {
 		t.Fatalf("Expected 8 listeners, got %d\n", len(adsResponse.HTTPListeners)+len(adsResponse.TCPListeners))
 	}
 

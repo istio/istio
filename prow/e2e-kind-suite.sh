@@ -38,7 +38,7 @@ set -x
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
-setup_kind_cluster
+setup_kind_cluster ""
 
 echo 'Build'
 (cd "${ROOT}"; make build)
@@ -48,6 +48,10 @@ E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
 # deleted the pod 
 E2E_ARGS+=("--skip_cleanup")
 E2E_ARGS+=("--use_local_cluster")
+
+# KinD will have the images loaded into it; it should not attempt to pull them
+# See https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster
+E2E_ARGS+=("--image_pull_policy" "IfNotPresent")
 
 # getopts only handles single character flags
 for ((i=1; i<=$#; i++)); do
@@ -71,17 +75,9 @@ make init
 make docker
 
 function build_kind_images(){
-	# Create a temp directory to store the archived images.
-	TMP_DIR=$(mktemp -d)
-	IMAGE_FILE="${TMP_DIR}"/image.tar
-
 	# Archived local images and load it into KinD's docker daemon
 	# Kubernetes in KinD can only access local images from its docker daemon.
-	docker images "${HUB}"/*:"${TAG}"| awk 'FNR>1 {print $1 ":" $2}' | xargs docker save -o "${IMAGE_FILE}"
-	kind load --name e2e-suite image-archive "${IMAGE_FILE}"
-
-	# Delete the local tar images.
-	rm -rf "${IMAGE_FILE}"
+	docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name istio-testing load docker-image
 }
 
 build_kind_images

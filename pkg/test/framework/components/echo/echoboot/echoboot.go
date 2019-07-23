@@ -17,8 +17,8 @@ package echoboot
 import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/docker"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
-	"istio.io/istio/pkg/test/framework/components/echo/native"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -28,7 +28,7 @@ func NewBuilder(ctx resource.Context) (b echo.Builder, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
 
 	ctx.Environment().Case(environment.Native, func() {
-		b = native.NewBuilder(ctx)
+		b = docker.NewBuilder(ctx)
 		err = nil
 	})
 

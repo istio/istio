@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
@@ -588,8 +589,18 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 		return fmt.Errorf("cannot cast to envoy filter")
 	}
 
-	if len(rule.Filters) == 0 {
-		return fmt.Errorf("envoy filter: missing filters")
+	if len(rule.Filters) > 0 {
+		log.Warn("envoy filter: Filters is deprecated. use configPatches instead")
+	}
+
+	if rule.WorkloadLabels != nil {
+		log.Warn("envoy filter: workloadLabels is deprecated. use workloadSelector instead")
+	}
+
+	if rule.WorkloadSelector != nil {
+		if rule.WorkloadSelector.GetLabels() == nil {
+			errs = appendErrors(errs, fmt.Errorf("envoy filter: workloadSelector cannot have empty labels"))
+		}
 	}
 
 	for _, f := range rule.Filters {
@@ -610,6 +621,81 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 
 		if f.FilterConfig == nil {
 			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing filter config"))
+		}
+	}
+
+	for _, cp := range rule.ConfigPatches {
+		if cp.ApplyTo == networking.EnvoyFilter_INVALID {
+			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing applyTo"))
+			continue
+		}
+		if cp.Patch == nil {
+			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing patch"))
+			continue
+		}
+		if cp.Patch.Operation == networking.EnvoyFilter_Patch_INVALID {
+			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing patch operation"))
+			continue
+		}
+		if cp.Patch.Operation != networking.EnvoyFilter_Patch_REMOVE && cp.Patch.Value == nil {
+			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing patch value for non-remove operation"))
+			continue
+		}
+		// ensure that applyTo, match and patch all line up
+		switch cp.ApplyTo {
+		case networking.EnvoyFilter_LISTENER,
+			networking.EnvoyFilter_FILTER_CHAIN,
+			networking.EnvoyFilter_NETWORK_FILTER,
+			networking.EnvoyFilter_HTTP_FILTER:
+			if cp.Match != nil && cp.Match.ObjectTypes != nil {
+				if cp.Match.GetListener() == nil {
+					errs = appendErrors(errs, fmt.Errorf("envoy filter: applyTo for listener class objects cannot have non listener match"))
+					continue
+				}
+				listenerMatch := cp.Match.GetListener()
+				if listenerMatch.FilterChain != nil {
+					if listenerMatch.FilterChain.Filter != nil {
+						// filter names are required if network filter matches are being made
+						if listenerMatch.FilterChain.Filter.Name == "" {
+							errs = appendErrors(errs, fmt.Errorf("envoy filter: filter match has no name to match on"))
+							continue
+						} else if listenerMatch.FilterChain.Filter.SubFilter != nil {
+							// sub filter match is supported only for applyTo HTTP_FILTER
+							if cp.ApplyTo != networking.EnvoyFilter_HTTP_FILTER {
+								errs = appendErrors(errs, fmt.Errorf("envoy filter: subfilter match can be used with applyTo HTTP_FILTER only"))
+								continue
+							}
+							// sub filter match requires the network filter to match to envoy http connection manager
+							if listenerMatch.FilterChain.Filter.Name != xdsutil.HTTPConnectionManager {
+								errs = appendErrors(errs, fmt.Errorf("envoy filter: subfilter match requires filter match with %s",
+									xdsutil.HTTPConnectionManager))
+								continue
+							}
+							if listenerMatch.FilterChain.Filter.SubFilter.Name == "" {
+								errs = appendErrors(errs, fmt.Errorf("envoy filter: subfilter match has no name to match on"))
+								continue
+							}
+						}
+					}
+				}
+			}
+		case networking.EnvoyFilter_ROUTE_CONFIGURATION, networking.EnvoyFilter_VIRTUAL_HOST:
+			if cp.Match != nil && cp.Match.ObjectTypes != nil {
+				if cp.Match.GetRouteConfiguration() == nil {
+					errs = appendErrors(errs, fmt.Errorf("envoy filter: applyTo for http route class objects cannot have non route configuration match"))
+				}
+			}
+
+		case networking.EnvoyFilter_CLUSTER:
+			if cp.Match != nil && cp.Match.ObjectTypes != nil {
+				if cp.Match.GetCluster() == nil {
+					errs = appendErrors(errs, fmt.Errorf("envoy filter: applyTo for cluster class objects cannot have non cluster match"))
+				}
+			}
+		}
+		// ensure that the struct is valid
+		if _, err := buildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value); err != nil {
+			errs = appendErrors(errs, err)
 		}
 	}
 
@@ -1983,7 +2069,10 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	errs = appendErrors(errs, validateHTTPFaultInjection(http.Fault))
 
 	for _, match := range http.Match {
-		for name := range match.Headers {
+		for name, header := range match.Headers {
+			if header == nil {
+				errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
+			}
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 		}
 
@@ -2190,8 +2279,8 @@ func validateHTTPFaultInjectionAbort(abort *networking.HTTPFaultInjection_Abort)
 }
 
 func validateHTTPStatus(status int32) error {
-	if status < 0 || status > 600 {
-		return fmt.Errorf("HTTP status %d is not in range 0-600", status)
+	if status < 200 || status > 600 {
+		return fmt.Errorf("HTTP status %d is not in range 200-599", status)
 	}
 	return nil
 }
@@ -2221,7 +2310,7 @@ func validateDestination(destination *networking.Destination) (errs error) {
 
 	host := destination.Host
 	if host == "*" {
-		errs = appendErrors(errs, fmt.Errorf("invalid destintation host %s", host))
+		errs = appendErrors(errs, fmt.Errorf("invalid destination host %s", host))
 	} else {
 		errs = appendErrors(errs, ValidateWildcardDomain(host))
 	}
@@ -2313,6 +2402,12 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 func validateHTTPRedirect(redirect *networking.HTTPRedirect) error {
 	if redirect != nil && redirect.Uri == "" && redirect.Authority == "" {
 		return errors.New("redirect must specify URI, authority, or both")
+	}
+
+	if redirect != nil && redirect.RedirectCode != 0 {
+		if redirect.RedirectCode < 300 || redirect.RedirectCode > 399 {
+			return fmt.Errorf("%d is not a valid redirect code, must be 3xx", redirect.RedirectCode)
+		}
 	}
 	return nil
 }

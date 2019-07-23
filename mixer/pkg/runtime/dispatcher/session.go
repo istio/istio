@@ -351,23 +351,7 @@ func (s *session) waitForDispatched() {
 				// update the direct response matching the error status
 				if s.variety == tpb.TEMPLATE_VARIETY_CHECK {
 					if response := status.GetDirectHTTPResponse(st); response != nil {
-						if s.checkResult.RouteDirective == nil {
-							s.checkResult.RouteDirective = &mixerpb.RouteDirective{}
-						}
-						directive := s.checkResult.RouteDirective
-						if response.Code != 0 {
-							directive.DirectResponseCode = uint32(response.Code)
-						} else {
-							directive.DirectResponseCode = uint32(status.HTTPStatusFromCode(rpc.Code(st.Code)))
-						}
-						directive.DirectResponseBody = response.Body
-						for header, value := range response.Headers {
-							directive.ResponseHeaderOperations = append(directive.ResponseHeaderOperations,
-								mixerpb.HeaderOperation{
-									Name:  header,
-									Value: value,
-								})
-						}
+						s.handleDirectResponse(st, response)
 					}
 				}
 			} else {
@@ -388,5 +372,48 @@ func (s *session) waitForDispatched() {
 			s.quotaResult.Status = status.WithMessage(code, buf.String())
 		}
 		pool.PutBuffer(buf)
+	}
+}
+
+func (s *session) handleDirectResponse(st rpc.Status, response *descriptor.DirectHttpResponse) {
+	if s.checkResult.RouteDirective == nil {
+		s.checkResult.RouteDirective = &mixerpb.RouteDirective{}
+	}
+	directive := s.checkResult.RouteDirective
+	if response.Code != 0 {
+		directive.DirectResponseCode = uint32(response.Code)
+	} else {
+		directive.DirectResponseCode = uint32(status.HTTPStatusFromCode(rpc.Code(st.Code)))
+	}
+	directive.DirectResponseBody = response.Body
+	for header, value := range response.Headers {
+		if !strings.EqualFold(header, "Set-Cookie") {
+			directive.ResponseHeaderOperations = append(directive.ResponseHeaderOperations,
+				mixerpb.HeaderOperation{
+					Operation: mixerpb.REPLACE,
+					Name:      header,
+					Value:     value,
+				})
+		} else { // append Set-Cookie headers in multiple lines
+			// Folded cookie syntax can be complicated. See, for example,
+			// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#Syntax.
+			// Unfortunately, the net/http library does not expose/support cookie parsing.
+			// Here we handle a much simpler syntax - a comma separated list of cookies.
+			// The simplification comes at the cost of preventing the use of 'Expires'
+			// cookie attribute. A more robust parser would require 100-150 LOC and could
+			// be modeled after the following JS or Java code:
+			// https://github.com/nfriedly/set-cookie-parser/blob/master/lib/set-cookie.js
+			// or
+			// https://github.com/google/j2objc/commit/16820fdbc8f76ca0c33472810ce0cb03d20efe25
+			cookies := strings.Split(value, ",")
+			for _, cv := range cookies {
+				directive.ResponseHeaderOperations = append(directive.ResponseHeaderOperations,
+					mixerpb.HeaderOperation{
+						Operation: mixerpb.APPEND,
+						Name:      header,
+						Value:     cv,
+					})
+			}
+		}
 	}
 }
