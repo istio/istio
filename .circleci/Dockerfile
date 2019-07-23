@@ -27,18 +27,21 @@ ENV     ETCD_DATADIR=/go/out/etcd-data
 ENV     PATH=/go/bin:/go/out/linux_amd64:$PATH
 
 # Initialization
+# hadolint ignore=DL3004
 RUN    sudo mkdir -p /go/src/istio.io/istio && \
        sudo chown -R circleci /go && \
        mkdir -p /go/out && \
        mkdir /home/circleci/logs
 
 # Get etcd, apiserver for the local environment
-RUN     cd /tmp && \
-        curl -L -o etcd.tgz https://github.com/coreos/etcd/releases/download/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz && \
+WORKDIR /tmp
+# hadolint ignore=DL3004
+RUN     curl -L -o etcd.tgz https://github.com/coreos/etcd/releases/download/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz && \
         tar xzf etcd.tgz && \
         sudo mv etcd-${ETCD_VER}-linux-amd64/etcd /usr/local/bin/etcd && \
         rm -rf etcd*
 
+# hadolint ignore=DL3004
 RUN     curl -L -o /tmp/kube-apiserver https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/linux/amd64/kube-apiserver && \
         chmod +x /tmp/kube-apiserver && \
         sudo mv /tmp/kube-apiserver /usr/local/bin
@@ -49,26 +52,29 @@ RUN     go get -u github.com/golang/dep/cmd/dep
 RUN     go get github.com/jstemmer/go-junit-report
 
 # Install fpm tool
+# hadolint ignore=DL3004
 RUN  sudo apt-get -qqy install ruby ruby-dev rubygems build-essential autoconf libtool autotools-dev && \
      sudo gem install --no-ri --no-rdoc fpm
 
 # Include minikube and kubectl in the image
+# hadolint ignore=DL3004
 RUN curl -Lo /tmp/kubectl https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/linux/amd64/kubectl && \
     chmod +x /tmp/kubectl && sudo mv /tmp/kubectl /usr/local/bin/
 
+# hadolint ignore=DL3004
 RUN curl -Lo /tmp/minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VER}/minikube-linux-amd64 &&\
     chmod +x /tmp/minikube && sudo mv /tmp/minikube /usr/local/bin/
 
 # Install helm
-RUN cd /tmp && \
-    curl -Lo /tmp/helm.tgz https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-linux-amd64.tar.gz && \
+# hadolint ignore=DL3004
+RUN curl -Lo /tmp/helm.tgz https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-linux-amd64.tar.gz && \
     tar xfz helm.tgz && \
     sudo mv linux-amd64/helm /usr/local/bin && \
     rm -rf helm.tgz linux-amd64
 
 # Install protoc for protoc-gen-* testing
-RUN cd /tmp && \
-    curl -Lo /tmp/protoc.zip https://github.com/google/protobuf/releases/download/v3.8.0/protoc-3.8.0-linux-x86_64.zip && \
+# hadolint ignore=DL3004
+RUN curl -Lo /tmp/protoc.zip https://github.com/google/protobuf/releases/download/v3.8.0/protoc-3.8.0-linux-x86_64.zip && \
     unzip protoc.zip -d protoc3 && \
     sudo mv protoc3/bin/* /usr/local/bin/ && \
     sudo mv protoc3/include/* /usr/local/include/ && \

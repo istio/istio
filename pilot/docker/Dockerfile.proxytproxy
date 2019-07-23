@@ -1,3 +1,4 @@
+# hadolint ignore=DL3006
 FROM istionightly/base_debug
 ARG proxy_version
 ARG istio_version
@@ -28,9 +29,9 @@ ENV ISTIO_META_INTERCEPTION_MODE TPROXY
 # TODO: evaluate if we should add NET_ADMIN in all cases, to support future firewall
 # and dynamic iptable config
 
-ADD envoy /usr/local/bin/envoy
+COPY envoy /usr/local/bin/envoy
 
-ADD pilot-agent /usr/local/bin/pilot-agent
+COPY pilot-agent /usr/local/bin/pilot-agent
 
 # pilot-agent and envoy may run with effective uid 0 in order to run envoy with
 # CAP_NET_ADMIN, so any iptables rule matching on "-m owner --uid-owner
@@ -41,10 +42,10 @@ RUN \
   chgrp 1337 /usr/local/bin/envoy /usr/local/bin/pilot-agent && \
   chmod 2755 /usr/local/bin/envoy /usr/local/bin/pilot-agent
 
-ADD envoy_pilot.yaml.tmpl /etc/istio/proxy/envoy_pilot.yaml.tmpl
-ADD envoy_policy.yaml.tmpl /etc/istio/proxy/envoy_policy.yaml.tmpl
-ADD envoy_telemetry.yaml.tmpl /etc/istio/proxy/envoy_telemetry.yaml.tmpl
-ADD istio-iptables.sh /usr/local/bin/istio-iptables.sh
+COPY envoy_pilot.yaml.tmpl /etc/istio/proxy/envoy_pilot.yaml.tmpl
+COPY envoy_policy.yaml.tmpl /etc/istio/proxy/envoy_policy.yaml.tmpl
+COPY envoy_telemetry.yaml.tmpl /etc/istio/proxy/envoy_telemetry.yaml.tmpl
+COPY istio-iptables.sh /usr/local/bin/istio-iptables.sh
 
 # Copy Envoy bootstrap templates used by pilot-agent
 COPY envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
