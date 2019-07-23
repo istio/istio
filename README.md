@@ -78,10 +78,9 @@ The quick start describes how to install and use the operator `iop` CLI command.
 ### Installation
 
 ```bash
-export GO111MODULE=on # for pre-1.13 Go versions
 git clone https://github.com/istio/operator.git
 cd operator
-go build -o $GOPATH/bin/iop ./cmd/iop.go
+make iop
 ```
 
 ### Flags

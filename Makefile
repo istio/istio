@@ -1,3 +1,5 @@
+export GO111MODULE=on
+
 gen_img := gcr.io/istio-testing/protoc:2019-03-29
 pwd := $(shell pwd)
 mount_dir := /src
@@ -42,6 +44,9 @@ gogofast_plugin := $(gogofast_plugin_prefix)$(gogo_mapping):$(out_path)
 api_path := pkg/apis/istio/v1alpha2
 api_protos := $(shell find $(api_path) -type f -name '*.proto' | sort)
 api_pb_gos := $(api_protos:.proto=.pb.go)
+
+.PHONY: default
+default: iop
 
 generate-api-go: $(api_pb_gos)
 	patch pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go < pkg/apis/istio/v1alpha2/fixup_go_structs.patch
@@ -104,5 +109,9 @@ gen_patch_iscp:
 gen_patch_values:
 	diff -u pkg/apis/istio/v1alpha2/values/values_types.pb.go.orig pkg/apis/istio/v1alpha2/values/values_types.pb.go > pkg/apis/istio/v1alpha2/values/fix_values_structs.patch || true
 
-vfsgen:
+vfsgen: data/
+	go get github.com/shurcooL/vfsgen
 	go generate ./cmd/iop.go
+
+iop: vfsgen
+	go build -o ${GOPATH}/bin/iop ./cmd/iop.go
