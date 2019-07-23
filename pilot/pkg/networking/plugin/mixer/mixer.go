@@ -569,6 +569,9 @@ func addDestinationServiceAttributes(attrs attributes, push *model.PushContext, 
 
 	svc := push.ServiceByHostname[destinationHostname]
 	if svc == nil {
+		if destinationHostname == util.PassthroughCluster || destinationHostname == util.BlackHoleCluster {
+			attrs["destination.service.name"] = attrStringValue(string(destinationHostname))
+		}
 		return attrs
 	}
 	serviceAttributes := svc.Attributes
