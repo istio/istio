@@ -27,13 +27,19 @@ func TestEnvoyArgs(t *testing.T) {
 	config.ServiceCluster = "my-cluster"
 	config.Concurrency = 8
 
+	opts := make(map[string]interface{})
+	opts["sds_uds_path"] = "udspath"
+	opts["sds_token_path"] = "tokenpath"
+
 	test := &envoy{
 		config:         config,
 		node:           "my-node",
 		extraArgs:      []string{"-l", "trace", "--component-log-level", "misc:error"},
 		nodeIPs:        []string{"10.75.2.9", "192.168.11.18"},
 		dnsRefreshRate: "60s",
+		opts:           opts,
 	}
+
 	testProxy := NewProxy(
 		config,
 		"my-node",
@@ -42,6 +48,7 @@ func TestEnvoyArgs(t *testing.T) {
 		nil,
 		[]string{"10.75.2.9", "192.168.11.18"},
 		"60s",
+		opts,
 	)
 	if !reflect.DeepEqual(testProxy, test) {
 		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxy, test)
