@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pkg/config"
 )
 
 func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) *fakes.IstioConfigStore {
@@ -50,7 +51,7 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 			}
 			return
 		},
-		EnvoyFilterStub: func(workloadLabels model.LabelsCollection) *model.Config {
+		EnvoyFilterStub: func(workloadLabels config.LabelsCollection) *model.Config {
 			return &model.Config{
 				ConfigMeta: model.ConfigMeta{
 					Name:      "test-envoyfilter",
@@ -66,7 +67,7 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 
 func buildPatchStruct(config string) *types.Struct {
 	val := &types.Struct{}
-	jsonpb.Unmarshal(strings.NewReader(config), val)
+	_ = jsonpb.Unmarshal(strings.NewReader(config), val)
 	return val
 }
 

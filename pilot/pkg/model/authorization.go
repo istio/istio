@@ -21,12 +21,6 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-const (
-	// DefaultRbacConfigName is the name of the mesh global RbacConfig name. Only RbacConfig with this
-	// name will be considered.
-	DefaultRbacConfigName = "default"
-)
-
 var (
 	rbacLog = istiolog.RegisterScope("rbac", "rbac debugging", 0)
 )

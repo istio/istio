@@ -19,11 +19,11 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pkg/spiffe"
-
 	"github.com/hashicorp/consul/api"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/log"
 )
 
@@ -70,7 +70,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 }
 
 // GetService retrieves a service by host name if it exists
-func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
+func (c *Controller) GetService(hostname config.Hostname) (*model.Service, error) {
 	c.cacheMutex.Lock()
 	defer c.cacheMutex.Unlock()
 
@@ -110,8 +110,8 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 
 // InstancesByPort retrieves instances for a service that match
 // any of the supplied labels. All instances match an empty tag list.
-func (c *Controller) InstancesByPort(hostname model.Hostname, port int,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+func (c *Controller) InstancesByPort(hostname config.Hostname, port int,
+	labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
 	c.cacheMutex.Lock()
 	defer c.cacheMutex.Unlock()
 
@@ -173,7 +173,7 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 	return out, nil
 }
 
-func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCollection, error) {
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (config.LabelsCollection, error) {
 	c.cacheMutex.Lock()
 	defer c.cacheMutex.Unlock()
 
@@ -182,7 +182,7 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCol
 		return nil, err
 	}
 
-	out := make(model.LabelsCollection, 0)
+	out := make(config.LabelsCollection, 0)
 	for _, instances := range c.serviceInstances {
 		for _, instance := range instances {
 			addr := instance.Endpoint.Address
@@ -224,7 +224,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation TODO
-func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
+func (c *Controller) GetIstioServiceAccounts(hostname config.Hostname, ports []int) []string {
 	// Need to get service account of service registered with consul
 	// Currently Consul does not have service account or equivalent concept
 	// As a step-1, to enabling istio security in Consul, We assume all the services run in default service account

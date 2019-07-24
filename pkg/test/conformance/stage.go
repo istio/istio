@@ -48,7 +48,7 @@ type Traffic struct {
 
 type Port struct {
 	Name        string
-	Protocol    string // model.Protocol
+	Protocol    string // config.Protocol
 	ServicePort uint16
 }
 

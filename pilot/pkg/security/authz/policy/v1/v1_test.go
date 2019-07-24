@@ -168,31 +168,33 @@ func TestBuilder_buildV1(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		authzPolicies := policy.NewAuthzPolicies(tc.policies, t)
-		if authzPolicies == nil {
-			t.Fatalf("%s: failed to create authz policies", tc.name)
-		}
-		b := NewGenerator(serviceFooInNamespaceA, authzPolicies, tc.isGlobalPermissiveEnabled)
-		if b == nil {
-			t.Fatalf("%s: failed to create builder", tc.name)
-		}
-
-		got := b.Generate(tc.forTCPFilter)
-		gotStr := spew.Sdump(got)
-
-		if tc.isGlobalPermissiveEnabled {
-			if got.GetRules() != nil {
-				t.Errorf("%s: rule must be nil when global permissive is true", tc.name)
+		t.Run(tc.name, func(t *testing.T) {
+			authzPolicies := policy.NewAuthzPolicies(tc.policies, t)
+			if authzPolicies == nil {
+				t.Fatal("failed to create authz policies")
 			}
-		} else if got.GetRules() == nil {
-			t.Errorf("%s: rule must not be nil when global permissive is false", tc.name)
-		}
+			b := NewGenerator(serviceFooInNamespaceA, authzPolicies, tc.isGlobalPermissiveEnabled)
+			if b == nil {
+				t.Fatal("failed to create builder")
+			}
 
-		if err := policy.Verify(got.GetRules(), tc.wantRules); err != nil {
-			t.Errorf("%s: %s\n%s", tc.name, err, gotStr)
-		}
-		if err := policy.Verify(got.GetShadowRules(), tc.wantShadowRules); err != nil {
-			t.Errorf("%s: %s\n%s", tc.name, err, gotStr)
-		}
+			got := b.Generate(tc.forTCPFilter)
+			gotStr := spew.Sdump(got)
+
+			if tc.isGlobalPermissiveEnabled {
+				if got.GetRules() != nil {
+					t.Fatal("rule must be nil when global permissive is true")
+				}
+			} else if got.GetRules() == nil {
+				t.Fatal("rule must not be nil when global permissive is false")
+			}
+
+			if err := policy.Verify(got.GetRules(), tc.wantRules); err != nil {
+				t.Fatalf("%s\n%s", err, gotStr)
+			}
+			if err := policy.Verify(got.GetShadowRules(), tc.wantShadowRules); err != nil {
+				t.Fatalf("%s\n%s", err, gotStr)
+			}
+		})
 	}
 }

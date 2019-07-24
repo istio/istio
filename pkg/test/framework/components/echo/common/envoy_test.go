@@ -24,7 +24,7 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/gogo/protobuf/jsonpb"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -45,9 +45,9 @@ func TestCheckOutboundConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfgs := []config{
+	cfgs := []testConfig{
 		{
-			protocol:    model.ProtocolHTTP,
+			protocol:    config.ProtocolHTTP,
 			service:     "b",
 			namespace:   "apps-1-99281",
 			domain:      "cluster.local",
@@ -55,7 +55,7 @@ func TestCheckOutboundConfig(t *testing.T) {
 			address:     "10.43.241.185",
 		},
 		{
-			protocol:    model.ProtocolHTTP,
+			protocol:    config.ProtocolHTTP,
 			service:     "b",
 			namespace:   "apps-1-99281",
 			domain:      "cluster.local",
@@ -63,7 +63,7 @@ func TestCheckOutboundConfig(t *testing.T) {
 			address:     "10.43.241.185",
 		},
 		{
-			protocol:    model.ProtocolTCP,
+			protocol:    config.ProtocolTCP,
 			service:     "b",
 			namespace:   "apps-1-99281",
 			domain:      "cluster.local",
@@ -71,7 +71,7 @@ func TestCheckOutboundConfig(t *testing.T) {
 			address:     "10.43.241.185",
 		},
 		{
-			protocol:    model.ProtocolHTTPS,
+			protocol:    config.ProtocolHTTPS,
 			service:     "b",
 			namespace:   "apps-1-99281",
 			domain:      "cluster.local",
@@ -79,7 +79,7 @@ func TestCheckOutboundConfig(t *testing.T) {
 			address:     "10.43.241.185",
 		},
 		{
-			protocol:    model.ProtocolHTTP2,
+			protocol:    config.ProtocolHTTP2,
 			service:     "b",
 			namespace:   "apps-1-99281",
 			domain:      "cluster.local",
@@ -87,7 +87,7 @@ func TestCheckOutboundConfig(t *testing.T) {
 			address:     "10.43.241.185",
 		},
 		{
-			protocol:    model.ProtocolGRPC,
+			protocol:    config.ProtocolGRPC,
 			service:     "b",
 			namespace:   "apps-1-99281",
 			domain:      "cluster.local",
@@ -107,11 +107,11 @@ func TestCheckOutboundConfig(t *testing.T) {
 	}
 }
 
-var _ echo.Instance = &config{}
-var _ echo.Workload = &config{}
+var _ echo.Instance = &testConfig{}
+var _ echo.Workload = &testConfig{}
 
-type config struct {
-	protocol    model.Protocol
+type testConfig struct {
+	protocol    config.Protocol
 	servicePort int
 	address     string
 	service     string
@@ -119,22 +119,22 @@ type config struct {
 	namespace   string
 }
 
-func (e *config) Owner() echo.Instance {
+func (e *testConfig) Owner() echo.Instance {
 	return e
 }
 
-func (e *config) Port() echo.Port {
+func (e *testConfig) Port() echo.Port {
 	return echo.Port{
 		ServicePort: e.servicePort,
 		Protocol:    e.protocol,
 	}
 }
 
-func (e *config) Address() string {
+func (e *testConfig) Address() string {
 	return e.address
 }
 
-func (e *config) Config() echo.Config {
+func (e *testConfig) Config() echo.Config {
 	return echo.Config{
 		Service: e.service,
 		Namespace: &fakeNamespace{
@@ -150,39 +150,39 @@ func (e *config) Config() echo.Config {
 	}
 }
 
-func (e *config) Workloads() ([]echo.Workload, error) {
+func (e *testConfig) Workloads() ([]echo.Workload, error) {
 	return []echo.Workload{e}, nil
 }
 
-func (*config) ID() resource.ID {
+func (*testConfig) ID() resource.ID {
 	panic("not implemented")
 }
 
-func (*config) WorkloadsOrFail(test.Failer) []echo.Workload {
+func (*testConfig) WorkloadsOrFail(t test.Failer) []echo.Workload {
 	panic("not implemented")
 }
 
-func (*config) WaitUntilCallable(...echo.Instance) error {
+func (*testConfig) WaitUntilCallable(_ ...echo.Instance) error {
 	panic("not implemented")
 }
 
-func (*config) WaitUntilCallableOrFail(test.Failer, ...echo.Instance) {
+func (*testConfig) WaitUntilCallableOrFail(_ test.Failer, _ ...echo.Instance) {
 	panic("not implemented")
 }
 
-func (*config) Call(echo.CallOptions) (client.ParsedResponses, error) {
+func (*testConfig) Call(_ echo.CallOptions) (client.ParsedResponses, error) {
 	panic("not implemented")
 }
 
-func (*config) CallOrFail(test.Failer, echo.CallOptions) client.ParsedResponses {
+func (*testConfig) CallOrFail(_ test.Failer, _ echo.CallOptions) client.ParsedResponses {
 	panic("not implemented")
 }
 
-func (*config) Sidecar() echo.Sidecar {
+func (*testConfig) Sidecar() echo.Sidecar {
 	panic("not implemented")
 }
 
-func (*config) ForwardEcho(context.Context, *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
+func (*testConfig) ForwardEcho(context.Context, *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
 	panic("not implemented")
 }
 

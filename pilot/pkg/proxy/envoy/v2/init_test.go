@@ -32,8 +32,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
@@ -76,20 +76,20 @@ func connectADS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedReso
 	}
 
 	return edsstr, func() {
-		edsstr.CloseSend()
-		conn.Close()
+		_ = edsstr.CloseSend()
+		_ = conn.Close()
 	}, nil
 }
 
 func connectADSS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, util.TearDownFunc, error) {
 	certDir := env.IstioSrc + "/tests/testdata/certs/default/"
 
-	clientCert, err := tls.LoadX509KeyPair(certDir+model.CertChainFilename, certDir+model.KeyFilename)
+	clientCert, err := tls.LoadX509KeyPair(certDir+config.CertChainFilename, certDir+config.KeyFilename)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed loading clients certs: %s", err)
 	}
 
-	serverCABytes, err := ioutil.ReadFile(certDir + model.RootCertFilename)
+	serverCABytes, err := ioutil.ReadFile(certDir + config.RootCertFilename)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed loading CA certs: %s", err)
 	}
@@ -122,8 +122,8 @@ func connectADSS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedRes
 		return nil, nil, fmt.Errorf("stream resources failed: %s", err)
 	}
 	return edsstr, func() {
-		edsstr.CloseSend()
-		conn.Close()
+		_ = edsstr.CloseSend()
+		_ = conn.Close()
 	}, nil
 }
 

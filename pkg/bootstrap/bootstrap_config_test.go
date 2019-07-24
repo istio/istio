@@ -79,6 +79,7 @@ func TestGolden(t *testing.T) {
 		base                       string
 		envVars                    map[string]string
 		annotations                map[string]string
+		opts                       map[string]interface{}
 		expectLightstepAccessToken bool
 		stats                      stats
 		checkLocality              bool
@@ -88,6 +89,10 @@ func TestGolden(t *testing.T) {
 	}{
 		{
 			base: "auth",
+			opts: map[string]interface{}{
+				"sds_uds_path":   "udspath",
+				"sds_token_path": "/var/run/secrets/tokens/istio-token",
+			},
 		},
 		{
 			base: "default",
@@ -107,6 +112,10 @@ func TestGolden(t *testing.T) {
 			},
 			annotations: map[string]string{
 				"istio.io/insecurepath": "{\"paths\":[\"/metrics\",\"/live\"]}",
+			},
+			opts: map[string]interface{}{
+				"sds_uds_path":   "udspath",
+				"sds_token_path": "/var/run/secrets/kubernetes.io/serviceaccount/token",
 			},
 			checkLocality: true,
 		},
@@ -230,7 +239,7 @@ func TestGolden(t *testing.T) {
 			}
 
 			fn, err := writeBootstrapForPlatform(cfg, "sidecar~1.2.3.4~foo~bar", 0, []string{
-				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, nil, localEnv,
+				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, c.opts, localEnv,
 				[]string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6", "10.4.4.4"}, "60s", &fakePlatform{})
 			if err != nil {
 				t.Fatal(err)
