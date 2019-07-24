@@ -488,6 +488,8 @@ message NodeAgentConfig {
 
   // 	Env          map[string]interface{} `json:"env,omitempty"`
   string image = 2;
+
+  // NodeSelector map[string]interface{} `json:"nodeSelector,omitempty"`
 }
 
 // OutboundTrafficPolicyConfig is described in istio.io documentation.
@@ -764,6 +766,8 @@ message SecurityConfig {
   map<string, string> dnsCerts = 6;
 
   bool createMeshPolicy = 7;
+
+  // NodeSelector     map[string]interface{} `json:"nodeSelector,omitempty"`
 }
 
 // ServiceConfig is described in istio.io documentation.
@@ -772,7 +776,7 @@ message ServiceConfig {
   uint32 externalPort = 1;
 
   string name = 2;
-  //    Type         v1.ServiceType     `json:"type,omitempty"`
+  // Type         v1.ServiceType     `json:"type,omitempty"`
 }
 
 // SidecarInjectorConfig is described in istio.io documentation.
