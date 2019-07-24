@@ -859,7 +859,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	var destinationCIDR string
 	var listenerMapKey string
 	var currentListenerEntry *outboundListenerEntry
-	var collisionMetric *model.PushMetric
+	var collisionMetric monitoring.Metric
 
 	switch pluginParams.ListenerProtocol {
 	case plugin.ListenerProtocolHTTP:
