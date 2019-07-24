@@ -12,17 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package scope
+package rt
 
-import "istio.io/pkg/log"
+import (
+	"fmt"
 
-var (
-	// Analysis is a logging scope used by configuration analysis component.
-	Analysis = log.RegisterScope("analysis", "Scope for configuration analysis runtime", 0)
-
-	// Processing is a logging scope used by configuration processing pipeline.
-	Processing = log.RegisterScope("processing", "Scope for configuration processing runtime", 0)
-
-	// Source is a logging scope for config event sources.
-	Source = log.RegisterScope("source", "Scope for configuration event sources", 0)
+	"istio.io/istio/galley/pkg/config/collection"
+	"istio.io/istio/galley/pkg/config/resource"
 )
+
+// Origin is a K8s specific implementation of resource.Origin
+type Origin struct {
+	Collection collection.Name
+	Name       resource.Name
+	Version    resource.Version
+}
+
+var _ resource.Origin = &Origin{}
+
+// FriendlyName implements resource.Origin
+func (o *Origin) FriendlyName() string {
+	return fmt.Sprintf("%s/%s", o.Collection.String(), o.Name.String())
+}
