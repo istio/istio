@@ -219,7 +219,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			buildSidecarInboundListeners(configgen, env, node, push, proxyInstances).
 			buildSidecarOutboundListeners(configgen, env, node, push, proxyInstances).
 			buildManagementListeners(configgen, env, node, push, proxyInstances).
-			buildVirtualOutboundListener(env, node).
+			buildVirtualOutboundListener(configgen, env, node, push, proxyInstances).
 			buildVirtualInboundListener(env, node)
 	}
 
@@ -1208,6 +1208,65 @@ func (configgen *ConfigGeneratorImpl) generateManagementListeners(node *model.Pr
 		}
 	}
 	return listeners
+}
+
+// onVirtualOutboundListener calls the plugin API for the outbound virtual listener
+func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Environment,
+	node *model.Proxy,
+	push *model.PushContext, proxyInstances []*model.ServiceInstance,
+	ipTablesListener *xdsapi.Listener) *xdsapi.Listener {
+
+	hostname := config.Hostname(util.BlackHoleCluster)
+	mesh := env.Mesh
+	redirectPort := &model.Port{
+		Port:     int(mesh.ProxyListenPort),
+		Protocol: config.ProtocolTCP,
+	}
+
+	if len(ipTablesListener.FilterChains) < 1 || len(ipTablesListener.FilterChains[0].Filters) < 1 {
+		return ipTablesListener
+	}
+
+	filter := ipTablesListener.FilterChains[0].Filters[0]
+	if isAllowAnyOutbound(node) {
+		hostname = util.PassthroughCluster
+	}
+
+	pluginParams := &plugin.InputParams{
+		ListenerProtocol:           plugin.ListenerProtocolTCP,
+		DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
+		Env:                        env,
+		Node:                       node,
+		ProxyInstances:             proxyInstances,
+		Push:                       push,
+		Bind:                       "",
+		Port:                       redirectPort,
+		Service: &model.Service{
+			Hostname: hostname,
+			Ports:    model.PortList{redirectPort},
+		},
+	}
+
+	mutable := &plugin.MutableObjects{
+		Listener:     ipTablesListener,
+		FilterChains: make([]plugin.FilterChain, len(ipTablesListener.FilterChains)),
+	}
+
+	for _, p := range configgen.Plugins {
+		if err := p.OnVirtualListener(pluginParams, mutable); err != nil {
+			log.Warn(err.Error())
+		}
+	}
+	if len(mutable.FilterChains) > 0 && len(mutable.FilterChains[0].TCP) > 0 {
+		filters := append([]listener.Filter{}, mutable.FilterChains[0].TCP...)
+		filters = append(filters, filter)
+		ipTablesListener.FilterChains = []listener.FilterChain{
+			{
+				Filters: filters,
+			},
+		}
+	}
+	return ipTablesListener
 }
 
 // Deprecated: buildSidecarInboundMgmtListeners creates inbound TCP only listeners for the management ports on
