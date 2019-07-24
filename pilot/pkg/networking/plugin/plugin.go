@@ -35,6 +35,8 @@ const (
 	ListenerProtocolTCP
 	// ListenerProtocolHTTP is an HTTP listener.
 	ListenerProtocolHTTP
+	// ListenerProtocolAuto enables auto protocol detection
+	ListenerProtocolAuto
 
 	// Authn is the name of the authentication plugin passed through the command line
 	Authn = "authn"
@@ -54,6 +56,8 @@ func ModelProtocolToListenerProtocol(protocol config.Protocol) ListenerProtocol 
 	case config.ProtocolTCP, config.ProtocolHTTPS, config.ProtocolTLS,
 		config.ProtocolMongo, config.ProtocolRedis, config.ProtocolMySQL:
 		return ListenerProtocolTCP
+	case config.ProtocolAuto:
+		return ListenerProtocolAuto
 	default:
 		return ListenerProtocolUnknown
 	}

@@ -51,6 +51,9 @@ import (
 const (
 	envoyListenerTLSInspector = "envoy.listener.tls_inspector"
 
+	// Http inspector for protocol sniffing
+	envoyListenerHttpInspector = "envoy.listener.http_inspector"
+
 	// RDSHttpProxy is the special name for HTTP PROXY route
 	RDSHttpProxy = "http_proxy"
 
@@ -438,6 +441,41 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 	return listeners
 }
 
+func (configgen *ConfigGeneratorImpl) buildSidecarInboundHttpListenerOptsForPortOrUDS(node *model.Proxy, pluginParams *plugin.InputParams) *httpListenerOpts {
+	httpOpts := &httpListenerOpts{
+		routeConfig: configgen.buildSidecarInboundHTTPRouteConfig(pluginParams.Env, pluginParams.Node,
+			pluginParams.Push, pluginParams.ServiceInstance),
+		rds:              "", // no RDS for inbound traffic
+		useRemoteAddress: false,
+		direction:        http_conn.INGRESS,
+		connectionManager: &http_conn.HttpConnectionManager{
+			// Append and forward client cert to backend.
+			ForwardClientCertDetails: http_conn.APPEND_FORWARD,
+			SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+				Subject: &google_protobuf.BoolValue{Value: true},
+				Uri:     true,
+				Dns:     true,
+			},
+			ServerName: EnvoyServerName,
+		},
+	}
+	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
+	if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol.IsHTTP2() {
+		httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
+		if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol == config.ProtocolGRPCWeb {
+			httpOpts.addGRPCWebFilter = true
+		}
+	}
+
+	if features.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
+		httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
+			AcceptHttp_10: true,
+		}
+	}
+
+	return httpOpts
+}
+
 // buildSidecarInboundListenerForPortOrUDS creates a single listener on the server-side (inbound)
 // for a given port or unix domain socket
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(node *model.Proxy, listenerOpts buildListenerOpts,
@@ -481,45 +519,38 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		// add one empty entry to the list so we generate a default listener below
 		allChains = []plugin.FilterChain{{}}
 	}
-	for _, chain := range allChains {
-		var httpOpts *httpListenerOpts
+
+	// Detect protocol by sniffing and double the filter chain
+	if pluginParams.ListenerProtocol == plugin.ListenerProtocolAuto {
+		allChains = append(allChains, allChains...)
+		listenerOpts.needHttpInspector = true
+	}
+
+	for id, chain := range allChains {
+		var httpOpts *httpListenerOpts = nil
 		var tcpNetworkFilters []listener.Filter
 
 		switch pluginParams.ListenerProtocol {
 		case plugin.ListenerProtocolHTTP:
-			httpOpts = &httpListenerOpts{
-				routeConfig: configgen.buildSidecarInboundHTTPRouteConfig(pluginParams.Env, pluginParams.Node,
-					pluginParams.Push, pluginParams.ServiceInstance),
-				rds:              "", // no RDS for inbound traffic
-				useRemoteAddress: false,
-				direction:        http_conn.INGRESS,
-				connectionManager: &http_conn.HttpConnectionManager{
-					// Append and forward client cert to backend.
-					ForwardClientCertDetails: http_conn.APPEND_FORWARD,
-					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
-						Subject: &google_protobuf.BoolValue{Value: true},
-						Uri:     true,
-						Dns:     true,
-					},
-					ServerName: EnvoyServerName,
-				},
-			}
-			// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
-			if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol.IsHTTP2() {
-				httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
-				if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol == config.ProtocolGRPCWeb {
-					httpOpts.addGRPCWebFilter = true
-				}
-			}
-
-			if features.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
-				httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
-					AcceptHttp_10: true,
-				}
-			}
+			httpOpts = configgen.buildSidecarInboundHttpListenerOptsForPortOrUDS(node, pluginParams)
 
 		case plugin.ListenerProtocolTCP:
 			tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Env, pluginParams.Node, pluginParams.ServiceInstance)
+
+		case plugin.ListenerProtocolAuto:
+			// Build http filter chain
+			if id < len(allChains)/2 {
+				httpOpts = configgen.buildSidecarInboundHttpListenerOptsForPortOrUDS(node, pluginParams)
+
+				if chain.FilterChainMatch == nil {
+					chain.FilterChainMatch = &listener.FilterChainMatch{}
+				}
+
+				chain.FilterChainMatch.ApplicationProtocols = append(chain.FilterChainMatch.ApplicationProtocols, ListenersALPNProtocols...)
+				chain.FilterChainMatch.ApplicationProtocols = append(chain.FilterChainMatch.ApplicationProtocols, "http/1.0")
+			} else {
+				tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Env, pluginParams.Node, pluginParams.ServiceInstance)
+			}
 
 		default:
 			log.Warnf("Unsupported inbound protocol %v for port %#v", pluginParams.ListenerProtocol,
@@ -1323,15 +1354,16 @@ type filterChainOpts struct {
 // buildListenerOpts are the options required to build a Listener
 type buildListenerOpts struct {
 	// nolint: maligned
-	env             *model.Environment
-	proxy           *model.Proxy
-	proxyInstances  []*model.ServiceInstance
-	proxyLabels     config.LabelsCollection
-	bind            string
-	port            int
-	filterChainOpts []*filterChainOpts
-	bindToPort      bool
-	skipUserFilters bool
+	env               *model.Environment
+	proxy             *model.Proxy
+	proxyInstances    []*model.ServiceInstance
+	proxyLabels       config.LabelsCollection
+	bind              string
+	port              int
+	filterChainOpts   []*filterChainOpts
+	bindToPort        bool
+	skipUserFilters   bool
+	needHttpInspector bool
 }
 
 func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpOpts *httpListenerOpts,
@@ -1482,6 +1514,11 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	if needTLSInspector {
 		listenerFiltersMap[envoyListenerTLSInspector] = true
 		listenerFilters = append(listenerFilters, listener.ListenerFilter{Name: envoyListenerTLSInspector})
+	}
+
+	if opts.needHttpInspector {
+		listenerFiltersMap[envoyListenerHttpInspector] = true
+		listenerFilters = append(listenerFilters, listener.ListenerFilter{Name: envoyListenerHttpInspector})
 	}
 
 	for _, chain := range opts.filterChainOpts {

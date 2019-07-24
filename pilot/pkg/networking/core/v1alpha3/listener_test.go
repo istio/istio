@@ -218,6 +218,21 @@ func TestInboundListenerConfig_HTTP(t *testing.T) {
 	}
 }
 
+func TestInboundListenerConfig_Auto(t *testing.T) {
+	for _, p := range []*model.Proxy{&proxy, &proxyHTTP10} {
+		// Add a service and verify it's config
+		testInboundListenerAutoConfig(t, p,
+			buildService("test.com", wildcardIP, config.ProtocolAuto, tnow))
+		testInboundListenerAutoConfigWithSidecar(t, p,
+			buildService("test.com", wildcardIP, config.ProtocolAuto, tnow))
+		testInboundListenerAutoConfigWithSidecar(t, p,
+			buildService("test.com", wildcardIP, config.ProtocolHTTP, tnow))
+		testInboundListenerAutoConfigWithSidecar(t, p,
+			buildService("test.com", wildcardIP, config.ProtocolTCP, tnow))
+		testInboundListenerAutoConfigWithSidecarWithoutServices(t, p)
+	}
+}
+
 func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 	// Add a service and verify it's config
 	services := []*model.Service{
@@ -289,6 +304,142 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 
 	if p.outboundListenerParams[0].Service != oldestService {
 		t.Fatalf("listener conflict failed to preserve listener for the oldest service")
+	}
+}
+
+func testInboundListenerAutoConfigWithSidecar(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
+	t.Helper()
+	p := &fakePlugin{}
+	sidecarConfig := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Number:   8080,
+						Protocol: "Auto",
+						Name:     "uds",
+					},
+					Bind:            "1.1.1.1",
+					DefaultEndpoint: "127.0.0.1:80",
+				},
+			},
+		},
+	}
+	listeners := buildInboundListeners(p, proxy, sidecarConfig, services...)
+
+	if len(listeners) != 1 {
+		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+	}
+
+	testInboundListenerFilterChain(t, listeners[0])
+}
+
+func testInboundListenerAutoConfig(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
+	t.Helper()
+	oldestService := getOldestService(services...)
+	p := &fakePlugin{}
+	listeners := buildInboundListeners(p, proxy, nil, services...)
+	if len(listeners) != 1 {
+		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+	}
+	oldestProtocol := oldestService.Ports[0].Protocol
+
+	if oldestProtocol != config.ProtocolAuto {
+		t.Fatal("expected listener with protocol sniffing")
+	}
+
+	listener := listeners[0]
+	if len(listener.FilterChains) != 4 {
+		t.Fatalf("expected %d filter chains, found %d", 4, len(listener.FilterChains))
+	}
+
+	testInboundListenerFilterChain(t, listener)
+}
+
+func testInboundListenerAutoConfigWithSidecarWithoutServices(t *testing.T, proxy *model.Proxy) {
+	t.Helper()
+	p := &fakePlugin{}
+	sidecarConfig := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "foo-without-service",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Number:   8080,
+						Protocol: "Auto",
+						Name:     "uds",
+					},
+					Bind:            "1.1.1.1",
+					DefaultEndpoint: "127.0.0.1:80",
+				},
+			},
+		},
+	}
+	listeners := buildInboundListeners(p, proxy, sidecarConfig)
+	if expected := 0; len(listeners) != expected {
+		t.Fatalf("expected %d listeners, found %d", expected, len(listeners))
+	}
+}
+
+// Verify filter chain when protocol sniffing is allowed.
+func testInboundListenerFilterChain(t *testing.T, l *xdsapi.Listener) {
+	for i, fc := range l.FilterChains {
+		if i < 2 && fc.FilterChainMatch == nil {
+			t.Fatal("expected non empty filter chain match")
+		}
+
+		if i >= 2 && fc.FilterChainMatch != nil {
+			t.Fatal("expected empty filter chain match")
+		}
+
+		if fc.FilterChainMatch != nil && len(fc.FilterChainMatch.ApplicationProtocols) != 3 {
+			t.Fatalf("expected %d application protocols, found %d", 3, len(fc.FilterChainMatch.ApplicationProtocols))
+		}
+
+		if len(fc.Filters) != 1 {
+			t.Fatalf("expected %d filters, found %d", 1, len(fc.Filters))
+		}
+
+		f := fc.Filters[0]
+
+		if f.Name == "envoy.http_connection_manager" {
+			config, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+
+			forwardDetails, expected := config.Fields["forward_client_cert_details"].GetStringValue(), "APPEND_FORWARD"
+			if forwardDetails != expected {
+				t.Fatalf("expected listener to contain forward_client_cert_details %s, found %s", expected, forwardDetails)
+			}
+			setDetails := config.Fields["set_current_client_cert_details"].GetStructValue()
+			subject := setDetails.Fields["subject"].GetBoolValue()
+			dns := setDetails.Fields["dns"].GetBoolValue()
+			uri := setDetails.Fields["uri"].GetBoolValue()
+			if !subject || !dns || !uri {
+				t.Fatalf("expected listener to contain set_current_client_cert_details (subject: true, dns: true, uri: true), "+
+					"found (subject: %t, dns: %t, uri %t)", subject, dns, uri)
+			}
+
+			actual := config.Fields["normalize_path"].GetBoolValue()
+			if actual != true {
+				t.Errorf("expected HTTP listener with normalize_path set to true, found false")
+			}
+
+			hf := config.Fields["http_filters"].GetListValue()
+			if len(hf.Values) != 4 {
+				t.Fatalf("expected %d http filters, found %d", 4, len(hf.Values))
+			}
+			envoyLua := hf.Values[0].GetStructValue().Fields["name"].GetStringValue()
+			envoyCors := hf.Values[1].GetStructValue().Fields["name"].GetStringValue()
+			if envoyLua != "envoy.lua" || envoyCors != "envoy.cors" {
+				t.Fatalf("expected %q %q http filter, found %q %q", "envoy.lua", "envoy.cors", envoyLua, envoyCors)
+			}
+		}
 	}
 }
 
