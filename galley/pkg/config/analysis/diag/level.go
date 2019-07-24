@@ -12,17 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package scope
+package diag
 
-import "istio.io/pkg/log"
-
-var (
-	// Analysis is a logging scope used by configuration analysis component.
-	Analysis = log.RegisterScope("analysis", "Scope for configuration analysis runtime", 0)
-
-	// Processing is a logging scope used by configuration processing pipeline.
-	Processing = log.RegisterScope("processing", "Scope for configuration processing runtime", 0)
-
-	// Source is a logging scope for config event sources.
-	Source = log.RegisterScope("source", "Scope for configuration event sources", 0)
+import (
+	"fmt"
 )
+
+// Level is the severity level of a message.
+type Level rune
+
+const (
+	// Info level is for informational messages
+	Info Level =  'I'
+
+	// Warning level is for warning messages
+	Warning Level = 'W'
+
+	// Error level is for error messages
+	Error Level = 'E'
+)
+
+// String implements io.Stringer
+func (l Level) String() string {
+	return fmt.Sprintf("%s", string(rune(l)))
+}

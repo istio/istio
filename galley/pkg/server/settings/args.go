@@ -153,7 +153,7 @@ func DefaultArgs() *Args {
 		MonitoringPort:              15014,
 		EnableProfiling:             false,
 		PprofPort:                   9094,
-		UseOldProcessor:             true,
+		UseOldProcessor:             false,
 		Liveness: probe.Options{
 			Path:           defaultLivenessProbeFilePath,
 			UpdateInterval: defaultProbeCheckInterval,

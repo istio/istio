@@ -23,6 +23,7 @@ import (
 type Entry struct {
 	Metadata Metadata
 	Item     proto.Message
+	Origin   Origin
 }
 
 // IsEmpty returns true if the resource Entry.Item is nil.

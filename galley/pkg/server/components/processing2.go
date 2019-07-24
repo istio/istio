@@ -26,8 +26,14 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+
+	"istio.io/pkg/ctrlz/fw"
+	"istio.io/pkg/log"
+
+	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
+	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/source/kube"
@@ -43,8 +49,6 @@ import (
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
-	"istio.io/pkg/ctrlz/fw"
-	"istio.io/pkg/log"
 )
 
 // Processing2 component is the main config processing component that will listen to a config source and publish
@@ -52,8 +56,10 @@ import (
 type Processing2 struct {
 	args *settings.Args
 
-	distributor  *snapshot.Cache
+	mcpCache     *snapshot.Cache
 	configzTopic fw.Topic
+
+	k kube.Interfaces
 
 	serveWG       sync.WaitGroup
 	grpcServer    *grpc.Server
@@ -70,11 +76,11 @@ var _ process.Component = &Processing2{}
 
 // NewProcessing2 returns a new processing component.
 func NewProcessing2(a *settings.Args) *Processing2 {
-	d := snapshot.New(groups.IndexFunction)
+	mcpCache := snapshot.New(groups.IndexFunction)
 	return &Processing2{
 		args:         a,
-		distributor:  d,
-		configzTopic: configz.CreateTopic(d),
+		mcpCache:     mcpCache,
+		configzTopic: configz.CreateTopic(mcpCache),
 	}
 }
 
@@ -82,6 +88,7 @@ func NewProcessing2(a *settings.Args) *Processing2 {
 func (p *Processing2) Start() (err error) {
 	var mesh event.Source
 	var src event.Source
+	var updater snapshotter.StatusUpdater
 
 	if mesh, err = meshcfgNewFS(p.args.MeshConfigFile); err != nil {
 		return
@@ -91,11 +98,13 @@ func (p *Processing2) Start() (err error) {
 
 	kubeResources := p.disableExcludedKubeResources(m)
 
-	if src, err = p.createSource(kubeResources); err != nil {
+	if src, updater, err = p.createSourceAndStatusUpdater(kubeResources); err != nil {
 		return
 	}
 
-	if p.runtime, err = processorInitialize(m, p.args.DomainSuffix, event.CombineSources(mesh, src), p.distributor); err != nil {
+	distributor := snapshotter.NewAnalyzingDistributor(updater, analyzers.All(), snapshotter.NewMCPDistributor(p.mcpCache))
+
+	if p.runtime, err = processorInitialize(m, p.args.DomainSuffix, event.CombineSources(mesh, src), distributor); err != nil {
 		return
 	}
 
@@ -122,7 +131,7 @@ func (p *Processing2) Start() (err error) {
 	p.reporter = mcpMetricReporter("galley/mcp/source")
 
 	options := &source.Options{
-		Watcher:            p.distributor,
+		Watcher:            p.mcpCache,
 		Reporter:           p.reporter,
 		CollectionsOptions: source.CollectionOptionsFromSlice(m.AllCollectionsInSnapshots()),
 		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second, 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
@@ -253,16 +262,28 @@ func (p *Processing2) getServerGrpcOptions() []grpc.ServerOption {
 	return grpcOptions
 }
 
-func (p *Processing2) createSource(resources schema.KubeResources) (src event.Source, err error) {
+func (p *Processing2) getKubeInterfaces() (k kube.Interfaces, err error) {
+	if p.k == nil {
+		p.k, err = newKubeFromConfigFile(p.args.KubeConfig)
+	}
+	k = p.k
+	return
+}
+
+func (p *Processing2) createSourceAndStatusUpdater(resources schema.KubeResources) (
+	src event.Source, updater snapshotter.StatusUpdater, err error) {
+
 	if p.args.ConfigPath != "" {
 		if src, err = fsNew2(p.args.ConfigPath, resources); err != nil {
 			return
 		}
+		updater = &snapshotter.InMemoryStatusUpdater{}
 	} else {
 		var k kube.Interfaces
-		if k, err = newKubeFromConfigFile(p.args.KubeConfig); err != nil {
+		if k, err = p.getKubeInterfaces(); err != nil {
 			return
 		}
+
 		if !p.args.DisableResourceReadyCheck {
 			if err = checkResourceTypesPresence(k, resources); err != nil {
 				return
@@ -274,7 +295,9 @@ func (p *Processing2) createSource(resources schema.KubeResources) (src event.So
 			ResyncPeriod: p.args.ResyncPeriod,
 			Resources:    resources,
 		}
-		src = apiserver.New(o)
+		s := apiserver.New(o)
+		src = s
+		updater = s
 	}
 	return
 }
