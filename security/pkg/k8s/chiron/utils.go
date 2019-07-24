@@ -16,22 +16,26 @@ package chiron
 
 import (
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"net"
+	"reflect"
 	"time"
 
-	"istio.io/istio/pkg/spiffe"
+	"k8s.io/api/admissionregistration/v1beta1"
 
-	istioutil "istio.io/istio/pkg/util"
+	"github.com/ghodss/yaml"
+
+	"istio.io/istio/pkg/spiffe"
 
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 
 	cert "k8s.io/api/certificates/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	admissionreg "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 )
 
 // Generate a certificate and key from k8s CA
@@ -41,7 +45,7 @@ import (
 // 3. Approve a CSR
 // 4. Read the signed certificate
 // 5. Clean up the artifacts (e.g., delete CSR)
-func GenKeyCertK8sCA(wc *WebhookController, secretName string, secretNamespace, svcName string) ([]byte, []byte, error) {
+func genKeyCertK8sCA(wc *WebhookController, secretName string, secretNamespace, svcName string) ([]byte, []byte, error) {
 	// 1. Generate a CSR
 	// Construct the dns id from service name and name space.
 	// Example: istio-pilot.istio-system.svc, istio-pilot.istio-system
@@ -82,7 +86,7 @@ func GenKeyCertK8sCA(wc *WebhookController, secretName string, secretNamespace, 
 	}
 	r, err := wc.certClient.CertificateSigningRequests().Create(k8sCSR)
 	if err != nil {
-		if !errors.IsAlreadyExists(err) {
+		if !kerrors.IsAlreadyExists(err) {
 			log.Debugf("failed to create CSR (%v): %v", csrName, err)
 			return nil, nil, err
 		}
@@ -209,20 +213,26 @@ func GenKeyCertK8sCA(wc *WebhookController, secretName string, secretNamespace, 
 	return certChain, keyPEM, err
 }
 
-func readCACert() ([]byte, error) {
+// Read CA certificate and check whether it is a valid certificate.
+func readCACert(caCertPath string) ([]byte, error) {
 	caCert, err := ioutil.ReadFile(caCertPath)
 	if err != nil {
 		log.Errorf("failed to read CA cert, cert. path: %v, error: %v", caCertPath, err)
 		return nil, fmt.Errorf("failed to read CA cert, cert. path: %v, error: %v", caCertPath, err)
 	}
-	return caCert, nil
-}
 
-func doPatch(client *kubernetes.Clientset, webhookConfigName, webhookName string, caCertPem []byte) {
-	if err := istioutil.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
-		webhookConfigName, webhookName, caCertPem); err != nil {
-		log.Errorf("Patch webhook failed: %v", err)
+	b, _ := pem.Decode(caCert)
+	if b == nil {
+		return nil, fmt.Errorf("could not decode pem")
 	}
+	if b.Type != "CERTIFICATE" {
+		return nil, fmt.Errorf("ca certificate contains wrong type: %v", b.Type)
+	}
+	if _, err := x509.ParseCertificate(b.Bytes); err != nil {
+		return nil, fmt.Errorf("ca certificate parsing returns an error: %v", err)
+	}
+
+	return caCert, nil
 }
 
 func isTCPReachable(host string, port int) bool {
@@ -235,4 +245,83 @@ func isTCPReachable(host string, port int) bool {
 	}
 	defer conn.Close()
 	return true
+}
+
+// Rebuild the desired mutatingwebhookconfiguration from the specified CA
+// and webhook config files. This also ensures the OwnerReferences is set
+// so that the cluster-scoped mutatingwebhookconfiguration is properly
+// cleaned up when the mutating webhook is deleted.
+func rebuildMutatingWebhookConfigHelper(
+	caCert []byte, webhookConfigFile, webhookConfigName string,
+) (*v1beta1.MutatingWebhookConfiguration, error) {
+	// load and validate configuration
+	webhookConfigData, err := ioutil.ReadFile(webhookConfigFile)
+	if err != nil {
+		return nil, err
+	}
+	var webhookConfig v1beta1.MutatingWebhookConfiguration
+	if err := yaml.Unmarshal(webhookConfigData, &webhookConfig); err != nil {
+		return nil, fmt.Errorf("could not decode mutatingwebhookconfiguration from %v: %v",
+			webhookConfigFile, err)
+	}
+
+	// fill in missing defaults to minimize desired vs. actual diffs later.
+	for i := 0; i < len(webhookConfig.Webhooks); i++ {
+		if webhookConfig.Webhooks[i].FailurePolicy == nil {
+			failurePolicy := v1beta1.Fail
+			webhookConfig.Webhooks[i].FailurePolicy = &failurePolicy
+		}
+		if webhookConfig.Webhooks[i].NamespaceSelector == nil {
+			webhookConfig.Webhooks[i].NamespaceSelector = &metav1.LabelSelector{}
+		}
+	}
+
+	// the webhook name is fixed at startup time
+	webhookConfig.Name = webhookConfigName
+
+	// patch the ca-cert into the user provided configuration
+	for i := range webhookConfig.Webhooks {
+		webhookConfig.Webhooks[i].ClientConfig.CABundle = caCert
+	}
+
+	return &webhookConfig, nil
+}
+
+// Create the specified mutatingwebhookconfiguration resource or, if the resource
+// already exists, update it's contents with the desired state.
+func createOrUpdateMutatingWebhookConfigHelper(
+	client admissionreg.MutatingWebhookConfigurationInterface,
+	webhookConfig *v1beta1.MutatingWebhookConfiguration,
+) (bool, error) {
+	current, err := client.Get(webhookConfig.Name, metav1.GetOptions{})
+	if err != nil {
+		log.Debugf("get webhook config %v returns an err: %v", webhookConfig.Name, err)
+		// If the mutatingwebhookconfiguration does not exist yet, create the config.
+		if kerrors.IsNotFound(err) {
+			// Create the mutatingwebhookconfiguration
+			if _, createErr := client.Create(webhookConfig); createErr != nil {
+				return false, createErr
+			}
+			return true, nil
+		}
+		// There is an error when getting the webhookconfiguration and the error is
+		// not that the webhookconfiguration does not exist. In this case, simply
+		// return and skip the update.
+		return false, err
+	}
+	// Otherwise, when getting the webhookconfiguration returns nil, update the configuration
+	// only if the webhooks in the current is different from those configured. Only copy the relevant fields
+	// that we want reconciled and ignore everything else, e.g. labels, selectors.
+	updated := current.DeepCopyObject().(*v1beta1.MutatingWebhookConfiguration)
+	updated.Webhooks = webhookConfig.Webhooks
+
+	if !reflect.DeepEqual(updated, current) {
+		// Update mutatingwebhookconfiguration to based on current and the webhook configured.
+		_, err := client.Update(updated)
+		if err != nil {
+			log.Errorf("update webhookconfiguration returns err: %v", err)
+		}
+		return true, err
+	}
+	return false, nil
 }

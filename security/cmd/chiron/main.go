@@ -58,20 +58,21 @@ type cliOptions struct {
 	// The namespace of the webhook certificates
 	certificateNamespace string
 	kubeConfigFile       string
+
+	// The file path of k8s CA certificate
+	k8sCaCertFile string
+
+	// The file paths of the mutatingwebhookconfigurations.
+	// In prototype, only one path is supported.
+	mutatingWebhookConfigFiles string
 	// The names of the MutatingWebhookConfiguration to manage
 	// In prototype, only one is supported.
 	mutatingWebhookConfigNames string
-	// The names of the webhooks in webhook configurations
-	// In prototype, only one is supported.
-	mutatingWebhookNames string
 
 	// TODO (lei-tang): Add the name of the ValidatingWebhookConfiguration to manage
 
 	// The minimum grace period for cert rotation.
 	certMinGracePeriod time.Duration
-
-	// Monitoring port number
-	monitoringPort int
 
 	logOptions *log.Options
 	// Currently, no topic is registered for ctrlz yet
@@ -81,9 +82,6 @@ type cliOptions struct {
 	// If certGracePeriodRatio is 0.2, and cert TTL is 24 hours, then the rotation will happen
 	// after 24*(1-0.2) hours since the cert is issued.
 	certGracePeriodRatio float32
-
-	// Enable profiling in monitoring
-	enableProfiling bool
 
 	// Whether enable the webhook controller
 	enableController bool
@@ -100,10 +98,12 @@ func init() {
 	flags.StringVar(&opts.kubeConfigFile, "kube-config", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
 
-	// Monitoring configuration
-	flags.IntVar(&opts.monitoringPort, "monitoring-port", 15021, "The port number for monitoring Chiron. "+
-		"If unspecified, Chiron will disable monitoring.")
-	flags.BoolVar(&opts.enableProfiling, "enable-profiling", false, "Enabling profiling when monitoring Chiron.")
+	// Specifies the file path to k8s CA certificate.
+	// The default value is configured based on https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/:
+	// the CA certificate bundle is automatically mounted into pods using the default
+	// service account at the path /var/run/secrets/kubernetes.io/serviceaccount/ca.crt.
+	flags.StringVar(&opts.k8sCaCertFile, "k8s-ca-cert-file", "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
+		"Specifies the file path to k8s CA certificate.")
 
 	// Certificate issuance configuration.
 	flags.Float32Var(&opts.certGracePeriodRatio, "cert-grace-period-ratio",
@@ -113,21 +113,19 @@ func init() {
 		cmd.DefaultWorkloadMinCertGracePeriod, "The minimum certificate rotation grace period.")
 
 	// MutatingWebhook configuration
+	flags.StringVar(&opts.mutatingWebhookConfigFiles, "mutating-webhook-config-files", "/etc/protomutate-webhook-config/mutatingwebhookconfiguration.yaml",
+		"The file paths of the mutatingwebhookconfigurations, separated by comma.")
 	flags.StringVar(&opts.mutatingWebhookConfigNames, "mutating-webhook-config-names", "istio-sidecar-injector",
 		"The names of the mutatingwebhookconfiguration resources in Kubernetes, separated by comma. Chiron will manage them.")
-	flags.StringVar(&opts.mutatingWebhookNames, "mutating-webhook-names", "sidecar-injector.istio.io",
-		"The names of the webhook in mutatingwebhookconfigurations, separated by comma. Only the specified webhooks will be managed by Chiron.")
 
 	// Hide the command line options for the prototype
 	_ = flags.MarkHidden("enable-controller")
 	_ = flags.MarkHidden("certificate-namespace")
 	_ = flags.MarkHidden("kube-config")
-	_ = flags.MarkHidden("monitoring-port")
-	_ = flags.MarkHidden("enable-profiling")
 	_ = flags.MarkHidden("cert-grace-period-ratio")
 	_ = flags.MarkHidden("cert-min-grace-period")
-	_ = flags.MarkHidden("mutating-webhook-config-name")
-	_ = flags.MarkHidden("mutating-webhook-name")
+	_ = flags.MarkHidden("mutating-webhook-config-files")
+	_ = flags.MarkHidden("mutating-webhook-config-names")
 
 	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
@@ -162,14 +160,14 @@ func runWebhookController() {
 		os.Exit(1)
 	}
 
+	mutatingWebhookConfigFiles := strings.Split(opts.mutatingWebhookConfigFiles, ",")
 	mutatingWebhookConfigNames := strings.Split(opts.mutatingWebhookConfigNames, ",")
-	mutatingWebhookNames := strings.Split(opts.mutatingWebhookNames, ",")
 
 	stopCh := make(chan struct{})
 
 	sc, err := chiron.NewWebhookController(opts.certGracePeriodRatio, opts.certMinGracePeriod,
 		k8sClient, k8sClient.CoreV1(), k8sClient.CertificatesV1beta1(),
-		opts.certificateNamespace, mutatingWebhookConfigNames, mutatingWebhookNames)
+		opts.k8sCaCertFile, opts.certificateNamespace, mutatingWebhookConfigFiles, mutatingWebhookConfigNames)
 	if err != nil {
 		log.Errorf("failed to create webhook controller: %v", err)
 		os.Exit(1)
@@ -177,7 +175,7 @@ func runWebhookController() {
 
 	// Run the controller to manage the lifecycles of webhook certificates and webhook configurations
 	sc.Run(stopCh)
-	defer sc.CaCertWatcher.Close()
+	defer sc.ConfigWatcher.Close()
 
 	istiocmd.WaitSignal(stopCh)
 }
