@@ -68,4 +68,5 @@ func TestSnapshot_WrongCollection(t *testing.T) {
 	sn := &snapshotImpl{set: set}
 
 	g.Expect(sn.Version("foo")).To(Equal(""))
+	g.Expect(sn.Resources("foo")).To(BeEmpty())
 }
