@@ -183,7 +183,7 @@ func TestDirectResponse(t *testing.T) {
 			directive: &mixerpb.RouteDirective{
 				DirectResponseCode: http.StatusMovedPermanently,
 				ResponseHeaderOperations: []mixerpb.HeaderOperation{
-					mixerpb.HeaderOperation{
+					{
 						Operation: mixerpb.REPLACE,
 						Name:      "Location",
 						Value:     "URL",
@@ -200,17 +200,17 @@ func TestDirectResponse(t *testing.T) {
 			directive: &mixerpb.RouteDirective{
 				DirectResponseCode: http.StatusMovedPermanently,
 				ResponseHeaderOperations: []mixerpb.HeaderOperation{
-					mixerpb.HeaderOperation{
+					{
 						Operation: mixerpb.REPLACE,
 						Name:      "Location",
 						Value:     "URL",
 					},
-					mixerpb.HeaderOperation{
+					{
 						Operation: mixerpb.APPEND,
 						Name:      "Set-Cookie",
 						Value:     "c1=1; Secure; HttpOnly;",
 					},
-					mixerpb.HeaderOperation{
+					{
 						Operation: mixerpb.APPEND,
 						Name:      "Set-Cookie",
 						Value:     "c2=2",
