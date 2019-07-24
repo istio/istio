@@ -878,10 +878,9 @@ func validatePort(node *model.Proxy, i int, bindToPort bool) bool {
 	return proxyProcessUID == "0"
 }
 
-func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerForPortOrUDS(destinationCIDR *string, listenerMapKey *string,
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerForPortOrUDS(listenerMapKey *string,
 	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts,
-	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry,
-	virtualServices []model.Config, actualWildcard string) (bool, []*filterChainOpts) {
+	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry, actualWildcard string) (bool, []*filterChainOpts) {
 	// first identify the bind if its not set. Then construct the key
 	// used to lookup the listener in the conflict map.
 	if len(listenerOpts.bind) == 0 { // no user specified bind. Use 0.0.0.0:Port
@@ -1073,14 +1072,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	var destinationCIDR string
 	var listenerMapKey string
 	var currentListenerEntry *outboundListenerEntry
-
-	ret := true
-	opts := []*filterChainOpts{{}}
+	var ret bool
+	var opts []*filterChainOpts
 
 	switch pluginParams.ListenerProtocol {
 	case plugin.ListenerProtocolHTTP:
-		if ret, opts = configgen.buildSidecarOutboundHTTPListenerForPortOrUDS(&destinationCIDR, &listenerMapKey, &currentListenerEntry,
-			&listenerOpts, pluginParams, listenerMap, virtualServices, actualWildcard); !ret {
+		if ret, opts = configgen.buildSidecarOutboundHTTPListenerForPortOrUDS(&listenerMapKey, &currentListenerEntry,
+			&listenerOpts, pluginParams, listenerMap, actualWildcard); !ret {
 			return
 		}
 
@@ -1095,8 +1093,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		listenerOpts.filterChainOpts = opts
 
 	case plugin.ListenerProtocolAuto:
-		if ret, opts = configgen.buildSidecarOutboundHTTPListenerForPortOrUDS(&destinationCIDR, &listenerMapKey, &currentListenerEntry,
-			&listenerOpts, pluginParams, listenerMap, virtualServices, actualWildcard); !ret {
+		if ret, opts = configgen.buildSidecarOutboundHTTPListenerForPortOrUDS(&listenerMapKey, &currentListenerEntry,
+			&listenerOpts, pluginParams, listenerMap, actualWildcard); !ret {
 			return
 		}
 
