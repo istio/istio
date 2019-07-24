@@ -1117,7 +1117,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		}
 
 		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
-		listenerOpts.needHttpInspector = true
+		listenerOpts.needHTTPInspector = true
 
 	default:
 		// UDP or other protocols: no need to log, it's too noisy
