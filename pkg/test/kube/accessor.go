@@ -336,6 +336,15 @@ func (a *Accessor) ValidatingWebhookConfigurationExists(name string) bool {
 	return err == nil
 }
 
+// GetValidatingWebhookConfigurationGeneration returns the current generation number (useful for detecting updates)
+func (a *Accessor) GetValidatingWebhookConfigurationGeneration(name string) (int64, error) {
+	whc, err := a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(name, kubeApiMeta.GetOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("Could not get validating webhook config: %s", name)
+	}
+	return whc.GetGeneration(), nil
+}
+
 // GetCustomResourceDefinitions gets the CRDs
 func (a *Accessor) GetCustomResourceDefinitions() ([]kubeApiExt.CustomResourceDefinition, error) {
 	crd, err := a.extSet.ApiextensionsV1beta1().CustomResourceDefinitions().List(kubeApiMeta.ListOptions{})
@@ -495,6 +504,11 @@ func (a *Accessor) Logs(namespace string, pod string, container string, previous
 // Exec executes the provided command on the specified pod/container.
 func (a *Accessor) Exec(namespace, pod, container, command string) (string, error) {
 	return a.ctl.exec(namespace, pod, container, command)
+}
+
+// ScaleDeployment scales a deployment to the specified number of replicas.
+func (a *Accessor) ScaleDeployment(namespace, deployment string, replicas int) error {
+	return a.ctl.scale(namespace, deployment, replicas)
 }
 
 // CheckPodReady returns nil if the given pod and all of its containers are ready.
