@@ -22,8 +22,6 @@ import (
 	tcp_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 
-	"istio.io/istio/pilot/pkg/security/authz/policy/test"
-
 	istio_rbac "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
@@ -161,15 +159,15 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 		{
 			name: "HTTP rule",
 			policies: []*model.Config{
-				test.SimpleRole("role-1", "a", "bar"),
-				test.SimpleBinding("binding-1", "a", "role-1"),
+				policy.SimpleRole("role-1", "a", "bar"),
+				policy.SimpleBinding("binding-1", "a", "role-1"),
 			},
 			wantRuleWithPolicies: true,
 		},
 	}
 
 	for _, tc := range testCases {
-		p := test.NewAuthzPolicies(tc.policies, t)
+		p := policy.NewAuthzPolicies(tc.policies, t)
 		b := NewBuilder(service, p, tc.isXDSMarshalingToAnyEnabled)
 
 		got := b.BuildHTTPFilter()
@@ -213,8 +211,8 @@ func TestBuilder_BuildTCPFilter(t *testing.T) {
 		{
 			name: "HTTP rule",
 			policies: []*model.Config{
-				test.SimpleRole("role-1", "a", "foo"),
-				test.SimpleBinding("binding-1", "a", "role-1"),
+				policy.SimpleRole("role-1", "a", "foo"),
+				policy.SimpleBinding("binding-1", "a", "role-1"),
 			},
 			wantRules:            true,
 			wantRuleWithPolicies: false,
@@ -233,7 +231,7 @@ func TestBuilder_BuildTCPFilter(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		p := test.NewAuthzPolicies(tc.policies, t)
+		p := policy.NewAuthzPolicies(tc.policies, t)
 		b := NewBuilder(service, p, tc.isXDSMarshalingToAnyEnabled)
 
 		got := b.BuildTCPFilter()

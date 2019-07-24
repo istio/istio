@@ -19,9 +19,8 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	"istio.io/istio/pilot/pkg/security/authz/policy/test"
-
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/security/authz/policy"
 )
 
 func TestBuilder_buildV2(t *testing.T) {
@@ -33,7 +32,7 @@ func TestBuilder_buildV2(t *testing.T) {
 		"app": "bar",
 	}
 	namespaceB := "b"
-	serviceFooInNamespaceA := test.NewServiceMetadata("foo.a.svc.cluster.local", labelFoo, t)
+	serviceFooInNamespaceA := policy.NewServiceMetadata("foo.a.svc.cluster.local", labelFoo, t)
 	testCases := []struct {
 		name         string
 		policies     []*model.Config
@@ -46,79 +45,79 @@ func TestBuilder_buildV2(t *testing.T) {
 		{
 			name: "no policy in namespace a",
 			policies: []*model.Config{
-				test.SimpleRole("role", namespaceB, ""),
-				test.SimpleAuthorizationPolicy("policy", namespaceB, labelFoo, "role"),
+				policy.SimpleRole("role", namespaceB, ""),
+				policy.SimpleAuthorizationPolicy("policy", namespaceB, labelFoo, "role"),
 			},
 		},
 		{
 			name: "no policy matched for workload foo",
 			policies: []*model.Config{
-				test.SimpleRole("role", namespaceA, ""),
-				test.SimpleAuthorizationPolicy("policy", namespaceA, labelBar, "role"),
+				policy.SimpleRole("role", namespaceA, ""),
+				policy.SimpleAuthorizationPolicy("policy", namespaceA, labelBar, "role"),
 			},
 		},
 		{
 			name: "no role for workload foo",
 			policies: []*model.Config{
-				test.SimpleAuthorizationPolicy("policy-1", namespaceA, labelFoo, "role-1"),
-				test.SimpleRole("role-2", namespaceA, ""),
-				test.SimpleAuthorizationPolicy("policy-2", namespaceA, labelBar, "role-2"),
-				test.SimpleRole("role-3", namespaceB, ""),
-				test.SimpleAuthorizationPolicy("policy-3", namespaceB, labelFoo, "role-3"),
+				policy.SimpleAuthorizationPolicy("policy-1", namespaceA, labelFoo, "role-1"),
+				policy.SimpleRole("role-2", namespaceA, ""),
+				policy.SimpleAuthorizationPolicy("policy-2", namespaceA, labelBar, "role-2"),
+				policy.SimpleRole("role-3", namespaceB, ""),
+				policy.SimpleAuthorizationPolicy("policy-3", namespaceB, labelFoo, "role-3"),
 			},
 		},
 		{
 			name: "one policy and one role",
 			policies: []*model.Config{
-				test.SimpleRole("role", namespaceA, ""),
-				test.SimpleAuthorizationPolicy("policy", namespaceA, labelFoo, "role"),
+				policy.SimpleRole("role", namespaceA, ""),
+				policy.SimpleAuthorizationPolicy("policy", namespaceA, labelFoo, "role"),
 			},
 			wantRules: map[string][]string{
-				"authz-[policy]-allow[0]": {test.RoleTag("role"), test.AuthzPolicyTag("policy")},
+				"authz-[policy]-allow[0]": {policy.RoleTag("role"), policy.AuthzPolicyTag("policy")},
 			},
 		},
 		{
 			name: "one policy and one role: forTCPFilter",
 			policies: []*model.Config{
-				test.SimpleRole("role", namespaceA, ""),
-				test.SimpleAuthorizationPolicy("policy", namespaceA, labelFoo, "role"),
+				policy.SimpleRole("role", namespaceA, ""),
+				policy.SimpleAuthorizationPolicy("policy", namespaceA, labelFoo, "role"),
 			},
 			forTCPFilter: true,
 		},
 		{
 			name: "two policies and one role",
 			policies: []*model.Config{
-				test.SimpleRole("role", namespaceA, ""),
-				test.SimpleAuthorizationPolicy("policy-1", namespaceA, labelFoo, "role"),
-				test.SimpleAuthorizationPolicy("policy-2", namespaceA, labelFoo, "role"),
+				policy.SimpleRole("role", namespaceA, ""),
+				policy.SimpleAuthorizationPolicy("policy-1", namespaceA, labelFoo, "role"),
+				policy.SimpleAuthorizationPolicy("policy-2", namespaceA, labelFoo, "role"),
 			},
 			wantRules: map[string][]string{
 				"authz-[policy-1]-allow[0]": {
-					test.RoleTag("role"),
-					test.AuthzPolicyTag("policy-1"),
+					policy.RoleTag("role"),
+					policy.AuthzPolicyTag("policy-1"),
 				},
 				"authz-[policy-2]-allow[0]": {
-					test.RoleTag("role"),
-					test.AuthzPolicyTag("policy-2"),
+					policy.RoleTag("role"),
+					policy.AuthzPolicyTag("policy-2"),
 				},
 			},
 		},
 		{
 			name: "two policies and two roles",
 			policies: []*model.Config{
-				test.SimpleRole("role-1", namespaceA, ""),
-				test.SimpleAuthorizationPolicy("policy-1", namespaceA, labelFoo, "role-1"),
-				test.SimpleRole("role-2", namespaceA, ""),
-				test.SimpleAuthorizationPolicy("policy-2", namespaceA, labelFoo, "role-2"),
+				policy.SimpleRole("role-1", namespaceA, ""),
+				policy.SimpleAuthorizationPolicy("policy-1", namespaceA, labelFoo, "role-1"),
+				policy.SimpleRole("role-2", namespaceA, ""),
+				policy.SimpleAuthorizationPolicy("policy-2", namespaceA, labelFoo, "role-2"),
 			},
 			wantRules: map[string][]string{
 				"authz-[policy-1]-allow[0]": {
-					test.RoleTag("role-1"),
-					test.AuthzPolicyTag("policy-1"),
+					policy.RoleTag("role-1"),
+					policy.AuthzPolicyTag("policy-1"),
 				},
 				"authz-[policy-2]-allow[0]": {
-					test.RoleTag("role-2"),
-					test.AuthzPolicyTag("policy-2"),
+					policy.RoleTag("role-2"),
+					policy.AuthzPolicyTag("policy-2"),
 				},
 			},
 		},
@@ -126,7 +125,7 @@ func TestBuilder_buildV2(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			authzPolicies := test.NewAuthzPolicies(tc.policies, t)
+			authzPolicies := policy.NewAuthzPolicies(tc.policies, t)
 			if authzPolicies == nil {
 				t.Fatal("failed to create authz policies")
 			}
@@ -141,7 +140,7 @@ func TestBuilder_buildV2(t *testing.T) {
 			if got.GetRules() == nil {
 				t.Fatal("rule must not be nil")
 			}
-			if err := test.Verify(got.GetRules(), tc.wantRules); err != nil {
+			if err := policy.Verify(got.GetRules(), tc.wantRules); err != nil {
 				t.Fatalf("%s\n%s", err, gotStr)
 			}
 		})
