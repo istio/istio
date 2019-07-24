@@ -119,7 +119,7 @@ func TestVirtualListenerBuilder(t *testing.T) {
 
 	builder := NewListenerBuilder(&proxy)
 	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, &proxy, env.PushContext, instances).
-		buildVirtualOutboundListener(&env, &proxy).
+		buildVirtualOutboundListener(ldsEnv.configgen, &env, &proxy, env.PushContext, instances).
 		getListeners()
 
 	// app port listener and virtual inbound listener
@@ -169,7 +169,7 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 
 	builder := NewListenerBuilder(&proxy)
 	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, &proxy, env.PushContext, instances).
-		buildVirtualOutboundListener(&env, &proxy).
+		buildVirtualOutboundListener(ldsEnv.configgen, &env, &proxy, env.PushContext, instances).
 		buildVirtualInboundListener(&env, &proxy).
 		getListeners()
 

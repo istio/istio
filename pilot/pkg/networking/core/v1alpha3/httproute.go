@@ -214,7 +214,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		// This needs to be the last virtual host, as routes are evaluated in order.
 		if isAllowAnyOutbound(node) {
 			virtualHosts = append(virtualHosts, route.VirtualHost{
-				Name:    "allow_any",
+				Name:    util.PassthroughRouteName,
 				Domains: []string{"*"},
 				Routes: []route.Route{
 					{
@@ -231,7 +231,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 			})
 		} else {
 			virtualHosts = append(virtualHosts, route.VirtualHost{
-				Name:    "block_all",
+				Name:    util.BlackHoleRouteName,
 				Domains: []string{"*"},
 				Routes: []route.Route{
 					{

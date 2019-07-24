@@ -143,6 +143,11 @@ type Plugin interface {
 	// Can be used to add additional filters.
 	OnInboundListener(in *InputParams, mutable *MutableObjects) error
 
+	// OnVirtualListener is called whenever a new virtual listener is added to the
+	// LDS output for a given service
+	// Can be used to add additional filters.
+	OnVirtualListener(in *InputParams, mutable *MutableObjects) error
+
 	// OnOutboundCluster is called whenever a new cluster is added to the CDS output.
 	// This is called once per push cycle, and not for every sidecar/gateway, except for gateways with non-standard
 	// operating modes.
