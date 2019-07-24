@@ -23,5 +23,8 @@ data:
         url: {{ .Values.dashboard.jaegerURL }}
       grafana:
         url: {{ .Values.dashboard.grafanaURL }}
+{{- if .Values.dashboard.grafana.auth }}
+{{ toYaml .Values.dashboard.grafana.auth | indent 8 }}
+{{- end }}
       prometheus:
         url: {{ .Values.prometheusAddr }}
