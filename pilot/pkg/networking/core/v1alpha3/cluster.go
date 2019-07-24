@@ -881,7 +881,7 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 	}
 
 	// Redis protocol must be defaulted with MAGLEV to benefit from client side sharding.
-	if features.EnableRedisFilter() && port != nil && port.Protocol == config.ProtocolRedis {
+	if features.EnableRedisFilter && port != nil && port.Protocol == config.ProtocolRedis {
 		cluster.LbPolicy = apiv2.Cluster_MAGLEV
 		return
 	}
