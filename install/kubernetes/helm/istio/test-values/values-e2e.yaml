@@ -99,5 +99,8 @@ mixer:
   kiali:
     enabled: true
 
+kiali:
+  env:
+    test: "TEST_ENV"
 sidecarInjectorWebhook:
   rewriteAppHTTPProbe: true
