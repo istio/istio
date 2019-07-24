@@ -465,7 +465,7 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 	// hence adding the attributes for the mixer filter
 	case *route.Route_DirectResponse:
 		if virtualHostname == util.BlackHoleRouteName {
-			hostname := model.Hostname(util.BlackHoleCluster)
+			hostname := config.Hostname(util.BlackHoleCluster)
 			attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
 			addFilterConfigToRoute(in, httpRoute, attrs, isXDSMarshalingToAnyEnabled)
 		}

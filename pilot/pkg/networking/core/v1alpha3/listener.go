@@ -1216,11 +1216,11 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Envir
 	push *model.PushContext, proxyInstances []*model.ServiceInstance,
 	ipTablesListener *xdsapi.Listener) *xdsapi.Listener {
 
-	hostname := model.Hostname(util.BlackHoleCluster)
+	hostname := config.Hostname(util.BlackHoleCluster)
 	mesh := env.Mesh
 	redirectPort := &model.Port{
 		Port:     int(mesh.ProxyListenPort),
-		Protocol: model.ProtocolTCP,
+		Protocol: config.ProtocolTCP,
 	}
 
 	if len(ipTablesListener.FilterChains) < 1 || len(ipTablesListener.FilterChains[0].Filters) < 1 {
