@@ -120,11 +120,11 @@ func TestServerSource(t *testing.T) {
 	}
 
 	// ProcessStream error
+	wantError := errors.New("unknown")
+	h.setRecvError(wantError)
 	go func() {
 		errc <- s.EstablishResourceStream(h)
 	}()
-	wantError := errors.New("unknown")
-	h.setRecvError(wantError)
 	err = <-errc
 	if err != wantError {
 		t.Fatalf("Stream exited with error: got %v want %v", err, wantError)
