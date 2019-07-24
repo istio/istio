@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package sds_managed_ca_flow
+package sdsmanagedcaflow
 
 import (
 	"fmt"
@@ -37,17 +37,17 @@ var (
 
 // Cluster and project specific values from env vars.
 var (
-	projectId       string
+	projectID       string
 	clusterLocation string
 	clusterName     string
 )
 
 func TestMain(m *testing.M) {
 	// NOTE: Currently, this test is only intended to run manually on a managed CA whitelisted cluster.
-	projectId = env.RegisterStringVar("PROJECT_ID", "", "").Get()
+	projectID = env.RegisterStringVar("PROJECT_ID", "", "").Get()
 	clusterLocation = env.RegisterStringVar("CLUSTER_LOCATION", "", "").Get()
 	clusterName = env.RegisterStringVar("CLUSTER_NAME", "", "").Get()
-	if projectId == "" || clusterLocation == "" || clusterName == "" {
+	if projectID == "" || clusterLocation == "" || clusterName == "" {
 		return
 	}
 	framework.
@@ -74,6 +74,8 @@ func setupConfig(cfg *istio.Config) {
 	}
 	// Overwrite Istio standard helm values with managed CA and IDNS.
 	cfg.ValuesFile = "example-values/values-istio-googleca.yaml"
-	cfg.Values["global.trustDomain"] = fmt.Sprintf("%s.svc.id.goog", projectId)
-	cfg.Values["nodeagent.env.GKE_CLUSTER_URL"] = fmt.Sprintf("https://container.googleapis.com/v1/projects/%s/locations/%s/clusters/%s", projectId, clusterLocation, clusterName)
+	cfg.Values["global.trustDomain"] = fmt.Sprintf("%s.svc.id.goog", projectID)
+	cfg.Values["nodeagent.env.GKE_CLUSTER_URL"] = fmt.Sprintf(
+		"https://container.googleapis.com/v1/projects/%s/locations/%s/clusters/%s",
+		projectID, clusterLocation, clusterName)
 }
