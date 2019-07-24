@@ -89,7 +89,7 @@ func ParseProtocol(s string) Protocol {
 		return ProtocolMySQL
 	}
 
-	return ProtocolUnsupported
+	return ProtocolAuto
 }
 
 // IsHTTP2 is true for protocols that use HTTP/2 as transport protocol
