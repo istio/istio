@@ -44,4 +44,4 @@ make localTestEnv test
 HUB="gcr.io/istio-testing"
 TAG="${GIT_SHA}"
 # upload images
-time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}"
+time ISTIO_DOCKER_HUB="${HUB}" make gcs.push HUB="${HUB}" TAG="${TAG}"
