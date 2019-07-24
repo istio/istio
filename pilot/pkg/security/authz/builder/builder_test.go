@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
+	"istio.io/istio/pkg/config"
 )
 
 func newAuthzPolicyWithRbacConfig(mode istio_rbac.RbacConfig_Mode, include *istio_rbac.RbacConfig_Target,
@@ -53,14 +54,14 @@ func newService(hostname string, labels map[string]string, t *testing.T) *model.
 				Name:      name,
 				Namespace: namespace,
 			},
-			Hostname: model.Hostname(hostname),
+			Hostname: config.Hostname(hostname),
 		},
 		Labels: labels,
 	}
 }
 
 func simpleGlobalPermissiveMode() *model.Config {
-	config := &model.Config{
+	cfg := &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      model.ClusterRbacConfig.Type,
 			Name:      "default",
@@ -71,7 +72,7 @@ func simpleGlobalPermissiveMode() *model.Config {
 			EnforcementMode: istio_rbac.EnforcementMode_PERMISSIVE,
 		},
 	}
-	return config
+	return cfg
 }
 
 func TestIsRbacEnabled(t *testing.T) {

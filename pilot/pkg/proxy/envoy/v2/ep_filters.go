@@ -23,6 +23,7 @@ import (
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config"
 )
 
 // EndpointsFilterFunc is a function that filters data from the ClusterLoadAssignment and returns updated one
@@ -57,7 +58,7 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 
 	// A new array of endpoints to be returned that will have both local and
 	// remote gateways (if any)
-	filtered := []endpoint.LocalityLbEndpoints{}
+	filtered := make([]endpoint.LocalityLbEndpoints, 0)
 
 	// Go through all cluster endpoints and add those with the same network as the sidecar
 	// to the result. Also count the number of endpoints per each remote network while
@@ -66,7 +67,7 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 		// Weight (number of endpoints) for the EDS cluster for each remote networks
 		remoteEps := map[string]uint32{}
 
-		lbEndpoints := []endpoint.LbEndpoint{}
+		lbEndpoints := make([]endpoint.LbEndpoint, 0)
 		for _, lbEp := range ep.LbEndpoints {
 			epNetwork := istioMetadata(lbEp, "network")
 			if epNetwork == network {
@@ -99,7 +100,7 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 			}
 
 			registryName := getNetworkRegistry(networkConf)
-			gwEps := []endpoint.LbEndpoint{}
+			gwEps := make([]endpoint.LbEndpoint, 0)
 			// There may be multiples gateways for the network. Add an LbEndpoint for
 			// each one of them
 			for _, gw := range gws {
@@ -204,7 +205,7 @@ func getGatewayAddresses(gw *v1alpha1.Network_IstioNetworkGateway, registryName 
 
 	// Second, try to find the gateway addresses by the provided service name
 	if gwSvcName := gw.GetRegistryServiceName(); len(gwSvcName) > 0 && len(registryName) > 0 {
-		svc, _ := env.GetService(model.Hostname(gwSvcName))
+		svc, _ := env.GetService(config.Hostname(gwSvcName))
 		if svc != nil {
 			return svc.Attributes.ClusterExternalAddresses[registryName]
 		}

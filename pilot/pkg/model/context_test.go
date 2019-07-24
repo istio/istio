@@ -24,6 +24,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pkg/config"
 )
 
 func TestServiceNode(t *testing.T) {
@@ -84,15 +85,15 @@ func TestParsePort(t *testing.T) {
 }
 
 func TestDefaultConfig(t *testing.T) {
-	config := model.DefaultProxyConfig()
-	if err := model.ValidateProxyConfig(&config); err != nil {
+	proxyConfig := config.DefaultProxyConfig()
+	if err := config.ValidateProxyConfig(&proxyConfig); err != nil {
 		t.Errorf("validation of default proxy config failed with %v", err)
 	}
 }
 
 func TestDefaultMeshConfig(t *testing.T) {
-	mesh := model.DefaultMeshConfig()
-	if err := model.ValidateMeshConfig(&mesh); err != nil {
+	mesh := config.DefaultMeshConfig()
+	if err := config.ValidateMeshConfig(&mesh); err != nil {
 		t.Errorf("validation of default mesh config failed with %v", err)
 	}
 }
@@ -104,10 +105,10 @@ defaultConfig:
   configPath: %s
 `, configPath)
 
-	want := model.DefaultMeshConfig()
+	want := config.DefaultMeshConfig()
 	want.DefaultConfig.ConfigPath = configPath
 
-	got, err := model.ApplyMeshConfigDefaults(yaml)
+	got, err := config.ApplyMeshConfigDefaults(yaml)
 	if err != nil {
 		t.Fatalf("ApplyMeshConfigDefaults() failed: %v", err)
 	}
@@ -133,7 +134,7 @@ networks:
       port: 443
 `)
 
-	want := model.EmptyMeshNetworks()
+	want := config.EmptyMeshNetworks()
 	want.Networks = map[string]*meshconfig.Network{
 		"network1": {
 			Endpoints: []*meshconfig.Network_NetworkEndpoints{
@@ -171,7 +172,7 @@ networks:
 		},
 	}
 
-	got, err := model.LoadMeshNetworksConfig(yml)
+	got, err := config.LoadMeshNetworksConfig(yml)
 	if err != nil {
 		t.Fatalf("ApplyMeshNetworksDefaults() failed: %v", err)
 	}

@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
@@ -339,7 +340,7 @@ func TestLDS(t *testing.T) {
 			return
 		}
 
-		strResponse, _ := model.ToJSONWithIndent(res, " ")
+		strResponse, _ := config.ToJSONWithIndent(res, " ")
 		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_sidecar.json", []byte(strResponse), 0644)
 
 		if len(res.Resources) == 0 {
@@ -364,7 +365,7 @@ func TestLDS(t *testing.T) {
 			t.Fatal("Failed to receive LDS", err)
 		}
 
-		strResponse, _ := model.ToJSONWithIndent(res, " ")
+		strResponse, _ := config.ToJSONWithIndent(res, " ")
 
 		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_gateway.json", []byte(strResponse), 0644)
 
@@ -390,7 +391,7 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 		args.Service.Registries = []string{}
 	})
 	registry := memServiceDiscovery(server, t)
-	registry.AddWorkload("98.1.1.1", model.Labels{"app": "consumeronly"}) // These labels must match the sidecars workload selector
+	registry.AddWorkload("98.1.1.1", config.Labels{"app": "consumeronly"}) // These labels must match the sidecars workload selector
 
 	testEnv = testenv.NewTestSetup(testenv.SidecarConsumerOnlyTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
@@ -462,9 +463,9 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 	})
 	registry := memServiceDiscovery(server, t)
 	// The labels of 98.1.1.1 must match the envoyfilter workload selector
-	registry.AddWorkload("98.1.1.1", model.Labels{"app": "envoyfilter-test-app", "some": "otherlabel"})
-	registry.AddWorkload("98.1.1.2", model.Labels{"app": "no-envoyfilter-test-app"})
-	registry.AddWorkload("98.1.1.3", model.Labels{})
+	registry.AddWorkload("98.1.1.1", config.Labels{"app": "envoyfilter-test-app", "some": "otherlabel"})
+	registry.AddWorkload("98.1.1.2", config.Labels{"app": "no-envoyfilter-test-app"})
+	registry.AddWorkload("98.1.1.3", config.Labels{})
 
 	testEnv = testenv.NewTestSetup(testenv.SidecarConsumerOnlyTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)

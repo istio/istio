@@ -27,6 +27,7 @@ import (
 	"github.com/hashicorp/consul/api"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 )
 
 var (
@@ -124,29 +125,29 @@ func newServer() *mockServer {
 			data, _ := json.Marshal(&m.Services)
 			m.Lock.Unlock()
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintln(w, string(data))
+			_, _ = fmt.Fprintln(w, string(data))
 		} else if r.URL.Path == "/v1/catalog/service/reviews" {
 			m.Lock.Lock()
 			data, _ := json.Marshal(&m.Reviews)
 			m.Lock.Unlock()
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintln(w, string(data))
+			_, _ = fmt.Fprintln(w, string(data))
 		} else if r.URL.Path == "/v1/catalog/service/productpage" {
 			m.Lock.Lock()
 			data, _ := json.Marshal(&m.Productpage)
 			m.Lock.Unlock()
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintln(w, string(data))
+			_, _ = fmt.Fprintln(w, string(data))
 		} else if r.URL.Path == "/v1/catalog/service/rating" {
 			m.Lock.Lock()
 			data, _ := json.Marshal(&m.Rating)
 			m.Lock.Unlock()
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintln(w, string(data))
+			_, _ = fmt.Fprintln(w, string(data))
 		} else {
 			data, _ := json.Marshal(&[]*api.CatalogService{})
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintln(w, string(data))
+			_, _ = fmt.Fprintln(w, string(data))
 		}
 	}))
 
@@ -163,7 +164,7 @@ func TestInstances(t *testing.T) {
 	}
 
 	hostname := serviceHostname("reviews")
-	instances, err := controller.InstancesByPort(hostname, 0, model.LabelsCollection{})
+	instances, err := controller.InstancesByPort(hostname, 0, config.LabelsCollection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
@@ -179,8 +180,8 @@ func TestInstances(t *testing.T) {
 
 	filterTagKey := "version"
 	filterTagVal := "v3"
-	instances, err = controller.InstancesByPort(hostname, 0, model.LabelsCollection{
-		model.Labels{filterTagKey: filterTagVal},
+	instances, err = controller.InstancesByPort(hostname, 0, config.LabelsCollection{
+		config.Labels{filterTagKey: filterTagVal},
 	})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
@@ -201,7 +202,7 @@ func TestInstances(t *testing.T) {
 	}
 
 	filterPort := 9081
-	instances, err = controller.InstancesByPort(hostname, filterPort, model.LabelsCollection{})
+	instances, err = controller.InstancesByPort(hostname, filterPort, config.LabelsCollection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
@@ -225,7 +226,7 @@ func TestInstancesBadHostname(t *testing.T) {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	instances, err := controller.InstancesByPort("", 0, model.LabelsCollection{})
+	instances, err := controller.InstancesByPort("", 0, config.LabelsCollection{})
 	if err == nil {
 		t.Error("Instances() should return error when provided bad hostname")
 	}
@@ -243,7 +244,7 @@ func TestInstancesError(t *testing.T) {
 	}
 
 	ts.Server.Close()
-	instances, err := controller.InstancesByPort(serviceHostname("reviews"), 0, model.LabelsCollection{})
+	instances, err := controller.InstancesByPort(serviceHostname("reviews"), 0, config.LabelsCollection{})
 	if err == nil {
 		t.Error("Instances() should return error when client experiences connection problem")
 	}
@@ -448,32 +449,32 @@ func TestGetProxyWorkloadLabels(t *testing.T) {
 	tests := []struct {
 		name     string
 		ips      []string
-		expected model.LabelsCollection
+		expected config.LabelsCollection
 	}{
 		{
 			name:     "Rating",
 			ips:      []string{"10.78.11.18", "172.19.0.12"},
-			expected: model.LabelsCollection{{"version": "v1"}},
+			expected: config.LabelsCollection{{"version": "v1"}},
 		},
 		{
 			name:     "No proxy ip",
 			ips:      nil,
-			expected: model.LabelsCollection{},
+			expected: config.LabelsCollection{},
 		},
 		{
 			name:     "No match",
 			ips:      []string{"1.2.3.4", "2.3.4.5"},
-			expected: model.LabelsCollection{},
+			expected: config.LabelsCollection{},
 		},
 		{
 			name:     "Only match on Service Address",
 			ips:      []string{"172.19.0.5"},
-			expected: model.LabelsCollection{},
+			expected: config.LabelsCollection{},
 		},
 		{
 			name:     "Match multiple services",
 			ips:      []string{"172.19.0.7", "172.19.0.8"},
-			expected: model.LabelsCollection{{"version": "v2"}, {"version": "v3"}},
+			expected: config.LabelsCollection{{"version": "v2"}, {"version": "v3"}},
 		},
 	}
 
@@ -501,7 +502,7 @@ func TestGetServiceByCache(t *testing.T) {
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
-	controller.GetService("productpage.service.consul")
+	_, _ = controller.GetService("productpage.service.consul")
 	ts.Server.Close()
 	service, err := controller.GetService("productpage.service.consul")
 	if err != nil {
@@ -527,7 +528,7 @@ func TestGetInstanceByCacheAfterChanged(t *testing.T) {
 	go controller.Run(make(chan struct{}))
 
 	hostname := serviceHostname("reviews")
-	instances, err := controller.InstancesByPort(hostname, 0, model.LabelsCollection{})
+	instances, err := controller.InstancesByPort(hostname, 0, config.LabelsCollection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
@@ -557,7 +558,7 @@ func TestGetInstanceByCacheAfterChanged(t *testing.T) {
 	ts.Lock.Unlock()
 
 	time.Sleep(2 * time.Second)
-	instances, err = controller.InstancesByPort(hostname, 0, model.LabelsCollection{})
+	instances, err = controller.InstancesByPort(hostname, 0, config.LabelsCollection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}

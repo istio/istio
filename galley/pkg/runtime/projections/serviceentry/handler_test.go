@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -945,7 +945,7 @@ func (b *serviceEntryBuilder) Build() *networking.ServiceEntry {
 			{
 				Name:     "http",
 				Number:   80,
-				Protocol: string(model.ProtocolHTTP),
+				Protocol: string(config.ProtocolHTTP),
 			},
 		},
 		SubjectAltNames: expectedSubjectAltNames(ns, b.serviceAccounts),

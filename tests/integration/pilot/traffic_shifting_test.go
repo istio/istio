@@ -30,7 +30,7 @@ import (
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -175,7 +175,7 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 		Ports: []echo.Port{
 			{
 				Name:     "http",
-				Protocol: model.ProtocolHTTP,
+				Protocol: config.ProtocolHTTP,
 			},
 		},
 		Galley: g,

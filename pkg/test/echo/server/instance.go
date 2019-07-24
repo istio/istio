@@ -23,6 +23,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/server/endpoint"
 	"istio.io/pkg/log"
@@ -143,11 +144,11 @@ func (s *Instance) waitUntilReady() error {
 func (s *Instance) validate() error {
 	for _, port := range s.Ports {
 		switch port.Protocol {
-		case model.ProtocolTCP:
-		case model.ProtocolHTTP:
-		case model.ProtocolHTTPS:
-		case model.ProtocolHTTP2:
-		case model.ProtocolGRPC:
+		case config.ProtocolTCP:
+		case config.ProtocolHTTP:
+		case config.ProtocolHTTPS:
+		case config.ProtocolHTTP2:
+		case config.ProtocolGRPC:
 		default:
 			return fmt.Errorf("protocol %v not currently supported", port.Protocol)
 		}

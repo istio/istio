@@ -22,9 +22,9 @@ import (
 	"github.com/onsi/gomega"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/config"
 )
 
 func TestNoPilotSanIfAuthenticationNone(t *testing.T) {
@@ -110,12 +110,12 @@ func TestPilotDefaultDomainKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role.DNSDomain = ""
 	registry = serviceregistry.KubernetesRegistry
-	os.Setenv("POD_NAMESPACE", "default")
+	_ = os.Setenv("POD_NAMESPACE", "default")
 
 	domain := getDNSDomain(role.DNSDomain)
 
 	g.Expect(domain).To(gomega.Equal("default.svc.cluster.local"))
-	os.Unsetenv("POD_NAMESPACE")
+	_ = os.Unsetenv("POD_NAMESPACE")
 }
 
 func TestDetectSds(t *testing.T) {
@@ -319,10 +319,10 @@ func TestCustomMixerSanIfAuthenticationMutualDomainKubernetes(t *testing.T) {
 func TestDedupeStrings(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	in := []string{
-		model.DefaultCertChain, model.DefaultKey, model.DefaultRootCert,
-		model.DefaultCertChain, model.DefaultKey, model.DefaultRootCert,
+		config.DefaultCertChain, config.DefaultKey, config.DefaultRootCert,
+		config.DefaultCertChain, config.DefaultKey, config.DefaultRootCert,
 	}
-	expected := []string{model.DefaultCertChain, model.DefaultKey, model.DefaultRootCert}
+	expected := []string{config.DefaultCertChain, config.DefaultKey, config.DefaultRootCert}
 
 	actual := dedupeStrings(in)
 

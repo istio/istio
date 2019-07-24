@@ -23,6 +23,8 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/spiffe"
 
 	coreV1 "k8s.io/api/core/v1"
@@ -39,28 +41,28 @@ func TestConvertProtocol(t *testing.T) {
 	type protocolCase struct {
 		name  string
 		proto coreV1.Protocol
-		out   model.Protocol
+		out   config.Protocol
 	}
 	protocols := []protocolCase{
-		{"", coreV1.ProtocolTCP, model.ProtocolTCP},
-		{"http", coreV1.ProtocolTCP, model.ProtocolHTTP},
-		{"http-test", coreV1.ProtocolTCP, model.ProtocolHTTP},
-		{"http", coreV1.ProtocolUDP, model.ProtocolUDP},
-		{"httptest", coreV1.ProtocolTCP, model.ProtocolTCP},
-		{"https", coreV1.ProtocolTCP, model.ProtocolHTTPS},
-		{"https-test", coreV1.ProtocolTCP, model.ProtocolHTTPS},
-		{"http2", coreV1.ProtocolTCP, model.ProtocolHTTP2},
-		{"http2-test", coreV1.ProtocolTCP, model.ProtocolHTTP2},
-		{"grpc", coreV1.ProtocolTCP, model.ProtocolGRPC},
-		{"grpc-test", coreV1.ProtocolTCP, model.ProtocolGRPC},
-		{"grpc-web", coreV1.ProtocolTCP, model.ProtocolGRPCWeb},
-		{"grpc-web-test", coreV1.ProtocolTCP, model.ProtocolGRPCWeb},
-		{"mongo", coreV1.ProtocolTCP, model.ProtocolMongo},
-		{"mongo-test", coreV1.ProtocolTCP, model.ProtocolMongo},
-		{"redis", coreV1.ProtocolTCP, model.ProtocolRedis},
-		{"redis-test", coreV1.ProtocolTCP, model.ProtocolRedis},
-		{"mysql", coreV1.ProtocolTCP, model.ProtocolMySQL},
-		{"mysql-test", coreV1.ProtocolTCP, model.ProtocolMySQL},
+		{"", coreV1.ProtocolTCP, config.ProtocolTCP},
+		{"http", coreV1.ProtocolTCP, config.ProtocolHTTP},
+		{"http-test", coreV1.ProtocolTCP, config.ProtocolHTTP},
+		{"http", coreV1.ProtocolUDP, config.ProtocolUDP},
+		{"httptest", coreV1.ProtocolTCP, config.ProtocolTCP},
+		{"https", coreV1.ProtocolTCP, config.ProtocolHTTPS},
+		{"https-test", coreV1.ProtocolTCP, config.ProtocolHTTPS},
+		{"http2", coreV1.ProtocolTCP, config.ProtocolHTTP2},
+		{"http2-test", coreV1.ProtocolTCP, config.ProtocolHTTP2},
+		{"grpc", coreV1.ProtocolTCP, config.ProtocolGRPC},
+		{"grpc-test", coreV1.ProtocolTCP, config.ProtocolGRPC},
+		{"grpc-web", coreV1.ProtocolTCP, config.ProtocolGRPCWeb},
+		{"grpc-web-test", coreV1.ProtocolTCP, config.ProtocolGRPCWeb},
+		{"mongo", coreV1.ProtocolTCP, config.ProtocolMongo},
+		{"mongo-test", coreV1.ProtocolTCP, config.ProtocolMongo},
+		{"redis", coreV1.ProtocolTCP, config.ProtocolRedis},
+		{"redis-test", coreV1.ProtocolTCP, config.ProtocolRedis},
+		{"mysql", coreV1.ProtocolTCP, config.ProtocolMySQL},
+		{"mysql-test", coreV1.ProtocolTCP, config.ProtocolMySQL},
 	}
 
 	// Create the list of cases for all of the names in both upper and lowercase.
@@ -81,7 +83,7 @@ func TestConvertProtocol(t *testing.T) {
 	for _, c := range cases {
 		testName := strings.Replace(fmt.Sprintf("%s_%s", c.name, c.proto), "-", "_", -1)
 		t.Run(testName, func(t *testing.T) {
-			out := ConvertProtocol(c.name, c.proto)
+			out := kube.ConvertProtocol(c.name, c.proto)
 			if out != c.out {
 				t.Fatalf("convertProtocol(%q, %q) => %q, want %q", c.name, c.proto, out, c.out)
 			}
@@ -93,19 +95,19 @@ func BenchmarkConvertProtocol(b *testing.B) {
 	cases := []struct {
 		name  string
 		proto coreV1.Protocol
-		out   model.Protocol
+		out   config.Protocol
 	}{
-		{"grpc-web-lowercase", coreV1.ProtocolTCP, model.ProtocolGRPCWeb},
-		{"GRPC-WEB-mixedcase", coreV1.ProtocolTCP, model.ProtocolGRPCWeb},
-		{"https-lowercase", coreV1.ProtocolTCP, model.ProtocolHTTPS},
-		{"HTTPS-mixedcase", coreV1.ProtocolTCP, model.ProtocolHTTPS},
+		{"grpc-web-lowercase", coreV1.ProtocolTCP, config.ProtocolGRPCWeb},
+		{"GRPC-WEB-mixedcase", coreV1.ProtocolTCP, config.ProtocolGRPCWeb},
+		{"https-lowercase", coreV1.ProtocolTCP, config.ProtocolHTTPS},
+		{"HTTPS-mixedcase", coreV1.ProtocolTCP, config.ProtocolHTTPS},
 	}
 
 	for _, c := range cases {
 		testName := strings.Replace(c.name, "-", "_", -1)
 		b.Run(testName, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				out := ConvertProtocol(c.name, c.proto)
+				out := kube.ConvertProtocol(c.name, c.proto)
 				if out != c.out {
 					b.Fatalf("convertProtocol(%q, %q) => %q, want %q", c.name, c.proto, out, c.out)
 				}
@@ -172,7 +174,7 @@ func TestServiceConversion(t *testing.T) {
 	}
 
 	if service.External() {
-		t.Fatalf("service should not be external")
+		t.Fatal("service should not be external")
 	}
 
 	if service.Hostname != ServiceHostname(serviceName, namespace, domainSuffix) {
@@ -271,7 +273,7 @@ func TestExternalServiceConversion(t *testing.T) {
 	}
 
 	if !service.External() {
-		t.Fatalf("service should be external")
+		t.Fatal("service should be external")
 	}
 
 	if service.Hostname != ServiceHostname(serviceName, namespace, domainSuffix) {
@@ -315,6 +317,7 @@ func TestExternalClusterLocalServiceConversion(t *testing.T) {
 	}
 
 	if !service.External() {
+		t.Fatal("ExternalName service (even if .cluster.local) should be external")
 		t.Fatalf("ExternalName service (even if .cluster.local) should be external")
 	}
 
@@ -388,12 +391,12 @@ func TestProbesToPortsConversion(t *testing.T) {
 		{
 			Name:     "mgmt-3306",
 			Port:     3306,
-			Protocol: model.ProtocolTCP,
+			Protocol: config.ProtocolTCP,
 		},
 		{
 			Name:     "mgmt-9080",
 			Port:     9080,
-			Protocol: model.ProtocolHTTP,
+			Protocol: config.ProtocolHTTP,
 		},
 	}
 

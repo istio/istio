@@ -23,7 +23,7 @@ import (
 	"reflect"
 	"strconv"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -155,11 +155,11 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 
 func schemeForPort(port *echo.Port) (scheme.Instance, error) {
 	switch port.Protocol {
-	case model.ProtocolGRPC, model.ProtocolGRPCWeb, model.ProtocolHTTP2:
+	case config.ProtocolGRPC, config.ProtocolGRPCWeb, config.ProtocolHTTP2:
 		return scheme.GRPC, nil
-	case model.ProtocolHTTP, model.ProtocolTCP:
+	case config.ProtocolHTTP, config.ProtocolTCP:
 		return scheme.HTTP, nil
-	case model.ProtocolHTTPS, model.ProtocolTLS:
+	case config.ProtocolHTTPS, config.ProtocolTLS:
 		return scheme.HTTPS, nil
 	default:
 		return "", fmt.Errorf("failed creating call for port %s: unsupported protocol %s",

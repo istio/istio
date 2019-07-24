@@ -19,7 +19,7 @@ import (
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -85,7 +85,7 @@ type Port struct {
 	Name string
 
 	// Protocol to be used for the port.
-	Protocol model.Protocol
+	Protocol config.Protocol
 
 	// ServicePort number where the service can be reached. Does not necessarily
 	// map to the corresponding port numbers for the instances behind the

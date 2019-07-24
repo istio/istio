@@ -17,7 +17,7 @@ package rbac
 import (
 	"testing"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -535,7 +535,7 @@ func TestV2_Extended(t *testing.T) {
 				},
 			}
 
-			rootNamespace := model.DefaultMeshConfig().RootNamespace
+			rootNamespace := config.DefaultMeshConfig().RootNamespace
 			namespaceTmpl := map[string]string{
 				"Namespace":     ns.Name(),
 				"RootNamespace": rootNamespace,

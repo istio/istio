@@ -26,6 +26,7 @@ import (
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/pkg/log"
 )
 
@@ -81,22 +82,22 @@ func ConvertObjectFromUnstructured(schema model.ProtoSchema, un *unstructured.Un
 }
 
 // ConvertConfig translates Istio config to k8s config JSON
-func ConvertConfig(schema model.ProtoSchema, config model.Config) (IstioObject, error) {
-	spec, err := model.ToJSONMap(config.Spec)
+func ConvertConfig(schema model.ProtoSchema, cfg model.Config) (IstioObject, error) {
+	spec, err := config.ToJSONMap(cfg.Spec)
 	if err != nil {
 		return nil, err
 	}
-	namespace := config.Namespace
+	namespace := cfg.Namespace
 	if namespace == "" {
 		namespace = meta_v1.NamespaceDefault
 	}
 	out := KnownTypes[schema.Type].Object.DeepCopyObject().(IstioObject)
 	out.SetObjectMeta(meta_v1.ObjectMeta{
-		Name:            config.Name,
+		Name:            cfg.Name,
 		Namespace:       namespace,
-		ResourceVersion: config.ResourceVersion,
-		Labels:          config.Labels,
-		Annotations:     config.Annotations,
+		ResourceVersion: cfg.ResourceVersion,
+		Labels:          cfg.Labels,
+		Annotations:     cfg.Annotations,
 	})
 	out.SetSpec(spec)
 
@@ -111,7 +112,7 @@ func ResourceName(s string) string {
 
 // ResourceGroup generates the k8s API group for each schema.
 func ResourceGroup(schema *model.ProtoSchema) string {
-	return schema.Group + model.IstioAPIGroupDomain
+	return schema.Group + config.IstioAPIGroupDomain
 }
 
 // TODO - add special cases for type-to-kind and kind-to-type
@@ -187,18 +188,18 @@ func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioK
 			continue
 		}
 
-		config, err := ConvertObject(schema, &obj, "")
+		cfg, err := ConvertObject(schema, &obj, "")
 		if err != nil {
 			return nil, nil, fmt.Errorf("cannot parse proto message: %v", err)
 		}
 
 		if withValidate {
-			if err := schema.Validate(config.Name, config.Namespace, config.Spec); err != nil {
+			if err := schema.Validate(cfg.Name, cfg.Namespace, cfg.Spec); err != nil {
 				return nil, nil, fmt.Errorf("configuration is invalid: %v", err)
 			}
 		}
 
-		varr = append(varr, *config)
+		varr = append(varr, *cfg)
 	}
 
 	return varr, others, nil
