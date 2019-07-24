@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"fmt"
 	"reflect"
 	"sync"
 	"testing"
@@ -70,7 +71,7 @@ func ExpectDequeue(t *testing.T, p *PushQueue, expected *XdsConnection) {
 func TestProxyQueue(t *testing.T) {
 	proxies := make([]*XdsConnection, 0, 100)
 	for p := 0; p < 100; p++ {
-		proxies = append(proxies, &XdsConnection{ConID: string(p)})
+		proxies = append(proxies, &XdsConnection{ConID: fmt.Sprintf("proxy-%d", p)})
 	}
 
 	t.Run("simple add and remove", func(t *testing.T) {
@@ -182,35 +183,48 @@ func TestProxyQueue(t *testing.T) {
 
 	t.Run("concurrent", func(t *testing.T) {
 		p := NewPushQueue()
+		key := func(p *XdsConnection, eds string) string { return fmt.Sprintf("%s~%s", p.ConID, eds) }
 
-		go func() {
+		// We will trigger many pushes for eds services to each proxy. In the end we will expect
+		// all of these to be dequeue, but order is not deterministic.
+		expected := map[string]struct{}{}
+		for eds := 0; eds < 100; eds++ {
 			for _, pr := range proxies {
-				p.Enqueue(pr, &PushInformation{})
+				expected[key(pr, fmt.Sprintf("%d", eds))] = struct{}{}
 			}
-		}()
-		errs := make(chan error)
-		wg := sync.WaitGroup{}
-		wg.Add(1)
+		}
 		go func() {
-			expect := 0
-			for {
-				ExpectDequeue(t, p, proxies[expect])
-				expect++
-				if expect == len(proxies) {
-					wg.Done()
-					break
+			for eds := 0; eds < 100; eds++ {
+				for _, pr := range proxies {
+					p.Enqueue(pr, &PushInformation{edsUpdatedServices: map[string]struct{}{
+						fmt.Sprintf("%d", eds): {},
+					}})
 				}
 			}
 		}()
+
+		done := make(chan struct{})
+		mu := sync.RWMutex{}
 		go func() {
-			for _, pr := range proxies {
-				p.Enqueue(pr, &PushInformation{})
+			for {
+				con, info := p.Dequeue()
+				for eds := range info.edsUpdatedServices {
+					mu.Lock()
+					delete(expected, key(con, eds))
+					mu.Unlock()
+				}
+				if len(expected) == 0 {
+					done <- struct{}{}
+				}
 			}
 		}()
-		wg.Wait()
-		close(errs)
-		for err := range errs {
-			t.Fatal(err)
+
+		select {
+		case <-done:
+		case <-time.After(time.Second * 10):
+			mu.RLock()
+			defer mu.RUnlock()
+			t.Fatalf("failed to get all updates, still pending: %v", len(expected))
 		}
 	})
 }
