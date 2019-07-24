@@ -124,23 +124,25 @@ func TestBuilder_buildV2(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		authzPolicies := policy.NewAuthzPolicies(tc.policies, t)
-		if authzPolicies == nil {
-			t.Fatalf("%s: failed to create authz policies", tc.name)
-		}
-		b := NewGenerator(serviceFooInNamespaceA, authzPolicies, false)
-		if b == nil {
-			t.Fatalf("%s: failed to create builder", tc.name)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			authzPolicies := policy.NewAuthzPolicies(tc.policies, t)
+			if authzPolicies == nil {
+				t.Fatal("failed to create authz policies")
+			}
+			b := NewGenerator(serviceFooInNamespaceA, authzPolicies, false)
+			if b == nil {
+				t.Fatal("failed to create builder")
+			}
 
-		got := b.Generate(tc.forTCPFilter)
-		gotStr := spew.Sdump(got)
+			got := b.Generate(tc.forTCPFilter)
+			gotStr := spew.Sdump(got)
 
-		if got.GetRules() == nil {
-			t.Errorf("%s: rule must not be nil", tc.name)
-		}
-		if err := policy.Verify(got.GetRules(), tc.wantRules); err != nil {
-			t.Errorf("%s: %s\n%s", tc.name, err, gotStr)
-		}
+			if got.GetRules() == nil {
+				t.Fatal("rule must not be nil")
+			}
+			if err := policy.Verify(got.GetRules(), tc.wantRules); err != nil {
+				t.Fatalf("%s\n%s", err, gotStr)
+			}
+		})
 	}
 }

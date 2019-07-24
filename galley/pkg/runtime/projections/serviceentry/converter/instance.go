@@ -26,8 +26,8 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config"
+	configKube "istio.io/istio/pkg/config/kube"
 
 	coreV1 "k8s.io/api/core/v1"
 )
@@ -83,11 +83,11 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *mcp.Metadata
 	}
 
 	// Check for unspecified Cluster IP
-	addr := model.UnspecifiedIP
+	addr := config.UnspecifiedIP
 	if spec.ClusterIP != "" && spec.ClusterIP != coreV1.ClusterIPNone {
 		addr = spec.ClusterIP
 	}
-	if addr == model.UnspecifiedIP && externalName == "" {
+	if addr == config.UnspecifiedIP && externalName == "" {
 		// Headless services should not be load balanced
 		resolution = networking.ServiceEntry_NONE
 	}
@@ -277,6 +277,6 @@ func convertPort(port coreV1.ServicePort) *networking.Port {
 	return &networking.Port{
 		Name:     port.Name,
 		Number:   uint32(port.Port),
-		Protocol: string(kube.ConvertProtocol(port.Name, port.Protocol)),
+		Protocol: string(configKube.ConvertProtocol(port.Name, port.Protocol)),
 	}
 }

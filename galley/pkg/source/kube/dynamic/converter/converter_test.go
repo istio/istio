@@ -22,16 +22,17 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	extensions "k8s.io/api/extensions/v1beta1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshcfg "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
+
+	extensions "k8s.io/api/extensions/v1beta1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func TestGet(t *testing.T) {
@@ -543,7 +544,7 @@ func TestKubeIngressResource(t *testing.T) {
 }
 
 func TestShouldProcessIngress(t *testing.T) {
-	istio := model.DefaultMeshConfig().IngressClass
+	istio := config.DefaultMeshConfig().IngressClass
 	cases := []struct {
 		ingressClass  string
 		ingressMode   meshcfg.MeshConfig_IngressControllerMode
@@ -574,7 +575,7 @@ func TestShouldProcessIngress(t *testing.T) {
 			},
 		}
 
-		mesh := model.DefaultMeshConfig()
+		mesh := config.DefaultMeshConfig()
 		mesh.IngressControllerMode = c.ingressMode
 		cch := meshconfig.NewInMemory()
 		cch.Set(mesh)

@@ -24,9 +24,9 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -59,8 +59,8 @@ type nativeComponent struct {
 }
 
 // NewNativeComponent factory function for the component
-func newNative(ctx resource.Context, config Config) (Instance, error) {
-	if config.Galley == nil {
+func newNative(ctx resource.Context, cfg Config) (Instance, error) {
+	if cfg.Galley == nil {
 		return nil, errors.New("galley must be provided")
 	}
 
@@ -68,7 +68,7 @@ func newNative(ctx resource.Context, config Config) (Instance, error) {
 	instance := &nativeComponent{
 		environment: ctx.Environment().(*native.Environment),
 		stopChan:    make(chan struct{}),
-		config:      config,
+		config:      cfg,
 	}
 	instance.id = ctx.TrackResource(instance)
 
@@ -84,10 +84,10 @@ func newNative(ctx resource.Context, config Config) (Instance, error) {
 		SecureGrpcAddr: ":0",
 	}
 
-	tmpMesh := model.DefaultMeshConfig()
+	tmpMesh := config.DefaultMeshConfig()
 	mesh := &tmpMesh
-	if config.MeshConfig != nil {
-		mesh = config.MeshConfig
+	if cfg.MeshConfig != nil {
+		mesh = cfg.MeshConfig
 	}
 
 	bootstrapArgs := bootstrap.PilotArgs{
@@ -114,7 +114,7 @@ func newNative(ctx resource.Context, config Config) (Instance, error) {
 	}
 	// Set as MCP address, note needs to strip 'tcp://' from the address prefix
 	bootstrapArgs.MeshConfig.ConfigSources = []*meshconfig.ConfigSource{
-		{Address: config.Galley.Address()[6:]},
+		{Address: cfg.Galley.Address()[6:]},
 	}
 	bootstrapArgs.MCPMaxMessageSize = bootstrap.DefaultMCPMaxMsgSize
 

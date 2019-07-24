@@ -31,6 +31,7 @@ import (
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
@@ -222,7 +223,7 @@ func initSplitHorizonTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc
 func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string, numOfEndpoints int) {
 	id := fmt.Sprintf("network%d", clusterNum)
 	memRegistry := v2.NewMemServiceDiscovery(
-		map[model.Hostname]*model.Service{}, 2)
+		map[config.Hostname]*model.Service{}, 2)
 	server.ServiceController.AddRegistry(aggregate.Registry{
 		ClusterID:        id,
 		Name:             serviceregistry.ServiceRegistry("memAdapter"),
@@ -230,7 +231,7 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 		Controller:       &v2.MemServiceController{},
 	})
 
-	gws := []*meshconfig.Network_IstioNetworkGateway{}
+	gws := make([]*meshconfig.Network_IstioNetworkGateway, 0)
 	for _, gatewayIP := range gatewaysIP {
 		if gatewayIP != "" {
 			if server.EnvoyXdsServer.Env.MeshNetworks == nil {
@@ -273,7 +274,7 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 				ServicePort: &model.Port{
 					Name:     "http-main",
 					Port:     1080,
-					Protocol: model.ProtocolHTTP,
+					Protocol: config.ProtocolHTTP,
 				},
 				Network:  id,
 				Locality: "az",

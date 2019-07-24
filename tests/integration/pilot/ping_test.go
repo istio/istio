@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -47,11 +47,11 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 	ports := []echo.Port{
 		{
 			Name:     "http",
-			Protocol: model.ProtocolHTTP,
+			Protocol: config.ProtocolHTTP,
 		},
 		{
 			Name:     "tcp",
-			Protocol: model.ProtocolTCP,
+			Protocol: config.ProtocolTCP,
 		},
 	}
 

@@ -20,12 +20,13 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 )
 
 const (
 	wildcardNamespace = "*"
 	currentNamespace  = "."
-	wildcardService   = Hostname("*")
+	wildcardService   = config.Hostname("*")
 )
 
 // SidecarScope is a wrapper over the Sidecar resource with some
@@ -75,7 +76,7 @@ type SidecarScope struct {
 	// corresponds to a service in the services array above. When computing
 	// CDS, we simply have to find the matching service and return the
 	// destination rule.
-	destinationRules map[Hostname]*Config
+	destinationRules map[config.Hostname]*Config
 
 	// CDSOutboundClusters is the CDS output for sidecars that map to this
 	// sidecarScope object. Contains the outbound clusters only, indexed
@@ -104,7 +105,7 @@ type IstioEgressListenerWrapper struct {
 	// We cannot use a map of Hostnames because Hostname match allows
 	// wildcard matching semantics (i.e. foo.bar.com will match import like *.com).
 	// Go's map/hash data structure doesn't do such semantic matches
-	listenerHosts map[string][]Hostname
+	listenerHosts map[string][]config.Hostname
 
 	// List of services imported by this egress listener extracted from the
 	// listenerHosts above. This will be used by LDS and RDS code when
@@ -138,17 +139,17 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	}
 
 	defaultEgressListener := &IstioEgressListenerWrapper{
-		listenerHosts: map[string][]Hostname{wildcardNamespace: {wildcardService}},
+		listenerHosts: map[string][]config.Hostname{wildcardNamespace: {wildcardService}},
 	}
 	defaultEgressListener.services = ps.Services(&dummyNode)
 
-	meshGateway := map[string]bool{IstioMeshGateway: true}
+	meshGateway := map[string]bool{config.IstioMeshGateway: true}
 	defaultEgressListener.virtualServices = ps.VirtualServices(&dummyNode, meshGateway)
 
 	out := &SidecarScope{
 		EgressListeners:  []*IstioEgressListenerWrapper{defaultEgressListener},
 		services:         defaultEgressListener.services,
-		destinationRules: make(map[Hostname]*Config),
+		destinationRules: make(map[config.Hostname]*Config),
 	}
 
 	// Now that we have all the services that sidecars using this scope (in
@@ -203,7 +204,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
-	out.destinationRules = make(map[Hostname]*Config)
+	out.destinationRules = make(map[config.Hostname]*Config)
 	for _, s := range out.services {
 		out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
 	}
@@ -231,7 +232,7 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 
 	out := &IstioEgressListenerWrapper{
 		IstioListener: istioListener,
-		listenerHosts: make(map[string][]Hostname),
+		listenerHosts: make(map[string][]config.Hostname),
 	}
 
 	if istioListener.Hosts != nil {
@@ -241,10 +242,10 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 				parts[0] = configNamespace
 			}
 			if _, exists := out.listenerHosts[parts[0]]; !exists {
-				out.listenerHosts[parts[0]] = make([]Hostname, 0)
+				out.listenerHosts[parts[0]] = make([]config.Hostname, 0)
 			}
 
-			out.listenerHosts[parts[0]] = append(out.listenerHosts[parts[0]], Hostname(parts[1]))
+			out.listenerHosts[parts[0]] = append(out.listenerHosts[parts[0]], config.Hostname(parts[1]))
 		}
 	}
 
@@ -253,7 +254,7 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	}
 
 	out.services = out.selectServices(ps.Services(&dummyNode))
-	meshGateway := map[string]bool{IstioMeshGateway: true}
+	meshGateway := map[string]bool{config.IstioMeshGateway: true}
 	out.virtualServices = out.selectVirtualServices(ps.VirtualServices(&dummyNode, meshGateway))
 
 	return out
@@ -271,7 +272,7 @@ func (sc *SidecarScope) Services() []*Service {
 
 // DestinationRule returns the destination rule applicable for a given hostname
 // used by CDS code
-func (sc *SidecarScope) DestinationRule(hostname Hostname) *Config {
+func (sc *SidecarScope) DestinationRule(hostname config.Hostname) *Config {
 	if sc == nil {
 		return nil
 	}
@@ -363,7 +364,7 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []C
 					// TODO: This is a bug. VirtualServices can have many hosts
 					// while the user might be importing only a single host
 					// We need to generate a new VirtualService with just the matched host
-					if importedHost.Matches(Hostname(h)) {
+					if importedHost.Matches(config.Hostname(h)) {
 						importedVirtualServices = append(importedVirtualServices, c)
 						hostFound = true
 						break
@@ -385,7 +386,7 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []C
 					// TODO: This is a bug. VirtualServices can have many hosts
 					// while the user might be importing only a single host
 					// We need to generate a new VirtualService with just the matched host
-					if importedHost.Matches(Hostname(h)) {
+					if importedHost.Matches(config.Hostname(h)) {
 						importedVirtualServices = append(importedVirtualServices, c)
 						hostFound = true
 						break

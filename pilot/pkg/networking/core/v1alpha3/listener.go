@@ -37,15 +37,15 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/proto"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -292,7 +292,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 
 	// If the user specifies a Sidecar CRD with an inbound listener, only construct that listener
 	// and not the ones from the proxyInstances
-	var proxyLabels model.LabelsCollection
+	var proxyLabels config.LabelsCollection
 	for _, w := range proxyInstances {
 		proxyLabels = append(proxyLabels, w.Labels)
 	}
@@ -371,7 +371,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 
 			listenPort := &model.Port{
 				Port:     int(ingressListener.Port.Number),
-				Protocol: model.ParseProtocol(ingressListener.Port.Protocol),
+				Protocol: config.ParseProtocol(ingressListener.Port.Protocol),
 				Name:     ingressListener.Port.Name,
 			}
 
@@ -507,7 +507,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 			// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
 			if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol.IsHTTP2() {
 				httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
-				if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol == model.ProtocolGRPCWeb {
+				if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol == config.ProtocolGRPCWeb {
 					httpOpts.addGRPCWebFilter = true
 				}
 			}
@@ -562,7 +562,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 
 type inboundListenerEntry struct {
 	bind             string
-	instanceHostname model.Hostname // could be empty if generated via Sidecar CRD
+	instanceHostname config.Hostname // could be empty if generated via Sidecar CRD
 }
 
 type outboundListenerEntry struct {
@@ -573,7 +573,7 @@ type outboundListenerEntry struct {
 	locked      bool
 }
 
-func protocolName(p model.Protocol) string {
+func protocolName(p config.Protocol) string {
 	switch plugin.ModelProtocolToListenerProtocol(p) {
 	case plugin.ListenerProtocolHTTP:
 		return "HTTP"
@@ -588,10 +588,10 @@ type outboundListenerConflict struct {
 	metric          monitoring.Metric
 	node            *model.Proxy
 	listenerName    string
-	currentProtocol model.Protocol
+	currentProtocol config.Protocol
 	currentServices []*model.Service
-	newHostname     model.Hostname
-	newProtocol     model.Protocol
+	newHostname     config.Hostname
+	newProtocol     config.Protocol
 }
 
 func (c outboundListenerConflict) addMetric(push *model.PushContext) {
@@ -631,7 +631,7 @@ func (c outboundListenerConflict) addMetric(push *model.PushContext) {
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.Environment, node *model.Proxy,
 	push *model.PushContext, proxyInstances []*model.ServiceInstance) []*xdsapi.Listener {
 
-	var proxyLabels model.LabelsCollection
+	var proxyLabels config.LabelsCollection
 	for _, w := range proxyInstances {
 		proxyLabels = append(proxyLabels, w.Labels)
 	}
@@ -689,7 +689,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 			listenPort := &model.Port{
 				Port:     int(egressListener.IstioListener.Port.Number),
-				Protocol: model.ParseProtocol(egressListener.IstioListener.Port.Protocol),
+				Protocol: config.ParseProtocol(egressListener.IstioListener.Port.Protocol),
 				Name:     egressListener.IstioListener.Port.Name,
 			}
 
@@ -1000,7 +1000,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 				// for user defined Egress listeners with ports. And these should occur in the API before
 				// the wildcard egress listener. the check for the "locked" bit will eliminate the collision.
 				// User is also not allowed to add duplicate ports in the egress listener
-				var newHostname model.Hostname
+				var newHostname config.Hostname
 				if pluginParams.Service != nil {
 					newHostname = pluginParams.Service.Hostname
 				} else {
@@ -1028,7 +1028,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 			// The conflict resolution is done later in this code
 		}
 
-		meshGateway := map[string]bool{model.IstioMeshGateway: true}
+		meshGateway := map[string]bool{config.IstioMeshGateway: true}
 		listenerOpts.filterChainOpts = buildSidecarOutboundTCPTLSFilterChainOpts(pluginParams.Env, pluginParams.Node,
 			pluginParams.Push, virtualServices,
 			destinationCIDR, pluginParams.Service,
@@ -1091,7 +1091,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 						// for user defined Egress listeners with ports. And these should occur in the API before
 						// the wildcard egress listener. the check for the "locked" bit will eliminate the collision.
 						// User is also not allowed to add duplicate ports in the egress listener
-						var newHostname model.Hostname
+						var newHostname config.Hostname
 						if pluginParams.Service != nil {
 							newHostname = pluginParams.Service.Hostname
 						} else {
@@ -1120,7 +1120,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 
 				// We have two non-catch all filter chains. Check for duplicates
 				if reflect.DeepEqual(*existingFilterChain.FilterChainMatch, *incomingFilterChain.FilterChainMatch) {
-					var newHostname model.Hostname
+					var newHostname config.Hostname
 					if pluginParams.Service != nil {
 						newHostname = pluginParams.Service.Hostname
 					} else {
@@ -1243,8 +1243,8 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 	// assumes that inbound connections/requests are sent to the endpoint address
 	for _, mPort := range managementPorts {
 		switch mPort.Protocol {
-		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolGRPCWeb, model.ProtocolTCP,
-			model.ProtocolHTTPS, model.ProtocolTLS, model.ProtocolMongo, model.ProtocolRedis, model.ProtocolMySQL:
+		case config.ProtocolHTTP, config.ProtocolHTTP2, config.ProtocolGRPC, config.ProtocolGRPCWeb, config.ProtocolTCP,
+			config.ProtocolHTTPS, config.ProtocolTLS, config.ProtocolMongo, config.ProtocolRedis, config.ProtocolMySQL:
 
 			instance := &model.ServiceInstance{
 				Endpoint: model.NetworkEndpoint{
@@ -1326,7 +1326,7 @@ type buildListenerOpts struct {
 	env             *model.Environment
 	proxy           *model.Proxy
 	proxyInstances  []*model.ServiceInstance
-	proxyLabels     model.LabelsCollection
+	proxyLabels     config.LabelsCollection
 	bind            string
 	port            int
 	filterChainOpts []*filterChainOpts
@@ -1519,7 +1519,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 					continue
 				}
 				cidr := util.ConvertAddressToCidr(d)
-				if cidr != nil && cidr.AddressPrefix != model.UnspecifiedIP {
+				if cidr != nil && cidr.AddressPrefix != config.UnspecifiedIP {
 					match.PrefixRanges = append(match.PrefixRanges, cidr)
 				}
 			}
@@ -1581,14 +1581,14 @@ func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts,
 		tcpFilter := listener.Filter{
 			Name: xdsutil.TCPProxy,
 		}
-		config := &tcp_proxy.TcpProxy{
+		tcpProxy := &tcp_proxy.TcpProxy{
 			StatPrefix:       util.PassthroughCluster,
 			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
 		}
 		if util.IsXDSMarshalingToAnyEnabled(node) {
-			tcpFilter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+			tcpFilter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
 		} else {
-			tcpFilter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+			tcpFilter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
 		}
 
 		opts.filterChainOpts = append(opts.filterChainOpts, &filterChainOpts{

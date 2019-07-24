@@ -17,7 +17,7 @@ package rbac
 import (
 	"testing"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -190,7 +190,7 @@ func TestV1_Path(t *testing.T) {
 			ports := []echo.Port{
 				{
 					Name:        "http",
-					Protocol:    model.ProtocolHTTP,
+					Protocol:    config.ProtocolHTTP,
 					ServicePort: 80,
 				},
 			}

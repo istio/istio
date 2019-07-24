@@ -26,9 +26,9 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config"
 )
 
 var (
@@ -120,7 +120,7 @@ func makeFakeClient() *fake.Clientset {
 }
 
 func makeStatusSyncer(t *testing.T, client kubernetes.Interface) (*StatusSyncer, error) {
-	mesh := model.DefaultMeshConfig()
+	mesh := config.DefaultMeshConfig()
 	mesh.IngressService = "istio-ingress"
 
 	oldEnvs := setAndRestoreEnv(t, map[string]string{"POD_NAME": pod, "POD_NAMESPACE": testNamespace})
