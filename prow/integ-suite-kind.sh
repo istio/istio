@@ -82,7 +82,7 @@ export HUB=${HUB:-"istio-testing"}
 export TAG="${TAG:-"istio-testing"}"
 
 # Setup junit report and verbose logging
-export JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml"
+export JUNIT_UNIT_TEST_XML="${ARTIFACTS:-$(mktemp -d)}/junit.xml"
 export T="${T:-"-v"}"
 
 make init
@@ -94,6 +94,5 @@ fi
 if [[ -z "${SKIP_BUILD:-}" ]]; then
   time build_kind_images
 fi
-
 
 make "${PARAMS[*]}"
