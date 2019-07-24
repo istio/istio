@@ -52,7 +52,7 @@ const (
 	envoyListenerTLSInspector = "envoy.listener.tls_inspector"
 
 	// Http inspector for protocol sniffing
-	envoyListenerHttpInspector = "envoy.listener.http_inspector"
+	envoyListenerHTTPInspector = "envoy.listener.http_inspector"
 
 	// RDSHttpProxy is the special name for HTTP PROXY route
 	RDSHttpProxy = "http_proxy"
@@ -441,7 +441,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 	return listeners
 }
 
-func (configgen *ConfigGeneratorImpl) buildSidecarInboundHttpListenerOptsForPortOrUDS(node *model.Proxy, pluginParams *plugin.InputParams) *httpListenerOpts {
+func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPortOrUDS(node *model.Proxy, pluginParams *plugin.InputParams) *httpListenerOpts {
 	httpOpts := &httpListenerOpts{
 		routeConfig: configgen.buildSidecarInboundHTTPRouteConfig(pluginParams.Env, pluginParams.Node,
 			pluginParams.Push, pluginParams.ServiceInstance),
@@ -523,16 +523,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 	// Detect protocol by sniffing and double the filter chain
 	if pluginParams.ListenerProtocol == plugin.ListenerProtocolAuto {
 		allChains = append(allChains, allChains...)
-		listenerOpts.needHttpInspector = true
+		listenerOpts.needHTTPInspector = true
 	}
 
 	for id, chain := range allChains {
-		var httpOpts *httpListenerOpts = nil
+		var httpOpts *httpListenerOpts
 		var tcpNetworkFilters []listener.Filter
 
 		switch pluginParams.ListenerProtocol {
 		case plugin.ListenerProtocolHTTP:
-			httpOpts = configgen.buildSidecarInboundHttpListenerOptsForPortOrUDS(node, pluginParams)
+			httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
 
 		case plugin.ListenerProtocolTCP:
 			tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Env, pluginParams.Node, pluginParams.ServiceInstance)
@@ -540,7 +540,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		case plugin.ListenerProtocolAuto:
 			// Build http filter chain
 			if id < len(allChains)/2 {
-				httpOpts = configgen.buildSidecarInboundHttpListenerOptsForPortOrUDS(node, pluginParams)
+				httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
 
 				if chain.FilterChainMatch == nil {
 					chain.FilterChainMatch = &listener.FilterChainMatch{}
@@ -1363,7 +1363,7 @@ type buildListenerOpts struct {
 	filterChainOpts   []*filterChainOpts
 	bindToPort        bool
 	skipUserFilters   bool
-	needHttpInspector bool
+	needHTTPInspector bool
 }
 
 func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpOpts *httpListenerOpts,
@@ -1516,9 +1516,9 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		listenerFilters = append(listenerFilters, listener.ListenerFilter{Name: envoyListenerTLSInspector})
 	}
 
-	if opts.needHttpInspector {
-		listenerFiltersMap[envoyListenerHttpInspector] = true
-		listenerFilters = append(listenerFilters, listener.ListenerFilter{Name: envoyListenerHttpInspector})
+	if opts.needHTTPInspector {
+		listenerFiltersMap[envoyListenerHTTPInspector] = true
+		listenerFilters = append(listenerFilters, listener.ListenerFilter{Name: envoyListenerHTTPInspector})
 	}
 
 	for _, chain := range opts.filterChainOpts {
