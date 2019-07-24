@@ -227,6 +227,7 @@ func extractObject(in runtime.Object) (interface{}, error) {
 		podSpec = templateValue.FieldByName("Spec").Addr().Interface().(*corev1.PodSpec)
 	}
 
+	metadata.Annotations = handleAnnotations(metadata.Annotations)
 	//skip uninjection for pods
 	sidecarInjected := false
 	for _, c := range podSpec.Containers {
@@ -235,8 +236,7 @@ func extractObject(in runtime.Object) (interface{}, error) {
 		}
 	}
 	if !sidecarInjected {
-		log.Info("Skipping uninjection because there is no sidecar injected.")
-		return in, nil
+		return out, nil
 	}
 
 	podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, initContainerName)
@@ -245,7 +245,6 @@ func extractObject(in runtime.Object) (interface{}, error) {
 	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, envoyVolumeName)
 	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, certVolumeName)
 	removeDNSConfig(podSpec.DNSConfig)
-	metadata.Annotations = handleAnnotations(metadata.Annotations)
 
 	return out, nil
 }
