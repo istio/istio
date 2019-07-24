@@ -12,17 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package scope
+package msg
 
-import "istio.io/pkg/log"
+// Create static initializers file
+//go:generate go run "$GOPATH/src/istio.io/istio/galley/pkg/config/analysis/msg/generate.main.go" messages.yaml messages.gen.go
 
-var (
-	// Analysis is a logging scope used by configuration analysis component.
-	Analysis = log.RegisterScope("analysis", "Scope for configuration analysis runtime", 0)
-
-	// Processing is a logging scope used by configuration processing pipeline.
-	Processing = log.RegisterScope("processing", "Scope for configuration processing runtime", 0)
-
-	// Source is a logging scope for config event sources.
-	Source = log.RegisterScope("source", "Scope for configuration event sources", 0)
-)
+//go:generate goimports -w -local istio.io "$GOPATH/src/istio.io/istio/galley/pkg/config/analysis/msg/messages.gen.go"

@@ -40,6 +40,13 @@ func New(collection Name) *Instance {
 	}
 }
 
+// Get the instance with the given name
+func (c *Instance) Get(name resource.Name) *resource.Entry {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.entries[name]
+}
+
 // Generation of the current state of the collection.Instance
 func (c *Instance) Generation() int64 {
 	c.mu.RLock()
@@ -55,11 +62,13 @@ func (c *Instance) Size() int {
 }
 
 // ForEach executes the given function for each entry
-func (c *Instance) ForEach(fn func(e *resource.Entry)) {
+func (c *Instance) ForEach(fn func(e *resource.Entry) bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	for _, e := range c.entries {
-		fn(e)
+		if !fn(e) {
+			break
+		}
 	}
 }
 

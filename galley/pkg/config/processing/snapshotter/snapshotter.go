@@ -147,7 +147,7 @@ func (s *Snapshotter) publish(o SnapshotOptions) {
 	}
 
 	set := collection.NewSetFromCollections(collections)
-	sn := &snapshotImpl{set: set}
+	sn := &Snapshot{set: set}
 
 	now := time.Now()
 	monitoring.RecordProcessorSnapshotPublished(s.pendingEvents, now.Sub(s.lastSnapshotTime))
@@ -155,7 +155,7 @@ func (s *Snapshotter) publish(o SnapshotOptions) {
 	s.pendingEvents = 0
 	scope.Processing.Infoa("Publishing snapshot for group: ", o.Group)
 	scope.Processing.Debuga(sn)
-	o.Distributor.SetSnapshot(o.Group, sn)
+	o.Distributor.Distribute(o.Group, sn)
 }
 
 // Stop implements Processor

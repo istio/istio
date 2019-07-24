@@ -54,7 +54,7 @@ func (p *Provider) getDynamicAdapter(r schema.KubeResource) *Adapter {
 		},
 
 		newInformer: func() (cache.SharedIndexInformer, error) {
-			d, err := p.dynamicResource(r)
+			d, err := p.GetDynamicResourceInterface(r)
 			if err != nil {
 				return nil, err
 			}
@@ -85,6 +85,13 @@ func (p *Provider) getDynamicAdapter(r schema.KubeResource) *Adapter {
 			}
 
 			return u, nil
+		},
+		getStatus: func(o interface{}) interface{} {
+			u, ok := o.(*unstructured.Unstructured)
+			if !ok {
+				return nil
+			}
+			return u.Object["status"]
 		},
 		isEqual:   resourceVersionsMatch,
 		isBuiltIn: false,

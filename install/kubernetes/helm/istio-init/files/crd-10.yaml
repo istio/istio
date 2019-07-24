@@ -21,6 +21,9 @@ spec:
     categories:
     - istio-io
     - networking-istio-io
+  subresources:
+    # status enables the status subresource.
+    status: {}
   scope: Namespaced
   versions:
     - name: v1alpha3

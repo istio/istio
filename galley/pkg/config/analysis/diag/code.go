@@ -12,17 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package scope
+package diag
 
-import "istio.io/pkg/log"
+import "fmt"
 
-var (
-	// Analysis is a logging scope used by configuration analysis component.
-	Analysis = log.RegisterScope("analysis", "Scope for configuration analysis runtime", 0)
+// Code is an error code
+type Code uint32
 
-	// Processing is a logging scope used by configuration processing pipeline.
-	Processing = log.RegisterScope("processing", "Scope for configuration processing runtime", 0)
-
-	// Source is a logging scope for config event sources.
-	Source = log.RegisterScope("source", "Scope for configuration event sources", 0)
+const (
+	codePrefix = "IST"
 )
+
+// String implements io.Stringer
+func (c Code) String() string {
+	return fmt.Sprintf("%s%04d", codePrefix, c)
+}
+

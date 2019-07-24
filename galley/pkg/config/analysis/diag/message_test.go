@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package scope
+package diag
 
-import "istio.io/pkg/log"
+import (
+	"testing"
 
-var (
-	// Analysis is a logging scope used by configuration analysis component.
-	Analysis = log.RegisterScope("analysis", "Scope for configuration analysis runtime", 0)
-
-	// Processing is a logging scope used by configuration processing pipeline.
-	Processing = log.RegisterScope("processing", "Scope for configuration processing runtime", 0)
-
-	// Source is a logging scope for config event sources.
-	Source = log.RegisterScope("source", "Scope for configuration event sources", 0)
+	. "github.com/onsi/gomega"
 )
+
+func TestMessage_String(t *testing.T) {
+	g := NewGomegaWithT(t)
+	m := NewMessage(Error, Code(42), nil, "Cheese type not found: %q", "Feta")
+
+	g.Expect(m.String()).To(Equal(`[EIST0042] Cheese type not found: "Feta"`))
+}
