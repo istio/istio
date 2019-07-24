@@ -917,7 +917,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 		// Set useRemoteAddress to true for side car outbound listeners so that it picks up the localhost address of the sender,
 		// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers
 		// such as "x-envoy-upstream-rq-timeout-ms" set by the calling application.
-		useRemoteAddress: features.UseRemoteAddress,
+		useRemoteAddress: features.UseRemoteAddress.Get(),
 		direction:        http_conn.EGRESS,
 		rds:              rdsName,
 	}
@@ -1647,7 +1647,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 // This allows external https traffic, even when port the port (usually 443) is in use by another service.
 func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts, node *model.Proxy, currentListenerEntry *outboundListenerEntry) {
 	// If traffic policy is REGISTRY_ONLY, the traffic will already be blocked, so no action is needed.
-	if features.EnableFallthroughRoute && isAllowAnyOutbound(node) {
+	if features.EnableFallthroughRoute.Get() && isAllowAnyOutbound(node) {
 
 		wildcardMatch := &listener.FilterChainMatch{}
 		for _, fc := range l.FilterChains {

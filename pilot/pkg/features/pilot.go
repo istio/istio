@@ -20,7 +20,6 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -78,7 +77,7 @@ var (
 	// be used, "/"
 	BaseDir = "BASE"
 
-	// Will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
+	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
 	//
 	// Alpha in 1.1, may become the default or be turned into a Sidecar API or mesh setting. Only applies to namespaces
 	// where Sidecar is enabled.
@@ -109,13 +108,13 @@ var (
 		return time.Second * time.Duration(terminationDrainDurationVar.Get())
 	}
 
-	enableFallthroughRouteVar = env.RegisterBoolVar(
+	EnableFallthroughRoute = env.RegisterBoolVar(
 		"PILOT_ENABLE_FALLTHROUGH_ROUTE",
 		true,
 		"EnableFallthroughRoute provides an option to add a final wildcard match for routes. "+
 			"When ALLOW_ANY traffic policy is used, a Passthrough cluster is used. "+
 			"When REGISTRY_ONLY traffic policy is used, a 502 error is returned.",
-	).Get()
+	)
 
 	// DisableXDSMarshalingToAny provides an option to disable the "xDS marshaling to Any" feature ("on" by default).
 	DisableXDSMarshalingToAny = env.RegisterBoolVar(
@@ -130,7 +129,7 @@ var (
 		"PILOT_ENABLE_MYSQL_FILTER",
 		false,
 		"EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.",
-	).Get()
+	)
 
 	// EnableRedisFilter enables injection of `envoy.filters.network.redis_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `redis`.
@@ -138,7 +137,7 @@ var (
 		"PILOT_ENABLE_REDIS_FILTER",
 		false,
 		"EnableRedisFilter enables injection of `envoy.filters.network.redis_proxy` in the filter chain.",
-	).Get()
+	)
 
 	// UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners so that it picks up the localhost
 	// address of the sender, which is an internal address, so that trusted headers are not sanitized.
@@ -146,7 +145,7 @@ var (
 		"PILOT_SIDECAR_USE_REMOTE_ADDRESS",
 		false,
 		"UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners.",
-	).Get()
+	)
 
 	// UseIstioJWTFilter enables to use Istio JWT filter as a fall back. Pilot injects the Istio JWT
 	// filter to the filter chains if this is set to true.

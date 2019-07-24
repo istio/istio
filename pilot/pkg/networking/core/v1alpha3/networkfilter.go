@@ -186,14 +186,14 @@ func buildNetworkFiltersStack(node *model.Proxy, port *model.Port, tcpFilter *li
 	case config.ProtocolMongo:
 		filterstack = append(filterstack, buildMongoFilter(statPrefix, util.IsXDSMarshalingToAnyEnabled(node)), *tcpFilter)
 	case config.ProtocolRedis:
-		if util.IsProxyVersionGE11(node) && features.EnableRedisFilter {
+		if util.IsProxyVersionGE11(node) && features.EnableRedisFilter.Get() {
 			// redis filter has route config, it is a terminating filter, no need append tcp filter.
 			filterstack = append(filterstack, buildRedisFilter(statPrefix, clusterName, util.IsXDSMarshalingToAnyEnabled(node)))
 		} else {
 			filterstack = append(filterstack, *tcpFilter)
 		}
 	case config.ProtocolMySQL:
-		if util.IsProxyVersionGE11(node) && features.EnableMysqlFilter {
+		if util.IsProxyVersionGE11(node) && features.EnableMysqlFilter.Get() {
 			filterstack = append(filterstack, buildMySQLFilter(statPrefix, util.IsXDSMarshalingToAnyEnabled(node)))
 		}
 		filterstack = append(filterstack, *tcpFilter)

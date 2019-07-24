@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/features"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
@@ -430,9 +432,9 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 	}
 
 	// enable mysql filter that is used here
-	_ = os.Setenv("PILOT_ENABLE_MYSQL_FILTER", "true")
+	_ = os.Setenv(features.EnableMysqlFilter.Name, "true")
 
-	defer func() { _ = os.Unsetenv("PILOT_ENABLE_MYSQL_FILTER") }()
+	defer func() { _ = os.Unsetenv(features.EnableMysqlFilter.Name) }()
 
 	listeners := buildOutboundListeners(p, sidecarConfig, nil, services...)
 	if len(listeners) != 3 {
@@ -484,9 +486,9 @@ func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, ser
 	}
 
 	// enable use remote address to true
-	_ = os.Setenv("PILOT_SIDECAR_USE_REMOTE_ADDRESS", "true")
+	_ = os.Setenv(features.UseRemoteAddress.Name, "true")
 
-	defer func() { _ = os.Unsetenv("PILOT_SIDECAR_USE_REMOTE_ADDRESS") }()
+	defer func() { _ = os.Unsetenv(features.UseRemoteAddress.Name) }()
 
 	listeners := buildOutboundListeners(p, sidecarConfig, nil, services...)
 
