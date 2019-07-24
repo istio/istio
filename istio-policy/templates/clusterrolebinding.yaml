@@ -13,3 +13,4 @@ subjects:
   - kind: ServiceAccount
     name: istio-policy-service-account
     namespace: {{ .Release.Namespace }}
+---

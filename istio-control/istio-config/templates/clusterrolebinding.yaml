@@ -12,3 +12,4 @@ subjects:
   - kind: ServiceAccount
     name: istio-galley-service-account
     namespace: {{ .Release.Namespace }}
+---

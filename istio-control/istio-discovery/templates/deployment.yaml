@@ -231,3 +231,4 @@ spec:
       tolerations:
 {{ toYaml .Values.pilot.tolerations | indent 6 }}
 {{- end }}
+---

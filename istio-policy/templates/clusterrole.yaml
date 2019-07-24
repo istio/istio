@@ -18,3 +18,4 @@ rules:
 - apiGroups: ["extensions", "apps"]
   resources: ["replicasets"]
   verbs: ["get", "list", "watch"]
+---

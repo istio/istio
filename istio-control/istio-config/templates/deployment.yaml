@@ -187,3 +187,4 @@ spec:
       tolerations:
 {{ toYaml .Values.galley.tolerations | indent 6 }}
 {{- end }}
+---

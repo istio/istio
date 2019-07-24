@@ -10,3 +10,4 @@ data:
 
   mesh: |-
 {{ toYaml .Values.galley.mesh | indent 4 }}
+---

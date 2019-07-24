@@ -76,5 +76,6 @@ spec:
   trafficPolicy:
     tls:
       mode: DISABLE
+---
 
 {{ end }}
