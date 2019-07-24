@@ -72,10 +72,11 @@ func TestListenerBuilder(t *testing.T) {
 		}
 	}
 	proxy := getDefaultProxy()
+	proxy.ServiceInstances = instances
 	setNilSidecarOnProxy(&proxy, env.PushContext)
 
 	builder := NewListenerBuilder(&proxy)
-	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, &proxy, env.PushContext, instances).
+	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, &proxy, env.PushContext).
 		getListeners()
 
 	// the listener for app
@@ -115,11 +116,12 @@ func TestVirtualListenerBuilder(t *testing.T) {
 		}
 	}
 	proxy := getDefaultProxy()
+	proxy.ServiceInstances = instances
 	setNilSidecarOnProxy(&proxy, env.PushContext)
 
 	builder := NewListenerBuilder(&proxy)
-	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, &proxy, env.PushContext, instances).
-		buildVirtualOutboundListener(ldsEnv.configgen, &env, &proxy, env.PushContext, instances).
+	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, &proxy, env.PushContext).
+		buildVirtualOutboundListener(ldsEnv.configgen, &env, &proxy, env.PushContext).
 		getListeners()
 
 	// app port listener and virtual inbound listener
@@ -164,12 +166,13 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 	}
 
 	proxy := getDefaultProxy()
+	proxy.ServiceInstances = instances
 	setInboundCaptureAllOnThisNode(&proxy)
 	setNilSidecarOnProxy(&proxy, env.PushContext)
 
 	builder := NewListenerBuilder(&proxy)
-	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, &proxy, env.PushContext, instances).
-		buildVirtualOutboundListener(ldsEnv.configgen, &env, &proxy, env.PushContext, instances).
+	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, &proxy, env.PushContext).
+		buildVirtualOutboundListener(ldsEnv.configgen, &env, &proxy, env.PushContext).
 		buildVirtualInboundListener(&env, &proxy).
 		getListeners()
 

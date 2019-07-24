@@ -53,10 +53,6 @@ const (
 	PassthroughRouteName = "allow_any"
 	// SniClusterFilter is the name of the sni_cluster envoy filter
 	SniClusterFilter = "envoy.filters.network.sni_cluster"
-	// NoProxyLocality represents the locality associated with a proxy that doesn't have locality settings
-	// since all our localities are in region/zone/subzone format, the empty locality will be of form
-	// '///'
-	NoProxyLocality = "///"
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
 	IstioMetadataKey = "istio"

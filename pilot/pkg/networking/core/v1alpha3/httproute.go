@@ -36,26 +36,25 @@ import (
 
 // BuildHTTPRoutes produces a list of routes for the proxy
 func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	routeName string) (*xdsapi.RouteConfiguration, error) {
+	routeName string) *xdsapi.RouteConfiguration {
 	// TODO: Move all this out
 	proxyInstances := node.ServiceInstances
 	var rc *xdsapi.RouteConfiguration
-	var err error
 	switch node.Type {
 	case model.SidecarProxy:
 		rc = configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, routeName)
 		if rc != nil {
 			rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, push, rc)
 		}
-		return rc, nil
+		return rc
 	case model.Router:
 		rc = configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, routeName)
 		if rc != nil {
 			rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, push, rc)
 		}
-		return rc, err
+		return rc
 	}
-	return nil, nil
+	return nil
 }
 
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path

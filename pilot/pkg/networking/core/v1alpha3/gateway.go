@@ -39,8 +39,11 @@ import (
 	"istio.io/pkg/log"
 )
 
-func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
-	builder := NewListenerBuilder(node)
+func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
+	env *model.Environment,
+	node *model.Proxy,
+	push *model.PushContext,
+	builder *ListenerBuilder) *ListenerBuilder {
 	// collect workload labels
 	workloadInstances := node.ServiceInstances
 
@@ -138,7 +141,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_GATEWAY,
 			Env:                        env,
 			Node:                       node,
-			ProxyInstances:             workloadInstances,
 			Push:                       push,
 			ServiceInstance:            si,
 			Port: &model.Port{
@@ -407,7 +409,7 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 
 	tls := &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
-			AlpnProtocols: ListenersALPNProtocols,
+			AlpnProtocols: util.ALPNHttp,
 		},
 	}
 
