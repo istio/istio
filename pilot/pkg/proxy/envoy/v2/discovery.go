@@ -116,7 +116,7 @@ type DiscoveryServer struct {
 	// pushes between the 2 packages.
 	edsUpdates map[string]struct{}
 
-	updateChannel chan *model.UpdateRequest
+	updateChannel *DebouncedChannel
 
 	// mutex used for config update scheduling (former cache update mutex)
 	updateMutex sync.RWMutex
@@ -175,9 +175,18 @@ func NewDiscoveryServer(
 		edsUpdates:              map[string]struct{}{},
 		proxyUpdates:            map[string]struct{}{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
-		updateChannel:           make(chan *model.UpdateRequest, 10),
 		pushQueue:               NewPushQueue(),
 	}
+
+	out.updateChannel = NewUpdateRequestDebouncedChannel(DebounceAfter, DebounceMax, nil, func(acc *model.UpdateRequest, v *model.UpdateRequest) *model.UpdateRequest {
+		if !features.EnableEDSDebounce.Get() && !v.Full {
+			// trigger push now, just for EDS
+			go out.doPush(v)
+			return acc
+		}
+		merged := acc.Merge(v)
+		return &merged
+	})
 
 	// Flush cached discovery responses whenever services, service
 	// instances, or routing configuration changes.
@@ -218,6 +227,7 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 	ads.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
 }
 
+// Start start the server
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
 	go s.handleUpdates(stopCh)
 	go s.periodicRefresh(stopCh)
@@ -363,7 +373,7 @@ func (s *DiscoveryServer) clearCache() {
 // It replaces the 'clear cache' from v1.
 func (s *DiscoveryServer) ConfigUpdate(req model.UpdateRequest) {
 	inboundConfigUpdates.Increment()
-	s.updateChannel <- &req
+	s.updateChannel.Enqueue(&req)
 }
 
 // Debouncing and update request happens in a separate thread, it uses locks
@@ -372,63 +382,12 @@ func (s *DiscoveryServer) ConfigUpdate(req model.UpdateRequest) {
 // It ensures that at minimum minQuiet time has elapsed since the last event before processing it.
 // It also ensures that at most maxDelay is elapsed between receiving an event and processing it.
 func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
-	debounce(s.updateChannel, stopCh, func(req *model.UpdateRequest) {
-		go s.doPush(req)
-	})
-}
-
-// The debounce helper function is implemented to enable mocking
-func debounce(ch chan *model.UpdateRequest, stopCh <-chan struct{}, fn func(req *model.UpdateRequest)) {
-	var timeChan <-chan time.Time
-	var startDebounce time.Time
-	var lastConfigUpdateTime time.Time
-
-	pushCounter := 0
-
-	debouncedEvents := 0
-
-	// Keeps track of the update requests. If updates are debounce they will be merged.
-	var req *model.UpdateRequest
 
 	for {
 		select {
-		case r := <-ch:
-
-			if !features.EnableEDSDebounce.Get() && !r.Full {
-				// trigger push now, just for EDS
-				fn(r)
-				continue
-			}
-
-			lastConfigUpdateTime = time.Now()
-			if debouncedEvents == 0 {
-				timeChan = time.After(DebounceAfter)
-				startDebounce = lastConfigUpdateTime
-			}
-			debouncedEvents++
-
-			merged := req.Merge(r)
-			req = &merged
-
-		case now := <-timeChan:
-			timeChan = nil
-
-			eventDelay := now.Sub(startDebounce)
-			quietTime := now.Sub(lastConfigUpdateTime)
-			// it has been too long or quiet enough
-			if eventDelay >= DebounceMax || quietTime >= DebounceAfter {
-				pushCounter++
-				adsLog.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
-					pushCounter, debouncedEvents,
-					quietTime, eventDelay, req)
-
-				fn(req)
-				req = nil
-				debouncedEvents = 0
-				continue
-			}
-
-			timeChan = time.After(DebounceAfter - quietTime)
+		case notification := <-s.updateChannel.C:
+			s.doPush(notification.Event.(*model.UpdateRequest))
+			notification.Ack()
 		case <-stopCh:
 			return
 		}
