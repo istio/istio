@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"strings"
 
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
@@ -36,13 +37,13 @@ import (
 )
 
 const (
-	proxyContainerName              = "istio-proxy"
-	initContainerName               = "istio-init"
-	envoyVolumeName                 = "istio-envoy"
-	certVolumeName                  = "istio-certs"
-	annotationPolicy                = "sidecar.istio.io/inject"
-	annotationStatus                = "sidecar.istio.io/status"
-	annotationRewriteAppHTTPProbers = "sidecar.istio.io/rewriteAppHTTPProbers"
+	proxyContainerName          = "istio-proxy"
+	initContainerName           = "istio-init"
+	enableCoreDumpContainerName = "enable-core-dump"
+	envoyVolumeName             = "istio-envoy"
+	certVolumeName              = "istio-certs"
+	annotationPolicy            = "sidecar.istio.io/inject"
+	sidecarAnnotationPrefix     = "sidecar.istio.io"
 )
 
 func validateUninjectFlags() error {
@@ -111,28 +112,48 @@ func removeInjectedContainers(containers []corev1.Container, injectedContainerNa
 }
 
 // removeInjectedVolumes removes the injected volumes - istio-envoy and istio-certs
-func removeInjectedVolumes(volumes []corev1.Volume) []corev1.Volume {
+func removeInjectedVolumes(volumes []corev1.Volume, injectedVolume string) []corev1.Volume {
 
-	l := len(volumes)
-	index := 0
-	for index < l {
-		v := volumes[index]
-		if v.Name == envoyVolumeName || v.Name == certVolumeName {
+	for index, v := range volumes {
+		if v.Name == injectedVolume {
 			if index < len(volumes)-1 {
 				volumes = append(volumes[:index], volumes[index+1:]...)
 			} else {
 				volumes = append(volumes[:index])
 			}
-			//reset to 0
-			index = 0
-			l = len(volumes)
+			break
 		}
-		index++
 	}
 	return volumes
 }
 
-// handleAnnotations removes the injected sidecar.istio.io/status and sidecar.istio.io/rewriteAppHTTPProbers
+func removeDNSConfig(podDNSConfig *corev1.PodDNSConfig) {
+	if podDNSConfig == nil {
+		return
+	}
+
+	l := len(podDNSConfig.Searches)
+	index := 0
+	for index < l {
+		s := podDNSConfig.Searches[index]
+		if strings.Contains(s, "global") {
+			if index < len(podDNSConfig.Searches)-1 {
+				podDNSConfig.Searches = append(podDNSConfig.Searches[:index],
+					podDNSConfig.Searches[index+1:]...)
+			} else {
+				podDNSConfig.Searches = append(podDNSConfig.Searches[:index])
+			}
+			//reset to 0
+			index = 0
+			l = len(podDNSConfig.Searches)
+		} else {
+			index++
+		}
+	}
+
+}
+
+// handleAnnotations removes the injected annotations which contains sidecar.istio.io
 // it adds sidecar.istio.io/inject: false
 func handleAnnotations(annotations map[string]string) map[string]string {
 	if annotations == nil {
@@ -140,10 +161,7 @@ func handleAnnotations(annotations map[string]string) map[string]string {
 	}
 
 	for key := range annotations {
-		if key == annotationStatus {
-			delete(annotations, key)
-		}
-		if key == annotationRewriteAppHTTPProbers {
+		if strings.Contains(key, sidecarAnnotationPrefix) {
 			delete(annotations, key)
 		}
 	}
@@ -222,10 +240,11 @@ func extractObject(in runtime.Object) (interface{}, error) {
 	}
 
 	podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, initContainerName)
+	podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, enableCoreDumpContainerName)
 	podSpec.Containers = removeInjectedContainers(podSpec.Containers, proxyContainerName)
-
-	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes)
-
+	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, envoyVolumeName)
+	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, certVolumeName)
+	removeDNSConfig(podSpec.DNSConfig)
 	metadata.Annotations = handleAnnotations(metadata.Annotations)
 
 	return out, nil

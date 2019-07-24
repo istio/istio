@@ -108,6 +108,12 @@ func TestKubeUninject(t *testing.T) {
 				"experimental kube-uninject -f testdata/uninject/hello.yaml", " "),
 			goldenFilename: "testdata/uninject/hello.yaml",
 		},
+		{ // case 14: enable-core-dump
+			configs: []model.Config{},
+			args: strings.Split(
+				"experimental kube-uninject -f testdata/uninject/enable-core-dump.yaml.injected", " "),
+			goldenFilename: "testdata/uninject/enable-core-dump.yaml",
+		},
 	}
 
 	for i, c := range cases {

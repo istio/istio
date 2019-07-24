@@ -25,11 +25,6 @@ spec:
             name: hello
             resources: {}
           restartPolicy: OnFailure
-          volumes:
-          - name: istio-certs
-            secret:
-              optional: true
-              secretName: istio.default
   schedule: '*/1 * * * *'
 status: {}
 ---

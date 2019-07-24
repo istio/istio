@@ -28,10 +28,6 @@ items:
       metadata:
         annotations:
           sidecar.istio.io/inject: "false"
-          sidecar.istio.io/interceptionMode: REDIRECT
-          traffic.sidecar.istio.io/excludeInboundPorts: "15020"
-          traffic.sidecar.istio.io/includeInboundPorts: "80"
-          traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
         creationTimestamp: null
         labels:
           app: hello
@@ -45,11 +41,6 @@ items:
           - containerPort: 80
             name: http
           resources: {}
-        volumes:
-        - name: istio-certs
-          secret:
-            optional: true
-            secretName: istio.default
     test: false
     triggers:
     - type: ConfigChange

@@ -103,6 +103,11 @@ spec:
     - mountPath: /etc/certs/
       name: istio-certs
       readOnly: true
+  dnsConfig:
+    searches:
+    - global
+    - default.global
+    - test
   initContainers:
   - args:
     - -p

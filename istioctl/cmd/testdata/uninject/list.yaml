@@ -18,10 +18,6 @@ items:
       metadata:
         annotations:
           sidecar.istio.io/inject: "false"
-          sidecar.istio.io/interceptionMode: REDIRECT
-          traffic.sidecar.istio.io/excludeInboundPorts: "15020"
-          traffic.sidecar.istio.io/includeInboundPorts: "80"
-          traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
         creationTimestamp: null
         labels:
           app: hello
@@ -36,11 +32,12 @@ items:
           - containerPort: 80
             name: http
           resources: {}
+        dnsConfig: {}
         volumes:
-        - name: istio-certs
+        - name: test
           secret:
             optional: true
-            secretName: istio.default
+            secretName: test
   status: {}
 - apiVersion: apps/v1
   kind: Deployment
@@ -60,10 +57,6 @@ items:
       metadata:
         annotations:
           sidecar.istio.io/inject: "false"
-          sidecar.istio.io/interceptionMode: REDIRECT
-          traffic.sidecar.istio.io/excludeInboundPorts: "15020"
-          traffic.sidecar.istio.io/includeInboundPorts: "81"
-          traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
         creationTimestamp: null
         labels:
           app: hello
@@ -78,11 +71,6 @@ items:
           - containerPort: 81
             name: http
           resources: {}
-        volumes:
-        - name: istio-certs
-          secret:
-            optional: true
-            secretName: istio.default
   status: {}
 kind: List
 metadata: {}
