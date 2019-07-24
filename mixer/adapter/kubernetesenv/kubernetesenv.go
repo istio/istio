@@ -376,17 +376,15 @@ func (b *builder) createCacheController(k8sInterface k8s.Interface, clusterID st
 
 func (b *builder) deleteCacheController(clusterID string) error {
 	b.Lock()
-	if b.kubeHandler != nil {
-		delete(b.controllers, clusterID)
-
-		b.kubeHandler.Lock()
-		b.kubeHandler.k8sCache[clusterID].StopControlChannel()
-		delete(b.kubeHandler.k8sCache, clusterID)
-		b.kubeHandler.Unlock()
-
-		b.kubeHandler.env.Logger().Infof("deleted remote controller %s", clusterID)
-	}
+	delete(b.controllers, clusterID)
 	b.Unlock()
+
+	b.kubeHandler.Lock()
+	defer b.kubeHandler.Unlock()
+	b.kubeHandler.k8sCache[clusterID].StopControlChannel()
+	delete(b.kubeHandler.k8sCache, clusterID)
+
+	b.kubeHandler.env.Logger().Infof("deleted remote controller %s", clusterID)
 
 	return nil
 }
