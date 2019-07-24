@@ -27,8 +27,14 @@ import (
 	grpcMetadata "google.golang.org/grpc/metadata"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+
+	"istio.io/pkg/ctrlz/fw"
+	"istio.io/pkg/log"
+
+	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
+	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/source/kube"
@@ -47,167 +53,7 @@ import (
 	"istio.io/pkg/ctrlz/fw"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
-)
-
-// Processing2 component is the main config processing component that will listen to a config source and publish
-// resources through an MCP server, or a dialout connection.
-type Processing2 struct {
-	args *settings.Args
-
-	distributor  *snapshot.Cache
-	configzTopic fw.Topic
-
-	serveWG       sync.WaitGroup
-	grpcServer    *grpc.Server
-	runtime       *processing.Runtime
-	mcpSource     *source.Server
-	reporter      monitoring.Reporter
-	callOut       *callout
-	listenerMutex sync.Mutex
-	listener      net.Listener
-	stopCh        chan struct{}
-}
-
-var _ process.Component = &Processing2{}
-
-// NewProcessing2 returns a new processing component.
-func NewProcessing2(a *settings.Args) *Processing2 {
-	d := snapshot.New(groups.IndexFunction)
-	return &Processing2{
-		args:         a,
-		distributor:  d,
-		configzTopic: configz.CreateTopic(d),
-	}
-}
-
-// Start implements process.Component
-func (p *Processing2) Start() (err error) {
-	var mesh event.Source
-	var src event.Source
-
-	if mesh, err = meshcfgNewFS(p.args.MeshConfigFile); err != nil {
-		return
-	}
-
-	m := metadata.MustGet()
-
-	kubeResources := p.disableExcludedKubeResources(m)
-
-	if src, err = p.createSource(kubeResources); err != nil {
-		return
-	}
-
-	if p.runtime, err = processorInitialize(m, p.args.DomainSuffix, event.CombineSources(mesh, src), p.distributor); err != nil {
-		return
-	}
-
-	grpcOptions := p.getServerGrpcOptions()
-
-	p.stopCh = make(chan struct{})
-	var checker source.AuthChecker = server.NewAllowAllChecker()
-	if !p.args.Insecure {
-		if checker, err = watchAccessList(p.stopCh, p.args.AccessListFile); err != nil {
-			return
-		}
-
-		var watcher creds.CertificateWatcher
-		if watcher, err = creds.PollFiles(p.stopCh, p.args.CredentialOptions); err != nil {
-			return
-		}
-		credentials := creds.CreateForServer(watcher)
-
-		grpcOptions = append(grpcOptions, grpc.Creds(credentials))
-	}
-	grpc.EnableTracing = p.args.EnableGRPCTracing
-	p.grpcServer = grpc.NewServer(grpcOptions...)
-
-	p.reporter = mcpMetricReporter("galley/mcp/source")
-
-	options := &source.Options{
-		Watcher:            p.distributor,
-		Reporter:           p.reporter,
-		CollectionsOptions: source.CollectionOptionsFromSlice(m.AllCollectionsInSnapshots()),
-		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second, 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
-	}
-
-	md := grpcMetadata.MD{
-		versionMetadataKey: []string{version.Info.Version},
-	}
-	if err := parseSinkMeta(p.args.SinkMeta, md); err != nil {
-		return err
-	}
-
-	if p.args.SinkAddress != "" {
-		p.callOut, err = newCallout(p.args.SinkAddress, p.args.SinkAuthMode, md, options)
-		if err != nil {
-			p.callOut = nil
-			err = fmt.Errorf("callout could not be initialized: %v", err)
-			return
-		}
-	}
-
-	serverOptions := &source.ServerOptions{
-		AuthChecker: checker,
-		RateLimiter: rate.NewLimiter(rate.Every(time.Second), 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
-		Metadata:    md,
-	}
-
-	p.mcpSource = source.NewServer(options, serverOptions)
-
-	// get the network stuff setup
-	network := "tcp"
-	var address string
-	idx := strings.Index(p.args.APIAddress, "://")
-	if idx < 0 {
-		address = p.args.APIAddress
-	} else {
-		network = p.args.APIAddress[:idx]
-		address = p.args.APIAddress[idx+3:]
-	}
-
-	if p.listener, err = netListen(network, address); err != nil {
-		err = fmt.Errorf("unable to listen: %v", err)
-		return
-	}
-
-	mcp.RegisterResourceSourceServer(p.grpcServer, p.mcpSource)
-
-	var startWG sync.WaitGroup
-	startWG.Add(1)
-
-	p.serveWG.Add(1)
-	go func() {
-		defer p.serveWG.Done()
-		p.runtime.Start()
-
-		l := p.getListener()
-		if l != nil {
-			// start serving
-			gs := p.grpcServer
-			startWG.Done()
-			err = gs.Serve(l)
-			if err != nil {
-				scope.Errorf("Galley Server unexpectedly terminated: %v", err)
-			}
-		}
-	}()
-
-	if p.callOut != nil {
-		p.serveWG.Add(1)
-		go func() {
-			defer p.serveWG.Done()
-			p.callOut.run()
-		}()
-	}
-
-	startWG.Wait()
-
-	return nil
-}
-
-func (p *Processing2) disableExcludedKubeResources(m *schema.Metadata) schema.KubeResources {
-
-	// Behave in the same way as existing logic:
+logic:
 	// - Builtin types are excluded by default.
 	// - If ServiceDiscovery is enabled, any built-in type should be readded.
 
@@ -263,16 +109,28 @@ func (p *Processing2) getServerGrpcOptions() []grpc.ServerOption {
 	return grpcOptions
 }
 
-func (p *Processing2) createSource(resources schema.KubeResources) (src event.Source, err error) {
+func (p *Processing2) getKubeInterfaces() (k kube.Interfaces, err error) {
+	if p.k == nil {
+		p.k, err = newKubeFromConfigFile(p.args.KubeConfig)
+	}
+	k = p.k
+	return
+}
+
+func (p *Processing2) createSourceAndStatusUpdater(resources schema.KubeResources) (
+	src event.Source, updater snapshotter.StatusUpdater, err error) {
+
 	if p.args.ConfigPath != "" {
 		if src, err = fsNew2(p.args.ConfigPath, resources); err != nil {
 			return
 		}
+		updater = &snapshotter.InMemoryStatusUpdater{}
 	} else {
 		var k kube.Interfaces
-		if k, err = newKubeFromConfigFile(p.args.KubeConfig); err != nil {
+		if k, err = p.getKubeInterfaces(); err != nil {
 			return
 		}
+
 		if !p.args.DisableResourceReadyCheck {
 			if err = checkResourceTypesPresence(k, resources); err != nil {
 				return
@@ -284,7 +142,9 @@ func (p *Processing2) createSource(resources schema.KubeResources) (src event.So
 			ResyncPeriod: p.args.ResyncPeriod,
 			Resources:    resources,
 		}
-		src = apiserver.New(o)
+		s := apiserver.New(o)
+		src = s
+		updater = s
 	}
 	return
 }
