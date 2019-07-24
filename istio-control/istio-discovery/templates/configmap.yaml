@@ -195,4 +195,5 @@ data:
       # Address where istio Pilot service is running
       discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15010
     {{- end }}
+---
 {{- end }}

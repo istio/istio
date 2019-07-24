@@ -22,3 +22,4 @@ spec:
 {{- if .Values.mixer.telemetry.sessionAffinityEnabled }}
   sessionAffinity: ClientIP
 {{- end }}
+---

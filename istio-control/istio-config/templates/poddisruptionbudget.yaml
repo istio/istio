@@ -15,4 +15,6 @@ spec:
       app: galley
       release: {{ .Release.Name }}
       istio: galley
+---
+
 {{- end }}

@@ -34,4 +34,5 @@ rules:
   resources: ["deployments/finalizers"]
   resourceNames: ["istio-galley"]
   verbs: ["update"]
+---
 

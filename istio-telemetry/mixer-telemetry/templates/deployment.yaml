@@ -212,3 +212,4 @@ spec:
         {{- end }}
         - name: uds-socket
           mountPath: /sock
+---

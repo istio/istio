@@ -19,3 +19,4 @@ spec:
     name: grpc-tls-mcp
   selector:
     istio: galley
+---

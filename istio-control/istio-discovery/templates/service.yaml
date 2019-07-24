@@ -19,3 +19,4 @@ spec:
     name: http-monitoring
   selector:
     istio: pilot
+---

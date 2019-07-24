@@ -15,4 +15,5 @@ spec:
       app: pilot
       release: {{ .Release.Name }}
       istio: pilot
+---
 {{- end }}
