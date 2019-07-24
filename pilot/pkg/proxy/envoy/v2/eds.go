@@ -191,7 +191,7 @@ func endpointMetadata(uid string, network string) *core.Metadata {
 
 // Determine Service associated with a hostname when there is no Sidecar scope. Which namespace the service comes from
 // is undefined, as we do not have enough information to make a smart decision
-func legacyServiceForHostname(hostname model.Hostname, serviceByHostname map[model.Hostname]map[string]*model.Service) *model.Service {
+func legacyServiceForHostname(hostname config.Hostname, serviceByHostname map[config.Hostname]map[string]*model.Service) *model.Service {
 	for _, service := range serviceByHostname[hostname] {
 		return service
 	}

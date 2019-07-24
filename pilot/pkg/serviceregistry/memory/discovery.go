@@ -186,7 +186,7 @@ func (sd *ServiceDiscovery) GetService(hostname config.Hostname) (*model.Service
 
 // InstancesByPort implements discovery interface
 func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, num int,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
 	if sd.InstancesError != nil {
 		return nil, sd.InstancesError
 	}

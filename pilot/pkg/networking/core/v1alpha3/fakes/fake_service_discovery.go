@@ -33,7 +33,7 @@ type ServiceDiscovery struct {
 		result1 *model.Service
 		result2 error
 	}
-	InstancesByPortStub        func(svc *model.Service, servicePort int, labels model.LabelsCollection) ([]*model.ServiceInstance, error)
+	InstancesByPortStub        func(svc *model.Service, servicePort int, labels config.LabelsCollection) ([]*model.ServiceInstance, error)
 	instancesByPortMutex       sync.RWMutex
 	instancesByPortArgsForCall []struct {
 		svc         *model.Service
@@ -206,7 +206,7 @@ func (fake *ServiceDiscovery) GetServiceReturnsOnCall(i int, result1 *model.Serv
 	}{result1, result2}
 }
 
-func (fake *ServiceDiscovery) InstancesByPort(svc *model.Service, servicePort int, labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+func (fake *ServiceDiscovery) InstancesByPort(svc *model.Service, servicePort int, labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
 	fake.instancesByPortMutex.Lock()
 	ret, specificReturn := fake.instancesByPortReturnsOnCall[len(fake.instancesByPortArgsForCall)]
 	fake.instancesByPortArgsForCall = append(fake.instancesByPortArgsForCall, struct {
@@ -231,7 +231,7 @@ func (fake *ServiceDiscovery) InstancesByPortCallCount() int {
 	return len(fake.instancesByPortArgsForCall)
 }
 
-func (fake *ServiceDiscovery) InstancesByPortArgsForCall(i int) (*model.Service, int, model.LabelsCollection) {
+func (fake *ServiceDiscovery) InstancesByPortArgsForCall(i int) (*model.Service, int, config.LabelsCollection) {
 	fake.instancesByPortMutex.RLock()
 	defer fake.instancesByPortMutex.RUnlock()
 	return fake.instancesByPortArgsForCall[i].svc, fake.instancesByPortArgsForCall[i].servicePort, fake.instancesByPortArgsForCall[i].labels

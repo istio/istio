@@ -39,7 +39,7 @@ type ServiceEntryStore struct {
 
 	ip2instance map[string][]*model.ServiceInstance
 	// Endpoints table. Key is the fqdn hostname and namespace
-	instances map[model.Hostname]map[string][]*model.ServiceInstance
+	instances map[config.Hostname]map[string][]*model.ServiceInstance
 
 	changeMutex  sync.RWMutex
 	lastChange   time.Time
@@ -53,7 +53,7 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 		instanceHandlers: make([]instanceHandler, 0),
 		store:            store,
 		ip2instance:      map[string][]*model.ServiceInstance{},
-		instances:        map[model.Hostname]map[string][]*model.ServiceInstance{},
+		instances:        map[config.Hostname]map[string][]*model.ServiceInstance{},
 		updateNeeded:     true,
 	}
 	if callbacks != nil {
@@ -150,7 +150,7 @@ func (d *ServiceEntryStore) WorkloadHealthCheckInfo(addr string) model.ProbeList
 // InstancesByPort retrieves instances for a service on the given ports with labels that
 // match any of the supplied labels. All instances match an empty tag list.
 func (d *ServiceEntryStore) InstancesByPort(svc *model.Service, port int,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
 	d.update()
 
 	d.storeMutex.RLock()
@@ -181,7 +181,7 @@ func (d *ServiceEntryStore) update() {
 	}
 	d.changeMutex.RUnlock()
 
-	di := map[model.Hostname]map[string][]*model.ServiceInstance{}
+	di := map[config.Hostname]map[string][]*model.ServiceInstance{}
 	dip := map[string][]*model.ServiceInstance{}
 
 	for _, cfg := range d.store.ServiceEntries() {

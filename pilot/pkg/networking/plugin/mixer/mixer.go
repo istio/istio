@@ -184,7 +184,7 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 func (mixerplugin) OnVirtualListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	if in.ListenerProtocol == plugin.ListenerProtocolTCP {
 		attrs := createOutboundListenerAttributes(in)
-		tcpFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service, in.Push)
+		tcpFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
 		}
@@ -433,11 +433,13 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 		switch upstreams := action.Route.ClusterSpecifier.(type) {
 		case *route.RouteAction_Cluster:
 			_, _, hostname, _ := model.ParseSubsetKey(upstreams.Cluster)
+			var attrs attributes
 			if hostname == "" && upstreams.Cluster == util.PassthroughCluster {
-				hostname = util.PassthroughCluster
+				attrs = addVirtualDestinationServiceAttributes(make(attributes), util.PassthroughCluster)
+			} else {
+				svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
+				attrs = addDestinationServiceAttributes(make(attributes), svc)
 			}
-			svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
-			attrs := addDestinationServiceAttributes(make(attributes), svc)
 			addFilterConfigToRoute(in, httpRoute, attrs, isXDSMarshalingToAnyEnabled)
 
 		case *route.RouteAction_WeightedClusters:
@@ -468,7 +470,7 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 	case *route.Route_DirectResponse:
 		if virtualHostname == util.BlackHoleRouteName {
 			hostname := config.Hostname(util.BlackHoleCluster)
-			attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
+			attrs := addVirtualDestinationServiceAttributes(make(attributes), hostname)
 			addFilterConfigToRoute(in, httpRoute, attrs, isXDSMarshalingToAnyEnabled)
 		}
 	// route.Route_Redirect is not used currently, so no attributes are added here
@@ -564,17 +566,22 @@ func addTypedServiceConfig(filterConfigs map[string]*types.Any, config *mccpb.Se
 	return filterConfigs
 }
 
-func addDestinationServiceAttributes(attrs attributes, svc *model.Service, destinationHostname config.Hostname) attributes {
-	// TODO: pass Service directly.
+func addVirtualDestinationServiceAttributes(attrs attributes, destinationHostname config.Hostname) attributes {
 	if destinationHostname == "" {
 		return attrs
 	}
+
 	attrs["destination.service.host"] = attrStringValue(string(destinationHostname))
 
+	if destinationHostname == util.PassthroughCluster || destinationHostname == util.BlackHoleCluster {
+		attrs["destination.service.name"] = attrStringValue(string(destinationHostname))
+	}
+
+	return attrs
+}
+
+func addDestinationServiceAttributes(attrs attributes, svc *model.Service) attributes {
 	if svc == nil {
-		if destinationHostname == util.PassthroughCluster || destinationHostname == util.BlackHoleCluster {
-			attrs["destination.service.name"] = attrStringValue(string(destinationHostname))
-		}
 		return attrs
 	}
 	attrs["destination.service.host"] = attrStringValue(string(svc.Hostname))

@@ -409,7 +409,7 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 
 // InstancesByPort implements a service catalog operation
 func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
-	labelsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	labelsList config.LabelsCollection) ([]*model.ServiceInstance, error) {
 
 	// Locate all ports in the actual service
 	svcPortEntry, exists := svc.Ports.GetByPort(reqSvcPort)

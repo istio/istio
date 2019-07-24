@@ -207,7 +207,7 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 // InstancesByPort retrieves instances for a service on a given port that match
 // any of the supplied labels. All instances match an empty label list.
 func (c *Controller) InstancesByPort(svc *model.Service, port int,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
 	var instances, tmpInstances []*model.ServiceInstance
 	var errs error
 	for _, r := range c.GetRegistries() {

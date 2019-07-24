@@ -80,7 +80,7 @@ type SidecarScope struct {
 
 	// A given hostname should only be considered in a single namespace. This mapping determines which
 	// namespace a hostname exists in
-	NamespaceForHostname map[Hostname]string
+	NamespaceForHostname map[config.Hostname]string
 
 	// CDSOutboundClusters is the CDS output for sidecars that map to this
 	// sidecarScope object. Contains the outbound clusters only, indexed
@@ -134,8 +134,8 @@ type IstioEgressListenerWrapper struct {
 	virtualServices []Config
 }
 
-func createNamespaceForHostname(egress []*IstioEgressListenerWrapper) map[Hostname]string {
-	var namespaceForHostname = make(map[Hostname]string)
+func createNamespaceForHostname(egress []*IstioEgressListenerWrapper) map[config.Hostname]string {
+	var namespaceForHostname = make(map[config.Hostname]string)
 	for _, egress := range egress {
 		for _, svc := range egress.Services() {
 			if _, f := namespaceForHostname[svc.Hostname]; !f {
@@ -279,7 +279,7 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 }
 
 // ServiceForHostname returns the service associated with a given hostname following SidecarScope
-func (sc *SidecarScope) ServiceForHostname(hostname Hostname, serviceByHostname map[Hostname]map[string]*Service) *Service {
+func (sc *SidecarScope) ServiceForHostname(hostname config.Hostname, serviceByHostname map[config.Hostname]map[string]*Service) *Service {
 	// SidecarScope shouldn't be null here. If it is, we can't disambiguate the hostname to use for a namespace,
 	// so the selection must be undefined.
 	if sc == nil {
@@ -482,7 +482,7 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 		}
 	}
 
-	var validServices = make(map[Hostname]string)
+	var validServices = make(map[config.Hostname]string)
 	for _, svc := range importedServices {
 		_, f := validServices[svc.Hostname]
 		// Select a single namespace for a given hostname.

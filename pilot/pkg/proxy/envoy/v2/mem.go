@@ -287,7 +287,7 @@ func (sd *MemServiceDiscovery) Instances(hostname config.Hostname, ports []strin
 // InstancesByPort filters the service instances by labels. This assumes single port, as is
 // used by EDS/ADS.
 func (sd *MemServiceDiscovery) InstancesByPort(svc *model.Service, port int,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if sd.InstancesError != nil {

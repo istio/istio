@@ -111,7 +111,7 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 // InstancesByPort retrieves instances for a service that match
 // any of the supplied labels. All instances match an empty tag list.
 func (c *Controller) InstancesByPort(svc *model.Service, port int,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
 	c.cacheMutex.Lock()
 	defer c.cacheMutex.Unlock()
 

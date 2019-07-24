@@ -302,8 +302,8 @@ func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, 
 func (mock) GetProxyWorkloadLabels(proxy *model.Proxy) (config.LabelsCollection, error) {
 	return nil, nil
 }
-func (mock) GetService(_ model.Hostname) (*model.Service, error) { return nil, nil }
-func (mock) InstancesByPort(_ *model.Service, _ int, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
+func (mock) GetService(_ config.Hostname) (*model.Service, error) { return nil, nil }
+func (mock) InstancesByPort(_ *model.Service, _ int, _ config.LabelsCollection) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
 func (mock) ManagementPorts(_ string) model.PortList                        { return nil }
