@@ -239,9 +239,9 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 		buildService("test1.com", wildcardIP, config.ProtocolHTTP, tnow.Add(1*time.Second)),
 		buildService("test2.com", wildcardIP, config.ProtocolTCP, tnow),
 		buildService("test3.com", wildcardIP, config.ProtocolHTTP, tnow.Add(2*time.Second))}
-	//testOutboundListenerConfigWithSidecar(t, services...)
-	//testOutboundListenerConfigWithSidecarWithCaptureModeNone(t, services...)
-	//testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t, services...)
+	testOutboundListenerConfigWithSidecar(t, services...)
+	testOutboundListenerConfigWithSidecarWithCaptureModeNone(t, services...)
+	testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t, services...)
 
 	testOutboundListenerAutoConfigWithSidecar(t, services...)
 }
