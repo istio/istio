@@ -55,6 +55,10 @@ var (
 	// nolint: golint
 	TAG Variable = "TAG"
 
+	// DOCKER_HUB is the Docker hub to be used for images from docker.io.
+	// nolint: golint
+	DOCKER_HUB Variable = "DOCKER_HUB"
+
 	// PULL_POLICY is the image pull policy to use when rendering templates.
 	// nolint: golint
 	PULL_POLICY Variable = "PULL_POLICY"

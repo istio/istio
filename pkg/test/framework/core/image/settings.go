@@ -28,6 +28,9 @@ const (
 
 	// LatestTag value
 	LatestTag = "latest"
+
+	// DockerHubValuesKey values key for the Docker image hub of external images (e.g. redis).
+	DockerHubValuesKey = "docker.io"
 )
 
 // Settings provide kube-specific Settings from flags.
@@ -40,6 +43,9 @@ type Settings struct {
 
 	// Image pull policy to use for deployments. If not specified, the defaults of each deployment will be used.
 	PullPolicy string
+
+	// DockerHub value to use in Helm templates for external iamges
+	DockerHub string
 }
 
 func (s *Settings) clone() *Settings {
@@ -54,6 +60,7 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("Hub:             %s\n", s.Hub)
 	result += fmt.Sprintf("Tag:             %s\n", s.Tag)
 	result += fmt.Sprintf("PullPolicy:      %s\n", s.PullPolicy)
+	result += fmt.Sprintf("DockerHub:       %s\n", s.DockerHub)
 
 	return result
 }
