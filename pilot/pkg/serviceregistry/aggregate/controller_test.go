@@ -258,7 +258,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
 	}
-	if len(instances) != 6 {
+	if len(instances) != 7 {
 		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {
@@ -272,7 +272,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
 	}
-	if len(instances) != 6 {
+	if len(instances) != 7 {
 		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {
