@@ -49,7 +49,7 @@ var (
 		DNSDomain:   "default.example.org",
 		Metadata: map[string]string{
 			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_PROXY_VERSION":             "1.1",
+			"ISTIO_PROXY_VERSION":             "1.3",
 		},
 		ConfigNamespace: "not-default",
 	}
@@ -60,7 +60,7 @@ var (
 		DNSDomain:   "default.example.org",
 		Metadata: map[string]string{
 			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_PROXY_VERSION":             "1.1",
+			"ISTIO_PROXY_VERSION":             "1.3",
 			model.NodeMetadataHTTP10:          "1",
 		},
 		ConfigNamespace: "not-default",
@@ -220,10 +220,8 @@ func TestInboundListenerConfig(t *testing.T) {
 			buildService("test.com", wildcardIP, config.ProtocolHTTP, tnow))
 		testInboundListenerConfigWithSidecarWithoutServices(t, p)
 
-		testInboundListenerAutoConfig(t, p,
-			buildService("test.com", wildcardIP, config.ProtocolAuto, tnow))
 		testInboundListenerAutoConfigWithSidecar(t, p,
-			buildService("test.com", wildcardIP, config.ProtocolAuto, tnow))
+			buildService("test.com", wildcardIP, config.ProtocolHTTP, tnow))
 		testInboundListenerAutoConfigWithSidecar(t, p,
 			buildService("test.com", wildcardIP, config.ProtocolHTTP, tnow))
 		testInboundListenerAutoConfigWithSidecar(t, p,
@@ -320,9 +318,8 @@ func testInboundListenerAutoConfigWithSidecar(t *testing.T, proxy *model.Proxy, 
 			Ingress: []*networking.IstioIngressListener{
 				{
 					Port: &networking.Port{
-						Number:   8080,
-						Protocol: "Auto",
-						Name:     "uds",
+						Number: 8080,
+						Name:   "uds",
 					},
 					Bind:            "1.1.1.1",
 					DefaultEndpoint: "127.0.0.1:80",
@@ -337,28 +334,6 @@ func testInboundListenerAutoConfigWithSidecar(t *testing.T, proxy *model.Proxy, 
 	}
 
 	testInboundListenerFilterChain(t, listeners[0])
-}
-
-func testInboundListenerAutoConfig(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
-	t.Helper()
-	oldestService := getOldestService(services...)
-	p := &fakePlugin{}
-	listeners := buildInboundListeners(p, proxy, nil, services...)
-	if len(listeners) != 1 {
-		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
-	}
-	oldestProtocol := oldestService.Ports[0].Protocol
-
-	if oldestProtocol != config.ProtocolAuto {
-		t.Fatal("expected listener with protocol sniffing")
-	}
-
-	listener := listeners[0]
-	if len(listener.FilterChains) != 4 {
-		t.Fatalf("expected %d filter chains, found %d", 4, len(listener.FilterChains))
-	}
-
-	testInboundListenerFilterChain(t, listener)
 }
 
 func testInboundListenerAutoConfigWithSidecarWithoutServices(t *testing.T, proxy *model.Proxy) {
@@ -554,9 +529,8 @@ func testOutboundListenerAutoConfigWithSidecar(t *testing.T, services ...*model.
 			Egress: []*networking.IstioEgressListener{
 				{
 					Port: &networking.Port{
-						Number:   9000,
-						Protocol: "Auto",
-						Name:     "uds",
+						Number: 9000,
+						Name:   "uds",
 					},
 					Bind:  "1.1.1.1",
 					Hosts: []string{"*/*"},

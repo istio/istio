@@ -338,7 +338,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			}
 
 			pluginParams := &plugin.InputParams{
-				ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(endpoint.ServicePort.Protocol),
+				ListenerProtocol:           ModelProtocolToListenerProtocol(node, endpoint.ServicePort.Protocol),
 				DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
 				Env:                        env,
 				Node:                       node,
@@ -421,7 +421,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			instance.Endpoint.Port = listenPort.Port
 
 			pluginParams := &plugin.InputParams{
-				ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(listenPort.Protocol),
+				ListenerProtocol:           ModelProtocolToListenerProtocol(node, listenPort.Protocol),
 				DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
 				Env:                        env,
 				Node:                       node,
@@ -521,10 +521,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 
 	// Detect protocol by sniffing and double the filter chain
 	if pluginParams.ListenerProtocol == plugin.ListenerProtocolAuto {
-		if !util.IsProxyVersionGE13(node) {
-			return nil
-		}
-
 		allChains = append(allChains, allChains...)
 		listenerOpts.needHTTPInspector = true
 	}
@@ -541,7 +537,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 			tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Env, pluginParams.Node, pluginParams.ServiceInstance)
 
 		case plugin.ListenerProtocolAuto:
-			// Build http filter chain
+			// Build filter chain options for listener configured with protocol sniffing
+			// Double the number of filter chains. Half of filter chains are used as http filter chain and half of them are used as tcp proxy
+			// id in [0, len(allChains)/2) are configured as http filter chain, [(len(allChains)/2, len(allChains)) are configured as tcp proxy
 			if id < len(allChains)/2 {
 				httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
 
@@ -761,7 +759,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				}
 
 				pluginParams := &plugin.InputParams{
-					ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(listenPort.Protocol),
+					ListenerProtocol:           ModelProtocolToListenerProtocol(node, listenPort.Protocol),
 					DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
 					Env:                        env,
 					Node:                       node,
@@ -826,7 +824,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					}
 
 					pluginParams := &plugin.InputParams{
-						ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(servicePort.Protocol),
+						ListenerProtocol:           ModelProtocolToListenerProtocol(node, servicePort.Protocol),
 						DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
 						Env:                        env,
 						Node:                       node,
@@ -1096,26 +1094,26 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		listenerOpts.filterChainOpts = opts
 
 	case plugin.ListenerProtocolAuto:
-		if !util.IsProxyVersionGE13(node) {
-			return
-		}
-
+		// Add http filter chain and tcp filter chain to the listener opts
 		if ret, opts = configgen.buildSidecarOutboundHTTPListenerOptsForPortOrUDS(&listenerMapKey, &currentListenerEntry,
 			&listenerOpts, pluginParams, listenerMap, actualWildcard); !ret {
 			return
 		}
 
+		// Add application protocol filter chain match to the http filter chain. The application protocol will be set by http inspector
 		for _, opt := range opts {
 			if opt.match == nil {
 				opt.match = &listener.FilterChainMatch{}
 			}
 
+			// Support HTTP/1.0, HTTP/1.1 and HTTP/2
 			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, ListenersALPNProtocols...)
 			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, "http/1.0")
 		}
 
 		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
 
+		// Add tcp filter chain
 		if ret, opts = configgen.buildSidecarOutboundTCPListenerOptsForPortOrUDS(&destinationCIDR, &listenerMapKey, &currentListenerEntry,
 			&listenerOpts, pluginParams, listenerMap, virtualServices, actualWildcard); !ret {
 			return
@@ -1854,4 +1852,17 @@ func getSidecarInboundBindIP(node *model.Proxy) string {
 		}
 	}
 	return defaultInboundIP
+}
+
+func ModelProtocolToListenerProtocol(node *model.Proxy, protocol config.Protocol) plugin.ListenerProtocol {
+	switch p := plugin.ModelProtocolToListenerProtocol(protocol); p {
+	case plugin.ListenerProtocolAuto:
+		if util.IsProxyVersionGE13(node) {
+			return p
+		} else {
+			return plugin.ListenerProtocolUnknown
+		}
+	default:
+		return p
+	}
 }

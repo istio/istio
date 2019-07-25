@@ -28,8 +28,6 @@ import "strings"
 type Protocol string
 
 const (
-	// ProtocolAuto enables protocol sniffing.
-	ProtocolAuto Protocol = "Auto"
 	// ProtocolGRPC declares that the port carries gRPC traffic.
 	ProtocolGRPC Protocol = "GRPC"
 	// ProtocolGRPCWeb declares that the port carries gRPC traffic.
@@ -63,8 +61,6 @@ const (
 // ParseProtocol from string ignoring case
 func ParseProtocol(s string) Protocol {
 	switch strings.ToLower(s) {
-	case "auto":
-		return ProtocolAuto
 	case "tcp":
 		return ProtocolTCP
 	case "udp":
@@ -89,7 +85,7 @@ func ParseProtocol(s string) Protocol {
 		return ProtocolMySQL
 	}
 
-	return ProtocolAuto
+	return ProtocolUnsupported
 }
 
 // IsHTTP2 is true for protocols that use HTTP/2 as transport protocol
