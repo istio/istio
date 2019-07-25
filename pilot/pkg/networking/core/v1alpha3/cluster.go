@@ -84,10 +84,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 
 	// compute the proxy's locality. See if we have a CDS cache for that locality.
 	// If not, compute one.
-	locality := proxy.Locality
-	if locality != nil {
-		applyLocalityLBSetting(locality, clusters, env.Mesh.LocalityLbSetting, false)
-	}
+	applyLocalityLBSetting(proxy.Locality, clusters, env.Mesh.LocalityLbSetting)
 
 	switch proxy.Type {
 	case model.SidecarProxy:
@@ -925,24 +922,15 @@ func applyLocalityLBSetting(
 	locality *core.Locality,
 	clusters []*apiv2.Cluster,
 	localityLB *meshconfig.LocalityLoadBalancerSetting,
-	shared bool,
 ) {
-	// TODO: there is a complicated lock dance involved. But it improves perf when
-	// locality LB is being used. For now, we sacrifice memory and create clones of
-	// clusters for every proxy that asks for locality specific clusters
-	for i, cluster := range clusters {
+	if locality == nil || localityLB == nil {
+		return
+	}
+	for _, cluster := range clusters {
 		// Failover should only be applied with outlier detection, or traffic will never failover.
 		enabledFailover := cluster.OutlierDetection != nil
-		if shared {
-			if cluster.LoadAssignment != nil {
-				clone := util.CloneCluster(cluster)
-				loadbalancer.ApplyLocalityLBSetting(locality, clone.LoadAssignment, localityLB, enabledFailover)
-				clusters[i] = &clone
-			}
-		} else {
-			if cluster.LoadAssignment != nil {
-				loadbalancer.ApplyLocalityLBSetting(locality, cluster.LoadAssignment, localityLB, enabledFailover)
-			}
+		if cluster.LoadAssignment != nil {
+			loadbalancer.ApplyLocalityLBSetting(locality, cluster.LoadAssignment, localityLB, enabledFailover)
 		}
 	}
 }
