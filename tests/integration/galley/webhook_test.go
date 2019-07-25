@@ -15,6 +15,7 @@
 package galley
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -23,19 +24,28 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 )
 
+var (
+	vwcName    = "istio-galley"
+	deployName = "istio-galley"
+	istioNs    = "istio-system"
+	sleepDelay = 3 * time.Second // How long to wait to give the reconcile loop an opportunity to act
+)
+
+var removeGalleyYaml = fmt.Sprintf(`
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: %s
+  namespace: %s
+`, deployName, istioNs)
+
 // Verify that scaling up/down doesn't modify webhook configuration
 func TestWebhookScaling(t *testing.T) {
 	framework.NewTest(t).
 		// Limit to Kube environment as we're testing integration of webhook with K8s.
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			vwcName := "istio-galley"
-			deployName := "istio-galley"
-			istioNs := "istio-system"
-			sleepDelay := 3 * time.Second // How long to wait to give the reconcile loop an opportunity to act
-
 			env := ctx.Environment().(*kube.Environment)
-
 			startGen := getVwcGeneration(vwcName, t, env)
 
 			// Scale up
@@ -55,6 +65,22 @@ func TestWebhookScaling(t *testing.T) {
 			if gen != startGen {
 				t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale down")
 			}
+		})
+}
+
+// Verify that removing the galley deployment results in the webhook configuration being removed
+func TestWebhookRemoved(t *testing.T) {
+	framework.NewTest(t).
+		// Limit to Kube environment as we're testing integration of webhook with K8s.
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			env := ctx.Environment().(*kube.Environment)
+
+			// Remove galley webhook
+			env.DeleteContents(istioNs, removeGalleyYaml)
+
+			// Verify webhook config is deleted
+			env.WaitForValidatingWebhookDeletion(vwcName)
 		})
 }
 
