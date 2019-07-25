@@ -34,5 +34,5 @@ const (
 
 // String implements io.Stringer
 func (l Level) String() string {
-	return fmt.Sprintf("%s", string(rune(l)))
+	return fmt.Sprintf("%s", string(l))
 }
