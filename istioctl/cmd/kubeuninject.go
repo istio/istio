@@ -70,7 +70,7 @@ func extractResourceFile(in io.Reader, out io.Writer) error {
 
 		obj, err := inject.FromRawToObject(raw)
 		if err != nil && !runtime.IsNotRegisteredError(err) {
-			return err
+			return multierr.Append(fmt.Errorf("cannot parse YAML input"), err)
 		}
 
 		var updated []byte
@@ -218,9 +218,13 @@ func extractObject(in runtime.Object) (interface{}, error) {
 		outValue := reflect.ValueOf(out).Elem()
 
 		templateValue := outValue.FieldByName("Spec").FieldByName("Template")
+
 		// `Template` is defined as a pointer in some older API
 		// definitions, e.g. ReplicationController
 		if templateValue.Kind() == reflect.Ptr {
+			if templateValue.IsNil() {
+				return out, fmt.Errorf("spec.template is required value")
+			}
 			templateValue = templateValue.Elem()
 		}
 		metadata = templateValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
