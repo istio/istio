@@ -20,9 +20,8 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/pkg/log"
-
 	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -106,14 +105,6 @@ var (
 			return defaultDuration
 		}
 		return time.Second * time.Duration(duration)
-	}
-
-	// EnableLocalityLoadBalancing provides an option to enable the LocalityLoadBalancerSetting feature
-	// as well as prioritizing the sending of traffic to a local locality. Set the environment variable to any value to enable.
-	// This is an experimental feature.
-	enableLocalityLoadBalancingVar = env.RegisterStringVar("PILOT_ENABLE_LOCALITY_LOAD_BALANCING", "", "")
-	EnableLocalityLoadBalancing    = func() bool {
-		return len(enableLocalityLoadBalancingVar.Get()) != 0
 	}
 
 	enableFallthroughRouteVar = env.RegisterBoolVar(
