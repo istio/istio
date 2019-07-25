@@ -762,6 +762,9 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 		// `Template` is defined as a pointer in some older API
 		// definitions, e.g. ReplicationController
 		if templateValue.Kind() == reflect.Ptr {
+			if templateValue.IsNil() {
+				return out, fmt.Errorf("spec.template is required value")
+			}
 			templateValue = templateValue.Elem()
 		}
 		metadata = templateValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
