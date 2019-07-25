@@ -100,18 +100,19 @@ func TestKubeSource_ApplyContent_Unchanged0Add1(t *testing.T) {
 	g.Expect(actual[0].Metadata.Name).To(Equal(data.EntryN2I2V2.Metadata.Name))
 	g.Expect(actual[1].Metadata.Name).To(Equal(data.EntryN3I3V1.Metadata.Name))
 
-	g.Expect(acc.Events()).To(HaveLen(6))
-	g.Expect(acc.Events()[0].Kind).To(Equal(event.FullSync))
-	g.Expect(acc.Events()[1].Kind).To(Equal(event.Added))
-	g.Expect(acc.Events()[1].Entry).To(Equal(data.EntryN1I1V1))
-	g.Expect(acc.Events()[2].Kind).To(Equal(event.Added))
-	g.Expect(acc.Events()[2].Entry).To(Equal(withVersion(data.EntryN2I2V1, "v2")))
-	g.Expect(acc.Events()[3].Kind).To(Equal(event.Updated))
-	g.Expect(acc.Events()[3].Entry).To(Equal(withVersion(data.EntryN2I2V2, "v3")))
-	g.Expect(acc.Events()[4].Kind).To(Equal(event.Added))
-	g.Expect(acc.Events()[4].Entry).To(Equal(withVersion(data.EntryN3I3V1, "v4")))
-	g.Expect(acc.Events()[5].Kind).To(Equal(event.Deleted))
-	g.Expect(acc.Events()[5].Entry.Metadata.Name).To(Equal(data.EntryN1I1V1.Metadata.Name))
+	events := acc.EventsWithoutOrigins()
+	g.Expect(events).To(HaveLen(6))
+	g.Expect(events[0].Kind).To(Equal(event.FullSync))
+	g.Expect(events[1].Kind).To(Equal(event.Added))
+	g.Expect(events[1].Entry).To(Equal(data.EntryN1I1V1))
+	g.Expect(events[2].Kind).To(Equal(event.Added))
+	g.Expect(events[2].Entry).To(Equal(withVersion(data.EntryN2I2V1, "v2")))
+	g.Expect(events[3].Kind).To(Equal(event.Updated))
+	g.Expect(events[3].Entry).To(Equal(withVersion(data.EntryN2I2V2, "v3")))
+	g.Expect(events[4].Kind).To(Equal(event.Added))
+	g.Expect(events[4].Entry).To(Equal(withVersion(data.EntryN3I3V1, "v4")))
+	g.Expect(events[5].Kind).To(Equal(event.Deleted))
+	g.Expect(events[5].Entry.Metadata.Name).To(Equal(data.EntryN1I1V1.Metadata.Name))
 }
 
 func TestKubeSource_RemoveContent(t *testing.T) {
@@ -134,23 +135,24 @@ func TestKubeSource_RemoveContent(t *testing.T) {
 	actual := s.Get(data.Collection1).AllSorted()
 	g.Expect(actual).To(HaveLen(1))
 
-	g.Expect(acc.Events()).To(HaveLen(6))
-	g.Expect(acc.Events()[0:4]).To(ConsistOf(
+	events := acc.EventsWithoutOrigins()
+	g.Expect(events).To(HaveLen(6))
+	g.Expect(events[0:4]).To(ConsistOf(
 		event.FullSyncFor(data.Collection1),
 		event.AddFor(data.Collection1, data.EntryN1I1V1),
 		event.AddFor(data.Collection1, withVersion(data.EntryN2I2V1, "v2")),
 		event.AddFor(data.Collection1, withVersion(data.EntryN3I3V1, "v3"))))
 
 	//  Delete events can appear out of order.
-	g.Expect(acc.Events()[4].Kind).To(Equal(event.Deleted))
-	g.Expect(acc.Events()[5].Kind).To(Equal(event.Deleted))
+	g.Expect(events[4].Kind).To(Equal(event.Deleted))
+	g.Expect(events[5].Kind).To(Equal(event.Deleted))
 
-	if acc.Events()[4].Entry.Metadata.Name == data.EntryN1I1V1.Metadata.Name {
-		g.Expect(acc.Events()[4:]).To(ConsistOf(
+	if events[4].Entry.Metadata.Name == data.EntryN1I1V1.Metadata.Name {
+		g.Expect(events[4:]).To(ConsistOf(
 			event.DeleteForResource(data.Collection1, data.EntryN1I1V1),
 			event.DeleteForResource(data.Collection1, withVersion(data.EntryN2I2V1, "v2"))))
 	} else {
-		g.Expect(acc.Events()[4:]).To(ConsistOf(
+		g.Expect(events[4:]).To(ConsistOf(
 			event.DeleteForResource(data.Collection1, withVersion(data.EntryN2I2V1, "v2")),
 			event.DeleteForResource(data.Collection1, data.EntryN1I1V1)))
 	}
@@ -171,22 +173,23 @@ func TestKubeSource_Clear(t *testing.T) {
 	actual := s.Get(data.Collection1).AllSorted()
 	g.Expect(actual).To(HaveLen(0))
 
-	g.Expect(acc.Events()).To(HaveLen(5))
-	g.Expect(acc.Events()[0].Kind).To(Equal(event.FullSync))
-	g.Expect(acc.Events()[1].Kind).To(Equal(event.Added))
-	g.Expect(acc.Events()[1].Entry).To(Equal(data.EntryN1I1V1))
-	g.Expect(acc.Events()[2].Kind).To(Equal(event.Added))
-	g.Expect(acc.Events()[2].Entry).To(Equal(withVersion(data.EntryN2I2V1, "v2")))
+	events := acc.EventsWithoutOrigins()
+	g.Expect(events).To(HaveLen(5))
+	g.Expect(events[0].Kind).To(Equal(event.FullSync))
+	g.Expect(events[1].Kind).To(Equal(event.Added))
+	g.Expect(events[1].Entry).To(Equal(data.EntryN1I1V1))
+	g.Expect(events[2].Kind).To(Equal(event.Added))
+	g.Expect(events[2].Entry).To(Equal(withVersion(data.EntryN2I2V1, "v2")))
 
-	g.Expect(acc.Events()[3].Kind).To(Equal(event.Deleted))
-	g.Expect(acc.Events()[4].Kind).To(Equal(event.Deleted))
+	g.Expect(events[3].Kind).To(Equal(event.Deleted))
+	g.Expect(events[4].Kind).To(Equal(event.Deleted))
 
-	if acc.Events()[3].Entry.Metadata.Name == data.EntryN1I1V1.Metadata.Name {
-		g.Expect(acc.Events()[3].Entry.Metadata.Name).To(Equal(data.EntryN1I1V1.Metadata.Name))
-		g.Expect(acc.Events()[4].Entry.Metadata.Name).To(Equal(data.EntryN2I2V1.Metadata.Name))
+	if events[3].Entry.Metadata.Name == data.EntryN1I1V1.Metadata.Name {
+		g.Expect(events[3].Entry.Metadata.Name).To(Equal(data.EntryN1I1V1.Metadata.Name))
+		g.Expect(events[4].Entry.Metadata.Name).To(Equal(data.EntryN2I2V1.Metadata.Name))
 	} else {
-		g.Expect(acc.Events()[3].Entry.Metadata.Name).To(Equal(data.EntryN2I2V1.Metadata.Name))
-		g.Expect(acc.Events()[4].Entry.Metadata.Name).To(Equal(data.EntryN1I1V1.Metadata.Name))
+		g.Expect(events[3].Entry.Metadata.Name).To(Equal(data.EntryN2I2V1.Metadata.Name))
+		g.Expect(events[4].Entry.Metadata.Name).To(Equal(data.EntryN1I1V1.Metadata.Name))
 	}
 }
 
@@ -200,7 +203,7 @@ func TestKubeSource_UnparseableSegment(t *testing.T) {
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, "	\n", data.YamlN2I2V1))
 	g.Expect(err).To(BeNil())
 
-	actual := s.Get(data.Collection1).AllSorted()
+	actual := removeEntryOrigins(s.Get(data.Collection1).AllSorted())
 	g.Expect(actual).To(HaveLen(2))
 	g.Expect(actual[0]).To(Equal(data.EntryN1I1V1))
 	g.Expect(actual[1]).To(Equal(withVersion(data.EntryN2I2V1, "v2")))
@@ -216,7 +219,7 @@ func TestKubeSource_Unrecognized(t *testing.T) {
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlUnrecognized))
 	g.Expect(err).To(BeNil())
 
-	actual := s.Get(data.Collection1).AllSorted()
+	actual := removeEntryOrigins(s.Get(data.Collection1).AllSorted())
 	g.Expect(actual).To(HaveLen(1))
 	g.Expect(actual[0]).To(Equal(data.EntryN1I1V1))
 }
@@ -231,7 +234,7 @@ func TestKubeSource_UnparseableResource(t *testing.T) {
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlUnparseableResource))
 	g.Expect(err).To(BeNil())
 
-	actual := s.Get(data.Collection1).AllSorted()
+	actual := removeEntryOrigins(s.Get(data.Collection1).AllSorted())
 	g.Expect(actual).To(HaveLen(1))
 	g.Expect(actual[0]).To(Equal(data.EntryN1I1V1))
 }
@@ -246,7 +249,7 @@ func TestKubeSource_NonStringKey(t *testing.T) {
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlNonStringKey))
 	g.Expect(err).To(BeNil())
 
-	actual := s.Get(data.Collection1).AllSorted()
+	actual := removeEntryOrigins(s.Get(data.Collection1).AllSorted())
 	g.Expect(actual).To(HaveLen(1))
 	g.Expect(actual[0]).To(Equal(data.EntryN1I1V1))
 }
@@ -278,8 +281,9 @@ func TestSameNameDifferentKind(t *testing.T) {
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlN1I1V1Kind2))
 	g.Expect(err).To(BeNil())
 
-	g.Expect(acc.Events()).To(HaveLen(4))
-	g.Expect(acc.Events()).To(ConsistOf(
+	events := acc.EventsWithoutOrigins()
+	g.Expect(events).To(HaveLen(4))
+	g.Expect(events).To(ConsistOf(
 		event.FullSyncFor(basicmeta.Collection1),
 		event.FullSyncFor(basicmeta.Collection2),
 		event.AddFor(basicmeta.Collection1, data.EntryN1I1V1),
@@ -309,4 +313,14 @@ func withVersion(r *resource.Entry, v string) *resource.Entry {
 	r = r.Clone()
 	r.Metadata.Version = resource.Version(v)
 	return r
+}
+
+func removeEntryOrigins(resources []*resource.Entry) []*resource.Entry {
+	result := make([]*resource.Entry, len(resources))
+	for i, r := range resources {
+		r = r.Clone()
+		r.Origin = nil
+		result[i] = r
+	}
+	return result
 }
