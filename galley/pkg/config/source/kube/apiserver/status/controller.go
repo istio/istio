@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 )
 
-// Controller keeps track of status information for a given K8s style collection and continously reconciles.
+// Controller keeps track of status information for a given K8s style collection and continuously reconciles.
 type Controller struct {
 	mu sync.Mutex
 
@@ -181,7 +181,15 @@ func (c *Controller) Start(p *rt.Provider, resources []schema.KubeResource) {
 
 func (c *Controller) run(stopCh chan struct{}) {
 mainloop:
-	for key := range c.queue {
+	for {
+		var key resourcekey
+		select {
+			case <-stopCh:
+				break mainloop
+
+			case key = <- c.queue:
+		}
+
 		for _, r := range c.resources { // TODO: Rationalize this
 			if r.Collection.Name == key.collection {
 

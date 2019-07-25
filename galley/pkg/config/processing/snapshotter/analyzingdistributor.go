@@ -93,7 +93,7 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, s *S
 
 	d.analyzer.Analyze(ctx)
 
-	if !ctx.Cancelled() {
+	if !ctx.Canceled() {
 		d.updater.Update(ctx.messages)
 	}
 
@@ -123,8 +123,8 @@ func (c *context) ForEach(col collection.Name, fn analysis.IteratorFn) {
 	c.sn.ForEach(col, fn)
 }
 
-// Cancelled implements analysis.Context
-func (c *context) Cancelled() bool {
+// Canceled implements analysis.Context
+func (c *context) Canceled() bool {
 	select {
 	case <-c.cancelCh:
 		return true

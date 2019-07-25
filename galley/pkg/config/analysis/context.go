@@ -34,6 +34,6 @@ type Context interface {
 	// ForEach iterates over all the entries of a given collection.
 	ForEach(c collection.Name, fn IteratorFn)
 
-	// Cancelled indicates that the context has been cancelled. The analyzer should stop executing as soon as possible.
-	Cancelled() bool
+	// Canceled indicates that the context has been cancelled. The analyzer should stop executing as soon as possible.
+	Canceled() bool
 }
