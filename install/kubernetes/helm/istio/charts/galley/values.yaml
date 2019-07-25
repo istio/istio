@@ -4,6 +4,10 @@
 enabled: true
 replicaCount: 1
 image: galley
+resources:
+  requests:
+    cpu: 10m
+    memory: 128Mi
 nodeSelector: {}
 tolerations: []
 

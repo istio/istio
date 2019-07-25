@@ -6,6 +6,10 @@ replicaCount: 1
 image: citadel
 selfSigned: true # indicate if self-signed CA is used.
 createMeshPolicy: true
+resources:
+  requests:
+    cpu: 10m
+    memory: 128Mi
 nodeSelector: {}
 tolerations: []
 # Enable health checking on the Citadel CSR signing API.

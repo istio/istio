@@ -80,8 +80,6 @@ spec:
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
-{{- else }}
-{{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
       volumes:
       - name: config-volume

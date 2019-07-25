@@ -6,6 +6,10 @@ replicaCount: 1
 image:
   repository: grafana/grafana
   tag: 6.1.6
+resources:
+  requests:
+    cpu: 10m
+    memory: 128Mi
 ingress:
   enabled: false
   ## Used to create an Ingress record.

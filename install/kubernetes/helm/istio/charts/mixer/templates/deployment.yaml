@@ -90,8 +90,6 @@
 {{ toYaml .Values.policy.resources | indent 10 }}
 {{- else if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
-{{- else }}
-{{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
 {{- if $.Values.global.useMCP }}
@@ -157,8 +155,6 @@
         resources:
 {{- if $.Values.global.proxy.resources }}
 {{ toYaml $.Values.global.proxy.resources | indent 10 }}
-{{- else }}
-{{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
         - name: istio-certs
@@ -275,8 +271,6 @@
 {{ toYaml .Values.telemetry.resources | indent 10 }}
 {{- else if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
-{{- else }}
-{{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
 {{- if $.Values.global.useMCP }}
@@ -342,8 +336,6 @@
         resources:
 {{- if $.Values.global.proxy.resources }}
 {{ toYaml $.Values.global.proxy.resources | indent 10 }}
-{{- else }}
-{{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
         - name: istio-certs

@@ -10,7 +10,10 @@ env:
   CA_ADDR: ""  
   # names of authentication provider's plugins.
   Plugins: ""
-resources: {}
+resources:
+  requests:
+    cpu: 10m
+    memory: 128Mi
 nodeSelector: {}
 tolerations: []
 

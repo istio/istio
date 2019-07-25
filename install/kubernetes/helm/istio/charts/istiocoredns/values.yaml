@@ -8,6 +8,10 @@ coreDNSImage: coredns/coredns:1.1.2
 # https://github.com/istio-ecosystem/istio-coredns-plugin
 # The plugin listens for DNS requests from coredns server at 127.0.0.1:8053
 coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
+resources:
+  requests:
+    cpu: 10m
+    memory: 128Mi
 nodeSelector: {}
 tolerations: []
 

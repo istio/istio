@@ -52,8 +52,6 @@ spec:
           resources:
 {{- if .Values.zipkin.resources }}
 {{ toYaml .Values.zipkin.resources | indent 12 }}
-{{- else }}
-{{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
             - name: POD_NAMESPACE

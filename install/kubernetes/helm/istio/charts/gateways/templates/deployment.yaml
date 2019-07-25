@@ -75,8 +75,6 @@ spec:
           resources:
 {{- if $spec.sds.resources }}
 {{ toYaml $spec.sds.resources | indent 12 }}
-{{- else }}
-{{ toYaml $.Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
           - name: "ENABLE_WORKLOAD_SDS"
@@ -192,8 +190,6 @@ spec:
           resources:
 {{- if $spec.resources }}
 {{ toYaml $spec.resources | indent 12 }}
-{{- else }}
-{{ toYaml $.Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
           - name: NODE_NAME

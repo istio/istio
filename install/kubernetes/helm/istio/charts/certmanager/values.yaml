@@ -7,7 +7,10 @@ enabled: false
 replicaCount: 1
 hub: quay.io/jetstack
 tag: v0.6.2
-resources: {}
+resources:
+  requests:
+    cpu: 10m
+    memory: 128Mi
 nodeSelector: {}
 tolerations: []
 

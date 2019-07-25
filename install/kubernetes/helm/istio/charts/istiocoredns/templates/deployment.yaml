@@ -58,8 +58,6 @@ spec:
         resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
-{{- else }}
-{{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
       - name: istio-coredns-plugin
         command:
@@ -73,8 +71,6 @@ spec:
         resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
-{{- else }}
-{{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
       dnsPolicy: Default
       volumes:

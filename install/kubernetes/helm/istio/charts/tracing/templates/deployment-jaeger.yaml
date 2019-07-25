@@ -76,8 +76,6 @@ spec:
           resources:
 {{- if .Values.jaeger.resources }}
 {{ toYaml .Values.jaeger.resources | indent 12 }}
-{{- else }}
-{{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

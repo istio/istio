@@ -5,6 +5,10 @@ enabled: true
 replicaCount: 1
 image: sidecar_injector
 enableNamespacesByDefault: false
+resources:
+  requests:
+    cpu: 10m
+    memory: 128Mi
 nodeSelector: {}
 tolerations: []
 
