@@ -130,9 +130,10 @@ data:
     outboundTrafficPolicy:
       mode: {{ .Values.global.outboundTrafficPolicy.mode }}
 
+    {{- if  .Values.global.localityLbSetting }}
     localityLbSetting:
 {{ toYaml .Values.global.localityLbSetting | indent 6 }}
-
+    {{- end }}
     # The namespace to treat as the administrative root namespace for istio
     # configuration.
     {{- if .Values.global.configRootNamespace }}
