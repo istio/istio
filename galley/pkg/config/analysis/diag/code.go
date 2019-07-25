@@ -27,4 +27,3 @@ const (
 func (c Code) String() string {
 	return fmt.Sprintf("%s%04d", codePrefix, c)
 }
-
