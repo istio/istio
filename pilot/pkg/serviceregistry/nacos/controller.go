@@ -6,7 +6,6 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/log"
 	"reflect"
-	"strings"
 	"time"
 )
 
@@ -21,7 +20,7 @@ type Controller struct {
 }
 
 func NewController(addr string, duration time.Duration) (*Controller, error) {
-	client, err := NewClient(strings.ReplaceAll(addr,"http://","" ))
+	client, err := NewClient(addr)
 	return &Controller{
 		client:           client,
 		serviceHandlers:  make([]serviceHandler, 0),

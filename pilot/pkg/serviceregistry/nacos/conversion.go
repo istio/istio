@@ -27,7 +27,6 @@ func convertService(service nacos_model.Service) *istio_model.Service {
 			ports[port.Port] = port
 		}
 
-		// 根据这个标记进行判断是否是 mesh 外部？？？
 		if instance.Metadata[EXTERNAL_NAME] != "" {
 			meshExternal = true
 			resolution = istio_model.Passthrough
@@ -89,7 +88,7 @@ func convertInstance(instance nacos_model.Instance) *istio_model.ServiceInstance
 			Address:     addr,
 			Port:        int(instance.Port),
 			ServicePort: port,
-			Locality:    instance.ClusterName, //TODO 并不确定是否使用clusterName是否合适，目前只是根据参数注释填写，后续查验
+			Locality:    instance.ClusterName,
 		},
 		Service: &istio_model.Service{
 			Hostname:     hostname,
@@ -150,12 +149,10 @@ func sortInstances(instances []nacos_model.Instance) {
 	})
 }
 
-// 根据serviceName 组装成 hostName
 func serviceHostname(name string) istio_model.Hostname {
 	return istio_model.Hostname(fmt.Sprintf("%s.service.nacos", name))
 }
 
-//将上一布组装成的hostName 解析成serviceName
 func parseHostname(hostname istio_model.Hostname) (name string, err error) {
 	parts := strings.Split(string(hostname), ".")
 	if len(parts) < 1 || parts[0] == "" {

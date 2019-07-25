@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -122,13 +123,13 @@ func newServer() *mockServer {
 			fmt.Fprintln(w, string(data))
 		} else if r.URL.Path == "/nacos/v1/ns/instance/list" {
 			m.Lock.Lock()
-			serviceName := r.Form.Get("serviceName")
+			serviceName := r.URL.Query()["serviceName"][0]
 			var data []byte
-			if serviceName == "reviews" {
+			if serviceName == "nacos_istio_groupname@@reviews" {
 				data, _ = json.Marshal(&m.reviewsServices)
-			} else if serviceName == "productpage" {
+			} else if serviceName == "nacos_istio_groupname@@productpage" {
 				data, _ = json.Marshal(&m.producetServices)
-			} else if serviceName == "rating" {
+			} else if serviceName == "nacos_istio_groupname@@rating" {
 				data, _ = json.Marshal(&m.ratingServices)
 			}
 			m.Lock.Unlock()
@@ -148,7 +149,7 @@ func newServer() *mockServer {
 func TestInstances(t *testing.T) {
 	ts := newServer()
 	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	controller, err := NewController(strings.ReplaceAll(ts.Server.URL, "http://", ""), 3*time.Second)
 	if err != nil {
 		t.Errorf("could not create Nacos Controller: %v", err)
 	}
@@ -196,7 +197,7 @@ func TestInstances(t *testing.T) {
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
-	if len(instances) != 3 {
+	if len(instances) != 2 {
 		fmt.Println(instances)
 		t.Errorf("Instances() did not filter by port => %q, want 2", len(instances))
 	}
@@ -211,9 +212,9 @@ func TestInstances(t *testing.T) {
 func TestInstancesBadHostname(t *testing.T) {
 	ts := newServer()
 	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	controller, err := NewController(strings.ReplaceAll(ts.Server.URL, "http://", ""), 3*time.Second)
 	if err != nil {
-		t.Errorf("could not create Consul Controller: %v", err)
+		t.Errorf("could not create Nacos Controller: %v", err)
 	}
 
 	instances, err := controller.InstancesByPort("", 0, model.LabelsCollection{})
@@ -225,30 +226,12 @@ func TestInstancesBadHostname(t *testing.T) {
 	}
 }
 
-func TestInstancesError(t *testing.T) {
-	ts := newServer()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
-	if err != nil {
-		ts.Server.Close()
-		t.Errorf("could not create Consul Controller: %v", err)
-	}
-
-	ts.Server.Close()
-	instances, err := controller.InstancesByPort(serviceHostname("reviews"), 0, model.LabelsCollection{})
-	if err == nil {
-		t.Error("Instances() should return error when client experiences connection problem")
-	}
-	if len(instances) != 0 {
-		t.Errorf("Instances() returned wrong # of instances: %q, want 0", len(instances))
-	}
-}
-
 func TestGetService(t *testing.T) {
 	ts := newServer()
 	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	controller, err := NewController(strings.ReplaceAll(ts.Server.URL, "http://", ""), 3*time.Second)
 	if err != nil {
-		t.Errorf("could not create Consul Controller: %v", err)
+		t.Errorf("could not create Nacos Controller: %v", err)
 	}
 
 	service, err := controller.GetService("productpage")
@@ -265,30 +248,12 @@ func TestGetService(t *testing.T) {
 	}
 }
 
-func TestGetServiceError(t *testing.T) {
-	ts := newServer()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
-	if err != nil {
-		ts.Server.Close()
-		t.Errorf("could not create Consul Controller: %v", err)
-	}
-
-	ts.Server.Close()
-	service, err := controller.GetService("productpage.service.consul")
-	if err == nil {
-		t.Error("GetService() should return error when client experiences connection problem")
-	}
-	if service != nil {
-		t.Error("GetService() should return nil when client experiences connection problem")
-	}
-}
-
 func TestGetServiceBadHostname(t *testing.T) {
 	ts := newServer()
 	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	controller, err := NewController(strings.ReplaceAll(ts.Server.URL, "http://", ""), 3*time.Second)
 	if err != nil {
-		t.Errorf("could not create Consul Controller: %v", err)
+		t.Errorf("could not create Nacos Controller: %v", err)
 	}
 
 	service, err := controller.GetService("")
@@ -300,31 +265,12 @@ func TestGetServiceBadHostname(t *testing.T) {
 	}
 }
 
-func TestGetServiceNoInstances(t *testing.T) {
-	ts := newServer()
-	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
-	if err != nil {
-		t.Errorf("could not create Consul Controller: %v", err)
-	}
-
-	ts.services = []nacos_model.Service{}
-
-	service, err := controller.GetService("productpage.service.consul")
-	if err != nil {
-		t.Errorf("GetService() encountered unexpected error: %v", err)
-	}
-	if service != nil {
-		t.Error("service should not exist")
-	}
-}
-
 func TestServices(t *testing.T) {
 	ts := newServer()
 	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	controller, err := NewController(strings.ReplaceAll(ts.Server.URL, "http://", ""), 3*time.Second)
 	if err != nil {
-		t.Errorf("could not create Consul Controller: %v", err)
+		t.Errorf("could not create Nacos Controller: %v", err)
 	}
 
 	services, err := controller.Services()
@@ -350,30 +296,12 @@ func TestServices(t *testing.T) {
 	}
 }
 
-func TestServicesError(t *testing.T) {
-	ts := newServer()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
-	if err != nil {
-		ts.Server.Close()
-		t.Errorf("could not create Consul Controller: %v", err)
-	}
-
-	ts.Server.Close()
-	services, err := controller.Services()
-	if err == nil {
-		t.Error("Services() should return error when client experiences connection problem")
-	}
-	if len(services) != 0 {
-		t.Errorf("Services() returned wrong # of services: %q, want 0", len(services))
-	}
-}
-
 func TestGetProxyServiceInstances(t *testing.T) {
 	ts := newServer()
 	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	controller, err := NewController(strings.ReplaceAll(ts.Server.URL, "http://", ""), 3*time.Second)
 	if err != nil {
-		t.Errorf("could not create Consul Controller: %v", err)
+		t.Errorf("could not create Nacos Controller: %v", err)
 	}
 
 	services, err := controller.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{"172.19.0.11"}})
@@ -390,30 +318,12 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	}
 }
 
-func TestGetProxyServiceInstancesError(t *testing.T) {
-	ts := newServer()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
-	if err != nil {
-		ts.Server.Close()
-		t.Errorf("could not create Consul Controller: %v", err)
-	}
-
-	ts.Server.Close()
-	instances, err := controller.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{"172.19.0.11"}})
-	if err == nil {
-		t.Error("GetProxyServiceInstances() should return error when client experiences connection problem")
-	}
-	if len(instances) != 0 {
-		t.Errorf("GetProxyServiceInstances() returned wrong # of instances: %q, want 0", len(instances))
-	}
-}
-
 func TestGetProxyServiceInstancesWithMultiIPs(t *testing.T) {
 	ts := newServer()
 	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	controller, err := NewController(strings.ReplaceAll(ts.Server.URL, "http://", ""), 3*time.Second)
 	if err != nil {
-		t.Errorf("could not create Consul Controller: %v", err)
+		t.Errorf("could not create Nacos Controller: %v", err)
 	}
 
 	services, err := controller.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{"10.78.11.18", "172.19.0.12"}})
@@ -433,9 +343,9 @@ func TestGetProxyServiceInstancesWithMultiIPs(t *testing.T) {
 func TestGetProxyWorkloadLabels(t *testing.T) {
 	ts := newServer()
 	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	controller, err := NewController(strings.ReplaceAll(ts.Server.URL, "http://", ""), 3*time.Second)
 	if err != nil {
-		t.Errorf("could not create Consul Controller: %v", err)
+		t.Errorf("could not create Nacos Controller: %v", err)
 	}
 
 	tests := []struct {
