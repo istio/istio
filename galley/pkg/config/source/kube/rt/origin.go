@@ -24,6 +24,7 @@ import (
 // Origin is a K8s specific implementation of resource.Origin
 type Origin struct {
 	Collection collection.Name
+	Kind       string
 	Name       resource.Name
 	Version    resource.Version
 }
@@ -32,5 +33,5 @@ var _ resource.Origin = &Origin{}
 
 // FriendlyName implements resource.Origin
 func (o *Origin) FriendlyName() string {
-	return fmt.Sprintf("%s/%s", o.Collection.String(), o.Name.String())
+	return fmt.Sprintf("%s/%s", o.Kind, o.Name.String())
 }

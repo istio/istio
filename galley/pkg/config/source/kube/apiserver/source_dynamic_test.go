@@ -95,7 +95,7 @@ func TestEvents(t *testing.T) {
 	acc := start(s)
 	defer s.Stop()
 
-	g.Eventually(acc.Events).Should(ConsistOf(
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
 		event.FullSyncFor(basicmeta.Collection1),
 	))
 	acc.Clear()
@@ -116,7 +116,7 @@ func TestEvents(t *testing.T) {
 	obj = obj.DeepCopy()
 	w.Send(watch.Event{Type: watch.Added, Object: obj})
 
-	g.Eventually(acc.Events).Should(ConsistOf(
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
 		event.AddFor(basicmeta.Collection1, toEntry(obj)),
 	))
 
@@ -127,7 +127,7 @@ func TestEvents(t *testing.T) {
 
 	w.Send(watch.Event{Type: watch.Modified, Object: obj})
 
-	g.Eventually(acc.Events).Should(ConsistOf(
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
 		event.UpdateFor(basicmeta.Collection1, toEntry(obj))))
 
 	acc.Clear()
@@ -137,11 +137,11 @@ func TestEvents(t *testing.T) {
 	objCopy.SetResourceVersion("rv2")
 
 	w.Send(watch.Event{Type: watch.Modified, Object: objCopy})
-	g.Consistently(acc.Events).Should(BeEmpty())
+	g.Consistently(acc.EventsWithoutOrigins).Should(BeEmpty())
 
 	w.Send(watch.Event{Type: watch.Deleted, Object: obj})
 
-	g.Eventually(acc.Events).Should(ConsistOf(
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
 		event.DeleteForResource(basicmeta.Collection1, toEntry(obj))))
 }
 
@@ -238,7 +238,7 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 	acc := start(s)
 
 	// we should get a full sync event, even if the watcher doesn't properly start.
-	g.Eventually(acc.Events).Should(ConsistOf(
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
 		event.FullSyncFor(basicmeta.Collection1),
 	))
 
@@ -275,7 +275,7 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 
 	defer s.Stop()
 
-	g.Eventually(acc.Events).Should(ConsistOf(
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
 		event.FullSyncFor(basicmeta.Collection1),
 		event.AddFor(basicmeta.Collection1, toEntry(obj)),
 	))
