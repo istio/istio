@@ -96,6 +96,9 @@ const (
 	// ProxyInboundListenPort is the port on which all inbound traffic to the pod/vm will be captured to
 	// TODO: allow configuration through mesh config
 	ProxyInboundListenPort = 15006
+
+	// Proxy version which enables http inspector
+	HttpInspectorProxyVersion = "1.3"
 )
 
 var (
@@ -480,7 +483,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 // for a given port or unix domain socket
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(node *model.Proxy, listenerOpts buildListenerOpts,
 	pluginParams *plugin.InputParams, listenerMap map[string]*inboundListenerEntry) *xdsapi.Listener {
-
 	// Local service instances can be accessed through one of four addresses:
 	// unix domain socket, localhost, endpoint IP, and service
 	// VIP. Localhost bypasses the proxy and doesn't need any TCP
@@ -522,6 +524,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 
 	// Detect protocol by sniffing and double the filter chain
 	if pluginParams.ListenerProtocol == plugin.ListenerProtocolAuto {
+		if ver, _ := node.GetProxyVersion(); ver < HttpInspectorProxyVersion {
+			log.Warnf("Protocol sniffing is not support in version %s, please upgrade istio proxy to at least %s",
+				ver, HttpInspectorProxyVersion)
+			return nil
+		}
+
 		allChains = append(allChains, allChains...)
 		listenerOpts.needHTTPInspector = true
 	}
@@ -769,7 +777,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					Service:                    service,
 				}
 
-				configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap,
+				configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
 					virtualServices, actualWildcard)
 			}
 		} else {
@@ -834,7 +842,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						Service:                    service,
 					}
 
-					configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap,
+					configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
 						virtualServices, actualWildcard)
 				}
 			}
@@ -1065,7 +1073,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 // if one doesn't already exist. HTTP listeners on same port are ignored
 // (as vhosts are shipped through RDS).  TCP listeners on same port are
 // allowed only if they have different CIDR matches.
-func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(listenerOpts buildListenerOpts,
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(node *model.Proxy, listenerOpts buildListenerOpts,
 	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry,
 	virtualServices []model.Config, actualWildcard string) {
 
@@ -1093,6 +1101,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		listenerOpts.filterChainOpts = opts
 
 	case plugin.ListenerProtocolAuto:
+		if ver, _ := node.GetProxyVersion(); ver < HttpInspectorProxyVersion {
+			log.Warnf("Protocol sniffing is not support in version %s, please upgrade istio proxy to at least %s",
+				ver, HttpInspectorProxyVersion)
+			return
+		}
+
 		if ret, opts = configgen.buildSidecarOutboundHTTPListenerOptsForPortOrUDS(&listenerMapKey, &currentListenerEntry,
 			&listenerOpts, pluginParams, listenerMap, actualWildcard); !ret {
 			return

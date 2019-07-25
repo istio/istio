@@ -63,7 +63,7 @@ const (
 // ParseProtocol from string ignoring case
 func ParseProtocol(s string) Protocol {
 	switch strings.ToLower(s) {
-	case "auto":
+	case "auto", "":
 		return ProtocolAuto
 	case "tcp":
 		return ProtocolTCP
@@ -89,7 +89,7 @@ func ParseProtocol(s string) Protocol {
 		return ProtocolMySQL
 	}
 
-	return ProtocolAuto
+	return ProtocolUnsupported
 }
 
 // IsHTTP2 is true for protocols that use HTTP/2 as transport protocol
