@@ -575,6 +575,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
 	}
 	for _, p := range configgen.Plugins {
+		// TODO(crayzyxy): support authz and authn
 		if err := p.OnInboundListener(pluginParams, mutable); err != nil {
 			log.Warn(err.Error())
 		}
@@ -1138,6 +1139,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	}
 
 	for _, p := range configgen.Plugins {
+		// TODO(crazyxy): support authz and authn
 		if err := p.OnOutboundListener(pluginParams, mutable); err != nil {
 			log.Warn(err.Error())
 		}
