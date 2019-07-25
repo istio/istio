@@ -1070,6 +1070,18 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		return
 	}
 
+	// These wildcard listeners are intended for outbound traffic. However, there are cases where inbound traffic can hit these.
+	// This will happen when there is a no more specific inbound listener, either because Pilot hasn't sent it (race condition
+	// at startup), or because it never will (a port not specified in a service but captured by iptables).
+	// When this happens, Envoy will infinite loop sending requests to itself.
+	// To prevent this, we add a filter chain match that will match the pod ip and blackhole the traffic.
+	if listenerOpts.bind == actualWildcard && features.RestrictPodIpTrafficLoops.Get() {
+		listenerOpts.filterChainOpts = append([]*filterChainOpts{{
+			destinationCIDRs: pluginParams.Node.IPAddresses,
+			networkFilters:   []listener.Filter{*newBlackholeFilter(pluginParams.Node)},
+		}}, listenerOpts.filterChainOpts...)
+	}
+
 	// Lets build the new listener with the filter chains. In the end, we will
 	// merge the filter chains with any existing listener on the same port/bind point
 	l := buildListener(listenerOpts)
@@ -1259,7 +1271,12 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Envir
 		return ipTablesListener
 	}
 
-	filter := ipTablesListener.FilterChains[0].Filters[0]
+	// contains all filter chains except for the final passthrough/blackhole
+	initialFilterChain := ipTablesListener.FilterChains[:len(ipTablesListener.FilterChains)-1]
+
+	// contains just the final passthrough/blackhole
+	fallbackFilterChain := ipTablesListener.FilterChains[len(ipTablesListener.FilterChains)-1].Filters[0]
+
 	if isAllowAnyOutbound(node) {
 		hostname = util.PassthroughCluster
 	}
@@ -1291,12 +1308,11 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Envir
 	}
 	if len(mutable.FilterChains) > 0 && len(mutable.FilterChains[0].TCP) > 0 {
 		filters := append([]listener.Filter{}, mutable.FilterChains[0].TCP...)
-		filters = append(filters, filter)
-		ipTablesListener.FilterChains = []listener.FilterChain{
-			{
-				Filters: filters,
-			},
-		}
+		filters = append(filters, fallbackFilterChain)
+
+		// Replace the final filter chain with the new chain that has had plugins applied
+		initialFilterChain = append(initialFilterChain, listener.FilterChain{Filters: filters})
+		ipTablesListener.FilterChains = initialFilterChain
 	}
 	return ipTablesListener
 }

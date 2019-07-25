@@ -16,10 +16,13 @@ package v1alpha3
 
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
+
+	"istio.io/istio/pilot/pkg/features"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -125,18 +128,39 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 	}
 
 	tcpProxyFilter := newTCPProxyListenerFilter(env, node, false)
+
+	filterChains := []listener.FilterChain{
+		{
+			Filters: []listener.Filter{*tcpProxyFilter},
+		},
+	}
+
+	// The virtual listener will handle all traffic that does not match any other listeners, and will
+	// blackhole/passthrough depending on the outbound traffic policy. When passthrough is enabled,
+	// this has the risk of triggering infinite loops when requests are sent to the pod's IP, as it will
+	// send requests to itself. To block this we add an additional filter chain before that will always blackhole.
+	if features.RestrictPodIpTrafficLoops.Get() {
+		var cidrRanges []*core.CidrRange
+		for _, ip := range node.IPAddresses {
+			cidrRanges = append(cidrRanges, util.ConvertAddressToCidr(ip))
+		}
+		filterChains = append([]listener.FilterChain{{
+			FilterChainMatch: &listener.FilterChainMatch{
+				PrefixRanges: cidrRanges,
+			},
+			Filters: []listener.Filter{*newBlackholeFilter(node)},
+		}}, filterChains...)
+	}
+
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
+
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &xdsapi.Listener{
 		Name:           VirtualOutboundListenerName,
 		Address:        util.BuildAddress(actualWildcard, uint32(env.Mesh.ProxyListenPort)),
 		Transparent:    isTransparentProxy,
 		UseOriginalDst: proto.BoolTrue,
-		FilterChains: []listener.FilterChain{
-			{
-				Filters: []listener.Filter{*tcpProxyFilter},
-			},
-		},
+		FilterChains:   filterChains,
 	}
 	configgen.onVirtualOutboundListener(env, node, push, proxyInstances,
 		ipTablesListener)
@@ -201,6 +225,25 @@ func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
 	}
 
 	return builder.gatewayListeners
+}
+
+// Creates a new filter that will always send traffic to the blackhole cluster
+func newBlackholeFilter(node *model.Proxy) *listener.Filter {
+	tcpProxy := &tcp_proxy.TcpProxy{
+		StatPrefix:       util.BlackHoleCluster,
+		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+	}
+
+	filter := listener.Filter{
+		Name: xdsutil.TCPProxy,
+	}
+
+	if util.IsXDSMarshalingToAnyEnabled(node) {
+		filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
+	} else {
+		filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
+	}
+	return &filter
 }
 
 func newTCPProxyListenerFilter(env *model.Environment, node *model.Proxy, isInboundListener bool) *listener.Filter {
