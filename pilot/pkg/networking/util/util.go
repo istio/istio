@@ -247,6 +247,12 @@ func SortVirtualHosts(hosts []route.VirtualHost) {
 	})
 }
 
+// IsProxyVersionGE13 checks whether the given Proxy version is greater than or equals 1.3.
+func IsProxyVersionGE13(node *model.Proxy) bool {
+	ver, _ := node.GetProxyVersion()
+	return ver >= "1.3"
+}
+
 // IsProxyVersionGE11 checks whether the given Proxy version is greater than or equals 1.1.
 func IsProxyVersionGE11(node *model.Proxy) bool {
 	ver, _ := node.GetProxyVersion()

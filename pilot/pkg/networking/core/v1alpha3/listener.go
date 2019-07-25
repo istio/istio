@@ -96,9 +96,6 @@ const (
 	// ProxyInboundListenPort is the port on which all inbound traffic to the pod/vm will be captured to
 	// TODO: allow configuration through mesh config
 	ProxyInboundListenPort = 15006
-
-	// Proxy version which enables http inspector
-	HttpInspectorProxyVersion = "1.3"
 )
 
 var (
@@ -524,9 +521,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 
 	// Detect protocol by sniffing and double the filter chain
 	if pluginParams.ListenerProtocol == plugin.ListenerProtocolAuto {
-		if ver, _ := node.GetProxyVersion(); ver < HttpInspectorProxyVersion {
-			log.Warnf("Protocol sniffing is not support in version %s, please upgrade istio proxy to at least %s",
-				ver, HttpInspectorProxyVersion)
+		if !util.IsProxyVersionGE13(node) {
 			return nil
 		}
 
@@ -1101,9 +1096,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		listenerOpts.filterChainOpts = opts
 
 	case plugin.ListenerProtocolAuto:
-		if ver, _ := node.GetProxyVersion(); ver < HttpInspectorProxyVersion {
-			log.Warnf("Protocol sniffing is not support in version %s, please upgrade istio proxy to at least %s",
-				ver, HttpInspectorProxyVersion)
+		if !util.IsProxyVersionGE13(node) {
 			return
 		}
 
