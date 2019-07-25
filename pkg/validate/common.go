@@ -28,8 +28,7 @@ import (
 )
 
 var (
-	// DebugPackage controls verbose debugging in this package. Used for offline debugging.
-	DebugPackage = false
+	scope = log.RegisterScope("validation", "API validation", 0)
 
 	// alphaNumericRegexp defines the alpha numeric atom, typically a
 	// component of names. This only allows lower case characters and digits.
@@ -104,7 +103,7 @@ func validateWithRegex(path util.Path, val interface{}, r *regexp.Regexp) (errs 
 // each element.
 func validateStringList(vf ValidatorFunc) ValidatorFunc {
 	return func(path util.Path, val interface{}) util.Errors {
-		dbgPrintC("validateStringList(")
+		msg := fmt.Sprintf("validateStringList %v", val)
 		if reflect.TypeOf(val).Kind() != reflect.String {
 			err := fmt.Errorf("validateStringList %s got %T, want string", path, val)
 			printError(err)
@@ -113,16 +112,17 @@ func validateStringList(vf ValidatorFunc) ValidatorFunc {
 		var errs util.Errors
 		for _, s := range strings.Split(val.(string), ",") {
 			errs = util.AppendErrs(errs, vf(path, strings.TrimSpace(s)))
-			dbgPrint("\nerrors(%d): %v", len(errs), errs)
+			scope.Debugf("\nerrors(%d): %v", len(errs), errs)
+			msg += fmt.Sprintf("\nerrors(%d): %v", len(errs), errs)
 		}
-		printError(errs.ToError())
+		logWithError(errs.ToError(), msg)
 		return errs
 	}
 }
 
 // validatePortNumberString checks if val is a string with a valid port number.
 func validatePortNumberString(path util.Path, val interface{}) util.Errors {
-	dbgPrintC("validatePortNumberString %v: ", val)
+	scope.Debugf("validatePortNumberString %v:", val)
 	if !isString(val) {
 		return util.NewErrs(fmt.Errorf("validatePortNumberString(%s) bad type %T, want string", path, val))
 	}
@@ -140,7 +140,6 @@ func validatePortNumber(path util.Path, val interface{}) util.Errors {
 
 // validateIntRange checks whether val is an integer in [min, max].
 func validateIntRange(path util.Path, val interface{}, min, max int64) util.Errors {
-	dbgPrintC("validateIntRange %s:%v in [%d, %d]?: ", path, val, min, max)
 	k := reflect.TypeOf(val).Kind()
 	var err error
 	switch {
@@ -157,13 +156,12 @@ func validateIntRange(path util.Path, val interface{}, min, max int64) util.Erro
 	default:
 		err = fmt.Errorf("validateIntRange %s unexpected type %T, want int type", path, val)
 	}
-	printError(err)
+	logWithError(err, "validateIntRange %s:%v in [%d, %d]?: ", path, val, min, max)
 	return util.NewErrs(err)
 }
 
 // validateCIDR checks whether val is a string with a valid CIDR.
 func validateCIDR(path util.Path, val interface{}) util.Errors {
-	dbgPrintC("validateCIDR (%s): ", val)
 	var err error
 	if reflect.TypeOf(val).Kind() != reflect.String {
 		err = fmt.Errorf("validateCIDR %s got %T, want string", path, val)
@@ -173,7 +171,7 @@ func validateCIDR(path util.Path, val interface{}) util.Errors {
 			err = fmt.Errorf("%s %s", path, err)
 		}
 	}
-	printError(err)
+	logWithError(err, "validateCIDR (%s): ", val)
 	return util.NewErrs(err)
 }
 
@@ -182,29 +180,22 @@ func isString(val interface{}) bool {
 }
 
 func printError(err error) {
-	if !DebugPackage {
-		return
-	}
 	if err == nil {
-		fmt.Println("OK")
+		scope.Debug("OK")
 		return
 	}
-	fmt.Println(err)
+	scope.Debugf("%v", err)
 }
 
-func dbgPrint(v ...interface{}) {
-	if !DebugPackage {
-		return
+// logWithError prints debug log with err message
+func logWithError(err error, format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	if err == nil {
+		msg += fmt.Sprint(": OK\n")
+	} else {
+		msg += fmt.Sprintf(": %v\n", err)
 	}
-	dbgPrintC(v...)
-	log.Infof("")
-}
-
-func dbgPrintC(v ...interface{}) {
-	if !DebugPackage {
-		return
-	}
-	log.Infof(fmt.Sprintf(v[0].(string), v[1:]...))
+	scope.Debug(msg)
 }
 
 // match compiles the string to a regular expression.

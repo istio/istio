@@ -211,7 +211,7 @@ func IsEmptyString(value interface{}) bool {
 
 // DeleteFromSlicePtr deletes an entry at index from the parent, which must be a slice ptr.
 func DeleteFromSlicePtr(parentSlice interface{}, index int) error {
-	dbgPrint("DeleteFromSlicePtr index=%d, slice=\n%s", index, pretty.Sprint(parentSlice))
+	scope.Debugf("DeleteFromSlicePtr index=%d, slice=\n%s", index, pretty.Sprint(parentSlice))
 	pv := reflect.ValueOf(parentSlice)
 
 	if !IsSliceInterfacePtr(parentSlice) {
@@ -230,7 +230,7 @@ func DeleteFromSlicePtr(parentSlice interface{}, index int) error {
 
 // UpdateSlicePtr updates an entry at index in the parent, which must be a slice ptr, with the given value.
 func UpdateSlicePtr(parentSlice interface{}, index int, value interface{}) error {
-	dbgPrint("UpdateSlicePtr parent=\n%s\n, index=%d, value=\n%v", pretty.Sprint(parentSlice), index, value)
+	scope.Debugf("UpdateSlicePtr parent=\n%s\n, index=%d, value=\n%v", pretty.Sprint(parentSlice), index, value)
 	pv := reflect.ValueOf(parentSlice)
 	v := reflect.ValueOf(value)
 
@@ -250,7 +250,7 @@ func UpdateSlicePtr(parentSlice interface{}, index int, value interface{}) error
 
 // InsertIntoMap inserts value with key into parent which must be a map, map ptr, or interface to map.
 func InsertIntoMap(parentMap interface{}, key interface{}, value interface{}) error {
-	dbgPrint("InsertIntoMap key=%v, value=%s, map=\n%s", key, pretty.Sprint(value), pretty.Sprint(parentMap))
+	scope.Debugf("InsertIntoMap key=%v, value=%s, map=\n%s", key, pretty.Sprint(value), pretty.Sprint(parentMap))
 	v := reflect.ValueOf(parentMap)
 	kv := reflect.ValueOf(key)
 	vv := reflect.ValueOf(value)
@@ -263,7 +263,7 @@ func InsertIntoMap(parentMap interface{}, key interface{}, value interface{}) er
 	}
 
 	if v.Type().Kind() != reflect.Map {
-		dbgPrint("error %v", v.Type().Kind())
+		scope.Debugf("error %v", v.Type().Kind())
 		return fmt.Errorf("insertIntoMap parent type is %T, must be map", parentMap)
 	}
 

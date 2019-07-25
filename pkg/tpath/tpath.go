@@ -33,8 +33,7 @@ import (
 )
 
 var (
-	// DebugPackage controls verbose debugging in this package. Used for offline debugging.
-	DebugPackage = false
+	scope = log.RegisterScope("tpath", "tree traverser", 0)
 )
 
 // PathContext provides a means for traversing a tree towards the root.
@@ -69,7 +68,7 @@ func GetPathContext(root interface{}, path util.Path) (*PathContext, bool, error
 // getPathContext is the internal implementation of GetPathContext.
 // If createMissing is true, it creates any missing map (but NOT list) path entries in root.
 func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissing bool) (*PathContext, bool, error) {
-	dbgPrint("getPathContext remainPath=%s, Node=%s", remainPath, pretty.Sprint(nc.Node))
+	scope.Debugf("getPathContext remainPath=%s, Node=%s", remainPath, pretty.Sprint(nc.Node))
 	if len(remainPath) == 0 {
 		return nc, true, nil
 	}
@@ -87,7 +86,7 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 	// For list types, we need a key to identify the selected list item. This can be either a a value key of the
 	// form :matching_value in the case of a leaf list, or a matching key:value in the case of a non-leaf list.
 	if lst, ok := ncNode.([]interface{}); ok {
-		dbgPrint("list type")
+		scope.Debug("list type")
 		for idx, le := range lst {
 			// non-leaf list, expect to match item by key:value.
 			if lm, ok := le.(map[interface{}]interface{}); ok {
@@ -96,7 +95,7 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 					return nil, false, fmt.Errorf("path %s: %s", fullPath, err)
 				}
 				if stringsEqual(lm[k], v) {
-					dbgPrint("found matching kv %v:%v", k, v)
+					scope.Debugf("found matching kv %v:%v", k, v)
 					nn := &PathContext{
 						Parent: nc,
 						Node:   lm,
@@ -104,7 +103,7 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 					nc.KeyToChild = idx
 					nn.KeyToChild = k
 					if len(remainPath) == 1 {
-						dbgPrint("KV terminate")
+						scope.Debug("KV terminate")
 						return nn, true, nil
 					}
 					return getPathContext(nn, fullPath, remainPath[1:], createMissing)
@@ -117,7 +116,7 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 				return nil, false, fmt.Errorf("path %s: %s", fullPath, err)
 			}
 			if matchesRegex(v, le) {
-				dbgPrint("found matching key %v, index %d", le, idx)
+				scope.Debugf("found matching key %v, index %d", le, idx)
 				nn := &PathContext{
 					Parent: nc,
 					Node:   le,
@@ -130,7 +129,7 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 	}
 
 	if util.IsMap(ncNode) {
-		dbgPrint("map type")
+		scope.Debug("map type")
 		var nn interface{}
 		if m, ok := ncNode.(map[interface{}]interface{}); ok {
 			nn, ok = m[pe]
@@ -180,11 +179,11 @@ func WriteNode(root interface{}, path util.Path, value interface{}) error {
 
 // WritePathContext writes the given value to the Node in the given PathContext.
 func WritePathContext(nc *PathContext, value interface{}) error {
-	dbgPrint("WritePathContext PathContext=%s, value=%v", nc, value)
+	scope.Debugf("WritePathContext PathContext=%s, value=%v", nc, value)
 
 	switch {
 	case value == nil:
-		dbgPrint("delete")
+		scope.Debug("delete")
 		switch {
 		case nc.Parent != nil && isSliceOrPtrInterface(nc.Parent.Node):
 			if err := util.DeleteFromSlicePtr(nc.Parent.Node, nc.Parent.KeyToChild.(int)); err != nil {
@@ -202,16 +201,16 @@ func WritePathContext(nc *PathContext, value interface{}) error {
 		case isSliceOrPtrInterface(nc.Parent.Node):
 			idx := nc.Parent.KeyToChild.(int)
 			if idx == -1 {
-				dbgPrint("insert")
+				scope.Debug("insert")
 
 			} else {
-				dbgPrint("update index %d\n", idx)
+				scope.Debugf("update index %d\n", idx)
 				if err := util.UpdateSlicePtr(nc.Parent.Node, idx, value); err != nil {
 					return err
 				}
 			}
 		default:
-			dbgPrint("leaf update")
+			scope.Debug("leaf update")
 			if isMapOrInterface(nc.Parent.Node) {
 				if err := util.InsertIntoMap(nc.Parent.Node, nc.Parent.KeyToChild, value); err != nil {
 					return err
@@ -234,7 +233,7 @@ func matchesRegex(pattern, str interface{}) bool {
 		log.Errorf("bad regex expression %s", fmt.Sprint(pattern))
 		return false
 	}
-	dbgPrint("%v regex %v? %v\n", pattern, str, match)
+	scope.Debugf("%v regex %v? %v\n", pattern, str, match)
 	return match
 }
 
@@ -257,13 +256,4 @@ func isMapOrInterface(v interface{}) bool {
 		vv = vv.Elem()
 	}
 	return vv.Kind() == reflect.Map
-}
-
-// dbgPrint prints v if the package global variable DebugPackage is set.
-// v has the same format as Printf. A trailing newline is added to the output.
-func dbgPrint(v ...interface{}) {
-	if !DebugPackage {
-		return
-	}
-	log.Infof(fmt.Sprintf(v[0].(string), v[1:]...))
 }

@@ -32,6 +32,7 @@ import (
 	"istio.io/operator/pkg/util"
 	"istio.io/operator/pkg/validate"
 	"istio.io/operator/pkg/version"
+	"istio.io/pkg/log"
 )
 
 type dumpArgs struct {
@@ -52,20 +53,20 @@ func addDumpFlags(cmd *cobra.Command, dumpArgs *dumpArgs) {
 		"If set, dumps the Helm values that IstioControlPlaceSpec is translated to before manifests are rendered.")
 }
 
-func dumpProfileDefaultsCmd(rootArgs *rootArgs, dumpArgs *dumpArgs) *cobra.Command {
+func dumpProfileDefaultsCmd(rootArgs *rootArgs, dumpArgs *dumpArgs, logOpts *log.Options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dump-profile",
 		Short: "Dump default values for the profile passed in the CR.",
 		Long:  "The dump-profile subcommand is used to dump default values for the profile passed in the CR.",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			dumpProfile(rootArgs, dumpArgs)
+			dumpProfile(rootArgs, dumpArgs, logOpts)
 		}}
 	return cmd
 }
 
-func dumpProfile(args *rootArgs, dumpArgs *dumpArgs) {
-	if err := configLogs(args); err != nil {
+func dumpProfile(args *rootArgs, dumpArgs *dumpArgs, logOpts *log.Options) {
+	if err := configLogs(args, logOpts); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
 		os.Exit(1)
 	}

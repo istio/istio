@@ -49,14 +49,13 @@ func getWriter(args *rootArgs) (*os.File, error) {
 	return writer, nil
 }
 
-func configLogs(args *rootArgs) error {
-	opt := log.DefaultOptions()
+func configLogs(args *rootArgs, logOpts *log.Options) error {
 	if !args.logToStdErr {
-		opt.ErrorOutputPaths = []string{logFilePath}
-		opt.OutputPaths = []string{logFilePath}
+		logOpts.ErrorOutputPaths = []string{logFilePath}
+		logOpts.OutputPaths = []string{logFilePath}
 		defer log.Infof("Start running command: %v", os.Args)
 	}
-	return log.Configure(opt)
+	return log.Configure(logOpts)
 }
 
 func genManifests(args *rootArgs) (name.ManifestMap, error) {

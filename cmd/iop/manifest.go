@@ -25,20 +25,20 @@ import (
 	"istio.io/pkg/log"
 )
 
-func manifestCmd(rootArgs *rootArgs) *cobra.Command {
+func manifestCmd(rootArgs *rootArgs, logOpts *log.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "manifest",
 		Short: "Generates Istio install manifest.",
 		Long:  "The manifest subcommand is used to generate an Istio install manifest based on the input CR.",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			writeManifests(rootArgs)
+			writeManifests(rootArgs, logOpts)
 		}}
 
 }
 
-func writeManifests(args *rootArgs) {
-	if err := configLogs(args); err != nil {
+func writeManifests(args *rootArgs, logOpts *log.Options) {
+	if err := configLogs(args, logOpts); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
 		os.Exit(1)
 	}

@@ -31,12 +31,12 @@ func IsYAMLEqual(a, b string) bool {
 	}
 	ajb, err := yaml.YAMLToJSON([]byte(a))
 	if err != nil {
-		dbgPrint("bad YAML in isYAMLEqual:\n%s", a)
+		scope.Debugf("bad YAML in isYAMLEqual:\n%s", a)
 		return false
 	}
 	bjb, err := yaml.YAMLToJSON([]byte(b))
 	if err != nil {
-		dbgPrint("bad YAML in isYAMLEqual:\n%s", b)
+		scope.Debugf("bad YAML in isYAMLEqual:\n%s", b)
 		return false
 	}
 

@@ -190,7 +190,7 @@ sidecarInjectorWebhook:
 			if err != nil {
 				t.Fatalf("unmarshalWithJSONPB(%s): got error %s", tt.desc, err)
 			}
-			dbgPrint("ispec: \n%s\n", pretty.Sprint(ispec))
+			scope.Debugf("ispec: \n%s\n", pretty.Sprint(ispec))
 			got, err := tr.ProtoToValues(ispec)
 			if gotErr, wantErr := errToString(err), tt.wantErr; gotErr != wantErr {
 				t.Errorf("ProtoToValues(%s)(%v): gotErr:%s, wantErr:%s", tt.desc, tt.yamlStr, gotErr, wantErr)
