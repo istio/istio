@@ -222,7 +222,7 @@ mainloop:
 					delete(u.Object, "status")
 				}
 
-				u, err = iface.Namespace(ns).UpdateStatus(u, metav1.UpdateOptions{})
+				_, err = iface.Namespace(ns).UpdateStatus(u, metav1.UpdateOptions{})
 				if err != nil {
 					scope.Source.Errorf("Unable to update Status of Resource %v(%v): %v", r.CanonicalResourceName(), key.resource, err)
 					continue mainloop
