@@ -34,11 +34,31 @@ const (
 	versionPath = "/version"
 )
 
+var (
+	exporterMu sync.Mutex
+	exporter   *ocprom.Exporter
+)
+
+func setupExporter() (*ocprom.Exporter, error) {
+	exporterMu.Lock()
+	defer exporterMu.Unlock()
+	if exporter == nil {
+		registry := prometheus.DefaultRegisterer.(*prometheus.Registry)
+		var err error
+		if exporter, err = ocprom.NewExporter(ocprom.Options{Registry: registry}); err != nil {
+			err = fmt.Errorf("could not set up prometheus exporter: %v", err)
+			return nil, err
+		}
+		view.RegisterExporter(exporter)
+	}
+
+	return exporter, nil
+}
+
 // NewMonitoring returns a new monitoring component.
 func NewMonitoring(port uint) process.Component {
 
 	var lis net.Listener
-	var exporter *ocprom.Exporter
 	var server *http.Server
 
 	return process.ComponentFromFns(
@@ -50,15 +70,13 @@ func NewMonitoring(port uint) process.Component {
 				return err
 			}
 
-			registry := prometheus.DefaultRegisterer.(*prometheus.Registry)
-			if exporter, err = ocprom.NewExporter(ocprom.Options{Registry: registry}); err != nil {
-				err = fmt.Errorf("could not set up prometheus exporter: %v", err)
+			exp, err := setupExporter()
+			if err != nil {
 				return err
 			}
-			view.RegisterExporter(exporter)
 
 			mux := http.NewServeMux()
-			mux.Handle(metricsPath, exporter)
+			mux.Handle(metricsPath, exp)
 			mux.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
 				if _, err := out.Write([]byte(version.Info.String())); err != nil {
 					scope.Errorf("Unable to write version string: %v", err)
@@ -107,11 +125,5 @@ func NewMonitoring(port uint) process.Component {
 				}
 				lis = nil
 			}
-
-			if exporter != nil {
-				view.UnregisterExporter(exporter)
-				exporter = nil
-			}
-
 		})
 }

@@ -21,27 +21,47 @@ import (
 	"istio.io/istio/galley/pkg/server/process"
 )
 
+// Ctrlz component that starts/stops a Ctrlz service.
+type Ctrlz struct {
+	options *ctrlz.Options
+	topics  []fw.Topic
+	server  *ctrlz.Server
+}
+
+var _ process.Component = &Ctrlz{}
+
 // NewCtrlz returns a new ctrlz component.
-func NewCtrlz(options *ctrlz.Options, topics ...fw.Topic) process.Component {
+func NewCtrlz(options *ctrlz.Options, topics ...fw.Topic) *Ctrlz {
+	return &Ctrlz{
+		options: options,
+		topics:  topics,
+	}
+}
 
-	var server *ctrlz.Server
+// Start implements process.Component
+func (c *Ctrlz) Start() error {
+	s, err := ctrlz.Run(c.options, c.topics)
+	if err != nil {
+		return err
+	}
 
-	return process.ComponentFromFns(
-		// start
-		func() error {
-			s, err := ctrlz.Run(options, topics)
-			if err != nil {
-				return err
-			}
+	c.server = s
+	return nil
+}
 
-			server = s
-			return nil
-		},
-		// stop
-		func() {
-			if server != nil {
-				server.Close()
-				server = nil
-			}
-		})
+// Stop implements process.Component
+func (c *Ctrlz) Stop() {
+	if c.server != nil {
+		c.server.Close()
+		c.server = nil
+	}
+}
+
+// Address returns the local Ctrlz server address.
+func (c *Ctrlz) Address() string {
+	addr := ""
+	if c.server != nil {
+		addr = c.server.Address()
+	}
+	return addr
 }

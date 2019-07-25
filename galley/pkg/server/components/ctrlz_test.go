@@ -16,7 +16,10 @@ package components
 
 import (
 	"fmt"
+	"net"
 	"net/http"
+	"strconv"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -28,12 +31,13 @@ func TestCtrlz_Basic(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	o := ctrlz.DefaultOptions()
+	o.Port = 0
 	c := NewCtrlz(o)
 	err := c.Start()
 	g.Expect(err).To(BeNil())
 	defer c.Stop()
 
-	url := fmt.Sprintf("http://%s:%d/", o.Address, o.Port)
+	url := fmt.Sprintf("http://%s/", c.Address())
 	r, err := http.Get(url)
 	g.Expect(err).To(BeNil())
 	defer func() { _ = r.Body.Close() }()
@@ -43,23 +47,29 @@ func TestCtrlz_Basic(t *testing.T) {
 func TestCtrlz_Error(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	o := ctrlz.DefaultOptions()
-	c1 := NewCtrlz(o)
-	err := c1.Start()
+	l, err := net.Listen("tcp", "localhost:0")
 	g.Expect(err).To(BeNil())
-	defer c1.Stop()
+	defer func() { _ = l.Close() }()
+
+	parts := strings.Split(l.Addr().String(), ":")
+	port, err := strconv.Atoi(parts[1])
+	g.Expect(err).To(BeNil())
 
 	// Expect this one to fail
-	c2 := NewCtrlz(o)
-	err = c2.Start()
+	o := ctrlz.DefaultOptions()
+	o.Port = uint16(port)
+
+	c := NewCtrlz(o)
+	err = c.Start()
 	g.Expect(err).NotTo(BeNil())
-	defer c2.Stop()
+	defer c.Stop()
 }
 
 func TestCtrlz_DoubleStop(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	o := ctrlz.DefaultOptions()
+	o.Port = 0
 	c := NewCtrlz(o)
 	err := c.Start()
 	g.Expect(err).To(BeNil())
