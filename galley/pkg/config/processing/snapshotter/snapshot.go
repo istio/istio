@@ -36,6 +36,10 @@ var _ snapshot.Snapshot = &snapshotImpl{}
 func (s *snapshotImpl) Resources(col string) []*mcp.Resource {
 	c := s.set.Collection(collection.NewName(col))
 
+	if c == nil {
+		return nil
+	}
+
 	result := make([]*mcp.Resource, 0, c.Size())
 
 	s.set.Collection(collection.NewName(col)).ForEach(func(e *resource.Entry) {
