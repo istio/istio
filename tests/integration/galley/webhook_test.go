@@ -76,8 +76,8 @@ func TestWebhookRemoved(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			env := ctx.Environment().(*kube.Environment)
 
-			// Remove galley webhook
-			env.DeleteContents(istioNs, removeGalleyYaml)
+			// Remove galley deployment
+			env.DeleteDeployment(istioNs, deployName)
 
 			// Verify webhook config is deleted
 			env.WaitForValidatingWebhookDeletion(vwcName)
@@ -95,9 +95,9 @@ func scaleDeployment(namespace, deployment string, replicas int, t *testing.T, e
 }
 
 func getVwcGeneration(vwcName string, t *testing.T, env *kube.Environment) int64 {
-	gen, err := env.GetValidatingWebhookConfigurationGeneration(vwcName)
+	vwc, err := env.GetValidatingWebhookConfiguration(vwcName)
 	if err != nil {
-		t.Fatalf("Could not get generation of %s webhook config: %v", vwcName, err)
+		t.Fatalf("Could not get validating webhook webhook config %s: %v", vwcName, err)
 	}
-	return gen
+	return vwc.GetGeneration()
 }

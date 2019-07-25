@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 
+	kubeApiAdmissions "k8s.io/api/admissionregistration/v1beta1"
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeApiExt "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -236,6 +237,11 @@ func (a *Accessor) WaitUntilPodsAreDeleted(fetchFunc PodFetchFunc, opts ...retry
 	return err
 }
 
+// DeleteDeployment deletes the given deployment.
+func (a *Accessor) DeleteDeployment(ns string, name string) error {
+	return a.set.AppsV1().Deployments(ns).Delete(name, deleteOptionsForeground())
+}
+
 // WaitUntilDeploymentIsReady waits until the deployment with the name/namespace is in ready state.
 func (a *Accessor) WaitUntilDeploymentIsReady(ns string, name string, opts ...retry.Option) error {
 	_, err := retry.Do(func() (interface{}, bool, error) {
@@ -336,13 +342,13 @@ func (a *Accessor) ValidatingWebhookConfigurationExists(name string) bool {
 	return err == nil
 }
 
-// GetValidatingWebhookConfigurationGeneration returns the current generation number (useful for detecting updates)
-func (a *Accessor) GetValidatingWebhookConfigurationGeneration(name string) (int64, error) {
+// GetValidatingWebhookConfigurationreturns the specified ValidatingWebhookConfiguration.
+func (a *Accessor) GetValidatingWebhookConfiguration(name string) (*kubeApiAdmissions.ValidatingWebhookConfiguration, error) {
 	whc, err := a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(name, kubeApiMeta.GetOptions{})
 	if err != nil {
-		return 0, fmt.Errorf("Could not get validating webhook config: %s", name)
+		return nil, fmt.Errorf("could not get validating webhook config: %s", name)
 	}
-	return whc.GetGeneration(), nil
+	return whc, nil
 }
 
 // GetCustomResourceDefinitions gets the CRDs
