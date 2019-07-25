@@ -17,14 +17,15 @@ package snapshotter
 import (
 	"testing"
 
-	sn "istio.io/istio/pkg/mcp/snapshot"
+	"istio.io/istio/galley/pkg/config/collection"
 )
 
 func TestDistributor_Distribute(t *testing.T) {
 	d := NewInMemoryDistributor()
 
-	b := sn.NewInMemoryBuilder()
-	s := b.Build()
+	s := &Snapshot{
+		set: collection.NewSet(nil),
+	}
 	d.Distribute("foo", s)
 	if _, ok := d.snapshots["foo"]; !ok {
 		t.Fatal("The snapshotImpl should have been set")
@@ -34,8 +35,9 @@ func TestDistributor_Distribute(t *testing.T) {
 func TestDistributor_GetSnapshot(t *testing.T) {
 	d := NewInMemoryDistributor()
 
-	b := sn.NewInMemoryBuilder()
-	s := b.Build()
+	s := &Snapshot{
+		set: collection.NewSet(nil),
+	}
 	d.Distribute("foo", s)
 
 	sn := d.GetSnapshot("foo")
@@ -47,8 +49,9 @@ func TestDistributor_GetSnapshot(t *testing.T) {
 func TestDistributor_GetSnapshot_Unknown(t *testing.T) {
 	d := NewInMemoryDistributor()
 
-	b := sn.NewInMemoryBuilder()
-	s := b.Build()
+	s := &Snapshot{
+		set: collection.NewSet(nil),
+	}
 	d.Distribute("foo", s)
 
 	sn := d.GetSnapshot("bar")
@@ -60,8 +63,9 @@ func TestDistributor_GetSnapshot_Unknown(t *testing.T) {
 func TestDistributor_NumSnapshots(t *testing.T) {
 	d := NewInMemoryDistributor()
 
-	b := sn.NewInMemoryBuilder()
-	s := b.Build()
+	s := &Snapshot{
+		set: collection.NewSet(nil),
+	}
 	d.Distribute("foo", s)
 
 	if d.NumSnapshots() != 1 {
