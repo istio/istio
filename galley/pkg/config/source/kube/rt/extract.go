@@ -34,6 +34,7 @@ func ToResourceEntry(object metav1.Object, r *schema.KubeResource, item proto.Me
 		o = &Origin{
 			Name:       name,
 			Collection: r.Collection.Name,
+			Kind:       r.Kind,
 			Version:    version,
 		}
 	}

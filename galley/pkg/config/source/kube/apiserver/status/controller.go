@@ -184,10 +184,10 @@ mainloop:
 	for {
 		var key resourcekey
 		select {
-			case <-stopCh:
-				break mainloop
+		case <-stopCh:
+			break mainloop
 
-			case key = <- c.queue:
+		case key = <-c.queue:
 		}
 
 		for _, r := range c.resources { // TODO: Rationalize this
@@ -211,7 +211,7 @@ mainloop:
 					continue mainloop
 				}
 				if s.desiredStatusVersion != resource.Version("") && u.GetResourceVersion() != string(s.desiredStatusVersion) {
-					scope.Source.Debugf("===> Skipping due to version mismatch: %v(%v): %v !=% v",
+					scope.Source.Debugf("Skipping due to version mismatch: %v(%v): %v !=% v",
 						r.CanonicalResourceName(), key.resource, u.GetResourceVersion(), s.desiredStatusVersion)
 					continue mainloop
 				}
@@ -237,7 +237,6 @@ mainloop:
 
 // Stop the controller
 func (c *Controller) Stop() {
-	scope.Source.Error(("===> Stop!"))
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.stopCh != nil {
