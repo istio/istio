@@ -164,7 +164,6 @@ func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 }
 
 func TestOutboundListenerTCPWithVS(t *testing.T) {
-	// enable use remote address to true
 	_ = os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "false")
 
 	defer func() { _ = os.Unsetenv("PILOT_ENABLE_FALLTHROUGH_ROUTE") }()
@@ -1008,12 +1007,18 @@ type fakePlugin struct {
 	outboundListenerParams []*plugin.InputParams
 }
 
+var _ plugin.Plugin = (*fakePlugin)(nil)
+
 func (p *fakePlugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	p.outboundListenerParams = append(p.outboundListenerParams, in)
 	return nil
 }
 
 func (p *fakePlugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	return nil
+}
+
+func (p *fakePlugin) OnVirtualListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	return nil
 }
 

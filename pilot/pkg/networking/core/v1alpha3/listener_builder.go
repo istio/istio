@@ -115,7 +115,9 @@ func (builder *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl,
 }
 
 func (builder *ListenerBuilder) buildVirtualOutboundListener(
-	env *model.Environment, node *model.Proxy) *ListenerBuilder {
+	configgen *ConfigGeneratorImpl,
+	env *model.Environment, node *model.Proxy, push *model.PushContext,
+	proxyInstances []*model.ServiceInstance) *ListenerBuilder {
 
 	var isTransparentProxy *google_protobuf.BoolValue
 	if node.GetInterceptionMode() == model.InterceptionTproxy {
@@ -125,7 +127,7 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 	tcpProxyFilter := newTCPProxyListenerFilter(env, node, false)
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
-	builder.virtualListener = &xdsapi.Listener{
+	ipTablesListener := &xdsapi.Listener{
 		Name:           VirtualOutboundListenerName,
 		Address:        util.BuildAddress(actualWildcard, uint32(env.Mesh.ProxyListenPort)),
 		Transparent:    isTransparentProxy,
@@ -136,6 +138,9 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 			},
 		},
 	}
+	configgen.onVirtualOutboundListener(env, node, push, proxyInstances,
+		ipTablesListener)
+	builder.virtualListener = ipTablesListener
 	return builder
 }
 

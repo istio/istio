@@ -14,22 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-WD=$(dirname "$0")
-WD=$(cd "$WD"; pwd)
-ROOT=$(dirname "$WD")
-
 # No unset vars, print commands as they're executed, and exit on any non-zero
 # return code
 set -u
 set -x
 set -e
 
-# shellcheck source=prow/lib.sh
-source "${ROOT}/prow/lib.sh"
-setup_and_export_git_sha
-
-cd "${ROOT}"
-
-JUNIT_RACE_TEST_XML="${ARTIFACTS_DIR}/junit_race-tests.xml" \
-T="-v" \
+export JUNIT_UNIT_TEST_XML="${ARTIFACTS:-$(mktemp -d)}/junit.xml"
+export T="-v"
 make localTestEnv racetest

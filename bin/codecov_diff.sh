@@ -73,6 +73,6 @@ else
   bash <(curl -s https://codecov.io/bash) -f "${REPORT_PATH}/coverage.cov"
 fi
 
-if [[ -n "${ARTIFACTS_DIR:-}" ]]; then
-  cp "${REPORT_PATH}/coverage.cov" "${ARTIFACTS_DIR}"
+if [[ -n "${ARTIFACTS:-}" ]]; then
+  cp "${REPORT_PATH}/coverage.cov" "${ARTIFACTS}"
 fi
