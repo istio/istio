@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -481,7 +482,9 @@ func TestGetProxyWorkloadLabels(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			labels, err := controller.GetProxyWorkloadLabels(&model.Proxy{IPAddresses: test.ips})
-
+			sort.Slice(labels, func(i, j int) bool {
+				return labels[i].String() < labels[j].String()
+			})
 			if err != nil {
 				t.Errorf("client encountered error during GetProxyWorkloadLabels(): %v", err)
 			}
