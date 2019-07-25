@@ -191,7 +191,7 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if features.RestrictPodIpTrafficLoops.Get() {
+			if features.RestrictPodIPTrafficLoops.Get() {
 				// Expect a filter chain on the node IP
 				tt.expectedChains = append([]string{"1.1.1.1"}, tt.expectedChains...)
 			}

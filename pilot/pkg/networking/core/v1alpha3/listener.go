@@ -1075,7 +1075,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	// at startup), or because it never will (a port not specified in a service but captured by iptables).
 	// When this happens, Envoy will infinite loop sending requests to itself.
 	// To prevent this, we add a filter chain match that will match the pod ip and blackhole the traffic.
-	if listenerOpts.bind == actualWildcard && features.RestrictPodIpTrafficLoops.Get() {
+	if listenerOpts.bind == actualWildcard && features.RestrictPodIPTrafficLoops.Get() {
 		listenerOpts.filterChainOpts = append([]*filterChainOpts{{
 			destinationCIDRs: pluginParams.Node.IPAddresses,
 			networkFilters:   []listener.Filter{*newBlackholeFilter(pluginParams.Node)},

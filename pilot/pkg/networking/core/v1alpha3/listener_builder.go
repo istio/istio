@@ -139,7 +139,7 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 	// blackhole/passthrough depending on the outbound traffic policy. When passthrough is enabled,
 	// this has the risk of triggering infinite loops when requests are sent to the pod's IP, as it will
 	// send requests to itself. To block this we add an additional filter chain before that will always blackhole.
-	if features.RestrictPodIpTrafficLoops.Get() {
+	if features.RestrictPodIPTrafficLoops.Get() {
 		var cidrRanges []*core.CidrRange
 		for _, ip := range node.IPAddresses {
 			cidrRanges = append(cidrRanges, util.ConvertAddressToCidr(ip))

@@ -438,7 +438,7 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	// instead of looking at it as a listener with multiple filter chains
 	if l := adsResponse.HTTPListeners["0.0.0.0_8081"]; l != nil {
 		expected := 1
-		if features.RestrictPodIpTrafficLoops.Get() {
+		if features.RestrictPodIPTrafficLoops.Get() {
 			expected = 2
 		}
 		if len(l.FilterChains) != expected {

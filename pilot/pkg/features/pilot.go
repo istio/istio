@@ -155,7 +155,7 @@ var (
 		false,
 		"Use the Istio JWT filter for JWT token verification.")
 
-	RestrictPodIpTrafficLoops = env.RegisterBoolVar(
+	RestrictPodIPTrafficLoops = env.RegisterBoolVar(
 		"PILOT_RESTRICT_POD_UP_TRAFFIC_LOOP",
 		true,
 		"If enabled, this will block inbound traffic from matching outbound listeners, which "+
