@@ -95,7 +95,6 @@ var (
 	podNamespaceVar          = env.RegisterStringVar("POD_NAMESPACE", "", "")
 	istioNamespaceVar        = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar     = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
-	sdsEnabledVar            = env.RegisterBoolVar("SDS_ENABLED", false, "")
 	sdsUdsPathVar            = env.RegisterStringVar("SDS_UDS_PATH", "/var/run/sds/uds_path", "SDS unix domain socket path")
 	sdsTrustworthyJWTPathVar = env.RegisterStringVar("SDS_JWT_PATH", "/var/run/secrets/tokens/istio-token",
 		"path of token which is used for request key/cert through SDS")
@@ -472,10 +471,6 @@ func getDNSDomain(domain string) string {
 // check if SDS UDS path and token path exist, if both exist, requests key/cert
 // using SDS instead of secret mount.
 func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, preferJwtpath, jwtpath string) (bool, string) {
-	if !sdsEnabledVar.Get() {
-		return false, ""
-	}
-
 	if !controlPlaneBootstrap {
 		// workload sidecar
 		// treat sds as disabled if uds path isn't set.
