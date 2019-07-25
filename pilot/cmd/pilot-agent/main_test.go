@@ -15,10 +15,11 @@
 package main
 
 import (
-	"istio.io/istio/pilot/pkg/model"
 	"os"
 	"testing"
 	"time"
+
+	"istio.io/istio/pilot/pkg/model"
 
 	"github.com/onsi/gomega"
 
