@@ -23,7 +23,7 @@ type Level rune
 
 const (
 	// Info level is for informational messages
-	Info Level =  'I'
+	Info Level = 'I'
 
 	// Warning level is for warning messages
 	Warning Level = 'W'
