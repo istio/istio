@@ -72,6 +72,24 @@ func TestReachability(t *testing.T) {
 	})
 }
 
+// TODO(silentdai)
+func TestNoloopOnUndesiredPort(t *testing.T) {
+	/*
+		framework.NewTest(t).Run(func(ctx framework.TestContext) {
+			doTest(t, ctx)
+		})
+	*/
+}
+
+// TODO(silentdai)
+func TestNewReadynessOnFilterChainListener(t *testing.T) {
+	/*
+		framework.NewTest(t).Run(func(ctx framework.TestContext) {
+			doTest(t, ctx)
+		})
+	*/
+}
+
 func doTest(t *testing.T, ctx framework.TestContext) {
 	ns := namespace.NewOrFail(t, ctx, "inboundsplit", true)
 

@@ -51,13 +51,13 @@ func reduceInboundListenerToFilters(listeners []*xdsapi.Listener) (chains []*lis
 	chains = make([]*listener.FilterChain, 0)
 	for _, l := range listeners {
 		for _, c := range l.FilterChains {
-			chain := c
-			mergeFilterChainFromInboundListener(&chain, l, &needTLS)
-			chains = append(chains, &chain)
+			newChain, needTLSLocal := mergeFilterChainFromInboundListener(c, l, needTLS)
+			chains = append(chains, newChain)
+			needTLS = needTLS || needTLSLocal
 		}
 	}
 	// TODO(silentdai): sort
-	return
+	return chains, needTLS
 }
 
 func (builder *ListenerBuilder) aggregateVirtualInboundListener(env *model.Environment, node *model.Proxy) *ListenerBuilder {
@@ -89,11 +89,15 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener(env *model.Envir
 			},
 		},
 	}
+	log.Warnf("inbound listener has tcp proxy filter matching all, %v", builder.virtualInboundListener.FilterChains[0])
 
-	for _, c := range filterChains {
+	for i, c := range filterChains {
 		builder.virtualInboundListener.FilterChains =
 			append(builder.virtualInboundListener.FilterChains, *c)
+		log.Warnf("inbound listener add a filter chain %d", i)
 	}
+	log.Warnf("inbound listener has %d filter chains", len(builder.virtualInboundListener.FilterChains))
+
 	if needTLS {
 		builder.virtualInboundListener.ListenerFilters =
 			append(builder.virtualInboundListener.ListenerFilters, listener.ListenerFilter{
@@ -241,7 +245,7 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environme
 }
 
 // Inbound listener only
-func mergeFilterChainFromInboundListener(chain *listener.FilterChain, l *xdsapi.Listener, needTLS *bool) {
+func mergeFilterChainFromInboundListener(chain listener.FilterChain, l *xdsapi.Listener, needTLS bool) (*listener.FilterChain, bool) {
 	if chain.FilterChainMatch == nil {
 		chain.FilterChainMatch = &listener.FilterChainMatch{}
 	}
@@ -255,14 +259,13 @@ func mergeFilterChainFromInboundListener(chain *listener.FilterChain, l *xdsapi.
 			chain.FilterChainMatch.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(sockAddr.GetAddress())}
 		}
 	}
-	if !*needTLS {
-		for _, filter := range l.ListenerFilters {
-			if filter.Name == envoyListenerTLSInspector {
-				*needTLS = true
-				break
-			}
+
+	for _, filter := range l.ListenerFilters {
+		if needTLS = needTLS || filter.Name == envoyListenerTLSInspector; needTLS {
+			break
 		}
 	}
+	return &chain, needTLS
 }
 
 func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
@@ -296,6 +299,26 @@ func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
 		nInbound, nOutbound, nManagement,
 		nVirtual, nVirtualInbound)
 	return listeners
+}
+
+func newLoopbackTCPProxyFilter(env *model.Environment, node *model.Proxy) *listener.Filter {
+	tcpProxy := &tcp_proxy.TcpProxy{
+		StatPrefix:       util.LoopbackCluster,
+		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.LoopbackCluster},
+	}
+
+	setAccessLog(env, node, tcpProxy)
+
+	filter := listener.Filter{
+		Name: xdsutil.TCPProxy,
+	}
+
+	if util.IsXDSMarshalingToAnyEnabled(node) {
+		filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
+	} else {
+		filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
+	}
+	return &filter
 }
 
 func newTCPProxyListenerFilter(env *model.Environment, node *model.Proxy, isInboundListener bool) *listener.Filter {
