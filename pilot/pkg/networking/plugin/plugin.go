@@ -57,13 +57,11 @@ func ModelProtocolToListenerProtocol(node *model.Proxy, protocol config.Protocol
 	case config.ProtocolTCP, config.ProtocolHTTPS, config.ProtocolTLS,
 		config.ProtocolMongo, config.ProtocolRedis, config.ProtocolMySQL:
 		return ListenerProtocolTCP
-	case config.ProtocolUnsupported:
+	default:
 		if util.IsProxyVersionGE13(node) {
 			return ListenerProtocolAuto
 		}
 
-		return ListenerProtocolUnknown
-	default:
 		return ListenerProtocolUnknown
 	}
 }

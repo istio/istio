@@ -148,14 +148,11 @@ func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 	if len(listeners[0].FilterChains) != 2 {
 		t.Fatalf("expected %d filter chains, found %d", 2, len(listeners[0].FilterChains))
 	}
-	verifyOutboundTCPListenerHostname(t, listeners[0], "test2.com")
+	verifyOutboundTCPListenerFilterChainHostname(t, listeners[0].FilterChains[0], "test2.com")
 
 	oldestService := getOldestService(services...)
-	oldestProtocol := oldestService.Ports[0].Protocol
-	if oldestProtocol != config.ProtocolHTTP && isHTTPListener(listeners[0]) {
-		t.Fatal("expected TCP listener, found HTTP")
-	} else if oldestProtocol == config.ProtocolHTTP && !isHTTPListener(listeners[0]) {
-		t.Fatal("expected HTTP listener, found TCP")
+	if !isAutoListener(listeners[0]) {
+		t.Fatal("expect listener with protocol sniffing")
 	}
 
 	if p.outboundListenerParams[0].Service != oldestService {
@@ -176,12 +173,12 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 		{
 			name:           "same CIDR",
 			CIDR:           "10.10.0.0/24",
-			expectedChains: 1,
+			expectedChains: 2,
 		},
 		{
 			name:           "different CIDR",
 			CIDR:           "10.10.10.0/24",
-			expectedChains: 2,
+			expectedChains: 3,
 		},
 	}
 	for _, tt := range tests {
@@ -540,20 +537,8 @@ func testOutboundListenerAutoConfigWithSidecar(t *testing.T, services ...*model.
 		t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
 	}
 
-	if len(listeners[0].FilterChains) != 2 {
-		t.Fatalf("expected %d filter chains, found %d", 2, len(listeners[0].FilterChains))
-	}
-
-	if len(listeners[0].FilterChains[0].FilterChainMatch.ApplicationProtocols) != 3 {
-		t.Fatalf("expected %d application protocols, found %d", 3, len(listeners[0].FilterChains[0].FilterChainMatch.ApplicationProtocols))
-	}
-
-	if listeners[0].FilterChains[0].Filters[0].Name != "envoy.http_connection_manager" {
-		t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[0].Filters[0].Name)
-	}
-
-	if listeners[0].FilterChains[1].Filters[0].Name != "envoy.tcp_proxy" {
-		t.Fatalf("expected tcp proxy, found %s", listeners[0].FilterChains[1].Filters[0].Name)
+	if !isAutoListener(listeners[0]) {
+		t.Fatal("expected auto listener")
 	}
 }
 
@@ -719,9 +704,9 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 
 	expectedListeners := map[string]string{
 		"127.1.1.2_9090": "HTTP",
-		"127.1.1.2_8080": "TCP",
+		"127.1.1.2_8080": "AUTO",
 		"127.0.0.1_9090": "HTTP",
-		"127.0.0.1_8080": "TCP",
+		"127.0.0.1_8080": "AUTO",
 	}
 
 	for _, l := range listeners {
@@ -730,8 +715,8 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 		if expectedListenerType == "" {
 			t.Fatalf("listener %s not expected", listenerName)
 		}
-		if expectedListenerType == "TCP" && isHTTPListener(l) {
-			t.Fatalf("expected TCP listener %s, but found HTTP", listenerName)
+		if expectedListenerType == "AUTO" && !isAutoListener(l) {
+			t.Fatalf("expected AUTO listener %s", listenerName)
 		}
 		if expectedListenerType == "HTTP" && !isHTTPListener(l) {
 			t.Fatalf("expected HTTP listener %s, but found TCP", listenerName)
@@ -756,12 +741,9 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	}
 }
 
-func verifyOutboundTCPListenerHostname(t *testing.T, l *xdsapi.Listener, hostname config.Hostname) {
+func verifyOutboundTCPListenerFilterChainHostname(t *testing.T, fc listener.FilterChain, hostname config.Hostname) {
 	t.Helper()
-	if len(l.FilterChains) != 1 {
-		t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
-	}
-	fc := l.FilterChains[0]
+
 	if len(fc.Filters) != 1 {
 		t.Fatalf("expected %d filters, found %d", 1, len(fc.Filters))
 	}
@@ -1007,6 +989,23 @@ func (p *fakePlugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeCo
 
 func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	return []plugin.FilterChain{{}, {}}
+}
+
+func isAutoListener(listener *xdsapi.Listener) bool {
+	if listener == nil {
+		return false
+	}
+
+	if len(listener.FilterChains) >= 2 && len(listener.FilterChains[0].Filters) > 0 && len(listener.FilterChains[1].Filters) > 0 {
+		return len(listener.FilterChains[1].FilterChainMatch.ApplicationProtocols) == 3 &&
+			listener.FilterChains[1].FilterChainMatch.ApplicationProtocols[0] == "h2" &&
+			listener.FilterChains[1].FilterChainMatch.ApplicationProtocols[1] == "http/1.1" &&
+			listener.FilterChains[1].FilterChainMatch.ApplicationProtocols[2] == "http/1.0" &&
+			listener.FilterChains[1].Filters[0].Name == "envoy.http_connection_manager" &&
+			listener.FilterChains[0].Filters[0].Name == "envoy.tcp_proxy"
+	}
+
+	return false
 }
 
 func isHTTPListener(listener *xdsapi.Listener) bool {
