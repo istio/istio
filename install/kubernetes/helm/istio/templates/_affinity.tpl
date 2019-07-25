@@ -1,6 +1,6 @@
 {{/* affinity - https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ */}}
 
-{{- define "nodeaffinity" }}
+{{- define "nodeAffinity" }}
   nodeAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
     {{- include "nodeAffinityRequiredDuringScheduling" . }}

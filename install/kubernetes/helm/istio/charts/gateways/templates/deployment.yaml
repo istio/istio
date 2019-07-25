@@ -303,7 +303,7 @@ spec:
           optional: true
       {{- end }}
       affinity:
-      {{- include "gatewaynodeaffinity" (dict "root" $ "nodeSelector" $spec.nodeSelector) | indent 6 }}
+      {{- include "gatewaynodeAffinity" (dict "root" $ "nodeSelector" $spec.nodeSelector) | indent 6 }}
       {{- include "gatewaypodAntiAffinity" (dict "podAntiAffinityLabelSelector" $spec.podAntiAffinityLabelSelector "podAntiAffinityTermLabelSelector" $spec.podAntiAffinityTermLabelSelector) | indent 6 }}
       {{- if $spec.tolerations }}
       tolerations:

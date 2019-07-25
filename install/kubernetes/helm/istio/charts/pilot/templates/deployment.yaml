@@ -212,7 +212,7 @@ spec:
           secretName: istio.istio-pilot-service-account
           optional: true
       affinity:
-      {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "nodeAffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
       {{- if .Values.tolerations }}
       tolerations:

@@ -70,7 +70,7 @@ spec:
             - name: ZIPKIN_STORAGE_MEM_MAXSPANS
               value: "{{ .Values.zipkin.maxSpans }}"
       affinity:
-      {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "nodeAffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
       {{- if .Values.tolerations }}
       tolerations:

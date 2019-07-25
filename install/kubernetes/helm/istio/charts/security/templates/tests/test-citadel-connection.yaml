@@ -24,7 +24,7 @@ spec:
       command: ['sh', '-c', 'for i in 1 2 3; do curl http://istio-citadel:{{ .Values.global.monitoringPort }}/version && exit 0 || sleep 15; done; exit 1']
   restartPolicy: Never
   affinity:
-    {{- include "nodeaffinity" . | indent 4 }}
+    {{- include "nodeAffinity" . | indent 4 }}
     {{- include "podAntiAffinity" . | indent 4 }}
   {{- if .Values.tolerations }}
   tolerations:

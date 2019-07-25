@@ -28,7 +28,7 @@ spec:
       {{- end }}
   restartPolicy: Never
   affinity:
-    {{- include "nodeaffinity" . | indent 4 }}
+    {{- include "nodeAffinity" . | indent 4 }}
     {{- include "podAntiAffinity" . | indent 4 }}
   {{- if .Values.tolerations }}
   tolerations:

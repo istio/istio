@@ -90,7 +90,7 @@ spec:
             name: istio-grafana-custom-resources
       restartPolicy: OnFailure
       affinity:
-      {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "nodeAffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
       {{- if .Values.tolerations }}
       tolerations:

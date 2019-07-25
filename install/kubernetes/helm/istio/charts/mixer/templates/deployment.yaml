@@ -30,7 +30,7 @@
           secretName: policy-adapter-secret
           optional: true
       affinity:
-      {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "nodeAffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
       {{- if .Values.tolerations }}
       tolerations:
@@ -209,7 +209,7 @@
           secretName: telemetry-adapter-secret
           optional: true
       affinity:
-      {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "nodeAffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
       {{- if .Values.tolerations }}
       tolerations:
