@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
-func TestSdsCitadelCaFlow(t *testing.T) {
+func TestSdsManagedCaFlow(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
