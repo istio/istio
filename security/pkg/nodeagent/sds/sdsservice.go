@@ -517,6 +517,7 @@ func pushSDS(con *sdsConnection) error {
 	if !sdsPushTime.IsZero() {
 		sdsServiceLog.Errorf("%s skip multiple push, last push finishes at %s and is "+
 			"waiting for next SDS request", conIDresourceNamePrefix, sdsPushTime.String())
+		return nil
 	}
 
 	if secret == nil {
