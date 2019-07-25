@@ -84,7 +84,6 @@ that way in the object being patched.
 package patch
 
 import (
-	"fmt"
 	"strings"
 
 	"istio.io/operator/pkg/object"
@@ -100,8 +99,7 @@ import (
 )
 
 var (
-	// DebugPackage controls verbose debugging in this package. Used for offline debugging.
-	DebugPackage = false
+	scope = log.RegisterScope("patch", "patch", 0)
 )
 
 // YAMLManifestPatch patches a base YAML in the given namespace with a list of overlays.
@@ -178,7 +176,7 @@ func applyPatches(base *object.K8sObject, patches []*v1alpha2.K8SObjectOverlay_P
 		return nil, util.NewErrs(err)
 	}
 	for _, p := range patches {
-		dbgPrint("applying path=%s, value=%s\n", p.Path, p.Value)
+		scope.Debugf("applying path=%s, value=%s\n", p.Path, p.Value)
 		inc, _, err := tpath.GetPathContext(bo, util.PathFromString(p.Path))
 		if err != nil {
 			errs = util.AppendErr(errs, err)
@@ -201,13 +199,4 @@ func objectOverrideMap(oos []*v1alpha2.K8SObjectOverlay, namespace string) map[s
 		ret[object.Hash(o.Kind, namespace, o.Name)] = o.Patches
 	}
 	return ret
-}
-
-// dbgPrint prints v if the package global variable DebugPackage is set.
-// v has the same format as Printf. A trailing newline is added to the output.
-func dbgPrint(v ...interface{}) {
-	if !DebugPackage {
-		return
-	}
-	log.Infof(fmt.Sprintf(v[0].(string), v[1:]...))
 }

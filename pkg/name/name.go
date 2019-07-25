@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	DebugPackage = false
+	scope = log.RegisterScope("name", "name", 0)
 )
 
 // FeatureName is a feature name string, typed to constrain allowed values.
@@ -184,9 +184,9 @@ func GetFromStructPath(node interface{}, path string) (interface{}, bool, error)
 // getFromStructPath is the internal implementation of GetFromStructPath which recurses through a tree of Go structs
 // given a path. It terminates when the end of the path is reached or a path element does not exist.
 func getFromStructPath(node interface{}, path util.Path) (interface{}, bool, error) {
-	dbgPrint("getFromStructPath path=%s, node(%T)", path, node)
+	scope.Debugf("getFromStructPath path=%s, node(%T)", path, node)
 	if len(path) == 0 {
-		dbgPrint("getFromStructPath returning node(%T)%v", node, node)
+		scope.Debugf("getFromStructPath returning node(%T)%v", node, node)
 		return node, !util.IsValueNil(node), nil
 	}
 	kind := reflect.TypeOf(node).Kind()
@@ -262,11 +262,4 @@ func Set(val, out interface{}) error {
 	}
 	reflect.ValueOf(out).Set(reflect.ValueOf(val))
 	return nil
-}
-
-func dbgPrint(v ...interface{}) {
-	if !DebugPackage {
-		return
-	}
-	log.Infof(fmt.Sprintf(v[0].(string), v[1:]...))
 }

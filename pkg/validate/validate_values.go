@@ -35,7 +35,7 @@ func CheckValues(root map[string]interface{}) util.Errors {
 
 func validateValues(validations map[string]ValidatorFunc, node interface{}, path util.Path) (errs util.Errors) {
 	pstr := path.String()
-	dbgPrint("validateValues %s", pstr)
+	scope.Debugf("validateValues %s", pstr)
 	vf := defaultValuesValidations[pstr]
 	if vf != nil {
 		errs = util.AppendErrs(errs, vf(path, node))

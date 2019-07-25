@@ -34,7 +34,7 @@ type manDiffArgs struct {
 
 const YamlSuffix = "yaml"
 
-func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manDiffArgs) *cobra.Command {
+func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manDiffArgs, logOpts *log.Options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "diff-manifest",
 		Short: "Compare manifests and generate diff.",
@@ -44,7 +44,7 @@ func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manDiffArgs) *cobra.Command {
 			if diffArgs.compareDir {
 				compareManifestsFromDirs(args[0], args[1])
 			} else {
-				compareManifestsFromFiles(rootArgs, args)
+				compareManifestsFromFiles(rootArgs, args, logOpts)
 			}
 		}}
 	return cmd
@@ -56,8 +56,8 @@ func addManDiffFlag(cmd *cobra.Command, diffArgs *manDiffArgs) {
 }
 
 //compareManifestsFromFiles compares two manifest files
-func compareManifestsFromFiles(rootArgs *rootArgs, args []string) {
-	if err := configLogs(rootArgs); err != nil {
+func compareManifestsFromFiles(rootArgs *rootArgs, args []string, logOpts *log.Options) {
+	if err := configLogs(rootArgs, logOpts); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
 		os.Exit(1)
 	}

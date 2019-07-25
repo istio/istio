@@ -19,6 +19,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
 
@@ -35,7 +36,7 @@ type rootArgs struct {
 	verbose bool
 }
 
-func addFlags(cmd *cobra.Command, rootArgs *rootArgs) {
+func addFlags(cmd *cobra.Command, rootArgs *rootArgs, logOpts *log.Options) {
 	cmd.PersistentFlags().StringVarP(&rootArgs.inFilename, "filename", "f", "",
 		"The path to the input IstioInstall CR. Uses in cluster value with kubectl if unset.")
 	cmd.PersistentFlags().StringVarP(&rootArgs.outFilename, "output", "o",
@@ -46,10 +47,12 @@ func addFlags(cmd *cobra.Command, rootArgs *rootArgs) {
 		true, "Console/log output only, make no changes.")
 	cmd.PersistentFlags().BoolVarP(&rootArgs.verbose, "verbose", "",
 		false, "Verbose output.")
+	logOpts.AttachCobraFlags(cmd)
 }
 
 // GetRootCmd returns the root of the cobra command-tree.
 func GetRootCmd(args []string) *cobra.Command {
+	loggingOptions := log.DefaultOptions()
 	rootCmd := &cobra.Command{
 		Use:   "iop",
 		Short: "Command line Istio install utility.",
@@ -63,15 +66,15 @@ func GetRootCmd(args []string) *cobra.Command {
 	diffArgs := &manDiffArgs{}
 	dumpArgs := &dumpArgs{}
 
-	ic := installCmd(rootArgs)
-	mc := manifestCmd(rootArgs)
-	mdc := manifestDiffCmd(rootArgs, diffArgs)
-	dpc := dumpProfileDefaultsCmd(rootArgs, dumpArgs)
+	ic := installCmd(rootArgs, loggingOptions)
+	mc := manifestCmd(rootArgs, loggingOptions)
+	mdc := manifestDiffCmd(rootArgs, diffArgs, loggingOptions)
+	dpc := dumpProfileDefaultsCmd(rootArgs, dumpArgs, loggingOptions)
 
-	addFlags(ic, rootArgs)
-	addFlags(mc, rootArgs)
-	addFlags(dpc, rootArgs)
-	addFlags(mdc, rootArgs)
+	addFlags(ic, rootArgs, loggingOptions)
+	addFlags(mc, rootArgs, loggingOptions)
+	addFlags(dpc, rootArgs, loggingOptions)
+	addFlags(mdc, rootArgs, loggingOptions)
 
 	addManDiffFlag(mdc, diffArgs)
 	addDumpFlags(dpc, dumpArgs)

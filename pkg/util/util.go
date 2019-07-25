@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
-
-	"istio.io/pkg/log"
 )
 
 func init() {
@@ -49,13 +47,4 @@ func PrettyJSON(b []byte) []byte {
 		return []byte(fmt.Sprint(err))
 	}
 	return out.Bytes()
-}
-
-// dbgPrint prints v if the package global variable DebugPackage is set.
-// v has the same format as Printf. A trailing newline is added to the output.
-func dbgPrint(v ...interface{}) {
-	if !DebugPackage {
-		return
-	}
-	log.Infof(fmt.Sprintf(v[0].(string), v[1:]...))
 }

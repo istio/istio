@@ -23,23 +23,24 @@ import (
 
 	"istio.io/operator/pkg/manifest"
 	"istio.io/operator/pkg/version"
+	"istio.io/pkg/log"
 )
 
-func installCmd(rootArgs *rootArgs) *cobra.Command {
+func installCmd(rootArgs *rootArgs, logOpts *log.Options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "install",
 		Short: "Installs Istio to cluster.",
 		Long:  "The install subcommand is used to install Istio into a cluster, given a CR path. ",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			installManifests(rootArgs)
+			installManifests(rootArgs, logOpts)
 		}}
 
 	return cmd
 }
 
-func installManifests(args *rootArgs) {
-	if err := configLogs(args); err != nil {
+func installManifests(args *rootArgs, logOpts *log.Options) {
+	if err := configLogs(args, logOpts); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
 		os.Exit(1)
 	}
