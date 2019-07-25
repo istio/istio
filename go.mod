@@ -26,6 +26,7 @@ require (
 	github.com/SermoDigital/jose v0.9.1 // indirect
 	github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 // indirect
 	github.com/alicebob/miniredis v0.0.0-20180201100744-9d52b1fc8da9
+	github.com/aliyun/alibaba-cloud-sdk-go v0.0.0-20190725055709-c8b1514beaba // indirect
 	github.com/aokoli/goutils v1.0.1 // indirect
 	github.com/armon/go-metrics v0.0.0-20190430140413-ec5e00d3c878 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
@@ -33,6 +34,7 @@ require (
 	github.com/aws/aws-sdk-go v1.13.24
 	github.com/bitly/go-hostpool v0.0.0-20171023180738-a3a6125de932 // indirect
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
+	github.com/buger/jsonparser v0.0.0-20181115193947-bf1c66bbce23 // indirect
 	github.com/cactus/go-statsd-client v3.1.1+incompatible
 	github.com/cenkalti/backoff v2.0.0+incompatible
 	github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible
@@ -59,11 +61,13 @@ require (
 	github.com/evanphx/json-patch v3.0.0+incompatible
 	github.com/facebookgo/stack v0.0.0-20160209184415-751773369052 // indirect
 	github.com/facebookgo/stackerr v0.0.0-20150612192056-c2fcf88613f4 // indirect
+	github.com/fastly/go-utils v0.0.0-20180712184237-d95a45783239 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/fluent/fluent-logger-golang v1.3.0
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/garyburd/redigo v1.6.0 // indirect
 	github.com/ghodss/yaml v1.0.0
+	github.com/go-errors/errors v1.0.1 // indirect
 	github.com/go-ini/ini v1.33.0 // indirect
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/go-redis/redis v6.10.2+incompatible
@@ -111,22 +115,23 @@ require (
 	github.com/huandu/xstrings v1.0.0 // indirect
 	github.com/imdario/mergo v0.3.5 // indirect
 	github.com/jefferai/jsonx v1.0.0 // indirect
-	github.com/jmespath/go-jmespath v0.0.0-20160202185014-0b12d6b521d8 // indirect
-	github.com/json-iterator/go v0.0.0-20180914014843-2433035e5132 // indirect
+	github.com/jehiah/go-strftime v0.0.0-20171201141054-1d33003b3869 // indirect
+	github.com/jonboulle/clockwork v0.1.0 // indirect
 	github.com/juju/errors v0.0.0-20190207033735-e65537c515d7 // indirect
 	github.com/juju/loggo v0.0.0-20190212223446-d976af380377 // indirect
 	github.com/juju/testing v0.0.0-20190429233213-dfc56b8c09fc // indirect
 	github.com/keybase/go-crypto v0.0.0-20190416182011-b785b22cc757 // indirect
 	github.com/lestrrat-go/jwx v0.9.0
+	github.com/lestrrat/go-envload v0.0.0-20180220120943-6ed08b54a570 // indirect
+	github.com/lestrrat/go-file-rotatelogs v0.0.0-20180223000712-d3151e2a480f // indirect
+	github.com/lestrrat/go-strftime v0.0.0-20180220042222-ba3bf9c1d042 // indirect
 	github.com/lib/pq v1.1.1 // indirect
 	github.com/lukechampine/freeze v0.0.0-20160818180733-f514e08ae5a0
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-homedir v0.0.0-20161203194507-b8bc1bf76747
 	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
-	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
-	github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742 // indirect
-	github.com/nacos-group/nacos-sdk-go v0.0.0-20190630065254-22f4c0b49159
+	github.com/nacos-group/nacos-sdk-go v0.0.0-20190723125407-0242d42e3dbb
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/onsi/ginkgo v1.8.0 // indirect
 	github.com/onsi/gomega v1.5.0
@@ -155,12 +160,13 @@ require (
 	github.com/signalfx/com_signalfx_metrics_protobuf v0.0.0-20170330202426-93e507b42f43
 	github.com/signalfx/gohistogram v0.0.0-20160107210732-1ccfd2ff5083 // indirect
 	github.com/signalfx/golib v1.1.6
-	github.com/smartystreets/goconvey v0.0.0-20190330032615-68dc04aab96a // indirect
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.3.2
 	github.com/stretchr/testify v1.3.0
+	github.com/tebeka/strftime v0.1.3 // indirect
 	github.com/tinylib/msgp v1.0.2 // indirect
+	github.com/toolkits/concurrent v0.0.0-20150624120057-a4371d70e3e3 // indirect
 	github.com/uber/jaeger-client-go v0.0.0-20190228190846-ecf2d03a9e80
 	github.com/uber/jaeger-lib v2.0.0+incompatible // indirect
 	github.com/yashtewari/glob-intersection v0.0.0-20180206001645-7af743e8ec84 // indirect
@@ -172,13 +178,12 @@ require (
 	go.uber.org/zap v1.10.0
 	golang.org/x/net v0.0.0-20190503192946-f4e77d36d62c
 	golang.org/x/oauth2 v0.0.0-20190226205417-e64efc72b421
-	golang.org/x/time v0.0.0-20181108054448-85acf8d2951c
+	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	golang.org/x/tools v0.0.0-20190425150028-36563e24a262
 	google.golang.org/api v0.3.1
 	google.golang.org/genproto v0.0.0-20190404172233-64821d5d2107
 	google.golang.org/grpc v1.20.1
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
-	gopkg.in/ini.v1 v1.42.0 // indirect
 	gopkg.in/logfmt.v0 v0.3.0 // indirect
 	gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce // indirect
 	gopkg.in/ory-am/dockertest.v3 v3.3.4 // indirect
@@ -198,5 +203,3 @@ require (
 	k8s.io/kube-openapi v0.0.0-20180216212618-50ae88d24ede // indirect
 	sigs.k8s.io/yaml v1.1.0
 )
-
-replace github.com/nacos-group/nacos-sdk-go => /Users/caoyixiong/nacos-sdk-go
