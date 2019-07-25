@@ -73,7 +73,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		}
 
 		protocol := config.ParseProtocol(servers[0].Port.Protocol)
-		listenerProtocol := plugin.ModelProtocolToListenerProtocol(protocol)
+		listenerProtocol := plugin.ModelProtocolToListenerProtocol(node, protocol)
 		if protocol.IsHTTP() {
 			// We have a list of HTTP servers on this port. Build a single listener for the server port.
 			// We only need to look at the first server in the list as the merge logic

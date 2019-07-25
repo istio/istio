@@ -19,6 +19,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	"istio.io/istio/pilot/pkg/networking/util"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -49,7 +50,7 @@ const (
 )
 
 // ModelProtocolToListenerProtocol converts from a config.Protocol to its corresponding plugin.ListenerProtocol
-func ModelProtocolToListenerProtocol(protocol config.Protocol) ListenerProtocol {
+func ModelProtocolToListenerProtocol(node *model.Proxy, protocol config.Protocol) ListenerProtocol {
 	switch protocol {
 	case config.ProtocolHTTP, config.ProtocolHTTP2, config.ProtocolGRPC, config.ProtocolGRPCWeb:
 		return ListenerProtocolHTTP
@@ -57,7 +58,11 @@ func ModelProtocolToListenerProtocol(protocol config.Protocol) ListenerProtocol 
 		config.ProtocolMongo, config.ProtocolRedis, config.ProtocolMySQL:
 		return ListenerProtocolTCP
 	case config.ProtocolUnsupported:
-		return ListenerProtocolAuto
+		if util.IsProxyVersionGE13(node) {
+			return ListenerProtocolAuto
+		}
+
+		return ListenerProtocolUnknown
 	default:
 		return ListenerProtocolUnknown
 	}
