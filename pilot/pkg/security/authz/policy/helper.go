@@ -17,7 +17,6 @@ package policy
 import (
 	"fmt"
 	"strings"
-	"testing"
 
 	"github.com/davecgh/go-spew/spew"
 	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
@@ -30,7 +29,13 @@ import (
 	"istio.io/istio/pkg/config"
 )
 
-func NewServiceMetadata(hostname string, labels map[string]string, t *testing.T) *authz_model.ServiceMetadata {
+// We cannot import `testing` here, as it will bring extra test flags into the binary. Instead, just include the interface here
+type mockTest interface {
+	Fatalf(format string, args ...interface{})
+	Helper()
+}
+
+func NewServiceMetadata(hostname string, labels map[string]string, t mockTest) *authz_model.ServiceMetadata {
 	t.Helper()
 	splits := strings.Split(hostname, ".")
 	if len(splits) < 2 {
@@ -58,7 +63,7 @@ func NewServiceMetadata(hostname string, labels map[string]string, t *testing.T)
 	return serviceMetadata
 }
 
-func NewAuthzPolicies(policies []*model.Config, t *testing.T) *model.AuthorizationPolicies {
+func NewAuthzPolicies(policies []*model.Config, t mockTest) *model.AuthorizationPolicies {
 	t.Helper()
 
 	hasClusterRbacConfig := false
