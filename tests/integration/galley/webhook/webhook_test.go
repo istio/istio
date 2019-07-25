@@ -15,72 +15,67 @@
 package galley
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/label"
 )
 
 var (
 	vwcName    = "istio-galley"
 	deployName = "istio-galley"
-	istioNs    = "istio-system"
 	sleepDelay = 3 * time.Second // How long to wait to give the reconcile loop an opportunity to act
 )
 
-var removeGalleyYaml = fmt.Sprintf(`
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: %s
-  namespace: %s
-`, deployName, istioNs)
+var i istio.Instance
 
-// Verify that scaling up/down doesn't modify webhook configuration
-func TestWebhookScaling(t *testing.T) {
-	framework.NewTest(t).
-		// Limit to Kube environment as we're testing integration of webhook with K8s.
-		RequiresEnvironment(environment.Kube).
-		Run(func(ctx framework.TestContext) {
-			env := ctx.Environment().(*kube.Environment)
-			startGen := getVwcGeneration(vwcName, t, env)
-
-			// Scale up
-			scaleDeployment(istioNs, deployName, 2, t, env)
-			// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
-			time.Sleep(sleepDelay)
-			gen := getVwcGeneration(vwcName, t, env)
-			if gen != startGen {
-				t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale up")
-			}
-
-			// Scale down
-			scaleDeployment(istioNs, deployName, 1, t, env)
-			// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
-			time.Sleep(sleepDelay)
-			gen = getVwcGeneration(vwcName, t, env)
-			if gen != startGen {
-				t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale down")
-			}
-		})
-}
-
-// Verify that removing the galley deployment results in the webhook configuration being removed
-func TestWebhookRemoved(t *testing.T) {
+// Using subtests to enforce ordering
+func TestWebhook(t *testing.T) {
 	framework.NewTest(t).
 		// Limit to Kube environment as we're testing integration of webhook with K8s.
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			env := ctx.Environment().(*kube.Environment)
 
-			// Remove galley deployment
-			env.DeleteDeployment(istioNs, deployName)
+			istioNs := i.Settings().IstioNamespace
 
-			// Verify webhook config is deleted
-			env.WaitForValidatingWebhookDeletion(vwcName)
+			// Verify that scaling up/down doesn't modify webhook configuration
+			ctx.NewSubTest("scaling").
+				Run(func(ctx framework.TestContext) {
+					startGen := getVwcGeneration(vwcName, t, env)
+
+					// Scale up
+					scaleDeployment(istioNs, deployName, 2, t, env)
+					// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
+					time.Sleep(sleepDelay)
+					gen := getVwcGeneration(vwcName, t, env)
+					if gen != startGen {
+						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale up")
+					}
+
+					// Scale down
+					scaleDeployment(istioNs, deployName, 1, t, env)
+					// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
+					time.Sleep(sleepDelay)
+					gen = getVwcGeneration(vwcName, t, env)
+					if gen != startGen {
+						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale down")
+					}
+				})
+
+			// Verify that removing the galley deployment results in the webhook configuration being removed
+			ctx.NewSubTest("galleyUninstall").
+				Run(func(ctx framework.TestContext) {
+					// Remove galley deployment
+					env.DeleteDeployment(istioNs, deployName)
+
+					// Verify webhook config is deleted
+					env.WaitForValidatingWebhookDeletion(vwcName)
+				})
 		})
 }
 
@@ -100,4 +95,12 @@ func getVwcGeneration(vwcName string, t *testing.T, env *kube.Environment) int64
 		t.Fatalf("Could not get validating webhook webhook config %s: %v", vwcName, err)
 	}
 	return vwc.GetGeneration()
+}
+
+func TestMain(m *testing.M) {
+	framework.
+		NewSuite("webhook_test", m).
+		Label(label.CustomSetup).
+		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
+		Run()
 }
