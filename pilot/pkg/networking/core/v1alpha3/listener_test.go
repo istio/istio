@@ -145,8 +145,8 @@ func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
 	// The filter chains should all be merged into one.
-	if len(listeners[0].FilterChains) != 1 {
-		t.Fatalf("expected %d filter chains, found %d", 1, len(listeners[0].FilterChains))
+	if len(listeners[0].FilterChains) != 2 {
+		t.Fatalf("expected %d filter chains, found %d", 2, len(listeners[0].FilterChains))
 	}
 	verifyOutboundTCPListenerHostname(t, listeners[0], "test2.com")
 
@@ -237,10 +237,10 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 		buildService("test2.com", wildcardIP, config.ProtocolTCP, tnow),
 		buildService("test3.com", wildcardIP, config.ProtocolHTTP, tnow.Add(2*time.Second))}
 	testOutboundListenerConfigWithSidecar(t, services...)
-	//testOutboundListenerConfigWithSidecarWithCaptureModeNone(t, services...)
-	//testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t, services...)
-	//
-	//testOutboundListenerAutoConfigWithSidecar(t, services...)
+	testOutboundListenerConfigWithSidecarWithCaptureModeNone(t, services...)
+	testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t, services...)
+
+	testOutboundListenerAutoConfigWithSidecar(t, services...)
 }
 
 func TestGetActualWildcardAndLocalHost(t *testing.T) {
@@ -290,11 +290,8 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
 
-	oldestProtocol := oldestService.Ports[0].Protocol
-	if oldestProtocol != config.ProtocolHTTP && isHTTPListener(listeners[0]) {
-		t.Fatal("expected TCP listener, found HTTP")
-	} else if oldestProtocol == config.ProtocolHTTP && !isHTTPListener(listeners[0]) {
-		t.Fatal("expected HTTP listener, found TCP")
+	if len(listeners[0].FilterChains) != 2 {
+		t.Fatalf("expected %d filter chains, found %d", 2, len(listeners[0].FilterChains))
 	}
 
 	if len(p.outboundListenerParams) != 1 {
