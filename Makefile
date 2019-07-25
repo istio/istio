@@ -664,7 +664,7 @@ include tools/istio-docker.mk
 
 push: docker.push installgen
 
-gcs.push: gcs.push.istioctl-all gcs.push.deb
+gcs.push: push gcs.push.istioctl-all gcs.push.deb
 
 gcs.push.istioctl-all: istioctl-all
 	gsutil -m cp -r "${ISTIO_OUT}"/istioctl-* "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/istioctl"
