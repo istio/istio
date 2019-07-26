@@ -166,6 +166,23 @@ var (
 	// EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `mysql`.
 	EnableMysqlFilter = os.Getenv("PILOT_ENABLE_MYSQL_FILTER") == "1"
+
+	// RestrictPodIPTrafficLoops if enabled, this will block inbound traffic from matching outbound listeners, which
+	// could result in an infinite loop of traffic. This option is only provided for backward compatibility purposes
+	// and will be removed in the near future.
+	RestrictPodIPTrafficLoops = func() bool {
+		val, f := os.LookupEnv("PILOT_RESTRICT_POD_UP_TRAFFIC_LOOP")
+		if !f {
+			// Default to enabled
+			return true
+		}
+		enabled, err := strconv.ParseBool(val)
+		if err != nil {
+			// If we cannot parse, default to enabled
+			return true
+		}
+		return enabled
+	}
 )
 
 var (

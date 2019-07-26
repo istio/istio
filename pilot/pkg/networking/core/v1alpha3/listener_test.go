@@ -502,8 +502,10 @@ func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.Filt
 }
 
 func isHTTPListener(listener *xdsapi.Listener) bool {
-	if len(listener.FilterChains) > 0 && len(listener.FilterChains[0].Filters) > 0 {
-		return listener.FilterChains[0].Filters[0].Name == "envoy.http_connection_manager"
+	for _, fc := range listener.FilterChains {
+		if fc.Filters[0].Name == "envoy.http_connection_manager" {
+			return true
+		}
 	}
 	return false
 }
