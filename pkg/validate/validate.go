@@ -27,16 +27,16 @@ import (
 var (
 	// defaultValidations maps a data path to a validation function.
 	defaultValidations = map[string]ValidatorFunc{
-		"Hub":                    validateHub,
-		"Tag":                    validateTag,
-		"BaseSpecPath":           validateInstallPackagePath,
-		"CustomPackagePath":      validateInstallPackagePath,
-		"DefaultNamespacePrefix": validateDefaultNamespacePrefix,
+		"Hub":               validateHub,
+		"Tag":               validateTag,
+		"BaseSpecPath":      validateInstallPackagePath,
+		"CustomPackagePath": validateInstallPackagePath,
+		"DefaultNamespace":  validateDefaultNamespace,
 	}
 
 	// requiredValues lists all the values that must be non-empty.
 	requiredValues = map[string]bool{
-		"DefaultNamespacePrefix": true,
+		"DefaultNamespace": true,
 	}
 )
 
@@ -139,7 +139,7 @@ func validateTag(path util.Path, val interface{}) util.Errors {
 	return validateWithRegex(path, val, TagRegexp)
 }
 
-func validateDefaultNamespacePrefix(path util.Path, val interface{}) util.Errors {
+func validateDefaultNamespace(path util.Path, val interface{}) util.Errors {
 	return validateWithRegex(path, val, ObjectNameRegexp)
 }
 

@@ -444,8 +444,8 @@ func runComponent(c *CommonComponentFields) error {
 	return nil
 }
 
-// CompileHelmValues creates a Helm values.yaml config data tree from icp using the given translator.
-func CompileHelmValues(icp *v1alpha2.IstioControlPlaneSpec, translator *translate.Translator, componentName name.ComponentName) (string, error) {
+// TranslateHelmValues creates a Helm values.yaml config data tree from icp using the given translator.
+func TranslateHelmValues(icp *v1alpha2.IstioControlPlaneSpec, translator *translate.Translator, componentName name.ComponentName) (string, error) {
 	globalVals, apiVals := make(map[string]interface{}), make(map[string]interface{})
 
 	// First, translate the IstioControlPlane API to helm Values.
@@ -527,7 +527,7 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 		return disabledYAMLStr(c.name), nil
 	}
 
-	mergedYAML, err := CompileHelmValues(c.InstallSpec, c.Translator, c.name)
+	mergedYAML, err := TranslateHelmValues(c.InstallSpec, c.Translator, c.name)
 	if err != nil {
 		return "", err
 	}

@@ -131,6 +131,9 @@ func renderChart(namespace, baseValues, overlayValues string, chrt *chart.Chart)
 // OverlayYAML patches the overlay tree over the base tree and returns the result. All trees are expressed as YAML
 // strings.
 func OverlayYAML(base, overlay string) (string, error) {
+	if overlay == "" {
+		return base, nil
+	}
 	bj, err := yaml.YAMLToJSON([]byte(base))
 	if err != nil {
 		return "", fmt.Errorf("yamlToJSON error in base: %s\n%s", err, bj)

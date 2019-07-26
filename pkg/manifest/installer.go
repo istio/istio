@@ -24,6 +24,12 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/operator/pkg/util"
+
+	"github.com/ghodss/yaml"
+
+	"istio.io/operator/pkg/apis/istio/v1alpha2"
+
 	"istio.io/operator/pkg/object"
 
 	// For kubeclient GCP auth
@@ -33,6 +39,7 @@ import (
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -117,6 +124,25 @@ func init() {
 		}
 	}
 
+}
+
+// ParseK8SYAMLToIstioControlPlaneSpec parses a YAML string IstioControlPlane CustomResource and unmarshals in into
+// an IstioControlPlaneSpec object. It returns the object and an API group/version with it.
+func ParseK8SYAMLToIstioControlPlaneSpec(yml string) (*v1alpha2.IstioControlPlaneSpec, *schema.GroupVersionKind, error) {
+	o, err := object.ParseYAMLToK8sObject([]byte(yml))
+	if err != nil {
+		return nil, nil, err
+	}
+	y, err := yaml.Marshal(o.UnstructuredObject().Object["spec"])
+	if err != nil {
+		return nil, nil, err
+	}
+	icp := &v1alpha2.IstioControlPlaneSpec{}
+	if err := util.UnmarshalWithJSONPB(string(y), icp); err != nil {
+		return nil, nil, err
+	}
+	gvk := o.GroupVersionKind()
+	return icp, &gvk, nil
 }
 
 // RenderToDir writes manifests to a local filesystem directory tree.

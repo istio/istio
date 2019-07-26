@@ -48,46 +48,34 @@ In the new API, the same profile would be selected through a CustomResource (CR)
 
 apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
-metadata:
-  name: istio-operator-config
-  namespace: istio-system
 spec:
   profile: sds
-```
-
-CRs are used when running the operator as a controller in a pod in the cluster.
-If you use the operator CLI mode and pass the configuration as a file, you only require the spec portion, for example:
-
-```yaml
-# sds-install.yaml
-
-profile: sds
 ```
 
 See [Select a profile](#select-a-profile) for more information.
 
 If you don't specify a configuration profile, Istio is installed using the `default` configuration profile. All
-profiles listed in istio.io are available compiled in, or `profile:` can point to a local file path to reference a custom
+profiles listed in istio.io are available by default, or `profile:` can point to a local file path to reference a custom
 profile base to use as a starting point for customization. See the [API reference](https://github.com/istio/operator/blob/master/pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto)
 for details.
 
 ## Developer quick start
 
-The quick start describes how to install and use the operator `iop` CLI command.
+The quick start describes how to install and use the operator `mesh` CLI command.
 
 ### Installation
 
 ```bash
 git clone https://github.com/istio/operator.git
 cd operator
-make iop
+make mesh
 ```
 
 ### Flags
 
-The `iop` command supports the following flags:
+The `mesh` command supports the following flags:
 
-- `logtostderr`: log to console (by default logs go to ./iop.go).
+- `logtostderr`: log to console (by default logs go to ./mesh-cli.log).
 - `dry-run`: console output only, nothing applied to cluster or written to files (**default is true until the tool is robust enough**).
 - `verbose`: display entire manifest contents and other debug info (default is false).
 
@@ -98,11 +86,12 @@ The `iop` command supports the following flags:
 The following command generates a manifest with the compiled in default profile and charts:
 
 ```bash
-iop manifest
+mesh manifest generate
 ```
 
 You can see these sources for the compiled in profiles in the repo under `data/profiles`, while the compiled in Helm
-charts are under `data/charts`.
+charts are under `data/charts`. Note: this will change shortly. Charts/profiles will be released separately and the
+by default the mesh command will point to a version of the released charts.
 
 #### Output to dirs
 
@@ -110,7 +99,7 @@ The output of the manifest is concatenated into a single file. To generate a dir
 levels representing a child dependency, use the following command:
 
 ```bash
-iop manifest -o istio_manifests
+mesh manifest generate -o istio_manifests
 ```
 
 (Note that the default dry-run setting only writes the intended actions to log.)
@@ -124,7 +113,7 @@ The following command generates the manifests and applies them in the correct de
 dependencies to have the needed CRDs available:
 
 ```bash
-iop install
+mesh manifest install
 ```
 
 The default `dry-run=true` displays the manifest only. Set `dry-run=false` to apply the Istio configuration to Kubernetes.
@@ -135,8 +124,23 @@ The default `dry-run=true` displays the manifest only. Set `dry-run=false` to ap
 The following command shows the values of the current configuration profile:
 
 ```bash
-iop dump-profile
+mesh profile dump
 ```
+
+The profile dump sub-command supports a couple of useful flags:
+
+- `config-path`: select the root for the configuration subtree you want to see e.g. just show Pilot:
+
+```bash
+mesh profile dump --config-path trafficManagement.components.pilot
+```
+
+- `set`: set a value in the configuration before dumping the resulting profile e.g. show the minimal profile:
+
+```bash
+mesh profile dump --set profile=minimal
+```
+
 
 #### Select a specific configuration profile
 
@@ -144,14 +148,16 @@ The simplest customization is to select a profile different to `default` e.g. `s
 
 ```yaml
 # sds-install.yaml
-
-profile: sds
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  profile: sds
 ```
 
-Use the Istio operator `iop` binary to apply the new configuration profile:
+Use the Istio operator `mesh` binary to apply the new configuration profile:
 
 ```bash
-iop manifest -f sds-install.yaml
+mesh manifest generate -f sds-install.yaml
 ```
 
 After running the command, the Helm charts are rendered using `data/profiles/sds.yaml`.
@@ -161,8 +167,11 @@ After running the command, the Helm charts are rendered using `data/profiles/sds
 The compiled in charts and profiles are used by default, but you can specify a file path, for example:
 
 ```yaml
-profile: file:///usr/home/bob/go/src/github.com/ostromart/istio-installer/data/profiles/default.yaml
-customPackagePath: file:///usr/home/bob/go/src/github.com/ostromart/istio-installer/data/charts/
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  profile: file:///usr/home/bob/go/src/github.com/ostromart/istio-installer/data/profiles/default.yaml
+  customPackagePath: file:///usr/home/bob/go/src/github.com/ostromart/istio-installer/data/charts/
 ```
 
 You can mix and match these approaches. For example, you can use a compiled-in configuration profile with charts in your
@@ -175,9 +184,12 @@ defines install time parameters like feature and component enablement and namesp
 The simplest customization is to turn features and components on and off. For example, to turn off all policy:
 
 ```yaml
-profile: sds
-policy:
-  enabled: false
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  profile: sds
+  policy:
+    enabled: false
 ```
 
 The operator validates the configuration and automatically detects syntax errors. Helm lacks this capability. If you are
@@ -185,27 +197,33 @@ using Helm values that are incompatible, the schema validation used in the opera
 Helm. Another customization is to define custom namespaces for features:
 
 ```yaml
-profile: sds
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  profile: sds
 
-trafficManagement:
-  namespace: istio-control-custom
+  trafficManagement:
+    namespace: istio-control-custom
 ```
 
 The traffic management feature comprises Pilot and Proxy components. Each of these components has K8s
 settings, and these can be overridden from the defaults using official K8s APIs (rather than Istio defined schemas):
 
 ```yaml
-trafficManagement:
-  components:
-    pilot:
-      k8s:
-        resources:
-          requests:
-            cpu: 1000m # override from default 500m
-            memory: 4096Mi # ... default 2048Mi
-        hpaSpec:
-          maxReplicas: 10 # ... default 5
-          minReplicas: 2  # ... default 1
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  trafficManagement:
+    components:
+      pilot:
+        k8s:
+          resources:
+            requests:
+              cpu: 1000m # override from default 500m
+              memory: 4096Mi # ... default 2048Mi
+          hpaSpec:
+            maxReplicas: 10 # ... default 5
+            minReplicas: 2  # ... default 1
 ```
 
 The K8s settings are defined in detail in the
@@ -238,21 +256,27 @@ are overridden the same way as the new API, though a customized CR overlaid over
 profile. Here's an example of overriding some global level default values:
 
 ```yaml
-profile: sds
-values:
-  logging:
-    level: "default:warning" # override from info
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  profile: sds
+  values:
+    logging:
+      level: "default:warning" # override from info
 ```
 
 Since from 1.3 Helm charts are split up per component, values overrides should be specified under the appropriate component e.g.
 
 ```yaml
-trafficManagement:
-  components:
-    pilot:
-      common:
-        values:
-          traceSampling: 0.1 # override from 1.0
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  trafficManagement:
+    components:
+      pilot:
+        common:
+          values:
+            traceSampling: 0.1 # override from 1.0
 ```
 
 ### Advanced K8s resource overlays
@@ -263,28 +287,31 @@ possible to overlay the generated K8s resources before they are applied with use
 override some container level values in the Pilot container:
 
 ```yaml
-trafficManagement:
-  enabled: true
-  components:
-    proxy:
-      common:
-        enabled: false
-    pilot:
-      common:
-        k8s:
-          overlays:
-          - kind: Deployment
-            name: istio-pilot
-            patches:
-            - path: spec.template.spec.containers.[name:discovery].args.[30m]
-              value: "60m" # OVERRIDDEN
-            - path: spec.template.spec.containers.[name:discovery].ports.[containerPort:8080].containerPort
-              value: 8090 # OVERRIDDEN
-          - kind: Service
-            name: istio-pilot
-            patches:
-            - path: spec.ports.[name:grpc-xds].port
-              value: 15099 # OVERRIDDEN
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  trafficManagement:
+    enabled: true
+    components:
+      proxy:
+        common:
+          enabled: false
+      pilot:
+        common:
+          k8s:
+            overlays:
+            - kind: Deployment
+              name: istio-pilot
+              patches:
+              - path: spec.template.spec.containers.[name:discovery].args.[30m]
+                value: "60m" # OVERRIDDEN
+              - path: spec.template.spec.containers.[name:discovery].ports.[containerPort:8080].containerPort
+                value: 8090 # OVERRIDDEN
+            - kind: Service
+              name: istio-pilot
+              patches:
+              - path: spec.ports.[name:grpc-xds].port
+                value: 15099 # OVERRIDDEN
 ```
 
 The user-defined overlay uses a path spec that includes the ability to select list items by key. In the example above,
@@ -297,7 +324,7 @@ the spec.
 This customization contains overlays at all three levels: the new API, values.yaml legacy API and the K8s output overlay.
 
 ```bash
-iop manifest -f samples/customize_pilot.yaml
+mesh manifest generate -f samples/customize_pilot.yaml
 ```
 
 ## Architecture

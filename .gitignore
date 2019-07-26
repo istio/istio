@@ -25,7 +25,7 @@ bin/protoc-min-version*
 bin/protoc-gen-docs*
 *.orig
 build/_output/
-iop.log
+mesh-cli.log
 #mandiff output
 out/
 
