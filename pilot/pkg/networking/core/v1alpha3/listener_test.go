@@ -21,8 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pilot/pkg/features"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"

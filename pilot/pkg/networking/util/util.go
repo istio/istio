@@ -85,7 +85,7 @@ func getMaxCidrPrefix(addr string) uint32 {
 		// ipv6 address
 		return 128
 	}
-	// ipv6 address
+	// ipv4 address
 	return 32
 }
 

@@ -1076,9 +1076,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	// When this happens, Envoy will infinite loop sending requests to itself.
 	// To prevent this, we add a filter chain match that will match the pod ip and blackhole the traffic.
 	if listenerOpts.bind == actualWildcard && features.RestrictPodIPTrafficLoops.Get() {
+		blackhole := blackholeStructMarshalling
+		if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
+			blackhole = blackholeAnyMarshalling
+		}
 		listenerOpts.filterChainOpts = append([]*filterChainOpts{{
 			destinationCIDRs: pluginParams.Node.IPAddresses,
-			networkFilters:   []listener.Filter{*newBlackholeFilter(pluginParams.Node)},
+			networkFilters:   []listener.Filter{blackhole},
 		}}, listenerOpts.filterChainOpts...)
 	}
 
@@ -1275,7 +1279,7 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Envir
 	initialFilterChain := ipTablesListener.FilterChains[:len(ipTablesListener.FilterChains)-1]
 
 	// contains just the final passthrough/blackhole
-	fallbackFilterChain := ipTablesListener.FilterChains[len(ipTablesListener.FilterChains)-1].Filters[0]
+	fallbackFilter := ipTablesListener.FilterChains[len(ipTablesListener.FilterChains)-1].Filters[0]
 
 	if isAllowAnyOutbound(node) {
 		hostname = util.PassthroughCluster
@@ -1308,7 +1312,7 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Envir
 	}
 	if len(mutable.FilterChains) > 0 && len(mutable.FilterChains[0].TCP) > 0 {
 		filters := append([]listener.Filter{}, mutable.FilterChains[0].TCP...)
-		filters = append(filters, fallbackFilterChain)
+		filters = append(filters, fallbackFilter)
 
 		// Replace the final filter chain with the new chain that has had plugins applied
 		initialFilterChain = append(initialFilterChain, listener.FilterChain{Filters: filters})

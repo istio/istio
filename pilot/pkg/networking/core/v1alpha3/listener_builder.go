@@ -31,6 +31,12 @@ import (
 	"istio.io/pkg/log"
 )
 
+var (
+	// Precompute these filters as an optimization
+	blackholeAnyMarshalling    = newBlackholeFilter(true)
+	blackholeStructMarshalling = newBlackholeFilter(false)
+)
+
 // A stateful listener builder
 type ListenerBuilder struct {
 	node                   *model.Proxy
@@ -144,11 +150,15 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		for _, ip := range node.IPAddresses {
 			cidrRanges = append(cidrRanges, util.ConvertAddressToCidr(ip))
 		}
+		blackhole := blackholeStructMarshalling
+		if util.IsXDSMarshalingToAnyEnabled(node) {
+			blackhole = blackholeAnyMarshalling
+		}
 		filterChains = append([]listener.FilterChain{{
 			FilterChainMatch: &listener.FilterChainMatch{
 				PrefixRanges: cidrRanges,
 			},
-			Filters: []listener.Filter{*newBlackholeFilter(node)},
+			Filters: []listener.Filter{blackhole},
 		}}, filterChains...)
 	}
 
@@ -228,7 +238,7 @@ func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
 }
 
 // Creates a new filter that will always send traffic to the blackhole cluster
-func newBlackholeFilter(node *model.Proxy) *listener.Filter {
+func newBlackholeFilter(enableAny bool) listener.Filter {
 	tcpProxy := &tcp_proxy.TcpProxy{
 		StatPrefix:       util.BlackHoleCluster,
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
@@ -238,12 +248,12 @@ func newBlackholeFilter(node *model.Proxy) *listener.Filter {
 		Name: xdsutil.TCPProxy,
 	}
 
-	if util.IsXDSMarshalingToAnyEnabled(node) {
+	if enableAny {
 		filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
 	} else {
 		filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
 	}
-	return &filter
+	return filter
 }
 
 func newTCPProxyListenerFilter(env *model.Environment, node *model.Proxy, isInboundListener bool) *listener.Filter {
