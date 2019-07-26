@@ -237,6 +237,9 @@ containers:
     {{ if and .Values.global.sds.enabled .Values.global.sds.useTrustworthyJwt }}
     runAsGroup: 1337
     {{- end }}
+    capabilities:
+      add:
+        - NET_ADMIN
     runAsUser: 1337
     {{- end }}
   resources:
