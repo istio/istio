@@ -35,7 +35,6 @@ type EnvoyFilterConfigPatchWrapper struct {
 	Operation networking.EnvoyFilter_Patch_Operation
 }
 
-
 // convertToEnvoyFilterWrapper converts from EnvoyFilter config to EnvoyFilterWrapper object
 func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 	localEnvoyFilter := local.Spec.(*networking.EnvoyFilter)
