@@ -31,6 +31,61 @@ import (
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
+func TestV1_OptionalJWT(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+
+			ns := namespace.NewOrFail(t, ctx, "v1-optional-jwt", true)
+
+			var a, b echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				BuildOrFail(t)
+
+			cases := []TestCase{
+				{
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   b,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/xyz",
+						},
+					},
+					Jwt:           jwt.TokenIssuer1,
+					ExpectAllowed: true,
+				},
+				{
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   b,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/xyz",
+						},
+					},
+					ExpectAllowed: false,
+				},
+			}
+
+			args := map[string]string{
+				"Namespace": ns.Name(),
+			}
+			policies := tmpl.EvaluateAllOrFail(t, args,
+				file.AsStringOrFail(t, rbacClusterConfigTmpl),
+				file.AsStringOrFail(t, "testdata/v1-policy-optional-jwt.yaml.tmpl"))
+
+			g.ApplyConfigOrFail(t, ns, policies...)
+			defer g.DeleteConfigOrFail(t, ns, policies...)
+
+			RunRBACTest(t, cases)
+		})
+}
+
 func TestV1_Group(t *testing.T) {
 	testIssuer1Token := jwt.TokenIssuer1
 	testIssuer2Token := jwt.TokenIssuer2
