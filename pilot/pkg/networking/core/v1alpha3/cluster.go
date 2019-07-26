@@ -108,6 +108,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 	// DO NOT CALL PLUGINS for these two clusters.
 	inboundPassthroughCluster := buildDefaultPassthroughCluster(env)
+	inboundPassthroughCluster.Name = util.InboundPassthroughCluster
 	inboundPassthroughCluster.UpstreamBindConfig = &core.BindConfig{
 		SourceAddress: core.SocketAddress{
 			Address: "127.0.0.5",
@@ -116,7 +117,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 			},
 		},
 	}
-	clusters = append(clusters, buildBlackHoleCluster(env), inboundPassthroughCluster)
+	clusters = append(clusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env), inboundPassthroughCluster)
 	clusters = applyClusterPatches(env, proxy, push, clusters)
 	clusters = normalizeClusters(push, proxy, clusters)
 

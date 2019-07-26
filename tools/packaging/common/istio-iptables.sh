@@ -407,6 +407,9 @@ if [ -n "${OUTBOUND_PORTS_EXCLUDE}" ]; then
   done
 fi
 
+# 127.0.0.5 is binded as src ip when sidecar proxy redirect inbound original_dst traffic
+iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.5/32 -j RETURN
+
 if [ -z "${DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK-}" ]; then
   # Redirect app calls back to itself via Envoy when using the service VIP or endpoint
   # address, e.g. appN => Envoy (client) => Envoy (server) => appN.

@@ -47,6 +47,8 @@ const (
 	// traffic does not match any listener in envoy.
 	PassthroughCluster = "PassthroughCluster"
 
+	InboundPassthroughCluster = "InboundPassthroughCluster"
+
 	LoopbackCluster = "LoopbackCluter"
 
 	// SniClusterFilter is the name of the sni_cluster envoy filter
