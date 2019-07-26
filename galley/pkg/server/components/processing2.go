@@ -30,6 +30,7 @@ import (
 
 	"istio.io/pkg/ctrlz/fw"
 	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/event"
@@ -50,9 +51,6 @@ import (
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
-	"istio.io/pkg/ctrlz/fw"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 // Processing2 component is the main config processing component that will listen to a config source and publish
@@ -144,8 +142,15 @@ func (p *Processing2) Start() (err error) {
 		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second, 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
 	}
 
+	md := grpcMetadata.MD{
+		versionMetadataKey: []string{version.Info.Version},
+	}
+	if err := parseSinkMeta(p.args.SinkMeta, md); err != nil {
+		return err
+	}
+
 	if p.args.SinkAddress != "" {
-		p.callOut, err = newCallout(p.args.SinkAddress, p.args.SinkAuthMode, p.args.SinkMeta, options)
+		p.callOut, err = newCallout(p.args.SinkAddress, p.args.SinkAuthMode, md, options)
 		if err != nil {
 			p.callOut = nil
 			err = fmt.Errorf("callout could not be initialized: %v", err)
@@ -156,6 +161,7 @@ func (p *Processing2) Start() (err error) {
 	serverOptions := &source.ServerOptions{
 		AuthChecker: checker,
 		RateLimiter: rate.NewLimiter(rate.Every(time.Second), 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
+		Metadata:    md,
 	}
 
 	p.mcpSource = source.NewServer(options, serverOptions)
