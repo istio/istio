@@ -332,6 +332,10 @@ type IstioEndpoint struct {
 
 	// The load balancing weight associated with this endpoint.
 	LbWeight uint32
+
+	// Attributes contains additional attributes associated with the service
+	// used mostly by mixer and RBAC for policy enforcement purposes.
+	Attributes ServiceAttributes
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.
@@ -388,7 +392,7 @@ type ServiceDiscovery interface {
 	// CDS (clusters.go) calls it for building 'dnslb' type clusters.
 	// EDS calls it for building the endpoints result.
 	// Consult istio-dev before using this for anything else (except debugging/tools)
-	InstancesByPort(hostname config.Hostname, servicePort int, labels config.LabelsCollection) ([]*ServiceInstance, error)
+	InstancesByPort(svc *Service, servicePort int, labels config.LabelsCollection) ([]*ServiceInstance, error)
 
 	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
 	//
@@ -427,7 +431,7 @@ type ServiceDiscovery interface {
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
 	// the specified service hostname and ports.
 	// Deprecated - service account tracking moved to XdsServer, incremental.
-	GetIstioServiceAccounts(hostname config.Hostname, ports []int) []string
+	GetIstioServiceAccounts(svc *Service, ports []int) []string
 }
 
 // Match returns true if port matches with authentication port selector criteria.

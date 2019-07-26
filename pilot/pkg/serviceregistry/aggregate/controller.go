@@ -206,13 +206,13 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 
 // InstancesByPort retrieves instances for a service on a given port that match
 // any of the supplied labels. All instances match an empty label list.
-func (c *Controller) InstancesByPort(hostname config.Hostname, port int,
+func (c *Controller) InstancesByPort(svc *model.Service, port int,
 	labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
 	var instances, tmpInstances []*model.ServiceInstance
 	var errs error
 	for _, r := range c.GetRegistries() {
 		var err error
-		tmpInstances, err = r.InstancesByPort(hostname, port, labels)
+		tmpInstances, err = r.InstancesByPort(svc, port, labels)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		} else if len(tmpInstances) > 0 {
@@ -314,9 +314,9 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation
-func (c *Controller) GetIstioServiceAccounts(hostname config.Hostname, ports []int) []string {
+func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
 	for _, r := range c.GetRegistries() {
-		if svcAccounts := r.GetIstioServiceAccounts(hostname, ports); svcAccounts != nil {
+		if svcAccounts := r.GetIstioServiceAccounts(svc, ports); svcAccounts != nil {
 			return svcAccounts
 		}
 	}

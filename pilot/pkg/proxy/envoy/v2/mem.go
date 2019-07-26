@@ -170,7 +170,7 @@ func (sd *MemServiceDiscovery) AddEndpoint(service config.Hostname, servicePortN
 }
 
 // SetEndpoints update the list of endpoints for a service, similar with K8S controller.
-func (sd *MemServiceDiscovery) SetEndpoints(service string, endpoints []*model.IstioEndpoint) {
+func (sd *MemServiceDiscovery) SetEndpoints(service string, namespace string, endpoints []*model.IstioEndpoint) {
 
 	sh := config.Hostname(service)
 	sd.mutex.Lock()
@@ -230,7 +230,7 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, endpoints []*model.I
 
 	}
 
-	_ = sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, endpoints)
+	_ = sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, namespace, endpoints)
 }
 
 // Services implements discovery interface
@@ -286,14 +286,14 @@ func (sd *MemServiceDiscovery) Instances(hostname config.Hostname, ports []strin
 
 // InstancesByPort filters the service instances by labels. This assumes single port, as is
 // used by EDS/ADS.
-func (sd *MemServiceDiscovery) InstancesByPort(hostname config.Hostname, port int,
+func (sd *MemServiceDiscovery) InstancesByPort(svc *model.Service, port int,
 	labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if sd.InstancesError != nil {
 		return nil, sd.InstancesError
 	}
-	key := fmt.Sprintf("%s:%d", string(hostname), port)
+	key := fmt.Sprintf("%s:%d", string(svc.Hostname), port)
 	instances, ok := sd.instancesByPortNum[key]
 	if !ok {
 		return nil, nil
@@ -348,10 +348,10 @@ func (sd *MemServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeL
 }
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
-func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname config.Hostname, ports []int) []string {
+func (sd *MemServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
-	if hostname == "world.default.svc.cluster.local" {
+	if svc.Hostname == "world.default.svc.cluster.local" {
 		return []string{
 			spiffe.MustGenSpiffeURI("default", "serviceaccount1"),
 			spiffe.MustGenSpiffeURI("default", "serviceaccount2"),

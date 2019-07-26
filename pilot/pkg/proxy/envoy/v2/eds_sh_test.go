@@ -65,6 +65,10 @@ func TestSplitHorizonEds(t *testing.T) {
 	// but without any gateway
 	initRegistry(server, 4, []string{}, 4)
 
+	// Push contexts needs to be updated
+	server.EnvoyXdsServer.ClearCache()
+	time.Sleep(time.Millisecond * 200) // give time for cache to clear
+
 	tests := []struct {
 		network   string
 		sidecarID string

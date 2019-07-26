@@ -318,13 +318,13 @@ func (mock) GetProxyWorkloadLabels(proxy *model.Proxy) (config.LabelsCollection,
 	return nil, nil
 }
 func (mock) GetService(_ config.Hostname) (*model.Service, error) { return nil, nil }
-func (mock) InstancesByPort(_ config.Hostname, _ int, _ config.LabelsCollection) ([]*model.ServiceInstance, error) {
+func (mock) InstancesByPort(_ *model.Service, _ int, _ config.LabelsCollection) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
-func (mock) ManagementPorts(_ string) model.PortList                                { return nil }
-func (mock) Services() ([]*model.Service, error)                                    { return nil, nil }
-func (mock) WorkloadHealthCheckInfo(_ string) model.ProbeList                       { return nil }
-func (mock) GetIstioServiceAccounts(hostname config.Hostname, ports []int) []string { return nil }
+func (mock) ManagementPorts(_ string) model.PortList                        { return nil }
+func (mock) Services() ([]*model.Service, error)                            { return nil, nil }
+func (mock) WorkloadHealthCheckInfo(_ string) model.ProbeList               { return nil }
+func (mock) GetIstioServiceAccounts(_ *model.Service, ports []int) []string { return nil }
 
 const (
 	id = "id"
@@ -348,8 +348,10 @@ var (
 		ServiceDiscovery: mock{},
 	}
 	pushContext = model.PushContext{
-		ServiceByHostname: map[config.Hostname]*model.Service{
-			config.Hostname("svc.ns3"): &svc,
+		ServiceByHostnameAndNamespace: map[config.Hostname]map[string]*model.Service{
+			config.Hostname("svc.ns3"): {
+				"ns3": &svc,
+			},
 		},
 	}
 	serverParams = plugin.InputParams{
