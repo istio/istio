@@ -286,23 +286,52 @@ func doHTTPFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
 			hcm.HttpFilters = append(hcm.HttpFilters, cp.Value.(*http_conn.HttpFilter))
 		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
-			hcm.HttpFilters = append(hcm.HttpFilters, cp.Value.(*http_conn.HttpFilter))
-			for i := len(hcm.HttpFilters) - 2; i >= 1; i-- {
-				if !httpFilterMatch(hcm.HttpFilters[i], cp) {
-					hcm.HttpFilters[i-1], hcm.HttpFilters[i] = hcm.HttpFilters[i], hcm.HttpFilters[i-1]
-				} else {
+			// Insert after without a filter match is same as ADD in the end
+			if !hasHTTPFilterMatch(cp) {
+				hcm.HttpFilters = append(hcm.HttpFilters, cp.Value.(*http_conn.HttpFilter))
+				continue
+			}
+
+			// find the matching filter first
+			insertPosition := -1
+			for i := 0; i < len(hcm.HttpFilters); i++ {
+				if httpFilterMatch(hcm.HttpFilters[i], cp) {
+					insertPosition = i + 1
 					break
 				}
+			}
+
+			if insertPosition == -1 {
+				continue
+			}
+
+			hcm.HttpFilters = append(hcm.HttpFilters, cp.Value.(*http_conn.HttpFilter))
+			if insertPosition < len(hcm.HttpFilters)-1 {
+				copy(hcm.HttpFilters[insertPosition+1:], hcm.HttpFilters[insertPosition:])
+				hcm.HttpFilters[insertPosition] = cp.Value.(*http_conn.HttpFilter)
 			}
 		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
-			hcm.HttpFilters = append(hcm.HttpFilters, cp.Value.(*http_conn.HttpFilter))
-			for i := len(hcm.HttpFilters) - 2; i >= 1; i-- {
-				match := httpFilterMatch(hcm.HttpFilters[i], cp)
-				hcm.HttpFilters[i-1], hcm.HttpFilters[i] = hcm.HttpFilters[i], hcm.HttpFilters[i-1]
-				if match {
+			// insert before without a filter match is same as insert in the beginning
+			if !hasHTTPFilterMatch(cp) {
+				hcm.HttpFilters = append([]*http_conn.HttpFilter{cp.Value.(*http_conn.HttpFilter)}, hcm.HttpFilters...)
+				continue
+			}
+
+			// find the matching filter first
+			insertPosition := -1
+			for i := 0; i < len(hcm.HttpFilters); i++ {
+				if httpFilterMatch(hcm.HttpFilters[i], cp) {
+					insertPosition = i + 1
 					break
 				}
 			}
+
+			if insertPosition == -1 {
+				continue
+			}
+			hcm.HttpFilters = append(hcm.HttpFilters, cp.Value.(*http_conn.HttpFilter))
+			copy(hcm.HttpFilters[insertPosition+1:], hcm.HttpFilters[insertPosition:])
+			hcm.HttpFilters[insertPosition] = cp.Value.(*http_conn.HttpFilter)
 		}
 	}
 	if httpFiltersRemoved {

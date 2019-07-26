@@ -234,6 +234,26 @@ func TestApplyListenerPatches(t *testing.T) {
 				Value:     buildPatchStruct(`{"name": "http-filter3"}`),
 			},
 		},
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 80,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name: xdsutil.HTTPConnectionManager,
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
+				Value:     buildPatchStruct(`{"name": "http-filter3"}`),
+			},
+		},
 	}
 
 	sidecarOutboundIn := []*xdsapi.Listener{
@@ -375,7 +395,19 @@ func TestApplyListenerPatches(t *testing.T) {
 					Filters:          []listener.Filter{{Name: "network-filter"}},
 				},
 				{
-					Filters: []listener.Filter{{Name: "network-filter"}},
+					Filters: []listener.Filter{
+						{
+							Name: xdsutil.HTTPConnectionManager,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
+									HttpFilters: []*http_conn.HttpFilter{
+										{Name: "http-filter1"},
+										{Name: "http-filter2"},
+									},
+								}),
+							},
+						},
+					},
 				},
 			},
 		},
@@ -396,7 +428,20 @@ func TestApplyListenerPatches(t *testing.T) {
 			ListenerFilters: []listener.ListenerFilter{{Name: "envoy.tls_inspector"}},
 			FilterChains: []listener.FilterChain{
 				{
-					Filters: []listener.Filter{{Name: "network-filter"}},
+					Filters: []listener.Filter{
+						{
+							Name: xdsutil.HTTPConnectionManager,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
+									HttpFilters: []*http_conn.HttpFilter{
+										{Name: "http-filter3"},
+										{Name: "http-filter1"},
+										{Name: "http-filter2"},
+									},
+								}),
+							},
+						},
+					},
 				},
 			},
 		},
