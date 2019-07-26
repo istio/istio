@@ -10,6 +10,8 @@ resources:
   requests:
     cpu: 10m
     memory: 128Mi
+  limits:
+    memory: 128Mi
 ingress:
   enabled: false
   ## Used to create an Ingress record.
