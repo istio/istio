@@ -69,6 +69,9 @@ initContainers:
   securityContext:
     runAsUser: 0
     runAsNonRoot: false
+    capabilities:
+      add:
+        - NET_ADMIN
     privileged: true
 {{ end }}
 {{- end }}
