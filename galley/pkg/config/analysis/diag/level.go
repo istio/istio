@@ -14,10 +14,6 @@
 
 package diag
 
-import (
-	"fmt"
-)
-
 // Level is the severity level of a message.
 type Level rune
 
@@ -34,5 +30,5 @@ const (
 
 // String implements io.Stringer
 func (l Level) String() string {
-	return fmt.Sprintf("%s", string(l))
+	return string(l)
 }
