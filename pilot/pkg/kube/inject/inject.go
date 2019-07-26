@@ -394,7 +394,7 @@ func ValidateExcludeInboundPorts(ports string) error {
 	return validatePortList("excludeInboundPorts", ports)
 }
 
-// ValidateExcludeOutboundPorts validates the excludeInboundPorts parameter
+// ValidateExcludeOutboundPorts validates the excludeOutboundPorts parameter
 func ValidateExcludeOutboundPorts(ports string) error {
 	return validatePortList("excludeOutboundPorts", ports)
 }
