@@ -117,12 +117,13 @@ func TestAppProbe(t *testing.T) {
 	}
 	go server.Run(context.Background())
 
-	// We wait a bit here to ensure server's statusPort is updated.
-	time.Sleep(time.Second * 3)
+	var statusPort uint16
+	for statusPort == 0 {
+		server.mutex.RLock()
+		statusPort = server.statusPort
+		server.mutex.RUnlock()
+	}
 
-	server.mutex.RLock()
-	statusPort := server.statusPort
-	server.mutex.RUnlock()
 	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
 	testCases := []struct {
 		probePath  string
@@ -181,12 +182,12 @@ func TestHttpsAppProbe(t *testing.T) {
 	}
 	go server.Run(context.Background())
 
-	// We wait a bit here to ensure server's statusPort is updated.
-	time.Sleep(time.Second * 3)
-
-	server.mutex.RLock()
-	statusPort := server.statusPort
-	server.mutex.RUnlock()
+	var statusPort uint16
+	for statusPort == 0 {
+		server.mutex.RLock()
+		statusPort = server.statusPort
+		server.mutex.RUnlock()
+	}
 	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
 	testCases := []struct {
 		probePath  string
