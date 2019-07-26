@@ -17,8 +17,12 @@ package controller
 import (
 	"bytes"
 	"fmt"
+	"reflect"
+	"sort"
 	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/labels"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -49,6 +53,8 @@ const (
 	RootCertID = "root-cert.pem"
 	// The key to specify corresponding service account in the annotation of K8s secrets.
 	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
+	// ConfigMap label key that indicates that the ConfigMap contains additional trusted CA roots.
+	ExtraTrustAnchorsLabel = "istio.io/extra-trust-anchors"
 
 	secretNamePrefix   = "istio."
 	secretResyncPeriod = time.Minute
@@ -116,6 +122,12 @@ type SecretController struct {
 	scrtController cache.Controller
 	scrtStore      cache.Store
 
+	// Extra trust anchors related state
+	extraTrustAnchorsController cache.Controller
+	extraTrustAnchors           map[string]map[string]string // resource name -> field name -> field value
+	primaryTrustAnchor          []byte
+	combinedTrustAnchorsBundle  []byte
+
 	monitoring monitoringMetrics
 }
 
@@ -123,7 +135,7 @@ type SecretController struct {
 func NewSecretController(ca ca.CertificateAuthority, requireOptIn bool, certTTL time.Duration,
 	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
 	core corev1.CoreV1Interface, forCA bool, pkcs8Key bool, namespaces []string,
-	dnsNames map[string]*DNSNameEntry) (*SecretController, error) {
+	dnsNames map[string]*DNSNameEntry, extraTrustAnchorsNamespace string) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
@@ -188,11 +200,54 @@ func NewSecretController(ca ca.CertificateAuthority, requireOptIn bool, certTTL 
 			UpdateFunc: c.scrtUpdated,
 		})
 
+	// Extra trust anchors related routines
+	c.extraTrustAnchors = map[string]map[string]string{}
+	c.refreshTrustAnchorsBundle()
+
+	extraTrustAnchorsSelector := labels.SelectorFromSet(map[string]string{ExtraTrustAnchorsLabel: "true"}).String()
+	extraTrustAnchorsLW := &cache.ListWatch{
+		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			options.LabelSelector = extraTrustAnchorsSelector
+			return core.ConfigMaps(extraTrustAnchorsNamespace).List(options)
+		},
+		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			options.LabelSelector = extraTrustAnchorsSelector
+			return core.ConfigMaps(extraTrustAnchorsNamespace).Watch(options)
+		},
+	}
+	_, c.extraTrustAnchorsController = cache.NewInformer(extraTrustAnchorsLW, &v1.ConfigMap{}, time.Minute, cache.ResourceEventHandlerFuncs{
+		AddFunc: func(newObj interface{}) {
+			log.Infof("Notified about a new ConfigMap containing extra trust anchors")
+			newConfigMap := newObj.(*v1.ConfigMap)
+			c.extraTrustAnchors[newConfigMap.GetName()] = newConfigMap.Data
+			c.refreshTrustAnchorsBundle()
+		},
+		DeleteFunc: func(oldObj interface{}) {
+			log.Infof("Notified about a deletion of an existing ConfigMap containing extra trust anchors")
+			oldConfigMap := oldObj.(*v1.ConfigMap)
+			delete(c.extraTrustAnchors, oldConfigMap.GetName())
+			c.refreshTrustAnchorsBundle()
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			log.Infof("Notified about an update of an existing ConfigMap containing extra trust anchors")
+			oldConfigMap := oldObj.(*v1.ConfigMap)
+			newConfigMap := newObj.(*v1.ConfigMap)
+
+			if !reflect.DeepEqual(oldConfigMap.Data, newConfigMap.Data) {
+				c.extraTrustAnchors[newConfigMap.GetName()] = newConfigMap.Data
+				c.refreshTrustAnchorsBundle()
+			}
+		},
+	})
+
 	return c, nil
 }
 
 // Run starts the SecretController until a value is sent to stopCh.
 func (sc *SecretController) Run(stopCh chan struct{}) {
+	go sc.extraTrustAnchorsController.Run(stopCh)
+	cache.WaitForCacheSync(stopCh, sc.extraTrustAnchorsController.HasSynced)
+
 	go sc.scrtController.Run(stopCh)
 
 	// saAdded calls upsertSecret to update and insert secret
@@ -276,11 +331,10 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 			saNamespace, GetSecretName(saName), err)
 		return
 	}
-	rootCert := sc.ca.GetCAKeyCertBundle().GetRootCertPem()
 	secret.Data = map[string][]byte{
 		CertChainID:  chain,
 		PrivateKeyID: key,
-		RootCertID:   rootCert,
+		RootCertID:   sc.getTrustAnchorsBundle(),
 	}
 
 	// We retry several times when create secret to mitigate transient network failures.
@@ -403,13 +457,12 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 			certLifeTime, sc.gracePeriodRatio, gracePeriod, sc.minGracePeriod)
 		gracePeriod = sc.minGracePeriod
 	}
-	rootCertificate := sc.ca.GetCAKeyCertBundle().GetRootCertPem()
 
 	// Refresh the secret if 1) the certificate contained in the secret is about
 	// to expire, or 2) the root certificate in the secret is different than the
 	// one held by the ca (this may happen when the CA is restarted and
 	// a new self-signed CA cert is generated).
-	if certLifeTimeLeft < gracePeriod || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
+	if certLifeTimeLeft < gracePeriod || !bytes.Equal(sc.getTrustAnchorsBundle(), scrt.Data[RootCertID]) {
 		if certLifeTimeLeft < gracePeriod {
 			log.Infof("Refreshing about to expire secret %s/%s", namespace, GetSecretName(name))
 		} else {
@@ -436,8 +489,39 @@ func (sc *SecretController) refreshSecret(scrt *v1.Secret) error {
 
 	scrt.Data[CertChainID] = chain
 	scrt.Data[PrivateKeyID] = key
-	scrt.Data[RootCertID] = sc.ca.GetCAKeyCertBundle().GetRootCertPem()
+	scrt.Data[RootCertID] = sc.getTrustAnchorsBundle()
 
 	_, err = sc.core.Secrets(namespace).Update(scrt)
 	return err
+}
+
+func (sc *SecretController) refreshTrustAnchorsBundle() {
+	trustAnchorsSet := map[string]struct{}{}
+
+	sc.primaryTrustAnchor = sc.ca.GetCAKeyCertBundle().GetRootCertPem()
+	primary := strings.TrimSpace(string(sc.primaryTrustAnchor))
+	trustAnchorsSet[primary] = struct{}{}
+
+	for _, configMap := range sc.extraTrustAnchors {
+		for _, value := range configMap {
+			cert := strings.TrimSpace(value)
+			trustAnchorsSet[cert] = struct{}{}
+		}
+	}
+
+	trustAnchors := make([]string, 0, len(trustAnchorsSet))
+	for trustAnchor := range trustAnchorsSet {
+		trustAnchors = append(trustAnchors, trustAnchor)
+	}
+	sort.Strings(trustAnchors)
+
+	sc.combinedTrustAnchorsBundle = []byte(strings.Join(trustAnchors, "\n") + "\n")
+}
+
+func (sc *SecretController) getTrustAnchorsBundle() []byte {
+	// TODO trigger refresh on CA secret change instead of performing this check on every get
+	if !reflect.DeepEqual(sc.primaryTrustAnchor, sc.ca.GetCAKeyCertBundle().GetRootCertPem()) {
+		sc.refreshTrustAnchorsBundle()
+	}
+	return sc.combinedTrustAnchorsBundle
 }
