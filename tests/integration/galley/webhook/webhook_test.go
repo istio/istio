@@ -28,7 +28,7 @@ import (
 var (
 	vwcName    = "istio-galley"
 	deployName = "istio-galley"
-	sleepDelay = 3 * time.Second // How long to wait to give the reconcile loop an opportunity to act
+	sleepDelay = 10 * time.Second // How long to wait to give the reconcile loop an opportunity to act
 )
 
 var i istio.Instance
