@@ -51,6 +51,9 @@ const (
 	// PassthroughRouteName is the name of the route that forwards traffic to the
 	// PassthroughCluster
 	PassthroughRouteName = "allow_any"
+
+	InboundPassthroughCluster = "InboundPassthroughCluster"
+
 	// SniClusterFilter is the name of the sni_cluster envoy filter
 	SniClusterFilter = "envoy.filters.network.sni_cluster"
 	// NoProxyLocality represents the locality associated with a proxy that doesn't have locality settings
