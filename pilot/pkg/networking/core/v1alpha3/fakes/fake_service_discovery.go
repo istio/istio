@@ -33,10 +33,10 @@ type ServiceDiscovery struct {
 		result1 *model.Service
 		result2 error
 	}
-	InstancesByPortStub        func(hostname config.Hostname, servicePort int, labels config.LabelsCollection) ([]*model.ServiceInstance, error)
+	InstancesByPortStub        func(svc *model.Service, servicePort int, labels config.LabelsCollection) ([]*model.ServiceInstance, error)
 	instancesByPortMutex       sync.RWMutex
 	instancesByPortArgsForCall []struct {
-		hostname    config.Hostname
+		svc         *model.Service
 		servicePort int
 		labels      config.LabelsCollection
 	}
@@ -96,11 +96,11 @@ type ServiceDiscovery struct {
 	workloadHealthCheckInfoReturnsOnCall map[int]struct {
 		result1 model.ProbeList
 	}
-	GetIstioServiceAccountsStub        func(hostname config.Hostname, ports []int) []string
+	GetIstioServiceAccountsStub        func(svc *model.Service, ports []int) []string
 	getIstioServiceAccountsMutex       sync.RWMutex
 	getIstioServiceAccountsArgsForCall []struct {
-		hostname config.Hostname
-		ports    []int
+		svc   *model.Service
+		ports []int
 	}
 	getIstioServiceAccountsReturns struct {
 		result1 []string
@@ -206,18 +206,18 @@ func (fake *ServiceDiscovery) GetServiceReturnsOnCall(i int, result1 *model.Serv
 	}{result1, result2}
 }
 
-func (fake *ServiceDiscovery) InstancesByPort(hostname config.Hostname, servicePort int, labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
+func (fake *ServiceDiscovery) InstancesByPort(svc *model.Service, servicePort int, labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
 	fake.instancesByPortMutex.Lock()
 	ret, specificReturn := fake.instancesByPortReturnsOnCall[len(fake.instancesByPortArgsForCall)]
 	fake.instancesByPortArgsForCall = append(fake.instancesByPortArgsForCall, struct {
-		hostname    config.Hostname
+		svc         *model.Service
 		servicePort int
 		labels      config.LabelsCollection
-	}{hostname, servicePort, labels})
-	fake.recordInvocation("InstancesByPort", []interface{}{hostname, servicePort, labels})
+	}{svc, servicePort, labels})
+	fake.recordInvocation("InstancesByPort", []interface{}{svc, servicePort, labels})
 	fake.instancesByPortMutex.Unlock()
 	if fake.InstancesByPortStub != nil {
-		return fake.InstancesByPortStub(hostname, servicePort, labels)
+		return fake.InstancesByPortStub(svc, servicePort, labels)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -231,10 +231,10 @@ func (fake *ServiceDiscovery) InstancesByPortCallCount() int {
 	return len(fake.instancesByPortArgsForCall)
 }
 
-func (fake *ServiceDiscovery) InstancesByPortArgsForCall(i int) (config.Hostname, int, config.LabelsCollection) {
+func (fake *ServiceDiscovery) InstancesByPortArgsForCall(i int) (*model.Service, int, config.LabelsCollection) {
 	fake.instancesByPortMutex.RLock()
 	defer fake.instancesByPortMutex.RUnlock()
-	return fake.instancesByPortArgsForCall[i].hostname, fake.instancesByPortArgsForCall[i].servicePort, fake.instancesByPortArgsForCall[i].labels
+	return fake.instancesByPortArgsForCall[i].svc, fake.instancesByPortArgsForCall[i].servicePort, fake.instancesByPortArgsForCall[i].labels
 }
 
 func (fake *ServiceDiscovery) InstancesByPortReturns(result1 []*model.ServiceInstance, result2 error) {
@@ -457,7 +457,7 @@ func (fake *ServiceDiscovery) WorkloadHealthCheckInfoReturnsOnCall(i int, result
 	}{result1}
 }
 
-func (fake *ServiceDiscovery) GetIstioServiceAccounts(hostname config.Hostname, ports []int) []string {
+func (fake *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
 	var portsCopy []int
 	if ports != nil {
 		portsCopy = make([]int, len(ports))
@@ -466,13 +466,13 @@ func (fake *ServiceDiscovery) GetIstioServiceAccounts(hostname config.Hostname, 
 	fake.getIstioServiceAccountsMutex.Lock()
 	ret, specificReturn := fake.getIstioServiceAccountsReturnsOnCall[len(fake.getIstioServiceAccountsArgsForCall)]
 	fake.getIstioServiceAccountsArgsForCall = append(fake.getIstioServiceAccountsArgsForCall, struct {
-		hostname config.Hostname
-		ports    []int
-	}{hostname, portsCopy})
-	fake.recordInvocation("GetIstioServiceAccounts", []interface{}{hostname, portsCopy})
+		svc   *model.Service
+		ports []int
+	}{svc, portsCopy})
+	fake.recordInvocation("GetIstioServiceAccounts", []interface{}{svc, portsCopy})
 	fake.getIstioServiceAccountsMutex.Unlock()
 	if fake.GetIstioServiceAccountsStub != nil {
-		return fake.GetIstioServiceAccountsStub(hostname, ports)
+		return fake.GetIstioServiceAccountsStub(svc, ports)
 	}
 	if specificReturn {
 		return ret.result1
@@ -486,10 +486,10 @@ func (fake *ServiceDiscovery) GetIstioServiceAccountsCallCount() int {
 	return len(fake.getIstioServiceAccountsArgsForCall)
 }
 
-func (fake *ServiceDiscovery) GetIstioServiceAccountsArgsForCall(i int) (config.Hostname, []int) {
+func (fake *ServiceDiscovery) GetIstioServiceAccountsArgsForCall(i int) (*model.Service, []int) {
 	fake.getIstioServiceAccountsMutex.RLock()
 	defer fake.getIstioServiceAccountsMutex.RUnlock()
-	return fake.getIstioServiceAccountsArgsForCall[i].hostname, fake.getIstioServiceAccountsArgsForCall[i].ports
+	return fake.getIstioServiceAccountsArgsForCall[i].svc, fake.getIstioServiceAccountsArgsForCall[i].ports
 }
 
 func (fake *ServiceDiscovery) GetIstioServiceAccountsReturns(result1 []string) {

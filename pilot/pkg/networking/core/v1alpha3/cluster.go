@@ -343,7 +343,7 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 		return nil
 	}
 
-	instances, err := env.InstancesByPort(service.Hostname, port, labels)
+	instances, err := env.InstancesByPort(service, port, labels)
 	if err != nil {
 		log.Errorf("failed to retrieve instances for %s: %v", service.Hostname, err)
 		return nil

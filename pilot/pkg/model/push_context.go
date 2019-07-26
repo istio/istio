@@ -72,8 +72,8 @@ type PushContext struct {
 	// The following data is either a global index or used in the inbound path.
 	// Namespace specific views do not apply here.
 
-	// ServiceByHostname has all services, indexed by hostname.
-	ServiceByHostname map[config.Hostname]*Service `json:"-"`
+	// ServiceByHostnameAndNamespace has all services, indexed by hostname then namesace.
+	ServiceByHostnameAndNamespace map[config.Hostname]map[string]*Service `json:"-"`
 
 	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
 	// are no authorization policies in the cluster.
@@ -114,7 +114,7 @@ type XDSUpdater interface {
 	// changed. For each cluster and hostname, the full list of active endpoints (including empty list)
 	// must be sent. The shard name is used as a key - current implementation is using the registry
 	// name.
-	EDSUpdate(shard, hostname string, entry []*IstioEndpoint) error
+	EDSUpdate(shard, hostname string, namespace string, entry []*IstioEndpoint) error
 
 	// SvcUpdate is called when a service port mapping definition is updated.
 	// This interface is WIP - labels, annotations and other changes to service may be
@@ -295,9 +295,9 @@ func NewPushContext() *PushContext {
 		sidecarsByNamespace:     map[string][]*SidecarScope{},
 		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{},
 
-		ServiceByHostname: map[config.Hostname]*Service{},
-		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
-		ServiceAccounts:   map[config.Hostname]map[int][]string{},
+		ServiceByHostnameAndNamespace: map[config.Hostname]map[string]*Service{},
+		ProxyStatus:                   map[string]map[string]ProxyPushStatus{},
+		ServiceAccounts:               map[config.Hostname]map[int][]string{},
 	}
 }
 
@@ -610,7 +610,10 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 				ps.publicServices = append(ps.publicServices, s)
 			}
 		}
-		ps.ServiceByHostname[s.Hostname] = s
+		if _, f := ps.ServiceByHostnameAndNamespace[s.Hostname]; !f {
+			ps.ServiceByHostnameAndNamespace[s.Hostname] = map[string]*Service{}
+		}
+		ps.ServiceByHostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
 	}
 
 	ps.initServiceAccounts(env, allServices)
@@ -634,7 +637,7 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			if port.Protocol == config.ProtocolUDP {
 				continue
 			}
-			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc.Hostname, []int{port.Port})
+			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc, []int{port.Port})
 		}
 	}
 }
@@ -836,11 +839,12 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	// build sidecar scopes for other namespaces that dont have a sidecar CRD object.
 	// Derive the sidecar scope from the root namespace's sidecar object if present. Else fallback
 	// to the default Istio behavior mimicked by the DefaultSidecarScopeForNamespace function.
-	for _, s := range ps.ServiceByHostname {
-		ns := s.Attributes.Namespace
-		if len(ps.sidecarsByNamespace[ns]) == 0 {
-			// use the contents from the root namespace or the default if there is no root namespace
-			ps.sidecarsByNamespace[ns] = []*SidecarScope{ConvertToSidecarScope(ps, rootNSConfig, ns)}
+	for _, nsMap := range ps.ServiceByHostnameAndNamespace {
+		for ns := range nsMap {
+			if len(ps.sidecarsByNamespace[ns]) == 0 {
+				// use the contents from the root namespace or the default if there is no root namespace
+				ps.sidecarsByNamespace[ns] = []*SidecarScope{ConvertToSidecarScope(ps, rootNSConfig, ns)}
+			}
 		}
 	}
 
