@@ -9,7 +9,10 @@ metadata:
     release: istio
 spec:
   group: certmanager.k8s.io
-  version: v1alpha1
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
   names:
     kind: ClusterIssuer
     plural: clusterissuers
@@ -26,7 +29,10 @@ metadata:
     release: istio
 spec:
   group: certmanager.k8s.io
-  version: v1alpha1
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
   names:
     kind: Issuer
     plural: issuers
@@ -65,7 +71,10 @@ spec:
       name: Age
       type: date
   group: certmanager.k8s.io
-  version: v1alpha1
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
   scope: Namespaced
   names:
     kind: Certificate
