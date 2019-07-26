@@ -5,8 +5,6 @@
 
 INSTALL_OPTS="--set global.istioNamespace=${ISTIO_CONTROL_NS} --set global.configNamespace=${ISTIO_CONTROL_NS} --set global.telemetryNamespace=${ISTIO_TELEMETRY_NS} --set global.policyNamespace=${ISTIO_POLICY_NS}"
 
-ENABLE_NAMESPACES_BY_DEFAULT ?= true
-
 # Verify each component can be generated. If "ONE_NAMESPACE" is set to 1, then create pre-processed yaml files with the defaults
 # all in "istio-control" namespace, otherwise, create pre-processed yaml in isolated namespaces for different components.
 # TODO: minimize 'ifs' in templates, and generate alternative files for cases we can't remove. The output could be
