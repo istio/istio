@@ -110,7 +110,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	inboundPassthroughCluster := buildDefaultPassthroughCluster(env)
 	inboundPassthroughCluster.UpstreamBindConfig = &core.BindConfig{
 		SourceAddress: core.SocketAddress{
-			Address: "0.0.0.0",
+			Address: "127.0.0.5",
 			PortSpecifier: &core.SocketAddress_PortValue{
 				PortValue: uint32(0),
 			},
