@@ -95,6 +95,7 @@ INT_FLAGS ?= \
 	--istio.test.kube.policyNamespace ${ISTIO_POLICY_NS} \
 	--istio.test.kube.ingressNamespace ${ISTIO_INGRESS_NS} \
 	--istio.test.kube.egressNamespace ${ISTIO_EGRESS_NS} \
+	--istio.test.kube.customSidecarInjectorNamespace=${CUSTOM_SIDECAR_INJECTOR_NAMESPACE} \
 	--istio.test.kube.minikube \
 	--istio.test.ci -timeout 30m
 
@@ -146,4 +147,5 @@ run-minimal-test:
 			-istio.test.nocleanup \
 			-istio.test.kube.deploy=0 \
 			-istio.test.kube.configNamespace=istio-control \
+			-istio.test.kube.customSidecarInjectorNamespace=${CUSTOM_SIDECAR_INJECTOR_NAMESPACE} \
 			-v)

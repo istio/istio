@@ -70,6 +70,11 @@ HELM_VER ?= v2.13.1
 # customize base image
 export ISTIOCTL_BIN ?= /usr/local/bin/istioctl
 
+# This enables injection of sidecar in all namespaces with the default sidecar.
+# if it is false, use the specified sidecar.
+ENABLE_NAMESPACES_BY_DEFAULT ?= true
+CUSTOM_SIDECAR_INJECTOR_NAMESPACE ?= 
+
 # Namespace and environment running the control plane.
 # A cluster must support multiple control plane versions.
 ISTIO_SYSTEM_NS ?= istio-system
@@ -86,6 +91,9 @@ ISTIO_TELEMETRY_NS ?= istio-telemetry
 ISTIO_POLICY_NS ?= istio-policy
 ISTIO_INGRESS_NS ?= istio-ingress
 ISTIO_EGRESS_NS ?= istio-egress
+	ifeq ($(ENABLE_NAMESPACES_BY_DEFAULT),false)
+		CUSTOM_SIDECAR_INJECTOR_NAMESPACE = istio-control
+	endif
 endif
 
 # Namespace for running components with admin rights, e.g. kiali
