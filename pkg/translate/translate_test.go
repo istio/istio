@@ -28,7 +28,7 @@ import (
 	"istio.io/operator/pkg/version"
 )
 
-func TestProtoToValuesV12(t *testing.T) {
+func TestProtoToValuesV13(t *testing.T) {
 	tests := []struct {
 		desc    string
 		yamlStr string
@@ -182,7 +182,10 @@ sidecarInjectorWebhook:
 		},
 	}
 
-	tr := Translators[version.NewMinorVersion(1, 2)]
+	tr, err := NewTranslator(version.NewMinorVersion(1, 3))
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ispec := &v1alpha2.IstioControlPlaneSpec{}

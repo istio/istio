@@ -22,7 +22,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/operator/pkg/manifest"
-	"istio.io/operator/pkg/version"
+	opversion "istio.io/operator/version"
 	"istio.io/pkg/log"
 )
 
@@ -69,7 +69,7 @@ func manifestApply(args *rootArgs, maArgs *manifestApplyArgs) {
 		logAndFatalf(args, "Could not generate manifest: %v", err)
 	}
 
-	out, err := manifest.ApplyAll(manifests, version.NewVersion("", 1, 2, 0, ""), args.dryRun, args.verbose)
+	out, err := manifest.ApplyAll(manifests, opversion.OperatorBinaryVersion, args.dryRun, args.verbose)
 	if err != nil {
 		logAndFatalf(args, "Failed to apply manifest with kubectl client: %v", err)
 	}
