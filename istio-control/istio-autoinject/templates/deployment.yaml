@@ -28,7 +28,7 @@ spec:
 {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
-        checksum/config-volume: {{ print $.Template.BasePath "/sidecar-injector-configmap.yaml" | sha256sum }}
+        checksum/config-volume: {{ .Files.Get "files/injection-template.yaml" | sha256sum }}
     spec:
       serviceAccountName: istio-sidecar-injector-service-account
 {{- if .Values.global.priorityClassName }}
