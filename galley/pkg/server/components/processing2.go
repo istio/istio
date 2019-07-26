@@ -102,7 +102,10 @@ func (p *Processing2) Start() (err error) {
 		return
 	}
 
-	distributor := snapshotter.NewAnalyzingDistributor(updater, analyzers.All(), snapshotter.NewMCPDistributor(p.mcpCache))
+	var distributor snapshotter.Distributor = snapshotter.NewMCPDistributor(p.mcpCache)
+	if p.args.EnableConfigAnalysis {
+		distributor = snapshotter.NewAnalyzingDistributor(updater, analyzers.All(), distributor)
+	}
 
 	if p.runtime, err = processorInitialize(m, p.args.DomainSuffix, event.CombineSources(mesh, src), distributor); err != nil {
 		return
