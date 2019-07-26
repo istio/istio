@@ -1112,6 +1112,22 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		return
 	}
 
+	// These wildcard listeners are intended for outbound traffic. However, there are cases where inbound traffic can hit these.
+	// This will happen when there is a no more specific inbound listener, either because Pilot hasn't sent it (race condition
+	// at startup), or because it never will (a port not specified in a service but captured by iptables).
+	// When this happens, Envoy will infinite loop sending requests to itself.
+	// To prevent this, we add a filter chain match that will match the pod ip and blackhole the traffic.
+	if listenerOpts.bind == actualWildcard && features.RestrictPodIPTrafficLoops.Get() {
+		blackhole := blackholeStructMarshalling
+		if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
+			blackhole = blackholeAnyMarshalling
+		}
+		listenerOpts.filterChainOpts = append([]*filterChainOpts{{
+			destinationCIDRs: pluginParams.Node.IPAddresses,
+			networkFilters:   []listener.Filter{blackhole},
+		}}, listenerOpts.filterChainOpts...)
+	}
+
 	// Lets build the new listener with the filter chains. In the end, we will
 	// merge the filter chains with any existing listener on the same port/bind point
 	l := buildListener(listenerOpts)
@@ -1286,6 +1302,72 @@ func (configgen *ConfigGeneratorImpl) generateManagementListeners(node *model.Pr
 	return listeners
 }
 
+<<<<<<< HEAD
+=======
+// onVirtualOutboundListener calls the plugin API for the outbound virtual listener
+func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Environment,
+	node *model.Proxy,
+	push *model.PushContext, proxyInstances []*model.ServiceInstance,
+	ipTablesListener *xdsapi.Listener) *xdsapi.Listener {
+
+	hostname := config.Hostname(util.BlackHoleCluster)
+	mesh := env.Mesh
+	redirectPort := &model.Port{
+		Port:     int(mesh.ProxyListenPort),
+		Protocol: config.ProtocolTCP,
+	}
+
+	if len(ipTablesListener.FilterChains) < 1 || len(ipTablesListener.FilterChains[0].Filters) < 1 {
+		return ipTablesListener
+	}
+
+	// contains all filter chains except for the final passthrough/blackhole
+	initialFilterChain := ipTablesListener.FilterChains[:len(ipTablesListener.FilterChains)-1]
+
+	// contains just the final passthrough/blackhole
+	fallbackFilter := ipTablesListener.FilterChains[len(ipTablesListener.FilterChains)-1].Filters[0]
+
+	if isAllowAnyOutbound(node) {
+		hostname = util.PassthroughCluster
+	}
+
+	pluginParams := &plugin.InputParams{
+		ListenerProtocol:           plugin.ListenerProtocolTCP,
+		DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
+		Env:                        env,
+		Node:                       node,
+		ProxyInstances:             proxyInstances,
+		Push:                       push,
+		Bind:                       "",
+		Port:                       redirectPort,
+		Service: &model.Service{
+			Hostname: hostname,
+			Ports:    model.PortList{redirectPort},
+		},
+	}
+
+	mutable := &plugin.MutableObjects{
+		Listener:     ipTablesListener,
+		FilterChains: make([]plugin.FilterChain, len(ipTablesListener.FilterChains)),
+	}
+
+	for _, p := range configgen.Plugins {
+		if err := p.OnVirtualListener(pluginParams, mutable); err != nil {
+			log.Warn(err.Error())
+		}
+	}
+	if len(mutable.FilterChains) > 0 && len(mutable.FilterChains[0].TCP) > 0 {
+		filters := append([]listener.Filter{}, mutable.FilterChains[0].TCP...)
+		filters = append(filters, fallbackFilter)
+
+		// Replace the final filter chain with the new chain that has had plugins applied
+		initialFilterChain = append(initialFilterChain, listener.FilterChain{Filters: filters})
+		ipTablesListener.FilterChains = initialFilterChain
+	}
+	return ipTablesListener
+}
+
+>>>>>>> a45938a69e... Initial infinite request loop fix (#15833)
 // Deprecated: buildSidecarInboundMgmtListeners creates inbound TCP only listeners for the management ports on
 // server (inbound). Management port listeners are slightly different from standard Inbound listeners
 // in that, they do not have mixer filters nor do they have inbound auth.

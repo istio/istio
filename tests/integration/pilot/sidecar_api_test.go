@@ -88,14 +88,34 @@ func TestSidecarListeners(t *testing.T) {
 }
 
 func validateListenersNoConfig(t *testing.T, response *structpath.Instance) {
+	t.Run("iptables-listener-block-loops", func(t *testing.T) {
+		response.
+			Select("{.resources[?(@.address.socketAddress.portValue==15001)]}").
+			Equals("virtualOutbound", "{.name}").
+			Equals("0.0.0.0", "{.address.socketAddress.address}").
+			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[0].name}").
+			Equals("BlackHoleCluster", "{.filterChains[0].filters[0].config.cluster}").
+			Equals("10.2.0.1", "{.filterChains[0].filterChainMatch.prefixRanges[0].addressPrefix}").
+			Equals("32", "{.filterChains[0].filterChainMatch.prefixRanges[0].prefixLen}").
+			Equals(true, "{.useOriginalDst}").
+			CheckOrFail(t)
+	})
+
 	t.Run("iptables-forwarding-listener", func(t *testing.T) {
 		response.
 			Select("{.resources[?(@.address.socketAddress.portValue==15001)]}").
 			Equals("virtual", "{.name}").
 			Equals("0.0.0.0", "{.address.socketAddress.address}").
+<<<<<<< HEAD
 			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[*].name}").
 			Equals("PassthroughCluster", "{.filterChains[0].filters[0].config.cluster}").
 			Equals("PassthroughCluster", "{.filterChains[0].filters[0].config.stat_prefix}").
+=======
+			Equals("mixer", "{.filterChains[1].filters[0].name}").
+			Equals("envoy.tcp_proxy", "{.filterChains[1].filters[1].name}").
+			Equals("PassthroughCluster", "{.filterChains[1].filters[1].config.cluster}").
+			Equals("PassthroughCluster", "{.filterChains[1].filters[1].config.stat_prefix}").
+>>>>>>> a45938a69e... Initial infinite request loop fix (#15833)
 			Equals(true, "{.useOriginalDst}").
 			CheckOrFail(t)
 	})
