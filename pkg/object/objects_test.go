@@ -512,10 +512,10 @@ spec:
 
 var (
 	icp = &v1alpha2.IstioControlPlaneSpec{
-		DefaultNamespacePrefix: "istio-system",
-		Hub:                    "docker.io/istio",
-		Tag:                    "1.1.4",
-		Profile:                "default",
+		DefaultNamespace: "istio-system",
+		Hub:              "docker.io/istio",
+		Tag:              "1.1.4",
+		Profile:          "default",
 		TrafficManagement: &v1alpha2.TrafficManagementFeatureSpec{
 			Enabled: &types.BoolValue{Value: true},
 			Components: &v1alpha2.TrafficManagementFeatureSpec_Components{
@@ -611,10 +611,10 @@ var (
 	}
 
 	icpYaml = `
-defaultNamespacePrefix: istio-system
+defaultNamespace: istio-system
 hub: docker.io/istio
 tag: 1.1.4
-defaultNamespacePrefix: istio-system
+defaultNamespace: istio-system
 profile: default
 trafficManagement:
   enabled: true
@@ -724,7 +724,7 @@ func TestUnmarshalWithJSONPB(t *testing.T) {
 			got := &v1alpha2.IstioControlPlaneSpec{}
 			err := util.UnmarshalWithJSONPB(tt.yaml, got)
 			if err != nil {
-				t.Errorf("unexpected error: %v", err)
+				t.Fatalf("unexpected error: %v", err)
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("%s:\ngot:\n%v\n\nwant:\n%v", tt.desc, got, tt.want)

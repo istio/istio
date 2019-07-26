@@ -22,14 +22,12 @@ import (
 	"reflect"
 	"strings"
 
-	"istio.io/operator/pkg/object"
-
-	"istio.io/operator/pkg/tpath"
-
 	"github.com/ghodss/yaml"
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/name"
+	"istio.io/operator/pkg/object"
+	"istio.io/operator/pkg/tpath"
 	"istio.io/operator/pkg/util"
 	"istio.io/operator/pkg/version"
 	"istio.io/pkg/log"
@@ -94,10 +92,10 @@ var (
 	Translators = map[version.MinorVersion]*Translator{
 		version.NewMinorVersion(1, 2): {
 			APIMapping: map[string]*Translation{
-				"Hub":                    {"global.hub", nil},
-				"Tag":                    {"global.tag", nil},
-				"K8SDefaults":            {"global.resources", nil},
-				"DefaultNamespacePrefix": {"global.istioNamespace", nil},
+				"Hub":              {"global.hub", nil},
+				"Tag":              {"global.tag", nil},
+				"K8SDefaults":      {"global.resources", nil},
+				"DefaultNamespace": {"global.istioNamespace", nil},
 
 				"TrafficManagement.Components.Proxy.Common.Values": {"global.proxy", nil},
 

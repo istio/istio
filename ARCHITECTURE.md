@@ -79,7 +79,7 @@ level, with each lower level overriding the setting of the higher parent level. 
 namespace is defined as:
 
 ```yaml
-defaultNamespacePrefix: istio-system
+defaultNamespace: istio-system
 ```
 
 and namespaces are specialized for the security feature and one of the components:

@@ -22,22 +22,20 @@ import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
 import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
 
 /*
-IstioControlPlane is a schema for both defining and overlaying Istio control plane installations.
-The Istio operator uses a compiled-in InstallSpec as default controlplane values, along with compiled-in install charts.
-Running the operator with an empty user defined InstallSpec results in an controlplane with default values, using the
+IstioControlPlane is a schema for both defining and customizing Istio control plane installations.
+Running the operator with an empty user defined InstallSpec results in an control plane with default values, using the
 default charts.
 
-The simplest install specialization is to point the user InstallSpec baseValuesPath to a different values file, for
-example an Istio minimal controlplane, which will use the values associated with the minimal controlplane profile for
-Istio. All Istio controlplane profiles are compiled in to the operator, wrapped inside InstallSpec's
-CommonComponentSpec/ValueOverrides field.
+The simplest install specialization is to point the user InstallSpec profile to a different values file, for
+example an Istio minimal control plane, which will use the values associated with the minimal control plane profile for
+Istio.
 
-Further specialization are possible at three levels:
+Deeper customization is possible at three levels:
 
 1. New APIs defined in this file
 
 Feature API: this API groups an Istio install by features and allows enabling/disabling the features, selecting base
-controlplane profiles, as well as some additional high level settings that are feature specific. Each feature contains
+control plane profiles, as well as some additional high level settings that are feature specific. Each feature contains
 one or more components, which correspond to Istio components (Pods) in the cluster.
 
 k8s API: this API is a pass through to k8s resource settings for Istio k8s resources. It allows customizing Istio k8s
@@ -46,13 +44,13 @@ k8s specific way compared to values.yaml. See KubernetesResourcesSpec in this fi
 
 2. values.yaml
 
-The entirety of values.yaml settings is accessible through InstallSpec (see CommonComponentSpec/ValueOverrides).
+The entirety of values.yaml settings is accessible through InstallSpec (see CommonComponentSpec/Values).
 This API will gradually be deprecated and values there will be moved either into CRDs that are used to directly
 configure components or, in the case of k8s settings, will be replaced by the new API above.
 
 3. k8s resource overlays
 
-Once a manifest is rendered from InstallSpec, a further specialization can be applied by specifying k8s resource
+Once a manifest is rendered from InstallSpec, a further customization can be applied by specifying k8s resource
 overlays. The concept is similar to kustomize, where JSON patches are applied for object paths. This allows
 customization at the lowest level and eliminates the need to create ad-hoc template parameters, or edit templates.
 
@@ -60,12 +58,12 @@ EXAMPLES
 
 1. Default Istio install
 
-spec: ~
+spec:
 
 2. Default minimal profile install
 
 spec:
-  baseSpecPath: istio-minimal.yaml
+  profile: minimal
 
 3. Default install with telemetry disabled
 
@@ -103,19 +101,19 @@ spec:
   traffic_management:
     components:
       pilot:
-          k8s:
-            resources:
-              limits:
-                cpu: 444m
-                memory: 333Mi
-              requests:
-                cpu: 222m
-                memory: 111Mi
-            readinessProbe:
-              failureThreshold: 44
-              initialDelaySeconds: 11
-              periodSeconds: 22
-              successThreshold: 33
+        k8s:
+          resources:
+            limits:
+              cpu: 444m
+              memory: 333Mi
+            requests:
+              cpu: 222m
+              memory: 111Mi
+          readinessProbe:
+            failureThreshold: 44
+            initialDelaySeconds: 11
+            periodSeconds: 22
+            successThreshold: 33
 
 6. Default install with values.yaml customizations for proxy
 
@@ -123,7 +121,7 @@ spec:
   traffic_management:
     components:
       proxy:
-        valuesOverrides:
+        values:
         - global.proxy.enableCoreDump: true
         - global.proxy.dnsRefreshRate: 10s
 
@@ -143,20 +141,22 @@ spec:
               value: --livenessProbeInterval=123s
 */
 
-
+// IstioControlPlane is a CustomResourceDefinition (CRD) describing an Istio control plane.
 message IstioControlPlane {
+    // Spec defines the desired state of IstioControlPlane.
     IstioControlPlaneSpec spec = 3;
+    // Status reports the status of the Istio control plane.
     InstallStatus status = 4;
 }
 
 // IstioControlPlaneSpec defines the desired state of IstioControlPlane.
-// The spec is a used to define a customization of the default values that are supplied with an Istio charts release.
+// The spec is a used to define a customization of the default profile values that are supplied with each Istio release.
 // It is grouped at the top level by feature, where behavior of Istio functional areas is specified.
 // Each feature contains components, where k8s resource level defaults can be overridden.
-// Because the spec is a customization API, specifying an empty InstallSpec results in a default Istio controlplane.
+// Because the spec is a customization API, specifying an empty InstallSpec results in a default Istio control plane.
 message IstioControlPlaneSpec {
-    // Prefix added to all namespaces for any installed component.
-    string default_namespace_prefix = 5;
+    // Default namespace if feature or component namespaces are not set.
+    string default_namespace = 5;
 
     // Selection and configuration of core Istio features.
     TrafficManagementFeatureSpec traffic_management = 25;
@@ -166,20 +166,22 @@ message IstioControlPlaneSpec {
     ConfigManagementFeatureSpec config_management = 29;
     AutoInjectionFeatureSpec auto_injection = 30;
     GatewayFeatureSpec gateways = 31;
-
- 	// Kustomize style overrides for default global values.yaml.
+ 	// Overrides for default global values.yaml.
 	// Values map[string]interface{} `protobuf:"bytes,6,opt,name=values" json:"values,omitempty"`
-    // URL for the base spec. e.g.
-    //   istio-minimal.yaml (looks in default dir)
-    //   file://var/istio/install/values/custom/custom-install.yaml
-    // Uses compiled in default install spec by default.
+    // Path or name for the profile e.g.
+    //   minimal (looks in profiles dir for a file called minimal.yaml)
+    //   /tmp/istio/install/values/custom/custom-install.yaml (local file path)
+    // default profile is used if this field is unset.
     string profile = 100;
-    // URL for the install package. e.g.
-    //   http://github.com/istio/istio/releases/install/1.1.2
-    //   http://github.com/istio/istio/releases/install/lts
-    //   file://tmp/istio-installer/nightly
-    // Uses compiled in install package by default.
-    string custom_package_path = 102;
+    // Path for the install package. e.g.
+    //   https://github.com/istio/istio/releases/tags/1.3.2
+    //   https://github.com/istio/istio/releases/tags/1.3-latest
+    //   /tmp/istio-installer/nightly (local file path)
+    string install_package_path = 102;
+    // An alias for installPackagePath: https://github.com/istio/istio/releases/tags/
+    // e.g. version: 1.3.2 points to https://github.com/istio/istio/releases/tags/1.3.2
+    // installPackagePath and version cannot both be set.
+    string version = 103;
     // Root for docker image paths e.g. docker.io/istio-release.
     // Releases are published to docker hub under 'istio' project.
     // Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
@@ -318,7 +320,7 @@ message GatewayFeatureSpec {
         // Namespace that auto injections components are installed into.
         string namespace = 1;
 
-        // Ingress/egress gateway controlplane and configuration.
+        // Ingress/egress gateway configuration.
         repeated IngressGatewayComponentSpec ingress_gateway = 31;
         repeated EgressGatewayComponentSpec egress_gateway = 32;
     }
@@ -382,7 +384,8 @@ message GalleyComponentSpec {
 message CommonComponentSpec {
     // Selects whether this component is installed.
     google.protobuf.BoolValue enabled = 1;
-    // Namespace that all resources for this component are installed into. Override for parent feature namespace.
+    // Namespace that all resources for this component are installed into. Overrides the parent feature namespace and
+    // IstioControlPlaneSpec.DefaultNamespace.
     string namespace = 2;
     // LogLevel sets the component log level. Mappings to underlying log levels are not necessarily 1:1 and depend on
     // component support of these levels e.g. DEBUG or INFO may result in the same log verbosity.
@@ -394,8 +397,6 @@ message CommonComponentSpec {
         INFO = 4;
     }
     LogLevel debug = 3;
-
-
 
     // Kubernetes resource spec.
     KubernetesResourcesSpec k8s = 80;

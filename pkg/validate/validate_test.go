@@ -253,15 +253,8 @@ hub: docker.io:tag/istio
 		{
 			desc: "GoodURL",
 			yamlStr: `
-customPackagePath: file:///local/file/path
+installPackagePath: /local/file/path
 `,
-		},
-		{
-			desc: "BadURL",
-			yamlStr: `
-customPackagePath: bad_schema://local/file/path
-`,
-			wantErrs: makeErrors([]string{`invalid value CustomPackagePath: bad_schema://local/file/path`}),
 		},
 	}
 
