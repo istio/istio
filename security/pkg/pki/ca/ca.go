@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -160,7 +162,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCer
 
 		options := util.CertOptions{
 			TTL:          caCertTTL,
-			Org:          org,
+			Org:          fmt.Sprintf("%s (%s)", org, uuid.New().String()),
 			IsCA:         true,
 			IsSelfSigned: true,
 			RSAKeySize:   caKeySize,
