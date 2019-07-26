@@ -25,10 +25,11 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
+	"istio.io/istio/pkg/config"
 )
 
 func TestBuildHTTPRoutes(t *testing.T) {
-	serviceRegistry := map[model.Hostname]*model.Service{
+	serviceRegistry := map[config.Hostname]*model.Service{
 		"*.example.org": {
 			Hostname:    "*.example.org",
 			Address:     "1.1.1.1",
@@ -37,7 +38,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				&model.Port{
 					Name:     "default",
 					Port:     8080,
-					Protocol: model.ProtocolHTTP,
+					Protocol: config.ProtocolHTTP,
 				},
 			},
 		},
@@ -55,7 +56,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, config.LabelsCollection{}, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 	})
@@ -64,7 +65,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		ttl := time.Nanosecond * 100
-		meshConfig := model.DefaultMeshConfig()
+		meshConfig := config.DefaultMeshConfig()
 		push := &model.PushContext{
 			Env: &model.Environment{
 				Mesh: &meshConfig,
@@ -97,7 +98,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 		})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, config.LabelsCollection{}, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -124,7 +125,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Spec: virtualServiceWithSubset,
 		}
 
-		meshConfig := model.DefaultMeshConfig()
+		meshConfig := config.DefaultMeshConfig()
 		push := &model.PushContext{
 			Env: &model.Environment{
 				Mesh: &meshConfig,
@@ -144,7 +145,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 		})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, config.LabelsCollection{}, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -169,7 +170,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Spec: virtualServiceWithSubsetWithPortLevelSettings,
 		}
 
-		meshConfig := model.DefaultMeshConfig()
+		meshConfig := config.DefaultMeshConfig()
 		push := &model.PushContext{
 			Env: &model.Environment{
 				Mesh: &meshConfig,
@@ -187,7 +188,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				Spec: portLevelDestinationRuleWithSubsetPolicy,
 			}})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, config.LabelsCollection{}, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -225,7 +226,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		rule.Subsets = []*networking.Subset{networkingSubset}
 		cnfg.Spec = networkingDestinationRule
 
-		meshConfig := model.DefaultMeshConfig()
+		meshConfig := config.DefaultMeshConfig()
 		push := &model.PushContext{
 			Env: &model.Environment{
 				Mesh: &meshConfig,
@@ -235,7 +236,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		push.SetDestinationRules([]model.Config{
 			cnfg})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, config.LabelsCollection{}, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -253,7 +254,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("port selector based traffic policy", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		meshConfig := model.DefaultMeshConfig()
+		meshConfig := config.DefaultMeshConfig()
 		push := &model.PushContext{
 			Env: &model.Environment{
 				Mesh: &meshConfig,
@@ -271,7 +272,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			}})
 
 		gatewayNames := map[string]bool{"some-gateway": true}
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, config.LabelsCollection{}, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -284,6 +285,19 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 		}
 		g.Expect(routes[0].GetRoute().GetHashPolicy()).To(gomega.ConsistOf(hashPolicy))
+	})
+
+	t.Run("for redirect code", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRedirect,
+			serviceRegistry, 8080, config.LabelsCollection{}, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+
+		redirectAction, ok := routes[0].Action.(*envoyroute.Route_Redirect)
+		g.Expect(ok).NotTo(gomega.BeFalse())
+		g.Expect(redirectAction.Redirect.ResponseCode).To(gomega.Equal(envoyroute.RedirectAction_PERMANENT_REDIRECT))
 	})
 }
 
@@ -368,6 +382,27 @@ var virtualServicePlain = model.Config{
 						},
 						Weight: 100,
 					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithRedirect = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    model.VirtualService.Type,
+		Version: model.VirtualService.Version,
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
 				},
 			},
 		},

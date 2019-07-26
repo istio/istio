@@ -1,0 +1,65 @@
+apiVersion: rbac.istio.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: bind-service-viewer-0-0
+  namespace: default
+spec:
+  allow:
+  - role: service-viewer-0
+    subjects:
+    - names:
+      - foo
+  workloadSelector:
+    labels:
+      app: productpage
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: bind-service-viewer-0-1
+  namespace: default
+spec:
+  allow:
+  - role: service-viewer-0
+    subjects:
+    - names:
+      - foo
+  workloadSelector:
+    labels:
+      app: ratings
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: bind-service-viewer-1
+  namespace: default
+spec:
+  allow:
+  - role: service-viewer-1
+    subjects:
+    - names:
+      - foo
+  workloadSelector:
+    labels:
+      app: reviews
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRole
+metadata:
+  name: service-viewer-0
+  namespace: default
+spec:
+  rules:
+  - methods:
+    - GET
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRole
+metadata:
+  name: service-viewer-1
+  namespace: default
+spec:
+  rules:
+  - methods:
+    - POST
+---

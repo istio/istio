@@ -210,9 +210,6 @@ func tlsConfig(certDir string) (*tls.Config, error) {
 // Close the stream.
 func (a *ADSC) Close() {
 	a.mutex.Lock()
-	if a.stream != nil {
-		_ = a.stream.CloseSend()
-	}
 	a.conn.Close()
 	a.mutex.Unlock()
 }
@@ -345,6 +342,8 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 				routes = append(routes, fmt.Sprintf("%d", port))
 			}
 		} else if f0.Name == "envoy.mongo_proxy" {
+			// ignore for now
+		} else if f0.Name == "envoy.redis_proxy" {
 			// ignore for now
 		} else if f0.Name == "envoy.filters.network.mysql_proxy" {
 			// ignore for now

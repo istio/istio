@@ -39,9 +39,9 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 type Params_QuotaAlgorithm int32
 
 const (
-	// FIXED_WINDOW The fixed window approach can allow 2x peak specified rate, whereas the rolling-window doesn't.
+	// `FIXED_WINDOW` The fixed window approach can allow 2x peak specified rate, whereas the rolling-window doesn't.
 	FIXED_WINDOW Params_QuotaAlgorithm = 0
-	// ROLLING_WINDOW The rolling window algorithm's additional precision comes at the cost of increased redis resource usage.
+	// `ROLLING_WINDOW` The rolling window algorithm's additional precision comes at the cost of increased redis resource usage.
 	ROLLING_WINDOW Params_QuotaAlgorithm = 1
 )
 
@@ -68,19 +68,19 @@ func (Params_QuotaAlgorithm) EnumDescriptor() ([]byte, []int) {
 // redisServerUrl: localhost:6379
 // connectionPoolSize: 10
 // quotas:
-//   - name: requestcount.quota.istio-system
-//     maxAmount: 50
-//     validDuration: 60s
-//     bucketDuration: 1s
-//     rateLimitAlgorithm: ROLLING_WINDOW
-//     overrides:
-//       - dimensions:
-//           destination: ratings
-//           source: reviews
-//         maxAmount: 12
-//       - dimensions:
-//           destination: reviews
-//         maxAmount: 5
+// - name: requestcount.quota.istio-system
+//   maxAmount: 50
+//   validDuration: 60s
+//   bucketDuration: 1s
+//   rateLimitAlgorithm: ROLLING_WINDOW
+//   overrides:
+//   - dimensions:
+//       destination: ratings
+//       source: reviews
+//     maxAmount: 12
+//   - dimensions:
+//       destination: reviews
+//     maxAmount: 5
 // ```
 type Params struct {
 	// The set of known quotas. At least one quota configuration is required
@@ -128,7 +128,7 @@ var xxx_messageInfo_Params proto.InternalMessageInfo
 type Params_Override struct {
 	// The specific dimensions for which this override applies.
 	// String representation of instance dimensions is used to check against configured dimensions.
-	// dimensions should not be empty
+	// `dimensions` should not be empty
 	Dimensions map[string]string `protobuf:"bytes,1,rep,name=dimensions,proto3" json:"dimensions" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// The upper limit for this quota override.
 	// This value should be bigger than 0
@@ -188,12 +188,12 @@ type Params_Quota struct {
 	MaxAmount int64 `protobuf:"varint,2,opt,name=max_amount,json=maxAmount,proto3" json:"max_amount,omitempty"`
 	// The amount of time allocated quota remains valid before it is
 	// automatically released. This is only meaningful for rate limit quotas.
-	// value should be 0 < valid_duration
+	// value should be `0 < validDuration`
 	ValidDuration time.Duration `protobuf:"bytes,3,opt,name=valid_duration,json=validDuration,proto3,stdduration" json:"valid_duration"`
-	// bucket_duration will be ignored if rate_limit_algorithm is FIXED_WINDOW
-	// value should be 0 < bucket_duration < valid_duration
+	// The `bucketDuration` will be ignored if `rateLimitAlgorithm` is `FIXED_WINDOW`
+	// value should be `0 < bucketDuration < validDuration`
 	BucketDuration time.Duration `protobuf:"bytes,4,opt,name=bucket_duration,json=bucketDuration,proto3,stdduration" json:"bucket_duration"`
-	// Quota management algorithm. The default value is FIXED_WINDOW
+	// Quota management algorithm. The default value is `FIXED_WINDOW`
 	RateLimitAlgorithm Params_QuotaAlgorithm `protobuf:"varint,5,opt,name=rate_limit_algorithm,json=rateLimitAlgorithm,proto3,enum=adapter.redisquota.config.Params_QuotaAlgorithm" json:"rate_limit_algorithm,omitempty"`
 	// Overrides associated with this quota.
 	// The first matching override is applied.

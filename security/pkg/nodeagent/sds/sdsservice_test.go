@@ -14,8 +14,11 @@
 package sds
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"sync"
@@ -67,6 +70,7 @@ func TestStreamSecretsForWorkloadSds(t *testing.T) {
 	arg := Options{
 		EnableIngressGatewaySDS: false,
 		EnableWorkloadSDS:       true,
+		RecycleInterval:         30 * time.Second,
 		IngressGatewayUDSPath:   "",
 		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 	}
@@ -77,6 +81,7 @@ func TestStreamSecretsForGatewaySds(t *testing.T) {
 	arg := Options{
 		EnableIngressGatewaySDS: true,
 		EnableWorkloadSDS:       false,
+		RecycleInterval:         30 * time.Second,
 		IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
 		WorkloadUDSPath:         "",
 	}
@@ -87,6 +92,7 @@ func TestStreamSecretsForBothSds(t *testing.T) {
 	arg := Options{
 		EnableIngressGatewaySDS: true,
 		EnableWorkloadSDS:       true,
+		RecycleInterval:         30 * time.Second,
 		IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
 		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 	}
@@ -97,6 +103,7 @@ func TestFetchSecretsForWorkloadSds(t *testing.T) {
 	arg := Options{
 		EnableIngressGatewaySDS: false,
 		EnableWorkloadSDS:       true,
+		RecycleInterval:         30 * time.Second,
 		IngressGatewayUDSPath:   "",
 		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 	}
@@ -107,6 +114,7 @@ func TestFetchSecretsForGatewaySds(t *testing.T) {
 	arg := Options{
 		EnableIngressGatewaySDS: true,
 		EnableWorkloadSDS:       false,
+		RecycleInterval:         30 * time.Second,
 		IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
 		WorkloadUDSPath:         "",
 	}
@@ -117,6 +125,7 @@ func TestFetchSecretsForBothSds(t *testing.T) {
 	arg := Options{
 		EnableIngressGatewaySDS: true,
 		EnableWorkloadSDS:       true,
+		RecycleInterval:         30 * time.Second,
 		IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
 		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
 	}
@@ -127,6 +136,7 @@ func TestStreamSecretsInvalidResourceName(t *testing.T) {
 	arg := Options{
 		EnableIngressGatewaySDS: false,
 		EnableWorkloadSDS:       true,
+		RecycleInterval:         30 * time.Second,
 		IngressGatewayUDSPath:   "",
 		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
 	}
@@ -239,6 +249,7 @@ func TestStreamSecretsPush(t *testing.T) {
 	arg := Options{
 		EnableIngressGatewaySDS: false,
 		EnableWorkloadSDS:       true,
+		RecycleInterval:         2 * time.Second,
 		WorkloadUDSPath:         socket,
 	}
 	st := &mockSecretStore{
@@ -280,15 +291,38 @@ func TestStreamSecretsPush(t *testing.T) {
 	}
 	verifySDSSResponse(t, resp, fakePrivateKey, fakeCertificateChain)
 
+	go func() {
+		conn2, err := setupConnection(socket)
+		if err != nil {
+			t.Errorf("failed to setup connection to socket %q", socket)
+		}
+		defer conn2.Close()
+		sdsClient2 := sds.NewSecretDiscoveryServiceClient(conn2)
+		stream2, err := sdsClient2.StreamSecrets(ctx)
+		if err != nil {
+			t.Errorf("StreamSecrets failed: %v", err)
+		}
+		req2 := &api.DiscoveryRequest{
+			ResourceNames: []string{testResourceName},
+			Node: &core.Node{
+				Id: "sidecar~127.0.0.1~id3~local",
+			},
+		}
+		if err = stream2.Send(req2); err != nil {
+			t.Errorf("stream.Send failed: %v", err)
+		}
+	}()
+
 	// simulate logic in constructConnectionID() function.
 	conID := proxyID + "-1"
 
 	// Test push new secret to proxy.
-	if err = NotifyProxy(conID, req.ResourceNames[0], &model.SecretItem{
-		CertificateChain: fakePushCertificateChain,
-		PrivateKey:       fakePushPrivateKey,
-		ResourceName:     testResourceName,
-	}); err != nil {
+	if err = NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: req.ResourceNames[0]},
+		&model.SecretItem{
+			CertificateChain: fakePushCertificateChain,
+			PrivateKey:       fakePushPrivateKey,
+			ResourceName:     testResourceName,
+		}); err != nil {
 		t.Fatalf("failed to send push notificiation to proxy %q", conID)
 	}
 	resp, err = stream.Recv()
@@ -307,20 +341,26 @@ func TestStreamSecretsPush(t *testing.T) {
 	}
 
 	// Test push nil secret(indicates close the streaming connection) to proxy.
-	if err = NotifyProxy(conID, req.ResourceNames[0], nil); err != nil {
+	if err = NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: req.ResourceNames[0]}, nil); err != nil {
 		t.Fatalf("failed to send push notificiation to proxy %q", conID)
 	}
 	if _, err = stream.Recv(); err == nil {
 		t.Fatalf("stream.Recv failed, expected error")
 	}
 
-	if len(sdsClients) != 0 {
-		t.Fatalf("sdsClients, got %d, expected 0", len(sdsClients))
-	}
 	if _, found := st.secrets.Load(key); found {
 		t.Fatalf("Found cached secret after stream close, expected the secret to not exist")
 	}
 
+	// Wait the recycle job run to clear all staled client connections.
+	time.Sleep(10 * time.Second)
+
+	// Add RLock to avoid racetest fail.
+	sdsClientsMutex.RLock()
+	defer sdsClientsMutex.RUnlock()
+	if len(sdsClients) != 0 {
+		t.Fatalf("sdsClients, got %d, expected 0", len(sdsClients))
+	}
 }
 
 func verifySDSSResponse(t *testing.T, resp *api.DiscoveryResponse, expectedPrivateKey []byte, expectedCertChain []byte) {
@@ -475,3 +515,72 @@ func (ms *mockSecretStore) DeleteSecret(conID, resourceName string) {
 func (ms *mockSecretStore) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string) bool {
 	return false
 }
+
+func TestDebugEndpoints(t *testing.T) {
+
+	tests := []struct {
+		proxies []string
+	}{
+		{proxies: []string{}},
+		{proxies: []string{"sidecar~127.0.0.1~id2~local", "sidecar~127.0.0.1~id3~local"}},
+		{proxies: []string{"sidecar~127.0.0.1~id4~local"}},
+	}
+
+	for _, tc := range tests {
+		socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
+		arg := Options{
+			EnableIngressGatewaySDS: false,
+			EnableWorkloadSDS:       true,
+			RecycleInterval:         2 * time.Second,
+			WorkloadUDSPath:         socket,
+		}
+		st := &mockSecretStore{
+			checkToken: true,
+		}
+
+		sdsClients = map[cache.ConnKey]*sdsConnection{}
+		server, err := NewServer(arg, st, nil)
+		if err != nil {
+			t.Fatalf("failed to start grpc server for sds: %v", err)
+		}
+
+		for _, proxy := range tc.proxies {
+			sendRequestAndVerifyResponse(t, sdsRequestStream, arg.WorkloadUDSPath, proxy, false)
+		}
+
+		workloadRequest, _ := http.NewRequest(http.MethodGet, "/debug/sds/workload", nil)
+		response := httptest.NewRecorder()
+
+		server.workloadSds.debugHTTPHandler(response, workloadRequest)
+		workloadDebugResponse := &sdsdebug{}
+		if err := json.Unmarshal(response.Body.Bytes(), workloadDebugResponse); err != nil {
+			t.Fatalf("debug JSON unmarshalling failed: %v", err)
+		}
+
+		clientCount := len(workloadDebugResponse.Clients)
+		if clientCount != len(tc.proxies) {
+			t.Errorf("response should contain %d client, found %d", len(tc.proxies), clientCount)
+		}
+
+		// check whether debug endpoint returned the registered proxies
+		for _, p := range tc.proxies {
+			found := false
+			for _, c := range workloadDebugResponse.Clients {
+				if p == c.ProxyID {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				t.Errorf("expected to debug endpoint to contain %s, but did not", p)
+			}
+		}
+
+		server.Stop()
+	}
+}
+
+// make helper function that takes (proxyname, socket, opts) and makes DiscoveryRequest
+// figure out what a discovery request is and if it's needed to become a client, even?
+// confirmed from L236 that disc req is where the addClient gets called

@@ -24,6 +24,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 )
 
 type LbEpInfo struct {
@@ -204,8 +205,8 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 		},
 	}
 
-	gwSvcName := model.Hostname("istio-ingressgateway.istio-system.svc.cluster.local")
-	serviceDiscovery := NewMemServiceDiscovery(map[model.Hostname]*model.Service{
+	gwSvcName := config.Hostname("istio-ingressgateway.istio-system.svc.cluster.local")
+	serviceDiscovery := NewMemServiceDiscovery(map[config.Hostname]*model.Service{
 		gwSvcName: {
 			Hostname: gwSvcName,
 			Attributes: model.ServiceAttributes{

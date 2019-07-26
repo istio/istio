@@ -1,0 +1,43 @@
+constraints:
+  - collection: istio/authentication/v1alpha1/policies
+    check:
+    - exactlyOne:
+      - equals: {
+        "Body": {
+          "peers": [
+          {
+            "Params": {
+              "Mtls": {}
+            }
+          }
+          ],
+          "targets": [
+          {
+            "name": "d",
+            "ports": [
+            {
+              "Port": {
+                "Number": 80
+              }
+            },
+            {
+              "Port": {
+                "Number": 7070
+              }
+            },
+            {
+              "Port": {
+                "Number": 9090
+              }
+            }
+            ]
+          }
+          ]
+        },
+        "Metadata": {
+          "name": "{{.Namespace}}/d-explicit-mtls"
+        },
+        "TypeURL": "type.googleapis.com/istio.authentication.v1alpha1.Policy"
+      }
+
+          

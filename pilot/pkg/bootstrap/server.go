@@ -36,14 +36,10 @@ import (
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/hashicorp/go-multierror"
 	prom "github.com/prometheus/client_golang/prometheus"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -52,23 +48,25 @@ import (
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/clusterregistry"
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
-	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/config/kube/crd/controller"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istio_networking "istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/consul"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pkg/features/pilot"
+	"istio.io/istio/pkg/config"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	configz "istio.io/istio/pkg/mcp/configz/client"
@@ -80,6 +78,12 @@ import (
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
+
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -148,7 +152,7 @@ type MeshArgs struct {
 type ConfigArgs struct {
 	ClusterRegistriesNamespace string
 	KubeConfig                 string
-	ControllerOptions          kube.ControllerOptions
+	ControllerOptions          controller2.Options
 	FileDir                    string
 	DisableInstallCRDs         bool
 
@@ -212,7 +216,7 @@ type Server struct {
 	secureGRPCServer *grpc.Server
 	istioConfigStore model.IstioConfigStore
 	mux              *http.ServeMux
-	kubeRegistry     *kube.Controller
+	kubeRegistry     *controller2.Controller
 	fileWatcher      filewatcher.FileWatcher
 }
 
@@ -231,7 +235,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 		if args.Namespace != "" {
 			args.Config.ClusterRegistriesNamespace = args.Namespace
 		} else {
-			args.Config.ClusterRegistriesNamespace = model.IstioSystemNamespace
+			args.Config.ClusterRegistriesNamespace = config.IstioSystemNamespace
 		}
 	}
 
@@ -338,14 +342,14 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.ConfigMap, *meshconfig.MeshConfig, error) {
 
 	if kube == nil {
-		defaultMesh := model.DefaultMeshConfig()
+		defaultMesh := config.DefaultMeshConfig()
 		return nil, &defaultMesh, nil
 	}
 
-	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
+	cfg, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
-			defaultMesh := model.DefaultMeshConfig()
+			defaultMesh := config.DefaultMeshConfig()
 			return nil, &defaultMesh, nil
 		}
 		return nil, nil, err
@@ -353,16 +357,16 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 
 	// values in the data are strings, while proto might use a different data type.
 	// therefore, we have to get a value by a key
-	cfgYaml, exists := config.Data[ConfigMapKey]
+	cfgYaml, exists := cfg.Data[ConfigMapKey]
 	if !exists {
 		return nil, nil, fmt.Errorf("missing configuration map key %q", ConfigMapKey)
 	}
 
-	mesh, err := model.ApplyMeshConfigDefaults(cfgYaml)
+	mesh, err := config.ApplyMeshConfigDefaults(cfgYaml)
 	if err != nil {
 		return nil, nil, err
 	}
-	return config, mesh, nil
+	return cfg, mesh, nil
 }
 
 // initMesh creates the mesh in the pilotConfig from the input arguments.
@@ -406,8 +410,9 @@ func (s *Server) initMesh(args *PilotArgs) error {
 
 	if mesh == nil {
 		// Config file either wasn't specified or failed to load - use a default mesh.
-		if _, mesh, err = GetMeshConfig(s.kubeClient, kube.IstioNamespace, kube.IstioConfigMap); err != nil {
-			log.Warnf("failed to read the default mesh configuration: %v, from the %s config map in the %s namespace", err, kube.IstioConfigMap, kube.IstioNamespace)
+		if _, mesh, err = GetMeshConfig(s.kubeClient, controller2.IstioNamespace, controller2.IstioConfigMap); err != nil {
+			log.Warnf("failed to read the default mesh configuration: %v, from the %s config map in the %s namespace",
+				err, controller2.IstioConfigMap, controller2.IstioNamespace)
 			return err
 		}
 
@@ -463,6 +468,9 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 			if s.kubeRegistry != nil {
 				s.kubeRegistry.InitNetworkLookup(meshNetworks)
 			}
+			if s.multicluster != nil {
+				s.multicluster.ReloadNetworkLookup(meshNetworks)
+			}
 			if s.EnvoyXdsServer != nil {
 				s.EnvoyXdsServer.Env.MeshNetworks = meshNetworks
 				s.EnvoyXdsServer.ConfigUpdate(true)
@@ -506,10 +514,8 @@ func (c *mockController) Run(<-chan struct{}) {}
 func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	clientNodeID := ""
 	collections := make([]sink.CollectionOptions, len(model.IstioConfigTypes))
-	for i, model := range model.IstioConfigTypes {
-		collections[i] = sink.CollectionOptions{
-			Name: model.Collection,
-		}
+	for i, t := range model.IstioConfigTypes {
+		collections[i] = sink.CollectionOptions{Name: t.Collection, Incremental: false}
 	}
 
 	options := coredatamodel.Options{
@@ -528,20 +534,20 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 	for _, configSource := range s.mesh.ConfigSources {
 		if strings.Contains(configSource.Address, fsScheme+"://") {
-			url, err := url.Parse(configSource.Address)
+			srcAddress, err := url.Parse(configSource.Address)
 			if err != nil {
 				cancel()
 				return fmt.Errorf("invalid config URL %s %v", configSource.Address, err)
 			}
-			if url.Scheme == fsScheme {
-				if url.Path == "" {
+			if srcAddress.Scheme == fsScheme {
+				if srcAddress.Path == "" {
 					cancel()
 					return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 				}
 				store := memory.Make(model.IstioConfigTypes)
 				configController := memory.NewController(store)
 
-				err := s.makeFileMonitor(url.Path, configController)
+				err := s.makeFileMonitor(srcAddress.Path, configController)
 				if err != nil {
 					cancel()
 					return err
@@ -565,9 +571,9 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 				}
 			case istio_networking_v1alpha3.TLSSettings_ISTIO_MUTUAL:
 				credentialOption = &creds.Options{
-					CertificateFile:   path.Join(model.AuthCertsPath, model.CertChainFilename),
-					KeyFile:           path.Join(model.AuthCertsPath, model.KeyFilename),
-					CACertificateFile: path.Join(model.AuthCertsPath, model.RootCertFilename),
+					CertificateFile:   path.Join(config.AuthCertsPath, config.CertChainFilename),
+					KeyFile:           path.Join(config.AuthCertsPath, config.KeyFilename),
+					CACertificateFile: path.Join(config.AuthCertsPath, config.RootCertFilename),
 				}
 			default:
 				log.Errorf("invalid tls setting mode %d", configSource.TlsSettings.Mode)
@@ -575,8 +581,8 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			}
 
 			if credentialOption == nil {
-				credentials := creds.CreateForClientSkipVerify()
-				securityOption = grpc.WithTransportCredentials(credentials)
+				transportCreds := creds.CreateForClientSkipVerify()
+				securityOption = grpc.WithTransportCredentials(transportCreds)
 			} else {
 				requiredFiles := []string{credentialOption.CACertificateFile, credentialOption.KeyFile, credentialOption.CertificateFile}
 				log.Infof("Secure MCP configured. Waiting for required certificate files to become available: %v",
@@ -602,8 +608,8 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 					cancel()
 					return err
 				}
-				credentials := creds.CreateForClient(configSource.TlsSettings.Sni, watcher)
-				securityOption = grpc.WithTransportCredentials(credentials)
+				transportCreds := creds.CreateForClient(configSource.TlsSettings.Sni, watcher)
+				securityOption = grpc.WithTransportCredentials(transportCreds)
 			}
 		}
 
@@ -667,7 +673,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 				_ = conn.Close() // nolint: errcheck
 			}
 
-			reporter.Close()
+			_ = reporter.Close()
 		}()
 
 		return nil
@@ -701,12 +707,12 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 
 		s.configController = configController
 	} else {
-		controller, err := s.makeKubeConfigController(args)
+		cfgController, err := s.makeKubeConfigController(args)
 		if err != nil {
 			return err
 		}
 
-		s.configController = controller
+		s.configController = cfgController
 	}
 
 	// Defer starting the controller until after the service is created.
@@ -748,7 +754,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
 	kubeCfgFile := s.getKubeCfgFile(args)
-	configClient, err := crd.NewClient(kubeCfgFile, "", model.IstioConfigTypes, args.Config.ControllerOptions.DomainSuffix)
+	configClient, err := controller.NewClient(kubeCfgFile, "", model.IstioConfigTypes, args.Config.ControllerOptions.DomainSuffix)
 	if err != nil {
 		return nil, multierror.Prefix(err, "failed to open a config client.")
 	}
@@ -759,7 +765,7 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 		}
 	}
 
-	return crd.NewController(configClient, args.Config.ControllerOptions), nil
+	return controller.NewController(configClient, args.Config.ControllerOptions), nil
 }
 
 func (s *Server) makeFileMonitor(fileDir string, configController model.ConfigStore) error {
@@ -780,7 +786,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 	clusterID := string(serviceregistry.KubernetesRegistry)
 	log.Infof("Primary Cluster name: %s", clusterID)
 	args.Config.ControllerOptions.ClusterID = clusterID
-	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
+	kubectl := controller2.NewController(s.kubeClient, args.Config.ControllerOptions)
 	s.kubeRegistry = kubectl
 	serviceControllers.AddRegistry(
 		aggregate.Registry{
@@ -856,11 +862,11 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 func (s *Server) initMemoryRegistry(serviceControllers *aggregate.Controller) {
 	// MemServiceDiscovery implementation
 	discovery1 := srmemory.NewDiscovery(
-		map[model.Hostname]*model.Service{ // srmemory.HelloService.Hostname: srmemory.HelloService,
+		map[config.Hostname]*model.Service{ // srmemory.HelloService.Hostname: srmemory.HelloService,
 		}, 2)
 
 	discovery2 := srmemory.NewDiscovery(
-		map[model.Hostname]*model.Service{ // srmemory.WorldService.Hostname: srmemory.WorldService,
+		map[config.Hostname]*model.Service{ // srmemory.WorldService.Hostname: srmemory.WorldService,
 		}, 2)
 
 	registry1 := aggregate.Registry{
@@ -940,7 +946,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go func() {
-			if pilot.EnableWaitCacheSync && !s.waitForCacheSync(stop) {
+			if !s.waitForCacheSync(stop) {
 				return
 			}
 
@@ -958,7 +964,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 			go func() {
 				<-stop
-				model.JwtKeyResolver.Close()
+				authn_model.JwtKeyResolver.Close()
 
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
@@ -992,7 +998,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			go func() {
-				if pilot.EnableWaitCacheSync && !s.waitForCacheSync(stop) {
+				if !s.waitForCacheSync(stop) {
 					return
 				}
 
@@ -1054,16 +1060,16 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 
 // initialize secureGRPCServer
 func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
-	certDir := pilot.CertDir
+	certDir := features.CertDir
 	if certDir == "" {
 		certDir = PilotCertDir
 	}
 
-	ca := path.Join(certDir, model.RootCertFilename)
-	key := path.Join(certDir, model.KeyFilename)
-	cert := path.Join(certDir, model.CertChainFilename)
+	ca := path.Join(certDir, config.RootCertFilename)
+	key := path.Join(certDir, config.KeyFilename)
+	cert := path.Join(certDir, config.CertChainFilename)
 
-	creds, err := credentials.NewServerTLSFromFile(cert, key)
+	tlsCreds, err := credentials.NewServerTLSFromFile(cert, key)
 	// certs not ready yet.
 	if err != nil {
 		return err
@@ -1083,7 +1089,7 @@ func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
 	caCertPool.AppendCertsFromPEM(caCert)
 
 	opts := s.grpcServerOptions(options)
-	opts = append(opts, grpc.Creds(creds))
+	opts = append(opts, grpc.Creds(tlsCreds))
 	s.secureGRPCServer = grpc.NewServer(opts...)
 	s.EnvoyXdsServer.Register(s.secureGRPCServer)
 	s.secureHTTPServer = &http.Server{
@@ -1119,7 +1125,7 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 
 	// Temp setting, default should be enough for most supported environments. Can be used for testing
 	// envoy with lower values.
-	maxStreams := pilot.MaxConcurrentStreams
+	maxStreams := features.MaxConcurrentStreams
 
 	grpcOptions := []grpc.ServerOption{
 		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),

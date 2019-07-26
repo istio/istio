@@ -12,8 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM scratch
+# BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
+ARG BASE_DISTRIBUTION=default
 
-ADD prometheusadapter /usr/local/bin/
+# The following section is used as base image if BASE_DISTRIBUTION=default
+# No tag available https://hub.docker.com/_/scratch?tab=description
+# hadolint ignore=DL3006
+FROM scratch as default
+
+# The following section is used as base image if BASE_DISTRIBUTION=distroless
+# hadolint ignore=DL3007
+FROM gcr.io/distroless/static:latest as distroless
+
+# This will build the final image based on either default or distroless from above
+# hadolint ignore=DL3006
+FROM ${BASE_DISTRIBUTION}
+
+COPY prometheusadapter /usr/local/bin/
 
 ENTRYPOINT ["/usr/local/bin/prometheusadapter"]

@@ -27,7 +27,11 @@ items:
     template:
       metadata:
         annotations:
+          sidecar.istio.io/interceptionMode: REDIRECT
           sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+          traffic.sidecar.istio.io/excludeInboundPorts: "15020"
+          traffic.sidecar.istio.io/includeInboundPorts: "80"
+          traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
         creationTimestamp: null
         labels:
           app: hello
@@ -59,7 +63,7 @@ items:
           - --discoveryAddress
           - istio-pilot:15010
           - --dnsRefreshRate
-          - 5s
+          - 300s
           - --connectTimeout
           - 1s
           - --proxyAdminPort
@@ -117,7 +121,7 @@ items:
           resources:
             limits:
               cpu: "2"
-              memory: 128Mi
+              memory: 1Gi
             requests:
               cpu: 100m
               memory: 128Mi
@@ -134,6 +138,8 @@ items:
         - args:
           - -p
           - "15001"
+          - -z
+          - "15006"
           - -u
           - "1337"
           - -m

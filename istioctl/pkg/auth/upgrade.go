@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strconv"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -36,31 +37,27 @@ import (
 	rbacproto "istio.io/api/rbac/v1alpha1"
 )
 
+// WorkloadLabels is the workload labels, for example, app: productpage.
+type WorkloadLabels map[string]string
+
 // ServiceToWorkloadLabels maps the short service name to the workload labels that it's pointing to.
 // This service is defined in same namespace as the ServiceRole that's using it.
 type ServiceToWorkloadLabels map[string]WorkloadLabels
 
-// WorkloadLabels is the workload labels, for example, app: productpage.
-type WorkloadLabels map[string]string
-
 type Upgrader struct {
-	IstioConfigStore model.ConfigStore
-	K8sClient        *kubernetes.Clientset
-	ServiceFiles     []string
-	// RoleNameToWorkloadLabels maps the ServiceRole name to the map of service name to the workload labels
-	// that the service pointing to.
-	// We could have remove the `service` key layer to make it ServiceRole name maps to workload labels.
-	// However, this is needed for unit tests.
-	RoleNameToWorkloadLabels map[string]ServiceToWorkloadLabels
-	V1PolicyFile             string
-	serviceRoles             []model.Config
-	serviceRoleBindings      []model.Config
+	K8sClient    *kubernetes.Clientset
+	ServiceFiles []string
+	// NamespaceToServiceToWorkloadLabels maps the namespace to service name to the workload labels
+	// that the service in this namespace pointing to.
+	NamespaceToServiceToWorkloadLabels map[string]ServiceToWorkloadLabels
+	V1PolicyFiles                      []string
+	serviceRoles                       []model.Config
+	serviceRoleBindings                []model.Config
+	ConvertedPolicies                  strings.Builder
 }
 
 const (
 	creationTimestampNilField = "creationTimestamp: null"
-	serviceRoleType           = "service-role"
-	serviceRoleBindingType    = "service-role-binding"
 )
 
 var (
@@ -72,35 +69,26 @@ var (
 )
 
 // UpgradeCRDs is the main function that converts RBAC v1 to v2 for local policy files.
-func (ug *Upgrader) UpgradeCRDs() (string, error) {
-	err := ug.createRoleAndBindingLists(ug.V1PolicyFile)
-	var convertedPolicies strings.Builder
+func (ug *Upgrader) UpgradeCRDs() error {
+	err := ug.createRoleAndBindingLists(ug.V1PolicyFiles)
 	if err != nil {
-		return "", err
+		return err
+	}
+	// Need to perform the conversion on ServiceRoleBinding first, since ServiceRoles will be modified.
+	// This prevents creating unnecessary deep copies of ServiceRoles.
+	for _, serviceRoleBinding := range ug.serviceRoleBindings {
+		err := ug.createAuthorizationPolicyFromRoleBinding(serviceRoleBinding)
+		if err != nil {
+			return err
+		}
 	}
 	for _, serviceRole := range ug.serviceRoles {
-		if err := ug.addRoleNameToWorkloadLabelMapping(serviceRole); err != nil {
-			return "", err
-		}
-		role := ug.upgradeServiceRole(serviceRole)
-		convertedRole, err := parseConfigToString(role)
+		err := ug.upgradeServiceRole(serviceRole)
 		if err != nil {
-			return "", err
+			return err
 		}
-		convertedPolicies.WriteString(convertedRole)
 	}
-	for _, serviceRoleBinding := range ug.serviceRoleBindings {
-		authzPolicy, err := ug.createAuthorizationPolicyFromRoleBinding(serviceRoleBinding)
-		if err != nil {
-			return "", err
-		}
-		convertedAuthzPolicy, err := parseConfigToString(authzPolicy)
-		if err != nil {
-			return "", err
-		}
-		convertedPolicies.WriteString(convertedAuthzPolicy)
-	}
-	return convertedPolicies.String(), nil
+	return nil
 }
 
 // parseConfigToString parses data from `config` to string.
@@ -130,46 +118,92 @@ func parseConfigToString(config model.Config) (string, error) {
 }
 
 // createRoleAndBindingLists creates lists of model.Configs to store ServiceRole and ServiceRoleBinding policies.
-func (ug *Upgrader) createRoleAndBindingLists(fileName string) error {
-	rbacFileBuf, err := ioutil.ReadFile(fileName)
-	if err != nil {
-		return fmt.Errorf("failed to read file %s", fileName)
-	}
-	configsFromFile, _, err := crd.ParseInputs(string(rbacFileBuf))
-	if err != nil {
-		return err
-	}
-	for _, config := range configsFromFile {
-		if config.Type == serviceRoleType {
-			ug.serviceRoles = append(ug.serviceRoles, config)
-		} else if config.Type == serviceRoleBindingType {
-			ug.serviceRoleBindings = append(ug.serviceRoleBindings, config)
+func (ug *Upgrader) createRoleAndBindingLists(fileNames []string) error {
+	for _, fileName := range fileNames {
+		rbacFileBuf, err := ioutil.ReadFile(fileName)
+		if err != nil {
+			return fmt.Errorf("failed to read file %s", fileName)
+		}
+		configsFromFile, _, err := crd.ParseInputs(string(rbacFileBuf))
+		if err != nil {
+			return err
+		}
+		for _, config := range configsFromFile {
+			if config.Type == model.ServiceRole.Type {
+				ug.serviceRoles = append(ug.serviceRoles, config)
+			} else if config.Type == model.ServiceRoleBinding.Type {
+				ug.serviceRoleBindings = append(ug.serviceRoleBindings, config)
+			}
 		}
 	}
 	return nil
 }
 
-// upgradeServiceRole simply removes the `services` field for the serviceRolePolicy.
-func (ug *Upgrader) upgradeServiceRole(serviceRolePolicy model.Config) model.Config {
+// upgradeServiceRole writes N new ServiceRoles if there are N rules in serviceRolePolicy.
+// Before writing, it also removes the services field in each rule and add methods = ["*"] if necessary.
+func (ug *Upgrader) upgradeServiceRole(serviceRolePolicy model.Config) error {
 	serviceRoleSpec := serviceRolePolicy.Spec.(*rbacproto.ServiceRole)
-	for _, rule := range serviceRoleSpec.Rules {
+	for i, rule := range serviceRoleSpec.Rules {
+		// newServiceRole is an individual ServiceRole broken from serviceRolePolicy because it has multiple
+		// rules.
+		newServiceRole := rbacproto.ServiceRole{}
+		newServiceRole.Rules = []*rbacproto.AccessRule{rule}
 		if rule.Methods == nil && rule.Paths == nil && rule.Constraints == nil {
 			// If `services` is the only field, we need to create `methods = ["*"]`
-			rule.Methods = []string{"*"}
+			newServiceRole.Rules[0].Methods = []string{"*"}
 		}
-		rule.Services = nil
+		newServiceRole.Rules[0].Services = nil
+		serviceRoleConfig := model.Config{
+			ConfigMeta: serviceRolePolicy.ConfigMeta,
+			Spec:       &newServiceRole,
+		}
+		serviceRoleConfig.Name = getNewRoleName(serviceRoleConfig.Name, len(serviceRoleSpec.Rules), i)
+		convertedRole, err := parseConfigToString(serviceRoleConfig)
+		if err != nil {
+			return err
+		}
+		ug.ConvertedPolicies.WriteString(convertedRole)
 	}
-	return serviceRolePolicy
+	return nil
 }
 
 // createAuthorizationPolicyFromRoleBinding creates AuthorizationPolicy from the given ServiceRoleBinding.
 // In particular:
-// * For each ServiceRoleBinding, create an AuthorizationPolicy
+// * For each service in the referred ServiceRole from the ServiceRoleBinding, create an AuthorizationPolicy
 //   * If field `user` exists, change it to use `names`
 //	 * If field `group` exists, change it to use `groups`
 //   * Change `roleRef` to use `role`
 //   * Create a list of binding with one element (serviceRoleBinding) and use workload selector.
-func (ug *Upgrader) createAuthorizationPolicyFromRoleBinding(serviceRoleBinding model.Config) (model.Config, error) {
+func (ug *Upgrader) createAuthorizationPolicyFromRoleBinding(serviceRoleBinding model.Config) error {
+	bindingSpec := serviceRoleBinding.Spec.(*rbacproto.ServiceRoleBinding)
+	if bindingSpec.RoleRef == nil {
+		return fmt.Errorf("serviceRoleBinding %q does not have `roleRef` field", serviceRoleBinding.Name)
+	}
+	oldRoleName := bindingSpec.RoleRef.Name
+	refRole := ug.getServiceRole(bindingSpec.RoleRef.Name, serviceRoleBinding.Namespace)
+	if refRole == nil {
+		return fmt.Errorf("cannot find ServiceRole %q from ServiceRoleBinding %q", bindingSpec.RoleRef.Name, serviceRoleBinding.Name)
+	}
+	refRoleSpec := refRole.Spec.(*rbacproto.ServiceRole)
+	for i, rule := range refRoleSpec.Rules {
+		newRoleName := getNewRoleName(oldRoleName, len(refRoleSpec.Rules), i)
+		for j, serviceName := range rule.Services {
+			newAuthzPolicyName := getNewAuthzPolicyName(serviceRoleBinding.Name, len(refRoleSpec.Rules), i, len(rule.Services), j)
+			authzPolicy, err := ug.constructAuthorizationPolicy(serviceRoleBinding, serviceName, newRoleName, newAuthzPolicyName)
+			if err != nil {
+				return err
+			}
+			convertedAuthzPolicy, err := parseConfigToString(authzPolicy)
+			if err != nil {
+				return err
+			}
+			ug.ConvertedPolicies.WriteString(convertedAuthzPolicy)
+		}
+	}
+	return nil
+}
+
+func (ug *Upgrader) constructAuthorizationPolicy(serviceRoleBinding model.Config, serviceName, newRoleName, newAuthzPolicyName string) (model.Config, error) {
 	bindingSpec := serviceRoleBinding.Spec.(*rbacproto.ServiceRoleBinding)
 	for _, subject := range bindingSpec.Subjects {
 		if subject.User != "" {
@@ -180,14 +214,12 @@ func (ug *Upgrader) createAuthorizationPolicyFromRoleBinding(serviceRoleBinding 
 			subject.Groups = []string{subject.Group}
 			subject.Group = ""
 		}
-		if bindingSpec.RoleRef != nil {
-			bindingSpec.Role = bindingSpec.RoleRef.Name
-			bindingSpec.RoleRef = nil
-		}
+		bindingSpec.RoleRef = nil
+		bindingSpec.Role = newRoleName
 	}
 	authzPolicy := rbacproto.AuthorizationPolicy{}
 	authzPolicy.Allow = []*rbacproto.ServiceRoleBinding{bindingSpec}
-	workloadLabels, err := ug.getAndAddRoleNameToWorkloadLabelMapping(bindingSpec.Role, serviceRoleBinding.Namespace)
+	workloadLabels, err := ug.getAndAddServiceToWorkloadLabelMapping(serviceName, serviceRoleBinding.Namespace)
 	if err != nil {
 		return model.Config{}, err
 	}
@@ -199,7 +231,7 @@ func (ug *Upgrader) createAuthorizationPolicyFromRoleBinding(serviceRoleBinding 
 			Type:      model.AuthorizationPolicy.Type,
 			Group:     serviceRoleBinding.Group, // model.AuthorizationPolicy.Group is "rbac", but we need "rbac.istio.io".
 			Version:   model.AuthorizationPolicy.Version,
-			Name:      serviceRoleBinding.Name,
+			Name:      newAuthzPolicyName,
 			Namespace: serviceRoleBinding.Namespace,
 		},
 		Spec: &authzPolicy,
@@ -207,52 +239,42 @@ func (ug *Upgrader) createAuthorizationPolicyFromRoleBinding(serviceRoleBinding 
 	return authzPolicyConfig, nil
 }
 
-func (ug *Upgrader) getAndAddRoleNameToWorkloadLabelMapping(roleName, namespace string) (WorkloadLabels, error) {
-	workloadLabels := WorkloadLabels{}
-	if _, found := ug.RoleNameToWorkloadLabels[roleName]; !found {
-		// If RoleNameToWorkloadLabels does not have roleName key yet, try fetching from Kubernetes apiserver.
-		serviceRole := ug.IstioConfigStore.Get(model.ServiceRole.Type, roleName, namespace)
-		if serviceRole == nil {
-			return nil, fmt.Errorf("cannot find ServiceRole %q in namespace %q", roleName, namespace)
-		}
-		err := ug.addRoleNameToWorkloadLabelMapping(*serviceRole)
+// getAndAddServiceToWorkloadLabelMapping get the workload labels given the fullServiceName and namespace. It may
+// update the NamespaceToServiceToWorkloadLabels map along the way if the data is not yet there.
+func (ug *Upgrader) getAndAddServiceToWorkloadLabelMapping(fullServiceName, namespace string) (WorkloadLabels, error) {
+	// TODO: Handle suffix and prefix for services.
+	if fullServiceName == "*" {
+		return nil, nil
+	}
+	if strings.Contains(fullServiceName, "*") {
+		return nil, fmt.Errorf("wildcard * as prefix or suffix is not supported yet")
+	}
+	serviceName := strings.Split(fullServiceName, ".")[0]
+
+	if _, found := ug.NamespaceToServiceToWorkloadLabels[namespace][serviceName]; !found {
+		// If NamespaceToServiceToWorkloadLabels does not have serviceName key yet, try fetching from Kubernetes apiserver.
+		err := ug.addServiceToWorkloadLabelMapping(namespace, serviceName)
 		if err != nil {
 			return nil, err
 		}
 	}
-	for _, serviceWorkloadLabels := range ug.RoleNameToWorkloadLabels[roleName] {
-		for serviceName, labels := range serviceWorkloadLabels {
-			workloadLabels[serviceName] = labels
-		}
-	}
-	return workloadLabels, nil
+	return ug.NamespaceToServiceToWorkloadLabels[namespace][serviceName], nil
 }
 
-// addRoleNameToWorkloadLabelMapping maps the ServiceRole name to workload labels that its rules originally
-// applies to.
-func (ug *Upgrader) addRoleNameToWorkloadLabelMapping(serviceRolePolicy model.Config) error {
-	roleName := serviceRolePolicy.Name
-	namespace := serviceRolePolicy.Namespace
-	serviceRoleSpec := serviceRolePolicy.Spec.(*rbacproto.ServiceRole)
-	for _, rule := range serviceRoleSpec.Rules {
-		for _, fullServiceName := range rule.Services {
-			if err := ug.mapRoleNameToWorkloadLabels(roleName, namespace, fullServiceName); err != nil {
-				return err
-			}
+// getServiceRole return the ServiceRole (from the input file) in the provided namespace given the role name.
+func (ug *Upgrader) getServiceRole(roleName, namespace string) *model.Config {
+	for _, serviceRole := range ug.serviceRoles {
+		if serviceRole.Name == roleName && serviceRole.Namespace == namespace {
+			return &serviceRole
 		}
 	}
 	return nil
 }
 
-// mapRoleNameToWorkloadLabels maps the roleName from namespace to workload labels that its rules originally
+// addServiceToWorkloadLabelMapping maps the namespace and service name to workload labels that its rules originally
 // applies to.
-func (ug *Upgrader) mapRoleNameToWorkloadLabels(roleName, namespace, fullServiceName string) error {
-	// TODO(pitlv2109): Handle when services = "*" or wildcards.
-	if strings.Contains(fullServiceName, "*") {
-		return fmt.Errorf("services with wildcard * are not supported")
-	}
-	serviceName := strings.Split(fullServiceName, ".")[0]
-	if _, found := ug.RoleNameToWorkloadLabels[roleName][serviceName]; found {
+func (ug *Upgrader) addServiceToWorkloadLabelMapping(namespace, serviceName string) error {
+	if _, found := ug.NamespaceToServiceToWorkloadLabels[namespace][serviceName]; found {
 		return nil
 	}
 
@@ -289,17 +311,42 @@ func (ug *Upgrader) mapRoleNameToWorkloadLabels(roleName, namespace, fullService
 		}
 	}
 	if service == nil {
-		return fmt.Errorf("no service found for role %s in namespace %s", roleName, namespace)
+		return fmt.Errorf("no service found in namespace %s", namespace)
 	}
 	if service.Spec.Selector == nil {
 		return fmt.Errorf("failed because service %q does not have selector", serviceName)
 	}
-	if _, found := ug.RoleNameToWorkloadLabels[roleName]; !found {
-		ug.RoleNameToWorkloadLabels[roleName] = make(ServiceToWorkloadLabels)
+	// Maps need to be initialized (from lowest level outwards) before we can write to them.
+	if _, found := ug.NamespaceToServiceToWorkloadLabels[namespace][serviceName]; !found {
+		if _, found := ug.NamespaceToServiceToWorkloadLabels[namespace]; !found {
+			ug.NamespaceToServiceToWorkloadLabels[namespace] = make(ServiceToWorkloadLabels)
+		}
+		ug.NamespaceToServiceToWorkloadLabels[namespace][serviceName] = make(WorkloadLabels)
 	}
-	if _, found := ug.RoleNameToWorkloadLabels[roleName][serviceName]; !found {
-		ug.RoleNameToWorkloadLabels[roleName][serviceName] = make(WorkloadLabels)
-	}
-	ug.RoleNameToWorkloadLabels[roleName][serviceName] = service.Spec.Selector
+	ug.NamespaceToServiceToWorkloadLabels[namespace][serviceName] = service.Spec.Selector
 	return nil
+}
+
+// getNewRoleName returns a new name for the ServiceRole. If a ServiceRole has more than one rules,
+// the new name will be oldName-ruleIndex
+func getNewRoleName(oldRoleName string, lenRules, ruleIdx int) string {
+	newRoleName := oldRoleName
+	if lenRules > 1 {
+		newRoleName = fmt.Sprintf("%s-%s", newRoleName, strconv.Itoa(ruleIdx))
+	}
+	return newRoleName
+}
+
+// getNewAuthzPolicyName returns a new name for the AuthorizationPolicy from ServiceRoleBinding.
+// The new name follow the format oldBindingName-lenRules-lenServices.
+// If lenRules or lenServices is 0, they won't appear in the new name.
+func getNewAuthzPolicyName(oldBindingName string, lenRules, ruleIdx, lenServices, svcIdx int) string {
+	newAuthzPolicyName := oldBindingName
+	if lenRules > 1 {
+		newAuthzPolicyName = fmt.Sprintf("%s-%s", newAuthzPolicyName, strconv.Itoa(ruleIdx))
+	}
+	if lenServices > 1 {
+		newAuthzPolicyName = fmt.Sprintf("%s-%s", newAuthzPolicyName, strconv.Itoa(svcIdx))
+	}
+	return newAuthzPolicyName
 }

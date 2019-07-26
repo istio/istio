@@ -85,7 +85,7 @@ type RouteConfiguration struct {
 	// option. This setting default to false if the route table is loaded dynamically via the
 	// :ref:`rds
 	// <envoy_api_field_config.filter.network.http_connection_manager.v2.HttpConnectionManager.rds>`
-	// option. Users may which to override the default behavior in certain cases (for example when
+	// option. Users may wish to override the default behavior in certain cases (for example when
 	// using CDS with a static route table).
 	ValidateClusters     *types.BoolValue `protobuf:"bytes,7,opt,name=validate_clusters,json=validateClusters,proto3" json:"validate_clusters,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`

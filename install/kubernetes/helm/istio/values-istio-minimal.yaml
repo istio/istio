@@ -1,5 +1,5 @@
 #
-# Minimal Istio Configuration: https://istio.io/docs/setup/kubernetes/minimal-install/
+# Minimal Istio Configuration: https://istio.io/docs/setup/kubernetes/additional-setup/config-profiles/
 #
 pilot:
   enabled: true

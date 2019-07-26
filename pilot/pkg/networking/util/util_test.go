@@ -17,15 +17,18 @@ package util
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	messagediff "gopkg.in/d4l3k/messagediff.v1"
+	"gopkg.in/d4l3k/messagediff.v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -530,5 +533,123 @@ func TestIsHTTPFilterChain(t *testing.T) {
 
 	if IsHTTPFilterChain(tcpFilterChain) {
 		t.Errorf("tcp filter chain detected as http filter chain")
+	}
+}
+
+var (
+	listener80 = &v2.Listener{Address: BuildAddress("0.0.0.0", 80)}
+	listener81 = &v2.Listener{Address: BuildAddress("0.0.0.0", 81)}
+	listenerip = &v2.Listener{Address: BuildAddress("1.1.1.1", 80)}
+)
+
+func BenchmarkGetByAddress(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		GetByAddress([]*v2.Listener{
+			listener80,
+			listener81,
+			listenerip,
+		}, listenerip.Address)
+	}
+}
+
+func TestGetByAddress(t *testing.T) {
+	tests := []struct {
+		name      string
+		listeners []*v2.Listener
+		address   core.Address
+		expected  *v2.Listener
+	}{
+		{
+			"no listeners",
+			[]*v2.Listener{},
+			BuildAddress("0.0.0.0", 80),
+			nil,
+		},
+		{
+			"single listener",
+			[]*v2.Listener{
+				listener80,
+			},
+			BuildAddress("0.0.0.0", 80),
+			listener80,
+		},
+		{
+			"multiple listeners",
+			[]*v2.Listener{
+				listener81,
+				listenerip,
+				listener80,
+			},
+			BuildAddress("0.0.0.0", 80),
+			listener80,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GetByAddress(tt.listeners, tt.address)
+			if got != tt.expected {
+				t.Errorf("Got %v, expected %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestMergeAnyWithStruct(t *testing.T) {
+	inHCM := &http_conn.HttpConnectionManager{
+		CodecType:  http_conn.HTTP1,
+		StatPrefix: "123",
+		HttpFilters: []*http_conn.HttpFilter{
+			{
+				Name: "filter1",
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: &types.Any{},
+				},
+			},
+		},
+		ServerName:        "scooby",
+		XffNumTrustedHops: 2,
+	}
+	inAny := MessageToAny(inHCM)
+
+	// listener.go sets this to 0
+	newTimeout := 5 * time.Minute
+	userHCM := &http_conn.HttpConnectionManager{
+		AddUserAgent:      &types.BoolValue{Value: true},
+		IdleTimeout:       &newTimeout,
+		StreamIdleTimeout: &newTimeout,
+		UseRemoteAddress:  &types.BoolValue{Value: true},
+		XffNumTrustedHops: 5,
+		ServerName:        "foobar",
+		HttpFilters: []*http_conn.HttpFilter{
+			{
+				Name: "some filter",
+			},
+		},
+	}
+
+	expectedHCM := proto.Clone(inHCM).(*http_conn.HttpConnectionManager)
+	expectedHCM.AddUserAgent = userHCM.AddUserAgent
+	expectedHCM.IdleTimeout = userHCM.IdleTimeout
+	expectedHCM.StreamIdleTimeout = userHCM.StreamIdleTimeout
+	expectedHCM.UseRemoteAddress = userHCM.UseRemoteAddress
+	expectedHCM.XffNumTrustedHops = userHCM.XffNumTrustedHops
+	expectedHCM.HttpFilters = append(expectedHCM.HttpFilters, userHCM.HttpFilters...)
+	expectedHCM.ServerName = userHCM.ServerName
+
+	pbStruct := MessageToStruct(userHCM)
+
+	outAny, err := MergeAnyWithStruct(inAny, pbStruct)
+	if err != nil {
+		t.Errorf("Failed to merge: %v", err)
+	}
+
+	outHCM := http_conn.HttpConnectionManager{}
+	if err = types.UnmarshalAny(outAny, &outHCM); err != nil {
+		t.Errorf("Failed to unmarshall outAny to outHCM: %v", err)
+	}
+
+	if !reflect.DeepEqual(expectedHCM, &outHCM) {
+		t.Errorf("Merged HCM does not match the expected output")
 	}
 }

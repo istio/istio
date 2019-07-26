@@ -1,6 +1,0 @@
-#Coverage data from SHA:70952e93c04c1d855aa65e72e24199b0c99413a1
-#If the requirement is not set below, it must satisfy default requirement.
-Default:20
-#Package requirement
-#Package name, coverage requirement, actually coverage at specific SHA
-istio.io/istio/istioctl:0 [0]

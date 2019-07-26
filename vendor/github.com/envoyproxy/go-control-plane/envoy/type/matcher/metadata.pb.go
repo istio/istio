@@ -79,8 +79,8 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 //
 // An example use of MetadataMatcher is specifying additional metadata in envoy.filters.http.rbac to
 // enforce access control based on dynamic metadata in a request. See :ref:`Permission
-// <envoy_api_msg_config.rbac.v2alpha.Permission>` and :ref:`Principal
-// <envoy_api_msg_config.rbac.v2alpha.Principal>`.
+// <envoy_api_msg_config.rbac.v2.Permission>` and :ref:`Principal
+// <envoy_api_msg_config.rbac.v2.Principal>`.
 type MetadataMatcher struct {
 	// The filter name to retrieve the Struct from the Metadata.
 	Filter string `protobuf:"bytes,1,opt,name=filter,proto3" json:"filter,omitempty"`

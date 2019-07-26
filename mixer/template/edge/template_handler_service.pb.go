@@ -16,24 +16,26 @@
 // Example config:
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
-// kind: edge
+// kind: instance
 // metadata:
 //   name: default
 //   namespace: istio-system
 // spec:
-//   timestamp: request.time
-//   sourceUid: source.uid | "Unknown"
-//   sourceOwner: source.owner | "Unknown"
-//   sourceWorkloadName: source.workload.name | "Unknown"
-//   sourceWorkloadNamespace: source.workload.namespace | "Unknown"
-//   destinationUid: destination.uid | "Unknown"
-//   destinationOwner: destination.owner | "Unknown"
-//   destinationWorkloadName: destination.workload.name | "Unknown"
-//   destinationWorkloadNamespace: destination.workload.namespace | "Unknown"
-//   destinationServiceName: destination.service.name | "Unknown"
-//   destinationServiceNamespace: destination.service.namespace | "Unknown"
-//   apiProtocol: api.protocol | "Unknown"
-//   contextProtocol: context.protocol | "Unknown"
+//   compiledTemplate: edge
+//   params:
+//     timestamp: request.time
+//     sourceUid: source.uid | "Unknown"
+//     sourceOwner: source.owner | "Unknown"
+//     sourceWorkloadName: source.workload.name | "Unknown"
+//     sourceWorkloadNamespace: source.workload.namespace | "Unknown"
+//     destinationUid: destination.uid | "Unknown"
+//     destinationOwner: destination.owner | "Unknown"
+//     destinationWorkloadName: destination.workload.name | "Unknown"
+//     destinationWorkloadNamespace: destination.workload.namespace | "Unknown"
+//     destinationServiceName: destination.service.name | "Unknown"
+//     destinationServiceNamespace: destination.service.namespace | "Unknown"
+//     apiProtocol: api.protocol | "Unknown"
+//     contextProtocol: context.protocol | "Unknown"
 // ```
 
 package edge

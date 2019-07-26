@@ -1,3 +1,17 @@
+// Copyright 2019 Istio Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package v1alpha3
 
 import (
@@ -7,7 +21,7 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/proto"
@@ -17,6 +31,7 @@ import (
 // A stateful listener builder
 type ListenerBuilder struct {
 	node                   *model.Proxy
+	gatewayListeners       []*xdsapi.Listener
 	inboundListeners       []*xdsapi.Listener
 	outboundListeners      []*xdsapi.Listener
 	managementListeners    []*xdsapi.Listener
@@ -55,9 +70,7 @@ func (builder *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl,
 	// Do not generate any management port listeners if the user has specified a SidecarScope object
 	// with ingress listeners. Specifying the ingress listener implies that the user wants
 	// to only have those specific listeners and nothing else, in the inbound path.
-	sidecarScope := node.SidecarScope
-	if sidecarScope != nil && sidecarScope.HasCustomIngressListeners ||
-		noneMode {
+	if node.SidecarScope.HasCustomIngressListeners || noneMode {
 		return builder
 	}
 	// Let ServiceDiscovery decide which IP and Port are used for management if
@@ -88,8 +101,8 @@ func (builder *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl,
 		addressString := m.Address.String()
 		existingListener, ok := addresses[addressString]
 		if ok {
-			log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener (%s)",
-				m.Name, m.Address.String(), existingListener.Name)
+			log.Warnf("Omitting listener for management address %s due to collision with service listener (%s)",
+				m.Name, existingListener.Name)
 			continue
 		} else {
 			// dedup management listeners as well
@@ -101,8 +114,10 @@ func (builder *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl,
 	return builder
 }
 
-func (builder *ListenerBuilder) buildVirtualListener(
-	env *model.Environment, node *model.Proxy) *ListenerBuilder {
+func (builder *ListenerBuilder) buildVirtualOutboundListener(
+	configgen *ConfigGeneratorImpl,
+	env *model.Environment, node *model.Proxy, push *model.PushContext,
+	proxyInstances []*model.ServiceInstance) *ListenerBuilder {
 
 	var isTransparentProxy *google_protobuf.BoolValue
 	if node.GetInterceptionMode() == model.InterceptionTproxy {
@@ -112,8 +127,8 @@ func (builder *ListenerBuilder) buildVirtualListener(
 	tcpProxyFilter := newTCPProxyListenerFilter(env, node, false)
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
-	builder.virtualListener = &xdsapi.Listener{
-		Name:           VirtualListenerName,
+	ipTablesListener := &xdsapi.Listener{
+		Name:           VirtualOutboundListenerName,
 		Address:        util.BuildAddress(actualWildcard, uint32(env.Mesh.ProxyListenPort)),
 		Transparent:    isTransparentProxy,
 		UseOriginalDst: proto.BoolTrue,
@@ -123,15 +138,15 @@ func (builder *ListenerBuilder) buildVirtualListener(
 			},
 		},
 	}
+	configgen.onVirtualOutboundListener(env, node, push, proxyInstances,
+		ipTablesListener)
+	builder.virtualListener = ipTablesListener
 	return builder
 }
 
+// TProxy uses only the virtual outbound listener on 15001 for both directions
+// but we still ship the no-op virtual inbound listener, so that the code flow is same across REDIRECT and TPROXY.
 func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environment, node *model.Proxy) *ListenerBuilder {
-	shouldSplitInOutBound := node.IsInboundCaptureAllPorts()
-	if !shouldSplitInOutBound {
-		log.Debugf("Inbound and outbound listeners are united in for node %s", node.ID)
-		return builder
-	}
 	var isTransparentProxy *google_protobuf.BoolValue
 	if node.GetInterceptionMode() == model.InterceptionTproxy {
 		isTransparentProxy = proto.BoolTrue
@@ -155,33 +170,37 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environme
 }
 
 func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
-	nInbound, nOutbound, nManagement := len(builder.inboundListeners), len(builder.outboundListeners), len(builder.managementListeners)
-	nVirtual, nVirtualInbound := 0, 0
-	if builder.virtualListener != nil {
-		nVirtual = 1
-	}
-	if builder.virtualInboundListener != nil {
-		nVirtualInbound = 1
-	}
-	nListener := nInbound + nOutbound + nManagement + nVirtual + nVirtualInbound
+	if builder.node.Type == model.SidecarProxy {
+		nInbound, nOutbound, nManagement := len(builder.inboundListeners), len(builder.outboundListeners), len(builder.managementListeners)
+		nVirtual, nVirtualInbound := 0, 0
+		if builder.virtualListener != nil {
+			nVirtual = 1
+		}
+		if builder.virtualInboundListener != nil {
+			nVirtualInbound = 1
+		}
+		nListener := nInbound + nOutbound + nManagement + nVirtual + nVirtualInbound
 
-	listeners := make([]*xdsapi.Listener, 0, nListener)
-	listeners = append(listeners, builder.inboundListeners...)
-	listeners = append(listeners, builder.outboundListeners...)
-	listeners = append(listeners, builder.managementListeners...)
-	if builder.virtualListener != nil {
-		listeners = append(listeners, builder.virtualListener)
-	}
-	if builder.virtualInboundListener != nil {
-		listeners = append(listeners, builder.virtualInboundListener)
+		listeners := make([]*xdsapi.Listener, 0, nListener)
+		listeners = append(listeners, builder.inboundListeners...)
+		listeners = append(listeners, builder.outboundListeners...)
+		listeners = append(listeners, builder.managementListeners...)
+		if builder.virtualListener != nil {
+			listeners = append(listeners, builder.virtualListener)
+		}
+		if builder.virtualInboundListener != nil {
+			listeners = append(listeners, builder.virtualInboundListener)
+		}
+
+		log.Debugf("Build %d listeners for node %s including %d inbound, %d outbound, %d management, %d virtual and %d virtual inbound listeners",
+			nListener,
+			builder.node.ID,
+			nInbound, nOutbound, nManagement,
+			nVirtual, nVirtualInbound)
+		return listeners
 	}
 
-	log.Debugf("Build %d listeners for node %s including %d inbound, %d outbound, %d management, %d virtual and %d virtual inbound listeners",
-		nListener,
-		builder.node.ID,
-		nInbound, nOutbound, nManagement,
-		nVirtual, nVirtualInbound)
-	return listeners
+	return builder.gatewayListeners
 }
 
 func newTCPProxyListenerFilter(env *model.Environment, node *model.Proxy, isInboundListener bool) *listener.Filter {
@@ -190,8 +209,7 @@ func newTCPProxyListenerFilter(env *model.Environment, node *model.Proxy, isInbo
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 	}
 
-	if env.Mesh.OutboundTrafficPolicy.Mode == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY ||
-		isInboundListener {
+	if isAllowAnyOutbound(node) || isInboundListener {
 		// We need a passthrough filter to fill in the filter stack for orig_dst listener
 		tcpProxy = &tcp_proxy.TcpProxy{
 			StatPrefix:       util.PassthroughCluster,
@@ -210,4 +228,8 @@ func newTCPProxyListenerFilter(env *model.Environment, node *model.Proxy, isInbo
 		filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
 	}
 	return &filter
+}
+
+func isAllowAnyOutbound(node *model.Proxy) bool {
+	return node.SidecarScope.OutboundTrafficPolicy != nil && node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY
 }

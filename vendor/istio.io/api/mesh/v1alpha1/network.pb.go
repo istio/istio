@@ -422,6 +422,8 @@ func _Network_IstioNetworkGateway_OneofSizer(msg proto.Message) (n int) {
 // inside a mesh and how to route to endpoints in each network. For example
 //
 // MeshNetworks(file/config map):
+//
+// ```yaml
 // networks:
 //   network1:
 //   - endpoints:
@@ -434,6 +436,8 @@ func _Network_IstioNetworkGateway_OneofSizer(msg proto.Message) (n int) {
 //     - address: 192.168.100.1
 //       port: 15443
 //       locality: us-east-1a
+// ```
+//
 type MeshNetworks struct {
 	// REQUIRED: The set of networks inside this mesh. Each network should
 	// have a unique name and information about how to infer the endpoints in

@@ -15,11 +15,14 @@
 package echo
 
 import (
+	"context"
+
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
+	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -82,7 +85,7 @@ type Port struct {
 	Name string
 
 	// Protocol to be used for the port.
-	Protocol model.Protocol
+	Protocol config.Protocol
 
 	// ServicePort number where the service can be reached. Does not necessarily
 	// map to the corresponding port numbers for the instances behind the
@@ -101,6 +104,9 @@ type Workload interface {
 
 	// Sidecar if one was specified.
 	Sidecar() Sidecar
+
+	// ForwardEcho executes specific call from this workload.
+	ForwardEcho(context.Context, *proto.ForwardEchoRequest) (client.ParsedResponses, error)
 }
 
 // Sidecar provides an interface to execute queries against a single Envoy sidecar.

@@ -25,6 +25,8 @@ import (
 	"github.com/spf13/cobra/doc"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/caclient"
@@ -108,6 +110,9 @@ type cliOptions struct { // nolint: maligned
 
 	// Enable dual-use certs - SPIFFE in SAN and in CommonName
 	dualUse bool
+
+	// Whether SDS is enabled on.
+	sdsEnabled bool
 }
 
 var (
@@ -149,12 +154,13 @@ func fatalf(template string, args ...interface{}) {
 func init() {
 	flags := rootCmd.Flags()
 	// General configuration.
-	flags.StringVar(&opts.listenedNamespaces, "listened-namespace", "", "deprecated")
+	flags.StringVar(&opts.listenedNamespaces, "listened-namespace", metav1.NamespaceAll, "deprecated")
 	if err := flags.MarkDeprecated("listened-namespace", "please use --listened-namespaces instead"); err != nil {
 		panic(err)
 	}
 
-	flags.StringVar(&opts.listenedNamespaces, "listened-namespaces", "",
+	// Default to NamespaceAll, which equals to "". Kuberentes library will then watch all the namespace.
+	flags.StringVar(&opts.listenedNamespaces, "listened-namespaces", metav1.NamespaceAll,
 		"Select the namespaces for the Citadel to listen to, separated by comma. If unspecified, Citadel tries to use the ${"+
 			cmd.ListenedNamespaceKey+"} environment variable. If neither is set, Citadel listens to all namespaces.")
 	flags.StringVar(&opts.istioCaStorageNamespace, "citadel-storage-namespace", "istio-system", "Namespace where "+
@@ -238,6 +244,8 @@ func init() {
 	flags.BoolVar(&opts.dualUse, "experimental-dual-use",
 		false, "Enable dual-use mode. Generates certificates with a CommonName identical to the SAN.")
 
+	flags.BoolVar(&opts.sdsEnabled, "sds-enabled", false, "Whether SDS is enabled.")
+
 	rootCmd.AddCommand(version.CobraCommand())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
@@ -271,6 +279,8 @@ var (
 )
 
 func runCA() {
+	verifyCommandLineOptions()
+
 	if err := log.Configure(opts.loggingOptions); err != nil {
 		fatalf("Failed to configure logging (%v)", err)
 	}
@@ -282,13 +292,9 @@ func runCA() {
 		if opts.listenedNamespaces == "" {
 			opts.listenedNamespaces = value
 		}
-		// Use environment variable for istioCaStorageNamespace if it exists
-		opts.istioCaStorageNamespace = value
 	}
 
 	listenedNamespaces := strings.Split(opts.listenedNamespaces, ",")
-
-	verifyCommandLineOptions()
 
 	var webhooks map[string]*controller.DNSNameEntry
 	if opts.appendDNSNames {
@@ -344,7 +350,8 @@ func runCA() {
 
 		// The CA API uses cert with the max workload cert TTL.
 		hostnames := append(strings.Split(opts.grpcHosts, ","), fqdn())
-		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames, opts.grpcPort, spiffe.GetTrustDomain())
+		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames,
+			opts.grpcPort, spiffe.GetTrustDomain(), opts.sdsEnabled)
 		if startErr != nil {
 			fatalf("Failed to create istio ca server: %v", startErr)
 		}

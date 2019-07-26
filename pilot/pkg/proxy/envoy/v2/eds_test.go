@@ -20,7 +20,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -31,12 +31,13 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 
-	"istio.io/istio/pkg/test/env"
-
+	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
 
@@ -56,33 +57,33 @@ func TestEds(t *testing.T) {
 	addUdsEndpoint(server)
 
 	// enable locality load balancing and add relevant endpoints in order to test
-	os.Setenv("PILOT_ENABLE_LOCALITY_LOAD_BALANCING", "ON")
+	server.EnvoyXdsServer.Env.Mesh.LocalityLbSetting = &v1alpha1.LocalityLoadBalancerSetting{}
 	addLocalityEndpoints(server, "locality.cluster.local")
 	addLocalityEndpoints(server, "locality-no-outlier-detection.cluster.local")
 
 	// Add the test ads clients to list of service instances in order to test the context dependent locality coloring.
 	addTestClientEndpoints(server)
 
-	adsc := adsConnectAndWait(t, 0x0a0a0a0a)
-	defer adsc.Close()
-	adsc2 := adsConnectAndWait(t, 0x0a0a0a0b)
-	defer adsc2.Close()
+	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
+	defer adscConn.Close()
+	adscConn2 := adsConnectAndWait(t, 0x0a0a0a0b)
+	defer adscConn2.Close()
 
 	t.Run("TCPEndpoints", func(t *testing.T) {
-		testTCPEndpoints("127.0.0.1", adsc, t)
+		testTCPEndpoints("127.0.0.1", adscConn, t)
 		testEdsz(t)
 	})
 	t.Run("LocalityPrioritizedEndpoints", func(t *testing.T) {
-		testLocalityPrioritizedEndpoints(adsc, adsc2, t)
+		testLocalityPrioritizedEndpoints(adscConn, adscConn2, t)
 	})
 	t.Run("UDSEndpoints", func(t *testing.T) {
-		testUdsEndpoints(server, adsc, t)
+		testUdsEndpoints(server, adscConn, t)
 	})
 	t.Run("PushIncremental", func(t *testing.T) {
-		edsUpdateInc(server, adsc, t)
+		edsUpdateInc(server, adscConn, t)
 	})
 	t.Run("Push", func(t *testing.T) {
-		edsUpdates(server, adsc, t)
+		edsUpdates(server, adscConn, t)
 	})
 	// Test using 0.8 request, without per/route mixer. Typically this is
 	// 30% faster than 1.0 config style. Keeping the test to track fixes and
@@ -101,12 +102,40 @@ func TestEds(t *testing.T) {
 	})
 	t.Run("CDSSave", func(t *testing.T) {
 		// Moved from cds_test, using new client
-		if len(adsc.Clusters) == 0 {
+		if len(adscConn.Clusters) == 0 {
 			t.Error("No clusters in ADS response")
 		}
-		strResponse, _ := json.MarshalIndent(adsc.Clusters, " ", " ")
+		strResponse, _ := json.MarshalIndent(adscConn.Clusters, " ", " ")
 		_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0644)
 
+	})
+	t.Run("WeightedServiceEntry", func(t *testing.T) {
+		_, tearDown := initLocalPilotTestEnv(t)
+		defer tearDown()
+
+		adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
+		defer adscConn.Close()
+		lbe, f := adscConn.EDS["outbound|80||weighted.static.svc.cluster.local"]
+		if !f || len(lbe.Endpoints) == 0 {
+			t.Fatalf("No lb endpoints for %v, %v", "outbound|80||weighted.static.svc.cluster.local", adscConn.EndpointsJSON())
+		}
+		expected := map[string]uint32{
+			"a":       9, // sum of 1 and 8
+			"b":       3,
+			"3.3.3.3": 1, // no weight provided is normalized to 1
+			"2.2.2.2": 8,
+			"1.1.1.1": 3,
+		}
+		got := make(map[string]uint32)
+		for _, lbe := range lbe.Endpoints {
+			got[lbe.Locality.Region] = lbe.LoadBalancingWeight.Value
+			for _, e := range lbe.LbEndpoints {
+				got[e.GetEndpoint().Address.GetSocketAddress().Address] = e.LoadBalancingWeight.Value
+			}
+		}
+		if !reflect.DeepEqual(expected, got) {
+			t.Errorf("Expected LB weights %v got %v", expected, got)
+		}
 	})
 }
 
@@ -118,28 +147,28 @@ func TestEDSOverlapping(t *testing.T) {
 	// add endpoints with multiple ports with the same port number
 	addOverlappingEndpoints(server)
 
-	adsc := adsConnectAndWait(t, 0x0a0a0a0a)
-	defer adsc.Close()
-	testOverlappingPorts(server, adsc, t)
+	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
+	defer adscConn.Close()
+	testOverlappingPorts(server, adscConn, t)
 }
 
 func adsConnectAndWait(t *testing.T, ip int) *adsc.ADSC {
-	adsc, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
+	adscConn, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		IP: testIP(uint32(ip)),
 	})
 	if err != nil {
 		t.Fatal("Error connecting ", err)
 	}
-	adsc.Watch()
-	_, err = adsc.Wait("rds", 10*time.Second)
+	adscConn.Watch()
+	_, err = adscConn.Wait("rds", 10*time.Second)
 	if err != nil {
 		t.Fatal("Error getting initial config ", err)
 	}
 
-	if len(adsc.EDS) == 0 {
+	if len(adscConn.EDS) == 0 {
 		t.Fatal("No endpoints")
 	}
-	return adsc
+	return adscConn
 }
 
 func addTestClientEndpoints(server *bootstrap.Server) {
@@ -149,7 +178,7 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 			{
 				Name:     "http",
 				Port:     80,
-				Protocol: model.ProtocolHTTP,
+				Protocol: config.ProtocolHTTP,
 			},
 		},
 	})
@@ -160,7 +189,7 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 			ServicePort: &model.Port{
 				Name:     "http",
 				Port:     80,
-				Protocol: model.ProtocolHTTP,
+				Protocol: config.ProtocolHTTP,
 			},
 			Locality: asdcLocality,
 		},
@@ -172,7 +201,7 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 			ServicePort: &model.Port{
 				Name:     "http",
 				Port:     80,
-				Protocol: model.ProtocolHTTP,
+				Protocol: config.ProtocolHTTP,
 			},
 			Locality: asdc2Locality,
 		},
@@ -290,22 +319,9 @@ func testUdsEndpoints(_ *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 
 // Update
 func edsUpdates(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
-
 	// Old style (non-incremental)
-	server.EnvoyXdsServer.MemRegistry.AddInstance(edsIncSvc, &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: "127.0.0.3",
-			Port:    int(testEnv.Ports().BackendPort),
-			ServicePort: &model.Port{
-				Name:     "http-main",
-				Port:     8080,
-				Protocol: model.ProtocolHTTP,
-			},
-			Locality: "az",
-		},
-		ServiceAccount: "hello-sa",
-		Labels:         map[string]string{"version": "v1"},
-	})
+	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc,
+		newEndpointWithAccount("127.0.0.3", "hello-sa", "v1"))
 
 	v2.AdsPushAll(server.EnvoyXdsServer)
 	// will trigger recompute and push
@@ -440,7 +456,7 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 		go func(id int) {
 			defer wg.Done()
 			// Connect and get initial response
-			adsc, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
+			adscConn, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 				IP: testIP(uint32(0x0a100000 + id)),
 			})
 			if err != nil {
@@ -448,16 +464,16 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 				wgConnect.Done()
 				return
 			}
-			defer adsc.Close()
-			adsc.Watch()
-			_, err = adsc.Wait("rds", 5*time.Second)
+			defer adscConn.Close()
+			adscConn.Watch()
+			_, err = adscConn.Wait("rds", 15*time.Second)
 			if err != nil {
-				errChan <- errors.New("failed to get initial rds" + err.Error())
+				errChan <- errors.New("failed to get initial rds: " + err.Error())
 				wgConnect.Done()
 				return
 			}
 
-			if len(adsc.EDS) == 0 {
+			if len(adscConn.EDS) == 0 {
 				errChan <- errors.New("no endpoints")
 				wgConnect.Done()
 				return
@@ -467,22 +483,21 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 
 			// Check we received all pushes
 			log.Println("Waiting for pushes ", id)
-			for j := 0; j < nPushes; j++ {
-				// The time must be larger than write timeout: if we run all tests
-				// and some are leaving uncleaned state the push will be slower.
-				_, err := adsc.Wait("eds", 15*time.Second)
-				atomic.AddInt32(&rcvPush, 1)
-				if err != nil {
-					log.Println("Recv failed", err, id, j)
-					errChan <- fmt.Errorf("failed to receive a response in 15 s %v %v %v",
-						err, id, j)
-					return
-				}
+
+			// Pushes may be merged so we may not get nPushes pushes
+			_, err = adscConn.Wait("eds", 15*time.Second)
+			atomic.AddInt32(&rcvPush, 1)
+			if err != nil {
+				log.Println("Recv failed", err, id)
+				errChan <- fmt.Errorf("failed to receive a response in 15 s %v %v",
+					err, id)
+				return
 			}
+
 			log.Println("Received all pushes ", id)
 			atomic.AddInt32(&rcvClients, 1)
 
-			adsc.Close()
+			adscConn.Close()
 		}(current)
 	}
 	ok := waitTimeout(wgConnect, to)
@@ -495,8 +510,6 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 	for j := 0; j < nPushes; j++ {
 		if inc {
 			// This will be throttled - we want to trigger a single push
-			//server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc,
-			//	newEndpointWithAccount("127.0.0.2", "hello-sa", "v1"))
 			updates := map[string]struct{}{
 				edsIncSvc: {},
 			}
@@ -546,7 +559,7 @@ func addUdsEndpoint(server *bootstrap.Server) {
 			{
 				Name:     "grpc",
 				Port:     0,
-				Protocol: model.ProtocolGRPC,
+				Protocol: config.ProtocolGRPC,
 			},
 		},
 		MeshExternal: true,
@@ -560,7 +573,7 @@ func addUdsEndpoint(server *bootstrap.Server) {
 			ServicePort: &model.Port{
 				Name:     "grpc",
 				Port:     0,
-				Protocol: model.ProtocolGRPC,
+				Protocol: config.ProtocolGRPC,
 			},
 			Locality: "localhost",
 		},
@@ -570,14 +583,14 @@ func addUdsEndpoint(server *bootstrap.Server) {
 	server.EnvoyXdsServer.Push(true, nil)
 }
 
-func addLocalityEndpoints(server *bootstrap.Server, hostname model.Hostname) {
+func addLocalityEndpoints(server *bootstrap.Server, hostname config.Hostname) {
 	server.EnvoyXdsServer.MemRegistry.AddService(hostname, &model.Service{
 		Hostname: hostname,
 		Ports: model.PortList{
 			{
 				Name:     "http",
 				Port:     80,
-				Protocol: model.ProtocolHTTP,
+				Protocol: config.ProtocolHTTP,
 			},
 		},
 	})
@@ -598,7 +611,7 @@ func addLocalityEndpoints(server *bootstrap.Server, hostname model.Hostname) {
 				ServicePort: &model.Port{
 					Name:     "http",
 					Port:     80,
-					Protocol: model.ProtocolHTTP,
+					Protocol: config.ProtocolHTTP,
 				},
 				Locality: locality,
 			},
@@ -614,12 +627,12 @@ func addOverlappingEndpoints(server *bootstrap.Server) {
 			{
 				Name:     "dns",
 				Port:     53,
-				Protocol: model.ProtocolUDP,
+				Protocol: config.ProtocolUDP,
 			},
 			{
 				Name:     "tcp-dns",
 				Port:     53,
-				Protocol: model.ProtocolTCP,
+				Protocol: config.ProtocolTCP,
 			},
 		},
 	})
@@ -630,7 +643,7 @@ func addOverlappingEndpoints(server *bootstrap.Server) {
 			ServicePort: &model.Port{
 				Name:     "tcp-dns",
 				Port:     53,
-				Protocol: model.ProtocolTCP,
+				Protocol: config.ProtocolTCP,
 			},
 		},
 	})

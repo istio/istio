@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
@@ -236,9 +237,9 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 		return
 	}
 
-	// Expect 6 listeners : 1 orig_dst, 1 http inbound + 4 outbound (http, tcp1, istio-policy and istio-telemetry)
+	// Expect 6 listeners : 2 orig_dst, 1 http inbound + 4 outbound (http, tcp1, istio-policy and istio-telemetry)
 	// plus 2 extra due to the mem registry
-	if (len(adsResponse.HTTPListeners) + len(adsResponse.TCPListeners)) != 6 {
+	if (len(adsResponse.HTTPListeners) + len(adsResponse.TCPListeners)) != 7 {
 		t.Fatalf("Expected 8 listeners, got %d\n", len(adsResponse.HTTPListeners)+len(adsResponse.TCPListeners))
 	}
 
@@ -339,7 +340,7 @@ func TestLDS(t *testing.T) {
 			return
 		}
 
-		strResponse, _ := model.ToJSONWithIndent(res, " ")
+		strResponse, _ := config.ToJSONWithIndent(res, " ")
 		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_sidecar.json", []byte(strResponse), 0644)
 
 		if len(res.Resources) == 0 {
@@ -364,7 +365,7 @@ func TestLDS(t *testing.T) {
 			t.Fatal("Failed to receive LDS", err)
 		}
 
-		strResponse, _ := model.ToJSONWithIndent(res, " ")
+		strResponse, _ := config.ToJSONWithIndent(res, " ")
 
 		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_gateway.json", []byte(strResponse), 0644)
 
@@ -390,7 +391,7 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 		args.Service.Registries = []string{}
 	})
 	registry := memServiceDiscovery(server, t)
-	registry.AddWorkload("98.1.1.1", model.Labels{"app": "consumeronly"}) // These labels must match the sidecars workload selector
+	registry.AddWorkload("98.1.1.1", config.Labels{"app": "consumeronly"}) // These labels must match the sidecars workload selector
 
 	testEnv = testenv.NewTestSetup(testenv.SidecarConsumerOnlyTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
@@ -462,9 +463,9 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 	})
 	registry := memServiceDiscovery(server, t)
 	// The labels of 98.1.1.1 must match the envoyfilter workload selector
-	registry.AddWorkload("98.1.1.1", model.Labels{"app": "envoyfilter-test-app", "some": "otherlabel"})
-	registry.AddWorkload("98.1.1.2", model.Labels{"app": "no-envoyfilter-test-app"})
-	registry.AddWorkload("98.1.1.3", model.Labels{})
+	registry.AddWorkload("98.1.1.1", config.Labels{"app": "envoyfilter-test-app", "some": "otherlabel"})
+	registry.AddWorkload("98.1.1.2", config.Labels{"app": "no-envoyfilter-test-app"})
+	registry.AddWorkload("98.1.1.3", config.Labels{})
 
 	testEnv = testenv.NewTestSetup(testenv.SidecarConsumerOnlyTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)

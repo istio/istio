@@ -19,6 +19,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"istio.io/api/annotation"
+	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/pkg/log"
 )
@@ -49,7 +51,8 @@ func register() *cobra.Command {
 			log.Infof("Registering for service '%s' ip '%s', ports list %v",
 				svcName, ip, portsList)
 			if svcAcctAnn != "" {
-				annotations = append(annotations, fmt.Sprintf("%s=%s", kube.KubeServiceAccountsOnVMAnnotation, svcAcctAnn))
+				annotations = append(annotations,
+					fmt.Sprintf("%s=%s", annotation.AlphaKubernetesServiceAccounts.Name, svcAcctAnn))
 			}
 			log.Infof("%d labels (%v) and %d annotations (%v)",
 				len(labels), labels, len(annotations), annotations)
@@ -57,7 +60,7 @@ func register() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			ns, _ := handleNamespaces(namespace)
+			ns := handlers.HandleNamespace(namespace, defaultNamespace)
 			return kube.RegisterEndpoint(client, ns, svcName, ip, portsList, labels, annotations)
 		},
 	}

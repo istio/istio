@@ -1,0 +1,49 @@
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: service-viewer
+  namespace: default
+spec:
+  rules:
+  - services: ["productpage.svc.cluster.local"]
+    constraints:
+    - key: "destination.labels[version]"
+      values: ["v3"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: all-services
+  namespace: default
+spec:
+  rules:
+    - services: ["*"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+# This comment will be removed in the converted version of this file.
+metadata:
+  name: bind-service-viewer
+  namespace: default
+spec:
+  subjects:
+  - properties:
+      source.namespace: "istio-system"
+  - user: "foo"
+    group: "bar"
+  roleRef:
+    kind: ServiceRole
+    name: "service-viewer"
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+# This comment will be removed in the converted version of this file.
+metadata:
+  name: bind-all-services
+  namespace: default
+spec:
+  subjects:
+    - user: "foo"
+  roleRef:
+    kind: ServiceRole
+    name: "all-services"

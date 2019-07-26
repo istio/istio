@@ -14,7 +14,7 @@
       "version": "v1",
       "ISTIO_VERSION": "1.0-dev",
       "istio-locality": "region.zone.subzone",
-      "ISTIO_META_INSTANCE_IPS": "10.40.3.59,10.40.3.59,fe80::7cf5:f9ff:fe8f:48bb",
+      "INSTANCE_IPS": "10.40.3.59,10.40.3.59,fe80::7cf5:f9ff:fe8f:48bb",
       "POD_NAME": "a-6bb6dbdcc5-z58cx",
       "istio": "sidecar",
       "ISTIO_PROXY_VERSION": "1.1.0",

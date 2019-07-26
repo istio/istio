@@ -17,13 +17,14 @@ package main
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/config"
 )
 
 func TestNoPilotSanIfAuthenticationNone(t *testing.T) {
@@ -109,12 +110,111 @@ func TestPilotDefaultDomainKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role.DNSDomain = ""
 	registry = serviceregistry.KubernetesRegistry
-	os.Setenv("POD_NAMESPACE", "default")
+	_ = os.Setenv("POD_NAMESPACE", "default")
 
 	domain := getDNSDomain(role.DNSDomain)
 
 	g.Expect(domain).To(gomega.Equal("default.svc.cluster.local"))
-	os.Unsetenv("POD_NAMESPACE")
+	_ = os.Unsetenv("POD_NAMESPACE")
+}
+
+func TestDetectSds(t *testing.T) {
+	sdsUdsWaitTimeout = 100 * time.Millisecond
+	os.Setenv("SDS_ENABLED", "true")
+	defer func() {
+		sdsUdsWaitTimeout = time.Minute
+		os.Unsetenv("SDS_ENABLED")
+	}()
+
+	g := gomega.NewGomegaWithT(t)
+	tests := []struct {
+		controlPlaneBootstrap   bool
+		controlPlaneAuthEnabled bool
+		udsPath                 string
+		preferTokenPath         string
+		tokenPath               string
+		expectedSdsEnabled      bool
+		expectedSdsTokenPath    string
+	}{
+		{
+			controlPlaneBootstrap:   true,
+			controlPlaneAuthEnabled: false,
+			expectedSdsEnabled:      false,
+			expectedSdsTokenPath:    "",
+		},
+		{
+			controlPlaneBootstrap:   true,
+			controlPlaneAuthEnabled: true,
+			udsPath:                 "/tmp/testtmpuds1.log",
+			preferTokenPath:         "/tmp/testtmptoken1.log",
+			expectedSdsEnabled:      true,
+			expectedSdsTokenPath:    "/tmp/testtmptoken1.log",
+		},
+		{
+			controlPlaneBootstrap:   true,
+			controlPlaneAuthEnabled: true,
+			udsPath:                 "/tmp/testtmpuds1.log",
+			tokenPath:               "/tmp/testtmptoken1.log",
+			expectedSdsEnabled:      true,
+			expectedSdsTokenPath:    "/tmp/testtmptoken1.log",
+		},
+		{
+			controlPlaneBootstrap:   true,
+			controlPlaneAuthEnabled: true,
+			tokenPath:               "/tmp/testtmptoken1.log",
+		},
+		{
+			controlPlaneBootstrap:   true,
+			controlPlaneAuthEnabled: true,
+			udsPath:                 "/tmp/testtmpuds1.log",
+		},
+		{
+			controlPlaneBootstrap: false,
+			udsPath:               "/tmp/test_tmp_uds2",
+			preferTokenPath:       "/tmp/test_tmp_token2",
+			expectedSdsEnabled:    true,
+			expectedSdsTokenPath:  "/tmp/test_tmp_token2",
+		},
+		{
+			controlPlaneBootstrap: false,
+			udsPath:               "/tmp/test_tmp_uds3",
+			tokenPath:             "/tmp/test_tmp_token3",
+			expectedSdsEnabled:    true,
+			expectedSdsTokenPath:  "/tmp/test_tmp_token3",
+		},
+		{
+			controlPlaneBootstrap: false,
+			udsPath:               "/tmp/test_tmp_uds4",
+		},
+		{
+			controlPlaneBootstrap: false,
+			tokenPath:             "/tmp/test_tmp_token4",
+		},
+	}
+	for _, tt := range tests {
+		if tt.udsPath != "" {
+			if _, err := os.Stat(tt.udsPath); err != nil {
+				os.Create(tt.udsPath)
+				defer os.Remove(tt.udsPath)
+			}
+		}
+		if tt.preferTokenPath != "" {
+			if _, err := os.Stat(tt.preferTokenPath); err != nil {
+				os.Create(tt.preferTokenPath)
+				defer os.Remove(tt.preferTokenPath)
+			}
+		}
+		if tt.tokenPath != "" {
+			if _, err := os.Stat(tt.tokenPath); err != nil {
+				os.Create(tt.tokenPath)
+				defer os.Remove(tt.tokenPath)
+			}
+		}
+
+		enabled, path := detectSds(tt.controlPlaneBootstrap, tt.controlPlaneAuthEnabled, tt.udsPath, tt.preferTokenPath, tt.tokenPath)
+		g.Expect(enabled).To(gomega.Equal(tt.expectedSdsEnabled))
+		g.Expect(path).To(gomega.Equal(tt.expectedSdsTokenPath))
+	}
 }
 
 func TestPilotDefaultDomainConsul(t *testing.T) {
@@ -219,10 +319,10 @@ func TestCustomMixerSanIfAuthenticationMutualDomainKubernetes(t *testing.T) {
 func TestDedupeStrings(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	in := []string{
-		model.DefaultCertChain, model.DefaultKey, model.DefaultRootCert,
-		model.DefaultCertChain, model.DefaultKey, model.DefaultRootCert,
+		config.DefaultCertChain, config.DefaultKey, config.DefaultRootCert,
+		config.DefaultCertChain, config.DefaultKey, config.DefaultRootCert,
 	}
-	expected := []string{model.DefaultCertChain, model.DefaultKey, model.DefaultRootCert}
+	expected := []string{config.DefaultCertChain, config.DefaultKey, config.DefaultRootCert}
 
 	actual := dedupeStrings(in)
 

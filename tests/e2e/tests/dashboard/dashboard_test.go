@@ -302,7 +302,25 @@ func pilotQueryFilterFn(queries []string) []string {
 		if strings.Contains(query, "pilot_xds_push_errors") {
 			continue
 		}
+		if strings.Contains(query, "pilot_total_xds_internal_errors") {
+			continue
+		}
+		if strings.Contains(query, "pilot_xds_push_context_errors") {
+			continue
+		}
+		if strings.Contains(query, `pilot_xds_pushes{type!~\"lds|cds|rds|eds\"}`) {
+			continue
+		}
+		if strings.Contains(query, "pilot_xds_eds_instances") {
+			continue
+		}
 		if strings.Contains(query, "_reject") {
+			continue
+		}
+		if strings.Contains(query, "_timeout") {
+			continue
+		}
+		if strings.Contains(query, "_virt_services") {
 			continue
 		}
 		filtered = append(filtered, query)

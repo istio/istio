@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 )
 
 // This function merges one or more destination rules for a given host string
@@ -25,9 +26,9 @@ import (
 // IOW, given three dest rules (*.foo.com, *.foo.com, *.com), calling this function for
 // each config will result in a final dest rule set (*.foo.com, and *.com).
 func (ps *PushContext) combineSingleDestinationRule(
-	combinedDestRuleHosts []Hostname,
-	combinedDestRuleMap map[Hostname]*combinedDestinationRule,
-	destRuleConfig Config) ([]Hostname, map[Hostname]*combinedDestinationRule) {
+	combinedDestRuleHosts []config.Hostname,
+	combinedDestRuleMap map[config.Hostname]*combinedDestinationRule,
+	destRuleConfig Config) []config.Hostname {
 	rule := destRuleConfig.Spec.(*networking.DestinationRule)
 	resolvedHost := ResolveShortnameToFQDN(rule.Host, destRuleConfig.ConfigMeta)
 
@@ -50,7 +51,7 @@ func (ps *PushContext) combineSingleDestinationRule(
 		if combinedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
 			combinedRule.TrafficPolicy = rule.TrafficPolicy
 		}
-		return combinedDestRuleHosts, combinedDestRuleMap
+		return combinedDestRuleHosts
 	}
 
 	combinedDestRuleMap[resolvedHost] = &combinedDestinationRule{
@@ -62,5 +63,5 @@ func (ps *PushContext) combineSingleDestinationRule(
 	}
 	combinedDestRuleHosts = append(combinedDestRuleHosts, resolvedHost)
 
-	return combinedDestRuleHosts, combinedDestRuleMap
+	return combinedDestRuleHosts
 }

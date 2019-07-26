@@ -35,14 +35,14 @@ type Handler func(obj interface{}, event model.Event) error
 
 // Task object for the event watchers; processes until handler succeeds
 type Task struct {
-	handler Handler
-	obj     interface{}
-	event   model.Event
+	Handler Handler
+	Obj     interface{}
+	Event   model.Event
 }
 
 // NewTask creates a task from a work item
 func NewTask(handler Handler, obj interface{}, event model.Event) Task {
-	return Task{handler: handler, obj: obj, event: event}
+	return Task{Handler: handler, Obj: obj, Event: event}
 }
 
 type queueImpl struct {
@@ -95,7 +95,7 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 		item, q.queue = q.queue[0], q.queue[1:]
 		q.cond.L.Unlock()
 
-		if err := item.handler(item.obj, item.event); err != nil {
+		if err := item.Handler(item.Obj, item.Event); err != nil {
 			log.Infof("Work item handle failed (%v), retry after delay %v", err, q.delay)
 			time.AfterFunc(q.delay, func() {
 				q.Push(item)
@@ -107,12 +107,12 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 
 // ChainHandler applies handlers in a sequence
 type ChainHandler struct {
-	funcs []Handler
+	Funcs []Handler
 }
 
 // Apply is the handler function
 func (ch *ChainHandler) Apply(obj interface{}, event model.Event) error {
-	for _, f := range ch.funcs {
+	for _, f := range ch.Funcs {
 		if err := f(obj, event); err != nil {
 			return err
 		}
@@ -122,5 +122,5 @@ func (ch *ChainHandler) Apply(obj interface{}, event model.Event) error {
 
 // Append a handler as the last handler in the chain
 func (ch *ChainHandler) Append(h Handler) {
-	ch.funcs = append(ch.funcs, h)
+	ch.Funcs = append(ch.Funcs, h)
 }

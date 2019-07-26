@@ -1,0 +1,59 @@
+# istio-rbac-grpc-rules.yaml to enforce access control for gRPC services using Istio RBAC v2 rules.
+
+# For service a:
+# * Allow b to call a's Echo method.
+# * Service c cannot talk to a since GET, DELETE, and PUT are not supported in gRPC.
+# * Allow d to call any methods of a.
+
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: access-grpc-echo
+  namespace: {{ .Namespace }}
+spec:
+  rules:
+    - paths: ["/proto.EchoTestService/Echo"]
+      # This is optional, since gRPC can only allow POST.
+      # If methods are not specified, it will allow all methods, which include POST.
+      methods: ["POST"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: not-access-grpc-not-post
+  namespace: {{ .Namespace }}
+spec:
+  rules:
+    - paths: ["/proto.EchoTestService/Echo"]
+      # Since gRPC only allows POST, this will be denied (even though paths should be allowed).
+      # In practice, users should not define methods when writing rules for gRPC services.
+      methods: ["GET", "DELETE", "PUT"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: access-grpc-any
+  namespace: {{ .Namespace }}
+spec:
+  rules:
+    - paths: ["*"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: AuthorizationPolicy
+metadata:
+  name: authz-policy-a-grpc
+  namespace: {{ .Namespace }}
+spec:
+  workload_selector:
+    labels:
+      app: a
+  allow:
+  - subjects:
+    - names: ["cluster.local/ns/{{ .Namespace }}/sa/b"]
+    role: access-grpc-echo
+  - subjects:
+    - names: ["cluster.local/ns/{{ .Namespace }}/sa/c"]
+    role: not-access-grpc-not-post
+  - subjects:
+    - names: ["cluster.local/ns/{{ .Namespace }}/sa/d"]
+    role: access-grpc-any

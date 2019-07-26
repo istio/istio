@@ -26,8 +26,8 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config"
 )
 
 const (
@@ -87,6 +87,17 @@ func TestIntoResourceFile(t *testing.T) {
 		//"testdata/hello.yaml" is tested in http_test.go (with debug)
 		{
 			in:                           "hello.yaml",
+			want:                         "hello.yaml.injected",
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
+		//verifies that the sidecar will not be injected again for an injected yaml
+		{
+			in:                           "hello.yaml.injected",
 			want:                         "hello.yaml.injected",
 			includeIPRanges:              DefaultIncludeIPRanges,
 			includeInboundPorts:          DefaultIncludeInboundPorts,
@@ -501,7 +512,7 @@ func TestIntoResourceFile(t *testing.T) {
 	for i, c := range cases {
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
 		t.Run(testName, func(t *testing.T) {
-			mesh := model.DefaultMeshConfig()
+			mesh := config.DefaultMeshConfig()
 			if c.duration != 0 {
 				mesh.DefaultConfig.DrainDuration = types.DurationProto(c.duration)
 				mesh.DefaultConfig.ParentShutdownDuration = types.DurationProto(c.duration)
@@ -630,7 +641,7 @@ func TestRewriteAppProbe(t *testing.T) {
 	for i, c := range cases {
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
 		t.Run(testName, func(t *testing.T) {
-			mesh := model.DefaultMeshConfig()
+			mesh := config.DefaultMeshConfig()
 			params := &Params{
 				InitImage:                    InitImageName(unitTestHub, unitTestTag, false),
 				ProxyImage:                   ProxyImageName(unitTestHub, unitTestTag, false),
@@ -767,7 +778,7 @@ func TestInvalidAnnotations(t *testing.T) {
 }
 
 func newTestParams() *Params {
-	mesh := model.DefaultMeshConfig()
+	mesh := config.DefaultMeshConfig()
 	return &Params{
 		InitImage:           InitImageName(unitTestHub, unitTestTag, false),
 		ProxyImage:          ProxyImageName(unitTestHub, unitTestTag, false),

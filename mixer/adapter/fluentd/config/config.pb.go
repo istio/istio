@@ -35,7 +35,7 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // Configuration parameters for the fluentd adapter.
 //
-// This adapter accepts instances of kind: logentry. It then routes
+// This adapter accepts logentry instance. It then routes
 // those logentries to a listening fluentd daemon with minimal
 // transformation. Fluentd uses a "tag" for all logs. The "Name" of
 // the logentry is used as the "tag", unless the logentry already has

@@ -12,42 +12,36 @@ global:
 
   disablePolicyChecks: false
 
-  sidecarInjectorWebhook:
-    enabled: true
-    # If true, webhook or istioctl injector will rewrite PodSpec for liveness
-    # health check to redirect request to sidecar. This makes liveness check work
-    # even when mTLS is enabled.
-    rewriteAppHTTPProbe: false
+sidecarInjectorWebhook:
+  enabled: true
+  # If true, webhook or istioctl injector will rewrite PodSpec for liveness
+  # health check to redirect request to sidecar. This makes liveness check work
+  # even when mTLS is enabled.
+  rewriteAppHTTPProbe: false
 
 pilot:
+  autoscaleEnabled: false
   traceSampling: 100.0
   resources:
     requests:
       cpu: 10m
       memory: 100Mi
-    limits:
-      cpu: 100m
-      memory: 200Mi
 
 mixer:
   policy:
     enabled: true
+    autoscaleEnabled: false
     resources:
       requests:
         cpu: 10m
         memory: 100Mi
-      limits:
-        cpu: 100m
-        memory: 100Mi
 
   telemetry:
     enabled: true
+    autoscaleEnabled: false
     resources:
       requests:
         cpu: 50m
-        memory: 100Mi
-      limits:
-        cpu: 100m
         memory: 100Mi
  
   adapters:
@@ -66,20 +60,16 @@ kiali:
 
 gateways:
   istio-ingressgateway:
+    autoscaleEnabled: false
     resources:
       requests:
         cpu: 10m
         memory: 40Mi
-      limits:
-        cpu: 100m
-        memory: 128Mi
 
   istio-egressgateway:
     enabled: true
+    autoscaleEnabled: false
     resources:
       requests:
         cpu: 10m
         memory: 40Mi
-      limits:
-        cpu: 100m
-        memory: 128Mi

@@ -29,12 +29,14 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/pkg/log"
 )
 
@@ -84,18 +86,23 @@ func NewPlugin() plugin.Plugin {
 	return mixerplugin{}
 }
 
-// OnOutboundListener implements the Callbacks interface method.
-func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	if in.Env.Mesh.MixerCheckServer == "" && in.Env.Mesh.MixerReportServer == "" {
-		return nil
-	}
-
+func createOutboundListenerAttributes(in *plugin.InputParams) attributes {
 	attrs := attributes{
 		"source.uid":            attrUID(in.Node),
 		"source.namespace":      attrNamespace(in.Node),
 		"context.reporter.uid":  attrUID(in.Node),
 		"context.reporter.kind": attrStringValue("outbound"),
 	}
+	return attrs
+}
+
+// OnOutboundListener implements the Callbacks interface method.
+func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	if in.Env.Mesh.MixerCheckServer == "" && in.Env.Mesh.MixerReportServer == "" {
+		return nil
+	}
+
+	attrs := createOutboundListenerAttributes(in)
 
 	switch in.ListenerProtocol {
 	case plugin.ListenerProtocolHTTP:
@@ -173,6 +180,18 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 	return fmt.Errorf("unknown listener type %v in mixer.OnOutboundListener", in.ListenerProtocol)
 }
 
+// OnVirtualListener implements the Plugin interface method.
+func (mixerplugin) OnVirtualListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	if in.ListenerProtocol == plugin.ListenerProtocolTCP {
+		attrs := createOutboundListenerAttributes(in)
+		tcpFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service, in.Push)
+		for cnum := range mutable.FilterChains {
+			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+		}
+	}
+	return nil
+}
+
 // OnOutboundCluster implements the Plugin interface method.
 func (mixerplugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
 	if !in.Env.Mesh.SidecarToTelemetrySessionAffinity {
@@ -217,7 +236,7 @@ func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeCon
 	for i := 0; i < len(routeConfiguration.VirtualHosts); i++ {
 		host := routeConfiguration.VirtualHosts[i]
 		for j := 0; j < len(host.Routes); j++ {
-			host.Routes[j] = modifyOutboundRouteConfig(in.Push, in, host.Routes[j])
+			host.Routes[j] = modifyOutboundRouteConfig(in.Push, in, host.Name, host.Routes[j])
 		}
 		routeConfiguration.VirtualHosts[i] = host
 	}
@@ -235,13 +254,13 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 		for i := 0; i < len(routeConfiguration.VirtualHosts); i++ {
 			host := routeConfiguration.VirtualHosts[i]
 			for j := 0; j < len(host.Routes); j++ {
-				route := host.Routes[j]
+				r := host.Routes[j]
 				if isXDSMarshalingToAnyEnabled {
-					route.TypedPerFilterConfig = addTypedServiceConfig(route.TypedPerFilterConfig, buildInboundRouteConfig(in.Push, in, in.ServiceInstance))
+					r.TypedPerFilterConfig = addTypedServiceConfig(r.TypedPerFilterConfig, buildInboundRouteConfig(in.Push, in, in.ServiceInstance))
 				} else {
-					route.PerFilterConfig = addServiceConfig(route.PerFilterConfig, buildInboundRouteConfig(in.Push, in, in.ServiceInstance))
+					r.PerFilterConfig = addServiceConfig(r.PerFilterConfig, buildInboundRouteConfig(in.Push, in, in.ServiceInstance))
 				}
-				host.Routes[j] = route
+				host.Routes[j] = r
 			}
 			routeConfiguration.VirtualHosts[i] = host
 		}
@@ -265,7 +284,7 @@ func buildUpstreamName(address string) string {
 
 	host, port, _ := net.SplitHostPort(address)
 	v, _ := strconv.Atoi(port)
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(host), v)
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, "", config.Hostname(host), v)
 }
 
 func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.TransportConfig {
@@ -276,8 +295,8 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 	}
 
 	// apply proxy-level overrides
-	if annotation, ok := node.Metadata[model.NodeMetadataPolicyCheck]; ok {
-		switch annotation {
+	if anno, ok := node.Metadata[annotation.PolicyCheck.Name]; ok {
+		switch anno {
 		case policyCheckEnable:
 			policy = mccpb.FAIL_CLOSE
 		case policyCheckEnableAllow, policyCheckDisable:
@@ -288,46 +307,48 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 	networkFailPolicy := &mccpb.NetworkFailPolicy{Policy: policy}
 
 	networkFailPolicy.MaxRetry = defaultRetries
-	if annotation, ok := node.Metadata[model.NodeMetadataPolicyCheckRetries]; ok {
-		retries, err := strconv.Atoi(annotation)
+	if anno, ok := node.Metadata[annotation.PolicyCheckRetries.Name]; ok {
+		retries, err := strconv.Atoi(anno)
 		if err != nil {
-			log.Warnf("unable to parse retry limit %q.", annotation)
+			log.Warnf("unable to parse retry limit %q.", anno)
 		} else {
 			networkFailPolicy.MaxRetry = uint32(retries)
 		}
 	}
 
 	networkFailPolicy.BaseRetryWait = defaultBaseRetryWaitTime
-	if annotation, ok := node.Metadata[model.NodeMetadataPolicyCheckBaseRetryWaitTime]; ok {
-		dur, err := time.ParseDuration(annotation)
+	if anno, ok := node.Metadata[annotation.PolicyCheckBaseRetryWaitTime.Name]; ok {
+		dur, err := time.ParseDuration(anno)
 		if err != nil {
-			log.Warnf("unable to parse base retry wait time %q.", annotation)
+			log.Warnf("unable to parse base retry wait time %q.", anno)
 		} else {
 			networkFailPolicy.BaseRetryWait = types.DurationProto(dur)
 		}
 	}
 
 	networkFailPolicy.MaxRetryWait = defaultMaxRetryWaitTime
-	if annotation, ok := node.Metadata[model.NodeMetadataPolicyCheckMaxRetryWaitTime]; ok {
-		dur, err := time.ParseDuration(annotation)
+	if anno, ok := node.Metadata[annotation.PolicyCheckMaxRetryWaitTime.Name]; ok {
+		dur, err := time.ParseDuration(anno)
 		if err != nil {
-			log.Warnf("unable to parse max retry wait time %q.", annotation)
+			log.Warnf("unable to parse max retry wait time %q.", anno)
 		} else {
 			networkFailPolicy.MaxRetryWait = types.DurationProto(dur)
 		}
 	}
 
 	res := &mccpb.TransportConfig{
-		CheckCluster:      buildUpstreamName(mesh.MixerCheckServer),
-		ReportCluster:     buildUpstreamName(mesh.MixerReportServer),
-		NetworkFailPolicy: networkFailPolicy,
+		CheckCluster:          buildUpstreamName(mesh.MixerCheckServer),
+		ReportCluster:         buildUpstreamName(mesh.MixerReportServer),
+		NetworkFailPolicy:     networkFailPolicy,
+		ReportBatchMaxEntries: mesh.ReportBatchMaxEntries,
+		ReportBatchMaxTime:    mesh.ReportBatchMaxTime,
 	}
 
 	return res
 }
 
 func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *http_conn.HttpFilter {
-	config := &mccpb.HttpClientConfig{
+	cfg := &mccpb.HttpClientConfig{
 		DefaultDestinationService: defaultConfig,
 		ServiceConfigs: map[string]*mccpb.ServiceConfig{
 			defaultConfig: {
@@ -346,16 +367,16 @@ func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node
 	}
 
 	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(cfg)}
 	} else {
-		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)}
+		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(cfg)}
 	}
 
 	return out
 }
 
 func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *http_conn.HttpFilter {
-	config := &mccpb.HttpClientConfig{
+	cfg := &mccpb.HttpClientConfig{
 		DefaultDestinationService: defaultConfig,
 		ServiceConfigs: map[string]*mccpb.ServiceConfig{
 			defaultConfig: {
@@ -370,15 +391,31 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 	}
 
 	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(cfg)}
 	} else {
-		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)}
+		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(cfg)}
 	}
 
 	return out
 }
 
-func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, httpRoute route.Route) route.Route {
+func addFilterConfigToRoute(in *plugin.InputParams, httpRoute route.Route, attrs attributes, isXDSMarshalingToAnyEnabled bool) {
+	if isXDSMarshalingToAnyEnabled {
+		httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
+			DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
+			MixerAttributes:   &mpb.Attributes{Attributes: attrs},
+			ForwardAttributes: &mpb.Attributes{Attributes: attrs},
+		})
+	} else {
+		httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
+			DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
+			MixerAttributes:   &mpb.Attributes{Attributes: attrs},
+			ForwardAttributes: &mpb.Attributes{Attributes: attrs},
+		})
+	}
+}
+
+func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, virtualHostname string, httpRoute route.Route) route.Route {
 	isXDSMarshalingToAnyEnabled := util.IsXDSMarshalingToAnyEnabled(in.Node)
 
 	// default config, to be overridden by per-weighted cluster
@@ -396,20 +433,11 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 		switch upstreams := action.Route.ClusterSpecifier.(type) {
 		case *route.RouteAction_Cluster:
 			_, _, hostname, _ := model.ParseSubsetKey(upstreams.Cluster)
-			attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
-			if isXDSMarshalingToAnyEnabled {
-				httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
-					DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
-					MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-					ForwardAttributes: &mpb.Attributes{Attributes: attrs},
-				})
-			} else {
-				httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
-					DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
-					MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-					ForwardAttributes: &mpb.Attributes{Attributes: attrs},
-				})
+			if hostname == "" && upstreams.Cluster == util.PassthroughCluster {
+				hostname = util.PassthroughCluster
 			}
+			attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
+			addFilterConfigToRoute(in, httpRoute, attrs, isXDSMarshalingToAnyEnabled)
 
 		case *route.RouteAction_WeightedClusters:
 			for _, weighted := range upstreams.WeightedClusters.Clusters {
@@ -433,7 +461,16 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 		default:
 			log.Warn("Unknown cluster type in mixer#OnOutboundRouteConfiguration")
 		}
-	case *route.Route_Redirect, *route.Route_DirectResponse:
+	// route.Route_DirectResponse is used for the BlackHole cluster configuration,
+	// hence adding the attributes for the mixer filter
+	case *route.Route_DirectResponse:
+		if virtualHostname == util.BlackHoleRouteName {
+			hostname := config.Hostname(util.BlackHoleCluster)
+			attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
+			addFilterConfigToRoute(in, httpRoute, attrs, isXDSMarshalingToAnyEnabled)
+		}
+	// route.Route_Redirect is not used currently, so no attributes are added here
+	case *route.Route_Redirect:
 	default:
 		log.Warn("Unknown route type in mixer#OnOutboundRouteConfiguration")
 	}
@@ -441,7 +478,7 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 }
 
 func buildInboundRouteConfig(push *model.PushContext, in *plugin.InputParams, instance *model.ServiceInstance) *mccpb.ServiceConfig {
-	config := in.Env.IstioConfigStore
+	configStore := in.Env.IstioConfigStore
 
 	attrs := addDestinationServiceAttributes(make(attributes), push, instance.Service.Hostname)
 	out := &mccpb.ServiceConfig{
@@ -449,17 +486,17 @@ func buildInboundRouteConfig(push *model.PushContext, in *plugin.InputParams, in
 		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 	}
 
-	if config != nil {
-		apiSpecs := config.HTTPAPISpecByDestination(instance)
+	if configStore != nil {
+		apiSpecs := configStore.HTTPAPISpecByDestination(instance)
 		model.SortHTTPAPISpec(apiSpecs)
-		for _, config := range apiSpecs {
-			out.HttpApiSpec = append(out.HttpApiSpec, config.Spec.(*mccpb.HTTPAPISpec))
+		for _, apiSpec := range apiSpecs {
+			out.HttpApiSpec = append(out.HttpApiSpec, apiSpec.Spec.(*mccpb.HTTPAPISpec))
 		}
 
-		quotaSpecs := config.QuotaSpecByDestination(instance)
+		quotaSpecs := configStore.QuotaSpecByDestination(instance)
 		model.SortQuotaSpec(quotaSpecs)
-		for _, config := range quotaSpecs {
-			out.QuotaSpec = append(out.QuotaSpec, config.Spec.(*mccpb.QuotaSpec))
+		for _, quotaSpec := range quotaSpecs {
+			out.QuotaSpec = append(out.QuotaSpec, quotaSpec.Spec.(*mccpb.QuotaSpec))
 		}
 	}
 
@@ -473,7 +510,7 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 		attrs = addDestinationServiceAttributes(attrs, push, destination.Hostname)
 	}
 
-	config := &mccpb.TcpClientConfig{
+	cfg := &mccpb.TcpClientConfig{
 		DisableCheckCalls: disablePolicyChecks(outbound, mesh, node),
 		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 		Transport:         buildTransport(mesh, node),
@@ -483,16 +520,16 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 	}
 
 	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(cfg)}
 	} else {
-		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(cfg)}
 	}
 
 	return out
 }
 
 func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) listener.Filter {
-	config := &mccpb.TcpClientConfig{
+	cfg := &mccpb.TcpClientConfig{
 		DisableCheckCalls: disablePolicyChecks(inbound, mesh, node),
 		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 		Transport:         buildTransport(mesh, node),
@@ -502,9 +539,9 @@ func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *
 	}
 
 	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(cfg)}
 	} else {
-		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(cfg)}
 	}
 
 	return out
@@ -526,7 +563,7 @@ func addTypedServiceConfig(filterConfigs map[string]*types.Any, config *mccpb.Se
 	return filterConfigs
 }
 
-func addDestinationServiceAttributes(attrs attributes, push *model.PushContext, destinationHostname model.Hostname) attributes {
+func addDestinationServiceAttributes(attrs attributes, push *model.PushContext, destinationHostname config.Hostname) attributes {
 	// TODO: pass Service directly.
 	if destinationHostname == "" {
 		return attrs
@@ -535,6 +572,9 @@ func addDestinationServiceAttributes(attrs attributes, push *model.PushContext, 
 
 	svc := push.ServiceByHostname[destinationHostname]
 	if svc == nil {
+		if destinationHostname == util.PassthroughCluster || destinationHostname == util.BlackHoleCluster {
+			attrs["destination.service.name"] = attrStringValue(string(destinationHostname))
+		}
 		return attrs
 	}
 	serviceAttributes := svc.Attributes
@@ -573,7 +613,7 @@ func disablePolicyChecks(dir direction, mesh *meshconfig.MeshConfig, node *model
 	}
 
 	// override with proxy settings
-	if policy, ok := node.Metadata[model.NodeMetadataPolicyCheck]; ok {
+	if policy, ok := node.Metadata[annotation.PolicyCheck.Name]; ok {
 		switch policy {
 		case policyCheckDisable:
 			disable = true

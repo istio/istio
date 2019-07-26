@@ -6,6 +6,7 @@ metadata:
 spec:
   replicas: 7
   revisionHistoryLimit: 2
+  selector: null
   strategy:
     type: Rolling
   template:
@@ -45,7 +46,7 @@ spec:
         - --zipkinAddress
         - ""
         - --dnsRefreshRate
-        - 5s
+        - 300s
         - --connectTimeout
         - 1s
         - --proxyAdminPort
@@ -100,7 +101,7 @@ spec:
         resources:
           limits:
             cpu: "2"
-            memory: 128Mi
+            memory: 1Gi
           requests:
             cpu: 100m
             memory: 128Mi
@@ -117,6 +118,8 @@ spec:
       - args:
         - -p
         - "15001"
+        - -z
+        - "15006"
         - -u
         - "1337"
         - -m
