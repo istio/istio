@@ -103,6 +103,9 @@ type SecretFetcher struct {
 	// gateway-fallback as default name of fallback secret. If a fallback secret exists,
 	// FindIngressGatewaySecret returns this fallback secret when expected secret is not available.
 	FallbackSecretName string
+
+	secretNamespace string
+	coreV1          corev1.CoreV1Interface
 }
 
 func fatalf(template string, args ...interface{}) {
@@ -177,6 +180,10 @@ func (sf *SecretFetcher) InitWithKubeClient(core corev1.CoreV1Interface) { // no
 			DeleteFunc: sf.scrtDeleted,
 			UpdateFunc: sf.scrtUpdated,
 		})
+
+	sf.secretNamespace = namespace
+	sf.coreV1 = core
+
 }
 
 // isIngressGatewaySecret checks secret and decides whether this is a secret generated for ingress
@@ -443,6 +450,22 @@ func (sf *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.Secr
 	val, exist := sf.secrets.Load(key)
 	secretFetcherLog.Debugf("load secret %s from secret fetcher: %v", key, exist)
 	if !exist {
+		// Sometimes we see that a secret in installed but not in cache because watcher is in an
+		// obsolete state and wasn't reset promptly. We bail this case out by trying fetching
+		// the secret from API call. Since this is a rare case, to avoid complication, we don't add
+		// the secret back to cache as it is not a normal codepath. When watcher recovers, those secret
+		// shall be added back. Note that this approach only covers the TLS server key/cert fetching.
+		if sf.coreV1 != nil {
+			if secret, err := sf.coreV1.Secrets(sf.secretNamespace).Get(key, metav1.GetOptions{}); err == nil {
+				secretItem, _, _ := extractK8sSecretIntoSecretItem(secret, time.Now())
+				if secretItem != nil {
+					secretFetcherLog.Infof("Return secret %s found by direct api call", key)
+					return *secretItem, true
+				}
+				secretFetcherLog.Infof("Fail to extract secret %s found by direct api call", key)
+			}
+		}
+
 		// Expected secret does not exist, try to find the fallback secret.
 		// TODO(JimmyCYJ): Add metrics to node agent to imply usage of fallback secret
 		secretFetcherLog.Warnf("Cannot find secret %s, searching for fallback secret %s", key, sf.FallbackSecretName)
