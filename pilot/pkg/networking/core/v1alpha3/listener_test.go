@@ -17,12 +17,15 @@ package v1alpha3
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
+
+	"istio.io/istio/pkg/features/pilot"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -150,45 +153,56 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 	tests := []struct {
 		name           string
 		CIDR           string
-		expectedChains int
+		expectedChains []string
 	}{
 		{
 			name:           "same CIDR",
 			CIDR:           "10.10.0.0/24",
-			expectedChains: 1,
+			expectedChains: []string{"10.10.0.0"},
 		},
 		{
 			name:           "different CIDR",
 			CIDR:           "10.10.10.0/24",
-			expectedChains: 2,
+			expectedChains: []string{"10.10.0.0", "10.10.10.0"},
 		},
 	}
 	for _, tt := range tests {
-		services := []*model.Service{
-			buildService("test.com", tt.CIDR, model.ProtocolTCP, tnow),
-		}
-
-		p := &fakePlugin{}
-		virtualService := model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:      model.VirtualService.Type,
-				Version:   model.VirtualService.Version,
-				Name:      "test_vs",
-				Namespace: "default",
-			},
-			Spec: virtualServiceSpec,
-		}
-		listeners := buildOutboundListeners(p, nil, &virtualService, services...)
-
-		if len(listeners) != 1 {
-			t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
-		}
-		// There should not be multiple filter chains with same CIDR match
-		if len(listeners[0].FilterChains) != tt.expectedChains {
-			t.Fatalf("test with %s expected %d filter chains, found %d", tt.name, tt.expectedChains, len(listeners[0].FilterChains))
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			if pilot.RestrictPodIPTrafficLoops.Get() {
+				// Expect a filter chain on the node IP
+				tt.expectedChains = append([]string{"1.1.1.1"}, tt.expectedChains...)
+			}
+			services := []*model.Service{
+				buildService("test.com", tt.CIDR, model.ProtocolTCP, tnow),
+			}
+			p := &fakePlugin{}
+			virtualService := model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Type:      model.VirtualService.Type,
+					Version:   model.VirtualService.Version,
+					Name:      "test_vs",
+					Namespace: "default",
+				},
+				Spec: virtualServiceSpec,
+			}
+			listeners := buildOutboundListeners(p, nil, &virtualService, services...)
+			if len(listeners) != 1 {
+				t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+			}
+			var chains []string
+			for _, fc := range listeners[0].FilterChains {
+				for _, cidr := range fc.FilterChainMatch.PrefixRanges {
+					chains = append(chains, cidr.AddressPrefix)
+				}
+			}
+			// There should not be multiple filter chains with same CIDR match
+			if !reflect.DeepEqual(chains, tt.expectedChains) {
+				t.Fatalf("expected filter chains %v, found %v", tt.expectedChains, chains)
+			}
+		})
 	}
 }
+
 func TestInboundListenerConfig_HTTP(t *testing.T) {
 	// Add a service and verify it's config
 	testInboundListenerConfig(t,
@@ -736,8 +750,10 @@ func isHTTPListener(listener *xdsapi.Listener) bool {
 		return false
 	}
 
-	if len(listener.FilterChains) > 0 && len(listener.FilterChains[0].Filters) > 0 {
-		return listener.FilterChains[0].Filters[0].Name == "envoy.http_connection_manager"
+	for _, fc := range listener.FilterChains {
+		if fc.Filters[0].Name == "envoy.http_connection_manager" {
+			return true
+		}
 	}
 	return false
 }
