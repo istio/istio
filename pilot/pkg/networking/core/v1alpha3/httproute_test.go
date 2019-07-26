@@ -21,6 +21,8 @@ import (
 	"sort"
 	"testing"
 
+	"istio.io/istio/pilot/pkg/features"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -568,7 +570,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
-	_ = os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "0")
+	_ = os.Setenv(features.EnableFallthroughRoute.Name, "0")
 	if fallthroughRoute {
 		_ = os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "1")
 	}

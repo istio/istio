@@ -255,7 +255,7 @@ func IsProxyVersionGE11(node *model.Proxy) bool {
 
 // IsXDSMarshalingToAnyEnabled controls whether "marshaling to Any" feature is enabled.
 func IsXDSMarshalingToAnyEnabled(node *model.Proxy) bool {
-	return IsProxyVersionGE11(node) && !features.DisableXDSMarshalingToAny()
+	return IsProxyVersionGE11(node) && !features.DisableXDSMarshalingToAny
 }
 
 // ResolveHostsInNetworksConfig will go through the Gateways addresses for all

@@ -66,9 +66,9 @@ func Test_TerminationDrainDuration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.setEnvVar {
-				os.Setenv("TERMINATION_DRAIN_DURATION_SECONDS", tt.envVar)
+				os.Setenv(terminationDrainDurationVar.Name, tt.envVar)
 			} else {
-				os.Unsetenv("TERMINATION_DRAIN_DURATION_SECONDS")
+				os.Unsetenv(terminationDrainDurationVar.Name)
 			}
 			if got := TerminationDrainDuration(); got != tt.want {
 				t.Errorf("TerminationDrainDuration() = %v, want %v", got, tt.want)
