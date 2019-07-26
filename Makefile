@@ -17,7 +17,7 @@
 #-----------------------------------------------------------------------------
 ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
-SHELL := /bin/bash
+SHELL := /bin/bash -o pipefail
 
 # Current version, updated after a release.
 VERSION ?= 1.0-dev
@@ -327,15 +327,10 @@ fmt:
 buildcache:
 	GOBUILDFLAGS=-i $(MAKE) build
 
-JUNIT_LINT_TEST_XML ?= $(ISTIO_OUT)/junit_lint-tests.xml
 # Existence of build cache .a files actually affects the results of
 # some linters; they need to exist.
-lint: $(JUNIT_REPORT) buildcache
-	mkdir -p $(dir $(JUNIT_LINT_TEST_XML))
-	set -o pipefail; \
-	SKIP_INIT=1 bin/linters.sh \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_LINT_TEST_XML))
-
+lint: buildcache
+	SKIP_INIT=1 bin/linters.sh
 
 shellcheck:
 	bin/check_shell_scripts.sh
@@ -432,10 +427,9 @@ build: depend $(BUILD_BINS)
 .PHONY: build-linux
 build-linux: depend $(LINUX_BUILD_BINS)
 
-.PHONY: version-test
-# Do not run istioctl since is different (connects to kubernetes)
-version-test:
-	go test ./tests/version/... -v --base-dir ${ISTIO_OUT} --binaries="$(PILOT_BINS) mixc mixs mixgen node_agent node_agent_k8s istio_ca galley sdsclient"
+.PHONY: binaries-test
+binaries-test:
+	go test ./tests/binary/... -v --base-dir ${ISTIO_OUT} --binaries="$(BUILD_BINS)"
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -502,7 +496,6 @@ else
 endif
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	set -o pipefail; \
 	KUBECONFIG="$${KUBECONFIG:-$${GO_TOP}/src/istio.io/istio/.circleci/config}" \
 	$(MAKE) --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
@@ -608,13 +601,11 @@ common-coverage:
 
 .PHONY: racetest
 
-JUNIT_RACE_TEST_XML ?= $(ISTIO_OUT)/junit_race-tests.xml
 RACE_TESTS ?= pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest
 racetest: $(JUNIT_REPORT)
-	mkdir -p $(dir $(JUNIT_RACE_TEST_XML))
-	set -o pipefail; \
+	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	$(MAKE) --keep-going $(RACE_TESTS) \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_RACE_TEST_XML))
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 .PHONY: pilot-racetest
 pilot-racetest: pilot-agent

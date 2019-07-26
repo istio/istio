@@ -12,26 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package trafficshifting
+package pilot
 
 import (
 	"fmt"
+	"math"
+	"strings"
+	"sync"
 	"testing"
-	"time"
 
+	"github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pkg/test/framework/components/environment"
+
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/util/structpath"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
@@ -54,20 +57,11 @@ import (
 //
 //
 
-var (
-	ist   istio.Instance
-	hosts = []string{"b", "c", "d", "e"}
-	p     pilot.Instance
-	g     galley.Instance
-)
-
 const (
 	batchSize = 100
 
 	// Error threshold. For example, we expect 25% traffic, traffic distribution within [15%, 35%] is accepted.
 	errorThreshold = 10.0
-
-	testDuration = 10 * time.Second
 )
 
 type VirtualServiceConfig struct {
@@ -83,13 +77,6 @@ type VirtualServiceConfig struct {
 	Weight3   int32
 }
 
-func TestMain(m *testing.M) {
-	framework.NewSuite("traffic_shifting", m).
-		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
-		Run()
-}
-
 func TestTrafficShifting(t *testing.T) {
 	// Traffic distribution
 	weights := map[string][]int32{
@@ -103,10 +90,6 @@ func TestTrafficShifting(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-
-			g, _ = galley.New(ctx, galley.Config{})
-			p, _ = pilot.New(ctx, pilot.Config{Galley: g})
-
 			ns := namespace.NewOrFail(t, ctx, "traffic-shifting", true)
 
 			var instances [5]echo.Instance
@@ -117,6 +100,8 @@ func TestTrafficShifting(t *testing.T) {
 				With(&instances[3], echoConfig(ns, "d")).
 				With(&instances[4], echoConfig(ns, "e")).
 				BuildOrFail(t)
+
+			hosts := []string{"b", "c", "d", "e"}
 
 			for k, v := range weights {
 				t.Run(k, func(t *testing.T) {
@@ -162,7 +147,7 @@ func TestTrafficShifting(t *testing.T) {
 						}
 					}
 
-					sendTraffic(t, testDuration, batchSize, instances[0], instances[1], hosts, v, errorThreshold)
+					sendTraffic(t, batchSize, instances[0], instances[1], hosts, v, errorThreshold)
 				})
 			}
 		})
@@ -190,10 +175,74 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 		Ports: []echo.Port{
 			{
 				Name:     "http",
-				Protocol: model.ProtocolHTTP,
+				Protocol: config.ProtocolHTTP,
 			},
 		},
 		Galley: g,
 		Pilot:  p,
+	}
+}
+
+func sendTraffic(t *testing.T, batchSize int, from, to echo.Instance, hosts []string, weight []int32, errorThreshold float64) {
+	const totalThreads = 10
+
+	results := make(chan client.ParsedResponses, 10)
+	errs := make(chan error, 10)
+
+	wg := sync.WaitGroup{}
+	wg.Add(totalThreads)
+
+	for i := 0; i < totalThreads; i++ {
+		go func() {
+			resp, err := from.Call(echo.CallOptions{
+				Target:   to,
+				PortName: "http",
+				Count:    batchSize,
+			})
+			if err != nil {
+				errs <- err
+			} else {
+				results <- resp
+			}
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+	close(results)
+	close(errs)
+
+	var callerrors error
+	for err := range errs {
+		callerrors = multierror.Append(err, callerrors)
+	}
+	if callerrors != nil {
+		t.Fatalf("Error occurred during call: %v", callerrors)
+	}
+
+	var totalRequests int
+	hitCount := map[string]int{}
+	for resp := range results {
+		for _, r := range resp {
+			for _, h := range hosts {
+				if strings.HasPrefix(r.Hostname, h+"-") {
+					hitCount[h]++
+					totalRequests++
+					break
+				}
+			}
+		}
+	}
+
+	for i, v := range hosts {
+		percentOfTrafficToHost := float64(hitCount[v]) * 100.0 / float64(totalRequests)
+		deltaFromExpected := math.Abs(float64(weight[i]) - percentOfTrafficToHost)
+		if errorThreshold-deltaFromExpected < 0 {
+			t.Errorf("Unexpected traffic weight for host %v. Expected %d%%, got %g%% (thresold: %g%%)",
+				v, weight[i], percentOfTrafficToHost, errorThreshold)
+		} else {
+			t.Logf("Got expected traffic weight for host %v. Expected %d%%, got %g%% (thresold: %g%%)",
+				v, weight[i], percentOfTrafficToHost, errorThreshold)
+		}
 	}
 }

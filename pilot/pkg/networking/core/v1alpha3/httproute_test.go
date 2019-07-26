@@ -21,10 +21,13 @@ import (
 	"sort"
 	"testing"
 
+	"istio.io/istio/pilot/pkg/features"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pkg/config"
 )
 
 func TestGenerateVirtualHostDomains(t *testing.T) {
@@ -87,11 +90,11 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 
 func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	services := []*model.Service{
-		buildHTTPService("bookinfo.com", model.VisibilityPublic, wildcardIP, "default", 9999, 70),
-		buildHTTPService("private.com", model.VisibilityPrivate, wildcardIP, "default", 9999, 80),
-		buildHTTPService("test.com", model.VisibilityPublic, "8.8.8.8", "not-default", 8080),
-		buildHTTPService("test-private.com", model.VisibilityPrivate, "9.9.9.9", "not-default", 80, 70),
-		buildHTTPService("test-private-2.com", model.VisibilityPrivate, "9.9.9.10", "not-default", 60),
+		buildHTTPService("bookinfo.com", config.VisibilityPublic, wildcardIP, "default", 9999, 70),
+		buildHTTPService("private.com", config.VisibilityPrivate, wildcardIP, "default", 9999, 80),
+		buildHTTPService("test.com", config.VisibilityPublic, "8.8.8.8", "not-default", 8080),
+		buildHTTPService("test-private.com", config.VisibilityPrivate, "9.9.9.9", "not-default", 80, 70),
+		buildHTTPService("test-private-2.com", config.VisibilityPrivate, "9.9.9.10", "not-default", 60),
 	}
 
 	sidecarConfig := &model.Config{
@@ -567,9 +570,9 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
-	os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "0")
+	_ = os.Setenv(features.EnableFallthroughRoute.Name, "0")
 	if fallthroughRoute {
-		os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "1")
+		_ = os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "1")
 	}
 
 	route := configgen.buildSidecarOutboundHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, routeName)
@@ -596,16 +599,16 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	}
 }
 
-func buildHTTPService(hostname string, visibility model.Visibility, ip, namespace string, ports ...int) *model.Service {
+func buildHTTPService(hostname string, visibility config.Visibility, ip, namespace string, ports ...int) *model.Service {
 	service := &model.Service{
 		CreationTime: tnow,
-		Hostname:     model.Hostname(hostname),
+		Hostname:     config.Hostname(hostname),
 		Address:      ip,
 		ClusterVIPs:  make(map[string]string),
 		Resolution:   model.Passthrough,
 		Attributes: model.ServiceAttributes{
 			Namespace: namespace,
-			ExportTo:  map[model.Visibility]bool{visibility: true},
+			ExportTo:  map[config.Visibility]bool{visibility: true},
 		},
 	}
 
@@ -615,7 +618,7 @@ func buildHTTPService(hostname string, visibility model.Visibility, ip, namespac
 		Ports = append(Ports, &model.Port{
 			Name:     fmt.Sprintf("http-%d", p),
 			Port:     p,
-			Protocol: model.ProtocolHTTP,
+			Protocol: config.ProtocolHTTP,
 		})
 	}
 

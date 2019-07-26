@@ -22,8 +22,6 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 
-	"istio.io/pkg/log"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -31,7 +29,9 @@ import (
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/proto"
+	"istio.io/pkg/log"
 )
 
 // BuildHTTPRoutes produces a list of routes for the proxy
@@ -147,7 +147,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		listenerPort = 0
 	}
 
-	nameToServiceMap := make(map[model.Hostname]*model.Service)
+	nameToServiceMap := make(map[config.Hostname]*model.Service)
 	for _, svc := range services {
 		if listenerPort == 0 {
 			// Take all ports when listen port is 0 (http_proxy or uds)
@@ -164,7 +164,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	}
 
 	// Collect all proxy labels for source match
-	var proxyLabels model.LabelsCollection
+	var proxyLabels config.LabelsCollection
 	for _, w := range proxyInstances {
 		proxyLabels = append(proxyLabels, w.Labels)
 	}
@@ -221,11 +221,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 
 	util.SortVirtualHosts(virtualHosts)
 
-	if features.EnableFallthroughRoute() {
+	if features.EnableFallthroughRoute.Get() {
 		// This needs to be the last virtual host, as routes are evaluated in order.
 		if isAllowAnyOutbound(node) {
 			virtualHosts = append(virtualHosts, route.VirtualHost{
-				Name:    "allow_any",
+				Name:    util.PassthroughRouteName,
 				Domains: []string{"*"},
 				Routes: []route.Route{
 					{
@@ -242,7 +242,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 			})
 		} else {
 			virtualHosts = append(virtualHosts, route.VirtualHost{
-				Name:    "block_all",
+				Name:    util.BlackHoleRouteName,
 				Domains: []string{"*"},
 				Routes: []route.Route{
 					{
@@ -275,7 +275,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		Port: &model.Port{
 			Name:     "",
 			Port:     listenerPort,
-			Protocol: model.ProtocolHTTP,
+			Protocol: config.ProtocolHTTP,
 		},
 	}
 
@@ -294,7 +294,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 	domains := []string{string(service.Hostname), fmt.Sprintf("%s:%d", service.Hostname, port)}
 	domains = append(domains, generateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)...)
 
-	if len(service.Address) > 0 && service.Address != model.UnspecifiedIP {
+	if len(service.Address) > 0 && service.Address != config.UnspecifiedIP {
 		svcAddr := service.GetServiceAddressForProxy(node)
 		// add a vhost match for the IP (if its non CIDR)
 		cidr := util.ConvertAddressToCidr(svcAddr)

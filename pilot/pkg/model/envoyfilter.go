@@ -14,22 +14,15 @@
 package model
 
 import (
-	"fmt"
-
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 )
 
 // EnvoyFilterWrapper is a wrapper for the EnvoyFilter api object with pre-processed data
 type EnvoyFilterWrapper struct {
-	workloadSelector Labels
+	workloadSelector config.Labels
 	Patches          map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
 }
 
@@ -42,13 +35,14 @@ type EnvoyFilterConfigPatchWrapper struct {
 	Operation networking.EnvoyFilter_Patch_Operation
 }
 
+
 // convertToEnvoyFilterWrapper converts from EnvoyFilter config to EnvoyFilterWrapper object
 func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 	localEnvoyFilter := local.Spec.(*networking.EnvoyFilter)
 
 	out := &EnvoyFilterWrapper{}
 	if localEnvoyFilter.WorkloadSelector != nil {
-		out.workloadSelector = Labels(localEnvoyFilter.WorkloadSelector.Labels)
+		out.workloadSelector = config.Labels(localEnvoyFilter.WorkloadSelector.Labels)
 	}
 	out.Patches = make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper)
 	for _, cp := range localEnvoyFilter.ConfigPatches {
@@ -58,7 +52,7 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 			Operation: cp.Patch.Operation,
 		}
 		// there wont be an error here because validation catches mismatched types
-		cpw.Value, _ = buildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value)
+		cpw.Value, _ = config.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value)
 		if cp.Match == nil {
 			// create a match all object
 			cpw.Match = &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_ANY}
@@ -77,35 +71,4 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 		out.Patches[cp.ApplyTo] = append(out.Patches[cp.ApplyTo], cpw)
 	}
 	return out
-}
-
-func buildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *types.Struct) (proto.Message, error) {
-	if value == nil {
-		// for remove ops
-		return nil, nil
-	}
-	var obj proto.Message
-	switch applyTo {
-	case networking.EnvoyFilter_CLUSTER:
-		obj = &xdsapi.Cluster{}
-	case networking.EnvoyFilter_LISTENER:
-		obj = &xdsapi.Listener{}
-	case networking.EnvoyFilter_ROUTE_CONFIGURATION:
-		obj = &xdsapi.RouteConfiguration{}
-	case networking.EnvoyFilter_FILTER_CHAIN:
-		obj = &listener.FilterChain{}
-	case networking.EnvoyFilter_HTTP_FILTER:
-		obj = &http_conn.HttpFilter{}
-	case networking.EnvoyFilter_NETWORK_FILTER:
-		obj = &listener.Filter{}
-	case networking.EnvoyFilter_VIRTUAL_HOST:
-		obj = &route.VirtualHost{}
-	default:
-		return nil, fmt.Errorf("envoy filter: unknown object type for applyTo %s", applyTo.String())
-	}
-
-	if err := xdsutil.StructToMessage(value, obj); err != nil {
-		return nil, fmt.Errorf("envoy filter: %v", err)
-	}
-	return obj, nil
 }

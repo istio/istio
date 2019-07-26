@@ -6,6 +6,7 @@ metadata:
 spec:
   replicas: 7
   revisionHistoryLimit: 2
+  selector: null
   strategy:
     type: Rolling
   template:
@@ -117,6 +118,8 @@ spec:
       - args:
         - -p
         - "15001"
+        - -z
+        - "15006"
         - -u
         - "1337"
         - -m

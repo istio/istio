@@ -130,6 +130,11 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	return nil
 }
 
+// OnVirtualListener implments the Plugin interface method.
+func (Plugin) OnVirtualListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	return nil
+}
+
 // OnInboundCluster implements the Plugin interface method.
 func (Plugin) OnInboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
 }

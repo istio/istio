@@ -20,19 +20,20 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 )
 
 func convertPort(port *networking.Port) *model.Port {
 	return &model.Port{
 		Name:     port.Name,
 		Port:     int(port.Number),
-		Protocol: model.ParseProtocol(port.Protocol),
+		Protocol: config.ParseProtocol(port.Protocol),
 	}
 }
 
-func convertServices(config model.Config) []*model.Service {
-	serviceEntry := config.Spec.(*networking.ServiceEntry)
-	creationTime := config.CreationTimestamp
+func convertServices(cfg model.Config) []*model.Service {
+	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
+	creationTime := cfg.CreationTimestamp
 
 	out := make([]*model.Service, 0)
 
@@ -51,11 +52,11 @@ func convertServices(config model.Config) []*model.Service {
 		svcPorts = append(svcPorts, convertPort(port))
 	}
 
-	var exportTo map[model.Visibility]bool
+	var exportTo map[config.Visibility]bool
 	if len(serviceEntry.ExportTo) > 0 {
-		exportTo = make(map[model.Visibility]bool)
+		exportTo = make(map[config.Visibility]bool)
 		for _, e := range serviceEntry.ExportTo {
-			exportTo[model.Visibility(e)] = true
+			exportTo[config.Visibility(e)] = true
 		}
 	}
 
@@ -72,13 +73,13 @@ func convertServices(config model.Config) []*model.Service {
 					out = append(out, &model.Service{
 						CreationTime: creationTime,
 						MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
-						Hostname:     model.Hostname(host),
+						Hostname:     config.Hostname(host),
 						Address:      newAddress,
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
 							Name:      host,
-							Namespace: config.Namespace,
+							Namespace: cfg.Namespace,
 							ExportTo:  exportTo,
 						},
 					})
@@ -86,13 +87,13 @@ func convertServices(config model.Config) []*model.Service {
 					out = append(out, &model.Service{
 						CreationTime: creationTime,
 						MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
-						Hostname:     model.Hostname(host),
+						Hostname:     config.Hostname(host),
 						Address:      address,
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
 							Name:      host,
-							Namespace: config.Namespace,
+							Namespace: cfg.Namespace,
 							ExportTo:  exportTo,
 						},
 					})
@@ -102,13 +103,13 @@ func convertServices(config model.Config) []*model.Service {
 			out = append(out, &model.Service{
 				CreationTime: creationTime,
 				MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
-				Hostname:     model.Hostname(host),
-				Address:      model.UnspecifiedIP,
+				Hostname:     config.Hostname(host),
+				Address:      config.UnspecifiedIP,
 				Ports:        svcPorts,
 				Resolution:   resolution,
 				Attributes: model.ServiceAttributes{
 					Name:      host,
-					Namespace: config.Namespace,
+					Namespace: cfg.Namespace,
 					ExportTo:  exportTo,
 				},
 			})
@@ -151,10 +152,10 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 	}
 }
 
-func convertInstances(config model.Config) []*model.ServiceInstance {
+func convertInstances(cfg model.Config) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
-	serviceEntry := config.Spec.(*networking.ServiceEntry)
-	for _, service := range convertServices(config) {
+	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
+	for _, service := range convertServices(cfg) {
 		for _, serviceEntryPort := range serviceEntry.Ports {
 			if len(serviceEntry.Endpoints) == 0 &&
 				serviceEntry.Resolution == networking.ServiceEntry_DNS {

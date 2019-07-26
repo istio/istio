@@ -17,7 +17,6 @@ package policy
 import (
 	"fmt"
 	"strings"
-	"testing"
 
 	"github.com/davecgh/go-spew/spew"
 	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
@@ -27,9 +26,16 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
+	"istio.io/istio/pkg/config"
 )
 
-func NewServiceMetadata(hostname string, labels map[string]string, t *testing.T) *authz_model.ServiceMetadata {
+// We cannot import `testing` here, as it will bring extra test flags into the binary. Instead, just include the interface here
+type mockTest interface {
+	Fatalf(format string, args ...interface{})
+	Helper()
+}
+
+func NewServiceMetadata(hostname string, labels map[string]string, t mockTest) *authz_model.ServiceMetadata {
 	t.Helper()
 	splits := strings.Split(hostname, ".")
 	if len(splits) < 2 {
@@ -44,7 +50,7 @@ func NewServiceMetadata(hostname string, labels map[string]string, t *testing.T)
 				Name:      name,
 				Namespace: namespace,
 			},
-			Hostname: model.Hostname(hostname),
+			Hostname: config.Hostname(hostname),
 		},
 		Labels: labels,
 	}
@@ -57,7 +63,7 @@ func NewServiceMetadata(hostname string, labels map[string]string, t *testing.T)
 	return serviceMetadata
 }
 
-func NewAuthzPolicies(policies []*model.Config, t *testing.T) *model.AuthorizationPolicies {
+func NewAuthzPolicies(policies []*model.Config, t mockTest) *model.AuthorizationPolicies {
 	t.Helper()
 
 	hasClusterRbacConfig := false
@@ -89,7 +95,7 @@ func NewAuthzPolicies(policies []*model.Config, t *testing.T) *model.Authorizati
 }
 
 func simpleClusterRbacConfig() *model.Config {
-	config := &model.Config{
+	cfg := &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      model.ClusterRbacConfig.Type,
 			Name:      "default",
@@ -99,7 +105,7 @@ func simpleClusterRbacConfig() *model.Config {
 			Mode: istio_rbac.RbacConfig_ON,
 		},
 	}
-	return config
+	return cfg
 }
 
 func RoleTag(name string) string {
@@ -153,10 +159,10 @@ func SimpleBinding(name string, namespace string, role string) *model.Config {
 }
 
 func SimplePermissiveBinding(name string, namespace string, role string) *model.Config {
-	config := SimpleBinding(name, namespace, role)
-	binding := config.Spec.(*istio_rbac.ServiceRoleBinding)
+	cfg := SimpleBinding(name, namespace, role)
+	binding := cfg.Spec.(*istio_rbac.ServiceRoleBinding)
 	binding.Mode = istio_rbac.EnforcementMode_PERMISSIVE
-	return config
+	return cfg
 }
 
 func AuthzPolicyTag(name string) string {
@@ -164,7 +170,7 @@ func AuthzPolicyTag(name string) string {
 }
 
 func SimpleAuthorizationPolicy(name string, namespace string, labels map[string]string, role string) *model.Config {
-	config := &model.Config{
+	cfg := &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      model.AuthorizationPolicy.Type,
 			Name:      name,
@@ -186,7 +192,7 @@ func SimpleAuthorizationPolicy(name string, namespace string, labels map[string]
 			},
 		},
 	}
-	return config
+	return cfg
 }
 
 func Verify(got *envoy_rbac.RBAC, want map[string][]string) error {

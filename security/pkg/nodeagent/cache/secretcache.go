@@ -630,10 +630,10 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	}
 
 	length := len(certChainPEM)
+	sc.rootCertMutex.Lock()
 	// Leaf cert is element '0'. Root cert is element 'n'.
 	rootCertChanged := !bytes.Equal(sc.rootCert, []byte(certChainPEM[length-1]))
 	if sc.rootCert == nil || rootCertChanged {
-		sc.rootCertMutex.Lock()
 		rootCertExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp([]byte(certChainPEM[length-1]))
 		if sc.configOptions.SkipValidateCert || err == nil {
 			sc.rootCert = []byte(certChainPEM[length-1])
@@ -642,8 +642,8 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 			cacheLog.Errorf("%s failed to parse root certificate in CSR response: %v", conIDresourceNamePrefix, err)
 			rootCertChanged = false
 		}
-		sc.rootCertMutex.Unlock()
 	}
+	sc.rootCertMutex.Unlock()
 
 	if rootCertChanged {
 		cacheLog.Info("Root cert has changed, start rotating root cert for SDS clients")

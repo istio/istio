@@ -27,7 +27,7 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"gopkg.in/yaml.v2"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/conformance"
 	"istio.io/istio/pkg/test/conformance/constraint"
@@ -229,7 +229,7 @@ func validateTraffic(t framework.TestContext, pil pilot.Instance, gal galley.Ins
 		for _, p := range svc.Ports {
 			ports = append(ports, echo.Port{
 				Name:        p.Name,
-				Protocol:    model.Protocol(p.Protocol),
+				Protocol:    config.Protocol(p.Protocol),
 				ServicePort: int(p.ServicePort),
 			})
 		}
@@ -343,7 +343,7 @@ func validateWithRedo(t framework.TestContext, f func(context.Context) bool) {
 			passed++
 		} else if i+1 < redoAttempts {
 			// No need to check errors. If ctx times out, further calls to f will time out.
-			sleepCtx(ctx, pollDelay)
+			_ = sleepCtx(ctx, pollDelay)
 		}
 	}
 	fr := float64(passed) / float64(redoAttempts)

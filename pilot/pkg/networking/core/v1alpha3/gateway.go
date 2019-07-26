@@ -27,17 +27,16 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pilot/pkg/features"
-
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/proto"
+	"istio.io/pkg/log"
 )
 
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
@@ -45,7 +44,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 	// collect workload labels
 	workloadInstances := node.ServiceInstances
 
-	var workloadLabels model.LabelsCollection
+	var workloadLabels config.LabelsCollection
 	for _, w := range workloadInstances {
 		workloadLabels = append(workloadLabels, w.Labels)
 	}
@@ -73,7 +72,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			bindToPort: true,
 		}
 
-		protocol := model.ParseProtocol(servers[0].Port.Protocol)
+		protocol := config.ParseProtocol(servers[0].Port.Protocol)
 		listenerProtocol := plugin.ModelProtocolToListenerProtocol(protocol)
 		if protocol.IsHTTP() {
 			// We have a list of HTTP servers on this port. Build a single listener for the server port.
@@ -90,7 +89,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			filterChainOpts := make([]*filterChainOpts, 0)
 
 			for _, server := range servers {
-				if model.IsTLSServer(server) && model.IsHTTPServer(server) {
+				if config.IsTLSServer(server) && config.IsHTTPServer(server) {
 					// This is a HTTPS server, where we are doing TLS termination. Build a http connection manager with TLS context
 					routeName := mergedGateway.RouteNamesByServer[server]
 					filterChainOpts = append(filterChainOpts, configgen.createGatewayHTTPFilterChainOpts(node, server, routeName))
@@ -202,7 +201,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	services := push.Services(node)
 
 	// collect workload labels
-	var workloadLabels model.LabelsCollection
+	var workloadLabels config.LabelsCollection
 	for _, w := range proxyInstances {
 		workloadLabels = append(workloadLabels, w.Labels)
 	}
@@ -228,18 +227,18 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	servers := merged.ServersByRouteName[routeName]
 	port := int(servers[0].Port.Number) // all these servers are for the same routeName, and therefore same port
 
-	nameToServiceMap := make(map[model.Hostname]*model.Service, len(services))
+	nameToServiceMap := make(map[config.Hostname]*model.Service, len(services))
 	for _, svc := range services {
 		nameToServiceMap[svc.Hostname] = svc
 	}
 
-	vHostDedupMap := make(map[model.Hostname]*route.VirtualHost)
+	vHostDedupMap := make(map[config.Hostname]*route.VirtualHost)
 	for _, server := range servers {
 		gatewayName := merged.GatewayNameForServer[server]
 		virtualServices := push.VirtualServices(node, map[string]bool{gatewayName: true})
 		for _, virtualService := range virtualServices {
-			virtualServiceHosts := model.StringsToHostnames(virtualService.Spec.(*networking.VirtualService).Hosts)
-			serverHosts := model.HostnamesForNamespace(server.Hosts, virtualService.Namespace)
+			virtualServiceHosts := config.StringsToHostnames(virtualService.Spec.(*networking.VirtualService).Hosts)
+			serverHosts := config.HostnamesForNamespace(server.Hosts, virtualService.Namespace)
 
 			// We have two cases here:
 			// 1. virtualService hosts are 1.foo.com, 2.foo.com, 3.foo.com and server hosts are ns/*.foo.com
@@ -328,7 +327,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	node *model.Proxy, server *networking.Server, routeName string) *filterChainOpts {
 
-	serverProto := model.ParseProtocol(server.Port.Protocol)
+	serverProto := config.ParseProtocol(server.Port.Protocol)
 
 	httpProtoOpts := &core.Http1ProtocolOptions{}
 
@@ -402,7 +401,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 
 func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *auth.DownstreamTlsContext {
 	// Server.TLS cannot be nil or passthrough. But as a safety guard, return nil
-	if server.Tls == nil || model.IsPassThroughServer(server) {
+	if server.Tls == nil || config.IsPassThroughServer(server) {
 		return nil // We don't need to setup TLS context for passthrough mode
 	}
 
@@ -517,7 +516,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 				},
 			}
 		}
-	} else if !model.IsPassThroughServer(server) {
+	} else if !config.IsPassThroughServer(server) {
 		// TCP with TLS termination and forwarding. Setup TLS context to terminate, find matching services with TCP blocks
 		// and forward to backend
 		// Validation ensures that non-passthrough servers will have certs
@@ -553,12 +552,12 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 	port := &model.Port{
 		Name:     server.Port.Name,
 		Port:     int(server.Port.Number),
-		Protocol: model.ParseProtocol(server.Port.Protocol),
+		Protocol: config.ParseProtocol(server.Port.Protocol),
 	}
 
-	gatewayServerHosts := make(map[model.Hostname]bool, len(server.Hosts))
+	gatewayServerHosts := make(map[config.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
-		gatewayServerHosts[model.Hostname(host)] = true
+		gatewayServerHosts[config.Hostname(host)] = true
 	}
 
 	virtualServices := push.VirtualServices(node, gatewaysForWorkload)
@@ -595,12 +594,12 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 	port := &model.Port{
 		Name:     server.Port.Name,
 		Port:     int(server.Port.Number),
-		Protocol: model.ParseProtocol(server.Port.Protocol),
+		Protocol: config.ParseProtocol(server.Port.Protocol),
 	}
 
-	gatewayServerHosts := make(map[model.Hostname]bool, len(server.Hosts))
+	gatewayServerHosts := make(map[config.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
-		gatewayServerHosts[model.Hostname(host)] = true
+		gatewayServerHosts[config.Hostname(host)] = true
 	}
 
 	filterChains := make([]*filterChainOpts, 0)
@@ -651,8 +650,8 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 
 // Select the virtualService's hosts that match the ones specified in the gateway server's hosts
 // based on the wildcard hostname match and the namespace match
-func pickMatchingGatewayHosts(gatewayServerHosts map[model.Hostname]bool, virtualService model.Config) map[string]model.Hostname {
-	matchingHosts := make(map[string]model.Hostname)
+func pickMatchingGatewayHosts(gatewayServerHosts map[config.Hostname]bool, virtualService model.Config) map[string]config.Hostname {
+	matchingHosts := make(map[string]config.Hostname)
 	virtualServiceHosts := virtualService.Spec.(*networking.VirtualService).Hosts
 	for _, vsvcHost := range virtualServiceHosts {
 		for gatewayHost := range gatewayServerHosts {
@@ -666,9 +665,9 @@ func pickMatchingGatewayHosts(gatewayServerHosts map[model.Hostname]bool, virtua
 					continue
 				}
 				//strip the namespace
-				gwHostnameForMatching = model.Hostname(parts[1])
+				gwHostnameForMatching = config.Hostname(parts[1])
 			}
-			if gwHostnameForMatching.Matches(model.Hostname(vsvcHost)) {
+			if gwHostnameForMatching.Matches(config.Hostname(vsvcHost)) {
 				// assign the actual gateway host because calling code uses it as a key
 				// to locate TLS redirect servers
 				matchingHosts[vsvcHost] = gatewayHost

@@ -245,14 +245,14 @@ func (sc *SecretController) saAdded(obj interface{}) {
 	if sc.istioEnabledObject(acct.GetObjectMeta()) {
 		sc.upsertSecret(acct.GetName(), acct.GetNamespace())
 	}
-	sc.monitoring.ServiceAccountCreation.Inc()
+	sc.monitoring.ServiceAccountCreation.Increment()
 }
 
 // Handles the event where a service account is deleted.
 func (sc *SecretController) saDeleted(obj interface{}) {
 	acct := obj.(*v1.ServiceAccount)
 	sc.deleteSecret(acct.GetName(), acct.GetNamespace())
-	sc.monitoring.ServiceAccountDeletion.Inc()
+	sc.monitoring.ServiceAccountDeletion.Increment()
 }
 
 func (sc *SecretController) upsertSecret(saName, saNamespace string) {
@@ -324,7 +324,7 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 		if sc.istioEnabledObject(sa.GetObjectMeta()) {
 			sc.upsertSecret(saName, scrt.GetNamespace())
 		}
-		sc.monitoring.SecretDeletion.Inc()
+		sc.monitoring.SecretDeletion.Increment()
 	}
 }
 
@@ -357,7 +357,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 	csrPEM, keyPEM, err := util.GenCSR(options)
 	if err != nil {
 		log.Errorf("CSR generation error (%v)", err)
-		sc.monitoring.CSRError.Inc()
+		sc.monitoring.CSRError.Increment()
 		return nil, nil, err
 	}
 
@@ -365,7 +365,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 	certPEM, signErr := sc.ca.Sign(csrPEM, strings.Split(id, ","), sc.certTTL, sc.forCA)
 	if signErr != nil {
 		log.Errorf("CSR signing error (%v)", signErr.Error())
-		sc.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Inc()
+		sc.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Increment()
 		return nil, nil, fmt.Errorf("CSR signing error (%v)", signErr.(*ca.Error))
 	}
 	certPEM = append(certPEM, certChainPEM...)

@@ -25,11 +25,12 @@ import (
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 )
 
 // ClusterFilter is used to pass filter information into cluster based config writer print functions
 type ClusterFilter struct {
-	FQDN      model.Hostname
+	FQDN      config.Hostname
 	Port      int
 	Subset    string
 	Direction model.TrafficDirection
@@ -65,7 +66,7 @@ func (c *ConfigWriter) PrintClusterSummary(filter ClusterFilter) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(w, "SERVICE FQDN\tPORT\tSUBSET\tDIRECTION\tTYPE")
+	_, _ = fmt.Fprintln(w, "SERVICE FQDN\tPORT\tSUBSET\tDIRECTION\tTYPE")
 	for _, cluster := range clusters {
 		if filter.Verify(cluster) {
 			if len(strings.Split(cluster.Name, "|")) > 3 {
@@ -73,9 +74,9 @@ func (c *ConfigWriter) PrintClusterSummary(filter ClusterFilter) error {
 				if subset == "" {
 					subset = "-"
 				}
-				fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\n", fqdn, port, subset, direction, cluster.GetType())
+				_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\n", fqdn, port, subset, direction, cluster.GetType())
 			} else {
-				fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\n", cluster.Name, "-", "-", "-", cluster.GetType())
+				_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\n", cluster.Name, "-", "-", "-", cluster.GetType())
 			}
 		}
 	}
@@ -98,7 +99,7 @@ func (c *ConfigWriter) PrintClusterDump(filter ClusterFilter) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(c.Stdout, string(out))
+	_, _ = fmt.Fprintln(c.Stdout, string(out))
 	return nil
 }
 
@@ -150,10 +151,10 @@ func (c *ConfigWriter) retrieveSortedClusterSlice() ([]*xdsapi.Cluster, error) {
 	return clusters, nil
 }
 
-func safelyParseSubsetKey(key string) (model.TrafficDirection, string, model.Hostname, int) {
+func safelyParseSubsetKey(key string) (model.TrafficDirection, string, config.Hostname, int) {
 	if len(strings.Split(key, "|")) > 3 {
 		return model.ParseSubsetKey(key)
 	}
-	name := model.Hostname(key)
+	name := config.Hostname(key)
 	return model.TrafficDirection(""), "", name, 0
 }

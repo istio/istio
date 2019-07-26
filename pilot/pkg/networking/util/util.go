@@ -43,9 +43,14 @@ import (
 const (
 	// BlackHoleCluster to catch traffic from routes with unresolved clusters. Traffic arriving here goes nowhere.
 	BlackHoleCluster = "BlackHoleCluster"
+	// BlackHoleRouteName is the name of the route that blocks all traffic.
+	BlackHoleRouteName = "block_all"
 	// PassthroughCluster to forward traffic to the original destination requested. This cluster is used when
 	// traffic does not match any listener in envoy.
 	PassthroughCluster = "PassthroughCluster"
+	// PassthroughRouteName is the name of the route that forwards traffic to the
+	// PassthroughCluster
+	PassthroughRouteName = "allow_any"
 	// SniClusterFilter is the name of the sni_cluster envoy filter
 	SniClusterFilter = "envoy.filters.network.sni_cluster"
 	// NoProxyLocality represents the locality associated with a proxy that doesn't have locality settings
@@ -250,7 +255,7 @@ func IsProxyVersionGE11(node *model.Proxy) bool {
 
 // IsXDSMarshalingToAnyEnabled controls whether "marshaling to Any" feature is enabled.
 func IsXDSMarshalingToAnyEnabled(node *model.Proxy) bool {
-	return IsProxyVersionGE11(node) && !features.DisableXDSMarshalingToAny()
+	return IsProxyVersionGE11(node) && !features.DisableXDSMarshalingToAny
 }
 
 // ResolveHostsInNetworksConfig will go through the Gateways addresses for all
