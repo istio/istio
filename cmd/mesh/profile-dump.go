@@ -96,7 +96,6 @@ func profileDump(args *rootArgs, pdArgs *profileDumpArgs) {
 }
 
 func genProfile(helmValues bool, inFilename, setOverlayYAML, configPath string) (string, error) {
-	// TODO(mostrowski): load profile if set using --set flag.
 	overlayCRYAML := ""
 	if inFilename != "" {
 		b, err := ioutil.ReadFile(inFilename)
@@ -169,6 +168,9 @@ func genProfile(helmValues bool, inFilename, setOverlayYAML, configPath string) 
 
 func unmarshalAndValidateICP(crYAML string) (*v1alpha2.IstioControlPlaneSpec, string, error) {
 	// TODO: add GVK handling as appropriate.
+	if crYAML == "" {
+		return &v1alpha2.IstioControlPlaneSpec{}, "", nil
+	}
 	icps, _, err := manifest.ParseK8SYAMLToIstioControlPlaneSpec(crYAML)
 	if err != nil {
 		return nil, "", fmt.Errorf("could not unmarshal the overlay file: %s\n\nOriginal YAML:\n%s", err, crYAML)

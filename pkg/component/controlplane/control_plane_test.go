@@ -52,7 +52,7 @@ func TestRenderInstallationSuccess(t *testing.T) {
 		{
 			desc: "all_off",
 			installSpec: `
-defaultNamespacePrefix: istio-system
+defaultNamespace: istio-system
 trafficManagement:
   enabled: false
 policy:
@@ -70,7 +70,7 @@ autoInjection:
 		{
 			desc: "pilot_default",
 			installSpec: `
-defaultNamespacePrefix: istio-system
+defaultNamespace: istio-system
 policy:
   enabled: false
 telemetry:
@@ -92,7 +92,7 @@ trafficManagement:
 		{
 			desc: "pilot_override_values",
 			installSpec: `
-defaultNamespacePrefix: istio-system
+defaultNamespace: istio-system
 policy:
   enabled: false
 telemetry:
@@ -125,7 +125,7 @@ trafficManagement:
 		{
 			desc: "pilot_override_kubernetes",
 			installSpec: `
-defaultNamespacePrefix: istio-system
+defaultNamespace: istio-system
 policy:
   enabled: false
 telemetry:
@@ -164,8 +164,8 @@ trafficManagement:
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			var is v1alpha2.IstioControlPlaneSpec
-			spec := `customPackagePath: "file://` + helmChartTestDir + `"` + "\n"
-			spec += `profile: "file://` + helmChartTestDir + `/global.yaml"` + "\n"
+			spec := `installPackagePath: ` + helmChartTestDir + "\n"
+			spec += `profile: ` + helmChartTestDir + `/global.yaml` + "\n"
 			spec += tt.installSpec
 			err := util.UnmarshalWithJSONPB(spec, &is)
 			if err != nil {

@@ -124,9 +124,9 @@ func IsComponentEnabledInSpec(featureName FeatureName, componentName ComponentNa
 // Namespace assumes that controlPlaneSpec has been validated.
 // TODO: remove extra validations when comfort level is high enough.
 func Namespace(featureName FeatureName, componentName ComponentName, controlPlaneSpec *v1alpha2.IstioControlPlaneSpec) (string, error) {
-	defaultNamespaceI, found, err := GetFromStructPath(controlPlaneSpec, "DefaultNamespacePrefix")
+	defaultNamespaceI, found, err := GetFromStructPath(controlPlaneSpec, "DefaultNamespace")
 	if !found {
-		return "", fmt.Errorf("can't find any setting for defaultNamespacePrefix for feature=%s, component=%s", featureName, componentName)
+		return "", fmt.Errorf("can't find any setting for defaultNamespace for feature=%s, component=%s", featureName, componentName)
 	}
 	if err != nil {
 		return "", fmt.Errorf("error in Namepsace for feature=%s, component=%s: %s", featureName, componentName, err)
@@ -134,10 +134,10 @@ func Namespace(featureName FeatureName, componentName ComponentName, controlPlan
 	}
 	defaultNamespace, ok := defaultNamespaceI.(string)
 	if !ok {
-		return "", fmt.Errorf("defaultNamespacePrefix has bad type %T, expect string", defaultNamespaceI)
+		return "", fmt.Errorf("defaultNamespace has bad type %T, expect string", defaultNamespaceI)
 	}
 	if defaultNamespace == "" {
-		return "", fmt.Errorf("defaultNamespacePrefix must be set")
+		return "", fmt.Errorf("defaultNamespace must be set")
 	}
 
 	featureNamespace := defaultNamespace

@@ -1,16 +1,16 @@
 --- pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go.orig	2019-07-16 23:54:05.946555219 -0700
 +++ pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go	2019-07-17 00:29:40.578006785 -0700
 @@ -248,9 +248,9 @@
- 	ConfigManagement  *ConfigManagementFeatureSpec  `protobuf:"bytes,29,opt,name=config_management,json=configManagement,proto3" json:"config_management,omitempty"`
- 	AutoInjection     *AutoInjectionFeatureSpec     `protobuf:"bytes,30,opt,name=auto_injection,json=autoInjection,proto3" json:"auto_injection,omitempty"`
- 	Gateways          *GatewayFeatureSpec           `protobuf:"bytes,31,opt,name=gateways,proto3" json:"gateways,omitempty"`
- 	// Kustomize style overrides for default global values.yaml.
+	ConfigManagement  *ConfigManagementFeatureSpec  `protobuf:"bytes,29,opt,name=config_management,json=configManagement,proto3" json:"config_management,omitempty"`
+	AutoInjection     *AutoInjectionFeatureSpec     `protobuf:"bytes,30,opt,name=auto_injection,json=autoInjection,proto3" json:"auto_injection,omitempty"`
+	Gateways          *GatewayFeatureSpec           `protobuf:"bytes,31,opt,name=gateways,proto3" json:"gateways,omitempty"`
+	// Overrides for default global values.yaml.
 -	// Values map[string]interface{} `protobuf:"bytes,6,opt,name=values" json:"values,omitempty"`
 +	Values map[string]interface{} `protobuf:"bytes,6,opt,name=values" json:"values,omitempty"`
- 	// URL for the base spec. e.g.
- 	//   istio-minimal.yaml (looks in default dir)
- 	//   file://var/istio/install/values/custom/custom-install.yaml
- 	// Uses compiled in default install spec by default.
+	// Path or name for the profile e.g.
+	//   minimal (looks in profiles dir for a file called minimal.yaml)
+	//   /tmp/istio/install/values/custom/custom-install.yaml (local file path)
+	// default profile is used if this field is unset.
 @@ -1726,8 +1726,10 @@
  	Namespace string                       `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
  	Debug     CommonComponentSpec_LogLevel `protobuf:"varint,3,opt,name=debug,proto3,enum=v1alpha2.CommonComponentSpec_LogLevel" json:"debug,omitempty"`
@@ -33,7 +33,7 @@
  	XXX_sizecache        int32    `json:"-"`
  }
 @@ -2838,8 +2841,9 @@
- 
+
  // Mirrors k8s.io.api.core.v1.HTTPGetAction for unmarshaling
  type HTTPGetAction struct {
  	Path                 string        `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
@@ -44,7 +44,7 @@
  	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 @@ -2965,8 +2969,9 @@
  }
- 
+
  // Mirrors k8s.io.api.core.v1.TCPSocketAction for unmarshaling
  type TCPSocketAction struct {
 +	Port IntOrStringForPB `protobuf:"bytes,1,opt,name=port,proto3" json:"port,omitempty"`

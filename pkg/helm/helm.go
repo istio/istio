@@ -57,7 +57,7 @@ func NewHelmRenderer(helmBaseDir, profile, componentName, namespace string) (Tem
 	}
 	switch {
 	case util.IsFilePath(helmBaseDir):
-		return NewFileTemplateRenderer(util.GetLocalFilePath(helmBaseDir), globalValues, componentName, namespace), nil
+		return NewFileTemplateRenderer(helmBaseDir, globalValues, componentName, namespace), nil
 	default:
 		return NewVFSRenderer(helmBaseDir, globalValues, componentName, namespace), nil
 	}
@@ -81,9 +81,8 @@ func ReadValuesYAML(profile string) (string, error) {
 			return "", err
 		}
 	case util.IsFilePath(profile):
-		path := util.GetLocalFilePath(profile)
-		log.Infof("Loading values from local filesystem at path %s", path)
-		if globalValues, err = readFile(path); err != nil {
+		log.Infof("Loading values from local filesystem at path %s", profile)
+		if globalValues, err = readFile(profile); err != nil {
 			return "", err
 		}
 	default:
@@ -163,7 +162,7 @@ func FilenameFromProfile(profile string) (string, error) {
 	case profile == "":
 		return DefaultProfileFilename, nil
 	case util.IsFilePath(profile):
-		return util.GetLocalFilePath(profile), nil
+		return profile, nil
 	default:
 		if _, ok := ProfileNames[profile]; ok {
 			return BuiltinProfileToFilename(profile), nil
