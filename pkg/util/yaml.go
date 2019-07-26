@@ -66,6 +66,20 @@ func ToYAMLWithJSONPB(val proto.Message) string {
 	return string(yb)
 }
 
+// MarshalWithJSONPB returns a YAML string representation of val (using jsonpb).
+func MarshalWithJSONPB(val proto.Message) (string, error) {
+	m := jsonpb.Marshaler{}
+	js, err := m.MarshalToString(val)
+	if err != nil {
+		return "", err
+	}
+	yb, err := yaml.JSONToYAML([]byte(js))
+	if err != nil {
+		return "", err
+	}
+	return string(yb), nil
+}
+
 // UnmarshalWithJSONPB unmarshals y into out using jsonpb (required for many proto defined structs).
 func UnmarshalWithJSONPB(y string, out proto.Message) error {
 	jb, err := yaml.YAMLToJSON([]byte(y))

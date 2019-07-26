@@ -47,7 +47,7 @@ api_pb_gos := $(api_protos:.proto=.pb.go)
 
 .PHONY: default lint mandiff coverage test build
 
-default: iop
+default: mesh
 
 generate-api-go: $(api_pb_gos)
 	patch pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go < pkg/apis/istio/v1alpha2/fixup_go_structs.patch
@@ -80,7 +80,7 @@ coverage:
 test:
 	GO111MODULE=on go test -race ./...
 
-build: iop
+build: mesh
 
 # get imported protos to $GOPATH
 get_dep_proto:
@@ -122,7 +122,7 @@ gen_patch_values:
 
 vfsgen: data/
 	go get github.com/shurcooL/vfsgen
-	go generate ./cmd/iop.go
+	go generate ./cmd/mesh.go
 
-iop: vfsgen
-	go build -o ${GOPATH}/bin/iop ./cmd/iop.go
+mesh: vfsgen
+	go build -o ${GOPATH}/bin/mesh ./cmd/mesh.go

@@ -1,25 +1,26 @@
-#baseProfilePath: file:///usr/local/google/home/mostrowski/go/src/istio.io/operator/data/profiles/default.yaml
-#customPackagePath: file:///usr/local/google/home/mostrowski/go/src/istio.io/operator/data/charts/
-trafficManagement:
-  enabled: true
-  components:
-    pilot:
-      common:
-        values:
-          image: my-custom-pilot
-        k8s:
-          imagePullPolicy: IfNotPresent
-          resources:
-            requests:
-              cpu: 111m
-              memory: 2222Mi
-          overlays:
-          - kind: Deployment
-            name: istio-pilot
-            patches:
-              - path: spec.template.spec.containers.[name:discovery].args.[30m]
-                value: "60m" # OVERRIDDEN
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  trafficManagement:
+    enabled: true
+    components:
+      pilot:
+        common:
+          values:
+            image: my-custom-pilot
+          k8s:
+            imagePullPolicy: IfNotPresent
+            resources:
+              requests:
+                cpu: 111m
+                memory: 2222Mi
+            overlays:
+            - kind: Deployment
+              name: istio-pilot
+              patches:
+                - path: spec.template.spec.containers.[name:discovery].args.[30m]
+                  value: "60m" # OVERRIDDEN
 
-    proxy:
-      common:
-        enabled: false
+      proxy:
+        common:
+          enabled: false

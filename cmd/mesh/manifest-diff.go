@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package iop
+package mesh
 
 import (
 	"fmt"
@@ -27,16 +27,22 @@ import (
 	"istio.io/pkg/log"
 )
 
-type manDiffArgs struct {
+// YAMLSuffix is the suffix of a YAML file.
+const YAMLSuffix = "yaml"
+
+type manifestDiffArgs struct {
 	// compareDir indicates comparison between directory.
 	compareDir bool
 }
 
-const YamlSuffix = "yaml"
+func addManifestDiffFlags(cmd *cobra.Command, diffArgs *manifestDiffArgs) {
+	cmd.PersistentFlags().BoolVarP(&diffArgs.compareDir, "directory", "r",
+		false, "compare directory")
+}
 
-func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manDiffArgs, logOpts *log.Options) *cobra.Command {
+func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manifestDiffArgs) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "diff-manifest",
+		Use:   "diff",
 		Short: "Compare manifests and generate diff.",
 		Long:  "The diff-manifest subcommand is used to compare manifest from two files or directories.",
 		Args:  cobra.ExactArgs(2),
@@ -44,20 +50,15 @@ func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manDiffArgs, logOpts *log.Opt
 			if diffArgs.compareDir {
 				compareManifestsFromDirs(args[0], args[1])
 			} else {
-				compareManifestsFromFiles(rootArgs, args, logOpts)
+				compareManifestsFromFiles(rootArgs, args)
 			}
 		}}
 	return cmd
 }
 
-func addManDiffFlag(cmd *cobra.Command, diffArgs *manDiffArgs) {
-	cmd.PersistentFlags().BoolVarP(&diffArgs.compareDir, "directory", "r",
-		false, "compare directory")
-}
-
 //compareManifestsFromFiles compares two manifest files
-func compareManifestsFromFiles(rootArgs *rootArgs, args []string, logOpts *log.Options) {
-	if err := configLogs(rootArgs, logOpts); err != nil {
+func compareManifestsFromFiles(rootArgs *rootArgs, args []string) {
+	if err := configLogs(rootArgs); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
 		os.Exit(1)
 	}
@@ -89,7 +90,7 @@ func readFromDir(dirName string) (string, error) {
 		if err != nil {
 			return err
 		}
-		if info.IsDir() || filepath.Ext(path) != YamlSuffix {
+		if info.IsDir() || filepath.Ext(path) != YAMLSuffix {
 			return nil
 		}
 		fileList = append(fileList, path)
@@ -104,7 +105,9 @@ func readFromDir(dirName string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		sb.WriteString(string(a))
+		if _, err := sb.WriteString(string(a)); err != nil {
+			return "", err
+		}
 	}
 	return sb.String(), nil
 }

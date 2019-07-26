@@ -198,7 +198,7 @@ TODO(rcernich).
 ## Manifest creation
 
 Manifest rendering is a multi-step process, shown in the figure below. ![rendering
-process](images/operator_render_flow.svg) The example in the figure shows the rendering being triggered by a CLI `iop`
+process](images/operator_render_flow.svg) The example in the figure shows the rendering being triggered by a CLI `mesh`
 command with a `IstioControlPlaneSpec` CR passed to it from a file; however, the same rendering steps would occur when an
 in-cluster CR is updated and the controller acts upon it to generate a new manifest to apply to the cluster. Note that
 both the charts and configuration profiles can come from three different sources: compiled-in, local filesystem, or URL
@@ -223,12 +223,12 @@ CRs at this layer, so no merge is performed in this step.
 
 ## CLI
 
-The CLI `iop` command is implemented in the [cmd/iop](https://github.com/istio/operator/blob/master/cmd/iop/)
+The CLI `mesh` command is implemented in the [cmd/mesh](https://github.com/istio/operator/blob/master/cmd/mesh/)
 subdirectory as a Cobra command with the following subcommands:
 
-- [manifest](https://github.com/istio/operator/blob/master/cmd/iop/manifest.go): renders a manifest and outputs to console or files.
-- [install](https://github.com/istio/operator/blob/master/cmd/iop/install.go): renders and manifest and applies it to a cluster.
-- [dump-profile](https://github.com/istio/operator/blob/master/cmd/iop/dump.go): dumps the default values for a selected profile.
+- [manifest](https://github.com/istio/operator/blob/master/cmd/mesh/manifest.go): renders a manifest and outputs to console or files.
+- [install](https://github.com/istio/operator/blob/master/cmd/mesh/install.go): renders and manifest and applies it to a cluster.
+- [dump-profile](https://github.com/istio/operator/blob/master/cmd/mesh/dump.go): dumps the default values for a selected profile.
 
 ## Migration tools
 

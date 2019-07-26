@@ -11,18 +11,28 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//go:generate go run ./vfsgen/vfsgen.go
-package main
+
+package mesh
 
 import (
-	"os"
+	"fmt"
 
-	"istio.io/operator/cmd/iop"
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	rootCmd := iop.GetRootCmd(os.Args[1:])
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+func profileDiffCmd(rootArgs *rootArgs) *cobra.Command {
+	return &cobra.Command{
+		Use:   "diff",
+		Short: "Diffs two Istio configuration profiles.",
+		Long:  "The diff subcommand is used to display the difference between two Istio configuration profiles.",
+		Args:  cobra.ExactArgs(0),
+		Run: func(cmd *cobra.Command, args []string) {
+			profileDiff(rootArgs)
+		}}
+
+}
+
+func profileDiff(args *rootArgs) {
+	checkLogsOrExit(args)
+	fmt.Println("This command is not yet implemented.")
 }
