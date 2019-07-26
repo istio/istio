@@ -86,6 +86,19 @@ func TestSidecarListeners(t *testing.T) {
 }
 
 func validateListenersNoConfig(t *testing.T, response *structpath.Instance) {
+	t.Run("iptables-listener-block-loops", func(t *testing.T) {
+		response.
+			Select("{.resources[?(@.address.socketAddress.portValue==15001)]}").
+			Equals("virtualOutbound", "{.name}").
+			Equals("0.0.0.0", "{.address.socketAddress.address}").
+			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[0].name}").
+			Equals("BlackHoleCluster", "{.filterChains[0].filters[0].config.cluster}").
+			Equals("10.2.0.1", "{.filterChains[0].filterChainMatch.prefixRanges[0].addressPrefix}").
+			Equals("32", "{.filterChains[0].filterChainMatch.prefixRanges[0].prefixLen}").
+			Equals(true, "{.useOriginalDst}").
+			CheckOrFail(t)
+	})
+
 	t.Run("iptables-forwarding-listener", func(t *testing.T) {
 		response.
 			Select("{.resources[?(@.address.socketAddress.portValue==15001)]}").
