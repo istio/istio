@@ -288,6 +288,9 @@ github.com/inconshreveable/mousetrap v1.0.0 h1:Z8tu5sraLXCXIcARxBp/8cbvlwVa7Z1NH
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/istio/glog v0.0.0-20190424172949-d7cfb6fa2ccd h1:AJnLAbRpHRy2stiICRI1hcp0f8EExPEiZLgeOmCGnuE=
 github.com/istio/glog v0.0.0-20190424172949-d7cfb6fa2ccd/go.mod h1:gF8UB8w1Mqkddo9AqNOPkiduBosB3HHkpC5ra96cDzw=
+github.com/istio/gogo-protobuf v1.2.1 h1:8CFvH2ygdNeWdQ7/PaA5ilexEJCO1okGNDL7cqP9Ldo=
+github.com/istio/gogo-protobuf v1.2.2-0.20190726125433-4c9abdb3090c h1:nZ1jQm7wyjt21Zc6c1jtf3RVH375/Omgzq+INkXOkWg=
+github.com/istio/gogo-protobuf v1.2.2-0.20190726125433-4c9abdb3090c/go.mod h1:vfjn3j3y5/f0PSoVc2mvjpkYi6onwEz0eC1iLQrg8yY=
 github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf h1:AshFubsUWsHMYfGoz5XLZOOF87wnop5O/Fjjnqjk8lY=
 github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf/go.mod h1:9gnFtvcm4y+2DZMNXbO8Q7Ke2kUDomg7HhR/mEs5wVA=
 github.com/istio/viper v1.3.3-0.20190515210538-2789fed3109c h1:EFWADU43GY2T7NIYYbIHWdrG2hRiWyGSHeON57ZADBE=
@@ -311,6 +314,7 @@ github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7V
 github.com/keybase/go-crypto v0.0.0-20190416182011-b785b22cc757 h1:rHXu79NFmin5AvIe4JsnfCBGb1qAIlMTX0vnpVnDn7s=
 github.com/keybase/go-crypto v0.0.0-20190416182011-b785b22cc757/go.mod h1:ghbZscTyKdM07+Fw3KSi0hcJm+AlEUWj8QLlPtijN/M=
 github.com/kisielk/errcheck v1.1.0/go.mod h1:EZBBE59ingxPouuu3KfxchcWSUPOHkagtvWXihfKN4Q=
+github.com/kisielk/errcheck v1.2.0/go.mod h1:/BMXB+zMLi60iA8Vv6Ksmxu/1UDYcXs4uQLJ+jE2L00=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1 h1:mweAR1A6xJ3oS2pRaGiHgQ4OO8tzTaLawm8vnODuwDk=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
@@ -549,6 +553,7 @@ golang.org/x/time v0.0.0-20181108054448-85acf8d2951c/go.mod h1:tRJNPiyCQ0inRvYxb
 golang.org/x/tools v0.0.0-20180221164845-07fd8470d635/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
 golang.org/x/tools v0.0.0-20180828015842-6cd1fcedba52/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
 golang.org/x/tools v0.0.0-20180917221912-90fa682c2a6e/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
+golang.org/x/tools v0.0.0-20181030221726-6c7e314b6563/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
 golang.org/x/tools v0.0.0-20190114222345-bf090417da8b/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
 golang.org/x/tools v0.0.0-20190226205152-f727befe758c h1:vamGzbGri8IKo20MQncCuljcQ5uAO6kaCeawQPVblAI=
 golang.org/x/tools v0.0.0-20190226205152-f727befe758c/go.mod h1:9Yl7xja0Znq3iFh3HoIrodX9oNMXvdceNzlUR8zjMvY=

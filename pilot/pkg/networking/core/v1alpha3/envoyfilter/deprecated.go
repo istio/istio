@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/pkg/log"
 )
 
@@ -114,7 +115,7 @@ func DeprecatedInsertUserFilters(in *plugin.InputParams, listener *xdsapi.Listen
 
 // NOTE: There can be only one filter for a workload. If multiple filters are defined, the behavior
 // is undefined.
-func getUserFiltersForWorkload(env *model.Environment, labels model.LabelsCollection) *networking.EnvoyFilter {
+func getUserFiltersForWorkload(env *model.Environment, labels config.LabelsCollection) *networking.EnvoyFilter {
 	f := env.EnvoyFilter(labels)
 	if f != nil {
 		return f.Spec.(*networking.EnvoyFilter)

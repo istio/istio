@@ -20,6 +20,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 )
 
 // ApplyClusterPatches applies patches to CDS clusters
@@ -90,7 +91,7 @@ func clusterMatch(cluster *xdsapi.Cluster, cp *model.EnvoyFilterConfigPatchWrapp
 		return false
 	}
 
-	if cMatch.Service != "" && model.Hostname(cMatch.Service) != host {
+	if cMatch.Service != "" && config.Hostname(cMatch.Service) != host {
 		return false
 	}
 
