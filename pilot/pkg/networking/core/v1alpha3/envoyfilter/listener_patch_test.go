@@ -89,7 +89,6 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig
 }
 
 func TestApplyListenerPatches(t *testing.T) {
-	t.Skip("disabled due to https://github.com/gogo/protobuf/pull/569")
 	configPatches := []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 		{
 			ApplyTo: networking.EnvoyFilter_LISTENER,
