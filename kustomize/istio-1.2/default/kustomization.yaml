@@ -1,4 +1,7 @@
-# helm template istio-1.2.2/install/kubernetes/helm/istio --name istio --namespace istio-system > istio.yaml
+#  kubectl apply -k github.com/istio/installer/kustomize/istio-1.2/default --prune -l release=istio
+#
+# Generated with:
+#  helm template istio-1.2.2/install/kubernetes/helm/istio --name istio --namespace istio-system > istio.yaml
 #
 # Requires the installation of the crds first.
 
