@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/features"
+
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/proto"
@@ -1000,9 +1002,9 @@ func TestRedisProtocolCluster(t *testing.T) {
 	}
 
 	// enable redis filter to true
-	_ = os.Setenv("PILOT_ENABLE_REDIS_FILTER", "true")
+	_ = os.Setenv(features.EnableRedisFilter.Name, "true")
 
-	defer func() { _ = os.Unsetenv("PILOT_ENABLE_REDIS_FILTER") }()
+	defer func() { _ = os.Unsetenv(features.EnableRedisFilter.Name) }()
 
 	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
 

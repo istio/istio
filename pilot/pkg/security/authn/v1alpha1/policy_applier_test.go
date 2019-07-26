@@ -197,7 +197,7 @@ func TestCollectJwtSpecs(t *testing.T) {
 }
 
 func setUseIstioJWTFilter(value string, t *testing.T) {
-	err := os.Setenv("USE_ISTIO_JWT_FILTER", value)
+	err := os.Setenv(features.UseIstioJWTFilter.Name, value)
 	if err != nil {
 		t.Fatalf("failed to set enable Istio JWT filter: %v", err)
 	}
