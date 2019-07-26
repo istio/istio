@@ -44,6 +44,10 @@ const (
 )
 
 func TestMinimal(t *testing.T) {
+	// Pods will talk to eachother on localhost which will break this
+	os.Setenv("PILOT_RESTRICT_POD_UP_TRAFFIC_LOOP", "false")
+	defer os.Setenv("PILOT_RESTRICT_POD_UP_TRAFFIC_LOOP", "true")
+
 	testForApps(t, &echo.Factory{
 		Ports: model.PortList{
 			{
