@@ -53,7 +53,167 @@ import (
 	"istio.io/pkg/ctrlz/fw"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
-logic:
+)
+
+// Processing2 component is the main config processing component that will listen to a config source and publish
+// resources through an MCP server, or a dialout connection.
+type Processing2 struct {
+	args *settings.Args
+
+	mcpCache     *snapshot.Cache
+	configzTopic fw.Topic
+
+	k kube.Interfaces
+
+	serveWG       sync.WaitGroup
+	grpcServer    *grpc.Server
+	runtime       *processing.Runtime
+	mcpSource     *source.Server
+	reporter      monitoring.Reporter
+	callOut       *callout
+	listenerMutex sync.Mutex
+	listener      net.Listener
+	stopCh        chan struct{}
+}
+
+var _ process.Component = &Processing2{}
+
+// NewProcessing2 returns a new processing component.
+func NewProcessing2(a *settings.Args) *Processing2 {
+	mcpCache := snapshot.New(groups.IndexFunction)
+	return &Processing2{
+		args:         a,
+		mcpCache:     mcpCache,
+		configzTopic: configz.CreateTopic(mcpCache),
+	}
+}
+
+// Start implements process.Component
+func (p *Processing2) Start() (err error) {
+	var mesh event.Source
+	var src event.Source
+	var updater snapshotter.StatusUpdater
+
+	if mesh, err = meshcfgNewFS(p.args.MeshConfigFile); err != nil {
+		return
+	}
+
+	m := metadata.MustGet()
+
+	kubeResources := p.disableExcludedKubeResources(m)
+
+	if src, updater, err = p.createSourceAndStatusUpdater(kubeResources); err != nil {
+		return
+	}
+
+	var distributor snapshotter.Distributor = snapshotter.NewMCPDistributor(p.mcpCache)
+	if p.args.EnableConfigAnalysis {
+		distributor = snapshotter.NewAnalyzingDistributor(updater, analyzers.All(), distributor)
+	}
+
+	if p.runtime, err = processorInitialize(m, p.args.DomainSuffix, event.CombineSources(mesh, src), distributor); err != nil {
+		return
+	}
+
+	grpcOptions := p.getServerGrpcOptions()
+
+	p.stopCh = make(chan struct{})
+	var checker source.AuthChecker = server.NewAllowAllChecker()
+	if !p.args.Insecure {
+		if checker, err = watchAccessList(p.stopCh, p.args.AccessListFile); err != nil {
+			return
+		}
+
+		var watcher creds.CertificateWatcher
+		if watcher, err = creds.PollFiles(p.stopCh, p.args.CredentialOptions); err != nil {
+			return
+		}
+		credentials := creds.CreateForServer(watcher)
+
+		grpcOptions = append(grpcOptions, grpc.Creds(credentials))
+	}
+	grpc.EnableTracing = p.args.EnableGRPCTracing
+	p.grpcServer = grpc.NewServer(grpcOptions...)
+
+	p.reporter = mcpMetricReporter("galley/mcp/source")
+
+	options := &source.Options{
+		Watcher:            p.mcpCache,
+		Reporter:           p.reporter,
+		CollectionsOptions: source.CollectionOptionsFromSlice(m.AllCollectionsInSnapshots()),
+		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second, 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
+	}
+
+	if p.args.SinkAddress != "" {
+		p.callOut, err = newCallout(p.args.SinkAddress, p.args.SinkAuthMode, p.args.SinkMeta, options)
+		if err != nil {
+			p.callOut = nil
+			err = fmt.Errorf("callout could not be initialized: %v", err)
+			return
+		}
+	}
+
+	serverOptions := &source.ServerOptions{
+		AuthChecker: checker,
+		RateLimiter: rate.NewLimiter(rate.Every(time.Second), 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
+	}
+
+	p.mcpSource = source.NewServer(options, serverOptions)
+
+	// get the network stuff setup
+	network := "tcp"
+	var address string
+	idx := strings.Index(p.args.APIAddress, "://")
+	if idx < 0 {
+		address = p.args.APIAddress
+	} else {
+		network = p.args.APIAddress[:idx]
+		address = p.args.APIAddress[idx+3:]
+	}
+
+	if p.listener, err = netListen(network, address); err != nil {
+		err = fmt.Errorf("unable to listen: %v", err)
+		return
+	}
+
+	mcp.RegisterResourceSourceServer(p.grpcServer, p.mcpSource)
+
+	var startWG sync.WaitGroup
+	startWG.Add(1)
+
+	p.serveWG.Add(1)
+	go func() {
+		defer p.serveWG.Done()
+		p.runtime.Start()
+
+		l := p.getListener()
+		if l != nil {
+			// start serving
+			gs := p.grpcServer
+			startWG.Done()
+			err = gs.Serve(l)
+			if err != nil {
+				scope.Errorf("Galley Server unexpectedly terminated: %v", err)
+			}
+		}
+	}()
+
+	if p.callOut != nil {
+		p.serveWG.Add(1)
+		go func() {
+			defer p.serveWG.Done()
+			p.callOut.run()
+		}()
+	}
+
+	startWG.Wait()
+
+	return nil
+}
+
+func (p *Processing2) disableExcludedKubeResources(m *schema.Metadata) schema.KubeResources {
+
+	// Behave in the same way as existing logic:
 	// - Builtin types are excluded by default.
 	// - If ServiceDiscovery is enabled, any built-in type should be readded.
 
