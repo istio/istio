@@ -345,7 +345,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.Gateway",
-		Validate:    config.ValidateGateway,
+		Validate:    networking.ValidateGateway,
 		Collection:  metadata.IstioNetworkingV1alpha3Gateways.Collection.String(),
 	}
 
