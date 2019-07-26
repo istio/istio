@@ -68,7 +68,7 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 			clusterIndex: 0,
 		}, {
 			direction:    model.TrafficDirectionInbound,
-			clusterIndex: 1,
+			clusterIndex: 3,
 		},
 	}
 	settings := []*networking.ConnectionPoolSettings{
@@ -135,7 +135,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			clusterIndex: 0,
 		}, {
 			direction:    model.TrafficDirectionInbound,
-			clusterIndex: 1,
+			clusterIndex: 3,
 		},
 	}
 	settings := &networking.ConnectionPoolSettings{
