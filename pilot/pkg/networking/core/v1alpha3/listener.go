@@ -958,6 +958,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 			return false, nil
 		}
 		if pluginParams.Service != nil {
+			// If the service port was defined as unknown. It will conflict with all other
+			// protocols.
 			if !(*currentListenerEntry).servicePort.Protocol.IsHTTP() {
 				outboundListenerConflict{
 					metric:          model.ProxyStatusConflictOutboundListenerTCPOverHTTP,
@@ -1059,10 +1061,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 		if (*currentListenerEntry).locked {
 			return false, nil
 		}
-		// Check for port collisions between TCP/TLS and HTTP. If
+		// Check for port collisions between TCP/TLS and HTTP (or unknown). If
 		// configured correctly, TCP/TLS ports may not collide. We'll
 		// need to do additional work to find out if there is a
 		// collision within TCP/TLS.
+		// If the service port was defined as unknown. It will conflict with all other
+		// protocols.
 		if !(*currentListenerEntry).servicePort.Protocol.IsTCP() {
 			// NOTE: While pluginParams.Service can be nil,
 			// this code cannot be reached if Service is nil because a pluginParams.Service can be nil only
@@ -1138,15 +1142,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		listenerOpts.filterChainOpts = opts
 
 	case plugin.ListenerProtocolAuto:
-		// Add tcp filter chain
-		if ret, opts = configgen.buildSidecarOutboundTCPListenerOptsForPortOrUDS(node, &destinationCIDR, &listenerMapKey, &currentListenerEntry,
-			&listenerOpts, pluginParams, listenerMap, virtualServices, actualWildcard); !ret {
-			return
-		}
-
-		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
-
 		// Add http filter chain and tcp filter chain to the listener opts
+		// Build HTTP filter chain first. If there is already another listener
+		// on the same port, return immediately.
 		if ret, opts = configgen.buildSidecarOutboundHTTPListenerOptsForPortOrUDS(node, &listenerMapKey, &currentListenerEntry,
 			&listenerOpts, pluginParams, listenerMap, actualWildcard); !ret {
 			return
@@ -1161,6 +1159,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 			// Support HTTP/1.0, HTTP/1.1 and HTTP/2
 			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, ListenersALPNProtocols...)
 			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, "http/1.0")
+		}
+
+		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
+
+		// Add tcp filter chain
+		if ret, opts = configgen.buildSidecarOutboundTCPListenerOptsForPortOrUDS(node, &destinationCIDR, &listenerMapKey, &currentListenerEntry,
+			&listenerOpts, pluginParams, listenerMap, virtualServices, actualWildcard); !ret {
+			return
 		}
 
 		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
