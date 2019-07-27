@@ -327,7 +327,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 		//              ServicePort  80|HTTP
 		//      --> NetworkEndpoint
 		//              Address:Port 172.16.0.1:2222
-		//              ServicePort	 8888|TCP
+		//              ServicePort  8888|TCP
 		//      --> NetworkEndpoint
 		//              Address:Port 172.16.0.1:3333
 		//              ServicePort 9999|Unknown
@@ -448,7 +448,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			//              ServicePort  80|HTTP
 			//      --> NetworkEndpoint
 			//              Address:Port 172.16.0.1:2222
-			//	            ServicePort	 8888|TCP
+			//	            ServicePort  8888|TCP
 			//      --> NetworkEndpoint
 			//              Address:Port 172.16.0.1:3333
 			//              ServicePort 9999|Unknown

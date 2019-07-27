@@ -22,9 +22,7 @@
 
 package config
 
-import (
-	"strings"
-)
+import "strings"
 
 // Protocol defines network protocols for ports
 type Protocol string
