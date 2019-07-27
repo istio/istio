@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package version
+package binary
 
 import (
 	"encoding/json"
@@ -45,7 +45,12 @@ func TestVersion(t *testing.T) {
 	for _, b := range binariesToTest {
 		cmd := path.Join(*releasedir, b)
 		t.Run(b, func(t *testing.T) {
-			out, err := exec.Command(cmd, "version", "-ojson").Output()
+			args := []string{"version", "-ojson"}
+			if b == "istioctl" {
+				args = append(args, "--remote=false")
+			}
+
+			out, err := exec.Command(cmd, args...).Output()
 			if err != nil {
 				t.Fatalf("Version failed with error: %v. Output: %v", err, string(out))
 			}
@@ -65,6 +70,36 @@ func TestVersion(t *testing.T) {
 			validateField(t, "DockerHub", verInfo.DockerHub)
 			validateField(t, "BuildStatus", verInfo.BuildStatus)
 			validateField(t, "GitTag", verInfo.GitTag)
+		})
+	}
+}
+
+var (
+	// If this flag is present, it means "testing" was imported by code that is built by the binary
+	blacklistedFlags = []string{
+		"--test.memprofilerate",
+	}
+)
+
+// Test that flags do not get polluted with unexpected flags
+func TestFlags(t *testing.T) {
+	binariesToTest := strings.Split(*binaries, " ")
+	if len(binariesToTest) == 0 {
+		t.Fatal("No binaries to test. Pass the --binaries flag.")
+	}
+	for _, b := range binariesToTest {
+		cmd := path.Join(*releasedir, b)
+		t.Run(b, func(t *testing.T) {
+			out, err := exec.Command(cmd, "--help").Output()
+			if err != nil {
+				t.Fatalf("Version failed with error: %v. Output: %v", err, string(out))
+			}
+
+			for _, blacklist := range blacklistedFlags {
+				if strings.Contains(string(out), blacklist) {
+					t.Fatalf("binary contains unexpected flags: %v", string(out))
+				}
+			}
 		})
 	}
 }

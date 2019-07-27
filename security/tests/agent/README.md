@@ -32,7 +32,7 @@ Build Image
 make clean && make sdsclient
 cp /path/to/output/sdsclient security/docker/
 cd security/docker
-docker build -f -t gcr.io/you-project/sdsclient:dev && docker push gcr.io/you-project/sdsclient:dev
+docker build -f -t gcr.io/your-project/sdsclient:dev && docker push gcr.io/your-project/sdsclient:dev
 ```
 
 ```bash

@@ -38,8 +38,8 @@ type ServiceEntryStore struct {
 	storeMutex sync.RWMutex
 
 	ip2instance map[string][]*model.ServiceInstance
-	// Endpoints table. Key is the fqdn of the service, ':', port
-	instances map[string][]*model.ServiceInstance
+	// Endpoints table. Key is the fqdn hostname and namespace
+	instances map[config.Hostname]map[string][]*model.ServiceInstance
 
 	changeMutex  sync.RWMutex
 	lastChange   time.Time
@@ -53,7 +53,7 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 		instanceHandlers: make([]instanceHandler, 0),
 		store:            store,
 		ip2instance:      map[string][]*model.ServiceInstance{},
-		instances:        map[string][]*model.ServiceInstance{},
+		instances:        map[config.Hostname]map[string][]*model.ServiceInstance{},
 		updateNeeded:     true,
 	}
 	if callbacks != nil {
@@ -149,7 +149,7 @@ func (d *ServiceEntryStore) WorkloadHealthCheckInfo(addr string) model.ProbeList
 
 // InstancesByPort retrieves instances for a service on the given ports with labels that
 // match any of the supplied labels. All instances match an empty tag list.
-func (d *ServiceEntryStore) InstancesByPort(hostname config.Hostname, port int,
+func (d *ServiceEntryStore) InstancesByPort(svc *model.Service, port int,
 	labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
 	d.update()
 
@@ -157,10 +157,10 @@ func (d *ServiceEntryStore) InstancesByPort(hostname config.Hostname, port int,
 	defer d.storeMutex.RUnlock()
 	out := make([]*model.ServiceInstance, 0)
 
-	instances, found := d.instances[string(hostname)]
+	instances, found := d.instances[svc.Hostname][svc.Attributes.Namespace]
 	if found {
 		for _, instance := range instances {
-			if instance.Service.Hostname == hostname &&
+			if instance.Service.Hostname == svc.Hostname &&
 				labels.HasSubsetOf(instance.Labels) &&
 				portMatchSingle(instance, port) {
 				out = append(out, instance)
@@ -181,18 +181,21 @@ func (d *ServiceEntryStore) update() {
 	}
 	d.changeMutex.RUnlock()
 
-	di := map[string][]*model.ServiceInstance{}
+	di := map[config.Hostname]map[string][]*model.ServiceInstance{}
 	dip := map[string][]*model.ServiceInstance{}
 
 	for _, cfg := range d.store.ServiceEntries() {
 		for _, instance := range convertInstances(cfg) {
-			key := string(instance.Service.Hostname)
-			out, found := di[key]
+
+			out, found := di[instance.Service.Hostname][instance.Service.Attributes.Namespace]
 			if !found {
 				out = []*model.ServiceInstance{}
 			}
 			out = append(out, instance)
-			di[key] = out
+			if _, f := di[instance.Service.Hostname]; !f {
+				di[instance.Service.Hostname] = map[string][]*model.ServiceInstance{}
+			}
+			di[instance.Service.Hostname][instance.Service.Attributes.Namespace] = out
 
 			byip, found := dip[instance.Endpoint.Address]
 			if !found {
@@ -258,7 +261,7 @@ func (d *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) (config.L
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation TODOg
-func (d *ServiceEntryStore) GetIstioServiceAccounts(hostname config.Hostname, ports []int) []string {
+func (d *ServiceEntryStore) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
 	//for service entries, there is no istio auth, no service accounts, etc. It is just a
 	// service, with service instances, and dns.
 	return nil

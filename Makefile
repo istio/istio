@@ -427,10 +427,9 @@ build: depend $(BUILD_BINS)
 .PHONY: build-linux
 build-linux: depend $(LINUX_BUILD_BINS)
 
-.PHONY: version-test
-# Do not run istioctl since is different (connects to kubernetes)
-version-test:
-	go test ./tests/version/... -v --base-dir ${ISTIO_OUT} --binaries="$(PILOT_BINS) mixc mixs mixgen node_agent node_agent_k8s istio_ca galley sdsclient"
+.PHONY: binaries-test
+binaries-test:
+	go test ./tests/binary/... -v --base-dir ${ISTIO_OUT} --binaries="$(BUILD_BINS)"
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,

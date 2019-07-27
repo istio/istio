@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -162,9 +163,16 @@ func TestInstances(t *testing.T) {
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
-
 	hostname := serviceHostname("reviews")
-	instances, err := controller.InstancesByPort(hostname, 0, config.LabelsCollection{})
+	svc := &model.Service{
+		Hostname: hostname,
+		Attributes: model.ServiceAttributes{
+			Name:      "reviews",
+			Namespace: model.IstioDefaultConfigNamespace,
+		},
+	}
+
+	instances, err := controller.InstancesByPort(svc, 0, config.LabelsCollection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
@@ -180,7 +188,7 @@ func TestInstances(t *testing.T) {
 
 	filterTagKey := "version"
 	filterTagVal := "v3"
-	instances, err = controller.InstancesByPort(hostname, 0, config.LabelsCollection{
+	instances, err = controller.InstancesByPort(svc, 0, config.LabelsCollection{
 		config.Labels{filterTagKey: filterTagVal},
 	})
 	if err != nil {
@@ -202,7 +210,7 @@ func TestInstances(t *testing.T) {
 	}
 
 	filterPort := 9081
-	instances, err = controller.InstancesByPort(hostname, filterPort, config.LabelsCollection{})
+	instances, err = controller.InstancesByPort(svc, filterPort, config.LabelsCollection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
@@ -225,8 +233,14 @@ func TestInstancesBadHostname(t *testing.T) {
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
-
-	instances, err := controller.InstancesByPort("", 0, config.LabelsCollection{})
+	svc := &model.Service{
+		Hostname: "",
+		Attributes: model.ServiceAttributes{
+			Name:      "reviews",
+			Namespace: model.IstioDefaultConfigNamespace,
+		},
+	}
+	instances, err := controller.InstancesByPort(svc, 0, config.LabelsCollection{})
 	if err == nil {
 		t.Error("Instances() should return error when provided bad hostname")
 	}
@@ -242,9 +256,16 @@ func TestInstancesError(t *testing.T) {
 		ts.Server.Close()
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
-
+	hostname := serviceHostname("reviews")
+	svc := &model.Service{
+		Hostname: hostname,
+		Attributes: model.ServiceAttributes{
+			Name:      "reviews",
+			Namespace: model.IstioDefaultConfigNamespace,
+		},
+	}
 	ts.Server.Close()
-	instances, err := controller.InstancesByPort(serviceHostname("reviews"), 0, config.LabelsCollection{})
+	instances, err := controller.InstancesByPort(svc, 0, config.LabelsCollection{})
 	if err == nil {
 		t.Error("Instances() should return error when client experiences connection problem")
 	}
@@ -481,7 +502,9 @@ func TestGetProxyWorkloadLabels(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			labels, err := controller.GetProxyWorkloadLabels(&model.Proxy{IPAddresses: test.ips})
-
+			sort.Slice(labels, func(i, j int) bool {
+				return labels[i].String() < labels[j].String()
+			})
 			if err != nil {
 				t.Errorf("client encountered error during GetProxyWorkloadLabels(): %v", err)
 			}
@@ -528,7 +551,14 @@ func TestGetInstanceByCacheAfterChanged(t *testing.T) {
 	go controller.Run(make(chan struct{}))
 
 	hostname := serviceHostname("reviews")
-	instances, err := controller.InstancesByPort(hostname, 0, config.LabelsCollection{})
+	svc := &model.Service{
+		Hostname: hostname,
+		Attributes: model.ServiceAttributes{
+			Name:      "reviews",
+			Namespace: model.IstioDefaultConfigNamespace,
+		},
+	}
+	instances, err := controller.InstancesByPort(svc, 0, config.LabelsCollection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
@@ -558,7 +588,7 @@ func TestGetInstanceByCacheAfterChanged(t *testing.T) {
 	ts.Lock.Unlock()
 
 	time.Sleep(2 * time.Second)
-	instances, err = controller.InstancesByPort(hostname, 0, config.LabelsCollection{})
+	instances, err = controller.InstancesByPort(svc, 0, config.LabelsCollection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}

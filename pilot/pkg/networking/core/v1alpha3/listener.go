@@ -323,14 +323,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 		// be generated using protocol sniffing.
 		// For example, the set of service instances
 		//      --> NetworkEndpoint
-		//      		Address:Port 172.16.0.1:1111
-		//      		ServicePort  80|HTTP
+		//              Address:Port 172.16.0.1:1111
+		//              ServicePort  80|HTTP
 		//      --> NetworkEndpoint
-		//      		Address:Port 172.16.0.1:2222
-		//				ServicePort	 8888|TCP
+		//              Address:Port 172.16.0.1:2222
+		//              ServicePort	 8888|TCP
 		//      --> NetworkEndpoint
-		//      		Address:Port 172.16.0.1:3333
-		//				ServicePort 9999|Unknown
+		//              Address:Port 172.16.0.1:3333
+		//              ServicePort 9999|Unknown
 		//
 		//	The pilot will generate three listeners, the last one will use protocol sniffing.
 		//
@@ -444,21 +444,21 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			// port protocol, the listener will be generated using protocol sniffing.
 			// For example, the set of service instances
 			//      --> NetworkEndpoint
-			//      		Address:Port 172.16.0.1:1111
-			//      		ServicePort  80|HTTP
+			//              Address:Port 172.16.0.1:1111
+			//              ServicePort  80|HTTP
 			//      --> NetworkEndpoint
-			//      		Address:Port 172.16.0.1:2222
-			//				ServicePort	 8888|TCP
+			//              Address:Port 172.16.0.1:2222
+			//	            ServicePort	 8888|TCP
 			//      --> NetworkEndpoint
-			//      		Address:Port 172.16.0.1:3333
-			//				ServicePort 9999|Unknown
+			//              Address:Port 172.16.0.1:3333
+			//              ServicePort 9999|Unknown
 			//
 			// User defines ingress listener as:
-			// 	ingress:
+			//  ingress:
 			//	- port:
-			//		number: 1111
+			//      number: 1111
 			//      protocol: unknown
-			//	  defaultEndpoint: unix://somedir
+			//    defaultEndpoint: unix://somedir
 			// Only one listener will be generated. The the listener port protocol is unknown.
 			//
 			pluginParams := &plugin.InputParams{
@@ -800,6 +800,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					bindToPort:     bindToPort,
 				}
 
+				// The listener protocol is determined by the protocol of egress listener port.
 				pluginParams := &plugin.InputParams{
 					ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(node, listenPort.Protocol),
 					DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
@@ -865,8 +866,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						bindToPort:     bindToPort,
 					}
 
+					// The listener protocol is determined by the protocol of service port.
 					pluginParams := &plugin.InputParams{
-						ListenerProtocol:           plugin.DefaultListenerProtocol(node, servicePort.Protocol),
+						ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(node, servicePort.Protocol),
 						DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
 						Env:                        env,
 						Node:                       node,
@@ -985,7 +987,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 		// Set useRemoteAddress to true for side car outbound listeners so that it picks up the localhost address of the sender,
 		// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers
 		// such as "x-envoy-upstream-rq-timeout-ms" set by the calling application.
-		useRemoteAddress: features.UseRemoteAddress(),
+		useRemoteAddress: features.UseRemoteAddress.Get(),
 		direction:        http_conn.EGRESS,
 		rds:              rdsName,
 	}
@@ -1167,6 +1169,22 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	default:
 		// UDP or other protocols: no need to log, it's too noisy
 		return
+	}
+
+	// These wildcard listeners are intended for outbound traffic. However, there are cases where inbound traffic can hit these.
+	// This will happen when there is a no more specific inbound listener, either because Pilot hasn't sent it (race condition
+	// at startup), or because it never will (a port not specified in a service but captured by iptables).
+	// When this happens, Envoy will infinite loop sending requests to itself.
+	// To prevent this, we add a filter chain match that will match the pod ip and blackhole the traffic.
+	if listenerOpts.bind == actualWildcard && features.RestrictPodIPTrafficLoops.Get() {
+		blackhole := blackholeStructMarshalling
+		if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
+			blackhole = blackholeAnyMarshalling
+		}
+		listenerOpts.filterChainOpts = append([]*filterChainOpts{{
+			destinationCIDRs: pluginParams.Node.IPAddresses,
+			networkFilters:   []listener.Filter{blackhole},
+		}}, listenerOpts.filterChainOpts...)
 	}
 
 	// Lets build the new listener with the filter chains. In the end, we will
@@ -1359,7 +1377,12 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Envir
 		return ipTablesListener
 	}
 
-	filter := ipTablesListener.FilterChains[0].Filters[0]
+	// contains all filter chains except for the final passthrough/blackhole
+	initialFilterChain := ipTablesListener.FilterChains[:len(ipTablesListener.FilterChains)-1]
+
+	// contains just the final passthrough/blackhole
+	fallbackFilter := ipTablesListener.FilterChains[len(ipTablesListener.FilterChains)-1].Filters[0]
+
 	if isAllowAnyOutbound(node) {
 		hostname = util.PassthroughCluster
 	}
@@ -1391,12 +1414,11 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Envir
 	}
 	if len(mutable.FilterChains) > 0 && len(mutable.FilterChains[0].TCP) > 0 {
 		filters := append([]listener.Filter{}, mutable.FilterChains[0].TCP...)
-		filters = append(filters, filter)
-		ipTablesListener.FilterChains = []listener.FilterChain{
-			{
-				Filters: filters,
-			},
-		}
+		filters = append(filters, fallbackFilter)
+
+		// Replace the final filter chain with the new chain that has had plugins applied
+		initialFilterChain = append(initialFilterChain, listener.FilterChain{Filters: filters})
+		ipTablesListener.FilterChains = initialFilterChain
 	}
 	return ipTablesListener
 }
@@ -1753,7 +1775,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 // This allows external https traffic, even when port the port (usually 443) is in use by another service.
 func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts, node *model.Proxy, currentListenerEntry *outboundListenerEntry) {
 	// If traffic policy is REGISTRY_ONLY, the traffic will already be blocked, so no action is needed.
-	if features.EnableFallthroughRoute() && isAllowAnyOutbound(node) {
+	if features.EnableFallthroughRoute.Get() && isAllowAnyOutbound(node) {
 
 		wildcardMatch := &listener.FilterChainMatch{}
 		for _, fc := range l.FilterChains {

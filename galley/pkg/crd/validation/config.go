@@ -114,6 +114,8 @@ func (whc *WebhookConfigController) createOrUpdateWebhookConfig() {
 	} else if updated {
 		scope.Infof("%v validatingwebhookconfiguration updated", whc.webhookConfiguration.Name)
 		reportValidationConfigUpdate()
+	} else {
+		scope.Infof("%v validatingwebhookconfiguration unchanged, no update needed", whc.webhookConfiguration.Name)
 	}
 }
 

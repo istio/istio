@@ -92,6 +92,17 @@ func (c *kubectl) applyInternal(namespace string, files []string) error {
 	return nil
 }
 
+func (c *kubectl) scale(namespace, deployment string, replicas int) error {
+	command := fmt.Sprintf("kubectl scale %s %s --replicas %d deployment/%s", c.configArg(), namespaceArg(namespace), replicas, deployment)
+	scopes.CI.Infof("Scaling deployment: %s", command)
+	s, err := shell.Execute(true, command)
+	if err != nil {
+		scopes.CI.Infof("(FAILED) Executing kubectl: %s (err: %v): %s", command, err, s)
+		return fmt.Errorf("%v: %s", err, s)
+	}
+	return nil
+}
+
 // deleteContents deletes the given config contents using kubectl.
 func (c *kubectl) deleteContents(namespace, contents string) error {
 	files, err := c.contentsToFileList(contents, "accessor_deletec")

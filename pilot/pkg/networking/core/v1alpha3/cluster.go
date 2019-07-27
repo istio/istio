@@ -82,11 +82,9 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 
 	clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
 
-	// compute the proxy's locality. See if we have a CDS cache for that locality.
-	// If not, compute one.
-	locality := proxy.Locality
-	if locality != nil {
-		applyLocalityLBSetting(locality, clusters, env.Mesh.LocalityLbSetting, false)
+	if env.Mesh.LocalityLbSetting != nil {
+		// apply load balancer setting fot cluster endpoints
+		applyLocalityLBSetting(proxy.Locality, clusters, env.Mesh.LocalityLbSetting)
 	}
 
 	switch proxy.Type {
@@ -346,7 +344,7 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 		return nil
 	}
 
-	instances, err := env.InstancesByPort(service.Hostname, port, labels)
+	instances, err := env.InstancesByPort(service, port, labels)
 	if err != nil {
 		log.Errorf("failed to retrieve instances for %s: %v", service.Hostname, err)
 		return nil
@@ -884,7 +882,7 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 	}
 
 	// Redis protocol must be defaulted with MAGLEV to benefit from client side sharding.
-	if features.EnableRedisFilter() && port != nil && port.Protocol == config.ProtocolRedis {
+	if features.EnableRedisFilter.Get() && port != nil && port.Protocol == config.ProtocolRedis {
 		cluster.LbPolicy = apiv2.Cluster_MAGLEV
 		return
 	}
@@ -925,24 +923,15 @@ func applyLocalityLBSetting(
 	locality *core.Locality,
 	clusters []*apiv2.Cluster,
 	localityLB *meshconfig.LocalityLoadBalancerSetting,
-	shared bool,
 ) {
-	// TODO: there is a complicated lock dance involved. But it improves perf when
-	// locality LB is being used. For now, we sacrifice memory and create clones of
-	// clusters for every proxy that asks for locality specific clusters
-	for i, cluster := range clusters {
+	if locality == nil || localityLB == nil {
+		return
+	}
+	for _, cluster := range clusters {
 		// Failover should only be applied with outlier detection, or traffic will never failover.
 		enabledFailover := cluster.OutlierDetection != nil
-		if shared {
-			if cluster.LoadAssignment != nil {
-				clone := util.CloneCluster(cluster)
-				loadbalancer.ApplyLocalityLBSetting(locality, clone.LoadAssignment, localityLB, enabledFailover)
-				clusters[i] = &clone
-			}
-		} else {
-			if cluster.LoadAssignment != nil {
-				loadbalancer.ApplyLocalityLBSetting(locality, cluster.LoadAssignment, localityLB, enabledFailover)
-			}
+		if cluster.LoadAssignment != nil {
+			loadbalancer.ApplyLocalityLBSetting(locality, cluster.LoadAssignment, localityLB, enabledFailover)
 		}
 	}
 }
