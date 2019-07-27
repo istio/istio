@@ -3,6 +3,8 @@
 #
 enabled: false
 replicaCount: 1
+rollingMaxSurge: 100%
+rollingMaxUnavailable: 25%
 coreDNSImage: coredns/coredns:1.1.2
 # Source code for the plugin can be found at
 # https://github.com/istio-ecosystem/istio-coredns-plugin
