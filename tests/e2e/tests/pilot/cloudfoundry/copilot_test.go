@@ -20,12 +20,16 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
+
+	"istio.io/istio/pkg/features/pilot"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -217,6 +221,10 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 }
 
 func TestWildcardHostSidecarRouterWithMockCopilot(t *testing.T) {
+	curEnv := pilot.RestrictPodIPTrafficLoops.Get()
+	os.Setenv(pilot.RestrictPodIPTrafficLoops.Name, "false")
+	defer os.Setenv(pilot.RestrictPodIPTrafficLoops.Name, strconv.FormatBool(curEnv))
+
 	g := gomega.NewGomegaWithT(t)
 
 	runFakeApp(app3ListenPort)

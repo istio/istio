@@ -322,19 +322,20 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 
 	for _, l := range ll {
 		ldsSize += l.Size()
-		f0 := l.FilterChains[0].Filters[0]
-		if f0.Name == "mixer" {
-			f0 = l.FilterChains[0].Filters[1]
+		// The last filter will be the actual destination we care about
+		filter := l.FilterChains[len(l.FilterChains)-1].Filters[0]
+		if filter.Name == "mixer" {
+			filter = l.FilterChains[len(l.FilterChains)-1].Filters[1]
 		}
-		if f0.Name == "envoy.tcp_proxy" {
+		if filter.Name == "envoy.tcp_proxy" {
 			lt[l.Name] = l
-			config := f0.GetConfig()
+			config := filter.GetConfig()
 			if config == nil {
-				config, _ = xdsutil.MessageToStruct(f0.GetTypedConfig())
+				config, _ = xdsutil.MessageToStruct(filter.GetTypedConfig())
 			}
 			c := config.Fields["cluster"].GetStringValue()
 			log.Printf("TCP: %s -> %s", l.Name, c)
-		} else if f0.Name == "envoy.http_connection_manager" {
+		} else if filter.Name == "envoy.http_connection_manager" {
 			lh[l.Name] = l
 
 			// Getting from config is too painful..
@@ -344,11 +345,11 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 			} else {
 				routes = append(routes, fmt.Sprintf("%d", port))
 			}
-		} else if f0.Name == "envoy.mongo_proxy" {
+		} else if filter.Name == "envoy.mongo_proxy" {
 			// ignore for now
-		} else if f0.Name == "envoy.redis_proxy" {
+		} else if filter.Name == "envoy.redis_proxy" {
 			// ignore for now
-		} else if f0.Name == "envoy.filters.network.mysql_proxy" {
+		} else if filter.Name == "envoy.filters.network.mysql_proxy" {
 			// ignore for now
 		} else {
 			tm := &jsonpb.Marshaler{Indent: "  "}
