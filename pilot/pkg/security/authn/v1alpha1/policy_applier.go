@@ -117,7 +117,6 @@ func outputLocationForJwtIssuer(issuer string) string {
 }
 
 func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAuthentication {
-	var requirements []*envoy_jwt.JwtRequirement
 	providers := map[string]*envoy_jwt.JwtProvider{}
 	for i, policyJwt := range policyJwts {
 		provider := &envoy_jwt.JwtProvider{
@@ -140,7 +139,7 @@ func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAut
 
 		jwtPubKey, err := authn_model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
 		if err != nil {
-			log.Warnf("Failed to fetch jwt public key from %q", policyJwt.JwksUri)
+			log.Errorf("Failed to fetch jwt public key from %q: %s", policyJwt.JwksUri, err)
 		}
 		provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_LocalJwks{
 			LocalJwks: &core.DataSource{
@@ -152,11 +151,6 @@ func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAut
 
 		name := fmt.Sprintf("origins-%d", i)
 		providers[name] = provider
-		requirements = append(requirements, &envoy_jwt.JwtRequirement{
-			RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
-				ProviderName: name,
-			},
-		})
 	}
 
 	return &envoy_jwt.JwtAuthentication{
@@ -168,12 +162,8 @@ func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAut
 					},
 				},
 				Requires: &envoy_jwt.JwtRequirement{
-					RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
-						RequiresAny: &envoy_jwt.JwtRequirementOrList{
-							Requirements: append(requirements, &envoy_jwt.JwtRequirement{
-								RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{},
-							}),
-						},
+					RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
+						AllowMissingOrFailed: &types.Empty{},
 					},
 				},
 			},
@@ -204,7 +194,7 @@ func convertToIstioJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *istio_jwt.JwtAut
 
 		jwtPubKey, err := authn_model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
 		if err != nil {
-			log.Warnf("Failed to fetch jwt public key from %q", policyJwt.JwksUri)
+			log.Errorf("Failed to fetch jwt public key from %q: %s", policyJwt.JwksUri, err)
 		}
 
 		// Put empty string in config even if above ResolveJwtPubKey fails.
