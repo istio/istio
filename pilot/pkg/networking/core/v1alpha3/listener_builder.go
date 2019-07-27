@@ -22,10 +22,10 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
 
-	"istio.io/istio/pilot/pkg/features"
-
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/proto"
 	"istio.io/pkg/log"
@@ -201,6 +201,34 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environme
 		},
 	}
 	return builder
+}
+
+func (builder *ListenerBuilder) patchListeners(push *model.PushContext) {
+	if builder.node.Type == model.Router {
+		envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_GATEWAY, builder.node, push, builder.gatewayListeners, false)
+		return
+	}
+
+	patchOneListener := func(listener *xdsapi.Listener) *xdsapi.Listener {
+		if listener == nil {
+			return nil
+		}
+		tempArray := []*xdsapi.Listener{listener}
+		tempArray = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, builder.node, push, tempArray, true)
+		// temp array will either be empty [if virtual listener was removed] or will have a modified listener
+		if len(tempArray) == 0 {
+			return nil
+		}
+		return tempArray[0]
+	}
+	builder.virtualListener = patchOneListener(builder.virtualListener)
+	builder.virtualInboundListener = patchOneListener(builder.virtualInboundListener)
+	builder.managementListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, builder.node,
+		push, builder.managementListeners, true)
+	builder.inboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, builder.node,
+		push, builder.inboundListeners, false)
+	builder.outboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, builder.node,
+		push, builder.outboundListeners, false)
 }
 
 func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {

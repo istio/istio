@@ -23,7 +23,7 @@ import (
 // EnvoyFilterWrapper is a wrapper for the EnvoyFilter api object with pre-processed data
 type EnvoyFilterWrapper struct {
 	workloadSelector config.Labels
-	ConfigPatches    []*EnvoyFilterConfigPatchWrapper
+	Patches          map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
 }
 
 // EnvoyFilterConfigPatchWrapper is a wrapper over the EnvoyFilter ConfigPatch api object
@@ -43,7 +43,7 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 	if localEnvoyFilter.WorkloadSelector != nil {
 		out.workloadSelector = config.Labels(localEnvoyFilter.WorkloadSelector.Labels)
 	}
-	out.ConfigPatches = make([]*EnvoyFilterConfigPatchWrapper, 0, len(localEnvoyFilter.ConfigPatches))
+	out.Patches = make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper)
 	for _, cp := range localEnvoyFilter.ConfigPatches {
 		cpw := &EnvoyFilterConfigPatchWrapper{
 			ApplyTo:   cp.ApplyTo,
@@ -52,7 +52,22 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 		}
 		// there wont be an error here because validation catches mismatched types
 		cpw.Value, _ = config.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value)
-		out.ConfigPatches = append(out.ConfigPatches, cpw)
+		if cp.Match == nil {
+			// create a match all object
+			cpw.Match = &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_ANY}
+		}
+		if _, exists := out.Patches[cp.ApplyTo]; !exists {
+			out.Patches[cp.ApplyTo] = make([]*EnvoyFilterConfigPatchWrapper, 0)
+		}
+		if cpw.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER ||
+			cpw.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
+			// insert_before or after is applicable only for network filter and http filter
+			// convert the rest to add
+			if cpw.ApplyTo != networking.EnvoyFilter_HTTP_FILTER && cpw.ApplyTo != networking.EnvoyFilter_NETWORK_FILTER {
+				cpw.Operation = networking.EnvoyFilter_Patch_ADD
+			}
+		}
+		out.Patches[cp.ApplyTo] = append(out.Patches[cp.ApplyTo], cpw)
 	}
 	return out
 }
