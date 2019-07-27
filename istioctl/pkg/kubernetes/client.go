@@ -387,7 +387,6 @@ func (client *Client) PodsForSelector(namespace, labelSelector string) (*v1.PodL
 }
 
 func RunPortForwarder(fw *PortForward, readyFunc func(fw *PortForward) error) error {
-	defer fw.Forwarder.Close()
 
 	errCh := make(chan error)
 	go func() {
