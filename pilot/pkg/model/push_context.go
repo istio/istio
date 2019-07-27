@@ -249,6 +249,12 @@ var (
 		"Duplicate subsets across destination rules for same host",
 	)
 
+	// totalVirtualServices tracks the total number of virtual service
+	totalVirtualServices = monitoring.NewGauge(
+		"pilot_virt_services",
+		"Total virtual services known to pilot.",
+	)
+
 	// LastPushStatus preserves the metrics and data collected during lasts global push.
 	// It can be used by debugging tools to inspect the push event. It will be reset after each push with the
 	// new version.
@@ -269,6 +275,7 @@ var (
 		ProxyStatusClusterNoInstances,
 		DuplicatedDomains,
 		DuplicatedSubsets,
+		totalVirtualServices,
 	}
 )
 
@@ -656,6 +663,8 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	for i := range vservices {
 		vservices[i] = virtualServices[i].DeepCopy()
 	}
+
+	totalVirtualServices.Record(float64(len(virtualServices)))
 
 	// TODO(rshriram): parse each virtual service and maintain a map of the
 	// virtualservice name, the list of registry hosts in the VS and non
