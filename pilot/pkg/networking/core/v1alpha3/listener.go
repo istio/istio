@@ -316,6 +316,24 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 
 		// inbound connections/requests are redirected to the endpoint address but appear to be sent
 		// to the service address.
+		//
+		// Protocol sniffing for inbound listener.
+		// If there is no ingress listener, for each service instance, the listener port protocol is determined
+		// by the service port protocol. If user doesn't specify the service port protocol, the listener will
+		// be generated using protocol sniffing.
+		// For example, the set of service instances
+		//      --> NetworkEndpoint
+		//      		Address:Port 172.16.0.1:1111
+		//      		ServicePort  80|HTTP
+		//      --> NetworkEndpoint
+		//      		Address:Port 172.16.0.1:2222
+		//				ServicePort	 8888|TCP
+		//      --> NetworkEndpoint
+		//      		Address:Port 172.16.0.1:3333
+		//				ServicePort 9999|Unknown
+		//
+		//	The pilot will generate three listeners, the last one will use protocol sniffing.
+		//
 		for _, instance := range proxyInstances {
 			endpoint := instance.Endpoint
 			bind := endpoint.Address
@@ -420,6 +438,29 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			// TODO: this should be parsed from the defaultEndpoint field in the ingressListener
 			instance.Endpoint.Port = listenPort.Port
 
+			// Protocol sniffing for inbound listener.
+			// For each ingress listener, find a service instance with the same port number and override the service port.
+			// The listener port protocol is determined by the service port protocol. If user doesn't specify the service
+			// port protocol, the listener will be generated using protocol sniffing.
+			// For example, the set of service instances
+			//      --> NetworkEndpoint
+			//      		Address:Port 172.16.0.1:1111
+			//      		ServicePort  80|HTTP
+			//      --> NetworkEndpoint
+			//      		Address:Port 172.16.0.1:2222
+			//				ServicePort	 8888|TCP
+			//      --> NetworkEndpoint
+			//      		Address:Port 172.16.0.1:3333
+			//				ServicePort 9999|Unknown
+			//
+			// User defines ingress listener as:
+			// 	ingress:
+			//	- port:
+			//		number: 1111
+			//      protocol: unknown
+			//	  defaultEndpoint: unix://somedir
+			// Only one listener will be generated. The the listener port protocol is unknown.
+			//
 			pluginParams := &plugin.InputParams{
 				ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(node, listenPort.Protocol),
 				DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
