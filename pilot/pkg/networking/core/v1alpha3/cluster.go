@@ -82,9 +82,10 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 
 	clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
 
-	// compute the proxy's locality. See if we have a CDS cache for that locality.
-	// If not, compute one.
-	applyLocalityLBSetting(proxy.Locality, clusters, env.Mesh.LocalityLbSetting)
+	if env.Mesh.LocalityLbSetting != nil {
+		// apply load balancer setting fot cluster endpoints
+		applyLocalityLBSetting(proxy.Locality, clusters, env.Mesh.LocalityLbSetting)
+	}
 
 	switch proxy.Type {
 	case model.SidecarProxy:
