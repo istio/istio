@@ -17,6 +17,8 @@ policy:
   autoscaleMax: 5
   cpu:
     targetAverageUtilization: 80
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
 
 telemetry:
   enabled: true
@@ -26,6 +28,8 @@ telemetry:
   autoscaleMax: 5
   cpu:
     targetAverageUtilization: 80
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
   sessionAffinityEnabled: false
 
   # mixer load shedding configuration.
