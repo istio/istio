@@ -103,8 +103,8 @@ type DiscoveryServer struct {
 	mutex sync.RWMutex
 
 	// EndpointShards for a service. This is a global (per-server) list, built from
-	// incremental updates.
-	EndpointShardsByService map[string]*EndpointShards
+	// incremental updates. This is keyed by service and namespace
+	EndpointShardsByService map[string]map[string]*EndpointShards
 
 	// WorkloadsById keeps track of information about a workload, based on direct notifications
 	// from registry. This acts as a cache and allows detecting changes.
@@ -174,7 +174,7 @@ func NewDiscoveryServer(
 		ConfigGenerator:         generator,
 		ConfigController:        configCache,
 		KubeController:          kubeController,
-		EndpointShardsByService: map[string]*EndpointShards{},
+		EndpointShardsByService: map[string]map[string]*EndpointShards{},
 		WorkloadsByID:           map[string]*Workload{},
 		edsUpdates:              map[string]struct{}{},
 		proxyUpdates:            map[string]struct{}{},

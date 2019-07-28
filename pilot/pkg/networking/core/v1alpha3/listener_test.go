@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -27,6 +28,8 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+
+	"istio.io/istio/pilot/pkg/features"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -171,45 +174,58 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 	tests := []struct {
 		name           string
 		CIDR           string
-		expectedChains int
+		expectedChains []string
 	}{
 		{
 			name:           "same CIDR",
 			CIDR:           "10.10.0.0/24",
-			expectedChains: 1,
+			expectedChains: []string{"10.10.0.0"},
 		},
 		{
 			name:           "different CIDR",
 			CIDR:           "10.10.10.0/24",
-			expectedChains: 2,
+			expectedChains: []string{"10.10.0.0", "10.10.10.0"},
 		},
 	}
 	for _, tt := range tests {
-		services := []*model.Service{
-			buildService("test.com", tt.CIDR, config.ProtocolTCP, tnow),
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			if features.RestrictPodIPTrafficLoops.Get() {
+				// Expect a filter chain on the node IP
+				tt.expectedChains = append([]string{"1.1.1.1"}, tt.expectedChains...)
+			}
+			services := []*model.Service{
+				buildService("test.com", tt.CIDR, config.ProtocolTCP, tnow),
+			}
 
-		p := &fakePlugin{}
-		virtualService := model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:      model.VirtualService.Type,
-				Version:   model.VirtualService.Version,
-				Name:      "test_vs",
-				Namespace: "default",
-			},
-			Spec: virtualServiceSpec,
-		}
-		listeners := buildOutboundListeners(p, nil, &virtualService, services...)
+			p := &fakePlugin{}
+			virtualService := model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Type:      model.VirtualService.Type,
+					Version:   model.VirtualService.Version,
+					Name:      "test_vs",
+					Namespace: "default",
+				},
+				Spec: virtualServiceSpec,
+			}
+			listeners := buildOutboundListeners(p, nil, &virtualService, services...)
 
-		if len(listeners) != 1 {
-			t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
-		}
-		// There should not be multiple filter chains with same CIDR match
-		if len(listeners[0].FilterChains) != tt.expectedChains {
-			t.Fatalf("test with %s expected %d filter chains, found %d", tt.name, tt.expectedChains, len(listeners[0].FilterChains))
-		}
+			if len(listeners) != 1 {
+				t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+			}
+			var chains []string
+			for _, fc := range listeners[0].FilterChains {
+				for _, cidr := range fc.FilterChainMatch.PrefixRanges {
+					chains = append(chains, cidr.AddressPrefix)
+				}
+			}
+			// There should not be multiple filter chains with same CIDR match
+			if !reflect.DeepEqual(chains, tt.expectedChains) {
+				t.Fatalf("expected filter chains %v, found %v", tt.expectedChains, chains)
+			}
+		})
 	}
 }
+
 func TestInboundListenerConfig_HTTP(t *testing.T) {
 	for _, p := range []*model.Proxy{&proxy, &proxyHTTP10} {
 		// Add a service and verify it's config
@@ -430,9 +446,9 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 	}
 
 	// enable mysql filter that is used here
-	_ = os.Setenv("PILOT_ENABLE_MYSQL_FILTER", "true")
+	_ = os.Setenv(features.EnableMysqlFilter.Name, "true")
 
-	defer func() { _ = os.Unsetenv("PILOT_ENABLE_MYSQL_FILTER") }()
+	defer func() { _ = os.Unsetenv(features.EnableMysqlFilter.Name) }()
 
 	listeners := buildOutboundListeners(p, sidecarConfig, nil, services...)
 	if len(listeners) != 3 {
@@ -484,9 +500,9 @@ func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, ser
 	}
 
 	// enable use remote address to true
-	_ = os.Setenv("PILOT_SIDECAR_USE_REMOTE_ADDRESS", "true")
+	_ = os.Setenv(features.UseRemoteAddress.Name, "true")
 
-	defer func() { _ = os.Unsetenv("PILOT_SIDECAR_USE_REMOTE_ADDRESS") }()
+	defer func() { _ = os.Unsetenv(features.UseRemoteAddress.Name) }()
 
 	listeners := buildOutboundListeners(p, sidecarConfig, nil, services...)
 
@@ -850,8 +866,10 @@ func isHTTPListener(listener *xdsapi.Listener) bool {
 		return false
 	}
 
-	if len(listener.FilterChains) > 0 && len(listener.FilterChains[0].Filters) > 0 {
-		return listener.FilterChains[0].Filters[0].Name == "envoy.http_connection_manager"
+	for _, fc := range listener.FilterChains {
+		if fc.Filters[0].Name == "envoy.http_connection_manager" {
+			return true
+		}
 	}
 	return false
 }

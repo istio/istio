@@ -148,8 +148,8 @@ github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2
 github.com/envoyproxy/go-control-plane/pkg/util
 github.com/envoyproxy/go-control-plane/envoy/api/v2/core
 github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint
-github.com/envoyproxy/go-control-plane/envoy/api/v2/route
 github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster
+github.com/envoyproxy/go-control-plane/envoy/api/v2/route
 github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2
@@ -210,7 +210,7 @@ github.com/gobwas/glob/util/strings
 # github.com/gogo/googleapis v1.1.0
 github.com/gogo/googleapis/google/rpc
 github.com/gogo/googleapis/google/api
-# github.com/gogo/protobuf v1.2.1
+# github.com/gogo/protobuf v1.2.1 => github.com/istio/gogo-protobuf v1.2.2-0.20190726125433-4c9abdb3090c
 github.com/gogo/protobuf/jsonpb
 github.com/gogo/protobuf/types
 github.com/gogo/protobuf/proto
@@ -257,10 +257,11 @@ github.com/google/cel-go/common/packages
 github.com/google/cel-go/common/overloads
 github.com/google/cel-go/common/types/pb
 github.com/google/cel-go/parser/gen
-# github.com/google/go-cmp v0.2.0
+# github.com/google/go-cmp v0.3.0
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/cmpopts
 github.com/google/go-cmp/cmp/internal/diff
+github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
 # github.com/google/go-github v15.0.0+incompatible
@@ -356,8 +357,6 @@ github.com/lestrrat-go/jwx/internal/base64
 github.com/lestrrat-go/jwx/internal/option
 github.com/lestrrat-go/jwx/jws/sign
 github.com/lestrrat-go/jwx/jws/verify
-# github.com/lukechampine/freeze v0.0.0-20160818180733-f514e08ae5a0
-github.com/lukechampine/freeze
 # github.com/magiconair/properties v1.8.0
 github.com/magiconair/properties
 # github.com/matttproud/golang_protobuf_extensions v1.0.1

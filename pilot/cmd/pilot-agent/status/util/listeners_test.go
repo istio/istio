@@ -59,11 +59,11 @@ func (ms *mockServer) shutdown() {
 }
 
 func TestGetInboundListeningPorts(t *testing.T) {
-	adminPort := uint16(1235)
 	ms := mockServer{}
-	if err := ms.serve(adminPort); err != nil {
+	if err := ms.serve(0); err != nil {
 		t.Fatalf("failed to start mock server: %s", err)
 	}
+	adminPort := uint16(ms.server.Listener.Addr().(*net.TCPAddr).Port)
 	defer func() {
 		ms.shutdown()
 	}()

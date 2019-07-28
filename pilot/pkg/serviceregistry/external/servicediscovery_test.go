@@ -142,7 +142,8 @@ func TestServiceDiscoveryInstances(t *testing.T) {
 		makeInstance(httpDNS, "de.google.com", 8080, httpDNS.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"foo": "bar"}),
 	}
 
-	instances, err := sd.InstancesByPort("*.google.com", 0, nil)
+	svc := convertServices(*httpDNS)
+	instances, err := sd.InstancesByPort(svc[0], 0, nil)
 	if err != nil {
 		t.Errorf("Instances() encountered unexpected error: %v", err)
 	}
@@ -166,7 +167,8 @@ func TestServiceDiscoveryInstances1Port(t *testing.T) {
 		makeInstance(httpDNS, "de.google.com", 80, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"foo": "bar"}),
 	}
 
-	instances, err := sd.InstancesByPort("*.google.com", 80, nil)
+	svc := convertServices(*httpDNS)
+	instances, err := sd.InstancesByPort(svc[0], 80, nil)
 	if err != nil {
 		t.Errorf("Instances() encountered unexpected error: %v", err)
 	}
@@ -206,7 +208,8 @@ func TestNonServiceConfig(t *testing.T) {
 		makeInstance(httpDNS, "uk.google.com", 1080, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil),
 		makeInstance(httpDNS, "de.google.com", 80, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"foo": "bar"}),
 	}
-	instances, err := sd.InstancesByPort("*.google.com", 80, nil)
+	svc := convertServices(*httpDNS)
+	instances, err := sd.InstancesByPort(svc[0], 80, nil)
 	if err != nil {
 		t.Errorf("Instances() encountered unexpected error: %v", err)
 	}

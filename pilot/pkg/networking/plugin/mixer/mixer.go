@@ -112,7 +112,7 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 		}
 		return nil
 	case plugin.ListenerProtocolTCP:
-		tcpFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service, in.Push)
+		tcpFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service)
 		if in.Node.Type == model.Router {
 			// For gateways, due to TLS termination, a listener marked as TCP could very well
 			// be using a HTTP connection manager. So check the filterChain.listenerProtocol
@@ -184,7 +184,7 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 func (mixerplugin) OnVirtualListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	if in.ListenerProtocol == plugin.ListenerProtocolTCP {
 		attrs := createOutboundListenerAttributes(in)
-		tcpFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service, in.Push)
+		tcpFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
 		}
@@ -256,9 +256,9 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 			for j := 0; j < len(host.Routes); j++ {
 				r := host.Routes[j]
 				if isXDSMarshalingToAnyEnabled {
-					r.TypedPerFilterConfig = addTypedServiceConfig(r.TypedPerFilterConfig, buildInboundRouteConfig(in.Push, in, in.ServiceInstance))
+					r.TypedPerFilterConfig = addTypedServiceConfig(r.TypedPerFilterConfig, buildInboundRouteConfig(in, in.ServiceInstance))
 				} else {
-					r.PerFilterConfig = addServiceConfig(r.PerFilterConfig, buildInboundRouteConfig(in.Push, in, in.ServiceInstance))
+					r.PerFilterConfig = addServiceConfig(r.PerFilterConfig, buildInboundRouteConfig(in, in.ServiceInstance))
 				}
 				host.Routes[j] = r
 			}
@@ -433,16 +433,20 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 		switch upstreams := action.Route.ClusterSpecifier.(type) {
 		case *route.RouteAction_Cluster:
 			_, _, hostname, _ := model.ParseSubsetKey(upstreams.Cluster)
+			var attrs attributes
 			if hostname == "" && upstreams.Cluster == util.PassthroughCluster {
-				hostname = util.PassthroughCluster
+				attrs = addVirtualDestinationServiceAttributes(make(attributes), util.PassthroughCluster)
+			} else {
+				svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
+				attrs = addDestinationServiceAttributes(make(attributes), svc)
 			}
-			attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
 			addFilterConfigToRoute(in, httpRoute, attrs, isXDSMarshalingToAnyEnabled)
 
 		case *route.RouteAction_WeightedClusters:
 			for _, weighted := range upstreams.WeightedClusters.Clusters {
 				_, _, hostname, _ := model.ParseSubsetKey(weighted.Name)
-				attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
+				svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
+				attrs := addDestinationServiceAttributes(make(attributes), svc)
 				if isXDSMarshalingToAnyEnabled {
 					weighted.TypedPerFilterConfig = addTypedServiceConfig(weighted.TypedPerFilterConfig, &mccpb.ServiceConfig{
 						DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
@@ -466,7 +470,7 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 	case *route.Route_DirectResponse:
 		if virtualHostname == util.BlackHoleRouteName {
 			hostname := config.Hostname(util.BlackHoleCluster)
-			attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
+			attrs := addVirtualDestinationServiceAttributes(make(attributes), hostname)
 			addFilterConfigToRoute(in, httpRoute, attrs, isXDSMarshalingToAnyEnabled)
 		}
 	// route.Route_Redirect is not used currently, so no attributes are added here
@@ -477,10 +481,10 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 	return httpRoute
 }
 
-func buildInboundRouteConfig(push *model.PushContext, in *plugin.InputParams, instance *model.ServiceInstance) *mccpb.ServiceConfig {
+func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInstance) *mccpb.ServiceConfig {
 	configStore := in.Env.IstioConfigStore
 
-	attrs := addDestinationServiceAttributes(make(attributes), push, instance.Service.Hostname)
+	attrs := addDestinationServiceAttributes(make(attributes), instance.Service)
 	out := &mccpb.ServiceConfig{
 		DisableCheckCalls: disablePolicyChecks(inbound, in.Env.Mesh, in.Node),
 		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
@@ -503,11 +507,10 @@ func buildInboundRouteConfig(push *model.PushContext, in *plugin.InputParams, in
 	return out
 }
 
-func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, node *model.Proxy, destination *model.Service,
-	push *model.PushContext) listener.Filter {
+func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, node *model.Proxy, destination *model.Service) listener.Filter {
 	attrs := attrsCopy(attrsIn)
 	if destination != nil {
-		attrs = addDestinationServiceAttributes(attrs, push, destination.Hostname)
+		attrs = addDestinationServiceAttributes(attrs, destination)
 	}
 
 	cfg := &mccpb.TcpClientConfig{
@@ -563,20 +566,26 @@ func addTypedServiceConfig(filterConfigs map[string]*types.Any, config *mccpb.Se
 	return filterConfigs
 }
 
-func addDestinationServiceAttributes(attrs attributes, push *model.PushContext, destinationHostname config.Hostname) attributes {
-	// TODO: pass Service directly.
+func addVirtualDestinationServiceAttributes(attrs attributes, destinationHostname config.Hostname) attributes {
 	if destinationHostname == "" {
 		return attrs
 	}
+
 	attrs["destination.service.host"] = attrStringValue(string(destinationHostname))
 
-	svc := push.ServiceByHostname[destinationHostname]
+	if destinationHostname == util.PassthroughCluster || destinationHostname == util.BlackHoleCluster {
+		attrs["destination.service.name"] = attrStringValue(string(destinationHostname))
+	}
+
+	return attrs
+}
+
+func addDestinationServiceAttributes(attrs attributes, svc *model.Service) attributes {
 	if svc == nil {
-		if destinationHostname == util.PassthroughCluster || destinationHostname == util.BlackHoleCluster {
-			attrs["destination.service.name"] = attrStringValue(string(destinationHostname))
-		}
 		return attrs
 	}
+	attrs["destination.service.host"] = attrStringValue(string(svc.Hostname))
+
 	serviceAttributes := svc.Attributes
 	if serviceAttributes.Name != "" {
 		attrs["destination.service.name"] = attrStringValue(serviceAttributes.Name)

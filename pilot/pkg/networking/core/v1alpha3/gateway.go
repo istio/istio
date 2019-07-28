@@ -196,7 +196,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 }
 
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance, routeName string) (*xdsapi.RouteConfiguration, error) {
+	proxyInstances []*model.ServiceInstance, routeName string) *xdsapi.RouteConfiguration {
 
 	services := push.Services(node)
 
@@ -209,7 +209,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	gateways := env.Gateways(workloadLabels)
 	if len(gateways) == 0 {
 		log.Debuga("buildGatewayRoutes: no gateways for router ", node.ID)
-		return nil, nil
+		return nil
 	}
 
 	merged := model.MergeGateways(gateways...)
@@ -221,7 +221,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 
 		// This can happen when a gateway has recently been deleted. Envoy will still request route
 		// information due to the draining of listeners, so we should not return an error.
-		return nil, nil
+		return nil
 	}
 
 	servers := merged.ServersByRouteName[routeName]
@@ -320,8 +320,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 		p.OnOutboundRouteConfiguration(in, routeCfg)
 	}
 
-	routeCfg = applyRouteConfigurationPatches(in, routeCfg)
-	return routeCfg, nil
+	return routeCfg
 }
 
 // builds a HTTP connection manager for servers of type HTTP or HTTPS (mode: simple/mutual)

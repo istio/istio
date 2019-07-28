@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/monitoring"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
@@ -198,8 +199,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(env *model.Environment, nod
 		builder = configgen.buildGatewayListeners(env, node, push)
 	}
 
-	builder = applyListenerPatches(node, push, builder)
-
+	builder.patchListeners(push)
 	return builder.getListeners(), err
 }
 
@@ -209,10 +209,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 	mesh := env.Mesh
 
 	proxyInstances := node.ServiceInstances
-	noneMode := node.GetInterceptionMode() == model.InterceptionNone
-	_, actualLocalHostAddress := getActualWildcardAndLocalHost(node)
-
 	builder := NewListenerBuilder(node)
+
 	if mesh.ProxyListenPort > 0 {
 		// Any build order change need a careful code review
 		builder = NewListenerBuilder(node).
@@ -221,62 +219,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			buildManagementListeners(configgen, env, node, push, proxyInstances).
 			buildVirtualOutboundListener(configgen, env, node, push, proxyInstances).
 			buildVirtualInboundListener(env, node)
-	}
-
-	httpProxyPort := mesh.ProxyHttpPort
-	if httpProxyPort == 0 && noneMode { // make sure http proxy is enabled for 'none' interception.
-		httpProxyPort = int32(features.DefaultPortHTTPProxy)
-	}
-	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
-	if httpProxyPort > 0 {
-		traceOperation := http_conn.EGRESS
-		listenAddress := actualLocalHostAddress
-
-		httpOpts := &core.Http1ProtocolOptions{
-			AllowAbsoluteUrl: proto.BoolTrue,
-		}
-		if features.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
-			httpOpts.AcceptHttp_10 = true
-		}
-
-		opts := buildListenerOpts{
-			env:            env,
-			proxy:          node,
-			proxyInstances: proxyInstances,
-			bind:           listenAddress,
-			port:           int(httpProxyPort),
-			filterChainOpts: []*filterChainOpts{{
-				httpOpts: &httpListenerOpts{
-					rds:              RDSHttpProxy,
-					useRemoteAddress: false,
-					direction:        traceOperation,
-					connectionManager: &http_conn.HttpConnectionManager{
-						HttpProtocolOptions: httpOpts,
-					},
-				},
-			}},
-			bindToPort:      true,
-			skipUserFilters: true,
-		}
-		l := buildListener(opts)
-		// TODO: plugins for HTTP_PROXY mode, there is no mixer for http_proxy
-		mutable := &plugin.MutableObjects{
-			Listener:     l,
-			FilterChains: []plugin.FilterChain{{}},
-		}
-		pluginParams := &plugin.InputParams{
-			ListenerProtocol:           plugin.ListenerProtocolHTTP,
-			DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
-			Env:                        env,
-			Node:                       node,
-			ProxyInstances:             proxyInstances,
-			Push:                       push,
-		}
-		if err := buildCompleteFilterChain(pluginParams, mutable, opts); err != nil {
-			log.Warna("buildSidecarListeners ", err.Error())
-		} else {
-			builder.outboundListeners = append(builder.outboundListeners, l)
-		}
 	}
 
 	return builder
@@ -834,7 +776,78 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 		}
 	}
 
-	return append(tcpListeners, httpListeners...)
+	tcpListeners = append(tcpListeners, httpListeners...)
+	httpProxy := configgen.buildHTTPProxy(env, node, push, proxyInstances)
+	if httpProxy != nil {
+		tcpListeners = append(tcpListeners, httpProxy)
+	}
+
+	return tcpListeners
+}
+
+func (configgen *ConfigGeneratorImpl) buildHTTPProxy(env *model.Environment, node *model.Proxy,
+	push *model.PushContext, proxyInstances []*model.ServiceInstance) *xdsapi.Listener {
+	httpProxyPort := env.Mesh.ProxyHttpPort
+	noneMode := node.GetInterceptionMode() == model.InterceptionNone
+	_, actualLocalHostAddress := getActualWildcardAndLocalHost(node)
+
+	if httpProxyPort == 0 && noneMode { // make sure http proxy is enabled for 'none' interception.
+		httpProxyPort = int32(features.DefaultPortHTTPProxy)
+	}
+	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
+	if httpProxyPort == 0 {
+		return nil
+	}
+
+	traceOperation := http_conn.EGRESS
+	listenAddress := actualLocalHostAddress
+
+	httpOpts := &core.Http1ProtocolOptions{
+		AllowAbsoluteUrl: proto.BoolTrue,
+	}
+	if features.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
+		httpOpts.AcceptHttp_10 = true
+	}
+
+	opts := buildListenerOpts{
+		env:            env,
+		proxy:          node,
+		proxyInstances: proxyInstances,
+		bind:           listenAddress,
+		port:           int(httpProxyPort),
+		filterChainOpts: []*filterChainOpts{{
+			httpOpts: &httpListenerOpts{
+				rds:              RDSHttpProxy,
+				useRemoteAddress: false,
+				direction:        traceOperation,
+				connectionManager: &http_conn.HttpConnectionManager{
+					HttpProtocolOptions: httpOpts,
+				},
+			},
+		}},
+		bindToPort:      true,
+		skipUserFilters: true,
+	}
+	l := buildListener(opts)
+	// TODO: plugins for HTTP_PROXY mode, envoyfilter needs another listener match for SIDECAR_HTTP_PROXY
+	// there is no mixer for http_proxy
+	mutable := &plugin.MutableObjects{
+		Listener:     l,
+		FilterChains: []plugin.FilterChain{{}},
+	}
+	pluginParams := &plugin.InputParams{
+		ListenerProtocol: plugin.ListenerProtocolHTTP,
+		ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+		Env:              env,
+		Node:             node,
+		ProxyInstances:   proxyInstances,
+		Push:             push,
+	}
+	if err := buildCompleteFilterChain(pluginParams, mutable, opts); err != nil {
+		log.Warna("buildSidecarListeners ", err.Error())
+		return nil
+	}
+	return l
 }
 
 // validatePort checks if the sidecar proxy is capable of listening on a
@@ -917,7 +930,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 		// Set useRemoteAddress to true for side car outbound listeners so that it picks up the localhost address of the sender,
 		// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers
 		// such as "x-envoy-upstream-rq-timeout-ms" set by the calling application.
-		useRemoteAddress: features.UseRemoteAddress(),
+		useRemoteAddress: features.UseRemoteAddress.Get(),
 		direction:        http_conn.EGRESS,
 		rds:              rdsName,
 	}
@@ -1068,6 +1081,22 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	default:
 		// UDP or other protocols: no need to log, it's too noisy
 		return
+	}
+
+	// These wildcard listeners are intended for outbound traffic. However, there are cases where inbound traffic can hit these.
+	// This will happen when there is a no more specific inbound listener, either because Pilot hasn't sent it (race condition
+	// at startup), or because it never will (a port not specified in a service but captured by iptables).
+	// When this happens, Envoy will infinite loop sending requests to itself.
+	// To prevent this, we add a filter chain match that will match the pod ip and blackhole the traffic.
+	if listenerOpts.bind == actualWildcard && features.RestrictPodIPTrafficLoops.Get() {
+		blackhole := blackholeStructMarshalling
+		if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
+			blackhole = blackholeAnyMarshalling
+		}
+		listenerOpts.filterChainOpts = append([]*filterChainOpts{{
+			destinationCIDRs: pluginParams.Node.IPAddresses,
+			networkFilters:   []listener.Filter{blackhole},
+		}}, listenerOpts.filterChainOpts...)
 	}
 
 	// Lets build the new listener with the filter chains. In the end, we will
@@ -1259,7 +1288,12 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Envir
 		return ipTablesListener
 	}
 
-	filter := ipTablesListener.FilterChains[0].Filters[0]
+	// contains all filter chains except for the final passthrough/blackhole
+	initialFilterChain := ipTablesListener.FilterChains[:len(ipTablesListener.FilterChains)-1]
+
+	// contains just the final passthrough/blackhole
+	fallbackFilter := ipTablesListener.FilterChains[len(ipTablesListener.FilterChains)-1].Filters[0]
+
 	if isAllowAnyOutbound(node) {
 		hostname = util.PassthroughCluster
 	}
@@ -1291,17 +1325,16 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Envir
 	}
 	if len(mutable.FilterChains) > 0 && len(mutable.FilterChains[0].TCP) > 0 {
 		filters := append([]listener.Filter{}, mutable.FilterChains[0].TCP...)
-		filters = append(filters, filter)
-		ipTablesListener.FilterChains = []listener.FilterChain{
-			{
-				Filters: filters,
-			},
-		}
+		filters = append(filters, fallbackFilter)
+
+		// Replace the final filter chain with the new chain that has had plugins applied
+		initialFilterChain = append(initialFilterChain, listener.FilterChain{Filters: filters})
+		ipTablesListener.FilterChains = initialFilterChain
 	}
 	return ipTablesListener
 }
 
-// Deprecated: buildSidecarInboundMgmtListeners creates inbound TCP only listeners for the management ports on
+// buildSidecarInboundMgmtListeners creates inbound TCP only listeners for the management ports on
 // server (inbound). Management port listeners are slightly different from standard Inbound listeners
 // in that, they do not have mixer filters nor do they have inbound auth.
 // N.B. If a given management port is same as the service instance's endpoint port
@@ -1647,7 +1680,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 // This allows external https traffic, even when port the port (usually 443) is in use by another service.
 func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts, node *model.Proxy, currentListenerEntry *outboundListenerEntry) {
 	// If traffic policy is REGISTRY_ONLY, the traffic will already be blocked, so no action is needed.
-	if features.EnableFallthroughRoute() && isAllowAnyOutbound(node) {
+	if features.EnableFallthroughRoute.Get() && isAllowAnyOutbound(node) {
 
 		wildcardMatch := &listener.FilterChainMatch{}
 		for _, fc := range l.FilterChains {
@@ -1751,7 +1784,7 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 		// EnvoyFilter crd could choose to replace the HTTP ConnectionManager that we built or can choose to add
 		// more filters to the HTTP filter chain. In the latter case, the deprecatedInsertUserFilters function will
 		// overwrite the HTTP connection manager in the filter chain after inserting the new filters
-		return deprecatedInsertUserFilters(pluginParams, mutable.Listener, httpConnectionManagers)
+		return envoyfilter.DeprecatedInsertUserFilters(pluginParams, mutable.Listener, httpConnectionManagers)
 	}
 
 	return nil

@@ -157,7 +157,6 @@ func TestOptions(t *testing.T) {
 }
 
 func TestHasSynced(t *testing.T) {
-	t.Skip("Pending: https://github.com/istio/istio/issues/7947")
 	g := gomega.NewGomegaWithT(t)
 	controller := coredatamodel.NewController(testControllerOptions)
 

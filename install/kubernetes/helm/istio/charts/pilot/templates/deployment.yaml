@@ -22,8 +22,8 @@ spec:
 {{- end }}
   strategy:
     rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+      maxSurge: {{ .Values.rollingMaxSurge }}
+      maxUnavailable: {{ .Values.rollingMaxUnavailable }}
   selector:
     matchLabels:
       istio: pilot

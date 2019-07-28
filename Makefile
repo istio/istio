@@ -61,6 +61,10 @@ endif
 LOCAL_ARCH := $(shell uname -m)
 ifeq ($(LOCAL_ARCH),x86_64)
 GOARCH_LOCAL := amd64
+else ifeq ($(shell echo $(LOCAL_ARCH) | head -c 5),armv8)
+GOARCH_LOCAL := arm64
+else ifeq ($(shell echo $(LOCAL_ARCH) | head -c 4),armv)
+GOARCH_LOCAL := arm
 else
 GOARCH_LOCAL := $(LOCAL_ARCH)
 endif
@@ -355,11 +359,11 @@ DEBUG_LDFLAGS='-extldflags "-static"'
 # $(3): The value for LDFLAGS
 define genTargetsForNativeAndDocker
 $(ISTIO_OUT)/$(1):
-	STATIC=0 GOOS=$(GOOS) GOARCH=amd64 LDFLAGS=$(3) bin/gobuild.sh $(ISTIO_OUT)/$(1) $(2)
+	STATIC=0 GOOS=$(GOOS) GOARCH=$(GOARCH) LDFLAGS=$(3) bin/gobuild.sh $(ISTIO_OUT)/$(1) $(2)
 
 .PHONY: $(1)
 $(1):
-	STATIC=0 GOOS=$(GOOS) GOARCH=amd64 LDFLAGS=$(3) bin/gobuild.sh $(ISTIO_OUT)/$(1) $(2)
+	STATIC=0 GOOS=$(GOOS) GOARCH=$(GOARCH) LDFLAGS=$(3) bin/gobuild.sh $(ISTIO_OUT)/$(1) $(2)
 
 ifneq ($(ISTIO_OUT),$(ISTIO_OUT_LINUX))
 $(ISTIO_OUT_LINUX)/$(1):
@@ -427,10 +431,9 @@ build: depend $(BUILD_BINS)
 .PHONY: build-linux
 build-linux: depend $(LINUX_BUILD_BINS)
 
-.PHONY: version-test
-# Do not run istioctl since is different (connects to kubernetes)
-version-test:
-	go test ./tests/version/... -v --base-dir ${ISTIO_OUT} --binaries="$(PILOT_BINS) mixc mixs mixgen node_agent node_agent_k8s istio_ca galley sdsclient"
+.PHONY: binaries-test
+binaries-test:
+	go test ./tests/binary/... -v --base-dir ${ISTIO_OUT} --binaries="$(BUILD_BINS)"
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
