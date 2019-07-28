@@ -713,6 +713,18 @@ func TestInvalidParams(t *testing.T) {
 				p.ExcludeInboundPorts = "*"
 			},
 		},
+		{
+			annotation: "port can not be 0",
+			paramModifier: func(p *Params) {
+				p.IncludeInboundPorts = "0"
+			},
+		},
+		{
+			annotation: "out of range",
+			paramModifier: func(p *Params) {
+				p.IncludeInboundPorts = "65536"
+			},
+		},
 	}
 
 	for _, c := range cases {

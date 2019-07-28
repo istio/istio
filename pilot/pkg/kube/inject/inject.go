@@ -311,6 +311,9 @@ func parsePort(portStr string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed parsing port '%d': %v", port, err)
 	}
+	if port == 0 {
+		return 0, fmt.Errorf("failed parsing port '%d': port can not be 0", port)
+	}
 	return int(port), nil
 }
 
