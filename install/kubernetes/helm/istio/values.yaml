@@ -81,6 +81,8 @@ tracing:
 #
 kiali:
   enabled: false
+  dashboard: 
+    grafana: {}
 
 #
 # addon certmanager configuration
