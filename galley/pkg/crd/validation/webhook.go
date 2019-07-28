@@ -156,7 +156,7 @@ func (p *WebhookParameters) String() string {
 // DefaultArgs allocates an WebhookParameters struct initialized with Webhook's default configuration.
 func DefaultArgs() *WebhookParameters {
 	return &WebhookParameters{
-		Port:                                8443,
+		Port:                                9443,
 		CertFile:                            "/etc/certs/cert-chain.pem",
 		KeyFile:                             "/etc/certs/key.pem",
 		CACertFile:                          "/etc/certs/root-cert.pem",
