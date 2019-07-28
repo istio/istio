@@ -507,12 +507,12 @@ func pushSDS(con *sdsConnection) error {
 		return fmt.Errorf("sdsConnection passed into pushSDS() should not be nil")
 	}
 
-	con.mutex.RLock()
+	con.mutex.Lock()
+	defer con.mutex.Unlock()
 	conID := con.conID
 	secret := con.secret
 	resourceName := con.ResourceName
 	sdsPushTime := con.sdsPushTime
-	con.mutex.RUnlock()
 
 	conIDresourceNamePrefix := sdsLogPrefix(conID, resourceName)
 	if !sdsPushTime.IsZero() {
@@ -539,9 +539,7 @@ func pushSDS(con *sdsConnection) error {
 		return err
 	}
 
-	con.mutex.Lock()
 	con.sdsPushTime = time.Now()
-	con.mutex.Unlock()
 
 	// Update metrics after push to avoid adding latency to SDS push.
 	if secret.RootCert != nil {
