@@ -87,9 +87,9 @@ type Translation struct {
 }
 
 var (
-	// Translators is a map of minor versions to Translator for that version.
+	// translators is a map of minor versions to Translator for that version.
 	// TODO: this should probably be moved out to a config file that's versioned.
-	Translators = map[version.MinorVersion]*Translator{
+	translators = map[version.MinorVersion]*Translator{
 		version.NewMinorVersion(1, 3): {
 			APIMapping: map[string]*Translation{
 				"Hub":              {"global.hub", nil},
@@ -208,7 +208,7 @@ var (
 
 // NewTranslator creates a new Translator for minorVersion and returns a ptr to it.
 func NewTranslator(minorVersion version.MinorVersion) (*Translator, error) {
-	t := Translators[minorVersion]
+	t := translators[minorVersion]
 	if t == nil {
 		return nil, fmt.Errorf("no translator available for version %s", minorVersion)
 	}

@@ -31,7 +31,7 @@ import (
 	"istio.io/operator/pkg/translate"
 	"istio.io/operator/pkg/util"
 	"istio.io/operator/pkg/validate"
-	"istio.io/operator/pkg/version"
+	binversion "istio.io/operator/version"
 )
 
 type profileDumpArgs struct {
@@ -146,7 +146,7 @@ func genProfile(helmValues bool, inFilename, setOverlayYAML, configPath string) 
 		return "", err
 	}
 
-	t, err := translate.NewTranslator(version.NewMinorVersion(1, 2))
+	t, err := translate.NewTranslator(binversion.OperatorBinaryVersion.MinorVersion)
 	if err != nil {
 		return "", err
 	}
