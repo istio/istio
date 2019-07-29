@@ -40,8 +40,8 @@ type (
 		zone      string
 		cluster   string
 		mg        helper.MetadataGenerator
-		opts      []option.ClientOption
 		newClient newClientFn
+		cfg       *config.Params
 	}
 	handler struct {
 		client         *contextgraph.Client
@@ -68,9 +68,10 @@ var _ edgepb.Handler = &handler{}
 
 // adapter.HandlerBuilder#Build
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
+	opts := helper.ToOpts(b.cfg, env.Logger())
 
 	env.Logger().Debugf("Proj, zone, cluster, opts: %s,%s,%s,%s",
-		b.projectID, b.zone, b.cluster, b.opts)
+		b.projectID, b.zone, b.cluster, opts)
 
 	// TODO: meshUID should come from an attribute when
 	// multi-cluster Istio is supported. Currently we assume each
@@ -91,7 +92,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	}
 
 	var err error
-	h.client, err = b.newClient(ctx, b.opts...)
+	h.client, err = b.newClient(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -104,16 +105,14 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 
 // adapter.HandlerBuilder#SetAdapterConfig
 func (b *builder) SetAdapterConfig(cfg adapter.Config) {
-	c := cfg.(*config.Params)
-	b.projectID = c.ProjectId
+	b.cfg = cfg.(*config.Params)
+	b.projectID = b.cfg.ProjectId
 	md := b.mg.GenerateMetadata()
 	if b.projectID == "" {
 		b.projectID = md.ProjectID
 	}
 	b.zone = md.Location
 	b.cluster = md.ClusterName
-
-	b.opts = helper.ToOpts(c)
 }
 
 // adapter.HandlerBuilder#Validate

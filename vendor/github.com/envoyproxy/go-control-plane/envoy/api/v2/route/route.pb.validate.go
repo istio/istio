@@ -292,6 +292,8 @@ func (m *Route) Validate() error {
 		return nil
 	}
 
+	// no validation rules for Name
+
 	{
 		tmp := m.GetMatch()
 
@@ -393,6 +395,21 @@ func (m *Route) Validate() error {
 			}
 		}
 
+	}
+
+	{
+		tmp := m.GetTracing()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return RouteValidationError{
+					field:  "Tracing",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
 	}
 
 	switch m.Action.(type) {
@@ -1242,6 +1259,9 @@ func (m *RouteAction) Validate() error {
 			}
 		}
 
+	case *RouteAction_AutoHostRewriteHeader:
+		// no validation rules for AutoHostRewriteHeader
+
 	}
 
 	return nil
@@ -1800,6 +1820,115 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = DecoratorValidationError{}
+
+// Validate checks the field values on Tracing with the rules defined in the
+// proto definition for this message. If any rules are violated, an error is returned.
+func (m *Tracing) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	{
+		tmp := m.GetClientSampling()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return TracingValidationError{
+					field:  "ClientSampling",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
+	{
+		tmp := m.GetRandomSampling()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return TracingValidationError{
+					field:  "RandomSampling",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
+	{
+		tmp := m.GetOverallSampling()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return TracingValidationError{
+					field:  "OverallSampling",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// TracingValidationError is the validation error returned by Tracing.Validate
+// if the designated constraints aren't met.
+type TracingValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e TracingValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e TracingValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e TracingValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e TracingValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e TracingValidationError) ErrorName() string { return "TracingValidationError" }
+
+// Error satisfies the builtin error interface
+func (e TracingValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sTracing.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = TracingValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = TracingValidationError{}
 
 // Validate checks the field values on VirtualCluster with the rules defined in
 // the proto definition for this message. If any rules are violated, an error

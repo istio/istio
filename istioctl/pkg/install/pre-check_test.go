@@ -48,14 +48,53 @@ var (
 		Minor:      "8",
 		GitVersion: "1.8",
 	}
+	version1_12GKE = &version.Info{
+		Major:      "1",
+		Minor:      "12+",
+		GitVersion: "v1.12.7-gke.10",
+	}
+	version1_8GKE = &version.Info{
+		Major:      "1",
+		Minor:      "8",
+		GitVersion: "v1.8.7-gke.8",
+	}
+	versionInvalid = &version.Info{
+		Major:      "1",
+		Minor:      "8",
+		GitVersion: "v1.invalid.7",
+	}
 )
 
 func TestPreCheck(t *testing.T) {
 	cases := []testcase{
 		{
-			description: "Invalid Kubernetes Version",
+			description: "Lower Kubernetes Version",
 			config: &mockClientExecPreCheckConfig{
 				version:   version1_8,
+				namespace: "test",
+			},
+			expectedException: true,
+		},
+		{
+			description: "Invalid Kubernetes Version",
+			config: &mockClientExecPreCheckConfig{
+				version:   versionInvalid,
+				namespace: "test",
+			},
+			expectedException: true,
+		},
+		{
+			description: "Valid Kubernetes Version against GKE",
+			config: &mockClientExecPreCheckConfig{
+				version:   version1_12GKE,
+				namespace: "test",
+			},
+			expectedException: false,
+		},
+		{
+			description: "Inalid Kubernetes Version against GKE",
+			config: &mockClientExecPreCheckConfig{
+				version:   version1_8GKE,
 				namespace: "test",
 			},
 			expectedException: true,
@@ -71,20 +110,6 @@ func TestPreCheck(t *testing.T) {
 			config: &mockClientExecPreCheckConfig{
 				version:   version1_13,
 				namespace: "test",
-				authConfig: &authorizationapi.SelfSubjectAccessReview{
-					Spec: authorizationapi.SelfSubjectAccessReviewSpec{
-						ResourceAttributes: &authorizationapi.ResourceAttributes{
-							Namespace: "test",
-							Verb:      "create",
-							Group:     "test",
-							Version:   "test",
-							Resource:  "test",
-						},
-					},
-					Status: authorizationapi.SubjectAccessReviewStatus{
-						Allowed: true,
-					},
-				},
 			},
 			expectedException: false,
 		},
@@ -110,20 +135,6 @@ func TestPreCheck(t *testing.T) {
 			config: &mockClientExecPreCheckConfig{
 				version:   version1_13,
 				namespace: "test",
-				authConfig: &authorizationapi.SelfSubjectAccessReview{
-					Spec: authorizationapi.SelfSubjectAccessReviewSpec{
-						ResourceAttributes: &authorizationapi.ResourceAttributes{
-							Namespace: "test",
-							Verb:      "create",
-							Group:     "test",
-							Version:   "test",
-							Resource:  "test",
-						},
-					},
-					Status: authorizationapi.SubjectAccessReviewStatus{
-						Allowed: true,
-					},
-				},
 			},
 		},
 	}
@@ -146,12 +157,12 @@ func verifyOutput(t *testing.T, c testcase) {
 	output := out.String()
 	if c.expectedException {
 		if fErr == nil {
-			t.Fatalf("Wanted an exception for 'istioctl experimental verrify-install',"+
+			t.Fatalf("Wanted an exception for 'istioctl verify-install',"+
 				"didn't get one, output was %q", output)
 		}
 	} else {
 		if fErr != nil {
-			t.Fatalf("Unwanted exception for 'istioctl experimental verrify-install': %v", fErr)
+			t.Fatalf("Unwanted exception for 'istioctl verify-install': %v", fErr)
 		}
 	}
 }
@@ -184,7 +195,25 @@ func (m *mockClientExecPreCheckConfig) getNameSpace(ns string) (*v1.Namespace, e
 
 func (m *mockClientExecPreCheckConfig) checkAuthorization(
 	s *authorizationapi.SelfSubjectAccessReview) (result *authorizationapi.SelfSubjectAccessReview, err error) {
-	return m.authConfig, nil
+	if m.authConfig != nil {
+		return m.authConfig, nil
+	}
+	authConfig := &authorizationapi.SelfSubjectAccessReview{
+		Spec: authorizationapi.SelfSubjectAccessReviewSpec{
+			ResourceAttributes: &authorizationapi.ResourceAttributes{
+				Namespace: "test",
+				Verb:      "create",
+				Group:     "test",
+				Version:   "test",
+				Resource:  "test",
+			},
+		},
+		Status: authorizationapi.SubjectAccessReviewStatus{
+			Allowed: true,
+		},
+	}
+	return authConfig, nil
+
 }
 
 func (m *mockClientExecPreCheckConfig) checkMutatingWebhook() error {

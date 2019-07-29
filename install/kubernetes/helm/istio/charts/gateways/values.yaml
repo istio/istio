@@ -34,6 +34,8 @@ istio-ingressgateway:
   autoscaleMax: 5
   # specify replicaCount when autoscaleEnabled: false
   # replicaCount: 1
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
   resources:
     requests:
       cpu: 100m
@@ -139,7 +141,7 @@ istio-ingressgateway:
   # There are currently two types of anti-affinity:
   #    "requiredDuringSchedulingIgnoredDuringExecution"
   #    "preferredDuringSchedulingIgnoredDuringExecution"
-  # which denote “hard” vs. “soft” requirements, you can define your values
+  # which denote "hard" vs. "soft" requirements, you can define your values
   # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
   # correspondingly.
   # For example:
@@ -150,7 +152,7 @@ istio-ingressgateway:
   #   topologyKey: "kubernetes.io/hostname"
   # This pod anti-affinity rule says that the pod requires not to be scheduled
   # onto a node if that node is already running a pod with label having key
-  # “security” and value “S1”.
+  # "security" and value "S1".
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
 
@@ -164,6 +166,8 @@ istio-egressgateway:
   autoscaleMax: 5
   # specify replicaCount when autoscaleEnabled: false
   # replicaCount: 1
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
   resources:
     requests:
       cpu: 100m
@@ -215,7 +219,7 @@ istio-egressgateway:
   # There are currently two types of anti-affinity:
   #    "requiredDuringSchedulingIgnoredDuringExecution"
   #    "preferredDuringSchedulingIgnoredDuringExecution"
-  # which denote “hard” vs. “soft” requirements, you can define your values
+  # which denote "hard" vs. "soft" requirements, you can define your values
   # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
   # correspondingly.
   # For example:
@@ -226,7 +230,7 @@ istio-egressgateway:
   #   topologyKey: "kubernetes.io/hostname"
   # This pod anti-affinity rule says that the pod requires not to be scheduled
   # onto a node if that node is already running a pod with label having key
-  # “security” and value “S1”.
+  # "security" and value "S1".
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
 
@@ -243,6 +247,8 @@ istio-ilbgateway:
   autoscaleMax: 5
   # specify replicaCount when autoscaleEnabled: false
   # replicaCount: 1
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
   cpu:
     targetAverageUtilization: 80
   resources:

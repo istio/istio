@@ -23,7 +23,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/galley/testdata/validation"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/yml"
 
 	kubeSchema "istio.io/istio/galley/pkg/metadata/kube"
@@ -70,7 +69,6 @@ func loadTestData(t *testing.T) []testData {
 
 func TestValidation(t *testing.T) {
 	framework.NewTest(t).
-		Label(label.Presubmit).
 		// Limit to Kube environment as we're testing integration of webhook with K8s.
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -102,6 +100,7 @@ func TestValidation(t *testing.T) {
 					env := ctx.Environment().(*kube.Environment)
 					ns := namespace.NewOrFail(t, ctx, "validation", false)
 					err = env.ApplyContents(ns.Name(), yml)
+					defer env.DeleteContents(ns.Name(), yml)
 
 					switch {
 					case err != nil && d.isValid():
@@ -170,7 +169,6 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 	// that you need to update validation tests by either adding new/missing test cases, or removing test cases for
 	// types that are no longer supported.
 	framework.NewTest(t).
-		Label(label.Presubmit).
 		Run(func(ctx framework.TestContext) {
 
 			ignored := make(map[string]struct{})

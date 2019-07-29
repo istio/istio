@@ -20,10 +20,9 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/types"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/features/pilot"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/proto"
 )
 
@@ -36,7 +35,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 		for _, r := range rawRoutes {
 			con.RouteConfigs[r.Name] = r
 			if adsLog.DebugEnabled() {
-				resp, _ := model.ToJSONWithIndent(r, " ")
+				resp, _ := config.ToJSONWithIndent(r, " ")
 				adsLog.Debugf("RDS: Adding route:%s for node:%v", resp, con.modelNode.ID)
 			}
 		}
@@ -46,10 +45,10 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 	err = con.send(response)
 	if err != nil {
 		adsLog.Warnf("RDS: Send failure for node:%v: %v", con.modelNode.ID, err)
-		pushes.With(prometheus.Labels{"type": "rds_senderr"}).Add(1)
+		recordSendError(rdsSendErrPushes, err)
 		return err
 	}
-	pushes.With(prometheus.Labels{"type": "rds"}).Add(1)
+	rdsPushes.Increment()
 
 	adsLog.Infof("RDS: PUSH for node:%s routes:%d", con.modelNode.ID, len(rawRoutes))
 	return nil
@@ -64,18 +63,12 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.Push
 		if err != nil {
 			retErr := fmt.Errorf("RDS: Failed to generate route %s for node %v: %v", routeName, con.modelNode, err)
 			adsLog.Warnf("RDS: Failed to generate routes for route:%s for node:%v: %v", routeName, con.modelNode.ID, err)
-			pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
+			rdsBuildErrPushes.Increment()
 			return nil, retErr
 		}
 
 		if r == nil {
 			adsLog.Warnf("RDS: Got nil value for route:%s for node:%v", routeName, con.modelNode)
-
-			// Don't send an empty route, instead ignore the request. This may cause Envoy to block
-			// listeners waiting for this route
-			if pilot.DisableEmptyRouteResponse {
-				continue
-			}
 
 			// Explicitly send an empty route configuration
 			r = &xdsapi.RouteConfiguration{
@@ -88,7 +81,7 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.Push
 		if err = r.Validate(); err != nil {
 			retErr := fmt.Errorf("RDS: Generated invalid route %s for node %v: %v", routeName, con.modelNode, err)
 			adsLog.Errorf("RDS: Generated invalid routes for route:%s for node:%v: %v, %v", routeName, con.modelNode.ID, err, r)
-			pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
+			rdsBuildErrPushes.Increment()
 			// Generating invalid routes is a bug.
 			// Panic instead of trying to recover from that, since we can't
 			// assume anything about the state.

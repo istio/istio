@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/pkg/log"
 )
 
@@ -75,8 +74,6 @@ func TestFailover(t *testing.T) {
 
 			ctx.NewSubTest("CDS").
 				RequiresEnvironment(environment.Kube).
-				// TODO(https://github.com/istio/istio/issues/13812)
-				Label(label.Flaky).
 				RunParallel(func(ctx framework.TestContext) {
 					ns := namespace.NewOrFail(ctx, ctx, "locality-failover-cds", true)
 
@@ -100,7 +97,7 @@ func TestFailover(t *testing.T) {
 						ServiceCLocality:           "notcloseregion/zone/subzone",
 						NonExistantService:         "nonexistantservice",
 						NonExistantServiceLocality: "region/zone/subzone",
-					})
+					}, a)
 
 					// Send traffic to service B via a service entry.
 					log.Infof("Sending traffic to local service (CDS) via %v", fakeHostname)
@@ -109,8 +106,6 @@ func TestFailover(t *testing.T) {
 
 			ctx.NewSubTest("EDS").
 				RequiresEnvironment(environment.Kube).
-				// TODO(https://github.com/istio/istio/issues/13812)
-				Label(label.Flaky).
 				RunParallel(func(ctx framework.TestContext) {
 					ns := namespace.NewOrFail(ctx, ctx, "locality-failover-eds", true)
 
@@ -133,7 +128,7 @@ func TestFailover(t *testing.T) {
 						ServiceCLocality:           "notcloseregion/zone/subzone",
 						NonExistantService:         "10.10.10.10",
 						NonExistantServiceLocality: "region/zone/subzone",
-					})
+					}, a)
 
 					// Send traffic to service B via a service entry.
 					log.Infof("Sending traffic to local service (EDS) via %v", fakeHostname)

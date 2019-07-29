@@ -136,5 +136,5 @@ To uninstall/delete the `istio` release but continue to track the release:
 
 To uninstall/delete the `istio` release completely and make its name free for later use:
     ```
-    $ helm delete istio --purge
+    $ helm delete --purge istio
     ```

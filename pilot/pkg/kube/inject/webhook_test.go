@@ -33,6 +33,12 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/onsi/gomega"
+
+	"istio.io/api/annotation"
+	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/mcp/testing/testcerts"
+
 	"k8s.io/api/admission/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -43,10 +49,6 @@ import (
 	"k8s.io/helm/pkg/proto/hapi/chart"
 	tversion "k8s.io/helm/pkg/proto/hapi/version"
 	"k8s.io/helm/pkg/timeconv"
-
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/mcp/testing/testcerts"
 )
 
 const (
@@ -169,7 +171,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "force-on-policy",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy: "true"},
+				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
 			},
 			want: true,
 		},
@@ -181,7 +183,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "force-off-policy",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy: "false"},
+				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 			},
 			want: false,
 		},
@@ -216,7 +218,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "force-on-policy",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy: "true"},
+				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
 			},
 			want: true,
 		},
@@ -228,7 +230,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "force-off-policy",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy: "false"},
+				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 			},
 			want: false,
 		},
@@ -433,7 +435,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "policy-enabled-annotation-true-never-inject",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy: "true"},
+				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
 				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
 			},
 			want: true,
@@ -447,7 +449,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "policy-enabled-annotation-false-always-inject",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy: "false"},
+				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
 			},
 			want: false,
@@ -461,7 +463,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "policy-disabled-annotation-false-always-inject",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy: "false"},
+				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
 			},
 			want: false,
@@ -501,7 +503,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "policy-disabled-annotation-true-never-inject",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy: "true"},
+				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
 				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
 			},
 			want: true,
@@ -819,13 +821,13 @@ func TestHelmInject(t *testing.T) {
 }
 
 func createTestWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
-	mesh := model.DefaultMeshConfig()
+	mesh := config.DefaultMeshConfig()
 	dir, err := ioutil.TempDir("", "webhook_test")
 	if err != nil {
 		t.Fatalf("TempDir() failed: %v", err)
 	}
 	cleanup := func() {
-		os.RemoveAll(dir) // nolint: errcheck
+		_ = os.RemoveAll(dir)
 	}
 
 	return &Webhook{
@@ -879,17 +881,17 @@ func getValuesWithHelm(params *Params, t testing.TB) string {
 	}
 	values := getHelmValues(t)
 	mergedValues := mergeParamsIntoHelmValues(params, values, t)
-	config := &chart.Config{Raw: mergedValues, Values: map[string]*chart.Value{}}
+	chartConfig := &chart.Config{Raw: mergedValues, Values: map[string]*chart.Value{}}
 
-	vals, err := chartutil.CoalesceValues(c, config)
+	vals, err := chartutil.CoalesceValues(c, chartConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
-	yaml, err := vals.YAML()
+	out, err := vals.YAML()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return yaml
+	return out
 }
 
 func loadConfigMapWithHelm(params *Params, t testing.TB) string {
@@ -902,14 +904,14 @@ func loadConfigMapWithHelm(params *Params, t testing.TB) string {
 	values := getHelmValues(t)
 	mergedValues := mergeParamsIntoHelmValues(params, values, t)
 
-	config := &chart.Config{Raw: mergedValues, Values: map[string]*chart.Value{}}
+	chartConfig := &chart.Config{Raw: mergedValues, Values: map[string]*chart.Value{}}
 	options := chartutil.ReleaseOptions{
 		Name:      "istio",
 		Time:      timeconv.Now(),
 		Namespace: "",
 	}
 
-	vals, err := chartutil.ToRenderValuesCaps(c, config, options, &chartutil.Capabilities{TillerVersion: &tversion.Version{SemVer: "2.7.2"}})
+	vals, err := chartutil.ToRenderValuesCaps(c, chartConfig, options, &chartutil.Capabilities{TillerVersion: &tversion.Version{SemVer: "2.7.2"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1114,17 +1116,17 @@ func jsonToDeployment(deploymentJSON []byte, t *testing.T) *appsv1.Deployment {
 
 func deploymentToYaml(deployment *appsv1.Deployment, t *testing.T) []byte {
 	t.Helper()
-	yaml, err := yaml.Marshal(deployment)
+	out, err := yaml.Marshal(deployment)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return yaml
+	return out
 }
 
 func normalizeAndCompareDeployments(got, want *appsv1.Deployment, t *testing.T) error {
 	t.Helper()
 	// Scrub unimportant fields that tend to differ.
-	getAnnotations(got)[annotationStatus] = getAnnotations(want)[annotationStatus]
+	getAnnotations(got)[annotation.SidecarStatus.Name] = getAnnotations(want)[annotation.SidecarStatus.Name]
 	gotIstioCerts := istioCerts(got)
 	wantIstioCerts := istioCerts(want)
 	gotIstioCerts.Secret.DefaultMode = wantIstioCerts.Secret.DefaultMode
@@ -1229,7 +1231,7 @@ func makeTestData(t testing.TB, skip bool) []byte {
 	}
 
 	if skip {
-		pod.ObjectMeta.Annotations[annotationPolicy] = "false"
+		pod.ObjectMeta.Annotations[annotation.SidecarInject.Name] = "false"
 	}
 
 	raw, err := json.Marshal(&pod)
@@ -1260,14 +1262,14 @@ func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 		t.Fatalf("TempDir() failed: %v", err)
 	}
 	cleanup := func() {
-		os.RemoveAll(dir) // nolint: errcheck
+		_ = os.RemoveAll(dir)
 	}
 
-	config := &Config{
+	cfg := &Config{
 		Policy:   InjectionPolicyEnabled,
 		Template: sidecarTemplate,
 	}
-	configBytes, err := yaml.Marshal(config)
+	configBytes, err := yaml.Marshal(cfg)
 	if err != nil {
 		cleanup()
 		t.Fatalf("Could not marshal test injection config: %v", err)
@@ -1293,7 +1295,7 @@ func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 	}
 
 	// mesh
-	mesh := model.DefaultMeshConfig()
+	mesh := config.DefaultMeshConfig()
 	m := jsonpb.Marshaler{
 		Indent: "  ",
 	}
@@ -1519,7 +1521,7 @@ func checkCert(t *testing.T, wh *Webhook, cert, key []byte) bool {
 }
 
 func BenchmarkInjectServe(b *testing.B) {
-	mesh := model.DefaultMeshConfig()
+	mesh := config.DefaultMeshConfig()
 	params := &Params{
 		InitImage:           InitImageName(unitTestHub, unitTestTag, false),
 		ProxyImage:          ProxyImageName(unitTestHub, unitTestTag, false),

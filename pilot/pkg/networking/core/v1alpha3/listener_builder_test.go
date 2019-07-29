@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pkg/config"
 )
 
 type LdsEnv struct {
@@ -55,7 +56,7 @@ func TestListenerBuilder(t *testing.T) {
 	// prepare
 	t.Helper()
 	ldsEnv := getDefaultLdsEnv()
-	service := buildService("test.com", wildcardIP, model.ProtocolHTTP, tnow)
+	service := buildService("test.com", wildcardIP, config.ProtocolHTTP, tnow)
 	services := []*model.Service{service}
 
 	env := buildListenerEnv(services)
@@ -82,9 +83,9 @@ func TestListenerBuilder(t *testing.T) {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
 	protocol := service.Ports[0].Protocol
-	if protocol != model.ProtocolHTTP && isHTTPListener(listeners[0]) {
+	if protocol != config.ProtocolHTTP && isHTTPListener(listeners[0]) {
 		t.Fatal("expected TCP listener, found HTTP")
-	} else if protocol == model.ProtocolHTTP && !isHTTPListener(listeners[0]) {
+	} else if protocol == config.ProtocolHTTP && !isHTTPListener(listeners[0]) {
 		t.Fatal("expected HTTP listener, found TCP")
 	}
 	verifyInboundHTTPListenerServerName(t, listeners[0])
@@ -99,7 +100,7 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	// prepare
 	t.Helper()
 	ldsEnv := getDefaultLdsEnv()
-	service := buildService("test.com", wildcardIP, model.ProtocolHTTP, tnow)
+	service := buildService("test.com", wildcardIP, config.ProtocolHTTP, tnow)
 	services := []*model.Service{service}
 
 	env := buildListenerEnv(services)
@@ -118,7 +119,7 @@ func TestVirtualListenerBuilder(t *testing.T) {
 
 	builder := NewListenerBuilder(&proxy)
 	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, &proxy, env.PushContext, instances).
-		buildVirtualListener(&env, &proxy).
+		buildVirtualOutboundListener(ldsEnv.configgen, &env, &proxy, env.PushContext, instances).
 		getListeners()
 
 	// app port listener and virtual inbound listener
@@ -129,7 +130,7 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	// The rest attributes are verified in other tests
 	verifyInboundHTTPListenerServerName(t, listeners[0])
 
-	if !strings.HasPrefix(listeners[1].Name, VirtualListenerName) {
+	if !strings.HasPrefix(listeners[1].Name, VirtualOutboundListenerName) {
 		t.Fatalf("expect virtual listener, found %s", listeners[1].Name)
 	} else {
 		t.Logf("found virtual listener: %s", listeners[1].Name)
@@ -147,7 +148,7 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 	// prepare
 	t.Helper()
 	ldsEnv := getDefaultLdsEnv()
-	service := buildService("test.com", wildcardIP, model.ProtocolHTTP, tnow)
+	service := buildService("test.com", wildcardIP, config.ProtocolHTTP, tnow)
 	services := []*model.Service{service}
 
 	env := buildListenerEnv(services)
@@ -168,7 +169,7 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 
 	builder := NewListenerBuilder(&proxy)
 	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, &proxy, env.PushContext, instances).
-		buildVirtualListener(&env, &proxy).
+		buildVirtualOutboundListener(ldsEnv.configgen, &env, &proxy, env.PushContext, instances).
 		buildVirtualInboundListener(&env, &proxy).
 		getListeners()
 
@@ -180,7 +181,7 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 	// The rest attributes are verified in other tests
 	verifyInboundHTTPListenerServerName(t, listeners[0])
 
-	if !strings.HasPrefix(listeners[1].Name, VirtualListenerName) {
+	if !strings.HasPrefix(listeners[1].Name, VirtualOutboundListenerName) {
 		t.Fatalf("expect virtual listener, found %s", listeners[1].Name)
 	} else {
 		t.Logf("found virtual listener: %s", listeners[1].Name)

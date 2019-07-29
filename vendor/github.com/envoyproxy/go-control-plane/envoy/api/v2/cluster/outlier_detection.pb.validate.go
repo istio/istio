@@ -202,6 +202,45 @@ func (m *OutlierDetection) Validate() error {
 
 	}
 
+	// no validation rules for SplitExternalLocalOriginErrors
+
+	{
+		tmp := m.GetConsecutiveLocalOriginFailure()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return OutlierDetectionValidationError{
+					field:  "ConsecutiveLocalOriginFailure",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
+	if wrapper := m.GetEnforcingConsecutiveLocalOriginFailure(); wrapper != nil {
+
+		if wrapper.GetValue() > 100 {
+			return OutlierDetectionValidationError{
+				field:  "EnforcingConsecutiveLocalOriginFailure",
+				reason: "value must be less than or equal to 100",
+			}
+		}
+
+	}
+
+	if wrapper := m.GetEnforcingLocalOriginSuccessRate(); wrapper != nil {
+
+		if wrapper.GetValue() > 100 {
+			return OutlierDetectionValidationError{
+				field:  "EnforcingLocalOriginSuccessRate",
+				reason: "value must be less than or equal to 100",
+			}
+		}
+
+	}
+
 	return nil
 }
 

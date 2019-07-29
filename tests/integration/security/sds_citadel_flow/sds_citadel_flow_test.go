@@ -18,7 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/tests/integration/security/util"
+
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -38,37 +39,12 @@ func TestSdsCitadelCaFlow(t *testing.T) {
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 
 			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-			ns := namespace.NewOrFail(t, ctx, "reachability", true)
-
-			ports := []echo.Port{
-				{
-					Name:     "http",
-					Protocol: model.ProtocolHTTP,
-				},
-				{
-					Name:     "tcp",
-					Protocol: model.ProtocolTCP,
-				},
-			}
+			ns := namespace.NewOrFail(t, ctx, "sds-citadel-flow", true)
 
 			var a, b echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, echo.Config{
-					Service:        "a",
-					Namespace:      ns,
-					ServiceAccount: true,
-					Ports:          ports,
-					Galley:         g,
-					Pilot:          p,
-				}).
-				With(&b, echo.Config{
-					Service:        "b",
-					Namespace:      ns,
-					ServiceAccount: true,
-					Ports:          ports,
-					Galley:         g,
-					Pilot:          p,
-				}).
+				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
 			checkers := []connection.Checker{

@@ -3,6 +3,8 @@
 #
 enabled: false
 replicaCount: 1
+rollingMaxSurge: 100%
+rollingMaxUnavailable: 25%
 coreDNSImage: coredns/coredns:1.1.2
 # Source code for the plugin can be found at
 # https://github.com/istio-ecosystem/istio-coredns-plugin
@@ -17,7 +19,7 @@ tolerations: []
 # There are currently two types of anti-affinity:
 #    "requiredDuringSchedulingIgnoredDuringExecution"
 #    "preferredDuringSchedulingIgnoredDuringExecution"
-# which denote “hard” vs. “soft” requirements, you can define your values
+# which denote "hard" vs. "soft" requirements, you can define your values
 # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
 # correspondingly.
 # For example:
@@ -28,6 +30,6 @@ tolerations: []
 #   topologyKey: "kubernetes.io/hostname"
 # This pod anti-affinity rule says that the pod requires not to be scheduled
 # onto a node if that node is already running a pod with label having key
-# “security” and value “S1”.
+# "security" and value "S1".
 podAntiAffinityLabelSelector: []
 podAntiAffinityTermLabelSelector: []

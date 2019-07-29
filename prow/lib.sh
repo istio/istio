@@ -16,37 +16,19 @@
 
 function setup_and_export_git_sha() {
   if [[ -n "${CI:-}" ]]; then
-    if [[ "${CI:-}" == 'bootstrap' ]]; then
-      # TODO: Remove after update to pod-utils
-
-      # Make sure we are in the right directory
-      # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
-      # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-      if [[ ! $PWD = ${GOPATH}/src/istio.io/istio ]]; then
-        mv "${GOPATH}/src/github.com/${REPO_OWNER:-istio}" "${GOPATH}/src/istio.io"
-        export ROOT=${GOPATH}/src/istio.io/istio
-        cd "${GOPATH}/src/istio.io/istio" || return
-      fi
-
-      # Set artifact dir based on checkout
-      export ARTIFACTS_DIR="${ARTIFACTS_DIR:-${GOPATH}/src/istio.io/istio/_artifacts}"
-
-    elif [[ "${CI:-}" == 'prow' ]]; then
-      # Set artifact dir based on checkout
-      export ARTIFACTS_DIR="${ARTIFACTS_DIR:-${ARTIFACTS}}"
-    fi
-
     if [ -z "${PULL_PULL_SHA:-}" ]; then
       export GIT_SHA="${PULL_BASE_SHA}"
     else
       export GIT_SHA="${PULL_PULL_SHA}"
     fi
-
   else
     # Use the current commit.
     GIT_SHA="$(git rev-parse --verify HEAD)"
     export GIT_SHA
+    export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
   fi
+  GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+  export GIT_BRANCH
   gcloud auth configure-docker -q
 }
 
@@ -122,21 +104,24 @@ function check_kind() {
 }
 
 function setup_kind_cluster() {
+  IMAGE="${1}"
   # Installing KinD
   check_kind
 
   # Delete any previous e2e KinD cluster
-  echo "Deleting previous KinD cluster with name=e2e-suite"
-  if ! (kind delete cluster --name=e2e-suite) > /dev/null; then
-  	echo "No Found existing kind cluster with name e2e-suite. Continue..."
+  echo "Deleting previous KinD cluster with name=istio-testing"
+  if ! (kind delete cluster --name=istio-testing) > /dev/null; then
+    echo "No existing kind cluster with name istio-testing. Continue..."
   fi
 
   # Create KinD cluster
-  if ! (kind create cluster --name=e2e-suite); then
-    echo "Could not setup KinD environment. Something wrong with KinD setup. Please check your setup and try again."
+  if ! (kind create cluster --name=istio-testing --loglevel debug --retain --image "${IMAGE}"); then
+    echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
+    kind export logs --name istio-testing "${ARTIFACTS}/kind"
     exit 1
   fi
-  KUBECONFIG="$(kind get kubeconfig-path --name="e2e-suite")"
+
+  KUBECONFIG="$(kind get kubeconfig-path --name="istio-testing")"
   export KUBECONFIG
 }
 

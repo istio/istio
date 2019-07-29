@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/policybackend"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
@@ -32,8 +31,6 @@ import (
 func TestMixer_Report_Direct(t *testing.T) {
 	framework.
 		NewTest(t).
-		// TODO(https://github.com/istio/istio/issues/13811)
-		Label(label.Flaky).
 		Run(func(ctx framework.TestContext) {
 
 			g := galley.NewOrFail(t, ctx, galley.Config{})

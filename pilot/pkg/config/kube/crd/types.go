@@ -28,196 +28,196 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-type schemaType struct {
-	schema     model.ProtoSchema
-	object     IstioObject
-	collection IstioObjectList
+type SchemaType struct {
+	Schema     model.ProtoSchema
+	Object     IstioObject
+	Collection IstioObjectList
 }
 
-var knownTypes = map[string]schemaType{
+var KnownTypes = map[string]SchemaType{
 	model.MockConfig.Type: {
-		schema: model.MockConfig,
-		object: &MockConfig{
+		Schema: model.MockConfig,
+		Object: &MockConfig{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "MockConfig",
-				APIVersion: apiVersion(&model.MockConfig),
+				APIVersion: APIVersion(&model.MockConfig),
 			},
 		},
-		collection: &MockConfigList{},
+		Collection: &MockConfigList{},
 	},
 	model.VirtualService.Type: {
-		schema: model.VirtualService,
-		object: &VirtualService{
+		Schema: model.VirtualService,
+		Object: &VirtualService{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "VirtualService",
-				APIVersion: apiVersion(&model.VirtualService),
+				APIVersion: APIVersion(&model.VirtualService),
 			},
 		},
-		collection: &VirtualServiceList{},
+		Collection: &VirtualServiceList{},
 	},
 	model.Gateway.Type: {
-		schema: model.Gateway,
-		object: &Gateway{
+		Schema: model.Gateway,
+		Object: &Gateway{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "Gateway",
-				APIVersion: apiVersion(&model.Gateway),
+				APIVersion: APIVersion(&model.Gateway),
 			},
 		},
-		collection: &GatewayList{},
+		Collection: &GatewayList{},
 	},
 	model.ServiceEntry.Type: {
-		schema: model.ServiceEntry,
-		object: &ServiceEntry{
+		Schema: model.ServiceEntry,
+		Object: &ServiceEntry{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "ServiceEntry",
-				APIVersion: apiVersion(&model.ServiceEntry),
+				APIVersion: APIVersion(&model.ServiceEntry),
 			},
 		},
-		collection: &ServiceEntryList{},
+		Collection: &ServiceEntryList{},
 	},
 	model.DestinationRule.Type: {
-		schema: model.DestinationRule,
-		object: &DestinationRule{
+		Schema: model.DestinationRule,
+		Object: &DestinationRule{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "DestinationRule",
-				APIVersion: apiVersion(&model.DestinationRule),
+				APIVersion: APIVersion(&model.DestinationRule),
 			},
 		},
-		collection: &DestinationRuleList{},
+		Collection: &DestinationRuleList{},
 	},
 	model.EnvoyFilter.Type: {
-		schema: model.EnvoyFilter,
-		object: &EnvoyFilter{
+		Schema: model.EnvoyFilter,
+		Object: &EnvoyFilter{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "EnvoyFilter",
-				APIVersion: apiVersion(&model.EnvoyFilter),
+				APIVersion: APIVersion(&model.EnvoyFilter),
 			},
 		},
-		collection: &EnvoyFilterList{},
+		Collection: &EnvoyFilterList{},
 	},
 	model.Sidecar.Type: {
-		schema: model.Sidecar,
-		object: &Sidecar{
+		Schema: model.Sidecar,
+		Object: &Sidecar{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "Sidecar",
-				APIVersion: apiVersion(&model.Sidecar),
+				APIVersion: APIVersion(&model.Sidecar),
 			},
 		},
-		collection: &SidecarList{},
+		Collection: &SidecarList{},
 	},
 	model.HTTPAPISpec.Type: {
-		schema: model.HTTPAPISpec,
-		object: &HTTPAPISpec{
+		Schema: model.HTTPAPISpec,
+		Object: &HTTPAPISpec{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "HTTPAPISpec",
-				APIVersion: apiVersion(&model.HTTPAPISpec),
+				APIVersion: APIVersion(&model.HTTPAPISpec),
 			},
 		},
-		collection: &HTTPAPISpecList{},
+		Collection: &HTTPAPISpecList{},
 	},
 	model.HTTPAPISpecBinding.Type: {
-		schema: model.HTTPAPISpecBinding,
-		object: &HTTPAPISpecBinding{
+		Schema: model.HTTPAPISpecBinding,
+		Object: &HTTPAPISpecBinding{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "HTTPAPISpecBinding",
-				APIVersion: apiVersion(&model.HTTPAPISpecBinding),
+				APIVersion: APIVersion(&model.HTTPAPISpecBinding),
 			},
 		},
-		collection: &HTTPAPISpecBindingList{},
+		Collection: &HTTPAPISpecBindingList{},
 	},
 	model.QuotaSpec.Type: {
-		schema: model.QuotaSpec,
-		object: &QuotaSpec{
+		Schema: model.QuotaSpec,
+		Object: &QuotaSpec{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "QuotaSpec",
-				APIVersion: apiVersion(&model.QuotaSpec),
+				APIVersion: APIVersion(&model.QuotaSpec),
 			},
 		},
-		collection: &QuotaSpecList{},
+		Collection: &QuotaSpecList{},
 	},
 	model.QuotaSpecBinding.Type: {
-		schema: model.QuotaSpecBinding,
-		object: &QuotaSpecBinding{
+		Schema: model.QuotaSpecBinding,
+		Object: &QuotaSpecBinding{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "QuotaSpecBinding",
-				APIVersion: apiVersion(&model.QuotaSpecBinding),
+				APIVersion: APIVersion(&model.QuotaSpecBinding),
 			},
 		},
-		collection: &QuotaSpecBindingList{},
+		Collection: &QuotaSpecBindingList{},
 	},
 	model.AuthenticationPolicy.Type: {
-		schema: model.AuthenticationPolicy,
-		object: &Policy{
+		Schema: model.AuthenticationPolicy,
+		Object: &Policy{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "Policy",
-				APIVersion: apiVersion(&model.AuthenticationPolicy),
+				APIVersion: APIVersion(&model.AuthenticationPolicy),
 			},
 		},
-		collection: &PolicyList{},
+		Collection: &PolicyList{},
 	},
 	model.AuthenticationMeshPolicy.Type: {
-		schema: model.AuthenticationMeshPolicy,
-		object: &MeshPolicy{
+		Schema: model.AuthenticationMeshPolicy,
+		Object: &MeshPolicy{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "MeshPolicy",
-				APIVersion: apiVersion(&model.AuthenticationMeshPolicy),
+				APIVersion: APIVersion(&model.AuthenticationMeshPolicy),
 			},
 		},
-		collection: &MeshPolicyList{},
+		Collection: &MeshPolicyList{},
 	},
 	model.ServiceRole.Type: {
-		schema: model.ServiceRole,
-		object: &ServiceRole{
+		Schema: model.ServiceRole,
+		Object: &ServiceRole{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "ServiceRole",
-				APIVersion: apiVersion(&model.ServiceRole),
+				APIVersion: APIVersion(&model.ServiceRole),
 			},
 		},
-		collection: &ServiceRoleList{},
+		Collection: &ServiceRoleList{},
 	},
 	model.ServiceRoleBinding.Type: {
-		schema: model.ServiceRoleBinding,
-		object: &ServiceRoleBinding{
+		Schema: model.ServiceRoleBinding,
+		Object: &ServiceRoleBinding{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "ServiceRoleBinding",
-				APIVersion: apiVersion(&model.ServiceRoleBinding),
+				APIVersion: APIVersion(&model.ServiceRoleBinding),
 			},
 		},
-		collection: &ServiceRoleBindingList{},
+		Collection: &ServiceRoleBindingList{},
 	},
 	model.AuthorizationPolicy.Type: {
-		schema: model.AuthorizationPolicy,
-		object: &AuthorizationPolicy{
+		Schema: model.AuthorizationPolicy,
+		Object: &AuthorizationPolicy{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "AuthorizationPolicy",
-				APIVersion: apiVersion(&model.AuthorizationPolicy),
+				APIVersion: APIVersion(&model.AuthorizationPolicy),
 			},
 		},
-		collection: &AuthorizationPolicyList{},
+		Collection: &AuthorizationPolicyList{},
 	},
 	model.RbacConfig.Type: {
-		schema: model.RbacConfig,
-		object: &RbacConfig{
+		Schema: model.RbacConfig,
+		Object: &RbacConfig{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "RbacConfig",
-				APIVersion: apiVersion(&model.RbacConfig),
+				APIVersion: APIVersion(&model.RbacConfig),
 			},
 		},
-		collection: &RbacConfigList{},
+		Collection: &RbacConfigList{},
 	},
 	model.ClusterRbacConfig.Type: {
-		schema: model.ClusterRbacConfig,
-		object: &ClusterRbacConfig{
+		Schema: model.ClusterRbacConfig,
+		Object: &ClusterRbacConfig{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "ClusterRbacConfig",
-				APIVersion: apiVersion(&model.ClusterRbacConfig),
+				APIVersion: APIVersion(&model.ClusterRbacConfig),
 			},
 		},
-		collection: &ClusterRbacConfigList{},
+		Collection: &ClusterRbacConfigList{},
 	},
 }
 
-// MockConfig is the generic Kubernetes API object wrapper
+// MockConfig is the generic Kubernetes API Object wrapper
 type MockConfig struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`
@@ -320,7 +320,7 @@ func (in *MockConfigList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// VirtualService is the generic Kubernetes API object wrapper
+// VirtualService is the generic Kubernetes API Object wrapper
 type VirtualService struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`
@@ -423,7 +423,7 @@ func (in *VirtualServiceList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// Gateway is the generic Kubernetes API object wrapper
+// Gateway is the generic Kubernetes API Object wrapper
 type Gateway struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`
@@ -526,7 +526,7 @@ func (in *GatewayList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// ServiceEntry is the generic Kubernetes API object wrapper
+// ServiceEntry is the generic Kubernetes API Object wrapper
 type ServiceEntry struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`
@@ -629,7 +629,7 @@ func (in *ServiceEntryList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// DestinationRule is the generic Kubernetes API object wrapper
+// DestinationRule is the generic Kubernetes API Object wrapper
 type DestinationRule struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`
@@ -732,7 +732,7 @@ func (in *DestinationRuleList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// EnvoyFilter is the generic Kubernetes API object wrapper
+// EnvoyFilter is the generic Kubernetes API Object wrapper
 type EnvoyFilter struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`
@@ -835,7 +835,7 @@ func (in *EnvoyFilterList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// Sidecar is the generic Kubernetes API object wrapper
+// Sidecar is the generic Kubernetes API Object wrapper
 type Sidecar struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`
@@ -938,7 +938,7 @@ func (in *SidecarList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// HTTPAPISpec is the generic Kubernetes API object wrapper
+// HTTPAPISpec is the generic Kubernetes API Object wrapper
 type HTTPAPISpec struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`
@@ -1041,7 +1041,7 @@ func (in *HTTPAPISpecList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// HTTPAPISpecBinding is the generic Kubernetes API object wrapper
+// HTTPAPISpecBinding is the generic Kubernetes API Object wrapper
 type HTTPAPISpecBinding struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`
@@ -1144,7 +1144,7 @@ func (in *HTTPAPISpecBindingList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// QuotaSpec is the generic Kubernetes API object wrapper
+// QuotaSpec is the generic Kubernetes API Object wrapper
 type QuotaSpec struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`
@@ -1247,7 +1247,7 @@ func (in *QuotaSpecList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// QuotaSpecBinding is the generic Kubernetes API object wrapper
+// QuotaSpecBinding is the generic Kubernetes API Object wrapper
 type QuotaSpecBinding struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`
@@ -1350,7 +1350,7 @@ func (in *QuotaSpecBindingList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// Policy is the generic Kubernetes API object wrapper
+// Policy is the generic Kubernetes API Object wrapper
 type Policy struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`
@@ -1453,7 +1453,7 @@ func (in *PolicyList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// MeshPolicy is the generic Kubernetes API object wrapper
+// MeshPolicy is the generic Kubernetes API Object wrapper
 type MeshPolicy struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`
@@ -1556,7 +1556,7 @@ func (in *MeshPolicyList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// ServiceRole is the generic Kubernetes API object wrapper
+// ServiceRole is the generic Kubernetes API Object wrapper
 type ServiceRole struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`
@@ -1659,7 +1659,7 @@ func (in *ServiceRoleList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// ServiceRoleBinding is the generic Kubernetes API object wrapper
+// ServiceRoleBinding is the generic Kubernetes API Object wrapper
 type ServiceRoleBinding struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`
@@ -1762,7 +1762,7 @@ func (in *ServiceRoleBindingList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// AuthorizationPolicy is the generic Kubernetes API object wrapper
+// AuthorizationPolicy is the generic Kubernetes API Object wrapper
 type AuthorizationPolicy struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`
@@ -1865,7 +1865,7 @@ func (in *AuthorizationPolicyList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// RbacConfig is the generic Kubernetes API object wrapper
+// RbacConfig is the generic Kubernetes API Object wrapper
 type RbacConfig struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`
@@ -1968,7 +1968,7 @@ func (in *RbacConfigList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// ClusterRbacConfig is the generic Kubernetes API object wrapper
+// ClusterRbacConfig is the generic Kubernetes API Object wrapper
 type ClusterRbacConfig struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`

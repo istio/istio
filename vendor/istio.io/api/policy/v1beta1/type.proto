@@ -66,6 +66,9 @@ message Value {
 
         // Used for values of type Uri
         Uri uri_value = 10;
+
+        // Used for values of type STRING_MAP
+        StringMap string_map_value = 11;
     }
 }
 
@@ -107,6 +110,17 @@ message TimeStamp {
 message DNSName {
     // DNSName encoded as string.
     string value = 1;
+}
+
+
+// An instance field of type StringMap denotes that the expression for the field must evaluate to
+// [ValueType.STRING_MAP][istio.policy.v1beta1.ValueType.STRING_MAP]
+//
+// Objects of type StringMap are also passed to the adapters during request-time for the instance fields of
+// type StringMap
+message StringMap {
+    // StringMap encoded as a map of strings
+    map<string, string> value = 1;
 }
 
 // DO NOT USE !! Under Development

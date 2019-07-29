@@ -1,5 +1,6 @@
 # Base dockerfile containing ubuntu and istio debian.
 # Can be used for testing
+# hadolint ignore=DL3006
 FROM istionightly/base_debug
 
 # Micro pilot+mock mixer+echo, local kube

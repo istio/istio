@@ -4,7 +4,7 @@ description: Describes the rules used to configure Mixer's policy and telemetry 
 location: https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 25
+number_of_entries: 26
 ---
 <p>Describes the rules used to configure Mixer&rsquo;s policy and telemetry features.</p>
 
@@ -1115,7 +1115,7 @@ if the match evaluates to true.</p>
 <ul>
 <li>an empty match evaluates to <code>true</code></li>
 <li><code>true</code>, a boolean literal; a rule with this match will always be executed</li>
-<li><code>match(destination.service.host, &quot;ratings.*)</code> selects any request targeting a service whose
+<li><code>match(destination.service.host, &quot;ratings.*&quot;)</code> selects any request targeting a service whose
 name starts with &ldquo;ratings&rdquo;</li>
 <li><code>attr1 == &quot;20&quot; &amp;&amp; attr2 == &quot;30&quot;</code> logical AND, OR, and NOT are also available</li>
 </ul>
@@ -1234,6 +1234,34 @@ adapter to optionally modify the headers.</p>
 <td><code>APPEND</code></td>
 <td>
 <p>Append values to the existing header values.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="StringMap">StringMap</h2>
+<section>
+<p>An instance field of type StringMap denotes that the expression for the field must evaluate to
+<a href="#ValueType-STRING_MAP">ValueType.STRING_MAP</a></p>
+
+<p>Objects of type StringMap are also passed to the adapters during request-time for the instance fields of
+type StringMap</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="StringMap-value">
+<td><code>value</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>StringMap encoded as a map of strings</p>
 
 </td>
 </tr>
@@ -1495,6 +1523,14 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 <td><code><a href="#Uri">Uri (oneof)</a></code></td>
 <td>
 <p>Used for values of type Uri</p>
+
+</td>
+</tr>
+<tr id="Value-string_map_value" class="oneof">
+<td><code>stringMapValue</code></td>
+<td><code><a href="#StringMap">StringMap (oneof)</a></code></td>
+<td>
+<p>Used for values of type STRING_MAP</p>
 
 </td>
 </tr>

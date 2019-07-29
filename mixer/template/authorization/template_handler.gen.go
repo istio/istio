@@ -29,23 +29,25 @@ import (
 //
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
-// kind: authorization
+// kind: instance
 // metadata:
 //   name: authinfo
 //   namespace: istio-system
 // spec:
-//  subject:
-//    user: source.principal | request.auth.principal | ""
-//    groups: request.auth.claims["groups"] | ""
-//    properties:
-//     iss: request.auth.claims["iss"]
-//  action:
-//    namespace: destination.namespace | "default"
-//    service: destination.service.host | ""
-//    path: request.path | "/"
-//    method: request.method | "post"
-//    properties:
-//      version: destination.labels[version] | ""
+//   compiledTemplate: authorization
+//   params:
+//     subject:
+//       user: source.principal | request.auth.principal | ""
+//       groups: request.auth.claims["groups"] | ""
+//       properties:
+//         iss: request.auth.claims["iss"]
+//     action:
+//       namespace: destination.namespace | "default"
+//       service: destination.service.host | ""
+//       path: request.path | "/"
+//       method: request.method | "post"
+//       properties:
+//         version: destination.labels[version] | ""
 // ```
 
 // Fully qualified name of the template

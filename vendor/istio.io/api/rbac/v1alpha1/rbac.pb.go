@@ -8,7 +8,9 @@
 // the following standard fields:
 //
 //   * services: a list of services.
-//   * methods: HTTP methods. In the case of gRPC, this field is ignored because the value is always "POST".
+//   * methods: A list of HTTP methods. You can set the value to `*` to include all HTTP methods.
+//              This field should not be set for TCP services. The policy will be ignored.
+//              For gRPC services, only `POST` is allowed; other methods will result in denying services.
 //   * paths: HTTP paths or gRPC methods. Note that gRPC methods should be
 //     presented in the form of "/packageName.serviceName/methodName" and are case sensitive.
 //
@@ -121,10 +123,10 @@ func (EnforcementMode) EnumDescriptor() ([]byte, []int) {
 type RbacConfig_Mode int32
 
 const (
-	// Disable Istio RBAC completely, any other config in RbacConfig will be ignored and Istio RBAC policies
-	// will not be enforced.
+	// Disable Istio RBAC completely, Istio RBAC policies will not be enforced.
 	RbacConfig_OFF RbacConfig_Mode = 0
-	// Enable Istio RBAC for all services and namespaces.
+	// Enable Istio RBAC for all services and namespaces. Note Istio RBAC is deny-by-default
+	// which means all requests will be denied if it's not allowed by RBAC rules.
 	RbacConfig_ON RbacConfig_Mode = 1
 	// Enable Istio RBAC only for services and namespaces specified in the inclusion field. Any other
 	// services and namespaces not in the inclusion field will not be enforced by Istio RBAC policies.
@@ -347,6 +349,7 @@ type AccessRule struct {
 	// For example, the host "test.abc.com" matches "test.abc.com" (exact match),
 	// or "*.abc.com" (prefix match), or "test.abc.*" (suffix match).
 	// If not specified, it matches to any host.
+	// This field should not be set for TCP services. The policy will be ignored.
 	Hosts []string `protobuf:"bytes,5,rep,name=hosts,proto3" json:"hosts,omitempty"`
 	// $hide_from_docs
 	// Optional. A list of HTTP hosts that must not be matched.
@@ -358,13 +361,15 @@ type AccessRule struct {
 	// the path "/books/review" matches "/books/review" (exact match),
 	// or "/books/*" (prefix match), or "*/review" (suffix match).
 	// If not specified, it matches to any path.
+	// This field should not be set for TCP services. The policy will be ignored.
 	Paths []string `protobuf:"bytes,2,rep,name=paths,proto3" json:"paths,omitempty"`
 	// $hide_from_docs
 	// Optional. A list of HTTP paths or gRPC methods that must not be matched.
 	NotPaths []string `protobuf:"bytes,7,rep,name=not_paths,json=notPaths,proto3" json:"not_paths,omitempty"`
 	// Optional. A list of HTTP methods (e.g., "GET", "POST").
-	// It is ignored in gRPC case because the value is always "POST".
-	// If not specified, it matches to any methods.
+	// If not specified or specified as "*", it matches to any methods.
+	// This field should not be set for TCP services. The policy will be ignored.
+	// For gRPC services, only `POST` is allowed; other methods will result in denying services.
 	Methods []string `protobuf:"bytes,3,rep,name=methods,proto3" json:"methods,omitempty"`
 	// $hide_from_docs
 	// Optional. A list of HTTP methods that must not be matched.
@@ -886,19 +891,16 @@ func (m *RoleRef) GetName() string {
 	return ""
 }
 
-// $hide_from_docs
-// RbacConfig is deprecated.  RbacConfig defined the global config to control Istio RBAC behavior.
-// This Custom Resource is a singleton where only one Custom Resource should be created globally in
-// the mesh and the namespace should be the same to other Istio components, which usually is `istio-system`.
-// Note: This is enforced in both `istioctl` and server side, new Custom Resource will be rejected if found any
-// existing one, the user should either delete the existing one or change the existing one directly.
+// RbacConfig implements the ClusterRbaConfig Custom Resource Definition for controlling Istio RBAC behavior.
+// The ClusterRbaConfig Custom Resource is a singleton where only one ClusterRbaConfig should be created
+// globally in the mesh and the namespace should be the same to other Istio components, which usually is `istio-system`.
 //
-// Below is an example of an `RbacConfig` resource called `istio-rbac-config` which enables Istio RBAC for all
+// Below is an example of an `ClusterRbacConfig` resource called `istio-rbac-config` which enables Istio RBAC for all
 // services in the default namespace.
 //
 // ```yaml
 // apiVersion: "rbac.istio.io/v1alpha1"
-// kind: RbacConfig
+// kind: ClusterRbacConfig
 // metadata:
 //   name: default
 //   namespace: istio-system

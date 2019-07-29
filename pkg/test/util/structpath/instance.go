@@ -26,7 +26,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 
-	"gopkg.in/d4l3k/messagediff.v1"
+	messagediff "gopkg.in/d4l3k/messagediff.v1"
 
 	"istio.io/istio/pkg/test"
 
@@ -142,6 +142,19 @@ func (i *Instance) Equals(expected interface{}, path string, args ...interface{}
 		}
 		// TODO: Add struct support
 		return fmt.Errorf("attempt to call Equals for unsupported type: %v", expected)
+	})
+}
+
+func (i *Instance) ContainSubstring(substr, path string) *Instance {
+	return i.appendConstraint(func() error {
+		value, err := i.execute(path)
+		if err != nil {
+			return err
+		}
+		if found := strings.Contains(value, substr); !found {
+			return fmt.Errorf("substring %v did not match: %v", substr, value)
+		}
+		return nil
 	})
 }
 

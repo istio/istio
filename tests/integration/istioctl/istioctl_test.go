@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -40,7 +39,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("istioctl_integration_test", m).
 		RequireEnvironment(environment.Kube).
-		Label(label.Presubmit).
 
 		// Deploy Istio
 		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
@@ -69,6 +67,15 @@ func TestVersion(t *testing.T) {
 				t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(args, " "), fErr)
 			}
 
+			// istioctl will return a single "control plane version" if all control plane versions match
+			controlPlaneRegex := regexp.MustCompile(`control plane version: [a-z0-9\-]*`)
+			if controlPlaneRegex.MatchString(output) {
+				return
+			}
+
+			t.Logf("Did not find control plane version. This may mean components have different versions.")
+
+			// At this point, we expect the version for each component
 			expectedRegexps := []*regexp.Regexp{
 				regexp.MustCompile(`citadel version: [a-z0-9\-]*`),
 				regexp.MustCompile(`client version: [a-z0-9\-]*`),

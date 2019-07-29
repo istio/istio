@@ -20,22 +20,22 @@ import (
 
 	"github.com/hashicorp/consul/api"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 )
 
 var (
 	protocols = []struct {
 		name string
 		port int
-		out  model.Protocol
+		out  config.Protocol
 	}{
-		{"tcp", 80, model.ProtocolTCP},
-		{"http", 81, model.ProtocolHTTP},
-		{"https", 443, model.ProtocolHTTPS},
-		{"http2", 83, model.ProtocolHTTP2},
-		{"grpc", 84, model.ProtocolGRPC},
-		{"udp", 85, model.ProtocolUDP},
-		{"", 86, model.ProtocolTCP},
+		{"tcp", 80, config.ProtocolTCP},
+		{"http", 81, config.ProtocolHTTP},
+		{"https", 443, config.ProtocolHTTPS},
+		{"http2", 83, config.ProtocolHTTP2},
+		{"grpc", 84, config.ProtocolGRPC},
+		{"udp", 85, config.ProtocolUDP},
+		{"", 86, config.ProtocolTCP},
 	}
 
 	goodLabels = []string{
@@ -97,8 +97,8 @@ func TestConvertInstance(t *testing.T) {
 
 	out := convertInstance(&consulServiceInst)
 
-	if out.Endpoint.ServicePort.Protocol != model.ProtocolUDP {
-		t.Errorf("convertInstance() => %v, want %v", out.Endpoint.ServicePort.Protocol, model.ProtocolUDP)
+	if out.Endpoint.ServicePort.Protocol != config.ProtocolUDP {
+		t.Errorf("convertInstance() => %v, want %v", out.Endpoint.ServicePort.Protocol, config.ProtocolUDP)
 	}
 
 	if out.Endpoint.ServicePort.Name != protocol {

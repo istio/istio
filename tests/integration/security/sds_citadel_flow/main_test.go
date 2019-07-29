@@ -69,7 +69,4 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["nodeagent.env.CA_PROVIDER"] = "Citadel"
 	cfg.Values["nodeagent.env.CA_ADDR"] = "istio-citadel:8060"
 	cfg.Values["nodeagent.env.VALID_TOKEN"] = "true"
-
-	// TODO(https://github.com/istio/istio/issues/14084) remove this
-	cfg.Values["pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE"] = "0"
 }

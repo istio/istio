@@ -20,6 +20,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -27,13 +29,13 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 
+	"istio.io/istio/pilot/pkg/features"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
@@ -74,18 +76,6 @@ func pilotURL(path string) string {
 }
 
 var fakeCreateTime2 = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
-
-type mockController struct{}
-
-func (c *mockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	return nil
-}
-
-func (c *mockController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	return nil
-}
-
-func (c *mockController) Run(<-chan struct{}) {}
 
 func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -130,23 +120,8 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 
 	copilotMCPServer.Cache.SetSnapshot(groups.Default, sn.Build())
 
-	server, tearDown := initLocalPilotTestEnv(t, copilotMCPServer.Port, pilotGrpcPort, pilotDebugPort)
+	tearDown := initLocalPilotTestEnv(t, copilotMCPServer.Port, pilotGrpcPort, pilotDebugPort)
 	defer tearDown()
-
-	// register a service for gateway
-	discovery := srmemory.NewDiscovery(
-		map[model.Hostname]*model.Service{
-			ingressGatewaySvc: gatewaySvc,
-		}, 1)
-
-	registry := aggregate.Registry{
-		Name:             serviceregistry.ServiceRegistry("mockCloudFoundryAdapter"),
-		ClusterID:        "mockCloudFoundryAdapter",
-		ServiceDiscovery: discovery,
-		Controller:       &mockController{},
-	}
-
-	server.ServiceController.AddRegistry(registry)
 
 	t.Log("checking if pilot received routes from copilot")
 	g.Eventually(func() (string, error) {
@@ -217,6 +192,10 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 }
 
 func TestWildcardHostSidecarRouterWithMockCopilot(t *testing.T) {
+	curEnv := features.RestrictPodIPTrafficLoops.Get()
+	os.Setenv(features.RestrictPodIPTrafficLoops.Name, "false")
+	defer os.Setenv(features.RestrictPodIPTrafficLoops.Name, strconv.FormatBool(curEnv))
+
 	g := gomega.NewGomegaWithT(t)
 
 	runFakeApp(app3ListenPort)
@@ -234,7 +213,7 @@ func TestWildcardHostSidecarRouterWithMockCopilot(t *testing.T) {
 		serviceEntry(sidecarServicePort, app3ListenPort, []string{"127.1.1.1"}, cfInternalRoute, subsetOne))
 	copilotMCPServer.Cache.SetSnapshot(groups.Default, sn.Build())
 
-	_, tearDown := initLocalPilotTestEnv(t, copilotMCPServer.Port, pilotGrpcPort, pilotDebugPort)
+	tearDown := initLocalPilotTestEnv(t, copilotMCPServer.Port, pilotGrpcPort, pilotDebugPort)
 	defer tearDown()
 
 	g.Eventually(func() (string, error) {
@@ -322,11 +301,12 @@ func setupPilotDiscoveryGrpcAddr(grpc string) func(*bootstrap.PilotArgs) {
 	}
 }
 
-func initLocalPilotTestEnv(t *testing.T, mcpPort, grpcPort, debugPort int) (*bootstrap.Server, util.TearDownFunc) {
+func initLocalPilotTestEnv(t *testing.T, mcpPort, grpcPort, debugPort int) util.TearDownFunc {
 	mixerEnv.NewTestSetup(mixerEnv.PilotMCPTest, t)
 	debugAddr := fmt.Sprintf("127.0.0.1:%d", debugPort)
 	grpcAddr := fmt.Sprintf("127.0.0.1:%d", grpcPort)
-	return util.EnsureTestServer(addMcpAddrs(mcpPort), setupPilotDiscoveryHTTPAddr(debugAddr), setupPilotDiscoveryGrpcAddr(grpcAddr))
+	_, teardown := util.EnsureTestServer(addMcpAddrs(mcpPort), setupPilotDiscoveryHTTPAddr(debugAddr), setupPilotDiscoveryGrpcAddr(grpcAddr))
+	return teardown
 }
 
 func runEnvoy(t *testing.T, nodeID string, grpcPort, debugPort uint16) *mixerEnv.TestSetup {

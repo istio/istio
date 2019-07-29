@@ -20,21 +20,16 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/policybackend"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestCheck_Allow(t *testing.T) {
 	framework.
 		NewTest(t).
-		// TODO(https://github.com/istio/istio/issues/12750)
-		Label(label.Flaky).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			gal := galley.NewOrFail(t, ctx, galley.Config{})
 			mxr := mixer.NewOrFail(t, ctx, mixer.Config{
@@ -78,8 +73,6 @@ func TestCheck_Allow(t *testing.T) {
 func TestCheck_Deny(t *testing.T) {
 	framework.
 		NewTest(t).
-		// TODO(https://github.com/istio/istio/issues/13155)
-		Label(label.Flaky).
 		Run(func(ctx framework.TestContext) {
 			gal := galley.NewOrFail(t, ctx, galley.Config{})
 			mxr := mixer.NewOrFail(t, ctx, mixer.Config{

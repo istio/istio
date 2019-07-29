@@ -19,9 +19,9 @@ spec:
 {{- end }}
   containers:
     - name: "{{ template "security.fullname" . }}-test"
-      image: {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
+      image: pstauffer/curl:v1.0.3
       imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
-      command: ['sh', '-c', 'for i in 1 2 3; do curl http://istio-citadel:8060/-/ready && exit 0 || sleep 15; done; exit 1']
+      command: ['sh', '-c', 'for i in 1 2 3; do curl http://istio-citadel:{{ .Values.global.monitoringPort }}/version && exit 0 || sleep 15; done; exit 1']
   restartPolicy: Never
   affinity:
     {{- include "nodeaffinity" . | indent 4 }}

@@ -38,8 +38,8 @@ var (
 
 func getStackdriverExporter(_ context.Context, env adapter.Env, params *config.Params) (trace.Exporter, error) {
 	opts := ocstackdriver.Options{
-		MonitoringClientOptions: helper.ToOpts(params), // not used, but causes errors if invalid
-		TraceClientOptions:      helper.ToOpts(params),
+		MonitoringClientOptions: helper.ToOpts(params, env.Logger()), // not used, but causes errors if invalid
+		TraceClientOptions:      helper.ToOpts(params, env.Logger()),
 		ProjectID:               params.ProjectId,
 		OnError: func(err error) {
 			_ = env.Logger().Errorf("Stackdriver trace: %s", err.Error())

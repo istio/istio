@@ -20,18 +20,25 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/gomega"
 )
 
-var probe Probe
+var (
+	goodStats      = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1"
+	liveServerInfo = &admin.ServerInfo{State: admin.ServerInfo_LIVE}
+	initServerInfo = &admin.ServerInfo{State: admin.ServerInfo_INITIALIZING}
+)
 
 func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
 	g := NewGomegaWithT(t)
-	stats := "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1"
+	stats := goodStats
 
-	server := createAndStartServer(stats)
+	server := createAndStartServer(stats, liveServerInfo)
 	defer server.Close()
-	probe = Probe{AdminPort: 1234}
+	probe := Probe{AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -42,9 +49,9 @@ func TestEnvoyStatsIncompleteCDS(t *testing.T) {
 	g := NewGomegaWithT(t)
 	stats := "listener_manager.lds.update_success: 1"
 
-	server := createAndStartServer(stats)
+	server := createAndStartServer(stats, liveServerInfo)
 	defer server.Close()
-	probe = Probe{AdminPort: 1234}
+	probe := Probe{AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -56,9 +63,9 @@ func TestEnvoyStatsIncompleteLDS(t *testing.T) {
 	g := NewGomegaWithT(t)
 	stats := "cluster_manager.cds.update_success: 1"
 
-	server := createAndStartServer(stats)
+	server := createAndStartServer(stats, liveServerInfo)
 	defer server.Close()
-	probe = Probe{AdminPort: 1234}
+	probe := Probe{AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -70,9 +77,9 @@ func TestEnvoyStatsCompleteAndRejectedCDS(t *testing.T) {
 	g := NewGomegaWithT(t)
 	stats := "cluster_manager.cds.update_rejected: 1\nlistener_manager.lds.update_success: 1"
 
-	server := createAndStartServer(stats)
+	server := createAndStartServer(stats, liveServerInfo)
 	defer server.Close()
-	probe = Probe{AdminPort: 1234}
+	probe := Probe{AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -83,9 +90,9 @@ func TestEnvoyStatsCompleteAndRejectedLDS(t *testing.T) {
 	g := NewGomegaWithT(t)
 	stats := "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_rejected: 1"
 
-	server := createAndStartServer(stats)
+	server := createAndStartServer(stats, liveServerInfo)
 	defer server.Close()
-	probe = Probe{AdminPort: 1234}
+	probe := Probe{AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -96,9 +103,9 @@ func TestEnvoyCheckFailsIfStatsUnparsableNoSeparator(t *testing.T) {
 	g := NewGomegaWithT(t)
 	stats := "cluster_manager.cds.update_success; 1\nlistener_manager.lds.update_success: 1"
 
-	server := createAndStartServer(stats)
+	server := createAndStartServer(stats, liveServerInfo)
 	defer server.Close()
-	probe = Probe{AdminPort: 1234}
+	probe := Probe{AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -110,9 +117,9 @@ func TestEnvoyCheckFailsIfStatsUnparsableNoNumber(t *testing.T) {
 	g := NewGomegaWithT(t)
 	stats := "cluster_manager.cds.update_success: a\nlistener_manager.lds.update_success: 1"
 
-	server := createAndStartServer(stats)
+	server := createAndStartServer(stats, liveServerInfo)
 	defer server.Close()
-	probe = Probe{AdminPort: 1234}
+	probe := Probe{AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -122,35 +129,58 @@ func TestEnvoyCheckFailsIfStatsUnparsableNoNumber(t *testing.T) {
 
 func TestEnvoyCheckSucceedsIfStatsCleared(t *testing.T) {
 	g := NewGomegaWithT(t)
-	probe = Probe{AdminPort: 1234}
+	probe := Probe{AdminPort: 1234}
 
 	// Verify bad stats trigger an error
 	badStats := "cluster_manager.cds.update_success: 0\nlistener_manager.lds.update_success: 0"
-	server := createAndStartServer(badStats)
+	server := createAndStartServer(badStats, liveServerInfo)
 	err := probe.Check()
 	server.Close()
 	g.Expect(err).To(HaveOccurred())
 
 	// trigger the state change
-	goodStats := "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1"
-	server = createAndStartServer(goodStats)
+	server = createAndStartServer(goodStats, liveServerInfo)
 	err = probe.Check()
 	server.Close()
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// verify empty stats no longer break probe
-	server = createAndStartServer(badStats)
+	server = createAndStartServer(badStats, liveServerInfo)
 	err = probe.Check()
 	server.Close()
 	g.Expect(err).ToNot(HaveOccurred())
 }
 
-func createAndStartServer(statsToReturn string) *httptest.Server {
-	// Start a local HTTP server
-	server := httptest.NewUnstartedServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+func TestEnvoyInitializing(t *testing.T) {
+	g := NewGomegaWithT(t)
+	stats := goodStats
+
+	server := createAndStartServer(stats, initServerInfo)
+	defer server.Close()
+	probe := Probe{AdminPort: 1234}
+
+	err := probe.Check()
+
+	g.Expect(err).To(HaveOccurred())
+}
+
+func createAndStartServer(statsToReturn string, serverInfo proto.Message) *httptest.Server {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/stats", http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		// Send response to be tested
 		rw.Write([]byte(statsToReturn))
 	}))
+	mux.HandleFunc("/server_info", http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		jsonm := &jsonpb.Marshaler{Indent: "  "}
+		infoJSON, _ := jsonm.MarshalToString(serverInfo)
+
+		// Send response to be tested
+		rw.Write([]byte(infoJSON))
+	}))
+
+	// Start a local HTTP server
+	server := httptest.NewUnstartedServer(mux)
+
 	l, err := net.Listen("tcp", "127.0.0.1:1234")
 	if err != nil {
 		panic("Could not create listener for test: " + err.Error())

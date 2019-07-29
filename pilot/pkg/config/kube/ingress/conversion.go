@@ -20,15 +20,17 @@ import (
 	"strconv"
 	"strings"
 
-	multierror "github.com/hashicorp/go-multierror"
-	"k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config"
 	"istio.io/pkg/log"
+
+	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // EncodeIngressRuleName encodes an ingress rule name for a given ingress resource name,
@@ -63,7 +65,7 @@ func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum in
 // ConvertIngressV1alpha3 converts from ingress spec to Istio Gateway
 func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.Config {
 	gateway := &networking.Gateway{
-		Selector: model.IstioIngressWorkloadLabels,
+		Selector: config.Labels{config.IstioLabel: config.IstioIngressLabelValue},
 	}
 
 	// FIXME this is a temporary hack until all test templates are updated
@@ -79,7 +81,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.
 		gateway.Servers = append(gateway.Servers, &networking.Server{
 			Port: &networking.Port{
 				Number:   443,
-				Protocol: string(model.ProtocolHTTPS),
+				Protocol: string(config.ProtocolHTTPS),
 				Name:     fmt.Sprintf("https-443-ingress-%s-%s", ingress.Name, ingress.Namespace),
 			},
 			Hosts: tls.Hosts,
@@ -89,10 +91,10 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.
 				HttpsRedirect: false,
 				Mode:          networking.Server_TLSOptions_SIMPLE,
 				// TODO this is no longer valid for the new v2 stuff
-				PrivateKey:        path.Join(model.IngressCertsPath, model.IngressKeyFilename),
-				ServerCertificate: path.Join(model.IngressCertsPath, model.IngressCertFilename),
+				PrivateKey:        path.Join(config.IngressCertsPath, config.IngressKeyFilename),
+				ServerCertificate: path.Join(config.IngressCertsPath, config.IngressCertFilename),
 				// TODO: make sure this is mounted
-				CaCertificates: path.Join(model.IngressCertsPath, model.RootCertFilename),
+				CaCertificates: path.Join(config.IngressCertsPath, config.RootCertFilename),
 			},
 		})
 	}
@@ -100,7 +102,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.
 	gateway.Servers = append(gateway.Servers, &networking.Server{
 		Port: &networking.Port{
 			Number:   80,
-			Protocol: string(model.ProtocolHTTP),
+			Protocol: string(config.ProtocolHTTP),
 			Name:     fmt.Sprintf("http-80-ingress-%s-%s", ingress.Name, ingress.Namespace),
 		},
 		Hosts: []string{"*"},
@@ -111,7 +113,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.
 			Type:      model.Gateway.Type,
 			Group:     model.Gateway.Group,
 			Version:   model.Gateway.Version,
-			Name:      ingress.Name + "-" + model.IstioIngressGatewayName,
+			Name:      ingress.Name + "-" + config.IstioIngressGatewayName,
 			Namespace: ingressNamespace,
 			Domain:    domainSuffix,
 		},
@@ -128,7 +130,7 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 	// all ingresses, and return a separate VirtualService for each
 	// host.
 	if ingressNamespace == "" {
-		ingressNamespace = model.IstioIngressNamespace
+		ingressNamespace = config.IstioIngressNamespace
 	}
 
 	for _, rule := range ingress.Spec.Rules {
@@ -146,18 +148,18 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 			Hosts: []string{},
 			// Note the name of the gateway is fixed - this is the Gateway that needs to be created by user (via helm
 			// or manually) with TLS secrets and explicit namespace (for security).
-			Gateways: []string{ingressNamespace + "/" + model.IstioIngressGatewayName},
+			Gateways: []string{ingressNamespace + "/" + config.IstioIngressGatewayName},
 		}
 
 		virtualService.Hosts = []string{host}
 
-		httpRoutes := []*networking.HTTPRoute{}
-		for _, path := range rule.HTTP.Paths {
+		httpRoutes := make([]*networking.HTTPRoute, 0)
+		for _, httpPath := range rule.HTTP.Paths {
 			httpMatch := &networking.HTTPMatchRequest{
-				Uri: createStringMatch(path.Path),
+				Uri: createStringMatch(httpPath.Path),
 			}
 
-			httpRoute := ingressBackendToHTTPRoute(&path.Backend, ingress.Namespace, domainSuffix)
+			httpRoute := ingressBackendToHTTPRoute(&httpPath.Backend, ingress.Namespace, domainSuffix)
 			if httpRoute == nil {
 				log.Infof("invalid ingress rule %s:%s for host %q, no backend defined for path", ingress.Namespace, ingress.Name, rule.Host)
 				continue
@@ -173,7 +175,7 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 				Type:      model.VirtualService.Type,
 				Group:     model.VirtualService.Group,
 				Version:   model.VirtualService.Version,
-				Name:      namePrefix + "-" + ingress.Name + "-" + model.IstioIngressGatewayName,
+				Name:      namePrefix + "-" + ingress.Name + "-" + config.IstioIngressGatewayName,
 				Namespace: ingress.Namespace,
 				Domain:    domainSuffix,
 			},
