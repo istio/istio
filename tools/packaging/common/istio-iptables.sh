@@ -412,8 +412,8 @@ if [ -n "${OUTBOUND_PORTS_EXCLUDE}" ]; then
   done
 fi
 
-# 127.0.0.5 is binded as src ip when sidecar proxy redirect inbound original_dst traffic
-iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.5/32 -j RETURN
+# 127.0.0.6 is bind connect from inbound passthrough cluster
+iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN
 
 if [ -z "${DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK-}" ]; then
   # Redirect app calls back to itself via Envoy when using the service VIP or endpoint
@@ -544,6 +544,9 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
       ip6tables -t nat -A ISTIO_OUTPUT -p tcp --dport "${port}" -j RETURN
     done
   fi
+
+  # ::6 is bind when connect from inbound passthrough cluster
+  ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN
 
   # Redirect app calls to back itself via Envoy when using the service VIP or endpoint
   # address, e.g. appN => Envoy (client) => Envoy (server) => appN.

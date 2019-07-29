@@ -113,20 +113,6 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		clusters = outboundClusters
 	}
 
-	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
-	// DO NOT CALL PLUGINS for these two clusters.
-	inboundPassthroughCluster := buildDefaultPassthroughCluster(env)
-	inboundPassthroughCluster.Name = util.InboundPassthroughCluster
-	inboundPassthroughCluster.UpstreamBindConfig = &core.BindConfig{
-		SourceAddress: core.SocketAddress{
-			Address: "127.0.0.5",
-			PortSpecifier: &core.SocketAddress_PortValue{
-				PortValue: uint32(0),
-			},
-		},
-	}
-	clusters = append(clusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env), inboundPassthroughCluster)
-	clusters = applyClusterPatches(env, proxy, push, clusters)
 	clusters = normalizeClusters(push, proxy, clusters)
 
 	return clusters, nil
@@ -430,6 +416,33 @@ func buildInboundLocalityLbEndpoints(bind string, port int) []endpoint.LocalityL
 			LbEndpoints: []endpoint.LbEndpoint{lbEndpoint},
 		},
 	}
+}
+
+func generateInboundPassthroughClusters(env *model.Environment) []*apiv2.Cluster {
+	clusters := make([]*apiv2.Cluster, 0, 2)
+	inboundPassthroughClusterIpv4 := buildDefaultPassthroughCluster(env)
+	inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
+	inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
+		SourceAddress: core.SocketAddress{
+			Address: util.InboundPassthroughBindIpv4,
+			PortSpecifier: &core.SocketAddress_PortValue{
+				PortValue: uint32(0),
+			},
+		},
+	}
+
+	inboundPassthroughClusterIpv6 := buildDefaultPassthroughCluster(env)
+	inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
+	inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
+		SourceAddress: core.SocketAddress{
+			Address: util.InboundPassthroughBindIpv6,
+			PortSpecifier: &core.SocketAddress_PortValue{
+				PortValue: uint32(0),
+			},
+		},
+	}
+	clusters = append(clusters, inboundPassthroughClusterIpv4, inboundPassthroughClusterIpv6)
+	return clusters
 }
 
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environment, proxy *model.Proxy,

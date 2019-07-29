@@ -333,6 +333,9 @@ func run(args []string, flagSet *flag.FlagSet) {
 		}
 	}
 
+	// 127.0.0.6 is bind connect from inbound passthrough cluster
+	ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "127.0.0.6/32", "-j", "RETURN")
+
 	if env.RegisterStringVar("DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK", "", "").Get() == "" {
 		// Redirect app calls back to itself via Envoy when using the service VIP or endpoint
 		// address, e.g. appN => Envoy (client) => Envoy (server) => appN.
@@ -444,6 +447,10 @@ func run(args []string, flagSet *flag.FlagSet) {
 				ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-p", "tcp", "--dport", port, "-j", "RETURN")
 			}
 		}
+
+		// ::6 is bind connect from inbound passthrough cluster
+		ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "::6/128", "-j", "RETURN")
+
 		// Redirect app calls to back itself via Envoy when using the service VIP or endpoint
 		// address, e.g. appN => Envoy (client) => Envoy (server) => appN.
 		ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "::1/128", "-j", "ISTIO_IN_REDIRECT")
