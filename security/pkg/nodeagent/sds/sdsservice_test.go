@@ -448,7 +448,7 @@ func testSDSStreamMultiplePush(t *testing.T, stream sds.SecretDiscoveryService_S
 	notifyChan <- "notify push secret"
 	if notify := <-notifyChan; notify == "receive secret" {
 		// Verify that Recv() does not receive secret push and returns when stream is closed.
-		resp, err = stream.Recv()
+		_, err = stream.Recv()
 		if err == nil {
 			t.Errorf("stream.Recv should fail: %v", err)
 		}
