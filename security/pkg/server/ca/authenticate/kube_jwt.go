@@ -40,7 +40,7 @@ type KubeJWTAuthenticator struct {
 }
 
 // NewKubeJWTAuthenticator creates a new kubeJWTAuthenticator.
-func NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath, trustDomain string, legacyJwtAllowed bool) (*KubeJWTAuthenticator, error) {
+func NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath, trustDomain string) (*KubeJWTAuthenticator, error) {
 	// Read the CA certificate of the k8s apiserver
 	caCert, err := ioutil.ReadFile(caCertPath)
 	if err != nil {
@@ -51,7 +51,7 @@ func NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath, trustDomain s
 		return nil, fmt.Errorf("failed to read Citadel JWT: %v", err)
 	}
 	return &KubeJWTAuthenticator{
-		client:      tokenreview.NewK8sSvcAcctAuthn(k8sAPIServerURL, caCert, string(reviewerJWT), legacyJwtAllowed),
+		client:      tokenreview.NewK8sSvcAcctAuthn(k8sAPIServerURL, caCert, string(reviewerJWT)),
 		trustDomain: trustDomain,
 	}, nil
 }

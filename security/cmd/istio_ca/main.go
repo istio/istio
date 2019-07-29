@@ -111,9 +111,6 @@ type cliOptions struct { // nolint: maligned
 
 	// Whether SDS is enabled on.
 	sdsEnabled bool
-
-	// Whether to allow legacy JWTs.
-	legacyJwtAllowed bool
 }
 
 var (
@@ -248,7 +245,6 @@ func initCLI() {
 		false, "Enable dual-use mode. Generates certificates with a CommonName identical to the SAN.")
 
 	flags.BoolVar(&opts.sdsEnabled, "sds-enabled", false, "Whether SDS is enabled.")
-	flags.BoolVar(&opts.legacyJwtAllowed, "legacy-jwt-allowed", false, "Whether legacy JWTs are allowed.")
 
 	rootCmd.AddCommand(version.CobraCommand())
 
@@ -362,7 +358,7 @@ func runCA() {
 		// The CA API uses cert with the max workload cert TTL.
 		hostnames := append(strings.Split(opts.grpcHosts, ","), fqdn())
 		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames,
-			opts.grpcPort, spiffe.GetTrustDomain(), opts.sdsEnabled, opts.legacyJwtAllowed)
+			opts.grpcPort, spiffe.GetTrustDomain(), opts.sdsEnabled)
 		if startErr != nil {
 			fatalf("Failed to create istio ca server: %v", startErr)
 		}

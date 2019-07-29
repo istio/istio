@@ -199,7 +199,7 @@ func (s *Server) Run() error {
 
 // New creates a new instance of `IstioCAServiceServer`.
 func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []string, port int,
-	trustDomain string, sdsEnabled, legacyJwtAllowed bool) (*Server, error) {
+	trustDomain string, sdsEnabled bool) (*Server, error) {
 
 	if len(hostlist) == 0 {
 		return nil, fmt.Errorf("failed to create grpc server hostlist empty")
@@ -213,7 +213,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 	// Only add k8s jwt authenticator if SDS is enabled.
 	if sdsEnabled {
 		authenticator, err := authenticate.NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath,
-			trustDomain, legacyJwtAllowed)
+			trustDomain)
 		if err == nil {
 			authenticators = append(authenticators, authenticator)
 			log.Info("added K8s JWT authenticator")

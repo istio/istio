@@ -41,10 +41,9 @@ type saValidationRequest struct {
 
 // K8sSvcAcctAuthn authenticates a k8s service account (JWT) through the k8s TokenReview API.
 type K8sSvcAcctAuthn struct {
-	apiServerAddr    string
-	callerToken      string
-	legacyJwtAllowed bool
-	httpClient       *http.Client
+	apiServerAddr string
+	callerToken   string
+	httpClient    *http.Client
 }
 
 // NewK8sSvcAcctAuthn creates a new authenticator for authenticating k8s JWTs.
@@ -52,7 +51,7 @@ type K8sSvcAcctAuthn struct {
 // apiServerAddr: the URL of k8s API Server
 // apiServerCert: the CA certificate of k8s API Server
 // callerToken: the JWT of the caller to authenticate to k8s API server
-func NewK8sSvcAcctAuthn(apiServerAddr string, apiServerCert []byte, callerToken string, legacyJwtAllowed bool) *K8sSvcAcctAuthn {
+func NewK8sSvcAcctAuthn(apiServerAddr string, apiServerCert []byte, callerToken string) *K8sSvcAcctAuthn {
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(apiServerCert)
 	// Set the TLS certificate
@@ -70,10 +69,9 @@ func NewK8sSvcAcctAuthn(apiServerAddr string, apiServerCert []byte, callerToken 
 	}
 
 	return &K8sSvcAcctAuthn{
-		apiServerAddr:    apiServerAddr,
-		callerToken:      callerToken,
-		legacyJwtAllowed: legacyJwtAllowed,
-		httpClient:       httpClient,
+		apiServerAddr: apiServerAddr,
+		callerToken:   callerToken,
+		httpClient:    httpClient,
 	}
 }
 
@@ -113,15 +111,13 @@ func (authn *K8sSvcAcctAuthn) reviewServiceAccountAtK8sAPIServer(targetToken str
 // Otherwise, return the error.
 // targetToken: the JWT of the K8s service account to be reviewed
 func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(targetToken string) ([]string, error) {
-	// If legacy JWTs are not allowed, check if the jwt is trustworthy.
-	if !authn.legacyJwtAllowed {
-		isTrustworthyJwt, err := isTrustworthyJwt(targetToken)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check if jwt is trustworthy: %v", err)
-		}
-		if !isTrustworthyJwt {
-			return nil, fmt.Errorf("legacy JWTs are not allowed and the provided jwt is not trustworthy")
-		}
+	// SDS requires JWT to be trustworthy (has aud, exp, and mounted to the pod).
+	isTrustworthyJwt, err := isTrustworthyJwt(targetToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if jwt is trustworthy: %v", err)
+	}
+	if !isTrustworthyJwt {
+		return nil, fmt.Errorf("legacy JWTs are not allowed and the provided jwt is not trustworthy")
 	}
 
 	resp, err := authn.reviewServiceAccountAtK8sAPIServer(targetToken)

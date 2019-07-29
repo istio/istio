@@ -48,73 +48,56 @@ type clientConfig struct {
 
 func TestOnMockAPIServer(t *testing.T) {
 	testCases := map[string]struct {
-		cliConfig        clientConfig
-		legacyJwtAllowed bool
-		expectedCert     []string
-		expectedErr      string
+		cliConfig    clientConfig
+		expectedCert []string
+		expectedErr  string
 	}{
 		"Valid request": {
 			cliConfig: clientConfig{jwt: getJwtFromFile("testdata/legacy-jwt.jwt", t), tlsCert: []byte{}, reviewPath: "review-path",
 				reviewerToken: "fake-reviewer-token"},
-			legacyJwtAllowed: true,
-			expectedErr:      "",
+			expectedErr: "",
 		},
 		"Valid request but using legacy jwt": {
 			cliConfig: clientConfig{jwt: getJwtFromFile("testdata/legacy-jwt.jwt", t), tlsCert: []byte{}, reviewPath: "review-path",
 				reviewerToken: "fake-reviewer-token"},
-			legacyJwtAllowed: false,
-			expectedErr:      "legacy JWTs are not allowed and the provided jwt is not trustworthy",
+			expectedErr: "legacy JWTs are not allowed and the provided jwt is not trustworthy",
 		},
 		"Valid request with trustworthy jwt": {
 			cliConfig: clientConfig{jwt: getJwtFromFile("testdata/trustworthy-jwt.jwt", t), tlsCert: []byte{}, reviewPath: "review-path",
 				reviewerToken: "fake-reviewer-token"},
-			legacyJwtAllowed: false,
-			expectedErr:      "",
-		},
-		// This should still pass because trustworthy jwt is stricter.
-		"Valid request with trustworthy jwt but also allow legacy jwt": {
-			cliConfig: clientConfig{jwt: getJwtFromFile("testdata/trustworthy-jwt.jwt", t), tlsCert: []byte{}, reviewPath: "review-path",
-				reviewerToken: "fake-reviewer-token"},
-			legacyJwtAllowed: true,
-			expectedErr:      "",
+			expectedErr: "",
 		},
 		"Valid request without JWT": {
 			cliConfig: clientConfig{tlsCert: []byte{}, reviewPath: "review-path",
 				reviewerToken: "fake-reviewer-token"},
-			legacyJwtAllowed: true,
-			expectedErr:      "invalid JWT",
+			expectedErr: "failed to check if jwt is trustworthy: jwt may be invalid",
 		},
 		"Invalid JWT": {
 			cliConfig: clientConfig{jwt: ":", tlsCert: []byte{}, reviewPath: "review-path",
 				reviewerToken: "fake-reviewer-token"},
-			legacyJwtAllowed: true,
-			expectedErr:      "invalid JWT",
+			expectedErr: "failed to check if jwt is trustworthy: jwt may be invalid",
 		},
 		"Wrong review path": {
-			cliConfig: clientConfig{jwt: "jwt", tlsCert: []byte{}, reviewPath: "wrong-review-path",
+			cliConfig: clientConfig{jwt: getJwtFromFile("testdata/trustworthy-jwt.jwt", t), tlsCert: []byte{}, reviewPath: "wrong-review-path",
 				reviewerToken: "fake-reviewer-token"},
-			legacyJwtAllowed: true,
-			expectedCert:     nil,
-			expectedErr:      "the request is of an invalid path",
+			expectedCert: nil,
+			expectedErr:  "the request is of an invalid path",
 		},
 		"No review path": {
-			cliConfig: clientConfig{jwt: "jwt", tlsCert: []byte{},
+			cliConfig: clientConfig{jwt: getJwtFromFile("testdata/trustworthy-jwt.jwt", t), tlsCert: []byte{},
 				reviewerToken: "fake-reviewer-token"},
-			legacyJwtAllowed: true,
-			expectedCert:     nil,
-			expectedErr:      "the request is of an invalid path",
+			expectedCert: nil,
+			expectedErr:  "the request is of an invalid path",
 		},
 		"No reviewer token": {
-			cliConfig:        clientConfig{jwt: "jwt", tlsCert: []byte{}, reviewPath: "review-path"},
-			legacyJwtAllowed: true,
-			expectedErr:      "invalid token",
+			cliConfig:   clientConfig{jwt: getJwtFromFile("testdata/trustworthy-jwt.jwt", t), tlsCert: []byte{}, reviewPath: "review-path"},
+			expectedErr: "invalid token",
 		},
 		"Wrong reviewer token": {
-			cliConfig: clientConfig{jwt: "jwt", tlsCert: []byte{}, reviewPath: "review-path",
+			cliConfig: clientConfig{jwt: getJwtFromFile("testdata/trustworthy-jwt.jwt", t), tlsCert: []byte{}, reviewPath: "review-path",
 				reviewerToken: "wrong-reviewer-token"},
-			legacyJwtAllowed: true,
-			expectedCert:     nil,
-			expectedErr:      "invalid token",
+			expectedCert: nil,
+			expectedErr:  "invalid token",
 		},
 	}
 
@@ -134,7 +117,7 @@ func TestOnMockAPIServer(t *testing.T) {
 		}
 
 		authn := NewK8sSvcAcctAuthn(s.httpServer.URL+"/"+tc.cliConfig.reviewPath, tc.cliConfig.tlsCert,
-			tc.cliConfig.reviewerToken, tc.legacyJwtAllowed)
+			tc.cliConfig.reviewerToken)
 
 		_, err := authn.ValidateK8sJwt(tc.cliConfig.jwt)
 

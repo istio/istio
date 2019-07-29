@@ -46,7 +46,6 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 	caCertFileContent := []byte("CACERT")
 	jwtFileContent := []byte("JWT")
 	trustDomain := "testdomain.com"
-	legacyJwtAllowed := false
 	url := "https://server/url"
 	if err := ioutil.WriteFile(validCACertPath, caCertFileContent, 0777); err != nil {
 		t.Errorf("Failed to write to testing CA cert file: %v", err)
@@ -78,7 +77,7 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		authenticator, err := NewKubeJWTAuthenticator(url, tc.caCertPath, tc.jwtPath, trustDomain, legacyJwtAllowed)
+		authenticator, err := NewKubeJWTAuthenticator(url, tc.caCertPath, tc.jwtPath, trustDomain)
 		if len(tc.expectedErrMsg) > 0 {
 			if err == nil {
 				t.Errorf("Case %s: Succeeded. Error expected: %v", id, err)
@@ -91,7 +90,7 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 			t.Errorf("Case %s: Unexpected Error: %v", id, err)
 		}
 		expectedAuthenticator := &KubeJWTAuthenticator{
-			client:      tokenreview.NewK8sSvcAcctAuthn(url, caCertFileContent, string(jwtFileContent), legacyJwtAllowed),
+			client:      tokenreview.NewK8sSvcAcctAuthn(url, caCertFileContent, string(jwtFileContent)),
 			trustDomain: trustDomain,
 		}
 		if !reflect.DeepEqual(authenticator, expectedAuthenticator) {
@@ -210,7 +209,7 @@ func TestAuthenticatorType(t *testing.T) {
 	url := "https://server/url"
 
 	kubeJwtAuthenticator := &KubeJWTAuthenticator{
-		client:      tokenreview.NewK8sSvcAcctAuthn(url, caCertFileContent, string(jwtFileContent), false),
+		client:      tokenreview.NewK8sSvcAcctAuthn(url, caCertFileContent, string(jwtFileContent)),
 		trustDomain: trustDomain,
 	}
 
