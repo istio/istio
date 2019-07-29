@@ -40,7 +40,7 @@ var (
 )
 
 // Source is an implementation of processing.KubeSource
-type Source struct {
+type Source struct { // nolint:maligned
 	mu      sync.Mutex
 	options Options
 

@@ -19,9 +19,9 @@ import (
 	"strconv"
 	"strings"
 
-	"istio.io/api/annotation"
 	coreV1 "k8s.io/api/core/v1"
 
+	"istio.io/api/annotation"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/annotations"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"

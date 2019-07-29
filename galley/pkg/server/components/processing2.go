@@ -25,7 +25,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 	grpcMetadata "google.golang.org/grpc/metadata"
-	"istio.io/pkg/version"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/config/event"
@@ -47,6 +46,7 @@ import (
 	"istio.io/istio/pkg/mcp/source"
 	"istio.io/pkg/ctrlz/fw"
 	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 // Processing2 component is the main config processing component that will listen to a config source and publish

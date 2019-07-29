@@ -20,10 +20,9 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+
 	"istio.io/api/annotation"
-
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/annotations"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/converter"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
