@@ -32,6 +32,20 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var (
+	wellKnownPorts = map[int32]config.Protocol{
+		25:    config.ProtocolTCP, // SMTP
+		80:    config.ProtocolHTTP,
+		443:   config.ProtocolHTTPS,
+		3306:  config.ProtocolMySQL, // MySQL
+		4222:  config.ProtocolTCP,   // NATS
+		8086:  config.ProtocolTCP,   // InfluxDB
+		9090:  config.ProtocolHTTP,  // Prometheus, used by Istio
+		15030: config.ProtocolTCP,   // Prometheus, used by Istio
+		27017: config.ProtocolMongo, // MongoDB
+	}
+)
+
 func ConvertLabels(obj metaV1.ObjectMeta) config.Labels {
 	out := make(config.Labels, len(obj.Labels))
 	for k, v := range obj.Labels {
@@ -56,7 +70,7 @@ var grpcWeb = string(config.ProtocolGRPCWeb)
 var grpcWebLen = len(grpcWeb)
 
 // ConvertProtocol from k8s protocol and port name
-func ConvertProtocol(name string, proto coreV1.Protocol) config.Protocol {
+func ConvertProtocol(port int32, name string, proto coreV1.Protocol) config.Protocol {
 	out := config.ProtocolUnsupported
 	switch proto {
 	case coreV1.ProtocolUDP:
@@ -73,9 +87,14 @@ func ConvertProtocol(name string, proto coreV1.Protocol) config.Protocol {
 		}
 		protocol := config.ParseProtocol(name)
 
-		// TODO(crazyxy) skip for well known ports, e.e. prometheus
 		if protocol == config.ProtocolUnsupported {
-			out = protocol
+			// For well known ports, using protocol sniffing is unnecessary
+			if proto, has := wellKnownPorts[port]; has {
+				out = proto
+			} else {
+				out = config.ProtocolUnsupported
+			}
+
 			break
 		}
 
