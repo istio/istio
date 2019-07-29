@@ -99,6 +99,10 @@ var (
 			"istio_policy_status":       &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%DYNAMIC_METADATA(istio.mixer:status)%"}},
 		},
 	}
+
+	// Precompute these filters as an optimization
+	blackholeAnyMarshalling    = newBlackholeFilter(true)
+	blackholeStructMarshalling = newBlackholeFilter(false)
 )
 
 func buildAccessLog(fl *fileaccesslog.FileAccessLog, env *model.Environment) {
@@ -219,17 +223,40 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
 		}
 
+		filterChains := []listener.FilterChain{
+			{
+				Filters: []listener.Filter{filter},
+			},
+		}
+
+		// The virtual listener will handle all traffic that does not match any other listeners, and will
+		// blackhole/passthrough depending on the outbound traffic policy. When passthrough is enabled,
+		// this has the risk of triggering infinite loops when requests are sent to the pod's IP, as it will
+		// send requests to itself. To block this we add an additional filter chain before that will always blackhole.
+		if pilot.RestrictPodIPTrafficLoops() {
+			var cidrRanges []*core.CidrRange
+			for _, ip := range node.IPAddresses {
+				cidrRanges = append(cidrRanges, util.ConvertAddressToCidr(ip))
+			}
+			blackhole := blackholeStructMarshalling
+			if util.IsXDSMarshalingToAnyEnabled(node) {
+				blackhole = blackholeAnyMarshalling
+			}
+			filterChains = append([]listener.FilterChain{{
+				FilterChainMatch: &listener.FilterChainMatch{
+					PrefixRanges: cidrRanges,
+				},
+				Filters: []listener.Filter{blackhole},
+			}}, filterChains...)
+		}
+
 		// add an extra listener that binds to the port that is the recipient of the iptables redirect
 		listeners = append(listeners, &xdsapi.Listener{
 			Name:           VirtualListenerName,
 			Address:        util.BuildAddress(WildcardAddress, uint32(mesh.ProxyListenPort)),
 			Transparent:    transparent,
 			UseOriginalDst: proto.BoolTrue,
-			FilterChains: []listener.FilterChain{
-				{
-					Filters: []listener.Filter{filter},
-				},
-			},
+			FilterChains:   filterChains,
 		})
 	}
 
@@ -1076,6 +1103,22 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		return
 	}
 
+	// These wildcard listeners are intended for outbound traffic. However, there are cases where inbound traffic can hit these.
+	// This will happen when there is a no more specific inbound listener, either because Pilot hasn't sent it (race condition
+	// at startup), or because it never will (a port not specified in a service but captured by iptables).
+	// When this happens, Envoy will infinite loop sending requests to itself.
+	// To prevent this, we add a filter chain match that will match the pod ip and blackhole the traffic.
+	if listenerOpts.bind == WildcardAddress && pilot.RestrictPodIPTrafficLoops() {
+		blackhole := blackholeStructMarshalling
+		if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
+			blackhole = blackholeAnyMarshalling
+		}
+		listenerOpts.filterChainOpts = append([]*filterChainOpts{{
+			destinationCIDRs: pluginParams.Node.IPAddresses,
+			networkFilters:   []listener.Filter{blackhole},
+		}}, listenerOpts.filterChainOpts...)
+	}
+
 	// Lets build the new listener with the filter chains. In the end, we will
 	// merge the filter chains with any existing listener on the same port/bind point
 	l := buildListener(listenerOpts)
@@ -1666,4 +1709,23 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 	}
 
 	return nil
+}
+
+// Creates a new filter that will always send traffic to the blackhole cluster
+func newBlackholeFilter(enableAny bool) listener.Filter {
+	tcpProxy := &tcp_proxy.TcpProxy{
+		StatPrefix:       util.BlackHoleCluster,
+		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+	}
+
+	filter := listener.Filter{
+		Name: xdsutil.TCPProxy,
+	}
+
+	if enableAny {
+		filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
+	} else {
+		filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
+	}
+	return filter
 }

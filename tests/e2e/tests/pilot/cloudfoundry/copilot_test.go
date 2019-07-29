@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -217,6 +218,9 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 }
 
 func TestWildcardHostSidecarRouterWithMockCopilot(t *testing.T) {
+	os.Setenv("PILOT_RESTRICT_POD_UP_TRAFFIC_LOOP", "false")
+	defer os.Setenv("PILOT_RESTRICT_POD_UP_TRAFFIC_LOOP", "true")
+
 	g := gomega.NewGomegaWithT(t)
 
 	runFakeApp(app3ListenPort)
