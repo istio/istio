@@ -157,12 +157,6 @@ func (node *Proxy) ServiceNode() string {
 
 }
 
-// GetProxyVersion returns the proxy version string identifier, and whether it is present.
-func (node *Proxy) GetProxyVersion() (string, bool) {
-	version, found := node.Metadata[NodeMetadataIstioProxyVersion]
-	return version, found
-}
-
 // GetIstioVersion returns the Istio version of the proxy, and whether it is present
 func (node *Proxy) GetIstioVersion() (string, bool) {
 	version, found := node.Metadata[NodeMetadataIstioVersion]
@@ -393,9 +387,6 @@ func isValidIPAddress(ip string) bool {
 
 // Pile all node metadata constants here
 const (
-	// NodeMetadataIstioProxyVersion specifies the Envoy version associated with the proxy
-	NodeMetadataIstioProxyVersion = "ISTIO_PROXY_VERSION"
-
 	// NodeMetadataIstioVersion specifies the Istio version associated with the proxy
 	NodeMetadataIstioVersion = "ISTIO_VERSION"
 

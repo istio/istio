@@ -102,7 +102,6 @@ func TestGolden(t *testing.T) {
 			envVars: map[string]string{
 				"ISTIO_META_ISTIO_PROXY_SHA":     "istio-proxy:sha",
 				"ISTIO_META_INTERCEPTION_MODE":   "REDIRECT",
-				"ISTIO_META_ISTIO_PROXY_VERSION": "istio-proxy:version",
 				"ISTIO_META_ISTIO_VERSION":       "release-3.1",
 				"ISTIO_META_POD_NAME":            "svc-0-0-0-6944fb884d-4pgx8",
 				"POD_NAME":                       "svc-0-0-0-6944fb884d-4pgx8",

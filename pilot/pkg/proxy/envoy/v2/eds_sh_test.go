@@ -154,7 +154,7 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarID string, 
 	defer cancel()
 
 	metadata := &proto.Struct{Fields: map[string]*proto.Value{
-		"ISTIO_PROXY_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.1"}},
+		"ISTIO_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.3"}},
 		"NETWORK":             {Kind: &proto.Value_StringValue{StringValue: network}},
 	}}
 

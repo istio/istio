@@ -257,15 +257,21 @@ func SortVirtualHosts(hosts []route.VirtualHost) {
 	})
 }
 
-// IsProxyVersionGE11 checks whether the given Proxy version is greater than or equals 1.1.
-func IsProxyVersionGE11(node *model.Proxy) bool {
-	ver, _ := node.GetProxyVersion()
-	return ver >= "1.1"
+// IsIstioVersionGE12 checks whether the given Istio version is greater than or equals 1.2.
+func IsIstioVersionGE12(node *model.Proxy) bool {
+	ver, _ := node.GetIstioVersion()
+	return ver >= "1.2"
+}
+
+// IsIstioVersionGE13 checks whether the given Istio version is greater than or equals 1.3.
+func IsIstioVersionGE13(node *model.Proxy) bool {
+	ver, _ := node.GetIstioVersion()
+	return ver >= "1.3"
 }
 
 // IsXDSMarshalingToAnyEnabled controls whether "marshaling to Any" feature is enabled.
 func IsXDSMarshalingToAnyEnabled(node *model.Proxy) bool {
-	return IsProxyVersionGE11(node) && !features.DisableXDSMarshalingToAny
+	return IsIstioVersionGE13(node) && !features.DisableXDSMarshalingToAny
 }
 
 // ResolveHostsInNetworksConfig will go through the Gateways addresses for all

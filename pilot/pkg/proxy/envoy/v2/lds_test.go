@@ -210,7 +210,7 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 		Meta: map[string]string{
 			model.NodeMetadataConfigNamespace:   "ns1",
 			model.NodeMetadataInstanceIPs:       "100.1.1.2", // as service instance of http2.ns1
-			model.NodeMetadataIstioProxyVersion: "1.1.0",
+			model.NodeMetadataIstioVersion: "1.3.0",
 		},
 		IP:        "100.1.1.2",
 		Namespace: "ns1",
@@ -282,7 +282,7 @@ func TestLDSWithIngressGateway(t *testing.T) {
 		Meta: map[string]string{
 			model.NodeMetadataConfigNamespace:   "istio-system",
 			model.NodeMetadataInstanceIPs:       "99.1.1.1", // as service instance of ingress gateway
-			model.NodeMetadataIstioProxyVersion: "1.1.0",
+			model.NodeMetadataIstioVersion: "1.3.0",
 		},
 		IP:        "99.1.1.1",
 		Namespace: "istio-system",
@@ -408,7 +408,7 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 		Meta: map[string]string{
 			model.NodeMetadataConfigNamespace:   "consumerns",
 			model.NodeMetadataInstanceIPs:       "98.1.1.1", // as service instance of ingress gateway
-			model.NodeMetadataIstioProxyVersion: "1.1.0",
+			model.NodeMetadataIstioVersion: "1.3.0",
 		},
 		IP:        "98.1.1.1",
 		Namespace: "consumerns", // namespace must match the namespace of the sidecar in the configs.yaml
@@ -511,7 +511,7 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 				Meta: map[string]string{
 					model.NodeMetadataConfigNamespace:   "consumerns",
 					model.NodeMetadataInstanceIPs:       test.ip, // as service instance of ingress gateway
-					model.NodeMetadataIstioProxyVersion: "1.1.0",
+					model.NodeMetadataIstioVersion: "1.3.0",
 				},
 				IP:        test.ip,
 				Namespace: "consumerns", // namespace must match the namespace of the sidecar in the configs.yaml
