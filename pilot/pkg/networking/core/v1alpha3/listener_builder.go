@@ -133,7 +133,7 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		isTransparentProxy = proto.BoolTrue
 	}
 
-	tcpProxyFilter := newTCPProxyListenerFilter(env, node, false)
+	tcpProxyFilter := newTCPProxyOutboundListenerFilter(env, node)
 
 	filterChains := []listener.FilterChain{
 		{
@@ -186,7 +186,6 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environme
 		isTransparentProxy = proto.BoolTrue
 	}
 
-	tcpProxyFilter := newTCPProxyListenerFilter(env, node, true)
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	builder.virtualInboundListener = &xdsapi.Listener{
@@ -194,11 +193,7 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environme
 		Address:        util.BuildAddress(actualWildcard, ProxyInboundListenPort),
 		Transparent:    isTransparentProxy,
 		UseOriginalDst: proto.BoolTrue,
-		FilterChains: []listener.FilterChain{
-			{
-				Filters: []listener.Filter{*tcpProxyFilter},
-			},
-		},
+		FilterChains:   newInboundPassthroughFilterChains(env, node),
 	}
 	return builder
 }
@@ -284,19 +279,57 @@ func newBlackholeFilter(enableAny bool) listener.Filter {
 	return filter
 }
 
-func newTCPProxyListenerFilter(env *model.Environment, node *model.Proxy, isInboundListener bool) *listener.Filter {
+func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy) []listener.FilterChain {
+	// ipv4 and ipv6
+	filterChains := make([]listener.FilterChain, 0, 2)
+	for _, clusterName := range []string{util.InboundPassthroughClusterIpv4, util.InboundPassthroughClusterIpv6} {
+
+		tcpProxy := &tcp_proxy.TcpProxy{
+			StatPrefix:       clusterName,
+			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
+		}
+
+		matchingIp := ""
+		if clusterName == util.InboundPassthroughClusterIpv4 {
+			matchingIp = util.InboundPassthroughBindIpv4
+		} else if clusterName == util.InboundPassthroughClusterIpv6 {
+			matchingIp = util.InboundPassthroughBindIpv6
+		}
+
+		filterChainMatch := listener.FilterChainMatch{
+			// Port : EMPTY to match all ports
+			PrefixRanges: []*core.CidrRange{
+				util.ConvertAddressToCidr(matchingIp),
+			},
+		}
+		setAccessLog(env, node, tcpProxy)
+		filter := listener.Filter{
+			Name: xdsutil.TCPProxy,
+		}
+
+		if util.IsXDSMarshalingToAnyEnabled(node) {
+			filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
+		} else {
+			filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
+		}
+		filterChain := listener.FilterChain{
+			FilterChainMatch: &filterChainMatch,
+			Filters: []listener.Filter{
+				filter,
+			},
+		}
+		filterChains = append(filterChains, filterChain)
+	}
+
+	return filterChains
+}
+
+func newTCPProxyOutboundListenerFilter(env *model.Environment, node *model.Proxy) *listener.Filter {
 	tcpProxy := &tcp_proxy.TcpProxy{
 		StatPrefix:       util.BlackHoleCluster,
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 	}
-
-	if isInboundListener {
-		tcpProxy = &tcp_proxy.TcpProxy{
-			StatPrefix:       util.InboundPassthroughCluster,
-			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.InboundPassthroughCluster},
-		}
-		setAccessLog(env, node, tcpProxy)
-	} else if isAllowAnyOutbound(node) {
+	if isAllowAnyOutbound(node) {
 		// We need a passthrough filter to fill in the filter stack for orig_dst listener
 		tcpProxy = &tcp_proxy.TcpProxy{
 			StatPrefix:       util.PassthroughCluster,
