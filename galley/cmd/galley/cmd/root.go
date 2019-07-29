@@ -15,13 +15,11 @@
 package cmd
 
 import (
-	"flag"
-	"fmt"
-	"os"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
+
+	"istio.io/istio/pkg/cmd"
 
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/version"
@@ -41,22 +39,10 @@ func GetRootCmd(args []string) *cobra.Command {
 		},
 	}
 
-	var cfgFile string
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Config file containing args")
-
-	cobra.OnInitialize(func() {
-		if len(cfgFile) > 0 {
-			viper.SetConfigFile(cfgFile)
-			err := viper.ReadInConfig() // Find and read the config file
-			if err != nil {             // Handle errors reading the config file
-				_, _ = os.Stderr.WriteString(fmt.Errorf("fatal error in config file: %s", err).Error())
-				os.Exit(1)
-			}
-		}
-	})
+	cmd.AddConfigFlag(rootCmd, viper.GetViper())
 
 	rootCmd.SetArgs(args)
-	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
+	cmd.AddFlags(rootCmd)
 	rootCmd.AddCommand(serverCmd())
 	rootCmd.AddCommand(probeCmd())
 	rootCmd.AddCommand(version.CobraCommand())

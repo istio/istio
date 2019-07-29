@@ -28,6 +28,8 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/spf13/viper"
+
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -122,6 +124,7 @@ var (
 			UnknownFlags: true,
 		},
 		RunE: func(c *cobra.Command, args []string) error {
+			cmd.ProcessViperConfig(c, viper.GetViper())
 			cmd.PrintFlags(c.Flags())
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
@@ -626,6 +629,7 @@ func init() {
 	loggingOptions.AttachCobraFlags(rootCmd)
 
 	cmd.AddFlags(rootCmd)
+	_ = viper.BindPFlags(proxyCmd.PersistentFlags())
 
 	rootCmd.AddCommand(proxyCmd)
 	rootCmd.AddCommand(version.CobraCommand())
@@ -669,6 +673,7 @@ func waitForFile(fname string, maxWait time.Duration) bool {
 }
 
 func main() {
+	cmd.AddConfigFlag(rootCmd, viper.GetViper())
 	if err := rootCmd.Execute(); err != nil {
 		log.Errora(err)
 		os.Exit(-1)

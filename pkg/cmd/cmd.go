@@ -16,9 +16,14 @@ package cmd
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
+	"reflect"
+	"strings"
 	"syscall"
+
+	"github.com/spf13/viper"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -37,8 +42,22 @@ func WaitSignal(stop chan struct{}) {
 
 // AddFlags adds all command line flags to the given command.
 func AddFlags(rootCmd *cobra.Command) {
-	flag.CommandLine.VisitAll(func(gf *flag.Flag) {
-		rootCmd.PersistentFlags().AddGoFlag(gf)
+	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
+}
+
+func AddConfigFlag(rootCmd *cobra.Command, viper *viper.Viper) {
+	var cfgFile string
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Config file containing args")
+
+	cobra.OnInitialize(func() {
+		if len(cfgFile) > 0 {
+			viper.SetConfigFile(cfgFile)
+			err := viper.ReadInConfig() // Find and read the config file
+			if err != nil {             // Handle errors reading the config file
+				_, _ = os.Stderr.WriteString(fmt.Errorf("fatal error in config file: %s", err).Error())
+				os.Exit(1)
+			}
+		}
 	})
 }
 
@@ -47,4 +66,19 @@ func PrintFlags(flags *pflag.FlagSet) {
 	flags.VisitAll(func(flag *pflag.Flag) {
 		log.Infof("FLAG: --%s=%q", flag.Name, flag.Value)
 	})
+}
+
+// ProcessViperConfig retrieves Viper values for each Cobra Val Flag
+func ProcessViperConfig(cmd *cobra.Command, viper *viper.Viper) {
+	viper.SetTypeByDefaultValue(true)
+	fmt.Println("processing viper config")
+	cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
+		if reflect.TypeOf(viper.Get(f.Name)).Kind() == reflect.Slice {
+			// Viper cannot convert slices to strings, so this is our workaround.
+			_ = f.Value.Set(strings.Join(viper.GetStringSlice(f.Name), ","))
+		} else {
+			_ = f.Value.Set(viper.GetString(f.Name))
+		}
+	})
+	fmt.Println(viper.GetString("mixerIdentity"))
 }
