@@ -134,6 +134,7 @@ export OUT_DIR=$(GO_TOP)/out
 export ISTIO_OUT:=$(OUT_DIR)/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
 export ISTIO_OUT_LINUX:=$(OUT_DIR)/linux_amd64/$(BUILDTYPE_DIR)
 export HELM=$(ISTIO_OUT)/helm
+export ARTIFACTS ?= $(ISTIO_OUT)
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT_LINUX}/docker_temp
@@ -492,7 +493,7 @@ ${ISTIO_BIN}/go-junit-report:
 	unset GOOS && unset GOARCH && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
 
 # Run coverage tests
-JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
+JUNIT_UNIT_TEST_XML ?= $(ARTIFACTS)/junit_unit-tests.xml
 ifeq ($(WHAT),)
        TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test
 else
@@ -573,6 +574,9 @@ selected-pkg-test:
 
 # Run coverage tests
 coverage: pilot-coverage mixer-coverage security-coverage galley-coverage common-coverage istioctl-coverage
+
+coverage-diff:
+	./bin/codecov_diff.sh
 
 .PHONY: pilot-coverage
 pilot-coverage:
