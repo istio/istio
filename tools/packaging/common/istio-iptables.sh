@@ -312,16 +312,19 @@ echo "KUBEVIRT_INTERFACES=${KUBEVIRT_INTERFACES}"
 echo "ENABLE_INBOUND_IPV6=${ENABLE_INBOUND_IPV6}"
 echo
 
-set -o errexit
-set -o nounset
-set -o pipefail
-set -x # echo on
 
+set +o nounset
+# Blindly add a ipv6 address. If it fails it's fine.
 # Add local ipv6 address to lo. Used in redirecting unknown ipv6 traffic to original dst.
 # This address does not show up in neigh table so each Pod/Vm will only see its own. Think about 127.0.0.6.
 if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
   ip -6 addr add ::6/128 dev lo
 fi
+
+set -o errexit
+set -o nounset
+set -o pipefail
+set -x # echo on
 
 # Create a new chain for redirecting outbound traffic to the common Envoy port.
 # In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
