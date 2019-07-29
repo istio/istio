@@ -48,7 +48,7 @@ const (
 	SecurityFeatureName          FeatureName = "Security"
 	ConfigManagementFeatureName  FeatureName = "ConfigManagement"
 	AutoInjectionFeatureName     FeatureName = "AutoInjection"
-	GatewayFeatureName           FeatureName = "Gateway"
+	GatewayFeatureName           FeatureName = "Gateways"
 )
 
 // ComponentName is a component name string, typed to constrain allowed values.

@@ -50,16 +50,21 @@ type TemplateRenderer interface {
 // NewHelmRenderer creates a new helm renderer with the given parameters and returns an interface to it.
 // The format of helmBaseDir and profile strings determines the type of helm renderer returned (compiled-in, file,
 // HTTP etc.)
-func NewHelmRenderer(helmBaseDir, profile, componentName, namespace string) (TemplateRenderer, error) {
+func NewHelmRenderer(chartsRootDir, helmBaseDir, profile, componentName, namespace string) (TemplateRenderer, error) {
 	globalValues, err := ReadValuesYAML(profile)
 	if err != nil {
 		return nil, err
 	}
+
+	// filepath would remove leading slash here if chartsRootDir is empty.
+	dir := chartsRootDir + "/" + helmBaseDir
 	switch {
-	case util.IsFilePath(helmBaseDir):
-		return NewFileTemplateRenderer(helmBaseDir, globalValues, componentName, namespace), nil
-	default:
+	case chartsRootDir == "":
 		return NewVFSRenderer(helmBaseDir, globalValues, componentName, namespace), nil
+	case util.IsFilePath(dir):
+		return NewFileTemplateRenderer(dir, globalValues, componentName, namespace), nil
+	default:
+		return nil, fmt.Errorf("unknown helm renderer with chartsRoot=%s", chartsRootDir)
 	}
 }
 
@@ -118,6 +123,10 @@ func renderChart(namespace, baseValues, overlayValues string, chrt *chart.Chart)
 
 	var sb strings.Builder
 	for _, f := range files {
+		// add yaml separator if the rendered file doesn't have one at the end
+		if !strings.HasSuffix(strings.TrimSpace(f)+"\n", YAMLSeparator) {
+			f += YAMLSeparator
+		}
 		_, err := sb.WriteString(f)
 		if err != nil {
 			return "", err

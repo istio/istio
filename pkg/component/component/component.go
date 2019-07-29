@@ -613,7 +613,7 @@ func createHelmRenderer(c *CommonComponentFields) (helm.TemplateRenderer, error)
 	if err != nil {
 		return nil, err
 	}
-	return helm.NewHelmRenderer(icp.InstallPackagePath+"/"+c.Translator.ComponentMaps[c.name].HelmSubdir,
+	return helm.NewHelmRenderer(icp.InstallPackagePath, c.Translator.ComponentMaps[c.name].HelmSubdir,
 		icp.Profile, string(c.name), ns)
 }
 
