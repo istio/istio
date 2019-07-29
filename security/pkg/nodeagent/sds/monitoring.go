@@ -111,6 +111,15 @@ var (
 			Subsystem: "sds_service",
 			Help:      "The date after which a pushed server certificate expires. Expressed as a Unix Epoch Time.",
 		}, []string{"resourcePerConn"})
+
+	// totalSecretUpdateFailureCounts records total number of secret update failures reported by
+	// proxy in SDS request <error_detail> field.
+	totalSecretUpdateFailureCounts = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "citadel_agent",
+		Subsystem: "sds_service",
+		Name:      "total_secret_update_failures",
+		Help:      "The total number of dynamic secret update failures reported by proxy.",
+	})
 )
 
 func init() {
@@ -123,35 +132,38 @@ func init() {
 	prometheus.MustRegister(pushPerConnCounts)
 	prometheus.MustRegister(rootCertExpiryTimestamp)
 	prometheus.MustRegister(serverCertExpiryTimestamp)
+	prometheus.MustRegister(totalSecretUpdateFailureCounts)
 }
 
 // monitoringMetrics are counters for SDS push related operations.
 type monitoringMetrics struct {
-	totalPush                 prometheus.Counter
-	totalPushError            prometheus.Counter
-	totalActiveConn           prometheus.Gauge
-	totalStaleConn            prometheus.Gauge
-	pendingPushPerConn        *prometheus.GaugeVec
-	staleConn                 *prometheus.CounterVec
-	pushPerConn               *prometheus.CounterVec
-	pushErrorPerConn          *prometheus.CounterVec
-	rootCertExpiryTimestamp   *prometheus.GaugeVec
-	serverCertExpiryTimestamp *prometheus.GaugeVec
+	totalPush                      prometheus.Counter
+	totalPushError                 prometheus.Counter
+	totalActiveConn                prometheus.Gauge
+	totalStaleConn                 prometheus.Gauge
+	pendingPushPerConn             *prometheus.GaugeVec
+	staleConn                      *prometheus.CounterVec
+	pushPerConn                    *prometheus.CounterVec
+	pushErrorPerConn               *prometheus.CounterVec
+	rootCertExpiryTimestamp        *prometheus.GaugeVec
+	serverCertExpiryTimestamp      *prometheus.GaugeVec
+	totalSecretUpdateFailureCounts prometheus.Counter
 }
 
 // newMonitoringMetrics creates a new monitoringMetrics.
 func newMonitoringMetrics() monitoringMetrics {
 	return monitoringMetrics{
-		totalPush:                 totalPushCounts,
-		totalPushError:            totalPushErrorCounts,
-		totalActiveConn:           totalActiveConnCounts,
-		totalStaleConn:            totalStaleConnCounts,
-		pendingPushPerConn:        pendingPushPerConnCounts,
-		staleConn:                 staleConnCounts,
-		pushPerConn:               pushPerConnCounts,
-		pushErrorPerConn:          pushErrorsPerConnCounts,
-		rootCertExpiryTimestamp:   rootCertExpiryTimestamp,
-		serverCertExpiryTimestamp: serverCertExpiryTimestamp,
+		totalPush:                      totalPushCounts,
+		totalPushError:                 totalPushErrorCounts,
+		totalActiveConn:                totalActiveConnCounts,
+		totalStaleConn:                 totalStaleConnCounts,
+		pendingPushPerConn:             pendingPushPerConnCounts,
+		staleConn:                      staleConnCounts,
+		pushPerConn:                    pushPerConnCounts,
+		pushErrorPerConn:               pushErrorsPerConnCounts,
+		rootCertExpiryTimestamp:        rootCertExpiryTimestamp,
+		serverCertExpiryTimestamp:      serverCertExpiryTimestamp,
+		totalSecretUpdateFailureCounts: totalSecretUpdateFailureCounts,
 	}
 }
 
