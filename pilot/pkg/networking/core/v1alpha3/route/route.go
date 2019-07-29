@@ -617,7 +617,7 @@ func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderM
 }
 
 // translateCORSPolicy translates CORS policy
-func translateCORSPolicy(in *networking.CorsPolicy, node *model.Proxy) *route.CorsPolicy {
+func translateCORSPolicy(in *networking.CorsPolicy, _ *model.Proxy) *route.CorsPolicy {
 	if in == nil {
 		return nil
 	}
