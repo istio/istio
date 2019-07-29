@@ -118,8 +118,8 @@ type WebhookParameters struct {
 	// Enable galley validation mode
 	EnableValidation bool
 
-	// Disable reconcile validatingwebhookconfiguration
-	DisableReconcileWebhookConfiguration bool
+	// Enable reconcile validatingwebhookconfiguration
+	EnableReconcileWebhookConfiguration bool
 }
 
 type createInformerEndpointSource func(cl clientset.Interface, namespace, name string) cache.ListerWatcher
@@ -149,7 +149,7 @@ func (p *WebhookParameters) String() string {
 	fmt.Fprintf(buf, "DeploymentName: %s\n", p.DeploymentName)
 	fmt.Fprintf(buf, "ServiceName: %s\n", p.ServiceName)
 	fmt.Fprintf(buf, "EnableValidation: %v\n", p.EnableValidation)
-	fmt.Fprintf(buf, "DisableReconcileWebhookConfiguration: %v\n", p.DisableReconcileWebhookConfiguration)
+	fmt.Fprintf(buf, "EnableReconcileWebhookConfiguration: %v\n", p.EnableReconcileWebhookConfiguration)
 
 	return buf.String()
 }
@@ -157,16 +157,16 @@ func (p *WebhookParameters) String() string {
 // DefaultArgs allocates an WebhookParameters struct initialized with Webhook's default configuration.
 func DefaultArgs() *WebhookParameters {
 	return &WebhookParameters{
-		Port:                                 443,
-		CertFile:                             "/etc/certs/cert-chain.pem",
-		KeyFile:                              "/etc/certs/key.pem",
-		CACertFile:                           "/etc/certs/root-cert.pem",
-		DeploymentAndServiceNamespace:        "istio-system",
-		DeploymentName:                       "istio-galley",
-		ServiceName:                          "istio-galley",
-		WebhookName:                          "istio-galley",
-		EnableValidation:                     true,
-		DisableReconcileWebhookConfiguration: false,
+		Port:                                443,
+		CertFile:                            "/etc/certs/cert-chain.pem",
+		KeyFile:                             "/etc/certs/key.pem",
+		CACertFile:                          "/etc/certs/root-cert.pem",
+		DeploymentAndServiceNamespace:       "istio-system",
+		DeploymentName:                      "istio-galley",
+		ServiceName:                         "istio-galley",
+		WebhookName:                         "istio-galley",
+		EnableValidation:                    true,
+		EnableReconcileWebhookConfiguration: true,
 	}
 }
 
