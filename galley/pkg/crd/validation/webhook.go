@@ -64,6 +64,8 @@ const (
 	watchDebounceDelay = 100 * time.Millisecond
 
 	httpsHandlerReadyPath = "/ready"
+
+	namespaceSelectorLabelKey = "galley.istio.io/env"
 )
 
 // WebhookParameters contains the configuration for the Istio Pilot validation
@@ -120,6 +122,12 @@ type WebhookParameters struct {
 
 	// Enable reconcile validatingwebhookconfiguration
 	EnableReconcileWebhookConfiguration bool
+
+	// Enable webhook namespace selector. This causes the reconciled validatingwebhookconfiguration to include a
+	// selector that makes the webhook only apply to namespaces with a label (see NamespaceSelectorLabelKey)
+	// that points to the galley instance's configured DeploymentAndServiceNamespace. If the webhook config file
+	// already contains namespaceSelector configuration, that is used instead and this setting is ignored.
+	EnableWebhookNamespaceSelector bool
 }
 
 type createInformerEndpointSource func(cl clientset.Interface, namespace, name string) cache.ListerWatcher
@@ -150,6 +158,7 @@ func (p *WebhookParameters) String() string {
 	fmt.Fprintf(buf, "ServiceName: %s\n", p.ServiceName)
 	fmt.Fprintf(buf, "EnableValidation: %v\n", p.EnableValidation)
 	fmt.Fprintf(buf, "EnableReconcileWebhookConfiguration: %v\n", p.EnableReconcileWebhookConfiguration)
+	fmt.Fprintf(buf, "EnableWebhookNamespaceSelector: %v\n", p.EnableWebhookNamespaceSelector)
 
 	return buf.String()
 }
@@ -167,6 +176,7 @@ func DefaultArgs() *WebhookParameters {
 		WebhookName:                         "istio-galley",
 		EnableValidation:                    true,
 		EnableReconcileWebhookConfiguration: true,
+		EnableWebhookNamespaceSelector:      false,
 	}
 }
 

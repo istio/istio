@@ -30,6 +30,7 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
@@ -243,7 +244,9 @@ func TestValidatingWebhookConfig(t *testing.T) {
 
 			client := fake.NewSimpleClientset(tc.configs.DeepCopyObject())
 			config, err := rebuildWebhookConfigHelper(whc.webhookParameters.CACertFile,
-				whc.webhookParameters.WebhookConfigFile, whc.webhookParameters.WebhookName, whc.ownerRefs)
+				whc.webhookParameters.WebhookConfigFile, whc.webhookParameters.WebhookName,
+				whc.webhookParameters.DeploymentAndServiceNamespace,
+				whc.webhookParameters.EnableWebhookNamespaceSelector, whc.ownerRefs)
 			if err != nil {
 				t.Fatalf("Got unexpected error: %v", err)
 			}
@@ -399,7 +402,8 @@ func TestDeleteValidatingWebhookConfig(t *testing.T) {
 		defer cancel()
 
 		_, err := rebuildWebhookConfigHelper(whc.webhookParameters.CACertFile, whc.webhookParameters.WebhookConfigFile,
-			whc.webhookParameters.WebhookName, whc.ownerRefs)
+			whc.webhookParameters.WebhookName, whc.webhookParameters.DeploymentAndServiceNamespace,
+			whc.webhookParameters.EnableWebhookNamespaceSelector, whc.ownerRefs)
 		if err != nil {
 			t.Fatalf("Got unexpected error: %v", err)
 		}
@@ -507,5 +511,67 @@ func TestInitialConfigLoadError(t *testing.T) {
 	whc.webhookConfiguration = nil
 	if err := whc.rebuildWebhookConfig(); err == nil {
 		t.Fatal("unexpected success: rebuildWebhookConfig() should have failed given invalid config files")
+	}
+}
+
+//TODO: Migrate these to a data driven test case above? How?\
+//TODO: Failing that, reduce duplication?
+func TestEnableNamespaceSelectorWithoutExisting(t *testing.T) {
+	config := dummyConfig.DeepCopy()
+	for i := range config.Webhooks {
+		config.Webhooks[i].NamespaceSelector = nil
+	}
+
+	whc, cleanup := createTestWebhookConfigController(t,
+		fake.NewSimpleClientset(),
+		createFakeWebhookSource(),
+		config)
+	whc.webhookParameters.EnableWebhookNamespaceSelector = true
+	defer cleanup()
+
+	config, err := rebuildWebhookConfigHelper(whc.webhookParameters.CACertFile,
+		whc.webhookParameters.WebhookConfigFile, whc.webhookParameters.WebhookName,
+		whc.webhookParameters.DeploymentAndServiceNamespace,
+		whc.webhookParameters.EnableWebhookNamespaceSelector, whc.ownerRefs)
+	if err != nil {
+		t.Fatalf("Got unexpected error: %v", err)
+	}
+
+	for _, wh := range config.Webhooks {
+		ns, ok := wh.NamespaceSelector.MatchLabels[namespaceSelectorLabelKey]
+		if !ok || ns != whc.webhookParameters.DeploymentAndServiceNamespace {
+			t.Fatalf("Didn't find expected configuration in webhook namespace selector %v", wh.NamespaceSelector)
+		}
+	}
+}
+
+func TestEnableNamespaceSelectorWithExisting(t *testing.T) {
+	oldNamespace := "old-namespace"
+	config := dummyConfig.DeepCopy()
+	for i := range config.Webhooks {
+		config.Webhooks[i].NamespaceSelector = &v1.LabelSelector{
+			MatchLabels: map[string]string{namespaceSelectorLabelKey: oldNamespace},
+		}
+	}
+
+	whc, cleanup := createTestWebhookConfigController(t,
+		fake.NewSimpleClientset(),
+		createFakeWebhookSource(),
+		config)
+	whc.webhookParameters.EnableWebhookNamespaceSelector = true
+	defer cleanup()
+
+	config, err := rebuildWebhookConfigHelper(whc.webhookParameters.CACertFile,
+		whc.webhookParameters.WebhookConfigFile, whc.webhookParameters.WebhookName,
+		whc.webhookParameters.DeploymentAndServiceNamespace,
+		whc.webhookParameters.EnableWebhookNamespaceSelector, whc.ownerRefs)
+	if err != nil {
+		t.Fatalf("Got unexpected error: %v", err)
+	}
+
+	for i := range config.Webhooks {
+		if config.Webhooks[i].NamespaceSelector.MatchLabels[namespaceSelectorLabelKey] != oldNamespace {
+			t.Fatalf("Found unexpectedly changed namespace selector %v", config.Webhooks[i].NamespaceSelector)
+		}
 	}
 }

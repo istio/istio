@@ -164,6 +164,9 @@ func serverCmd() *cobra.Command {
 	serverCmd.PersistentFlags().BoolVar(&serverArgs.ValidationArgs.EnableReconcileWebhookConfiguration,
 		"enable-reconcileWebhookConfiguration", serverArgs.ValidationArgs.EnableReconcileWebhookConfiguration,
 		"Enable reconciliation for webhook configuration.")
+	serverCmd.PersistentFlags().BoolVar(&serverArgs.ValidationArgs.EnableWebhookNamespaceSelector,
+		"enable-webhookNamespaceSelector", serverArgs.ValidationArgs.EnableWebhookNamespaceSelector,
+		"Enable namespace selector in webhook configuration.")
 	serverCmd.PersistentFlags().StringVar(&serverArgs.ValidationArgs.DeploymentAndServiceNamespace, "deployment-namespace", "istio-system",
 		"Namespace of the deployment for the validation pod")
 	serverCmd.PersistentFlags().StringVar(&serverArgs.ValidationArgs.DeploymentName, "deployment-name", "istio-galley",
@@ -221,6 +224,8 @@ func setupAliases() {
 	viper.RegisterAlias("processing.source.kubernetes.resyncPeriod", "resyncPeriod")
 	viper.RegisterAlias("processing.source.filesystem.path", "configPath")
 	viper.RegisterAlias("validation.enable", "enable-validation")
+	viper.RegisterAlias("validation.enableReconcileWebhookConfiguration", "enable-reconcileWebhookConfiguration")
+	viper.RegisterAlias("validation.enableWebhookNamespaceSelector", "enable-webhookNamespaceSelector")
 	viper.RegisterAlias("validation.webhookConfigFile", "validation-webhook-config-file")
 	viper.RegisterAlias("validation.webhookPort", "validation-port")
 	viper.RegisterAlias("validation.webhookName", "webhook-name")

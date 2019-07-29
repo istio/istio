@@ -186,6 +186,8 @@ func (whc *WebhookConfigController) rebuildWebhookConfig() error {
 		whc.webhookParameters.CACertFile,
 		whc.webhookParameters.WebhookConfigFile,
 		whc.webhookParameters.WebhookName,
+		whc.webhookParameters.DeploymentAndServiceNamespace,
+		whc.webhookParameters.EnableWebhookNamespaceSelector,
 		whc.ownerRefs)
 	if err != nil {
 		reportValidationConfigLoadError(err)
@@ -231,7 +233,8 @@ func loadCaCertPem(in io.Reader) ([]byte, error) {
 // so that the cluster-scoped validatingwebhookconfiguration is properly
 // cleaned up when istio-galley is deleted.
 func rebuildWebhookConfigHelper(
-	caFile, webhookConfigFile, webhookName string,
+	caFile, webhookConfigFile, webhookName, namespace string,
+	enableWebhookNamespaceSelector bool,
 	ownerRefs []v1.OwnerReference,
 ) (*v1beta1.ValidatingWebhookConfiguration, error) {
 	// load and validate configuration
@@ -252,7 +255,15 @@ func rebuildWebhookConfigHelper(
 			webhookConfig.Webhooks[i].FailurePolicy = &failurePolicy
 		}
 		if webhookConfig.Webhooks[i].NamespaceSelector == nil {
-			webhookConfig.Webhooks[i].NamespaceSelector = &v1.LabelSelector{}
+			if enableWebhookNamespaceSelector {
+				// If the namespace selector is enabled and there isn't overriding config,
+				// set up a selector for the current namespace
+				webhookConfig.Webhooks[i].NamespaceSelector = &v1.LabelSelector{
+					MatchLabels: map[string]string{namespaceSelectorLabelKey: namespace},
+				}
+			} else {
+				webhookConfig.Webhooks[i].NamespaceSelector = &v1.LabelSelector{}
+			}
 		}
 	}
 
