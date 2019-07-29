@@ -66,22 +66,6 @@ func ModelProtocolToListenerProtocol(node *model.Proxy, protocol config.Protocol
 	}
 }
 
-func DefaultListenerProtocol(node *model.Proxy, protocol config.Protocol) ListenerProtocol {
-	if util.IsProxyVersionGE13(node) {
-		return ListenerProtocolAuto
-	}
-
-	switch protocol {
-	case config.ProtocolHTTP, config.ProtocolHTTP2, config.ProtocolGRPC, config.ProtocolGRPCWeb:
-		return ListenerProtocolHTTP
-	case config.ProtocolTCP, config.ProtocolHTTPS, config.ProtocolTLS,
-		config.ProtocolMongo, config.ProtocolRedis, config.ProtocolMySQL:
-		return ListenerProtocolTCP
-	default:
-		return ListenerProtocolUnknown
-	}
-}
-
 // InputParams is a set of values passed to Plugin callback methods. Not all fields are guaranteed to
 // be set, it's up to the callee to validate required fields are set and emit error if they are not.
 // These are for reading only and should not be modified.
