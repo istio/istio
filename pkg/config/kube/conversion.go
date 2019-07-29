@@ -57,11 +57,12 @@ var grpcWebLen = len(grpcWeb)
 
 // ConvertProtocol from k8s protocol and port name
 func ConvertProtocol(name string, proto coreV1.Protocol) config.Protocol {
-	out := config.ProtocolTCP
+	out := config.ProtocolUnsupported
 	switch proto {
 	case coreV1.ProtocolUDP:
 		out = config.ProtocolUDP
 	case coreV1.ProtocolTCP:
+		out = config.ProtocolTCP
 		if len(name) >= grpcWebLen && strings.EqualFold(name[:grpcWebLen], grpcWeb) {
 			out = config.ProtocolGRPCWeb
 			break
@@ -71,9 +72,18 @@ func ConvertProtocol(name string, proto coreV1.Protocol) config.Protocol {
 			name = name[:i]
 		}
 		protocol := config.ParseProtocol(name)
-		if protocol != config.ProtocolUDP && protocol != config.ProtocolUnsupported {
+
+		// TODO(crazyxy) skip for well known ports, e.e. prometheus
+		if protocol == config.ProtocolUnsupported {
+			out = protocol
+			break
+		}
+
+		if protocol != config.ProtocolUDP {
 			out = protocol
 		}
+	case coreV1.ProtocolSCTP:
+		out = config.ProtocolTCP
 	}
 	return out
 }
