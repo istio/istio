@@ -289,17 +289,17 @@ func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy
 			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
 		}
 
-		matchingIp := ""
+		matchingIP := ""
 		if clusterName == util.InboundPassthroughClusterIpv4 {
-			matchingIp = util.InboundPassthroughBindIpv4
+			matchingIP = util.InboundPassthroughBindIpv4
 		} else if clusterName == util.InboundPassthroughClusterIpv6 {
-			matchingIp = util.InboundPassthroughBindIpv6
+			matchingIP = util.InboundPassthroughBindIpv6
 		}
 
 		filterChainMatch := listener.FilterChainMatch{
 			// Port : EMPTY to match all ports
 			PrefixRanges: []*core.CidrRange{
-				util.ConvertAddressToCidr(matchingIp),
+				util.ConvertAddressToCidr(matchingIP),
 			},
 		}
 		setAccessLog(env, node, tcpProxy)

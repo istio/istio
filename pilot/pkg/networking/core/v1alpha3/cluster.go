@@ -101,6 +101,8 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 			managementPorts = append(managementPorts, env.ManagementPorts(ip)...)
 		}
 		inboundClusters := configgen.buildInboundClusters(env, proxy, push, instances, managementPorts)
+		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
+		inboundClusters = append(inboundClusters, generateInboundPassthroughClusters(env)...)
 		inboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_INBOUND, proxy, push, inboundClusters)
 		clusters = append(clusters, outboundClusters...)
 		clusters = append(clusters, inboundClusters...)
