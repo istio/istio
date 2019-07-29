@@ -993,7 +993,7 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 
 // Send with timeout
 func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
-	done := make(chan error)
+	done := make(chan error, 1)
 	// hardcoded for now - not sure if we need a setting
 	t := time.NewTimer(SendTimeout)
 	go func() {
