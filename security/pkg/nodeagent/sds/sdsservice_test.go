@@ -324,7 +324,7 @@ func testSDSStreamOne(t *testing.T, stream sds.SecretDiscoveryService_StreamSecr
 	if notify := <-notifyChan; notify == "receive secret" {
 		resp, err = stream.Recv()
 		if err != nil {
-			t.Fatalf("stream.Recv failed: %v", err)
+			t.Errorf("stream.Recv failed: %v", err)
 		}
 		verifySDSSResponse(t, resp, fakePushPrivateKey, fakePushCertificateChain)
 	}
@@ -341,7 +341,7 @@ func testSDSStreamOne(t *testing.T, stream sds.SecretDiscoveryService_StreamSecr
 	if notify := <-notifyChan; notify == "receive nil secret" {
 		resp, err = stream.Recv()
 		if err == nil {
-			t.Fatalf("stream.Recv should fail, expected error but got %+v", resp)
+			t.Errorf("stream.Recv should fail, expected error but got %+v", resp)
 		}
 	}
 	notifyChan <- "close stream"
@@ -424,6 +424,74 @@ func TestStreamSecretsPush(t *testing.T) {
 	if len(sdsClients) != 0 {
 		t.Fatalf("sdsClients, got %d, expected 0", len(sdsClients))
 	}
+}
+
+func testSDSStreamMultiplePush(t *testing.T, stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
+	notifyChan chan string) {
+	req := &api.DiscoveryRequest{
+		ResourceNames: []string{testResourceName},
+		Node: &core.Node{
+			Id: proxyID,
+		},
+	}
+
+	// Send first request and
+	if err := stream.Send(req); err != nil {
+		t.Errorf("stream.Send failed: %v", err)
+	}
+	resp, err := stream.Recv()
+	if err != nil {
+		t.Errorf("stream.Recv failed: %v", err)
+	}
+	verifySDSSResponse(t, resp, fakePrivateKey, fakeCertificateChain)
+
+	notifyChan <- "notify push secret"
+	if notify := <-notifyChan; notify == "receive secret" {
+		// Verify that Recv() does not receive secret push and returns when stream is closed.
+		resp, err = stream.Recv()
+		if err == nil {
+			t.Errorf("stream.Recv should fail: %v", err)
+		}
+		if !strings.Contains(err.Error(), "the client connection is closing") {
+			t.Errorf("received error does not match, got %v", err)
+		}
+	}
+}
+
+// TestStreamSecretsMultiplePush verifies that only one response is pushed per request, and that multiple
+// pushes are detected and skipped.
+func TestStreamSecretsMultiplePush(t *testing.T) {
+	// reset connectionNumber since since its value is kept in memory for all unit test cases lifetime, reset since it may be updated in other test case.
+	atomic.StoreInt64(&connectionNumber, 0)
+
+	socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
+	server, _ := createSDSServer(t, socket)
+	defer server.Stop()
+
+	conn, stream := createSDSStream(t, socket)
+	proxyID := "sidecar~127.0.0.1~id2~local"
+	defer conn.Close()
+	notifyChan := make(chan string)
+	go testSDSStreamMultiplePush(t, stream, proxyID, notifyChan)
+
+	if notify := <-notifyChan; notify != "notify push secret" {
+		t.Fatalf("push signal does not match")
+	}
+
+	// simulate logic in constructConnectionID() function.
+	conID := proxyID + "-1"
+	pushSecret := &model.SecretItem{
+		CertificateChain: fakePushCertificateChain,
+		PrivateKey:       fakePushPrivateKey,
+		ResourceName:     testResourceName,
+		Version:          time.Now().String(),
+	}
+	// Test push new secret to proxy.
+	if err := NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName},
+		pushSecret); err != nil {
+		t.Fatalf("failed to send push notificiation to proxy %q", conID)
+	}
+	notifyChan <- "receive secret"
 }
 
 func verifySDSSResponse(t *testing.T, resp *api.DiscoveryResponse, expectedPrivateKey []byte, expectedCertChain []byte) {
@@ -568,26 +636,26 @@ func (ms *mockSecretStore) SecretExist(conID, spiffeID, token, version string) b
 		ConnectionID: conID,
 		ResourceName: spiffeID,
 	}
-	if val, found := ms.secrets.Load(key); !found {
+	val, found := ms.secrets.Load(key)
+	if !found {
 		fmt.Printf("cannot find secret in cache")
 		return false
-	} else {
-		cs := val.(*model.SecretItem)
-		if spiffeID != cs.ResourceName {
-			fmt.Printf("resource name not match: %s vs %s", spiffeID, cs.ResourceName)
-			return false
-		}
-		if token != cs.Token {
-			fmt.Printf("token does not match %+v vs %+v", token, cs.Token)
-			return false
-		}
-		if version != cs.Version {
-			fmt.Printf("version does not match %s vs %s", version, cs.Version)
-			return false
-		}
-		fmt.Printf("requested secret matches cache")
-		return true
 	}
+	cs := val.(*model.SecretItem)
+	if spiffeID != cs.ResourceName {
+		fmt.Printf("resource name not match: %s vs %s", spiffeID, cs.ResourceName)
+		return false
+	}
+	if token != cs.Token {
+		fmt.Printf("token does not match %+v vs %+v", token, cs.Token)
+		return false
+	}
+	if version != cs.Version {
+		fmt.Printf("version does not match %s vs %s", version, cs.Version)
+		return false
+	}
+	fmt.Printf("requested secret matches cache")
+	return true
 }
 
 func (ms *mockSecretStore) DeleteSecret(conID, resourceName string) {
