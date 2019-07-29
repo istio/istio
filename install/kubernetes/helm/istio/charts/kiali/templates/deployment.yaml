@@ -26,13 +26,14 @@ spec:
         scheduler.alpha.kubernetes.io/critical-pod: ""
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
+        kiali.io/runtimes: go,kiali
     spec:
       serviceAccountName: kiali-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
       containers:
-      - image: "{{ .Values.hub }}/kiali:{{ .Values.tag }}"
+      - image: "{{ .Values.hub }}/{{ .Values.image }}:{{ .Values.tag }}"
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         name: kiali
         command:
@@ -40,7 +41,21 @@ spec:
         - "-config"
         - "/kiali-configuration/config.yaml"
         - "-v"
-        - "4"
+        - "3"
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.contextPath }}/healthz
+            port: 20001
+            scheme:  {{ if .Values.security.enabled }} 'HTTPS' {{ else }} 'HTTP' {{ end }}
+          initialDelaySeconds: 5
+          periodSeconds: 30
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.contextPath }}/healthz
+            port: 20001
+            scheme:  {{ if .Values.security.enabled }} 'HTTPS' {{ else }} 'HTTP' {{ end }}
+          initialDelaySeconds: 5
+          periodSeconds: 30
         env:
         - name: ACTIVE_NAMESPACE
           valueFrom:
@@ -49,6 +64,8 @@ spec:
         volumeMounts:
         - name: kiali-configuration
           mountPath: "/kiali-configuration"
+        - name: kiali-cert
+          mountPath: "/kiali-cert"
         - name: kiali-secret
           mountPath: "/kiali-secret"
         resources:
@@ -61,6 +78,12 @@ spec:
       - name: kiali-configuration
         configMap:
           name: kiali
+      - name: kiali-cert
+        secret:
+          secretName: istio.kiali-service-account
+{{- if not .Values.security.enabled }}
+          optional: true
+{{- end }}
       - name: kiali-secret
         secret:
           secretName: {{ .Values.dashboard.secretName }}

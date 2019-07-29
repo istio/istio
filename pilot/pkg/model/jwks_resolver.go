@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -405,43 +404,4 @@ func (r *JwksResolver) refresh() {
 // (right now calls it from initDiscoveryService in pkg/bootstrap/server.go).
 func (r *JwksResolver) Close() {
 	closeChan <- true
-}
-
-// ParseJwksURI parses the input URI and returns the corresponding hostname, port, and whether SSL is used.
-// URI must start with "http://" or "https://", which corresponding to "http" or "https" scheme.
-// Port number is extracted from URI if available (i.e from postfix :<port>, eg. ":80"), or assigned
-// to a default value based on URI scheme (80 for http and 443 for https).
-// Port name is set to URI scheme value.
-// Note: this is to replace [buildJWKSURIClusterNameAndAddress]
-// (https://github.com/istio/istio/blob/master/pilot/pkg/proxy/envoy/v1/mixer.go#L401),
-// which is used for the old EUC policy.
-func ParseJwksURI(jwksURI string) (string, *Port, bool, error) {
-	u, err := url.Parse(jwksURI)
-	if err != nil {
-		return "", nil, false, err
-	}
-	var useSSL bool
-	var portNumber int
-	switch u.Scheme {
-	case "http":
-		useSSL = false
-		portNumber = 80
-	case "https":
-		useSSL = true
-		portNumber = 443
-	default:
-		return "", nil, false, fmt.Errorf("URI scheme %q is not supported", u.Scheme)
-	}
-
-	if u.Port() != "" {
-		portNumber, err = strconv.Atoi(u.Port())
-		if err != nil {
-			return "", nil, useSSL, err
-		}
-	}
-
-	return u.Hostname(), &Port{
-		Name: u.Scheme,
-		Port: portNumber,
-	}, useSSL, nil
 }

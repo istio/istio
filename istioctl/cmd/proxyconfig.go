@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
 	"istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 )
 
 const (
@@ -114,7 +115,7 @@ func proxyConfig() *cobra.Command {
 				return err
 			}
 			filter := configdump.ClusterFilter{
-				FQDN:      model.Hostname(fqdn),
+				FQDN:      config.Hostname(fqdn),
 				Port:      port,
 				Subset:    subset,
 				Direction: model.TrafficDirection(direction),

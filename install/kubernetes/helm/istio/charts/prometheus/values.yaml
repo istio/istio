@@ -4,6 +4,7 @@
 enabled: true
 replicaCount: 1
 hub: docker.io/prom
+image: prometheus
 tag: v2.8.0
 retention: 6h
 nodeSelector: {}

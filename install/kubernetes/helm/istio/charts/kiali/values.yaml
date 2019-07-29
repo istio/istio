@@ -4,7 +4,8 @@
 enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `true`.
 replicaCount: 1
 hub: quay.io/kiali
-tag: v0.20
+image: kiali
+tag: v1.1.0
 contextPath: /kiali # The root context path to access the Kiali UI.
 nodeSelector: {}
 tolerations: []
@@ -55,3 +56,8 @@ prometheusAddr: http://prometheus:9090
 
 # When true, a secret will be created with a default username and password. Useful for demos.
 createDemoSecret: false
+
+security:
+  enabled: true
+  cert_file: /kiali-cert/cert-chain.pem
+  private_key_file: /kiali-cert/key.pem

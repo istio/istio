@@ -22,6 +22,7 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/proto"
 )
 
@@ -34,7 +35,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 		for _, r := range rawRoutes {
 			con.RouteConfigs[r.Name] = r
 			if adsLog.DebugEnabled() {
-				resp, _ := model.ToJSONWithIndent(r, " ")
+				resp, _ := config.ToJSONWithIndent(r, " ")
 				adsLog.Debugf("RDS: Adding route:%s for node:%v", resp, con.modelNode.ID)
 			}
 		}
@@ -44,7 +45,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 	err = con.send(response)
 	if err != nil {
 		adsLog.Warnf("RDS: Send failure for node:%v: %v", con.modelNode.ID, err)
-		rdsSendErrPushes.Increment()
+		recordSendError(rdsSendErrPushes, err)
 		return err
 	}
 	rdsPushes.Increment()

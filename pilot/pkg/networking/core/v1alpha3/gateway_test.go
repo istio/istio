@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -488,11 +489,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			p := &fakePlugin{}
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 			env := buildEnv(t, tt.gateways, tt.virtualServices)
-			route, err := configgen.buildGatewayHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, tt.routeName)
-			if err != nil {
-				t.Error(err)
-			}
-			vh := []string{}
+
+			route := configgen.buildGatewayHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, tt.routeName)
+			vh := make([]string, 0)
 			for _, h := range route.VirtualHosts {
 				vh = append(vh, h.Name)
 			}
@@ -515,11 +514,11 @@ func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pil
 		}
 		return nil, nil
 	}
-	mesh := pilot_model.DefaultMeshConfig()
+	mesh := config.DefaultMeshConfig()
 	env := pilot_model.Environment{
 		PushContext:      pilot_model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore.Freeze(),
+		IstioConfigStore: configStore,
 		Mesh:             &mesh,
 		MixerSAN:         []string{},
 	}

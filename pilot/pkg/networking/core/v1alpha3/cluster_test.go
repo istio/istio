@@ -16,10 +16,13 @@ package v1alpha3
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"istio.io/istio/pilot/pkg/features"
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -32,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pkg/config"
 )
 
 type ConfigType int
@@ -55,8 +59,6 @@ var (
 )
 
 func TestHTTPCircuitBreakerThresholds(t *testing.T) {
-	g := NewGomegaWithT(t)
-
 	directionInfos := []struct {
 		direction    model.TrafficDirection
 		clusterIndex int
@@ -66,7 +68,7 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 			clusterIndex: 0,
 		}, {
 			direction:    model.TrafficDirectionInbound,
-			clusterIndex: 1,
+			clusterIndex: 3,
 		},
 	}
 	settings := []*networking.ConnectionPoolSettings{
@@ -88,6 +90,7 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 			}
 			testName := fmt.Sprintf("%s-%s", directionInfo.direction, settingsName)
 			t.Run(testName, func(t *testing.T) {
+				g := NewGomegaWithT(t)
 				clusters, err := buildTestClusters("*.example.org", 0, model.SidecarProxy, nil, testMesh,
 					&networking.DestinationRule{
 						Host: "*.example.org",
@@ -132,7 +135,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			clusterIndex: 0,
 		}, {
 			direction:    model.TrafficDirectionInbound,
-			clusterIndex: 1,
+			clusterIndex: 3,
 		},
 	}
 	settings := &networking.ConnectionPoolSettings{
@@ -185,10 +188,10 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolutio
 	servicePort := &model.Port{
 		Name:     "default",
 		Port:     8080,
-		Protocol: model.ProtocolHTTP,
+		Protocol: config.ProtocolHTTP,
 	}
 	service := &model.Service{
-		Hostname:    model.Hostname(serviceHostname),
+		Hostname:    config.Hostname(serviceHostname),
 		Address:     "1.1.1.1",
 		ClusterVIPs: make(map[string]string),
 		Ports:       model.PortList{servicePort},
@@ -232,16 +235,22 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolutio
 	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
 	serviceDiscovery.InstancesByPortReturns(instances, nil)
 
-	configStore := &fakes.IstioConfigStore{}
-	env := newTestEnvironment(serviceDiscovery, mesh, configStore.Freeze())
-	env.PushContext.SetDestinationRules([]model.Config{
-		{ConfigMeta: model.ConfigMeta{
-			Type:    model.DestinationRule.Type,
-			Version: model.DestinationRule.Version,
-			Name:    "acme",
+	configStore := &fakes.IstioConfigStore{
+		ListStub: func(typ, namespace string) (configs []model.Config, e error) {
+			if typ == model.DestinationRule.Type {
+				return []model.Config{
+					{ConfigMeta: model.ConfigMeta{
+						Type:    model.DestinationRule.Type,
+						Version: model.DestinationRule.Version,
+						Name:    "acme",
+					},
+						Spec: destRule,
+					}}, nil
+			}
+			return nil, nil
 		},
-			Spec: destRule,
-		}})
+	}
+	env := newTestEnvironment(serviceDiscovery, mesh, configStore)
 
 	var proxy *model.Proxy
 	switch nodeType {
@@ -266,6 +275,7 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolutio
 	default:
 		panic(fmt.Sprintf("unsupported node type: %v", nodeType))
 	}
+	proxy.SetSidecarScope(env.PushContext)
 
 	proxy.ServiceInstances, _ = serviceDiscovery.GetProxyServiceInstances(proxy)
 
@@ -638,9 +648,9 @@ func TestClusterMetadata(t *testing.T) {
 func TestConditionallyConvertToIstioMtls(t *testing.T) {
 	tlsSettings := &networking.TLSSettings{
 		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
-		CaCertificates:    model.DefaultRootCert,
-		ClientCertificate: model.DefaultCertChain,
-		PrivateKey:        model.DefaultKey,
+		CaCertificates:    config.DefaultRootCert,
+		ClientCertificate: config.DefaultCertChain,
+		PrivateKey:        config.DefaultKey,
 		SubjectAltNames:   []string{"custom.foo.com"},
 		Sni:               "custom.foo.com",
 	}
@@ -664,9 +674,9 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			"Destination rule TLS sni and SAN override absent",
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
-				CaCertificates:    model.DefaultRootCert,
-				ClientCertificate: model.DefaultCertChain,
-				PrivateKey:        model.DefaultKey,
+				CaCertificates:    config.DefaultRootCert,
+				ClientCertificate: config.DefaultCertChain,
+				PrivateKey:        config.DefaultKey,
 				SubjectAltNames:   []string{},
 				Sni:               "",
 			},
@@ -675,9 +685,9 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			&model.Proxy{Metadata: map[string]string{}},
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
-				CaCertificates:    model.DefaultRootCert,
-				ClientCertificate: model.DefaultCertChain,
-				PrivateKey:        model.DefaultKey,
+				CaCertificates:    config.DefaultRootCert,
+				ClientCertificate: config.DefaultCertChain,
+				PrivateKey:        config.DefaultKey,
 				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
 				Sni:               "foo.com",
 			},
@@ -710,6 +720,33 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				t.Errorf("Expected locality empty result %#v, but got %#v", tt.want, got)
 			}
 		})
+	}
+}
+
+func TestDisablePanicThresholdAsDefault(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	outliers := []*networking.OutlierDetection{
+		// Unset MinHealthPercent
+		{},
+		// Explicitly set MinHealthPercent to 0
+		{
+			MinHealthPercent: 0,
+		},
+	}
+
+	for _, outlier := range outliers {
+		clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
+			&core.Locality{}, testMesh,
+			&networking.DestinationRule{
+				Host: "*.example.org",
+				TrafficPolicy: &networking.TrafficPolicy{
+					OutlierDetection: outlier,
+				},
+			})
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(clusters[0].CommonLbConfig.HealthyPanicThreshold).To(Not(BeNil()))
+		g.Expect(clusters[0].CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(0)))
 	}
 }
 
@@ -746,7 +783,7 @@ func TestLocalityLB(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	if clusters[0].CommonLbConfig == nil {
-		t.Errorf("CommonLbConfig should be set for cluster %+v", clusters[0])
+		t.Fatalf("CommonLbConfig should be set for cluster %+v", clusters[0])
 	}
 	g.Expect(clusters[0].CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
 
@@ -775,10 +812,10 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	servicePort := &model.Port{
 		Name:     "default",
 		Port:     8080,
-		Protocol: model.ProtocolHTTP,
+		Protocol: config.ProtocolHTTP,
 	}
 	service := &model.Service{
-		Hostname:    model.Hostname("*.example.org"),
+		Hostname:    config.Hostname("*.example.org"),
 		Address:     "1.1.1.1",
 		ClusterVIPs: make(map[string]string),
 		Ports:       model.PortList{servicePort},
@@ -821,7 +858,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	serviceDiscovery.InstancesByPortReturns(instances, nil)
 
 	configStore := &fakes.IstioConfigStore{}
-	env := newTestEnvironment(serviceDiscovery, testMesh, configStore.Freeze())
+	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
 	localityLbEndpoints := buildLocalityLbEndpoints(env, model.GetNetworkView(nil), service, 8080, nil)
 	g.Expect(len(localityLbEndpoints)).To(Equal(2))
@@ -887,7 +924,7 @@ func TestPassthroughClusterMaxConnections(t *testing.T) {
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 	configStore := &fakes.IstioConfigStore{}
-	env := newTestEnvironment(serviceDiscovery, testMesh, configStore.Freeze())
+	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 	proxy := &model.Proxy{}
 
 	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
@@ -902,10 +939,12 @@ func TestPassthroughClusterMaxConnections(t *testing.T) {
 	}
 }
 
-func TestRedisProtocolCluster(t *testing.T) {
+func TestRedisProtocolWithPassThroughResolution(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	configgen := NewConfigGenerator([]plugin.Plugin{})
+
+	configStore := &fakes.IstioConfigStore{}
 
 	proxy := &model.Proxy{}
 
@@ -914,25 +953,68 @@ func TestRedisProtocolCluster(t *testing.T) {
 	servicePort := &model.Port{
 		Name:     "redis-port",
 		Port:     6379,
-		Protocol: model.ProtocolRedis,
+		Protocol: config.ProtocolRedis,
 	}
 	service := &model.Service{
-		Hostname:    model.Hostname("redis.com"),
+		Hostname:    config.Hostname("redis.com"),
+		Address:     "1.1.1.1",
+		ClusterVIPs: make(map[string]string),
+		Ports:       model.PortList{servicePort},
+		Resolution:  model.Passthrough,
+	}
+
+	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
+
+	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
+
+	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
+	g.Expect(err).NotTo(HaveOccurred())
+	for _, cluster := range clusters {
+		if cluster.Name == "outbound|6379||redis.com" {
+			g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
+			g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
+		}
+	}
+}
+
+func TestRedisProtocolCluster(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	configgen := NewConfigGenerator([]plugin.Plugin{})
+
+	configStore := &fakes.IstioConfigStore{}
+
+	proxy := &model.Proxy{}
+
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+
+	servicePort := &model.Port{
+		Name:     "redis-port",
+		Port:     6379,
+		Protocol: config.ProtocolRedis,
+	}
+	service := &model.Service{
+		Hostname:    config.Hostname("redis.com"),
 		Address:     "1.1.1.1",
 		ClusterVIPs: make(map[string]string),
 		Ports:       model.PortList{servicePort},
 		Resolution:  model.ClientSideLB,
 	}
 
+	// enable redis filter to true
+	_ = os.Setenv(features.EnableRedisFilter.Name, "true")
+
+	defer func() { _ = os.Unsetenv(features.EnableRedisFilter.Name) }()
+
 	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
 
-	configStore := &fakes.IstioConfigStore{}
-	env := newTestEnvironment(serviceDiscovery, testMesh, configStore.Freeze())
+	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
 	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(err).NotTo(HaveOccurred())
 	for _, cluster := range clusters {
 		if cluster.Name == "outbound|6379||redis.com" {
+			g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_EDS}))
 			g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_MAGLEV))
 		}
 	}

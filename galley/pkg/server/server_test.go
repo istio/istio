@@ -50,6 +50,8 @@ func TestServer(t *testing.T) {
 	g.Expect(err).To(BeNil())
 
 	a := settings.DefaultArgs()
+	// If the default port is used it may run into conflicts during testing
+	a.IntrospectionOptions.Port = 0
 	a.MeshConfigFile = meshFile
 	a.ConfigPath = configDir
 	a.AccessListFile = accessListFile

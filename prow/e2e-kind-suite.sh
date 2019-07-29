@@ -38,12 +38,12 @@ set -x
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
-setup_kind_cluster
+setup_kind_cluster ""
 
 echo 'Build'
 (cd "${ROOT}"; make build)
 
-E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
+E2E_ARGS+=("--test_logs_path=${ARTIFACTS}")
 # e2e tests with kind clusters on prow will get deleted when prow
 # deleted the pod 
 E2E_ARGS+=("--skip_cleanup")
@@ -77,12 +77,12 @@ make docker
 function build_kind_images(){
 	# Archived local images and load it into KinD's docker daemon
 	# Kubernetes in KinD can only access local images from its docker daemon.
-	docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name e2e-suite load docker-image
+	docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name istio-testing load docker-image
 }
 
 build_kind_images
 
 time ISTIO_DOCKER_HUB=$HUB \
   E2E_ARGS="${E2E_ARGS[*]}" \
-  JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit.xml" \
+  JUNIT_E2E_XML="${ARTIFACTS}/junit.xml" \
   make with_junit_report TARGET="${SINGLE_TEST}" ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}

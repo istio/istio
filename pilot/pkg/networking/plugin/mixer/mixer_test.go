@@ -21,10 +21,11 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	"istio.io/istio/pilot/pkg/model"
-	context "istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 )
 
 func TestTransportConfig(t *testing.T) {
@@ -35,7 +36,7 @@ func TestTransportConfig(t *testing.T) {
 	}{
 		{
 			// defaults set
-			mesh: context.DefaultMeshConfig(),
+			mesh: config.DefaultMeshConfig(),
 			node: model.Proxy{
 				Metadata: map[string]string{},
 			},
@@ -48,12 +49,12 @@ func TestTransportConfig(t *testing.T) {
 		},
 		{
 			// retry and retry times set
-			mesh: context.DefaultMeshConfig(),
+			mesh: config.DefaultMeshConfig(),
 			node: model.Proxy{
 				Metadata: map[string]string{
-					model.NodeMetadataPolicyCheckRetries:           "5",
-					model.NodeMetadataPolicyCheckBaseRetryWaitTime: "1m",
-					model.NodeMetadataPolicyCheckMaxRetryWaitTime:  "1.5s",
+					annotation.PolicyCheckRetries.Name:           "5",
+					annotation.PolicyCheckBaseRetryWaitTime.Name: "1m",
+					annotation.PolicyCheckMaxRetryWaitTime.Name:  "1.5s",
 				},
 			},
 			expect: &mccpb.NetworkFailPolicy{
@@ -65,10 +66,10 @@ func TestTransportConfig(t *testing.T) {
 		},
 		{
 			// just retry amount set
-			mesh: context.DefaultMeshConfig(),
+			mesh: config.DefaultMeshConfig(),
 			node: model.Proxy{
 				Metadata: map[string]string{
-					model.NodeMetadataPolicyCheckRetries: "1",
+					annotation.PolicyCheckRetries.Name: "1",
 				},
 			},
 			expect: &mccpb.NetworkFailPolicy{
@@ -80,10 +81,10 @@ func TestTransportConfig(t *testing.T) {
 		},
 		{
 			// fail open from node metadata
-			mesh: context.DefaultMeshConfig(),
+			mesh: config.DefaultMeshConfig(),
 			node: model.Proxy{
 				Metadata: map[string]string{
-					model.NodeMetadataPolicyCheck: policyCheckDisable,
+					annotation.PolicyCheck.Name: policyCheckDisable,
 				},
 			},
 			expect: &mccpb.NetworkFailPolicy{

@@ -19,6 +19,7 @@ import (
 	"io"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/echo/common"
 )
 
@@ -49,9 +50,9 @@ type Instance interface {
 func New(cfg Config) (Instance, error) {
 	if cfg.Port != nil {
 		switch cfg.Port.Protocol {
-		case model.ProtocolTCP, model.ProtocolHTTP, model.ProtocolHTTPS:
+		case config.ProtocolTCP, config.ProtocolHTTP, config.ProtocolHTTPS:
 			return newHTTP(cfg), nil
-		case model.ProtocolHTTP2, model.ProtocolGRPC:
+		case config.ProtocolHTTP2, config.ProtocolGRPC:
 			return newGRPC(cfg), nil
 		default:
 			return nil, fmt.Errorf("unsupported protocol: %s", cfg.Port.Protocol)

@@ -29,6 +29,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	xds "github.com/envoyproxy/go-control-plane/pkg/server"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
+
 	"google.golang.org/grpc"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -37,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/proto"
 )
 
@@ -280,7 +282,7 @@ func TestPilotPlugin(t *testing.T) {
 	}
 
 	snapshots := cache.NewSnapshotCache(true, mock{}, nil)
-	snapshots.SetSnapshot(id, makeSnapshot(s, t))
+	_ = snapshots.SetSnapshot(id, makeSnapshot(s, t))
 	server := xds.NewServer(snapshots, nil)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
 	go func() {
@@ -312,17 +314,17 @@ func (mock) ID(*core.Node) string {
 func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
-func (mock) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCollection, error) {
+func (mock) GetProxyWorkloadLabels(proxy *model.Proxy) (config.LabelsCollection, error) {
 	return nil, nil
 }
-func (mock) GetService(_ model.Hostname) (*model.Service, error) { return nil, nil }
-func (mock) InstancesByPort(_ model.Hostname, _ int, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
+func (mock) GetService(_ config.Hostname) (*model.Service, error) { return nil, nil }
+func (mock) InstancesByPort(_ *model.Service, _ int, _ config.LabelsCollection) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
-func (mock) ManagementPorts(_ string) model.PortList                               { return nil }
-func (mock) Services() ([]*model.Service, error)                                   { return nil, nil }
-func (mock) WorkloadHealthCheckInfo(_ string) model.ProbeList                      { return nil }
-func (mock) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string { return nil }
+func (mock) ManagementPorts(_ string) model.PortList                        { return nil }
+func (mock) Services() ([]*model.Service, error)                            { return nil, nil }
+func (mock) WorkloadHealthCheckInfo(_ string) model.ProbeList               { return nil }
+func (mock) GetIstioServiceAccounts(_ *model.Service, ports []int) []string { return nil }
 
 const (
 	id = "id"
@@ -346,8 +348,10 @@ var (
 		ServiceDiscovery: mock{},
 	}
 	pushContext = model.PushContext{
-		ServiceByHostname: map[model.Hostname]*model.Service{
-			model.Hostname("svc.ns3"): &svc,
+		ServiceByHostnameAndNamespace: map[config.Hostname]map[string]*model.Service{
+			config.Hostname("svc.ns3"): {
+				"ns3": &svc,
+			},
 		},
 	}
 	serverParams = plugin.InputParams{

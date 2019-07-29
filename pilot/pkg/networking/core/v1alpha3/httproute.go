@@ -22,15 +22,16 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 
-	"istio.io/pkg/log"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/proto"
+	"istio.io/pkg/log"
 )
 
 // BuildHTTPRoutes produces a list of routes for the proxy
@@ -38,11 +39,21 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 	routeName string) (*xdsapi.RouteConfiguration, error) {
 	// TODO: Move all this out
 	proxyInstances := node.ServiceInstances
+	var rc *xdsapi.RouteConfiguration
+	var err error
 	switch node.Type {
 	case model.SidecarProxy:
-		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, routeName), nil
+		rc = configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, routeName)
+		if rc != nil {
+			rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, push, rc)
+		}
+		return rc, nil
 	case model.Router:
-		return configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, routeName)
+		rc = configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, routeName)
+		if rc != nil {
+			rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, push, rc)
+		}
+		return rc, err
 	}
 	return nil, nil
 }
@@ -89,7 +100,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 		p.OnInboundRouteConfiguration(in, r)
 	}
 
-	r = applyRouteConfigurationPatches(in, r)
+	r = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_INBOUND, in.Node, in.Push, r)
 	return r
 }
 
@@ -116,36 +127,27 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	var virtualServices []model.Config
 	var services []*model.Service
 
-	// Get the list of services that correspond to this egressListener from the sidecarScope
-	sidecarScope := node.SidecarScope
-	// sidecarScope should never be nil
-	if sidecarScope != nil && sidecarScope.Config != nil {
-		// this is a user supplied sidecar scope. Get the services from the egress listener
-		egressListener := sidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
-		// We should never be getting a nil egress listener because the code that setup this RDS
-		// call obviously saw an egress listener
-		if egressListener == nil {
-			return nil
-		}
-
-		services = egressListener.Services()
-		// To maintain correctness, we should only use the virtualservices for
-		// this listener and not all virtual services accessible to this proxy.
-		virtualServices = egressListener.VirtualServices()
-
-		// When generating RDS for ports created via the SidecarScope, we treat
-		// these ports as HTTP proxy style ports. All services attached to this listener
-		// must feature in this RDS route irrespective of the service port.
-		if egressListener.IstioListener != nil && egressListener.IstioListener.Port != nil {
-			listenerPort = 0
-		}
-	} else {
-		meshGateway := map[string]bool{model.IstioMeshGateway: true}
-		services = push.Services(node)
-		virtualServices = push.VirtualServices(node, meshGateway)
+	// this is a user supplied sidecar scope. Get the services from the egress listener
+	egressListener := node.SidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
+	// We should never be getting a nil egress listener because the code that setup this RDS
+	// call obviously saw an egress listener
+	if egressListener == nil {
+		return nil
 	}
 
-	nameToServiceMap := make(map[model.Hostname]*model.Service)
+	services = egressListener.Services()
+	// To maintain correctness, we should only use the virtualservices for
+	// this listener and not all virtual services accessible to this proxy.
+	virtualServices = egressListener.VirtualServices()
+
+	// When generating RDS for ports created via the SidecarScope, we treat
+	// these ports as HTTP proxy style ports. All services attached to this listener
+	// must feature in this RDS route irrespective of the service port.
+	if egressListener.IstioListener != nil && egressListener.IstioListener.Port != nil {
+		listenerPort = 0
+	}
+
+	nameToServiceMap := make(map[config.Hostname]*model.Service)
 	for _, svc := range services {
 		if listenerPort == 0 {
 			// Take all ports when listen port is 0 (http_proxy or uds)
@@ -162,7 +164,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	}
 
 	// Collect all proxy labels for source match
-	var proxyLabels model.LabelsCollection
+	var proxyLabels config.LabelsCollection
 	for _, w := range proxyInstances {
 		proxyLabels = append(proxyLabels, w.Labels)
 	}
@@ -219,11 +221,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 
 	util.SortVirtualHosts(virtualHosts)
 
-	if features.EnableFallthroughRoute() {
+	if features.EnableFallthroughRoute.Get() {
 		// This needs to be the last virtual host, as routes are evaluated in order.
-		if isAllowAny(node) {
+		if isAllowAnyOutbound(node) {
 			virtualHosts = append(virtualHosts, route.VirtualHost{
-				Name:    "allow_any",
+				Name:    util.PassthroughRouteName,
 				Domains: []string{"*"},
 				Routes: []route.Route{
 					{
@@ -240,7 +242,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 			})
 		} else {
 			virtualHosts = append(virtualHosts, route.VirtualHost{
-				Name:    "block_all",
+				Name:    util.BlackHoleRouteName,
 				Domains: []string{"*"},
 				Routes: []route.Route{
 					{
@@ -273,7 +275,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		Port: &model.Port{
 			Name:     "",
 			Port:     listenerPort,
-			Protocol: model.ProtocolHTTP,
+			Protocol: config.ProtocolHTTP,
 		},
 	}
 
@@ -282,7 +284,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		p.OnOutboundRouteConfiguration(pluginParams, out)
 	}
 
-	out = applyRouteConfigurationPatches(pluginParams, out)
+	out = envoyfilter.ApplyRouteConfigurationPatches(pluginParams.ListenerCategory, pluginParams.Node, pluginParams.Push, out)
 	return out
 }
 
@@ -292,7 +294,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 	domains := []string{string(service.Hostname), fmt.Sprintf("%s:%d", service.Hostname, port)}
 	domains = append(domains, generateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)...)
 
-	if len(service.Address) > 0 && service.Address != model.UnspecifiedIP {
+	if len(service.Address) > 0 && service.Address != config.UnspecifiedIP {
 		svcAddr := service.GetServiceAddressForProxy(node)
 		// add a vhost match for the IP (if its non CIDR)
 		cidr := util.ConvertAddressToCidr(svcAddr)

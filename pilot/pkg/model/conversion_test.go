@@ -27,6 +27,7 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 )
 
 func TestApplyJSON(t *testing.T) {
@@ -47,7 +48,7 @@ func TestApplyJSON(t *testing.T) {
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v]", i), func(tt *testing.T) {
 			var got meshconfig.MeshConfig
-			err := model.ApplyJSON(c.in, &got)
+			err := config.ApplyJSON(c.in, &got)
 			if err != nil {
 				if !c.wantErr {
 					tt.Fatalf("got unexpected error: %v", err)
@@ -186,7 +187,7 @@ patterns:
 		},
 	}
 
-	gotJSON, err := model.ToJSON(msg)
+	gotJSON, err := config.ToJSON(msg)
 	if err != nil {
 		t.Errorf("ToJSON failed: %v", err)
 	}
@@ -194,7 +195,7 @@ patterns:
 		t.Errorf("ToJSON failed: \ngot %s, \nwant %s", gotJSON, strings.Join(strings.Fields(wantJSON), ""))
 	}
 
-	if _, err = model.ToJSON(nil); err == nil {
+	if _, err = config.ToJSON(nil); err == nil {
 		t.Error("should produce an error")
 	}
 
@@ -206,7 +207,7 @@ patterns:
 		t.Errorf("FromYAML failed: got %+v want %+v", spew.Sdump(gotFromJSON), spew.Sdump(msg))
 	}
 
-	gotYAML, err := model.ToYAML(msg)
+	gotYAML, err := config.ToYAML(msg)
 	if err != nil {
 		t.Errorf("ToYAML failed: %v", err)
 	}
@@ -214,7 +215,7 @@ patterns:
 		t.Errorf("ToYAML failed: \ngot %+v \nwant %+v", spew.Sdump(gotYAML), spew.Sdump(wantYAML))
 	}
 
-	if _, err = model.ToYAML(nil); err == nil {
+	if _, err = config.ToYAML(nil); err == nil {
 		t.Error("should produce an error")
 	}
 
@@ -230,7 +231,7 @@ patterns:
 		t.Errorf("should produce an error")
 	}
 
-	gotJSONMap, err := model.ToJSONMap(msg)
+	gotJSONMap, err := config.ToJSONMap(msg)
 	if err != nil {
 		t.Errorf("ToJSONMap failed: %v", err)
 	}
@@ -238,7 +239,7 @@ patterns:
 		t.Errorf("ToJSONMap failed: \ngot %vwant %v", spew.Sdump(gotJSONMap), spew.Sdump(wantJSONMap))
 	}
 
-	if _, err = model.ToJSONMap(nil); err == nil {
+	if _, err = config.ToJSONMap(nil); err == nil {
 		t.Error("should produce an error")
 	}
 
@@ -321,7 +322,7 @@ trafficPolicy:
 		t.Errorf("FromYAML should have failed using ProtoSchema with bad MessageName")
 	}
 
-	gotJSON, err := model.ToJSON(msg)
+	gotJSON, err := config.ToJSON(msg)
 	if err != nil {
 		t.Errorf("ToJSON failed: %v", err)
 	}
@@ -329,7 +330,7 @@ trafficPolicy:
 		t.Errorf("ToJSON failed: got %s, want %s", gotJSON, wantJSON)
 	}
 
-	if _, err = model.ToJSON(nil); err == nil {
+	if _, err = config.ToJSON(nil); err == nil {
 		t.Error("should produce an error")
 	}
 
@@ -341,7 +342,7 @@ trafficPolicy:
 		t.Errorf("FromYAML failed: got %+v want %+v", spew.Sdump(gotFromJSON), spew.Sdump(msg))
 	}
 
-	gotYAML, err := model.ToYAML(msg)
+	gotYAML, err := config.ToYAML(msg)
 	if err != nil {
 		t.Errorf("ToYAML failed: %v", err)
 	}
@@ -349,7 +350,7 @@ trafficPolicy:
 		t.Errorf("ToYAML failed: got %+v want %+v", spew.Sdump(gotYAML), spew.Sdump(wantYAML))
 	}
 
-	if _, err = model.ToYAML(nil); err == nil {
+	if _, err = config.ToYAML(nil); err == nil {
 		t.Error("should produce an error")
 	}
 
@@ -365,7 +366,7 @@ trafficPolicy:
 		t.Errorf("should produce an error")
 	}
 
-	gotJSONMap, err := model.ToJSONMap(msg)
+	gotJSONMap, err := config.ToJSONMap(msg)
 	if err != nil {
 		t.Errorf("ToJSONMap failed: %v", err)
 	}
@@ -373,7 +374,7 @@ trafficPolicy:
 		t.Errorf("ToJSONMap failed: \ngot %vwant %v", spew.Sdump(gotJSONMap), spew.Sdump(wantJSONMap))
 	}
 
-	if _, err = model.ToJSONMap(nil); err == nil {
+	if _, err = config.ToJSONMap(nil); err == nil {
 		t.Error("should produce an error")
 	}
 

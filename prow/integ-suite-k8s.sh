@@ -60,7 +60,7 @@ setup_and_export_git_sha
 
 if [ "${CI:-}" == 'bootstrap' ]; then
   # bootsrap upload all artifacts in _artifacts to the log bucket.
-  ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
+  ARTIFACTS=${ARTIFACTS:-"${GOPATH}/src/istio.io/istio/_artifacts"}
 fi
 
 export HUB=${HUB:-"gcr.io/istio-testing"}
@@ -79,7 +79,7 @@ fi
 get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
 setup_cluster
 
-JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml" \
-T="-v" \
+export JUNIT_UNIT_TEST_XML="${ARTIFACTS}/junit_unit-tests.xml"
+export T="-v"
 make "$@"
 
