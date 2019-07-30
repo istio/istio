@@ -22,8 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pilot/pkg/features"
-
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/proto"
@@ -32,10 +30,12 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 type ConfigType int
@@ -188,7 +188,7 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolutio
 	servicePort := &model.Port{
 		Name:     "default",
 		Port:     8080,
-		Protocol: config.ProtocolHTTP,
+		Protocol: protocol.HTTP,
 	}
 	service := &model.Service{
 		Hostname:    config.Hostname(serviceHostname),
@@ -812,7 +812,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	servicePort := &model.Port{
 		Name:     "default",
 		Port:     8080,
-		Protocol: config.ProtocolHTTP,
+		Protocol: protocol.HTTP,
 	}
 	service := &model.Service{
 		Hostname:    config.Hostname("*.example.org"),
@@ -953,7 +953,7 @@ func TestRedisProtocolWithPassThroughResolution(t *testing.T) {
 	servicePort := &model.Port{
 		Name:     "redis-port",
 		Port:     6379,
-		Protocol: config.ProtocolRedis,
+		Protocol: protocol.Redis,
 	}
 	service := &model.Service{
 		Hostname:    config.Hostname("redis.com"),
@@ -991,7 +991,7 @@ func TestRedisProtocolCluster(t *testing.T) {
 	servicePort := &model.Port{
 		Name:     "redis-port",
 		Port:     6379,
-		Protocol: config.ProtocolRedis,
+		Protocol: protocol.Redis,
 	}
 	service := &model.Service{
 		Hostname:    config.Hostname("redis.com"),

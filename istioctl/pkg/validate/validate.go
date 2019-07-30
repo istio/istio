@@ -21,9 +21,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 
 	mixercrd "istio.io/istio/mixer/pkg/config/crd"
 	mixerstore "istio.io/istio/mixer/pkg/config/store"
@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/pkg/log"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -328,8 +328,8 @@ func servicePortPrefixed(n string) bool {
 	if i >= 0 {
 		n = n[:i]
 	}
-	protocol := config.ParseProtocol(n)
-	return protocol == config.ProtocolUnsupported
+	p := protocol.Parse(n)
+	return p == protocol.Unsupported
 }
 func handleNamespace(istioNamespace string) string {
 	if istioNamespace == "" {

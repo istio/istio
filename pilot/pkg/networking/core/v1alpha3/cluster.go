@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 const (
@@ -148,7 +149,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	for _, service := range push.Services(proxy) {
 		destRule := push.DestinationRule(proxy, service)
 		for _, port := range service.Ports {
-			if port.Protocol == config.ProtocolUDP {
+			if port.Protocol == protocol.UDP {
 				continue
 			}
 			inputParams.Service = service
@@ -253,7 +254,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 	for _, service := range push.Services(proxy) {
 		destRule := push.DestinationRule(proxy, service)
 		for _, port := range service.Ports {
-			if port.Protocol == config.ProtocolUDP {
+			if port.Protocol == protocol.UDP {
 				continue
 			}
 			lbEndpoints := buildLocalityLbEndpoints(env, networkView, service, port.Port, nil)
@@ -476,7 +477,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			// as inbound|portNumber|portName|Hostname
 			listenPort := &model.Port{
 				Port:     int(ingressListener.Port.Number),
-				Protocol: config.ParseProtocol(ingressListener.Port.Protocol),
+				Protocol: protocol.Parse(ingressListener.Port.Protocol),
 				Name:     ingressListener.Port.Name,
 			}
 
@@ -888,7 +889,7 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 	}
 
 	// Redis protocol must be defaulted with MAGLEV to benefit from client side sharding.
-	if features.EnableRedisFilter.Get() && port != nil && port.Protocol == config.ProtocolRedis {
+	if features.EnableRedisFilter.Get() && port != nil && port.Protocol == protocol.Redis {
 		cluster.LbPolicy = apiv2.Cluster_MAGLEV
 		return
 	}

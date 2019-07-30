@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 func TestBuildHTTPRoutes(t *testing.T) {
@@ -38,7 +39,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				&model.Port{
 					Name:     "default",
 					Port:     8080,
-					Protocol: config.ProtocolHTTP,
+					Protocol: protocol.HTTP,
 				},
 			},
 		},
