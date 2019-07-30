@@ -182,6 +182,9 @@ func (v PatchVersion) String() string {
 
 // String implements the Stringer interface.
 func (v *Version) String() string {
+	if v.Suffix == "" {
+		return v.PatchVersion.String()
+	}
 	return fmt.Sprintf("%s-%s", v.PatchVersion, v.Suffix)
 }
 
