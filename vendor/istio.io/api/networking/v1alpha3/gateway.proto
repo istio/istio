@@ -319,8 +319,8 @@ message Server {
       // Secure connections with standard TLS semantics.
       SIMPLE = 1;
 
-      // Secure connections to the upstream using mutual TLS by presenting
-      // client certificates for authentication.
+      // Secure connections to the downstream using mutual TLS by presenting
+      // server certificates for authentication.
       MUTUAL = 2;
 
       // Similar to the passthrough mode, except servers with this TLS mode
@@ -334,6 +334,14 @@ message Server {
       // their respective endpoints. Use of this mode assumes that both the
       // source and the destination are using Istio mTLS to secure traffic.
       AUTO_PASSTHROUGH = 3;
+
+      // Secure connections from the downstream using mutual TLS by presenting
+      // server certificates for authentication.
+      // Compared to Mutual mode, this mode uses certificates, representing
+      // gateway workload identity, generated automatically by Istio for
+      // mTLS authentication. When this mode is used, all other fields in
+      // `TLSOptions` should be empty.
+      ISTIO_MUTUAL = 4;
     };
 
     // Optional: Indicates whether connections to this port should be
@@ -375,6 +383,21 @@ message Server {
     // A list of alternate names to verify the subject identity in the
     // certificate presented by the client.
     repeated string subject_alt_names = 6;
+    
+    // An optional list of base64-encoded SHA-256 hashes of the SKPIs of
+    // authorized client certificates.
+    // Note: When both verify_certificate_hash and verify_certificate_spki
+    // are specified, a hash matching either value will result in the
+    // certificate being accepted.
+    repeated string verify_certificate_spki = 11;
+
+    // An optional list of hex-encoded SHA-256 hashes of the
+    // authorized client certificates. Both simple and colon separated
+    // formats are acceptable.
+    // Note: When both verify_certificate_hash and verify_certificate_spki
+    // are specified, a hash matching either value will result in the
+    // certificate being accepted.
+    repeated string verify_certificate_hash = 12;
 
     // TLS protocol versions.
     enum TLSProtocol {

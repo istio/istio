@@ -1531,9 +1531,9 @@ func (m *Value) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.Value != nil {
-		nn1, err1 := m.Value.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		nn1, err := m.Value.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += nn1
 	}
@@ -1581,9 +1581,9 @@ func (m *Value_IpAddressValue) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintType(dAtA, i, uint64(m.IpAddressValue.Size()))
-		n2, err2 := m.IpAddressValue.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		n2, err := m.IpAddressValue.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n2
 	}
@@ -1595,9 +1595,9 @@ func (m *Value_TimestampValue) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintType(dAtA, i, uint64(m.TimestampValue.Size()))
-		n3, err3 := m.TimestampValue.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
+		n3, err := m.TimestampValue.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n3
 	}
@@ -1609,9 +1609,9 @@ func (m *Value_DurationValue) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintType(dAtA, i, uint64(m.DurationValue.Size()))
-		n4, err4 := m.DurationValue.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
+		n4, err := m.DurationValue.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n4
 	}
@@ -1623,9 +1623,9 @@ func (m *Value_EmailAddressValue) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x42
 		i++
 		i = encodeVarintType(dAtA, i, uint64(m.EmailAddressValue.Size()))
-		n5, err5 := m.EmailAddressValue.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
+		n5, err := m.EmailAddressValue.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n5
 	}
@@ -1637,9 +1637,9 @@ func (m *Value_DnsNameValue) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x4a
 		i++
 		i = encodeVarintType(dAtA, i, uint64(m.DnsNameValue.Size()))
-		n6, err6 := m.DnsNameValue.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
+		n6, err := m.DnsNameValue.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n6
 	}
@@ -1651,9 +1651,9 @@ func (m *Value_UriValue) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x52
 		i++
 		i = encodeVarintType(dAtA, i, uint64(m.UriValue.Size()))
-		n7, err7 := m.UriValue.MarshalTo(dAtA[i:])
-		if err7 != nil {
-			return 0, err7
+		n7, err := m.UriValue.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n7
 	}
@@ -1665,9 +1665,9 @@ func (m *Value_StringMapValue) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5a
 		i++
 		i = encodeVarintType(dAtA, i, uint64(m.StringMapValue.Size()))
-		n8, err8 := m.StringMapValue.MarshalTo(dAtA[i:])
-		if err8 != nil {
-			return 0, err8
+		n8, err := m.StringMapValue.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n8
 	}
@@ -1716,9 +1716,9 @@ func (m *Duration) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintType(dAtA, i, uint64(m.Value.Size()))
-		n9, err9 := m.Value.MarshalTo(dAtA[i:])
-		if err9 != nil {
-			return 0, err9
+		n9, err := m.Value.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n9
 	}
@@ -1744,9 +1744,9 @@ func (m *TimeStamp) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintType(dAtA, i, uint64(m.Value.Size()))
-		n10, err10 := m.Value.MarshalTo(dAtA[i:])
-		if err10 != nil {
-			return 0, err10
+		n10, err := m.Value.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n10
 	}

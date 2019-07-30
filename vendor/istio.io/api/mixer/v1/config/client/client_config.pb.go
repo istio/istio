@@ -449,9 +449,9 @@ func (m *NetworkFailPolicy) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintClientConfig(dAtA, i, uint64(m.BaseRetryWait.Size()))
-		n1, err1 := m.BaseRetryWait.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		n1, err := m.BaseRetryWait.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n1
 	}
@@ -459,9 +459,9 @@ func (m *NetworkFailPolicy) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintClientConfig(dAtA, i, uint64(m.MaxRetryWait.Size()))
-		n2, err2 := m.MaxRetryWait.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		n2, err := m.MaxRetryWait.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n2
 	}
@@ -507,9 +507,9 @@ func (m *ServiceConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintClientConfig(dAtA, i, uint64(m.MixerAttributes.Size()))
-		n3, err3 := m.MixerAttributes.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
+		n3, err := m.MixerAttributes.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n3
 	}
@@ -541,9 +541,9 @@ func (m *ServiceConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintClientConfig(dAtA, i, uint64(m.NetworkFailPolicy.Size()))
-		n4, err4 := m.NetworkFailPolicy.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
+		n4, err := m.NetworkFailPolicy.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n4
 	}
@@ -551,9 +551,9 @@ func (m *ServiceConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x42
 		i++
 		i = encodeVarintClientConfig(dAtA, i, uint64(m.ForwardAttributes.Size()))
-		n5, err5 := m.ForwardAttributes.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
+		n5, err := m.ForwardAttributes.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n5
 	}
@@ -609,9 +609,9 @@ func (m *TransportConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintClientConfig(dAtA, i, uint64(m.NetworkFailPolicy.Size()))
-		n6, err6 := m.NetworkFailPolicy.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
+		n6, err := m.NetworkFailPolicy.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n6
 	}
@@ -619,9 +619,9 @@ func (m *TransportConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintClientConfig(dAtA, i, uint64(m.StatsUpdateInterval.Size()))
-		n7, err7 := m.StatsUpdateInterval.MarshalTo(dAtA[i:])
-		if err7 != nil {
-			return 0, err7
+		n7, err := m.StatsUpdateInterval.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n7
 	}
@@ -641,9 +641,9 @@ func (m *TransportConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x42
 		i++
 		i = encodeVarintClientConfig(dAtA, i, uint64(m.AttributesForMixerProxy.Size()))
-		n8, err8 := m.AttributesForMixerProxy.MarshalTo(dAtA[i:])
-		if err8 != nil {
-			return 0, err8
+		n8, err := m.AttributesForMixerProxy.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n8
 	}
@@ -656,9 +656,9 @@ func (m *TransportConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x52
 		i++
 		i = encodeVarintClientConfig(dAtA, i, uint64(m.ReportBatchMaxTime.Size()))
-		n9, err9 := m.ReportBatchMaxTime.MarshalTo(dAtA[i:])
-		if err9 != nil {
-			return 0, err9
+		n9, err := m.ReportBatchMaxTime.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n9
 	}
@@ -684,9 +684,9 @@ func (m *HttpClientConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintClientConfig(dAtA, i, uint64(m.Transport.Size()))
-		n10, err10 := m.Transport.MarshalTo(dAtA[i:])
-		if err10 != nil {
-			return 0, err10
+		n10, err := m.Transport.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n10
 	}
@@ -715,9 +715,9 @@ func (m *HttpClientConfig) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintClientConfig(dAtA, i, uint64(v.Size()))
-				n11, err11 := v.MarshalTo(dAtA[i:])
-				if err11 != nil {
-					return 0, err11
+				n11, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n11
 			}
@@ -733,9 +733,9 @@ func (m *HttpClientConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintClientConfig(dAtA, i, uint64(m.MixerAttributes.Size()))
-		n12, err12 := m.MixerAttributes.MarshalTo(dAtA[i:])
-		if err12 != nil {
-			return 0, err12
+		n12, err := m.MixerAttributes.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n12
 	}
@@ -743,9 +743,9 @@ func (m *HttpClientConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintClientConfig(dAtA, i, uint64(m.ForwardAttributes.Size()))
-		n13, err13 := m.ForwardAttributes.MarshalTo(dAtA[i:])
-		if err13 != nil {
-			return 0, err13
+		n13, err := m.ForwardAttributes.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n13
 	}
@@ -771,9 +771,9 @@ func (m *TcpClientConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintClientConfig(dAtA, i, uint64(m.Transport.Size()))
-		n14, err14 := m.Transport.MarshalTo(dAtA[i:])
-		if err14 != nil {
-			return 0, err14
+		n14, err := m.Transport.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n14
 	}
@@ -781,9 +781,9 @@ func (m *TcpClientConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintClientConfig(dAtA, i, uint64(m.MixerAttributes.Size()))
-		n15, err15 := m.MixerAttributes.MarshalTo(dAtA[i:])
-		if err15 != nil {
-			return 0, err15
+		n15, err := m.MixerAttributes.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n15
 	}
@@ -811,9 +811,9 @@ func (m *TcpClientConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintClientConfig(dAtA, i, uint64(m.ConnectionQuotaSpec.Size()))
-		n16, err16 := m.ConnectionQuotaSpec.MarshalTo(dAtA[i:])
-		if err16 != nil {
-			return 0, err16
+		n16, err := m.ConnectionQuotaSpec.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n16
 	}
@@ -821,9 +821,9 @@ func (m *TcpClientConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintClientConfig(dAtA, i, uint64(m.ReportInterval.Size()))
-		n17, err17 := m.ReportInterval.MarshalTo(dAtA[i:])
-		if err17 != nil {
-			return 0, err17
+		n17, err := m.ReportInterval.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n17
 	}
@@ -1045,23 +1045,13 @@ func (this *ServiceConfig) String() string {
 	if this == nil {
 		return "nil"
 	}
-	repeatedStringForHttpApiSpec := "[]*HTTPAPISpec{"
-	for _, f := range this.HttpApiSpec {
-		repeatedStringForHttpApiSpec += strings.Replace(fmt.Sprintf("%v", f), "HTTPAPISpec", "HTTPAPISpec", 1) + ","
-	}
-	repeatedStringForHttpApiSpec += "}"
-	repeatedStringForQuotaSpec := "[]*QuotaSpec{"
-	for _, f := range this.QuotaSpec {
-		repeatedStringForQuotaSpec += strings.Replace(fmt.Sprintf("%v", f), "QuotaSpec", "QuotaSpec", 1) + ","
-	}
-	repeatedStringForQuotaSpec += "}"
 	s := strings.Join([]string{`&ServiceConfig{`,
 		`DisableCheckCalls:` + fmt.Sprintf("%v", this.DisableCheckCalls) + `,`,
 		`DisableReportCalls:` + fmt.Sprintf("%v", this.DisableReportCalls) + `,`,
 		`MixerAttributes:` + strings.Replace(fmt.Sprintf("%v", this.MixerAttributes), "Attributes", "v1.Attributes", 1) + `,`,
-		`HttpApiSpec:` + repeatedStringForHttpApiSpec + `,`,
-		`QuotaSpec:` + repeatedStringForQuotaSpec + `,`,
-		`NetworkFailPolicy:` + strings.Replace(this.NetworkFailPolicy.String(), "NetworkFailPolicy", "NetworkFailPolicy", 1) + `,`,
+		`HttpApiSpec:` + strings.Replace(fmt.Sprintf("%v", this.HttpApiSpec), "HTTPAPISpec", "HTTPAPISpec", 1) + `,`,
+		`QuotaSpec:` + strings.Replace(fmt.Sprintf("%v", this.QuotaSpec), "QuotaSpec", "QuotaSpec", 1) + `,`,
+		`NetworkFailPolicy:` + strings.Replace(fmt.Sprintf("%v", this.NetworkFailPolicy), "NetworkFailPolicy", "NetworkFailPolicy", 1) + `,`,
 		`ForwardAttributes:` + strings.Replace(fmt.Sprintf("%v", this.ForwardAttributes), "Attributes", "v1.Attributes", 1) + `,`,
 		`}`,
 	}, "")
@@ -1075,7 +1065,7 @@ func (this *TransportConfig) String() string {
 		`DisableCheckCache:` + fmt.Sprintf("%v", this.DisableCheckCache) + `,`,
 		`DisableQuotaCache:` + fmt.Sprintf("%v", this.DisableQuotaCache) + `,`,
 		`DisableReportBatch:` + fmt.Sprintf("%v", this.DisableReportBatch) + `,`,
-		`NetworkFailPolicy:` + strings.Replace(this.NetworkFailPolicy.String(), "NetworkFailPolicy", "NetworkFailPolicy", 1) + `,`,
+		`NetworkFailPolicy:` + strings.Replace(fmt.Sprintf("%v", this.NetworkFailPolicy), "NetworkFailPolicy", "NetworkFailPolicy", 1) + `,`,
 		`StatsUpdateInterval:` + strings.Replace(fmt.Sprintf("%v", this.StatsUpdateInterval), "Duration", "types.Duration", 1) + `,`,
 		`CheckCluster:` + fmt.Sprintf("%v", this.CheckCluster) + `,`,
 		`ReportCluster:` + fmt.Sprintf("%v", this.ReportCluster) + `,`,
@@ -1101,7 +1091,7 @@ func (this *HttpClientConfig) String() string {
 	}
 	mapStringForServiceConfigs += "}"
 	s := strings.Join([]string{`&HttpClientConfig{`,
-		`Transport:` + strings.Replace(this.Transport.String(), "TransportConfig", "TransportConfig", 1) + `,`,
+		`Transport:` + strings.Replace(fmt.Sprintf("%v", this.Transport), "TransportConfig", "TransportConfig", 1) + `,`,
 		`ServiceConfigs:` + mapStringForServiceConfigs + `,`,
 		`DefaultDestinationService:` + fmt.Sprintf("%v", this.DefaultDestinationService) + `,`,
 		`MixerAttributes:` + strings.Replace(fmt.Sprintf("%v", this.MixerAttributes), "Attributes", "v1.Attributes", 1) + `,`,
@@ -1115,7 +1105,7 @@ func (this *TcpClientConfig) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&TcpClientConfig{`,
-		`Transport:` + strings.Replace(this.Transport.String(), "TransportConfig", "TransportConfig", 1) + `,`,
+		`Transport:` + strings.Replace(fmt.Sprintf("%v", this.Transport), "TransportConfig", "TransportConfig", 1) + `,`,
 		`MixerAttributes:` + strings.Replace(fmt.Sprintf("%v", this.MixerAttributes), "Attributes", "v1.Attributes", 1) + `,`,
 		`DisableCheckCalls:` + fmt.Sprintf("%v", this.DisableCheckCalls) + `,`,
 		`DisableReportCalls:` + fmt.Sprintf("%v", this.DisableReportCalls) + `,`,
