@@ -421,7 +421,6 @@ func buildInboundLocalityLbEndpoints(bind string, port int) []endpoint.LocalityL
 }
 
 func generateInboundPassthroughClusters(env *model.Environment) []*apiv2.Cluster {
-	clusters := make([]*apiv2.Cluster, 0, 2)
 	inboundPassthroughClusterIpv4 := buildDefaultPassthroughCluster(env)
 	inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
 	inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
@@ -443,8 +442,10 @@ func generateInboundPassthroughClusters(env *model.Environment) []*apiv2.Cluster
 			},
 		},
 	}
-	clusters = append(clusters, inboundPassthroughClusterIpv4, inboundPassthroughClusterIpv6)
-	return clusters
+	return []*apiv2.Cluster{
+		inboundPassthroughClusterIpv4,
+		inboundPassthroughClusterIpv6,
+	}
 }
 
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environment, proxy *model.Proxy,
