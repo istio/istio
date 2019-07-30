@@ -427,7 +427,7 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 			}
 			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext: defaultValidationContext,	
+					DefaultValidationContext: defaultValidationContext,
 					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfigForGatewayListener(
 						server.Tls.CredentialName+authn_model.IngressGatewaySdsCaSuffix, authn_model.IngressGatewaySdsUdsPath),
 				},
