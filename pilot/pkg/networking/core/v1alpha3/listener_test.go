@@ -431,18 +431,38 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 			t.Fatalf("expected %d listener filter, found %d", 1, len(listeners[0].ListenerFilters))
 		}
 	} else {
-		if oldestProtocol != config.ProtocolHTTP && isHTTPListener(listeners[0]) {
-			t.Fatal("expected TCP listener, found HTTP")
-		} else if oldestProtocol == config.ProtocolHTTP && !isHTTPListener(listeners[0]) {
-			t.Fatal("expected HTTP listener, found TCP")
+		if len(listeners[0].FilterChains) != 3 {
+			t.Fatalf("expectd %d filter chains, found %d", 3, len(listeners[0].FilterChains))
 		}
 
-		if len(p.outboundListenerParams) != 1 {
-			t.Fatalf("expected %d listener params, found %d", 1, len(p.outboundListenerParams))
-		}
+		if oldestProtocol == config.ProtocolTCP {
+			if !isTCPFilterChain(listeners[0].FilterChains[1]) {
+				t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[2].Filters[0].Name)
+			}
 
-		if p.outboundListenerParams[0].Service != oldestService {
-			t.Fatalf("listener conflict failed to preserve listener for the oldest service")
+			if !isHTTPFilterChain(listeners[0].FilterChains[2]) {
+				t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
+			}
+
+			verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2])
+			if len(listeners[0].ListenerFilters) != 1 ||
+				listeners[0].ListenerFilters[0].Name != "envoy.listener.http_inspector" {
+				t.Fatalf("expected %d listener filter, found %d", 1, len(listeners[0].ListenerFilters))
+			}
+		} else if oldestProtocol == config.ProtocolHTTP {
+			if !isHTTPFilterChain(listeners[0].FilterChains[1]) {
+				t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
+			}
+
+			if !isTCPFilterChain(listeners[0].FilterChains[2]) {
+				t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[2].Filters[0].Name)
+			}
+
+			verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1])
+			if len(listeners[0].ListenerFilters) != 1 ||
+				listeners[0].ListenerFilters[0].Name != "envoy.listener.http_inspector" {
+				t.Fatalf("expected %d listener filter, found %d", 1, len(listeners[0].ListenerFilters))
+			}
 		}
 	}
 }
@@ -615,8 +635,24 @@ func testOutboundListenerConfigWithSidecarV13(t *testing.T, services ...*model.S
 		t.Fatalf("expected %d listeners, found %d", 4, len(listeners))
 	}
 
-	if l := findListenerByPort(listeners, 8080); isHTTPListener(l) {
-		t.Fatalf("expected TCP listener on port 8080, found HTTP: %v", l)
+	l := findListenerByPort(listeners, 8080)
+	if len(l.FilterChains) != 4 {
+		t.Fatalf("expectd %d filter chains, found %d", 4, len(l.FilterChains))
+	} else {
+		if !isHTTPFilterChain(l.FilterChains[1]) {
+			t.Fatalf("expected http filter chain, found %s", l.FilterChains[1].Filters[0].Name)
+		}
+
+		if !isTCPFilterChain(l.FilterChains[3]) {
+			t.Fatalf("expected tcp filter chain, found %s", l.FilterChains[3].Filters[0].Name)
+		}
+
+		verifyHTTPFilterChainMatch(t, l.FilterChains[1])
+
+		if len(l.ListenerFilters) != 1 ||
+			l.ListenerFilters[0].Name != "envoy.listener.http_inspector" {
+			t.Fatalf("expected %d listener filter, found %d", 1, len(l.ListenerFilters))
+		}
 	}
 
 	if l := findListenerByPort(listeners, 3306); !isMysqlListener(l) {
@@ -627,7 +663,7 @@ func testOutboundListenerConfigWithSidecarV13(t *testing.T, services ...*model.S
 		t.Fatalf("expected HTTP listener on port 9000, found TCP\n%v", l)
 	}
 
-	l := findListenerByPort(listeners, 8888)
+	l = findListenerByPort(listeners, 8888)
 	if len(l.FilterChains) != 2 {
 		t.Fatalf("expectd %d filter chains, found %d", 2, len(l.FilterChains))
 	} else {
