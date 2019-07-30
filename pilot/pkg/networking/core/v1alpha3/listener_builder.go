@@ -38,6 +38,9 @@ var (
 )
 
 // A stateful listener builder
+// Support the below intentions
+// 1. Use separate inbound capture listener(:15006) and outbound capture listener(:15001)
+// 2. The above listeners use bind_to_port sub listeners or filter chains.
 type ListenerBuilder struct {
 	node                   *model.Proxy
 	gatewayListeners       []*xdsapi.Listener
@@ -45,11 +48,84 @@ type ListenerBuilder struct {
 	outboundListeners      []*xdsapi.Listener
 	virtualListener        *xdsapi.Listener
 	virtualInboundListener *xdsapi.Listener
+	useInboundFilterChain  bool
+}
+
+// Setup the filter chain match so that the match should work under both
+// - bind_to_port == false listener
+// - virtual inbound listener
+func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *xdsapi.Listener, needTLS bool) (*listener.FilterChain, bool) {
+	if chain.FilterChainMatch == nil {
+		chain.FilterChainMatch = &listener.FilterChainMatch{}
+	}
+	listenerAddress := l.Address
+	if sockAddr := listenerAddress.GetSocketAddress(); sockAddr != nil {
+		chain.FilterChainMatch.DestinationPort = &google_protobuf.UInt32Value{Value: sockAddr.GetPortValue()}
+		if cidr := util.ConvertAddressToCidr(sockAddr.GetAddress()); cidr != nil {
+			if chain.FilterChainMatch.PrefixRanges != nil && len(chain.FilterChainMatch.PrefixRanges) != 1 {
+				log.Debugf("Intercepted inbound listener %s have neither 0 or 1 prefix ranges. Actual:  %d",
+					l.Name, len(chain.FilterChainMatch.PrefixRanges))
+			}
+			chain.FilterChainMatch.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(sockAddr.GetAddress())}
+		}
+	}
+	for _, filter := range l.ListenerFilters {
+		if needTLS = needTLS || filter.Name == xdsutil.TlsInspector; needTLS {
+			break
+		}
+	}
+	return chain, needTLS
+}
+
+// Accumulate the filter chains from per proxy service listeners
+func reduceInboundListenerToFilterChains(listeners []*xdsapi.Listener) ([]*listener.FilterChain, bool) {
+	needTLS := false
+	chains := make([]*listener.FilterChain, 0)
+	for _, l := range listeners {
+		// default bindToPort is true and these listener should be skipped
+		if v1Opt := l.GetDeprecatedV1(); v1Opt == nil || v1Opt.BindToPort == nil || v1Opt.BindToPort.Value {
+			// A listener on real port should not be intercepted by virtual inbound listener
+			continue
+		}
+		for _, c := range l.FilterChains {
+			newChain, needTLSLocal := amendFilterChainMatchFromInboundListener(c, l, needTLS)
+			chains = append(chains, newChain)
+			needTLS = needTLS || needTLSLocal
+		}
+	}
+	return chains, needTLS
+}
+
+func (builder *ListenerBuilder) aggregateVirtualInboundListener(env *model.Environment, node *model.Proxy) *ListenerBuilder {
+	// Deprecated by envoyproxy. Replaced
+	// 1. filter chains in this listener
+	// 2. explicit original_dst listener filter
+	// UseOriginalDst: proto.BoolTrue,
+	builder.virtualInboundListener.UseOriginalDst = nil
+	builder.virtualInboundListener.ListenerFilters = append(builder.virtualInboundListener.ListenerFilters,
+		&listener.ListenerFilter{
+			Name: xdsutil.OriginalDestination,
+		},
+	)
+	filterChains, needTLS := reduceInboundListenerToFilterChains(builder.inboundListeners)
+	for _, c := range filterChains {
+		builder.virtualInboundListener.FilterChains =
+			append(builder.virtualInboundListener.FilterChains, c)
+	}
+	if needTLS {
+		builder.virtualInboundListener.ListenerFilters =
+			append(builder.virtualInboundListener.ListenerFilters, &listener.ListenerFilter{
+				Name: xdsutil.TlsInspector,
+			})
+	}
+	return builder
 }
 
 func NewListenerBuilder(node *model.Proxy) *ListenerBuilder {
 	builder := &ListenerBuilder{
 		node: node,
+		// The extra inbound listener has no side effect for iptables that doesn't redirect to 15006
+		useInboundFilterChain: true,
 	}
 	return builder
 }
@@ -188,6 +264,9 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environme
 		UseOriginalDst: proto.BoolTrue,
 		FilterChains:   newInboundPassthroughFilterChains(env, node),
 	}
+	if builder.useInboundFilterChain {
+		builder.aggregateVirtualInboundListener(env, node)
+	}
 	return builder
 }
 
@@ -269,6 +348,7 @@ func newBlackholeFilter(enableAny bool) listener.Filter {
 	return filter
 }
 
+// Create pass through filter chains matching ipv4 address and ipv6 address independantly.
 func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy) []*listener.FilterChain {
 	// ipv4 and ipv6
 	filterChains := make([]*listener.FilterChain, 0, 2)
