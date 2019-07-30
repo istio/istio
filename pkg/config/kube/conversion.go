@@ -44,6 +44,7 @@ var (
 		9090:  config.ProtocolHTTP,  // Prometheus, used by Istio
 		15030: config.ProtocolTCP,   // Prometheus, used by Istio
 		27017: config.ProtocolMongo, // MongoDB
+		42422: config.ProtocolTCP,   // Prometheus, used by Istio
 	}
 )
 
@@ -86,21 +87,15 @@ func ConvertProtocol(port int32, name string, proto coreV1.Protocol) config.Prot
 			name = name[:i]
 		}
 		protocol := config.ParseProtocol(name)
-
-		if protocol == config.ProtocolUnsupported {
-			// For well known ports, using protocol sniffing is unnecessary
-			if proto, has := wellKnownPorts[port]; has {
-				out = proto
-			} else {
-				out = config.ProtocolUnsupported
-			}
-
-			break
-		}
-
 		if protocol != config.ProtocolUDP {
 			out = protocol
 		}
 	}
+
+	// For well known ports, using protocol sniffing is unnecessary
+	if proto, has := wellKnownPorts[port]; has && out == config.ProtocolUnsupported {
+		out = proto
+	}
+
 	return out
 }
