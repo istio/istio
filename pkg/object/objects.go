@@ -22,6 +22,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 
@@ -301,7 +302,9 @@ func (os K8sObjects) Sort(score func(o *K8sObject) int) {
 func (os K8sObjects) ToMap() map[string]*K8sObject {
 	ret := make(map[string]*K8sObject)
 	for _, oo := range os {
-		ret[oo.Hash()] = oo
+		if oo.Valid() {
+			ret[oo.Hash()] = oo
+		}
 	}
 	return ret
 }
@@ -310,9 +313,19 @@ func (os K8sObjects) ToMap() map[string]*K8sObject {
 func (os K8sObjects) ToNameKindMap() map[string]*K8sObject {
 	ret := make(map[string]*K8sObject)
 	for _, oo := range os {
-		ret[oo.HashNameKind()] = oo
+		if oo.Valid() {
+			ret[oo.HashNameKind()] = oo
+		}
 	}
 	return ret
+}
+
+// Valid checks returns true if Kind and Name of K8sObject are both not empty.
+func (o *K8sObject) Valid() bool {
+	if o.Kind == "" || o.Name == "" {
+		return false
+	}
+	return true
 }
 
 // YAML returns a YAML representation of os, using an internal cache.
@@ -357,8 +370,8 @@ func ManifestDiff(a, b string) (string, error) {
 		}
 		diff := util.YAMLDiff(string(ay), string(by))
 		if diff != "" {
-			writeStringSafe(sb, "\n\nObject "+ak+" has diffs:\n\n")
-			writeStringSafe(sb, diff)
+			writeStringSafe(&sb, "\n\nObject "+ak+" has diffs:\n\n")
+			writeStringSafe(&sb, diff)
 		}
 	}
 	for bk, bv := range bom {
@@ -369,15 +382,15 @@ func ManifestDiff(a, b string) (string, error) {
 			}
 			diff := util.YAMLDiff(string(by), "")
 			if diff != "" {
-				writeStringSafe(sb, "\n\nObject "+bk+" is missing:\n\n")
-				writeStringSafe(sb, diff)
+				writeStringSafe(&sb, "\n\nObject "+bk+" is missing:\n\n")
+				writeStringSafe(&sb, diff)
 			}
 		}
 	}
 	return sb.String(), err
 }
 
-func writeStringSafe(sb strings.Builder, s string) {
+func writeStringSafe(sb io.StringWriter, s string) {
 	_, err := sb.WriteString(s)
 	if err != nil {
 		log.Error(err.Error())
