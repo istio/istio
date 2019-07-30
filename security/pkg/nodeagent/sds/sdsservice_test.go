@@ -439,8 +439,8 @@ func TestStreamSecretsPush(t *testing.T) {
 	}
 }
 
-func testSDSStreamMultiplePush(t *testing.T, stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
-	notifyChan chan string) {
+func testSDSStreamMultiplePush(t *testing.T, stream sds.SecretDiscoveryService_StreamSecretsClient,
+	proxyID string, notifyChan chan string) {
 	req := &api.DiscoveryRequest{
 		ResourceNames: []string{testResourceName},
 		Node: &core.Node{
@@ -469,6 +469,7 @@ func testSDSStreamMultiplePush(t *testing.T, stream sds.SecretDiscoveryService_S
 			t.Errorf("received error does not match, got %v", err)
 		}
 	}
+	notifyChan <- "close stream"
 }
 
 // TestStreamSecretsMultiplePush verifies that only one response is pushed per request, and that multiple
@@ -483,8 +484,7 @@ func TestStreamSecretsMultiplePush(t *testing.T) {
 	defer server.Stop()
 
 	conn, stream := createSDSStream(t, socket)
-	proxyID := "sidecar~127.0.0.1~id2~local"
-	defer conn.Close()
+	proxyID := "sidecar~127.0.0.1~id6~local"
 	notifyChan := make(chan string)
 	go testSDSStreamMultiplePush(t, stream, proxyID, notifyChan)
 
@@ -506,7 +506,12 @@ func TestStreamSecretsMultiplePush(t *testing.T) {
 		t.Fatalf("failed to send push notificiation to proxy %q", conID)
 	}
 	notifyChan <- "receive secret"
-
+	// Wait for pushSDS to return.
+	time.Sleep(2 * time.Second)
+	conn.Close()
+	if notify := <-notifyChan; notify != "close stream" {
+		t.Fatalf("get unexpected notification. %s", notify)
+	}
 	totalPushVal := util.GetMetricsCounterValue(sdsMetrics.totalPush) - currentTotalPush
 	if totalPushVal != float64(1) {
 		t.Errorf("unexpected metric totalPush: expected 1 but got %v", totalPushVal)
@@ -586,7 +591,7 @@ func TestStreamSecretsUpdateFailures(t *testing.T) {
 	defer server.Stop()
 
 	conn, stream := createSDSStream(t, socket)
-	proxyID := "sidecar~127.0.0.1~id2~local"
+	proxyID := "sidecar~127.0.0.1~id5~local"
 	notifyChan := make(chan string)
 	go testSDSStreamUpdateFailures(t, stream, proxyID, notifyChan)
 
@@ -606,7 +611,7 @@ func TestStreamSecretsUpdateFailures(t *testing.T) {
 	// Test push new secret to proxy.
 	if err := NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName},
 		pushSecret); err != nil {
-		t.Fatalf("failed to send push notificiation to proxy %q", conID)
+		t.Fatalf("failed to send push notificiation to proxy %q: %v", conID, err)
 	}
 	notifyChan <- "receive secret"
 
@@ -616,7 +621,7 @@ func TestStreamSecretsUpdateFailures(t *testing.T) {
 	}
 	if err := NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName},
 		pushSecret); err != nil {
-		t.Fatalf("failed to send push notificiation to proxy %q", conID)
+		t.Fatalf("failed to send push notificiation to proxy %q: %v", conID, err)
 	}
 	notifyChan <- "receive secret"
 
