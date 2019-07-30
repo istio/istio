@@ -20,78 +20,78 @@
 // generate the configuration files for the Layer 7 proxy sidecar. The proxy
 // code is specific to individual proxy implementations
 
-package config
+package protocol
 
 import "strings"
 
-// Protocol defines network protocols for ports
-type Protocol string
+// Instance defines network protocols for ports
+type Instance string
 
 const (
-	// ProtocolGRPC declares that the port carries gRPC traffic.
-	ProtocolGRPC Protocol = "GRPC"
-	// ProtocolGRPCWeb declares that the port carries gRPC traffic.
-	ProtocolGRPCWeb Protocol = "GRPC-Web"
-	// ProtocolHTTP declares that the port carries HTTP/1.1 traffic.
+	// GRPC declares that the port carries gRPC traffic.
+	GRPC Instance = "GRPC"
+	// GRPCWeb declares that the port carries gRPC traffic.
+	GRPCWeb Instance = "GRPC-Web"
+	// HTTP declares that the port carries HTTP/1.1 traffic.
 	// Note that HTTP/1.0 or earlier may not be supported by the proxy.
-	ProtocolHTTP Protocol = "HTTP"
-	// ProtocolHTTP2 declares that the port carries HTTP/2 traffic.
-	ProtocolHTTP2 Protocol = "HTTP2"
-	// ProtocolHTTPS declares that the port carries HTTPS traffic.
-	ProtocolHTTPS Protocol = "HTTPS"
-	// ProtocolTCP declares the the port uses TCP.
+	HTTP Instance = "HTTP"
+	// HTTP2 declares that the port carries HTTP/2 traffic.
+	HTTP2 Instance = "HTTP2"
+	// HTTPS declares that the port carries HTTPS traffic.
+	HTTPS Instance = "HTTPS"
+	// TCP declares the the port uses TCP.
 	// This is the default protocol for a service port.
-	ProtocolTCP Protocol = "TCP"
-	// ProtocolTLS declares that the port carries TLS traffic.
+	TCP Instance = "TCP"
+	// TLS declares that the port carries TLS traffic.
 	// TLS traffic is assumed to contain SNI as part of the handshake.
-	ProtocolTLS Protocol = "TLS"
-	// ProtocolUDP declares that the port uses UDP.
+	TLS Instance = "TLS"
+	// UDP declares that the port uses UDP.
 	// Note that UDP protocol is not currently supported by the proxy.
-	ProtocolUDP Protocol = "UDP"
-	// ProtocolMongo declares that the port carries MongoDB traffic.
-	ProtocolMongo Protocol = "Mongo"
-	// ProtocolRedis declares that the port carries Redis traffic.
-	ProtocolRedis Protocol = "Redis"
-	// ProtocolMySQL declares that the port carries MySQL traffic.
-	ProtocolMySQL Protocol = "MySQL"
-	// ProtocolUnsupported - value to signify that the protocol is unsupported.
-	ProtocolUnsupported Protocol = "UnsupportedProtocol"
+	UDP Instance = "UDP"
+	// Mongo declares that the port carries MongoDB traffic.
+	Mongo Instance = "Mongo"
+	// Redis declares that the port carries Redis traffic.
+	Redis Instance = "Redis"
+	// MySQL declares that the port carries MySQL traffic.
+	MySQL Instance = "MySQL"
+	// Unsupported - value to signify that the protocol is unsupported.
+	Unsupported Instance = "UnsupportedProtocol"
 )
 
-// ParseProtocol from string ignoring case
-func ParseProtocol(s string) Protocol {
+// Parse from string ignoring case
+func Parse(s string) Instance {
 	switch strings.ToLower(s) {
 	case "tcp":
-		return ProtocolTCP
+		return TCP
 	case "udp":
-		return ProtocolUDP
+		return UDP
 	case "grpc":
-		return ProtocolGRPC
+		return GRPC
 	case "grpc-web":
-		return ProtocolGRPCWeb
+		return GRPCWeb
 	case "http":
-		return ProtocolHTTP
+		return HTTP
 	case "http2":
-		return ProtocolHTTP2
+		return HTTP2
 	case "https":
-		return ProtocolHTTPS
+		return HTTPS
 	case "tls":
-		return ProtocolTLS
+		return TLS
 	case "mongo":
-		return ProtocolMongo
+		return Mongo
 	case "redis":
-		return ProtocolRedis
+		return Redis
 	case "mysql":
-		return ProtocolMySQL
+		return MySQL
 	}
 
-	return ProtocolUnsupported
+	return Unsupported
 }
 
 // IsHTTP2 is true for protocols that use HTTP/2 as transport protocol
-func (p Protocol) IsHTTP2() bool {
-	switch p {
-	case ProtocolHTTP2, ProtocolGRPC, ProtocolGRPCWeb:
+func (i Instance) IsHTTP2() bool {
+	switch i {
+	case HTTP2, GRPC, GRPCWeb:
 		return true
 	default:
 		return false
@@ -99,9 +99,9 @@ func (p Protocol) IsHTTP2() bool {
 }
 
 // IsHTTP is true for protocols that use HTTP as transport protocol
-func (p Protocol) IsHTTP() bool {
-	switch p {
-	case ProtocolHTTP, ProtocolHTTP2, ProtocolGRPC, ProtocolGRPCWeb:
+func (i Instance) IsHTTP() bool {
+	switch i {
+	case HTTP, HTTP2, GRPC, GRPCWeb:
 		return true
 	default:
 		return false
@@ -109,9 +109,9 @@ func (p Protocol) IsHTTP() bool {
 }
 
 // IsTCP is true for protocols that use TCP as transport protocol
-func (p Protocol) IsTCP() bool {
-	switch p {
-	case ProtocolTCP, ProtocolHTTPS, ProtocolTLS, ProtocolMongo, ProtocolRedis, ProtocolMySQL:
+func (i Instance) IsTCP() bool {
+	switch i {
+	case TCP, HTTPS, TLS, Mongo, Redis, MySQL:
 		return true
 	default:
 		return false
@@ -119,9 +119,19 @@ func (p Protocol) IsTCP() bool {
 }
 
 // IsTLS is true for protocols on top of TLS (e.g. HTTPS)
-func (p Protocol) IsTLS() bool {
-	switch p {
-	case ProtocolHTTPS, ProtocolTLS:
+func (i Instance) IsTLS() bool {
+	switch i {
+	case HTTPS, TLS:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsGRPC is true for GRCP protocols.
+func (i Instance) IsGRPC() bool {
+	switch i {
+	case GRPC, GRPCWeb:
 		return true
 	default:
 		return false

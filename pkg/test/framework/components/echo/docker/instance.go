@@ -23,7 +23,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	appEcho "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -56,8 +56,8 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	e := ctx.Environment().(*native.Environment)
 
 	// Fill in defaults for any missing values.
-	common.AddPortIfMissing(&cfg, config.ProtocolGRPC)
-	common.AddPortIfMissing(&cfg, config.ProtocolHTTP)
+	common.AddPortIfMissing(&cfg, protocol.GRPC)
+	common.AddPortIfMissing(&cfg, protocol.HTTP)
 	if err = common.FillInDefaults(ctx, e.Domain, &cfg); err != nil {
 		return nil, err
 	}

@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/pkg/log"
 )
@@ -313,7 +314,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 
 			listenPort := &model.Port{
 				Port:     int(ingressListener.Port.Number),
-				Protocol: config.ParseProtocol(ingressListener.Port.Protocol),
+				Protocol: protocol.Parse(ingressListener.Port.Protocol),
 				Name:     ingressListener.Port.Name,
 			}
 
@@ -401,7 +402,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
 	if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol.IsHTTP2() {
 		httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
-		if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol == config.ProtocolGRPCWeb {
+		if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol == protocol.GRPCWeb {
 			httpOpts.addGRPCWebFilter = true
 		}
 	}
@@ -521,7 +522,7 @@ type outboundListenerEntry struct {
 	locked      bool
 }
 
-func protocolName(p config.Protocol) string {
+func protocolName(p protocol.Instance) string {
 	switch plugin.ModelProtocolToListenerProtocol(p) {
 	case plugin.ListenerProtocolHTTP:
 		return "HTTP"
@@ -536,10 +537,10 @@ type outboundListenerConflict struct {
 	metric          monitoring.Metric
 	node            *model.Proxy
 	listenerName    string
-	currentProtocol config.Protocol
+	currentProtocol protocol.Instance
 	currentServices []*model.Service
 	newHostname     config.Hostname
-	newProtocol     config.Protocol
+	newProtocol     protocol.Instance
 }
 
 func (c outboundListenerConflict) addMetric(push *model.PushContext) {
@@ -637,7 +638,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 			listenPort := &model.Port{
 				Port:     int(egressListener.IstioListener.Port.Number),
-				Protocol: config.ParseProtocol(egressListener.IstioListener.Port.Protocol),
+				Protocol: protocol.Parse(egressListener.IstioListener.Port.Protocol),
 				Name:     egressListener.IstioListener.Port.Name,
 			}
 
@@ -1281,7 +1282,7 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Envir
 	mesh := env.Mesh
 	redirectPort := &model.Port{
 		Port:     int(mesh.ProxyListenPort),
-		Protocol: config.ProtocolTCP,
+		Protocol: protocol.TCP,
 	}
 
 	if len(ipTablesListener.FilterChains) < 1 || len(ipTablesListener.FilterChains[0].Filters) < 1 {
@@ -1367,8 +1368,8 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 	// assumes that inbound connections/requests are sent to the endpoint address
 	for _, mPort := range managementPorts {
 		switch mPort.Protocol {
-		case config.ProtocolHTTP, config.ProtocolHTTP2, config.ProtocolGRPC, config.ProtocolGRPCWeb, config.ProtocolTCP,
-			config.ProtocolHTTPS, config.ProtocolTLS, config.ProtocolMongo, config.ProtocolRedis, config.ProtocolMySQL:
+		case protocol.HTTP, protocol.HTTP2, protocol.GRPC, protocol.GRPCWeb, protocol.TCP,
+			protocol.HTTPS, protocol.TLS, protocol.Mongo, protocol.Redis, protocol.MySQL:
 
 			instance := &model.ServiceInstance{
 				Endpoint: model.NetworkEndpoint{

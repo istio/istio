@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/pkg/log"
 
 	ingress "k8s.io/api/extensions/v1beta1"
@@ -199,7 +200,7 @@ func IngressToGateway(key resource.VersionedKey, meta resource.Metadata, i *ingr
 		gateway.Servers = append(gateway.Servers, &v1alpha3.Server{
 			Port: &v1alpha3.Port{
 				Number:   443,
-				Protocol: string(config.ProtocolHTTPS),
+				Protocol: string(protocol.HTTPS),
 				Name:     fmt.Sprintf("https-443-i-%s-%s", name, namespace),
 			},
 			Hosts: tls.Hosts,
@@ -220,7 +221,7 @@ func IngressToGateway(key resource.VersionedKey, meta resource.Metadata, i *ingr
 	gateway.Servers = append(gateway.Servers, &v1alpha3.Server{
 		Port: &v1alpha3.Port{
 			Number:   80,
-			Protocol: string(config.ProtocolHTTP),
+			Protocol: string(protocol.HTTP),
 			Name:     fmt.Sprintf("http-80-i-%s-%s", name, namespace),
 		},
 		Hosts: []string{"*"},

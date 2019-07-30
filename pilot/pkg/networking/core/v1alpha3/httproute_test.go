@@ -21,13 +21,13 @@ import (
 	"sort"
 	"testing"
 
-	"istio.io/istio/pilot/pkg/features"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 func TestGenerateVirtualHostDomains(t *testing.T) {
@@ -618,7 +618,7 @@ func buildHTTPService(hostname string, visibility config.Visibility, ip, namespa
 		Ports = append(Ports, &model.Port{
 			Name:     fmt.Sprintf("http-%d", p),
 			Port:     p,
-			Protocol: config.ProtocolHTTP,
+			Protocol: protocol.HTTP,
 		})
 	}
 

@@ -22,11 +22,14 @@
 
 package config
 
-import "istio.io/api/networking/v1alpha3"
+import (
+	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config/protocol"
+)
 
 // IsTLSServer returns true if this server is non HTTP, with some TLS settings for termination/passthrough
 func IsTLSServer(server *v1alpha3.Server) bool {
-	if server.Tls != nil && !ParseProtocol(server.Port.Protocol).IsHTTP() {
+	if server.Tls != nil && !protocol.Parse(server.Port.Protocol).IsHTTP() {
 		return true
 	}
 	return false
@@ -34,12 +37,12 @@ func IsTLSServer(server *v1alpha3.Server) bool {
 
 // IsHTTPServer returns true if this server is using HTTP or HTTPS with termination
 func IsHTTPServer(server *v1alpha3.Server) bool {
-	protocol := ParseProtocol(server.Port.Protocol)
-	if protocol.IsHTTP() {
+	p := protocol.Parse(server.Port.Protocol)
+	if p.IsHTTP() {
 		return true
 	}
 
-	if protocol == ProtocolHTTPS && server.Tls != nil && !IsPassThroughServer(server) {
+	if p == protocol.HTTPS && server.Tls != nil && !IsPassThroughServer(server) {
 		return true
 	}
 

@@ -23,15 +23,15 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	coreV1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/kube"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/spiffe"
-
-	coreV1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -184,17 +184,17 @@ func ConvertProbePort(c *coreV1.Container, handler *coreV1.Handler) (*model.Port
 		return nil, nil
 	}
 
-	var protocol config.Protocol
+	var p protocol.Instance
 	var portVal intstr.IntOrString
 
 	// Only two types of handler is allowed by Kubernetes (HTTPGet or TCPSocket)
 	switch {
 	case handler.HTTPGet != nil:
 		portVal = handler.HTTPGet.Port
-		protocol = config.ProtocolHTTP
+		p = protocol.HTTP
 	case handler.TCPSocket != nil:
 		portVal = handler.TCPSocket.Port
-		protocol = config.ProtocolTCP
+		p = protocol.TCP
 	default:
 		return nil, nil
 	}
@@ -205,7 +205,7 @@ func ConvertProbePort(c *coreV1.Container, handler *coreV1.Handler) (*model.Port
 		return &model.Port{
 			Name:     managementPortPrefix + strconv.Itoa(port),
 			Port:     port,
-			Protocol: protocol,
+			Protocol: p,
 		}, nil
 	case intstr.String:
 		for _, named := range c.Ports {
@@ -214,7 +214,7 @@ func ConvertProbePort(c *coreV1.Container, handler *coreV1.Handler) (*model.Port
 				return &model.Port{
 					Name:     managementPortPrefix + strconv.Itoa(port),
 					Port:     port,
-					Protocol: protocol,
+					Protocol: p,
 				}, nil
 			}
 		}

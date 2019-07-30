@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	accesslogconfig "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
@@ -35,6 +34,7 @@ import (
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 const tcpEnvoyAccesslogName string = "tcp_envoy_accesslog"
@@ -184,16 +184,16 @@ func buildOutboundNetworkFiltersWithWeightedClusters(env *model.Environment, nod
 func buildNetworkFiltersStack(node *model.Proxy, port *model.Port, tcpFilter *listener.Filter, statPrefix string, clusterName string) []listener.Filter {
 	filterstack := make([]listener.Filter, 0)
 	switch port.Protocol {
-	case config.ProtocolMongo:
+	case protocol.Mongo:
 		filterstack = append(filterstack, buildMongoFilter(statPrefix, util.IsXDSMarshalingToAnyEnabled(node)), *tcpFilter)
-	case config.ProtocolRedis:
+	case protocol.Redis:
 		if util.IsProxyVersionGE11(node) && features.EnableRedisFilter.Get() {
 			// redis filter has route config, it is a terminating filter, no need append tcp filter.
 			filterstack = append(filterstack, buildRedisFilter(statPrefix, clusterName, util.IsXDSMarshalingToAnyEnabled(node)))
 		} else {
 			filterstack = append(filterstack, *tcpFilter)
 		}
-	case config.ProtocolMySQL:
+	case protocol.MySQL:
 		if util.IsProxyVersionGE11(node) && features.EnableMysqlFilter.Get() {
 			filterstack = append(filterstack, buildMySQLFilter(statPrefix, util.IsXDSMarshalingToAnyEnabled(node)))
 		}

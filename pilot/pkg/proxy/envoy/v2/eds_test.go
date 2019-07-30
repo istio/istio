@@ -37,6 +37,7 @@ import (
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
@@ -178,7 +179,7 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 			{
 				Name:     "http",
 				Port:     80,
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			},
 		},
 	})
@@ -189,7 +190,7 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 			ServicePort: &model.Port{
 				Name:     "http",
 				Port:     80,
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			},
 			Locality: asdcLocality,
 		},
@@ -201,7 +202,7 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 			ServicePort: &model.Port{
 				Name:     "http",
 				Port:     80,
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			},
 			Locality: asdc2Locality,
 		},
@@ -562,7 +563,7 @@ func addUdsEndpoint(server *bootstrap.Server) {
 			{
 				Name:     "grpc",
 				Port:     0,
-				Protocol: config.ProtocolGRPC,
+				Protocol: protocol.GRPC,
 			},
 		},
 		MeshExternal: true,
@@ -576,7 +577,7 @@ func addUdsEndpoint(server *bootstrap.Server) {
 			ServicePort: &model.Port{
 				Name:     "grpc",
 				Port:     0,
-				Protocol: config.ProtocolGRPC,
+				Protocol: protocol.GRPC,
 			},
 			Locality: "localhost",
 		},
@@ -593,7 +594,7 @@ func addLocalityEndpoints(server *bootstrap.Server, hostname config.Hostname) {
 			{
 				Name:     "http",
 				Port:     80,
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			},
 		},
 	})
@@ -614,7 +615,7 @@ func addLocalityEndpoints(server *bootstrap.Server, hostname config.Hostname) {
 				ServicePort: &model.Port{
 					Name:     "http",
 					Port:     80,
-					Protocol: config.ProtocolHTTP,
+					Protocol: protocol.HTTP,
 				},
 				Locality: locality,
 			},
@@ -630,12 +631,12 @@ func addOverlappingEndpoints(server *bootstrap.Server) {
 			{
 				Name:     "dns",
 				Port:     53,
-				Protocol: config.ProtocolUDP,
+				Protocol: protocol.UDP,
 			},
 			{
 				Name:     "tcp-dns",
 				Port:     53,
-				Protocol: config.ProtocolTCP,
+				Protocol: protocol.TCP,
 			},
 		},
 	})
@@ -646,7 +647,7 @@ func addOverlappingEndpoints(server *bootstrap.Server) {
 			ServicePort: &model.Port{
 				Name:     "tcp-dns",
 				Port:     53,
-				Protocol: config.ProtocolTCP,
+				Protocol: protocol.TCP,
 			},
 		},
 	})
