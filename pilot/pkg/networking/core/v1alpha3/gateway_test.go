@@ -299,8 +299,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Tls: &networking.Server_TLSOptions{
-					Mode:              networking.Server_TLSOptions_MUTUAL,
-					CredentialName:    "ingress-sds-resource-name",
+					Mode:                  networking.Server_TLSOptions_MUTUAL,
+					CredentialName:        "ingress-sds-resource-name",
 					VerifyCertificateSpki: []string{"abcdef"},
 				},
 			},
@@ -369,8 +369,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Tls: &networking.Server_TLSOptions{
-					Mode:              networking.Server_TLSOptions_MUTUAL,
-					CredentialName:    "ingress-sds-resource-name",
+					Mode:                  networking.Server_TLSOptions_MUTUAL,
+					CredentialName:        "ingress-sds-resource-name",
 					VerifyCertificateHash: []string{"fedcba"},
 				},
 			},
