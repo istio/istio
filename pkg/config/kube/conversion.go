@@ -35,6 +35,7 @@ import (
 var (
 	wellKnownPorts = map[int32]config.Protocol{
 		25:    config.ProtocolTCP, // SMTP
+		53:    config.ProtocolTCP, // DNS. Default TCP if not specified.
 		80:    config.ProtocolHTTP,
 		443:   config.ProtocolHTTPS,
 		3306:  config.ProtocolMySQL, // MySQL
