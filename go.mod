@@ -8,7 +8,7 @@ replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
 
 replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538-2789fed3109c
 
-replace github.com/gogo/protobuf => github.com/istio/gogo-protobuf v1.2.2-0.20190726125433-4c9abdb3090c
+replace github.com/gogo/protobuf => github.com/istio/gogo-protobuf v1.2.2
 
 require (
 	cloud.google.com/go v0.37.4
@@ -111,7 +111,6 @@ require (
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/huandu/xstrings v1.0.0 // indirect
 	github.com/imdario/mergo v0.3.5 // indirect
-	github.com/istio/gogo-protobuf v1.2.2-0.20190726125433-4c9abdb3090c // indirect
 	github.com/jefferai/jsonx v1.0.0 // indirect
 	github.com/jmespath/go-jmespath v0.0.0-20160202185014-0b12d6b521d8 // indirect
 	github.com/json-iterator/go v0.0.0-20180914014843-2433035e5132 // indirect
@@ -122,7 +121,6 @@ require (
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lestrrat-go/jwx v0.9.0
 	github.com/lib/pq v1.1.1 // indirect
-	github.com/lukechampine/freeze v0.0.0-20160818180733-f514e08ae5a0 // indirect
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-homedir v0.0.0-20161203194507-b8bc1bf76747
 	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
