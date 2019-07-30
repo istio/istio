@@ -1312,12 +1312,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		// Merge HTTP filter chain to TCP filter chain
 		currentListenerEntry.listener.FilterChains = mergeFilterChains(mutable.Listener.FilterChains, currentListenerEntry.listener.FilterChains)
 		currentListenerEntry.protocol = config.ProtocolUnsupported
-		currentListenerEntry.listener.ListenerFilters = append(currentListenerEntry.listener.ListenerFilters, listener.ListenerFilter{Name: envoyListenerHTTPInspector})
+		currentListenerEntry.listener.ListenerFilters =
+			append(currentListenerEntry.listener.ListenerFilters, listener.ListenerFilter{Name: envoyListenerHTTPInspector})
 	case TCPOverHTTP:
 		// Merge TCP filter chain to HTTP filter chain
 		currentListenerEntry.listener.FilterChains = mergeFilterChains(currentListenerEntry.listener.FilterChains, mutable.Listener.FilterChains)
 		currentListenerEntry.protocol = config.ProtocolUnsupported
-		currentListenerEntry.listener.ListenerFilters = append(currentListenerEntry.listener.ListenerFilters, listener.ListenerFilter{Name: envoyListenerHTTPInspector})
+		currentListenerEntry.listener.ListenerFilters =
+			append(currentListenerEntry.listener.ListenerFilters, listener.ListenerFilter{Name: envoyListenerHTTPInspector})
 	case TCPOverTCP:
 		// Merge two TCP filter chains. Since HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
 		// HTTP filter chain is different from TCP filter chain's.
@@ -1337,7 +1339,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 			listener:    mutable.Listener,
 			protocol:    config.ProtocolUnsupported,
 		}
-		currentListenerEntry.listener.ListenerFilters = append(currentListenerEntry.listener.ListenerFilters, listener.ListenerFilter{Name: envoyListenerHTTPInspector})
+		currentListenerEntry.listener.ListenerFilters =
+			append(currentListenerEntry.listener.ListenerFilters, listener.ListenerFilter{Name: envoyListenerHTTPInspector})
 
 	case AutoOverTCP:
 		// Merge two TCP filter chains. Since HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
@@ -1345,7 +1348,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		currentListenerEntry.listener.FilterChains = mergeTCPFilterChains(mutable.Listener.FilterChains,
 			pluginParams, listenerMapKey, listenerMap, node)
 		currentListenerEntry.protocol = config.ProtocolUnsupported
-		currentListenerEntry.listener.ListenerFilters = append(currentListenerEntry.listener.ListenerFilters, listener.ListenerFilter{Name: envoyListenerHTTPInspector})
+		currentListenerEntry.listener.ListenerFilters =
+			append(currentListenerEntry.listener.ListenerFilters, listener.ListenerFilter{Name: envoyListenerHTTPInspector})
 
 	case AutoOverAuto:
 		// Merge two TCP filter chains
