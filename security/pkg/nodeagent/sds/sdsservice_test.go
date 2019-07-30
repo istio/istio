@@ -445,6 +445,7 @@ func testSDSStreamMultiplePush(t *testing.T, stream sds.SecretDiscoveryService_S
 	}
 	verifySDSSResponse(t, resp, fakePrivateKey, fakeCertificateChain)
 
+	// Don't send a request and force SDS server to push secret, as a duplicate push.
 	notifyChan <- "notify push secret"
 	if notify := <-notifyChan; notify == "receive secret" {
 		// Verify that Recv() does not receive secret push and returns when stream is closed.
@@ -452,7 +453,7 @@ func testSDSStreamMultiplePush(t *testing.T, stream sds.SecretDiscoveryService_S
 		if err == nil {
 			t.Errorf("stream.Recv should fail: %v", err)
 		}
-		if !strings.Contains(err.Error(), "the client connection is closing") {
+		if !strings.Contains(err.Error(), "closing") {
 			t.Errorf("received error does not match, got %v", err)
 		}
 	}
@@ -469,8 +470,8 @@ func TestStreamSecretsMultiplePush(t *testing.T) {
 	defer server.Stop()
 
 	conn, stream := createSDSStream(t, socket)
-	proxyID := "sidecar~127.0.0.1~id2~local"
 	defer conn.Close()
+	proxyID := "sidecar~127.0.0.1~id5~local"
 	notifyChan := make(chan string)
 	go testSDSStreamMultiplePush(t, stream, proxyID, notifyChan)
 
@@ -492,6 +493,9 @@ func TestStreamSecretsMultiplePush(t *testing.T) {
 		t.Fatalf("failed to send push notificiation to proxy %q", conID)
 	}
 	notifyChan <- "receive secret"
+	// Wait to make sure client has called Recv().
+	time.Sleep(2 * time.Second)
+	conn.Close()
 }
 
 func verifySDSSResponse(t *testing.T, resp *api.DiscoveryResponse, expectedPrivateKey []byte, expectedCertChain []byte) {
