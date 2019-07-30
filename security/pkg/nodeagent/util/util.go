@@ -19,6 +19,9 @@ import (
 	"encoding/pem"
 	"fmt"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	pcg "github.com/prometheus/client_model/go"
 )
 
 // parseCertAndGetExpiryTimestamp parses certificate and returns cert expire time, or return error
@@ -33,4 +36,11 @@ func ParseCertAndGetExpiryTimestamp(certByte []byte) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("failed to parse certificate: %v", err)
 	}
 	return cert.NotAfter, nil
+}
+
+// GetMetricsCounterValue returns counter value in float64
+func GetMetricsCounterValue(c prometheus.Counter) float64 {
+	counterPb := &pcg.Metric{}
+	c.Write(counterPb)
+	return counterPb.GetCounter().GetValue()
 }

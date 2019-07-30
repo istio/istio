@@ -30,6 +30,7 @@ import (
 	authapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	"github.com/gogo/googleapis/google/rpc"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -38,6 +39,7 @@ import (
 
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/model"
+	"istio.io/istio/security/pkg/nodeagent/util"
 )
 
 var (
@@ -351,6 +353,9 @@ func TestStreamSecretsPush(t *testing.T) {
 	// reset connectionNumber since since its value is kept in memory for all unit test cases lifetime, reset since it may be updated in other test case.
 	atomic.StoreInt64(&connectionNumber, 0)
 
+	currentTotalPush := util.GetMetricsCounterValue(sdsMetrics.totalPush)
+	expectedTotalPush := 0
+
 	socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
 	server, st := createSDSServer(t, socket)
 	defer server.Stop()
@@ -359,11 +364,13 @@ func TestStreamSecretsPush(t *testing.T) {
 	proxyID := "sidecar~127.0.0.1~id2~local"
 	notifyChan := make(chan string)
 	go testSDSStreamOne(t, streamOne, proxyID, notifyChan)
+	expectedTotalPush += 2
 
 	connTwo, streamTwo := createSDSStream(t, socket)
 	proxyIDTwo := "sidecar~127.0.0.1~id3~local"
 	notifyChanTwo := make(chan string)
 	go testSDSStreamTwo(t, streamTwo, proxyIDTwo, notifyChanTwo)
+	expectedTotalPush += 1
 
 	if notify := <-notifyChan; notify != "notify push secret" {
 		t.Fatalf("push signal does not match")
@@ -424,6 +431,12 @@ func TestStreamSecretsPush(t *testing.T) {
 	if len(sdsClients) != 0 {
 		t.Fatalf("sdsClients, got %d, expected 0", len(sdsClients))
 	}
+
+	totalPushVal := util.GetMetricsCounterValue(sdsMetrics.totalPush) - currentTotalPush
+	if totalPushVal != float64(expectedTotalPush) {
+		t.Errorf("unexpected metric totalPush: expected %v but got %v", expectedTotalPush,
+			totalPushVal)
+	}
 }
 
 func testSDSStreamMultiplePush(t *testing.T, stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
@@ -464,6 +477,7 @@ func TestStreamSecretsMultiplePush(t *testing.T) {
 	// reset connectionNumber since since its value is kept in memory for all unit test cases lifetime, reset since it may be updated in other test case.
 	atomic.StoreInt64(&connectionNumber, 0)
 
+	currentTotalPush := util.GetMetricsCounterValue(sdsMetrics.totalPush)
 	socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
 	server, _ := createSDSServer(t, socket)
 	defer server.Stop()
@@ -492,6 +506,135 @@ func TestStreamSecretsMultiplePush(t *testing.T) {
 		t.Fatalf("failed to send push notificiation to proxy %q", conID)
 	}
 	notifyChan <- "receive secret"
+
+	totalPushVal := util.GetMetricsCounterValue(sdsMetrics.totalPush) - currentTotalPush
+	if totalPushVal != float64(1) {
+		t.Errorf("unexpected metric totalPush: expected 1 but got %v", totalPushVal)
+	}
+}
+
+func testSDSStreamUpdateFailures(t *testing.T, stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
+	notifyChan chan string) {
+	req := &api.DiscoveryRequest{
+		ResourceNames: []string{testResourceName},
+		Node: &core.Node{
+			Id: proxyID,
+		},
+	}
+
+	// Send first request and
+	if err := stream.Send(req); err != nil {
+		t.Errorf("stream.Send failed: %v", err)
+	}
+	resp, err := stream.Recv()
+	if err != nil {
+		t.Errorf("stream.Recv failed: %v", err)
+	}
+	verifySDSSResponse(t, resp, fakePrivateKey, fakeCertificateChain)
+
+	// Send second request as an ACK and wait for notifyPush
+	req.VersionInfo = resp.VersionInfo
+	req.ResponseNonce = resp.Nonce
+	if err = stream.Send(req); err != nil {
+		t.Errorf("stream.Send failed: %v", err)
+	}
+	// Wait for SDS server to process the second request and hold the request.
+	time.Sleep(5 * time.Second)
+	notifyChan <- "notify push secret"
+	if notify := <-notifyChan; notify == "receive secret" {
+		resp, err = stream.Recv()
+		if err != nil {
+			t.Errorf("stream.Recv failed: %v", err)
+		}
+		verifySDSSResponse(t, resp, fakePushPrivateKey, fakePushCertificateChain)
+	}
+
+	// Send third request and simulate the scenario that the second push causes secret update failure.
+	// The version info and response nonce in the third request should match the second one.
+	req.ErrorDetail = &rpc.Status{
+		Code:    int32(rpc.INTERNAL),
+		Message: "fake error",
+	}
+	if err = stream.Send(req); err != nil {
+		t.Errorf("stream.Send failed: %v", err)
+	}
+	// Wait for SDS server to process the third request and hold the request.
+	time.Sleep(5 * time.Second)
+	notifyChan <- "notify push secret"
+	if notify := <-notifyChan; notify == "receive secret" {
+		resp, err = stream.Recv()
+		if err != nil {
+			t.Errorf("stream.Recv failed: %v", err)
+		}
+		verifySDSSResponse(t, resp, fakePushPrivateKey, fakePushCertificateChain)
+	}
+	notifyChan <- "close stream"
+}
+
+// TestStreamSecretsUpdateFailures verifies that update failures reported by Envoy proxy is correctly
+// recorded by metrics.
+func TestStreamSecretsUpdateFailures(t *testing.T) {
+	// reset connectionNumber since since its value is kept in memory for all unit test cases lifetime,
+	// reset since it may be updated in other test case.
+	atomic.StoreInt64(&connectionNumber, 0)
+
+	currentTotalPush := util.GetMetricsCounterValue(sdsMetrics.totalPush)
+	currentTotalUpdateFailures := util.GetMetricsCounterValue(sdsMetrics.totalSecretUpdateFailureCounts)
+
+	socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
+	server, _ := createSDSServer(t, socket)
+	defer server.Stop()
+
+	conn, stream := createSDSStream(t, socket)
+	proxyID := "sidecar~127.0.0.1~id2~local"
+	notifyChan := make(chan string)
+	go testSDSStreamUpdateFailures(t, stream, proxyID, notifyChan)
+
+	// push secret for the second request.
+	if notify := <-notifyChan; notify != "notify push secret" {
+		t.Fatalf("push signal does not match")
+	}
+
+	// simulate logic in constructConnectionID() function.
+	conID := proxyID + "-1"
+	pushSecret := &model.SecretItem{
+		CertificateChain: fakePushCertificateChain,
+		PrivateKey:       fakePushPrivateKey,
+		ResourceName:     testResourceName,
+		Version:          time.Now().String(),
+	}
+	// Test push new secret to proxy.
+	if err := NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName},
+		pushSecret); err != nil {
+		t.Fatalf("failed to send push notificiation to proxy %q", conID)
+	}
+	notifyChan <- "receive secret"
+
+	// push secret for the third request.
+	if notify := <-notifyChan; notify != "notify push secret" {
+		t.Fatalf("push signal does not match")
+	}
+	if err := NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName},
+		pushSecret); err != nil {
+		t.Fatalf("failed to send push notificiation to proxy %q", conID)
+	}
+	notifyChan <- "receive secret"
+
+	if notify := <-notifyChan; notify != "close stream" {
+		t.Fatalf("get unexpected notification. %s", notify)
+	}
+	conn.Close()
+
+	totalSecretUpdateFailureVal := util.GetMetricsCounterValue(
+		sdsMetrics.totalSecretUpdateFailureCounts) - currentTotalUpdateFailures
+	if totalSecretUpdateFailureVal != float64(1) {
+		t.Errorf("unexpected metric totalSecretUpdateFailureCounts: expected 1 but got %v",
+			totalSecretUpdateFailureVal)
+	}
+	totalPushVal := util.GetMetricsCounterValue(sdsMetrics.totalPush) - currentTotalPush
+	if totalPushVal != float64(3) {
+		t.Errorf("unexpected metric totalPush: expected 3 but got %v", totalPushVal)
+	}
 }
 
 func verifySDSSResponse(t *testing.T, resp *api.DiscoveryResponse, expectedPrivateKey []byte, expectedCertChain []byte) {
