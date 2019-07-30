@@ -35,7 +35,7 @@ func ApplyRouteConfigurationPatches(patchContext networking.EnvoyFilter_PatchCon
 	for _, efw := range envoyFilterWrappers {
 		// only merge is applicable for route configuration. Validation checks for the same.
 		for _, cp := range efw.Patches[networking.EnvoyFilter_ROUTE_CONFIGURATION] {
-			if patchContextMatch(patchContext, cp) &&
+			if commonConditionMatch(proxy, patchContext, cp) &&
 				routeConfigurationMatch(patchContext, routeConfiguration, cp) {
 				proto.Merge(routeConfiguration, cp.Value)
 			}
@@ -50,7 +50,7 @@ func ApplyRouteConfigurationPatches(patchContext networking.EnvoyFilter_PatchCon
 				continue
 			}
 
-			if !patchContextMatch(patchContext, cp) ||
+			if !commonConditionMatch(proxy, patchContext, cp) ||
 				!routeConfigurationMatch(patchContext, routeConfiguration, cp) {
 				continue
 			}
@@ -79,7 +79,7 @@ func ApplyRouteConfigurationPatches(patchContext networking.EnvoyFilter_PatchCon
 				continue
 			}
 
-			if patchContextMatch(patchContext, cp) &&
+			if commonConditionMatch(proxy, patchContext, cp) &&
 				routeConfigurationMatch(patchContext, routeConfiguration, cp) {
 				routeConfiguration.VirtualHosts = append(routeConfiguration.VirtualHosts, *cp.Value.(*route.VirtualHost))
 			}
