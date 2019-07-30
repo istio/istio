@@ -198,7 +198,7 @@ spec:
     enabled: true
     components:
       ingressGateway:
-      - gateway:
+        gateway:
           common:
             namespace: istio-ingress
             k8s:
@@ -304,7 +304,7 @@ spec:
                   enabled: false
                   tls: false
       egressGateway:
-      - gateway:
+        gateway:
           common:
             namespace: istio-egress
             k8s:
@@ -388,6 +388,8 @@ spec:
     outboundTrafficPolicy:
       mode: ALLOW_ANY
   # TODO: remove requirement to set these to nil values. This is an issue with helm charts.
+    meshExpansion: {}
+    multiCluster: {}
     sds:
       enabled: false
       udsPath: ""
