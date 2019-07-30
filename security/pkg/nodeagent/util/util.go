@@ -39,8 +39,10 @@ func ParseCertAndGetExpiryTimestamp(certByte []byte) (time.Time, error) {
 }
 
 // GetMetricsCounterValue returns counter value in float64
-func GetMetricsCounterValue(c prometheus.Counter) float64 {
+func GetMetricsCounterValue(c prometheus.Counter) (float64, error) {
 	counterPb := &pcg.Metric{}
-	c.Write(counterPb)
-	return counterPb.GetCounter().GetValue()
+	if err := c.Write(counterPb); err != nil {
+		return float64(0), err
+	}
+	return counterPb.GetCounter().GetValue(), nil
 }

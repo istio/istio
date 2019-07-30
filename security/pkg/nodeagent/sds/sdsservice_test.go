@@ -353,7 +353,10 @@ func TestStreamSecretsPush(t *testing.T) {
 	// reset connectionNumber since since its value is kept in memory for all unit test cases lifetime, reset since it may be updated in other test case.
 	atomic.StoreInt64(&connectionNumber, 0)
 
-	currentTotalPush := util.GetMetricsCounterValue(sdsMetrics.totalPush)
+	initialTotalPush, err := util.GetMetricsCounterValue(sdsMetrics.totalPush)
+	if err != nil {
+		t.Errorf("Fail to get initial value from metric totalPush: %v", err)
+	}
 	expectedTotalPush := 0
 
 	socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
@@ -370,7 +373,7 @@ func TestStreamSecretsPush(t *testing.T) {
 	proxyIDTwo := "sidecar~127.0.0.1~id3~local"
 	notifyChanTwo := make(chan string)
 	go testSDSStreamTwo(t, streamTwo, proxyIDTwo, notifyChanTwo)
-	expectedTotalPush += 1
+	expectedTotalPush++
 
 	if notify := <-notifyChan; notify != "notify push secret" {
 		t.Fatalf("push signal does not match")
@@ -432,7 +435,11 @@ func TestStreamSecretsPush(t *testing.T) {
 		t.Fatalf("sdsClients, got %d, expected 0", len(sdsClients))
 	}
 
-	totalPushVal := util.GetMetricsCounterValue(sdsMetrics.totalPush) - currentTotalPush
+	totalPushVal, err := util.GetMetricsCounterValue(sdsMetrics.totalPush)
+	if err != nil {
+		t.Errorf("Fail to get value from metric totalPush: %v", err)
+	}
+	totalPushVal -= initialTotalPush
 	if totalPushVal != float64(expectedTotalPush) {
 		t.Errorf("unexpected metric totalPush: expected %v but got %v", expectedTotalPush,
 			totalPushVal)
@@ -478,7 +485,10 @@ func TestStreamSecretsMultiplePush(t *testing.T) {
 	// reset connectionNumber since since its value is kept in memory for all unit test cases lifetime, reset since it may be updated in other test case.
 	atomic.StoreInt64(&connectionNumber, 0)
 
-	currentTotalPush := util.GetMetricsCounterValue(sdsMetrics.totalPush)
+	initialTotalPush, err := util.GetMetricsCounterValue(sdsMetrics.totalPush)
+	if err != nil {
+		t.Errorf("Fail to get initial value from metric totalPush: %v", err)
+	}
 	socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
 	server, _ := createSDSServer(t, socket)
 	defer server.Stop()
@@ -512,7 +522,11 @@ func TestStreamSecretsMultiplePush(t *testing.T) {
 	if notify := <-notifyChan; notify != "close stream" {
 		t.Fatalf("get unexpected notification. %s", notify)
 	}
-	totalPushVal := util.GetMetricsCounterValue(sdsMetrics.totalPush) - currentTotalPush
+	totalPushVal, err := util.GetMetricsCounterValue(sdsMetrics.totalPush)
+	if err != nil {
+		t.Errorf("Fail to get value from metric totalPush: %v", err)
+	}
+	totalPushVal -= initialTotalPush
 	if totalPushVal != float64(1) {
 		t.Errorf("unexpected metric totalPush: expected 1 but got %v", totalPushVal)
 	}
@@ -583,8 +597,14 @@ func TestStreamSecretsUpdateFailures(t *testing.T) {
 	// reset since it may be updated in other test case.
 	atomic.StoreInt64(&connectionNumber, 0)
 
-	currentTotalPush := util.GetMetricsCounterValue(sdsMetrics.totalPush)
-	currentTotalUpdateFailures := util.GetMetricsCounterValue(sdsMetrics.totalSecretUpdateFailureCounts)
+	initialTotalPush, err := util.GetMetricsCounterValue(sdsMetrics.totalPush)
+	if err != nil {
+		t.Errorf("Fail to get initial value from metric totalPush: %v", err)
+	}
+	initialTotalUpdateFailures, err := util.GetMetricsCounterValue(sdsMetrics.totalSecretUpdateFailureCounts)
+	if err != nil {
+		t.Errorf("Fail to get initial value from metric totalSecretUpdateFailureCounts: %v", err)
+	}
 
 	socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
 	server, _ := createSDSServer(t, socket)
@@ -630,13 +650,20 @@ func TestStreamSecretsUpdateFailures(t *testing.T) {
 	}
 	conn.Close()
 
-	totalSecretUpdateFailureVal := util.GetMetricsCounterValue(
-		sdsMetrics.totalSecretUpdateFailureCounts) - currentTotalUpdateFailures
+	totalSecretUpdateFailureVal, err := util.GetMetricsCounterValue(sdsMetrics.totalSecretUpdateFailureCounts)
+	if err != nil {
+		t.Errorf("Fail to get value from metric totalSecretUpdateFailureCounts: %v", err)
+	}
+	totalSecretUpdateFailureVal -= initialTotalUpdateFailures
 	if totalSecretUpdateFailureVal != float64(1) {
 		t.Errorf("unexpected metric totalSecretUpdateFailureCounts: expected 1 but got %v",
 			totalSecretUpdateFailureVal)
 	}
-	totalPushVal := util.GetMetricsCounterValue(sdsMetrics.totalPush) - currentTotalPush
+	totalPushVal, err := util.GetMetricsCounterValue(sdsMetrics.totalPush)
+	if err != nil {
+		t.Errorf("Fail to get value from metric totalPush: %v", err)
+	}
+	totalPushVal -= initialTotalPush
 	if totalPushVal != float64(3) {
 		t.Errorf("unexpected metric totalPush: expected 3 but got %v", totalPushVal)
 	}
