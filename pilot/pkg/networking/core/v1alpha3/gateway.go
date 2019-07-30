@@ -421,7 +421,7 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 		// at gateway agent. Otherwise, use the static certificate validation context config.
 		if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL {
 			defaultValidationContext := &auth.CertificateValidationContext{
-				VerifySubjectAltName: server.Tls.SubjectAltNames,
+				VerifySubjectAltName:  server.Tls.SubjectAltNames,
 				VerifyCertificateSpki: server.Tls.VerifyCertificateSpki,
 				VerifyCertificateHash: server.Tls.VerifyCertificateHash,
 			}
