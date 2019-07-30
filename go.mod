@@ -186,7 +186,7 @@ require (
 	gopkg.in/stack.v1 v1.7.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 	gotest.tools v2.2.0+incompatible // indirect
-	istio.io/api v0.0.0-20190730193711-5ad2b2c986fc
+	istio.io/api v0.0.0-20190730171035-f306601671d2
 	istio.io/gogo-genproto v0.0.0-20190614210408-e88dc8b0e4db
 	istio.io/pkg v0.0.0-20190710182420-c26792dead42
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471

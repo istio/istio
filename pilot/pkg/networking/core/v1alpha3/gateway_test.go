@@ -293,15 +293,15 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 				RequireClientCertificate: proto.BoolTrue,
 			},
 		},
-		{ // Credential name and ValidateCertificateSpki options are specified, SDS configs are generated for fetching
+		{ // Credential name and VerifyCertificateSpki options are specified, SDS configs are generated for fetching
 			// key/cert and root cert
-			name: "credential name validate spki key and cert tls MUTUAL",
+			name: "credential name verify spki key and cert tls MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Tls: &networking.Server_TLSOptions{
 					Mode:              networking.Server_TLSOptions_MUTUAL,
 					CredentialName:    "ingress-sds-resource-name",
-					ValidateCertificateSpki: []string{"abcdef"},
+					VerifyCertificateSpki: []string{"abcdef"},
 				},
 			},
 			enableSds: true,
@@ -363,15 +363,15 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 				RequireClientCertificate: proto.BoolTrue,
 			},
 		},
-		{ // Credential name and ValidateCertificateHash options are specified, SDS configs are generated for fetching
+		{ // Credential name and VerifyCertificateHash options are specified, SDS configs are generated for fetching
 	      // key/cert and root cert
-			name: "credential name validate hash key and cert tls MUTUAL",
+			name: "credential name verify hash key and cert tls MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Tls: &networking.Server_TLSOptions{
 					Mode:              networking.Server_TLSOptions_MUTUAL,
 					CredentialName:    "ingress-sds-resource-name",
-					ValidateCertificateHash: []string{"fedcba"},
+					VerifyCertificateHash: []string{"fedcba"},
 				},
 			},
 			enableSds: true,
