@@ -294,7 +294,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 		},
 		{ // Credential name and ValidateCertificateSpki options are specified, SDS configs are generated for fetching
-		  // key/cert and root cert
+			// key/cert and root cert
 			name: "credential name validate spki key and cert tls MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
