@@ -21,21 +21,18 @@ import (
 	"sync"
 	"testing"
 
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/test/framework/components/environment"
-
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/client"
-	"istio.io/istio/pkg/test/util/structpath"
-
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/util/structpath"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -175,7 +172,7 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 		Ports: []echo.Port{
 			{
 				Name:     "http",
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			},
 		},
 		Galley: g,

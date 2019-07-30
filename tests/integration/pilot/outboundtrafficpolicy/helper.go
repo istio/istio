@@ -24,7 +24,7 @@ import (
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -126,11 +126,11 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 					Ports: []echo.Port{
 						{
 							Name:     "http",
-							Protocol: config.ProtocolHTTP,
+							Protocol: protocol.HTTP,
 						},
 						{
 							Name:     "https",
-							Protocol: config.ProtocolHTTPS,
+							Protocol: protocol.HTTPS,
 						},
 					},
 				}).BuildOrFail(t)

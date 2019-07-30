@@ -21,16 +21,16 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/pkg/log"
-
-	"k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // EncodeIngressRuleName encodes an ingress rule name for a given ingress resource name,
@@ -81,7 +81,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.
 		gateway.Servers = append(gateway.Servers, &networking.Server{
 			Port: &networking.Port{
 				Number:   443,
-				Protocol: string(config.ProtocolHTTPS),
+				Protocol: string(protocol.HTTPS),
 				Name:     fmt.Sprintf("https-443-ingress-%s-%s", ingress.Name, ingress.Namespace),
 			},
 			Hosts: tls.Hosts,
@@ -102,7 +102,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.
 	gateway.Servers = append(gateway.Servers, &networking.Server{
 		Port: &networking.Port{
 			Number:   80,
-			Protocol: string(config.ProtocolHTTP),
+			Protocol: string(protocol.HTTP),
 			Name:     fmt.Sprintf("http-80-ingress-%s-%s", ingress.Name, ingress.Namespace),
 		},
 		Hosts: []string{"*"},

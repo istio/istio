@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 // EDS returns the list of endpoints (IP:port and in future labels) associated with a real
@@ -294,7 +295,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 
 			entries := []*model.IstioEndpoint{}
 			for _, port := range svc.Ports {
-				if port.Protocol == config.ProtocolUDP {
+				if port.Protocol == protocol.UDP {
 					continue
 				}
 

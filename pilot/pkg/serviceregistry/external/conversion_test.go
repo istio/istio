@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 var GlobalTime = time.Now()
@@ -272,13 +273,13 @@ var udsLocal = &model.Config{
 	},
 }
 
-func convertPortNameToProtocol(name string) config.Protocol {
+func convertPortNameToProtocol(name string) protocol.Instance {
 	prefix := name
 	i := strings.Index(name, "-")
 	if i >= 0 {
 		prefix = name[:i]
 	}
-	return config.ParseProtocol(prefix)
+	return protocol.Parse(prefix)
 }
 
 func makeService(hostname config.Hostname, configNamespace, address string, ports map[string]int, external bool, resolution model.Resolution) *model.Service {
@@ -335,7 +336,7 @@ func makeInstance(cfg *model.Config, address string, port int,
 			ServicePort: &model.Port{
 				Name:     svcPort.Name,
 				Port:     int(svcPort.Number),
-				Protocol: config.ParseProtocol(svcPort.Protocol),
+				Protocol: protocol.Parse(svcPort.Protocol),
 			},
 		},
 		Labels: config.Labels(labels),

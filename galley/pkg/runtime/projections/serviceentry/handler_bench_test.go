@@ -18,14 +18,14 @@ import (
 	"strconv"
 	"testing"
 
+	coreV1 "k8s.io/api/core/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/processing"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
-
-	coreV1 "k8s.io/api/core/v1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (

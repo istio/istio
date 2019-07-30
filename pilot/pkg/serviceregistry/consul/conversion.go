@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/pkg/log"
 )
 
@@ -162,11 +163,11 @@ func parseHostname(hostname config.Hostname) (name string, err error) {
 	return
 }
 
-func convertProtocol(name string) config.Protocol {
-	protocol := config.ParseProtocol(name)
-	if protocol == config.ProtocolUnsupported {
+func convertProtocol(name string) protocol.Instance {
+	p := protocol.Parse(name)
+	if p == protocol.Unsupported {
 		log.Warnf("unsupported protocol value: %s", name)
-		return config.ProtocolTCP
+		return protocol.TCP
 	}
-	return protocol
+	return p
 }

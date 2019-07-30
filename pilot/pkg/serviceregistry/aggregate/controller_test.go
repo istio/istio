@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 // MockController specifies a mock Controller for testing
@@ -432,11 +433,11 @@ func TestManagementPorts(t *testing.T) {
 	expected := model.PortList{{
 		Name:     "http",
 		Port:     3333,
-		Protocol: config.ProtocolHTTP,
+		Protocol: protocol.HTTP,
 	}, {
 		Name:     "custom",
 		Port:     9999,
-		Protocol: config.ProtocolTCP,
+		Protocol: protocol.TCP,
 	}}
 
 	// Get management ports from mockAdapter1

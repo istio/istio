@@ -22,7 +22,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 // ListenerProtocol is the protocol associated with the listener.
@@ -46,13 +46,13 @@ const (
 	Mixer = "mixer"
 )
 
-// ModelProtocolToListenerProtocol converts from a config.Protocol to its corresponding plugin.ListenerProtocol
-func ModelProtocolToListenerProtocol(protocol config.Protocol) ListenerProtocol {
-	switch protocol {
-	case config.ProtocolHTTP, config.ProtocolHTTP2, config.ProtocolGRPC, config.ProtocolGRPCWeb:
+// ModelProtocolToListenerProtocol converts from a config.Instance to its corresponding plugin.ListenerProtocol
+func ModelProtocolToListenerProtocol(p protocol.Instance) ListenerProtocol {
+	switch p {
+	case protocol.HTTP, protocol.HTTP2, protocol.GRPC, protocol.GRPCWeb:
 		return ListenerProtocolHTTP
-	case config.ProtocolTCP, config.ProtocolHTTPS, config.ProtocolTLS,
-		config.ProtocolMongo, config.ProtocolRedis, config.ProtocolMySQL:
+	case protocol.TCP, protocol.HTTPS, protocol.TLS,
+		protocol.Mongo, protocol.Redis, protocol.MySQL:
 		return ListenerProtocolTCP
 	default:
 		return ListenerProtocolUnknown

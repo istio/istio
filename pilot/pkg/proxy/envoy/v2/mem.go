@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -117,7 +118,7 @@ func (sd *MemServiceDiscovery) AddHTTPService(name, vip string, port int) {
 			{
 				Name:     "http-main",
 				Port:     port,
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			},
 		},
 	})
@@ -161,7 +162,7 @@ func (sd *MemServiceDiscovery) AddEndpoint(service config.Hostname, servicePortN
 			ServicePort: &model.Port{
 				Name:     servicePortName,
 				Port:     servicePort,
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			},
 		},
 	}
@@ -210,7 +211,7 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, namespace string, en
 				ServicePort: &model.Port{
 					Name:     e.ServicePortName,
 					Port:     p.Port,
-					Protocol: config.ProtocolHTTP,
+					Protocol: protocol.HTTP,
 				},
 				Locality: e.Locality,
 				LbWeight: e.LbWeight,

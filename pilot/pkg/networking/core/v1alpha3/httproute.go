@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/pkg/log"
 )
@@ -275,7 +276,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		Port: &model.Port{
 			Name:     "",
 			Port:     listenerPort,
-			Protocol: config.ProtocolHTTP,
+			Protocol: protocol.HTTP,
 		},
 	}
 

@@ -20,7 +20,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 type LdsEnv struct {
@@ -56,7 +56,7 @@ func TestListenerBuilder(t *testing.T) {
 	// prepare
 	t.Helper()
 	ldsEnv := getDefaultLdsEnv()
-	service := buildService("test.com", wildcardIP, config.ProtocolHTTP, tnow)
+	service := buildService("test.com", wildcardIP, protocol.HTTP, tnow)
 	services := []*model.Service{service}
 
 	env := buildListenerEnv(services)
@@ -82,10 +82,10 @@ func TestListenerBuilder(t *testing.T) {
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
-	protocol := service.Ports[0].Protocol
-	if protocol != config.ProtocolHTTP && isHTTPListener(listeners[0]) {
+	p := service.Ports[0].Protocol
+	if p != protocol.HTTP && isHTTPListener(listeners[0]) {
 		t.Fatal("expected TCP listener, found HTTP")
-	} else if protocol == config.ProtocolHTTP && !isHTTPListener(listeners[0]) {
+	} else if p == protocol.HTTP && !isHTTPListener(listeners[0]) {
 		t.Fatal("expected HTTP listener, found TCP")
 	}
 	verifyInboundHTTPListenerServerName(t, listeners[0])
@@ -100,7 +100,7 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	// prepare
 	t.Helper()
 	ldsEnv := getDefaultLdsEnv()
-	service := buildService("test.com", wildcardIP, config.ProtocolHTTP, tnow)
+	service := buildService("test.com", wildcardIP, protocol.HTTP, tnow)
 	services := []*model.Service{service}
 
 	env := buildListenerEnv(services)
@@ -148,7 +148,7 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 	// prepare
 	t.Helper()
 	ldsEnv := getDefaultLdsEnv()
-	service := buildService("test.com", wildcardIP, config.ProtocolHTTP, tnow)
+	service := buildService("test.com", wildcardIP, protocol.HTTP, tnow)
 	services := []*model.Service{service}
 
 	env := buildListenerEnv(services)
