@@ -65,7 +65,7 @@ var (
 						{
 							Name: "istio-proxy",
 							Ports: []coreV1.ContainerPort{
-								coreV1.ContainerPort{
+								{
 									Name:          "http-envoy-prom",
 									ContainerPort: 15090,
 									Protocol:      "TCP",
