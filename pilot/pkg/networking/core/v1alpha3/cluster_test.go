@@ -99,7 +99,7 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 						},
 					})
 				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(len(clusters)).To(Equal(4))
+				g.Expect(len(clusters)).To(Equal(6))
 				cluster := clusters[directionInfo.clusterIndex]
 				g.Expect(len(cluster.CircuitBreakers.Thresholds)).To(Equal(1))
 				thresholds := cluster.CircuitBreakers.Thresholds[0]
@@ -160,7 +160,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 					},
 				})
 			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(len(clusters)).To(Equal(4))
+			g.Expect(len(clusters)).To(Equal(6))
 			cluster := clusters[directionInfo.clusterIndex]
 			g.Expect(cluster.CommonHttpProtocolOptions).To(Not(BeNil()))
 			commonHTTPProtocolOptions := cluster.CommonHttpProtocolOptions
@@ -428,7 +428,7 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 		nil, testMesh, destRule, envoyMetadata)
 	g.Expect(err).NotTo(HaveOccurred())
 
-	g.Expect(clusters).To(HaveLen(5))
+	g.Expect(clusters).To(HaveLen(7))
 
 	expectedOutboundClusterCount := 2
 	actualOutboundClusterCount := 0
@@ -492,7 +492,7 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 	// Do not set tcp_keepalive anywhere
 	clusters, err := buildTestClustersWithTCPKeepalive(None)
 	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(len(clusters)).To(Equal(5))
+	g.Expect(len(clusters)).To(Equal(7))
 	cluster := clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
 	// UpstreamConnectionOptions should be nil. TcpKeepalive is the only field in it currently.
@@ -501,7 +501,7 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 	// Set mesh wide default for tcp_keepalive.
 	clusters, err = buildTestClustersWithTCPKeepalive(Mesh)
 	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(len(clusters)).To(Equal(5))
+	g.Expect(len(clusters)).To(Equal(7))
 	cluster = clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
 	// KeepaliveTime should be set but rest should be nil.
@@ -512,7 +512,7 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 	// Set DestinationRule override for tcp_keepalive.
 	clusters, err = buildTestClustersWithTCPKeepalive(DestinationRule)
 	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(len(clusters)).To(Equal(5))
+	g.Expect(len(clusters)).To(Equal(7))
 	cluster = clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
 	// KeepaliveTime should be set but rest should be nil.
@@ -523,7 +523,7 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 	// Set DestinationRule override for tcp_keepalive with empty value.
 	clusters, err = buildTestClustersWithTCPKeepalive(DestinationRuleForOsDefault)
 	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(len(clusters)).To(Equal(5))
+	g.Expect(len(clusters)).To(Equal(7))
 	cluster = clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
 	// TcpKeepalive should be present but with nil values.
