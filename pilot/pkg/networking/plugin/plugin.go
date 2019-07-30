@@ -18,7 +18,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	httpconn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"istio.io/istio/pilot/pkg/networking/util"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -121,7 +121,7 @@ type FilterChain struct {
 	// Note that HTTP filter chains can also have network filters
 	ListenerProtocol ListenerProtocol
 	// HTTP is the set of HTTP filters for this filter chain
-	HTTP []*http_conn.HttpFilter
+	HTTP []*httpconn.HttpFilter
 	// TCP is the set of network (TCP) filters for this filter chain.
 	TCP []listener.Filter
 }
