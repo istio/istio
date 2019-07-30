@@ -312,6 +312,15 @@ echo "KUBEVIRT_INTERFACES=${KUBEVIRT_INTERFACES}"
 echo "ENABLE_INBOUND_IPV6=${ENABLE_INBOUND_IPV6}"
 echo
 
+
+set +o nounset
+# Blindly add a ipv6 address. If it fails it's fine.
+# Add local ipv6 address to lo. Used in redirecting unknown ipv6 traffic to original dst.
+# This address does not show up in neigh table so each Pod/Vm will only see its own. Think about 127.0.0.6.
+if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
+  ip -6 addr add ::6/128 dev lo
+fi
+
 set -o errexit
 set -o nounset
 set -o pipefail
@@ -411,6 +420,9 @@ if [ -n "${OUTBOUND_PORTS_EXCLUDE}" ]; then
     iptables -t nat -A ISTIO_OUTPUT -p tcp --dport "${port}" -j RETURN
   done
 fi
+
+# 127.0.0.6 is bind connect from inbound passthrough cluster
+iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN
 
 if [ -z "${DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK-}" ]; then
   # Redirect app calls back to itself via Envoy when using the service VIP or endpoint
@@ -541,6 +553,9 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
       ip6tables -t nat -A ISTIO_OUTPUT -p tcp --dport "${port}" -j RETURN
     done
   fi
+
+  # ::6 is bind when connect from inbound passthrough cluster
+  ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN
 
   # Redirect app calls to back itself via Envoy when using the service VIP or endpoint
   # address, e.g. appN => Envoy (client) => Envoy (server) => appN.
