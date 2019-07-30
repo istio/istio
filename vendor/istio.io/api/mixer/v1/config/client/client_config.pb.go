@@ -14,6 +14,7 @@ import (
 	io "io"
 	v1 "istio.io/api/mixer/v1"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strconv "strconv"
 	strings "strings"
@@ -78,7 +79,7 @@ func (m *NetworkFailPolicy) XXX_Unmarshal(b []byte) error {
 }
 func (m *NetworkFailPolicy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	b = b[:cap(b)]
-	n, err := m.MarshalTo(b)
+	n, err := m.MarshalToSizedBuffer(b)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +142,7 @@ func (m *ServiceConfig) XXX_Unmarshal(b []byte) error {
 }
 func (m *ServiceConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	b = b[:cap(b)]
-	n, err := m.MarshalTo(b)
+	n, err := m.MarshalToSizedBuffer(b)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +218,7 @@ func (m *TransportConfig) XXX_Unmarshal(b []byte) error {
 }
 func (m *TransportConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	b = b[:cap(b)]
-	n, err := m.MarshalTo(b)
+	n, err := m.MarshalToSizedBuffer(b)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +266,7 @@ func (m *HttpClientConfig) XXX_Unmarshal(b []byte) error {
 }
 func (m *HttpClientConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	b = b[:cap(b)]
-	n, err := m.MarshalTo(b)
+	n, err := m.MarshalToSizedBuffer(b)
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +315,7 @@ func (m *TcpClientConfig) XXX_Unmarshal(b []byte) error {
 }
 func (m *TcpClientConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	b = b[:cap(b)]
-	n, err := m.MarshalTo(b)
+	n, err := m.MarshalToSizedBuffer(b)
 	if err != nil {
 		return nil, err
 	}
@@ -423,7 +424,7 @@ func (x NetworkFailPolicy_FailPolicy) String() string {
 func (m *NetworkFailPolicy) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -431,47 +432,56 @@ func (m *NetworkFailPolicy) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NetworkFailPolicy) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NetworkFailPolicy) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Policy != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(m.Policy))
-	}
-	if m.MaxRetry != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(m.MaxRetry))
+	if m.MaxRetryWait != nil {
+		{
+			size, err := m.MaxRetryWait.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintClientConfig(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
 	}
 	if m.BaseRetryWait != nil {
+		{
+			size, err := m.BaseRetryWait.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintClientConfig(dAtA, i, uint64(size))
+		}
+		i--
 		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(m.BaseRetryWait.Size()))
-		n1, err1 := m.BaseRetryWait.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
-		}
-		i += n1
 	}
-	if m.MaxRetryWait != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(m.MaxRetryWait.Size()))
-		n2, err2 := m.MaxRetryWait.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
-		}
-		i += n2
+	if m.MaxRetry != 0 {
+		i = encodeVarintClientConfig(dAtA, i, uint64(m.MaxRetry))
+		i--
+		dAtA[i] = 0x10
 	}
-	return i, nil
+	if m.Policy != 0 {
+		i = encodeVarintClientConfig(dAtA, i, uint64(m.Policy))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ServiceConfig) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -479,91 +489,106 @@ func (m *ServiceConfig) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ServiceConfig) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ServiceConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.DisableCheckCalls {
-		dAtA[i] = 0x8
-		i++
-		if m.DisableCheckCalls {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
+	if m.ForwardAttributes != nil {
+		{
+			size, err := m.ForwardAttributes.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintClientConfig(dAtA, i, uint64(size))
 		}
-		i++
+		i--
+		dAtA[i] = 0x42
+	}
+	if m.NetworkFailPolicy != nil {
+		{
+			size, err := m.NetworkFailPolicy.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintClientConfig(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x3a
+	}
+	if len(m.QuotaSpec) > 0 {
+		for iNdEx := len(m.QuotaSpec) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.QuotaSpec[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintClientConfig(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x2a
+		}
+	}
+	if len(m.HttpApiSpec) > 0 {
+		for iNdEx := len(m.HttpApiSpec) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.HttpApiSpec[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintClientConfig(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x22
+		}
+	}
+	if m.MixerAttributes != nil {
+		{
+			size, err := m.MixerAttributes.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintClientConfig(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
 	}
 	if m.DisableReportCalls {
-		dAtA[i] = 0x10
-		i++
+		i--
 		if m.DisableReportCalls {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.MixerAttributes != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(m.MixerAttributes.Size()))
-		n3, err3 := m.MixerAttributes.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
+	if m.DisableCheckCalls {
+		i--
+		if m.DisableCheckCalls {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
 		}
-		i += n3
+		i--
+		dAtA[i] = 0x8
 	}
-	if len(m.HttpApiSpec) > 0 {
-		for _, msg := range m.HttpApiSpec {
-			dAtA[i] = 0x22
-			i++
-			i = encodeVarintClientConfig(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.QuotaSpec) > 0 {
-		for _, msg := range m.QuotaSpec {
-			dAtA[i] = 0x2a
-			i++
-			i = encodeVarintClientConfig(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if m.NetworkFailPolicy != nil {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(m.NetworkFailPolicy.Size()))
-		n4, err4 := m.NetworkFailPolicy.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
-		}
-		i += n4
-	}
-	if m.ForwardAttributes != nil {
-		dAtA[i] = 0x42
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(m.ForwardAttributes.Size()))
-		n5, err5 := m.ForwardAttributes.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
-		}
-		i += n5
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *TransportConfig) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -571,104 +596,119 @@ func (m *TransportConfig) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *TransportConfig) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TransportConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.DisableCheckCache {
-		dAtA[i] = 0x8
-		i++
-		if m.DisableCheckCache {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
+	if m.ReportBatchMaxTime != nil {
+		{
+			size, err := m.ReportBatchMaxTime.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintClientConfig(dAtA, i, uint64(size))
 		}
-		i++
+		i--
+		dAtA[i] = 0x52
 	}
-	if m.DisableQuotaCache {
-		dAtA[i] = 0x10
-		i++
-		if m.DisableQuotaCache {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
+	if m.ReportBatchMaxEntries != 0 {
+		i = encodeVarintClientConfig(dAtA, i, uint64(m.ReportBatchMaxEntries))
+		i--
+		dAtA[i] = 0x48
+	}
+	if m.AttributesForMixerProxy != nil {
+		{
+			size, err := m.AttributesForMixerProxy.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintClientConfig(dAtA, i, uint64(size))
 		}
-		i++
+		i--
+		dAtA[i] = 0x42
+	}
+	if len(m.ReportCluster) > 0 {
+		i -= len(m.ReportCluster)
+		copy(dAtA[i:], m.ReportCluster)
+		i = encodeVarintClientConfig(dAtA, i, uint64(len(m.ReportCluster)))
+		i--
+		dAtA[i] = 0x3a
+	}
+	if len(m.CheckCluster) > 0 {
+		i -= len(m.CheckCluster)
+		copy(dAtA[i:], m.CheckCluster)
+		i = encodeVarintClientConfig(dAtA, i, uint64(len(m.CheckCluster)))
+		i--
+		dAtA[i] = 0x32
+	}
+	if m.StatsUpdateInterval != nil {
+		{
+			size, err := m.StatsUpdateInterval.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintClientConfig(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2a
+	}
+	if m.NetworkFailPolicy != nil {
+		{
+			size, err := m.NetworkFailPolicy.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintClientConfig(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
 	}
 	if m.DisableReportBatch {
-		dAtA[i] = 0x18
-		i++
+		i--
 		if m.DisableReportBatch {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x18
 	}
-	if m.NetworkFailPolicy != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(m.NetworkFailPolicy.Size()))
-		n6, err6 := m.NetworkFailPolicy.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
+	if m.DisableQuotaCache {
+		i--
+		if m.DisableQuotaCache {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
 		}
-		i += n6
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.StatsUpdateInterval != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(m.StatsUpdateInterval.Size()))
-		n7, err7 := m.StatsUpdateInterval.MarshalTo(dAtA[i:])
-		if err7 != nil {
-			return 0, err7
+	if m.DisableCheckCache {
+		i--
+		if m.DisableCheckCache {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
 		}
-		i += n7
+		i--
+		dAtA[i] = 0x8
 	}
-	if len(m.CheckCluster) > 0 {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(len(m.CheckCluster)))
-		i += copy(dAtA[i:], m.CheckCluster)
-	}
-	if len(m.ReportCluster) > 0 {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(len(m.ReportCluster)))
-		i += copy(dAtA[i:], m.ReportCluster)
-	}
-	if m.AttributesForMixerProxy != nil {
-		dAtA[i] = 0x42
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(m.AttributesForMixerProxy.Size()))
-		n8, err8 := m.AttributesForMixerProxy.MarshalTo(dAtA[i:])
-		if err8 != nil {
-			return 0, err8
-		}
-		i += n8
-	}
-	if m.ReportBatchMaxEntries != 0 {
-		dAtA[i] = 0x48
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(m.ReportBatchMaxEntries))
-	}
-	if m.ReportBatchMaxTime != nil {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(m.ReportBatchMaxTime.Size()))
-		n9, err9 := m.ReportBatchMaxTime.MarshalTo(dAtA[i:])
-		if err9 != nil {
-			return 0, err9
-		}
-		i += n9
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *HttpClientConfig) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -676,86 +716,96 @@ func (m *HttpClientConfig) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *HttpClientConfig) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *HttpClientConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Transport != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(m.Transport.Size()))
-		n10, err10 := m.Transport.MarshalTo(dAtA[i:])
-		if err10 != nil {
-			return 0, err10
+	if m.ForwardAttributes != nil {
+		{
+			size, err := m.ForwardAttributes.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintClientConfig(dAtA, i, uint64(size))
 		}
-		i += n10
+		i--
+		dAtA[i] = 0x2a
+	}
+	if m.MixerAttributes != nil {
+		{
+			size, err := m.MixerAttributes.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintClientConfig(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.DefaultDestinationService) > 0 {
+		i -= len(m.DefaultDestinationService)
+		copy(dAtA[i:], m.DefaultDestinationService)
+		i = encodeVarintClientConfig(dAtA, i, uint64(len(m.DefaultDestinationService)))
+		i--
+		dAtA[i] = 0x1a
 	}
 	if len(m.ServiceConfigs) > 0 {
 		keysForServiceConfigs := make([]string, 0, len(m.ServiceConfigs))
-		for k, _ := range m.ServiceConfigs {
+		for k := range m.ServiceConfigs {
 			keysForServiceConfigs = append(keysForServiceConfigs, string(k))
 		}
 		github_com_gogo_protobuf_sortkeys.Strings(keysForServiceConfigs)
-		for _, k := range keysForServiceConfigs {
-			dAtA[i] = 0x12
-			i++
-			v := m.ServiceConfigs[string(k)]
-			msgSize := 0
+		for iNdEx := len(keysForServiceConfigs) - 1; iNdEx >= 0; iNdEx-- {
+			v := m.ServiceConfigs[string(keysForServiceConfigs[iNdEx])]
+			baseI := i
 			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovClientConfig(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovClientConfig(uint64(len(k))) + msgSize
-			i = encodeVarintClientConfig(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintClientConfig(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintClientConfig(dAtA, i, uint64(v.Size()))
-				n11, err11 := v.MarshalTo(dAtA[i:])
-				if err11 != nil {
-					return 0, err11
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintClientConfig(dAtA, i, uint64(size))
 				}
-				i += n11
+				i--
+				dAtA[i] = 0x12
 			}
+			i -= len(keysForServiceConfigs[iNdEx])
+			copy(dAtA[i:], keysForServiceConfigs[iNdEx])
+			i = encodeVarintClientConfig(dAtA, i, uint64(len(keysForServiceConfigs[iNdEx])))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintClientConfig(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	if len(m.DefaultDestinationService) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(len(m.DefaultDestinationService)))
-		i += copy(dAtA[i:], m.DefaultDestinationService)
-	}
-	if m.MixerAttributes != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(m.MixerAttributes.Size()))
-		n12, err12 := m.MixerAttributes.MarshalTo(dAtA[i:])
-		if err12 != nil {
-			return 0, err12
+	if m.Transport != nil {
+		{
+			size, err := m.Transport.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintClientConfig(dAtA, i, uint64(size))
 		}
-		i += n12
+		i--
+		dAtA[i] = 0xa
 	}
-	if m.ForwardAttributes != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(m.ForwardAttributes.Size()))
-		n13, err13 := m.ForwardAttributes.MarshalTo(dAtA[i:])
-		if err13 != nil {
-			return 0, err13
-		}
-		i += n13
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *TcpClientConfig) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -763,81 +813,96 @@ func (m *TcpClientConfig) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *TcpClientConfig) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TcpClientConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Transport != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(m.Transport.Size()))
-		n14, err14 := m.Transport.MarshalTo(dAtA[i:])
-		if err14 != nil {
-			return 0, err14
+	if m.ReportInterval != nil {
+		{
+			size, err := m.ReportInterval.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintClientConfig(dAtA, i, uint64(size))
 		}
-		i += n14
+		i--
+		dAtA[i] = 0x32
 	}
-	if m.MixerAttributes != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(m.MixerAttributes.Size()))
-		n15, err15 := m.MixerAttributes.MarshalTo(dAtA[i:])
-		if err15 != nil {
-			return 0, err15
+	if m.ConnectionQuotaSpec != nil {
+		{
+			size, err := m.ConnectionQuotaSpec.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintClientConfig(dAtA, i, uint64(size))
 		}
-		i += n15
-	}
-	if m.DisableCheckCalls {
-		dAtA[i] = 0x18
-		i++
-		if m.DisableCheckCalls {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
+		i--
+		dAtA[i] = 0x2a
 	}
 	if m.DisableReportCalls {
-		dAtA[i] = 0x20
-		i++
+		i--
 		if m.DisableReportCalls {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x20
 	}
-	if m.ConnectionQuotaSpec != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(m.ConnectionQuotaSpec.Size()))
-		n16, err16 := m.ConnectionQuotaSpec.MarshalTo(dAtA[i:])
-		if err16 != nil {
-			return 0, err16
+	if m.DisableCheckCalls {
+		i--
+		if m.DisableCheckCalls {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
 		}
-		i += n16
+		i--
+		dAtA[i] = 0x18
 	}
-	if m.ReportInterval != nil {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintClientConfig(dAtA, i, uint64(m.ReportInterval.Size()))
-		n17, err17 := m.ReportInterval.MarshalTo(dAtA[i:])
-		if err17 != nil {
-			return 0, err17
+	if m.MixerAttributes != nil {
+		{
+			size, err := m.MixerAttributes.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintClientConfig(dAtA, i, uint64(size))
 		}
-		i += n17
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	if m.Transport != nil {
+		{
+			size, err := m.Transport.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintClientConfig(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintClientConfig(dAtA []byte, offset int, v uint64) int {
+	offset -= sovClientConfig(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *NetworkFailPolicy) Size() (n int) {
 	if m == nil {
@@ -1016,14 +1081,7 @@ func (m *TcpClientConfig) Size() (n int) {
 }
 
 func sovClientConfig(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozClientConfig(x uint64) (n int) {
 	return sovClientConfig(uint64((x << 1) ^ uint64((int64(x) >> 63))))

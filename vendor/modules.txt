@@ -207,7 +207,7 @@ github.com/gobwas/glob/syntax/ast
 github.com/gobwas/glob/util/runes
 github.com/gobwas/glob/syntax/lexer
 github.com/gobwas/glob/util/strings
-# github.com/gogo/googleapis v1.1.0
+# github.com/gogo/googleapis v1.2.0
 github.com/gogo/googleapis/google/rpc
 github.com/gogo/googleapis/google/api
 # github.com/gogo/protobuf v1.2.1 => github.com/istio/gogo-protobuf v1.2.2-0.20190726125433-4c9abdb3090c
@@ -661,7 +661,7 @@ google.golang.org/genproto/googleapis/logging/v2
 google.golang.org/genproto/googleapis/appengine/logging/v1
 google.golang.org/genproto/googleapis/cloud/audit
 google.golang.org/genproto/googleapis/devtools/cloudtrace/v2
-# google.golang.org/grpc v1.20.1
+# google.golang.org/grpc v1.21.0
 google.golang.org/grpc
 google.golang.org/grpc/credentials
 google.golang.org/grpc/credentials/oauth
@@ -712,7 +712,7 @@ gopkg.in/square/go-jose.v2/cipher
 gopkg.in/stack.v1
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
-# istio.io/api v0.0.0-20190718213450-0a0442bf8664
+# istio.io/api v0.0.0-20190729233843-8d0c8b9e07dc
 istio.io/api/mesh/v1alpha1
 istio.io/api/authentication/v1alpha1
 istio.io/api/mixer/v1/config/client
@@ -754,9 +754,9 @@ k8s.io/api/apps/v1
 k8s.io/api/core/v1
 k8s.io/api/extensions/v1beta1
 k8s.io/api/policy/v1beta1
+k8s.io/api/batch/v2alpha1
 k8s.io/api/authorization/v1beta1
 k8s.io/api/batch/v1
-k8s.io/api/batch/v2alpha1
 k8s.io/api/authentication/v1
 k8s.io/api/rbac/v1beta1
 k8s.io/api/apps/v1beta1

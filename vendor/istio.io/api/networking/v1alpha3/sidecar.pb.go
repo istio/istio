@@ -211,6 +211,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -332,7 +333,7 @@ func (m *Sidecar) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Sidecar.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -421,7 +422,7 @@ func (m *IstioIngressListener) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return xxx_messageInfo_IstioIngressListener.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -541,7 +542,7 @@ func (m *IstioEgressListener) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return xxx_messageInfo_IstioEgressListener.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -620,7 +621,7 @@ func (m *WorkloadSelector) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return xxx_messageInfo_WorkloadSelector.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -676,7 +677,7 @@ func (m *OutboundTrafficPolicy) XXX_Marshal(b []byte, deterministic bool) ([]byt
 		return xxx_messageInfo_OutboundTrafficPolicy.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -758,7 +759,7 @@ var fileDescriptor_b5c11342f04ad3d1 = []byte{
 func (m *Sidecar) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -766,64 +767,78 @@ func (m *Sidecar) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Sidecar) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Sidecar) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.WorkloadSelector != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintSidecar(dAtA, i, uint64(m.WorkloadSelector.Size()))
-		n1, err1 := m.WorkloadSelector.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
-		}
-		i += n1
-	}
-	if len(m.Ingress) > 0 {
-		for _, msg := range m.Ingress {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintSidecar(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.Egress) > 0 {
-		for _, msg := range m.Egress {
-			dAtA[i] = 0x1a
-			i++
-			i = encodeVarintSidecar(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.OutboundTrafficPolicy != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintSidecar(dAtA, i, uint64(m.OutboundTrafficPolicy.Size()))
-		n2, err2 := m.OutboundTrafficPolicy.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		{
+			size, err := m.OutboundTrafficPolicy.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintSidecar(dAtA, i, uint64(size))
 		}
-		i += n2
+		i--
+		dAtA[i] = 0x22
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Egress) > 0 {
+		for iNdEx := len(m.Egress) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Egress[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintSidecar(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1a
+		}
 	}
-	return i, nil
+	if len(m.Ingress) > 0 {
+		for iNdEx := len(m.Ingress) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Ingress[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintSidecar(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if m.WorkloadSelector != nil {
+		{
+			size, err := m.WorkloadSelector.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintSidecar(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *IstioIngressListener) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -831,47 +846,57 @@ func (m *IstioIngressListener) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *IstioIngressListener) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *IstioIngressListener) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Port != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintSidecar(dAtA, i, uint64(m.Port.Size()))
-		n3, err3 := m.Port.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
-		}
-		i += n3
-	}
-	if len(m.Bind) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintSidecar(dAtA, i, uint64(len(m.Bind)))
-		i += copy(dAtA[i:], m.Bind)
-	}
-	if m.CaptureMode != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintSidecar(dAtA, i, uint64(m.CaptureMode))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.DefaultEndpoint) > 0 {
-		dAtA[i] = 0x22
-		i++
+		i -= len(m.DefaultEndpoint)
+		copy(dAtA[i:], m.DefaultEndpoint)
 		i = encodeVarintSidecar(dAtA, i, uint64(len(m.DefaultEndpoint)))
-		i += copy(dAtA[i:], m.DefaultEndpoint)
+		i--
+		dAtA[i] = 0x22
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.CaptureMode != 0 {
+		i = encodeVarintSidecar(dAtA, i, uint64(m.CaptureMode))
+		i--
+		dAtA[i] = 0x18
 	}
-	return i, nil
+	if len(m.Bind) > 0 {
+		i -= len(m.Bind)
+		copy(dAtA[i:], m.Bind)
+		i = encodeVarintSidecar(dAtA, i, uint64(len(m.Bind)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Port != nil {
+		{
+			size, err := m.Port.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintSidecar(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *IstioEgressListener) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -879,56 +904,59 @@ func (m *IstioEgressListener) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *IstioEgressListener) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *IstioEgressListener) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Port != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintSidecar(dAtA, i, uint64(m.Port.Size()))
-		n4, err4 := m.Port.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
-		}
-		i += n4
-	}
-	if len(m.Bind) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintSidecar(dAtA, i, uint64(len(m.Bind)))
-		i += copy(dAtA[i:], m.Bind)
-	}
-	if m.CaptureMode != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintSidecar(dAtA, i, uint64(m.CaptureMode))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Hosts) > 0 {
-		for _, s := range m.Hosts {
+		for iNdEx := len(m.Hosts) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Hosts[iNdEx])
+			copy(dAtA[i:], m.Hosts[iNdEx])
+			i = encodeVarintSidecar(dAtA, i, uint64(len(m.Hosts[iNdEx])))
+			i--
 			dAtA[i] = 0x22
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.CaptureMode != 0 {
+		i = encodeVarintSidecar(dAtA, i, uint64(m.CaptureMode))
+		i--
+		dAtA[i] = 0x18
 	}
-	return i, nil
+	if len(m.Bind) > 0 {
+		i -= len(m.Bind)
+		copy(dAtA[i:], m.Bind)
+		i = encodeVarintSidecar(dAtA, i, uint64(len(m.Bind)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Port != nil {
+		{
+			size, err := m.Port.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintSidecar(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *WorkloadSelector) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -936,37 +964,45 @@ func (m *WorkloadSelector) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *WorkloadSelector) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *WorkloadSelector) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if len(m.Labels) > 0 {
-		for k, _ := range m.Labels {
-			dAtA[i] = 0xa
-			i++
+		for k := range m.Labels {
 			v := m.Labels[k]
-			mapSize := 1 + len(k) + sovSidecar(uint64(len(k))) + 1 + len(v) + sovSidecar(uint64(len(v)))
-			i = encodeVarintSidecar(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintSidecar(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
 			i = encodeVarintSidecar(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintSidecar(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintSidecar(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *OutboundTrafficPolicy) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -974,29 +1010,37 @@ func (m *OutboundTrafficPolicy) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *OutboundTrafficPolicy) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *OutboundTrafficPolicy) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Mode != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintSidecar(dAtA, i, uint64(m.Mode))
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Mode != 0 {
+		i = encodeVarintSidecar(dAtA, i, uint64(m.Mode))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintSidecar(dAtA []byte, offset int, v uint64) int {
+	offset -= sovSidecar(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Sidecar) Size() (n int) {
 	if m == nil {
@@ -1122,14 +1166,7 @@ func (m *OutboundTrafficPolicy) Size() (n int) {
 }
 
 func sovSidecar(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozSidecar(x uint64) (n int) {
 	return sovSidecar(uint64((x << 1) ^ uint64((int64(x) >> 63))))

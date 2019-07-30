@@ -578,9 +578,12 @@ type ClientTransport interface {
 	// is called only once.
 	Close() error
 
-	// GracefulClose starts to tear down the transport. It stops accepting
-	// new RPCs and wait the completion of the pending RPCs.
-	GracefulClose() error
+	// GracefulClose starts to tear down the transport: the transport will stop
+	// accepting new RPCs and NewStream will return error. Once all streams are
+	// finished, the transport will close.
+	//
+	// It does not block.
+	GracefulClose()
 
 	// Write sends the data for the given stream. A nil stream indicates
 	// the write is to be performed on the transport as a whole.

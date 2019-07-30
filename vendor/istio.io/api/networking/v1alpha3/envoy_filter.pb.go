@@ -182,6 +182,7 @@ import (
 	types "github.com/gogo/protobuf/types"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -481,7 +482,7 @@ func (x EnvoyFilter_Patch_Operation) String() string {
 }
 
 func (EnvoyFilter_Patch_Operation) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 6, 0}
+	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 7, 0}
 }
 
 type EnvoyFilter struct {
@@ -520,7 +521,7 @@ func (m *EnvoyFilter) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_EnvoyFilter.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -616,7 +617,7 @@ func (m *EnvoyFilter_DeprecatedListenerMatch) XXX_Marshal(b []byte, deterministi
 		return xxx_messageInfo_EnvoyFilter_DeprecatedListenerMatch.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -698,7 +699,7 @@ func (m *EnvoyFilter_InsertPosition) XXX_Marshal(b []byte, deterministic bool) (
 		return xxx_messageInfo_EnvoyFilter_InsertPosition.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -770,7 +771,7 @@ func (m *EnvoyFilter_Filter) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return xxx_messageInfo_EnvoyFilter_Filter.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -824,6 +825,167 @@ func (m *EnvoyFilter_Filter) GetFilterConfig() *types.Struct {
 	return nil
 }
 
+// One or more properties of the proxy to match on.
+type EnvoyFilter_ProxyMatch struct {
+	// Types that are valid to be assigned to VersionMatch:
+	//	*EnvoyFilter_ProxyMatch_VersionGe
+	//	*EnvoyFilter_ProxyMatch_VersionEq
+	VersionMatch isEnvoyFilter_ProxyMatch_VersionMatch `protobuf_oneof:"version_match"`
+	// Match on the node metadata supplied by a proxy when connecting
+	// to Istio Pilot. Note that while Envoy's node metadata is of
+	// type Struct, only string key-value pairs are processed by
+	// Pilot. All keys specified in the metadata must match with exact
+	// values. The match will fail if any of the specified keys are
+	// absent or the values fail to match.
+	Metadata             map[string]string `protobuf:"bytes,3,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
+}
+
+func (m *EnvoyFilter_ProxyMatch) Reset()         { *m = EnvoyFilter_ProxyMatch{} }
+func (m *EnvoyFilter_ProxyMatch) String() string { return proto.CompactTextString(m) }
+func (*EnvoyFilter_ProxyMatch) ProtoMessage()    {}
+func (*EnvoyFilter_ProxyMatch) Descriptor() ([]byte, []int) {
+	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 3}
+}
+func (m *EnvoyFilter_ProxyMatch) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EnvoyFilter_ProxyMatch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EnvoyFilter_ProxyMatch.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EnvoyFilter_ProxyMatch) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EnvoyFilter_ProxyMatch.Merge(m, src)
+}
+func (m *EnvoyFilter_ProxyMatch) XXX_Size() int {
+	return m.Size()
+}
+func (m *EnvoyFilter_ProxyMatch) XXX_DiscardUnknown() {
+	xxx_messageInfo_EnvoyFilter_ProxyMatch.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EnvoyFilter_ProxyMatch proto.InternalMessageInfo
+
+type isEnvoyFilter_ProxyMatch_VersionMatch interface {
+	isEnvoyFilter_ProxyMatch_VersionMatch()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type EnvoyFilter_ProxyMatch_VersionGe struct {
+	VersionGe string `protobuf:"bytes,1,opt,name=version_ge,json=versionGe,proto3,oneof"`
+}
+type EnvoyFilter_ProxyMatch_VersionEq struct {
+	VersionEq string `protobuf:"bytes,2,opt,name=version_eq,json=versionEq,proto3,oneof"`
+}
+
+func (*EnvoyFilter_ProxyMatch_VersionGe) isEnvoyFilter_ProxyMatch_VersionMatch() {}
+func (*EnvoyFilter_ProxyMatch_VersionEq) isEnvoyFilter_ProxyMatch_VersionMatch() {}
+
+func (m *EnvoyFilter_ProxyMatch) GetVersionMatch() isEnvoyFilter_ProxyMatch_VersionMatch {
+	if m != nil {
+		return m.VersionMatch
+	}
+	return nil
+}
+
+func (m *EnvoyFilter_ProxyMatch) GetVersionGe() string {
+	if x, ok := m.GetVersionMatch().(*EnvoyFilter_ProxyMatch_VersionGe); ok {
+		return x.VersionGe
+	}
+	return ""
+}
+
+func (m *EnvoyFilter_ProxyMatch) GetVersionEq() string {
+	if x, ok := m.GetVersionMatch().(*EnvoyFilter_ProxyMatch_VersionEq); ok {
+		return x.VersionEq
+	}
+	return ""
+}
+
+func (m *EnvoyFilter_ProxyMatch) GetMetadata() map[string]string {
+	if m != nil {
+		return m.Metadata
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*EnvoyFilter_ProxyMatch) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _EnvoyFilter_ProxyMatch_OneofMarshaler, _EnvoyFilter_ProxyMatch_OneofUnmarshaler, _EnvoyFilter_ProxyMatch_OneofSizer, []interface{}{
+		(*EnvoyFilter_ProxyMatch_VersionGe)(nil),
+		(*EnvoyFilter_ProxyMatch_VersionEq)(nil),
+	}
+}
+
+func _EnvoyFilter_ProxyMatch_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*EnvoyFilter_ProxyMatch)
+	// version_match
+	switch x := m.VersionMatch.(type) {
+	case *EnvoyFilter_ProxyMatch_VersionGe:
+		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
+		_ = b.EncodeStringBytes(x.VersionGe)
+	case *EnvoyFilter_ProxyMatch_VersionEq:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		_ = b.EncodeStringBytes(x.VersionEq)
+	case nil:
+	default:
+		return fmt.Errorf("EnvoyFilter_ProxyMatch.VersionMatch has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _EnvoyFilter_ProxyMatch_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*EnvoyFilter_ProxyMatch)
+	switch tag {
+	case 1: // version_match.version_ge
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeStringBytes()
+		m.VersionMatch = &EnvoyFilter_ProxyMatch_VersionGe{x}
+		return true, err
+	case 2: // version_match.version_eq
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeStringBytes()
+		m.VersionMatch = &EnvoyFilter_ProxyMatch_VersionEq{x}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _EnvoyFilter_ProxyMatch_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*EnvoyFilter_ProxyMatch)
+	// version_match
+	switch x := m.VersionMatch.(type) {
+	case *EnvoyFilter_ProxyMatch_VersionGe:
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(len(x.VersionGe)))
+		n += len(x.VersionGe)
+	case *EnvoyFilter_ProxyMatch_VersionEq:
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(len(x.VersionEq)))
+		n += len(x.VersionEq)
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
 // Conditions specified in ClusterMatch must be met for the patch
 // to be applied to a cluster.
 type EnvoyFilter_ClusterMatch struct {
@@ -852,7 +1014,7 @@ func (m *EnvoyFilter_ClusterMatch) Reset()         { *m = EnvoyFilter_ClusterMat
 func (m *EnvoyFilter_ClusterMatch) String() string { return proto.CompactTextString(m) }
 func (*EnvoyFilter_ClusterMatch) ProtoMessage()    {}
 func (*EnvoyFilter_ClusterMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 3}
+	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 4}
 }
 func (m *EnvoyFilter_ClusterMatch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -862,7 +1024,7 @@ func (m *EnvoyFilter_ClusterMatch) XXX_Marshal(b []byte, deterministic bool) ([]
 		return xxx_messageInfo_EnvoyFilter_ClusterMatch.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -943,7 +1105,7 @@ func (m *EnvoyFilter_RouteConfigurationMatch) Reset()         { *m = EnvoyFilter
 func (m *EnvoyFilter_RouteConfigurationMatch) String() string { return proto.CompactTextString(m) }
 func (*EnvoyFilter_RouteConfigurationMatch) ProtoMessage()    {}
 func (*EnvoyFilter_RouteConfigurationMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 4}
+	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 5}
 }
 func (m *EnvoyFilter_RouteConfigurationMatch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -953,7 +1115,7 @@ func (m *EnvoyFilter_RouteConfigurationMatch) XXX_Marshal(b []byte, deterministi
 		return xxx_messageInfo_EnvoyFilter_RouteConfigurationMatch.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1027,7 +1189,7 @@ func (m *EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch) String() string {
 }
 func (*EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch) ProtoMessage() {}
 func (*EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 4, 0}
+	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 5, 0}
 }
 func (m *EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1037,7 +1199,7 @@ func (m *EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch) XXX_Marshal(b []b
 		return xxx_messageInfo_EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1075,6 +1237,8 @@ type EnvoyFilter_ListenerMatch struct {
 	// Instead of using specific port numbers, a set of ports matching
 	// a given service's port name can be selected. Matching is case
 	// insensitive.
+	// Not implemented.
+	// $hide_from_docs
 	PortName string `protobuf:"bytes,2,opt,name=port_name,json=portName,proto3" json:"port_name,omitempty"`
 	// Match a specific filter chain in a listener. If specified, the
 	// patch will be applied to the filter chain (and a specific
@@ -1093,7 +1257,7 @@ func (m *EnvoyFilter_ListenerMatch) Reset()         { *m = EnvoyFilter_ListenerM
 func (m *EnvoyFilter_ListenerMatch) String() string { return proto.CompactTextString(m) }
 func (*EnvoyFilter_ListenerMatch) ProtoMessage()    {}
 func (*EnvoyFilter_ListenerMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 5}
+	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 6}
 }
 func (m *EnvoyFilter_ListenerMatch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1103,7 +1267,7 @@ func (m *EnvoyFilter_ListenerMatch) XXX_Marshal(b []byte, deterministic bool) ([
 		return xxx_messageInfo_EnvoyFilter_ListenerMatch.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1187,7 +1351,7 @@ func (m *EnvoyFilter_ListenerMatch_FilterChainMatch) String() string {
 }
 func (*EnvoyFilter_ListenerMatch_FilterChainMatch) ProtoMessage() {}
 func (*EnvoyFilter_ListenerMatch_FilterChainMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 5, 0}
+	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 6, 0}
 }
 func (m *EnvoyFilter_ListenerMatch_FilterChainMatch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1197,7 +1361,7 @@ func (m *EnvoyFilter_ListenerMatch_FilterChainMatch) XXX_Marshal(b []byte, deter
 		return xxx_messageInfo_EnvoyFilter_ListenerMatch_FilterChainMatch.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1254,7 +1418,7 @@ func (m *EnvoyFilter_ListenerMatch_FilterMatch) Reset()         { *m = EnvoyFilt
 func (m *EnvoyFilter_ListenerMatch_FilterMatch) String() string { return proto.CompactTextString(m) }
 func (*EnvoyFilter_ListenerMatch_FilterMatch) ProtoMessage()    {}
 func (*EnvoyFilter_ListenerMatch_FilterMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 5, 1}
+	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 6, 1}
 }
 func (m *EnvoyFilter_ListenerMatch_FilterMatch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1264,7 +1428,7 @@ func (m *EnvoyFilter_ListenerMatch_FilterMatch) XXX_Marshal(b []byte, determinis
 		return xxx_messageInfo_EnvoyFilter_ListenerMatch_FilterMatch.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1315,7 +1479,7 @@ func (m *EnvoyFilter_ListenerMatch_SubFilterMatch) Reset() {
 func (m *EnvoyFilter_ListenerMatch_SubFilterMatch) String() string { return proto.CompactTextString(m) }
 func (*EnvoyFilter_ListenerMatch_SubFilterMatch) ProtoMessage()    {}
 func (*EnvoyFilter_ListenerMatch_SubFilterMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 5, 2}
+	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 6, 2}
 }
 func (m *EnvoyFilter_ListenerMatch_SubFilterMatch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1325,7 +1489,7 @@ func (m *EnvoyFilter_ListenerMatch_SubFilterMatch) XXX_Marshal(b []byte, determi
 		return xxx_messageInfo_EnvoyFilter_ListenerMatch_SubFilterMatch.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1367,7 +1531,7 @@ func (m *EnvoyFilter_Patch) Reset()         { *m = EnvoyFilter_Patch{} }
 func (m *EnvoyFilter_Patch) String() string { return proto.CompactTextString(m) }
 func (*EnvoyFilter_Patch) ProtoMessage()    {}
 func (*EnvoyFilter_Patch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 6}
+	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 7}
 }
 func (m *EnvoyFilter_Patch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1377,7 +1541,7 @@ func (m *EnvoyFilter_Patch) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_EnvoyFilter_Patch.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1410,8 +1574,15 @@ func (m *EnvoyFilter_Patch) GetValue() *types.Struct {
 	return nil
 }
 
+// One or more match conditions to be met before a patch is applied
+// to the generated configuration for a given proxy.
 type EnvoyFilter_EnvoyConfigObjectMatch struct {
+	// The specific config generation context to match on. Istio Pilot
+	// generates envoy configuration in the context of a gateway,
+	// inbound traffic to sidecar and outbound traffic from sidecar.
 	Context EnvoyFilter_PatchContext `protobuf:"varint,1,opt,name=context,proto3,enum=istio.networking.v1alpha3.EnvoyFilter_PatchContext" json:"context,omitempty"`
+	// Match on properties associated with a proxy.
+	Proxy *EnvoyFilter_ProxyMatch `protobuf:"bytes,2,opt,name=proxy,proto3" json:"proxy,omitempty"`
 	// Types that are valid to be assigned to ObjectTypes:
 	//	*EnvoyFilter_EnvoyConfigObjectMatch_Listener
 	//	*EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration
@@ -1426,7 +1597,7 @@ func (m *EnvoyFilter_EnvoyConfigObjectMatch) Reset()         { *m = EnvoyFilter_
 func (m *EnvoyFilter_EnvoyConfigObjectMatch) String() string { return proto.CompactTextString(m) }
 func (*EnvoyFilter_EnvoyConfigObjectMatch) ProtoMessage()    {}
 func (*EnvoyFilter_EnvoyConfigObjectMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 7}
+	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 8}
 }
 func (m *EnvoyFilter_EnvoyConfigObjectMatch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1436,7 +1607,7 @@ func (m *EnvoyFilter_EnvoyConfigObjectMatch) XXX_Marshal(b []byte, deterministic
 		return xxx_messageInfo_EnvoyFilter_EnvoyConfigObjectMatch.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1462,13 +1633,13 @@ type isEnvoyFilter_EnvoyConfigObjectMatch_ObjectTypes interface {
 }
 
 type EnvoyFilter_EnvoyConfigObjectMatch_Listener struct {
-	Listener *EnvoyFilter_ListenerMatch `protobuf:"bytes,2,opt,name=listener,proto3,oneof"`
+	Listener *EnvoyFilter_ListenerMatch `protobuf:"bytes,3,opt,name=listener,proto3,oneof"`
 }
 type EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration struct {
-	RouteConfiguration *EnvoyFilter_RouteConfigurationMatch `protobuf:"bytes,3,opt,name=route_configuration,json=routeConfiguration,proto3,oneof"`
+	RouteConfiguration *EnvoyFilter_RouteConfigurationMatch `protobuf:"bytes,4,opt,name=route_configuration,json=routeConfiguration,proto3,oneof"`
 }
 type EnvoyFilter_EnvoyConfigObjectMatch_Cluster struct {
-	Cluster *EnvoyFilter_ClusterMatch `protobuf:"bytes,4,opt,name=cluster,proto3,oneof"`
+	Cluster *EnvoyFilter_ClusterMatch `protobuf:"bytes,5,opt,name=cluster,proto3,oneof"`
 }
 
 func (*EnvoyFilter_EnvoyConfigObjectMatch_Listener) isEnvoyFilter_EnvoyConfigObjectMatch_ObjectTypes() {
@@ -1490,6 +1661,13 @@ func (m *EnvoyFilter_EnvoyConfigObjectMatch) GetContext() EnvoyFilter_PatchConte
 		return m.Context
 	}
 	return EnvoyFilter_ANY
+}
+
+func (m *EnvoyFilter_EnvoyConfigObjectMatch) GetProxy() *EnvoyFilter_ProxyMatch {
+	if m != nil {
+		return m.Proxy
+	}
+	return nil
 }
 
 func (m *EnvoyFilter_EnvoyConfigObjectMatch) GetListener() *EnvoyFilter_ListenerMatch {
@@ -1527,17 +1705,17 @@ func _EnvoyFilter_EnvoyConfigObjectMatch_OneofMarshaler(msg proto.Message, b *pr
 	// object_types
 	switch x := m.ObjectTypes.(type) {
 	case *EnvoyFilter_EnvoyConfigObjectMatch_Listener:
-		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Listener); err != nil {
 			return err
 		}
 	case *EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration:
-		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.RouteConfiguration); err != nil {
 			return err
 		}
 	case *EnvoyFilter_EnvoyConfigObjectMatch_Cluster:
-		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
+		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Cluster); err != nil {
 			return err
 		}
@@ -1551,7 +1729,7 @@ func _EnvoyFilter_EnvoyConfigObjectMatch_OneofMarshaler(msg proto.Message, b *pr
 func _EnvoyFilter_EnvoyConfigObjectMatch_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
 	m := msg.(*EnvoyFilter_EnvoyConfigObjectMatch)
 	switch tag {
-	case 2: // object_types.listener
+	case 3: // object_types.listener
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
@@ -1559,7 +1737,7 @@ func _EnvoyFilter_EnvoyConfigObjectMatch_OneofUnmarshaler(msg proto.Message, tag
 		err := b.DecodeMessage(msg)
 		m.ObjectTypes = &EnvoyFilter_EnvoyConfigObjectMatch_Listener{msg}
 		return true, err
-	case 3: // object_types.route_configuration
+	case 4: // object_types.route_configuration
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
@@ -1567,7 +1745,7 @@ func _EnvoyFilter_EnvoyConfigObjectMatch_OneofUnmarshaler(msg proto.Message, tag
 		err := b.DecodeMessage(msg)
 		m.ObjectTypes = &EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{msg}
 		return true, err
-	case 4: // object_types.cluster
+	case 5: // object_types.cluster
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
@@ -1631,7 +1809,7 @@ func (m *EnvoyFilter_EnvoyConfigObjectPatch) Reset()         { *m = EnvoyFilter_
 func (m *EnvoyFilter_EnvoyConfigObjectPatch) String() string { return proto.CompactTextString(m) }
 func (*EnvoyFilter_EnvoyConfigObjectPatch) ProtoMessage()    {}
 func (*EnvoyFilter_EnvoyConfigObjectPatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 8}
+	return fileDescriptor_16d9b2922bd3e4a9, []int{0, 9}
 }
 func (m *EnvoyFilter_EnvoyConfigObjectPatch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1641,7 +1819,7 @@ func (m *EnvoyFilter_EnvoyConfigObjectPatch) XXX_Marshal(b []byte, deterministic
 		return xxx_messageInfo_EnvoyFilter_EnvoyConfigObjectPatch.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1694,6 +1872,8 @@ func init() {
 	proto.RegisterType((*EnvoyFilter_DeprecatedListenerMatch)(nil), "istio.networking.v1alpha3.EnvoyFilter.DeprecatedListenerMatch")
 	proto.RegisterType((*EnvoyFilter_InsertPosition)(nil), "istio.networking.v1alpha3.EnvoyFilter.InsertPosition")
 	proto.RegisterType((*EnvoyFilter_Filter)(nil), "istio.networking.v1alpha3.EnvoyFilter.Filter")
+	proto.RegisterType((*EnvoyFilter_ProxyMatch)(nil), "istio.networking.v1alpha3.EnvoyFilter.ProxyMatch")
+	proto.RegisterMapType((map[string]string)(nil), "istio.networking.v1alpha3.EnvoyFilter.ProxyMatch.MetadataEntry")
 	proto.RegisterType((*EnvoyFilter_ClusterMatch)(nil), "istio.networking.v1alpha3.EnvoyFilter.ClusterMatch")
 	proto.RegisterType((*EnvoyFilter_RouteConfigurationMatch)(nil), "istio.networking.v1alpha3.EnvoyFilter.RouteConfigurationMatch")
 	proto.RegisterType((*EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch)(nil), "istio.networking.v1alpha3.EnvoyFilter.RouteConfigurationMatch.VirtualHostMatch")
@@ -1711,101 +1891,107 @@ func init() {
 }
 
 var fileDescriptor_16d9b2922bd3e4a9 = []byte{
-	// 1403 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x57, 0x5f, 0x6f, 0x1b, 0x45,
-	0x10, 0xcf, 0xd9, 0xb9, 0x38, 0x1e, 0x3b, 0xce, 0x65, 0x53, 0x35, 0xc6, 0x54, 0x25, 0x44, 0xa8,
-	0x8a, 0x04, 0xbd, 0x40, 0x02, 0xa8, 0x2a, 0x50, 0xe1, 0x38, 0x97, 0xfa, 0x54, 0xc7, 0x67, 0xd6,
-	0x97, 0xb4, 0x45, 0x82, 0xd3, 0xd9, 0xde, 0x24, 0x47, 0x2f, 0x77, 0xc7, 0xdd, 0x3a, 0xa9, 0x25,
-	0x5e, 0x79, 0xe6, 0x01, 0xbe, 0x04, 0x0f, 0x7c, 0x00, 0xc4, 0x17, 0xe0, 0x11, 0xf1, 0x09, 0x50,
-	0x5f, 0x79, 0xe0, 0x0b, 0xf0, 0x80, 0xf6, 0xcf, 0xb9, 0x76, 0xea, 0x54, 0x4e, 0xc2, 0x93, 0x6f,
-	0x67, 0x67, 0x7e, 0x33, 0xb3, 0x33, 0xfb, 0x9b, 0x35, 0xdc, 0x09, 0x08, 0x3d, 0x0b, 0xe3, 0x67,
-	0x5e, 0x70, 0xb4, 0x71, 0xfa, 0x81, 0xeb, 0x47, 0xc7, 0xee, 0xd6, 0x06, 0x09, 0x4e, 0xc3, 0x81,
-	0x73, 0xe8, 0xf9, 0x94, 0xc4, 0x7a, 0x14, 0x87, 0x34, 0x44, 0x6f, 0x78, 0x09, 0xf5, 0x42, 0xfd,
-	0xa5, 0xb6, 0x9e, 0x6a, 0x57, 0x6e, 0x1d, 0x85, 0xe1, 0x91, 0x4f, 0x36, 0xb8, 0x62, 0xa7, 0x7f,
-	0xb8, 0x91, 0xd0, 0xb8, 0xdf, 0xa5, 0xc2, 0xb0, 0xf2, 0xf6, 0x24, 0x07, 0x89, 0xd7, 0x23, 0x5d,
-	0x57, 0x62, 0xaf, 0xfd, 0x79, 0x0b, 0x0a, 0x06, 0x73, 0xb9, 0xcb, 0x3d, 0xa2, 0x23, 0x58, 0x64,
-	0x16, 0x7e, 0xe8, 0xf6, 0x1c, 0xdf, 0xed, 0x10, 0x3f, 0x29, 0x2b, 0xab, 0xd9, 0xf5, 0xc2, 0xe6,
-	0x7d, 0xfd, 0xc2, 0x28, 0xf4, 0x11, 0x00, 0xfd, 0xb1, 0xb4, 0x6e, 0x70, 0x63, 0x23, 0xa0, 0xf1,
-	0x60, 0x3b, 0x53, 0x56, 0x70, 0xe9, 0x6c, 0x6c, 0x03, 0x3d, 0x82, 0x9c, 0x48, 0x32, 0x29, 0x67,
-	0xb8, 0x83, 0xbb, 0x53, 0x3a, 0x10, 0x3f, 0x1c, 0x33, 0x45, 0x40, 0x4f, 0x60, 0x69, 0x18, 0x75,
-	0x42, 0x7c, 0xd2, 0xa5, 0x61, 0x5c, 0xce, 0xae, 0x2a, 0xeb, 0x85, 0xcd, 0x77, 0x5f, 0x03, 0x9b,
-	0xc6, 0xda, 0x96, 0x26, 0x58, 0x3b, 0x3b, 0x27, 0x41, 0x3d, 0x28, 0x75, 0xc3, 0xe0, 0xd0, 0x3b,
-	0x72, 0x22, 0x97, 0x76, 0x8f, 0x49, 0x52, 0x9e, 0xe5, 0xd1, 0x7e, 0x36, 0x65, 0xb4, 0xfc, 0xbb,
-	0xc6, 0x11, 0xac, 0xce, 0x37, 0xa4, 0x4b, 0x5b, 0x0c, 0x06, 0x2f, 0x08, 0xd0, 0x96, 0xc0, 0xac,
-	0xfc, 0x93, 0x85, 0x95, 0x1d, 0x12, 0xc5, 0xa4, 0xeb, 0x52, 0xd2, 0x6b, 0x78, 0x09, 0x25, 0x01,
-	0x89, 0xf7, 0xd8, 0x2e, 0x7a, 0x0b, 0x0a, 0x51, 0x18, 0x53, 0x27, 0xe8, 0x9f, 0x74, 0x48, 0x5c,
-	0x56, 0x56, 0x95, 0xf5, 0x05, 0x0c, 0x4c, 0xd4, 0xe4, 0x12, 0xb4, 0x0e, 0x9a, 0x50, 0x70, 0x4f,
-	0x88, 0x13, 0xc5, 0xe4, 0xd0, 0x7b, 0x5e, 0xce, 0xac, 0x2a, 0xeb, 0x79, 0x5c, 0xe2, 0x5a, 0xee,
-	0x09, 0x69, 0x71, 0x29, 0x8a, 0x60, 0xc1, 0x97, 0xd8, 0x0e, 0x1d, 0x44, 0x84, 0x1f, 0x51, 0x69,
-	0xf3, 0xd1, 0x94, 0xb9, 0x5c, 0x10, 0xa1, 0x9e, 0xae, 0xec, 0x41, 0x44, 0x70, 0xd1, 0x1f, 0x59,
-	0xa1, 0xef, 0x60, 0x69, 0xe8, 0x91, 0x37, 0x5c, 0x37, 0xf4, 0xcb, 0xb3, 0xdc, 0xab, 0xf5, 0x3f,
-	0x79, 0x6d, 0x49, 0x58, 0xac, 0xf9, 0xe7, 0x24, 0xa8, 0x0c, 0x39, 0xb7, 0xd7, 0x8b, 0x49, 0x92,
-	0x94, 0xd5, 0xd5, 0xec, 0x7a, 0x1e, 0xa7, 0xcb, 0x35, 0x0b, 0x8a, 0xa3, 0x51, 0xa3, 0x1c, 0x64,
-	0xab, 0xcd, 0xa7, 0xda, 0x0c, 0x5a, 0x86, 0xc5, 0xb6, 0xb9, 0x63, 0xd4, 0xaa, 0xd8, 0x31, 0x9b,
-	0xdb, 0xd6, 0x7e, 0x73, 0x47, 0x53, 0xd0, 0x0d, 0xd0, 0x52, 0xa1, 0xb5, 0x6f, 0x0b, 0x69, 0x06,
-	0x15, 0x20, 0xf7, 0xb0, 0x6a, 0x1b, 0x8f, 0xab, 0x4f, 0xb5, 0xec, 0x9a, 0x0e, 0xda, 0xf9, 0x80,
-	0x38, 0x68, 0xa3, 0xa1, 0xcd, 0xa0, 0x79, 0x98, 0xad, 0xdb, 0x76, 0x4b, 0x53, 0x98, 0xc8, 0xae,
-	0xb5, 0xb4, 0x4c, 0xe5, 0x57, 0x05, 0x4a, 0x66, 0x90, 0x90, 0x98, 0xb6, 0xc2, 0xc4, 0xa3, 0x5e,
-	0x18, 0xa0, 0x2f, 0x40, 0xf5, 0x82, 0x1e, 0x79, 0xce, 0x4b, 0x5c, 0xda, 0xfc, 0x64, 0xca, 0xf3,
-	0x19, 0x47, 0xd1, 0x4d, 0x06, 0x81, 0x05, 0x12, 0xeb, 0x9d, 0x98, 0xf8, 0x2e, 0xf5, 0x4e, 0x89,
-	0x43, 0x43, 0xd9, 0x15, 0x90, 0x8a, 0xec, 0x70, 0x6d, 0x0b, 0x54, 0x6e, 0x80, 0xf2, 0xa0, 0xee,
-	0x9a, 0xb8, 0x6d, 0x8b, 0x68, 0x1b, 0xd5, 0xb6, 0xad, 0x29, 0x08, 0x60, 0x6e, 0xdb, 0xd8, 0xb5,
-	0xb0, 0xa1, 0x65, 0x98, 0x42, 0x75, 0xd7, 0x36, 0xb0, 0x96, 0xad, 0xfc, 0x96, 0x85, 0x39, 0x49,
-	0x17, 0x04, 0x4a, 0xc3, 0xfa, 0x9e, 0xb0, 0xb2, 0xf0, 0xe0, 0x0b, 0x9b, 0x0f, 0xae, 0x57, 0x5c,
-	0x3c, 0xec, 0x53, 0x71, 0x07, 0xbe, 0x86, 0x45, 0x8f, 0xa7, 0xe9, 0x44, 0x32, 0x4f, 0x9e, 0x4b,
-	0x61, 0xf3, 0xa3, 0x2b, 0x1d, 0x12, 0x2e, 0x79, 0xe3, 0x47, 0xff, 0x14, 0x0a, 0x82, 0x4a, 0x46,
-	0xaf, 0xc5, 0xbd, 0x4b, 0x11, 0x92, 0xfc, 0xe1, 0x77, 0x00, 0x0e, 0x87, 0xdf, 0xac, 0x04, 0x12,
-	0x9a, 0xdd, 0x4f, 0xde, 0xfb, 0xf9, 0x54, 0x81, 0x5d, 0x4d, 0xf4, 0x29, 0x2c, 0x48, 0x05, 0xc1,
-	0x09, 0x65, 0x95, 0x67, 0xb6, 0xa2, 0x0b, 0x6a, 0xd7, 0x53, 0x6a, 0xd7, 0xdb, 0x9c, 0xda, 0x71,
-	0x51, 0x68, 0x0b, 0x4e, 0x59, 0x7b, 0x1f, 0xe0, 0xa5, 0x63, 0xd6, 0x92, 0x66, 0xf3, 0xa0, 0xda,
-	0x30, 0x77, 0xc6, 0xba, 0xae, 0x00, 0xb9, 0xa6, 0x61, 0x3f, 0xb6, 0xf0, 0x23, 0x2d, 0x53, 0xe9,
-	0x43, 0xb1, 0xe6, 0xf7, 0x13, 0x3a, 0x35, 0xbf, 0x94, 0x21, 0x97, 0x90, 0xf8, 0xd4, 0xeb, 0x12,
-	0xd9, 0x40, 0xe9, 0x12, 0xdd, 0x84, 0xb9, 0xa4, 0xdf, 0x49, 0x08, 0xe5, 0x27, 0x96, 0xc7, 0x72,
-	0x85, 0x10, 0xcc, 0x8e, 0x24, 0xcb, 0xbf, 0x2b, 0x3f, 0x65, 0x60, 0x05, 0x87, 0x7d, 0x4a, 0x44,
-	0xe0, 0xfd, 0xd8, 0x65, 0x27, 0x3f, 0x65, 0x08, 0x6f, 0x42, 0x7e, 0x48, 0x71, 0x32, 0x88, 0xf9,
-	0x94, 0xdb, 0x58, 0x7c, 0x47, 0x2e, 0x25, 0x67, 0xee, 0x40, 0x86, 0x91, 0x2e, 0x11, 0x01, 0xf5,
-	0xf4, 0x38, 0x4c, 0x28, 0x0f, 0xa4, 0x30, 0x35, 0xe3, 0x5c, 0x10, 0xa6, 0x7e, 0xe0, 0xc5, 0xb4,
-	0xef, 0xfa, 0xf5, 0x30, 0xa1, 0xa2, 0x4b, 0x05, 0xfa, 0x30, 0x5d, 0x75, 0x24, 0xdd, 0x3b, 0xa0,
-	0x9d, 0x57, 0x1f, 0xea, 0x29, 0x23, 0x7a, 0x3f, 0xcf, 0xc2, 0xc2, 0x25, 0xf9, 0xfe, 0xb5, 0x87,
-	0x71, 0x0c, 0xc5, 0xb4, 0x9b, 0x8e, 0x5d, 0x2f, 0x90, 0x43, 0xd0, 0x98, 0x32, 0xf3, 0x71, 0x86,
-	0x15, 0xc2, 0x1a, 0xc3, 0x11, 0xf9, 0xca, 0x4e, 0xe6, 0x92, 0x89, 0x45, 0xfe, 0x45, 0x01, 0xed,
-	0xbc, 0x15, 0xd2, 0x20, 0x9b, 0x04, 0x9e, 0xcc, 0x9a, 0x7d, 0xa2, 0xbb, 0x80, 0x68, 0xec, 0x06,
-	0x09, 0x4f, 0x63, 0x38, 0x16, 0x44, 0x2a, 0x4b, 0xc3, 0x9d, 0x21, 0x8f, 0x3e, 0x81, 0x39, 0xe1,
-	0x58, 0x66, 0xf3, 0xf9, 0x35, 0xb2, 0x11, 0x89, 0x48, 0xbc, 0xca, 0xf7, 0x0a, 0x14, 0x46, 0xe4,
-	0x93, 0x2a, 0x84, 0x3a, 0x00, 0x49, 0xbf, 0x23, 0x5f, 0x64, 0x92, 0x76, 0x6a, 0x57, 0x8a, 0xa0,
-	0xdd, 0xef, 0x8c, 0x06, 0x91, 0x4f, 0xd2, 0x75, 0xe5, 0x1d, 0x28, 0x8d, 0x6f, 0x4e, 0xec, 0x95,
-	0xbf, 0x15, 0x50, 0xf9, 0x8b, 0x01, 0xd9, 0x90, 0x0f, 0x23, 0x22, 0x7a, 0x53, 0x8e, 0x8b, 0x8f,
-	0xa7, 0x0c, 0x89, 0x03, 0xe8, 0x56, 0x6a, 0x8d, 0x5f, 0x02, 0xa1, 0xbb, 0xa0, 0x9e, 0xba, 0x7e,
-	0x9f, 0xc8, 0x24, 0x2f, 0x64, 0x20, 0xa1, 0xb5, 0xf6, 0x15, 0xe4, 0x87, 0x30, 0xe3, 0xcc, 0x93,
-	0x07, 0x75, 0xcf, 0xc0, 0x0f, 0x0d, 0x31, 0xf0, 0xaa, 0x3b, 0x6c, 0x5a, 0x02, 0xcc, 0x61, 0x63,
-	0xcf, 0x3a, 0x30, 0xb4, 0x2c, 0x5a, 0x82, 0x05, 0xb3, 0xd9, 0x36, 0xb0, 0xed, 0xc8, 0xf1, 0x32,
-	0x8b, 0x34, 0x28, 0x4a, 0x91, 0x98, 0x32, 0x6a, 0xe5, 0x87, 0x2c, 0xdc, 0x7c, 0xe5, 0xf5, 0x24,
-	0x0e, 0x67, 0x0f, 0x72, 0xdd, 0x30, 0xa0, 0xe4, 0x39, 0x95, 0xc9, 0x6f, 0x5d, 0x26, 0xf9, 0x9a,
-	0x30, 0xc5, 0x29, 0x06, 0xc2, 0x30, 0x9f, 0x8e, 0x1b, 0x99, 0xfa, 0x87, 0x57, 0xa9, 0x6f, 0x7d,
-	0x06, 0x0f, 0x71, 0xd0, 0xb7, 0xb0, 0x1c, 0x33, 0x1a, 0x91, 0xa4, 0x2e, 0x79, 0x44, 0x36, 0xf0,
-	0x83, 0xeb, 0x11, 0x51, 0x7d, 0x06, 0xa3, 0xf8, 0x95, 0x2d, 0x64, 0x41, 0xae, 0x2b, 0x88, 0x5d,
-	0xf2, 0xdd, 0xb4, 0xa7, 0x32, 0x3a, 0x0e, 0xea, 0x33, 0x38, 0x45, 0xd9, 0x2e, 0x41, 0x31, 0xe4,
-	0xa7, 0xce, 0xa7, 0x62, 0x52, 0xf9, 0x57, 0x99, 0x50, 0x11, 0xd1, 0x90, 0x26, 0xcc, 0xbb, 0x51,
-	0xe4, 0x0f, 0xd8, 0x2b, 0x43, 0x94, 0x44, 0x9f, 0xd2, 0x79, 0x95, 0x99, 0xd9, 0x21, 0xce, 0xb9,
-	0xe2, 0x03, 0xb5, 0x41, 0x15, 0x2f, 0x09, 0x51, 0x8a, 0x2b, 0x3f, 0xb4, 0x25, 0x45, 0x73, 0x2c,
-	0xb4, 0x0d, 0x2a, 0x7f, 0xbf, 0xcb, 0x02, 0xbc, 0x77, 0x99, 0x7e, 0xc1, 0xc2, 0xb4, 0x52, 0x85,
-	0xe5, 0x09, 0x7f, 0x6e, 0x18, 0xbd, 0x3d, 0x23, 0x83, 0x94, 0xde, 0x9e, 0x91, 0x01, 0xba, 0x31,
-	0x7a, 0x8f, 0xf2, 0xf2, 0xba, 0xdc, 0xcf, 0xdc, 0x53, 0xd6, 0x7e, 0x54, 0x20, 0x27, 0x13, 0x1e,
-	0xbf, 0x31, 0x45, 0x98, 0x6f, 0x98, 0x6d, 0xdb, 0x68, 0x1a, 0x58, 0x53, 0xd8, 0x65, 0xd8, 0x35,
-	0x1b, 0xb6, 0x81, 0x9d, 0x5a, 0xbd, 0x6a, 0x36, 0xb5, 0x0c, 0x42, 0x50, 0x92, 0x13, 0xdc, 0x11,
-	0x3b, 0x5a, 0x16, 0x2d, 0x42, 0x81, 0xcd, 0xf7, 0x54, 0x30, 0x8b, 0x56, 0x60, 0x19, 0x5b, 0xfb,
-	0xb6, 0xe1, 0xd4, 0xac, 0xe6, 0xae, 0xf9, 0x70, 0x1f, 0x57, 0x6d, 0xd3, 0x6a, 0x6a, 0x2a, 0xc3,
-	0x3b, 0x30, 0xb1, 0xbd, 0x5f, 0x6d, 0x38, 0x75, 0xab, 0x6d, 0x6b, 0x73, 0xcc, 0x79, 0xad, 0xb1,
-	0xdf, 0x66, 0x76, 0x39, 0xf6, 0x18, 0x1e, 0xbd, 0x18, 0xd7, 0x7e, 0x0c, 0x6f, 0xeb, 0xbf, 0xbf,
-	0xb8, 0xad, 0xfc, 0xf1, 0xe2, 0xb6, 0xf2, 0xd7, 0x8b, 0xdb, 0xca, 0x97, 0xab, 0xe2, 0xac, 0xbd,
-	0x70, 0xc3, 0x8d, 0xbc, 0x8d, 0x09, 0x7f, 0x49, 0x3b, 0x73, 0x9c, 0x61, 0xb6, 0xfe, 0x0b, 0x00,
-	0x00, 0xff, 0xff, 0x43, 0x57, 0xbf, 0x1c, 0x11, 0x0f, 0x00, 0x00,
+	// 1504 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x57, 0xcf, 0x6e, 0xdb, 0x46,
+	0x13, 0x37, 0x25, 0xd3, 0xb2, 0x46, 0x7f, 0x4c, 0xaf, 0x83, 0x58, 0x9f, 0xbe, 0x0f, 0x89, 0x3f,
+	0xa3, 0x08, 0x0c, 0xb4, 0xa1, 0x1b, 0xbb, 0x2d, 0x82, 0xa4, 0x4d, 0x2b, 0xcb, 0xb4, 0x45, 0x44,
+	0x96, 0xd4, 0x15, 0xed, 0x24, 0x2d, 0x5a, 0x82, 0x92, 0xd6, 0x36, 0x1b, 0x9a, 0x64, 0xc8, 0x95,
+	0x6d, 0x01, 0xbd, 0xf6, 0x09, 0x5a, 0xa0, 0xcf, 0xd0, 0x43, 0x1f, 0xa0, 0xe8, 0x0b, 0xf4, 0xd8,
+	0x63, 0x8f, 0x45, 0xae, 0x3d, 0xf4, 0x5c, 0xa0, 0x87, 0x62, 0xff, 0x50, 0x96, 0x1c, 0x27, 0x90,
+	0xed, 0x9e, 0xc8, 0x9d, 0x9d, 0xf9, 0xed, 0xcc, 0xce, 0xec, 0x6f, 0x76, 0xe1, 0x8e, 0x4f, 0xe8,
+	0x49, 0x10, 0x3d, 0x77, 0xfd, 0x83, 0xd5, 0xe3, 0x7b, 0x8e, 0x17, 0x1e, 0x3a, 0xeb, 0xab, 0xc4,
+	0x3f, 0x0e, 0x06, 0xf6, 0xbe, 0xeb, 0x51, 0x12, 0xe9, 0x61, 0x14, 0xd0, 0x00, 0xfd, 0xc7, 0x8d,
+	0xa9, 0x1b, 0xe8, 0x67, 0xda, 0x7a, 0xa2, 0x5d, 0xfe, 0xdf, 0x41, 0x10, 0x1c, 0x78, 0x64, 0x95,
+	0x2b, 0x76, 0xfa, 0xfb, 0xab, 0x31, 0x8d, 0xfa, 0x5d, 0x2a, 0x0c, 0xcb, 0xff, 0xbf, 0x68, 0x81,
+	0xd8, 0xed, 0x91, 0xae, 0x23, 0xb1, 0x97, 0xbf, 0xbf, 0x0d, 0x39, 0x83, 0x2d, 0xb9, 0xc5, 0x57,
+	0x44, 0x07, 0x30, 0xc7, 0x2c, 0xbc, 0xc0, 0xe9, 0xd9, 0x9e, 0xd3, 0x21, 0x5e, 0x5c, 0x52, 0x96,
+	0xd2, 0x2b, 0xb9, 0xb5, 0x07, 0xfa, 0x6b, 0xbd, 0xd0, 0x47, 0x00, 0xf4, 0x27, 0xd2, 0xba, 0xce,
+	0x8d, 0x0d, 0x9f, 0x46, 0x83, 0x8d, 0x54, 0x49, 0xc1, 0xc5, 0x93, 0xb1, 0x09, 0xf4, 0x18, 0x32,
+	0x22, 0xc8, 0xb8, 0x94, 0xe2, 0x0b, 0xdc, 0x9d, 0x70, 0x01, 0xf1, 0xe1, 0x98, 0x09, 0x02, 0x7a,
+	0x0a, 0xf3, 0x43, 0xaf, 0x63, 0xe2, 0x91, 0x2e, 0x0d, 0xa2, 0x52, 0x7a, 0x49, 0x59, 0xc9, 0xad,
+	0xbd, 0xfd, 0x06, 0xd8, 0xc4, 0xd7, 0xb6, 0x34, 0xc1, 0xda, 0xc9, 0x39, 0x09, 0xea, 0x41, 0xb1,
+	0x1b, 0xf8, 0xfb, 0xee, 0x81, 0x1d, 0x3a, 0xb4, 0x7b, 0x48, 0xe2, 0xd2, 0x34, 0xf7, 0xf6, 0xa3,
+	0x09, 0xbd, 0xe5, 0xff, 0x55, 0x8e, 0xd0, 0xec, 0x7c, 0x45, 0xba, 0xb4, 0xc5, 0x60, 0x70, 0x41,
+	0x80, 0xb6, 0x04, 0x66, 0xf9, 0xcf, 0x34, 0x2c, 0x6e, 0x92, 0x30, 0x22, 0x5d, 0x87, 0x92, 0x5e,
+	0xdd, 0x8d, 0x29, 0xf1, 0x49, 0xb4, 0xc3, 0x66, 0xd1, 0x6d, 0xc8, 0x85, 0x41, 0x44, 0x6d, 0xbf,
+	0x7f, 0xd4, 0x21, 0x51, 0x49, 0x59, 0x52, 0x56, 0x0a, 0x18, 0x98, 0xa8, 0xc1, 0x25, 0x68, 0x05,
+	0x34, 0xa1, 0xe0, 0x1c, 0x11, 0x3b, 0x8c, 0xc8, 0xbe, 0x7b, 0x5a, 0x4a, 0x2d, 0x29, 0x2b, 0x59,
+	0x5c, 0xe4, 0x5a, 0xce, 0x11, 0x69, 0x71, 0x29, 0x0a, 0xa1, 0xe0, 0x49, 0x6c, 0x9b, 0x0e, 0x42,
+	0xc2, 0xb7, 0xa8, 0xb8, 0xf6, 0x78, 0xc2, 0x58, 0x5e, 0xe3, 0xa1, 0x9e, 0x8c, 0xac, 0x41, 0x48,
+	0x70, 0xde, 0x1b, 0x19, 0xa1, 0xaf, 0x61, 0x7e, 0xb8, 0x22, 0x2f, 0xb8, 0x6e, 0xe0, 0x95, 0xa6,
+	0xf9, 0xaa, 0xcd, 0x7f, 0x69, 0xd5, 0x96, 0x84, 0xc5, 0x9a, 0x77, 0x4e, 0x82, 0x4a, 0x90, 0x71,
+	0x7a, 0xbd, 0x88, 0xc4, 0x71, 0x49, 0x5d, 0x4a, 0xaf, 0x64, 0x71, 0x32, 0x5c, 0x6e, 0x42, 0x7e,
+	0xd4, 0x6b, 0x94, 0x81, 0x74, 0xa5, 0xf1, 0x4c, 0x9b, 0x42, 0x0b, 0x30, 0xd7, 0x36, 0x37, 0x8d,
+	0x6a, 0x05, 0xdb, 0x66, 0x63, 0xa3, 0xb9, 0xdb, 0xd8, 0xd4, 0x14, 0x74, 0x03, 0xb4, 0x44, 0xd8,
+	0xdc, 0xb5, 0x84, 0x34, 0x85, 0x72, 0x90, 0xd9, 0xae, 0x58, 0xc6, 0x93, 0xca, 0x33, 0x2d, 0xbd,
+	0xac, 0x83, 0x76, 0xde, 0x21, 0x0e, 0x5a, 0xaf, 0x6b, 0x53, 0x68, 0x16, 0xa6, 0x6b, 0x96, 0xd5,
+	0xd2, 0x14, 0x26, 0xb2, 0xaa, 0x2d, 0x2d, 0x55, 0xfe, 0x49, 0x81, 0xa2, 0xe9, 0xc7, 0x24, 0xa2,
+	0xad, 0x20, 0x76, 0xa9, 0x1b, 0xf8, 0xe8, 0x53, 0x50, 0x5d, 0xbf, 0x47, 0x4e, 0x79, 0x8a, 0x8b,
+	0x6b, 0x0f, 0x27, 0xdc, 0x9f, 0x71, 0x14, 0xdd, 0x64, 0x10, 0x58, 0x20, 0xb1, 0xda, 0x89, 0x88,
+	0xe7, 0x50, 0xf7, 0x98, 0xd8, 0x34, 0x90, 0x55, 0x01, 0x89, 0xc8, 0x0a, 0x96, 0xd7, 0x41, 0xe5,
+	0x06, 0x28, 0x0b, 0xea, 0x96, 0x89, 0xdb, 0x96, 0xf0, 0xb6, 0x5e, 0x69, 0x5b, 0x9a, 0x82, 0x00,
+	0x66, 0x36, 0x8c, 0xad, 0x26, 0x36, 0xb4, 0x14, 0x53, 0xa8, 0x6c, 0x59, 0x06, 0xd6, 0xd2, 0xe5,
+	0x9f, 0xd3, 0x30, 0x23, 0xe9, 0x82, 0x40, 0x71, 0x98, 0xdf, 0x23, 0x96, 0x16, 0xee, 0x7c, 0x6e,
+	0xed, 0xd1, 0xf5, 0x92, 0x8b, 0x87, 0x75, 0x2a, 0xce, 0xc0, 0x97, 0x30, 0xe7, 0xf2, 0x30, 0xed,
+	0x50, 0xc6, 0xc9, 0x63, 0xc9, 0xad, 0xbd, 0x7f, 0xa5, 0x4d, 0xc2, 0x45, 0x77, 0x7c, 0xeb, 0x9f,
+	0x41, 0x4e, 0x50, 0xc9, 0xe8, 0xb1, 0xb8, 0x7f, 0x29, 0x42, 0x92, 0x1f, 0x7e, 0x06, 0x60, 0x7f,
+	0xf8, 0xcf, 0x52, 0x20, 0xa1, 0xd9, 0xf9, 0xe4, 0xb5, 0x9f, 0x4d, 0x14, 0xd8, 0xd1, 0x44, 0x1f,
+	0x42, 0x41, 0x2a, 0x08, 0x4e, 0x28, 0xa9, 0x3c, 0xb2, 0x45, 0x5d, 0x50, 0xbb, 0x9e, 0x50, 0xbb,
+	0xde, 0xe6, 0xd4, 0x8e, 0xf3, 0x42, 0x5b, 0x70, 0xca, 0xf2, 0xbb, 0x00, 0x67, 0x0b, 0xb3, 0x92,
+	0x34, 0x1b, 0x7b, 0x95, 0xba, 0xb9, 0x39, 0x56, 0x75, 0x39, 0xc8, 0x34, 0x0c, 0xeb, 0x49, 0x13,
+	0x3f, 0xd6, 0x52, 0xe5, 0xbf, 0x14, 0x80, 0x56, 0x14, 0x9c, 0x0e, 0x12, 0x7a, 0x81, 0x63, 0x12,
+	0xc5, 0x6e, 0xe0, 0xdb, 0x07, 0x84, 0x67, 0x2f, 0x5b, 0x9b, 0xc2, 0x59, 0x29, 0xdb, 0x26, 0xa3,
+	0x0a, 0xe4, 0x85, 0x28, 0xa1, 0x11, 0x05, 0xe3, 0x05, 0xfa, 0x1c, 0x66, 0x8f, 0x08, 0x75, 0x7a,
+	0x0e, 0x75, 0x4a, 0x69, 0x4e, 0x8e, 0x1f, 0x4f, 0xb8, 0x73, 0x67, 0x6e, 0xe8, 0x3b, 0x12, 0x81,
+	0x37, 0x0c, 0x3c, 0x04, 0x2c, 0x3f, 0x84, 0xc2, 0xd8, 0x14, 0xd2, 0x20, 0xfd, 0x9c, 0x0c, 0x84,
+	0xa3, 0x98, 0xfd, 0xa2, 0x1b, 0xa0, 0x1e, 0x3b, 0x5e, 0x9f, 0xc8, 0xf2, 0x16, 0x83, 0x07, 0xa9,
+	0xfb, 0xca, 0xc6, 0x1c, 0x14, 0x12, 0xd7, 0x79, 0x71, 0x96, 0xfb, 0x90, 0xaf, 0x7a, 0xfd, 0x98,
+	0x4e, 0xcc, 0xad, 0x25, 0xc8, 0xc4, 0x24, 0x3a, 0x76, 0xbb, 0x09, 0x7a, 0x32, 0x44, 0x37, 0x61,
+	0x26, 0xee, 0x77, 0x62, 0x42, 0x79, 0xb5, 0x64, 0xb1, 0x1c, 0x21, 0x04, 0xd3, 0x23, 0x89, 0xe6,
+	0xff, 0xe5, 0xef, 0x52, 0xb0, 0x88, 0x83, 0x3e, 0x25, 0x22, 0x69, 0xfd, 0xc8, 0x61, 0x55, 0x37,
+	0xa1, 0x0b, 0xff, 0x85, 0xec, 0x90, 0xde, 0xa5, 0x13, 0xb3, 0x09, 0xaf, 0x33, 0xff, 0x0e, 0x1c,
+	0x4a, 0x4e, 0x9c, 0x81, 0x74, 0x23, 0x19, 0x22, 0x02, 0xea, 0xf1, 0x61, 0x10, 0x53, 0xee, 0x48,
+	0x6e, 0x62, 0xb6, 0x7d, 0x8d, 0x9b, 0xfa, 0x9e, 0x1b, 0xd1, 0xbe, 0xe3, 0xd5, 0x82, 0x98, 0x8a,
+	0x13, 0x2a, 0xd0, 0x87, 0xe1, 0xaa, 0x23, 0xe1, 0xde, 0x01, 0xed, 0xbc, 0xfa, 0x50, 0x4f, 0x19,
+	0xd1, 0xfb, 0x61, 0x1a, 0x0a, 0x97, 0xec, 0x75, 0x6f, 0xdc, 0x8c, 0x43, 0xc8, 0x27, 0x27, 0xe9,
+	0xd0, 0x71, 0x7d, 0x79, 0x01, 0x30, 0x26, 0x8c, 0x7c, 0xbc, 0xbb, 0x08, 0x61, 0x95, 0xe1, 0x88,
+	0x78, 0xe5, 0x29, 0xe6, 0x92, 0x0b, 0x93, 0xfc, 0xa3, 0x02, 0xda, 0x79, 0x2b, 0x56, 0xad, 0xb1,
+	0xef, 0x26, 0xd5, 0x1a, 0xfb, 0x2e, 0xba, 0x0b, 0x88, 0x46, 0x8e, 0x1f, 0xf3, 0x30, 0x86, 0x2d,
+	0x51, 0x84, 0x32, 0x3f, 0x9c, 0x19, 0xf6, 0x90, 0xa7, 0x30, 0x23, 0x16, 0x96, 0xd1, 0x7c, 0x72,
+	0x8d, 0x68, 0x44, 0x20, 0x12, 0xaf, 0xfc, 0x8d, 0x02, 0xb9, 0x11, 0xf9, 0x45, 0x19, 0x42, 0x1d,
+	0x80, 0xb8, 0xdf, 0x91, 0xb7, 0x51, 0x49, 0xb9, 0xd5, 0x2b, 0x79, 0xd0, 0xee, 0x77, 0x46, 0x9d,
+	0xc8, 0xc6, 0xc9, 0xb8, 0xfc, 0x16, 0x14, 0xc7, 0x27, 0x2f, 0xac, 0x95, 0x3f, 0x14, 0x50, 0xf9,
+	0x6d, 0x09, 0x59, 0x90, 0x0d, 0x42, 0x22, 0x6a, 0x53, 0xb6, 0xca, 0x0f, 0x26, 0xe5, 0x1b, 0xee,
+	0x4a, 0x33, 0xb1, 0xc6, 0x67, 0x40, 0xe8, 0xee, 0x28, 0x89, 0xbc, 0x81, 0x7d, 0x85, 0xd6, 0xf2,
+	0x17, 0x90, 0x1d, 0xc2, 0x8c, 0xb3, 0x6e, 0x16, 0xd4, 0x1d, 0x03, 0x6f, 0x1b, 0xa2, 0xd9, 0x57,
+	0x36, 0xd9, 0x4d, 0x01, 0x60, 0x06, 0x1b, 0x3b, 0xcd, 0x3d, 0x43, 0x4b, 0xa3, 0x79, 0x28, 0x98,
+	0x8d, 0xb6, 0x81, 0x2d, 0x5b, 0xb6, 0xd6, 0x69, 0xa4, 0x41, 0x5e, 0x8a, 0x44, 0x87, 0x55, 0xcb,
+	0xbf, 0xa5, 0xe1, 0xe6, 0x2b, 0x37, 0x47, 0xb1, 0x39, 0x3b, 0x90, 0xe9, 0x06, 0x3e, 0x25, 0xa7,
+	0x54, 0x06, 0xbf, 0x7e, 0x99, 0xe0, 0xab, 0xc2, 0x14, 0x27, 0x18, 0x68, 0x1b, 0xd4, 0x90, 0xb1,
+	0xb0, 0x8c, 0xfb, 0xde, 0xa5, 0x99, 0x1b, 0x0b, 0x7b, 0x84, 0x61, 0x36, 0xe9, 0xd9, 0xb2, 0x54,
+	0xdf, 0xbb, 0x4a, 0xa1, 0xd4, 0xa6, 0xf0, 0x10, 0x07, 0xbd, 0x80, 0x85, 0x88, 0xf1, 0x91, 0xec,
+	0x8c, 0x92, 0x90, 0x24, 0xa3, 0x3d, 0xba, 0x1e, 0xa3, 0xd5, 0xa6, 0x30, 0x8a, 0x5e, 0x99, 0x42,
+	0x4d, 0xc8, 0x74, 0x45, 0x87, 0x90, 0x7d, 0x78, 0xd2, 0xed, 0x1d, 0xed, 0x2b, 0xb5, 0x29, 0x9c,
+	0xa0, 0x6c, 0x14, 0x21, 0x1f, 0xf0, 0xf4, 0xf1, 0xab, 0x45, 0x5c, 0xfe, 0x5b, 0xb9, 0x20, 0xb5,
+	0xa2, 0xb2, 0x4d, 0x98, 0x75, 0xc2, 0xd0, 0x1b, 0xb0, 0xab, 0x9a, 0xc8, 0xad, 0x3e, 0xe1, 0xe2,
+	0x15, 0x66, 0x66, 0x05, 0x38, 0xe3, 0x88, 0x1f, 0xd4, 0x06, 0x55, 0x5c, 0xc7, 0x44, 0x5a, 0xaf,
+	0xfc, 0x5a, 0x91, 0x29, 0xe6, 0x58, 0x68, 0x03, 0x54, 0xfe, 0x08, 0x92, 0xf9, 0x7d, 0xe7, 0x32,
+	0x85, 0x87, 0x85, 0x69, 0xb9, 0x02, 0x0b, 0x17, 0xbc, 0x10, 0x2f, 0xd3, 0xd5, 0x97, 0xbf, 0x55,
+	0x20, 0x23, 0x03, 0x1e, 0x3f, 0x7a, 0x79, 0x98, 0xad, 0x9b, 0x6d, 0xcb, 0x68, 0x18, 0x58, 0x53,
+	0xd8, 0xa9, 0xda, 0x32, 0xeb, 0x96, 0x81, 0xed, 0x6a, 0xad, 0x62, 0x36, 0xb4, 0x14, 0x42, 0x50,
+	0x94, 0xd7, 0x20, 0x5b, 0xcc, 0x68, 0x69, 0x34, 0x07, 0x39, 0x76, 0x49, 0x4a, 0x04, 0xd3, 0x68,
+	0x11, 0x16, 0x70, 0x73, 0xd7, 0x32, 0xec, 0x6a, 0xb3, 0xb1, 0x65, 0x6e, 0xef, 0xe2, 0x8a, 0x65,
+	0x36, 0x1b, 0x9a, 0xca, 0xf0, 0xf6, 0x4c, 0x6c, 0xed, 0x56, 0xea, 0x76, 0xad, 0xd9, 0xb6, 0xb4,
+	0x19, 0xb6, 0x78, 0xb5, 0xbe, 0xdb, 0x66, 0x76, 0x19, 0xf6, 0xa2, 0x18, 0x3d, 0x61, 0xd7, 0x7e,
+	0x51, 0x6c, 0xe8, 0xbf, 0xbc, 0xbc, 0xa5, 0xfc, 0xfa, 0xf2, 0x96, 0xf2, 0xfb, 0xcb, 0x5b, 0xca,
+	0x67, 0x4b, 0x62, 0xaf, 0xdd, 0x60, 0xd5, 0x09, 0xdd, 0xd5, 0x0b, 0xde, 0xf5, 0x9d, 0x19, 0x4e,
+	0x55, 0xeb, 0xff, 0x04, 0x00, 0x00, 0xff, 0xff, 0x2b, 0xd5, 0x17, 0x40, 0x56, 0x10, 0x00, 0x00,
 }
 
 func (m *EnvoyFilter) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1813,71 +1999,85 @@ func (m *EnvoyFilter) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *EnvoyFilter) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EnvoyFilter) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.WorkloadLabels) > 0 {
-		for k, _ := range m.WorkloadLabels {
-			dAtA[i] = 0xa
-			i++
-			v := m.WorkloadLabels[k]
-			mapSize := 1 + len(k) + sovEnvoyFilter(uint64(len(k))) + 1 + len(v) + sovEnvoyFilter(uint64(len(v)))
-			i = encodeVarintEnvoyFilter(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.Filters) > 0 {
-		for _, msg := range m.Filters {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintEnvoyFilter(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+	if len(m.ConfigPatches) > 0 {
+		for iNdEx := len(m.ConfigPatches) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.ConfigPatches[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintEnvoyFilter(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0x22
 		}
 	}
 	if m.WorkloadSelector != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.WorkloadSelector.Size()))
-		n1, err1 := m.WorkloadSelector.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
-		}
-		i += n1
-	}
-	if len(m.ConfigPatches) > 0 {
-		for _, msg := range m.ConfigPatches {
-			dAtA[i] = 0x22
-			i++
-			i = encodeVarintEnvoyFilter(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
+		{
+			size, err := m.WorkloadSelector.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
-			i += n
+			i -= size
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.Filters) > 0 {
+		for iNdEx := len(m.Filters) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Filters[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintEnvoyFilter(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.WorkloadLabels) > 0 {
+		for k := range m.WorkloadLabels {
+			v := m.WorkloadLabels[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
+		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *EnvoyFilter_DeprecatedListenerMatch) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1885,56 +2085,57 @@ func (m *EnvoyFilter_DeprecatedListenerMatch) Marshal() (dAtA []byte, err error)
 }
 
 func (m *EnvoyFilter_DeprecatedListenerMatch) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EnvoyFilter_DeprecatedListenerMatch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.PortNumber != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.PortNumber))
-	}
-	if len(m.PortNamePrefix) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.PortNamePrefix)))
-		i += copy(dAtA[i:], m.PortNamePrefix)
-	}
-	if m.ListenerType != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.ListenerType))
-	}
-	if m.ListenerProtocol != 0 {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.ListenerProtocol))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Address) > 0 {
-		for _, s := range m.Address {
+		for iNdEx := len(m.Address) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Address[iNdEx])
+			copy(dAtA[i:], m.Address[iNdEx])
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Address[iNdEx])))
+			i--
 			dAtA[i] = 0x2a
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.ListenerProtocol != 0 {
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.ListenerProtocol))
+		i--
+		dAtA[i] = 0x20
 	}
-	return i, nil
+	if m.ListenerType != 0 {
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.ListenerType))
+		i--
+		dAtA[i] = 0x18
+	}
+	if len(m.PortNamePrefix) > 0 {
+		i -= len(m.PortNamePrefix)
+		copy(dAtA[i:], m.PortNamePrefix)
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.PortNamePrefix)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.PortNumber != 0 {
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.PortNumber))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *EnvoyFilter_InsertPosition) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1942,31 +2143,38 @@ func (m *EnvoyFilter_InsertPosition) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *EnvoyFilter_InsertPosition) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EnvoyFilter_InsertPosition) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Index != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.Index))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.RelativeTo) > 0 {
-		dAtA[i] = 0x12
-		i++
+		i -= len(m.RelativeTo)
+		copy(dAtA[i:], m.RelativeTo)
 		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.RelativeTo)))
-		i += copy(dAtA[i:], m.RelativeTo)
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Index != 0 {
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.Index))
+		i--
+		dAtA[i] = 0x8
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *EnvoyFilter_Filter) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1974,61 +2182,155 @@ func (m *EnvoyFilter_Filter) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *EnvoyFilter_Filter) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EnvoyFilter_Filter) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.ListenerMatch != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.ListenerMatch.Size()))
-		n2, err2 := m.ListenerMatch.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
-		}
-		i += n2
-	}
-	if m.InsertPosition != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.InsertPosition.Size()))
-		n3, err3 := m.InsertPosition.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
-		}
-		i += n3
-	}
-	if m.FilterType != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.FilterType))
-	}
-	if len(m.FilterName) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.FilterName)))
-		i += copy(dAtA[i:], m.FilterName)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.FilterConfig != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.FilterConfig.Size()))
-		n4, err4 := m.FilterConfig.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
+		{
+			size, err := m.FilterConfig.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(size))
 		}
-		i += n4
+		i--
+		dAtA[i] = 0x2a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.FilterName) > 0 {
+		i -= len(m.FilterName)
+		copy(dAtA[i:], m.FilterName)
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.FilterName)))
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	if m.FilterType != 0 {
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.FilterType))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.InsertPosition != nil {
+		{
+			size, err := m.InsertPosition.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.ListenerMatch != nil {
+		{
+			size, err := m.ListenerMatch.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
+func (m *EnvoyFilter_ProxyMatch) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EnvoyFilter_ProxyMatch) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EnvoyFilter_ProxyMatch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Metadata) > 0 {
+		for k := range m.Metadata {
+			v := m.Metadata[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if m.VersionMatch != nil {
+		{
+			size := m.VersionMatch.Size()
+			i -= size
+			if _, err := m.VersionMatch.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *EnvoyFilter_ProxyMatch_VersionGe) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *EnvoyFilter_ProxyMatch_VersionGe) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	i -= len(m.VersionGe)
+	copy(dAtA[i:], m.VersionGe)
+	i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.VersionGe)))
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
+}
+func (m *EnvoyFilter_ProxyMatch_VersionEq) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *EnvoyFilter_ProxyMatch_VersionEq) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	i -= len(m.VersionEq)
+	copy(dAtA[i:], m.VersionEq)
+	i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.VersionEq)))
+	i--
+	dAtA[i] = 0x12
+	return len(dAtA) - i, nil
+}
 func (m *EnvoyFilter_ClusterMatch) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2036,43 +2338,52 @@ func (m *EnvoyFilter_ClusterMatch) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *EnvoyFilter_ClusterMatch) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EnvoyFilter_ClusterMatch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.PortNumber != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.PortNumber))
-	}
-	if len(m.Service) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Service)))
-		i += copy(dAtA[i:], m.Service)
-	}
-	if len(m.Subset) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Subset)))
-		i += copy(dAtA[i:], m.Subset)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Name) > 0 {
-		dAtA[i] = 0x22
-		i++
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
 		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+		i--
+		dAtA[i] = 0x22
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Subset) > 0 {
+		i -= len(m.Subset)
+		copy(dAtA[i:], m.Subset)
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Subset)))
+		i--
+		dAtA[i] = 0x1a
 	}
-	return i, nil
+	if len(m.Service) > 0 {
+		i -= len(m.Service)
+		copy(dAtA[i:], m.Service)
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Service)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.PortNumber != 0 {
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.PortNumber))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *EnvoyFilter_RouteConfigurationMatch) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2080,53 +2391,64 @@ func (m *EnvoyFilter_RouteConfigurationMatch) Marshal() (dAtA []byte, err error)
 }
 
 func (m *EnvoyFilter_RouteConfigurationMatch) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EnvoyFilter_RouteConfigurationMatch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.PortNumber != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.PortNumber))
-	}
-	if len(m.PortName) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.PortName)))
-		i += copy(dAtA[i:], m.PortName)
-	}
-	if len(m.Gateway) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Gateway)))
-		i += copy(dAtA[i:], m.Gateway)
-	}
-	if m.Vhost != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.Vhost.Size()))
-		n5, err5 := m.Vhost.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
-		}
-		i += n5
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Name) > 0 {
-		dAtA[i] = 0x2a
-		i++
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
 		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+		i--
+		dAtA[i] = 0x2a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Vhost != nil {
+		{
+			size, err := m.Vhost.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	if len(m.Gateway) > 0 {
+		i -= len(m.Gateway)
+		copy(dAtA[i:], m.Gateway)
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Gateway)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.PortName) > 0 {
+		i -= len(m.PortName)
+		copy(dAtA[i:], m.PortName)
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.PortName)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.PortNumber != 0 {
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.PortNumber))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2134,26 +2456,33 @@ func (m *EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch) Marshal() (dAtA [
 }
 
 func (m *EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *EnvoyFilter_ListenerMatch) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2161,47 +2490,57 @@ func (m *EnvoyFilter_ListenerMatch) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *EnvoyFilter_ListenerMatch) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EnvoyFilter_ListenerMatch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.PortNumber != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.PortNumber))
-	}
-	if len(m.PortName) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.PortName)))
-		i += copy(dAtA[i:], m.PortName)
-	}
-	if m.FilterChain != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.FilterChain.Size()))
-		n6, err6 := m.FilterChain.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
-		}
-		i += n6
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Name) > 0 {
-		dAtA[i] = 0x22
-		i++
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
 		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+		i--
+		dAtA[i] = 0x22
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.FilterChain != nil {
+		{
+			size, err := m.FilterChain.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
 	}
-	return i, nil
+	if len(m.PortName) > 0 {
+		i -= len(m.PortName)
+		copy(dAtA[i:], m.PortName)
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.PortName)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.PortNumber != 0 {
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.PortNumber))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *EnvoyFilter_ListenerMatch_FilterChainMatch) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2209,42 +2548,52 @@ func (m *EnvoyFilter_ListenerMatch_FilterChainMatch) Marshal() (dAtA []byte, err
 }
 
 func (m *EnvoyFilter_ListenerMatch_FilterChainMatch) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EnvoyFilter_ListenerMatch_FilterChainMatch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Sni) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Sni)))
-		i += copy(dAtA[i:], m.Sni)
-	}
-	if len(m.TransportProtocol) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.TransportProtocol)))
-		i += copy(dAtA[i:], m.TransportProtocol)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Filter != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.Filter.Size()))
-		n7, err7 := m.Filter.MarshalTo(dAtA[i:])
-		if err7 != nil {
-			return 0, err7
+		{
+			size, err := m.Filter.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(size))
 		}
-		i += n7
+		i--
+		dAtA[i] = 0x1a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.TransportProtocol) > 0 {
+		i -= len(m.TransportProtocol)
+		copy(dAtA[i:], m.TransportProtocol)
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.TransportProtocol)))
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	if len(m.Sni) > 0 {
+		i -= len(m.Sni)
+		copy(dAtA[i:], m.Sni)
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Sni)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *EnvoyFilter_ListenerMatch_FilterMatch) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2252,36 +2601,45 @@ func (m *EnvoyFilter_ListenerMatch_FilterMatch) Marshal() (dAtA []byte, err erro
 }
 
 func (m *EnvoyFilter_ListenerMatch_FilterMatch) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EnvoyFilter_ListenerMatch_FilterMatch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.SubFilter != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.SubFilter.Size()))
-		n8, err8 := m.SubFilter.MarshalTo(dAtA[i:])
-		if err8 != nil {
-			return 0, err8
+		{
+			size, err := m.SubFilter.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(size))
 		}
-		i += n8
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *EnvoyFilter_ListenerMatch_SubFilterMatch) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2289,26 +2647,33 @@ func (m *EnvoyFilter_ListenerMatch_SubFilterMatch) Marshal() (dAtA []byte, err e
 }
 
 func (m *EnvoyFilter_ListenerMatch_SubFilterMatch) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EnvoyFilter_ListenerMatch_SubFilterMatch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *EnvoyFilter_Patch) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2316,35 +2681,43 @@ func (m *EnvoyFilter_Patch) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *EnvoyFilter_Patch) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EnvoyFilter_Patch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Operation != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.Operation))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Value != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.Value.Size()))
-		n9, err9 := m.Value.MarshalTo(dAtA[i:])
-		if err9 != nil {
-			return 0, err9
+		{
+			size, err := m.Value.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(size))
 		}
-		i += n9
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Operation != 0 {
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.Operation))
+		i--
+		dAtA[i] = 0x8
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *EnvoyFilter_EnvoyConfigObjectMatch) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2352,74 +2725,112 @@ func (m *EnvoyFilter_EnvoyConfigObjectMatch) Marshal() (dAtA []byte, err error) 
 }
 
 func (m *EnvoyFilter_EnvoyConfigObjectMatch) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EnvoyFilter_EnvoyConfigObjectMatch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Context != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.Context))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.ObjectTypes != nil {
-		nn10, err10 := m.ObjectTypes.MarshalTo(dAtA[i:])
-		if err10 != nil {
-			return 0, err10
+		{
+			size := m.ObjectTypes.Size()
+			i -= size
+			if _, err := m.ObjectTypes.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
 		}
-		i += nn10
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Proxy != nil {
+		{
+			size, err := m.Proxy.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	if m.Context != 0 {
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.Context))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *EnvoyFilter_EnvoyConfigObjectMatch_Listener) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *EnvoyFilter_EnvoyConfigObjectMatch_Listener) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.Listener != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.Listener.Size()))
-		n11, err11 := m.Listener.MarshalTo(dAtA[i:])
-		if err11 != nil {
-			return 0, err11
+		{
+			size, err := m.Listener.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(size))
 		}
-		i += n11
+		i--
+		dAtA[i] = 0x1a
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.RouteConfiguration != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.RouteConfiguration.Size()))
-		n12, err12 := m.RouteConfiguration.MarshalTo(dAtA[i:])
-		if err12 != nil {
-			return 0, err12
+		{
+			size, err := m.RouteConfiguration.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(size))
 		}
-		i += n12
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *EnvoyFilter_EnvoyConfigObjectMatch_Cluster) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *EnvoyFilter_EnvoyConfigObjectMatch_Cluster) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.Cluster != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.Cluster.Size()))
-		n13, err13 := m.Cluster.MarshalTo(dAtA[i:])
-		if err13 != nil {
-			return 0, err13
+		{
+			size, err := m.Cluster.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(size))
 		}
-		i += n13
+		i--
+		dAtA[i] = 0x2a
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *EnvoyFilter_EnvoyConfigObjectPatch) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2427,49 +2838,61 @@ func (m *EnvoyFilter_EnvoyConfigObjectPatch) Marshal() (dAtA []byte, err error) 
 }
 
 func (m *EnvoyFilter_EnvoyConfigObjectPatch) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EnvoyFilter_EnvoyConfigObjectPatch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.ApplyTo != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.ApplyTo))
-	}
-	if m.Match != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.Match.Size()))
-		n14, err14 := m.Match.MarshalTo(dAtA[i:])
-		if err14 != nil {
-			return 0, err14
-		}
-		i += n14
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Patch != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.Patch.Size()))
-		n15, err15 := m.Patch.MarshalTo(dAtA[i:])
-		if err15 != nil {
-			return 0, err15
+		{
+			size, err := m.Patch.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(size))
 		}
-		i += n15
+		i--
+		dAtA[i] = 0x1a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Match != nil {
+		{
+			size, err := m.Match.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintEnvoyFilter(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	if m.ApplyTo != 0 {
+		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.ApplyTo))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintEnvoyFilter(dAtA []byte, offset int, v uint64) int {
+	offset -= sovEnvoyFilter(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *EnvoyFilter) Size() (n int) {
 	if m == nil {
@@ -2588,6 +3011,49 @@ func (m *EnvoyFilter_Filter) Size() (n int) {
 	return n
 }
 
+func (m *EnvoyFilter_ProxyMatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.VersionMatch != nil {
+		n += m.VersionMatch.Size()
+	}
+	if len(m.Metadata) > 0 {
+		for k, v := range m.Metadata {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovEnvoyFilter(uint64(len(k))) + 1 + len(v) + sovEnvoyFilter(uint64(len(v)))
+			n += mapEntrySize + 1 + sovEnvoyFilter(uint64(mapEntrySize))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *EnvoyFilter_ProxyMatch_VersionGe) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.VersionGe)
+	n += 1 + l + sovEnvoyFilter(uint64(l))
+	return n
+}
+func (m *EnvoyFilter_ProxyMatch_VersionEq) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.VersionEq)
+	n += 1 + l + sovEnvoyFilter(uint64(l))
+	return n
+}
 func (m *EnvoyFilter_ClusterMatch) Size() (n int) {
 	if m == nil {
 		return 0
@@ -2777,6 +3243,10 @@ func (m *EnvoyFilter_EnvoyConfigObjectMatch) Size() (n int) {
 	if m.Context != 0 {
 		n += 1 + sovEnvoyFilter(uint64(m.Context))
 	}
+	if m.Proxy != nil {
+		l = m.Proxy.Size()
+		n += 1 + l + sovEnvoyFilter(uint64(l))
+	}
 	if m.ObjectTypes != nil {
 		n += m.ObjectTypes.Size()
 	}
@@ -2846,14 +3316,7 @@ func (m *EnvoyFilter_EnvoyConfigObjectPatch) Size() (n int) {
 }
 
 func sovEnvoyFilter(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozEnvoyFilter(x uint64) (n int) {
 	return sovEnvoyFilter(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -3610,6 +4073,251 @@ func (m *EnvoyFilter_Filter) Unmarshal(dAtA []byte) error {
 			if err := m.FilterConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEnvoyFilter(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EnvoyFilter_ProxyMatch) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEnvoyFilter
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ProxyMatch: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ProxyMatch: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field VersionGe", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnvoyFilter
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.VersionMatch = &EnvoyFilter_ProxyMatch_VersionGe{string(dAtA[iNdEx:postIndex])}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field VersionEq", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnvoyFilter
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.VersionMatch = &EnvoyFilter_ProxyMatch_VersionEq{string(dAtA[iNdEx:postIndex])}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Metadata", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnvoyFilter
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Metadata == nil {
+				m.Metadata = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowEnvoyFilter
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowEnvoyFilter
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthEnvoyFilter
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthEnvoyFilter
+					}
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowEnvoyFilter
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthEnvoyFilter
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue < 0 {
+						return ErrInvalidLengthEnvoyFilter
+					}
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipEnvoyFilter(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthEnvoyFilter
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Metadata[mapkey] = mapvalue
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -4790,6 +5498,42 @@ func (m *EnvoyFilter_EnvoyConfigObjectMatch) Unmarshal(dAtA []byte) error {
 			}
 		case 2:
 			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Proxy", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnvoyFilter
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnvoyFilter
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Proxy == nil {
+				m.Proxy = &EnvoyFilter_ProxyMatch{}
+			}
+			if err := m.Proxy.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Listener", wireType)
 			}
 			var msglen int
@@ -4823,7 +5567,7 @@ func (m *EnvoyFilter_EnvoyConfigObjectMatch) Unmarshal(dAtA []byte) error {
 			}
 			m.ObjectTypes = &EnvoyFilter_EnvoyConfigObjectMatch_Listener{v}
 			iNdEx = postIndex
-		case 3:
+		case 4:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field RouteConfiguration", wireType)
 			}
@@ -4858,7 +5602,7 @@ func (m *EnvoyFilter_EnvoyConfigObjectMatch) Unmarshal(dAtA []byte) error {
 			}
 			m.ObjectTypes = &EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{v}
 			iNdEx = postIndex
-		case 4:
+		case 5:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Cluster", wireType)
 			}
