@@ -1,3 +1,5 @@
 # demo-auth-install.yaml
-
-profile: demo-auth
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  profile: demo-auth

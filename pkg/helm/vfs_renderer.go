@@ -64,7 +64,7 @@ type VFSRenderer struct {
 // NewVFSRenderer creates a VFSRenderer with the given relative path to helm charts, component name and namespace and
 // a base values YAML string.
 func NewVFSRenderer(helmChartDirPath, valuesYAML, componentName, namespace string) *VFSRenderer {
-	log.Infof("NewVFSRenderer with helmChart=%s, componentName=%s", helmChartDirPath, componentName)
+	log.Infof("NewVFSRenderer with helmChart=%s, componentName=%s, namespace=%s", helmChartDirPath, componentName, namespace)
 	return &VFSRenderer{
 		namespace:        namespace,
 		componentName:    componentName,
@@ -75,7 +75,7 @@ func NewVFSRenderer(helmChartDirPath, valuesYAML, componentName, namespace strin
 
 // Run implements the TemplateRenderer interface.
 func (h *VFSRenderer) Run() error {
-	log.Infof("Run FileTemplateRenderer with helmChart=%s, componentName=%s", h.helmChartDirPath, h.componentName)
+	log.Infof("Run VFSRenderer with helmChart=%s, componentName=%s, namespace=%s", h.helmChartDirPath, h.componentName, h.namespace)
 	if err := h.loadChart(); err != nil {
 		return err
 	}

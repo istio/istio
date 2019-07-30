@@ -1,3 +1,5 @@
 # minimal-install.yaml
-
-profile: minimal
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  profile: minimal

@@ -141,7 +141,7 @@ func Namespace(featureName FeatureName, componentName ComponentName, controlPlan
 	}
 
 	featureNamespace := defaultNamespace
-	featureNodeI, found, err := GetFromStructPath(controlPlaneSpec, string(featureName)+"Components.Namespace")
+	featureNodeI, found, err := GetFromStructPath(controlPlaneSpec, string(featureName)+".Components.Namespace")
 	if err != nil {
 		return "", fmt.Errorf("error in Namepsace GetFromStructPath featureNamespace for feature=%s, component=%s: %s", featureName, componentName, err)
 	}

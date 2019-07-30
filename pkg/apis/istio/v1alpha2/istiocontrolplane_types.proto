@@ -321,8 +321,8 @@ message GatewayFeatureSpec {
         string namespace = 1;
 
         // Ingress/egress gateway configuration.
-        repeated IngressGatewayComponentSpec ingress_gateway = 31;
-        repeated EgressGatewayComponentSpec egress_gateway = 32;
+        IngressGatewayComponentSpec ingress_gateway = 31;
+        EgressGatewayComponentSpec egress_gateway = 32;
     }
 
     Components components = 50;

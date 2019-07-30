@@ -1,3 +1,5 @@
 # default-install.yaml
-
-profile: default
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  profile: default

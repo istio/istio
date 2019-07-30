@@ -17,6 +17,9 @@ package mesh
 import (
 	"fmt"
 	"os"
+	"sort"
+
+	"istio.io/operator/pkg/name"
 
 	"github.com/spf13/cobra"
 
@@ -67,7 +70,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs) {
 	}
 
 	if mgArgs.outFilename == "" {
-		for _, m := range manifests {
+		for _, m := range orderedManifests(manifests) {
 			fmt.Println(m)
 		}
 	} else {
@@ -78,4 +81,16 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs) {
 			logAndFatalf(args, err.Error())
 		}
 	}
+}
+
+func orderedManifests(mm name.ManifestMap) []string {
+	var keys, out []string
+	for k := range mm {
+		keys = append(keys, string(k))
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		out = append(out, mm[name.ComponentName(k)])
+	}
+	return out
 }
