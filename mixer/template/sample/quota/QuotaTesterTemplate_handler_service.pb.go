@@ -646,9 +646,9 @@ func (m *HandleQuotaRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Instance.Size()))
-		n1, err1 := m.Instance.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		n1, err := m.Instance.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n1
 	}
@@ -656,9 +656,9 @@ func (m *HandleQuotaRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.AdapterConfig.Size()))
-		n2, err2 := m.AdapterConfig.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		n2, err := m.AdapterConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n2
 	}
@@ -672,9 +672,9 @@ func (m *HandleQuotaRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.QuotaRequest.Size()))
-		n3, err3 := m.QuotaRequest.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
+		n3, err := m.QuotaRequest.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n3
 	}
@@ -716,9 +716,9 @@ func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n4, err4 := v.MarshalTo(dAtA[i:])
-				if err4 != nil {
-					return 0, err4
+				n4, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n4
 			}
@@ -749,9 +749,9 @@ func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5a
 		i++
 		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Res1.Size()))
-		n5, err5 := m.Res1.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
+		n5, err := m.Res1.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n5
 	}
@@ -791,9 +791,9 @@ func (m *Res1Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Value.Size()))
-		n6, err6 := m.Value.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
+		n6, err := m.Value.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n6
 	}
@@ -817,9 +817,9 @@ func (m *Res1Msg) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n7, err7 := v.MarshalTo(dAtA[i:])
-				if err7 != nil {
-					return 0, err7
+				n7, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n7
 			}
@@ -872,9 +872,9 @@ func (m *Res1Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x4a
 		i++
 		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.TimeStamp.Size()))
-		n8, err8 := m.TimeStamp.MarshalTo(dAtA[i:])
-		if err8 != nil {
-			return 0, err8
+		n8, err := m.TimeStamp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n8
 	}
@@ -882,9 +882,9 @@ func (m *Res1Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x52
 		i++
 		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Duration.Size()))
-		n9, err9 := m.Duration.MarshalTo(dAtA[i:])
-		if err9 != nil {
-			return 0, err9
+		n9, err := m.Duration.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n9
 	}
@@ -892,9 +892,9 @@ func (m *Res1Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5a
 		i++
 		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Res2.Size()))
-		n10, err10 := m.Res2.MarshalTo(dAtA[i:])
-		if err10 != nil {
-			return 0, err10
+		n10, err := m.Res2.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n10
 	}
@@ -918,9 +918,9 @@ func (m *Res1Msg) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n11, err11 := v.MarshalTo(dAtA[i:])
-				if err11 != nil {
-					return 0, err11
+				n11, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n11
 			}
@@ -948,9 +948,9 @@ func (m *Res2Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Value.Size()))
-		n12, err12 := m.Value.MarshalTo(dAtA[i:])
-		if err12 != nil {
-			return 0, err12
+		n12, err := m.Value.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n12
 	}
@@ -974,9 +974,9 @@ func (m *Res2Msg) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n13, err13 := v.MarshalTo(dAtA[i:])
-				if err13 != nil {
-					return 0, err13
+				n13, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n13
 			}
@@ -1025,9 +1025,9 @@ func (m *Type) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5a
 		i++
 		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Res1.Size()))
-		n14, err14 := m.Res1.MarshalTo(dAtA[i:])
-		if err14 != nil {
-			return 0, err14
+		n14, err := m.Res1.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n14
 	}
@@ -1074,9 +1074,9 @@ func (m *Res1Type) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5a
 		i++
 		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Res2.Size()))
-		n15, err15 := m.Res2.MarshalTo(dAtA[i:])
-		if err15 != nil {
-			return 0, err15
+		n15, err := m.Res2.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n15
 	}
@@ -1100,9 +1100,9 @@ func (m *Res1Type) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n16, err16 := v.MarshalTo(dAtA[i:])
-				if err16 != nil {
-					return 0, err16
+				n16, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n16
 			}
@@ -1203,9 +1203,9 @@ func (m *InstanceParam) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5a
 		i++
 		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Res1.Size()))
-		n17, err17 := m.Res1.MarshalTo(dAtA[i:])
-		if err17 != nil {
-			return 0, err17
+		n17, err := m.Res1.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n17
 	}
@@ -1307,9 +1307,9 @@ func (m *Res1InstanceParam) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5a
 		i++
 		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Res2.Size()))
-		n18, err18 := m.Res2.MarshalTo(dAtA[i:])
-		if err18 != nil {
-			return 0, err18
+		n18, err := m.Res2.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n18
 	}
@@ -1333,9 +1333,9 @@ func (m *Res1InstanceParam) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n19, err19 := v.MarshalTo(dAtA[i:])
-				if err19 != nil {
-					return 0, err19
+				n19, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n19
 			}
@@ -1784,7 +1784,7 @@ func (this *HandleQuotaRequest) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&HandleQuotaRequest{`,
-		`Instance:` + strings.Replace(this.Instance.String(), "InstanceMsg", "InstanceMsg", 1) + `,`,
+		`Instance:` + strings.Replace(fmt.Sprintf("%v", this.Instance), "InstanceMsg", "InstanceMsg", 1) + `,`,
 		`AdapterConfig:` + strings.Replace(fmt.Sprintf("%v", this.AdapterConfig), "Any", "types.Any", 1) + `,`,
 		`DedupId:` + fmt.Sprintf("%v", this.DedupId) + `,`,
 		`QuotaRequest:` + strings.Replace(fmt.Sprintf("%v", this.QuotaRequest), "QuotaRequest", "v1beta1.QuotaRequest", 1) + `,`,
@@ -1819,7 +1819,7 @@ func (this *InstanceMsg) String() string {
 	s := strings.Join([]string{`&InstanceMsg{`,
 		`Dimensions:` + mapStringForDimensions + `,`,
 		`BoolMap:` + mapStringForBoolMap + `,`,
-		`Res1:` + strings.Replace(this.Res1.String(), "Res1Msg", "Res1Msg", 1) + `,`,
+		`Res1:` + strings.Replace(fmt.Sprintf("%v", this.Res1), "Res1Msg", "Res1Msg", 1) + `,`,
 		`Name:` + fmt.Sprintf("%v", this.Name) + `,`,
 		`}`,
 	}, "")
@@ -1869,7 +1869,7 @@ func (this *Res1Msg) String() string {
 		`Int64Map:` + mapStringForInt64Map + `,`,
 		`TimeStamp:` + strings.Replace(fmt.Sprintf("%v", this.TimeStamp), "TimeStamp", "v1beta11.TimeStamp", 1) + `,`,
 		`Duration:` + strings.Replace(fmt.Sprintf("%v", this.Duration), "Duration", "v1beta11.Duration", 1) + `,`,
-		`Res2:` + strings.Replace(this.Res2.String(), "Res2Msg", "Res2Msg", 1) + `,`,
+		`Res2:` + strings.Replace(fmt.Sprintf("%v", this.Res2), "Res2Msg", "Res2Msg", 1) + `,`,
 		`Res2Map:` + mapStringForRes2Map + `,`,
 		`}`,
 	}, "")
@@ -1913,7 +1913,7 @@ func (this *Type) String() string {
 	mapStringForDimensions += "}"
 	s := strings.Join([]string{`&Type{`,
 		`Dimensions:` + mapStringForDimensions + `,`,
-		`Res1:` + strings.Replace(this.Res1.String(), "Res1Type", "Res1Type", 1) + `,`,
+		`Res1:` + strings.Replace(fmt.Sprintf("%v", this.Res1), "Res1Type", "Res1Type", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1945,7 +1945,7 @@ func (this *Res1Type) String() string {
 	s := strings.Join([]string{`&Res1Type{`,
 		`Value:` + fmt.Sprintf("%v", this.Value) + `,`,
 		`Dimensions:` + mapStringForDimensions + `,`,
-		`Res2:` + strings.Replace(this.Res2.String(), "Res2Type", "Res2Type", 1) + `,`,
+		`Res2:` + strings.Replace(fmt.Sprintf("%v", this.Res2), "Res2Type", "Res2Type", 1) + `,`,
 		`Res2Map:` + mapStringForRes2Map + `,`,
 		`}`,
 	}, "")
@@ -1999,7 +1999,7 @@ func (this *InstanceParam) String() string {
 	s := strings.Join([]string{`&InstanceParam{`,
 		`Dimensions:` + mapStringForDimensions + `,`,
 		`BoolMap:` + mapStringForBoolMap + `,`,
-		`Res1:` + strings.Replace(this.Res1.String(), "Res1InstanceParam", "Res1InstanceParam", 1) + `,`,
+		`Res1:` + strings.Replace(fmt.Sprintf("%v", this.Res1), "Res1InstanceParam", "Res1InstanceParam", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2048,7 +2048,7 @@ func (this *Res1InstanceParam) String() string {
 		`Int64Map:` + mapStringForInt64Map + `,`,
 		`TimeStamp:` + fmt.Sprintf("%v", this.TimeStamp) + `,`,
 		`Duration:` + fmt.Sprintf("%v", this.Duration) + `,`,
-		`Res2:` + strings.Replace(this.Res2.String(), "Res2InstanceParam", "Res2InstanceParam", 1) + `,`,
+		`Res2:` + strings.Replace(fmt.Sprintf("%v", this.Res2), "Res2InstanceParam", "Res2InstanceParam", 1) + `,`,
 		`Res2Map:` + mapStringForRes2Map + `,`,
 		`}`,
 	}, "")

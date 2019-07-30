@@ -212,9 +212,9 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0x12
 	i++
 	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.SubmissionInterval)))
-	n1, err1 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.SubmissionInterval, dAtA[i:])
-	if err1 != nil {
-		return 0, err1
+	n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.SubmissionInterval, dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n1
 	if len(m.Metrics) > 0 {
@@ -324,15 +324,10 @@ func (this *Params) String() string {
 	if this == nil {
 		return "nil"
 	}
-	repeatedStringForMetrics := "[]*Params_MetricInfo{"
-	for _, f := range this.Metrics {
-		repeatedStringForMetrics += strings.Replace(fmt.Sprintf("%v", f), "Params_MetricInfo", "Params_MetricInfo", 1) + ","
-	}
-	repeatedStringForMetrics += "}"
 	s := strings.Join([]string{`&Params{`,
 		`SubmissionUrl:` + fmt.Sprintf("%v", this.SubmissionUrl) + `,`,
-		`SubmissionInterval:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.SubmissionInterval), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
-		`Metrics:` + repeatedStringForMetrics + `,`,
+		`SubmissionInterval:` + strings.Replace(strings.Replace(this.SubmissionInterval.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`Metrics:` + strings.Replace(fmt.Sprintf("%v", this.Metrics), "Params_MetricInfo", "Params_MetricInfo", 1) + `,`,
 		`}`,
 	}, "")
 	return s

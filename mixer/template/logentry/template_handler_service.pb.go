@@ -431,9 +431,9 @@ func (m *HandleLogEntryRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.AdapterConfig.Size()))
-		n1, err1 := m.AdapterConfig.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		n1, err := m.AdapterConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n1
 	}
@@ -481,9 +481,9 @@ func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n2, err2 := v.MarshalTo(dAtA[i:])
-				if err2 != nil {
-					return 0, err2
+				n2, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n2
 			}
@@ -493,9 +493,9 @@ func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.Timestamp.Size()))
-		n3, err3 := m.Timestamp.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
+		n3, err := m.Timestamp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n3
 	}
@@ -531,9 +531,9 @@ func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n4, err4 := v.MarshalTo(dAtA[i:])
-				if err4 != nil {
-					return 0, err4
+				n4, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n4
 			}
@@ -838,13 +838,8 @@ func (this *HandleLogEntryRequest) String() string {
 	if this == nil {
 		return "nil"
 	}
-	repeatedStringForInstances := "[]*InstanceMsg{"
-	for _, f := range this.Instances {
-		repeatedStringForInstances += strings.Replace(f.String(), "InstanceMsg", "InstanceMsg", 1) + ","
-	}
-	repeatedStringForInstances += "}"
 	s := strings.Join([]string{`&HandleLogEntryRequest{`,
-		`Instances:` + repeatedStringForInstances + `,`,
+		`Instances:` + strings.Replace(fmt.Sprintf("%v", this.Instances), "InstanceMsg", "InstanceMsg", 1) + `,`,
 		`AdapterConfig:` + strings.Replace(fmt.Sprintf("%v", this.AdapterConfig), "Any", "types.Any", 1) + `,`,
 		`DedupId:` + fmt.Sprintf("%v", this.DedupId) + `,`,
 		`}`,

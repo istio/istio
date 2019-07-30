@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Embed the core metadata file containing the collections as a resource
-//go:generate go-bindata --nocompress --nometadata --pkg builtin -o builtin.gen.go testdata/
+//go:generate $GOPATH/src/istio.io/istio/scripts/run_gobindata.sh --nocompress --nometadata --pkg builtin -o builtin.gen.go testdata/
 
 package builtin
 

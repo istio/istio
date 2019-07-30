@@ -673,9 +673,9 @@ func (m *HandleAuthorizationRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.Instance.Size()))
-		n1, err1 := m.Instance.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		n1, err := m.Instance.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n1
 	}
@@ -683,9 +683,9 @@ func (m *HandleAuthorizationRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.AdapterConfig.Size()))
-		n2, err2 := m.AdapterConfig.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		n2, err := m.AdapterConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n2
 	}
@@ -717,9 +717,9 @@ func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.Subject.Size()))
-		n3, err3 := m.Subject.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
+		n3, err := m.Subject.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n3
 	}
@@ -727,9 +727,9 @@ func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.Action.Size()))
-		n4, err4 := m.Action.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
+		n4, err := m.Action.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n4
 	}
@@ -797,9 +797,9 @@ func (m *SubjectMsg) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n5, err5 := v.MarshalTo(dAtA[i:])
-				if err5 != nil {
-					return 0, err5
+				n5, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n5
 			}
@@ -867,9 +867,9 @@ func (m *ActionMsg) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n6, err6 := v.MarshalTo(dAtA[i:])
-				if err6 != nil {
-					return 0, err6
+				n6, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n6
 			}
@@ -897,9 +897,9 @@ func (m *Type) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.Subject.Size()))
-		n7, err7 := m.Subject.MarshalTo(dAtA[i:])
-		if err7 != nil {
-			return 0, err7
+		n7, err := m.Subject.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n7
 	}
@@ -907,9 +907,9 @@ func (m *Type) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.Action.Size()))
-		n8, err8 := m.Action.MarshalTo(dAtA[i:])
-		if err8 != nil {
-			return 0, err8
+		n8, err := m.Action.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n8
 	}
@@ -1003,9 +1003,9 @@ func (m *InstanceParam) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.Subject.Size()))
-		n9, err9 := m.Subject.MarshalTo(dAtA[i:])
-		if err9 != nil {
-			return 0, err9
+		n9, err := m.Subject.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n9
 	}
@@ -1013,9 +1013,9 @@ func (m *InstanceParam) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.Action.Size()))
-		n10, err10 := m.Action.MarshalTo(dAtA[i:])
-		if err10 != nil {
-			return 0, err10
+		n10, err := m.Action.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n10
 	}
@@ -1391,7 +1391,7 @@ func (this *HandleAuthorizationRequest) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&HandleAuthorizationRequest{`,
-		`Instance:` + strings.Replace(this.Instance.String(), "InstanceMsg", "InstanceMsg", 1) + `,`,
+		`Instance:` + strings.Replace(fmt.Sprintf("%v", this.Instance), "InstanceMsg", "InstanceMsg", 1) + `,`,
 		`AdapterConfig:` + strings.Replace(fmt.Sprintf("%v", this.AdapterConfig), "Any", "types.Any", 1) + `,`,
 		`DedupId:` + fmt.Sprintf("%v", this.DedupId) + `,`,
 		`}`,
@@ -1403,8 +1403,8 @@ func (this *InstanceMsg) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&InstanceMsg{`,
-		`Subject:` + strings.Replace(this.Subject.String(), "SubjectMsg", "SubjectMsg", 1) + `,`,
-		`Action:` + strings.Replace(this.Action.String(), "ActionMsg", "ActionMsg", 1) + `,`,
+		`Subject:` + strings.Replace(fmt.Sprintf("%v", this.Subject), "SubjectMsg", "SubjectMsg", 1) + `,`,
+		`Action:` + strings.Replace(fmt.Sprintf("%v", this.Action), "ActionMsg", "ActionMsg", 1) + `,`,
 		`Name:` + fmt.Sprintf("%v", this.Name) + `,`,
 		`}`,
 	}, "")
@@ -1461,8 +1461,8 @@ func (this *Type) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&Type{`,
-		`Subject:` + strings.Replace(this.Subject.String(), "SubjectType", "SubjectType", 1) + `,`,
-		`Action:` + strings.Replace(this.Action.String(), "ActionType", "ActionType", 1) + `,`,
+		`Subject:` + strings.Replace(fmt.Sprintf("%v", this.Subject), "SubjectType", "SubjectType", 1) + `,`,
+		`Action:` + strings.Replace(fmt.Sprintf("%v", this.Action), "ActionType", "ActionType", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1512,8 +1512,8 @@ func (this *InstanceParam) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&InstanceParam{`,
-		`Subject:` + strings.Replace(this.Subject.String(), "SubjectInstanceParam", "SubjectInstanceParam", 1) + `,`,
-		`Action:` + strings.Replace(this.Action.String(), "ActionInstanceParam", "ActionInstanceParam", 1) + `,`,
+		`Subject:` + strings.Replace(fmt.Sprintf("%v", this.Subject), "SubjectInstanceParam", "SubjectInstanceParam", 1) + `,`,
+		`Action:` + strings.Replace(fmt.Sprintf("%v", this.Action), "ActionInstanceParam", "ActionInstanceParam", 1) + `,`,
 		`}`,
 	}, "")
 	return s
