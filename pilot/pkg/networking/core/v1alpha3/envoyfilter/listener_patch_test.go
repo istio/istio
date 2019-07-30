@@ -94,6 +94,9 @@ func TestApplyListenerPatches(t *testing.T) {
 			ApplyTo: networking.EnvoyFilter_LISTENER,
 			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				Proxy: &networking.EnvoyFilter_ProxyMatch{
+					Metadata: map[string]string{"foo": "sidecar"},
+				},
 			},
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_ADD,
@@ -559,7 +562,8 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	sidecarProxy := &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"}
+	sidecarProxy := &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default",
+		Metadata: map[string]string{"foo": "sidecar", "bar": "proxy"}}
 	gatewayProxy := &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"}
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
