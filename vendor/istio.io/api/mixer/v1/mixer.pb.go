@@ -882,9 +882,9 @@ func (m *CheckRequest) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0xa
 	i++
 	i = encodeVarintMixer(dAtA, i, uint64(m.Attributes.Size()))
-	n1, err1 := m.Attributes.MarshalTo(dAtA[i:])
-	if err1 != nil {
-		return 0, err1
+	n1, err := m.Attributes.MarshalTo(dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n1
 	if m.GlobalWordCount != 0 {
@@ -917,9 +917,9 @@ func (m *CheckRequest) MarshalTo(dAtA []byte) (int, error) {
 			dAtA[i] = 0x12
 			i++
 			i = encodeVarintMixer(dAtA, i, uint64((&v).Size()))
-			n2, err2 := (&v).MarshalTo(dAtA[i:])
-			if err2 != nil {
-				return 0, err2
+			n2, err := (&v).MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
 			}
 			i += n2
 		}
@@ -978,9 +978,9 @@ func (m *CheckResponse) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0x12
 	i++
 	i = encodeVarintMixer(dAtA, i, uint64(m.Precondition.Size()))
-	n3, err3 := m.Precondition.MarshalTo(dAtA[i:])
-	if err3 != nil {
-		return 0, err3
+	n3, err := m.Precondition.MarshalTo(dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n3
 	if len(m.Quotas) > 0 {
@@ -1002,9 +1002,9 @@ func (m *CheckResponse) MarshalTo(dAtA []byte) (int, error) {
 			dAtA[i] = 0x12
 			i++
 			i = encodeVarintMixer(dAtA, i, uint64((&v).Size()))
-			n4, err4 := (&v).MarshalTo(dAtA[i:])
-			if err4 != nil {
-				return 0, err4
+			n4, err := (&v).MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
 			}
 			i += n4
 		}
@@ -1030,17 +1030,17 @@ func (m *CheckResponse_PreconditionResult) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0xa
 	i++
 	i = encodeVarintMixer(dAtA, i, uint64(m.Status.Size()))
-	n5, err5 := m.Status.MarshalTo(dAtA[i:])
-	if err5 != nil {
-		return 0, err5
+	n5, err := m.Status.MarshalTo(dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n5
 	dAtA[i] = 0x12
 	i++
 	i = encodeVarintMixer(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)))
-	n6, err6 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
-	if err6 != nil {
-		return 0, err6
+	n6, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n6
 	if m.ValidUseCount != 0 {
@@ -1052,9 +1052,9 @@ func (m *CheckResponse_PreconditionResult) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintMixer(dAtA, i, uint64(m.ReferencedAttributes.Size()))
-		n7, err7 := m.ReferencedAttributes.MarshalTo(dAtA[i:])
-		if err7 != nil {
-			return 0, err7
+		n7, err := m.ReferencedAttributes.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n7
 	}
@@ -1062,9 +1062,9 @@ func (m *CheckResponse_PreconditionResult) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintMixer(dAtA, i, uint64(m.RouteDirective.Size()))
-		n8, err8 := m.RouteDirective.MarshalTo(dAtA[i:])
-		if err8 != nil {
-			return 0, err8
+		n8, err := m.RouteDirective.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n8
 	}
@@ -1089,9 +1089,9 @@ func (m *CheckResponse_QuotaResult) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0xa
 	i++
 	i = encodeVarintMixer(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)))
-	n9, err9 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
-	if err9 != nil {
-		return 0, err9
+	n9, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n9
 	if m.GrantedAmount != 0 {
@@ -1102,17 +1102,17 @@ func (m *CheckResponse_QuotaResult) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0x2a
 	i++
 	i = encodeVarintMixer(dAtA, i, uint64(m.ReferencedAttributes.Size()))
-	n10, err10 := m.ReferencedAttributes.MarshalTo(dAtA[i:])
-	if err10 != nil {
-		return 0, err10
+	n10, err := m.ReferencedAttributes.MarshalTo(dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n10
 	dAtA[i] = 0x32
 	i++
 	i = encodeVarintMixer(dAtA, i, uint64(m.Status.Size()))
-	n11, err11 := m.Status.MarshalTo(dAtA[i:])
-	if err11 != nil {
-		return 0, err11
+	n11, err := m.Status.MarshalTo(dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n11
 	return i, nil
@@ -1631,7 +1631,7 @@ func (this *CheckRequest) String() string {
 	}
 	mapStringForQuotas += "}"
 	s := strings.Join([]string{`&CheckRequest{`,
-		`Attributes:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Attributes), "CompressedAttributes", "CompressedAttributes", 1), `&`, ``, 1) + `,`,
+		`Attributes:` + strings.Replace(strings.Replace(this.Attributes.String(), "CompressedAttributes", "CompressedAttributes", 1), `&`, ``, 1) + `,`,
 		`GlobalWordCount:` + fmt.Sprintf("%v", this.GlobalWordCount) + `,`,
 		`DeduplicationId:` + fmt.Sprintf("%v", this.DeduplicationId) + `,`,
 		`Quotas:` + mapStringForQuotas + `,`,
@@ -1665,7 +1665,7 @@ func (this *CheckResponse) String() string {
 	}
 	mapStringForQuotas += "}"
 	s := strings.Join([]string{`&CheckResponse{`,
-		`Precondition:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Precondition), "CheckResponse_PreconditionResult", "CheckResponse_PreconditionResult", 1), `&`, ``, 1) + `,`,
+		`Precondition:` + strings.Replace(strings.Replace(this.Precondition.String(), "CheckResponse_PreconditionResult", "CheckResponse_PreconditionResult", 1), `&`, ``, 1) + `,`,
 		`Quotas:` + mapStringForQuotas + `,`,
 		`}`,
 	}, "")
@@ -1676,11 +1676,11 @@ func (this *CheckResponse_PreconditionResult) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&CheckResponse_PreconditionResult{`,
-		`Status:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Status), "Status", "rpc.Status", 1), `&`, ``, 1) + `,`,
-		`ValidDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.ValidDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`Status:` + strings.Replace(strings.Replace(this.Status.String(), "Status", "rpc.Status", 1), `&`, ``, 1) + `,`,
+		`ValidDuration:` + strings.Replace(strings.Replace(this.ValidDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`ValidUseCount:` + fmt.Sprintf("%v", this.ValidUseCount) + `,`,
-		`ReferencedAttributes:` + strings.Replace(this.ReferencedAttributes.String(), "ReferencedAttributes", "ReferencedAttributes", 1) + `,`,
-		`RouteDirective:` + strings.Replace(this.RouteDirective.String(), "RouteDirective", "RouteDirective", 1) + `,`,
+		`ReferencedAttributes:` + strings.Replace(fmt.Sprintf("%v", this.ReferencedAttributes), "ReferencedAttributes", "ReferencedAttributes", 1) + `,`,
+		`RouteDirective:` + strings.Replace(fmt.Sprintf("%v", this.RouteDirective), "RouteDirective", "RouteDirective", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1690,10 +1690,10 @@ func (this *CheckResponse_QuotaResult) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&CheckResponse_QuotaResult{`,
-		`ValidDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.ValidDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`ValidDuration:` + strings.Replace(strings.Replace(this.ValidDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`GrantedAmount:` + fmt.Sprintf("%v", this.GrantedAmount) + `,`,
 		`ReferencedAttributes:` + strings.Replace(strings.Replace(this.ReferencedAttributes.String(), "ReferencedAttributes", "ReferencedAttributes", 1), `&`, ``, 1) + `,`,
-		`Status:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Status), "Status", "rpc.Status", 1), `&`, ``, 1) + `,`,
+		`Status:` + strings.Replace(strings.Replace(this.Status.String(), "Status", "rpc.Status", 1), `&`, ``, 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1702,14 +1702,9 @@ func (this *ReferencedAttributes) String() string {
 	if this == nil {
 		return "nil"
 	}
-	repeatedStringForAttributeMatches := "[]ReferencedAttributes_AttributeMatch{"
-	for _, f := range this.AttributeMatches {
-		repeatedStringForAttributeMatches += fmt.Sprintf("%v", f) + ","
-	}
-	repeatedStringForAttributeMatches += "}"
 	s := strings.Join([]string{`&ReferencedAttributes{`,
 		`Words:` + fmt.Sprintf("%v", this.Words) + `,`,
-		`AttributeMatches:` + repeatedStringForAttributeMatches + `,`,
+		`AttributeMatches:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.AttributeMatches), "ReferencedAttributes_AttributeMatch", "ReferencedAttributes_AttributeMatch", 1), `&`, ``, 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1743,19 +1738,9 @@ func (this *RouteDirective) String() string {
 	if this == nil {
 		return "nil"
 	}
-	repeatedStringForRequestHeaderOperations := "[]HeaderOperation{"
-	for _, f := range this.RequestHeaderOperations {
-		repeatedStringForRequestHeaderOperations += strings.Replace(strings.Replace(f.String(), "HeaderOperation", "HeaderOperation", 1), `&`, ``, 1) + ","
-	}
-	repeatedStringForRequestHeaderOperations += "}"
-	repeatedStringForResponseHeaderOperations := "[]HeaderOperation{"
-	for _, f := range this.ResponseHeaderOperations {
-		repeatedStringForResponseHeaderOperations += strings.Replace(strings.Replace(f.String(), "HeaderOperation", "HeaderOperation", 1), `&`, ``, 1) + ","
-	}
-	repeatedStringForResponseHeaderOperations += "}"
 	s := strings.Join([]string{`&RouteDirective{`,
-		`RequestHeaderOperations:` + repeatedStringForRequestHeaderOperations + `,`,
-		`ResponseHeaderOperations:` + repeatedStringForResponseHeaderOperations + `,`,
+		`RequestHeaderOperations:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.RequestHeaderOperations), "HeaderOperation", "HeaderOperation", 1), `&`, ``, 1) + `,`,
+		`ResponseHeaderOperations:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.ResponseHeaderOperations), "HeaderOperation", "HeaderOperation", 1), `&`, ``, 1) + `,`,
 		`DirectResponseCode:` + fmt.Sprintf("%v", this.DirectResponseCode) + `,`,
 		`DirectResponseBody:` + fmt.Sprintf("%v", this.DirectResponseBody) + `,`,
 		`}`,
@@ -1766,13 +1751,8 @@ func (this *ReportRequest) String() string {
 	if this == nil {
 		return "nil"
 	}
-	repeatedStringForAttributes := "[]CompressedAttributes{"
-	for _, f := range this.Attributes {
-		repeatedStringForAttributes += fmt.Sprintf("%v", f) + ","
-	}
-	repeatedStringForAttributes += "}"
 	s := strings.Join([]string{`&ReportRequest{`,
-		`Attributes:` + repeatedStringForAttributes + `,`,
+		`Attributes:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Attributes), "CompressedAttributes", "CompressedAttributes", 1), `&`, ``, 1) + `,`,
 		`DefaultWords:` + fmt.Sprintf("%v", this.DefaultWords) + `,`,
 		`GlobalWordCount:` + fmt.Sprintf("%v", this.GlobalWordCount) + `,`,
 		`RepeatedAttributesSemantics:` + fmt.Sprintf("%v", this.RepeatedAttributesSemantics) + `,`,

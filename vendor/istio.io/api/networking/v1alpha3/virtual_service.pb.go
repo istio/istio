@@ -3261,9 +3261,9 @@ func (m *Destination) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Port.Size()))
-		n1, err1 := m.Port.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		n1, err := m.Port.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n1
 	}
@@ -3316,9 +3316,9 @@ func (m *HTTPRoute) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Redirect.Size()))
-		n2, err2 := m.Redirect.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		n2, err := m.Redirect.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n2
 	}
@@ -3326,9 +3326,9 @@ func (m *HTTPRoute) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Rewrite.Size()))
-		n3, err3 := m.Rewrite.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
+		n3, err := m.Rewrite.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n3
 	}
@@ -3346,9 +3346,9 @@ func (m *HTTPRoute) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Timeout.Size()))
-		n4, err4 := m.Timeout.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
+		n4, err := m.Timeout.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n4
 	}
@@ -3356,9 +3356,9 @@ func (m *HTTPRoute) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Retries.Size()))
-		n5, err5 := m.Retries.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
+		n5, err := m.Retries.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n5
 	}
@@ -3366,9 +3366,9 @@ func (m *HTTPRoute) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x42
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Fault.Size()))
-		n6, err6 := m.Fault.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
+		n6, err := m.Fault.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n6
 	}
@@ -3376,9 +3376,9 @@ func (m *HTTPRoute) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x4a
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Mirror.Size()))
-		n7, err7 := m.Mirror.MarshalTo(dAtA[i:])
-		if err7 != nil {
-			return 0, err7
+		n7, err := m.Mirror.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n7
 	}
@@ -3386,9 +3386,9 @@ func (m *HTTPRoute) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x52
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.CorsPolicy.Size()))
-		n8, err8 := m.CorsPolicy.MarshalTo(dAtA[i:])
-		if err8 != nil {
-			return 0, err8
+		n8, err := m.CorsPolicy.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n8
 	}
@@ -3479,9 +3479,9 @@ func (m *HTTPRoute) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Headers.Size()))
-		n9, err9 := m.Headers.MarshalTo(dAtA[i:])
-		if err9 != nil {
-			return 0, err9
+		n9, err := m.Headers.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n9
 	}
@@ -3510,9 +3510,9 @@ func (m *Headers) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Request.Size()))
-		n10, err10 := m.Request.MarshalTo(dAtA[i:])
-		if err10 != nil {
-			return 0, err10
+		n10, err := m.Request.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n10
 	}
@@ -3520,9 +3520,9 @@ func (m *Headers) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Response.Size()))
-		n11, err11 := m.Response.MarshalTo(dAtA[i:])
-		if err11 != nil {
-			return 0, err11
+		n11, err := m.Response.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n11
 	}
@@ -3711,9 +3711,9 @@ func (m *HTTPMatchRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Uri.Size()))
-		n12, err12 := m.Uri.MarshalTo(dAtA[i:])
-		if err12 != nil {
-			return 0, err12
+		n12, err := m.Uri.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n12
 	}
@@ -3721,9 +3721,9 @@ func (m *HTTPMatchRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Scheme.Size()))
-		n13, err13 := m.Scheme.MarshalTo(dAtA[i:])
-		if err13 != nil {
-			return 0, err13
+		n13, err := m.Scheme.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n13
 	}
@@ -3731,9 +3731,9 @@ func (m *HTTPMatchRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Method.Size()))
-		n14, err14 := m.Method.MarshalTo(dAtA[i:])
-		if err14 != nil {
-			return 0, err14
+		n14, err := m.Method.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n14
 	}
@@ -3741,9 +3741,9 @@ func (m *HTTPMatchRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Authority.Size()))
-		n15, err15 := m.Authority.MarshalTo(dAtA[i:])
-		if err15 != nil {
-			return 0, err15
+		n15, err := m.Authority.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n15
 	}
@@ -3767,9 +3767,9 @@ func (m *HTTPMatchRequest) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintVirtualService(dAtA, i, uint64(v.Size()))
-				n16, err16 := v.MarshalTo(dAtA[i:])
-				if err16 != nil {
-					return 0, err16
+				n16, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n16
 			}
@@ -3832,9 +3832,9 @@ func (m *HTTPMatchRequest) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintVirtualService(dAtA, i, uint64(v.Size()))
-				n17, err17 := v.MarshalTo(dAtA[i:])
-				if err17 != nil {
-					return 0, err17
+				n17, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n17
 			}
@@ -3875,9 +3875,9 @@ func (m *HTTPRouteDestination) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Destination.Size()))
-		n18, err18 := m.Destination.MarshalTo(dAtA[i:])
-		if err18 != nil {
-			return 0, err18
+		n18, err := m.Destination.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n18
 	}
@@ -3954,9 +3954,9 @@ func (m *HTTPRouteDestination) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Headers.Size()))
-		n19, err19 := m.Headers.MarshalTo(dAtA[i:])
-		if err19 != nil {
-			return 0, err19
+		n19, err := m.Headers.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n19
 	}
@@ -3985,9 +3985,9 @@ func (m *RouteDestination) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Destination.Size()))
-		n20, err20 := m.Destination.MarshalTo(dAtA[i:])
-		if err20 != nil {
-			return 0, err20
+		n20, err := m.Destination.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n20
 	}
@@ -4262,9 +4262,9 @@ func (m *StringMatch) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.MatchType != nil {
-		nn21, err21 := m.MatchType.MarshalTo(dAtA[i:])
-		if err21 != nil {
-			return 0, err21
+		nn21, err := m.MatchType.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += nn21
 	}
@@ -4322,9 +4322,9 @@ func (m *HTTPRetry) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.PerTryTimeout.Size()))
-		n22, err22 := m.PerTryTimeout.MarshalTo(dAtA[i:])
-		if err22 != nil {
-			return 0, err22
+		n22, err := m.PerTryTimeout.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n22
 	}
@@ -4419,9 +4419,9 @@ func (m *CorsPolicy) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.MaxAge.Size()))
-		n23, err23 := m.MaxAge.MarshalTo(dAtA[i:])
-		if err23 != nil {
-			return 0, err23
+		n23, err := m.MaxAge.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n23
 	}
@@ -4429,9 +4429,9 @@ func (m *CorsPolicy) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.AllowCredentials.Size()))
-		n24, err24 := m.AllowCredentials.MarshalTo(dAtA[i:])
-		if err24 != nil {
-			return 0, err24
+		n24, err := m.AllowCredentials.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n24
 	}
@@ -4460,9 +4460,9 @@ func (m *HTTPFaultInjection) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Delay.Size()))
-		n25, err25 := m.Delay.MarshalTo(dAtA[i:])
-		if err25 != nil {
-			return 0, err25
+		n25, err := m.Delay.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n25
 	}
@@ -4470,9 +4470,9 @@ func (m *HTTPFaultInjection) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Abort.Size()))
-		n26, err26 := m.Abort.MarshalTo(dAtA[i:])
-		if err26 != nil {
-			return 0, err26
+		n26, err := m.Abort.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n26
 	}
@@ -4503,9 +4503,9 @@ func (m *HTTPFaultInjection_Delay) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Percent))
 	}
 	if m.HttpDelayType != nil {
-		nn27, err27 := m.HttpDelayType.MarshalTo(dAtA[i:])
-		if err27 != nil {
-			return 0, err27
+		nn27, err := m.HttpDelayType.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += nn27
 	}
@@ -4513,9 +4513,9 @@ func (m *HTTPFaultInjection_Delay) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Percentage.Size()))
-		n28, err28 := m.Percentage.MarshalTo(dAtA[i:])
-		if err28 != nil {
-			return 0, err28
+		n28, err := m.Percentage.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n28
 	}
@@ -4531,9 +4531,9 @@ func (m *HTTPFaultInjection_Delay_FixedDelay) MarshalTo(dAtA []byte) (int, error
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.FixedDelay.Size()))
-		n29, err29 := m.FixedDelay.MarshalTo(dAtA[i:])
-		if err29 != nil {
-			return 0, err29
+		n29, err := m.FixedDelay.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n29
 	}
@@ -4545,9 +4545,9 @@ func (m *HTTPFaultInjection_Delay_ExponentialDelay) MarshalTo(dAtA []byte) (int,
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.ExponentialDelay.Size()))
-		n30, err30 := m.ExponentialDelay.MarshalTo(dAtA[i:])
-		if err30 != nil {
-			return 0, err30
+		n30, err := m.ExponentialDelay.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n30
 	}
@@ -4574,9 +4574,9 @@ func (m *HTTPFaultInjection_Abort) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Percent))
 	}
 	if m.ErrorType != nil {
-		nn31, err31 := m.ErrorType.MarshalTo(dAtA[i:])
-		if err31 != nil {
-			return 0, err31
+		nn31, err := m.ErrorType.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += nn31
 	}
@@ -4584,9 +4584,9 @@ func (m *HTTPFaultInjection_Abort) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Percentage.Size()))
-		n32, err32 := m.Percentage.MarshalTo(dAtA[i:])
-		if err32 != nil {
-			return 0, err32
+		n32, err := m.Percentage.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n32
 	}
@@ -4635,9 +4635,9 @@ func (m *PortSelector) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.Port != nil {
-		nn33, err33 := m.Port.MarshalTo(dAtA[i:])
-		if err33 != nil {
-			return 0, err33
+		nn33, err := m.Port.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += nn33
 	}

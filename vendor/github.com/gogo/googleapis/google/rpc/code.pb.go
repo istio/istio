@@ -3,11 +3,12 @@
 
 package rpc
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
-
-import strconv "strconv"
+import (
+	fmt "fmt"
+	proto "github.com/gogo/protobuf/proto"
+	math "math"
+	strconv "strconv"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -187,6 +188,7 @@ var Code_name = map[int32]string{
 	14: "UNAVAILABLE",
 	15: "DATA_LOSS",
 }
+
 var Code_value = map[string]int32{
 	"OK":                  0,
 	"CANCELLED":           1,
@@ -208,23 +210,16 @@ var Code_value = map[string]int32{
 }
 
 func (Code) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_code_29c527ae4b4f0e5d, []int{0}
+	return fileDescriptor_fe593a732623ccf0, []int{0}
 }
 
 func init() {
 	proto.RegisterEnum("google.rpc.Code", Code_name, Code_value)
 }
-func (x Code) String() string {
-	s, ok := Code_name[int32(x)]
-	if ok {
-		return s
-	}
-	return strconv.Itoa(int(x))
-}
 
-func init() { proto.RegisterFile("google/rpc/code.proto", fileDescriptor_code_29c527ae4b4f0e5d) }
+func init() { proto.RegisterFile("google/rpc/code.proto", fileDescriptor_fe593a732623ccf0) }
 
-var fileDescriptor_code_29c527ae4b4f0e5d = []byte{
+var fileDescriptor_fe593a732623ccf0 = []byte{
 	// 393 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x44, 0x91, 0x3d, 0x6e, 0x13, 0x41,
 	0x14, 0xc7, 0x3d, 0x76, 0x70, 0xe2, 0xf1, 0xd7, 0xcb, 0x84, 0x40, 0x37, 0x07, 0xa0, 0x70, 0x0a,
@@ -251,4 +246,12 @@ var fileDescriptor_code_29c527ae4b4f0e5d = []byte{
 	0x9f, 0x16, 0xff, 0xf3, 0x5f, 0x8e, 0x72, 0xf8, 0x65, 0xae, 0xa5, 0x14, 0xef, 0x06, 0xbb, 0x6d,
 	0xf3, 0xb5, 0x3f, 0x08, 0x65, 0xf1, 0x61, 0xf8, 0xb7, 0xaa, 0xd7, 0x7f, 0x02, 0x00, 0x00, 0xff,
 	0xff, 0x03, 0xd4, 0x27, 0xff, 0xc3, 0x01, 0x00, 0x00,
+}
+
+func (x Code) String() string {
+	s, ok := Code_name[int32(x)]
+	if ok {
+		return s
+	}
+	return strconv.Itoa(int(x))
 }
