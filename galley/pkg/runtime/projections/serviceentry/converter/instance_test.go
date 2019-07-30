@@ -375,11 +375,11 @@ func TestServicePorts(t *testing.T) {
 		proto coreV1.Protocol
 		out   config.Protocol
 	}{
-		{"", coreV1.ProtocolTCP, config.ProtocolTCP},
+		{"", coreV1.ProtocolTCP, config.ProtocolUnsupported},
 		{"http", coreV1.ProtocolTCP, config.ProtocolHTTP},
 		{"http-test", coreV1.ProtocolTCP, config.ProtocolHTTP},
 		{"http", coreV1.ProtocolUDP, config.ProtocolUDP},
-		{"httptest", coreV1.ProtocolTCP, config.ProtocolTCP},
+		{"httptest", coreV1.ProtocolTCP, config.ProtocolUnsupported},
 		{"https", coreV1.ProtocolTCP, config.ProtocolHTTPS},
 		{"https-test", coreV1.ProtocolTCP, config.ProtocolHTTPS},
 		{"http2", coreV1.ProtocolTCP, config.ProtocolHTTP2},

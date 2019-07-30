@@ -519,7 +519,7 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	// Here we manually create them for mocking purpose.
 	svc1Ips := []string{"128.0.0.2"}
 	svc2Ips := make([]string, 0)
-	portNames := []string{"test-port"}
+	portNames := []string{"tcp-port"}
 	createEndpoints(controller, "svc1", "nsA", portNames, svc1Ips, t)
 	createEndpoints(controller, "svc2", "nsA", portNames, svc2Ips, t)
 	for i := 0; i < 2; i++ {
