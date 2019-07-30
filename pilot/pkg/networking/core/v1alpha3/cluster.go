@@ -102,6 +102,8 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 			managementPorts = append(managementPorts, env.ManagementPorts(ip)...)
 		}
 		inboundClusters := configgen.buildInboundClusters(env, proxy, push, instances, managementPorts)
+		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
+		inboundClusters = append(inboundClusters, generateInboundPassthroughClusters(env)...)
 		inboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_INBOUND, proxy, push, inboundClusters)
 		clusters = append(clusters, outboundClusters...)
 		clusters = append(clusters, inboundClusters...)
@@ -416,6 +418,34 @@ func buildInboundLocalityLbEndpoints(bind string, port int) []endpoint.LocalityL
 		{
 			LbEndpoints: []endpoint.LbEndpoint{lbEndpoint},
 		},
+	}
+}
+
+func generateInboundPassthroughClusters(env *model.Environment) []*apiv2.Cluster {
+	inboundPassthroughClusterIpv4 := buildDefaultPassthroughCluster(env)
+	inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
+	inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
+		SourceAddress: core.SocketAddress{
+			Address: util.InboundPassthroughBindIpv4,
+			PortSpecifier: &core.SocketAddress_PortValue{
+				PortValue: uint32(0),
+			},
+		},
+	}
+
+	inboundPassthroughClusterIpv6 := buildDefaultPassthroughCluster(env)
+	inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
+	inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
+		SourceAddress: core.SocketAddress{
+			Address: util.InboundPassthroughBindIpv6,
+			PortSpecifier: &core.SocketAddress_PortValue{
+				PortValue: uint32(0),
+			},
+		},
+	}
+	return []*apiv2.Cluster{
+		inboundPassthroughClusterIpv4,
+		inboundPassthroughClusterIpv6,
 	}
 }
 
