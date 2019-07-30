@@ -580,29 +580,48 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 	for id, chain := range allChains {
 		var httpOpts *httpListenerOpts
 		var tcpNetworkFilters []listener.Filter
+		var filterChainMatch *listener.FilterChainMatch
 
 		switch pluginParams.ListenerProtocol {
 		case plugin.ListenerProtocolHTTP:
+			filterChainMatch = chain.FilterChainMatch
 			httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
 
 		case plugin.ListenerProtocolTCP:
+			filterChainMatch = chain.FilterChainMatch
 			tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Env, pluginParams.Node, pluginParams.ServiceInstance)
 
 		case plugin.ListenerProtocolAuto:
+			fcm := listener.FilterChainMatch{}
 			// Build filter chain options for listener configured with protocol sniffing
 			// Double the number of filter chains. Half of filter chains are used as http filter chain and half of them are used as tcp proxy
 			// id in [0, len(allChains)/2) are configured as http filter chain, [(len(allChains)/2, len(allChains)) are configured as tcp proxy
+			// If mTLS is enabled, there are four filter chains. The filter chain match should be
+			//  FCM 1: ALPN [istio, http/1.0, http/1.1, h2] Transport protocol: tls
+			//  FCM 2: ALPN [http/1.0, http/1.1, h2] Transport protocol: N/A
+			//  FCM 3: ALPN [istio] Transport protocol: N/A
+			//  FCM 4: ALPN [] Transport protocol: N/A
+			// If mTLS is disabled, there are two filter chains. The filter chaim match should be
+			//  FCM 1: ALPN [http/1.0, http/1.1, h2]
+			//  FCM 2: ALPN []
 			if id < len(allChains)/2 {
 				httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
 
-				if chain.FilterChainMatch == nil {
-					chain.FilterChainMatch = &listener.FilterChainMatch{}
+				if chain.FilterChainMatch != nil {
+					fcm = *chain.FilterChainMatch
 				}
 
-				chain.FilterChainMatch.ApplicationProtocols = append(chain.FilterChainMatch.ApplicationProtocols, ListenersALPNProtocols...)
-				chain.FilterChainMatch.ApplicationProtocols = append(chain.FilterChainMatch.ApplicationProtocols, "http/1.0")
+				fcm.ApplicationProtocols = append(fcm.ApplicationProtocols, ListenersALPNProtocols...)
+				fcm.ApplicationProtocols = append(fcm.ApplicationProtocols, "http/1.0")
+				filterChainMatch = &fcm
+
+				// Check mTLS filter chain
+				if filterChainMatch.ApplicationProtocols[0] == "istio" {
+					fcm.TransportProtocol = "tls"
+				}
 			} else {
 				tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Env, pluginParams.Node, pluginParams.ServiceInstance)
+				filterChainMatch = chain.FilterChainMatch
 			}
 
 		default:
@@ -615,7 +634,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 			httpOpts:        httpOpts,
 			networkFilters:  tcpNetworkFilters,
 			tlsContext:      chain.TLSContext,
-			match:           chain.FilterChainMatch,
+			match:           filterChainMatch,
 			listenerFilters: chain.ListenerFilters,
 		})
 	}
@@ -2065,7 +2084,7 @@ func mergeTCPFilterChains(incoming []listener.FilterChain, pluginParams *plugin.
 	return newFilterChains
 }
 
-func mergeFilterChains(httpFilterChain []listener.FilterChain, tcpFilterChain []listener.FilterChain) []listener.FilterChain {
+func mergeFilterChains(httpFilterChain, tcpFilterChain []listener.FilterChain) []listener.FilterChain {
 	var newFilterChan []listener.FilterChain
 	for _, fc := range httpFilterChain {
 		if fc.FilterChainMatch == nil {

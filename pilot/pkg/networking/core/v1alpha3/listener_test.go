@@ -135,12 +135,12 @@ var (
 
 func TestInboundListenerConfigProxy13(t *testing.T) {
 	for _, p := range []*model.Proxy{&proxy13, &proxy13HTTP10} {
-		testInboundListenerConfig(t, p,
-			buildService("test.com", wildcardIP, config.ProtocolHTTP, tnow))
-		testInboundListenerConfigWithoutServices(t, p)
-		testInboundListenerConfigWithSidecar(t, p,
-			buildService("test.com", wildcardIP, config.ProtocolHTTP, tnow))
-		testInboundListenerConfigWithSidecarWithoutServices(t, p)
+		//testInboundListenerConfig(t, p,
+		//	buildService("test.com", wildcardIP, config.ProtocolHTTP, tnow))
+		//testInboundListenerConfigWithoutServices(t, p)
+		//testInboundListenerConfigWithSidecar(t, p,
+		//	buildService("test.com", wildcardIP, config.ProtocolHTTP, tnow))
+		//testInboundListenerConfigWithSidecarWithoutServices(t, p)
 
 		testInboundListenerConfigV13(t, p,
 			buildService("test1.com", wildcardIP, config.ProtocolHTTP, tnow.Add(1*time.Second)),
