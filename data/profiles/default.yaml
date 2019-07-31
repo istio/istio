@@ -230,7 +230,6 @@ spec:
     enabled: true
     components:
       ingressGateway:
-        gateway:
           common:
             enabled: true
             namespace: istio-ingress
@@ -345,7 +344,6 @@ spec:
                   enabled: false
                   tls: false
       egressGateway:
-        gateway:
           common:
             enabled: false
             namespace: istio-egress
