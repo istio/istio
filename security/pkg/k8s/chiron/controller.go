@@ -15,6 +15,8 @@
 package chiron
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -234,11 +236,19 @@ func (wc *WebhookController) watchConfigChanges(mutatingWebhookChangedCh, stopCh
 	// TODO (lei-tang): add the implementation of this function.
 }
 
-func (wc *WebhookController) getCACert() []byte {
+func (wc *WebhookController) getCACert() ([]byte, error) {
 	wc.mutex.Lock()
 	cp := append([]byte(nil), wc.CACert...)
 	wc.mutex.Unlock()
-	return cp
+
+	block, _ := pem.Decode(cp)
+	if block == nil {
+		return nil, fmt.Errorf("invalid PEM encoded CA certificate")
+	}
+	if _, err := x509.ParseCertificate(block.Bytes); err != nil {
+		return nil, fmt.Errorf("invalid ca certificate (%v), parsing error: %v", string(cp), err)
+	}
+	return cp, nil
 }
 
 func (wc *WebhookController) setCACert(cert []byte) {
@@ -275,7 +285,7 @@ func (wc *WebhookController) checkAndCreateMutatingWebhook(host string, port int
 			log.Debugf("webhook controlller is stopped")
 			return
 		default:
-			log.Debugf("the webhook service is unreachable, check again later ...")
+			log.Debugf("the webhook service at (%v, %v) is unreachable, check again later ...", host, port)
 			time.Sleep(2 * time.Second)
 		}
 	}
@@ -289,6 +299,8 @@ func (wc *WebhookController) checkAndCreateMutatingWebhook(host string, port int
 			log.Errorf("error when creating or updating muatingwebhookconfiguration: %v", createErr)
 			return
 		}
+	} else {
+		log.Errorf("error when rebuilding mutatingwebhookconfiguration: %v", err)
 	}
 }
 
@@ -328,9 +340,13 @@ func (wc *WebhookController) monitorMutatingWebhookConfig(mutatingWebhookConfigN
 
 // Rebuild the mutatingwebhookconfiguratio and save for subsequent calls to createOrUpdateWebhookConfig.
 func (wc *WebhookController) rebuildMutatingWebhookConfig() error {
+	caCert, err := wc.getCACert()
+	if err != nil {
+		return err
+	}
 	// In the prototype, only one mutating webhook is rebuilt
 	webhookConfig, err := rebuildMutatingWebhookConfigHelper(
-		wc.getCACert(),
+		caCert,
 		wc.mutatingWebhookConfigFiles[0],
 		wc.mutatingWebhookConfigNames[0],
 	)
