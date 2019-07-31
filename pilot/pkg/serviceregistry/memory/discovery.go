@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -47,27 +48,27 @@ func MakeService(hostname config.Hostname, address string) *model.Service {
 			{
 				Name:     PortHTTPName,
 				Port:     80, // target port 80
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			}, {
 				Name:     "http-status",
 				Port:     81, // target port 1081
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			}, {
 				Name:     "custom",
 				Port:     90, // target port 1090
-				Protocol: config.ProtocolTCP,
+				Protocol: protocol.TCP,
 			}, {
 				Name:     "mongo",
 				Port:     100, // target port 1100
-				Protocol: config.ProtocolMongo,
+				Protocol: protocol.Mongo,
 			}, {
 				Name:     "redis",
 				Port:     110, // target port 1110
-				Protocol: config.ProtocolRedis,
+				Protocol: protocol.Redis,
 			}, {
 				Name:     "mysql",
 				Port:     120, // target port 1120
-				Protocol: config.ProtocolMySQL,
+				Protocol: protocol.MySQL,
 			},
 		},
 	}
@@ -83,7 +84,7 @@ func MakeExternalHTTPService(hostname config.Hostname, isMeshExternal bool, addr
 		Ports: []*model.Port{{
 			Name:     "http",
 			Port:     80,
-			Protocol: config.ProtocolHTTP,
+			Protocol: protocol.HTTP,
 		}},
 	}
 }
@@ -98,7 +99,7 @@ func MakeExternalHTTPSService(hostname config.Hostname, isMeshExternal bool, add
 		Ports: []*model.Port{{
 			Name:     "https",
 			Port:     443,
-			Protocol: config.ProtocolHTTPS,
+			Protocol: protocol.HTTPS,
 		}},
 	}
 }
@@ -245,11 +246,11 @@ func (sd *ServiceDiscovery) ManagementPorts(addr string) model.PortList {
 	return model.PortList{{
 		Name:     "http",
 		Port:     3333,
-		Protocol: config.ProtocolHTTP,
+		Protocol: protocol.HTTP,
 	}, {
 		Name:     "custom",
 		Port:     9999,
-		Protocol: config.ProtocolTCP,
+		Protocol: protocol.TCP,
 	}}
 }
 

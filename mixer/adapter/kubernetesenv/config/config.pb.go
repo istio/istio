@@ -166,9 +166,9 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0x12
 	i++
 	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.CacheRefreshDuration)))
-	n1, err1 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.CacheRefreshDuration, dAtA[i:])
-	if err1 != nil {
-		return 0, err1
+	n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.CacheRefreshDuration, dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n1
 	if len(m.ClusterRegistriesNamespace) > 0 {
@@ -227,7 +227,7 @@ func (this *Params) String() string {
 	}
 	s := strings.Join([]string{`&Params{`,
 		`KubeconfigPath:` + fmt.Sprintf("%v", this.KubeconfigPath) + `,`,
-		`CacheRefreshDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.CacheRefreshDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`CacheRefreshDuration:` + strings.Replace(strings.Replace(this.CacheRefreshDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`ClusterRegistriesNamespace:` + fmt.Sprintf("%v", this.ClusterRegistriesNamespace) + `,`,
 		`}`,
 	}, "")

@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 const (
@@ -77,7 +78,7 @@ func getDefaultCircuitBreakerThresholds(direction model.TrafficDirection) *v2Clu
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
 // Cluster type based on resolution
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
-func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) ([]*apiv2.Cluster, error) {
+func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) []*apiv2.Cluster {
 	clusters := make([]*apiv2.Cluster, 0)
 	instances := proxy.ServiceInstances
 
@@ -101,6 +102,8 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 			managementPorts = append(managementPorts, env.ManagementPorts(ip)...)
 		}
 		inboundClusters := configgen.buildInboundClusters(env, proxy, push, instances, managementPorts)
+		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
+		inboundClusters = append(inboundClusters, generateInboundPassthroughClusters(env)...)
 		inboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_INBOUND, proxy, push, inboundClusters)
 		clusters = append(clusters, outboundClusters...)
 		clusters = append(clusters, inboundClusters...)
@@ -115,7 +118,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 
 	clusters = normalizeClusters(push, proxy, clusters)
 
-	return clusters, nil
+	return clusters
 }
 
 // resolves cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.
@@ -148,7 +151,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	for _, service := range push.Services(proxy) {
 		destRule := push.DestinationRule(proxy, service)
 		for _, port := range service.Ports {
-			if port.Protocol == config.ProtocolUDP {
+			if port.Protocol == protocol.UDP {
 				continue
 			}
 			inputParams.Service = service
@@ -183,7 +186,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 				applyTrafficPolicy(opts)
 				defaultCluster.Metadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
 				for _, subset := range destinationRule.Subsets {
-					inputParams.Subset = subset.Name
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 					defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 
@@ -253,7 +255,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 	for _, service := range push.Services(proxy) {
 		destRule := push.DestinationRule(proxy, service)
 		for _, port := range service.Ports {
-			if port.Protocol == config.ProtocolUDP {
+			if port.Protocol == protocol.UDP {
 				continue
 			}
 			lbEndpoints := buildLocalityLbEndpoints(env, networkView, service, port.Port, nil)
@@ -418,6 +420,34 @@ func buildInboundLocalityLbEndpoints(bind string, port int) []endpoint.LocalityL
 	}
 }
 
+func generateInboundPassthroughClusters(env *model.Environment) []*apiv2.Cluster {
+	inboundPassthroughClusterIpv4 := buildDefaultPassthroughCluster(env)
+	inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
+	inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
+		SourceAddress: core.SocketAddress{
+			Address: util.InboundPassthroughBindIpv4,
+			PortSpecifier: &core.SocketAddress_PortValue{
+				PortValue: uint32(0),
+			},
+		},
+	}
+
+	inboundPassthroughClusterIpv6 := buildDefaultPassthroughCluster(env)
+	inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
+	inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
+		SourceAddress: core.SocketAddress{
+			Address: util.InboundPassthroughBindIpv6,
+			PortSpecifier: &core.SocketAddress_PortValue{
+				PortValue: uint32(0),
+			},
+		},
+	}
+	return []*apiv2.Cluster{
+		inboundPassthroughClusterIpv4,
+		inboundPassthroughClusterIpv6,
+	}
+}
+
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environment, proxy *model.Proxy,
 	push *model.PushContext, instances []*model.ServiceInstance, managementPorts []*model.Port) []*apiv2.Cluster {
 
@@ -476,7 +506,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			// as inbound|portNumber|portName|Hostname
 			listenPort := &model.Port{
 				Port:     int(ingressListener.Port.Number),
-				Protocol: config.ParseProtocol(ingressListener.Port.Protocol),
+				Protocol: protocol.Parse(ingressListener.Port.Protocol),
 				Name:     ingressListener.Port.Name,
 			}
 
@@ -888,7 +918,7 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 	}
 
 	// Redis protocol must be defaulted with MAGLEV to benefit from client side sharding.
-	if features.EnableRedisFilter.Get() && port != nil && port.Protocol == config.ProtocolRedis {
+	if features.EnableRedisFilter.Get() && port != nil && port.Protocol == protocol.Redis {
 		cluster.LbPolicy = apiv2.Cluster_MAGLEV
 		return
 	}

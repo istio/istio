@@ -295,9 +295,9 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0x12
 	i++
 	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.MinDeduplicationDuration)))
-	n1, err1 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.MinDeduplicationDuration, dAtA[i:])
-	if err1 != nil {
-		return 0, err1
+	n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.MinDeduplicationDuration, dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n1
 	return i, nil
@@ -332,9 +332,9 @@ func (m *Params_Quota) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0x1a
 	i++
 	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)))
-	n2, err2 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
-	if err2 != nil {
-		return 0, err2
+	n2, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n2
 	if len(m.Overrides) > 0 {
@@ -392,9 +392,9 @@ func (m *Params_Override) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0x1a
 	i++
 	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)))
-	n3, err3 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
-	if err3 != nil {
-		return 0, err3
+	n3, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n3
 	return i, nil
@@ -489,14 +489,9 @@ func (this *Params) String() string {
 	if this == nil {
 		return "nil"
 	}
-	repeatedStringForQuotas := "[]Params_Quota{"
-	for _, f := range this.Quotas {
-		repeatedStringForQuotas += fmt.Sprintf("%v", f) + ","
-	}
-	repeatedStringForQuotas += "}"
 	s := strings.Join([]string{`&Params{`,
-		`Quotas:` + repeatedStringForQuotas + `,`,
-		`MinDeduplicationDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.MinDeduplicationDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`Quotas:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Quotas), "Params_Quota", "Params_Quota", 1), `&`, ``, 1) + `,`,
+		`MinDeduplicationDuration:` + strings.Replace(strings.Replace(this.MinDeduplicationDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -505,16 +500,11 @@ func (this *Params_Quota) String() string {
 	if this == nil {
 		return "nil"
 	}
-	repeatedStringForOverrides := "[]Params_Override{"
-	for _, f := range this.Overrides {
-		repeatedStringForOverrides += fmt.Sprintf("%v", f) + ","
-	}
-	repeatedStringForOverrides += "}"
 	s := strings.Join([]string{`&Params_Quota{`,
 		`Name:` + fmt.Sprintf("%v", this.Name) + `,`,
 		`MaxAmount:` + fmt.Sprintf("%v", this.MaxAmount) + `,`,
-		`ValidDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.ValidDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
-		`Overrides:` + repeatedStringForOverrides + `,`,
+		`ValidDuration:` + strings.Replace(strings.Replace(this.ValidDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`Overrides:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Overrides), "Params_Override", "Params_Override", 1), `&`, ``, 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -536,7 +526,7 @@ func (this *Params_Override) String() string {
 	s := strings.Join([]string{`&Params_Override{`,
 		`Dimensions:` + mapStringForDimensions + `,`,
 		`MaxAmount:` + fmt.Sprintf("%v", this.MaxAmount) + `,`,
-		`ValidDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.ValidDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`ValidDuration:` + strings.Replace(strings.Replace(this.ValidDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`}`,
 	}, "")
 	return s

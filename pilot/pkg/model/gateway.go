@@ -22,6 +22,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 // MergedGateway describes a set of gateways for a workload merged into a single logical gateway.
@@ -90,7 +91,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 			sanitizeServerHostNamespace(s, gatewayConfig.Namespace)
 			gatewayNameForServer[s] = gatewayName
 			log.Debugf("MergeGateways: gateway %q processing server %v", gatewayName, s.Hosts)
-			protocol := config.ParseProtocol(s.Port.Protocol)
+			p := protocol.Parse(s.Port.Protocol)
 
 			if s.Tls != nil {
 				// Envoy will reject config that has multiple filter chain matches with the same matching rules
@@ -113,11 +114,11 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 				//    for each server (as each server ends up as a separate http connection manager due to filter chain match
 				// 3. No for everything else.
 
-				if p, exists := plaintextServers[s.Port.Number]; exists {
-					currentProto := config.ParseProtocol(p[0].Port.Protocol)
-					if currentProto != protocol || !protocol.IsHTTP() {
+				if server, exists := plaintextServers[s.Port.Number]; exists {
+					currentProto := protocol.Parse(server[0].Port.Protocol)
+					if currentProto != p || !p.IsHTTP() {
 						log.Debugf("skipping server on gateway %s port %s.%d.%s: conflict with existing server %s.%d.%s",
-							gatewayConfig.Name, s.Port.Name, s.Port.Number, s.Port.Protocol, p[0].Port.Name, p[0].Port.Number, p[0].Port.Protocol)
+							gatewayConfig.Name, s.Port.Name, s.Port.Number, s.Port.Protocol, server[0].Port.Name, server[0].Port.Number, server[0].Port.Protocol)
 						recordRejectedConfig(gatewayName)
 						continue
 					}
@@ -245,12 +246,12 @@ func checkDuplicates(hosts []string, knownHosts map[string]struct{}) []string {
 // different ports, the optimization (one RDS instead of two) could quickly become useless the moment the set of
 // hosts on the two servers start differing -- necessitating the need for two different RDS routes.
 func gatewayRDSRouteName(server *networking.Server, cfg Config) string {
-	protocol := config.ParseProtocol(server.Port.Protocol)
-	if protocol.IsHTTP() {
+	p := protocol.Parse(server.Port.Protocol)
+	if p.IsHTTP() {
 		return fmt.Sprintf("http.%d", server.Port.Number)
 	}
 
-	if protocol == config.ProtocolHTTPS && server.Tls != nil && !config.IsPassThroughServer(server) {
+	if p == protocol.HTTPS && server.Tls != nil && !config.IsPassThroughServer(server) {
 		return fmt.Sprintf("https.%d.%s.%s.%s",
 			server.Port.Number, server.Port.Name, cfg.Name, cfg.Namespace)
 	}

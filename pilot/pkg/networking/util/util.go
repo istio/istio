@@ -51,12 +51,16 @@ const (
 	// PassthroughRouteName is the name of the route that forwards traffic to the
 	// PassthroughCluster
 	PassthroughRouteName = "allow_any"
+
+	// Inbound pass through cluster need to the bind the loopback ip address for the security and loop avoidance.
+	InboundPassthroughClusterIpv4 = "InboundPassthroughClusterIpv4"
+	InboundPassthroughClusterIpv6 = "InboundPassthroughClusterIpv6"
+	// 6 is the magical number for inbound: 15006, 127.0.0.6, ::6
+	InboundPassthroughBindIpv4 = "127.0.0.6"
+	InboundPassthroughBindIpv6 = "::6"
+
 	// SniClusterFilter is the name of the sni_cluster envoy filter
 	SniClusterFilter = "envoy.filters.network.sni_cluster"
-	// NoProxyLocality represents the locality associated with a proxy that doesn't have locality settings
-	// since all our localities are in region/zone/subzone format, the empty locality will be of form
-	// '///'
-	NoProxyLocality = "///"
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
 	IstioMetadataKey = "istio"

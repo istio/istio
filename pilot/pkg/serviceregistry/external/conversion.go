@@ -21,13 +21,14 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 func convertPort(port *networking.Port) *model.Port {
 	return &model.Port{
 		Name:     port.Name,
 		Port:     int(port.Number),
-		Protocol: config.ParseProtocol(port.Protocol),
+		Protocol: protocol.Parse(port.Protocol),
 	}
 }
 
