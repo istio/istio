@@ -1902,21 +1902,6 @@ spec:
       mode: DISABLE
 
 ---
-
----
-# Authentication policy to enable permissive mode for all services (that have sidecar) in the mesh.
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "MeshPolicy"
-metadata:
-  name: "default"
-  namespace: istio-system
-  labels:
-    release: istio-system-istio-discovery
-spec:
-  peers:
-  - mtls:
-      mode: PERMISSIVE
----
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -1930,11 +1915,8 @@ spec:
     tls:
       mode: DISABLE
 
-
-
 ---
 # Source: istio-discovery/templates/autoscale.yaml
-
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
