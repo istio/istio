@@ -6,15 +6,13 @@ package envoy_service_tap_v2alpha
 import (
 	context "context"
 	fmt "fmt"
-	io "io"
-	math "math"
-
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	v2alpha "github.com/envoyproxy/go-control-plane/envoy/data/tap/v2alpha"
 	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	proto "github.com/gogo/protobuf/proto"
 	grpc "google.golang.org/grpc"
-
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	v2alpha "github.com/envoyproxy/go-control-plane/envoy/data/tap/v2alpha"
+	io "io"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.

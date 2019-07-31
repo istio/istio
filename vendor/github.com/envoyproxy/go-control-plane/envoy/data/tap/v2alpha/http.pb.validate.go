@@ -41,32 +41,22 @@ func (m *HttpBufferedTrace) Validate() error {
 		return nil
 	}
 
-	{
-		tmp := m.GetRequest()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return HttpBufferedTraceValidationError{
-					field:  "Request",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetRequest()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpBufferedTraceValidationError{
+				field:  "Request",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
-	{
-		tmp := m.GetResponse()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return HttpBufferedTraceValidationError{
-					field:  "Response",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetResponse()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpBufferedTraceValidationError{
+				field:  "Response",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -144,102 +134,72 @@ func (m *HttpStreamedTraceSegment) Validate() error {
 
 	case *HttpStreamedTraceSegment_RequestHeaders:
 
-		{
-			tmp := m.GetRequestHeaders()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return HttpStreamedTraceSegmentValidationError{
-						field:  "RequestHeaders",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetRequestHeaders()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpStreamedTraceSegmentValidationError{
+					field:  "RequestHeaders",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *HttpStreamedTraceSegment_RequestBodyChunk:
 
-		{
-			tmp := m.GetRequestBodyChunk()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return HttpStreamedTraceSegmentValidationError{
-						field:  "RequestBodyChunk",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetRequestBodyChunk()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpStreamedTraceSegmentValidationError{
+					field:  "RequestBodyChunk",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *HttpStreamedTraceSegment_RequestTrailers:
 
-		{
-			tmp := m.GetRequestTrailers()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return HttpStreamedTraceSegmentValidationError{
-						field:  "RequestTrailers",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetRequestTrailers()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpStreamedTraceSegmentValidationError{
+					field:  "RequestTrailers",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *HttpStreamedTraceSegment_ResponseHeaders:
 
-		{
-			tmp := m.GetResponseHeaders()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return HttpStreamedTraceSegmentValidationError{
-						field:  "ResponseHeaders",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetResponseHeaders()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpStreamedTraceSegmentValidationError{
+					field:  "ResponseHeaders",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *HttpStreamedTraceSegment_ResponseBodyChunk:
 
-		{
-			tmp := m.GetResponseBodyChunk()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return HttpStreamedTraceSegmentValidationError{
-						field:  "ResponseBodyChunk",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetResponseBodyChunk()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpStreamedTraceSegmentValidationError{
+					field:  "ResponseBodyChunk",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *HttpStreamedTraceSegment_ResponseTrailers:
 
-		{
-			tmp := m.GetResponseTrailers()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return HttpStreamedTraceSegmentValidationError{
-						field:  "ResponseTrailers",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetResponseTrailers()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpStreamedTraceSegmentValidationError{
+					field:  "ResponseTrailers",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -316,34 +276,24 @@ func (m *HttpBufferedTrace_Message) Validate() error {
 	for idx, item := range m.GetHeaders() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return HttpBufferedTrace_MessageValidationError{
-						field:  fmt.Sprintf("Headers[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpBufferedTrace_MessageValidationError{
+					field:  fmt.Sprintf("Headers[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	}
 
-	{
-		tmp := m.GetBody()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return HttpBufferedTrace_MessageValidationError{
-					field:  "Body",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetBody()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpBufferedTrace_MessageValidationError{
+				field:  "Body",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -351,17 +301,12 @@ func (m *HttpBufferedTrace_Message) Validate() error {
 	for idx, item := range m.GetTrailers() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return HttpBufferedTrace_MessageValidationError{
-						field:  fmt.Sprintf("Trailers[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpBufferedTrace_MessageValidationError{
+					field:  fmt.Sprintf("Trailers[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}

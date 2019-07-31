@@ -103,7 +103,7 @@ func doFilterChainListOperation(proxy *model.Proxy, patchContext networking.Envo
 		if fc.Filters == nil {
 			continue
 		}
-		doFilterChainOperation(proxy, patchContext, patches, listener, &listener.FilterChains[i], &filterChainsRemoved)
+		doFilterChainOperation(proxy, patchContext, patches, listener, listener.FilterChains[i], &filterChainsRemoved)
 	}
 	for _, cp := range patches[networking.EnvoyFilter_FILTER_CHAIN] {
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
@@ -111,11 +111,11 @@ func doFilterChainListOperation(proxy *model.Proxy, patchContext networking.Envo
 				!listenerMatch(listener, cp) {
 				continue
 			}
-			listener.FilterChains = append(listener.FilterChains, *cp.Value.(*xdslistener.FilterChain))
+			listener.FilterChains = append(listener.FilterChains, cp.Value.(*xdslistener.FilterChain))
 		}
 	}
 	if filterChainsRemoved {
-		tempArray := make([]xdslistener.FilterChain, 0, len(listener.FilterChains))
+		tempArray := make([]*xdslistener.FilterChain, 0, len(listener.FilterChains))
 		for _, fc := range listener.FilterChains {
 			if fc.Filters != nil {
 				tempArray = append(tempArray, fc)
@@ -155,7 +155,7 @@ func doNetworkFilterListOperation(proxy *model.Proxy, patchContext networking.En
 		if filter.Name == "" {
 			continue
 		}
-		doNetworkFilterOperation(proxy, patchContext, patches, listener, fc, &fc.Filters[i], &networkFiltersRemoved)
+		doNetworkFilterOperation(proxy, patchContext, patches, listener, fc, fc.Filters[i], &networkFiltersRemoved)
 	}
 	for _, cp := range patches[networking.EnvoyFilter_NETWORK_FILTER] {
 		if !commonConditionMatch(proxy, patchContext, cp) ||
@@ -165,17 +165,17 @@ func doNetworkFilterListOperation(proxy *model.Proxy, patchContext networking.En
 		}
 
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
-			fc.Filters = append(fc.Filters, *cp.Value.(*xdslistener.Filter))
+			fc.Filters = append(fc.Filters, cp.Value.(*xdslistener.Filter))
 		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
 			// Insert after without a filter match is same as ADD in the end
 			if !hasNetworkFilterMatch(cp) {
-				fc.Filters = append(fc.Filters, *cp.Value.(*xdslistener.Filter))
+				fc.Filters = append(fc.Filters, cp.Value.(*xdslistener.Filter))
 				continue
 			}
 			// find the matching filter first
 			insertPosition := -1
 			for i := 0; i < len(fc.Filters); i++ {
-				if networkFilterMatch(&fc.Filters[i], cp) {
+				if networkFilterMatch(fc.Filters[i], cp) {
 					insertPosition = i + 1
 					break
 				}
@@ -185,21 +185,21 @@ func doNetworkFilterListOperation(proxy *model.Proxy, patchContext networking.En
 				continue
 			}
 
-			fc.Filters = append(fc.Filters, *cp.Value.(*xdslistener.Filter))
+			fc.Filters = append(fc.Filters, cp.Value.(*xdslistener.Filter))
 			if insertPosition < len(fc.Filters)-1 {
 				copy(fc.Filters[insertPosition+1:], fc.Filters[insertPosition:])
-				fc.Filters[insertPosition] = *cp.Value.(*xdslistener.Filter)
+				fc.Filters[insertPosition] = cp.Value.(*xdslistener.Filter)
 			}
 		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
 			// insert before without a filter match is same as insert in the beginning
 			if !hasNetworkFilterMatch(cp) {
-				fc.Filters = append([]xdslistener.Filter{*cp.Value.(*xdslistener.Filter)}, fc.Filters...)
+				fc.Filters = append([]*xdslistener.Filter{cp.Value.(*xdslistener.Filter)}, fc.Filters...)
 				continue
 			}
 			// find the matching filter first
 			insertPosition := -1
 			for i := 0; i < len(fc.Filters); i++ {
-				if networkFilterMatch(&fc.Filters[i], cp) {
+				if networkFilterMatch(fc.Filters[i], cp) {
 					insertPosition = i
 					break
 				}
@@ -208,13 +208,13 @@ func doNetworkFilterListOperation(proxy *model.Proxy, patchContext networking.En
 			if insertPosition == -1 {
 				continue
 			}
-			fc.Filters = append(fc.Filters, *cp.Value.(*xdslistener.Filter))
+			fc.Filters = append(fc.Filters, cp.Value.(*xdslistener.Filter))
 			copy(fc.Filters[insertPosition+1:], fc.Filters[insertPosition:])
-			fc.Filters[insertPosition] = *cp.Value.(*xdslistener.Filter)
+			fc.Filters[insertPosition] = cp.Value.(*xdslistener.Filter)
 		}
 	}
 	if networkFiltersRemoved {
-		tempArray := make([]xdslistener.Filter, 0, len(fc.Filters))
+		tempArray := make([]*xdslistener.Filter, 0, len(fc.Filters))
 		for _, filter := range fc.Filters {
 			if filter.Name != "" {
 				tempArray = append(tempArray, filter)

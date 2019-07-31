@@ -64,7 +64,7 @@ type VirtualHostWrapper struct {
 	VirtualServiceHosts []string
 
 	// Routes in the virtual host
-	Routes []route.Route
+	Routes []*route.Route
 }
 
 // BuildSidecarVirtualHostsFromConfigAndRegistry creates virtual hosts from
@@ -110,7 +110,7 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 				out = append(out, VirtualHostWrapper{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
-					Routes:   []route.Route{*BuildDefaultHTTPOutboundRoute(cluster, traceOperation)},
+					Routes:   []*route.Route{BuildDefaultHTTPOutboundRoute(cluster, traceOperation)},
 				})
 			}
 		}
@@ -240,25 +240,25 @@ func BuildHTTPRoutesForVirtualService(
 	serviceRegistry map[config.Hostname]*model.Service,
 	listenPort int,
 	proxyLabels config.LabelsCollection,
-	gatewayNames map[string]bool) ([]route.Route, error) {
+	gatewayNames map[string]bool) ([]*route.Route, error) {
 
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
 	}
 
-	out := make([]route.Route, 0, len(vs.Http))
+	out := make([]*route.Route, 0, len(vs.Http))
 allroutes:
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
 			if r := translateRoute(push, node, http, nil, listenPort, virtualService, serviceRegistry, proxyLabels, gatewayNames); r != nil {
-				out = append(out, *r)
+				out = append(out, r)
 			}
 			break allroutes // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
 			for _, match := range http.Match {
 				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, proxyLabels, gatewayNames); r != nil {
-					out = append(out, *r)
+					out = append(out, r)
 					rType, _ := getEnvoyRouteTypeAndVal(r)
 					if rType == envoyCatchAll {
 						// We have a catch all route. No point building other routes, with match conditions
@@ -363,8 +363,8 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		if in.Timeout != nil {
 			d := util.GogoDurationToDuration(in.Timeout)
 			// timeout
-			action.Timeout = &d
-			action.MaxGrpcTimeout = &d
+			action.Timeout = d
+			action.MaxGrpcTimeout = d
 		} else {
 			// if no timeout is specified, disable timeouts. This is easier
 			// to reason about than assuming some defaults.
@@ -527,8 +527,8 @@ func translateAppendHeaders(headers map[string]string, appendFlag bool) []*core.
 }
 
 // translateRouteMatch translates match condition
-func translateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
-	out := route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
+func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
+	out := &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
 	if in == nil {
 		return out
 	}
@@ -742,7 +742,7 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 		case *networking.HTTPFaultInjection_Delay_FixedDelay:
 			delayDuration := util.GogoDurationToDuration(d.FixedDelay)
 			out.Delay.FaultDelaySecifier = &xdsfault.FaultDelay_FixedDelay{
-				FixedDelay: &delayDuration,
+				FixedDelay: delayDuration,
 			}
 		default:
 			log.Warnf("Exponential faults are not yet supported")
@@ -910,12 +910,12 @@ func getEnvoyRouteTypeAndVal(r *route.Route) (envoyRouteType, string) {
 // the relative order of other routes in the concatenated route.
 // Assumes that the virtual services that generated first and second are ordered by
 // time.
-func CombineVHostRoutes(first []route.Route, second []route.Route) []route.Route {
-	allroutes := make([]route.Route, 0, len(first)+len(second))
-	catchAllRoutes := make([]route.Route, 0)
+func CombineVHostRoutes(first []*route.Route, second []*route.Route) []*route.Route {
+	allroutes := make([]*route.Route, 0, len(first)+len(second))
+	catchAllRoutes := make([]*route.Route, 0)
 
 	for _, f := range first {
-		rType, _ := getEnvoyRouteTypeAndVal(&f)
+		rType, _ := getEnvoyRouteTypeAndVal(f)
 		switch rType {
 		case envoyCatchAll:
 			catchAllRoutes = append(catchAllRoutes, f)
@@ -925,7 +925,7 @@ func CombineVHostRoutes(first []route.Route, second []route.Route) []route.Route
 	}
 
 	for _, s := range second {
-		rType, _ := getEnvoyRouteTypeAndVal(&s)
+		rType, _ := getEnvoyRouteTypeAndVal(s)
 		switch rType {
 		case envoyCatchAll:
 			catchAllRoutes = append(catchAllRoutes, s)

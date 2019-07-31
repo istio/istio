@@ -59,7 +59,7 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 	// networks and examines the returned filtered endpoints
 	tests := []struct {
 		name      string
-		endpoints []endpoint.LocalityLbEndpoints
+		endpoints []*endpoint.LocalityLbEndpoints
 		conn      *XdsConnection
 		env       *model.Environment
 		want      []LocLbEpInfo
@@ -230,7 +230,7 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 	// networks and examines the returned filtered endpoints
 	tests := []struct {
 		name      string
-		endpoints []endpoint.LocalityLbEndpoints
+		endpoints []*endpoint.LocalityLbEndpoints
 		conn      *XdsConnection
 		env       *model.Environment
 		want      []LocLbEpInfo
@@ -416,9 +416,9 @@ func environment() *model.Environment {
 
 // testEndpoints creates endpoints to be handed to the filter. It creates
 // 2 endpoints on network1, 1 endpoint on network2 and 1 endpoint on network4.
-func testEndpoints() []endpoint.LocalityLbEndpoints {
+func testEndpoints() []*endpoint.LocalityLbEndpoints {
 	lbEndpoints := createLbEndpoints(
-		[]LbEpInfo{
+		[]*LbEpInfo{
 			{network: "network1", address: "10.0.0.1"},
 			{network: "network1", address: "10.0.0.2"},
 			{network: "network2", address: "20.0.0.1"},
@@ -426,7 +426,7 @@ func testEndpoints() []endpoint.LocalityLbEndpoints {
 		},
 	)
 
-	return []endpoint.LocalityLbEndpoints{
+	return []*endpoint.LocalityLbEndpoints{
 		{
 			LbEndpoints: lbEndpoints,
 			LoadBalancingWeight: &types.UInt32Value{
@@ -436,8 +436,8 @@ func testEndpoints() []endpoint.LocalityLbEndpoints {
 	}
 }
 
-func createLbEndpoints(lbEpsInfo []LbEpInfo) []endpoint.LbEndpoint {
-	lbEndpoints := make([]endpoint.LbEndpoint, len(lbEpsInfo))
+func createLbEndpoints(lbEpsInfo []*LbEpInfo) []*endpoint.LbEndpoint {
+	lbEndpoints := make([]*endpoint.LbEndpoint, len(lbEpsInfo))
 	for j, lbEpInfo := range lbEpsInfo {
 		lbEp := endpoint.LbEndpoint{
 			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
@@ -470,7 +470,7 @@ func createLbEndpoints(lbEpsInfo []LbEpInfo) []endpoint.LbEndpoint {
 				},
 			},
 		}
-		lbEndpoints[j] = lbEp
+		lbEndpoints[j] = &lbEp
 	}
 
 	return lbEndpoints

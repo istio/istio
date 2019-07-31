@@ -386,7 +386,7 @@ func (a v1alpha1PolicyApplier) InboundFilterChain(sdsUdsPath string, sdsUseTrust
 			{
 				FilterChainMatch: alpnIstioMatch,
 				TLSContext:       tls,
-				ListenerFilters: []ldsv2.ListenerFilter{
+				ListenerFilters: []*ldsv2.ListenerFilter{
 					{
 						Name:       xdsutil.TlsInspector,
 						ConfigType: &ldsv2.ListenerFilter_Config{Config: &types.Struct{}},

@@ -115,7 +115,7 @@ spec:
 				func(resp *xdsapi.DiscoveryResponse) (b bool, e error) {
 					for _, r := range resp.Resources {
 						foo := &xdsapi.Listener{}
-						err := types.UnmarshalAny(&r, foo)
+						err := types.UnmarshalAny(r, foo)
 						result := verifyListener(foo, t)
 						if err == nil && result {
 							return true, nil

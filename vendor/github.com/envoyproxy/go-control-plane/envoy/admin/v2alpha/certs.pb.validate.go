@@ -44,17 +44,12 @@ func (m *Certificates) Validate() error {
 	for idx, item := range m.GetCertificates() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return CertificatesValidationError{
-						field:  fmt.Sprintf("Certificates[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return CertificatesValidationError{
+					field:  fmt.Sprintf("Certificates[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -129,17 +124,12 @@ func (m *Certificate) Validate() error {
 	for idx, item := range m.GetCaCert() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return CertificateValidationError{
-						field:  fmt.Sprintf("CaCert[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return CertificateValidationError{
+					field:  fmt.Sprintf("CaCert[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -149,17 +139,12 @@ func (m *Certificate) Validate() error {
 	for idx, item := range m.GetCertChain() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return CertificateValidationError{
-						field:  fmt.Sprintf("CertChain[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return CertificateValidationError{
+					field:  fmt.Sprintf("CertChain[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -238,17 +223,12 @@ func (m *CertificateDetails) Validate() error {
 	for idx, item := range m.GetSubjectAltNames() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return CertificateDetailsValidationError{
-						field:  fmt.Sprintf("SubjectAltNames[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return CertificateDetailsValidationError{
+					field:  fmt.Sprintf("SubjectAltNames[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -257,32 +237,22 @@ func (m *CertificateDetails) Validate() error {
 
 	// no validation rules for DaysUntilExpiration
 
-	{
-		tmp := m.GetValidFrom()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return CertificateDetailsValidationError{
-					field:  "ValidFrom",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetValidFrom()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CertificateDetailsValidationError{
+				field:  "ValidFrom",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
-	{
-		tmp := m.GetExpirationTime()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return CertificateDetailsValidationError{
-					field:  "ExpirationTime",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetExpirationTime()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CertificateDetailsValidationError{
+				field:  "ExpirationTime",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}

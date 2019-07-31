@@ -73,15 +73,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 	traceOperation := fmt.Sprintf("%s:%d/*", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(clusterName, traceOperation)
 
-	inboundVHost := route.VirtualHost{
+	inboundVHost := &route.VirtualHost{
 		Name:    fmt.Sprintf("%s|http|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),
 		Domains: []string{"*"},
-		Routes:  []route.Route{*defaultRoute},
+		Routes:  []*route.Route{defaultRoute},
 	}
 
 	r := &xdsapi.RouteConfiguration{
 		Name:             clusterName,
-		VirtualHosts:     []route.VirtualHost{inboundVHost},
+		VirtualHosts:     []*route.VirtualHost{inboundVHost},
 		ValidateClusters: proto.BoolFalse,
 	}
 
@@ -171,19 +171,19 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 
 	// Get list of virtual services bound to the mesh gateway
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap, proxyLabels, virtualServices, listenerPort)
-	vHostPortMap := make(map[int][]route.VirtualHost)
+	vHostPortMap := make(map[int][]*route.VirtualHost)
 	uniques := make(map[string]struct{})
 	for _, virtualHostWrapper := range virtualHostWrappers {
 		// If none of the routes matched by source, skip this virtual host
 		if len(virtualHostWrapper.Routes) == 0 {
 			continue
 		}
-		virtualHosts := make([]route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
+		virtualHosts := make([]*route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
 		for _, host := range virtualHostWrapper.VirtualServiceHosts {
 			name := fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port)
 			if _, found := uniques[name]; !found {
 				uniques[name] = struct{}{}
-				virtualHosts = append(virtualHosts, route.VirtualHost{
+				virtualHosts = append(virtualHosts, &route.VirtualHost{
 					Name:    name,
 					Domains: []string{host, fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port)},
 					Routes:  virtualHostWrapper.Routes,
@@ -198,7 +198,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 			name := fmt.Sprintf("%s:%d", svc.Hostname, virtualHostWrapper.Port)
 			if _, found := uniques[name]; !found {
 				uniques[name] = struct{}{}
-				virtualHosts = append(virtualHosts, route.VirtualHost{
+				virtualHosts = append(virtualHosts, &route.VirtualHost{
 					Name:    name,
 					Domains: generateVirtualHostDomains(svc, virtualHostWrapper.Port, node),
 					Routes:  virtualHostWrapper.Routes,
@@ -212,7 +212,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		vHostPortMap[virtualHostWrapper.Port] = append(vHostPortMap[virtualHostWrapper.Port], virtualHosts...)
 	}
 
-	var virtualHosts []route.VirtualHost
+	var virtualHosts []*route.VirtualHost
 	if listenerPort == 0 {
 		virtualHosts = mergeAllVirtualHosts(vHostPortMap)
 	} else {
@@ -224,12 +224,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	if features.EnableFallthroughRoute.Get() {
 		// This needs to be the last virtual host, as routes are evaluated in order.
 		if isAllowAnyOutbound(node) {
-			virtualHosts = append(virtualHosts, route.VirtualHost{
+			virtualHosts = append(virtualHosts, &route.VirtualHost{
 				Name:    util.PassthroughRouteName,
 				Domains: []string{"*"},
-				Routes: []route.Route{
+				Routes: []*route.Route{
 					{
-						Match: route.RouteMatch{
+						Match: &route.RouteMatch{
 							PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
 						},
 						Action: &route.Route_Route{
@@ -241,12 +241,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 				},
 			})
 		} else {
-			virtualHosts = append(virtualHosts, route.VirtualHost{
+			virtualHosts = append(virtualHosts, &route.VirtualHost{
 				Name:    util.BlackHoleRouteName,
 				Domains: []string{"*"},
-				Routes: []route.Route{
+				Routes: []*route.Route{
 					{
-						Match: route.RouteMatch{
+						Match: &route.RouteMatch{
 							PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
 						},
 						Action: &route.Route_DirectResponse{
@@ -347,8 +347,8 @@ func generateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 
 // mergeAllVirtualHosts across all ports. On routes for ports other than port 80,
 // virtual hosts without an explicit port suffix (IP:PORT) should not be added
-func mergeAllVirtualHosts(vHostPortMap map[int][]route.VirtualHost) []route.VirtualHost {
-	var virtualHosts []route.VirtualHost
+func mergeAllVirtualHosts(vHostPortMap map[int][]*route.VirtualHost) []*route.VirtualHost {
+	var virtualHosts []*route.VirtualHost
 	for p, vhosts := range vHostPortMap {
 		if p == 80 {
 			virtualHosts = append(virtualHosts, vhosts...)

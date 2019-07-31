@@ -195,7 +195,7 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarID string, 
 		var match *endpoint.LbEndpoint
 		for _, ep := range lbEndpoints {
 			if ep.GetEndpoint().Address.GetSocketAddress().Address == addr {
-				match = &ep
+				match = ep
 				break
 			}
 		}
