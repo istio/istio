@@ -674,8 +674,12 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 	return "", nil
 }
 
-func routeDestinationMatchesSvc(route envoy_api_route.Route, svc v1.Service) bool {
-	// Is there mixer configuration to use this service as a destination?
+// routeDestinationMatchesSvc determines if there ismixer configuration to use this service as a destination
+func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service) bool {
+	if route == nil {
+		return false
+	}
+
 	mixer, ok := route.PerFilterConfig["mixer"]
 	if ok {
 		svcName, svcNamespace, err := getMixerDestinationSvc(mixer)
