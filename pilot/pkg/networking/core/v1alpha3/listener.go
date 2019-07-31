@@ -107,10 +107,6 @@ const (
 	// ProxyInboundListenPort is the port on which all inbound traffic to the pod/vm will be captured to
 	// TODO: allow configuration through mesh config
 	ProxyInboundListenPort = 15006
-
-	httpFilterName = "envoy.http_connection_manager"
-
-	tcpFilterName = "envoy.tcp_proxy"
 )
 
 var (
@@ -647,7 +643,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 	l := buildListener(listenerOpts)
 	mutable := &plugin.MutableObjects{
 		Listener:     l,
-		FilterChains: getPluginFilterChain(l),
+		FilterChains: getPluginFilterChain(listenerOpts),
 	}
 	for _, p := range configgen.Plugins {
 		if err := p.OnInboundListener(pluginParams, mutable); err != nil {
@@ -1275,7 +1271,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 	mutable := &plugin.MutableObjects{
 		Listener:     l,
-		FilterChains: getPluginFilterChain(l),
+		FilterChains: getPluginFilterChain(listenerOpts),
 	}
 
 	for _, p := range configgen.Plugins {
@@ -2101,22 +2097,14 @@ func mergeFilterChains(httpFilterChain, tcpFilterChain []listener.FilterChain) [
 	return append(newFilterChan, tcpFilterChain...)
 }
 
-func getPluginFilterChain(l *xdsapi.Listener) []plugin.FilterChain {
-	filterChain := make([]plugin.FilterChain, len(l.FilterChains))
+func getPluginFilterChain(opts buildListenerOpts) []plugin.FilterChain {
+	filterChain := make([]plugin.FilterChain, len(opts.filterChainOpts))
 
 	for id := range filterChain {
-		filterChain[id].ListenerProtocol = plugin.ListenerProtocolUnknown
-
-		for _, filter := range l.FilterChains[id].Filters {
-			if filter.Name == httpFilterName {
-				filterChain[id].ListenerProtocol = plugin.ListenerProtocolHTTP
-				break
-			}
-
-			if filter.Name == tcpFilterName {
-				filterChain[id].ListenerProtocol = plugin.ListenerProtocolTCP
-				break
-			}
+		if opts.filterChainOpts[id].httpOpts == nil {
+			filterChain[id].ListenerProtocol = plugin.ListenerProtocolTCP
+		} else {
+			filterChain[id].ListenerProtocol = plugin.ListenerProtocolHTTP
 		}
 	}
 
