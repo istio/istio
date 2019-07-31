@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -121,7 +122,7 @@ var _builtinGetGo = []byte(`// Copyright 2019 Istio Authors
 // limitations under the License.
 
 // Embed the core metadata file containing the collections as a resource
-//go:generate go-bindata --nocompress --nometadata --pkg builtin -o builtin.gen.go testdata/
+//go:generate $GOPATH/src/istio.io/istio/scripts/run_gobindata.sh --nocompress --nometadata --pkg builtin -o builtin.gen.go testdata/
 
 package builtin
 
@@ -871,12 +872,12 @@ func AssetNames() []string {
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
 	"builtin/endpoints.yaml": builtinEndpointsYaml,
-	"builtin/get.go": builtinGetGo,
-	"builtin/ingress.yaml": builtinIngressYaml,
+	"builtin/get.go":         builtinGetGo,
+	"builtin/ingress.yaml":   builtinIngressYaml,
 	"builtin/namespace.yaml": builtinNamespaceYaml,
-	"builtin/node.yaml": builtinNodeYaml,
-	"builtin/pod.yaml": builtinPodYaml,
-	"builtin/service.yaml": builtinServiceYaml,
+	"builtin/node.yaml":      builtinNodeYaml,
+	"builtin/pod.yaml":       builtinPodYaml,
+	"builtin/service.yaml":   builtinServiceYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -918,15 +919,16 @@ type bintree struct {
 	Func     func() (*asset, error)
 	Children map[string]*bintree
 }
+
 var _bintree = &bintree{nil, map[string]*bintree{
 	"builtin": &bintree{nil, map[string]*bintree{
 		"endpoints.yaml": &bintree{builtinEndpointsYaml, map[string]*bintree{}},
-		"get.go": &bintree{builtinGetGo, map[string]*bintree{}},
-		"ingress.yaml": &bintree{builtinIngressYaml, map[string]*bintree{}},
+		"get.go":         &bintree{builtinGetGo, map[string]*bintree{}},
+		"ingress.yaml":   &bintree{builtinIngressYaml, map[string]*bintree{}},
 		"namespace.yaml": &bintree{builtinNamespaceYaml, map[string]*bintree{}},
-		"node.yaml": &bintree{builtinNodeYaml, map[string]*bintree{}},
-		"pod.yaml": &bintree{builtinPodYaml, map[string]*bintree{}},
-		"service.yaml": &bintree{builtinServiceYaml, map[string]*bintree{}},
+		"node.yaml":      &bintree{builtinNodeYaml, map[string]*bintree{}},
+		"pod.yaml":       &bintree{builtinPodYaml, map[string]*bintree{}},
+		"service.yaml":   &bintree{builtinServiceYaml, map[string]*bintree{}},
 	}},
 }}
 
@@ -976,4 +978,3 @@ func _filePath(dir, name string) string {
 	cannonicalName := strings.Replace(name, "\\", "/", -1)
 	return filepath.Join(append([]string{dir}, strings.Split(cannonicalName, "/")...)...)
 }
-

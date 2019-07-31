@@ -25,7 +25,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -35,12 +35,16 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/pkg/log"
 )
 
-func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
-	builder := NewListenerBuilder(node)
+func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
+	env *model.Environment,
+	node *model.Proxy,
+	push *model.PushContext,
+	builder *ListenerBuilder) *ListenerBuilder {
 	// collect workload labels
 	workloadInstances := node.ServiceInstances
 
@@ -72,9 +76,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			bindToPort: true,
 		}
 
-		protocol := config.ParseProtocol(servers[0].Port.Protocol)
-		listenerProtocol := plugin.ModelProtocolToListenerProtocol(protocol)
-		if protocol.IsHTTP() {
+		p := protocol.Parse(servers[0].Port.Protocol)
+		listenerProtocol := plugin.ModelProtocolToListenerProtocol(p)
+		if p.IsHTTP() {
 			// We have a list of HTTP servers on this port. Build a single listener for the server port.
 			// We only need to look at the first server in the list as the merge logic
 			// ensures that all servers are of same type.
@@ -138,13 +142,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_GATEWAY,
 			Env:                        env,
 			Node:                       node,
-			ProxyInstances:             workloadInstances,
 			Push:                       push,
 			ServiceInstance:            si,
 			Port: &model.Port{
 				Name:     servers[0].Port.Name,
 				Port:     int(portNumber),
-				Protocol: protocol,
+				Protocol: p,
 			},
 		}
 		for _, p := range configgen.Plugins {
@@ -327,7 +330,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	node *model.Proxy, server *networking.Server, routeName string) *filterChainOpts {
 
-	serverProto := config.ParseProtocol(server.Port.Protocol)
+	serverProto := protocol.Parse(server.Port.Protocol)
 
 	httpProtoOpts := &core.Http1ProtocolOptions{}
 
@@ -407,7 +410,7 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 
 	tls := &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
-			AlpnProtocols: ListenersALPNProtocols,
+			AlpnProtocols: util.ALPNHttp,
 		},
 	}
 
@@ -557,7 +560,7 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 	port := &model.Port{
 		Name:     server.Port.Name,
 		Port:     int(server.Port.Number),
-		Protocol: config.ParseProtocol(server.Port.Protocol),
+		Protocol: protocol.Parse(server.Port.Protocol),
 	}
 
 	gatewayServerHosts := make(map[config.Hostname]bool, len(server.Hosts))
@@ -599,7 +602,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 	port := &model.Port{
 		Name:     server.Port.Name,
 		Port:     int(server.Port.Number),
-		Protocol: config.ParseProtocol(server.Port.Protocol),
+		Protocol: protocol.Parse(server.Port.Protocol),
 	}
 
 	gatewayServerHosts := make(map[config.Hostname]bool, len(server.Hosts))

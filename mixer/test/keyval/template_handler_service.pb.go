@@ -411,9 +411,9 @@ func (m *HandleKeyvalRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.Instance.Size()))
-		n1, err1 := m.Instance.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		n1, err := m.Instance.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n1
 	}
@@ -421,9 +421,9 @@ func (m *HandleKeyvalRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.AdapterConfig.Size()))
-		n2, err2 := m.AdapterConfig.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		n2, err := m.AdapterConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n2
 	}
@@ -455,9 +455,9 @@ func (m *HandleKeyvalResponse) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.Result.Size()))
-		n3, err3 := m.Result.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
+		n3, err := m.Result.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n3
 	}
@@ -465,9 +465,9 @@ func (m *HandleKeyvalResponse) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.Output.Size()))
-		n4, err4 := m.Output.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
+		n4, err := m.Output.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n4
 	}
@@ -695,7 +695,7 @@ func (this *HandleKeyvalRequest) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&HandleKeyvalRequest{`,
-		`Instance:` + strings.Replace(this.Instance.String(), "InstanceMsg", "InstanceMsg", 1) + `,`,
+		`Instance:` + strings.Replace(fmt.Sprintf("%v", this.Instance), "InstanceMsg", "InstanceMsg", 1) + `,`,
 		`AdapterConfig:` + strings.Replace(fmt.Sprintf("%v", this.AdapterConfig), "Any", "types.Any", 1) + `,`,
 		`DedupId:` + fmt.Sprintf("%v", this.DedupId) + `,`,
 		`}`,
@@ -708,7 +708,7 @@ func (this *HandleKeyvalResponse) String() string {
 	}
 	s := strings.Join([]string{`&HandleKeyvalResponse{`,
 		`Result:` + strings.Replace(fmt.Sprintf("%v", this.Result), "CheckResult", "v1beta1.CheckResult", 1) + `,`,
-		`Output:` + strings.Replace(this.Output.String(), "OutputMsg", "OutputMsg", 1) + `,`,
+		`Output:` + strings.Replace(fmt.Sprintf("%v", this.Output), "OutputMsg", "OutputMsg", 1) + `,`,
 		`}`,
 	}, "")
 	return s

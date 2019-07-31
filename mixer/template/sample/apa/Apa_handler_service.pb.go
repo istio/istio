@@ -822,9 +822,9 @@ func (m *HandleMyApaRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Instance.Size()))
-		n1, err1 := m.Instance.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		n1, err := m.Instance.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n1
 	}
@@ -832,9 +832,9 @@ func (m *HandleMyApaRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.AdapterConfig.Size()))
-		n2, err2 := m.AdapterConfig.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		n2, err := m.AdapterConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n2
 	}
@@ -893,9 +893,9 @@ func (m *OutputMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.TimeStamp.Size()))
-		n3, err3 := m.TimeStamp.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
+		n3, err := m.TimeStamp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n3
 	}
@@ -903,9 +903,9 @@ func (m *OutputMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Duration.Size()))
-		n4, err4 := m.Duration.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
+		n4, err := m.Duration.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n4
 	}
@@ -913,9 +913,9 @@ func (m *OutputMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x52
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Email.Size()))
-		n5, err5 := m.Email.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
+		n5, err := m.Email.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n5
 	}
@@ -923,9 +923,9 @@ func (m *OutputMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5a
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.OutIp.Size()))
-		n6, err6 := m.OutIp.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
+		n6, err := m.OutIp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n6
 	}
@@ -1011,9 +1011,9 @@ func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.TimeStamp.Size()))
-		n7, err7 := m.TimeStamp.MarshalTo(dAtA[i:])
-		if err7 != nil {
-			return 0, err7
+		n7, err := m.TimeStamp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n7
 	}
@@ -1021,9 +1021,9 @@ func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Duration.Size()))
-		n8, err8 := m.Duration.MarshalTo(dAtA[i:])
-		if err8 != nil {
-			return 0, err8
+		n8, err := m.Duration.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n8
 	}
@@ -1047,9 +1047,9 @@ func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintApaHandlerService(dAtA, i, uint64(v.Size()))
-				n9, err9 := v.MarshalTo(dAtA[i:])
-				if err9 != nil {
-					return 0, err9
+				n9, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n9
 			}
@@ -1059,9 +1059,9 @@ func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x4a
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.OptionalIP.Size()))
-		n10, err10 := m.OptionalIP.MarshalTo(dAtA[i:])
-		if err10 != nil {
-			return 0, err10
+		n10, err := m.OptionalIP.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n10
 	}
@@ -1069,9 +1069,9 @@ func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x52
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Email.Size()))
-		n11, err11 := m.Email.MarshalTo(dAtA[i:])
-		if err11 != nil {
-			return 0, err11
+		n11, err := m.Email.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n11
 	}
@@ -1117,9 +1117,9 @@ func (m *Resource1Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.ResRef2.Size()))
-		n12, err12 := m.ResRef2.MarshalTo(dAtA[i:])
-		if err12 != nil {
-			return 0, err12
+		n12, err := m.ResRef2.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n12
 	}
@@ -1127,9 +1127,9 @@ func (m *Resource1Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.SelfRefRes1.Size()))
-		n13, err13 := m.SelfRefRes1.MarshalTo(dAtA[i:])
-		if err13 != nil {
-			return 0, err13
+		n13, err := m.SelfRefRes1.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n13
 	}
@@ -1161,9 +1161,9 @@ func (m *Resource2Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Res3.Size()))
-		n14, err14 := m.Res3.MarshalTo(dAtA[i:])
-		if err14 != nil {
-			return 0, err14
+		n14, err := m.Res3.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n14
 	}
@@ -1187,9 +1187,9 @@ func (m *Resource2Msg) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintApaHandlerService(dAtA, i, uint64(v.Size()))
-				n15, err15 := v.MarshalTo(dAtA[i:])
-				if err15 != nil {
-					return 0, err15
+				n15, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n15
 			}
@@ -1260,9 +1260,9 @@ func (m *Resource3Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.TimeStamp.Size()))
-		n16, err16 := m.TimeStamp.MarshalTo(dAtA[i:])
-		if err16 != nil {
-			return 0, err16
+		n16, err := m.TimeStamp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n16
 	}
@@ -1270,9 +1270,9 @@ func (m *Resource3Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Duration.Size()))
-		n17, err17 := m.Duration.MarshalTo(dAtA[i:])
-		if err17 != nil {
-			return 0, err17
+		n17, err := m.Duration.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n17
 	}
@@ -1314,9 +1314,9 @@ func (m *Type) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintApaHandlerService(dAtA, i, uint64(v.Size()))
-				n18, err18 := v.MarshalTo(dAtA[i:])
-				if err18 != nil {
-					return 0, err18
+				n18, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n18
 			}
@@ -1344,9 +1344,9 @@ func (m *Resource1Type) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.ResRef2.Size()))
-		n19, err19 := m.ResRef2.MarshalTo(dAtA[i:])
-		if err19 != nil {
-			return 0, err19
+		n19, err := m.ResRef2.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n19
 	}
@@ -1354,9 +1354,9 @@ func (m *Resource1Type) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.SelfRefRes1.Size()))
-		n20, err20 := m.SelfRefRes1.MarshalTo(dAtA[i:])
-		if err20 != nil {
-			return 0, err20
+		n20, err := m.SelfRefRes1.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n20
 	}
@@ -1382,9 +1382,9 @@ func (m *Resource2Type) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Res3.Size()))
-		n21, err21 := m.Res3.MarshalTo(dAtA[i:])
-		if err21 != nil {
-			return 0, err21
+		n21, err := m.Res3.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n21
 	}
@@ -1408,9 +1408,9 @@ func (m *Resource2Type) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintApaHandlerService(dAtA, i, uint64(v.Size()))
-				n22, err22 := v.MarshalTo(dAtA[i:])
-				if err22 != nil {
-					return 0, err22
+				n22, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n22
 			}
@@ -1525,9 +1525,9 @@ func (m *InstanceParam) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintApaHandlerService(dAtA, i, uint64(v.Size()))
-				n23, err23 := v.MarshalTo(dAtA[i:])
-				if err23 != nil {
-					return 0, err23
+				n23, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n23
 			}
@@ -1598,9 +1598,9 @@ func (m *Resource1InstanceParam) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.ResRef2.Size()))
-		n24, err24 := m.ResRef2.MarshalTo(dAtA[i:])
-		if err24 != nil {
-			return 0, err24
+		n24, err := m.ResRef2.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n24
 	}
@@ -1608,9 +1608,9 @@ func (m *Resource1InstanceParam) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.SelfRefRes1.Size()))
-		n25, err25 := m.SelfRefRes1.MarshalTo(dAtA[i:])
-		if err25 != nil {
-			return 0, err25
+		n25, err := m.SelfRefRes1.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n25
 	}
@@ -1642,9 +1642,9 @@ func (m *Resource2InstanceParam) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Res3.Size()))
-		n26, err26 := m.Res3.MarshalTo(dAtA[i:])
-		if err26 != nil {
-			return 0, err26
+		n26, err := m.Res3.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n26
 	}
@@ -1668,9 +1668,9 @@ func (m *Resource2InstanceParam) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintApaHandlerService(dAtA, i, uint64(v.Size()))
-				n27, err27 := v.MarshalTo(dAtA[i:])
-				if err27 != nil {
-					return 0, err27
+				n27, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n27
 			}
@@ -2232,7 +2232,7 @@ func (this *HandleMyApaRequest) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&HandleMyApaRequest{`,
-		`Instance:` + strings.Replace(this.Instance.String(), "InstanceMsg", "InstanceMsg", 1) + `,`,
+		`Instance:` + strings.Replace(fmt.Sprintf("%v", this.Instance), "InstanceMsg", "InstanceMsg", 1) + `,`,
 		`AdapterConfig:` + strings.Replace(fmt.Sprintf("%v", this.AdapterConfig), "Any", "types.Any", 1) + `,`,
 		`DedupId:` + fmt.Sprintf("%v", this.DedupId) + `,`,
 		`}`,
@@ -2313,8 +2313,8 @@ func (this *Resource1Msg) String() string {
 	}
 	s := strings.Join([]string{`&Resource1Msg{`,
 		`Str:` + fmt.Sprintf("%v", this.Str) + `,`,
-		`ResRef2:` + strings.Replace(this.ResRef2.String(), "Resource2Msg", "Resource2Msg", 1) + `,`,
-		`SelfRefRes1:` + strings.Replace(this.SelfRefRes1.String(), "Resource1Msg", "Resource1Msg", 1) + `,`,
+		`ResRef2:` + strings.Replace(fmt.Sprintf("%v", this.ResRef2), "Resource2Msg", "Resource2Msg", 1) + `,`,
+		`SelfRefRes1:` + strings.Replace(fmt.Sprintf("%v", this.SelfRefRes1), "Resource1Msg", "Resource1Msg", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2335,7 +2335,7 @@ func (this *Resource2Msg) String() string {
 	mapStringForRes3Map += "}"
 	s := strings.Join([]string{`&Resource2Msg{`,
 		`Str:` + fmt.Sprintf("%v", this.Str) + `,`,
-		`Res3:` + strings.Replace(this.Res3.String(), "Resource3Msg", "Resource3Msg", 1) + `,`,
+		`Res3:` + strings.Replace(fmt.Sprintf("%v", this.Res3), "Resource3Msg", "Resource3Msg", 1) + `,`,
 		`Res3Map:` + mapStringForRes3Map + `,`,
 		`}`,
 	}, "")
@@ -2392,8 +2392,8 @@ func (this *Resource1Type) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&Resource1Type{`,
-		`ResRef2:` + strings.Replace(this.ResRef2.String(), "Resource2Type", "Resource2Type", 1) + `,`,
-		`SelfRefRes1:` + strings.Replace(this.SelfRefRes1.String(), "Resource1Type", "Resource1Type", 1) + `,`,
+		`ResRef2:` + strings.Replace(fmt.Sprintf("%v", this.ResRef2), "Resource2Type", "Resource2Type", 1) + `,`,
+		`SelfRefRes1:` + strings.Replace(fmt.Sprintf("%v", this.SelfRefRes1), "Resource1Type", "Resource1Type", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2413,7 +2413,7 @@ func (this *Resource2Type) String() string {
 	}
 	mapStringForRes3Map += "}"
 	s := strings.Join([]string{`&Resource2Type{`,
-		`Res3:` + strings.Replace(this.Res3.String(), "Resource3Type", "Resource3Type", 1) + `,`,
+		`Res3:` + strings.Replace(fmt.Sprintf("%v", this.Res3), "Resource3Type", "Resource3Type", 1) + `,`,
 		`Res3Map:` + mapStringForRes3Map + `,`,
 		`}`,
 	}, "")
@@ -2484,8 +2484,8 @@ func (this *Resource1InstanceParam) String() string {
 	}
 	s := strings.Join([]string{`&Resource1InstanceParam{`,
 		`Str:` + fmt.Sprintf("%v", this.Str) + `,`,
-		`ResRef2:` + strings.Replace(this.ResRef2.String(), "Resource2InstanceParam", "Resource2InstanceParam", 1) + `,`,
-		`SelfRefRes1:` + strings.Replace(this.SelfRefRes1.String(), "Resource1InstanceParam", "Resource1InstanceParam", 1) + `,`,
+		`ResRef2:` + strings.Replace(fmt.Sprintf("%v", this.ResRef2), "Resource2InstanceParam", "Resource2InstanceParam", 1) + `,`,
+		`SelfRefRes1:` + strings.Replace(fmt.Sprintf("%v", this.SelfRefRes1), "Resource1InstanceParam", "Resource1InstanceParam", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2506,7 +2506,7 @@ func (this *Resource2InstanceParam) String() string {
 	mapStringForRes3Map += "}"
 	s := strings.Join([]string{`&Resource2InstanceParam{`,
 		`Str:` + fmt.Sprintf("%v", this.Str) + `,`,
-		`Res3:` + strings.Replace(this.Res3.String(), "Resource3InstanceParam", "Resource3InstanceParam", 1) + `,`,
+		`Res3:` + strings.Replace(fmt.Sprintf("%v", this.Res3), "Resource3InstanceParam", "Resource3InstanceParam", 1) + `,`,
 		`Res3Map:` + mapStringForRes3Map + `,`,
 		`}`,
 	}, "")

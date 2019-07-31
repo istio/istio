@@ -968,15 +968,15 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0x1a
 	i++
 	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.PushInterval)))
-	n1, err1 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.PushInterval, dAtA[i:])
-	if err1 != nil {
-		return 0, err1
+	n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.PushInterval, dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n1
 	if m.Creds != nil {
-		nn2, err2 := m.Creds.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		nn2, err := m.Creds.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += nn2
 	}
@@ -1000,9 +1000,9 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintConfig(dAtA, i, uint64(v.Size()))
-				n3, err3 := v.MarshalTo(dAtA[i:])
-				if err3 != nil {
-					return 0, err3
+				n3, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n3
 			}
@@ -1028,9 +1028,9 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintConfig(dAtA, i, uint64(v.Size()))
-				n4, err4 := v.MarshalTo(dAtA[i:])
-				if err4 != nil {
-					return 0, err4
+				n4, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n4
 			}
@@ -1040,9 +1040,9 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x52
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.Trace.Size()))
-		n5, err5 := m.Trace.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
+		n5, err := m.Trace.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n5
 	}
@@ -1106,9 +1106,9 @@ func (m *Params_MetricInfo) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.Buckets.Size()))
-		n6, err6 := m.Buckets.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
+		n6, err := m.Buckets.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n6
 	}
@@ -1137,9 +1137,9 @@ func (m *Params_MetricInfo_BucketsDefinition) MarshalTo(dAtA []byte) (int, error
 	var l int
 	_ = l
 	if m.Definition != nil {
-		nn7, err7 := m.Definition.MarshalTo(dAtA[i:])
-		if err7 != nil {
-			return 0, err7
+		nn7, err := m.Definition.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += nn7
 	}
@@ -1152,9 +1152,9 @@ func (m *Params_MetricInfo_BucketsDefinition_LinearBuckets) MarshalTo(dAtA []byt
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.LinearBuckets.Size()))
-		n8, err8 := m.LinearBuckets.MarshalTo(dAtA[i:])
-		if err8 != nil {
-			return 0, err8
+		n8, err := m.LinearBuckets.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n8
 	}
@@ -1166,9 +1166,9 @@ func (m *Params_MetricInfo_BucketsDefinition_ExponentialBuckets) MarshalTo(dAtA 
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.ExponentialBuckets.Size()))
-		n9, err9 := m.ExponentialBuckets.MarshalTo(dAtA[i:])
-		if err9 != nil {
-			return 0, err9
+		n9, err := m.ExponentialBuckets.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n9
 	}
@@ -1180,9 +1180,9 @@ func (m *Params_MetricInfo_BucketsDefinition_ExplicitBuckets) MarshalTo(dAtA []b
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.ExplicitBuckets.Size()))
-		n10, err10 := m.ExplicitBuckets.MarshalTo(dAtA[i:])
-		if err10 != nil {
-			return 0, err10
+		n10, err := m.ExplicitBuckets.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n10
 	}
@@ -1326,9 +1326,9 @@ func (m *Params_LogInfo) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.HttpMapping.Size()))
-		n12, err12 := m.HttpMapping.MarshalTo(dAtA[i:])
-		if err12 != nil {
-			return 0, err12
+		n12, err := m.HttpMapping.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n12
 	}
@@ -1336,9 +1336,9 @@ func (m *Params_LogInfo) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.SinkInfo.Size()))
-		n13, err13 := m.SinkInfo.MarshalTo(dAtA[i:])
-		if err13 != nil {
-			return 0, err13
+		n13, err := m.SinkInfo.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n13
 	}
@@ -1893,7 +1893,7 @@ func (this *Params) String() string {
 	s := strings.Join([]string{`&Params{`,
 		`Endpoint:` + fmt.Sprintf("%v", this.Endpoint) + `,`,
 		`ProjectId:` + fmt.Sprintf("%v", this.ProjectId) + `,`,
-		`PushInterval:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.PushInterval), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`PushInterval:` + strings.Replace(strings.Replace(this.PushInterval.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`Creds:` + fmt.Sprintf("%v", this.Creds) + `,`,
 		`MetricInfo:` + mapStringForMetricInfo + `,`,
 		`LogInfo:` + mapStringForLogInfo + `,`,

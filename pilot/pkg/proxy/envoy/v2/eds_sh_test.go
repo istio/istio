@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
@@ -278,7 +279,7 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 				ServicePort: &model.Port{
 					Name:     "http-main",
 					Port:     1080,
-					Protocol: config.ProtocolHTTP,
+					Protocol: protocol.HTTP,
 				},
 				Network:  id,
 				Locality: "az",

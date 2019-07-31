@@ -28,7 +28,7 @@ import (
 	xdsUtil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -36,6 +36,7 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/pkg/log"
 )
 
@@ -359,12 +360,12 @@ func validateServer(server *networking.Server) (errs error) {
 
 	// If port is HTTPS or TLS, make sure that server has TLS options
 	if portErr == nil {
-		protocol := ParseProtocol(server.Port.Protocol)
-		if protocol.IsTLS() && server.Tls == nil {
+		p := protocol.Parse(server.Port.Protocol)
+		if p.IsTLS() && server.Tls == nil {
 			errs = appendErrors(errs, fmt.Errorf("server must have TLS settings for HTTPS/TLS protocols"))
-		} else if !protocol.IsTLS() && server.Tls != nil {
+		} else if !p.IsTLS() && server.Tls != nil {
 			// only tls redirect is allowed if this is a HTTP server
-			if protocol.IsHTTP() {
+			if p.IsHTTP() {
 				if !IsPassThroughServer(server) ||
 					server.Tls.CaCertificates != "" || server.Tls.PrivateKey != "" || server.Tls.ServerCertificate != "" {
 					errs = appendErrors(errs, fmt.Errorf("server cannot have TLS settings for plain text HTTP ports"))
@@ -381,7 +382,7 @@ func validateServerPort(port *networking.Port) (errs error) {
 	if port == nil {
 		return appendErrors(errs, fmt.Errorf("port is required"))
 	}
-	if ParseProtocol(port.Protocol) == ProtocolUnsupported {
+	if protocol.Parse(port.Protocol) == protocol.Unsupported {
 		errs = appendErrors(errs, fmt.Errorf("invalid protocol %q, supported protocols are HTTP, HTTP2, GRPC, MONGO, REDIS, MYSQL, TCP", port.Protocol))
 	}
 	if port.Number > 0 {
@@ -2417,8 +2418,8 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 	if serviceEntry.Resolution != networking.ServiceEntry_NONE && len(serviceEntry.Hosts) > 1 {
 		canDifferentiate := true
 		for _, port := range serviceEntry.Ports {
-			protocol := ParseProtocol(port.Protocol)
-			if !protocol.IsHTTP() && !protocol.IsTLS() {
+			p := protocol.Parse(port.Protocol)
+			if !p.IsHTTP() && !p.IsTLS() {
 				canDifferentiate = false
 				break
 			}
@@ -2447,9 +2448,9 @@ func validatePortName(name string) error {
 	return nil
 }
 
-func validateProtocol(protocol string) error {
-	if ParseProtocol(protocol) == ProtocolUnsupported {
-		return fmt.Errorf("unsupported protocol: %s", protocol)
+func validateProtocol(protocolStr string) error {
+	if protocol.Parse(protocolStr) == protocol.Unsupported {
+		return fmt.Errorf("unsupported protocol: %s", protocolStr)
 	}
 	return nil
 }
