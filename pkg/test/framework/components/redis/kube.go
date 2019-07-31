@@ -88,7 +88,7 @@ func newKube(ctx resource.Context) (Instance, error) {
 	}
 
 	yamlContent, err := tmpl.Evaluate(string(templateBytes), map[string]interface{}{
-		"DockerHub":       s.DockerHub,
+		"Hub":             s.Hub,
 		"ImagePullPolicy": s.PullPolicy,
 	})
 	if err != nil {
