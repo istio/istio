@@ -62,7 +62,7 @@ Each component in the new installer is optional. Users can install the component
 use the equivalent component in `istio-system`, configured with the official installer, or use a different
 version or implementation.
 
-For example you may use your own Prometheus and Graphana installs, or you may use a specialized/custom
+For example you may use your own Prometheus and Grafana installs, or you may use a specialized/custom
 certificate provisioning tool, or use components that are centrally managed and running in a different cluster.
 
 This is a work in progress - building on top of the multi-cluster installer.
@@ -83,7 +83,7 @@ Singleton:
 Multi-environment components:
 - `istio-control`: config, discovery, auto-inject. All impact the generated config including enforcement of policies
 and secure naming.
-- `istio-telemetry`: mixer, kiali, tracing providers, graphana, prometheus. Custom install of prometheus, graphana can
+- `istio-telemetry`: mixer, kiali, tracing providers, grafana, prometheus. Custom install of prometheus, grafana can
 be used instead in dedicated namespaces.
 - `istio-policy`
 - `istio-gateways` - production domains should be in a separate namespace, to restrict access. It is possible to
