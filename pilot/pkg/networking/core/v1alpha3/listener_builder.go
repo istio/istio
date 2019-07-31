@@ -130,9 +130,9 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 
 	tcpProxyFilter := newTCPProxyOutboundListenerFilter(env, node)
 
-	filterChains := []listener.FilterChain{
+	filterChains := []*listener.FilterChain{
 		{
-			Filters: []listener.Filter{*tcpProxyFilter},
+			Filters: []*listener.Filter{tcpProxyFilter},
 		},
 	}
 
@@ -145,15 +145,15 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		for _, ip := range node.IPAddresses {
 			cidrRanges = append(cidrRanges, util.ConvertAddressToCidr(ip))
 		}
-		blackhole := blackholeStructMarshalling
+		blackhole := &blackholeStructMarshalling
 		if util.IsXDSMarshalingToAnyEnabled(node) {
-			blackhole = blackholeAnyMarshalling
+			blackhole = &blackholeAnyMarshalling
 		}
-		filterChains = append([]listener.FilterChain{{
+		filterChains = append([]*listener.FilterChain{{
 			FilterChainMatch: &listener.FilterChainMatch{
 				PrefixRanges: cidrRanges,
 			},
-			Filters: []listener.Filter{blackhole},
+			Filters: []*listener.Filter{blackhole},
 		}}, filterChains...)
 	}
 
@@ -273,9 +273,9 @@ func newBlackholeFilter(enableAny bool) listener.Filter {
 	return filter
 }
 
-func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy) []listener.FilterChain {
+func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy) []*listener.FilterChain {
 	// ipv4 and ipv6
-	filterChains := make([]listener.FilterChain, 0, 2)
+	filterChains := make([]*listener.FilterChain, 0, 2)
 	for _, clusterName := range []string{util.InboundPassthroughClusterIpv4, util.InboundPassthroughClusterIpv6} {
 
 		tcpProxy := &tcp_proxy.TcpProxy{
@@ -297,7 +297,7 @@ func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy
 			},
 		}
 		setAccessLog(env, node, tcpProxy)
-		filter := listener.Filter{
+		filter := &listener.Filter{
 			Name: xdsutil.TCPProxy,
 		}
 
@@ -306,9 +306,9 @@ func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy
 		} else {
 			filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
 		}
-		filterChain := listener.FilterChain{
+		filterChain := &listener.FilterChain{
 			FilterChainMatch: &filterChainMatch,
-			Filters: []listener.Filter{
+			Filters: []*listener.Filter{
 				filter,
 			},
 		}

@@ -768,7 +768,7 @@ func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, services ..
 	return configgen.buildSidecarListeners(&env, &proxy, env.PushContext, builder).getListeners()
 }
 
-func getFilterConfig(filter listener.Filter, out proto.Message) error {
+func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 	switch c := filter.ConfigType.(type) {
 	case *listener.Filter_Config:
 		if err := util.StructToMessage(c.Config, out); err != nil {

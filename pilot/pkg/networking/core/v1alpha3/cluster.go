@@ -404,7 +404,7 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 	return util.LocalityLbWeightNormalize(localityLbEndpoints)
 }
 
-func buildInboundLocalityLbEndpoints(bind string, port int) []endpoint.LocalityLbEndpoints {
+func buildInboundLocalityLbEndpoints(bind string, port int) []*endpoint.LocalityLbEndpoints {
 	address := util.BuildAddress(bind, uint32(port))
 	lbEndpoint := &endpoint.LbEndpoint{
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
@@ -413,7 +413,7 @@ func buildInboundLocalityLbEndpoints(bind string, port int) []endpoint.LocalityL
 			},
 		},
 	}
-	return []endpoint.LocalityLbEndpoints{
+	return []*endpoint.LocalityLbEndpoints{
 		{
 			LbEndpoints: []*endpoint.LbEndpoint{lbEndpoint},
 		},
