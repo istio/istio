@@ -8,7 +8,7 @@ COPY mixs /usr/local/bin/
 # 1001 is chosen as the UID to be added to the istio group as this is the UID that mixs in the docker container runs as.
 RUN addgroup --system --gid 1001 istio && \
     adduser --system --uid 1001 --gid 1001 istio && \
-    chown -R 760 /usr/local/bin/mixs
+    chmod -R 760 /usr/local/bin/mixs
 
 # The following section is used as base image if BASE_DISTRIBUTION=default
 # No tag available https://hub.docker.com/_/scratch?tab=description
@@ -21,7 +21,6 @@ COPY --from=base_debug /usr/local/bin/mixs /usr/local/bin/
 USER istio
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
-# hadolint ignore=DL3007
 FROM gcr.io/distroless/static:nonroot as distroless
 COPY mixs /usr/local/bin/
 # This will build the final image based on either default or distroless from above
