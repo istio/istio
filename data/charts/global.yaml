@@ -28,6 +28,7 @@ global:
 
   policyNamespace: istio-policy
 
+  securityNamespace: istio-security
 
   ## End new settings
   ## After this line we have the old Istio settings.

@@ -62,3 +62,14 @@ metadata:
     istio-injection: disabled
 ---
 {{- end }}
+
+{{- if .Values.global.securityNamespace }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.global.securityNamespace }}
+  labels:
+    istio-operator-managed: Reconcile
+    istio-injection: disabled
+---
+{{- end }}
