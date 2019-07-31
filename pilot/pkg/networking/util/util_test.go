@@ -568,7 +568,7 @@ func BenchmarkGetByAddress(b *testing.B) {
 			listener80,
 			listener81,
 			listenerip,
-		}, listenerip.Address)
+		}, *listenerip.Address)
 	}
 }
 
@@ -576,7 +576,7 @@ func TestGetByAddress(t *testing.T) {
 	tests := []struct {
 		name      string
 		listeners []*v2.Listener
-		address   core.Address
+		address   *core.Address
 		expected  *v2.Listener
 	}{
 		{
@@ -607,7 +607,7 @@ func TestGetByAddress(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := GetByAddress(tt.listeners, tt.address)
+			got := GetByAddress(tt.listeners, *tt.address)
 			if got != tt.expected {
 				t.Errorf("Got %v, expected %v", got, tt.expected)
 			}
