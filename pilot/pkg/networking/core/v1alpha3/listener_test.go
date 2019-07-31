@@ -758,13 +758,14 @@ func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, services ..
 		return nil
 	}
 
+	proxy.ServiceInstances = nil
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
-
-	return configgen.buildSidecarListeners(&env, &proxy, env.PushContext).getListeners()
+	builder := NewListenerBuilder(&proxy)
+	return configgen.buildSidecarListeners(&env, &proxy, env.PushContext, builder).getListeners()
 }
 
 func getFilterConfig(filter listener.Filter, out proto.Message) error {
@@ -801,8 +802,9 @@ func buildOutboundListeners(p plugin.Plugin, sidecarConfig *model.Config,
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
+	proxy.ServiceInstances = proxyInstances
 
-	return configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext, proxyInstances)
+	return configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext)
 }
 
 func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *model.Config, services ...*model.Service) []*xdsapi.Listener {
@@ -818,12 +820,13 @@ func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *m
 			Endpoint: buildEndpoint(s),
 		}
 	}
+	proxy.ServiceInstances = instances
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
-	return configgen.buildSidecarInboundListeners(&env, proxy, env.PushContext, instances)
+	return configgen.buildSidecarInboundListeners(&env, proxy, env.PushContext)
 }
 
 type fakePlugin struct {

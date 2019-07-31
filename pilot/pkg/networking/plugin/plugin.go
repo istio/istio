@@ -78,8 +78,6 @@ type InputParams struct {
 	Env *model.Environment
 	// Node is the node the response is for.
 	Node *model.Proxy
-	// ProxyInstances is a slice of all proxy service instances in the mesh.
-	ProxyInstances []*model.ServiceInstance
 	// ServiceInstance is the service instance colocated with the listener (applies to sidecar).
 	ServiceInstance *model.ServiceInstance
 	// Service is the service colocated with the listener (applies to sidecar).
@@ -95,8 +93,6 @@ type InputParams struct {
 	// SidecarConfig holds the Sidecar CRD associated with this listener
 	SidecarConfig *model.Config
 
-	// The subset associated with the service for which the cluster is being programmed
-	Subset string
 	// Push holds stats and other information about the current push.
 	Push *model.PushContext
 }
