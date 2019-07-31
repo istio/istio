@@ -29,15 +29,15 @@ import (
 
 // ApplyListenerPatches applies patches to LDS output
 func ApplyListenerPatches(patchContext networking.EnvoyFilter_PatchContext,
-	proxy *model.Proxy, push *model.PushContext, listeners []*xdsapi.Listener, skipAdds bool) []*xdsapi.Listener {
+	proxy *model.Proxy, push *model.PushContext, listeners []*xdsapi.Listener) []*xdsapi.Listener {
 
 	envoyFilterWrappers := push.EnvoyFilters(proxy)
-	return doListenerListOperation(proxy, patchContext, envoyFilterWrappers, listeners, skipAdds)
+	return doListenerListOperation(proxy, patchContext, envoyFilterWrappers, listeners)
 }
 
 func doListenerListOperation(proxy *model.Proxy, patchContext networking.EnvoyFilter_PatchContext,
 	envoyFilterWrappers []*model.EnvoyFilterWrapper,
-	listeners []*xdsapi.Listener, skipAdds bool) []*xdsapi.Listener {
+	listeners []*xdsapi.Listener) []*xdsapi.Listener {
 	listenersRemoved := false
 	for _, efw := range envoyFilterWrappers {
 		// do all the changes for a single envoy filter crd object. [including adds]
@@ -50,10 +50,6 @@ func doListenerListOperation(proxy *model.Proxy, patchContext networking.EnvoyFi
 				continue
 			}
 			doListenerOperation(proxy, patchContext, efw.Patches, listener, &listenersRemoved)
-		}
-		// adds at listener level if enabled
-		if skipAdds {
-			continue
 		}
 		for _, cp := range efw.Patches[networking.EnvoyFilter_LISTENER] {
 			if cp.Operation == networking.EnvoyFilter_Patch_ADD {
