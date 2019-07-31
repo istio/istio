@@ -113,7 +113,7 @@ The following command generates the manifests and applies them in the correct de
 dependencies to have the needed CRDs available:
 
 ```bash
-mesh manifest install
+mesh manifest apply
 ```
 
 The default `dry-run=true` displays the manifest only. Set `dry-run=false` to apply the Istio configuration to Kubernetes.

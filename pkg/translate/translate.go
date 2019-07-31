@@ -99,6 +99,8 @@ var (
 
 				"TrafficManagement.Components.Proxy.Common.Values": {"global.proxy", nil},
 
+				"ConfigManagement.Components.Namespace": {"global.configNamespace", nil},
+
 				"Policy.PolicyCheckFailOpen":       {"global.policyCheckFailOpen", nil},
 				"Policy.OutboundTrafficPolicyMode": {"global.outboundTrafficPolicy.mode", nil},
 				"Policy.Components.Namespace":      {"global.policyNamespace", nil},
@@ -107,6 +109,7 @@ var (
 
 				"Security.ControlPlaneMtls.Value":    {"global.controlPlaneSecurityEnabled", nil},
 				"Security.DataPlaneMtlsStrict.Value": {"global.mtls.enabled", nil},
+				"Security.Components.Namespace":      {"global.securityNamespace", nil},
 			},
 			KubernetesMapping: map[string]*Translation{
 				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.Affinity":            {"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].affinity", nil},
