@@ -111,7 +111,6 @@ spec:
 
 ---
 # Source: redis/templates/redis-slave-deployment.yaml
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -147,7 +146,7 @@ spec:
       containers:
       - name: redis-release
         # Assumption we use the same registry for istio images and the bitnami images
-        image: {{ (split "/" .Hub)._0 }}/bitnami/redis:4.0.12
+        image: "{{ (split '/' .Hub)._0 }}/bitnami/redis:4.0.1"
         imagePullPolicy: "{{.ImagePullPolicy}}"
         command:
           - /run.sh
@@ -256,11 +255,10 @@ spec:
       serviceAccountName: "default"
       containers:
       - name: redis-release
-        image: "{{ (split "/" .Hub)._0 }}/bitnami/redis:4.0.12"
+        image: "{{ (split '/' .Hub)._0 }}/bitnami/redis:4.0.12"
         imagePullPolicy: "{{.ImagePullPolicy}}"
         command:
           - /run.sh
-          
         args:
         - "--port"
         - "$(REDIS_PORT)"
@@ -315,7 +313,7 @@ spec:
           mountPath: /opt/bitnami/redis/etc
       initContainers:
       - name: volume-permissions
-        image: "{{ (split "/" .Hub)._0 }}/bitnami/minideb:latest"
+        image: "{{ (split '/' .Hub)._0 }}/bitnami/minideb:latest"
         imagePullPolicy: "{{.ImagePullPolicy}}"
         command: ["/bin/chown", "-R", "1001:1001", "/data"]
         securityContext:
