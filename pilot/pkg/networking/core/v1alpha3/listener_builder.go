@@ -43,7 +43,6 @@ type ListenerBuilder struct {
 	gatewayListeners       []*xdsapi.Listener
 	inboundListeners       []*xdsapi.Listener
 	outboundListeners      []*xdsapi.Listener
-	managementListeners    []*xdsapi.Listener
 	virtualListener        *xdsapi.Listener
 	virtualInboundListener *xdsapi.Listener
 }
@@ -116,7 +115,7 @@ func (builder *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl,
 		} else {
 			// dedup management listeners as well
 			addresses[addressString] = m
-			builder.managementListeners = append(builder.managementListeners, m)
+			builder.inboundListeners = append(builder.inboundListeners, m)
 		}
 
 	}
@@ -204,25 +203,23 @@ func (builder *ListenerBuilder) patchListeners(push *model.PushContext) {
 		return
 	}
 
-	patchOneListener := func(listener *xdsapi.Listener) *xdsapi.Listener {
+	patchOneListener := func(listener *xdsapi.Listener, ctx networking.EnvoyFilter_PatchContext) *xdsapi.Listener {
 		if listener == nil {
 			return nil
 		}
 		tempArray := []*xdsapi.Listener{listener}
-		tempArray = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, builder.node, push, tempArray)
+		tempArray = envoyfilter.ApplyListenerPatches(ctx, builder.node, push, tempArray)
 		// temp array will either be empty [if virtual listener was removed] or will have a modified listener
 		if len(tempArray) == 0 {
 			return nil
 		}
 		return tempArray[0]
 	}
-	builder.virtualListener = patchOneListener(builder.virtualListener)
-	builder.virtualInboundListener = patchOneListener(builder.virtualInboundListener)
-	builder.managementListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, builder.node,
-		push, builder.managementListeners, true)
+	builder.virtualListener = patchOneListener(builder.virtualListener, networking.EnvoyFilter_SIDECAR_OUTBOUND)
+	builder.virtualInboundListener = patchOneListener(builder.virtualInboundListener, networking.EnvoyFilter_SIDECAR_INBOUND)
 	builder.inboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, builder.node,
 		push, builder.inboundListeners)
-	builder.outboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, builder.node,
+	builder.outboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, builder.node,
 		push, builder.outboundListeners)
 }
 
