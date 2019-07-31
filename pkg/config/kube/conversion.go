@@ -96,6 +96,5 @@ func ConvertProtocol(port int32, name string, proto coreV1.Protocol) config.Prot
 	if proto, has := wellKnownPorts[port]; has && out == config.ProtocolUnsupported {
 		out = proto
 	}
-
 	return out
 }
