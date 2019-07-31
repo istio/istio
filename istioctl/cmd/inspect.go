@@ -42,6 +42,7 @@ import (
 	envoy_v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 type myGogoValue struct {
@@ -231,7 +232,7 @@ func validatePort(port v1.ServicePort, pod *v1.Pod) []string {
 		}
 	}
 
-	if servicePortProtocol(port.Name) == config.ProtocolUnsupported {
+	if servicePortProtocol(port.Name) == protocol.Unsupported {
 		retval = append(retval,
 			fmt.Sprintf("%s is named %q which does not follow Istio conventions", port.TargetPort.String(), port.Name))
 	}
@@ -239,12 +240,12 @@ func validatePort(port v1.ServicePort, pod *v1.Pod) []string {
 	return retval
 }
 
-func servicePortProtocol(name string) config.Protocol {
+func servicePortProtocol(name string) protocol.Instance {
 	i := strings.IndexByte(name, '-')
 	if i >= 0 {
 		name = name[:i]
 	}
-	return config.ParseProtocol(name)
+	return protocol.Parse(name)
 }
 
 // Append ".svc.cluster.local" if it isn't already present
