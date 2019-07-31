@@ -55,24 +55,20 @@ func NewListenerBuilder(node *model.Proxy) *ListenerBuilder {
 	return builder
 }
 
-func (builder *ListenerBuilder) buildSidecarInboundListeners(
-	configgen *ConfigGeneratorImpl,
-	env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance) *ListenerBuilder {
-	builder.inboundListeners = configgen.buildSidecarInboundListeners(env, node, push, proxyInstances)
+func (builder *ListenerBuilder) buildSidecarInboundListeners(configgen *ConfigGeneratorImpl,
+	env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
+	builder.inboundListeners = configgen.buildSidecarInboundListeners(env, node, push)
 	return builder
 }
 
 func (builder *ListenerBuilder) buildSidecarOutboundListeners(configgen *ConfigGeneratorImpl,
-	env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance) *ListenerBuilder {
-	builder.outboundListeners = configgen.buildSidecarOutboundListeners(env, node, push, proxyInstances)
+	env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
+	builder.outboundListeners = configgen.buildSidecarOutboundListeners(env, node, push)
 	return builder
 }
 
 func (builder *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl,
-	env *model.Environment, node *model.Proxy, _ *model.PushContext,
-	_ []*model.ServiceInstance) *ListenerBuilder {
+	env *model.Environment, node *model.Proxy, _ *model.PushContext) *ListenerBuilder {
 
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
@@ -125,8 +121,7 @@ func (builder *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl,
 
 func (builder *ListenerBuilder) buildVirtualOutboundListener(
 	configgen *ConfigGeneratorImpl,
-	env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance) *ListenerBuilder {
+	env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
 
 	var isTransparentProxy *google_protobuf.BoolValue
 	if node.GetInterceptionMode() == model.InterceptionTproxy {
@@ -172,8 +167,7 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		UseOriginalDst: proto.BoolTrue,
 		FilterChains:   filterChains,
 	}
-	configgen.onVirtualOutboundListener(env, node, push, proxyInstances,
-		ipTablesListener)
+	configgen.onVirtualOutboundListener(env, node, push, ipTablesListener)
 	builder.virtualListener = ipTablesListener
 	return builder
 }

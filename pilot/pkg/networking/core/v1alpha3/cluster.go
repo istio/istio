@@ -78,7 +78,7 @@ func getDefaultCircuitBreakerThresholds(direction model.TrafficDirection) *v2Clu
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
 // Cluster type based on resolution
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
-func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) ([]*apiv2.Cluster, error) {
+func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) []*apiv2.Cluster {
 	clusters := make([]*apiv2.Cluster, 0)
 	instances := proxy.ServiceInstances
 
@@ -118,7 +118,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 
 	clusters = normalizeClusters(push, proxy, clusters)
 
-	return clusters, nil
+	return clusters
 }
 
 // resolves cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.
@@ -186,7 +186,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 				applyTrafficPolicy(opts)
 				defaultCluster.Metadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
 				for _, subset := range destinationRule.Subsets {
-					inputParams.Subset = subset.Name
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 					defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 
