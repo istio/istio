@@ -276,7 +276,6 @@ var (
 		ProxyStatusClusterNoInstances,
 		DuplicatedDomains,
 		DuplicatedSubsets,
-		totalVirtualServices,
 	}
 )
 
@@ -284,6 +283,7 @@ func init() {
 	for _, m := range metrics {
 		monitoring.MustRegisterViews(m)
 	}
+	monitoring.MustRegisterViews(totalVirtualServices)
 }
 
 // NewPushContext creates a new PushContext structure to track push status.
