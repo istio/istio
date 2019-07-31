@@ -235,11 +235,13 @@ docker.citadel-test: $(ISTIO_DOCKER)/istio_ca.crt
 docker.citadel-test: $(ISTIO_DOCKER)/istio_ca.key
 	$(DOCKER_RULE)
 
+docker.node-agent: BUILD_PRE=chmod 755 node_agent &&
 docker.node-agent: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.node-agent: security/docker/Dockerfile.node-agent
 docker.node-agent: $(ISTIO_DOCKER)/node_agent
 	$(DOCKER_RULE)
 
+docker.node-agent-k8s: BUILD_PRE=chmod 755 node_agent_k8s &&
 docker.node-agent-k8s: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.node-agent-k8s: security/docker/Dockerfile.node-agent-k8s
 docker.node-agent-k8s: $(ISTIO_DOCKER)/node_agent_k8s

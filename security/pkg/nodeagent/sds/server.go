@@ -20,6 +20,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"time"
 
 	"google.golang.org/grpc"
@@ -295,13 +296,13 @@ func (s *Server) initGatewaySdsService(options *Options) error {
 
 func setUpUds(udsPath string) (net.Listener, error) {
 	// Remove unix socket before use.
-	if err := os.Remove(udsPath); err != nil && !os.IsNotExist(err) {
-		// Anything other than "file not found" is an error.
-		sdsServiceLog.Errorf("Failed to remove unix://%s: %v", udsPath, err)
+	cmd := exec.Command("/bin/sh", "-c", "sudo rm -r "+udsPath)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		sdsServiceLog.Errorf("Command failed error: %v\n, output\n%v\n", err, string(out))
 		return nil, fmt.Errorf("failed to remove unix://%s", udsPath)
 	}
 
-	var err error
 	udsListener, err := net.Listen("unix", udsPath)
 	if err != nil {
 		sdsServiceLog.Errorf("Failed to listen on unix socket %q: %v", udsPath, err)
@@ -313,8 +314,11 @@ func setUpUds(udsPath string) (net.Listener, error) {
 		sdsServiceLog.Errorf("SDS uds file %q doesn't exist", udsPath)
 		return nil, fmt.Errorf("sds uds file %q doesn't exist", udsPath)
 	}
-	if err := os.Chmod(udsPath, 0666); err != nil {
-		sdsServiceLog.Errorf("Failed to update %q permission", udsPath)
+
+	cmd = exec.Command("/bin/sh", "-c", "chmod -R 666 "+udsPath)
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		sdsServiceLog.Errorf("Command failed error: %v\n, output\n%v\n", err, string(out))
 		return nil, fmt.Errorf("failed to update %q permission", udsPath)
 	}
 

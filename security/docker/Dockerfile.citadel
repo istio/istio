@@ -9,17 +9,17 @@ FROM docker.io/istio/base:${BASE_VERSION} as default
 
 # obtained from debian ca-certs deb using fetch_cacerts.sh
 ADD ca-certificates.tgz /
+COPY --from=base_debug /etc/passwd /etc/passwd
+COPY --from=base_debug /usr/local/bin/istio_ca /usr/local/bin/
+COPY --from=base_debug --chown=1001:1001 /tmp /tmp
+USER istio
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
-# hadolint ignore=DL3007
-FROM gcr.io/distroless/static:latest as distroless
+FROM gcr.io/distroless/static:nonroot as distroless
+COPY --from=base_debug /usr/local/bin/istio_ca /usr/local/bin/
 
 # This will build the final image based on either default or distroless from above
 # hadolint ignore=DL3006
 FROM ${BASE_DISTRIBUTION}
-
-# All containers need a /tmp directory
-WORKDIR /tmp/
-COPY istio_ca /usr/local/bin/istio_ca
 
 ENTRYPOINT [ "/usr/local/bin/istio_ca", "--self-signed-ca" ]
