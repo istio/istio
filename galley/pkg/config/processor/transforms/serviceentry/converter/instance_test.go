@@ -21,17 +21,18 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	coreV1 "k8s.io/api/core/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/api/annotation"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/annotations"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/converter"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
-
-	coreV1 "k8s.io/api/core/v1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -309,7 +310,7 @@ func TestClusterIPWithNoResolution(t *testing.T) {
 			}
 			expected := networking.ServiceEntry{
 				Hosts:      []string{hostForNamespace(namespace)},
-				Addresses:  []string{config.UnspecifiedIP},
+				Addresses:  []string{constants.UnspecifiedIP},
 				Resolution: networking.ServiceEntry_NONE,
 				Location:   networking.ServiceEntry_MESH_INTERNAL,
 				Ports:      []*networking.Port{},
@@ -355,7 +356,7 @@ func TestExternalService(t *testing.T) {
 	}
 	expected := networking.ServiceEntry{
 		Hosts:      []string{hostForNamespace(namespace)},
-		Addresses:  []string{config.UnspecifiedIP},
+		Addresses:  []string{constants.UnspecifiedIP},
 		Resolution: networking.ServiceEntry_DNS,
 		Location:   networking.ServiceEntry_MESH_EXTERNAL,
 		Ports: []*networking.Port{

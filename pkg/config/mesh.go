@@ -29,17 +29,19 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+
+	"istio.io/istio/pkg/config/constants"
 )
 
 // DefaultProxyConfig for individual proxies
 func DefaultProxyConfig() meshconfig.ProxyConfig {
 	return meshconfig.ProxyConfig{
-		ConfigPath:                 ConfigPathDir,
-		BinaryPath:                 BinaryPathFilename,
-		ServiceCluster:             ServiceClusterName,
+		ConfigPath:                 constants.ConfigPathDir,
+		BinaryPath:                 constants.BinaryPathFilename,
+		ServiceCluster:             constants.ServiceClusterName,
 		DrainDuration:              types.DurationProto(45 * time.Second),
 		ParentShutdownDuration:     types.DurationProto(60 * time.Second),
-		DiscoveryAddress:           DiscoveryPlainAddress,
+		DiscoveryAddress:           constants.DiscoveryPlainAddress,
 		ConnectTimeout:             types.DurationProto(1 * time.Second),
 		StatsdUdpAddress:           "",
 		EnvoyMetricsServiceAddress: "",
@@ -61,7 +63,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		DisablePolicyChecks:               true,
 		PolicyCheckFailOpen:               false,
 		SidecarToTelemetrySessionAffinity: false,
-		RootNamespace:                     IstioSystemNamespace,
+		RootNamespace:                     constants.IstioSystemNamespace,
 		ProxyListenPort:                   15001,
 		ConnectTimeout:                    types.DurationProto(1 * time.Second),
 		IngressService:                    "istio-ingressgateway",

@@ -30,11 +30,13 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/config/constants"
 )
 
 // Headers with special meaning in Envoy
@@ -181,7 +183,7 @@ func buildSidecarVirtualHostsForVirtualService(
 		// the current code is written.
 		serviceByPort[80] = nil
 	}
-	meshGateway := map[string]bool{config.IstioMeshGateway: true}
+	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
 	for port, portServices := range serviceByPort {
 		routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, listenPort, proxyLabels, meshGateway)

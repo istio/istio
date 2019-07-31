@@ -30,6 +30,8 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
+
+	"istio.io/istio/pkg/config/constants"
 )
 
 const (
@@ -3570,7 +3572,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 	}{
 		{
 			name:       "empty policy with namespace-wide policy name",
-			configName: DefaultAuthenticationPolicyName,
+			configName: constants.DefaultAuthenticationPolicyName,
 			in:         &authn.Policy{},
 			valid:      true,
 		},
@@ -3582,7 +3584,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 		},
 		{
 			name:       "service-specific policy with namespace-wide name",
-			configName: DefaultAuthenticationPolicyName,
+			configName: constants.DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Targets: []*authn.TargetSelector{{
 					Name: "foo",
@@ -3602,7 +3604,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 		},
 		{
 			name:       "Source mTLS",
-			configName: DefaultAuthenticationPolicyName,
+			configName: constants.DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{{
 					Params: &authn.PeerAuthenticationMethod_Mtls{},
@@ -3612,7 +3614,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 		},
 		{
 			name:       "Source JWT",
-			configName: DefaultAuthenticationPolicyName,
+			configName: constants.DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{{
 					Params: &authn.PeerAuthenticationMethod_Jwt{
@@ -3628,7 +3630,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 		},
 		{
 			name:       "Origin",
-			configName: DefaultAuthenticationPolicyName,
+			configName: constants.DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Origins: []*authn.OriginAuthenticationMethod{
 					{
@@ -3644,7 +3646,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 		},
 		{
 			name:       "Bad JkwsURI",
-			configName: DefaultAuthenticationPolicyName,
+			configName: constants.DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Origins: []*authn.OriginAuthenticationMethod{
 					{
@@ -3660,7 +3662,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 		},
 		{
 			name:       "Bad JkwsURI Port",
-			configName: DefaultAuthenticationPolicyName,
+			configName: constants.DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Origins: []*authn.OriginAuthenticationMethod{
 					{
@@ -3676,7 +3678,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 		},
 		{
 			name:       "Duplicate Jwt issuers",
-			configName: DefaultAuthenticationPolicyName,
+			configName: constants.DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{{
 					Params: &authn.PeerAuthenticationMethod_Jwt{
@@ -3701,7 +3703,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 		},
 		{
 			name:       "Just binding",
-			configName: DefaultAuthenticationPolicyName,
+			configName: constants.DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
 			},
@@ -3748,7 +3750,7 @@ func TestValidateAuthenticationMeshPolicy(t *testing.T) {
 	}{
 		{
 			name:       "good name",
-			configName: DefaultAuthenticationPolicyName,
+			configName: constants.DefaultAuthenticationPolicyName,
 			in:         &authn.Policy{},
 			valid:      true,
 		},
@@ -3760,7 +3762,7 @@ func TestValidateAuthenticationMeshPolicy(t *testing.T) {
 		},
 		{
 			name:       "has targets",
-			configName: DefaultAuthenticationPolicyName,
+			configName: constants.DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Targets: []*authn.TargetSelector{{
 					Name: "foo",
@@ -3770,7 +3772,7 @@ func TestValidateAuthenticationMeshPolicy(t *testing.T) {
 		},
 		{
 			name:       "good",
-			configName: DefaultAuthenticationPolicyName,
+			configName: constants.DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{{
 					Params: &authn.PeerAuthenticationMethod_Mtls{},
@@ -3780,7 +3782,7 @@ func TestValidateAuthenticationMeshPolicy(t *testing.T) {
 		},
 		{
 			name:       "empty origin",
-			configName: DefaultAuthenticationPolicyName,
+			configName: constants.DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Origins: []*authn.OriginAuthenticationMethod{{}},
 			},
@@ -3788,7 +3790,7 @@ func TestValidateAuthenticationMeshPolicy(t *testing.T) {
 		},
 		{
 			name:       "nil origin",
-			configName: DefaultAuthenticationPolicyName,
+			configName: constants.DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Origins: []*authn.OriginAuthenticationMethod{nil},
 			},
@@ -4224,22 +4226,22 @@ func TestValidateClusterRbacConfig(t *testing.T) {
 			name:     "cluster-rbac-config",
 			in:       &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_INCLUSION},
 			expectErrMsg: fmt.Sprintf("ClusterRbacConfig has invalid name(cluster-rbac-config), name must be %q",
-				DefaultRbacConfigName),
+				constants.DefaultRbacConfigName),
 		},
 		{
 			caseName: "success proto",
-			name:     DefaultRbacConfigName,
+			name:     constants.DefaultRbacConfigName,
 			in:       &rbac.RbacConfig{Mode: rbac.RbacConfig_ON},
 		},
 		{
 			caseName:     "empty exclusion",
-			name:         DefaultRbacConfigName,
+			name:         constants.DefaultRbacConfigName,
 			in:           &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_EXCLUSION},
 			expectErrMsg: "exclusion cannot be null (use 'exclusion: {}' for none)",
 		},
 		{
 			caseName:     "empty inclusion",
-			name:         DefaultRbacConfigName,
+			name:         constants.DefaultRbacConfigName,
 			in:           &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_INCLUSION},
 			expectErrMsg: "inclusion cannot be null (use 'inclusion: {}' for none)",
 		},

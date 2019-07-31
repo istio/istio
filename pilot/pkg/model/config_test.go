@@ -29,10 +29,12 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbacproto "istio.io/api/rbac/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	mock_config "istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -324,7 +326,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 
 	authNPolicies := map[string]*authn.Policy{
-		config.DefaultAuthenticationPolicyName: {},
+		constants.DefaultAuthenticationPolicyName: {},
 		"hello": {
 			Targets: []*authn.TargetSelector{{
 				Name: "hello",
@@ -468,11 +470,11 @@ func TestAuthenticationPolicyConfigWithGlobal(t *testing.T) {
 		policy    *authn.Policy
 	}{
 		{
-			name:   config.DefaultAuthenticationPolicyName,
+			name:   constants.DefaultAuthenticationPolicyName,
 			policy: &globalPolicy,
 		},
 		{
-			name:      config.DefaultAuthenticationPolicyName,
+			name:      constants.DefaultAuthenticationPolicyName,
 			namespace: "default",
 			policy:    &namespacePolicy,
 		},
@@ -721,19 +723,19 @@ func TestAuthorizationPolicies(t *testing.T) {
 
 func TestRbacConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
-	addRbacConfigToStore(model.RbacConfig.Type, config.DefaultRbacConfigName, "", store, t)
+	addRbacConfigToStore(model.RbacConfig.Type, constants.DefaultRbacConfigName, "", store, t)
 	rbacConfig := store.RbacConfig()
-	if rbacConfig.Name != config.DefaultRbacConfigName {
-		t.Errorf("model.RbacConfig: expecting %s, but got %s", config.DefaultRbacConfigName, rbacConfig.Name)
+	if rbacConfig.Name != constants.DefaultRbacConfigName {
+		t.Errorf("model.RbacConfig: expecting %s, but got %s", constants.DefaultRbacConfigName, rbacConfig.Name)
 	}
 }
 
 func TestClusterRbacConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
-	addRbacConfigToStore(model.ClusterRbacConfig.Type, config.DefaultRbacConfigName, "", store, t)
+	addRbacConfigToStore(model.ClusterRbacConfig.Type, constants.DefaultRbacConfigName, "", store, t)
 	rbacConfig := store.ClusterRbacConfig()
-	if rbacConfig.Name != config.DefaultRbacConfigName {
-		t.Errorf("model.ClusterRbacConfig: expecting %s, but got %s", config.DefaultRbacConfigName, rbacConfig.Name)
+	if rbacConfig.Name != constants.DefaultRbacConfigName {
+		t.Errorf("model.ClusterRbacConfig: expecting %s, but got %s", constants.DefaultRbacConfigName, rbacConfig.Name)
 	}
 }
 

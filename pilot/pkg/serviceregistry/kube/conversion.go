@@ -27,8 +27,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/api/annotation"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/spiffe"
@@ -51,7 +53,7 @@ func convertPort(port coreV1.ServicePort) *model.Port {
 }
 
 func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *model.Service {
-	addr, external := config.UnspecifiedIP, ""
+	addr, external := constants.UnspecifiedIP, ""
 	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != coreV1.ClusterIPNone {
 		addr = svc.Spec.ClusterIP
 	}
@@ -65,7 +67,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 		meshExternal = true
 	}
 
-	if addr == config.UnspecifiedIP && external == "" { // headless services should not be load balanced
+	if addr == constants.UnspecifiedIP && external == "" { // headless services should not be load balanced
 		resolution = model.Passthrough
 	}
 
