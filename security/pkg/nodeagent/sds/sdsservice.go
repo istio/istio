@@ -608,7 +608,7 @@ func sdsDiscoveryResponse(s *model.SecretItem, conID, resourceName string) (*xds
 		sdsServiceLog.Errorf("%s failed to mashal secret for proxy: %v", conIDresourceNamePrefix, err)
 		return nil, err
 	}
-	resp.Resources = append(resp.Resources, *ms)
+	resp.Resources = append(resp.Resources, ms)
 
 	return resp, nil
 }

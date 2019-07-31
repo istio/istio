@@ -449,7 +449,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 	}
 	for _, chain := range allChains {
 		var httpOpts *httpListenerOpts
-		var tcpNetworkFilters []listener.Filter
+		var tcpNetworkFilters []*listener.Filter
 
 		switch pluginParams.ListenerProtocol {
 		case plugin.ListenerProtocolHTTP:
@@ -1081,7 +1081,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		}
 		listenerOpts.filterChainOpts = append([]*filterChainOpts{{
 			destinationCIDRs: pluginParams.Node.IPAddresses,
-			networkFilters:   []listener.Filter{blackhole},
+			networkFilters:   []*listener.Filter{&blackhole},
 		}}, listenerOpts.filterChainOpts...)
 	}
 
@@ -1119,7 +1119,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		// For every new filter chain match being added, check if any previous match is same
 		// if so, skip adding this filter chain with a warning
 		// This is very unoptimized.
-		newFilterChains := make([]listener.FilterChain, 0,
+		newFilterChains := make([]*listener.FilterChain, 0,
 			len(currentListenerEntry.listener.FilterChains)+len(mutable.Listener.FilterChains))
 		newFilterChains = append(newFilterChains, currentListenerEntry.listener.FilterChains...)
 
@@ -1245,7 +1245,7 @@ func (configgen *ConfigGeneratorImpl) generateManagementListeners(node *model.Pr
 		// non overlapping listeners only.
 		for i := range mgmtListeners {
 			m := mgmtListeners[i]
-			l := util.GetByAddress(listeners, m.Address)
+			l := util.GetByAddress(listeners, *m.Address)
 			if l != nil {
 				log.Warnf("Omitting listener for management address %s due to collision with service listener %s",
 					m.Name, l.Name)
@@ -1309,11 +1309,11 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Envir
 		}
 	}
 	if len(mutable.FilterChains) > 0 && len(mutable.FilterChains[0].TCP) > 0 {
-		filters := append([]listener.Filter{}, mutable.FilterChains[0].TCP...)
+		filters := append([]*listener.Filter{}, mutable.FilterChains[0].TCP...)
 		filters = append(filters, fallbackFilter)
 
 		// Replace the final filter chain with the new chain that has had plugins applied
-		initialFilterChain = append(initialFilterChain, listener.FilterChain{Filters: filters})
+		initialFilterChain = append(initialFilterChain, &listener.FilterChain{Filters: filters})
 		ipTablesListener.FilterChains = initialFilterChain
 	}
 	return ipTablesListener
@@ -1425,8 +1425,8 @@ type filterChainOpts struct {
 	tlsContext       *auth.DownstreamTlsContext
 	httpOpts         *httpListenerOpts
 	match            *listener.FilterChainMatch
-	listenerFilters  []listener.ListenerFilter
-	networkFilters   []listener.Filter
+	listenerFilters  []*listener.ListenerFilter
+	networkFilters   []*listener.Filter
 }
 
 // buildListenerOpts are the options required to build a Listener
@@ -1490,7 +1490,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 	if httpOpts.rds != "" {
 		rds := &http_conn.HttpConnectionManager_Rds{
 			Rds: &http_conn.Rds{
-				ConfigSource: core.ConfigSource{
+				ConfigSource: &core.ConfigSource{
 					ConfigSourceSpecifier: &core.ConfigSource_Ads{
 						Ads: &core.AggregatedConfigSource{},
 					},
@@ -1575,9 +1575,9 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 
 // buildListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
 func buildListener(opts buildListenerOpts) *xdsapi.Listener {
-	filterChains := make([]listener.FilterChain, 0, len(opts.filterChainOpts))
+	filterChains := make([]*listener.FilterChain, 0, len(opts.filterChainOpts))
 	listenerFiltersMap := make(map[string]bool)
-	var listenerFilters []listener.ListenerFilter
+	var listenerFilters []*listener.ListenerFilter
 
 	// add a TLS inspector if we need to detect ServerName or ALPN
 	needTLSInspector := false
@@ -1590,7 +1590,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	}
 	if needTLSInspector {
 		listenerFiltersMap[xdsutil.TlsInspector] = true
-		listenerFilters = append(listenerFilters, listener.ListenerFilter{Name: xdsutil.TlsInspector})
+		listenerFilters = append(listenerFilters, &listener.ListenerFilter{Name: xdsutil.TlsInspector})
 	}
 
 	for _, chain := range opts.filterChainOpts {
@@ -1637,7 +1637,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		if !needMatch && reflect.DeepEqual(*match, listener.FilterChainMatch{}) {
 			match = nil
 		}
-		filterChains = append(filterChains, listener.FilterChain{
+		filterChains = append(filterChains, &listener.FilterChain{
 			FilterChainMatch: match,
 			TlsContext:       chain.tlsContext,
 		})
@@ -1687,7 +1687,7 @@ func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts,
 			}
 		}
 
-		tcpFilter := listener.Filter{
+		tcpFilter := &listener.Filter{
 			Name: xdsutil.TCPProxy,
 		}
 		tcpProxy := &tcp_proxy.TcpProxy{
@@ -1701,9 +1701,9 @@ func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts,
 		}
 
 		opts.filterChainOpts = append(opts.filterChainOpts, &filterChainOpts{
-			networkFilters: []listener.Filter{tcpFilter},
+			networkFilters: []*listener.Filter{tcpFilter},
 		})
-		l.FilterChains = append(l.FilterChains, listener.FilterChain{FilterChainMatch: wildcardMatch})
+		l.FilterChains = append(l.FilterChains, &listener.FilterChain{FilterChainMatch: wildcardMatch})
 
 	}
 }
@@ -1750,7 +1750,7 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 
 			opt.httpOpts.statPrefix = mutable.Listener.Name
 			httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams.Node, opts.env, opt.httpOpts, chain.HTTP)
-			filter := listener.Filter{
+			filter := &listener.Filter{
 				Name: xdsutil.HTTPConnectionManager,
 			}
 			if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {

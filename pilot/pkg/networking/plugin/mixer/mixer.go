@@ -23,7 +23,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	e "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
@@ -207,12 +207,12 @@ func (mixerplugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Clu
 		addr := util.BuildAddress(in.Service.Address, uint32(in.Port.Port))
 		cluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 			ClusterName: cluster.Name,
-			Endpoints: []e.LocalityLbEndpoints{
+			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
-					LbEndpoints: []e.LbEndpoint{
+					LbEndpoints: []*endpoint.LbEndpoint{
 						{
-							HostIdentifier: &e.LbEndpoint_Endpoint{
-								Endpoint: &e.Endpoint{Address: &addr},
+							HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+								Endpoint: &endpoint.Endpoint{Address: addr},
 							},
 						},
 					},
@@ -399,7 +399,7 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 	return out
 }
 
-func addFilterConfigToRoute(in *plugin.InputParams, httpRoute route.Route, attrs attributes, isXDSMarshalingToAnyEnabled bool) {
+func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attrs attributes, isXDSMarshalingToAnyEnabled bool) {
 	if isXDSMarshalingToAnyEnabled {
 		httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
 			DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
@@ -415,7 +415,7 @@ func addFilterConfigToRoute(in *plugin.InputParams, httpRoute route.Route, attrs
 	}
 }
 
-func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, virtualHostname string, httpRoute route.Route) route.Route {
+func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, virtualHostname string, httpRoute *route.Route) *route.Route {
 	isXDSMarshalingToAnyEnabled := util.IsXDSMarshalingToAnyEnabled(in.Node)
 
 	// default config, to be overridden by per-weighted cluster
@@ -507,7 +507,7 @@ func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInst
 	return out
 }
 
-func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, node *model.Proxy, destination *model.Service) listener.Filter {
+func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, node *model.Proxy, destination *model.Service) *listener.Filter {
 	attrs := attrsCopy(attrsIn)
 	if destination != nil {
 		attrs = addDestinationServiceAttributes(attrs, destination)
@@ -518,7 +518,7 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 		Transport:         buildTransport(mesh, node),
 	}
-	out := listener.Filter{
+	out := &listener.Filter{
 		Name: mixer,
 	}
 
@@ -531,13 +531,13 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 	return out
 }
 
-func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) listener.Filter {
+func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *listener.Filter {
 	cfg := &mccpb.TcpClientConfig{
 		DisableCheckCalls: disablePolicyChecks(inbound, mesh, node),
 		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 		Transport:         buildTransport(mesh, node),
 	}
-	out := listener.Filter{
+	out := &listener.Filter{
 		Name: mixer,
 	}
 

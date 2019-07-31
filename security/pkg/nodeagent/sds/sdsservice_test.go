@@ -496,7 +496,7 @@ func TestStreamSecretsMultiplePush(t *testing.T) {
 
 func verifySDSSResponse(t *testing.T, resp *api.DiscoveryResponse, expectedPrivateKey []byte, expectedCertChain []byte) {
 	var pb authapi.Secret
-	if err := types.UnmarshalAny(&resp.Resources[0], &pb); err != nil {
+	if err := types.UnmarshalAny(resp.Resources[0], &pb); err != nil {
 		t.Fatalf("UnmarshalAny SDS response failed: %v", err)
 	}
 
@@ -524,7 +524,7 @@ func verifySDSSResponse(t *testing.T, resp *api.DiscoveryResponse, expectedPriva
 
 func verifySDSSResponseForRootCert(t *testing.T, resp *api.DiscoveryResponse, expectedRootCert []byte) {
 	var pb authapi.Secret
-	if err := types.UnmarshalAny(&resp.Resources[0], &pb); err != nil {
+	if err := types.UnmarshalAny(resp.Resources[0], &pb); err != nil {
 		t.Fatalf("UnmarshalAny SDS response failed: %v", err)
 	}
 

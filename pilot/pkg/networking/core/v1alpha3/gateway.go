@@ -275,15 +275,15 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 		}
 	}
 
-	var virtualHosts []route.VirtualHost
+	var virtualHosts []*route.VirtualHost
 	if len(vHostDedupMap) == 0 {
 		log.Warnf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
-		virtualHosts = []route.VirtualHost{{
+		virtualHosts = []*route.VirtualHost{{
 			Name:    fmt.Sprintf("blackhole:%d", port),
 			Domains: []string{"*"},
-			Routes: []route.Route{
+			Routes: []*route.Route{
 				{
-					Match: route.RouteMatch{
+					Match: &route.RouteMatch{
 						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
 					},
 					Action: &route.Route_DirectResponse{
@@ -295,9 +295,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 			},
 		}}
 	} else {
-		virtualHosts = make([]route.VirtualHost, 0, len(vHostDedupMap))
+		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap))
 		for _, v := range vHostDedupMap {
-			virtualHosts = append(virtualHosts, *v)
+			virtualHosts = append(virtualHosts, v)
 		}
 	}
 
@@ -551,7 +551,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 // It first obtains all virtual services bound to the set of Gateways for this workload, filters them by this
 // server's port and hostnames, and produces network filters for each destination from the filtered services.
 func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Environment, push *model.PushContext, server *networking.Server,
-	gatewaysForWorkload map[string]bool) []listener.Filter {
+	gatewaysForWorkload map[string]bool) []*listener.Filter {
 	port := &model.Port{
 		Name:     server.Port.Name,
 		Port:     int(server.Port.Number),

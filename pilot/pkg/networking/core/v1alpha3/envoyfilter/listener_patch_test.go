@@ -262,7 +262,7 @@ func TestApplyListenerPatches(t *testing.T) {
 	sidecarOutboundIn := []*xdsapi.Listener{
 		{
 			Name: "12345",
-			Address: core.Address{
+			Address: &core.Address{
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
 						PortSpecifier: &core.SocketAddress_PortValue{
@@ -271,9 +271,9 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 				},
 			},
-			FilterChains: []listener.FilterChain{
+			FilterChains: []*listener.FilterChain{
 				{
-					Filters: []listener.Filter{
+					Filters: []*listener.Filter{
 						{Name: "filter1"},
 						{Name: "filter2"},
 					},
@@ -288,7 +288,7 @@ func TestApplyListenerPatches(t *testing.T) {
 	sidecarOutboundOut := []*xdsapi.Listener{
 		{
 			Name: "12345",
-			Address: core.Address{
+			Address: &core.Address{
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
 						PortSpecifier: &core.SocketAddress_PortValue{
@@ -297,9 +297,9 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 				},
 			},
-			FilterChains: []listener.FilterChain{
+			FilterChains: []*listener.FilterChain{
 				{
-					Filters: []listener.Filter{
+					Filters: []*listener.Filter{
 						{Name: "filter0"},
 						{Name: "filter1"},
 					},
@@ -317,7 +317,7 @@ func TestApplyListenerPatches(t *testing.T) {
 	sidecarInboundIn := []*xdsapi.Listener{
 		{
 			Name: "12345",
-			Address: core.Address{
+			Address: &core.Address{
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
 						PortSpecifier: &core.SocketAddress_PortValue{
@@ -329,7 +329,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 		{
 			Name: "another-listener",
-			Address: core.Address{
+			Address: &core.Address{
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
 						PortSpecifier: &core.SocketAddress_PortValue{
@@ -338,15 +338,15 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 				},
 			},
-			ListenerFilters: []listener.ListenerFilter{{Name: "envoy.tls_inspector"}},
-			FilterChains: []listener.FilterChain{
+			ListenerFilters: []*listener.ListenerFilter{{Name: "envoy.tls_inspector"}},
+			FilterChains: []*listener.FilterChain{
 				{
 					FilterChainMatch: &listener.FilterChainMatch{TransportProtocol: "tls"},
 					TlsContext:       &auth.DownstreamTlsContext{},
-					Filters:          []listener.Filter{{Name: "network-filter"}},
+					Filters:          []*listener.Filter{{Name: "network-filter"}},
 				},
 				{
-					Filters: []listener.Filter{
+					Filters: []*listener.Filter{
 						{
 							Name: xdsutil.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
@@ -367,7 +367,7 @@ func TestApplyListenerPatches(t *testing.T) {
 	sidecarInboundOut := []*xdsapi.Listener{
 		{
 			Name: "another-listener",
-			Address: core.Address{
+			Address: &core.Address{
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
 						PortSpecifier: &core.SocketAddress_PortValue{
@@ -376,10 +376,10 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 				},
 			},
-			ListenerFilters: []listener.ListenerFilter{{Name: "envoy.tls_inspector"}},
-			FilterChains: []listener.FilterChain{
+			ListenerFilters: []*listener.ListenerFilter{{Name: "envoy.tls_inspector"}},
+			FilterChains: []*listener.FilterChain{
 				{
-					Filters: []listener.Filter{
+					Filters: []*listener.Filter{
 						{
 							Name: xdsutil.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
@@ -401,7 +401,7 @@ func TestApplyListenerPatches(t *testing.T) {
 	gatewayIn := []*xdsapi.Listener{
 		{
 			Name: "80",
-			Address: core.Address{
+			Address: &core.Address{
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
 						PortSpecifier: &core.SocketAddress_PortValue{
@@ -410,12 +410,12 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 				},
 			},
-			FilterChains: []listener.FilterChain{
+			FilterChains: []*listener.FilterChain{
 				{
 					FilterChainMatch: &listener.FilterChainMatch{
 						ServerNames: []string{"match.com", "*.foo.com"},
 					},
-					Filters: []listener.Filter{
+					Filters: []*listener.Filter{
 						{
 							Name: xdsutil.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
@@ -433,7 +433,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 		{
 			Name: "another-listener",
-			Address: core.Address{
+			Address: &core.Address{
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
 						PortSpecifier: &core.SocketAddress_PortValue{
@@ -442,12 +442,12 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 				},
 			},
-			FilterChains: []listener.FilterChain{
+			FilterChains: []*listener.FilterChain{
 				{
 					FilterChainMatch: &listener.FilterChainMatch{
 						ServerNames: []string{"nomatch.com", "*.foo.com"},
 					},
-					Filters: []listener.Filter{{Name: "network-filter"}},
+					Filters: []*listener.Filter{{Name: "network-filter"}},
 				},
 			},
 		},
@@ -456,7 +456,7 @@ func TestApplyListenerPatches(t *testing.T) {
 	gatewayOut := []*xdsapi.Listener{
 		{
 			Name: "80",
-			Address: core.Address{
+			Address: &core.Address{
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
 						PortSpecifier: &core.SocketAddress_PortValue{
@@ -465,13 +465,13 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 				},
 			},
-			ListenerFilters: []listener.ListenerFilter{{Name: "foo"}},
-			FilterChains: []listener.FilterChain{
+			ListenerFilters: []*listener.ListenerFilter{{Name: "foo"}},
+			FilterChains: []*listener.FilterChain{
 				{
 					FilterChainMatch: &listener.FilterChainMatch{
 						ServerNames: []string{"match.com", "*.foo.com", "foo.com"},
 					},
-					Filters: []listener.Filter{
+					Filters: []*listener.Filter{
 						{
 							Name: xdsutil.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
@@ -490,7 +490,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 		{
 			Name: "another-listener",
-			Address: core.Address{
+			Address: &core.Address{
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
 						PortSpecifier: &core.SocketAddress_PortValue{
@@ -499,12 +499,12 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 				},
 			},
-			FilterChains: []listener.FilterChain{
+			FilterChains: []*listener.FilterChain{
 				{
 					FilterChainMatch: &listener.FilterChainMatch{
 						ServerNames: []string{"nomatch.com", "*.foo.com"},
 					},
-					Filters: []listener.Filter{{Name: "network-filter"}},
+					Filters: []*listener.Filter{{Name: "network-filter"}},
 				},
 			},
 		},

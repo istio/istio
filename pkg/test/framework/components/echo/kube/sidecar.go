@@ -59,7 +59,7 @@ func newSidecar(pod kubeCore.Pod, accessor *kube.Accessor) (*sidecar, error) {
 		for _, c := range cfg.Configs {
 			if c.TypeUrl == "type.googleapis.com/envoy.admin.v2alpha.BootstrapConfigDump" {
 				cd := envoyAdmin.BootstrapConfigDump{}
-				if err := types.UnmarshalAny(&c, &cd); err != nil {
+				if err := types.UnmarshalAny(c, &cd); err != nil {
 					return false, err
 				}
 

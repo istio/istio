@@ -346,7 +346,7 @@ func updateEds(cluster *apiv2.Cluster) {
 }
 
 func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[string]bool, service *model.Service,
-	port int, labels config.LabelsCollection) []endpoint.LocalityLbEndpoints {
+	port int, labels config.LabelsCollection) []*endpoint.LocalityLbEndpoints {
 
 	if service.Resolution != model.DNSLB {
 		return nil
@@ -358,7 +358,7 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 		return nil
 	}
 
-	lbEndpoints := make(map[string][]endpoint.LbEndpoint)
+	lbEndpoints := make(map[string][]*endpoint.LbEndpoint)
 	for _, instance := range instances {
 		// Only send endpoints from the networks in the network view requested by the proxy.
 		// The default network view assigned to the Proxy is the UnnamedNetwork (""), which matches
@@ -368,10 +368,10 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 			continue
 		}
 		host := util.BuildAddress(instance.Endpoint.Address, uint32(instance.Endpoint.Port))
-		ep := endpoint.LbEndpoint{
+		ep := &endpoint.LbEndpoint{
 			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 				Endpoint: &endpoint.Endpoint{
-					Address: &host,
+					Address: host,
 				},
 			},
 			LoadBalancingWeight: &types.UInt32Value{
@@ -385,14 +385,14 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
 	}
 
-	localityLbEndpoints := make([]endpoint.LocalityLbEndpoints, 0, len(lbEndpoints))
+	localityLbEndpoints := make([]*endpoint.LocalityLbEndpoints, 0, len(lbEndpoints))
 
 	for locality, eps := range lbEndpoints {
 		var weight uint32
 		for _, ep := range eps {
 			weight += ep.LoadBalancingWeight.GetValue()
 		}
-		localityLbEndpoints = append(localityLbEndpoints, endpoint.LocalityLbEndpoints{
+		localityLbEndpoints = append(localityLbEndpoints, &endpoint.LocalityLbEndpoints{
 			Locality:    util.ConvertLocality(locality),
 			LbEndpoints: eps,
 			LoadBalancingWeight: &types.UInt32Value{
@@ -404,18 +404,18 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 	return util.LocalityLbWeightNormalize(localityLbEndpoints)
 }
 
-func buildInboundLocalityLbEndpoints(bind string, port int) []endpoint.LocalityLbEndpoints {
+func buildInboundLocalityLbEndpoints(bind string, port int) []*endpoint.LocalityLbEndpoints {
 	address := util.BuildAddress(bind, uint32(port))
-	lbEndpoint := endpoint.LbEndpoint{
+	lbEndpoint := &endpoint.LbEndpoint{
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 			Endpoint: &endpoint.Endpoint{
-				Address: &address,
+				Address: address,
 			},
 		},
 	}
-	return []endpoint.LocalityLbEndpoints{
+	return []*endpoint.LocalityLbEndpoints{
 		{
-			LbEndpoints: []endpoint.LbEndpoint{lbEndpoint},
+			LbEndpoints: []*endpoint.LbEndpoint{lbEndpoint},
 		},
 	}
 }
@@ -424,7 +424,7 @@ func generateInboundPassthroughClusters(env *model.Environment) []*apiv2.Cluster
 	inboundPassthroughClusterIpv4 := buildDefaultPassthroughCluster(env)
 	inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
 	inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
-		SourceAddress: core.SocketAddress{
+		SourceAddress: &core.SocketAddress{
 			Address: util.InboundPassthroughBindIpv4,
 			PortSpecifier: &core.SocketAddress_PortValue{
 				PortValue: uint32(0),
@@ -435,7 +435,7 @@ func generateInboundPassthroughClusters(env *model.Environment) []*apiv2.Cluster
 	inboundPassthroughClusterIpv6 := buildDefaultPassthroughCluster(env)
 	inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
 	inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
-		SourceAddress: core.SocketAddress{
+		SourceAddress: &core.SocketAddress{
 			Address: util.InboundPassthroughBindIpv6,
 			PortSpecifier: &core.SocketAddress_PortValue{
 				PortValue: uint32(0),
@@ -803,7 +803,7 @@ func applyConnectionPool(env *model.Environment, cluster *apiv2.Cluster, setting
 
 	if idleTimeout != nil {
 		idleTimeoutDuration := util.GogoDurationToDuration(idleTimeout)
-		cluster.CommonHttpProtocolOptions = &core.HttpProtocolOptions{IdleTimeout: &idleTimeoutDuration}
+		cluster.CommonHttpProtocolOptions = &core.HttpProtocolOptions{IdleTimeout: idleTimeoutDuration}
 	}
 }
 
@@ -1118,7 +1118,7 @@ func buildDefaultPassthroughCluster(env *model.Environment) *apiv2.Cluster {
 }
 
 func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv2.Cluster_DiscoveryType,
-	localityLbEndpoints []endpoint.LocalityLbEndpoints, direction model.TrafficDirection, proxy *model.Proxy, port *model.Port) *apiv2.Cluster {
+	localityLbEndpoints []*endpoint.LocalityLbEndpoints, direction model.TrafficDirection, proxy *model.Proxy, port *model.Port) *apiv2.Cluster {
 	cluster := &apiv2.Cluster{
 		Name:                 name,
 		ClusterDiscoveryType: &apiv2.Cluster_Type{Type: discoveryType},
@@ -1127,7 +1127,7 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv
 	if discoveryType == apiv2.Cluster_STRICT_DNS {
 		cluster.DnsLookupFamily = apiv2.Cluster_V4_ONLY
 		dnsRate := util.GogoDurationToDuration(env.Mesh.DnsRefreshRate)
-		cluster.DnsRefreshRate = &dnsRate
+		cluster.DnsRefreshRate = dnsRate
 	}
 
 	if discoveryType == apiv2.Cluster_STATIC || discoveryType == apiv2.Cluster_STRICT_DNS {
