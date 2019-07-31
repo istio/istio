@@ -327,9 +327,9 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0x22
 	i++
 	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.DatapointInterval)))
-	n1, err1 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.DatapointInterval, dAtA[i:])
-	if err1 != nil {
-		return 0, err1
+	n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.DatapointInterval, dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n1
 	if m.EnableMetrics {
@@ -474,16 +474,11 @@ func (this *Params) String() string {
 	if this == nil {
 		return "nil"
 	}
-	repeatedStringForMetrics := "[]*Params_MetricConfig{"
-	for _, f := range this.Metrics {
-		repeatedStringForMetrics += strings.Replace(fmt.Sprintf("%v", f), "Params_MetricConfig", "Params_MetricConfig", 1) + ","
-	}
-	repeatedStringForMetrics += "}"
 	s := strings.Join([]string{`&Params{`,
-		`Metrics:` + repeatedStringForMetrics + `,`,
+		`Metrics:` + strings.Replace(fmt.Sprintf("%v", this.Metrics), "Params_MetricConfig", "Params_MetricConfig", 1) + `,`,
 		`IngestUrl:` + fmt.Sprintf("%v", this.IngestUrl) + `,`,
 		`AccessToken:` + fmt.Sprintf("%v", this.AccessToken) + `,`,
-		`DatapointInterval:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.DatapointInterval), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`DatapointInterval:` + strings.Replace(strings.Replace(this.DatapointInterval.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`EnableMetrics:` + fmt.Sprintf("%v", this.EnableMetrics) + `,`,
 		`EnableTracing:` + fmt.Sprintf("%v", this.EnableTracing) + `,`,
 		`TracingBufferSize:` + fmt.Sprintf("%v", this.TracingBufferSize) + `,`,
