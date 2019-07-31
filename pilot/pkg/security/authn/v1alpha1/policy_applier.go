@@ -24,6 +24,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
@@ -55,9 +56,6 @@ const (
 	// as the name defined in
 	// https://github.com/istio/proxy/blob/master/src/envoy/http/authn/http_filter_factory.cc#L30
 	AuthnFilterName = "istio_authn"
-
-	// EnvoyTLSInspectorFilterName is the name for Envoy TLS sniffing listener filter.
-	EnvoyTLSInspectorFilterName = "envoy.listener.tls_inspector"
 
 	// The default header name for an exchanged token.
 	exchangedTokenHeaderName = "ingress-authorization"
@@ -388,9 +386,9 @@ func (a v1alpha1PolicyApplier) InboundFilterChain(sdsUdsPath string, sdsUseTrust
 			{
 				FilterChainMatch: alpnIstioMatch,
 				TLSContext:       tls,
-				ListenerFilters: []ldsv2.ListenerFilter{
+				ListenerFilters: []*ldsv2.ListenerFilter{
 					{
-						Name:       EnvoyTLSInspectorFilterName,
+						Name:       xdsutil.TlsInspector,
 						ConfigType: &ldsv2.ListenerFilter_Config{Config: &types.Struct{}},
 					},
 				},

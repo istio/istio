@@ -188,8 +188,8 @@ func TestDynamicAttribute(t *testing.T) {
 		Endpoints: cache.Resources{Version: "1", Items: map[string]cache.Resource{
 			"backend": &v2.ClusterLoadAssignment{
 				ClusterName: "backend",
-				Endpoints: []endpoint.LocalityLbEndpoints{{
-					LbEndpoints: []endpoint.LbEndpoint{{
+				Endpoints: []*endpoint.LocalityLbEndpoints{{
+					LbEndpoints: []*endpoint.LbEndpoint{{
 						Metadata: &core.Metadata{
 							FilterMetadata: map[string]*types.Struct{
 								"istio": {

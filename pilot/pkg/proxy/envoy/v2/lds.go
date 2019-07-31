@@ -26,15 +26,13 @@ import (
 func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, version string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
 
-	rawListeners, err := s.generateRawListeners(con, push)
-	if err != nil {
-		return err
-	}
+	rawListeners := s.generateRawListeners(con, push)
+
 	if s.DebugConfigs {
 		con.LDSListeners = rawListeners
 	}
 	response := ldsDiscoveryResponse(rawListeners, version)
-	err = con.send(response)
+	err := con.send(response)
 	if err != nil {
 		adsLog.Warnf("LDS: Send failure %s: %v", con.ConID, err)
 		recordSendError(ldsSendErrPushes, err)
@@ -46,16 +44,11 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 	return nil
 }
 
-func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.PushContext) ([]*xdsapi.Listener, error) {
-	rawListeners, err := s.ConfigGenerator.BuildListeners(s.Env, con.modelNode, push)
-	if err != nil {
-		adsLog.Warnf("LDS: Failed to generate listeners for node:%s: %v", con.modelNode.ID, err)
-		ldsBuildErrPushes.Increment()
-		return nil, err
-	}
+func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.PushContext) []*xdsapi.Listener {
+	rawListeners := s.ConfigGenerator.BuildListeners(s.Env, con.modelNode, push)
 
 	for _, l := range rawListeners {
-		if err = l.Validate(); err != nil {
+		if err := l.Validate(); err != nil {
 			retErr := fmt.Errorf("LDS: Generated invalid listener for node %v: %v", con.modelNode, err)
 			adsLog.Errorf("LDS: Generated invalid listener for node:%s: %v, %v", con.modelNode.ID, err, l)
 			ldsBuildErrPushes.Increment()
@@ -65,7 +58,7 @@ func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.P
 			panic(retErr.Error())
 		}
 	}
-	return rawListeners, nil
+	return rawListeners
 }
 
 // LdsDiscoveryResponse returns a list of listeners for the given environment and source node.
@@ -82,7 +75,7 @@ func ldsDiscoveryResponse(ls []*xdsapi.Listener, version string) *xdsapi.Discove
 			continue
 		}
 		lr, _ := types.MarshalAny(ll)
-		resp.Resources = append(resp.Resources, *lr)
+		resp.Resources = append(resp.Resources, lr)
 	}
 
 	return resp

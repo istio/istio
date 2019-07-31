@@ -23,8 +23,8 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/kube"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/spiffe"
 
 	coreV1 "k8s.io/api/core/v1"
@@ -41,28 +41,28 @@ func TestConvertProtocol(t *testing.T) {
 	type protocolCase struct {
 		name  string
 		proto coreV1.Protocol
-		out   config.Protocol
+		out   protocol.Instance
 	}
 	protocols := []protocolCase{
-		{"", coreV1.ProtocolTCP, config.ProtocolUnsupported},
-		{"http", coreV1.ProtocolTCP, config.ProtocolHTTP},
-		{"http-test", coreV1.ProtocolTCP, config.ProtocolHTTP},
-		{"http", coreV1.ProtocolUDP, config.ProtocolUDP},
-		{"httptest", coreV1.ProtocolTCP, config.ProtocolUnsupported},
-		{"https", coreV1.ProtocolTCP, config.ProtocolHTTPS},
-		{"https-test", coreV1.ProtocolTCP, config.ProtocolHTTPS},
-		{"http2", coreV1.ProtocolTCP, config.ProtocolHTTP2},
-		{"http2-test", coreV1.ProtocolTCP, config.ProtocolHTTP2},
-		{"grpc", coreV1.ProtocolTCP, config.ProtocolGRPC},
-		{"grpc-test", coreV1.ProtocolTCP, config.ProtocolGRPC},
-		{"grpc-web", coreV1.ProtocolTCP, config.ProtocolGRPCWeb},
-		{"grpc-web-test", coreV1.ProtocolTCP, config.ProtocolGRPCWeb},
-		{"mongo", coreV1.ProtocolTCP, config.ProtocolMongo},
-		{"mongo-test", coreV1.ProtocolTCP, config.ProtocolMongo},
-		{"redis", coreV1.ProtocolTCP, config.ProtocolRedis},
-		{"redis-test", coreV1.ProtocolTCP, config.ProtocolRedis},
-		{"mysql", coreV1.ProtocolTCP, config.ProtocolMySQL},
-		{"mysql-test", coreV1.ProtocolTCP, config.ProtocolMySQL},
+		{"", coreV1.ProtocolTCP, protocol.Unsupported},
+		{"http", coreV1.ProtocolTCP, protocol.HTTP},
+		{"http-test", coreV1.ProtocolTCP, protocol.HTTP},
+		{"http", coreV1.ProtocolUDP, protocol.UDP},
+		{"httptest", coreV1.ProtocolTCP, protocol.Unsupported},
+		{"https", coreV1.ProtocolTCP, protocol.HTTPS},
+		{"https-test", coreV1.ProtocolTCP, protocol.HTTPS},
+		{"http2", coreV1.ProtocolTCP, protocol.HTTP2},
+		{"http2-test", coreV1.ProtocolTCP, protocol.HTTP2},
+		{"grpc", coreV1.ProtocolTCP, protocol.GRPC},
+		{"grpc-test", coreV1.ProtocolTCP, protocol.GRPC},
+		{"grpc-web", coreV1.ProtocolTCP, protocol.GRPCWeb},
+		{"grpc-web-test", coreV1.ProtocolTCP, protocol.GRPCWeb},
+		{"mongo", coreV1.ProtocolTCP, protocol.Mongo},
+		{"mongo-test", coreV1.ProtocolTCP, protocol.Mongo},
+		{"redis", coreV1.ProtocolTCP, protocol.Redis},
+		{"redis-test", coreV1.ProtocolTCP, protocol.Redis},
+		{"mysql", coreV1.ProtocolTCP, protocol.MySQL},
+		{"mysql-test", coreV1.ProtocolTCP, protocol.MySQL},
 	}
 
 	// Create the list of cases for all of the names in both upper and lowercase.
@@ -95,12 +95,12 @@ func BenchmarkConvertProtocol(b *testing.B) {
 	cases := []struct {
 		name  string
 		proto coreV1.Protocol
-		out   config.Protocol
+		out   protocol.Instance
 	}{
-		{"grpc-web-lowercase", coreV1.ProtocolTCP, config.ProtocolGRPCWeb},
-		{"GRPC-WEB-mixedcase", coreV1.ProtocolTCP, config.ProtocolGRPCWeb},
-		{"https-lowercase", coreV1.ProtocolTCP, config.ProtocolHTTPS},
-		{"HTTPS-mixedcase", coreV1.ProtocolTCP, config.ProtocolHTTPS},
+		{"grpc-web-lowercase", coreV1.ProtocolTCP, protocol.GRPCWeb},
+		{"GRPC-WEB-mixedcase", coreV1.ProtocolTCP, protocol.GRPCWeb},
+		{"https-lowercase", coreV1.ProtocolTCP, protocol.HTTPS},
+		{"HTTPS-mixedcase", coreV1.ProtocolTCP, protocol.HTTPS},
 	}
 
 	for _, c := range cases {
@@ -318,7 +318,6 @@ func TestExternalClusterLocalServiceConversion(t *testing.T) {
 
 	if !service.External() {
 		t.Fatal("ExternalName service (even if .cluster.local) should be external")
-		t.Fatalf("ExternalName service (even if .cluster.local) should be external")
 	}
 
 	if service.Hostname != ServiceHostname(serviceName, namespace, domainSuffix) {
@@ -391,12 +390,12 @@ func TestProbesToPortsConversion(t *testing.T) {
 		{
 			Name:     "mgmt-3306",
 			Port:     3306,
-			Protocol: config.ProtocolTCP,
+			Protocol: protocol.TCP,
 		},
 		{
 			Name:     "mgmt-9080",
 			Port:     9080,
-			Protocol: config.ProtocolHTTP,
+			Protocol: protocol.HTTP,
 		},
 	}
 

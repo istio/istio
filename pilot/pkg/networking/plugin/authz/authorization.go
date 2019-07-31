@@ -99,13 +99,13 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
 				} else {
 					rbacLog.Infof("added TCP filter to gateway filter chain %d", cnum)
-					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, *tcpFilter)
+					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
 				}
 			}
 		} else {
 			for cnum := range mutable.FilterChains {
 				rbacLog.Infof("added TCP filter to filter chain %d", cnum)
-				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, *tcpFilter)
+				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
 			}
 		}
 	case plugin.ListenerProtocolHTTP:
@@ -126,7 +126,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 			case plugin.ListenerProtocolTCP:
 				if tcpFilter != nil {
 					rbacLog.Infof("added TCP filter to filter chain %d", cnum)
-					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, *tcpFilter)
+					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
 				}
 			case plugin.ListenerProtocolHTTP:
 				if httpFilter != nil {

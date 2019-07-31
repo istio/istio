@@ -3,6 +3,8 @@
 #
 enabled: true
 replicaCount: 1
+rollingMaxSurge: 100%
+rollingMaxUnavailable: 25%
 image: galley
 nodeSelector: {}
 tolerations: []
@@ -27,3 +29,5 @@ tolerations: []
 # "security" and value "S1".
 podAntiAffinityLabelSelector: []
 podAntiAffinityTermLabelSelector: []
+#HTTPS port of the validation service
+validationPort: 9443

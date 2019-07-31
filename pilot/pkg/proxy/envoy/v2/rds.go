@@ -27,10 +27,7 @@ import (
 )
 
 func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext, version string) error {
-	rawRoutes, err := s.generateRawRoutes(con, push)
-	if err != nil {
-		return err
-	}
+	rawRoutes := s.generateRawRoutes(con, push)
 	if s.DebugConfigs {
 		for _, r := range rawRoutes {
 			con.RouteConfigs[r.Name] = r
@@ -42,7 +39,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 	}
 
 	response := routeDiscoveryResponse(rawRoutes, version)
-	err = con.send(response)
+	err := con.send(response)
 	if err != nil {
 		adsLog.Warnf("RDS: Send failure for node:%v: %v", con.modelNode.ID, err)
 		recordSendError(rdsSendErrPushes, err)
@@ -54,18 +51,12 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 	return nil
 }
 
-func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.PushContext) ([]*xdsapi.RouteConfiguration, error) {
+func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.PushContext) []*xdsapi.RouteConfiguration {
 	rc := make([]*xdsapi.RouteConfiguration, 0)
 	// TODO: Follow this logic for other xDS resources as well
 	// TODO: once per config update
 	for _, routeName := range con.Routes {
-		r, err := s.ConfigGenerator.BuildHTTPRoutes(s.Env, con.modelNode, push, routeName)
-		if err != nil {
-			retErr := fmt.Errorf("RDS: Failed to generate route %s for node %v: %v", routeName, con.modelNode, err)
-			adsLog.Warnf("RDS: Failed to generate routes for route:%s for node:%v: %v", routeName, con.modelNode.ID, err)
-			rdsBuildErrPushes.Increment()
-			return nil, retErr
-		}
+		r := s.ConfigGenerator.BuildHTTPRoutes(s.Env, con.modelNode, push, routeName)
 
 		if r == nil {
 			adsLog.Warnf("RDS: Got nil value for route:%s for node:%v", routeName, con.modelNode)
@@ -73,12 +64,12 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.Push
 			// Explicitly send an empty route configuration
 			r = &xdsapi.RouteConfiguration{
 				Name:             routeName,
-				VirtualHosts:     []route.VirtualHost{},
+				VirtualHosts:     []*route.VirtualHost{},
 				ValidateClusters: proto.BoolFalse,
 			}
 		}
 
-		if err = r.Validate(); err != nil {
+		if err := r.Validate(); err != nil {
 			retErr := fmt.Errorf("RDS: Generated invalid route %s for node %v: %v", routeName, con.modelNode, err)
 			adsLog.Errorf("RDS: Generated invalid routes for route:%s for node:%v: %v, %v", routeName, con.modelNode.ID, err, r)
 			rdsBuildErrPushes.Increment()
@@ -89,7 +80,7 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.Push
 		}
 		rc = append(rc, r)
 	}
-	return rc, nil
+	return rc
 }
 
 func routeDiscoveryResponse(rs []*xdsapi.RouteConfiguration, version string) *xdsapi.DiscoveryResponse {
@@ -100,7 +91,7 @@ func routeDiscoveryResponse(rs []*xdsapi.RouteConfiguration, version string) *xd
 	}
 	for _, rc := range rs {
 		rr, _ := types.MarshalAny(rc)
-		resp.Resources = append(resp.Resources, *rr)
+		resp.Resources = append(resp.Resources, rr)
 	}
 
 	return resp

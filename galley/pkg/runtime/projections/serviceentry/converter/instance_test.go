@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -373,27 +374,27 @@ func TestServicePorts(t *testing.T) {
 	cases := []struct {
 		name  string
 		proto coreV1.Protocol
-		out   config.Protocol
+		out   protocol.Instance
 	}{
-		{"", coreV1.ProtocolTCP, config.ProtocolUnsupported},
-		{"http", coreV1.ProtocolTCP, config.ProtocolHTTP},
-		{"http-test", coreV1.ProtocolTCP, config.ProtocolHTTP},
-		{"http", coreV1.ProtocolUDP, config.ProtocolUDP},
-		{"httptest", coreV1.ProtocolTCP, config.ProtocolUnsupported},
-		{"https", coreV1.ProtocolTCP, config.ProtocolHTTPS},
-		{"https-test", coreV1.ProtocolTCP, config.ProtocolHTTPS},
-		{"http2", coreV1.ProtocolTCP, config.ProtocolHTTP2},
-		{"http2-test", coreV1.ProtocolTCP, config.ProtocolHTTP2},
-		{"grpc", coreV1.ProtocolTCP, config.ProtocolGRPC},
-		{"grpc-test", coreV1.ProtocolTCP, config.ProtocolGRPC},
-		{"grpc-web", coreV1.ProtocolTCP, config.ProtocolGRPCWeb},
-		{"grpc-web-test", coreV1.ProtocolTCP, config.ProtocolGRPCWeb},
-		{"mongo", coreV1.ProtocolTCP, config.ProtocolMongo},
-		{"mongo-test", coreV1.ProtocolTCP, config.ProtocolMongo},
-		{"redis", coreV1.ProtocolTCP, config.ProtocolRedis},
-		{"redis-test", coreV1.ProtocolTCP, config.ProtocolRedis},
-		{"mysql", coreV1.ProtocolTCP, config.ProtocolMySQL},
-		{"mysql-test", coreV1.ProtocolTCP, config.ProtocolMySQL},
+		{"", coreV1.ProtocolTCP, protocol.Unsupported},
+		{"http", coreV1.ProtocolTCP, protocol.HTTP},
+		{"http-test", coreV1.ProtocolTCP, protocol.HTTP},
+		{"http", coreV1.ProtocolUDP, protocol.UDP},
+		{"httptest", coreV1.ProtocolTCP, protocol.Unsupported},
+		{"https", coreV1.ProtocolTCP, protocol.HTTPS},
+		{"https-test", coreV1.ProtocolTCP, protocol.HTTPS},
+		{"http2", coreV1.ProtocolTCP, protocol.HTTP2},
+		{"http2-test", coreV1.ProtocolTCP, protocol.HTTP2},
+		{"grpc", coreV1.ProtocolTCP, protocol.GRPC},
+		{"grpc-test", coreV1.ProtocolTCP, protocol.GRPC},
+		{"grpc-web", coreV1.ProtocolTCP, protocol.GRPCWeb},
+		{"grpc-web-test", coreV1.ProtocolTCP, protocol.GRPCWeb},
+		{"mongo", coreV1.ProtocolTCP, protocol.Mongo},
+		{"mongo-test", coreV1.ProtocolTCP, protocol.Mongo},
+		{"redis", coreV1.ProtocolTCP, protocol.Redis},
+		{"redis-test", coreV1.ProtocolTCP, protocol.Redis},
+		{"mysql", coreV1.ProtocolTCP, protocol.MySQL},
+		{"mysql-test", coreV1.ProtocolTCP, protocol.MySQL},
 	}
 
 	ip := "10.0.0.1"

@@ -25,7 +25,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -35,12 +35,16 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/pkg/log"
 )
 
-func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
-	builder := NewListenerBuilder(node)
+func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
+	env *model.Environment,
+	node *model.Proxy,
+	push *model.PushContext,
+	builder *ListenerBuilder) *ListenerBuilder {
 	// collect workload labels
 	workloadInstances := node.ServiceInstances
 
@@ -72,9 +76,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			bindToPort: true,
 		}
 
-		protocol := config.ParseProtocol(servers[0].Port.Protocol)
-		listenerProtocol := plugin.ModelProtocolToListenerProtocol(node, protocol)
-		if protocol.IsHTTP() {
+		p := protocol.Parse(servers[0].Port.Protocol)
+		listenerProtocol := plugin.ModelProtocolToListenerProtocol(node, p)
+		if p.IsHTTP() {
 			// We have a list of HTTP servers on this port. Build a single listener for the server port.
 			// We only need to look at the first server in the list as the merge logic
 			// ensures that all servers are of same type.
@@ -138,13 +142,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_GATEWAY,
 			Env:                        env,
 			Node:                       node,
-			ProxyInstances:             workloadInstances,
 			Push:                       push,
 			ServiceInstance:            si,
 			Port: &model.Port{
 				Name:     servers[0].Port.Name,
 				Port:     int(portNumber),
-				Protocol: protocol,
+				Protocol: p,
 			},
 		}
 		for _, p := range configgen.Plugins {
@@ -196,7 +199,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 }
 
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance, routeName string) (*xdsapi.RouteConfiguration, error) {
+	proxyInstances []*model.ServiceInstance, routeName string) *xdsapi.RouteConfiguration {
 
 	services := push.Services(node)
 
@@ -209,7 +212,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	gateways := env.Gateways(workloadLabels)
 	if len(gateways) == 0 {
 		log.Debuga("buildGatewayRoutes: no gateways for router ", node.ID)
-		return nil, nil
+		return nil
 	}
 
 	merged := model.MergeGateways(gateways...)
@@ -221,7 +224,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 
 		// This can happen when a gateway has recently been deleted. Envoy will still request route
 		// information due to the draining of listeners, so we should not return an error.
-		return nil, nil
+		return nil
 	}
 
 	servers := merged.ServersByRouteName[routeName]
@@ -272,15 +275,15 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 		}
 	}
 
-	var virtualHosts []route.VirtualHost
+	var virtualHosts []*route.VirtualHost
 	if len(vHostDedupMap) == 0 {
 		log.Warnf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
-		virtualHosts = []route.VirtualHost{{
+		virtualHosts = []*route.VirtualHost{{
 			Name:    fmt.Sprintf("blackhole:%d", port),
 			Domains: []string{"*"},
-			Routes: []route.Route{
+			Routes: []*route.Route{
 				{
-					Match: route.RouteMatch{
+					Match: &route.RouteMatch{
 						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
 					},
 					Action: &route.Route_DirectResponse{
@@ -292,9 +295,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 			},
 		}}
 	} else {
-		virtualHosts = make([]route.VirtualHost, 0, len(vHostDedupMap))
+		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap))
 		for _, v := range vHostDedupMap {
-			virtualHosts = append(virtualHosts, *v)
+			virtualHosts = append(virtualHosts, v)
 		}
 	}
 
@@ -320,15 +323,14 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 		p.OnOutboundRouteConfiguration(in, routeCfg)
 	}
 
-	routeCfg = applyRouteConfigurationPatches(in, routeCfg)
-	return routeCfg, nil
+	return routeCfg
 }
 
 // builds a HTTP connection manager for servers of type HTTP or HTTPS (mode: simple/mutual)
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	node *model.Proxy, server *networking.Server, routeName string) *filterChainOpts {
 
-	serverProto := config.ParseProtocol(server.Port.Protocol)
+	serverProto := protocol.Parse(server.Port.Protocol)
 
 	httpProtoOpts := &core.Http1ProtocolOptions{}
 
@@ -408,7 +410,7 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 
 	tls := &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
-			AlpnProtocols: ListenersALPNProtocols,
+			AlpnProtocols: util.ALPNHttp,
 		},
 	}
 
@@ -421,9 +423,14 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 		// If tls mode is MUTUAL, create SDS config for gateway to fetch certificate validation context
 		// at gateway agent. Otherwise, use the static certificate validation context config.
 		if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL {
+			defaultValidationContext := &auth.CertificateValidationContext{
+				VerifySubjectAltName:  server.Tls.SubjectAltNames,
+				VerifyCertificateSpki: server.Tls.VerifyCertificateSpki,
+				VerifyCertificateHash: server.Tls.VerifyCertificateHash,
+			}
 			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
+					DefaultValidationContext: defaultValidationContext,
 					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfigForGatewayListener(
 						server.Tls.CredentialName+authn_model.IngressGatewaySdsCaSuffix, authn_model.IngressGatewaySdsUdsPath),
 				},
@@ -549,11 +556,11 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 // It first obtains all virtual services bound to the set of Gateways for this workload, filters them by this
 // server's port and hostnames, and produces network filters for each destination from the filtered services.
 func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Environment, push *model.PushContext, server *networking.Server,
-	gatewaysForWorkload map[string]bool) []listener.Filter {
+	gatewaysForWorkload map[string]bool) []*listener.Filter {
 	port := &model.Port{
 		Name:     server.Port.Name,
 		Port:     int(server.Port.Number),
-		Protocol: config.ParseProtocol(server.Port.Protocol),
+		Protocol: protocol.Parse(server.Port.Protocol),
 	}
 
 	gatewayServerHosts := make(map[config.Hostname]bool, len(server.Hosts))
@@ -595,7 +602,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 	port := &model.Port{
 		Name:     server.Port.Name,
 		Port:     int(server.Port.Number),
-		Protocol: config.ParseProtocol(server.Port.Protocol),
+		Protocol: protocol.Parse(server.Port.Protocol),
 	}
 
 	gatewayServerHosts := make(map[config.Hostname]bool, len(server.Hosts))

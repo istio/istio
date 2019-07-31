@@ -6,13 +6,11 @@ package matcher
 import (
 	encoding_binary "encoding/binary"
 	fmt "fmt"
-	io "io"
-	math "math"
-
+	_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	proto "github.com/gogo/protobuf/proto"
-
-	_type "github.com/envoyproxy/go-control-plane/envoy/type"
+	io "io"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.

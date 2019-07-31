@@ -29,13 +29,13 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/pilot/pkg/features"
-
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 const (
@@ -143,14 +143,14 @@ func TestInboundListenerConfigProxy13(t *testing.T) {
 		//testInboundListenerConfigWithSidecarWithoutServices(t, p)
 
 		testInboundListenerConfigV13(t, p,
-			buildService("test1.com", wildcardIP, config.ProtocolHTTP, tnow.Add(1*time.Second)),
+			buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
 			buildService("test2.com", wildcardIP, "unknown", tnow),
-			buildService("test3.com", wildcardIP, config.ProtocolHTTP, tnow.Add(2*time.Second)))
+			buildService("test3.com", wildcardIP, protocol.HTTP, tnow.Add(2*time.Second)))
 		testInboundListenerConfigV13(t, p,
 			buildService("test.com", wildcardIP, "unknown", tnow))
 		testInboundListenerConfigWithoutServiceV13(t, p)
 		testInboundListenerConfigWithSidecarV13(t, p,
-			buildService("test.com", wildcardIP, config.ProtocolHTTP, tnow))
+			buildService("test.com", wildcardIP, protocol.HTTP, tnow))
 		testInboundListenerConfigWithSidecarWithoutServicesV13(t, p)
 	}
 }
@@ -159,18 +159,18 @@ func TestOutboundListenerConflict_HTTPWithCurrentUnknownV13(t *testing.T) {
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflictV13(t,
-		buildService("test1.com", wildcardIP, config.ProtocolHTTP, tnow.Add(1*time.Second)),
+		buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
 		buildService("test2.com", wildcardIP, "unknown", tnow),
-		buildService("test3.com", wildcardIP, config.ProtocolHTTP, tnow.Add(2*time.Second)))
+		buildService("test3.com", wildcardIP, protocol.HTTP, tnow.Add(2*time.Second)))
 }
 
 func TestOutboundListenerConflict_TCPWithCurrentUnknownV13(t *testing.T) {
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflictV13(t,
-		buildService("test1.com", wildcardIP, config.ProtocolTCP, tnow.Add(1*time.Second)),
+		buildService("test1.com", wildcardIP, protocol.TCP, tnow.Add(1*time.Second)),
 		buildService("test2.com", wildcardIP, "unknown", tnow),
-		buildService("test3.com", wildcardIP, config.ProtocolTCP, tnow.Add(2*time.Second)))
+		buildService("test3.com", wildcardIP, protocol.TCP, tnow.Add(2*time.Second)))
 }
 
 func TestOutboundListenerConflict_UnknownWithCurrentTCPV13(t *testing.T) {
@@ -178,7 +178,7 @@ func TestOutboundListenerConflict_UnknownWithCurrentTCPV13(t *testing.T) {
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflictV13(t,
 		buildService("test1.com", wildcardIP, "unknown", tnow.Add(1*time.Second)),
-		buildService("test2.com", wildcardIP, config.ProtocolTCP, tnow),
+		buildService("test2.com", wildcardIP, protocol.TCP, tnow),
 		buildService("test3.com", wildcardIP, "unknown", tnow.Add(2*time.Second)))
 }
 
@@ -187,15 +187,15 @@ func TestOutboundListenerConflict_UnknownWithCurrentHTTPV13(t *testing.T) {
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflictV13(t,
 		buildService("test1.com", wildcardIP, "unknown", tnow.Add(1*time.Second)),
-		buildService("test2.com", wildcardIP, config.ProtocolHTTP, tnow),
+		buildService("test2.com", wildcardIP, protocol.HTTP, tnow),
 		buildService("test3.com", wildcardIP, "unknown", tnow.Add(2*time.Second)))
 }
 
 func TestOutboundListenerConfig_WithSidecarV13(t *testing.T) {
 	// Add a service and verify it's config
 	services := []*model.Service{
-		buildService("test1.com", wildcardIP, config.ProtocolHTTP, tnow.Add(1*time.Second)),
-		buildService("test2.com", wildcardIP, config.ProtocolTCP, tnow),
+		buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
+		buildService("test2.com", wildcardIP, protocol.TCP, tnow),
 		buildService("test3.com", wildcardIP, "unknown", tnow.Add(2*time.Second))}
 	testOutboundListenerConfigWithSidecarV13(t, services...)
 }
@@ -204,33 +204,33 @@ func TestOutboundListenerConflict_HTTPWithCurrentTCP(t *testing.T) {
 	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflict(t,
-		buildService("test1.com", wildcardIP, config.ProtocolHTTP, tnow.Add(1*time.Second)),
-		buildService("test2.com", wildcardIP, config.ProtocolTCP, tnow),
-		buildService("test3.com", wildcardIP, config.ProtocolHTTP, tnow.Add(2*time.Second)))
+		buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
+		buildService("test2.com", wildcardIP, protocol.TCP, tnow),
+		buildService("test3.com", wildcardIP, protocol.HTTP, tnow.Add(2*time.Second)))
 }
 
 func TestOutboundListenerConflict_TCPWithCurrentHTTP(t *testing.T) {
 	// The oldest service port is HTTP.  We should encounter conflicts when attempting to add the TCP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflict(t,
-		buildService("test1.com", wildcardIP, config.ProtocolTCP, tnow.Add(1*time.Second)),
-		buildService("test2.com", wildcardIP, config.ProtocolHTTP, tnow),
-		buildService("test3.com", wildcardIP, config.ProtocolTCP, tnow.Add(2*time.Second)))
+		buildService("test1.com", wildcardIP, protocol.TCP, tnow.Add(1*time.Second)),
+		buildService("test2.com", wildcardIP, protocol.HTTP, tnow),
+		buildService("test3.com", wildcardIP, protocol.TCP, tnow.Add(2*time.Second)))
 }
 
 func TestOutboundListenerConflict_Unordered(t *testing.T) {
 	// Ensure that the order is preserved when all the times match. The first service in the list wins.
 	testOutboundListenerConflict(t,
-		buildService("test1.com", wildcardIP, config.ProtocolHTTP, tzero),
-		buildService("test2.com", wildcardIP, config.ProtocolTCP, tzero),
-		buildService("test3.com", wildcardIP, config.ProtocolTCP, tzero))
+		buildService("test1.com", wildcardIP, protocol.HTTP, tzero),
+		buildService("test2.com", wildcardIP, protocol.TCP, tzero),
+		buildService("test3.com", wildcardIP, protocol.TCP, tzero))
 }
 
 func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 	services := []*model.Service{
-		buildService("test1.com", "1.2.3.4", config.ProtocolTCP, tnow.Add(1*time.Second)),
-		buildService("test2.com", "1.2.3.4", config.ProtocolTCP, tnow),
-		buildService("test3.com", "1.2.3.4", config.ProtocolTCP, tnow.Add(2*time.Second)),
+		buildService("test1.com", "1.2.3.4", protocol.TCP, tnow.Add(1*time.Second)),
+		buildService("test2.com", "1.2.3.4", protocol.TCP, tnow),
+		buildService("test3.com", "1.2.3.4", protocol.TCP, tnow.Add(2*time.Second)),
 	}
 	p := &fakePlugin{}
 	listeners := buildOutboundListeners(p, &proxy, nil, nil, services...)
@@ -245,9 +245,9 @@ func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 
 	oldestService := getOldestService(services...)
 	oldestProtocol := oldestService.Ports[0].Protocol
-	if oldestProtocol != config.ProtocolHTTP && isHTTPListener(listeners[0]) {
+	if oldestProtocol != protocol.HTTP && isHTTPListener(listeners[0]) {
 		t.Fatal("expected TCP listener, found HTTP")
-	} else if oldestProtocol == config.ProtocolHTTP && !isHTTPListener(listeners[0]) {
+	} else if oldestProtocol == protocol.HTTP && !isHTTPListener(listeners[0]) {
 		t.Fatal("expected HTTP listener, found TCP")
 	}
 
@@ -284,7 +284,7 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 				tt.expectedChains = append([]string{"1.1.1.1"}, tt.expectedChains...)
 			}
 			services := []*model.Service{
-				buildService("test.com", tt.CIDR, config.ProtocolTCP, tnow),
+				buildService("test.com", tt.CIDR, protocol.TCP, tnow),
 			}
 
 			p := &fakePlugin{}
@@ -320,10 +320,10 @@ func TestInboundListenerConfig_HTTP(t *testing.T) {
 	for _, p := range []*model.Proxy{&proxy, &proxyHTTP10} {
 		// Add a service and verify it's config
 		testInboundListenerConfig(t, p,
-			buildService("test.com", wildcardIP, config.ProtocolHTTP, tnow))
+			buildService("test.com", wildcardIP, protocol.HTTP, tnow))
 		testInboundListenerConfigWithoutServices(t, p)
 		testInboundListenerConfigWithSidecar(t, p,
-			buildService("test.com", wildcardIP, config.ProtocolHTTP, tnow))
+			buildService("test.com", wildcardIP, protocol.HTTP, tnow))
 		testInboundListenerConfigWithSidecarWithoutServices(t, p)
 	}
 }
@@ -331,9 +331,9 @@ func TestInboundListenerConfig_HTTP(t *testing.T) {
 func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 	// Add a service and verify it's config
 	services := []*model.Service{
-		buildService("test1.com", wildcardIP, config.ProtocolHTTP, tnow.Add(1*time.Second)),
-		buildService("test2.com", wildcardIP, config.ProtocolTCP, tnow),
-		buildService("test3.com", wildcardIP, config.ProtocolHTTP, tnow.Add(2*time.Second))}
+		buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
+		buildService("test2.com", wildcardIP, protocol.TCP, tnow),
+		buildService("test3.com", wildcardIP, protocol.HTTP, tnow.Add(2*time.Second))}
 	testOutboundListenerConfigWithSidecar(t, services...)
 	testOutboundListenerConfigWithSidecarWithCaptureModeNone(t, services...)
 	testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t, services...)
@@ -387,9 +387,9 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	}
 
 	oldestProtocol := oldestService.Ports[0].Protocol
-	if oldestProtocol != config.ProtocolHTTP && isHTTPListener(listeners[0]) {
+	if oldestProtocol != protocol.HTTP && isHTTPListener(listeners[0]) {
 		t.Fatal("expected TCP listener, found HTTP")
-	} else if oldestProtocol == config.ProtocolHTTP && !isHTTPListener(listeners[0]) {
+	} else if oldestProtocol == protocol.HTTP && !isHTTPListener(listeners[0]) {
 		t.Fatal("expected HTTP listener, found TCP")
 	}
 
@@ -412,7 +412,7 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 	}
 
 	oldestProtocol := oldestService.Ports[0].Protocol
-	if oldestProtocol != config.ProtocolHTTP && oldestProtocol != config.ProtocolTCP {
+	if oldestProtocol != protocol.HTTP && oldestProtocol != protocol.TCP {
 		if len(listeners[0].FilterChains) != 3 {
 			t.Fatalf("expectd %d filter chains, found %d", 3, len(listeners[0].FilterChains))
 		} else {
@@ -435,7 +435,7 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 			t.Fatalf("expectd %d filter chains, found %d", 3, len(listeners[0].FilterChains))
 		}
 
-		if oldestProtocol == config.ProtocolTCP {
+		if oldestProtocol == protocol.TCP {
 			if !isTCPFilterChain(listeners[0].FilterChains[1]) {
 				t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[2].Filters[0].Name)
 			}
@@ -449,7 +449,7 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 				listeners[0].ListenerFilters[0].Name != "envoy.listener.http_inspector" {
 				t.Fatalf("expected %d listener filter, found %d", 1, len(listeners[0].ListenerFilters))
 			}
-		} else if oldestProtocol == config.ProtocolHTTP {
+		} else if oldestProtocol == protocol.HTTP {
 			if !isHTTPFilterChain(listeners[0].FilterChains[1]) {
 				t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
 			}
@@ -563,7 +563,7 @@ func testInboundListenerConfigWithoutServiceV13(t *testing.T, proxy *model.Proxy
 	}
 }
 
-func verifyHTTPFilterChainMatch(t *testing.T, fc listener.FilterChain) {
+func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain) {
 	t.Helper()
 	if len(fc.FilterChainMatch.ApplicationProtocols) != 3 ||
 		fc.FilterChainMatch.ApplicationProtocols[0] != "h2" ||
@@ -573,11 +573,11 @@ func verifyHTTPFilterChainMatch(t *testing.T, fc listener.FilterChain) {
 	}
 }
 
-func isHTTPFilterChain(fc listener.FilterChain) bool {
+func isHTTPFilterChain(fc *listener.FilterChain) bool {
 	return len(fc.Filters) > 0 && fc.Filters[0].Name == "envoy.http_connection_manager"
 }
 
-func isTCPFilterChain(fc listener.FilterChain) bool {
+func isTCPFilterChain(fc *listener.FilterChain) bool {
 	return len(fc.Filters) > 0 && fc.Filters[0].Name == "envoy.tcp_proxy"
 }
 
@@ -603,7 +603,7 @@ func testOutboundListenerConfigWithSidecarV13(t *testing.T, services ...*model.S
 				{
 					Port: &networking.Port{
 						Number:   3306,
-						Protocol: string(config.ProtocolMySQL),
+						Protocol: string(protocol.MySQL),
 						Name:     "MySQL",
 					},
 					Bind:  "8.8.8.8",
@@ -692,9 +692,9 @@ func testInboundListenerConfig(t *testing.T, proxy *model.Proxy, services ...*mo
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
 	oldestProtocol := oldestService.Ports[0].Protocol
-	if oldestProtocol != config.ProtocolHTTP && isHTTPListener(listeners[0]) {
+	if oldestProtocol != protocol.HTTP && isHTTPListener(listeners[0]) {
 		t.Fatal("expected TCP listener, found HTTP")
-	} else if oldestProtocol == config.ProtocolHTTP && !isHTTPListener(listeners[0]) {
+	} else if oldestProtocol == protocol.HTTP && !isHTTPListener(listeners[0]) {
 		t.Fatal("expected HTTP listener, found TCP")
 	}
 	verifyInboundHTTPListenerServerName(t, listeners[0])
@@ -803,7 +803,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 				{
 					Port: &networking.Port{
 						Number:   3306,
-						Protocol: string(config.ProtocolMySQL),
+						Protocol: string(protocol.MySQL),
 						Name:     "MySQL",
 					},
 					Bind:  "8.8.8.8",
@@ -1129,16 +1129,17 @@ func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, services ..
 		return nil
 	}
 
+	proxy.ServiceInstances = nil
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
-
-	return configgen.buildSidecarListeners(&env, &proxy, env.PushContext).getListeners()
+	builder := NewListenerBuilder(&proxy)
+	return configgen.buildSidecarListeners(&env, &proxy, env.PushContext, builder).getListeners()
 }
 
-func getFilterConfig(filter listener.Filter, out proto.Message) error {
+func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 	switch c := filter.ConfigType.(type) {
 	case *listener.Filter_Config:
 		if err := util.StructToMessage(c.Config, out); err != nil {
@@ -1172,8 +1173,9 @@ func buildOutboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
+	proxy.ServiceInstances = proxyInstances
 
-	return configgen.buildSidecarOutboundListeners(&env, proxy, env.PushContext, proxyInstances)
+	return configgen.buildSidecarOutboundListeners(&env, proxy, env.PushContext)
 }
 
 func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *model.Config, services ...*model.Service) []*xdsapi.Listener {
@@ -1189,12 +1191,13 @@ func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *m
 			Endpoint: buildEndpoint(s),
 		}
 	}
+	proxy.ServiceInstances = instances
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
-	return configgen.buildSidecarInboundListeners(&env, proxy, env.PushContext, instances)
+	return configgen.buildSidecarInboundListeners(&env, proxy, env.PushContext)
 }
 
 type fakePlugin struct {
@@ -1266,7 +1269,7 @@ func findListenerByPort(listeners []*xdsapi.Listener, port uint32) *xdsapi.Liste
 	return nil
 }
 
-func buildService(hostname string, ip string, protocol config.Protocol, creationTime time.Time) *model.Service {
+func buildService(hostname string, ip string, protocol protocol.Instance, creationTime time.Time) *model.Service {
 	return &model.Service{
 		CreationTime: creationTime,
 		Hostname:     config.Hostname(hostname),

@@ -27,24 +27,20 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
-	wellKnownPorts = map[int32]config.Protocol{
-		25:    config.ProtocolTCP, // SMTP
-		53:    config.ProtocolTCP, // DNS. Default TCP if not specified.
-		80:    config.ProtocolHTTP,
-		443:   config.ProtocolHTTPS,
-		3306:  config.ProtocolMySQL, // MySQL
-		4222:  config.ProtocolTCP,   // NATS
-		8086:  config.ProtocolTCP,   // InfluxDB
-		9090:  config.ProtocolHTTP,  // Prometheus, used by Istio
-		15030: config.ProtocolTCP,   // Prometheus, used by Istio
-		27017: config.ProtocolMongo, // MongoDB
-		42422: config.ProtocolTCP,   // Prometheus, used by Istio
+	wellKnownPorts = map[int32]protocol.Instance{
+		25:    protocol.TCP,   // SMTP
+		53:    protocol.TCP,   // DNS. Default TCP if not specified.
+		3306:  protocol.MySQL, // MySQL
+		4222:  protocol.TCP,   // NATS
+		8086:  protocol.TCP,   // InfluxDB
+		27017: protocol.Mongo, // MongoDB
 	}
 )
 
@@ -68,32 +64,32 @@ func ParseHostname(hostname config.Hostname) (name string, namespace string, err
 	return
 }
 
-var grpcWeb = string(config.ProtocolGRPCWeb)
+var grpcWeb = string(protocol.GRPCWeb)
 var grpcWebLen = len(grpcWeb)
 
 // ConvertProtocol from k8s protocol and port name
-func ConvertProtocol(port int32, name string, proto coreV1.Protocol) config.Protocol {
-	out := config.ProtocolTCP
+func ConvertProtocol(port int32, name string, proto coreV1.Protocol) protocol.Instance {
+	out := protocol.TCP
 	switch proto {
 	case coreV1.ProtocolUDP:
-		out = config.ProtocolUDP
+		out = protocol.UDP
 	default:
 		if len(name) >= grpcWebLen && strings.EqualFold(name[:grpcWebLen], grpcWeb) {
-			out = config.ProtocolGRPCWeb
+			out = protocol.GRPCWeb
 			break
 		}
 		i := strings.IndexByte(name, '-')
 		if i >= 0 {
 			name = name[:i]
 		}
-		protocol := config.ParseProtocol(name)
-		if protocol != config.ProtocolUDP {
-			out = protocol
+		p := protocol.Parse(name)
+		if p != protocol.UDP {
+			out = p
 		}
 	}
 
 	// For well known ports, using protocol sniffing is unnecessary
-	if proto, has := wellKnownPorts[port]; has && out == config.ProtocolUnsupported {
+	if proto, has := wellKnownPorts[port]; has && out == protocol.Unsupported {
 		out = proto
 	}
 	return out

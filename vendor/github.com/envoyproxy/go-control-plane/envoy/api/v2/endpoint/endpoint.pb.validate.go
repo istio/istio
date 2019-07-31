@@ -44,32 +44,22 @@ func (m *Endpoint) Validate() error {
 		return nil
 	}
 
-	{
-		tmp := m.GetAddress()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return EndpointValidationError{
-					field:  "Address",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return EndpointValidationError{
+				field:  "Address",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
-	{
-		tmp := m.GetHealthCheckConfig()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return EndpointValidationError{
-					field:  "HealthCheckConfig",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetHealthCheckConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return EndpointValidationError{
+				field:  "HealthCheckConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -140,17 +130,12 @@ func (m *LbEndpoint) Validate() error {
 
 	// no validation rules for HealthStatus
 
-	{
-		tmp := m.GetMetadata()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return LbEndpointValidationError{
-					field:  "Metadata",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return LbEndpointValidationError{
+				field:  "Metadata",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -170,17 +155,12 @@ func (m *LbEndpoint) Validate() error {
 
 	case *LbEndpoint_Endpoint:
 
-		{
-			tmp := m.GetEndpoint()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return LbEndpointValidationError{
-						field:  "Endpoint",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetEndpoint()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return LbEndpointValidationError{
+					field:  "Endpoint",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -255,17 +235,12 @@ func (m *LocalityLbEndpoints) Validate() error {
 		return nil
 	}
 
-	{
-		tmp := m.GetLocality()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return LocalityLbEndpointsValidationError{
-					field:  "Locality",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetLocality()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return LocalityLbEndpointsValidationError{
+				field:  "Locality",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -273,17 +248,12 @@ func (m *LocalityLbEndpoints) Validate() error {
 	for idx, item := range m.GetLbEndpoints() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(&tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return LocalityLbEndpointsValidationError{
-						field:  fmt.Sprintf("LbEndpoints[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return LocalityLbEndpointsValidationError{
+					field:  fmt.Sprintf("LbEndpoints[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -308,17 +278,12 @@ func (m *LocalityLbEndpoints) Validate() error {
 		}
 	}
 
-	{
-		tmp := m.GetProximity()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return LocalityLbEndpointsValidationError{
-					field:  "Proximity",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetProximity()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return LocalityLbEndpointsValidationError{
+				field:  "Proximity",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}

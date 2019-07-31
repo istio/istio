@@ -24,9 +24,9 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	lis "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
 
-	authn_applier "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -47,7 +47,7 @@ func verifyListener(listener *xdsapi.Listener, t *testing.T) bool {
 	// We expect tls_inspector filter exist.
 	inspector := false
 	for _, lf := range listener.ListenerFilters {
-		if lf.Name == authn_applier.EnvoyTLSInspectorFilterName {
+		if lf.Name == xdsutil.TlsInspector {
 			inspector = true
 			break
 		}
@@ -115,7 +115,7 @@ spec:
 				func(resp *xdsapi.DiscoveryResponse) (b bool, e error) {
 					for _, r := range resp.Resources {
 						foo := &xdsapi.Listener{}
-						err := types.UnmarshalAny(&r, foo)
+						err := types.UnmarshalAny(r, foo)
 						result := verifyListener(foo, t)
 						if err == nil && result {
 							return true, nil

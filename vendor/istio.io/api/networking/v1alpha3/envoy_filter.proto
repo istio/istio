@@ -366,6 +366,35 @@ message EnvoyFilter {
     GATEWAY = 3;
   };
 
+  // One or more properties of the proxy to match on.
+  message ProxyMatch {
+    oneof version_match {
+      // Version restricts the patches to sidecars or gateways with
+      // from a specific version of Istio. The Istio version for a given
+      // proxy is obtained from the node metadata field ISTIO_VERSION
+      // supplied by the proxy when connecting to Pilot. This value is
+      // embedded as an environment variable (ISTIO_META_ISTIO_VERSION) in
+      // the Istio proxy docker image. Custom proxy implementations should
+      // provide this metadata variable to take advantage of the Istio
+      // version check option.
+      //
+      // Checks if the Istio version in the proxy is greater than or
+      // equal to the specified value.
+      string version_ge = 1;
+      // Checks if the Istio version in the proxy is equal to the
+      // exact version specified.
+      string version_eq = 2;
+    }
+
+    // Match on the node metadata supplied by a proxy when connecting
+    // to Istio Pilot. Note that while Envoy's node metadata is of
+    // type Struct, only string key-value pairs are processed by
+    // Pilot. All keys specified in the metadata must match with exact
+    // values. The match will fail if any of the specified keys are
+    // absent or the values fail to match.
+    map<string, string> metadata = 3;
+  };
+
   // Conditions specified in ClusterMatch must be met for the patch
   // to be applied to a cluster.
   message ClusterMatch {
@@ -490,6 +519,8 @@ message EnvoyFilter {
     // Instead of using specific port numbers, a set of ports matching
     // a given service's port name can be selected. Matching is case
     // insensitive.
+    // Not implemented.
+    // $hide_from_docs
     string port_name = 2;
 
     // Match a specific filter chain in a listener. If specified, the
@@ -555,13 +586,24 @@ message EnvoyFilter {
     google.protobuf.Struct value = 2;
   };
 
+  // One or more match conditions to be met before a patch is applied
+  // to the generated configuration for a given proxy.
   message EnvoyConfigObjectMatch {
+    // The specific config generation context to match on. Istio Pilot
+    // generates envoy configuration in the context of a gateway,
+    // inbound traffic to sidecar and outbound traffic from sidecar.
     PatchContext context = 1;
 
+    // Match on properties associated with a proxy.
+    ProxyMatch proxy = 2;
+
     oneof object_types {
-      ListenerMatch listener = 2;
-      RouteConfigurationMatch route_configuration = 3;
-      ClusterMatch cluster = 4;
+      // Match on envoy listener attributes.
+      ListenerMatch listener = 3;
+      // Match on envoy HTTP route configuration attributes.
+      RouteConfigurationMatch route_configuration = 4;
+      // Match on envoy cluster attributes.
+      ClusterMatch cluster = 5;
     }
   };
 

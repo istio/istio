@@ -513,9 +513,9 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintConfig(dAtA, i, uint64(v.Size()))
-				n1, err1 := v.MarshalTo(dAtA[i:])
-				if err1 != nil {
-					return 0, err1
+				n1, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n1
 			}

@@ -46,34 +46,24 @@ func (m *StatsSink) Validate() error {
 
 	case *StatsSink_Config:
 
-		{
-			tmp := m.GetConfig()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return StatsSinkValidationError{
-						field:  "Config",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return StatsSinkValidationError{
+					field:  "Config",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *StatsSink_TypedConfig:
 
-		{
-			tmp := m.GetTypedConfig()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return StatsSinkValidationError{
-						field:  "TypedConfig",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return StatsSinkValidationError{
+					field:  "TypedConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -148,49 +138,34 @@ func (m *StatsConfig) Validate() error {
 	for idx, item := range m.GetStatsTags() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return StatsConfigValidationError{
-						field:  fmt.Sprintf("StatsTags[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return StatsConfigValidationError{
+					field:  fmt.Sprintf("StatsTags[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	}
 
-	{
-		tmp := m.GetUseAllDefaultTags()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return StatsConfigValidationError{
-					field:  "UseAllDefaultTags",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetUseAllDefaultTags()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return StatsConfigValidationError{
+				field:  "UseAllDefaultTags",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
-	{
-		tmp := m.GetStatsMatcher()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return StatsConfigValidationError{
-					field:  "StatsMatcher",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetStatsMatcher()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return StatsConfigValidationError{
+				field:  "StatsMatcher",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -267,34 +242,24 @@ func (m *StatsMatcher) Validate() error {
 
 	case *StatsMatcher_ExclusionList:
 
-		{
-			tmp := m.GetExclusionList()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return StatsMatcherValidationError{
-						field:  "ExclusionList",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetExclusionList()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return StatsMatcherValidationError{
+					field:  "ExclusionList",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *StatsMatcher_InclusionList:
 
-		{
-			tmp := m.GetInclusionList()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return StatsMatcherValidationError{
-						field:  "InclusionList",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetInclusionList()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return StatsMatcherValidationError{
+					field:  "InclusionList",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -460,17 +425,12 @@ func (m *StatsdSink) Validate() error {
 
 	case *StatsdSink_Address:
 
-		{
-			tmp := m.GetAddress()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return StatsdSinkValidationError{
-						field:  "Address",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return StatsdSinkValidationError{
+					field:  "Address",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -557,17 +517,12 @@ func (m *DogStatsdSink) Validate() error {
 
 	case *DogStatsdSink_Address:
 
-		{
-			tmp := m.GetAddress()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return DogStatsdSinkValidationError{
-						field:  "Address",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return DogStatsdSinkValidationError{
+					field:  "Address",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}

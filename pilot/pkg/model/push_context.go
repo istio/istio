@@ -22,6 +22,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 // PushContext tracks the status of a push - metrics and errors.
@@ -275,7 +276,6 @@ var (
 		ProxyStatusClusterNoInstances,
 		DuplicatedDomains,
 		DuplicatedSubsets,
-		totalVirtualServices,
 	}
 )
 
@@ -283,6 +283,7 @@ func init() {
 	for _, m := range metrics {
 		monitoring.MustRegisterViews(m)
 	}
+	monitoring.MustRegisterViews(totalVirtualServices)
 }
 
 // NewPushContext creates a new PushContext structure to track push status.
@@ -641,7 +642,7 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 	for _, svc := range services {
 		ps.ServiceAccounts[svc.Hostname] = map[int][]string{}
 		for _, port := range svc.Ports {
-			if port.Protocol == config.ProtocolUDP {
+			if port.Protocol == protocol.UDP {
 				continue
 			}
 			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc, []int{port.Port})
