@@ -52,14 +52,23 @@ import (
 
 const (
 	NoConflict = iota
+	// Incoming HTTP existing HTTP
 	HTTPOverHTTP
+	// Incoming HTTP existing TCP
 	HTTPOverTCP
+	// Incoming HTTP existing AUTO
 	HTTPOverAuto
+	// Incoming TCP existing HTTP
 	TCPOverHTTP
+	// Incoming TCP existing TCP
 	TCPOverTCP
+	// Incoming TCP existing AUTO
 	TCPOverAuto
+	// Incoming AUTO existing HTTP
 	AutoOverHTTP
+	// Incoming AUTO existing TCP
 	AutoOverTCP
+	// Incoming AUTO existing AUTO
 	AutoOverAuto
 
 	// HTTP inspector listener filter
@@ -1285,9 +1294,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 	// There are 9 types conflicts
 	//    Incoming Existing
-	// 	1. HTTP -> HTTP
+	//  1. HTTP -> HTTP
 	//  2. HTTP -> TCP
-	// 	3. HTTP -> unknown
+	//  3. HTTP -> unknown
 	//  4. TCP  -> HTTP
 	//  5. TCP  -> TCP
 	//  6. TCP  -> unknown
@@ -1337,12 +1346,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		currentListenerEntry.listener.ListenerFilters =
 			append(currentListenerEntry.listener.ListenerFilters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
 	case TCPOverTCP:
-		// Merge two TCP filter chains. Since HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
+		// Merge two TCP filter chains. HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
 		// HTTP filter chain is different from TCP filter chain's.
 		currentListenerEntry.listener.FilterChains = mergeTCPFilterChains(mutable.Listener.FilterChains,
 			pluginParams, listenerMapKey, listenerMap, node)
 	case TCPOverAuto:
-		// Merge two TCP filter chains. Since HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
+		// Merge two TCP filter chains. HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
 		// HTTP filter chain is different from TCP filter chain's.
 		currentListenerEntry.listener.FilterChains = mergeTCPFilterChains(mutable.Listener.FilterChains,
 			pluginParams, listenerMapKey, listenerMap, node)
@@ -1359,7 +1368,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 			append(currentListenerEntry.listener.ListenerFilters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
 
 	case AutoOverTCP:
-		// Merge two TCP filter chains. Since HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
+		// Merge two TCP filter chains. HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
 		// HTTP filter chain is different from TCP filter chain's.
 		currentListenerEntry.listener.FilterChains = mergeTCPFilterChains(mutable.Listener.FilterChains,
 			pluginParams, listenerMapKey, listenerMap, node)
