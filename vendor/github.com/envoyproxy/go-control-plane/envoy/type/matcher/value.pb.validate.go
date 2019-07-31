@@ -45,51 +45,36 @@ func (m *ValueMatcher) Validate() error {
 
 	case *ValueMatcher_NullMatch_:
 
-		{
-			tmp := m.GetNullMatch()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return ValueMatcherValidationError{
-						field:  "NullMatch",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetNullMatch()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ValueMatcherValidationError{
+					field:  "NullMatch",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *ValueMatcher_DoubleMatch:
 
-		{
-			tmp := m.GetDoubleMatch()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return ValueMatcherValidationError{
-						field:  "DoubleMatch",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetDoubleMatch()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ValueMatcherValidationError{
+					field:  "DoubleMatch",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *ValueMatcher_StringMatch:
 
-		{
-			tmp := m.GetStringMatch()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return ValueMatcherValidationError{
-						field:  "StringMatch",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetStringMatch()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ValueMatcherValidationError{
+					field:  "StringMatch",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -102,17 +87,12 @@ func (m *ValueMatcher) Validate() error {
 
 	case *ValueMatcher_ListMatch:
 
-		{
-			tmp := m.GetListMatch()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return ValueMatcherValidationError{
-						field:  "ListMatch",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetListMatch()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ValueMatcherValidationError{
+					field:  "ListMatch",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -194,17 +174,12 @@ func (m *ListMatcher) Validate() error {
 
 	case *ListMatcher_OneOf:
 
-		{
-			tmp := m.GetOneOf()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return ListMatcherValidationError{
-						field:  "OneOf",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetOneOf()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ListMatcherValidationError{
+					field:  "OneOf",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
