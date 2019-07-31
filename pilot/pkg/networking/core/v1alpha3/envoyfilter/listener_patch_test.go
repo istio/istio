@@ -317,7 +317,7 @@ func TestApplyListenerPatches(t *testing.T) {
 	sidecarOutboundInNoAdd := []*xdsapi.Listener{
 		{
 			Name: "12345",
-			Address: core.Address{
+			Address: &core.Address{
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
 						PortSpecifier: &core.SocketAddress_PortValue{
@@ -326,9 +326,9 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 				},
 			},
-			FilterChains: []listener.FilterChain{
+			FilterChains: []*listener.FilterChain{
 				{
-					Filters: []listener.Filter{
+					Filters: []*listener.Filter{
 						{Name: "filter1"},
 						{Name: "filter2"},
 					},
@@ -343,7 +343,7 @@ func TestApplyListenerPatches(t *testing.T) {
 	sidecarOutboundOutNoAdd := []*xdsapi.Listener{
 		{
 			Name: "12345",
-			Address: core.Address{
+			Address: &core.Address{
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
 						PortSpecifier: &core.SocketAddress_PortValue{
@@ -352,9 +352,9 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 				},
 			},
-			FilterChains: []listener.FilterChain{
+			FilterChains: []*listener.FilterChain{
 				{
-					Filters: []listener.Filter{
+					Filters: []*listener.Filter{
 						{Name: "filter0"},
 						{Name: "filter1"},
 					},
