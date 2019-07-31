@@ -107,6 +107,10 @@ const (
 	// ProxyInboundListenPort is the port on which all inbound traffic to the pod/vm will be captured to
 	// TODO: allow configuration through mesh config
 	ProxyInboundListenPort = 15006
+
+	httpFilterName = "envoy.http_connection_manager"
+
+	tcpFilterName = "envoy.tcp_proxy"
 )
 
 var (
@@ -643,10 +647,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 	l := buildListener(listenerOpts)
 	mutable := &plugin.MutableObjects{
 		Listener:     l,
-		FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
+		FilterChains: getPluginFilterChain(l),
 	}
 	for _, p := range configgen.Plugins {
-		// TODO(crayzyxy): support authz and authn
 		if err := p.OnInboundListener(pluginParams, mutable); err != nil {
 			log.Warn(err.Error())
 		}
@@ -1272,11 +1275,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 	mutable := &plugin.MutableObjects{
 		Listener:     l,
-		FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
+		FilterChains: getPluginFilterChain(l),
 	}
 
 	for _, p := range configgen.Plugins {
-		// TODO(crazyxy): support authz and authn
 		if err := p.OnOutboundListener(pluginParams, mutable); err != nil {
 			log.Warn(err.Error())
 		}
@@ -2097,4 +2099,26 @@ func mergeFilterChains(httpFilterChain, tcpFilterChain []listener.FilterChain) [
 
 	}
 	return append(newFilterChan, tcpFilterChain...)
+}
+
+func getPluginFilterChain(l *xdsapi.Listener) []plugin.FilterChain {
+	filterChain := make([]plugin.FilterChain, len(l.FilterChains))
+
+	for id := range filterChain {
+		filterChain[id].ListenerProtocol = plugin.ListenerProtocolUnknown
+
+		for _, filter := range l.FilterChains[id].Filters {
+			if filter.Name == httpFilterName {
+				filterChain[id].ListenerProtocol = plugin.ListenerProtocolHTTP
+				break
+			}
+
+			if filter.Name == tcpFilterName {
+				filterChain[id].ListenerProtocol = plugin.ListenerProtocolTCP
+				break
+			}
+		}
+	}
+
+	return filterChain
 }
