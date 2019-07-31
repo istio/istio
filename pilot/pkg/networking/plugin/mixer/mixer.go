@@ -170,7 +170,7 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		}
 		return nil
 	case plugin.ListenerProtocolTCP:
-		filter := buildInboundTCPFilter(in.Env.Mesh, attrs, in.Node)
+		filter := buildInboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.ServiceInstance)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
 		}
@@ -531,7 +531,12 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 	return out
 }
 
-func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) listener.Filter {
+func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, node *model.Proxy, destination *model.ServiceInstance) listener.Filter {
+	attrs := attrsCopy(attrsIn)
+	if destination != nil {
+		attrs = addDestinationServiceAttributes(attrs, destination.Service)
+	}
+
 	cfg := &mccpb.TcpClientConfig{
 		DisableCheckCalls: disablePolicyChecks(inbound, mesh, node),
 		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
