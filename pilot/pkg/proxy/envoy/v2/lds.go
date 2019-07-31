@@ -75,7 +75,7 @@ func ldsDiscoveryResponse(ls []*xdsapi.Listener, version string) *xdsapi.Discove
 			continue
 		}
 		lr, _ := types.MarshalAny(ll)
-		resp.Resources = append(resp.Resources, *lr)
+		resp.Resources = append(resp.Resources, lr)
 	}
 
 	return resp

@@ -281,7 +281,7 @@ func buildFakeCluster() *apiv2.Cluster {
 		Name: "outbound|8080||test.example.org",
 		LoadAssignment: &apiv2.ClusterLoadAssignment{
 			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []endpoint.LocalityLbEndpoints{
+			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
 					Locality: &envoycore.Locality{
 						Region:  "region1",
@@ -342,7 +342,7 @@ func buildSmallCluster() *apiv2.Cluster {
 		Name: "outbound|8080||test.example.org",
 		LoadAssignment: &apiv2.ClusterLoadAssignment{
 			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []endpoint.LocalityLbEndpoints{
+			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
 					Locality: &envoycore.Locality{
 						Region:  "region1",
@@ -374,7 +374,7 @@ func buildSmallClusterWithNilLocalities() *apiv2.Cluster {
 		Name: "outbound|8080||test.example.org",
 		LoadAssignment: &apiv2.ClusterLoadAssignment{
 			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []endpoint.LocalityLbEndpoints{
+			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
 					Locality: &envoycore.Locality{
 						Region:  "region1",

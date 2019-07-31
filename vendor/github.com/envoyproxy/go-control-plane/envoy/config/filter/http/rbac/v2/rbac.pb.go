@@ -5,14 +5,12 @@ package v2
 
 import (
 	fmt "fmt"
-	io "io"
-	math "math"
-
+	v2 "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
-
-	v2 "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
+	io "io"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.

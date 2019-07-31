@@ -40,17 +40,12 @@ func (m *Tracing) Validate() error {
 		return nil
 	}
 
-	{
-		tmp := m.GetHttp()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return TracingValidationError{
-					field:  "Http",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetHttp()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return TracingValidationError{
+				field:  "Http",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -215,17 +210,12 @@ func (m *ZipkinConfig) Validate() error {
 
 	// no validation rules for TraceId_128Bit
 
-	{
-		tmp := m.GetSharedSpanContext()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return ZipkinConfigValidationError{
-					field:  "SharedSpanContext",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetSharedSpanContext()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ZipkinConfigValidationError{
+				field:  "SharedSpanContext",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -302,17 +292,12 @@ func (m *DynamicOtConfig) Validate() error {
 		}
 	}
 
-	{
-		tmp := m.GetConfig()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return DynamicOtConfigValidationError{
-					field:  "Config",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return DynamicOtConfigValidationError{
+				field:  "Config",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -461,17 +446,12 @@ func (m *OpenCensusConfig) Validate() error {
 		return nil
 	}
 
-	{
-		tmp := m.GetTraceConfig()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return OpenCensusConfigValidationError{
-					field:  "TraceConfig",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetTraceConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return OpenCensusConfigValidationError{
+				field:  "TraceConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -485,8 +465,6 @@ func (m *OpenCensusConfig) Validate() error {
 	// no validation rules for ZipkinExporterEnabled
 
 	// no validation rules for ZipkinUrl
-
-	// no validation rules for ZipkinServiceName
 
 	return nil
 }
@@ -560,17 +538,12 @@ func (m *TraceServiceConfig) Validate() error {
 		}
 	}
 
-	{
-		tmp := m.GetGrpcService()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return TraceServiceConfigValidationError{
-					field:  "GrpcService",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetGrpcService()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return TraceServiceConfigValidationError{
+				field:  "GrpcService",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -653,34 +626,24 @@ func (m *Tracing_Http) Validate() error {
 
 	case *Tracing_Http_Config:
 
-		{
-			tmp := m.GetConfig()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return Tracing_HttpValidationError{
-						field:  "Config",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return Tracing_HttpValidationError{
+					field:  "Config",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *Tracing_Http_TypedConfig:
 
-		{
-			tmp := m.GetTypedConfig()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return Tracing_HttpValidationError{
-						field:  "TypedConfig",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return Tracing_HttpValidationError{
+					field:  "TypedConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}

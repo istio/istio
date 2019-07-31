@@ -48,17 +48,12 @@ func (m *TapResource) Validate() error {
 		}
 	}
 
-	{
-		tmp := m.GetConfig()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return TapResourceValidationError{
-					field:  "Config",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return TapResourceValidationError{
+				field:  "Config",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}

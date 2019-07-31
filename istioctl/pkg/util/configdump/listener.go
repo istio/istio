@@ -50,7 +50,7 @@ func (w *Wrapper) GetListenerConfigDump() (*adminapi.ListenersConfigDump, error)
 	}
 	listenerDumpAny := w.Configs[2]
 	listenerDump := &adminapi.ListenersConfigDump{}
-	err := proto.UnmarshalAny(&listenerDumpAny, listenerDump)
+	err := proto.UnmarshalAny(listenerDumpAny, listenerDump)
 	if err != nil {
 		return nil, err
 	}

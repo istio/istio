@@ -42,17 +42,19 @@ func (m *Listener) Validate() error {
 
 	// no validation rules for Name
 
-	{
-		tmp := m.GetAddress()
+	if m.GetAddress() == nil {
+		return ListenerValidationError{
+			field:  "Address",
+			reason: "value is required",
+		}
+	}
 
-		if v, ok := interface{}(&tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return ListenerValidationError{
-					field:  "Address",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListenerValidationError{
+				field:  "Address",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -60,79 +62,54 @@ func (m *Listener) Validate() error {
 	for idx, item := range m.GetFilterChains() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(&tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return ListenerValidationError{
-						field:  fmt.Sprintf("FilterChains[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ListenerValidationError{
+					field:  fmt.Sprintf("FilterChains[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	}
 
-	{
-		tmp := m.GetUseOriginalDst()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return ListenerValidationError{
-					field:  "UseOriginalDst",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetUseOriginalDst()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListenerValidationError{
+				field:  "UseOriginalDst",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
-	{
-		tmp := m.GetPerConnectionBufferLimitBytes()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return ListenerValidationError{
-					field:  "PerConnectionBufferLimitBytes",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetPerConnectionBufferLimitBytes()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListenerValidationError{
+				field:  "PerConnectionBufferLimitBytes",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
-	{
-		tmp := m.GetMetadata()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return ListenerValidationError{
-					field:  "Metadata",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListenerValidationError{
+				field:  "Metadata",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
-	{
-		tmp := m.GetDeprecatedV1()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return ListenerValidationError{
-					field:  "DeprecatedV1",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetDeprecatedV1()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListenerValidationError{
+				field:  "DeprecatedV1",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -142,64 +119,44 @@ func (m *Listener) Validate() error {
 	for idx, item := range m.GetListenerFilters() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(&tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return ListenerValidationError{
-						field:  fmt.Sprintf("ListenerFilters[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ListenerValidationError{
+					field:  fmt.Sprintf("ListenerFilters[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	}
 
-	{
-		tmp := m.GetListenerFiltersTimeout()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return ListenerValidationError{
-					field:  "ListenerFiltersTimeout",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetListenerFiltersTimeout()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListenerValidationError{
+				field:  "ListenerFiltersTimeout",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
-	{
-		tmp := m.GetTransparent()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return ListenerValidationError{
-					field:  "Transparent",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetTransparent()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListenerValidationError{
+				field:  "Transparent",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
-	{
-		tmp := m.GetFreebind()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return ListenerValidationError{
-					field:  "Freebind",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetFreebind()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListenerValidationError{
+				field:  "Freebind",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -207,34 +164,24 @@ func (m *Listener) Validate() error {
 	for idx, item := range m.GetSocketOptions() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return ListenerValidationError{
-						field:  fmt.Sprintf("SocketOptions[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ListenerValidationError{
+					field:  fmt.Sprintf("SocketOptions[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	}
 
-	{
-		tmp := m.GetTcpFastOpenQueueLength()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return ListenerValidationError{
-					field:  "TcpFastOpenQueueLength",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetTcpFastOpenQueueLength()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListenerValidationError{
+				field:  "TcpFastOpenQueueLength",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -304,17 +251,12 @@ func (m *Listener_DeprecatedV1) Validate() error {
 		return nil
 	}
 
-	{
-		tmp := m.GetBindToPort()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return Listener_DeprecatedV1ValidationError{
-					field:  "BindToPort",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetBindToPort()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return Listener_DeprecatedV1ValidationError{
+				field:  "BindToPort",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
