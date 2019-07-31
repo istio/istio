@@ -21,7 +21,7 @@ spec:
     name: http
   - port: 8080
     targetPort: {{.port2}}
-    name: http-two
+    name: foo
 {{if eq .headless "true"}}
   - port: 10090
     targetPort: {{.port3}}
@@ -29,7 +29,7 @@ spec:
 {{else}}
   - port: 90
     targetPort: {{.port3}}
-    name: tcp
+    name: bar
   - port: 9090
     targetPort: {{.port4}}
     name: tcp-two

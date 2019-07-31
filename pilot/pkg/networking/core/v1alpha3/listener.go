@@ -1331,6 +1331,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		currentListenerEntry.protocol = config.ProtocolUnsupported
 		currentListenerEntry.listener.ListenerFilters =
 			append(currentListenerEntry.listener.ListenerFilters, listener.ListenerFilter{Name: envoyListenerHTTPInspector})
+		currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
+
 	case TCPOverHTTP:
 		// Merge TCP filter chain to HTTP filter chain
 		currentListenerEntry.listener.FilterChains = mergeFilterChains(currentListenerEntry.listener.FilterChains, mutable.Listener.FilterChains)

@@ -104,7 +104,7 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 	for fqdn := range missing {
 		svc := serviceRegistry[fqdn]
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() {
+			if port.Protocol.IsHTTP() || (util.IsProxyVersionGE13(node) && port.Protocol == config.ProtocolUnsupported) {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
 				traceOperation := fmt.Sprintf("%s:%d/*", svc.Hostname, port.Port)
 				out = append(out, VirtualHostWrapper{
@@ -166,7 +166,7 @@ func buildSidecarVirtualHostsForVirtualService(
 	serviceByPort := make(map[int][]*model.Service)
 	for _, svc := range servicesInVirtualService {
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() {
+			if port.Protocol.IsHTTP() || (util.IsProxyVersionGE13(node) && port.Protocol == config.ProtocolUnsupported) {
 				serviceByPort[port.Port] = append(serviceByPort[port.Port], svc)
 			}
 		}
