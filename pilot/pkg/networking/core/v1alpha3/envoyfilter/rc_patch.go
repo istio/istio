@@ -81,7 +81,7 @@ func ApplyRouteConfigurationPatches(patchContext networking.EnvoyFilter_PatchCon
 
 			if commonConditionMatch(proxy, patchContext, cp) &&
 				routeConfigurationMatch(patchContext, routeConfiguration, cp) {
-				routeConfiguration.VirtualHosts = append(routeConfiguration.VirtualHosts, cp.Value.(*route.VirtualHost))
+				routeConfiguration.VirtualHosts = append(routeConfiguration.VirtualHosts, proto.Clone(cp.Value).(*route.VirtualHost))
 			}
 		}
 	}
