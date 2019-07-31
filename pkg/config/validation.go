@@ -28,7 +28,7 @@ import (
 	xdsUtil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -36,8 +36,10 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 const (
@@ -1415,20 +1417,20 @@ func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) err
 	var errs error
 
 	if !clusterScoped {
-		if len(in.Targets) == 0 && name != DefaultAuthenticationPolicyName {
+		if len(in.Targets) == 0 && name != constants.DefaultAuthenticationPolicyName {
 			errs = appendErrors(errs, fmt.Errorf("authentication policy with no target rules  must be named %q, found %q",
-				DefaultAuthenticationPolicyName, name))
+				constants.DefaultAuthenticationPolicyName, name))
 		}
-		if len(in.Targets) > 0 && name == DefaultAuthenticationPolicyName {
+		if len(in.Targets) > 0 && name == constants.DefaultAuthenticationPolicyName {
 			errs = appendErrors(errs, fmt.Errorf("authentication policy with name %q must not have any target rules", name))
 		}
 		for _, target := range in.Targets {
 			errs = appendErrors(errs, validateAuthNPolicyTarget(target))
 		}
 	} else {
-		if name != DefaultAuthenticationPolicyName {
+		if name != constants.DefaultAuthenticationPolicyName {
 			errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy name must be %q, found %q",
-				DefaultAuthenticationPolicyName, name))
+				constants.DefaultAuthenticationPolicyName, name))
 		}
 		if len(in.Targets) > 0 {
 			errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy must not have targets"))
@@ -1649,8 +1651,8 @@ func checkRbacConfig(name, typ string, msg proto.Message) error {
 		return errors.New("cannot cast to " + typ)
 	}
 
-	if name != DefaultRbacConfigName {
-		return fmt.Errorf("%s has invalid name(%s), name must be %q", typ, name, DefaultRbacConfigName)
+	if name != constants.DefaultRbacConfigName {
+		return fmt.Errorf("%s has invalid name(%s), name must be %q", typ, name, constants.DefaultRbacConfigName)
 	}
 
 	if in.Mode == rbac.RbacConfig_ON_WITH_INCLUSION && in.Inclusion == nil {
@@ -1739,7 +1741,7 @@ func ValidateVirtualService(_, _ string, msg proto.Message) (errs error) {
 
 	errs = appendErrors(errs, validateGatewayNames(virtualService.Gateways))
 	for _, gateway := range virtualService.Gateways {
-		if gateway == IstioMeshGateway {
+		if gateway == constants.IstioMeshGateway {
 			appliesToMesh = true
 			break
 		}

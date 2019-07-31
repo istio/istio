@@ -25,9 +25,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/config/constants"
 )
 
 // ConvertObject converts an IstioObject k8s-style object to the
@@ -112,7 +114,7 @@ func ResourceName(s string) string {
 
 // ResourceGroup generates the k8s API group for each schema.
 func ResourceGroup(schema *model.ProtoSchema) string {
-	return schema.Group + config.IstioAPIGroupDomain
+	return schema.Group + constants.IstioAPIGroupDomain
 }
 
 // TODO - add special cases for type-to-kind and kind-to-type

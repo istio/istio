@@ -28,9 +28,11 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 )
 
 // ConfigMeta is metadata attached to each configuration unit.
@@ -955,7 +957,7 @@ func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service,
 	// `DefaultAuthenticationPolicyName` ("default") will be used. Also, targets spec should be empty.
 	if specs, err := store.List(AuthenticationMeshPolicy.Type, ""); err == nil {
 		for _, spec := range specs {
-			if spec.Name == config.DefaultAuthenticationPolicyName {
+			if spec.Name == constants.DefaultAuthenticationPolicyName {
 				return &spec
 			}
 		}
@@ -1000,7 +1002,7 @@ func (store *istioConfigStore) ClusterRbacConfig() *Config {
 		log.Errorf("failed to get ClusterRbacConfig: %v", err)
 	}
 	for _, rc := range clusterRbacConfig {
-		if rc.Name == config.DefaultRbacConfigName {
+		if rc.Name == constants.DefaultRbacConfigName {
 			return &rc
 		}
 	}
@@ -1017,7 +1019,7 @@ func (store *istioConfigStore) RbacConfig() *Config {
 		log.Errorf("found %d RbacConfigs, expecting only 1.", len(rbacConfigs))
 	}
 	for _, rc := range rbacConfigs {
-		if rc.Name == config.DefaultRbacConfigName {
+		if rc.Name == constants.DefaultRbacConfigName {
 			log.Warnf("RbacConfig is deprecated, Use ClusterRbacConfig instead.")
 			return &rc
 		}

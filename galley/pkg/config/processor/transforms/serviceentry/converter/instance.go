@@ -23,10 +23,11 @@ import (
 
 	"istio.io/api/annotation"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/annotations"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	configKube "istio.io/istio/pkg/config/kube"
 )
 
@@ -75,11 +76,11 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *resource.Met
 	}
 
 	// Check for unspecified Cluster IP
-	addr := config.UnspecifiedIP
+	addr := constants.UnspecifiedIP
 	if spec.ClusterIP != "" && spec.ClusterIP != coreV1.ClusterIPNone {
 		addr = spec.ClusterIP
 	}
-	if addr == config.UnspecifiedIP && externalName == "" {
+	if addr == constants.UnspecifiedIP && externalName == "" {
 		// Headless services should not be load balanced
 		resolution = networking.ServiceEntry_NONE
 	}
