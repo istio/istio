@@ -314,58 +314,6 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	sidecarOutboundInNoAdd := []*xdsapi.Listener{
-		{
-			Name: "12345",
-			Address: core.Address{
-				Address: &core.Address_SocketAddress{
-					SocketAddress: &core.SocketAddress{
-						PortSpecifier: &core.SocketAddress_PortValue{
-							PortValue: 12345,
-						},
-					},
-				},
-			},
-			FilterChains: []listener.FilterChain{
-				{
-					Filters: []listener.Filter{
-						{Name: "filter1"},
-						{Name: "filter2"},
-					},
-				},
-			},
-		},
-		{
-			Name: "another-listener",
-		},
-	}
-
-	sidecarOutboundOutNoAdd := []*xdsapi.Listener{
-		{
-			Name: "12345",
-			Address: core.Address{
-				Address: &core.Address_SocketAddress{
-					SocketAddress: &core.SocketAddress{
-						PortSpecifier: &core.SocketAddress_PortValue{
-							PortValue: 12345,
-						},
-					},
-				},
-			},
-			FilterChains: []listener.FilterChain{
-				{
-					Filters: []listener.Filter{
-						{Name: "filter0"},
-						{Name: "filter1"},
-					},
-				},
-			},
-		},
-		{
-			Name: "another-listener",
-		},
-	}
-
 	sidecarInboundIn := []*xdsapi.Listener{
 		{
 			Name: "12345",
@@ -575,7 +523,6 @@ func TestApplyListenerPatches(t *testing.T) {
 		proxy        *model.Proxy
 		push         *model.PushContext
 		listeners    []*xdsapi.Listener
-		skipAdds     bool
 	}
 	tests := []struct {
 		name string
@@ -589,7 +536,6 @@ func TestApplyListenerPatches(t *testing.T) {
 				proxy:        sidecarProxy,
 				push:         push,
 				listeners:    sidecarInboundIn,
-				skipAdds:     false,
 			},
 			want: sidecarInboundOut,
 		},
@@ -600,7 +546,6 @@ func TestApplyListenerPatches(t *testing.T) {
 				proxy:        gatewayProxy,
 				push:         push,
 				listeners:    gatewayIn,
-				skipAdds:     false,
 			},
 			want: gatewayOut,
 		},
@@ -611,26 +556,14 @@ func TestApplyListenerPatches(t *testing.T) {
 				proxy:        sidecarProxy,
 				push:         push,
 				listeners:    sidecarOutboundIn,
-				skipAdds:     false,
 			},
 			want: sidecarOutboundOut,
-		},
-		{
-			name: "sidecar outbound lds - skip adds",
-			args: args{
-				patchContext: networking.EnvoyFilter_SIDECAR_OUTBOUND,
-				proxy:        sidecarProxy,
-				push:         push,
-				listeners:    sidecarOutboundInNoAdd,
-				skipAdds:     true,
-			},
-			want: sidecarOutboundOutNoAdd,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ApplyListenerPatches(tt.args.patchContext, tt.args.proxy, tt.args.push,
-				tt.args.listeners, tt.args.skipAdds)
+				tt.args.listeners)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("ApplyListenerPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)
 			}

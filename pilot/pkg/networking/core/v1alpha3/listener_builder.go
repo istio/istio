@@ -43,7 +43,6 @@ type ListenerBuilder struct {
 	gatewayListeners       []*xdsapi.Listener
 	inboundListeners       []*xdsapi.Listener
 	outboundListeners      []*xdsapi.Listener
-	managementListeners    []*xdsapi.Listener
 	virtualListener        *xdsapi.Listener
 	virtualInboundListener *xdsapi.Listener
 }
@@ -112,7 +111,7 @@ func (builder *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl,
 		} else {
 			// dedup management listeners as well
 			addresses[addressString] = m
-			builder.managementListeners = append(builder.managementListeners, m)
+			builder.inboundListeners = append(builder.inboundListeners, m)
 		}
 
 	}
@@ -194,35 +193,33 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environme
 
 func (builder *ListenerBuilder) patchListeners(push *model.PushContext) {
 	if builder.node.Type == model.Router {
-		envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_GATEWAY, builder.node, push, builder.gatewayListeners, false)
+		envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_GATEWAY, builder.node, push, builder.gatewayListeners)
 		return
 	}
 
-	patchOneListener := func(listener *xdsapi.Listener) *xdsapi.Listener {
+	patchOneListener := func(listener *xdsapi.Listener, ctx networking.EnvoyFilter_PatchContext) *xdsapi.Listener {
 		if listener == nil {
 			return nil
 		}
 		tempArray := []*xdsapi.Listener{listener}
-		tempArray = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, builder.node, push, tempArray, true)
+		tempArray = envoyfilter.ApplyListenerPatches(ctx, builder.node, push, tempArray)
 		// temp array will either be empty [if virtual listener was removed] or will have a modified listener
 		if len(tempArray) == 0 {
 			return nil
 		}
 		return tempArray[0]
 	}
-	builder.virtualListener = patchOneListener(builder.virtualListener)
-	builder.virtualInboundListener = patchOneListener(builder.virtualInboundListener)
-	builder.managementListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, builder.node,
-		push, builder.managementListeners, true)
+	builder.virtualListener = patchOneListener(builder.virtualListener, networking.EnvoyFilter_SIDECAR_OUTBOUND)
+	builder.virtualInboundListener = patchOneListener(builder.virtualInboundListener, networking.EnvoyFilter_SIDECAR_INBOUND)
 	builder.inboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, builder.node,
-		push, builder.inboundListeners, false)
-	builder.outboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, builder.node,
-		push, builder.outboundListeners, false)
+		push, builder.inboundListeners)
+	builder.outboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, builder.node,
+		push, builder.outboundListeners)
 }
 
 func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
 	if builder.node.Type == model.SidecarProxy {
-		nInbound, nOutbound, nManagement := len(builder.inboundListeners), len(builder.outboundListeners), len(builder.managementListeners)
+		nInbound, nOutbound := len(builder.inboundListeners), len(builder.outboundListeners)
 		nVirtual, nVirtualInbound := 0, 0
 		if builder.virtualListener != nil {
 			nVirtual = 1
@@ -230,12 +227,11 @@ func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
 		if builder.virtualInboundListener != nil {
 			nVirtualInbound = 1
 		}
-		nListener := nInbound + nOutbound + nManagement + nVirtual + nVirtualInbound
+		nListener := nInbound + nOutbound + nVirtual + nVirtualInbound
 
 		listeners := make([]*xdsapi.Listener, 0, nListener)
 		listeners = append(listeners, builder.inboundListeners...)
 		listeners = append(listeners, builder.outboundListeners...)
-		listeners = append(listeners, builder.managementListeners...)
 		if builder.virtualListener != nil {
 			listeners = append(listeners, builder.virtualListener)
 		}
@@ -243,10 +239,10 @@ func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
 			listeners = append(listeners, builder.virtualInboundListener)
 		}
 
-		log.Debugf("Build %d listeners for node %s including %d inbound, %d outbound, %d management, %d virtual and %d virtual inbound listeners",
+		log.Debugf("Build %d listeners for node %s including %d inbound, %d outbound, %d virtual and %d virtual inbound listeners",
 			nListener,
 			builder.node.ID,
-			nInbound, nOutbound, nManagement,
+			nInbound, nOutbound,
 			nVirtual, nVirtualInbound)
 		return listeners
 	}
