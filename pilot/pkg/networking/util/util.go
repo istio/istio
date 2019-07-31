@@ -387,13 +387,13 @@ func CloneClusterLoadAssignment(original *xdsapi.ClusterLoadAssignment) xdsapi.C
 func cloneLocalityLbEndpoints(endpoints []*endpoint.LocalityLbEndpoints) []*endpoint.LocalityLbEndpoints {
 	out := make([]*endpoint.LocalityLbEndpoints, 0, len(endpoints))
 	for _, ep := range endpoints {
-		clone := ep
+		clone := *ep
 		if ep.LoadBalancingWeight != nil {
 			clone.LoadBalancingWeight = &types.UInt32Value{
 				Value: ep.GetLoadBalancingWeight().GetValue(),
 			}
 		}
-		out = append(out, clone)
+		out = append(out, &clone)
 	}
 	return out
 }
