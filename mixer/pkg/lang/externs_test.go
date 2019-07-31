@@ -494,3 +494,10 @@ func TestExternConditionalString(t *testing.T) {
 		t.Errorf("externIfElse(true, \"yes\", \"no\") => %s, wanted: yes", got)
 	}
 }
+
+func TestExternReplaceAllString(t *testing.T) {
+	got := ExternReplaceAllString("\\/\\d+", "aa", "aa/1aa")
+	if got != "aaaaaa" {
+		t.Errorf("replaceAllString(\"gg\", \"aa\", \"aaggaa\") => %s, wanted: aaaaaa", got)
+	}
+}

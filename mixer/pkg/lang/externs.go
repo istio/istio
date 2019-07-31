@@ -50,6 +50,7 @@ var Externs = map[string]interpreter.Extern{
 	"uri_equal":         interpreter.ExternFromFn("uri_equal", ExternURIEqual),
 	"match":             interpreter.ExternFromFn("match", ExternMatch),
 	"matches":           interpreter.ExternFromFn("matches", externMatches),
+	"replaceAll":        interpreter.ExternFromFn("replaceAll", ExternReplaceAllString),
 	"startsWith":        interpreter.ExternFromFn("startsWith", ExternStartsWith),
 	"endsWith":          interpreter.ExternFromFn("endsWith", ExternEndsWith),
 	"emptyStringMap":    interpreter.ExternFromFn("emptyStringMap", externEmptyStringMap),
@@ -83,6 +84,11 @@ var ExternFunctionMetadata = []ast.FunctionMetadata{
 		Name:          "uri",
 		ReturnType:    config.URI,
 		ArgumentTypes: []config.ValueType{config.STRING},
+	},
+	{
+		Name:          "replaceAll",
+		ReturnType:    config.STRING,
+		ArgumentTypes: []config.ValueType{config.STRING, config.STRING, config.STRING},
 	},
 	{
 		Name:          "match",
@@ -352,6 +358,11 @@ func ExternMatch(str string, pattern string) bool {
 
 func externMatches(pattern string, str string) (bool, error) {
 	return regexp.MatchString(pattern, str)
+}
+
+func ExternReplaceAllString(pattern string, replace string, str string) string {
+	r, _ := regexp.Compile(pattern)
+	return r.ReplaceAllString(str, replace)
 }
 
 // ExternStartsWith checks for prefixes
