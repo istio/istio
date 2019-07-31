@@ -423,9 +423,14 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 		// If tls mode is MUTUAL, create SDS config for gateway to fetch certificate validation context
 		// at gateway agent. Otherwise, use the static certificate validation context config.
 		if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL {
+			defaultValidationContext := &auth.CertificateValidationContext{
+				VerifySubjectAltName:  server.Tls.SubjectAltNames,
+				VerifyCertificateSpki: server.Tls.VerifyCertificateSpki,
+				VerifyCertificateHash: server.Tls.VerifyCertificateHash,
+			}
 			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
+					DefaultValidationContext: defaultValidationContext,
 					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfigForGatewayListener(
 						server.Tls.CredentialName+authn_model.IngressGatewaySdsCaSuffix, authn_model.IngressGatewaySdsUdsPath),
 				},
