@@ -47,6 +47,10 @@ func IsSlice(value interface{}) bool {
 	return reflect.TypeOf(value).Kind() == reflect.Slice
 }
 
+func IsStruct(value interface{}) bool {
+	return reflect.TypeOf(value).Kind() == reflect.Struct
+}
+
 // IsSlicePtr reports whether v is a slice ptr type.
 func IsSlicePtr(v interface{}) bool {
 	t := reflect.TypeOf(v)

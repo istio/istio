@@ -21,8 +21,8 @@ import (
 var (
 	// defaultValidations maps a data path to a validation function.
 	defaultValuesValidations = map[string]ValidatorFunc{
-		"global.proxy.includeIpRanges":     validateStringList(validateCIDR),
-		"global.proxy.excludeIpRanges":     validateStringList(validateCIDR),
+		"global.proxy.includeIpRanges":     validateIPRangesOrStar,
+		"global.proxy.excludeIpRanges":     validateIPRangesOrStar,
 		"global.proxy.includeInboundPorts": validateStringList(validatePortNumberString),
 		"global.proxy.excludeInboundPorts": validateStringList(validatePortNumberString),
 	}

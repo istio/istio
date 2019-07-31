@@ -88,7 +88,7 @@ var (
 // validateWithRegex checks whether the given value matches the regexp r.
 func validateWithRegex(path util.Path, val interface{}, r *regexp.Regexp) (errs util.Errors) {
 	switch {
-	case !isString(val):
+	case !util.IsString(val):
 		errs = util.AppendErr(errs, fmt.Errorf("path %s has bad type %T, want string", path, val))
 
 	case len(r.FindString(val.(string))) != len(val.(string)):
@@ -104,7 +104,7 @@ func validateWithRegex(path util.Path, val interface{}, r *regexp.Regexp) (errs 
 func validateStringList(vf ValidatorFunc) ValidatorFunc {
 	return func(path util.Path, val interface{}) util.Errors {
 		msg := fmt.Sprintf("validateStringList %v", val)
-		if reflect.TypeOf(val).Kind() != reflect.String {
+		if !util.IsString(val) {
 			err := fmt.Errorf("validateStringList %s got %T, want string", path, val)
 			printError(err)
 			return util.NewErrs(err)
@@ -123,7 +123,7 @@ func validateStringList(vf ValidatorFunc) ValidatorFunc {
 // validatePortNumberString checks if val is a string with a valid port number.
 func validatePortNumberString(path util.Path, val interface{}) util.Errors {
 	scope.Debugf("validatePortNumberString %v:", val)
-	if !isString(val) {
+	if !util.IsString(val) {
 		return util.NewErrs(fmt.Errorf("validatePortNumberString(%s) bad type %T, want string", path, val))
 	}
 	intV, err := strconv.ParseInt(val.(string), 10, 32)
@@ -136,6 +136,23 @@ func validatePortNumberString(path util.Path, val interface{}) util.Errors {
 // validatePortNumber checks whether val is an integer representing a valid port number.
 func validatePortNumber(path util.Path, val interface{}) util.Errors {
 	return validateIntRange(path, val, 0, 65535)
+}
+
+// validateIPRangesOrStar validates IP ranges and also allow star, examples: "1.1.0.256/16,2.2.0.257/16", "*"
+func validateIPRangesOrStar(path util.Path, val interface{}) (errs util.Errors) {
+	scope.Debugf("validateIPRangesOrStar at %v: %v", path, val)
+
+	if !util.IsString(val) {
+		err := fmt.Errorf("validateIPRangesOrStar %s got %T, want string", path, val)
+		printError(err)
+		return util.NewErrs(err)
+	}
+
+	if val.(string) == "*" {
+		return errs
+	}
+
+	return validateStringList(validateCIDR)(path, val)
 }
 
 // validateIntRange checks whether val is an integer in [min, max].
@@ -163,7 +180,7 @@ func validateIntRange(path util.Path, val interface{}, min, max int64) util.Erro
 // validateCIDR checks whether val is a string with a valid CIDR.
 func validateCIDR(path util.Path, val interface{}) util.Errors {
 	var err error
-	if reflect.TypeOf(val).Kind() != reflect.String {
+	if !util.IsString(val) {
 		err = fmt.Errorf("validateCIDR %s got %T, want string", path, val)
 	} else {
 		_, _, err = net.ParseCIDR(val.(string))
@@ -173,10 +190,6 @@ func validateCIDR(path util.Path, val interface{}) util.Errors {
 	}
 	logWithError(err, "validateCIDR (%s): ", val)
 	return util.NewErrs(err)
-}
-
-func isString(val interface{}) bool {
-	return reflect.TypeOf(val).Kind() == reflect.String
 }
 
 func printError(err error) {

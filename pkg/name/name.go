@@ -198,7 +198,7 @@ func getFromStructPath(node interface{}, path util.Path) (interface{}, bool, err
 		}
 	case reflect.Ptr:
 		structElems = reflect.ValueOf(node).Elem()
-		if reflect.TypeOf(structElems).Kind() != reflect.Struct {
+		if !util.IsStruct(structElems) {
 			return nil, false, fmt.Errorf("getFromStructPath path %s, expected struct ptr, got %T", path, node)
 		}
 	default:

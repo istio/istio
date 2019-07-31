@@ -33,6 +33,15 @@ func TestValidateValues(t *testing.T) {
 			desc: "nil success",
 		},
 		{
+			desc: "StarIPRange",
+			yamlStr: `
+global:
+  proxy:
+    includeIpRanges: "*"
+    excludeIpRanges: "*"
+`,
+		},
+		{
 			desc: "ProxyConfig",
 			yamlStr: `
 global:
@@ -73,6 +82,15 @@ global:
 `,
 			wantErrs: makeErrors([]string{`global.proxy.includeIpRanges invalid CIDR address: 1.2.3/16`,
 				`global.proxy.includeIpRanges invalid CIDR address: 1.2.3.x/16`}),
+		},
+		{
+			desc: "BadIPWithStar",
+			yamlStr: `
+global:
+  proxy:
+    includeIpRanges: "*,1.1.0.0/16,2.2.0.0/16"
+`,
+			wantErrs: makeErrors([]string{`global.proxy.includeIpRanges invalid CIDR address: *`}),
 		},
 		{
 			desc: "BadPortRange",

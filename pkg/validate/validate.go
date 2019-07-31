@@ -50,15 +50,15 @@ func validate(validations map[string]ValidatorFunc, structPtr interface{}, path 
 	if structPtr == nil {
 		return nil
 	}
-	if reflect.TypeOf(structPtr).Kind() == reflect.Struct {
+	if util.IsStruct(structPtr) {
 		scope.Debugf("validate path %s, skipping struct type %T", path, structPtr)
 		return nil
 	}
-	if reflect.TypeOf(structPtr).Kind() != reflect.Ptr {
+	if !util.IsPtr(structPtr) {
 		return util.NewErrs(fmt.Errorf("validate path %s, value: %v, expected ptr, got %T", path, structPtr, structPtr))
 	}
 	structElems := reflect.ValueOf(structPtr).Elem()
-	if reflect.TypeOf(structElems).Kind() != reflect.Struct {
+	if !util.IsStruct(structElems) {
 		return util.NewErrs(fmt.Errorf("validate path %s, value: %v, expected struct, got %T", path, structElems, structElems))
 	}
 
