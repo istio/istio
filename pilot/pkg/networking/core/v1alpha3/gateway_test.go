@@ -307,7 +307,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			enableSds: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: ListenersALPNProtocols,
+					AlpnProtocols: util.ALPNHttp,
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
 							Name: "ingress-sds-resource-name",
@@ -377,7 +377,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			enableSds: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: ListenersALPNProtocols,
+					AlpnProtocols: util.ALPNHttp,
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
 							Name: "ingress-sds-resource-name",
