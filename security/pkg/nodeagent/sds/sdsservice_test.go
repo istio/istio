@@ -348,6 +348,7 @@ func testSDSStreamOne(t *testing.T, stream sds.SecretDiscoveryService_StreamSecr
 }
 
 func TestStreamSecretsPush(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/15923")
 	// reset connectionNumber since since its value is kept in memory for all unit test cases lifetime, reset since it may be updated in other test case.
 	atomic.StoreInt64(&connectionNumber, 0)
 
@@ -461,6 +462,7 @@ func testSDSStreamMultiplePush(t *testing.T, stream sds.SecretDiscoveryService_S
 // TestStreamSecretsMultiplePush verifies that only one response is pushed per request, and that multiple
 // pushes are detected and skipped.
 func TestStreamSecretsMultiplePush(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/15923")
 	// reset connectionNumber since since its value is kept in memory for all unit test cases lifetime, reset since it may be updated in other test case.
 	atomic.StoreInt64(&connectionNumber, 0)
 
