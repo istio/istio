@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/galley/pkg/server/settings"
 	istiocmd "istio.io/istio/pkg/cmd"
 	"istio.io/pkg/log"
+	"istio.io/pkg/viperconfig"
 )
 
 var (
@@ -51,7 +52,7 @@ func serverCmd() *cobra.Command {
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			// Retrieve Viper values for each Cobra Val Flag
-			istiocmd.ProcessViperConfig(cmd, viper.GetViper())
+			viperconfig.ProcessViperConfig(cmd, viper.GetViper())
 
 			// validation tls args fall back to server arg values
 			// since the default value for these flags is an empty string, zero length indicates not set

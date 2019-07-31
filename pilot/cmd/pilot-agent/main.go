@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/pkg/viperconfig"
 )
 
 const jwtPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
@@ -124,7 +125,7 @@ var (
 			UnknownFlags: true,
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			cmd.ProcessViperConfig(c, viper.GetViper())
+			viperconfig.ProcessViperConfig(c, viper.GetViper())
 			cmd.PrintFlags(c.Flags())
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
@@ -673,7 +674,7 @@ func waitForFile(fname string, maxWait time.Duration) bool {
 }
 
 func main() {
-	cmd.AddConfigFlag(rootCmd, viper.GetViper())
+	viperconfig.AddConfigFlag(rootCmd, viper.GetViper())
 	if err := rootCmd.Execute(); err != nil {
 		log.Errora(err)
 		os.Exit(-1)

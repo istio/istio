@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/viper"
 
 	"istio.io/istio/pkg/cmd"
+	"istio.io/pkg/viperconfig"
 
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/version"
@@ -39,7 +40,7 @@ func GetRootCmd(args []string) *cobra.Command {
 		},
 	}
 
-	cmd.AddConfigFlag(rootCmd, viper.GetViper())
+	viperconfig.AddConfigFlag(rootCmd, viper.GetViper())
 
 	rootCmd.SetArgs(args)
 	cmd.AddFlags(rootCmd)
