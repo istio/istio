@@ -239,8 +239,8 @@ func ParseK8sObjectsFromYAMLManifest(manifest string) (K8sObjects, error) {
 	var objects K8sObjects
 
 	for _, yaml := range yamls {
-		if strings.TrimSpace(yaml) == "" {
-			// helm charts sometimes emits blank objects with just a "disabled" comment.
+		yaml = removeNonYAMLLines(yaml)
+		if yaml == "" {
 			continue
 		}
 		o, err := ParseYAMLToK8sObject([]byte(yaml))
@@ -253,6 +253,19 @@ func ParseK8sObjectsFromYAMLManifest(manifest string) (K8sObjects, error) {
 	}
 
 	return objects, nil
+}
+
+func removeNonYAMLLines(yms string) string {
+	out := ""
+	for _, s := range strings.Split(yms, "\n") {
+		if strings.HasPrefix(s, "#") {
+			continue
+		}
+		out += s + "\n"
+	}
+
+	// helm charts sometimes emits blank objects with just a "disabled" comment.
+	return strings.TrimSpace(out)
 }
 
 // JSONManifest returns a JSON representation of K8sObjects os.
@@ -274,6 +287,32 @@ func (os K8sObjects) JSONManifest() (string, error) {
 		if _, err := b.Write(json); err != nil {
 			return "", err
 		}
+	}
+
+	return b.String(), nil
+}
+
+// YAMLManifest returns a YAML representation of K8sObjects os.
+func (os K8sObjects) YAMLManifest() (string, error) {
+	var b bytes.Buffer
+
+	for i, item := range os {
+		if i != 0 {
+			if _, err := b.WriteString("\n\n"); err != nil {
+				return "", err
+			}
+		}
+		ym, err := item.YAML()
+		if err != nil {
+			return "", fmt.Errorf("error building yaml: %v", err)
+		}
+		if _, err := b.Write(ym); err != nil {
+			return "", err
+		}
+		if _, err := b.Write([]byte(YAMLSeparator)); err != nil {
+			return "", err
+		}
+
 	}
 
 	return b.String(), nil
@@ -326,26 +365,6 @@ func (o *K8sObject) Valid() bool {
 		return false
 	}
 	return true
-}
-
-// YAML returns a YAML representation of os, using an internal cache.
-func (os K8sObjects) YAML() (string, error) {
-	var sb strings.Builder
-	for _, o := range os {
-		oy, err := o.YAML()
-		if err != nil {
-			return "", err
-		}
-		_, err = sb.Write(oy)
-		if err != nil {
-			return "", err
-		}
-		_, err = sb.WriteString(YAMLSeparator)
-		if err != nil {
-			return "", err
-		}
-	}
-	return sb.String(), nil
 }
 
 func ManifestDiff(a, b string) (string, error) {

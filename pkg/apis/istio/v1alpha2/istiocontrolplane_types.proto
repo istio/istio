@@ -616,11 +616,11 @@ message ReadinessProbe {
     ExecAction exec = 1;
     HTTPGetAction httpGet = 2;
     TCPSocketAction tcpSocket = 3;
-    int32 initial_delaySeconds = 4;
-    int32 timeout_seconds = 5;
-    int32 period_seconds = 6;
-    int32 success_threshold = 7;
-    int32 failure_threshold = 8;
+    int32 initialDelaySeconds = 4;
+    int32 timeoutSeconds = 5;
+    int32 periodSeconds = 6;
+    int32 successThreshold = 7;
+    int32 failureThreshold = 8;
 }
 
 // Mirrors k8s.io.api.core.v1.ExecAction for unmarshaling

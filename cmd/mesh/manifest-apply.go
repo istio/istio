@@ -23,7 +23,6 @@ import (
 
 	"istio.io/operator/pkg/manifest"
 	opversion "istio.io/operator/version"
-	"istio.io/pkg/log"
 )
 
 type manifestApplyArgs struct {
@@ -75,16 +74,19 @@ func manifestApply(args *rootArgs, maArgs *manifestApplyArgs) {
 	}
 
 	for cn := range manifests {
-		cs := fmt.Sprintf("CompositeOutput for component %s:", cn)
-		log.Infof("\n%s\n%s", cs, strings.Repeat("=", len(cs)))
-		if out.Err[cn] != nil {
-			logAndPrintf(args, "Error object: %s\n", out.Err[cn])
+		cs := fmt.Sprintf("Output for component %s:", cn)
+		logAndPrintf(args, "\n%s\n%s", cs, strings.Repeat("=", len(cs)))
+		if out[cn].Err != nil {
+			logAndPrintf(args, "Error: %s\n", out[cn].Err)
 		}
-		if strings.TrimSpace(out.Stderr[cn]) != "" {
-			logAndPrintf(args, "Error string:\n%s\n", out.Stderr[cn])
+		if strings.TrimSpace(out[cn].Stderr) != "" {
+			logAndPrintf(args, "Error detail:\n%s\n", out[cn].Stderr)
 		}
-		if strings.TrimSpace(out.Stdout[cn]) != "" {
-			logAndPrintf(args, "Output:\n%s\n", out.Stdout[cn])
+		if strings.TrimSpace(out[cn].Stdout) != "" {
+			logAndPrintf(args, "Stdout:\n%s\n", out[cn].Stdout)
+		}
+		if args.verbose {
+			logAndPrintf(args, "Manifest:\n\n%s\n", out[cn].Manifest)
 		}
 	}
 }

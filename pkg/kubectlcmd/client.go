@@ -70,6 +70,7 @@ func (c *Client) Apply(dryRun, verbose bool, namespace string, manifest string, 
 
 	cmdStr := strings.Join(cmd.Args, " ")
 	if verbose {
+
 		cmdStr += "\n" + manifest
 	} else {
 		cmdStr += " <use --verbose to see manifest string> \n"
