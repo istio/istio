@@ -17,22 +17,6 @@ spec:
 
 {{- if .Values.global.mtls.enabled }}
 
-# These policy and destination rules effectively enable mTLS for all services in the mesh. For now,
-# they are added to Istio installation yaml for backward compatible. In future, they should be in
-# a separated yaml file so that customer can enable mTLS independent from installation.
-
-# Authentication policy to enable mutual TLS for all services (that have sidecar) in the mesh.
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "MeshPolicy"
-metadata:
-  name: "default"
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  peers:
-  - mtls: {}
----
 # Corresponding destination rule to configure client side to use mutual TLS when talking to
 # any service (host) in the mesh.
 apiVersion: networking.istio.io/v1alpha3
@@ -47,23 +31,9 @@ spec:
   trafficPolicy:
     tls:
       mode: ISTIO_MUTUAL
-
-{{ else }}
-
 ---
-# Authentication policy to enable permissive mode for all services (that have sidecar) in the mesh.
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "MeshPolicy"
-metadata:
-  name: "default"
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  peers:
-  - mtls:
-      mode: PERMISSIVE
----
+{{- else }}
+
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -77,5 +47,4 @@ spec:
     tls:
       mode: DISABLE
 ---
-
-{{ end }}
+{{- end }}
