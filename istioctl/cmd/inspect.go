@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	envoy_api_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	envoy_api_route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	gogo_types "github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 
@@ -304,18 +305,34 @@ func printDestinationRule(writer io.Writer, destRule model.Config, podLabels k8s
 	}
 
 	// Ignore LoadBalancer, ConnectionPool, OutlierDetection, and PortLevelSettings
-	if drSpec.TrafficPolicy == nil {
+	trafficPolicy := drSpec.TrafficPolicy
+	if trafficPolicy == nil {
 		fmt.Fprintf(writer, "   No Traffic Policy\n")
 	} else {
-		if drSpec.TrafficPolicy.Tls != nil {
+		if trafficPolicy.Tls != nil {
 			fmt.Fprintf(writer, "   Traffic Policy TLS Mode: %s\n", drSpec.TrafficPolicy.Tls.Mode.String())
 		}
-		// TODO loadBalancer, connectionPool, outlierDetection, portLevelSettings?
+		extra := []string{}
+		if trafficPolicy.LoadBalancer != nil {
+			extra = append(extra, "load balancer")
+		}
+		if trafficPolicy.ConnectionPool != nil {
+			extra = append(extra, "connection pool")
+		}
+		if trafficPolicy.OutlierDetection != nil {
+			extra = append(extra, "outlier detection")
+		}
+		if trafficPolicy.PortLevelSettings != nil {
+			extra = append(extra, "port level settings")
+		}
+		if len(extra) > 0 {
+			fmt.Fprintf(writer, "   %s\n", strings.Join(extra, "/"))
+		}
 	}
 }
 
 // httpRouteMatchSvc returns true if it matches and a slice of facts about the match
-func httpRouteMatchSvc(virtualSvc model.Config, route *v1alpha3.HTTPRoute, svc v1.Service, matchingSubsets []string, nonmatchingSubsets []string) (bool, []string) {
+func httpRouteMatchSvc(virtualSvc model.Config, route *v1alpha3.HTTPRoute, svc v1.Service, matchingSubsets []string, nonmatchingSubsets []string) (bool, []string) { // nolint: lll
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
 	facts := []string{}
 	mismatchNotes := []string{}
@@ -332,7 +349,7 @@ func httpRouteMatchSvc(virtualSvc model.Config, route *v1alpha3.HTTPRoute, svc v
 				}
 				if !contains(matchingSubsets, dest.Destination.Subset) {
 					// Don't bother giving the match conditions, the problem is that there are unknowns in the VirtualService
-					mismatchNotes = append(mismatchNotes, fmt.Sprintf("Route to UNKNOWN subset %s", dest.Destination.Subset))
+					mismatchNotes = append(mismatchNotes, fmt.Sprintf("Warning: Route to UNKNOWN subset %s", dest.Destination.Subset))
 					continue
 				}
 			}
@@ -647,17 +664,40 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 
 		for _, vh := range rcd.RouteConfig.VirtualHosts {
 			for _, route := range vh.Routes {
-				mixer, ok := route.PerFilterConfig["mixer"]
-				if ok {
-					svcName, svcNamespace, err := getMixerDestinationSvc(mixer)
-					if err == nil && svcNamespace == svc.ObjectMeta.Namespace && svcName == svc.ObjectMeta.Name {
-						return getIstioConfig(route.Metadata)
-					}
+				if routeDestinationMatchesSvc(route, svc) {
+					return getIstioConfig(route.Metadata)
 				}
 			}
 		}
 	}
 	return "", nil
+}
+
+func routeDestinationMatchesSvc(route envoy_api_route.Route, svc v1.Service) bool {
+	// Is there mixer configuration to use this service as a destination?
+	mixer, ok := route.PerFilterConfig["mixer"]
+	if ok {
+		svcName, svcNamespace, err := getMixerDestinationSvc(mixer)
+		if err == nil && svcNamespace == svc.ObjectMeta.Namespace && svcName == svc.ObjectMeta.Name {
+			return true
+		}
+	}
+
+	if rte := route.GetRoute(); rte != nil {
+		if weightedClusters := rte.GetWeightedClusters(); weightedClusters != nil {
+			for _, weightedCluster := range weightedClusters.Clusters {
+				mixer, ok := weightedCluster.PerFilterConfig["mixer"]
+				if ok {
+					svcName, svcNamespace, err := getMixerDestinationSvc(mixer)
+					if err == nil && svcNamespace == svc.ObjectMeta.Namespace && svcName == svc.ObjectMeta.Name {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
 }
 
 // getMixerDestinationSvc returns name, namespace, err
