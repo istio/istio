@@ -29,8 +29,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
@@ -39,7 +37,9 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -674,9 +674,9 @@ func conditionallyConvertToIstioMtls(
 func buildIstioMutualTLS(serviceAccounts []string, sni string, proxy *model.Proxy) *networking.TLSSettings {
 	return &networking.TLSSettings{
 		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
-		CaCertificates:    model.GetOrDefaultFromMap(proxy.Metadata, model.NodeMetadataTLSClientRootCert, config.DefaultRootCert),
-		ClientCertificate: model.GetOrDefaultFromMap(proxy.Metadata, model.NodeMetadataTLSClientCertChain, config.DefaultCertChain),
-		PrivateKey:        model.GetOrDefaultFromMap(proxy.Metadata, model.NodeMetadataTLSClientKey, config.DefaultKey),
+		CaCertificates:    model.GetOrDefaultFromMap(proxy.Metadata, model.NodeMetadataTLSClientRootCert, constants.DefaultRootCert),
+		ClientCertificate: model.GetOrDefaultFromMap(proxy.Metadata, model.NodeMetadataTLSClientCertChain, constants.DefaultCertChain),
+		PrivateKey:        model.GetOrDefaultFromMap(proxy.Metadata, model.NodeMetadataTLSClientKey, constants.DefaultKey),
 		SubjectAltNames:   serviceAccounts,
 		Sni:               sni,
 	}

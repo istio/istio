@@ -19,14 +19,14 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pilot/pkg/model"
-
 	"github.com/onsi/gomega"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 )
 
 func TestNoPilotSanIfAuthenticationNone(t *testing.T) {
@@ -334,10 +334,10 @@ func TestCustomMixerSanIfAuthenticationMutualDomainKubernetes(t *testing.T) {
 func TestDedupeStrings(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	in := []string{
-		config.DefaultCertChain, config.DefaultKey, config.DefaultRootCert,
-		config.DefaultCertChain, config.DefaultKey, config.DefaultRootCert,
+		constants.DefaultCertChain, constants.DefaultKey, constants.DefaultRootCert,
+		constants.DefaultCertChain, constants.DefaultKey, constants.DefaultRootCert,
 	}
-	expected := []string{config.DefaultCertChain, config.DefaultKey, config.DefaultRootCert}
+	expected := []string{constants.DefaultCertChain, constants.DefaultKey, constants.DefaultRootCert}
 
 	actual := dedupeStrings(in)
 
