@@ -71,24 +71,19 @@ var (
 	istioVersionLabelStr = name.OperatorAPINamespace + "/version"
 )
 
-// CompositeOutput is used to capture errors and stdout/stderr outputs for a command, per component.
-type CompositeOutput struct {
+// ComponentApplyOutput is used to capture errors and stdout/stderr outputs for a command, per component.
+type ComponentApplyOutput struct {
 	// Stdout is the stdout output.
-	Stdout map[name.ComponentName]string
+	Stdout string
 	// Stderr is the stderr output.
-	Stderr map[name.ComponentName]string
+	Stderr string
 	// Error is the error output.
-	Err map[name.ComponentName]error
+	Err error
+	// Manifest is the manifest applied to the cluster.
+	Manifest string
 }
 
-// NewCompositeOutput creates a new CompositeOutput and returns a ptr to it.
-func NewCompositeOutput() *CompositeOutput {
-	return &CompositeOutput{
-		Stdout: make(map[name.ComponentName]string),
-		Stderr: make(map[name.ComponentName]string),
-		Err:    make(map[name.ComponentName]error),
-	}
-}
+type CompositeOutput map[name.ComponentName]*ComponentApplyOutput
 
 type componentNameToListMap map[name.ComponentName][]name.ComponentName
 type componentTree map[name.ComponentName]interface{}
@@ -188,7 +183,7 @@ func renderRecursive(manifests name.ManifestMap, installTree componentTree, outp
 }
 
 // ApplyAll applies all given manifests using kubectl client.
-func ApplyAll(manifests name.ManifestMap, version version.Version, dryRun, verbose bool) (*CompositeOutput, error) {
+func ApplyAll(manifests name.ManifestMap, version version.Version, dryRun, verbose bool) (CompositeOutput, error) {
 	logAndPrint("Applying manifests for these components:")
 	for c := range manifests {
 		logAndPrint("- %s", c)
@@ -200,9 +195,9 @@ func ApplyAll(manifests name.ManifestMap, version version.Version, dryRun, verbo
 	return applyRecursive(manifests, version, dryRun, verbose), nil
 }
 
-func applyRecursive(manifests name.ManifestMap, version version.Version, dryRun, verbose bool) *CompositeOutput {
+func applyRecursive(manifests name.ManifestMap, version version.Version, dryRun, verbose bool) CompositeOutput {
 	var wg sync.WaitGroup
-	out := NewCompositeOutput()
+	out := CompositeOutput{}
 	for c, m := range manifests {
 		c := c
 		m := m
@@ -213,7 +208,7 @@ func applyRecursive(manifests name.ManifestMap, version version.Version, dryRun,
 				<-s
 				logAndPrint("Parent dependency for %s has unblocked, proceeding.", c)
 			}
-			out.Stdout[c], out.Stderr[c], out.Err[c] = applyManifest(c, m, version, dryRun, verbose)
+			out[c] = applyManifest(c, m, version, dryRun, verbose)
 
 			// Signal all the components that depend on us.
 			for _, ch := range componentDependencies[c] {
@@ -227,24 +222,22 @@ func applyRecursive(manifests name.ManifestMap, version version.Version, dryRun,
 	return out
 }
 
-func versionString(version version.Version) string {
-	return version.String()
-}
-
-func applyManifest(componentName name.ComponentName, manifestStr string, version version.Version, dryRun, verbose bool) (string, string, error) {
+func applyManifest(componentName name.ComponentName, manifestStr string, version version.Version, dryRun, verbose bool) *ComponentApplyOutput {
 	objects, err := object.ParseK8sObjectsFromYAMLManifest(manifestStr)
 	if err != nil {
-		return "", "", err
+		return &ComponentApplyOutput{
+			Err: err,
+		}
 	}
 	if len(objects) == 0 {
-		return "", "", nil
+		return &ComponentApplyOutput{}
 	}
 
 	namespace, stdoutCRD, stderrCRD := "", "", ""
 	for _, o := range objects {
 		o.AddLabels(map[string]string{istioComponentLabelStr: string(componentName)})
 		o.AddLabels(map[string]string{operatorLabelStr: operatorReconcileStr})
-		o.AddLabels(map[string]string{istioVersionLabelStr: versionString(version)})
+		o.AddLabels(map[string]string{istioVersionLabelStr: version.String()})
 		if o.Namespace != "" {
 			// All objects in a component have the same namespace.
 			namespace = o.Namespace
@@ -261,27 +254,42 @@ func applyManifest(componentName name.ComponentName, manifestStr string, version
 	if len(crdObjects) > 0 {
 		mcrd, err := crdObjects.JSONManifest()
 		if err != nil {
-			return "", "", err
+			return &ComponentApplyOutput{
+				Err: err,
+			}
 		}
 
 		stdoutCRD, stderrCRD, err = kubectl.Apply(dryRun, verbose, namespace, mcrd, extraArgs...)
 		if err != nil {
 			// Not all Istio components are robust to not yet created CRDs.
 			if err := waitForCRDs(objects, dryRun); err != nil {
-				return stdoutCRD, stderrCRD, err
+				return &ComponentApplyOutput{
+					Stdout: stdoutCRD,
+					Stderr: stderrCRD,
+					Err:    err,
+				}
 			}
 		}
 	}
 
-	log.Infof("Applying the following manifest:\n%s", manifestStr)
 	stdout, stderr := "", ""
 	m, err := objects.JSONManifest()
 	if err != nil {
-		return stdoutCRD, stderrCRD, err
+		return &ComponentApplyOutput{
+			Stdout: stdoutCRD,
+			Stderr: stderrCRD,
+			Err:    err,
+		}
 	}
 	stdout, stderr, err = kubectl.Apply(dryRun, verbose, namespace, m, extraArgs...)
 	logAndPrint("finished applying manifest for component %s", componentName)
-	return stdoutCRD + "\n" + stdout, stderrCRD + "\n" + stderr, err
+	ym, _ := objects.YAMLManifest()
+	return &ComponentApplyOutput{
+		Stdout:   stdoutCRD + "\n" + stdout,
+		Stderr:   stderrCRD + "\n" + stderr,
+		Manifest: ym,
+		Err:      err,
+	}
 }
 
 func defaultObjectOrder() func(o *object.K8sObject) int {

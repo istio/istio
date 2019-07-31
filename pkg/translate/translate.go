@@ -290,7 +290,7 @@ func (t *Translator) OverlayK8sSettings(yml string, icp *v1alpha2.IstioControlPl
 		*(om[pe]) = *mergedObj
 	}
 
-	return objects.YAML()
+	return objects.YAMLManifest()
 }
 
 // overlayK8s overlays overlayYAML over baseYAML at the given path in baseYAML.
