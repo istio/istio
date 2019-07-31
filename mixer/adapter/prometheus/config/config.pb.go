@@ -676,9 +676,9 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.MetricsExpirationPolicy.Size()))
-		n1, err1 := m.MetricsExpirationPolicy.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		n1, err := m.MetricsExpirationPolicy.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n1
 	}
@@ -727,9 +727,9 @@ func (m *Params_MetricInfo) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.Buckets.Size()))
-		n2, err2 := m.Buckets.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		n2, err := m.Buckets.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n2
 	}
@@ -773,9 +773,9 @@ func (m *Params_MetricInfo_BucketsDefinition) MarshalTo(dAtA []byte) (int, error
 	var l int
 	_ = l
 	if m.Definition != nil {
-		nn3, err3 := m.Definition.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
+		nn3, err := m.Definition.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += nn3
 	}
@@ -788,9 +788,9 @@ func (m *Params_MetricInfo_BucketsDefinition_LinearBuckets) MarshalTo(dAtA []byt
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.LinearBuckets.Size()))
-		n4, err4 := m.LinearBuckets.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
+		n4, err := m.LinearBuckets.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n4
 	}
@@ -802,9 +802,9 @@ func (m *Params_MetricInfo_BucketsDefinition_ExponentialBuckets) MarshalTo(dAtA 
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.ExponentialBuckets.Size()))
-		n5, err5 := m.ExponentialBuckets.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
+		n5, err := m.ExponentialBuckets.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n5
 	}
@@ -816,9 +816,9 @@ func (m *Params_MetricInfo_BucketsDefinition_ExplicitBuckets) MarshalTo(dAtA []b
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.ExplicitBuckets.Size()))
-		n6, err6 := m.ExplicitBuckets.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
+		n6, err := m.ExplicitBuckets.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n6
 	}
@@ -940,17 +940,17 @@ func (m *Params_MetricsExpirationPolicy) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0xa
 	i++
 	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.MetricsExpiryDuration)))
-	n8, err8 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.MetricsExpiryDuration, dAtA[i:])
-	if err8 != nil {
-		return 0, err8
+	n8, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.MetricsExpiryDuration, dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n8
 	dAtA[i] = 0x12
 	i++
 	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.ExpiryCheckIntervalDuration)))
-	n9, err9 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ExpiryCheckIntervalDuration, dAtA[i:])
-	if err9 != nil {
-		return 0, err9
+	n9, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ExpiryCheckIntervalDuration, dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n9
 	return i, nil
@@ -1148,13 +1148,8 @@ func (this *Params) String() string {
 	if this == nil {
 		return "nil"
 	}
-	repeatedStringForMetrics := "[]*Params_MetricInfo{"
-	for _, f := range this.Metrics {
-		repeatedStringForMetrics += strings.Replace(fmt.Sprintf("%v", f), "Params_MetricInfo", "Params_MetricInfo", 1) + ","
-	}
-	repeatedStringForMetrics += "}"
 	s := strings.Join([]string{`&Params{`,
-		`Metrics:` + repeatedStringForMetrics + `,`,
+		`Metrics:` + strings.Replace(fmt.Sprintf("%v", this.Metrics), "Params_MetricInfo", "Params_MetricInfo", 1) + `,`,
 		`MetricsExpirationPolicy:` + strings.Replace(fmt.Sprintf("%v", this.MetricsExpirationPolicy), "Params_MetricsExpirationPolicy", "Params_MetricsExpirationPolicy", 1) + `,`,
 		`}`,
 	}, "")
@@ -1255,8 +1250,8 @@ func (this *Params_MetricsExpirationPolicy) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&Params_MetricsExpirationPolicy{`,
-		`MetricsExpiryDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.MetricsExpiryDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
-		`ExpiryCheckIntervalDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.ExpiryCheckIntervalDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`MetricsExpiryDuration:` + strings.Replace(strings.Replace(this.MetricsExpiryDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`ExpiryCheckIntervalDuration:` + strings.Replace(strings.Replace(this.ExpiryCheckIntervalDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`}`,
 	}, "")
 	return s

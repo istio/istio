@@ -22,7 +22,7 @@ if [ "$ROOTDIR" != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
   die "Istio not found in GOPATH/src/istio.io/"
 fi
 
-gen_img=gcr.io/istio-testing/go_generate_dependency:2018-07-26
+gen_img=gcr.io/istio-testing/api-build-tools:2019-07-30
 
 docker run  -i --volume /var/run/docker.sock:/var/run/docker.sock \
   -e "GOPATH=/go:$GOPATH" --rm --entrypoint counterfeiter -v "$ROOTDIR:$ROOTDIR" -w "$(pwd)" $gen_img "$@"

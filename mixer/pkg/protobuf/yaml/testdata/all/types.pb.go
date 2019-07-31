@@ -2367,9 +2367,9 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5a
 		i++
 		i = encodeVarintTypes(dAtA, i, uint64(m.Oth.Size()))
-		n1, err1 := m.Oth.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		n1, err := m.Oth.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n1
 	}
@@ -2425,9 +2425,9 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintTypes(dAtA, i, uint64(v.Size()))
-				n2, err2 := v.MarshalTo(dAtA[i:])
-				if err2 != nil {
-					return 0, err2
+				n2, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n2
 			}
@@ -2454,9 +2454,9 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintTypes(dAtA, i, uint64(v.Size()))
-				n3, err3 := v.MarshalTo(dAtA[i:])
-				if err3 != nil {
-					return 0, err3
+				n3, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n3
 			}
@@ -2963,9 +2963,9 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x4
 		i++
 		i = encodeVarintTypes(dAtA, i, uint64(m.IstioValue.Size()))
-		n26, err26 := m.IstioValue.MarshalTo(dAtA[i:])
-		if err26 != nil {
-			return 0, err26
+		n26, err := m.IstioValue.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n26
 	}
@@ -2991,9 +2991,9 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintTypes(dAtA, i, uint64(v.Size()))
-				n27, err27 := v.MarshalTo(dAtA[i:])
-				if err27 != nil {
-					return 0, err27
+				n27, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n27
 			}
@@ -3005,9 +3005,9 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x4
 		i++
 		i = encodeVarintTypes(dAtA, i, uint64(m.IpaddressIstioValue.Size()))
-		n28, err28 := m.IpaddressIstioValue.MarshalTo(dAtA[i:])
-		if err28 != nil {
-			return 0, err28
+		n28, err := m.IpaddressIstioValue.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n28
 	}
@@ -3033,9 +3033,9 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintTypes(dAtA, i, uint64(v.Size()))
-				n29, err29 := v.MarshalTo(dAtA[i:])
-				if err29 != nil {
-					return 0, err29
+				n29, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n29
 			}
@@ -3047,9 +3047,9 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x4
 		i++
 		i = encodeVarintTypes(dAtA, i, uint64(m.DurationIstioValue.Size()))
-		n30, err30 := m.DurationIstioValue.MarshalTo(dAtA[i:])
-		if err30 != nil {
-			return 0, err30
+		n30, err := m.DurationIstioValue.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n30
 	}
@@ -3075,9 +3075,9 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintTypes(dAtA, i, uint64(v.Size()))
-				n31, err31 := v.MarshalTo(dAtA[i:])
-				if err31 != nil {
-					return 0, err31
+				n31, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n31
 			}
@@ -3089,9 +3089,9 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x4
 		i++
 		i = encodeVarintTypes(dAtA, i, uint64(m.TimestampIstioValue.Size()))
-		n32, err32 := m.TimestampIstioValue.MarshalTo(dAtA[i:])
-		if err32 != nil {
-			return 0, err32
+		n32, err := m.TimestampIstioValue.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n32
 	}
@@ -3117,9 +3117,9 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintTypes(dAtA, i, uint64(v.Size()))
-				n33, err33 := v.MarshalTo(dAtA[i:])
-				if err33 != nil {
-					return 0, err33
+				n33, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n33
 			}
@@ -3131,9 +3131,9 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x4
 		i++
 		i = encodeVarintTypes(dAtA, i, uint64(m.DnsnameIstioValue.Size()))
-		n34, err34 := m.DnsnameIstioValue.MarshalTo(dAtA[i:])
-		if err34 != nil {
-			return 0, err34
+		n34, err := m.DnsnameIstioValue.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n34
 	}
@@ -3159,9 +3159,9 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintTypes(dAtA, i, uint64(v.Size()))
-				n35, err35 := v.MarshalTo(dAtA[i:])
-				if err35 != nil {
-					return 0, err35
+				n35, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n35
 			}
@@ -3173,9 +3173,9 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x4
 		i++
 		i = encodeVarintTypes(dAtA, i, uint64(m.EmailaddressIstioValue.Size()))
-		n36, err36 := m.EmailaddressIstioValue.MarshalTo(dAtA[i:])
-		if err36 != nil {
-			return 0, err36
+		n36, err := m.EmailaddressIstioValue.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n36
 	}
@@ -3201,9 +3201,9 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintTypes(dAtA, i, uint64(v.Size()))
-				n37, err37 := v.MarshalTo(dAtA[i:])
-				if err37 != nil {
-					return 0, err37
+				n37, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n37
 			}
@@ -3215,9 +3215,9 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x4
 		i++
 		i = encodeVarintTypes(dAtA, i, uint64(m.UriIstioValue.Size()))
-		n38, err38 := m.UriIstioValue.MarshalTo(dAtA[i:])
-		if err38 != nil {
-			return 0, err38
+		n38, err := m.UriIstioValue.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n38
 	}
@@ -3243,9 +3243,9 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintTypes(dAtA, i, uint64(v.Size()))
-				n39, err39 := v.MarshalTo(dAtA[i:])
-				if err39 != nil {
-					return 0, err39
+				n39, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n39
 			}
@@ -3257,9 +3257,9 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x4
 		i++
 		i = encodeVarintTypes(dAtA, i, uint64(m.GoogleProtobufDuration.Size()))
-		n40, err40 := m.GoogleProtobufDuration.MarshalTo(dAtA[i:])
-		if err40 != nil {
-			return 0, err40
+		n40, err := m.GoogleProtobufDuration.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n40
 	}
@@ -3269,9 +3269,9 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5
 		i++
 		i = encodeVarintTypes(dAtA, i, uint64(m.GoogleProtobufTimestamp.Size()))
-		n41, err41 := m.GoogleProtobufTimestamp.MarshalTo(dAtA[i:])
-		if err41 != nil {
-			return 0, err41
+		n41, err := m.GoogleProtobufTimestamp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n41
 	}
@@ -3545,9 +3545,9 @@ func (m *Other) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintTypes(dAtA, i, uint64(m.Inmsg.Size()))
-		n42, err42 := m.Inmsg.MarshalTo(dAtA[i:])
-		if err42 != nil {
-			return 0, err42
+		n42, err := m.Inmsg.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n42
 	}
@@ -3608,9 +3608,9 @@ func (m *Outer) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintTypes(dAtA, i, uint64(m.In.Size()))
-		n43, err43 := m.In.MarshalTo(dAtA[i:])
-		if err43 != nil {
-			return 0, err43
+		n43, err := m.In.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n43
 	}
@@ -4247,11 +4247,6 @@ func (this *Simple) String() string {
 	if this == nil {
 		return "nil"
 	}
-	repeatedStringForROth := "[]*Other{"
-	for _, f := range this.ROth {
-		repeatedStringForROth += strings.Replace(fmt.Sprintf("%v", f), "Other", "Other", 1) + ","
-	}
-	repeatedStringForROth += "}"
 	keysForMapStrStr := make([]string, 0, len(this.MapStrStr))
 	for k, _ := range this.MapStrStr {
 		keysForMapStrStr = append(keysForMapStrStr, k)
@@ -4485,7 +4480,7 @@ func (this *Simple) String() string {
 		`MapStrEnum:` + mapStringForMapStrEnum + `,`,
 		`RDbl:` + fmt.Sprintf("%v", this.RDbl) + `,`,
 		`RDblUnpacked:` + fmt.Sprintf("%v", this.RDblUnpacked) + `,`,
-		`ROth:` + repeatedStringForROth + `,`,
+		`ROth:` + strings.Replace(fmt.Sprintf("%v", this.ROth), "Other", "Other", 1) + `,`,
 		`REnm:` + fmt.Sprintf("%v", this.REnm) + `,`,
 		`Flt:` + fmt.Sprintf("%v", this.Flt) + `,`,
 		`RFlt:` + fmt.Sprintf("%v", this.RFlt) + `,`,

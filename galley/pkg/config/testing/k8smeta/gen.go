@@ -15,7 +15,7 @@
 package k8smeta
 
 // Embed the core metadata file containing the collections as a resource
-//go:generate go-bindata --nocompress --nometadata --pkg k8smeta -o k8smeta.gen.go  k8smeta.yaml
+//go:generate $GOPATH/src/istio.io/istio/scripts/run_gobindata.sh --nocompress --nometadata --pkg k8smeta -o k8smeta.gen.go  k8smeta.yaml
 
 // Create static initializers file
 //go:generate go run $GOPATH/src/istio.io/istio/galley/pkg/config/schema/codegen/tools/staticinit.main.go k8smeta k8smeta.yaml staticinit.gen.go

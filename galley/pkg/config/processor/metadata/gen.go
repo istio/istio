@@ -16,7 +16,7 @@ package metadata
 
 // TODO: Switch go-bindata to be scripts/run_gobindata.sh
 // Embed the core metadata file containing the collections as a resource
-//go:generate go-bindata --nocompress --nometadata --pkg metadata -o metadata.gen.go metadata.yaml
+//go:generate $GOPATH/src/istio.io/istio/scripts/run_gobindata.sh --nocompress --nometadata --pkg metadata -o metadata.gen.go metadata.yaml
 
 // Create static initializers file
 //go:generate go run $GOPATH/src/istio.io/istio/galley/pkg/config/schema/codegen/tools/staticinit.main.go metadata metadata.yaml staticinit.gen.go
