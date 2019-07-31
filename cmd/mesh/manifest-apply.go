@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -30,6 +31,10 @@ type manifestApplyArgs struct {
 	inFilename string
 	// kubeConfigPath is the path to kube config file.
 	kubeConfigPath string
+	// readinessTimeout is maximum time to wait for all Istio resources to be ready.
+	readinessTimeout time.Duration
+	// wait is flag that indicates whether to wait resources ready before exiting.
+	wait bool
 	// set is a string with element format "path=value" where path is an IstioControlPlane path and the value is a
 	// value to set the node at that path to.
 	set []string
@@ -38,6 +43,10 @@ type manifestApplyArgs struct {
 func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config.")
+	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second, "Maximum time to wait for all Istio resources to be ready."+
+		"--wait must be set for this flag to apply.")
+	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false, "Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
+		"of a Deployment are in a ready state before the command exits. It will wait for a maximum duration of --readiness-timeout seconds.")
 	cmd.PersistentFlags().StringSliceVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 }
 
@@ -68,7 +77,7 @@ func manifestApply(args *rootArgs, maArgs *manifestApplyArgs) {
 		logAndFatalf(args, "Could not generate manifest: %v", err)
 	}
 
-	out, err := manifest.ApplyAll(manifests, opversion.OperatorBinaryVersion, args.dryRun, args.verbose)
+	out, err := manifest.ApplyAll(manifests, opversion.OperatorBinaryVersion, args.dryRun, args.verbose, maArgs.wait, maArgs.readinessTimeout)
 	if err != nil {
 		logAndFatalf(args, "Failed to apply manifest with kubectl client: %v", err)
 	}
