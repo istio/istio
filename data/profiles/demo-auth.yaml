@@ -198,7 +198,6 @@ spec:
     enabled: true
     components:
       ingressGateway:
-        gateway:
           common:
             namespace: istio-ingress
             k8s:
@@ -304,7 +303,6 @@ spec:
                   enabled: false
                   tls: false
       egressGateway:
-        gateway:
           common:
             namespace: istio-egress
             k8s:

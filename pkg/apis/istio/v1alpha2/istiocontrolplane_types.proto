@@ -452,7 +452,7 @@ message KubernetesResourcesSpec {
 // Configuration options for ingress gateways.
 message IngressGatewayComponentSpec {
     // Common gateway configuration.
-    GatewayConfig gateway = 10;
+    CommonComponentSpec common = 10;
 
     enum IngressType {
         ISTIO = 0;
@@ -478,25 +478,16 @@ message IngressGatewayComponentSpec {
 // Configuration options for egress gateways.
 message EgressGatewayComponentSpec {
     // Common gateway configuration.
-    GatewayConfig gateway = 10;
+    CommonComponentSpec common = 1;
 }
 
 // Configuration options for internal load balancer gateways.
 message LoadBalancingGatewayConfig {
     // Common gateway configuration.
-    GatewayConfig gateway = 10;
+    CommonComponentSpec common = 1;
 
     // Load balancer config.
     LoadBalancerConfig load_balancer = 11;
-}
-
-// Common config for all gateway types.
-message GatewayConfig {
-    CommonComponentSpec common = 1;
-    string namespace = 3;
-
-    // NodePort, ClusterIP or LoadBalancer.
-    string type = 10;
 }
 
 // Configuration options for internal load balancer gateways.
