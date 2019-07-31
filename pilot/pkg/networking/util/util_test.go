@@ -500,14 +500,14 @@ func buildFakeCluster() *v2.Cluster {
 		Name: "outbound|8080||test.example.org",
 		LoadAssignment: &v2.ClusterLoadAssignment{
 			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []endpoint.LocalityLbEndpoints{
+			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
 					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone1",
 						SubZone: "subzone1",
 					},
-					LbEndpoints: []endpoint.LbEndpoint{},
+					LbEndpoints: []*endpoint.LbEndpoint{},
 					LoadBalancingWeight: &types.UInt32Value{
 						Value: 1,
 					},
@@ -519,7 +519,7 @@ func buildFakeCluster() *v2.Cluster {
 						Zone:    "zone1",
 						SubZone: "subzone2",
 					},
-					LbEndpoints: []endpoint.LbEndpoint{},
+					LbEndpoints: []*endpoint.LbEndpoint{},
 					LoadBalancingWeight: &types.UInt32Value{
 						Value: 1,
 					},
@@ -531,16 +531,16 @@ func buildFakeCluster() *v2.Cluster {
 }
 
 func TestIsHTTPFilterChain(t *testing.T) {
-	httpFilterChain := listener.FilterChain{
-		Filters: []listener.Filter{
+	httpFilterChain := &listener.FilterChain{
+		Filters: []*listener.Filter{
 			{
 				Name: xdsutil.HTTPConnectionManager,
 			},
 		},
 	}
 
-	tcpFilterChain := listener.FilterChain{
-		Filters: []listener.Filter{
+	tcpFilterChain := &listener.FilterChain{
+		Filters: []*listener.Filter{
 			{
 				Name: xdsutil.TCPProxy,
 			},

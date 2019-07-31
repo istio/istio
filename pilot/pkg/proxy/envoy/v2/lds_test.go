@@ -548,7 +548,7 @@ func expectLuaFilter(t *testing.T, l *xdsapi.Listener, expected bool) {
 		var chain *xdsapi_listener.FilterChain
 		for _, fc := range l.FilterChains {
 			if len(fc.Filters) == 1 && fc.Filters[0].Name == "envoy.http_connection_manager" {
-				chain = &fc
+				chain = fc
 			}
 		}
 		if chain == nil {

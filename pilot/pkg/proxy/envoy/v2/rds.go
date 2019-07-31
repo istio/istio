@@ -64,7 +64,7 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.Push
 			// Explicitly send an empty route configuration
 			r = &xdsapi.RouteConfiguration{
 				Name:             routeName,
-				VirtualHosts:     []route.VirtualHost{},
+				VirtualHosts:     []*route.VirtualHost{},
 				ValidateClusters: proto.BoolFalse,
 			}
 		}
@@ -91,7 +91,7 @@ func routeDiscoveryResponse(rs []*xdsapi.RouteConfiguration, version string) *xd
 	}
 	for _, rc := range rs {
 		rr, _ := types.MarshalAny(rc)
-		resp.Resources = append(resp.Resources, *rr)
+		resp.Resources = append(resp.Resources, rr)
 	}
 
 	return resp

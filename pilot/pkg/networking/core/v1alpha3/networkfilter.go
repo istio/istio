@@ -267,7 +267,7 @@ func buildRedisFilter(statPrefix, clusterName string, isXDSMarshalingToAnyEnable
 		Settings: &redis_proxy.RedisProxy_ConnPoolSettings{
 			OpTimeout: &redisOpTimeout, // TODO: Make this user configurable
 		},
-		PrefixRoutes: redis_proxy.RedisProxy_PrefixRoutes{
+		PrefixRoutes: &redis_proxy.RedisProxy_PrefixRoutes{
 			CatchAllCluster: clusterName,
 		},
 	}

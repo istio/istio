@@ -275,15 +275,15 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 		}
 	}
 
-	var virtualHosts []route.VirtualHost
+	var virtualHosts []*route.VirtualHost
 	if len(vHostDedupMap) == 0 {
 		log.Warnf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
-		virtualHosts = []route.VirtualHost{{
+		virtualHosts = []*route.VirtualHost{{
 			Name:    fmt.Sprintf("blackhole:%d", port),
 			Domains: []string{"*"},
-			Routes: []route.Route{
+			Routes: []*route.Route{
 				{
-					Match: route.RouteMatch{
+					Match: &route.RouteMatch{
 						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
 					},
 					Action: &route.Route_DirectResponse{
@@ -295,9 +295,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 			},
 		}}
 	} else {
-		virtualHosts = make([]route.VirtualHost, 0, len(vHostDedupMap))
+		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap))
 		for _, v := range vHostDedupMap {
-			virtualHosts = append(virtualHosts, *v)
+			virtualHosts = append(virtualHosts, v)
 		}
 	}
 
