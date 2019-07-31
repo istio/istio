@@ -27,7 +27,6 @@ var (
 		Hub:        env.HUB.Value(),
 		Tag:        env.TAG.Value(),
 		PullPolicy: env.PULL_POLICY.Value(),
-		DockerHub:  env.DOCKER_HUB.Value(),
 	}
 )
 
@@ -58,6 +57,4 @@ func init() {
 		"Common Container tag to use when deploying container images")
 	flag.StringVar(&settingsFromCommandLine.PullPolicy, "istio.test.pullpolicy", settingsFromCommandLine.PullPolicy,
 		"Common image pull policy to use when deploying container images")
-	flag.StringVar(&settingsFromCommandLine.DockerHub, "istio.test.dockerhub", settingsFromCommandLine.DockerHub,
-		"Container registry hub to use for images from docker.io")
 }
