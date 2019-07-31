@@ -8,7 +8,7 @@ COPY sidecar-injector /usr/local/bin/
 # 1001 is chosen as the UID to be added to the istio group as this is the UID that sidecar-injector in the docker container runs as.
 RUN addgroup --system --gid 1001 istio && \
     adduser --system --uid 1001 --gid 1001 istio && \
-    chown -R 760 /usr/local/bin/sidecar-injector
+    chmod -R 760 /usr/local/bin/sidecar-injector
 
 # The following section is used as base image if BASE_DISTRIBUTION=default
 # No tag available https://hub.docker.com/_/scratch?tab=description
@@ -16,6 +16,7 @@ RUN addgroup --system --gid 1001 istio && \
 FROM scratch as default
 COPY --from=base_debug /etc/passwd /etc/passwd
 COPY --from=base_debug /usr/local/bin/sidecar-injector /usr/local/bin/
+COPY --from=base_debug --chown=1001:1001 /tmp /tmp
 USER istio
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless

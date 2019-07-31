@@ -10,7 +10,7 @@ COPY cacert.pem /cacert.pem
 # 1001 is chosen as the UID to be added to the istio group as this is the UID that pilot-discovery in the docker container runs as.
 RUN addgroup --system --gid 1001 istio && \
     adduser --system --uid 1001 --gid 1001 istio && \
-    chown -R 760 /usr/local/bin/pilot-discovery
+    chmod -R 760 /usr/local/bin/pilot-discovery
 USER istio
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
