@@ -146,6 +146,14 @@ var (
 			"upstream_transport_failure_reason": {Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_TRANSPORT_FAILURE_REASON%"}},
 		},
 	}
+
+	wellKnownPorts = map[int]protocol.Instance{
+		25:    protocol.TCP,   // SMTP
+		3306:  protocol.MySQL, // MySQL
+		4222:  protocol.TCP,   // NATS
+		8086:  protocol.TCP,   // InfluxDB
+		27017: protocol.Mongo, // MongoDB
+	}
 )
 
 func buildAccessLog(fl *accesslogconfig.FileAccessLog, env *model.Environment) {
@@ -394,29 +402,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			// TODO: this should be parsed from the defaultEndpoint field in the ingressListener
 			instance.Endpoint.Port = listenPort.Port
 
-			// Protocol sniffing for inbound listener.
-			// For each ingress listener, find a service instance with the same port number and override the service port.
-			// The listener port protocol is determined by the service port protocol. If user doesn't specify the service
-			// port protocol, the listener will be generated using protocol sniffing.
-			// For example, the set of service instances
-			//      --> NetworkEndpoint
-			//              Address:Port 172.16.0.1:1111
-			//              ServicePort  80|HTTP
-			//      --> NetworkEndpoint
-			//              Address:Port 172.16.0.1:2222
-			//	            ServicePort  8888|TCP
-			//      --> NetworkEndpoint
-			//              Address:Port 172.16.0.1:3333
-			//              ServicePort 9999|Unknown
-			//
-			// User defines ingress listener as:
-			//  ingress:
-			//	- port:
-			//      number: 1111
-			//      protocol: unknown
-			//    defaultEndpoint: unix://somedir
-			// Only one listener will be generated. The the listener port protocol is unknown.
-			//
+			// Validation ensures that the protocol specified in Sidecar.ingress
+			// is always a valid known protocol
 			pluginParams := &plugin.InputParams{
 				ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(node, listenPort.Protocol),
 				DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
@@ -989,13 +976,17 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 	// single 0.0.0.0:port listener and use vhosts to distinguish
 	// individual http services in that port
 	if *currentListenerEntry, exists = listenerMap[*listenerMapKey]; exists {
-		// Skip conflict check if using protocol sniffing
+		// NOTE: This is not a conflict. This is simply filtering the
+		// services for a given listener explicitly.
+		// When the user declares their own ports in Sidecar.egress
+		// with some specific services on those ports, we should not
+		// generate any more listeners on that port as the user does
+		// not want those listeners. Protocol sniffing is not needed.
+		if (*currentListenerEntry).locked {
+			return false, nil
+		}
+
 		if !util.IsProxyVersionGE13(node) {
-			// NOTE: This is not a conflict. This is simply filtering the
-			// services for a given listener explicitly.
-			if (*currentListenerEntry).locked {
-				return false, nil
-			}
 			if pluginParams.Service != nil {
 				if !(*currentListenerEntry).servicePort.Protocol.IsHTTP() {
 					outboundListenerConflict{
@@ -1094,12 +1085,17 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 	//
 	// Check if this TCP listener conflicts with an existing HTTP listener
 	if *currentListenerEntry, exists = listenerMap[*listenerMapKey]; exists {
+		// NOTE: This is not a conflict. This is simply filtering the
+		// services for a given listener explicitly.
+		// When the user declares their own ports in Sidecar.egress
+		// with some specific services on those ports, we should not
+		// generate any more listeners on that port as the user does
+		// not want those listeners. Protocol sniffing is not needed.
+		if (*currentListenerEntry).locked {
+			return false, nil
+		}
+
 		if !util.IsProxyVersionGE13(node) {
-			// NOTE: This is not a conflict. This is simply filtering the
-			// services for a given listener explicitly.
-			if (*currentListenerEntry).locked {
-				return false, nil
-			}
 			// Check for port collisions between TCP/TLS and HTTP (or unknown). If
 			// configured correctly, TCP/TLS ports may not collide. We'll
 			// need to do additional work to find out if there is a
@@ -1289,6 +1285,18 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	// Filters are serialized one time into an opaque struct once we have the complete list.
 	if err := buildCompleteFilterChain(pluginParams, mutable, listenerOpts); err != nil {
 		log.Warna("buildSidecarOutboundListeners: ", err.Error())
+		return
+	}
+
+	// If there is a TCP listener on well known port, cannot add any http filter chain
+	// with the inspector as it will break for server-first protocols. Similarly,
+	// if there was a HTTP listener on well known port, cannot add a tcp listener
+	// with the inspector as inspector breaks all server-first protocols.
+	if currentListenerEntry != nil &&
+		(!checkWellKnownPorts(pluginParams.Port.Port, currentListenerEntry.protocol, conflictType) ||
+			!checkWellKnownPorts(pluginParams.Port.Port, pluginParams.Port.Protocol, conflictType)) {
+		log.Warnf("conflict happens on a well known port %d, protocol %v, conflict type %v",
+			pluginParams.Port.Port, wellKnownPorts[pluginParams.Port.Port], conflictType)
 		return
 	}
 
@@ -2115,4 +2123,24 @@ func getPluginFilterChain(opts buildListenerOpts) []plugin.FilterChain {
 	}
 
 	return filterChain
+}
+
+func checkWellKnownPorts(port int, protocol protocol.Instance, conflict int) bool {
+	p, has := wellKnownPorts[port]
+	if conflict == 0 || !has || p != protocol {
+		return true
+	}
+
+	switch conflict {
+	case HTTPOverTCP, TCPOverHTTP,
+		HTTPOverAuto, TCPOverAuto,
+		AutoOverAuto, AutoOverHTTP, AutoOverTCP: //The protocol of port cannot be AUTO for k8s user
+		return false
+	case HTTPOverHTTP:
+		return p.IsHTTP()
+	case TCPOverTCP:
+		return p.IsTCP()
+	}
+
+	return true
 }

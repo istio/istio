@@ -135,13 +135,6 @@ var (
 
 func TestInboundListenerConfigProxy13(t *testing.T) {
 	for _, p := range []*model.Proxy{&proxy13, &proxy13HTTP10} {
-		//testInboundListenerConfig(t, p,
-		//	buildService("test.com", wildcardIP, config.ProtocolHTTP, tnow))
-		//testInboundListenerConfigWithoutServices(t, p)
-		//testInboundListenerConfigWithSidecar(t, p,
-		//	buildService("test.com", wildcardIP, config.ProtocolHTTP, tnow))
-		//testInboundListenerConfigWithSidecarWithoutServices(t, p)
-
 		testInboundListenerConfigV13(t, p,
 			buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
 			buildService("test2.com", wildcardIP, "unknown", tnow),
@@ -162,6 +155,17 @@ func TestOutboundListenerConflict_HTTPWithCurrentUnknownV13(t *testing.T) {
 		buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
 		buildService("test2.com", wildcardIP, "unknown", tnow),
 		buildService("test3.com", wildcardIP, protocol.HTTP, tnow.Add(2*time.Second)))
+}
+
+func TestOutboundListenerConflict_WellKnowPortsV13(t *testing.T) {
+	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
+	// storing the services out of time order to test that it's being sorted properly.
+	//testOutboundListenerConflictV13(t,
+	//	buildServiceWithPort("test1.com", wildcardIP, 3306, protocol.HTTP, tnow.Add(1*time.Second)),
+	//	buildServiceWithPort("test2.com", wildcardIP, 3306, protocol.MySQL, tnow))
+	testOutboundListenerConflictV13(t,
+		buildServiceWithPort("test1.com", wildcardIP, 9999, protocol.HTTP, tnow.Add(1*time.Second)),
+		buildServiceWithPort("test2.com", wildcardIP, 9999, protocol.MySQL, tnow))
 }
 
 func TestOutboundListenerConflict_TCPWithCurrentUnknownV13(t *testing.T) {
@@ -412,7 +416,29 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 	}
 
 	oldestProtocol := oldestService.Ports[0].Protocol
-	if oldestProtocol != protocol.HTTP && oldestProtocol != protocol.TCP {
+	if oldestProtocol == protocol.MySQL {
+		if oldestService.Ports[0].Port == 3306 {
+			if len(listeners[0].FilterChains) != 2 {
+				t.Fatalf("expectd %d filter chains, found %d", 2, len(listeners[0].FilterChains))
+			} else {
+				if !isTCPFilterChain(listeners[0].FilterChains[1]) {
+					t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
+				}
+			}
+		} else {
+			if len(listeners[0].FilterChains) != 4 {
+				t.Fatalf("expectd %d filter chains, found %d", 3, len(listeners[0].FilterChains))
+			} else {
+				if !isHTTPFilterChain(listeners[0].FilterChains[1]) {
+					t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
+				}
+
+				if !isTCPFilterChain(listeners[0].FilterChains[3]) {
+					t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[3].Filters[0].Name)
+				}
+			}
+		}
+	} else if oldestProtocol != protocol.HTTP && oldestProtocol != protocol.TCP {
 		if len(listeners[0].FilterChains) != 3 {
 			t.Fatalf("expectd %d filter chains, found %d", 3, len(listeners[0].FilterChains))
 		} else {
@@ -1279,6 +1305,26 @@ func buildService(hostname string, ip string, protocol protocol.Instance, creati
 			&model.Port{
 				Name:     "default",
 				Port:     8080,
+				Protocol: protocol,
+			},
+		},
+		Resolution: model.Passthrough,
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+	}
+}
+
+func buildServiceWithPort(hostname string, ip string, port int, protocol protocol.Instance, creationTime time.Time) *model.Service {
+	return &model.Service{
+		CreationTime: creationTime,
+		Hostname:     config.Hostname(hostname),
+		Address:      ip,
+		ClusterVIPs:  make(map[string]string),
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "default",
+				Port:     port,
 				Protocol: protocol,
 			},
 		},
