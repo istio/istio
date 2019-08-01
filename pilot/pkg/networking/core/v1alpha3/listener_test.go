@@ -141,12 +141,12 @@ func TestInboundListenerConfigProxy13(t *testing.T) {
 			buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
 			buildService("test2.com", wildcardIP, "unknown", tnow),
 			buildService("test3.com", wildcardIP, protocol.HTTP, tnow.Add(2*time.Second)))
-		//testInboundListenerConfigV13(t, p,
-		//	buildService("test.com", wildcardIP, "unknown", tnow))
-		//testInboundListenerConfigWithoutServiceV13(t, p)
-		//testInboundListenerConfigWithSidecarV13(t, p,
-		//	buildService("test.com", wildcardIP, protocol.HTTP, tnow))
-		//testInboundListenerConfigWithSidecarWithoutServicesV13(t, p)
+		testInboundListenerConfigV13(t, p,
+			buildService("test.com", wildcardIP, "unknown", tnow))
+		testInboundListenerConfigWithoutServiceV13(t, p)
+		testInboundListenerConfigWithSidecarV13(t, p,
+			buildService("test.com", wildcardIP, protocol.HTTP, tnow))
+		testInboundListenerConfigWithSidecarWithoutServicesV13(t, p)
 	}
 }
 
@@ -163,11 +163,11 @@ func TestOutboundListenerConflict_WellKnowPortsV13(t *testing.T) {
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflictV13(t,
-		buildServiceWithPort("test1.com", wildcardIP, 3306, protocol.HTTP, tnow.Add(1*time.Second)),
-		buildServiceWithPort("test2.com", wildcardIP, 3306, protocol.MySQL, tnow))
+		buildServiceWithPort("test1.com", 3306, protocol.HTTP, tnow.Add(1*time.Second)),
+		buildServiceWithPort("test2.com", 3306, protocol.MySQL, tnow))
 	testOutboundListenerConflictV13(t,
-		buildServiceWithPort("test1.com", wildcardIP, 9999, protocol.HTTP, tnow.Add(1*time.Second)),
-		buildServiceWithPort("test2.com", wildcardIP, 9999, protocol.MySQL, tnow))
+		buildServiceWithPort("test1.com", 9999, protocol.HTTP, tnow.Add(1*time.Second)),
+		buildServiceWithPort("test2.com", 9999, protocol.MySQL, tnow))
 }
 
 func TestOutboundListenerConflict_TCPWithCurrentUnknownV13(t *testing.T) {
@@ -1318,11 +1318,11 @@ func buildService(hostname string, ip string, protocol protocol.Instance, creati
 	}
 }
 
-func buildServiceWithPort(hostname string, ip string, port int, protocol protocol.Instance, creationTime time.Time) *model.Service {
+func buildServiceWithPort(hostname string, port int, protocol protocol.Instance, creationTime time.Time) *model.Service {
 	return &model.Service{
 		CreationTime: creationTime,
 		Hostname:     config.Hostname(hostname),
-		Address:      ip,
+		Address:      wildcardIP,
 		ClusterVIPs:  make(map[string]string),
 		Ports: model.PortList{
 			&model.Port{
