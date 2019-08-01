@@ -589,9 +589,9 @@ func (m *Network_NetworkEndpoints) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.Ne != nil {
-		nn1, err1 := m.Ne.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		nn1, err := m.Ne.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += nn1
 	}
@@ -633,9 +633,9 @@ func (m *Network_IstioNetworkGateway) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.Gw != nil {
-		nn2, err2 := m.Gw.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		nn2, err := m.Gw.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += nn2
 	}
@@ -707,9 +707,9 @@ func (m *MeshNetworks) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintNetwork(dAtA, i, uint64(v.Size()))
-				n3, err3 := v.MarshalTo(dAtA[i:])
-				if err3 != nil {
-					return 0, err3
+				n3, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n3
 			}

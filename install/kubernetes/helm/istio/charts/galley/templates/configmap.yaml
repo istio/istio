@@ -10,5 +10,7 @@ metadata:
     release: {{ .Release.Name }}
     istio: galley
 data:
+{{- if .Values.global.configValidation }}
   validatingwebhookconfiguration.yaml: |-
     {{- include "validatingwebhookconfiguration.yaml.tpl" . | indent 4}}
+{{- end}}

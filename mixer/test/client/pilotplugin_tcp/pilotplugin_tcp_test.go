@@ -226,10 +226,10 @@ var (
 func makeListener(port uint16, cluster string) *v2.Listener {
 	return &v2.Listener{
 		Name: cluster,
-		Address: core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
+		Address: &core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
 			Address:       "127.0.0.1",
 			PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(port)}}}},
-		FilterChains: []listener.FilterChain{{Filters: []listener.Filter{{
+		FilterChains: []*listener.FilterChain{{Filters: []*listener.Filter{{
 			Name: util.TCPProxy,
 			ConfigType: &listener.Filter_TypedConfig{
 				TypedConfig: pilotutil.MessageToAny(&tcp_proxy.TcpProxy{

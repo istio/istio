@@ -20,8 +20,11 @@ import (
 	"sync"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 // PushContext tracks the status of a push - metrics and errors.
@@ -275,7 +278,6 @@ var (
 		ProxyStatusClusterNoInstances,
 		DuplicatedDomains,
 		DuplicatedSubsets,
-		totalVirtualServices,
 	}
 )
 
@@ -283,6 +285,7 @@ func init() {
 	for _, m := range metrics {
 		monitoring.MustRegisterViews(m)
 	}
+	monitoring.MustRegisterViews(totalVirtualServices)
 }
 
 // NewPushContext creates a new PushContext structure to track push status.
@@ -386,7 +389,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 		rule := cfg.Spec.(*networking.VirtualService)
 		if len(rule.Gateways) == 0 {
 			// This rule applies only to IstioMeshGateway
-			if gateways[config.IstioMeshGateway] {
+			if gateways[constants.IstioMeshGateway] {
 				out = append(out, cfg)
 			}
 		} else {
@@ -395,7 +398,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 				if gateways[resolveGatewayName(g, cfg.ConfigMeta)] {
 					out = append(out, cfg)
 					break
-				} else if g == config.IstioMeshGateway && gateways[g] {
+				} else if g == constants.IstioMeshGateway && gateways[g] {
 					// "mesh" gateway cannot be expanded into FQDN
 					out = append(out, cfg)
 					break
@@ -641,7 +644,7 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 	for _, svc := range services {
 		ps.ServiceAccounts[svc.Hostname] = map[int][]string{}
 		for _, port := range svc.Ports {
-			if port.Protocol == config.ProtocolUDP {
+			if port.Protocol == protocol.UDP {
 				continue
 			}
 			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc, []int{port.Port})
@@ -681,7 +684,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		}
 		// resolve gateways to bind to
 		for i, g := range rule.Gateways {
-			if g != config.IstioMeshGateway {
+			if g != constants.IstioMeshGateway {
 				rule.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
 			}
 		}
@@ -689,7 +692,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		for _, d := range rule.Http {
 			for _, m := range d.Match {
 				for i, g := range m.Gateways {
-					if g != config.IstioMeshGateway {
+					if g != constants.IstioMeshGateway {
 						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
 					}
 				}
@@ -705,7 +708,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		for _, d := range rule.Tcp {
 			for _, m := range d.Match {
 				for i, g := range m.Gateways {
-					if g != config.IstioMeshGateway {
+					if g != constants.IstioMeshGateway {
 						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
 					}
 				}
@@ -718,7 +721,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		for _, tls := range rule.Tls {
 			for _, m := range tls.Match {
 				for i, g := range m.Gateways {
-					if g != config.IstioMeshGateway {
+					if g != constants.IstioMeshGateway {
 						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
 					}
 				}

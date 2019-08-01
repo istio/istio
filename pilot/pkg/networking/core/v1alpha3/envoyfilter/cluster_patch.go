@@ -41,7 +41,7 @@ func ApplyClusterPatches(patchContext networking.EnvoyFilter_PatchContext, proxy
 					continue
 				}
 
-				if patchContextMatch(patchContext, cp) && clusterMatch(clusters[i], cp) {
+				if commonConditionMatch(proxy, patchContext, cp) && clusterMatch(clusters[i], cp) {
 					if cp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 						clusters[i] = nil
 						clustersRemoved = true
@@ -55,7 +55,7 @@ func ApplyClusterPatches(patchContext networking.EnvoyFilter_PatchContext, proxy
 		// Add cluster if the operation is add, and patch context matches
 		for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
 			if cp.Operation == networking.EnvoyFilter_Patch_ADD {
-				if patchContextMatch(patchContext, cp) {
+				if commonConditionMatch(proxy, patchContext, cp) {
 					clusters = append(clusters, cp.Value.(*xdsapi.Cluster))
 				}
 			}

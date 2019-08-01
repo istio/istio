@@ -23,21 +23,22 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/api/annotation"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/spiffe"
-	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/env"
-	"istio.io/pkg/log"
-
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"istio.io/api/annotation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/env"
+	"istio.io/pkg/log"
 )
 
 func makeClient(t *testing.T) kubernetes.Interface {
@@ -205,7 +206,7 @@ func TestServices(t *testing.T) {
 		for _, item := range out {
 			if item.Hostname == hostname &&
 				len(item.Ports) == 1 &&
-				item.Ports[0].Protocol == config.ProtocolHTTP {
+				item.Ports[0].Protocol == protocol.HTTP {
 				return true
 			}
 		}
@@ -572,7 +573,7 @@ func TestWorkloadHealthCheckInfo(t *testing.T) {
 			Port: &model.Port{
 				Name:     "mgmt-8080",
 				Port:     8080,
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			},
 		},
 		{
@@ -580,7 +581,7 @@ func TestWorkloadHealthCheckInfo(t *testing.T) {
 			Port: &model.Port{
 				Name:     "mgmt-9090",
 				Port:     9090,
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			},
 		},
 	}
@@ -693,12 +694,12 @@ func TestManagementPorts(t *testing.T) {
 		{
 			Name:     "mgmt-8080",
 			Port:     8080,
-			Protocol: config.ProtocolHTTP,
+			Protocol: protocol.HTTP,
 		},
 		{
 			Name:     "mgmt-9090",
 			Port:     9090,
-			Protocol: config.ProtocolHTTP,
+			Protocol: protocol.HTTP,
 		},
 	}
 
@@ -740,7 +741,7 @@ func TestController_Service(t *testing.T) {
 				&model.Port{
 					Name:     "test-port",
 					Port:     8080,
-					Protocol: config.ProtocolTCP,
+					Protocol: protocol.TCP,
 				},
 			},
 		},
@@ -751,7 +752,7 @@ func TestController_Service(t *testing.T) {
 				&model.Port{
 					Name:     "test-port",
 					Port:     8081,
-					Protocol: config.ProtocolTCP,
+					Protocol: protocol.TCP,
 				},
 			},
 		},
@@ -762,7 +763,7 @@ func TestController_Service(t *testing.T) {
 				&model.Port{
 					Name:     "test-port",
 					Port:     8082,
-					Protocol: config.ProtocolTCP,
+					Protocol: protocol.TCP,
 				},
 			},
 		},
@@ -773,7 +774,7 @@ func TestController_Service(t *testing.T) {
 				&model.Port{
 					Name:     "test-port",
 					Port:     8083,
-					Protocol: config.ProtocolTCP,
+					Protocol: protocol.TCP,
 				},
 			},
 		},
@@ -818,7 +819,7 @@ func TestController_ExternalNameService(t *testing.T) {
 				&model.Port{
 					Name:     "test-port",
 					Port:     8080,
-					Protocol: config.ProtocolTCP,
+					Protocol: protocol.TCP,
 				},
 			},
 			MeshExternal: true,
@@ -830,7 +831,7 @@ func TestController_ExternalNameService(t *testing.T) {
 				&model.Port{
 					Name:     "test-port",
 					Port:     8081,
-					Protocol: config.ProtocolTCP,
+					Protocol: protocol.TCP,
 				},
 			},
 			MeshExternal: true,
@@ -842,7 +843,7 @@ func TestController_ExternalNameService(t *testing.T) {
 				&model.Port{
 					Name:     "test-port",
 					Port:     8082,
-					Protocol: config.ProtocolTCP,
+					Protocol: protocol.TCP,
 				},
 			},
 			MeshExternal: true,
@@ -854,7 +855,7 @@ func TestController_ExternalNameService(t *testing.T) {
 				&model.Port{
 					Name:     "test-port",
 					Port:     8083,
-					Protocol: config.ProtocolTCP,
+					Protocol: protocol.TCP,
 				},
 			},
 			MeshExternal: true,

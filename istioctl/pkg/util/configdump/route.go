@@ -74,7 +74,7 @@ func (w *Wrapper) GetRouteConfigDump() (*adminapi.RoutesConfigDump, error) {
 	var routeDumpAny proto.Any
 	for _, conf := range w.Configs {
 		if conf.TypeUrl == "type.googleapis.com/envoy.admin.v2alpha.RoutesConfigDump" {
-			routeDumpAny = conf
+			routeDumpAny = *conf
 		}
 	}
 	if routeDumpAny.TypeUrl == "" {

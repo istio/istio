@@ -48,17 +48,12 @@ func (m *HttpGrpcAccessLogConfig) Validate() error {
 		}
 	}
 
-	{
-		tmp := m.GetCommonConfig()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return HttpGrpcAccessLogConfigValidationError{
-					field:  "CommonConfig",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetCommonConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpGrpcAccessLogConfigValidationError{
+				field:  "CommonConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -137,17 +132,12 @@ func (m *TcpGrpcAccessLogConfig) Validate() error {
 		}
 	}
 
-	{
-		tmp := m.GetCommonConfig()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return TcpGrpcAccessLogConfigValidationError{
-					field:  "CommonConfig",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetCommonConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return TcpGrpcAccessLogConfigValidationError{
+				field:  "CommonConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -233,17 +223,12 @@ func (m *CommonGrpcAccessLogConfig) Validate() error {
 		}
 	}
 
-	{
-		tmp := m.GetGrpcService()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return CommonGrpcAccessLogConfigValidationError{
-					field:  "GrpcService",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetGrpcService()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CommonGrpcAccessLogConfigValidationError{
+				field:  "GrpcService",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}

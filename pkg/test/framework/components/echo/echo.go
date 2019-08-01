@@ -19,7 +19,7 @@ import (
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -85,7 +85,7 @@ type Port struct {
 	Name string
 
 	// Protocol to be used for the port.
-	Protocol config.Protocol
+	Protocol protocol.Instance
 
 	// ServicePort number where the service can be reached. Does not necessarily
 	// map to the corresponding port numbers for the instances behind the
@@ -127,4 +127,12 @@ type Sidecar interface {
 	// has been accepted.
 	WaitForConfig(accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option) error
 	WaitForConfigOrFail(t test.Failer, accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option)
+
+	// Clusters for the Envoy instance
+	Clusters() (*envoyAdmin.Clusters, error)
+	ClustersOrFail(t test.Failer) *envoyAdmin.Clusters
+
+	// Listeners for the Envoy instance
+	Listeners() (*envoyAdmin.Listeners, error)
+	ListenersOrFail(t test.Failer) *envoyAdmin.Listeners
 }

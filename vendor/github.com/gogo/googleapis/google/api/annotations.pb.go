@@ -3,10 +3,12 @@
 
 package api
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import descriptor "github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+import (
+	fmt "fmt"
+	proto "github.com/gogo/protobuf/proto"
+	descriptor "github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -32,11 +34,9 @@ func init() {
 	proto.RegisterExtension(E_Http)
 }
 
-func init() {
-	proto.RegisterFile("google/api/annotations.proto", fileDescriptor_annotations_0def7614f850d31e)
-}
+func init() { proto.RegisterFile("google/api/annotations.proto", fileDescriptor_c591c5aa9fb79aab) }
 
-var fileDescriptor_annotations_0def7614f850d31e = []byte{
+var fileDescriptor_c591c5aa9fb79aab = []byte{
 	// 230 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x49, 0xcf, 0xcf, 0x4f,
 	0xcf, 0x49, 0xd5, 0x4f, 0x2c, 0xc8, 0xd4, 0x4f, 0xcc, 0xcb, 0xcb, 0x2f, 0x49, 0x2c, 0xc9, 0xcc,

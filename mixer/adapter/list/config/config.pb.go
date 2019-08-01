@@ -200,25 +200,25 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0x12
 	i++
 	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.RefreshInterval)))
-	n1, err1 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.RefreshInterval, dAtA[i:])
-	if err1 != nil {
-		return 0, err1
+	n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.RefreshInterval, dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n1
 	dAtA[i] = 0x1a
 	i++
 	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.Ttl)))
-	n2, err2 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.Ttl, dAtA[i:])
-	if err2 != nil {
-		return 0, err2
+	n2, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.Ttl, dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n2
 	dAtA[i] = 0x22
 	i++
 	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.CachingInterval)))
-	n3, err3 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.CachingInterval, dAtA[i:])
-	if err3 != nil {
-		return 0, err3
+	n3, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.CachingInterval, dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n3
 	if m.CachingUseCount != 0 {
@@ -321,9 +321,9 @@ func (this *Params) String() string {
 	}
 	s := strings.Join([]string{`&Params{`,
 		`ProviderUrl:` + fmt.Sprintf("%v", this.ProviderUrl) + `,`,
-		`RefreshInterval:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.RefreshInterval), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
-		`Ttl:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Ttl), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
-		`CachingInterval:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.CachingInterval), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`RefreshInterval:` + strings.Replace(strings.Replace(this.RefreshInterval.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`Ttl:` + strings.Replace(strings.Replace(this.Ttl.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`CachingInterval:` + strings.Replace(strings.Replace(this.CachingInterval.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`CachingUseCount:` + fmt.Sprintf("%v", this.CachingUseCount) + `,`,
 		`Overrides:` + fmt.Sprintf("%v", this.Overrides) + `,`,
 		`EntryType:` + fmt.Sprintf("%v", this.EntryType) + `,`,

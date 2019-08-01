@@ -27,7 +27,7 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"gopkg.in/yaml.v2"
 
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/conformance"
 	"istio.io/istio/pkg/test/conformance/constraint"
@@ -229,7 +229,7 @@ func validateTraffic(t framework.TestContext, pil pilot.Instance, gal galley.Ins
 		for _, p := range svc.Ports {
 			ports = append(ports, echo.Port{
 				Name:        p.Name,
-				Protocol:    config.Protocol(p.Protocol),
+				Protocol:    protocol.Instance(p.Protocol),
 				ServicePort: int(p.ServicePort),
 			})
 		}
