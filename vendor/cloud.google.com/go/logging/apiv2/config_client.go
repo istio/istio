@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"net/url"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -142,7 +143,7 @@ func (c *ConfigClient) SetGoogleClientInfo(keyval ...string) {
 
 // ListSinks lists sinks.
 func (c *ConfigClient) ListSinks(ctx context.Context, req *loggingpb.ListSinksRequest, opts ...gax.CallOption) *LogSinkIterator {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", req.GetParent()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", url.QueryEscape(req.GetParent())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.ListSinks[0:len(c.CallOptions.ListSinks):len(c.CallOptions.ListSinks)], opts...)
 	it := &LogSinkIterator{}
@@ -175,12 +176,13 @@ func (c *ConfigClient) ListSinks(ctx context.Context, req *loggingpb.ListSinksRe
 	}
 	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
 	it.pageInfo.MaxSize = int(req.PageSize)
+	it.pageInfo.Token = req.PageToken
 	return it
 }
 
 // GetSink gets a sink.
 func (c *ConfigClient) GetSink(ctx context.Context, req *loggingpb.GetSinkRequest, opts ...gax.CallOption) (*loggingpb.LogSink, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "sink_name", req.GetSinkName()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "sink_name", url.QueryEscape(req.GetSinkName())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.GetSink[0:len(c.CallOptions.GetSink):len(c.CallOptions.GetSink)], opts...)
 	var resp *loggingpb.LogSink
@@ -200,7 +202,7 @@ func (c *ConfigClient) GetSink(ctx context.Context, req *loggingpb.GetSinkReques
 // writer_identity is not permitted to write to the destination.  A sink can
 // export log entries only from the resource owning the sink.
 func (c *ConfigClient) CreateSink(ctx context.Context, req *loggingpb.CreateSinkRequest, opts ...gax.CallOption) (*loggingpb.LogSink, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", req.GetParent()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", url.QueryEscape(req.GetParent())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.CreateSink[0:len(c.CallOptions.CreateSink):len(c.CallOptions.CreateSink)], opts...)
 	var resp *loggingpb.LogSink
@@ -220,7 +222,7 @@ func (c *ConfigClient) CreateSink(ctx context.Context, req *loggingpb.CreateSink
 // The updated sink might also have a new writer_identity; see the
 // unique_writer_identity field.
 func (c *ConfigClient) UpdateSink(ctx context.Context, req *loggingpb.UpdateSinkRequest, opts ...gax.CallOption) (*loggingpb.LogSink, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "sink_name", req.GetSinkName()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "sink_name", url.QueryEscape(req.GetSinkName())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.UpdateSink[0:len(c.CallOptions.UpdateSink):len(c.CallOptions.UpdateSink)], opts...)
 	var resp *loggingpb.LogSink
@@ -238,7 +240,7 @@ func (c *ConfigClient) UpdateSink(ctx context.Context, req *loggingpb.UpdateSink
 // DeleteSink deletes a sink. If the sink has a unique writer_identity, then that
 // service account is also deleted.
 func (c *ConfigClient) DeleteSink(ctx context.Context, req *loggingpb.DeleteSinkRequest, opts ...gax.CallOption) error {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "sink_name", req.GetSinkName()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "sink_name", url.QueryEscape(req.GetSinkName())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.DeleteSink[0:len(c.CallOptions.DeleteSink):len(c.CallOptions.DeleteSink)], opts...)
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -251,7 +253,7 @@ func (c *ConfigClient) DeleteSink(ctx context.Context, req *loggingpb.DeleteSink
 
 // ListExclusions lists all the exclusions in a parent resource.
 func (c *ConfigClient) ListExclusions(ctx context.Context, req *loggingpb.ListExclusionsRequest, opts ...gax.CallOption) *LogExclusionIterator {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", req.GetParent()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", url.QueryEscape(req.GetParent())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.ListExclusions[0:len(c.CallOptions.ListExclusions):len(c.CallOptions.ListExclusions)], opts...)
 	it := &LogExclusionIterator{}
@@ -284,12 +286,13 @@ func (c *ConfigClient) ListExclusions(ctx context.Context, req *loggingpb.ListEx
 	}
 	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
 	it.pageInfo.MaxSize = int(req.PageSize)
+	it.pageInfo.Token = req.PageToken
 	return it
 }
 
 // GetExclusion gets the description of an exclusion.
 func (c *ConfigClient) GetExclusion(ctx context.Context, req *loggingpb.GetExclusionRequest, opts ...gax.CallOption) (*loggingpb.LogExclusion, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", url.QueryEscape(req.GetName())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.GetExclusion[0:len(c.CallOptions.GetExclusion):len(c.CallOptions.GetExclusion)], opts...)
 	var resp *loggingpb.LogExclusion
@@ -308,7 +311,7 @@ func (c *ConfigClient) GetExclusion(ctx context.Context, req *loggingpb.GetExclu
 // Only log entries belonging to that resource can be excluded.
 // You can have up to 10 exclusions in a resource.
 func (c *ConfigClient) CreateExclusion(ctx context.Context, req *loggingpb.CreateExclusionRequest, opts ...gax.CallOption) (*loggingpb.LogExclusion, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", req.GetParent()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", url.QueryEscape(req.GetParent())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.CreateExclusion[0:len(c.CallOptions.CreateExclusion):len(c.CallOptions.CreateExclusion)], opts...)
 	var resp *loggingpb.LogExclusion
@@ -325,7 +328,7 @@ func (c *ConfigClient) CreateExclusion(ctx context.Context, req *loggingpb.Creat
 
 // UpdateExclusion changes one or more properties of an existing exclusion.
 func (c *ConfigClient) UpdateExclusion(ctx context.Context, req *loggingpb.UpdateExclusionRequest, opts ...gax.CallOption) (*loggingpb.LogExclusion, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", url.QueryEscape(req.GetName())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.UpdateExclusion[0:len(c.CallOptions.UpdateExclusion):len(c.CallOptions.UpdateExclusion)], opts...)
 	var resp *loggingpb.LogExclusion
@@ -342,7 +345,7 @@ func (c *ConfigClient) UpdateExclusion(ctx context.Context, req *loggingpb.Updat
 
 // DeleteExclusion deletes an exclusion.
 func (c *ConfigClient) DeleteExclusion(ctx context.Context, req *loggingpb.DeleteExclusionRequest, opts ...gax.CallOption) error {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", url.QueryEscape(req.GetName())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.DeleteExclusion[0:len(c.CallOptions.DeleteExclusion):len(c.CallOptions.DeleteExclusion)], opts...)
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {

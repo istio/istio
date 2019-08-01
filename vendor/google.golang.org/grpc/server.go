@@ -90,7 +90,7 @@ type Server struct {
 
 	mu     sync.Mutex // guards following
 	lis    map[net.Listener]bool
-	conns  map[io.Closer]bool
+	conns  map[transport.ServerTransport]bool
 	serve  bool
 	drain  bool
 	cv     *sync.Cond          // signaled when connections close for GracefulStop
@@ -386,7 +386,7 @@ func NewServer(opt ...ServerOption) *Server {
 	s := &Server{
 		lis:    make(map[net.Listener]bool),
 		opts:   opts,
-		conns:  make(map[io.Closer]bool),
+		conns:  make(map[transport.ServerTransport]bool),
 		m:      make(map[string]*service),
 		quit:   make(chan struct{}),
 		done:   make(chan struct{}),
@@ -786,27 +786,27 @@ func (s *Server) traceInfo(st transport.ServerTransport, stream *transport.Strea
 	return trInfo
 }
 
-func (s *Server) addConn(c io.Closer) bool {
+func (s *Server) addConn(st transport.ServerTransport) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.conns == nil {
-		c.Close()
+		st.Close()
 		return false
 	}
 	if s.drain {
 		// Transport added after we drained our existing conns: drain it
 		// immediately.
-		c.(transport.ServerTransport).Drain()
+		st.Drain()
 	}
-	s.conns[c] = true
+	s.conns[st] = true
 	return true
 }
 
-func (s *Server) removeConn(c io.Closer) {
+func (s *Server) removeConn(st transport.ServerTransport) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.conns != nil {
-		delete(s.conns, c)
+		delete(s.conns, st)
 		s.cv.Broadcast()
 	}
 }
@@ -978,10 +978,11 @@ func (s *Server) processUnaryRPC(t transport.ServerTransport, stream *transport.
 		}
 		if sh != nil {
 			sh.HandleRPC(stream.Context(), &stats.InPayload{
-				RecvTime: time.Now(),
-				Payload:  v,
-				Data:     d,
-				Length:   len(d),
+				RecvTime:   time.Now(),
+				Payload:    v,
+				WireLength: payInfo.wireLength,
+				Data:       d,
+				Length:     len(d),
 			})
 		}
 		if binlog != nil {
@@ -1423,8 +1424,8 @@ func (s *Server) GracefulStop() {
 	}
 	s.lis = nil
 	if !s.drain {
-		for c := range s.conns {
-			c.(transport.ServerTransport).Drain()
+		for st := range s.conns {
+			st.Drain()
 		}
 		s.drain = true
 	}

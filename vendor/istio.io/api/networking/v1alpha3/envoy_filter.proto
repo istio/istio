@@ -80,7 +80,7 @@ import "networking/v1alpha3/sidecar.proto";
 //             name: "envoy.tcp_proxy"
 //     patch:
 //       operation: INSERT_BEFORE
-//       value: |
+//       value:
 //         name: "envoy.config.filter.network.custom_protocol"
 //         config:
 //          ...
@@ -93,7 +93,7 @@ import "networking/v1alpha3/sidecar.proto";
 //             name: "envoy.http_connection_manager"
 //     patch:
 //       operation: MERGE
-//       value: |
+//       value:
 //         idle_timeout: 30s
 //```
 //
@@ -112,7 +112,8 @@ import "networking/v1alpha3/sidecar.proto";
 //   namespace: bookinfo
 // spec:
 //   workloadSelector:
-//     app: reviews
+//     labels:
+//       app: reviews
 //   configPatches:
 //     # The first patch adds the lua filter to the listener/http connection manager
 //   - applyTo: HTTP_FILTER
@@ -176,7 +177,8 @@ import "networking/v1alpha3/sidecar.proto";
 //   namespace: istio-system
 // spec:
 //   workloadSelector:
-//     istio: ingress-gateway
+//     labels:
+//       istio: ingress-gateway
 //   configPatches:
 //   - applyTo: NETWORK_FILTER # http connection manager is a filter in Envoy
 //     match:
@@ -188,7 +190,7 @@ import "networking/v1alpha3/sidecar.proto";
 //             name: "envoy.http_connection_manager"
 //     patch:
 //       operation: MERGE
-//       value: |
+//       value:
 //         idle_timeout: 30s
 //         xff_num_trusted_hops: 5
 //```

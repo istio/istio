@@ -78,7 +78,7 @@ func goListDriver(cfg *Config, patterns ...string) (*driverResponse, error) {
 	var sizes types.Sizes
 	var sizeserr error
 	var sizeswg sync.WaitGroup
-	if cfg.Mode&NeedTypesSizes != 0 {
+	if cfg.Mode&NeedTypesSizes != 0 || cfg.Mode&NeedTypes != 0 {
 		sizeswg.Add(1)
 		go func() {
 			sizes, sizeserr = getSizes(cfg)
@@ -128,7 +128,7 @@ extractQueries:
 	// patterns also requires a go list call, since it's the equivalent of
 	// ".".
 	if len(restPatterns) > 0 || len(patterns) == 0 {
-		dr, err := golistDriverCurrent(cfg, restPatterns...)
+		dr, err := golistDriver(cfg, restPatterns...)
 		if err != nil {
 			return nil, err
 		}
@@ -147,18 +147,18 @@ extractQueries:
 	var containsCandidates []string
 
 	if len(containFiles) != 0 {
-		if err := runContainsQueries(cfg, golistDriverCurrent, response, containFiles); err != nil {
+		if err := runContainsQueries(cfg, golistDriver, response, containFiles); err != nil {
 			return nil, err
 		}
 	}
 
 	if len(packagesNamed) != 0 {
-		if err := runNamedQueries(cfg, golistDriverCurrent, response, packagesNamed); err != nil {
+		if err := runNamedQueries(cfg, golistDriver, response, packagesNamed); err != nil {
 			return nil, err
 		}
 	}
 
-	modifiedPkgs, needPkgs, err := processGolistOverlay(cfg, response.dr)
+	modifiedPkgs, needPkgs, err := processGolistOverlay(cfg, response)
 	if err != nil {
 		return nil, err
 	}
@@ -166,17 +166,25 @@ extractQueries:
 		containsCandidates = append(containsCandidates, modifiedPkgs...)
 		containsCandidates = append(containsCandidates, needPkgs...)
 	}
-
-	if len(needPkgs) > 0 {
-		addNeededOverlayPackages(cfg, golistDriverCurrent, response, needPkgs)
-		if err != nil {
-			return nil, err
-		}
+	if err := addNeededOverlayPackages(cfg, golistDriver, response, needPkgs); err != nil {
+		return nil, err
 	}
 	// Check candidate packages for containFiles.
 	if len(containFiles) > 0 {
 		for _, id := range containsCandidates {
-			pkg := response.seenPackages[id]
+			pkg, ok := response.seenPackages[id]
+			if !ok {
+				response.addPackage(&Package{
+					ID: id,
+					Errors: []Error{
+						{
+							Kind: ListError,
+							Msg:  fmt.Sprintf("package %s expected but not seen", id),
+						},
+					},
+				})
+				continue
+			}
 			for _, f := range containFiles {
 				for _, g := range pkg.GoFiles {
 					if sameFile(f, g) {
@@ -191,12 +199,22 @@ extractQueries:
 }
 
 func addNeededOverlayPackages(cfg *Config, driver driver, response *responseDeduper, pkgs []string) error {
+	if len(pkgs) == 0 {
+		return nil
+	}
 	dr, err := driver(cfg, pkgs...)
 	if err != nil {
 		return err
 	}
 	for _, pkg := range dr.Packages {
 		response.addPackage(pkg)
+	}
+	_, needPkgs, err := processGolistOverlay(cfg, response)
+	if err != nil {
+		return err
+	}
+	if err := addNeededOverlayPackages(cfg, driver, response, needPkgs); err != nil {
+		return err
 	}
 	return nil
 }
@@ -212,8 +230,16 @@ func runContainsQueries(cfg *Config, driver driver, response *responseDeduper, q
 			return fmt.Errorf("could not determine absolute path of file= query path %q: %v", query, err)
 		}
 		dirResponse, err := driver(cfg, pattern)
-		if err != nil {
-			return err
+		if err != nil || (len(dirResponse.Packages) == 1 && len(dirResponse.Packages[0].Errors) == 1) {
+			// There was an error loading the package. Try to load the file as an ad-hoc package.
+			// Usually the error will appear in a returned package, but may not if we're in modules mode
+			// and the ad-hoc is located outside a module.
+			var queryErr error
+			dirResponse, queryErr = driver(cfg, query)
+			if queryErr != nil {
+				// Return the original error if the attempt to fall back failed.
+				return err
+			}
 		}
 		isRoot := make(map[string]bool, len(dirResponse.Roots))
 		for _, root := range dirResponse.Roots {
@@ -290,9 +316,7 @@ func runNamedQueries(cfg *Config, driver driver, response *responseDeduper, quer
 
 	startWalk := time.Now()
 	gopathwalk.Walk(roots, add, gopathwalk.Options{ModulesEnabled: modRoot != "", Debug: debug})
-	if debug {
-		log.Printf("%v for walk", time.Since(startWalk))
-	}
+	cfg.Logf("%v for walk", time.Since(startWalk))
 
 	// Weird special case: the top-level package in a module will be in
 	// whatever directory the user checked the repository out into. It's
@@ -540,10 +564,10 @@ func otherFiles(p *jsonPackage) [][]string {
 	return [][]string{p.CFiles, p.CXXFiles, p.MFiles, p.HFiles, p.FFiles, p.SFiles, p.SwigFiles, p.SwigCXXFiles, p.SysoFiles}
 }
 
-// golistDriverCurrent uses the "go list" command to expand the
-// pattern words and return metadata for the specified packages.
-// dir may be "" and env may be nil, as per os/exec.Command.
-func golistDriverCurrent(cfg *Config, words ...string) (*driverResponse, error) {
+// golistDriver uses the "go list" command to expand the pattern
+// words and return metadata for the specified packages. dir may be
+// "" and env may be nil, as per os/exec.Command.
+func golistDriver(cfg *Config, words ...string) (*driverResponse, error) {
 	// go list uses the following identifiers in ImportPath and Imports:
 	//
 	// 	"p"			-- importable package or main (command)
@@ -677,7 +701,7 @@ func golistDriverCurrent(cfg *Config, words ...string) (*driverResponse, error) 
 		if p.Error != nil {
 			pkg.Errors = append(pkg.Errors, Error{
 				Pos: p.Error.Pos,
-				Msg: p.Error.Err,
+				Msg: strings.TrimSpace(p.Error.Err), // Trim to work around golang.org/issue/32363.
 			})
 		}
 
@@ -733,11 +757,9 @@ func invokeGo(cfg *Config, args ...string) (*bytes.Buffer, error) {
 	cmd.Dir = cfg.Dir
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
-	if debug {
-		defer func(start time.Time) {
-			log.Printf("%s for %v, stderr: <<%s>>\n", time.Since(start), cmdDebugStr(cmd, args...), stderr)
-		}(time.Now())
-	}
+	defer func(start time.Time) {
+		cfg.Logf("%s for %v, stderr: <<%s>>\n", time.Since(start), cmdDebugStr(cmd, args...), stderr)
+	}(time.Now())
 
 	if err := cmd.Run(); err != nil {
 		// Check for 'go' executable not being found.
@@ -761,8 +783,31 @@ func invokeGo(cfg *Config, args ...string) (*bytes.Buffer, error) {
 		// the error in the Err section of stdout in case -e option is provided.
 		// This fix is provided for backwards compatibility.
 		if len(stderr.String()) > 0 && strings.Contains(stderr.String(), "named files must be .go files") {
-			output := fmt.Sprintf(`{"ImportPath": "","Incomplete": true,"Error": {"Pos": "","Err": %s}}`,
-				strconv.Quote(strings.Trim(stderr.String(), "\n")))
+			output := fmt.Sprintf(`{"ImportPath": "command-line-arguments","Incomplete": true,"Error": {"Pos": "","Err": %q}}`,
+				strings.Trim(stderr.String(), "\n"))
+			return bytes.NewBufferString(output), nil
+		}
+
+		// Workaround for #29280: go list -e has incorrect behavior when an ad-hoc package doesn't exist.
+		if len(stderr.String()) > 0 && strings.Contains(stderr.String(), "no such file or directory") {
+			output := fmt.Sprintf(`{"ImportPath": "command-line-arguments","Incomplete": true,"Error": {"Pos": "","Err": %q}}`,
+				strings.Trim(stderr.String(), "\n"))
+			return bytes.NewBufferString(output), nil
+		}
+
+		// Workaround for an instance of golang.org/issue/26755: go list -e  will return a non-zero exit
+		// status if there's a dependency on a package that doesn't exist. But it should return
+		// a zero exit status and set an error on that package.
+		if len(stderr.String()) > 0 && strings.Contains(stderr.String(), "no Go files in") {
+			// try to extract package name from string
+			stderrStr := stderr.String()
+			var importPath string
+			colon := strings.Index(stderrStr, ":")
+			if colon > 0 && strings.HasPrefix(stderrStr, "go build ") {
+				importPath = stderrStr[len("go build "):colon]
+			}
+			output := fmt.Sprintf(`{"ImportPath": %q,"Incomplete": true,"Error": {"Pos": "","Err": %q}}`,
+				importPath, strings.Trim(stderrStr, "\n"))
 			return bytes.NewBufferString(output), nil
 		}
 
