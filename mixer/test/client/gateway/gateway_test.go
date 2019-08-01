@@ -237,13 +237,13 @@ func (mock) GetProxyWorkloadLabels(proxy *model.Proxy) (config.LabelsCollection,
 	return nil, nil
 }
 func (mock) GetService(_ config.Hostname) (*model.Service, error) { return nil, nil }
-func (mock) InstancesByPort(_ config.Hostname, _ int, _ config.LabelsCollection) ([]*model.ServiceInstance, error) {
+func (mock) InstancesByPort(_ *model.Service, _ int, _ config.LabelsCollection) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
-func (mock) ManagementPorts(_ string) model.PortList                                { return nil }
-func (mock) Services() ([]*model.Service, error)                                    { return nil, nil }
-func (mock) WorkloadHealthCheckInfo(_ string) model.ProbeList                       { return nil }
-func (mock) GetIstioServiceAccounts(hostname config.Hostname, ports []int) []string { return nil }
+func (mock) ManagementPorts(_ string) model.PortList                        { return nil }
+func (mock) Services() ([]*model.Service, error)                            { return nil, nil }
+func (mock) WorkloadHealthCheckInfo(_ string) model.ProbeList               { return nil }
+func (mock) GetIstioServiceAccounts(_ *model.Service, ports []int) []string { return nil }
 
 const (
 	id = "id"
@@ -266,8 +266,10 @@ var (
 		ServiceDiscovery: mock{},
 	}
 	pushContext = model.PushContext{
-		ServiceByHostname: map[config.Hostname]*model.Service{
-			config.Hostname("svc.ns3"): &svc,
+		ServiceByHostnameAndNamespace: map[config.Hostname]map[string]*model.Service{
+			config.Hostname("svc.ns3"): {
+				"ns3": &svc,
+			},
 		},
 	}
 	clientParams = plugin.InputParams{
@@ -285,11 +287,11 @@ var (
 func makeRoute(cluster string) *v2.RouteConfiguration {
 	return &v2.RouteConfiguration{
 		Name: cluster,
-		VirtualHosts: []route.VirtualHost{{
+		VirtualHosts: []*route.VirtualHost{{
 			Name:    cluster,
 			Domains: []string{"*"},
-			Routes: []route.Route{{
-				Match: route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
+			Routes: []*route.Route{{
+				Match: &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
 				Action: &route.Route_Route{Route: &route.RouteAction{
 					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: cluster},
 				}},
@@ -301,14 +303,14 @@ func makeRoute(cluster string) *v2.RouteConfiguration {
 func makeListener(port uint16, route string) (*v2.Listener, *hcm.HttpConnectionManager) {
 	return &v2.Listener{
 			Name: route,
-			Address: core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
+			Address: &core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
 				Address:       "127.0.0.1",
 				PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(port)}}}},
 		}, &hcm.HttpConnectionManager{
 			CodecType:  hcm.AUTO,
 			StatPrefix: route,
 			RouteSpecifier: &hcm.HttpConnectionManager_Rds{
-				Rds: &hcm.Rds{RouteConfigName: route, ConfigSource: core.ConfigSource{
+				Rds: &hcm.Rds{RouteConfigName: route, ConfigSource: &core.ConfigSource{
 					ConfigSourceSpecifier: &core.ConfigSource_Ads{Ads: &core.AggregatedConfigSource{}},
 				}},
 			},
@@ -327,7 +329,7 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 		t.Error(err)
 	}
 	clientManager.HttpFilters = append(clientMutable.FilterChains[0].HTTP, clientManager.HttpFilters...)
-	clientListener.FilterChains = []listener.FilterChain{{Filters: []listener.Filter{{
+	clientListener.FilterChains = []*listener.FilterChain{{Filters: []*listener.Filter{{
 		Name:       util.HTTPConnectionManager,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: pilotutil.MessageToAny(clientManager)},
 	}}}}

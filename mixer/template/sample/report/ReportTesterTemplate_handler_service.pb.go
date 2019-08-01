@@ -690,9 +690,9 @@ func (m *HandleReportRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(m.AdapterConfig.Size()))
-		n1, err1 := m.AdapterConfig.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		n1, err := m.AdapterConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n1
 	}
@@ -724,9 +724,9 @@ func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(m.Value.Size()))
-		n2, err2 := m.Value.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		n2, err := m.Value.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n2
 	}
@@ -750,9 +750,9 @@ func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n3, err3 := v.MarshalTo(dAtA[i:])
-				if err3 != nil {
-					return 0, err3
+				n3, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n3
 			}
@@ -805,9 +805,9 @@ func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x4a
 		i++
 		i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(m.TimeStamp.Size()))
-		n4, err4 := m.TimeStamp.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
+		n4, err := m.TimeStamp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n4
 	}
@@ -815,9 +815,9 @@ func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x52
 		i++
 		i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(m.Duration.Size()))
-		n5, err5 := m.Duration.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
+		n5, err := m.Duration.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n5
 	}
@@ -825,9 +825,9 @@ func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5a
 		i++
 		i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(m.Res1.Size()))
-		n6, err6 := m.Res1.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
+		n6, err := m.Res1.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n6
 	}
@@ -867,9 +867,9 @@ func (m *Res1Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(m.Value.Size()))
-		n7, err7 := m.Value.MarshalTo(dAtA[i:])
-		if err7 != nil {
-			return 0, err7
+		n7, err := m.Value.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n7
 	}
@@ -893,9 +893,9 @@ func (m *Res1Msg) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n8, err8 := v.MarshalTo(dAtA[i:])
-				if err8 != nil {
-					return 0, err8
+				n8, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n8
 			}
@@ -948,9 +948,9 @@ func (m *Res1Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x4a
 		i++
 		i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(m.TimeStamp.Size()))
-		n9, err9 := m.TimeStamp.MarshalTo(dAtA[i:])
-		if err9 != nil {
-			return 0, err9
+		n9, err := m.TimeStamp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n9
 	}
@@ -958,9 +958,9 @@ func (m *Res1Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x52
 		i++
 		i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(m.Duration.Size()))
-		n10, err10 := m.Duration.MarshalTo(dAtA[i:])
-		if err10 != nil {
-			return 0, err10
+		n10, err := m.Duration.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n10
 	}
@@ -968,9 +968,9 @@ func (m *Res1Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5a
 		i++
 		i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(m.Res2.Size()))
-		n11, err11 := m.Res2.MarshalTo(dAtA[i:])
-		if err11 != nil {
-			return 0, err11
+		n11, err := m.Res2.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n11
 	}
@@ -994,9 +994,9 @@ func (m *Res1Msg) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n12, err12 := v.MarshalTo(dAtA[i:])
-				if err12 != nil {
-					return 0, err12
+				n12, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n12
 			}
@@ -1024,9 +1024,9 @@ func (m *Res2Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(m.Value.Size()))
-		n13, err13 := m.Value.MarshalTo(dAtA[i:])
-		if err13 != nil {
-			return 0, err13
+		n13, err := m.Value.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n13
 	}
@@ -1050,9 +1050,9 @@ func (m *Res2Msg) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n14, err14 := v.MarshalTo(dAtA[i:])
-				if err14 != nil {
-					return 0, err14
+				n14, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n14
 			}
@@ -1067,9 +1067,9 @@ func (m *Res2Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x4a
 		i++
 		i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(m.TimeStamp.Size()))
-		n15, err15 := m.TimeStamp.MarshalTo(dAtA[i:])
-		if err15 != nil {
-			return 0, err15
+		n15, err := m.TimeStamp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n15
 	}
@@ -1077,9 +1077,9 @@ func (m *Res2Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x52
 		i++
 		i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(m.Duration.Size()))
-		n16, err16 := m.Duration.MarshalTo(dAtA[i:])
-		if err16 != nil {
-			return 0, err16
+		n16, err := m.Duration.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n16
 	}
@@ -1087,9 +1087,9 @@ func (m *Res2Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5a
 		i++
 		i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(m.IpAddr.Size()))
-		n17, err17 := m.IpAddr.MarshalTo(dAtA[i:])
-		if err17 != nil {
-			return 0, err17
+		n17, err := m.IpAddr.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n17
 	}
@@ -1097,9 +1097,9 @@ func (m *Res2Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x62
 		i++
 		i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(m.DnsName.Size()))
-		n18, err18 := m.DnsName.MarshalTo(dAtA[i:])
-		if err18 != nil {
-			return 0, err18
+		n18, err := m.DnsName.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n18
 	}
@@ -1107,9 +1107,9 @@ func (m *Res2Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x6a
 		i++
 		i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(m.EmailAddr.Size()))
-		n19, err19 := m.EmailAddr.MarshalTo(dAtA[i:])
-		if err19 != nil {
-			return 0, err19
+		n19, err := m.EmailAddr.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n19
 	}
@@ -1117,9 +1117,9 @@ func (m *Res2Msg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x72
 		i++
 		i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(m.Uri.Size()))
-		n20, err20 := m.Uri.MarshalTo(dAtA[i:])
-		if err20 != nil {
-			return 0, err20
+		n20, err := m.Uri.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n20
 	}
@@ -1166,9 +1166,9 @@ func (m *Type) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5a
 		i++
 		i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(m.Res1.Size()))
-		n21, err21 := m.Res1.MarshalTo(dAtA[i:])
-		if err21 != nil {
-			return 0, err21
+		n21, err := m.Res1.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n21
 	}
@@ -1215,9 +1215,9 @@ func (m *Res1Type) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5a
 		i++
 		i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(m.Res2.Size()))
-		n22, err22 := m.Res2.MarshalTo(dAtA[i:])
-		if err22 != nil {
-			return 0, err22
+		n22, err := m.Res2.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n22
 	}
@@ -1241,9 +1241,9 @@ func (m *Res1Type) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n23, err23 := v.MarshalTo(dAtA[i:])
-				if err23 != nil {
-					return 0, err23
+				n23, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n23
 			}
@@ -1386,9 +1386,9 @@ func (m *InstanceParam) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5a
 		i++
 		i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(m.Res1.Size()))
-		n24, err24 := m.Res1.MarshalTo(dAtA[i:])
-		if err24 != nil {
-			return 0, err24
+		n24, err := m.Res1.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n24
 	}
@@ -1490,9 +1490,9 @@ func (m *Res1InstanceParam) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5a
 		i++
 		i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(m.Res2.Size()))
-		n25, err25 := m.Res2.MarshalTo(dAtA[i:])
-		if err25 != nil {
-			return 0, err25
+		n25, err := m.Res2.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n25
 	}
@@ -1516,9 +1516,9 @@ func (m *Res1InstanceParam) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintReportTesterTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n26, err26 := v.MarshalTo(dAtA[i:])
-				if err26 != nil {
-					return 0, err26
+				n26, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n26
 			}
@@ -2104,13 +2104,8 @@ func (this *HandleReportRequest) String() string {
 	if this == nil {
 		return "nil"
 	}
-	repeatedStringForInstances := "[]*InstanceMsg{"
-	for _, f := range this.Instances {
-		repeatedStringForInstances += strings.Replace(f.String(), "InstanceMsg", "InstanceMsg", 1) + ","
-	}
-	repeatedStringForInstances += "}"
 	s := strings.Join([]string{`&HandleReportRequest{`,
-		`Instances:` + repeatedStringForInstances + `,`,
+		`Instances:` + strings.Replace(fmt.Sprintf("%v", this.Instances), "InstanceMsg", "InstanceMsg", 1) + `,`,
 		`AdapterConfig:` + strings.Replace(fmt.Sprintf("%v", this.AdapterConfig), "Any", "types.Any", 1) + `,`,
 		`DedupId:` + fmt.Sprintf("%v", this.DedupId) + `,`,
 		`}`,
@@ -2151,7 +2146,7 @@ func (this *InstanceMsg) String() string {
 		`Int64Map:` + mapStringForInt64Map + `,`,
 		`TimeStamp:` + strings.Replace(fmt.Sprintf("%v", this.TimeStamp), "TimeStamp", "v1beta1.TimeStamp", 1) + `,`,
 		`Duration:` + strings.Replace(fmt.Sprintf("%v", this.Duration), "Duration", "v1beta1.Duration", 1) + `,`,
-		`Res1:` + strings.Replace(this.Res1.String(), "Res1Msg", "Res1Msg", 1) + `,`,
+		`Res1:` + strings.Replace(fmt.Sprintf("%v", this.Res1), "Res1Msg", "Res1Msg", 1) + `,`,
 		`Name:` + fmt.Sprintf("%v", this.Name) + `,`,
 		`}`,
 	}, "")
@@ -2201,7 +2196,7 @@ func (this *Res1Msg) String() string {
 		`Int64Map:` + mapStringForInt64Map + `,`,
 		`TimeStamp:` + strings.Replace(fmt.Sprintf("%v", this.TimeStamp), "TimeStamp", "v1beta1.TimeStamp", 1) + `,`,
 		`Duration:` + strings.Replace(fmt.Sprintf("%v", this.Duration), "Duration", "v1beta1.Duration", 1) + `,`,
-		`Res2:` + strings.Replace(this.Res2.String(), "Res2Msg", "Res2Msg", 1) + `,`,
+		`Res2:` + strings.Replace(fmt.Sprintf("%v", this.Res2), "Res2Msg", "Res2Msg", 1) + `,`,
 		`Res2Map:` + mapStringForRes2Map + `,`,
 		`}`,
 	}, "")
@@ -2252,7 +2247,7 @@ func (this *Type) String() string {
 	s := strings.Join([]string{`&Type{`,
 		`Value:` + fmt.Sprintf("%v", this.Value) + `,`,
 		`Dimensions:` + mapStringForDimensions + `,`,
-		`Res1:` + strings.Replace(this.Res1.String(), "Res1Type", "Res1Type", 1) + `,`,
+		`Res1:` + strings.Replace(fmt.Sprintf("%v", this.Res1), "Res1Type", "Res1Type", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2284,7 +2279,7 @@ func (this *Res1Type) String() string {
 	s := strings.Join([]string{`&Res1Type{`,
 		`Value:` + fmt.Sprintf("%v", this.Value) + `,`,
 		`Dimensions:` + mapStringForDimensions + `,`,
-		`Res2:` + strings.Replace(this.Res2.String(), "Res2Type", "Res2Type", 1) + `,`,
+		`Res2:` + strings.Replace(fmt.Sprintf("%v", this.Res2), "Res2Type", "Res2Type", 1) + `,`,
 		`Res2Map:` + mapStringForRes2Map + `,`,
 		`}`,
 	}, "")
@@ -2345,7 +2340,7 @@ func (this *InstanceParam) String() string {
 		`Int64Map:` + mapStringForInt64Map + `,`,
 		`TimeStamp:` + fmt.Sprintf("%v", this.TimeStamp) + `,`,
 		`Duration:` + fmt.Sprintf("%v", this.Duration) + `,`,
-		`Res1:` + strings.Replace(this.Res1.String(), "Res1InstanceParam", "Res1InstanceParam", 1) + `,`,
+		`Res1:` + strings.Replace(fmt.Sprintf("%v", this.Res1), "Res1InstanceParam", "Res1InstanceParam", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2394,7 +2389,7 @@ func (this *Res1InstanceParam) String() string {
 		`Int64Map:` + mapStringForInt64Map + `,`,
 		`TimeStamp:` + fmt.Sprintf("%v", this.TimeStamp) + `,`,
 		`Duration:` + fmt.Sprintf("%v", this.Duration) + `,`,
-		`Res2:` + strings.Replace(this.Res2.String(), "Res2InstanceParam", "Res2InstanceParam", 1) + `,`,
+		`Res2:` + strings.Replace(fmt.Sprintf("%v", this.Res2), "Res2InstanceParam", "Res2InstanceParam", 1) + `,`,
 		`Res2Map:` + mapStringForRes2Map + `,`,
 		`}`,
 	}, "")

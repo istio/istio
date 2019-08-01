@@ -23,9 +23,11 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 func TestGenerateVirtualHostDomains(t *testing.T) {
@@ -568,7 +570,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
-	_ = os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "0")
+	_ = os.Setenv(features.EnableFallthroughRoute.Name, "0")
 	if fallthroughRoute {
 		_ = os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "1")
 	}
@@ -616,7 +618,7 @@ func buildHTTPService(hostname string, visibility config.Visibility, ip, namespa
 		Ports = append(Ports, &model.Port{
 			Name:     fmt.Sprintf("http-%d", p),
 			Port:     p,
-			Protocol: config.ProtocolHTTP,
+			Protocol: protocol.HTTP,
 		})
 	}
 

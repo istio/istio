@@ -43,7 +43,7 @@ setup_kind_cluster ""
 echo 'Build'
 (cd "${ROOT}"; make build)
 
-E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
+E2E_ARGS+=("--test_logs_path=${ARTIFACTS}")
 # e2e tests with kind clusters on prow will get deleted when prow
 # deleted the pod 
 E2E_ARGS+=("--skip_cleanup")
@@ -84,5 +84,5 @@ build_kind_images
 
 time ISTIO_DOCKER_HUB=$HUB \
   E2E_ARGS="${E2E_ARGS[*]}" \
-  JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit.xml" \
+  JUNIT_E2E_XML="${ARTIFACTS}/junit.xml" \
   make with_junit_report TARGET="${SINGLE_TEST}" ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}

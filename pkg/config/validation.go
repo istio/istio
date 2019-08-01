@@ -37,6 +37,9 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 const (
@@ -359,12 +362,12 @@ func validateServer(server *networking.Server) (errs error) {
 
 	// If port is HTTPS or TLS, make sure that server has TLS options
 	if portErr == nil {
-		protocol := ParseProtocol(server.Port.Protocol)
-		if protocol.IsTLS() && server.Tls == nil {
+		p := protocol.Parse(server.Port.Protocol)
+		if p.IsTLS() && server.Tls == nil {
 			errs = appendErrors(errs, fmt.Errorf("server must have TLS settings for HTTPS/TLS protocols"))
-		} else if !protocol.IsTLS() && server.Tls != nil {
+		} else if !p.IsTLS() && server.Tls != nil {
 			// only tls redirect is allowed if this is a HTTP server
-			if protocol.IsHTTP() {
+			if p.IsHTTP() {
 				if !IsPassThroughServer(server) ||
 					server.Tls.CaCertificates != "" || server.Tls.PrivateKey != "" || server.Tls.ServerCertificate != "" {
 					errs = appendErrors(errs, fmt.Errorf("server cannot have TLS settings for plain text HTTP ports"))
@@ -381,7 +384,7 @@ func validateServerPort(port *networking.Port) (errs error) {
 	if port == nil {
 		return appendErrors(errs, fmt.Errorf("port is required"))
 	}
-	if ParseProtocol(port.Protocol) == ProtocolUnsupported {
+	if protocol.Parse(port.Protocol) == protocol.Unsupported {
 		errs = appendErrors(errs, fmt.Errorf("invalid protocol %q, supported protocols are HTTP, HTTP2, GRPC, MONGO, REDIS, MYSQL, TCP", port.Protocol))
 	}
 	if port.Number > 0 {
@@ -1414,20 +1417,20 @@ func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) err
 	var errs error
 
 	if !clusterScoped {
-		if len(in.Targets) == 0 && name != DefaultAuthenticationPolicyName {
+		if len(in.Targets) == 0 && name != constants.DefaultAuthenticationPolicyName {
 			errs = appendErrors(errs, fmt.Errorf("authentication policy with no target rules  must be named %q, found %q",
-				DefaultAuthenticationPolicyName, name))
+				constants.DefaultAuthenticationPolicyName, name))
 		}
-		if len(in.Targets) > 0 && name == DefaultAuthenticationPolicyName {
+		if len(in.Targets) > 0 && name == constants.DefaultAuthenticationPolicyName {
 			errs = appendErrors(errs, fmt.Errorf("authentication policy with name %q must not have any target rules", name))
 		}
 		for _, target := range in.Targets {
 			errs = appendErrors(errs, validateAuthNPolicyTarget(target))
 		}
 	} else {
-		if name != DefaultAuthenticationPolicyName {
+		if name != constants.DefaultAuthenticationPolicyName {
 			errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy name must be %q, found %q",
-				DefaultAuthenticationPolicyName, name))
+				constants.DefaultAuthenticationPolicyName, name))
 		}
 		if len(in.Targets) > 0 {
 			errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy must not have targets"))
@@ -1648,8 +1651,8 @@ func checkRbacConfig(name, typ string, msg proto.Message) error {
 		return errors.New("cannot cast to " + typ)
 	}
 
-	if name != DefaultRbacConfigName {
-		return fmt.Errorf("%s has invalid name(%s), name must be %q", typ, name, DefaultRbacConfigName)
+	if name != constants.DefaultRbacConfigName {
+		return fmt.Errorf("%s has invalid name(%s), name must be %q", typ, name, constants.DefaultRbacConfigName)
 	}
 
 	if in.Mode == rbac.RbacConfig_ON_WITH_INCLUSION && in.Inclusion == nil {
@@ -1738,7 +1741,7 @@ func ValidateVirtualService(_, _ string, msg proto.Message) (errs error) {
 
 	errs = appendErrors(errs, validateGatewayNames(virtualService.Gateways))
 	for _, gateway := range virtualService.Gateways {
-		if gateway == IstioMeshGateway {
+		if gateway == constants.IstioMeshGateway {
 			appliesToMesh = true
 			break
 		}
@@ -2417,8 +2420,8 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 	if serviceEntry.Resolution != networking.ServiceEntry_NONE && len(serviceEntry.Hosts) > 1 {
 		canDifferentiate := true
 		for _, port := range serviceEntry.Ports {
-			protocol := ParseProtocol(port.Protocol)
-			if !protocol.IsHTTP() && !protocol.IsTLS() {
+			p := protocol.Parse(port.Protocol)
+			if !p.IsHTTP() && !p.IsTLS() {
 				canDifferentiate = false
 				break
 			}
@@ -2447,9 +2450,9 @@ func validatePortName(name string) error {
 	return nil
 }
 
-func validateProtocol(protocol string) error {
-	if ParseProtocol(protocol) == ProtocolUnsupported {
-		return fmt.Errorf("unsupported protocol: %s", protocol)
+func validateProtocol(protocolStr string) error {
+	if protocol.Parse(protocolStr) == protocol.Unsupported {
+		return fmt.Errorf("unsupported protocol: %s", protocolStr)
 	}
 	return nil
 }

@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 // MockController specifies a mock Controller for testing
@@ -317,7 +318,7 @@ func TestInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get Instances from mockAdapter1
-	instances, err := aggregateCtl.InstancesByPort(memory.HelloService.Hostname,
+	instances, err := aggregateCtl.InstancesByPort(memory.HelloService,
 		80,
 		config.LabelsCollection{})
 	if err != nil {
@@ -336,7 +337,7 @@ func TestInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances, err = aggregateCtl.InstancesByPort(memory.WorldService.Hostname,
+	instances, err = aggregateCtl.InstancesByPort(memory.WorldService,
 		80,
 		config.LabelsCollection{})
 	if err != nil {
@@ -361,7 +362,7 @@ func TestInstancesError(t *testing.T) {
 	discovery1.InstancesError = errors.New("mock Instances() error")
 
 	// Get Instances from client with error
-	instances, err := aggregateCtl.InstancesByPort(memory.HelloService.Hostname,
+	instances, err := aggregateCtl.InstancesByPort(memory.HelloService,
 		80,
 		config.LabelsCollection{})
 	if err == nil {
@@ -373,7 +374,7 @@ func TestInstancesError(t *testing.T) {
 	}
 
 	// Get Instances from client without error
-	instances, err = aggregateCtl.InstancesByPort(memory.WorldService.Hostname,
+	instances, err = aggregateCtl.InstancesByPort(memory.WorldService,
 		80,
 		config.LabelsCollection{})
 	if err != nil {
@@ -396,7 +397,7 @@ func TestGetIstioServiceAccounts(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get accounts from mockAdapter1
-	accounts := aggregateCtl.GetIstioServiceAccounts(memory.HelloService.Hostname, []int{})
+	accounts := aggregateCtl.GetIstioServiceAccounts(memory.HelloService, []int{})
 	expected := make([]string, 0)
 
 	if len(accounts) != len(expected) {
@@ -410,7 +411,7 @@ func TestGetIstioServiceAccounts(t *testing.T) {
 	}
 
 	// Get accounts from mockAdapter2
-	accounts = aggregateCtl.GetIstioServiceAccounts(memory.WorldService.Hostname, []int{})
+	accounts = aggregateCtl.GetIstioServiceAccounts(memory.WorldService, []int{})
 	expected = []string{
 		"spiffe://cluster.local/ns/default/sa/serviceaccount1",
 		"spiffe://cluster.local/ns/default/sa/serviceaccount2",
@@ -432,11 +433,11 @@ func TestManagementPorts(t *testing.T) {
 	expected := model.PortList{{
 		Name:     "http",
 		Port:     3333,
-		Protocol: config.ProtocolHTTP,
+		Protocol: protocol.HTTP,
 	}, {
 		Name:     "custom",
 		Port:     9999,
-		Protocol: config.ProtocolTCP,
+		Protocol: protocol.TCP,
 	}}
 
 	// Get management ports from mockAdapter1

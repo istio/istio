@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -47,31 +48,31 @@ func MakeService(hostname config.Hostname, address string) *model.Service {
 			{
 				Name:     PortHTTPName,
 				Port:     80, // target port 80
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			}, {
 				Name:     "http-status",
 				Port:     81, // target port 1081
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			}, {
 				Name:     "custom",
 				Port:     90, // target port 1090
-				Protocol: config.ProtocolTCP,
+				Protocol: protocol.TCP,
 			}, {
 				Name:     "mongo",
 				Port:     100, // target port 1100
-				Protocol: config.ProtocolMongo,
+				Protocol: protocol.Mongo,
 			}, {
 				Name:     "redis",
 				Port:     110, // target port 1110
-				Protocol: config.ProtocolRedis,
+				Protocol: protocol.Redis,
 			}, {
 				Name:     "mysql",
 				Port:     120, // target port 1120
-				Protocol: config.ProtocolMySQL,
+				Protocol: protocol.MySQL,
 			}, {
 				Name:     "thrift",
 				Port:     130, // target port 1130
-				Protocol: config.ProtocolThrift,
+				Protocol: protocol.Thrift,
 			},
 		},
 	}
@@ -87,7 +88,7 @@ func MakeExternalHTTPService(hostname config.Hostname, isMeshExternal bool, addr
 		Ports: []*model.Port{{
 			Name:     "http",
 			Port:     80,
-			Protocol: config.ProtocolHTTP,
+			Protocol: protocol.HTTP,
 		}},
 	}
 }
@@ -102,7 +103,7 @@ func MakeExternalHTTPSService(hostname config.Hostname, isMeshExternal bool, add
 		Ports: []*model.Port{{
 			Name:     "https",
 			Port:     443,
-			Protocol: config.ProtocolHTTPS,
+			Protocol: protocol.HTTPS,
 		}},
 	}
 }
@@ -189,23 +190,22 @@ func (sd *ServiceDiscovery) GetService(hostname config.Hostname) (*model.Service
 }
 
 // InstancesByPort implements discovery interface
-func (sd *ServiceDiscovery) InstancesByPort(hostname config.Hostname, num int,
+func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, num int,
 	labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
 	if sd.InstancesError != nil {
 		return nil, sd.InstancesError
 	}
-	service, ok := sd.services[hostname]
-	if !ok {
+	if _, ok := sd.services[svc.Hostname]; !ok {
 		return nil, sd.InstancesError
 	}
 	out := make([]*model.ServiceInstance, 0)
-	if service.External() {
+	if svc.External() {
 		return out, sd.InstancesError
 	}
-	if port, ok := service.Ports.GetByPort(num); ok {
+	if port, ok := svc.Ports.GetByPort(num); ok {
 		for v := 0; v < sd.versions; v++ {
 			if labels.HasSubsetOf(map[string]string{"version": fmt.Sprintf("v%d", v)}) {
-				out = append(out, MakeInstance(service, port, v, "zone/region"))
+				out = append(out, MakeInstance(svc, port, v, "zone/region"))
 			}
 		}
 	}
@@ -250,11 +250,11 @@ func (sd *ServiceDiscovery) ManagementPorts(addr string) model.PortList {
 	return model.PortList{{
 		Name:     "http",
 		Port:     3333,
-		Protocol: config.ProtocolHTTP,
+		Protocol: protocol.HTTP,
 	}, {
 		Name:     "custom",
 		Port:     9999,
-		Protocol: config.ProtocolTCP,
+		Protocol: protocol.TCP,
 	}}
 }
 
@@ -264,8 +264,8 @@ func (sd *ServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList
 }
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
-func (sd *ServiceDiscovery) GetIstioServiceAccounts(hostname config.Hostname, ports []int) []string {
-	if hostname == "world.default.svc.cluster.local" {
+func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
+	if svc.Hostname == "world.default.svc.cluster.local" {
 		return []string{
 			spiffe.MustGenSpiffeURI("default", "serviceaccount1"),
 			spiffe.MustGenSpiffeURI("default", "serviceaccount2"),

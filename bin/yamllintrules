@@ -12,6 +12,10 @@ rules:
   colons:
     ignore: |
       /galley/tools/gen-meta/metadata.yaml
+      /galley/pkg/config/processor/metadata/metadata.yaml
+      /galley/pkg/config/testing/basicmeta/basicmeta.yaml
+      /galley/pkg/config/testing/basicmeta/basicmeta2.yaml
+      /galley/pkg/config/testing/k8smeta/k8smeta.yaml
   commas: disable
   comments: disable
   comments-indentation: disable

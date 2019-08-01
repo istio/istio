@@ -92,18 +92,18 @@ else
     echo "Please specify a KUBECONFIG to run the tests."
     exit 1
   fi
-  ARTIFACTS_DIR=${ARTIFACTS_DIR:-/tmp}
+  ARTIFACTS=${ARTIFACTS:-/tmp}
 fi
 
 if [[ "${ENABLE_ISTIO_CNI:-false}" == true ]]; then
    cni_run_daemon
 fi
 
-E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
+E2E_ARGS+=("--test_logs_path=${ARTIFACTS}")
 
 echo "Run test."
 date
 time ISTIO_DOCKER_HUB=$HUB \
   E2E_ARGS="${E2E_ARGS[*]}" \
-  JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit.xml" \
+  JUNIT_E2E_XML="${ARTIFACTS}/junit.xml" \
   make with_junit_report TARGET="${SINGLE_TEST}" ${VARIANT:+ VARIANT="${VARIANT}"} ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}

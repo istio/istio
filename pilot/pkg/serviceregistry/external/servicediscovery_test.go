@@ -20,9 +20,11 @@ import (
 	"testing"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 )
 
 func createServiceEntries(configs []*model.Config, store model.IstioConfigStore, t *testing.T) {
@@ -57,7 +59,7 @@ func TestServiceDiscoveryServices(t *testing.T) {
 	defer stopFn()
 
 	expectedServices := []*model.Service{
-		makeService("*.google.com", "httpDNS", config.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
+		makeService("*.google.com", "httpDNS", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
 		makeService("tcpstatic.com", "tcpStatic", "172.217.0.1", map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
 	}
 
@@ -142,7 +144,8 @@ func TestServiceDiscoveryInstances(t *testing.T) {
 		makeInstance(httpDNS, "de.google.com", 8080, httpDNS.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"foo": "bar"}),
 	}
 
-	instances, err := sd.InstancesByPort("*.google.com", 0, nil)
+	svc := convertServices(*httpDNS)
+	instances, err := sd.InstancesByPort(svc[0], 0, nil)
 	if err != nil {
 		t.Errorf("Instances() encountered unexpected error: %v", err)
 	}
@@ -166,7 +169,8 @@ func TestServiceDiscoveryInstances1Port(t *testing.T) {
 		makeInstance(httpDNS, "de.google.com", 80, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"foo": "bar"}),
 	}
 
-	instances, err := sd.InstancesByPort("*.google.com", 80, nil)
+	svc := convertServices(*httpDNS)
+	instances, err := sd.InstancesByPort(svc[0], 80, nil)
 	if err != nil {
 		t.Errorf("Instances() encountered unexpected error: %v", err)
 	}
@@ -206,7 +210,8 @@ func TestNonServiceConfig(t *testing.T) {
 		makeInstance(httpDNS, "uk.google.com", 1080, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil),
 		makeInstance(httpDNS, "de.google.com", 80, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"foo": "bar"}),
 	}
-	instances, err := sd.InstancesByPort("*.google.com", 80, nil)
+	svc := convertServices(*httpDNS)
+	instances, err := sd.InstancesByPort(svc[0], 80, nil)
 	if err != nil {
 		t.Errorf("Instances() encountered unexpected error: %v", err)
 	}

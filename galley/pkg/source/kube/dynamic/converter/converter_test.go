@@ -25,9 +25,10 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshcfg "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/mesh"
 
 	extensions "k8s.io/api/extensions/v1beta1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -544,7 +545,7 @@ func TestKubeIngressResource(t *testing.T) {
 }
 
 func TestShouldProcessIngress(t *testing.T) {
-	istio := config.DefaultMeshConfig().IngressClass
+	istio := mesh.DefaultMeshConfig().IngressClass
 	cases := []struct {
 		ingressClass  string
 		ingressMode   meshcfg.MeshConfig_IngressControllerMode
@@ -575,7 +576,7 @@ func TestShouldProcessIngress(t *testing.T) {
 			},
 		}
 
-		mesh := config.DefaultMeshConfig()
+		mesh := mesh.DefaultMeshConfig()
 		mesh.IngressControllerMode = c.ingressMode
 		cch := meshconfig.NewInMemory()
 		cch.Set(mesh)

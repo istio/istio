@@ -444,17 +444,17 @@ func (m *Params_Quota) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0x1a
 	i++
 	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)))
-	n1, err1 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
-	if err1 != nil {
-		return 0, err1
+	n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n1
 	dAtA[i] = 0x22
 	i++
 	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.BucketDuration)))
-	n2, err2 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.BucketDuration, dAtA[i:])
-	if err2 != nil {
-		return 0, err2
+	n2, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.BucketDuration, dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n2
 	if m.RateLimitAlgorithm != 0 {
@@ -574,13 +574,8 @@ func (this *Params) String() string {
 	if this == nil {
 		return "nil"
 	}
-	repeatedStringForQuotas := "[]Params_Quota{"
-	for _, f := range this.Quotas {
-		repeatedStringForQuotas += fmt.Sprintf("%v", f) + ","
-	}
-	repeatedStringForQuotas += "}"
 	s := strings.Join([]string{`&Params{`,
-		`Quotas:` + repeatedStringForQuotas + `,`,
+		`Quotas:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Quotas), "Params_Quota", "Params_Quota", 1), `&`, ``, 1) + `,`,
 		`RedisServerUrl:` + fmt.Sprintf("%v", this.RedisServerUrl) + `,`,
 		`ConnectionPoolSize:` + fmt.Sprintf("%v", this.ConnectionPoolSize) + `,`,
 		`}`,
@@ -612,18 +607,13 @@ func (this *Params_Quota) String() string {
 	if this == nil {
 		return "nil"
 	}
-	repeatedStringForOverrides := "[]*Params_Override{"
-	for _, f := range this.Overrides {
-		repeatedStringForOverrides += strings.Replace(fmt.Sprintf("%v", f), "Params_Override", "Params_Override", 1) + ","
-	}
-	repeatedStringForOverrides += "}"
 	s := strings.Join([]string{`&Params_Quota{`,
 		`Name:` + fmt.Sprintf("%v", this.Name) + `,`,
 		`MaxAmount:` + fmt.Sprintf("%v", this.MaxAmount) + `,`,
-		`ValidDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.ValidDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
-		`BucketDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.BucketDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`ValidDuration:` + strings.Replace(strings.Replace(this.ValidDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`BucketDuration:` + strings.Replace(strings.Replace(this.BucketDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`RateLimitAlgorithm:` + fmt.Sprintf("%v", this.RateLimitAlgorithm) + `,`,
-		`Overrides:` + repeatedStringForOverrides + `,`,
+		`Overrides:` + strings.Replace(fmt.Sprintf("%v", this.Overrides), "Params_Override", "Params_Override", 1) + `,`,
 		`}`,
 	}, "")
 	return s

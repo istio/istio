@@ -24,6 +24,8 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	coreV1 "k8s.io/api/core/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/annotation"
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -33,10 +35,7 @@ import (
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pkg/config"
-
-	coreV1 "k8s.io/api/core/v1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 const (
@@ -945,7 +944,7 @@ func (b *serviceEntryBuilder) Build() *networking.ServiceEntry {
 			{
 				Name:     "http",
 				Number:   80,
-				Protocol: string(config.ProtocolHTTP),
+				Protocol: string(protocol.HTTP),
 			},
 		},
 		SubjectAltNames: expectedSubjectAltNames(ns, b.serviceAccounts),

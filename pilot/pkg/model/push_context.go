@@ -20,8 +20,11 @@ import (
 	"sync"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 // PushContext tracks the status of a push - metrics and errors.
@@ -72,8 +75,8 @@ type PushContext struct {
 	// The following data is either a global index or used in the inbound path.
 	// Namespace specific views do not apply here.
 
-	// ServiceByHostname has all services, indexed by hostname.
-	ServiceByHostname map[config.Hostname]*Service `json:"-"`
+	// ServiceByHostnameAndNamespace has all services, indexed by hostname then namesace.
+	ServiceByHostnameAndNamespace map[config.Hostname]map[string]*Service `json:"-"`
 
 	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
 	// are no authorization policies in the cluster.
@@ -114,7 +117,7 @@ type XDSUpdater interface {
 	// changed. For each cluster and hostname, the full list of active endpoints (including empty list)
 	// must be sent. The shard name is used as a key - current implementation is using the registry
 	// name.
-	EDSUpdate(shard, hostname string, entry []*IstioEndpoint) error
+	EDSUpdate(shard, hostname string, namespace string, entry []*IstioEndpoint) error
 
 	// SvcUpdate is called when a service port mapping definition is updated.
 	// This interface is WIP - labels, annotations and other changes to service may be
@@ -284,6 +287,12 @@ var (
 		"Duplicate subsets across destination rules for same host",
 	)
 
+	// totalVirtualServices tracks the total number of virtual service
+	totalVirtualServices = monitoring.NewGauge(
+		"pilot_virt_services",
+		"Total virtual services known to pilot.",
+	)
+
 	// LastPushStatus preserves the metrics and data collected during lasts global push.
 	// It can be used by debugging tools to inspect the push event. It will be reset after each push with the
 	// new version.
@@ -311,6 +320,7 @@ func init() {
 	for _, m := range metrics {
 		monitoring.MustRegisterViews(m)
 	}
+	monitoring.MustRegisterViews(totalVirtualServices)
 }
 
 // NewPushContext creates a new PushContext structure to track push status.
@@ -330,9 +340,9 @@ func NewPushContext() *PushContext {
 		sidecarsByNamespace:     map[string][]*SidecarScope{},
 		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{},
 
-		ServiceByHostname: map[config.Hostname]*Service{},
-		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
-		ServiceAccounts:   map[config.Hostname]map[int][]string{},
+		ServiceByHostnameAndNamespace: map[config.Hostname]map[string]*Service{},
+		ProxyStatus:                   map[string]map[string]ProxyPushStatus{},
+		ServiceAccounts:               map[config.Hostname]map[int][]string{},
 	}
 }
 
@@ -414,7 +424,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 		rule := cfg.Spec.(*networking.VirtualService)
 		if len(rule.Gateways) == 0 {
 			// This rule applies only to IstioMeshGateway
-			if gateways[config.IstioMeshGateway] {
+			if gateways[constants.IstioMeshGateway] {
 				out = append(out, cfg)
 			}
 		} else {
@@ -423,7 +433,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 				if gateways[resolveGatewayName(g, cfg.ConfigMeta)] {
 					out = append(out, cfg)
 					break
-				} else if g == config.IstioMeshGateway && gateways[g] {
+				} else if g == constants.IstioMeshGateway && gateways[g] {
 					// "mesh" gateway cannot be expanded into FQDN
 					out = append(out, cfg)
 					break
@@ -645,7 +655,10 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 				ps.publicServices = append(ps.publicServices, s)
 			}
 		}
-		ps.ServiceByHostname[s.Hostname] = s
+		if _, f := ps.ServiceByHostnameAndNamespace[s.Hostname]; !f {
+			ps.ServiceByHostnameAndNamespace[s.Hostname] = map[string]*Service{}
+		}
+		ps.ServiceByHostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
 	}
 
 	ps.initServiceAccounts(env, allServices)
@@ -666,10 +679,10 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 	for _, svc := range services {
 		ps.ServiceAccounts[svc.Hostname] = map[int][]string{}
 		for _, port := range svc.Ports {
-			if port.Protocol == config.ProtocolUDP {
+			if port.Protocol == protocol.UDP {
 				continue
 			}
-			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc.Hostname, []int{port.Port})
+			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc, []int{port.Port})
 		}
 	}
 }
@@ -689,6 +702,8 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		vservices[i] = virtualServices[i].DeepCopy()
 	}
 
+	totalVirtualServices.Record(float64(len(virtualServices)))
+
 	// TODO(rshriram): parse each virtual service and maintain a map of the
 	// virtualservice name, the list of registry hosts in the VS and non
 	// registry DNS names in the VS.  This should cut down processing in
@@ -704,7 +719,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		}
 		// resolve gateways to bind to
 		for i, g := range rule.Gateways {
-			if g != config.IstioMeshGateway {
+			if g != constants.IstioMeshGateway {
 				rule.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
 			}
 		}
@@ -712,7 +727,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		for _, d := range rule.Http {
 			for _, m := range d.Match {
 				for i, g := range m.Gateways {
-					if g != config.IstioMeshGateway {
+					if g != constants.IstioMeshGateway {
 						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
 					}
 				}
@@ -728,7 +743,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		for _, d := range rule.Tcp {
 			for _, m := range d.Match {
 				for i, g := range m.Gateways {
-					if g != config.IstioMeshGateway {
+					if g != constants.IstioMeshGateway {
 						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
 					}
 				}
@@ -741,7 +756,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		for _, tls := range rule.Tls {
 			for _, m := range tls.Match {
 				for i, g := range m.Gateways {
-					if g != config.IstioMeshGateway {
+					if g != constants.IstioMeshGateway {
 						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
 					}
 				}
@@ -871,11 +886,12 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	// build sidecar scopes for other namespaces that dont have a sidecar CRD object.
 	// Derive the sidecar scope from the root namespace's sidecar object if present. Else fallback
 	// to the default Istio behavior mimicked by the DefaultSidecarScopeForNamespace function.
-	for _, s := range ps.ServiceByHostname {
-		ns := s.Attributes.Namespace
-		if len(ps.sidecarsByNamespace[ns]) == 0 {
-			// use the contents from the root namespace or the default if there is no root namespace
-			ps.sidecarsByNamespace[ns] = []*SidecarScope{ConvertToSidecarScope(ps, rootNSConfig, ns)}
+	for _, nsMap := range ps.ServiceByHostnameAndNamespace {
+		for ns := range nsMap {
+			if len(ps.sidecarsByNamespace[ns]) == 0 {
+				// use the contents from the root namespace or the default if there is no root namespace
+				ps.sidecarsByNamespace[ns] = []*SidecarScope{ConvertToSidecarScope(ps, rootNSConfig, ns)}
+			}
 		}
 	}
 

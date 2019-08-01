@@ -359,9 +359,9 @@ func (m *HandleListEntryRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.Instance.Size()))
-		n1, err1 := m.Instance.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		n1, err := m.Instance.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n1
 	}
@@ -369,9 +369,9 @@ func (m *HandleListEntryRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.AdapterConfig.Size()))
-		n2, err2 := m.AdapterConfig.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		n2, err := m.AdapterConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n2
 	}
@@ -403,9 +403,9 @@ func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.Value.Size()))
-		n3, err3 := m.Value.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
+		n3, err := m.Value.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n3
 	}
@@ -563,7 +563,7 @@ func (this *HandleListEntryRequest) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&HandleListEntryRequest{`,
-		`Instance:` + strings.Replace(this.Instance.String(), "InstanceMsg", "InstanceMsg", 1) + `,`,
+		`Instance:` + strings.Replace(fmt.Sprintf("%v", this.Instance), "InstanceMsg", "InstanceMsg", 1) + `,`,
 		`AdapterConfig:` + strings.Replace(fmt.Sprintf("%v", this.AdapterConfig), "Any", "types.Any", 1) + `,`,
 		`DedupId:` + fmt.Sprintf("%v", this.DedupId) + `,`,
 		`}`,

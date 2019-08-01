@@ -81,6 +81,9 @@ loop:
 			fsNew = func(string, *schema.Instance, *converter.Config) (runtime.Source, error) { return nil, e }
 		case 5:
 			args.DisableResourceReadyCheck = true
+			findSupportedResources = func(k client.Interfaces, specs []sourceSchema.ResourceSpec) ([]sourceSchema.ResourceSpec, error) {
+				return nil, e
+			}
 		case 6:
 			args.Insecure = false
 			args.AccessListFile = os.TempDir()

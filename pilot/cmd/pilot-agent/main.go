@@ -46,7 +46,10 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 const jwtPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
@@ -181,7 +184,7 @@ var (
 			// dedupe cert paths so we don't set up 2 watchers for the same file:
 			tlsCertsToWatch = dedupeStrings(tlsCertsToWatch)
 
-			proxyConfig := config.DefaultProxyConfig()
+			proxyConfig := mesh.DefaultProxyConfig()
 
 			// set all flags
 			proxyConfig.CustomConfigFile = customConfigFile
@@ -222,7 +225,7 @@ var (
 						// only support the default config, or env variable
 						ns = istioNamespaceVar.Get()
 						if ns == "" {
-							ns = config.IstioSystemNamespace
+							ns = constants.IstioSystemNamespace
 						}
 					}
 				}
@@ -281,7 +284,7 @@ var (
 				return err
 			}
 
-			if out, err := config.ToYAML(&proxyConfig); err != nil {
+			if out, err := protomarshal.ToYAML(&proxyConfig); err != nil {
 				log.Infof("Failed to serialize to YAML: %v", err)
 			} else {
 				log.Infof("Effective config: %s", out)
@@ -561,7 +564,7 @@ func init() {
 		"Ports exposed by the application. Used to determine that Envoy is configured and ready to receive traffic.")
 
 	// Flags for proxy configuration
-	values := config.DefaultProxyConfig()
+	values := mesh.DefaultProxyConfig()
 	proxyCmd.PersistentFlags().StringVar(&configPath, "configPath", values.ConfigPath,
 		"Path to the generated configuration file directory")
 	proxyCmd.PersistentFlags().StringVar(&binaryPath, "binaryPath", values.BinaryPath,

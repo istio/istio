@@ -102,6 +102,10 @@ type sdsConnection struct {
 	// ConID is the connection identifier, used as a key in the connection table.
 	// Currently based on the node name and a counter.
 	conID string
+
+	// Time of the recent SDS push. Will be reset to zero when a new SDS request is received. A
+	// non-zero time indicates that the connection is waiting for SDS request.
+	sdsPushTime time.Time
 }
 
 type sdsservice struct {
@@ -244,6 +248,8 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			conID := con.conID
 			con.proxyID = discReq.Node.Id
 			con.ResourceName = resourceName
+			// Reset SDS push time for new SDS push.
+			con.sdsPushTime = time.Time{}
 			con.mutex.Unlock()
 			defer recycleConnection(conID, resourceName)
 
@@ -406,9 +412,9 @@ func (s *sdsservice) clearStaledClients() {
 func NotifyProxy(connKey cache.ConnKey, secret *model.SecretItem) error {
 	conIDresourceNamePrefix := sdsLogPrefix(connKey.ConnectionID, connKey.ResourceName)
 	sdsClientsMutex.Lock()
-	defer sdsClientsMutex.Unlock()
 	conn := sdsClients[connKey]
 	if conn == nil {
+		sdsClientsMutex.Unlock()
 		sdsServiceLog.Errorf("%s NotifyProxy failed. No connection with id %q can be found",
 			conIDresourceNamePrefix, connKey.ConnectionID)
 		return fmt.Errorf("no connection with id %q can be found", connKey.ConnectionID)
@@ -416,6 +422,7 @@ func NotifyProxy(connKey cache.ConnKey, secret *model.SecretItem) error {
 	conn.mutex.Lock()
 	conn.secret = secret
 	conn.mutex.Unlock()
+	sdsClientsMutex.Unlock()
 
 	conn.pushChannel <- &sdsEvent{}
 	return nil
@@ -500,17 +507,24 @@ func pushSDS(con *sdsConnection) error {
 		return fmt.Errorf("sdsConnection passed into pushSDS() should not be nil")
 	}
 
-	con.mutex.RLock()
+	con.mutex.Lock()
+	defer con.mutex.Unlock()
 	conID := con.conID
 	secret := con.secret
 	resourceName := con.ResourceName
-	con.mutex.RUnlock()
+	sdsPushTime := con.sdsPushTime
+
+	conIDresourceNamePrefix := sdsLogPrefix(conID, resourceName)
+	if !sdsPushTime.IsZero() {
+		sdsServiceLog.Errorf("%s skip multiple push, last push finishes at %s and is "+
+			"waiting for next SDS request", conIDresourceNamePrefix, sdsPushTime.String())
+		return nil
+	}
 
 	if secret == nil {
 		return fmt.Errorf("sdsConnection %v passed into pushSDS() contains nil secret", con)
 	}
 
-	conIDresourceNamePrefix := sdsLogPrefix(conID, resourceName)
 	response, err := sdsDiscoveryResponse(secret, conID, resourceName)
 	if err != nil {
 		sdsServiceLog.Errorf("%s failed to construct response for SDS push: %v", conIDresourceNamePrefix, err)
@@ -524,6 +538,8 @@ func pushSDS(con *sdsConnection) error {
 		sdsMetrics.totalPushError.Inc()
 		return err
 	}
+
+	con.sdsPushTime = time.Now()
 
 	// Update metrics after push to avoid adding latency to SDS push.
 	if secret.RootCert != nil {
@@ -592,7 +608,7 @@ func sdsDiscoveryResponse(s *model.SecretItem, conID, resourceName string) (*xds
 		sdsServiceLog.Errorf("%s failed to mashal secret for proxy: %v", conIDresourceNamePrefix, err)
 		return nil, err
 	}
-	resp.Resources = append(resp.Resources, *ms)
+	resp.Resources = append(resp.Resources, ms)
 
 	return resp, nil
 }

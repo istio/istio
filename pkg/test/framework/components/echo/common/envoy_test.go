@@ -24,7 +24,7 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/gogo/protobuf/jsonpb"
 
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -47,7 +47,7 @@ func TestCheckOutboundConfig(t *testing.T) {
 
 	cfgs := []testConfig{
 		{
-			protocol:    config.ProtocolHTTP,
+			protocol:    protocol.HTTP,
 			service:     "b",
 			namespace:   "apps-1-99281",
 			domain:      "cluster.local",
@@ -55,7 +55,7 @@ func TestCheckOutboundConfig(t *testing.T) {
 			address:     "10.43.241.185",
 		},
 		{
-			protocol:    config.ProtocolHTTP,
+			protocol:    protocol.HTTP,
 			service:     "b",
 			namespace:   "apps-1-99281",
 			domain:      "cluster.local",
@@ -63,7 +63,7 @@ func TestCheckOutboundConfig(t *testing.T) {
 			address:     "10.43.241.185",
 		},
 		{
-			protocol:    config.ProtocolTCP,
+			protocol:    protocol.TCP,
 			service:     "b",
 			namespace:   "apps-1-99281",
 			domain:      "cluster.local",
@@ -71,7 +71,7 @@ func TestCheckOutboundConfig(t *testing.T) {
 			address:     "10.43.241.185",
 		},
 		{
-			protocol:    config.ProtocolHTTPS,
+			protocol:    protocol.HTTPS,
 			service:     "b",
 			namespace:   "apps-1-99281",
 			domain:      "cluster.local",
@@ -79,7 +79,7 @@ func TestCheckOutboundConfig(t *testing.T) {
 			address:     "10.43.241.185",
 		},
 		{
-			protocol:    config.ProtocolHTTP2,
+			protocol:    protocol.HTTP2,
 			service:     "b",
 			namespace:   "apps-1-99281",
 			domain:      "cluster.local",
@@ -87,7 +87,7 @@ func TestCheckOutboundConfig(t *testing.T) {
 			address:     "10.43.241.185",
 		},
 		{
-			protocol:    config.ProtocolGRPC,
+			protocol:    protocol.GRPC,
 			service:     "b",
 			namespace:   "apps-1-99281",
 			domain:      "cluster.local",
@@ -111,7 +111,7 @@ var _ echo.Instance = &testConfig{}
 var _ echo.Workload = &testConfig{}
 
 type testConfig struct {
-	protocol    config.Protocol
+	protocol    protocol.Instance
 	servicePort int
 	address     string
 	service     string

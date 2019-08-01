@@ -3,6 +3,8 @@
 #
 enabled: true
 replicaCount: 1
+rollingMaxSurge: 100%
+rollingMaxUnavailable: 25%
 image: sidecar_injector
 enableNamespacesByDefault: false
 nodeSelector: {}
@@ -40,3 +42,6 @@ rewriteAppHTTPProbe: false
 neverInjectSelector: []
 
 alwaysInjectSelector: []
+
+# Webhook port
+webhookPort: 9443

@@ -408,38 +408,32 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 }
 
 // InstancesByPort implements a service catalog operation
-func (c *Controller) InstancesByPort(hostname config.Hostname, reqSvcPort int,
+func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	labelsList config.LabelsCollection) ([]*model.ServiceInstance, error) {
-	name, namespace, err := configKube.ParseHostname(hostname)
-	if err != nil {
-		log.Infof("ParseHostname(%s) => error %v", hostname, err)
-		return nil, err
-	}
 
 	// Locate all ports in the actual service
-
-	c.RLock()
-	svc := c.servicesMap[hostname]
-	c.RUnlock()
-	if svc == nil {
-		return nil, nil
-	}
-
 	svcPortEntry, exists := svc.Ports.GetByPort(reqSvcPort)
 	if !exists {
 		return nil, nil
 	}
 
 	c.RLock()
-	instances := c.externalNameSvcInstanceMap[hostname]
+	instances := c.externalNameSvcInstanceMap[svc.Hostname]
 	c.RUnlock()
 	if instances != nil {
-		return instances, nil
+		inScopeInstances := []*model.ServiceInstance{}
+		for _, i := range instances {
+			if i.Service.Attributes.Namespace == svc.Attributes.Namespace {
+				inScopeInstances = append(inScopeInstances, i)
+			}
+		}
+
+		return inScopeInstances, nil
 	}
 
-	item, exists, err := c.endpoints.informer.GetStore().GetByKey(kube.KeyFunc(name, namespace))
+	item, exists, err := c.endpoints.informer.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
 	if err != nil {
-		log.Infof("get endpoint(%s, %s) => error %v", name, namespace, err)
+		log.Infof("get endpoint(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
 		return nil, nil
 	}
 	if !exists {
@@ -658,28 +652,16 @@ func (c *Controller) getEndpoints(ip string, endpointPort int32, svcPort *model.
 // hostname. Each service account is encoded according to the SPIFFE VSID spec.
 // For example, a service account named "bar" in namespace "foo" is encoded as
 // "spiffe://cluster.local/ns/foo/sa/bar".
-func (c *Controller) GetIstioServiceAccounts(hostname config.Hostname, ports []int) []string {
+func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
 	saSet := make(map[string]bool)
-
-	// Get the service accounts running the service, if it is deployed on VMs. This is retrieved
-	// from the service annotation explicitly set by the operators.
-	svc, err := c.GetService(hostname)
-	if err != nil {
-		// Do not log error here, as the service could exist in another registry
-		return nil
-	}
-	if svc == nil {
-		// Do not log error here as the service could exist in another registry
-		return nil
-	}
 
 	instances := make([]*model.ServiceInstance, 0)
 	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
 	// the service is deployed on, and the service accounts of the pods.
 	for _, port := range ports {
-		svcinstances, err := c.InstancesByPort(hostname, port, config.LabelsCollection{})
+		svcinstances, err := c.InstancesByPort(svc, port, config.LabelsCollection{})
 		if err != nil {
-			log.Warnf("InstancesByPort(%s:%d) error: %v", hostname, port, err)
+			log.Warnf("InstancesByPort(%s:%d) error: %v", svc.Hostname, port, err)
 			return nil
 		}
 		instances = append(instances, svcinstances...)
@@ -821,6 +803,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						ServiceAccount:  kube.SecureNamingSAN(pod),
 						Network:         c.endpointNetwork(ea.IP),
 						Locality:        c.GetPodLocality(pod),
+						Attributes:      model.ServiceAttributes{Name: ep.Name, Namespace: ep.Namespace},
 					})
 				}
 			}
@@ -839,7 +822,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 		log.Infof("Handle EDS endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, addresses)
 	}
 
-	_ = c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
+	_ = c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), ep.Namespace, endpoints)
 }
 
 // namedRangerEntry for holding network's CIDR and name

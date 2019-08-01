@@ -407,9 +407,9 @@ func (m *HandleSampleApaRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Instance.Size()))
-		n1, err1 := m.Instance.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		n1, err := m.Instance.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n1
 	}
@@ -417,9 +417,9 @@ func (m *HandleSampleApaRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.AdapterConfig.Size()))
-		n2, err2 := m.AdapterConfig.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		n2, err := m.AdapterConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n2
 	}
@@ -495,9 +495,9 @@ func (m *OutputMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Ip.Size()))
-		n3, err3 := m.Ip.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
+		n3, err := m.Ip.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n3
 	}
@@ -505,9 +505,9 @@ func (m *OutputMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Duration.Size()))
-		n4, err4 := m.Duration.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
+		n4, err := m.Duration.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n4
 	}
@@ -515,9 +515,9 @@ func (m *OutputMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x42
 		i++
 		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Timestamp.Size()))
-		n5, err5 := m.Timestamp.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
+		n5, err := m.Timestamp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n5
 	}
@@ -525,9 +525,9 @@ func (m *OutputMsg) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x4a
 		i++
 		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Dns.Size()))
-		n6, err6 := m.Dns.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
+		n6, err := m.Dns.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n6
 	}
@@ -840,7 +840,7 @@ func (this *HandleSampleApaRequest) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&HandleSampleApaRequest{`,
-		`Instance:` + strings.Replace(this.Instance.String(), "InstanceMsg", "InstanceMsg", 1) + `,`,
+		`Instance:` + strings.Replace(fmt.Sprintf("%v", this.Instance), "InstanceMsg", "InstanceMsg", 1) + `,`,
 		`AdapterConfig:` + strings.Replace(fmt.Sprintf("%v", this.AdapterConfig), "Any", "types.Any", 1) + `,`,
 		`DedupId:` + fmt.Sprintf("%v", this.DedupId) + `,`,
 		`}`,

@@ -29,15 +29,17 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -76,42 +78,47 @@ func getDefaultCircuitBreakerThresholds(direction model.TrafficDirection) *v2Clu
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
 // Cluster type based on resolution
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
-func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) ([]*apiv2.Cluster, error) {
+func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) []*apiv2.Cluster {
 	clusters := make([]*apiv2.Cluster, 0)
 	instances := proxy.ServiceInstances
 
-	clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
+	outboundClusters := configgen.buildOutboundClusters(env, proxy, push)
 
-	// compute the proxy's locality. See if we have a CDS cache for that locality.
-	// If not, compute one.
-	locality := proxy.Locality
-	if locality != nil {
-		applyLocalityLBSetting(locality, clusters, env.Mesh.LocalityLbSetting, false)
+	if env.Mesh.LocalityLbSetting != nil {
+		// apply load balancer setting fot cluster endpoints
+		applyLocalityLBSetting(proxy.Locality, outboundClusters, env.Mesh.LocalityLbSetting)
 	}
+	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
+	// DO NOT CALL PLUGINS for these two clusters.
+	outboundClusters = append(outboundClusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env))
 
 	switch proxy.Type {
 	case model.SidecarProxy:
+		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, proxy, push, outboundClusters)
 		// Let ServiceDiscovery decide which IP and Port are used for management if
 		// there are multiple IPs
 		managementPorts := make([]*model.Port, 0)
 		for _, ip := range proxy.IPAddresses {
 			managementPorts = append(managementPorts, env.ManagementPorts(ip)...)
 		}
-		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, push, instances, managementPorts)...)
+		inboundClusters := configgen.buildInboundClusters(env, proxy, push, instances, managementPorts)
+		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
+		inboundClusters = append(inboundClusters, generateInboundPassthroughClusters(env)...)
+		inboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_INBOUND, proxy, push, inboundClusters)
+		clusters = append(clusters, outboundClusters...)
+		clusters = append(clusters, inboundClusters...)
 
 	default: // Gateways
 		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
-			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
+			outboundClusters = append(outboundClusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
 		}
+		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_GATEWAY, proxy, push, outboundClusters)
+		clusters = outboundClusters
 	}
 
-	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
-	// DO NOT CALL PLUGINS for these two clusters.
-	clusters = append(clusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env))
-	clusters = applyClusterPatches(env, proxy, push, clusters)
 	clusters = normalizeClusters(push, proxy, clusters)
 
-	return clusters, nil
+	return clusters
 }
 
 // resolves cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.
@@ -144,7 +151,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	for _, service := range push.Services(proxy) {
 		destRule := push.DestinationRule(proxy, service)
 		for _, port := range service.Ports {
-			if port.Protocol == config.ProtocolUDP {
+			if port.Protocol == protocol.UDP {
 				continue
 			}
 			inputParams.Service = service
@@ -179,7 +186,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 				applyTrafficPolicy(opts)
 				defaultCluster.Metadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
 				for _, subset := range destinationRule.Subsets {
-					inputParams.Subset = subset.Name
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 					defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 
@@ -249,7 +255,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 	for _, service := range push.Services(proxy) {
 		destRule := push.DestinationRule(proxy, service)
 		for _, port := range service.Ports {
-			if port.Protocol == config.ProtocolUDP {
+			if port.Protocol == protocol.UDP {
 				continue
 			}
 			lbEndpoints := buildLocalityLbEndpoints(env, networkView, service, port.Port, nil)
@@ -340,19 +346,19 @@ func updateEds(cluster *apiv2.Cluster) {
 }
 
 func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[string]bool, service *model.Service,
-	port int, labels config.LabelsCollection) []endpoint.LocalityLbEndpoints {
+	port int, labels config.LabelsCollection) []*endpoint.LocalityLbEndpoints {
 
 	if service.Resolution != model.DNSLB {
 		return nil
 	}
 
-	instances, err := env.InstancesByPort(service.Hostname, port, labels)
+	instances, err := env.InstancesByPort(service, port, labels)
 	if err != nil {
 		log.Errorf("failed to retrieve instances for %s: %v", service.Hostname, err)
 		return nil
 	}
 
-	lbEndpoints := make(map[string][]endpoint.LbEndpoint)
+	lbEndpoints := make(map[string][]*endpoint.LbEndpoint)
 	for _, instance := range instances {
 		// Only send endpoints from the networks in the network view requested by the proxy.
 		// The default network view assigned to the Proxy is the UnnamedNetwork (""), which matches
@@ -362,10 +368,10 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 			continue
 		}
 		host := util.BuildAddress(instance.Endpoint.Address, uint32(instance.Endpoint.Port))
-		ep := endpoint.LbEndpoint{
+		ep := &endpoint.LbEndpoint{
 			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 				Endpoint: &endpoint.Endpoint{
-					Address: &host,
+					Address: host,
 				},
 			},
 			LoadBalancingWeight: &types.UInt32Value{
@@ -379,14 +385,14 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
 	}
 
-	localityLbEndpoints := make([]endpoint.LocalityLbEndpoints, 0, len(lbEndpoints))
+	localityLbEndpoints := make([]*endpoint.LocalityLbEndpoints, 0, len(lbEndpoints))
 
 	for locality, eps := range lbEndpoints {
 		var weight uint32
 		for _, ep := range eps {
 			weight += ep.LoadBalancingWeight.GetValue()
 		}
-		localityLbEndpoints = append(localityLbEndpoints, endpoint.LocalityLbEndpoints{
+		localityLbEndpoints = append(localityLbEndpoints, &endpoint.LocalityLbEndpoints{
 			Locality:    util.ConvertLocality(locality),
 			LbEndpoints: eps,
 			LoadBalancingWeight: &types.UInt32Value{
@@ -398,19 +404,47 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 	return util.LocalityLbWeightNormalize(localityLbEndpoints)
 }
 
-func buildInboundLocalityLbEndpoints(bind string, port int) []endpoint.LocalityLbEndpoints {
+func buildInboundLocalityLbEndpoints(bind string, port int) []*endpoint.LocalityLbEndpoints {
 	address := util.BuildAddress(bind, uint32(port))
-	lbEndpoint := endpoint.LbEndpoint{
+	lbEndpoint := &endpoint.LbEndpoint{
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 			Endpoint: &endpoint.Endpoint{
-				Address: &address,
+				Address: address,
 			},
 		},
 	}
-	return []endpoint.LocalityLbEndpoints{
+	return []*endpoint.LocalityLbEndpoints{
 		{
-			LbEndpoints: []endpoint.LbEndpoint{lbEndpoint},
+			LbEndpoints: []*endpoint.LbEndpoint{lbEndpoint},
 		},
+	}
+}
+
+func generateInboundPassthroughClusters(env *model.Environment) []*apiv2.Cluster {
+	inboundPassthroughClusterIpv4 := buildDefaultPassthroughCluster(env)
+	inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
+	inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
+		SourceAddress: &core.SocketAddress{
+			Address: util.InboundPassthroughBindIpv4,
+			PortSpecifier: &core.SocketAddress_PortValue{
+				PortValue: uint32(0),
+			},
+		},
+	}
+
+	inboundPassthroughClusterIpv6 := buildDefaultPassthroughCluster(env)
+	inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
+	inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
+		SourceAddress: &core.SocketAddress{
+			Address: util.InboundPassthroughBindIpv6,
+			PortSpecifier: &core.SocketAddress_PortValue{
+				PortValue: uint32(0),
+			},
+		},
+	}
+	return []*apiv2.Cluster{
+		inboundPassthroughClusterIpv4,
+		inboundPassthroughClusterIpv6,
 	}
 }
 
@@ -472,7 +506,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			// as inbound|portNumber|portName|Hostname
 			listenPort := &model.Port{
 				Port:     int(ingressListener.Port.Number),
-				Protocol: config.ParseProtocol(ingressListener.Port.Protocol),
+				Protocol: protocol.Parse(ingressListener.Port.Protocol),
 				Name:     ingressListener.Port.Name,
 			}
 
@@ -640,9 +674,9 @@ func conditionallyConvertToIstioMtls(
 func buildIstioMutualTLS(serviceAccounts []string, sni string, proxy *model.Proxy) *networking.TLSSettings {
 	return &networking.TLSSettings{
 		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
-		CaCertificates:    model.GetOrDefaultFromMap(proxy.Metadata, model.NodeMetadataTLSClientRootCert, config.DefaultRootCert),
-		ClientCertificate: model.GetOrDefaultFromMap(proxy.Metadata, model.NodeMetadataTLSClientCertChain, config.DefaultCertChain),
-		PrivateKey:        model.GetOrDefaultFromMap(proxy.Metadata, model.NodeMetadataTLSClientKey, config.DefaultKey),
+		CaCertificates:    model.GetOrDefaultFromMap(proxy.Metadata, model.NodeMetadataTLSClientRootCert, constants.DefaultRootCert),
+		ClientCertificate: model.GetOrDefaultFromMap(proxy.Metadata, model.NodeMetadataTLSClientCertChain, constants.DefaultCertChain),
+		PrivateKey:        model.GetOrDefaultFromMap(proxy.Metadata, model.NodeMetadataTLSClientKey, constants.DefaultKey),
 		SubjectAltNames:   serviceAccounts,
 		Sni:               sni,
 	}
@@ -769,7 +803,7 @@ func applyConnectionPool(env *model.Environment, cluster *apiv2.Cluster, setting
 
 	if idleTimeout != nil {
 		idleTimeoutDuration := util.GogoDurationToDuration(idleTimeout)
-		cluster.CommonHttpProtocolOptions = &core.HttpProtocolOptions{IdleTimeout: &idleTimeoutDuration}
+		cluster.CommonHttpProtocolOptions = &core.HttpProtocolOptions{IdleTimeout: idleTimeoutDuration}
 	}
 }
 
@@ -884,7 +918,7 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 	}
 
 	// Redis protocol must be defaulted with MAGLEV to benefit from client side sharding.
-	if features.EnableRedisFilter() && port != nil && port.Protocol == config.ProtocolRedis {
+	if features.EnableRedisFilter.Get() && port != nil && port.Protocol == protocol.Redis {
 		cluster.LbPolicy = apiv2.Cluster_MAGLEV
 		return
 	}
@@ -925,24 +959,15 @@ func applyLocalityLBSetting(
 	locality *core.Locality,
 	clusters []*apiv2.Cluster,
 	localityLB *meshconfig.LocalityLoadBalancerSetting,
-	shared bool,
 ) {
-	// TODO: there is a complicated lock dance involved. But it improves perf when
-	// locality LB is being used. For now, we sacrifice memory and create clones of
-	// clusters for every proxy that asks for locality specific clusters
-	for i, cluster := range clusters {
+	if locality == nil || localityLB == nil {
+		return
+	}
+	for _, cluster := range clusters {
 		// Failover should only be applied with outlier detection, or traffic will never failover.
 		enabledFailover := cluster.OutlierDetection != nil
-		if shared {
-			if cluster.LoadAssignment != nil {
-				clone := util.CloneCluster(cluster)
-				loadbalancer.ApplyLocalityLBSetting(locality, clone.LoadAssignment, localityLB, enabledFailover)
-				clusters[i] = &clone
-			}
-		} else {
-			if cluster.LoadAssignment != nil {
-				loadbalancer.ApplyLocalityLBSetting(locality, cluster.LoadAssignment, localityLB, enabledFailover)
-			}
+		if cluster.LoadAssignment != nil {
+			loadbalancer.ApplyLocalityLBSetting(locality, cluster.LoadAssignment, localityLB, enabledFailover)
 		}
 	}
 }
@@ -1093,7 +1118,7 @@ func buildDefaultPassthroughCluster(env *model.Environment) *apiv2.Cluster {
 }
 
 func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv2.Cluster_DiscoveryType,
-	localityLbEndpoints []endpoint.LocalityLbEndpoints, direction model.TrafficDirection, proxy *model.Proxy, port *model.Port) *apiv2.Cluster {
+	localityLbEndpoints []*endpoint.LocalityLbEndpoints, direction model.TrafficDirection, proxy *model.Proxy, port *model.Port) *apiv2.Cluster {
 	cluster := &apiv2.Cluster{
 		Name:                 name,
 		ClusterDiscoveryType: &apiv2.Cluster_Type{Type: discoveryType},
@@ -1102,7 +1127,7 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv
 	if discoveryType == apiv2.Cluster_STRICT_DNS {
 		cluster.DnsLookupFamily = apiv2.Cluster_V4_ONLY
 		dnsRate := util.GogoDurationToDuration(env.Mesh.DnsRefreshRate)
-		cluster.DnsRefreshRate = &dnsRate
+		cluster.DnsRefreshRate = dnsRate
 	}
 
 	if discoveryType == apiv2.Cluster_STATIC || discoveryType == apiv2.Cluster_STRICT_DNS {

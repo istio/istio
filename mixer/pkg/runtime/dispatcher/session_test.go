@@ -17,10 +17,15 @@ package dispatcher
 import (
 	"context"
 	"errors"
+	"net/http"
 	"reflect"
 	"testing"
 
+	"github.com/gogo/googleapis/google/rpc"
+
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
+	mixerpb "istio.io/api/mixer/v1"
+	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/pkg/attribute"
 )
@@ -122,5 +127,106 @@ func TestSession_EnsureParallelism(t *testing.T) {
 	s.ensureParallelism(11)
 	if cap(s.completed) < 11 {
 		t.Fail()
+	}
+}
+
+func TestDirectResponse(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/15932")
+	testcases := []struct {
+		desc      string
+		status    rpc.Status
+		response  *descriptor.DirectHttpResponse
+		directive *mixerpb.RouteDirective
+	}{
+		{
+			desc:     "status success, no directives",
+			status:   rpc.Status{Code: int32(rpc.OK)},
+			response: &descriptor.DirectHttpResponse{},
+			directive: &mixerpb.RouteDirective{
+				DirectResponseCode: http.StatusOK,
+			},
+		},
+		{
+			desc:     "fallback to RPC response code (translated to http)",
+			status:   rpc.Status{Code: int32(rpc.UNAUTHENTICATED)},
+			response: &descriptor.DirectHttpResponse{},
+			directive: &mixerpb.RouteDirective{
+				DirectResponseCode: http.StatusUnauthorized,
+			},
+		},
+		{
+			desc:   "response status has precedence over RPC",
+			status: rpc.Status{Code: int32(rpc.UNIMPLEMENTED)},
+			response: &descriptor.DirectHttpResponse{
+				Code: http.StatusMovedPermanently,
+			},
+			directive: &mixerpb.RouteDirective{
+				DirectResponseCode: http.StatusMovedPermanently,
+			},
+		},
+		{
+			desc: "body is set",
+			response: &descriptor.DirectHttpResponse{
+				Code: http.StatusOK,
+				Body: "OK!",
+			},
+			directive: &mixerpb.RouteDirective{
+				DirectResponseCode: http.StatusOK,
+				DirectResponseBody: "OK!",
+			},
+		},
+		{
+			desc: "headers added",
+			response: &descriptor.DirectHttpResponse{
+				Code:    http.StatusMovedPermanently,
+				Headers: map[string]string{"Location": "URL"},
+			},
+			directive: &mixerpb.RouteDirective{
+				DirectResponseCode: http.StatusMovedPermanently,
+				ResponseHeaderOperations: []mixerpb.HeaderOperation{
+					{
+						Operation: mixerpb.REPLACE,
+						Name:      "Location",
+						Value:     "URL",
+					},
+				},
+			},
+		},
+		{
+			desc: "multiline set-cookie header",
+			response: &descriptor.DirectHttpResponse{
+				Code:    http.StatusMovedPermanently,
+				Headers: map[string]string{"Location": "URL", "Set-Cookie": "c1=1; Secure; HttpOnly;,c2=2"},
+			},
+			directive: &mixerpb.RouteDirective{
+				DirectResponseCode: http.StatusMovedPermanently,
+				ResponseHeaderOperations: []mixerpb.HeaderOperation{
+					{
+						Operation: mixerpb.REPLACE,
+						Name:      "Location",
+						Value:     "URL",
+					},
+					{
+						Operation: mixerpb.APPEND,
+						Name:      "Set-Cookie",
+						Value:     "c1=1; Secure; HttpOnly;",
+					},
+					{
+						Operation: mixerpb.APPEND,
+						Name:      "Set-Cookie",
+						Value:     "c2=2",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		s := &session{}
+		s.handleDirectResponse(tc.status, tc.response)
+		if !reflect.DeepEqual(s.checkResult.RouteDirective, tc.directive) {
+			t.Fatalf("route directive mismatch in %s '%+v' != '%+v'", tc.desc, s.checkResult.RouteDirective, tc.directive)
+		}
+
 	}
 }

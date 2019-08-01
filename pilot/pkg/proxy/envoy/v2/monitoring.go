@@ -73,11 +73,6 @@ var (
 
 	// TODO: Update all the resource stats in separate routine
 	// virtual services, destination rules, gateways, etc.
-	monVServices = monitoring.NewGauge(
-		"pilot_virt_services",
-		"Total virtual services known to pilot.",
-	)
-
 	xdsClients = monitoring.NewGauge(
 		"pilot_xds",
 		"Number of endpoints connected to this pilot using XDS.",
@@ -171,7 +166,6 @@ func init() {
 		rdsExpiredNonce,
 		totalXDSRejects,
 		monServices,
-		monVServices,
 		xdsClients,
 		xdsResponseWriteTimeouts,
 		pushes,

@@ -29,10 +29,13 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbacproto "istio.io/api/rbac/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	mock_config "istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 // getByMessageName finds a schema by message name if it is available
@@ -96,8 +99,8 @@ func TestEventString(t *testing.T) {
 
 func TestPortList(t *testing.T) {
 	pl := model.PortList{
-		{Name: "http", Port: 80, Protocol: config.ProtocolHTTP},
-		{Name: "http-alt", Port: 8080, Protocol: config.ProtocolHTTP},
+		{Name: "http", Port: 80, Protocol: protocol.HTTP},
+		{Name: "http-alt", Port: 8080, Protocol: protocol.HTTP},
 	}
 
 	gotNames := pl.GetNames()
@@ -130,7 +133,7 @@ func TestServiceKey(t *testing.T) {
 	// Verify Service.Key() delegates to ServiceKey()
 	{
 		want := "hostname|http|a=b,c=d"
-		port := &model.Port{Name: "http", Port: 80, Protocol: config.ProtocolHTTP}
+		port := &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP}
 		labels := config.Labels{"a": "b", "c": "d"}
 		got := svc.Key(port, labels)
 		if !reflect.DeepEqual(got, want) {
@@ -145,19 +148,19 @@ func TestServiceKey(t *testing.T) {
 	}{
 		{
 			port: model.PortList{
-				{Name: "http", Port: 80, Protocol: config.ProtocolHTTP},
-				{Name: "http-alt", Port: 8080, Protocol: config.ProtocolHTTP},
+				{Name: "http", Port: 80, Protocol: protocol.HTTP},
+				{Name: "http-alt", Port: 8080, Protocol: protocol.HTTP},
 			},
 			labels: config.LabelsCollection{{"a": "b", "c": "d"}},
 			want:   "hostname|http,http-alt|a=b,c=d",
 		},
 		{
-			port:   model.PortList{{Name: "http", Port: 80, Protocol: config.ProtocolHTTP}},
+			port:   model.PortList{{Name: "http", Port: 80, Protocol: protocol.HTTP}},
 			labels: config.LabelsCollection{{"a": "b", "c": "d"}},
 			want:   "hostname|http|a=b,c=d",
 		},
 		{
-			port:   model.PortList{{Port: 80, Protocol: config.ProtocolHTTP}},
+			port:   model.PortList{{Port: 80, Protocol: protocol.HTTP}},
 			labels: config.LabelsCollection{{"a": "b", "c": "d"}},
 			want:   "hostname||a=b,c=d",
 		},
@@ -167,12 +170,12 @@ func TestServiceKey(t *testing.T) {
 			want:   "hostname||a=b,c=d",
 		},
 		{
-			port:   model.PortList{{Name: "http", Port: 80, Protocol: config.ProtocolHTTP}},
+			port:   model.PortList{{Name: "http", Port: 80, Protocol: protocol.HTTP}},
 			labels: config.LabelsCollection{nil},
 			want:   "hostname|http",
 		},
 		{
-			port:   model.PortList{{Name: "http", Port: 80, Protocol: config.ProtocolHTTP}},
+			port:   model.PortList{{Name: "http", Port: 80, Protocol: protocol.HTTP}},
 			labels: config.LabelsCollection{},
 			want:   "hostname|http",
 		},
@@ -323,7 +326,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 
 	authNPolicies := map[string]*authn.Policy{
-		config.DefaultAuthenticationPolicyName: {},
+		constants.DefaultAuthenticationPolicyName: {},
 		"hello": {
 			Targets: []*authn.TargetSelector{{
 				Name: "hello",
@@ -467,11 +470,11 @@ func TestAuthenticationPolicyConfigWithGlobal(t *testing.T) {
 		policy    *authn.Policy
 	}{
 		{
-			name:   config.DefaultAuthenticationPolicyName,
+			name:   constants.DefaultAuthenticationPolicyName,
 			policy: &globalPolicy,
 		},
 		{
-			name:      config.DefaultAuthenticationPolicyName,
+			name:      constants.DefaultAuthenticationPolicyName,
 			namespace: "default",
 			policy:    &namespacePolicy,
 		},
@@ -720,19 +723,19 @@ func TestAuthorizationPolicies(t *testing.T) {
 
 func TestRbacConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
-	addRbacConfigToStore(model.RbacConfig.Type, config.DefaultRbacConfigName, "", store, t)
+	addRbacConfigToStore(model.RbacConfig.Type, constants.DefaultRbacConfigName, "", store, t)
 	rbacConfig := store.RbacConfig()
-	if rbacConfig.Name != config.DefaultRbacConfigName {
-		t.Errorf("model.RbacConfig: expecting %s, but got %s", config.DefaultRbacConfigName, rbacConfig.Name)
+	if rbacConfig.Name != constants.DefaultRbacConfigName {
+		t.Errorf("model.RbacConfig: expecting %s, but got %s", constants.DefaultRbacConfigName, rbacConfig.Name)
 	}
 }
 
 func TestClusterRbacConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
-	addRbacConfigToStore(model.ClusterRbacConfig.Type, config.DefaultRbacConfigName, "", store, t)
+	addRbacConfigToStore(model.ClusterRbacConfig.Type, constants.DefaultRbacConfigName, "", store, t)
 	rbacConfig := store.ClusterRbacConfig()
-	if rbacConfig.Name != config.DefaultRbacConfigName {
-		t.Errorf("model.ClusterRbacConfig: expecting %s, but got %s", config.DefaultRbacConfigName, rbacConfig.Name)
+	if rbacConfig.Name != constants.DefaultRbacConfigName {
+		t.Errorf("model.ClusterRbacConfig: expecting %s, but got %s", constants.DefaultRbacConfigName, rbacConfig.Name)
 	}
 }
 

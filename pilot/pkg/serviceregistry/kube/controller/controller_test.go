@@ -23,21 +23,22 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/api/annotation"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/spiffe"
-	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/env"
-	"istio.io/pkg/log"
-
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"istio.io/api/annotation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/env"
+	"istio.io/pkg/log"
 )
 
 func makeClient(t *testing.T) kubernetes.Interface {
@@ -90,7 +91,7 @@ func NewFakeXDS() *FakeXdsUpdater {
 	}
 }
 
-func (fx *FakeXdsUpdater) EDSUpdate(shard, hostname string, entry []*model.IstioEndpoint) error {
+func (fx *FakeXdsUpdater) EDSUpdate(shard, hostname string, namespace string, entry []*model.IstioEndpoint) error {
 	select {
 	case fx.Events <- XdsEvent{Type: "eds", ID: hostname}:
 	default:
@@ -205,7 +206,7 @@ func TestServices(t *testing.T) {
 		for _, item := range out {
 			if item.Hostname == hostname &&
 				len(item.Ports) == 1 &&
-				item.Ports[0].Protocol == config.ProtocolHTTP {
+				item.Ports[0].Protocol == protocol.HTTP {
 				return true
 			}
 		}
@@ -241,18 +242,6 @@ func TestServices(t *testing.T) {
 	// 2 ports 1001, 2 IPs
 	createEndpoints(ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.10.1.1", "10.11.1.2"}, t)
 
-	test.Eventually(t, "successfully created endpoints", func() bool {
-		ep, anotherErr := sds.InstancesByPort(hostname, 80, nil)
-		if anotherErr != nil {
-			t.Errorf("error gettings instance by port: %v", anotherErr)
-			return false
-		}
-		if len(ep) == 2 {
-			return true
-		}
-		return false
-	})
-
 	svc, err := sds.GetService(hostname)
 	if err != nil {
 		t.Errorf("GetService(%q) encountered unexpected error: %v", hostname, err)
@@ -264,7 +253,19 @@ func TestServices(t *testing.T) {
 		t.Errorf("GetService(%q) => %q", hostname, svc.Hostname)
 	}
 
-	ep, err := sds.InstancesByPort(hostname, 80, nil)
+	test.Eventually(t, "successfully created endpoints", func() bool {
+		ep, anotherErr := sds.InstancesByPort(svc, 80, nil)
+		if anotherErr != nil {
+			t.Errorf("error gettings instance by port: %v", anotherErr)
+			return false
+		}
+		if len(ep) == 2 {
+			return true
+		}
+		return false
+	})
+
+	ep, err := sds.InstancesByPort(svc, 80, nil)
 	if err != nil {
 		t.Errorf("GetInstancesByPort() encountered unexpected error: %v", err)
 	}
@@ -527,7 +528,11 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	}
 
 	hostname := kube.ServiceHostname("svc1", "nsA", domainSuffix)
-	sa := controller.GetIstioServiceAccounts(hostname, []int{8080})
+	svc, err := controller.GetService(hostname)
+	if err != nil {
+		t.Fatalf("failed to get service: %v", err)
+	}
+	sa := controller.GetIstioServiceAccounts(svc, []int{8080})
 	sort.Strings(sa)
 	expected := []string{
 		canonicalSaOnVM,
@@ -539,7 +544,11 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	}
 
 	hostname = kube.ServiceHostname("svc2", "nsA", domainSuffix)
-	sa = controller.GetIstioServiceAccounts(hostname, []int{})
+	svc, err = controller.GetService(hostname)
+	if err != nil {
+		t.Fatalf("failed to get service: %v", err)
+	}
+	sa = controller.GetIstioServiceAccounts(svc, []int{})
 	if len(sa) != 0 {
 		t.Error("Failure: Expected to resolve 0 service accounts, but got: ", sa)
 	}
@@ -564,7 +573,7 @@ func TestWorkloadHealthCheckInfo(t *testing.T) {
 			Port: &model.Port{
 				Name:     "mgmt-8080",
 				Port:     8080,
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			},
 		},
 		{
@@ -572,7 +581,7 @@ func TestWorkloadHealthCheckInfo(t *testing.T) {
 			Port: &model.Port{
 				Name:     "mgmt-9090",
 				Port:     9090,
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			},
 		},
 	}
@@ -685,12 +694,12 @@ func TestManagementPorts(t *testing.T) {
 		{
 			Name:     "mgmt-8080",
 			Port:     8080,
-			Protocol: config.ProtocolHTTP,
+			Protocol: protocol.HTTP,
 		},
 		{
 			Name:     "mgmt-9090",
 			Port:     9090,
-			Protocol: config.ProtocolHTTP,
+			Protocol: protocol.HTTP,
 		},
 	}
 
@@ -732,7 +741,7 @@ func TestController_Service(t *testing.T) {
 				&model.Port{
 					Name:     "test-port",
 					Port:     8080,
-					Protocol: config.ProtocolTCP,
+					Protocol: protocol.TCP,
 				},
 			},
 		},
@@ -743,7 +752,7 @@ func TestController_Service(t *testing.T) {
 				&model.Port{
 					Name:     "test-port",
 					Port:     8081,
-					Protocol: config.ProtocolTCP,
+					Protocol: protocol.TCP,
 				},
 			},
 		},
@@ -754,7 +763,7 @@ func TestController_Service(t *testing.T) {
 				&model.Port{
 					Name:     "test-port",
 					Port:     8082,
-					Protocol: config.ProtocolTCP,
+					Protocol: protocol.TCP,
 				},
 			},
 		},
@@ -765,7 +774,7 @@ func TestController_Service(t *testing.T) {
 				&model.Port{
 					Name:     "test-port",
 					Port:     8083,
-					Protocol: config.ProtocolTCP,
+					Protocol: protocol.TCP,
 				},
 			},
 		},
@@ -810,7 +819,7 @@ func TestController_ExternalNameService(t *testing.T) {
 				&model.Port{
 					Name:     "test-port",
 					Port:     8080,
-					Protocol: config.ProtocolTCP,
+					Protocol: protocol.TCP,
 				},
 			},
 			MeshExternal: true,
@@ -822,7 +831,7 @@ func TestController_ExternalNameService(t *testing.T) {
 				&model.Port{
 					Name:     "test-port",
 					Port:     8081,
-					Protocol: config.ProtocolTCP,
+					Protocol: protocol.TCP,
 				},
 			},
 			MeshExternal: true,
@@ -834,7 +843,7 @@ func TestController_ExternalNameService(t *testing.T) {
 				&model.Port{
 					Name:     "test-port",
 					Port:     8082,
-					Protocol: config.ProtocolTCP,
+					Protocol: protocol.TCP,
 				},
 			},
 			MeshExternal: true,
@@ -846,7 +855,7 @@ func TestController_ExternalNameService(t *testing.T) {
 				&model.Port{
 					Name:     "test-port",
 					Port:     8083,
-					Protocol: config.ProtocolTCP,
+					Protocol: protocol.TCP,
 				},
 			},
 			MeshExternal: true,
@@ -871,7 +880,7 @@ func TestController_ExternalNameService(t *testing.T) {
 		if svcList[i].Resolution != exp.Resolution {
 			t.Errorf("i=%v, Resolution=='%v', should be '%v'", i, svcList[i].Resolution, exp.Resolution)
 		}
-		instances, err := controller.InstancesByPort(svcList[i].Hostname, svcList[i].Ports[0].Port, config.LabelsCollection{})
+		instances, err := controller.InstancesByPort(svcList[i], svcList[i].Ports[0].Port, config.LabelsCollection{})
 		if err != nil {
 			t.Errorf("error getting instances by port: %s", err)
 			continue
@@ -903,7 +912,7 @@ func TestController_ExternalNameService(t *testing.T) {
 		t.Fatalf("Should have 0 services at this point")
 	}
 	for _, exp := range expectedSvcList {
-		instances, err := controller.InstancesByPort(exp.Hostname, exp.Ports[0].Port, config.LabelsCollection{})
+		instances, err := controller.InstancesByPort(exp, exp.Ports[0].Port, config.LabelsCollection{})
 		if err != nil {
 			t.Errorf("error getting instances by port: %s", err)
 			continue

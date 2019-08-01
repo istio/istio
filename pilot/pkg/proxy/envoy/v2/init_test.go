@@ -33,13 +33,13 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
 
 var nodeMetadata = &proto.Struct{Fields: map[string]*proto.Value{
-	"ISTIO_PROXY_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.1"}}, // actual value doesn't matter
+	"ISTIO_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.3"}}, // actual value doesn't matter
 }}
 
 // Extract cluster load assignment from a discovery response.
@@ -84,12 +84,12 @@ func connectADS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedReso
 func connectADSS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, util.TearDownFunc, error) {
 	certDir := env.IstioSrc + "/tests/testdata/certs/default/"
 
-	clientCert, err := tls.LoadX509KeyPair(certDir+config.CertChainFilename, certDir+config.KeyFilename)
+	clientCert, err := tls.LoadX509KeyPair(certDir+constants.CertChainFilename, certDir+constants.KeyFilename)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed loading clients certs: %s", err)
 	}
 
-	serverCABytes, err := ioutil.ReadFile(certDir + config.RootCertFilename)
+	serverCABytes, err := ioutil.ReadFile(certDir + constants.RootCertFilename)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed loading CA certs: %s", err)
 	}

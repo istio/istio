@@ -26,7 +26,7 @@ import (
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -144,7 +144,6 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.Values["pilot.env.PILOT_ENABLE_LOCALITY_LOAD_BALANCING"] = "true"
 	cfg.Values["pilot.autoscaleEnabled"] = "false"
 	cfg.Values["global.localityLbSetting.failover[0].from"] = "region"
 	cfg.Values["global.localityLbSetting.failover[0].to"] = "closeregion"
@@ -158,7 +157,7 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 		Ports: []echo.Port{
 			{
 				Name:        "http",
-				Protocol:    config.ProtocolHTTP,
+				Protocol:    protocol.HTTP,
 				ServicePort: 80,
 			},
 		},

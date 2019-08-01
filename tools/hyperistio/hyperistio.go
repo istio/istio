@@ -26,12 +26,13 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+
 	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	agent "istio.io/istio/pkg/bootstrap"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
@@ -147,7 +148,7 @@ func startEnvoy() error {
 func startPilot() error {
 	stop := make(chan struct{})
 
-	mcfg := config.DefaultMeshConfig()
+	mcfg := mesh.DefaultMeshConfig()
 	mcfg.ProxyHttpPort = 15002
 
 	// Create a test pilot discovery service configured to watch the tempDir.

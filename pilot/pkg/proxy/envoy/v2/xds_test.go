@@ -31,6 +31,8 @@ import (
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
@@ -107,7 +109,7 @@ func startEnvoy(t *testing.T) {
 		"NodeID":  nodeID,
 		"BaseDir": env.IstioSrc + "/tests/testdata/local",
 		// Same value used in the real template
-		"meta_json_str": fmt.Sprintf(`"BASE": "%s", ISTIO_PROXY_VERSION: 1.1.3`, env.IstioSrc+"/tests/testdata/local"),
+		"meta_json_str": fmt.Sprintf(`"BASE": "%s", ISTIO_VERSION: 1.3.0`, env.IstioSrc+"/tests/testdata/local"),
 	}
 
 	// Mixer will push stats every 1 sec
@@ -160,7 +162,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 			ServicePort: &model.Port{
 				Name:     "http",
 				Port:     80,
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			},
 			Locality: "az",
 		},
@@ -175,7 +177,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 			{
 				Name:     "http",
 				Port:     80,
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			}},
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("local.default.svc.cluster.local", &model.ServiceInstance{
@@ -185,7 +187,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 			ServicePort: &model.Port{
 				Name:     "http",
 				Port:     80,
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			},
 			Locality: "az",
 		},
@@ -206,7 +208,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 			ServicePort: &model.Port{
 				Name:     "http-main",
 				Port:     1080,
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			},
 			Locality: "az",
 		},
@@ -219,7 +221,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 			ServicePort: &model.Port{
 				Name:     "http-main",
 				Port:     1080,
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			},
 			Locality: "az",
 		},
@@ -234,12 +236,12 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 			{
 				Name:     "http",
 				Port:     80,
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			},
 			{
 				Name:     "https",
 				Port:     443,
-				Protocol: config.ProtocolHTTPS,
+				Protocol: protocol.HTTPS,
 			},
 		},
 	})
@@ -250,11 +252,11 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 			ServicePort: &model.Port{
 				Name:     "http",
 				Port:     80,
-				Protocol: config.ProtocolHTTP,
+				Protocol: protocol.HTTP,
 			},
 			Locality: "az",
 		},
-		Labels: config.Labels{config.IstioLabel: config.IstioIngressLabelValue},
+		Labels: config.Labels{constants.IstioLabel: constants.IstioIngressLabelValue},
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -263,11 +265,11 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 			ServicePort: &model.Port{
 				Name:     "https",
 				Port:     443,
-				Protocol: config.ProtocolHTTPS,
+				Protocol: protocol.HTTPS,
 			},
 			Locality: "az",
 		},
-		Labels: config.Labels{config.IstioLabel: config.IstioIngressLabelValue},
+		Labels: config.Labels{constants.IstioLabel: constants.IstioIngressLabelValue},
 	})
 
 	// RouteConf Service4 is using port 80, to test that we generate multiple clusters (regression)
@@ -275,7 +277,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	server.EnvoyXdsServer.MemRegistry.AddHTTPService("service4.default.svc.cluster.local", "10.1.0.4", 80)
 
 	server.EnvoyXdsServer.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
-	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc,
+	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "",
 		newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
 	// Set the initial workload labels
 	server.EnvoyXdsServer.WorkloadUpdate("127.0.0.4", map[string]string{"version": "v1"}, nil)
@@ -295,31 +297,31 @@ func testPorts(base int) []*model.Port {
 		{
 			Name:     "http",
 			Port:     base + 80,
-			Protocol: config.ProtocolHTTP,
+			Protocol: protocol.HTTP,
 		}, {
 			Name:     "http-status",
 			Port:     base + 81,
-			Protocol: config.ProtocolHTTP,
+			Protocol: protocol.HTTP,
 		}, {
 			Name:     "custom",
 			Port:     base + 90,
-			Protocol: config.ProtocolTCP,
+			Protocol: protocol.TCP,
 		}, {
 			Name:     "mongo",
 			Port:     base + 100,
-			Protocol: config.ProtocolMongo,
+			Protocol: protocol.Mongo,
 		}, {
 			Name:     "redis",
 			Port:     base + 110,
-			Protocol: config.ProtocolRedis,
+			Protocol: protocol.Redis,
 		}, {
 			Name:     "mysql",
 			Port:     base + 120,
-			Protocol: config.ProtocolMySQL,
+			Protocol: protocol.MySQL,
 		}, {
 			Name:     "h2port",
 			Port:     base + 66,
-			Protocol: config.ProtocolGRPC,
+			Protocol: protocol.GRPC,
 		}}
 }
 

@@ -59,7 +59,7 @@ func newSidecar(pod kubeCore.Pod, accessor *kube.Accessor) (*sidecar, error) {
 		for _, c := range cfg.Configs {
 			if c.TypeUrl == "type.googleapis.com/envoy.admin.v2alpha.BootstrapConfigDump" {
 				cd := envoyAdmin.BootstrapConfigDump{}
-				if err := types.UnmarshalAny(&c, &cd); err != nil {
+				if err := types.UnmarshalAny(c, &cd); err != nil {
 					return false, err
 				}
 
@@ -124,6 +124,42 @@ func (s *sidecar) WaitForConfigOrFail(t test.Failer, accept func(*envoyAdmin.Con
 	if err := s.WaitForConfig(accept, options...); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func (s *sidecar) Clusters() (*envoyAdmin.Clusters, error) {
+	msg := &envoyAdmin.Clusters{}
+	if err := s.adminRequest("clusters?format=json", msg); err != nil {
+		return nil, err
+	}
+
+	return msg, nil
+}
+
+func (s *sidecar) ClustersOrFail(t test.Failer) *envoyAdmin.Clusters {
+	t.Helper()
+	clusters, err := s.Clusters()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return clusters
+}
+
+func (s *sidecar) Listeners() (*envoyAdmin.Listeners, error) {
+	msg := &envoyAdmin.Listeners{}
+	if err := s.adminRequest("listeners?format=json", msg); err != nil {
+		return nil, err
+	}
+
+	return msg, nil
+}
+
+func (s *sidecar) ListenersOrFail(t test.Failer) *envoyAdmin.Listeners {
+	t.Helper()
+	listeners, err := s.Listeners()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return listeners
 }
 
 func (s *sidecar) adminRequest(path string, out proto.Message) error {

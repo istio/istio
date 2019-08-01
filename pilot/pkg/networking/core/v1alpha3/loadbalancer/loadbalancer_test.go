@@ -28,7 +28,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 func TestApplyLocalitySetting(t *testing.T) {
@@ -167,7 +167,7 @@ func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBala
 				&model.Port{
 					Name:     "default",
 					Port:     8080,
-					Protocol: config.ProtocolHTTP,
+					Protocol: protocol.HTTP,
 				},
 			},
 		},
@@ -225,7 +225,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 				&model.Port{
 					Name:     "default",
 					Port:     8080,
-					Protocol: config.ProtocolHTTP,
+					Protocol: protocol.HTTP,
 				},
 			},
 		},
@@ -281,7 +281,7 @@ func buildFakeCluster() *apiv2.Cluster {
 		Name: "outbound|8080||test.example.org",
 		LoadAssignment: &apiv2.ClusterLoadAssignment{
 			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []endpoint.LocalityLbEndpoints{
+			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
 					Locality: &envoycore.Locality{
 						Region:  "region1",
@@ -342,7 +342,7 @@ func buildSmallCluster() *apiv2.Cluster {
 		Name: "outbound|8080||test.example.org",
 		LoadAssignment: &apiv2.ClusterLoadAssignment{
 			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []endpoint.LocalityLbEndpoints{
+			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
 					Locality: &envoycore.Locality{
 						Region:  "region1",
@@ -374,7 +374,7 @@ func buildSmallClusterWithNilLocalities() *apiv2.Cluster {
 		Name: "outbound|8080||test.example.org",
 		LoadAssignment: &apiv2.ClusterLoadAssignment{
 			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []endpoint.LocalityLbEndpoints{
+			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
 					Locality: &envoycore.Locality{
 						Region:  "region1",
