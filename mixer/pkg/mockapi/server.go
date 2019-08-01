@@ -23,12 +23,13 @@ import (
 	"net"
 	"time"
 
-	"github.com/gogo/googleapis/google/rpc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	grpcstatus "google.golang.org/grpc/status"
+
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"

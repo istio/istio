@@ -19,9 +19,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	attr "istio.io/istio/mixer/pkg/attribute"
 	"istio.io/pkg/attribute"

@@ -10,6 +10,7 @@ import (
 	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 )
@@ -41,7 +42,7 @@ func (m *QuotaSpec) XXX_Unmarshal(b []byte) error {
 }
 func (m *QuotaSpec) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	b = b[:cap(b)]
-	n, err := m.MarshalTo(b)
+	n, err := m.MarshalToSizedBuffer(b)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +80,7 @@ func (m *QuotaRule) XXX_Unmarshal(b []byte) error {
 }
 func (m *QuotaRule) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	b = b[:cap(b)]
-	n, err := m.MarshalTo(b)
+	n, err := m.MarshalToSizedBuffer(b)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +118,7 @@ func (m *StringMatch) XXX_Unmarshal(b []byte) error {
 }
 func (m *StringMatch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	b = b[:cap(b)]
-	n, err := m.MarshalTo(b)
+	n, err := m.MarshalToSizedBuffer(b)
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +290,7 @@ func (m *AttributeMatch) XXX_Unmarshal(b []byte) error {
 }
 func (m *AttributeMatch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	b = b[:cap(b)]
-	n, err := m.MarshalTo(b)
+	n, err := m.MarshalToSizedBuffer(b)
 	if err != nil {
 		return nil, err
 	}
@@ -325,7 +326,7 @@ func (m *Quota) XXX_Unmarshal(b []byte) error {
 }
 func (m *Quota) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	b = b[:cap(b)]
-	n, err := m.MarshalTo(b)
+	n, err := m.MarshalToSizedBuffer(b)
 	if err != nil {
 		return nil, err
 	}
@@ -364,7 +365,7 @@ func (m *QuotaSpecBinding) XXX_Unmarshal(b []byte) error {
 }
 func (m *QuotaSpecBinding) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	b = b[:cap(b)]
-	n, err := m.MarshalTo(b)
+	n, err := m.MarshalToSizedBuffer(b)
 	if err != nil {
 		return nil, err
 	}
@@ -403,7 +404,7 @@ func (m *QuotaSpecBinding_QuotaSpecReference) XXX_Unmarshal(b []byte) error {
 }
 func (m *QuotaSpecBinding_QuotaSpecReference) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	b = b[:cap(b)]
-	n, err := m.MarshalTo(b)
+	n, err := m.MarshalToSizedBuffer(b)
 	if err != nil {
 		return nil, err
 	}
@@ -475,7 +476,7 @@ var fileDescriptor_81777b5d047af315 = []byte{
 func (m *QuotaSpec) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -483,29 +484,36 @@ func (m *QuotaSpec) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *QuotaSpec) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QuotaSpec) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if len(m.Rules) > 0 {
-		for _, msg := range m.Rules {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintQuota(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.Rules) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Rules[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintQuota(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0xa
 		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *QuotaRule) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -513,41 +521,50 @@ func (m *QuotaRule) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *QuotaRule) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QuotaRule) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Match) > 0 {
-		for _, msg := range m.Match {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintQuota(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
 	if len(m.Quotas) > 0 {
-		for _, msg := range m.Quotas {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintQuota(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.Quotas) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Quotas[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintQuota(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	return i, nil
+	if len(m.Match) > 0 {
+		for iNdEx := len(m.Match) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Match[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintQuota(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *StringMatch) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -555,48 +572,70 @@ func (m *StringMatch) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *StringMatch) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *StringMatch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.MatchType != nil {
-		nn1, err := m.MatchType.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size := m.MatchType.Size()
+			i -= size
+			if _, err := m.MatchType.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
 		}
-		i += nn1
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *StringMatch_Exact) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	dAtA[i] = 0xa
-	i++
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *StringMatch_Exact) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	i -= len(m.Exact)
+	copy(dAtA[i:], m.Exact)
 	i = encodeVarintQuota(dAtA, i, uint64(len(m.Exact)))
-	i += copy(dAtA[i:], m.Exact)
-	return i, nil
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
 }
 func (m *StringMatch_Prefix) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	dAtA[i] = 0x12
-	i++
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *StringMatch_Prefix) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	i -= len(m.Prefix)
+	copy(dAtA[i:], m.Prefix)
 	i = encodeVarintQuota(dAtA, i, uint64(len(m.Prefix)))
-	i += copy(dAtA[i:], m.Prefix)
-	return i, nil
+	i--
+	dAtA[i] = 0x12
+	return len(dAtA) - i, nil
 }
 func (m *StringMatch_Regex) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	dAtA[i] = 0x1a
-	i++
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *StringMatch_Regex) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	i -= len(m.Regex)
+	copy(dAtA[i:], m.Regex)
 	i = encodeVarintQuota(dAtA, i, uint64(len(m.Regex)))
-	i += copy(dAtA[i:], m.Regex)
-	return i, nil
+	i--
+	dAtA[i] = 0x1a
+	return len(dAtA) - i, nil
 }
 func (m *AttributeMatch) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -604,50 +643,53 @@ func (m *AttributeMatch) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *AttributeMatch) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AttributeMatch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if len(m.Clause) > 0 {
 		keysForClause := make([]string, 0, len(m.Clause))
-		for k, _ := range m.Clause {
+		for k := range m.Clause {
 			keysForClause = append(keysForClause, string(k))
 		}
 		github_com_gogo_protobuf_sortkeys.Strings(keysForClause)
-		for _, k := range keysForClause {
-			dAtA[i] = 0xa
-			i++
-			v := m.Clause[string(k)]
-			msgSize := 0
+		for iNdEx := len(keysForClause) - 1; iNdEx >= 0; iNdEx-- {
+			v := m.Clause[string(keysForClause[iNdEx])]
+			baseI := i
 			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovQuota(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovQuota(uint64(len(k))) + msgSize
-			i = encodeVarintQuota(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintQuota(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintQuota(dAtA, i, uint64(v.Size()))
-				n2, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintQuota(dAtA, i, uint64(size))
 				}
-				i += n2
+				i--
+				dAtA[i] = 0x12
 			}
+			i -= len(keysForClause[iNdEx])
+			copy(dAtA[i:], keysForClause[iNdEx])
+			i = encodeVarintQuota(dAtA, i, uint64(len(keysForClause[iNdEx])))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintQuota(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
 		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Quota) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -655,28 +697,34 @@ func (m *Quota) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Quota) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Quota) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Quota) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintQuota(dAtA, i, uint64(len(m.Quota)))
-		i += copy(dAtA[i:], m.Quota)
-	}
 	if m.Charge != 0 {
-		dAtA[i] = 0x10
-		i++
 		i = encodeVarintQuota(dAtA, i, uint64(m.Charge))
+		i--
+		dAtA[i] = 0x10
 	}
-	return i, nil
+	if len(m.Quota) > 0 {
+		i -= len(m.Quota)
+		copy(dAtA[i:], m.Quota)
+		i = encodeVarintQuota(dAtA, i, uint64(len(m.Quota)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *QuotaSpecBinding) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -684,41 +732,50 @@ func (m *QuotaSpecBinding) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *QuotaSpecBinding) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QuotaSpecBinding) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Services) > 0 {
-		for _, msg := range m.Services {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintQuota(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
 	if len(m.QuotaSpecs) > 0 {
-		for _, msg := range m.QuotaSpecs {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintQuota(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.QuotaSpecs) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.QuotaSpecs[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintQuota(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	return i, nil
+	if len(m.Services) > 0 {
+		for iNdEx := len(m.Services) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Services[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintQuota(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *QuotaSpecBinding_QuotaSpecReference) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -726,33 +783,42 @@ func (m *QuotaSpecBinding_QuotaSpecReference) Marshal() (dAtA []byte, err error)
 }
 
 func (m *QuotaSpecBinding_QuotaSpecReference) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QuotaSpecBinding_QuotaSpecReference) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintQuota(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
 	if len(m.Namespace) > 0 {
-		dAtA[i] = 0x12
-		i++
+		i -= len(m.Namespace)
+		copy(dAtA[i:], m.Namespace)
 		i = encodeVarintQuota(dAtA, i, uint64(len(m.Namespace)))
-		i += copy(dAtA[i:], m.Namespace)
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintQuota(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintQuota(dAtA []byte, offset int, v uint64) int {
+	offset -= sovQuota(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *QuotaSpec) Size() (n int) {
 	if m == nil {
@@ -909,14 +975,7 @@ func (m *QuotaSpecBinding_QuotaSpecReference) Size() (n int) {
 }
 
 func sovQuota(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozQuota(x uint64) (n int) {
 	return sovQuota(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -925,8 +984,13 @@ func (this *QuotaSpec) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForRules := "[]*QuotaRule{"
+	for _, f := range this.Rules {
+		repeatedStringForRules += strings.Replace(f.String(), "QuotaRule", "QuotaRule", 1) + ","
+	}
+	repeatedStringForRules += "}"
 	s := strings.Join([]string{`&QuotaSpec{`,
-		`Rules:` + strings.Replace(fmt.Sprintf("%v", this.Rules), "QuotaRule", "QuotaRule", 1) + `,`,
+		`Rules:` + repeatedStringForRules + `,`,
 		`}`,
 	}, "")
 	return s
@@ -935,9 +999,19 @@ func (this *QuotaRule) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForMatch := "[]*AttributeMatch{"
+	for _, f := range this.Match {
+		repeatedStringForMatch += strings.Replace(f.String(), "AttributeMatch", "AttributeMatch", 1) + ","
+	}
+	repeatedStringForMatch += "}"
+	repeatedStringForQuotas := "[]*Quota{"
+	for _, f := range this.Quotas {
+		repeatedStringForQuotas += strings.Replace(f.String(), "Quota", "Quota", 1) + ","
+	}
+	repeatedStringForQuotas += "}"
 	s := strings.Join([]string{`&QuotaRule{`,
-		`Match:` + strings.Replace(fmt.Sprintf("%v", this.Match), "AttributeMatch", "AttributeMatch", 1) + `,`,
-		`Quotas:` + strings.Replace(fmt.Sprintf("%v", this.Quotas), "Quota", "Quota", 1) + `,`,
+		`Match:` + repeatedStringForMatch + `,`,
+		`Quotas:` + repeatedStringForQuotas + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1017,9 +1091,19 @@ func (this *QuotaSpecBinding) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForServices := "[]*IstioService{"
+	for _, f := range this.Services {
+		repeatedStringForServices += strings.Replace(fmt.Sprintf("%v", f), "IstioService", "IstioService", 1) + ","
+	}
+	repeatedStringForServices += "}"
+	repeatedStringForQuotaSpecs := "[]*QuotaSpecBinding_QuotaSpecReference{"
+	for _, f := range this.QuotaSpecs {
+		repeatedStringForQuotaSpecs += strings.Replace(fmt.Sprintf("%v", f), "QuotaSpecBinding_QuotaSpecReference", "QuotaSpecBinding_QuotaSpecReference", 1) + ","
+	}
+	repeatedStringForQuotaSpecs += "}"
 	s := strings.Join([]string{`&QuotaSpecBinding{`,
-		`Services:` + strings.Replace(fmt.Sprintf("%v", this.Services), "IstioService", "IstioService", 1) + `,`,
-		`QuotaSpecs:` + strings.Replace(fmt.Sprintf("%v", this.QuotaSpecs), "QuotaSpecBinding_QuotaSpecReference", "QuotaSpecBinding_QuotaSpecReference", 1) + `,`,
+		`Services:` + repeatedStringForServices + `,`,
+		`QuotaSpecs:` + repeatedStringForQuotaSpecs + `,`,
 		`}`,
 	}, "")
 	return s

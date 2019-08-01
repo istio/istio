@@ -12,6 +12,7 @@ import (
 	io "io"
 	v1alpha3 "istio.io/api/networking/v1alpha3"
 	math "math"
+	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -374,7 +375,7 @@ func (m *MeshConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_MeshConfig.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -691,7 +692,7 @@ func (m *MeshConfig_OutboundTrafficPolicy) XXX_Marshal(b []byte, deterministic b
 		return xxx_messageInfo_MeshConfig_OutboundTrafficPolicy.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -748,7 +749,7 @@ func (m *ConfigSource) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_ConfigSource.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -858,7 +859,7 @@ func (m *LocalityLoadBalancerSetting) XXX_Marshal(b []byte, deterministic bool) 
 		return xxx_messageInfo_LocalityLoadBalancerSetting.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -926,7 +927,7 @@ func (m *LocalityLoadBalancerSetting_Distribute) XXX_Marshal(b []byte, determini
 		return xxx_messageInfo_LocalityLoadBalancerSetting_Distribute.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -991,7 +992,7 @@ func (m *LocalityLoadBalancerSetting_Failover) XXX_Marshal(b []byte, determinist
 		return xxx_messageInfo_LocalityLoadBalancerSetting_Failover.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1150,7 +1151,7 @@ var fileDescriptor_b5c7ece76d5d5022 = []byte{
 func (m *MeshConfig) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1158,402 +1159,420 @@ func (m *MeshConfig) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MeshConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.MixerCheckServer) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.MixerCheckServer)))
-		i += copy(dAtA[i:], m.MixerCheckServer)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.MixerReportServer) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.MixerReportServer)))
-		i += copy(dAtA[i:], m.MixerReportServer)
-	}
-	if m.DisablePolicyChecks {
-		dAtA[i] = 0x18
-		i++
-		if m.DisablePolicyChecks {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.ProxyListenPort != 0 {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.ProxyListenPort))
-	}
-	if m.ProxyHttpPort != 0 {
-		dAtA[i] = 0x28
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.ProxyHttpPort))
-	}
-	if m.ConnectTimeout != nil {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.ConnectTimeout.Size()))
-		n1, err := m.ConnectTimeout.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n1
-	}
-	if len(m.IngressClass) > 0 {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.IngressClass)))
-		i += copy(dAtA[i:], m.IngressClass)
-	}
-	if len(m.IngressService) > 0 {
-		dAtA[i] = 0x42
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.IngressService)))
-		i += copy(dAtA[i:], m.IngressService)
-	}
-	if m.IngressControllerMode != 0 {
-		dAtA[i] = 0x48
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.IngressControllerMode))
-	}
-	if m.AuthPolicy != 0 {
-		dAtA[i] = 0x50
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.AuthPolicy))
-	}
-	if m.RdsRefreshDelay != nil {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.RdsRefreshDelay.Size()))
-		n2, err := m.RdsRefreshDelay.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n2
-	}
-	if m.EnableTracing {
-		dAtA[i] = 0x60
-		i++
-		if m.EnableTracing {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if len(m.AccessLogFile) > 0 {
-		dAtA[i] = 0x6a
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.AccessLogFile)))
-		i += copy(dAtA[i:], m.AccessLogFile)
-	}
-	if m.DefaultConfig != nil {
-		dAtA[i] = 0x72
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.DefaultConfig.Size()))
-		n3, err := m.DefaultConfig.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n3
-	}
-	if len(m.MixerAddress) > 0 {
-		dAtA[i] = 0x82
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.MixerAddress)))
-		i += copy(dAtA[i:], m.MixerAddress)
-	}
-	if m.OutboundTrafficPolicy != nil {
-		dAtA[i] = 0x8a
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.OutboundTrafficPolicy.Size()))
-		n4, err := m.OutboundTrafficPolicy.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n4
-	}
-	if m.EnableClientSidePolicyCheck {
-		dAtA[i] = 0x98
-		i++
-		dAtA[i] = 0x1
-		i++
-		if m.EnableClientSidePolicyCheck {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if len(m.SdsUdsPath) > 0 {
-		dAtA[i] = 0xa2
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.SdsUdsPath)))
-		i += copy(dAtA[i:], m.SdsUdsPath)
-	}
-	if m.SdsRefreshDelay != nil {
-		dAtA[i] = 0xaa
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.SdsRefreshDelay.Size()))
-		n5, err := m.SdsRefreshDelay.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n5
-	}
-	if len(m.ConfigSources) > 0 {
-		for _, msg := range m.ConfigSources {
-			dAtA[i] = 0xb2
-			i++
-			dAtA[i] = 0x1
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if m.EnableSdsTokenMount {
-		dAtA[i] = 0xb8
-		i++
-		dAtA[i] = 0x1
-		i++
-		if m.EnableSdsTokenMount {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if len(m.AccessLogFormat) > 0 {
-		dAtA[i] = 0xc2
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.AccessLogFormat)))
-		i += copy(dAtA[i:], m.AccessLogFormat)
-	}
-	if m.PolicyCheckFailOpen {
+	if m.H2UpgradePolicy != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.H2UpgradePolicy))
+		i--
+		dAtA[i] = 0x2
+		i--
 		dAtA[i] = 0xc8
-		i++
-		dAtA[i] = 0x1
-		i++
-		if m.PolicyCheckFailOpen {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if len(m.TrustDomain) > 0 {
-		dAtA[i] = 0xd2
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.TrustDomain)))
-		i += copy(dAtA[i:], m.TrustDomain)
-	}
-	if m.AccessLogEncoding != 0 {
-		dAtA[i] = 0xd8
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.AccessLogEncoding))
-	}
-	if m.TcpKeepalive != nil {
-		dAtA[i] = 0xe2
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.TcpKeepalive.Size()))
-		n6, err := m.TcpKeepalive.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n6
-	}
-	if m.SdsUseK8SSaJwt {
-		dAtA[i] = 0xe8
-		i++
-		dAtA[i] = 0x1
-		i++
-		if m.SdsUseK8SSaJwt {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.SidecarToTelemetrySessionAffinity {
-		dAtA[i] = 0xf0
-		i++
-		dAtA[i] = 0x1
-		i++
-		if m.SidecarToTelemetrySessionAffinity {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if len(m.DefaultServiceExportTo) > 0 {
-		for _, s := range m.DefaultServiceExportTo {
-			dAtA[i] = 0xfa
-			i++
-			dAtA[i] = 0x1
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
-	}
-	if len(m.DefaultVirtualServiceExportTo) > 0 {
-		for _, s := range m.DefaultVirtualServiceExportTo {
-			dAtA[i] = 0x82
-			i++
-			dAtA[i] = 0x2
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
-	}
-	if len(m.DefaultDestinationRuleExportTo) > 0 {
-		for _, s := range m.DefaultDestinationRuleExportTo {
-			dAtA[i] = 0x8a
-			i++
-			dAtA[i] = 0x2
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
-	}
-	if len(m.RootNamespace) > 0 {
-		dAtA[i] = 0x92
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.RootNamespace)))
-		i += copy(dAtA[i:], m.RootNamespace)
-	}
-	if m.LocalityLbSetting != nil {
-		dAtA[i] = 0x9a
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.LocalityLbSetting.Size()))
-		n7, err := m.LocalityLbSetting.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n7
-	}
-	if m.DnsRefreshRate != nil {
-		dAtA[i] = 0xa2
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.DnsRefreshRate.Size()))
-		n8, err := m.DnsRefreshRate.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n8
-	}
-	if m.DisableReportBatch {
-		dAtA[i] = 0xa8
-		i++
-		dAtA[i] = 0x2
-		i++
-		if m.DisableReportBatch {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.ReportBatchMaxEntries != 0 {
-		dAtA[i] = 0xb0
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.ReportBatchMaxEntries))
-	}
-	if m.ReportBatchMaxTime != nil {
-		dAtA[i] = 0xba
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.ReportBatchMaxTime.Size()))
-		n9, err := m.ReportBatchMaxTime.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n9
 	}
 	if m.EnableEnvoyAccessLogService {
-		dAtA[i] = 0xc0
-		i++
-		dAtA[i] = 0x2
-		i++
+		i--
 		if m.EnableEnvoyAccessLogService {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
-	}
-	if m.H2UpgradePolicy != 0 {
-		dAtA[i] = 0xc8
-		i++
+		i--
 		dAtA[i] = 0x2
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.H2UpgradePolicy))
+		i--
+		dAtA[i] = 0xc0
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.ReportBatchMaxTime != nil {
+		{
+			size, err := m.ReportBatchMaxTime.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintConfig(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xba
 	}
-	return i, nil
+	if m.ReportBatchMaxEntries != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.ReportBatchMaxEntries))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xb0
+	}
+	if m.DisableReportBatch {
+		i--
+		if m.DisableReportBatch {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xa8
+	}
+	if m.DnsRefreshRate != nil {
+		{
+			size, err := m.DnsRefreshRate.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintConfig(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xa2
+	}
+	if m.LocalityLbSetting != nil {
+		{
+			size, err := m.LocalityLbSetting.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintConfig(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0x9a
+	}
+	if len(m.RootNamespace) > 0 {
+		i -= len(m.RootNamespace)
+		copy(dAtA[i:], m.RootNamespace)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.RootNamespace)))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0x92
+	}
+	if len(m.DefaultDestinationRuleExportTo) > 0 {
+		for iNdEx := len(m.DefaultDestinationRuleExportTo) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.DefaultDestinationRuleExportTo[iNdEx])
+			copy(dAtA[i:], m.DefaultDestinationRuleExportTo[iNdEx])
+			i = encodeVarintConfig(dAtA, i, uint64(len(m.DefaultDestinationRuleExportTo[iNdEx])))
+			i--
+			dAtA[i] = 0x2
+			i--
+			dAtA[i] = 0x8a
+		}
+	}
+	if len(m.DefaultVirtualServiceExportTo) > 0 {
+		for iNdEx := len(m.DefaultVirtualServiceExportTo) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.DefaultVirtualServiceExportTo[iNdEx])
+			copy(dAtA[i:], m.DefaultVirtualServiceExportTo[iNdEx])
+			i = encodeVarintConfig(dAtA, i, uint64(len(m.DefaultVirtualServiceExportTo[iNdEx])))
+			i--
+			dAtA[i] = 0x2
+			i--
+			dAtA[i] = 0x82
+		}
+	}
+	if len(m.DefaultServiceExportTo) > 0 {
+		for iNdEx := len(m.DefaultServiceExportTo) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.DefaultServiceExportTo[iNdEx])
+			copy(dAtA[i:], m.DefaultServiceExportTo[iNdEx])
+			i = encodeVarintConfig(dAtA, i, uint64(len(m.DefaultServiceExportTo[iNdEx])))
+			i--
+			dAtA[i] = 0x1
+			i--
+			dAtA[i] = 0xfa
+		}
+	}
+	if m.SidecarToTelemetrySessionAffinity {
+		i--
+		if m.SidecarToTelemetrySessionAffinity {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xf0
+	}
+	if m.SdsUseK8SSaJwt {
+		i--
+		if m.SdsUseK8SSaJwt {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xe8
+	}
+	if m.TcpKeepalive != nil {
+		{
+			size, err := m.TcpKeepalive.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintConfig(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xe2
+	}
+	if m.AccessLogEncoding != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.AccessLogEncoding))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xd8
+	}
+	if len(m.TrustDomain) > 0 {
+		i -= len(m.TrustDomain)
+		copy(dAtA[i:], m.TrustDomain)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.TrustDomain)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xd2
+	}
+	if m.PolicyCheckFailOpen {
+		i--
+		if m.PolicyCheckFailOpen {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xc8
+	}
+	if len(m.AccessLogFormat) > 0 {
+		i -= len(m.AccessLogFormat)
+		copy(dAtA[i:], m.AccessLogFormat)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.AccessLogFormat)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xc2
+	}
+	if m.EnableSdsTokenMount {
+		i--
+		if m.EnableSdsTokenMount {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xb8
+	}
+	if len(m.ConfigSources) > 0 {
+		for iNdEx := len(m.ConfigSources) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.ConfigSources[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintConfig(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1
+			i--
+			dAtA[i] = 0xb2
+		}
+	}
+	if m.SdsRefreshDelay != nil {
+		{
+			size, err := m.SdsRefreshDelay.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintConfig(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xaa
+	}
+	if len(m.SdsUdsPath) > 0 {
+		i -= len(m.SdsUdsPath)
+		copy(dAtA[i:], m.SdsUdsPath)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.SdsUdsPath)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xa2
+	}
+	if m.EnableClientSidePolicyCheck {
+		i--
+		if m.EnableClientSidePolicyCheck {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x98
+	}
+	if m.OutboundTrafficPolicy != nil {
+		{
+			size, err := m.OutboundTrafficPolicy.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintConfig(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x8a
+	}
+	if len(m.MixerAddress) > 0 {
+		i -= len(m.MixerAddress)
+		copy(dAtA[i:], m.MixerAddress)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.MixerAddress)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x82
+	}
+	if m.DefaultConfig != nil {
+		{
+			size, err := m.DefaultConfig.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintConfig(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x72
+	}
+	if len(m.AccessLogFile) > 0 {
+		i -= len(m.AccessLogFile)
+		copy(dAtA[i:], m.AccessLogFile)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.AccessLogFile)))
+		i--
+		dAtA[i] = 0x6a
+	}
+	if m.EnableTracing {
+		i--
+		if m.EnableTracing {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x60
+	}
+	if m.RdsRefreshDelay != nil {
+		{
+			size, err := m.RdsRefreshDelay.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintConfig(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x5a
+	}
+	if m.AuthPolicy != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.AuthPolicy))
+		i--
+		dAtA[i] = 0x50
+	}
+	if m.IngressControllerMode != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.IngressControllerMode))
+		i--
+		dAtA[i] = 0x48
+	}
+	if len(m.IngressService) > 0 {
+		i -= len(m.IngressService)
+		copy(dAtA[i:], m.IngressService)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.IngressService)))
+		i--
+		dAtA[i] = 0x42
+	}
+	if len(m.IngressClass) > 0 {
+		i -= len(m.IngressClass)
+		copy(dAtA[i:], m.IngressClass)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.IngressClass)))
+		i--
+		dAtA[i] = 0x3a
+	}
+	if m.ConnectTimeout != nil {
+		{
+			size, err := m.ConnectTimeout.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintConfig(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x32
+	}
+	if m.ProxyHttpPort != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.ProxyHttpPort))
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.ProxyListenPort != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.ProxyListenPort))
+		i--
+		dAtA[i] = 0x20
+	}
+	if m.DisablePolicyChecks {
+		i--
+		if m.DisablePolicyChecks {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x18
+	}
+	if len(m.MixerReportServer) > 0 {
+		i -= len(m.MixerReportServer)
+		copy(dAtA[i:], m.MixerReportServer)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.MixerReportServer)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.MixerCheckServer) > 0 {
+		i -= len(m.MixerCheckServer)
+		copy(dAtA[i:], m.MixerCheckServer)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.MixerCheckServer)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *MeshConfig_OutboundTrafficPolicy) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1561,25 +1580,31 @@ func (m *MeshConfig_OutboundTrafficPolicy) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *MeshConfig_OutboundTrafficPolicy) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MeshConfig_OutboundTrafficPolicy) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Mode != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.Mode))
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Mode != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.Mode))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ConfigSource) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1587,36 +1612,45 @@ func (m *ConfigSource) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ConfigSource) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ConfigSource) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Address) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.Address)))
-		i += copy(dAtA[i:], m.Address)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.TlsSettings != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.TlsSettings.Size()))
-		n10, err := m.TlsSettings.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.TlsSettings.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintConfig(dAtA, i, uint64(size))
 		}
-		i += n10
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Address) > 0 {
+		i -= len(m.Address)
+		copy(dAtA[i:], m.Address)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.Address)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *LocalityLoadBalancerSetting) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1624,44 +1658,54 @@ func (m *LocalityLoadBalancerSetting) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *LocalityLoadBalancerSetting) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *LocalityLoadBalancerSetting) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Distribute) > 0 {
-		for _, msg := range m.Distribute {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Failover) > 0 {
-		for _, msg := range m.Failover {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.Failover) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Failover[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintConfig(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Distribute) > 0 {
+		for iNdEx := len(m.Distribute) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Distribute[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintConfig(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *LocalityLoadBalancerSetting_Distribute) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1669,42 +1713,50 @@ func (m *LocalityLoadBalancerSetting_Distribute) Marshal() (dAtA []byte, err err
 }
 
 func (m *LocalityLoadBalancerSetting_Distribute) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *LocalityLoadBalancerSetting_Distribute) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.From) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.From)))
-		i += copy(dAtA[i:], m.From)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.To) > 0 {
-		for k, _ := range m.To {
-			dAtA[i] = 0x12
-			i++
+		for k := range m.To {
 			v := m.To[k]
-			mapSize := 1 + len(k) + sovConfig(uint64(len(k))) + 1 + sovConfig(uint64(v))
-			i = encodeVarintConfig(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
+			baseI := i
 			i = encodeVarintConfig(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintConfig(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.From) > 0 {
+		i -= len(m.From)
+		copy(dAtA[i:], m.From)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.From)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *LocalityLoadBalancerSetting_Failover) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1712,36 +1764,46 @@ func (m *LocalityLoadBalancerSetting_Failover) Marshal() (dAtA []byte, err error
 }
 
 func (m *LocalityLoadBalancerSetting_Failover) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *LocalityLoadBalancerSetting_Failover) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.From) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.From)))
-		i += copy(dAtA[i:], m.From)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.To) > 0 {
-		dAtA[i] = 0x12
-		i++
+		i -= len(m.To)
+		copy(dAtA[i:], m.To)
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.To)))
-		i += copy(dAtA[i:], m.To)
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.From) > 0 {
+		i -= len(m.From)
+		copy(dAtA[i:], m.From)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.From)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
+	offset -= sovConfig(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *MeshConfig) Size() (n int) {
 	if m == nil {
@@ -2007,14 +2069,7 @@ func (m *LocalityLoadBalancerSetting_Failover) Size() (n int) {
 }
 
 func sovConfig(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozConfig(x uint64) (n int) {
 	return sovConfig(uint64((x << 1) ^ uint64((int64(x) >> 63))))

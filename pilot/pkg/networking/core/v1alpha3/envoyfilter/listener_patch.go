@@ -484,18 +484,6 @@ func proxyMatch(proxy *model.Proxy, cp *model.EnvoyFilterConfigPatchWrapper) boo
 		return true
 	}
 
-	ver, _ := proxy.GetIstioVersion()
-	if cp.Match.Proxy.GetVersionEq() != "" {
-		if cp.Match.Proxy.GetVersionEq() != ver {
-			return false
-		}
-	} else if cp.Match.Proxy.GetVersionGe() != "" {
-		// this is very unreliable.
-		if ver < cp.Match.Proxy.GetVersionGe() {
-			return false
-		}
-	}
-
 	for k, v := range cp.Match.Proxy.Metadata {
 		if proxy.Metadata[k] != v {
 			return false

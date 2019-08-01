@@ -26,7 +26,8 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	"github.com/gogo/googleapis/google/rpc"
+
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	"istio.io/istio/mixer/adapter/list/config"
 	"istio.io/istio/mixer/pkg/adapter"

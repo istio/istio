@@ -19,10 +19,10 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/status"
 	"github.com/golang/protobuf/ptypes/timestamp"
 
 	contextgraphpb "istio.io/istio/mixer/adapter/stackdriver/internal/google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
+	"istio.io/istio/pkg/mcp/status"
 )
 
 // Maximum payload size allowed for calling this API is 600KB. Set to

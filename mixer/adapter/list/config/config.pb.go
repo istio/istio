@@ -18,6 +18,7 @@ import (
 	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strconv "strconv"
 	strings "strings"
@@ -107,7 +108,7 @@ func (m *Params) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Params.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -179,7 +180,7 @@ func (x Params_ListEntryType) String() string {
 func (m *Params) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -187,86 +188,88 @@ func (m *Params) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.ProviderUrl) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.ProviderUrl)))
-		i += copy(dAtA[i:], m.ProviderUrl)
-	}
-	dAtA[i] = 0x12
-	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.RefreshInterval)))
-	n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.RefreshInterval, dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n1
-	dAtA[i] = 0x1a
-	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.Ttl)))
-	n2, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.Ttl, dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n2
-	dAtA[i] = 0x22
-	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.CachingInterval)))
-	n3, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.CachingInterval, dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n3
-	if m.CachingUseCount != 0 {
-		dAtA[i] = 0x28
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.CachingUseCount))
-	}
-	if len(m.Overrides) > 0 {
-		for _, s := range m.Overrides {
-			dAtA[i] = 0x32
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
-	}
-	if m.EntryType != 0 {
-		dAtA[i] = 0x38
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.EntryType))
-	}
 	if m.Blacklist {
-		dAtA[i] = 0x40
-		i++
+		i--
 		if m.Blacklist {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x40
 	}
-	return i, nil
+	if m.EntryType != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.EntryType))
+		i--
+		dAtA[i] = 0x38
+	}
+	if len(m.Overrides) > 0 {
+		for iNdEx := len(m.Overrides) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Overrides[iNdEx])
+			copy(dAtA[i:], m.Overrides[iNdEx])
+			i = encodeVarintConfig(dAtA, i, uint64(len(m.Overrides[iNdEx])))
+			i--
+			dAtA[i] = 0x32
+		}
+	}
+	if m.CachingUseCount != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.CachingUseCount))
+		i--
+		dAtA[i] = 0x28
+	}
+	n1, err1 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.CachingInterval, dAtA[i-github_com_gogo_protobuf_types.SizeOfStdDuration(m.CachingInterval):])
+	if err1 != nil {
+		return 0, err1
+	}
+	i -= n1
+	i = encodeVarintConfig(dAtA, i, uint64(n1))
+	i--
+	dAtA[i] = 0x22
+	n2, err2 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.Ttl, dAtA[i-github_com_gogo_protobuf_types.SizeOfStdDuration(m.Ttl):])
+	if err2 != nil {
+		return 0, err2
+	}
+	i -= n2
+	i = encodeVarintConfig(dAtA, i, uint64(n2))
+	i--
+	dAtA[i] = 0x1a
+	n3, err3 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.RefreshInterval, dAtA[i-github_com_gogo_protobuf_types.SizeOfStdDuration(m.RefreshInterval):])
+	if err3 != nil {
+		return 0, err3
+	}
+	i -= n3
+	i = encodeVarintConfig(dAtA, i, uint64(n3))
+	i--
+	dAtA[i] = 0x12
+	if len(m.ProviderUrl) > 0 {
+		i -= len(m.ProviderUrl)
+		copy(dAtA[i:], m.ProviderUrl)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.ProviderUrl)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
+	offset -= sovConfig(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Params) Size() (n int) {
 	if m == nil {
@@ -303,14 +306,7 @@ func (m *Params) Size() (n int) {
 }
 
 func sovConfig(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozConfig(x uint64) (n int) {
 	return sovConfig(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -321,9 +317,9 @@ func (this *Params) String() string {
 	}
 	s := strings.Join([]string{`&Params{`,
 		`ProviderUrl:` + fmt.Sprintf("%v", this.ProviderUrl) + `,`,
-		`RefreshInterval:` + strings.Replace(strings.Replace(this.RefreshInterval.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
-		`Ttl:` + strings.Replace(strings.Replace(this.Ttl.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
-		`CachingInterval:` + strings.Replace(strings.Replace(this.CachingInterval.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`RefreshInterval:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.RefreshInterval), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`Ttl:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Ttl), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`CachingInterval:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.CachingInterval), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`CachingUseCount:` + fmt.Sprintf("%v", this.CachingUseCount) + `,`,
 		`Overrides:` + fmt.Sprintf("%v", this.Overrides) + `,`,
 		`EntryType:` + fmt.Sprintf("%v", this.EntryType) + `,`,

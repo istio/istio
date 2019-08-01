@@ -6,12 +6,15 @@ package istio_v1_auth
 import (
 	context "context"
 	fmt "fmt"
-	rpc "github.com/gogo/googleapis/google/rpc"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 )
@@ -51,7 +54,7 @@ func (m *CsrRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_CsrRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -94,7 +97,7 @@ func (m *CsrResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_CsrResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -197,6 +200,14 @@ type IstioCAServiceServer interface {
 	HandleCSR(context.Context, *CsrRequest) (*CsrResponse, error)
 }
 
+// UnimplementedIstioCAServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedIstioCAServiceServer struct {
+}
+
+func (*UnimplementedIstioCAServiceServer) HandleCSR(ctx context.Context, req *CsrRequest) (*CsrResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HandleCSR not implemented")
+}
+
 func RegisterIstioCAServiceServer(s *grpc.Server, srv IstioCAServiceServer) {
 	s.RegisterService(&_IstioCAService_serviceDesc, srv)
 }
@@ -235,7 +246,7 @@ var _IstioCAService_serviceDesc = grpc.ServiceDesc{
 func (m *CsrRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -243,40 +254,48 @@ func (m *CsrRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CsrRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CsrRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.CsrPem) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintCaService(dAtA, i, uint64(len(m.CsrPem)))
-		i += copy(dAtA[i:], m.CsrPem)
-	}
-	if len(m.NodeAgentCredential) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintCaService(dAtA, i, uint64(len(m.NodeAgentCredential)))
-		i += copy(dAtA[i:], m.NodeAgentCredential)
+	if m.RequestedTtlMinutes != 0 {
+		i = encodeVarintCaService(dAtA, i, uint64(m.RequestedTtlMinutes))
+		i--
+		dAtA[i] = 0x20
 	}
 	if len(m.CredentialType) > 0 {
-		dAtA[i] = 0x1a
-		i++
+		i -= len(m.CredentialType)
+		copy(dAtA[i:], m.CredentialType)
 		i = encodeVarintCaService(dAtA, i, uint64(len(m.CredentialType)))
-		i += copy(dAtA[i:], m.CredentialType)
+		i--
+		dAtA[i] = 0x1a
 	}
-	if m.RequestedTtlMinutes != 0 {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintCaService(dAtA, i, uint64(m.RequestedTtlMinutes))
+	if len(m.NodeAgentCredential) > 0 {
+		i -= len(m.NodeAgentCredential)
+		copy(dAtA[i:], m.NodeAgentCredential)
+		i = encodeVarintCaService(dAtA, i, uint64(len(m.NodeAgentCredential)))
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	if len(m.CsrPem) > 0 {
+		i -= len(m.CsrPem)
+		copy(dAtA[i:], m.CsrPem)
+		i = encodeVarintCaService(dAtA, i, uint64(len(m.CsrPem)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *CsrResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -284,53 +303,64 @@ func (m *CsrResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CsrResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CsrResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if len(m.CertChain) > 0 {
+		i -= len(m.CertChain)
+		copy(dAtA[i:], m.CertChain)
+		i = encodeVarintCaService(dAtA, i, uint64(len(m.CertChain)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.SignedCert) > 0 {
+		i -= len(m.SignedCert)
+		copy(dAtA[i:], m.SignedCert)
+		i = encodeVarintCaService(dAtA, i, uint64(len(m.SignedCert)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.Status != nil {
+		{
+			size, err := m.Status.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCaService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
 	if m.IsApproved {
-		dAtA[i] = 0x8
-		i++
+		i--
 		if m.IsApproved {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x8
 	}
-	if m.Status != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintCaService(dAtA, i, uint64(m.Status.Size()))
-		n1, err := m.Status.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n1
-	}
-	if len(m.SignedCert) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintCaService(dAtA, i, uint64(len(m.SignedCert)))
-		i += copy(dAtA[i:], m.SignedCert)
-	}
-	if len(m.CertChain) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintCaService(dAtA, i, uint64(len(m.CertChain)))
-		i += copy(dAtA[i:], m.CertChain)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintCaService(dAtA []byte, offset int, v uint64) int {
+	offset -= sovCaService(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *CsrRequest) Size() (n int) {
 	if m == nil {
@@ -381,14 +411,7 @@ func (m *CsrResponse) Size() (n int) {
 }
 
 func sovCaService(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozCaService(x uint64) (n int) {
 	return sovCaService(uint64((x << 1) ^ uint64((int64(x) >> 63))))

@@ -20,8 +20,9 @@ import (
 	"io"
 	"testing"
 
-	"github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc"
+
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	adapter_integration "istio.io/istio/mixer/pkg/adapter/test"
