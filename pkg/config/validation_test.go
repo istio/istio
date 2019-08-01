@@ -3063,6 +3063,21 @@ func TestValidateEnvoyFilter(t *testing.T) {
 				},
 			},
 		}, error: "envoy filter: invalid regex for proxy version, [error parsing regexp: invalid nested repetition operator: `++`]"},
+		{name: "match with valid regex", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_LISTENER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Proxy: &networking.EnvoyFilter_ProxyMatch{
+							ProxyVersion: `release-1\.2-23434`,
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: ""},
 		{name: "listener with invalid match", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
