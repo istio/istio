@@ -519,6 +519,14 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing patch value for non-remove operation"))
 			continue
 		}
+
+		// ensure that the supplied regex for proxy version compiles
+		if cp.Match != nil && cp.Match.Proxy != nil && cp.Match.Proxy.ProxyVersion != "" {
+			if _, err := regexp.Compile(cp.Match.Proxy.ProxyVersion); err != nil {
+				errs = appendErrors(errs, fmt.Errorf("envoy filter: invalid regex for proxy version, [%v]", err))
+				continue
+			}
+		}
 		// ensure that applyTo, match and patch all line up
 		switch cp.ApplyTo {
 		case networking.EnvoyFilter_LISTENER,

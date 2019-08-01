@@ -3048,6 +3048,21 @@ func TestValidateEnvoyFilter(t *testing.T) {
 				},
 			},
 		}, error: "envoy filter: missing patch value for non-remove operation"},
+		{name: "match with invalid regex", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_LISTENER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Proxy: &networking.EnvoyFilter_ProxyMatch{
+							ProxyVersion: "%#@~++==`24c234`",
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "envoy filter: invalid regex for proxy version, [error parsing regexp: invalid nested repetition operator: `++`]"},
 		{name: "listener with invalid match", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
