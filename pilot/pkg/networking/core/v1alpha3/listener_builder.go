@@ -21,7 +21,6 @@ import (
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -51,6 +50,20 @@ type ListenerBuilder struct {
 	useInboundFilterChain  bool
 }
 
+func insertOriginalListenerName(chain *listener.FilterChain, listenerName string) {
+	if chain.Metadata == nil {
+		chain.Metadata = &core.Metadata{
+			FilterMetadata: map[string]*google_protobuf.Struct{},
+		}
+	}
+	if chain.Metadata.FilterMetadata["originalListener"] == nil {
+		chain.Metadata.FilterMetadata["originalListener"] = &google_protobuf.Struct{
+			Fields: map[string]*google_protobuf.Value{},
+		}
+	}
+	chain.Metadata.FilterMetadata["originalListener"].Fields["name"] = &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: listenerName}}
+}
+
 // Setup the filter chain match so that the match should work under both
 // - bind_to_port == false listener
 // - virtual inbound listener
@@ -68,6 +81,7 @@ func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *xd
 			}
 			chain.FilterChainMatch.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(sockAddr.GetAddress())}
 		}
+		insertOriginalListenerName(chain, l.Name)
 	}
 	for _, filter := range l.ListenerFilters {
 		if needTLS = needTLS || filter.Name == xdsutil.TlsInspector; needTLS {
@@ -388,6 +402,7 @@ func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy
 				filter,
 			},
 		}
+		insertOriginalListenerName(filterChain, VirtualInboundListenerName)
 		filterChains = append(filterChains, filterChain)
 	}
 
