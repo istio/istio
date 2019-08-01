@@ -38,10 +38,11 @@ func TestServiceNode(t *testing.T) {
 		},
 		{
 			in: &model.Proxy{
-				Type:        model.Router,
-				ID:          "random",
-				IPAddresses: []string{"10.3.3.3"},
-				DNSDomain:   "local",
+				Type:         model.Router,
+				ID:           "random",
+				IPAddresses:  []string{"10.3.3.3"},
+				DNSDomain:    "local",
+				IstioVersion: model.MaxIstioVersion,
 			},
 			out: "router~10.3.3.3~random~local",
 		},
@@ -54,6 +55,7 @@ func TestServiceNode(t *testing.T) {
 				Metadata: map[string]string{
 					"INSTANCE_IPS": "10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6",
 				},
+				IstioVersion: model.MaxIstioVersion,
 			},
 			out: "sidecar~10.3.3.3~random~local",
 		},

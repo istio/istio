@@ -41,10 +41,11 @@ var (
 
 	// HelloProxyV0 is a mock proxy v0 of HelloService
 	HelloProxyV0 = model.Proxy{
-		Type:        model.SidecarProxy,
-		IPAddresses: []string{HelloInstanceV0},
-		ID:          "v0.default",
-		DNSDomain:   "default.svc.cluster.local",
+		Type:         model.SidecarProxy,
+		IPAddresses:  []string{HelloInstanceV0},
+		ID:           "v0.default",
+		DNSDomain:    "default.svc.cluster.local",
+		IstioVersion: model.MaxIstioVersion,
 	}
 
 	// MockDiscovery is an in-memory ServiceDiscover with mock services
