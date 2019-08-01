@@ -263,14 +263,12 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 
 // IsIstioVersionGE12 checks whether the given Istio version is greater than or equals 1.2.
 func IsIstioVersionGE12(node *model.Proxy) bool {
-	ver, _ := node.GetIstioVersion()
-	return ver >= "1.2"
+	return node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 2, Patch: -1}) >= 0
 }
 
 // IsIstioVersionGE13 checks whether the given Istio version is greater than or equals 1.3.
 func IsIstioVersionGE13(node *model.Proxy) bool {
-	ver, _ := node.GetIstioVersion()
-	return ver >= "1.3"
+	return node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 3, Patch: -1}) >= 0
 }
 
 // IsXDSMarshalingToAnyEnabled controls whether "marshaling to Any" feature is enabled.
