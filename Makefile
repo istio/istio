@@ -656,15 +656,14 @@ clean.go: ; $(info $(H) cleaning...)
 #-----------------------------------------------------------------------------
 # Target: docker
 #-----------------------------------------------------------------------------
-.PHONY: artifacts gcs.push.istioctl-all artifacts installgen
+.PHONY: push gcs.push gcs.push.istioctl-all gcs.push.deb artifacts installgen
 
 # for now docker is limited to Linux compiles - why ?
 include tools/istio-docker.mk
 
-# if first part of URL (i.e., hostname) is gcr.io then upload istioctl and deb
-$(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),$(eval push: gcs.push.istioctl-all gcs.push.deb),)
-
 push: docker.push installgen
+
+gcs.push: push gcs.push.istioctl-all gcs.push.deb
 
 gcs.push.istioctl-all: istioctl-all
 	gsutil -m cp -r "${ISTIO_OUT}"/istioctl-* "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/istioctl"
