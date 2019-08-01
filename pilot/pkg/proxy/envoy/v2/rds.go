@@ -22,8 +22,8 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext, version string) error {
@@ -32,7 +32,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 		for _, r := range rawRoutes {
 			con.RouteConfigs[r.Name] = r
 			if adsLog.DebugEnabled() {
-				resp, _ := config.ToJSONWithIndent(r, " ")
+				resp, _ := protomarshal.ToJSONWithIndent(r, " ")
 				adsLog.Debugf("RDS: Adding route:%s for node:%v", resp, con.modelNode.ID)
 			}
 		}

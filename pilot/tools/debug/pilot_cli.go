@@ -72,7 +72,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/util/protomarshal"
+
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -325,7 +326,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	strResponse, _ := config.ToJSONWithIndent(resp, " ")
+	strResponse, _ := protomarshal.ToJSONWithIndent(resp, " ")
 	if outputFile == nil || *outputFile == "" {
 		fmt.Printf("%v\n", strResponse)
 	} else if err := ioutil.WriteFile(*outputFile, []byte(strResponse), 0644); err != nil {

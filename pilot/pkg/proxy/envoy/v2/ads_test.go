@@ -21,8 +21,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/tests/util"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -230,7 +230,7 @@ func TestAdsUpdate(t *testing.T) {
 	if lbe[0].GetEndpoint().Address.GetSocketAddress().Address != "10.2.0.1" {
 		t.Error("Expecting 10.2.0.1 got ", lbe[0].GetEndpoint().Address.GetSocketAddress().Address)
 	}
-	strResponse, _ := config.ToJSONWithIndent(res1, " ")
+	strResponse, _ := protomarshal.ToJSONWithIndent(res1, " ")
 	_ = ioutil.WriteFile(env.IstioOut+"/edsv2_sidecar.json", []byte(strResponse), 0644)
 
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
@@ -244,7 +244,7 @@ func TestAdsUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal("Recv2 failed", err)
 	}
-	strResponse, _ = config.ToJSONWithIndent(res1, " ")
+	strResponse, _ = protomarshal.ToJSONWithIndent(res1, " ")
 	_ = ioutil.WriteFile(env.IstioOut+"/edsv2_update.json", []byte(strResponse), 0644)
 }
 

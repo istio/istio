@@ -24,6 +24,7 @@ import (
 	xdsapi_http_connection_manager "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/util/protomarshal"
 
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -342,7 +343,7 @@ func TestLDS(t *testing.T) {
 			return
 		}
 
-		strResponse, _ := config.ToJSONWithIndent(res, " ")
+		strResponse, _ := protomarshal.ToJSONWithIndent(res, " ")
 		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_sidecar.json", []byte(strResponse), 0644)
 
 		if len(res.Resources) == 0 {
@@ -367,7 +368,7 @@ func TestLDS(t *testing.T) {
 			t.Fatal("Failed to receive LDS", err)
 		}
 
-		strResponse, _ := config.ToJSONWithIndent(res, " ")
+		strResponse, _ := protomarshal.ToJSONWithIndent(res, " ")
 
 		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_gateway.json", []byte(strResponse), 0644)
 

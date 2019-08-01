@@ -23,7 +23,9 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/mesh"
 )
 
 var (
@@ -193,7 +195,7 @@ func TestCreateSidecarScope(t *testing.T) {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			var found bool
 			ps := NewPushContext()
-			meshConfig := config.DefaultMeshConfig()
+			meshConfig := mesh.DefaultMeshConfig()
 			ps.Env = &Environment{
 				Mesh: &meshConfig,
 			}
@@ -410,7 +412,7 @@ func TestSidecarOutboundTrafficPolicy(t *testing.T) {
 		},
 	}
 
-	meshConfigWithRegistryOnly, err := config.ApplyMeshConfigDefaults(`
+	meshConfigWithRegistryOnly, err := mesh.ApplyMeshConfigDefaults(`
 outboundTrafficPolicy: 
   mode: REGISTRY_ONLY
 `)
@@ -426,7 +428,7 @@ outboundTrafficPolicy:
 	}{
 		{
 			name:       "default MeshConfig, no Sidecar",
-			meshConfig: config.DefaultMeshConfig(),
+			meshConfig: mesh.DefaultMeshConfig(),
 			sidecar:    nil,
 			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
@@ -434,7 +436,7 @@ outboundTrafficPolicy:
 		},
 		{
 			name:       "default MeshConfig, sidecar without OutboundTrafficPolicy",
-			meshConfig: config.DefaultMeshConfig(),
+			meshConfig: mesh.DefaultMeshConfig(),
 			sidecar:    configWithoutOutboundTrafficPolicy,
 			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
@@ -442,7 +444,7 @@ outboundTrafficPolicy:
 		},
 		{
 			name:       "default MeshConfig, Sidecar with registry only",
-			meshConfig: config.DefaultMeshConfig(),
+			meshConfig: mesh.DefaultMeshConfig(),
 			sidecar:    configRegistryOnly,
 			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
@@ -450,7 +452,7 @@ outboundTrafficPolicy:
 		},
 		{
 			name:       "default MeshConfig, Sidecar with allow any",
-			meshConfig: config.DefaultMeshConfig(),
+			meshConfig: mesh.DefaultMeshConfig(),
 			sidecar:    configAllowAny,
 			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,

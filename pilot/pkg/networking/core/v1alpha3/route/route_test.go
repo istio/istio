@@ -23,9 +23,11 @@ import (
 	"github.com/onsi/gomega"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -66,7 +68,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		ttl := time.Nanosecond * 100
-		meshConfig := config.DefaultMeshConfig()
+		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
 			Env: &model.Environment{
 				Mesh: &meshConfig,
@@ -126,7 +128,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Spec: virtualServiceWithSubset,
 		}
 
-		meshConfig := config.DefaultMeshConfig()
+		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
 			Env: &model.Environment{
 				Mesh: &meshConfig,
@@ -171,7 +173,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Spec: virtualServiceWithSubsetWithPortLevelSettings,
 		}
 
-		meshConfig := config.DefaultMeshConfig()
+		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
 			Env: &model.Environment{
 				Mesh: &meshConfig,
@@ -227,7 +229,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		rule.Subsets = []*networking.Subset{networkingSubset}
 		cnfg.Spec = networkingDestinationRule
 
-		meshConfig := config.DefaultMeshConfig()
+		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
 			Env: &model.Environment{
 				Mesh: &meshConfig,
@@ -255,7 +257,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("port selector based traffic policy", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		meshConfig := config.DefaultMeshConfig()
+		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
 			Env: &model.Environment{
 				Mesh: &meshConfig,
