@@ -20,53 +20,63 @@
 // generate the configuration files for the Layer 7 proxy sidecar. The proxy
 // code is specific to individual proxy implementations
 
-package config
+package protocol_test
 
-import "testing"
+import (
+	"testing"
 
-func TestHTTPProtocol(t *testing.T) {
-	if ProtocolUDP.IsHTTP() {
+	"istio.io/istio/pkg/config/protocol"
+)
+
+func TestIsHTTP(t *testing.T) {
+	if protocol.UDP.IsHTTP() {
 		t.Errorf("UDP is not HTTP protocol")
 	}
-	if !ProtocolGRPC.IsHTTP() {
+	if !protocol.GRPC.IsHTTP() {
 		t.Errorf("gRPC is HTTP protocol")
 	}
 }
 
-func TestParseProtocol(t *testing.T) {
+func TestParse(t *testing.T) {
 	var testPairs = []struct {
 		name string
-		out  Protocol
+		out  protocol.Instance
 	}{
-		{"tcp", ProtocolTCP},
-		{"http", ProtocolHTTP},
-		{"HTTP", ProtocolHTTP},
-		{"Http", ProtocolHTTP},
-		{"https", ProtocolHTTPS},
-		{"http2", ProtocolHTTP2},
-		{"grpc", ProtocolGRPC},
-		{"grpc-web", ProtocolGRPCWeb},
-		{"gRPC-Web", ProtocolGRPCWeb},
-		{"grpc-Web", ProtocolGRPCWeb},
-		{"udp", ProtocolUDP},
-		{"Mongo", ProtocolMongo},
-		{"mongo", ProtocolMongo},
-		{"MONGO", ProtocolMongo},
-		{"Redis", ProtocolRedis},
-		{"redis", ProtocolRedis},
-		{"REDIS", ProtocolRedis},
-		{"Mysql", ProtocolMySQL},
-		{"mysql", ProtocolMySQL},
-		{"MYSQL", ProtocolMySQL},
-		{"MySQL", ProtocolMySQL},
-		{"", ProtocolUnsupported},
-		{"SMTP", ProtocolUnsupported},
+		{"tcp", protocol.TCP},
+		{"http", protocol.HTTP},
+		{"HTTP", protocol.HTTP},
+		{"Http", protocol.HTTP},
+		{"https", protocol.HTTPS},
+		{"http2", protocol.HTTP2},
+		{"grpc", protocol.GRPC},
+		{"grpc-web", protocol.GRPCWeb},
+		{"gRPC-Web", protocol.GRPCWeb},
+		{"grpc-Web", protocol.GRPCWeb},
+		{"udp", protocol.UDP},
+		{"Mongo", protocol.Mongo},
+		{"mongo", protocol.Mongo},
+		{"MONGO", protocol.Mongo},
+		{"Redis", protocol.Redis},
+		{"redis", protocol.Redis},
+		{"REDIS", protocol.Redis},
+		{"Mysql", protocol.MySQL},
+		{"mysql", protocol.MySQL},
+		{"MYSQL", protocol.MySQL},
+		{"MySQL", protocol.MySQL},
+		{"", protocol.Unsupported},
+		{"SMTP", protocol.Unsupported},
 	}
 
 	for _, testPair := range testPairs {
-		out := ParseProtocol(testPair.name)
-		if out != testPair.out {
-			t.Errorf("ParseProtocol(%q) => %q, want %q", testPair.name, out, testPair.out)
+		testName := testPair.name
+		if testName == "" {
+			testName = "[empty]"
 		}
+		t.Run(testName, func(t *testing.T) {
+			out := protocol.Parse(testPair.name)
+			if out != testPair.out {
+				t.Fatalf("Parse(%q) => %q, want %q", testPair.name, out, testPair.out)
+			}
+		})
 	}
 }

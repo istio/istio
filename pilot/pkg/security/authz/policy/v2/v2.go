@@ -22,10 +22,13 @@ import (
 	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/mesh"
+
 	istiolog "istio.io/pkg/log"
 )
 
@@ -114,7 +117,7 @@ func roleForBinding(binding *istio_rbac.ServiceRoleBinding, namespace string, ap
 	} else if binding.Role != "" {
 		if strings.HasPrefix(binding.Role, rootNamespacePrefix) {
 			globalRoleName := strings.TrimPrefix(binding.Role, rootNamespacePrefix)
-			role = ap.RoleForNameAndNamespace(globalRoleName, config.DefaultMeshConfig().RootNamespace)
+			role = ap.RoleForNameAndNamespace(globalRoleName, mesh.DefaultMeshConfig().RootNamespace)
 		} else {
 			role = ap.RoleForNameAndNamespace(binding.Role, namespace)
 		}

@@ -348,6 +348,7 @@ func testSDSStreamOne(t *testing.T, stream sds.SecretDiscoveryService_StreamSecr
 }
 
 func TestStreamSecretsPush(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/15923")
 	// reset connectionNumber since since its value is kept in memory for all unit test cases lifetime, reset since it may be updated in other test case.
 	atomic.StoreInt64(&connectionNumber, 0)
 
@@ -462,6 +463,7 @@ func testSDSStreamMultiplePush(t *testing.T, stream sds.SecretDiscoveryService_S
 // TestStreamSecretsMultiplePush verifies that only one response is pushed per request, and that multiple
 // pushes are detected and skipped.
 func TestStreamSecretsMultiplePush(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/15923")
 	// reset connectionNumber since since its value is kept in memory for all unit test cases lifetime, reset since it may be updated in other test case.
 	atomic.StoreInt64(&connectionNumber, 0)
 
@@ -500,7 +502,7 @@ func TestStreamSecretsMultiplePush(t *testing.T) {
 
 func verifySDSSResponse(t *testing.T, resp *api.DiscoveryResponse, expectedPrivateKey []byte, expectedCertChain []byte) {
 	var pb authapi.Secret
-	if err := types.UnmarshalAny(&resp.Resources[0], &pb); err != nil {
+	if err := types.UnmarshalAny(resp.Resources[0], &pb); err != nil {
 		t.Fatalf("UnmarshalAny SDS response failed: %v", err)
 	}
 
@@ -528,7 +530,7 @@ func verifySDSSResponse(t *testing.T, resp *api.DiscoveryResponse, expectedPriva
 
 func verifySDSSResponseForRootCert(t *testing.T, resp *api.DiscoveryResponse, expectedRootCert []byte) {
 	var pb authapi.Secret
-	if err := types.UnmarshalAny(&resp.Resources[0], &pb); err != nil {
+	if err := types.UnmarshalAny(resp.Resources[0], &pb); err != nil {
 		t.Fatalf("UnmarshalAny SDS response failed: %v", err)
 	}
 

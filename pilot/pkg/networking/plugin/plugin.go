@@ -22,7 +22,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 // ListenerProtocol is the protocol associated with the listener.
@@ -46,13 +46,13 @@ const (
 	Mixer = "mixer"
 )
 
-// ModelProtocolToListenerProtocol converts from a config.Protocol to its corresponding plugin.ListenerProtocol
-func ModelProtocolToListenerProtocol(protocol config.Protocol) ListenerProtocol {
-	switch protocol {
-	case config.ProtocolHTTP, config.ProtocolHTTP2, config.ProtocolGRPC, config.ProtocolGRPCWeb:
+// ModelProtocolToListenerProtocol converts from a config.Instance to its corresponding plugin.ListenerProtocol
+func ModelProtocolToListenerProtocol(p protocol.Instance) ListenerProtocol {
+	switch p {
+	case protocol.HTTP, protocol.HTTP2, protocol.GRPC, protocol.GRPCWeb:
 		return ListenerProtocolHTTP
-	case config.ProtocolTCP, config.ProtocolHTTPS, config.ProtocolTLS,
-		config.ProtocolMongo, config.ProtocolRedis, config.ProtocolMySQL:
+	case protocol.TCP, protocol.HTTPS, protocol.TLS,
+		protocol.Mongo, protocol.Redis, protocol.MySQL:
 		return ListenerProtocolTCP
 	default:
 		return ListenerProtocolUnknown
@@ -78,8 +78,6 @@ type InputParams struct {
 	Env *model.Environment
 	// Node is the node the response is for.
 	Node *model.Proxy
-	// ProxyInstances is a slice of all proxy service instances in the mesh.
-	ProxyInstances []*model.ServiceInstance
 	// ServiceInstance is the service instance colocated with the listener (applies to sidecar).
 	ServiceInstance *model.ServiceInstance
 	// Service is the service colocated with the listener (applies to sidecar).
@@ -95,8 +93,6 @@ type InputParams struct {
 	// SidecarConfig holds the Sidecar CRD associated with this listener
 	SidecarConfig *model.Config
 
-	// The subset associated with the service for which the cluster is being programmed
-	Subset string
 	// Push holds stats and other information about the current push.
 	Push *model.PushContext
 }
@@ -109,14 +105,14 @@ type FilterChain struct {
 	TLSContext *auth.DownstreamTlsContext
 	// ListenerFilters are the filters needed for the whole listener, not particular to this
 	// filter chain.
-	ListenerFilters []listener.ListenerFilter
+	ListenerFilters []*listener.ListenerFilter
 	// ListenerProtocol indicates whether this filter chain is for HTTP or TCP
 	// Note that HTTP filter chains can also have network filters
 	ListenerProtocol ListenerProtocol
 	// HTTP is the set of HTTP filters for this filter chain
 	HTTP []*http_conn.HttpFilter
 	// TCP is the set of network (TCP) filters for this filter chain.
-	TCP []listener.Filter
+	TCP []*listener.Filter
 }
 
 // MutableObjects is a set of objects passed to On*Listener callbacks. Fields may be nil or empty.

@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,27 +53,27 @@ func ParseHostname(hostname config.Hostname) (name string, namespace string, err
 	return
 }
 
-var grpcWeb = string(config.ProtocolGRPCWeb)
+var grpcWeb = string(protocol.GRPCWeb)
 var grpcWebLen = len(grpcWeb)
 
 // ConvertProtocol from k8s protocol and port name
-func ConvertProtocol(name string, proto coreV1.Protocol) config.Protocol {
-	out := config.ProtocolTCP
+func ConvertProtocol(name string, proto coreV1.Protocol) protocol.Instance {
+	out := protocol.TCP
 	switch proto {
 	case coreV1.ProtocolUDP:
-		out = config.ProtocolUDP
+		out = protocol.UDP
 	case coreV1.ProtocolTCP:
 		if len(name) >= grpcWebLen && strings.EqualFold(name[:grpcWebLen], grpcWeb) {
-			out = config.ProtocolGRPCWeb
+			out = protocol.GRPCWeb
 			break
 		}
 		i := strings.IndexByte(name, '-')
 		if i >= 0 {
 			name = name[:i]
 		}
-		protocol := config.ParseProtocol(name)
-		if protocol != config.ProtocolUDP && protocol != config.ProtocolUnsupported {
-			out = protocol
+		p := protocol.Parse(name)
+		if p != protocol.UDP && p != protocol.Unsupported {
+			out = p
 		}
 	}
 	return out

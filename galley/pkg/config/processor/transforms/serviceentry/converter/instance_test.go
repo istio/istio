@@ -21,16 +21,18 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	coreV1 "k8s.io/api/core/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/api/annotation"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/annotations"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/converter"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/pkg/config"
-
-	coreV1 "k8s.io/api/core/v1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 const (
@@ -195,27 +197,27 @@ func TestServicePorts(t *testing.T) {
 	cases := []struct {
 		name  string
 		proto coreV1.Protocol
-		out   config.Protocol
+		out   protocol.Instance
 	}{
-		{"", coreV1.ProtocolTCP, config.ProtocolTCP},
-		{"http", coreV1.ProtocolTCP, config.ProtocolHTTP},
-		{"http-test", coreV1.ProtocolTCP, config.ProtocolHTTP},
-		{"http", coreV1.ProtocolUDP, config.ProtocolUDP},
-		{"httptest", coreV1.ProtocolTCP, config.ProtocolTCP},
-		{"https", coreV1.ProtocolTCP, config.ProtocolHTTPS},
-		{"https-test", coreV1.ProtocolTCP, config.ProtocolHTTPS},
-		{"http2", coreV1.ProtocolTCP, config.ProtocolHTTP2},
-		{"http2-test", coreV1.ProtocolTCP, config.ProtocolHTTP2},
-		{"grpc", coreV1.ProtocolTCP, config.ProtocolGRPC},
-		{"grpc-test", coreV1.ProtocolTCP, config.ProtocolGRPC},
-		{"grpc-web", coreV1.ProtocolTCP, config.ProtocolGRPCWeb},
-		{"grpc-web-test", coreV1.ProtocolTCP, config.ProtocolGRPCWeb},
-		{"mongo", coreV1.ProtocolTCP, config.ProtocolMongo},
-		{"mongo-test", coreV1.ProtocolTCP, config.ProtocolMongo},
-		{"redis", coreV1.ProtocolTCP, config.ProtocolRedis},
-		{"redis-test", coreV1.ProtocolTCP, config.ProtocolRedis},
-		{"mysql", coreV1.ProtocolTCP, config.ProtocolMySQL},
-		{"mysql-test", coreV1.ProtocolTCP, config.ProtocolMySQL},
+		{"", coreV1.ProtocolTCP, protocol.TCP},
+		{"http", coreV1.ProtocolTCP, protocol.HTTP},
+		{"http-test", coreV1.ProtocolTCP, protocol.HTTP},
+		{"http", coreV1.ProtocolUDP, protocol.UDP},
+		{"httptest", coreV1.ProtocolTCP, protocol.TCP},
+		{"https", coreV1.ProtocolTCP, protocol.HTTPS},
+		{"https-test", coreV1.ProtocolTCP, protocol.HTTPS},
+		{"http2", coreV1.ProtocolTCP, protocol.HTTP2},
+		{"http2-test", coreV1.ProtocolTCP, protocol.HTTP2},
+		{"grpc", coreV1.ProtocolTCP, protocol.GRPC},
+		{"grpc-test", coreV1.ProtocolTCP, protocol.GRPC},
+		{"grpc-web", coreV1.ProtocolTCP, protocol.GRPCWeb},
+		{"grpc-web-test", coreV1.ProtocolTCP, protocol.GRPCWeb},
+		{"mongo", coreV1.ProtocolTCP, protocol.Mongo},
+		{"mongo-test", coreV1.ProtocolTCP, protocol.Mongo},
+		{"redis", coreV1.ProtocolTCP, protocol.Redis},
+		{"redis-test", coreV1.ProtocolTCP, protocol.Redis},
+		{"mysql", coreV1.ProtocolTCP, protocol.MySQL},
+		{"mysql-test", coreV1.ProtocolTCP, protocol.MySQL},
 	}
 
 	ip := "10.0.0.1"
@@ -308,7 +310,7 @@ func TestClusterIPWithNoResolution(t *testing.T) {
 			}
 			expected := networking.ServiceEntry{
 				Hosts:      []string{hostForNamespace(namespace)},
-				Addresses:  []string{config.UnspecifiedIP},
+				Addresses:  []string{constants.UnspecifiedIP},
 				Resolution: networking.ServiceEntry_NONE,
 				Location:   networking.ServiceEntry_MESH_INTERNAL,
 				Ports:      []*networking.Port{},
@@ -354,7 +356,7 @@ func TestExternalService(t *testing.T) {
 	}
 	expected := networking.ServiceEntry{
 		Hosts:      []string{hostForNamespace(namespace)},
-		Addresses:  []string{config.UnspecifiedIP},
+		Addresses:  []string{constants.UnspecifiedIP},
 		Resolution: networking.ServiceEntry_DNS,
 		Location:   networking.ServiceEntry_MESH_EXTERNAL,
 		Ports: []*networking.Port{

@@ -26,6 +26,6 @@ set -e
 SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOTDIR=$(dirname "${SCRIPTPATH}")
 
-img=gcr.io/istio-testing/go_generate_dependency:2018-07-26
+img=gcr.io/istio-testing/api-build-tools:2019-07-30
 
-docker run -i --sig-proxy=true --rm --entrypoint go-bindata -v "${ROOTDIR}:${ROOTDIR}" -w "$(pwd)" ${img} "$@"
+docker run -i --sig-proxy=true --rm --entrypoint go-bindata --user "$(id -u)" -v /etc/passwd:/etc/passwd:ro -v "${ROOTDIR}:${ROOTDIR}" -w "$(pwd)" ${img} "$@"

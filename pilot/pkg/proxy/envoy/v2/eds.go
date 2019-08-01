@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 // EDS returns the list of endpoints (IP:port and in future labels) associated with a real
@@ -151,7 +152,7 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpo
 		},
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 			Endpoint: &endpoint.Endpoint{
-				Address: &addr,
+				Address: addr,
 			},
 		},
 	}
@@ -294,7 +295,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 
 			entries := []*model.IstioEndpoint{}
 			for _, port := range svc.Ports {
-				if port.Protocol == config.ProtocolUDP {
+				if port.Protocol == protocol.UDP {
 					continue
 				}
 
@@ -332,7 +333,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 // the endpoints for the cluster.
 func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName string, edsCluster *EdsCluster) error {
 	// TODO: should we lock this as well ? Once we move to event-based it may not matter.
-	var locEps []endpoint.LocalityLbEndpoints
+	var locEps []*endpoint.LocalityLbEndpoints
 	direction, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 
 	if direction == model.TrafficDirectionInbound ||
@@ -583,7 +584,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
 // Envoy v2 Endpoints are constructed from Pilot's older data structure involving
 // model.ServiceInstance objects. Envoy expects the endpoints grouped by zone, so
 // a map is created - in new data structures this should be part of the model.
-func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endpoint.LocalityLbEndpoints {
+func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []*endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
 		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint)
@@ -600,11 +601,11 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 			}
 			localityEpMap[locality] = locLbEps
 		}
-		locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *lbEp)
+		locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, lbEp)
 	}
-	out := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
+	out := make([]*endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
-		out = append(out, *locLbEps)
+		out = append(out, locLbEps)
 	}
 	return out
 }
@@ -892,7 +893,7 @@ func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, 
 	}
 	for _, loadAssignment := range loadAssignments {
 		resource, _ := types.MarshalAny(loadAssignment)
-		out.Resources = append(out.Resources, *resource)
+		out.Resources = append(out.Resources, resource)
 	}
 
 	return out
@@ -904,7 +905,7 @@ func buildLocalityLbEndpointsFromShards(
 	svcPort *model.Port,
 	labels config.LabelsCollection,
 	clusterName string,
-	push *model.PushContext) []endpoint.LocalityLbEndpoints {
+	push *model.PushContext) []*endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 
 	shards.mutex.Lock()
@@ -930,13 +931,13 @@ func buildLocalityLbEndpointsFromShards(
 			if ep.EnvoyEndpoint == nil {
 				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network, ep.LbWeight)
 			}
-			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *ep.EnvoyEndpoint)
+			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, ep.EnvoyEndpoint)
 
 		}
 	}
 	shards.mutex.Unlock()
 
-	locEps := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
+	locEps := make([]*endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
 		var weight uint32
 		for _, ep := range locLbEps.LbEndpoints {
@@ -945,7 +946,7 @@ func buildLocalityLbEndpointsFromShards(
 		locLbEps.LoadBalancingWeight = &types.UInt32Value{
 			Value: weight,
 		}
-		locEps = append(locEps, *locLbEps)
+		locEps = append(locEps, locLbEps)
 	}
 	// Normalize LoadBalancingWeight in range [1, 128]
 	locEps = LoadBalancingWeightNormalize(locEps)

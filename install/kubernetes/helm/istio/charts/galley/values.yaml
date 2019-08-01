@@ -29,3 +29,5 @@ tolerations: []
 # "security" and value "S1".
 podAntiAffinityLabelSelector: []
 podAntiAffinityTermLabelSelector: []
+#HTTPS port of the validation service
+validationPort: 9443

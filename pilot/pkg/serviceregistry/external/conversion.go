@@ -19,15 +19,18 @@ import (
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 func convertPort(port *networking.Port) *model.Port {
 	return &model.Port{
 		Name:     port.Name,
 		Port:     int(port.Number),
-		Protocol: config.ParseProtocol(port.Protocol),
+		Protocol: protocol.Parse(port.Protocol),
 	}
 }
 
@@ -104,7 +107,7 @@ func convertServices(cfg model.Config) []*model.Service {
 				CreationTime: creationTime,
 				MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
 				Hostname:     config.Hostname(host),
-				Address:      config.UnspecifiedIP,
+				Address:      constants.UnspecifiedIP,
 				Ports:        svcPorts,
 				Resolution:   resolution,
 				Attributes: model.ServiceAttributes{

@@ -24,6 +24,7 @@ import (
 	xdsapi_http_connection_manager "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/util/protomarshal"
 
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -239,23 +240,23 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 		return
 	}
 
-	// Expect 6 listeners : 2 orig_dst, 1 http inbound + 4 outbound (http, tcp1, istio-policy and istio-telemetry)
-	// plus 2 extra due to the mem registry
+	// Expect 7 listeners : 2 orig_dst, 1 http inbound + 4 outbound (http, tcp1, istio-policy and istio-telemetry)
 	if (len(adsResponse.HTTPListeners) + len(adsResponse.TCPListeners)) != 7 {
-		t.Fatalf("Expected 8 listeners, got %d\n", len(adsResponse.HTTPListeners)+len(adsResponse.TCPListeners))
+		t.Fatalf("Expected 7 listeners, got %d\n", len(adsResponse.HTTPListeners)+len(adsResponse.TCPListeners))
 	}
 
-	// Expect 10 CDS clusters: 1 inbound + 7 outbound (2 http services, 1 tcp service, 2 istio-system services,
-	// and 2 subsets of http1), 1 blackhole, 1 passthrough
-	// plus 2 extra due to the mem registry
-	if (len(adsResponse.Clusters) + len(adsResponse.EDSClusters)) != 10 {
+	// Expect 12 CDS clusters:
+	// 3 inbound(http, inbound passthroughipv4 and inbound passthroughipv6)
+	// 9 outbound (2 http services, 1 tcp service, 2 istio-system services,
+	//   and 2 subsets of http1, 1 blackhole, 1 passthrough)
+	if (len(adsResponse.Clusters) + len(adsResponse.EDSClusters)) != 12 {
 		t.Fatalf("Expected 12 Clusters in CDS output. Got %d", len(adsResponse.Clusters)+len(adsResponse.EDSClusters))
 	}
 
 	// Expect two vhost blocks in RDS output for 8080 (one for http1, another for http2)
 	// plus one extra due to mem registry
 	if len(adsResponse.Routes["8080"].VirtualHosts) != 3 {
-		t.Fatalf("Expected two VirtualHosts in RDS output. Got %d", len(adsResponse.Routes["8080"].VirtualHosts))
+		t.Fatalf("Expected 3 VirtualHosts in RDS output. Got %d", len(adsResponse.Routes["8080"].VirtualHosts))
 	}
 }
 
@@ -342,7 +343,7 @@ func TestLDS(t *testing.T) {
 			return
 		}
 
-		strResponse, _ := config.ToJSONWithIndent(res, " ")
+		strResponse, _ := protomarshal.ToJSONWithIndent(res, " ")
 		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_sidecar.json", []byte(strResponse), 0644)
 
 		if len(res.Resources) == 0 {
@@ -367,7 +368,7 @@ func TestLDS(t *testing.T) {
 			t.Fatal("Failed to receive LDS", err)
 		}
 
-		strResponse, _ := config.ToJSONWithIndent(res, " ")
+		strResponse, _ := protomarshal.ToJSONWithIndent(res, " ")
 
 		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_gateway.json", []byte(strResponse), 0644)
 
@@ -548,7 +549,7 @@ func expectLuaFilter(t *testing.T, l *xdsapi.Listener, expected bool) {
 		var chain *xdsapi_listener.FilterChain
 		for _, fc := range l.FilterChains {
 			if len(fc.Filters) == 1 && fc.Filters[0].Name == "envoy.http_connection_manager" {
-				chain = &fc
+				chain = fc
 			}
 		}
 		if chain == nil {

@@ -120,13 +120,11 @@ type XdsConnection struct {
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump, error) {
-	dynamicActiveClusters := []adminapi.ClustersConfigDump_DynamicCluster{}
-	clusters, err := s.generateRawClusters(conn.modelNode, s.globalPushContext())
-	if err != nil {
-		return nil, err
-	}
+	dynamicActiveClusters := []*adminapi.ClustersConfigDump_DynamicCluster{}
+	clusters := s.generateRawClusters(conn.modelNode, s.globalPushContext())
+
 	for _, cs := range clusters {
-		dynamicActiveClusters = append(dynamicActiveClusters, adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs})
+		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs})
 	}
 	clustersAny, err := types.MarshalAny(&adminapi.ClustersConfigDump{
 		VersionInfo:           versionInfo(),
@@ -136,13 +134,10 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 		return nil, err
 	}
 
-	dynamicActiveListeners := []adminapi.ListenersConfigDump_DynamicListener{}
-	listeners, err := s.generateRawListeners(conn, s.globalPushContext())
-	if err != nil {
-		return nil, err
-	}
+	dynamicActiveListeners := []*adminapi.ListenersConfigDump_DynamicListener{}
+	listeners := s.generateRawListeners(conn, s.globalPushContext())
 	for _, cs := range listeners {
-		dynamicActiveListeners = append(dynamicActiveListeners, adminapi.ListenersConfigDump_DynamicListener{Listener: cs})
+		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{Listener: cs})
 	}
 	listenersAny, err := types.MarshalAny(&adminapi.ListenersConfigDump{
 		VersionInfo:            versionInfo(),
@@ -152,15 +147,12 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 		return nil, err
 	}
 
-	routes, err := s.generateRawRoutes(conn, s.globalPushContext())
-	if err != nil {
-		return nil, err
-	}
+	routes := s.generateRawRoutes(conn, s.globalPushContext())
 	routeConfigAny, _ := types.MarshalAny(&adminapi.RoutesConfigDump{})
 	if len(routes) > 0 {
-		dynamicRouteConfig := []adminapi.RoutesConfigDump_DynamicRouteConfig{}
+		dynamicRouteConfig := []*adminapi.RoutesConfigDump_DynamicRouteConfig{}
 		for _, rs := range routes {
-			dynamicRouteConfig = append(dynamicRouteConfig, adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
+			dynamicRouteConfig = append(dynamicRouteConfig, &adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
 		}
 		routeConfigAny, err = types.MarshalAny(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
 		if err != nil {
@@ -171,7 +163,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	bootstrapAny, _ := types.MarshalAny(&adminapi.BootstrapConfigDump{})
 	// The config dump must have all configs with order specified in
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
-	configDump := &adminapi.ConfigDump{Configs: []types.Any{*bootstrapAny, *clustersAny, *listenersAny, *routeConfigAny}}
+	configDump := &adminapi.ConfigDump{Configs: []*types.Any{bootstrapAny, clustersAny, listenersAny, routeConfigAny}}
 	return configDump, nil
 }
 

@@ -35,8 +35,9 @@ import (
 	"github.com/onsi/gomega"
 
 	"istio.io/api/annotation"
+
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/mcp/testing/testcerts"
 
 	"k8s.io/api/admission/v1beta1"
@@ -821,7 +822,7 @@ func TestHelmInject(t *testing.T) {
 }
 
 func createTestWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
-	mesh := config.DefaultMeshConfig()
+	m := mesh.DefaultMeshConfig()
 	dir, err := ioutil.TempDir("", "webhook_test")
 	if err != nil {
 		t.Fatalf("TempDir() failed: %v", err)
@@ -836,7 +837,7 @@ func createTestWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) 
 			Template: sidecarTemplate,
 		},
 		sidecarTemplateVersion: "unit-test-fake-version",
-		meshConfig:             &mesh,
+		meshConfig:             &m,
 		valuesConfig:           getValuesWithHelm(nil, t),
 	}, cleanup
 }
@@ -1295,12 +1296,12 @@ func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 	}
 
 	// mesh
-	mesh := config.DefaultMeshConfig()
-	m := jsonpb.Marshaler{
+	m := mesh.DefaultMeshConfig()
+	marshaller := jsonpb.Marshaler{
 		Indent: "  ",
 	}
 	var meshBytes bytes.Buffer
-	if err := m.Marshal(&meshBytes, &mesh); err != nil { // nolint: vetshadow
+	if err := marshaller.Marshal(&meshBytes, &m); err != nil { // nolint: vetshadow
 		cleanup()
 		t.Fatalf("yaml.Marshal(mesh) failed: %v", err)
 	}
@@ -1521,7 +1522,7 @@ func checkCert(t *testing.T, wh *Webhook, cert, key []byte) bool {
 }
 
 func BenchmarkInjectServe(b *testing.B) {
-	mesh := config.DefaultMeshConfig()
+	mesh := mesh.DefaultMeshConfig()
 	params := &Params{
 		InitImage:           InitImageName(unitTestHub, unitTestTag, false),
 		ProxyImage:          ProxyImageName(unitTestHub, unitTestTag, false),

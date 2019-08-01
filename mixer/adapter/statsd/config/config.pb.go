@@ -243,9 +243,9 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0x1a
 	i++
 	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.FlushDuration)))
-	n1, err1 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.FlushDuration, dAtA[i:])
-	if err1 != nil {
-		return 0, err1
+	n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.FlushDuration, dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n1
 	if m.FlushBytes != 0 {
@@ -279,9 +279,9 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintConfig(dAtA, i, uint64(v.Size()))
-				n2, err2 := v.MarshalTo(dAtA[i:])
-				if err2 != nil {
-					return 0, err2
+				n2, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n2
 			}
@@ -412,7 +412,7 @@ func (this *Params) String() string {
 	s := strings.Join([]string{`&Params{`,
 		`Address:` + fmt.Sprintf("%v", this.Address) + `,`,
 		`Prefix:` + fmt.Sprintf("%v", this.Prefix) + `,`,
-		`FlushDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.FlushDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`FlushDuration:` + strings.Replace(strings.Replace(this.FlushDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`FlushBytes:` + fmt.Sprintf("%v", this.FlushBytes) + `,`,
 		`SamplingRate:` + fmt.Sprintf("%v", this.SamplingRate) + `,`,
 		`Metrics:` + mapStringForMetrics + `,`,

@@ -281,7 +281,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 
 	sidecarOutboundRC := &xdsapi.RouteConfiguration{
 		Name: "80",
-		VirtualHosts: []route.VirtualHost{
+		VirtualHosts: []*route.VirtualHost{
 			{
 				Name:    "foo.com",
 				Domains: []string{"domain"},
@@ -291,7 +291,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 	}
 	patchedSidecarOutputRC := &xdsapi.RouteConfiguration{
 		Name: "80",
-		VirtualHosts: []route.VirtualHost{
+		VirtualHosts: []*route.VirtualHost{
 			{
 				Name:    "foo.com",
 				Domains: []string{"domain", "domain:80"},
@@ -305,7 +305,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 	}
 	sidecarInboundRC := &xdsapi.RouteConfiguration{
 		Name: "inbound|http|80",
-		VirtualHosts: []route.VirtualHost{
+		VirtualHosts: []*route.VirtualHost{
 			{
 				Name:    "vhost2",
 				Domains: []string{"domain"},
@@ -314,7 +314,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 	}
 	patchedSidecarInboundRC := &xdsapi.RouteConfiguration{
 		Name: "inbound|http|80",
-		VirtualHosts: []route.VirtualHost{
+		VirtualHosts: []*route.VirtualHost{
 			{
 				Name:    "new-vhost",
 				Domains: []string{"domain:80"},
@@ -324,7 +324,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 
 	gatewayRC := &xdsapi.RouteConfiguration{
 		Name: "80",
-		VirtualHosts: []route.VirtualHost{
+		VirtualHosts: []*route.VirtualHost{
 			{
 				Name:    "vhost1",
 				Domains: []string{"domain"},
@@ -337,7 +337,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 	}
 	patchedGatewayRC := &xdsapi.RouteConfiguration{
 		Name: "80",
-		VirtualHosts: []route.VirtualHost{
+		VirtualHosts: []*route.VirtualHost{
 			{
 				Name:    "gateway",
 				Domains: []string{"gateway", "domain:80"},

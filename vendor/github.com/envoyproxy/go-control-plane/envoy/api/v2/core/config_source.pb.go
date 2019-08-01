@@ -6,15 +6,14 @@ package core
 import (
 	bytes "bytes"
 	fmt "fmt"
-	io "io"
-	math "math"
-	time "time"
-
 	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 	types "github.com/gogo/protobuf/types"
+	io "io"
+	math "math"
+	time "time"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -290,14 +289,13 @@ type ConfigSource struct {
 	//	*ConfigSource_ApiConfigSource
 	//	*ConfigSource_Ads
 	ConfigSourceSpecifier isConfigSource_ConfigSourceSpecifier `protobuf_oneof:"config_source_specifier"`
-	// Optional initialization timeout.
 	// When this timeout is specified, Envoy will wait no longer than the specified time for first
 	// config response on this xDS subscription during the :ref:`initialization process
 	// <arch_overview_initialization>`. After reaching the timeout, Envoy will move to the next
 	// initialization phase, even if the first config is not delivered yet. The timer is activated
 	// when the xDS API subscription starts, and is disarmed on first config update or on error. 0
 	// means no timeout - Envoy will wait indefinitely for the first xDS config (unless another
-	// timeout applies). Default 0.
+	// timeout applies). The default is 15s.
 	InitialFetchTimeout  *types.Duration `protobuf:"bytes,4,opt,name=initial_fetch_timeout,json=initialFetchTimeout,proto3" json:"initial_fetch_timeout,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`

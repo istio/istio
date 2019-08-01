@@ -317,9 +317,9 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.PapertrailLocalRetentionDuration)))
-		n1, err1 := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.PapertrailLocalRetentionDuration, dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.PapertrailLocalRetentionDuration, dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n1
 	}
@@ -343,9 +343,9 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintConfig(dAtA, i, uint64(v.Size()))
-				n2, err2 := v.MarshalTo(dAtA[i:])
-				if err2 != nil {
-					return 0, err2
+				n2, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n2
 			}
@@ -371,9 +371,9 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintConfig(dAtA, i, uint64(v.Size()))
-				n3, err3 := v.MarshalTo(dAtA[i:])
-				if err3 != nil {
-					return 0, err3
+				n3, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n3
 			}

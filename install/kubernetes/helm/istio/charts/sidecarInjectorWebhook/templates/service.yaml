@@ -12,5 +12,6 @@ metadata:
 spec:
   ports:
   - port: 443
+    targetPort: {{ .Values.webhookPort }}
   selector:
     istio: sidecar-injector

@@ -354,9 +354,9 @@ func (m *HandleReportNothingRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.AdapterConfig.Size()))
-		n1, err1 := m.AdapterConfig.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		n1, err := m.AdapterConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n1
 	}
@@ -517,13 +517,8 @@ func (this *HandleReportNothingRequest) String() string {
 	if this == nil {
 		return "nil"
 	}
-	repeatedStringForInstances := "[]*InstanceMsg{"
-	for _, f := range this.Instances {
-		repeatedStringForInstances += strings.Replace(f.String(), "InstanceMsg", "InstanceMsg", 1) + ","
-	}
-	repeatedStringForInstances += "}"
 	s := strings.Join([]string{`&HandleReportNothingRequest{`,
-		`Instances:` + repeatedStringForInstances + `,`,
+		`Instances:` + strings.Replace(fmt.Sprintf("%v", this.Instances), "InstanceMsg", "InstanceMsg", 1) + `,`,
 		`AdapterConfig:` + strings.Replace(fmt.Sprintf("%v", this.AdapterConfig), "Any", "types.Any", 1) + `,`,
 		`DedupId:` + fmt.Sprintf("%v", this.DedupId) + `,`,
 		`}`,
