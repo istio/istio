@@ -20,7 +20,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	google_protobuf "github.com/gogo/protobuf/types"
+	protobuf "github.com/gogo/protobuf/types"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -53,15 +53,16 @@ type ListenerBuilder struct {
 func insertOriginalListenerName(chain *listener.FilterChain, listenerName string) {
 	if chain.Metadata == nil {
 		chain.Metadata = &core.Metadata{
-			FilterMetadata: map[string]*google_protobuf.Struct{},
+			FilterMetadata: map[string]*protobuf.Struct{},
 		}
 	}
 	if chain.Metadata.FilterMetadata[PilotMetaKey] == nil {
-		chain.Metadata.FilterMetadata[PilotMetaKey] = &google_protobuf.Struct{
-			Fields: map[string]*google_protobuf.Value{},
+		chain.Metadata.FilterMetadata[PilotMetaKey] = &protobuf.Struct{
+			Fields: map[string]*protobuf.Value{},
 		}
 	}
-	chain.Metadata.FilterMetadata[PilotMetaKey].Fields["original_listener_name"] = &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: listenerName}}
+	chain.Metadata.FilterMetadata[PilotMetaKey].Fields["original_listener_name"] =
+		&protobuf.Value{Kind: &protobuf.Value_StringValue{StringValue: listenerName}}
 }
 
 // Setup the filter chain match so that the match should work under both
@@ -73,7 +74,7 @@ func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *xd
 	}
 	listenerAddress := l.Address
 	if sockAddr := listenerAddress.GetSocketAddress(); sockAddr != nil {
-		chain.FilterChainMatch.DestinationPort = &google_protobuf.UInt32Value{Value: sockAddr.GetPortValue()}
+		chain.FilterChainMatch.DestinationPort = &protobuf.UInt32Value{Value: sockAddr.GetPortValue()}
 		if cidr := util.ConvertAddressToCidr(sockAddr.GetAddress()); cidr != nil {
 			if chain.FilterChainMatch.PrefixRanges != nil && len(chain.FilterChainMatch.PrefixRanges) != 1 {
 				log.Debugf("Intercepted inbound listener %s have neither 0 or 1 prefix ranges. Actual:  %d",
@@ -110,7 +111,7 @@ func reduceInboundListenerToFilterChains(listeners []*xdsapi.Listener) ([]*liste
 	return chains, needTLS
 }
 
-func (builder *ListenerBuilder) aggregateVirtualInboundListener(node *model.Proxy) *ListenerBuilder {
+func (builder *ListenerBuilder) aggregateVirtualInboundListener() *ListenerBuilder {
 	// Deprecated by envoyproxy. Replaced
 	// 1. filter chains in this listener
 	// 2. explicit original_dst listener filter
@@ -212,7 +213,7 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 	configgen *ConfigGeneratorImpl,
 	env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
 
-	var isTransparentProxy *google_protobuf.BoolValue
+	var isTransparentProxy *protobuf.BoolValue
 	if node.GetInterceptionMode() == model.InterceptionTproxy {
 		isTransparentProxy = proto.BoolTrue
 	}
@@ -264,7 +265,7 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 // TProxy uses only the virtual outbound listener on 15001 for both directions
 // but we still ship the no-op virtual inbound listener, so that the code flow is same across REDIRECT and TPROXY.
 func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environment, node *model.Proxy) *ListenerBuilder {
-	var isTransparentProxy *google_protobuf.BoolValue
+	var isTransparentProxy *protobuf.BoolValue
 	if node.GetInterceptionMode() == model.InterceptionTproxy {
 		isTransparentProxy = proto.BoolTrue
 	}
@@ -279,7 +280,7 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environme
 		FilterChains:   newInboundPassthroughFilterChains(env, node),
 	}
 	if builder.useInboundFilterChain {
-		builder.aggregateVirtualInboundListener(node)
+		builder.aggregateVirtualInboundListener()
 	}
 	return builder
 }
