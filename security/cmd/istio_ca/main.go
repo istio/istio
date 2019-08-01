@@ -48,10 +48,11 @@ import (
 
 type cliOptions struct { // nolint: maligned
 	// Comma separated string containing all listened namespaces
-	listenedNamespaces      string
-	istioCaStorageNamespace string
-	kubeConfigFile          string
-	readSigningCertOnly     bool
+	listenedNamespaces        string
+	enableNamespacesByDefault bool
+	istioCaStorageNamespace   string
+	kubeConfigFile            string
+	readSigningCertOnly       bool
 
 	certChainFile   string
 	signingCertFile string
@@ -60,9 +61,6 @@ type cliOptions struct { // nolint: maligned
 
 	selfSignedCA        bool
 	selfSignedCACertTTL time.Duration
-
-	// if set, namespaces require explicit labeling to have Citadel generate secrets.
-	explicitOptInRequired bool
 
 	workloadCertTTL    time.Duration
 	maxWorkloadCertTTL time.Duration
@@ -152,6 +150,11 @@ func fatalf(template string, args ...interface{}) {
 }
 
 func init() {
+	initCLI()
+	initEnvVars()
+}
+
+func initCLI() {
 	flags := rootCmd.Flags()
 	// General configuration.
 	flags.StringVar(&opts.listenedNamespaces, "listened-namespace", metav1.NamespaceAll, "deprecated")
@@ -165,9 +168,6 @@ func init() {
 			cmd.ListenedNamespaceKey+"} environment variable. If neither is set, Citadel listens to all namespaces.")
 	flags.StringVar(&opts.istioCaStorageNamespace, "citadel-storage-namespace", "istio-system", "Namespace where "+
 		"the Citadel pod is running. Will not be used if explicit file or other storage mechanism is specified.")
-	flags.BoolVar(&opts.explicitOptInRequired, "explicit-opt-in", false, "Specifies whether Citadel requires "+
-		"explicit opt-in for creating secrets. If set, only namespaces labeled with 'istio-managed=enabled' will "+
-		"have secrets created. This feature is only available in key and certificates delivered through secret volume mount.")
 
 	flags.StringVar(&opts.kubeConfigFile, "kube-config", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
@@ -262,6 +262,12 @@ func init() {
 	cmd.InitializeFlags(rootCmd)
 }
 
+func initEnvVars() {
+	enableNamespacesByDefault := env.RegisterBoolVar("CITADEL_ENABLE_NAMESPACES_BY_DEFAULT", true,
+		"Determines whether unlabeled namespaces should be targeted by this Citadel instance").Get()
+	opts.enableNamespacesByDefault = enableNamespacesByDefault
+}
+
 func main() {
 	if err := rootCmd.Execute(); err != nil {
 		log.Errora(err)
@@ -312,10 +318,11 @@ func runCA() {
 	if !opts.serverOnly {
 		log.Infof("Creating Kubernetes controller to write issued keys and certs into secret ...")
 		// For workloads in K8s, we apply the configured workload cert TTL.
-		sc, err := controller.NewSecretController(ca, opts.explicitOptInRequired,
+		sc, err := controller.NewSecretController(ca,
+			opts.enableNamespacesByDefault,
 			opts.workloadCertTTL,
 			opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod, opts.dualUse,
-			cs.CoreV1(), opts.signCACerts, opts.pkcs8Keys, listenedNamespaces, webhooks)
+			cs.CoreV1(), opts.signCACerts, opts.pkcs8Keys, listenedNamespaces, webhooks, opts.istioCaStorageNamespace)
 		if err != nil {
 			fatalf("Failed to create secret controller: %v", err)
 		}
