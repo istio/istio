@@ -54,7 +54,7 @@ var (
 		DNSDomain:   "default.example.org",
 		Metadata: map[string]string{
 			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.3",
+			"ISTIO_VERSION":                   "1.1",
 		},
 		ConfigNamespace: "not-default",
 	}
@@ -65,7 +65,7 @@ var (
 		DNSDomain:   "default.example.org",
 		Metadata: map[string]string{
 			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.3",
+			"ISTIO_VERSION":                   "1.1",
 			model.NodeMetadataHTTP10:          "1",
 		},
 		ConfigNamespace: "not-default",
@@ -77,7 +77,7 @@ var (
 		DNSDomain:   "default.example.org",
 		Metadata: map[string]string{
 			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_PROXY_VERSION":             "1.3",
+			"ISTIO_VERSION":                   "1.3",
 		},
 		ConfigNamespace: "not-default",
 	}
@@ -88,7 +88,7 @@ var (
 		DNSDomain:   "default.example.org",
 		Metadata: map[string]string{
 			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_PROXY_VERSION":             "1.3",
+			"ISTIO_VERSION":                   "1.3",
 			model.NodeMetadataHTTP10:          "1",
 		},
 		ConfigNamespace: "not-default",
@@ -141,12 +141,12 @@ func TestInboundListenerConfigProxy13(t *testing.T) {
 			buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
 			buildService("test2.com", wildcardIP, "unknown", tnow),
 			buildService("test3.com", wildcardIP, protocol.HTTP, tnow.Add(2*time.Second)))
-		testInboundListenerConfigV13(t, p,
-			buildService("test.com", wildcardIP, "unknown", tnow))
-		testInboundListenerConfigWithoutServiceV13(t, p)
-		testInboundListenerConfigWithSidecarV13(t, p,
-			buildService("test.com", wildcardIP, protocol.HTTP, tnow))
-		testInboundListenerConfigWithSidecarWithoutServicesV13(t, p)
+		//testInboundListenerConfigV13(t, p,
+		//	buildService("test.com", wildcardIP, "unknown", tnow))
+		//testInboundListenerConfigWithoutServiceV13(t, p)
+		//testInboundListenerConfigWithSidecarV13(t, p,
+		//	buildService("test.com", wildcardIP, protocol.HTTP, tnow))
+		//testInboundListenerConfigWithSidecarWithoutServicesV13(t, p)
 	}
 }
 
@@ -162,9 +162,9 @@ func TestOutboundListenerConflict_HTTPWithCurrentUnknownV13(t *testing.T) {
 func TestOutboundListenerConflict_WellKnowPortsV13(t *testing.T) {
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
-	//testOutboundListenerConflictV13(t,
-	//	buildServiceWithPort("test1.com", wildcardIP, 3306, protocol.HTTP, tnow.Add(1*time.Second)),
-	//	buildServiceWithPort("test2.com", wildcardIP, 3306, protocol.MySQL, tnow))
+	testOutboundListenerConflictV13(t,
+		buildServiceWithPort("test1.com", wildcardIP, 3306, protocol.HTTP, tnow.Add(1*time.Second)),
+		buildServiceWithPort("test2.com", wildcardIP, 3306, protocol.MySQL, tnow))
 	testOutboundListenerConflictV13(t,
 		buildServiceWithPort("test1.com", wildcardIP, 9999, protocol.HTTP, tnow.Add(1*time.Second)),
 		buildServiceWithPort("test2.com", wildcardIP, 9999, protocol.MySQL, tnow))
@@ -1194,6 +1194,7 @@ func buildOutboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *
 		return nil
 	}
 
+	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata["ISTIO_VERSION"])
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
@@ -1217,6 +1218,8 @@ func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *m
 			Endpoint: buildEndpoint(s),
 		}
 	}
+
+	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata["ISTIO_VERSION"])
 	proxy.ServiceInstances = instances
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")

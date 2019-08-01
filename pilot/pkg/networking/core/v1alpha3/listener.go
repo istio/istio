@@ -988,7 +988,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 			return false, nil
 		}
 
-		if !util.IsProxyVersionGE13(node) {
+		if !util.IsIstioVersionGE13(node) {
 			if pluginParams.Service != nil {
 				if !(*currentListenerEntry).servicePort.Protocol.IsHTTP() {
 					outboundListenerConflict{
@@ -1097,7 +1097,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 			return false, nil
 		}
 
-		if !util.IsProxyVersionGE13(node) {
+		if !util.IsIstioVersionGE13(node) {
 			// Check for port collisions between TCP/TLS and HTTP (or unknown). If
 			// configured correctly, TCP/TLS ports may not collide. We'll
 			// need to do additional work to find out if there is a
@@ -1172,7 +1172,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		}
 
 		// Check if conflict happens
-		if util.IsProxyVersionGE13(node) && currentListenerEntry != nil {
+		if util.IsIstioVersionGE13(node) && currentListenerEntry != nil {
 			// Build HTTP listener. If current listener entry is using HTTP or protocol sniffing,
 			// append the service. Otherwise (TCP), change current listener to use protocol sniffing.
 			if currentListenerEntry.protocol.IsHTTP() {
@@ -1193,7 +1193,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		}
 
 		// Check if conflict happens
-		if util.IsProxyVersionGE13(node) && currentListenerEntry != nil {
+		if util.IsIstioVersionGE13(node) && currentListenerEntry != nil {
 			// Build TCP listener. If current listener entry is using HTTP, add a new TCP filter chain
 			// If current listener is using protocol sniffing, merge the TCP filter chains.
 			if currentListenerEntry.protocol.IsHTTP() {

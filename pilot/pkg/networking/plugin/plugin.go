@@ -61,7 +61,7 @@ func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance) Lis
 	case protocol.UDP:
 		return ListenerProtocolUnknown
 	default:
-		if util.IsProxyVersionGE13(node) {
+		if util.IsIstioVersionGE13(node) {
 			return ListenerProtocolAuto
 		}
 
