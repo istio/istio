@@ -82,23 +82,30 @@ func MustRegisterViews(metrics ...Metric) {
 // NewSum creates a new Metric with an aggregation type of Sum. That means that data collected
 // by the new Metric will be summed before export.
 func NewSum(name, description string, tags ...Tag) Metric {
-	return newMetric(name, description, view.Sum(), tags...)
+	return newMetric(name, description, view.Sum(), stats.UnitDimensionless, tags...)
 }
 
 // NewGauge creates a new Metric with an aggregation type of LastValue. That means that data collected
 // by the new Metric will export only the last recorded value.
 func NewGauge(name, description string, tags ...Tag) Metric {
-	return newMetric(name, description, view.LastValue(), tags...)
+	return newMetric(name, description, view.LastValue(), stats.UnitDimensionless, tags...)
 }
 
 // NewDistribution creates a new Metric with an aggregration type of Distribution. This means that the
 // data collected by the Metric will be collected and exported as a histogram, with the specified bounds.
 func NewDistribution(name, description string, bounds []float64, tags ...Tag) Metric {
-	return newMetric(name, description, view.Distribution(bounds...), tags...)
+	return newMetric(name, description, view.Distribution(bounds...), stats.UnitDimensionless, tags...)
 }
 
-func newMetric(name, description string, aggregation *view.Aggregation, tags ...Tag) Metric {
-	return newFloat64Metric(name, description, aggregation, tags...)
+// NewBytesDistribution creates a new Metric with an aggregration type of Distribution, specifically with
+// a unit of "Bytes". This means that the data collected by the Metric will be collected and exported as a
+// histogram, with the specified bounds.
+func NewBytesDistribution(name, description string, bounds []float64, tags ...Tag) Metric {
+	return newMetric(name, description, view.Distribution(bounds...), stats.UnitBytes, tags...)
+}
+
+func newMetric(name, description string, aggregation *view.Aggregation, units string, tags ...Tag) Metric {
+	return newFloat64Metric(name, description, aggregation, units, tags...)
 }
 
 type float64Metric struct {
@@ -108,15 +115,15 @@ type float64Metric struct {
 	view *view.View
 }
 
-func newFloat64Metric(name, description string, aggregation *view.Aggregation, tags ...Tag) *float64Metric {
-	measure := stats.Float64(name, description, stats.UnitDimensionless)
+func newFloat64Metric(name, description string, aggregation *view.Aggregation, units string, tags ...Tag) *float64Metric {
+	measure := stats.Float64(name, description, units)
 	tagKeys := make([]tag.Key, 0, len(tags))
 	for _, t := range tags {
 		tagKeys = append(tagKeys, tag.Key(t))
 	}
 	return &float64Metric{
 		measure,
-		make([]tag.Mutator, 0, len(tags)),
+		make([]tag.Mutator, 0),
 		&view.View{Measure: measure, TagKeys: tagKeys, Aggregation: aggregation},
 	}
 }
@@ -134,7 +141,7 @@ func (f *float64Metric) Record(value float64) {
 }
 
 func (f *float64Metric) With(tagValues ...TagValue) Metric {
-	t := make([]tag.Mutator, 0, len(f.tags)+len(tagValues))
+	t := make([]tag.Mutator, len(f.tags))
 	copy(t, f.tags)
 	for _, tagValue := range tagValues {
 		t = append(t, tag.Mutator(tagValue))
