@@ -21,7 +21,11 @@ spec:
     name: http
   - port: 8080
     targetPort: {{.port2}}
+{{if eq .sniffProtocol "true"}}
+    name: foo
+{{else}}
     name: http-two
+{{end}}
 {{if eq .headless "true"}}
   - port: 10090
     targetPort: {{.port3}}
@@ -29,14 +33,22 @@ spec:
 {{else}}
   - port: 90
     targetPort: {{.port3}}
+{{if eq .sniffProtocol "true"}}
+    name: bar
+{{else}}
     name: tcp
+{{end}}
   - port: 9090
     targetPort: {{.port4}}
     name: tcp-two
 {{end}}
   - port: 70
     targetPort: {{.port5}}
+{{if eq .sniffProtocol "true"}}
+    name: qux
+{{else}}
     name: http2-example
+{{end}}
   - port: 7070
     targetPort: {{.port6}}
     name: grpc
