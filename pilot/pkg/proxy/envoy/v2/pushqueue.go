@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-type PushInformation struct {
+type PushEvent struct {
 	// If not empty, it is used to indicate the event is caused by a change in the clusters.
 	// Only EDS for the listed clusters will be sent.
 	edsUpdatedServices map[string]struct{}
@@ -37,58 +37,59 @@ type PushInformation struct {
 type PushQueue struct {
 	mu          *sync.RWMutex
 	cond        *sync.Cond
-	connections map[*XdsConnection]*PushInformation
-	order       []*XdsConnection
+	eventsMap   map[*XdsConnection]*PushEvent
+	connections []*XdsConnection
 }
 
 func NewPushQueue() *PushQueue {
 	mu := &sync.RWMutex{}
 	return &PushQueue{
-		mu:          mu,
-		connections: make(map[*XdsConnection]*PushInformation),
-		cond:        sync.NewCond(mu),
+		mu:        mu,
+		eventsMap: make(map[*XdsConnection]*PushEvent),
+		cond:      sync.NewCond(mu),
 	}
 }
 
 // Add will mark a proxy as pending a push. If it is already pending, pushInfo will be merged.
 // edsUpdatedServices will be added together, and full will be set if either were full
-func (p *PushQueue) Enqueue(proxy *XdsConnection, pushInfo *PushInformation) {
+func (p *PushQueue) Enqueue(proxy *XdsConnection, pushInfo *PushEvent) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	info, exists := p.connections[proxy]
+	event, exists := p.eventsMap[proxy]
 	if !exists {
-		p.connections[proxy] = pushInfo
-		p.order = append(p.order, proxy)
+		p.eventsMap[proxy] = pushInfo
+		p.connections = append(p.connections, proxy)
 	} else {
-		info.push = pushInfo.push
-		info.full = info.full || pushInfo.full
+		event.push = pushInfo.push
+		event.full = event.full || pushInfo.full
 
 		edsUpdates := map[string]struct{}{}
 		for endpoint := range pushInfo.edsUpdatedServices {
 			edsUpdates[endpoint] = struct{}{}
 		}
-		for endpoint := range info.edsUpdatedServices {
+		for endpoint := range event.edsUpdatedServices {
 			edsUpdates[endpoint] = struct{}{}
 		}
-		info.edsUpdatedServices = edsUpdates
+		event.edsUpdatedServices = edsUpdates
 	}
 	p.cond.Signal()
 }
 
 // Remove a proxy from the queue. If there are no proxies ready to be removed, this will block
-func (p *PushQueue) Dequeue() (*XdsConnection, *PushInformation) {
+func (p *PushQueue) Dequeue() (*XdsConnection, *PushEvent) {
 	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	// Block until there is one to remove. Enqueue will signal when one is added.
-	for len(p.order) == 0 {
+	for len(p.connections) == 0 {
 		p.cond.Wait()
 	}
 
-	defer p.mu.Unlock()
-	head := p.order[0]
-	p.order = p.order[1:]
-	info := p.connections[head]
-	delete(p.connections, head)
+	head := p.connections[0]
+	p.connections = p.connections[1:]
+	info := p.eventsMap[head]
+	delete(p.eventsMap, head)
 	return head, info
 }
 
@@ -96,5 +97,5 @@ func (p *PushQueue) Dequeue() (*XdsConnection, *PushInformation) {
 func (p *PushQueue) Pending() int {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return len(p.order)
+	return len(p.connections)
 }
