@@ -54,7 +54,11 @@ const (
 )
 
 var (
+	// Function that creates Kubernetes client-go; making it a variable lets us mock client-go
 	interfaceFactory = createInterface
+
+	// Ignore unmeshed pods.  This makes it easy to suppress warnings about kube-system etc
+	ignoreUnmeshed = false
 )
 
 func podInspectCmd() *cobra.Command {
@@ -103,7 +107,8 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 					}
 				}
 			}
-			if len(matchingServices) == 0 {
+			// Validate Istio's "Service association" requirement
+			if len(matchingServices) == 0 && !ignoreUnmeshed {
 				fmt.Fprintf(cmd.OutOrStdout(),
 					"Warning: No Kubernetes Services select pod %s (see https://istio.io/docs/setup/kubernetes/additional-setup/requirements/ )\n", // nolint: lll
 					kname(pod.ObjectMeta))
@@ -127,6 +132,10 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 
 			byConfigDump, err := kubeClient.EnvoyDo(podName, ns, "GET", "config_dump", nil)
 			if err != nil {
+				if ignoreUnmeshed {
+					return nil
+				}
+
 				return fmt.Errorf("failed to execute command on sidecar: %v", err)
 			}
 
@@ -186,6 +195,9 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			return nil
 		},
 	}
+
+	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,
+		"Suppress warnings for unmeshed pods")
 
 	return cmd
 }
@@ -473,21 +485,33 @@ func printPod(writer io.Writer, pod *v1.Pod) {
 	}
 
 	fmt.Fprintf(writer, "Pod: %s\n", kname(pod.ObjectMeta))
-	fmt.Fprintf(writer, "   Pod Ports: %s\n", strings.Join(ports, ", "))
-
-	for _, containerStatus := range pod.Status.ContainerStatuses {
-		if !containerStatus.Ready {
-			fmt.Fprintf(writer, "WARNING: Container %s NOT READY\n", containerStatus.Name)
-		}
+	if len(ports) > 0 {
+		fmt.Fprintf(writer, "   Pod Ports: %s\n", strings.Join(ports, ", "))
+	} else {
+		fmt.Fprintf(writer, "   Pod does not expose ports\n")
 	}
 
-	if !isMeshed(pod) {
-		fmt.Fprintf(writer, "WARNING: Not part of mesh; no Istio sidecar\n")
+	if pod.Status.Phase != v1.PodRunning {
+		fmt.Printf("   Pod is not %s (%s)\n", v1.PodRunning, pod.Status.Phase)
 		return
 	}
 
-	// TODO Should we validate Deployment for app and version label?
-	// Or Pod?  istio-vet validates the pod.  https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if !containerStatus.Ready {
+			fmt.Fprintf(writer, "WARNING: Pod %s Container %s NOT READY\n", kname(pod.ObjectMeta), containerStatus.Name)
+		}
+	}
+
+	if ignoreUnmeshed {
+		return
+	}
+
+	if !isMeshed(pod) {
+		fmt.Fprintf(writer, "WARNING: %s is part of mesh; no Istio sidecar\n", kname(pod.ObjectMeta))
+		return
+	}
+
+	// https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
 	// says "We recommend adding an explicit app label and version label to deployments."
 	app, ok := pod.ObjectMeta.Labels["app"]
 	if !ok || app == "" {
