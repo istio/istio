@@ -20,14 +20,13 @@ import (
 
 	ingress "k8s.io/api/extensions/v1beta1"
 
+	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
-	"istio.io/istio/galley/pkg/config/processor/transforms/ingress/annotations"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/synthesize"
 )
@@ -141,7 +140,7 @@ func (g *gatewayXform) convertIngressToGateway(e *resource.Entry) *resource.Entr
 	}
 
 	ann := e.Metadata.Annotations.Clone()
-	ann.Delete(annotations.IngressClass.Name)
+	ann.Delete(annotation.IoKubernetesIngressClass.Name)
 
 	gw := &resource.Entry{
 		Metadata: resource.Metadata{

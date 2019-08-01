@@ -12,6 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate ../../scripts/go-bindata.sh --nocompress --nometadata --pkg assets -o assets.gen.go ./templates/... ./static/...
+//go:generate ../../scripts/run_gobindata.sh --nocompress --nometadata --pkg assets -o assets.gen.go ./templates/... ./static/...
 
 package assets
