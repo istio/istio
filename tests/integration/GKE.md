@@ -121,7 +121,7 @@ GOOS=linux make docker push
 
 #### Option 2: Use pre-built Istio images
 
-In this case, you'll need to specify the image SHA in the `TAG` environment variable. You can pick any SHA available on istio/istio.
+In this case, you'll need to specify the image SHA in the `TAG` environment variable. You can pick any SHA available on istio/istio or use the `master-latest-daily` tag.
 
 ```bash
 export HUB="gcr.io/istio-testing"
