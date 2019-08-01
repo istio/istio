@@ -145,12 +145,12 @@ type UpdateReq struct {
 	// Full determines whether a full push is required or not. If set to false, only endpoints will be sent.
 	Full bool
 
-	// UpdateNamespaces contains a list of namespaces that were changed in the update.
+	// TargetNamespaces contains a list of namespaces that were changed in the update.
 	// This is used as an optimization to avoid unnecessary pushes to proxies that are scoped with a Sidecar.
 	// Currently, this will only scope EDS updates, as config updates are more complicated.
 	// If this is empty, then proxies in all namespaces will get an update
 	// If this is present, then only proxies that import this namespace will get an update
-	UpdateNamespaces map[string]struct{}
+	TargetNamespaces map[string]struct{}
 }
 
 // Merge two update requests together
@@ -161,12 +161,12 @@ func (first *UpdateReq) Merge(other *UpdateReq) *UpdateReq {
 	first.Full = first.Full || other.Full
 
 	// If either does not specify only namespaces, this means update all namespaces
-	if len(first.UpdateNamespaces) == 0 || len(other.UpdateNamespaces) == 0 {
-		first.UpdateNamespaces = map[string]struct{}{}
+	if len(first.TargetNamespaces) == 0 || len(other.TargetNamespaces) == 0 {
+		first.TargetNamespaces = map[string]struct{}{}
 	} else {
 		// Merge the updates
-		for update := range other.UpdateNamespaces {
-			first.UpdateNamespaces[update] = struct{}{}
+		for update := range other.TargetNamespaces {
+			first.TargetNamespaces[update] = struct{}{}
 		}
 	}
 	return first

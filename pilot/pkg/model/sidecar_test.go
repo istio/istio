@@ -387,20 +387,34 @@ func TestContainsEgressNamespace(t *testing.T) {
 		namespace string
 		contains  bool
 	}{
-		{"Just wildcard", []string{"*"}, "ns", true},
-		{"Namespace and wildcard", []string{"ns", "*"}, "ns", true},
-		{"Just Namespace", []string{"ns"}, "ns", true},
-		{"Wrong Namespace", []string{"ns"}, "other-ns", false},
+		{"Just wildcard", []string{"*/*"}, "ns", true},
+		{"Namespace and wildcard", []string{"ns/*", "*/*"}, "ns", true},
+		{"Just Namespace", []string{"ns/*"}, "ns", true},
+		{"Wrong Namespace", []string{"ns/*"}, "other-ns", false},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			lw := &IstioEgressListenerWrapper{
-				listenerHosts: make(map[string][]config.Hostname),
+			cfg := &Config{
+				ConfigMeta: ConfigMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: &networking.Sidecar{
+					Egress: []*networking.IstioEgressListener{
+						{
+							Hosts: tt.egress,
+						},
+					},
+				},
 			}
-			for _, ns := range tt.egress {
-				lw.listenerHosts[ns] = []config.Hostname{}
+			ps := NewPushContext()
+			meshConfig := mesh.DefaultMeshConfig()
+			ps.Env = &Environment{
+				Mesh: &meshConfig,
 			}
-			got := lw.ContainsEgressNamespace(tt.namespace)
+			sidecarScope := ConvertToSidecarScope(ps, cfg, "default")
+
+			got := sidecarScope.DependsOnNamespace(tt.namespace)
 			if got != tt.contains {
 				t.Fatalf("Expected contains %v, got %v", got, tt.contains)
 			}

@@ -681,16 +681,14 @@ func proxyNeedsPush(con *XdsConnection, req *model.UpdateReq) bool {
 	}
 
 	// If no only namespaces specified, this request applies to all proxies
-	if len(req.UpdateNamespaces) == 0 {
+	if len(req.TargetNamespaces) == 0 {
 		return true
 	}
 
 	// Otherwise, only apply if the egress listener will import the config present in the update
-	for _, egress := range con.modelNode.SidecarScope.EgressListeners {
-		for ns := range req.UpdateNamespaces {
-			if egress.ContainsEgressNamespace(ns) {
-				return true
-			}
+	for ns := range req.TargetNamespaces {
+		if con.modelNode.SidecarScope.DependsOnNamespace(ns) {
+			return true
 		}
 	}
 

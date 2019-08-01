@@ -574,7 +574,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
 	// no need to trigger push here.
 	// It is done in DiscoveryServer.Push --> AdsPushAll
 	if !internal {
-		s.ConfigUpdate(model.UpdateReq{Full: requireFull, UpdateNamespaces: map[string]struct{}{namespace: {}}})
+		s.ConfigUpdate(model.UpdateReq{Full: requireFull, TargetNamespaces: map[string]struct{}{namespace: {}}})
 	}
 }
 

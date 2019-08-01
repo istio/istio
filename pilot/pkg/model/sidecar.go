@@ -93,6 +93,9 @@ type SidecarScope struct {
 	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
 	// be forwarded.
 	OutboundTrafficPolicy *networking.OutboundTrafficPolicy
+
+	// Set of all namespaces this sidecar depends on. This is determined from the egress config
+	namespaceDependencies map[string]struct{}
 }
 
 // IstioEgressListenerWrapper is a wrapper for
@@ -165,9 +168,10 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	defaultEgressListener.virtualServices = ps.VirtualServices(&dummyNode, meshGateway)
 
 	out := &SidecarScope{
-		EgressListeners:  []*IstioEgressListenerWrapper{defaultEgressListener},
-		services:         defaultEgressListener.services,
-		destinationRules: make(map[host.Name]*Config),
+		EgressListeners:       []*IstioEgressListenerWrapper{defaultEgressListener},
+		services:              defaultEgressListener.services,
+		destinationRules:      make(map[host.Name]*Config),
+		namespaceDependencies: map[string]struct{}{wildcardNamespace: {}},
 	}
 	out.NamespaceForHostname = createNamespaceForHostname(out.EgressListeners)
 
@@ -227,6 +231,14 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	out.destinationRules = make(map[host.Name]*Config)
 	for _, s := range out.services {
 		out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
+	}
+
+	// Assign namespace dependencies
+	out.namespaceDependencies = make(map[string]struct{})
+	for _, egress := range out.EgressListeners {
+		for ns := range egress.listenerHosts {
+			out.namespaceDependencies[ns] = struct{}{}
+		}
 	}
 
 	if r.OutboundTrafficPolicy == nil {
@@ -373,17 +385,18 @@ func (ilw *IstioEgressListenerWrapper) VirtualServices() []Config {
 	return ilw.virtualServices
 }
 
-// ContainsEgressNamespace determines if the Sidecar includes the given namespace.
-func (ilw *IstioEgressListenerWrapper) ContainsEgressNamespace(namespace string) bool {
-	if ilw == nil {
+// DependsOnNamespace determines if the Sidecar includes the given namespace.
+func (sc *SidecarScope) DependsOnNamespace(namespace string) bool {
+	if sc == nil {
+		return true
+	}
+	if _, f := sc.namespaceDependencies[wildcardNamespace]; f {
+		return true
+	}
+	if _, f := sc.namespaceDependencies[namespace]; f {
 		return true
 	}
 
-	for hostNs := range ilw.listenerHosts {
-		if hostNs == wildcardNamespace || namespace == hostNs {
-			return true
-		}
-	}
 	return false
 }
 
