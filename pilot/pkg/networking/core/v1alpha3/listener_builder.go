@@ -56,12 +56,12 @@ func insertOriginalListenerName(chain *listener.FilterChain, listenerName string
 			FilterMetadata: map[string]*google_protobuf.Struct{},
 		}
 	}
-	if chain.Metadata.FilterMetadata["originalListener"] == nil {
-		chain.Metadata.FilterMetadata["originalListener"] = &google_protobuf.Struct{
+	if chain.Metadata.FilterMetadata[PilotMetaKey] == nil {
+		chain.Metadata.FilterMetadata[PilotMetaKey] = &google_protobuf.Struct{
 			Fields: map[string]*google_protobuf.Value{},
 		}
 	}
-	chain.Metadata.FilterMetadata["originalListener"].Fields["name"] = &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: listenerName}}
+	chain.Metadata.FilterMetadata[PilotMetaKey].Fields["original_listener_name"] = &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: listenerName}}
 }
 
 // Setup the filter chain match so that the match should work under both
@@ -110,7 +110,7 @@ func reduceInboundListenerToFilterChains(listeners []*xdsapi.Listener) ([]*liste
 	return chains, needTLS
 }
 
-func (builder *ListenerBuilder) aggregateVirtualInboundListener(env *model.Environment, node *model.Proxy) *ListenerBuilder {
+func (builder *ListenerBuilder) aggregateVirtualInboundListener(node *model.Proxy) *ListenerBuilder {
 	// Deprecated by envoyproxy. Replaced
 	// 1. filter chains in this listener
 	// 2. explicit original_dst listener filter
@@ -122,10 +122,10 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener(env *model.Envir
 		},
 	)
 	filterChains, needTLS := reduceInboundListenerToFilterChains(builder.inboundListeners)
-	for _, c := range filterChains {
-		builder.virtualInboundListener.FilterChains =
-			append(builder.virtualInboundListener.FilterChains, c)
-	}
+
+	builder.virtualInboundListener.FilterChains =
+		append(builder.virtualInboundListener.FilterChains, filterChains...)
+
 	if needTLS {
 		builder.virtualInboundListener.ListenerFilters =
 			append(builder.virtualInboundListener.ListenerFilters, &listener.ListenerFilter{
@@ -279,7 +279,7 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environme
 		FilterChains:   newInboundPassthroughFilterChains(env, node),
 	}
 	if builder.useInboundFilterChain {
-		builder.aggregateVirtualInboundListener(env, node)
+		builder.aggregateVirtualInboundListener(node)
 	}
 	return builder
 }
@@ -362,7 +362,7 @@ func newBlackholeFilter(enableAny bool) listener.Filter {
 	return filter
 }
 
-// Create pass through filter chains matching ipv4 address and ipv6 address independantly.
+// Create pass through filter chains matching ipv4 address and ipv6 address independently.
 func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy) []*listener.FilterChain {
 	// ipv4 and ipv6
 	filterChains := make([]*listener.FilterChain, 0, 2)

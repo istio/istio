@@ -198,13 +198,14 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 	l := listeners[2]
 	// 2 is the passthrough tcp filter chains one for ipv4 and one for ipv6
 	if len(l.FilterChains) != len(listeners[0].FilterChains)+2 {
-		t.Fatalf("expect virtual listener has %d filter chains as the sum of 2nd level listeners plus the fallthrough filter chains, found %d", len(listeners[0].FilterChains), len(l.FilterChains)+2)
+		t.Fatalf("expect virtual listener has %d filter chains as the sum of 2nd level listeners "+
+			"plus the 2 fallthrough filter chains, found %d", len(listeners[0].FilterChains)+2, len(l.FilterChains))
 	}
 
 	byListenerName := map[string]int{}
 
 	for _, fc := range l.FilterChains {
-		byListenerName[fc.Metadata.FilterMetadata["originalListener"].Fields["name"].GetStringValue()]++
+		byListenerName[fc.Metadata.FilterMetadata[PilotMetaKey].Fields["original_listener_name"].GetStringValue()]++
 	}
 
 	for k, v := range byListenerName {
