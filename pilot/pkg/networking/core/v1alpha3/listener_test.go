@@ -420,10 +420,8 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 		if oldestService.Ports[0].Port == 3306 {
 			if len(listeners[0].FilterChains) != 2 {
 				t.Fatalf("expectd %d filter chains, found %d", 2, len(listeners[0].FilterChains))
-			} else {
-				if !isTCPFilterChain(listeners[0].FilterChains[1]) {
-					t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
-				}
+			} else if !isTCPFilterChain(listeners[0].FilterChains[1]) {
+				t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
 			}
 		} else {
 			if len(listeners[0].FilterChains) != 4 {
