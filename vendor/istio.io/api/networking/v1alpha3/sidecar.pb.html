@@ -313,7 +313,9 @@ associated <code>DestinationRule</code> in the same namespace will also be used.
 a wildcard character in the left-most component (e.g., <code>prod/*.example.com</code>).
 Set the <code>dnsName</code> to <code>*</code> to select all services from the specified namespace
 (e.g., <code>prod/*</code>). The <code>namespace</code> can also be set to <code>*</code> to select a particular
-service from any available namespace (e.g., <code>*/foo.example.com</code>).</p>
+service from any available namespace (e.g., <code>*/foo.example.com</code>).
+If a host is set to <code>*/*</code>,  Istio will automatically configure the sidecar to
+be able to reach every service in the mesh that is visible to this namespace.</p>
 
 <p>NOTE: Only services and configuration artifacts exported to the sidecar&rsquo;s
 namespace (e.g., <code>exportTo</code> value of <code>*</code>) can be referenced.
@@ -493,10 +495,9 @@ workload instance is associated with a service.</p>
 <td><code>egress</code></td>
 <td><code><a href="#IstioEgressListener">IstioEgressListener[]</a></code></td>
 <td>
-<p>Egress specifies the configuration of the sidecar for processing
+<p>REQUIRED. Egress specifies the configuration of the sidecar for processing
 outbound traffic from the attached workload instance to other services in the
-mesh. If omitted, Istio will automatically configure the sidecar to be able to
-reach every service in the mesh that is visible to this namespace.</p>
+mesh.</p>
 
 </td>
 </tr>

@@ -19,8 +19,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gogo/googleapis/google/rpc"
 	"github.com/gogo/protobuf/types"
+
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	bypass "istio.io/istio/mixer/adapter/bypass/config"
 	circonus "istio.io/istio/mixer/adapter/circonus/config"

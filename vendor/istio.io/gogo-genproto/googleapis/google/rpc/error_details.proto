@@ -18,7 +18,6 @@ package google.rpc;
 
 import "google/protobuf/duration.proto";
 
-option go_package = "rpc";
 option java_multiple_files = true;
 option java_outer_classname = "ErrorDetailsProto";
 option java_package = "com.google.rpc";

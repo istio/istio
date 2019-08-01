@@ -23,10 +23,11 @@ import (
 	"sync"
 	"time"
 
-	google_rpc "github.com/gogo/googleapis/google/rpc"
 	types "github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
+
+	google_rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"

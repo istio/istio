@@ -16,6 +16,7 @@ import (
 	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strconv "strconv"
 	strings "strings"
@@ -83,7 +84,7 @@ func (m *Params) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Params.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -122,7 +123,7 @@ func (m *Params_MetricInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_Params_MetricInfo.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -191,7 +192,7 @@ func (x Params_MetricInfo_Type) String() string {
 func (m *Params) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -199,43 +200,51 @@ func (m *Params) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.SubmissionUrl) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.SubmissionUrl)))
-		i += copy(dAtA[i:], m.SubmissionUrl)
-	}
-	dAtA[i] = 0x12
-	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.SubmissionInterval)))
-	n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.SubmissionInterval, dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n1
 	if len(m.Metrics) > 0 {
-		for _, msg := range m.Metrics {
-			dAtA[i] = 0x1a
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.Metrics) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Metrics[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintConfig(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0x1a
 		}
 	}
-	return i, nil
+	n1, err1 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.SubmissionInterval, dAtA[i-github_com_gogo_protobuf_types.SizeOfStdDuration(m.SubmissionInterval):])
+	if err1 != nil {
+		return 0, err1
+	}
+	i -= n1
+	i = encodeVarintConfig(dAtA, i, uint64(n1))
+	i--
+	dAtA[i] = 0x12
+	if len(m.SubmissionUrl) > 0 {
+		i -= len(m.SubmissionUrl)
+		copy(dAtA[i:], m.SubmissionUrl)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.SubmissionUrl)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Params_MetricInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -243,32 +252,40 @@ func (m *Params_MetricInfo) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params_MetricInfo) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params_MetricInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
 	if m.Type != 0 {
-		dAtA[i] = 0x10
-		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.Type))
+		i--
+		dAtA[i] = 0x10
 	}
-	return i, nil
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
+	offset -= sovConfig(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Params) Size() (n int) {
 	if m == nil {
@@ -308,14 +325,7 @@ func (m *Params_MetricInfo) Size() (n int) {
 }
 
 func sovConfig(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozConfig(x uint64) (n int) {
 	return sovConfig(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -324,10 +334,15 @@ func (this *Params) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForMetrics := "[]*Params_MetricInfo{"
+	for _, f := range this.Metrics {
+		repeatedStringForMetrics += strings.Replace(fmt.Sprintf("%v", f), "Params_MetricInfo", "Params_MetricInfo", 1) + ","
+	}
+	repeatedStringForMetrics += "}"
 	s := strings.Join([]string{`&Params{`,
 		`SubmissionUrl:` + fmt.Sprintf("%v", this.SubmissionUrl) + `,`,
-		`SubmissionInterval:` + strings.Replace(strings.Replace(this.SubmissionInterval.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
-		`Metrics:` + strings.Replace(fmt.Sprintf("%v", this.Metrics), "Params_MetricInfo", "Params_MetricInfo", 1) + `,`,
+		`SubmissionInterval:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.SubmissionInterval), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`Metrics:` + repeatedStringForMetrics + `,`,
 		`}`,
 	}, "")
 	return s
