@@ -121,8 +121,6 @@ github.com/elazarl/goproxy/ext v0.0.0-20190421051319-9d40249d3c2f h1:AUj1VoZUfhP
 github.com/elazarl/goproxy/ext v0.0.0-20190421051319-9d40249d3c2f/go.mod h1:gNh8nYJoAm43RfaxurUnxr+N1PwuFV3ZMl/efxlIlY8=
 github.com/emicklei/go-restful v2.6.0+incompatible h1:luAX89wpjId5gV+GJV11MFD56GpAJTG2eUqCeDDgB98=
 github.com/emicklei/go-restful v2.6.0+incompatible/go.mod h1:otzb+WCGbkyDHkqmQmT5YD2WR4BBwUdeQoFo8l/7tVs=
-github.com/envoyproxy/go-control-plane v0.8.2 h1:HsOE6hYsY5/UYEjZ/rNezsZUBiMxJdBNxgsDQZbxIaU=
-github.com/envoyproxy/go-control-plane v0.8.2/go.mod h1:EWRTAFN6uuDZIa6KOuUfrOMJ7ySgXZ44rVKiTWjKe34=
 github.com/envoyproxy/go-control-plane v0.8.3 h1:Sqcub1O4SnINoXxNmqbNSeNcZ7O/mkk5jq2Ou6JF7HU=
 github.com/envoyproxy/go-control-plane v0.8.3/go.mod h1:EWRTAFN6uuDZIa6KOuUfrOMJ7ySgXZ44rVKiTWjKe34=
 github.com/envoyproxy/protoc-gen-validate v0.0.0-20190405222122-d6164de49109 h1:FNgqGzbOm637YKRbYGKb9cqGo8i50++w/LWvMau7jrw=
@@ -615,8 +613,6 @@ honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWh
 istio.io/api v0.0.0-20190515205759-982e5c3888c6/go.mod h1:hhLFQmpHia8zgaM37vb2ml9iS5NfNfqZGRt1pS9aVEo=
 istio.io/api v0.0.0-20190730171035-f306601671d2 h1:2Mn/xW9qvnxexyV4/y2nF77i4pYiIX41pIbJaBJSGPs=
 istio.io/api v0.0.0-20190730171035-f306601671d2/go.mod h1:URPGot5W4KDWuSaNKijQqtJFlHXpdrLw+ufMlzCSCX4=
-istio.io/api v0.0.0-20190730193711-5ad2b2c986fc h1:3rlpcX8bFcNzPfzcRjZ3d2HregNsWJ8hzyYAM4jOft8=
-istio.io/api v0.0.0-20190730193711-5ad2b2c986fc/go.mod h1:URPGot5W4KDWuSaNKijQqtJFlHXpdrLw+ufMlzCSCX4=
 istio.io/gogo-genproto v0.0.0-20190614210408-e88dc8b0e4db h1:a++JUbz/eKj16759379pFBhuoiSxUTmnut6ITM/9FEs=
 istio.io/gogo-genproto v0.0.0-20190614210408-e88dc8b0e4db/go.mod h1:eIDJ6jNk/IeJz6ODSksHl5Aiczy5JUq6vFhJWI5OtiI=
 istio.io/pkg v0.0.0-20190710182420-c26792dead42 h1:2GOb5IEH8Q4tbv4sw6OabHV/xcRK4qQD5lLieiYe64s=
