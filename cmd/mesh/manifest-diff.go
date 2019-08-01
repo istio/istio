@@ -28,7 +28,7 @@ import (
 )
 
 // YAMLSuffix is the suffix of a YAML file.
-const YAMLSuffix = "yaml"
+const YAMLSuffix = ".yaml"
 
 type manifestDiffArgs struct {
 	// compareDir indicates comparison between directory.
