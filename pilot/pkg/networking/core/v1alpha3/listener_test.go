@@ -54,7 +54,7 @@ var (
 		DNSDomain:   "default.example.org",
 		Metadata: map[string]string{
 			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_PROXY_VERSION":             "1.1",
+			"ISTIO_VERSION":                   "1.3",
 		},
 		ConfigNamespace: "not-default",
 	}
@@ -65,7 +65,7 @@ var (
 		DNSDomain:   "default.example.org",
 		Metadata: map[string]string{
 			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_PROXY_VERSION":             "1.1",
+			"ISTIO_VERSION":                   "1.3",
 			model.NodeMetadataHTTP10:          "1",
 		},
 		ConfigNamespace: "not-default",

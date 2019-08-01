@@ -64,9 +64,8 @@ func setAccessLog(env *model.Environment, node *model.Proxy, config *tcp_proxy.T
 		acc := &accesslog.AccessLog{
 			Name: xdsutil.FileAccessLog,
 		}
-		if util.IsProxyVersionGE11(node) {
-			buildAccessLog(fl, env)
-		}
+		buildAccessLog(fl, env)
+
 		if util.IsXDSMarshalingToAnyEnabled(node) {
 			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
 		} else {
@@ -187,14 +186,14 @@ func buildNetworkFiltersStack(node *model.Proxy, port *model.Port, tcpFilter *li
 	case protocol.Mongo:
 		filterstack = append(filterstack, buildMongoFilter(statPrefix, util.IsXDSMarshalingToAnyEnabled(node)), tcpFilter)
 	case protocol.Redis:
-		if util.IsProxyVersionGE11(node) && features.EnableRedisFilter.Get() {
+		if features.EnableRedisFilter.Get() {
 			// redis filter has route config, it is a terminating filter, no need append tcp filter.
 			filterstack = append(filterstack, buildRedisFilter(statPrefix, clusterName, util.IsXDSMarshalingToAnyEnabled(node)))
 		} else {
 			filterstack = append(filterstack, tcpFilter)
 		}
 	case protocol.MySQL:
-		if util.IsProxyVersionGE11(node) && features.EnableMysqlFilter.Get() {
+		if features.EnableMysqlFilter.Get() {
 			filterstack = append(filterstack, buildMySQLFilter(statPrefix, util.IsXDSMarshalingToAnyEnabled(node)))
 		}
 		filterstack = append(filterstack, tcpFilter)
@@ -212,7 +211,7 @@ func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy,
 	routes []*networking.RouteDestination, push *model.PushContext,
 	port *model.Port, configMeta model.ConfigMeta) []*listener.Filter {
 
-	if !util.IsProxyVersionGE11(node) || len(routes) == 1 {
+	if len(routes) == 1 {
 		service := node.SidecarScope.ServiceForHostname(config.Hostname(routes[0].Destination.Host), push.ServiceByHostnameAndNamespace)
 		clusterName := istio_route.GetDestinationCluster(routes[0].Destination, service, port.Port)
 		return buildOutboundNetworkFiltersWithSingleDestination(env, node, clusterName, port)

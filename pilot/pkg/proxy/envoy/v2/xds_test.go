@@ -109,7 +109,7 @@ func startEnvoy(t *testing.T) {
 		"NodeID":  nodeID,
 		"BaseDir": env.IstioSrc + "/tests/testdata/local",
 		// Same value used in the real template
-		"meta_json_str": fmt.Sprintf(`"BASE": "%s", ISTIO_PROXY_VERSION: 1.1.3`, env.IstioSrc+"/tests/testdata/local"),
+		"meta_json_str": fmt.Sprintf(`"BASE": "%s", ISTIO_VERSION: 1.3.0`, env.IstioSrc+"/tests/testdata/local"),
 	}
 
 	// Mixer will push stats every 1 sec
