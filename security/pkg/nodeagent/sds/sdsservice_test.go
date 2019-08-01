@@ -31,6 +31,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/types"
+	"go.opencensus.io/stats/view"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -182,6 +183,8 @@ func testHelper(t *testing.T, arg Options, cb secretCallback, testInvalidResourc
 	if arg.EnableIngressGatewaySDS {
 		sendRequestAndVerifyResponse(t, cb, arg.IngressGatewayUDSPath, proxyID, testInvalidResourceNames)
 	}
+	// Check to make sure number of staled connections is 0.
+	checkStaledConnCount(t)
 }
 
 func sendRequestForRootCertAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxyID string) {
@@ -845,5 +848,18 @@ func TestDebugEndpoints(t *testing.T) {
 		}
 
 		server.Stop()
+	}
+}
+
+func checkStaledConnCount(t *testing.T) {
+	// Manually clear staled clients instead of waiting for ticker.
+	clearStaledClients()
+	metricName := "total_stale_connections"
+	rows, err := view.RetrieveData(metricName)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err.Error())
+	}
+	if len(rows) == 1 && rows[0].Data.(*view.SumData).Value != 0 {
+		t.Errorf("expect %q to be 0, got %f", metricName, rows[0].Data.(*view.SumData).Value)
 	}
 }

@@ -379,7 +379,7 @@ func (s *sdsservice) clearStaledClientsJob() {
 	for {
 		select {
 		case <-s.ticker.C:
-			s.clearStaledClients()
+			clearStaledClients()
 		case <-s.closing:
 			if s.ticker != nil {
 				s.ticker.Stop()
@@ -388,7 +388,7 @@ func (s *sdsservice) clearStaledClientsJob() {
 	}
 }
 
-func (s *sdsservice) clearStaledClients() {
+func clearStaledClients() {
 	sdsServiceLog.Debug("start staled connection cleanup job")
 	sdsClientsMutex.Lock()
 	defer sdsClientsMutex.Unlock()
