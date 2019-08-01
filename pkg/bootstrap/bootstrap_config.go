@@ -238,11 +238,8 @@ type istioMetadata struct {
 	Owner                     string            `json:"owner,omitempty"`
 	PortsToContainers         map[string]string `json:"ports_to_containers,omitempty"`
 	ServiceAccount            string            `json:"service_account,omitempty"`
-<<<<<<< HEAD
 	PlatformMetadata          map[string]string `json:"platform_metadata,omitempty"`
-=======
 	WorkloadName              string            `json:"workload_name,omitempty"`
->>>>>>> feat(node metadata): add bits to extract metadata via sidecar injector
 }
 
 func shouldExtract(envVar, prefix string) bool {
