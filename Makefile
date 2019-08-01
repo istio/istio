@@ -20,7 +20,7 @@ export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
 # Current version, updated after a release.
-VERSION ?= 1.0-dev
+VERSION ?= 1.3-dev
 
 # locations where artifacts are stored
 ISTIO_DOCKER_HUB ?= docker.io/istio
