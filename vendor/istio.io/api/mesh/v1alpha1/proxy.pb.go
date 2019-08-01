@@ -1005,9 +1005,9 @@ func (m *Tracing) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.Tracer != nil {
-		nn1, err1 := m.Tracer.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		nn1, err := m.Tracer.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += nn1
 	}
@@ -1023,9 +1023,9 @@ func (m *Tracing_Zipkin_) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintProxy(dAtA, i, uint64(m.Zipkin.Size()))
-		n2, err2 := m.Zipkin.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		n2, err := m.Zipkin.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n2
 	}
@@ -1037,9 +1037,9 @@ func (m *Tracing_Lightstep_) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintProxy(dAtA, i, uint64(m.Lightstep.Size()))
-		n3, err3 := m.Lightstep.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
+		n3, err := m.Lightstep.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n3
 	}
@@ -1051,9 +1051,9 @@ func (m *Tracing_Datadog_) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintProxy(dAtA, i, uint64(m.Datadog.Size()))
-		n4, err4 := m.Datadog.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
+		n4, err := m.Datadog.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n4
 	}
@@ -1065,9 +1065,9 @@ func (m *Tracing_Stackdriver_) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintProxy(dAtA, i, uint64(m.Stackdriver.Size()))
-		n5, err5 := m.Stackdriver.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
+		n5, err := m.Stackdriver.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n5
 	}
@@ -1205,9 +1205,9 @@ func (m *Tracing_Stackdriver) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintProxy(dAtA, i, uint64(m.MaxNumberOfAttributes.Size()))
-		n6, err6 := m.MaxNumberOfAttributes.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
+		n6, err := m.MaxNumberOfAttributes.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n6
 	}
@@ -1215,9 +1215,9 @@ func (m *Tracing_Stackdriver) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintProxy(dAtA, i, uint64(m.MaxNumberOfAnnotations.Size()))
-		n7, err7 := m.MaxNumberOfAnnotations.MarshalTo(dAtA[i:])
-		if err7 != nil {
-			return 0, err7
+		n7, err := m.MaxNumberOfAnnotations.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n7
 	}
@@ -1225,9 +1225,9 @@ func (m *Tracing_Stackdriver) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintProxy(dAtA, i, uint64(m.MaxNumberOfMessageEvents.Size()))
-		n8, err8 := m.MaxNumberOfMessageEvents.MarshalTo(dAtA[i:])
-		if err8 != nil {
-			return 0, err8
+		n8, err := m.MaxNumberOfMessageEvents.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n8
 	}
@@ -1311,9 +1311,9 @@ func (m *ProxyConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintProxy(dAtA, i, uint64(m.DrainDuration.Size()))
-		n9, err9 := m.DrainDuration.MarshalTo(dAtA[i:])
-		if err9 != nil {
-			return 0, err9
+		n9, err := m.DrainDuration.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n9
 	}
@@ -1321,9 +1321,9 @@ func (m *ProxyConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintProxy(dAtA, i, uint64(m.ParentShutdownDuration.Size()))
-		n10, err10 := m.ParentShutdownDuration.MarshalTo(dAtA[i:])
-		if err10 != nil {
-			return 0, err10
+		n10, err := m.ParentShutdownDuration.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n10
 	}
@@ -1337,9 +1337,9 @@ func (m *ProxyConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintProxy(dAtA, i, uint64(m.DiscoveryRefreshDelay.Size()))
-		n11, err11 := m.DiscoveryRefreshDelay.MarshalTo(dAtA[i:])
-		if err11 != nil {
-			return 0, err11
+		n11, err := m.DiscoveryRefreshDelay.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n11
 	}
@@ -1353,9 +1353,9 @@ func (m *ProxyConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x4a
 		i++
 		i = encodeVarintProxy(dAtA, i, uint64(m.ConnectTimeout.Size()))
-		n12, err12 := m.ConnectTimeout.MarshalTo(dAtA[i:])
-		if err12 != nil {
-			return 0, err12
+		n12, err := m.ConnectTimeout.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n12
 	}
@@ -1420,9 +1420,9 @@ func (m *ProxyConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintProxy(dAtA, i, uint64(m.Tracing.Size()))
-		n13, err13 := m.Tracing.MarshalTo(dAtA[i:])
-		if err13 != nil {
-			return 0, err13
+		n13, err := m.Tracing.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n13
 	}
@@ -1440,9 +1440,9 @@ func (m *ProxyConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintProxy(dAtA, i, uint64(m.Sds.Size()))
-		n14, err14 := m.Sds.MarshalTo(dAtA[i:])
-		if err14 != nil {
-			return 0, err14
+		n14, err := m.Sds.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n14
 	}

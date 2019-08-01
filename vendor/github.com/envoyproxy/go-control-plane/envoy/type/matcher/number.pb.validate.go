@@ -45,17 +45,12 @@ func (m *DoubleMatcher) Validate() error {
 
 	case *DoubleMatcher_Range:
 
-		{
-			tmp := m.GetRange()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return DoubleMatcherValidationError{
-						field:  "Range",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetRange()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return DoubleMatcherValidationError{
+					field:  "Range",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}

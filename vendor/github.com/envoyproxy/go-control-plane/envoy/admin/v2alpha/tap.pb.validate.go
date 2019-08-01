@@ -54,17 +54,12 @@ func (m *TapRequest) Validate() error {
 		}
 	}
 
-	{
-		tmp := m.GetTapConfig()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return TapRequestValidationError{
-					field:  "TapConfig",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetTapConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return TapRequestValidationError{
+				field:  "TapConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}

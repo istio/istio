@@ -1197,9 +1197,9 @@ func (m *AuthorizationPolicy) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintRbac(dAtA, i, uint64(m.WorkloadSelector.Size()))
-		n1, err1 := m.WorkloadSelector.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		n1, err := m.WorkloadSelector.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n1
 	}
@@ -1501,9 +1501,9 @@ func (m *ServiceRoleBinding) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRbac(dAtA, i, uint64(m.RoleRef.Size()))
-		n6, err6 := m.RoleRef.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
+		n6, err := m.RoleRef.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n6
 	}
@@ -1763,9 +1763,9 @@ func (m *RbacConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRbac(dAtA, i, uint64(m.Inclusion.Size()))
-		n7, err7 := m.Inclusion.MarshalTo(dAtA[i:])
-		if err7 != nil {
-			return 0, err7
+		n7, err := m.Inclusion.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n7
 	}
@@ -1773,9 +1773,9 @@ func (m *RbacConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintRbac(dAtA, i, uint64(m.Exclusion.Size()))
-		n8, err8 := m.Exclusion.MarshalTo(dAtA[i:])
-		if err8 != nil {
-			return 0, err8
+		n8, err := m.Exclusion.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n8
 	}

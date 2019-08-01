@@ -57,7 +57,7 @@ func ModelProtocolToListenerProtocol(protocol config.Protocol) ListenerProtocol 
 	case config.ProtocolTCP, config.ProtocolHTTPS, config.ProtocolTLS,
 		config.ProtocolMongo, config.ProtocolRedis, config.ProtocolMySQL:
 		return ListenerProtocolTCP
-	case model.ProtocolThrift:
+	case config.ProtocolThrift:
 		return ListenerProtocolThrift
 	default:
 		return ListenerProtocolUnknown
