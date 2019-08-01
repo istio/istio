@@ -16,6 +16,7 @@ import (
 	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 	time "time"
@@ -84,7 +85,7 @@ func (m *Params) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Params.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -142,7 +143,7 @@ var fileDescriptor_b8ce6b52845040ff = []byte{
 func (m *Params) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -150,63 +151,71 @@ func (m *Params) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Address) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.Address)))
-		i += copy(dAtA[i:], m.Address)
+	n1, err1 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.PushTimeoutDuration, dAtA[i-github_com_gogo_protobuf_types.SizeOfStdDuration(m.PushTimeoutDuration):])
+	if err1 != nil {
+		return 0, err1
+	}
+	i -= n1
+	i = encodeVarintConfig(dAtA, i, uint64(n1))
+	i--
+	dAtA[i] = 0x32
+	n2, err2 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.PushIntervalDuration, dAtA[i-github_com_gogo_protobuf_types.SizeOfStdDuration(m.PushIntervalDuration):])
+	if err2 != nil {
+		return 0, err2
+	}
+	i -= n2
+	i = encodeVarintConfig(dAtA, i, uint64(n2))
+	i--
+	dAtA[i] = 0x2a
+	if m.MaxBatchSizeBytes != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.MaxBatchSizeBytes))
+		i--
+		dAtA[i] = 0x20
+	}
+	if m.InstanceBufferSize != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.InstanceBufferSize))
+		i--
+		dAtA[i] = 0x18
 	}
 	if m.IntegerDuration {
-		dAtA[i] = 0x10
-		i++
+		i--
 		if m.IntegerDuration {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.InstanceBufferSize != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.InstanceBufferSize))
+	if len(m.Address) > 0 {
+		i -= len(m.Address)
+		copy(dAtA[i:], m.Address)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.Address)))
+		i--
+		dAtA[i] = 0xa
 	}
-	if m.MaxBatchSizeBytes != 0 {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.MaxBatchSizeBytes))
-	}
-	dAtA[i] = 0x2a
-	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.PushIntervalDuration)))
-	n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.PushIntervalDuration, dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n1
-	dAtA[i] = 0x32
-	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.PushTimeoutDuration)))
-	n2, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.PushTimeoutDuration, dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n2
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
+	offset -= sovConfig(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Params) Size() (n int) {
 	if m == nil {
@@ -235,14 +244,7 @@ func (m *Params) Size() (n int) {
 }
 
 func sovConfig(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozConfig(x uint64) (n int) {
 	return sovConfig(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -256,8 +258,8 @@ func (this *Params) String() string {
 		`IntegerDuration:` + fmt.Sprintf("%v", this.IntegerDuration) + `,`,
 		`InstanceBufferSize:` + fmt.Sprintf("%v", this.InstanceBufferSize) + `,`,
 		`MaxBatchSizeBytes:` + fmt.Sprintf("%v", this.MaxBatchSizeBytes) + `,`,
-		`PushIntervalDuration:` + strings.Replace(strings.Replace(this.PushIntervalDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
-		`PushTimeoutDuration:` + strings.Replace(strings.Replace(this.PushTimeoutDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`PushIntervalDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.PushIntervalDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`PushTimeoutDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.PushTimeoutDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`}`,
 	}, "")
 	return s

@@ -19,7 +19,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/gogo/status"
+	"istio.io/istio/pkg/mcp/status"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/monitoring"

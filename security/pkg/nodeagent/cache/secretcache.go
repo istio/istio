@@ -26,8 +26,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gogo/status"
-
+	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"

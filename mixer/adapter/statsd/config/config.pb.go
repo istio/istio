@@ -18,6 +18,7 @@ import (
 	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strconv "strconv"
 	strings "strings"
@@ -95,7 +96,7 @@ func (m *Params) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Params.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -140,7 +141,7 @@ func (m *Params_MetricInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_Params_MetricInfo.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -216,7 +217,7 @@ func (x Params_MetricInfo_Type) String() string {
 func (m *Params) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -224,76 +225,81 @@ func (m *Params) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Address) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.Address)))
-		i += copy(dAtA[i:], m.Address)
-	}
-	if len(m.Prefix) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.Prefix)))
-		i += copy(dAtA[i:], m.Prefix)
-	}
-	dAtA[i] = 0x1a
-	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.FlushDuration)))
-	n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.FlushDuration, dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n1
-	if m.FlushBytes != 0 {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.FlushBytes))
-	}
-	if m.SamplingRate != 0 {
-		dAtA[i] = 0x2d
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.SamplingRate))))
-		i += 4
-	}
 	if len(m.Metrics) > 0 {
-		for k, _ := range m.Metrics {
-			dAtA[i] = 0x32
-			i++
+		for k := range m.Metrics {
 			v := m.Metrics[k]
-			msgSize := 0
+			baseI := i
 			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovConfig(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovConfig(uint64(len(k))) + msgSize
-			i = encodeVarintConfig(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintConfig(dAtA, i, uint64(v.Size()))
-				n2, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintConfig(dAtA, i, uint64(size))
 				}
-				i += n2
+				i--
+				dAtA[i] = 0x12
 			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintConfig(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x32
 		}
 	}
-	return i, nil
+	if m.SamplingRate != 0 {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.SamplingRate))))
+		i--
+		dAtA[i] = 0x2d
+	}
+	if m.FlushBytes != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.FlushBytes))
+		i--
+		dAtA[i] = 0x20
+	}
+	n2, err2 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.FlushDuration, dAtA[i-github_com_gogo_protobuf_types.SizeOfStdDuration(m.FlushDuration):])
+	if err2 != nil {
+		return 0, err2
+	}
+	i -= n2
+	i = encodeVarintConfig(dAtA, i, uint64(n2))
+	i--
+	dAtA[i] = 0x1a
+	if len(m.Prefix) > 0 {
+		i -= len(m.Prefix)
+		copy(dAtA[i:], m.Prefix)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.Prefix)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Address) > 0 {
+		i -= len(m.Address)
+		copy(dAtA[i:], m.Address)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.Address)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Params_MetricInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -301,32 +307,40 @@ func (m *Params_MetricInfo) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params_MetricInfo) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params_MetricInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Type != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.Type))
-	}
 	if len(m.NameTemplate) > 0 {
-		dAtA[i] = 0x12
-		i++
+		i -= len(m.NameTemplate)
+		copy(dAtA[i:], m.NameTemplate)
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.NameTemplate)))
-		i += copy(dAtA[i:], m.NameTemplate)
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	if m.Type != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.Type))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
+	offset -= sovConfig(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Params) Size() (n int) {
 	if m == nil {
@@ -383,14 +397,7 @@ func (m *Params_MetricInfo) Size() (n int) {
 }
 
 func sovConfig(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozConfig(x uint64) (n int) {
 	return sovConfig(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -412,7 +419,7 @@ func (this *Params) String() string {
 	s := strings.Join([]string{`&Params{`,
 		`Address:` + fmt.Sprintf("%v", this.Address) + `,`,
 		`Prefix:` + fmt.Sprintf("%v", this.Prefix) + `,`,
-		`FlushDuration:` + strings.Replace(strings.Replace(this.FlushDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`FlushDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.FlushDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`FlushBytes:` + fmt.Sprintf("%v", this.FlushBytes) + `,`,
 		`SamplingRate:` + fmt.Sprintf("%v", this.SamplingRate) + `,`,
 		`Metrics:` + mapStringForMetrics + `,`,

@@ -17,7 +17,6 @@
       "INSTANCE_IPS": "10.40.3.59,10.40.3.59,fe80::7cf5:f9ff:fe8f:48bb",
       "POD_NAME": "a-6bb6dbdcc5-z58cx",
       "istio": "sidecar",
-      "ISTIO_PROXY_VERSION": "1.1.0",
       "ISTIO_PROXY_SHA": "istio-proxy:ecbd1731cedc5d373766ea6e2f1c2e58623b0e28"
      },
      "locality": {

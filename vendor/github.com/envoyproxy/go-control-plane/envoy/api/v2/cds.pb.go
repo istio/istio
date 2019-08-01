@@ -12,7 +12,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	_ "github.com/envoyproxy/protoc-gen-validate/validate"
-	_ "github.com/gogo/googleapis/google/api"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
@@ -20,6 +19,7 @@ import (
 	types "github.com/gogo/protobuf/types"
 	grpc "google.golang.org/grpc"
 	io "io"
+	_ "istio.io/gogo-genproto/googleapis/google/api"
 	math "math"
 	time "time"
 )

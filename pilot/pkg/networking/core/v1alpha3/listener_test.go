@@ -30,11 +30,13 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -52,7 +54,7 @@ var (
 		DNSDomain:   "default.example.org",
 		Metadata: map[string]string{
 			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_PROXY_VERSION":             "1.1",
+			"ISTIO_VERSION":                   "1.3",
 		},
 		ConfigNamespace: "not-default",
 	}
@@ -63,7 +65,7 @@ var (
 		DNSDomain:   "default.example.org",
 		Metadata: map[string]string{
 			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_PROXY_VERSION":             "1.1",
+			"ISTIO_VERSION":                   "1.3",
 			model.NodeMetadataHTTP10:          "1",
 		},
 		ConfigNamespace: "not-default",
@@ -967,13 +969,13 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 		},
 	}
 
-	mesh := config.DefaultMeshConfig()
-	mesh.EnableEnvoyAccessLogService = true
+	m := mesh.DefaultMeshConfig()
+	m.EnableEnvoyAccessLogService = true
 	env := model.Environment{
 		PushContext:      model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
-		Mesh:             &mesh,
+		Mesh:             &m,
 	}
 
 	return env

@@ -22,7 +22,7 @@ import (
 
 	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestPrincipal_ValidateForTCP(t *testing.T) {
@@ -771,7 +771,7 @@ func TestPrincipal_Generate(t *testing.T) {
 		} else {
 			var gotYaml string
 			if got != nil {
-				if gotYaml, err = config.ToYAML(got); err != nil {
+				if gotYaml, err = protomarshal.ToYAML(got); err != nil {
 					t.Fatalf("%s: failed to parse yaml: %s", tc.name, err)
 				}
 			}
@@ -781,7 +781,7 @@ func TestPrincipal_Generate(t *testing.T) {
 				}
 			} else {
 				want := &envoy_rbac.Principal{}
-				if err := config.ApplyYAML(tc.wantYAML, want); err != nil {
+				if err := protomarshal.ApplyYAML(tc.wantYAML, want); err != nil {
 					t.Fatalf("%s: failed to parse yaml: %s", tc.name, err)
 				}
 

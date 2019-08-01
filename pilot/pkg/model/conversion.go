@@ -22,7 +22,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	yaml2 "gopkg.in/yaml.v2"
 
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // Make creates a new instance of the proto message
@@ -40,7 +40,7 @@ func (ps *ProtoSchema) FromJSON(js string) (proto.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = config.ApplyJSON(js, pb); err != nil {
+	if err = protomarshal.ApplyJSON(js, pb); err != nil {
 		return nil, err
 	}
 	return pb, nil
@@ -52,7 +52,7 @@ func (ps *ProtoSchema) FromYAML(yml string) (proto.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = config.ApplyYAML(yml, pb); err != nil {
+	if err = protomarshal.ApplyYAML(yml, pb); err != nil {
 		return nil, err
 	}
 	return pb, nil

@@ -21,7 +21,6 @@ import (
 	"net"
 	"testing"
 
-	"github.com/gogo/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -29,6 +28,7 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/internal/test"
+	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
 

@@ -7,12 +7,15 @@ import (
 	bytes "bytes"
 	context "context"
 	fmt "fmt"
-	rpc "github.com/gogo/googleapis/google/rpc"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	math "math"
+	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -55,7 +58,7 @@ func (m *SinkNode) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_SinkNode.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -136,7 +139,7 @@ func (m *MeshConfigRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_MeshConfigRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -230,7 +233,7 @@ func (m *MeshConfigResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return xxx_messageInfo_MeshConfigResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -324,7 +327,7 @@ func (m *IncrementalMeshConfigRequest) XXX_Marshal(b []byte, deterministic bool)
 		return xxx_messageInfo_IncrementalMeshConfigRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -424,7 +427,7 @@ func (m *IncrementalMeshConfigResponse) XXX_Marshal(b []byte, deterministic bool
 		return xxx_messageInfo_IncrementalMeshConfigResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -527,7 +530,7 @@ func (m *RequestResources) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return xxx_messageInfo_RequestResources.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -651,7 +654,7 @@ func (m *Resources) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Resources.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1191,6 +1194,17 @@ type AggregatedMeshConfigServiceServer interface {
 	IncrementalAggregatedResources(AggregatedMeshConfigService_IncrementalAggregatedResourcesServer) error
 }
 
+// UnimplementedAggregatedMeshConfigServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedAggregatedMeshConfigServiceServer struct {
+}
+
+func (*UnimplementedAggregatedMeshConfigServiceServer) StreamAggregatedResources(srv AggregatedMeshConfigService_StreamAggregatedResourcesServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamAggregatedResources not implemented")
+}
+func (*UnimplementedAggregatedMeshConfigServiceServer) IncrementalAggregatedResources(srv AggregatedMeshConfigService_IncrementalAggregatedResourcesServer) error {
+	return status.Errorf(codes.Unimplemented, "method IncrementalAggregatedResources not implemented")
+}
+
 func RegisterAggregatedMeshConfigServiceServer(s *grpc.Server, srv AggregatedMeshConfigServiceServer) {
 	s.RegisterService(&_AggregatedMeshConfigService_serviceDesc, srv)
 }
@@ -1325,6 +1339,14 @@ type ResourceSourceServer interface {
 	EstablishResourceStream(ResourceSource_EstablishResourceStreamServer) error
 }
 
+// UnimplementedResourceSourceServer can be embedded to have forward compatible implementations.
+type UnimplementedResourceSourceServer struct {
+}
+
+func (*UnimplementedResourceSourceServer) EstablishResourceStream(srv ResourceSource_EstablishResourceStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method EstablishResourceStream not implemented")
+}
+
 func RegisterResourceSourceServer(s *grpc.Server, srv ResourceSourceServer) {
 	s.RegisterService(&_ResourceSource_serviceDesc, srv)
 }
@@ -1427,6 +1449,14 @@ type ResourceSinkServer interface {
 	EstablishResourceStream(ResourceSink_EstablishResourceStreamServer) error
 }
 
+// UnimplementedResourceSinkServer can be embedded to have forward compatible implementations.
+type UnimplementedResourceSinkServer struct {
+}
+
+func (*UnimplementedResourceSinkServer) EstablishResourceStream(srv ResourceSink_EstablishResourceStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method EstablishResourceStream not implemented")
+}
+
 func RegisterResourceSinkServer(s *grpc.Server, srv ResourceSinkServer) {
 	s.RegisterService(&_ResourceSink_serviceDesc, srv)
 }
@@ -1475,7 +1505,7 @@ var _ResourceSink_serviceDesc = grpc.ServiceDesc{
 func (m *SinkNode) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1483,43 +1513,52 @@ func (m *SinkNode) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *SinkNode) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *SinkNode) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Id) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(len(m.Id)))
-		i += copy(dAtA[i:], m.Id)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Annotations) > 0 {
-		for k, _ := range m.Annotations {
-			dAtA[i] = 0x12
-			i++
+		for k := range m.Annotations {
 			v := m.Annotations[k]
-			mapSize := 1 + len(k) + sovMcp(uint64(len(k))) + 1 + len(v) + sovMcp(uint64(len(v)))
-			i = encodeVarintMcp(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintMcp(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
 			i = encodeVarintMcp(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintMcp(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintMcp(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Id) > 0 {
+		i -= len(m.Id)
+		copy(dAtA[i:], m.Id)
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.Id)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *MeshConfigRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1527,58 +1566,71 @@ func (m *MeshConfigRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *MeshConfigRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MeshConfigRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.VersionInfo) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(len(m.VersionInfo)))
-		i += copy(dAtA[i:], m.VersionInfo)
-	}
-	if m.SinkNode != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(m.SinkNode.Size()))
-		n1, err := m.SinkNode.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n1
-	}
-	if len(m.TypeUrl) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(len(m.TypeUrl)))
-		i += copy(dAtA[i:], m.TypeUrl)
-	}
-	if len(m.ResponseNonce) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(len(m.ResponseNonce)))
-		i += copy(dAtA[i:], m.ResponseNonce)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.ErrorDetail != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(m.ErrorDetail.Size()))
-		n2, err := m.ErrorDetail.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.ErrorDetail.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintMcp(dAtA, i, uint64(size))
 		}
-		i += n2
+		i--
+		dAtA[i] = 0x2a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.ResponseNonce) > 0 {
+		i -= len(m.ResponseNonce)
+		copy(dAtA[i:], m.ResponseNonce)
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.ResponseNonce)))
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	if len(m.TypeUrl) > 0 {
+		i -= len(m.TypeUrl)
+		copy(dAtA[i:], m.TypeUrl)
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.TypeUrl)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.SinkNode != nil {
+		{
+			size, err := m.SinkNode.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintMcp(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.VersionInfo) > 0 {
+		i -= len(m.VersionInfo)
+		copy(dAtA[i:], m.VersionInfo)
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.VersionInfo)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *MeshConfigResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1586,50 +1638,61 @@ func (m *MeshConfigResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *MeshConfigResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MeshConfigResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.VersionInfo) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(len(m.VersionInfo)))
-		i += copy(dAtA[i:], m.VersionInfo)
-	}
-	if len(m.Resources) > 0 {
-		for _, msg := range m.Resources {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintMcp(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.TypeUrl) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(len(m.TypeUrl)))
-		i += copy(dAtA[i:], m.TypeUrl)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Nonce) > 0 {
-		dAtA[i] = 0x22
-		i++
+		i -= len(m.Nonce)
+		copy(dAtA[i:], m.Nonce)
 		i = encodeVarintMcp(dAtA, i, uint64(len(m.Nonce)))
-		i += copy(dAtA[i:], m.Nonce)
+		i--
+		dAtA[i] = 0x22
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.TypeUrl) > 0 {
+		i -= len(m.TypeUrl)
+		copy(dAtA[i:], m.TypeUrl)
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.TypeUrl)))
+		i--
+		dAtA[i] = 0x1a
 	}
-	return i, nil
+	if len(m.Resources) > 0 {
+		for iNdEx := len(m.Resources) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Resources[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintMcp(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if len(m.VersionInfo) > 0 {
+		i -= len(m.VersionInfo)
+		copy(dAtA[i:], m.VersionInfo)
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.VersionInfo)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *IncrementalMeshConfigRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1637,69 +1700,83 @@ func (m *IncrementalMeshConfigRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *IncrementalMeshConfigRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *IncrementalMeshConfigRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.SinkNode != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(m.SinkNode.Size()))
-		n3, err := m.SinkNode.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n3
-	}
-	if len(m.TypeUrl) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(len(m.TypeUrl)))
-		i += copy(dAtA[i:], m.TypeUrl)
-	}
-	if len(m.InitialResourceVersions) > 0 {
-		for k, _ := range m.InitialResourceVersions {
-			dAtA[i] = 0x1a
-			i++
-			v := m.InitialResourceVersions[k]
-			mapSize := 1 + len(k) + sovMcp(uint64(len(k))) + 1 + len(v) + sovMcp(uint64(len(v)))
-			i = encodeVarintMcp(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintMcp(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintMcp(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
-	}
-	if len(m.ResponseNonce) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(len(m.ResponseNonce)))
-		i += copy(dAtA[i:], m.ResponseNonce)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.ErrorDetail != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(m.ErrorDetail.Size()))
-		n4, err := m.ErrorDetail.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.ErrorDetail.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintMcp(dAtA, i, uint64(size))
 		}
-		i += n4
+		i--
+		dAtA[i] = 0x2a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.ResponseNonce) > 0 {
+		i -= len(m.ResponseNonce)
+		copy(dAtA[i:], m.ResponseNonce)
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.ResponseNonce)))
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	if len(m.InitialResourceVersions) > 0 {
+		for k := range m.InitialResourceVersions {
+			v := m.InitialResourceVersions[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintMcp(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintMcp(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintMcp(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if len(m.TypeUrl) > 0 {
+		i -= len(m.TypeUrl)
+		copy(dAtA[i:], m.TypeUrl)
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.TypeUrl)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.SinkNode != nil {
+		{
+			size, err := m.SinkNode.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintMcp(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *IncrementalMeshConfigResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1707,59 +1784,63 @@ func (m *IncrementalMeshConfigResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *IncrementalMeshConfigResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *IncrementalMeshConfigResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.SystemVersionInfo) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(len(m.SystemVersionInfo)))
-		i += copy(dAtA[i:], m.SystemVersionInfo)
-	}
-	if len(m.Resources) > 0 {
-		for _, msg := range m.Resources {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintMcp(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.RemovedResources) > 0 {
-		for _, s := range m.RemovedResources {
-			dAtA[i] = 0x1a
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Nonce) > 0 {
-		dAtA[i] = 0x22
-		i++
+		i -= len(m.Nonce)
+		copy(dAtA[i:], m.Nonce)
 		i = encodeVarintMcp(dAtA, i, uint64(len(m.Nonce)))
-		i += copy(dAtA[i:], m.Nonce)
+		i--
+		dAtA[i] = 0x22
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.RemovedResources) > 0 {
+		for iNdEx := len(m.RemovedResources) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.RemovedResources[iNdEx])
+			copy(dAtA[i:], m.RemovedResources[iNdEx])
+			i = encodeVarintMcp(dAtA, i, uint64(len(m.RemovedResources[iNdEx])))
+			i--
+			dAtA[i] = 0x1a
+		}
 	}
-	return i, nil
+	if len(m.Resources) > 0 {
+		for iNdEx := len(m.Resources) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Resources[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintMcp(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if len(m.SystemVersionInfo) > 0 {
+		i -= len(m.SystemVersionInfo)
+		copy(dAtA[i:], m.SystemVersionInfo)
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.SystemVersionInfo)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *RequestResources) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1767,79 +1848,93 @@ func (m *RequestResources) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *RequestResources) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *RequestResources) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.SinkNode != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(m.SinkNode.Size()))
-		n5, err := m.SinkNode.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n5
-	}
-	if len(m.Collection) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(len(m.Collection)))
-		i += copy(dAtA[i:], m.Collection)
-	}
-	if len(m.InitialResourceVersions) > 0 {
-		for k, _ := range m.InitialResourceVersions {
-			dAtA[i] = 0x1a
-			i++
-			v := m.InitialResourceVersions[k]
-			mapSize := 1 + len(k) + sovMcp(uint64(len(k))) + 1 + len(v) + sovMcp(uint64(len(v)))
-			i = encodeVarintMcp(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintMcp(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintMcp(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
-	}
-	if len(m.ResponseNonce) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(len(m.ResponseNonce)))
-		i += copy(dAtA[i:], m.ResponseNonce)
-	}
-	if m.ErrorDetail != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(m.ErrorDetail.Size()))
-		n6, err := m.ErrorDetail.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n6
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Incremental {
-		dAtA[i] = 0x30
-		i++
+		i--
 		if m.Incremental {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x30
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.ErrorDetail != nil {
+		{
+			size, err := m.ErrorDetail.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintMcp(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2a
 	}
-	return i, nil
+	if len(m.ResponseNonce) > 0 {
+		i -= len(m.ResponseNonce)
+		copy(dAtA[i:], m.ResponseNonce)
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.ResponseNonce)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.InitialResourceVersions) > 0 {
+		for k := range m.InitialResourceVersions {
+			v := m.InitialResourceVersions[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintMcp(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintMcp(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintMcp(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if len(m.Collection) > 0 {
+		i -= len(m.Collection)
+		copy(dAtA[i:], m.Collection)
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.Collection)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.SinkNode != nil {
+		{
+			size, err := m.SinkNode.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintMcp(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Resources) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1847,79 +1942,86 @@ func (m *Resources) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Resources) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Resources) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.SystemVersionInfo) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(len(m.SystemVersionInfo)))
-		i += copy(dAtA[i:], m.SystemVersionInfo)
-	}
-	if len(m.Collection) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(len(m.Collection)))
-		i += copy(dAtA[i:], m.Collection)
-	}
-	if len(m.Resources) > 0 {
-		for _, msg := range m.Resources {
-			dAtA[i] = 0x1a
-			i++
-			i = encodeVarintMcp(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.RemovedResources) > 0 {
-		for _, s := range m.RemovedResources {
-			dAtA[i] = 0x22
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
-	}
-	if len(m.Nonce) > 0 {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(len(m.Nonce)))
-		i += copy(dAtA[i:], m.Nonce)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Incremental {
-		dAtA[i] = 0x30
-		i++
+		i--
 		if m.Incremental {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x30
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Nonce) > 0 {
+		i -= len(m.Nonce)
+		copy(dAtA[i:], m.Nonce)
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.Nonce)))
+		i--
+		dAtA[i] = 0x2a
 	}
-	return i, nil
+	if len(m.RemovedResources) > 0 {
+		for iNdEx := len(m.RemovedResources) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.RemovedResources[iNdEx])
+			copy(dAtA[i:], m.RemovedResources[iNdEx])
+			i = encodeVarintMcp(dAtA, i, uint64(len(m.RemovedResources[iNdEx])))
+			i--
+			dAtA[i] = 0x22
+		}
+	}
+	if len(m.Resources) > 0 {
+		for iNdEx := len(m.Resources) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Resources[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintMcp(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if len(m.Collection) > 0 {
+		i -= len(m.Collection)
+		copy(dAtA[i:], m.Collection)
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.Collection)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.SystemVersionInfo) > 0 {
+		i -= len(m.SystemVersionInfo)
+		copy(dAtA[i:], m.SystemVersionInfo)
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.SystemVersionInfo)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintMcp(dAtA []byte, offset int, v uint64) int {
+	offset -= sovMcp(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *SinkNode) Size() (n int) {
 	if m == nil {
@@ -2154,14 +2256,7 @@ func (m *Resources) Size() (n int) {
 }
 
 func sovMcp(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozMcp(x uint64) (n int) {
 	return sovMcp(uint64((x << 1) ^ uint64((int64(x) >> 63))))

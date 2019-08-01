@@ -17,6 +17,7 @@ import (
 	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strconv "strconv"
 	strings "strings"
@@ -95,7 +96,7 @@ func (m *Params) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Params.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -158,7 +159,7 @@ func (m *Params_MetricInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_Params_MetricInfo.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -201,7 +202,7 @@ func (m *Params_MetricInfo_BucketsDefinition) XXX_Marshal(b []byte, deterministi
 		return xxx_messageInfo_Params_MetricInfo_BucketsDefinition.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -399,7 +400,7 @@ func (m *Params_MetricInfo_BucketsDefinition_Linear) XXX_Marshal(b []byte, deter
 		return xxx_messageInfo_Params_MetricInfo_BucketsDefinition_Linear.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -453,7 +454,7 @@ func (m *Params_MetricInfo_BucketsDefinition_Exponential) XXX_Marshal(b []byte, 
 		return xxx_messageInfo_Params_MetricInfo_BucketsDefinition_Exponential.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -503,7 +504,7 @@ func (m *Params_MetricInfo_BucketsDefinition_Explicit) XXX_Marshal(b []byte, det
 		return xxx_messageInfo_Params_MetricInfo_BucketsDefinition_Explicit.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -551,7 +552,7 @@ func (m *Params_MetricsExpirationPolicy) XXX_Marshal(b []byte, deterministic boo
 		return xxx_messageInfo_Params_MetricsExpirationPolicy.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -648,7 +649,7 @@ func (x Params_MetricInfo_Kind) String() string {
 func (m *Params) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -656,39 +657,48 @@ func (m *Params) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Metrics) > 0 {
-		for _, msg := range m.Metrics {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
+	if m.MetricsExpirationPolicy != nil {
+		{
+			size, err := m.MetricsExpirationPolicy.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
-			i += n
+			i -= size
+			i = encodeVarintConfig(dAtA, i, uint64(size))
 		}
-	}
-	if m.MetricsExpirationPolicy != nil {
+		i--
 		dAtA[i] = 0x12
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.MetricsExpirationPolicy.Size()))
-		n1, err := m.MetricsExpirationPolicy.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n1
 	}
-	return i, nil
+	if len(m.Metrics) > 0 {
+		for iNdEx := len(m.Metrics) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Metrics[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintConfig(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Params_MetricInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -696,71 +706,76 @@ func (m *Params_MetricInfo) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params_MetricInfo) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params_MetricInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if len(m.InstanceName) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.InstanceName)))
-		i += copy(dAtA[i:], m.InstanceName)
-	}
-	if len(m.Description) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.Description)))
-		i += copy(dAtA[i:], m.Description)
-	}
-	if m.Kind != 0 {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.Kind))
-	}
-	if m.Buckets != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.Buckets.Size()))
-		n2, err := m.Buckets.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n2
+	if len(m.Namespace) > 0 {
+		i -= len(m.Namespace)
+		copy(dAtA[i:], m.Namespace)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.Namespace)))
+		i--
+		dAtA[i] = 0x3a
 	}
 	if len(m.LabelNames) > 0 {
-		for _, s := range m.LabelNames {
+		for iNdEx := len(m.LabelNames) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.LabelNames[iNdEx])
+			copy(dAtA[i:], m.LabelNames[iNdEx])
+			i = encodeVarintConfig(dAtA, i, uint64(len(m.LabelNames[iNdEx])))
+			i--
 			dAtA[i] = 0x32
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
 		}
 	}
-	if len(m.Namespace) > 0 {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.Namespace)))
-		i += copy(dAtA[i:], m.Namespace)
+	if m.Buckets != nil {
+		{
+			size, err := m.Buckets.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintConfig(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2a
 	}
-	return i, nil
+	if m.Kind != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.Kind))
+		i--
+		dAtA[i] = 0x20
+	}
+	if len(m.Description) > 0 {
+		i -= len(m.Description)
+		copy(dAtA[i:], m.Description)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.Description)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.InstanceName) > 0 {
+		i -= len(m.InstanceName)
+		copy(dAtA[i:], m.InstanceName)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.InstanceName)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Params_MetricInfo_BucketsDefinition) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -768,66 +783,91 @@ func (m *Params_MetricInfo_BucketsDefinition) Marshal() (dAtA []byte, err error)
 }
 
 func (m *Params_MetricInfo_BucketsDefinition) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params_MetricInfo_BucketsDefinition) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.Definition != nil {
-		nn3, err := m.Definition.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size := m.Definition.Size()
+			i -= size
+			if _, err := m.Definition.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
 		}
-		i += nn3
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Params_MetricInfo_BucketsDefinition_LinearBuckets) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Params_MetricInfo_BucketsDefinition_LinearBuckets) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.LinearBuckets != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.LinearBuckets.Size()))
-		n4, err := m.LinearBuckets.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.LinearBuckets.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintConfig(dAtA, i, uint64(size))
 		}
-		i += n4
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *Params_MetricInfo_BucketsDefinition_ExponentialBuckets) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Params_MetricInfo_BucketsDefinition_ExponentialBuckets) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.ExponentialBuckets != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.ExponentialBuckets.Size()))
-		n5, err := m.ExponentialBuckets.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.ExponentialBuckets.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintConfig(dAtA, i, uint64(size))
 		}
-		i += n5
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *Params_MetricInfo_BucketsDefinition_ExplicitBuckets) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Params_MetricInfo_BucketsDefinition_ExplicitBuckets) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.ExplicitBuckets != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.ExplicitBuckets.Size()))
-		n6, err := m.ExplicitBuckets.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.ExplicitBuckets.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintConfig(dAtA, i, uint64(size))
 		}
-		i += n6
+		i--
+		dAtA[i] = 0x1a
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *Params_MetricInfo_BucketsDefinition_Linear) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -835,34 +875,39 @@ func (m *Params_MetricInfo_BucketsDefinition_Linear) Marshal() (dAtA []byte, err
 }
 
 func (m *Params_MetricInfo_BucketsDefinition_Linear) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params_MetricInfo_BucketsDefinition_Linear) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.NumFiniteBuckets != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.NumFiniteBuckets))
+	if m.Offset != 0 {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Offset))))
+		i--
+		dAtA[i] = 0x19
 	}
 	if m.Width != 0 {
-		dAtA[i] = 0x11
-		i++
+		i -= 8
 		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Width))))
-		i += 8
+		i--
+		dAtA[i] = 0x11
 	}
-	if m.Offset != 0 {
-		dAtA[i] = 0x19
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Offset))))
-		i += 8
+	if m.NumFiniteBuckets != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.NumFiniteBuckets))
+		i--
+		dAtA[i] = 0x8
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Params_MetricInfo_BucketsDefinition_Exponential) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -870,34 +915,39 @@ func (m *Params_MetricInfo_BucketsDefinition_Exponential) Marshal() (dAtA []byte
 }
 
 func (m *Params_MetricInfo_BucketsDefinition_Exponential) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params_MetricInfo_BucketsDefinition_Exponential) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.NumFiniteBuckets != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.NumFiniteBuckets))
+	if m.Scale != 0 {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Scale))))
+		i--
+		dAtA[i] = 0x19
 	}
 	if m.GrowthFactor != 0 {
-		dAtA[i] = 0x11
-		i++
+		i -= 8
 		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.GrowthFactor))))
-		i += 8
+		i--
+		dAtA[i] = 0x11
 	}
-	if m.Scale != 0 {
-		dAtA[i] = 0x19
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Scale))))
-		i += 8
+	if m.NumFiniteBuckets != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.NumFiniteBuckets))
+		i--
+		dAtA[i] = 0x8
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Params_MetricInfo_BucketsDefinition_Explicit) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -905,27 +955,32 @@ func (m *Params_MetricInfo_BucketsDefinition_Explicit) Marshal() (dAtA []byte, e
 }
 
 func (m *Params_MetricInfo_BucketsDefinition_Explicit) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params_MetricInfo_BucketsDefinition_Explicit) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if len(m.Bounds) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.Bounds)*8))
-		for _, num := range m.Bounds {
-			f7 := math.Float64bits(float64(num))
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f7))
-			i += 8
+		for iNdEx := len(m.Bounds) - 1; iNdEx >= 0; iNdEx-- {
+			f6 := math.Float64bits(float64(m.Bounds[iNdEx]))
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f6))
 		}
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.Bounds)*8))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Params_MetricsExpirationPolicy) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -933,37 +988,44 @@ func (m *Params_MetricsExpirationPolicy) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params_MetricsExpirationPolicy) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params_MetricsExpirationPolicy) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0xa
-	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.MetricsExpiryDuration)))
-	n8, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.MetricsExpiryDuration, dAtA[i:])
-	if err != nil {
-		return 0, err
+	n7, err7 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ExpiryCheckIntervalDuration, dAtA[i-github_com_gogo_protobuf_types.SizeOfStdDuration(m.ExpiryCheckIntervalDuration):])
+	if err7 != nil {
+		return 0, err7
 	}
-	i += n8
+	i -= n7
+	i = encodeVarintConfig(dAtA, i, uint64(n7))
+	i--
 	dAtA[i] = 0x12
-	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.ExpiryCheckIntervalDuration)))
-	n9, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ExpiryCheckIntervalDuration, dAtA[i:])
-	if err != nil {
-		return 0, err
+	n8, err8 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.MetricsExpiryDuration, dAtA[i-github_com_gogo_protobuf_types.SizeOfStdDuration(m.MetricsExpiryDuration):])
+	if err8 != nil {
+		return 0, err8
 	}
-	i += n9
-	return i, nil
+	i -= n8
+	i = encodeVarintConfig(dAtA, i, uint64(n8))
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
+	offset -= sovConfig(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Params) Size() (n int) {
 	if m == nil {
@@ -1132,14 +1194,7 @@ func (m *Params_MetricsExpirationPolicy) Size() (n int) {
 }
 
 func sovConfig(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozConfig(x uint64) (n int) {
 	return sovConfig(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -1148,8 +1203,13 @@ func (this *Params) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForMetrics := "[]*Params_MetricInfo{"
+	for _, f := range this.Metrics {
+		repeatedStringForMetrics += strings.Replace(fmt.Sprintf("%v", f), "Params_MetricInfo", "Params_MetricInfo", 1) + ","
+	}
+	repeatedStringForMetrics += "}"
 	s := strings.Join([]string{`&Params{`,
-		`Metrics:` + strings.Replace(fmt.Sprintf("%v", this.Metrics), "Params_MetricInfo", "Params_MetricInfo", 1) + `,`,
+		`Metrics:` + repeatedStringForMetrics + `,`,
 		`MetricsExpirationPolicy:` + strings.Replace(fmt.Sprintf("%v", this.MetricsExpirationPolicy), "Params_MetricsExpirationPolicy", "Params_MetricsExpirationPolicy", 1) + `,`,
 		`}`,
 	}, "")
@@ -1250,8 +1310,8 @@ func (this *Params_MetricsExpirationPolicy) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&Params_MetricsExpirationPolicy{`,
-		`MetricsExpiryDuration:` + strings.Replace(strings.Replace(this.MetricsExpiryDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
-		`ExpiryCheckIntervalDuration:` + strings.Replace(strings.Replace(this.ExpiryCheckIntervalDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`MetricsExpiryDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.MetricsExpiryDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`ExpiryCheckIntervalDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.ExpiryCheckIntervalDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`}`,
 	}, "")
 	return s

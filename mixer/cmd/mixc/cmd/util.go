@@ -23,11 +23,12 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/gogo/googleapis/google/rpc"
 	otgrpc "github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	ot "github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
+
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/cmd/shared"

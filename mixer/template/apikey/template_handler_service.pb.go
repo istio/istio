@@ -32,10 +32,13 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	types "github.com/gogo/protobuf/types"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
 	v1beta1 "istio.io/api/policy/v1beta1"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 )
@@ -79,7 +82,7 @@ func (m *HandleApiKeyRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return xxx_messageInfo_HandleApiKeyRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -128,7 +131,7 @@ func (m *InstanceMsg) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_InstanceMsg.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -165,7 +168,7 @@ func (m *Type) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Type.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -211,7 +214,7 @@ func (m *InstanceParam) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_InstanceParam.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -319,6 +322,14 @@ type HandleApiKeyServiceServer interface {
 	HandleApiKey(context.Context, *HandleApiKeyRequest) (*v1beta11.CheckResult, error)
 }
 
+// UnimplementedHandleApiKeyServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedHandleApiKeyServiceServer struct {
+}
+
+func (*UnimplementedHandleApiKeyServiceServer) HandleApiKey(ctx context.Context, req *HandleApiKeyRequest) (*v1beta11.CheckResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HandleApiKey not implemented")
+}
+
 func RegisterHandleApiKeyServiceServer(s *grpc.Server, srv HandleApiKeyServiceServer) {
 	s.RegisterService(&_HandleApiKeyService_serviceDesc, srv)
 }
@@ -357,7 +368,7 @@ var _HandleApiKeyService_serviceDesc = grpc.ServiceDesc{
 func (m *HandleApiKeyRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -365,43 +376,53 @@ func (m *HandleApiKeyRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *HandleApiKeyRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *HandleApiKeyRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Instance != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.Instance.Size()))
-		n1, err := m.Instance.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n1
+	if len(m.DedupId) > 0 {
+		i -= len(m.DedupId)
+		copy(dAtA[i:], m.DedupId)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DedupId)))
+		i--
+		dAtA[i] = 0x1a
 	}
 	if m.AdapterConfig != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.AdapterConfig.Size()))
-		n2, err := m.AdapterConfig.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.AdapterConfig.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(size))
 		}
-		i += n2
+		i--
+		dAtA[i] = 0x12
 	}
-	if len(m.DedupId) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DedupId)))
-		i += copy(dAtA[i:], m.DedupId)
+	if m.Instance != nil {
+		{
+			size, err := m.Instance.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *InstanceMsg) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -409,65 +430,77 @@ func (m *InstanceMsg) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *InstanceMsg) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Api) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Api)))
-		i += copy(dAtA[i:], m.Api)
-	}
-	if len(m.ApiVersion) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.ApiVersion)))
-		i += copy(dAtA[i:], m.ApiVersion)
-	}
-	if len(m.ApiOperation) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.ApiOperation)))
-		i += copy(dAtA[i:], m.ApiOperation)
-	}
-	if len(m.ApiKey) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.ApiKey)))
-		i += copy(dAtA[i:], m.ApiKey)
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0x93
+		i--
+		dAtA[i] = 0xe4
+		i--
+		dAtA[i] = 0xd2
+		i--
+		dAtA[i] = 0xfa
 	}
 	if m.Timestamp != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.Timestamp.Size()))
-		n3, err := m.Timestamp.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.Timestamp.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(size))
 		}
-		i += n3
+		i--
+		dAtA[i] = 0x2a
 	}
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xfa
-		i++
-		dAtA[i] = 0xd2
-		i++
-		dAtA[i] = 0xe4
-		i++
-		dAtA[i] = 0x93
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+	if len(m.ApiKey) > 0 {
+		i -= len(m.ApiKey)
+		copy(dAtA[i:], m.ApiKey)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.ApiKey)))
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	if len(m.ApiOperation) > 0 {
+		i -= len(m.ApiOperation)
+		copy(dAtA[i:], m.ApiOperation)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.ApiOperation)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.ApiVersion) > 0 {
+		i -= len(m.ApiVersion)
+		copy(dAtA[i:], m.ApiVersion)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.ApiVersion)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Api) > 0 {
+		i -= len(m.Api)
+		copy(dAtA[i:], m.Api)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Api)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Type) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -475,17 +508,22 @@ func (m *Type) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Type) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Type) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *InstanceParam) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -493,51 +531,63 @@ func (m *InstanceParam) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *InstanceParam) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *InstanceParam) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Api) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Api)))
-		i += copy(dAtA[i:], m.Api)
-	}
-	if len(m.ApiVersion) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.ApiVersion)))
-		i += copy(dAtA[i:], m.ApiVersion)
-	}
-	if len(m.ApiOperation) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.ApiOperation)))
-		i += copy(dAtA[i:], m.ApiOperation)
+	if len(m.Timestamp) > 0 {
+		i -= len(m.Timestamp)
+		copy(dAtA[i:], m.Timestamp)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Timestamp)))
+		i--
+		dAtA[i] = 0x2a
 	}
 	if len(m.ApiKey) > 0 {
-		dAtA[i] = 0x22
-		i++
+		i -= len(m.ApiKey)
+		copy(dAtA[i:], m.ApiKey)
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.ApiKey)))
-		i += copy(dAtA[i:], m.ApiKey)
+		i--
+		dAtA[i] = 0x22
 	}
-	if len(m.Timestamp) > 0 {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Timestamp)))
-		i += copy(dAtA[i:], m.Timestamp)
+	if len(m.ApiOperation) > 0 {
+		i -= len(m.ApiOperation)
+		copy(dAtA[i:], m.ApiOperation)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.ApiOperation)))
+		i--
+		dAtA[i] = 0x1a
 	}
-	return i, nil
+	if len(m.ApiVersion) > 0 {
+		i -= len(m.ApiVersion)
+		copy(dAtA[i:], m.ApiVersion)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.ApiVersion)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Api) > 0 {
+		i -= len(m.Api)
+		copy(dAtA[i:], m.Api)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Api)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintTemplateHandlerService(dAtA []byte, offset int, v uint64) int {
+	offset -= sovTemplateHandlerService(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *HandleApiKeyRequest) Size() (n int) {
 	if m == nil {
@@ -632,14 +682,7 @@ func (m *InstanceParam) Size() (n int) {
 }
 
 func sovTemplateHandlerService(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozTemplateHandlerService(x uint64) (n int) {
 	return sovTemplateHandlerService(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -649,7 +692,7 @@ func (this *HandleApiKeyRequest) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&HandleApiKeyRequest{`,
-		`Instance:` + strings.Replace(fmt.Sprintf("%v", this.Instance), "InstanceMsg", "InstanceMsg", 1) + `,`,
+		`Instance:` + strings.Replace(this.Instance.String(), "InstanceMsg", "InstanceMsg", 1) + `,`,
 		`AdapterConfig:` + strings.Replace(fmt.Sprintf("%v", this.AdapterConfig), "Any", "types.Any", 1) + `,`,
 		`DedupId:` + fmt.Sprintf("%v", this.DedupId) + `,`,
 		`}`,

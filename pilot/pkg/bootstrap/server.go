@@ -74,6 +74,7 @@ import (
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	configz "istio.io/istio/pkg/mcp/configz/client"
@@ -344,14 +345,14 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.ConfigMap, *meshconfig.MeshConfig, error) {
 
 	if kube == nil {
-		defaultMesh := config.DefaultMeshConfig()
+		defaultMesh := mesh.DefaultMeshConfig()
 		return nil, &defaultMesh, nil
 	}
 
 	cfg, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
-			defaultMesh := config.DefaultMeshConfig()
+			defaultMesh := mesh.DefaultMeshConfig()
 			return nil, &defaultMesh, nil
 		}
 		return nil, nil, err
@@ -364,7 +365,7 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 		return nil, nil, fmt.Errorf("missing configuration map key %q", ConfigMapKey)
 	}
 
-	mesh, err := config.ApplyMeshConfigDefaults(cfgYaml)
+	mesh, err := mesh.ApplyMeshConfigDefaults(cfgYaml)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -532,7 +533,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	var conns []*grpc.ClientConn
 	var configStores []model.ConfigStoreCache
 
-	reporter := monitoring.NewStatsContext("pilot/mcp/sink")
+	reporter := monitoring.NewStatsContext("pilot")
 
 	for _, configSource := range s.mesh.ConfigSources {
 		if strings.Contains(configSource.Address, fsScheme+"://") {
