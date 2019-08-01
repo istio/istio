@@ -59,12 +59,10 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 		if cp.Match == nil {
 			// create a match all object
 			cpw.Match = &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_ANY}
-		} else {
+		} else if cp.Match.Proxy != nil && cp.Match.Proxy.ProxyVersion != "" {
 			// pre-compile the regex for proxy version if it exists
-			if cp.Match.Proxy != nil && cp.Match.Proxy.ProxyVersion != "" {
-				// ignore the error because validation catches invalid regular expressions.
-				cpw.ProxyVersionRegex, _ = regexp.Compile(cp.Match.Proxy.ProxyVersion)
-			}
+			// ignore the error because validation catches invalid regular expressions.
+			cpw.ProxyVersionRegex, _ = regexp.Compile(cp.Match.Proxy.ProxyVersion)
 		}
 
 		if _, exists := out.Patches[cp.ApplyTo]; !exists {
