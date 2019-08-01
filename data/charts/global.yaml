@@ -23,7 +23,7 @@ global:
 
   # Telemetry namespace, including tracing.
   telemetryNamespace: istio-telemetry
- 
+
   prometheusNamespace: istio-telemetry
 
   policyNamespace: istio-policy
@@ -36,10 +36,10 @@ global:
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
-  hub: docker.io/istio
+  hub: gcr.io/istio-release
 
   # Default tag for Istio images.
-  tag: 1.1.4
+  tag: master-latest-daily
 
   # Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>
   # The control plane has different scopes depending on component, but can configure default log level across all components
@@ -161,7 +161,7 @@ global:
     # available to scrape via the Envoy admin port at either /stats or /stats/prometheus.
     #
     # See https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto
-    # for details about Envoy's Metrics Service API. 
+    # for details about Envoy's Metrics Service API.
     #
     # Disabled by default.
     envoyMetricsService:
@@ -249,9 +249,9 @@ global:
   # If not set, controller watches all namespaces
   oneNamespace: false
 
-  # Default node selector to be applied to all deployments so that all pods can be 
-  # constrained to run a particular nodes. Each component can overwrite these default 
-  # values by adding its node selector block in the relevant section below and setting 
+  # Default node selector to be applied to all deployments so that all pods can be
+  # constrained to run a particular nodes. Each component can overwrite these default
+  # values by adding its node selector block in the relevant section below and setting
   # the desired values.
   defaultNodeSelector: {}
 
@@ -328,7 +328,7 @@ global:
   #   services or ServiceEntries for the destination port
   # REGISTRY_ONLY - restrict outbound traffic to services defined in the service registry as well
   #   as those defined through ServiceEntries
-  # ALLOW_ANY is the default in 1.1.  This means each pod will be able to make outbound requests 
+  # ALLOW_ANY is the default in 1.1.  This means each pod will be able to make outbound requests
   # to services outside of the mesh without any ServiceEntry.
   # REGISTRY_ONLY was the default in 1.0.  If this behavior is desired, set the value below to REGISTRY_ONLY.
   outboundTrafficPolicy:
@@ -343,7 +343,7 @@ global:
   # rules should be exported to. Currently only one value can be provided in this list. This value
   # should be one of the following two options:
   # * implies these objects are visible to all namespaces, enabling any sidecar to talk to any other sidecar.
-  # . implies these objects are visible to only to sidecars in the same namespace, or if imported as a Sidecar.egress.host  
+  # . implies these objects are visible to only to sidecars in the same namespace, or if imported as a Sidecar.egress.host
   #defaultConfigVisibilitySettings:
   #- '*'
 
