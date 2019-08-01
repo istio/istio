@@ -124,7 +124,7 @@ IFS=,
 # Ideally we should generate ufw (and similar) configs as well, in case user already has an iptables solution.
 
 PROXY_PORT=${ENVOY_PORT:-15001}
-PROXY_INBOUND_CAPTURE_PORT=${INBOUND_CAPTURE_PORT:-15001}
+PROXY_INBOUND_CAPTURE_PORT=${INBOUND_CAPTURE_PORT:-15006}
 PROXY_UID=
 PROXY_GID=
 INBOUND_INTERCEPTION_MODE=${ISTIO_INBOUND_INTERCEPTION_MODE}
@@ -520,7 +520,12 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
   # Use this chain also for redirecting inbound traffic to the common Envoy port
   # when not using TPROXY.
   ip6tables -t nat -N ISTIO_IN_REDIRECT
-  ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${PROXY_INBOUND_CAPTURE_PORT}"
+  # PROXY_INBOUND_CAPTURE_PORT should be used only user explicitly set INBOUND_PORTS_INCLUDE to capture all
+  if [ "${INBOUND_PORTS_INCLUDE}" == "*" ]; then
+    ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${PROXY_INBOUND_CAPTURE_PORT}"
+  else
+    ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${PROXY_PORT}"
+  fi
 
   # Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
   # to the local service. If not set, no inbound port will be intercepted by istio iptables.
