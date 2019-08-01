@@ -1,8 +1,8 @@
 apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
-  hub: docker.io/istio
-  tag: 1.1.4
+  hub: gcr.io/istio-release
+  tag: master-latest-daily
   defaultNamespace: istio-system
 
   # Traffic management feature
