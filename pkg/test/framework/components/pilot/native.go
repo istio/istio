@@ -22,11 +22,12 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	meshapi "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -84,10 +85,10 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 		SecureGrpcAddr: ":0",
 	}
 
-	tmpMesh := config.DefaultMeshConfig()
-	mesh := &tmpMesh
+	tmpMesh := mesh.DefaultMeshConfig()
+	m := &tmpMesh
 	if cfg.MeshConfig != nil {
-		mesh = cfg.MeshConfig
+		m = cfg.MeshConfig
 	}
 
 	bootstrapArgs := bootstrap.PilotArgs{
@@ -98,7 +99,7 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 				DomainSuffix: e.Domain,
 			},
 		},
-		MeshConfig: mesh,
+		MeshConfig: m,
 		// Use the config store for service entries as well.
 		Service: bootstrap.ServiceArgs{
 			// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
@@ -110,10 +111,10 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 
 	if bootstrapArgs.MeshConfig == nil {
-		bootstrapArgs.MeshConfig = &meshconfig.MeshConfig{}
+		bootstrapArgs.MeshConfig = &meshapi.MeshConfig{}
 	}
 	// Set as MCP address, note needs to strip 'tcp://' from the address prefix
-	bootstrapArgs.MeshConfig.ConfigSources = []*meshconfig.ConfigSource{
+	bootstrapArgs.MeshConfig.ConfigSources = []*meshapi.ConfigSource{
 		{Address: cfg.Galley.Address()[6:]},
 	}
 	bootstrapArgs.MCPMaxMessageSize = bootstrap.DefaultMCPMaxMsgSize

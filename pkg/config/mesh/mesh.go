@@ -20,7 +20,7 @@
 // generate the configuration files for the Layer 7 proxy sidecar. The proxy
 // code is specific to individual proxy implementations
 
-package config
+package mesh
 
 import (
 	"time"
@@ -30,7 +30,9 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // DefaultProxyConfig for individual proxies
@@ -56,7 +58,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 
 // DefaultMeshConfig configuration
 func DefaultMeshConfig() meshconfig.MeshConfig {
-	config := DefaultProxyConfig()
+	proxyConfig := DefaultProxyConfig()
 	return meshconfig.MeshConfig{
 		MixerCheckServer:                  "",
 		MixerReportServer:                 "",
@@ -70,7 +72,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		EnableTracing:                     true,
 		AccessLogFile:                     "/dev/stdout",
 		AccessLogEncoding:                 meshconfig.MeshConfig_TEXT,
-		DefaultConfig:                     &config,
+		DefaultConfig:                     &proxyConfig,
 		SdsUdsPath:                        "",
 		EnableSdsTokenMount:               false,
 		TrustDomain:                       "",
@@ -86,7 +88,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 // input YAML with defaults applied to omitted configuration values.
 func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 	out := DefaultMeshConfig()
-	if err := ApplyYAML(yaml, &out); err != nil {
+	if err := protomarshal.ApplyYAML(yaml, &out); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 
@@ -99,16 +101,16 @@ func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 	// Re-apply defaults to ProxyConfig if they were defined in the
 	// original input MeshConfig.ProxyConfig.
 	if prevDefaultConfig != nil {
-		origProxyConfigYAML, err := ToYAML(prevDefaultConfig)
+		origProxyConfigYAML, err := protomarshal.ToYAML(prevDefaultConfig)
 		if err != nil {
 			return nil, multierror.Prefix(err, "failed to re-encode default proxy config")
 		}
-		if err := ApplyYAML(origProxyConfigYAML, out.DefaultConfig); err != nil {
+		if err := protomarshal.ApplyYAML(origProxyConfigYAML, out.DefaultConfig); err != nil {
 			return nil, multierror.Prefix(err, "failed to convert to proto.")
 		}
 	}
 
-	if err := ValidateMeshConfig(&out); err != nil {
+	if err := config.ValidateMeshConfig(&out); err != nil {
 		return nil, err
 	}
 
@@ -126,7 +128,7 @@ func EmptyMeshNetworks() meshconfig.MeshNetworks {
 // input YAML.
 func LoadMeshNetworksConfig(yaml string) (*meshconfig.MeshNetworks, error) {
 	out := EmptyMeshNetworks()
-	if err := ApplyYAML(yaml, &out); err != nil {
+	if err := protomarshal.ApplyYAML(yaml, &out); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 
