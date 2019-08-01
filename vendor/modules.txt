@@ -519,11 +519,6 @@ github.com/yuin/gopher-lua/parse
 github.com/yuin/gopher-lua/ast
 github.com/yuin/gopher-lua/pm
 # go.opencensus.io v0.21.0
-<<<<<<< HEAD
-=======
-go.opencensus.io/stats
-go.opencensus.io/stats/view
->>>>>>> rebase and dash fix
 go.opencensus.io/tag
 go.opencensus.io/stats
 go.opencensus.io/stats/view
@@ -747,10 +742,6 @@ istio.io/pkg/ctrlz
 istio.io/pkg/env
 istio.io/pkg/cache
 istio.io/pkg/attribute
-<<<<<<< HEAD
-=======
-istio.io/pkg/annotations
->>>>>>> fix(go mod update): update istio.io/pkg and run tidy
 istio.io/pkg/monitoring
 istio.io/pkg/collateral/metrics
 istio.io/pkg/ctrlz/assets
