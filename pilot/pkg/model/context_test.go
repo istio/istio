@@ -15,16 +15,13 @@
 package model_test
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pkg/config"
 )
 
 func TestServiceNode(t *testing.T) {
@@ -81,103 +78,6 @@ func TestParsePort(t *testing.T) {
 	}
 	if port := model.ParsePort("localhost"); port != 0 {
 		t.Errorf("ParsePort(localhost) => Got %d, want 0", port)
-	}
-}
-
-func TestDefaultConfig(t *testing.T) {
-	proxyConfig := config.DefaultProxyConfig()
-	if err := config.ValidateProxyConfig(&proxyConfig); err != nil {
-		t.Errorf("validation of default proxy config failed with %v", err)
-	}
-}
-
-func TestDefaultMeshConfig(t *testing.T) {
-	mesh := config.DefaultMeshConfig()
-	if err := config.ValidateMeshConfig(&mesh); err != nil {
-		t.Errorf("validation of default mesh config failed with %v", err)
-	}
-}
-
-func TestApplyMeshConfigDefaults(t *testing.T) {
-	configPath := "/test/config/patch"
-	yaml := fmt.Sprintf(`
-defaultConfig:
-  configPath: %s
-`, configPath)
-
-	want := config.DefaultMeshConfig()
-	want.DefaultConfig.ConfigPath = configPath
-
-	got, err := config.ApplyMeshConfigDefaults(yaml)
-	if err != nil {
-		t.Fatalf("ApplyMeshConfigDefaults() failed: %v", err)
-	}
-	if !reflect.DeepEqual(got, &want) {
-		t.Fatalf("Wrong default values:\n got %#v \nwant %#v", got, &want)
-	}
-}
-
-func TestApplyMeshNetworksDefaults(t *testing.T) {
-	yml := fmt.Sprintf(`
-networks:
-  network1:
-    endpoints:
-    - fromCidr: "192.168.0.1/24"
-    gateways:
-    - address: 1.1.1.1
-      port: 80
-  network2:
-    endpoints:
-    - fromRegistry: reg1
-    gateways:
-    - registryServiceName: reg1
-      port: 443
-`)
-
-	want := config.EmptyMeshNetworks()
-	want.Networks = map[string]*meshconfig.Network{
-		"network1": {
-			Endpoints: []*meshconfig.Network_NetworkEndpoints{
-				{
-					Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
-						FromCidr: "192.168.0.1/24",
-					},
-				},
-			},
-			Gateways: []*meshconfig.Network_IstioNetworkGateway{
-				{
-					Gw: &meshconfig.Network_IstioNetworkGateway_Address{
-						Address: "1.1.1.1",
-					},
-					Port: 80,
-				},
-			},
-		},
-		"network2": {
-			Endpoints: []*meshconfig.Network_NetworkEndpoints{
-				{
-					Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{
-						FromRegistry: "reg1",
-					},
-				},
-			},
-			Gateways: []*meshconfig.Network_IstioNetworkGateway{
-				{
-					Gw: &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{
-						RegistryServiceName: "reg1",
-					},
-					Port: 443,
-				},
-			},
-		},
-	}
-
-	got, err := config.LoadMeshNetworksConfig(yml)
-	if err != nil {
-		t.Fatalf("ApplyMeshNetworksDefaults() failed: %v", err)
-	}
-	if !reflect.DeepEqual(got, &want) {
-		t.Fatalf("Wrong values:\n got %#v \nwant %#v", got, &want)
 	}
 }
 

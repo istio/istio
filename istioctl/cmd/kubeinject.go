@@ -27,12 +27,13 @@ import (
 	"go.uber.org/multierr"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/cmd"
-	"istio.io/istio/pilot/pkg/kube/inject"
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
+
+	"istio.io/istio/pilot/cmd"
+	"istio.io/istio/pilot/pkg/kube/inject"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/kube"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -72,7 +73,7 @@ func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, erro
 	if !exists {
 		return nil, fmt.Errorf("missing configuration map key %q", configMapKey)
 	}
-	cfg, err := config.ApplyMeshConfigDefaults(configYaml)
+	cfg, err := mesh.ApplyMeshConfigDefaults(configYaml)
 	if err != nil {
 		err = multierr.Append(fmt.Errorf("istioctl version %s cannot parse mesh config.  Install istioctl from the latest Istio release",
 			version.Info.Version), err)
