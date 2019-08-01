@@ -80,7 +80,7 @@ import "networking/v1alpha3/sidecar.proto";
 //             name: "envoy.tcp_proxy"
 //     patch:
 //       operation: INSERT_BEFORE
-//       value: |
+//       value:
 //         name: "envoy.config.filter.network.custom_protocol"
 //         config:
 //          ...
@@ -93,7 +93,7 @@ import "networking/v1alpha3/sidecar.proto";
 //             name: "envoy.http_connection_manager"
 //     patch:
 //       operation: MERGE
-//       value: |
+//       value:
 //         idle_timeout: 30s
 //```
 //
@@ -112,7 +112,8 @@ import "networking/v1alpha3/sidecar.proto";
 //   namespace: bookinfo
 // spec:
 //   workloadSelector:
-//     app: reviews
+//     labels:
+//       app: reviews
 //   configPatches:
 //     # The first patch adds the lua filter to the listener/http connection manager
 //   - applyTo: HTTP_FILTER
@@ -176,7 +177,8 @@ import "networking/v1alpha3/sidecar.proto";
 //   namespace: istio-system
 // spec:
 //   workloadSelector:
-//     istio: ingress-gateway
+//     labels:
+//       istio: ingress-gateway
 //   configPatches:
 //   - applyTo: NETWORK_FILTER # http connection manager is a filter in Envoy
 //     match:
@@ -188,7 +190,7 @@ import "networking/v1alpha3/sidecar.proto";
 //             name: "envoy.http_connection_manager"
 //     patch:
 //       operation: MERGE
-//       value: |
+//       value:
 //         idle_timeout: 30s
 //         xff_num_trusted_hops: 5
 //```
@@ -368,23 +370,15 @@ message EnvoyFilter {
 
   // One or more properties of the proxy to match on.
   message ProxyMatch {
-    oneof version_match {
-      // Version restricts the patches to sidecars or gateways with
-      // from a specific version of Istio. The Istio version for a given
-      // proxy is obtained from the node metadata field ISTIO_VERSION
-      // supplied by the proxy when connecting to Pilot. This value is
-      // embedded as an environment variable (ISTIO_META_ISTIO_VERSION) in
-      // the Istio proxy docker image. Custom proxy implementations should
-      // provide this metadata variable to take advantage of the Istio
-      // version check option.
-      //
-      // Checks if the Istio version in the proxy is greater than or
-      // equal to the specified value.
-      string version_ge = 1;
-      // Checks if the Istio version in the proxy is equal to the
-      // exact version specified.
-      string version_eq = 2;
-    }
+    // A regular expression in golang regex format (RE2) that can be
+    // used to select proxies using a specific version of istio
+    // proxy. The Istio version for a given proxy is obtained from the
+    // node metadata field ISTIO_VERSION supplied by the proxy when
+    // connecting to Pilot. This value is embedded as an environment
+    // variable (ISTIO_META_ISTIO_VERSION) in the Istio proxy docker
+    // image. Custom proxy implementations should provide this metadata
+    // variable to take advantage of the Istio version check option.
+    string proxy_version = 1;
 
     // Match on the node metadata supplied by a proxy when connecting
     // to Istio Pilot. Note that while Envoy's node metadata is of
@@ -392,7 +386,7 @@ message EnvoyFilter {
     // Pilot. All keys specified in the metadata must match with exact
     // values. The match will fail if any of the specified keys are
     // absent or the values fail to match.
-    map<string, string> metadata = 3;
+    map<string, string> metadata = 2;
   };
 
   // Conditions specified in ClusterMatch must be met for the patch

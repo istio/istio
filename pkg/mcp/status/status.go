@@ -31,13 +31,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/gogo/googleapis/google/rpc"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/any"
 	spb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 )
 
 // statusError is an alias of a status proto.  It implements error and Status,
@@ -130,6 +131,7 @@ func ErrorProto(s *rpc.Status) error {
 }
 
 // FromProto returns a Status representing s.
+// nolint: interfacer
 func FromProto(s *rpc.Status) *Status {
 	return &Status{s: proto.Clone(s).(*rpc.Status)}
 }

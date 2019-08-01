@@ -9,6 +9,7 @@ import (
 	types "github.com/gogo/protobuf/types"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -121,7 +122,7 @@ func (m *Tracing) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Tracing.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -334,7 +335,7 @@ func (m *Tracing_Zipkin) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return xxx_messageInfo_Tracing_Zipkin.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -389,7 +390,7 @@ func (m *Tracing_Lightstep) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_Tracing_Lightstep.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -459,7 +460,7 @@ func (m *Tracing_Datadog) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_Tracing_Datadog.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -522,7 +523,7 @@ func (m *Tracing_Stackdriver) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return xxx_messageInfo_Tracing_Stackdriver.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -596,7 +597,7 @@ func (m *SDS) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_SDS.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -722,7 +723,7 @@ func (m *ProxyConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_ProxyConfig.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -992,7 +993,7 @@ var fileDescriptor_5efecd978cf3d28d = []byte{
 func (m *Tracing) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1000,83 +1001,115 @@ func (m *Tracing) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Tracing) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Tracing) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Tracer != nil {
-		nn1, err := m.Tracer.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += nn1
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Tracer != nil {
+		{
+			size := m.Tracer.Size()
+			i -= size
+			if _, err := m.Tracer.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Tracing_Zipkin_) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Tracing_Zipkin_) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.Zipkin != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(m.Zipkin.Size()))
-		n2, err := m.Zipkin.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.Zipkin.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintProxy(dAtA, i, uint64(size))
 		}
-		i += n2
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *Tracing_Lightstep_) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Tracing_Lightstep_) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.Lightstep != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(m.Lightstep.Size()))
-		n3, err := m.Lightstep.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.Lightstep.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintProxy(dAtA, i, uint64(size))
 		}
-		i += n3
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *Tracing_Datadog_) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Tracing_Datadog_) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.Datadog != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(m.Datadog.Size()))
-		n4, err := m.Datadog.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.Datadog.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintProxy(dAtA, i, uint64(size))
 		}
-		i += n4
+		i--
+		dAtA[i] = 0x1a
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *Tracing_Stackdriver_) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Tracing_Stackdriver_) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.Stackdriver != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(m.Stackdriver.Size()))
-		n5, err := m.Stackdriver.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.Stackdriver.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintProxy(dAtA, i, uint64(size))
 		}
-		i += n5
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *Tracing_Zipkin) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1084,26 +1117,33 @@ func (m *Tracing_Zipkin) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Tracing_Zipkin) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Tracing_Zipkin) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Address) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(len(m.Address)))
-		i += copy(dAtA[i:], m.Address)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.Address) > 0 {
+		i -= len(m.Address)
+		copy(dAtA[i:], m.Address)
+		i = encodeVarintProxy(dAtA, i, uint64(len(m.Address)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Tracing_Lightstep) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1111,48 +1151,57 @@ func (m *Tracing_Lightstep) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Tracing_Lightstep) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Tracing_Lightstep) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Address) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(len(m.Address)))
-		i += copy(dAtA[i:], m.Address)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.AccessToken) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(len(m.AccessToken)))
-		i += copy(dAtA[i:], m.AccessToken)
+	if len(m.CacertPath) > 0 {
+		i -= len(m.CacertPath)
+		copy(dAtA[i:], m.CacertPath)
+		i = encodeVarintProxy(dAtA, i, uint64(len(m.CacertPath)))
+		i--
+		dAtA[i] = 0x22
 	}
 	if m.Secure {
-		dAtA[i] = 0x18
-		i++
+		i--
 		if m.Secure {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x18
 	}
-	if len(m.CacertPath) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(len(m.CacertPath)))
-		i += copy(dAtA[i:], m.CacertPath)
+	if len(m.AccessToken) > 0 {
+		i -= len(m.AccessToken)
+		copy(dAtA[i:], m.AccessToken)
+		i = encodeVarintProxy(dAtA, i, uint64(len(m.AccessToken)))
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Address) > 0 {
+		i -= len(m.Address)
+		copy(dAtA[i:], m.Address)
+		i = encodeVarintProxy(dAtA, i, uint64(len(m.Address)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Tracing_Datadog) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1160,26 +1209,33 @@ func (m *Tracing_Datadog) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Tracing_Datadog) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Tracing_Datadog) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Address) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(len(m.Address)))
-		i += copy(dAtA[i:], m.Address)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.Address) > 0 {
+		i -= len(m.Address)
+		copy(dAtA[i:], m.Address)
+		i = encodeVarintProxy(dAtA, i, uint64(len(m.Address)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Tracing_Stackdriver) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1187,60 +1243,72 @@ func (m *Tracing_Stackdriver) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Tracing_Stackdriver) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Tracing_Stackdriver) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.MaxNumberOfMessageEvents != nil {
+		{
+			size, err := m.MaxNumberOfMessageEvents.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintProxy(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.MaxNumberOfAnnotations != nil {
+		{
+			size, err := m.MaxNumberOfAnnotations.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintProxy(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.MaxNumberOfAttributes != nil {
+		{
+			size, err := m.MaxNumberOfAttributes.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintProxy(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
 	if m.Debug {
-		dAtA[i] = 0x8
-		i++
+		i--
 		if m.Debug {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x8
 	}
-	if m.MaxNumberOfAttributes != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(m.MaxNumberOfAttributes.Size()))
-		n6, err := m.MaxNumberOfAttributes.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n6
-	}
-	if m.MaxNumberOfAnnotations != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(m.MaxNumberOfAnnotations.Size()))
-		n7, err := m.MaxNumberOfAnnotations.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n7
-	}
-	if m.MaxNumberOfMessageEvents != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(m.MaxNumberOfMessageEvents.Size()))
-		n8, err := m.MaxNumberOfMessageEvents.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n8
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *SDS) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1248,36 +1316,43 @@ func (m *SDS) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *SDS) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *SDS) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.K8SSaJwtPath) > 0 {
+		i -= len(m.K8SSaJwtPath)
+		copy(dAtA[i:], m.K8SSaJwtPath)
+		i = encodeVarintProxy(dAtA, i, uint64(len(m.K8SSaJwtPath)))
+		i--
+		dAtA[i] = 0x12
+	}
 	if m.Enabled {
-		dAtA[i] = 0x8
-		i++
+		i--
 		if m.Enabled {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x8
 	}
-	if len(m.K8SSaJwtPath) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(len(m.K8SSaJwtPath)))
-		i += copy(dAtA[i:], m.K8SSaJwtPath)
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *ProxyConfig) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1285,189 +1360,220 @@ func (m *ProxyConfig) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ProxyConfig) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ProxyConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.ConfigPath) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(len(m.ConfigPath)))
-		i += copy(dAtA[i:], m.ConfigPath)
-	}
-	if len(m.BinaryPath) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(len(m.BinaryPath)))
-		i += copy(dAtA[i:], m.BinaryPath)
-	}
-	if len(m.ServiceCluster) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(len(m.ServiceCluster)))
-		i += copy(dAtA[i:], m.ServiceCluster)
-	}
-	if m.DrainDuration != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(m.DrainDuration.Size()))
-		n9, err := m.DrainDuration.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n9
-	}
-	if m.ParentShutdownDuration != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(m.ParentShutdownDuration.Size()))
-		n10, err := m.ParentShutdownDuration.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n10
-	}
-	if len(m.DiscoveryAddress) > 0 {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(len(m.DiscoveryAddress)))
-		i += copy(dAtA[i:], m.DiscoveryAddress)
-	}
-	if m.DiscoveryRefreshDelay != nil {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(m.DiscoveryRefreshDelay.Size()))
-		n11, err := m.DiscoveryRefreshDelay.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n11
-	}
-	if len(m.ZipkinAddress) > 0 {
-		dAtA[i] = 0x42
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(len(m.ZipkinAddress)))
-		i += copy(dAtA[i:], m.ZipkinAddress)
-	}
-	if m.ConnectTimeout != nil {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(m.ConnectTimeout.Size()))
-		n12, err := m.ConnectTimeout.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n12
-	}
-	if len(m.StatsdUdpAddress) > 0 {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(len(m.StatsdUdpAddress)))
-		i += copy(dAtA[i:], m.StatsdUdpAddress)
-	}
-	if m.ProxyAdminPort != 0 {
-		dAtA[i] = 0x58
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(m.ProxyAdminPort))
-	}
-	if len(m.AvailabilityZone) > 0 {
-		dAtA[i] = 0x62
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(len(m.AvailabilityZone)))
-		i += copy(dAtA[i:], m.AvailabilityZone)
-	}
-	if m.ControlPlaneAuthPolicy != 0 {
-		dAtA[i] = 0x68
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(m.ControlPlaneAuthPolicy))
-	}
-	if len(m.CustomConfigFile) > 0 {
-		dAtA[i] = 0x72
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(len(m.CustomConfigFile)))
-		i += copy(dAtA[i:], m.CustomConfigFile)
-	}
-	if m.StatNameLength != 0 {
-		dAtA[i] = 0x78
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(m.StatNameLength))
-	}
-	if m.Concurrency != 0 {
-		dAtA[i] = 0x80
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(m.Concurrency))
-	}
-	if len(m.ProxyBootstrapTemplatePath) > 0 {
-		dAtA[i] = 0x8a
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(len(m.ProxyBootstrapTemplatePath)))
-		i += copy(dAtA[i:], m.ProxyBootstrapTemplatePath)
-	}
-	if m.InterceptionMode != 0 {
-		dAtA[i] = 0x90
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(m.InterceptionMode))
-	}
-	if m.Tracing != nil {
-		dAtA[i] = 0x9a
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(m.Tracing.Size()))
-		n13, err := m.Tracing.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n13
-	}
-	if len(m.EnvoyMetricsServiceAddress) > 0 {
-		dAtA[i] = 0xa2
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(len(m.EnvoyMetricsServiceAddress)))
-		i += copy(dAtA[i:], m.EnvoyMetricsServiceAddress)
-	}
-	if m.Sds != nil {
-		dAtA[i] = 0xaa
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(m.Sds.Size()))
-		n14, err := m.Sds.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n14
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.EnvoyAccessLogServiceAddress) > 0 {
-		dAtA[i] = 0xb2
-		i++
-		dAtA[i] = 0x1
-		i++
+		i -= len(m.EnvoyAccessLogServiceAddress)
+		copy(dAtA[i:], m.EnvoyAccessLogServiceAddress)
 		i = encodeVarintProxy(dAtA, i, uint64(len(m.EnvoyAccessLogServiceAddress)))
-		i += copy(dAtA[i:], m.EnvoyAccessLogServiceAddress)
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xb2
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Sds != nil {
+		{
+			size, err := m.Sds.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintProxy(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xaa
 	}
-	return i, nil
+	if len(m.EnvoyMetricsServiceAddress) > 0 {
+		i -= len(m.EnvoyMetricsServiceAddress)
+		copy(dAtA[i:], m.EnvoyMetricsServiceAddress)
+		i = encodeVarintProxy(dAtA, i, uint64(len(m.EnvoyMetricsServiceAddress)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xa2
+	}
+	if m.Tracing != nil {
+		{
+			size, err := m.Tracing.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintProxy(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x9a
+	}
+	if m.InterceptionMode != 0 {
+		i = encodeVarintProxy(dAtA, i, uint64(m.InterceptionMode))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x90
+	}
+	if len(m.ProxyBootstrapTemplatePath) > 0 {
+		i -= len(m.ProxyBootstrapTemplatePath)
+		copy(dAtA[i:], m.ProxyBootstrapTemplatePath)
+		i = encodeVarintProxy(dAtA, i, uint64(len(m.ProxyBootstrapTemplatePath)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x8a
+	}
+	if m.Concurrency != 0 {
+		i = encodeVarintProxy(dAtA, i, uint64(m.Concurrency))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x80
+	}
+	if m.StatNameLength != 0 {
+		i = encodeVarintProxy(dAtA, i, uint64(m.StatNameLength))
+		i--
+		dAtA[i] = 0x78
+	}
+	if len(m.CustomConfigFile) > 0 {
+		i -= len(m.CustomConfigFile)
+		copy(dAtA[i:], m.CustomConfigFile)
+		i = encodeVarintProxy(dAtA, i, uint64(len(m.CustomConfigFile)))
+		i--
+		dAtA[i] = 0x72
+	}
+	if m.ControlPlaneAuthPolicy != 0 {
+		i = encodeVarintProxy(dAtA, i, uint64(m.ControlPlaneAuthPolicy))
+		i--
+		dAtA[i] = 0x68
+	}
+	if len(m.AvailabilityZone) > 0 {
+		i -= len(m.AvailabilityZone)
+		copy(dAtA[i:], m.AvailabilityZone)
+		i = encodeVarintProxy(dAtA, i, uint64(len(m.AvailabilityZone)))
+		i--
+		dAtA[i] = 0x62
+	}
+	if m.ProxyAdminPort != 0 {
+		i = encodeVarintProxy(dAtA, i, uint64(m.ProxyAdminPort))
+		i--
+		dAtA[i] = 0x58
+	}
+	if len(m.StatsdUdpAddress) > 0 {
+		i -= len(m.StatsdUdpAddress)
+		copy(dAtA[i:], m.StatsdUdpAddress)
+		i = encodeVarintProxy(dAtA, i, uint64(len(m.StatsdUdpAddress)))
+		i--
+		dAtA[i] = 0x52
+	}
+	if m.ConnectTimeout != nil {
+		{
+			size, err := m.ConnectTimeout.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintProxy(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x4a
+	}
+	if len(m.ZipkinAddress) > 0 {
+		i -= len(m.ZipkinAddress)
+		copy(dAtA[i:], m.ZipkinAddress)
+		i = encodeVarintProxy(dAtA, i, uint64(len(m.ZipkinAddress)))
+		i--
+		dAtA[i] = 0x42
+	}
+	if m.DiscoveryRefreshDelay != nil {
+		{
+			size, err := m.DiscoveryRefreshDelay.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintProxy(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x3a
+	}
+	if len(m.DiscoveryAddress) > 0 {
+		i -= len(m.DiscoveryAddress)
+		copy(dAtA[i:], m.DiscoveryAddress)
+		i = encodeVarintProxy(dAtA, i, uint64(len(m.DiscoveryAddress)))
+		i--
+		dAtA[i] = 0x32
+	}
+	if m.ParentShutdownDuration != nil {
+		{
+			size, err := m.ParentShutdownDuration.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintProxy(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2a
+	}
+	if m.DrainDuration != nil {
+		{
+			size, err := m.DrainDuration.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintProxy(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.ServiceCluster) > 0 {
+		i -= len(m.ServiceCluster)
+		copy(dAtA[i:], m.ServiceCluster)
+		i = encodeVarintProxy(dAtA, i, uint64(len(m.ServiceCluster)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.BinaryPath) > 0 {
+		i -= len(m.BinaryPath)
+		copy(dAtA[i:], m.BinaryPath)
+		i = encodeVarintProxy(dAtA, i, uint64(len(m.BinaryPath)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.ConfigPath) > 0 {
+		i -= len(m.ConfigPath)
+		copy(dAtA[i:], m.ConfigPath)
+		i = encodeVarintProxy(dAtA, i, uint64(len(m.ConfigPath)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintProxy(dAtA []byte, offset int, v uint64) int {
+	offset -= sovProxy(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Tracing) Size() (n int) {
 	if m == nil {
@@ -1733,14 +1839,7 @@ func (m *ProxyConfig) Size() (n int) {
 }
 
 func sovProxy(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozProxy(x uint64) (n int) {
 	return sovProxy(uint64((x << 1) ^ uint64((int64(x) >> 63))))
