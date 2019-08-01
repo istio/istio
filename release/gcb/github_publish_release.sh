@@ -72,7 +72,7 @@ DRAFT_ARTIFACTS+="[RELEASE NOTES](https://istio.io/about/notes/${CB_VERSION}.htm
 cat << EOF > "${REQUEST_FILE}"
 {
   "tag_name": "${CB_VERSION}",
-  "target_commitsh": "${SHA}",
+  "target_commitish": "${SHA}",
   "body": "${DRAFT_ARTIFACTS}",
   "draft": true,
   "prerelease": true
