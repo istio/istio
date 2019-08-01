@@ -89,11 +89,9 @@ func Syncz(w http.ResponseWriter, _ *http.Request) {
 	for _, con := range adsClients {
 		con.mu.RLock()
 		if con.modelNode != nil {
-			proxyVersion, _ := con.modelNode.GetProxyVersion()
 			istioVersion, _ := con.modelNode.GetIstioVersion()
 			syncz = append(syncz, SyncStatus{
 				ProxyID:         con.modelNode.ID,
-				ProxyVersion:    proxyVersion,
 				IstioVersion:    istioVersion,
 				ClusterSent:     con.ClusterNonceSent,
 				ClusterAcked:    con.ClusterNonceAcked,

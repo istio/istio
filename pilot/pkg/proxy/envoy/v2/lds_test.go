@@ -24,6 +24,7 @@ import (
 	xdsapi_http_connection_manager "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/util/protomarshal"
 
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -208,9 +209,9 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		Meta: map[string]string{
-			model.NodeMetadataConfigNamespace:   "ns1",
-			model.NodeMetadataInstanceIPs:       "100.1.1.2", // as service instance of http2.ns1
-			model.NodeMetadataIstioProxyVersion: "1.1.0",
+			model.NodeMetadataConfigNamespace: "ns1",
+			model.NodeMetadataInstanceIPs:     "100.1.1.2", // as service instance of http2.ns1
+			model.NodeMetadataIstioVersion:    "1.3.0",
 		},
 		IP:        "100.1.1.2",
 		Namespace: "ns1",
@@ -280,9 +281,9 @@ func TestLDSWithIngressGateway(t *testing.T) {
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		Meta: map[string]string{
-			model.NodeMetadataConfigNamespace:   "istio-system",
-			model.NodeMetadataInstanceIPs:       "99.1.1.1", // as service instance of ingress gateway
-			model.NodeMetadataIstioProxyVersion: "1.1.0",
+			model.NodeMetadataConfigNamespace: "istio-system",
+			model.NodeMetadataInstanceIPs:     "99.1.1.1", // as service instance of ingress gateway
+			model.NodeMetadataIstioVersion:    "1.3.0",
 		},
 		IP:        "99.1.1.1",
 		Namespace: "istio-system",
@@ -342,7 +343,7 @@ func TestLDS(t *testing.T) {
 			return
 		}
 
-		strResponse, _ := config.ToJSONWithIndent(res, " ")
+		strResponse, _ := protomarshal.ToJSONWithIndent(res, " ")
 		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_sidecar.json", []byte(strResponse), 0644)
 
 		if len(res.Resources) == 0 {
@@ -367,7 +368,7 @@ func TestLDS(t *testing.T) {
 			t.Fatal("Failed to receive LDS", err)
 		}
 
-		strResponse, _ := config.ToJSONWithIndent(res, " ")
+		strResponse, _ := protomarshal.ToJSONWithIndent(res, " ")
 
 		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_gateway.json", []byte(strResponse), 0644)
 
@@ -406,9 +407,9 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		Meta: map[string]string{
-			model.NodeMetadataConfigNamespace:   "consumerns",
-			model.NodeMetadataInstanceIPs:       "98.1.1.1", // as service instance of ingress gateway
-			model.NodeMetadataIstioProxyVersion: "1.1.0",
+			model.NodeMetadataConfigNamespace: "consumerns",
+			model.NodeMetadataInstanceIPs:     "98.1.1.1", // as service instance of ingress gateway
+			model.NodeMetadataIstioVersion:    "1.3.0",
 		},
 		IP:        "98.1.1.1",
 		Namespace: "consumerns", // namespace must match the namespace of the sidecar in the configs.yaml
@@ -509,9 +510,9 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 				Meta: map[string]string{
-					model.NodeMetadataConfigNamespace:   "consumerns",
-					model.NodeMetadataInstanceIPs:       test.ip, // as service instance of ingress gateway
-					model.NodeMetadataIstioProxyVersion: "1.1.0",
+					model.NodeMetadataConfigNamespace: "consumerns",
+					model.NodeMetadataInstanceIPs:     test.ip, // as service instance of ingress gateway
+					model.NodeMetadataIstioVersion:    "1.3.0",
 				},
 				IP:        test.ip,
 				Namespace: "consumerns", // namespace must match the namespace of the sidecar in the configs.yaml

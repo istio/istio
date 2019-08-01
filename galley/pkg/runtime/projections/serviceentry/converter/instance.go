@@ -24,9 +24,10 @@ import (
 	"istio.io/api/annotation"
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	configKube "istio.io/istio/pkg/config/kube"
 
 	coreV1 "k8s.io/api/core/v1"
@@ -83,11 +84,11 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *mcp.Metadata
 	}
 
 	// Check for unspecified Cluster IP
-	addr := config.UnspecifiedIP
+	addr := constants.UnspecifiedIP
 	if spec.ClusterIP != "" && spec.ClusterIP != coreV1.ClusterIPNone {
 		addr = spec.ClusterIP
 	}
-	if addr == config.UnspecifiedIP && externalName == "" {
+	if addr == constants.UnspecifiedIP && externalName == "" {
 		// Headless services should not be load balanced
 		resolution = networking.ServiceEntry_NONE
 	}

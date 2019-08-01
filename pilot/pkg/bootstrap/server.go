@@ -44,6 +44,12 @@ import (
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	istio_networking_v1alpha3 "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/env"
+	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
+
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/clusterregistry"
@@ -67,17 +73,14 @@ import (
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	configz "istio.io/istio/pkg/mcp/configz/client"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/sink"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/env"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -235,7 +238,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 		if args.Namespace != "" {
 			args.Config.ClusterRegistriesNamespace = args.Namespace
 		} else {
-			args.Config.ClusterRegistriesNamespace = config.IstioSystemNamespace
+			args.Config.ClusterRegistriesNamespace = constants.IstioSystemNamespace
 		}
 	}
 
@@ -342,14 +345,14 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.ConfigMap, *meshconfig.MeshConfig, error) {
 
 	if kube == nil {
-		defaultMesh := config.DefaultMeshConfig()
+		defaultMesh := mesh.DefaultMeshConfig()
 		return nil, &defaultMesh, nil
 	}
 
 	cfg, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
-			defaultMesh := config.DefaultMeshConfig()
+			defaultMesh := mesh.DefaultMeshConfig()
 			return nil, &defaultMesh, nil
 		}
 		return nil, nil, err
@@ -362,7 +365,7 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 		return nil, nil, fmt.Errorf("missing configuration map key %q", ConfigMapKey)
 	}
 
-	mesh, err := config.ApplyMeshConfigDefaults(cfgYaml)
+	mesh, err := mesh.ApplyMeshConfigDefaults(cfgYaml)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -571,9 +574,9 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 				}
 			case istio_networking_v1alpha3.TLSSettings_ISTIO_MUTUAL:
 				credentialOption = &creds.Options{
-					CertificateFile:   path.Join(config.AuthCertsPath, config.CertChainFilename),
-					KeyFile:           path.Join(config.AuthCertsPath, config.KeyFilename),
-					CACertificateFile: path.Join(config.AuthCertsPath, config.RootCertFilename),
+					CertificateFile:   path.Join(constants.AuthCertsPath, constants.CertChainFilename),
+					KeyFile:           path.Join(constants.AuthCertsPath, constants.KeyFilename),
+					CACertificateFile: path.Join(constants.AuthCertsPath, constants.RootCertFilename),
 				}
 			default:
 				log.Errorf("invalid tls setting mode %d", configSource.TlsSettings.Mode)
@@ -1065,9 +1068,9 @@ func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
 		certDir = PilotCertDir
 	}
 
-	ca := path.Join(certDir, config.RootCertFilename)
-	key := path.Join(certDir, config.KeyFilename)
-	cert := path.Join(certDir, config.CertChainFilename)
+	ca := path.Join(certDir, constants.RootCertFilename)
+	key := path.Join(certDir, constants.KeyFilename)
+	cert := path.Join(certDir, constants.CertChainFilename)
 
 	tlsCreds, err := credentials.NewServerTLSFromFile(cert, key)
 	// certs not ready yet.

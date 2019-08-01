@@ -371,9 +371,9 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	// We know that this is a HTTPS server because this function is called only for ports of type HTTP/HTTPS
 	// where HTTPS server's TLS mode is not passthrough and not nil
 	enableIngressSdsAgent := false
-	// If proxy version is over 1.1, and proxy sends metadata USER_SDS, then create SDS config for
+	// If proxy sends metadata USER_SDS, then create SDS config for
 	// gateway listener.
-	if enableSds, found := node.Metadata["USER_SDS"]; found && util.IsProxyVersionGE11(node) {
+	if enableSds, found := node.Metadata["USER_SDS"]; found {
 		enableIngressSdsAgent, _ = strconv.ParseBool(enableSds)
 	}
 	return &filterChainOpts{
@@ -533,7 +533,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 			enableIngressSdsAgent := false
 			// If proxy version is over 1.1, and proxy sends metadata USER_SDS, then create SDS config for
 			// gateway listener.
-			if enableSds, found := node.Metadata["USER_SDS"]; found && util.IsProxyVersionGE11(node) {
+			if enableSds, found := node.Metadata["USER_SDS"]; found {
 				enableIngressSdsAgent, _ = strconv.ParseBool(enableSds)
 			}
 			return []*filterChainOpts{

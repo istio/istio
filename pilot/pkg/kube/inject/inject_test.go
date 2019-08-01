@@ -25,9 +25,10 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	meshapi "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/mesh"
 )
 
 const (
@@ -512,16 +513,16 @@ func TestIntoResourceFile(t *testing.T) {
 	for i, c := range cases {
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
 		t.Run(testName, func(t *testing.T) {
-			mesh := config.DefaultMeshConfig()
+			m := mesh.DefaultMeshConfig()
 			if c.duration != 0 {
-				mesh.DefaultConfig.DrainDuration = types.DurationProto(c.duration)
-				mesh.DefaultConfig.ParentShutdownDuration = types.DurationProto(c.duration)
-				mesh.DefaultConfig.ConnectTimeout = types.DurationProto(c.duration)
+				m.DefaultConfig.DrainDuration = types.DurationProto(c.duration)
+				m.DefaultConfig.ParentShutdownDuration = types.DurationProto(c.duration)
+				m.DefaultConfig.ConnectTimeout = types.DurationProto(c.duration)
 			}
 			if c.tproxy {
-				mesh.DefaultConfig.InterceptionMode = meshconfig.ProxyConfig_TPROXY
+				m.DefaultConfig.InterceptionMode = meshapi.ProxyConfig_TPROXY
 			} else {
-				mesh.DefaultConfig.InterceptionMode = meshconfig.ProxyConfig_REDIRECT
+				m.DefaultConfig.InterceptionMode = meshapi.ProxyConfig_REDIRECT
 			}
 
 			params := &Params{
@@ -535,7 +536,7 @@ func TestIntoResourceFile(t *testing.T) {
 				Version:                      "12345678",
 				EnableCoreDump:               c.enableCoreDump,
 				Privileged:                   c.privileged,
-				Mesh:                         &mesh,
+				Mesh:                         &m,
 				DebugMode:                    c.debugMode,
 				IncludeIPRanges:              c.includeIPRanges,
 				ExcludeIPRanges:              c.excludeIPRanges,
@@ -562,7 +563,7 @@ func TestIntoResourceFile(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate, valuesConfig, &mesh, in, &got); err != nil {
+			if err = IntoResourceFile(sidecarTemplate, valuesConfig, &m, in, &got); err != nil {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
@@ -641,7 +642,7 @@ func TestRewriteAppProbe(t *testing.T) {
 	for i, c := range cases {
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
 		t.Run(testName, func(t *testing.T) {
-			mesh := config.DefaultMeshConfig()
+			m := mesh.DefaultMeshConfig()
 			params := &Params{
 				InitImage:                    InitImageName(unitTestHub, unitTestTag, false),
 				ProxyImage:                   ProxyImageName(unitTestHub, unitTestTag, false),
@@ -664,7 +665,7 @@ func TestRewriteAppProbe(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate, valuesConfig, &mesh, in, &got); err != nil {
+			if err = IntoResourceFile(sidecarTemplate, valuesConfig, &m, in, &got); err != nil {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
@@ -778,7 +779,7 @@ func TestInvalidAnnotations(t *testing.T) {
 }
 
 func newTestParams() *Params {
-	mesh := config.DefaultMeshConfig()
+	m := mesh.DefaultMeshConfig()
 	return &Params{
 		InitImage:           InitImageName(unitTestHub, unitTestTag, false),
 		ProxyImage:          ProxyImageName(unitTestHub, unitTestTag, false),
@@ -788,7 +789,7 @@ func newTestParams() *Params {
 		SidecarProxyUID:     DefaultSidecarProxyUID,
 		Version:             "12345678",
 		EnableCoreDump:      false,
-		Mesh:                &mesh,
+		Mesh:                &m,
 		DebugMode:           false,
 		IncludeIPRanges:     DefaultIncludeIPRanges,
 		ExcludeIPRanges:     "",

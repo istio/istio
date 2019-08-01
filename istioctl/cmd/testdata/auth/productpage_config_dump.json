@@ -16,7 +16,6 @@
       "INSTANCE_IPS": "10.52.2.21,fe80::54f8:2cff:fe2b:2dd3",
       "POD_NAME": "productpage-v1-5cb458d74f-56sx7",
       "istio": "sidecar",
-      "ISTIO_PROXY_VERSION": "1.1.0",
       "ISTIO_PROXY_SHA": "istio-proxy:55c80965eab994e6bfa2227e3942fa89928d0d70",
       "app": "productpage"
      },

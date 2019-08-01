@@ -25,11 +25,13 @@ import (
 	"istio.io/api/annotation"
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	metadata2 "istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/converter"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 
 	coreV1 "k8s.io/api/core/v1"
@@ -170,7 +172,7 @@ func TestServiceResolution(t *testing.T) {
 					CreateTime: tnow,
 				},
 				Item: &coreV1.ServiceSpec{
-					ClusterIP: config.UnspecifiedIP,
+					ClusterIP: constants.UnspecifiedIP,
 				},
 			},
 			resolution: networking.ServiceEntry_NONE,
@@ -208,7 +210,7 @@ func TestServiceResolution(t *testing.T) {
 					CreateTime: tnow,
 				},
 				Item: &coreV1.ServiceSpec{
-					ClusterIP: config.UnspecifiedIP,
+					ClusterIP: constants.UnspecifiedIP,
 				},
 			},
 			resolution: networking.ServiceEntry_STATIC,
@@ -485,7 +487,7 @@ func TestClusterIPWithNoResolution(t *testing.T) {
 			}
 			expected := networking.ServiceEntry{
 				Hosts:      []string{hostForNamespace(namespace)},
-				Addresses:  []string{config.UnspecifiedIP},
+				Addresses:  []string{constants.UnspecifiedIP},
 				Resolution: networking.ServiceEntry_NONE,
 				Location:   networking.ServiceEntry_MESH_INTERNAL,
 				Ports:      []*networking.Port{},

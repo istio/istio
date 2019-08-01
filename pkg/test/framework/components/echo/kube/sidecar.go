@@ -126,6 +126,42 @@ func (s *sidecar) WaitForConfigOrFail(t test.Failer, accept func(*envoyAdmin.Con
 	}
 }
 
+func (s *sidecar) Clusters() (*envoyAdmin.Clusters, error) {
+	msg := &envoyAdmin.Clusters{}
+	if err := s.adminRequest("clusters?format=json", msg); err != nil {
+		return nil, err
+	}
+
+	return msg, nil
+}
+
+func (s *sidecar) ClustersOrFail(t test.Failer) *envoyAdmin.Clusters {
+	t.Helper()
+	clusters, err := s.Clusters()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return clusters
+}
+
+func (s *sidecar) Listeners() (*envoyAdmin.Listeners, error) {
+	msg := &envoyAdmin.Listeners{}
+	if err := s.adminRequest("listeners?format=json", msg); err != nil {
+		return nil, err
+	}
+
+	return msg, nil
+}
+
+func (s *sidecar) ListenersOrFail(t test.Failer) *envoyAdmin.Listeners {
+	t.Helper()
+	listeners, err := s.Listeners()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return listeners
+}
+
 func (s *sidecar) adminRequest(path string, out proto.Message) error {
 	// Exec onto the pod and make a curl request to the admin port, writing
 	command := fmt.Sprintf("curl http://127.0.0.1:%d/%s", proxyAdminPort, path)

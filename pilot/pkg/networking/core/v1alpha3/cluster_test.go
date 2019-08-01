@@ -30,11 +30,13 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -648,9 +650,9 @@ func TestClusterMetadata(t *testing.T) {
 func TestConditionallyConvertToIstioMtls(t *testing.T) {
 	tlsSettings := &networking.TLSSettings{
 		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
-		CaCertificates:    config.DefaultRootCert,
-		ClientCertificate: config.DefaultCertChain,
-		PrivateKey:        config.DefaultKey,
+		CaCertificates:    constants.DefaultRootCert,
+		ClientCertificate: constants.DefaultCertChain,
+		PrivateKey:        constants.DefaultKey,
 		SubjectAltNames:   []string{"custom.foo.com"},
 		Sni:               "custom.foo.com",
 	}
@@ -674,9 +676,9 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			"Destination rule TLS sni and SAN override absent",
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
-				CaCertificates:    config.DefaultRootCert,
-				ClientCertificate: config.DefaultCertChain,
-				PrivateKey:        config.DefaultKey,
+				CaCertificates:    constants.DefaultRootCert,
+				ClientCertificate: constants.DefaultCertChain,
+				PrivateKey:        constants.DefaultKey,
 				SubjectAltNames:   []string{},
 				Sni:               "",
 			},
@@ -685,9 +687,9 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			&model.Proxy{Metadata: map[string]string{}},
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
-				CaCertificates:    config.DefaultRootCert,
-				ClientCertificate: config.DefaultCertChain,
-				PrivateKey:        config.DefaultKey,
+				CaCertificates:    constants.DefaultRootCert,
+				ClientCertificate: constants.DefaultCertChain,
+				PrivateKey:        constants.DefaultKey,
 				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
 				Sni:               "foo.com",
 			},

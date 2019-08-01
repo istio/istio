@@ -502,7 +502,7 @@ func (a *ADSC) node() *core.Node {
 	if a.Metadata == nil {
 		n.Metadata = &types.Struct{
 			Fields: map[string]*types.Value{
-				"ISTIO_PROXY_VERSION": {Kind: &types.Value_StringValue{StringValue: "1.0"}},
+				"ISTIO_VERSION": {Kind: &types.Value_StringValue{StringValue: "65536.65536.65536"}},
 			}}
 	} else {
 		f := map[string]*types.Value{}
