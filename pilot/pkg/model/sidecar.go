@@ -373,6 +373,20 @@ func (ilw *IstioEgressListenerWrapper) VirtualServices() []Config {
 	return ilw.virtualServices
 }
 
+// ContainsEgressNamespace determines if the Sidecar includes the given namespace.
+func (ilw *IstioEgressListenerWrapper) ContainsEgressNamespace(namespace string) bool {
+	if ilw == nil {
+		return true
+	}
+
+	for hostNs := range ilw.listenerHosts {
+		if hostNs == wildcardNamespace || namespace == hostNs {
+			return true
+		}
+	}
+	return false
+}
+
 // Given a list of virtual services visible to this namespace,
 // selectVirtualServices returns the list of virtual services that are
 // applicable to this egress listener, based on the hosts field specified
