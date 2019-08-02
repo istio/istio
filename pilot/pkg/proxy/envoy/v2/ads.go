@@ -665,8 +665,8 @@ func (s *DiscoveryServer) startPush(push *model.PushContext, full bool, edsUpdat
 		adsLog.Infof("Starting new push while %v were still pending", currentlyPending)
 	}
 	startTime := time.Now()
-	pushEvent := &PushEvent{edsUpdates, push, startTime, full}
 	for _, p := range pending {
+		pushEvent := &PushEvent{edsUpdates, push, startTime, full}
 		s.pushQueue.Enqueue(p, pushEvent)
 	}
 }
