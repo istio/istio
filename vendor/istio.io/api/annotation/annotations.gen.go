@@ -46,6 +46,14 @@ var (
           Deprecated: false,
         }
 	
+		IoKubernetesIngressClass = Instance {
+          Name: "kubernetes.io/ingress.class",
+          Description: "Annotation on an Ingress resources denoting the class of "+
+                        "controllers responsible for it.",
+          Hidden: false,
+          Deprecated: false,
+        }
+	
 		AlphaNetworkingEndpointsVersion = Instance {
           Name: "networking.alpha.istio.io/endpointsVersion",
           Description: "Added to synthetic ServiceEntry resources to provide the "+

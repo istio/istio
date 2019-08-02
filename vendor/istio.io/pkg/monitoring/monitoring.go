@@ -32,6 +32,12 @@ type (
 		// this is equivalent to making an observation of value 1.
 		Increment()
 
+		// Decrement records a value of -1 for the current measure. For Sums,
+		// this is equivalent to subtracting -1 to the current value. For Gauges,
+		// this is equivalent to setting the value to -1. For Distributions,
+		// this is equivalent to making an observation of value -1.
+		Decrement()
+
 		// Name returns the name value of a Metric.
 		Name() string
 
@@ -159,6 +165,10 @@ func newFloat64Metric(name, description string, aggregation *view.Aggregation, o
 
 func (f *float64Metric) Increment() {
 	f.Record(1)
+}
+
+func (f *float64Metric) Decrement() {
+	f.Record(-1)
 }
 
 func (f *float64Metric) Name() string {

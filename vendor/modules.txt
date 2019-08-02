@@ -707,7 +707,7 @@ gopkg.in/square/go-jose.v2/cipher
 gopkg.in/stack.v1
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
-# istio.io/api v0.0.0-20190801054801-27c01d9b4132
+# istio.io/api v0.0.0-20190802144653-982935ba456e
 istio.io/api/mesh/v1alpha1
 istio.io/api/mcp/v1alpha1
 istio.io/api/authentication/v1alpha1
@@ -724,13 +724,12 @@ istio.io/api/mixer/v1
 istio.io/gogo-genproto/googleapis/google/rpc
 istio.io/gogo-genproto/googleapis/google/api
 istio.io/gogo-genproto/opencensus/proto/trace/v1
-# istio.io/pkg v0.0.0-20190710182420-c26792dead42
+# istio.io/pkg v0.0.0-20190731230704-fcbac27d69d5
 istio.io/pkg/collateral
 istio.io/pkg/log
 istio.io/pkg/probe
 istio.io/pkg/version
 istio.io/pkg/filewatcher
-istio.io/pkg/annotations
 istio.io/pkg/appsignals
 istio.io/pkg/pool
 istio.io/pkg/timedfn

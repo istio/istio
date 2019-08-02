@@ -219,3 +219,7 @@ annotations:
       set, this will be 1000ms.
     deprecated: false
     hidden: false
+  - name: kubernetes.io/ingress.class
+    description: Annotation on an Ingress resources denoting the class of controllers responsible for it.
+    deprecated: false
+    hidden: false
