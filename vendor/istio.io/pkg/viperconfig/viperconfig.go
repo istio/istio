@@ -30,7 +30,7 @@ import (
 // for reading that file
 func AddConfigFlag(rootCmd *cobra.Command, viper *viper.Viper) {
 	var cfgFile string
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Config file containing args")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "Config file containing args")
 
 	cobra.OnInitialize(func() {
 		if len(cfgFile) > 0 {

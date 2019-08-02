@@ -724,7 +724,7 @@ istio.io/api/mixer/v1
 istio.io/gogo-genproto/googleapis/google/rpc
 istio.io/gogo-genproto/googleapis/google/api
 istio.io/gogo-genproto/opencensus/proto/trace/v1
-# istio.io/pkg v0.0.0-20190802191846-7d8c4c4d8463
+# istio.io/pkg v0.0.0-20190802215143-e2c6539912b7
 istio.io/pkg/collateral
 istio.io/pkg/log
 istio.io/pkg/probe
