@@ -40,7 +40,7 @@ metadata:
 spec:
   ports:
   - port: 9999
-    name: tcp-dummy
+    name: dummy
   selector:
     app: netcat-client
 ---
