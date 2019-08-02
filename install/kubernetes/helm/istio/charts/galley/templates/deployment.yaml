@@ -42,7 +42,7 @@ spec:
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
-          - containerPort: {{ .Values.validationPort }}
+          - containerPort: 9443
           - containerPort: {{ .Values.global.monitoringPort }}
           - containerPort: 9901
           command:
@@ -68,7 +68,6 @@ spec:
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml
           - --monitoringPort={{ .Values.global.monitoringPort }}
-          - --validation-port={{ .Values.validationPort }}
 {{- if $.Values.global.logging.level }}
           - --log_output_level={{ $.Values.global.logging.level }}
 {{- end}}

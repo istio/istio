@@ -42,6 +42,3 @@ rewriteAppHTTPProbe: false
 neverInjectSelector: []
 
 alwaysInjectSelector: []
-
-# Webhook port
-webhookPort: 9443
