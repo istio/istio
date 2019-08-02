@@ -355,6 +355,21 @@ func (client *Client) BuildPortForwarder(podName string, ns string, localPort in
 		return nil, fmt.Errorf("failed establishing port-forward: %v", err)
 	}
 
+	// Run the same check as k8s.io/kubectl/pkg/cmd/portforward/portforward.go
+	// so that we will fail early if there is a problem contacting API server.
+	podGet := client.Get().Resource("pods").Namespace(ns).Name(podName)
+	obj, err := podGet.Do().Get()
+	if err != nil {
+		return nil, fmt.Errorf("failed retrieving pod: %v", err)
+	}
+	pod, ok := obj.(*v1.Pod)
+	if !ok {
+		return nil, fmt.Errorf("failed getting pod: %v", err)
+	}
+	if pod.Status.Phase != v1.PodRunning {
+		return nil, fmt.Errorf("pod is not running. Status=%v", pod.Status.Phase)
+	}
+
 	return &PortForward{
 		Forwarder:    fw,
 		ReadyChannel: ready,
