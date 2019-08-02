@@ -364,8 +364,8 @@ func testSDSStreamOne(stream sds.SecretDiscoveryService_StreamSecretsClient, pro
 }
 
 type notifyMsg struct {
-	Err     error  `stream errors`
-	Message string `notification message`
+	Err     error
+	Message string
 }
 
 func waitForNotificationToProceed(t *testing.T, notifyChan chan notifyMsg, proceedNotice string) {
@@ -417,7 +417,7 @@ func waitForSecretCacheCheck(t *testing.T, mss *mockSecretStore, expectCacheHit 
 func getClientConID(proxyID string) string {
 	sdsClientsMutex.RLock()
 	defer sdsClientsMutex.RUnlock()
-	for k, _ := range sdsClients {
+	for k := range sdsClients {
 		if strings.HasPrefix(k.ConnectionID, proxyID) {
 			return k.ConnectionID
 		}
