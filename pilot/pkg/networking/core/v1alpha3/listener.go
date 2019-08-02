@@ -1581,16 +1581,18 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 
 	// add a TLS inspector if we need to detect ServerName or ALPN
 	needTLSInspector := false
-	for _, chain := range opts.filterChainOpts {
-		needsALPN := chain.tlsContext != nil && chain.tlsContext.CommonTlsContext != nil && len(chain.tlsContext.CommonTlsContext.AlpnProtocols) > 0
-		if len(chain.sniHosts) > 0 || needsALPN {
-			needTLSInspector = true
-			break
+	if opts.proxy.Type == model.SidecarProxy {
+		for _, chain := range opts.filterChainOpts {
+			needsALPN := chain.tlsContext != nil && chain.tlsContext.CommonTlsContext != nil && len(chain.tlsContext.CommonTlsContext.AlpnProtocols) > 0
+			if len(chain.sniHosts) > 0 || needsALPN {
+				needTLSInspector = true
+				break
+			}
 		}
-	}
-	if needTLSInspector {
-		listenerFiltersMap[xdsutil.TlsInspector] = true
-		listenerFilters = append(listenerFilters, &listener.ListenerFilter{Name: xdsutil.TlsInspector})
+		if needTLSInspector {
+			listenerFiltersMap[xdsutil.TlsInspector] = true
+			listenerFilters = append(listenerFilters, &listener.ListenerFilter{Name: xdsutil.TlsInspector})
+		}
 	}
 
 	for _, chain := range opts.filterChainOpts {
