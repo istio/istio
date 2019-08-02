@@ -1948,19 +1948,22 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	errs = appendErrors(errs, validateHTTPFaultInjection(http.Fault))
 
 	for _, match := range http.Match {
-		for name, header := range match.Headers {
-			if header == nil {
-				errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
+		if match != nil {
+			for name, header := range match.Headers {
+				if header == nil {
+					errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
+				}
+				errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 			}
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-		}
 
-		if match.Port != 0 {
-			errs = appendErrors(errs, ValidatePort(int(match.Port)))
+			if match.Port != 0 {
+				errs = appendErrors(errs, ValidatePort(int(match.Port)))
+			}
+			errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
+			errs = appendErrors(errs, validateGatewayNames(match.Gateways))
 		}
-		errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
-		errs = appendErrors(errs, validateGatewayNames(match.Gateways))
 	}
+
 	errs = appendErrors(errs, validateDestination(http.Mirror))
 	errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
 	errs = appendErrors(errs, validateHTTPRetry(http.Retries))
