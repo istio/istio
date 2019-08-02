@@ -319,6 +319,10 @@ func testPorts(base int) []*model.Port {
 			Port:     base + 120,
 			Protocol: protocol.MySQL,
 		}, {
+			Name:     "thrift",
+			Port:     base + 130,
+			Protocol: protocol.Thrift,
+		}, {
 			Name:     "h2port",
 			Port:     base + 66,
 			Protocol: protocol.GRPC,

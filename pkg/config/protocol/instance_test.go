@@ -63,6 +63,8 @@ func TestParse(t *testing.T) {
 		{"mysql", protocol.MySQL},
 		{"MYSQL", protocol.MySQL},
 		{"MySQL", protocol.MySQL},
+		{"thriFt", protocol.Thrift},
+		{"ThRiFt", protocol.Thrift},
 		{"", protocol.Unsupported},
 		{"SMTP", protocol.Unsupported},
 	}

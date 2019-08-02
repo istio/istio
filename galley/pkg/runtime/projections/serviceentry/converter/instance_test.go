@@ -397,6 +397,8 @@ func TestServicePorts(t *testing.T) {
 		{"redis-test", coreV1.ProtocolTCP, protocol.Redis},
 		{"mysql", coreV1.ProtocolTCP, protocol.MySQL},
 		{"mysql-test", coreV1.ProtocolTCP, protocol.MySQL},
+		{"thrift", coreV1.ProtocolTCP, protocol.Thrift},
+		{"thrift-test", coreV1.ProtocolTCP, protocol.Thrift},
 	}
 
 	ip := "10.0.0.1"

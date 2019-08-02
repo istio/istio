@@ -63,6 +63,8 @@ func TestConvertProtocol(t *testing.T) {
 		{"redis-test", coreV1.ProtocolTCP, protocol.Redis},
 		{"mysql", coreV1.ProtocolTCP, protocol.MySQL},
 		{"mysql-test", coreV1.ProtocolTCP, protocol.MySQL},
+		{"thrift", coreV1.ProtocolTCP, protocol.Thrift},
+		{"thrift-test", coreV1.ProtocolTCP, protocol.Thrift},
 	}
 
 	// Create the list of cases for all of the names in both upper and lowercase.
@@ -411,6 +413,16 @@ func TestProbesToPortsConversion(t *testing.T) {
 			},
 		},
 		{
+			TCPSocket: &coreV1.TCPSocketAction{
+				Port: intstr.IntOrString{StrVal: "thrift", Type: intstr.String},
+			},
+		},
+		{
+			TCPSocket: &coreV1.TCPSocketAction{
+				Port: intstr.IntOrString{IntVal: 9090, Type: intstr.Int},
+			},
+		},
+		{
 			HTTPGet: &coreV1.HTTPGetAction{
 				Path: "/foo",
 				Port: intstr.IntOrString{StrVal: "http-two", Type: intstr.String},
@@ -432,6 +444,10 @@ func TestProbesToPortsConversion(t *testing.T) {
 					{
 						Name:          "mysql",
 						ContainerPort: 3306,
+					},
+					{
+						Name:          "thrift",
+						ContainerPort: 9090,
 					},
 					{
 						Name:          "http-two",

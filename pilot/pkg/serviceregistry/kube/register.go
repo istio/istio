@@ -34,6 +34,7 @@ var (
 		443:  "https",
 		3306: "mysql",
 		8080: "http",
+		// TODO (peter.novotnak@reddit.com) thrift?
 	}
 )
 

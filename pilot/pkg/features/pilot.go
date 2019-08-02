@@ -131,6 +131,14 @@ var (
 		"EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.",
 	)
 
+	// EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.
+	// Pilot injects this outbound filter if the service port name is `thrift`.
+	EnableThriftFilter = env.RegisterBoolVar(
+		"PILOT_ENABLE_THRIFT_FILTER",
+		false,
+		"EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.",
+	)
+
 	// EnableRedisFilter enables injection of `envoy.filters.network.redis_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `redis`.
 	EnableRedisFilter = env.RegisterBoolVar(

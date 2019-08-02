@@ -38,12 +38,13 @@ import (
 )
 
 const (
-	bookinfoSampleDir                  = "samples/bookinfo"
-	yamlExtension                      = "yaml"
-	deploymentDir                      = "platform/kube"
-	routeRulesDir                      = "networking"
-	bookinfoYaml                       = "bookinfo"
-	bookinfoRatingsv2Yaml              = "bookinfo-ratings-v2"
+	bookinfoSampleDir     = "samples/bookinfo"
+	yamlExtension         = "yaml"
+	deploymentDir         = "platform/kube"
+	routeRulesDir         = "networking"
+	bookinfoYaml          = "bookinfo"
+	bookinfoRatingsv2Yaml = "bookinfo-ratings-v2"
+	// TODO (peter.novotnak@reddit.com) thrift e2e test
 	bookinfoRatingsMysqlYaml           = "bookinfo-ratings-v2-mysql"
 	bookinfoDbYaml                     = "bookinfo-db"
 	bookinfoMysqlYaml                  = "bookinfo-mysql"
