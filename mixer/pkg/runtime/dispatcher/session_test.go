@@ -132,7 +132,6 @@ func TestSession_EnsureParallelism(t *testing.T) {
 }
 
 func TestDirectResponse(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/15932")
 	testcases := []struct {
 		desc      string
 		status    rpc.Status
