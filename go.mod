@@ -184,7 +184,7 @@ require (
 	gotest.tools v2.2.0+incompatible // indirect
 	istio.io/api v0.0.0-20190802144653-982935ba456e
 	istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2
-	istio.io/pkg v0.0.0-20190731230704-fcbac27d69d5
+	istio.io/pkg v0.0.0-20190802191846-7d8c4c4d8463
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471
 	k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87
 	k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628
