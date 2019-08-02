@@ -43,7 +43,7 @@ spec:
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           ports:
-          - containerPort: 443
+          - containerPort: 9443
           - containerPort: 15014
           - containerPort: 15019
           - containerPort: 9901
@@ -52,8 +52,8 @@ spec:
           - server
           - --meshConfigFile=/etc/mesh-config/mesh
           - --livenessProbeInterval=1s
-          - --livenessProbePath=/healthliveness
-          - --readinessProbePath=/healthready
+          - --livenessProbePath=/tmp/healthliveness
+          - --readinessProbePath=/tmp/healthready
           - --readinessProbeInterval=1s
           - --insecure=true
   {{- if .Values.global.configValidation }}
@@ -66,6 +66,7 @@ spec:
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml
           - --monitoringPort=15014
+          - --validation-port=9443
 {{- if $.Values.global.logging.level }}
           - --log_output_level={{ $.Values.global.logging.level }}
 {{- end}}
@@ -86,7 +87,7 @@ spec:
               command:
                 - /usr/local/bin/galley
                 - probe
-                - --probe-path=/healthliveness
+                - --probe-path=/tmp/healthliveness
                 - --interval=10s
             initialDelaySeconds: 5
             periodSeconds: 5
@@ -95,7 +96,7 @@ spec:
               command:
                 - /usr/local/bin/galley
                 - probe
-                - --probe-path=/healthready
+                - --probe-path=/tmp/healthready
                 - --interval=10s
             initialDelaySeconds: 5
             periodSeconds: 5
