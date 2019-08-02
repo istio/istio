@@ -171,7 +171,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		EgressListeners:       []*IstioEgressListenerWrapper{defaultEgressListener},
 		services:              defaultEgressListener.services,
 		destinationRules:      make(map[host.Name]*Config),
-		namespaceDependencies: map[string]struct{}{wildcardNamespace: {}},
+		namespaceDependencies: make(map[string]struct{}),
 	}
 	out.NamespaceForHostname = createNamespaceForHostname(out.EgressListeners)
 
@@ -180,6 +180,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	// that these services need
 	for _, s := range out.services {
 		out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
+		out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
 	}
 
 	if ps.Env.Mesh.OutboundTrafficPolicy != nil {
@@ -215,12 +216,15 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		ConfigNamespace: configNamespace,
 	}
 
+	// Assign namespace dependencies
+	out.namespaceDependencies = make(map[string]struct{})
 	for _, listener := range out.EgressListeners {
 		for _, s := range listener.services {
 			// TODO: port merging when each listener generates a partial service
 			if _, found := servicesAdded[string(s.Hostname)]; !found {
 				servicesAdded[string(s.Hostname)] = struct{}{}
 				out.services = append(out.services, s)
+				out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
 			}
 		}
 	}
@@ -231,14 +235,6 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	out.destinationRules = make(map[host.Name]*Config)
 	for _, s := range out.services {
 		out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
-	}
-
-	// Assign namespace dependencies
-	out.namespaceDependencies = make(map[string]struct{})
-	for _, egress := range out.EgressListeners {
-		for ns := range egress.listenerHosts {
-			out.namespaceDependencies[ns] = struct{}{}
-		}
 	}
 
 	if r.OutboundTrafficPolicy == nil {
@@ -390,9 +386,7 @@ func (sc *SidecarScope) DependsOnNamespace(namespace string) bool {
 	if sc == nil {
 		return true
 	}
-	if _, f := sc.namespaceDependencies[wildcardNamespace]; f {
-		return true
-	}
+
 	if _, f := sc.namespaceDependencies[namespace]; f {
 		return true
 	}
