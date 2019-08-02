@@ -115,6 +115,9 @@ func TestApplyListenerPatches(t *testing.T) {
 						},
 					},
 				},
+				Proxy: &networking.EnvoyFilter_ProxyMatch{
+					ProxyVersion: `^1\.[2-9](.*?)$`,
+				},
 			},
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
@@ -563,7 +566,7 @@ func TestApplyListenerPatches(t *testing.T) {
 	}
 
 	sidecarProxy := &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default",
-		Metadata: map[string]string{"foo": "sidecar", "bar": "proxy"}}
+		Metadata: map[string]string{"foo": "sidecar", "bar": "proxy", "ISTIO_VERSION": "1.2.2"}}
 	gatewayProxy := &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"}
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))

@@ -484,6 +484,17 @@ func proxyMatch(proxy *model.Proxy, cp *model.EnvoyFilterConfigPatchWrapper) boo
 		return true
 	}
 
+	if cp.ProxyVersionRegex != nil {
+		ver, exists := proxy.GetIstioVersion()
+		if !exists {
+			// we dont have a proxy version but the user has a regex. so this is a mismatch
+			return false
+		}
+		if !cp.ProxyVersionRegex.MatchString(ver) {
+			return false
+		}
+	}
+
 	for k, v := range cp.Match.Proxy.Metadata {
 		if proxy.Metadata[k] != v {
 			return false
