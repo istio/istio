@@ -34,12 +34,14 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mixerpb "istio.io/api/mixer/v1"
+
 	"istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 )
 
 const (
@@ -233,11 +235,11 @@ func (mock) ID(*core.Node) string {
 func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
-func (mock) GetProxyWorkloadLabels(proxy *model.Proxy) (config.LabelsCollection, error) {
+func (mock) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
 	return nil, nil
 }
 func (mock) GetService(_ config.Hostname) (*model.Service, error) { return nil, nil }
-func (mock) InstancesByPort(_ *model.Service, _ int, _ config.LabelsCollection) ([]*model.ServiceInstance, error) {
+func (mock) InstancesByPort(_ *model.Service, _ int, _ labels.Collection) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
 func (mock) ManagementPorts(_ string) model.PortList                        { return nil }

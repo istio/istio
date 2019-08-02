@@ -31,14 +31,15 @@ import (
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/pkg/log"
 )
 
 func makeClient(t *testing.T) kubernetes.Interface {
@@ -880,7 +881,7 @@ func TestController_ExternalNameService(t *testing.T) {
 		if svcList[i].Resolution != exp.Resolution {
 			t.Errorf("i=%v, Resolution=='%v', should be '%v'", i, svcList[i].Resolution, exp.Resolution)
 		}
-		instances, err := controller.InstancesByPort(svcList[i], svcList[i].Ports[0].Port, config.LabelsCollection{})
+		instances, err := controller.InstancesByPort(svcList[i], svcList[i].Ports[0].Port, labels.Collection{})
 		if err != nil {
 			t.Errorf("error getting instances by port: %s", err)
 			continue
@@ -912,7 +913,7 @@ func TestController_ExternalNameService(t *testing.T) {
 		t.Fatalf("Should have 0 services at this point")
 	}
 	for _, exp := range expectedSvcList {
-		instances, err := controller.InstancesByPort(exp, exp.Ports[0].Port, config.LabelsCollection{})
+		instances, err := controller.InstancesByPort(exp, exp.Ports[0].Port, labels.Collection{})
 		if err != nil {
 			t.Errorf("error getting instances by port: %s", err)
 			continue

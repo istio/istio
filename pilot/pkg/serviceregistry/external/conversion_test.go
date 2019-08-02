@@ -315,7 +315,7 @@ func makeService(hostname config.Hostname, configNamespace, address string, port
 }
 
 func makeInstance(cfg *model.Config, address string, port int,
-	svcPort *networking.Port, labels map[string]string) *model.ServiceInstance {
+	svcPort *networking.Port, svcLabels map[string]string) *model.ServiceInstance {
 	family := model.AddressFamilyTCP
 	if port == 0 {
 		family = model.AddressFamilyUnix
@@ -341,7 +341,7 @@ func makeInstance(cfg *model.Config, address string, port int,
 				Protocol: protocol.Parse(svcPort.Protocol),
 			},
 		},
-		Labels: config.Labels(labels),
+		Labels: svcLabels,
 	}
 }
 

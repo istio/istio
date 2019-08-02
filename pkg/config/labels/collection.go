@@ -20,20 +20,20 @@
 // generate the configuration files for the Layer 7 proxy sidecar. The proxy
 // code is specific to individual proxy implementations
 
-package config
+package labels
 
-// LabelsCollection is a collection of labels used for comparing labels against a
+// Collection is a collection of labels used for comparing labels against a
 // collection of labels
-type LabelsCollection []Labels
+type Collection []Instance
 
 // HasSubsetOf returns true if the input labels are a super set of one labels in a
 // collection or if the tag collection is empty
-func (labels LabelsCollection) HasSubsetOf(that Labels) bool {
-	if len(labels) == 0 {
+func (c Collection) HasSubsetOf(that Instance) bool {
+	if len(c) == 0 {
 		return true
 	}
-	for _, label := range labels {
-		if label.SubsetOf(that) {
+	for _, this := range c {
+		if this.SubsetOf(that) {
 			return true
 		}
 	}
@@ -42,14 +42,14 @@ func (labels LabelsCollection) HasSubsetOf(that Labels) bool {
 
 // IsSupersetOf returns true if the input labels are a subset set of any set of labels in a
 // collection
-func (labels LabelsCollection) IsSupersetOf(that Labels) bool {
+func (c Collection) IsSupersetOf(that Instance) bool {
 
-	if len(labels) == 0 {
+	if len(c) == 0 {
 		return len(that) == 0
 	}
 
-	for _, label := range labels {
-		if that.SubsetOf(label) {
+	for _, this := range c {
+		if that.SubsetOf(this) {
 			return true
 		}
 	}

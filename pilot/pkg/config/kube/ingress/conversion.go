@@ -30,8 +30,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -67,7 +67,7 @@ func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum in
 // ConvertIngressV1alpha3 converts from ingress spec to Istio Gateway
 func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.Config {
 	gateway := &networking.Gateway{
-		Selector: config.Labels{constants.IstioLabel: constants.IstioIngressLabelValue},
+		Selector: labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue},
 	}
 
 	// FIXME this is a temporary hack until all test templates are updated
