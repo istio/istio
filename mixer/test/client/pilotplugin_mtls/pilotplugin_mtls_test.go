@@ -39,7 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/proto"
 )
@@ -319,7 +319,7 @@ func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, 
 func (mock) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
 	return nil, nil
 }
-func (mock) GetService(_ config.Hostname) (*model.Service, error) { return nil, nil }
+func (mock) GetService(_ host.Name) (*model.Service, error) { return nil, nil }
 func (mock) InstancesByPort(_ *model.Service, _ int, _ labels.Collection) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
@@ -350,8 +350,8 @@ var (
 		ServiceDiscovery: mock{},
 	}
 	pushContext = model.PushContext{
-		ServiceByHostnameAndNamespace: map[config.Hostname]map[string]*model.Service{
-			config.Hostname("svc.ns3"): {
+		ServiceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
+			host.Name("svc.ns3"): {
 				"ns3": &svc,
 			},
 		},

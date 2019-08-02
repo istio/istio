@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -40,7 +40,7 @@ type ServiceEntryStore struct {
 
 	ip2instance map[string][]*model.ServiceInstance
 	// Endpoints table. Key is the fqdn hostname and namespace
-	instances map[config.Hostname]map[string][]*model.ServiceInstance
+	instances map[host.Name]map[string][]*model.ServiceInstance
 
 	changeMutex  sync.RWMutex
 	lastChange   time.Time
@@ -54,7 +54,7 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 		instanceHandlers: make([]instanceHandler, 0),
 		store:            store,
 		ip2instance:      map[string][]*model.ServiceInstance{},
-		instances:        map[config.Hostname]map[string][]*model.ServiceInstance{},
+		instances:        map[host.Name]map[string][]*model.ServiceInstance{},
 		updateNeeded:     true,
 	}
 	if callbacks != nil {
@@ -116,7 +116,7 @@ func (d *ServiceEntryStore) Services() ([]*model.Service, error) {
 // GetService retrieves a service by host name if it exists
 // THIS IS A LINEAR SEARCH WHICH CAUSES ALL SERVICE ENTRIES TO BE RECONVERTED -
 // DO NOT USE
-func (d *ServiceEntryStore) GetService(hostname config.Hostname) (*model.Service, error) {
+func (d *ServiceEntryStore) GetService(hostname host.Name) (*model.Service, error) {
 	for _, service := range d.getServices() {
 		if service.Hostname == hostname {
 			return service, nil
@@ -182,7 +182,7 @@ func (d *ServiceEntryStore) update() {
 	}
 	d.changeMutex.RUnlock()
 
-	di := map[config.Hostname]map[string][]*model.ServiceInstance{}
+	di := map[host.Name]map[string][]*model.ServiceInstance{}
 	dip := map[string][]*model.ServiceInstance{}
 
 	for _, cfg := range d.store.ServiceEntries() {

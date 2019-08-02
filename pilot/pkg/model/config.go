@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -550,7 +551,7 @@ var (
 // ResolveHostname produces a FQDN based on either the service or
 // a concat of the namespace + domain
 // Deprecated. Do not use
-func ResolveHostname(meta ConfigMeta, svc *mccpb.IstioService) config.Hostname {
+func ResolveHostname(meta ConfigMeta, svc *mccpb.IstioService) host.Name {
 	out := svc.Name
 	// if FQDN is specified, do not append domain or namespace to hostname
 	// Service field has precedence over Name
@@ -570,20 +571,20 @@ func ResolveHostname(meta ConfigMeta, svc *mccpb.IstioService) config.Hostname {
 		}
 	}
 
-	return config.Hostname(out)
+	return host.Name(out)
 }
 
 // ResolveShortnameToFQDN uses metadata information to resolve a reference
 // to shortname of the service to FQDN
-func ResolveShortnameToFQDN(host string, meta ConfigMeta) config.Hostname {
-	out := host
-	// Treat the wildcard host as fully qualified. Any other variant of a wildcard hostname will contain a `.` too,
+func ResolveShortnameToFQDN(hostname string, meta ConfigMeta) host.Name {
+	out := hostname
+	// Treat the wildcard hostname as fully qualified. Any other variant of a wildcard hostname will contain a `.` too,
 	// and skip the next if, so we only need to check for the literal wildcard itself.
-	if host == "*" {
-		return config.Hostname(out)
+	if hostname == "*" {
+		return host.Name(out)
 	}
 	// if FQDN is specified, do not append domain or namespace to hostname
-	if !strings.Contains(host, ".") {
+	if !strings.Contains(hostname, ".") {
 		if meta.Namespace != "" {
 			out = out + "." + meta.Namespace
 		}
@@ -596,7 +597,7 @@ func ResolveShortnameToFQDN(host string, meta ConfigMeta) config.Hostname {
 		}
 	}
 
-	return config.Hostname(out)
+	return host.Name(out)
 }
 
 // resolveGatewayName uses metadata information to resolve a reference
@@ -627,7 +628,7 @@ func resolveGatewayName(gwname string, meta ConfigMeta) string {
 
 // MostSpecificHostMatch compares the elements of the stack to the needle, and returns the longest stack element
 // matching the needle, or false if no element in the stack matches the needle.
-func MostSpecificHostMatch(needle config.Hostname, stack []config.Hostname) (config.Hostname, bool) {
+func MostSpecificHostMatch(needle host.Name, stack []host.Name) (host.Name, bool) {
 	for _, h := range stack {
 		if needle.Matches(h) {
 			return h, true

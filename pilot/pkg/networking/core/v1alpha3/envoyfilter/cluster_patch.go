@@ -19,8 +19,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 )
 
 // ApplyClusterPatches applies patches to CDS clusters
@@ -85,13 +86,13 @@ func clusterMatch(cluster *xdsapi.Cluster, cp *model.EnvoyFilterConfigPatchWrapp
 		return cMatch.Name == cluster.Name
 	}
 
-	_, subset, host, port := model.ParseSubsetKey(cluster.Name)
+	_, subset, hostname, port := model.ParseSubsetKey(cluster.Name)
 
 	if cMatch.Subset != "" && cMatch.Subset != subset {
 		return false
 	}
 
-	if cMatch.Service != "" && config.Hostname(cMatch.Service) != host {
+	if cMatch.Service != "" && host.Name(cMatch.Service) != hostname {
 		return false
 	}
 

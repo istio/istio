@@ -17,7 +17,7 @@ package model
 import (
 	"testing"
 
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -138,7 +138,7 @@ func TestParseSubsetKey(t *testing.T) {
 		input      string
 		direction  TrafficDirection
 		subsetName string
-		hostname   config.Hostname
+		hostname   host.Name
 		port       int
 	}{
 		{"outbound|80|v1|example.com", TrafficDirectionOutbound, "v1", "example.com", 80},

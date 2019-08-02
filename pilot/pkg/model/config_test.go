@@ -33,8 +33,8 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	mock_config "istio.io/istio/pilot/test/mock"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 )
@@ -196,9 +196,9 @@ func TestServiceKey(t *testing.T) {
 }
 
 func TestSubsetKey(t *testing.T) {
-	hostname := config.Hostname("hostname")
+	hostname := host.Name("hostname")
 	cases := []struct {
-		hostname config.Hostname
+		hostname host.Name
 		subset   string
 		port     int
 		want     string
@@ -269,7 +269,7 @@ func TestResolveHostname(t *testing.T) {
 	cases := []struct {
 		meta model.ConfigMeta
 		svc  *mccpb.IstioService
-		want config.Hostname
+		want host.Name
 	}{
 		{
 			meta: model.ConfigMeta{Namespace: "default", Domain: "cluster.local"},
@@ -385,7 +385,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 	}
 
 	cases := []struct {
-		hostname  config.Hostname
+		hostname  host.Name
 		namespace string
 		port      int
 		expected  string
@@ -508,7 +508,7 @@ func TestAuthenticationPolicyConfigWithGlobal(t *testing.T) {
 	}
 
 	cases := []struct {
-		hostname  config.Hostname
+		hostname  host.Name
 		namespace string
 		port      int
 		expected  *authn.Policy
@@ -573,7 +573,7 @@ func TestResolveShortnameToFQDN(t *testing.T) {
 	tests := []struct {
 		name string
 		meta model.ConfigMeta
-		out  config.Hostname
+		out  host.Name
 	}{
 		{
 			"*", model.ConfigMeta{}, "*",
@@ -606,24 +606,24 @@ func TestResolveShortnameToFQDN(t *testing.T) {
 
 func TestMostSpecificHostMatch(t *testing.T) {
 	tests := []struct {
-		in     []config.Hostname
-		needle config.Hostname
-		want   config.Hostname
+		in     []host.Name
+		needle host.Name
+		want   host.Name
 	}{
 		// this has to be a sorted list
-		{[]config.Hostname{}, "*", ""},
-		{[]config.Hostname{"*.foo.com", "*.com"}, "bar.foo.com", "*.foo.com"},
-		{[]config.Hostname{"*.foo.com", "*.com"}, "foo.com", "*.com"},
-		{[]config.Hostname{"foo.com", "*.com"}, "*.foo.com", "*.com"},
+		{[]host.Name{}, "*", ""},
+		{[]host.Name{"*.foo.com", "*.com"}, "bar.foo.com", "*.foo.com"},
+		{[]host.Name{"*.foo.com", "*.com"}, "foo.com", "*.com"},
+		{[]host.Name{"foo.com", "*.com"}, "*.foo.com", "*.com"},
 
-		{[]config.Hostname{"*.foo.com", "foo.com"}, "foo.com", "foo.com"},
-		{[]config.Hostname{"*.foo.com", "foo.com"}, "*.foo.com", "*.foo.com"},
+		{[]host.Name{"*.foo.com", "foo.com"}, "foo.com", "foo.com"},
+		{[]host.Name{"*.foo.com", "foo.com"}, "*.foo.com", "*.foo.com"},
 
 		// this passes because we sort alphabetically
-		{[]config.Hostname{"bar.com", "foo.com"}, "*.com", "bar.com"},
+		{[]host.Name{"bar.com", "foo.com"}, "*.com", "bar.com"},
 
-		{[]config.Hostname{"bar.com", "*.foo.com"}, "*foo.com", "*.foo.com"},
-		{[]config.Hostname{"foo.com", "*.foo.com"}, "*foo.com", "foo.com"},
+		{[]host.Name{"bar.com", "*.foo.com"}, "*foo.com", "*.foo.com"},
+		{[]host.Name{"foo.com", "*.foo.com"}, "*foo.com", "foo.com"},
 	}
 
 	for idx, tt := range tests {
@@ -836,7 +836,7 @@ func TestIstioConfigStore_QuotaSpecByDestination(t *testing.T) {
 	ii := model.MakeIstioStore(l)
 	cfgs := ii.QuotaSpecByDestination(&model.ServiceInstance{
 		Service: &model.Service{
-			Hostname: config.Hostname("a." + ns + ".svc.cluster.local"),
+			Hostname: host.Name("a." + ns + ".svc.cluster.local"),
 		},
 	})
 
@@ -1104,7 +1104,7 @@ func TestIstioConfigStore_HTTPAPISpecByDestination(t *testing.T) {
 	ii := model.MakeIstioStore(l)
 	cfgs := ii.HTTPAPISpecByDestination(&model.ServiceInstance{
 		Service: &model.Service{
-			Hostname: config.Hostname("foo." + ns + ".svc.cluster.local"),
+			Hostname: host.Name("foo." + ns + ".svc.cluster.local"),
 		},
 	})
 

@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -21,10 +21,10 @@ type ServiceDiscovery struct {
 		result1 []*model.Service
 		result2 error
 	}
-	GetServiceStub        func(hostname config.Hostname) (*model.Service, error)
+	GetServiceStub        func(hostname host.Name) (*model.Service, error)
 	getServiceMutex       sync.RWMutex
 	getServiceArgsForCall []struct {
-		hostname config.Hostname
+		hostname host.Name
 	}
 	getServiceReturns struct {
 		result1 *model.Service
@@ -156,11 +156,11 @@ func (fake *ServiceDiscovery) ServicesReturnsOnCall(i int, result1 []*model.Serv
 	}{result1, result2}
 }
 
-func (fake *ServiceDiscovery) GetService(hostname config.Hostname) (*model.Service, error) {
+func (fake *ServiceDiscovery) GetService(hostname host.Name) (*model.Service, error) {
 	fake.getServiceMutex.Lock()
 	ret, specificReturn := fake.getServiceReturnsOnCall[len(fake.getServiceArgsForCall)]
 	fake.getServiceArgsForCall = append(fake.getServiceArgsForCall, struct {
-		hostname config.Hostname
+		hostname host.Name
 	}{hostname})
 	fake.recordInvocation("GetService", []interface{}{hostname})
 	fake.getServiceMutex.Unlock()
@@ -179,7 +179,7 @@ func (fake *ServiceDiscovery) GetServiceCallCount() int {
 	return len(fake.getServiceArgsForCall)
 }
 
-func (fake *ServiceDiscovery) GetServiceArgsForCall(i int) config.Hostname {
+func (fake *ServiceDiscovery) GetServiceArgsForCall(i int) host.Name {
 	fake.getServiceMutex.RLock()
 	defer fake.getServiceMutex.RUnlock()
 	return fake.getServiceArgsForCall[i].hostname

@@ -37,7 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
 
@@ -129,9 +129,9 @@ type Controller struct {
 
 	sync.RWMutex
 	// servicesMap stores hostname ==> service, it is used to reduce convertService calls.
-	servicesMap map[config.Hostname]*model.Service
+	servicesMap map[host.Name]*model.Service
 	// externalNameSvcInstanceMap stores hostname ==> instance, is used to store instances for ExternalName k8s services
-	externalNameSvcInstanceMap map[config.Hostname][]*model.ServiceInstance
+	externalNameSvcInstanceMap map[host.Name][]*model.ServiceInstance
 
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
@@ -158,8 +158,8 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 		queue:                      kube.NewQueue(1 * time.Second),
 		ClusterID:                  options.ClusterID,
 		XDSUpdater:                 options.XDSUpdater,
-		servicesMap:                make(map[config.Hostname]*model.Service),
-		externalNameSvcInstanceMap: make(map[config.Hostname][]*model.ServiceInstance),
+		servicesMap:                make(map[host.Name]*model.Service),
+		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
 	}
 
 	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
@@ -309,7 +309,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 }
 
 // GetService implements a service catalog operation by hostname specified.
-func (c *Controller) GetService(hostname config.Hostname) (*model.Service, error) {
+func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	c.RLock()
 	defer c.RUnlock()
 	return c.servicesMap[hostname], nil

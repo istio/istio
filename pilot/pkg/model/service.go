@@ -35,7 +35,7 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
@@ -52,8 +52,8 @@ import (
 // foo.default.svc.cluster.local hostname, has a virtual IP of 10.0.1.1 and
 // listens on ports 80, 8080
 type Service struct {
-	// Hostname of the service, e.g. "catalog.mystore.com"
-	Hostname config.Hostname `json:"hostname"`
+	// Name of the service, e.g. "catalog.mystore.com"
+	Hostname host.Name `json:"hostname"`
 
 	// Address specifies the service IPv4 address of the load balancer
 	Address string `json:"address,omitempty"`
@@ -372,7 +372,7 @@ type ServiceDiscovery interface {
 
 	// GetService retrieves a service by host name if it exists
 	// Deprecated - do not use for anything other than tests
-	GetService(hostname config.Hostname) (*Service, error)
+	GetService(hostname host.Name) (*Service, error)
 
 	// InstancesByPort retrieves instances for a service on the given ports with labels that match
 	// any of the supplied labels. All instances match an empty tag list.
@@ -500,9 +500,9 @@ func (s *Service) Key(port *Port, l labels.Instance) string {
 // ServiceKey generates a service key for a collection of ports and labels
 // Deprecated
 //
-// Interface wants to turn `Hostname` into `fmt.Stringer`, completely defeating the purpose of the type alias.
+// Interface wants to turn `Name` into `fmt.Stringer`, completely defeating the purpose of the type alias.
 // nolint: interfacer
-func ServiceKey(hostname config.Hostname, servicePorts PortList, labelsList labels.Collection) string {
+func ServiceKey(hostname host.Name, servicePorts PortList, labelsList labels.Collection) string {
 	// example: name.namespace|http|env=prod;env=test,version=my-v1
 	var buffer bytes.Buffer
 	buffer.WriteString(string(hostname))
@@ -554,9 +554,9 @@ func ServiceKey(hostname config.Hostname, servicePorts PortList, labelsList labe
 
 // ParseServiceKey is the inverse of the Service.String() method
 // Deprecated
-func ParseServiceKey(s string) (hostname config.Hostname, ports PortList, lc labels.Collection) {
+func ParseServiceKey(s string) (hostname host.Name, ports PortList, lc labels.Collection) {
 	parts := strings.Split(s, "|")
-	hostname = config.Hostname(parts[0])
+	hostname = host.Name(parts[0])
 
 	var names []string
 	if len(parts) > 1 {
@@ -579,7 +579,7 @@ func ParseServiceKey(s string) (hostname config.Hostname, ports PortList, lc lab
 
 // BuildSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
 // The proxy queries Pilot with this key to obtain the list of instances in a subset.
-func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname config.Hostname, port int) string {
+func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname host.Name, port int) string {
 	return fmt.Sprintf("%s|%d|%s|%s", direction, port, subsetName, hostname)
 }
 
@@ -587,7 +587,7 @@ func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname conf
 // The proxy queries Pilot with this key to obtain the list of instances in a subset.
 // This is used only for the SNI-DNAT router. Do not use for other purposes.
 // The DNS Srv format of the cluster is also used as the default SNI string for Istio mTLS connections
-func BuildDNSSrvSubsetKey(direction TrafficDirection, subsetName string, hostname config.Hostname, port int) string {
+func BuildDNSSrvSubsetKey(direction TrafficDirection, subsetName string, hostname host.Name, port int) string {
 	return fmt.Sprintf("%s_.%d_.%s_.%s", direction, port, subsetName, hostname)
 }
 
@@ -597,7 +597,7 @@ func IsValidSubsetKey(s string) bool {
 }
 
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
-func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname config.Hostname, port int) {
+func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname host.Name, port int) {
 	var parts []string
 	dnsSrvMode := false
 	// This could be the DNS srv form of the cluster that uses outbound_.port_.subset_.hostname
@@ -623,7 +623,7 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 		subsetName = strings.TrimSuffix(parts[2], "_")
 	}
 
-	hostname = config.Hostname(parts[3])
+	hostname = host.Name(parts[3])
 	return
 }
 

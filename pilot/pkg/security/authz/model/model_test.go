@@ -24,7 +24,7 @@ import (
 	istio_rbac "istio.io/api/rbac/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -46,7 +46,7 @@ func TestNewServiceMetadata(t *testing.T) {
 			namespace: "test-ns",
 			serviceInstance: &model.ServiceInstance{
 				Service: &model.Service{
-					Hostname: config.Hostname("svc-name.test-ns"),
+					Hostname: host.Name("svc-name.test-ns"),
 				},
 				Labels:         labels.Instance{"version": "v1"},
 				ServiceAccount: "spiffe://xyz.com/sa/service-account/ns/test-ns",
@@ -126,7 +126,7 @@ func TestModel_Generate(t *testing.T) {
 	serviceFoo := "foo.default.svc.cluster.local"
 	serviceInstance := &model.ServiceInstance{
 		Service: &model.Service{
-			Hostname: config.Hostname(serviceFoo),
+			Hostname: host.Name(serviceFoo),
 		},
 	}
 	serviceMetadata, _ := NewServiceMetadata("foo", "default", serviceInstance)

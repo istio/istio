@@ -26,14 +26,14 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 )
 
 func TestBuildHTTPRoutes(t *testing.T) {
-	serviceRegistry := map[config.Hostname]*model.Service{
+	serviceRegistry := map[host.Name]*model.Service{
 		"*.example.org": {
 			Hostname:    "*.example.org",
 			Address:     "1.1.1.1",
