@@ -15,12 +15,14 @@
 package version
 
 import (
+	goversion "github.com/hashicorp/go-version"
+
 	pkgversion "istio.io/operator/pkg/version"
 )
 
 const (
-	// OperatorBinaryVersionString is the Istio operator version.
-	OperatorBinaryVersionString = "1.3.0"
+	// OperatorVersionString is the version string of this operator binary.
+	OperatorVersionString = "1.3.0"
 )
 
 var (
@@ -32,10 +34,17 @@ var (
 
 	// OperatorBinaryVersion is the Istio operator version.
 	OperatorBinaryVersion pkgversion.Version
+	// OperatorBinaryGoVersion is the Istio operator version in go-version format.
+	OperatorBinaryGoVersion *goversion.Version
 )
 
 func init() {
-	v, err := pkgversion.NewVersionFromString(OperatorBinaryVersionString)
+	var err error
+	OperatorBinaryGoVersion, err = goversion.NewVersion(OperatorVersionString)
+	if err != nil {
+		panic(err)
+	}
+	v, err := pkgversion.NewVersionFromString(OperatorVersionString)
 	if err != nil {
 		panic(err)
 	}
