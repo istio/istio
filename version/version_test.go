@@ -18,7 +18,6 @@ import (
 	"io/ioutil"
 	"testing"
 
-	goversion "github.com/hashicorp/go-version"
 	"gopkg.in/yaml.v2"
 
 	"istio.io/operator/pkg/version"
@@ -29,11 +28,6 @@ const (
 )
 
 func TestVersions(t *testing.T) {
-	operatorVersion, err := goversion.NewVersion(OperatorBinaryVersionString)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	b, err := ioutil.ReadFile(operatorVersionsMapFilePath)
 	if err != nil {
 		t.Fatal(err)
@@ -44,8 +38,8 @@ func TestVersions(t *testing.T) {
 	}
 
 	for _, v := range vs {
-		if operatorVersion.Equal(v.OperatorVersion) {
-			t.Logf("Found operator version %s in %s file.", operatorVersion, operatorVersionsMapFilePath)
+		if OperatorBinaryGoVersion.Equal(v.OperatorVersion) {
+			t.Logf("Found operator version %s in %s file.", OperatorBinaryGoVersion.String(), operatorVersionsMapFilePath)
 			return
 		}
 	}

@@ -19,6 +19,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	binversion "istio.io/operator/version"
 	"istio.io/pkg/version"
 )
 
@@ -66,6 +67,8 @@ func GetRootCmd(args []string) *cobra.Command {
 	rootCmd.AddCommand(mc)
 	rootCmd.AddCommand(pc)
 	rootCmd.AddCommand(version.CobraCommand())
+
+	version.Info.Version = binversion.OperatorVersionString
 
 	return rootCmd
 }
