@@ -499,6 +499,8 @@ func getCredentialToken(ctx context.Context) (string, error) {
 func addConn(k cache.ConnKey, conn *sdsConnection) {
 	sdsClientsMutex.Lock()
 	defer sdsClientsMutex.Unlock()
+	conIDresourceNamePrefix := sdsLogPrefix(k.ConnectionID, k.ResourceName)
+	sdsServiceLog.Debugf("%s add a new connection", conIDresourceNamePrefix)
 	sdsClients[k] = conn
 }
 
