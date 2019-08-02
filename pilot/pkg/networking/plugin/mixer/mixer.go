@@ -94,6 +94,7 @@ func createOutboundListenerAttributes(in *plugin.InputParams) attributes {
 		"source.namespace":      attrNamespace(in.Node),
 		"context.reporter.uid":  attrUID(in.Node),
 		"context.reporter.kind": attrStringValue("outbound"),
+		"context.proxy_version": attrStringValue(in.Node.IstioVersion.ToString()),
 	}
 	return attrs
 }
@@ -149,6 +150,7 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		"destination.namespace": attrNamespace(in.Node),
 		"context.reporter.uid":  attrUID(in.Node),
 		"context.reporter.kind": attrStringValue("inbound"),
+		"context.proxy_version": attrStringValue(in.Node.IstioVersion.ToString()),
 	}
 
 	switch address := mutable.Listener.Address.Address.(type) {

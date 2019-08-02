@@ -171,6 +171,14 @@ func (pversion *IstioVersion) Compare(inv *IstioVersion) int {
 	return 0
 }
 
+// ToString converts IstioVersion to a semver format string.
+func (pversion *IstioVersion) ToString() string {
+	major := strconv.Itoa(pversion.Major)
+	minor := strconv.Itoa(pversion.Minor)
+	patch := strconv.Itoa(pversion.Patch)
+	return strings.Join([]string{major, minor, patch}, ".")
+}
+
 // NodeType decides the responsibility of the proxy serves in the mesh
 type NodeType string
 

@@ -138,6 +138,8 @@ spec:
       valueType: BOOL
     quota.cache_hit:
       valueType: BOOL
+    context.proxy_version:
+      valueType: STRING
 
 ---
 apiVersion: "config.istio.io/v1alpha2"
