@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"k8s.io/api/admissionregistration/v1beta1"
-	"k8s.io/client-go/kubernetes"
 
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
@@ -33,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 
+	admissionv1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	certclient "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -79,8 +79,10 @@ var (
 
 // WebhookController manages the service accounts' secrets that contains Istio keys and certificates.
 type WebhookController struct {
-	k8sClient      *kubernetes.Clientset
-	core           corev1.CoreV1Interface
+	core       corev1.CoreV1Interface
+	admission  admissionv1.AdmissionregistrationV1beta1Interface
+	certClient certclient.CertificatesV1beta1Interface
+
 	minGracePeriod time.Duration
 	// Length of the grace period for the certificate rotation.
 	gracePeriodRatio float32
@@ -88,8 +90,6 @@ type WebhookController struct {
 	// Controller and store for secret objects.
 	scrtController cache.Controller
 	scrtStore      cache.Store
-
-	certClient certclient.CertificatesV1beta1Interface
 
 	// The file path to the k8s CA certificate
 	k8sCaCertFile string
@@ -114,8 +114,10 @@ type WebhookController struct {
 }
 
 // NewWebhookController returns a pointer to a newly constructed WebhookController instance.
-func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration, k8sClient *kubernetes.Clientset,
-	k8sCaCertFile, nameSpace string, mutatingWebhookConfigFiles, mutatingWebhookConfigNames []string) (*WebhookController, error) {
+func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration,
+	core corev1.CoreV1Interface, admission admissionv1.AdmissionregistrationV1beta1Interface,
+	certClient certclient.CertificatesV1beta1Interface, k8sCaCertFile, nameSpace string,
+	mutatingWebhookConfigFiles, mutatingWebhookConfigNames []string) (*WebhookController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
@@ -125,26 +127,23 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 			gracePeriodRatio, recommendedMinGracePeriodRatio, recommendedMaxGracePeriodRatio)
 	}
 
-	core := k8sClient.CoreV1()
 	c := &WebhookController{
+		core:                       core,
+		admission:                  admission,
+		certClient:                 certClient,
 		gracePeriodRatio:           gracePeriodRatio,
 		minGracePeriod:             minGracePeriod,
 		k8sCaCertFile:              k8sCaCertFile,
-		k8sClient:                  k8sClient,
-		core:                       core,
-		certClient:                 k8sClient.CertificatesV1beta1(),
 		namespace:                  nameSpace,
 		mutatingWebhookConfigFiles: mutatingWebhookConfigFiles,
 		mutatingWebhookConfigNames: mutatingWebhookConfigNames,
 	}
 
 	// read CA cert at the beginning of launching the controller and when the CA cert changes.
-	caCert, err := readCACert(k8sCaCertFile)
+	_, err := reloadCaCert(c)
 	if err != nil {
-		log.Errorf("failed to read CA certificate: %v", err)
 		return nil, err
 	}
-	c.setCACert(caCert)
 
 	namespaces := []string{nameSpace}
 
@@ -251,19 +250,13 @@ func (wc *WebhookController) getCACert() ([]byte, error) {
 	return cp, nil
 }
 
-func (wc *WebhookController) setCACert(cert []byte) {
-	wc.mutex.Lock()
-	wc.CACert = append([]byte(nil), cert...)
-	wc.mutex.Unlock()
-}
-
 // Create or update the mutatingwebhookconfiguration based on the config from rebuildMutatingWebhookConfig().
 func (wc *WebhookController) createOrUpdateMutatingWebhookConfig() error {
 	if wc.mutatingWebhookConfig == nil {
 		return fmt.Errorf("mutatingwebhookconfiguration is nil")
 	}
 
-	client := wc.k8sClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
+	client := wc.admission.MutatingWebhookConfigurations()
 	updated, err := createOrUpdateMutatingWebhookConfigHelper(client, wc.mutatingWebhookConfig)
 	if err != nil {
 		return err
@@ -309,7 +302,7 @@ func (wc *WebhookController) monitorMutatingWebhookConfig(mutatingWebhookConfigN
 	webhookChangedCh := make(chan struct{}, 1000)
 
 	watchlist := cache.NewListWatchFromClient(
-		wc.k8sClient.AdmissionregistrationV1beta1().RESTClient(),
+		wc.admission.RESTClient(),
 		"mutatingwebhookconfigurations",
 		"",
 		fields.ParseSelectorOrDie(fmt.Sprintf("metadata.name=%s", mutatingWebhookConfigName)))

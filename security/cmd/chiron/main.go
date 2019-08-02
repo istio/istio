@@ -186,7 +186,8 @@ func runWebhookController() {
 	stopCh := make(chan struct{})
 
 	sc, err := chiron.NewWebhookController(opts.certGracePeriodRatio, opts.certMinGracePeriod,
-		k8sClient, opts.k8sCaCertFile, opts.certificateNamespace, mutatingWebhookConfigFiles,
+		k8sClient.CoreV1(), k8sClient.AdmissionregistrationV1beta1(), k8sClient.CertificatesV1beta1(),
+		opts.k8sCaCertFile, opts.certificateNamespace, mutatingWebhookConfigFiles,
 		mutatingWebhookConfigNames)
 	if err != nil {
 		log.Errorf("failed to create webhook controller: %v", err)

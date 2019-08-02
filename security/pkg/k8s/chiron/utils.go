@@ -15,6 +15,7 @@
 package chiron
 
 import (
+	"bytes"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -143,4 +144,20 @@ func createOrUpdateMutatingWebhookConfigHelper(
 		return true, err
 	}
 	return false, nil
+}
+
+// Reload CA cert from file and return whether CA cert is changed
+func reloadCaCert(wc *WebhookController) (bool, error) {
+	certChanged := false
+	wc.mutex.Lock()
+	defer wc.mutex.Unlock()
+	caCert, err := readCACert(wc.k8sCaCertFile)
+	if err != nil {
+		return certChanged, err
+	}
+	if !bytes.Equal(caCert, wc.CACert) {
+		wc.CACert = append([]byte(nil), caCert...)
+		certChanged = true
+	}
+	return certChanged, nil
 }

@@ -22,6 +22,9 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
+
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 const (
@@ -136,6 +139,60 @@ func TestRebuildMutatingWebhookConfigHelper(t *testing.T) {
 		if !bytes.Equal(webhookConfig.Webhooks[i].ClientConfig.CABundle, fakeCACert) {
 			t.Fatalf("webhookConfig CA bundle(%v) is different from %v",
 				webhookConfig.Webhooks[i].ClientConfig.CABundle, fakeCACert)
+		}
+	}
+}
+
+func TestReloadCaCert(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	mutatingWebhookConfigFiles := []string{"./test-data/empty-webhook-config.yaml"}
+
+	testCases := map[string]struct {
+		gracePeriodRatio           float32
+		minGracePeriod             time.Duration
+		k8sCaCertFile              string
+		namespace                  string
+		mutatingWebhookConfigFiles []string
+		mutatingWebhookConfigNames []string
+
+		expectReloadingFail bool
+		expectChanged       bool
+	}{
+		"reload from valid CA cert path": {
+			gracePeriodRatio:           0.6,
+			k8sCaCertFile:              "./test-data/example-ca-cert.pem",
+			mutatingWebhookConfigFiles: mutatingWebhookConfigFiles,
+			expectReloadingFail:        false,
+			expectChanged:              false,
+		},
+	}
+
+	for _, tc := range testCases {
+		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
+			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
+			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookConfigFiles, tc.mutatingWebhookConfigNames)
+		if err != nil {
+			t.Errorf("failed at creating webhook controller: %v", err)
+			continue
+		}
+		changed, err := reloadCaCert(wc)
+		if tc.expectReloadingFail {
+			if err == nil {
+				t.Errorf("should have failed at reloading CA cert")
+			}
+			continue
+		} else if err != nil {
+			t.Errorf("failed at reloading CA cert: %v", err)
+			continue
+		}
+		if tc.expectChanged {
+			if !changed {
+				t.Error("expect changed but not changed")
+			}
+		} else {
+			if changed {
+				t.Error("expect unchanged but changed")
+			}
 		}
 	}
 }
