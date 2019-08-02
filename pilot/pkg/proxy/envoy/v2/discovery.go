@@ -127,6 +127,7 @@ type DiscoveryServer struct {
 	// the key is the proxy ip address
 	proxyUpdates map[string]struct{}
 
+	// pushQueue is the buffer that used after debounce and before the real xds push.
 	pushQueue *PushQueue
 }
 
