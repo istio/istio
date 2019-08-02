@@ -44,6 +44,7 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/probe"
 	"istio.io/pkg/version"
+	"istio.io/pkg/viperconfig"
 )
 
 type cliOptions struct { // nolint: maligned
@@ -269,6 +270,7 @@ func initEnvVars() {
 }
 
 func main() {
+	viperconfig.ViperizeRootCmdDefault(rootCmd)
 	if err := rootCmd.Execute(); err != nil {
 		log.Errora(err)
 		os.Exit(-1)

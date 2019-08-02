@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/pkg/test/docker/registry"
 	"istio.io/pkg/log"
+	"istio.io/pkg/viperconfig"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
@@ -65,6 +66,7 @@ func (cr *closerRegister) close() {
 func main() {
 	cr := &closerRegister{}
 	rootCmd := getRootCmd(os.Args[1:], log.Fatalf, cr)
+	viperconfig.ViperizeRootCmdDefault(rootCmd)
 	if err := rootCmd.Execute(); err != nil {
 		cr.close()
 		os.Exit(-1)

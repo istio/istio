@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/pkg/version"
+	"istio.io/pkg/viperconfig"
 
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/security/pkg/testing/sdsc"
@@ -55,6 +56,7 @@ func init() {
 }
 
 func main() {
+	viperconfig.ViperizeRootCmdDefault(rootCmd)
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatalf("failed to start the sdsclient, error %v", err)
 	}

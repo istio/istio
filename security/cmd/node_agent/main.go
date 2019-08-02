@@ -26,6 +26,7 @@ import (
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
+	"istio.io/pkg/viperconfig"
 )
 
 var (
@@ -79,6 +80,7 @@ func init() {
 
 func main() {
 	if naConfig.CAClientConfig.Platform == "vm" {
+		viperconfig.ViperizeRootCmdDefault(rootCmd)
 		if err := rootCmd.Execute(); err != nil {
 			log.Errora(err)
 			os.Exit(-1)

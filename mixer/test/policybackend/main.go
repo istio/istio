@@ -25,6 +25,7 @@ import (
 
 	"istio.io/istio/pkg/test/fakes/policy"
 	"istio.io/pkg/log"
+	"istio.io/pkg/viperconfig"
 )
 
 var (
@@ -75,6 +76,8 @@ func main() {
 
 	rootCmd.PersistentFlags().IntVar(&port, "port", policy.DefaultPort, "GRPC port")
 	rootCmd.PersistentFlags().StringVar(&address, "address", "", "Address of the service")
+
+	viperconfig.ViperizeRootCmdDefault(rootCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Printf("Error during execution: %v", err)

@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/mixer/cmd/shared"
+	"istio.io/pkg/viperconfig"
 )
 
 // GetRootCmd returns the root of the cobra command-tree.
@@ -38,6 +39,8 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd.AddCommand(adapterCfgCmd(args, printf, fatalf))
 	rootCmd.AddCommand(templateCfgCmd(args, printf, fatalf))
 	rootCmd.AddCommand(apiGenCmd(fatalf))
+
+	viperconfig.ViperizeRootCmdDefault(rootCmd)
 
 	return rootCmd
 }

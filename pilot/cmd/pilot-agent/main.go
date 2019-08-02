@@ -37,6 +37,7 @@ import (
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
+	"istio.io/pkg/viperconfig"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/features"
@@ -671,6 +672,7 @@ func waitForFile(fname string, maxWait time.Duration) bool {
 }
 
 func main() {
+	viperconfig.ViperizeRootCmdDefault(rootCmd)
 	if err := rootCmd.Execute(); err != nil {
 		log.Errora(err)
 		os.Exit(-1)

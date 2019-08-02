@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/tracing"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/version"
+	"istio.io/pkg/viperconfig"
 )
 
 type rootArgs struct {
@@ -151,6 +152,8 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		Section: "mixc CLI",
 		Manual:  "Istio Mixer Client",
 	}))
+
+	viperconfig.ViperizeRootCmdDefault(rootCmd)
 
 	return rootCmd
 }

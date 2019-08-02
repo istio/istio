@@ -17,11 +17,8 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"reflect"
-	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
 	"istio.io/istio/galley/pkg/server"
@@ -53,17 +50,6 @@ func serverCmd() *cobra.Command {
 			return err
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			// Retrieve Viper values for each Cobra Val Flag
-			viper.SetTypeByDefaultValue(true)
-			cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
-				if reflect.TypeOf(viper.Get(f.Name)).Kind() == reflect.Slice {
-					// Viper cannot convert slices to strings, so this is our workaround.
-					_ = f.Value.Set(strings.Join(viper.GetStringSlice(f.Name), ","))
-				} else {
-					_ = f.Value.Set(viper.GetString(f.Name))
-				}
-			})
-
 			// validation tls args fall back to server arg values
 			// since the default value for these flags is an empty string, zero length indicates not set
 			if len(serverArgs.ValidationArgs.CACertFile) < 1 {
@@ -186,7 +172,6 @@ func serverCmd() *cobra.Command {
 
 	serverArgs.IntrospectionOptions.AttachCobraFlags(serverCmd)
 	loggingOptions.AttachCobraFlags(serverCmd)
-	_ = viper.BindPFlags(serverCmd.PersistentFlags())
 
 	cobra.OnInitialize(setupAliases)
 

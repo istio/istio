@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/viperconfig"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -422,6 +423,7 @@ func main() {
 		Manual:  "Istio Node K8s Agent",
 	}))
 
+	viperconfig.ViperizeRootCmdDefault(rootCmd)
 	if err := rootCmd.Execute(); err != nil {
 		log.Errora(err)
 		os.Exit(1)

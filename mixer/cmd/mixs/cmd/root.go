@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/version"
+	"istio.io/pkg/viperconfig"
 )
 
 // GetRootCmd returns the root of the cobra command-tree.
@@ -51,6 +52,8 @@ func GetRootCmd(args []string, info map[string]template.Info, adapters []adapter
 		Section: "mixs CLI",
 		Manual:  "Istio Mixer Server",
 	}))
+
+	viperconfig.ViperizeRootCmdDefault(rootCmd)
 
 	return rootCmd
 }

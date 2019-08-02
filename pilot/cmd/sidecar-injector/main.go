@@ -41,6 +41,7 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/probe"
 	"istio.io/pkg/version"
+	"istio.io/pkg/viperconfig"
 )
 
 var (
@@ -245,6 +246,7 @@ func init() {
 }
 
 func main() {
+	viperconfig.ViperizeRootCmdDefault(rootCmd)
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)
 	}

@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/cmd"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/log"
+	"istio.io/pkg/viperconfig"
 )
 
 var (
@@ -124,6 +125,8 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(contextCmd)
 
 	rootCmd.AddCommand(validate.NewValidateCommand(&istioNamespace))
+
+	viperconfig.ViperizeRootCmdDefault(rootCmd)
 
 	return rootCmd
 }
