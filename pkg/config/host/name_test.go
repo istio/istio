@@ -12,17 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package host_test
 
 import (
 	"fmt"
 	"testing"
+
+	"istio.io/istio/pkg/config/host"
 )
 
-func TestHostnameMatches(t *testing.T) {
+func TestNameMatches(t *testing.T) {
 	tests := []struct {
 		name string
-		a, b Hostname
+		a, b host.Name
 		out  bool
 	}{
 		{"empty", "", "", true},
@@ -73,10 +75,10 @@ func TestHostnameMatches(t *testing.T) {
 	}
 }
 
-func TestHostnameSubsetOf(t *testing.T) {
+func TestNameSubsetOf(t *testing.T) {
 	tests := []struct {
 		name string
-		a, b Hostname
+		a, b host.Name
 		out  bool
 	}{
 		{"empty", "", "", true},
@@ -124,9 +126,9 @@ func TestHostnameSubsetOf(t *testing.T) {
 	}
 }
 
-func BenchmarkMatch(b *testing.B) {
+func BenchmarkNameMatch(b *testing.B) {
 	tests := []struct {
-		a, z    Hostname
+		a, z    host.Name
 		matches bool
 	}{
 		{"foo.com", "foo.com", true},

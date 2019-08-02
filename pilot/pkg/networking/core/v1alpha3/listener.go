@@ -46,8 +46,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
@@ -502,7 +502,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 
 type inboundListenerEntry struct {
 	bind             string
-	instanceHostname config.Hostname // could be empty if generated via Sidecar CRD
+	instanceHostname host.Name // could be empty if generated via Sidecar CRD
 }
 
 type outboundListenerEntry struct {
@@ -530,7 +530,7 @@ type outboundListenerConflict struct {
 	listenerName    string
 	currentProtocol protocol.Instance
 	currentServices []*model.Service
-	newHostname     config.Hostname
+	newHostname     host.Name
 	newProtocol     protocol.Instance
 }
 
@@ -1001,7 +1001,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 			// for user defined Egress listeners with ports. And these should occur in the API before
 			// the wildcard egress listener. the check for the "locked" bit will eliminate the collision.
 			// User is also not allowed to add duplicate ports in the egress listener
-			var newHostname config.Hostname
+			var newHostname host.Name
 			if pluginParams.Service != nil {
 				newHostname = pluginParams.Service.Hostname
 			} else {
@@ -1141,7 +1141,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 						// for user defined Egress listeners with ports. And these should occur in the API before
 						// the wildcard egress listener. the check for the "locked" bit will eliminate the collision.
 						// User is also not allowed to add duplicate ports in the egress listener
-						var newHostname config.Hostname
+						var newHostname host.Name
 						if pluginParams.Service != nil {
 							newHostname = pluginParams.Service.Hostname
 						} else {
@@ -1170,7 +1170,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 
 				// We have two non-catch all filter chains. Check for duplicates
 				if reflect.DeepEqual(*existingFilterChain.FilterChainMatch, *incomingFilterChain.FilterChainMatch) {
-					var newHostname config.Hostname
+					var newHostname host.Name
 					if pluginParams.Service != nil {
 						newHostname = pluginParams.Service.Hostname
 					} else {
@@ -1266,7 +1266,7 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Envir
 	push *model.PushContext,
 	ipTablesListener *xdsapi.Listener) *xdsapi.Listener {
 
-	hostname := config.Hostname(util.BlackHoleCluster)
+	hostname := host.Name(util.BlackHoleCluster)
 	mesh := env.Mesh
 	redirectPort := &model.Port{
 		Port:     int(mesh.ProxyListenPort),

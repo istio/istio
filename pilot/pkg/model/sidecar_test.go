@@ -24,7 +24,7 @@ import (
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 )
 
@@ -219,13 +219,13 @@ func TestCreateSidecarScope(t *testing.T) {
 			if sidecarConfig != nil {
 				a := sidecarConfig.Spec.(*networking.Sidecar)
 				for _, egress := range a.Egress {
-					for _, host := range egress.Hosts {
-						parts := strings.SplitN(host, "/", 2)
+					for _, egressHost := range egress.Hosts {
+						parts := strings.SplitN(egressHost, "/", 2)
 						found = false
 						for _, listeners := range sidecarScope.EgressListeners {
 							if sidecarScopeHosts, ok := listeners.listenerHosts[parts[0]]; ok {
 								for _, sidecarScopeHost := range sidecarScopeHosts {
-									if sidecarScopeHost == config.Hostname(parts[1]) &&
+									if sidecarScopeHost == host.Name(parts[1]) &&
 										listeners.IstioListener.Port == egress.Port {
 										found = true
 										break
@@ -237,7 +237,7 @@ func TestCreateSidecarScope(t *testing.T) {
 							}
 						}
 						if !found {
-							t.Errorf("Did not find %v entry in any listener", host)
+							t.Errorf("Did not find %v entry in any listener", egressHost)
 						}
 					}
 				}
@@ -309,56 +309,56 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		listenerHosts map[string][]config.Hostname
+		listenerHosts map[string][]host.Name
 		services      []*Service
 		expected      []*Service
 		namespace     string
 	}{
 		{
 			name:          "*/* imports only those in a",
-			listenerHosts: map[string][]config.Hostname{wildcardNamespace: {wildcardService}},
+			listenerHosts: map[string][]host.Name{wildcardNamespace: {wildcardService}},
 			services:      allServices,
 			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
 			namespace:     "a",
 		},
 		{
 			name:          "*/* will bias towards configNamespace",
-			listenerHosts: map[string][]config.Hostname{wildcardNamespace: {wildcardService}},
+			listenerHosts: map[string][]host.Name{wildcardNamespace: {wildcardService}},
 			services:      []*Service{serviceB8000, serviceB9000, serviceBalt, serviceA8000, serviceA9000, serviceAalt},
 			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
 			namespace:     "a",
 		},
 		{
 			name:          "a/* imports only those in a",
-			listenerHosts: map[string][]config.Hostname{"a": {wildcardService}},
+			listenerHosts: map[string][]host.Name{"a": {wildcardService}},
 			services:      allServices,
 			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
 			namespace:     "a",
 		},
 		{
 			name:          "b/*, b/* imports only those in b",
-			listenerHosts: map[string][]config.Hostname{"b": {wildcardService, wildcardService}},
+			listenerHosts: map[string][]host.Name{"b": {wildcardService, wildcardService}},
 			services:      allServices,
 			expected:      []*Service{serviceB8000, serviceB9000, serviceBalt},
 			namespace:     "a",
 		},
 		{
 			name:          "*/alt imports alt in namespace a",
-			listenerHosts: map[string][]config.Hostname{wildcardNamespace: {"alt"}},
+			listenerHosts: map[string][]host.Name{wildcardNamespace: {"alt"}},
 			services:      allServices,
 			expected:      []*Service{serviceAalt},
 			namespace:     "a",
 		},
 		{
 			name:          "b/alt imports alt in a namespaces",
-			listenerHosts: map[string][]config.Hostname{"b": {"alt"}},
+			listenerHosts: map[string][]host.Name{"b": {"alt"}},
 			services:      allServices,
 			expected:      []*Service{serviceBalt},
 			namespace:     "a",
 		},
 		{
 			name:          "b/* imports doesn't import in namespace a with proxy in a",
-			listenerHosts: map[string][]config.Hostname{"b": {wildcardService}},
+			listenerHosts: map[string][]host.Name{"b": {wildcardService}},
 			services:      []*Service{serviceA8000},
 			expected:      []*Service{},
 			namespace:     "a",

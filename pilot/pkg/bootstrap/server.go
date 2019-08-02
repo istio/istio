@@ -72,8 +72,8 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
@@ -365,11 +365,11 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 		return nil, nil, fmt.Errorf("missing configuration map key %q", ConfigMapKey)
 	}
 
-	mesh, err := mesh.ApplyMeshConfigDefaults(cfgYaml)
+	meshConfig, err := mesh.ApplyMeshConfigDefaults(cfgYaml)
 	if err != nil {
 		return nil, nil, err
 	}
-	return cfg, mesh, nil
+	return cfg, meshConfig, nil
 }
 
 // initMesh creates the mesh in the pilotConfig from the input arguments.
@@ -379,11 +379,11 @@ func (s *Server) initMesh(args *PilotArgs) error {
 		s.mesh = args.MeshConfig
 		return nil
 	}
-	var mesh *meshconfig.MeshConfig
+	var meshConfig *meshconfig.MeshConfig
 	var err error
 
 	if args.Mesh.ConfigFile != "" {
-		mesh, err = cmd.ReadMeshConfig(args.Mesh.ConfigFile)
+		meshConfig, err = cmd.ReadMeshConfig(args.Mesh.ConfigFile)
 		if err != nil {
 			log.Warnf("failed to read mesh configuration, using default: %v", err)
 		}
@@ -391,29 +391,29 @@ func (s *Server) initMesh(args *PilotArgs) error {
 		// Watch the config file for changes and reload if it got modified
 		s.addFileWatcher(args.Mesh.ConfigFile, func() {
 			// Reload the config file
-			mesh, err = cmd.ReadMeshConfig(args.Mesh.ConfigFile)
+			meshConfig, err = cmd.ReadMeshConfig(args.Mesh.ConfigFile)
 			if err != nil {
 				log.Warnf("failed to read mesh configuration, using default: %v", err)
 				return
 			}
-			if !reflect.DeepEqual(mesh, s.mesh) {
-				log.Infof("mesh configuration updated to: %s", spew.Sdump(mesh))
-				if !reflect.DeepEqual(mesh.ConfigSources, s.mesh.ConfigSources) {
+			if !reflect.DeepEqual(meshConfig, s.mesh) {
+				log.Infof("mesh configuration updated to: %s", spew.Sdump(meshConfig))
+				if !reflect.DeepEqual(meshConfig.ConfigSources, s.mesh.ConfigSources) {
 					log.Infof("mesh configuration sources have changed")
 					//TODO Need to re-create or reload initConfigController()
 				}
-				s.mesh = mesh
+				s.mesh = meshConfig
 				if s.EnvoyXdsServer != nil {
-					s.EnvoyXdsServer.Env.Mesh = mesh
+					s.EnvoyXdsServer.Env.Mesh = meshConfig
 					s.EnvoyXdsServer.ConfigUpdate(true)
 				}
 			}
 		})
 	}
 
-	if mesh == nil {
+	if meshConfig == nil {
 		// Config file either wasn't specified or failed to load - use a default mesh.
-		if _, mesh, err = GetMeshConfig(s.kubeClient, controller2.IstioNamespace, controller2.IstioConfigMap); err != nil {
+		if _, meshConfig, err = GetMeshConfig(s.kubeClient, controller2.IstioNamespace, controller2.IstioConfigMap); err != nil {
 			log.Warnf("failed to read the default mesh configuration: %v, from the %s config map in the %s namespace",
 				err, controller2.IstioConfigMap, controller2.IstioNamespace)
 			return err
@@ -421,16 +421,16 @@ func (s *Server) initMesh(args *PilotArgs) error {
 
 		// Allow some overrides for testing purposes.
 		if args.Mesh.MixerAddress != "" {
-			mesh.MixerCheckServer = args.Mesh.MixerAddress
-			mesh.MixerReportServer = args.Mesh.MixerAddress
+			meshConfig.MixerCheckServer = args.Mesh.MixerAddress
+			meshConfig.MixerReportServer = args.Mesh.MixerAddress
 		}
 	}
 
-	log.Infof("mesh configuration %s", spew.Sdump(mesh))
+	log.Infof("mesh configuration %s", spew.Sdump(meshConfig))
 	log.Infof("version %s", version.Info.String())
 	log.Infof("flags %s", spew.Sdump(args))
 
-	s.mesh = mesh
+	s.mesh = meshConfig
 	return nil
 }
 
@@ -865,11 +865,11 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 func (s *Server) initMemoryRegistry(serviceControllers *aggregate.Controller) {
 	// MemServiceDiscovery implementation
 	discovery1 := srmemory.NewDiscovery(
-		map[config.Hostname]*model.Service{ // srmemory.HelloService.Hostname: srmemory.HelloService,
+		map[host.Name]*model.Service{ // srmemory.HelloService.Hostname: srmemory.HelloService,
 		}, 2)
 
 	discovery2 := srmemory.NewDiscovery(
-		map[config.Hostname]*model.Service{ // srmemory.WorldService.Hostname: srmemory.WorldService,
+		map[host.Name]*model.Service{ // srmemory.WorldService.Hostname: srmemory.WorldService,
 		}, 2)
 
 	registry1 := aggregate.Registry{

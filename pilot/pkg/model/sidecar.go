@@ -20,14 +20,15 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pkg/config"
+
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 )
 
 const (
 	wildcardNamespace = "*"
 	currentNamespace  = "."
-	wildcardService   = config.Hostname("*")
+	wildcardService   = host.Name("*")
 )
 
 // SidecarScope is a wrapper over the Sidecar resource with some
@@ -77,11 +78,11 @@ type SidecarScope struct {
 	// corresponds to a service in the services array above. When computing
 	// CDS, we simply have to find the matching service and return the
 	// destination rule.
-	destinationRules map[config.Hostname]*Config
+	destinationRules map[host.Name]*Config
 
 	// A given hostname should only be considered in a single namespace. This mapping determines which
 	// namespace a hostname exists in
-	NamespaceForHostname map[config.Hostname]string
+	NamespaceForHostname map[host.Name]string
 
 	// CDSOutboundClusters is the CDS output for sidecars that map to this
 	// sidecarScope object. Contains the outbound clusters only, indexed
@@ -107,10 +108,10 @@ type IstioEgressListenerWrapper struct {
 	// The hosts field has entries of the form namespace/dnsName. For
 	// example ns1/*, */*, */foo.tcp.com, etc. This map preprocesses all
 	// these string fields into a map of namespace and services.
-	// We cannot use a map of Hostnames because Hostname match allows
+	// We cannot use a map of Hostnames because Name match allows
 	// wildcard matching semantics (i.e. foo.bar.com will match import like *.com).
 	// Go's map/hash data structure doesn't do such semantic matches
-	listenerHosts map[string][]config.Hostname
+	listenerHosts map[string][]host.Name
 
 	// List of services imported by this egress listener extracted from the
 	// listenerHosts above. This will be used by LDS and RDS code when
@@ -135,8 +136,8 @@ type IstioEgressListenerWrapper struct {
 	virtualServices []Config
 }
 
-func createNamespaceForHostname(egress []*IstioEgressListenerWrapper) map[config.Hostname]string {
-	var namespaceForHostname = make(map[config.Hostname]string)
+func createNamespaceForHostname(egress []*IstioEgressListenerWrapper) map[host.Name]string {
+	var namespaceForHostname = make(map[host.Name]string)
 	for _, egress := range egress {
 		for _, svc := range egress.Services() {
 			if _, f := namespaceForHostname[svc.Hostname]; !f {
@@ -156,7 +157,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	}
 
 	defaultEgressListener := &IstioEgressListenerWrapper{
-		listenerHosts: map[string][]config.Hostname{wildcardNamespace: {wildcardService}},
+		listenerHosts: map[string][]host.Name{wildcardNamespace: {wildcardService}},
 	}
 	defaultEgressListener.services = ps.Services(&dummyNode)
 
@@ -166,7 +167,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	out := &SidecarScope{
 		EgressListeners:  []*IstioEgressListenerWrapper{defaultEgressListener},
 		services:         defaultEgressListener.services,
-		destinationRules: make(map[config.Hostname]*Config),
+		destinationRules: make(map[host.Name]*Config),
 	}
 	out.NamespaceForHostname = createNamespaceForHostname(out.EgressListeners)
 
@@ -223,7 +224,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
-	out.destinationRules = make(map[config.Hostname]*Config)
+	out.destinationRules = make(map[host.Name]*Config)
 	for _, s := range out.services {
 		out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
 	}
@@ -251,7 +252,7 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 
 	out := &IstioEgressListenerWrapper{
 		IstioListener: istioListener,
-		listenerHosts: make(map[string][]config.Hostname),
+		listenerHosts: make(map[string][]host.Name),
 	}
 
 	if istioListener.Hosts != nil {
@@ -261,10 +262,10 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 				parts[0] = configNamespace
 			}
 			if _, exists := out.listenerHosts[parts[0]]; !exists {
-				out.listenerHosts[parts[0]] = make([]config.Hostname, 0)
+				out.listenerHosts[parts[0]] = make([]host.Name, 0)
 			}
 
-			out.listenerHosts[parts[0]] = append(out.listenerHosts[parts[0]], config.Hostname(parts[1]))
+			out.listenerHosts[parts[0]] = append(out.listenerHosts[parts[0]], host.Name(parts[1]))
 		}
 	}
 
@@ -280,7 +281,7 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 }
 
 // ServiceForHostname returns the service associated with a given hostname following SidecarScope
-func (sc *SidecarScope) ServiceForHostname(hostname config.Hostname, serviceByHostname map[config.Hostname]map[string]*Service) *Service {
+func (sc *SidecarScope) ServiceForHostname(hostname host.Name, serviceByHostname map[host.Name]map[string]*Service) *Service {
 	// SidecarScope shouldn't be null here. If it is, we can't disambiguate the hostname to use for a namespace,
 	// so the selection must be undefined.
 	if sc == nil {
@@ -311,7 +312,7 @@ func (sc *SidecarScope) Services() []*Service {
 
 // DestinationRule returns the destination rule applicable for a given hostname
 // used by CDS code
-func (sc *SidecarScope) DestinationRule(hostname config.Hostname) *Config {
+func (sc *SidecarScope) DestinationRule(hostname host.Name) *Config {
 	if sc == nil {
 		return nil
 	}
@@ -403,7 +404,7 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []C
 					// TODO: This is a bug. VirtualServices can have many hosts
 					// while the user might be importing only a single host
 					// We need to generate a new VirtualService with just the matched host
-					if importedHost.Matches(config.Hostname(h)) {
+					if importedHost.Matches(host.Name(h)) {
 						importedVirtualServices = append(importedVirtualServices, c)
 						hostFound = true
 						break
@@ -425,7 +426,7 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []C
 					// TODO: This is a bug. VirtualServices can have many hosts
 					// while the user might be importing only a single host
 					// We need to generate a new VirtualService with just the matched host
-					if importedHost.Matches(config.Hostname(h)) {
+					if importedHost.Matches(host.Name(h)) {
 						importedVirtualServices = append(importedVirtualServices, c)
 						hostFound = true
 						break
@@ -483,7 +484,7 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 		}
 	}
 
-	var validServices = make(map[config.Hostname]string)
+	var validServices = make(map[host.Name]string)
 	for _, svc := range importedServices {
 		_, f := validServices[svc.Hostname]
 		// Select a single namespace for a given hostname.
@@ -494,7 +495,7 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 		}
 	}
 
-	filteredServices := []*Service{}
+	filteredServices := make([]*Service, 0)
 	// Filter down to just instances in scope for the service
 	for _, i := range importedServices {
 		if validServices[i.Hostname] == i.Attributes.Namespace {

@@ -23,7 +23,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -110,7 +110,7 @@ func (c *Controller) GetRegistryIndex(clusterID string) (int, bool) {
 func (c *Controller) Services() ([]*model.Service, error) {
 	// smap is a map of hostname (string) to service, used to identify services that
 	// are installed in multiple clusters.
-	smap := make(map[config.Hostname]*model.Service)
+	smap := make(map[host.Name]*model.Service)
 
 	services := make([]*model.Service, 0)
 	var errs error
@@ -167,7 +167,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 }
 
 // GetService retrieves a service by hostname if exists
-func (c *Controller) GetService(hostname config.Hostname) (*model.Service, error) {
+func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	var errs error
 	for _, r := range c.GetRegistries() {
 		service, err := r.GetService(hostname)

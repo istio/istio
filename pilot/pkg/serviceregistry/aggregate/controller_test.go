@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 )
@@ -46,13 +46,13 @@ var discovery2 *memory.ServiceDiscovery
 
 func buildMockController() *Controller {
 	discovery1 = memory.NewDiscovery(
-		map[config.Hostname]*model.Service{
+		map[host.Name]*model.Service{
 			memory.HelloService.Hostname:   memory.HelloService,
 			memory.ExtHTTPService.Hostname: memory.ExtHTTPService,
 		}, 2)
 
 	discovery2 = memory.NewDiscovery(
-		map[config.Hostname]*model.Service{
+		map[host.Name]*model.Service{
 			memory.WorldService.Hostname:    memory.WorldService,
 			memory.ExtHTTPSService.Hostname: memory.ExtHTTPSService,
 		}, 2)
@@ -78,12 +78,12 @@ func buildMockController() *Controller {
 
 func buildMockControllerForMultiCluster() *Controller {
 	discovery1 = memory.NewDiscovery(
-		map[config.Hostname]*model.Service{
+		map[host.Name]*model.Service{
 			memory.HelloService.Hostname: memory.MakeService("hello.default.svc.cluster.local", "10.1.1.0"),
 		}, 2)
 
 	discovery2 = memory.NewDiscovery(
-		map[config.Hostname]*model.Service{
+		map[host.Name]*model.Service{
 			memory.HelloService.Hostname: memory.MakeService("hello.default.svc.cluster.local", "10.1.2.0"),
 			memory.WorldService.Hostname: memory.WorldService,
 		}, 2)
@@ -129,7 +129,7 @@ func TestServicesForMultiCluster(t *testing.T) {
 	}
 
 	// Set up ground truth hostname values
-	serviceMap := map[config.Hostname]bool{
+	serviceMap := map[host.Name]bool{
 		memory.HelloService.Hostname: false,
 		memory.WorldService.Hostname: false,
 	}
@@ -148,7 +148,7 @@ func TestServicesForMultiCluster(t *testing.T) {
 	}
 
 	//Now verify ClusterVIPs for each service
-	ClusterVIPs := map[config.Hostname]map[string]string{
+	ClusterVIPs := map[host.Name]map[string]string{
 		memory.HelloService.Hostname: {
 			"cluster-1": "10.1.1.0",
 			"cluster-2": "10.1.2.0",
@@ -171,7 +171,7 @@ func TestServices(t *testing.T) {
 	services, err := aggregateCtl.Services()
 
 	// Set up ground truth hostname values
-	serviceMap := map[config.Hostname]bool{
+	serviceMap := map[host.Name]bool{
 		memory.HelloService.Hostname:    false,
 		memory.ExtHTTPService.Hostname:  false,
 		memory.WorldService.Hostname:    false,

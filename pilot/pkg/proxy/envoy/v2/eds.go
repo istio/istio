@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 )
@@ -193,7 +193,7 @@ func endpointMetadata(uid string, network string) *core.Metadata {
 
 // Determine Service associated with a hostname when there is no Sidecar scope. Which namespace the service comes from
 // is undefined, as we do not have enough information to make a smart decision
-func legacyServiceForHostname(hostname config.Hostname, serviceByHostname map[config.Hostname]map[string]*model.Service) *model.Service {
+func legacyServiceForHostname(hostname host.Name, serviceByHostname map[host.Name]map[string]*model.Service) *model.Service {
 	for _, service := range serviceByHostname[hostname] {
 		return service
 	}
@@ -208,7 +208,7 @@ func legacyServiceForHostname(hostname config.Hostname, serviceByHostname map[co
 func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName string,
 	edsCluster *EdsCluster) error {
 
-	var hostname config.Hostname
+	var hostname host.Name
 	var clusterPort int
 	var subsetName string
 	_, subsetName, hostname, clusterPort = model.ParseSubsetKey(clusterName)
@@ -771,7 +771,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 
 // getDestinationRule gets the DestinationRule for a given hostname. As an optimization, this also gets the service port,
 // which is needed to access the traffic policy from the destination rule.
-func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname config.Hostname, clusterPort int) (*networkingapi.DestinationRule, *model.Port) {
+func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname host.Name, clusterPort int) (*networkingapi.DestinationRule, *model.Port) {
 	for _, service := range push.Services(proxy) {
 		if service.Hostname == hostname {
 			cfg := push.DestinationRule(proxy, service)

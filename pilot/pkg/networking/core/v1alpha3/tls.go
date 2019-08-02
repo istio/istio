@@ -23,7 +23,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 
 	"istio.io/pkg/log"
@@ -70,12 +70,12 @@ func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Collection, 
 }
 
 // Select the config pertaining to the service being processed.
-func getConfigsForHost(host config.Hostname, configs []model.Config) []model.Config {
+func getConfigsForHost(hostname host.Name, configs []model.Config) []model.Config {
 	svcConfigs := make([]model.Config, 0)
 	for index := range configs {
 		virtualService := configs[index].Spec.(*v1alpha3.VirtualService)
 		for _, vsHost := range virtualService.Hosts {
-			if config.Hostname(vsHost).Matches(host) {
+			if host.Name(vsHost).Matches(hostname) {
 				svcConfigs = append(svcConfigs, configs[index])
 				break
 			}

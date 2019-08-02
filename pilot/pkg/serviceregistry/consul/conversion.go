@@ -23,7 +23,7 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 )
@@ -148,14 +148,14 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 }
 
 // serviceHostname produces FQDN for a consul service
-func serviceHostname(name string) config.Hostname {
+func serviceHostname(name string) host.Name {
 	// TODO include datacenter in Hostname?
 	// consul DNS uses "redis.service.us-east-1.consul" -> "[<optional_tag>].<svc>.service.[<optional_datacenter>].consul"
-	return config.Hostname(fmt.Sprintf("%s.service.consul", name))
+	return host.Name(fmt.Sprintf("%s.service.consul", name))
 }
 
 // parseHostname extracts service name from the service hostname
-func parseHostname(hostname config.Hostname) (name string, err error) {
+func parseHostname(hostname host.Name) (name string, err error) {
 	parts := strings.Split(string(hostname), ".")
 	if len(parts) < 1 || parts[0] == "" {
 		err = fmt.Errorf("missing service name from the service hostname %q", hostname)
