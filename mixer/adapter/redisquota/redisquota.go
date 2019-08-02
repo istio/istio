@@ -289,7 +289,7 @@ func getAllocatedTokenFromResult(result *interface{}) (int64, time.Duration, err
 // find override
 func (h *handler) getKeyAndQuotaAmount(instance *quota.Instance, quota *config.Params_Quota) (string, int64, error) {
 	maxAmount := quota.MaxAmount
-	key := quota.Name
+	key := makeKey(quota.Name, instance.Dimensions)
 
 	for idx := range quota.Overrides {
 		if matchDimensions(&quota.Overrides[idx].Dimensions, &instance.Dimensions) {

@@ -554,7 +554,7 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 				},
 			},
 			errMsg: []string{
-				"key: fixed-window maxAmount: 10",
+				"key: fixed-window;source=test maxAmount: 10",
 				"failed to run quota script: Error",
 			},
 		},
@@ -593,7 +593,7 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 				},
 			},
 			errMsg: []string{
-				"key: fixed-window maxAmount: 10",
+				"key: fixed-window;source=test maxAmount: 10",
 				"invalid response from the redis server: [10]",
 			},
 		},
