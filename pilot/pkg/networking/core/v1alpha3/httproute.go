@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 )
@@ -166,7 +167,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	}
 
 	// Collect all proxy labels for source match
-	var proxyLabels config.LabelsCollection
+	var proxyLabels labels.Collection
 	for _, w := range proxyInstances {
 		proxyLabels = append(proxyLabels, w.Labels)
 	}

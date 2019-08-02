@@ -12,32 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package labels_test
 
-import "testing"
+import (
+	"testing"
 
-func TestLabels(t *testing.T) {
-	a := Labels{"app": "a"}
-	b := Labels{"app": "b"}
-	a1 := Labels{"app": "a", "prod": "env"}
-	ab := LabelsCollection{a, b}
-	a1b := LabelsCollection{a1, b}
-	none := LabelsCollection{}
+	"istio.io/istio/pkg/config/labels"
+)
 
-	// equivalent to empty tag list
-	singleton := LabelsCollection{nil}
+func TestCollection(t *testing.T) {
+	a := labels.Instance{"app": "a"}
+	b := labels.Instance{"app": "b"}
+	a1 := labels.Instance{"app": "a", "prod": "env"}
+	ab := labels.Collection{a, b}
+	a1b := labels.Collection{a1, b}
+	none := labels.Collection{}
 
-	if !Labels(nil).SubsetOf(a) {
-		t.Errorf("nil.SubsetOf({a}) => Got false")
-	}
-
-	if a.SubsetOf(nil) {
-		t.Errorf("{a}.SubsetOf(nil) => Got true")
-	}
+	// equivalent to empty tag collection
+	singleton := labels.Collection{nil}
 
 	matching := []struct {
-		tag  Labels
-		list LabelsCollection
+		tag        labels.Instance
+		collection labels.Collection
 	}{
 		{a, ab},
 		{b, ab},
@@ -48,17 +44,13 @@ func TestLabels(t *testing.T) {
 		{b, a1b},
 	}
 
-	if (LabelsCollection{a}).HasSubsetOf(b) {
+	if (labels.Collection{a}).HasSubsetOf(b) {
 		t.Errorf("{a}.HasSubsetOf(b) => Got true")
 	}
 
-	if a1.SubsetOf(a) {
-		t.Errorf("%v.SubsetOf(%v) => Got true", a1, a)
-	}
-
 	for _, pair := range matching {
-		if !pair.list.HasSubsetOf(pair.tag) {
-			t.Errorf("%v.HasSubsetOf(%v) => Got false", pair.list, pair.tag)
+		if !pair.collection.HasSubsetOf(pair.tag) {
+			t.Errorf("%v.HasSubsetOf(%v) => Got false", pair.collection, pair.tag)
 		}
 	}
 }

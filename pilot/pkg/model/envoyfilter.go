@@ -17,12 +17,14 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 )
 
 // EnvoyFilterWrapper is a wrapper for the EnvoyFilter api object with pre-processed data
 type EnvoyFilterWrapper struct {
-	workloadSelector config.Labels
+	workloadSelector labels.Instance
 	Patches          map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
 }
 
@@ -41,7 +43,7 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 
 	out := &EnvoyFilterWrapper{}
 	if localEnvoyFilter.WorkloadSelector != nil {
-		out.workloadSelector = config.Labels(localEnvoyFilter.WorkloadSelector.Labels)
+		out.workloadSelector = labels.Instance(localEnvoyFilter.WorkloadSelector.Labels)
 	}
 	out.Patches = make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper)
 	for _, cp := range localEnvoyFilter.ConfigPatches {

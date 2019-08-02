@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 )
@@ -936,7 +937,7 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 	serviceDiscovery.ServicesReturns(services, nil)
 
 	configStore := &fakes.IstioConfigStore{
-		EnvoyFilterStub: func(workloadLabels config.LabelsCollection) *model.Config {
+		EnvoyFilterStub: func(workloadLabels labels.Collection) *model.Config {
 			return &model.Config{
 				ConfigMeta: model.ConfigMeta{
 					Name:      "test-envoyfilter",

@@ -41,66 +41,6 @@ const (
 	someNamespace = "bar"
 )
 
-func TestLabelsValidate(t *testing.T) {
-	cases := []struct {
-		name  string
-		tags  Labels
-		valid bool
-	}{
-		{
-			name:  "empty tags",
-			valid: true,
-		},
-		{
-			name: "bad tag",
-			tags: Labels{"^": "^"},
-		},
-		{
-			name:  "good tag",
-			tags:  Labels{"key": "value"},
-			valid: true,
-		},
-		{
-			name:  "good tag - empty value",
-			tags:  Labels{"key": ""},
-			valid: true,
-		},
-		{
-			name: "bad tag - empty key",
-			tags: Labels{"": "value"},
-		},
-		{
-			name: "bad tag key 1",
-			tags: Labels{".key": "value"},
-		},
-		{
-			name: "bad tag key 2",
-			tags: Labels{"key_": "value"},
-		},
-		{
-			name: "bad tag key 3",
-			tags: Labels{"key$": "value"},
-		},
-		{
-			name: "bad tag value 1",
-			tags: Labels{"key": ".value"},
-		},
-		{
-			name: "bad tag value 2",
-			tags: Labels{"key": "value_"},
-		},
-		{
-			name: "bad tag value 3",
-			tags: Labels{"key": "value$"},
-		},
-	}
-	for _, c := range cases {
-		if got := c.tags.Validate(); (got == nil) != c.valid {
-			t.Errorf("%s failed: got valid=%v but wanted valid=%v: %v", c.name, got == nil, c.valid, got)
-		}
-	}
-}
-
 func TestValidateFQDN(t *testing.T) {
 	tests := []struct {
 		fqdn  string

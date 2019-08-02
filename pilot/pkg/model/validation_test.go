@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -183,7 +184,7 @@ func TestServiceInstanceValidate(t *testing.T) {
 		{
 			name: "nil service",
 			instance: &ServiceInstance{
-				Labels:   config.Labels{},
+				Labels:   labels.Instance{},
 				Endpoint: endpoint1,
 			},
 		},
@@ -191,7 +192,7 @@ func TestServiceInstanceValidate(t *testing.T) {
 			name: "bad label",
 			instance: &ServiceInstance{
 				Service:  service1,
-				Labels:   config.Labels{"*": "-"},
+				Labels:   labels.Instance{"*": "-"},
 				Endpoint: endpoint1,
 			},
 		},

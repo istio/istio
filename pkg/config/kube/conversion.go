@@ -23,34 +23,21 @@
 package kube
 
 import (
-	"fmt"
 	"strings"
 
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func ConvertLabels(obj metaV1.ObjectMeta) config.Labels {
-	out := make(config.Labels, len(obj.Labels))
+func ConvertLabels(obj metaV1.ObjectMeta) labels.Instance {
+	out := make(labels.Instance, len(obj.Labels))
 	for k, v := range obj.Labels {
 		out[k] = v
 	}
 	return out
-}
-
-// ParseHostname extracts service name and namespace from the service hostname
-func ParseHostname(hostname config.Hostname) (name string, namespace string, err error) {
-	parts := strings.Split(string(hostname), ".")
-	if len(parts) < 2 {
-		err = fmt.Errorf("missing service name and namespace from the service hostname %q", hostname)
-		return
-	}
-	name = parts[0]
-	namespace = parts[1]
-	return
 }
 
 var grpcWeb = string(protocol.GRPCWeb)

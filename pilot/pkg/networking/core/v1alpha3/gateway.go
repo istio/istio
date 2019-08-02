@@ -25,9 +25,11 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
@@ -35,9 +37,9 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
-	"istio.io/pkg/log"
 )
 
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
@@ -48,7 +50,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 	// collect workload labels
 	workloadInstances := node.ServiceInstances
 
-	var workloadLabels config.LabelsCollection
+	var workloadLabels labels.Collection
 	for _, w := range workloadInstances {
 		workloadLabels = append(workloadLabels, w.Labels)
 	}
@@ -204,7 +206,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	services := push.Services(node)
 
 	// collect workload labels
-	var workloadLabels config.LabelsCollection
+	var workloadLabels labels.Collection
 	for _, w := range proxyInstances {
 		workloadLabels = append(workloadLabels, w.Labels)
 	}

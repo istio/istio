@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -187,7 +188,7 @@ func (sd *ServiceDiscovery) GetService(hostname config.Hostname) (*model.Service
 
 // InstancesByPort implements discovery interface
 func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, num int,
-	labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
+	labels labels.Collection) ([]*model.ServiceInstance, error) {
 	if sd.InstancesError != nil {
 		return nil, sd.InstancesError
 	}
@@ -233,7 +234,7 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 	return out, sd.GetProxyServiceInstancesError
 }
 
-func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (config.LabelsCollection, error) {
+func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
 	if sd.GetProxyServiceInstancesError != nil {
 		return nil, sd.GetProxyServiceInstancesError
 	}

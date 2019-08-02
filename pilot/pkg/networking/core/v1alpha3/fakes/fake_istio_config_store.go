@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 )
 
 type IstioConfigStore struct {
@@ -93,10 +93,10 @@ type IstioConfigStore struct {
 	serviceEntriesReturnsOnCall map[int]struct {
 		result1 []model.Config
 	}
-	GatewaysStub        func(workloadLabels config.LabelsCollection) []model.Config
+	GatewaysStub        func(workloadLabels labels.Collection) []model.Config
 	gatewaysMutex       sync.RWMutex
 	gatewaysArgsForCall []struct {
-		workloadLabels config.LabelsCollection
+		workloadLabels labels.Collection
 	}
 	gatewaysReturns struct {
 		result1 []model.Config
@@ -104,10 +104,10 @@ type IstioConfigStore struct {
 	gatewaysReturnsOnCall map[int]struct {
 		result1 []model.Config
 	}
-	EnvoyFilterStub        func(workloadLabels config.LabelsCollection) *model.Config
+	EnvoyFilterStub        func(workloadLabels labels.Collection) *model.Config
 	envoyFilterMutex       sync.RWMutex
 	envoyFilterArgsForCall []struct {
-		workloadLabels config.LabelsCollection
+		workloadLabels labels.Collection
 	}
 	envoyFilterReturns struct {
 		result1 *model.Config
@@ -137,11 +137,11 @@ type IstioConfigStore struct {
 	quotaSpecByDestinationReturnsOnCall map[int]struct {
 		result1 []model.Config
 	}
-	AuthenticationPolicyForWorkloadStub        func(service *model.Service, labels config.Labels, port *model.Port) *model.Config
+	AuthenticationPolicyForWorkloadStub        func(service *model.Service, labels labels.Instance, port *model.Port) *model.Config
 	authenticationPolicyForWorkloadMutex       sync.RWMutex
 	authenticationPolicyForWorkloadArgsForCall []struct {
 		service *model.Service
-		labels  config.Labels
+		labels  labels.Instance
 		port    *model.Port
 	}
 	authenticationPolicyForWorkloadReturns struct {
@@ -539,11 +539,11 @@ func (fake *IstioConfigStore) ServiceEntriesReturnsOnCall(i int, result1 []model
 	}{result1}
 }
 
-func (fake *IstioConfigStore) Gateways(workloadLabels config.LabelsCollection) []model.Config {
+func (fake *IstioConfigStore) Gateways(workloadLabels labels.Collection) []model.Config {
 	fake.gatewaysMutex.Lock()
 	ret, specificReturn := fake.gatewaysReturnsOnCall[len(fake.gatewaysArgsForCall)]
 	fake.gatewaysArgsForCall = append(fake.gatewaysArgsForCall, struct {
-		workloadLabels config.LabelsCollection
+		workloadLabels labels.Collection
 	}{workloadLabels})
 	fake.recordInvocation("Gateways", []interface{}{workloadLabels})
 	fake.gatewaysMutex.Unlock()
@@ -562,7 +562,7 @@ func (fake *IstioConfigStore) GatewaysCallCount() int {
 	return len(fake.gatewaysArgsForCall)
 }
 
-func (fake *IstioConfigStore) GatewaysArgsForCall(i int) config.LabelsCollection {
+func (fake *IstioConfigStore) GatewaysArgsForCall(i int) labels.Collection {
 	fake.gatewaysMutex.RLock()
 	defer fake.gatewaysMutex.RUnlock()
 	return fake.gatewaysArgsForCall[i].workloadLabels
@@ -587,11 +587,11 @@ func (fake *IstioConfigStore) GatewaysReturnsOnCall(i int, result1 []model.Confi
 	}{result1}
 }
 
-func (fake *IstioConfigStore) EnvoyFilter(workloadLabels config.LabelsCollection) *model.Config {
+func (fake *IstioConfigStore) EnvoyFilter(workloadLabels labels.Collection) *model.Config {
 	fake.envoyFilterMutex.Lock()
 	ret, specificReturn := fake.envoyFilterReturnsOnCall[len(fake.envoyFilterArgsForCall)]
 	fake.envoyFilterArgsForCall = append(fake.envoyFilterArgsForCall, struct {
-		workloadLabels config.LabelsCollection
+		workloadLabels labels.Collection
 	}{workloadLabels})
 	fake.recordInvocation("EnvoyFilter", []interface{}{workloadLabels})
 	fake.envoyFilterMutex.Unlock()
@@ -610,7 +610,7 @@ func (fake *IstioConfigStore) EnvoyFilterCallCount() int {
 	return len(fake.envoyFilterArgsForCall)
 }
 
-func (fake *IstioConfigStore) EnvoyFilterArgsForCall(i int) config.LabelsCollection {
+func (fake *IstioConfigStore) EnvoyFilterArgsForCall(i int) labels.Collection {
 	fake.envoyFilterMutex.RLock()
 	defer fake.envoyFilterMutex.RUnlock()
 	return fake.envoyFilterArgsForCall[i].workloadLabels
@@ -731,18 +731,18 @@ func (fake *IstioConfigStore) QuotaSpecByDestinationReturnsOnCall(i int, result1
 	}{result1}
 }
 
-func (fake *IstioConfigStore) AuthenticationPolicyForWorkload(service *model.Service, labels config.Labels, port *model.Port) *model.Config {
+func (fake *IstioConfigStore) AuthenticationPolicyForWorkload(service *model.Service, l labels.Instance, port *model.Port) *model.Config {
 	fake.authenticationPolicyForWorkloadMutex.Lock()
 	ret, specificReturn := fake.authenticationPolicyForWorkloadReturnsOnCall[len(fake.authenticationPolicyForWorkloadArgsForCall)]
 	fake.authenticationPolicyForWorkloadArgsForCall = append(fake.authenticationPolicyForWorkloadArgsForCall, struct {
 		service *model.Service
-		labels  config.Labels
+		labels  labels.Instance
 		port    *model.Port
-	}{service, labels, port})
-	fake.recordInvocation("AuthenticationPolicyForWorkload", []interface{}{service, labels, port})
+	}{service, l, port})
+	fake.recordInvocation("AuthenticationPolicyForWorkload", []interface{}{service, l, port})
 	fake.authenticationPolicyForWorkloadMutex.Unlock()
 	if fake.AuthenticationPolicyForWorkloadStub != nil {
-		return fake.AuthenticationPolicyForWorkloadStub(service, labels, port)
+		return fake.AuthenticationPolicyForWorkloadStub(service, l, port)
 	}
 	if specificReturn {
 		return ret.result1
@@ -756,7 +756,7 @@ func (fake *IstioConfigStore) AuthenticationPolicyForWorkloadCallCount() int {
 	return len(fake.authenticationPolicyForWorkloadArgsForCall)
 }
 
-func (fake *IstioConfigStore) AuthenticationPolicyForWorkloadArgsForCall(i int) (*model.Service, config.Labels, *model.Port) {
+func (fake *IstioConfigStore) AuthenticationPolicyForWorkloadArgsForCall(i int) (*model.Service, labels.Instance, *model.Port) {
 	fake.authenticationPolicyForWorkloadMutex.RLock()
 	defer fake.authenticationPolicyForWorkloadMutex.RUnlock()
 	return fake.authenticationPolicyForWorkloadArgsForCall[i].service, fake.authenticationPolicyForWorkloadArgsForCall[i].labels, fake.authenticationPolicyForWorkloadArgsForCall[i].port

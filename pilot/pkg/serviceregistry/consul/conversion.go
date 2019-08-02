@@ -20,10 +20,12 @@ import (
 
 	"github.com/hashicorp/consul/api"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -31,9 +33,9 @@ const (
 	externalTagName = "external"
 )
 
-func convertLabels(labels []string) config.Labels {
-	out := make(config.Labels, len(labels))
-	for _, tag := range labels {
+func convertLabels(labelsStr []string) labels.Instance {
+	out := make(labels.Instance, len(labelsStr))
+	for _, tag := range labelsStr {
 		vals := strings.Split(tag, "|")
 		// Labels not of form "key|value" are ignored to avoid possible collisions
 		if len(vals) > 1 {
@@ -106,7 +108,7 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 }
 
 func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
-	labels := convertLabels(instance.ServiceTags)
+	svcLabels := convertLabels(instance.ServiceTags)
 	port := convertPort(instance.ServicePort, instance.ServiceMeta[protocolTagName])
 
 	addr := instance.ServiceAddress
@@ -141,7 +143,7 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 				Namespace: model.IstioDefaultConfigNamespace,
 			},
 		},
-		Labels: labels,
+		Labels: svcLabels,
 	}
 }
 

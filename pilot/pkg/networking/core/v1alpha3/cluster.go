@@ -29,6 +29,8 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
@@ -36,10 +38,9 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -192,7 +193,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					// clusters with discovery type STATIC, STRICT_DNS rely on cluster.hosts field
 					// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
 					if discoveryType != apiv2.Cluster_EDS && len(subset.Labels) != 0 {
-						lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []config.Labels{subset.Labels})
+						lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []labels.Instance{subset.Labels})
 					}
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
 					setUpstreamProtocol(subsetCluster, port)
@@ -286,7 +287,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 					// clusters with discovery type STATIC, STRICT_DNS rely on cluster.hosts field
 					// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
 					if discoveryType != apiv2.Cluster_EDS && len(subset.Labels) != 0 {
-						lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []config.Labels{subset.Labels})
+						lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []labels.Instance{subset.Labels})
 					}
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
 					subsetCluster.TlsContext = nil
@@ -346,7 +347,7 @@ func updateEds(cluster *apiv2.Cluster) {
 }
 
 func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[string]bool, service *model.Service,
-	port int, labels config.LabelsCollection) []*endpoint.LocalityLbEndpoints {
+	port int, labels labels.Collection) []*endpoint.LocalityLbEndpoints {
 
 	if service.Resolution != model.DNSLB {
 		return nil

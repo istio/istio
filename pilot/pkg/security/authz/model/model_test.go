@@ -22,8 +22,10 @@ import (
 	"github.com/davecgh/go-spew/spew"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 )
 
 func TestNewServiceMetadata(t *testing.T) {
@@ -46,7 +48,7 @@ func TestNewServiceMetadata(t *testing.T) {
 				Service: &model.Service{
 					Hostname: config.Hostname("svc-name.test-ns"),
 				},
-				Labels:         config.Labels{"version": "v1"},
+				Labels:         labels.Instance{"version": "v1"},
 				ServiceAccount: "spiffe://xyz.com/sa/service-account/ns/test-ns",
 			},
 			want: ServiceMetadata{

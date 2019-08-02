@@ -48,6 +48,7 @@ import (
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 )
@@ -231,7 +232,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 
 	// If the user specifies a Sidecar CRD with an inbound listener, only construct that listener
 	// and not the ones from the proxyInstances
-	var proxyLabels config.LabelsCollection
+	var proxyLabels labels.Collection
 	for _, w := range node.ServiceInstances {
 		proxyLabels = append(proxyLabels, w.Labels)
 	}
@@ -570,7 +571,7 @@ func (c outboundListenerConflict) addMetric(push *model.PushContext) {
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.Environment, node *model.Proxy,
 	push *model.PushContext) []*xdsapi.Listener {
 
-	var proxyLabels config.LabelsCollection
+	var proxyLabels labels.Collection
 	for _, w := range node.ServiceInstances {
 		proxyLabels = append(proxyLabels, w.Labels)
 	}
@@ -1437,7 +1438,7 @@ type buildListenerOpts struct {
 	env             *model.Environment
 	proxy           *model.Proxy
 	proxyInstances  []*model.ServiceInstance
-	proxyLabels     config.LabelsCollection
+	proxyLabels     labels.Collection
 	bind            string
 	port            int
 	filterChainOpts []*filterChainOpts

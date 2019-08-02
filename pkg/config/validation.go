@@ -39,6 +39,7 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
 )
@@ -48,11 +49,6 @@ const (
 	dns1123LabelFmt       string = "[a-zA-Z0-9]([-a-z-A-Z0-9]*[a-zA-Z0-9])?"
 	// a wild-card prefix is an '*', a normal DNS1123 label with a leading '*' or '*-', or a normal DNS1123 label
 	wildcardPrefix = `(\*|(\*|\*-)?` + dns1123LabelFmt + `)`
-
-	// Using kubernetes requirement, a valid key must be a non-empty string consist
-	// of alphanumeric characters, '-', '_' or '.', and must start and end with an
-	// alphanumeric character (e.g. 'MyValue',  or 'my_value',  or '12345'
-	qualifiedNameFmt string = "([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]"
 )
 
 // Constants for duration fields
@@ -69,10 +65,7 @@ const (
 const UnixAddressPrefix = "unix://"
 
 var (
-	dns1123LabelRegexp = regexp.MustCompile("^" + dns1123LabelFmt + "$")
-	tagRegexp          = regexp.MustCompile("^" + qualifiedNameFmt + "$")
-	// label value can be an empty string
-	labelValueRegexp     = regexp.MustCompile("^" + "(" + qualifiedNameFmt + ")?" + "$")
+	dns1123LabelRegexp   = regexp.MustCompile("^" + dns1123LabelFmt + "$")
 	wildcardPrefixRegexp = regexp.MustCompile("^" + wildcardPrefix + "$")
 )
 
@@ -223,7 +216,7 @@ func ValidateMixerService(svc *mccpb.IstioService) (errs error) {
 		}
 	}
 
-	if err := Labels(svc.Labels).Validate(); err != nil {
+	if err := labels.Instance(svc.Labels).Validate(); err != nil {
 		errs = multierror.Append(errs, err)
 	}
 
@@ -901,7 +894,7 @@ func validateTLS(settings *networking.TLSSettings) (errs error) {
 
 func validateSubset(subset *networking.Subset) error {
 	return appendErrors(validateSubsetName(subset.Name),
-		Labels(subset.Labels).Validate(),
+		labels.Instance(subset.Labels).Validate(),
 		validateTrafficPolicy(subset.TrafficPolicy))
 }
 
@@ -1834,7 +1827,7 @@ func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.
 	if match.Port != 0 {
 		errs = appendErrors(errs, ValidatePort(int(match.Port)))
 	}
-	errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
+	errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
 	errs = appendErrors(errs, validateGatewayNames(match.Gateways))
 	return
 }
@@ -1880,7 +1873,7 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 	if match.Port != 0 {
 		errs = appendErrors(errs, ValidatePort(int(match.Port)))
 	}
-	errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
+	errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
 	errs = appendErrors(errs, validateGatewayNames(match.Gateways))
 	return
 }
@@ -1959,7 +1952,7 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 			if match.Port != 0 {
 				errs = appendErrors(errs, ValidatePort(int(match.Port)))
 			}
-			errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
+			errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
 			errs = appendErrors(errs, validateGatewayNames(match.Gateways))
 		}
 	}
@@ -2374,7 +2367,7 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 					}
 				}
 			}
-			errs = appendErrors(errs, Labels(endpoint.Labels).Validate())
+			errs = appendErrors(errs, labels.Instance(endpoint.Labels).Validate())
 
 		}
 		if unixEndpoint && len(serviceEntry.Ports) != 1 {
@@ -2399,7 +2392,7 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 				}
 			}
 			errs = appendErrors(errs,
-				Labels(endpoint.Labels).Validate())
+				labels.Instance(endpoint.Labels).Validate())
 			for name, port := range endpoint.Ports {
 				if !servicePorts[name] {
 					errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))

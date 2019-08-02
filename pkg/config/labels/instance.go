@@ -20,28 +20,42 @@
 // generate the configuration files for the Layer 7 proxy sidecar. The proxy
 // code is specific to individual proxy implementations
 
-package config
+package labels
 
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
 )
 
-// Labels is a non empty set of arbitrary strings. Each version of a service can
+const (
+	// Using kubernetes requirement, a valid key must be a non-empty string consist
+	// of alphanumeric characters, '-', '_' or '.', and must start and end with an
+	// alphanumeric character (e.g. 'MyValue',  or 'my_value',  or '12345'
+	qualifiedNameFmt string = "([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]"
+)
+
+var (
+	tagRegexp = regexp.MustCompile("^" + qualifiedNameFmt + "$")
+	// label value can be an empty string
+	labelValueRegexp = regexp.MustCompile("^" + "(" + qualifiedNameFmt + ")?" + "$")
+)
+
+// Instance is a non empty map of arbitrary strings. Each version of a service can
 // be differentiated by a unique set of labels associated with the version. These
 // labels are assigned to all instances of a particular service version. For
 // example, lets say catalog.mystore.com has 2 versions v1 and v2. v1 instances
 // could have labels gitCommit=aeiou234, region=us-east, while v2 instances could
 // have labels name=kittyCat,region=us-east.
-type Labels map[string]string
+type Instance map[string]string
 
 // SubsetOf is true if the label has identical values for the keys
-func (l Labels) SubsetOf(that Labels) bool {
-	for k, v := range l {
+func (i Instance) SubsetOf(that Instance) bool {
+	for k, v := range i {
 		if that[k] != v {
 			return false
 		}
@@ -50,20 +64,20 @@ func (l Labels) SubsetOf(that Labels) bool {
 }
 
 // Equals returns true if the labels are identical
-func (l Labels) Equals(that Labels) bool {
-	if l == nil {
+func (i Instance) Equals(that Instance) bool {
+	if i == nil {
 		return that == nil
 	}
 	if that == nil {
-		return l == nil
+		return i == nil
 	}
-	return l.SubsetOf(that) && that.SubsetOf(l)
+	return i.SubsetOf(that) && that.SubsetOf(i)
 }
 
 // Validate ensures tag is well-formed
-func (l Labels) Validate() error {
+func (i Instance) Validate() error {
 	var errs error
-	for k, v := range l {
+	for k, v := range i {
 		if !tagRegexp.MatchString(k) {
 			errs = multierror.Append(errs, fmt.Errorf("invalid tag key: %q", k))
 		}
@@ -74,9 +88,9 @@ func (l Labels) Validate() error {
 	return errs
 }
 
-func (l Labels) String() string {
-	labels := make([]string, 0, len(l))
-	for k, v := range l {
+func (i Instance) String() string {
+	labels := make([]string, 0, len(i))
+	for k, v := range i {
 		if len(v) > 0 {
 			labels = append(labels, fmt.Sprintf("%s=%s", k, v))
 		} else {
@@ -98,10 +112,10 @@ func (l Labels) String() string {
 	return buffer.String()
 }
 
-// ParseLabelsString extracts labels from a string
-func ParseLabelsString(s string) Labels {
+// Parse labels from a comma-separated string of the form k1=v1,k2=v2,...,kn=vn.
+func Parse(s string) Instance {
 	pairs := strings.Split(s, ",")
-	tag := make(map[string]string, len(pairs))
+	tag := make(Instance, len(pairs))
 
 	for _, pair := range pairs {
 		kv := strings.Split(pair, "=")

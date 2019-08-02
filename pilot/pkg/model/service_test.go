@@ -18,17 +18,18 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 )
 
 var validServiceKeys = map[string]struct {
 	service *Service
-	labels  config.LabelsCollection
+	labels  labels.Collection
 }{
 	"example-service1.default|grpc,http|a=b,c=d;e=f": {
 		service: &Service{
 			Hostname: "example-service1.default",
 			Ports:    []*Port{{Name: "http", Port: 80}, {Name: "grpc", Port: 90}}},
-		labels: config.LabelsCollection{{"e": "f"}, {"c": "d", "a": "b"}}},
+		labels: labels.Collection{{"e": "f"}, {"c": "d", "a": "b"}}},
 	"my-service": {
 		service: &Service{
 			Hostname: "my-service",
@@ -41,12 +42,12 @@ var validServiceKeys = map[string]struct {
 		service: &Service{
 			Hostname: "svc",
 			Ports:    []*Port{{Name: "", Port: 80}}},
-		labels: config.LabelsCollection{{"istio.io/my_tag-v1.test": "my_value-v2.value"}}},
+		labels: labels.Collection{{"istio.io/my_tag-v1.test": "my_value-v2.value"}}},
 	"svc|test|prod": {
 		service: &Service{
 			Hostname: "svc",
 			Ports:    []*Port{{Name: "test", Port: 80}}},
-		labels: config.LabelsCollection{{"prod": ""}}},
+		labels: labels.Collection{{"prod": ""}}},
 	"svc.default.svc.cluster.local|http-test": {
 		service: &Service{
 			Hostname: "svc.default.svc.cluster.local",
@@ -62,12 +63,12 @@ func TestServiceString(t *testing.T) {
 		if s1 != s {
 			t.Errorf("ServiceKey => Got %s, expected %s", s1, s)
 		}
-		hostname, ports, labels := ParseServiceKey(s)
+		hostname, ports, l := ParseServiceKey(s)
 		if hostname != svc.service.Hostname {
 			t.Errorf("ParseServiceKey => Got %s, expected %s for %s", hostname, svc.service.Hostname, s)
 		}
-		if !compareLabels(labels, svc.labels) {
-			t.Errorf("ParseServiceKey => Got %#v, expected %#v for %s", labels, svc.labels, s)
+		if !compareLabels(l, svc.labels) {
+			t.Errorf("ParseServiceKey => Got %#v, expected %#v for %s", l, svc.labels, s)
 		}
 		if len(ports) != len(svc.service.Ports) {
 			t.Errorf("ParseServiceKey => Got %#v, expected %#v for %s", ports, svc.service.Ports, s)
@@ -100,7 +101,7 @@ func compare(a, b []string) bool {
 }
 
 // compareLabels compares sets of labels
-func compareLabels(a, b []config.Labels) bool {
+func compareLabels(a, b []labels.Instance) bool {
 	var as, bs []string
 	for _, i := range a {
 		as = append(as, i.String())
@@ -209,7 +210,7 @@ func TestGetLocality(t *testing.T) {
 				Endpoint: NetworkEndpoint{
 					Locality: "region/zone/subzone-1",
 				},
-				Labels: config.Labels{
+				Labels: labels.Instance{
 					LocalityLabel: "region/zone/subzone-2",
 				},
 			},
@@ -221,7 +222,7 @@ func TestGetLocality(t *testing.T) {
 				Endpoint: NetworkEndpoint{
 					Locality: "region/zone/subzone-1",
 				},
-				Labels: config.Labels{
+				Labels: labels.Instance{
 					LocalityLabel: "",
 				},
 			},
@@ -233,7 +234,7 @@ func TestGetLocality(t *testing.T) {
 				Endpoint: NetworkEndpoint{
 					Locality: "",
 				},
-				Labels: config.Labels{
+				Labels: labels.Instance{
 					LocalityLabel: "region" + k8sSeparator + "zone" + k8sSeparator + "subzone-2",
 				},
 			},
@@ -245,7 +246,7 @@ func TestGetLocality(t *testing.T) {
 				Endpoint: NetworkEndpoint{
 					Locality: "",
 				},
-				Labels: config.Labels{
+				Labels: labels.Instance{
 					LocalityLabel: "region/zone/subzone.2",
 				},
 			},
