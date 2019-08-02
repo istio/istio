@@ -274,8 +274,7 @@ func newChurnApp(t *testing.T) *churnApp {
 		true,
 		false,
 		true,
-		true,
-		false)
+		true)
 	app := &churnApp{
 		app: &a,
 	}

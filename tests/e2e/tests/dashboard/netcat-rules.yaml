@@ -5,7 +5,7 @@ metadata:
 spec:
   ports:
   - port: 44444
-    name: tcp-netcat
+    name: netcat
   selector:
     app: netcat-srv
 ---

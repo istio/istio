@@ -70,9 +70,9 @@ func deleteRemoteCluster() error {
 }
 
 func deployApp(cluster string, deploymentName, serviceName string, port1, port2, port3, port4, port5, port6 int,
-	version string, injectProxy bool, headless bool, serviceAccount bool, createService bool, sniffProtocol bool) (*framework.App, error) {
+	version string, injectProxy bool, headless bool, serviceAccount bool, createService bool) (*framework.App, error) {
 	tmpApp := getApp(deploymentName, serviceName, 1, port1, port2, port3, port4, port5, port6,
-		version, injectProxy, headless, serviceAccount, createService, sniffProtocol)
+		version, injectProxy, headless, serviceAccount, createService)
 
 	var appMgr *framework.AppManager
 	if cluster == primaryCluster {
@@ -146,7 +146,7 @@ func createAndVerifyMCMeshConfig() error {
 
 	// Add a v3 deployment to app "c" in the remote cluster and verify the mesh configuration
 	// Service 'c' has already been created earlier. Don't create it anymore.
-	tmpApp, err := deployApp(remoteCluster, "c-v3", "c", 80, 8080, 90, 9090, 70, 7070, "v3", true, false, true, false, false)
+	tmpApp, err := deployApp(remoteCluster, "c-v3", "c", 80, 8080, 90, 9090, 70, 7070, "v3", true, false, true, false)
 	if err != nil {
 		return err
 	}
@@ -196,7 +196,7 @@ func verifyMeshConfig() error {
 
 	// Add a v3 deployment to app "c" and verify the mesh configuration
 	// Service 'c' has already been created earlier. Don't create it anymore.
-	tmpApp, err := deployApp(primaryCluster, "c-v3", "c", 80, 8080, 90, 9090, 70, 7070, "v3", true, false, true, false, false)
+	tmpApp, err := deployApp(primaryCluster, "c-v3", "c", 80, 8080, 90, 9090, 70, 7070, "v3", true, false, true, false)
 	if err != nil {
 		return err
 	}

@@ -353,18 +353,16 @@ func (t *testConfig) Teardown() (err error) {
 }
 
 func getApps() []framework.App {
-	appsWithSidecar = []string{"a-", "b-", "c-", "d-", "e-", "f-", "headless-"}
+	appsWithSidecar = []string{"a-", "b-", "c-", "d-", "headless-"}
 	return []framework.App{
 		// deploy a healthy mix of apps, with and without proxy
-		getApp("t", "t", 1, 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, false, true, false),
-		getApp("a", "a", 1, 8080, 80, 9090, 90, 7070, 70, "v1", true, false, true, true, false),
-		getApp("b", "b", 1, 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false, true, true, false),
-		getApp("c-v1", "c", 1, 80, 8080, 90, 9090, 70, 7070, "v1", true, false, true, true, false),
-		getApp("c-v2", "c", 1, 80, 8080, 90, 9090, 70, 7070, "v2", true, false, true, false, false),
-		getApp("d", "d", 1, 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false, true, true, false),
-		getApp("e", "e", 1, 80, 8080, 90, 9090, 70, 7070, "v1", true, false, true, true, true),
-		getApp("f", "f", 1, 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false, true, true, true),
-		getApp("headless", "headless", 1, 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true, true, true, false),
+		getApp("t", "t", 1, 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, false, true),
+		getApp("a", "a", 1, 8080, 80, 9090, 90, 7070, 70, "v1", true, false, true, true),
+		getApp("b", "b", 1, 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false, true, true),
+		getApp("c-v1", "c", 1, 80, 8080, 90, 9090, 70, 7070, "v1", true, false, true, true),
+		getApp("c-v2", "c", 1, 80, 8080, 90, 9090, 70, 7070, "v2", true, false, true, false),
+		getApp("d", "d", 1, 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false, true, true),
+		getApp("headless", "headless", 1, 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true, true, true),
 		getStatefulSet("statefulset", 19090, true),
 
 		getJob("test-job", true),
@@ -372,7 +370,7 @@ func getApps() []framework.App {
 }
 
 func getApp(deploymentName, serviceName string, replicas, port1, port2, port3, port4, port5, port6 int,
-	version string, injectProxy bool, headless bool, serviceAccount bool, createService bool, sniffProtocol bool) framework.App {
+	version string, injectProxy bool, headless bool, serviceAccount bool, createService bool) framework.App {
 	// TODO(nmittler): Consul does not support management ports ... should we support other registries?
 	healthPort := "true"
 
@@ -398,7 +396,6 @@ func getApp(deploymentName, serviceName string, replicas, port1, port2, port3, p
 			"healthPort":      healthPort,
 			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
 			"createService":   strconv.FormatBool(createService),
-			"sniffProtocol":   strconv.FormatBool(sniffProtocol),
 		},
 		KubeInject: injectProxy,
 	}
