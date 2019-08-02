@@ -44,7 +44,7 @@ import (
 //     startTime: request.time
 //     endTime: response.time
 //     clientSpan: (context.reporter.kind | "inbound") == "outbound"
-//     rewriteClientSpanId: false
+//     rewriteClientSpanId: "false"
 //     spanTags:
 //       http.method: request.method | ""
 //       http.status_code: response.code | 200
