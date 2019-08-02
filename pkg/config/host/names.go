@@ -12,26 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package host
 
 import (
 	"sort"
 	"strings"
 )
 
-// Hostnames is a collection of Hostname; it exists so it's easy to sort hostnames consistently across Pilot.
+// Names is a collection of Name; it exists so it's easy to sort hostnames consistently across Istio.
 // In a few locations we care about the order hostnames appear in Envoy config: primarily HTTP routes, but also in
 // gateways, and for SNI. In those locations, we sort hostnames longest to shortest with wildcards last.
-type Hostnames []Hostname
+type Names []Name
 
 // prove we implement the interface at compile time
-var _ sort.Interface = Hostnames{}
+var _ sort.Interface = Names{}
 
-func (h Hostnames) Len() int {
+func (h Names) Len() int {
 	return len(h)
 }
 
-func (h Hostnames) Less(i, j int) bool {
+func (h Names) Less(i, j int) bool {
 	a, b := h[i], h[j]
 	if len(a) == 0 && len(b) == 0 {
 		return true // doesn't matter, they're both the empty string
@@ -55,11 +55,11 @@ func (h Hostnames) Less(i, j int) bool {
 	return len(a) > len(b)
 }
 
-func (h Hostnames) Swap(i, j int) {
+func (h Names) Swap(i, j int) {
 	h[i], h[j] = h[j], h[i]
 }
 
-func (h Hostnames) Contains(host Hostname) bool {
+func (h Names) Contains(host Name) bool {
 	for _, hHost := range h {
 		if hHost == host {
 			return true
@@ -70,13 +70,13 @@ func (h Hostnames) Contains(host Hostname) bool {
 
 // Intersection returns the subset of host names that are covered by both h and other.
 // e.g.:
-//  Hostnames(["foo.com","bar.com"]).Intersection(Hostnames(["*.com"]))         = Hostnames(["foo.com","bar.com"])
-//  Hostnames(["foo.com","*.net"]).Intersection(Hostnames(["*.com","bar.net"])) = Hostnames(["foo.com","bar.net"])
-//  Hostnames(["foo.com","*.net"]).Intersection(Hostnames(["*.bar.net"]))       = Hostnames(["*.bar.net"])
-//  Hostnames(["foo.com"]).Intersection(Hostnames(["bar.com"]))                 = Hostnames([])
-//  Hostnames([]).Intersection(Hostnames(["bar.com"])                           = Hostnames([])
-func (h Hostnames) Intersection(other Hostnames) Hostnames {
-	result := make(Hostnames, 0, len(h))
+//  Names(["foo.com","bar.com"]).Intersection(Names(["*.com"]))         = Names(["foo.com","bar.com"])
+//  Names(["foo.com","*.net"]).Intersection(Names(["*.com","bar.net"])) = Names(["foo.com","bar.net"])
+//  Names(["foo.com","*.net"]).Intersection(Names(["*.bar.net"]))       = Names(["*.bar.net"])
+//  Names(["foo.com"]).Intersection(Names(["bar.com"]))                 = Names([])
+//  Names([]).Intersection(Names(["bar.com"])                           = Names([])
+func (h Names) Intersection(other Names) Names {
+	result := make(Names, 0, len(h))
 	for _, hHost := range h {
 		for _, oHost := range other {
 			if hHost.SubsetOf(oHost) {
@@ -93,27 +93,27 @@ func (h Hostnames) Intersection(other Hostnames) Hostnames {
 	return result
 }
 
-// StringsToHostnames converts a slice of host name strings to type Hostnames.
-func StringsToHostnames(hosts []string) Hostnames {
-	result := make(Hostnames, 0, len(hosts))
+// NewNames converts a slice of host name strings to type Names.
+func NewNames(hosts []string) Names {
+	result := make(Names, 0, len(hosts))
 	for _, host := range hosts {
-		result = append(result, Hostname(host))
+		result = append(result, Name(host))
 	}
 	return result
 }
 
-// HostnamesForNamespace returns the subset of hosts that are in the specified namespace.
+// NamesForNamespace returns the subset of hosts that are in the specified namespace.
 // The list of hosts contains host names optionally qualified with namespace/ or */.
 // If not qualified or qualified with *, the host name is considered to be in every namespace.
 // e.g.:
-// HostnamesForNamespace(["ns1/foo.com","ns2/bar.com"], "ns1")   = Hostnames(["foo.com"])
-// HostnamesForNamespace(["ns1/foo.com","ns2/bar.com"], "ns3")   = Hostnames([])
-// HostnamesForNamespace(["ns1/foo.com","*/bar.com"], "ns1")     = Hostnames(["foo.com","bar.com"])
-// HostnamesForNamespace(["ns1/foo.com","*/bar.com"], "ns3")     = Hostnames(["bar.com"])
-// HostnamesForNamespace(["foo.com","ns2/bar.com"], "ns2")       = Hostnames(["foo.com","bar.com"])
-// HostnamesForNamespace(["foo.com","ns2/bar.com"], "ns3")       = Hostnames(["foo.com"])
-func HostnamesForNamespace(hosts []string, namespace string) Hostnames {
-	result := make(Hostnames, 0, len(hosts))
+// NamesForNamespace(["ns1/foo.com","ns2/bar.com"], "ns1")   = Names(["foo.com"])
+// NamesForNamespace(["ns1/foo.com","ns2/bar.com"], "ns3")   = Names([])
+// NamesForNamespace(["ns1/foo.com","*/bar.com"], "ns1")     = Names(["foo.com","bar.com"])
+// NamesForNamespace(["ns1/foo.com","*/bar.com"], "ns3")     = Names(["bar.com"])
+// NamesForNamespace(["foo.com","ns2/bar.com"], "ns2")       = Names(["foo.com","bar.com"])
+// NamesForNamespace(["foo.com","ns2/bar.com"], "ns3")       = Names(["foo.com"])
+func NamesForNamespace(hosts []string, namespace string) Names {
+	result := make(Names, 0, len(hosts))
 	for _, host := range hosts {
 		if strings.Contains(host, "/") {
 			parts := strings.Split(host, "/")
@@ -123,7 +123,7 @@ func HostnamesForNamespace(hosts []string, namespace string) Hostnames {
 			//strip the namespace
 			host = parts[1]
 		}
-		result = append(result, Hostname(host))
+		result = append(result, Name(host))
 	}
 	return result
 }

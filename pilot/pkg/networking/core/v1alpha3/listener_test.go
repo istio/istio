@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -611,7 +611,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	}
 }
 
-func verifyOutboundTCPListenerHostname(t *testing.T, l *xdsapi.Listener, hostname config.Hostname) {
+func verifyOutboundTCPListenerHostname(t *testing.T, l *xdsapi.Listener, hostname host.Name) {
 	t.Helper()
 	if len(l.FilterChains) != 1 {
 		t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
@@ -904,7 +904,7 @@ func findListenerByPort(listeners []*xdsapi.Listener, port uint32) *xdsapi.Liste
 func buildService(hostname string, ip string, protocol protocol.Instance, creationTime time.Time) *model.Service {
 	return &model.Service{
 		CreationTime: creationTime,
-		Hostname:     config.Hostname(hostname),
+		Hostname:     host.Name(hostname),
 		Address:      ip,
 		ClusterVIPs:  make(map[string]string),
 		Ports: model.PortList{

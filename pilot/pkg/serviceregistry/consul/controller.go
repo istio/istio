@@ -24,7 +24,7 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -72,7 +72,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 }
 
 // GetService retrieves a service by host name if it exists
-func (c *Controller) GetService(hostname config.Hostname) (*model.Service, error) {
+func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	c.cacheMutex.Lock()
 	defer c.cacheMutex.Unlock()
 

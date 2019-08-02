@@ -25,12 +25,12 @@ import (
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 )
 
 // ClusterFilter is used to pass filter information into cluster based config writer print functions
 type ClusterFilter struct {
-	FQDN      config.Hostname
+	FQDN      host.Name
 	Port      int
 	Subset    string
 	Direction model.TrafficDirection
@@ -151,10 +151,10 @@ func (c *ConfigWriter) retrieveSortedClusterSlice() ([]*xdsapi.Cluster, error) {
 	return clusters, nil
 }
 
-func safelyParseSubsetKey(key string) (model.TrafficDirection, string, config.Hostname, int) {
+func safelyParseSubsetKey(key string) (model.TrafficDirection, string, host.Name, int) {
 	if len(strings.Split(key, "|")) > 3 {
 		return model.ParseSubsetKey(key)
 	}
-	name := config.Hostname(key)
-	return model.TrafficDirection(""), "", name, 0
+	name := host.Name(key)
+	return "", "", name, 0
 }

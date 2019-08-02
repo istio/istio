@@ -23,8 +23,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -78,7 +78,7 @@ func TestServiceDiscoveryServices(t *testing.T) {
 }
 
 func TestServiceDiscoveryGetService(t *testing.T) {
-	host := "*.google.com"
+	hostname := "*.google.com"
 	hostDNE := "does.not.exist.local"
 
 	store, sd, stopFn := initServiceDiscovery()
@@ -86,7 +86,7 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 
 	createServiceEntries([]*model.Config{httpDNS, tcpStatic}, store, t)
 
-	service, err := sd.GetService(config.Hostname(hostDNE))
+	service, err := sd.GetService(host.Name(hostDNE))
 	if err != nil {
 		t.Errorf("GetService() encountered unexpected error: %v", err)
 	}
@@ -94,15 +94,15 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 		t.Errorf("GetService(%q) => should not exist, got %s", hostDNE, service.Hostname)
 	}
 
-	service, err = sd.GetService(config.Hostname(host))
+	service, err = sd.GetService(host.Name(hostname))
 	if err != nil {
-		t.Errorf("GetService(%q) encountered unexpected error: %v", host, err)
+		t.Errorf("GetService(%q) encountered unexpected error: %v", hostname, err)
 	}
 	if service == nil {
-		t.Errorf("GetService(%q) => should exist", host)
+		t.Errorf("GetService(%q) => should exist", hostname)
 	}
-	if service.Hostname != config.Hostname(host) {
-		t.Errorf("GetService(%q) => %q, want %q", host, service.Hostname, host)
+	if service.Hostname != host.Name(hostname) {
+		t.Errorf("GetService(%q) => %q, want %q", hostname, service.Hostname, hostname)
 	}
 }
 

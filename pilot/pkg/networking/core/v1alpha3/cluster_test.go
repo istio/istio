@@ -35,8 +35,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -193,7 +193,7 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolutio
 		Protocol: protocol.HTTP,
 	}
 	service := &model.Service{
-		Hostname:    config.Hostname(serviceHostname),
+		Hostname:    host.Name(serviceHostname),
 		Address:     "1.1.1.1",
 		ClusterVIPs: make(map[string]string),
 		Ports:       model.PortList{servicePort},
@@ -817,7 +817,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		Protocol: protocol.HTTP,
 	}
 	service := &model.Service{
-		Hostname:    config.Hostname("*.example.org"),
+		Hostname:    host.Name("*.example.org"),
 		Address:     "1.1.1.1",
 		ClusterVIPs: make(map[string]string),
 		Ports:       model.PortList{servicePort},
@@ -958,7 +958,7 @@ func TestRedisProtocolWithPassThroughResolution(t *testing.T) {
 		Protocol: protocol.Redis,
 	}
 	service := &model.Service{
-		Hostname:    config.Hostname("redis.com"),
+		Hostname:    host.Name("redis.com"),
 		Address:     "1.1.1.1",
 		ClusterVIPs: make(map[string]string),
 		Ports:       model.PortList{servicePort},
@@ -996,7 +996,7 @@ func TestRedisProtocolCluster(t *testing.T) {
 		Protocol: protocol.Redis,
 	}
 	service := &model.Service{
-		Hostname:    config.Hostname("redis.com"),
+		Hostname:    host.Name("redis.com"),
 		Address:     "1.1.1.1",
 		ClusterVIPs: make(map[string]string),
 		Ports:       model.PortList{servicePort},

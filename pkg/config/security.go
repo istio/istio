@@ -26,11 +26,13 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+
+	"istio.io/istio/pkg/config/host"
 )
 
 // JwksInfo provides values resulting from parsing a jwks URI.
 type JwksInfo struct {
-	Hostname Hostname
+	Hostname host.Name
 	Scheme   string
 	Port     int
 	UseSSL   bool
@@ -67,7 +69,7 @@ func ParseJwksURI(jwksURI string) (JwksInfo, error) {
 			return JwksInfo{}, err
 		}
 	}
-	info.Hostname = Hostname(u.Hostname())
+	info.Hostname = host.Name(u.Hostname())
 	info.Scheme = u.Scheme
 
 	return info, nil

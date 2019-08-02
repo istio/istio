@@ -29,11 +29,12 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -162,7 +163,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(env *model.Environment, nod
 	}
 
 	for _, route := range routes {
-		service := node.SidecarScope.ServiceForHostname(config.Hostname(route.Destination.Host), push.ServiceByHostnameAndNamespace)
+		service := node.SidecarScope.ServiceForHostname(host.Name(route.Destination.Host), push.ServiceByHostnameAndNamespace)
 		if route.Weight > 0 {
 			clusterName := istio_route.GetDestinationCluster(route.Destination, service, port.Port)
 			clusterSpecifier.WeightedClusters.Clusters = append(clusterSpecifier.WeightedClusters.Clusters, &tcp_proxy.TcpProxy_WeightedCluster_ClusterWeight{
@@ -212,7 +213,7 @@ func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy,
 	port *model.Port, configMeta model.ConfigMeta) []*listener.Filter {
 
 	if len(routes) == 1 {
-		service := node.SidecarScope.ServiceForHostname(config.Hostname(routes[0].Destination.Host), push.ServiceByHostnameAndNamespace)
+		service := node.SidecarScope.ServiceForHostname(host.Name(routes[0].Destination.Host), push.ServiceByHostnameAndNamespace)
 		clusterName := istio_route.GetDestinationCluster(routes[0].Destination, service, port.Port)
 		return buildOutboundNetworkFiltersWithSingleDestination(env, node, clusterName, port)
 	}

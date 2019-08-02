@@ -22,8 +22,8 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/monitoring"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
@@ -78,7 +78,7 @@ type PushContext struct {
 	// Namespace specific views do not apply here.
 
 	// ServiceByHostnameAndNamespace has all services, indexed by hostname then namesace.
-	ServiceByHostnameAndNamespace map[config.Hostname]map[string]*Service `json:"-"`
+	ServiceByHostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
 
 	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
 	// are no authorization policies in the cluster.
@@ -88,16 +88,16 @@ type PushContext struct {
 	Env *Environment `json:"-"`
 
 	// ServiceAccounts contains a map of hostname and port to service accounts.
-	ServiceAccounts map[config.Hostname]map[int][]string `json:"-"`
+	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
 
 	initDone bool
 }
 
 type processedDestRules struct {
 	// List of dest rule hosts. We match with the most specific host first
-	hosts []config.Hostname
+	hosts []host.Name
 	// Map of dest rule host and the merged destination rules for that host
-	destRule map[config.Hostname]*combinedDestinationRule
+	destRule map[host.Name]*combinedDestinationRule
 }
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
@@ -301,15 +301,15 @@ func NewPushContext() *PushContext {
 		namespaceLocalDestRules:           map[string]*processedDestRules{},
 		namespaceExportedDestRules:        map[string]*processedDestRules{},
 		allExportedDestRules: &processedDestRules{
-			hosts:    make([]config.Hostname, 0),
-			destRule: map[config.Hostname]*combinedDestinationRule{},
+			hosts:    make([]host.Name, 0),
+			destRule: map[host.Name]*combinedDestinationRule{},
 		},
 		sidecarsByNamespace:     map[string][]*SidecarScope{},
 		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{},
 
-		ServiceByHostnameAndNamespace: map[config.Hostname]map[string]*Service{},
+		ServiceByHostnameAndNamespace: map[host.Name]map[string]*Service{},
 		ProxyStatus:                   map[string]map[string]ProxyPushStatus{},
-		ServiceAccounts:               map[config.Hostname]map[int][]string{},
+		ServiceAccounts:               map[host.Name]map[int][]string{},
 	}
 }
 
@@ -396,7 +396,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 			}
 		} else {
 			for _, g := range rule.Gateways {
-				// note: Gateway names do _not_ use wildcard matching, so we do not use Hostname.Matches here
+				// note: Gateway names do _not_ use wildcard matching, so we do not use Name.Matches here
 				if gateways[resolveGatewayName(g, cfg.ConfigMeta)] {
 					out = append(out, cfg)
 					break
@@ -475,8 +475,8 @@ func (ps *PushContext) GetAllSidecarScopes() map[string][]*SidecarScope {
 func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	// FIXME: this code should be removed once the EDS issue is fixed
 	if proxy == nil {
-		if host, ok := MostSpecificHostMatch(service.Hostname, ps.allExportedDestRules.hosts); ok {
-			return ps.allExportedDestRules.destRule[host].config
+		if hostname, ok := MostSpecificHostMatch(service.Hostname, ps.allExportedDestRules.hosts); ok {
+			return ps.allExportedDestRules.destRule[hostname].config
 		}
 		return nil
 	}
@@ -500,9 +500,9 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	if proxy.ConfigNamespace != ps.Env.Mesh.RootNamespace {
 		// search through the DestinationRules in proxy's namespace first
 		if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
-			if host, ok := MostSpecificHostMatch(service.Hostname,
+			if hostname, ok := MostSpecificHostMatch(service.Hostname,
 				ps.namespaceLocalDestRules[proxy.ConfigNamespace].hosts); ok {
-				return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[host].config
+				return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[hostname].config
 			}
 		}
 	}
@@ -510,9 +510,9 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	// if no private/public rule matched in the calling proxy's namespace,
 	// check the target service's namespace for public rules
 	if service.Attributes.Namespace != "" && ps.namespaceExportedDestRules[service.Attributes.Namespace] != nil {
-		if host, ok := MostSpecificHostMatch(service.Hostname,
+		if hostname, ok := MostSpecificHostMatch(service.Hostname,
 			ps.namespaceExportedDestRules[service.Attributes.Namespace].hosts); ok {
-			return ps.namespaceExportedDestRules[service.Attributes.Namespace].destRule[host].config
+			return ps.namespaceExportedDestRules[service.Attributes.Namespace].destRule[hostname].config
 		}
 	}
 
@@ -520,9 +520,9 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	// target service's namespace matched, search for any public destination rule in the config root namespace
 	// NOTE: This does mean that we are effectively ignoring private dest rules in the config root namespace
 	if ps.namespaceExportedDestRules[ps.Env.Mesh.RootNamespace] != nil {
-		if host, ok := MostSpecificHostMatch(service.Hostname,
+		if hostname, ok := MostSpecificHostMatch(service.Hostname,
 			ps.namespaceExportedDestRules[ps.Env.Mesh.RootNamespace].hosts); ok {
-			return ps.namespaceExportedDestRules[ps.Env.Mesh.RootNamespace].destRule[host].config
+			return ps.namespaceExportedDestRules[ps.Env.Mesh.RootNamespace].destRule[hostname].config
 		}
 	}
 
@@ -530,7 +530,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 }
 
 // SubsetToLabels returns the labels associated with a subset of a given service.
-func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname config.Hostname) labels.Collection {
+func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname host.Name) labels.Collection {
 	// empty subset
 	if subsetName == "" {
 		return nil
@@ -886,8 +886,8 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 	namespaceLocalDestRules := make(map[string]*processedDestRules)
 	namespaceExportedDestRules := make(map[string]*processedDestRules)
 	allExportedDestRules := &processedDestRules{
-		hosts:    make([]config.Hostname, 0),
-		destRule: map[config.Hostname]*combinedDestinationRule{},
+		hosts:    make([]host.Name, 0),
+		destRule: map[host.Name]*combinedDestinationRule{},
 	}
 
 	for i := range configs {
@@ -900,8 +900,8 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 		// The global exportTo doesn't matter here (its either . or * - both of which are applicable here)
 		if _, exist := namespaceLocalDestRules[configs[i].Namespace]; !exist {
 			namespaceLocalDestRules[configs[i].Namespace] = &processedDestRules{
-				hosts:    make([]config.Hostname, 0),
-				destRule: map[config.Hostname]*combinedDestinationRule{},
+				hosts:    make([]host.Name, 0),
+				destRule: map[host.Name]*combinedDestinationRule{},
 			}
 		}
 		// Merge this destination rule with any public/private dest rules for same host in the same namespace
@@ -931,8 +931,8 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 		if isPubliclyExported {
 			if _, exist := namespaceExportedDestRules[configs[i].Namespace]; !exist {
 				namespaceExportedDestRules[configs[i].Namespace] = &processedDestRules{
-					hosts:    make([]config.Hostname, 0),
-					destRule: map[config.Hostname]*combinedDestinationRule{},
+					hosts:    make([]host.Name, 0),
+					destRule: map[host.Name]*combinedDestinationRule{},
 				}
 			}
 			// Merge this destination rule with any public dest rule for the same host in the same namespace
@@ -952,12 +952,12 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 	// presort it so that we don't sort it for each DestinationRule call.
 	// sort.Sort for Hostnames will automatically sort from the most specific to least specific
 	for ns := range namespaceLocalDestRules {
-		sort.Sort(config.Hostnames(namespaceLocalDestRules[ns].hosts))
+		sort.Sort(host.Names(namespaceLocalDestRules[ns].hosts))
 	}
 	for ns := range namespaceExportedDestRules {
-		sort.Sort(config.Hostnames(namespaceExportedDestRules[ns].hosts))
+		sort.Sort(host.Names(namespaceExportedDestRules[ns].hosts))
 	}
-	sort.Sort(config.Hostnames(allExportedDestRules.hosts))
+	sort.Sort(host.Names(allExportedDestRules.hosts))
 
 	ps.namespaceLocalDestRules = namespaceLocalDestRules
 	ps.namespaceExportedDestRules = namespaceExportedDestRules
