@@ -540,6 +540,13 @@ func flippedContains(needle, haystack string) bool {
 func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
 	metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (
 	*SidecarInjectionSpec, string, error) {
+
+	// If DNSPolicy is not ClusterFirst, the Envoy sidecar may not able to connect to Istio Pilot.
+	if spec.DNSPolicy != corev1.DNSClusterFirst {
+		log.Warnf("%q's DNSPolicy is not %q. The Envoy sidecar may not able to connect to Istio Pilot",
+			metadata.Namespace+"/"+metadata.Name, corev1.DNSClusterFirst)
+	}
+
 	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
 		log.Errorf("Injection failed due to invalid annotations: %v", err)
 		return nil, "", err
@@ -775,6 +782,7 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 			metadata.Name)
 		return out, nil
 	}
+
 	//skip injection for injected pods
 	if len(podSpec.Containers) > 1 {
 		for _, c := range podSpec.Containers {
