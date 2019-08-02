@@ -12,24 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package visibility
 
 import "fmt"
 
-// Visibility defines whether a given config or service is exported to local namespace, all namespaces or none
-type Visibility string
+// Instance defines whether a given config or service is exported to local namespace, all namespaces or none
+type Instance string
 
 const (
-	// VisibilityPrivate implies namespace local config
-	VisibilityPrivate Visibility = "."
-	// VisibilityPublic implies config is visible to all
-	VisibilityPublic Visibility = "*"
+	// Private implies namespace local config
+	Private Instance = "."
+	// Public implies config is visible to all
+	Public Instance = "*"
 )
 
 // Validate a visibility value.
-func (v Visibility) Validate() (errs error) {
+func (v Instance) Validate() (errs error) {
 	switch v {
-	case VisibilityPrivate, VisibilityPublic:
+	case Private, Public:
 		return nil
 	default:
 		return fmt.Errorf("only . or * is allowed in the exportTo in the current release")

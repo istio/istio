@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/visibility"
 )
 
 // PushContext tracks the status of a push - metrics and errors.
@@ -44,9 +45,9 @@ type PushContext struct {
 	Mutex sync.Mutex `json:"-"`
 
 	// Synthesized from env.Mesh
-	defaultServiceExportTo         map[config.Visibility]bool
-	defaultVirtualServiceExportTo  map[config.Visibility]bool
-	defaultDestinationRuleExportTo map[config.Visibility]bool
+	defaultServiceExportTo         map[visibility.Instance]bool
+	defaultVirtualServiceExportTo  map[visibility.Instance]bool
+	defaultDestinationRuleExportTo map[visibility.Instance]bool
 
 	// privateServices are reachable within the same namespace.
 	privateServicesByNamespace map[string][]*Service
@@ -608,13 +609,13 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	for _, s := range allServices {
 		ns := s.Attributes.Namespace
 		if len(s.Attributes.ExportTo) == 0 {
-			if ps.defaultServiceExportTo[config.VisibilityPrivate] {
+			if ps.defaultServiceExportTo[visibility.Private] {
 				ps.privateServicesByNamespace[ns] = append(ps.privateServicesByNamespace[ns], s)
-			} else if ps.defaultServiceExportTo[config.VisibilityPublic] {
+			} else if ps.defaultServiceExportTo[visibility.Public] {
 				ps.publicServices = append(ps.publicServices, s)
 			}
 		} else {
-			if s.Attributes.ExportTo[config.VisibilityPrivate] {
+			if s.Attributes.ExportTo[visibility.Private] {
 				ps.privateServicesByNamespace[ns] = append(ps.privateServicesByNamespace[ns], s)
 			} else {
 				ps.publicServices = append(ps.publicServices, s)
@@ -738,16 +739,16 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		if len(rule.ExportTo) == 0 {
 			// No exportTo in virtualService. Use the global default
 			// TODO: We currently only honor ., * and ~
-			if ps.defaultVirtualServiceExportTo[config.VisibilityPrivate] {
+			if ps.defaultVirtualServiceExportTo[visibility.Private] {
 				// add to local namespace only
 				ps.privateVirtualServicesByNamespace[ns] = append(ps.privateVirtualServicesByNamespace[ns], virtualService)
-			} else if ps.defaultVirtualServiceExportTo[config.VisibilityPublic] {
+			} else if ps.defaultVirtualServiceExportTo[visibility.Public] {
 				ps.publicVirtualServices = append(ps.publicVirtualServices, virtualService)
 			}
 		} else {
 			// TODO: we currently only process the first element in the array
 			// and currently only consider . or * which maps to public/private
-			if config.Visibility(rule.ExportTo[0]) == config.VisibilityPrivate {
+			if visibility.Instance(rule.ExportTo[0]) == visibility.Private {
 				// add to local namespace only
 				ps.privateVirtualServicesByNamespace[ns] = append(ps.privateVirtualServicesByNamespace[ns], virtualService)
 			} else {
@@ -762,32 +763,32 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 }
 
 func (ps *PushContext) initDefaultExportMaps() {
-	ps.defaultDestinationRuleExportTo = make(map[config.Visibility]bool)
+	ps.defaultDestinationRuleExportTo = make(map[visibility.Instance]bool)
 	if ps.Env.Mesh.DefaultDestinationRuleExportTo != nil {
 		for _, e := range ps.Env.Mesh.DefaultDestinationRuleExportTo {
-			ps.defaultDestinationRuleExportTo[config.Visibility(e)] = true
+			ps.defaultDestinationRuleExportTo[visibility.Instance(e)] = true
 		}
 	} else {
 		// default to *
-		ps.defaultDestinationRuleExportTo[config.VisibilityPublic] = true
+		ps.defaultDestinationRuleExportTo[visibility.Public] = true
 	}
 
-	ps.defaultServiceExportTo = make(map[config.Visibility]bool)
+	ps.defaultServiceExportTo = make(map[visibility.Instance]bool)
 	if ps.Env.Mesh.DefaultServiceExportTo != nil {
 		for _, e := range ps.Env.Mesh.DefaultServiceExportTo {
-			ps.defaultServiceExportTo[config.Visibility(e)] = true
+			ps.defaultServiceExportTo[visibility.Instance(e)] = true
 		}
 	} else {
-		ps.defaultServiceExportTo[config.VisibilityPublic] = true
+		ps.defaultServiceExportTo[visibility.Public] = true
 	}
 
-	ps.defaultVirtualServiceExportTo = make(map[config.Visibility]bool)
+	ps.defaultVirtualServiceExportTo = make(map[visibility.Instance]bool)
 	if ps.Env.Mesh.DefaultVirtualServiceExportTo != nil {
 		for _, e := range ps.Env.Mesh.DefaultVirtualServiceExportTo {
-			ps.defaultVirtualServiceExportTo[config.Visibility(e)] = true
+			ps.defaultVirtualServiceExportTo[visibility.Instance(e)] = true
 		}
 	} else {
-		ps.defaultVirtualServiceExportTo[config.VisibilityPublic] = true
+		ps.defaultVirtualServiceExportTo[visibility.Public] = true
 	}
 }
 
@@ -913,13 +914,13 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 		if len(rule.ExportTo) == 0 {
 			// No exportTo in destinationRule. Use the global default
 			// TODO: We currently only honor ., * and ~
-			if ps.defaultDestinationRuleExportTo[config.VisibilityPublic] {
+			if ps.defaultDestinationRuleExportTo[visibility.Public] {
 				isPubliclyExported = true
 			}
 		} else {
 			// TODO: we currently only process the first element in the array
 			// and currently only consider . or * which maps to public/private
-			if config.Visibility(rule.ExportTo[0]) != config.VisibilityPrivate {
+			if visibility.Instance(rule.ExportTo[0]) != visibility.Private {
 				// ~ is not valid in the exportTo fields in virtualServices, services, destination rules
 				// and we currently only allow . or *. So treat this as public export
 				isPubliclyExported = true

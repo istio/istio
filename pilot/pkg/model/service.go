@@ -34,8 +34,10 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 
 	authn "istio.io/api/authentication/v1alpha1"
+
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/visibility"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
@@ -349,7 +351,7 @@ type ServiceAttributes struct {
 	UID string
 	// ExportTo defines the visibility of Service in
 	// a namespace when the namespace is imported.
-	ExportTo map[config.Visibility]bool
+	ExportTo map[visibility.Instance]bool
 
 	// For Kubernetes platform
 
