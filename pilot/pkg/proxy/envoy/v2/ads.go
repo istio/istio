@@ -161,7 +161,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	}
 
 	bootstrapAny, _ := types.MarshalAny(&adminapi.BootstrapConfigDump{})
-	// The config dump must have all configs with order specified in
+	// The config dump must have all configs with connections specified in
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
 	configDump := &adminapi.ConfigDump{Configs: []*types.Any{bootstrapAny, clustersAny, listenersAny, routeConfigAny}}
 	return configDump, nil
@@ -666,7 +666,8 @@ func (s *DiscoveryServer) startPush(push *model.PushContext, full bool, edsUpdat
 	}
 	startTime := time.Now()
 	for _, p := range pending {
-		s.pushQueue.Enqueue(p, &PushInformation{edsUpdates, push, startTime, full})
+		pushEvent := &PushEvent{edsUpdates, push, startTime, full}
+		s.pushQueue.Enqueue(p, pushEvent)
 	}
 }
 

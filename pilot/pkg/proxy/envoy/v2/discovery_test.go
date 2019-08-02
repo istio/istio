@@ -85,7 +85,7 @@ func TestSendPushesManyPushes(t *testing.T) {
 
 	for push := 0; push < 100; push++ {
 		for _, proxy := range proxies {
-			queue.Enqueue(proxy, &PushInformation{})
+			queue.Enqueue(proxy, &PushEvent{})
 		}
 		time.Sleep(time.Millisecond * 10)
 	}
@@ -131,7 +131,7 @@ func TestSendPushesSinglePush(t *testing.T) {
 	go doSendPushes(stopCh, semaphore, queue, mockNeedsPush)
 
 	for _, proxy := range proxies {
-		queue.Enqueue(proxy, &PushInformation{})
+		queue.Enqueue(proxy, &PushEvent{})
 	}
 
 	if !wgDoneOrTimeout(wg, time.Second) {
