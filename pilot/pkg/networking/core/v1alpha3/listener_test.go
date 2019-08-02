@@ -419,24 +419,10 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 
 	oldestProtocol := oldestService.Ports[0].Protocol
 	if oldestProtocol == protocol.MySQL {
-		if oldestService.Ports[0].Port == 3306 {
-			if len(listeners[0].FilterChains) != 2 {
-				t.Fatalf("expectd %d filter chains, found %d", 2, len(listeners[0].FilterChains))
-			} else if !isTCPFilterChain(listeners[0].FilterChains[1]) {
-				t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
-			}
-		} else {
-			if len(listeners[0].FilterChains) != 4 {
-				t.Fatalf("expectd %d filter chains, found %d", 3, len(listeners[0].FilterChains))
-			} else {
-				if !isHTTPFilterChain(listeners[0].FilterChains[1]) {
-					t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
-				}
-
-				if !isTCPFilterChain(listeners[0].FilterChains[3]) {
-					t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[3].Filters[0].Name)
-				}
-			}
+		if len(listeners[0].FilterChains) != 2 {
+			t.Fatalf("expectd %d filter chains, found %d", 2, len(listeners[0].FilterChains))
+		} else if !isTCPFilterChain(listeners[0].FilterChains[1]) {
+			t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
 		}
 	} else if oldestProtocol != protocol.HTTP && oldestProtocol != protocol.TCP {
 		if len(listeners[0].FilterChains) != 3 {

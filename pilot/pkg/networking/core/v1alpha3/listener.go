@@ -148,14 +148,6 @@ var (
 			"upstream_transport_failure_reason": {Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_TRANSPORT_FAILURE_REASON%"}},
 		},
 	}
-
-	wellKnownPorts = map[int]protocol.Instance{
-		25:    protocol.TCP,   // SMTP
-		3306:  protocol.MySQL, // MySQL
-		4222:  protocol.TCP,   // NATS
-		8086:  protocol.TCP,   // InfluxDB
-		27017: protocol.Mongo, // MongoDB
-	}
 )
 
 func buildAccessLog(fl *accesslogconfig.FileAccessLog, env *model.Environment) {
@@ -1295,10 +1287,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	// if there was a HTTP listener on well known port, cannot add a tcp listener
 	// with the inspector as inspector breaks all server-first protocols.
 	if currentListenerEntry != nil &&
-		(!checkWellKnownPorts(pluginParams.Port.Port, currentListenerEntry.protocol, conflictType) ||
-			!checkWellKnownPorts(pluginParams.Port.Port, pluginParams.Port.Protocol, conflictType)) {
-		log.Warnf("conflict happens on a well known port %d, protocol %v, conflict type %v",
-			pluginParams.Port.Port, wellKnownPorts[pluginParams.Port.Port], conflictType)
+		!checkWellKnownPorts(pluginParams.Port.Protocol, currentListenerEntry.protocol, conflictType) {
+		log.Warnf("conflict happens on a well known port %d, incoming protocol %v, existing protocol %v, conflict type %v",
+			pluginParams.Port.Port, pluginParams.Port.Protocol, currentListenerEntry.protocol, conflictType)
 		return
 	}
 
@@ -2125,21 +2116,16 @@ func getPluginFilterChain(opts buildListenerOpts) []plugin.FilterChain {
 	return filterChain
 }
 
-func checkWellKnownPorts(port int, protocol protocol.Instance, conflict int) bool {
-	p, has := wellKnownPorts[port]
-	if conflict == NoConflict || !has || p != protocol {
+func checkWellKnownPorts(incoming protocol.Instance, existing protocol.Instance, conflict int) bool {
+	if conflict == NoConflict {
 		return true
 	}
 
-	switch conflict {
-	case HTTPOverTCP, TCPOverHTTP,
-		HTTPOverAuto, TCPOverAuto,
-		AutoOverAuto, AutoOverHTTP, AutoOverTCP: //The protocol of port cannot be AUTO for k8s user
+	if (incoming == protocol.Mongo ||
+		incoming == protocol.MySQL ||
+		existing == protocol.Mongo ||
+		existing == protocol.MySQL) && incoming != existing {
 		return false
-	case HTTPOverHTTP:
-		return p.IsHTTP()
-	case TCPOverTCP:
-		return p.IsTCP()
 	}
 
 	return true
