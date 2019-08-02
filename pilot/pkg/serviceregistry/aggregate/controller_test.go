@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -320,7 +321,7 @@ func TestInstances(t *testing.T) {
 	// Get Instances from mockAdapter1
 	instances, err := aggregateCtl.InstancesByPort(memory.HelloService,
 		80,
-		config.LabelsCollection{})
+		labels.Collection{})
 	if err != nil {
 		t.Fatalf("Instances() encountered unexpected error: %v", err)
 	}
@@ -339,7 +340,7 @@ func TestInstances(t *testing.T) {
 	// Get Instances from mockAdapter2
 	instances, err = aggregateCtl.InstancesByPort(memory.WorldService,
 		80,
-		config.LabelsCollection{})
+		labels.Collection{})
 	if err != nil {
 		t.Fatalf("Instances() encountered unexpected error: %v", err)
 	}
@@ -364,7 +365,7 @@ func TestInstancesError(t *testing.T) {
 	// Get Instances from client with error
 	instances, err := aggregateCtl.InstancesByPort(memory.HelloService,
 		80,
-		config.LabelsCollection{})
+		labels.Collection{})
 	if err == nil {
 		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
 			"error and no instances are found")
@@ -376,7 +377,7 @@ func TestInstancesError(t *testing.T) {
 	// Get Instances from client without error
 	instances, err = aggregateCtl.InstancesByPort(memory.WorldService,
 		80,
-		config.LabelsCollection{})
+		labels.Collection{})
 	if err != nil {
 		t.Fatalf("Instances() should not return error is instances are found: %v", err)
 	}

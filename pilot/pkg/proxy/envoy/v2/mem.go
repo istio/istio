@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -75,7 +76,7 @@ type MemServiceDiscovery struct {
 	ClusterID                     string
 
 	// Used by GetProxyWorkloadLabels
-	ip2workloadLabels map[string]*config.Labels
+	ip2workloadLabels map[string]*labels.Instance
 
 	// XDSUpdater will push EDS changes to the ADS model.
 	EDSUpdater model.XDSUpdater
@@ -93,7 +94,7 @@ func NewMemServiceDiscovery(services map[config.Hostname]*model.Service, version
 		instancesByPortNum:  map[string][]*model.ServiceInstance{},
 		instancesByPortName: map[string][]*model.ServiceInstance{},
 		ip2instance:         map[string][]*model.ServiceInstance{},
-		ip2workloadLabels:   map[string]*config.Labels{},
+		ip2workloadLabels:   map[string]*labels.Instance{},
 	}
 }
 
@@ -105,7 +106,7 @@ func (sd *MemServiceDiscovery) ClearErrors() {
 	sd.GetProxyServiceInstancesError = nil
 }
 
-func (sd *MemServiceDiscovery) AddWorkload(ip string, labels config.Labels) {
+func (sd *MemServiceDiscovery) AddWorkload(ip string, labels labels.Instance) {
 	sd.ip2workloadLabels[ip] = &labels
 }
 
@@ -267,7 +268,7 @@ func (sd *MemServiceDiscovery) GetService(hostname config.Hostname) (*model.Serv
 // Instances filters the service instances by labels. This assumes single port, as is
 // used by EDS/ADS.
 func (sd *MemServiceDiscovery) Instances(hostname config.Hostname, ports []string,
-	labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
+	labels labels.Collection) ([]*model.ServiceInstance, error) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if sd.InstancesError != nil {
@@ -288,7 +289,7 @@ func (sd *MemServiceDiscovery) Instances(hostname config.Hostname, ports []strin
 // InstancesByPort filters the service instances by labels. This assumes single port, as is
 // used by EDS/ADS.
 func (sd *MemServiceDiscovery) InstancesByPort(svc *model.Service, port int,
-	labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
+	labels labels.Collection) ([]*model.ServiceInstance, error) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if sd.InstancesError != nil {
@@ -323,14 +324,14 @@ func (sd *MemServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*m
 	return out, sd.GetProxyServiceInstancesError
 }
 
-func (sd *MemServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (config.LabelsCollection, error) {
+func (sd *MemServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
-	out := make(config.LabelsCollection, 0)
+	out := make(labels.Collection, 0)
 
 	for _, ip := range proxy.IPAddresses {
-		if labels, found := sd.ip2workloadLabels[ip]; found {
-			out = append(out, *labels)
+		if l, found := sd.ip2workloadLabels[ip]; found {
+			out = append(out, *l)
 		}
 	}
 	return out, nil

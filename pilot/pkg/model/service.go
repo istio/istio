@@ -36,6 +36,7 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
 )
@@ -253,7 +254,7 @@ type ProbeList []*Probe
 type ServiceInstance struct {
 	Endpoint       NetworkEndpoint `json:"endpoint,omitempty"`
 	Service        *Service        `json:"service,omitempty"`
-	Labels         config.Labels   `json:"labels,omitempty"`
+	Labels         labels.Instance `json:"labels,omitempty"`
 	ServiceAccount string          `json:"serviceaccount,omitempty"`
 }
 
@@ -395,7 +396,7 @@ type ServiceDiscovery interface {
 	// CDS (clusters.go) calls it for building 'dnslb' type clusters.
 	// EDS calls it for building the endpoints result.
 	// Consult istio-dev before using this for anything else (except debugging/tools)
-	InstancesByPort(svc *Service, servicePort int, labels config.LabelsCollection) ([]*ServiceInstance, error)
+	InstancesByPort(svc *Service, servicePort int, labels labels.Collection) ([]*ServiceInstance, error)
 
 	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
 	//
@@ -416,7 +417,7 @@ type ServiceDiscovery interface {
 	// determine the intended destination of a connection without a Host header on the request.
 	GetProxyServiceInstances(*Proxy) ([]*ServiceInstance, error)
 
-	GetProxyWorkloadLabels(*Proxy) (config.LabelsCollection, error)
+	GetProxyWorkloadLabels(*Proxy) (labels.Collection, error)
 
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management
@@ -491,9 +492,9 @@ func (s *Service) External() bool {
 // The separator character must be exclusive to the regular expressions allowed in the
 // service declaration.
 // Deprecated
-func (s *Service) Key(port *Port, labels config.Labels) string {
+func (s *Service) Key(port *Port, l labels.Instance) string {
 	// TODO: check port is non nil and membership of port in service
-	return ServiceKey(s.Hostname, PortList{port}, config.LabelsCollection{labels})
+	return ServiceKey(s.Hostname, PortList{port}, labels.Collection{l})
 }
 
 // ServiceKey generates a service key for a collection of ports and labels
@@ -501,7 +502,7 @@ func (s *Service) Key(port *Port, labels config.Labels) string {
 //
 // Interface wants to turn `Hostname` into `fmt.Stringer`, completely defeating the purpose of the type alias.
 // nolint: interfacer
-func ServiceKey(hostname config.Hostname, servicePorts PortList, labelsList config.LabelsCollection) string {
+func ServiceKey(hostname config.Hostname, servicePorts PortList, labelsList labels.Collection) string {
 	// example: name.namespace|http|env=prod;env=test,version=my-v1
 	var buffer bytes.Buffer
 	buffer.WriteString(string(hostname))
@@ -536,16 +537,16 @@ func ServiceKey(hostname config.Hostname, servicePorts PortList, labelsList conf
 
 	if nt > 0 {
 		buffer.WriteString("|")
-		labels := make([]string, nt)
+		l := make([]string, nt)
 		for i := 0; i < nt; i++ {
-			labels[i] = labelsList[i].String()
+			l[i] = labelsList[i].String()
 		}
-		sort.Strings(labels)
+		sort.Strings(l)
 		for i := 0; i < nt; i++ {
 			if i > 0 {
 				buffer.WriteString(";")
 			}
-			buffer.WriteString(labels[i])
+			buffer.WriteString(l[i])
 		}
 	}
 	return buffer.String()
@@ -553,7 +554,7 @@ func ServiceKey(hostname config.Hostname, servicePorts PortList, labelsList conf
 
 // ParseServiceKey is the inverse of the Service.String() method
 // Deprecated
-func ParseServiceKey(s string) (hostname config.Hostname, ports PortList, labels config.LabelsCollection) {
+func ParseServiceKey(s string) (hostname config.Hostname, ports PortList, lc labels.Collection) {
 	parts := strings.Split(s, "|")
 	hostname = config.Hostname(parts[0])
 
@@ -570,7 +571,7 @@ func ParseServiceKey(s string) (hostname config.Hostname, ports PortList, labels
 
 	if len(parts) > 2 && len(parts[2]) > 0 {
 		for _, tag := range strings.Split(parts[2], ";") {
-			labels = append(labels, config.ParseLabelsString(tag))
+			lc = append(lc, labels.Parse(tag))
 		}
 	}
 	return

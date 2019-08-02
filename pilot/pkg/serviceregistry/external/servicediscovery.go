@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 )
 
 // TODO: move this out of 'external' package. Either 'serviceentry' package or
@@ -150,7 +151,7 @@ func (d *ServiceEntryStore) WorkloadHealthCheckInfo(addr string) model.ProbeList
 // InstancesByPort retrieves instances for a service on the given ports with labels that
 // match any of the supplied labels. All instances match an empty tag list.
 func (d *ServiceEntryStore) InstancesByPort(svc *model.Service, port int,
-	labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
+	labels labels.Collection) ([]*model.ServiceInstance, error) {
 	d.update()
 
 	d.storeMutex.RLock()
@@ -242,12 +243,12 @@ func (d *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 	return out, nil
 }
 
-func (d *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) (config.LabelsCollection, error) {
+func (d *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
 	d.update()
 	d.storeMutex.RLock()
 	defer d.storeMutex.RUnlock()
 
-	out := make(config.LabelsCollection, 0)
+	out := make(labels.Collection, 0)
 
 	for _, ip := range proxy.IPAddresses {
 		instances, found := d.ip2instance[ip]

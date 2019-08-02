@@ -27,8 +27,8 @@ import (
 
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 
 	ingress "k8s.io/api/extensions/v1beta1"
@@ -188,7 +188,7 @@ func IngressToGateway(key resource.VersionedKey, meta resource.Metadata, i *ingr
 	namespace, name := key.FullName.InterpretAsNamespaceAndName()
 
 	gateway := &v1alpha3.Gateway{
-		Selector: config.Labels{constants.IstioLabel: constants.IstioIngressLabelValue},
+		Selector: labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue},
 	}
 
 	// FIXME this is a temporary hack until all test templates are updated

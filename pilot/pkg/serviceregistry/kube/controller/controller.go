@@ -33,11 +33,14 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config"
 	configKube "istio.io/istio/pkg/config/kube"
+	"istio.io/istio/pkg/config/labels"
+
 	"istio.io/pkg/log"
 )
 
@@ -409,7 +412,7 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 
 // InstancesByPort implements a service catalog operation
 func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
-	labelsList config.LabelsCollection) ([]*model.ServiceInstance, error) {
+	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
 
 	// Locate all ports in the actual service
 	svcPortEntry, exists := svc.Ports.GetByPort(reqSvcPort)
@@ -421,7 +424,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	instances := c.externalNameSvcInstanceMap[svc.Hostname]
 	c.RUnlock()
 	if instances != nil {
-		inScopeInstances := []*model.ServiceInstance{}
+		inScopeInstances := make([]*model.ServiceInstance, 0)
 		for _, i := range instances {
 			if i.Service.Attributes.Namespace == svc.Attributes.Namespace {
 				inScopeInstances = append(inScopeInstances, i)
@@ -444,9 +447,9 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	var out []*model.ServiceInstance
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
-			labels, _ := c.pods.labelsByIP(ea.IP)
+			podLabels, _ := c.pods.labelsByIP(ea.IP)
 			// check that one of the input labels is a subset of the labels
-			if !labelsList.HasSubsetOf(labels) {
+			if !labelsList.HasSubsetOf(podLabels) {
 				continue
 			}
 
@@ -472,7 +475,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 							Locality:    az,
 						},
 						Service:        svc,
-						Labels:         labels,
+						Labels:         podLabels,
 						ServiceAccount: sa,
 					})
 				}
@@ -615,19 +618,19 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 	return out
 }
 
-func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (config.LabelsCollection, error) {
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
 	// There is only one IP for kube registry
 	proxyIP := proxy.IPAddresses[0]
 
 	pod := c.pods.getPodByIP(proxyIP)
 	if pod != nil {
-		return config.LabelsCollection{pod.Labels}, nil
+		return labels.Collection{pod.Labels}, nil
 	}
 	return nil, nil
 }
 
 func (c *Controller) getEndpoints(ip string, endpointPort int32, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
-	labels, _ := c.pods.labelsByIP(ip)
+	podLabels, _ := c.pods.labelsByIP(ip)
 	pod := c.pods.getPodByIP(ip)
 	az, sa := "", ""
 	if pod != nil {
@@ -643,7 +646,7 @@ func (c *Controller) getEndpoints(ip string, endpointPort int32, svcPort *model.
 			Locality:    az,
 		},
 		Service:        svc,
-		Labels:         labels,
+		Labels:         podLabels,
 		ServiceAccount: sa,
 	}
 }
@@ -659,7 +662,7 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
 	// the service is deployed on, and the service accounts of the pods.
 	for _, port := range ports {
-		svcinstances, err := c.InstancesByPort(svc, port, config.LabelsCollection{})
+		svcinstances, err := c.InstancesByPort(svc, port, labels.Collection{})
 		if err != nil {
 			log.Warnf("InstancesByPort(%s:%d) error: %v", svc.Hostname, port, err)
 			return nil
@@ -787,7 +790,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 					continue
 				}
 
-				labels := map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
+				podLabels := map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
 
 				uid := fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 
@@ -798,7 +801,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						Address:         ea.IP,
 						EndpointPort:    uint32(port.Port),
 						ServicePortName: port.Name,
-						Labels:          labels,
+						Labels:          podLabels,
 						UID:             uid,
 						ServiceAccount:  kube.SecureNamingSAN(pod),
 						Network:         c.endpointNetwork(ea.IP),

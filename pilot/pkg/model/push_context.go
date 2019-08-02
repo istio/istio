@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
 )
@@ -422,7 +423,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 //
 // Callers can check if the sidecarScope is from user generated object or not
 // by checking the sidecarScope.Config field, that contains the user provided config
-func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels config.LabelsCollection) *SidecarScope {
+func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Collection) *SidecarScope {
 
 	// Find the most specific matching sidecar config from the proxy's
 	// config namespace If none found, construct a sidecarConfig on the fly
@@ -438,7 +439,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels config.Label
 				// if there is no workload selector, the config applies to all workloads
 				// if there is a workload selector, check for matching workload labels
 				if sidecar.GetWorkloadSelector() != nil {
-					workloadSelector := config.Labels(sidecar.GetWorkloadSelector().GetLabels())
+					workloadSelector := labels.Instance(sidecar.GetWorkloadSelector().GetLabels())
 					if !workloadLabels.IsSupersetOf(workloadSelector) {
 						continue
 					}
@@ -529,7 +530,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 }
 
 // SubsetToLabels returns the labels associated with a subset of a given service.
-func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname config.Hostname) config.LabelsCollection {
+func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname config.Hostname) labels.Collection {
 	// empty subset
 	if subsetName == "" {
 		return nil
@@ -543,7 +544,7 @@ func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname 
 	rule := cfg.Spec.(*networking.DestinationRule)
 	for _, subset := range rule.Subsets {
 		if subset.Name == subsetName {
-			return []config.Labels{subset.Labels}
+			return []labels.Instance{subset.Labels}
 		}
 	}
 

@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
 )
 
 func createServiceEntries(configs []*model.Config, store model.IstioConfigStore, t *testing.T) {
@@ -230,7 +231,7 @@ func sortServices(services []*model.Service) {
 }
 
 func sortServiceInstances(instances []*model.ServiceInstance) {
-	labelsToSlice := func(labels config.Labels) []string {
+	labelsToSlice := func(labels labels.Instance) []string {
 		out := make([]string, 0, len(labels))
 		for k, v := range labels {
 			out = append(out, fmt.Sprintf("%s=%s", k, v))

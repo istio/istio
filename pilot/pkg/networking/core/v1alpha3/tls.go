@@ -20,16 +20,19 @@ import (
 	"strings"
 
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
+
 	"istio.io/pkg/log"
 )
 
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
 // bound, etc. All these can be checked statically, since we are generating the configuration for a proxy
 // with predefined labels, on a specific port.
-func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels config.LabelsCollection, gateways map[string]bool, port int) bool {
+func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels labels.Collection, gateways map[string]bool, port int) bool {
 	if match == nil {
 		return true
 	}
@@ -39,7 +42,7 @@ func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels config.LabelsColle
 		gatewayMatch = gatewayMatch || gateways[gateway]
 	}
 
-	labelMatch := proxyLabels.IsSupersetOf(config.Labels(match.SourceLabels))
+	labelMatch := proxyLabels.IsSupersetOf(match.SourceLabels)
 
 	portMatch := match.Port == 0 || match.Port == uint32(port)
 
@@ -49,7 +52,7 @@ func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels config.LabelsColle
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
 // bound, etc. All these can be checked statically, since we are generating the configuration for a proxy
 // with predefined labels, on a specific port.
-func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels config.LabelsCollection, gateways map[string]bool, port int) bool {
+func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Collection, gateways map[string]bool, port int) bool {
 	if match == nil {
 		return true
 	}
@@ -59,7 +62,7 @@ func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels config.LabelsCollec
 		gatewayMatch = gatewayMatch || gateways[gateway]
 	}
 
-	labelMatch := proxyLabels.IsSupersetOf(config.Labels(match.SourceLabels))
+	labelMatch := proxyLabels.IsSupersetOf(match.SourceLabels)
 
 	portMatch := match.Port == 0 || match.Port == uint32(port)
 
@@ -87,7 +90,7 @@ func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
 }
 
 func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext, destinationCIDR string,
-	service *model.Service, listenPort *model.Port, proxyLabels config.LabelsCollection,
+	service *model.Service, listenPort *model.Port, proxyLabels labels.Collection,
 	gateways map[string]bool, configs []model.Config) []*filterChainOpts {
 
 	if !listenPort.Protocol.IsTLS() {
@@ -192,7 +195,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 }
 
 func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext, destinationCIDR string,
-	service *model.Service, listenPort *model.Port, proxyLabels config.LabelsCollection,
+	service *model.Service, listenPort *model.Port, proxyLabels labels.Collection,
 	gateways map[string]bool, configs []model.Config) []*filterChainOpts {
 
 	if listenPort.Protocol.IsTLS() {
@@ -295,7 +298,7 @@ TcpLoop:
 // missing service throughout this file
 func buildSidecarOutboundTCPTLSFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext,
 	configs []model.Config, destinationCIDR string, service *model.Service, listenPort *model.Port,
-	proxyLabels config.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
+	proxyLabels labels.Collection, gateways map[string]bool) []*filterChainOpts {
 
 	out := make([]*filterChainOpts, 0)
 	var svcConfigs []model.Config

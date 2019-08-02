@@ -22,14 +22,13 @@ import (
 	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
+	istiolog "istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-
-	istiolog "istio.io/pkg/log"
 )
 
 const (
@@ -85,7 +84,7 @@ func (b *v2Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 		return &http_config.RBAC{Rules: rbac}
 	}
 	for _, authzPolicy := range authzConfigV2.AuthzPolicies {
-		workloadLabels := config.LabelsCollection{serviceMetadata.Labels}
+		workloadLabels := labels.Collection{serviceMetadata.Labels}
 		policySelector := authzPolicy.Policy.WorkloadSelector.GetLabels()
 		if !(workloadLabels.IsSupersetOf(policySelector)) {
 			// Skip if the workload labels is not a superset of the policy selector (i.e. the workload

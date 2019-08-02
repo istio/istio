@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
 )
 
 // ConfigMeta is metadata attached to each configuration unit.
@@ -256,10 +257,10 @@ type IstioConfigStore interface {
 	ServiceEntries() []Config
 
 	// Gateways lists all gateways bound to the specified workload labels
-	Gateways(workloadLabels config.LabelsCollection) []Config
+	Gateways(workloadLabels labels.Collection) []Config
 
 	// EnvoyFilter lists the envoy filter configuration bound to the specified workload labels
-	EnvoyFilter(workloadLabels config.LabelsCollection) *Config
+	EnvoyFilter(workloadLabels labels.Collection) *Config
 
 	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
 	// associated with destination service instances.
@@ -275,7 +276,7 @@ type IstioConfigStore interface {
 	// the one with the most specific scope will be selected. If there are more than
 	// one with the same scope, the first one seen will be used (later, we should
 	// have validation at submitting time to prevent this scenario from happening)
-	AuthenticationPolicyForWorkload(service *Service, labels config.Labels, port *Port) *Config
+	AuthenticationPolicyForWorkload(service *Service, labels labels.Instance, port *Port) *Config
 
 	// ServiceRoles selects ServiceRoles in the specified namespace.
 	ServiceRoles(namespace string) []Config
@@ -672,7 +673,7 @@ func sortConfigByCreationTime(configs []Config) []Config {
 	return configs
 }
 
-func (store *istioConfigStore) Gateways(workloadLabels config.LabelsCollection) []Config {
+func (store *istioConfigStore) Gateways(workloadLabels labels.Collection) []Config {
 	configs, err := store.List(Gateway.Type, NamespaceAll)
 	if err != nil {
 		return nil
@@ -686,7 +687,7 @@ func (store *istioConfigStore) Gateways(workloadLabels config.LabelsCollection) 
 			// no selector. Applies to all workloads asking for the gateway
 			out = append(out, cfg)
 		} else {
-			gatewaySelector := config.Labels(gateway.GetSelector())
+			gatewaySelector := labels.Instance(gateway.GetSelector())
 			if workloadLabels.IsSupersetOf(gatewaySelector) {
 				out = append(out, cfg)
 			}
@@ -695,7 +696,7 @@ func (store *istioConfigStore) Gateways(workloadLabels config.LabelsCollection) 
 	return out
 }
 
-func (store *istioConfigStore) EnvoyFilter(workloadLabels config.LabelsCollection) *Config {
+func (store *istioConfigStore) EnvoyFilter(workloadLabels labels.Collection) *Config {
 	configs, err := store.List(EnvoyFilter.Type, NamespaceAll)
 	if err != nil {
 		return nil
@@ -712,7 +713,7 @@ func (store *istioConfigStore) EnvoyFilter(workloadLabels config.LabelsCollectio
 		// if there is no workload selector, the filter applies to all workloads
 		// if there is a workload selector, check for matching workload labels
 		if filter.WorkloadLabels != nil {
-			workloadSelector := config.Labels(filter.WorkloadLabels)
+			workloadSelector := labels.Instance(filter.WorkloadLabels)
 			if !workloadLabels.IsSupersetOf(workloadSelector) {
 				continue
 			}
@@ -886,7 +887,7 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 	return out
 }
 
-func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service, labels config.Labels, port *Port) *Config {
+func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service, l labels.Instance, port *Port) *Config {
 	if len(service.Attributes.Namespace) == 0 {
 		return nil
 	}
@@ -910,11 +911,11 @@ func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service,
 				// When labels is specified, use labels to match the policy. Otherwise, fallback to use host name.
 				if len(dest.Labels) != 0 {
 					log.Debugf("found label selector on auth policy (%s/%s): %s", dest.Labels, spec.Namespace, spec.Name)
-					destLabels := config.Labels(dest.Labels)
-					if !destLabels.SubsetOf(labels) {
+					destLabels := labels.Instance(dest.Labels)
+					if !destLabels.SubsetOf(l) {
 						continue
 					}
-					log.Debugf("matched auth policy (%s/%s) with workload: %s", spec.Namespace, spec.Name, labels)
+					log.Debugf("matched auth policy (%s/%s) with workload: %s", spec.Namespace, spec.Name, l)
 				} else if service.Hostname != ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta) {
 					continue
 				}

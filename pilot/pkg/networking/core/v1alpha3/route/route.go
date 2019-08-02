@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
 )
 
 // Headers with special meaning in Envoy
@@ -76,7 +77,7 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 	node *model.Proxy,
 	push *model.PushContext,
 	serviceRegistry map[config.Hostname]*model.Service,
-	proxyLabels config.LabelsCollection,
+	proxyLabels labels.Collection,
 	virtualServices []model.Config, listenPort int) []VirtualHostWrapper {
 
 	out := make([]VirtualHostWrapper, 0)
@@ -156,7 +157,7 @@ func buildSidecarVirtualHostsForVirtualService(
 	push *model.PushContext,
 	virtualService model.Config,
 	serviceRegistry map[config.Hostname]*model.Service,
-	proxyLabels config.LabelsCollection,
+	proxyLabels labels.Collection,
 	listenPort int) []VirtualHostWrapper {
 	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
 
@@ -241,7 +242,7 @@ func BuildHTTPRoutesForVirtualService(
 	virtualService model.Config,
 	serviceRegistry map[config.Hostname]*model.Service,
 	listenPort int,
-	proxyLabels config.LabelsCollection,
+	proxyLabels labels.Collection,
 	gatewayNames map[string]bool) ([]*route.Route, error) {
 
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
@@ -279,7 +280,7 @@ allroutes:
 
 // sourceMatchHttp checks if the sourceLabels or the gateways in a match condition match with the
 // labels for the proxy or the gateway name for which we are generating a route
-func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels config.LabelsCollection, gatewayNames map[string]bool) bool {
+func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels labels.Collection, gatewayNames map[string]bool) bool {
 	if match == nil {
 		return true
 	}
@@ -303,7 +304,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	match *networking.HTTPMatchRequest, port int,
 	virtualService model.Config,
 	serviceRegistry map[config.Hostname]*model.Service,
-	proxyLabels config.LabelsCollection,
+	proxyLabels labels.Collection,
 	gatewayNames map[string]bool) *route.Route {
 
 	// When building routes, its okay if the target cluster cannot be

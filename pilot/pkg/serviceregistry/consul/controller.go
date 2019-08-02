@@ -21,10 +21,12 @@ import (
 
 	"github.com/hashicorp/consul/api"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/spiffe"
-	"istio.io/pkg/log"
 )
 
 // Controller communicates with Consul and monitors for changes
@@ -111,7 +113,7 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 // InstancesByPort retrieves instances for a service that match
 // any of the supplied labels. All instances match an empty tag list.
 func (c *Controller) InstancesByPort(svc *model.Service, port int,
-	labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
+	labels labels.Collection) ([]*model.ServiceInstance, error) {
 	c.cacheMutex.Lock()
 	defer c.cacheMutex.Unlock()
 
@@ -173,7 +175,7 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 	return out, nil
 }
 
-func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (config.LabelsCollection, error) {
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
 	c.cacheMutex.Lock()
 	defer c.cacheMutex.Unlock()
 
@@ -182,7 +184,7 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (config.LabelsCo
 		return nil, err
 	}
 
-	out := make(config.LabelsCollection, 0)
+	out := make(labels.Collection, 0)
 	for _, instances := range c.serviceInstances {
 		for _, instance := range instances {
 			addr := instance.Endpoint.Address
