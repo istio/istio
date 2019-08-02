@@ -1947,8 +1947,8 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	errs = appendErrors(errs, validateCORSPolicy(http.CorsPolicy))
 	errs = appendErrors(errs, validateHTTPFaultInjection(http.Fault))
 
-	if http.Match != nil {
-		for _, match := range http.Match {
+	for _, match := range http.Match {
+		if match != nil {
 			for name, header := range match.Headers {
 				if header == nil {
 					errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
