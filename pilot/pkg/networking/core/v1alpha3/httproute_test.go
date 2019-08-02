@@ -21,13 +21,15 @@ import (
 	"sort"
 	"testing"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	meshapi "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/visibility"
 )
 
 func TestGenerateVirtualHostDomains(t *testing.T) {
@@ -90,11 +92,11 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 
 func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	services := []*model.Service{
-		buildHTTPService("bookinfo.com", config.VisibilityPublic, wildcardIP, "default", 9999, 70),
-		buildHTTPService("private.com", config.VisibilityPrivate, wildcardIP, "default", 9999, 80),
-		buildHTTPService("test.com", config.VisibilityPublic, "8.8.8.8", "not-default", 8080),
-		buildHTTPService("test-private.com", config.VisibilityPrivate, "9.9.9.9", "not-default", 80, 70),
-		buildHTTPService("test-private-2.com", config.VisibilityPrivate, "9.9.9.10", "not-default", 60),
+		buildHTTPService("bookinfo.com", visibility.Public, wildcardIP, "default", 9999, 70),
+		buildHTTPService("private.com", visibility.Private, wildcardIP, "default", 9999, 80),
+		buildHTTPService("test.com", visibility.Public, "8.8.8.8", "not-default", 8080),
+		buildHTTPService("test-private.com", visibility.Private, "9.9.9.9", "not-default", 80, 70),
+		buildHTTPService("test-private-2.com", visibility.Private, "9.9.9.10", "not-default", 60),
 	}
 
 	sidecarConfig := &model.Config{
@@ -563,7 +565,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 		t.Fatalf("failed to initialize push context")
 	}
 	if registryOnly {
-		env.Mesh.OutboundTrafficPolicy = &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY}
+		env.Mesh.OutboundTrafficPolicy = &meshapi.MeshConfig_OutboundTrafficPolicy{Mode: meshapi.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY}
 	}
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
@@ -599,7 +601,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	}
 }
 
-func buildHTTPService(hostname string, visibility config.Visibility, ip, namespace string, ports ...int) *model.Service {
+func buildHTTPService(hostname string, v visibility.Instance, ip, namespace string, ports ...int) *model.Service {
 	service := &model.Service{
 		CreationTime: tnow,
 		Hostname:     config.Hostname(hostname),
@@ -608,7 +610,7 @@ func buildHTTPService(hostname string, visibility config.Visibility, ip, namespa
 		Resolution:   model.Passthrough,
 		Attributes: model.ServiceAttributes{
 			Namespace: namespace,
-			ExportTo:  map[config.Visibility]bool{visibility: true},
+			ExportTo:  map[visibility.Instance]bool{v: true},
 		},
 	}
 

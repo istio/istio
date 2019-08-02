@@ -40,6 +40,7 @@ import (
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/visibility"
 )
 
 const (
@@ -453,7 +454,7 @@ func validateExportTo(exportTo []string) (errs error) {
 		if len(exportTo) > 1 {
 			errs = appendErrors(errs, fmt.Errorf("exportTo should have only one entry (. or *) in the current release"))
 		} else {
-			errs = appendErrors(errs, Visibility(exportTo[0]).Validate())
+			errs = appendErrors(errs, visibility.Instance(exportTo[0]).Validate())
 		}
 	}
 

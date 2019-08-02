@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -76,7 +77,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 		ports = append(ports, convertPort(port))
 	}
 
-	var exportTo map[config.Visibility]bool
+	var exportTo map[visibility.Instance]bool
 	serviceaccounts := make([]string, 0)
 	if svc.Annotations != nil {
 		if svc.Annotations[annotation.AlphaCanonicalServiceAccounts.Name] != "" {
@@ -88,9 +89,9 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 			}
 		}
 		if svc.Annotations[annotation.NetworkingExportTo.Name] != "" {
-			exportTo = make(map[config.Visibility]bool)
+			exportTo = make(map[visibility.Instance]bool)
 			for _, e := range strings.Split(svc.Annotations[annotation.NetworkingExportTo.Name], ",") {
-				exportTo[config.Visibility(e)] = true
+				exportTo[visibility.Instance(e)] = true
 			}
 		}
 	}
