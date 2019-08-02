@@ -541,21 +541,10 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 	metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (
 	*SidecarInjectionSpec, string, error) {
 
-	var name string
-	if metadata.Namespace == "" {
-		if deploymentMetadata.Namespace != "" {
-			name = deploymentMetadata.Namespace + "/" + metadata.Name
-		} else {
-			name = metadata.Name
-		}
-	} else {
-		name = metadata.Namespace + "/" + metadata.Name
-	}
-
 	// If DNSPolicy is not ClusterFirst, the Envoy sidecar may not able to connect to Istio Pilot.
 	if spec.DNSPolicy != corev1.DNSClusterFirst {
-		log.Warnf("%q's DNSPolicy is not %q. The Envoy sidecar may not able to connect to Istio Pilot\n",
-			name, corev1.DNSClusterFirst)
+		log.Warnf("%q's DNSPolicy is not %q. The Envoy sidecar may not able to connect to Istio Pilot",
+			metadata.Namespace + "/" + metadata.Name, corev1.DNSClusterFirst)
 	}
 
 	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
