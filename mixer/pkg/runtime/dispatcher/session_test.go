@@ -25,7 +25,6 @@ import (
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	mixerpb "istio.io/api/mixer/v1"
-	v1 "istio.io/api/mixer/v1"
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/pkg/attribute"
@@ -233,11 +232,11 @@ func TestDirectResponse(t *testing.T) {
 	}
 }
 
-func equalHeaderOperations(actual, expected []v1.HeaderOperation) bool {
+func equalHeaderOperations(actual, expected []mixerpb.HeaderOperation) bool {
 	if len(actual) != len(expected) {
 		return false
 	}
-	delta := make(map[v1.HeaderOperation]int)
+	delta := make(map[mixerpb.HeaderOperation]int)
 
 	for _, ex := range expected {
 		delta[ex]++
