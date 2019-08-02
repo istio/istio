@@ -48,3 +48,14 @@ func PrettyJSON(b []byte) []byte {
 	}
 	return out.Bytes()
 }
+
+// StringBoolMapToSlice creates and returns a slice of all the map keys with true.
+func StringBoolMapToSlice(m map[string]bool) []string {
+	s := make([]string, 0, len(m))
+	for k, v := range m {
+		if v {
+			s = append(s, k)
+		}
+	}
+	return s
+}

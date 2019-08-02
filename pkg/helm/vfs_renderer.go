@@ -22,6 +22,7 @@ import (
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/proto/hapi/chart"
 
+	"istio.io/operator/pkg/util"
 	"istio.io/operator/pkg/vfsgen"
 
 	"istio.io/pkg/log"
@@ -144,4 +145,9 @@ func stripPrefix(path, prefix string) string {
 	pl := len(strings.Split(prefix, "/"))
 	pv := strings.Split(path, "/")
 	return strings.Join(pv[pl:], "/")
+}
+
+// list all the builtin profiles.
+func ListBuiltinProfiles() []string {
+	return util.StringBoolMapToSlice(ProfileNames)
 }

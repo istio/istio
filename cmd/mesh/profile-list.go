@@ -18,6 +18,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"istio.io/operator/pkg/helm"
 )
 
 func profileListCmd(rootArgs *rootArgs) *cobra.Command {
@@ -32,7 +34,16 @@ func profileListCmd(rootArgs *rootArgs) *cobra.Command {
 
 }
 
+// profileList list all the builtin profiles.
 func profileList(args *rootArgs) {
 	checkLogsOrExit(args)
-	fmt.Println("This command is not yet implemented.")
+	profiles := helm.ListBuiltinProfiles()
+	if len(profiles) == 0 {
+		fmt.Println("No profiles available.")
+	} else {
+		fmt.Println("Istio configuration profiles:")
+		for _, profile := range profiles {
+			fmt.Printf("    %s\n", profile)
+		}
+	}
 }
