@@ -2127,7 +2127,7 @@ func getPluginFilterChain(opts buildListenerOpts) []plugin.FilterChain {
 
 func checkWellKnownPorts(port int, protocol protocol.Instance, conflict int) bool {
 	p, has := wellKnownPorts[port]
-	if conflict == 0 || !has || p != protocol {
+	if conflict == NoConflict || !has || p != protocol {
 		return true
 	}
 
