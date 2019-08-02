@@ -410,9 +410,9 @@ func runCA() {
 	// Blocking until receives error.
 	for {
 		select {
-		case <-monitorErrCh:
+		case err := <-monitorErrCh:
 			fatalf("Monitoring server error: %v", err)
-		case <-rotatorErrCh:
+		case err := <-rotatorErrCh:
 			fatalf("Key cert bundle rotator error: %v", err)
 		}
 	}
