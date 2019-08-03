@@ -28,7 +28,7 @@ import (
 )
 
 // YAMLSuffix is the suffix of a YAML file.
-const YAMLSuffix = "yaml"
+const YAMLSuffix = ".yaml"
 
 type manifestDiffArgs struct {
 	// compareDir indicates comparison between directory.
@@ -48,7 +48,7 @@ func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manifestDiffArgs) *cobra.Comm
 		Args:  cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			if diffArgs.compareDir {
-				compareManifestsFromDirs(args[0], args[1])
+				compareManifestsFromDirs(rootArgs, args[0], args[1])
 			} else {
 				compareManifestsFromFiles(rootArgs, args)
 			}
@@ -58,10 +58,8 @@ func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manifestDiffArgs) *cobra.Comm
 
 //compareManifestsFromFiles compares two manifest files
 func compareManifestsFromFiles(rootArgs *rootArgs, args []string) {
-	if err := configLogs(rootArgs); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
-		os.Exit(1)
-	}
+	checkLogsOrExit(rootArgs)
+
 	a, err := ioutil.ReadFile(args[0])
 	if err != nil {
 		log.Error(err.Error())
@@ -90,7 +88,9 @@ func yamlFileFilter(path string) bool {
 }
 
 //compareManifestsFromDirs compares manifests from two directories
-func compareManifestsFromDirs(dirName1 string, dirName2 string) {
+func compareManifestsFromDirs(rootArgs *rootArgs, dirName1 string, dirName2 string) {
+	checkLogsOrExit(rootArgs)
+
 	mf1, err := util.ReadFiles(dirName1, yamlFileFilter)
 	if err != nil {
 		log.Error(err.Error())
