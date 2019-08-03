@@ -48,7 +48,8 @@ func AddConfigFlag(rootCmd *cobra.Command, viper *viper.Viper) {
 func ProcessViperConfig(cmd *cobra.Command, viper *viper.Viper) {
 	viper.SetTypeByDefaultValue(true)
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
-		if reflect.TypeOf(viper.Get(f.Name)).Kind() == reflect.Slice {
+		k := reflect.TypeOf(viper.Get(f.Name)).Kind()
+		if k == reflect.Slice || k == reflect.Array {
 			// Viper cannot convert slices to strings, so this is our workaround.
 			_ = f.Value.Set(strings.Join(viper.GetStringSlice(f.Name), ","))
 		} else {

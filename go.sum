@@ -607,8 +607,8 @@ istio.io/api v0.0.0-20190802144653-982935ba456e h1:h+7PT/63ylxoseX8SMw8XxvsyVexD
 istio.io/api v0.0.0-20190802144653-982935ba456e/go.mod h1:42cBjnu/rTJcCaKi8nLdIvq0n71RcLrkgZ9IQSvDdSQ=
 istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2 h1:AZ+aTgKSBmBc6KtZU+P+Wr2dOdPriJu09cU8wGMG+/M=
 istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2/go.mod h1:IjvrbUlRbbw4JCpsgvgihcz9USUwEoNTL/uwMtyV5yk=
-istio.io/pkg v0.0.0-20190802215143-e2c6539912b7 h1:FeiqRSv1CG8yfGGLwb3lsmHNtxd8QXmeHgUV6VOwIv4=
-istio.io/pkg v0.0.0-20190802215143-e2c6539912b7/go.mod h1:We4ZQuCbiiNfXge2GfOshBsyDXVwzFwP8703V5DcM14=
+istio.io/pkg v0.0.0-20190803000642-b6cb9daffcb6 h1:NaFFwIV3I5DZMev3DbQUNYFNH2T9zWYdrLYbu2uXtfM=
+istio.io/pkg v0.0.0-20190803000642-b6cb9daffcb6/go.mod h1:We4ZQuCbiiNfXge2GfOshBsyDXVwzFwP8703V5DcM14=
 k8s.io/api v0.0.0-20190222213804-5cb15d344471 h1:MzQGt8qWQCR+39kbYRd0uQqsvSidpYqJLFeWiJ9l4OE=
 k8s.io/api v0.0.0-20190222213804-5cb15d344471/go.mod h1:iuAfoD4hCxJ8Onx9kaTIt30j7jUFS00AXQi6QMi99vA=
 k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87 h1:BMfPZfi3CkPd9e9Qbm+/AFgE6qXWQcbzUvC91LR3m7w=
