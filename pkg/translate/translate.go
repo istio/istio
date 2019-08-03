@@ -236,7 +236,10 @@ func (t *Translator) OverlayK8sSettings(yml string, icp *v1alpha2.IstioControlPl
 	// om is a map of kind:name string to Object ptr.
 	om := objects.ToNameKindMap()
 	for inPath, v := range t.KubernetesMapping {
-		inPath = renderFeatureComponentPathTemplate(inPath, t.ToFeature[componentName], componentName)
+		inPath, err := renderFeatureComponentPathTemplate(inPath, t.ToFeature[componentName], componentName)
+		if err != nil {
+			return "", err
+		}
 		log.Infof("Checking for path %s in IstioControlPlaneSpec", inPath)
 		m, found, err := name.GetFromStructPath(icp, inPath)
 		if err != nil {
@@ -260,7 +263,10 @@ func (t *Translator) OverlayK8sSettings(yml string, icp *v1alpha2.IstioControlPl
 		if err != nil {
 			return "", err
 		}
-		outPath := t.renderResourceComponentPathTemplate(v.outPath, componentName)
+		outPath, err := t.renderResourceComponentPathTemplate(v.outPath, componentName)
+		if err != nil {
+			return "", err
+		}
 		log.Infof("path has value in IstioControlPlaneSpec, mapping to output path %s", outPath)
 		path := util.PathFromString(outPath)
 		pe := path[0]
@@ -507,7 +513,7 @@ func getValuesPathMapping(mappings map[string]*Translation, path util.Path) (str
 
 // renderFeatureComponentPathTemplate renders a template of the form <path>{{.FeatureName}}<path>{{.ComponentName}}<path> with
 // the supplied parameters.
-func renderFeatureComponentPathTemplate(tmpl string, featureName name.FeatureName, componentName name.ComponentName) string {
+func renderFeatureComponentPathTemplate(tmpl string, featureName name.FeatureName, componentName name.ComponentName) (string, error) {
 	type Temp struct {
 		FeatureName   name.FeatureName
 		ComponentName name.ComponentName
@@ -516,23 +522,12 @@ func renderFeatureComponentPathTemplate(tmpl string, featureName name.FeatureNam
 		FeatureName:   featureName,
 		ComponentName: componentName,
 	}
-	t, err := template.New("").Parse(tmpl)
-	if err != nil {
-		log.Errorf("Failed to create template object, Error: %v. Template string: \n%s\n", err.Error(), tmpl)
-		return err.Error()
-	}
-	buf := new(bytes.Buffer)
-	err = t.Execute(buf, ts)
-	if err != nil {
-		log.Errorf("Failed to execute template: %v", err.Error())
-		return err.Error()
-	}
-	return buf.String()
+	return renderTemplate(tmpl, ts)
 }
 
 // renderResourceComponentPathTemplate renders a template of the form <path>{{.ResourceName}}<path>{{.ContainerName}}<path> with
 // the supplied parameters.
-func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentName name.ComponentName) string {
+func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentName name.ComponentName) (string, error) {
 	ts := struct {
 		ResourceName  string
 		ContainerName string
@@ -540,19 +535,21 @@ func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentN
 		ResourceName:  t.ComponentMaps[componentName].ResourceName,
 		ContainerName: t.ComponentMaps[componentName].ContainerName,
 	}
-	// TODO: address comment
-	// Can extract the template execution part to a common method, so for each
-	// rendering method just need to create a template struct and call this common method
-	tm, err := template.New("").Parse(tmpl)
+	return renderTemplate(tmpl, ts)
+}
+
+// helper method to render template
+func renderTemplate(tmpl string, ts interface{}) (string, error) {
+	t, err := template.New("").Parse(tmpl)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	buf := new(bytes.Buffer)
-	err = tm.Execute(buf, ts)
+	err = t.Execute(buf, ts)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
-	return buf.String()
+	return buf.String(), nil
 }
 
 // defaultTranslationFunc is the default translation to values. It maps a Go data path into a YAML path.

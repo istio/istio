@@ -60,14 +60,30 @@ const (
 	IstioBaseComponentName       ComponentName = "crds"
 	PilotComponentName           ComponentName = "Pilot"
 	GalleyComponentName          ComponentName = "Galley"
-	SidecarInjectorComponentName ComponentName = "SidecarInjector"
+	SidecarInjectorComponentName ComponentName = "Injector"
 	PolicyComponentName          ComponentName = "Policy"
 	TelemetryComponentName       ComponentName = "Telemetry"
 	CitadelComponentName         ComponentName = "Citadel"
 	CertManagerComponentName     ComponentName = "CertManager"
 	NodeAgentComponentName       ComponentName = "NodeAgent"
-	IngressComponentName         ComponentName = "Ingress"
-	EgressComponentName          ComponentName = "Egress"
+	IngressComponentName         ComponentName = "IngressGateway"
+	EgressComponentName          ComponentName = "EgressGateway"
+)
+
+var (
+	ComponentNameToFeatureName = map[ComponentName]FeatureName{
+		IstioBaseComponentName:       IstioBaseFeatureName,
+		PilotComponentName:           TrafficManagementFeatureName,
+		GalleyComponentName:          ConfigManagementFeatureName,
+		SidecarInjectorComponentName: AutoInjectionFeatureName,
+		PolicyComponentName:          PolicyFeatureName,
+		TelemetryComponentName:       TelemetryFeatureName,
+		CitadelComponentName:         SecurityFeatureName,
+		CertManagerComponentName:     SecurityFeatureName,
+		NodeAgentComponentName:       SecurityFeatureName,
+		IngressComponentName:         GatewayFeatureName,
+		EgressComponentName:          GatewayFeatureName,
+	}
 )
 
 // ManifestMap is a map of ComponentName to its manifest string.
@@ -114,6 +130,76 @@ func IsComponentEnabledInSpec(featureName FeatureName, componentName ComponentNa
 		return featureNode.Value, nil
 	}
 	return componentNode.Value, nil
+}
+
+// IsComponentEnabledFromValue get whether component is enabled in helm value.yaml tree.
+// valuePath points to component path in the values tree.
+func IsComponentEnabledFromValue(valuePath string, valueSpec map[string]interface{}) (bool, error) {
+	enabledPath := valuePath + ".enabled"
+	enableNodeI, found, err := GetFromTreePath(valueSpec, util.ToYAMLPath(enabledPath))
+	if err != nil {
+		return false, fmt.Errorf("error finding component enablement path: %s in helm value.yaml tree", enabledPath)
+	}
+	if !found {
+		// Some components do not specify enablement should be treated as enabled if the root node in the component subtree exists.
+		_, found, err := GetFromTreePath(valueSpec, util.ToYAMLPath(valuePath))
+		if found && err == nil {
+			return true, nil
+		}
+		return false, nil
+	}
+	enableNode, ok := enableNodeI.(bool)
+	if !ok {
+		return false, fmt.Errorf("node at valuePath %s has bad type %T, expect bool", enabledPath, enableNodeI)
+	}
+	return enableNode, nil
+}
+
+// NamespaceFromValue gets the namespace value in helm value.yaml tree.
+func NamespaceFromValue(valuePath string, valueSpec map[string]interface{}) (string, error) {
+	nsNodeI, found, err := GetFromTreePath(valueSpec, util.ToYAMLPath(valuePath))
+	if err != nil {
+		return "", fmt.Errorf("namespace path not found: %s from helm value.yaml tree", valuePath)
+	}
+	if !found || nsNodeI == nil {
+		return "", nil
+	}
+	nsNode, ok := nsNodeI.(string)
+	if !ok {
+		return "", fmt.Errorf("node at helm value.yaml tree path %s has bad type %T, expect string", valuePath, nsNodeI)
+	}
+	return nsNode, nil
+}
+
+// GetFromTreePath returns the value at path from the given tree, or false if the path does not exist.
+func GetFromTreePath(inputTree map[string]interface{}, path util.Path) (interface{}, bool, error) {
+	scope.Debugf("GetFromTreePath path=%s", path)
+	if len(path) == 0 {
+		return nil, false, fmt.Errorf("path is empty")
+	}
+	val := inputTree[path[0]]
+	if val == nil {
+		return nil, false, nil
+	}
+	if len(path) == 1 {
+		return val, true, nil
+	}
+	switch newRoot := val.(type) {
+	case map[string]interface{}:
+		return GetFromTreePath(newRoot, path[1:])
+	case []interface{}:
+		for _, node := range newRoot {
+			nextVal, found, err := GetFromTreePath(node.(map[string]interface{}), path[1:])
+			if err != nil {
+				continue
+			}
+			if found {
+				return nextVal, true, nil
+			}
+		}
+		return nil, false, nil
+	}
+	return GetFromTreePath(val.(map[string]interface{}), path[1:])
 }
 
 // Namespace returns the namespace for the component. It follows these rules:
@@ -193,7 +279,7 @@ func getFromStructPath(node interface{}, path util.Path) (interface{}, bool, err
 	var structElems reflect.Value
 	switch kind {
 	case reflect.Map, reflect.Slice:
-		if len(path) != 0 {
+		if len(path) == 0 {
 			return nil, false, fmt.Errorf("getFromStructPath path %s, unsupported leaf type %T", path, node)
 		}
 	case reflect.Ptr:
