@@ -57,13 +57,18 @@ func (p Path) String() string {
 	return strings.Join(p, PathSeparator)
 }
 
-// ToYAMLPathString converts a path string such that the first letter of each path element is lower case.
-func ToYAMLPathString(path string) string {
+// ToYAMLPath converts a path string to path such that the first letter of each path element is lower case.
+func ToYAMLPath(path string) Path {
 	p := PathFromString(path)
 	for i := range p {
 		p[i] = firstCharToLowerCase(p[i])
 	}
-	return p.String()
+	return p
+}
+
+// ToYAMLPathString converts a path string such that the first letter of each path element is lower case.
+func ToYAMLPathString(path string) string {
+	return ToYAMLPath(path).String()
 }
 
 // IsValidPathElement reports whether pe is a valid path element.

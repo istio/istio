@@ -222,6 +222,43 @@ func WritePathContext(nc *PathContext, value interface{}) error {
 	return nil
 }
 
+// TODO Merge this into existing WritePathContext method
+// DeleteFromTree sets value at path of input untyped tree to nil
+func DeleteFromTree(valueTree map[string]interface{}, path util.Path, remainPath util.Path) (bool, error) {
+	if len(remainPath) == 0 {
+		return false, nil
+	}
+	for key, val := range valueTree {
+		if key == remainPath[0] {
+			// found the path to delete value
+			if len(remainPath) == 1 {
+				valueTree[key] = nil
+				return true, nil
+			}
+			remainPath = remainPath[1:]
+			switch node := val.(type) {
+			case map[string]interface{}:
+				return DeleteFromTree(node, path, remainPath)
+			case []interface{}:
+				for _, newNode := range node {
+					newMap, ok := newNode.(map[string]interface{})
+					if !ok {
+						return false, fmt.Errorf("fail to convert []interface{} to map[string]interface{}")
+					}
+					found, err := DeleteFromTree(newMap, path, remainPath)
+					if found && err == nil {
+						return found, nil
+					}
+				}
+			// leaf
+			default:
+				return false, nil
+			}
+		}
+	}
+	return false, nil
+}
+
 func stringsEqual(a, b interface{}) bool {
 	return fmt.Sprint(a) == fmt.Sprint(b)
 }

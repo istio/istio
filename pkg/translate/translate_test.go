@@ -15,12 +15,8 @@
 package translate
 
 import (
-	"bytes"
 	"testing"
 
-	"github.com/ghodss/yaml"
-	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/kr/pretty"
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
@@ -189,7 +185,7 @@ sidecarInjectorWebhook:
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ispec := &v1alpha2.IstioControlPlaneSpec{}
-			err := unmarshalWithJSONPB(tt.yamlStr, ispec)
+			err := util.UnmarshalWithJSONPB(tt.yamlStr, ispec)
 			if err != nil {
 				t.Fatalf("unmarshalWithJSONPB(%s): got error %s", tt.desc, err)
 			}
@@ -203,20 +199,6 @@ sidecarInjectorWebhook:
 			}
 		})
 	}
-}
-
-func unmarshalWithJSONPB(y string, out proto.Message) error {
-	jb, err := yaml.YAMLToJSON([]byte(y))
-	if err != nil {
-		return err
-	}
-
-	u := jsonpb.Unmarshaler{}
-	err = u.Unmarshal(bytes.NewReader(jb), out)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // errToString returns the string representation of err and the empty string if

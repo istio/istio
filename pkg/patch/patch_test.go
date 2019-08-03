@@ -15,13 +15,8 @@
 package patch
 
 import (
-	"bytes"
 	"fmt"
 	"testing"
-
-	"github.com/ghodss/yaml"
-	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/jsonpb"
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/util"
@@ -173,7 +168,7 @@ a:
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			rc := &v1alpha2.KubernetesResourcesSpec{}
-			err := unmarshalWithJSONPB(makeOverlayHeader(tt.path, tt.value), rc)
+			err := util.UnmarshalWithJSONPB(makeOverlayHeader(tt.path, tt.value), rc)
 			if err != nil {
 				t.Fatalf("unmarshalWithJSONPB(%s): got error %s", tt.desc, err)
 			}
@@ -422,7 +417,7 @@ spec:
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			rc := &v1alpha2.KubernetesResourcesSpec{}
-			err := unmarshalWithJSONPB(makeOverlayHeader(tt.path, tt.value), rc)
+			err := util.UnmarshalWithJSONPB(makeOverlayHeader(tt.path, tt.value), rc)
 			if err != nil {
 				t.Fatalf("unmarshalWithJSONPB(%s): got error %s", tt.desc, err)
 			}
@@ -456,21 +451,6 @@ overlays:
 		ret += fmt.Sprintf("%s%s\n", valueStr, value)
 	}
 	return ret
-}
-
-// unmarshalWithJSONPB unmarshals y into out using jsonpb (required for many proto defined structs).
-func unmarshalWithJSONPB(y string, out proto.Message) error {
-	jb, err := yaml.YAMLToJSON([]byte(y))
-	if err != nil {
-		return err
-	}
-
-	u := jsonpb.Unmarshaler{}
-	err = u.Unmarshal(bytes.NewReader(jb), out)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // errToString returns the string representation of err and the empty string if
