@@ -18,7 +18,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -29,6 +33,8 @@ func init() {
 var (
 	letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 )
+
+type FileFilter func(fileName string) bool
 
 // RandomString returns a random string of length n.
 func RandomString(n int) string {
@@ -58,4 +64,34 @@ func StringBoolMapToSlice(m map[string]bool) []string {
 		}
 	}
 	return s
+}
+
+// ReadFiles reads a directory recursively or reads single file and filters the results.
+// It returns a concatenated output of all matching files' content.
+func ReadFiles(dirName string, filter FileFilter) (string, error) {
+	var fileList []string
+	err := filepath.Walk(dirName, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() || !filter(path) {
+			return nil
+		}
+		fileList = append(fileList, path)
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	var sb strings.Builder
+	for _, file := range fileList {
+		a, err := ioutil.ReadFile(file)
+		if err != nil {
+			return "", err
+		}
+		if _, err := sb.WriteString(string(a) + "\n"); err != nil {
+			return "", err
+		}
+	}
+	return sb.String(), nil
 }
