@@ -13,7 +13,6 @@ spec:
   ports:
   - port: 443
     name: https-validation
-    targetPort: {{ .Values.validationPort }}
   - port: {{ .Values.global.monitoringPort }}
     name: http-monitoring
   - port: 9901

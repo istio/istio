@@ -148,10 +148,10 @@ func isDNS1123Label(value string) bool {
 
 // validatePort checks that the network port is in range
 func validatePort(port int) error {
-	if 1024 <= port && port <= 65535 {
+	if 1 <= port && port <= 65535 {
 		return nil
 	}
-	return fmt.Errorf("port number %d must be in the range 1024..65535", port)
+	return fmt.Errorf("port number %d must be in the range 1..65535", port)
 }
 
 // Validate tests if the WebhookParameters has valid params.

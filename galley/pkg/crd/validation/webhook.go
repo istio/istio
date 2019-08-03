@@ -79,8 +79,9 @@ type WebhookParameters struct {
 	// e.g. cluster.local.
 	DomainSuffix string
 
-	// Port where the webhook is served. the number should be greater than 1024, because
-	// non-root user cannot bind port number less than 1024
+	// Port where the webhook is served. Per k8s admission
+	// registration requirements this should be 443 unless there is
+	// only a single port for the service.
 	Port uint
 
 	// CertFile is the path to the x509 certificate for https.
@@ -156,7 +157,7 @@ func (p *WebhookParameters) String() string {
 // DefaultArgs allocates an WebhookParameters struct initialized with Webhook's default configuration.
 func DefaultArgs() *WebhookParameters {
 	return &WebhookParameters{
-		Port:                                9443,
+		Port:                                443,
 		CertFile:                            "/etc/certs/cert-chain.pem",
 		KeyFile:                             "/etc/certs/key.pem",
 		CACertFile:                          "/etc/certs/root-cert.pem",
