@@ -355,7 +355,7 @@ func testSDSStreamOne(stream sds.SecretDiscoveryService_StreamSecretsClient, pro
 	}
 	notifyChan <- notifyMsg{Err: nil, Message: "notify push secret"}
 	if notify := <-notifyChan; notify.Message == "receive nil secret" {
-		resp, err = stream.Recv()
+		_, err = stream.Recv()
 		if err == nil {
 			notifyChan <- notifyMsg{Err: err, Message: fmt.Sprintf("stream one: stream.Recv failed: %v", err)}
 		}
