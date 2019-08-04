@@ -62,10 +62,24 @@ func parseReport(filename string) (map[string]float64, error) {
 		}
 	}()
 
+	inFileList := false
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 4096*8), bufio.MaxScanTokenSize*8)
 	for scanner.Scan() {
-		if pkg, cov, err := parseReportLine(scanner.Text()); err == nil {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		} else if line == "<select id=\"files\">" { // report file list starts
+			inFileList = true
+			continue
+		} else if inFileList && line == "</select>" { // end of file list, bail
+			break
+		}
+		if !inFileList { // ignore
+			continue
+		}
+
+		if pkg, cov, err := parseReportLine(line); err == nil {
 			coverage[pkg] = cov
 		}
 	}
