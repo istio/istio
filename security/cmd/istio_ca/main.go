@@ -27,6 +27,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	pkgcmd "istio.io/istio/pkg/cmd"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/caclient"
@@ -259,7 +260,7 @@ func initCLI() {
 	opts.loggingOptions.AttachCobraFlags(rootCmd)
 	opts.ctrlzOptions.AttachCobraFlags(rootCmd)
 
-	cmd.InitializeFlags(rootCmd)
+	pkgcmd.AddFlags(rootCmd)
 }
 
 func initEnvVars() {
