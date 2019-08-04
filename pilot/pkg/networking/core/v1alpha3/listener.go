@@ -514,7 +514,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 			tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Env, pluginParams.Node, pluginParams.ServiceInstance)
 
 		case plugin.ListenerProtocolAuto:
-			fcm := listener.FilterChainMatch{}
 			// Build filter chain options for listener configured with protocol sniffing
 			// Double the number of filter chains. Half of filter chains are used as http filter chain and half of them are used as tcp proxy
 			// id in [0, len(allChains)/2) are configured as http filter chain, [(len(allChains)/2, len(allChains)) are configured as tcp proxy
@@ -529,6 +528,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 			if id < len(allChains)/2 {
 				httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
 
+				fcm := listener.FilterChainMatch{}
 				if chain.FilterChainMatch != nil {
 					fcm = *chain.FilterChainMatch
 				}
@@ -2115,7 +2115,9 @@ func getPluginFilterChain(opts buildListenerOpts) []plugin.FilterChain {
 	return filterChain
 }
 
-func checkWellKnownPorts(incoming protocol.Instance, existing protocol.Instance, conflict int) bool {
+// checkWellKnownPorts checks conflicts between incoming protocol and existing protocol.
+// Mongo and MySQL are now allowed to co-exist with other protocols in one port.
+func checkWellKnownPorts(incoming, existing protocol.Instance, conflict int) bool {
 	if conflict == NoConflict {
 		return true
 	}

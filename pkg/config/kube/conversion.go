@@ -37,8 +37,6 @@ var (
 		25:    protocol.TCP,   // SMTP
 		53:    protocol.TCP,   // DNS. Default TCP if not specified.
 		3306:  protocol.MySQL, // MySQL
-		4222:  protocol.TCP,   // NATS
-		8086:  protocol.TCP,   // InfluxDB
 		27017: protocol.Mongo, // MongoDB
 	}
 )
