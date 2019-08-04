@@ -1527,7 +1527,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 		connectionManager.AccessLog = append(connectionManager.AccessLog, acc)
 	}
 
-	if true {
+	if env.Mesh.EnableEnvoyAccessLogService {
 		fl := &accesslogconfig.HttpGrpcAccessLogConfig{
 			CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
 				LogName: httpEnvoyAccessLogName,
