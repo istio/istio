@@ -1103,7 +1103,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 				// for user defined Egress listeners with ports. And these should occur in the API before
 				// the wildcard egress listener. the check for the "locked" bit will eliminate the collision.
 				// User is also not allowed to add duplicate ports in the egress listener
-				var newHostname config.Hostname
+				var newHostname host.Name
 				if pluginParams.Service != nil {
 					newHostname = pluginParams.Service.Hostname
 				} else {
@@ -2022,7 +2022,7 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 					// for user defined Egress listeners with ports. And these should occur in the API before
 					// the wildcard egress listener. the check for the "locked" bit will eliminate the collision.
 					// User is also not allowed to add duplicate ports in the egress listener
-					var newHostname config.Hostname
+					var newHostname host.Name
 					if pluginParams.Service != nil {
 						newHostname = pluginParams.Service.Hostname
 					} else {
@@ -2051,7 +2051,7 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 
 			// We have two non-catch all filter chains. Check for duplicates
 			if reflect.DeepEqual(*existingFilterChain.FilterChainMatch, *incomingFilterChain.FilterChainMatch) {
-				var newHostname config.Hostname
+				var newHostname host.Name
 				if pluginParams.Service != nil {
 					newHostname = pluginParams.Service.Hostname
 				} else {

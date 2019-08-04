@@ -1292,7 +1292,7 @@ func buildService(hostname string, ip string, protocol protocol.Instance, creati
 func buildServiceWithPort(hostname string, port int, protocol protocol.Instance, creationTime time.Time) *model.Service {
 	return &model.Service{
 		CreationTime: creationTime,
-		Hostname:     config.Hostname(hostname),
+		Hostname:     host.Name(hostname),
 		Address:      wildcardIP,
 		ClusterVIPs:  make(map[string]string),
 		Ports: model.PortList{
