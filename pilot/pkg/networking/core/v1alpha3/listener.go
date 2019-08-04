@@ -1132,7 +1132,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 	}
 
 	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
-
 	return true, buildSidecarOutboundTCPTLSFilterChainOpts(pluginParams.Env, pluginParams.Node,
 		pluginParams.Push, virtualServices,
 		*destinationCIDR, pluginParams.Service,
@@ -1200,6 +1199,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		listenerOpts.filterChainOpts = opts
 
 	case plugin.ListenerProtocolAuto:
+		// Add tcp filter chain
+		if ret, opts = configgen.buildSidecarOutboundTCPListenerOptsForPortOrUDS(node, &destinationCIDR, &listenerMapKey, &currentListenerEntry,
+			&listenerOpts, pluginParams, listenerMap, virtualServices, actualWildcard); !ret {
+			return
+		}
+		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
+
 		// Add http filter chain and tcp filter chain to the listener opts
 		// Build HTTP filter chain first. If there is already another listener
 		// on the same port, return immediately.
@@ -1216,14 +1222,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 			// Support HTTP/1.0, HTTP/1.1 and HTTP/2
 			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, []string{"h2", "http/1.1", "http/1.0"}...)
-		}
-
-		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
-
-		// Add tcp filter chain
-		if ret, opts = configgen.buildSidecarOutboundTCPListenerOptsForPortOrUDS(node, &destinationCIDR, &listenerMapKey, &currentListenerEntry,
-			&listenerOpts, pluginParams, listenerMap, virtualServices, actualWildcard); !ret {
-			return
 		}
 
 		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
@@ -2099,7 +2097,7 @@ func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) 
 		newFilterChan = append(newFilterChan, fc)
 
 	}
-	return append(newFilterChan, tcpFilterChain...)
+	return append(tcpFilterChain, newFilterChan...)
 }
 
 func getPluginFilterChain(opts buildListenerOpts) []plugin.FilterChain {

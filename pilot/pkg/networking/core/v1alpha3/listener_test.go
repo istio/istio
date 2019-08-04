@@ -428,16 +428,16 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 		if len(listeners[0].FilterChains) != 3 {
 			t.Fatalf("expectd %d filter chains, found %d", 3, len(listeners[0].FilterChains))
 		} else {
-			if !isHTTPFilterChain(listeners[0].FilterChains[1]) {
+			if !isHTTPFilterChain(listeners[0].FilterChains[2]) {
 				t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
 			}
 
-			if !isTCPFilterChain(listeners[0].FilterChains[2]) {
+			if !isTCPFilterChain(listeners[0].FilterChains[1]) {
 				t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[2].Filters[0].Name)
 			}
 		}
 
-		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1])
+		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2])
 		if len(listeners[0].ListenerFilters) != 1 ||
 			listeners[0].ListenerFilters[0].Name != "envoy.listener.http_inspector" {
 			t.Fatalf("expected %d listener filter, found %d", 1, len(listeners[0].ListenerFilters))
@@ -447,34 +447,18 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 			t.Fatalf("expectd %d filter chains, found %d", 3, len(listeners[0].FilterChains))
 		}
 
-		if oldestProtocol == protocol.TCP {
-			if !isTCPFilterChain(listeners[0].FilterChains[1]) {
-				t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[2].Filters[0].Name)
-			}
+		if !isTCPFilterChain(listeners[0].FilterChains[1]) {
+			t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[2].Filters[0].Name)
+		}
 
-			if !isHTTPFilterChain(listeners[0].FilterChains[2]) {
-				t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
-			}
+		if !isHTTPFilterChain(listeners[0].FilterChains[2]) {
+			t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
+		}
 
-			verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2])
-			if len(listeners[0].ListenerFilters) != 1 ||
-				listeners[0].ListenerFilters[0].Name != "envoy.listener.http_inspector" {
-				t.Fatalf("expected %d listener filter, found %d", 1, len(listeners[0].ListenerFilters))
-			}
-		} else if oldestProtocol == protocol.HTTP {
-			if !isHTTPFilterChain(listeners[0].FilterChains[1]) {
-				t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
-			}
-
-			if !isTCPFilterChain(listeners[0].FilterChains[2]) {
-				t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[2].Filters[0].Name)
-			}
-
-			verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1])
-			if len(listeners[0].ListenerFilters) != 1 ||
-				listeners[0].ListenerFilters[0].Name != "envoy.listener.http_inspector" {
-				t.Fatalf("expected %d listener filter, found %d", 1, len(listeners[0].ListenerFilters))
-			}
+		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2])
+		if len(listeners[0].ListenerFilters) != 1 ||
+			listeners[0].ListenerFilters[0].Name != "envoy.listener.http_inspector" {
+			t.Fatalf("expected %d listener filter, found %d", 1, len(listeners[0].ListenerFilters))
 		}
 	}
 }
@@ -651,15 +635,15 @@ func testOutboundListenerConfigWithSidecarV13(t *testing.T, services ...*model.S
 	if len(l.FilterChains) != 4 {
 		t.Fatalf("expectd %d filter chains, found %d", 4, len(l.FilterChains))
 	} else {
-		if !isHTTPFilterChain(l.FilterChains[1]) {
-			t.Fatalf("expected http filter chain, found %s", l.FilterChains[1].Filters[0].Name)
+		if !isHTTPFilterChain(l.FilterChains[3]) {
+			t.Fatalf("expected http filter chain, found %s", l.FilterChains[3].Filters[0].Name)
 		}
 
-		if !isTCPFilterChain(l.FilterChains[3]) {
-			t.Fatalf("expected tcp filter chain, found %s", l.FilterChains[3].Filters[0].Name)
+		if !isTCPFilterChain(l.FilterChains[1]) {
+			t.Fatalf("expected tcp filter chain, found %s", l.FilterChains[1].Filters[0].Name)
 		}
 
-		verifyHTTPFilterChainMatch(t, l.FilterChains[1])
+		verifyHTTPFilterChainMatch(t, l.FilterChains[3])
 
 		if len(l.ListenerFilters) != 1 ||
 			l.ListenerFilters[0].Name != "envoy.listener.http_inspector" {
@@ -679,16 +663,16 @@ func testOutboundListenerConfigWithSidecarV13(t *testing.T, services ...*model.S
 	if len(l.FilterChains) != 2 {
 		t.Fatalf("expectd %d filter chains, found %d", 2, len(l.FilterChains))
 	} else {
-		if !isHTTPFilterChain(l.FilterChains[0]) {
+		if !isHTTPFilterChain(l.FilterChains[1]) {
 			t.Fatalf("expected http filter chain, found %s", l.FilterChains[0].Filters[0].Name)
 		}
 
-		if !isTCPFilterChain(l.FilterChains[1]) {
+		if !isTCPFilterChain(l.FilterChains[0]) {
 			t.Fatalf("expected tcp filter chain, found %s", l.FilterChains[1].Filters[0].Name)
 		}
 	}
 
-	verifyHTTPFilterChainMatch(t, l.FilterChains[0])
+	verifyHTTPFilterChainMatch(t, l.FilterChains[1])
 	if len(l.ListenerFilters) != 1 ||
 		l.ListenerFilters[0].Name != "envoy.listener.http_inspector" {
 		t.Fatalf("expected %d listener filter, found %d", 1, len(l.ListenerFilters))

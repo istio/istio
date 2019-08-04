@@ -29,17 +29,17 @@ spec:
 {{else}}
   - port: 90
     targetPort: {{.port3}}
-    name: qux
+    name: tcp
   - port: 9090
     targetPort: {{.port4}}
-    name: quux
+    name: tcp-two
 {{end}}
   - port: 70
     targetPort: {{.port5}}
-    name: quuz
+    name: http2-example
   - port: 7070
     targetPort: {{.port6}}
-    name: corge
+    name: grpc
   selector:
     app: {{.service}}
 {{end}}
