@@ -7,12 +7,12 @@
 /istioctl/                                                       @ozevren @liamawhite @nmittler @esnible @fisherxu @irisdingbj
 /mixer/                                                          @douglas-reid @geeknoid @kyessenov @mandarjog
 /mixer/test/client/                                              @douglas-reid @geeknoid @kyessenov @mandarjog @qiwzhang @JimmyCYJ @kyessenov @lizan
-/pilot/                                                          @andraxylia @costinm @diemtvu @GregHanson @hzxuzhonghu @nmittler @rshriram @vadimeisenbergibm @howardjohn @zackbutcher
-/pilot/pkg/networking/                                           @andraxylia @costinm @diemtvu @GregHanson @hzxuzhonghu @nmittler @rshriram @vadimeisenbergibm @howardjohn @zackbutcher @costinm @GregHanson @rshriram @zackbutcher @ostromart
-/pilot/pkg/networking/plugin/authn/                              @andraxylia @costinm @diemtvu @GregHanson @hzxuzhonghu @nmittler @rshriram @vadimeisenbergibm @howardjohn @zackbutcher @costinm @GregHanson @rshriram @zackbutcher @ostromart @diemtvu @yangminzhu
-/pilot/pkg/networking/plugin/authz/                              @andraxylia @costinm @diemtvu @GregHanson @hzxuzhonghu @nmittler @rshriram @vadimeisenbergibm @howardjohn @zackbutcher @costinm @GregHanson @rshriram @zackbutcher @ostromart @diemtvu @yangminzhu
-/pilot/pkg/networking/plugin/mixer/                              @andraxylia @costinm @diemtvu @GregHanson @hzxuzhonghu @nmittler @rshriram @vadimeisenbergibm @howardjohn @zackbutcher @costinm @GregHanson @rshriram @zackbutcher @ostromart @kyessenov @douglas-reid @mandarjog
-/pilot/pkg/security/                                             @andraxylia @costinm @diemtvu @GregHanson @hzxuzhonghu @nmittler @rshriram @vadimeisenbergibm @howardjohn @zackbutcher @diemtvu @yangminzhu @quanjielin
+/pilot/                                                          @costinm @GregHanson @hzxuzhonghu @rshriram @howardjohn
+/pilot/pkg/networking/                                           @hzxuzhonghu @rshriram @howardjohn
+/pilot/pkg/networking/plugin/authn/                              @rshriram @howardjohn @diemtvu
+/pilot/pkg/networking/plugin/authz/                              @rshriram @howardjohn @diemtvu @yangminzhu
+/pilot/pkg/networking/plugin/mixer/                              @howardjohn @rshriram @kyessenov @douglas-reid @mandarjog
+/pilot/pkg/security/                                             @rshriram @howardjohn @diemtvu @yangminzhu @quanjielin
 /pkg/                                                            @nmittler @ozevren
 /pkg/bootstrap/                                                  @mandarjog @costinm
 /pkg/mcp/                                                        @ozevren @ayj @nmittler
@@ -22,7 +22,7 @@
 /security/                                                       @diemtvu @incfly @myidpt @quanjielin @wattli
 /tests/                                                          @costinm @nmittler
 /tests/e2e/local/                                                @costinm @nmittler @gargnupur @kimikowang @JimmyCYJ @m1093782566
-/tests/e2e/tests/pilot/                                          @costinm @nmittler @andraxylia @GregHanson @hzxuzhonghu @rshriram @vadimeisenbergibm @zackbutcher
+/tests/e2e/tests/pilot/                                          @costinm @nmittler @andraxylia @GregHanson @hzxuzhonghu @rshriram
 /tests/integration/                                              @costinm @nmittler @ozevren
 /tests/integration/conformance/                                  @costinm @nmittler @ozevren
 /tests/integration/framework/                                    @costinm @nmittler @ozevren
