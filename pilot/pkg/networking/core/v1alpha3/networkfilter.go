@@ -76,7 +76,8 @@ func setAccessLog(env *model.Environment, node *model.Proxy, config *tcp_proxy.T
 		config.AccessLog = append(config.AccessLog, acc)
 	}
 
-	if env.Mesh.EnableEnvoyAccessLogService {
+	// envoy als is not enabled for tcp
+	if false {
 		fl := &accesslogconfig.TcpGrpcAccessLogConfig{
 			CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
 				LogName: tcpEnvoyAccesslogName,
