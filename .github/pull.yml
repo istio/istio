@@ -8,4 +8,7 @@ rules:
     upstream: istio:release-1.1
     autoMerge: true
     autoMergeHardReset: false
-    
+  - base: release-1.2
+    upstream: istio:release-1.2
+    autoMerge: true
+    autoMergeHardReset: false    
