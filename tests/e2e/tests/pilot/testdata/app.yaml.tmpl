@@ -18,14 +18,14 @@ spec:
   ports:
   - port: 80
     targetPort: {{.port1}}
-    name: foo
+    name: foo # this should not be renamed to http, as its used to test sniffing
   - port: 8080
     targetPort: {{.port2}}
-    name: bar
+    name: bar # this should not be renamed to http-two, as its used to test sniffing
 {{if eq .headless "true"}}
   - port: 10090
     targetPort: {{.port3}}
-    name: baz
+    name: tcp
 {{else}}
   - port: 90
     targetPort: {{.port3}}
