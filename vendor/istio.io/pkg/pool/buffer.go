@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package pool provides access to a mixer-global pool of buffers, a pool of goroutines, and
+// Package pool provides access to a process-global pool of buffers, a pool of string builders, a pool of goroutines, and
 // a string interning table.
 package pool
 

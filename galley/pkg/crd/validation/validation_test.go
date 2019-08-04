@@ -73,7 +73,7 @@ func TestValidate(t *testing.T) {
 		},
 		"invalid port": {
 			wrapFunc:      func(args *WebhookParameters) { args.Port = 100000 },
-			expectedError: "port number 100000 must be in the range 1024..65535",
+			expectedError: "port number 100000 must be in the range 1..65535",
 		},
 	}
 

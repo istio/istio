@@ -24,8 +24,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -284,7 +284,7 @@ func convertPortNameToProtocol(name string) protocol.Instance {
 	return protocol.Parse(prefix)
 }
 
-func makeService(hostname config.Hostname, configNamespace, address string, ports map[string]int, external bool, resolution model.Resolution) *model.Service {
+func makeService(hostname host.Name, configNamespace, address string, ports map[string]int, external bool, resolution model.Resolution) *model.Service {
 
 	svc := &model.Service{
 		CreationTime: GlobalTime,
@@ -315,7 +315,7 @@ func makeService(hostname config.Hostname, configNamespace, address string, port
 }
 
 func makeInstance(cfg *model.Config, address string, port int,
-	svcPort *networking.Port, labels map[string]string) *model.ServiceInstance {
+	svcPort *networking.Port, svcLabels map[string]string) *model.ServiceInstance {
 	family := model.AddressFamilyTCP
 	if port == 0 {
 		family = model.AddressFamilyUnix
@@ -341,7 +341,7 @@ func makeInstance(cfg *model.Config, address string, port int,
 				Protocol: protocol.Parse(svcPort.Protocol),
 			},
 		},
-		Labels: config.Labels(labels),
+		Labels: svcLabels,
 	}
 }
 

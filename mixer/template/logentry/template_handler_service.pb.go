@@ -46,10 +46,13 @@ import (
 	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 	types "github.com/gogo/protobuf/types"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
 	v1beta1 "istio.io/api/policy/v1beta1"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 )
@@ -93,7 +96,7 @@ func (m *HandleLogEntryRequest) XXX_Marshal(b []byte, deterministic bool) ([]byt
 		return xxx_messageInfo_HandleLogEntryRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -146,7 +149,7 @@ func (m *InstanceMsg) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_InstanceMsg.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -189,7 +192,7 @@ func (m *Type) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Type.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -239,7 +242,7 @@ func (m *InstanceParam) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_InstanceParam.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -365,6 +368,14 @@ type HandleLogEntryServiceServer interface {
 	HandleLogEntry(context.Context, *HandleLogEntryRequest) (*v1beta11.ReportResult, error)
 }
 
+// UnimplementedHandleLogEntryServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedHandleLogEntryServiceServer struct {
+}
+
+func (*UnimplementedHandleLogEntryServiceServer) HandleLogEntry(ctx context.Context, req *HandleLogEntryRequest) (*v1beta11.ReportResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HandleLogEntry not implemented")
+}
+
 func RegisterHandleLogEntryServiceServer(s *grpc.Server, srv HandleLogEntryServiceServer) {
 	s.RegisterService(&_HandleLogEntryService_serviceDesc, srv)
 }
@@ -403,7 +414,7 @@ var _HandleLogEntryService_serviceDesc = grpc.ServiceDesc{
 func (m *HandleLogEntryRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -411,45 +422,55 @@ func (m *HandleLogEntryRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *HandleLogEntryRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *HandleLogEntryRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Instances) > 0 {
-		for _, msg := range m.Instances {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
+	if len(m.DedupId) > 0 {
+		i -= len(m.DedupId)
+		copy(dAtA[i:], m.DedupId)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DedupId)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.AdapterConfig != nil {
+		{
+			size, err := m.AdapterConfig.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
-			i += n
+			i -= size
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(size))
 		}
-	}
-	if m.AdapterConfig != nil {
+		i--
 		dAtA[i] = 0x12
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.AdapterConfig.Size()))
-		n1, err := m.AdapterConfig.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+	}
+	if len(m.Instances) > 0 {
+		for iNdEx := len(m.Instances) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Instances[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintTemplateHandlerService(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
 		}
-		i += n1
 	}
-	if len(m.DedupId) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DedupId)))
-		i += copy(dAtA[i:], m.DedupId)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *InstanceMsg) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -457,109 +478,115 @@ func (m *InstanceMsg) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *InstanceMsg) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Variables) > 0 {
-		for k, _ := range m.Variables {
-			dAtA[i] = 0xa
-			i++
-			v := m.Variables[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovTemplateHandlerService(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovTemplateHandlerService(uint64(len(k))) + msgSize
-			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n2, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n2
-			}
-		}
-	}
-	if m.Timestamp != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.Timestamp.Size()))
-		n3, err := m.Timestamp.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n3
-	}
-	if len(m.Severity) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Severity)))
-		i += copy(dAtA[i:], m.Severity)
-	}
-	if len(m.MonitoredResourceType) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.MonitoredResourceType)))
-		i += copy(dAtA[i:], m.MonitoredResourceType)
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0x93
+		i--
+		dAtA[i] = 0xe4
+		i--
+		dAtA[i] = 0xd2
+		i--
+		dAtA[i] = 0xfa
 	}
 	if len(m.MonitoredResourceDimensions) > 0 {
-		for k, _ := range m.MonitoredResourceDimensions {
-			dAtA[i] = 0x2a
-			i++
+		for k := range m.MonitoredResourceDimensions {
 			v := m.MonitoredResourceDimensions[k]
-			msgSize := 0
+			baseI := i
 			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovTemplateHandlerService(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovTemplateHandlerService(uint64(len(k))) + msgSize
-			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n4, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintTemplateHandlerService(dAtA, i, uint64(size))
 				}
-				i += n4
+				i--
+				dAtA[i] = 0x12
 			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x2a
 		}
 	}
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xfa
-		i++
-		dAtA[i] = 0xd2
-		i++
-		dAtA[i] = 0xe4
-		i++
-		dAtA[i] = 0x93
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+	if len(m.MonitoredResourceType) > 0 {
+		i -= len(m.MonitoredResourceType)
+		copy(dAtA[i:], m.MonitoredResourceType)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.MonitoredResourceType)))
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	if len(m.Severity) > 0 {
+		i -= len(m.Severity)
+		copy(dAtA[i:], m.Severity)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Severity)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.Timestamp != nil {
+		{
+			size, err := m.Timestamp.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Variables) > 0 {
+		for k := range m.Variables {
+			v := m.Variables[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintTemplateHandlerService(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Type) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -567,49 +594,56 @@ func (m *Type) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Type) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Type) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Variables) > 0 {
-		for k, _ := range m.Variables {
-			dAtA[i] = 0xa
-			i++
-			v := m.Variables[k]
-			mapSize := 1 + len(k) + sovTemplateHandlerService(uint64(len(k))) + 1 + sovTemplateHandlerService(uint64(v))
-			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(v))
-		}
-	}
 	if len(m.MonitoredResourceDimensions) > 0 {
-		for k, _ := range m.MonitoredResourceDimensions {
-			dAtA[i] = 0x2a
-			i++
+		for k := range m.MonitoredResourceDimensions {
 			v := m.MonitoredResourceDimensions[k]
-			mapSize := 1 + len(k) + sovTemplateHandlerService(uint64(len(k))) + 1 + sovTemplateHandlerService(uint64(v))
-			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
+			baseI := i
 			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x2a
 		}
 	}
-	return i, nil
+	if len(m.Variables) > 0 {
+		for k := range m.Variables {
+			v := m.Variables[k]
+			baseI := i
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *InstanceParam) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -617,73 +651,87 @@ func (m *InstanceParam) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *InstanceParam) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *InstanceParam) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Variables) > 0 {
-		for k, _ := range m.Variables {
-			dAtA[i] = 0xa
-			i++
-			v := m.Variables[k]
-			mapSize := 1 + len(k) + sovTemplateHandlerService(uint64(len(k))) + 1 + len(v) + sovTemplateHandlerService(uint64(len(v)))
-			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
+	if len(m.MonitoredResourceDimensions) > 0 {
+		for k := range m.MonitoredResourceDimensions {
+			v := m.MonitoredResourceDimensions[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
 			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x2a
 		}
-	}
-	if len(m.Timestamp) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Timestamp)))
-		i += copy(dAtA[i:], m.Timestamp)
-	}
-	if len(m.Severity) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Severity)))
-		i += copy(dAtA[i:], m.Severity)
 	}
 	if len(m.MonitoredResourceType) > 0 {
-		dAtA[i] = 0x22
-		i++
+		i -= len(m.MonitoredResourceType)
+		copy(dAtA[i:], m.MonitoredResourceType)
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.MonitoredResourceType)))
-		i += copy(dAtA[i:], m.MonitoredResourceType)
+		i--
+		dAtA[i] = 0x22
 	}
-	if len(m.MonitoredResourceDimensions) > 0 {
-		for k, _ := range m.MonitoredResourceDimensions {
-			dAtA[i] = 0x2a
-			i++
-			v := m.MonitoredResourceDimensions[k]
-			mapSize := 1 + len(k) + sovTemplateHandlerService(uint64(len(k))) + 1 + len(v) + sovTemplateHandlerService(uint64(len(v)))
-			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
+	if len(m.Severity) > 0 {
+		i -= len(m.Severity)
+		copy(dAtA[i:], m.Severity)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Severity)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.Timestamp) > 0 {
+		i -= len(m.Timestamp)
+		copy(dAtA[i:], m.Timestamp)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Timestamp)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Variables) > 0 {
+		for k := range m.Variables {
+			v := m.Variables[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
 			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
 		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintTemplateHandlerService(dAtA []byte, offset int, v uint64) int {
+	offset -= sovTemplateHandlerService(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *HandleLogEntryRequest) Size() (n int) {
 	if m == nil {
@@ -822,14 +870,7 @@ func (m *InstanceParam) Size() (n int) {
 }
 
 func sovTemplateHandlerService(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozTemplateHandlerService(x uint64) (n int) {
 	return sovTemplateHandlerService(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -838,8 +879,13 @@ func (this *HandleLogEntryRequest) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForInstances := "[]*InstanceMsg{"
+	for _, f := range this.Instances {
+		repeatedStringForInstances += strings.Replace(f.String(), "InstanceMsg", "InstanceMsg", 1) + ","
+	}
+	repeatedStringForInstances += "}"
 	s := strings.Join([]string{`&HandleLogEntryRequest{`,
-		`Instances:` + strings.Replace(fmt.Sprintf("%v", this.Instances), "InstanceMsg", "InstanceMsg", 1) + `,`,
+		`Instances:` + repeatedStringForInstances + `,`,
 		`AdapterConfig:` + strings.Replace(fmt.Sprintf("%v", this.AdapterConfig), "Any", "types.Any", 1) + `,`,
 		`DedupId:` + fmt.Sprintf("%v", this.DedupId) + `,`,
 		`}`,

@@ -8,8 +8,6 @@ replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
 
 replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538-2789fed3109c
 
-replace github.com/gogo/protobuf => github.com/istio/gogo-protobuf v1.2.2
-
 require (
 	cloud.google.com/go v0.37.4
 	contrib.go.opencensus.io/exporter/prometheus v0.1.0
@@ -56,7 +54,7 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20190421051319-9d40249d3c2f // indirect
 	github.com/elazarl/goproxy/ext v0.0.0-20190421051319-9d40249d3c2f // indirect
 	github.com/emicklei/go-restful v2.6.0+incompatible
-	github.com/envoyproxy/go-control-plane v0.8.3
+	github.com/envoyproxy/go-control-plane v0.8.4
 	github.com/evanphx/json-patch v3.0.0+incompatible
 	github.com/facebookgo/stack v0.0.0-20160209184415-751773369052 // indirect
 	github.com/facebookgo/stackerr v0.0.0-20150612192056-c2fcf88613f4 // indirect
@@ -71,9 +69,7 @@ require (
 	github.com/go-sql-driver/mysql v1.4.1 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gocql/gocql v0.0.0-20190423091413-b99afaf3b163 // indirect
-	github.com/gogo/googleapis v1.2.0
-	github.com/gogo/protobuf v1.2.1
-	github.com/gogo/status v1.0.3
+	github.com/gogo/protobuf v1.2.2-0.20190730201129-28a6bbf47e48
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20180203143532-66deaeb636df // indirect
 	github.com/golang/protobuf v1.3.0
@@ -186,9 +182,9 @@ require (
 	gopkg.in/stack.v1 v1.7.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 	gotest.tools v2.2.0+incompatible // indirect
-	istio.io/api v0.0.0-20190730171035-f306601671d2
-	istio.io/gogo-genproto v0.0.0-20190614210408-e88dc8b0e4db
-	istio.io/pkg v0.0.0-20190710182420-c26792dead42
+	istio.io/api v0.0.0-20190802144653-982935ba456e
+	istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2
+	istio.io/pkg v0.0.0-20190731230704-fcbac27d69d5
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471
 	k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87
 	k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628

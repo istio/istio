@@ -1,31 +1,22 @@
 # BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
 ARG BASE_DISTRIBUTION=default
 
-# The following section is used as base image to add users
-# hadolint ignore=DL3006
-FROM istionightly/base_debug as base_debug
-COPY mixs /usr/local/bin/
-# 1001 is chosen as the UID to be added to the istio group as this is the UID that mixs in the docker container runs as.
-RUN addgroup --system --gid 1001 istio && \
-    adduser --system --uid 1001 --gid 1001 istio && \
-    chmod -R 760 /usr/local/bin/mixs
-
 # The following section is used as base image if BASE_DISTRIBUTION=default
 # No tag available https://hub.docker.com/_/scratch?tab=description
 # hadolint ignore=DL3006
 FROM scratch as default
 # obtained from debian ca-certs deb using fetch_cacerts.sh
 ADD ca-certificates.tgz /
-COPY --from=base_debug /etc/passwd /etc/passwd
-COPY --from=base_debug /usr/local/bin/mixs /usr/local/bin/
-USER istio
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
-FROM gcr.io/distroless/static:nonroot as distroless
-COPY mixs /usr/local/bin/
+# hadolint ignore=DL3007
+FROM gcr.io/distroless/static:latest as distroless
+
 # This will build the final image based on either default or distroless from above
 # hadolint ignore=DL3006
 FROM ${BASE_DISTRIBUTION}
+
+COPY mixs /usr/local/bin/
 
 ENTRYPOINT ["/usr/local/bin/mixs", "server"]
 CMD ["--configStoreURL=fs:///etc/opt/mixer/configroot","--configStoreURL=k8s://"]

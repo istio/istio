@@ -46,8 +46,9 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 )
@@ -254,7 +255,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 
 	// If the user specifies a Sidecar CRD with an inbound listener, only construct that listener
 	// and not the ones from the proxyInstances
-	var proxyLabels config.LabelsCollection
+	var proxyLabels labels.Collection
 	for _, w := range node.ServiceInstances {
 		proxyLabels = append(proxyLabels, w.Labels)
 	}
@@ -585,7 +586,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 
 type inboundListenerEntry struct {
 	bind             string
-	instanceHostname config.Hostname // could be empty if generated via Sidecar CRD
+	instanceHostname host.Name // could be empty if generated via Sidecar CRD
 }
 
 type outboundListenerEntry struct {
@@ -614,7 +615,7 @@ type outboundListenerConflict struct {
 	listenerName    string
 	currentProtocol protocol.Instance
 	currentServices []*model.Service
-	newHostname     config.Hostname
+	newHostname     host.Name
 	newProtocol     protocol.Instance
 }
 
@@ -655,7 +656,7 @@ func (c outboundListenerConflict) addMetric(node *model.Proxy, push *model.PushC
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.Environment, node *model.Proxy,
 	push *model.PushContext) []*xdsapi.Listener {
 
-	var proxyLabels config.LabelsCollection
+	var proxyLabels labels.Collection
 	for _, w := range node.ServiceInstances {
 		proxyLabels = append(proxyLabels, w.Labels)
 	}
@@ -1436,7 +1437,7 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Envir
 	push *model.PushContext,
 	ipTablesListener *xdsapi.Listener) *xdsapi.Listener {
 
-	hostname := config.Hostname(util.BlackHoleCluster)
+	hostname := host.Name(util.BlackHoleCluster)
 	mesh := env.Mesh
 	redirectPort := &model.Port{
 		Port:     int(mesh.ProxyListenPort),
@@ -1608,7 +1609,7 @@ type buildListenerOpts struct {
 	env               *model.Environment
 	proxy             *model.Proxy
 	proxyInstances    []*model.ServiceInstance
-	proxyLabels       config.LabelsCollection
+	proxyLabels       labels.Collection
 	bind              string
 	port              int
 	filterChainOpts   []*filterChainOpts

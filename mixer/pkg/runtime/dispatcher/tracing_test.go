@@ -18,9 +18,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/gogo/googleapis/google/rpc"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/log"
+
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/status"

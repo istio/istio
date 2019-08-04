@@ -30,8 +30,9 @@ import (
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
@@ -149,7 +150,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	localIP = getLocalIP()
 
 	// Service and endpoints for hello.default - used in v1 pilot tests
-	hostname := config.Hostname("hello.default.svc.cluster.local")
+	hostname := host.Name("hello.default.svc.cluster.local")
 	server.EnvoyXdsServer.MemRegistry.AddService(hostname, &model.Service{
 		Hostname: hostname,
 		Address:  "10.10.0.3",
@@ -256,7 +257,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 			},
 			Locality: "az",
 		},
-		Labels: config.Labels{constants.IstioLabel: constants.IstioIngressLabelValue},
+		Labels: labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue},
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -269,7 +270,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 			},
 			Locality: "az",
 		},
-		Labels: config.Labels{constants.IstioLabel: constants.IstioIngressLabelValue},
+		Labels: labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue},
 	})
 
 	// RouteConf Service4 is using port 80, to test that we generate multiple clusters (regression)

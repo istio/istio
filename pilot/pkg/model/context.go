@@ -25,7 +25,8 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/config"
+
+	"istio.io/istio/pkg/config/labels"
 )
 
 // Environment provides an aggregate environmental API for Pilot
@@ -119,7 +120,7 @@ type Proxy struct {
 	ServiceInstances []*ServiceInstance
 
 	// labels associated with the workload
-	WorkloadLabels config.LabelsCollection
+	WorkloadLabels labels.Collection
 
 	// Istio version associated with the Proxy
 	IstioVersion *IstioVersion
@@ -246,8 +247,7 @@ func (node *Proxy) GetRouterMode() RouterMode {
 // as it needs the set of services for each listener port.
 func (node *Proxy) SetSidecarScope(ps *PushContext) {
 	if node.Type == SidecarProxy {
-		labels := node.WorkloadLabels
-		node.SidecarScope = ps.getSidecarScope(node, labels)
+		node.SidecarScope = ps.getSidecarScope(node, node.WorkloadLabels)
 	} else {
 		// Gateways should just have a default scope with egress: */*
 		node.SidecarScope = DefaultSidecarScopeForNamespace(ps, node.ConfigNamespace)
@@ -267,13 +267,13 @@ func (node *Proxy) SetServiceInstances(env *Environment) error {
 }
 
 func (node *Proxy) SetWorkloadLabels(env *Environment) error {
-	labels, err := env.GetProxyWorkloadLabels(node)
+	l, err := env.GetProxyWorkloadLabels(node)
 	if err != nil {
 		log.Warnf("failed to get service proxy workload labels: %v, defaulting to proxy metadata", err)
-		labels = config.LabelsCollection{node.Metadata}
+		l = labels.Collection{node.Metadata}
 	}
 
-	node.WorkloadLabels = labels
+	node.WorkloadLabels = l
 	return nil
 }
 

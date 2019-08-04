@@ -57,7 +57,7 @@
             }
           },
           "egress": {
-            "description": "Egress specifies the configuration of the sidecar for processing outbound traffic from the attached workload instance to other services in the mesh. If omitted, Istio will automatically configure the sidecar to be able to reach every service in the mesh that is visible to this namespace.",
+            "description": "REQUIRED. Egress specifies the configuration of the sidecar for processing outbound traffic from the attached workload instance to other services in the mesh.",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/istio.networking.v1alpha3.IstioEgressListener"

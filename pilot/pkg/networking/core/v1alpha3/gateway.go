@@ -25,9 +25,11 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
@@ -35,9 +37,10 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
-	"istio.io/pkg/log"
 )
 
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
@@ -48,7 +51,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 	// collect workload labels
 	workloadInstances := node.ServiceInstances
 
-	var workloadLabels config.LabelsCollection
+	var workloadLabels labels.Collection
 	for _, w := range workloadInstances {
 		workloadLabels = append(workloadLabels, w.Labels)
 	}
@@ -204,7 +207,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	services := push.Services(node)
 
 	// collect workload labels
-	var workloadLabels config.LabelsCollection
+	var workloadLabels labels.Collection
 	for _, w := range proxyInstances {
 		workloadLabels = append(workloadLabels, w.Labels)
 	}
@@ -230,18 +233,18 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	servers := merged.ServersByRouteName[routeName]
 	port := int(servers[0].Port.Number) // all these servers are for the same routeName, and therefore same port
 
-	nameToServiceMap := make(map[config.Hostname]*model.Service, len(services))
+	nameToServiceMap := make(map[host.Name]*model.Service, len(services))
 	for _, svc := range services {
 		nameToServiceMap[svc.Hostname] = svc
 	}
 
-	vHostDedupMap := make(map[config.Hostname]*route.VirtualHost)
+	vHostDedupMap := make(map[host.Name]*route.VirtualHost)
 	for _, server := range servers {
 		gatewayName := merged.GatewayNameForServer[server]
 		virtualServices := push.VirtualServices(node, map[string]bool{gatewayName: true})
 		for _, virtualService := range virtualServices {
-			virtualServiceHosts := config.StringsToHostnames(virtualService.Spec.(*networking.VirtualService).Hosts)
-			serverHosts := config.HostnamesForNamespace(server.Hosts, virtualService.Namespace)
+			virtualServiceHosts := host.NewNames(virtualService.Spec.(*networking.VirtualService).Hosts)
+			serverHosts := host.NamesForNamespace(server.Hosts, virtualService.Namespace)
 
 			// We have two cases here:
 			// 1. virtualService hosts are 1.foo.com, 2.foo.com, 3.foo.com and server hosts are ns/*.foo.com
@@ -257,19 +260,19 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 				continue
 			}
 
-			for _, host := range intersectingHosts {
-				if vHost, exists := vHostDedupMap[host]; exists {
+			for _, hostname := range intersectingHosts {
+				if vHost, exists := vHostDedupMap[hostname]; exists {
 					vHost.Routes = istio_route.CombineVHostRoutes(vHost.Routes, routes)
 				} else {
 					newVHost := &route.VirtualHost{
-						Name:    fmt.Sprintf("%s:%d", host, port),
-						Domains: []string{string(host), fmt.Sprintf("%s:%d", host, port)},
+						Name:    fmt.Sprintf("%s:%d", hostname, port),
+						Domains: []string{string(hostname), fmt.Sprintf("%s:%d", hostname, port)},
 						Routes:  routes,
 					}
 					if server.Tls != nil && server.Tls.HttpsRedirect {
 						newVHost.RequireTls = route.VirtualHost_ALL
 					}
-					vHostDedupMap[host] = newVHost
+					vHostDedupMap[hostname] = newVHost
 				}
 			}
 		}
@@ -563,9 +566,9 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 		Protocol: protocol.Parse(server.Port.Protocol),
 	}
 
-	gatewayServerHosts := make(map[config.Hostname]bool, len(server.Hosts))
-	for _, host := range server.Hosts {
-		gatewayServerHosts[config.Hostname(host)] = true
+	gatewayServerHosts := make(map[host.Name]bool, len(server.Hosts))
+	for _, hostname := range server.Hosts {
+		gatewayServerHosts[host.Name(hostname)] = true
 	}
 
 	virtualServices := push.VirtualServices(node, gatewaysForWorkload)
@@ -605,9 +608,9 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 		Protocol: protocol.Parse(server.Port.Protocol),
 	}
 
-	gatewayServerHosts := make(map[config.Hostname]bool, len(server.Hosts))
-	for _, host := range server.Hosts {
-		gatewayServerHosts[config.Hostname(host)] = true
+	gatewayServerHosts := make(map[host.Name]bool, len(server.Hosts))
+	for _, hostname := range server.Hosts {
+		gatewayServerHosts[host.Name(hostname)] = true
 	}
 
 	filterChains := make([]*filterChainOpts, 0)
@@ -658,8 +661,8 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 
 // Select the virtualService's hosts that match the ones specified in the gateway server's hosts
 // based on the wildcard hostname match and the namespace match
-func pickMatchingGatewayHosts(gatewayServerHosts map[config.Hostname]bool, virtualService model.Config) map[string]config.Hostname {
-	matchingHosts := make(map[string]config.Hostname)
+func pickMatchingGatewayHosts(gatewayServerHosts map[host.Name]bool, virtualService model.Config) map[string]host.Name {
+	matchingHosts := make(map[string]host.Name)
 	virtualServiceHosts := virtualService.Spec.(*networking.VirtualService).Hosts
 	for _, vsvcHost := range virtualServiceHosts {
 		for gatewayHost := range gatewayServerHosts {
@@ -673,9 +676,9 @@ func pickMatchingGatewayHosts(gatewayServerHosts map[config.Hostname]bool, virtu
 					continue
 				}
 				//strip the namespace
-				gwHostnameForMatching = config.Hostname(parts[1])
+				gwHostnameForMatching = host.Name(parts[1])
 			}
-			if gwHostnameForMatching.Matches(config.Hostname(vsvcHost)) {
+			if gwHostnameForMatching.Matches(host.Name(vsvcHost)) {
 				// assign the actual gateway host because calling code uses it as a key
 				// to locate TLS redirect servers
 				matchingHosts[vsvcHost] = gatewayHost

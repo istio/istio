@@ -17,6 +17,7 @@ import (
 	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strconv "strconv"
 	strings "strings"
@@ -106,7 +107,7 @@ func (m *Params) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Params.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -148,7 +149,7 @@ func (m *Params_Override) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_Params_Override.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -213,7 +214,7 @@ func (m *Params_Quota) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_Params_Quota.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -337,7 +338,7 @@ func (x Params_QuotaAlgorithm) String() string {
 func (m *Params) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -345,40 +346,48 @@ func (m *Params) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Quotas) > 0 {
-		for _, msg := range m.Quotas {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
+	if m.ConnectionPoolSize != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.ConnectionPoolSize))
+		i--
+		dAtA[i] = 0x18
 	}
 	if len(m.RedisServerUrl) > 0 {
-		dAtA[i] = 0x12
-		i++
+		i -= len(m.RedisServerUrl)
+		copy(dAtA[i:], m.RedisServerUrl)
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.RedisServerUrl)))
-		i += copy(dAtA[i:], m.RedisServerUrl)
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.ConnectionPoolSize != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.ConnectionPoolSize))
+	if len(m.Quotas) > 0 {
+		for iNdEx := len(m.Quotas) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Quotas[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintConfig(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Params_Override) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -386,39 +395,46 @@ func (m *Params_Override) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params_Override) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params_Override) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.MaxAmount != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.MaxAmount))
+		i--
+		dAtA[i] = 0x10
+	}
 	if len(m.Dimensions) > 0 {
-		for k, _ := range m.Dimensions {
-			dAtA[i] = 0xa
-			i++
+		for k := range m.Dimensions {
 			v := m.Dimensions[k]
-			mapSize := 1 + len(k) + sovConfig(uint64(len(k))) + 1 + len(v) + sovConfig(uint64(len(v)))
-			i = encodeVarintConfig(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
 			i = encodeVarintConfig(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintConfig(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
 		}
 	}
-	if m.MaxAmount != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.MaxAmount))
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Params_Quota) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -426,65 +442,75 @@ func (m *Params_Quota) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params_Quota) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params_Quota) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if m.MaxAmount != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.MaxAmount))
-	}
-	dAtA[i] = 0x1a
-	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)))
-	n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n1
-	dAtA[i] = 0x22
-	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.BucketDuration)))
-	n2, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.BucketDuration, dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n2
-	if m.RateLimitAlgorithm != 0 {
-		dAtA[i] = 0x28
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.RateLimitAlgorithm))
-	}
 	if len(m.Overrides) > 0 {
-		for _, msg := range m.Overrides {
-			dAtA[i] = 0x32
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.Overrides) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Overrides[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintConfig(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0x32
 		}
 	}
-	return i, nil
+	if m.RateLimitAlgorithm != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.RateLimitAlgorithm))
+		i--
+		dAtA[i] = 0x28
+	}
+	n1, err1 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.BucketDuration, dAtA[i-github_com_gogo_protobuf_types.SizeOfStdDuration(m.BucketDuration):])
+	if err1 != nil {
+		return 0, err1
+	}
+	i -= n1
+	i = encodeVarintConfig(dAtA, i, uint64(n1))
+	i--
+	dAtA[i] = 0x22
+	n2, err2 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i-github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration):])
+	if err2 != nil {
+		return 0, err2
+	}
+	i -= n2
+	i = encodeVarintConfig(dAtA, i, uint64(n2))
+	i--
+	dAtA[i] = 0x1a
+	if m.MaxAmount != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.MaxAmount))
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
+	offset -= sovConfig(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Params) Size() (n int) {
 	if m == nil {
@@ -558,14 +584,7 @@ func (m *Params_Quota) Size() (n int) {
 }
 
 func sovConfig(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozConfig(x uint64) (n int) {
 	return sovConfig(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -574,8 +593,13 @@ func (this *Params) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForQuotas := "[]Params_Quota{"
+	for _, f := range this.Quotas {
+		repeatedStringForQuotas += fmt.Sprintf("%v", f) + ","
+	}
+	repeatedStringForQuotas += "}"
 	s := strings.Join([]string{`&Params{`,
-		`Quotas:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Quotas), "Params_Quota", "Params_Quota", 1), `&`, ``, 1) + `,`,
+		`Quotas:` + repeatedStringForQuotas + `,`,
 		`RedisServerUrl:` + fmt.Sprintf("%v", this.RedisServerUrl) + `,`,
 		`ConnectionPoolSize:` + fmt.Sprintf("%v", this.ConnectionPoolSize) + `,`,
 		`}`,
@@ -607,13 +631,18 @@ func (this *Params_Quota) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForOverrides := "[]*Params_Override{"
+	for _, f := range this.Overrides {
+		repeatedStringForOverrides += strings.Replace(fmt.Sprintf("%v", f), "Params_Override", "Params_Override", 1) + ","
+	}
+	repeatedStringForOverrides += "}"
 	s := strings.Join([]string{`&Params_Quota{`,
 		`Name:` + fmt.Sprintf("%v", this.Name) + `,`,
 		`MaxAmount:` + fmt.Sprintf("%v", this.MaxAmount) + `,`,
-		`ValidDuration:` + strings.Replace(strings.Replace(this.ValidDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
-		`BucketDuration:` + strings.Replace(strings.Replace(this.BucketDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`ValidDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.ValidDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`BucketDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.BucketDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`RateLimitAlgorithm:` + fmt.Sprintf("%v", this.RateLimitAlgorithm) + `,`,
-		`Overrides:` + strings.Replace(fmt.Sprintf("%v", this.Overrides), "Params_Override", "Params_Override", 1) + `,`,
+		`Overrides:` + repeatedStringForOverrides + `,`,
 		`}`,
 	}, "")
 	return s

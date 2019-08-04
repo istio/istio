@@ -39,7 +39,10 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/visibility"
 )
 
 const (
@@ -47,11 +50,6 @@ const (
 	dns1123LabelFmt       string = "[a-zA-Z0-9]([-a-z-A-Z0-9]*[a-zA-Z0-9])?"
 	// a wild-card prefix is an '*', a normal DNS1123 label with a leading '*' or '*-', or a normal DNS1123 label
 	wildcardPrefix = `(\*|(\*|\*-)?` + dns1123LabelFmt + `)`
-
-	// Using kubernetes requirement, a valid key must be a non-empty string consist
-	// of alphanumeric characters, '-', '_' or '.', and must start and end with an
-	// alphanumeric character (e.g. 'MyValue',  or 'my_value',  or '12345'
-	qualifiedNameFmt string = "([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]"
 )
 
 // Constants for duration fields
@@ -68,10 +66,7 @@ const (
 const UnixAddressPrefix = "unix://"
 
 var (
-	dns1123LabelRegexp = regexp.MustCompile("^" + dns1123LabelFmt + "$")
-	tagRegexp          = regexp.MustCompile("^" + qualifiedNameFmt + "$")
-	// label value can be an empty string
-	labelValueRegexp     = regexp.MustCompile("^" + "(" + qualifiedNameFmt + ")?" + "$")
+	dns1123LabelRegexp   = regexp.MustCompile("^" + dns1123LabelFmt + "$")
 	wildcardPrefixRegexp = regexp.MustCompile("^" + wildcardPrefix + "$")
 )
 
@@ -222,7 +217,7 @@ func ValidateMixerService(svc *mccpb.IstioService) (errs error) {
 		}
 	}
 
-	if err := Labels(svc.Labels).Validate(); err != nil {
+	if err := labels.Instance(svc.Labels).Validate(); err != nil {
 		errs = multierror.Append(errs, err)
 	}
 
@@ -350,8 +345,8 @@ func validateServer(server *networking.Server) (errs error) {
 	if len(server.Hosts) == 0 {
 		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one host"))
 	} else {
-		for _, host := range server.Hosts {
-			errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(host, true))
+		for _, hostname := range server.Hosts {
+			errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(hostname, true))
 		}
 	}
 	portErr := validateServerPort(server.Port)
@@ -453,7 +448,7 @@ func validateExportTo(exportTo []string) (errs error) {
 		if len(exportTo) > 1 {
 			errs = appendErrors(errs, fmt.Errorf("exportTo should have only one entry (. or *) in the current release"))
 		} else {
-			errs = appendErrors(errs, Visibility(exportTo[0]).Validate())
+			errs = appendErrors(errs, visibility.Instance(exportTo[0]).Validate())
 		}
 	}
 
@@ -519,6 +514,14 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing patch value for non-remove operation"))
 			continue
 		}
+
+		// ensure that the supplied regex for proxy version compiles
+		if cp.Match != nil && cp.Match.Proxy != nil && cp.Match.Proxy.ProxyVersion != "" {
+			if _, err := regexp.Compile(cp.Match.Proxy.ProxyVersion); err != nil {
+				errs = appendErrors(errs, fmt.Errorf("envoy filter: invalid regex for proxy version, [%v]", err))
+				continue
+			}
+		}
 		// ensure that applyTo, match and patch all line up
 		switch cp.ApplyTo {
 		case networking.EnvoyFilter_LISTENER,
@@ -582,19 +585,19 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 
 // validates that hostname in ns/<hostname> is a valid hostname according to
 // API specs
-func validateSidecarOrGatewayHostnamePart(host string, isGateway bool) (errs error) {
+func validateSidecarOrGatewayHostnamePart(hostname string, isGateway bool) (errs error) {
 	// short name hosts are not allowed
-	if host != "*" && !strings.Contains(host, ".") {
+	if hostname != "*" && !strings.Contains(hostname, ".") {
 		errs = appendErrors(errs, fmt.Errorf("short names (non FQDN) are not allowed"))
 	}
 
-	if err := ValidateWildcardDomain(host); err != nil {
+	if err := ValidateWildcardDomain(hostname); err != nil {
 		if !isGateway {
 			errs = appendErrors(errs, err)
 		}
 
 		// Gateway allows IP as the host string, as well
-		ipAddr := net.ParseIP(host)
+		ipAddr := net.ParseIP(hostname)
 		if ipAddr == nil {
 			errs = appendErrors(errs, err)
 		}
@@ -602,12 +605,12 @@ func validateSidecarOrGatewayHostnamePart(host string, isGateway bool) (errs err
 	return
 }
 
-func validateNamespaceSlashWildcardHostname(host string, isGateway bool) (errs error) {
-	parts := strings.SplitN(host, "/", 2)
+func validateNamespaceSlashWildcardHostname(hostname string, isGateway bool) (errs error) {
+	parts := strings.SplitN(hostname, "/", 2)
 	if len(parts) != 2 {
 		if isGateway {
 			// Old style host in the gateway
-			return validateSidecarOrGatewayHostnamePart(host, true)
+			return validateSidecarOrGatewayHostnamePart(hostname, true)
 		}
 		errs = appendErrors(errs, fmt.Errorf("host must be of form namespace/dnsName"))
 		return
@@ -742,8 +745,8 @@ func ValidateSidecar(_, _ string, msg proto.Message) (errs error) {
 		if len(i.Hosts) == 0 {
 			errs = appendErrors(errs, fmt.Errorf("sidecar: egress listener must contain at least one host"))
 		} else {
-			for _, host := range i.Hosts {
-				errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(host, false))
+			for _, hostname := range i.Hosts {
+				errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(hostname, false))
 			}
 		}
 	}
@@ -900,7 +903,7 @@ func validateTLS(settings *networking.TLSSettings) (errs error) {
 
 func validateSubset(subset *networking.Subset) error {
 	return appendErrors(validateSubsetName(subset.Name),
-		Labels(subset.Labels).Validate(),
+		labels.Instance(subset.Labels).Validate(),
 		validateTrafficPolicy(subset.TrafficPolicy))
 }
 
@@ -924,7 +927,7 @@ func validatePortTrafficPolicies(pls []*networking.TrafficPolicy_PortTrafficPoli
 
 // ValidateProxyAddress checks that a network address is well-formed
 func ValidateProxyAddress(hostAddr string) error {
-	host, p, err := net.SplitHostPort(hostAddr)
+	hostname, p, err := net.SplitHostPort(hostAddr)
 	if err != nil {
 		return fmt.Errorf("unable to split %q: %v", hostAddr, err)
 	}
@@ -935,10 +938,10 @@ func ValidateProxyAddress(hostAddr string) error {
 	if err = ValidatePort(port); err != nil {
 		return err
 	}
-	if err = ValidateFQDN(host); err != nil {
-		ip := net.ParseIP(host)
+	if err = ValidateFQDN(hostname); err != nil {
+		ip := net.ParseIP(hostname)
 		if ip == nil {
-			return fmt.Errorf("%q is not a valid hostname or an IP address", host)
+			return fmt.Errorf("%q is not a valid hostname or an IP address", hostname)
 		}
 	}
 
@@ -1752,14 +1755,14 @@ func ValidateVirtualService(_, _ string, msg proto.Message) (errs error) {
 	}
 
 	allHostsValid := true
-	for _, host := range virtualService.Hosts {
-		if err := ValidateWildcardDomain(host); err != nil {
-			ipAddr := net.ParseIP(host) // Could also be an IP
+	for _, virtualHost := range virtualService.Hosts {
+		if err := ValidateWildcardDomain(virtualHost); err != nil {
+			ipAddr := net.ParseIP(virtualHost) // Could also be an IP
 			if ipAddr == nil {
 				errs = appendErrors(errs, err)
 				allHostsValid = false
 			}
-		} else if appliesToMesh && host == "*" {
+		} else if appliesToMesh && virtualHost == "*" {
 			errs = appendErrors(errs, fmt.Errorf("wildcard host * is not allowed for virtual services bound to the mesh gateway"))
 			allHostsValid = false
 		}
@@ -1770,9 +1773,9 @@ func ValidateVirtualService(_, _ string, msg proto.Message) (errs error) {
 	// E.g., *.foo.com, and *.com are duplicates in the same virtual service
 	if allHostsValid {
 		for i := 0; i < len(virtualService.Hosts); i++ {
-			hostI := Hostname(virtualService.Hosts[i])
+			hostI := host.Name(virtualService.Hosts[i])
 			for j := i + 1; j < len(virtualService.Hosts); j++ {
-				hostJ := Hostname(virtualService.Hosts[j])
+				hostJ := host.Name(virtualService.Hosts[j])
 				if hostI.Matches(hostJ) {
 					errs = appendErrors(errs, fmt.Errorf("duplicate hosts in virtual service: %s & %s", hostI, hostJ))
 				}
@@ -1833,7 +1836,7 @@ func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.
 	if match.Port != 0 {
 		errs = appendErrors(errs, ValidatePort(int(match.Port)))
 	}
-	errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
+	errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
 	errs = appendErrors(errs, validateGatewayNames(match.Gateways))
 	return
 }
@@ -1845,9 +1848,9 @@ func validateSniHost(sniHost string, context *networking.VirtualService) error {
 			return err
 		}
 	}
-	sniHostname := Hostname(sniHost)
-	for _, host := range context.Hosts {
-		if sniHostname.SubsetOf(Hostname(host)) {
+	sniHostname := host.Name(sniHost)
+	for _, hostname := range context.Hosts {
+		if sniHostname.SubsetOf(host.Name(hostname)) {
 			return nil
 		}
 	}
@@ -1879,7 +1882,7 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 	if match.Port != 0 {
 		errs = appendErrors(errs, ValidatePort(int(match.Port)))
 	}
-	errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
+	errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
 	errs = appendErrors(errs, validateGatewayNames(match.Gateways))
 	return
 }
@@ -1947,19 +1950,22 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	errs = appendErrors(errs, validateHTTPFaultInjection(http.Fault))
 
 	for _, match := range http.Match {
-		for name, header := range match.Headers {
-			if header == nil {
-				errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
+		if match != nil {
+			for name, header := range match.Headers {
+				if header == nil {
+					errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
+				}
+				errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 			}
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-		}
 
-		if match.Port != 0 {
-			errs = appendErrors(errs, ValidatePort(int(match.Port)))
+			if match.Port != 0 {
+				errs = appendErrors(errs, ValidatePort(int(match.Port)))
+			}
+			errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
+			errs = appendErrors(errs, validateGatewayNames(match.Gateways))
 		}
-		errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
-		errs = appendErrors(errs, validateGatewayNames(match.Gateways))
 	}
+
 	errs = appendErrors(errs, validateDestination(http.Mirror))
 	errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
 	errs = appendErrors(errs, validateHTTPRetry(http.Retries))
@@ -2070,11 +2076,11 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 		return
 	}
 
-	for _, host := range policy.AllowOrigin {
-		if host != "*" {
-			host = strings.TrimPrefix(host, "https://")
-			host = strings.TrimPrefix(host, "http://")
-			parts := strings.Split(host, ":")
+	for _, hostname := range policy.AllowOrigin {
+		if hostname != "*" {
+			hostname = strings.TrimPrefix(hostname, "https://")
+			hostname = strings.TrimPrefix(hostname, "http://")
+			parts := strings.Split(hostname, ":")
 			if len(parts) > 2 {
 				errs = appendErrors(errs, fmt.Errorf("CORS Allow Origin must be '*' or of [http[s]://]host[:port] format"))
 			} else {
@@ -2084,9 +2090,9 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 					} else {
 						errs = ValidatePort(port)
 					}
-					host = parts[0]
+					hostname = parts[0]
 				}
-				errs = appendErrors(errs, ValidateFQDN(host))
+				errs = appendErrors(errs, ValidateFQDN(hostname))
 			}
 		}
 	}
@@ -2186,11 +2192,11 @@ func validateDestination(destination *networking.Destination) (errs error) {
 		return
 	}
 
-	host := destination.Host
-	if host == "*" {
-		errs = appendErrors(errs, fmt.Errorf("invalid destination host %s", host))
+	hostname := destination.Host
+	if hostname == "*" {
+		errs = appendErrors(errs, fmt.Errorf("invalid destination host %s", hostname))
 	} else {
-		errs = appendErrors(errs, ValidateWildcardDomain(host))
+		errs = appendErrors(errs, ValidateWildcardDomain(hostname))
 	}
 	if destination.Subset != "" {
 		errs = appendErrors(errs, validateSubsetName(destination.Subset))
@@ -2307,12 +2313,12 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 	if len(serviceEntry.Hosts) == 0 {
 		errs = appendErrors(errs, fmt.Errorf("service entry must have at least one host"))
 	}
-	for _, host := range serviceEntry.Hosts {
+	for _, hostname := range serviceEntry.Hosts {
 		// Full wildcard is not allowed in the service entry.
-		if host == "*" {
-			errs = appendErrors(errs, fmt.Errorf("invalid host %s", host))
+		if hostname == "*" {
+			errs = appendErrors(errs, fmt.Errorf("invalid host %s", hostname))
 		} else {
-			errs = appendErrors(errs, ValidateWildcardDomain(host))
+			errs = appendErrors(errs, ValidateWildcardDomain(hostname))
 		}
 	}
 
@@ -2370,7 +2376,7 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 					}
 				}
 			}
-			errs = appendErrors(errs, Labels(endpoint.Labels).Validate())
+			errs = appendErrors(errs, labels.Instance(endpoint.Labels).Validate())
 
 		}
 		if unixEndpoint && len(serviceEntry.Ports) != 1 {
@@ -2378,8 +2384,8 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 		}
 	case networking.ServiceEntry_DNS:
 		if len(serviceEntry.Endpoints) == 0 {
-			for _, host := range serviceEntry.Hosts {
-				if err := ValidateFQDN(host); err != nil {
+			for _, hostname := range serviceEntry.Hosts {
+				if err := ValidateFQDN(hostname); err != nil {
 					errs = appendErrors(errs,
 						fmt.Errorf("hosts must be FQDN if no endpoints are provided for resolution mode DNS"))
 				}
@@ -2395,7 +2401,7 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 				}
 			}
 			errs = appendErrors(errs,
-				Labels(endpoint.Labels).Validate())
+				labels.Instance(endpoint.Labels).Validate())
 			for name, port := range endpoint.Ports {
 				if !servicePorts[name] {
 					errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))

@@ -9,6 +9,7 @@ import (
 	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strconv "strconv"
 	strings "strings"
@@ -239,7 +240,7 @@ func (m *DirectHttpResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return xxx_messageInfo_DirectHttpResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -434,7 +435,7 @@ func valueToGoStringHttpResponse(v interface{}, typ string) string {
 func (m *DirectHttpResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -442,49 +443,59 @@ func (m *DirectHttpResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *DirectHttpResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DirectHttpResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Code != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintHttpResponse(dAtA, i, uint64(m.Code))
-	}
-	if len(m.Body) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintHttpResponse(dAtA, i, uint64(len(m.Body)))
-		i += copy(dAtA[i:], m.Body)
-	}
 	if len(m.Headers) > 0 {
-		for k, _ := range m.Headers {
-			dAtA[i] = 0x1a
-			i++
+		for k := range m.Headers {
 			v := m.Headers[k]
-			mapSize := 1 + len(k) + sovHttpResponse(uint64(len(k))) + 1 + len(v) + sovHttpResponse(uint64(len(v)))
-			i = encodeVarintHttpResponse(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintHttpResponse(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
 			i = encodeVarintHttpResponse(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintHttpResponse(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintHttpResponse(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1a
 		}
 	}
-	return i, nil
+	if len(m.Body) > 0 {
+		i -= len(m.Body)
+		copy(dAtA[i:], m.Body)
+		i = encodeVarintHttpResponse(dAtA, i, uint64(len(m.Body)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Code != 0 {
+		i = encodeVarintHttpResponse(dAtA, i, uint64(m.Code))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintHttpResponse(dAtA []byte, offset int, v uint64) int {
+	offset -= sovHttpResponse(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *DirectHttpResponse) Size() (n int) {
 	if m == nil {
@@ -511,14 +522,7 @@ func (m *DirectHttpResponse) Size() (n int) {
 }
 
 func sovHttpResponse(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozHttpResponse(x uint64) (n int) {
 	return sovHttpResponse(uint64((x << 1) ^ uint64((int64(x) >> 63))))

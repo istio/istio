@@ -76,8 +76,8 @@ func TestProxyQueue(t *testing.T) {
 
 	t.Run("simple add and remove", func(t *testing.T) {
 		p := NewPushQueue()
-		p.Enqueue(proxies[0], &PushInformation{})
-		p.Enqueue(proxies[1], &PushInformation{})
+		p.Enqueue(proxies[0], &PushEvent{})
+		p.Enqueue(proxies[1], &PushEvent{})
 
 		ExpectDequeue(t, p, proxies[0])
 		ExpectDequeue(t, p, proxies[1])
@@ -85,7 +85,7 @@ func TestProxyQueue(t *testing.T) {
 
 	t.Run("remove too many", func(t *testing.T) {
 		p := NewPushQueue()
-		p.Enqueue(proxies[0], &PushInformation{})
+		p.Enqueue(proxies[0], &PushEvent{})
 
 		ExpectDequeue(t, p, proxies[0])
 		ExpectTimeout(t, p)
@@ -93,9 +93,9 @@ func TestProxyQueue(t *testing.T) {
 
 	t.Run("add multiple times", func(t *testing.T) {
 		p := NewPushQueue()
-		p.Enqueue(proxies[0], &PushInformation{})
-		p.Enqueue(proxies[1], &PushInformation{})
-		p.Enqueue(proxies[0], &PushInformation{})
+		p.Enqueue(proxies[0], &PushEvent{})
+		p.Enqueue(proxies[1], &PushEvent{})
+		p.Enqueue(proxies[0], &PushEvent{})
 
 		ExpectDequeue(t, p, proxies[0])
 		ExpectDequeue(t, p, proxies[1])
@@ -104,9 +104,9 @@ func TestProxyQueue(t *testing.T) {
 
 	t.Run("add and remove", func(t *testing.T) {
 		p := NewPushQueue()
-		p.Enqueue(proxies[0], &PushInformation{})
+		p.Enqueue(proxies[0], &PushEvent{})
 		ExpectDequeue(t, p, proxies[0])
-		p.Enqueue(proxies[0], &PushInformation{})
+		p.Enqueue(proxies[0], &PushEvent{})
 		ExpectDequeue(t, p, proxies[0])
 		ExpectTimeout(t, p)
 	})
@@ -120,20 +120,20 @@ func TestProxyQueue(t *testing.T) {
 			wg.Done()
 		}()
 		time.Sleep(time.Millisecond * 50)
-		p.Enqueue(proxies[0], &PushInformation{})
+		p.Enqueue(proxies[0], &PushEvent{})
 		wg.Wait()
 	})
 
-	t.Run("should merge PushInformation", func(t *testing.T) {
+	t.Run("should merge PushEvent", func(t *testing.T) {
 		p := NewPushQueue()
 		firstTime := time.Now()
-		p.Enqueue(proxies[0], &PushInformation{
+		p.Enqueue(proxies[0], &PushEvent{
 			full:               false,
 			edsUpdatedServices: map[string]struct{}{"foo": {}},
 			start:              firstTime,
 		})
 
-		p.Enqueue(proxies[0], &PushInformation{
+		p.Enqueue(proxies[0], &PushEvent{
 			full:               false,
 			edsUpdatedServices: map[string]struct{}{"bar": {}},
 			start:              firstTime.Add(time.Second),
@@ -162,7 +162,7 @@ func TestProxyQueue(t *testing.T) {
 			wg.Done()
 		}()
 		time.Sleep(time.Millisecond * 50)
-		p.Enqueue(proxies[0], &PushInformation{})
+		p.Enqueue(proxies[0], &PushEvent{})
 		go func() {
 			respChannel <- getWithTimeout(p)
 			wg.Done()
@@ -196,7 +196,7 @@ func TestProxyQueue(t *testing.T) {
 		go func() {
 			for eds := 0; eds < 100; eds++ {
 				for _, pr := range proxies {
-					p.Enqueue(pr, &PushInformation{edsUpdatedServices: map[string]struct{}{
+					p.Enqueue(pr, &PushEvent{edsUpdatedServices: map[string]struct{}{
 						fmt.Sprintf("%d", eds): {},
 					}})
 				}

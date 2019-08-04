@@ -27,13 +27,15 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -191,7 +193,7 @@ func endpointMetadata(uid string, network string) *core.Metadata {
 
 // Determine Service associated with a hostname when there is no Sidecar scope. Which namespace the service comes from
 // is undefined, as we do not have enough information to make a smart decision
-func legacyServiceForHostname(hostname config.Hostname, serviceByHostname map[config.Hostname]map[string]*model.Service) *model.Service {
+func legacyServiceForHostname(hostname host.Name, serviceByHostname map[host.Name]map[string]*model.Service) *model.Service {
 	for _, service := range serviceByHostname[hostname] {
 		return service
 	}
@@ -206,7 +208,7 @@ func legacyServiceForHostname(hostname config.Hostname, serviceByHostname map[co
 func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName string,
 	edsCluster *EdsCluster) error {
 
-	var hostname config.Hostname
+	var hostname host.Name
 	var clusterPort int
 	var subsetName string
 	_, subsetName, hostname, clusterPort = model.ParseSubsetKey(clusterName)
@@ -218,7 +220,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	// proxy's config namespace. As such, this code searches through all
 	// destination rules, public and private and returns a completely
 	// arbitrary destination rule's subset labels!
-	labels := push.SubsetToLabels(nil, subsetName, hostname)
+	subsetLabels := push.SubsetToLabels(nil, subsetName, hostname)
 
 	push.Mutex.Lock()
 	svc := legacyServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
@@ -242,7 +244,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
 
-	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, labels, clusterName, push)
+	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, subsetLabels, clusterName, push)
 	// There is a chance multiple goroutines will update the cluster at the same time.
 	// This could be prevented by a lock - but because the update may be slow, it may be
 	// better to accept the extra computations.
@@ -293,14 +295,14 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 				continue
 			}
 
-			entries := []*model.IstioEndpoint{}
+			entries := make([]*model.IstioEndpoint, 0)
 			for _, port := range svc.Ports {
 				if port.Protocol == protocol.UDP {
 					continue
 				}
 
 				// This loses track of grouping (shards)
-				endpoints, err := registry.InstancesByPort(svc, port.Port, config.LabelsCollection{})
+				endpoints, err := registry.InstancesByPort(svc, port.Port, labels.Collection{})
 				if err != nil {
 					return err
 				}
@@ -338,14 +340,14 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 
 	if direction == model.TrafficDirectionInbound ||
 		direction == model.TrafficDirectionOutbound {
-		labels := push.SubsetToLabels(nil, subsetName, hostname)
+		subsetLabels := push.SubsetToLabels(nil, subsetName, hostname)
 		svc := legacyServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
 		var instances []*model.ServiceInstance
 		if svc == nil {
 			adsLog.Warnf("service lookup for hostname %v failed", hostname)
 		} else {
 			var err error
-			instances, err = s.Env.ServiceDiscovery.InstancesByPort(svc, port, labels)
+			instances, err = s.Env.ServiceDiscovery.InstancesByPort(svc, port, subsetLabels)
 			if err != nil {
 				adsLog.Errorf("endpoints for service cluster %q returned error %v", clusterName, err)
 				totalXDSInternalErrors.Increment()
@@ -355,7 +357,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 
 		if len(instances) == 0 {
 			push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
-			adsLog.Debugf("EDS: Cluster %q (host:%s ports:%v labels:%v) has no instances", clusterName, hostname, port, labels)
+			adsLog.Debugf("EDS: Cluster %q (host:%s ports:%v labels:%v) has no instances", clusterName, hostname, port, subsetLabels)
 		}
 		edsInstances.With(clusterTag.Value(clusterName)).Record(float64(len(instances)))
 		locEps = localityLbEndpointsFromInstances(instances)
@@ -428,11 +430,11 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 }
 
 // WorkloadUpdate is called when workload labels/annotations are updated.
-func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ map[string]string) {
+func (s *DiscoveryServer) WorkloadUpdate(id string, workloadLabels map[string]string, _ map[string]string) {
 	inboundWorkloadUpdates.Increment()
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if labels == nil {
+	if workloadLabels == nil {
 		// No push needed - the Endpoints object will also be triggered.
 		delete(s.WorkloadsByID, id)
 		return
@@ -440,7 +442,7 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ 
 	w, f := s.WorkloadsByID[id]
 	if !f {
 		s.WorkloadsByID[id] = &Workload{
-			Labels: labels,
+			Labels: workloadLabels,
 		}
 
 		fullPush := false
@@ -470,12 +472,12 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ 
 		}
 		return
 	}
-	if reflect.DeepEqual(w.Labels, labels) {
+	if reflect.DeepEqual(w.Labels, workloadLabels) {
 		// No label change.
 		return
 	}
 
-	w.Labels = labels
+	w.Labels = workloadLabels
 	// Label changes require recomputing the config.
 	// TODO: we can do a push for the affected workload only, but we need to confirm
 	// no other workload can be affected. Safer option is to fallback to full push.
@@ -657,7 +659,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	// proxy's config namespace. As such, this code searches through all
 	// destination rules, public and private and returns a completely
 	// arbitrary destination rule's subset labels!
-	labels := push.SubsetToLabels(proxy, subsetName, hostname)
+	subsetLabels := push.SubsetToLabels(proxy, subsetName, hostname)
 
 	push.Mutex.Lock()
 	svc := proxy.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
@@ -682,7 +684,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 		return s.loadAssignmentsForClusterLegacy(push, clusterName)
 	}
 
-	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, labels, clusterName, push)
+	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, subsetLabels, clusterName, push)
 
 	return &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
@@ -769,7 +771,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 
 // getDestinationRule gets the DestinationRule for a given hostname. As an optimization, this also gets the service port,
 // which is needed to access the traffic policy from the destination rule.
-func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname config.Hostname, clusterPort int) (*networkingapi.DestinationRule, *model.Port) {
+func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname host.Name, clusterPort int) (*networkingapi.DestinationRule, *model.Port) {
 	for _, service := range push.Services(proxy) {
 		if service.Hostname == hostname {
 			cfg := push.DestinationRule(proxy, service)
@@ -903,7 +905,7 @@ func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, 
 func buildLocalityLbEndpointsFromShards(
 	shards *EndpointShards,
 	svcPort *model.Port,
-	labels config.LabelsCollection,
+	epLabels labels.Collection,
 	clusterName string,
 	push *model.PushContext) []*endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
@@ -917,7 +919,7 @@ func buildLocalityLbEndpointsFromShards(
 				continue
 			}
 			// Port labels
-			if !labels.HasSubsetOf(config.Labels(ep.Labels)) {
+			if !epLabels.HasSubsetOf(ep.Labels) {
 				continue
 			}
 

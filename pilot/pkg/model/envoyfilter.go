@@ -14,15 +14,19 @@
 package model
 
 import (
+	"regexp"
+
 	"github.com/gogo/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 )
 
 // EnvoyFilterWrapper is a wrapper for the EnvoyFilter api object with pre-processed data
 type EnvoyFilterWrapper struct {
-	workloadSelector config.Labels
+	workloadSelector labels.Instance
 	Patches          map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
 }
 
@@ -33,6 +37,8 @@ type EnvoyFilterConfigPatchWrapper struct {
 	Match     *networking.EnvoyFilter_EnvoyConfigObjectMatch
 	ApplyTo   networking.EnvoyFilter_ApplyTo
 	Operation networking.EnvoyFilter_Patch_Operation
+	// Pre-compile the regex from proxy version match in the match
+	ProxyVersionRegex *regexp.Regexp
 }
 
 // convertToEnvoyFilterWrapper converts from EnvoyFilter config to EnvoyFilterWrapper object
@@ -41,7 +47,7 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 
 	out := &EnvoyFilterWrapper{}
 	if localEnvoyFilter.WorkloadSelector != nil {
-		out.workloadSelector = config.Labels(localEnvoyFilter.WorkloadSelector.Labels)
+		out.workloadSelector = labels.Instance(localEnvoyFilter.WorkloadSelector.Labels)
 	}
 	out.Patches = make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper)
 	for _, cp := range localEnvoyFilter.ConfigPatches {
@@ -55,7 +61,12 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 		if cp.Match == nil {
 			// create a match all object
 			cpw.Match = &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_ANY}
+		} else if cp.Match.Proxy != nil && cp.Match.Proxy.ProxyVersion != "" {
+			// pre-compile the regex for proxy version if it exists
+			// ignore the error because validation catches invalid regular expressions.
+			cpw.ProxyVersionRegex, _ = regexp.Compile(cp.Match.Proxy.ProxyVersion)
 		}
+
 		if _, exists := out.Patches[cp.ApplyTo]; !exists {
 			out.Patches[cp.ApplyTo] = make([]*EnvoyFilterConfigPatchWrapper, 0)
 		}

@@ -25,7 +25,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/status"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc/codes"
@@ -33,6 +32,7 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/internal/test"
+	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 	"istio.io/pkg/log"
 )

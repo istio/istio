@@ -321,6 +321,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -510,7 +511,7 @@ func (m *ServiceEntry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_ServiceEntry.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -648,7 +649,7 @@ func (m *ServiceEntry_Endpoint) XXX_Marshal(b []byte, deterministic bool) ([]byt
 		return xxx_messageInfo_ServiceEntry_Endpoint.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -762,7 +763,7 @@ var fileDescriptor_9220e0fa673c4bf8 = []byte{
 func (m *ServiceEntry) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -770,114 +771,100 @@ func (m *ServiceEntry) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ServiceEntry) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ServiceEntry) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Hosts) > 0 {
-		for _, s := range m.Hosts {
-			dAtA[i] = 0xa
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.Addresses) > 0 {
-		for _, s := range m.Addresses {
-			dAtA[i] = 0x12
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
-	}
-	if len(m.Ports) > 0 {
-		for _, msg := range m.Ports {
-			dAtA[i] = 0x1a
-			i++
-			i = encodeVarintServiceEntry(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if m.Location != 0 {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintServiceEntry(dAtA, i, uint64(m.Location))
-	}
-	if m.Resolution != 0 {
-		dAtA[i] = 0x28
-		i++
-		i = encodeVarintServiceEntry(dAtA, i, uint64(m.Resolution))
-	}
-	if len(m.Endpoints) > 0 {
-		for _, msg := range m.Endpoints {
-			dAtA[i] = 0x32
-			i++
-			i = encodeVarintServiceEntry(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
+	if len(m.SubjectAltNames) > 0 {
+		for iNdEx := len(m.SubjectAltNames) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.SubjectAltNames[iNdEx])
+			copy(dAtA[i:], m.SubjectAltNames[iNdEx])
+			i = encodeVarintServiceEntry(dAtA, i, uint64(len(m.SubjectAltNames[iNdEx])))
+			i--
+			dAtA[i] = 0x42
 		}
 	}
 	if len(m.ExportTo) > 0 {
-		for _, s := range m.ExportTo {
+		for iNdEx := len(m.ExportTo) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.ExportTo[iNdEx])
+			copy(dAtA[i:], m.ExportTo[iNdEx])
+			i = encodeVarintServiceEntry(dAtA, i, uint64(len(m.ExportTo[iNdEx])))
+			i--
 			dAtA[i] = 0x3a
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
 		}
 	}
-	if len(m.SubjectAltNames) > 0 {
-		for _, s := range m.SubjectAltNames {
-			dAtA[i] = 0x42
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
+	if len(m.Endpoints) > 0 {
+		for iNdEx := len(m.Endpoints) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Endpoints[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintServiceEntry(dAtA, i, uint64(size))
 			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
+			i--
+			dAtA[i] = 0x32
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Resolution != 0 {
+		i = encodeVarintServiceEntry(dAtA, i, uint64(m.Resolution))
+		i--
+		dAtA[i] = 0x28
 	}
-	return i, nil
+	if m.Location != 0 {
+		i = encodeVarintServiceEntry(dAtA, i, uint64(m.Location))
+		i--
+		dAtA[i] = 0x20
+	}
+	if len(m.Ports) > 0 {
+		for iNdEx := len(m.Ports) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Ports[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintServiceEntry(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if len(m.Addresses) > 0 {
+		for iNdEx := len(m.Addresses) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Addresses[iNdEx])
+			copy(dAtA[i:], m.Addresses[iNdEx])
+			i = encodeVarintServiceEntry(dAtA, i, uint64(len(m.Addresses[iNdEx])))
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if len(m.Hosts) > 0 {
+		for iNdEx := len(m.Hosts) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Hosts[iNdEx])
+			copy(dAtA[i:], m.Hosts[iNdEx])
+			i = encodeVarintServiceEntry(dAtA, i, uint64(len(m.Hosts[iNdEx])))
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ServiceEntry_Endpoint) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -885,80 +872,94 @@ func (m *ServiceEntry_Endpoint) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ServiceEntry_Endpoint) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ServiceEntry_Endpoint) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Address) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintServiceEntry(dAtA, i, uint64(len(m.Address)))
-		i += copy(dAtA[i:], m.Address)
-	}
-	if len(m.Ports) > 0 {
-		for k, _ := range m.Ports {
-			dAtA[i] = 0x12
-			i++
-			v := m.Ports[k]
-			mapSize := 1 + len(k) + sovServiceEntry(uint64(len(k))) + 1 + sovServiceEntry(uint64(v))
-			i = encodeVarintServiceEntry(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintServiceEntry(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintServiceEntry(dAtA, i, uint64(v))
-		}
-	}
-	if len(m.Labels) > 0 {
-		for k, _ := range m.Labels {
-			dAtA[i] = 0x1a
-			i++
-			v := m.Labels[k]
-			mapSize := 1 + len(k) + sovServiceEntry(uint64(len(k))) + 1 + len(v) + sovServiceEntry(uint64(len(v)))
-			i = encodeVarintServiceEntry(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintServiceEntry(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintServiceEntry(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
-	}
-	if len(m.Network) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintServiceEntry(dAtA, i, uint64(len(m.Network)))
-		i += copy(dAtA[i:], m.Network)
-	}
-	if len(m.Locality) > 0 {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintServiceEntry(dAtA, i, uint64(len(m.Locality)))
-		i += copy(dAtA[i:], m.Locality)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Weight != 0 {
-		dAtA[i] = 0x30
-		i++
 		i = encodeVarintServiceEntry(dAtA, i, uint64(m.Weight))
+		i--
+		dAtA[i] = 0x30
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Locality) > 0 {
+		i -= len(m.Locality)
+		copy(dAtA[i:], m.Locality)
+		i = encodeVarintServiceEntry(dAtA, i, uint64(len(m.Locality)))
+		i--
+		dAtA[i] = 0x2a
 	}
-	return i, nil
+	if len(m.Network) > 0 {
+		i -= len(m.Network)
+		copy(dAtA[i:], m.Network)
+		i = encodeVarintServiceEntry(dAtA, i, uint64(len(m.Network)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.Labels) > 0 {
+		for k := range m.Labels {
+			v := m.Labels[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintServiceEntry(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintServiceEntry(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintServiceEntry(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if len(m.Ports) > 0 {
+		for k := range m.Ports {
+			v := m.Ports[k]
+			baseI := i
+			i = encodeVarintServiceEntry(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintServiceEntry(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintServiceEntry(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if len(m.Address) > 0 {
+		i -= len(m.Address)
+		copy(dAtA[i:], m.Address)
+		i = encodeVarintServiceEntry(dAtA, i, uint64(len(m.Address)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintServiceEntry(dAtA []byte, offset int, v uint64) int {
+	offset -= sovServiceEntry(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *ServiceEntry) Size() (n int) {
 	if m == nil {
@@ -1058,14 +1059,7 @@ func (m *ServiceEntry_Endpoint) Size() (n int) {
 }
 
 func sovServiceEntry(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozServiceEntry(x uint64) (n int) {
 	return sovServiceEntry(uint64((x << 1) ^ uint64((int64(x) >> 63))))

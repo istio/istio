@@ -22,6 +22,7 @@ import (
 	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strconv "strconv"
 	strings "strings"
@@ -161,7 +162,7 @@ func (m *Params) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Params.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -235,7 +236,7 @@ func (m *Params_MetricDatum) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return xxx_messageInfo_Params_MetricDatum.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -280,7 +281,7 @@ func (m *Params_LogInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return xxx_messageInfo_Params_LogInfo.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -533,7 +534,7 @@ func valueToGoStringConfig(v interface{}, typ string) string {
 func (m *Params) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -541,91 +542,95 @@ func (m *Params) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Namespace) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.Namespace)))
-		i += copy(dAtA[i:], m.Namespace)
-	}
-	if len(m.MetricInfo) > 0 {
-		for k, _ := range m.MetricInfo {
-			dAtA[i] = 0x12
-			i++
-			v := m.MetricInfo[k]
-			msgSize := 0
+	if len(m.Logs) > 0 {
+		for k := range m.Logs {
+			v := m.Logs[k]
+			baseI := i
 			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovConfig(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovConfig(uint64(len(k))) + msgSize
-			i = encodeVarintConfig(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintConfig(dAtA, i, uint64(v.Size()))
-				n1, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintConfig(dAtA, i, uint64(size))
 				}
-				i += n1
+				i--
+				dAtA[i] = 0x12
 			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintConfig(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x32
 		}
-	}
-	if len(m.LogGroupName) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.LogGroupName)))
-		i += copy(dAtA[i:], m.LogGroupName)
 	}
 	if len(m.LogStreamName) > 0 {
-		dAtA[i] = 0x2a
-		i++
+		i -= len(m.LogStreamName)
+		copy(dAtA[i:], m.LogStreamName)
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.LogStreamName)))
-		i += copy(dAtA[i:], m.LogStreamName)
+		i--
+		dAtA[i] = 0x2a
 	}
-	if len(m.Logs) > 0 {
-		for k, _ := range m.Logs {
-			dAtA[i] = 0x32
-			i++
-			v := m.Logs[k]
-			msgSize := 0
+	if len(m.LogGroupName) > 0 {
+		i -= len(m.LogGroupName)
+		copy(dAtA[i:], m.LogGroupName)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.LogGroupName)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.MetricInfo) > 0 {
+		for k := range m.MetricInfo {
+			v := m.MetricInfo[k]
+			baseI := i
 			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovConfig(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovConfig(uint64(len(k))) + msgSize
-			i = encodeVarintConfig(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintConfig(dAtA, i, uint64(v.Size()))
-				n2, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintConfig(dAtA, i, uint64(size))
 				}
-				i += n2
+				i--
+				dAtA[i] = 0x12
 			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintConfig(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	return i, nil
+	if len(m.Namespace) > 0 {
+		i -= len(m.Namespace)
+		copy(dAtA[i:], m.Namespace)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.Namespace)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Params_MetricDatum) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -633,22 +638,27 @@ func (m *Params_MetricDatum) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params_MetricDatum) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params_MetricDatum) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.Unit != 0 {
-		dAtA[i] = 0x18
-		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.Unit))
+		i--
+		dAtA[i] = 0x18
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Params_LogInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -656,27 +666,35 @@ func (m *Params_LogInfo) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params_LogInfo) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params_LogInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if len(m.PayloadTemplate) > 0 {
-		dAtA[i] = 0xa
-		i++
+		i -= len(m.PayloadTemplate)
+		copy(dAtA[i:], m.PayloadTemplate)
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.PayloadTemplate)))
-		i += copy(dAtA[i:], m.PayloadTemplate)
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
+	offset -= sovConfig(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Params) Size() (n int) {
 	if m == nil {
@@ -751,14 +769,7 @@ func (m *Params_LogInfo) Size() (n int) {
 }
 
 func sovConfig(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozConfig(x uint64) (n int) {
 	return sovConfig(uint64((x << 1) ^ uint64((int64(x) >> 63))))

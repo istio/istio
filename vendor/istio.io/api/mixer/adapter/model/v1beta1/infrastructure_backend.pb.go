@@ -9,13 +9,16 @@ package v1beta1
 import (
 	context "context"
 	fmt "fmt"
-	rpc "github.com/gogo/googleapis/google/rpc"
 	proto "github.com/gogo/protobuf/proto"
 	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 	types "github.com/gogo/protobuf/types"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 )
@@ -52,7 +55,7 @@ func (m *CreateSessionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return xxx_messageInfo_CreateSessionRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -106,7 +109,7 @@ func (m *CreateSessionResponse) XXX_Marshal(b []byte, deterministic bool) ([]byt
 		return xxx_messageInfo_CreateSessionResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -160,7 +163,7 @@ func (m *ValidateRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_ValidateRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -212,7 +215,7 @@ func (m *ValidateResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return xxx_messageInfo_ValidateResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -257,7 +260,7 @@ func (m *CloseSessionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return xxx_messageInfo_CloseSessionRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -302,7 +305,7 @@ func (m *CloseSessionResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return xxx_messageInfo_CloseSessionResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -759,6 +762,20 @@ type InfrastructureBackendServer interface {
 	CloseSession(context.Context, *CloseSessionRequest) (*CloseSessionResponse, error)
 }
 
+// UnimplementedInfrastructureBackendServer can be embedded to have forward compatible implementations.
+type UnimplementedInfrastructureBackendServer struct {
+}
+
+func (*UnimplementedInfrastructureBackendServer) Validate(ctx context.Context, req *ValidateRequest) (*ValidateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Validate not implemented")
+}
+func (*UnimplementedInfrastructureBackendServer) CreateSession(ctx context.Context, req *CreateSessionRequest) (*CreateSessionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateSession not implemented")
+}
+func (*UnimplementedInfrastructureBackendServer) CloseSession(ctx context.Context, req *CloseSessionRequest) (*CloseSessionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CloseSession not implemented")
+}
+
 func RegisterInfrastructureBackendServer(s *grpc.Server, srv InfrastructureBackendServer) {
 	s.RegisterService(&_InfrastructureBackend_serviceDesc, srv)
 }
@@ -841,7 +858,7 @@ var _InfrastructureBackend_serviceDesc = grpc.ServiceDesc{
 func (m *CreateSessionRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -849,55 +866,60 @@ func (m *CreateSessionRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CreateSessionRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CreateSessionRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.AdapterConfig != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintInfrastructureBackend(dAtA, i, uint64(m.AdapterConfig.Size()))
-		n1, err := m.AdapterConfig.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n1
-	}
 	if len(m.InferredTypes) > 0 {
-		for k, _ := range m.InferredTypes {
-			dAtA[i] = 0x12
-			i++
+		for k := range m.InferredTypes {
 			v := m.InferredTypes[k]
-			msgSize := 0
+			baseI := i
 			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovInfrastructureBackend(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovInfrastructureBackend(uint64(len(k))) + msgSize
-			i = encodeVarintInfrastructureBackend(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintInfrastructureBackend(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintInfrastructureBackend(dAtA, i, uint64(v.Size()))
-				n2, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintInfrastructureBackend(dAtA, i, uint64(size))
 				}
-				i += n2
+				i--
+				dAtA[i] = 0x12
 			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintInfrastructureBackend(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintInfrastructureBackend(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	return i, nil
+	if m.AdapterConfig != nil {
+		{
+			size, err := m.AdapterConfig.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintInfrastructureBackend(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *CreateSessionResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -905,33 +927,41 @@ func (m *CreateSessionResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CreateSessionResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CreateSessionResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.SessionId) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintInfrastructureBackend(dAtA, i, uint64(len(m.SessionId)))
-		i += copy(dAtA[i:], m.SessionId)
-	}
 	if m.Status != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintInfrastructureBackend(dAtA, i, uint64(m.Status.Size()))
-		n3, err := m.Status.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.Status.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintInfrastructureBackend(dAtA, i, uint64(size))
 		}
-		i += n3
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	if len(m.SessionId) > 0 {
+		i -= len(m.SessionId)
+		copy(dAtA[i:], m.SessionId)
+		i = encodeVarintInfrastructureBackend(dAtA, i, uint64(len(m.SessionId)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ValidateRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -939,55 +969,60 @@ func (m *ValidateRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ValidateRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ValidateRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.AdapterConfig != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintInfrastructureBackend(dAtA, i, uint64(m.AdapterConfig.Size()))
-		n4, err := m.AdapterConfig.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n4
-	}
 	if len(m.InferredTypes) > 0 {
-		for k, _ := range m.InferredTypes {
-			dAtA[i] = 0x12
-			i++
+		for k := range m.InferredTypes {
 			v := m.InferredTypes[k]
-			msgSize := 0
+			baseI := i
 			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovInfrastructureBackend(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovInfrastructureBackend(uint64(len(k))) + msgSize
-			i = encodeVarintInfrastructureBackend(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintInfrastructureBackend(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintInfrastructureBackend(dAtA, i, uint64(v.Size()))
-				n5, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintInfrastructureBackend(dAtA, i, uint64(size))
 				}
-				i += n5
+				i--
+				dAtA[i] = 0x12
 			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintInfrastructureBackend(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintInfrastructureBackend(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	return i, nil
+	if m.AdapterConfig != nil {
+		{
+			size, err := m.AdapterConfig.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintInfrastructureBackend(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ValidateResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -995,27 +1030,34 @@ func (m *ValidateResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ValidateResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ValidateResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.Status != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintInfrastructureBackend(dAtA, i, uint64(m.Status.Size()))
-		n6, err := m.Status.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.Status.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintInfrastructureBackend(dAtA, i, uint64(size))
 		}
-		i += n6
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *CloseSessionRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1023,23 +1065,29 @@ func (m *CloseSessionRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CloseSessionRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CloseSessionRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if len(m.SessionId) > 0 {
-		dAtA[i] = 0xa
-		i++
+		i -= len(m.SessionId)
+		copy(dAtA[i:], m.SessionId)
 		i = encodeVarintInfrastructureBackend(dAtA, i, uint64(len(m.SessionId)))
-		i += copy(dAtA[i:], m.SessionId)
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *CloseSessionResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1047,31 +1095,40 @@ func (m *CloseSessionResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CloseSessionResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CloseSessionResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.Status != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintInfrastructureBackend(dAtA, i, uint64(m.Status.Size()))
-		n7, err := m.Status.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.Status.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintInfrastructureBackend(dAtA, i, uint64(size))
 		}
-		i += n7
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintInfrastructureBackend(dAtA []byte, offset int, v uint64) int {
+	offset -= sovInfrastructureBackend(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *CreateSessionRequest) Size() (n int) {
 	if m == nil {
@@ -1182,14 +1239,7 @@ func (m *CloseSessionResponse) Size() (n int) {
 }
 
 func sovInfrastructureBackend(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozInfrastructureBackend(x uint64) (n int) {
 	return sovInfrastructureBackend(uint64((x << 1) ^ uint64((int64(x) >> 63))))

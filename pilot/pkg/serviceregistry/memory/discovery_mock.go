@@ -16,7 +16,7 @@ package memory
 
 import (
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 )
 
 var (
@@ -50,7 +50,7 @@ var (
 
 	// MockDiscovery is an in-memory ServiceDiscover with mock services
 	MockDiscovery = &ServiceDiscovery{
-		services: map[config.Hostname]*model.Service{
+		services: map[host.Name]*model.Service{
 			HelloService.Hostname:   HelloService,
 			WorldService.Hostname:   WorldService,
 			ExtHTTPService.Hostname: ExtHTTPService,
