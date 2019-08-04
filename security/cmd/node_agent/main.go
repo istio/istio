@@ -21,8 +21,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
+	pkgcmd "istio.io/istio/pkg/cmd"
 	nvm "istio.io/istio/security/pkg/nodeagent/vm"
-	pkgcmd "istio.io/pkg/cmd"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
