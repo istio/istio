@@ -145,8 +145,6 @@ func TestInboundListenerConfigProxyV13(t *testing.T) {
 			buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
 			buildService("test2.com", wildcardIP, "unknown", tnow),
 			buildService("test3.com", wildcardIP, protocol.HTTP, tnow.Add(2*time.Second)))
-		testInboundListenerConfigV13(t, p,
-			buildService("test.com", wildcardIP, "unknown", tnow))
 		testInboundListenerConfigWithoutServiceV13(t, p)
 		testInboundListenerConfigWithSidecarV13(t, p,
 			buildService("test.com", wildcardIP, protocol.HTTP, tnow))
