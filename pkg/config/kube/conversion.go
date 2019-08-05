@@ -33,7 +33,7 @@ import (
 )
 
 var (
-	// These well known ports will be skipped for protocol sniffing.
+	// WellKnownPorts will be skipped for protocol sniffing.
 	WellKnownPorts = []int32{
 		25,    // SMTP
 		53,    // DNS. Default TCP if not specified.
