@@ -162,6 +162,12 @@ var (
 			"could result in an infinite loop of traffic. This option is only provided for backward compatibility purposes "+
 			"and will be removed in the near future.",
 	)
+
+	EnableProtocolSniffing = env.RegisterBoolVar(
+		"PILOT_ENABLE_PROTOCOL_SNIFFING",
+		false,
+		"If enabled, protocol sniffing will be used on ports whose port protocol is not specified or unsupported",
+	)
 )
 
 var (

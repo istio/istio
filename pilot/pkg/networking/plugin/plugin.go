@@ -19,6 +19,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	httpConn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	"istio.io/istio/pilot/pkg/features"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -52,6 +53,11 @@ const (
 
 // ModelProtocolToListenerProtocol converts from a config.Protocol to its corresponding plugin.ListenerProtocol
 func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance) ListenerProtocol {
+	// If protocol sniffing is not enabled, the default value is TCP
+	if !(util.IsIstioVersionGE13(node) && features.EnableProtocolSniffing.Get()) && p == protocol.Unsupported {
+		p = protocol.TCP
+	}
+
 	switch p {
 	case protocol.HTTP, protocol.HTTP2, protocol.GRPC, protocol.GRPCWeb:
 		return ListenerProtocolHTTP
@@ -61,7 +67,7 @@ func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance) Lis
 	case protocol.UDP:
 		return ListenerProtocolUnknown
 	default:
-		if util.IsIstioVersionGE13(node) {
+		if util.IsIstioVersionGE13(node) && features.EnableProtocolSniffing.Get() {
 			return ListenerProtocolAuto
 		}
 

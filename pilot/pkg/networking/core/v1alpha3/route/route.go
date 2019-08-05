@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pilot/pkg/features"
+
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	xdsfault "github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2"
@@ -107,7 +109,8 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 	for fqdn := range missing {
 		svc := serviceRegistry[fqdn]
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() || (util.IsIstioVersionGE13(node) && port.Protocol.IsUnsupported()) {
+			if port.Protocol.IsHTTP() ||
+				(util.IsIstioVersionGE13(node) && features.EnableProtocolSniffing.Get() && port.Protocol.IsUnsupported()) {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
 				traceOperation := fmt.Sprintf("%s:%d/*", svc.Hostname, port.Port)
 				out = append(out, VirtualHostWrapper{
@@ -169,7 +172,8 @@ func buildSidecarVirtualHostsForVirtualService(
 	serviceByPort := make(map[int][]*model.Service)
 	for _, svc := range servicesInVirtualService {
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() || (util.IsIstioVersionGE13(node) && port.Protocol.IsUnsupported()) {
+			if port.Protocol.IsHTTP() ||
+				(util.IsIstioVersionGE13(node) && features.EnableProtocolSniffing.Get() && port.Protocol.IsUnsupported()) {
 				serviceByPort[port.Port] = append(serviceByPort[port.Port], svc)
 			}
 		}
