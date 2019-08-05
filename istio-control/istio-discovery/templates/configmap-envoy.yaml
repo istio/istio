@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   namespace: {{ .Release.Namespace }}
-  name: pilot-envoy-config
+  name: pilot-envoy-config{{ .Values.version }}
   labels:
     release: {{ .Release.Name }}
 data:

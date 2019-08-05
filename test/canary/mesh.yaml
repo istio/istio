@@ -16,17 +16,7 @@ defaultConfig:
 
   parentShutdownDuration: 1m0s
 
-  discoveryAddress: istio-pilot.istio-system-micro:15010
-
-#  tracing:
-#    lightstep:
-#      address: ""
-#      accessToken: ""
-#      cacertPath: ""
-#    zipking:
-#      address: ""
-#    datadog:
-#      address: ""
+  discoveryAddress: istio-pilotcanary.istio-system:15011
 
   connectTimeout: 1s
   #statsdUdpAddress: "1111"

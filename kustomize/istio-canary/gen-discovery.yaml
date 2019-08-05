@@ -4,29 +4,31 @@
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istio-pilot
-  namespace: istio-micro
+  name: istio-pilotcanary
+  namespace: istio-system
   labels:
     app: pilot
-    release: istio-micro-istio-discovery
+    release: istio-system-pilot-canary
     istio: pilot
 spec:
   minAvailable: 1
   selector:
     matchLabels:
       app: pilot
-      release: istio-micro-istio-discovery
+      version: canary
+      release: istio-system-pilot-canary
       istio: pilot
+---
 
 ---
 # Source: istio-discovery/templates/configmap-envoy.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  namespace: istio-micro
-  name: pilot-envoy-config
+  namespace: istio-system
+  name: pilot-envoy-configcanary
   labels:
-    release: istio-micro-istio-discovery
+    release: istio-system-pilot-canary
 data:
   envoy.yaml.tmpl: |-
     admin:
@@ -188,6 +190,8 @@ data:
                               cluster: out.galley.15019
                               timeout: 0.000s
 
+---
+
 
 ---
 # Source: istio-discovery/templates/configmap.yaml
@@ -195,10 +199,10 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: istio
-  namespace: istio-micro
+  name: istiocanary
+  namespace: istio-system
   labels:
-    release: istio-micro-istio-discovery
+    release: istio-system-pilot-canary
 data:
 
   meshNetworks: |-
@@ -227,7 +231,6 @@ data:
     meshNetworks:
       networks: {}
     nodeSelector: {}
-    plugins: health
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
     policy:
@@ -255,8 +258,8 @@ data:
     reportBatchMaxEntries: 100
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
     reportBatchMaxTime: 1s
-    mixerReportServer: istio-telemetry.istio-telemetry.svc.cluster.local:9091
-    mixerCheckServer: istio-policy.istio-policy.svc.cluster.local:9091
+    mixerReportServer: istio-telemetry.istio-telemetry.svc.cluster.local:15004
+    mixerCheckServer: istio-policy.istio-policy.svc.cluster.local:15004
 
     disablePolicyChecks: true
 
@@ -265,9 +268,22 @@ data:
     ingressService: "istio-ingressgateway"
     ingressControllerMode: "OFF"
     ingressClass: "istio"
+    # Set expected values when SDS is disabled
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
-    sdsUdsPath: 
+    sdsUdsPath: ""
+    # This flag is used by secret discovery service(SDS).
+    # If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount
+    # for k8s service account JWT, so that K8s API server mounts k8s service account JWT to envoy container, which
+    # will be used to generate key/cert eventually. This isn't supported for non-k8s case.
+    enableSdsTokenMount: false
+    # This flag is used by secret discovery service(SDS).
+    # If set to true, envoy will fetch normal k8s service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token'
+    # (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod)
+    # and pass to sds server, which will be used to request key/cert eventually.
+    # this flag is ignored if enableSdsTokenMount is set.
+    # This isn't supported for non-k8s case.
+    sdsUseK8sSaJwt: false
 
     outboundTrafficPolicy:
       mode: ALLOW_ANY
@@ -309,85 +325,22 @@ data:
           address: zipkin.istio-telemetry:9411
       #
       # Mutual TLS authentication between sidecars and istio control plane.
-      controlPlaneAuthPolicy: NONE
+      controlPlaneAuthPolicy: MUTUAL_TLS
       #
       # Address where istio Pilot service is running
-      discoveryAddress: istio-pilot.istio-micro:15010
-
+      discoveryAddress: istio-pilot.istio-system:15011
 ---
-# Source: istio-discovery/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-pilot-service-account
-  namespace: istio-micro
-  labels:
-    app: pilot
-    release: istio-micro-istio-discovery
-
----
-# Source: istio-discovery/templates/clusterrole.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-pilot-istio-micro
-  labels:
-    app: pilot
-    release: istio-micro-istio-discovery
-rules:
-- apiGroups: ["config.istio.io"]
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["rbac.istio.io"]
-  resources: ["*"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["networking.istio.io"]
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["authentication.istio.io"]
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["*"]
-- apiGroups: ["extensions"]
-  resources: ["ingresses", "ingresses/status"]
-  verbs: ["*"]
-- apiGroups: [""]
-  resources: ["configmaps"]
-  verbs: ["create", "get", "list", "watch", "update"]
-- apiGroups: [""]
-  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
-  verbs: ["get", "list", "watch"]
-
----
-# Source: istio-discovery/templates/clusterrolebinding.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-pilot-istio-micro
-  labels:
-    app: pilot
-    release: istio-micro-istio-discovery
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-pilot-istio-micro
-subjects:
-  - kind: ServiceAccount
-    name: istio-pilot-service-account
-    namespace: istio-micro
 
 ---
 # Source: istio-discovery/templates/service.yaml
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-pilot
-  namespace: istio-micro
+  name: istio-pilotcanary
+  namespace: istio-system
   labels:
     app: pilot
-    release: istio-micro-istio-discovery
+    release: istio-system-pilot-canary
     istio: pilot
 spec:
   ports:
@@ -400,22 +353,27 @@ spec:
   - port: 15014
     name: http-monitoring
   selector:
-    istio: pilot
+    app: pilot
+    version: canary
+    
+---
 
 ---
 # Source: istio-discovery/templates/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istio-pilot
-  namespace: istio-micro
+  name: istio-pilotcanary
+  namespace: istio-system
   # TODO: default template doesn't have this, which one is right ?
   labels:
     app: pilot
-    release: istio-micro-istio-discovery
+    version: canary
+    release: istio-system-pilot-canary
     istio: pilot
   annotations:
-    checksum/config-volume:  dc8df904a9925f4267d882d8e08bac9b52d7e0a15653e566eed896600d529696
+    checksum/config-volume-envoy:  0e905b6a04c7e93add7052358855732fe7121ba7c54bc0648e0a7688883ec47f
+    checksum/config-volume:  0ce47bd6ce1cea92d3833554521c20e97fbc60bf4aa20ef54f531a523fe29037
 spec:
   strategy:
     rollingUpdate:
@@ -423,12 +381,18 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      istio: pilot
+      app: pilot
+      version: canary
+      
   template:
     metadata:
       labels:
         app: pilot
-        istio: pilot
+        version: canary
+        
+        heritage: Tiller
+        release: istio
+        chart: pilot
       annotations:
         sidecar.istio.io/inject: "false"
         checksum/config-volume-envoy: c5ca26039d50542de673a4a578803a5d69f4c85fcd033f9c4a672ffb7cd4052f
@@ -486,13 +450,62 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
+        - name: istio-proxy
+          image: "gcr.io/istio-release/proxyv2:master-latest-daily"
+          imagePullPolicy: Always
+          ports:
+          - containerPort: 15011
+          args:
+          - proxy
+          - --domain
+          - $(POD_NAMESPACE).svc.cluster.local
+          - --serviceCluster
+          - istio-pilot
+          - --templateFile
+          - /var/lib/envoy/envoy.yaml.tmpl
+          - --controlPlaneAuthPolicy
+          - MUTUAL_TLS
+          env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: INSTANCE_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            
+          volumeMounts:
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+          - name: pilot-envoy-config
+            mountPath: /var/lib/envoy
       volumes:
       - name: config-volume
         configMap:
-          name: istio
+          name: istiocanary
       - name: pilot-envoy-config
         configMap:
-          name: pilot-envoy-config
+          name: pilot-envoy-configcanary
+      - name: istio-certs
+        secret:
+          secretName: istio.istio-pilot-service-account
+          optional: true
       affinity:      
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -526,59 +539,46 @@ spec:
                 operator: In
                 values:
                 - s390x      
-
 ---
-# Source: istio-discovery/templates/enable-mesh-mtls.yaml
-# Destination rule to disable (m)TLS when talking to API server, as API server doesn't have sidecar.
-# Customer should add similar destination rules for other services that dont' have sidecar.
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: "api-server"
-  namespace: istio-micro
-  labels:
-    release: istio-micro-istio-discovery
-spec:
-  host: "kubernetes.default.svc.cluster.local"
-  trafficPolicy:
-    tls:
-      mode: DISABLE
-
----
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: "default"
-  namespace: istio-micro
-  labels:
-    release: istio-micro-istio-discovery
-spec:
-  host: "*.local"
-  trafficPolicy:
-    tls:
-      mode: DISABLE
 
 ---
 # Source: istio-discovery/templates/autoscale.yaml
+
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-pilot
-  namespace: istio-micro
+  name: istio-pilotcanary
+  namespace: istio-system
   labels:
     app: pilot
-    release: istio-micro-istio-discovery
+    release: istio-system-pilot-canary
 spec:
   maxReplicas: 5
   minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: istio-pilot
+    name: istio-pilotcanary
   metrics:
   - type: Resource
     resource:
       name: cpu
       targetAverageUtilization: 80
 ---
+
+---
+# Source: istio-discovery/templates/clusterrole.yaml
+
+
+---
+# Source: istio-discovery/templates/clusterrolebinding.yaml
+
+
+---
+# Source: istio-discovery/templates/enable-mesh-mtls.yaml
+
+
+---
+# Source: istio-discovery/templates/serviceaccount.yaml
+
 

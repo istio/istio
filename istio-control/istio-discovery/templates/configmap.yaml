@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: istio
+  name: istio{{ .Values.version }}
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}

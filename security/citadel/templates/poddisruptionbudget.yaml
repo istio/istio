@@ -2,7 +2,7 @@
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istio-citadel11
+  name: istio-citadel
   namespace: {{ .Release.Namespace }}
   labels:
     app: citadel
