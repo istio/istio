@@ -2,6 +2,14 @@ FROM istionightly/base_debug
 ARG proxy_version
 ARG istio_version
 
+# Install libc++. Note: we're installing Ubuntu 16.04 (Xenial) packages,
+# since we're using those on the build infrastructure.
+RUN curl -s http://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
+RUN echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-7 main" \
+    >/etc/apt/sources.list.d/llvm.list
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    libc++-7-dev libc++abi-7-dev
+
 # Install Envoy.
 ADD envoy /usr/local/bin/envoy
 
